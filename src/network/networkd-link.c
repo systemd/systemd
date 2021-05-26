@@ -162,279 +162,6 @@ bool link_is_ready_to_configure(Link *link, bool allow_unmanaged) {
         return true;
 }
 
-static bool link_is_enslaved(Link *link) {
-        if (link->flags & IFF_SLAVE)
-                /* Even if the link is not managed by networkd, honor IFF_SLAVE flag. */
-                return true;
-
-        if (!link->network)
-                return false;
-
-        if (link->master_ifindex > 0 && link->network->bridge)
-                return true;
-
-        /* TODO: add conditions for other netdevs. */
-
-        return false;
-}
-
-static LinkAddressState address_state_from_scope(uint8_t scope) {
-        if (scope < RT_SCOPE_SITE)
-                /* universally accessible addresses found */
-                return LINK_ADDRESS_STATE_ROUTABLE;
-
-        if (scope < RT_SCOPE_HOST)
-                /* only link or site local addresses found */
-                return LINK_ADDRESS_STATE_DEGRADED;
-
-        /* no useful addresses found */
-        return LINK_ADDRESS_STATE_OFF;
-}
-
-void link_update_operstate(Link *link, bool also_update_master) {
-        LinkOperationalState operstate;
-        LinkCarrierState carrier_state;
-        LinkAddressState ipv4_address_state, ipv6_address_state, address_state;
-        LinkOnlineState online_state;
-        _cleanup_strv_free_ char **p = NULL;
-        uint8_t ipv4_scope = RT_SCOPE_NOWHERE, ipv6_scope = RT_SCOPE_NOWHERE;
-        bool changed = false;
-        Address *address;
-
-        assert(link);
-
-        if (link->kernel_operstate == IF_OPER_DORMANT)
-                carrier_state = LINK_CARRIER_STATE_DORMANT;
-        else if (link_has_carrier(link)) {
-                if (link_is_enslaved(link))
-                        carrier_state = LINK_CARRIER_STATE_ENSLAVED;
-                else
-                        carrier_state = LINK_CARRIER_STATE_CARRIER;
-        } else if (link->flags & IFF_UP)
-                carrier_state = LINK_CARRIER_STATE_NO_CARRIER;
-        else
-                carrier_state = LINK_CARRIER_STATE_OFF;
-
-        if (carrier_state >= LINK_CARRIER_STATE_CARRIER) {
-                Link *slave;
-
-                SET_FOREACH(slave, link->slaves) {
-                        link_update_operstate(slave, false);
-
-                        if (slave->carrier_state < LINK_CARRIER_STATE_CARRIER)
-                                carrier_state = LINK_CARRIER_STATE_DEGRADED_CARRIER;
-                }
-        }
-
-        SET_FOREACH(address, link->addresses) {
-                if (!address_is_ready(address))
-                        continue;
-
-                if (address->family == AF_INET)
-                        ipv4_scope = MIN(ipv4_scope, address->scope);
-
-                if (address->family == AF_INET6)
-                        ipv6_scope = MIN(ipv6_scope, address->scope);
-        }
-
-        /* for operstate we also take foreign addresses into account */
-        SET_FOREACH(address, link->addresses_foreign) {
-                if (!address_is_ready(address))
-                        continue;
-
-                if (address->family == AF_INET)
-                        ipv4_scope = MIN(ipv4_scope, address->scope);
-
-                if (address->family == AF_INET6)
-                        ipv6_scope = MIN(ipv6_scope, address->scope);
-        }
-
-        ipv4_address_state = address_state_from_scope(ipv4_scope);
-        ipv6_address_state = address_state_from_scope(ipv6_scope);
-        address_state = address_state_from_scope(MIN(ipv4_scope, ipv6_scope));
-
-        /* Mapping of address and carrier state vs operational state
-         *                                                     carrier state
-         *                          | off | no-carrier | dormant | degraded-carrier | carrier  | enslaved
-         *                 ------------------------------------------------------------------------------
-         *                 off      | off | no-carrier | dormant | degraded-carrier | carrier  | enslaved
-         * address_state   degraded | off | no-carrier | dormant | degraded-carrier | degraded | enslaved
-         *                 routable | off | no-carrier | dormant | degraded-carrier | routable | routable
-         */
-
-        if (carrier_state < LINK_CARRIER_STATE_CARRIER || address_state == LINK_ADDRESS_STATE_OFF)
-                operstate = (LinkOperationalState) carrier_state;
-        else if (address_state == LINK_ADDRESS_STATE_ROUTABLE)
-                operstate = LINK_OPERSTATE_ROUTABLE;
-        else if (carrier_state == LINK_CARRIER_STATE_CARRIER)
-                operstate = LINK_OPERSTATE_DEGRADED;
-        else
-                operstate = LINK_OPERSTATE_ENSLAVED;
-
-        /* Only determine online state for managed links with RequiredForOnline=yes */
-        if (!link->network || !link->network->required_for_online)
-                online_state = _LINK_ONLINE_STATE_INVALID;
-        else if (operstate < link->network->required_operstate_for_online.min ||
-                 operstate > link->network->required_operstate_for_online.max)
-                online_state = LINK_ONLINE_STATE_OFFLINE;
-        else {
-                AddressFamily required_family = link->network->required_family_for_online;
-                bool needs_ipv4 = required_family & ADDRESS_FAMILY_IPV4;
-                bool needs_ipv6 = required_family & ADDRESS_FAMILY_IPV6;
-
-                /* The operational state is within the range required for online.
-                 * If a particular address family is also required, we might revert
-                 * to offline in the blocks below.
-                 */
-                online_state = LINK_ONLINE_STATE_ONLINE;
-
-                if (link->network->required_operstate_for_online.min >= LINK_OPERSTATE_DEGRADED) {
-                        if (needs_ipv4 && ipv4_address_state < LINK_ADDRESS_STATE_DEGRADED)
-                                online_state = LINK_ONLINE_STATE_OFFLINE;
-                        if (needs_ipv6 && ipv6_address_state < LINK_ADDRESS_STATE_DEGRADED)
-                                online_state = LINK_ONLINE_STATE_OFFLINE;
-                }
-
-                if (link->network->required_operstate_for_online.min >= LINK_OPERSTATE_ROUTABLE) {
-                        if (needs_ipv4 && ipv4_address_state < LINK_ADDRESS_STATE_ROUTABLE)
-                                online_state = LINK_ONLINE_STATE_OFFLINE;
-                        if (needs_ipv6 && ipv6_address_state < LINK_ADDRESS_STATE_ROUTABLE)
-                                online_state = LINK_ONLINE_STATE_OFFLINE;
-                }
-        }
-
-        if (link->carrier_state != carrier_state) {
-                link->carrier_state = carrier_state;
-                changed = true;
-                if (strv_extend(&p, "CarrierState") < 0)
-                        log_oom();
-        }
-
-        if (link->address_state != address_state) {
-                link->address_state = address_state;
-                changed = true;
-                if (strv_extend(&p, "AddressState") < 0)
-                        log_oom();
-        }
-
-        if (link->ipv4_address_state != ipv4_address_state) {
-                link->ipv4_address_state = ipv4_address_state;
-                changed = true;
-                if (strv_extend(&p, "IPv4AddressState") < 0)
-                        log_oom();
-        }
-
-        if (link->ipv6_address_state != ipv6_address_state) {
-                link->ipv6_address_state = ipv6_address_state;
-                changed = true;
-                if (strv_extend(&p, "IPv6AddressState") < 0)
-                        log_oom();
-        }
-
-        if (link->operstate != operstate) {
-                link->operstate = operstate;
-                changed = true;
-                if (strv_extend(&p, "OperationalState") < 0)
-                        log_oom();
-        }
-
-        if (link->online_state != online_state) {
-                link->online_state = online_state;
-                changed = true;
-                if (strv_extend(&p, "OnlineState") < 0)
-                        log_oom();
-        }
-
-        if (p)
-                link_send_changed_strv(link, p);
-        if (changed)
-                link_dirty(link);
-
-        if (also_update_master) {
-                Link *master;
-
-                if (link_get_master(link, &master) >= 0)
-                        link_update_operstate(master, true);
-        }
-}
-
-#define FLAG_STRING(string, flag, old, new) \
-        (((old ^ new) & flag) \
-                ? ((old & flag) ? (" -" string) : (" +" string)) \
-                : "")
-
-static int link_update_flags(Link *link, sd_netlink_message *m, bool force_update_operstate) {
-        unsigned flags, unknown_flags_added, unknown_flags_removed, unknown_flags;
-        uint8_t operstate;
-        int r;
-
-        assert(link);
-
-        r = sd_rtnl_message_link_get_flags(m, &flags);
-        if (r < 0)
-                return log_link_warning_errno(link, r, "Could not get link flags: %m");
-
-        r = sd_netlink_message_read_u8(m, IFLA_OPERSTATE, &operstate);
-        if (r < 0)
-                /* if we got a message without operstate, take it to mean
-                   the state was unchanged */
-                operstate = link->kernel_operstate;
-
-        if (!force_update_operstate && (link->flags == flags) && (link->kernel_operstate == operstate))
-                return 0;
-
-        if (link->flags != flags) {
-                log_link_debug(link, "Flags change:%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s",
-                               FLAG_STRING("LOOPBACK", IFF_LOOPBACK, link->flags, flags),
-                               FLAG_STRING("MASTER", IFF_MASTER, link->flags, flags),
-                               FLAG_STRING("SLAVE", IFF_SLAVE, link->flags, flags),
-                               FLAG_STRING("UP", IFF_UP, link->flags, flags),
-                               FLAG_STRING("DORMANT", IFF_DORMANT, link->flags, flags),
-                               FLAG_STRING("LOWER_UP", IFF_LOWER_UP, link->flags, flags),
-                               FLAG_STRING("RUNNING", IFF_RUNNING, link->flags, flags),
-                               FLAG_STRING("MULTICAST", IFF_MULTICAST, link->flags, flags),
-                               FLAG_STRING("BROADCAST", IFF_BROADCAST, link->flags, flags),
-                               FLAG_STRING("POINTOPOINT", IFF_POINTOPOINT, link->flags, flags),
-                               FLAG_STRING("PROMISC", IFF_PROMISC, link->flags, flags),
-                               FLAG_STRING("ALLMULTI", IFF_ALLMULTI, link->flags, flags),
-                               FLAG_STRING("PORTSEL", IFF_PORTSEL, link->flags, flags),
-                               FLAG_STRING("AUTOMEDIA", IFF_AUTOMEDIA, link->flags, flags),
-                               FLAG_STRING("DYNAMIC", IFF_DYNAMIC, link->flags, flags),
-                               FLAG_STRING("NOARP", IFF_NOARP, link->flags, flags),
-                               FLAG_STRING("NOTRAILERS", IFF_NOTRAILERS, link->flags, flags),
-                               FLAG_STRING("DEBUG", IFF_DEBUG, link->flags, flags),
-                               FLAG_STRING("ECHO", IFF_ECHO, link->flags, flags));
-
-                unknown_flags = ~(IFF_LOOPBACK | IFF_MASTER | IFF_SLAVE | IFF_UP |
-                                  IFF_DORMANT | IFF_LOWER_UP | IFF_RUNNING |
-                                  IFF_MULTICAST | IFF_BROADCAST | IFF_POINTOPOINT |
-                                  IFF_PROMISC | IFF_ALLMULTI | IFF_PORTSEL |
-                                  IFF_AUTOMEDIA | IFF_DYNAMIC | IFF_NOARP |
-                                  IFF_NOTRAILERS | IFF_DEBUG | IFF_ECHO);
-                unknown_flags_added = ((link->flags ^ flags) & flags & unknown_flags);
-                unknown_flags_removed = ((link->flags ^ flags) & link->flags & unknown_flags);
-
-                /* link flags are currently at most 18 bits, let's align to
-                 * printing 20 */
-                if (unknown_flags_added)
-                        log_link_debug(link,
-                                       "Unknown link flags gained: %#.5x (ignoring)",
-                                       unknown_flags_added);
-
-                if (unknown_flags_removed)
-                        log_link_debug(link,
-                                       "Unknown link flags lost: %#.5x (ignoring)",
-                                       unknown_flags_removed);
-        }
-
-        link->flags = flags;
-        link->kernel_operstate = operstate;
-
-        link_update_operstate(link, true);
-
-        return 0;
-}
-
 void link_ntp_settings_clear(Link *link) {
         link->ntp = strv_free(link->ntp);
 }
@@ -1006,19 +733,25 @@ static int link_acquire_dynamic_conf(Link *link) {
         return 0;
 }
 
-bool link_has_carrier(Link *link) {
-        /* see Documentation/networking/operstates.txt in the kernel sources */
+int link_ipv6ll_gained(Link *link, const struct in6_addr *address) {
+        int r;
 
-        if (link->kernel_operstate == IF_OPER_UP)
-                return true;
+        assert(link);
 
-        if (link->kernel_operstate == IF_OPER_UNKNOWN)
-                /* operstate may not be implemented, so fall back to flags */
-                if (FLAGS_SET(link->flags, IFF_LOWER_UP | IFF_RUNNING) &&
-                    !FLAGS_SET(link->flags, IFF_DORMANT))
-                        return true;
+        log_link_info(link, "Gained IPv6LL");
 
-        return false;
+        link->ipv6ll_address = *address;
+        link_check_ready(link);
+
+        if (IN_SET(link->state, LINK_STATE_CONFIGURING, LINK_STATE_CONFIGURED)) {
+                r = link_acquire_dynamic_ipv6_conf(link);
+                if (r < 0) {
+                        link_enter_failed(link);
+                        return r;
+                }
+        }
+
+        return 0;
 }
 
 static int link_up_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
@@ -1363,7 +1096,6 @@ static void link_drop_requests(Link *link) {
                 if (req->link == link)
                         request_drop(req);
 }
-
 
 static Link *link_drop(Link *link) {
         char **n;
@@ -2110,128 +1842,7 @@ static int link_initialized(Link *link, sd_device *device) {
         return 0;
 }
 
-static Link *link_drop_or_unref(Link *link) {
-        if (!link)
-                return NULL;
-        if (!link->manager)
-                return link_unref(link);
-        return link_drop(link);
-}
-
-DEFINE_TRIVIAL_CLEANUP_FUNC(Link*, link_drop_or_unref);
-
-static int link_new(Manager *manager, sd_netlink_message *message, Link **ret) {
-        _cleanup_(link_drop_or_unrefp) Link *link = NULL;
-        _cleanup_free_ char *ifname = NULL, *kind = NULL;
-        unsigned short iftype;
-        int r, ifindex;
-        uint16_t type;
-
-        assert(manager);
-        assert(message);
-        assert(ret);
-
-        r = sd_netlink_message_get_type(message, &type);
-        if (r < 0)
-                return r;
-        else if (type != RTM_NEWLINK)
-                return -EINVAL;
-
-        r = sd_rtnl_message_link_get_ifindex(message, &ifindex);
-        if (r < 0)
-                return r;
-        else if (ifindex <= 0)
-                return -EINVAL;
-
-        r = sd_rtnl_message_link_get_type(message, &iftype);
-        if (r < 0)
-                return r;
-
-        r = sd_netlink_message_read_string_strdup(message, IFLA_IFNAME, &ifname);
-        if (r < 0)
-                return r;
-
-        /* check for link kind */
-        r = sd_netlink_message_enter_container(message, IFLA_LINKINFO);
-        if (r >= 0) {
-                (void) sd_netlink_message_read_string_strdup(message, IFLA_INFO_KIND, &kind);
-                r = sd_netlink_message_exit_container(message);
-                if (r < 0)
-                        return r;
-        }
-
-        link = new(Link, 1);
-        if (!link)
-                return -ENOMEM;
-
-        *link = (Link) {
-                .n_ref = 1,
-                .state = LINK_STATE_PENDING,
-                .online_state = _LINK_ONLINE_STATE_INVALID,
-                .ifindex = ifindex,
-                .iftype = iftype,
-                .ifname = TAKE_PTR(ifname),
-                .kind = TAKE_PTR(kind),
-
-                .n_dns = UINT_MAX,
-                .dns_default_route = -1,
-                .llmnr = _RESOLVE_SUPPORT_INVALID,
-                .mdns = _RESOLVE_SUPPORT_INVALID,
-                .dnssec_mode = _DNSSEC_MODE_INVALID,
-                .dns_over_tls_mode = _DNS_OVER_TLS_MODE_INVALID,
-        };
-
-        r = hashmap_ensure_put(&manager->links, NULL, INT_TO_PTR(link->ifindex), link);
-        if (r < 0)
-                return r;
-
-        link->manager = manager;
-
-        r = sd_netlink_message_read_u32(message, IFLA_MASTER, (uint32_t*) &link->master_ifindex);
-        if (r < 0)
-                log_link_debug_errno(link, r, "New device has no master, continuing without");
-
-        r = netlink_message_read_hw_addr(message, IFLA_ADDRESS, &link->hw_addr);
-        if (r < 0)
-                log_link_debug_errno(link, r, "Hardware address not found for new device, continuing without");
-
-        r = netlink_message_read_hw_addr(message, IFLA_BROADCAST, &link->bcast_addr);
-        if (r < 0)
-                log_link_debug_errno(link, r, "Broadcast address not found for new device, continuing without");
-
-        r = ethtool_get_permanent_macaddr(&manager->ethtool_fd, link->ifname, &link->permanent_mac);
-        if (r < 0)
-                log_link_debug_errno(link, r, "Permanent MAC address not found for new device, continuing without: %m");
-
-        r = ethtool_get_driver(&manager->ethtool_fd, link->ifname, &link->driver);
-        if (r < 0)
-                log_link_debug_errno(link, r, "Failed to get driver, continuing without: %m");
-
-        if (asprintf(&link->state_file, "/run/systemd/netif/links/%d", link->ifindex) < 0)
-                return -ENOMEM;
-
-        if (asprintf(&link->lease_file, "/run/systemd/netif/leases/%d", link->ifindex) < 0)
-                return -ENOMEM;
-
-        if (asprintf(&link->lldp_file, "/run/systemd/netif/lldp/%d", link->ifindex) < 0)
-                return -ENOMEM;
-
-        r = hashmap_ensure_put(&manager->links_by_name, &string_hash_ops, link->ifname, link);
-        if (r < 0)
-                return r;
-
-        r = link_update_alternative_names(link, message);
-        if (r < 0)
-                return r;
-
-        r = link_update_flags(link, message, false);
-        if (r < 0)
-                return r;
-
-        *ret = TAKE_PTR(link);
-
-        return 0;
-}
+static int link_new(Manager *m, sd_netlink_message *message, Link **ret);
 
 static int link_add(Manager *m, sd_netlink_message *message, Link **ret) {
         _cleanup_(sd_device_unrefp) sd_device *device = NULL;
@@ -2295,27 +1906,6 @@ static int link_add(Manager *m, sd_netlink_message *message, Link **ret) {
 failed:
         link_enter_failed(link);
         return r;
-}
-
-int link_ipv6ll_gained(Link *link, const struct in6_addr *address) {
-        int r;
-
-        assert(link);
-
-        log_link_info(link, "Gained IPv6LL");
-
-        link->ipv6ll_address = *address;
-        link_check_ready(link);
-
-        if (IN_SET(link->state, LINK_STATE_CONFIGURING, LINK_STATE_CONFIGURED)) {
-                r = link_acquire_dynamic_ipv6_conf(link);
-                if (r < 0) {
-                        link_enter_failed(link);
-                        return r;
-                }
-        }
-
-        return 0;
 }
 
 int manager_udev_process_link(sd_device_monitor *monitor, sd_device *device, void *userdata) {
@@ -2501,6 +2091,289 @@ static int link_admin_state_down(Link *link) {
         return 0;
 }
 
+bool link_has_carrier(Link *link) {
+        /* see Documentation/networking/operstates.txt in the kernel sources */
+
+        if (link->kernel_operstate == IF_OPER_UP)
+                return true;
+
+        if (link->kernel_operstate == IF_OPER_UNKNOWN)
+                /* operstate may not be implemented, so fall back to flags */
+                if (FLAGS_SET(link->flags, IFF_LOWER_UP | IFF_RUNNING) &&
+                    !FLAGS_SET(link->flags, IFF_DORMANT))
+                        return true;
+
+        return false;
+}
+
+static bool link_is_enslaved(Link *link) {
+        if (link->flags & IFF_SLAVE)
+                /* Even if the link is not managed by networkd, honor IFF_SLAVE flag. */
+                return true;
+
+        if (!link->network)
+                return false;
+
+        if (link->master_ifindex > 0 && link->network->bridge)
+                return true;
+
+        /* TODO: add conditions for other netdevs. */
+
+        return false;
+}
+
+static LinkAddressState address_state_from_scope(uint8_t scope) {
+        if (scope < RT_SCOPE_SITE)
+                /* universally accessible addresses found */
+                return LINK_ADDRESS_STATE_ROUTABLE;
+
+        if (scope < RT_SCOPE_HOST)
+                /* only link or site local addresses found */
+                return LINK_ADDRESS_STATE_DEGRADED;
+
+        /* no useful addresses found */
+        return LINK_ADDRESS_STATE_OFF;
+}
+
+void link_update_operstate(Link *link, bool also_update_master) {
+        LinkOperationalState operstate;
+        LinkCarrierState carrier_state;
+        LinkAddressState ipv4_address_state, ipv6_address_state, address_state;
+        LinkOnlineState online_state;
+        _cleanup_strv_free_ char **p = NULL;
+        uint8_t ipv4_scope = RT_SCOPE_NOWHERE, ipv6_scope = RT_SCOPE_NOWHERE;
+        bool changed = false;
+        Address *address;
+
+        assert(link);
+
+        if (link->kernel_operstate == IF_OPER_DORMANT)
+                carrier_state = LINK_CARRIER_STATE_DORMANT;
+        else if (link_has_carrier(link)) {
+                if (link_is_enslaved(link))
+                        carrier_state = LINK_CARRIER_STATE_ENSLAVED;
+                else
+                        carrier_state = LINK_CARRIER_STATE_CARRIER;
+        } else if (link->flags & IFF_UP)
+                carrier_state = LINK_CARRIER_STATE_NO_CARRIER;
+        else
+                carrier_state = LINK_CARRIER_STATE_OFF;
+
+        if (carrier_state >= LINK_CARRIER_STATE_CARRIER) {
+                Link *slave;
+
+                SET_FOREACH(slave, link->slaves) {
+                        link_update_operstate(slave, false);
+
+                        if (slave->carrier_state < LINK_CARRIER_STATE_CARRIER)
+                                carrier_state = LINK_CARRIER_STATE_DEGRADED_CARRIER;
+                }
+        }
+
+        SET_FOREACH(address, link->addresses) {
+                if (!address_is_ready(address))
+                        continue;
+
+                if (address->family == AF_INET)
+                        ipv4_scope = MIN(ipv4_scope, address->scope);
+
+                if (address->family == AF_INET6)
+                        ipv6_scope = MIN(ipv6_scope, address->scope);
+        }
+
+        /* for operstate we also take foreign addresses into account */
+        SET_FOREACH(address, link->addresses_foreign) {
+                if (!address_is_ready(address))
+                        continue;
+
+                if (address->family == AF_INET)
+                        ipv4_scope = MIN(ipv4_scope, address->scope);
+
+                if (address->family == AF_INET6)
+                        ipv6_scope = MIN(ipv6_scope, address->scope);
+        }
+
+        ipv4_address_state = address_state_from_scope(ipv4_scope);
+        ipv6_address_state = address_state_from_scope(ipv6_scope);
+        address_state = address_state_from_scope(MIN(ipv4_scope, ipv6_scope));
+
+        /* Mapping of address and carrier state vs operational state
+         *                                                     carrier state
+         *                          | off | no-carrier | dormant | degraded-carrier | carrier  | enslaved
+         *                 ------------------------------------------------------------------------------
+         *                 off      | off | no-carrier | dormant | degraded-carrier | carrier  | enslaved
+         * address_state   degraded | off | no-carrier | dormant | degraded-carrier | degraded | enslaved
+         *                 routable | off | no-carrier | dormant | degraded-carrier | routable | routable
+         */
+
+        if (carrier_state < LINK_CARRIER_STATE_CARRIER || address_state == LINK_ADDRESS_STATE_OFF)
+                operstate = (LinkOperationalState) carrier_state;
+        else if (address_state == LINK_ADDRESS_STATE_ROUTABLE)
+                operstate = LINK_OPERSTATE_ROUTABLE;
+        else if (carrier_state == LINK_CARRIER_STATE_CARRIER)
+                operstate = LINK_OPERSTATE_DEGRADED;
+        else
+                operstate = LINK_OPERSTATE_ENSLAVED;
+
+        /* Only determine online state for managed links with RequiredForOnline=yes */
+        if (!link->network || !link->network->required_for_online)
+                online_state = _LINK_ONLINE_STATE_INVALID;
+        else if (operstate < link->network->required_operstate_for_online.min ||
+                 operstate > link->network->required_operstate_for_online.max)
+                online_state = LINK_ONLINE_STATE_OFFLINE;
+        else {
+                AddressFamily required_family = link->network->required_family_for_online;
+                bool needs_ipv4 = required_family & ADDRESS_FAMILY_IPV4;
+                bool needs_ipv6 = required_family & ADDRESS_FAMILY_IPV6;
+
+                /* The operational state is within the range required for online.
+                 * If a particular address family is also required, we might revert
+                 * to offline in the blocks below. */
+                online_state = LINK_ONLINE_STATE_ONLINE;
+
+                if (link->network->required_operstate_for_online.min >= LINK_OPERSTATE_DEGRADED) {
+                        if (needs_ipv4 && ipv4_address_state < LINK_ADDRESS_STATE_DEGRADED)
+                                online_state = LINK_ONLINE_STATE_OFFLINE;
+                        if (needs_ipv6 && ipv6_address_state < LINK_ADDRESS_STATE_DEGRADED)
+                                online_state = LINK_ONLINE_STATE_OFFLINE;
+                }
+
+                if (link->network->required_operstate_for_online.min >= LINK_OPERSTATE_ROUTABLE) {
+                        if (needs_ipv4 && ipv4_address_state < LINK_ADDRESS_STATE_ROUTABLE)
+                                online_state = LINK_ONLINE_STATE_OFFLINE;
+                        if (needs_ipv6 && ipv6_address_state < LINK_ADDRESS_STATE_ROUTABLE)
+                                online_state = LINK_ONLINE_STATE_OFFLINE;
+                }
+        }
+
+        if (link->carrier_state != carrier_state) {
+                link->carrier_state = carrier_state;
+                changed = true;
+                if (strv_extend(&p, "CarrierState") < 0)
+                        log_oom();
+        }
+
+        if (link->address_state != address_state) {
+                link->address_state = address_state;
+                changed = true;
+                if (strv_extend(&p, "AddressState") < 0)
+                        log_oom();
+        }
+
+        if (link->ipv4_address_state != ipv4_address_state) {
+                link->ipv4_address_state = ipv4_address_state;
+                changed = true;
+                if (strv_extend(&p, "IPv4AddressState") < 0)
+                        log_oom();
+        }
+
+        if (link->ipv6_address_state != ipv6_address_state) {
+                link->ipv6_address_state = ipv6_address_state;
+                changed = true;
+                if (strv_extend(&p, "IPv6AddressState") < 0)
+                        log_oom();
+        }
+
+        if (link->operstate != operstate) {
+                link->operstate = operstate;
+                changed = true;
+                if (strv_extend(&p, "OperationalState") < 0)
+                        log_oom();
+        }
+
+        if (link->online_state != online_state) {
+                link->online_state = online_state;
+                changed = true;
+                if (strv_extend(&p, "OnlineState") < 0)
+                        log_oom();
+        }
+
+        if (p)
+                link_send_changed_strv(link, p);
+        if (changed)
+                link_dirty(link);
+
+        if (also_update_master) {
+                Link *master;
+
+                if (link_get_master(link, &master) >= 0)
+                        link_update_operstate(master, true);
+        }
+}
+
+#define FLAG_STRING(string, flag, old, new)                      \
+        (((old ^ new) & flag)                                    \
+         ? ((old & flag) ? (" -" string) : (" +" string))        \
+         : "")
+
+static int link_update_flags(Link *link, sd_netlink_message *m, bool force_update_operstate) {
+        uint8_t operstate;
+        unsigned flags;
+        int r;
+
+        assert(link);
+
+        r = sd_rtnl_message_link_get_flags(m, &flags);
+        if (r < 0)
+                return log_link_warning_errno(link, r, "Could not get link flags: %m");
+
+        r = sd_netlink_message_read_u8(m, IFLA_OPERSTATE, &operstate);
+        if (r < 0)
+                /* if we got a message without operstate, take it to mean
+                   the state was unchanged */
+                operstate = link->kernel_operstate;
+
+        if (!force_update_operstate && (link->flags == flags) && (link->kernel_operstate == operstate))
+                return 0;
+
+        if (link->flags != flags) {
+                unsigned unknown_flags, unknown_flags_added, unknown_flags_removed;
+
+                log_link_debug(link, "Flags change:%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s",
+                               FLAG_STRING("LOOPBACK", IFF_LOOPBACK, link->flags, flags),
+                               FLAG_STRING("MASTER", IFF_MASTER, link->flags, flags),
+                               FLAG_STRING("SLAVE", IFF_SLAVE, link->flags, flags),
+                               FLAG_STRING("UP", IFF_UP, link->flags, flags),
+                               FLAG_STRING("DORMANT", IFF_DORMANT, link->flags, flags),
+                               FLAG_STRING("LOWER_UP", IFF_LOWER_UP, link->flags, flags),
+                               FLAG_STRING("RUNNING", IFF_RUNNING, link->flags, flags),
+                               FLAG_STRING("MULTICAST", IFF_MULTICAST, link->flags, flags),
+                               FLAG_STRING("BROADCAST", IFF_BROADCAST, link->flags, flags),
+                               FLAG_STRING("POINTOPOINT", IFF_POINTOPOINT, link->flags, flags),
+                               FLAG_STRING("PROMISC", IFF_PROMISC, link->flags, flags),
+                               FLAG_STRING("ALLMULTI", IFF_ALLMULTI, link->flags, flags),
+                               FLAG_STRING("PORTSEL", IFF_PORTSEL, link->flags, flags),
+                               FLAG_STRING("AUTOMEDIA", IFF_AUTOMEDIA, link->flags, flags),
+                               FLAG_STRING("DYNAMIC", IFF_DYNAMIC, link->flags, flags),
+                               FLAG_STRING("NOARP", IFF_NOARP, link->flags, flags),
+                               FLAG_STRING("NOTRAILERS", IFF_NOTRAILERS, link->flags, flags),
+                               FLAG_STRING("DEBUG", IFF_DEBUG, link->flags, flags),
+                               FLAG_STRING("ECHO", IFF_ECHO, link->flags, flags));
+
+                unknown_flags = ~(IFF_LOOPBACK | IFF_MASTER | IFF_SLAVE | IFF_UP |
+                                  IFF_DORMANT | IFF_LOWER_UP | IFF_RUNNING |
+                                  IFF_MULTICAST | IFF_BROADCAST | IFF_POINTOPOINT |
+                                  IFF_PROMISC | IFF_ALLMULTI | IFF_PORTSEL |
+                                  IFF_AUTOMEDIA | IFF_DYNAMIC | IFF_NOARP |
+                                  IFF_NOTRAILERS | IFF_DEBUG | IFF_ECHO);
+                unknown_flags_added = ((link->flags ^ flags) & flags & unknown_flags);
+                unknown_flags_removed = ((link->flags ^ flags) & link->flags & unknown_flags);
+
+                if (unknown_flags_added)
+                        log_link_debug(link, "Unknown link flags gained, ignoring: %#.5x", unknown_flags_added);
+
+                if (unknown_flags_removed)
+                        log_link_debug(link, "Unknown link flags lost, ignoring: %#.5x", unknown_flags_removed);
+        }
+
+        link->flags = flags;
+        link->kernel_operstate = operstate;
+
+        link_update_operstate(link, true);
+
+        return 0;
+}
+
 static int link_update(Link *link, sd_netlink_message *m) {
         hw_addr_data hw_addr;
         const char *ifname;
@@ -2646,6 +2519,129 @@ static int link_update(Link *link, sd_netlink_message *m) {
                 if (r < 0)
                         return r;
         }
+
+        return 0;
+}
+
+static Link *link_drop_or_unref(Link *link) {
+        if (!link)
+                return NULL;
+        if (!link->manager)
+                return link_unref(link);
+        return link_drop(link);
+}
+
+DEFINE_TRIVIAL_CLEANUP_FUNC(Link*, link_drop_or_unref);
+
+static int link_new(Manager *manager, sd_netlink_message *message, Link **ret) {
+        _cleanup_(link_drop_or_unrefp) Link *link = NULL;
+        _cleanup_free_ char *ifname = NULL, *kind = NULL;
+        unsigned short iftype;
+        int r, ifindex;
+        uint16_t type;
+
+        assert(manager);
+        assert(message);
+        assert(ret);
+
+        r = sd_netlink_message_get_type(message, &type);
+        if (r < 0)
+                return r;
+        else if (type != RTM_NEWLINK)
+                return -EINVAL;
+
+        r = sd_rtnl_message_link_get_ifindex(message, &ifindex);
+        if (r < 0)
+                return r;
+        else if (ifindex <= 0)
+                return -EINVAL;
+
+        r = sd_rtnl_message_link_get_type(message, &iftype);
+        if (r < 0)
+                return r;
+
+        r = sd_netlink_message_read_string_strdup(message, IFLA_IFNAME, &ifname);
+        if (r < 0)
+                return r;
+
+        /* check for link kind */
+        r = sd_netlink_message_enter_container(message, IFLA_LINKINFO);
+        if (r >= 0) {
+                (void) sd_netlink_message_read_string_strdup(message, IFLA_INFO_KIND, &kind);
+                r = sd_netlink_message_exit_container(message);
+                if (r < 0)
+                        return r;
+        }
+
+        link = new(Link, 1);
+        if (!link)
+                return -ENOMEM;
+
+        *link = (Link) {
+                .n_ref = 1,
+                .state = LINK_STATE_PENDING,
+                .online_state = _LINK_ONLINE_STATE_INVALID,
+                .ifindex = ifindex,
+                .iftype = iftype,
+                .ifname = TAKE_PTR(ifname),
+                .kind = TAKE_PTR(kind),
+
+                .n_dns = UINT_MAX,
+                .dns_default_route = -1,
+                .llmnr = _RESOLVE_SUPPORT_INVALID,
+                .mdns = _RESOLVE_SUPPORT_INVALID,
+                .dnssec_mode = _DNSSEC_MODE_INVALID,
+                .dns_over_tls_mode = _DNS_OVER_TLS_MODE_INVALID,
+        };
+
+        r = hashmap_ensure_put(&manager->links, NULL, INT_TO_PTR(link->ifindex), link);
+        if (r < 0)
+                return r;
+
+        link->manager = manager;
+
+        r = sd_netlink_message_read_u32(message, IFLA_MASTER, (uint32_t*) &link->master_ifindex);
+        if (r < 0)
+                log_link_debug_errno(link, r, "New device has no master, continuing without");
+
+        r = netlink_message_read_hw_addr(message, IFLA_ADDRESS, &link->hw_addr);
+        if (r < 0)
+                log_link_debug_errno(link, r, "Hardware address not found for new device, continuing without");
+
+        r = netlink_message_read_hw_addr(message, IFLA_BROADCAST, &link->bcast_addr);
+        if (r < 0)
+                log_link_debug_errno(link, r, "Broadcast address not found for new device, continuing without");
+
+        r = ethtool_get_permanent_macaddr(&manager->ethtool_fd, link->ifname, &link->permanent_mac);
+        if (r < 0)
+                log_link_debug_errno(link, r, "Permanent MAC address not found for new device, continuing without: %m");
+
+        r = ethtool_get_driver(&manager->ethtool_fd, link->ifname, &link->driver);
+        if (r < 0)
+                log_link_debug_errno(link, r, "Failed to get driver, continuing without: %m");
+
+        if (asprintf(&link->state_file, "/run/systemd/netif/links/%d", link->ifindex) < 0)
+                return -ENOMEM;
+
+        if (asprintf(&link->lease_file, "/run/systemd/netif/leases/%d", link->ifindex) < 0)
+                return -ENOMEM;
+
+        if (asprintf(&link->lldp_file, "/run/systemd/netif/lldp/%d", link->ifindex) < 0)
+                return -ENOMEM;
+
+        r = hashmap_ensure_put(&manager->links_by_name, &string_hash_ops, link->ifname, link);
+        if (r < 0)
+                return r;
+
+        r = link_update_alternative_names(link, message);
+        if (r < 0)
+                return r;
+
+        r = link_update_flags(link, message, false);
+        if (r < 0)
+                return r;
+
+        *ret = TAKE_PTR(link);
 
         return 0;
 }
