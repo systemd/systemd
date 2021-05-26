@@ -3402,6 +3402,69 @@ int manager_notify_cgroup_empty(Manager *m, const char *cgroup) {
         return 1;
 }
 
+int unit_get_memory_available(Unit *u, uint64_t *ret) {
+        uint64_t unit_current, available = UINT64_MAX;
+        CGroupContext *unit_context;
+        const char *memory_file;
+        int r;
+
+        assert(u);
+        assert(ret);
+
+        if (!UNIT_CGROUP_BOOL(u, memory_accounting))
+                return -ENODATA;
+
+        if (!u->cgroup_path)
+                return -ENODATA;
+
+        /* The root cgroup doesn't expose this information */
+        if (unit_has_host_root_cgroup(u))
+                return -ENODATA;
+
+        if ((u->cgroup_realized_mask & CGROUP_MASK_MEMORY) == 0)
+                return -ENODATA;
+
+        r = cg_all_unified();
+        if (r < 0)
+                return r;
+        memory_file = r > 0 ? "memory.current" : "memory.usage_in_bytes";
+
+        r = cg_get_attribute_as_uint64("memory", u->cgroup_path, memory_file, &unit_current);
+        if (r < 0)
+                return r;
+
+        assert_se(unit_context = unit_get_cgroup_context(u));
+
+        if (unit_context->memory_max != UINT64_MAX)
+                available = LESS_BY(unit_context->memory_max, unit_current);
+
+        for (Unit *slice = UNIT_GET_SLICE(u); slice; slice = UNIT_GET_SLICE(slice)) {
+                uint64_t slice_current, slice_available = UINT64_MAX;
+                CGroupContext *slice_context;
+
+                if (!slice->cgroup_path)
+                        continue;
+
+                slice_context = unit_get_cgroup_context(slice);
+                if (!slice_context)
+                        continue;
+
+                if (slice_context->memory_max == UINT64_MAX)
+                        continue;
+
+                r = cg_get_attribute_as_uint64("memory", slice->cgroup_path, memory_file, &slice_current);
+                if (r < 0)
+                        continue;
+
+                slice_available = LESS_BY(slice_context->memory_max, slice_current);
+                available = MIN(slice_available, available);
+        }
+
+        *ret = available;
+
+        return 0;
+}
+
 int unit_get_memory_current(Unit *u, uint64_t *ret) {
         int r;
 
