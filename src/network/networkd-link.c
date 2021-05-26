@@ -1560,31 +1560,7 @@ static int link_get_network(Link *link, Network **ret) {
         return -ENOENT;
 }
 
-static int link_update_alternative_names(Link *link, sd_netlink_message *message) {
-        _cleanup_strv_free_ char **altnames = NULL;
-        char **n;
-        int r;
-
-        assert(link);
-        assert(message);
-
-        r = sd_netlink_message_read_strv(message, IFLA_PROP_LIST, IFLA_ALT_IFNAME, &altnames);
-        if (r < 0 && r != -ENODATA)
-                return r;
-
-        STRV_FOREACH(n, link->alternative_names)
-                hashmap_remove(link->manager->links_by_name, *n);
-
-        strv_free_and_replace(link->alternative_names, altnames);
-
-        STRV_FOREACH(n, link->alternative_names) {
-                r = hashmap_ensure_put(&link->manager->links_by_name, &string_hash_ops, *n, link);
-                if (r < 0)
-                        return r;
-        }
-
-        return 0;
-}
+static int link_update_alternative_names(Link *link, sd_netlink_message *message);
 
 static int link_reconfigure_internal(Link *link, sd_netlink_message *m, bool force) {
         Network *network;
@@ -1710,7 +1686,7 @@ static int link_initialized_and_synced(Link *link) {
         assert(link->manager);
 
         /* We may get called either from the asynchronous netlink callback,
-         * or directly for link_add() if running in a container. See link_add(). */
+         * or directly from link_check_initialized() if running in a container. */
         if (!IN_SET(link->state, LINK_STATE_PENDING, LINK_STATE_INITIALIZED))
                 return 0;
 
@@ -1823,34 +1799,16 @@ static int link_initialized(Link *link, sd_device *device) {
         return 0;
 }
 
-static int link_new(Manager *m, sd_netlink_message *message, Link **ret);
-
-static int link_add(Manager *m, sd_netlink_message *message, Link **ret) {
+static int link_check_initialized(Link *link) {
         _cleanup_(sd_device_unrefp) sd_device *device = NULL;
         char ifindex_str[2 + DECIMAL_STR_MAX(int)];
-        Link *link;
         int r;
 
-        assert(m);
-        assert(m->rtnl);
-        assert(message);
-        assert(ret);
+        assert(link);
 
-        r = link_new(m, message, ret);
-        if (r < 0)
-                return r;
-
-        link = *ret;
-
-        log_link_debug(link, "Link %d added", link->ifindex);
-
-        if (path_is_read_only_fs("/sys") > 0) {
+        if (path_is_read_only_fs("/sys") > 0)
                 /* no udev */
-                r = link_initialized_and_synced(link);
-                if (r < 0)
-                        goto failed;
-                return 0;
-        }
+                return link_initialized_and_synced(link);
 
         /* udev should be around */
         xsprintf(ifindex_str, "n%d", link->ifindex);
@@ -1861,10 +1819,8 @@ static int link_add(Manager *m, sd_netlink_message *message, Link **ret) {
         }
 
         r = sd_device_get_is_initialized(device);
-        if (r < 0) {
-                log_link_warning_errno(link, r, "Could not determine whether the device is initialized: %m");
-                goto failed;
-        }
+        if (r < 0)
+                return log_link_warning_errno(link, r, "Could not determine whether the device is initialized: %m");
         if (r == 0) {
                 /* not yet ready */
                 log_link_debug(link, "link pending udev initialization...");
@@ -1872,23 +1828,14 @@ static int link_add(Manager *m, sd_netlink_message *message, Link **ret) {
         }
 
         r = device_is_renaming(device);
-        if (r < 0) {
-                log_link_warning_errno(link, r, "Failed to determine the device is being renamed: %m");
-                goto failed;
-        }
+        if (r < 0)
+                return log_link_warning_errno(link, r, "Failed to determine the device is being renamed: %m");
         if (r > 0) {
                 log_link_debug(link, "Interface is being renamed, pending initialization.");
                 return 0;
         }
 
-        r = link_initialized(link, device);
-        if (r < 0)
-                goto failed;
-
-        return 0;
-failed:
-        link_enter_failed(link);
-        return r;
+        return link_initialized(link, device);
 }
 
 int manager_udev_process_link(sd_device_monitor *monitor, sd_device *device, void *userdata) {
@@ -2286,24 +2233,27 @@ void link_update_operstate(Link *link, bool also_update_master) {
          ? ((old & flag) ? (" -" string) : (" +" string))        \
          : "")
 
-static int link_update_flags(Link *link, sd_netlink_message *m, bool force_update_operstate) {
+static int link_update_flags(Link *link, sd_netlink_message *message) {
+        bool link_was_admin_up, had_carrier;
         uint8_t operstate;
         unsigned flags;
         int r;
 
         assert(link);
+        assert(message);
 
-        r = sd_rtnl_message_link_get_flags(m, &flags);
+        r = sd_rtnl_message_link_get_flags(message, &flags);
         if (r < 0)
-                return log_link_warning_errno(link, r, "Could not get link flags: %m");
+                return log_link_debug_errno(link, r, "rtnl: failed to read link flags: %m");
 
-        r = sd_netlink_message_read_u8(m, IFLA_OPERSTATE, &operstate);
-        if (r < 0)
-                /* if we got a message without operstate, take it to mean
-                   the state was unchanged */
+        r = sd_netlink_message_read_u8(message, IFLA_OPERSTATE, &operstate);
+        if (r == -ENODATA)
+                /* If we got a message without operstate, assume the state was unchanged. */
                 operstate = link->kernel_operstate;
+        else if (r < 0)
+                return log_link_debug_errno(link, r, "rtnl: failed to read operational state: %m");
 
-        if (!force_update_operstate && (link->flags == flags) && (link->kernel_operstate == operstate))
+        if (link->flags == flags && link->kernel_operstate == operstate)
                 return 0;
 
         if (link->flags != flags) {
@@ -2346,124 +2296,13 @@ static int link_update_flags(Link *link, sd_netlink_message *m, bool force_updat
                         log_link_debug(link, "Unknown link flags lost, ignoring: %#.5x", unknown_flags_removed);
         }
 
+        link_was_admin_up = link->flags & IFF_UP;
+        had_carrier = link_has_carrier(link);
+
         link->flags = flags;
         link->kernel_operstate = operstate;
 
         link_update_operstate(link, true);
-
-        return 0;
-}
-
-static int link_update(Link *link, sd_netlink_message *m) {
-        hw_addr_data hw_addr;
-        const char *ifname;
-        uint32_t mtu;
-        bool had_carrier, carrier_gained, carrier_lost, link_was_admin_up;
-        int old_master, r;
-
-        assert(link);
-        assert(link->ifname);
-        assert(m);
-
-        if (link->state == LINK_STATE_LINGER) {
-                log_link_info(link, "Link re-added");
-                link_set_state(link, LINK_STATE_CONFIGURING);
-
-                r = link_new_carrier_maps(link);
-                if (r < 0)
-                        return r;
-        }
-
-        r = sd_netlink_message_read_string(m, IFLA_IFNAME, &ifname);
-        if (r >= 0 && !streq(ifname, link->ifname)) {
-                Manager *manager = link->manager;
-
-                log_link_info(link, "Interface name change detected, %s has been renamed to %s.", link->ifname, ifname);
-
-                link_drop(link);
-                r = link_add(manager, m, &link);
-                if (r < 0)
-                        return r;
-        } else {
-                r = link_update_alternative_names(link, m);
-                if (r < 0)
-                        return r;
-        }
-
-        r = sd_netlink_message_read_u32(m, IFLA_MTU, &mtu);
-        if (r >= 0 && mtu > 0) {
-                link->mtu = mtu;
-                if (link->original_mtu == 0) {
-                        link->original_mtu = mtu;
-                        log_link_debug(link, "Saved original MTU: %" PRIu32, link->original_mtu);
-                }
-
-                if (link->dhcp_client) {
-                        r = sd_dhcp_client_set_mtu(link->dhcp_client,
-                                                   link->mtu);
-                        if (r < 0)
-                                return log_link_warning_errno(link, r, "Could not update MTU in DHCP client: %m");
-                }
-
-                if (link->radv) {
-                        r = sd_radv_set_mtu(link->radv, link->mtu);
-                        if (r < 0)
-                                return log_link_warning_errno(link, r, "Could not set MTU for Router Advertisement: %m");
-                }
-        }
-
-        /* The kernel may broadcast NEWLINK messages without the MAC address
-           set, simply ignore them. */
-        r = netlink_message_read_hw_addr(m, IFLA_ADDRESS, &hw_addr);
-        if (r >= 0 && (link->hw_addr.length != hw_addr.length ||
-                       memcmp(link->hw_addr.addr.bytes, hw_addr.addr.bytes, hw_addr.length) != 0)) {
-
-                memcpy(link->hw_addr.addr.bytes, hw_addr.addr.bytes, hw_addr.length);
-
-                log_link_debug(link, "Gained new hardware address: %s", HW_ADDR_TO_STR(&hw_addr));
-
-                r = ipv4ll_update_mac(link);
-                if (r < 0)
-                        return log_link_warning_errno(link, r, "Could not update MAC address in IPv4LL client: %m");
-
-                r = dhcp4_update_mac(link);
-                if (r < 0)
-                        return log_link_warning_errno(link, r, "Could not update MAC address in DHCP client: %m");
-
-                r = dhcp6_update_mac(link);
-                if (r < 0)
-                        return log_link_warning_errno(link, r, "Could not update MAC address in DHCPv6 client: %m");
-
-                r = radv_update_mac(link);
-                if (r < 0)
-                        return log_link_warning_errno(link, r, "Could not update MAC address for Router Advertisement: %m");
-
-                if (link->ndisc) {
-                        r = sd_ndisc_set_mac(link->ndisc, &link->hw_addr.addr.ether);
-                        if (r < 0)
-                                return log_link_warning_errno(link, r, "Could not update MAC for NDisc: %m");
-                }
-
-                if (link->lldp) {
-                        r = sd_lldp_set_filter_address(link->lldp, &link->hw_addr.addr.ether);
-                        if (r < 0)
-                                return log_link_warning_errno(link, r, "Could not update MAC address for LLDP: %m");
-                }
-
-                r = ipv4_dad_update_mac(link);
-                if (r < 0)
-                        return log_link_warning_errno(link, r, "Could not update MAC address in IPv4 ACD client: %m");
-        }
-
-        old_master = link->master_ifindex;
-        (void) sd_netlink_message_read_u32(m, IFLA_MASTER, (uint32_t *) &link->master_ifindex);
-
-        link_was_admin_up = link->flags & IFF_UP;
-        had_carrier = link_has_carrier(link);
-
-        r = link_update_flags(link, m, old_master != link->master_ifindex);
-        if (r < 0)
-                return r;
 
         if (!link_was_admin_up && (link->flags & IFF_UP)) {
                 log_link_info(link, "Link UP");
@@ -2483,16 +2322,13 @@ static int link_update(Link *link, sd_netlink_message *m) {
         if (r < 0)
                 return r;
 
-        carrier_gained = !had_carrier && link_has_carrier(link);
-        carrier_lost = had_carrier && !link_has_carrier(link);
-
-        if (carrier_gained) {
+        if (!had_carrier && link_has_carrier(link)) {
                 log_link_info(link, "Gained carrier");
 
                 r = link_carrier_gained(link);
                 if (r < 0)
                         return r;
-        } else if (carrier_lost) {
+        } else if (had_carrier && !link_has_carrier(link)) {
                 log_link_info(link, "Lost carrier");
 
                 r = link_carrier_lost(link);
@@ -2501,6 +2337,227 @@ static int link_update(Link *link, sd_netlink_message *m) {
         }
 
         return 0;
+}
+
+static int link_update_master(Link *link, sd_netlink_message *message) {
+        int master_ifindex, r;
+
+        assert(link);
+        assert(message);
+
+        r = sd_netlink_message_read_u32(message, IFLA_MASTER, (uint32_t*) &master_ifindex);
+        if (r == -ENODATA)
+                return 0;
+        if (r < 0)
+                return log_link_debug_errno(link, r, "rtnl: failed to read master ifindex: %m");
+
+        if (master_ifindex == link->master_ifindex)
+                return 0;
+
+        if (link->master_ifindex == 0)
+                log_link_debug(link, "Joined to master interface: %i", master_ifindex);
+        else if (master_ifindex == 0)
+                log_link_debug(link, "Leaved from master interface: %i", link->master_ifindex);
+        else
+                log_link_debug(link, "Master interface is changed: %i → %i", link->master_ifindex, master_ifindex);
+
+        link_drop_from_master(link);
+
+        link->master_ifindex = master_ifindex;
+
+        r = link_append_to_master(link);
+        if (r < 0)
+                return log_link_debug_errno(link, r, "Failed to append link to master: %m");
+
+        return 0;
+}
+
+static int link_update_hardware_address(Link *link, sd_netlink_message *message) {
+        hw_addr_data hw_addr;
+        int r;
+
+        assert(link);
+        assert(message);
+
+        r = netlink_message_read_hw_addr(message, IFLA_BROADCAST, &link->bcast_addr);
+        if (r < 0 && r != -ENODATA)
+                return log_link_debug_errno(link, r, "rtnl: failed to read broadcast address: %m");
+
+        r = netlink_message_read_hw_addr(message, IFLA_ADDRESS, &hw_addr);
+        if (r == -ENODATA)
+                return 0;
+        if (r < 0)
+                return log_link_warning_errno(link, r, "rtnl: failed to read hardware address: %m");
+
+        if (link->hw_addr.length == hw_addr.length &&
+            memcmp(link->hw_addr.addr.bytes, hw_addr.addr.bytes, hw_addr.length) == 0)
+                return 0;
+
+        link->hw_addr = hw_addr;
+
+        log_link_debug(link, "Gained new hardware address: %s", HW_ADDR_TO_STR(&hw_addr));
+
+        r = ipv4ll_update_mac(link);
+        if (r < 0)
+                return log_link_debug_errno(link, r, "Could not update MAC address in IPv4LL client: %m");
+
+        r = dhcp4_update_mac(link);
+        if (r < 0)
+                return log_link_debug_errno(link, r, "Could not update MAC address in DHCP client: %m");
+
+        r = dhcp6_update_mac(link);
+        if (r < 0)
+                return log_link_debug_errno(link, r, "Could not update MAC address in DHCPv6 client: %m");
+
+        r = radv_update_mac(link);
+        if (r < 0)
+                return log_link_debug_errno(link, r, "Could not update MAC address for Router Advertisement: %m");
+
+        if (link->ndisc) {
+                r = sd_ndisc_set_mac(link->ndisc, &link->hw_addr.addr.ether);
+                if (r < 0)
+                        return log_link_debug_errno(link, r, "Could not update MAC for NDisc: %m");
+        }
+
+        if (link->lldp) {
+                r = sd_lldp_set_filter_address(link->lldp, &link->hw_addr.addr.ether);
+                if (r < 0)
+                        return log_link_debug_errno(link, r, "Could not update MAC address for LLDP: %m");
+        }
+
+        r = ipv4_dad_update_mac(link);
+        if (r < 0)
+                return log_link_debug_errno(link, r, "Could not update MAC address in IPv4 ACD client: %m");
+
+        return 0;
+}
+
+static int link_update_mtu(Link *link, sd_netlink_message *message) {
+        uint32_t mtu;
+        int r;
+
+        assert(link);
+        assert(message);
+
+        r = sd_netlink_message_read_u32(message, IFLA_MTU, &mtu);
+        if (r == -ENODATA)
+                return 0;
+        if (r < 0)
+                return log_link_debug_errno(link, r, "rtnl: failed to read MTU in RTM_NEWLINK message: %m");
+
+        if (mtu == 0 || link->mtu == mtu)
+                return 0;
+
+        if (link->original_mtu == 0) {
+                link->original_mtu = mtu;
+                log_link_debug(link, "Saved original MTU: %" PRIu32, link->original_mtu);
+        }
+
+        if (link->mtu != 0)
+                log_link_debug(link, "MTU is changed: %"PRIu32" → %"PRIu32, link->mtu, mtu);
+
+        link->mtu = mtu;
+
+        if (link->dhcp_client) {
+                r = sd_dhcp_client_set_mtu(link->dhcp_client, link->mtu);
+                if (r < 0)
+                        return log_link_debug_errno(link, r, "Could not update MTU in DHCP client: %m");
+        }
+
+        if (link->radv) {
+                r = sd_radv_set_mtu(link->radv, link->mtu);
+                if (r < 0)
+                        return log_link_debug_errno(link, r, "Could not set MTU for Router Advertisement: %m");
+        }
+
+        return 0;
+}
+
+static int link_update_alternative_names(Link *link, sd_netlink_message *message) {
+        _cleanup_strv_free_ char **altnames = NULL;
+        char **n;
+        int r;
+
+        assert(link);
+        assert(message);
+
+        r = sd_netlink_message_read_strv(message, IFLA_PROP_LIST, IFLA_ALT_IFNAME, &altnames);
+        if (r < 0 && r != -ENODATA)
+                return log_link_debug_errno(link, r, "rtnl: failed to read alternative names: %m");
+
+        STRV_FOREACH(n, link->alternative_names)
+                hashmap_remove(link->manager->links_by_name, *n);
+
+        strv_free_and_replace(link->alternative_names, altnames);
+
+        STRV_FOREACH(n, link->alternative_names) {
+                r = hashmap_ensure_put(&link->manager->links_by_name, &string_hash_ops, *n, link);
+                if (r < 0)
+                        return log_link_debug_errno(link, r, "Failed to manage link by its new alternative names: %m");
+        }
+
+        return 0;
+}
+
+static int link_update_name(Link *link, sd_netlink_message *message) {
+        const char *ifname;
+        int r;
+
+        assert(link);
+        assert(message);
+
+        r = sd_netlink_message_read_string(message, IFLA_IFNAME, &ifname);
+        if (r == -ENODATA)
+                /* Hmm?? But ok.*/
+                return 0;
+        if (r < 0)
+                return log_link_debug_errno(link, r, "Failed to read interface name in RTM_NEWLINK message: %m");
+
+        if (streq(ifname, link->ifname))
+                return 0;
+
+        log_link_info(link, "Interface name change detected, renamed to %s.", ifname);
+
+        hashmap_remove(link->manager->links_by_name, link->ifname);
+
+        r = free_and_strdup(&link->ifname, ifname);
+        if (r < 0)
+                return log_oom_debug();
+
+        r = hashmap_ensure_put(&link->manager->links_by_name, &string_hash_ops, link->ifname, link);
+        if (r < 0)
+                return log_link_debug_errno(link, r, "Failed to manage link by its new name: %m");
+
+        return 0;
+}
+
+static int link_update(Link *link, sd_netlink_message *message) {
+        int r;
+
+        assert(link);
+        assert(message);
+
+        r = link_update_name(link, message);
+        if (r < 0)
+                return r;
+
+        r = link_update_alternative_names(link, message);
+        if (r < 0)
+                return r;
+
+        r = link_update_mtu(link, message);
+        if (r < 0)
+                return r;
+
+        r = link_update_hardware_address(link, message);
+        if (r < 0)
+                return r;
+
+        r = link_update_master(link, message);
+        if (r < 0)
+                return r;
+
+        return link_update_flags(link, message);
 }
 
 static Link *link_drop_or_unref(Link *link) {
@@ -2514,44 +2571,48 @@ static Link *link_drop_or_unref(Link *link) {
 DEFINE_TRIVIAL_CLEANUP_FUNC(Link*, link_drop_or_unref);
 
 static int link_new(Manager *manager, sd_netlink_message *message, Link **ret) {
+        _cleanup_free_ char *ifname = NULL, *kind = NULL, *state_file = NULL, *lease_file = NULL, *lldp_file = NULL;
         _cleanup_(link_drop_or_unrefp) Link *link = NULL;
-        _cleanup_free_ char *ifname = NULL, *kind = NULL;
         unsigned short iftype;
         int r, ifindex;
-        uint16_t type;
 
         assert(manager);
         assert(message);
         assert(ret);
 
-        r = sd_netlink_message_get_type(message, &type);
-        if (r < 0)
-                return r;
-        else if (type != RTM_NEWLINK)
-                return -EINVAL;
-
         r = sd_rtnl_message_link_get_ifindex(message, &ifindex);
         if (r < 0)
-                return r;
+                return log_debug_errno(r, "rtnl: failed to read ifindex from link message: %m");
         else if (ifindex <= 0)
-                return -EINVAL;
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "rtnl: received link message without valid ifindex.");
 
         r = sd_rtnl_message_link_get_type(message, &iftype);
         if (r < 0)
-                return r;
+                return log_debug_errno(r, "rtnl: failed to read interface type from link message: %m");
 
         r = sd_netlink_message_read_string_strdup(message, IFLA_IFNAME, &ifname);
         if (r < 0)
-                return r;
+                return log_debug_errno(r, "rtnl: failed to read interface name from link message: %m");
 
         /* check for link kind */
         r = sd_netlink_message_enter_container(message, IFLA_LINKINFO);
         if (r >= 0) {
-                (void) sd_netlink_message_read_string_strdup(message, IFLA_INFO_KIND, &kind);
+                r = sd_netlink_message_read_string_strdup(message, IFLA_INFO_KIND, &kind);
+                if (r < 0 && r != -ENODATA)
+                        return log_debug_errno(r, "rtnl: failed to read interface kind from link message: %m");
                 r = sd_netlink_message_exit_container(message);
                 if (r < 0)
-                        return r;
+                        return log_debug_errno(r, "rtnl: failed to exit IFLA_LINKINFO container: %m");
         }
+
+        if (asprintf(&state_file, "/run/systemd/netif/links/%d", ifindex) < 0)
+                return log_oom_debug();
+
+        if (asprintf(&lease_file, "/run/systemd/netif/leases/%d", ifindex) < 0)
+                return log_oom_debug();
+
+        if (asprintf(&lldp_file, "/run/systemd/netif/lldp/%d", ifindex) < 0)
+                return log_oom_debug();
 
         link = new(Link, 1);
         if (!link)
@@ -2566,6 +2627,10 @@ static int link_new(Manager *manager, sd_netlink_message *message, Link **ret) {
                 .ifname = TAKE_PTR(ifname),
                 .kind = TAKE_PTR(kind),
 
+                .state_file = TAKE_PTR(state_file),
+                .lease_file = TAKE_PTR(lease_file),
+                .lldp_file = TAKE_PTR(lldp_file),
+
                 .n_dns = UINT_MAX,
                 .dns_default_route = -1,
                 .llmnr = _RESOLVE_SUPPORT_INVALID,
@@ -2576,21 +2641,13 @@ static int link_new(Manager *manager, sd_netlink_message *message, Link **ret) {
 
         r = hashmap_ensure_put(&manager->links, NULL, INT_TO_PTR(link->ifindex), link);
         if (r < 0)
-                return r;
+                return log_link_debug_errno(link, r, "Failed to store link into manager: %m");
 
         link->manager = manager;
 
-        r = sd_netlink_message_read_u32(message, IFLA_MASTER, (uint32_t*) &link->master_ifindex);
+        r = hashmap_ensure_put(&manager->links_by_name, &string_hash_ops, link->ifname, link);
         if (r < 0)
-                log_link_debug_errno(link, r, "New device has no master, continuing without");
-
-        r = netlink_message_read_hw_addr(message, IFLA_ADDRESS, &link->hw_addr);
-        if (r < 0)
-                log_link_debug_errno(link, r, "Hardware address not found for new device, continuing without");
-
-        r = netlink_message_read_hw_addr(message, IFLA_BROADCAST, &link->bcast_addr);
-        if (r < 0)
-                log_link_debug_errno(link, r, "Broadcast address not found for new device, continuing without");
+                return log_link_debug_errno(link, r, "Failed to manage link by its interface name: %m");
 
         r = ethtool_get_permanent_macaddr(&manager->ethtool_fd, link->ifname, &link->permanent_mac);
         if (r < 0)
@@ -2600,33 +2657,12 @@ static int link_new(Manager *manager, sd_netlink_message *message, Link **ret) {
         if (r < 0)
                 log_link_debug_errno(link, r, "Failed to get driver, continuing without: %m");
 
-        if (asprintf(&link->state_file, "/run/systemd/netif/links/%d", link->ifindex) < 0)
-                return -ENOMEM;
-
-        if (asprintf(&link->lease_file, "/run/systemd/netif/leases/%d", link->ifindex) < 0)
-                return -ENOMEM;
-
-        if (asprintf(&link->lldp_file, "/run/systemd/netif/lldp/%d", link->ifindex) < 0)
-                return -ENOMEM;
-
-        r = hashmap_ensure_put(&manager->links_by_name, &string_hash_ops, link->ifname, link);
-        if (r < 0)
-                return r;
-
-        r = link_update_alternative_names(link, message);
-        if (r < 0)
-                return r;
-
-        r = link_update_flags(link, message, false);
-        if (r < 0)
-                return r;
-
+        log_link_debug(link, "Link %d added", link->ifindex);
         *ret = TAKE_PTR(link);
-
         return 0;
 }
 
-int manager_rtnl_process_link(sd_netlink *rtnl, sd_netlink_message *message, Manager *m) {
+int manager_rtnl_process_link(sd_netlink *rtnl, sd_netlink_message *message, Manager *manager) {
         Link *link = NULL;
         NetDev *netdev = NULL;
         uint16_t type;
@@ -2635,7 +2671,7 @@ int manager_rtnl_process_link(sd_netlink *rtnl, sd_netlink_message *message, Man
 
         assert(rtnl);
         assert(message);
-        assert(m);
+        assert(manager);
 
         if (sd_netlink_message_is_error(message)) {
                 r = sd_netlink_message_get_errno(message);
@@ -2669,20 +2705,11 @@ int manager_rtnl_process_link(sd_netlink *rtnl, sd_netlink_message *message, Man
                 return 0;
         }
 
-        (void) link_get(m, ifindex, &link);
-        (void) netdev_get(m, name, &netdev);
+        (void) link_get(manager, ifindex, &link);
+        (void) netdev_get(manager, name, &netdev);
 
         switch (type) {
         case RTM_NEWLINK:
-                if (!link) {
-                        /* link is new, so add it */
-                        r = link_add(m, message, &link);
-                        if (r < 0) {
-                                log_warning_errno(r, "Could not process new link message, ignoring: %m");
-                                return 0;
-                        }
-                }
-
                 if (netdev) {
                         /* netdev exists, so make sure the ifindex matches */
                         r = netdev_set_ifindex(netdev, message);
@@ -2692,11 +2719,34 @@ int manager_rtnl_process_link(sd_netlink *rtnl, sd_netlink_message *message, Man
                         }
                 }
 
-                r = link_update(link, message);
-                if (r < 0) {
-                        log_warning_errno(r, "Could not process link message: %m");
-                        link_enter_failed(link);
-                        return 0;
+                if (!link) {
+                        /* link is new, so add it */
+                        r = link_new(manager, message, &link);
+                        if (r < 0) {
+                                log_warning_errno(r, "Could not process new link message: %m");
+                                return 0;
+                        }
+
+                        r = link_update(link, message);
+                        if (r < 0) {
+                                log_warning_errno(r, "Could not process link message: %m");
+                                link_enter_failed(link);
+                                return 0;
+                        }
+
+                        r = link_check_initialized(link);
+                        if (r < 0) {
+                                log_warning_errno(r, "Failed to check link is initialized: %m");
+                                link_enter_failed(link);
+                                return 0;
+                        }
+                } else {
+                        r = link_update(link, message);
+                        if (r < 0) {
+                                log_warning_errno(r, "Could not process link message: %m");
+                                link_enter_failed(link);
+                                return 0;
+                        }
                 }
 
                 break;
