@@ -949,8 +949,6 @@ Features:
 
 * firstboot: make it useful to be run immediately after yum --installroot to set up a machine. (most specifically, make --copy-root-password work even if /etc/passwd already exists
 
-* maybe add support for specifier expansion in user.conf, specifically DefaultEnvironment=
-
 * maybe allow timer units with an empty Units= setting, so that they
   can be used for resuming the system but nothing else.
 
