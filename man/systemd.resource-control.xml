@@ -180,13 +180,14 @@
         <term><varname>StartupCPUWeight=<replaceable>weight</replaceable></varname></term>
 
         <listitem>
-          <para>Assign the specified CPU time weight to the processes executed, if the unified control group hierarchy
-          is used on the system. These options take an integer value and control the <literal>cpu.weight</literal>
-          control group attribute. The allowed range is 1 to 10000. Defaults to 100. For details about this control
-          group attribute, see <ulink
-          url="https://www.kernel.org/doc/html/latest/admin-guide/cgroup-v2.html">Control Groups v2</ulink> and <ulink
-          url="https://www.kernel.org/doc/html/latest/scheduler/sched-design-CFS.html">CFS Scheduler</ulink>.
-          The available CPU time is split up among all units within one slice relative to their CPU time weight.</para>
+          <para>Assign the specified CPU time weight to the processes executed, if the unified control group
+          hierarchy is used on the system. These options take an integer value and control the
+          <literal>cpu.weight</literal> control group attribute. The allowed range is 1 to 10000. Defaults to
+          100. For details about this control group attribute, see <ulink
+          url="https://www.kernel.org/doc/html/latest/admin-guide/cgroup-v2.html">Control Groups v2</ulink>
+          and <ulink url="https://www.kernel.org/doc/html/latest/scheduler/sched-design-CFS.html">CFS
+          Scheduler</ulink>.  The available CPU time is split up among all units within one slice relative to
+          their CPU time weight. A higher weight means more CPU time, a lower weight means less.</para>
 
           <para>While <varname>StartupCPUWeight=</varname> only applies to the startup phase of the system,
           <varname>CPUWeight=</varname> applies to normal runtime of the system, and if the former is not set also to
@@ -435,13 +436,14 @@
         <term><varname>StartupIOWeight=<replaceable>weight</replaceable></varname></term>
 
         <listitem>
-          <para>Set the default overall block I/O weight for the executed processes, if the unified control group
-          hierarchy is used on the system. Takes a single weight value (between 1 and 10000) to set the default block
-          I/O weight. This controls the <literal>io.weight</literal> control group attribute, which defaults to
-          100. For details about this control group attribute, see <ulink
-          url="https://www.kernel.org/doc/html/latest/admin-guide/cgroup-v2.html#io-interface-files">IO Interface Files</ulink>.
-          The available I/O bandwidth is split up among all units within one slice relative to their block
-          I/O weight.</para>
+          <para>Set the default overall block I/O weight for the executed processes, if the unified control
+          group hierarchy is used on the system. Takes a single weight value (between 1 and 10000) to set the
+          default block I/O weight. This controls the <literal>io.weight</literal> control group attribute,
+          which defaults to 100. For details about this control group attribute, see <ulink
+          url="https://www.kernel.org/doc/html/latest/admin-guide/cgroup-v2.html#io-interface-files">IO
+          Interface Files</ulink>.  The available I/O bandwidth is split up among all units within one slice
+          relative to their block I/O weight. A higher weight means more I/O bandwidth, a lower weight means
+          less.</para>
 
           <para>While <varname>StartupIOWeight=</varname> only applies
           to the startup phase of the system,
