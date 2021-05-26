@@ -115,8 +115,6 @@ int unhexmem_full(const char *p, size_t l, bool secure, void **ret, size_t *ret_
         uint8_t *z;
         int r;
 
-        assert(ret);
-        assert(ret_len);
         assert(p || l == 0);
 
         if (l == SIZE_MAX)
@@ -150,8 +148,10 @@ int unhexmem_full(const char *p, size_t l, bool secure, void **ret, size_t *ret_
 
         *z = 0;
 
-        *ret_len = (size_t) (z - buf);
-        *ret = TAKE_PTR(buf);
+        if (ret_len)
+                *ret_len = (size_t) (z - buf);
+        if (ret)
+                *ret = TAKE_PTR(buf);
 
         return 0;
 
@@ -705,8 +705,6 @@ int unbase64mem_full(const char *p, size_t l, bool secure, void **ret, size_t *r
         int r;
 
         assert(p || l == 0);
-        assert(ret);
-        assert(ret_size);
 
         if (l == SIZE_MAX)
                 l = strlen(p);
@@ -802,8 +800,10 @@ int unbase64mem_full(const char *p, size_t l, bool secure, void **ret, size_t *r
 
         *z = 0;
 
-        *ret_size = (size_t) (z - buf);
-        *ret = TAKE_PTR(buf);
+        if (ret_size)
+                *ret_size = (size_t) (z - buf);
+        if (ret)
+                *ret = TAKE_PTR(buf);
 
         return 0;
 
