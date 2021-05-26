@@ -82,6 +82,7 @@ extern const struct hash_ops string_hash_ops_free_free;
 void path_hash_func(const char *p, struct siphash *state);
 extern const struct hash_ops path_hash_ops;
 extern const struct hash_ops path_hash_ops_free;
+extern const struct hash_ops path_hash_ops_free_free;
 
 /* This will compare the passed pointers directly, and will not dereference them. This is hence not useful for strings
  * or suchlike. */
