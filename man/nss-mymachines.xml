@@ -39,6 +39,15 @@
     Note that the name that is resolved is the one registered with <command>systemd-machined</command>, which
     may be different than the hostname configured inside of the container.</para>
 
+    <para>Note that this NSS module only makes available names of the containers running immediately below
+    the current system context. It does not provide host name resolution for containers running side-by-side
+    with the invoking system context, or containers further up or down the container hierarchy. Or in other
+    words, on the host system it provides host name resolution for the containers running immediately below
+    the host environment. When used inside a container environment however, it will not be able to provide
+    name resolution for containers running on the host (as those are siblings and not children of the current
+    container environment), but instead only for nested containers running immediately below its own
+    container environment.</para>
+
     <para>To activate the NSS module, add <literal>mymachines</literal> to the line starting with
     <literal>hosts:</literal> in <filename>/etc/nsswitch.conf</filename>.</para>
 
