@@ -769,7 +769,7 @@ static int method_create_session(sd_bus_message *message, void *userdata, sd_bus
 
         if (seat) {
                 if (seat_has_vts(seat)) {
-                        if (vtnr <= 0 || vtnr > 63)
+                        if (vtnr < 0 || vtnr > 63)
                                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS,
                                                          "VT number out of range");
                 } else {
