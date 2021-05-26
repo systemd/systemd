@@ -357,8 +357,3 @@ STABLE BRANCHES AND BACKPORTS:
         distribution maintainers on an as needed basis. See
         https://www.freedesktop.org/wiki/Software/systemd/Backports/ for some
         more information and examples.
-
-ENGINEERING AND CONSULTING SERVICES:
-        Kinvolk (https://kinvolk.io) offers professional engineering
-        and consulting services for systemd. Please contact Chris Kühl
-        <chris@kinvolk.io> for more information.
