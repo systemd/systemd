@@ -178,27 +178,6 @@ static bool link_is_enslaved(Link *link) {
         return false;
 }
 
-static void link_update_master_operstate(Link *link, NetDev *netdev) {
-        Link *master;
-
-        if (!netdev)
-                return;
-
-        if (netdev->ifindex <= 0)
-                return;
-
-        /* If an interface is self-mentioned in Bridge= or friends, then it introduces an infinite loop.
-         * FIXME: there still exits a possibility of an infinite loop when two or more interfaces
-         * mention each other in Bridge= or so. We need to detect such a loop. */
-        if (link->ifindex == netdev->ifindex)
-                return;
-
-        if (link_get(link->manager, netdev->ifindex, &master) < 0)
-                return;
-
-        link_update_operstate(master, true);
-}
-
 static LinkAddressState address_state_from_scope(uint8_t scope) {
         if (scope < RT_SCOPE_SITE)
                 /* universally accessible addresses found */
@@ -371,10 +350,11 @@ void link_update_operstate(Link *link, bool also_update_master) {
         if (changed)
                 link_dirty(link);
 
-        if (also_update_master && link->network) {
-                link_update_master_operstate(link, link->network->batadv);
-                link_update_master_operstate(link, link->network->bond);
-                link_update_master_operstate(link, link->network->bridge);
+        if (also_update_master) {
+                Link *master;
+
+                if (link_get_master(link, &master) >= 0)
+                        link_update_operstate(master, true);
         }
 }
 
@@ -589,6 +569,17 @@ int link_get_by_name(Manager *m, const char *ifname, Link **ret) {
         if (ret)
                 *ret = link;
         return 0;
+}
+
+int link_get_master(Link *link, Link **ret) {
+        assert(link);
+        assert(link->manager);
+        assert(ret);
+
+        if (link->master_ifindex <= 0 || link->master_ifindex == link->ifindex)
+                return -ENODEV;
+
+        return link_get(link->manager, link->master_ifindex, ret);
 }
 
 void link_set_state(Link *link, LinkState state) {
@@ -1329,16 +1320,16 @@ static void link_free_carrier_maps(Link *link) {
         return;
 }
 
-static int link_append_to_master(Link *link, NetDev *netdev) {
+static int link_append_to_master(Link *link) {
         Link *master;
         int r;
 
         assert(link);
-        assert(netdev);
 
-        r = link_get(link->manager, netdev->ifindex, &master);
-        if (r < 0)
-                return r;
+        /* - The link may have no master.
+         * - RTM_NEWLINK message about master interface may not be received yet. */
+        if (link_get_master(link, &master) < 0)
+                return 0;
 
         r = set_ensure_put(&master->slaves, NULL, link);
         if (r <= 0)
@@ -1348,15 +1339,15 @@ static int link_append_to_master(Link *link, NetDev *netdev) {
         return 0;
 }
 
-static void link_drop_from_master(Link *link, NetDev *netdev) {
+static void link_drop_from_master(Link *link) {
         Link *master;
 
         assert(link);
 
-        if (!link->manager || !netdev)
+        if (!link->manager)
                 return;
 
-        if (link_get(link->manager, netdev->ifindex, &master) < 0)
+        if (link_get_master(link, &master) < 0)
                 return;
 
         link_unref(set_remove(master->slaves, link));
@@ -1391,11 +1382,7 @@ static Link *link_drop(Link *link) {
 
         link_free_carrier_maps(link);
 
-        if (link->network) {
-                link_drop_from_master(link, link->network->batadv);
-                link_drop_from_master(link, link->network->bridge);
-                link_drop_from_master(link, link->network->bond);
-        }
+        link_drop_from_master(link);
 
         link_unref(set_remove(link->manager->links_requesting_uuid, link));
 
@@ -1466,25 +1453,21 @@ static int link_joined(Link *link) {
                 r = link_set_bridge(link);
                 if (r < 0)
                         log_link_error_errno(link, r, "Could not set bridge message: %m");
-
-                r = link_append_to_master(link, link->network->bridge);
-                if (r < 0)
-                        log_link_error_errno(link, r, "Failed to add to bridge master's slave list: %m");
         }
 
         if (link->network->bond) {
                 r = link_set_bond(link);
                 if (r < 0)
                         log_link_error_errno(link, r, "Could not set bond message: %m");
-
-                r = link_append_to_master(link, link->network->bond);
-                if (r < 0)
-                        log_link_error_errno(link, r, "Failed to add to bond master's slave list: %m");
         }
 
         r = link_set_bridge_vlan(link);
         if (r < 0)
                 log_link_error_errno(link, r, "Could not set bridge vlan: %m");
+
+        r = link_append_to_master(link);
+        if (r < 0)
+                return log_link_error_errno(link, r, "Failed to add to master interface's slave list: %m");
 
         r = link_request_static_configs(link);
         if (r < 0)
