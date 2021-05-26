@@ -263,6 +263,34 @@ static int bus_method_describe(sd_bus_message *message, void *userdata, sd_bus_e
         return sd_bus_send(NULL, reply, NULL);
 }
 
+static int property_get_namespace_id(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                void *userdata,
+                sd_bus_error *error) {
+
+        uint64_t id = 0;
+        struct stat st;
+
+        assert(bus);
+        assert(reply);
+
+        /* Returns our own network namespace ID, i.e. the inode number of /proc/self/ns/net. This allows
+         * unprivileged clients to determine whether they are in the same network namespace as us (note that
+         * access to that path is restricted, thus they can't check directly unless privileged). */
+
+        if (stat("/proc/self/ns/net", &st) < 0) {
+                log_warning_errno(errno, "Failed to stat network namespace, ignoring: %m");
+                id = 0;
+        } else
+                id = st.st_ino;
+
+        return sd_bus_message_append(reply, "t", id);
+}
+
 const sd_bus_vtable manager_vtable[] = {
         SD_BUS_VTABLE_START(0),
 
@@ -272,6 +300,7 @@ const sd_bus_vtable manager_vtable[] = {
         SD_BUS_PROPERTY("IPv4AddressState", "s", property_get_address_state, offsetof(Manager, ipv4_address_state), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
         SD_BUS_PROPERTY("IPv6AddressState", "s", property_get_address_state, offsetof(Manager, ipv6_address_state), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
         SD_BUS_PROPERTY("OnlineState", "s", property_get_online_state, offsetof(Manager, online_state), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
+        SD_BUS_PROPERTY("NamespaceId", "t", property_get_namespace_id, 0, SD_BUS_VTABLE_PROPERTY_CONST),
 
         SD_BUS_METHOD_WITH_ARGS("ListLinks",
                                 SD_BUS_NO_ARGS,
