@@ -3,3 +3,4 @@ Name=wg99
 
 [Network]
 Address=192.168.124.1/24
+IPv6AcceptRA=no
