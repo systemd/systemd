@@ -154,15 +154,11 @@ bool link_is_ready_to_configure(Link *link, bool allow_unmanaged) {
         if (link->set_link_messages > 0)
                 return false;
 
-        /* TODO: enable this check when link_request_to_create_stacked_netdev() is used.
         if (!link->stacked_netdevs_created)
                 return false;
-        */
 
-        /* TODO: enable this check when link_request_to_activate() is used.
         if (!link->activated)
                 return false;
-        */
 
         return true;
 }
@@ -407,34 +403,6 @@ void link_enter_failed(Link *link) {
         (void) link_stop_engines(link, false);
 }
 
-static int link_join_netdevs_after_configured(Link *link) {
-        NetDev *netdev;
-        int r;
-
-        HASHMAP_FOREACH(netdev, link->network->stacked_netdevs) {
-                if (netdev->ifindex > 0)
-                        /* Assume already enslaved. */
-                        continue;
-
-                if (netdev_get_create_type(netdev) != NETDEV_CREATE_AFTER_CONFIGURED)
-                        continue;
-
-                log_struct(LOG_DEBUG,
-                           LOG_LINK_INTERFACE(link),
-                           LOG_NETDEV_INTERFACE(netdev),
-                           LOG_LINK_MESSAGE(link, "Enslaving by '%s'", netdev->ifname));
-
-                r = netdev_join(netdev, link, NULL);
-                if (r < 0)
-                        return log_struct_errno(LOG_WARNING, r,
-                                                LOG_LINK_INTERFACE(link),
-                                                LOG_NETDEV_INTERFACE(netdev),
-                                                LOG_LINK_MESSAGE(link, "Could not join netdev '%s': %m", netdev->ifname));
-        }
-
-        return 0;
-}
-
 static void link_enter_configured(Link *link) {
         assert(link);
         assert(link->network);
@@ -443,8 +411,6 @@ static void link_enter_configured(Link *link) {
                 return;
 
         link_set_state(link, LINK_STATE_CONFIGURED);
-
-        (void) link_join_netdevs_after_configured(link);
 }
 
 void link_check_ready(Link *link) {
@@ -602,52 +568,25 @@ static int link_request_static_configs(Link *link) {
         return 0;
 }
 
-static int link_nomaster_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
+static int link_request_stacked_netdevs(Link *link) {
+        NetDev *netdev;
         int r;
 
         assert(link);
 
-        if (IN_SET(link->state, LINK_STATE_FAILED, LINK_STATE_LINGER))
-                return 1;
+        link->stacked_netdevs_created = false;
+        link->stacked_netdevs_after_configured_created = false;
 
-        r = sd_netlink_message_get_errno(m);
-        if (r < 0)
-                log_link_message_warning_errno(link, m, r, "Could not set nomaster, ignoring");
-        else
-                log_link_debug(link, "Setting nomaster done.");
+        HASHMAP_FOREACH(netdev, link->network->stacked_netdevs) {
+                r = link_request_to_crate_stacked_netdev(link, netdev);
+                if (r < 0)
+                        return r;
+        }
 
-        return 1;
-}
-
-static int link_set_nomaster(Link *link) {
-        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL;
-        int r;
-
-        assert(link);
-        assert(link->network);
-        assert(link->manager);
-        assert(link->manager->rtnl);
-
-        /* set it free if not enslaved with networkd */
-        if (link->network->batadv || link->network->bridge || link->network->bond || link->network->vrf)
-                return 0;
-
-        log_link_debug(link, "Setting nomaster");
-
-        r = sd_rtnl_message_new_link(link->manager->rtnl, &req, RTM_SETLINK, link->ifindex);
-        if (r < 0)
-                return log_link_error_errno(link, r, "Could not allocate RTM_SETLINK message: %m");
-
-        r = sd_netlink_message_append_u32(req, IFLA_MASTER, 0);
-        if (r < 0)
-                return log_link_error_errno(link, r, "Could not append IFLA_MASTER attribute: %m");
-
-        r = netlink_call_async(link->manager->rtnl, NULL, req, link_nomaster_handler,
-                               link_netlink_destroy_callback, link);
-        if (r < 0)
-                return log_link_error_errno(link, r, "Could not send rtnetlink message: %m");
-
-        link_ref(link);
+        if (link->create_stacked_netdev_messages == 0)
+                link->stacked_netdevs_created = true;
+        if (link->create_stacked_netdev_after_configured_messages == 0)
+                link->stacked_netdevs_after_configured_created = true;
 
         return 0;
 }
@@ -1030,255 +969,6 @@ static Link *link_drop(Link *link) {
         return link_unref(link);
 }
 
-int link_activate(Link *link) {
-        int r;
-
-        assert(link);
-        assert(link->network);
-
-        switch (link->network->activation_policy) {
-        case ACTIVATION_POLICY_BOUND:
-                r = link_handle_bound_to_list(link);
-                if (r < 0)
-                        return r;
-                break;
-        case ACTIVATION_POLICY_UP:
-                if (link->activated)
-                        break;
-                _fallthrough_;
-        case ACTIVATION_POLICY_ALWAYS_UP:
-                r = link_up(link);
-                if (r < 0)
-                        return r;
-                break;
-        case ACTIVATION_POLICY_DOWN:
-                if (link->activated)
-                        break;
-                _fallthrough_;
-        case ACTIVATION_POLICY_ALWAYS_DOWN:
-                r = link_down(link);
-                if (r < 0)
-                        return r;
-                break;
-        default:
-                break;
-        }
-        link->activated = true;
-
-        return 0;
-}
-
-static int link_joined(Link *link) {
-        int r;
-
-        assert(link);
-        assert(link->network);
-
-        r = link_activate(link);
-        if (r < 0)
-                return r;
-
-        link_set_state(link, LINK_STATE_CONFIGURING);
-
-        if (link->network->bridge) {
-                r = link_set_bridge(link);
-                if (r < 0)
-                        log_link_error_errno(link, r, "Could not set bridge message: %m");
-        }
-
-        if (link->network->bond) {
-                r = link_set_bond(link);
-                if (r < 0)
-                        log_link_error_errno(link, r, "Could not set bond message: %m");
-        }
-
-        r = link_set_bridge_vlan(link);
-        if (r < 0)
-                log_link_error_errno(link, r, "Could not set bridge vlan: %m");
-
-        r = link_append_to_master(link);
-        if (r < 0)
-                return log_link_error_errno(link, r, "Failed to add to master interface's slave list: %m");
-
-        r = link_request_static_configs(link);
-        if (r < 0)
-                return r;
-
-        if (!link_has_carrier(link))
-                return 0;
-
-        return link_acquire_dynamic_conf(link);
-}
-
-static int netdev_join_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
-        int r;
-
-        assert(link);
-        assert(link->network);
-        assert(link->enslaving > 0);
-
-        link->enslaving--;
-
-        if (IN_SET(link->state, LINK_STATE_FAILED, LINK_STATE_LINGER))
-                return 1;
-
-        r = sd_netlink_message_get_errno(m);
-        if (r < 0 && r != -EEXIST) {
-                log_link_message_warning_errno(link, m, r, "Could not join netdev");
-                link_enter_failed(link);
-                return 1;
-        }
-
-        log_link_debug(link, "Joined netdev");
-
-        if (link->enslaving == 0) {
-                r = link_joined(link);
-                if (r < 0)
-                        link_enter_failed(link);
-        }
-
-        return 1;
-}
-
-int link_enter_join_netdev(Link *link) {
-        NetDev *netdev;
-        Request req;
-        int r;
-
-        assert(link);
-        assert(link->network);
-        assert(link->state == LINK_STATE_INITIALIZED);
-
-        req = (Request) {
-                .link = link,
-                .type = REQUEST_TYPE_SET_LINK,
-                .set_link_operation = SET_LINK_MTU,
-        };
-
-        if (ordered_set_contains(link->manager->request_queue, &req)) {
-                link->entering_to_join_netdev = true;
-                return 0;
-        }
-
-        link->entering_to_join_netdev = false;
-
-        link_set_state(link, LINK_STATE_CONFIGURING);
-
-        link->enslaving = 0;
-
-        if (link->network->bond) {
-                if (link->network->bond->state == NETDEV_STATE_READY &&
-                    link->network->bond->ifindex == link->master_ifindex)
-                        return link_joined(link);
-
-                log_struct(LOG_DEBUG,
-                           LOG_LINK_INTERFACE(link),
-                           LOG_NETDEV_INTERFACE(link->network->bond),
-                           LOG_LINK_MESSAGE(link, "Enslaving by '%s'", link->network->bond->ifname));
-
-                link->enslaving++;
-
-                r = netdev_join(link->network->bond, link, netdev_join_handler);
-                if (r < 0) {
-                        log_struct_errno(LOG_WARNING, r,
-                                         LOG_LINK_INTERFACE(link),
-                                         LOG_NETDEV_INTERFACE(link->network->bond),
-                                         LOG_LINK_MESSAGE(link, "Could not join netdev '%s': %m", link->network->bond->ifname));
-                        link_enter_failed(link);
-                        return r;
-                }
-        }
-
-        if (link->network->batadv) {
-                log_struct(LOG_DEBUG,
-                           LOG_LINK_INTERFACE(link),
-                           LOG_NETDEV_INTERFACE(link->network->batadv),
-                           LOG_LINK_MESSAGE(link, "Enslaving by '%s'", link->network->batadv->ifname));
-
-                link->enslaving++;
-
-                r = netdev_join(link->network->batadv, link, netdev_join_handler);
-                if (r < 0) {
-                        log_struct_errno(LOG_WARNING, r,
-                                         LOG_LINK_INTERFACE(link),
-                                         LOG_NETDEV_INTERFACE(link->network->batadv),
-                                         LOG_LINK_MESSAGE(link, "Could not join netdev '%s': %m", link->network->batadv->ifname));
-                        link_enter_failed(link);
-                        return r;
-                }
-        }
-
-        if (link->network->bridge) {
-                log_struct(LOG_DEBUG,
-                           LOG_LINK_INTERFACE(link),
-                           LOG_NETDEV_INTERFACE(link->network->bridge),
-                           LOG_LINK_MESSAGE(link, "Enslaving by '%s'", link->network->bridge->ifname));
-
-                link->enslaving++;
-
-                r = netdev_join(link->network->bridge, link, netdev_join_handler);
-                if (r < 0) {
-                        log_struct_errno(LOG_WARNING, r,
-                                         LOG_LINK_INTERFACE(link),
-                                         LOG_NETDEV_INTERFACE(link->network->bridge),
-                                         LOG_LINK_MESSAGE(link, "Could not join netdev '%s': %m", link->network->bridge->ifname));
-                        link_enter_failed(link);
-                        return r;
-                }
-        }
-
-        if (link->network->vrf) {
-                log_struct(LOG_DEBUG,
-                           LOG_LINK_INTERFACE(link),
-                           LOG_NETDEV_INTERFACE(link->network->vrf),
-                           LOG_LINK_MESSAGE(link, "Enslaving by '%s'", link->network->vrf->ifname));
-
-                link->enslaving++;
-
-                r = netdev_join(link->network->vrf, link, netdev_join_handler);
-                if (r < 0) {
-                        log_struct_errno(LOG_WARNING, r,
-                                         LOG_LINK_INTERFACE(link),
-                                         LOG_NETDEV_INTERFACE(link->network->vrf),
-                                         LOG_LINK_MESSAGE(link, "Could not join netdev '%s': %m", link->network->vrf->ifname));
-                        link_enter_failed(link);
-                        return r;
-                }
-        }
-
-        HASHMAP_FOREACH(netdev, link->network->stacked_netdevs) {
-
-                if (netdev->ifindex > 0)
-                        /* Assume already enslaved. */
-                        continue;
-
-                if (netdev_get_create_type(netdev) != NETDEV_CREATE_STACKED)
-                        continue;
-
-                log_struct(LOG_DEBUG,
-                           LOG_LINK_INTERFACE(link),
-                           LOG_NETDEV_INTERFACE(netdev),
-                           LOG_LINK_MESSAGE(link, "Enslaving by '%s'", netdev->ifname));
-
-                link->enslaving++;
-
-                r = netdev_join(netdev, link, netdev_join_handler);
-                if (r < 0) {
-                        log_struct_errno(LOG_WARNING, r,
-                                         LOG_LINK_INTERFACE(link),
-                                         LOG_NETDEV_INTERFACE(netdev),
-                                         LOG_LINK_MESSAGE(link, "Could not join netdev '%s': %m", netdev->ifname));
-                        link_enter_failed(link);
-                        return r;
-                }
-        }
-
-        if (link->enslaving == 0)
-                return link_joined(link);
-
-        return 0;
-}
-
 static int link_drop_foreign_config(Link *link) {
         int k, r;
 
@@ -1342,6 +1032,8 @@ static int link_configure(Link *link) {
         assert(link->network);
         assert(link->state == LINK_STATE_INITIALIZED);
 
+        link_set_state(link, LINK_STATE_CONFIGURING);
+
         r = link_configure_traffic_control(link);
         if (r < 0)
                 return r;
@@ -1362,15 +1054,43 @@ static int link_configure(Link *link) {
         if (r < 0)
                 return r;
 
-        r = link_set_nomaster(link);
-        if (r < 0)
-                return r;
-
         r = link_request_to_set_flags(link);
         if (r < 0)
                 return r;
 
         r = link_request_to_set_group(link);
+        if (r < 0)
+                return r;
+
+        r = link_configure_mtu(link);
+        if (r < 0)
+                return r;
+
+        r = link_request_to_set_addrgen_mode(link);
+        if (r < 0)
+                return r;
+
+        r = link_request_to_set_master(link);
+        if (r < 0)
+                return r;
+
+        r = link_request_stacked_netdevs(link);
+        if (r < 0)
+                return r;
+
+        r = link_request_to_set_bond(link);
+        if (r < 0)
+                return r;
+
+        r = link_request_to_set_bridge(link);
+        if (r < 0)
+                return r;
+
+        r = link_request_to_set_bridge_vlan(link);
+        if (r < 0)
+                return r;
+
+        r = link_request_to_activate(link);
         if (r < 0)
                 return r;
 
@@ -1402,14 +1122,6 @@ static int link_configure(Link *link) {
         if (r < 0)
                 return r;
 
-        r = link_configure_mtu(link);
-        if (r < 0)
-                return r;
-
-        r = link_request_to_set_addrgen_mode(link);
-        if (r < 0)
-                return r;
-
         /* Drop foreign config, but ignore loopback or critical devices.
          * We do not want to remove loopback address or addresses used for root NFS. */
         if (!(link->flags & IFF_LOOPBACK) &&
@@ -1419,7 +1131,14 @@ static int link_configure(Link *link) {
                         return r;
         }
 
-        return link_enter_join_netdev(link);
+        r = link_request_static_configs(link);
+        if (r < 0)
+                return r;
+
+        if (!link_has_carrier(link))
+                return 0;
+
+        return link_acquire_dynamic_conf(link);
 }
 
 static int link_get_network(Link *link, Network **ret) {
