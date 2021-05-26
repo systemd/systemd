@@ -159,19 +159,6 @@ int config_parse_netdev_kind(
         return 0;
 }
 
-static void netdev_callbacks_clear(NetDev *netdev) {
-        netdev_join_callback *callback;
-
-        if (!netdev)
-                return;
-
-        while ((callback = netdev->callbacks)) {
-                LIST_REMOVE(callbacks, netdev->callbacks, callback);
-                link_unref(callback->link);
-                free(callback);
-        }
-}
-
 bool netdev_is_managed(NetDev *netdev) {
         if (!netdev || !netdev->manager || !netdev->ifname)
                 return false;
@@ -186,8 +173,6 @@ static void netdev_detach_from_manager(NetDev *netdev) {
 
 static NetDev *netdev_free(NetDev *netdev) {
         assert(netdev);
-
-        netdev_callbacks_clear(netdev);
 
         netdev_detach_from_manager(netdev);
 
@@ -223,12 +208,8 @@ void netdev_drop(NetDev *netdev) {
 
         log_netdev_debug(netdev, "netdev removed");
 
-        netdev_callbacks_clear(netdev);
-
         netdev_detach_from_manager(netdev);
-
         netdev_unref(netdev);
-
         return;
 }
 
@@ -252,55 +233,10 @@ int netdev_get(Manager *manager, const char *name, NetDev **ret) {
 
 static int netdev_enter_failed(NetDev *netdev) {
         netdev->state = NETDEV_STATE_FAILED;
-
-        netdev_callbacks_clear(netdev);
-
-        return 0;
-}
-
-static int netdev_enslave_ready(NetDev *netdev, Link* link, link_netlink_message_handler_t callback) {
-        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL;
-        int r;
-
-        assert(netdev);
-        assert(netdev->state == NETDEV_STATE_READY);
-        assert(netdev->manager);
-        assert(netdev->manager->rtnl);
-        assert(IN_SET(netdev->kind, NETDEV_KIND_BRIDGE, NETDEV_KIND_BOND, NETDEV_KIND_VRF, NETDEV_KIND_BATADV));
-        assert(link);
-        assert(callback);
-
-        if (link->flags & IFF_UP && netdev->kind == NETDEV_KIND_BOND) {
-                log_netdev_debug(netdev, "Link '%s' was up when attempting to enslave it. Bringing link down.", link->ifname);
-                r = link_down(link);
-                if (r < 0)
-                        return log_netdev_error_errno(netdev, r, "Could not bring link down: %m");
-        }
-
-        r = sd_rtnl_message_new_link(netdev->manager->rtnl, &req, RTM_SETLINK, link->ifindex);
-        if (r < 0)
-                return log_netdev_error_errno(netdev, r, "Could not allocate RTM_SETLINK message: %m");
-
-        r = sd_netlink_message_append_u32(req, IFLA_MASTER, netdev->ifindex);
-        if (r < 0)
-                return log_netdev_error_errno(netdev, r, "Could not append IFLA_MASTER attribute: %m");
-
-        r = netlink_call_async(netdev->manager->rtnl, NULL, req, callback,
-                               link_netlink_destroy_callback, link);
-        if (r < 0)
-                return log_netdev_error_errno(netdev, r, "Could not send rtnetlink message: %m");
-
-        link_ref(link);
-
-        log_netdev_debug(netdev, "Enslaving link '%s'", link->ifname);
-
         return 0;
 }
 
 static int netdev_enter_ready(NetDev *netdev) {
-        netdev_join_callback *callback, *callback_next;
-        int r;
-
         assert(netdev);
         assert(netdev->ifname);
 
@@ -310,18 +246,6 @@ static int netdev_enter_ready(NetDev *netdev) {
         netdev->state = NETDEV_STATE_READY;
 
         log_netdev_info(netdev, "netdev ready");
-
-        LIST_FOREACH_SAFE(callbacks, callback, callback_next, netdev->callbacks) {
-                /* enslave the links that were attempted to be enslaved before the
-                 * link was ready */
-                r = netdev_enslave_ready(netdev, callback->link, callback->callback);
-                if (r < 0)
-                        return r;
-
-                LIST_REMOVE(callbacks, netdev->callbacks, callback);
-                link_unref(callback->link);
-                free(callback);
-        }
 
         if (NETDEV_VTABLE(netdev)->post_create)
                 NETDEV_VTABLE(netdev)->post_create(netdev, NULL, NULL);
@@ -349,45 +273,6 @@ static int netdev_create_handler(sd_netlink *rtnl, sd_netlink_message *m, NetDev
         log_netdev_debug(netdev, "Created");
 
         return 1;
-}
-
-static int netdev_enslave(NetDev *netdev, Link *link, link_netlink_message_handler_t callback) {
-        int r;
-
-        assert(netdev);
-        assert(netdev->manager);
-        assert(netdev->manager->rtnl);
-        assert(IN_SET(netdev->kind, NETDEV_KIND_BRIDGE, NETDEV_KIND_BOND, NETDEV_KIND_VRF, NETDEV_KIND_BATADV));
-
-        if (netdev->state == NETDEV_STATE_READY) {
-                r = netdev_enslave_ready(netdev, link, callback);
-                if (r < 0)
-                        return r;
-        } else if (IN_SET(netdev->state, NETDEV_STATE_LINGER, NETDEV_STATE_FAILED)) {
-                _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
-
-                r = rtnl_message_new_synthetic_error(netdev->manager->rtnl, -ENODEV, 0, &m);
-                if (r >= 0)
-                        callback(netdev->manager->rtnl, m, link);
-        } else {
-                /* the netdev is not yet ready, save this request for when it is */
-                netdev_join_callback *cb;
-
-                cb = new(netdev_join_callback, 1);
-                if (!cb)
-                        return log_oom();
-
-                *cb = (netdev_join_callback) {
-                        .callback = callback,
-                        .link = link_ref(link),
-                };
-
-                LIST_PREPEND(callbacks, netdev->callbacks, cb);
-
-                log_netdev_debug(netdev, "Will enslave '%s', when ready", link->ifname);
-        }
-
-        return 0;
 }
 
 int netdev_set_ifindex(NetDev *netdev, sd_netlink_message *message) {
@@ -622,7 +507,6 @@ static int netdev_create_after_configured(NetDev *netdev, Link *link) {
         return NETDEV_VTABLE(netdev)->create_after_configured(netdev, link);
 }
 
-/* the callback must be called, possibly after a timeout, as otherwise the Link will hang */
 int netdev_join(NetDev *netdev, Link *link, link_netlink_message_handler_t callback) {
         int r;
 
@@ -631,12 +515,6 @@ int netdev_join(NetDev *netdev, Link *link, link_netlink_message_handler_t callb
         assert(netdev->manager->rtnl);
 
         switch (netdev_get_create_type(netdev)) {
-        case NETDEV_CREATE_MASTER:
-                r = netdev_enslave(netdev, link, callback);
-                if (r < 0)
-                        return r;
-
-                break;
         case NETDEV_CREATE_STACKED:
                 r = netdev_create(netdev, link, callback);
                 if (r < 0)
@@ -904,8 +782,6 @@ int netdev_load_one(Manager *manager, const char *filename) {
         }
         if (r < 0)
                 return r;
-
-        LIST_HEAD_INIT(netdev->callbacks);
 
         log_netdev_debug(netdev, "loaded %s", netdev_kind_to_string(netdev->kind));
 
