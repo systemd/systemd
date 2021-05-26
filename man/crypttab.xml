@@ -659,9 +659,9 @@
       <varlistentry>
         <term><option>tpm2-pcrs=</option></term>
 
-        <listitem><para>Takes a comma separated list of numeric TPM2 PCR (i.e. "Platform Configuration
-        Register") indexes to bind the TPM2 volume unlocking to. This option is only useful when TPM2
-        enrollment metadata is not available in the LUKS2 JSON token header already, the way
+        <listitem><para>Takes a <literal>+</literal> separated list of numeric TPM2 PCR (i.e. "Platform
+        Configuration Register") indexes to bind the TPM2 volume unlocking to. This option is only useful
+        when TPM2 enrollment metadata is not available in the LUKS2 JSON token header already, the way
         <command>systemd-cryptenroll</command> writes it there. If not used (and no metadata in the LUKS2
         JSON token header defines it), defaults to a list of a single entry: PCR 7. Assign an empty string to
         encode a policy that binds the key to no PCRs, making the key accessible to local programs regardless
