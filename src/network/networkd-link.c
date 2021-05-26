@@ -845,10 +845,9 @@ int link_down(Link *link, link_netlink_message_handler_t callback) {
 }
 
 static int link_handle_bound_to_list(Link *link) {
-        Link *l;
-        int r;
         bool required_up = false;
         bool link_is_up = false;
+        Link *l;
 
         assert(link);
 
@@ -858,21 +857,16 @@ static int link_handle_bound_to_list(Link *link) {
         if (link->flags & IFF_UP)
                 link_is_up = true;
 
-        HASHMAP_FOREACH (l, link->bound_to_links)
+        HASHMAP_FOREACH(l, link->bound_to_links)
                 if (link_has_carrier(l)) {
                         required_up = true;
                         break;
                 }
 
-        if (!required_up && link_is_up) {
-                r = link_down(link, NULL);
-                if (r < 0)
-                        return r;
-        } else if (required_up && !link_is_up) {
-                r = link_up(link);
-                if (r < 0)
-                        return r;
-        }
+        if (!required_up && link_is_up)
+                return link_down(link, NULL);
+        if (required_up && !link_is_up)
+                return link_up(link);
 
         return 0;
 }
@@ -886,7 +880,7 @@ static int link_handle_bound_by_list(Link *link) {
         if (hashmap_isempty(link->bound_by_links))
                 return 0;
 
-        HASHMAP_FOREACH (l, link->bound_by_links) {
+        HASHMAP_FOREACH(l, link->bound_by_links) {
                 r = link_handle_bound_to_list(l);
                 if (r < 0)
                         return r;
@@ -965,7 +959,7 @@ static int link_new_bound_to_list(Link *link) {
 
         m = link->manager;
 
-        HASHMAP_FOREACH (carrier, m->links) {
+        HASHMAP_FOREACH(carrier, m->links) {
                 if (strv_fnmatch(link->network->bind_carrier, carrier->ifname)) {
                         r = link_put_carrier(link, carrier, &link->bound_to_links);
                         if (r < 0)
@@ -973,7 +967,7 @@ static int link_new_bound_to_list(Link *link) {
                 }
         }
 
-        HASHMAP_FOREACH (carrier, link->bound_to_links) {
+        HASHMAP_FOREACH(carrier, link->bound_to_links) {
                 r = link_put_carrier(carrier, link, &carrier->bound_by_links);
                 if (r < 0)
                         return r;
@@ -997,11 +991,7 @@ static int link_new_carrier_maps(Link *link) {
         if (r < 0)
                 return r;
 
-        r = link_handle_bound_to_list(link);
-        if (r < 0)
-                return r;
-
-        return 0;
+        return link_handle_bound_to_list(link);
 }
 
 static void link_free_bound_to_list(Link *link) {
@@ -1019,8 +1009,6 @@ static void link_free_bound_to_list(Link *link) {
 
         if (updated)
                 link_dirty(link);
-
-        return;
 }
 
 static void link_free_bound_by_list(Link *link) {
@@ -1040,8 +1028,6 @@ static void link_free_bound_by_list(Link *link) {
 
         if (updated)
                 link_dirty(link);
-
-        return;
 }
 
 static void link_free_carrier_maps(Link *link) {
@@ -1049,8 +1035,6 @@ static void link_free_carrier_maps(Link *link) {
 
         link_free_bound_to_list(link);
         link_free_bound_by_list(link);
-
-        return;
 }
 
 static int link_append_to_master(Link *link) {
@@ -1774,11 +1758,7 @@ static int link_initialized_and_synced(Link *link) {
         if (r < 0)
                 return r;
 
-        r = link_configure(link);
-        if (r < 0)
-                return r;
-
-        return 0;
+        return link_configure(link);
 }
 
 static int link_initialized_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
@@ -1864,44 +1844,46 @@ static int link_add(Manager *m, sd_netlink_message *message, Link **ret) {
 
         log_link_debug(link, "Link %d added", link->ifindex);
 
-        if (path_is_read_only_fs("/sys") <= 0) {
-                /* udev should be around */
-                sprintf(ifindex_str, "n%d", link->ifindex);
-                r = sd_device_new_from_device_id(&device, ifindex_str);
-                if (r < 0) {
-                        log_link_debug_errno(link, r, "Could not find device, waiting for device initialization: %m");
-                        return 0;
-                }
-
-                r = sd_device_get_is_initialized(device);
-                if (r < 0) {
-                        log_link_warning_errno(link, r, "Could not determine whether the device is initialized: %m");
-                        goto failed;
-                }
-                if (r == 0) {
-                        /* not yet ready */
-                        log_link_debug(link, "link pending udev initialization...");
-                        return 0;
-                }
-
-                r = device_is_renaming(device);
-                if (r < 0) {
-                        log_link_warning_errno(link, r, "Failed to determine the device is being renamed: %m");
-                        goto failed;
-                }
-                if (r > 0) {
-                        log_link_debug(link, "Interface is being renamed, pending initialization.");
-                        return 0;
-                }
-
-                r = link_initialized(link, device);
-                if (r < 0)
-                        goto failed;
-        } else {
+        if (path_is_read_only_fs("/sys") > 0) {
+                /* no udev */
                 r = link_initialized_and_synced(link);
                 if (r < 0)
                         goto failed;
+                return 0;
         }
+
+        /* udev should be around */
+        xsprintf(ifindex_str, "n%d", link->ifindex);
+        r = sd_device_new_from_device_id(&device, ifindex_str);
+        if (r < 0) {
+                log_link_debug_errno(link, r, "Could not find device, waiting for device initialization: %m");
+                return 0;
+        }
+
+        r = sd_device_get_is_initialized(device);
+        if (r < 0) {
+                log_link_warning_errno(link, r, "Could not determine whether the device is initialized: %m");
+                goto failed;
+        }
+        if (r == 0) {
+                /* not yet ready */
+                log_link_debug(link, "link pending udev initialization...");
+                return 0;
+        }
+
+        r = device_is_renaming(device);
+        if (r < 0) {
+                log_link_warning_errno(link, r, "Failed to determine the device is being renamed: %m");
+                goto failed;
+        }
+        if (r > 0) {
+                log_link_debug(link, "Interface is being renamed, pending initialization.");
+                return 0;
+        }
+
+        r = link_initialized(link, device);
+        if (r < 0)
+                goto failed;
 
         return 0;
 failed:
@@ -2023,11 +2005,7 @@ static int link_carrier_lost(Link *link) {
                         return r;
         }
 
-        r = link_handle_bound_by_list(link);
-        if (r < 0)
-                return r;
-
-        return 0;
+        return link_handle_bound_by_list(link);
 }
 
 int link_carrier_reset(Link *link) {
@@ -2035,18 +2013,18 @@ int link_carrier_reset(Link *link) {
 
         assert(link);
 
-        if (link_has_carrier(link)) {
-                r = link_carrier_lost(link);
-                if (r < 0)
-                        return r;
+        if (!link_has_carrier(link))
+                return 0;
 
-                r = link_carrier_gained(link);
-                if (r < 0)
-                        return r;
+        r = link_carrier_lost(link);
+        if (r < 0)
+                return r;
 
-                log_link_info(link, "Reset carrier");
-        }
+        r = link_carrier_gained(link);
+        if (r < 0)
+                return r;
 
+        log_link_info(link, "Reset carrier");
         return 0;
 }
 
