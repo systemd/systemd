@@ -273,10 +273,11 @@
     objects in the file system hierarchy. Example: a device unit <filename>dev-sda.device</filename> refers to a device
     with the device node <filename index="false">/dev/sda</filename> in the file system.</para>
 
-    <para>The escaping algorithm operates as follows: given a string, any <literal>/</literal> character is replaced by
-    <literal>-</literal>, and all other characters which are not ASCII alphanumerics or <literal>_</literal> are
-    replaced by C-style <literal>\x2d</literal> escapes. In addition, <literal>.</literal> is replaced with such a
-    C-style escape when it would appear as the first character in the escaped string.</para>
+    <para>The escaping algorithm operates as follows: given a string, any <literal>/</literal> character is
+    replaced by <literal>-</literal>, and all other characters which are not ASCII alphanumerics,
+    <literal>:</literal>, <literal>_</literal> or <literal>.</literal> are replaced by C-style
+    <literal>\x2d</literal> escapes. In addition, <literal>.</literal> is replaced with such a C-style escape
+    when it would appear as the first character in the escaped string.</para>
 
     <para>When the input qualifies as absolute file system path, this algorithm is extended slightly: the path to the
     root directory <literal>/</literal> is encoded as single dash <literal>-</literal>. In addition, any leading,
