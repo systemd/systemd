@@ -1,5 +1,7 @@
 [Match]
 Name=client
+
 [Network]
 DHCP=yes
 IPForward=ipv4
+IPv6AcceptRA=no
