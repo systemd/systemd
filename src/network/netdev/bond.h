@@ -46,8 +46,6 @@ typedef struct Bond {
 DEFINE_NETDEV_CAST(BOND, Bond);
 extern const NetDevVTable bond_vtable;
 
-int link_set_bond(Link *link);
-
 CONFIG_PARSER_PROTOTYPE(config_parse_bond_mode);
 CONFIG_PARSER_PROTOTYPE(config_parse_bond_xmit_hash_policy);
 CONFIG_PARSER_PROTOTYPE(config_parse_bond_lacp_rate);

@@ -94,7 +94,6 @@ typedef struct Link {
         unsigned route_remove_messages;
         unsigned tc_messages;
         unsigned sr_iov_messages;
-        unsigned enslaving;
         unsigned set_link_messages;
         unsigned create_stacked_netdev_messages;
         unsigned create_stacked_netdev_after_configured_messages;
@@ -140,7 +139,6 @@ typedef struct Link {
         bool can_configured:1;
         bool activated:1;
         bool master_set:1;
-        bool entering_to_join_netdev:1;
         bool stacked_netdevs_created:1;
         bool stacked_netdevs_after_configured_created:1;
 
@@ -224,12 +222,9 @@ int link_get_master(Link *link, Link **ret);
 
 int link_getlink_handler_internal(sd_netlink *rtnl, sd_netlink_message *m, Link *link, const char *error_msg);
 int link_call_getlink(Link *link, link_netlink_message_handler_t callback);
-int link_activate(Link *link);
 int link_handle_bound_to_list(Link *link);
 
-int link_enter_join_netdev(Link *link);
 void link_enter_failed(Link *link);
-
 void link_set_state(Link *link, LinkState state);
 void link_check_ready(Link *link);
 

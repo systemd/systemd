@@ -26,8 +26,6 @@ int bridge_vlan_append_info(
                 const uint32_t *br_vid_bitmap,
                 const uint32_t *br_untagged_bitmap);
 
-int link_set_bridge_vlan(Link *link);
-
 CONFIG_PARSER_PROTOTYPE(config_parse_brvlan_pvid);
 CONFIG_PARSER_PROTOTYPE(config_parse_brvlan_vlan);
 CONFIG_PARSER_PROTOTYPE(config_parse_brvlan_untagged);

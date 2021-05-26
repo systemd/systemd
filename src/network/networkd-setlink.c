@@ -140,12 +140,6 @@ static int link_set_mtu_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *l
         if (r < 0)
                 log_link_warning_errno(link, r, "Failed to set IPv6 MTU, ignoring: %m");
 
-        if (link->entering_to_join_netdev) {
-                r = link_enter_join_netdev(link);
-                if (r < 0)
-                        link_enter_failed(link);
-        }
-
         return 0;
 }
 

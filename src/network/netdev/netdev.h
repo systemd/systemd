@@ -40,15 +40,6 @@
         "-WireGuardPeer\0"                        \
         "-Xfrm\0"
 
-typedef struct netdev_join_callback netdev_join_callback;
-
-struct netdev_join_callback {
-        link_netlink_message_handler_t callback;
-        Link *link;
-
-        LIST_FIELDS(netdev_join_callback, callbacks);
-};
-
 typedef enum NetDevKind {
         NETDEV_KIND_BRIDGE,
         NETDEV_KIND_BOND,
@@ -130,8 +121,6 @@ typedef struct NetDev {
         struct ether_addr *mac;
         uint32_t mtu;
         int ifindex;
-
-        LIST_HEAD(netdev_join_callback, callbacks);
 } NetDev;
 
 typedef struct NetDevVTable {
@@ -206,7 +195,6 @@ int netdev_get(Manager *manager, const char *name, NetDev **ret);
 int netdev_set_ifindex(NetDev *netdev, sd_netlink_message *newlink);
 int netdev_get_mac(const char *ifname, struct ether_addr **ret);
 int netdev_join(NetDev *netdev, Link *link, link_netlink_message_handler_t cb);
-int netdev_join_after_configured(NetDev *netdev, Link *link, link_netlink_message_handler_t callback);
 
 int request_process_create_stacked_netdev(Request *req);
 int link_request_to_crate_stacked_netdev(Link *link, NetDev *netdev);
