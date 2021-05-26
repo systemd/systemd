@@ -326,12 +326,6 @@ void link_set_state(Link *link, LinkState state) {
         link_dirty(link);
 }
 
-static void link_enter_unmanaged(Link *link) {
-        assert(link);
-
-        link_set_state(link, LINK_STATE_UNMANAGED);
-}
-
 int link_stop_engines(Link *link, bool may_keep_dhcp) {
         int r = 0, k;
 
@@ -403,16 +397,6 @@ void link_enter_failed(Link *link) {
         (void) link_stop_engines(link, false);
 }
 
-static void link_enter_configured(Link *link) {
-        assert(link);
-        assert(link->network);
-
-        if (link->state != LINK_STATE_CONFIGURING)
-                return;
-
-        link_set_state(link, LINK_STATE_CONFIGURED);
-}
-
 void link_check_ready(Link *link) {
         Address *a;
 
@@ -432,7 +416,7 @@ void link_check_ready(Link *link) {
                 if (!link->can_configured)
                         return (void) log_link_debug(link, "%s(): CAN device is not configured.", __func__);
 
-                link_enter_configured(link);
+                link_set_state(link, LINK_STATE_CONFIGURED);
                 return;
         }
 
@@ -519,7 +503,7 @@ void link_check_ready(Link *link) {
                 }
         }
 
-        link_enter_configured(link);
+        link_set_state(link, LINK_STATE_CONFIGURED);
 }
 
 static int link_request_static_configs(Link *link) {
@@ -1202,7 +1186,7 @@ static int link_reconfigure_internal(Link *link, bool force) {
 
         r = link_get_network(link, &network);
         if (r == -ENOENT) {
-                link_enter_unmanaged(link);
+                link_set_state(link, LINK_STATE_UNMANAGED);
                 return 0;
         }
         if (r < 0)
@@ -1324,7 +1308,7 @@ static int link_initialized_and_synced(Link *link) {
 
                 r = link_get_network(link, &network);
                 if (r == -ENOENT) {
-                        link_enter_unmanaged(link);
+                        link_set_state(link, LINK_STATE_UNMANAGED);
                         return 0;
                 }
                 if (r < 0)
