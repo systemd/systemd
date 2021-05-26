@@ -28,7 +28,7 @@ d /run/systemd/netif/lldp 0755 systemd-network systemd-network -
 d /run/log 0755 root root -
 
 z /run/log/journal 2755 root systemd-journal - -
-Z /run/log/journal/%m ~2750 root systemd-journal - -
+Z /run/log/journal/%m ~2755 root systemd-journal - -
 {% if HAVE_ACL %}
 {% if ENABLE_ADM_GROUP and ENABLE_WHEEL_GROUP %}
 a+ /run/log/journal    - - - - d:group::r-x,d:group:adm:r-x,d:group:wheel:r-x,group::r-x,group:adm:r-x,group:wheel:r-x
