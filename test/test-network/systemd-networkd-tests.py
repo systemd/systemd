@@ -2785,7 +2785,7 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         for iteration in range(4):
             with self.subTest(iteration=iteration, expect_up=expect_up):
                 operstate = 'routable' if expect_up else 'off'
-                setup_state = 'configured' if expect_up else None
+                setup_state = 'configured' if expect_up else ('configuring' if iteration == 0 else None)
                 self.wait_operstate('test1', operstate, setup_state=setup_state, setup_timeout=20)
 
                 if expect_up:
