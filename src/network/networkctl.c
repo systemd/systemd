@@ -2993,6 +2993,45 @@ static int networkctl_main(int argc, char *argv[]) {
         return dispatch_verb(argc, argv, verbs, NULL);
 }
 
+static int check_netns_match(void) {
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
+        struct stat st;
+        uint64_t id;
+        int r;
+
+        r = sd_bus_open_system(&bus);
+        if (r < 0)
+                return log_error_errno(r, "Failed to connect system bus: %m");
+
+        r = sd_bus_get_property_trivial(
+                        bus,
+                        "org.freedesktop.network1",
+                        "/org/freedesktop/network1",
+                        "org.freedesktop.network1.Manager",
+                        "NamespaceId",
+                        &error,
+                        't',
+                        &id);
+        if (r < 0) {
+                log_debug_errno(r, "Failed to query network namespace of networkd, ignoring: %s", bus_error_message(&error, r));
+                return 0;
+        }
+        if (id == 0) {
+                log_debug("systemd-networkd.service not running in a network namespace (?), skipping netns check.");
+                return 0;
+        }
+
+        if (stat("/proc/self/ns/net", &st) < 0)
+                return log_error_errno(r, "Failed to determine our own network namespace ID: %m");
+
+        if (id != st.st_ino)
+                return log_error_errno(SYNTHETIC_ERRNO(EREMOTE),
+                                       "networkctl must be invoked in same network namespace as systemd-networkd.service.");
+
+        return 0;
+}
+
 static void warn_networkd_missing(void) {
 
         if (access("/run/systemd/netif/state", F_OK) >= 0)
@@ -3008,6 +3047,10 @@ static int run(int argc, char* argv[]) {
 
         r = parse_argv(argc, argv);
         if (r <= 0)
+                return r;
+
+        r = check_netns_match();
+        if (r < 0)
                 return r;
 
         warn_networkd_missing();
