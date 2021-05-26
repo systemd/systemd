@@ -421,7 +421,7 @@ int ask_password_tty(
         if (!message)
                 message = "Password:";
 
-        if (emoji_enabled())
+        if (!FLAGS_SET(flags, ASK_PASSWORD_HIDE_EMOJI) && emoji_enabled())
                 message = strjoina(special_glyph(SPECIAL_GLYPH_LOCK_AND_KEY), " ", message);
 
         if (flag_file || ((flags & ASK_PASSWORD_ACCEPT_CACHED) && keyname)) {
