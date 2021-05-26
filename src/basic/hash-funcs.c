@@ -57,6 +57,9 @@ void path_hash_func(const char *q, struct siphash *state) {
 DEFINE_HASH_OPS(path_hash_ops, char, path_hash_func, path_compare);
 DEFINE_HASH_OPS_WITH_KEY_DESTRUCTOR(path_hash_ops_free,
                                     char, path_hash_func, path_compare, free);
+DEFINE_HASH_OPS_FULL(path_hash_ops_free_free,
+                     char, path_hash_func, path_compare, free,
+                     void, free);
 
 void trivial_hash_func(const void *p, struct siphash *state) {
         siphash24_compress(&p, sizeof(p), state);

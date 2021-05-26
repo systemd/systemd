@@ -376,6 +376,15 @@
           </listitem>
         </varlistentry>
         <varlistentry>
+          <term><option>--uuid</option></term>
+          <listitem>
+            <para>Trigger the synthetic device events, and associate a randomized UUID with each. These UUIDs
+            are printed to standard output, one line for each event. These UUIDs are included in the uevent
+            environment block (in the <literal>SYNTH_UUID=</literal> property) and may be used to track
+            delivery of the generated events.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
           <term><option>--wait-daemon[=<replaceable>SECONDS</replaceable>]</option></term>
           <listitem>
             <para>Before triggering uevents, wait for systemd-udevd daemon to be initialized.
