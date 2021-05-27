@@ -2314,19 +2314,18 @@ static int setup_exec_directory(
                          * Also, note that we don't do this for EXEC_DIRECTORY_RUNTIME as that's often used
                          * for sharing files or sockets with other services. */
 
-                        private_root = path_join(params->prefix[type], "private");
-                        if (!private_root) {
+                        pp = path_join(params->prefix[type], "private");
+                        if (!pp) {
                                 r = -ENOMEM;
                                 goto fail;
                         }
 
                         /* First set up private root if it doesn't exist yet, with access mode 0700 and owned by root:root */
-                        r = mkdir_safe_label(private_root, 0700, 0, 0, MKDIR_WARN_MODE);
+                        r = mkdir_safe_label(pp, 0700, 0, 0, MKDIR_WARN_MODE);
                         if (r < 0)
                                 goto fail;
 
-                        pp = path_join(private_root, *rt);
-                        if (!pp) {
+                        if (!path_extend(&pp, *rt)) {
                                 r = -ENOMEM;
                                 goto fail;
                         }
