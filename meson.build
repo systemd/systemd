@@ -107,7 +107,7 @@ prefixdir = get_option('prefix')
 if not prefixdir.startswith('/')
         error('Prefix is not absolute: "@0@"'.format(prefixdir))
 endif
-if prefixdir != rootprefixdir and not prefixdir.startswith(rootprefixdir.strip('/') + '/')
+if prefixdir != rootprefixdir and rootprefixdir != '/' and not prefixdir.strip('/').startswith(rootprefixdir.strip('/') + '/')
         error('Prefix is not below root prefix (now rootprefix=@0@ prefix=@1@)'.format(
                 rootprefixdir, prefixdir))
 endif
