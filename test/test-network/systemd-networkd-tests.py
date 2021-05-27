@@ -3673,8 +3673,10 @@ class NetworkdDHCPServerTests(unittest.TestCase, Utilities):
     units = [
         '25-veth.netdev',
         'dhcp-client.network',
+        'dhcp-client-static-lease.network',
         'dhcp-client-timezone-router.network',
         'dhcp-server.network',
+        'dhcp-server-static-lease.network',
         'dhcp-server-timezone-router.network']
 
     def setUp(self):
@@ -3708,6 +3710,15 @@ class NetworkdDHCPServerTests(unittest.TestCase, Utilities):
         self.assertRegex(output, 'Gateway: 192.168.5.*')
         self.assertRegex(output, '192.168.5.*')
         self.assertRegex(output, 'Europe/Berlin')
+
+    def test_dhcp_server_static_lease(self):
+        copy_unit_to_networkd_unit_path('25-veth.netdev', 'dhcp-client-static-lease.network', 'dhcp-server-static-lease.network')
+        start_networkd()
+        self.wait_online(['veth99:routable', 'veth-peer:routable'])
+
+        output = check_output(*networkctl_cmd, '-n', '0', 'status', 'veth99', env=env)
+        print(output)
+        self.assertIn('10.1.1.3 (DHCP4 via 10.1.1.1)', output)
 
 class NetworkdDHCPServerRelayAgentTests(unittest.TestCase, Utilities):
     links = [
