@@ -63,8 +63,10 @@ bool path_equal(const char *a, const char *b) _pure_;
 bool path_equal_or_files_same(const char *a, const char *b, int flags);
 /* Compares only the last portion of the input paths, ie: the filenames */
 bool path_equal_filename(const char *a, const char *b);
-char* path_join_internal(const char *first, ...);
-#define path_join(x, ...) path_join_internal(x, __VA_ARGS__, POINTER_MAX)
+
+char* path_extend_internal(char **x, ...);
+#define path_extend(x, ...) path_extend_internal(x, __VA_ARGS__, POINTER_MAX)
+#define path_join(...) path_extend_internal(NULL, __VA_ARGS__, POINTER_MAX)
 
 char* path_simplify(char *path, bool kill_dots);
 
