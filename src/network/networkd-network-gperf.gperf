@@ -12,6 +12,7 @@ _Pragma("GCC diagnostic ignored \"-Wimplicit-fallthrough\"")
 #include "networkd-bridge-fdb.h"
 #include "networkd-can.h"
 #include "networkd-dhcp-common.h"
+#include "networkd-dhcp-server-static-lease.h"
 #include "networkd-dhcp-server.h"
 #include "networkd-dhcp4.h"
 #include "networkd-dhcp6.h"
@@ -288,6 +289,8 @@ DHCPServer.PoolSize,                         config_parse_uint32,               
 DHCPServer.SendVendorOption,                 config_parse_dhcp_send_option,                            0,                             offsetof(Network, dhcp_server_send_vendor_options)
 DHCPServer.SendOption,                       config_parse_dhcp_send_option,                            0,                             offsetof(Network, dhcp_server_send_options)
 DHCPServer.BindToInterface,                  config_parse_bool,                                        0,                             offsetof(Network, dhcp_server_bind_to_interface)
+DHCPServerStaticLease.Address,               config_parse_dhcp_static_lease_address,                   0,                             0
+DHCPServerStaticLease.MACAddress,            config_parse_dhcp_static_lease_hwaddr,                    0,                             0
 Bridge.Cost,                                 config_parse_uint32,                                      0,                             offsetof(Network, cost)
 Bridge.UseBPDU,                              config_parse_tristate,                                    0,                             offsetof(Network, use_bpdu)
 Bridge.HairPin,                              config_parse_tristate,                                    0,                             offsetof(Network, hairpin)
