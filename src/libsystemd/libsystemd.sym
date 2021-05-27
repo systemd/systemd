@@ -757,4 +757,6 @@ global:
         sd_device_monitor_filter_add_match_sysattr;
         sd_device_monitor_filter_add_match_parent;
         sd_device_get_usec_initialized;
+        sd_device_trigger_with_uuid;
+        sd_device_get_trigger_uuid;
 } LIBSYSTEMD_248;
