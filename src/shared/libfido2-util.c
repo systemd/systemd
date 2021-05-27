@@ -325,15 +325,15 @@ static int fido2_use_hmac_hash_specific_token(
         if (FLAGS_SET(required, FIDO2ENROLL_PIN)) {
                 char **i;
 
-                if (!has_client_pin)
-                        log_warning("Weird, device asked for client PIN, but does not advertise it as feature. Ignoring.");
-
-                /* OK, we needed a pin, try with all pins in turn */
-                STRV_FOREACH(i, pins) {
-                        r = sym_fido_dev_get_assert(d, a, *i);
-                        if (r != FIDO_ERR_PIN_INVALID)
-                                break;
-                }
+                /* OK, we need a pin, try with all pins in turn */
+                if (strv_isempty(pins))
+                        r = FIDO_ERR_PIN_REQUIRED;
+                else
+                        STRV_FOREACH(i, pins) {
+                                r = sym_fido_dev_get_assert(d, a, *i);
+                                if (r != FIDO_ERR_PIN_INVALID)
+                                        break;
+                        }
         } else
                 r = sym_fido_dev_get_assert(d, a, NULL);
 
