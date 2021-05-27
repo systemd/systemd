@@ -126,8 +126,8 @@ int cryptsetup_set_minimal_pbkdf(struct crypt_device *cd) {
         static const struct crypt_pbkdf_type minimal_pbkdf = {
                 .hash = "sha512",
                 .type = CRYPT_KDF_PBKDF2,
-                .iterations = 1,
-                .time_ms = 1,
+                .iterations = 1000,
+                .flags = CRYPT_PBKDF_NO_BENCHMARK
         };
 
         int r;
