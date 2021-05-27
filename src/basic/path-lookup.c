@@ -86,7 +86,7 @@ int xdg_user_data_dir(char **ret, const char *suffix) {
                         return -ENOMEM;
         }
 
-        *ret = j;
+        *ret = TAKE_PTR(j);
         return 1;
 }
 
