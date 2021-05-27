@@ -123,13 +123,10 @@ int tempfn_xxxxxx(const char *p, const char *extra, char **ret) {
                 return -EINVAL;
 
         if (d)  {
-                char *j;
-
-                j = path_join(d, nf);
-                if (!j)
+                if (!path_extend(&d, nf))
                         return -ENOMEM;
 
-                *ret = path_simplify(j, false);
+                *ret = path_simplify(TAKE_PTR(d), false);
         } else
                 *ret = TAKE_PTR(nf);
 
@@ -168,13 +165,10 @@ int tempfn_random(const char *p, const char *extra, char **ret) {
                 return -EINVAL;
 
         if (d) {
-                char *j;
-
-                j = path_join(d, nf);
-                if (!j)
+                if (!path_extend(&d, nf))
                         return -ENOMEM;
 
-                *ret = path_simplify(j, false);
+                *ret = path_simplify(TAKE_PTR(d), false);
         } else
                 *ret = TAKE_PTR(nf);
 
