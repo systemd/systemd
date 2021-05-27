@@ -106,7 +106,8 @@ int fido2_generate_hmac_hash(
                 void **ret_cid, size_t *ret_cid_size,
                 void **ret_salt, size_t *ret_salt_size,
                 void **ret_secret, size_t *ret_secret_size,
-                char **ret_usedpin);
+                char **ret_usedpin,
+                Fido2EnrollFlags *ret_locked_with);
 
 #endif
 
