@@ -162,7 +162,8 @@ int identity_add_fido2_parameters(
                         &cid, &cid_size,
                         &salt, &salt_size,
                         &secret, &secret_size,
-                        &used_pin);
+                        &used_pin,
+                        NULL);
         if (r < 0)
                 return r;
 

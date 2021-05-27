@@ -468,7 +468,8 @@ int fido2_generate_hmac_hash(
                 void **ret_cid, size_t *ret_cid_size,
                 void **ret_salt, size_t *ret_salt_size,
                 void **ret_secret, size_t *ret_secret_size,
-                char **ret_usedpin) {
+                char **ret_usedpin,
+                Fido2EnrollFlags *ret_locked_with) {
 
         _cleanup_(erase_and_freep) void *salt = NULL, *secret_copy = NULL;
         _cleanup_(fido_assert_free_wrapper) fido_assert_t *a = NULL;
@@ -503,6 +504,7 @@ int fido2_generate_hmac_hash(
          */
 
         assert(device);
+        assert((lock_with & ~(FIDO2ENROLL_PIN|FIDO2ENROLL_UP|FIDO2ENROLL_UV)) == 0);
 
         r = dlopen_libfido2();
         if (r < 0)
@@ -529,20 +531,21 @@ int fido2_generate_hmac_hash(
         if (r < 0)
                 return r;
 
-        if (!has_client_pin && FLAGS_SET(lock_with, FIDO2ENROLL_PIN))
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "Requested to lock with PIN, but FIDO2 device %s does not support it.",
-                                       device);
+        /* While enrolling degrade gracefully if the requested feature set isn't available, but let the user know */
+        if (!has_client_pin && FLAGS_SET(lock_with, FIDO2ENROLL_PIN)) {
+                log_notice("Requested to lock with PIN, but FIDO2 device %s does not support it, disabling.", device);
+                lock_with &= ~FIDO2ENROLL_PIN;
+        }
 
-        if (!has_up && FLAGS_SET(lock_with, FIDO2ENROLL_UP))
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "Locking with user presence test requested, but FIDO2 device %s does not support it.",
-                                       device);
+        if (!has_up && FLAGS_SET(lock_with, FIDO2ENROLL_UP)) {
+                log_notice("Locking with user presence test requested, but FIDO2 device %s does not support it, disabling.", device);
+                lock_with &= ~FIDO2ENROLL_UP;
+        }
 
-        if (!has_uv && FLAGS_SET(lock_with, FIDO2ENROLL_UV))
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "Locking with user verification requested, but FIDO2 device %s does not support it.",
-                                       device);
+        if (!has_uv && FLAGS_SET(lock_with, FIDO2ENROLL_UV)) {
+                log_notice("Locking with user verification requested, but FIDO2 device %s does not support it, disabling.", device);
+                lock_with &= ~FIDO2ENROLL_UV;
+        }
 
         c = sym_fido_cred_new();
         if (!c)
@@ -591,6 +594,9 @@ int fido2_generate_hmac_hash(
                         return log_error_errno(SYNTHETIC_ERRNO(EIO),
                                                "Failed to turn off FIDO2 user verification option of credential: %s", sym_fido_strerr(r));
         }
+
+        /* As per specification "up" is assumed to be implicit when making credentials, hence we don't
+         * explicitly enable/disable it here */
 
         log_info("Initializing FIDO2 credential on security token.");
 
@@ -715,11 +721,75 @@ int fido2_generate_hmac_hash(
                                    emoji_enabled() ? " " : "");
         }
 
-        r = sym_fido_dev_get_assert(d, a, FLAGS_SET(lock_with, FIDO2ENROLL_PIN) ? used_pin : NULL);
-        if (r == FIDO_ERR_UP_REQUIRED && !FLAGS_SET(lock_with, FIDO2ENROLL_UP))
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "Locking without user presence test requested, but FIDO2 device %s requires it.",
-                                       device);
+        for (;;) {
+                bool retry_with_up = false, retry_with_pin = false;
+
+                r = sym_fido_dev_get_assert(d, a, FLAGS_SET(lock_with, FIDO2ENROLL_PIN) ? used_pin : NULL);
+
+                switch (r) {
+
+                case FIDO_ERR_UP_REQUIRED:
+                        /* If the token asks for "up" when we turn off, then this might be a feature that
+                         * isn't optional. Let's enable it */
+
+                        if (!has_up)
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "Token asks for user presence check but doesn't advertise 'up' feature.");
+
+                        if (FLAGS_SET(lock_with, FIDO2ENROLL_UP))
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "Token asks for user presence check but was already enabled.");
+
+                        log_notice("Locking without user presence test requested, but FIDO2 device %s requires it, enabling.", device);
+                        retry_with_up = true;
+                        break;
+
+                case FIDO_ERR_UNSUPPORTED_OPTION:
+                        /* AuthenTrend ATKey.Pro says it supports "up", but if we disable it it will fail
+                         * with FIDO_ERR_UNSUPPORTED_OPTION, probably because it isn't actually
+                         * optional. Let's see if turning it on works. This is very similar to the
+                         * FIDO_ERR_UP_REQUIRED case, but since the error is so vague we implement it
+                         * slightly more defensively. */
+
+                        if (has_up && !FLAGS_SET(lock_with, FIDO2ENROLL_UP)) {
+                                log_notice("Got unsupported option error when when user presence test is turned off. Trying with user presence test turned on.");
+                                retry_with_up = true;
+                        }
+
+                        break;
+
+                case FIDO_ERR_PIN_REQUIRED:
+                        if (!has_client_pin)
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "Token asks for client PIN check but doesn't advertise 'clientPin' feature.");
+
+                        if (FLAGS_SET(lock_with, FIDO2ENROLL_PIN))
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "Token asks for user client PIN check but was already enabled.");
+
+                        log_debug("Token requires PIN for assertion, enabling.");
+                        retry_with_pin = true;
+                        break;
+
+                default:
+                        break;
+                }
+
+                if (!retry_with_up && !retry_with_pin)
+                        break;
+
+                if (retry_with_up) {
+                        r = sym_fido_assert_set_up(a, FIDO_OPT_TRUE);
+                        if (r != FIDO_OK)
+                                return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to enable FIDO2 user presence test: %s", sym_fido_strerr(r));
+
+                        lock_with |= FIDO2ENROLL_UP;
+                }
+
+                if (retry_with_pin)
+                        lock_with |= FIDO2ENROLL_PIN;
+        }
+
         if (r == FIDO_ERR_ACTION_TIMEOUT)
                 return log_error_errno(SYNTHETIC_ERRNO(ENOSTR),
                                        "Token action timeout. (User didn't interact with token quickly enough.)");
@@ -750,6 +820,9 @@ int fido2_generate_hmac_hash(
 
         if (ret_usedpin)
                 *ret_usedpin = TAKE_PTR(used_pin);
+
+        if (ret_locked_with)
+                *ret_locked_with = lock_with;
 
         return 0;
 }
