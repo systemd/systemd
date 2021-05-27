@@ -36,7 +36,7 @@ struct pkcs11_callback_data {
 };
 
 static void pkcs11_callback_data_release(struct pkcs11_callback_data *data) {
-        free(data->decrypted_key);
+        erase_and_free(data->decrypted_key);
 
         if (data->free_encrypted_key)
                 free(data->encrypted_key);
