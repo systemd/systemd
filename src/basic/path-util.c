@@ -548,17 +548,21 @@ bool path_equal_filename(const char *a, const char *b) {
         return path_equal(a_basename, b_basename);
 }
 
-char* path_join_internal(const char *first, ...) {
-        char *joined, *q;
+char* path_extend_internal(char **x, ...) {
+        size_t sz, old_sz;
+        char *q, *nx;
         const char *p;
         va_list ap;
         bool slash;
-        size_t sz;
 
         /* Joins all listed strings until the sentinel and places a "/" between them unless the strings end/begin
          * already with one so that it is unnecessary. Note that slashes which are already duplicate won't be
          * removed. The string returned is hence always equal to or longer than the sum of the lengths of each
          * individual string.
+         *
+         * The first argument may be an already allocated string that is extended via realloc() if
+         * non-NULL. path_extend() and path_join() are macro wrappers around this function, making use of the
+         * first parameter to distinguish the two operations.
          *
          * Note: any listed empty string is simply skipped. This can be useful for concatenating strings of which some
          * are optional.
@@ -569,28 +573,39 @@ char* path_join_internal(const char *first, ...) {
          * path_join("foo/", "bar") → "foo/bar"
          * path_join("", "foo", "", "bar", "") → "foo/bar" */
 
-        sz = strlen_ptr(first);
-        va_start(ap, first);
-        while ((p = va_arg(ap, char*)) != POINTER_MAX)
-                if (!isempty(p))
-                        sz += 1 + strlen(p);
+        sz = old_sz = x ? strlen_ptr(*x) : 0;
+        va_start(ap, x);
+        while ((p = va_arg(ap, char*)) != POINTER_MAX) {
+                size_t add;
+
+                if (isempty(p))
+                        continue;
+
+                add = 1 + strlen(p);
+                if (sz > SIZE_MAX - add) /* overflow check */
+                        return NULL;
+
+                sz += add;
+        }
+
         va_end(ap);
 
-        joined = new(char, sz + 1);
-        if (!joined)
+        nx = realloc(x ? *x : NULL, GREEDY_ALLOC_ROUND_UP(sz+1));
+        if (!nx)
                 return NULL;
+        if (x)
+                *x = nx;
 
-        if (!isempty(first)) {
-                q = stpcpy(joined, first);
-                slash = endswith(first, "/");
-        } else {
-                /* Skip empty items */
-                joined[0] = 0;
-                q = joined;
+        if (old_sz > 0)
+                slash = nx[old_sz] == '/';
+        else {
+                nx[old_sz] = 0;
                 slash = true; /* no need to generate a slash anymore */
         }
 
-        va_start(ap, first);
+        q = nx + old_sz;
+
+        va_start(ap, x);
         while ((p = va_arg(ap, char*)) != POINTER_MAX) {
                 if (isempty(p))
                         continue;
@@ -603,7 +618,7 @@ char* path_join_internal(const char *first, ...) {
         }
         va_end(ap);
 
-        return joined;
+        return nx;
 }
 
 static int check_x_access(const char *path, int *ret_fd) {
@@ -666,7 +681,7 @@ int find_executable_full(const char *name, bool use_path_envvar, char **ret_file
 
         /* Resolve a single-component name to a full path */
         for (;;) {
-                _cleanup_free_ char *j = NULL, *element = NULL;
+                _cleanup_free_ char *element = NULL;
                 _cleanup_close_ int fd = -1;
 
                 r = extract_first_word(&p, &element, ":", EXTRACT_RELAX|EXTRACT_DONT_COALESCE_SEPARATORS);
@@ -678,11 +693,10 @@ int find_executable_full(const char *name, bool use_path_envvar, char **ret_file
                 if (!path_is_absolute(element))
                         continue;
 
-                j = path_join(element, name);
-                if (!j)
+                if (!path_extend(&element, name))
                         return -ENOMEM;
 
-                r = check_x_access(j, ret_fd ? &fd : NULL);
+                r = check_x_access(element, ret_fd ? &fd : NULL);
                 if (r < 0) {
                         /* PATH entries which we don't have access to are ignored, as per tradition. */
                         if (r != -EACCES)
@@ -692,7 +706,7 @@ int find_executable_full(const char *name, bool use_path_envvar, char **ret_file
 
                 /* Found it! */
                 if (ret_filename)
-                        *ret_filename = path_simplify(TAKE_PTR(j), false);
+                        *ret_filename = path_simplify(TAKE_PTR(element), false);
                 if (ret_fd)
                         *ret_fd = TAKE_FD(fd);
 
