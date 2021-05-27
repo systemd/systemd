@@ -36,35 +36,33 @@ int xdg_user_runtime_dir(char **ret, const char *suffix) {
 }
 
 int xdg_user_config_dir(char **ret, const char *suffix) {
+        _cleanup_free_ char *j = NULL;
         const char *e;
-        char *j;
         int r;
 
         assert(ret);
 
         e = getenv("XDG_CONFIG_HOME");
-        if (e)
+        if (e) {
                 j = path_join(e, suffix);
-        else {
-                _cleanup_free_ char *home = NULL;
-
-                r = get_home_dir(&home);
+                if (!j)
+                        return -ENOMEM;
+        } else {
+                r = get_home_dir(&j);
                 if (r < 0)
                         return r;
 
-                j = path_join(home, "/.config", suffix);
+                if (!path_extend(&j, "/.config", suffix))
+                        return -ENOMEM;
         }
 
-        if (!j)
-                return -ENOMEM;
-
-        *ret = j;
+        *ret = TAKE_PTR(j);
         return 0;
 }
 
 int xdg_user_data_dir(char **ret, const char *suffix) {
+        _cleanup_free_ char *j = NULL;
         const char *e;
-        char *j;
         int r;
 
         assert(ret);
@@ -75,21 +73,20 @@ int xdg_user_data_dir(char **ret, const char *suffix) {
          * /etc/systemd/ anyway. */
 
         e = getenv("XDG_DATA_HOME");
-        if (e)
+        if (e) {
                 j = path_join(e, suffix);
-        else {
-                _cleanup_free_ char *home = NULL;
-
-                r = get_home_dir(&home);
+                if (!j)
+                        return -ENOMEM;
+        } else {
+                r = get_home_dir(&j);
                 if (r < 0)
                         return r;
 
-                j = path_join(home, "/.local/share", suffix);
+                if (!path_extend(&j, "/.local/share", suffix))
+                        return -ENOMEM;
         }
-        if (!j)
-                return -ENOMEM;
 
-        *ret = j;
+        *ret = TAKE_PTR(j);
         return 1;
 }
 

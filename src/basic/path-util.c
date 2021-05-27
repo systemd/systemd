@@ -681,7 +681,7 @@ int find_executable_full(const char *name, bool use_path_envvar, char **ret_file
 
         /* Resolve a single-component name to a full path */
         for (;;) {
-                _cleanup_free_ char *j = NULL, *element = NULL;
+                _cleanup_free_ char *element = NULL;
                 _cleanup_close_ int fd = -1;
 
                 r = extract_first_word(&p, &element, ":", EXTRACT_RELAX|EXTRACT_DONT_COALESCE_SEPARATORS);
@@ -693,11 +693,10 @@ int find_executable_full(const char *name, bool use_path_envvar, char **ret_file
                 if (!path_is_absolute(element))
                         continue;
 
-                j = path_join(element, name);
-                if (!j)
+                if (!path_extend(&element, name))
                         return -ENOMEM;
 
-                r = check_x_access(j, ret_fd ? &fd : NULL);
+                r = check_x_access(element, ret_fd ? &fd : NULL);
                 if (r < 0) {
                         /* PATH entries which we don't have access to are ignored, as per tradition. */
                         if (r != -EACCES)
@@ -707,7 +706,7 @@ int find_executable_full(const char *name, bool use_path_envvar, char **ret_file
 
                 /* Found it! */
                 if (ret_filename)
-                        *ret_filename = path_simplify(TAKE_PTR(j), false);
+                        *ret_filename = path_simplify(TAKE_PTR(element), false);
                 if (ret_fd)
                         *ret_fd = TAKE_FD(fd);
 

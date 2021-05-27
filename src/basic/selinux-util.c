@@ -524,18 +524,17 @@ int mac_selinux_create_file_prepare_at(int dirfd, const char *path, mode_t mode)
                 return 0;
 
         if (!path_is_absolute(path)) {
-                _cleanup_free_ char *p = NULL;
-
                 if (dirfd == AT_FDCWD)
-                        r = safe_getcwd(&p);
+                        r = safe_getcwd(&abspath);
                 else
-                        r = fd_get_path(dirfd, &p);
+                        r = fd_get_path(dirfd, &abspath);
                 if (r < 0)
                         return r;
 
-                path = abspath = path_join(p, path);
-                if (!path)
+                if (!path_extend(&abspath, path))
                         return -ENOMEM;
+
+                path = abspath;
         }
 
         return selinux_create_file_prepare_abspath(path, mode);

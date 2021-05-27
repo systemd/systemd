@@ -37,7 +37,6 @@ static int from_environment(const char *envname, const char *fallback, const cha
 
 static int from_home_dir(const char *envname, const char *suffix, char **buffer, const char **ret) {
         _cleanup_free_ char *h = NULL;
-        char *cc = NULL;
         int r;
 
         assert(suffix);
@@ -58,12 +57,11 @@ static int from_home_dir(const char *envname, const char *suffix, char **buffer,
         if (r < 0)
                 return r;
 
-        cc = path_join(h, suffix);
-        if (!cc)
+        if (!path_extend(&h, suffix))
                 return -ENOMEM;
 
-        *buffer = cc;
-        *ret = cc;
+        *buffer = h;
+        *ret = TAKE_PTR(h);
         return 0;
 }
 
@@ -135,18 +133,16 @@ static int from_user_dir(const char *field, char **buffer, const char **ret) {
                 /* Three syntaxes permitted: relative to $HOME, $HOME itself, and absolute path */
                 if (startswith(p, "$HOME/")) {
                         _cleanup_free_ char *h = NULL;
-                        char *cc;
 
                         r = get_home_dir(&h);
                         if (r < 0)
                                 return r;
 
-                        cc = path_join(h, p+5);
-                        if (!cc)
+                        if (!path_extend(&h, p+5))
                                 return -ENOMEM;
 
-                        *buffer = cc;
-                        *ret = cc;
+                        *buffer = h;
+                        *ret = TAKE_PTR(h);
                         return 0;
                 } else if (streq(p, "$HOME")) {
 
@@ -173,20 +169,17 @@ fallback:
         /* The desktop directory defaults to $HOME/Desktop, the others to $HOME */
         if (streq(field, "XDG_DESKTOP_DIR")) {
                 _cleanup_free_ char *h = NULL;
-                char *cc;
 
                 r = get_home_dir(&h);
                 if (r < 0)
                         return r;
 
-                cc = path_join(h, "Desktop");
-                if (!cc)
+                if (!path_extend(&h, "Desktop"))
                         return -ENOMEM;
 
-                *buffer = cc;
-                *ret = cc;
+                *buffer = h;
+                *ret = TAKE_PTR(h);
         } else {
-
                 r = get_home_dir(buffer);
                 if (r < 0)
                         return r;
