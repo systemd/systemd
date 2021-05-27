@@ -601,7 +601,7 @@ int ask_password_tty(
 
                         } else if (!dirty && !(flags & ASK_PASSWORD_SILENT)) {
 
-                                flags |= ASK_PASSWORD_SILENT;
+                                SET_FLAG(flags, ASK_PASSWORD_SILENT, true);
 
                                 /* There are two ways to enter silent mode. Either by pressing backspace as
                                  * first key (and only as first key), or ... */
@@ -615,7 +615,7 @@ int ask_password_tty(
                 } else if (c == '\t' && !(flags & ASK_PASSWORD_SILENT)) {
 
                         (void) backspace_string(ttyfd, passphrase);
-                        flags |= ASK_PASSWORD_SILENT;
+                        SET_FLAG(flags, ASK_PASSWORD_SILENT, true);
 
                         /* ... or by pressing TAB at any time. */
 

@@ -123,7 +123,7 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_ECHO:
-                        arg_flags |= ASK_PASSWORD_ECHO;
+                        SET_FLAG(arg_flags, ASK_PASSWORD_ECHO, true);
                         break;
 
                 case ARG_EMOJI:
@@ -131,11 +131,11 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_NO_TTY:
-                        arg_flags |= ASK_PASSWORD_NO_TTY;
+                        SET_FLAG(arg_flags, ASK_PASSWORD_NO_TTY, true);
                         break;
 
                 case ARG_ACCEPT_CACHED:
-                        arg_flags |= ASK_PASSWORD_ACCEPT_CACHED;
+                        SET_FLAG(arg_flags, ASK_PASSWORD_ACCEPT_CACHED, true);
                         break;
 
                 case ARG_MULTIPLE:
