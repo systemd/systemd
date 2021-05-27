@@ -5534,9 +5534,14 @@ int unit_pid_attachable(Unit *u, pid_t pid, sd_bus_error *error) {
 }
 
 void unit_log_success(Unit *u) {
+        int level;
+
         assert(u);
 
-        log_unit_struct(u, LOG_INFO,
+        /* Let's log this message for users on DEBUG level. For PID1 log on INFO level as usual. */
+        level = MANAGER_IS_USER(u->manager) ? LOG_DEBUG : LOG_INFO;
+
+        log_unit_struct(u, level,
                         "MESSAGE_ID=" SD_MESSAGE_UNIT_SUCCESS_STR,
                         LOG_UNIT_INVOCATION_ID(u),
                         LOG_UNIT_MESSAGE(u, "Deactivated successfully."));
