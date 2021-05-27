@@ -758,7 +758,11 @@ static int attach_luks_or_plain_or_bitlk_by_fido2(
                 cid = arg_fido2_cid;
                 cid_size = arg_fido2_cid_size;
 
-                required = FIDO2ENROLL_PIN | FIDO2ENROLL_UP; /* For backwards compatibility, PIN+presence is required by default. */
+                /* For now and for compatibility, if the user explicitly configured FIDO2 support and we do
+                 * not read FIDO2 metadata off the LUKS2 header, default to the systemd 248 logic, where we
+                 * use PIN + UP when needed, and do not configure UV at all. Eventually, we should make this
+                 * explicitly configurable. */
+                required = FIDO2ENROLL_PIN_IF_NEEDED | FIDO2ENROLL_UP_IF_NEEDED | FIDO2ENROLL_UV_OMIT;
         } else {
                 r = find_fido2_auto_data(
                                 cd,

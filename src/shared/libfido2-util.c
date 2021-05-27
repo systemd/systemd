@@ -310,7 +310,7 @@ static int fido2_use_hmac_hash_specific_token(
                         log_info("User presence required to unlock.");
         }
 
-        if (has_uv) {
+        if (has_uv && !FLAGS_SET(required, FIDO2ENROLL_UV_OMIT)) {
                 r = sym_fido_assert_set_uv(a, FLAGS_SET(required, FIDO2ENROLL_UV) ? FIDO_OPT_TRUE : FIDO_OPT_FALSE);
                 if (r != FIDO_OK)
                         return log_error_errno(SYNTHETIC_ERRNO(EIO),
@@ -322,20 +322,77 @@ static int fido2_use_hmac_hash_specific_token(
                         log_info("User verification required to unlock.");
         }
 
-        if (FLAGS_SET(required, FIDO2ENROLL_PIN)) {
-                char **i;
+        for (;;) {
+                if (FLAGS_SET(required, FIDO2ENROLL_PIN)) {
+                        char **i;
 
-                /* OK, we need a pin, try with all pins in turn */
-                if (strv_isempty(pins))
-                        r = FIDO_ERR_PIN_REQUIRED;
-                else
-                        STRV_FOREACH(i, pins) {
-                                r = sym_fido_dev_get_assert(d, a, *i);
-                                if (r != FIDO_ERR_PIN_INVALID)
-                                        break;
+                        /* OK, we need a pin, try with all pins in turn */
+                        if (strv_isempty(pins))
+                                r = FIDO_ERR_PIN_REQUIRED;
+                        else
+                                STRV_FOREACH(i, pins) {
+                                        r = sym_fido_dev_get_assert(d, a, *i);
+                                        if (r != FIDO_ERR_PIN_INVALID)
+                                                break;
+                                }
+
+                } else
+                        r = sym_fido_dev_get_assert(d, a, NULL);
+
+                /* In some conditions, where a PIN or UP is required we might accept that. Let's check the
+                 * conditions and if so try immediately again. */
+
+                switch (r) {
+                case FIDO_ERR_PIN_REQUIRED:
+                        /* A pin was requested. Maybe supply one, if we are configured to do so on request */
+
+                        if (!has_client_pin)
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "Token asks for PIN but doesn't advertise 'clientPin' feature.");
+
+                        if (FLAGS_SET(required, FIDO2ENROLL_PIN) && !strv_isempty(pins))
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "Token asks for PIN but one was already supplied.");
+
+                        if ((required & (FIDO2ENROLL_PIN|FIDO2ENROLL_PIN_IF_NEEDED)) == FIDO2ENROLL_PIN_IF_NEEDED) {
+                                /* If a PIN so far wasn't specified but is requested by the device, and FIDO2ENROLL_PIN_IF_NEEDED is set, then provide it */
+                                required |= FIDO2ENROLL_PIN;
+                                continue;
                         }
-        } else
-                r = sym_fido_dev_get_assert(d, a, NULL);
+
+                        break;
+
+                case FIDO_ERR_UP_REQUIRED:
+                        /* So the token asked for "up". Try to turn it on, for compat with systemd 248 and try again. */
+
+                        if (!has_up)
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "Token asks for user presence check but doesn't advertise 'up' feature.");
+
+                        if (FLAGS_SET(required, FIDO2ENROLL_UP))
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "Token asks for user presence check but was already enabled.");
+
+                        if (FLAGS_SET(required, FIDO2ENROLL_UP_IF_NEEDED)) {
+                                r = sym_fido_assert_set_up(a, FIDO_OPT_TRUE);
+                                if (r != FIDO_OK)
+                                        return log_error_errno(SYNTHETIC_ERRNO(EIO),
+                                                               "Failed to enable FIDO2 user presence test: %s", sym_fido_strerr(r));
+
+                                required |= FIDO2ENROLL_UP;
+                                log_info("User presence required to unlock.");
+                                continue;
+                        }
+
+                        break;
+
+                default:
+                        break;
+                }
+
+                /* Exit the loop on all other errors */
+                break;
+        }
 
         switch (r) {
         case FIDO_OK:
