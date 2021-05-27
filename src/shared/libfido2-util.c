@@ -606,12 +606,14 @@ int fido2_generate_hmac_hash(
 
         r = sym_fido_dev_make_cred(d, c, NULL);
         if (r == FIDO_ERR_PIN_REQUIRED) {
+
+                if (!has_client_pin)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "Token asks for PIN but doesn't advertise 'clientPin' feature.");
+
                 for (;;) {
                         _cleanup_(strv_free_erasep) char **pin = NULL;
                         char **i;
-
-                        if (!has_client_pin)
-                                log_warning("Weird, device asked for client PIN, but does not advertise it as feature. Ignoring.");
 
                         r = ask_password_auto("Please enter security token PIN:", askpw_icon_name, NULL, "fido2-pin", "fido2-pin", USEC_INFINITY, 0, &pin);
                         if (r < 0)
