@@ -862,6 +862,10 @@ static int link_set_static_configs(Link *link) {
         if (r < 0)
                 return r;
 
+        r = link_request_dhcp_server(link);
+        if (r < 0)
+                return r;
+
         return 0;
 }
 
@@ -1207,6 +1211,12 @@ static int link_acquire_ipv4_conf(Link *link) {
                 r = sd_ipv4ll_start(link->ipv4ll);
                 if (r < 0)
                         return log_link_warning_errno(link, r, "Could not acquire IPv4 link-local address: %m");
+        }
+
+        if (link->dhcp_server) {
+                r = sd_dhcp_server_start(link->dhcp_server);
+                if (r < 0)
+                        return log_link_warning_errno(link, r, "Could not start DHCP server: %m");
         }
 
         return 0;
