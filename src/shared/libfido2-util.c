@@ -307,7 +307,9 @@ static int fido2_use_hmac_hash_specific_token(
                                                sym_fido_strerr(r));
 
                 if (FLAGS_SET(required, FIDO2ENROLL_UP))
-                        log_info("User presence required to unlock.");
+                        log_notice("%s%sPlease confirm presence on security token to unlock.",
+                                   emoji_enabled() ? special_glyph(SPECIAL_GLYPH_TOUCH) : "",
+                                   emoji_enabled() ? " " : "");
         }
 
         if (has_uv && !FLAGS_SET(required, FIDO2ENROLL_UV_OMIT)) {
@@ -319,7 +321,9 @@ static int fido2_use_hmac_hash_specific_token(
                                                sym_fido_strerr(r));
 
                 if (FLAGS_SET(required, FIDO2ENROLL_UV))
-                        log_info("User verification required to unlock.");
+                        log_notice("%s%sPlease verify user on security token to unlock.",
+                                   emoji_enabled() ? special_glyph(SPECIAL_GLYPH_TOUCH) : "",
+                                   emoji_enabled() ? " " : "");
         }
 
         for (;;) {
@@ -351,14 +355,16 @@ static int fido2_use_hmac_hash_specific_token(
 
                         if (!has_up)
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "Token asks for user presence check but doesn't advertise 'up' feature.");
+                                                       "Token asks for user presence test but doesn't advertise 'up' feature.");
 
                         if (FLAGS_SET(required, FIDO2ENROLL_UP))
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "Token asks for user presence check but was already enabled.");
+                                                       "Token asks for user presence test but was already enabled.");
 
                         if (FLAGS_SET(required, FIDO2ENROLL_UP_IF_NEEDED)) {
-                                log_info("User presence required to unlock.");
+                                log_notice("%s%sPlease confirm presence on security to unlock.",
+                                           emoji_enabled() ? special_glyph(SPECIAL_GLYPH_TOUCH) : "",
+                                           emoji_enabled() ? " " : "");
                                 retry_with_up = true;
                         }
 
@@ -369,7 +375,9 @@ static int fido2_use_hmac_hash_specific_token(
                          * it gracefully (also see below.) */
 
                         if (has_up && (required & (FIDO2ENROLL_UP|FIDO2ENROLL_UP_IF_NEEDED)) == FIDO2ENROLL_UP_IF_NEEDED) {
-                                log_notice("Got unsupported option error when when user presence test is turned off. Trying with user presence test turned on.");
+                                log_notice("%s%sGot unsupported option error when when user presence test is turned off. Trying with user presence test turned on.",
+                                           emoji_enabled() ? special_glyph(SPECIAL_GLYPH_TOUCH) : "",
+                                           emoji_enabled() ? " " : "");
                                 retry_with_up = true;
                         }
 
@@ -621,7 +629,7 @@ int fido2_generate_hmac_hash(
         }
 
         if (!has_uv && FLAGS_SET(lock_with, FIDO2ENROLL_UV)) {
-                log_notice("Locking with user verification requested, but FIDO2 device %s does not support it, disabling.", device);
+                log_notice("Locking with user verification test requested, but FIDO2 device %s does not support it, disabling.", device);
                 lock_with &= ~FIDO2ENROLL_UV;
         }
 
@@ -678,9 +686,10 @@ int fido2_generate_hmac_hash(
 
         log_info("Initializing FIDO2 credential on security token.");
 
-        log_notice("%s%s(Hint: This might require verification of user presence on security token.)",
-                   emoji_enabled() ? special_glyph(SPECIAL_GLYPH_TOUCH) : "",
-                   emoji_enabled() ? " " : "");
+        if (has_uv || has_up)
+                log_notice("%s%s(Hint: This might require confirmation of user presence on security token.)",
+                           emoji_enabled() ? special_glyph(SPECIAL_GLYPH_TOUCH) : "",
+                           emoji_enabled() ? " " : "");
 
         r = sym_fido_dev_make_cred(d, c, NULL);
         if (r == FIDO_ERR_PIN_REQUIRED) {
@@ -700,7 +709,7 @@ int fido2_generate_hmac_hash(
                         r = FIDO_ERR_PIN_INVALID;
                         STRV_FOREACH(i, pin) {
                                 if (isempty(*i)) {
-                                        log_info("PIN may not be empty.");
+                                        log_notice("PIN may not be empty.");
                                         continue;
                                 }
 
@@ -814,13 +823,17 @@ int fido2_generate_hmac_hash(
 
                         if (!has_up)
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "Token asks for user presence check but doesn't advertise 'up' feature.");
+                                                       "Token asks for user presence test but doesn't advertise 'up' feature.");
 
                         if (FLAGS_SET(lock_with, FIDO2ENROLL_UP))
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "Token asks for user presence check but was already enabled.");
+                                                       "Token asks for user presence test but was already enabled.");
 
-                        log_notice("Locking without user presence test requested, but FIDO2 device %s requires it, enabling.", device);
+                        log_notice("%s%sLocking without user presence test requested, but FIDO2 device %s requires it, enabling.",
+                                   emoji_enabled() ? special_glyph(SPECIAL_GLYPH_TOUCH) : "",
+                                   emoji_enabled() ? " " : "",
+                                   device);
+
                         retry_with_up = true;
                         break;
 
@@ -832,7 +845,9 @@ int fido2_generate_hmac_hash(
                          * slightly more defensively. */
 
                         if (has_up && !FLAGS_SET(lock_with, FIDO2ENROLL_UP)) {
-                                log_notice("Got unsupported option error when when user presence test is turned off. Trying with user presence test turned on.");
+                                log_notice("%s%sGot unsupported option error when when user presence test is turned off. Trying with user presence test turned on.",
+                                           emoji_enabled() ? special_glyph(SPECIAL_GLYPH_TOUCH) : "",
+                                           emoji_enabled() ? " " : "");
                                 retry_with_up = true;
                         }
 
