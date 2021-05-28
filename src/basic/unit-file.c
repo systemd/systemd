@@ -303,11 +303,11 @@ int unit_file_build_name_map(
                                 return log_oom();
 
                         if (paths) {
-                                r = set_consume(paths, filename);
+                                r = set_put(paths, filename);
                                 if (r < 0)
                                         return log_oom();
-                                /* We will still use filename below. This is safe because we know the set
-                                 * holds a reference. */
+                                if (r == 0)
+                                        _filename_free = filename; /* Make sure we free the filename. */
                         } else
                                 _filename_free = filename; /* Make sure we free the filename. */
 
