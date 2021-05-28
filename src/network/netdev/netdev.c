@@ -272,7 +272,7 @@ static int netdev_enslave_ready(NetDev *netdev, Link* link, link_netlink_message
 
         if (link->flags & IFF_UP && netdev->kind == NETDEV_KIND_BOND) {
                 log_netdev_debug(netdev, "Link '%s' was up when attempting to enslave it. Bringing link down.", link->ifname);
-                r = link_down(link, NULL);
+                r = link_down(link);
                 if (r < 0)
                         return log_netdev_error_errno(netdev, r, "Could not bring link down: %m");
         }

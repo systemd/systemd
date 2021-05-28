@@ -15,6 +15,8 @@
 
 static void request_free_object(RequestType type, void *object) {
         switch(type) {
+        case REQUEST_TYPE_ACTIVATE_LINK:
+                break;
         case REQUEST_TYPE_ADDRESS:
                 address_free(object);
                 break;
@@ -89,6 +91,8 @@ static void request_hash_func(const Request *req, struct siphash *state) {
         siphash24_compress(&req->type, sizeof(req->type), state);
 
         switch(req->type) {
+        case REQUEST_TYPE_ACTIVATE_LINK:
+                break;
         case REQUEST_TYPE_ADDRESS:
                 address_hash_func(req->address, state);
                 break;
@@ -143,6 +147,8 @@ static int request_compare_func(const struct Request *a, const struct Request *b
                 return r;
 
         switch (a->type) {
+        case REQUEST_TYPE_ACTIVATE_LINK:
+                return 0;
         case REQUEST_TYPE_ADDRESS:
                 return address_compare_func(a->address, b->address);
         case REQUEST_TYPE_ADDRESS_LABEL:
@@ -192,7 +198,11 @@ int link_queue_request(
         assert(link);
         assert(link->manager);
         assert(type >= 0 && type < _REQUEST_TYPE_MAX);
-        assert(IN_SET(type, REQUEST_TYPE_DHCP_SERVER, REQUEST_TYPE_SET_LINK) || object);
+        assert(IN_SET(type,
+                      REQUEST_TYPE_ACTIVATE_LINK,
+                      REQUEST_TYPE_DHCP_SERVER,
+                      REQUEST_TYPE_SET_LINK) ||
+               object);
         assert(type == REQUEST_TYPE_DHCP_SERVER || netlink_handler);
 
         req = new(Request, 1);
@@ -247,6 +257,9 @@ int manager_process_requests(sd_event_source *s, void *userdata) {
 
                 ORDERED_SET_FOREACH(req, manager->request_queue) {
                         switch(req->type) {
+                        case REQUEST_TYPE_ACTIVATE_LINK:
+                                r = request_process_activation(req);
+                                break;
                         case REQUEST_TYPE_ADDRESS:
                                 r = request_process_address(req);
                                 break;
