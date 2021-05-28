@@ -409,7 +409,7 @@ void link_check_ready(Link *link) {
                 return (void) log_link_debug(link, "%s(): link is in %s state.", __func__, link_state_to_string(link->state));
 
         if (!link->network)
-                return;
+                return (void) log_link_debug(link, "%s(): link is unmanaged.", __func__);
 
         if (link->iftype == ARPHRD_CAN) {
                 /* let's shortcut things for CAN which doesn't need most of checks below. */
@@ -419,6 +419,12 @@ void link_check_ready(Link *link) {
                 link_set_state(link, LINK_STATE_CONFIGURED);
                 return;
         }
+
+        if (link->set_link_messages > 0)
+                return (void) log_link_debug(link, "%s(): link layer is configuring.", __func__);
+
+        if (!link->activated)
+                return (void) log_link_debug(link, "%s(): link is not activated.", __func__);
 
         if (!link->static_addresses_configured)
                 return (void) log_link_debug(link, "%s(): static addresses are not configured.", __func__);
