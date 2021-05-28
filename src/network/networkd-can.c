@@ -7,6 +7,7 @@
 #include "networkd-can.h"
 #include "networkd-link.h"
 #include "networkd-manager.h"
+#include "networkd-setlink.h"
 #include "parse-util.h"
 #include "string-util.h"
 
@@ -229,28 +230,6 @@ static int link_set_can(Link *link) {
         return 0;
 }
 
-static int link_down_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
-        int r;
-
-        assert(link);
-
-        if (IN_SET(link->state, LINK_STATE_FAILED, LINK_STATE_LINGER))
-                return 1;
-
-        r = sd_netlink_message_get_errno(m);
-        if (r < 0) {
-                log_link_message_warning_errno(link, m, r, "Could not bring down interface");
-                link_enter_failed(link);
-                return 1;
-        }
-
-        r = link_set_can(link);
-        if (r < 0)
-                link_enter_failed(link);
-
-        return 1;
-}
-
 int link_configure_can(Link *link) {
         int r;
 
@@ -258,13 +237,13 @@ int link_configure_can(Link *link) {
 
         if (streq_ptr(link->kind, "can")) {
                 /* The CAN interface must be down to configure bitrate, etc... */
-                if ((link->flags & IFF_UP))
-                        r = link_down(link, link_down_handler);
-                else
-                        r = link_set_can(link);
-                if (r < 0)
-                        link_enter_failed(link);
-                return r;
+                if (link->flags & IFF_UP) {
+                        r = link_down(link);
+                        if (r < 0)
+                                return r;
+                }
+
+                return link_set_can(link);
         }
 
         r = link_activate(link);
