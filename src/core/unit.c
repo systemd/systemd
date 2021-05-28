@@ -2708,7 +2708,7 @@ void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns, UnitNotifyFlag
         }
 
         /* And now, add the unit or depending units to various queues that will act on the new situation if
-         * needed. These queues generally check for continous state changes rather than events (like most of
+         * needed. These queues generally check for continuous state changes rather than events (like most of
          * the state propagation above), and do work deferred instead of instantly, since they typically
          * don't want to run during reloading, and usually involve checking combined state of multiple units
          * at once. */
@@ -5831,7 +5831,7 @@ int unit_get_dependency_array(const Unit *u, UnitDependencyAtom atom, Unit ***re
 
         /* Gets a list of units matching a specific atom as array. This is useful when iterating through
          * dependencies while modifying them: the array is an "atomic snapshot" of sorts, that can be read
-         * while the dependency table is continously updated. */
+         * while the dependency table is continuously updated. */
 
         UNIT_FOREACH_DEPENDENCY(other, u, atom) {
                 if (!GREEDY_REALLOC(array, n + 1))

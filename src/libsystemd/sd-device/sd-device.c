@@ -2141,7 +2141,7 @@ _public_ int sd_device_trigger_with_uuid(
 
         assert_return(device, -EINVAL);
 
-        /* If noone wants to know the UUID, use the simple interface from pre-4.13 times */
+        /* If no one wants to know the UUID, use the simple interface from pre-4.13 times */
         if (!ret_uuid)
                 return sd_device_trigger(device, action);
 
