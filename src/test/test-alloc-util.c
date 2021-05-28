@@ -175,7 +175,7 @@ static void test_malloc_size_safe(void) {
         assert_se(malloc_usable_size(NULL) == 0); /* as per man page, this is safe and defined */
         assert_se(__builtin_object_size(NULL, 0) == SIZE_MAX); /* as per docs SIZE_MAX is returned for pointers where the size isn't known */
 
-        /* Then, let's try these macros once with contant size values, so that __builtin_object_size()
+        /* Then, let's try these macros once with constant size values, so that __builtin_object_size()
          * definitely can work (as long as -O2 is used when compiling) */
         assert_se(f = new(uint32_t, n));
         TEST_SIZES(f, n);
