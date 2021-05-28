@@ -10,6 +10,7 @@
 #include "log.h"
 #include "macro.h"
 #include "main-func.h"
+#include "parse-argument.h"
 #include "pretty-print.h"
 #include "strv.h"
 #include "terminal-util.h"
@@ -45,6 +46,8 @@ static int help(void) {
                "                      credentials\n"
                "     --timeout=SEC    Timeout in seconds\n"
                "     --echo           Do not mask input (useful for usernames)\n"
+               "     --emoji=yes|no|auto\n"
+               "                      Show a lock and key emoji\n"
                "     --no-tty         Ask question via agent even on TTY\n"
                "     --accept-cached  Accept cached passwords\n"
                "     --multiple       List multiple passwords if available\n"
@@ -64,6 +67,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_ICON = 0x100,
                 ARG_TIMEOUT,
                 ARG_ECHO,
+                ARG_EMOJI,
                 ARG_NO_TTY,
                 ARG_ACCEPT_CACHED,
                 ARG_MULTIPLE,
@@ -80,6 +84,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "icon",          required_argument, NULL, ARG_ICON          },
                 { "timeout",       required_argument, NULL, ARG_TIMEOUT       },
                 { "echo",          no_argument,       NULL, ARG_ECHO          },
+                { "emoji",         required_argument, NULL, ARG_EMOJI         },
                 { "no-tty",        no_argument,       NULL, ARG_NO_TTY        },
                 { "accept-cached", no_argument,       NULL, ARG_ACCEPT_CACHED },
                 { "multiple",      no_argument,       NULL, ARG_MULTIPLE      },
@@ -90,6 +95,7 @@ static int parse_argv(int argc, char *argv[]) {
                 {}
         };
 
+        const char *emoji = NULL;
         int c;
 
         assert(argc >= 0);
@@ -118,6 +124,10 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_ECHO:
                         arg_flags |= ASK_PASSWORD_ECHO;
+                        break;
+
+                case ARG_EMOJI:
+                        emoji = optarg;
                         break;
 
                 case ARG_NO_TTY:
@@ -154,6 +164,18 @@ static int parse_argv(int argc, char *argv[]) {
                 default:
                         assert_not_reached("Unhandled option");
                 }
+
+        if (isempty(emoji) || streq(emoji, "auto"))
+                SET_FLAG(arg_flags, ASK_PASSWORD_HIDE_EMOJI, FLAGS_SET(arg_flags, ASK_PASSWORD_ECHO));
+        else {
+                int r;
+                bool b;
+
+                r = parse_boolean_argument("--emoji=", emoji, &b);
+                if (r < 0)
+                         return r;
+                SET_FLAG(arg_flags, ASK_PASSWORD_HIDE_EMOJI, !b);
+        }
 
         if (argc > optind) {
                 arg_message = strv_join(argv + optind, " ");
