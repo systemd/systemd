@@ -377,7 +377,7 @@ static int trie_store(struct trie *trie, const char *filename, bool compat) {
         r = fopen_temporary(filename, &t.f, &filename_tmp);
         if (r < 0)
                 return r;
-        fchmod(fileno(t.f), 0444);
+        (void) fchmod(fileno(t.f), 0444);
 
         /* write nodes */
         if (fseeko(t.f, sizeof(struct trie_header_f), SEEK_SET) < 0)
