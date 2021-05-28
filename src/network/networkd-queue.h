@@ -22,6 +22,7 @@ typedef int (*request_after_configure_handler_t)(Request*, void*);
 typedef void (*request_on_free_handler_t)(Request*);
 
 typedef enum RequestType {
+        REQUEST_TYPE_ACTIVATE_LINK,
         REQUEST_TYPE_ADDRESS,
         REQUEST_TYPE_ADDRESS_LABEL,
         REQUEST_TYPE_BRIDGE_FDB,
