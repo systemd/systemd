@@ -656,7 +656,7 @@ static int run(int argc, char *argv[]) {
                 int i;
 
                 for (i = optind; i < argc; i++) {
-                        path_simplify(argv[i], false);
+                        path_simplify(argv[i]);
 
                         k = process_suffix_chop(argv[i]);
                         if (k < 0)

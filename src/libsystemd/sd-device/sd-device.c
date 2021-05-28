@@ -171,7 +171,7 @@ int device_set_syspath(sd_device *device, const char *_syspath, bool verify) {
                                 return -ENOMEM;
 
                         free_and_replace(syspath, new_syspath);
-                        path_simplify(syspath, false);
+                        path_simplify(syspath);
                 }
 
                 if (path_startswith(syspath,  "/sys/devices/")) {
