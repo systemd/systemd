@@ -577,12 +577,13 @@ char* path_extend_internal(char **x, ...) {
                         continue;
 
                 add = 1 + strlen(p);
-                if (sz > SIZE_MAX - add) /* overflow check */
+                if (sz > SIZE_MAX - add) { /* overflow check */
+                        va_end(ap);
                         return NULL;
+                }
 
                 sz += add;
         }
-
         va_end(ap);
 
         nx = realloc(x ? *x : NULL, GREEDY_ALLOC_ROUND_UP(sz+1));
