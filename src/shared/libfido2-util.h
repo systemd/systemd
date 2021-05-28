@@ -7,6 +7,9 @@ typedef enum Fido2EnrollFlags {
         FIDO2ENROLL_PIN           = 1 << 0,
         FIDO2ENROLL_UP            = 1 << 1, /* User presence (ie: touching token) */
         FIDO2ENROLL_UV            = 1 << 2, /* User verification (ie: fingerprint) */
+        FIDO2ENROLL_PIN_IF_NEEDED = 1 << 3, /* If auth doesn't work without PIN ask for one, as in systemd 248 */
+        FIDO2ENROLL_UP_IF_NEEDED  = 1 << 4, /* If auth doesn't work without UP, enable it, as in systemd 248 */
+        FIDO2ENROLL_UV_OMIT       = 1 << 5, /* Leave "uv" untouched, as in systemd 248 */
         _FIDO2ENROLL_TYPE_MAX,
         _FIDO2ENROLL_TYPE_INVALID = -EINVAL,
 } Fido2EnrollFlags;
@@ -106,7 +109,8 @@ int fido2_generate_hmac_hash(
                 void **ret_cid, size_t *ret_cid_size,
                 void **ret_salt, size_t *ret_salt_size,
                 void **ret_secret, size_t *ret_secret_size,
-                char **ret_usedpin);
+                char **ret_usedpin,
+                Fido2EnrollFlags *ret_locked_with);
 
 #endif
 
