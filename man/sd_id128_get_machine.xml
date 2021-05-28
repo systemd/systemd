@@ -106,7 +106,7 @@
     but might not on older. It is possible to convert the machine ID into a UUID v4-compatible one. For more
     information, see
     <citerefentry><refentrytitle>machine-id</refentrytitle><manvolnum>5</manvolnum></citerefentry>. It is
-    hence guaranteed that thes functions will never return the ID consisting of all zero or all one bits
+    hence guaranteed that these functions will never return the ID consisting of all zero or all one bits
     (<constant>SD_ID128_NULL</constant>, <constant>SD_ID128_ALLF</constant>) — with the possible exception of
     <function>sd_id128_get_machine()</function>, as mentioned.</para>
 
