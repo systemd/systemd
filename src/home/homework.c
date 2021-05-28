@@ -48,8 +48,10 @@ int user_record_authenticate(
                 PasswordCache *cache,
                 bool strict_verify) {
 
-        bool need_password = false, need_recovery_key = false, need_token = false, need_pin = false, need_protected_authentication_path_permitted = false, need_user_presence_permitted = false,
-                pin_locked = false, pin_incorrect = false, pin_incorrect_few_tries_left = false, pin_incorrect_one_try_left = false, token_action_timeout = false;
+        bool need_password = false, need_recovery_key = false, need_token = false, need_pin = false,
+                need_protected_authentication_path_permitted = false, need_user_presence_permitted = false,
+                need_user_verification_permitted = false, pin_locked = false, pin_incorrect = false,
+                pin_incorrect_few_tries_left = false, pin_incorrect_one_try_left = false, token_action_timeout = false;
         int r;
 
         assert(h);
@@ -208,6 +210,9 @@ int user_record_authenticate(
                 case -EMEDIUMTYPE:
                         need_user_presence_permitted = true;
                         break;
+                case -ENOCSI:
+                        need_user_verification_permitted = true;
+                        break;
                 case -ENOSTR:
                         token_action_timeout = true;
                         break;
@@ -250,6 +255,8 @@ int user_record_authenticate(
                 return -ERFKILL;
         if (need_user_presence_permitted)
                 return -EMEDIUMTYPE;
+        if (need_user_verification_permitted)
+                return -ENOCSI;
         if (need_pin)
                 return -ENOANO;
         if (need_token)
@@ -1680,6 +1687,7 @@ static int run(int argc, char *argv[]) {
          * ENOANO          → suitable PKCS#11/FIDO2 device found, but PIN is missing to unlock it
          * ERFKILL         → suitable PKCS#11 device found, but OK to ask for on-device interactive authentication not given
          * EMEDIUMTYPE     → suitable FIDO2 device found, but OK to ask for user presence not given
+         * ENOCSI          → suitable FIDO2 device found, but OK to ask for user verification not given
          * ENOSTR          → suitable FIDO2 device found, but user didn't react to action request on token quickly enough
          * EOWNERDEAD      → suitable PKCS#11/FIDO2 device found, but its PIN is locked
          * ENOLCK          → suitable PKCS#11/FIDO2 device found, but PIN incorrect
