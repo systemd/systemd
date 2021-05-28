@@ -34,11 +34,6 @@
 #include "user-util.h"
 #include "virt.h"
 
-#if HAVE_STAP
-#include <sys/sdt.h>
-#include "udev-probes.h"
-#endif
-
 #define RULES_DIRS (const char* const*) CONF_PATHS_STRV("udev/rules.d")
 
 typedef enum {
@@ -2269,7 +2264,7 @@ static int udev_rule_apply_line_to_event(
 
         event->esc = ESCAPE_UNSET;
 
-        DEVICE_TRACE_POINT(RULES_APPLY_LINE, event->dev, line->rule_file->filename, line->line_number);
+        DEVICE_TRACE_POINT(rules_apply_line, event->dev, line->rule_file->filename, line->line_number);
 
         LIST_FOREACH_SAFE(tokens, token, next_token, line->tokens) {
                 line->current_token = token;
