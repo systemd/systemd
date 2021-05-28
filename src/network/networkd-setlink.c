@@ -29,6 +29,12 @@ static int get_link_default_handler(sd_netlink *rtnl, sd_netlink_message *m, Lin
         return link_getlink_handler_internal(rtnl, m, link, "Failed to sync link information");
 }
 
+static int get_link_master_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
+        if (get_link_default_handler(rtnl, m, link) > 0)
+                link->master_set = true;
+        return 0;
+}
+
 static int set_link_handler_internal(
                 sd_netlink *rtnl,
                 sd_netlink_message *m,
@@ -118,7 +124,7 @@ static int link_set_mac_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *l
 }
 
 static int link_set_master_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
-        return set_link_handler_internal(rtnl, m, link, SET_LINK_MASTER, true, get_link_default_handler);
+        return set_link_handler_internal(rtnl, m, link, SET_LINK_MASTER, true, get_link_master_handler);
 }
 
 static int link_set_mtu_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
@@ -436,6 +442,12 @@ static bool link_is_ready_to_call_set_link(Request *req) {
                 return false;
 
         switch (op) {
+        case SET_LINK_BOND:
+        case SET_LINK_BRIDGE:
+        case SET_LINK_BRIDGE_VLAN:
+                if (!link->master_set)
+                        return false;
+                break;
         case SET_LINK_MASTER: {
                 uint32_t m = 0;
 
@@ -628,6 +640,8 @@ int link_request_to_set_mac(Link *link) {
 
 int link_request_to_set_master(Link *link) {
         assert(link);
+
+        link->master_set = false;
 
         return link_request_set_link(link, SET_LINK_MASTER, link_set_master_handler, NULL);
 }
