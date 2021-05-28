@@ -1014,8 +1014,11 @@ static void test_path_hashmap(void) {
         assert_se(hashmap_put(h, "//foo", INT_TO_PTR(3)) == -EEXIST);
         assert_se(hashmap_put(h, "//foox/", INT_TO_PTR(4)) >= 0);
         assert_se(hashmap_put(h, "/foox////", INT_TO_PTR(5)) == -EEXIST);
+        assert_se(hashmap_put(h, "//././/foox//.//.", INT_TO_PTR(5)) == -EEXIST);
         assert_se(hashmap_put(h, "foo//////bar/quux//", INT_TO_PTR(6)) >= 0);
         assert_se(hashmap_put(h, "foo/bar//quux/", INT_TO_PTR(8)) == -EEXIST);
+        assert_se(hashmap_put(h, "foo./ba.r//.quux/", INT_TO_PTR(9)) >= 0);
+        assert_se(hashmap_put(h, "foo./ba.r//.//.quux///./", INT_TO_PTR(10)) == -EEXIST);
 
         assert_se(hashmap_get(h, "foo") == INT_TO_PTR(1));
         assert_se(hashmap_get(h, "foo/") == INT_TO_PTR(1));
@@ -1024,12 +1027,14 @@ static void test_path_hashmap(void) {
         assert_se(hashmap_get(h, "//foo") == INT_TO_PTR(2));
         assert_se(hashmap_get(h, "/////foo////") == INT_TO_PTR(2));
         assert_se(hashmap_get(h, "/////foox////") == INT_TO_PTR(4));
+        assert_se(hashmap_get(h, "/.///./foox//.//") == INT_TO_PTR(4));
         assert_se(hashmap_get(h, "/foox/") == INT_TO_PTR(4));
         assert_se(hashmap_get(h, "/foox") == INT_TO_PTR(4));
         assert_se(!hashmap_get(h, "foox"));
         assert_se(hashmap_get(h, "foo/bar/quux") == INT_TO_PTR(6));
         assert_se(hashmap_get(h, "foo////bar////quux/////") == INT_TO_PTR(6));
         assert_se(!hashmap_get(h, "/foo////bar////quux/////"));
+        assert_se(hashmap_get(h, "foo././//ba.r////.quux///.//.") == INT_TO_PTR(9));
 }
 
 static void test_string_strv_hashmap(void) {

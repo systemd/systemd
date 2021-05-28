@@ -103,7 +103,7 @@ static int bus_path_set_transient_property(
                                 if (!k)
                                         return -ENOMEM;
 
-                                path_simplify(k, false);
+                                path_simplify(k);
 
                                 s = new0(PathSpec, 1);
                                 if (!s)
