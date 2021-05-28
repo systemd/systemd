@@ -597,7 +597,7 @@ char* path_extend_internal(char **x, ...) {
                 *x = nx;
 
         if (old_sz > 0)
-                slash = nx[old_sz] == '/';
+                slash = nx[old_sz-1] == '/';
         else {
                 nx[old_sz] = 0;
                 slash = true; /* no need to generate a slash anymore */
