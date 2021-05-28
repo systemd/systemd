@@ -45,7 +45,8 @@ int enroll_fido2(
                         &cid, &cid_size,
                         &salt, &salt_size,
                         &secret, &secret_size,
-                        NULL);
+                        NULL,
+                        &lock_with);
         if (r < 0)
                 return r;
 
