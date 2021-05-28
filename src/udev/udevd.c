@@ -66,11 +66,6 @@
 #include "user-util.h"
 #include "version.h"
 
-#if HAVE_STAP
-#include <sys/sdt.h>
-#include "udev-probes.h"
-#endif
-
 #define WORKER_NUM_MAX 2048U
 
 static bool arg_debug = false;
@@ -622,7 +617,7 @@ static int worker_spawn(Manager *manager, struct event *event) {
                 return log_error_errno(r, "Failed to fork() worker: %m");
         }
         if (r == 0) {
-                DEVICE_TRACE_POINT(WORKER_SPAWNED, event->dev, getpid());
+                DEVICE_TRACE_POINT(worker_spawned, event->dev, getpid());
 
                 /* Worker process */
                 r = worker_main(manager, worker_monitor, sd_device_ref(event->dev));
@@ -1052,7 +1047,7 @@ static int on_uevent(sd_device_monitor *monitor, sd_device *dev, void *userdata)
 
         assert(manager);
 
-        DEVICE_TRACE_POINT(KERNEL_UEVENT_RECEIVED, dev);
+        DEVICE_TRACE_POINT(kernel_uevent_received, dev);
 
         device_ensure_usec_initialized(dev, NULL);
 
@@ -1189,7 +1184,7 @@ static int synthesize_change_one(sd_device *dev, sd_device *target) {
         if (r < 0)
                 return log_device_debug_errno(target, r, "Failed to trigger 'change' uevent: %m");
 
-        DEVICE_TRACE_POINT(SYNTHETIC_CHANGE_EVENT, dev);
+        DEVICE_TRACE_POINT(synthetic_change_event, dev);
 
         return 0;
 }

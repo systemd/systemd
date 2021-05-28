@@ -660,6 +660,7 @@ foreach header : ['crypt.h',
                   'valgrind/memcheck.h',
                   'valgrind/valgrind.h',
                   'linux/time_types.h',
+                  'sys/sdt.h',
                  ]
 
         conf.set10('HAVE_' + header.underscorify().to_upper(),
@@ -1470,18 +1471,6 @@ else
         have = false
 endif
 conf.set10('ENABLE_REMOTE', have)
-
-want_stap = get_option('stap')
-if want_stap != false
-        have = false
-        dtrace = find_program('dtrace', required: false)
-        if dtrace.found()
-                have = true
-        endif
-else
-        have = false
-endif
-conf.set10('HAVE_STAP', have)
 
 foreach term : ['analyze',
                 'backlight',

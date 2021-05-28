@@ -1,6 +1,11 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
+#if HAVE_SYS_SDT_H
+#define SDT_USE_VARIADIC
+#include <sys/sdt.h>
+#endif
+
 #include "sd-device.h"
 
 #include "time-util.h"
@@ -47,7 +52,8 @@ int udev_resolve_subsys_kernel(const char *string, char *result, size_t maxsize,
 int udev_queue_is_empty(void);
 int udev_queue_init(void);
 
-#if HAVE_STAP
+#if HAVE_SYS_SDT_H
+
 #define DEVICE_TRACE_POINT(name, dev, ...)                                     \
         do {                                                                   \
                 PROTECT_ERRNO;                                                 \
@@ -56,8 +62,8 @@ int udev_queue_init(void);
                 sd_device_action_t _a = _SD_DEVICE_ACTION_INVALID;             \
                 (void) sd_device_get_action(_d, &_a);                          \
                 (void) sd_device_get_sysname(_d, &_s);                         \
-                UDEV_##name(_s, device_action_to_string(_a) __VA_OPT__(,) __VA_ARGS__);     \
+                STAP_PROBEV(udev, name, _s, device_action_to_string(_a) __VA_OPT__(,) __VA_ARGS__);     \
         } while(false);
 #else
-#define DEVICE_TRACE_POINT(name, dev, ...) ((void) 0)
+#define DEVICE_TRACE_POINT(name, args, dev, ...) ((void) 0)
 #endif
