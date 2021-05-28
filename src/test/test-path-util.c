@@ -397,8 +397,14 @@ static void test_path_extend(void) {
 
         assert_se(path_extend(&p, "/foo") == p);
         assert_se(streq(p, "foo/foo"));
-        assert_se(path_extend(&p, "waaaah/wahhh/") == p);
-        assert_se(streq(p, "foo/foo/waaaah/wahhh/"));
+        assert_se(path_extend(&p, "/waaaah/wahhh//") == p);
+        assert_se(streq(p, "foo/foo/waaaah/wahhh//")); /* path_extend() does not drop redundant slashes */
+        assert_se(path_extend(&p, "/aaa/bbb/") == p);
+        assert_se(streq(p, "foo/foo/waaaah/wahhh///aaa/bbb/")); /* but not add an extra slash */
+
+        assert_se(free_and_strdup(&p, "/") >= 0);
+        assert_se(path_extend(&p, "foo") == p);
+        assert_se(streq(p, "/foo"));
 }
 
 static void test_fsck_exists(void) {
