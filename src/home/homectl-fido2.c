@@ -68,7 +68,8 @@ static int add_fido2_salt(
                 const void *fido2_salt,
                 size_t fido2_salt_size,
                 const void *secret,
-                size_t secret_size) {
+                size_t secret_size,
+                Fido2EnrollFlags lock_with) {
 
         _cleanup_(json_variant_unrefp) JsonVariant *l = NULL, *w = NULL, *e = NULL;
         _cleanup_(erase_and_freep) char *base64_encoded = NULL, *hashed = NULL;
@@ -87,7 +88,11 @@ static int add_fido2_salt(
         r = json_build(&e, JSON_BUILD_OBJECT(
                                        JSON_BUILD_PAIR("credential", JSON_BUILD_BASE64(cid, cid_size)),
                                        JSON_BUILD_PAIR("salt", JSON_BUILD_BASE64(fido2_salt, fido2_salt_size)),
-                                       JSON_BUILD_PAIR("hashedPassword", JSON_BUILD_STRING(hashed))));
+                                       JSON_BUILD_PAIR("hashedPassword", JSON_BUILD_STRING(hashed)),
+                                       JSON_BUILD_PAIR("up", JSON_BUILD_BOOLEAN(FLAGS_SET(lock_with, FIDO2ENROLL_UP))),
+                                       JSON_BUILD_PAIR("uv", JSON_BUILD_BOOLEAN(FLAGS_SET(lock_with, FIDO2ENROLL_UV))),
+                                       JSON_BUILD_PAIR("clientPin", JSON_BUILD_BOOLEAN(FLAGS_SET(lock_with, FIDO2ENROLL_PIN)))));
+
         if (r < 0)
                 return log_error_errno(r, "Failed to build FIDO2 salt JSON key object: %m");
 
@@ -112,7 +117,8 @@ static int add_fido2_salt(
 
 int identity_add_fido2_parameters(
                 JsonVariant **v,
-                const char *device) {
+                const char *device,
+                Fido2EnrollFlags lock_with) {
 
 #if HAVE_LIBFIDO2
         JsonVariant *un, *realm, *rn;
@@ -158,12 +164,12 @@ int identity_add_fido2_parameters(
                         /* user_display_name= */ rn ? json_variant_string(rn) : NULL,
                         /* user_icon_name= */ NULL,
                         /* askpw_icon_name= */ "user-home",
-                        FIDO2ENROLL_PIN | FIDO2ENROLL_UP, // FIXME: add a --lock-with-pin/up parameter like cryptenroll
+                        lock_with,
                         &cid, &cid_size,
                         &salt, &salt_size,
                         &secret, &secret_size,
                         &used_pin,
-                        NULL);
+                        &lock_with);
         if (r < 0)
                 return r;
 
@@ -181,7 +187,8 @@ int identity_add_fido2_parameters(
                         salt,
                         salt_size,
                         secret,
-                        secret_size);
+                        secret_size,
+                        lock_with);
         if (r < 0)
                 return r;
 

@@ -107,6 +107,8 @@
 #define BUS_ERROR_TOKEN_PROTECTED_AUTHENTICATION_PATH_NEEDED \
                                                "org.freedesktop.home1.TokenProtectedAuthenticationPathNeeded"
 #define BUS_ERROR_TOKEN_USER_PRESENCE_NEEDED   "org.freedesktop.home1.TokenUserPresenceNeeded"
+#define BUS_ERROR_TOKEN_USER_VERIFICATION_NEEDED \
+                                               "org.freedesktop.home1.TokenUserVerificationNeeded"
 #define BUS_ERROR_TOKEN_ACTION_TIMEOUT         "org.freedesktop.home1.TokenActionTimeout"
 #define BUS_ERROR_TOKEN_PIN_LOCKED             "org.freedesktop.home1.TokenPinLocked"
 #define BUS_ERROR_TOKEN_BAD_PIN                "org.freedesktop.home1.BadPin"

@@ -57,6 +57,7 @@ static uint64_t arg_disk_size = UINT64_MAX;
 static uint64_t arg_disk_size_relative = UINT64_MAX;
 static char **arg_pkcs11_token_uri = NULL;
 static char **arg_fido2_device = NULL;
+static Fido2EnrollFlags arg_fido2_lock_with = FIDO2ENROLL_PIN | FIDO2ENROLL_UP;
 static bool arg_recovery_key = false;
 static JsonFormatFlags arg_json_format_flags = JSON_FORMAT_OFF;
 static bool arg_and_resize = false;
@@ -380,13 +381,23 @@ static int handle_generic_user_record_error(
 
         } else if (sd_bus_error_has_name(error, BUS_ERROR_TOKEN_USER_PRESENCE_NEEDED)) {
 
-                log_notice("%s%sAuthentication requires presence verification on security token.",
+                log_notice("%s%sPlease confirm presence on security token.",
                            emoji_enabled() ? special_glyph(SPECIAL_GLYPH_TOUCH) : "",
                            emoji_enabled() ? " " : "");
 
                 r = user_record_set_fido2_user_presence_permitted(hr, true);
                 if (r < 0)
                         return log_error_errno(r, "Failed to set FIDO2 user presence permitted flag: %m");
+
+        } else if (sd_bus_error_has_name(error, BUS_ERROR_TOKEN_USER_VERIFICATION_NEEDED)) {
+
+                log_notice("%s%sPlease verify user on security token.",
+                           emoji_enabled() ? special_glyph(SPECIAL_GLYPH_TOUCH) : "",
+                           emoji_enabled() ? " " : "");
+
+                r = user_record_set_fido2_user_verification_permitted(hr, true);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to set FIDO2 user verification permitted flag: %m");
 
         } else if (sd_bus_error_has_name(error, BUS_ERROR_TOKEN_PIN_LOCKED))
                 return log_error_errno(SYNTHETIC_ERRNO(EPERM), "Security token PIN is locked, please unlock it first. (Hint: Removal and re-insertion might suffice.)");
@@ -1027,7 +1038,7 @@ static int acquire_new_home_record(UserRecord **ret) {
         }
 
         STRV_FOREACH(i, arg_fido2_device) {
-                r = identity_add_fido2_parameters(&v, *i);
+                r = identity_add_fido2_parameters(&v, *i, arg_fido2_lock_with);
                 if (r < 0)
                         return r;
         }
@@ -1397,7 +1408,7 @@ static int acquire_updated_home_record(
         }
 
         STRV_FOREACH(i, arg_fido2_device) {
-                r = identity_add_fido2_parameters(&json, *i);
+                r = identity_add_fido2_parameters(&json, *i, arg_fido2_lock_with);
                 if (r < 0)
                         return r;
         }
@@ -1439,6 +1450,10 @@ static int home_record_reset_human_interaction_permission(UserRecord *hr) {
         r = user_record_set_fido2_user_presence_permitted(hr, -1);
         if (r < 0)
                 return log_error_errno(r, "Failed to reset FIDO2 user presence permission flag: %m");
+
+        r = user_record_set_fido2_user_verification_permitted(hr, -1);
+        if (r < 0)
+                return log_error_errno(r, "Failed to reset FIDO2 user verification permission flag: %m");
 
         return 0;
 }
@@ -2071,6 +2086,15 @@ static int help(int argc, char *argv[], void *userdata) {
                "                              private key and matching X.509 certificate\n"
                "     --fido2-device=PATH      Path to FIDO2 hidraw device with hmac-secret\n"
                "                              extension\n"
+               "     --fido2-with-client-pin=BOOL\n"
+               "                              Whether to require entering a PIN to unlock the\n"
+               "                              account\n"
+               "     --fido2-with-user-presence=BOOL\n"
+               "                              Whether to require user presence to unlock the\n"
+               "                              account\n"
+               "     --fido2-with-user-verification=BOOL\n"
+               "                              Whether to require user verification to unlock the\n"
+               "                              account\n"
                "     --recovery-key=BOOL      Add a recovery key\n"
                "\n%4$sAccount Management User Record Properties:%5$s\n"
                "     --locked=BOOL            Set locked account state\n"
@@ -2220,6 +2244,9 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_AUTO_LOGIN,
                 ARG_PKCS11_TOKEN_URI,
                 ARG_FIDO2_DEVICE,
+                ARG_FIDO2_WITH_PIN,
+                ARG_FIDO2_WITH_UP,
+                ARG_FIDO2_WITH_UV,
                 ARG_RECOVERY_KEY,
                 ARG_AND_RESIZE,
                 ARG_AND_CHANGE_PASSWORD,
@@ -2299,6 +2326,9 @@ static int parse_argv(int argc, char *argv[]) {
                 { "export-format",               required_argument, NULL, ARG_EXPORT_FORMAT               },
                 { "pkcs11-token-uri",            required_argument, NULL, ARG_PKCS11_TOKEN_URI            },
                 { "fido2-device",                required_argument, NULL, ARG_FIDO2_DEVICE                },
+                { "fido2-with-client-pin",       required_argument, NULL, ARG_FIDO2_WITH_PIN              },
+                { "fido2-with-user-presence",    required_argument, NULL, ARG_FIDO2_WITH_UP               },
+                { "fido2-with-user-verification",required_argument, NULL, ARG_FIDO2_WITH_UV               },
                 { "recovery-key",                required_argument, NULL, ARG_RECOVERY_KEY                },
                 { "and-resize",                  required_argument, NULL, ARG_AND_RESIZE                  },
                 { "and-change-password",         required_argument, NULL, ARG_AND_CHANGE_PASSWORD         },
@@ -3323,11 +3353,43 @@ static int parse_argv(int argc, char *argv[]) {
                                 r = strv_consume(&arg_fido2_device, TAKE_PTR(found));
                         } else
                                 r = strv_extend(&arg_fido2_device, optarg);
-
                         if (r < 0)
                                 return r;
 
                         strv_uniq(arg_fido2_device);
+                        break;
+                }
+
+                case ARG_FIDO2_WITH_PIN: {
+                        bool lock_with_pin;
+
+                        r = parse_boolean_argument("--fido2-with-client-pin=", optarg, &lock_with_pin);
+                        if (r < 0)
+                                return r;
+
+                        SET_FLAG(arg_fido2_lock_with, FIDO2ENROLL_PIN, lock_with_pin);
+                        break;
+                }
+
+                case ARG_FIDO2_WITH_UP: {
+                        bool lock_with_up;
+
+                        r = parse_boolean_argument("--fido2-with-user-presence=", optarg, &lock_with_up);
+                        if (r < 0)
+                                return r;
+
+                        SET_FLAG(arg_fido2_lock_with, FIDO2ENROLL_UP, lock_with_up);
+                        break;
+                }
+
+                case ARG_FIDO2_WITH_UV: {
+                        bool lock_with_uv;
+
+                        r = parse_boolean_argument("--fido2-with-user-verification=", optarg, &lock_with_uv);
+                        if (r < 0)
+                                return r;
+
+                        SET_FLAG(arg_fido2_lock_with, FIDO2ENROLL_UV, lock_with_uv);
                         break;
                 }
 

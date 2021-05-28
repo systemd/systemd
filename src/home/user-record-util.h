@@ -52,6 +52,7 @@ int user_record_set_hashed_password(UserRecord *h, char **hashed_password);
 int user_record_set_token_pin(UserRecord *h, char **pin, bool prepend);
 int user_record_set_pkcs11_protected_authentication_path_permitted(UserRecord *h, int b);
 int user_record_set_fido2_user_presence_permitted(UserRecord *h, int b);
+int user_record_set_fido2_user_verification_permitted(UserRecord *h, int b);
 int user_record_set_password_change_now(UserRecord *h, int b);
 int user_record_merge_secret(UserRecord *h, UserRecord *secret);
 int user_record_good_authentication(UserRecord *h);

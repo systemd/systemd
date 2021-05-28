@@ -377,11 +377,21 @@ static int handle_generic_user_record_error(
 
         } else if (sd_bus_error_has_name(error, BUS_ERROR_TOKEN_USER_PRESENCE_NEEDED)) {
 
-                (void) pam_prompt(handle, PAM_ERROR_MSG, NULL, "Please verify presence on security token of user %s.", user_name);
+                (void) pam_prompt(handle, PAM_ERROR_MSG, NULL, "Please confirm presence on security token of user %s.", user_name);
 
                 r = user_record_set_fido2_user_presence_permitted(secret, true);
                 if (r < 0) {
                         pam_syslog(handle, LOG_ERR, "Failed to set FIDO2 user presence permitted flag: %s", strerror_safe(r));
+                        return PAM_SERVICE_ERR;
+                }
+
+        } else if (sd_bus_error_has_name(error, BUS_ERROR_TOKEN_USER_VERIFICATION_NEEDED)) {
+
+                (void) pam_prompt(handle, PAM_ERROR_MSG, NULL, "Please verify user on security token of user %s.", user_name);
+
+                r = user_record_set_fido2_user_verification_permitted(secret, true);
+                if (r < 0) {
+                        pam_syslog(handle, LOG_ERR, "Failed to set FIDO2 user verification permitted flag: %s", strerror_safe(r));
                         return PAM_SERVICE_ERR;
                 }
 

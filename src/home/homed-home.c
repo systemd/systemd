@@ -461,7 +461,9 @@ static int convert_worker_errno(Home *h, int e, sd_bus_error *error) {
         case -ERFKILL:
                 return sd_bus_error_set(error, BUS_ERROR_TOKEN_PROTECTED_AUTHENTICATION_PATH_NEEDED, "Security token requires protected authentication path.");
         case -EMEDIUMTYPE:
-                return sd_bus_error_set(error, BUS_ERROR_TOKEN_USER_PRESENCE_NEEDED, "Security token requires user presence.");
+                return sd_bus_error_set(error, BUS_ERROR_TOKEN_USER_PRESENCE_NEEDED, "Security token requires presence confirmation.");
+        case -ENOCSI:
+                return sd_bus_error_set(error, BUS_ERROR_TOKEN_USER_VERIFICATION_NEEDED, "Security token requires user verification.");
         case -ENOSTR:
                 return sd_bus_error_set(error, BUS_ERROR_TOKEN_ACTION_TIMEOUT, "Token action timeout. (User was supposed to verify presence or similar, by interacting with the token, and didn't do that in time.)");
         case -EOWNERDEAD:
