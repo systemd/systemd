@@ -117,8 +117,7 @@ int find_fido2_auto_data(
         size_t cid_size = 0, salt_size = 0;
         _cleanup_free_ char *rp = NULL;
         int r, keyslot = -1;
-        /* For backward compatibility, require pin and presence by default */
-        Fido2EnrollFlags required = FIDO2ENROLL_PIN | FIDO2ENROLL_UP;
+        Fido2EnrollFlags required = 0;
 
         assert(cd);
         assert(ret_salt);
@@ -193,7 +192,8 @@ int find_fido2_auto_data(
                                                        "FIDO2 token data's 'fido2-clientPin-required' field is not a boolean.");
 
                         SET_FLAG(required, FIDO2ENROLL_PIN, json_variant_boolean(w));
-                }
+                } else
+                        required |= FIDO2ENROLL_PIN_IF_NEEDED; /* compat with 248, where the field was unset */
 
                 w = json_variant_by_key(v, "fido2-up-required");
                 if (w) {
@@ -204,7 +204,8 @@ int find_fido2_auto_data(
                                                        "FIDO2 token data's 'fido2-up-required' field is not a boolean.");
 
                         SET_FLAG(required, FIDO2ENROLL_UP, json_variant_boolean(w));
-                }
+                } else
+                        required |= FIDO2ENROLL_UP_IF_NEEDED; /* compat with 248 */
 
                 w = json_variant_by_key(v, "fido2-uv-required");
                 if (w) {
@@ -215,7 +216,8 @@ int find_fido2_auto_data(
                                                        "FIDO2 token data's 'fido2-uv-required' field is not a boolean.");
 
                         SET_FLAG(required, FIDO2ENROLL_UV, json_variant_boolean(w));
-                }
+                } else
+                        required |= FIDO2ENROLL_UV_OMIT; /* compat with 248 */
         }
 
         if (!cid)
