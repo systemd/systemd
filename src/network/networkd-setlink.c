@@ -25,7 +25,18 @@ static const char *const set_link_operation_table[_SET_LINK_OPERATION_MAX] = {
 
 DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(set_link_operation, SetLinkOperation);
 
-static int set_link_handler_internal(sd_netlink *rtnl, sd_netlink_message *m, Link *link, SetLinkOperation op, bool ignore) {
+static int get_link_default_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
+        return link_getlink_handler_internal(rtnl, m, link, "Failed to sync link information");
+}
+
+static int set_link_handler_internal(
+                sd_netlink *rtnl,
+                sd_netlink_message *m,
+                Link *link,
+                SetLinkOperation op,
+                bool ignore,
+                link_netlink_message_handler_t get_link_handler) {
+
         int r;
 
         assert(m);
@@ -51,13 +62,25 @@ static int set_link_handler_internal(sd_netlink *rtnl, sd_netlink_message *m, Li
         }
 
         log_link_debug(link, "%s set.", set_link_operation_to_string(op));
+
+        if (get_link_handler) {
+                r = link_call_getlink(link, get_link_handler);
+                if (r < 0) {
+                        link_enter_failed(link);
+                        return 0;
+                }
+        }
+
+        if (link->set_link_messages == 0)
+                link_check_ready(link);
+
         return 1;
 }
 
 static int link_set_addrgen_mode_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
         int r;
 
-        r = set_link_handler_internal(rtnl, m, link, SET_LINK_ADDRESS_GENERATION_MODE, true);
+        r = set_link_handler_internal(rtnl, m, link, SET_LINK_ADDRESS_GENERATION_MODE, true, NULL);
         if (r <= 0)
                 return r;
 
@@ -71,37 +94,37 @@ static int link_set_addrgen_mode_handler(sd_netlink *rtnl, sd_netlink_message *m
 }
 
 static int link_set_bond_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
-        return set_link_handler_internal(rtnl, m, link, SET_LINK_BOND, true);
+        return set_link_handler_internal(rtnl, m, link, SET_LINK_BOND, true, NULL);
 }
 
 static int link_set_bridge_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
-        return set_link_handler_internal(rtnl, m, link, SET_LINK_BRIDGE, true);
+        return set_link_handler_internal(rtnl, m, link, SET_LINK_BRIDGE, true, NULL);
 }
 
 static int link_set_bridge_vlan_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
-        return set_link_handler_internal(rtnl, m, link, SET_LINK_BRIDGE_VLAN, true);
+        return set_link_handler_internal(rtnl, m, link, SET_LINK_BRIDGE_VLAN, true, NULL);
 }
 
 static int link_set_flags_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
-        return set_link_handler_internal(rtnl, m, link, SET_LINK_FLAGS, true);
+        return set_link_handler_internal(rtnl, m, link, SET_LINK_FLAGS, true, get_link_default_handler);
 }
 
 static int link_set_group_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
-        return set_link_handler_internal(rtnl, m, link, SET_LINK_GROUP, true);
+        return set_link_handler_internal(rtnl, m, link, SET_LINK_GROUP, true, NULL);
 }
 
 static int link_set_mac_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
-        return set_link_handler_internal(rtnl, m, link, SET_LINK_MAC, true);
+        return set_link_handler_internal(rtnl, m, link, SET_LINK_MAC, true, get_link_default_handler);
 }
 
 static int link_set_master_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
-        return set_link_handler_internal(rtnl, m, link, SET_LINK_MASTER, true);
+        return set_link_handler_internal(rtnl, m, link, SET_LINK_MASTER, true, get_link_default_handler);
 }
 
 static int link_set_mtu_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
         int r;
 
-        r = set_link_handler_internal(rtnl, m, link, SET_LINK_MTU, true);
+        r = set_link_handler_internal(rtnl, m, link, SET_LINK_MTU, true, get_link_default_handler);
         if (r <= 0)
                 return r;
 
