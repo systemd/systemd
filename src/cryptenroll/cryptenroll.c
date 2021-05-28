@@ -165,7 +165,6 @@ static int parse_argv(int argc, char *argv[]) {
                                 return r;
 
                         SET_FLAG(arg_fido2_lock_with, FIDO2ENROLL_PIN, lock_with_pin);
-
                         break;
                 }
 
@@ -177,7 +176,6 @@ static int parse_argv(int argc, char *argv[]) {
                                 return r;
 
                         SET_FLAG(arg_fido2_lock_with, FIDO2ENROLL_UP, lock_with_up);
-
                         break;
                 }
 
@@ -189,7 +187,6 @@ static int parse_argv(int argc, char *argv[]) {
                                 return r;
 
                         SET_FLAG(arg_fido2_lock_with, FIDO2ENROLL_UV, lock_with_uv);
-
                         break;
                 }
 
