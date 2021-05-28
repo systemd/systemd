@@ -224,9 +224,8 @@ int link_get_master(Link *link, Link **ret);
 
 int link_getlink_handler_internal(sd_netlink *rtnl, sd_netlink_message *m, Link *link, const char *error_msg);
 int link_call_getlink(Link *link, link_netlink_message_handler_t callback);
-int link_up(Link *link);
-int link_down(Link *link, link_netlink_message_handler_t callback);
 int link_activate(Link *link);
+int link_handle_bound_to_list(Link *link);
 
 int link_enter_join_netdev(Link *link);
 void link_enter_failed(Link *link);

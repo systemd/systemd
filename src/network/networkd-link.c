@@ -159,6 +159,11 @@ bool link_is_ready_to_configure(Link *link, bool allow_unmanaged) {
                 return false;
         */
 
+        /* TODO: enable this check when link_request_to_activate() is used.
+        if (!link->activated)
+                return false;
+        */
+
         return true;
 }
 
@@ -754,97 +759,7 @@ int link_ipv6ll_gained(Link *link, const struct in6_addr *address) {
         return 0;
 }
 
-static int link_up_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
-        int r;
-
-        assert(link);
-
-        if (IN_SET(link->state, LINK_STATE_FAILED, LINK_STATE_LINGER))
-                return 1;
-
-        r = sd_netlink_message_get_errno(m);
-        if (r < 0)
-                /* we warn but don't fail the link, as it may be brought up later */
-                log_link_message_warning_errno(link, m, r, "Could not bring up interface");
-
-        return 1;
-}
-
-int link_up(Link *link) {
-        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL;
-        int r;
-
-        assert(link);
-        assert(link->network);
-        assert(link->manager);
-        assert(link->manager->rtnl);
-
-        log_link_debug(link, "Bringing link up");
-
-        r = sd_rtnl_message_new_link(link->manager->rtnl, &req, RTM_SETLINK, link->ifindex);
-        if (r < 0)
-                return log_link_error_errno(link, r, "Could not allocate RTM_SETLINK message: %m");
-
-        r = sd_rtnl_message_link_set_flags(req, IFF_UP, IFF_UP);
-        if (r < 0)
-                return log_link_error_errno(link, r, "Could not set link flags: %m");
-
-        r = netlink_call_async(link->manager->rtnl, NULL, req, link_up_handler,
-                               link_netlink_destroy_callback, link);
-        if (r < 0)
-                return log_link_error_errno(link, r, "Could not send rtnetlink message: %m");
-
-        link_ref(link);
-
-        return 0;
-}
-
-static int link_down_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
-        int r;
-
-        assert(link);
-
-        if (IN_SET(link->state, LINK_STATE_FAILED, LINK_STATE_LINGER))
-                return 1;
-
-        r = sd_netlink_message_get_errno(m);
-        if (r < 0)
-                log_link_message_warning_errno(link, m, r, "Could not bring down interface");
-
-        return 1;
-}
-
-int link_down(Link *link, link_netlink_message_handler_t callback) {
-        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL;
-        int r;
-
-        assert(link);
-        assert(link->manager);
-        assert(link->manager->rtnl);
-
-        log_link_debug(link, "Bringing link down");
-
-        r = sd_rtnl_message_new_link(link->manager->rtnl, &req,
-                                     RTM_SETLINK, link->ifindex);
-        if (r < 0)
-                return log_link_error_errno(link, r, "Could not allocate RTM_SETLINK message: %m");
-
-        r = sd_rtnl_message_link_set_flags(req, 0, IFF_UP);
-        if (r < 0)
-                return log_link_error_errno(link, r, "Could not set link flags: %m");
-
-        r = netlink_call_async(link->manager->rtnl, NULL, req,
-                               callback ?: link_down_handler,
-                               link_netlink_destroy_callback, link);
-        if (r < 0)
-                return log_link_error_errno(link, r, "Could not send rtnetlink message: %m");
-
-        link_ref(link);
-
-        return 0;
-}
-
-static int link_handle_bound_to_list(Link *link) {
+int link_handle_bound_to_list(Link *link) {
         bool required_up = false;
         bool link_is_up = false;
         Link *l;
@@ -864,7 +779,7 @@ static int link_handle_bound_to_list(Link *link) {
                 }
 
         if (!required_up && link_is_up)
-                return link_down(link, NULL);
+                return link_down(link);
         if (required_up && !link_is_up)
                 return link_up(link);
 
@@ -1141,7 +1056,7 @@ int link_activate(Link *link) {
                         break;
                 _fallthrough_;
         case ACTIVATION_POLICY_ALWAYS_DOWN:
-                r = link_down(link, NULL);
+                r = link_down(link);
                 if (r < 0)
                         return r;
                 break;
@@ -1945,7 +1860,7 @@ static int link_admin_state_up(Link *link) {
 
         if (link->network->activation_policy == ACTIVATION_POLICY_ALWAYS_DOWN) {
                 log_link_info(link, "ActivationPolicy is \"always-off\", forcing link down");
-                return link_down(link, NULL);
+                return link_down(link);
         }
 
         /* We set the ipv6 mtu after the device mtu, but the kernel resets

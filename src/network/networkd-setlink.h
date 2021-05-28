@@ -33,3 +33,9 @@ int link_request_to_set_mtu(Link *link, uint32_t mtu);
 int link_configure_mtu(Link *link);
 
 int request_process_set_link(Request *req);
+
+int link_up(Link *link);
+int link_down(Link *link);
+
+int request_process_activation(Request *req);
+int link_request_to_activate(Link *link);
