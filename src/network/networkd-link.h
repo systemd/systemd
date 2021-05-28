@@ -139,6 +139,7 @@ typedef struct Link {
         bool sr_iov_configured:1;
         bool can_configured:1;
         bool activated:1;
+        bool master_set:1;
         bool entering_to_join_netdev:1;
         bool stacked_netdevs_created:1;
         bool stacked_netdevs_after_configured_created:1;
