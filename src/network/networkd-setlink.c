@@ -464,7 +464,7 @@ static bool link_is_ready_to_call_set_link(Request *req) {
 
                         if (FLAGS_SET(link->flags, IFF_UP)) {
                                 /* link must be down when joining to bond master. */
-                                r = link_down(link, NULL);
+                                r = link_down(link);
                                 if (r < 0) {
                                         link_enter_failed(link);
                                         return false;
@@ -710,4 +710,159 @@ int link_configure_mtu(Link *link) {
                         link->mtu, mtu);
 
         return link_request_to_set_mtu(link, mtu);
+}
+
+static int link_up_or_down_handler_internal(sd_netlink *rtnl, sd_netlink_message *m, Link *link, bool up, bool check_ready) {
+        int r;
+
+        assert(m);
+        assert(link);
+
+        if (IN_SET(link->state, LINK_STATE_FAILED, LINK_STATE_LINGER))
+                return 0;
+
+        r = sd_netlink_message_get_errno(m);
+        if (r < 0)
+                log_link_message_warning_errno(link, m, r, up ?
+                                               "Could not bring up interface, ignoring" :
+                                               "Could not bring down interface, ignoring");
+
+        if (check_ready) {
+                link->activated = true;
+                link_check_ready(link);
+        }
+
+        return 0;
+}
+
+static int link_activate_up_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
+        return link_up_or_down_handler_internal(rtnl, m, link, true, true);
+}
+
+static int link_activate_down_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
+        return link_up_or_down_handler_internal(rtnl, m, link, false, true);
+}
+
+static int link_up_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
+        return link_up_or_down_handler_internal(rtnl, m, link, true, false);
+}
+
+static int link_down_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
+        return link_up_or_down_handler_internal(rtnl, m, link, false, false);
+}
+
+static int link_up_or_down(Link *link, bool up, link_netlink_message_handler_t callback) {
+        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL;
+        int r;
+
+        assert(link);
+        assert(link->manager);
+        assert(link->manager->rtnl);
+        assert(callback);
+
+        log_link_debug(link, "Bringing link %s", up ? "up" : "down");
+
+        r = sd_rtnl_message_new_link(link->manager->rtnl, &req, RTM_SETLINK, link->ifindex);
+        if (r < 0)
+                return log_link_debug_errno(link, r, "Could not allocate RTM_SETLINK message: %m");
+
+        r = sd_rtnl_message_link_set_flags(req, up ? IFF_UP : 0, IFF_UP);
+        if (r < 0)
+                return log_link_debug_errno(link, r, "Could not set link flags: %m");
+
+        r = netlink_call_async(link->manager->rtnl, NULL, req, callback,
+                               link_netlink_destroy_callback, link);
+        if (r < 0)
+                return log_link_debug_errno(link, r, "Could not send rtnetlink message: %m");
+
+        link_ref(link);
+
+        return 0;
+}
+
+int link_up(Link *link) {
+        return link_up_or_down(link, true, link_up_handler);
+}
+
+int link_down(Link *link) {
+        return link_up_or_down(link, false, link_down_handler);
+}
+
+static bool link_is_ready_to_activate(Link *link) {
+        assert(link);
+
+        if (!IN_SET(link->state, LINK_STATE_INITIALIZED, LINK_STATE_CONFIGURING, LINK_STATE_CONFIGURED))
+                return false;
+
+        if (link->set_link_messages > 0)
+                return false;
+
+        return true;
+}
+
+int request_process_activation(Request *req) {
+        Link *link;
+        bool up;
+        int r;
+
+        assert(req);
+        assert(req->link);
+        assert(req->type == REQUEST_TYPE_ACTIVATE_LINK);
+        assert(req->netlink_handler);
+
+        link = req->link;
+        up = PTR_TO_INT(req->userdata);
+
+        if (!link_is_ready_to_activate(link))
+                return 0;
+
+        r = link_up_or_down(link, up, req->netlink_handler);
+        if (r < 0)
+                return log_link_error_errno(link, r, "Failed to bring %s: %m", up ? "up" : "down");
+
+        return 1;
+}
+
+int link_request_to_activate(Link *link) {
+        Request *req;
+        bool up;
+        int r;
+
+        assert(link);
+        assert(link->network);
+
+        switch (link->network->activation_policy) {
+        case ACTIVATION_POLICY_BOUND:
+                /* FIXME: also use request queue to handle the list. */
+                r = link_handle_bound_to_list(link);
+                if (r < 0)
+                        return r;
+                _fallthrough_;
+        case ACTIVATION_POLICY_MANUAL:
+                link->activated = true;
+                link_check_ready(link);
+                return 0;
+        case ACTIVATION_POLICY_UP:
+        case ACTIVATION_POLICY_ALWAYS_UP:
+                up = true;
+                break;
+        case ACTIVATION_POLICY_DOWN:
+        case ACTIVATION_POLICY_ALWAYS_DOWN:
+                up = false;
+                break;
+        default:
+                assert_not_reached("invalid activation policy");
+        }
+
+        link->activated = false;
+
+        r = link_queue_request(link, REQUEST_TYPE_ACTIVATE_LINK, NULL, false, NULL,
+                               up ? link_activate_up_handler : link_activate_down_handler, &req);
+        if (r < 0)
+                return log_link_error_errno(link, r, "Failed to request to activate link: %m");
+
+        req->userdata = INT_TO_PTR(up);
+
+        log_link_debug(link, "Requested to activate link");
+        return 0;
 }
