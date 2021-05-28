@@ -163,7 +163,7 @@ int link_lldp_save(Link *link) {
         if (r < 0)
                 goto finish;
 
-        fchmod(fileno(f), 0644);
+        (void) fchmod(fileno(f), 0644);
 
         for (i = 0; i < n; i++) {
                 const void *p;
