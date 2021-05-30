@@ -809,7 +809,8 @@ static int attach_luks_or_plain_or_bitlk_by_fido2(
                                 until,
                                 arg_headless,
                                 required,
-                                &decrypted_key, &decrypted_key_size);
+                                &decrypted_key, &decrypted_key_size,
+                                arg_silent);
                 if (r >= 0)
                         break;
                 if (r != -EAGAIN) /* EAGAIN means: token not found */
