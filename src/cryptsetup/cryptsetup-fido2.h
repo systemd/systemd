@@ -26,7 +26,8 @@ int acquire_fido2_key(
                 bool headless,
                 Fido2EnrollFlags required,
                 void **ret_decrypted_key,
-                size_t *ret_decrypted_key_size);
+                size_t *ret_decrypted_key_size,
+                bool silent);
 
 int find_fido2_auto_data(
                 struct crypt_device *cd,
@@ -56,7 +57,8 @@ static inline int acquire_fido2_key(
                 bool headless,
                 Fido2EnrollFlags required,
                 void **ret_decrypted_key,
-                size_t *ret_decrypted_key_size) {
+                size_t *ret_decrypted_key_size,
+                bool silent) {
 
         return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
                                "FIDO2 token support not available.");
