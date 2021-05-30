@@ -531,8 +531,9 @@
       <varlistentry>
         <term><option>silent</option></term>
 
-        <listitem><para>If the encryption password is read from console, no asterisks will be shown
-        while typing the password.</para></listitem>
+        <listitem><para>If an encryption password or security token PIN is
+        read from console, no asterisks will be shown while typing the pin or
+        password.</para></listitem>
       </varlistentry>
 
       <varlistentry>
