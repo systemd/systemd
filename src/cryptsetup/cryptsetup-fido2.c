@@ -26,9 +26,10 @@ int acquire_fido2_key(
                 bool headless,
                 Fido2EnrollFlags required,
                 void **ret_decrypted_key,
-                size_t *ret_decrypted_key_size) {
+                size_t *ret_decrypted_key_size,
+                bool silent) {
 
-        AskPasswordFlags flags = ASK_PASSWORD_PUSH_CACHE | ASK_PASSWORD_ACCEPT_CACHED;
+        AskPasswordFlags flags = ASK_PASSWORD_PUSH_CACHE | ASK_PASSWORD_ACCEPT_CACHED | (silent*ASK_PASSWORD_SILENT);
         _cleanup_strv_free_erase_ char **pins = NULL;
         _cleanup_free_ void *loaded_salt = NULL;
         const char *salt;
