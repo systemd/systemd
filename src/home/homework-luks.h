@@ -31,7 +31,7 @@ static inline uint64_t luks_volume_key_size_convert(struct crypt_device *cd) {
 
         /* Convert the "int" to uint64_t, which we usually use for byte sizes stored on disk. */
 
-        k = crypt_get_volume_key_size(cd);
+        k = sym_crypt_get_volume_key_size(cd);
         if (k <= 0)
                 return UINT64_MAX;
 

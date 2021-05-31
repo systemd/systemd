@@ -2254,7 +2254,6 @@ if conf.get('ENABLE_HOMED') == 1
                 include_directories : includes,
                 link_with : [libshared],
                 dependencies : [threads,
-                                libcryptsetup,
                                 libblkid,
                                 libcrypt,
                                 libopenssl,

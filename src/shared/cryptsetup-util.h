@@ -23,20 +23,33 @@ extern int (*sym_crypt_activate_by_volume_key)(struct crypt_device *cd, const ch
 extern int (*sym_crypt_deactivate_by_name)(struct crypt_device *cd, const char *name, uint32_t flags);
 extern int (*sym_crypt_format)(struct crypt_device *cd, const char *type, const char *cipher, const char *cipher_mode, const char *uuid, const char *volume_key, size_t volume_key_size, void *params);
 extern void (*sym_crypt_free)(struct crypt_device *cd);
+extern const char *(*sym_crypt_get_cipher)(struct crypt_device *cd);
+extern const char *(*sym_crypt_get_cipher_mode)(struct crypt_device *cd);
+extern uint64_t (*sym_crypt_get_data_offset)(struct crypt_device *cd);
+extern const char *(*sym_crypt_get_device_name)(struct crypt_device *cd);
 extern const char *(*sym_crypt_get_dir)(void);
+extern const char *(*sym_crypt_get_type)(struct crypt_device *cd);
+extern const char *(*sym_crypt_get_uuid)(struct crypt_device *cd);
 extern int (*sym_crypt_get_verity_info)(struct crypt_device *cd, struct crypt_params_verity *vp);
+extern int (*sym_crypt_get_volume_key_size)(struct crypt_device *cd);
 extern int (*sym_crypt_init)(struct crypt_device **cd, const char *device);
 extern int (*sym_crypt_init_by_name)(struct crypt_device **cd, const char *name);
 extern int (*sym_crypt_keyslot_add_by_volume_key)(struct crypt_device *cd, int keyslot, const char *volume_key, size_t volume_key_size, const char *passphrase, size_t passphrase_size);
+extern int (*sym_crypt_keyslot_destroy)(struct crypt_device *cd, int keyslot);
+extern int (*sym_crypt_keyslot_max)(const char *type);
 extern int (*sym_crypt_load)(struct crypt_device *cd, const char *requested_type, void *params);
 extern int (*sym_crypt_resize)(struct crypt_device *cd, const char *name, uint64_t new_size);
+extern int (*sym_crypt_resume_by_passphrase)(struct crypt_device *cd, const char *name, int keyslot, const char *passphrase, size_t passphrase_size);
 extern int (*sym_crypt_set_data_device)(struct crypt_device *cd, const char *device);
 extern void (*sym_crypt_set_debug_level)(int level);
 extern void (*sym_crypt_set_log_callback)(struct crypt_device *cd, void (*log)(int level, const char *msg, void *usrptr), void *usrptr);
+#if HAVE_CRYPT_SET_METADATA_SIZE
+extern int (*sym_crypt_set_metadata_size)(struct crypt_device *cd, uint64_t metadata_size, uint64_t keyslots_size);
+#endif
 extern int (*sym_crypt_set_pbkdf_type)(struct crypt_device *cd, const struct crypt_pbkdf_type *pbkdf);
+extern int (*sym_crypt_suspend)(struct crypt_device *cd, const char *name);
 extern int (*sym_crypt_token_json_get)(struct crypt_device *cd, int token, const char **json);
 extern int (*sym_crypt_token_json_set)(struct crypt_device *cd, int token, const char *json);
-extern int (*sym_crypt_volume_key_get)(struct crypt_device *cd, int keyslot, char *volume_key, size_t *volume_key_size, const char *passphrase, size_t passphrase_size);
 #if HAVE_CRYPT_TOKEN_MAX
 extern int (*sym_crypt_token_max)(const char *type);
 #else
@@ -47,6 +60,8 @@ static inline int sym_crypt_token_max(_unused_ const char *type) {
     return 32;
 }
 #endif
+extern crypt_token_info (*sym_crypt_token_status)(struct crypt_device *cd, int token, const char **type);
+extern int (*sym_crypt_volume_key_get)(struct crypt_device *cd, int keyslot, char *volume_key, size_t *volume_key_size, const char *passphrase, size_t passphrase_size);
 
 int dlopen_cryptsetup(void);
 

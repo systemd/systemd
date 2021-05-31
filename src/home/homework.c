@@ -304,7 +304,7 @@ int home_setup_undo(HomeSetup *setup) {
         }
 
         if (setup->undo_dm && setup->crypt_device && setup->dm_name) {
-                q = crypt_deactivate(setup->crypt_device, setup->dm_name);
+                q = sym_crypt_deactivate_by_name(setup->crypt_device, setup->dm_name, 0);
                 if (q < 0)
                         r = q;
         }
@@ -335,8 +335,10 @@ int home_setup_undo(HomeSetup *setup) {
         setup->dm_node = mfree(setup->dm_node);
 
         setup->loop = loop_device_unref(setup->loop);
-        crypt_free(setup->crypt_device);
-        setup->crypt_device = NULL;
+        if (setup->crypt_device) {
+                sym_crypt_free(setup->crypt_device);
+                setup->crypt_device = NULL;
+        }
 
         explicit_bzero_safe(setup->volume_key, setup->volume_key_size);
         setup->volume_key = mfree(setup->volume_key);
@@ -660,8 +662,8 @@ int home_extend_embedded_identity(UserRecord *h, UserRecord *used, HomeSetup *se
                         setup->found_partition_uuid,
                         setup->found_luks_uuid,
                         setup->found_fs_uuid,
-                        setup->crypt_device ? crypt_get_cipher(setup->crypt_device) : NULL,
-                        setup->crypt_device ? crypt_get_cipher_mode(setup->crypt_device) : NULL,
+                        setup->crypt_device ? sym_crypt_get_cipher(setup->crypt_device) : NULL,
+                        setup->crypt_device ? sym_crypt_get_cipher_mode(setup->crypt_device) : NULL,
                         setup->crypt_device ? luks_volume_key_size_convert(setup->crypt_device) : UINT64_MAX,
                         file_system_type_fd(setup->root_fd),
                         user_record_home_directory(used),
