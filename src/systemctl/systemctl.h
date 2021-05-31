@@ -44,6 +44,8 @@ enum dependency {
         _DEPENDENCY_MAX
 };
 
+#define DEFAULT_ARG_JOB_MODE "replace"
+
 extern char **arg_types;
 extern char **arg_states;
 extern char **arg_properties;
