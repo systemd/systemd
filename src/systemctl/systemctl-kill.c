@@ -22,7 +22,7 @@ int kill_unit(int argc, char *argv[], void *userdata) {
                 arg_kill_who = "all";
 
         /* --fail was specified */
-        if (streq(arg_job_mode, "fail"))
+        if (streq(arg_job_mode(), "fail"))
                 kill_who = strjoina(arg_kill_who, "-fail");
 
         r = expand_unit_names(bus, strv_skip(argv, 1), NULL, &names, NULL);

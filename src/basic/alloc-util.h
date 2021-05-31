@@ -79,6 +79,13 @@ void* memdup_suffix0(const void *p, size_t l); /* We can't use _alloc_() here, s
                 memcpy_safe(_q_, p, _l_);       \
         })
 
+static inline void unsetp(void *p) {
+        /* A trivial "destructor" that can be used in cases where we want to
+         * unset a pointer from a _cleanup_ function. */
+
+        *(void**)p = NULL;
+}
+
 static inline void freep(void *p) {
         *(void**)p = mfree(*(void**) p);
 }
