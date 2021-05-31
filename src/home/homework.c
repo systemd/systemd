@@ -1636,10 +1636,39 @@ static int home_unlock(UserRecord *h) {
         return 1;
 }
 
+static int save_original_stdout(FILE **ret) {
+        _cleanup_fclose_ FILE *f = NULL;
+        _cleanup_close_ int fd = -1;
+        int r;
+
+        /* libcryptsetup in debug mode might end up logging to stdout. Which interferes with out own use of
+         * stdout (we want to write the serialized JSON record there). Hence, to avoid any trouble, let's
+         * make an early copy of stdout and write out stuff to that, and connect a copy of stderr to
+         * stdout. */
+
+        fd = fcntl(STDOUT_FILENO, F_DUPFD, 3);
+        if (fd < 0)
+                return log_error_errno(errno, "Failed to duplicate the original stdout: %m");
+
+        f = fdopen(fd, "a");
+        if (!f)
+                return log_error_errno(errno, "Failed to save original stdout: %m");
+
+        TAKE_FD(fd);
+
+        r = rearrange_stdio(STDIN_FILENO, STDERR_FILENO, STDERR_FILENO);
+        if (r < 0)
+                return log_error_errno(r, "Failed to close stderr: %m");
+
+        *ret = TAKE_PTR(f);
+        return 0;
+}
+
 static int run(int argc, char *argv[]) {
         _cleanup_(user_record_unrefp) UserRecord *home = NULL, *new_home = NULL;
         _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
         _cleanup_(fclosep) FILE *opened_file = NULL;
+        _cleanup_fclose_ FILE *saved_stdout = NULL;
         unsigned line = 0, column = 0;
         const char *json_path = NULL;
         FILE *json_file;
@@ -1677,6 +1706,10 @@ static int run(int argc, char *argv[]) {
                 return log_oom();
 
         r = user_record_load(home, v, USER_RECORD_LOAD_FULL|USER_RECORD_LOG|USER_RECORD_PERMISSIVE);
+        if (r < 0)
+                return r;
+
+        r = save_original_stdout(&saved_stdout);
         if (r < 0)
                 return r;
 
@@ -1755,7 +1788,7 @@ static int run(int argc, char *argv[]) {
          * prepare a fresh record, send to us, and only if it works use it without having to keep a local
          * copy. */
         if (new_home)
-                json_variant_dump(new_home->json, JSON_FORMAT_NEWLINE, stdout, NULL);
+                json_variant_dump(new_home->json, JSON_FORMAT_NEWLINE, saved_stdout, NULL);
 
         return 0;
 }
