@@ -252,7 +252,7 @@ int user_record_reconcile(
                 if (!merged)
                         return -ENOMEM;
 
-                r = user_record_load(merged, extended, USER_RECORD_LOAD_MASK_SECRET);
+                r = user_record_load(merged, extended, USER_RECORD_LOAD_MASK_SECRET|USER_RECORD_PERMISSIVE);
                 if (r < 0)
                         return r;
 
@@ -261,7 +261,7 @@ int user_record_reconcile(
         }
 
         /* Strip out secrets */
-        r = user_record_clone(host, USER_RECORD_LOAD_MASK_SECRET, ret);
+        r = user_record_clone(host, USER_RECORD_LOAD_MASK_SECRET|USER_RECORD_PERMISSIVE, ret);
         if (r < 0)
                 return r;
 

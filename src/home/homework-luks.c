@@ -779,7 +779,7 @@ static int luks_validate_home_record(
                 if (!lhr)
                         return log_oom();
 
-                r = user_record_load(lhr, rr, USER_RECORD_LOAD_EMBEDDED);
+                r = user_record_load(lhr, rr, USER_RECORD_LOAD_EMBEDDED|USER_RECORD_PERMISSIVE);
                 if (r < 0)
                         return log_error_errno(r, "Failed to parse user record: %m");
 
@@ -902,7 +902,7 @@ int home_store_header_identity_luks(
          * the file system, so that we can validate it first, and only then mount the file system. To keep
          * things simple we use the same encryption settings for this record as for the file system itself. */
 
-        r = user_record_clone(h, USER_RECORD_EXTRACT_EMBEDDED, &header_home);
+        r = user_record_clone(h, USER_RECORD_EXTRACT_EMBEDDED|USER_RECORD_PERMISSIVE, &header_home);
         if (r < 0)
                 return log_error_errno(r, "Failed to determine new header record: %m");
 
@@ -1575,7 +1575,7 @@ static int luks_format(
 
         log_info("LUKS activation by volume key succeeded.");
 
-        r = user_record_clone(hr, USER_RECORD_EXTRACT_EMBEDDED, &reduced);
+        r = user_record_clone(hr, USER_RECORD_EXTRACT_EMBEDDED|USER_RECORD_PERMISSIVE, &reduced);
         if (r < 0)
                 return log_error_errno(r, "Failed to prepare home record for LUKS: %m");
 
@@ -2139,7 +2139,7 @@ int home_create_luks(
         if (r < 0)
                 goto fail;
 
-        r = user_record_clone(h, USER_RECORD_LOAD_MASK_SECRET|USER_RECORD_LOG, &new_home);
+        r = user_record_clone(h, USER_RECORD_LOAD_MASK_SECRET|USER_RECORD_LOG|USER_RECORD_PERMISSIVE, &new_home);
         if (r < 0) {
                 log_error_errno(r, "Failed to clone record: %m");
                 goto fail;
