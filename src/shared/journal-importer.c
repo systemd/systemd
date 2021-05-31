@@ -69,9 +69,9 @@ static int get_line(JournalImporter *imp, char **line, size_t *size) {
 
                 imp->scanned = imp->filled;
                 if (imp->scanned >= DATA_SIZE_MAX)
-                        return log_error_errno(SYNTHETIC_ERRNO(ENOBUFS),
-                                               "Entry is bigger than %u bytes.",
-                                               DATA_SIZE_MAX);
+                        return log_warning_errno(SYNTHETIC_ERRNO(ENOBUFS),
+                                                 "Entry is bigger than %u bytes.",
+                                                 DATA_SIZE_MAX);
 
                 if (imp->passive_fd)
                         /* we have to wait for some data to come to us */
@@ -163,9 +163,9 @@ static int get_data_size(JournalImporter *imp) {
 
         imp->data_size = unaligned_read_le64(data);
         if (imp->data_size > DATA_SIZE_MAX)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "Stream declares field with size %zu > DATA_SIZE_MAX = %u",
-                                       imp->data_size, DATA_SIZE_MAX);
+                return log_warning_errno(SYNTHETIC_ERRNO(EINVAL),
+                                         "Stream declares field with size %zu > DATA_SIZE_MAX = %u",
+                                         imp->data_size, DATA_SIZE_MAX);
         if (imp->data_size == 0)
                 log_warning("Binary field with zero length");
 
@@ -203,8 +203,8 @@ static int get_data_newline(JournalImporter *imp) {
                 int l;
 
                 l = cescape_char(*data, buf);
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "Expected newline, got '%.*s'", l, buf);
+                return log_warning_errno(SYNTHETIC_ERRNO(EINVAL),
+                                         "Expected newline, got '%.*s'", l, buf);
         }
 
         return 1;
