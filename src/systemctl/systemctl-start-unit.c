@@ -306,7 +306,7 @@ int start_unit(int argc, char *argv[], void *userdata) {
                                 /* A command in style of "systemctl start <unit1> <unit2> …", "sysemctl stop <unit1> <unit2> …" and so on */
                                 method = verb_to_method(argv[0]);
                                 job_type = verb_to_job_type(argv[0]);
-                                mode = arg_job_mode;
+                                mode = arg_job_mode();
                         } else
                                 method = job_type = mode = NULL;
 

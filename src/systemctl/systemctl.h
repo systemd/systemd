@@ -49,7 +49,7 @@ extern char **arg_states;
 extern char **arg_properties;
 extern bool arg_all;
 extern enum dependency arg_dependency;
-extern const char *arg_job_mode;
+extern const char *_arg_job_mode;
 extern UnitFileScope arg_scope;
 extern bool arg_wait;
 extern bool arg_no_block;
@@ -95,5 +95,9 @@ extern TimestampStyle arg_timestamp_style;
 extern bool arg_read_only;
 extern bool arg_mkdir;
 extern bool arg_marked;
+
+static inline const char* arg_job_mode(void) {
+        return _arg_job_mode ?: "replace";
+}
 
 int systemctl_dispatch_parse_argv(int argc, char *argv[]);
