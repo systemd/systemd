@@ -145,7 +145,7 @@ int home_new(Manager *m, UserRecord *hr, const char *sysfs, Home **ret) {
                         return r;
         }
 
-        r = user_record_clone(hr, USER_RECORD_LOAD_MASK_SECRET, &home->record);
+        r = user_record_clone(hr, USER_RECORD_LOAD_MASK_SECRET|USER_RECORD_PERMISSIVE, &home->record);
         if (r < 0)
                 return r;
 
@@ -243,7 +243,7 @@ int home_set_record(Home *h, UserRecord *hr) {
                 if (!new_hr)
                         return -ENOMEM;
 
-                r = user_record_load(new_hr, v, USER_RECORD_LOAD_REFUSE_SECRET);
+                r = user_record_load(new_hr, v, USER_RECORD_LOAD_REFUSE_SECRET|USER_RECORD_PERMISSIVE);
                 if (r < 0)
                         return r;
 
@@ -384,7 +384,7 @@ static int home_parse_worker_stdout(int _fd, UserRecord **ret) {
         if (!hr)
                 return log_oom();
 
-        r = user_record_load(hr, v, USER_RECORD_LOAD_REFUSE_SECRET);
+        r = user_record_load(hr, v, USER_RECORD_LOAD_REFUSE_SECRET|USER_RECORD_PERMISSIVE);
         if (r < 0)
                 return log_error_errno(r, "Failed to load home record identity: %m");
 
@@ -461,7 +461,9 @@ static int convert_worker_errno(Home *h, int e, sd_bus_error *error) {
         case -ERFKILL:
                 return sd_bus_error_set(error, BUS_ERROR_TOKEN_PROTECTED_AUTHENTICATION_PATH_NEEDED, "Security token requires protected authentication path.");
         case -EMEDIUMTYPE:
-                return sd_bus_error_set(error, BUS_ERROR_TOKEN_USER_PRESENCE_NEEDED, "Security token requires user presence.");
+                return sd_bus_error_set(error, BUS_ERROR_TOKEN_USER_PRESENCE_NEEDED, "Security token requires presence confirmation.");
+        case -ENOCSI:
+                return sd_bus_error_set(error, BUS_ERROR_TOKEN_USER_VERIFICATION_NEEDED, "Security token requires user verification.");
         case -ENOSTR:
                 return sd_bus_error_set(error, BUS_ERROR_TOKEN_ACTION_TIMEOUT, "Token action timeout. (User was supposed to verify presence or similar, by interacting with the token, and didn't do that in time.)");
         case -EOWNERDEAD:
@@ -1408,7 +1410,7 @@ static int home_update_internal(
                 return sd_bus_error_set(error, BUS_ERROR_HOME_RECORD_DOWNGRADE, "Refusing to update to older home record.");
 
         if (!secret && FLAGS_SET(hr->mask, USER_RECORD_SECRET)) {
-                r = user_record_clone(hr, USER_RECORD_EXTRACT_SECRET, &saved_secret);
+                r = user_record_clone(hr, USER_RECORD_EXTRACT_SECRET|USER_RECORD_PERMISSIVE, &saved_secret);
                 if (r < 0)
                         return r;
 
@@ -1443,7 +1445,7 @@ static int home_update_internal(
                 return r;
         }
 
-        r = user_record_extend_with_binding(hr, h->record, USER_RECORD_LOAD_MASK_SECRET, &new_hr);
+        r = user_record_extend_with_binding(hr, h->record, USER_RECORD_LOAD_MASK_SECRET|USER_RECORD_PERMISSIVE, &new_hr);
         if (r < 0)
                 return r;
 
@@ -1537,7 +1539,7 @@ int home_resize(Home *h, uint64_t disk_size, UserRecord *secret, sd_bus_error *e
                 if (h->signed_locally <= 0) /* Don't allow changing of records not signed only by us */
                         return sd_bus_error_setf(error, BUS_ERROR_HOME_RECORD_SIGNED, "Home %s is signed and cannot be modified locally.", h->user_name);
 
-                r = user_record_clone(h->record, USER_RECORD_LOAD_REFUSE_SECRET, &c);
+                r = user_record_clone(h->record, USER_RECORD_LOAD_REFUSE_SECRET|USER_RECORD_PERMISSIVE, &c);
                 if (r < 0)
                         return r;
 
@@ -1626,7 +1628,7 @@ int home_passwd(Home *h,
         if (r < 0)
                 return r;
 
-        r = user_record_clone(h->record, USER_RECORD_LOAD_REFUSE_SECRET, &c);
+        r = user_record_clone(h->record, USER_RECORD_LOAD_REFUSE_SECRET|USER_RECORD_PERMISSIVE, &c);
         if (r < 0)
                 return r;
 
