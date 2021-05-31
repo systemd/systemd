@@ -127,7 +127,7 @@ int user_record_authenticate(
                                 return log_error_errno(r, "Failed to check supplied FIDO2 password: %m");
                         if (r > 0) {
                                 log_info("Previously acquired FIDO2 password unlocks user record.");
-                                return 0;
+                                return 1;
                         }
                 }
         }
@@ -180,7 +180,7 @@ int user_record_authenticate(
                         if (r < 0)
                                 return log_oom();
 
-                        return 0;
+                        return 1;
                 }
 #else
                 need_token = true;
