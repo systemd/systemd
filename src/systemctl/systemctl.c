@@ -112,11 +112,11 @@ bool arg_read_only = false;
 bool arg_mkdir = false;
 bool arg_marked = false;
 
-STATIC_DESTRUCTOR_REGISTER(arg_wall, strv_freep);
-STATIC_DESTRUCTOR_REGISTER(arg_root, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_types, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_states, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_properties, strv_freep);
+STATIC_DESTRUCTOR_REGISTER(arg_wall, strv_freep);
+STATIC_DESTRUCTOR_REGISTER(arg_root, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_clean_what, strv_freep);
 
 static int systemctl_help(void) {
