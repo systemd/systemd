@@ -65,7 +65,7 @@ char **arg_states = NULL;
 char **arg_properties = NULL;
 bool arg_all = false;
 enum dependency arg_dependency = DEPENDENCY_FORWARD;
-const char *arg_job_mode = "replace";
+const char *_arg_job_mode = NULL;
 UnitFileScope arg_scope = UNIT_FILE_SYSTEM;
 bool arg_wait = false;
 bool arg_no_block = false;
@@ -115,8 +115,13 @@ bool arg_marked = false;
 STATIC_DESTRUCTOR_REGISTER(arg_types, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_states, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_properties, strv_freep);
+STATIC_DESTRUCTOR_REGISTER(_arg_job_mode, unsetp);
 STATIC_DESTRUCTOR_REGISTER(arg_wall, strv_freep);
+STATIC_DESTRUCTOR_REGISTER(arg_kill_who, unsetp);
 STATIC_DESTRUCTOR_REGISTER(arg_root, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_reboot_argument, unsetp);
+STATIC_DESTRUCTOR_REGISTER(arg_host, unsetp);
+STATIC_DESTRUCTOR_REGISTER(arg_boot_loader_entry, unsetp);
 STATIC_DESTRUCTOR_REGISTER(arg_clean_what, strv_freep);
 
 static int systemctl_help(void) {
@@ -598,19 +603,19 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_JOB_MODE:
-                        arg_job_mode = optarg;
+                        _arg_job_mode = optarg;
                         break;
 
                 case ARG_FAIL:
-                        arg_job_mode = "fail";
+                        _arg_job_mode = "fail";
                         break;
 
                 case ARG_IRREVERSIBLE:
-                        arg_job_mode = "replace-irreversibly";
+                        _arg_job_mode = "replace-irreversibly";
                         break;
 
                 case ARG_IGNORE_DEPENDENCIES:
-                        arg_job_mode = "ignore-dependencies";
+                        _arg_job_mode = "ignore-dependencies";
                         break;
 
                 case ARG_USER:
