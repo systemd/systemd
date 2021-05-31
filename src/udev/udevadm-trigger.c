@@ -109,7 +109,7 @@ static int exec_list(
 
                 /* If the user asked for it, write event UUID to stdout */
                 if (arg_uuid)
-                        printf(SD_ID128_FORMAT_STR "\n", SD_ID128_FORMAT_VAL(id));
+                        printf(SD_ID128_UUID_FORMAT_STR "\n", SD_ID128_FORMAT_VAL(id));
 
                 if (settle_hashmap) {
                         _cleanup_free_ sd_id128_t *mid = NULL;
@@ -175,7 +175,7 @@ static int device_monitor_handler(sd_device_monitor *m, sd_device *dev, void *us
                 printf("settle %s\n", syspath);
 
         if (arg_uuid)
-                printf("settle " SD_ID128_FORMAT_STR "\n", SD_ID128_FORMAT_VAL(*settle_id));
+                printf("settle " SD_ID128_UUID_FORMAT_STR "\n", SD_ID128_FORMAT_VAL(*settle_id));
 
         free(hashmap_remove(settle_hashmap, syspath));
         free(k);
