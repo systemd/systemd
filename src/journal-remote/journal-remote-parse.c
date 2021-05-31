@@ -74,7 +74,7 @@ int process_source(RemoteSource *source, bool compress, bool seal) {
                          &source->importer.boot_id,
                          compress, seal);
         if (r == -EBADMSG) {
-                log_error_errno(r, "Entry is invalid, ignoring.");
+                log_warning_errno(r, "Entry is invalid, ignoring.");
                 r = 0;
         } else if (r < 0)
                 log_error_errno(r, "Failed to write entry of %zu bytes: %m",
