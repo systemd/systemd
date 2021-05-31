@@ -1095,15 +1095,21 @@ static int determine_default_storage(UserStorage *ret) {
                 return log_error_errno(r, "Failed to determine whether we are in a container: %m");
         if (r == 0) {
                 r = path_is_encrypted("/home");
-                if (r < 0)
-                        log_warning_errno(r, "Failed to determine if /home is encrypted, ignoring: %m");
-                if (r <= 0) {
-                        log_info("Using automatic default storage of '%s'.", user_storage_to_string(USER_LUKS));
-                        *ret = USER_LUKS;
-                        return 0;
-                }
+                if (r > 0)
+                        log_info("/home is encrypted, not using '%s' storage, in order to avoid double encryption.", user_storage_to_string(USER_LUKS));
+                else {
+                        if (r < 0)
+                                log_warning_errno(r, "Failed to determine if /home is encrypted, ignoring: %m");
 
-                log_info("/home is encrypted, not using '%s' storage, in order to avoid double encryption.", user_storage_to_string(USER_LUKS));
+                        r = dlopen_cryptsetup();
+                        if (r < 0)
+                                log_info("Not using '%s' storage, since libcryptsetup could not be loaded.", user_storage_to_string(USER_LUKS));
+                        else {
+                                log_info("Using automatic default storage of '%s'.", user_storage_to_string(USER_LUKS));
+                                *ret = USER_LUKS;
+                                return 0;
+                        }
+                }
         } else
                 log_info("Running in container, not using '%s' storage.", user_storage_to_string(USER_LUKS));
 
