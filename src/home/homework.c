@@ -524,7 +524,7 @@ int home_load_embedded_identity(
         if (!embedded_home)
                 return log_oom();
 
-        r = user_record_load(embedded_home, v, USER_RECORD_LOAD_EMBEDDED);
+        r = user_record_load(embedded_home, v, USER_RECORD_LOAD_EMBEDDED|USER_RECORD_PERMISSIVE);
         if (r < 0)
                 return r;
 
@@ -609,7 +609,7 @@ int home_store_embedded_identity(UserRecord *h, int root_fd, uid_t uid, UserReco
         assert(root_fd >= 0);
         assert(uid_is_valid(uid));
 
-        r = user_record_clone(h, USER_RECORD_EXTRACT_EMBEDDED, &embedded);
+        r = user_record_clone(h, USER_RECORD_EXTRACT_EMBEDDED|USER_RECORD_PERMISSIVE, &embedded);
         if (r < 0)
                 return log_error_errno(r, "Failed to determine new embedded record: %m");
 
@@ -1668,7 +1668,7 @@ static int run(int argc, char *argv[]) {
         if (!home)
                 return log_oom();
 
-        r = user_record_load(home, v, USER_RECORD_LOAD_FULL|USER_RECORD_LOG);
+        r = user_record_load(home, v, USER_RECORD_LOAD_FULL|USER_RECORD_LOG|USER_RECORD_PERMISSIVE);
         if (r < 0)
                 return r;
 

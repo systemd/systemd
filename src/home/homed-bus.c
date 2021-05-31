@@ -28,7 +28,7 @@ int bus_message_read_secret(sd_bus_message *m, UserRecord **ret, sd_bus_error *e
         if (!hr)
                 return -ENOMEM;
 
-        r = user_record_load(hr, full, USER_RECORD_REQUIRE_SECRET);
+        r = user_record_load(hr, full, USER_RECORD_REQUIRE_SECRET|USER_RECORD_PERMISSIVE);
         if (r < 0)
                 return r;
 

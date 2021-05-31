@@ -14,7 +14,7 @@ static int user_record_signable_json(UserRecord *ur, char **ret) {
         assert(ur);
         assert(ret);
 
-        r = user_record_clone(ur, USER_RECORD_REQUIRE_REGULAR|USER_RECORD_ALLOW_PRIVILEGED|USER_RECORD_ALLOW_PER_MACHINE|USER_RECORD_STRIP_SECRET|USER_RECORD_STRIP_BINDING|USER_RECORD_STRIP_STATUS|USER_RECORD_STRIP_SIGNATURE, &reduced);
+        r = user_record_clone(ur, USER_RECORD_REQUIRE_REGULAR|USER_RECORD_ALLOW_PRIVILEGED|USER_RECORD_ALLOW_PER_MACHINE|USER_RECORD_STRIP_SECRET|USER_RECORD_STRIP_BINDING|USER_RECORD_STRIP_STATUS|USER_RECORD_STRIP_SIGNATURE|USER_RECORD_PERMISSIVE, &reduced);
         if (r < 0)
                 return r;
 
@@ -95,7 +95,7 @@ int user_record_sign(UserRecord *ur, EVP_PKEY *private_key, UserRecord **ret) {
         if (!signed_ur)
                 return log_oom();
 
-        r = user_record_load(signed_ur, v, USER_RECORD_LOAD_FULL);
+        r = user_record_load(signed_ur, v, USER_RECORD_LOAD_FULL|USER_RECORD_PERMISSIVE);
         if (r < 0)
                 return r;
 
