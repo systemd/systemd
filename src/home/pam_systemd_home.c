@@ -216,7 +216,7 @@ static int acquire_user_record(
         if (!ur)
                 return pam_log_oom(handle);
 
-        r = user_record_load(ur, v, USER_RECORD_LOAD_REFUSE_SECRET);
+        r = user_record_load(ur, v, USER_RECORD_LOAD_REFUSE_SECRET|USER_RECORD_PERMISSIVE);
         if (r < 0) {
                 pam_syslog(handle, LOG_ERR, "Failed to load user record: %s", strerror_safe(r));
                 return PAM_SERVICE_ERR;
