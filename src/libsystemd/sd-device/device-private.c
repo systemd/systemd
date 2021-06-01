@@ -756,9 +756,11 @@ int device_shallow_clone(sd_device *old_device, sd_device **new_device) {
         if (r < 0)
                 return r;
 
-        r = device_set_subsystem(ret, old_device->subsystem);
-        if (r < 0)
-                return r;
+        if (old_device->subsystem) {
+                r = device_set_subsystem(ret, old_device->subsystem);
+                if (r < 0)
+                        return r;
+        }
 
         ret->devnum = old_device->devnum;
 
