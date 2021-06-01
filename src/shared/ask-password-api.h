@@ -14,6 +14,7 @@ typedef enum AskPasswordFlags {
         ASK_PASSWORD_NO_AGENT      = 1 << 5, /* never ask for password via agent */
         ASK_PASSWORD_CONSOLE_COLOR = 1 << 6, /* Use color if /dev/console points to a console that supports color */
         ASK_PASSWORD_NO_CREDENTIAL = 1 << 7, /* never use $CREDENTIALS_DIRECTORY data */
+        ASK_PASSWORD_HIDE_EMOJI    = 1 << 8, /* hide the lock and key emoji */
 } AskPasswordFlags;
 
 int ask_password_tty(int tty_fd, const char *message, const char *key_name, usec_t until, AskPasswordFlags flags, const char *flag_file, char ***ret);
