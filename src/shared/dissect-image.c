@@ -1926,6 +1926,8 @@ static int verity_can_reuse(
         if (r < 0)
                 return log_debug_errno(r, "Error opening verity device, crypt_init_by_name failed: %m");
 
+        cryptsetup_enable_logging(cd);
+
         r = sym_crypt_get_verity_info(cd, &crypt_params);
         if (r < 0)
                 return log_debug_errno(r, "Error opening verity device, crypt_get_verity_info failed: %m");
