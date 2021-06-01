@@ -1029,6 +1029,33 @@ static int make_tpm2_device_monitor(sd_event *event, sd_device_monitor **ret) {
         return 0;
 }
 
+static int attach_luks2_by_tpm2(
+                struct crypt_device *cd,
+                const char *name,
+                uint32_t flags) {
+
+#if HAVE_LIBCRYPTSETUP_PLUGINS
+        int r;
+
+        systemd_tpm2_plugin_params params = {
+                .search_pcr_mask = arg_tpm2_pcr_mask,
+                .device = arg_tpm2_device
+        };
+
+        if (crypt_token_external_support() < 0)
+                return log_debug_errno(SYNTHETIC_ERRNO(ENOTSUP),
+                                       "Libcryptsetup has external plugins support disabled.");
+
+        r = crypt_activate_by_token_pin(cd, name, "systemd-tpm2", CRYPT_ANY_TOKEN, NULL, 0, &params, flags);
+        if (r > 0) /* returns unlocked keyslot id on success */
+                r = 0;
+
+        return r;
+#else
+        return -ENOTSUP;
+#endif
+}
+
 static int attach_luks_or_plain_or_bitlk_by_tpm2(
                 struct crypt_device *cd,
                 const char *name,
@@ -1073,6 +1100,21 @@ static int attach_luks_or_plain_or_bitlk_by_tpm2(
                         if (r != -EAGAIN) /* EAGAIN means: no tpm2 chip found */
                                 return r;
                 } else {
+                        r = attach_luks2_by_tpm2(cd, name, flags);
+                        /* EAGAIN  means: no tpm2 chip found
+                         * ENOTSUP means: no libcryptsetup plugins support */
+                        if (!IN_SET(r, -ENOTSUP, -EAGAIN)) {
+                                if (r == -ENXIO)
+                                        return log_debug_errno(SYNTHETIC_ERRNO(EAGAIN),
+                                                               "No TPM2 metadata matching the current system state found in LUKS2 header, falling back to traditional unlocking.");
+                                if (r == -ENOENT)
+                                        return log_debug_errno(SYNTHETIC_ERRNO(EAGAIN),
+                                                               "No TPM2 metadata enrolled in LUKS2 header, falling back to traditional unlocking.");
+                                return r;
+                        }
+                }
+
+                if (r != -EAGAIN) {
                         _cleanup_free_ void *blob = NULL, *policy_hash = NULL;
                         size_t blob_size, policy_hash_size;
                         bool found_some = false;
@@ -1124,7 +1166,6 @@ static int attach_luks_or_plain_or_bitlk_by_tpm2(
                         if (r != -EAGAIN) /* EAGAIN means: no tpm2 chip found */
                                 return r;
                 }
-                assert(decrypted_key);
 
                 if (!monitor) {
                         /* We didn't find the TPM2 device. In this case, watch for it via udev. Let's create
@@ -1161,6 +1202,7 @@ static int attach_luks_or_plain_or_bitlk_by_tpm2(
 
                 log_debug("Got one or more potentially relevant udev events, rescanning for TPM2...");
         }
+        assert(decrypted_key);
 
         if (pass_volume_key)
                 r = crypt_activate_by_volume_key(cd, name, decrypted_key, decrypted_key_size, flags);
