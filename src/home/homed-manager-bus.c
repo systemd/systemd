@@ -398,7 +398,7 @@ static int method_register_home(
         assert(message);
         assert(m);
 
-        r = bus_message_read_home_record(message, USER_RECORD_LOAD_EMBEDDED, &hr, error);
+        r = bus_message_read_home_record(message, USER_RECORD_LOAD_EMBEDDED|USER_RECORD_PERMISSIVE, &hr, error);
         if (r < 0)
                 return r;
 
@@ -513,7 +513,7 @@ static int method_update_home(sd_bus_message *message, void *userdata, sd_bus_er
         assert(message);
         assert(m);
 
-        r = bus_message_read_home_record(message, USER_RECORD_REQUIRE_REGULAR|USER_RECORD_ALLOW_SECRET|USER_RECORD_ALLOW_PRIVILEGED|USER_RECORD_ALLOW_PER_MACHINE|USER_RECORD_ALLOW_SIGNATURE, &hr, error);
+        r = bus_message_read_home_record(message, USER_RECORD_REQUIRE_REGULAR|USER_RECORD_ALLOW_SECRET|USER_RECORD_ALLOW_PRIVILEGED|USER_RECORD_ALLOW_PER_MACHINE|USER_RECORD_ALLOW_SIGNATURE|USER_RECORD_PERMISSIVE, &hr, error);
         if (r < 0)
                 return r;
 

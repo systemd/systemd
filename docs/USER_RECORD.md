@@ -628,18 +628,21 @@ user records.
 `fido2HmacSalt` → An array of objects, implementing authentication support with
 FIDO2 devices that implement the `hmac-secret` extension. Each element of the
 array should be an object consisting of three string fields: `credential`,
-`salt`, `hashedPassword`. The first two shall contain Base64-encoded binary
+`salt`, `hashedPassword`, and three boolean fields: `up`, `uv` and
+`clientPin`. The first two string fields shall contain Base64-encoded binary
 data: the FIDO2 credential ID and the salt value to pass to the FIDO2
 device. During authentication this salt along with the credential ID is sent to
 the FIDO2 token, which will HMAC hash the salt with its internal secret key and
 return the result. This resulting binary key should then be Base64-encoded and
 used as string password for the further layers of the stack. The
 `hashedPassword` field of the `fido2HmacSalt` field shall be a UNIX password
-hash to test this derived secret key against for authentication. It is
-generally recommended that for each entry in `fido2HmacSalt` there's also a
-matching one in `fido2HmacCredential`, and vice versa, with the same credential
-ID, appearing in the same order, but this should not be required by
-applications processing user records.
+hash to test this derived secret key against for authentication. The `up`, `uv`
+and `clientPin` booleans map to the FIDO2 concepts of the same name and encode
+whether the `uv`/`up` options are enabled during the authentication, and
+whether a PIN shall be required. It is generally recommended that for each
+entry in `fido2HmacSalt` there's also a matching one in `fido2HmacCredential`,
+and vice versa, with the same credential ID, appearing in the same order, but
+this should not be required by applications processing user records.
 
 `recoveryKey`→ An array of objects, each defining a recovery key. The object
 has two mandatory fields: `type` indicates the type of recovery key. The only
@@ -927,8 +930,15 @@ user. If false or unset, authentication this way shall not be attempted.
 
 `fido2UserPresencePermitted` → a boolean. If set to true allows the receiver to
 use the FIDO2 "user presence" flag. This is similar to the concept of
-`pkcs11ProtectedAuthenticationPathPermitted`, but exposes the FIDO2 concept
-behind it. If false or unset authentication this way shall not be attempted.
+`pkcs11ProtectedAuthenticationPathPermitted`, but exposes the FIDO2 "up"
+concept behind it. If false or unset authentication this way shall not be
+attempted.
+
+`fido2UserVerificationPermitted` → a boolean. If set to true allows the
+receiver to use the FIDO2 "user verification" flag. This is similar to the
+concept of `pkcs11ProtectedAuthenticationPathPermitted`, but exposes the FIDO2
+"uv" concept behind it. If false or unset authentication this way shall not be
+attempted.
 
 ## Mapping to `struct passwd` and `struct spwd`
 
