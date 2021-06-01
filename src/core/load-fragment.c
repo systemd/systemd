@@ -168,6 +168,14 @@ int config_parse_unit_deps(
         assert(lvalue);
         assert(rvalue);
 
+        if (d == UNIT_ON_FAILURE && isempty(rvalue)) {
+                /* If we meet an empty OnFailure dependency list we should
+                 * remove any OnFailure dependencies which have been previously
+                 * added.  */
+                unit_remove_dependencies_of_type(u, UNIT_DEPENDENCY_FILE, d);
+                return 0;
+        }
+
         for (const char *p = rvalue;;) {
                 _cleanup_free_ char *word = NULL, *k = NULL;
                 int r;
