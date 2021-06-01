@@ -358,7 +358,7 @@ static int run_editor(char **paths) {
                 if (n_editor_args > 0)
                         execvp(args[0], (char* const*) args);
 
-                FOREACH_STRING(p, "editor", "nano", "vim", "vi") {
+                FOREACH_STRING(p, "editor", "nano", "emacs", "vim", "vi") {
                         args[0] = p;
                         execvp(p, (char* const*) args);
                         /* We do not fail if the editor doesn't exist because we want to try each one of them
