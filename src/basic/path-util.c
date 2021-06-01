@@ -713,13 +713,15 @@ int find_executable_full(const char *name, bool use_path_envvar, char **ret_file
 }
 
 bool paths_check_timestamp(const char* const* paths, usec_t *timestamp, bool update) {
-        bool changed = false;
+        bool changed = false, originally_unset;
         const char* const* i;
 
         assert(timestamp);
 
         if (!paths)
                 return false;
+
+        originally_unset = *timestamp == 0;
 
         STRV_FOREACH(i, paths) {
                 struct stat stats;
@@ -730,11 +732,11 @@ bool paths_check_timestamp(const char* const* paths, usec_t *timestamp, bool upd
 
                 u = timespec_load(&stats.st_mtim);
 
-                /* first check */
+                /* check first */
                 if (*timestamp >= u)
                         continue;
 
-                log_debug("timestamp of '%s' changed", *i);
+                log_debug(originally_unset ? "Loaded timestamp for '%s'." : "Timestamp of '%s' changed.", *i);
 
                 /* update timestamp */
                 if (update) {
