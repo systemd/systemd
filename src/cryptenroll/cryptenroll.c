@@ -510,6 +510,8 @@ static int run(int argc, char *argv[]) {
         if (r <= 0)
                 return r;
 
+        cryptsetup_enable_logging(NULL);
+
         if (arg_enroll_type < 0)
                 r = prepare_luks(&cd, NULL, NULL); /* No need to unlock device if we don't need the volume key because we don't need to enroll anything */
         else
