@@ -17,6 +17,7 @@
 #include "cryptsetup-tpm2.h"
 #include "cryptsetup-util.h"
 #include "device-util.h"
+#include "efi-loader.h"
 #include "escape.h"
 #include "fileio.h"
 #include "fs-util.h"
@@ -1135,6 +1136,10 @@ static int attach_luks_or_plain_or_bitlk_by_tpm2(
                          * an event loop and monitor first. */
 
                         assert(!event);
+
+                        if (is_efi_boot() && !efi_has_tpm2())
+                                return log_notice_errno(SYNTHETIC_ERRNO(EAGAIN),
+                                                        "No TPM2 hardware discovered and EFI bios indicates no support for it either, assuming TPM2-less system, falling back to traditional unocking.");
 
                         r = sd_event_default(&event);
                         if (r < 0)
