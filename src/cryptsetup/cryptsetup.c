@@ -1245,6 +1245,8 @@ static int attach_luks_or_plain_or_bitlk_by_key_file(
                 log_error_errno(r, "Failed to activate, key file '%s' missing.", key_file);
                 return -EAGAIN; /* Log actual error, but return EAGAIN */
         }
+        if (r < 0)
+                return log_error_errno(r, "Failed to read key file '%s': %m", key_file);
 
         if (pass_volume_key)
                 r = crypt_activate_by_volume_key(cd, name, kfdata, kfsize, flags);
