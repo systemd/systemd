@@ -17,6 +17,7 @@
 #include "cryptsetup-tpm2.h"
 #include "cryptsetup-util.h"
 #include "device-util.h"
+#include "efi-loader.h"
 #include "escape.h"
 #include "fileio.h"
 #include "fs-util.h"
@@ -1070,6 +1071,8 @@ static int attach_luks_or_plain_or_bitlk_by_tpm2(
                                         &decrypted_key, &decrypted_key_size);
                         if (r >= 0)
                                 break;
+                        if (ERRNO_IS_NOT_SUPPORTED(r)) /* TPM2 support not compiled in? */
+                                return log_debug_errno(SYNTHETIC_ERRNO(EAGAIN), "TPM2 support not available, falling back to traditional unlocking.");
                         if (r != -EAGAIN) /* EAGAIN means: no tpm2 chip found */
                                 return r;
                 } else {
@@ -1100,6 +1103,8 @@ static int attach_luks_or_plain_or_bitlk_by_tpm2(
                                                                found_some
                                                                ? "No TPM2 metadata matching the current system state found in LUKS2 header, falling back to traditional unlocking."
                                                                : "No TPM2 metadata enrolled in LUKS2 header, falling back to traditional unlocking.");
+                                if (ERRNO_IS_NOT_SUPPORTED(r))  /* TPM2 support not compiled in? */
+                                        return log_debug_errno(SYNTHETIC_ERRNO(EAGAIN), "TPM2 support not available, falling back to traditional unlocking.");
                                 if (r < 0)
                                         return r;
 
@@ -1131,6 +1136,10 @@ static int attach_luks_or_plain_or_bitlk_by_tpm2(
                          * an event loop and monitor first. */
 
                         assert(!event);
+
+                        if (is_efi_boot() && !efi_has_tpm2())
+                                return log_notice_errno(SYNTHETIC_ERRNO(EAGAIN),
+                                                        "No TPM2 hardware discovered and EFI bios indicates no support for it either, assuming TPM2-less system, falling back to traditional unocking.");
 
                         r = sd_event_default(&event);
                         if (r < 0)
