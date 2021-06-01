@@ -1713,11 +1713,18 @@ static int mount_setup_unit(
                         .burst = 1,
                 };
 
+                if (r == -ENAMETOOLONG)
+                        return log_struct_errno(
+                                        ratelimit_below(&rate_limit) ? LOG_WARNING : LOG_DEBUG, r,
+                                        "MESSAGE_ID=" SD_MESSAGE_MOUNT_POINT_PATH_NOT_SUITABLE_STR,
+                                        "MOUNT_POINT=%s", where,
+                                        LOG_MESSAGE("Mount point path '%s' too long to fit into unit name, ignoring mount point.", where));
+
                 return log_struct_errno(
                                 ratelimit_below(&rate_limit) ? LOG_WARNING : LOG_DEBUG, r,
                                 "MESSAGE_ID=" SD_MESSAGE_MOUNT_POINT_PATH_NOT_SUITABLE_STR,
                                 "MOUNT_POINT=%s", where,
-                                LOG_MESSAGE("Failed to generate valid unit name from path '%s', ignoring mount point: %m", where));
+                                LOG_MESSAGE("Failed to generate valid unit name from mount point path '%s', ignoring mount point: %m", where));
         }
 
         u = manager_get_unit(m, e);
