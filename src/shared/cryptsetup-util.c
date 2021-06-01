@@ -112,6 +112,13 @@ int dlopen_cryptsetup(void) {
         /* Note that we never release the reference here, because there's no real reason to, after all this
          * was traditionally a regular shared library dependency which lives forever too. */
         cryptsetup_dl = TAKE_PTR(dl);
+
+        /* Redirect the default logging calls of libcryptsetup to our own logging infra. (Note that
+         * libcryptsetup also maintains per-"struct crypt_device" log functions, which we'll also set
+         * whenever allocating a "struct crypt_device" context. Why set both? To be defensive: maybe some
+         * other code loaded into this process also changes the global log functions of libcryptsetup, who
+         * knows? And if so, we still want our own objects to log via our own infra, at the very least.) */
+        cryptsetup_enable_logging(NULL);
         return 1;
 }
 
@@ -139,13 +146,17 @@ static void cryptsetup_log_glue(int level, const char *msg, void *usrptr) {
 }
 
 void cryptsetup_enable_logging(struct crypt_device *cd) {
-        if (!cd)
-                return;
+        /* It's OK to call this with a NULL parameter, in which case libcryptsetup will set the defaut log
+         * function.
+         *
+         * Note that this is also called from dlopen_cryptsetup(), which we call here too. Sounds like an
+         * endless loop, but isn't because we break it via the check for 'cryptsetup_dl' early in
+         * dlopen_cryptsetup(). */
 
-        if (dlopen_cryptsetup() < 0) /* If this fails, let's gracefully ignore the issue, this is just debug
-                                      * logging after all, and if this failed we already generated a debug
-                                      * log message that should help to track things down. */
-                return;
+        if (dlopen_cryptsetup() < 0)
+                return; /* If this fails, let's gracefully ignore the issue, this is just debug logging after
+                         * all, and if this failed we already generated a debug log message that should help
+                         * to track things down. */
 
         sym_crypt_set_log_callback(cd, cryptsetup_log_glue, NULL);
         sym_crypt_set_debug_level(DEBUG_LOGGING ? CRYPT_DEBUG_ALL : CRYPT_DEBUG_NONE);
