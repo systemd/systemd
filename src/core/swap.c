@@ -1448,6 +1448,9 @@ int swap_process_device_new(Manager *m, sd_device *dev) {
                 int q;
 
                 q = unit_name_from_path(devlink, ".swap", &n);
+                if (IN_SET(q, -EINVAL, -ENAMETOOLONG)) /* If name too long or otherwise not convertible to
+                                                        * unit name, we can't manage it */
+                        continue;
                 if (q < 0)
                         return q;
 
