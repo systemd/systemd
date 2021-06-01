@@ -314,7 +314,7 @@ auth      required   pam_deny.so
 
 account   required   pam_nologin.so
 -account  sufficient pam_systemd_home.so
-account   sufficient pam_unix.so
+account   sufficient pam_unix.so no_pass_expiry
 account   required   pam_permit.so
 
 -password sufficient pam_systemd_home.so

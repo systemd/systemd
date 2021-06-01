@@ -135,7 +135,7 @@ auth      required   pam_deny.so
 
 account   required   pam_nologin.so
 <command>-account  sufficient pam_systemd_home.so</command>
-account   sufficient pam_unix.so
+account   sufficient pam_unix.so no_pass_expiry
 account   required   pam_permit.so
 
 <command>-password sufficient pam_systemd_home.so</command>
@@ -146,7 +146,7 @@ password  required   pam_deny.so
 -session  optional   pam_loginuid.so
 <command>-session  optional   pam_systemd_home.so</command>
 -session  optional   pam_systemd.so
-session   required   pam_unix.so</programlisting>
+session   required   pam_unix.so no_pass_expiry</programlisting>
   </refsect1>
 
   <refsect1>
