@@ -5,7 +5,7 @@
 m4_ifdef(`ENABLE_HOMED',
 -account sufficient pam_systemd_home.so
 )m4_dnl
-account sufficient pam_unix.so
+account sufficient pam_unix.so no_pass_expiry
 account required pam_permit.so
 
 m4_ifdef(`HAVE_SELINUX',
