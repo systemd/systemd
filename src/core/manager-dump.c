@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "build.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "hashmap.h"
@@ -31,6 +32,9 @@ void manager_dump_units(Manager *s, FILE *f, const char *prefix) {
 void manager_dump(Manager *m, FILE *f, const char *prefix) {
         assert(m);
         assert(f);
+
+        fprintf(f, "%sManager: systemd " STRINGIFY(PROJECT_VERSION) " (" GIT_VERSION ")\n", strempty(prefix));
+        fprintf(f, "%sFeatures: %s\n", strempty(prefix), systemd_features);
 
         for (ManagerTimestamp q = 0; q < _MANAGER_TIMESTAMP_MAX; q++) {
                 const dual_timestamp *t = m->timestamps + q;
