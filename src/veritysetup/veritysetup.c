@@ -138,6 +138,8 @@ static int run(int argc, char *argv[]) {
 
         log_setup();
 
+        cryptsetup_enable_logging(NULL);
+
         umask(0022);
 
         if (streq(argv[1], "attach")) {
