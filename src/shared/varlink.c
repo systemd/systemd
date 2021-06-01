@@ -221,11 +221,11 @@ DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(varlink_state, VarlinkState);
         log_debug("%s: " fmt, varlink_server_description(s), ##__VA_ARGS__)
 
 static inline const char *varlink_description(Varlink *v) {
-        return strna(v ? v->description : NULL);
+        return (v ? v->description : NULL) ?: "varlink";
 }
 
 static inline const char *varlink_server_description(VarlinkServer *s) {
-        return strna(s ? s->description : NULL);
+        return (s ? s->description : NULL) ?: "varlink";
 }
 
 static void varlink_set_state(Varlink *v, VarlinkState state) {
