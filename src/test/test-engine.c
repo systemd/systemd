@@ -5,6 +5,7 @@
 
 #include "bus-util.h"
 #include "manager.h"
+#include "manager-dump.h"
 #include "rm-rf.h"
 #include "service.h"
 #include "special.h"

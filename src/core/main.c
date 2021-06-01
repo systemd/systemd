@@ -54,6 +54,7 @@
 #include "loopback-setup.h"
 #include "machine-id-setup.h"
 #include "manager.h"
+#include "manager-dump.h"
 #include "mkdir.h"
 #include "mount-setup.h"
 #include "os-util.h"
@@ -2500,16 +2501,6 @@ static int initialize_security(
         return 0;
 }
 
-static void test_summary(Manager *m) {
-        assert(m);
-
-        printf("-> By units:\n");
-        manager_dump_units(m, stdout, "\t");
-
-        printf("-> By jobs:\n");
-        manager_dump_jobs(m, stdout, "\t");
-}
-
 static int collect_fds(FDSet **ret_fds, const char **ret_error_message) {
         int r;
 
@@ -2882,7 +2873,7 @@ int main(int argc, char *argv[]) {
                  format_timespan(timespan, sizeof(timespan), after_startup - before_startup, 100 * USEC_PER_MSEC));
 
         if (arg_action == ACTION_TEST) {
-                test_summary(m);
+                manager_test_summary(m);
                 retval = EXIT_SUCCESS;
                 goto finish;
         }

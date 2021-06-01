@@ -6,6 +6,7 @@
 #include "fuzz.h"
 #include "install.h"
 #include "load-fragment.h"
+#include "manager-dump.h"
 #include "string-util.h"
 #include "unit-serialize.h"
 #include "utf8.h"

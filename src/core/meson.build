@@ -85,6 +85,8 @@ libcore_sources = '''
         locale-setup.h
         manager.c
         manager.h
+        manager-dump.c
+        manager-dump.h
         mount.c
         mount.h
         namespace.c
