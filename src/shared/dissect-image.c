@@ -238,6 +238,7 @@ static int find_partition(
                 sd_device *parent,
                 blkid_partition pp,
                 usec_t timestamp_not_before,
+                DissectImageFlags flags,
                 sd_device **ret) {
 
         _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
@@ -255,15 +256,17 @@ static int find_partition(
         FOREACH_DEVICE(e, q) {
                 uint64_t usec;
 
-                r = sd_device_get_usec_initialized(q, &usec);
-                if (r == -EBUSY) /* Not initialized yet */
-                        continue;
-                if (r < 0)
-                        return r;
+                if (!FLAGS_SET(flags, DISSECT_IMAGE_NO_UDEV)) {
+                        r = sd_device_get_usec_initialized(q, &usec);
+                        if (r == -EBUSY) /* Not initialized yet */
+                                continue;
+                        if (r < 0)
+                                return r;
 
-                if (timestamp_not_before != USEC_INFINITY &&
-                    usec < timestamp_not_before) /* udev database entry older than our attachment? Then it's not ours */
-                        continue;
+                        if (timestamp_not_before != USEC_INFINITY &&
+                            usec < timestamp_not_before) /* udev database entry older than our attachment? Then it's not ours */
+                                continue;
+                }
 
                 r = device_is_partition(q, parent, pp);
                 if (r < 0)
@@ -332,6 +335,7 @@ static int wait_for_partition_device(
                 usec_t deadline,
                 uint64_t uevent_seqnum_not_before,
                 usec_t timestamp_not_before,
+                DissectImageFlags flags,
                 sd_device **ret) {
 
         _cleanup_(sd_event_source_unrefp) sd_event_source *timeout_source = NULL;
@@ -343,7 +347,7 @@ static int wait_for_partition_device(
         assert(pp);
         assert(ret);
 
-        r = find_partition(parent, pp, timestamp_not_before, ret);
+        r = find_partition(parent, pp, timestamp_not_before, flags, ret);
         if (r != -ENXIO)
                 return r;
 
@@ -382,7 +386,7 @@ static int wait_for_partition_device(
                 return r;
 
         /* Check again, the partition might have appeared in the meantime */
-        r = find_partition(parent, pp, timestamp_not_before, ret);
+        r = find_partition(parent, pp, timestamp_not_before, flags, ret);
         if (r != -ENXIO)
                 return r;
 
@@ -777,7 +781,7 @@ int dissect_image(
                 if (!pp)
                         return errno_or_else(EIO);
 
-                r = wait_for_partition_device(d, pp, deadline, uevent_seqnum_not_before, timestamp_not_before, &q);
+                r = wait_for_partition_device(d, pp, deadline, uevent_seqnum_not_before, timestamp_not_before, flags, &q);
                 if (r < 0)
                         return r;
 
