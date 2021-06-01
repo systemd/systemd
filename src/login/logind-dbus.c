@@ -2038,6 +2038,11 @@ static int nologin_timeout_handler(
         return 0;
 }
 
+static usec_t nologin_timeout_usec(usec_t elapse) {
+        /* Issue /run/nologin five minutes before shutdown */
+        return LESS_BY(elapse, 5 * USEC_PER_MINUTE);
+}
+
 static int update_schedule_file(Manager *m) {
         _cleanup_free_ char *temp_path = NULL;
         _cleanup_fclose_ FILE *f = NULL;
@@ -2238,7 +2243,7 @@ static int method_schedule_shutdown(sd_bus_message *message, void *userdata, sd_
         m->shutdown_dry_run = dry_run;
 
         if (m->nologin_timeout_source) {
-                r = sd_event_source_set_time(m->nologin_timeout_source, elapse);
+                r = sd_event_source_set_time(m->nologin_timeout_source, nologin_timeout_usec(elapse));
                 if (r < 0)
                         return log_error_errno(r, "sd_event_source_set_time() failed: %m");
 
@@ -2247,7 +2252,7 @@ static int method_schedule_shutdown(sd_bus_message *message, void *userdata, sd_
                         return log_error_errno(r, "sd_event_source_set_enabled() failed: %m");
         } else {
                 r = sd_event_add_time(m->event, &m->nologin_timeout_source,
-                                      CLOCK_REALTIME, elapse - 5 * USEC_PER_MINUTE, 0, nologin_timeout_handler, m);
+                                      CLOCK_REALTIME, nologin_timeout_usec(elapse), 0, nologin_timeout_handler, m);
                 if (r < 0)
                         return log_error_errno(r, "sd_event_add_time() failed: %m");
         }
