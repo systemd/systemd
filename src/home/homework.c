@@ -48,8 +48,10 @@ int user_record_authenticate(
                 PasswordCache *cache,
                 bool strict_verify) {
 
-        bool need_password = false, need_recovery_key = false, need_token = false, need_pin = false, need_protected_authentication_path_permitted = false, need_user_presence_permitted = false,
-                pin_locked = false, pin_incorrect = false, pin_incorrect_few_tries_left = false, pin_incorrect_one_try_left = false, token_action_timeout = false;
+        bool need_password = false, need_recovery_key = false, need_token = false, need_pin = false,
+                need_protected_authentication_path_permitted = false, need_user_presence_permitted = false,
+                need_user_verification_permitted = false, pin_locked = false, pin_incorrect = false,
+                pin_incorrect_few_tries_left = false, pin_incorrect_one_try_left = false, token_action_timeout = false;
         int r;
 
         assert(h);
@@ -125,7 +127,7 @@ int user_record_authenticate(
                                 return log_error_errno(r, "Failed to check supplied FIDO2 password: %m");
                         if (r > 0) {
                                 log_info("Previously acquired FIDO2 password unlocks user record.");
-                                return 0;
+                                return 1;
                         }
                 }
         }
@@ -178,7 +180,7 @@ int user_record_authenticate(
                         if (r < 0)
                                 return log_oom();
 
-                        return 0;
+                        return 1;
                 }
 #else
                 need_token = true;
@@ -207,6 +209,9 @@ int user_record_authenticate(
                         break;
                 case -EMEDIUMTYPE:
                         need_user_presence_permitted = true;
+                        break;
+                case -ENOCSI:
+                        need_user_verification_permitted = true;
                         break;
                 case -ENOSTR:
                         token_action_timeout = true;
@@ -250,6 +255,8 @@ int user_record_authenticate(
                 return -ERFKILL;
         if (need_user_presence_permitted)
                 return -EMEDIUMTYPE;
+        if (need_user_verification_permitted)
+                return -ENOCSI;
         if (need_pin)
                 return -ENOANO;
         if (need_token)
@@ -297,7 +304,7 @@ int home_setup_undo(HomeSetup *setup) {
         }
 
         if (setup->undo_dm && setup->crypt_device && setup->dm_name) {
-                q = crypt_deactivate(setup->crypt_device, setup->dm_name);
+                q = sym_crypt_deactivate_by_name(setup->crypt_device, setup->dm_name, 0);
                 if (q < 0)
                         r = q;
         }
@@ -328,8 +335,10 @@ int home_setup_undo(HomeSetup *setup) {
         setup->dm_node = mfree(setup->dm_node);
 
         setup->loop = loop_device_unref(setup->loop);
-        crypt_free(setup->crypt_device);
-        setup->crypt_device = NULL;
+        if (setup->crypt_device) {
+                sym_crypt_free(setup->crypt_device);
+                setup->crypt_device = NULL;
+        }
 
         explicit_bzero_safe(setup->volume_key, setup->volume_key_size);
         setup->volume_key = mfree(setup->volume_key);
@@ -517,7 +526,7 @@ int home_load_embedded_identity(
         if (!embedded_home)
                 return log_oom();
 
-        r = user_record_load(embedded_home, v, USER_RECORD_LOAD_EMBEDDED);
+        r = user_record_load(embedded_home, v, USER_RECORD_LOAD_EMBEDDED|USER_RECORD_PERMISSIVE);
         if (r < 0)
                 return r;
 
@@ -602,7 +611,7 @@ int home_store_embedded_identity(UserRecord *h, int root_fd, uid_t uid, UserReco
         assert(root_fd >= 0);
         assert(uid_is_valid(uid));
 
-        r = user_record_clone(h, USER_RECORD_EXTRACT_EMBEDDED, &embedded);
+        r = user_record_clone(h, USER_RECORD_EXTRACT_EMBEDDED|USER_RECORD_PERMISSIVE, &embedded);
         if (r < 0)
                 return log_error_errno(r, "Failed to determine new embedded record: %m");
 
@@ -653,8 +662,8 @@ int home_extend_embedded_identity(UserRecord *h, UserRecord *used, HomeSetup *se
                         setup->found_partition_uuid,
                         setup->found_luks_uuid,
                         setup->found_fs_uuid,
-                        setup->crypt_device ? crypt_get_cipher(setup->crypt_device) : NULL,
-                        setup->crypt_device ? crypt_get_cipher_mode(setup->crypt_device) : NULL,
+                        setup->crypt_device ? sym_crypt_get_cipher(setup->crypt_device) : NULL,
+                        setup->crypt_device ? sym_crypt_get_cipher_mode(setup->crypt_device) : NULL,
                         setup->crypt_device ? luks_volume_key_size_convert(setup->crypt_device) : UINT64_MAX,
                         file_system_type_fd(setup->root_fd),
                         user_record_home_directory(used),
@@ -1086,15 +1095,21 @@ static int determine_default_storage(UserStorage *ret) {
                 return log_error_errno(r, "Failed to determine whether we are in a container: %m");
         if (r == 0) {
                 r = path_is_encrypted("/home");
-                if (r < 0)
-                        log_warning_errno(r, "Failed to determine if /home is encrypted, ignoring: %m");
-                if (r <= 0) {
-                        log_info("Using automatic default storage of '%s'.", user_storage_to_string(USER_LUKS));
-                        *ret = USER_LUKS;
-                        return 0;
-                }
+                if (r > 0)
+                        log_info("/home is encrypted, not using '%s' storage, in order to avoid double encryption.", user_storage_to_string(USER_LUKS));
+                else {
+                        if (r < 0)
+                                log_warning_errno(r, "Failed to determine if /home is encrypted, ignoring: %m");
 
-                log_info("/home is encrypted, not using '%s' storage, in order to avoid double encryption.", user_storage_to_string(USER_LUKS));
+                        r = dlopen_cryptsetup();
+                        if (r < 0)
+                                log_info("Not using '%s' storage, since libcryptsetup could not be loaded.", user_storage_to_string(USER_LUKS));
+                        else {
+                                log_info("Using automatic default storage of '%s'.", user_storage_to_string(USER_LUKS));
+                                *ret = USER_LUKS;
+                                return 0;
+                        }
+                }
         } else
                 log_info("Running in container, not using '%s' storage.", user_storage_to_string(USER_LUKS));
 
@@ -1661,7 +1676,7 @@ static int run(int argc, char *argv[]) {
         if (!home)
                 return log_oom();
 
-        r = user_record_load(home, v, USER_RECORD_LOAD_FULL|USER_RECORD_LOG);
+        r = user_record_load(home, v, USER_RECORD_LOAD_FULL|USER_RECORD_LOG|USER_RECORD_PERMISSIVE);
         if (r < 0)
                 return r;
 
@@ -1680,6 +1695,7 @@ static int run(int argc, char *argv[]) {
          * ENOANO          → suitable PKCS#11/FIDO2 device found, but PIN is missing to unlock it
          * ERFKILL         → suitable PKCS#11 device found, but OK to ask for on-device interactive authentication not given
          * EMEDIUMTYPE     → suitable FIDO2 device found, but OK to ask for user presence not given
+         * ENOCSI          → suitable FIDO2 device found, but OK to ask for user verification not given
          * ENOSTR          → suitable FIDO2 device found, but user didn't react to action request on token quickly enough
          * EOWNERDEAD      → suitable PKCS#11/FIDO2 device found, but its PIN is locked
          * ENOLCK          → suitable PKCS#11/FIDO2 device found, but PIN incorrect
