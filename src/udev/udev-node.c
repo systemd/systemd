@@ -517,13 +517,13 @@ static int node_permissions_apply(sd_device *dev, bool apply_mac,
         return r;
 }
 
-static int xsprintf_dev_num_path_from_sd_device(sd_device *dev, char **ret) {
-        char filename[DEV_NUM_PATH_MAX], *s;
+static int xsprintf_dev_num_path_from_sd_device(sd_device *dev, char filename[static DEV_NUM_PATH_MAX]) {
         const char *subsystem;
         dev_t devnum;
         int r;
 
-        assert(ret);
+        assert(dev);
+        assert(filename);
 
         r = sd_device_get_subsystem(dev, &subsystem);
         if (r < 0)
@@ -533,23 +533,23 @@ static int xsprintf_dev_num_path_from_sd_device(sd_device *dev, char **ret) {
         if (r < 0)
                 return r;
 
-        xsprintf(filename, "/dev/%s/%u:%u",
+        snprintf(filename, DEV_NUM_PATH_MAX, "/dev/%s/%u:%u",
                  streq(subsystem, "block") ? "block" : "char",
                  major(devnum), minor(devnum));
 
-        s = strdup(filename);
-        if (!s)
-                return -ENOMEM;
-
-        *ret = s;
         return 0;
 }
 
-int udev_node_add(sd_device *dev, bool apply,
-                  mode_t mode, uid_t uid, gid_t gid,
-                  OrderedHashmap *seclabel_list) {
+int udev_node_add(
+                sd_device *dev,
+                bool apply,
+                mode_t mode,
+                uid_t uid,
+                gid_t gid,
+                OrderedHashmap *seclabel_list) {
+
+        char filename[DEV_NUM_PATH_MAX];
         const char *devnode, *devlink;
-        _cleanup_free_ char *filename = NULL;
         int r;
 
         assert(dev);
@@ -578,7 +578,7 @@ int udev_node_add(sd_device *dev, bool apply,
                                                  devlink);
         }
 
-        r = xsprintf_dev_num_path_from_sd_device(dev, &filename);
+        r = xsprintf_dev_num_path_from_sd_device(dev, filename);
         if (r < 0)
                 return log_device_debug_errno(dev, r, "Failed to get device path: %m");
 
@@ -591,7 +591,7 @@ int udev_node_add(sd_device *dev, bool apply,
 }
 
 int udev_node_remove(sd_device *dev) {
-        _cleanup_free_ char *filename = NULL;
+        char filename[DEV_NUM_PATH_MAX];
         const char *devlink;
         int r;
 
@@ -606,7 +606,7 @@ int udev_node_remove(sd_device *dev) {
                                                  devlink);
         }
 
-        r = xsprintf_dev_num_path_from_sd_device(dev, &filename);
+        r = xsprintf_dev_num_path_from_sd_device(dev, filename);
         if (r < 0)
                 return log_device_debug_errno(dev, r, "Failed to get device path: %m");
 
