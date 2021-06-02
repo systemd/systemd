@@ -30,6 +30,7 @@
 #include "user-util.h"
 
 #define LINK_UPDATE_MAX_RETRIES 128
+#define TOUCH_FILE_MAX_RETRIES  128
 #define UDEV_NODE_HASH_KEY SD_ID128_MAKE(b9,6a,f1,ce,40,31,44,1a,9e,19,ec,8b,ae,f3,e3,2f)
 
 static int node_symlink(sd_device *dev, const char *node, const char *slink) {
@@ -279,20 +280,17 @@ static int link_update(sd_device *dev, const char *slink_in, bool add) {
                         log_device_debug_errno(dev, errno, "Failed to remove %s, ignoring: %m", filename);
 
                 (void) rmdir(dirname);
-        } else
-                for (;;) {
-                        _cleanup_close_ int fd = -1;
-
-                        r = mkdir_parents(filename, 0755);
-                        if (!IN_SET(r, 0, -ENOENT))
-                                return r;
-
-                        fd = open(filename, O_WRONLY|O_CREAT|O_CLOEXEC|O_TRUNC|O_NOFOLLOW, 0444);
-                        if (fd >= 0)
+        } else {
+                for (unsigned j = 0; j < TOUCH_FILE_MAX_RETRIES; j++) {
+                        /* This may fail with -ENOENT when the parent directory is removed during
+                         * creating the file by another udevd worker. */
+                        r = touch_file(filename, /* parents= */ true, USEC_INFINITY, UID_INVALID, GID_INVALID, 0444);
+                        if (r != -ENOENT)
                                 break;
-                        if (errno != ENOENT)
-                                return -errno;
                 }
+                if (r < 0)
+                        return log_device_debug_errno(dev, r, "Failed to create %s: %m", filename);
+        }
 
         /* If the database entry is not written yet we will just do one iteration and possibly wrong symlink
          * will be fixed in the second invocation. */
