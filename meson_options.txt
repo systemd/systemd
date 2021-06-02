@@ -313,6 +313,8 @@ option('microhttpd', type : 'combo', choices : ['auto', 'true', 'false'],
        description : 'libµhttpd support')
 option('libcryptsetup', type : 'combo', choices : ['auto', 'true', 'false'],
        description : 'libcryptsetup support')
+option('libcryptsetup-plugins', type : 'combo', choices : ['auto', 'true', 'false'],
+       description : 'libcryptsetup LUKS2 external token handlers support (plugins)')
 option('libcurl', type : 'combo', choices : ['auto', 'true', 'false'],
        description : 'libcurl support')
 option('idn', type : 'boolean',
