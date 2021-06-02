@@ -1426,13 +1426,14 @@ int swap_process_device_new(Manager *m, sd_device *dev) {
         assert(m);
         assert(dev);
 
-        r = sd_device_get_devname(dev, &dn);
-        if (r < 0)
+        if (sd_device_get_devname(dev, &dn) < 0)
                 return 0;
 
         r = unit_name_from_path(dn, ".swap", &e);
-        if (r < 0)
-                return r;
+        if (r < 0) {
+                log_debug_errno(r, "Cannot convert device name '%s' to unit name, ignoring: %m", dn);
+                return 0;
+        }
 
         u = manager_get_unit(m, e);
         if (u)
