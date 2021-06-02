@@ -13,3 +13,5 @@ int udev_node_add(sd_device *dev, bool apply,
                   OrderedHashmap *seclabel_list);
 int udev_node_remove(sd_device *dev);
 int udev_node_update_old_links(sd_device *dev, sd_device *dev_old);
+
+size_t udev_node_escape_path(const char *src, char *dest, size_t size);
