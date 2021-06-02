@@ -175,23 +175,27 @@ if have_gnu_efi
 endif
 
 if have_gnu_efi
-        compile_args = ['-Wall',
-                        '-Wextra',
-                        '-std=gnu99',
-                        '-nostdlib',
+        compile_args = cc.get_supported_arguments(
+                basic_disabled_warnings +
+                possible_common_cc_flags + [
+                        '-ffreestanding',
+                        '-fno-stack-protector',
                         '-fpic',
                         '-fshort-wchar',
-                        '-ffreestanding',
-                        '-fno-strict-aliasing',
-                        '-fno-stack-protector',
+                        '-Wall',
+                        '-Wextra',
                         '-Wsign-compare',
-                        '-Wno-missing-field-initializers',
-                        '-isystem', efi_incdir,
-                        '-isystem', join_paths(efi_incdir, gnu_efi_path_arch),
-                        '-I', fundamental_path,
-                        '-DSD_BOOT',
-                        '-include', efi_config_h,
-                        '-include', version_h]
+                ]
+        ) + [
+                '-nostdlib',
+                '-std=gnu99',
+                '-isystem', efi_incdir,
+                '-isystem', join_paths(efi_incdir, gnu_efi_path_arch),
+                '-I', fundamental_path,
+                '-DSD_BOOT',
+                '-include', efi_config_h,
+                '-include', version_h,
+        ]
         if efi_arch == 'x86_64'
                 compile_args += ['-mno-red-zone',
                                  '-mno-sse',
