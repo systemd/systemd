@@ -10,7 +10,6 @@
 #include "sd-id128.h"
 
 #include "alloc-util.h"
-#include "device-nodes.h"
 #include "device-private.h"
 #include "device-util.h"
 #include "dirent-util.h"
@@ -517,7 +516,6 @@ static int node_permissions_apply(sd_device *dev, bool apply_mac,
 }
 
 static int xsprintf_dev_num_path_from_sd_device(sd_device *dev, char **ret) {
-        char filename[DEV_NUM_PATH_MAX], *s;
         const char *subsystem;
         dev_t devnum;
         int r;
@@ -532,16 +530,7 @@ static int xsprintf_dev_num_path_from_sd_device(sd_device *dev, char **ret) {
         if (r < 0)
                 return r;
 
-        xsprintf_dev_num_path(filename,
-                              streq(subsystem, "block") ? "block" : "char",
-                              devnum);
-
-        s = strdup(filename);
-        if (!s)
-                return -ENOMEM;
-
-        *ret = s;
-        return 0;
+        return device_path_make_major_minor(streq(subsystem, "block") ? S_IFBLK : S_IFCHR, devnum, ret);
 }
 
 int udev_node_add(sd_device *dev, bool apply,
