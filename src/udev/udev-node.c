@@ -287,17 +287,13 @@ static int link_update(sd_device *dev, const char *slink_in, bool add) {
                 (void) rmdir(dirname);
         } else
                 for (;;) {
-                        _cleanup_close_ int fd = -1;
-
-                        r = mkdir_parents(filename, 0755);
-                        if (!IN_SET(r, 0, -ENOENT))
-                                return r;
-
-                        fd = open(filename, O_WRONLY|O_CREAT|O_CLOEXEC|O_TRUNC|O_NOFOLLOW, 0444);
-                        if (fd >= 0)
-                                break;
-                        if (errno != ENOENT)
-                                return -errno;
+                        r = touch_file(filename, true, USEC_INFINITY, UID_INVALID, GID_INVALID, 0444);
+                        if (r == -ENOENT)
+                                /* The parent directory may be removed during creating the file. */
+                                continue;
+                        if (r < 0)
+                                return log_device_debug_errno(dev, r, "Failed to create %s: %m", filename);
+                        break;
                 }
 
         /* If the database entry is not written yet we will just do one iteration and possibly wrong symlink
