@@ -96,7 +96,7 @@ static int node_symlink(sd_device *dev, const char *node, const char *slink) {
 
                         return 0;
                 }
-        } else {
+        } else if (errno == ENOENT) {
                 log_device_debug(dev, "Creating symlink '%s' to '%s'", slink, target);
 
                 r = create_symlink(target, slink);
@@ -104,7 +104,8 @@ static int node_symlink(sd_device *dev, const char *node, const char *slink) {
                         return 0;
 
                 log_device_debug_errno(dev, r, "Failed to create symlink '%s' to '%s', trying to replace '%s': %m", slink, target, slink);
-        }
+        } else
+                return log_device_debug_errno(dev, errno, "Failed to lstat() '%s': %m", slink);
 
         log_device_debug(dev, "Atomically replace '%s'", slink);
 
