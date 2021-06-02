@@ -3,6 +3,8 @@
 #include <errno.h>
 #include <sys/epoll.h>
 
+#include "sd-messages.h"
+
 #include "alloc-util.h"
 #include "bus-error.h"
 #include "dbus-device.h"
@@ -12,6 +14,7 @@
 #include "log.h"
 #include "parse-util.h"
 #include "path-util.h"
+#include "ratelimit.h"
 #include "serialize.h"
 #include "stat-util.h"
 #include "string-util.h"
@@ -497,8 +500,32 @@ static int device_setup_unit(Manager *m, sd_device *dev, const char *path, bool 
         }
 
         r = unit_name_from_path(path, ".device", &e);
-        if (r < 0)
-                return log_device_error_errno(dev, r, "Failed to generate unit name from device path: %m");
+        if (r < 0) {
+                /* Let's complain about overly long device names only at most once every 5s or so. This is
+                 * something we should mention, since relevant devices are not manageable by systemd, but not
+                 * flood the log about. */
+                static RateLimit rate_limit = {
+                        .interval = 5 * USEC_PER_SEC,
+                        .burst = 1,
+                };
+
+                /* If we cannot convert a device name to a unit name then let's ignore the device. So far,
+                 * devices with such long names weren't really the kind you want to manage with systemd
+                 * anyway, hence this shouldn't be a problem. */
+
+                if (r == -ENAMETOOLONG)
+                        return log_struct_errno(
+                                        ratelimit_below(&rate_limit) ? LOG_WARNING : LOG_DEBUG, r,
+                                        "MESSAGE_ID=" SD_MESSAGE_DEVICE_PATH_NOT_SUITABLE_STR,
+                                        "DEVICE=%s", path,
+                                        LOG_MESSAGE("Device path '%s' too long to fit into unit name, ignoring device.", path));
+
+                return log_struct_errno(
+                                ratelimit_below(&rate_limit) ? LOG_WARNING : LOG_DEBUG, r,
+                                "MESSAGE_ID=" SD_MESSAGE_DEVICE_PATH_NOT_SUITABLE_STR,
+                                "DEVICE=%s", path,
+                                LOG_MESSAGE("Failed to generate valid unit name from device path '%s', ignoring device: %m", path));
+        }
 
         u = manager_get_unit(m, e);
         if (u) {

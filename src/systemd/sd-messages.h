@@ -170,6 +170,10 @@ _SD_BEGIN_DECLARATIONS;
                                           SD_ID128_MAKE(1b,3b,b9,40,37,f0,4b,bf,81,02,8e,13,5a,12,d2,93)
 #define SD_MESSAGE_MOUNT_POINT_PATH_NOT_SUITABLE_STR \
                                           SD_ID128_MAKE_STR(1b,3b,b9,40,37,f0,4b,bf,81,02,8e,13,5a,12,d2,93)
+#define SD_MESSAGE_DEVICE_PATH_NOT_SUITABLE \
+                                          SD_ID128_MAKE(01,01,90,13,8f,49,4e,29,a0,ef,66,69,74,95,31,aa)
+#define SD_MESSAGE_DEVICE_PATH_NOT_SUITABLE_STR \
+                                          SD_ID128_MAKE_STR(01,01,90,13,8f,49,4e,29,a0,ef,66,69,74,95,31,aa)
 
 #define SD_MESSAGE_NOBODY_USER_UNSUITABLE SD_ID128_MAKE(b4,80,32,5f,9c,39,4a,7b,80,2c,23,1e,51,a2,75,2c)
 #define SD_MESSAGE_NOBODY_USER_UNSUITABLE_STR \
