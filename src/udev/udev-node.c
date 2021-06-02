@@ -269,11 +269,11 @@ static int link_update(sd_device *dev, const char *slink_in, bool add) {
         (void) udev_node_escape_path(slink_name, name_enc, sizeof(name_enc));
         dirname = path_join("/run/udev/links/", name_enc);
         if (!dirname)
-                return log_oom();
+                return log_oom_debug();
 
         filename = path_join(dirname, id);
         if (!filename)
-                return log_oom();
+                return log_oom_debug();
 
         if (!add) {
                 if (unlink(filename) < 0 && errno != ENOENT)
@@ -302,7 +302,7 @@ static int link_update(sd_device *dev, const char *slink_in, bool add) {
 
                 r = stat(dirname, &st1);
                 if (r < 0 && errno != ENOENT)
-                        return -errno;
+                        return log_device_debug_errno(dev, errno, "Failed to stat %s: %m", dirname);
 
                 r = link_find_prioritized(dev, add, dirname, &target);
                 if (r == -ENOENT) {
@@ -314,7 +314,7 @@ static int link_update(sd_device *dev, const char *slink_in, bool add) {
                         (void) rmdir_parents(slink, "/dev");
                         break;
                 } else if (r < 0)
-                        return log_device_error_errno(dev, r, "Failed to determine highest priority symlink: %m");
+                        return log_device_debug_errno(dev, r, "Failed to determine highest priority for symlink '%s': %m", slink);
 
                 r = node_symlink(dev, target, slink);
                 if (r < 0) {
@@ -330,7 +330,7 @@ static int link_update(sd_device *dev, const char *slink_in, bool add) {
                 if ((st1.st_mode & S_IFMT) != 0) {
                         r = stat(dirname, &st2);
                         if (r < 0 && errno != ENOENT)
-                                return -errno;
+                                return log_device_debug_errno(dev, errno, "Failed to stat %s: %m", dirname);
 
                         if (stat_inode_unmodified(&st1, &st2))
                                 break;
@@ -341,15 +341,11 @@ static int link_update(sd_device *dev, const char *slink_in, bool add) {
 }
 
 int udev_node_update_old_links(sd_device *dev, sd_device *dev_old) {
-        const char *name, *devpath;
+        const char *name;
         int r;
 
         assert(dev);
         assert(dev_old);
-
-        r = sd_device_get_devpath(dev, &devpath);
-        if (r < 0)
-                return log_device_debug_errno(dev, r, "Failed to get devpath: %m");
 
         /* update possible left-over symlinks */
         FOREACH_DEVICE_DEVLINK(dev_old, name) {
@@ -366,8 +362,10 @@ int udev_node_update_old_links(sd_device *dev, sd_device *dev_old) {
                 if (found)
                         continue;
 
-                log_device_debug(dev, "Updating old name, '%s' no longer belonging to '%s'",
-                                 name, devpath);
+                log_device_debug(dev,
+                                 "Updating old device symlink '%s', which is no longer belonging to this device.",
+                                 name);
+
                 r = link_update(dev, name, false);
                 if (r < 0)
                         log_device_warning_errno(dev, r,
