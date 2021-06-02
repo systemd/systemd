@@ -721,7 +721,7 @@ static void device_update_found_by_sysfs(Manager *m, const char *sysfs, DeviceFo
                 device_update_found_one(d, found, mask);
 }
 
-static int device_update_found_by_name(Manager *m, const char *path, DeviceFound found, DeviceFound mask) {
+static void device_update_found_by_name(Manager *m, const char *path, DeviceFound found, DeviceFound mask) {
         _cleanup_free_ char *e = NULL;
         Unit *u;
         int r;
@@ -730,18 +730,17 @@ static int device_update_found_by_name(Manager *m, const char *path, DeviceFound
         assert(path);
 
         if (mask == 0)
-                return 0;
+                return;
 
         r = unit_name_from_path(path, ".device", &e);
         if (r < 0)
-                return log_error_errno(r, "Failed to generate unit name from device path: %m");
+                return (void) log_debug_errno(r, "Failed to generate unit name from device path, ignoring: %m");
 
         u = manager_get_unit(m, e);
         if (!u)
-                return 0;
+                return;
 
         device_update_found_one(DEVICE(u), found, mask);
-        return 0;
 }
 
 static bool device_is_ready(sd_device *dev) {
