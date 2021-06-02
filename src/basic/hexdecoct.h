@@ -27,6 +27,7 @@ char base32hexchar(int x) _const_;
 int unbase32hexchar(char c) _const_;
 
 char base64char(int x) _const_;
+char urlsafe_base64char(int x) _const_;
 int unbase64char(char c) _const_;
 
 char *base32hexmem(const void *p, size_t l, bool padding);
