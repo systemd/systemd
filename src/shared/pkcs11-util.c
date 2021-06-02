@@ -1154,3 +1154,71 @@ int pkcs11_find_token_auto(char **ret) {
                                "PKCS#11 tokens not supported on this build.");
 #endif
 }
+
+#if HAVE_P11KIT
+void pkcs11_crypt_device_callback_data_release(pkcs11_crypt_device_callback_data *data) {
+        erase_and_free(data->decrypted_key);
+
+        if (data->free_encrypted_key)
+                free(data->encrypted_key);
+}
+
+int pkcs11_crypt_device_callback(
+                CK_FUNCTION_LIST *m,
+                CK_SESSION_HANDLE session,
+                CK_SLOT_ID slot_id,
+                const CK_SLOT_INFO *slot_info,
+                const CK_TOKEN_INFO *token_info,
+                P11KitUri *uri,
+                void *userdata) {
+
+        pkcs11_crypt_device_callback_data *data = userdata;
+        CK_OBJECT_HANDLE object;
+        int r;
+
+        assert(m);
+        assert(slot_info);
+        assert(token_info);
+        assert(uri);
+        assert(data);
+
+        /* Called for every token matching our URI */
+
+        r = pkcs11_token_login(
+                        m,
+                        session,
+                        slot_id,
+                        token_info,
+                        data->friendly_name,
+                        "drive-harddisk",
+                        "pkcs11-pin",
+                        "cryptsetup.pkcs11-pin",
+                        data->until,
+                        data->headless,
+                        NULL);
+        if (r < 0)
+                return r;
+
+        /* We are likely called during early boot, where entropy is scarce. Mix some data from the PKCS#11
+         * token, if it supports that. It should be cheap, given that we already are talking to it anyway and
+         * shouldn't hurt. */
+        (void) pkcs11_token_acquire_rng(m, session);
+
+        r = pkcs11_token_find_private_key(m, session, uri, &object);
+        if (r < 0)
+                return r;
+
+        r = pkcs11_token_decrypt_data(
+                        m,
+                        session,
+                        object,
+                        data->encrypted_key,
+                        data->encrypted_key_size,
+                        &data->decrypted_key,
+                        &data->decrypted_key_size);
+        if (r < 0)
+                return r;
+
+        return 0;
+}
+#endif
