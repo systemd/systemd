@@ -493,10 +493,8 @@ static int device_setup_unit(Manager *m, sd_device *dev, const char *path, bool 
 
         if (dev) {
                 r = sd_device_get_syspath(dev, &sysfs);
-                if (r < 0) {
-                        log_device_debug_errno(dev, r, "Couldn't get syspath from device, ignoring: %m");
-                        return 0;
-                }
+                if (r < 0)
+                        return log_device_debug_errno(dev, r, "Couldn't get syspath from device, ignoring: %m");
         }
 
         r = unit_name_from_path(path, ".device", &e);
