@@ -228,18 +228,23 @@ static size_t escape_path(const char *src, char *dest, size_t size) {
 /* manage "stack of names" with possibly specified device priorities */
 static int link_update(sd_device *dev, const char *slink, bool add) {
         _cleanup_free_ char *filename = NULL, *dirname = NULL;
+        const char *slink_name, *id;
         char name_enc[PATH_MAX];
-        const char *id;
         int i, r, retries;
 
         assert(dev);
         assert(slink);
 
+        slink_name = path_startswith(slink, "/dev");
+        if (!slink_name)
+                return log_device_debug_errno(dev, SYNTHETIC_ERRNO(EINVAL),
+                                              "Invalid symbolic link of device node: %s", slink);
+
         r = device_get_device_id(dev, &id);
         if (r < 0)
                 return log_device_debug_errno(dev, r, "Failed to get device id: %m");
 
-        escape_path(slink + STRLEN("/dev"), name_enc, sizeof(name_enc));
+        escape_path(slink_name, name_enc, sizeof(name_enc));
         dirname = path_join("/run/udev/links/", name_enc);
         if (!dirname)
                 return log_oom();
@@ -339,7 +344,11 @@ int udev_node_update_old_links(sd_device *dev, sd_device *dev_old) {
 
                 log_device_debug(dev, "Updating old name, '%s' no longer belonging to '%s'",
                                  name, devpath);
-                link_update(dev, name, false);
+                r = link_update(dev, name, false);
+                if (r < 0)
+                        log_device_warning_errno(dev, r,
+                                                 "Failed to update device symlink '%s', ignoring: %m",
+                                                 name);
         }
 
         return 0;
@@ -530,7 +539,9 @@ int udev_node_add(sd_device *dev, bool apply,
         FOREACH_DEVICE_DEVLINK(dev, devlink) {
                 r = link_update(dev, devlink, true);
                 if (r < 0)
-                        log_device_info_errno(dev, r, "Failed to update device symlinks: %m");
+                        log_device_warning_errno(dev, r,
+                                                 "Failed to update device symlink '%s', ignoring: %m",
+                                                 devlink);
         }
 
         return 0;
@@ -547,7 +558,9 @@ int udev_node_remove(sd_device *dev) {
         FOREACH_DEVICE_DEVLINK(dev, devlink) {
                 r = link_update(dev, devlink, false);
                 if (r < 0)
-                        log_device_info_errno(dev, r, "Failed to update device symlinks: %m");
+                        log_device_warning_errno(dev, r,
+                                                 "Failed to update device symlink '%s', ignoring: %m",
+                                                 devlink);
         }
 
         r = xsprintf_dev_num_path_from_sd_device(dev, &filename);
