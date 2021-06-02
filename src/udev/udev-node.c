@@ -29,9 +29,36 @@
 #include "udev-node.h"
 #include "user-util.h"
 
+#define CREATE_LINK_MAX_RETRIES 128
 #define LINK_UPDATE_MAX_RETRIES 128
 #define TOUCH_FILE_MAX_RETRIES  128
 #define UDEV_NODE_HASH_KEY SD_ID128_MAKE(b9,6a,f1,ce,40,31,44,1a,9e,19,ec,8b,ae,f3,e3,2f)
+
+static int create_symlink(const char *target, const char *slink) {
+        int r;
+
+        assert(target);
+        assert(slink);
+
+        for (unsigned i = 0; i < CREATE_LINK_MAX_RETRIES; i++) {
+                r = mkdir_parents_label(slink, 0755);
+                if (r == -ENOENT)
+                        continue;
+                if (r < 0)
+                        return r;
+
+                mac_selinux_create_file_prepare(slink, S_IFLNK);
+                if (symlink(target, slink) < 0)
+                        r = -errno;
+                else
+                        r = 0;
+                mac_selinux_create_file_clear();
+                if (r != -ENOENT)
+                        return r;
+        }
+
+        return r;
+}
 
 static int node_symlink(sd_device *dev, const char *node, const char *slink) {
         _cleanup_free_ char *slink_dirname = NULL, *target = NULL;
@@ -71,47 +98,35 @@ static int node_symlink(sd_device *dev, const char *node, const char *slink) {
                 }
         } else {
                 log_device_debug(dev, "Creating symlink '%s' to '%s'", slink, target);
-                do {
-                        r = mkdir_parents_label(slink, 0755);
-                        if (!IN_SET(r, 0, -ENOENT))
-                                break;
-                        mac_selinux_create_file_prepare(slink, S_IFLNK);
-                        if (symlink(target, slink) < 0)
-                                r = -errno;
-                        mac_selinux_create_file_clear();
-                } while (r == -ENOENT);
-                if (r == 0)
+
+                r = create_symlink(target, slink);
+                if (r >= 0)
                         return 0;
-                if (r < 0)
-                        log_device_debug_errno(dev, r, "Failed to create symlink '%s' to '%s', trying to replace '%s': %m", slink, target, slink);
+
+                log_device_debug_errno(dev, r, "Failed to create symlink '%s' to '%s', trying to replace '%s': %m", slink, target, slink);
         }
 
         log_device_debug(dev, "Atomically replace '%s'", slink);
+
         r = device_get_device_id(dev, &id);
         if (r < 0)
                 return log_device_error_errno(dev, r, "Failed to get device id: %m");
         slink_tmp = strjoina(slink, ".tmp-", id);
+
         (void) unlink(slink_tmp);
-        do {
-                r = mkdir_parents_label(slink_tmp, 0755);
-                if (!IN_SET(r, 0, -ENOENT))
-                        break;
-                mac_selinux_create_file_prepare(slink_tmp, S_IFLNK);
-                if (symlink(target, slink_tmp) < 0)
-                        r = -errno;
-                mac_selinux_create_file_clear();
-        } while (r == -ENOENT);
+
+        r = create_symlink(target, slink_tmp);
         if (r < 0)
-                return log_device_error_errno(dev, r, "Failed to create symlink '%s' to '%s': %m", slink_tmp, target);
+                return log_device_debug_errno(dev, r, "Failed to create symlink '%s' to '%s': %m", slink_tmp, target);
 
         if (rename(slink_tmp, slink) < 0) {
                 r = log_device_error_errno(dev, errno, "Failed to rename '%s' to '%s': %m", slink_tmp, slink);
                 (void) unlink(slink_tmp);
-        } else
-                /* Tell caller that we replaced already existing symlink. */
-                r = 1;
+                return r;
+        }
 
-        return r;
+        /* Tell caller that we replaced already existing symlink. */
+        return 1;
 }
 
 static int link_find_prioritized(sd_device *dev, bool add, const char *stackdir, char **ret) {
