@@ -64,6 +64,7 @@
 #include "log.h"
 #include "macro.h"
 #include "manager.h"
+#include "manager-dump.h"
 #include "memory-util.h"
 #include "missing_fs.h"
 #include "mkdir.h"
