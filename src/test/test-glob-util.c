@@ -13,6 +13,8 @@
 #include "tmpfile-util.h"
 
 static void test_glob_exists(void) {
+        log_info("/* %s */", __func__);
+
         char name[] = "/tmp/test-glob_exists.XXXXXX";
         int fd = -1;
         int r;
@@ -48,6 +50,8 @@ static void test_glob_no_dot(void) {
 
         int r;
 
+        log_info("/* %s */", __func__);
+
         assert_se(mkdtemp(template));
 
         fn = strjoina(template, "/*");
@@ -67,6 +71,8 @@ static void test_safe_glob(void) {
 
         _cleanup_globfree_ glob_t g = {};
         int r;
+
+        log_info("/* %s */", __func__);
 
         assert_se(mkdtemp(template));
 
@@ -93,10 +99,32 @@ static void test_safe_glob(void) {
         (void) rm_rf(template, REMOVE_ROOT|REMOVE_PHYSICAL);
 }
 
+static void test_glob_non_glob_prefix_one(const char *path, const char *expected) {
+        _cleanup_free_ char *t;
+
+        assert_se(glob_non_glob_prefix(path, &t) == 0);
+        assert_se(streq(t, expected));
+}
+
+static void test_glob_non_glob(void) {
+        log_info("/* %s */", __func__);
+
+        test_glob_non_glob_prefix_one("/tmp/.X11-*", "/tmp/");
+        test_glob_non_glob_prefix_one("/tmp/*", "/tmp/");
+        test_glob_non_glob_prefix_one("/tmp*", "/");
+        test_glob_non_glob_prefix_one("/tmp/*/whatever", "/tmp/");
+        test_glob_non_glob_prefix_one("/tmp/*/whatever?", "/tmp/");
+        test_glob_non_glob_prefix_one("/?", "/");
+
+        char *x;
+        assert_se(glob_non_glob_prefix("?", &x) == -ENOENT);
+}
+
 int main(void) {
         test_glob_exists();
         test_glob_no_dot();
         test_safe_glob();
+        test_glob_non_glob();
 
         return 0;
 }
