@@ -344,7 +344,11 @@ int udev_node_update_old_links(sd_device *dev, sd_device *dev_old) {
 
                 log_device_debug(dev, "Updating old name, '%s' no longer belonging to '%s'",
                                  name, devpath);
-                link_update(dev, name, false);
+                r = link_update(dev, name, false);
+                if (r < 0)
+                        log_device_warning_errno(dev, r,
+                                                 "Failed to update device symlink '%s', ignoring: %m",
+                                                 name);
         }
 
         return 0;
@@ -535,7 +539,9 @@ int udev_node_add(sd_device *dev, bool apply,
         FOREACH_DEVICE_DEVLINK(dev, devlink) {
                 r = link_update(dev, devlink, true);
                 if (r < 0)
-                        log_device_info_errno(dev, r, "Failed to update device symlinks: %m");
+                        log_device_warning_errno(dev, r,
+                                                 "Failed to update device symlink '%s', ignoring: %m",
+                                                 devlink);
         }
 
         return 0;
@@ -552,7 +558,9 @@ int udev_node_remove(sd_device *dev) {
         FOREACH_DEVICE_DEVLINK(dev, devlink) {
                 r = link_update(dev, devlink, false);
                 if (r < 0)
-                        log_device_info_errno(dev, r, "Failed to update device symlinks: %m");
+                        log_device_warning_errno(dev, r,
+                                                 "Failed to update device symlink '%s', ignoring: %m",
+                                                 devlink);
         }
 
         r = xsprintf_dev_num_path_from_sd_device(dev, &filename);
