@@ -743,6 +743,7 @@ int device_rename(sd_device *device, const char *name) {
 
 int device_shallow_clone(sd_device *old_device, sd_device **new_device) {
         _cleanup_(sd_device_unrefp) sd_device *ret = NULL;
+        const char *subsystem;
         int r;
 
         assert(old_device);
@@ -756,9 +757,12 @@ int device_shallow_clone(sd_device *old_device, sd_device **new_device) {
         if (r < 0)
                 return r;
 
-        r = device_set_subsystem(ret, old_device->subsystem);
-        if (r < 0)
-                return r;
+        if (sd_device_get_subsystem(old_device, &subsystem) >= 0) {
+                r = device_set_subsystem(ret, subsystem);
+                if (r < 0)
+                        return r;
+        } else
+                ret->subsystem_set = true;
 
         ret->devnum = old_device->devnum;
 
