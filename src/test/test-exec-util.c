@@ -22,7 +22,7 @@
 #include "tests.h"
 
 static int here = 0, here2 = 0, here3 = 0;
-void *ignore_stdout_args[] = {&here, &here2, &here3};
+static void *ignore_stdout_args[] = { &here, &here2, &here3 };
 
 /* noop handlers, just check that arguments are passed correctly */
 static int ignore_stdout_func(int fd, void *arg) {
