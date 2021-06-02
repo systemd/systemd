@@ -492,7 +492,7 @@ fail:
         return r;
 }
 
-static int swap_process_new(Manager *m, const char *device, int prio, bool set_flags) {
+static void swap_process_new(Manager *m, const char *device, int prio, bool set_flags) {
         _cleanup_(sd_device_unrefp) sd_device *d = NULL;
         const char *dn, *devlink;
         struct stat st, st_link;
@@ -500,25 +500,22 @@ static int swap_process_new(Manager *m, const char *device, int prio, bool set_f
 
         assert(m);
 
-        r = swap_setup_unit(m, device, device, prio, set_flags);
-        if (r < 0)
-                return r;
+        if (swap_setup_unit(m, device, device, prio, set_flags) < 0)
+                return;
 
         /* If this is a block device, then let's add duplicates for
          * all other names of this block device */
         if (stat(device, &st) < 0 || !S_ISBLK(st.st_mode))
-                return 0;
+                return;
 
         r = sd_device_new_from_stat_rdev(&d, &st);
-        if (r < 0) {
-                log_full_errno(r == -ENOENT ? LOG_DEBUG : LOG_WARNING, r,
-                               "Failed to allocate device for swap %s: %m", device);
-                return 0;
-        }
+        if (r < 0)
+                return (void) log_full_errno(r == -ENOENT ? LOG_DEBUG : LOG_WARNING, r,
+                                             "Failed to allocate device for swap %s: %m", device);
 
         /* Add the main device node */
         if (sd_device_get_devname(d, &dn) >= 0 && !streq(dn, device))
-                swap_setup_unit(m, dn, device, prio, set_flags);
+                (void) swap_setup_unit(m, dn, device, prio, set_flags);
 
         /* Add additional units for all symlinks */
         FOREACH_DEVICE_DEVLINK(d, devlink) {
@@ -535,10 +532,8 @@ static int swap_process_new(Manager *m, const char *device, int prio, bool set_f
                      st_link.st_rdev != st.st_rdev))
                         continue;
 
-                swap_setup_unit(m, devlink, device, prio, set_flags);
+                (void) swap_setup_unit(m, devlink, device, prio, set_flags);
         }
-
-        return 0;
 }
 
 static void swap_set_state(Swap *s, SwapState state) {
