@@ -4,6 +4,7 @@
 #include <sys/statvfs.h>
 
 #include "alloc-util.h"
+#include "capability-util.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "mount-util.h"
@@ -75,8 +76,8 @@ static void test_bind_remount_recursive(void) {
         _cleanup_free_ char *subdir = NULL;
         const char *p;
 
-        if (geteuid() != 0) {
-                (void) log_tests_skipped("not running as root");
+        if (geteuid() != 0 || have_effective_cap(CAP_SYS_ADMIN) <= 0) {
+                (void) log_tests_skipped("not running privileged");
                 return;
         }
 
@@ -128,8 +129,8 @@ static void test_bind_remount_recursive(void) {
 static void test_bind_remount_one(void) {
         pid_t pid;
 
-        if (geteuid() != 0) {
-                (void) log_tests_skipped("not running as root");
+        if (geteuid() != 0 || have_effective_cap(CAP_SYS_ADMIN) <= 0) {
+                (void) log_tests_skipped("not running privileged");
                 return;
         }
 

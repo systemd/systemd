@@ -924,8 +924,8 @@ int main(int argc, char *argv[]) {
         can_unshare = have_namespaces();
 
         /* It is needed otherwise cgroup creation fails */
-        if (getuid() != 0)
-                return log_tests_skipped("not root");
+        if (geteuid() != 0 || have_effective_cap(CAP_SYS_ADMIN) <= 0)
+                return log_tests_skipped("not privileged");
 
         r = enter_cgroup_subroot(NULL);
         if (r == -ENOMEDIUM)
