@@ -275,8 +275,10 @@ static int link_update(sd_device *dev, const char *slink_in, bool add) {
                 return log_oom();
 
         if (!add) {
-                if (unlink(filename) == 0)
-                        (void) rmdir(dirname);
+                if (unlink(filename) < 0 && errno != ENOENT)
+                        log_device_debug_errno(dev, errno, "Failed to remove %s, ignoring: %m", filename);
+
+                (void) rmdir(dirname);
         } else
                 for (;;) {
                         _cleanup_close_ int fd = -1;
