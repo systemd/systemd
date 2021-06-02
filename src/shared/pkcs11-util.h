@@ -49,6 +49,28 @@ int pkcs11_find_token(const char *pkcs11_uri, pkcs11_find_token_callback_t callb
 int pkcs11_acquire_certificate(const char *uri, const char *askpw_friendly_name, const char *askpw_icon_name, X509 **ret_cert, char **ret_pin_used);
 #endif
 
+typedef struct {
+        const char *friendly_name;
+        usec_t until;
+        void *encrypted_key;
+        size_t encrypted_key_size;
+        void *decrypted_key;
+        size_t decrypted_key_size;
+        bool free_encrypted_key;
+        bool headless;
+} pkcs11_crypt_device_callback_data;
+
+void pkcs11_crypt_device_callback_data_release(pkcs11_crypt_device_callback_data *data);
+
+int pkcs11_crypt_device_callback(
+                CK_FUNCTION_LIST *m,
+                CK_SESSION_HANDLE session,
+                CK_SLOT_ID slot_id,
+                const CK_SLOT_INFO *slot_info,
+                const CK_TOKEN_INFO *token_info,
+                P11KitUri *uri,
+                void *userdata);
+
 #endif
 
 int pkcs11_list_tokens(void);

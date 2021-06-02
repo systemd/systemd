@@ -24,83 +24,6 @@
 #include "stat-util.h"
 #include "strv.h"
 
-struct pkcs11_callback_data {
-        const char *friendly_name;
-        usec_t until;
-        void *encrypted_key;
-        size_t encrypted_key_size;
-        void *decrypted_key;
-        size_t decrypted_key_size;
-        bool free_encrypted_key;
-        bool headless;
-};
-
-static void pkcs11_callback_data_release(struct pkcs11_callback_data *data) {
-        erase_and_free(data->decrypted_key);
-
-        if (data->free_encrypted_key)
-                free(data->encrypted_key);
-}
-
-static int pkcs11_callback(
-                CK_FUNCTION_LIST *m,
-                CK_SESSION_HANDLE session,
-                CK_SLOT_ID slot_id,
-                const CK_SLOT_INFO *slot_info,
-                const CK_TOKEN_INFO *token_info,
-                P11KitUri *uri,
-                void *userdata) {
-
-        struct pkcs11_callback_data *data = userdata;
-        CK_OBJECT_HANDLE object;
-        int r;
-
-        assert(m);
-        assert(slot_info);
-        assert(token_info);
-        assert(uri);
-        assert(data);
-
-        /* Called for every token matching our URI */
-
-        r = pkcs11_token_login(
-                        m,
-                        session,
-                        slot_id,
-                        token_info,
-                        data->friendly_name,
-                        "drive-harddisk",
-                        "pkcs11-pin",
-                        "cryptsetup.pkcs11-pin",
-                        data->until,
-                        data->headless,
-                        NULL);
-        if (r < 0)
-                return r;
-
-        /* We are likely called during early boot, where entropy is scarce. Mix some data from the PKCS#11
-         * token, if it supports that. It should be cheap, given that we already are talking to it anyway and
-         * shouldn't hurt. */
-        (void) pkcs11_token_acquire_rng(m, session);
-
-        r = pkcs11_token_find_private_key(m, session, uri, &object);
-        if (r < 0)
-                return r;
-
-        r = pkcs11_token_decrypt_data(
-                        m,
-                        session,
-                        object,
-                        data->encrypted_key,
-                        data->encrypted_key_size,
-                        &data->decrypted_key,
-                        &data->decrypted_key_size);
-        if (r < 0)
-                return r;
-
-        return 0;
-}
-
 int decrypt_pkcs11_key(
                 const char *volume_name,
                 const char *friendly_name,
@@ -115,7 +38,7 @@ int decrypt_pkcs11_key(
                 void **ret_decrypted_key,
                 size_t *ret_decrypted_key_size) {
 
-        _cleanup_(pkcs11_callback_data_release) struct pkcs11_callback_data data = {
+        _cleanup_(pkcs11_crypt_device_callback_data_release) pkcs11_crypt_device_callback_data data = {
                 .friendly_name = friendly_name,
                 .until = until,
                 .headless = headless,
@@ -155,7 +78,7 @@ int decrypt_pkcs11_key(
                 data.free_encrypted_key = true;
         }
 
-        r = pkcs11_find_token(pkcs11_uri, pkcs11_callback, &data);
+        r = pkcs11_find_token(pkcs11_uri, pkcs11_crypt_device_callback, &data);
         if (r < 0)
                 return r;
 
