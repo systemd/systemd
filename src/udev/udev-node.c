@@ -43,9 +43,9 @@ static int node_symlink(sd_device *dev, const char *node, const char *slink) {
         assert(node);
         assert(slink);
 
-        slink_dirname = dirname_malloc(slink);
-        if (!slink_dirname)
-                return log_oom();
+        r = path_extract_directory(slink, &slink_dirname);
+        if (r < 0)
+                return log_device_debug_errno(dev, r, "Failed to get parent directory of '%s': %m", slink);
 
         /* use relative link */
         r = path_make_relative(slink_dirname, node, &target);
@@ -60,7 +60,7 @@ static int node_symlink(sd_device *dev, const char *node, const char *slink) {
                                                       "Conflicting inode '%s' found, link to '%s' will not be created.", slink, node);
 
                 if (readlink_malloc(slink, &buf) >= 0 &&
-                    streq(target, buf)) {
+                    path_equal(target, buf)) {
                         /* preserve link with correct target, do not replace node of other device */
                         log_device_debug(dev, "Preserve already existing symlink '%s' to '%s'", slink, target);
 
