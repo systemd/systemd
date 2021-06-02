@@ -84,14 +84,14 @@ EFI_STATUS efivar_set(const EFI_GUID *vendor, const CHAR16 *name, const CHAR16 *
         return efivar_set_raw(vendor, name, value, value ? (StrLen(value) + 1) * sizeof(CHAR16) : 0, flags);
 }
 
-EFI_STATUS efivar_set_uint_string(const EFI_GUID *vendor, CHAR16 *name, UINTN i, UINT32 flags) {
+EFI_STATUS efivar_set_uint_string(const EFI_GUID *vendor, const CHAR16 *name, UINTN i, UINT32 flags) {
         CHAR16 str[32];
 
         SPrint(str, 32, L"%u", i);
         return efivar_set(vendor, name, str, flags);
 }
 
-EFI_STATUS efivar_set_uint32_le(const EFI_GUID *vendor, CHAR16 *name, UINT32 value, UINT32 flags) {
+EFI_STATUS efivar_set_uint32_le(const EFI_GUID *vendor, const CHAR16 *name, UINT32 value, UINT32 flags) {
         UINT8 buf[4];
 
         buf[0] = (UINT8)(value >> 0U & 0xFF);
@@ -102,7 +102,7 @@ EFI_STATUS efivar_set_uint32_le(const EFI_GUID *vendor, CHAR16 *name, UINT32 val
         return efivar_set_raw(vendor, name, buf, sizeof(buf), flags);
 }
 
-EFI_STATUS efivar_set_uint64_le(const EFI_GUID *vendor, CHAR16 *name, UINT64 value, UINT32 flags) {
+EFI_STATUS efivar_set_uint64_le(const EFI_GUID *vendor, const CHAR16 *name, UINT64 value, UINT32 flags) {
         UINT8 buf[8];
 
         buf[0] = (UINT8)(value >> 0U & 0xFF);
@@ -233,7 +233,7 @@ EFI_STATUS efivar_get_boolean_u8(const EFI_GUID *vendor, const CHAR16 *name, BOO
         return err;
 }
 
-VOID efivar_set_time_usec(const EFI_GUID *vendor, CHAR16 *name, UINT64 usec) {
+VOID efivar_set_time_usec(const EFI_GUID *vendor, const CHAR16 *name, UINT64 usec) {
         CHAR16 str[32];
 
         if (usec == 0)
@@ -245,7 +245,7 @@ VOID efivar_set_time_usec(const EFI_GUID *vendor, CHAR16 *name, UINT64 usec) {
         efivar_set(vendor, name, str, 0);
 }
 
-static INTN utf8_to_16(CHAR8 *stra, CHAR16 *c) {
+static INTN utf8_to_16(const CHAR8 *stra, CHAR16 *c) {
         CHAR16 unichar;
         UINTN len;
 
@@ -296,7 +296,7 @@ static INTN utf8_to_16(CHAR8 *stra, CHAR16 *c) {
         return len;
 }
 
-CHAR16 *stra_to_str(CHAR8 *stra) {
+CHAR16 *stra_to_str(const CHAR8 *stra) {
         UINTN strlen;
         UINTN len;
         UINTN i;
@@ -324,7 +324,7 @@ CHAR16 *stra_to_str(CHAR8 *stra) {
         return str;
 }
 
-CHAR16 *stra_to_path(CHAR8 *stra) {
+CHAR16 *stra_to_path(const CHAR8 *stra) {
         CHAR16 *str;
         UINTN strlen;
         UINTN len;
@@ -361,10 +361,10 @@ CHAR16 *stra_to_path(CHAR8 *stra) {
         return str;
 }
 
-CHAR8 *strchra(CHAR8 *s, CHAR8 c) {
+CHAR8 *strchra(const CHAR8 *s, CHAR8 c) {
         do {
                 if (*s == c)
-                        return s;
+                        return (CHAR8*) s;
         } while (*s++);
         return NULL;
 }

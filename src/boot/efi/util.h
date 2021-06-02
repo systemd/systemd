@@ -20,10 +20,10 @@ UINT64 time_usec(void);
 
 EFI_STATUS efivar_set(const EFI_GUID *vendor, const CHAR16 *name, const CHAR16 *value, UINT32 flags);
 EFI_STATUS efivar_set_raw(const EFI_GUID *vendor, const CHAR16 *name, const VOID *buf, UINTN size, UINT32 flags);
-EFI_STATUS efivar_set_uint_string(const EFI_GUID *vendor, CHAR16 *name, UINTN i, UINT32 flags);
-EFI_STATUS efivar_set_uint32_le(const EFI_GUID *vendor, CHAR16 *NAME, UINT32 value, UINT32 flags);
-EFI_STATUS efivar_set_uint64_le(const EFI_GUID *vendor, CHAR16 *name, UINT64 value, UINT32 flags);
-VOID efivar_set_time_usec(const EFI_GUID *vendor, CHAR16 *name, UINT64 usec);
+EFI_STATUS efivar_set_uint_string(const EFI_GUID *vendor, const CHAR16 *name, UINTN i, UINT32 flags);
+EFI_STATUS efivar_set_uint32_le(const EFI_GUID *vendor, const CHAR16 *NAME, UINT32 value, UINT32 flags);
+EFI_STATUS efivar_set_uint64_le(const EFI_GUID *vendor, const CHAR16 *name, UINT64 value, UINT32 flags);
+VOID efivar_set_time_usec(const EFI_GUID *vendor, const CHAR16 *name, UINT64 usec);
 
 EFI_STATUS efivar_get(const EFI_GUID *vendor, const CHAR16 *name, CHAR16 **value);
 EFI_STATUS efivar_get_raw(const EFI_GUID *vendor, const CHAR16 *name, CHAR8 **buffer, UINTN *size);
@@ -32,9 +32,9 @@ EFI_STATUS efivar_get_uint32_le(const EFI_GUID *vendor, const CHAR16 *name, UINT
 EFI_STATUS efivar_get_uint64_le(const EFI_GUID *vendor, const CHAR16 *name, UINT64 *ret);
 EFI_STATUS efivar_get_boolean_u8(const EFI_GUID *vendor, const CHAR16 *name, BOOLEAN *ret);
 
-CHAR8 *strchra(CHAR8 *s, CHAR8 c);
-CHAR16 *stra_to_path(CHAR8 *stra);
-CHAR16 *stra_to_str(CHAR8 *stra);
+CHAR8 *strchra(const CHAR8 *s, CHAR8 c);
+CHAR16 *stra_to_path(const CHAR8 *stra);
+CHAR16 *stra_to_str(const CHAR8 *stra);
 
 EFI_STATUS file_read(EFI_FILE_HANDLE dir, const CHAR16 *name, UINTN off, UINTN size, CHAR8 **content, UINTN *content_size);
 

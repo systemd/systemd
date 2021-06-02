@@ -319,40 +319,38 @@ endif
 # Those generate many false positives, and we do not want to change the code to
 # avoid them.
 basic_disabled_warnings = [
-        '-Wno-unused-parameter',
-        '-Wno-missing-field-initializers',
-        '-Wno-unused-result',
         '-Wno-format-signedness',
+        '-Wno-missing-field-initializers',
+        '-Wno-unused-parameter',
+        '-Wno-unused-result',
 ]
 
-possible_cc_flags = [
-        '-Werror=undef',
-        '-Wlogical-op',
-        '-Wmissing-include-dirs',
-        '-Wold-style-definition',
-        '-Wpointer-arith',
-        '-Winit-self',
-        '-Wfloat-equal',
-        '-Wsuggest-attribute=noreturn',
-        '-Werror=missing-prototypes',
-        '-Werror=implicit-function-declaration',
-        '-Werror=missing-declarations',
-        '-Werror=return-type',
-        '-Werror=incompatible-pointer-types',
-        '-Werror=format=2',
-        '-Wstrict-prototypes',
-        '-Wredundant-decls',
-        '-Wmissing-noreturn',
-        '-Wimplicit-fallthrough=5',
-        '-Wshadow',
+possible_common_cc_flags = [
+        '-Wdate-time',
         '-Wendif-labels',
-        '-Wstrict-aliasing=2',
-        '-Wwrite-strings',
+        '-Werror=format=2',
+        '-Werror=implicit-function-declaration',
+        '-Werror=incompatible-pointer-types',
         '-Werror=overflow',
+        '-Werror=return-type',
         '-Werror=shift-count-overflow',
         '-Werror=shift-overflow=2',
-        '-Wdate-time',
+        '-Werror=undef',
+        '-Wfloat-equal',
+        '-Wimplicit-fallthrough=5',
+        '-Winit-self',
+        '-Wlogical-op',
+        '-Wmissing-include-dirs',
+        '-Wmissing-noreturn',
         '-Wnested-externs',
+        '-Wold-style-definition',
+        '-Wpointer-arith',
+        '-Wredundant-decls',
+        '-Wshadow',
+        '-Wstrict-aliasing=2',
+        '-Wstrict-prototypes',
+        '-Wsuggest-attribute=noreturn',
+        '-Wwrite-strings',
 
         # negative arguments are correctly detected starting with meson 0.46.
         '-Wno-error=#warnings',  # clang
@@ -363,8 +361,6 @@ possible_cc_flags = [
         '-fdiagnostics-show-option',
         '-fno-strict-aliasing',
         '-fvisibility=hidden',
-        '-fstack-protector',
-        '-fstack-protector-strong',
         '--param=ssp-buffer-size=4',
 ]
 
@@ -374,7 +370,7 @@ possible_cc_flags = [
 # busywork. See https://github.com/systemd/systemd/pull/19226.
 if cc.get_id() == 'gcc' and (not '02'.contains(get_option('optimization')) or
                              cc.version().version_compare('<10'))
-        possible_cc_flags += '-Wno-maybe-uninitialized'
+        possible_common_cc_flags += '-Wno-maybe-uninitialized'
 endif
 
 # --as-needed and --no-undefined are provided by meson by default,
@@ -386,20 +382,27 @@ possible_link_flags = [
 ]
 
 if cc.get_id() == 'clang'
-        possible_cc_flags += [
+        possible_common_cc_flags += [
                 '-Wno-typedef-redefinition',
                 '-Wno-gnu-variable-sized-type-not-at-end',
         ]
 endif
 
 if get_option('buildtype') != 'debug'
-        possible_cc_flags += [
+        possible_common_cc_flags += [
                 '-ffunction-sections',
                 '-fdata-sections',
         ]
 
         possible_link_flags += '-Wl,--gc-sections'
 endif
+
+possible_cc_flags = possible_common_cc_flags + [
+        '-Werror=missing-declarations',
+        '-Werror=missing-prototypes',
+        '-fstack-protector',
+        '-fstack-protector-strong',
+]
 
 add_project_arguments(cc.get_supported_arguments(basic_disabled_warnings), language : 'c')
 add_project_arguments(cc.get_supported_arguments(possible_cc_flags), language : 'c')
