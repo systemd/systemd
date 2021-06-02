@@ -122,8 +122,8 @@ static int device_load(Unit *u) {
                 return r;
 
         if (!u->description) {
-                /* Generate a description based on the path, to be used until the
-                   device is initialized properly */
+                /* Generate a description based on the path, to be used until the device is initialized
+                   properly */
                 r = unit_name_to_path(u->id, &u->description);
                 if (r < 0)
                         log_unit_debug_errno(u, r, "Failed to unescape name: %m");
@@ -963,7 +963,6 @@ static int device_dispatch_io(sd_device_monitor *monitor, sd_device *dev, void *
 
                 /* The device is found now, set the udev found bit */
                 device_update_found_by_sysfs(m, sysfs, DEVICE_FOUND_UDEV, DEVICE_FOUND_UDEV);
-
         } else
                 /* The device is nominally around, but not ready for us. Hence unset the udev bit, but leave
                  * the rest around. */
@@ -1026,8 +1025,6 @@ static int validate_node(Manager *m, const char *node, sd_device **ret) {
 }
 
 void device_found_node(Manager *m, const char *node, DeviceFound found, DeviceFound mask) {
-        int r;
-
         assert(m);
         assert(node);
 
@@ -1052,8 +1049,7 @@ void device_found_node(Manager *m, const char *node, DeviceFound found, DeviceFo
                  * under the name referenced in /proc/swaps or /proc/self/mountinfo. But first, let's validate if
                  * everything is alright with the device node. */
 
-                r = validate_node(m, node, &dev);
-                if (r <= 0)
+                if (validate_node(m, node, &dev) <= 0)
                         return; /* Don't create a device unit for this if the device node is borked. */
 
                 (void) device_setup_unit(m, dev, node, false);
