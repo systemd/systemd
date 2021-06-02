@@ -113,16 +113,19 @@ static int node_symlink(sd_device *dev, const char *node, const char *slink) {
         return r;
 }
 
-/* find device node of device with highest priority */
 static int link_find_prioritized(sd_device *dev, bool add, const char *stackdir, char **ret) {
         _cleanup_closedir_ DIR *dir = NULL;
         _cleanup_free_ char *target = NULL;
         struct dirent *dent;
         int r, priority = 0;
+        const char *id;
 
-        assert(!add || dev);
+        assert(dev);
         assert(stackdir);
         assert(ret);
+
+        /* Find device node of device with highest priority. This returns 1 if a device found, 0 if no
+         * device found, or a negative errno. */
 
         if (add) {
                 const char *devnode;
@@ -142,17 +145,21 @@ static int link_find_prioritized(sd_device *dev, bool add, const char *stackdir,
 
         dir = opendir(stackdir);
         if (!dir) {
-                if (target) {
+                if (errno == ENOENT) {
                         *ret = TAKE_PTR(target);
-                        return 0;
+                        return !!*ret;
                 }
 
                 return -errno;
         }
 
+        r = device_get_device_id(dev, &id);
+        if (r < 0)
+                return r;
+
         FOREACH_DIRENT_ALL(dent, dir, break) {
                 _cleanup_(sd_device_unrefp) sd_device *dev_db = NULL;
-                const char *devnode, *id;
+                const char *devnode;
                 int db_prio = 0;
 
                 if (dent->d_name[0] == '\0')
@@ -161,9 +168,6 @@ static int link_find_prioritized(sd_device *dev, bool add, const char *stackdir,
                         continue;
 
                 log_device_debug(dev, "Found '%s' claiming '%s'", dent->d_name, stackdir);
-
-                if (device_get_device_id(dev, &id) < 0)
-                        continue;
 
                 /* did we find ourself? */
                 if (streq(dent->d_name, id))
@@ -189,11 +193,8 @@ static int link_find_prioritized(sd_device *dev, bool add, const char *stackdir,
                 priority = db_prio;
         }
 
-        if (!target)
-                return -ENOENT;
-
         *ret = TAKE_PTR(target);
-        return 0;
+        return !!*ret;
 }
 
 size_t udev_node_escape_path(const char *src, char *dest, size_t size) {
@@ -305,7 +306,9 @@ static int link_update(sd_device *dev, const char *slink_in, bool add) {
                         return log_device_debug_errno(dev, errno, "Failed to stat %s: %m", dirname);
 
                 r = link_find_prioritized(dev, add, dirname, &target);
-                if (r == -ENOENT) {
+                if (r < 0)
+                        return log_device_debug_errno(dev, r, "Failed to determine highest priority for symlink '%s': %m", slink);
+                if (r == 0) {
                         log_device_debug(dev, "No reference left for '%s', removing", slink);
 
                         if (unlink(slink) < 0 && errno != ENOENT)
@@ -313,8 +316,7 @@ static int link_update(sd_device *dev, const char *slink_in, bool add) {
 
                         (void) rmdir_parents(slink, "/dev");
                         break;
-                } else if (r < 0)
-                        return log_device_debug_errno(dev, r, "Failed to determine highest priority for symlink '%s': %m", slink);
+                }
 
                 r = node_symlink(dev, target, slink);
                 if (r < 0) {
