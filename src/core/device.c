@@ -935,7 +935,7 @@ static int device_remove_old(Manager *m, sd_device *dev) {
 
         r = unit_name_from_path(syspath_old, ".device", &e);
         if (r < 0)
-                return log_device_error_errno(dev, r, "Failed to generate unit name from old device path: %m");
+                return log_device_debug_errno(dev, r, "Failed to generate unit name from old device path, ignoring: %m");
 
         device_update_found_by_sysfs(m, syspath_old, 0, DEVICE_FOUND_UDEV|DEVICE_FOUND_MOUNT|DEVICE_FOUND_SWAP);
         return 0;
