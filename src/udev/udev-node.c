@@ -77,7 +77,7 @@ static int node_symlink(sd_device *dev, const char *node, const char *slink) {
         /* use relative link */
         r = path_make_relative(slink_dirname, node, &target);
         if (r < 0)
-                return log_device_error_errno(dev, r, "Failed to get relative path from '%s' to '%s': %m", slink, node);
+                return log_device_debug_errno(dev, r, "Failed to get relative path from '%s' to '%s': %m", slink, node);
 
         if (lstat(slink, &stats) >= 0) {
                 _cleanup_free_ char *buf = NULL;
@@ -111,7 +111,7 @@ static int node_symlink(sd_device *dev, const char *node, const char *slink) {
 
         r = device_get_device_id(dev, &id);
         if (r < 0)
-                return log_device_error_errno(dev, r, "Failed to get device id: %m");
+                return log_device_debug_errno(dev, r, "Failed to get device id: %m");
         slink_tmp = strjoina(slink, ".tmp-", id);
 
         (void) unlink(slink_tmp);
@@ -121,7 +121,7 @@ static int node_symlink(sd_device *dev, const char *node, const char *slink) {
                 return log_device_debug_errno(dev, r, "Failed to create symlink '%s' to '%s': %m", slink_tmp, target);
 
         if (rename(slink_tmp, slink) < 0) {
-                r = log_device_error_errno(dev, errno, "Failed to rename '%s' to '%s': %m", slink_tmp, slink);
+                r = log_device_debug_errno(dev, errno, "Failed to rename '%s' to '%s': %m", slink_tmp, slink);
                 (void) unlink(slink_tmp);
                 return r;
         }
@@ -336,10 +336,9 @@ static int link_update(sd_device *dev, const char *slink_in, bool add) {
                 }
 
                 r = node_symlink(dev, target, slink);
-                if (r < 0) {
-                        (void) unlink(filename);
-                        break;
-                } else if (r == 1)
+                if (r < 0)
+                        return r;
+                if (r == 1)
                         /* We have replaced already existing symlink, possibly there is some other device trying
                          * to claim the same symlink. Let's do one more iteration to give us a chance to fix
                          * the error if other device actually claims the symlink with higher priority. */
@@ -569,13 +568,6 @@ int udev_node_add(sd_device *dev, bool apply,
         if (r < 0)
                 return r;
 
-        r = xsprintf_dev_num_path_from_sd_device(dev, &filename);
-        if (r < 0)
-                return log_device_debug_errno(dev, r, "Failed to get device path: %m");
-
-        /* always add /dev/{block,char}/$major:$minor */
-        (void) node_symlink(dev, devnode, filename);
-
         /* create/update symlinks, add symlinks to name index */
         FOREACH_DEVICE_DEVLINK(dev, devlink) {
                 r = link_update(dev, devlink, true);
@@ -584,6 +576,15 @@ int udev_node_add(sd_device *dev, bool apply,
                                                  "Failed to update device symlink '%s', ignoring: %m",
                                                  devlink);
         }
+
+        r = xsprintf_dev_num_path_from_sd_device(dev, &filename);
+        if (r < 0)
+                return log_device_debug_errno(dev, r, "Failed to get device path: %m");
+
+        /* always add /dev/{block,char}/$major:$minor */
+        r = node_symlink(dev, devnode, filename);
+        if (r < 0)
+                return log_device_warning_errno(dev, r, "Failed to create device symlink '%s': %m", filename);
 
         return 0;
 }
