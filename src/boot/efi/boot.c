@@ -91,7 +91,7 @@ static VOID cursor_right(
 }
 
 static BOOLEAN line_edit(
-                CHAR16 *line_in,
+                const CHAR16 *line_in,
                 CHAR16 **line_out,
                 UINTN x_max,
                 UINTN y_pos) {
@@ -521,7 +521,7 @@ static BOOLEAN menu_run(
         uefi_call_wrapper(ST->ConOut->SetAttribute, 2, ST->ConOut, EFI_LIGHTGRAY|EFI_BACKGROUND_BLACK);
 
         /* draw a single character to make ClearScreen work on some firmware */
-        uefi_call_wrapper(ST->ConOut->OutputString, 2, ST->ConOut, L" ");
+        uefi_call_wrapper(ST->ConOut->OutputString, 2, ST->ConOut, (CHAR16*) L" ");
 
         if (config->console_mode_change != CONSOLE_MODE_KEEP) {
                 err = console_set_mode(&config->console_mode, config->console_mode_change);
@@ -618,7 +618,7 @@ static BOOLEAN menu_run(
                                 uefi_call_wrapper(ST->ConOut->OutputString, 2, ST->ConOut, lines[i]);
                                 if ((INTN)i == config->idx_default_efivar) {
                                         uefi_call_wrapper(ST->ConOut->SetCursorPosition, 3, ST->ConOut, x_start-3, y_start + i - idx_first);
-                                        uefi_call_wrapper(ST->ConOut->OutputString, 2, ST->ConOut, L"=>");
+                                        uefi_call_wrapper(ST->ConOut->OutputString, 2, ST->ConOut, (CHAR16*) L"=>");
                                 }
                         }
                         refresh = FALSE;
@@ -628,7 +628,7 @@ static BOOLEAN menu_run(
                         uefi_call_wrapper(ST->ConOut->OutputString, 2, ST->ConOut, lines[idx_highlight_prev]);
                         if ((INTN)idx_highlight_prev == config->idx_default_efivar) {
                                 uefi_call_wrapper(ST->ConOut->SetCursorPosition, 3, ST->ConOut, x_start-3, y_start + idx_highlight_prev - idx_first);
-                                uefi_call_wrapper(ST->ConOut->OutputString, 2, ST->ConOut, L"=>");
+                                uefi_call_wrapper(ST->ConOut->OutputString, 2, ST->ConOut, (CHAR16*) L"=>");
                         }
 
                         uefi_call_wrapper(ST->ConOut->SetCursorPosition, 3, ST->ConOut, 0, y_start + idx_highlight - idx_first);
@@ -636,7 +636,7 @@ static BOOLEAN menu_run(
                         uefi_call_wrapper(ST->ConOut->OutputString, 2, ST->ConOut, lines[idx_highlight]);
                         if ((INTN)idx_highlight == config->idx_default_efivar) {
                                 uefi_call_wrapper(ST->ConOut->SetCursorPosition, 3, ST->ConOut, x_start-3, y_start + idx_highlight - idx_first);
-                                uefi_call_wrapper(ST->ConOut->OutputString, 2, ST->ConOut, L"=>");
+                                uefi_call_wrapper(ST->ConOut->OutputString, 2, ST->ConOut, (CHAR16*) L"=>");
                         }
                         highlight = FALSE;
                 }
@@ -916,14 +916,13 @@ static VOID config_entry_free(ConfigEntry *entry) {
 
 static CHAR8 *line_get_key_value(
                 CHAR8 *content,
-                CHAR8 *sep,
+                const CHAR8 *sep,
                 UINTN *pos,
                 CHAR8 **key_ret,
                 CHAR8 **value_ret) {
 
-        CHAR8 *line;
+        CHAR8 *line, *value;
         UINTN linelen;
-        CHAR8 *value;
 
 skip:
         line = content + *pos;
@@ -1073,9 +1072,9 @@ static VOID config_defaults_load_from_file(Config *config, CHAR8 *content) {
 
 static VOID config_entry_parse_tries(
                 ConfigEntry *entry,
-                CHAR16 *path,
-                CHAR16 *file,
-                CHAR16 *suffix) {
+                const CHAR16 *path,
+                const CHAR16 *file,
+                const CHAR16 *suffix) {
 
         UINTN left = UINTN_MAX, done = UINTN_MAX, factor = 1, i, next_left, next_done;
         _cleanup_freepool_ CHAR16 *prefix = NULL;
@@ -1259,10 +1258,10 @@ static VOID config_entry_add_from_file(
                 Config *config,
                 EFI_HANDLE *device,
                 EFI_FILE *root_dir,
-                CHAR16 *path,
-                CHAR16 *file,
+                const CHAR16 *path,
+                const CHAR16 *file,
                 CHAR8 *content,
-                CHAR16 *loaded_image_path) {
+                const CHAR16 *loaded_image_path) {
 
         ConfigEntry *entry;
         CHAR8 *line;
@@ -1437,7 +1436,7 @@ static VOID config_load_entries(
         EFI_FILE_HANDLE entries_dir;
         EFI_STATUS err;
 
-        err = uefi_call_wrapper(root_dir->Open, 5, root_dir, &entries_dir, L"\\loader\\entries", EFI_FILE_MODE_READ, 0ULL);
+        err = uefi_call_wrapper(root_dir->Open, 5, root_dir, &entries_dir, (CHAR16*) L"\\loader\\entries", EFI_FILE_MODE_READ, 0ULL);
         if (!EFI_ERROR(err)) {
                 for (;;) {
                         CHAR16 buf[256];
@@ -1689,8 +1688,8 @@ static VOID config_title_generate(Config *config) {
 
 static BOOLEAN config_entry_add_call(
                 Config *config,
-                CHAR16 *id,
-                CHAR16 *title,
+                const CHAR16 *id,
+                const CHAR16 *title,
                 EFI_STATUS (*call)(VOID)) {
 
         ConfigEntry *entry;
@@ -1713,11 +1712,11 @@ static ConfigEntry *config_entry_add_loader(
                 Config *config,
                 EFI_HANDLE *device,
                 enum loader_type type,
-                CHAR16 *id,
+                const CHAR16 *id,
                 CHAR16 key,
-                CHAR16 *title,
-                CHAR16 *loader,
-                CHAR16 *version) {
+                const CHAR16 *title,
+                const CHAR16 *loader,
+                const CHAR16 *version) {
 
         ConfigEntry *entry;
 
@@ -1744,11 +1743,11 @@ static BOOLEAN config_entry_add_loader_auto(
                 Config *config,
                 EFI_HANDLE *device,
                 EFI_FILE *root_dir,
-                CHAR16 *loaded_image_path,
-                CHAR16 *id,
+                const CHAR16 *loaded_image_path,
+                const CHAR16 *id,
                 CHAR16 key,
-                CHAR16 *title,
-                CHAR16 *loader) {
+                const CHAR16 *title,
+                const CHAR16 *loader) {
 
         EFI_FILE_HANDLE handle;
         ConfigEntry *entry;
@@ -1774,7 +1773,7 @@ static BOOLEAN config_entry_add_loader_auto(
         }
 
         /* check existence */
-        err = uefi_call_wrapper(root_dir->Open, 5, root_dir, &handle, loader, EFI_FILE_MODE_READ, 0ULL);
+        err = uefi_call_wrapper(root_dir->Open, 5, root_dir, &handle, (CHAR16*) loader, EFI_FILE_MODE_READ, 0ULL);
         if (EFI_ERROR(err))
                 return FALSE;
         uefi_call_wrapper(handle->Close, 1, handle);
@@ -1824,7 +1823,7 @@ static VOID config_entry_add_linux(
         EFI_STATUS err;
         ConfigEntry *entry;
 
-        err = uefi_call_wrapper(root_dir->Open, 5, root_dir, &linux_dir, L"\\EFI\\Linux", EFI_FILE_MODE_READ, 0ULL);
+        err = uefi_call_wrapper(root_dir->Open, 5, root_dir, &linux_dir, (CHAR16*) L"\\EFI\\Linux", EFI_FILE_MODE_READ, 0ULL);
         if (EFI_ERROR(err))
                 return;
 
