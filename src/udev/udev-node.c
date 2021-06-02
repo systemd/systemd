@@ -7,6 +7,8 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
+#include "sd-id128.h"
+
 #include "alloc-util.h"
 #include "device-nodes.h"
 #include "device-private.h"
@@ -15,6 +17,7 @@
 #include "fd-util.h"
 #include "format-util.h"
 #include "fs-util.h"
+#include "hexdecoct.h"
 #include "mkdir.h"
 #include "path-util.h"
 #include "selinux-util.h"
@@ -27,6 +30,7 @@
 #include "user-util.h"
 
 #define LINK_UPDATE_MAX_RETRIES 128
+#define UDEV_NODE_HASH_KEY SD_ID128_MAKE(b9,6a,f1,ce,40,31,44,1a,9e,19,ec,8b,ae,f3,e3,2f)
 
 static int node_symlink(sd_device *dev, const char *node, const char *slink) {
         _cleanup_free_ char *slink_dirname = NULL, *target = NULL;
@@ -191,45 +195,54 @@ static int link_find_prioritized(sd_device *dev, bool add, const char *stackdir,
         return 0;
 }
 
-static size_t escape_path(const char *src, char *dest, size_t size) {
+size_t udev_node_escape_path(const char *src, char *dest, size_t size) {
         size_t i, j;
+        uint64_t h;
 
         assert(src);
         assert(dest);
 
         for (i = 0, j = 0; src[i] != '\0'; i++) {
                 if (src[i] == '/') {
-                        if (j+4 >= size) {
-                                j = 0;
-                                break;
-                        }
+                        if (j+4 >= size)
+                                goto toolong;
                         memcpy(&dest[j], "\\x2f", 4);
                         j += 4;
                 } else if (src[i] == '\\') {
-                        if (j+4 >= size) {
-                                j = 0;
-                                break;
-                        }
+                        if (j+4 >= size)
+                                goto toolong;
                         memcpy(&dest[j], "\\x5c", 4);
                         j += 4;
                 } else {
-                        if (j+1 >= size) {
-                                j = 0;
-                                break;
-                        }
+                        if (j+1 >= size)
+                                goto toolong;
                         dest[j] = src[i];
                         j++;
                 }
         }
         dest[j] = '\0';
         return j;
+
+toolong:
+        /* If the input path is too long to encode as a filename, then let's suffix with a string
+         * generated from the hash of the path. */
+
+        h = siphash24_string(src, UDEV_NODE_HASH_KEY.bytes);
+
+        assert(size >= 12);
+
+        for (unsigned k = 0; k <= 10; k++)
+                dest[size - k - 2] = urlsafe_base64char((h >> (k * 6)) & 63);
+
+        dest[size - 1] = '\0';
+        return size - 1;
 }
 
 /* manage "stack of names" with possibly specified device priorities */
 static int link_update(sd_device *dev, const char *slink, bool add) {
         _cleanup_free_ char *filename = NULL, *dirname = NULL;
         const char *slink_name, *id;
-        char name_enc[PATH_MAX];
+        char name_enc[NAME_MAX+1];
         int i, r, retries;
 
         assert(dev);
@@ -244,10 +257,11 @@ static int link_update(sd_device *dev, const char *slink, bool add) {
         if (r < 0)
                 return log_device_debug_errno(dev, r, "Failed to get device id: %m");
 
-        escape_path(slink_name, name_enc, sizeof(name_enc));
+        (void) udev_node_escape_path(slink_name, name_enc, sizeof(name_enc));
         dirname = path_join("/run/udev/links/", name_enc);
         if (!dirname)
                 return log_oom();
+
         filename = path_join(dirname, id);
         if (!filename)
                 return log_oom();
