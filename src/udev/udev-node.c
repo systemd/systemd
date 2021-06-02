@@ -10,7 +10,6 @@
 #include "sd-id128.h"
 
 #include "alloc-util.h"
-#include "device-nodes.h"
 #include "device-private.h"
 #include "device-util.h"
 #include "dirent-util.h"
@@ -31,6 +30,8 @@
 
 #define LINK_UPDATE_MAX_RETRIES 128
 #define UDEV_NODE_HASH_KEY SD_ID128_MAKE(b9,6a,f1,ce,40,31,44,1a,9e,19,ec,8b,ae,f3,e3,2f)
+#define DEV_NUM_PATH_MAX                                                \
+        (STRLEN("/dev/block/") + DECIMAL_STR_MAX(dev_t) + 1 + DECIMAL_STR_MAX(dev_t))
 
 static int create_symlink(const char *target, const char *slink) {
         int r;
@@ -532,9 +533,9 @@ static int xsprintf_dev_num_path_from_sd_device(sd_device *dev, char **ret) {
         if (r < 0)
                 return r;
 
-        xsprintf_dev_num_path(filename,
-                              streq(subsystem, "block") ? "block" : "char",
-                              devnum);
+        xsprintf(filename, "/dev/%s/%u:%u",
+                 streq(subsystem, "block") ? "block" : "char",
+                 major(devnum), minor(devnum));
 
         s = strdup(filename);
         if (!s)
