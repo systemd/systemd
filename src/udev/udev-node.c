@@ -52,21 +52,22 @@ static int node_symlink(sd_device *dev, const char *node, const char *slink) {
         if (r < 0)
                 return log_device_error_errno(dev, r, "Failed to get relative path from '%s' to '%s': %m", slink, node);
 
-        /* preserve link with correct target, do not replace node of other device */
-        if (lstat(slink, &stats) == 0) {
-                if (S_ISBLK(stats.st_mode) || S_ISCHR(stats.st_mode))
-                        return log_device_error_errno(dev, SYNTHETIC_ERRNO(EOPNOTSUPP),
-                                                      "Conflicting device node '%s' found, link to '%s' will not be created.", slink, node);
-                else if (S_ISLNK(stats.st_mode)) {
-                        _cleanup_free_ char *buf = NULL;
+        if (lstat(slink, &stats) >= 0) {
+                _cleanup_free_ char *buf = NULL;
 
-                        if (readlink_malloc(slink, &buf) >= 0 &&
-                            streq(target, buf)) {
-                                log_device_debug(dev, "Preserve already existing symlink '%s' to '%s'", slink, target);
-                                (void) label_fix(slink, LABEL_IGNORE_ENOENT);
-                                (void) utimensat(AT_FDCWD, slink, NULL, AT_SYMLINK_NOFOLLOW);
-                                return 0;
-                        }
+                if (!S_ISLNK(stats.st_mode))
+                        return log_device_debug_errno(dev, SYNTHETIC_ERRNO(EEXIST),
+                                                      "Conflicting inode '%s' found, link to '%s' will not be created.", slink, node);
+
+                if (readlink_malloc(slink, &buf) >= 0 &&
+                    streq(target, buf)) {
+                        /* preserve link with correct target, do not replace node of other device */
+                        log_device_debug(dev, "Preserve already existing symlink '%s' to '%s'", slink, target);
+
+                        (void) label_fix(slink, LABEL_IGNORE_ENOENT);
+                        (void) utimensat(AT_FDCWD, slink, NULL, AT_SYMLINK_NOFOLLOW);
+
+                        return 0;
                 }
         } else {
                 log_device_debug(dev, "Creating symlink '%s' to '%s'", slink, target);
