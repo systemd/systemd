@@ -228,18 +228,23 @@ static size_t escape_path(const char *src, char *dest, size_t size) {
 /* manage "stack of names" with possibly specified device priorities */
 static int link_update(sd_device *dev, const char *slink, bool add) {
         _cleanup_free_ char *filename = NULL, *dirname = NULL;
+        const char *slink_name, *id;
         char name_enc[PATH_MAX];
-        const char *id;
         int i, r, retries;
 
         assert(dev);
         assert(slink);
 
+        slink_name = path_startswith(slink, "/dev");
+        if (!slink_name)
+                return log_device_debug_errno(dev, SYNTHETIC_ERRNO(EINVAL),
+                                              "Invalid symbolic link of device node: %s", slink);
+
         r = device_get_device_id(dev, &id);
         if (r < 0)
                 return log_device_debug_errno(dev, r, "Failed to get device id: %m");
 
-        escape_path(slink + STRLEN("/dev"), name_enc, sizeof(name_enc));
+        escape_path(slink_name, name_enc, sizeof(name_enc));
         dirname = path_join("/run/udev/links/", name_enc);
         if (!dirname)
                 return log_oom();
