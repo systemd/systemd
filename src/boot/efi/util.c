@@ -245,7 +245,7 @@ VOID efivar_set_time_usec(const EFI_GUID *vendor, CHAR16 *name, UINT64 usec) {
         efivar_set(vendor, name, str, 0);
 }
 
-static INTN utf8_to_16(CHAR8 *stra, CHAR16 *c) {
+static INTN utf8_to_16(const CHAR8 *stra, CHAR16 *c) {
         CHAR16 unichar;
         UINTN len;
 
@@ -296,7 +296,7 @@ static INTN utf8_to_16(CHAR8 *stra, CHAR16 *c) {
         return len;
 }
 
-CHAR16 *stra_to_str(CHAR8 *stra) {
+CHAR16 *stra_to_str(const CHAR8 *stra) {
         UINTN strlen;
         UINTN len;
         UINTN i;
@@ -324,7 +324,7 @@ CHAR16 *stra_to_str(CHAR8 *stra) {
         return str;
 }
 
-CHAR16 *stra_to_path(CHAR8 *stra) {
+CHAR16 *stra_to_path(const CHAR8 *stra) {
         CHAR16 *str;
         UINTN strlen;
         UINTN len;
@@ -361,10 +361,10 @@ CHAR16 *stra_to_path(CHAR8 *stra) {
         return str;
 }
 
-CHAR8 *strchra(CHAR8 *s, CHAR8 c) {
+CHAR8 *strchra(const CHAR8 *s, CHAR8 c) {
         do {
                 if (*s == c)
-                        return s;
+                        return (CHAR8*) s;
         } while (*s++);
         return NULL;
 }
