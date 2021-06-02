@@ -92,7 +92,7 @@ static int node_symlink(sd_device *dev, const char *node, const char *slink) {
 
                         return 0;
                 }
-        } else {
+        } else if (errno == ENOENT) {
                 log_device_debug(dev, "Creating symlink '%s' to '%s'", slink, target);
 
                 r = create_symlink(target, slink);
