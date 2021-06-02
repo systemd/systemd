@@ -308,7 +308,7 @@ static int link_update(sd_device *dev, const char *slink_in, bool add) {
                 if (r == -ENOENT) {
                         log_device_debug(dev, "No reference left, removing '%s'", slink);
                         if (unlink(slink) == 0)
-                                (void) rmdir_parents(slink, "/");
+                                (void) rmdir_parents(slink, "/dev");
 
                         break;
                 } else if (r < 0)
