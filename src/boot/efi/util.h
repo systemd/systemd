@@ -32,9 +32,9 @@ EFI_STATUS efivar_get_uint32_le(const EFI_GUID *vendor, const CHAR16 *name, UINT
 EFI_STATUS efivar_get_uint64_le(const EFI_GUID *vendor, const CHAR16 *name, UINT64 *ret);
 EFI_STATUS efivar_get_boolean_u8(const EFI_GUID *vendor, const CHAR16 *name, BOOLEAN *ret);
 
-CHAR8 *strchra(CHAR8 *s, CHAR8 c);
-CHAR16 *stra_to_path(CHAR8 *stra);
-CHAR16 *stra_to_str(CHAR8 *stra);
+CHAR8 *strchra(const CHAR8 *s, CHAR8 c);
+CHAR16 *stra_to_path(const CHAR8 *stra);
+CHAR16 *stra_to_str(const CHAR8 *stra);
 
 EFI_STATUS file_read(EFI_FILE_HANDLE dir, const CHAR16 *name, UINTN off, UINTN size, CHAR8 **content, UINTN *content_size);
 
