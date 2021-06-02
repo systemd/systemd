@@ -80,6 +80,8 @@ shared_sources = files('''
         daemon-util.h
         dev-setup.c
         dev-setup.h
+        device-nodes.c
+        device-nodes.h
         devnode-acl.h
         discover-image.c
         discover-image.h
