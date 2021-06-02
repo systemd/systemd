@@ -19,7 +19,6 @@
 #include "btrfs-util.h"
 #include "chattr-util.h"
 #include "copy.h"
-#include "device-nodes.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "fs-util.h"
