@@ -306,10 +306,12 @@ static int link_update(sd_device *dev, const char *slink_in, bool add) {
 
                 r = link_find_prioritized(dev, add, dirname, &target);
                 if (r == -ENOENT) {
-                        log_device_debug(dev, "No reference left, removing '%s'", slink);
-                        if (unlink(slink) == 0)
-                                (void) rmdir_parents(slink, "/dev");
+                        log_device_debug(dev, "No reference left for '%s', removing", slink);
 
+                        if (unlink(slink) < 0 && errno != ENOENT)
+                                log_device_debug_errno(dev, errno, "Failed to remove '%s', ignoring: %m", slink);
+
+                        (void) rmdir_parents(slink, "/dev");
                         break;
                 } else if (r < 0)
                         return log_device_error_errno(dev, r, "Failed to determine highest priority symlink: %m");
@@ -590,7 +592,8 @@ int udev_node_remove(sd_device *dev) {
                 return log_device_debug_errno(dev, r, "Failed to get device path: %m");
 
         /* remove /dev/{block,char}/$major:$minor */
-        (void) unlink(filename);
+        if (unlink(filename) < 0 && errno != ENOENT)
+                return log_device_debug_errno(dev, errno, "Failed to remove '%s': %m", filename);
 
         return 0;
 }
