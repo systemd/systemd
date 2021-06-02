@@ -2344,6 +2344,8 @@ static int clean_item(Item *i) {
 
 static int process_item(Item *i, OperationMask operation) {
         OperationMask todo;
+        _cleanup_free_ char *_path = NULL;
+        const char *path;
         int r, q, p;
 
         assert(i);
@@ -2354,9 +2356,21 @@ static int process_item(Item *i, OperationMask operation) {
 
         i->done |= operation;
 
-        r = chase_symlinks(i->path, arg_root, CHASE_NO_AUTOFS|CHASE_NONEXISTENT|CHASE_WARN, NULL, NULL);
+        path = i->path;
+        if (string_is_glob(path)) {
+                /* We can't easily check whether a glob matches any autofs path, so let's do the check only
+                 * for the non-glob part. */
+
+                r = glob_non_glob_prefix(path, &_path);
+                if (r < 0 && r != -ENOENT)
+                        return log_debug_errno(r, "Failed to deglob path: %m");
+                if (r >= 0)
+                        path = _path;
+        }
+
+        r = chase_symlinks(path, arg_root, CHASE_NO_AUTOFS|CHASE_NONEXISTENT|CHASE_WARN, NULL, NULL);
         if (r == -EREMOTE) {
-                log_notice_errno(r, "Skipping %s", i->path);
+                log_notice_errno(r, "Skipping %s", i->path); /* We log the configured path, to not confuse the user. */
                 return 0;
         }
         if (r < 0)
