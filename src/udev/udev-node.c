@@ -239,17 +239,25 @@ toolong:
 }
 
 /* manage "stack of names" with possibly specified device priorities */
-static int link_update(sd_device *dev, const char *slink, bool add) {
-        _cleanup_free_ char *filename = NULL, *dirname = NULL;
+static int link_update(sd_device *dev, const char *slink_in, bool add) {
+        _cleanup_free_ char *slink = NULL, *filename = NULL, *dirname = NULL;
         const char *slink_name, *id;
         char name_enc[NAME_MAX+1];
         int i, r, retries;
 
         assert(dev);
-        assert(slink);
+        assert(slink_in);
+
+        slink = strdup(slink_in);
+        if (!slink)
+                return log_oom_debug();
+
+        path_simplify(slink);
 
         slink_name = path_startswith(slink, "/dev");
-        if (!slink_name)
+        if (!slink_name ||
+            empty_or_root(slink_name) ||
+            !path_is_normalized(slink_name))
                 return log_device_debug_errno(dev, SYNTHETIC_ERRNO(EINVAL),
                                               "Invalid symbolic link of device node: %s", slink);
 
