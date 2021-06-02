@@ -566,7 +566,7 @@ fail:
         return r;
 }
 
-static int device_process_new(Manager *m, sd_device *dev) {
+static void device_process_new(Manager *m, sd_device *dev) {
         const char *sysfs, *dn, *alias;
         dev_t devnum;
         int r;
@@ -574,12 +574,13 @@ static int device_process_new(Manager *m, sd_device *dev) {
         assert(m);
 
         if (sd_device_get_syspath(dev, &sysfs) < 0)
-                return 0;
+                return;
 
-        /* Add the main unit named after the sysfs path */
-        r = device_setup_unit(m, dev, sysfs, true);
-        if (r < 0)
-                return r;
+        /* Add the main unit named after the sysfs path. If this one fails, don't bother withe the rest, as
+         * this one shall be the main device unit the others just follow. (Compare with how
+         * device_following() is implemented, see below, which looks for the sysfs device.) */
+        if (device_setup_unit(m, dev, sysfs, true) < 0)
+                return;
 
         /* Add an additional unit for the device node */
         if (sd_device_get_devname(dev, &dn) >= 0)
@@ -595,13 +596,11 @@ static int device_process_new(Manager *m, sd_device *dev) {
                         if (PATH_STARTSWITH_SET(p, "/dev/block/", "/dev/char/"))
                                 continue;
 
-                        /* Verify that the symlink in the FS actually belongs
-                         * to this device. This is useful to deal with
-                         * conflicting devices, e.g. when two disks want the
-                         * same /dev/disk/by-label/xxx link because they have
-                         * the same label. We want to make sure that the same
-                         * device that won the symlink wins in systemd, so we
-                         * check the device node major/minor */
+                        /* Verify that the symlink in the FS actually belongs to this device. This is useful
+                         * to deal with conflicting devices, e.g. when two disks want the same
+                         * /dev/disk/by-label/xxx link because they have the same label. We want to make sure
+                         * that the same device that won the symlink wins in systemd, so we check the device
+                         * node major/minor */
                         if (stat(p, &st) >= 0 &&
                             ((!S_ISBLK(st.st_mode) && !S_ISCHR(st.st_mode)) ||
                              st.st_rdev != devnum))
@@ -613,7 +612,7 @@ static int device_process_new(Manager *m, sd_device *dev) {
 
         /* Add additional units for all explicitly configured aliases */
         if (sd_device_get_property_value(dev, "SYSTEMD_ALIAS", &alias) < 0)
-                return 0;
+                return;
 
         for (;;) {
                 _cleanup_free_ char *word = NULL;
@@ -622,9 +621,9 @@ static int device_process_new(Manager *m, sd_device *dev) {
                 if (r == 0)
                         break;
                 if (r == -ENOMEM)
-                        return log_oom();
+                        return (void) log_oom();
                 if (r < 0)
-                        return log_device_warning_errno(dev, r, "Failed to parse SYSTEMD_ALIAS property: %m");
+                        return (void) log_device_warning_errno(dev, r, "Failed to parse SYSTEMD_ALIAS property, ignoring: %m");
 
                 if (!path_is_absolute(word))
                         log_device_warning(dev, "SYSTEMD_ALIAS is not an absolute path, ignoring: %s", word);
@@ -633,8 +632,6 @@ static int device_process_new(Manager *m, sd_device *dev) {
                 else
                         (void) device_setup_unit(m, dev, word, false);
         }
-
-        return 0;
 }
 
 static void device_found_changed(Device *d, DeviceFound previous, DeviceFound now) {
@@ -859,7 +856,7 @@ static void device_enumerate(Manager *m) {
                 if (!device_is_ready(dev))
                         continue;
 
-                (void) device_process_new(m, dev);
+                device_process_new(m, dev);
 
                 if (sd_device_get_syspath(dev, &sysfs) < 0)
                         continue;
@@ -955,7 +952,7 @@ static int device_dispatch_io(sd_device_monitor *monitor, sd_device *dev, void *
 
         } else if (device_is_ready(dev)) {
 
-                (void) device_process_new(m, dev);
+                device_process_new(m, dev);
 
                 r = swap_process_device_new(m, dev);
                 if (r < 0)
