@@ -485,11 +485,6 @@ int manager_add_job_by_name(Manager *m, JobType type, const char *name, JobMode 
 int manager_add_job_by_name_and_warn(Manager *m, JobType type, const char *name, JobMode mode, Set *affected_jobs,  Job **ret);
 int manager_propagate_reload(Manager *m, Unit *unit, JobMode mode, sd_bus_error *e);
 
-void manager_dump_units(Manager *s, FILE *f, const char *prefix);
-void manager_dump_jobs(Manager *s, FILE *f, const char *prefix);
-void manager_dump(Manager *s, FILE *f, const char *prefix);
-int manager_get_dump_string(Manager *m, char **ret);
-
 void manager_clear_jobs(Manager *m);
 
 void manager_unwatch_pid(Manager *m, pid_t pid);

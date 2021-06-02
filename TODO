@@ -9,6 +9,10 @@ Bugfixes:
 
 * Get rid of nftw(). We should refuse to use such useless APIs on principle.
 
+* Jun 01 09:43:02 krowka systemd[1]: Unit user@1000.service has alias user@.service.
+  Jun 01 09:43:02 krowka systemd[1]: Unit user@6.service has alias user@.service.
+  Jun 01 09:43:02 krowka systemd[1]: Unit user-runtime-dir@6.service has alias user-runtime-dir@.service.
+
 External:
 
 * Fedora: add an rpmlint check that verifies that all unit files in the RPM are listed in %systemd_post macros.
