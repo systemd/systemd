@@ -11,6 +11,7 @@
 
 #include "alloc-util.h"
 #include "ether-addr-util.h"
+#include "hexdecoct.h"
 #include "lockfile-util.h"
 #include "missing_network.h"
 #include "netif-naming-scheme.h"
@@ -198,16 +199,6 @@ static int add_veth(
         (void) set_alternative_ifname(rtnl, ifname_host, altifname_host);
 
         return 0;
-}
-
-/* This is almost base64char(), but not entirely, as it uses the "url and filename safe" alphabet, since we
- * don't want "/" appear in interface names (since interfaces appear in sysfs as filenames). See section #5
- * of RFC 4648. */
-static char urlsafe_base64char(int x) {
-        static const char table[64] = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
-                                      "abcdefghijklmnopqrstuvwxyz"
-                                      "0123456789-_";
-        return table[x & 63];
 }
 
 static int shorten_ifname(char *ifname) {
