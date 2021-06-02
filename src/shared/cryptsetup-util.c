@@ -146,7 +146,7 @@ static void cryptsetup_log_glue(int level, const char *msg, void *usrptr) {
 }
 
 void cryptsetup_enable_logging(struct crypt_device *cd) {
-        /* It's OK to call this with a NULL parameter, in which case libcryptsetup will set the defaut log
+        /* It's OK to call this with a NULL parameter, in which case libcryptsetup will set the default log
          * function.
          *
          * Note that this is also called from dlopen_cryptsetup(), which we call here too. Sounds like an
