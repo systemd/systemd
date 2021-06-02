@@ -84,14 +84,14 @@ EFI_STATUS efivar_set(const EFI_GUID *vendor, const CHAR16 *name, const CHAR16 *
         return efivar_set_raw(vendor, name, value, value ? (StrLen(value) + 1) * sizeof(CHAR16) : 0, flags);
 }
 
-EFI_STATUS efivar_set_uint_string(const EFI_GUID *vendor, CHAR16 *name, UINTN i, UINT32 flags) {
+EFI_STATUS efivar_set_uint_string(const EFI_GUID *vendor, const CHAR16 *name, UINTN i, UINT32 flags) {
         CHAR16 str[32];
 
         SPrint(str, 32, L"%u", i);
         return efivar_set(vendor, name, str, flags);
 }
 
-EFI_STATUS efivar_set_uint32_le(const EFI_GUID *vendor, CHAR16 *name, UINT32 value, UINT32 flags) {
+EFI_STATUS efivar_set_uint32_le(const EFI_GUID *vendor, const CHAR16 *name, UINT32 value, UINT32 flags) {
         UINT8 buf[4];
 
         buf[0] = (UINT8)(value >> 0U & 0xFF);
@@ -102,7 +102,7 @@ EFI_STATUS efivar_set_uint32_le(const EFI_GUID *vendor, CHAR16 *name, UINT32 val
         return efivar_set_raw(vendor, name, buf, sizeof(buf), flags);
 }
 
-EFI_STATUS efivar_set_uint64_le(const EFI_GUID *vendor, CHAR16 *name, UINT64 value, UINT32 flags) {
+EFI_STATUS efivar_set_uint64_le(const EFI_GUID *vendor, const CHAR16 *name, UINT64 value, UINT32 flags) {
         UINT8 buf[8];
 
         buf[0] = (UINT8)(value >> 0U & 0xFF);
@@ -233,7 +233,7 @@ EFI_STATUS efivar_get_boolean_u8(const EFI_GUID *vendor, const CHAR16 *name, BOO
         return err;
 }
 
-VOID efivar_set_time_usec(const EFI_GUID *vendor, CHAR16 *name, UINT64 usec) {
+VOID efivar_set_time_usec(const EFI_GUID *vendor, const CHAR16 *name, UINT64 usec) {
         CHAR16 str[32];
 
         if (usec == 0)
