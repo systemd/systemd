@@ -159,9 +159,15 @@ static void test_drop_privileges_fail(void) {
 }
 
 static void test_drop_privileges(void) {
+        fork_test(test_drop_privileges_fail);
+
+        if (have_effective_cap(CAP_NET_RAW) == 0) /* The remaining two tests only work if we have CAP_NET_RAW
+                                                   * in the first place. If we are run in some restricted
+                                                   * container environment we might not. */
+                return;
+
         fork_test(test_drop_privileges_keep_net_raw);
         fork_test(test_drop_privileges_dontkeep_net_raw);
-        fork_test(test_drop_privileges_fail);
 }
 
 static void test_have_effective_cap(void) {
