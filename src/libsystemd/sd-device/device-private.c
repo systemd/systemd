@@ -765,18 +765,15 @@ int device_shallow_clone(sd_device *old_device, sd_device **new_device) {
         if (r < 0)
                 return r;
 
-        if (sd_device_get_subsystem(old_device, &val) >= 0) {
-                r = device_set_subsystem(ret, val);
+        (void) sd_device_get_subsystem(old_device, &val);
+        r = device_set_subsystem(ret, val);
+        if (r < 0)
+                return r;
+        if (streq_ptr(val, "drivers")) {
+                r = free_and_strdup(&ret->driver_subsystem, old_device->driver_subsystem);
                 if (r < 0)
                         return r;
-
-                if (streq(val, "drivers")) {
-                        ret->driver_subsystem = strdup(old_device->driver_subsystem);
-                        if (!ret->driver_subsystem)
-                                return -ENOMEM;
-                }
-        } else
-                ret->subsystem_set = true;
+        }
 
         /* The device may be already removed. Let's copy minimal set of information to make
          * device_get_device_id() work without uevent file. */
