@@ -58,7 +58,7 @@ static char *arg_header = NULL;
 static unsigned arg_tries = 3;
 static bool arg_readonly = false;
 static bool arg_verify = false;
-static bool arg_silent = false;
+static AskPasswordFlags arg_ask_password_flags = 0;
 static bool arg_discards = false;
 static bool arg_same_cpu_crypt = false;
 static bool arg_submit_from_crypt_cpus = false;
@@ -235,9 +235,25 @@ static int parse_one_option(const char *option) {
                 arg_readonly = true;
         else if (streq(option, "verify"))
                 arg_verify = true;
-        else if (streq(option, "silent"))
-                arg_silent = true;
-        else if (STR_IN_SET(option, "allow-discards", "discard"))
+        else if ((val = startswith(option, "password-echo="))) {
+                if (arg_ask_password_flags) {
+                        log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                        "Duplicate password-echo= option \"%s\", ignoring.", val);
+                        return 0;
+                }
+
+                if (streq(val, "off"))
+                        arg_ask_password_flags = ASK_PASSWORD_SILENT;
+                else if (streq(val, "on"))
+                        arg_ask_password_flags = ASK_PASSWORD_ECHO;
+                else if (streq(val, "masked")) {
+                        /* default, do nothing */
+                } else {
+                        log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                        "Invalid password-echo= option \"%s\", ignoring.", val);
+                        return 0;
+                }
+        } else if (STR_IN_SET(option, "allow-discards", "discard"))
                 arg_discards = true;
         else if (streq(option, "same-cpu-crypt"))
                 arg_same_cpu_crypt = true;
@@ -543,7 +559,7 @@ static int get_password(
         _cleanup_strv_free_erase_ char **passwords = NULL;
         char **p, *id;
         int r = 0;
-        AskPasswordFlags flags = ASK_PASSWORD_PUSH_CACHE | (arg_silent*ASK_PASSWORD_SILENT);
+        AskPasswordFlags flags = arg_ask_password_flags | ASK_PASSWORD_PUSH_CACHE;
 
         assert(vol);
         assert(src);
@@ -811,7 +827,7 @@ static int attach_luks_or_plain_or_bitlk_by_fido2(
                                 arg_headless,
                                 required,
                                 &decrypted_key, &decrypted_key_size,
-                                arg_silent);
+                                arg_ask_password_flags);
                 if (r >= 0)
                         break;
                 if (r != -EAGAIN) /* EAGAIN means: token not found */
