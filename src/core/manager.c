@@ -3325,7 +3325,7 @@ int manager_serialize(
                 fputs(u->id, f);
                 fputc('\n', f);
 
-                r = unit_serialize(u, f, fds, !switching_root);
+                r = unit_serialize(u, f, fds, switching_root);
                 if (r < 0)
                         return r;
         }
