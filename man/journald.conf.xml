@@ -129,9 +129,7 @@
         for more details about UID ranges.
         If <literal>none</literal>, journal files are not split up by user and all messages are
         instead stored in the single system journal. In this mode unprivileged users generally do not have access to
-        their own log data. Note that splitting up journal files by user is only available for journals stored
-        persistently. If journals are stored on volatile storage (see <varname>Storage=</varname> above), only a single
-        journal file is used. Defaults to <literal>uid</literal>.</para></listitem>
+        their own log data. Defaults to <literal>uid</literal>.</para></listitem>
       </varlistentry>
 
       <varlistentry>
