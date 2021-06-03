@@ -84,7 +84,8 @@ CHANGES WITH 249 in spe:
 
         * portablectl gained a new switch --extension= for enabling portable
           service images with extensions that follow the extension image
-          concept introduced with v248.
+          concept introduced with v248, and thus allows layering multiple
+          images when setting up the root filesystem of the service.
 
         * systemd-coredump will now extract ELF build-id information from
           processes dumping core and include it in the coredump report.
@@ -415,6 +416,37 @@ CHANGES WITH 249 in spe:
           the systemd source code tree:
 
           https://systemd.io/ARCHITECTURE
+
+        * Units using ConditionNeedsUpdate= will no longer be activated in
+          the initrd.
+
+        * It is now possible to list a template unit in WantedBy= or RequiredBy=
+          of another template unit, which will be triggered using the same
+          instance name.
+
+        * A new MemoryAvailable property is available for units. If the unit,
+          or the slice(s) it is part of, have a memory limit set via MemoryMax=/
+          MemoryHigh=, MemoryAvailable will indicate how much more memory the
+          unit can claim before hitting the limit(s).
+
+        * systemd-coredump will now try to stay below the cgroup memory limit
+          placed on itself or one of the slices it runs under, if the storage
+          area for core files (/var/lib/systemd/coredump/) is placed on a tmpfs,
+          since files written on such filesystems count toward the cgroup memory
+          limit. If there is not enough available memory in such cases to store
+          the core file uncompressed, systemd-coredump will skip to compressed
+          storage directly (if enabled) and it will avoid analyzing the core file
+          to print backtrace and metadata in the journal.
+
+        * tmpfiles.d gained a new '=' modifier to check if the type of a path
+          matches the configured expectations, and remove it if not.
+
+        * tmpfiles.d's 'Age' now accepts an 'age-by' argument, which allows to
+          specify which of the several available filesystem timestamp to look
+          at when deciding whether a path has aged enough to be cleaned.
+
+        * Journal files, which are allocated in fixed incremenets, are now
+          truncated when rotated/archived to remove unused space from their tails.
 
         * …
 
