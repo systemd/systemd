@@ -147,8 +147,13 @@ CHANGES WITH 249 in spe:
           families will be made unavailable to services configured that way.
 
         * The DHCP server logic configured in .network files gained a new
-          setting RelayTarget= that turns the server into a DHCP server relay.
+          setting RelayTarget= that turns the server into a DHCP server
+          relay. The RelayAgentCircuitId= and RelayAgentRemoteId= settings may
+          be used to further tweak the DHCP relay behaviour.
 
+        * The DHCP server logic also gained a new setting ServerAddress= in
+          .network files for explicitly specifying the server IP address to
+          use. If not used, the address is determined automatically, as before.
 
         * The sd-device API acquired a new API function
           sd_device_get_usec_initialized() that returns the monotonic timestamp
@@ -171,7 +176,6 @@ CHANGES WITH 249 in spe:
           option of the same name of the [DHCPv6] section is moved to
           [IPv6AcceptRA], since it conceptually belongs there; the old option
           is still understood for compatibility.)
-
 
         * The DHCPv6 IAID and DUID are now explicitly configurable in .network
           files.
@@ -233,9 +237,12 @@ CHANGES WITH 249 in spe:
           and objects systemd manages, in order to simplify integration with
           program code the consumes JSON.
 
+        * Similar, networkd gained a Describe() method on its Manager and Link
+          bus objects. This is exposed via "networkctl --json=".
+
         * hostnamectl's various set-xyz verbs (e.g. "hostnamectl set-hostname")
           have been renamed to just xyz (e.g. "hostnamectl hostname") and may
-          now be used to acquire the indicated data in terse form, instead of
+          now be used to print the indicated data in terse form, instead of
           only setting it. The old names continue to be supported for
           compatibility.
 
@@ -253,7 +260,111 @@ CHANGES WITH 249 in spe:
           per-machine directory in the boot partition that typically contain
           Type #1 boot loader entries.
 
-        …
+        * During build SBAT data to include in the systemd-boot EFI PE binaries
+          may be specified now.
+
+        * /etc/crypttab learnt a new option "headless". If specified any
+          requests to query the user interactively for passwords or PINs will
+          be skipped. This is useful on systems that are headless, i.e. where
+          an interactive user is generally not present.
+
+        * FIDO2 support in systemd-cryptenroll/systemd-cryptsetup and
+          systemd-homed has been updated to allow explicit configuration of the
+          "user presence" and "user verification" checks, as well as whether a
+          PIN is required for authentication, via the new switches
+          --fido2-with-user-presence=, --fido2-with-user-verification=,
+          --fido2-with-client-pin= to systemd-cryptenroll and homectl. Which
+          features are available, and may be enabled or disabled depends on the
+          used FIDO2 token.
+
+        * systemd-nspawn's --private-user= switch now accepts the special value
+          "identity" which configures a user namespacing environment with an
+          identity mapping of 65535 UIDs. This means the container UID 0 is
+          mapped to the host UID 0, and the UID 1 to host UID 1. On first look
+          this doesn't appear to be useful, however it does reduce the attack
+          surface a bit, since the resulting container will possess process
+          capabilities only within its namespace and not on the host.
+
+        * systemd-nspawn's --private-user-chown switch has been replaced by a
+          more generic --private-user-ownership= switch that accepts one of
+          three values: "chown" is equivalent to the old --private-user-chown,
+          and "off" is equivalent to the absence of the old switch. The value
+          "map" uses the new UID mapping mounts of Linux 5.12 to map ownership
+          of files and directories of the underlying image to the chosen UID
+          range for the container. "auto" is equivalent to "map" if UID mapping
+          mount are supported, otherwise it is equivalent to "chown". The short
+          -U switch systemd-nspawn now implies --private-user-ownership=auto
+          instead of the old --private-user-chown. Effectively this means: if
+          the backing file system supports UID mapping mounts the feature is
+          now used by default if -U is used. Generally, it's a good idea to use
+          UID mapping mounts instead of recursive chown()ing, since it allows
+          running containers off immutable images (since no modifications of
+          the images need to take place), and share images between multiple
+          instances. Moreover, the recursive chown()ing operation is slow and
+          can be avoided. Conceptually it's also a good thing if transient UID
+          range uses do not leak into persistent file ownership anymore. TLDR:
+          finally, the last major drawback of user namespacing has been
+          removed, and -U should always be used (unless you use btrfs, where
+          UID mapped mounts do not exist; or your container actually needs
+          privileges on the host).
+
+        * nss-systemd now synthesizes user and group shadow records in addition
+          to the main user and group records. Thus, hashed passwords managed by
+          systemd-homed are now accessible via the shadow database.
+
+        * The userdb logic (and thus nss-systemd, and so on) now read
+          additional user/group definitions in JSON format from the drop-in
+          directories /etc/userdb/, /run/userdb/, /run/host/userdb/ and
+          /usr/lib/userdb/. This is a simple and powerful mechanism for making
+          additional users available to the system, with full integration into
+          NSS including the shadow databases. Since the full JSON user/group
+          record format is supported this may also be used to define users with
+          resource management settings and other runtime settings that
+          pam_systemd and systemd-logind enforce at login.
+
+        * The userdbctl tool gained two new switches --with-dropin= and
+          --with-varlink= which can be used to fine-tune the sources used for
+          user database lookups.
+
+        * systemd-nspawn gained a new switch --bind-user= for binding a host
+          user account into the container. This does three things: the user's
+          home directory is bind mounted from the host into the container,
+          below the /run/userdb/home/ hierarchy. A free UID is picked in the
+          container, and a user namespacing UID mapping to the host user's UID
+          installed. And finally, a minimal JSON user and group record (along
+          with its hashed password) is dropped into /run/host/userdb/. These
+          records are picked up automatically by the userdb drop-in logic
+          describe above, and allow the user to login with the same password as
+          on the host. Effectively this means: if host and container run new
+          enough systemd versions making a host user available to the container
+          is trivially simple.
+
+        * systemd-journal-gatewayd now supports the switches --user, --system,
+          --merge, --file= that are equivalent to the same switches of
+          journalctl, and permit exposing only the specified subset of the
+          Journal records.
+
+        * networkctl will now show an over-all "online" state in the per-link
+          information.
+
+        * In .network files a new OutgoingInterface= setting has been added to
+          specify the output interface in bridge FDB setups.
+
+        * In ,network files the Multipath group ID may now be configured for
+          [NextHop] entries, via the new Group= setting.
+
+        * The OnFailure= dependency between units is now augmented with a
+          implicit reverse dependency OnFailureOf= (this new dependency cannot
+          be configured directly it's only created as effect of an OnFailure=
+          dependency in the reverse order — it's visible in "systemctl show"
+          however). Similar, Slice= now has an reverse dependency SliceOf=,
+          that is also not configurable directly, but useful to determine all
+          units that are members of a slice.
+
+        * A pair of new dependency types between units PropagatesStopTo= +
+          StopPropagatedFrom= has been added, that allows propagation of unit
+          stop events between two units. It operates similar to the existing
+          PropagatesReloadTo= + ReloadPropagatedFrom= dependencies.
 
 CHANGES WITH 248:
 
