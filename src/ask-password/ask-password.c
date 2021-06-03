@@ -200,6 +200,14 @@ static int parse_argv(int argc, char *argv[]) {
                 arg_message = strv_join(argv + optind, " ");
                 if (!arg_message)
                         return log_oom();
+        } else if (FLAGS_SET(arg_flags, ASK_PASSWORD_ECHO)) {
+                /* By default ask_password_auto() will query with the string "Password: ", which is not right
+                 * when full echo is on, since then it's unlikely a password. Let's hence default to a less
+                 * confusing string in that case. */
+
+                arg_message = strdup("Input:");
+                if (!arg_message)
+                        return log_oom();
         }
 
         return 1;
