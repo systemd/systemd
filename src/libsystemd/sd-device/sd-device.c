@@ -779,23 +779,24 @@ _public_ int sd_device_get_parent(sd_device *child, sd_device **ret) {
         return 0;
 }
 
-int device_set_subsystem(sd_device *device, const char *_subsystem) {
-        _cleanup_free_ char *subsystem = NULL;
+int device_set_subsystem(sd_device *device, const char *subsystem) {
+        _cleanup_free_ char *s = NULL;
         int r;
 
         assert(device);
-        assert(_subsystem);
 
-        subsystem = strdup(_subsystem);
-        if (!subsystem)
-                return -ENOMEM;
+        if (subsystem) {
+                s = strdup(subsystem);
+                if (!s)
+                        return -ENOMEM;
+        }
 
-        r = device_add_property_internal(device, "SUBSYSTEM", subsystem);
+        r = device_add_property_internal(device, "SUBSYSTEM", s);
         if (r < 0)
                 return r;
 
         device->subsystem_set = true;
-        return free_and_replace(device->subsystem, subsystem);
+        return free_and_replace(device->subsystem, s);
 }
 
 int device_set_drivers_subsystem(sd_device *device) {
