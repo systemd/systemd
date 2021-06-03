@@ -27,15 +27,16 @@ int acquire_fido2_key(
                 Fido2EnrollFlags required,
                 void **ret_decrypted_key,
                 size_t *ret_decrypted_key_size,
-                bool silent) {
+                AskPasswordFlags ask_password_flags) {
 
-        AskPasswordFlags flags = ASK_PASSWORD_PUSH_CACHE | ASK_PASSWORD_ACCEPT_CACHED | (silent*ASK_PASSWORD_SILENT);
         _cleanup_strv_free_erase_ char **pins = NULL;
         _cleanup_free_ void *loaded_salt = NULL;
         const char *salt;
         size_t salt_size;
         char *e;
         int r;
+
+        ask_password_flags |= ASK_PASSWORD_PUSH_CACHE | ASK_PASSWORD_ACCEPT_CACHED;
 
         assert(cid);
         assert(key_file || key_data);
@@ -96,11 +97,11 @@ int acquire_fido2_key(
                 if (headless)
                         return log_error_errno(SYNTHETIC_ERRNO(ENOPKG), "PIN querying disabled via 'headless' option. Use the '$PIN' environment variable.");
 
-                r = ask_password_auto("Please enter security token PIN:", "drive-harddisk", NULL, "fido2-pin", "cryptsetup.fido2-pin", until, flags, &pins);
+                r = ask_password_auto("Please enter security token PIN:", "drive-harddisk", NULL, "fido2-pin", "cryptsetup.fido2-pin", until, ask_password_flags, &pins);
                 if (r < 0)
                         return log_error_errno(r, "Failed to ask for user password: %m");
 
-                flags &= ~ASK_PASSWORD_ACCEPT_CACHED;
+                ask_password_flags &= ~ASK_PASSWORD_ACCEPT_CACHED;
         }
 }
 
