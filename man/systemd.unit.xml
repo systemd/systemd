@@ -1405,7 +1405,7 @@
         <varlistentry>
           <term><varname>ConditionPathExists=</varname></term>
 
-          <listitem><para>Check for the exists of a file. If the specified absolute path name does not exist,
+          <listitem><para>Check for the existence of a file. If the specified absolute path name does not exist,
           the condition will fail. If the absolute path name passed to
           <varname>ConditionPathExists=</varname> is prefixed with an exclamation mark
           (<literal>!</literal>), the test is negated, and the unit is only started if the path does not
