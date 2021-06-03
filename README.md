@@ -26,6 +26,8 @@ Information about build requirements is provided in the [README file](README).
 
 Consult our [NEWS file](NEWS) for information about what's new in the most recent systemd versions.
 
+Please see the [Code Map](docs/ARCHITECTURE.md) for information about this repository's layout and content.
+
 Please see the [Hacking guide](docs/HACKING.md) for information on how to hack on systemd and test your modifications.
 
 Please see our [Contribution Guidelines](docs/CONTRIBUTING.md) for more information about filing GitHub Issues and posting GitHub Pull Requests.

@@ -135,31 +135,6 @@ layout: default
   global in global variables, for example data parsed from command lines, see
   below.
 
-- You might wonder what kind of common code belongs in `src/shared/` and what
-  belongs in `src/basic/`. The split is like this: anything that is used to
-  implement the public shared object we provide (sd-bus, sd-login, sd-id128,
-  nss-systemd, nss-mymachines, nss-resolve, nss-myhostname, pam_systemd), must
-  be located in `src/basic` (those objects are not allowed to link to
-  libsystemd-shared.so). Conversely, anything which is shared between multiple
-  components and does not need to be in `src/basic/`, should be in
-  `src/shared/`.
-
-  To summarize:
-
-  `src/basic/`
-  - may be used by all code in the tree
-  - may not use any code outside of `src/basic/`
-
-  `src/libsystemd/`
-  - may be used by all code in the tree, except for code in `src/basic/`
-  - may not use any code outside of `src/basic/`, `src/libsystemd/`
-
-  `src/shared/`
-  - may be used by all code in the tree, except for code in `src/basic/`,
-    `src/libsystemd/`, `src/nss-*`, `src/login/pam_systemd.*`, and files under
-    `src/journal/` that end up in `libjournal-client.a` convenience library.
-  - may not use any code outside of `src/basic/`, `src/libsystemd/`, `src/shared/`
-
 - Our focus is on the GNU libc (glibc), not any other libcs. If other libcs are
   incompatible with glibc it's on them. However, if there are equivalent POSIX
   and Linux/GNU-specific APIs, we generally prefer the POSIX APIs. If there
