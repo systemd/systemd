@@ -2176,6 +2176,7 @@ const UnitVTable mount_vtable = {
 
         .can_transient = true,
         .can_fail = true,
+        .ignore_on_switch_root_serialization = true,
 
         .init = mount_init,
         .load = mount_load,
