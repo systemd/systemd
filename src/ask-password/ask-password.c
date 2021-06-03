@@ -104,7 +104,7 @@ static int parse_argv(int argc, char *argv[]) {
 
         /* Note the asymmetry: the long option --echo= allows an optional argument, the short option does
          * not. */
-        while ((c = getopt_long(argc, argv, "he", options, NULL)) >= 0)
+        while ((c = getopt_long(argc, argv, "+he", options, NULL)) >= 0)
 
                 switch (c) {
 
