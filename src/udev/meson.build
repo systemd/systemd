@@ -200,6 +200,12 @@ tests += [
          [threads,
           libacl]],
 
+        [['src/udev/test-udev-node.c'],
+         [libudevd_core,
+          libshared],
+         [threads,
+          libacl]],
+
         [['src/udev/test-udev-builtin.c'],
          [libudevd_core,
           libshared],
