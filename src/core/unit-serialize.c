@@ -89,12 +89,24 @@ static const char *const io_accounting_metric_field_last[_CGROUP_IO_ACCOUNTING_M
         [CGROUP_IO_WRITE_OPERATIONS] = "io-accounting-write-operations-last",
 };
 
-int unit_serialize(Unit *u, FILE *f, FDSet *fds, bool serialize_jobs) {
+int unit_serialize(Unit *u, FILE *f, FDSet *fds, bool switching_root) {
         int r;
 
         assert(u);
         assert(f);
         assert(fds);
+
+        if (switching_root && UNIT_VTABLE(u)->exclude_from_switch_root_serialization) {
+                /* In the new root, paths for mounts and automounts will be different, so it doesn't make
+                 * much sense to serialize things. API file systems will be moved to the new root, but we
+                 * don't have mount units for those. */
+                log_unit_debug(u, "not serializing before switch-root");
+                return 0;
+        }
+
+        /* Start marker */
+        fputs(u->id, f);
+        fputc('\n', f);
 
         if (unit_can_serialize(u)) {
                 r = UNIT_VTABLE(u)->serialize(u, f, fds);
@@ -175,7 +187,7 @@ int unit_serialize(Unit *u, FILE *f, FDSet *fds, bool serialize_jobs) {
                         (void) serialize_item_format(f, ip_accounting_metric_field[m], "%" PRIu64, v);
         }
 
-        if (serialize_jobs) {
+        if (!switching_root) {
                 if (u->job) {
                         fputs("job\n", f);
                         job_serialize(u->job, f);

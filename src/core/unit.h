@@ -668,6 +668,9 @@ typedef struct UnitVTable {
         /* True if units of this type shall be startable only once and then never again */
         bool once_only;
 
+        /* Do not serialize this unit when preparing for root switch */
+        bool exclude_from_switch_root_serialization;
+
         /* True if queued jobs of this type should be GC'ed if no other job needs them anymore */
         bool gc_jobs;
 
