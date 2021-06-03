@@ -957,23 +957,24 @@ _public_ int sd_device_get_devnum(sd_device *device, dev_t *devnum) {
         return 0;
 }
 
-int device_set_driver(sd_device *device, const char *_driver) {
-        _cleanup_free_ char *driver = NULL;
+int device_set_driver(sd_device *device, const char *driver) {
+        _cleanup_free_ char *d = NULL;
         int r;
 
         assert(device);
-        assert(_driver);
 
-        driver = strdup(_driver);
-        if (!driver)
-                return -ENOMEM;
+        if (driver) {
+                d = strdup(driver);
+                if (!d)
+                        return -ENOMEM;
+        }
 
-        r = device_add_property_internal(device, "DRIVER", driver);
+        r = device_add_property_internal(device, "DRIVER", d);
         if (r < 0)
                 return r;
 
         device->driver_set = true;
-        return free_and_replace(device->driver, driver);
+        return free_and_replace(device->driver, d);
 }
 
 _public_ int sd_device_get_driver(sd_device *device, const char **ret) {
@@ -991,14 +992,14 @@ _public_ int sd_device_get_driver(sd_device *device, const char **ret) {
 
                 path = strjoina(syspath, "/driver");
                 r = readlink_value(path, &driver);
-                if (r >= 0) {
-                        r = device_set_driver(device, driver);
-                        if (r < 0)
-                                return log_device_debug_errno(device, r, "sd-device: Failed to set driver for %s: %m", device->devpath);
-                } else if (r == -ENOENT)
-                        device->driver_set = true;
-                else
-                        return log_device_debug_errno(device, r, "sd-device: Failed to set driver for %s: %m", device->devpath);
+                if (r < 0 && r != -ENOENT)
+                        return log_device_debug_errno(device, r,
+                                                      "sd-device: readlink(\"%s\") failed: %m", path);
+
+                r = device_set_driver(device, driver);
+                if (r < 0)
+                        return log_device_debug_errno(device, r,
+                                                      "sd-device: Failed to set driver \"%s\": %m", driver);
         }
 
         if (!device->driver)
