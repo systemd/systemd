@@ -543,8 +543,8 @@ typedef struct UnitVTable {
 
         bool (*can_reload)(Unit *u);
 
-        /* Write all data that cannot be restored from other sources
-         * away using unit_serialize_item() */
+        /* Serialize state and file descriptors that should be carried over into the new
+         * instance after reexecution. */
         int (*serialize)(Unit *u, FILE *f, FDSet *fds);
 
         /* Restore one item from the serialization */
