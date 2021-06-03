@@ -529,11 +529,17 @@
       </varlistentry>
 
       <varlistentry>
-        <term><option>silent</option></term>
+        <term><option>password-echo=</option></term>
 
-        <listitem><para>If an encryption password or security token PIN is
-        read from console, no asterisks will be shown while typing the pin or
-        password.</para></listitem>
+        <listitem><para>Controls whether to echo passwords or security token PINs
+        that are read from console. Takes one of <literal>on</literal>,
+        <literal>masked</literal>, or <literal>off</literal>. The default is
+        <option>password-echo=masked</option>.</para>
+
+        <para><literal>on</literal> will cause the password to be displayed in
+        plain. <literal>masked</literal> will cause an asterisk to be displayed
+        for each entered character. <literal>off</literal> will disable echoing
+        the password.</para></listitem>
       </varlistentry>
 
       <varlistentry>
