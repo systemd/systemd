@@ -1087,6 +1087,7 @@ const UnitVTable automount_vtable = {
         .can_transient = true,
         .can_fail = true,
         .can_trigger = true,
+        .exclude_from_switch_root_serialization = true,
 
         .init = automount_init,
         .load = automount_load,
