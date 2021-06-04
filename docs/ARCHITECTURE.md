@@ -13,19 +13,19 @@ components of the systemd repository.
 
 Directories in `src/` provide the implementation of all daemons, libraries and
 command-line tools shipped by the project. There are many, and more are
-constantly added, so we will not enumerate them all here - the directory
+constantly added, so we will not enumerate them all here — the directory
 names are self-explanatory.
 
 ## Shared Code
 
 You might wonder what kind of common code belongs in `src/shared/` and what
 belongs in `src/basic/`. The split is like this: anything that is used to
-implement the public shared object we provide (sd-bus, sd-login, sd-id128,
-nss-systemd, nss-mymachines, nss-resolve, nss-myhostname, pam_systemd), must
-be located in `src/basic` (those objects are not allowed to link to
-libsystemd-shared.so). Conversely, anything which is shared between multiple
-components and does not need to be in `src/basic/`, should be in
-`src/shared/`.
+implement the public shared objects we provide (`sd-bus`, `sd-login`,
+`sd-id128`, `nss-systemd`, `nss-mymachines`, `nss-resolve`, `nss-myhostname`,
+`pam_systemd`), must be located in `src/basic` (those objects are not allowed
+to link to `libsystemd-shared.so`). Conversely, anything which is shared
+between multiple components and does not need to be in `src/basic/`, should be
+in `src/shared/`.
 
 To summarize:
 
@@ -63,10 +63,10 @@ file is compiled in a standalone binary that can be run to exercise the
 corresponding module. While most of the tests can be ran by any user, some
 require privileges, and will attempt to clearly log about what they need
 (mostly in the form of effective capabilities). These tests are self-contained,
-and generally safe to run on a host without side effects.
+and generally safe to run on the host without side effects.
 
-Ideally, every module in `src/basic/` and `src/shared/` should have a corresponding
-unit test under `src/test/`, which exercises every helper function.
+Ideally, every module in `src/basic/` and `src/shared/` should have a
+corresponding unit test under `src/test/`, exercising every helper function.
 
 # Integration Tests
 
