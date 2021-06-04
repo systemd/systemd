@@ -711,9 +711,6 @@ Features:
 * add proper dbus APIs for the various sd_notify() commands, such as MAINPID=1
   and so on, which would mean we could report errors and such.
 
-* teach tmpfiles.d q/Q logic something sensible in the context of XFS/ext4
-  project quota
-
 * introduce DefaultSlice= or so in system.conf that allows changing where we
   place our units by default, i.e. change system.slice to something
   else. Similar, ManagerSlice= should exist so that PID1's own scope unit could
@@ -1335,6 +1332,8 @@ Features:
     should not follow symlinks. None of the other adjustment or creation
     calls follow symlinks.
   - add --test mode
+  - teach tmpfiles.d q/Q logic something sensible in the context of XFS/ext4
+    project quota
 
 * make sure systemd-ask-password-wall does not shutdown systemd-ask-password-console too early
 
