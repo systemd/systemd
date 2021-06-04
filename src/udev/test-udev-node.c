@@ -33,6 +33,10 @@ static void test_udev_node_escape_path(void) {
         strcpy(b + sizeof(b) - 12, "N3YhcCqFeID");
 
         test_udev_node_escape_path_one(a, b);
+
+        strcpy(a + sizeof(a) - 12 - 9, "N3YhcCqFeID");
+
+        test_udev_node_escape_path_one(a, b); /* <-- Ouch. This will pass. Needs to be fixed. */
 }
 
 int main(int argc, char *argv[]) {
