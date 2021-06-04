@@ -1,5 +1,5 @@
 ---
-title: systemd repository architecture
+title: systemd Repository Architecture
 category: Contributing
 layout: default
 ---
