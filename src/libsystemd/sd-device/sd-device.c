@@ -779,7 +779,7 @@ int device_set_subsystem(sd_device *device, const char *_subsystem) {
         return free_and_replace(device->subsystem, subsystem);
 }
 
-static int device_set_drivers_subsystem(sd_device *device) {
+int device_set_drivers_subsystem(sd_device *device) {
         _cleanup_free_ char *subsystem = NULL;
         const char *syspath, *drivers, *p;
         int r;
