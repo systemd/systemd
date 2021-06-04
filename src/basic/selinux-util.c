@@ -407,6 +407,54 @@ int mac_selinux_get_our_label(char **label) {
 #endif
 }
 
+static int mac_selinux_patch_seuser(char **label) {
+#if HAVE_SELINUX
+        const char *user;
+        char *patched;
+        _cleanup_freecon_ char *l = NULL;
+        _cleanup_context_free_ context_t con = NULL;
+        int r;
+
+        assert(label);
+
+        r = mac_selinux_get_our_label(&l);
+        if (r < 0)
+                return r;
+
+        con = context_new(l);
+        if (!con)
+                return -errno;
+
+        user = context_user_get(con);
+        if (!user)
+                return -errno;
+
+        if (startswith(*label, user))
+                return 0;
+
+        user = strdupa(user);
+
+        context_free(con);
+        con = NULL;
+
+        con = context_new(*label);
+        if (!con)
+                return -errno;
+
+        r = context_user_set(con, user);
+        if (r < 0)
+                return -errno;
+
+        patched = strdup(context_str(con));
+        if (!patched)
+                return -ENOMEM;
+
+        return free_and_replace(*label, patched);
+#else
+        return 0;
+#endif
+}
+
 int mac_selinux_get_child_mls_label(int socket_fd, const char *exe, const char *exec_label, char **label) {
 #if HAVE_SELINUX
         _cleanup_freecon_ char *mycon = NULL, *peercon = NULL, *fcon = NULL;
@@ -505,6 +553,10 @@ static int selinux_create_file_prepare_abspath(const char *abspath, mode_t mode)
 
                 return log_enforcing_errno(errno, "Failed to determine SELinux security context for %s: %m", abspath);
         }
+
+        r = mac_selinux_patch_seuser(&filecon);
+        if (r < 0)
+                return log_enforcing_errno(errno, "Failed to update SELinux user part of security context for %s: %m", abspath);
 
         if (setfscreatecon_raw(filecon) < 0)
                 return log_enforcing_errno(errno, "Failed to set SELinux security context %s for %s: %m", filecon, abspath);
@@ -662,6 +714,10 @@ int mac_selinux_bind(int fd, const struct sockaddr *addr, socklen_t addrlen) {
                 if (r < 0)
                         return r;
         } else {
+                r = mac_selinux_patch_seuser(&fcon);
+                if (r < 0)
+                        return log_enforcing_errno(errno, "Failed to update SELinux user in security context for %s: %m", path);
+
                 if (setfscreatecon_raw(fcon) < 0) {
                         r = log_enforcing_errno(errno, "Failed to set SELinux security context %s for %s: %m", fcon, path);
                         if (r < 0)
