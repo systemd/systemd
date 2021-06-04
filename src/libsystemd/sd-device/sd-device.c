@@ -539,21 +539,16 @@ int device_read_uevent_file(sd_device *device) {
         if (r < 0)
                 return r;
 
+        device->uevent_loaded = true;
+
         path = strjoina(syspath, "/uevent");
 
         r = read_full_virtual_file(path, &uevent, &uevent_len);
-        if (r == -EACCES) {
-                /* empty uevent files may be write-only */
-                device->uevent_loaded = true;
-                return 0;
-        }
-        if (r == -ENOENT)
-                /* some devices may not have uevent files, see device_set_syspath() */
+        if (IN_SET(r, -EACCES, -ENOENT))
+                /* The uevent files may be write-only, or the device may not have uevent file. */
                 return 0;
         if (r < 0)
                 return log_device_debug_errno(device, r, "sd-device: Failed to read uevent file '%s': %m", path);
-
-        device->uevent_loaded = true;
 
         for (size_t i = 0; i < uevent_len; i++)
                 switch (state) {
