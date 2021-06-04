@@ -382,11 +382,19 @@ void device_seal(sd_device *device) {
 }
 
 static int device_verify(sd_device *device) {
+        int r;
+
         assert(device);
 
         if (!device->devpath || !device->subsystem || device->action < 0 || device->seqnum == 0)
                 return log_device_debug_errno(device, SYNTHETIC_ERRNO(EINVAL),
                                               "sd-device: Device created from strv or nulstr lacks devpath, subsystem, action or seqnum.");
+
+        if (streq(device->subsystem, "drivers")) {
+                r = device_set_drivers_subsystem(device);
+                if (r < 0)
+                        return r;
+        }
 
         device->sealed = true;
 
