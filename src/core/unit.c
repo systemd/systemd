@@ -1475,7 +1475,7 @@ static int unit_add_mount_dependencies(Unit *u) {
                         r = unit_name_from_path(prefix, ".mount", &p);
                         if (IN_SET(r, -EINVAL, -ENAMETOOLONG))
                                 continue; /* If the path cannot be converted to a mount unit name, then it's
-                                           * not managable as a unit by systemd, and hence we don't need a
+                                           * not manageable as a unit by systemd, and hence we don't need a
                                            * dependency on it. Let's thus silently ignore the issue. */
                         if (r < 0)
                                 return r;
