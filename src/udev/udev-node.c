@@ -219,20 +219,21 @@ size_t udev_node_escape_path(const char *src, char *dest, size_t size) {
 
         assert(src);
         assert(dest);
+        assert(size >= 12);
 
         for (i = 0, j = 0; src[i] != '\0'; i++) {
                 if (src[i] == '/') {
-                        if (j+4 >= size)
+                        if (j+4 >= size - 12 + 1)
                                 goto toolong;
                         memcpy(&dest[j], "\\x2f", 4);
                         j += 4;
                 } else if (src[i] == '\\') {
-                        if (j+4 >= size)
+                        if (j+4 >= size - 12 + 1)
                                 goto toolong;
                         memcpy(&dest[j], "\\x5c", 4);
                         j += 4;
                 } else {
-                        if (j+1 >= size)
+                        if (j+1 >= size - 12 + 1)
                                 goto toolong;
                         dest[j] = src[i];
                         j++;
@@ -246,8 +247,6 @@ toolong:
          * generated from the hash of the path. */
 
         h = siphash24_string(src, UDEV_NODE_HASH_KEY.bytes);
-
-        assert(size >= 12);
 
         for (unsigned k = 0; k <= 10; k++)
                 dest[size - k - 2] = urlsafe_base64char((h >> (k * 6)) & 63);
