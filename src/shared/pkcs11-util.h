@@ -30,6 +30,7 @@ char *pkcs11_token_label(const CK_TOKEN_INFO *token_info);
 char *pkcs11_token_manufacturer_id(const CK_TOKEN_INFO *token_info);
 char *pkcs11_token_model(const CK_TOKEN_INFO *token_info);
 
+int pkcs11_token_login_by_pin(CK_FUNCTION_LIST *m, CK_SESSION_HANDLE session, const CK_TOKEN_INFO *token_info, const char *token_label, const void *pin, size_t pin_size);
 int pkcs11_token_login(CK_FUNCTION_LIST *m, CK_SESSION_HANDLE session, CK_SLOT_ID slotid, const CK_TOKEN_INFO *token_info, const char *friendly_name, const char *icon_name, const char *key_name, const char *credential_name, usec_t until, bool headless, char **ret_used_pin);
 
 int pkcs11_token_find_x509_certificate(CK_FUNCTION_LIST *m, CK_SESSION_HANDLE session, P11KitUri *search_uri, CK_OBJECT_HANDLE *ret_object);

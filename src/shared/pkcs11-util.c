@@ -175,6 +175,55 @@ char *pkcs11_token_model(const CK_TOKEN_INFO *token_info) {
         return t;
 }
 
+int pkcs11_token_login_by_pin(
+                CK_FUNCTION_LIST *m,
+                CK_SESSION_HANDLE session,
+                const CK_TOKEN_INFO *token_info,
+                const char *token_label,
+                const void *pin,
+                size_t pin_size) {
+
+        CK_RV rv;
+
+        assert(m);
+        assert(token_info);
+
+        if (FLAGS_SET(token_info->flags, CKF_PROTECTED_AUTHENTICATION_PATH)) {
+                rv = m->C_Login(session, CKU_USER, NULL, 0);
+                if (rv != CKR_OK)
+                        return log_error_errno(SYNTHETIC_ERRNO(EIO),
+                                               "Failed to log into security token '%s': %s", token_label, p11_kit_strerror(rv));
+
+                log_info("Successfully logged into security token '%s' via protected authentication path.", token_label);
+                return 0;
+        }
+
+        if (!FLAGS_SET(token_info->flags, CKF_LOGIN_REQUIRED)) {
+                log_info("No login into security token '%s' required.", token_label);
+                return 0;
+        }
+
+        if (!pin)
+                return -ENOANO;
+
+        rv = m->C_Login(session, CKU_USER, (CK_UTF8CHAR*) pin, pin_size);
+        if (rv == CKR_OK)  {
+                log_info("Successfully logged into security token '%s'.", token_label);
+                return 0;
+        }
+
+        if (rv == CKR_PIN_LOCKED)
+                return log_error_errno(SYNTHETIC_ERRNO(EPERM),
+                                       "PIN has been locked, please reset PIN of security token '%s'.", token_label);
+        if (!IN_SET(rv, CKR_PIN_INCORRECT, CKR_PIN_LEN_RANGE))
+                return log_error_errno(SYNTHETIC_ERRNO(EIO),
+                                       "Failed to log into security token '%s': %s", token_label, p11_kit_strerror(rv));
+
+        log_notice("PIN for token '%s' is incorrect, please try again.", token_label);
+
+        return -ENOLCK;
+}
+
 int pkcs11_token_login(
                 CK_FUNCTION_LIST *m,
                 CK_SESSION_HANDLE session,
@@ -209,24 +258,12 @@ int pkcs11_token_login(
         if (uri_result != P11_KIT_URI_OK)
                 return log_warning_errno(SYNTHETIC_ERRNO(EAGAIN), "Failed to format slot URI: %s", p11_kit_uri_message(uri_result));
 
-        if (FLAGS_SET(token_info->flags, CKF_PROTECTED_AUTHENTICATION_PATH)) {
-                rv = m->C_Login(session, CKU_USER, NULL, 0);
-                if (rv != CKR_OK)
-                        return log_error_errno(SYNTHETIC_ERRNO(EIO),
-                                               "Failed to log into security token '%s': %s", token_label, p11_kit_strerror(rv));
+        r = pkcs11_token_login_by_pin(m, session, token_info, token_label, /* pin= */ NULL, 0);
+        if (r == 0 && ret_used_pin)
+                *ret_used_pin = NULL;
 
-                log_info("Successfully logged into security token '%s' via protected authentication path.", token_label);
-                if (ret_used_pin)
-                        *ret_used_pin = NULL;
-                return 0;
-        }
-
-        if (!FLAGS_SET(token_info->flags, CKF_LOGIN_REQUIRED)) {
-                log_info("No login into security token '%s' required.", token_label);
-                if (ret_used_pin)
-                        *ret_used_pin = NULL;
-                return 0;
-        }
+        if (r != -ENOANO) /* pin required */
+                return r;
 
         token_uri_escaped = cescape(token_uri_string);
         if (!token_uri_escaped)
@@ -278,28 +315,19 @@ int pkcs11_token_login(
                 }
 
                 STRV_FOREACH(i, passwords) {
-                        rv = m->C_Login(session, CKU_USER, (CK_UTF8CHAR*) *i, strlen(*i));
-                        if (rv == CKR_OK)  {
+                        r = pkcs11_token_login_by_pin(m, session, token_info, token_label, *i, strlen(*i));
+                        if (r == 0 && ret_used_pin) {
+                                char *c;
 
-                                if (ret_used_pin) {
-                                        char *c;
+                                c = strdup(*i);
+                                if (!c)
+                                        return log_oom();
 
-                                        c = strdup(*i);
-                                        if (!c)
-                                                return log_oom();
-
-                                        *ret_used_pin = c;
-                                }
-
-                                log_info("Successfully logged into security token '%s'.", token_label);
-                                return 0;
+                                *ret_used_pin = c;
                         }
-                        if (rv == CKR_PIN_LOCKED)
-                                return log_error_errno(SYNTHETIC_ERRNO(EPERM),
-                                                       "PIN has been locked, please reset PIN of security token '%s'.", token_label);
-                        if (!IN_SET(rv, CKR_PIN_INCORRECT, CKR_PIN_LEN_RANGE))
-                                return log_error_errno(SYNTHETIC_ERRNO(EIO),
-                                                       "Failed to log into security token '%s': %s", token_label, p11_kit_strerror(rv));
+
+                        if (r != -ENOLCK)
+                                return r;
 
                         /* Referesh the token info, so that we can prompt knowing the new flags if they changed. */
                         rv = m->C_GetTokenInfo(slotid, &updated_token_info);
@@ -309,7 +337,6 @@ int pkcs11_token_login(
                                                        slotid, p11_kit_strerror(rv));
 
                         token_info = &updated_token_info;
-                        log_notice("PIN for token '%s' is incorrect, please try again.", token_label);
                 }
         }
 
