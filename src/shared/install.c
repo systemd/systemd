@@ -376,6 +376,11 @@ void unit_file_dump_changes(int r, const char *verb, const UnitFileChange *chang
                                         verb, changes[i].path);
                         logged = true;
                         break;
+                case -EIDRM:
+                        log_error_errno(changes[i].type_or_errno, "Failed to %s unit, unit %s is a non-template unit.",
+                                        verb, changes[i].path);
+                        logged = true;
+                        break;
                 case -EUCLEAN:
                         log_error_errno(changes[i].type_or_errno,
                                         "Failed to %s unit, \"%s\" is not a valid unit name.",
@@ -1847,6 +1852,7 @@ static int install_info_symlink_wants(
                 size_t *n_changes) {
 
         _cleanup_free_ char *buf = NULL;
+        UnitNameFlags valid_dst_type = UNIT_NAME_ANY;
         const char *n;
         char **s;
         int r = 0, q;
@@ -1858,15 +1864,17 @@ static int install_info_symlink_wants(
         if (strv_isempty(list))
                 return 0;
 
-        if (unit_name_is_valid(i->name, UNIT_NAME_TEMPLATE)) {
+        if (unit_name_is_valid(i->name, UNIT_NAME_PLAIN | UNIT_NAME_INSTANCE))
+                /* Not a template unit. Use the name directly. */
+                n = i->name;
+
+        else if (i->default_instance) {
                 UnitFileInstallInfo instance = {
                         .type = _UNIT_FILE_TYPE_INVALID,
                 };
                 _cleanup_free_ char *path = NULL;
 
-                /* If this is a template, and we have no instance, don't do anything */
-                if (!i->default_instance)
-                        return 1;
+                /* If this is a template, and we have a default instance, use it. */
 
                 r = unit_name_replace_instance(i->name, i->default_instance, &buf);
                 if (r < 0)
@@ -1885,8 +1893,14 @@ static int install_info_symlink_wants(
                 }
 
                 n = buf;
-        } else
+
+        } else {
+                /* We have a template, but no instance yet. When used with an instantiated unit, we will get
+                 * the instance from that unit. Cannot be used with non-instance units. */
+
+                valid_dst_type = UNIT_NAME_INSTANCE | UNIT_NAME_TEMPLATE;
                 n = i->name;
+        }
 
         STRV_FOREACH(s, list) {
                 _cleanup_free_ char *path = NULL, *dst = NULL;
@@ -1895,9 +1909,17 @@ static int install_info_symlink_wants(
                 if (q < 0)
                         return q;
 
-                if (!unit_name_is_valid(dst, UNIT_NAME_ANY)) {
-                        unit_file_changes_add(changes, n_changes, -EUCLEAN, dst, NULL);
-                        r = -EUCLEAN;
+                if (!unit_name_is_valid(dst, valid_dst_type)) {
+                        /* Generate a proper error here: EUCLEAN if the name is generally bad,
+                         * EIDRM if the template status doesn't match. */
+                        if (unit_name_is_valid(dst, UNIT_NAME_ANY)) {
+                                unit_file_changes_add(changes, n_changes, -EIDRM, dst, n);
+                                r = -EIDRM;
+                        } else {
+                                unit_file_changes_add(changes, n_changes, -EUCLEAN, dst, NULL);
+                                r = -EUCLEAN;
+                        }
+
                         continue;
                 }
 
