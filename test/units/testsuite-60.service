@@ -1,0 +1,6 @@
+[Unit]
+Description=TEST-60-CLEAR-ON-FAILURE-DEPS
+
+[Service]
+ExecStart=/usr/lib/systemd/tests/testdata/units/%N.sh
+Type=oneshot
