@@ -646,7 +646,7 @@ typedef struct UnitVTable {
         /* Type specific cleanups. */
         void (*shutdown)(Manager *m);
 
-        /* If this function is set and return false all jobs for units
+        /* If this function is set and returns false all jobs for units
          * of this type will immediately fail. */
         bool (*supported)(void);
 
@@ -654,25 +654,25 @@ typedef struct UnitVTable {
         UnitStatusMessageFormats status_message_formats;
 
         /* True if transient units of this type are OK */
-        bool can_transient:1;
+        bool can_transient;
 
         /* True if cgroup delegation is permissible */
-        bool can_delegate:1;
+        bool can_delegate;
 
         /* True if the unit type triggers other units, i.e. can have a UNIT_TRIGGERS dependency */
-        bool can_trigger:1;
+        bool can_trigger;
 
         /* True if the unit type knows a failure state, and thus can be source of an OnFailure= dependency */
-        bool can_fail:1;
+        bool can_fail;
 
         /* True if units of this type shall be startable only once and then never again */
-        bool once_only:1;
+        bool once_only;
 
         /* True if queued jobs of this type should be GC'ed if no other job needs them anymore */
-        bool gc_jobs:1;
+        bool gc_jobs;
 
         /* True if systemd-oomd can monitor and act on this unit's recursive children's cgroup(s)  */
-        bool can_set_managed_oom:1;
+        bool can_set_managed_oom;
 } UnitVTable;
 
 extern const UnitVTable * const unit_vtable[_UNIT_TYPE_MAX];
