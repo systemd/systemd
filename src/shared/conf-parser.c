@@ -706,13 +706,18 @@ int config_parse_tristate(
         assert(rvalue);
         assert(data);
 
-        /* A tristate is pretty much a boolean, except that it can
-         * also take the special value -1, indicating "uninitialized",
-         * much like NULL is for a pointer type. */
+        /* A tristate is pretty much a boolean, except that it can also take an empty string,
+         * indicating "uninitialized", much like NULL is for a pointer type. */
+
+        if (isempty(rvalue)) {
+                *t = -1;
+                return 0;
+        }
 
         k = parse_boolean(rvalue);
         if (k < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, k, "Failed to parse boolean value, ignoring: %s", rvalue);
+                log_syntax(unit, LOG_WARNING, filename, line, k,
+                           "Failed to parse boolean value for %s=, ignoring: %s", lvalue, rvalue);
                 return 0;
         }
 
