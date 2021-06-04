@@ -529,11 +529,19 @@
       </varlistentry>
 
       <varlistentry>
-        <term><option>silent</option></term>
+        <term><option>password-echo=yes|no|masked</option></term>
 
-        <listitem><para>If an encryption password or security token PIN is
-        read from console, no asterisks will be shown while typing the pin or
-        password.</para></listitem>
+        <listitem><para>Controls whether to echo passwords or security token PINs
+        that are read from console. Takes a boolean or the special string <literal>masked</literal>.
+        The default is <option>password-echo=masked</option>.</para>
+
+        <para>If enabled, the typed characters are echoed literally. If disabled,
+        the typed characters are not echoed in any form, the user will not get
+        feedback on their input. If set to <literal>masked</literal>, an asterisk
+        (<literal>*</literal>) is echoed for each character typed. Regardless of
+        which mode is chosen, if the user hits the tabulator key (<literal>↹</literal>)
+        at any time, or the backspace key (<literal>⌫</literal>) before any other
+        data has been entered, then echo is turned off.</para></listitem>
       </varlistentry>
 
       <varlistentry>
