@@ -31,7 +31,8 @@ _udevadm_trigger(){
         '--property-match=[Trigger events for devices with a matching property value.]' \
         '--tag-match=property[Trigger events for devices with a matching tag.]' \
         '--sysname-match=[Trigger events for devices with a matching sys device name.]' \
-        '--parent-match=[Trigger events for all children of a given device.]'
+        '--parent-match=[Trigger events for all children of a given device.]' \
+        '--uuid[Print synthetic uevent UUID.]'
 }
 
 (( $+functions[_udevadm_settle] )) ||
