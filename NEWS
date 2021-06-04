@@ -5,9 +5,9 @@ CHANGES WITH 249 in spe:
         * When operating on disk images via the --image= switch of various
           tools (such as systemd-nspawn or systemd-dissect), and multiple
           suitable root or /usr/ partitions exist in the image, then a simple
-          strverscmp() inspired comparison is done on the GPT partition label,
-          and the newest partition picked. This permits a simple and generic
-          whole-file-system A/B update logic where new operating system
+          comparison inspired by strverscmp() is done on the GPT partition
+          label, and the newest partition is picked. This permits a simple and
+          generic whole-file-system A/B update logic where new operating system
           versions are dropped into partitions whose label is then updated with
           a matching version identifier.
 
@@ -44,31 +44,31 @@ CHANGES WITH 249 in spe:
         * The systemd-machine-id-setup tool now supports a --image= switch for
           provisioning a machine ID file into an OS disk image, similar to how
           --root= operates on an OS file tree. This matches the existing switch
-          of the same name to the systemd-tmpfiles, systemd-firstboot or
+          of the same name for systemd-tmpfiles, systemd-firstboot, and
           systemd-sysusers tools.
 
-        * Similar, systemd-repart gained support for a --image= switch, too. In
-          combination with the existing --size= makes the tool particularly
-          useful for easily growing disk images in a single command invocation,
-          following the declarative rules included in the image itself.
+        * Similarly, systemd-repart gained support for the --image= switch too.
+          In combination with the existing --size= option, this makes the tool
+          particularly useful for easily growing disk images in a single
+          invocation, following the declarative rules included in the image
+          itself.
 
         * systemd-repart's partition configuration files gained support for a
           new switch MakeDirectories= which may be used to create arbitrary
           directories inside file systems that are created, before registering
-          them in the partition table. This is useful in particular if root
-          partitions are created that way to create mount point directories for
-          other partitions included in the image. For example, a disk image
-          that is created to contain a /home/ and a /var/ partition in addition
-          to a root partition may MakeDirectories= to create /home/ and /var/
-          as empty directories in the root file system on creation so that the
-          resulting image can mounted immediately, even in read-only mode.
+          them in the partition table. This is useful in particular for root
+          partitions to create mount point directories for other partitions
+          included in the image. For example, a disk image that contains a
+          root, /home/, and /var/ partitions, may set MakeDirectories=yes to
+          create /home/ and /var/ as empty directories in the root file system
+          on its creation, so that the resulting image can mounted immediately,
+          even in read-only mode.
 
-        * systemd-repart's CopyBlocks= setting gained support for a special
-          value "auto". If used a suitable, matching partition on the booted OS
-          is found as source to copy blocks from. This is useful for
+        * systemd-repart's CopyBlocks= setting gained support for the special
+          value "auto". If used, a suitable matching partition on the booted OS
+          is found as source to copy blocks from. This is useful when
           implementing replicating installers, that are booted from one medium
-          and then shall stream their own root partition onto the target
-          medium.
+          and then stream their own root partition onto the target medium.
 
         * systemd-repart's partition configuration files gained support for a
           Flags= and a ReadOnly= setting, allowing control of the GPT partition
@@ -76,40 +76,40 @@ CHANGES WITH 249 in spe:
           created partitions as read-only from the start.
 
         * The /etc/os-release file has been extended with two new (optional)
-          variables IMAGE_VERSION= and IMAGE_ID=, for carrying identification
-          and versioning information for OS images that are updated
-          consistently, comprehensively and atomically as one image. The two
-          new specifiers %M, %A now resolve to these two fields in the various
-          configuration options that resolve specifiers.
+          variables IMAGE_VERSION= and IMAGE_ID=, carrying identity and version
+          information for OS images that are updated comprehensively and
+          atomically as one image. Two new specifiers %M, %A now resolve to
+          these two fields in the various configuration options that resolve
+          specifiers.
 
         * portablectl gained a new switch --extension= for enabling portable
           service images with extensions that follow the extension image
           concept introduced with v248.
 
         * systemd-coredump will now extract ELF build-id information from
-          processes dumping core and include it in the coredump
-          report. Moreover, if will look for ELF .note.package sections that
-          may carry distribution packaging meta-information about the crashing
-          process. This is useful to directly embed the RPM or Debian (or any
-          other) package name and version in the ELF files where they originate
-          from, making it easy to match up coredump reports with the software
-          versions they were found it. This is particular useful on
-          environments with ELF files form multiple vendors, different
-          distributions and versions, as it is common today, in particular in a
-          containerized and sand-boxed world. For further information, see:
+          processes dumping core and include it in the coredump report.
+          Moreover, it will look for ELF .note.package sections with
+          distribution packaging meta-information about the crashing process.
+          This is useful to directly embed the rpm or deb (or any other)
+          package name and version in ELF files, making it easy to match
+          coredump reports with the specific package for which the software was
+          compiled. This is particularly useful on environments with ELF files
+          from multiple vendors, different distributions and versions, as is
+          common today in our containerized and sand-boxed world. For further
+          information, see:
 
           https://systemd.io/COREDUMP_PACKAGE_METADATA
 
-        * A new udev hwdb database has been added for FireWire devices (IEEE
-          1394).
+        * A new udev hardware database has been added for FireWire devices
+          (IEEE 1394).
 
         * sd-bus' sd_bus_is_ready() and sd_bus_is_open() calls now accept a
           NULL bus object, for which they will return false. Or in other words,
           an unallocated bus connection is neither ready nor open.
 
         * The sd-device API acquired a new API function
-          sd_device_get_usec_initialized() that returns the monotonic timestamp
-          when a udev device appeared in the database first.
+          sd_device_get_usec_initialized() that returns the monotonic time when
+          the udev device first appeared in the database.
 
         * sd-device gained a new APIs sd_device_trigger_with_uuid() and
           sd_device_get_trigger_uuid(). The former is similar to
@@ -168,13 +168,14 @@ CHANGES WITH 249 in spe:
           [NextHop] entries, via the new Group= setting.
 
         * The DHCP server logic configured in .network files gained a new
-          setting RelayTarget= that turns the server into a DHCP server
-          relay. The RelayAgentCircuitId= and RelayAgentRemoteId= settings may
-          be used to further tweak the DHCP relay behaviour.
+          setting RelayTarget= that turns the server into a DHCP server relay.
+          The RelayAgentCircuitId= and RelayAgentRemoteId= settings may be used
+          to further tweak the DHCP relay behaviour.
 
-        * The DHCP server logic also gained a new setting ServerAddress= in
-          .network files for explicitly specifying the server IP address to
-          use. If not used, the address is determined automatically, as before.
+        * The DHCP server logic also gained a new ServerAddress= setting in
+          .network files that explicitly specifies the server IP address to
+          use. If not specified, the address is determined automatically, as
+          before.
 
         * The DHCP server logic in systemd-networkd gained support for static
           DHCP leases, configurable via the [DHCPServerStaticLease]
@@ -187,53 +188,51 @@ CHANGES WITH 249 in spe:
 
         * systemd-fstab-generator and systemd-repart have been updated to
           support booting from disks that carry only a /usr/ partition but no
-          root partition yet, but where systemd-repart can add them in on first
-          boot. This is useful for implementing systems that ship with a single
-          /usr/ file system and whose root file system shall be set up on a
-          LUKS encrypted volume whose key is generated locally (and possibly
-          enrolled in TPM), and which is set up and formatted during first
-          boot.
+          root partition yet, and where systemd-repart can add it in on the
+          first boot. This is useful for implementing systems that ship with a
+          single /usr/ file system, and whose root file system shall be set up
+          and formatted on a LUKS-encrypted volume whose key is generated
+          locally (and possibly enrolled in the TPM) during the first boot.
 
         * The [Address] section of .network files now accepts a new
           RouteMetric= setting that configures the routing metric to use for
-          the prefix route created as effect of the address
-          configuration. Similar, the [DHCPv6PrefixDelegation] and [IPv6Prefix]
-          sections gained matching settings for their prefix routes. (The
-          option of the same name of the [DHCPv6] section is moved to
-          [IPv6AcceptRA], since it conceptually belongs there; the old option
-          is still understood for compatibility.)
+          the prefix route created as effect of the address configuration.
+          Similarly, the [DHCPv6PrefixDelegation] and [IPv6Prefix] sections
+          gained matching settings for their prefix routes. (The option of the
+          same name in the [DHCPv6] section is moved to [IPv6AcceptRA], since
+          it conceptually belongs there; the old option is still understood for
+          compatibility.)
 
         * The DHCPv6 IAID and DUID are now explicitly configurable in .network
           files.
 
         * A new udev property ID_NET_DHCP_BROADCAST on network interface
-          devices is not honoured by systemd-networkd, that controls whether to
+          devices is now honoured by systemd-networkd, controlling whether to
           issue DHCP offers via broadcasting. This is used to ensure that s390
           layer 3 network interfaces work out-of-the-box with systemd-networkd.
 
         * nss-myhostname and systemd-resolved will now synthesize address
           records for a new special hostname "_outbound". The name will always
           resolve to the local IP addresses most likely used for outbound
-          connections towards the default route. On multi-homed hosts this is
+          connections towards the default routes. On multi-homed hosts this is
           useful to have a stable handle referring to "the" local IP address
           that matters most, to the point where this is defined.
 
         * The Discoverable Partition Specification has been updated with a new
-          GPT partition flag defined its partition types: a "growfs"
-          flag. Whenever partitions with this flag set are automatically
-          mounted (i.e. via systemd-gpt-auto-generator or the --image= switch
-          of systemd-nspawn or other tools; and as opposed to explicit mounting
+          GPT partition flag "growsfs" defined for its partition types.
+          Whenever partitions with this flag set are automatically mounted
+          (i.e. via systemd-gpt-auto-generator or the --image= switch of
+          systemd-nspawn or other tools; and as opposed to explicit mounting
           via /etc/fstab), the file system within the partition is
-          automatically grown to the full size of the partition should it be
-          smaller. If the file system size already matches the partition size
-          this flag has no effect. Previously, this functionality has been
-          available via the explicit x-systemd.growfs mount option, and this
-          new flag extends this to automatically discovered mounts. A new
-          GrowFileSystem= setting has been added to systemd-repart drop-in
-          files that allows configuring this partition flag. This new flag
-          defaults to on for partitions automatically created by
-          systemd-repart, except if they are marked read-only. See the
-          specification for further details:
+          automatically grown to the full size of the partition. If the file
+          system size already matches the partition size this flag has no
+          effect. Previously, this functionality has been available via the
+          explicit x-systemd.growfs mount option, and this new flag extends
+          this to automatically discovered mounts. A new GrowFileSystem=
+          setting has been added to systemd-repart drop-in files that allows
+          configuring this partition flag. This new flag defaults to on for
+          partitions automatically created by systemd-repart, except if they
+          are marked read-only. See the specification for further details:
 
           https://systemd.io/DISCOVERABLE_PARTITIONS
 
@@ -250,27 +249,27 @@ CHANGES WITH 249 in spe:
           sockets created by the service may be bound to. This is implemented
           via BPF.
 
-        * A new ConditionFirmware= condition type has been added to unit
-          files. It may be used to detect certain firmware features. At the
-          moment it may check whether running on an UEFI system, a device.tree
-          system or if the system is compatible with some specified device-tree
-          feature.
+        * A new ConditionFirmware= condition type has been added to unit files.
+          It may be used to detect certain firmware features. At the moment it
+          may check whether running on an UEFI system, a device.tree system, or
+          if the system is compatible with some specified device-tree feature.
 
         * hostnamed gained a new Describe() D-Bus method that returns a JSON
           serialization of the host data it exposes. This is exposed via
-          "hostnamectl --json=" to acquire a host identity description in
-          JSON. It's our intention to add a similar concept to most services
-          and objects systemd manages, in order to simplify integration with
-          program code the consumes JSON.
+          "hostnamectl --json=" to acquire a host identity description in JSON.
+          It's our intention to add a similar features to most services and
+          objects systemd manages, in order to simplify integration with
+          program code that can consume JSON.
 
-        * Similar, networkd gained a Describe() method on its Manager and Link
-          bus objects. This is exposed via "networkctl --json=".
+        * Similarly, networkd gained a Describe() method on its Manager and
+          Link bus objects. This is exposed via "networkctl --json=".
 
-        * hostnamectl's various set-xyz verbs (e.g. "hostnamectl set-hostname")
-          have been renamed to just xyz (e.g. "hostnamectl hostname") and may
-          now be used to print the indicated data in terse form, instead of
-          only setting it. The old names continue to be supported for
-          compatibility.
+        * hostnamectl's various "get-xyz"/"set-xyz" verb pairs
+          (e.g. "hostnamectl get-hostname", "hostnamectl "set-hostname") have
+          been replaced by a single "xyz" verb (e.g. "hostnamectl hostname")
+          that is used both to get the value (when no argument is given), and
+          to set the value (when an argument is specified). The old names
+          continue to be supported for compatibility.
 
         * systemd-detect-virt and ConditionVirtualization= are now able to
           correctly identify Amazon EC2 environments.
@@ -283,8 +282,8 @@ CHANGES WITH 249 in spe:
 
         * bootctl gained support for a new --make-machine-id-directory= switch
           that allows precise control on whether to create the top-level
-          per-machine directory in the boot partition that typically contain
-          Type #1 boot loader entries.
+          per-machine directory in the boot partition that typically contains
+          Type 1 boot loader entries.
 
         * During build SBAT data to include in the systemd-boot EFI PE binaries
           may be specified now.
@@ -385,21 +384,20 @@ CHANGES WITH 249 in spe:
 
         * A new dependency type OnSuccess= has been added (plus the reverse
           dependency OnSuccessOf=, which cannot be configured directly, but
-          exists only as effect of the reverse OnSuccess=). It's similar to
-          OnFailure= but triggers in the opposite case: when a service exits
+          exists only as effect of the reverse OnSuccess=). It is similar to
+          OnFailure=, but triggers in the opposite case: when a service exits
           cleanly. This allows "chaining up" of services where one or more
-          services are started once another service successfully completed its
-          runtime.
+          services are started once another service has successfully completed.
 
         * A new dependency type Upholds= has been added (plus the reverse
-          dependency UpheldBy=, which cannot be configured directly, but
-          exists only as effect of the reverse Upholds=). This dependency type
-          is a stronger form of Wants=: if a unit has an UpHolds= dependency on
-          some other unit and the former is active then the latter is started
-          whenever it is found inactive (and no job queued for it). This is an
-          alternative to Restart= inside service units, but less configurable,
-          and the request to uphold a unit is not encoded in the unit itself
-          but in another unit that intends to uphold it.
+          dependency UpheldBy=, which cannot be configured directly, but exists
+          only as effect of Upholds=). This dependency type is a stronger form
+          of Wants=: if a unit has an UpHolds= dependency on some other unit
+          and the former is active then the latter is started whenever it is
+          found inactive (and no job is queued for it). This is an alternative
+          to Restart= inside service units, but less configurable, and the
+          request to uphold a unit is not encoded in the unit itself but in
+          another unit that intends to uphold it.
 
         * The systemd-ask-password tool now also supports reading passwords
           from the credentials subsystem, via the new --credential= switch.
@@ -409,10 +407,9 @@ CHANGES WITH 249 in spe:
           shown in the password prompt on suitable TTYs.
 
         * The --echo switch of systemd-ask-password now optionally takes a
-          parameter that controls whether to echo the typed in password back
-          while typing in. It may either show asterisks as echo (default, as
-          before), turn the echo off entirely, or echo the types characters
-          literally.
+          parameter that controls character echo. It may either show asterisks
+          (default, as before), turn echo off entirely, or echo the typed
+          characters literally.
 
         * New documentation has been added that describes the organization of
           the systemd source code tree:
