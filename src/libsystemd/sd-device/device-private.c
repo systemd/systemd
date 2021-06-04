@@ -743,7 +743,7 @@ int device_rename(sd_device *device, const char *name) {
 
 int device_shallow_clone(sd_device *old_device, sd_device **new_device) {
         _cleanup_(sd_device_unrefp) sd_device *ret = NULL;
-        const char *subsystem;
+        const char *val;
         int r;
 
         assert(old_device);
@@ -757,17 +757,42 @@ int device_shallow_clone(sd_device *old_device, sd_device **new_device) {
         if (r < 0)
                 return r;
 
-        if (sd_device_get_subsystem(old_device, &subsystem) >= 0) {
-                r = device_set_subsystem(ret, subsystem);
+        if (sd_device_get_subsystem(old_device, &val) >= 0) {
+                r = device_set_subsystem(ret, val);
                 if (r < 0)
                         return r;
+
+                if (streq(val, "drivers")) {
+                        ret->driver_subsystem = strdup(old_device->driver_subsystem);
+                        if (!ret->driver_subsystem)
+                                return -ENOMEM;
+                }
         } else
                 ret->subsystem_set = true;
 
-        ret->devnum = old_device->devnum;
+        /* The device seems already removed. Let's copy minimal set of information to make
+         * device_get_device_id() work. */
+
+        if (sd_device_get_property_value(old_device, "IFINDEX", &val) >= 0) {
+                r = device_set_ifindex(ret, val);
+                if (r < 0)
+                        return r;
+        }
+
+        if (sd_device_get_property_value(old_device, "MAJOR", &val) >= 0) {
+                const char *minor = NULL;
+
+                (void) sd_device_get_property_value(old_device, "MINOR", &minor);
+                r = device_set_devnum(ret, val, minor);
+                if (r < 0)
+                        return r;
+        }
+
+        /* Then, read uevent file, but ignore the error. */
+        (void) device_read_uevent_file(ret);
+        ret->uevent_loaded = true;
 
         *new_device = TAKE_PTR(ret);
-
         return 0;
 }
 
