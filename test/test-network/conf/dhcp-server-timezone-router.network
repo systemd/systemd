@@ -8,7 +8,7 @@ Address=192.168.5.2/24
 DHCPServer=yes
 
 [DHCPServer]
-Address=192.168.5.1/24
+ServerAddress=192.168.5.1/24
 PoolOffset=10
 PoolSize=50
 EmitRouter=yes

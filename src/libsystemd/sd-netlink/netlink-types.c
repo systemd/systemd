@@ -374,6 +374,7 @@ static const NLType rtnl_link_info_data_bareudp_types[] = {
         [IFLA_BAREUDP_SRCPORT_MIN]     = { .type = NETLINK_TYPE_U16 },
         [IFLA_BAREUDP_MULTIPROTO_MODE] = { .type = NETLINK_TYPE_FLAG },
 };
+
 /* these strings must match the .kind entries in the kernel */
 static const char* const nl_union_link_info_data_table[] = {
         [NL_UNION_LINK_INFO_DATA_BOND] = "bond",
@@ -559,13 +560,26 @@ static const NLTypeSystem rtnl_af_spec_inet6_type_system = {
         .types = rtnl_af_spec_inet6_types,
 };
 
-static const NLType rtnl_af_spec_types[] = {
+static const NLType rtnl_af_spec_unspec_types[] = {
         [AF_INET6] =    { .type = NETLINK_TYPE_NESTED, .type_system = &rtnl_af_spec_inet6_type_system },
 };
 
-static const NLTypeSystem rtnl_af_spec_type_system = {
-        .count = ELEMENTSOF(rtnl_af_spec_types),
-        .types = rtnl_af_spec_types,
+static const NLType rtnl_af_spec_bridge_types[] = {
+        [IFLA_BRIDGE_FLAGS]     = { .type = NETLINK_TYPE_U16 },
+        [IFLA_BRIDGE_VLAN_INFO] = { .size = sizeof(struct bridge_vlan_info) },
+};
+
+static const NLTypeSystem rtnl_af_spec_type_systems[] = {
+        [AF_UNSPEC] = { .count = ELEMENTSOF(rtnl_af_spec_unspec_types),
+                        .types = rtnl_af_spec_unspec_types },
+        [AF_BRIDGE] = { .count = ELEMENTSOF(rtnl_af_spec_bridge_types),
+                        .types = rtnl_af_spec_bridge_types },
+};
+
+static const NLTypeSystemUnion rtnl_af_spec_type_system_union = {
+        .num = AF_MAX,
+        .type_systems = rtnl_af_spec_type_systems,
+        .match_type = NL_MATCH_PROTOCOL,
 };
 
 static const NLType rtnl_prop_list_types[] = {
@@ -648,11 +662,10 @@ static const NLType rtnl_link_types[] = {
         [IFLA_VF_PORTS]         = { .type = NETLINK_TYPE_NESTED },
         [IFLA_PORT_SELF]        = { .type = NETLINK_TYPE_NESTED },
 */
-        [IFLA_AF_SPEC]          = { .type = NETLINK_TYPE_NESTED, .type_system = &rtnl_af_spec_type_system },
+        [IFLA_AF_SPEC]          = { .type = NETLINK_TYPE_UNION, .type_system_union = &rtnl_af_spec_type_system_union },
 /*
         [IFLA_VF_PORTS],
         [IFLA_PORT_SELF],
-        [IFLA_AF_SPEC],
 */
         [IFLA_GROUP]            = { .type = NETLINK_TYPE_U32 },
         [IFLA_NET_NS_FD]        = { .type = NETLINK_TYPE_U32 },
