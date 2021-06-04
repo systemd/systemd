@@ -33,6 +33,18 @@ static void test_udev_node_escape_path(void) {
         strcpy(b + sizeof(b) - 12, "N3YhcCqFeID");
 
         test_udev_node_escape_path_one(a, b);
+
+        strcpy(a + sizeof(a) - 12 - 9, "N3YhcCqFeID");
+        strcpy(b + sizeof(b) - 12, "L1oK9iKWdmi");
+        test_udev_node_escape_path_one(a, b);
+
+        strcpy(a + sizeof(a) - 12 - 9, "a");
+        strcpy(b + sizeof(b) - 12, "A7oaHBRuuZq");
+        test_udev_node_escape_path_one(a, b);
+
+        a[sizeof(a) - 12 - 9] = '\0';
+        b[sizeof(a) - 12] = '\0';
+        test_udev_node_escape_path_one(a, b);
 }
 
 int main(int argc, char *argv[]) {
