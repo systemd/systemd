@@ -242,7 +242,7 @@ CHANGES WITH 249 in spe:
           is acquired through a DHCP lease on this interface an explicit route
           to this address is created on this interface to ensure that NTP
           traffic to the NTP server acquired on an interface is also routed
-          trough that interface. The pre-existing RoutesToDNS= setting that
+          through that interface. The pre-existing RoutesToDNS= setting that
           implements the same for DNS servers is now enabled by default.
 
         * A pair of service settings SocketBindAllow= + SocketBindDeny= have
