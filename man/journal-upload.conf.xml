@@ -74,6 +74,15 @@
         <listitem><para>SSL CA certificate.</para></listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term><varname>NetworkTimeoutSec=</varname></term>
+
+        <listitem><para>When network connectivity to the server is lost, this option
+        configures the time to wait for the connectivity to get restored. If the server is
+        not reachable over the network for the configured time, systemd-journal-upload exits.
+        </para></listitem>
+      </varlistentry>
+
     </variablelist>
 
   </refsect1>
