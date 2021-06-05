@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <linux/if_alg.h>
 #include <stdbool.h>
@@ -160,8 +160,7 @@ int khash_new_with_key(khash **ret, const char *algorithm, const void *key, size
         /* Temporary fix for rc kernel bug: https://bugzilla.redhat.com/show_bug.cgi?id=1395896 */
         (void) send(h->fd, NULL, 0, 0);
 
-        *ret = h;
-        h = NULL;
+        *ret = TAKE_PTR(h);
 
         return 0;
 }
@@ -249,8 +248,8 @@ int khash_put(khash *h, const void *buffer, size_t size) {
 
 int khash_put_iovec(khash *h, const struct iovec *iovec, size_t n) {
         struct msghdr mh = {
-                mh.msg_iov = (struct iovec*) iovec,
-                mh.msg_iovlen = n,
+                .msg_iov = (struct iovec*) iovec,
+                .msg_iovlen = n,
         };
         ssize_t k;
 

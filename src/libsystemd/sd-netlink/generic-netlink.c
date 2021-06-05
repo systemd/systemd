@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <linux/genetlink.h>
 
@@ -20,18 +20,17 @@ static const genl_family genl_families[] = {
         [SD_GENL_L2TP]      = { .name = "l2tp",      .version = 1 },
         [SD_GENL_MACSEC]    = { .name = "macsec",    .version = 1 },
         [SD_GENL_NL80211]   = { .name = "nl80211",   .version = 1 },
+        [SD_GENL_BATADV]    = { .name = "batadv",    .version = 1 },
 };
 
 int sd_genl_socket_open(sd_netlink **ret) {
         return netlink_open_family(ret, NETLINK_GENERIC);
 }
-static int lookup_id(sd_netlink *nl, sd_genl_family family, uint16_t *id);
 
-static int genl_message_new(sd_netlink *nl, sd_genl_family family, uint16_t nlmsg_type, uint8_t cmd, sd_netlink_message **ret) {
+static int genl_message_new(sd_netlink *nl, sd_genl_family_t family, uint16_t nlmsg_type, uint8_t cmd, sd_netlink_message **ret) {
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
         const NLType *genl_cmd_type, *nl_type;
         const NLTypeSystem *type_system;
-        struct genlmsghdr *genl;
         size_t size;
         int r;
 
@@ -62,27 +61,18 @@ static int genl_message_new(sd_netlink *nl, sd_genl_family family, uint16_t nlms
         m->hdr->nlmsg_type = nlmsg_type;
 
         type_get_type_system(nl_type, &m->containers[0].type_system);
-        genl = NLMSG_DATA(m->hdr);
-        genl->cmd = cmd;
-        genl->version = genl_families[family].version;
+
+        *(struct genlmsghdr *) NLMSG_DATA(m->hdr) = (struct genlmsghdr) {
+                .cmd = cmd,
+                .version = genl_families[family].version,
+        };
 
         *ret = TAKE_PTR(m);
 
         return 0;
 }
 
-int sd_genl_message_new(sd_netlink *nl, sd_genl_family family, uint8_t cmd, sd_netlink_message **ret) {
-        uint16_t id;
-        int r;
-
-        r = lookup_id(nl, family, &id);
-        if (r < 0)
-                return r;
-
-        return genl_message_new(nl, family, id, cmd, ret);
-}
-
-static int lookup_id(sd_netlink *nl, sd_genl_family family, uint16_t *id) {
+static int lookup_id(sd_netlink *nl, sd_genl_family_t family, uint16_t *id) {
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL, *reply = NULL;
         uint16_t u;
         void *v;
@@ -115,19 +105,11 @@ static int lookup_id(sd_netlink *nl, sd_genl_family family, uint16_t *id) {
         if (r < 0)
                 return r;
 
-        r = hashmap_ensure_allocated(&nl->genl_family_to_nlmsg_type, NULL);
+        r = hashmap_ensure_put(&nl->genl_family_to_nlmsg_type, NULL, INT_TO_PTR(family), UINT_TO_PTR(u));
         if (r < 0)
                 return r;
 
-        r = hashmap_ensure_allocated(&nl->nlmsg_type_to_genl_family, NULL);
-        if (r < 0)
-                return r;
-
-        r = hashmap_put(nl->genl_family_to_nlmsg_type, INT_TO_PTR(family), UINT_TO_PTR(u));
-        if (r < 0)
-                return r;
-
-        r = hashmap_put(nl->nlmsg_type_to_genl_family, UINT_TO_PTR(u), INT_TO_PTR(family));
+        r = hashmap_ensure_put(&nl->nlmsg_type_to_genl_family, NULL, UINT_TO_PTR(u), INT_TO_PTR(family));
         if (r < 0)
                 return r;
 
@@ -135,7 +117,18 @@ static int lookup_id(sd_netlink *nl, sd_genl_family family, uint16_t *id) {
         return 0;
 }
 
-int nlmsg_type_to_genl_family(const sd_netlink *nl, uint16_t type, sd_genl_family *ret) {
+int sd_genl_message_new(sd_netlink *nl, sd_genl_family_t family, uint8_t cmd, sd_netlink_message **ret) {
+        uint16_t id = 0; /* Unnecessary initialization to appease gcc */
+        int r;
+
+        r = lookup_id(nl, family, &id);
+        if (r < 0)
+                return r;
+
+        return genl_message_new(nl, family, id, cmd, ret);
+}
+
+int nlmsg_type_to_genl_family(const sd_netlink *nl, uint16_t type, sd_genl_family_t *ret) {
         void *p;
 
         assert_return(nl, -EINVAL);
@@ -159,7 +152,7 @@ int nlmsg_type_to_genl_family(const sd_netlink *nl, uint16_t type, sd_genl_famil
         return 0;
 }
 
-int sd_genl_message_get_family(const sd_netlink *nl, const sd_netlink_message *m, sd_genl_family *family) {
+int sd_genl_message_get_family(sd_netlink *nl, sd_netlink_message *m, sd_genl_family_t *family) {
         uint16_t type;
         int r;
 

@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+
+/* SPDX-License-Identifier: LGPL-2.1-or-later
  * Copyright © 2020 VMware, Inc. */
 
 #include "alloc-util.h"
@@ -17,7 +17,7 @@ static int sr_iov_new(SRIOV **ret) {
                 return -ENOMEM;
 
         *sr_iov = (SRIOV) {
-                  .vf = (uint32_t) -1,
+                  .vf = UINT32_MAX,
                   .vlan_proto = ETH_P_8021Q,
                   .vf_spoof_check_setting = -1,
                   .trust = -1,
@@ -58,11 +58,7 @@ static int sr_iov_new_static(Network *network, const char *filename, unsigned se
         sr_iov->network = network;
         sr_iov->section = TAKE_PTR(n);
 
-        r = ordered_hashmap_ensure_allocated(&network->sr_iov_by_section, &network_config_hash_ops);
-        if (r < 0)
-                return r;
-
-        r = ordered_hashmap_put(network->sr_iov_by_section, sr_iov->section, sr_iov);
+        r = ordered_hashmap_ensure_put(&network->sr_iov_by_section, &network_config_hash_ops, sr_iov->section, sr_iov);
         if (r < 0)
                 return r;
 
@@ -108,7 +104,7 @@ static int sr_iov_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
         return 1;
 }
 
-int sr_iov_configure(Link *link, SRIOV *sr_iov) {
+static int sr_iov_configure(Link *link, SRIOV *sr_iov) {
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL;
         int r;
 
@@ -226,19 +222,57 @@ int sr_iov_configure(Link *link, SRIOV *sr_iov) {
         return 0;
 }
 
-int sr_iov_section_verify(SRIOV *sr_iov) {
+int link_configure_sr_iov(Link *link) {
+        SRIOV *sr_iov;
+        int r;
+
+        assert(link);
+        assert(link->network);
+
+        if (link->sr_iov_messages != 0) {
+                log_link_debug(link, "SR-IOV is configuring.");
+                return 0;
+        }
+
+        link->sr_iov_configured = false;
+
+        ORDERED_HASHMAP_FOREACH(sr_iov, link->network->sr_iov_by_section) {
+                r = sr_iov_configure(link, sr_iov);
+                if (r < 0)
+                        return r;
+        }
+
+        if (link->sr_iov_messages == 0)
+                link->sr_iov_configured = true;
+        else
+                log_link_debug(link, "Configuring SR-IOV");
+
+        return 0;
+}
+
+static int sr_iov_section_verify(SRIOV *sr_iov) {
         assert(sr_iov);
 
         if (section_is_invalid(sr_iov->section))
                 return -EINVAL;
 
-        if (sr_iov->vf == (uint32_t) -1)
+        if (sr_iov->vf == UINT32_MAX)
                 return log_warning_errno(SYNTHETIC_ERRNO(EINVAL),
                                          "%s: [SRIOV] section without VirtualFunction= field configured. "
                                          "Ignoring [SRIOV] section from line %u.",
                                          sr_iov->section->filename, sr_iov->section->line);
 
         return 0;
+}
+
+void network_drop_invalid_sr_iov(Network *network) {
+        SRIOV *sr_iov;
+
+        assert(network);
+
+        ORDERED_HASHMAP_FOREACH(sr_iov, network->sr_iov_by_section)
+                if (sr_iov_section_verify(sr_iov) < 0)
+                        sr_iov_free(sr_iov);
 }
 
 int config_parse_sr_iov_uint32(
@@ -269,7 +303,7 @@ int config_parse_sr_iov_uint32(
 
         if (isempty(rvalue)) {
                 if (streq(lvalue, "VirtualFunction"))
-                        sr_iov->vf = (uint32_t) -1;
+                        sr_iov->vf = UINT32_MAX;
                 else if (streq(lvalue, "VLANId"))
                         sr_iov->vlan = 0;
                 else if (streq(lvalue, "QualityOfService"))

@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: GPL-2.0+ */
+/* SPDX-License-Identifier: GPL-2.0-or-later */
 /*
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -41,8 +41,8 @@ static int help(void) {
                "  -p --property=KEY=VALUE  Set a global property for all events\n"
                "  -m --children-max=N      Maximum number of children\n"
                "     --ping                Wait for udev to respond to a ping message\n"
-               "  -t --timeout=SECONDS     Maximum time to block for a reply\n"
-               , program_invocation_short_name);
+               "  -t --timeout=SECONDS     Maximum time to block for a reply\n",
+               program_invocation_short_name);
 
         return 0;
 }

@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: LGPL-2.1+
+# SPDX-License-Identifier: LGPL-2.1-or-later
 
 # Message catalog for systemd's own messages
 # Polish translation
@@ -92,7 +92,7 @@ gdb(1) będą ostrzegały o skróceniu pliku.
 Subject: Utworzono nową sesję @SESSION_ID@ dla użytkownika @USER_ID@
 Defined-By: systemd
 Support: %SUPPORT_URL%
-Documentation: https://www.freedesktop.org/wiki/Software/systemd/multiseat
+Documentation: sd-login(3)
 
 Nowa sesja o identyfikatorze @SESSION_ID@ została utworzona dla użytkownika
 @USER_ID@.
@@ -103,7 +103,7 @@ Proces prowadzący sesji: @LEADER@.
 Subject: Zakończono sesję @SESSION_ID@
 Defined-By: systemd
 Support: %SUPPORT_URL%
-Documentation: https://www.freedesktop.org/wiki/Software/systemd/multiseat
+Documentation: sd-login(3)
 
 Sesja o identyfikatorze @SESSION_ID@ została zakończona.
 
@@ -111,7 +111,7 @@ Sesja o identyfikatorze @SESSION_ID@ została zakończona.
 Subject: Dostępne jest nowe stanowisko @SEAT_ID@
 Defined-By: systemd
 Support: %SUPPORT_URL%
-Documentation: https://www.freedesktop.org/wiki/Software/systemd/multiseat
+Documentation: sd-login(3)
 
 Nowe stanowisko @SEAT_ID@ zostało skonfigurowane i jest teraz dostępne.
 
@@ -119,7 +119,7 @@ Nowe stanowisko @SEAT_ID@ zostało skonfigurowane i jest teraz dostępne.
 Subject: Usunięto stanowisko @SEAT_ID@
 Defined-By: systemd
 Support: %SUPPORT_URL%
-Documentation: https://www.freedesktop.org/wiki/Software/systemd/multiseat
+Documentation: sd-login(3)
 
 Stanowisko @SEAT_ID@ zostało usunięte i nie jest już dostępne.
 

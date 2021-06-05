@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <errno.h>
 
@@ -27,7 +27,7 @@ int query_volatile_mode(VolatileMode *ret) {
 
                 m = volatile_mode_from_string(mode);
                 if (m < 0)
-                        return -EINVAL;
+                        return m;
 
                 *ret = m;
         } else

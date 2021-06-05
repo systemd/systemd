@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: GPL-2.0+ */
+/* SPDX-License-Identifier: GPL-2.0-or-later */
 /*
  * Copyright © 2003-2004 Greg Kroah-Hartman <greg@kroah.com>
  */
@@ -16,7 +16,6 @@
 
 #include "device-private.h"
 #include "device-util.h"
-#include "libudev-util.h"
 #include "path-util.h"
 #include "string-util.h"
 #include "strxcpyx.h"
@@ -26,7 +25,7 @@
 
 static const char *arg_action = "add";
 static ResolveNameTiming arg_resolve_name_timing = RESOLVE_NAME_EARLY;
-static char arg_syspath[UTIL_PATH_SIZE] = {};
+static char arg_syspath[UDEV_PATH_SIZE] = {};
 
 static int help(void) {
 
@@ -35,8 +34,8 @@ static int help(void) {
                "  -h --help                            Show this help\n"
                "  -V --version                         Show package version\n"
                "  -a --action=ACTION|help              Set action string\n"
-               "  -N --resolve-names=early|late|never  When to resolve names\n"
-               , program_invocation_short_name);
+               "  -N --resolve-names=early|late|never  When to resolve names\n",
+               program_invocation_short_name);
 
         return 0;
 }
@@ -55,7 +54,7 @@ static int parse_argv(int argc, char *argv[]) {
         while ((c = getopt_long(argc, argv, "a:N:Vh", options, NULL)) >= 0)
                 switch (c) {
                 case 'a': {
-                        DeviceAction a;
+                        sd_device_action_t a;
 
                         if (streq(optarg, "help")) {
                                 dump_device_action_table();
@@ -64,10 +63,9 @@ static int parse_argv(int argc, char *argv[]) {
 
                         a = device_action_from_string(optarg);
                         if (a < 0)
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "Invalid action '%s'", optarg);
+                                return log_error_errno(a, "Invalid action '%s'", optarg);
 
-                        arg_action = optarg;
+                        arg_action = device_action_to_string(a);
                         break;
                 }
                 case 'N':
@@ -138,18 +136,18 @@ int test_main(int argc, char *argv[], void *userdata) {
         /* don't read info from the db */
         device_seal(dev);
 
-        event = udev_event_new(dev, 0, NULL);
+        event = udev_event_new(dev, 0, NULL, LOG_DEBUG);
 
         assert_se(sigfillset(&mask) >= 0);
         assert_se(sigprocmask(SIG_SETMASK, &mask, &sigmask_orig) >= 0);
 
-        udev_event_execute_rules(event, 60 * USEC_PER_SEC, SIGKILL, NULL, rules);
+        udev_event_execute_rules(event, -1, 60 * USEC_PER_SEC, SIGKILL, NULL, rules);
 
         FOREACH_DEVICE_PROPERTY(dev, key, value)
                 printf("%s=%s\n", key, value);
 
         ORDERED_HASHMAP_FOREACH_KEY(val, cmd, event->run_list) {
-                char program[UTIL_PATH_SIZE];
+                char program[UDEV_PATH_SIZE];
 
                 (void) udev_event_apply_format(event, cmd, program, sizeof(program), false);
                 printf("run: '%s'\n", program);

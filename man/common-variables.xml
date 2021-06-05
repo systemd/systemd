@@ -1,0 +1,199 @@
+<?xml version="1.0"?>
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
+
+<refsect1>
+  <title>Environment</title>
+
+  <variablelist class='environment-variables'>
+    <varlistentry id='log-level'>
+      <term><varname>$SYSTEMD_LOG_LEVEL</varname></term>
+
+      <listitem><para id='log-level-body'>The maximum log level of emitted messages (messages with a higher
+      log level, i.e. less important ones, will be suppressed). Either one of (in order of decreasing
+      importance) <constant>emerg</constant>, <constant>alert</constant>, <constant>crit</constant>,
+      <constant>err</constant>, <constant>warning</constant>, <constant>notice</constant>,
+      <constant>info</constant>, <constant>debug</constant>, or an integer in the range 0…7. See
+      <citerefentry project='man-pages'><refentrytitle>syslog</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+      for more information.</para>
+      </listitem>
+    </varlistentry>
+
+    <varlistentry id='log-color'>
+      <term><varname>$SYSTEMD_LOG_COLOR</varname></term>
+
+      <listitem><para id='log-color-body'>A boolean. If true, messages written to the tty will be colored
+      according to priority.</para>
+
+      <para>This setting is only useful when messages are written directly to the terminal, because
+      <citerefentry><refentrytitle>journalctl</refentrytitle><manvolnum>1</manvolnum></citerefentry> and
+      other tools that display logs will color messages based on the log level on their own.</para>
+      </listitem>
+    </varlistentry>
+
+    <varlistentry id='log-time'>
+      <term><varname>$SYSTEMD_LOG_TIME</varname></term>
+
+      <listitem><para id='log-time-body'>A boolean. If true, log messages will be prefixed with a
+      timestamp.</para>
+
+      <para>This setting is only useful when messages are written directly to the terminal or a file, because
+      <citerefentry><refentrytitle>journalctl</refentrytitle><manvolnum>1</manvolnum></citerefentry> and
+      other tools that display logs will attach timestamps based on the entry metadata on their own.</para>
+      </listitem>
+    </varlistentry>
+
+    <varlistentry id='log-location'>
+      <term><varname>$SYSTEMD_LOG_LOCATION</varname></term>
+
+      <listitem><para id='log-location-body'>A boolean. If true, messages will be prefixed with a filename
+      and line number in the source code where the message originates.</para>
+
+      <para>Note that the log location is often attached as metadata to journal entries anyway. Including it
+      directly in the message text can nevertheless be convenient when debugging programs.</para>
+      </listitem>
+    </varlistentry>
+
+    <varlistentry id='log-tid'>
+      <term><varname>$SYSTEMD_LOG_TID</varname></term>
+
+      <listitem><para id='log-tid-body'>A boolean. If true, messages will be prefixed with the current
+      numerical thread ID (TID).</para>
+
+      <para>Note that the this information is attached as metadata to journal entries anyway. Including it
+      directly in the message text can nevertheless be convenient when debugging programs.</para>
+      </listitem>
+    </varlistentry>
+
+    <varlistentry id='log-target'>
+      <term><varname>$SYSTEMD_LOG_TARGET</varname></term>
+
+      <listitem><para id='log-target-body'>The destination for log messages. One of
+      <constant>console</constant> (log to the attached tty), <constant>console-prefixed</constant> (log to
+      the attached tty but with prefixes encoding the log level and "facility", see <citerefentry
+      project='man-pages'><refentrytitle>syslog</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+      <constant>kmsg</constant> (log to the kernel circular log buffer), <constant>journal</constant> (log to
+      the journal), <constant>journal-or-kmsg</constant> (log to the journal if available, and to kmsg
+      otherwise), <constant>auto</constant> (determine the appropriate log target automatically, the default),
+      <constant>null</constant> (disable log output).</para>
+      <!-- <constant>syslog</constant>, <constant>syslog-or-kmsg</constant> are deprecated -->
+      </listitem>
+    </varlistentry>
+
+    <varlistentry id='pager'>
+      <term><varname>$SYSTEMD_PAGER</varname></term>
+
+      <listitem><para>Pager to use when <option>--no-pager</option> is not given; overrides
+      <varname>$PAGER</varname>. If neither <varname>$SYSTEMD_PAGER</varname> nor <varname>$PAGER</varname> are set, a
+      set of well-known pager implementations are tried in turn, including
+      <citerefentry project='man-pages'><refentrytitle>less</refentrytitle><manvolnum>1</manvolnum></citerefentry> and
+      <citerefentry project='man-pages'><refentrytitle>more</refentrytitle><manvolnum>1</manvolnum></citerefentry>, until one is found. If
+      no pager implementation is discovered no pager is invoked. Setting this environment variable to an empty string
+      or the value <literal>cat</literal> is equivalent to passing <option>--no-pager</option>.</para></listitem>
+    </varlistentry>
+
+    <varlistentry id='less'>
+      <term><varname>$SYSTEMD_LESS</varname></term>
+
+      <listitem><para>Override the options passed to <command>less</command> (by default
+      <literal>FRSXMK</literal>).</para>
+
+      <para>Users might want to change two options in particular:</para>
+
+      <variablelist>
+        <varlistentry>
+          <term><option>K</option></term>
+
+          <para>This option instructs the pager to exit immediately when
+          <keycombo><keycap>Ctrl</keycap><keycap>C</keycap></keycombo> is pressed. To allow
+          <command>less</command> to handle <keycombo><keycap>Ctrl</keycap><keycap>C</keycap></keycombo>
+          itself to switch back to the pager command prompt, unset this option.</para>
+
+          <para>If the value of <varname>$SYSTEMD_LESS</varname> does not include <literal>K</literal>,
+          and the pager that is invoked is <command>less</command>,
+          <keycombo><keycap>Ctrl</keycap><keycap>C</keycap></keycombo> will be ignored by the
+          executable, and needs to be handled by the pager.</para>
+        </varlistentry>
+
+        <varlistentry>
+          <term><option>X</option></term>
+
+          <para>This option instructs the pager to not send termcap initialization and deinitialization
+          strings to the terminal. It is set by default to allow command output to remain visible in the
+          terminal even after the pager exits. Nevertheless, this prevents some pager functionality from
+          working, in particular paged output cannot be scrolled with the mouse.</para>
+        </varlistentry>
+      </variablelist>
+
+      <para>See
+      <citerefentry project='man-pages'><refentrytitle>less</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+      for more discussion.</para></listitem>
+    </varlistentry>
+
+    <varlistentry id='lesscharset'>
+      <term><varname>$SYSTEMD_LESSCHARSET</varname></term>
+
+      <listitem><para>Override the charset passed to <command>less</command> (by default <literal>utf-8</literal>, if
+      the invoking terminal is determined to be UTF-8 compatible).</para></listitem>
+    </varlistentry>
+
+    <varlistentry id='lesssecure'>
+      <term><varname>$SYSTEMD_PAGERSECURE</varname></term>
+
+      <listitem><para>Takes a boolean argument. When true, the "secure" mode of the pager is enabled; if
+      false, disabled. If <varname>$SYSTEMD_PAGERSECURE</varname> is not set at all, secure mode is enabled
+      if the effective UID is not the same as the owner of the login session, see
+      <citerefentry project='man-pages'><refentrytitle>geteuid</refentrytitle><manvolnum>2</manvolnum></citerefentry>
+      and <citerefentry><refentrytitle>sd_pid_get_owner_uid</refentrytitle><manvolnum>3</manvolnum></citerefentry>.
+      In secure mode, <option>LESSSECURE=1</option> will be set when invoking the pager, and the pager shall
+      disable commands that open or create new files or start new subprocesses. When
+      <varname>$SYSTEMD_PAGERSECURE</varname> is not set at all, pagers which are not known to implement
+      secure mode will not be used. (Currently only
+      <citerefentry project='man-pages'><refentrytitle>less</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+      implements secure mode.)</para>
+
+      <para>Note: when commands are invoked with elevated privileges, for example under <citerefentry
+      project='man-pages'><refentrytitle>sudo</refentrytitle><manvolnum>8</manvolnum></citerefentry> or
+      <citerefentry
+      project='die-net'><refentrytitle>pkexec</refentrytitle><manvolnum>1</manvolnum></citerefentry>, care
+      must be taken to ensure that unintended interactive features are not enabled. "Secure" mode for the
+      pager may be enabled automatically as describe above. Setting <varname>SYSTEMD_PAGERSECURE=0</varname>
+      or not removing it from the inherited environment allows the user to invoke arbitrary commands. Note
+      that if the <varname>$SYSTEMD_PAGER</varname> or <varname>$PAGER</varname> variables are to be
+      honoured, <varname>$SYSTEMD_PAGERSECURE</varname> must be set too. It might be reasonable to completely
+      disable the pager using <option>--no-pager</option> instead.</para></listitem>
+    </varlistentry>
+
+    <varlistentry id='colors'>
+      <term><varname>$SYSTEMD_COLORS</varname></term>
+
+      <listitem><para>Takes a boolean argument. When true, <command>systemd</command> and related utilities
+      will use colors in their output, otherwise the output will be monochrome. Additionally, the variable can
+      take one of the following special values: <literal>16</literal>, <literal>256</literal> to restrict the use
+      of colors to the base 16 or 256 ANSI colors, respectively. This can be specified to override the automatic
+      decision based on <varname>$TERM</varname> and what the console is connected to.</para></listitem>
+    </varlistentry>
+
+    <!-- This is not documented on purpose, because it is not clear if $NO_COLOR will become supported
+         widely enough. So let's provide support, but without advertising this.
+    <varlistentry id='no-color'>
+      <term><varname>$NO_COLOR</varname></term>
+
+      <listitem><para>If set (to any value), and <varname>$SYSTEMD_COLORS</varname> is not set, equivalent to
+      <option>SYSTEMD_COLORS=0</option>. See <ulink url="https://no-color.org/">no-color.org</ulink>.</para>
+      </listitem>
+    </varlistentry>
+    -->
+
+    <varlistentry id='urlify'>
+      <term><varname>$SYSTEMD_URLIFY</varname></term>
+
+      <listitem><para>The value must be a boolean. Controls whether clickable links should be generated in
+      the output for terminal emulators supporting this. This can be specified to override the decision that
+      <command>systemd</command> makes based on <varname>$TERM</varname> and other conditions.</para>
+      </listitem>
+    </varlistentry>
+
+  </variablelist>
+</refsect1>

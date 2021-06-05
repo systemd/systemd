@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "alloc-util.h"
 #include "fd-util.h"
@@ -74,7 +74,7 @@ int process_source(RemoteSource *source, bool compress, bool seal) {
                          &source->importer.boot_id,
                          compress, seal);
         if (r == -EBADMSG) {
-                log_error_errno(r, "Entry is invalid, ignoring.");
+                log_warning_errno(r, "Entry is invalid, ignoring.");
                 r = 0;
         } else if (r < 0)
                 log_error_errno(r, "Failed to write entry of %zu bytes: %m",

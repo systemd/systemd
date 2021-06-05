@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <errno.h>
 #include <stdio.h>
@@ -20,7 +20,7 @@ int main(int argc, char *argv[]) {
                 return EXIT_FAILURE;
         }
 
-        log_setup_service();
+        log_setup();
 
         umask(0022);
 

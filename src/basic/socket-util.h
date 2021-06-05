@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
 #include <inttypes.h>
@@ -14,7 +14,9 @@
 #include <sys/types.h>
 #include <sys/un.h>
 
+#include "errno-util.h"
 #include "macro.h"
+#include "missing_network.h"
 #include "missing_socket.h"
 #include "sparse-endian.h"
 
@@ -62,7 +64,7 @@ typedef enum SocketAddressBindIPv6Only {
         SOCKET_ADDRESS_BOTH,
         SOCKET_ADDRESS_IPV6_ONLY,
         _SOCKET_ADDRESS_BIND_IPV6_ONLY_MAX,
-        _SOCKET_ADDRESS_BIND_IPV6_ONLY_INVALID = -1
+        _SOCKET_ADDRESS_BIND_IPV6_ONLY_INVALID = -EINVAL,
 } SocketAddressBindIPv6Only;
 
 #define socket_address_family(a) ((a)->sockaddr.sa.sa_family)
@@ -100,8 +102,10 @@ bool socket_address_equal(const SocketAddress *a, const SocketAddress *b) _pure_
 const char* socket_address_get_path(const SocketAddress *a);
 
 bool socket_ipv6_is_supported(void);
+bool socket_ipv6_is_enabled(void);
 
 int sockaddr_port(const struct sockaddr *_sa, unsigned *port);
+const union in_addr_union *sockaddr_in_addr(const struct sockaddr *sa);
 
 int sockaddr_pretty(const struct sockaddr *_sa, socklen_t salen, bool translate_ipv6, bool include_port, char **ret);
 int getpeername_pretty(int fd, bool include_port, char **ret);
@@ -131,9 +135,9 @@ int ip_tos_to_string_alloc(int i, char **s);
 int ip_tos_from_string(const char *s);
 
 typedef enum {
-      IFNAME_VALID_ALTERNATIVE = 1 << 0,
-      IFNAME_VALID_NUMERIC     = 1 << 1,
-      _IFNAME_VALID_ALL        = IFNAME_VALID_ALTERNATIVE | IFNAME_VALID_NUMERIC,
+        IFNAME_VALID_ALTERNATIVE = 1 << 0,
+        IFNAME_VALID_NUMERIC     = 1 << 1,
+        _IFNAME_VALID_ALL        = IFNAME_VALID_ALTERNATIVE | IFNAME_VALID_NUMERIC,
 } IfnameValidFlags;
 bool ifname_valid_full(const char *p, IfnameValidFlags flags);
 static inline bool ifname_valid(const char *p) {
@@ -256,6 +260,19 @@ static inline int setsockopt_int(int fd, int level, int optname, int value) {
         return 0;
 }
 
+static inline int getsockopt_int(int fd, int level, int optname, int *ret) {
+        int v;
+        socklen_t sl = sizeof(v);
+
+        if (getsockopt(fd, level, optname, &v, &sl) < 0)
+                return negative_errno();
+        if (sl != sizeof(v))
+                return -EIO;
+
+        *ret = v;
+        return 0;
+}
+
 int socket_bind_to_ifname(int fd, const char *ifname);
 int socket_bind_to_ifindex(int fd, int ifindex);
 
@@ -263,9 +280,26 @@ ssize_t recvmsg_safe(int sockfd, struct msghdr *msg, int flags);
 
 int socket_get_family(int fd, int *ret);
 int socket_set_recvpktinfo(int fd, int af, bool b);
-int socket_set_recverr(int fd, int af, bool b);
-int socket_set_recvttl(int fd, int af, bool b);
-int socket_set_ttl(int fd, int af, int ttl);
 int socket_set_unicast_if(int fd, int af, int ifi);
-int socket_set_freebind(int fd, int af, bool b);
-int socket_set_transparent(int fd, int af, bool b);
+
+int socket_set_option(int fd, int af, int opt_ipv4, int opt_ipv6, int val);
+static inline int socket_set_recverr(int fd, int af, bool b) {
+        return socket_set_option(fd, af, IP_RECVERR, IPV6_RECVERR, b);
+}
+static inline int socket_set_recvttl(int fd, int af, bool b) {
+        return socket_set_option(fd, af, IP_RECVTTL, IPV6_RECVHOPLIMIT, b);
+}
+static inline int socket_set_ttl(int fd, int af, int ttl) {
+        return socket_set_option(fd, af, IP_TTL, IPV6_UNICAST_HOPS, ttl);
+}
+static inline int socket_set_freebind(int fd, int af, bool b) {
+        return socket_set_option(fd, af, IP_FREEBIND, IPV6_FREEBIND, b);
+}
+static inline int socket_set_transparent(int fd, int af, bool b) {
+        return socket_set_option(fd, af, IP_TRANSPARENT, IPV6_TRANSPARENT, b);
+}
+static inline int socket_set_recvfragsize(int fd, int af, bool b) {
+        return socket_set_option(fd, af, IP_RECVFRAGSIZE, IPV6_RECVFRAGSIZE, b);
+}
+
+int socket_get_mtu(int fd, int af, size_t *ret);

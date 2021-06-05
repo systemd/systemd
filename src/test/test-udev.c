@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 /***
   Copyright © 2003-2004 Greg Kroah-Hartman <greg@kroah.com>
 ***/
@@ -11,7 +11,6 @@
 #include <sys/signalfd.h>
 #include <unistd.h>
 
-#include "build.h"
 #include "device-private.h"
 #include "fs-util.h"
 #include "log.h"
@@ -24,6 +23,7 @@
 #include "string-util.h"
 #include "tests.h"
 #include "udev-event.h"
+#include "version.h"
 
 static int fake_filesystems(void) {
         static const struct fakefs {
@@ -102,7 +102,7 @@ static int run(int argc, char *argv[]) {
         if (r < 0)
                 return log_debug_errno(r, "Failed to open device '%s'", devpath);
 
-        assert_se(event = udev_event_new(dev, 0, NULL));
+        assert_se(event = udev_event_new(dev, 0, NULL, log_get_max_level()));
 
         assert_se(sigprocmask_many(SIG_BLOCK, NULL, SIGTERM, SIGINT, SIGHUP, SIGCHLD, -1) >= 0);
 
@@ -130,7 +130,7 @@ static int run(int argc, char *argv[]) {
                 }
         }
 
-        udev_event_execute_rules(event, 3 * USEC_PER_SEC, SIGKILL, NULL, rules);
+        udev_event_execute_rules(event, -1, 3 * USEC_PER_SEC, SIGKILL, NULL, rules);
         udev_event_execute_run(event, 3 * USEC_PER_SEC, SIGKILL);
 
         return 0;

@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
 typedef struct Socket Socket;
@@ -16,7 +16,7 @@ typedef enum SocketExecCommand {
         SOCKET_EXEC_STOP_PRE,
         SOCKET_EXEC_STOP_POST,
         _SOCKET_EXEC_COMMAND_MAX,
-        _SOCKET_EXEC_COMMAND_INVALID = -1
+        _SOCKET_EXEC_COMMAND_INVALID = -EINVAL,
 } SocketExecCommand;
 
 typedef enum SocketType {
@@ -26,7 +26,7 @@ typedef enum SocketType {
         SOCKET_MQUEUE,
         SOCKET_USB_FUNCTION,
         _SOCKET_TYPE_MAX,
-        _SOCKET_TYPE_INVALID = -1
+        _SOCKET_TYPE_INVALID = -EINVAL,
 } SocketType;
 
 typedef enum SocketResult {
@@ -40,7 +40,7 @@ typedef enum SocketResult {
         SOCKET_FAILURE_TRIGGER_LIMIT_HIT,
         SOCKET_FAILURE_SERVICE_START_LIMIT_HIT,
         _SOCKET_RESULT_MAX,
-        _SOCKET_RESULT_INVALID = -1
+        _SOCKET_RESULT_INVALID = -EINVAL,
 } SocketResult;
 
 typedef struct SocketPort {
@@ -57,6 +57,14 @@ typedef struct SocketPort {
 
         LIST_FIELDS(struct SocketPort, port);
 } SocketPort;
+
+typedef enum SocketTimestamping {
+        SOCKET_TIMESTAMPING_OFF,
+        SOCKET_TIMESTAMPING_US,  /* SO_TIMESTAMP */
+        SOCKET_TIMESTAMPING_NS,  /* SO_TIMESTAMPNS */
+        _SOCKET_TIMESTAMPING_MAX,
+        _SOCKET_TIMESTAMPING_INVALID = -EINVAL,
+} SocketTimestamping;
 
 struct Socket {
         Unit meta;
@@ -123,6 +131,7 @@ struct Socket {
         bool pass_cred;
         bool pass_sec;
         bool pass_pktinfo;
+        SocketTimestamping timestamping;
 
         /* Only for INET6 sockets: issue IPV6_V6ONLY sockopt */
         SocketAddressBindIPv6Only bind_ipv6_only;
@@ -181,5 +190,9 @@ SocketResult socket_result_from_string(const char *s) _pure_;
 
 const char* socket_port_type_to_string(SocketPort *p) _pure_;
 SocketType socket_port_type_from_string(const char *p) _pure_;
+
+const char* socket_timestamping_to_string(SocketTimestamping p) _const_;
+SocketTimestamping socket_timestamping_from_string(const char *p) _pure_;
+SocketTimestamping socket_timestamping_from_string_harder(const char *p) _pure_;
 
 DEFINE_CAST(SOCKET, Socket);

@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <errno.h>
 #include <getopt.h>
@@ -48,11 +48,11 @@ static int help(void) {
                "     --status=TEXT     Set status text\n"
                "     --booted          Check if the system was booted up with systemd\n"
                "     --no-block        Do not wait until operation finished\n"
-               "\nSee the %s for details.\n"
-               , program_invocation_short_name
-               , ansi_highlight(), ansi_normal()
-               , link
-        );
+               "\nSee the %s for details.\n",
+               program_invocation_short_name,
+               ansi_highlight(),
+               ansi_normal(),
+               link);
 
         return 0;
 }
@@ -202,8 +202,15 @@ static int run(int argc, char* argv[]) {
         if (r <= 0)
                 return r;
 
-        if (arg_booted)
-                return sd_booted() <= 0;
+        if (arg_booted) {
+                r = sd_booted();
+                if (r < 0)
+                        log_debug_errno(r, "Failed to determine whether we are booted with systemd, assuming we aren't: %m");
+                else
+                        log_debug("The system %s booted with systemd.", r ? "was" : "was not");
+
+                return r <= 0;
+        }
 
         if (arg_ready)
                 our_env[i++] = (char*) "READY=1";
@@ -241,11 +248,11 @@ static int run(int argc, char* argv[]) {
            ucred data, and sd_pid_notify() uses the real UID for filling in ucred. */
 
         if (arg_gid != GID_INVALID &&
-            setregid(arg_gid, (gid_t) -1) < 0)
+            setregid(arg_gid, GID_INVALID) < 0)
                 return log_error_errno(errno, "Failed to change GID: %m");
 
         if (arg_uid != UID_INVALID &&
-            setreuid(arg_uid, (uid_t) -1) < 0)
+            setreuid(arg_uid, UID_INVALID) < 0)
                 return log_error_errno(errno, "Failed to change UID: %m");
 
         if (arg_pid > 0)
@@ -278,4 +285,4 @@ static int run(int argc, char* argv[]) {
         return 0;
 }
 
-DEFINE_MAIN_FUNCTION(run);
+DEFINE_MAIN_FUNCTION_WITH_POSITIVE_FAILURE (run);

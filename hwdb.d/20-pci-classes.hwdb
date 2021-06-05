@@ -11,6 +11,9 @@ pci:v*d*sv*sd*bc00sc00*
 pci:v*d*sv*sd*bc00sc01*
  ID_PCI_SUBCLASS_FROM_DATABASE=VGA compatible unclassified device
 
+pci:v*d*sv*sd*bc00sc05*
+ ID_PCI_SUBCLASS_FROM_DATABASE=Image coprocessor
+
 pci:v*d*sv*sd*bc01*
  ID_PCI_CLASS_FROM_DATABASE=Mass storage controller
 
@@ -376,6 +379,12 @@ pci:v*d*sv*sd*bc08sc06*
 
 pci:v*d*sv*sd*bc08sc80*
  ID_PCI_SUBCLASS_FROM_DATABASE=System peripheral
+
+pci:v*d*sv*sd*bc08sc99*
+ ID_PCI_SUBCLASS_FROM_DATABASE=Timing Card
+
+pci:v*d*sv*sd*bc08sc99i01*
+ ID_PCI_INTERFACE_FROM_DATABASE=TAP Timing Card
 
 pci:v*d*sv*sd*bc09*
  ID_PCI_CLASS_FROM_DATABASE=Input device controller

@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <sys/wait.h>
 
@@ -13,6 +13,7 @@
 #include "parse-util.h"
 #include "path-util.h"
 #include "process-util.h"
+#include "random-util.h"
 #include "rm-rf.h"
 #include "signal-util.h"
 #include "stdio-util.h"
@@ -201,6 +202,8 @@ static void test_basic(bool with_pidfd) {
         uint64_t event_now;
         int64_t priority;
 
+        log_info("/* %s(pidfd=%s) */", __func__, yes_no(with_pidfd));
+
         assert_se(setenv("SYSTEMD_PIDFD", yes_no(with_pidfd), 1) >= 0);
 
         assert_se(pipe(a) >= 0);
@@ -217,7 +220,7 @@ static void test_basic(bool with_pidfd) {
         got_unref = false;
         assert_se(sd_event_add_io(e, &t, k[0], EPOLLIN, unref_handler, NULL) >= 0);
         assert_se(write(k[1], &ch, 1) == 1);
-        assert_se(sd_event_run(e, (uint64_t) -1) >= 1);
+        assert_se(sd_event_run(e, UINT64_MAX) >= 1);
         assert_se(got_unref);
 
         got_a = false, got_b = false, got_c = false, got_d = 0;
@@ -227,10 +230,10 @@ static void test_basic(bool with_pidfd) {
         assert_se(sd_event_add_io(e, &w, d[0], EPOLLIN, io_handler, INT_TO_PTR('d')) >= 0);
         assert_se(sd_event_source_set_enabled(w, SD_EVENT_ONESHOT) >= 0);
         assert_se(write(d[1], &ch, 1) >= 0);
-        assert_se(sd_event_run(e, (uint64_t) -1) >= 1);
+        assert_se(sd_event_run(e, UINT64_MAX) >= 1);
         assert_se(got_d == 1);
         assert_se(write(d[1], &ch, 1) >= 0);
-        assert_se(sd_event_run(e, (uint64_t) -1) >= 1);
+        assert_se(sd_event_run(e, UINT64_MAX) >= 1);
         assert_se(got_d == 2);
 
         assert_se(sd_event_add_io(e, &x, a[0], EPOLLIN, io_handler, INT_TO_PTR('a')) >= 0);
@@ -258,15 +261,15 @@ static void test_basic(bool with_pidfd) {
 
         assert_se(!got_a && !got_b && !got_c);
 
-        assert_se(sd_event_run(e, (uint64_t) -1) >= 1);
+        assert_se(sd_event_run(e, UINT64_MAX) >= 1);
 
         assert_se(!got_a && got_b && !got_c);
 
-        assert_se(sd_event_run(e, (uint64_t) -1) >= 1);
+        assert_se(sd_event_run(e, UINT64_MAX) >= 1);
 
         assert_se(!got_a && got_b && got_c);
 
-        assert_se(sd_event_run(e, (uint64_t) -1) >= 1);
+        assert_se(sd_event_run(e, UINT64_MAX) >= 1);
 
         assert_se(got_a && got_b && got_c);
 
@@ -301,6 +304,8 @@ static void test_basic(bool with_pidfd) {
 static void test_sd_event_now(void) {
         _cleanup_(sd_event_unrefp) sd_event *e = NULL;
         uint64_t event_now;
+
+        log_info("/* %s */", __func__);
 
         assert_se(sd_event_new(&e) >= 0);
         assert_se(sd_event_now(e, CLOCK_MONOTONIC, &event_now) > 0);
@@ -339,6 +344,8 @@ static void test_rtqueue(void) {
         sd_event_source *u = NULL, *v = NULL, *s = NULL;
         sd_event *e = NULL;
 
+        log_info("/* %s */", __func__);
+
         assert_se(sd_event_default(&e) >= 0);
 
         assert_se(sigprocmask_many(SIG_BLOCK, NULL, SIGRTMIN+2, SIGRTMIN+3, SIGUSR2, -1) >= 0);
@@ -357,19 +364,19 @@ static void test_rtqueue(void) {
         assert_se(n_rtqueue == 0);
         assert_se(last_rtqueue_sigval == 0);
 
-        assert_se(sd_event_run(e, (uint64_t) -1) >= 1);
+        assert_se(sd_event_run(e, UINT64_MAX) >= 1);
         assert_se(n_rtqueue == 1);
         assert_se(last_rtqueue_sigval == 2); /* first SIGRTMIN+3 */
 
-        assert_se(sd_event_run(e, (uint64_t) -1) >= 1);
+        assert_se(sd_event_run(e, UINT64_MAX) >= 1);
         assert_se(n_rtqueue == 2);
         assert_se(last_rtqueue_sigval == 4); /* second SIGRTMIN+3 */
 
-        assert_se(sd_event_run(e, (uint64_t) -1) >= 1);
+        assert_se(sd_event_run(e, UINT64_MAX) >= 1);
         assert_se(n_rtqueue == 3);
         assert_se(last_rtqueue_sigval == 3); /* first SIGUSR2 */
 
-        assert_se(sd_event_run(e, (uint64_t) -1) >= 1);
+        assert_se(sd_event_run(e, UINT64_MAX) >= 1);
         assert_se(n_rtqueue == 4);
         assert_se(last_rtqueue_sigval == 1); /* SIGRTMIN+2 */
 
@@ -431,13 +438,12 @@ static int inotify_handler(sd_event_source *s, const struct inotify_event *ev, v
                 log_info("inotify-handler <%s>: overflow", description);
                 c->create_overflow |= bit;
         } else if (ev->mask & IN_CREATE) {
-                unsigned i;
+                if (streq(ev->name, "sub"))
+                        log_debug("inotify-handler <%s>: create on %s", description, ev->name);
+                else {
+                        unsigned i;
 
-                log_debug("inotify-handler <%s>: create on %s", description, ev->name);
-
-                if (!streq(ev->name, "sub")) {
                         assert_se(safe_atou(ev->name, &i) >= 0);
-
                         assert_se(i < c->n_create_events);
                         c->create_called[i] |= bit;
                 }
@@ -478,6 +484,8 @@ static void test_inotify(unsigned n_create_events) {
         sd_event *e = NULL;
         const char *q;
         unsigned i;
+
+        log_info("/* %s(%u) */", __func__, n_create_events);
 
         assert_se(sd_event_default(&e) >= 0);
 
@@ -545,13 +553,14 @@ static void test_pidfd(void) {
         int pidfd;
         pid_t pid, pid2;
 
+        log_info("/* %s */", __func__);
+
         assert_se(sigprocmask_many(SIG_BLOCK, NULL, SIGCHLD, -1) >= 0);
 
         pid = fork();
-        if (pid == 0) {
+        if (pid == 0)
                 /* child */
                 _exit(66);
-        }
 
         assert_se(pid > 1);
 
@@ -590,8 +599,123 @@ static void test_pidfd(void) {
         sd_event_unref(e);
 }
 
+static int ratelimit_io_handler(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
+        unsigned *c = (unsigned*) userdata;
+        *c += 1;
+        return 0;
+}
+
+static int ratelimit_time_handler(sd_event_source *s, uint64_t usec, void *userdata) {
+        int r;
+
+        r = sd_event_source_set_enabled(s, SD_EVENT_ON);
+        if (r < 0)
+                log_warning_errno(r, "Failed to turn on notify event source: %m");
+
+        r = sd_event_source_set_time(s, usec + 1000);
+        if (r < 0)
+                log_error_errno(r, "Failed to restart watchdog event source: %m");
+
+        unsigned *c = (unsigned*) userdata;
+        *c += 1;
+
+        return 0;
+}
+
+static void test_ratelimit(void) {
+        _cleanup_close_pair_ int p[2] = {-1, -1};
+        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
+        _cleanup_(sd_event_source_unrefp) sd_event_source *s = NULL;
+        uint64_t interval;
+        unsigned count, burst;
+
+        log_info("/* %s */", __func__);
+
+        assert_se(sd_event_default(&e) >= 0);
+        assert_se(pipe2(p, O_CLOEXEC|O_NONBLOCK) >= 0);
+
+        assert_se(sd_event_add_io(e, &s, p[0], EPOLLIN, ratelimit_io_handler, &count) >= 0);
+        assert_se(sd_event_source_set_description(s, "test-ratelimit-io") >= 0);
+        assert_se(sd_event_source_set_ratelimit(s, 1 * USEC_PER_SEC, 5) >= 0);
+        assert_se(sd_event_source_get_ratelimit(s, &interval, &burst) >= 0);
+        assert_se(interval == 1 * USEC_PER_SEC && burst == 5);
+
+        assert_se(write(p[1], "1", 1) == 1);
+
+        count = 0;
+        for (unsigned i = 0; i < 10; i++) {
+                log_debug("slow loop iteration %u", i);
+                assert_se(sd_event_run(e, UINT64_MAX) >= 0);
+                assert_se(usleep(250 * USEC_PER_MSEC) >= 0);
+        }
+
+        assert_se(sd_event_source_is_ratelimited(s) == 0);
+        assert_se(count == 10);
+        log_info("ratelimit_io_handler: called %d times, event source not ratelimited", count);
+
+        assert_se(sd_event_source_set_ratelimit(s, 0, 0) >= 0);
+        assert_se(sd_event_source_set_ratelimit(s, 1 * USEC_PER_SEC, 5) >= 0);
+
+        count = 0;
+        for (unsigned i = 0; i < 10; i++) {
+                log_debug("fast event loop iteration %u", i);
+                assert_se(sd_event_run(e, UINT64_MAX) >= 0);
+                assert_se(usleep(10) >= 0);
+        }
+        log_info("ratelimit_io_handler: called %d times, event source got ratelimited", count);
+        assert_se(count < 10);
+
+        s = sd_event_source_unref(s);
+        safe_close_pair(p);
+
+        count = 0;
+        assert_se(sd_event_add_time_relative(e, &s, CLOCK_MONOTONIC, 1000, 1, ratelimit_time_handler, &count) >= 0);
+        assert_se(sd_event_source_set_ratelimit(s, 1 * USEC_PER_SEC, 10) == 0);
+
+        do {
+                assert_se(sd_event_run(e, UINT64_MAX) >= 0);
+        } while (!sd_event_source_is_ratelimited(s));
+
+        log_info("ratelimit_time_handler: called %d times, event source got ratelimited", count);
+        assert_se(count == 10);
+
+        /* In order to get rid of active rate limit client needs to disable it explicitly */
+        assert_se(sd_event_source_set_ratelimit(s, 0, 0) >= 0);
+        assert_se(!sd_event_source_is_ratelimited(s));
+
+        assert_se(sd_event_source_set_ratelimit(s, 1 * USEC_PER_SEC, 10) >= 0);
+
+        do {
+                assert_se(sd_event_run(e, UINT64_MAX) >= 0);
+        } while (!sd_event_source_is_ratelimited(s));
+
+        log_info("ratelimit_time_handler: called 10 more times, event source got ratelimited");
+        assert_se(count == 20);
+}
+
+static void test_simple_timeout(void) {
+        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
+        usec_t f, t, some_time;
+
+        some_time = random_u64_range(2 * USEC_PER_SEC);
+
+        assert_se(sd_event_default(&e) >= 0);
+
+        assert_se(sd_event_prepare(e) == 0);
+
+        f = now(CLOCK_MONOTONIC);
+        assert_se(sd_event_wait(e, some_time) >= 0);
+        t = now(CLOCK_MONOTONIC);
+
+        /* The event loop may sleep longer than the specified time (timer accuracy, scheduling latencies, …),
+         * but never shorter. Let's check that. */
+        assert_se(t >= usec_add(f, some_time));
+}
+
 int main(int argc, char *argv[]) {
-        test_setup_logging(LOG_INFO);
+        test_setup_logging(LOG_DEBUG);
+
+        test_simple_timeout();
 
         test_basic(true);   /* test with pidfd */
         test_basic(false);  /* test without pidfd */
@@ -603,6 +727,8 @@ int main(int argc, char *argv[]) {
         test_inotify(33000); /* should trigger a q overflow */
 
         test_pidfd();
+
+        test_ratelimit();
 
         return 0;
 }

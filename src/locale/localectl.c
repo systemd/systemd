@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <ftw.h>
 #include <getopt.h>
@@ -26,6 +26,9 @@
 #include "verbs.h"
 #include "virt.h"
 
+/* Enough time for locale-gen to finish server-side (in case it is in use) */
+#define LOCALE_SLOW_BUS_CALL_TIMEOUT_USEC (2*USEC_PER_MINUTE)
+
 static PagerFlags arg_pager_flags = 0;
 static bool arg_ask_password = true;
 static BusTransport arg_transport = BUS_TRANSPORT_LOCAL;
@@ -52,7 +55,6 @@ static void status_info_clear(StatusInfo *info) {
 static void print_overridden_variables(void) {
         _cleanup_(locale_variables_freep) char *variables[_VARIABLE_LC_MAX] = {};
         bool print_warning = true;
-        LocaleVariable j;
         int r;
 
         if (arg_transport != BUS_TRANSPORT_LOCAL)
@@ -79,7 +81,7 @@ static void print_overridden_variables(void) {
                 return;
         }
 
-        for (j = 0; j < _VARIABLE_LC_MAX; j++)
+        for (LocaleVariable j = 0; j < _VARIABLE_LC_MAX; j++)
                 if (variables[j]) {
                         if (print_warning) {
                                 log_warning("Warning: Settings on kernel command line override system locale settings in /etc/locale.conf.\n"
@@ -176,7 +178,8 @@ static int set_locale(int argc, char **argv, void *userdata) {
         if (r < 0)
                 return bus_log_create_error(r);
 
-        r = sd_bus_call(bus, m, 0, &error, NULL);
+        /* We use a longer timeout for the method call in case localed is running locale-gen */
+        r = sd_bus_call(bus, m, LOCALE_SLOW_BUS_CALL_TIMEOUT_USEC, &error, NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to issue method call: %s", bus_error_message(&error, r));
 
@@ -397,12 +400,11 @@ static int help(void) {
                "  -H --host=[USER@]HOST    Operate on remote host\n"
                "  -M --machine=CONTAINER   Operate on local container\n"
                "     --no-convert          Don't convert keyboard mappings\n"
-               "\nSee the %s for details.\n"
-               , program_invocation_short_name
-               , ansi_highlight()
-               , ansi_normal()
-               , link
-        );
+               "\nSee the %s for details.\n",
+               program_invocation_short_name,
+               ansi_highlight(),
+               ansi_normal(),
+               link);
 
         return 0;
 }
@@ -503,7 +505,7 @@ static int run(int argc, char *argv[]) {
         int r;
 
         setlocale(LC_ALL, "");
-        log_setup_cli();
+        log_setup();
 
         r = parse_argv(argc, argv);
         if (r <= 0)

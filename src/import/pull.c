@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <getopt.h>
 #include <locale.h>
@@ -7,9 +7,9 @@
 #include "sd-id128.h"
 
 #include "alloc-util.h"
+#include "discover-image.h"
 #include "hostname-util.h"
 #include "import-util.h"
-#include "machine-image.h"
 #include "main-func.h"
 #include "parse-util.h"
 #include "pull-raw.h"
@@ -19,11 +19,9 @@
 #include "verbs.h"
 #include "web-util.h"
 
-static bool arg_force = false;
 static const char *arg_image_root = "/var/lib/machines";
 static ImportVerify arg_verify = IMPORT_VERIFY_SIGNATURE;
-static bool arg_settings = true;
-static bool arg_roothash = true;
+static PullFlags arg_pull_flags = PULL_SETTINGS | PULL_ROOTHASH | PULL_ROOTHASH_SIGNATURE | PULL_VERITY;
 
 static int interrupt_signal_handler(sd_event_source *s, const struct signalfd_siginfo *si, void *userdata) {
         log_notice("Transfer aborted.");
@@ -49,10 +47,9 @@ static int pull_tar(int argc, char *argv[], void *userdata) {
         int r;
 
         url = argv[1];
-        if (!http_url_is_valid(url)) {
-                log_error("URL '%s' is not valid.", url);
-                return -EINVAL;
-        }
+        if (!http_url_is_valid(url))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "URL '%s' is not valid.", url);
 
         if (argc >= 3)
                 local = argv[2];
@@ -73,19 +70,20 @@ static int pull_tar(int argc, char *argv[], void *userdata) {
 
                 local = ll;
 
-                if (!machine_name_is_valid(local)) {
-                        log_error("Local image name '%s' is not valid.", local);
-                        return -EINVAL;
-                }
+                if (!hostname_is_valid(local, 0))
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "Local image name '%s' is not valid.",
+                                               local);
 
-                if (!arg_force) {
-                        r = image_find(IMAGE_MACHINE, local, NULL);
+                if (!FLAGS_SET(arg_pull_flags, PULL_FORCE)) {
+                        r = image_find(IMAGE_MACHINE, local, NULL, NULL);
                         if (r < 0) {
                                 if (r != -ENOENT)
                                         return log_error_errno(r, "Failed to check whether image '%s' exists: %m", local);
                         } else {
-                                log_error("Image '%s' already exists.", local);
-                                return -EEXIST;
+                                return log_error_errno(SYNTHETIC_ERRNO(EEXIST),
+                                                       "Image '%s' already exists.",
+                                                       local);
                         }
                 }
 
@@ -105,7 +103,7 @@ static int pull_tar(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return log_error_errno(r, "Failed to allocate puller: %m");
 
-        r = tar_pull_start(pull, url, local, arg_force, arg_verify, arg_settings);
+        r = tar_pull_start(pull, url, local, arg_pull_flags & PULL_FLAGS_MASK_TAR, arg_verify);
         if (r < 0)
                 return log_error_errno(r, "Failed to pull image: %m");
 
@@ -135,10 +133,9 @@ static int pull_raw(int argc, char *argv[], void *userdata) {
         int r;
 
         url = argv[1];
-        if (!http_url_is_valid(url)) {
-                log_error("URL '%s' is not valid.", url);
-                return -EINVAL;
-        }
+        if (!http_url_is_valid(url))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "URL '%s' is not valid.", url);
 
         if (argc >= 3)
                 local = argv[2];
@@ -159,19 +156,20 @@ static int pull_raw(int argc, char *argv[], void *userdata) {
 
                 local = ll;
 
-                if (!machine_name_is_valid(local)) {
-                        log_error("Local image name '%s' is not valid.", local);
-                        return -EINVAL;
-                }
+                if (!hostname_is_valid(local, 0))
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "Local image name '%s' is not valid.",
+                                               local);
 
-                if (!arg_force) {
-                        r = image_find(IMAGE_MACHINE, local, NULL);
+                if (!FLAGS_SET(arg_pull_flags, PULL_FORCE)) {
+                        r = image_find(IMAGE_MACHINE, local, NULL, NULL);
                         if (r < 0) {
                                 if (r != -ENOENT)
                                         return log_error_errno(r, "Failed to check whether image '%s' exists: %m", local);
                         } else {
-                                log_error("Image '%s' already exists.", local);
-                                return -EEXIST;
+                                return log_error_errno(SYNTHETIC_ERRNO(EEXIST),
+                                                       "Image '%s' already exists.",
+                                                       local);
                         }
                 }
 
@@ -191,7 +189,7 @@ static int pull_raw(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return log_error_errno(r, "Failed to allocate puller: %m");
 
-        r = raw_pull_start(pull, url, local, arg_force, arg_verify, arg_settings, arg_roothash);
+        r = raw_pull_start(pull, url, local, arg_pull_flags & PULL_FLAGS_MASK_RAW, arg_verify);
         if (r < 0)
                 return log_error_errno(r, "Failed to pull image: %m");
 
@@ -214,6 +212,9 @@ static int help(int argc, char *argv[], void *userdata) {
                "                              'checksum', 'signature'\n"
                "     --settings=BOOL          Download settings file with image\n"
                "     --roothash=BOOL          Download root hash file with image\n"
+               "     --roothash-signature=BOOL\n"
+               "                              Download root hash signature file with image\n"
+               "     --verity=BOOL            Download verity file with image\n"
                "     --image-root=PATH        Image root directory\n\n"
                "Commands:\n"
                "  tar URL [NAME]              Download a TAR image\n"
@@ -232,16 +233,20 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_VERIFY,
                 ARG_SETTINGS,
                 ARG_ROOTHASH,
+                ARG_ROOTHASH_SIGNATURE,
+                ARG_VERITY,
         };
 
         static const struct option options[] = {
-                { "help",            no_argument,       NULL, 'h'                 },
-                { "version",         no_argument,       NULL, ARG_VERSION         },
-                { "force",           no_argument,       NULL, ARG_FORCE           },
-                { "image-root",      required_argument, NULL, ARG_IMAGE_ROOT      },
-                { "verify",          required_argument, NULL, ARG_VERIFY          },
-                { "settings",        required_argument, NULL, ARG_SETTINGS        },
-                { "roothash",        required_argument, NULL, ARG_ROOTHASH        },
+                { "help",               no_argument,       NULL, 'h'                    },
+                { "version",            no_argument,       NULL, ARG_VERSION            },
+                { "force",              no_argument,       NULL, ARG_FORCE              },
+                { "image-root",         required_argument, NULL, ARG_IMAGE_ROOT         },
+                { "verify",             required_argument, NULL, ARG_VERIFY             },
+                { "settings",           required_argument, NULL, ARG_SETTINGS           },
+                { "roothash",           required_argument, NULL, ARG_ROOTHASH           },
+                { "roothash-signature", required_argument, NULL, ARG_ROOTHASH_SIGNATURE },
+                { "verity",             required_argument, NULL, ARG_VERITY             },
                 {}
         };
 
@@ -261,7 +266,7 @@ static int parse_argv(int argc, char *argv[]) {
                         return version();
 
                 case ARG_FORCE:
-                        arg_force = true;
+                        arg_pull_flags |= PULL_FORCE;
                         break;
 
                 case ARG_IMAGE_ROOT:
@@ -281,7 +286,7 @@ static int parse_argv(int argc, char *argv[]) {
                         if (r < 0)
                                 return log_error_errno(r, "Failed to parse --settings= parameter '%s': %m", optarg);
 
-                        arg_settings = r;
+                        SET_FLAG(arg_pull_flags, PULL_SETTINGS, r);
                         break;
 
                 case ARG_ROOTHASH:
@@ -289,7 +294,27 @@ static int parse_argv(int argc, char *argv[]) {
                         if (r < 0)
                                 return log_error_errno(r, "Failed to parse --roothash= parameter '%s': %m", optarg);
 
-                        arg_roothash = r;
+                        SET_FLAG(arg_pull_flags, PULL_ROOTHASH, r);
+
+                        /* If we were asked to turn off the root hash, implicitly also turn off the root hash signature */
+                        if (!r)
+                                SET_FLAG(arg_pull_flags, PULL_ROOTHASH_SIGNATURE, false);
+                        break;
+
+                case ARG_ROOTHASH_SIGNATURE:
+                        r = parse_boolean(optarg);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse --roothash-signature= parameter '%s': %m", optarg);
+
+                        SET_FLAG(arg_pull_flags, PULL_ROOTHASH_SIGNATURE, r);
+                        break;
+
+                case ARG_VERITY:
+                        r = parse_boolean(optarg);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse --verity= parameter '%s': %m", optarg);
+
+                        SET_FLAG(arg_pull_flags, PULL_VERITY, r);
                         break;
 
                 case '?':
@@ -324,7 +349,7 @@ static int run(int argc, char *argv[]) {
         if (r <= 0)
                 return r;
 
-        (void) ignore_signals(SIGPIPE, -1);
+        (void) ignore_signals(SIGPIPE);
 
         return pull_main(argc, argv);
 }

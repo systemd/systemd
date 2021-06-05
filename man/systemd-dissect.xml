@@ -1,7 +1,7 @@
 <?xml version='1.0'?> <!--*-nxml-*-->
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
-<!-- SPDX-License-Identifier: LGPL-2.1+ -->
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
 
 <refentry id="systemd-dissect" conditional='HAVE_BLKID'
     xmlns:xi="http://www.w3.org/2001/XInclude">
@@ -70,10 +70,10 @@
 
     <para>OS images may use any kind of Linux-supported file systems. In addition they may make use of LUKS
     disk encryption, and contain Verity integrity information. Note that qualifying OS images may be booted
-    with <citerefentry><refentrytitle>system-nspawn</refentrytitle><manvolnum>1</manvolnum></citerefentry>'s
+    with <citerefentry><refentrytitle>systemd-nspawn</refentrytitle><manvolnum>1</manvolnum></citerefentry>'s
     <option>--image=</option> switch, and be used as root file system for system service using the
     <varname>RootImage=</varname> unit file setting, see
-    <citerefentry><refentrytitle>system.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
+    <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
 
     <para>Note that the partition table shown when invoked without command switch (as listed below) does not
     necessarily show all partitions included in the image, but just the partitions that are understood and
@@ -162,15 +162,6 @@
         operation begins.</para></listitem>
       </varlistentry>
 
-      <varlistentry>
-        <term><option>--json=</option><replaceable>MODE</replaceable></term>
-
-        <listitem><para>Shows output formatted as JSON. Expects one of <literal>short</literal> (for the
-        shortest possible output without any redundant whitespace or line breaks), <literal>pretty</literal>
-        (for a pretty version of the same, with indentation and line breaks) or <literal>off</literal> (to turn
-        off json output).</para></listitem>
-      </varlistentry>
-
       <xi:include href="standard-options.xml" xpointer="help" />
       <xi:include href="standard-options.xml" xpointer="version" />
     </variablelist>
@@ -196,11 +187,33 @@
         <term><option>--fsck=no</option></term>
 
         <listitem><para>Turn off automatic file system checking. By default when an image is accessed for
-        writing (by <option>--mount</option> or <option>--add</option>) the file systems contained in the OS
-        image are automatically checked using the appropriate <citerefentry
+        writing (by <option>--mount</option> or <option>--copy-to</option>) the file systems contained in the
+        OS image are automatically checked using the appropriate <citerefentry
         project='man-pages'><refentrytitle>fsck</refentrytitle><manvolnum>8</manvolnum></citerefentry>
         command, in automatic fixing mode. This behavior may be switched off using
         <option>--fsck=no</option>.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--growfs=no</option></term>
+
+        <listitem><para>Turn off automatic growing of accessed file systems to their partition size, if
+        marked for that in the GPT partition table. By default when an image is accessed for writing (by
+        <option>--mount</option> or <option>--copy-to</option>) the file systems contained in the OS image
+        are automatically grown to their partition sizes, if bit 59 in the GPT partition flags is set for
+        partition types that are defined by the <ulink
+        url="https://systemd.io/DISCOVERABLE_PARTITIONS">Discoverable Partitions Specification</ulink>. This
+        behavior may be switched off using <option>--growfs=no</option>. File systems are grown automatically
+        on access if all of the following conditions are met:</para>
+        <orderedlist>
+          <listitem><para>The file system is mounted writable</para></listitem>
+          <listitem><para>The file system currently is smaller than the partition it is contained in (and thus can be grown)</para></listitem>
+          <listitem><para>The image contains a GPT partition table</para></listitem>
+          <listitem><para>The file system is stored on a partition defined by the Discoverable Partitions Specification</para></listitem>
+          <listitem><para>Bit 59 of the GPT partition flags for this partition is set, as per specification</para></listitem>
+          <listitem><para>The <option>--growfs=no</option> option is not passed.</para></listitem>
+        </orderedlist>
+        </listitem>
       </varlistentry>
 
       <varlistentry>
@@ -216,7 +229,7 @@
 
         <listitem><para>Takes one of <literal>disabled</literal>, <literal>loop</literal>,
         <literal>all</literal>, <literal>crypto</literal>. If <literal>disabled</literal> the image is
-        accessed with empty block discarding turned off. if <literal>loop</literal> discarding is enabled if
+        accessed with empty block discarding turned off. If <literal>loop</literal> discarding is enabled if
         operating on a regular file. If <literal>crypt</literal> discarding is enabled even on encrypted file
         systems. If <literal>all</literal> discarding is unconditionally enabled.</para></listitem>
       </varlistentry>
@@ -226,17 +239,21 @@
         <term><option>--root-hash-sig=</option></term>
         <term><option>--verity-data=</option></term>
 
-        <listitem><para>Configure various aspects of Verity data integrity for the OS
-        image. <option>--root-hash=</option> expects a hex-encoding top-level Verity hash to use for setting
-        up the Verity integrity protection. <option>--root-hash-sig=</option> expects the path to a file
-        containing a PKCS#7 signature file for the hash. This signature is passed to the kernel during
-        activation, which will match it against signature keys available in the kernel
-        keyring. <option>--verity-data=</option> expects the path to a file with the Verity data to use for
-        the OS image, in case it is stored in a detached file. It is recommended to embed the Verity data
-        directly in the image, using the Verity mechanisms in the <ulink
-        url="https://systemd.io/DISCOVERABLE_PARTITIONS">Discoverable Partitions Specification</ulink>.</para></listitem>
+        <listitem><para>Configure various aspects of Verity data integrity for the OS image. Option
+        <option>--root-hash=</option> specifies a hex-encoded top-level Verity hash to use for setting up the
+        Verity integrity protection. Option <option>--root-hash-sig=</option> specifies the path to a file
+        containing a PKCS#7 signature for the hash. This signature is passed to the kernel during activation,
+        which will match it against signature keys available in the kernel keyring.  Option
+        <option>--verity-data=</option> specifies a path to a file with the Verity data to use for the OS
+        image, in case it is stored in a detached file. It is recommended to embed the Verity data directly
+        in the image, using the Verity mechanisms in the <ulink
+        url="https://systemd.io/DISCOVERABLE_PARTITIONS">Discoverable Partitions Specification</ulink>.
+        </para></listitem>
       </varlistentry>
 
+      <xi:include href="standard-options.xml" xpointer="no-pager" />
+      <xi:include href="standard-options.xml" xpointer="no-legend" />
+      <xi:include href="standard-options.xml" xpointer="json" />
     </variablelist>
 
   </refsect1>
@@ -252,8 +269,8 @@
     <title>See Also</title>
     <para>
       <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
-      <citerefentry><refentrytitle>system-nspawn</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
-      <citerefentry><refentrytitle>system.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>systemd-nspawn</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
       <ulink url="https://systemd.io/DISCOVERABLE_PARTITIONS">Discoverable Partitions Specification</ulink>,
       <citerefentry project='man-pages'><refentrytitle>umount</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
       <citerefentry project='man-pages'><refentrytitle>fdisk</refentrytitle><manvolnum>8</manvolnum></citerefentry>

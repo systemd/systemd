@@ -1,7 +1,7 @@
 <?xml version='1.0'?> <!--*-nxml-*-->
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
-<!-- SPDX-License-Identifier: LGPL-2.1+ -->
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
 
 <refentry id="pam_systemd" conditional='HAVE_PAM'>
 
@@ -244,7 +244,7 @@
     <title>Session limits</title>
 
     <para>PAM modules earlier in the stack, that is those that come before <command>pam_systemd.so</command>,
-    can set session scope limits using the PAM context objects. The data for these objects is provided as NUL-terminated C strings
+    can set session scope limits using the PAM context objects. The data for these objects is provided as <constant>NUL</constant>-terminated C strings
     and maps directly to the respective unit resource control directives. Note that these limits apply to individual sessions of the user,
     they do not apply to all user processes as a combined whole. In particular, the per-user <command>user@.service</command> unit instance,
     which runs the <command>systemd --user</command> manager process and its children, and is tracked outside of any session, being shared
@@ -318,7 +318,8 @@ account   sufficient pam_unix.so
 account   required   pam_permit.so
 
 -password sufficient pam_systemd_home.so
-password  sufficient pam_unix.so sha512 shadow try_first_pass try_authtok
+password  sufficient pam_unix.so sha512 shadow try_first_pass use_authtok
+
 password  required   pam_deny.so
 
 -session  optional   pam_keyinit.so revoke

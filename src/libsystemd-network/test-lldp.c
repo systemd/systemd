@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <arpa/inet.h>
 #include <errno.h>
@@ -30,7 +30,7 @@ int lldp_network_bind_raw_socket(int ifindex) {
         return test_fd[0];
 }
 
-static void lldp_handler(sd_lldp *lldp, sd_lldp_event event, sd_lldp_neighbor *n, void *userdata) {
+static void lldp_handler(sd_lldp *lldp, sd_lldp_event_t event, sd_lldp_neighbor *n, void *userdata) {
         lldp_handler_calls++;
 }
 

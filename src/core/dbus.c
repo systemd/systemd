@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <errno.h>
 #include <sys/epoll.h>
@@ -164,7 +164,7 @@ static int signal_activation_request(sd_bus_message *message, void *userdata, sd
 
         if (manager_unit_inactive_or_pending(m, SPECIAL_DBUS_SERVICE) ||
             manager_unit_inactive_or_pending(m, SPECIAL_DBUS_SOCKET)) {
-                r = sd_bus_error_setf(&error, BUS_ERROR_SHUTTING_DOWN, "Refusing activation, D-Bus is shutting down.");
+                r = sd_bus_error_set(&error, BUS_ERROR_SHUTTING_DOWN, "Refusing activation, D-Bus is shutting down.");
                 goto failed;
         }
 
@@ -679,12 +679,6 @@ static int bus_on_connection(sd_event_source *s, int fd, uint32_t revents, void 
                 return 0;
         }
 
-        r = set_ensure_allocated(&m->private_buses, NULL);
-        if (r < 0) {
-                log_oom();
-                return 0;
-        }
-
         r = sd_bus_new(&bus);
         if (r < 0) {
                 log_warning_errno(r, "Failed to allocate new private connection bus: %m");
@@ -752,13 +746,17 @@ static int bus_on_connection(sd_event_source *s, int fd, uint32_t revents, void 
                 return 0;
         }
 
-        r = set_put(m->private_buses, bus);
+        r = set_ensure_put(&m->private_buses, NULL, bus);
+        if (r == -ENOMEM) {
+                log_oom();
+                return 0;
+        }
         if (r < 0) {
                 log_warning_errno(r, "Failed to add new connection bus to set: %m");
                 return 0;
         }
 
-        bus = NULL;
+        TAKE_PTR(bus);
 
         log_debug("Accepted new private connection.");
 

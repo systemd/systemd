@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <sys/mount.h>
 #include <sys/prctl.h>
@@ -13,6 +13,7 @@
 #include "cap-list.h"
 #include "capability-util.h"
 #include "cpu-set-util.h"
+#include "creds-util.h"
 #include "dbus-execute.h"
 #include "dbus-util.h"
 #include "env-util.h"
@@ -24,7 +25,7 @@
 #include "hexdecoct.h"
 #include "io-util.h"
 #include "ioprio.h"
-#include "journal-util.h"
+#include "journal-file.h"
 #include "mountpoint-util.h"
 #include "namespace.h"
 #include "parse-util.h"
@@ -53,6 +54,7 @@ static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_protect_home, protect_home, Pro
 static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_protect_system, protect_system, ProtectSystem);
 static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_personality, personality, unsigned long);
 static BUS_DEFINE_PROPERTY_GET(property_get_ioprio, "i", ExecContext, exec_context_get_effective_ioprio);
+static BUS_DEFINE_PROPERTY_GET(property_get_mount_apivfs, "b", ExecContext, exec_context_get_effective_mount_apivfs);
 static BUS_DEFINE_PROPERTY_GET2(property_get_ioprio_class, "i", ExecContext, exec_context_get_effective_ioprio, IOPRIO_PRIO_CLASS);
 static BUS_DEFINE_PROPERTY_GET2(property_get_ioprio_priority, "i", ExecContext, exec_context_get_effective_ioprio, IOPRIO_PRIO_DATA);
 static BUS_DEFINE_PROPERTY_GET_GLOBAL(property_get_empty_string, "s", NULL);
@@ -697,7 +699,6 @@ static int property_get_bind_paths(
                 sd_bus_error *error) {
 
         ExecContext *c = userdata;
-        unsigned i;
         bool ro;
         int r;
 
@@ -712,7 +713,7 @@ static int property_get_bind_paths(
         if (r < 0)
                 return r;
 
-        for (i = 0; i < c->n_bind_mounts; i++) {
+        for (size_t i = 0; i < c->n_bind_mounts; i++) {
 
                 if (ro != c->bind_mounts[i].read_only)
                         continue;
@@ -740,7 +741,6 @@ static int property_get_temporary_filesystems(
                 sd_bus_error *error) {
 
         ExecContext *c = userdata;
-        unsigned i;
         int r;
 
         assert(bus);
@@ -752,7 +752,7 @@ static int property_get_temporary_filesystems(
         if (r < 0)
                 return r;
 
-        for (i = 0; i < c->n_temporary_filesystems; i++) {
+        for (unsigned i = 0; i < c->n_temporary_filesystems; i++) {
                 TemporaryFileSystem *t = c->temporary_filesystems + i;
 
                 r = sd_bus_message_append(
@@ -776,7 +776,6 @@ static int property_get_log_extra_fields(
                 sd_bus_error *error) {
 
         ExecContext *c = userdata;
-        size_t i;
         int r;
 
         assert(bus);
@@ -788,7 +787,7 @@ static int property_get_log_extra_fields(
         if (r < 0)
                 return r;
 
-        for (i = 0; i < c->n_log_extra_fields; i++) {
+        for (size_t i = 0; i < c->n_log_extra_fields; i++) {
                 r = sd_bus_message_append_array(reply, 'y', c->log_extra_fields[i].iov_base, c->log_extra_fields[i].iov_len);
                 if (r < 0)
                         return r;
@@ -998,6 +997,60 @@ static int property_get_mount_images(
         return sd_bus_message_close_container(reply);
 }
 
+static int property_get_extension_images(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                void *userdata,
+                sd_bus_error *error) {
+
+        ExecContext *c = userdata;
+        int r;
+
+        assert(bus);
+        assert(c);
+        assert(property);
+        assert(reply);
+
+        r = sd_bus_message_open_container(reply, 'a', "(sba(ss))");
+        if (r < 0)
+                return r;
+
+        for (size_t i = 0; i < c->n_extension_images; i++) {
+                MountOptions *m;
+
+                r = sd_bus_message_open_container(reply, SD_BUS_TYPE_STRUCT, "sba(ss)");
+                if (r < 0)
+                        return r;
+                r = sd_bus_message_append(
+                                reply, "sb",
+                                c->extension_images[i].source,
+                                c->extension_images[i].ignore_enoent);
+                if (r < 0)
+                        return r;
+                r = sd_bus_message_open_container(reply, 'a', "(ss)");
+                if (r < 0)
+                        return r;
+                LIST_FOREACH(mount_options, m, c->extension_images[i].mount_options) {
+                        r = sd_bus_message_append(reply, "(ss)",
+                                                  partition_designator_to_string(m->partition_designator),
+                                                  m->options);
+                        if (r < 0)
+                                return r;
+                }
+                r = sd_bus_message_close_container(reply);
+                if (r < 0)
+                        return r;
+                r = sd_bus_message_close_container(reply);
+                if (r < 0)
+                        return r;
+        }
+
+        return sd_bus_message_close_container(reply);
+}
+
 const sd_bus_vtable bus_exec_vtable[] = {
         SD_BUS_VTABLE_START(0),
         SD_BUS_PROPERTY("Environment", "as", NULL, offsetof(ExecContext, environment), SD_BUS_VTABLE_PROPERTY_CONST),
@@ -1046,6 +1099,7 @@ const sd_bus_vtable bus_exec_vtable[] = {
         SD_BUS_PROPERTY("RootHashSignature", "ay", property_get_root_hash_sig, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("RootHashSignaturePath", "s", NULL, offsetof(ExecContext, root_hash_sig_path), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("RootVerity", "s", NULL, offsetof(ExecContext, root_verity), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("ExtensionImages", "a(sba(ss))", property_get_extension_images, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("MountImages", "a(ssba(ss))", property_get_mount_images, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("OOMScoreAdjust", "i", property_get_oom_score_adjust, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("CoredumpFilter", "t", property_get_coredump_filter, 0, SD_BUS_VTABLE_PROPERTY_CONST),
@@ -1096,6 +1150,8 @@ const sd_bus_vtable bus_exec_vtable[] = {
         SD_BUS_PROPERTY("ReadWritePaths", "as", NULL, offsetof(ExecContext, read_write_paths), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("ReadOnlyPaths", "as", NULL, offsetof(ExecContext, read_only_paths), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("InaccessiblePaths", "as", NULL, offsetof(ExecContext, inaccessible_paths), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("ExecPaths", "as", NULL, offsetof(ExecContext, exec_paths), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("NoExecPaths", "as", NULL, offsetof(ExecContext, no_exec_paths), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("MountFlags", "t", bus_property_get_ulong, offsetof(ExecContext, mount_flags), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("PrivateTmp", "b", bus_property_get_bool, offsetof(ExecContext, private_tmp), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("PrivateDevices", "b", bus_property_get_bool, offsetof(ExecContext, private_devices), SD_BUS_VTABLE_PROPERTY_CONST),
@@ -1107,6 +1163,7 @@ const sd_bus_vtable bus_exec_vtable[] = {
         SD_BUS_PROPERTY("PrivateNetwork", "b", bus_property_get_bool, offsetof(ExecContext, private_network), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("PrivateUsers", "b", bus_property_get_bool, offsetof(ExecContext, private_users), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("PrivateMounts", "b", bus_property_get_bool, offsetof(ExecContext, private_mounts), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("PrivateIPC", "b", bus_property_get_bool, offsetof(ExecContext, private_ipc), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("ProtectHome", "s", property_get_protect_home, offsetof(ExecContext, protect_home), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("ProtectSystem", "s", property_get_protect_system, offsetof(ExecContext, protect_system), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("SameProcessGroup", "b", bus_property_get_bool, offsetof(ExecContext, same_pgrp), SD_BUS_VTABLE_PROPERTY_CONST),
@@ -1143,12 +1200,13 @@ const sd_bus_vtable bus_exec_vtable[] = {
         SD_BUS_PROPERTY("BindPaths", "a(ssbt)", property_get_bind_paths, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("BindReadOnlyPaths", "a(ssbt)", property_get_bind_paths, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("TemporaryFileSystem", "a(ss)", property_get_temporary_filesystems, 0, SD_BUS_VTABLE_PROPERTY_CONST),
-        SD_BUS_PROPERTY("MountAPIVFS", "b", bus_property_get_bool, offsetof(ExecContext, mount_apivfs), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("MountAPIVFS", "b", property_get_mount_apivfs, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("KeyringMode", "s", property_get_exec_keyring_mode, offsetof(ExecContext, keyring_mode), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("ProtectProc", "s", property_get_protect_proc, offsetof(ExecContext, protect_proc), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("ProcSubset", "s", property_get_proc_subset, offsetof(ExecContext, proc_subset), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("ProtectHostname", "b", bus_property_get_bool, offsetof(ExecContext, protect_hostname), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("NetworkNamespacePath", "s", NULL, offsetof(ExecContext, network_namespace_path), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("IPCNamespacePath", "s", NULL, offsetof(ExecContext, ipc_namespace_path), SD_BUS_VTABLE_PROPERTY_CONST),
 
         /* Obsolete/redundant properties: */
         SD_BUS_PROPERTY("Capabilities", "s", property_get_empty_string, 0, SD_BUS_VTABLE_PROPERTY_CONST|SD_BUS_VTABLE_HIDDEN),
@@ -1393,7 +1451,7 @@ int bus_set_transient_exec_command(
                         } else
                                 c->flags = b ? EXEC_COMMAND_IGNORE_FAILURE : 0;
 
-                        path_simplify(c->path, false);
+                        path_simplify(c->path);
                         exec_command_append_list(exec_command, c);
                 }
 
@@ -1496,74 +1554,6 @@ static BUS_DEFINE_SET_TRANSIENT_TO_STRING_ALLOC(capability, "t", uint64_t, uint6
 static BUS_DEFINE_SET_TRANSIENT_TO_STRING_ALLOC(namespace_flag, "t", uint64_t, unsigned long, "%" PRIu64, namespace_flags_to_string);
 static BUS_DEFINE_SET_TRANSIENT_TO_STRING(mount_flags, "t", uint64_t, unsigned long, "%" PRIu64, mount_propagation_flags_to_string_with_check);
 
-/* ret_format_str is an accumulator, so if it has any pre-existing content, new options will be appended to it */
-static int read_mount_options(sd_bus_message *message, sd_bus_error *error, MountOptions **ret_options, char **ret_format_str, const char *separator) {
-        _cleanup_(mount_options_free_allp) MountOptions *options = NULL;
-        _cleanup_free_ char *format_str = NULL;
-        const char *mount_options, *partition;
-        int r;
-
-        assert(message);
-        assert(ret_options);
-        assert(ret_format_str);
-        assert(separator);
-
-        r = sd_bus_message_enter_container(message, 'a', "(ss)");
-        if (r < 0)
-                return r;
-
-        while ((r = sd_bus_message_read(message, "(ss)", &partition, &mount_options)) > 0) {
-                _cleanup_free_ char *previous = NULL, *escaped = NULL;
-                _cleanup_free_ MountOptions *o = NULL;
-                PartitionDesignator partition_designator;
-
-                if (chars_intersect(mount_options, WHITESPACE))
-                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS,
-                                                "Invalid mount options string, contains whitespace character(s): %s", mount_options);
-
-                partition_designator = partition_designator_from_string(partition);
-                if (partition_designator < 0)
-                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid partition name %s", partition);
-
-                /* Need to store them in the unit with the escapes, so that they can be parsed again */
-                escaped = shell_escape(mount_options, ":");
-                if (!escaped)
-                        return -ENOMEM;
-
-                previous = TAKE_PTR(format_str);
-                format_str = strjoin(previous, previous ? separator : "", partition, ":", escaped);
-                if (!format_str)
-                        return -ENOMEM;
-
-                o = new(MountOptions, 1);
-                if (!o)
-                        return -ENOMEM;
-                *o = (MountOptions) {
-                        .partition_designator = partition_designator,
-                        .options = strdup(mount_options),
-                };
-                if (!o->options)
-                        return -ENOMEM;
-                LIST_APPEND(mount_options, options, TAKE_PTR(o));
-        }
-        if (r < 0)
-                return r;
-
-        r = sd_bus_message_exit_container(message);
-        if (r < 0)
-                return r;
-
-        if (!LIST_IS_EMPTY(options)) {
-                char *final = strjoin(*ret_format_str, !isempty(*ret_format_str) ? separator : "", format_str);
-                if (!final)
-                        return -ENOMEM;
-                free_and_replace(*ret_format_str, final);
-                LIST_JOIN(mount_options, *ret_options, options);
-        }
-
-        return 0;
-}
-
 int bus_exec_context_set_transient_property(
                 Unit *u,
                 ExecContext *c,
@@ -1598,7 +1588,7 @@ int bus_exec_context_set_transient_property(
                 _cleanup_(mount_options_free_allp) MountOptions *options = NULL;
                 _cleanup_free_ char *format_str = NULL;
 
-                r = read_mount_options(message, error, &options, &format_str, " ");
+                r = bus_read_mount_options(message, error, &options, &format_str, " ");
                 if (r < 0)
                         return r;
 
@@ -1637,7 +1627,7 @@ int bus_exec_context_set_transient_property(
 
                                 unit_write_settingf(u, flags, name, "RootHash=");
                         } else {
-                                _cleanup_free_ void *p;
+                                _cleanup_free_ void *p = NULL;
 
                                 encoded = hexmem(roothash_decoded, roothash_decoded_size);
                                 if (!encoded)
@@ -1683,7 +1673,7 @@ int bus_exec_context_set_transient_property(
 
                                 unit_write_settingf(u, flags, name, "RootHashSignature=");
                         } else {
-                                _cleanup_free_ void *p;
+                                _cleanup_free_ void *p = NULL;
                                 ssize_t len;
 
                                 len = base64mem(roothash_sig_decoded, roothash_sig_decoded_size, &encoded);
@@ -1766,6 +1756,9 @@ int bus_exec_context_set_transient_property(
         if (streq(name, "PrivateNetwork"))
                 return bus_set_transient_bool(u, name, &c->private_network, message, flags, error);
 
+        if (streq(name, "PrivateIPC"))
+                return bus_set_transient_bool(u, name, &c->private_ipc, message, flags, error);
+
         if (streq(name, "PrivateUsers"))
                 return bus_set_transient_bool(u, name, &c->private_users, message, flags, error);
 
@@ -1804,9 +1797,6 @@ int bus_exec_context_set_transient_property(
 
         if (streq(name, "ProtectControlGroups"))
                 return bus_set_transient_bool(u, name, &c->protect_control_groups, message, flags, error);
-
-        if (streq(name, "MountAPIVFS"))
-                return bus_set_transient_bool(u, name, &c->mount_apivfs, message, flags, error);
 
         if (streq(name, "CPUSchedulingResetOnFork"))
                 return bus_set_transient_bool(u, name, &c->cpu_sched_reset_on_fork, message, flags, error);
@@ -1888,6 +1878,9 @@ int bus_exec_context_set_transient_property(
 
         if (streq(name, "NetworkNamespacePath"))
                 return bus_set_transient_path(u, name, &c->network_namespace_path, message, flags, error);
+
+        if (streq(name, "IPCNamespacePath"))
+                return bus_set_transient_path(u, name, &c->ipc_namespace_path, message, flags, error);
 
         if (streq(name, "SupplementaryGroups")) {
                 _cleanup_strv_free_ char **l = NULL;
@@ -1985,11 +1978,7 @@ int bus_exec_context_set_transient_property(
                                         sc->data = TAKE_PTR(copy);
                                         sc->size = sz;
 
-                                        r = hashmap_ensure_allocated(&c->set_credentials, &exec_set_credential_hash_ops);
-                                        if (r < 0)
-                                                return r;
-
-                                        r = hashmap_put(c->set_credentials, sc->id, sc);
+                                        r = hashmap_ensure_put(&c->set_credentials, &exec_set_credential_hash_ops, sc->id, sc);
                                         if (r < 0)
                                                 return r;
 
@@ -2071,7 +2060,7 @@ int bus_exec_context_set_transient_property(
                         return r;
 
                 if (!log_level_is_valid(level))
-                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Log level value out of range");
+                        return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Log level value out of range");
 
                 if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
                         c->syslog_priority = (c->syslog_priority & LOG_FACMASK) | level;
@@ -2088,7 +2077,7 @@ int bus_exec_context_set_transient_property(
                         return r;
 
                 if (!log_facility_unshifted_is_valid(facility))
-                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Log facility value out of range");
+                        return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Log facility value out of range");
 
                 if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
                         c->syslog_priority = (facility << 3) | LOG_PRI(c->syslog_priority);
@@ -2105,7 +2094,7 @@ int bus_exec_context_set_transient_property(
                         return r;
 
                 if (!isempty(n) && !log_namespace_name_valid(n))
-                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Log namespace name not valid");
+                        return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Log namespace name not valid");
 
                 if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
 
@@ -2151,13 +2140,13 @@ int bus_exec_context_set_transient_property(
                                 break;
 
                         if (memchr(p, 0, sz))
-                                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Journal field contains zero byte");
+                                return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Journal field contains zero byte");
 
                         eq = memchr(p, '=', sz);
                         if (!eq)
-                                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Journal field contains no '=' character");
+                                return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Journal field contains no '=' character");
                         if (!journal_field_valid(p, eq - (const char*) p, false))
-                                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Journal field invalid");
+                                return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Journal field invalid");
 
                         if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
                                 t = reallocarray(c->log_extra_fields, c->n_log_extra_fields+1, sizeof(struct iovec));
@@ -2174,7 +2163,7 @@ int bus_exec_context_set_transient_property(
                         ((uint8_t*) copy)[sz] = 0;
 
                         if (!utf8_is_valid(copy))
-                                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Journal field is not valid UTF-8");
+                                return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Journal field is not valid UTF-8");
 
                         if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
                                 c->log_extra_fields[c->n_log_extra_fields++] = IOVEC_MAKE(copy, sz);
@@ -2264,6 +2253,9 @@ int bus_exec_context_set_transient_property(
                                 if (r < 0)
                                         return r;
 
+                                if (allow_list && e >= 0)
+                                        return -EINVAL;
+
                                 r = seccomp_parse_syscall_filter(n,
                                                                  e,
                                                                  c->syscall_filter,
@@ -2327,15 +2319,8 @@ int bus_exec_context_set_transient_property(
                         }
 
                         STRV_FOREACH(s, l) {
-                                _cleanup_free_ char *n = NULL;
-                                int e;
-
-                                r = parse_syscall_and_errno(*s, &n, &e);
-                                if (r < 0)
-                                        return r;
-
-                                r = seccomp_parse_syscall_filter(n,
-                                                                 0, /* errno not used */
+                                r = seccomp_parse_syscall_filter(*s,
+                                                                 -1, /* errno not used */
                                                                  c->syscall_log,
                                                                  SECCOMP_PARSE_LOG | SECCOMP_PARSE_PERMISSIVE |
                                                                  invert_flag |
@@ -2394,8 +2379,8 @@ int bus_exec_context_set_transient_property(
                 return 1;
 
         } else if (streq(name, "RestrictAddressFamilies")) {
-                int allow_list;
                 _cleanup_strv_free_ char **l = NULL;
+                int allow_list;
 
                 r = sd_bus_message_enter_container(message, 'r', "bas");
                 if (r < 0)
@@ -2418,10 +2403,11 @@ int bus_exec_context_set_transient_property(
                         char **s;
 
                         if (strv_isempty(l)) {
-                                c->address_families_allow_list = false;
+                                c->address_families_allow_list = allow_list;
                                 c->address_families = set_free(c->address_families);
 
-                                unit_write_settingf(u, flags, name, "RestrictAddressFamilies=");
+                                unit_write_settingf(u, flags, name, "RestrictAddressFamilies=%s",
+                                                    allow_list ? "none" : "");
                                 return 1;
                         }
 
@@ -2445,7 +2431,7 @@ int bus_exec_context_set_transient_property(
                                         if (r < 0)
                                                 return r;
                                 } else
-                                        (void) set_remove(c->address_families, INT_TO_PTR(af));
+                                        set_remove(c->address_families, INT_TO_PTR(af));
                         }
 
                         joined = strv_join(l, " ");
@@ -2635,6 +2621,20 @@ int bus_exec_context_set_transient_property(
 
                 return 1;
 
+        } else if (streq(name, "MountAPIVFS")) {
+                bool b;
+
+                r = bus_set_transient_bool(u, name, &b, message, flags, error);
+                if (r < 0)
+                        return r;
+
+                if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
+                        c->mount_apivfs = b;
+                        c->mount_apivfs_set = true;
+                }
+
+                return 1;
+
         } else if (streq(name, "WorkingDirectory")) {
                 const char *s;
                 bool missing_ok;
@@ -2650,7 +2650,7 @@ int bus_exec_context_set_transient_property(
                         missing_ok = false;
 
                 if (!isempty(s) && !streq(s, "~") && !path_is_absolute(s))
-                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "WorkingDirectory= expects an absolute path or '~'");
+                        return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "WorkingDirectory= expects an absolute path or '~'");
 
                 if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
                         if (streq(s, "~")) {
@@ -2679,7 +2679,7 @@ int bus_exec_context_set_transient_property(
                         return r;
 
                 if (!isempty(s) && !fdname_is_valid(s))
-                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid file descriptor name");
+                        return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid file descriptor name");
 
                 if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
 
@@ -2715,8 +2715,8 @@ int bus_exec_context_set_transient_property(
 
         } else if (STR_IN_SET(name,
                               "StandardInputFile",
-                              "StandardOutputFile", "StandardOutputFileToAppend",
-                              "StandardErrorFile", "StandardErrorFileToAppend")) {
+                              "StandardOutputFile", "StandardOutputFileToAppend", "StandardOutputFileToTruncate",
+                              "StandardErrorFile", "StandardErrorFileToAppend", "StandardErrorFileToTruncate")) {
                 const char *s;
 
                 r = sd_bus_message_read(message, "s", &s);
@@ -2740,7 +2740,7 @@ int bus_exec_context_set_transient_property(
                                 c->std_input = EXEC_INPUT_FILE;
                                 unit_write_settingf(u, flags|UNIT_ESCAPE_SPECIFIERS, name, "StandardInput=file:%s", s);
 
-                        } else if (STR_IN_SET(name, "StandardOutputFile", "StandardOutputFileToAppend")) {
+                        } else if (STR_IN_SET(name, "StandardOutputFile", "StandardOutputFileToAppend", "StandardOutputFileToTruncate")) {
                                 r = free_and_strdup(&c->stdio_file[STDOUT_FILENO], empty_to_null(s));
                                 if (r < 0)
                                         return r;
@@ -2748,13 +2748,16 @@ int bus_exec_context_set_transient_property(
                                 if (streq(name, "StandardOutputFile")) {
                                         c->std_output = EXEC_OUTPUT_FILE;
                                         unit_write_settingf(u, flags|UNIT_ESCAPE_SPECIFIERS, name, "StandardOutput=file:%s", s);
-                                } else {
-                                        assert(streq(name, "StandardOutputFileToAppend"));
+                                } else if (streq(name, "StandardOutputFileToAppend")) {
                                         c->std_output = EXEC_OUTPUT_FILE_APPEND;
                                         unit_write_settingf(u, flags|UNIT_ESCAPE_SPECIFIERS, name, "StandardOutput=append:%s", s);
+                                } else {
+                                        assert(streq(name, "StandardOutputFileToTruncate"));
+                                        c->std_output = EXEC_OUTPUT_FILE_TRUNCATE;
+                                        unit_write_settingf(u, flags|UNIT_ESCAPE_SPECIFIERS, name, "StandardOutput=truncate:%s", s);
                                 }
                         } else {
-                                assert(STR_IN_SET(name, "StandardErrorFile", "StandardErrorFileToAppend"));
+                                assert(STR_IN_SET(name, "StandardErrorFile", "StandardErrorFileToAppend", "StandardErrorFileToTruncate"));
 
                                 r = free_and_strdup(&c->stdio_file[STDERR_FILENO], empty_to_null(s));
                                 if (r < 0)
@@ -2763,10 +2766,13 @@ int bus_exec_context_set_transient_property(
                                 if (streq(name, "StandardErrorFile")) {
                                         c->std_error = EXEC_OUTPUT_FILE;
                                         unit_write_settingf(u, flags|UNIT_ESCAPE_SPECIFIERS, name, "StandardError=file:%s", s);
-                                } else {
-                                        assert(streq(name, "StandardErrorFileToAppend"));
+                                } else if (streq(name, "StandardErrorFileToAppend")) {
                                         c->std_error = EXEC_OUTPUT_FILE_APPEND;
                                         unit_write_settingf(u, flags|UNIT_ESCAPE_SPECIFIERS, name, "StandardError=append:%s", s);
+                                } else {
+                                        assert(streq(name, "StandardErrorFileToTruncate"));
+                                        c->std_error = EXEC_OUTPUT_FILE_TRUNCATE;
+                                        unit_write_settingf(u, flags|UNIT_ESCAPE_SPECIFIERS, name, "StandardError=truncate:%s", s);
                                 }
                         }
                 }
@@ -2825,7 +2831,7 @@ int bus_exec_context_set_transient_property(
                         return r;
 
                 if (!strv_env_is_valid(l))
-                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid environment block.");
+                        return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid environment block.");
 
                 if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
                         if (strv_isempty(l)) {
@@ -2859,7 +2865,7 @@ int bus_exec_context_set_transient_property(
                         return r;
 
                 if (!strv_env_name_or_assignment_is_valid(l))
-                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid UnsetEnvironment= list.");
+                        return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid UnsetEnvironment= list.");
 
                 if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
                         if (strv_isempty(l)) {
@@ -2892,7 +2898,7 @@ int bus_exec_context_set_transient_property(
                         return r;
 
                 if (!oom_score_adjust_is_valid(oa))
-                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "OOM score adjust value out of range");
+                        return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "OOM score adjust value out of range");
 
                 if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
                         c->oom_score_adjust = oa;
@@ -3013,7 +3019,7 @@ int bus_exec_context_set_transient_property(
                         return r;
 
                 if (!strv_env_name_is_valid(l))
-                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid PassEnvironment= block.");
+                        return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid PassEnvironment= block.");
 
                 if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
                         if (strv_isempty(l)) {
@@ -3038,7 +3044,7 @@ int bus_exec_context_set_transient_property(
                 return 1;
 
         } else if (STR_IN_SET(name, "ReadWriteDirectories", "ReadOnlyDirectories", "InaccessibleDirectories",
-                              "ReadWritePaths", "ReadOnlyPaths", "InaccessiblePaths")) {
+                              "ReadWritePaths", "ReadOnlyPaths", "InaccessiblePaths", "ExecPaths", "NoExecPaths")) {
                 _cleanup_strv_free_ char **l = NULL;
                 char ***dirs;
                 char **p;
@@ -3056,7 +3062,7 @@ int bus_exec_context_set_transient_property(
                         if (!path_is_absolute(i + offset))
                                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid %s", name);
 
-                        path_simplify(i + offset, false);
+                        path_simplify(i + offset);
                 }
 
                 if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
@@ -3064,6 +3070,10 @@ int bus_exec_context_set_transient_property(
                                 dirs = &c->read_write_paths;
                         else if (STR_IN_SET(name, "ReadOnlyDirectories", "ReadOnlyPaths"))
                                 dirs = &c->read_only_paths;
+                        else if (streq(name, "ExecPaths"))
+                                dirs = &c->exec_paths;
+                        else if (streq(name, "NoExecPaths"))
+                                dirs = &c->no_exec_paths;
                         else /* "InaccessiblePaths" */
                                 dirs = &c->inaccessible_paths;
 
@@ -3184,7 +3194,7 @@ int bus_exec_context_set_transient_property(
                         if (!path_is_absolute(destination))
                                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Destination path %s is not absolute.", destination);
                         if (!IN_SET(mount_flags, 0, MS_REC))
-                                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Unknown mount flags.");
+                                return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Unknown mount flags.");
 
                         if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
                                 r = bind_mount_add(&c->bind_mounts, &c->n_bind_mounts,
@@ -3297,7 +3307,7 @@ int bus_exec_context_set_transient_property(
                         if (r < 0)
                                 return r;
 
-                        if (rl == (uint64_t) -1)
+                        if (rl == UINT64_MAX)
                                 x = RLIM_INFINITY;
                         else {
                                 x = (rlim_t) rl;
@@ -3393,7 +3403,7 @@ int bus_exec_context_set_transient_property(
                                 return -ENOMEM;
                         free_and_replace(format_str, tuple);
 
-                        r = read_mount_options(message, error, &options, &format_str, ":");
+                        r = bus_read_mount_options(message, error, &options, &format_str, ":");
                         if (r < 0)
                                 return r;
 
@@ -3407,6 +3417,7 @@ int bus_exec_context_set_transient_property(
                                                     .destination = destination,
                                                     .mount_options = options,
                                                     .ignore_enoent = permissive,
+                                                    .type = MOUNT_IMAGE_DISCRETE,
                                             });
                         if (r < 0)
                                 return r;
@@ -3439,6 +3450,95 @@ int bus_exec_context_set_transient_property(
                 }
 
                 mount_images = mount_image_free_many(mount_images, &n_mount_images);
+
+                return 1;
+        } else if (streq(name, "ExtensionImages")) {
+                _cleanup_free_ char *format_str = NULL;
+                MountImage *extension_images = NULL;
+                size_t n_extension_images = 0;
+
+                r = sd_bus_message_enter_container(message, 'a', "(sba(ss))");
+                if (r < 0)
+                        return r;
+
+                for (;;) {
+                        _cleanup_(mount_options_free_allp) MountOptions *options = NULL;
+                        _cleanup_free_ char *source_escaped = NULL;
+                        char *source, *tuple;
+                        int permissive;
+
+                        r = sd_bus_message_enter_container(message, 'r', "sba(ss)");
+                        if (r < 0)
+                                return r;
+
+                        r = sd_bus_message_read(message, "sb", &source, &permissive);
+                        if (r <= 0)
+                                break;
+
+                        if (!path_is_absolute(source))
+                                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Source path %s is not absolute.", source);
+                        if (!path_is_normalized(source))
+                                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Source path %s is not normalized.", source);
+
+                        /* Need to store them in the unit with the escapes, so that they can be parsed again */
+                        source_escaped = shell_escape(source, ":");
+                        if (!source_escaped)
+                                return -ENOMEM;
+
+                        tuple = strjoin(format_str,
+                                        format_str ? " " : "",
+                                        permissive ? "-" : "",
+                                        source_escaped);
+                        if (!tuple)
+                                return -ENOMEM;
+                        free_and_replace(format_str, tuple);
+
+                        r = bus_read_mount_options(message, error, &options, &format_str, ":");
+                        if (r < 0)
+                                return r;
+
+                        r = sd_bus_message_exit_container(message);
+                        if (r < 0)
+                                return r;
+
+                        r = mount_image_add(&extension_images, &n_extension_images,
+                                            &(MountImage) {
+                                                    .source = source,
+                                                    .mount_options = options,
+                                                    .ignore_enoent = permissive,
+                                                    .type = MOUNT_IMAGE_EXTENSION,
+                                            });
+                        if (r < 0)
+                                return r;
+                }
+                if (r < 0)
+                        return r;
+
+                r = sd_bus_message_exit_container(message);
+                if (r < 0)
+                        return r;
+
+                if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
+                        if (n_extension_images == 0) {
+                                c->extension_images = mount_image_free_many(c->extension_images, &c->n_extension_images);
+
+                                unit_write_settingf(u, flags, name, "%s=", name);
+                        } else {
+                                for (size_t i = 0; i < n_extension_images; ++i) {
+                                        r = mount_image_add(&c->extension_images, &c->n_extension_images, &extension_images[i]);
+                                        if (r < 0)
+                                                return r;
+                                }
+
+                                unit_write_settingf(u, flags|UNIT_ESCAPE_C|UNIT_ESCAPE_SPECIFIERS,
+                                                    name,
+                                                    "%s=%s",
+                                                    name,
+                                                    format_str);
+                        }
+                }
+
+                extension_images = mount_image_free_many(extension_images, &n_extension_images);
 
                 return 1;
         }

@@ -1,22 +1,23 @@
-# SPDX-License-Identifier: LGPL-2.1+
+# SPDX-License-Identifier: LGPL-2.1-or-later
 #
 # Slovak translation for systemd.
 # Dušan Kazik <prescott66@gmail.com>, 2017.
-#
+# Frantisek Sumsal <frantisek@sumsal.cz>, 2021.
 msgid ""
 msgstr ""
 "Project-Id-Version: systemd master\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2020-08-19 18:02+0200\n"
-"PO-Revision-Date: 2017-06-25 11:03+0200\n"
-"Last-Translator: Dušan Kazik <prescott66@gmail.com>\n"
-"Language-Team: Slovak <gnome-sk-list@gnome.org>\n"
+"POT-Creation-Date: 2021-01-08 17:48+0100\n"
+"PO-Revision-Date: 2021-02-22 20:21+0000\n"
+"Last-Translator: Frantisek Sumsal <frantisek@sumsal.cz>\n"
+"Language-Team: Slovak <https://translate.fedoraproject.org/projects/systemd/"
+"master/sk/>\n"
 "Language: sk\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=3; plural=(n==1) ? 1 : (n>=2 && n<=4) ? 2 : 0;\n"
-"X-Generator: Poedit 2.0.2\n"
+"X-Generator: Weblate 4.4.2\n"
 
 #: src/core/org.freedesktop.systemd1.policy.in:22
 msgid "Send passphrase back to system"
@@ -235,11 +236,11 @@ msgstr ""
 
 #: src/login/org.freedesktop.login1.policy:44
 msgid "Allow applications to inhibit system sleep"
-msgstr ""
+msgstr "Umožnenie aplikáciám odložiť spánok systému"
 
 #: src/login/org.freedesktop.login1.policy:45
 msgid "Authentication is required for an application to inhibit system sleep."
-msgstr ""
+msgstr "Vyžaduje sa overenie totožnosti na odloženie spánku systému aplikáciou."
 
 #: src/login/org.freedesktop.login1.policy:55
 msgid "Allow applications to delay system sleep"
@@ -301,54 +302,69 @@ msgid ""
 msgstr ""
 
 #: src/login/org.freedesktop.login1.policy:117
+#, fuzzy
+#| msgid "Allow applications to delay system sleep"
+msgid "Allow applications to inhibit system handling of the reboot key"
+msgstr "Umožnenie aplikáciám odložiť spánok systému"
+
+#: src/login/org.freedesktop.login1.policy:118
+#, fuzzy
+#| msgid "Authentication is required for an application to delay system sleep."
+msgid ""
+"Authentication is required for an application to inhibit system handling of "
+"the reboot key."
+msgstr ""
+"Vyžaduje sa overenie totožnosti na odloženie spánku systému aplikáciou."
+
+#: src/login/org.freedesktop.login1.policy:128
 msgid "Allow non-logged-in user to run programs"
 msgstr "Umožnenie neprihlásenému používateľovi spúšťanie programov"
 
-#: src/login/org.freedesktop.login1.policy:118
+#: src/login/org.freedesktop.login1.policy:129
 msgid "Explicit request is required to run programs as a non-logged-in user."
 msgstr ""
 "Vyžaduje sa explicitná požiadavka na spúšťanie programov ako neprihlásený "
 "používateľ."
 
-#: src/login/org.freedesktop.login1.policy:127
+#: src/login/org.freedesktop.login1.policy:138
 msgid "Allow non-logged-in users to run programs"
 msgstr "Umožnenie neprihláseným používateľom spúšťanie programov"
 
-#: src/login/org.freedesktop.login1.policy:128
+#: src/login/org.freedesktop.login1.policy:139
 msgid "Authentication is required to run programs as a non-logged-in user."
 msgstr ""
 "Vyžaduje sa overenie totožnosti na spúšťanie programov ako neprihlásený "
 "používateľ."
 
-#: src/login/org.freedesktop.login1.policy:137
+#: src/login/org.freedesktop.login1.policy:148
 msgid "Allow attaching devices to seats"
 msgstr ""
 
-#: src/login/org.freedesktop.login1.policy:138
+#: src/login/org.freedesktop.login1.policy:149
 msgid "Authentication is required to attach a device to a seat."
 msgstr ""
 
-#: src/login/org.freedesktop.login1.policy:148
+#: src/login/org.freedesktop.login1.policy:159
 msgid "Flush device to seat attachments"
 msgstr ""
 
-#: src/login/org.freedesktop.login1.policy:149
+#: src/login/org.freedesktop.login1.policy:160
 msgid "Authentication is required to reset how devices are attached to seats."
 msgstr ""
 
-#: src/login/org.freedesktop.login1.policy:158
+#: src/login/org.freedesktop.login1.policy:169
 msgid "Power off the system"
 msgstr "Vypnutie systému"
 
-#: src/login/org.freedesktop.login1.policy:159
+#: src/login/org.freedesktop.login1.policy:170
 msgid "Authentication is required to power off the system."
 msgstr "Vyžaduje sa overenie totožnosti na vypnutie systému."
 
-#: src/login/org.freedesktop.login1.policy:169
+#: src/login/org.freedesktop.login1.policy:180
 msgid "Power off the system while other users are logged in"
 msgstr "Vypnutie systému, pokiaľ sú prihlásení iní používatelia"
 
-#: src/login/org.freedesktop.login1.policy:170
+#: src/login/org.freedesktop.login1.policy:181
 msgid ""
 "Authentication is required to power off the system while other users are "
 "logged in."
@@ -356,29 +372,29 @@ msgstr ""
 "Vyžaduje sa overenie totožnosti na vypnutie systému, pokiaľ sú prihlásení "
 "iní používatelia."
 
-#: src/login/org.freedesktop.login1.policy:180
+#: src/login/org.freedesktop.login1.policy:191
 msgid "Power off the system while an application is inhibiting this"
 msgstr ""
 
-#: src/login/org.freedesktop.login1.policy:181
+#: src/login/org.freedesktop.login1.policy:192
 msgid ""
 "Authentication is required to power off the system while an application is "
 "inhibiting this."
 msgstr ""
 
-#: src/login/org.freedesktop.login1.policy:191
+#: src/login/org.freedesktop.login1.policy:202
 msgid "Reboot the system"
 msgstr "Reštart systému"
 
-#: src/login/org.freedesktop.login1.policy:192
+#: src/login/org.freedesktop.login1.policy:203
 msgid "Authentication is required to reboot the system."
 msgstr "Vyžaduje sa overenie totožnosti na reštartovanie systému."
 
-#: src/login/org.freedesktop.login1.policy:202
+#: src/login/org.freedesktop.login1.policy:213
 msgid "Reboot the system while other users are logged in"
 msgstr "Reštart systému, pokiaľ sú prihlásení iní používatelia"
 
-#: src/login/org.freedesktop.login1.policy:203
+#: src/login/org.freedesktop.login1.policy:214
 msgid ""
 "Authentication is required to reboot the system while other users are logged "
 "in."
@@ -386,35 +402,35 @@ msgstr ""
 "Vyžaduje sa overenie totožnosti na reštartovanie systému, pokiaľ sú "
 "prihlásení iní používatelia."
 
-#: src/login/org.freedesktop.login1.policy:213
+#: src/login/org.freedesktop.login1.policy:224
 msgid "Reboot the system while an application is inhibiting this"
 msgstr ""
 
-#: src/login/org.freedesktop.login1.policy:214
+#: src/login/org.freedesktop.login1.policy:225
 msgid ""
 "Authentication is required to reboot the system while an application is "
 "inhibiting this."
 msgstr ""
 
-#: src/login/org.freedesktop.login1.policy:224
+#: src/login/org.freedesktop.login1.policy:235
 #, fuzzy
 #| msgid "Reboot the system"
 msgid "Halt the system"
 msgstr "Reštart systému"
 
-#: src/login/org.freedesktop.login1.policy:225
+#: src/login/org.freedesktop.login1.policy:236
 #, fuzzy
 #| msgid "Authentication is required to reboot the system."
 msgid "Authentication is required to halt the system."
 msgstr "Vyžaduje sa overenie totožnosti na reštartovanie systému."
 
-#: src/login/org.freedesktop.login1.policy:235
+#: src/login/org.freedesktop.login1.policy:246
 #, fuzzy
 #| msgid "Reboot the system while other users are logged in"
 msgid "Halt the system while other users are logged in"
 msgstr "Reštart systému, pokiaľ sú prihlásení iní používatelia"
 
-#: src/login/org.freedesktop.login1.policy:236
+#: src/login/org.freedesktop.login1.policy:247
 #, fuzzy
 #| msgid ""
 #| "Authentication is required to reboot the system while other users are "
@@ -426,11 +442,11 @@ msgstr ""
 "Vyžaduje sa overenie totožnosti na reštartovanie systému, pokiaľ sú "
 "prihlásení iní používatelia."
 
-#: src/login/org.freedesktop.login1.policy:246
+#: src/login/org.freedesktop.login1.policy:257
 msgid "Halt the system while an application is inhibiting this"
 msgstr ""
 
-#: src/login/org.freedesktop.login1.policy:247
+#: src/login/org.freedesktop.login1.policy:258
 #, fuzzy
 #| msgid "Authentication is required to set the system keyboard settings."
 msgid ""
@@ -440,19 +456,19 @@ msgstr ""
 "Vyžaduje sa overenie totožnosti na nastavenie nastavení systémovej "
 "klávesnice."
 
-#: src/login/org.freedesktop.login1.policy:257
+#: src/login/org.freedesktop.login1.policy:268
 msgid "Suspend the system"
 msgstr "Uspanie systému"
 
-#: src/login/org.freedesktop.login1.policy:258
+#: src/login/org.freedesktop.login1.policy:269
 msgid "Authentication is required to suspend the system."
 msgstr "Vyžaduje sa overenie totožnosti na uspanie systému."
 
-#: src/login/org.freedesktop.login1.policy:267
+#: src/login/org.freedesktop.login1.policy:278
 msgid "Suspend the system while other users are logged in"
 msgstr "Uspanie systému, pokiaľ sú prihlásení iní používatelia"
 
-#: src/login/org.freedesktop.login1.policy:268
+#: src/login/org.freedesktop.login1.policy:279
 msgid ""
 "Authentication is required to suspend the system while other users are "
 "logged in."
@@ -460,79 +476,79 @@ msgstr ""
 "Vyžaduje sa overenie totožnosti na uspanie systému, pokiaľ sú prihlásení iní "
 "používatelia."
 
-#: src/login/org.freedesktop.login1.policy:278
+#: src/login/org.freedesktop.login1.policy:289
 msgid "Suspend the system while an application is inhibiting this"
 msgstr ""
 
-#: src/login/org.freedesktop.login1.policy:279
+#: src/login/org.freedesktop.login1.policy:290
 msgid ""
 "Authentication is required to suspend the system while an application is "
 "inhibiting this."
 msgstr ""
 
-#: src/login/org.freedesktop.login1.policy:289
+#: src/login/org.freedesktop.login1.policy:300
 msgid "Hibernate the system"
 msgstr ""
 
-#: src/login/org.freedesktop.login1.policy:290
+#: src/login/org.freedesktop.login1.policy:301
 msgid "Authentication is required to hibernate the system."
 msgstr ""
 
-#: src/login/org.freedesktop.login1.policy:299
+#: src/login/org.freedesktop.login1.policy:310
 msgid "Hibernate the system while other users are logged in"
 msgstr ""
 
-#: src/login/org.freedesktop.login1.policy:300
+#: src/login/org.freedesktop.login1.policy:311
 msgid ""
 "Authentication is required to hibernate the system while other users are "
 "logged in."
 msgstr ""
 
-#: src/login/org.freedesktop.login1.policy:310
+#: src/login/org.freedesktop.login1.policy:321
 msgid "Hibernate the system while an application is inhibiting this"
 msgstr ""
 
-#: src/login/org.freedesktop.login1.policy:311
+#: src/login/org.freedesktop.login1.policy:322
 msgid ""
 "Authentication is required to hibernate the system while an application is "
 "inhibiting this."
 msgstr ""
 
-#: src/login/org.freedesktop.login1.policy:321
+#: src/login/org.freedesktop.login1.policy:332
 msgid "Manage active sessions, users and seats"
 msgstr ""
 
-#: src/login/org.freedesktop.login1.policy:322
+#: src/login/org.freedesktop.login1.policy:333
 msgid "Authentication is required to manage active sessions, users and seats."
 msgstr ""
 
-#: src/login/org.freedesktop.login1.policy:331
+#: src/login/org.freedesktop.login1.policy:342
 msgid "Lock or unlock active sessions"
 msgstr "Zamknutie alebo odomknutie aktívnych relácií"
 
-#: src/login/org.freedesktop.login1.policy:332
+#: src/login/org.freedesktop.login1.policy:343
 msgid "Authentication is required to lock or unlock active sessions."
 msgstr ""
 "Vyžaduje sa overenie totožnosti na uzamknutie alebo odomknutie aktívnych "
 "relácií."
 
-#: src/login/org.freedesktop.login1.policy:341
+#: src/login/org.freedesktop.login1.policy:352
 msgid "Set the reboot \"reason\" in the kernel"
 msgstr ""
 
-#: src/login/org.freedesktop.login1.policy:342
+#: src/login/org.freedesktop.login1.policy:353
 #, fuzzy
 #| msgid "Authentication is required to set the local hostname."
 msgid "Authentication is required to set the reboot \"reason\" in the kernel."
 msgstr "Vyžaduje sa overenie totožnosti na nastavenie názvu hostiteľa."
 
-#: src/login/org.freedesktop.login1.policy:352
+#: src/login/org.freedesktop.login1.policy:363
 #, fuzzy
 #| msgid "Allow indication to the firmware to boot to setup interface"
 msgid "Indicate to the firmware to boot to setup interface"
 msgstr "Umožnenie indikácie spustenia inštalačného rozhrania pre firmvér"
 
-#: src/login/org.freedesktop.login1.policy:353
+#: src/login/org.freedesktop.login1.policy:364
 msgid ""
 "Authentication is required to indicate to the firmware to boot to setup "
 "interface."
@@ -540,11 +556,11 @@ msgstr ""
 "Vyžaduje sa overenie totožnosti na indikáciu spustenia inštalačného "
 "rozhrania pre firmvér."
 
-#: src/login/org.freedesktop.login1.policy:363
+#: src/login/org.freedesktop.login1.policy:374
 msgid "Indicate to the boot loader to boot to the boot loader menu"
 msgstr ""
 
-#: src/login/org.freedesktop.login1.policy:364
+#: src/login/org.freedesktop.login1.policy:375
 #, fuzzy
 #| msgid ""
 #| "Authentication is required to indicate to the firmware to boot to setup "
@@ -556,11 +572,11 @@ msgstr ""
 "Vyžaduje sa overenie totožnosti na indikáciu spustenia inštalačného "
 "rozhrania pre firmvér."
 
-#: src/login/org.freedesktop.login1.policy:374
+#: src/login/org.freedesktop.login1.policy:385
 msgid "Indicate to the boot loader to boot a specific entry"
 msgstr ""
 
-#: src/login/org.freedesktop.login1.policy:375
+#: src/login/org.freedesktop.login1.policy:386
 #, fuzzy
 #| msgid ""
 #| "Authentication is required to indicate to the firmware to boot to setup "
@@ -572,19 +588,19 @@ msgstr ""
 "Vyžaduje sa overenie totožnosti na indikáciu spustenia inštalačného "
 "rozhrania pre firmvér."
 
-#: src/login/org.freedesktop.login1.policy:385
+#: src/login/org.freedesktop.login1.policy:396
 msgid "Set a wall message"
 msgstr ""
 
-#: src/login/org.freedesktop.login1.policy:386
+#: src/login/org.freedesktop.login1.policy:397
 msgid "Authentication is required to set a wall message"
 msgstr ""
 
-#: src/login/org.freedesktop.login1.policy:395
+#: src/login/org.freedesktop.login1.policy:406
 msgid "Change Session"
 msgstr ""
 
-#: src/login/org.freedesktop.login1.policy:396
+#: src/login/org.freedesktop.login1.policy:407
 #, fuzzy
 #| msgid "Authentication is required to set the local hostname."
 msgid "Authentication is required to change the virtual terminal."
@@ -932,23 +948,23 @@ msgstr ""
 "Vyžaduje sa overenie totožnosti na ovládanie, či má byť povolená "
 "synchronizácia času cez sieť."
 
-#: src/core/dbus-unit.c:362
+#: src/core/dbus-unit.c:359
 msgid "Authentication is required to start '$(unit)'."
 msgstr ""
 
-#: src/core/dbus-unit.c:363
+#: src/core/dbus-unit.c:360
 msgid "Authentication is required to stop '$(unit)'."
 msgstr ""
 
-#: src/core/dbus-unit.c:364
+#: src/core/dbus-unit.c:361
 msgid "Authentication is required to reload '$(unit)'."
 msgstr ""
 
-#: src/core/dbus-unit.c:365 src/core/dbus-unit.c:366
+#: src/core/dbus-unit.c:362 src/core/dbus-unit.c:363
 msgid "Authentication is required to restart '$(unit)'."
 msgstr ""
 
-#: src/core/dbus-unit.c:538
+#: src/core/dbus-unit.c:535
 #, fuzzy
 #| msgid "Authentication is required to suspend the system."
 msgid ""
@@ -956,15 +972,15 @@ msgid ""
 "'$(unit)'."
 msgstr "Vyžaduje sa overenie totožnosti na uspanie systému."
 
-#: src/core/dbus-unit.c:569
+#: src/core/dbus-unit.c:566
 msgid "Authentication is required to reset the \"failed\" state of '$(unit)'."
 msgstr ""
 
-#: src/core/dbus-unit.c:602
+#: src/core/dbus-unit.c:599
 msgid "Authentication is required to set properties on '$(unit)'."
 msgstr ""
 
-#: src/core/dbus-unit.c:711
+#: src/core/dbus-unit.c:708
 #, fuzzy
 #| msgid "Authentication is required to reload the systemd state."
 msgid ""
@@ -973,7 +989,7 @@ msgid ""
 msgstr ""
 "Vyžaduje sa overenie totožnosti na znovu načítanie stavu systému systemd."
 
-#: src/core/dbus-unit.c:760
+#: src/core/dbus-unit.c:757
 #, fuzzy
 #| msgid "Authentication is required to reload the systemd state."
 msgid ""

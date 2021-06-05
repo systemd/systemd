@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <fcntl.h>
 #include <getopt.h>
@@ -10,6 +10,7 @@
 #include "alloc-util.h"
 #include "ask-password-api.h"
 #include "copy.h"
+#include "creds-util.h"
 #include "dissect-image.h"
 #include "env-file.h"
 #include "fd-util.h"
@@ -24,6 +25,7 @@
 #include "mkdir.h"
 #include "mount-util.h"
 #include "os-util.h"
+#include "parse-argument.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "pretty-print.h"
@@ -42,8 +44,8 @@
 static char *arg_root = NULL;
 static char *arg_image = NULL;
 static char *arg_locale = NULL;  /* $LANG */
-static char *arg_keymap = NULL;
 static char *arg_locale_messages = NULL; /* $LC_MESSAGES */
+static char *arg_keymap = NULL;
 static char *arg_timezone = NULL;
 static char *arg_hostname = NULL;
 static sd_id128_t arg_machine_id = {};
@@ -105,8 +107,7 @@ static void print_welcome(void) {
         r = parse_os_release(
                         arg_root,
                         "PRETTY_NAME", &pretty_name,
-                        "ANSI_COLOR", &ansi_color,
-                        NULL);
+                        "ANSI_COLOR", &ansi_color);
         if (r < 0)
                 log_full_errno(r == -ENOENT ? LOG_DEBUG : LOG_WARNING, r,
                                "Failed to read os-release file, ignoring: %m");
@@ -210,10 +211,7 @@ static int prompt_loop(const char *text, char **l, unsigned percentage, bool (*i
                         }
 
                         log_info("Selected '%s'.", l[u-1]);
-                        if (free_and_strdup(ret, l[u-1]) < 0)
-                                return log_oom();
-
-                        return 0;
+                        return free_and_strdup_warn(ret, l[u-1]);
                 }
 
                 if (!is_valid(p)) {
@@ -235,10 +233,28 @@ static bool locale_is_ok(const char *name) {
 
 static int prompt_locale(void) {
         _cleanup_strv_free_ char **locales = NULL;
+        bool acquired_from_creds = false;
         int r;
 
         if (arg_locale || arg_locale_messages)
                 return 0;
+
+        r = read_credential("firstboot.locale", (void**) &arg_locale, NULL);
+        if (r < 0)
+                log_debug_errno(r, "Failed to read credential firstboot.locale, ignoring: %m");
+        else
+                acquired_from_creds = true;
+
+        r = read_credential("firstboot.locale-messages", (void**) &arg_locale_messages, NULL);
+        if (r < 0)
+                log_debug_errno(r, "Failed to read credential firstboot.locale-message, ignoring: %m");
+        else
+                acquired_from_creds = true;
+
+        if (acquired_from_creds) {
+                log_debug("Acquired locale from credentials.");
+                return 0;
+        }
 
         if (!arg_prompt_locale)
                 return 0;
@@ -339,6 +355,14 @@ static int prompt_keymap(void) {
         if (arg_keymap)
                 return 0;
 
+        r = read_credential("firstboot.keymap", (void**) &arg_keymap, NULL);
+        if (r < 0)
+                log_debug_errno(r, "Failed to read credential firstboot.keymap, ignoring: %m");
+        else {
+                log_debug("Acquired keymap from credential.");
+                return 0;
+        }
+
         if (!arg_prompt_keymap)
                 return 0;
 
@@ -409,6 +433,14 @@ static int prompt_timezone(void) {
 
         if (arg_timezone)
                 return 0;
+
+        r = read_credential("firstboot.timezone", (void**) &arg_timezone, NULL);
+        if (r < 0)
+                log_debug_errno(r, "Failed to read credential firstboot.timezone, ignoring: %m");
+        else {
+                log_debug("Acquired timezone from credential.");
+                return 0;
+        }
 
         if (!arg_prompt_timezone)
                 return 0;
@@ -493,7 +525,7 @@ static int prompt_hostname(void) {
                         break;
                 }
 
-                if (!hostname_is_valid(h, true)) {
+                if (!hostname_is_valid(h, VALID_HOSTNAME_TRAILING_DOT)) {
                         log_error("Specified hostname invalid.");
                         continue;
                 }
@@ -560,6 +592,22 @@ static int prompt_root_password(void) {
 
         if (arg_root_password)
                 return 0;
+
+        r = read_credential("passwd.hashed-password.root", (void**) &arg_root_password, NULL);
+        if (r == -ENOENT) {
+                r = read_credential("passwd.plaintext-password.root", (void**) &arg_root_password, NULL);
+                if (r < 0)
+                        log_debug_errno(r, "Couldn't read credential 'passwd.{hashed|plaintext}-password.root', ignoring: %m");
+                else {
+                        arg_root_password_is_hashed = false;
+                        return 0;
+                }
+        } else if (r < 0)
+                log_debug_errno(r, "Couldn't read credential 'passwd.hashed-password.root', ignoring: %m");
+        else {
+                arg_root_password_is_hashed = true;
+                return 0;
+        }
 
         if (!arg_prompt_root_password)
                 return 0;
@@ -634,7 +682,18 @@ static int find_shell(const char *path, const char *root) {
 static int prompt_root_shell(void) {
         int r;
 
-        if (arg_root_shell || !arg_prompt_root_shell)
+        if (arg_root_shell)
+                return 0;
+
+        r = read_credential("passwd.shell.root", (void**) &arg_root_shell, NULL);
+        if (r < 0)
+                log_debug_errno(r, "Failed to read credential passwd.shell.root, ignoring: %m");
+        else {
+                log_debug("Acquired root shell from credential.");
+                return 0;
+        }
+
+        if (!arg_prompt_root_shell)
                 return 0;
 
         print_welcome();
@@ -678,7 +737,7 @@ static int write_root_passwd(const char *passwd_path, const char *password, cons
         if (original) {
                 struct passwd *i;
 
-                r = sync_rights(fileno(original), fileno(passwd));
+                r = copy_rights(fileno(original), fileno(passwd));
                 if (r < 0)
                         return r;
 
@@ -746,7 +805,7 @@ static int write_root_shadow(const char *shadow_path, const char *hashed_passwor
         if (original) {
                 struct spwd *i;
 
-                r = sync_rights(fileno(original), fileno(shadow));
+                r = copy_rights(fileno(original), fileno(shadow));
                 if (r < 0)
                         return r;
 
@@ -774,7 +833,7 @@ static int write_root_shadow(const char *shadow_path, const char *hashed_passwor
                         .sp_warn = -1,
                         .sp_inact = -1,
                         .sp_expire = -1,
-                        .sp_flag = (unsigned long) -1, /* this appears to be what everybody does ... */
+                        .sp_flag = ULONG_MAX, /* this appears to be what everybody does ... */
                 };
 
                 if (errno != ENOENT)
@@ -863,20 +922,20 @@ static int process_root_args(void) {
                 return r;
 
         if (arg_root_password && arg_root_password_is_hashed) {
-                password = "x";
+                password = PASSWORD_SEE_SHADOW;
                 hashed_password = arg_root_password;
         } else if (arg_root_password) {
                 r = hash_password(arg_root_password, &_hashed_password);
                 if (r < 0)
                         return log_error_errno(r, "Failed to hash password: %m");
 
-                password = "x";
+                password = PASSWORD_SEE_SHADOW;
                 hashed_password = _hashed_password;
 
         } else if (arg_delete_root_password)
-                password = hashed_password = "";
+                password = hashed_password = PASSWORD_NONE;
         else
-                password = hashed_password = "!";
+                password = hashed_password = PASSWORD_LOCKED_AND_INVALID;
 
         r = write_root_passwd(etc_passwd, password, arg_root_shell);
         if (r < 0)
@@ -954,10 +1013,9 @@ static int help(void) {
                "     --force                                Overwrite existing files\n"
                "     --delete-root-password                 Delete root password\n"
                "     --welcome=no                           Disable the welcome text\n"
-               "\nSee the %s for details.\n"
-               , program_invocation_short_name
-               , link
-        );
+               "\nSee the %s for details.\n",
+               program_invocation_short_name,
+               link);
 
         return 0;
 }
@@ -1050,13 +1108,13 @@ static int parse_argv(int argc, char *argv[]) {
                         return version();
 
                 case ARG_ROOT:
-                        r = parse_path_argument_and_warn(optarg, true, &arg_root);
+                        r = parse_path_argument(optarg, true, &arg_root);
                         if (r < 0)
                                 return r;
                         break;
 
                 case ARG_IMAGE:
-                        r = parse_path_argument_and_warn(optarg, false, &arg_image);
+                        r = parse_path_argument(optarg, false, &arg_image);
                         if (r < 0)
                                 return r;
                         break;
@@ -1135,21 +1193,21 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_HOSTNAME:
-                        if (!hostname_is_valid(optarg, true))
+                        if (!hostname_is_valid(optarg, VALID_HOSTNAME_TRAILING_DOT))
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                        "Host name %s is not valid.", optarg);
 
-                        hostname_cleanup(optarg);
                         r = free_and_strdup(&arg_hostname, optarg);
                         if (r < 0)
                                 return log_oom();
 
+                        hostname_cleanup(arg_hostname);
                         break;
 
                 case ARG_MACHINE_ID:
-                        if (sd_id128_from_string(optarg, &arg_machine_id) < 0)
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "Failed to parse machine id %s.", optarg);
+                        r = sd_id128_from_string(optarg, &arg_machine_id);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse machine id %s.", optarg);
 
                         break;
 
@@ -1272,7 +1330,7 @@ static int run(int argc, char *argv[]) {
         if (r <= 0)
                 return r;
 
-        log_setup_service();
+        log_setup();
 
         umask(0022);
 
@@ -1295,7 +1353,12 @@ static int run(int argc, char *argv[]) {
 
                 r = mount_image_privately_interactively(
                                 arg_image,
-                                DISSECT_IMAGE_REQUIRE_ROOT|DISSECT_IMAGE_VALIDATE_OS|DISSECT_IMAGE_RELAX_VAR_CHECK|DISSECT_IMAGE_FSCK,
+                                DISSECT_IMAGE_GENERIC_ROOT |
+                                DISSECT_IMAGE_REQUIRE_ROOT |
+                                DISSECT_IMAGE_VALIDATE_OS |
+                                DISSECT_IMAGE_RELAX_VAR_CHECK |
+                                DISSECT_IMAGE_FSCK |
+                                DISSECT_IMAGE_GROWFS,
                                 &unlink_dir,
                                 &loop_device,
                                 &decrypted_image);

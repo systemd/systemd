@@ -1,7 +1,6 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "alloc-util.h"
-#include "build.h"
 #include "cgroup-util.h"
 #include "dirent-util.h"
 #include "errno-util.h"
@@ -17,6 +16,7 @@
 #include "tests.h"
 #include "user-util.h"
 #include "util.h"
+#include "version.h"
 
 static void check_p_d_u(const char *path, int code, const char *result) {
         _cleanup_free_ char *unit = NULL;
@@ -338,7 +338,7 @@ static void test_cg_tests(void) {
 
         r = cg_unified();
         if (r == -ENOMEDIUM) {
-                log_notice_errno(r, "Skipping cg hierarchy tests: %m");
+                log_tests_skipped("cgroup not mounted");
                 return;
         }
         assert_se(r >= 0);

@@ -1,4 +1,4 @@
-#  SPDX-License-Identifier: LGPL-2.1+
+#  SPDX-License-Identifier: LGPL-2.1-or-later
 #
 #  This file is part of systemd.
 #
@@ -19,4 +19,4 @@ AssertPathExists=/etc/initrd-release
 
 [Service]
 Type=oneshot
-ExecStart=@rootlibexecdir@/systemd-hibernate-resume %f
+ExecStart={{ROOTLIBEXECDIR}}/systemd-hibernate-resume %f

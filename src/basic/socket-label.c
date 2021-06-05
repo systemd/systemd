@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <errno.h>
 #include <netinet/in.h>
@@ -129,8 +129,5 @@ int socket_address_listen(
         if (p)
                 (void) touch(p);
 
-        r = fd;
-        fd = -1;
-
-        return r;
+        return TAKE_FD(fd);
 }

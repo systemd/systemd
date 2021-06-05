@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <errno.h>
 #include <fnmatch.h>
@@ -123,7 +123,6 @@ size_t strv_length(char * const *l) {
 }
 
 char **strv_new_ap(const char *x, va_list ap) {
-        const char *s;
         _cleanup_strv_free_ char **a = NULL;
         size_t n = 0, i = 0;
         va_list aq;
@@ -133,43 +132,28 @@ char **strv_new_ap(const char *x, va_list ap) {
          * STRV_IFNOTNULL() macro to include possibly NULL strings in
          * the string list. */
 
-        if (x) {
-                n = x == STRV_IGNORE ? 0 : 1;
+        va_copy(aq, ap);
+        for (const char *s = x; s; s = va_arg(aq, const char*)) {
+                if (s == STRV_IGNORE)
+                        continue;
 
-                va_copy(aq, ap);
-                while ((s = va_arg(aq, const char*))) {
-                        if (s == STRV_IGNORE)
-                                continue;
-
-                        n++;
-                }
-
-                va_end(aq);
+                n++;
         }
+        va_end(aq);
 
         a = new(char*, n+1);
         if (!a)
                 return NULL;
 
-        if (x) {
-                if (x != STRV_IGNORE) {
-                        a[i] = strdup(x);
-                        if (!a[i])
-                                return NULL;
-                        i++;
-                }
+        for (const char *s = x; s; s = va_arg(ap, const char*)) {
+                if (s == STRV_IGNORE)
+                        continue;
 
-                while ((s = va_arg(ap, const char*))) {
+                a[i] = strdup(s);
+                if (!a[i])
+                        return NULL;
 
-                        if (s == STRV_IGNORE)
-                                continue;
-
-                        a[i] = strdup(s);
-                        if (!a[i])
-                                return NULL;
-
-                        i++;
-                }
+                i++;
         }
 
         a[i] = NULL;
@@ -256,32 +240,33 @@ int strv_extend_strv_concat(char ***a, char * const *b, const char *suffix) {
         return 0;
 }
 
-char **strv_split_newlines(const char *s) {
-        char **l;
+int strv_split_newlines_full(char ***ret, const char *s, ExtractFlags flags) {
+        _cleanup_strv_free_ char **l = NULL;
         size_t n;
+        int r;
 
         assert(s);
 
-        /* Special version of strv_split() that splits on newlines and
-         * suppresses an empty string at the end */
+        /* Special version of strv_split_full() that splits on newlines and
+         * suppresses an empty string at the end. */
 
-        l = strv_split(s, NEWLINE);
-        if (!l)
-                return NULL;
+        r = strv_split_full(&l, s, NEWLINE, flags);
+        if (r < 0)
+                return r;
 
         n = strv_length(l);
-        if (n <= 0)
-                return l;
-
-        if (isempty(l[n - 1]))
+        if (n > 0 && isempty(l[n - 1])) {
                 l[n - 1] = mfree(l[n - 1]);
+                n--;
+        }
 
-        return l;
+        *ret = TAKE_PTR(l);
+        return n;
 }
 
 int strv_split_full(char ***t, const char *s, const char *separators, ExtractFlags flags) {
         _cleanup_strv_free_ char **l = NULL;
-        size_t n = 0, allocated = 0;
+        size_t n = 0;
         int r;
 
         assert(t);
@@ -296,7 +281,7 @@ int strv_split_full(char ***t, const char *s, const char *separators, ExtractFla
                 if (r == 0)
                         break;
 
-                if (!GREEDY_REALLOC(l, allocated, n + 2))
+                if (!GREEDY_REALLOC(l, n + 2))
                         return -ENOMEM;
 
                 l[n++] = TAKE_PTR(word);
@@ -317,7 +302,7 @@ int strv_split_full(char ***t, const char *s, const char *separators, ExtractFla
 
 int strv_split_colon_pairs(char ***t, const char *s) {
         _cleanup_strv_free_ char **l = NULL;
-        size_t n = 0, allocated = 0;
+        size_t n = 0;
         int r;
 
         assert(t);
@@ -347,7 +332,7 @@ int strv_split_colon_pairs(char ***t, const char *s) {
                 if (!second_or_empty)
                         return -ENOMEM;
 
-                if (!GREEDY_REALLOC(l, allocated, n + 3))
+                if (!GREEDY_REALLOC(l, n + 3))
                         return -ENOMEM;
 
                 l[n++] = TAKE_PTR(first);
@@ -367,7 +352,7 @@ int strv_split_colon_pairs(char ***t, const char *s) {
         return (int) n;
 }
 
-char *strv_join_prefix(char * const *l, const char *separator, const char *prefix) {
+char *strv_join_full(char * const *l, const char *separator, const char *prefix, bool unescape_separators) {
         char * const *s;
         char *r, *e;
         size_t n, k, m;
@@ -378,11 +363,17 @@ char *strv_join_prefix(char * const *l, const char *separator, const char *prefi
         k = strlen(separator);
         m = strlen_ptr(prefix);
 
+        if (unescape_separators) /* If there separator is multi-char, we won't know how to escape it. */
+                assert(k == 1);
+
         n = 0;
         STRV_FOREACH(s, l) {
                 if (s != l)
                         n += k;
-                n += m + strlen(*s);
+
+                bool needs_escaping = unescape_separators && strchr(*s, separator[0]);
+
+                n += m + strlen(*s) * (1 + needs_escaping);
         }
 
         r = new(char, n+1);
@@ -397,7 +388,16 @@ char *strv_join_prefix(char * const *l, const char *separator, const char *prefi
                 if (prefix)
                         e = stpcpy(e, prefix);
 
-                e = stpcpy(e, *s);
+                bool needs_escaping = unescape_separators && strchr(*s, separator[0]);
+
+                if (needs_escaping)
+                        for (size_t i = 0; (*s)[i]; i++) {
+                                if ((*s)[i] == separator[0])
+                                        *(e++) = '\\';
+                                *(e++) = (*s)[i];
+                        }
+                else
+                        e = stpcpy(e, *s);
         }
 
         *e = 0;
@@ -520,6 +520,19 @@ int strv_consume_prepend(char ***l, char *value) {
                 free(value);
 
         return r;
+}
+
+int strv_prepend(char ***l, const char *value) {
+        char *v;
+
+        if (!value)
+                return 0;
+
+        v = strdup(value);
+        if (!v)
+                return -ENOMEM;
+
+        return strv_consume_prepend(l, v);
 }
 
 int strv_extend(char ***l, const char *value) {
@@ -695,9 +708,9 @@ int strv_make_nulstr(char * const *l, char **ret, size_t *ret_size) {
          * is provided separately.
          */
 
-        size_t n_allocated = 0, n = 0;
         _cleanup_free_ char *m = NULL;
         char * const *i;
+        size_t n = 0;
 
         assert(ret);
         assert(ret_size);
@@ -707,7 +720,7 @@ int strv_make_nulstr(char * const *l, char **ret, size_t *ret_size) {
 
                 z = strlen(*i);
 
-                if (!GREEDY_REALLOC(m, n_allocated, n + z + 2))
+                if (!GREEDY_REALLOC(m, n + z + 2))
                         return -ENOMEM;
 
                 memcpy(m + n, *i, z + 1);

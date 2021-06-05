@@ -1,11 +1,10 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "sd-bus.h"
 
 #include "alloc-util.h"
 #include "bus-internal.h"
 #include "bus-track.h"
-#include "bus-util.h"
 #include "string-util.h"
 
 struct track_item {

@@ -1,7 +1,7 @@
 <?xml version='1.0'?>
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
-<!-- SPDX-License-Identifier: LGPL-2.1+ -->
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
 
 <refentry id="sd_bus_can_send"
           xmlns:xi="http://www.w3.org/2001/XInclude">
@@ -37,7 +37,7 @@
   <refsect1>
     <title>Description</title>
 
-    <para><function>sd_bus_can_send</function> is mostly used for checking if file descriptor
+    <para><function>sd_bus_can_send()</function> is mostly used for checking if file descriptor
     passing is available on the given bus. <parameter>type</parameter> can be any of the
     <constant>SD_BUS_TYPE</constant> constants.</para>
   </refsect1>

@@ -1,0 +1,9 @@
+[Unit]
+Description=Create a lot of memory pressure
+
+[Service]
+# A VERY small memory.high will cause the script (trying to use a lot of memory)
+# to throttle and be put under heavy pressure.
+MemoryHigh=1M
+Slice=testsuite-55-workload.slice
+ExecStart=/usr/lib/systemd/tests/testdata/units/testsuite-55-slowgrowth.sh

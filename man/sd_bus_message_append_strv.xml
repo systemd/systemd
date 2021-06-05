@@ -1,7 +1,7 @@
 <?xml version='1.0'?>
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
-<!-- SPDX-License-Identifier: LGPL-2.1+ -->
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
 
 <refentry id="sd_bus_message_append_strv"
           xmlns:xi="http://www.w3.org/2001/XInclude">
@@ -37,7 +37,7 @@
   <refsect1>
     <title>Description</title>
 
-    <para>The <function>sd_bus_message_append</function> function can be
+    <para>The <function>sd_bus_message_append()</function> function can be
     used to append an array of strings to message
     <parameter>m</parameter>. The parameter <parameter>l</parameter>
     shall point to a <constant>NULL</constant>-terminated array of pointers

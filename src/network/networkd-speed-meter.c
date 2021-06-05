@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <errno.h>
 
@@ -44,7 +44,6 @@ static int process_message(Manager *manager, sd_netlink_message *message) {
 static int speed_meter_handler(sd_event_source *s, uint64_t usec, void *userdata) {
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL, *reply = NULL;
         Manager *manager = userdata;
-        sd_netlink_message *i;
         usec_t usec_now;
         Link *link;
         int r;
@@ -84,7 +83,7 @@ static int speed_meter_handler(sd_event_source *s, uint64_t usec, void *userdata
                 return 0;
         }
 
-        for (i = reply; i; i = sd_netlink_message_next(i))
+        for (sd_netlink_message *i = reply; i; i = sd_netlink_message_next(i))
                 (void) process_message(manager, i);
 
         return 0;

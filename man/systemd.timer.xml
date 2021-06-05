@@ -1,7 +1,7 @@
 <?xml version='1.0'?>
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
-<!-- SPDX-License-Identifier: LGPL-2.1+ -->
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
 
 <refentry id="systemd.timer">
   <refentryinfo>
@@ -81,10 +81,12 @@
         units involved with early boot or late system shutdown should disable the
         <varname>DefaultDependencies=</varname> option.</para></listitem>
 
-        <listitem><para>Timer units
-        with at least one <varname>OnCalendar=</varname> directive will have an additional <varname>After=</varname>
-        dependency on <filename>time-sync.target</filename> to avoid being started before the system clock has been
-        correctly set.</para></listitem>
+        <listitem><para>Timer units with at least one <varname>OnCalendar=</varname> directive acquire a pair
+        of additional <varname>After=</varname> dependencies on <filename>time-set.target</filename> and
+        <filename>time-sync.target</filename>, in order to avoid being started before the system clock has
+        been correctly set. See
+        <citerefentry><refentrytitle>systemd.special</refentrytitle><manvolnum>7</manvolnum></citerefentry>
+        for details on these two targets.</para></listitem>
       </itemizedlist>
     </refsect2>
   </refsect1>
@@ -240,32 +242,41 @@
       <varlistentry>
         <term><varname>RandomizedDelaySec=</varname></term>
 
-        <listitem><para>Delay the timer by a randomly selected, evenly
-        distributed amount of time between 0 and the specified time
-        value. Defaults to 0, indicating that no randomized delay
-        shall be applied. Each timer unit will determine this delay
-        randomly before each iteration, and the delay will simply be
-        added on top of the next determined elapsing time. This is
-        useful to stretch dispatching of similarly configured timer
-        events over a certain amount time, to avoid that they all fire
-        at the same time, possibly resulting in resource
-        congestion. Note the relation to
-        <varname>AccuracySec=</varname> above: the latter allows the
-        service manager to coalesce timer events within a specified
-        time range in order to minimize wakeups, the former does the
-        opposite: it stretches timer events over a time range, to make
-        it unlikely that they fire simultaneously. If
-        <varname>RandomizedDelaySec=</varname> and
-        <varname>AccuracySec=</varname> are used in conjunction, first
-        the randomized delay is added, and then the result is
-        possibly further shifted to coalesce it with other timer
-        events happening on the system. As mentioned above
-        <varname>AccuracySec=</varname> defaults to 1min and
-        <varname>RandomizedDelaySec=</varname> to 0, thus encouraging
-        coalescing of timer events. In order to optimally stretch
-        timer events over a certain range of time, make sure to set
-        <varname>RandomizedDelaySec=</varname> to a higher value, and
-        <varname>AccuracySec=1us</varname>.</para></listitem>
+        <listitem><para>Delay the timer by a randomly selected, evenly distributed amount of time between 0
+        and the specified time value. Defaults to 0, indicating that no randomized delay shall be applied.
+        Each timer unit will determine this delay randomly before each iteration, and the delay will simply
+        be added on top of the next determined elapsing time, unless modified with
+        <varname>FixedRandomDelay=</varname>, see below.</para>
+
+        <para>This setting is useful to stretch dispatching of similarly configured timer events over a
+        certain time interval, to prevent them from firing all at the same time, possibly resulting in
+        resource congestion.</para>
+
+        <para>Note the relation to <varname>AccuracySec=</varname> above: the latter allows the service
+        manager to coalesce timer events within a specified time range in order to minimize wakeups, while
+        this setting does the opposite: it stretches timer events over an interval, to make it unlikely that
+        they fire simultaneously. If <varname>RandomizedDelaySec=</varname> and
+        <varname>AccuracySec=</varname> are used in conjunction, first the randomized delay is added, and
+        then the result is possibly further shifted to coalesce it with other timer events happening on the
+        system. As mentioned above <varname>AccuracySec=</varname> defaults to 1 minute and
+        <varname>RandomizedDelaySec=</varname> to 0, thus encouraging coalescing of timer events. In order to
+        optimally stretch timer events over a certain range of time, set
+        <varname>AccuracySec=1us</varname> and <varname>RandomizedDelaySec=</varname> to some higher value.
+        </para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>FixedRandomDelay=</varname></term>
+
+        <listitem><para>Takes a boolean argument. When enabled, the randomized offset specified by
+        <varname>RandomizedDelaySec=</varname> is reused for all firings of the same timer. For a given timer
+        unit, the offset depends on the machine ID, user identifier and timer name, which means that it is
+        stable between restarts of the manager. This effectively creates a fixed offset for an individual
+        timer, reducing the jitter in firings of this timer, while still avoiding firing at the same time as
+        other similarly configured timers.</para>
+
+        <para>This setting has no effect if <varname>RandomizedDelaySec=</varname> is set to 0. Defaults to
+        <option>false</option>.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -276,7 +287,7 @@
         when the system clock (<constant>CLOCK_REALTIME</constant>) jumps relative to the monotonic clock
         (<constant>CLOCK_MONOTONIC</constant>), or when the local system timezone is modified. These options
         can be used alone or in combination with other timer expressions (see above) within the same timer
-        unit. These options default to false.</para></listitem>
+        unit. These options default to <option>false</option>.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -301,7 +312,7 @@
         is nonetheless subject to the delay imposed by <varname>RandomizedDelaySec=</varname>.
         This is useful to catch up on missed runs of the service when the system was powered down. Note that
         this setting only has an effect on timers configured with <varname>OnCalendar=</varname>. Defaults to
-        <varname>false</varname>.</para>
+        <option>false</option>.</para>
 
         <para>Use <command>systemctl clean --what=state …</command> on the timer unit to remove the timestamp
         file maintained by this option from disk. In particular, use this command before uninstalling a timer
@@ -317,7 +328,7 @@
         from suspend, should it be suspended and if the system supports this. Note that this option will only
         make sure the system resumes on the appropriate times, it will not take care of suspending it again
         after any work that is to be done is finished. Defaults to
-        <varname>false</varname>.</para>
+        <option>false</option>.</para>
 
         <para>Note that this functionality requires privileges and is thus generally only available in the
         system service manager.</para>
@@ -343,7 +354,7 @@
         <varname>RemainAfterElapse=</varname> is on, starting the timer a second time has no effect. However,
         if <varname>RemainAfterElapse=</varname> is off and the timer unit was already unloaded, it can be
         started again, and thus the service can be triggered multiple times. Defaults to
-        <varname>yes</varname>.</para></listitem>
+        <option>true</option>.</para></listitem>
       </varlistentry>
     </variablelist>
   </refsect1>

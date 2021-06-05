@@ -22,7 +22,7 @@
 #    in /sys/class/input/eventX/device/id.
 #
 #  - Input driver device name and DMI data match:
-#      evdev:name:<input device name>:dmi:bvn*:bvr*:bd*:svn<vendor>:pn*
+#      evdev:name:<input device name>:dmi:bvn*:bvr*:bd*:svn<vendor>:pn*:*
 #    <input device name> is the name device specified by the driver,
 #    <vendor> is the firmware-provided string from the kernel DMI modalias,
 #    see /sys/class/dmi/id/modalias
@@ -76,7 +76,6 @@
 # drivers/input/mouse/trackpoint.c in the Linux kernel sources.
 #
 
-#
 # Sort by brand, model
 
 #########################################
@@ -84,23 +83,23 @@
 #########################################
 
 # Latitude D620
-evdev:name:*DualPoint Stick:dmi:bvn*:bvr*:bd*:svnDellInc.:pnLatitudeD620*:pvr*
+evdev:name:*DualPoint Stick:dmi:bvn*:bvr*:bd*:svnDellInc.:pnLatitudeD620*:*
  POINTINGSTICK_CONST_ACCEL=0.5
 
 # Latitude E5570
-evdev:name:*DualPoint Stick:dmi:bvn*:bvr*:bd*:svnDellInc.:pnLatitudeE5570*:pvr*
+evdev:name:*DualPoint Stick:dmi:bvn*:bvr*:bd*:svnDellInc.:pnLatitudeE5570*:*
  POINTINGSTICK_CONST_ACCEL=0.1
 
 # Latitude E6320
-evdev:name:*DualPoint Stick:dmi:bvn*:bvr*:bd*:svnDellInc.:pnLatitudeE6320*:pvr*
+evdev:name:*DualPoint Stick:dmi:bvn*:bvr*:bd*:svnDellInc.:pnLatitudeE6320*:*
  POINTINGSTICK_CONST_ACCEL=2.0
 
 # Latitude E6400
-evdev:name:*DualPoint Stick:dmi:bvn*:bvr*:bd*:svnDellInc.:pnLatitudeE6400*:pvr*
+evdev:name:*DualPoint Stick:dmi:bvn*:bvr*:bd*:svnDellInc.:pnLatitudeE6400*:*
  POINTINGSTICK_CONST_ACCEL=1.5
 
 # Latitude E7470
-evdev:name:*DualPoint Stick:dmi:bvn*:bvr*:bd*:svnDellInc.:pnLatitudeE7470*:pvr*
+evdev:name:*DualPoint Stick:dmi:bvn*:bvr*:bd*:svnDellInc.:pnLatitudeE7470*:*
  POINTINGSTICK_CONST_ACCEL=0.6
 
 #########################################

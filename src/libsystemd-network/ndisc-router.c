@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 /***
   Copyright © 2014 Intel Corporation. All rights reserved.
 ***/
@@ -43,7 +43,7 @@ _public_ int sd_ndisc_router_from_raw(sd_ndisc_router **ret, const void *raw, si
                 return -ENOMEM;
 
         memcpy(NDISC_ROUTER_RAW(rt), raw, raw_size);
-        r = ndisc_router_parse(rt);
+        r = ndisc_router_parse(NULL, rt);
         if (r < 0)
                 return r;
 
@@ -56,7 +56,7 @@ _public_ int sd_ndisc_router_get_address(sd_ndisc_router *rt, struct in6_addr *r
         assert_return(rt, -EINVAL);
         assert_return(ret_addr, -EINVAL);
 
-        if (IN6_IS_ADDR_UNSPECIFIED(&rt->address))
+        if (in6_addr_is_null(&rt->address))
                 return -ENODATA;
 
         *ret_addr = rt->address;
@@ -87,7 +87,7 @@ _public_ int sd_ndisc_router_get_raw(sd_ndisc_router *rt, const void **ret, size
         return 0;
 }
 
-int ndisc_router_parse(sd_ndisc_router *rt) {
+int ndisc_router_parse(sd_ndisc *nd, sd_ndisc_router *rt) {
         struct nd_router_advert *a;
         const uint8_t *p;
         bool has_mtu = false, has_flag_extension = false;
@@ -95,23 +95,20 @@ int ndisc_router_parse(sd_ndisc_router *rt) {
 
         assert(rt);
 
-        if (rt->raw_size < sizeof(struct nd_router_advert)) {
-                log_ndisc("Too small to be a router advertisement, ignoring.");
-                return -EBADMSG;
-        }
+        if (rt->raw_size < sizeof(struct nd_router_advert))
+                return log_ndisc_errno(nd, SYNTHETIC_ERRNO(EBADMSG),
+                                       "Too small to be a router advertisement, ignoring.");
 
         /* Router advertisement packets are neatly aligned to 64bit boundaries, hence we can access them directly */
         a = NDISC_ROUTER_RAW(rt);
 
-        if (a->nd_ra_type != ND_ROUTER_ADVERT) {
-                log_ndisc("Received ND packet that is not a router advertisement, ignoring.");
-                return -EBADMSG;
-        }
+        if (a->nd_ra_type != ND_ROUTER_ADVERT)
+                return log_ndisc_errno(nd, SYNTHETIC_ERRNO(EBADMSG),
+                                       "Received ND packet that is not a router advertisement, ignoring.");
 
-        if (a->nd_ra_code != 0) {
-                log_ndisc("Received ND packet with wrong RA code, ignoring.");
-                return -EBADMSG;
-        }
+        if (a->nd_ra_code != 0)
+                return log_ndisc_errno(nd, SYNTHETIC_ERRNO(EBADMSG),
+                                       "Received ND packet with wrong RA code, ignoring.");
 
         rt->hop_limit = a->nd_ra_curhoplimit;
         rt->flags = a->nd_ra_flags_reserved; /* the first 8bit */
@@ -131,36 +128,31 @@ int ndisc_router_parse(sd_ndisc_router *rt) {
                 if (left == 0)
                         break;
 
-                if (left < 2) {
-                        log_ndisc("Option lacks header, ignoring datagram.");
-                        return -EBADMSG;
-                }
+                if (left < 2)
+                        return log_ndisc_errno(nd, SYNTHETIC_ERRNO(EBADMSG),
+                                               "Option lacks header, ignoring datagram.");
 
                 type = p[0];
                 length = p[1] * 8;
 
-                if (length == 0) {
-                        log_ndisc("Zero-length option, ignoring datagram.");
-                        return -EBADMSG;
-                }
-                if (left < length) {
-                        log_ndisc("Option truncated, ignoring datagram.");
-                        return -EBADMSG;
-                }
+                if (length == 0)
+                        return log_ndisc_errno(nd, SYNTHETIC_ERRNO(EBADMSG),
+                                               "Zero-length option, ignoring datagram.");
+                if (left < length)
+                        return log_ndisc_errno(nd, SYNTHETIC_ERRNO(EBADMSG),
+                                               "Option truncated, ignoring datagram.");
 
                 switch (type) {
 
                 case SD_NDISC_OPTION_PREFIX_INFORMATION:
 
-                        if (length != 4*8) {
-                                log_ndisc("Prefix option of invalid size, ignoring datagram.");
-                                return -EBADMSG;
-                        }
+                        if (length != 4*8)
+                                return log_ndisc_errno(nd, SYNTHETIC_ERRNO(EBADMSG),
+                                                       "Prefix option of invalid size, ignoring datagram.");
 
-                        if (p[2] > 128) {
-                                log_ndisc("Bad prefix length, ignoring datagram.");
-                                return -EBADMSG;
-                        }
+                        if (p[2] > 128)
+                                return log_ndisc_errno(nd, SYNTHETIC_ERRNO(EBADMSG),
+                                                       "Bad prefix length, ignoring datagram.");
 
                         break;
 
@@ -168,14 +160,13 @@ int ndisc_router_parse(sd_ndisc_router *rt) {
                         uint32_t m;
 
                         if (has_mtu) {
-                                log_ndisc("MTU option specified twice, ignoring.");
+                                log_ndisc(nd, "MTU option specified twice, ignoring.");
                                 break;
                         }
 
-                        if (length != 8) {
-                                log_ndisc("MTU option of invalid size, ignoring datagram.");
-                                return -EBADMSG;
-                        }
+                        if (length != 8)
+                                return log_ndisc_errno(nd, SYNTHETIC_ERRNO(EBADMSG),
+                                                       "MTU option of invalid size, ignoring datagram.");
 
                         m = be32toh(*(uint32_t*) (p + 4));
                         if (m >= IPV6_MIN_MTU) /* ignore invalidly small MTUs */
@@ -186,37 +177,32 @@ int ndisc_router_parse(sd_ndisc_router *rt) {
                 }
 
                 case SD_NDISC_OPTION_ROUTE_INFORMATION:
-                        if (length < 1*8 || length > 3*8) {
-                                log_ndisc("Route information option of invalid size, ignoring datagram.");
-                                return -EBADMSG;
-                        }
+                        if (length < 1*8 || length > 3*8)
+                                return log_ndisc_errno(nd, SYNTHETIC_ERRNO(EBADMSG),
+                                                       "Route information option of invalid size, ignoring datagram.");
 
-                        if (p[2] > 128) {
-                                log_ndisc("Bad route prefix length, ignoring datagram.");
-                                return -EBADMSG;
-                        }
+                        if (p[2] > 128)
+                                return log_ndisc_errno(nd, SYNTHETIC_ERRNO(EBADMSG),
+                                                       "Bad route prefix length, ignoring datagram.");
 
                         break;
 
                 case SD_NDISC_OPTION_RDNSS:
-                        if (length < 3*8 || (length % (2*8)) != 1*8) {
-                                log_ndisc("RDNSS option has invalid size.");
-                                return -EBADMSG;
-                        }
+                        if (length < 3*8 || (length % (2*8)) != 1*8)
+                                return log_ndisc_errno(nd, SYNTHETIC_ERRNO(EBADMSG), "RDNSS option has invalid size.");
 
                         break;
 
                 case SD_NDISC_OPTION_FLAGS_EXTENSION:
 
                         if (has_flag_extension) {
-                                log_ndisc("Flags extension option specified twice, ignoring.");
+                                log_ndisc(nd, "Flags extension option specified twice, ignoring.");
                                 break;
                         }
 
-                        if (length < 1*8) {
-                                log_ndisc("Flags extension option has invalid size.");
-                                return -EBADMSG;
-                        }
+                        if (length < 1*8)
+                                return log_ndisc_errno(nd, SYNTHETIC_ERRNO(EBADMSG),
+                                                       "Flags extension option has invalid size.");
 
                         /* Add in the additional flags bits */
                         rt->flags |=
@@ -231,10 +217,9 @@ int ndisc_router_parse(sd_ndisc_router *rt) {
                         break;
 
                 case SD_NDISC_OPTION_DNSSL:
-                        if (length < 2*8) {
-                                log_ndisc("DNSSL option has invalid size.");
-                                return -EBADMSG;
-                        }
+                        if (length < 2*8)
+                                return log_ndisc_errno(nd, SYNTHETIC_ERRNO(EBADMSG),
+                                                       "DNSSL option has invalid size.");
 
                         break;
                 }
@@ -437,7 +422,7 @@ _public_ int sd_ndisc_router_prefix_get_flags(sd_ndisc_router *rt, uint8_t *ret)
         flags = pi->nd_opt_pi_flags_reserved;
 
         if ((flags & ND_OPT_PI_FLAG_AUTO) && (pi->nd_opt_pi_prefix_len != 64)) {
-                log_ndisc("Invalid prefix length, ignoring prefix for stateless autoconfiguration.");
+                log_ndisc(NULL, "Invalid prefix length, ignoring prefix for stateless autoconfiguration.");
                 flags &= ~ND_OPT_PI_FLAG_AUTO;
         }
 
@@ -645,7 +630,7 @@ static int get_dnssl_info(sd_ndisc_router *rt, uint8_t **ret) {
 _public_ int sd_ndisc_router_dnssl_get_domains(sd_ndisc_router *rt, char ***ret) {
         _cleanup_strv_free_ char **l = NULL;
         _cleanup_free_ char *e = NULL;
-        size_t allocated = 0, n = 0, left;
+        size_t n = 0, left;
         uint8_t *ri, *p;
         bool first = true;
         int r;
@@ -706,7 +691,7 @@ _public_ int sd_ndisc_router_dnssl_get_domains(sd_ndisc_router *rt, char ***ret)
                 if (1U + *p + 1U > left)
                         return -EBADMSG;
 
-                if (!GREEDY_REALLOC(e, allocated, n + !first + DNS_LABEL_ESCAPED_MAX + 1U))
+                if (!GREEDY_REALLOC(e, n + !first + DNS_LABEL_ESCAPED_MAX + 1U))
                         return -ENOMEM;
 
                 if (first)

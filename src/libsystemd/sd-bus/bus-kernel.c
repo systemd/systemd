@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #if HAVE_VALGRIND_MEMCHECK_H
 #include <valgrind/memcheck.h>
@@ -20,7 +20,6 @@
 #include "bus-kernel.h"
 #include "bus-label.h"
 #include "bus-message.h"
-#include "bus-util.h"
 #include "capability-util.h"
 #include "fd-util.h"
 #include "fileio.h"
@@ -41,10 +40,8 @@ void close_and_munmap(int fd, void *address, size_t size) {
 }
 
 void bus_flush_memfd(sd_bus *b) {
-        unsigned i;
-
         assert(b);
 
-        for (i = 0; i < b->n_memfd_cache; i++)
+        for (unsigned i = 0; i < b->n_memfd_cache; i++)
                 close_and_munmap(b->memfd_cache[i].fd, b->memfd_cache[i].address, b->memfd_cache[i].mapped);
 }

@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
 #include <linux/capability.h>
@@ -27,7 +27,7 @@
 
 #ifdef CAP_LAST_CAP
 #  if CAP_LAST_CAP > SYSTEMD_CAP_LAST_CAP
-#    if DEVELOPER_MODE && defined(TEST_CAPABILITY_C)
+#    if BUILD_MODE_DEVELOPER && defined(TEST_CAPABILITY_C)
 #      warning "The capability list here is outdated"
 #    endif
 #  else

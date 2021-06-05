@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <fcntl.h>
 #include <unistd.h>
@@ -9,6 +9,7 @@
 #include "fd-util.h"
 #include "namespace-util.h"
 #include "process-util.h"
+#include "string-util.h"
 #include "util.h"
 
 int bus_container_connect_socket(sd_bus *b) {
@@ -24,10 +25,15 @@ int bus_container_connect_socket(sd_bus *b) {
         assert(b->nspid > 0 || b->machine);
 
         if (b->nspid <= 0) {
+                log_debug("sd-bus: connecting bus%s%s to machine %s...",
+                          b->description ? " " : "", strempty(b->description), b->machine);
+
                 r = container_get_leader(b->machine, &b->nspid);
                 if (r < 0)
                         return r;
-        }
+        } else
+                log_debug("sd-bus: connecting bus%s%s to namespace of PID "PID_FMT"...",
+                          b->description ? " " : "", strempty(b->description), b->nspid);
 
         r = namespace_open(b->nspid, &pidnsfd, &mntnsfd, NULL, &usernsfd, &rootfd);
         if (r < 0)
@@ -43,7 +49,7 @@ int bus_container_connect_socket(sd_bus *b) {
 
         bus_socket_setup(b);
 
-        if (socketpair(AF_UNIX, SOCK_SEQPACKET, 0, pair) < 0)
+        if (socketpair(AF_UNIX, SOCK_SEQPACKET|SOCK_CLOEXEC, 0, pair) < 0)
                 return -errno;
 
         r = namespace_fork("(sd-buscntrns)", "(sd-buscntr)", NULL, 0, FORK_RESET_SIGNALS|FORK_DEATHSIG,

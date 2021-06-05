@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: LGPL-2.1-or-later
+
 import sys, re
 
 print('#include <stdio.h>')
@@ -23,8 +25,7 @@ for line in open(sys.argv[1]):
 print('''};
 
 int main(void) {
-    unsigned i;
-    for (i = 0; i < sizeof(symbols)/sizeof(void*); i++)
+    for (size_t i = 0; i < sizeof(symbols)/sizeof(void*); i++)
          printf("%p\\n", symbols[i]);
     return 0;
 }''')

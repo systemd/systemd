@@ -1,7 +1,7 @@
 <?xml version='1.0'?> <!--*-nxml-*-->
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
-<!-- SPDX-License-Identifier: LGPL-2.1+ -->
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
 
 <refentry id="sd_get_seats" conditional='HAVE_PAM'
           xmlns:xi="http://www.w3.org/2001/XInclude">
@@ -56,7 +56,7 @@
 
     <para><function>sd_get_seats()</function> may be used to determine
     all currently available local seats. Returns the number of seat
-    identifiers and if the input pointer is non-NULL, a
+    identifiers and if the input pointer is non-<constant>NULL</constant>, a
     <constant>NULL</constant>-terminated array of seat identifiers
     is stored at the address.
     The returned array and all strings it references need to be freed

@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
 #include <stdbool.h>
@@ -7,6 +7,7 @@
 
 #include "alloc-util.h"
 #include "macro.h"
+#include "string-util-fundamental.h"
 
 /* What is interpreted as whitespace? */
 #define WHITESPACE        " \t\n\r"
@@ -21,16 +22,10 @@
 #define ALPHANUMERICAL    LETTERS DIGITS
 #define HEXDIGITS         DIGITS "abcdefABCDEF"
 
-#define streq(a,b) (strcmp((a),(b)) == 0)
-#define strneq(a, b, n) (strncmp((a), (b), (n)) == 0)
-#define strcaseeq(a,b) (strcasecmp((a),(b)) == 0)
-#define strncaseeq(a, b, n) (strncasecmp((a), (b), (n)) == 0)
-
-int strcmp_ptr(const char *a, const char *b) _pure_;
-int strcasecmp_ptr(const char *a, const char *b) _pure_;
-
-static inline bool streq_ptr(const char *a, const char *b) {
-        return strcmp_ptr(a, b) == 0;
+static inline char* strstr_ptr(const char *haystack, const char *needle) {
+        if (!haystack || !needle)
+                return NULL;
+        return strstr(haystack, needle);
 }
 
 static inline const char* strempty(const char *s) {
@@ -45,12 +40,12 @@ static inline const char *strna(const char *s) {
         return s ?: "n/a";
 }
 
-static inline const char* yes_no(bool b) {
-        return b ? "yes" : "no";
-}
-
 static inline const char* true_false(bool b) {
         return b ? "true" : "false";
+}
+
+static inline const char* plus_minus(bool b) {
+        return b ? "+" : "-";
 }
 
 static inline const char* one_zero(bool b) {
@@ -59,10 +54,6 @@ static inline const char* one_zero(bool b) {
 
 static inline const char* enable_disable(bool b) {
         return b ? "enable" : "disable";
-}
-
-static inline bool isempty(const char *p) {
-        return !p || !p[0];
 }
 
 static inline const char *empty_to_null(const char *p) {
@@ -82,29 +73,6 @@ static inline bool empty_or_dash(const char *str) {
 static inline const char *empty_or_dash_to_null(const char *p) {
         return empty_or_dash(p) ? NULL : p;
 }
-
-static inline char *startswith(const char *s, const char *prefix) {
-        size_t l;
-
-        l = strlen(prefix);
-        if (strncmp(s, prefix, l) == 0)
-                return (char*) s + l;
-
-        return NULL;
-}
-
-static inline char *startswith_no_case(const char *s, const char *prefix) {
-        size_t l;
-
-        l = strlen(prefix);
-        if (strncasecmp(s, prefix, l) == 0)
-                return (char*) s + l;
-
-        return NULL;
-}
-
-char *endswith(const char *s, const char *postfix) _pure_;
-char *endswith_no_case(const char *s, const char *postfix) _pure_;
 
 char *first_word(const char *s, const char *word) _pure_;
 
@@ -161,6 +129,14 @@ static inline bool _pure_ in_charset(const char *s, const char* charset) {
         return s[strspn(s, charset)] == '\0';
 }
 
+static inline bool char_is_cc(char p) {
+        /* char is unsigned on some architectures, e.g. aarch64. So, compiler may warn the condition
+         * p >= 0 is always true. See #19543. Hence, let's cast to unsigned before the comparison. Note
+         * that the cast in the right hand side is redundant, as according to the C standard, compilers
+         * automatically cast a signed value to unsigned when comparing with an unsigned variable. Just
+         * for safety and readability. */
+        return (uint8_t) p < (uint8_t) ' ' || p == 127;
+}
 bool string_has_cc(const char *p, const char *ok) _pure_;
 
 char *ellipsize_mem(const char *s, size_t old_length_bytes, size_t new_length_columns, unsigned percent);
@@ -179,9 +155,12 @@ char *strreplace(const char *text, const char *old_string, const char *new_strin
 
 char *strip_tab_ansi(char **ibuf, size_t *_isz, size_t highlight[2]);
 
-char *strextend_with_separator(char **x, const char *separator, ...) _sentinel_;
+char *strextend_with_separator_internal(char **x, const char *separator, ...) _sentinel_;
+#define strextend_with_separator(x, separator, ...) strextend_with_separator_internal(x, separator, __VA_ARGS__, NULL)
+#define strextend(x, ...) strextend_with_separator_internal(x, NULL, __VA_ARGS__, NULL)
 
-#define strextend(x, ...) strextend_with_separator(x, NULL, __VA_ARGS__)
+int strextendf_with_separator(char **x, const char *separator, const char *format, ...) _printf_(3,4);
+#define strextendf(x, ...) strextendf_with_separator(x, NULL, __VA_ARGS__)
 
 char *strrep(const char *s, unsigned n);
 
@@ -245,17 +224,13 @@ static inline void *memory_startswith_no_case(const void *p, size_t sz, const ch
         return (uint8_t*) p + n;
 }
 
-static inline char* str_realloc(char **p) {
-        /* Reallocate *p to actual size */
+static inline char* str_realloc(char *p) {
+        /* Reallocate *p to actual size. Ignore failure, and return the original string on error. */
 
-        if (!*p)
+        if (!p)
                 return NULL;
 
-        char *t = realloc(*p, strlen(*p) + 1);
-        if (!t)
-                return NULL;
-
-        return (*p = t);
+        return realloc(p, strlen(p) + 1) ?: p;
 }
 
 char* string_erase(char *x);

@@ -1,4 +1,4 @@
-#  SPDX-License-Identifier: LGPL-2.1+
+#  SPDX-License-Identifier: LGPL-2.1-or-later
 #
 #  This file is part of systemd.
 #
@@ -9,4 +9,4 @@
 
 # Each vtcon keeps its own state of fonts.
 #
-ACTION=="add", SUBSYSTEM=="vtconsole", KERNEL=="vtcon*", RUN+="@rootlibexecdir@/systemd-vconsole-setup"
+ACTION=="add", SUBSYSTEM=="vtconsole", KERNEL=="vtcon*", RUN+="{{ROOTLIBEXECDIR}}/systemd-vconsole-setup"

@@ -4,7 +4,7 @@
 <!ENTITY % entities SYSTEM "custom-entities.ent" >
 %entities;
 ]>
-<!-- SPDX-License-Identifier: LGPL-2.1+ -->
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
 
 <refentry id="udev_device_has_tag"
   xmlns:xi="http://www.w3.org/2001/XInclude">
@@ -111,8 +111,8 @@
     passed to <function>udev_device_has_tag()</function>, but the opposite might not be true, in case a tag is
     no longer configured by the rules applied to the most recent device even.</para>
 
-    <para><function>udev_device_get_tags_list_entry()</function> returns a a
-    <function>udev_list_entry</function> object, encapsulating a list of tags set for the specified
+    <para><function>udev_device_get_tags_list_entry()</function> returns a
+    <structname>udev_list_entry</structname> object, encapsulating a list of tags set for the specified
     device. Similar, <function>udev_device_get_current_tags_list_entry()</function> returns a list of tags
     set for the specified device as effect of the most recent device event seen (see above for details on the
     difference).</para>

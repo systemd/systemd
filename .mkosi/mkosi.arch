@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: LGPL-2.1+
+# SPDX-License-Identifier: LGPL-2.1-or-later
 #
 # Copyright © 2016 Zeal Jagannatha
 
@@ -8,15 +8,7 @@
 [Distribution]
 Distribution=arch
 
-[Output]
-Format=raw_btrfs
-Bootable=yes
-
-[Partitions]
-RootSize=3G
-
 [Packages]
-Cache=/var/cache/pacman/pkg/
 BuildPackages=
         acl
         bzip2
@@ -43,16 +35,20 @@ BuildPackages=
         libxkbcommon
         libxslt
         lz4
-        m4
         meson
         pam
         pkgconfig
         python
         python-lxml
+        python-jinja
         qrencode
+        rsync
         xz
         zstd
 
 Packages=
+        gdb
         libidn2
+        nano
         qrencode
+        strace

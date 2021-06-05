@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <sched.h>
 #include <signal.h>
@@ -254,7 +254,7 @@ static int allocate_scope(void) {
         return 0;
 }
 
-int enter_cgroup_subroot(char **ret_cgroup) {
+static int enter_cgroup(char **ret_cgroup, bool enter_subroot) {
         _cleanup_free_ char *cgroup_root = NULL, *cgroup_subroot = NULL;
         CGroupMask supported;
         int r;
@@ -268,7 +268,13 @@ int enter_cgroup_subroot(char **ret_cgroup) {
                 return log_warning_errno(r, "cg_pid_get_path(NULL, 0, ...) failed: %m");
         assert(r >= 0);
 
-        assert_se(asprintf(&cgroup_subroot, "%s/%" PRIx64, cgroup_root, random_u64()) >= 0);
+        if (enter_subroot)
+                assert_se(asprintf(&cgroup_subroot, "%s/%" PRIx64, cgroup_root, random_u64()) >= 0);
+        else {
+                cgroup_subroot = strdup(cgroup_root);
+                assert_se(cgroup_subroot != NULL);
+        }
+
         assert_se(cg_mask_supported(&supported) >= 0);
 
         /* If this fails, then we don't mind as the later cgroup operations will fail too, and it's fine if
@@ -286,4 +292,52 @@ int enter_cgroup_subroot(char **ret_cgroup) {
                 *ret_cgroup = TAKE_PTR(cgroup_subroot);
 
         return 0;
+}
+
+int enter_cgroup_subroot(char **ret_cgroup) {
+        return enter_cgroup(ret_cgroup, true);
+}
+
+int enter_cgroup_root(char **ret_cgroup) {
+        return enter_cgroup(ret_cgroup, false);
+}
+
+const char *ci_environment(void) {
+        /* We return a string because we might want to provide multiple bits of information later on: not
+         * just the general CI environment type, but also whether we're sanitizing or not, etc. The caller is
+         * expected to use strstr on the returned value. */
+        static const char *ans = POINTER_MAX;
+        const char *p;
+        int r;
+
+        if (ans != POINTER_MAX)
+                return ans;
+
+        /* We allow specifying the environment with $CITYPE. Nobody uses this so far, but we are ready. */
+        p = getenv("CITYPE");
+        if (!isempty(p))
+                return (ans = p);
+
+        if (getenv_bool("TRAVIS") > 0)
+                return (ans = "travis");
+        if (getenv_bool("SEMAPHORE") > 0)
+                return (ans = "semaphore");
+        if (getenv_bool("GITHUB_ACTIONS") > 0)
+                return (ans = "github-actions");
+        if (getenv("AUTOPKGTEST_ARTIFACTS") || getenv("AUTOPKGTEST_TMP"))
+                return (ans = "autopkgtest");
+
+        FOREACH_STRING(p, "CI", "CONTINOUS_INTEGRATION") {
+                /* Those vars are booleans according to Semaphore and Travis docs:
+                 * https://docs.travis-ci.com/user/environment-variables/#default-environment-variables
+                 * https://docs.semaphoreci.com/ci-cd-environment/environment-variables/#ci
+                 */
+                r = getenv_bool(p);
+                if (r > 0)
+                        return (ans = "unknown"); /* Some other unknown thing */
+                if (r == 0)
+                        return (ans = NULL);
+        }
+
+        return (ans = NULL);
 }

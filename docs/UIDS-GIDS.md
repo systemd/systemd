@@ -171,10 +171,11 @@ pick — given that 64K UIDs are assigned to each container according to this
 allocation logic, the maximum UID used for this range is hence
 1878982656+65535=1879048191.)
 
-Note that systemd does not make any of these values runtime-configurable. All
-these boundaries are chosen during build time. That said, the system UID/GID
-boundary is traditionally configured in /etc/login.defs, though systemd won't
-look there during runtime.
+Systemd has compile-time default for these boundaries. Using those defaults is
+recommended. It will nevertheless query `/etc/login.defs` at runtime, when
+compiled with `-Dcompat-mutable-uid-boundaries=true` and that file is present.
+Support for this is considered only a compatibility feature and should not be
+used except when upgrading systems which were creating with different defaults.
 
 ## Considerations for container managers
 
@@ -240,8 +241,9 @@ the artifacts the container manager persistently leaves in the system.
 |                     5 | `tty` group           | `systemd`     | `/etc/passwd`                 |
 |                 6…999 | System users          | Distributions | `/etc/passwd`                 |
 |            1000…60000 | Regular users         | Distributions | `/etc/passwd` + LDAP/NIS/…    |
-|           60001…60513 | Human Users (homed)   | `systemd`     | `nss-systemd`                 |
-|           60514…61183 | Unused                |               |                               |
+|           60001…60513 | Human users (homed)   | `systemd`     | `nss-systemd`                 |
+|           60514…60577 | Host users mapped into containers | `systemd` | `systemd-nspawn`           |
+|           60578…61183 | Unused                |               |                               |
 |           61184…65519 | Dynamic service users | `systemd`     | `nss-systemd`                 |
 |           65520…65533 | Unused                |               |                               |
 |                 65534 | `nobody` user         | Linux         | `/etc/passwd` + `nss-systemd` |

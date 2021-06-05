@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <fcntl.h>
 #include <sys/stat.h>
@@ -61,22 +61,40 @@ static void pull_job_finish(PullJob *j, int ret) {
                 j->on_finished(j);
 }
 
-static int pull_job_restart(PullJob *j) {
+static int pull_job_restart(PullJob *j, const char *new_url) {
         int r;
-        char *chksum_url = NULL;
 
-        r = import_url_change_last_component(j->url, "SHA256SUMS", &chksum_url);
+        assert(j);
+        assert(new_url);
+
+        r = free_and_strdup(&j->url, new_url);
         if (r < 0)
                 return r;
 
-        free(j->url);
-        j->url = chksum_url;
         j->state = PULL_JOB_INIT;
+        j->error = 0;
         j->payload = mfree(j->payload);
         j->payload_size = 0;
-        j->payload_allocated = 0;
         j->written_compressed = 0;
         j->written_uncompressed = 0;
+        j->content_length = UINT64_MAX;
+        j->etag = mfree(j->etag);
+        j->etag_exists = false;
+        j->mtime = 0;
+        j->checksum = mfree(j->checksum);
+
+        curl_glue_remove_and_free(j->glue, j->curl);
+        j->curl = NULL;
+
+        curl_slist_free_all(j->request_header);
+        j->request_header = NULL;
+
+        import_compress_free(&j->compress);
+
+        if (j->checksum_context) {
+                gcry_md_close(j->checksum_context);
+                j->checksum_context = NULL;
+        }
 
         r = pull_job_begin(j);
         if (r < 0)
@@ -114,23 +132,31 @@ void pull_job_curl_on_finished(CurlGlue *g, CURL *curl, CURLcode result) {
                 r = 0;
                 goto finish;
         } else if (status >= 300) {
-                if (status == 404 && j->style == VERIFICATION_PER_FILE) {
 
-                        /* retry pull job with SHA256SUMS file */
-                        r = pull_job_restart(j);
+                if (status == 404 && j->on_not_found) {
+                        _cleanup_free_ char *new_url = NULL;
+
+                        /* This resource wasn't found, but the implementor wants to maybe let us know a new URL, query for it. */
+                        r = j->on_not_found(j, &new_url);
                         if (r < 0)
                                 goto finish;
 
-                        code = curl_easy_getinfo(j->curl, CURLINFO_RESPONSE_CODE, &status);
-                        if (code != CURLE_OK) {
-                                log_error("Failed to retrieve response code: %s", curl_easy_strerror(code));
-                                r = -EIO;
-                                goto finish;
-                        }
+                        if (r > 0) { /* A new url to use */
+                                assert(new_url);
 
-                        if (status == 0) {
-                                j->style = VERIFICATION_PER_DIRECTORY;
-                                return;
+                                r = pull_job_restart(j, new_url);
+                                if (r < 0)
+                                        goto finish;
+
+                                code = curl_easy_getinfo(j->curl, CURLINFO_RESPONSE_CODE, &status);
+                                if (code != CURLE_OK) {
+                                        log_error("Failed to retrieve response code: %s", curl_easy_strerror(code));
+                                        r = -EIO;
+                                        goto finish;
+                                }
+
+                                if (status == 0)
+                                        return;
                         }
                 }
 
@@ -149,7 +175,7 @@ void pull_job_curl_on_finished(CurlGlue *g, CURL *curl, CURLcode result) {
                 goto finish;
         }
 
-        if (j->content_length != (uint64_t) -1 &&
+        if (j->content_length != UINT64_MAX &&
             j->content_length != j->written_compressed) {
                 log_error("Download truncated.");
                 r = -EIO;
@@ -239,7 +265,7 @@ static int pull_job_write_uncompressed(const void *p, size_t sz, void *userdata)
                         return log_error_errno(SYNTHETIC_ERRNO(EIO), "Short write");
         } else {
 
-                if (!GREEDY_REALLOC(j->payload, j->payload_allocated, j->payload_size + sz))
+                if (!GREEDY_REALLOC(j->payload, j->payload_size + sz))
                         return log_oom();
 
                 memcpy(j->payload + j->payload_size, p, sz);
@@ -266,7 +292,7 @@ static int pull_job_write_compressed(PullJob *j, void *p, size_t sz) {
         if (j->written_compressed + sz > j->compressed_max)
                 return log_error_errno(SYNTHETIC_ERRNO(EFBIG), "File overly large, refusing.");
 
-        if (j->content_length != (uint64_t) -1 &&
+        if (j->content_length != UINT64_MAX &&
             j->written_compressed + sz > j->content_length)
                 return log_error_errno(SYNTHETIC_ERRNO(EFBIG),
                                        "Content length incorrect.");
@@ -344,7 +370,6 @@ static int pull_job_detect_compression(PullJob *j) {
 
         j->payload = NULL;
         j->payload_size = 0;
-        j->payload_allocated = 0;
 
         j->state = PULL_JOB_RUNNING;
 
@@ -368,7 +393,7 @@ static size_t pull_job_write_callback(void *contents, size_t size, size_t nmemb,
         case PULL_JOB_ANALYZING:
                 /* Let's first check what it actually is */
 
-                if (!GREEDY_REALLOC(j->payload, j->payload_allocated, j->payload_size + sz)) {
+                if (!GREEDY_REALLOC(j->payload, j->payload_size + sz)) {
                         r = log_oom();
                         goto fail;
                 }
@@ -406,11 +431,22 @@ fail:
         return 0;
 }
 
+static int http_status_ok(CURLcode status) {
+        /* Consider all HTTP status code in the 2xx range as OK */
+        return status >= 200 && status <= 299;
+}
+
+static int http_status_etag_exists(CURLcode status) {
+        /* This one is special, it's triggered by our etag mgmt logic */
+        return status == 304;
+}
+
 static size_t pull_job_header_callback(void *contents, size_t size, size_t nmemb, void *userdata) {
-        PullJob *j = userdata;
+        _cleanup_free_ char *length = NULL, *last_modified = NULL, *etag = NULL;
         size_t sz = size * nmemb;
-        _cleanup_free_ char *length = NULL, *last_modified = NULL;
-        char *etag;
+        PullJob *j = userdata;
+        CURLcode code;
+        long status;
         int r;
 
         assert(contents);
@@ -423,24 +459,38 @@ static size_t pull_job_header_callback(void *contents, size_t size, size_t nmemb
 
         assert(j->state == PULL_JOB_ANALYZING);
 
-        r = curl_header_strdup(contents, sz, "ETag:", &etag);
-        if (r < 0) {
-                log_oom();
+        code = curl_easy_getinfo(j->curl, CURLINFO_RESPONSE_CODE, &status);
+        if (code != CURLE_OK) {
+                log_error("Failed to retrieve response code: %s", curl_easy_strerror(code));
+                r = -EIO;
                 goto fail;
         }
-        if (r > 0) {
-                free(j->etag);
-                j->etag = etag;
 
-                if (strv_contains(j->old_etags, j->etag)) {
-                        log_info("Image already downloaded. Skipping download.");
-                        j->etag_exists = true;
-                        pull_job_finish(j, 0);
+        if (http_status_ok(status) || http_status_etag_exists(status)) {
+                /* Check Etag on OK and etag exists responses. */
+
+                r = curl_header_strdup(contents, sz, "ETag:", &etag);
+                if (r < 0) {
+                        log_oom();
+                        goto fail;
+                }
+                if (r > 0) {
+                        free_and_replace(j->etag, etag);
+
+                        if (strv_contains(j->old_etags, j->etag)) {
+                                log_info("Image already downloaded. Skipping download. (%s)", j->etag);
+                                j->etag_exists = true;
+                                pull_job_finish(j, 0);
+                                return sz;
+                        }
+
                         return sz;
                 }
-
-                return sz;
         }
+
+        if (!http_status_ok(status)) /* Let's ignore the rest here, these requests are probably redirects and
+                                      * stuff where the headers aren't interesting to us */
+                return sz;
 
         r = curl_header_strdup(contents, sz, "Content-Length:", &length);
         if (r < 0) {
@@ -450,7 +500,7 @@ static size_t pull_job_header_callback(void *contents, size_t size, size_t nmemb
         if (r > 0) {
                 (void) safe_atou64(length, &j->content_length);
 
-                if (j->content_length != (uint64_t) -1) {
+                if (j->content_length != UINT64_MAX) {
                         char bytes[FORMAT_BYTES_MAX];
 
                         if (j->content_length > j->compressed_max) {
@@ -552,11 +602,10 @@ int pull_job_new(PullJob **ret, const char *url, CurlGlue *glue, void *userdata)
                 .disk_fd = -1,
                 .userdata = userdata,
                 .glue = glue,
-                .content_length = (uint64_t) -1,
+                .content_length = UINT64_MAX,
                 .start_usec = now(CLOCK_MONOTONIC),
                 .compressed_max = 64LLU * 1024LLU * 1024LLU * 1024LLU, /* 64GB safety limit */
                 .uncompressed_max = 64LLU * 1024LLU * 1024LLU * 1024LLU, /* 64GB safety limit */
-                .style = VERIFICATION_STYLE_UNSET,
                 .url = TAKE_PTR(u),
         };
 

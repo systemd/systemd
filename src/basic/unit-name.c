@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <errno.h>
 #include <stddef.h>
@@ -139,7 +139,7 @@ int unit_name_to_prefix(const char *n, char **ret) {
         return 0;
 }
 
-int unit_name_to_instance(const char *n, char **ret) {
+UnitNameFlags unit_name_to_instance(const char *n, char **ret) {
         const char *p, *d;
 
         assert(n);
@@ -252,7 +252,7 @@ int unit_name_build(const char *prefix, const char *instance, const char *suffix
 
         type = unit_type_from_string(suffix + 1);
         if (type < 0)
-                return -EINVAL;
+                return type;
 
         return unit_name_build_from_type(prefix, instance, type, ret);
 }
@@ -387,7 +387,7 @@ int unit_name_path_escape(const char *f, char **ret) {
         if (!p)
                 return -ENOMEM;
 
-        path_simplify(p, false);
+        path_simplify(p);
 
         if (empty_or_root(p))
                 s = strdup("-");
@@ -528,6 +528,9 @@ int unit_name_from_path(const char *path, const char *suffix, char **ret) {
         if (!s)
                 return -ENOMEM;
 
+        if (strlen(s) >= UNIT_NAME_MAX) /* Return a slightly more descriptive error for this specific condition */
+                return -ENAMETOOLONG;
+
         /* Refuse this if this got too long or for some other reason didn't result in a valid name */
         if (!unit_name_is_valid(s, UNIT_NAME_PLAIN))
                 return -EINVAL;
@@ -558,6 +561,9 @@ int unit_name_from_path_instance(const char *prefix, const char *path, const cha
         s = strjoin(prefix, "@", p, suffix);
         if (!s)
                 return -ENOMEM;
+
+        if (strlen(s) >= UNIT_NAME_MAX) /* Return a slightly more descriptive error for this specific condition */
+                return -ENAMETOOLONG;
 
         /* Refuse this if this got too long or for some other reason didn't result in a valid name */
         if (!unit_name_is_valid(s, UNIT_NAME_INSTANCE))

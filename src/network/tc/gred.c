@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+
+/* SPDX-License-Identifier: LGPL-2.1-or-later
  * Copyright © 2020 VMware, Inc. */
 
 #include <linux/pkt_sched.h>
@@ -111,7 +111,7 @@ int config_parse_generic_random_early_detection_u32(
         if (isempty(rvalue)) {
                 *p = 0;
 
-                qdisc = NULL;
+                TAKE_PTR(qdisc);
                 return 0;
         }
 
@@ -123,14 +123,13 @@ int config_parse_generic_random_early_detection_u32(
                 return 0;
         }
 
-        if (v > MAX_DPs) {
+        if (v > MAX_DPs)
                 log_syntax(unit, LOG_WARNING, filename, line, 0,
                            "Invalid '%s=', ignoring assignment: %s",
                            lvalue, rvalue);
-        }
 
         *p = v;
-        qdisc = NULL;
+        TAKE_PTR(qdisc);
 
         return 0;
 }
@@ -170,7 +169,7 @@ int config_parse_generic_random_early_detection_bool(
         if (isempty(rvalue)) {
                 gred->grio = -1;
 
-                qdisc = NULL;
+                TAKE_PTR(qdisc);
                 return 0;
         }
 
@@ -183,7 +182,7 @@ int config_parse_generic_random_early_detection_bool(
         }
 
         gred->grio = r;
-        qdisc = NULL;
+        TAKE_PTR(qdisc);
 
         return 0;
 }

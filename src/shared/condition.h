@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
 #include <stdbool.h>
@@ -9,6 +9,7 @@
 
 typedef enum ConditionType {
         CONDITION_ARCHITECTURE,
+        CONDITION_FIRMWARE,
         CONDITION_VIRTUALIZATION,
         CONDITION_HOST,
         CONDITION_KERNEL_COMMAND_LINE,
@@ -19,6 +20,7 @@ typedef enum ConditionType {
         CONDITION_MEMORY,
         CONDITION_CPUS,
         CONDITION_ENVIRONMENT,
+        CONDITION_CPU_FEATURE,
 
         CONDITION_NEEDS_UPDATE,
         CONDITION_FIRST_BOOT,
@@ -40,7 +42,7 @@ typedef enum ConditionType {
         CONDITION_CONTROL_GROUP_CONTROLLER,
 
         _CONDITION_TYPE_MAX,
-        _CONDITION_TYPE_INVALID = -1
+        _CONDITION_TYPE_INVALID = -EINVAL,
 } ConditionType;
 
 typedef enum ConditionResult {
@@ -49,7 +51,7 @@ typedef enum ConditionResult {
         CONDITION_FAILED,
         CONDITION_ERROR,
         _CONDITION_RESULT_MAX,
-        _CONDITION_RESULT_INVALID = -1
+        _CONDITION_RESULT_INVALID = -EINVAL,
 } ConditionResult;
 
 typedef struct Condition {

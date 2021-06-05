@@ -2,7 +2,7 @@
 <!--*-nxml-*-->
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
-<!-- SPDX-License-Identifier: LGPL-2.1+ -->
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
 <refentry id="sysusers.d" conditional='ENABLE_SYSUSERS'
     xmlns:xi="http://www.w3.org/2001/XInclude">
 
@@ -216,6 +216,11 @@ r     -        500-900
       <para>Only applies to lines of type <varname>u</varname> and should otherwise
       be left unset (or <literal>-</literal>). It is recommended to omit this, unless
       software strictly requires a home directory to be set.</para>
+
+      <para><command>systemd-sysusers</command> only sets the home directory record in the
+      user database. To actually create the directory, consider adding a corresponding
+      <citerefentry><refentrytitle>tmpfiles.d</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+      fragment.</para>
     </refsect2>
 
     <refsect2>
@@ -254,23 +259,17 @@ r     -        500-900
         </thead>
         <tbody>
           <xi:include href="standard-specifiers.xml" xpointer="a"/>
+          <xi:include href="standard-specifiers.xml" xpointer="A"/>
           <xi:include href="standard-specifiers.xml" xpointer="b"/>
           <xi:include href="standard-specifiers.xml" xpointer="B"/>
           <xi:include href="standard-specifiers.xml" xpointer="H"/>
           <xi:include href="standard-specifiers.xml" xpointer="l"/>
           <xi:include href="standard-specifiers.xml" xpointer="m"/>
+          <xi:include href="standard-specifiers.xml" xpointer="M"/>
           <xi:include href="standard-specifiers.xml" xpointer="o"/>
-          <row>
-            <entry><literal>%T</literal></entry>
-            <entry>Directory for temporary files</entry>
-            <entry>This is either <filename>/tmp</filename> or the path <literal>$TMPDIR</literal>, <literal>$TEMP</literal> or <literal>$TMP</literal> are set to.</entry>
-          </row>
+          <xi:include href="standard-specifiers.xml" xpointer="T"/>
           <xi:include href="standard-specifiers.xml" xpointer="v"/>
-          <row>
-            <entry><literal>%V</literal></entry>
-            <entry>Directory for larger and persistent temporary files</entry>
-            <entry>This is either <filename>/var/tmp</filename> or the path <literal>$TMPDIR</literal>, <literal>$TEMP</literal> or <literal>$TMP</literal> are set to.</entry>
-          </row>
+          <xi:include href="standard-specifiers.xml" xpointer="V"/>
           <xi:include href="standard-specifiers.xml" xpointer="w"/>
           <xi:include href="standard-specifiers.xml" xpointer="W"/>
           <xi:include href="standard-specifiers.xml" xpointer="percent"/>

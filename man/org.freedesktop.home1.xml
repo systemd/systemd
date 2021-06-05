@@ -1,7 +1,7 @@
 <?xml version='1.0'?>
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd" >
-<!-- SPDX-License-Identifier: LGPL-2.1+ -->
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
 
 <refentry id="org.freedesktop.home1" conditional='ENABLE_HOMED'
     xmlns:xi="http://www.w3.org/2001/XInclude">
@@ -95,6 +95,7 @@ node /org/freedesktop/home1 {
               out h send_fd);
       ReleaseHome(in  s user_name);
       LockAllHomes();
+      DeactivateAllHomes();
     properties:
       readonly a(sso) AutoLogin = [...];
   };
@@ -155,6 +156,8 @@ node /org/freedesktop/home1 {
     <variablelist class="dbus-method" generated="True" extra-ref="ReleaseHome()"/>
 
     <variablelist class="dbus-method" generated="True" extra-ref="LockAllHomes()"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="DeactivateAllHomes()"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="AutoLogin"/>
 
@@ -340,6 +343,9 @@ node /org/freedesktop/home1 {
       <para><function>LockAllHomes()</function> locks all active home directories that only have references
       that opted into automatic suspending during system suspend. This is usually invoked automatically
       shortly before system suspend.</para>
+
+      <para><function>DeactivateAllHomes()</function> deactivates all home areas that are currently
+      active. This is usually invoked automatically shortly before system shutdown.</para>
     </refsect2>
 
     <refsect2>

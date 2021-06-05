@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <unistd.h>
 
@@ -64,7 +64,9 @@ int manager_handle_action(
 
         /* If the key handling is turned off, don't do anything */
         if (handle == HANDLE_IGNORE) {
-                log_debug("Refusing operation, as it is turned off.");
+                log_debug("Handling of %s (%s) is disabled, taking no action.",
+                          inhibit_key == 0 ? "idle timeout" : inhibit_what_to_string(inhibit_key),
+                          is_edge ? "edge" : "level");
                 return 0;
         }
 
@@ -100,20 +102,20 @@ int manager_handle_action(
         }
 
         if (handle == HANDLE_SUSPEND)
-                supported = can_sleep("suspend") > 0;
+                supported = can_sleep(SLEEP_SUSPEND) > 0;
         else if (handle == HANDLE_HIBERNATE)
-                supported = can_sleep("hibernate") > 0;
+                supported = can_sleep(SLEEP_HIBERNATE) > 0;
         else if (handle == HANDLE_HYBRID_SLEEP)
-                supported = can_sleep("hybrid-sleep") > 0;
+                supported = can_sleep(SLEEP_HYBRID_SLEEP) > 0;
         else if (handle == HANDLE_SUSPEND_THEN_HIBERNATE)
-                supported = can_sleep("suspend-then-hibernate") > 0;
+                supported = can_sleep(SLEEP_SUSPEND_THEN_HIBERNATE) > 0;
         else if (handle == HANDLE_KEXEC)
                 supported = access(KEXEC, X_OK) >= 0;
         else
                 supported = true;
 
         if (!supported && IN_SET(handle, HANDLE_HIBERNATE, HANDLE_HYBRID_SLEEP, HANDLE_SUSPEND_THEN_HIBERNATE)) {
-                supported = can_sleep("suspend") > 0;
+                supported = can_sleep(SLEEP_SUSPEND) > 0;
                 if (supported) {
                         log_notice("Requested %s operation is not supported, using regular suspend instead.",
                                    handle_action_to_string(handle));

@@ -8,7 +8,7 @@
 
 [Distribution]
 Distribution=fedora
-Release=32
+Release=33
 
 [Output]
 Format=raw_btrfs
@@ -52,11 +52,12 @@ BuildPackages=
         libxslt
         lz4
         lz4-devel
-        m4
         meson
         ninja-build
         pam-devel
         pcre2-devel
+        perl(IPC::SysV)
+        perl(Time::HiRes)
         pkgconfig
         python3-devel
         python3-lxml

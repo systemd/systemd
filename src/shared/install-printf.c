@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <errno.h>
 #include <stdio.h>
@@ -103,44 +103,19 @@ static int specifier_last_component(char specifier, const void *data, const void
         return 0;
 }
 
-int install_full_printf(const UnitFileInstallInfo *i, const char *format, char **ret) {
-        /* This is similar to unit_full_printf() but does not support
-         * anything path-related.
-         *
-         * %n: the full id of the unit                 (foo@bar.waldo)
-         * %N: the id of the unit without the suffix   (foo@bar)
-         * %p: the prefix                              (foo)
-         * %i: the instance                            (bar)
-
-         * %U the UID of the running user
-         * %u the username of running user
-         * %m the machine ID of the running system
-         * %H the hostname of the running system
-         * %b the boot ID of the running system
-         * %v `uname -r` of the running system
-         */
+int install_full_printf_internal(const UnitFileInstallInfo *i, const char *format, size_t max_length, char **ret) {
+        /* This is similar to unit_name_printf() */
 
         const Specifier table[] = {
+                { 'i', specifier_instance,            NULL },
+                { 'j', specifier_last_component,      NULL },
                 { 'n', specifier_name,                NULL },
                 { 'N', specifier_prefix_and_instance, NULL },
                 { 'p', specifier_prefix,              NULL },
-                { 'i', specifier_instance,            NULL },
-                { 'j', specifier_last_component,      NULL },
 
-                { 'g', specifier_group_name,          NULL },
-                { 'G', specifier_group_id,            NULL },
-                { 'U', specifier_user_id,             NULL },
-                { 'u', specifier_user_name,           NULL },
+                COMMON_SYSTEM_SPECIFIERS,
 
-                { 'm', specifier_machine_id,          NULL },
-                { 'b', specifier_boot_id,             NULL },
-                { 'H', specifier_host_name,           NULL },
-                { 'v', specifier_kernel_release,      NULL },
-                { 'a', specifier_architecture,        NULL },
-                { 'o', specifier_os_id,               NULL },
-                { 'w', specifier_os_version_id,       NULL },
-                { 'B', specifier_os_build_id,         NULL },
-                { 'W', specifier_os_variant_id,       NULL },
+                COMMON_CREDS_SPECIFIERS,
                 {}
         };
 
@@ -148,5 +123,5 @@ int install_full_printf(const UnitFileInstallInfo *i, const char *format, char *
         assert(format);
         assert(ret);
 
-        return specifier_printf(format, table, i, ret);
+        return specifier_printf(format, max_length, table, i, ret);
 }

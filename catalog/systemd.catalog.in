@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: LGPL-2.1+
+# SPDX-License-Identifier: LGPL-2.1-or-later
 
 # Message catalog for systemd's own messages
 
@@ -89,7 +89,7 @@ about the file being truncated.
 Subject: A new session @SESSION_ID@ has been created for user @USER_ID@
 Defined-By: systemd
 Support: %SUPPORT_URL%
-Documentation: https://www.freedesktop.org/wiki/Software/systemd/multiseat
+Documentation: sd-login(3)
 
 A new session with the ID @SESSION_ID@ has been created for the user @USER_ID@.
 
@@ -99,7 +99,7 @@ The leading process of the session is @LEADER@.
 Subject: Session @SESSION_ID@ has been terminated
 Defined-By: systemd
 Support: %SUPPORT_URL%
-Documentation: https://www.freedesktop.org/wiki/Software/systemd/multiseat
+Documentation: sd-login(3)
 
 A session with the ID @SESSION_ID@ has been terminated.
 
@@ -107,7 +107,7 @@ A session with the ID @SESSION_ID@ has been terminated.
 Subject: A new seat @SEAT_ID@ is now available
 Defined-By: systemd
 Support: %SUPPORT_URL%
-Documentation: https://www.freedesktop.org/wiki/Software/systemd/multiseat
+Documentation: sd-login(3)
 
 A new seat @SEAT_ID@ has been configured and is now available.
 
@@ -115,7 +115,7 @@ A new seat @SEAT_ID@ has been configured and is now available.
 Subject: Seat @SEAT_ID@ has now been removed
 Defined-By: systemd
 Support: %SUPPORT_URL%
-Documentation: https://www.freedesktop.org/wiki/Software/systemd/multiseat
+Documentation: sd-login(3)
 
 A seat @SEAT_ID@ has been removed and is no longer available.
 

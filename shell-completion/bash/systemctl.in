@@ -1,5 +1,5 @@
 # systemctl(1) completion                                 -*- shell-script -*-
-# SPDX-License-Identifier: LGPL-2.1+
+# SPDX-License-Identifier: LGPL-2.1-or-later
 #
 # This file is part of systemd.
 #
@@ -7,11 +7,11 @@
 
 __systemctl() {
     local mode=$1; shift 1
-    systemctl $mode --full --no-legend --no-pager --plain "$@" 2>/dev/null
+    systemctl $mode --full --legend=no --no-pager --plain "$@" 2>/dev/null
 }
 
 __systemd_properties() {
-    @rootlibexecdir@/systemd --dump-bus-properties
+    {{ROOTLIBEXECDIR}}/systemd --dump-bus-properties
 }
 
 __contains_word () {
@@ -21,6 +21,7 @@ __contains_word () {
     done
 }
 
+{% raw -%}
 __filter_units_by_properties () {
     local mode=$1 properties=$2; shift 2
     local units=("$@")
@@ -50,6 +51,7 @@ __filter_units_by_properties () {
         echo $names
     fi
 }
+{% endraw %}
 
 __get_all_units      () { { __systemctl $1 list-unit-files "$2*"; __systemctl $1 list-units --all "$2*"; } \
                               | { while read -r a b; do echo " $a"; done; }; }
@@ -123,11 +125,11 @@ _systemctl () {
 
     local -A OPTS=(
         [STANDALONE]='--all -a --reverse --after --before --defaults --force -f --full -l --global
-                             --help -h --no-ask-password --no-block --no-legend --no-pager --no-reload --no-wall --now
+                             --help -h --no-ask-password --no-block --legend=no --no-pager --no-reload --no-wall --now
                              --quiet -q --system --user --version --runtime --recursive -r --firmware-setup
-                             --show-types -i --ignore-inhibitors --plain --failed --value --fail --dry-run --wait'
+                             --show-types --plain --failed --value --fail --dry-run --wait'
         [ARG]='--host -H --kill-who --property -p --signal -s --type -t --state --job-mode --root
-                             --preset-mode -n --lines -o --output -M --machine --message --timestamp'
+                             --preset-mode -n --lines -o --output -M --machine --message --timestamp --check-inhibitors'
     )
 
     if __contains_word "--user" ${COMP_WORDS[*]}; then
@@ -179,6 +181,9 @@ _systemctl () {
             --timestamp)
                 comps='pretty us µs utc us+utc µs+utc'
                 ;;
+            --check-inhibitors)
+                comps='auto yes no'
+                ;;
         esac
         COMPREPLY=( $(compgen -W '$comps' -- "$cur") )
         return 0
@@ -211,7 +216,7 @@ _systemctl () {
                              list-timers list-units list-unit-files poweroff
                              reboot rescue show-environment suspend get-default
                              is-system-running preset-all'
-        [FILE]='link switch-root'
+        [FILE]='link switch-root bind mount-image'
         [TARGETS]='set-default'
         [MACHINES]='list-machines'
         [LOG_LEVEL]='log-level'
@@ -320,10 +325,19 @@ _systemctl () {
     elif __contains_word "$verb" ${VERBS[JOBS]}; then
         comps=$( __systemctl $mode list-jobs | { while read -r a b; do echo " $a"; done; } )
 
-    elif __contains_word "$verb" ${VERBS[ENVS]}; then
+    elif [ "$verb" = 'unset-environment' ]; then
+        comps=$( __systemctl $mode show-environment \
+                     | while read -r line; do echo " ${line%%=*}"; done )
+        compopt -o nospace
+
+    elif [ "$verb" = 'set-environment' ]; then
         comps=$( __systemctl $mode show-environment \
                      | while read -r line; do echo " ${line%%=*}="; done )
         compopt -o nospace
+
+    elif [ "$verb" = 'import-environment' ]; then
+        COMPREPLY=( $(compgen -A variable -- "$cur_orig") )
+        return 0
 
     elif __contains_word "$verb" ${VERBS[FILE]}; then
         comps=$( compgen -A file -- "$cur" )

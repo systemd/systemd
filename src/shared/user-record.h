@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
 #include <inttypes.h>
@@ -17,6 +17,35 @@
 /* The default disk size to use when nothing else is specified, relative to free disk space */
 #define USER_DISK_SIZE_DEFAULT_PERCENT 85
 
+bool uid_is_system(uid_t uid);
+bool gid_is_system(gid_t gid);
+
+static inline bool uid_is_dynamic(uid_t uid) {
+        return DYNAMIC_UID_MIN <= uid && uid <= DYNAMIC_UID_MAX;
+}
+
+static inline bool gid_is_dynamic(gid_t gid) {
+        return uid_is_dynamic((uid_t) gid);
+}
+
+static inline bool uid_is_container(uid_t uid) {
+        return CONTAINER_UID_BASE_MIN <= uid && uid <= CONTAINER_UID_BASE_MAX;
+}
+
+static inline bool gid_is_container(gid_t gid) {
+        return uid_is_container((uid_t) gid);
+}
+
+typedef struct UGIDAllocationRange {
+        uid_t system_alloc_uid_min;
+        uid_t system_uid_max;
+        gid_t system_alloc_gid_min;
+        gid_t system_gid_max;
+} UGIDAllocationRange;
+
+int read_login_defs(UGIDAllocationRange *ret_defs, const char *path, const char *root);
+const UGIDAllocationRange *acquire_ugid_allocation_range(void);
+
 typedef enum UserDisposition {
         USER_INTRINSIC,   /* root and nobody */
         USER_SYSTEM,      /* statically allocated users for system services */
@@ -25,7 +54,7 @@ typedef enum UserDisposition {
         USER_CONTAINER,   /* UID ranges allocated for container uses */
         USER_RESERVED,    /* Range above 2^31 */
         _USER_DISPOSITION_MAX,
-        _USER_DISPOSITION_INVALID = -1,
+        _USER_DISPOSITION_INVALID = -EINVAL,
 } UserDisposition;
 
 typedef enum UserHomeStorage {
@@ -36,7 +65,7 @@ typedef enum UserHomeStorage {
         USER_FSCRYPT,
         USER_CIFS,
         _USER_STORAGE_MAX,
-        _USER_STORAGE_INVALID = -1
+        _USER_STORAGE_INVALID = -EINVAL,
 } UserStorage;
 
 typedef enum UserRecordMask {
@@ -140,6 +169,9 @@ typedef enum UserRecordLoadFlags {
 
         /* Whether to ignore errors and load what we can */
         USER_RECORD_PERMISSIVE          = 1U << 29,
+
+        /* Whether an empty record is OK */
+        USER_RECORD_EMPTY_OK            = 1U << 30,
 } UserRecordLoadFlags;
 
 static inline UserRecordLoadFlags USER_RECORD_REQUIRE(UserRecordMask m) {
@@ -204,6 +236,9 @@ typedef struct Fido2HmacSalt {
 
         /* What to test the hashed salt value against, usually UNIX password hash here. */
         char *hashed_password;
+
+        /* Whether the 'up', 'uv', 'clientPin' features are enabled. */
+        int uv, up, client_pin;
 } Fido2HmacSalt;
 
 typedef struct RecoveryKey {
@@ -339,6 +374,7 @@ typedef struct UserRecord {
         Fido2HmacSalt *fido2_hmac_salt;
         size_t n_fido2_hmac_salt;
         int fido2_user_presence_permitted;
+        int fido2_user_verification_permitted;
 
         char **recovery_key_type;
         RecoveryKey *recovery_key;

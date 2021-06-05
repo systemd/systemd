@@ -1,4 +1,4 @@
-#  SPDX-License-Identifier: LGPL-2.1+
+#  SPDX-License-Identifier: LGPL-2.1-or-later
 #
 #  This file is part of systemd.
 #
@@ -20,4 +20,4 @@ Before=shutdown.target
 
 [Service]
 Type=oneshot
-ExecStart=@rootlibexecdir@/systemd-update-utmp runlevel
+ExecStart={{ROOTLIBEXECDIR}}/systemd-update-utmp runlevel

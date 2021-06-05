@@ -4,6 +4,6 @@ StartLimitIntervalSec=1m
 StartLimitBurst=3
 
 [Service]
-Type=simple
+Type=exec
 ExecStart=false
 Restart=always

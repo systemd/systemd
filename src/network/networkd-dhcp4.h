@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
 #include "conf-parser.h"
@@ -14,12 +14,13 @@ typedef enum DHCPClientIdentifier {
          * https://github.com/systemd/systemd/issues/7828 */
         DHCP_CLIENT_ID_DUID_ONLY,
         _DHCP_CLIENT_ID_MAX,
-        _DHCP_CLIENT_ID_INVALID = -1,
+        _DHCP_CLIENT_ID_INVALID = -EINVAL,
 } DHCPClientIdentifier;
 
+void network_adjust_dhcp4(Network *network);
 int dhcp4_configure(Link *link);
-int dhcp4_set_client_identifier(Link *link);
-int dhcp4_set_promote_secondaries(Link *link);
+int dhcp4_update_mac(Link *link);
+int dhcp4_start(Link *link);
 
 CONFIG_PARSER_PROTOTYPE(config_parse_dhcp_client_identifier);
 CONFIG_PARSER_PROTOTYPE(config_parse_dhcp_acl_ip_address);

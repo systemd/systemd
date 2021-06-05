@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 /***
   Copyright © 2017 Felipe Sateler
 ***/
@@ -100,7 +100,7 @@ int main(int argc, char *argv[]) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         int r;
 
-        log_setup_service();
+        log_setup();
 
         print_mode(argc > 1 ? argv[1] : "");
 

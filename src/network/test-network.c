@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <arpa/inet.h>
 #include <sys/param.h>
@@ -7,10 +7,12 @@
 
 #include "alloc-util.h"
 #include "dhcp-lease-internal.h"
-#include "hostname-util.h"
+#include "ether-addr-util.h"
+#include "hostname-setup.h"
 #include "network-internal.h"
 #include "networkd-manager.h"
 #include "string-util.h"
+#include "strv.h"
 #include "tests.h"
 
 static void test_deserialize_in_addr(void) {
@@ -32,23 +34,23 @@ static void test_deserialize_in_addr(void) {
 
         assert_se((size = deserialize_in_addrs(&addresses, addresses_string)) >= 0);
         assert_se(size == 3);
-        assert_se(in_addr_equal(AF_INET, &a, (union in_addr_union *) &addresses[0]));
-        assert_se(in_addr_equal(AF_INET, &b, (union in_addr_union *) &addresses[1]));
-        assert_se(in_addr_equal(AF_INET, &c, (union in_addr_union *) &addresses[2]));
+        assert_se(in4_addr_equal(&a.in, &addresses[0]));
+        assert_se(in4_addr_equal(&b.in, &addresses[1]));
+        assert_se(in4_addr_equal(&c.in, &addresses[2]));
 
         assert_se((size = deserialize_in6_addrs(&addresses6, addresses_string)) >= 0);
         assert_se(size == 3);
-        assert_se(in_addr_equal(AF_INET6, &d, (union in_addr_union *) &addresses6[0]));
-        assert_se(in_addr_equal(AF_INET6, &e, (union in_addr_union *) &addresses6[1]));
-        assert_se(in_addr_equal(AF_INET6, &f, (union in_addr_union *) &addresses6[2]));
+        assert_se(in6_addr_equal(&d.in6, &addresses6[0]));
+        assert_se(in6_addr_equal(&e.in6, &addresses6[1]));
+        assert_se(in6_addr_equal(&f.in6, &addresses6[2]));
 }
 
 static void test_deserialize_dhcp_routes(void) {
-        size_t size, allocated;
+        size_t size;
 
         {
                 _cleanup_free_ struct sd_dhcp_route *routes = NULL;
-                assert_se(deserialize_dhcp_routes(&routes, &size, &allocated, "") >= 0);
+                assert_se(deserialize_dhcp_routes(&routes, &size, "") >= 0);
                 assert_se(size == 0);
         }
 
@@ -57,7 +59,7 @@ static void test_deserialize_dhcp_routes(void) {
                 _cleanup_free_ struct sd_dhcp_route *routes = NULL;
                 const char *routes_string = "192.168.0.0/16,192.168.0.1 10.1.2.0/24,10.1.2.1 0.0.0.0/0,10.0.1.1";
 
-                assert_se(deserialize_dhcp_routes(&routes, &size, &allocated, routes_string) >= 0);
+                assert_se(deserialize_dhcp_routes(&routes, &size, routes_string) >= 0);
 
                 assert_se(size == 3);
                 assert_se(routes[0].dst_addr.s_addr == inet_addr("192.168.0.0"));
@@ -78,7 +80,7 @@ static void test_deserialize_dhcp_routes(void) {
                 _cleanup_free_ struct sd_dhcp_route *routes = NULL;
                 const char *routes_string = "192.168.0.0/16,192.168.0.1 10.1.2.0#24,10.1.2.1 0.0.0.0/0,10.0.1.1";
 
-                assert_se(deserialize_dhcp_routes(&routes, &size, &allocated, routes_string) >= 0);
+                assert_se(deserialize_dhcp_routes(&routes, &size, routes_string) >= 0);
 
                 assert_se(size == 2);
                 assert_se(routes[0].dst_addr.s_addr == inet_addr("192.168.0.0"));
@@ -95,9 +97,56 @@ static void test_deserialize_dhcp_routes(void) {
                 _cleanup_free_ struct sd_dhcp_route *routes = NULL;
                 const char *routes_string = "192.168.0.0/55,192.168.0.1 10.1.2.0#24,10.1.2.1 0.0.0.0/0,10.0.1.X";
 
-                assert_se(deserialize_dhcp_routes(&routes, &size, &allocated, routes_string) >= 0);
+                assert_se(deserialize_dhcp_routes(&routes, &size, routes_string) >= 0);
                 assert_se(size == 0);
         }
+}
+
+static void test_route_tables_one(Manager *manager, const char *name, uint32_t number) {
+        _cleanup_free_ char *str = NULL, *expected = NULL, *num_str = NULL;
+        uint32_t t;
+
+        if (!STR_IN_SET(name, "default", "main", "local")) {
+                assert_se(streq(hashmap_get(manager->route_table_names_by_number, UINT32_TO_PTR(number)), name));
+                assert_se(PTR_TO_UINT32(hashmap_get(manager->route_table_numbers_by_name, name)) == number);
+        }
+
+        assert_se(asprintf(&expected, "%s(%" PRIu32 ")", name, number) >= 0);
+        assert_se(manager_get_route_table_to_string(manager, number, &str) >= 0);
+        assert_se(streq(str, expected));
+
+        assert_se(manager_get_route_table_from_string(manager, name, &t) >= 0);
+        assert_se(t == number);
+
+        assert_se(asprintf(&num_str, "%" PRIu32, number) >= 0);
+        assert_se(manager_get_route_table_from_string(manager, num_str, &t) >= 0);
+        assert_se(t == number);
+}
+
+static void test_route_tables(Manager *manager) {
+        assert_se(config_parse_route_table_names("manager", "filename", 1, "section", 1, "RouteTable", 0, "hoge:123 foo:456 aaa:111", manager, manager) >= 0);
+        assert_se(config_parse_route_table_names("manager", "filename", 1, "section", 1, "RouteTable", 0, "bbb:11111 ccc:22222", manager, manager) >= 0);
+        assert_se(config_parse_route_table_names("manager", "filename", 1, "section", 1, "RouteTable", 0, "ddd:22222", manager, manager) >= 0);
+
+        test_route_tables_one(manager, "hoge", 123);
+        test_route_tables_one(manager, "foo", 456);
+        test_route_tables_one(manager, "aaa", 111);
+        test_route_tables_one(manager, "bbb", 11111);
+        test_route_tables_one(manager, "ccc", 22222);
+
+        assert_se(!hashmap_get(manager->route_table_numbers_by_name, "ddd"));
+
+        test_route_tables_one(manager, "default", 253);
+        test_route_tables_one(manager, "main", 254);
+        test_route_tables_one(manager, "local", 255);
+
+        assert_se(config_parse_route_table_names("manager", "filename", 1, "section", 1, "RouteTable", 0, "", manager, manager) >= 0);
+        assert_se(!manager->route_table_names_by_number);
+        assert_se(!manager->route_table_numbers_by_name);
+
+        test_route_tables_one(manager, "default", 253);
+        test_route_tables_one(manager, "main", 254);
+        test_route_tables_one(manager, "local", 255);
 }
 
 static int test_load_config(Manager *manager) {
@@ -117,23 +166,6 @@ static int test_load_config(Manager *manager) {
         assert_se(manager_should_reload(manager) == false);
 
         return 0;
-}
-
-static void test_network_get(Manager *manager, sd_device *loopback) {
-        Network *network;
-        const struct ether_addr mac = ETHER_ADDR_NULL;
-        int r;
-
-        /* Let's hope that the test machine does not have a .network file that applies to loopback device…
-         * But it is still possible, so let's allow that case too. */
-        r = network_get(manager, 0, loopback, "lo", NULL, NULL, &mac, &mac, 0, NULL, NULL, &network);
-        if (r == -ENOENT)
-                /* The expected case */
-                assert_se(!network);
-        else if (r >= 0)
-                assert_se(network);
-        else
-                assert_not_reached("bad error!");
 }
 
 static void test_address_equality(void) {
@@ -228,8 +260,7 @@ static void test_dhcp_hostname_shorten_overlong(void) {
 
 int main(void) {
         _cleanup_(manager_freep) Manager *manager = NULL;
-        _cleanup_(sd_device_unrefp) sd_device *loopback = NULL;
-        int ifindex, r;
+        int r;
 
         test_setup_logging(LOG_INFO);
 
@@ -240,18 +271,14 @@ int main(void) {
 
         assert_se(manager_new(&manager) >= 0);
 
+        test_route_tables(manager);
+
         r = test_load_config(manager);
         if (r == -EPERM)
-                return log_tests_skipped("Cannot load configuration");
-        assert_se(r == 0);
+                log_debug("Cannot load configuration, ignoring.");
+        else
+                assert_se(r == 0);
 
-        assert_se(sd_device_new_from_syspath(&loopback, "/sys/class/net/lo") >= 0);
-        assert_se(loopback);
-        assert_se(sd_device_get_ifindex(loopback, &ifindex) >= 0);
-        assert_se(ifindex == 1);
-
-        test_network_get(manager, loopback);
-
-        assert_se(manager_rtnl_enumerate_links(manager) >= 0);
+        assert_se(manager_enumerate(manager) >= 0);
         return 0;
 }

@@ -1,3 +1,5 @@
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
+
 #include "sort-util.h"
 #include "alloc-util.h"
 
@@ -24,4 +26,8 @@ void *xbsearch_r(const void *key, const void *base, size_t nmemb, size_t size,
                         return (void *)p;
         }
         return NULL;
+}
+
+int cmp_int(const int *a, const int *b) {
+        return CMP(*a, *b);
 }

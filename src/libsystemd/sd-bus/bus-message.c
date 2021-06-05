@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <errno.h>
 #include <fcntl.h>
@@ -12,7 +12,6 @@
 #include "bus-message.h"
 #include "bus-signature.h"
 #include "bus-type.h"
-#include "bus-util.h"
 #include "fd-util.h"
 #include "io-util.h"
 #include "memfd-util.h"
@@ -118,7 +117,6 @@ static void message_reset_containers(sd_bus_message *m) {
                 message_free_last_container(m);
 
         m->containers = mfree(m->containers);
-        m->containers_allocated = 0;
         m->root_container.index = 0;
 }
 
@@ -162,8 +160,7 @@ static void *message_extend_fields(sd_bus_message *m, size_t align, size_t sz, b
         start = ALIGN_TO(old_size, align);
         new_size = start + sz;
 
-        if (new_size < start ||
-            new_size > (size_t) ((uint32_t) -1))
+        if (new_size < start || new_size > UINT32_MAX)
                 goto poison;
 
         if (old_size == new_size)
@@ -1291,7 +1288,7 @@ static int message_add_offset(sd_bus_message *m, size_t offset) {
         if (!c->need_offsets)
                 return 0;
 
-        if (!GREEDY_REALLOC(c->offsets, c->offsets_allocated, c->n_offsets + 1))
+        if (!GREEDY_REALLOC(c->offsets, c->n_offsets + 1))
                 return -ENOMEM;
 
         c->offsets[c->n_offsets++] = offset;
@@ -1338,8 +1335,7 @@ static void *message_extend_body(
         added = padding + sz;
 
         /* Check for 32bit overflows */
-        if (end_body > (size_t) ((uint32_t) -1) ||
-            end_body < start_body) {
+        if (end_body < start_body || end_body > UINT32_MAX) {
                 m->poisoned = true;
                 return NULL;
         }
@@ -1471,7 +1467,7 @@ int message_append_basic(sd_bus_message *m, char type, const void *p, const void
                 if (c->enclosing != 0)
                         return -ENXIO;
 
-                e = strextend(&c->signature, CHAR_TO_STR(type), NULL);
+                e = strextend(&c->signature, CHAR_TO_STR(type));
                 if (!e) {
                         m->poisoned = true;
                         return -ENOMEM;
@@ -1664,7 +1660,7 @@ _public_ int sd_bus_message_append_string_space(
                 if (c->enclosing != 0)
                         return -ENXIO;
 
-                e = strextend(&c->signature, CHAR_TO_STR(SD_BUS_TYPE_STRING), NULL);
+                e = strextend(&c->signature, CHAR_TO_STR(SD_BUS_TYPE_STRING));
                 if (!e) {
                         m->poisoned = true;
                         return -ENOMEM;
@@ -1768,7 +1764,7 @@ static int bus_message_open_array(
 
                 /* Extend the existing signature */
 
-                e = strextend(&c->signature, CHAR_TO_STR(SD_BUS_TYPE_ARRAY), contents, NULL);
+                e = strextend(&c->signature, CHAR_TO_STR(SD_BUS_TYPE_ARRAY), contents);
                 if (!e) {
                         m->poisoned = true;
                         return -ENOMEM;
@@ -1853,7 +1849,7 @@ static int bus_message_open_variant(
                 if (c->enclosing != 0)
                         return -ENXIO;
 
-                e = strextend(&c->signature, CHAR_TO_STR(SD_BUS_TYPE_VARIANT), NULL);
+                e = strextend(&c->signature, CHAR_TO_STR(SD_BUS_TYPE_VARIANT));
                 if (!e) {
                         m->poisoned = true;
                         return -ENOMEM;
@@ -1921,7 +1917,7 @@ static int bus_message_open_struct(
                 if (c->enclosing != 0)
                         return -ENXIO;
 
-                e = strextend(&c->signature, CHAR_TO_STR(SD_BUS_TYPE_STRUCT_BEGIN), contents, CHAR_TO_STR(SD_BUS_TYPE_STRUCT_END), NULL);
+                e = strextend(&c->signature, CHAR_TO_STR(SD_BUS_TYPE_STRUCT_BEGIN), contents, CHAR_TO_STR(SD_BUS_TYPE_STRUCT_END));
                 if (!e) {
                         m->poisoned = true;
                         return -ENOMEM;
@@ -2034,7 +2030,7 @@ _public_ int sd_bus_message_open_container(
         assert_return(!m->poisoned, -ESTALE);
 
         /* Make sure we have space for one more container */
-        if (!GREEDY_REALLOC(m->containers, m->containers_allocated, m->n_containers + 1)) {
+        if (!GREEDY_REALLOC(m->containers, m->n_containers + 1)) {
                 m->poisoned = true;
                 return -ENOMEM;
         }
@@ -2341,13 +2337,13 @@ _public_ int sd_bus_message_appendv(
         assert_return(!m->sealed, -EPERM);
         assert_return(!m->poisoned, -ESTALE);
 
-        n_array = (unsigned) -1;
+        n_array = UINT_MAX;
         n_struct = strlen(types);
 
         for (;;) {
                 const char *t;
 
-                if (n_array == 0 || (n_array == (unsigned) -1 && n_struct == 0)) {
+                if (n_array == 0 || (n_array == UINT_MAX && n_struct == 0)) {
                         r = type_stack_pop(stack, ELEMENTSOF(stack), &stack_ptr, &types, &n_struct, &n_array);
                         if (r < 0)
                                 return r;
@@ -2362,7 +2358,7 @@ _public_ int sd_bus_message_appendv(
                 }
 
                 t = types;
-                if (n_array != (unsigned) -1)
+                if (n_array != UINT_MAX)
                         n_array--;
                 else {
                         types++;
@@ -2446,7 +2442,7 @@ _public_ int sd_bus_message_appendv(
                                         return r;
                         }
 
-                        if (n_array == (unsigned) -1) {
+                        if (n_array == UINT_MAX) {
                                 types += k;
                                 n_struct -= k;
                         }
@@ -2479,7 +2475,7 @@ _public_ int sd_bus_message_appendv(
 
                         types = s;
                         n_struct = strlen(s);
-                        n_array = (unsigned) -1;
+                        n_array = UINT_MAX;
 
                         break;
                 }
@@ -2503,7 +2499,7 @@ _public_ int sd_bus_message_appendv(
                                         return r;
                         }
 
-                        if (n_array == (unsigned) -1) {
+                        if (n_array == UINT_MAX) {
                                 types += k - 1;
                                 n_struct -= k - 1;
                         }
@@ -2514,7 +2510,7 @@ _public_ int sd_bus_message_appendv(
 
                         types = t + 1;
                         n_struct = k - 2;
-                        n_array = (unsigned) -1;
+                        n_array = UINT_MAX;
 
                         break;
                 }
@@ -2676,7 +2672,7 @@ _public_ int sd_bus_message_append_array_memfd(
         if (r < 0)
                 return r;
 
-        if (offset == 0 && size == (uint64_t) -1)
+        if (offset == 0 && size == UINT64_MAX)
                 size = real_size;
         else if (offset + size > real_size)
                 return -EMSGSIZE;
@@ -2693,7 +2689,7 @@ _public_ int sd_bus_message_append_array_memfd(
         if (size % sz != 0)
                 return -EINVAL;
 
-        if (size > (uint64_t) (uint32_t) -1)
+        if (size > (uint64_t) UINT32_MAX)
                 return -EINVAL;
 
         r = sd_bus_message_open_container(m, SD_BUS_TYPE_ARRAY, CHAR_TO_STR(type));
@@ -2751,7 +2747,7 @@ _public_ int sd_bus_message_append_string_memfd(
         if (r < 0)
                 return r;
 
-        if (offset == 0 && size == (uint64_t) -1)
+        if (offset == 0 && size == UINT64_MAX)
                 size = real_size;
         else if (offset + size > real_size)
                 return -EMSGSIZE;
@@ -2760,7 +2756,7 @@ _public_ int sd_bus_message_append_string_memfd(
         if (size == 0)
                 return -EINVAL;
 
-        if (size > (uint64_t) (uint32_t) -1)
+        if (size > (uint64_t) UINT32_MAX)
                 return -EINVAL;
 
         c = message_get_last_container(m);
@@ -2776,7 +2772,7 @@ _public_ int sd_bus_message_append_string_memfd(
                 if (c->enclosing != 0)
                         return -ENXIO;
 
-                e = strextend(&c->signature, CHAR_TO_STR(SD_BUS_TYPE_STRING), NULL);
+                e = strextend(&c->signature, CHAR_TO_STR(SD_BUS_TYPE_STRING));
                 if (!e) {
                         m->poisoned = true;
                         return -ENOMEM;
@@ -3189,6 +3185,8 @@ static int container_next_item(sd_bus_message *m, struct bus_container *c, size_
                 int sz;
 
                 sz = bus_gvariant_get_size(c->signature);
+                if (sz == 0)
+                        return -EBADMSG;
                 if (sz < 0) {
                         int alignment;
 
@@ -4112,7 +4110,7 @@ _public_ int sd_bus_message_enter_container(sd_bus_message *m,
         if (m->n_containers >= BUS_CONTAINER_DEPTH)
                 return -EBADMSG;
 
-        if (!GREEDY_REALLOC(m->containers, m->containers_allocated, m->n_containers + 1))
+        if (!GREEDY_REALLOC(m->containers, m->n_containers + 1))
                 return -ENOMEM;
 
         if (message_end_of_signature(m))
@@ -4429,7 +4427,7 @@ _public_ int sd_bus_message_readv(
          * in a single stackframe. We hence implement our own
          * home-grown stack in an array. */
 
-        n_array = (unsigned) -1; /* length of current array entries */
+        n_array = UINT_MAX; /* length of current array entries */
         n_struct = strlen(types); /* length of current struct contents signature */
 
         for (;;) {
@@ -4437,7 +4435,7 @@ _public_ int sd_bus_message_readv(
 
                 n_loop++;
 
-                if (n_array == 0 || (n_array == (unsigned) -1 && n_struct == 0)) {
+                if (n_array == 0 || (n_array == UINT_MAX && n_struct == 0)) {
                         r = type_stack_pop(stack, ELEMENTSOF(stack), &stack_ptr, &types, &n_struct, &n_array);
                         if (r < 0)
                                 return r;
@@ -4452,7 +4450,7 @@ _public_ int sd_bus_message_readv(
                 }
 
                 t = types;
-                if (n_array != (unsigned) -1)
+                if (n_array != UINT_MAX)
                         n_array--;
                 else {
                         types++;
@@ -4513,7 +4511,7 @@ _public_ int sd_bus_message_readv(
                                 }
                         }
 
-                        if (n_array == (unsigned) -1) {
+                        if (n_array == UINT_MAX) {
                                 types += k;
                                 n_struct -= k;
                         }
@@ -4552,7 +4550,7 @@ _public_ int sd_bus_message_readv(
 
                         types = s;
                         n_struct = strlen(s);
-                        n_array = (unsigned) -1;
+                        n_array = UINT_MAX;
 
                         break;
                 }
@@ -4580,7 +4578,7 @@ _public_ int sd_bus_message_readv(
                                 }
                         }
 
-                        if (n_array == (unsigned) -1) {
+                        if (n_array == UINT_MAX) {
                                 types += k - 1;
                                 n_struct -= k - 1;
                         }
@@ -4591,7 +4589,7 @@ _public_ int sd_bus_message_readv(
 
                         types = t + 1;
                         n_struct = k - 2;
-                        n_array = (unsigned) -1;
+                        n_array = UINT_MAX;
 
                         break;
                 }
@@ -4795,8 +4793,13 @@ _public_ int sd_bus_message_read_array(
         assert_return(!BUS_MESSAGE_NEED_BSWAP(m), -EOPNOTSUPP);
 
         r = sd_bus_message_enter_container(m, SD_BUS_TYPE_ARRAY, CHAR_TO_STR(type));
-        if (r <= 0)
+        if (r < 0)
                 return r;
+        if (r == 0) {
+                *ptr = NULL;
+                *size = 0;
+                return 0;
+        }
 
         c = message_get_last_container(m);
 
@@ -5028,7 +5031,7 @@ static int message_skip_fields(
                 char t;
                 size_t l;
 
-                if (array_size != (uint32_t) -1 &&
+                if (array_size != UINT32_MAX &&
                     array_size <= *ri - original_index)
                         return 0;
 
@@ -5116,7 +5119,7 @@ static int message_skip_fields(
                         if (r < 0)
                                 return r;
 
-                        r = message_skip_fields(m, ri, (uint32_t) -1, (const char**) &s);
+                        r = message_skip_fields(m, ri, UINT32_MAX, (const char**) &s);
                         if (r < 0)
                                 return r;
 
@@ -5134,7 +5137,7 @@ static int message_skip_fields(
                                 strncpy(sig, *signature + 1, l);
                                 sig[l] = '\0';
 
-                                r = message_skip_fields(m, ri, (uint32_t) -1, (const char**) &s);
+                                r = message_skip_fields(m, ri, UINT32_MAX, (const char**) &s);
                                 if (r < 0)
                                         return r;
                         }
@@ -5241,7 +5244,7 @@ int bus_message_parse_fields(sd_bus_message *m) {
                 _cleanup_free_ char *sig = NULL;
                 const char *signature;
                 uint64_t field_type;
-                size_t item_size = (size_t) -1;
+                size_t item_size = SIZE_MAX;
 
                 if (BUS_MESSAGE_IS_GVARIANT(m)) {
                         uint64_t *u64;
@@ -5455,7 +5458,7 @@ int bus_message_parse_fields(sd_bus_message *m) {
 
                 default:
                         if (!BUS_MESSAGE_IS_GVARIANT(m))
-                                r = message_skip_fields(m, &ri, (uint32_t) -1, (const char **) &signature);
+                                r = message_skip_fields(m, &ri, UINT32_MAX, (const char **) &signature);
                 }
 
                 if (r < 0)
@@ -5581,17 +5584,26 @@ int bus_message_get_blob(sd_bus_message *m, void **buffer, size_t *sz) {
 }
 
 int bus_message_read_strv_extend(sd_bus_message *m, char ***l) {
-        const char *s;
+        char type;
+        const char *contents, *s;
         int r;
 
         assert(m);
         assert(l);
 
-        r = sd_bus_message_enter_container(m, 'a', "s");
+        r = sd_bus_message_peek_type(m, &type, &contents);
+        if (r < 0)
+                return r;
+
+        if (type != SD_BUS_TYPE_ARRAY || !STR_IN_SET(contents, "s", "o", "g"))
+                return -ENXIO;
+
+        r = sd_bus_message_enter_container(m, 'a', NULL);
         if (r <= 0)
                 return r;
 
-        while ((r = sd_bus_message_read_basic(m, 's', &s)) > 0) {
+        /* sd_bus_message_read_basic() does content validation for us. */
+        while ((r = sd_bus_message_read_basic(m, *contents, &s)) > 0) {
                 r = strv_extend(l, s);
                 if (r < 0)
                         return r;

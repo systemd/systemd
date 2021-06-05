@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <errno.h>
 #include <getopt.h>
@@ -39,10 +39,9 @@ static int help(void) {
                "     --private-users    Only detect whether we are running in a user namespace\n"
                "  -q --quiet            Don't output anything, just set return value\n"
                "     --list             List all known and detectable types of virtualization\n"
-               "\nSee the %s for details.\n"
-               , program_invocation_short_name
-               , link
-        );
+               "\nSee the %s for details.\n",
+               program_invocation_short_name,
+               link);
 
         return 0;
 }
@@ -128,7 +127,7 @@ static int run(int argc, char *argv[]) {
          * to detect whether we are being run in a virtualized
          * environment or not */
 
-        log_setup_cli();
+        log_setup();
 
         r = parse_argv(argc, argv);
         if (r <= 0)

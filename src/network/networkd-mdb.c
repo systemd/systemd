@@ -1,14 +1,33 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <net/if.h>
 
 #include "netlink-util.h"
+#include "networkd-link.h"
 #include "networkd-manager.h"
 #include "networkd-mdb.h"
+#include "networkd-network.h"
 #include "string-util.h"
 #include "vlan-util.h"
 
 #define STATIC_MDB_ENTRIES_PER_NETWORK_MAX 1024U
+
+/* remove MDB entry. */
+MdbEntry *mdb_entry_free(MdbEntry *mdb_entry) {
+        if (!mdb_entry)
+                return NULL;
+
+        if (mdb_entry->network) {
+                assert(mdb_entry->section);
+                hashmap_remove(mdb_entry->network->mdb_entries_by_section, mdb_entry->section);
+        }
+
+        network_config_section_free(mdb_entry->section);
+
+        return mfree(mdb_entry);
+}
+
+DEFINE_NETWORK_SECTION_FUNCTIONS(MdbEntry, mdb_entry_free);
 
 /* create a new MDB entry or get an existing one. */
 static int mdb_entry_new_static(
@@ -23,22 +42,21 @@ static int mdb_entry_new_static(
 
         assert(network);
         assert(ret);
-        assert(!!filename == (section_line > 0));
+        assert(filename);
+        assert(section_line > 0);
+
+        r = network_config_section_new(filename, section_line, &n);
+        if (r < 0)
+                return r;
 
         /* search entry in hashmap first. */
-        if (filename) {
-                r = network_config_section_new(filename, section_line, &n);
-                if (r < 0)
-                        return r;
-
-                mdb_entry = hashmap_get(network->mdb_entries_by_section, n);
-                if (mdb_entry) {
-                        *ret = TAKE_PTR(mdb_entry);
-                        return 0;
-                }
+        mdb_entry = hashmap_get(network->mdb_entries_by_section, n);
+        if (mdb_entry) {
+                *ret = TAKE_PTR(mdb_entry);
+                return 0;
         }
 
-        if (network->n_static_mdb_entries >= STATIC_MDB_ENTRIES_PER_NETWORK_MAX)
+        if (hashmap_size(network->mdb_entries_by_section) >= STATIC_MDB_ENTRIES_PER_NETWORK_MAX)
                 return -E2BIG;
 
         /* allocate space for an MDB entry. */
@@ -49,46 +67,16 @@ static int mdb_entry_new_static(
         /* init MDB structure. */
         *mdb_entry = (MdbEntry) {
                 .network = network,
+                .section = TAKE_PTR(n),
         };
 
-        LIST_PREPEND(static_mdb_entries, network->static_mdb_entries, mdb_entry);
-        network->n_static_mdb_entries++;
-
-        if (filename) {
-                mdb_entry->section = TAKE_PTR(n);
-
-                r = hashmap_ensure_allocated(&network->mdb_entries_by_section, &network_config_hash_ops);
-                if (r < 0)
-                        return r;
-
-                r = hashmap_put(network->mdb_entries_by_section, mdb_entry->section, mdb_entry);
-                if (r < 0)
-                        return r;
-        }
+        r = hashmap_ensure_put(&network->mdb_entries_by_section, &network_config_hash_ops, mdb_entry->section, mdb_entry);
+        if (r < 0)
+                return r;
 
         /* return allocated MDB structure. */
         *ret = TAKE_PTR(mdb_entry);
-
         return 0;
-}
-
-/* remove and MDB entry. */
-MdbEntry *mdb_entry_free(MdbEntry *mdb_entry) {
-        if (!mdb_entry)
-                return NULL;
-
-        if (mdb_entry->network) {
-                LIST_REMOVE(static_mdb_entries, mdb_entry->network->static_mdb_entries, mdb_entry);
-                assert(mdb_entry->network->n_static_mdb_entries > 0);
-                mdb_entry->network->n_static_mdb_entries--;
-
-                if (mdb_entry->section)
-                        hashmap_remove(mdb_entry->network->mdb_entries_by_section, mdb_entry->section);
-        }
-
-        network_config_section_free(mdb_entry->section);
-
-        return mfree(mdb_entry);
 }
 
 static int set_mdb_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
@@ -207,16 +195,23 @@ int link_set_bridge_mdb(Link *link) {
         assert(link);
         assert(link->manager);
 
+        if (link->bridge_mdb_messages != 0) {
+                log_link_debug(link, "MDB entries are configuring.");
+                return 0;
+        }
+
         link->bridge_mdb_configured = false;
 
         if (!link->network)
                 return 0;
 
-        if (LIST_IS_EMPTY(link->network->static_mdb_entries))
+        if (hashmap_isempty(link->network->mdb_entries_by_section))
                 goto finish;
 
-        if (!link_has_carrier(link))
-                return log_link_debug(link, "Link does not have carrier yet, setting MDB entries later.");
+        if (!link_has_carrier(link)) {
+                log_link_debug(link, "Link does not have carrier yet, setting MDB entries later.");
+                return 0;
+        }
 
         if (link->network->bridge) {
                 Link *master;
@@ -225,8 +220,10 @@ int link_set_bridge_mdb(Link *link) {
                 if (r < 0)
                         return log_link_error_errno(link, r, "Failed to get Link object for Bridge=%s", link->network->bridge->ifname);
 
-                if (!link_has_carrier(master))
-                        return log_link_debug(link, "Bridge interface %s does not have carrier yet, setting MDB entries later.", link->network->bridge->ifname);
+                if (!link_has_carrier(master)) {
+                        log_link_debug(link, "Bridge interface %s does not have carrier yet, setting MDB entries later.", link->network->bridge->ifname);
+                        return 0;
+                }
 
         } else if (!streq_ptr(link->kind, "bridge")) {
                 log_link_warning(link, "Link is neither a bridge master nor a bridge port, ignoring [BridgeMDB] sections.");
@@ -236,7 +233,7 @@ int link_set_bridge_mdb(Link *link) {
                 goto finish;
         }
 
-        LIST_FOREACH(static_mdb_entries, mdb_entry, link->network->static_mdb_entries) {
+        HASHMAP_FOREACH(mdb_entry, link->network->mdb_entries_by_section) {
                 r = mdb_entry_configure(link, mdb_entry);
                 if (r < 0)
                         return log_link_error_errno(link, r, "Failed to add MDB entry to multicast group database: %m");
@@ -251,6 +248,49 @@ finish:
         }
 
         return 0;
+}
+
+static int mdb_entry_verify(MdbEntry *mdb_entry) {
+        if (section_is_invalid(mdb_entry->section))
+                return -EINVAL;
+
+        if (mdb_entry->family == AF_UNSPEC)
+                return log_warning_errno(SYNTHETIC_ERRNO(EINVAL),
+                                         "%s: [BridgeMDB] section without MulticastGroupAddress= field configured. "
+                                         "Ignoring [BridgeMDB] section from line %u.",
+                                         mdb_entry->section->filename, mdb_entry->section->line);
+
+        if (!in_addr_is_multicast(mdb_entry->family, &mdb_entry->group_addr))
+                return log_warning_errno(SYNTHETIC_ERRNO(EINVAL),
+                                         "%s: MulticastGroupAddress= is not a multicast address. "
+                                         "Ignoring [BridgeMDB] section from line %u.",
+                                         mdb_entry->section->filename, mdb_entry->section->line);
+
+        if (mdb_entry->family == AF_INET) {
+                if (in4_addr_is_local_multicast(&mdb_entry->group_addr.in))
+                        return log_warning_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                 "%s: MulticastGroupAddress= is a local multicast address. "
+                                                 "Ignoring [BridgeMDB] section from line %u.",
+                                                 mdb_entry->section->filename, mdb_entry->section->line);
+        } else {
+                if (in6_addr_is_link_local_all_nodes(&mdb_entry->group_addr.in6))
+                        return log_warning_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                 "%s: MulticastGroupAddress= is the multicast all nodes address. "
+                                                 "Ignoring [BridgeMDB] section from line %u.",
+                                                 mdb_entry->section->filename, mdb_entry->section->line);
+        }
+
+        return 0;
+}
+
+void network_drop_invalid_mdb_entries(Network *network) {
+        MdbEntry *mdb_entry;
+
+        assert(network);
+
+        HASHMAP_FOREACH(mdb_entry, network->mdb_entries_by_section)
+                if (mdb_entry_verify(mdb_entry) < 0)
+                        mdb_entry_free(mdb_entry);
 }
 
 /* parse the VLAN Id from config files. */
@@ -286,8 +326,7 @@ int config_parse_mdb_vlan_id(
         if (r < 0)
                 return r;
 
-        mdb_entry = NULL;
-
+        TAKE_PTR(mdb_entry);
         return 0;
 }
 
@@ -324,40 +363,6 @@ int config_parse_mdb_group_address(
                 return 0;
         }
 
-        mdb_entry = NULL;
-
-        return 0;
-}
-
-int mdb_entry_verify(MdbEntry *mdb_entry) {
-        if (section_is_invalid(mdb_entry->section))
-                return -EINVAL;
-
-        if (mdb_entry->family == AF_UNSPEC)
-                return log_warning_errno(SYNTHETIC_ERRNO(EINVAL),
-                                         "%s: [BridgeMDB] section without MulticastGroupAddress= field configured. "
-                                         "Ignoring [BridgeMDB] section from line %u.",
-                                         mdb_entry->section->filename, mdb_entry->section->line);
-
-        if (!in_addr_is_multicast(mdb_entry->family, &mdb_entry->group_addr))
-                return log_warning_errno(SYNTHETIC_ERRNO(EINVAL),
-                                         "%s: MulticastGroupAddress= is not a multicast address. "
-                                         "Ignoring [BridgeMDB] section from line %u.",
-                                         mdb_entry->section->filename, mdb_entry->section->line);
-
-        if (mdb_entry->family == AF_INET) {
-                if (in4_addr_is_local_multicast(&mdb_entry->group_addr.in))
-                        return log_warning_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                 "%s: MulticastGroupAddress= is a local multicast address. "
-                                                 "Ignoring [BridgeMDB] section from line %u.",
-                                                 mdb_entry->section->filename, mdb_entry->section->line);
-        } else {
-                if (in6_addr_is_link_local_all_nodes(&mdb_entry->group_addr.in6))
-                        return log_warning_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                 "%s: MulticastGroupAddress= is the multicast all nodes address. "
-                                                 "Ignoring [BridgeMDB] section from line %u.",
-                                                 mdb_entry->section->filename, mdb_entry->section->line);
-        }
-
+        TAKE_PTR(mdb_entry);
         return 0;
 }

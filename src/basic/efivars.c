@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <errno.h>
 #include <fcntl.h>
@@ -63,7 +63,7 @@ int efi_get_variable(
         _cleanup_free_ char *p = NULL;
         _cleanup_free_ void *buf = NULL;
         struct stat st;
-        usec_t begin;
+        usec_t begin = 0; /* Unnecessary initialization to appease gcc */
         uint32_t a;
         ssize_t n;
 
@@ -290,8 +290,11 @@ bool is_efi_boot(void) {
         if (cache < 0) {
                 if (detect_container() > 0)
                         cache = false;
-                else
+                else {
                         cache = access("/sys/firmware/efi/", F_OK) >= 0;
+                        if (!cache && errno != ENOENT)
+                                log_debug_errno(errno, "Unable to test whether /sys/firmware/efi/ exists, assuming EFI not available: %m");
+                }
         }
 
         return cache;
@@ -340,14 +343,14 @@ int cache_efi_options_variable(void) {
         int r;
 
         /* In SecureBoot mode this is probably not what you want. As your cmdline is cryptographically signed
-         * like when using Type #2 EFI Unified Kernel Images (https://systemd.io/BOOT_LOADER_SPECIFICATION/)
+         * like when using Type #2 EFI Unified Kernel Images (https://systemd.io/BOOT_LOADER_SPECIFICATION)
          * The user's intention is then that the cmdline should not be modified. You want to make sure that
          * the system starts up as exactly specified in the signed artifact.
          *
          * (NB: For testing purposes, we still check the $SYSTEMD_EFI_OPTIONS env var before accessing this
          * cache, even when in SecureBoot mode.) */
         if (is_efi_secure_boot()) {
-                _cleanup_free_ char *k;
+                _cleanup_free_ char *k = NULL;
 
                 k = efi_variable_path(EFI_VENDOR_SYSTEMD, "SystemdOptions");
                 if (!k)

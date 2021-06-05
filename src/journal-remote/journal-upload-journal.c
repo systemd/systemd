@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <curl/curl.h>
 #include <stdbool.h>
@@ -399,7 +399,7 @@ int open_journal_for_upload(Uploader *u,
                         return log_error_errno(r, "Failed to register input event: %m");
 
                 log_debug("Listening for journal events on fd:%d, timeout %d",
-                          fd, u->timeout == (uint64_t) -1 ? -1 : (int) u->timeout);
+                          fd, u->timeout == UINT64_MAX ? -1 : (int) u->timeout);
         } else
                 log_debug("Not listening for journal events.");
 

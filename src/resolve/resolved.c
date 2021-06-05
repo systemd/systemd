@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <sys/stat.h>
 #include <sys/types.h>
@@ -26,7 +26,7 @@ static int run(int argc, char *argv[]) {
         _cleanup_(notify_on_cleanup) const char *notify_stop = NULL;
         int r;
 
-        log_setup_service();
+        log_setup();
 
         r = service_parse_argv("systemd-resolved.service",
                                "Provide name resolution with caching using DNS, mDNS, LLMNR.",
@@ -58,7 +58,7 @@ static int run(int argc, char *argv[]) {
                 if (r < 0)
                         return log_error_errno(r, "Could not create runtime directory: %m");
 
-                /* Drop privileges, but keep three caps. Note that we drop those too, later on (see below) */
+                /* Drop privileges, but keep three caps. Note that we drop two of those too, later on (see below) */
                 r = drop_privileges(uid, gid,
                                     (UINT64_C(1) << CAP_NET_RAW)|          /* needed for SO_BINDTODEVICE */
                                     (UINT64_C(1) << CAP_NET_BIND_SERVICE)| /* needed to bind on port 53 */
@@ -83,7 +83,7 @@ static int run(int argc, char *argv[]) {
         (void) manager_check_resolv_conf(m);
 
         /* Let's drop the remaining caps now */
-        r = capability_bounding_set_drop(0, true);
+        r = capability_bounding_set_drop((UINT64_C(1) << CAP_NET_RAW), true);
         if (r < 0)
                 return log_error_errno(r, "Failed to drop remaining caps: %m");
 

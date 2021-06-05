@@ -1,14 +1,14 @@
-# SPDX-License-Identifier: LGPL-2.1+
+# SPDX-License-Identifier: LGPL-2.1-or-later
 #
 # Danish translation for systemd.
 # Daniel Machon <dmachon.dev@gmail.com>, 2015.
-# scootergrisen <scootergrisen@gmail.com>, 2020.
+# scootergrisen <scootergrisen@gmail.com>, 2020, 2021.
 msgid ""
 msgstr ""
 "Project-Id-Version: systemd master\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2020-08-19 18:02+0200\n"
-"PO-Revision-Date: 2020-09-19 12:22+0000\n"
+"POT-Creation-Date: 2021-01-08 17:48+0100\n"
+"PO-Revision-Date: 2021-06-02 16:03+0000\n"
 "Last-Translator: scootergrisen <scootergrisen@gmail.com>\n"
 "Language-Team: Danish <https://translate.fedoraproject.org/projects/systemd/"
 "master/da/>\n"
@@ -17,7 +17,7 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=n != 1;\n"
-"X-Generator: Weblate 4.2.2\n"
+"X-Generator: Weblate 4.6.2\n"
 
 #: src/core/org.freedesktop.systemd1.policy.in:22
 msgid "Send passphrase back to system"
@@ -86,7 +86,7 @@ msgstr "Der kræves godkendelse for at fjerne en brugers hjemmeområde."
 msgid "Check credentials of a home area"
 msgstr "Tjek loginoplysninger for et hjemmeområde"
 
-# www.freedesktop.org/wiki/Software/systemd/multiseat/
+# https://www.freedesktop.org/software/systemd/man/sd-login.html
 #: src/home/org.freedesktop.home1.policy:34
 msgid ""
 "Authentication is required to check credentials against a user's home area."
@@ -98,7 +98,7 @@ msgstr ""
 msgid "Update a home area"
 msgstr "Opdater et hjemmeområde"
 
-# www.freedesktop.org/wiki/Software/systemd/multiseat/
+# https://www.freedesktop.org/software/systemd/man/sd-login.html
 #: src/home/org.freedesktop.home1.policy:44
 msgid "Authentication is required to update a user's home area."
 msgstr "Der kræves godkendelse for at opdatere en brugers hjemmeområde."
@@ -116,7 +116,7 @@ msgstr ""
 msgid "Change password of a home area"
 msgstr "Skift adgangskode for et hjemmeområde"
 
-# www.freedesktop.org/wiki/Software/systemd/multiseat/
+# https://www.freedesktop.org/software/systemd/man/sd-login.html
 #: src/home/org.freedesktop.home1.policy:64
 msgid ""
 "Authentication is required to change the password of a user's home area."
@@ -296,60 +296,72 @@ msgstr ""
 "skærmlukning."
 
 #: src/login/org.freedesktop.login1.policy:117
+msgid "Allow applications to inhibit system handling of the reboot key"
+msgstr "Tillad programmer at hæmme systemhåndtering af genstart-knappen"
+
+#: src/login/org.freedesktop.login1.policy:118
+msgid ""
+"Authentication is required for an application to inhibit system handling of "
+"the reboot key."
+msgstr ""
+"Der kræves godkendelse for at et program kan hæmme systemhåndtering af "
+"genstart-knappen."
+
+#: src/login/org.freedesktop.login1.policy:128
 msgid "Allow non-logged-in user to run programs"
 msgstr "Tillad bruger der ikke er logget ind, at køre programmer"
 
-#: src/login/org.freedesktop.login1.policy:118
+#: src/login/org.freedesktop.login1.policy:129
 msgid "Explicit request is required to run programs as a non-logged-in user."
 msgstr ""
 "Der kræves godkendelse for at brugere, som ikke er logget ind, kan køre "
 "programmer."
 
-#: src/login/org.freedesktop.login1.policy:127
+#: src/login/org.freedesktop.login1.policy:138
 msgid "Allow non-logged-in users to run programs"
 msgstr "Tillad brugere der ikke er logget ind, at køre programmer"
 
-#: src/login/org.freedesktop.login1.policy:128
+#: src/login/org.freedesktop.login1.policy:139
 msgid "Authentication is required to run programs as a non-logged-in user."
 msgstr ""
 "Der kræves godkendelse for at brugere, som ikke er logget ind, kan køre "
 "programmer."
 
-# www.freedesktop.org/wiki/Software/systemd/multiseat/
-#: src/login/org.freedesktop.login1.policy:137
+# https://www.freedesktop.org/software/systemd/man/sd-login.html
+#: src/login/org.freedesktop.login1.policy:148
 msgid "Allow attaching devices to seats"
 msgstr "Tillad at montere af enheder til arbejdsstationer"
 
-# www.freedesktop.org/wiki/Software/systemd/multiseat/
-#: src/login/org.freedesktop.login1.policy:138
+# https://www.freedesktop.org/software/systemd/man/sd-login.html
+#: src/login/org.freedesktop.login1.policy:149
 msgid "Authentication is required to attach a device to a seat."
 msgstr "Der kræves godkendelse for at montere en enhed til en arbejdsstation."
 
-# www.freedesktop.org/wiki/Software/systemd/multiseat/
-#: src/login/org.freedesktop.login1.policy:148
+# https://www.freedesktop.org/software/systemd/man/sd-login.html
+#: src/login/org.freedesktop.login1.policy:159
 msgid "Flush device to seat attachments"
 msgstr "Nulstil enhed monteret til en arbejdsstation"
 
-# www.freedesktop.org/wiki/Software/systemd/multiseat/
-#: src/login/org.freedesktop.login1.policy:149
+# https://www.freedesktop.org/software/systemd/man/sd-login.html
+#: src/login/org.freedesktop.login1.policy:160
 msgid "Authentication is required to reset how devices are attached to seats."
 msgstr ""
 "Der kræves godkendelse for at nulstille måden enheder er monteret "
 "arbejdsstationer."
 
-#: src/login/org.freedesktop.login1.policy:158
+#: src/login/org.freedesktop.login1.policy:169
 msgid "Power off the system"
 msgstr "Sluk for systemet"
 
-#: src/login/org.freedesktop.login1.policy:159
+#: src/login/org.freedesktop.login1.policy:170
 msgid "Authentication is required to power off the system."
 msgstr "Der kræves godkendelse for at slukke systemet."
 
-#: src/login/org.freedesktop.login1.policy:169
+#: src/login/org.freedesktop.login1.policy:180
 msgid "Power off the system while other users are logged in"
 msgstr "Sluk systemet mens andre brugere er logget på"
 
-#: src/login/org.freedesktop.login1.policy:170
+#: src/login/org.freedesktop.login1.policy:181
 msgid ""
 "Authentication is required to power off the system while other users are "
 "logged in."
@@ -357,11 +369,11 @@ msgstr ""
 "Der kræves godkendelse for at slukke systemet mens andre brugere er logget "
 "på."
 
-#: src/login/org.freedesktop.login1.policy:180
+#: src/login/org.freedesktop.login1.policy:191
 msgid "Power off the system while an application is inhibiting this"
 msgstr "Sluk for systemet mens et program har forespurgt at hæmme det"
 
-#: src/login/org.freedesktop.login1.policy:181
+#: src/login/org.freedesktop.login1.policy:192
 msgid ""
 "Authentication is required to power off the system while an application is "
 "inhibiting this."
@@ -369,19 +381,19 @@ msgstr ""
 "Der kræves godkendelse for at slukke systemet mens et program har forespurgt "
 "at hæmme det."
 
-#: src/login/org.freedesktop.login1.policy:191
+#: src/login/org.freedesktop.login1.policy:202
 msgid "Reboot the system"
 msgstr "Genstart systemet"
 
-#: src/login/org.freedesktop.login1.policy:192
+#: src/login/org.freedesktop.login1.policy:203
 msgid "Authentication is required to reboot the system."
 msgstr "Der kræves godkendelse for at genstarte systemet."
 
-#: src/login/org.freedesktop.login1.policy:202
+#: src/login/org.freedesktop.login1.policy:213
 msgid "Reboot the system while other users are logged in"
 msgstr "Genstart systemet mens andre brugere er logget ind"
 
-#: src/login/org.freedesktop.login1.policy:203
+#: src/login/org.freedesktop.login1.policy:214
 msgid ""
 "Authentication is required to reboot the system while other users are logged "
 "in."
@@ -389,11 +401,11 @@ msgstr ""
 "Der kræves godkendelse for at genstarte systemet mens andre brugere er "
 "logget ind."
 
-#: src/login/org.freedesktop.login1.policy:213
+#: src/login/org.freedesktop.login1.policy:224
 msgid "Reboot the system while an application is inhibiting this"
 msgstr "Genstart systemet mens et program har forespurgt at hæmme det"
 
-#: src/login/org.freedesktop.login1.policy:214
+#: src/login/org.freedesktop.login1.policy:225
 msgid ""
 "Authentication is required to reboot the system while an application is "
 "inhibiting this."
@@ -401,19 +413,19 @@ msgstr ""
 "Der kræves godkendelse for at genstarte systemet mens et program har "
 "forespurgt at hæmme det."
 
-#: src/login/org.freedesktop.login1.policy:224
+#: src/login/org.freedesktop.login1.policy:235
 msgid "Halt the system"
 msgstr "Stop systemet"
 
-#: src/login/org.freedesktop.login1.policy:225
+#: src/login/org.freedesktop.login1.policy:236
 msgid "Authentication is required to halt the system."
 msgstr "Der kræves godkendelse for at stoppe systemet."
 
-#: src/login/org.freedesktop.login1.policy:235
+#: src/login/org.freedesktop.login1.policy:246
 msgid "Halt the system while other users are logged in"
 msgstr "Stop systemet mens andre brugere er logget på"
 
-#: src/login/org.freedesktop.login1.policy:236
+#: src/login/org.freedesktop.login1.policy:247
 msgid ""
 "Authentication is required to halt the system while other users are logged "
 "in."
@@ -421,11 +433,11 @@ msgstr ""
 "Der kræves godkendelse for at stoppe systemet, mens andre brugere er logget "
 "på."
 
-#: src/login/org.freedesktop.login1.policy:246
+#: src/login/org.freedesktop.login1.policy:257
 msgid "Halt the system while an application is inhibiting this"
 msgstr "Stop systemet mens et program har forespurgt at hæmme det"
 
-#: src/login/org.freedesktop.login1.policy:247
+#: src/login/org.freedesktop.login1.policy:258
 msgid ""
 "Authentication is required to halt the system while an application is "
 "inhibiting this."
@@ -433,19 +445,19 @@ msgstr ""
 "Der kræves godkendelse for at stoppe systemet, mens et program har "
 "forespurgt at hæmme det."
 
-#: src/login/org.freedesktop.login1.policy:257
+#: src/login/org.freedesktop.login1.policy:268
 msgid "Suspend the system"
 msgstr "Sæt systemet på standby"
 
-#: src/login/org.freedesktop.login1.policy:258
+#: src/login/org.freedesktop.login1.policy:269
 msgid "Authentication is required to suspend the system."
 msgstr "Der kræves godkendelse for at indstille systemet på standby."
 
-#: src/login/org.freedesktop.login1.policy:267
+#: src/login/org.freedesktop.login1.policy:278
 msgid "Suspend the system while other users are logged in"
 msgstr "Sæt systemet på standby mens andre brugere er logget på"
 
-#: src/login/org.freedesktop.login1.policy:268
+#: src/login/org.freedesktop.login1.policy:279
 msgid ""
 "Authentication is required to suspend the system while other users are "
 "logged in."
@@ -453,11 +465,11 @@ msgstr ""
 "Der kræves godkendelse for at indstille systemet på standby, mens andre "
 "brugere er logget på."
 
-#: src/login/org.freedesktop.login1.policy:278
+#: src/login/org.freedesktop.login1.policy:289
 msgid "Suspend the system while an application is inhibiting this"
 msgstr "Sæt systemet på standby mens et program har forespurgt at hæmme det"
 
-#: src/login/org.freedesktop.login1.policy:279
+#: src/login/org.freedesktop.login1.policy:290
 msgid ""
 "Authentication is required to suspend the system while an application is "
 "inhibiting this."
@@ -465,19 +477,19 @@ msgstr ""
 "Der kræves godkendelse for at indstille systemet på standby, mens et program "
 "har forespurgt at hæmme det."
 
-#: src/login/org.freedesktop.login1.policy:289
+#: src/login/org.freedesktop.login1.policy:300
 msgid "Hibernate the system"
 msgstr "Sæt systemet i dvale"
 
-#: src/login/org.freedesktop.login1.policy:290
+#: src/login/org.freedesktop.login1.policy:301
 msgid "Authentication is required to hibernate the system."
 msgstr "Der kræves godkendelse for at indstille systemet i dvale-tilstand."
 
-#: src/login/org.freedesktop.login1.policy:299
+#: src/login/org.freedesktop.login1.policy:310
 msgid "Hibernate the system while other users are logged in"
 msgstr "Sæt systemet i dvale-tilstand mens andre brugere er logget på"
 
-#: src/login/org.freedesktop.login1.policy:300
+#: src/login/org.freedesktop.login1.policy:311
 msgid ""
 "Authentication is required to hibernate the system while other users are "
 "logged in."
@@ -485,12 +497,12 @@ msgstr ""
 "Der kræves godkendelse for at indstille systemet i dvale-tilstand, mens "
 "andre brugere er logget på."
 
-#: src/login/org.freedesktop.login1.policy:310
+#: src/login/org.freedesktop.login1.policy:321
 msgid "Hibernate the system while an application is inhibiting this"
 msgstr ""
 "Sæt systemet i dvale-tilstand mens et program har forespurgt at hæmme det"
 
-#: src/login/org.freedesktop.login1.policy:311
+#: src/login/org.freedesktop.login1.policy:322
 msgid ""
 "Authentication is required to hibernate the system while an application is "
 "inhibiting this."
@@ -498,39 +510,40 @@ msgstr ""
 "Der kræves godkendelse for at indstille systemet i dvale-tilstand, mens et "
 "program har forespurgt at hæmme det."
 
-#: src/login/org.freedesktop.login1.policy:321
+#: src/login/org.freedesktop.login1.policy:332
 msgid "Manage active sessions, users and seats"
 msgstr "Håndter aktive sessioner, brugere og arbejdsstationer"
 
-# www.freedesktop.org/wiki/Software/systemd/multiseat/
-#: src/login/org.freedesktop.login1.policy:322
+# https://www.freedesktop.org/software/systemd/man/sd-login.html
+#: src/login/org.freedesktop.login1.policy:333
 msgid "Authentication is required to manage active sessions, users and seats."
 msgstr ""
 "Der kræves godkendelse for at håndtere aktive sessioner, brugere og "
 "arbejdsstationer."
 
-#: src/login/org.freedesktop.login1.policy:331
+#: src/login/org.freedesktop.login1.policy:342
 msgid "Lock or unlock active sessions"
 msgstr "Lås eller lås op for aktive sessioner"
 
-#: src/login/org.freedesktop.login1.policy:332
+#: src/login/org.freedesktop.login1.policy:343
 msgid "Authentication is required to lock or unlock active sessions."
 msgstr "Der kræves godkendelse for at låse eller låse op for aktive sessioner."
 
-#: src/login/org.freedesktop.login1.policy:341
+#: src/login/org.freedesktop.login1.policy:352
 msgid "Set the reboot \"reason\" in the kernel"
 msgstr "Indstil \"årsagen\" til genstart i kernen"
 
-#: src/login/org.freedesktop.login1.policy:342
+#: src/login/org.freedesktop.login1.policy:353
 msgid "Authentication is required to set the reboot \"reason\" in the kernel."
 msgstr ""
 "Der kræves godkendelse for at indstille \"årsagen\" til genstart i kernen."
 
-#: src/login/org.freedesktop.login1.policy:352
+#: src/login/org.freedesktop.login1.policy:363
 msgid "Indicate to the firmware to boot to setup interface"
-msgstr "Tillad meddelelse til firmwaren om at starte op i opsætningsgrænseflade"
+msgstr ""
+"Tillad meddelelse til firmwaren om at starte op i opsætningsgrænseflade"
 
-#: src/login/org.freedesktop.login1.policy:353
+#: src/login/org.freedesktop.login1.policy:364
 msgid ""
 "Authentication is required to indicate to the firmware to boot to setup "
 "interface."
@@ -538,11 +551,11 @@ msgstr ""
 "Der kræves godkendelse for at meddele firmwaren om at starte op i "
 "opsætningsgrænseflade."
 
-#: src/login/org.freedesktop.login1.policy:363
+#: src/login/org.freedesktop.login1.policy:374
 msgid "Indicate to the boot loader to boot to the boot loader menu"
 msgstr "Angiv at opstartsindlæseren skal starte til opstartsindlæsermenuen"
 
-#: src/login/org.freedesktop.login1.policy:364
+#: src/login/org.freedesktop.login1.policy:375
 msgid ""
 "Authentication is required to indicate to the boot loader to boot to the "
 "boot loader menu."
@@ -550,11 +563,11 @@ msgstr ""
 "Der kræves godkendelse for at angive at opstartsindlæseren skal starte til "
 "opstartsindlæsermenuen."
 
-#: src/login/org.freedesktop.login1.policy:374
+#: src/login/org.freedesktop.login1.policy:385
 msgid "Indicate to the boot loader to boot a specific entry"
 msgstr "Angiv at opstartsindlæseren skal starte til en bestemt post"
 
-#: src/login/org.freedesktop.login1.policy:375
+#: src/login/org.freedesktop.login1.policy:386
 msgid ""
 "Authentication is required to indicate to the boot loader to boot into a "
 "specific boot loader entry."
@@ -562,19 +575,19 @@ msgstr ""
 "Der kræves godkendelse for at angive at opstartsindlæseren skal starte til "
 "en bestemt post."
 
-#: src/login/org.freedesktop.login1.policy:385
+#: src/login/org.freedesktop.login1.policy:396
 msgid "Set a wall message"
 msgstr "Indstil en broadcast-besked"
 
-#: src/login/org.freedesktop.login1.policy:386
+#: src/login/org.freedesktop.login1.policy:397
 msgid "Authentication is required to set a wall message"
 msgstr "Der kræves godkendelse for at indstille en broadcast-besked"
 
-#: src/login/org.freedesktop.login1.policy:395
+#: src/login/org.freedesktop.login1.policy:406
 msgid "Change Session"
 msgstr "Skift session"
 
-#: src/login/org.freedesktop.login1.policy:396
+#: src/login/org.freedesktop.login1.policy:407
 msgid "Authentication is required to change the virtual terminal."
 msgstr "Der kræves godkendelse for at indstille værtsnavn."
 
@@ -802,7 +815,7 @@ msgstr ""
 msgid "Attach or detach a portable service image"
 msgstr "Tilslut eller frakobl et transportabel tjeneste-aftryk"
 
-# www.freedesktop.org/wiki/Software/systemd/multiseat/
+# https://www.freedesktop.org/software/systemd/man/sd-login.html
 #: src/portable/org.freedesktop.portable1.policy:24
 msgid ""
 "Authentication is required to attach or detach a portable service image."
@@ -886,45 +899,45 @@ msgstr ""
 "Der kræves godkendelse for at kontrollere hvorvidt synkronisering af "
 "netværkstid skal aktiveres."
 
-#: src/core/dbus-unit.c:362
+#: src/core/dbus-unit.c:359
 msgid "Authentication is required to start '$(unit)'."
 msgstr "Der kræves godkendelse for at starte '$(unit)'."
 
-#: src/core/dbus-unit.c:363
+#: src/core/dbus-unit.c:360
 msgid "Authentication is required to stop '$(unit)'."
 msgstr "Der kræves godkendelse for at stoppe '$(unit)'."
 
-#: src/core/dbus-unit.c:364
+#: src/core/dbus-unit.c:361
 msgid "Authentication is required to reload '$(unit)'."
 msgstr "Der kræves godkendelse for at genindlæse '$(unit)'."
 
-#: src/core/dbus-unit.c:365 src/core/dbus-unit.c:366
+#: src/core/dbus-unit.c:362 src/core/dbus-unit.c:363
 msgid "Authentication is required to restart '$(unit)'."
 msgstr "Der kræves godkendelse for at genstarte '$(unit)'."
 
-#: src/core/dbus-unit.c:538
+#: src/core/dbus-unit.c:535
 msgid ""
 "Authentication is required to send a UNIX signal to the processes of "
 "'$(unit)'."
 msgstr "Der kræves godkendelse for at indstille egenskaber på '$(unit)'."
 
-#: src/core/dbus-unit.c:569
+#: src/core/dbus-unit.c:566
 msgid "Authentication is required to reset the \"failed\" state of '$(unit)'."
 msgstr ""
 "Der kræves godkendelse for at nulstille \"fejl\"-tilstanden på '$(unit)'."
 
-#: src/core/dbus-unit.c:602
+#: src/core/dbus-unit.c:599
 msgid "Authentication is required to set properties on '$(unit)'."
 msgstr "Der kræves godkendelse for at indstille egenskaber på '$(unit)'."
 
-#: src/core/dbus-unit.c:711
+#: src/core/dbus-unit.c:708
 msgid ""
 "Authentication is required to delete files and directories associated with "
 "'$(unit)'."
 msgstr ""
 "Der kræves godkendelse for at nulstille \"fejl\"-tilstanden på '$(unit)'."
 
-#: src/core/dbus-unit.c:760
+#: src/core/dbus-unit.c:757
 msgid ""
 "Authentication is required to freeze or thaw the processes of '$(unit)' unit."
 msgstr ""

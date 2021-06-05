@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <fcntl.h>
 
@@ -11,11 +11,15 @@
 #include "dbus-manager.h"
 #include "dbus-service.h"
 #include "dbus-util.h"
+#include "execute.h"
 #include "exit-status.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "locale-util.h"
+#include "mount-util.h"
 #include "parse-util.h"
 #include "path-util.h"
+#include "selinux-access.h"
 #include "service.h"
 #include "signal-util.h"
 #include "string-util.h"
@@ -23,6 +27,7 @@
 #include "unit.h"
 
 static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_type, service_type, ServiceType);
+static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_exit_type, service_exit_type, ServiceExitType);
 static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_result, service_result, ServiceResult);
 static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_restart, service_restart, ServiceRestart);
 static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_notify_access, notify_access, NotifyAccess);
@@ -91,9 +96,104 @@ static int property_get_exit_status_set(
         return sd_bus_message_close_container(reply);
 }
 
+static int bus_service_method_mount(sd_bus_message *message, void *userdata, sd_bus_error *error, bool is_image) {
+        _cleanup_(mount_options_free_allp) MountOptions *options = NULL;
+        const char *dest, *src, *propagate_directory;
+        int read_only, make_file_or_directory;
+        Unit *u = userdata;
+        ExecContext *c;
+        pid_t unit_pid;
+        int r;
+
+        assert(message);
+        assert(u);
+
+        if (!MANAGER_IS_SYSTEM(u->manager))
+                return sd_bus_error_set(error, SD_BUS_ERROR_NOT_SUPPORTED, "Adding bind mounts at runtime is only supported for system managers.");
+
+        r = mac_selinux_unit_access_check(u, message, "start", error);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_message_read(message, "ssbb", &src, &dest, &read_only, &make_file_or_directory);
+        if (r < 0)
+                return r;
+
+        if (!path_is_absolute(src) || !path_is_normalized(src))
+                return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Source path must be absolute and normalized.");
+
+        if (!is_image && isempty(dest))
+                dest = src;
+        else if (!path_is_absolute(dest) || !path_is_normalized(dest))
+                return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Destination path must be absolute and normalized.");
+
+        if (is_image) {
+                r = bus_read_mount_options(message, error, &options, NULL, "");
+                if (r < 0)
+                        return r;
+        }
+
+        r = bus_verify_manage_units_async_full(
+                        u,
+                        is_image ? "mount-image" : "bind-mount",
+                        CAP_SYS_ADMIN,
+                        N_("Authentication is required to mount on '$(unit)'."),
+                        true,
+                        message,
+                        error);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return 1; /* No authorization for now, but the async polkit stuff will call us again when it has it */
+
+        if (u->type != UNIT_SERVICE)
+                return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Unit is not of type .service");
+
+        /* If it would be dropped at startup time, return an error. The context should always be available, but
+         * there's an assert in exec_needs_mount_namespace, so double-check just in case. */
+        c = unit_get_exec_context(u);
+        if (!c)
+                return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Cannot access unit execution context");
+        if (path_startswith_strv(dest, c->inaccessible_paths))
+                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "%s is not accessible to this unit", dest);
+
+        /* Ensure that the unit was started in a private mount namespace */
+        if (!exec_needs_mount_namespace(c, NULL, unit_get_exec_runtime(u)))
+                return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Unit not running in private mount namespace, cannot activate bind mount");
+
+        unit_pid = unit_main_pid(u);
+        if (unit_pid == 0 || !UNIT_IS_ACTIVE_OR_RELOADING(unit_active_state(u)))
+                return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Unit is not running");
+
+        propagate_directory = strjoina("/run/systemd/propagate/", u->id);
+        if (is_image)
+                r = mount_image_in_namespace(unit_pid,
+                                             propagate_directory,
+                                             "/run/systemd/incoming/",
+                                             src, dest, read_only, make_file_or_directory, options);
+        else
+                r = bind_mount_in_namespace(unit_pid,
+                                            propagate_directory,
+                                            "/run/systemd/incoming/",
+                                            src, dest, read_only, make_file_or_directory);
+        if (r < 0)
+                return sd_bus_error_set_errnof(error, r, "Failed to mount %s on %s in unit's namespace: %m", src, dest);
+
+        return sd_bus_reply_method_return(message, NULL);
+}
+
+int bus_service_method_bind_mount(sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        return bus_service_method_mount(message, userdata, error, false);
+}
+
+int bus_service_method_mount_image(sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        return bus_service_method_mount(message, userdata, error, true);
+}
+
 const sd_bus_vtable bus_service_vtable[] = {
         SD_BUS_VTABLE_START(0),
         SD_BUS_PROPERTY("Type", "s", property_get_type, offsetof(Service, type), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("ExitType", "s", property_get_exit_type, offsetof(Service, exit_type), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("Restart", "s", property_get_restart, offsetof(Service, restart), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("PIDFile", "s", NULL, offsetof(Service, pid_file), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("NotifyAccess", "s", property_get_notify_access, offsetof(Service, notify_access), SD_BUS_VTABLE_PROPERTY_CONST),
@@ -145,6 +245,27 @@ const sd_bus_vtable bus_service_vtable[] = {
         BUS_EXEC_EX_COMMAND_LIST_VTABLE("ExecStopEx", offsetof(Service, exec_command[SERVICE_EXEC_STOP]), SD_BUS_VTABLE_PROPERTY_EMITS_INVALIDATION),
         BUS_EXEC_COMMAND_LIST_VTABLE("ExecStopPost", offsetof(Service, exec_command[SERVICE_EXEC_STOP_POST]), SD_BUS_VTABLE_PROPERTY_EMITS_INVALIDATION),
         BUS_EXEC_EX_COMMAND_LIST_VTABLE("ExecStopPostEx", offsetof(Service, exec_command[SERVICE_EXEC_STOP_POST]), SD_BUS_VTABLE_PROPERTY_EMITS_INVALIDATION),
+
+        SD_BUS_METHOD_WITH_NAMES("BindMount",
+                                 "ssbb",
+                                 SD_BUS_PARAM(source)
+                                 SD_BUS_PARAM(destination)
+                                 SD_BUS_PARAM(read_only)
+                                 SD_BUS_PARAM(mkdir),
+                                 NULL,,
+                                 bus_service_method_bind_mount,
+                                 SD_BUS_VTABLE_UNPRIVILEGED),
+
+        SD_BUS_METHOD_WITH_NAMES("MountImage",
+                                 "ssbba(ss)",
+                                 SD_BUS_PARAM(source)
+                                 SD_BUS_PARAM(destination)
+                                 SD_BUS_PARAM(read_only)
+                                 SD_BUS_PARAM(mkdir)
+                                 SD_BUS_PARAM(options),
+                                 NULL,,
+                                 bus_service_method_mount_image,
+                                 SD_BUS_VTABLE_UNPRIVILEGED),
 
         /* The following four are obsolete, and thus marked hidden here. They moved into the Unit interface */
         SD_BUS_PROPERTY("StartLimitInterval", "t", bus_property_get_usec, offsetof(Unit, start_ratelimit.interval), SD_BUS_VTABLE_PROPERTY_CONST|SD_BUS_VTABLE_HIDDEN),
@@ -258,6 +379,7 @@ static int bus_set_transient_std_fd(
 }
 static BUS_DEFINE_SET_TRANSIENT_PARSE(notify_access, NotifyAccess, notify_access_from_string);
 static BUS_DEFINE_SET_TRANSIENT_PARSE(service_type, ServiceType, service_type_from_string);
+static BUS_DEFINE_SET_TRANSIENT_PARSE(service_exit_type, ServiceExitType, service_exit_type_from_string);
 static BUS_DEFINE_SET_TRANSIENT_PARSE(service_restart, ServiceRestart, service_restart_from_string);
 static BUS_DEFINE_SET_TRANSIENT_PARSE(oom_policy, OOMPolicy, oom_policy_from_string);
 static BUS_DEFINE_SET_TRANSIENT_STRING_WITH_CHECK(bus_name, sd_bus_service_name_is_valid);
@@ -294,6 +416,9 @@ static int bus_service_set_transient_property(
 
         if (streq(name, "Type"))
                 return bus_set_transient_service_type(u, name, &s->type, message, flags, error);
+
+        if (streq(name, "ExitType"))
+                return bus_set_transient_service_exit_type(u, name, &s->exit_type, message, flags, error);
 
         if (streq(name, "OOMPolicy"))
                 return bus_set_transient_oom_policy(u, name, &s->oom_policy, message, flags, error);
@@ -350,7 +475,7 @@ static int bus_service_set_transient_property(
                         if (!n)
                                 return -ENOMEM;
 
-                        path_simplify(n, true);
+                        path_simplify(n);
 
                         if (!path_is_normalized(n))
                                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "PIDFile= path '%s' is not valid", n);

@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <ctype.h>
 #include <net/if.h>
@@ -20,11 +20,14 @@
 #include "parse-util.h"
 #include "path-util.h"
 #include "pretty-print.h"
+#include "process-util.h"
+#include "signal-util.h"
 #include "sort-util.h"
 #include "string-util.h"
 #include "strxcpyx.h"
 #include "terminal-util.h"
 #include "time-util.h"
+#include "user-util.h"
 #include "utf8.h"
 #include "util.h"
 
@@ -66,6 +69,7 @@ typedef struct TableData {
 
         size_t minimum_width;       /* minimum width for the column */
         size_t maximum_width;       /* maximum width for the column */
+        size_t formatted_for_width; /* the width we tried to format for */
         unsigned weight;            /* the horizontal weight for this column, in case the table is expanded/compressed */
         unsigned ellipsize_percent; /* 0 … 100, where to place the ellipsis when compression is needed */
         unsigned align_percent;     /* 0 … 100, where to pad with spaces when expanding is needed. 0: left-aligned, 100: right-aligned */
@@ -99,6 +103,9 @@ typedef struct TableData {
                 int ifindex;
                 union in_addr_union address;
                 sd_id128_t id128;
+                uid_t uid;
+                gid_t gid;
+                pid_t pid;
                 /* … add more here as we start supporting more cell data types … */
         };
 } TableData;
@@ -115,7 +122,7 @@ static size_t TABLE_CELL_TO_INDEX(TableCell *cell) {
 }
 
 static TableCell* TABLE_INDEX_TO_CELL(size_t index) {
-        assert(index != (size_t) -1);
+        assert(index != SIZE_MAX);
         return SIZE_TO_PTR(index + 1);
 }
 
@@ -124,12 +131,11 @@ struct Table {
         size_t n_cells;
 
         bool header;   /* Whether to show the header row? */
-        size_t width;  /* If == 0 format this as wide as necessary. If (size_t) -1 format this to console
+        size_t width;  /* If == 0 format this as wide as necessary. If SIZE_MAX format this to console
                         * width or less wide, but not wider. Otherwise the width to format this table in. */
-        size_t cell_height_max; /* Maximum number of lines per cell. (If there are more, ellipsis is shown. If (size_t) -1 then no limit is set, the default. == 0 is not allowed.) */
+        size_t cell_height_max; /* Maximum number of lines per cell. (If there are more, ellipsis is shown. If SIZE_MAX then no limit is set, the default. == 0 is not allowed.) */
 
         TableData **data;
-        size_t n_allocated;
 
         size_t *display_map;  /* List of columns to show (by their index). It's fine if columns are listed multiple times or not at all */
         size_t n_display_map;
@@ -154,8 +160,8 @@ Table *table_new_raw(size_t n_columns) {
         *t = (struct Table) {
                 .n_columns = n_columns,
                 .header = true,
-                .width = (size_t) -1,
-                .cell_height_max = (size_t) -1,
+                .width = SIZE_MAX,
+                .cell_height_max = SIZE_MAX,
         };
 
         return TAKE_PTR(t);
@@ -164,7 +170,6 @@ Table *table_new_raw(size_t n_columns) {
 Table *table_new_internal(const char *first_header, ...) {
         _cleanup_(table_unrefp) Table *t = NULL;
         size_t n_columns = 1;
-        const char *h;
         va_list ap;
         int r;
 
@@ -172,8 +177,7 @@ Table *table_new_internal(const char *first_header, ...) {
 
         va_start(ap, first_header);
         for (;;) {
-                h = va_arg(ap, const char*);
-                if (!h)
+                if (!va_arg(ap, const char*))
                         break;
 
                 n_columns++;
@@ -185,7 +189,7 @@ Table *table_new_internal(const char *first_header, ...) {
                 return NULL;
 
         va_start(ap, first_header);
-        for (h = first_header; h; h = va_arg(ap, const char*)) {
+        for (const char *h = first_header; h; h = va_arg(ap, const char*)) {
                 TableCell *cell;
 
                 r = table_add_cell(t, &cell, TABLE_STRING, h);
@@ -213,7 +217,7 @@ static TableData *table_data_free(TableData *d) {
         free(d->formatted);
         free(d->url);
 
-        if (d->type == TABLE_STRV)
+        if (IN_SET(d->type, TABLE_STRV, TABLE_STRV_WRAPPED))
                 strv_free(d->strv);
 
         return mfree(d);
@@ -223,12 +227,10 @@ DEFINE_PRIVATE_TRIVIAL_REF_UNREF_FUNC(TableData, table_data, table_data_free);
 DEFINE_TRIVIAL_CLEANUP_FUNC(TableData*, table_data_unref);
 
 Table *table_unref(Table *t) {
-        size_t i;
-
         if (!t)
                 return NULL;
 
-        for (i = 0; i < t->n_cells; i++)
+        for (size_t i = 0; i < t->n_cells; i++)
                 table_data_unref(t->data[i]);
 
         free(t->data);
@@ -252,6 +254,7 @@ static size_t table_data_size(TableDataType type, const void *data) {
                 return strlen(data) + 1;
 
         case TABLE_STRV:
+        case TABLE_STRV_WRAPPED:
                 return sizeof(char **);
 
         case TABLE_BOOLEAN:
@@ -286,6 +289,7 @@ static size_t table_data_size(TableDataType type, const void *data) {
         case TABLE_UINT:
         case TABLE_PERCENT:
         case TABLE_IFINDEX:
+        case TABLE_SIGNAL:
                 return sizeof(int);
 
         case TABLE_IN_ADDR:
@@ -297,6 +301,13 @@ static size_t table_data_size(TableDataType type, const void *data) {
         case TABLE_UUID:
         case TABLE_ID128:
                 return sizeof(sd_id128_t);
+
+        case TABLE_UID:
+                return sizeof(uid_t);
+        case TABLE_GID:
+                return sizeof(gid_t);
+        case TABLE_PID:
+                return sizeof(pid_t);
 
         default:
                 assert_not_reached("Uh? Unexpected cell type");
@@ -376,7 +387,7 @@ static TableData *table_data_new(
         d->align_percent = align_percent;
         d->ellipsize_percent = ellipsize_percent;
 
-        if (type == TABLE_STRV) {
+        if (IN_SET(type, TABLE_STRV, TABLE_STRV_WRAPPED)) {
                 d->strv = strv_copy(data);
                 if (!d->strv)
                         return NULL;
@@ -415,16 +426,16 @@ int table_add_cell_full(
                 p = NULL;
 
         /* If formatting parameters are left unspecified, copy from the previous row */
-        if (minimum_width == (size_t) -1)
+        if (minimum_width == SIZE_MAX)
                 minimum_width = p ? p->minimum_width : 1;
 
-        if (weight == (unsigned) -1)
+        if (weight == UINT_MAX)
                 weight = p ? p->weight : DEFAULT_WEIGHT;
 
-        if (align_percent == (unsigned) -1)
+        if (align_percent == UINT_MAX)
                 align_percent = p ? p->align_percent : 0;
 
-        if (ellipsize_percent == (unsigned) -1)
+        if (ellipsize_percent == UINT_MAX)
                 ellipsize_percent = p ? p->ellipsize_percent : 100;
 
         assert(align_percent <= 100);
@@ -441,7 +452,7 @@ int table_add_cell_full(
                         return -ENOMEM;
         }
 
-        if (!GREEDY_REALLOC(t->data, t->n_allocated, MAX(t->n_cells + 1, t->n_columns)))
+        if (!GREEDY_REALLOC(t->data, MAX(t->n_cells + 1, t->n_columns)))
                 return -ENOMEM;
 
         if (ret_cell)
@@ -498,7 +509,7 @@ int table_dup_cell(Table *t, TableCell *cell) {
         if (i >= t->n_cells)
                 return -ENXIO;
 
-        if (!GREEDY_REALLOC(t->data, t->n_allocated, MAX(t->n_cells + 1, t->n_columns)))
+        if (!GREEDY_REALLOC(t->data, MAX(t->n_cells + 1, t->n_columns)))
                 return -ENOMEM;
 
         t->data[t->n_cells++] = table_data_ref(t->data[i]);
@@ -579,7 +590,7 @@ int table_set_minimum_width(Table *t, TableCell *cell, size_t minimum_width) {
         assert(t);
         assert(cell);
 
-        if (minimum_width == (size_t) -1)
+        if (minimum_width == SIZE_MAX)
                 minimum_width = 1;
 
         r = table_dedup_cell(t, cell);
@@ -610,7 +621,7 @@ int table_set_weight(Table *t, TableCell *cell, unsigned weight) {
         assert(t);
         assert(cell);
 
-        if (weight == (unsigned) -1)
+        if (weight == UINT_MAX)
                 weight = DEFAULT_WEIGHT;
 
         r = table_dedup_cell(t, cell);
@@ -627,7 +638,7 @@ int table_set_align_percent(Table *t, TableCell *cell, unsigned percent) {
         assert(t);
         assert(cell);
 
-        if (percent == (unsigned) -1)
+        if (percent == UINT_MAX)
                 percent = 0;
 
         assert(percent <= 100);
@@ -646,7 +657,7 @@ int table_set_ellipsize_percent(Table *t, TableCell *cell, unsigned percent) {
         assert(t);
         assert(cell);
 
-        if (percent == (unsigned) -1)
+        if (percent == UINT_MAX)
                 percent = 100;
 
         assert(percent <= 100);
@@ -771,19 +782,17 @@ int table_update(Table *t, TableCell *cell, TableDataType type, const void *data
 }
 
 int table_add_many_internal(Table *t, TableDataType first_type, ...) {
-        TableDataType type;
-        va_list ap;
         TableCell *last_cell = NULL;
+        va_list ap;
         int r;
 
         assert(t);
         assert(first_type >= 0);
         assert(first_type < _TABLE_DATA_TYPE_MAX);
 
-        type = first_type;
-
         va_start(ap, first_type);
-        for (;;) {
+
+        for (TableDataType type = first_type;; type = va_arg(ap, TableDataType)) {
                 const void *data;
                 union {
                         uint64_t size;
@@ -803,6 +812,9 @@ int table_add_many_internal(Table *t, TableDataType first_type, ...) {
                         bool b;
                         union in_addr_union address;
                         sd_id128_t id128;
+                        uid_t uid;
+                        gid_t gid;
+                        pid_t pid;
                 } buffer;
 
                 switch (type) {
@@ -817,6 +829,7 @@ int table_add_many_internal(Table *t, TableDataType first_type, ...) {
                         break;
 
                 case TABLE_STRV:
+                case TABLE_STRV_WRAPPED:
                         data = va_arg(ap, char * const *);
                         break;
 
@@ -841,6 +854,7 @@ int table_add_many_internal(Table *t, TableDataType first_type, ...) {
                         break;
 
                 case TABLE_INT:
+                case TABLE_SIGNAL:
                         buffer.int_val = va_arg(ap, int);
                         data = &buffer.int_val;
                         break;
@@ -932,47 +946,62 @@ int table_add_many_internal(Table *t, TableDataType first_type, ...) {
                         data = &buffer.id128;
                         break;
 
+                case TABLE_UID:
+                        buffer.uid = va_arg(ap, uid_t);
+                        data = &buffer.uid;
+                        break;
+
+                case TABLE_GID:
+                        buffer.gid = va_arg(ap, gid_t);
+                        data = &buffer.gid;
+                        break;
+
+                case TABLE_PID:
+                        buffer.pid = va_arg(ap, pid_t);
+                        data = &buffer.pid;
+                        break;
+
                 case TABLE_SET_MINIMUM_WIDTH: {
                         size_t w = va_arg(ap, size_t);
 
                         r = table_set_minimum_width(t, last_cell, w);
-                        break;
+                        goto check;
                 }
 
                 case TABLE_SET_MAXIMUM_WIDTH: {
                         size_t w = va_arg(ap, size_t);
                         r = table_set_maximum_width(t, last_cell, w);
-                        break;
+                        goto check;
                 }
 
                 case TABLE_SET_WEIGHT: {
                         unsigned w = va_arg(ap, unsigned);
                         r = table_set_weight(t, last_cell, w);
-                        break;
+                        goto check;
                 }
 
                 case TABLE_SET_ALIGN_PERCENT: {
                         unsigned p = va_arg(ap, unsigned);
                         r = table_set_align_percent(t, last_cell, p);
-                        break;
+                        goto check;
                 }
 
                 case TABLE_SET_ELLIPSIZE_PERCENT: {
                         unsigned p = va_arg(ap, unsigned);
                         r = table_set_ellipsize_percent(t, last_cell, p);
-                        break;
+                        goto check;
                 }
 
                 case TABLE_SET_COLOR: {
                         const char *c = va_arg(ap, const char*);
                         r = table_set_color(t, last_cell, c);
-                        break;
+                        goto check;
                 }
 
                 case TABLE_SET_RGAP_COLOR: {
                         const char *c = va_arg(ap, const char*);
                         r = table_set_rgap_color(t, last_cell, c);
-                        break;
+                        goto check;
                 }
 
                 case TABLE_SET_BOTH_COLORS: {
@@ -985,19 +1014,19 @@ int table_add_many_internal(Table *t, TableDataType first_type, ...) {
                         }
 
                         r = table_set_rgap_color(t, last_cell, c);
-                        break;
+                        goto check;
                 }
 
                 case TABLE_SET_URL: {
                         const char *u = va_arg(ap, const char*);
                         r = table_set_url(t, last_cell, u);
-                        break;
+                        goto check;
                 }
 
                 case TABLE_SET_UPPERCASE: {
                         int u = va_arg(ap, int);
                         r = table_set_uppercase(t, last_cell, u);
-                        break;
+                        goto check;
                 }
 
                 case _TABLE_DATA_TYPE_MAX:
@@ -1009,15 +1038,12 @@ int table_add_many_internal(Table *t, TableDataType first_type, ...) {
                         assert_not_reached("Uh? Unexpected data type.");
                 }
 
-                if (type < _TABLE_DATA_TYPE_MAX)
-                        r = table_add_cell(t, &last_cell, type, data);
-
+                r = table_add_cell(t, &last_cell, type, data);
+        check:
                 if (r < 0) {
                         va_end(ap);
                         return r;
                 }
-
-                type = va_arg(ap, TableDataType);
         }
 }
 
@@ -1035,7 +1061,7 @@ void table_set_width(Table *t, size_t width) {
 
 void table_set_cell_height_max(Table *t, size_t height) {
         assert(t);
-        assert(height >= 1 || height == (size_t) -1);
+        assert(height >= 1 || height == SIZE_MAX);
 
         t->cell_height_max = height;
 }
@@ -1046,38 +1072,39 @@ int table_set_empty_string(Table *t, const char *empty) {
         return free_and_strdup(&t->empty_string, empty);
 }
 
-int table_set_display_all(Table *t) {
-        size_t allocated;
+static int table_set_display_all(Table *t) {
+        size_t *d;
 
         assert(t);
 
-        allocated = t->n_display_map;
+        /* Initialize the display map to the identity */
 
-        if (!GREEDY_REALLOC(t->display_map, allocated, MAX(t->n_columns, allocated)))
+        d = reallocarray(t->display_map, t->n_columns, sizeof(size_t));
+        if (!d)
                 return -ENOMEM;
 
         for (size_t i = 0; i < t->n_columns; i++)
-                t->display_map[i] = i;
+                d[i] = i;
 
+        t->display_map = d;
         t->n_display_map = t->n_columns;
 
         return 0;
 }
 
-int table_set_display(Table *t, size_t first_column, ...) {
-        size_t allocated, column;
+int table_set_display_internal(Table *t, size_t first_column, ...) {
+        size_t column;
         va_list ap;
 
         assert(t);
 
-        allocated = t->n_display_map;
         column = first_column;
 
         va_start(ap, first_column);
         for (;;) {
                 assert(column < t->n_columns);
 
-                if (!GREEDY_REALLOC(t->display_map, allocated, MAX(t->n_columns, t->n_display_map+1))) {
+                if (!GREEDY_REALLOC(t->display_map, MAX(t->n_columns, t->n_display_map+1))) {
                         va_end(ap);
                         return -ENOMEM;
                 }
@@ -1085,7 +1112,7 @@ int table_set_display(Table *t, size_t first_column, ...) {
                 t->display_map[t->n_display_map++] = column;
 
                 column = va_arg(ap, size_t);
-                if (column == (size_t) -1)
+                if (column == SIZE_MAX)
                         break;
 
         }
@@ -1094,20 +1121,19 @@ int table_set_display(Table *t, size_t first_column, ...) {
         return 0;
 }
 
-int table_set_sort(Table *t, size_t first_column, ...) {
-        size_t allocated, column;
+int table_set_sort_internal(Table *t, size_t first_column, ...) {
+        size_t column;
         va_list ap;
 
         assert(t);
 
-        allocated = t->n_sort_map;
         column = first_column;
 
         va_start(ap, first_column);
         for (;;) {
                 assert(column < t->n_columns);
 
-                if (!GREEDY_REALLOC(t->sort_map, allocated, MAX(t->n_columns, t->n_sort_map+1))) {
+                if (!GREEDY_REALLOC(t->sort_map, MAX(t->n_columns, t->n_sort_map+1))) {
                         va_end(ap);
                         return -ENOMEM;
                 }
@@ -1115,7 +1141,7 @@ int table_set_sort(Table *t, size_t first_column, ...) {
                 t->sort_map[t->n_sort_map++] = column;
 
                 column = va_arg(ap, size_t);
-                if (column == (size_t) -1)
+                if (column == SIZE_MAX)
                         break;
         }
         va_end(ap);
@@ -1124,7 +1150,6 @@ int table_set_sort(Table *t, size_t first_column, ...) {
 }
 
 int table_hide_column_from_display(Table *t, size_t column) {
-        size_t allocated, cur = 0;
         int r;
 
         assert(t);
@@ -1137,7 +1162,7 @@ int table_hide_column_from_display(Table *t, size_t column) {
                         return r;
         }
 
-        allocated = t->n_display_map;
+        size_t allocated = t->n_display_map, cur = 0;
 
         for (size_t i = 0; i < allocated; i++) {
                 if (t->display_map[i] == column)
@@ -1169,6 +1194,7 @@ static int cell_data_compare(TableData *a, size_t index_a, TableData *b, size_t 
                         return path_compare(a->string, b->string);
 
                 case TABLE_STRV:
+                case TABLE_STRV_WRAPPED:
                         return strv_compare(a->strv, b->strv);
 
                 case TABLE_BOOLEAN:
@@ -1192,6 +1218,7 @@ static int cell_data_compare(TableData *a, size_t index_a, TableData *b, size_t 
                         return CMP(a->size, b->size);
 
                 case TABLE_INT:
+                case TABLE_SIGNAL:
                         return CMP(a->int_val, b->int_val);
 
                 case TABLE_INT8:
@@ -1237,6 +1264,15 @@ static int cell_data_compare(TableData *a, size_t index_a, TableData *b, size_t 
                 case TABLE_ID128:
                         return memcmp(&a->id128, &b->id128, sizeof(sd_id128_t));
 
+                case TABLE_UID:
+                        return CMP(a->uid, b->uid);
+
+                case TABLE_GID:
+                        return CMP(a->gid, b->gid);
+
+                case TABLE_PID:
+                        return CMP(a->pid, b->pid);
+
                 default:
                         ;
                 }
@@ -1247,7 +1283,6 @@ static int cell_data_compare(TableData *a, size_t index_a, TableData *b, size_t 
 }
 
 static int table_data_compare(const size_t *a, const size_t *b, Table *t) {
-        size_t i;
         int r;
 
         assert(t);
@@ -1262,7 +1297,7 @@ static int table_data_compare(const size_t *a, const size_t *b, Table *t) {
                 return 1;
 
         /* Order other lines by the sorting map */
-        for (i = 0; i < t->n_sort_map; i++) {
+        for (size_t i = 0; i < t->n_sort_map; i++) {
                 TableData *d, *dd;
 
                 d = t->data[*a + t->sort_map[i]];
@@ -1277,10 +1312,46 @@ static int table_data_compare(const size_t *a, const size_t *b, Table *t) {
         return CMP(*a, *b);
 }
 
-static const char *table_data_format(Table *t, TableData *d, bool avoid_uppercasing) {
+static char* format_strv_width(char **strv, size_t column_width) {
+        _cleanup_free_ char *buf = NULL; /* buf must be freed after f */
+        _cleanup_fclose_ FILE *f = NULL;
+        size_t sz = 0;
+
+        f = open_memstream_unlocked(&buf, &sz);
+        if (!f)
+                return NULL;
+
+        size_t position = 0;
+        char **p;
+        STRV_FOREACH(p, strv) {
+                size_t our_len = utf8_console_width(*p); /* This returns -1 on invalid utf-8 (which shouldn't happen).
+                                                          * If that happens, we'll just print one item per line. */
+
+                if (position == 0) {
+                        fputs(*p, f);
+                        position = our_len;
+                } else if (size_add(size_add(position, 1), our_len) <= column_width) {
+                        fprintf(f, " %s", *p);
+                        position = size_add(size_add(position, 1), our_len);
+                } else {
+                        fprintf(f, "\n%s", *p);
+                        position = our_len;
+                }
+        }
+
+        if (fflush_and_check(f) < 0)
+                return NULL;
+
+        f = safe_fclose(f);
+        return TAKE_PTR(buf);
+}
+
+static const char *table_data_format(Table *t, TableData *d, bool avoid_uppercasing, size_t column_width, bool *have_soft) {
         assert(d);
 
-        if (d->formatted)
+        if (d->formatted &&
+            /* Only TABLE_STRV_WRAPPED adjust based on column_width so far… */
+            (d->type != TABLE_STRV_WRAPPED || d->formatted_for_width == column_width))
                 return d->formatted;
 
         switch (d->type) {
@@ -1290,13 +1361,12 @@ static const char *table_data_format(Table *t, TableData *d, bool avoid_uppercas
         case TABLE_STRING:
         case TABLE_PATH:
                 if (d->uppercase && !avoid_uppercasing) {
-                        char *p, *q;
-
                         d->formatted = new(char, strlen(d->string) + 1);
                         if (!d->formatted)
                                 return NULL;
 
-                        for (p = d->string, q = d->formatted; *p; p++, q++)
+                        char *q = d->formatted;
+                        for (char *p = d->string; *p; p++, q++)
                                 *q = (char) toupper((unsigned char) *p);
                         *q = 0;
 
@@ -1305,17 +1375,28 @@ static const char *table_data_format(Table *t, TableData *d, bool avoid_uppercas
 
                 return d->string;
 
-        case TABLE_STRV: {
-                char *p;
-
+        case TABLE_STRV:
                 if (strv_isempty(d->strv))
                         return strempty(t->empty_string);
 
-                p = strv_join(d->strv, "\n");
-                if (!p)
+                d->formatted = strv_join(d->strv, "\n");
+                if (!d->formatted)
+                        return NULL;
+                break;
+
+        case TABLE_STRV_WRAPPED: {
+                if (strv_isempty(d->strv))
+                        return strempty(t->empty_string);
+
+                char *buf = format_strv_width(d->strv, column_width);
+                if (!buf)
                         return NULL;
 
-                d->formatted = p;
+                free_and_replace(d->formatted, buf);
+                d->formatted_for_width = column_width;
+                if (have_soft)
+                        *have_soft = true;
+
                 break;
         }
 
@@ -1325,7 +1406,7 @@ static const char *table_data_format(Table *t, TableData *d, bool avoid_uppercas
         case TABLE_TIMESTAMP:
         case TABLE_TIMESTAMP_UTC:
         case TABLE_TIMESTAMP_RELATIVE: {
-                _cleanup_free_ char *p;
+                _cleanup_free_ char *p = NULL;
                 char *ret;
 
                 p = new(char, FORMAT_TIMESTAMP_MAX);
@@ -1347,7 +1428,7 @@ static const char *table_data_format(Table *t, TableData *d, bool avoid_uppercas
 
         case TABLE_TIMESPAN:
         case TABLE_TIMESPAN_MSEC: {
-                _cleanup_free_ char *p;
+                _cleanup_free_ char *p = NULL;
 
                 p = new(char, FORMAT_TIMESPAN_MAX);
                 if (!p)
@@ -1362,7 +1443,7 @@ static const char *table_data_format(Table *t, TableData *d, bool avoid_uppercas
         }
 
         case TABLE_SIZE: {
-                _cleanup_free_ char *p;
+                _cleanup_free_ char *p = NULL;
 
                 p = new(char, FORMAT_BYTES_MAX);
                 if (!p)
@@ -1376,7 +1457,7 @@ static const char *table_data_format(Table *t, TableData *d, bool avoid_uppercas
         }
 
         case TABLE_BPS: {
-                _cleanup_free_ char *p;
+                _cleanup_free_ char *p = NULL;
                 size_t n;
 
                 p = new(char, FORMAT_BYTES_MAX+2);
@@ -1394,7 +1475,7 @@ static const char *table_data_format(Table *t, TableData *d, bool avoid_uppercas
         }
 
         case TABLE_INT: {
-                _cleanup_free_ char *p;
+                _cleanup_free_ char *p = NULL;
 
                 p = new(char, DECIMAL_STR_WIDTH(d->int_val) + 1);
                 if (!p)
@@ -1406,7 +1487,7 @@ static const char *table_data_format(Table *t, TableData *d, bool avoid_uppercas
         }
 
         case TABLE_INT8: {
-                _cleanup_free_ char *p;
+                _cleanup_free_ char *p = NULL;
 
                 p = new(char, DECIMAL_STR_WIDTH(d->int8) + 1);
                 if (!p)
@@ -1418,7 +1499,7 @@ static const char *table_data_format(Table *t, TableData *d, bool avoid_uppercas
         }
 
         case TABLE_INT16: {
-                _cleanup_free_ char *p;
+                _cleanup_free_ char *p = NULL;
 
                 p = new(char, DECIMAL_STR_WIDTH(d->int16) + 1);
                 if (!p)
@@ -1430,7 +1511,7 @@ static const char *table_data_format(Table *t, TableData *d, bool avoid_uppercas
         }
 
         case TABLE_INT32: {
-                _cleanup_free_ char *p;
+                _cleanup_free_ char *p = NULL;
 
                 p = new(char, DECIMAL_STR_WIDTH(d->int32) + 1);
                 if (!p)
@@ -1442,7 +1523,7 @@ static const char *table_data_format(Table *t, TableData *d, bool avoid_uppercas
         }
 
         case TABLE_INT64: {
-                _cleanup_free_ char *p;
+                _cleanup_free_ char *p = NULL;
 
                 p = new(char, DECIMAL_STR_WIDTH(d->int64) + 1);
                 if (!p)
@@ -1454,7 +1535,7 @@ static const char *table_data_format(Table *t, TableData *d, bool avoid_uppercas
         }
 
         case TABLE_UINT: {
-                _cleanup_free_ char *p;
+                _cleanup_free_ char *p = NULL;
 
                 p = new(char, DECIMAL_STR_WIDTH(d->uint_val) + 1);
                 if (!p)
@@ -1466,7 +1547,7 @@ static const char *table_data_format(Table *t, TableData *d, bool avoid_uppercas
         }
 
         case TABLE_UINT8: {
-                _cleanup_free_ char *p;
+                _cleanup_free_ char *p = NULL;
 
                 p = new(char, DECIMAL_STR_WIDTH(d->uint8) + 1);
                 if (!p)
@@ -1478,7 +1559,7 @@ static const char *table_data_format(Table *t, TableData *d, bool avoid_uppercas
         }
 
         case TABLE_UINT16: {
-                _cleanup_free_ char *p;
+                _cleanup_free_ char *p = NULL;
 
                 p = new(char, DECIMAL_STR_WIDTH(d->uint16) + 1);
                 if (!p)
@@ -1490,7 +1571,7 @@ static const char *table_data_format(Table *t, TableData *d, bool avoid_uppercas
         }
 
         case TABLE_UINT32: {
-                _cleanup_free_ char *p;
+                _cleanup_free_ char *p = NULL;
 
                 p = new(char, DECIMAL_STR_WIDTH(d->uint32) + 1);
                 if (!p)
@@ -1502,7 +1583,7 @@ static const char *table_data_format(Table *t, TableData *d, bool avoid_uppercas
         }
 
         case TABLE_UINT64: {
-                _cleanup_free_ char *p;
+                _cleanup_free_ char *p = NULL;
 
                 p = new(char, DECIMAL_STR_WIDTH(d->uint64) + 1);
                 if (!p)
@@ -1514,7 +1595,7 @@ static const char *table_data_format(Table *t, TableData *d, bool avoid_uppercas
         }
 
         case TABLE_PERCENT: {
-                _cleanup_free_ char *p;
+                _cleanup_free_ char *p = NULL;
 
                 p = new(char, DECIMAL_STR_WIDTH(d->percent) + 2);
                 if (!p)
@@ -1576,6 +1657,67 @@ static const char *table_data_format(Table *t, TableData *d, bool avoid_uppercas
                 break;
         }
 
+        case TABLE_UID: {
+                _cleanup_free_ char *p = NULL;
+
+                if (!uid_is_valid(d->uid))
+                        return "n/a";
+
+                p = new(char, DECIMAL_STR_WIDTH(d->uid) + 1);
+                if (!p)
+                        return NULL;
+
+                sprintf(p, UID_FMT, d->uid);
+                d->formatted = TAKE_PTR(p);
+                break;
+        }
+
+        case TABLE_GID: {
+                _cleanup_free_ char *p = NULL;
+
+                if (!gid_is_valid(d->gid))
+                        return "n/a";
+
+                p = new(char, DECIMAL_STR_WIDTH(d->gid) + 1);
+                if (!p)
+                        return NULL;
+
+                sprintf(p, GID_FMT, d->gid);
+                d->formatted = TAKE_PTR(p);
+                break;
+        }
+
+        case TABLE_PID: {
+                _cleanup_free_ char *p = NULL;
+
+                if (!pid_is_valid(d->pid))
+                        return "n/a";
+
+                p = new(char, DECIMAL_STR_WIDTH(d->pid) + 1);
+                if (!p)
+                        return NULL;
+
+                sprintf(p, PID_FMT, d->pid);
+                d->formatted = TAKE_PTR(p);
+                break;
+        }
+
+        case TABLE_SIGNAL: {
+                _cleanup_free_ char *p = NULL;
+                const char *suffix;
+
+                suffix = signal_to_string(d->int_val);
+                if (!suffix)
+                        return "n/a";
+
+                p = strjoin("SIG", suffix);
+                if (!p)
+                        return NULL;
+
+                d->formatted = TAKE_PTR(p);
+                break;
+        }
+
         default:
                 assert_not_reached("Unexpected type?");
         }
@@ -1612,7 +1754,7 @@ static int console_width_height(
                         k = utf8_console_width(s);
                         s = NULL;
                 }
-                if (k == (size_t) -1)
+                if (k == SIZE_MAX)
                         return -EINVAL;
                 if (k > max_width)
                         max_width = k;
@@ -1632,20 +1774,23 @@ static int console_width_height(
 static int table_data_requested_width_height(
                 Table *table,
                 TableData *d,
+                size_t available_width,
                 size_t *ret_width,
-                size_t *ret_height) {
+                size_t *ret_height,
+                bool *have_soft) {
 
         _cleanup_free_ char *truncated = NULL;
         bool truncation_applied = false;
         size_t width, height;
         const char *t;
         int r;
+        bool soft = false;
 
-        t = table_data_format(table, d, false);
+        t = table_data_format(table, d, false, available_width, &soft);
         if (!t)
                 return -ENOMEM;
 
-        if (table->cell_height_max != (size_t) -1) {
+        if (table->cell_height_max != SIZE_MAX) {
                 r = string_truncate_lines(t, table->cell_height_max, &truncated);
                 if (r < 0)
                         return r;
@@ -1659,7 +1804,7 @@ static int table_data_requested_width_height(
         if (r < 0)
                 return r;
 
-        if (d->maximum_width != (size_t) -1 && width > d->maximum_width)
+        if (d->maximum_width != SIZE_MAX && width > d->maximum_width)
                 width = d->maximum_width;
 
         if (width < d->minimum_width)
@@ -1669,6 +1814,8 @@ static int table_data_requested_width_height(
                 *ret_width = width;
         if (ret_height)
                 *ret_height = height;
+        if (have_soft && soft)
+                *have_soft = true;
 
         return truncation_applied;
 }
@@ -1678,7 +1825,6 @@ static char *align_string_mem(const char *str, const char *url, size_t new_lengt
         _cleanup_free_ char *clickable = NULL;
         const char *p;
         char *ret;
-        size_t i;
         int r;
 
         /* As with ellipsize_mem(), 'old_length' is a byte size while 'new_length' is a width in character cells */
@@ -1723,10 +1869,10 @@ static char *align_string_mem(const char *str, const char *url, size_t new_lengt
         if (!ret)
                 return NULL;
 
-        for (i = 0; i < lspace; i++)
+        for (size_t i = 0; i < lspace; i++)
                 ret[i] = ' ';
         memcpy(ret + lspace, clickable ?: str, clickable_length);
-        for (i = lspace + clickable_length; i < space + clickable_length; i++)
+        for (size_t i = lspace + clickable_length; i < space + clickable_length; i++)
                 ret[i] = ' ';
 
         ret[space + clickable_length] = 0;
@@ -1740,7 +1886,7 @@ static bool table_data_isempty(TableData *d) {
                 return true;
 
         /* Let's also consider an empty strv as truly empty. */
-        if (d->type == TABLE_STRV)
+        if (IN_SET(d->type, TABLE_STRV, TABLE_STRV_WRAPPED))
                 return strv_isempty(d->strv);
 
         /* Note that an empty string we do not consider empty here! */
@@ -1771,8 +1917,8 @@ static const char* table_data_rgap_color(TableData *d) {
 
 int table_print(Table *t, FILE *f) {
         size_t n_rows, *minimum_width, *maximum_width, display_columns, *requested_width,
-                i, j, table_minimum_width, table_maximum_width, table_requested_width, table_effective_width,
-                *width;
+                table_minimum_width, table_maximum_width, table_requested_width, table_effective_width,
+                *width = NULL;
         _cleanup_free_ size_t *sorted = NULL;
         uint64_t *column_weight, weight_sum;
         int r;
@@ -1795,7 +1941,7 @@ int table_print(Table *t, FILE *f) {
                 if (!sorted)
                         return -ENOMEM;
 
-                for (i = 0; i < n_rows; i++)
+                for (size_t i = 0; i < n_rows; i++)
                         sorted[i] = i * t->n_columns;
 
                 typesafe_qsort_r(sorted, n_rows, table_data_compare, t);
@@ -1811,205 +1957,224 @@ int table_print(Table *t, FILE *f) {
         minimum_width = newa(size_t, display_columns);
         maximum_width = newa(size_t, display_columns);
         requested_width = newa(size_t, display_columns);
-        width = newa(size_t, display_columns);
         column_weight = newa0(uint64_t, display_columns);
 
-        for (j = 0; j < display_columns; j++) {
+        for (size_t j = 0; j < display_columns; j++) {
                 minimum_width[j] = 1;
-                maximum_width[j] = (size_t) -1;
-                requested_width[j] = (size_t) -1;
+                maximum_width[j] = SIZE_MAX;
         }
 
-        /* First pass: determine column sizes */
-        for (i = t->header ? 0 : 1; i < n_rows; i++) {
-                TableData **row;
+        for (unsigned pass = 0; pass < 2; pass++) {
+                /* First pass: determine column sizes */
 
-                /* Note that we don't care about ordering at this time, as we just want to determine column sizes,
-                 * hence we don't care for sorted[] during the first pass. */
-                row = t->data + i * t->n_columns;
+                for (size_t j = 0; j < display_columns; j++)
+                        requested_width[j] = SIZE_MAX;
 
-                for (j = 0; j < display_columns; j++) {
-                        TableData *d;
-                        size_t req_width, req_height;
+                bool any_soft = false;
 
-                        assert_se(d = row[t->display_map ? t->display_map[j] : j]);
+                for (size_t i = t->header ? 0 : 1; i < n_rows; i++) {
+                        TableData **row;
 
-                        r = table_data_requested_width_height(t, d, &req_width, &req_height);
-                        if (r < 0)
-                                return r;
-                        if (r > 0) { /* Truncated because too many lines? */
-                                _cleanup_free_ char *last = NULL;
-                                const char *field;
+                        /* Note that we don't care about ordering at this time, as we just want to determine column sizes,
+                         * hence we don't care for sorted[] during the first pass. */
+                        row = t->data + i * t->n_columns;
 
-                                /* If we are going to show only the first few lines of a cell that has
-                                 * multiple make sure that we have enough space horizontally to show an
-                                 * ellipsis. Hence, let's figure out the last line, and account for its
-                                 * length plus ellipsis. */
+                        for (size_t j = 0; j < display_columns; j++) {
+                                TableData *d;
+                                size_t req_width, req_height;
 
-                                field = table_data_format(t, d, false);
-                                if (!field)
-                                        return -ENOMEM;
+                                assert_se(d = row[t->display_map ? t->display_map[j] : j]);
 
-                                assert_se(t->cell_height_max > 0);
-                                r = string_extract_line(field, t->cell_height_max-1, &last);
+                                r = table_data_requested_width_height(t, d,
+                                                                      width ? width[j] : SIZE_MAX,
+                                                                      &req_width, &req_height, &any_soft);
                                 if (r < 0)
                                         return r;
+                                if (r > 0) { /* Truncated because too many lines? */
+                                        _cleanup_free_ char *last = NULL;
+                                        const char *field;
 
-                                req_width = MAX(req_width,
-                                                utf8_console_width(last) +
-                                                utf8_console_width(special_glyph(SPECIAL_GLYPH_ELLIPSIS)));
+                                        /* If we are going to show only the first few lines of a cell that has
+                                         * multiple make sure that we have enough space horizontally to show an
+                                         * ellipsis. Hence, let's figure out the last line, and account for its
+                                         * length plus ellipsis. */
+
+                                        field = table_data_format(t, d, false,
+                                                                  width ? width[j] : SIZE_MAX,
+                                                                  &any_soft);
+                                        if (!field)
+                                                return -ENOMEM;
+
+                                        assert_se(t->cell_height_max > 0);
+                                        r = string_extract_line(field, t->cell_height_max-1, &last);
+                                        if (r < 0)
+                                                return r;
+
+                                        req_width = MAX(req_width,
+                                                        utf8_console_width(last) +
+                                                        utf8_console_width(special_glyph(SPECIAL_GLYPH_ELLIPSIS)));
+                                }
+
+                                /* Determine the biggest width that any cell in this column would like to have */
+                                if (requested_width[j] == SIZE_MAX ||
+                                    requested_width[j] < req_width)
+                                        requested_width[j] = req_width;
+
+                                /* Determine the minimum width any cell in this column needs */
+                                if (minimum_width[j] < d->minimum_width)
+                                        minimum_width[j] = d->minimum_width;
+
+                                /* Determine the maximum width any cell in this column needs */
+                                if (d->maximum_width != SIZE_MAX &&
+                                    (maximum_width[j] == SIZE_MAX ||
+                                     maximum_width[j] > d->maximum_width))
+                                        maximum_width[j] = d->maximum_width;
+
+                                /* Determine the full columns weight */
+                                column_weight[j] += d->weight;
                         }
-
-                        /* Determine the biggest width that any cell in this column would like to have */
-                        if (requested_width[j] == (size_t) -1 ||
-                            requested_width[j] < req_width)
-                                requested_width[j] = req_width;
-
-                        /* Determine the minimum width any cell in this column needs */
-                        if (minimum_width[j] < d->minimum_width)
-                                minimum_width[j] = d->minimum_width;
-
-                        /* Determine the maximum width any cell in this column needs */
-                        if (d->maximum_width != (size_t) -1 &&
-                            (maximum_width[j] == (size_t) -1 ||
-                             maximum_width[j] > d->maximum_width))
-                                maximum_width[j] = d->maximum_width;
-
-                        /* Determine the full columns weight */
-                        column_weight[j] += d->weight;
                 }
-        }
 
-        /* One space between each column */
-        table_requested_width = table_minimum_width = table_maximum_width = display_columns - 1;
+                /* One space between each column */
+                table_requested_width = table_minimum_width = table_maximum_width = display_columns - 1;
 
-        /* Calculate the total weight for all columns, plus the minimum, maximum and requested width for the table. */
-        weight_sum = 0;
-        for (j = 0; j < display_columns; j++) {
-                weight_sum += column_weight[j];
+                /* Calculate the total weight for all columns, plus the minimum, maximum and requested width for the table. */
+                weight_sum = 0;
+                for (size_t j = 0; j < display_columns; j++) {
+                        weight_sum += column_weight[j];
 
-                table_minimum_width += minimum_width[j];
+                        table_minimum_width += minimum_width[j];
 
-                if (maximum_width[j] == (size_t) -1)
-                        table_maximum_width = (size_t) -1;
+                        if (maximum_width[j] == SIZE_MAX)
+                                table_maximum_width = SIZE_MAX;
+                        else
+                                table_maximum_width += maximum_width[j];
+
+                        table_requested_width += requested_width[j];
+                }
+
+                /* Calculate effective table width */
+                if (t->width != 0 && t->width != SIZE_MAX)
+                        table_effective_width = t->width;
+                else if (t->width == 0 ||
+                         ((pass > 0 || !any_soft) && (pager_have() || !isatty(STDOUT_FILENO))))
+                        table_effective_width = table_requested_width;
                 else
-                        table_maximum_width += maximum_width[j];
+                        table_effective_width = MIN(table_requested_width, columns());
 
-                table_requested_width += requested_width[j];
-        }
+                if (table_maximum_width != SIZE_MAX && table_effective_width > table_maximum_width)
+                        table_effective_width = table_maximum_width;
 
-        /* Calculate effective table width */
-        if (t->width != 0 && t->width != (size_t) -1)
-                table_effective_width = t->width;
-        else if (t->width == 0 || pager_have() || !isatty(STDOUT_FILENO))
-                table_effective_width = table_requested_width;
-        else
-                table_effective_width = MIN(table_requested_width, columns());
+                if (table_effective_width < table_minimum_width)
+                        table_effective_width = table_minimum_width;
 
-        if (table_maximum_width != (size_t) -1 && table_effective_width > table_maximum_width)
-                table_effective_width = table_maximum_width;
+                if (!width)
+                        width = newa(size_t, display_columns);
 
-        if (table_effective_width < table_minimum_width)
-                table_effective_width = table_minimum_width;
+                if (table_effective_width >= table_requested_width) {
+                        size_t extra;
 
-        if (table_effective_width >= table_requested_width) {
-                size_t extra;
+                        /* We have extra room, let's distribute it among columns according to their weights. We first provide
+                         * each column with what it asked for and the distribute the rest.  */
 
-                /* We have extra room, let's distribute it among columns according to their weights. We first provide
-                 * each column with what it asked for and the distribute the rest.  */
+                        extra = table_effective_width - table_requested_width;
 
-                extra = table_effective_width - table_requested_width;
-
-                for (j = 0; j < display_columns; j++) {
-                        size_t delta;
-
-                        if (weight_sum == 0)
-                                width[j] = requested_width[j] + extra / (display_columns - j); /* Avoid division by zero */
-                        else
-                                width[j] = requested_width[j] + (extra * column_weight[j]) / weight_sum;
-
-                        if (maximum_width[j] != (size_t) -1 && width[j] > maximum_width[j])
-                                width[j] = maximum_width[j];
-
-                        if (width[j] < minimum_width[j])
-                                width[j] = minimum_width[j];
-
-                        assert(width[j] >= requested_width[j]);
-                        delta = width[j] - requested_width[j];
-
-                        /* Subtract what we just added from the rest */
-                        if (extra > delta)
-                                extra -= delta;
-                        else
-                                extra = 0;
-
-                        assert(weight_sum >= column_weight[j]);
-                        weight_sum -= column_weight[j];
-                }
-
-        } else {
-                /* We need to compress the table, columns can't get what they asked for. We first provide each column
-                 * with the minimum they need, and then distribute anything left. */
-                bool finalize = false;
-                size_t extra;
-
-                extra = table_effective_width - table_minimum_width;
-
-                for (j = 0; j < display_columns; j++)
-                        width[j] = (size_t) -1;
-
-                for (;;) {
-                        bool restart = false;
-
-                        for (j = 0; j < display_columns; j++) {
-                                size_t delta, w;
-
-                                /* Did this column already get something assigned? If so, let's skip to the next */
-                                if (width[j] != (size_t) -1)
-                                        continue;
+                        for (size_t j = 0; j < display_columns; j++) {
+                                size_t delta;
 
                                 if (weight_sum == 0)
-                                        w = minimum_width[j] + extra / (display_columns - j); /* avoid division by zero */
+                                        width[j] = requested_width[j] + extra / (display_columns - j); /* Avoid division by zero */
                                 else
-                                        w = minimum_width[j] + (extra * column_weight[j]) / weight_sum;
+                                        width[j] = requested_width[j] + (extra * column_weight[j]) / weight_sum;
 
-                                if (w >= requested_width[j]) {
-                                        /* Never give more than requested. If we hit a column like this, there's more
-                                         * space to allocate to other columns which means we need to restart the
-                                         * iteration. However, if we hit a column like this, let's assign it the space
-                                         * it wanted for good early.*/
+                                if (maximum_width[j] != SIZE_MAX && width[j] > maximum_width[j])
+                                        width[j] = maximum_width[j];
 
-                                        w = requested_width[j];
-                                        restart = true;
+                                if (width[j] < minimum_width[j])
+                                        width[j] = minimum_width[j];
 
-                                } else if (!finalize)
-                                        continue;
+                                delta = LESS_BY(width[j], requested_width[j]);
 
-                                width[j] = w;
-
-                                assert(w >= minimum_width[j]);
-                                delta = w - minimum_width[j];
-
-                                assert(delta <= extra);
-                                extra -= delta;
+                                /* Subtract what we just added from the rest */
+                                if (extra > delta)
+                                        extra -= delta;
+                                else
+                                        extra = 0;
 
                                 assert(weight_sum >= column_weight[j]);
                                 weight_sum -= column_weight[j];
-
-                                if (restart && !finalize)
-                                        break;
                         }
 
-                        if (finalize)
-                                break;
+                        break; /* Every column should be happy, no need to repeat calculations. */
+                } else {
+                        /* We need to compress the table, columns can't get what they asked for. We first provide each column
+                         * with the minimum they need, and then distribute anything left. */
+                        bool finalize = false;
+                        size_t extra;
 
-                        if (!restart)
-                                finalize = true;
+                        extra = table_effective_width - table_minimum_width;
+
+                        for (size_t j = 0; j < display_columns; j++)
+                                width[j] = SIZE_MAX;
+
+                        for (;;) {
+                                bool restart = false;
+
+                                for (size_t j = 0; j < display_columns; j++) {
+                                        size_t delta, w;
+
+                                        /* Did this column already get something assigned? If so, let's skip to the next */
+                                        if (width[j] != SIZE_MAX)
+                                                continue;
+
+                                        if (weight_sum == 0)
+                                                w = minimum_width[j] + extra / (display_columns - j); /* avoid division by zero */
+                                        else
+                                                w = minimum_width[j] + (extra * column_weight[j]) / weight_sum;
+
+                                        if (w >= requested_width[j]) {
+                                                /* Never give more than requested. If we hit a column like this, there's more
+                                                 * space to allocate to other columns which means we need to restart the
+                                                 * iteration. However, if we hit a column like this, let's assign it the space
+                                                 * it wanted for good early.*/
+
+                                                w = requested_width[j];
+                                                restart = true;
+
+                                        } else if (!finalize)
+                                                continue;
+
+                                        width[j] = w;
+
+                                        assert(w >= minimum_width[j]);
+                                        delta = w - minimum_width[j];
+
+                                        assert(delta <= extra);
+                                        extra -= delta;
+
+                                        assert(weight_sum >= column_weight[j]);
+                                        weight_sum -= column_weight[j];
+
+                                        if (restart && !finalize)
+                                                break;
+                                }
+
+                                if (finalize)
+                                        break;
+
+                                if (!restart)
+                                        finalize = true;
+                        }
+
+                        if (!any_soft) /* Some columns got less than requested. If some cells were "soft",
+                                        * let's try to reformat them with the new widths. Otherwise, let's
+                                        * move on. */
+                                break;
                 }
         }
 
         /* Second pass: show output */
-        for (i = t->header ? 0 : 1; i < n_rows; i++) {
+        for (size_t i = t->header ? 0 : 1; i < n_rows; i++) {
                 size_t n_subline = 0;
                 bool more_sublines;
                 TableData **row;
@@ -2023,7 +2188,7 @@ int table_print(Table *t, FILE *f) {
                         const char *gap_color = NULL;
                         more_sublines = false;
 
-                        for (j = 0; j < display_columns; j++) {
+                        for (size_t j = 0; j < display_columns; j++) {
                                 _cleanup_free_ char *buffer = NULL, *extracted = NULL;
                                 bool lines_truncated = false;
                                 const char *field, *color = NULL;
@@ -2032,7 +2197,7 @@ int table_print(Table *t, FILE *f) {
 
                                 assert_se(d = row[t->display_map ? t->display_map[j] : j]);
 
-                                field = table_data_format(t, d, false);
+                                field = table_data_format(t, d, false, width[j], NULL);
                                 if (!field)
                                         return -ENOMEM;
 
@@ -2041,7 +2206,7 @@ int table_print(Table *t, FILE *f) {
                                         return r;
                                 if (r > 0) {
                                         /* There are more lines to come */
-                                        if ((t->cell_height_max == (size_t) -1 || n_subline + 1 < t->cell_height_max))
+                                        if ((t->cell_height_max == SIZE_MAX || n_subline + 1 < t->cell_height_max))
                                                 more_sublines = true; /* There are more lines to come */
                                         else
                                                 lines_truncated = true;
@@ -2088,6 +2253,12 @@ int table_print(Table *t, FILE *f) {
                                                 aligned = align_string_mem(field, d->url, width[j], d->align_percent);
                                                 if (!aligned)
                                                         return -ENOMEM;
+
+                                                /* Drop trailing white spaces of last column when no cosmetics is set. */
+                                                if (j == display_columns - 1 &&
+                                                    (!colors_enabled() || (!table_data_color(d) && row != t->data)) &&
+                                                    (!urlify_enabled() || !d->url))
+                                                        delete_trailing_chars(aligned, NULL);
 
                                                 free_and_replace(buffer, aligned);
                                                 field = buffer;
@@ -2145,8 +2316,8 @@ int table_print(Table *t, FILE *f) {
 }
 
 int table_format(Table *t, char **ret) {
+        _cleanup_free_ char *buf = NULL;
         _cleanup_fclose_ FILE *f = NULL;
-        char *buf = NULL;
         size_t sz = 0;
         int r;
 
@@ -2160,7 +2331,7 @@ int table_format(Table *t, char **ret) {
 
         f = safe_fclose(f);
 
-        *ret = buf;
+        *ret = TAKE_PTR(buf);
 
         return 0;
 }
@@ -2247,6 +2418,7 @@ static int table_data_to_json(TableData *d, JsonVariant **ret) {
                 return json_variant_new_string(ret, d->string);
 
         case TABLE_STRV:
+        case TABLE_STRV_WRAPPED:
                 return json_variant_new_array_strv(ret, d->strv);
 
         case TABLE_BOOLEAN:
@@ -2269,7 +2441,7 @@ static int table_data_to_json(TableData *d, JsonVariant **ret) {
 
         case TABLE_SIZE:
         case TABLE_BPS:
-                if (d->size == (uint64_t) -1)
+                if (d->size == UINT64_MAX)
                         return json_variant_new_null(ret);
 
                 return json_variant_new_unsigned(ret, d->size);
@@ -2308,6 +2480,9 @@ static int table_data_to_json(TableData *d, JsonVariant **ret) {
                 return json_variant_new_integer(ret, d->percent);
 
         case TABLE_IFINDEX:
+                if (d->ifindex <= 0)
+                        return json_variant_new_null(ret);
+
                 return json_variant_new_integer(ret, d->ifindex);
 
         case TABLE_IN_ADDR:
@@ -2326,23 +2501,45 @@ static int table_data_to_json(TableData *d, JsonVariant **ret) {
                 return json_variant_new_string(ret, id128_to_uuid_string(d->id128, buf));
         }
 
+        case TABLE_UID:
+                if (!uid_is_valid(d->uid))
+                        return json_variant_new_null(ret);
+
+                return json_variant_new_integer(ret, d->uid);
+
+        case TABLE_GID:
+                if (!gid_is_valid(d->gid))
+                        return json_variant_new_null(ret);
+
+                return json_variant_new_integer(ret, d->gid);
+
+        case TABLE_PID:
+                if (!pid_is_valid(d->pid))
+                        return json_variant_new_null(ret);
+
+                return json_variant_new_integer(ret, d->pid);
+
+        case TABLE_SIGNAL:
+                if (!SIGNAL_VALID(d->int_val))
+                        return json_variant_new_null(ret);
+
+                return json_variant_new_integer(ret, d->int_val);
+
         default:
                 return -EINVAL;
         }
 }
 
 static char* string_to_json_field_name(const char *f) {
-        char *c, *x;
-
         /* Tries to make a string more suitable as JSON field name. There are no strict rules defined what a
          * field name can be hence this is a bit vague and black magic. Right now we only convert spaces to
          * underscores and leave everything as is. */
 
-        c = strdup(f);
+        char *c = strdup(f);
         if (!c)
                 return NULL;
 
-        for (x = c; *x; x++)
+        for (char *x = c; *x; x++)
                 if (isspace(*x))
                         *x = '_';
 
@@ -2352,7 +2549,7 @@ static char* string_to_json_field_name(const char *f) {
 int table_to_json(Table *t, JsonVariant **ret) {
         JsonVariant **rows = NULL, **elements = NULL;
         _cleanup_free_ size_t *sorted = NULL;
-        size_t n_rows, i, j, display_columns;
+        size_t n_rows, display_columns;
         int r;
 
         assert(t);
@@ -2372,7 +2569,7 @@ int table_to_json(Table *t, JsonVariant **ret) {
                         goto finish;
                 }
 
-                for (i = 0; i < n_rows; i++)
+                for (size_t i = 0; i < n_rows; i++)
                         sorted[i] = i * t->n_columns;
 
                 typesafe_qsort_r(sorted, n_rows, table_data_compare, t);
@@ -2390,7 +2587,7 @@ int table_to_json(Table *t, JsonVariant **ret) {
                 goto finish;
         }
 
-        for (j = 0; j < display_columns; j++) {
+        for (size_t j = 0; j < display_columns; j++) {
                 _cleanup_free_ char *mangled = NULL;
                 const char *formatted;
                 TableData *d;
@@ -2398,7 +2595,7 @@ int table_to_json(Table *t, JsonVariant **ret) {
                 assert_se(d = t->data[t->display_map ? t->display_map[j] : j]);
 
                 /* Field names must be strings, hence format whatever we got here as a string first */
-                formatted = table_data_format(t, d, true);
+                formatted = table_data_format(t, d, true, SIZE_MAX, NULL);
                 if (!formatted) {
                         r = -ENOMEM;
                         goto finish;
@@ -2422,7 +2619,7 @@ int table_to_json(Table *t, JsonVariant **ret) {
                 goto finish;
         }
 
-        for (i = 1; i < n_rows; i++) {
+        for (size_t i = 1; i < n_rows; i++) {
                 TableData **row;
 
                 if (sorted)
@@ -2430,7 +2627,7 @@ int table_to_json(Table *t, JsonVariant **ret) {
                 else
                         row = t->data + i * t->n_columns;
 
-                for (j = 0; j < display_columns; j++) {
+                for (size_t j = 0; j < display_columns; j++) {
                         TableData *d;
                         size_t k;
 
@@ -2471,6 +2668,9 @@ int table_print_json(Table *t, FILE *f, JsonFormatFlags flags) {
 
         assert(t);
 
+        if (flags & JSON_FORMAT_OFF) /* If JSON output is turned off, use regular output */
+                return table_print(t, f);
+
         if (!f)
                 f = stdout;
 
@@ -2481,4 +2681,31 @@ int table_print_json(Table *t, FILE *f, JsonFormatFlags flags) {
         json_variant_dump(v, flags, f, NULL);
 
         return fflush_and_check(f);
+}
+
+int table_print_with_pager(
+                Table *t,
+                JsonFormatFlags json_format_flags,
+                PagerFlags pager_flags,
+                bool show_header) {
+
+        bool saved_header;
+        int r;
+
+        assert(t);
+
+        /* A all-in-one solution for showing tables, and turning on a pager first. Also optionally suppresses
+         * the table header and logs about any error. */
+
+        if (json_format_flags & (JSON_FORMAT_OFF|JSON_FORMAT_PRETTY|JSON_FORMAT_PRETTY_AUTO))
+                (void) pager_open(pager_flags);
+
+        saved_header = t->header;
+        t->header = show_header;
+        r = table_print_json(t, stdout, json_format_flags);
+        t->header = saved_header;
+        if (r < 0)
+                return table_log_print_error(r);
+
+        return 0;
 }

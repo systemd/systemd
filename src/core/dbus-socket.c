@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "alloc-util.h"
 #include "bus-get-properties.h"
@@ -20,6 +20,7 @@
 static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_result, socket_result, SocketResult);
 static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_bind_ipv6_only, socket_address_bind_ipv6_only, SocketAddressBindIPv6Only);
 static BUS_DEFINE_PROPERTY_GET(property_get_fdname, "s", Socket, socket_fdname);
+static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_timestamping, socket_timestamping, SocketTimestamping);
 
 static int property_get_listen(
                 sd_bus *bus,
@@ -106,6 +107,7 @@ const sd_bus_vtable bus_socket_vtable[] = {
         SD_BUS_PROPERTY("PassCredentials", "b", bus_property_get_bool, offsetof(Socket, pass_cred), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("PassSecurity", "b", bus_property_get_bool, offsetof(Socket, pass_sec), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("PassPacketInfo", "b", bus_property_get_bool, offsetof(Socket, pass_pktinfo), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("Timestamping", "s", property_get_timestamping, offsetof(Socket, timestamping), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("RemoveOnStop", "b", bus_property_get_bool, offsetof(Socket, remove_on_stop), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("Listen", "a(ss)", property_get_listen, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("Symlinks", "as", NULL, offsetof(Socket, symlinks), SD_BUS_VTABLE_PROPERTY_CONST),
@@ -159,6 +161,7 @@ static BUS_DEFINE_SET_TRANSIENT_STRING_WITH_CHECK(fdname, fdname_is_valid);
 static BUS_DEFINE_SET_TRANSIENT_STRING_WITH_CHECK(ifname, ifname_valid);
 static BUS_DEFINE_SET_TRANSIENT_TO_STRING_ALLOC(ip_tos, "i", int32_t, int, "%" PRIi32, ip_tos_to_string_alloc);
 static BUS_DEFINE_SET_TRANSIENT_TO_STRING(socket_protocol, "i", int32_t, int, "%" PRIi32, socket_protocol_to_string);
+static BUS_DEFINE_SET_TRANSIENT_PARSE(socket_timestamping, SocketTimestamping, socket_timestamping_from_string_harder);
 
 static int bus_socket_set_transient_property(
                 Socket *s,
@@ -209,6 +212,9 @@ static int bus_socket_set_transient_property(
 
         if (streq(name, "PassPacketInfo"))
                 return bus_set_transient_bool(u, name, &s->pass_pktinfo, message, flags, error);
+
+        if (streq(name, "Timestamping"))
+                return bus_set_transient_socket_timestamping(u, name, &s->timestamping, message, flags, error);
 
         if (streq(name, "ReusePort"))
                 return bus_set_transient_bool(u, name, &s->reuse_port, message, flags, error);
@@ -384,7 +390,7 @@ static int bus_socket_set_transient_property(
                                 if (!p->path)
                                         return log_oom();
 
-                                path_simplify(p->path, false);
+                                path_simplify(p->path);
 
                         } else if (streq(t, "Netlink")) {
                                 r = socket_address_parse_netlink(&p->address, a);

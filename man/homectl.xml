@@ -1,7 +1,7 @@
 <?xml version='1.0'?>
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
-<!-- SPDX-License-Identifier: LGPL-2.1+ -->
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
 
 <refentry id="homectl" conditional='ENABLE_HOMED'
     xmlns:xi="http://www.w3.org/2001/XInclude">
@@ -120,7 +120,7 @@
 
         <listitem><para>Read the user's JSON record from the specified file. If passed as
         <literal>-</literal> read the user record from standard input. The supplied JSON object must follow
-        the structure documented on <ulink url="https://systemd.io/USER_RECORD">JSON User Records</ulink>.
+        the structure documented in <ulink url="https://systemd.io/USER_RECORD">JSON User Records</ulink>.
         This option may be used in conjunction with the <command>create</command> and
         <command>update</command> commands (see below), where it allows configuring the user record in JSON
         as-is, instead of setting the individual user record properties (see below).</para></listitem>
@@ -195,7 +195,7 @@
         <term><option>--realm=</option><replaceable>REALM</replaceable></term>
 
         <listitem><para>The realm for the user. The realm associates a user with a specific organization or
-        installation, and allows distuingishing users of the same name defined in different contexts. The
+        installation, and allows distinguishing users of the same name defined in different contexts. The
         realm can be any string that also qualifies as valid DNS domain name, and it is recommended to use
         the organization's or installation's domain name for this purpose, but this is not enforced nor
         required. On each system only a single user of the same name may exist, and if a user with the same
@@ -299,11 +299,13 @@
       <varlistentry>
         <term><option>--timezone=</option><replaceable>TIMEZONE</replaceable></term>
 
-        <listitem><para>Takes a timezone specification as string that sets the timezone for the specified
-        user. Expects a `tzdata` location string. When the user logs in the <varname>$TZ</varname>
-        environment variable is initialized from this setting. Example:
-        <option>--timezone=Europe/Amsterdam</option> will result in the environment variable
-        <literal>TZ=:Europe/Amsterdam</literal>.</para></listitem>
+        <listitem><para>Takes a time zone location name that sets the timezone for the specified user. When
+        the user logs in the <varname>$TZ</varname> environment variable is initialized from this
+        setting. Example: <option>--timezone=Europe/Amsterdam</option> will result in the environment
+        variable <literal>TZ=:Europe/Amsterdam</literal>. (<literal>:</literal> is used intentionally as part
+        of the timezone specification, see
+        <citerefentry project='man-pages'><refentrytitle>tzset</refentrytitle><manvolnum>3</manvolnum></citerefentry>.)
+        </para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -355,11 +357,11 @@
 
         <listitem><para>Takes a path to a Linux <literal>hidraw</literal> device
         (e.g. <filename>/dev/hidraw1</filename>), referring to a FIDO2 security token implementing the
-        <literal>hmac-secret</literal> extension, that shall be able to unlock the user account. If used, a
-        random salt value is generated on the host, which is passed to the FIDO2 device, which calculates a
-        HMAC hash of it, keyed by its internal secret key. The result is then used as key for unlocking the
-        user account. The random salt is included in the user record, so that whenever authentication is
-        needed it can be passed again to the FIDO2 token, to retrieve the actual key.</para>
+        <literal>hmac-secret</literal> extension that shall be able to unlock the user account. A random salt
+        value is generated on the host and passed to the FIDO2 device, which calculates a HMAC hash of the
+        salt using an internal secret key. The result is then used as the key to unlock the user account. The
+        random salt is included in the user record, so that whenever authentication is needed it can be
+        passed to the FIDO2 token again.</para>
 
         <para>Instead of a valid path to a FIDO2 <literal>hidraw</literal> device the special strings
         <literal>list</literal> and <literal>auto</literal> may be specified. If <literal>list</literal> is
@@ -374,6 +376,35 @@
         <para>Note that many hardware security tokens implement both FIDO2 and PKCS#11/PIV (and thus may be
         used with either <option>--fido2-device=</option> or <option>--pkcs11-token-uri=</option>), for a
         discussion see above.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--fido2-with-client-pin=</option><replaceable>BOOL</replaceable></term>
+
+        <listitem><para>When enrolling a FIDO2 security token, controls whether to require the user to enter
+        a PIN when unlocking the account (the FIDO2 <literal>clientPin</literal> feature). Defaults to
+        <literal>yes</literal>. (Note: this setting is without effect if the security token does not support
+        the <literal>clientPin</literal> feature at all, or does not allow enabling or disabling
+        it.)</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--fido2-with-user-presence=</option><replaceable>BOOL</replaceable></term>
+
+        <listitem><para>When enrolling a FIDO2 security token, controls whether to require the user to
+        verify presence (tap the token, the FIDO2 <literal>up</literal> feature) when unlocking the account.
+        Defaults to <literal>yes</literal>. (Note: this setting is without effect if the security token does not support
+        the <literal>up</literal> feature at all, or does not allow enabling or disabling it.)
+        </para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--fido2-with-user-verification=</option><replaceable>BOOL</replaceable></term>
+
+        <listitem><para>When enrolling a FIDO2 security token, controls whether to require user verification
+        when unlocking the account (the FIDO2 <literal>uv</literal> feature). Defaults to
+        <literal>no</literal>. (Note: this setting is without effect if the security token does not support
+        the <literal>uv</literal> feature at all, or does not allow enabling or disabling it.)</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -419,7 +450,7 @@
 
         <listitem><para>Takes a password hint to store alongside the user record. This string is stored
         accessible only to privileged users and the user itself and may not be queried by other users.
-        Example: <option>--password-hint="My first pet's name"</option></para></listitem>
+        Example: <option>--password-hint="My first pet's name"</option>.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -513,7 +544,7 @@
       <varlistentry>
         <term><option>--tasks-max=</option><replaceable>TASKS</replaceable></term>
 
-        <listitem><para>Takes a non-zero unsigned integer as argument. Configures the maximum numer of tasks
+        <listitem><para>Takes a non-zero unsigned integer as argument. Configures the maximum number of tasks
         (i.e. threads, where each process is at least one thread) the user may have at any given time. This
         limit applies to all tasks forked off the user's sessions, even if they change user identity via
         <citerefentry project='man-pages'><refentrytitle>su</refentrytitle><manvolnum>1</manvolnum></citerefentry>
@@ -820,6 +851,15 @@
       </varlistentry>
 
       <varlistentry>
+        <term><command>deactivate-all</command></term>
+
+        <listitem><para>Execute the <command>deactivate</command> command on all active home directories at
+        once. This operation is generally executed on system shut down (i.e. by <command>systemctl
+        poweroff</command> and related commands), to ensure all active user's home directories are fully
+        deactivated before <filename>/home/</filename> and related file systems are unmounted.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><command>with</command> <replaceable>USER</replaceable> <replaceable>COMMAND…</replaceable></term>
 
         <listitem><para>Activate the specified user's home directory, run the specified command (under the
@@ -835,9 +875,13 @@
     <title>Exit status</title>
 
     <para>On success, 0 is returned, a non-zero failure code otherwise.</para>
+
+    <para>When a command is invoked with <command>with</command>, the exit status of the child is
+    propagated. Effectively, <command>homectl</command> will exit without error if the command is
+    successfully invoked <emphasis>and</emphasis> finishes successfully.</para>
   </refsect1>
 
-  <xi:include href="less-variables.xml" />
+  <xi:include href="common-variables.xml" />
 
   <refsect1>
     <title>Examples</title>

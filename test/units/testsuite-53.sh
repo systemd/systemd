@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
-set -ex
+set -eux
 set -o pipefail
 
->/failed
+: >/failed
 
 # Reset host date to current time, 3 days in the past.
 date -s "-3 days"

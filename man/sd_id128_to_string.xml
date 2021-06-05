@@ -1,7 +1,7 @@
 <?xml version='1.0'?> <!--*-nxml-*-->
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
-<!-- SPDX-License-Identifier: LGPL-2.1+ -->
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
 
 <refentry id="sd_id128_to_string" xmlns:xi="http://www.w3.org/2001/XInclude">
 
@@ -50,8 +50,9 @@
     <para><function>sd_id128_from_string()</function> implements the reverse operation: it takes a 33 character string
     with 32 hexadecimal digits (either lowercase or uppercase, terminated by <constant>NUL</constant>) and parses them
     back into a 128-bit ID returned in <parameter>ret</parameter>. Alternatively, this call can also parse a
-    37-character string with a 128-bit ID formatted as RFC UUID. If <parameter>ret</parameter> is passed as NULL the
-    function will validate the passed ID string, but not actually return it in parsed form.</para>
+    37-character string with a 128-bit ID formatted as RFC UUID. If <parameter>ret</parameter> is passed as
+    <constant>NULL</constant> the function will validate the passed ID string, but not actually return it in parsed
+    form.</para>
 
     <para>For more information about the <literal>sd_id128_t</literal>
     type see
@@ -63,9 +64,8 @@
     easier to use a format string for
     <citerefentry project='man-pages'><refentrytitle>printf</refentrytitle><manvolnum>3</manvolnum></citerefentry>.
     This is easily done using the
-    <function>SD_ID128_FORMAT_STR</function> and
-    <function>SD_ID128_FORMAT_VAL()</function> macros. For more
-    information see
+    <constant>SD_ID128_FORMAT_STR</constant> and <function>SD_ID128_FORMAT_VAL()</function> macros. For
+    more information see
     <citerefentry><refentrytitle>sd-id128</refentrytitle><manvolnum>3</manvolnum></citerefentry>.</para>
   </refsect1>
 
@@ -74,7 +74,7 @@
 
     <para><function>sd_id128_to_string()</function> always succeeds
     and returns a pointer to the string array passed in.
-    <function>sd_id128_from_string</function> returns 0 on success, in
+    <function>sd_id128_from_string()</function> returns 0 on success, in
     which case <parameter>ret</parameter> is filled in, or a negative
     errno-style error code.</para>
   </refsect1>

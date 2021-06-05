@@ -1,11 +1,11 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <stdio.h>
 #include <sys/types.h>
 
 #include "alloc-util.h"
 #include "device-nodes.h"
 #include "string-util.h"
-#include "util.h"
 
 /* helpers for test_encode_devnode_name */
 static char *do_encode_string(const char *in) {
@@ -31,6 +31,7 @@ static void test_encode_devnode_name(void) {
         assert_se(expect_encoded_as("s/ash/ng", "s\\x2fash\\x2fng"));
         assert_se(expect_encoded_as("/", "\\x2f"));
         assert_se(expect_encoded_as("!", "\\x21"));
+        assert_se(expect_encoded_as("QEMU    ", "QEMU\\x20\\x20\\x20\\x20"));
 }
 
 int main(int argc, char *argv[]) {

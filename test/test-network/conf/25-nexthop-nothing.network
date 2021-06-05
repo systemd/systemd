@@ -1,0 +1,8 @@
+[Match]
+Name=veth99
+
+[Network]
+IPv6AcceptRA=no
+Address=2001:1234:5:8f63::1/120
+Address=192.168.5.10/24
+Gateway=192.168.5.1

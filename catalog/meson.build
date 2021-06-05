@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: LGPL-2.1+
+# SPDX-License-Identifier: LGPL-2.1-or-later
 
 in_files = '''
         systemd.bg.catalog
@@ -30,5 +30,4 @@ foreach file : in_files
 endforeach
 
 meson.add_install_script('sh', '-c',
-                         'test -n "$DESTDIR" || @0@/journalctl --update-catalog'
-                         .format(rootbindir))
+                         'test -n "$DESTDIR" || @0@/journalctl --update-catalog'.format(rootbindir))

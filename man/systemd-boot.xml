@@ -1,7 +1,7 @@
 <?xml version='1.0'?> <!--*-nxml-*-->
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
-<!-- SPDX-License-Identifier: LGPL-2.1+ -->
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
 
 <refentry id="systemd-boot" conditional='ENABLE_EFI'
     xmlns:xi="http://www.w3.org/2001/XInclude">
@@ -51,7 +51,7 @@
 
       <listitem><para>The Microsoft Windows EFI boot manager, if installed</para></listitem>
 
-      <listitem><para>The Apple MacOS X boot manager, if installed</para></listitem>
+      <listitem><para>The Apple macOS boot manager, if installed</para></listitem>
 
       <listitem><para>The EFI Shell binary, if installed</para></listitem>
 
@@ -193,7 +193,7 @@
 
       <varlistentry>
         <term><keycap>a</keycap></term>
-        <listitem><para>OS X</para></listitem>
+        <listitem><para>macOS</para></listitem>
       </varlistentry>
 
       <varlistentry>

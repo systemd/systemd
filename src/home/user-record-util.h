@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
 #include "sd-bus.h"
@@ -14,7 +14,7 @@ typedef enum UserReconcileMode {
         USER_RECONCILE_REQUIRE_NEWER,          /* host version must be newer than embedded version */
         USER_RECONCILE_REQUIRE_NEWER_OR_EQUAL, /* similar, but may also be equal */
         _USER_RECONCILE_MODE_MAX,
-        _USER_RECONCILE_MODE_INVALID = -1,
+        _USER_RECONCILE_MODE_INVALID = -EINVAL,
 } UserReconcileMode;
 
 enum { /* return values */
@@ -52,6 +52,7 @@ int user_record_set_hashed_password(UserRecord *h, char **hashed_password);
 int user_record_set_token_pin(UserRecord *h, char **pin, bool prepend);
 int user_record_set_pkcs11_protected_authentication_path_permitted(UserRecord *h, int b);
 int user_record_set_fido2_user_presence_permitted(UserRecord *h, int b);
+int user_record_set_fido2_user_verification_permitted(UserRecord *h, int b);
 int user_record_set_password_change_now(UserRecord *h, int b);
 int user_record_merge_secret(UserRecord *h, UserRecord *secret);
 int user_record_good_authentication(UserRecord *h);

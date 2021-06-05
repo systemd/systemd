@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-set -ex
+set -eux
 set -o pipefail
 
 systemd-analyze log-level debug
@@ -14,11 +14,11 @@ start_test_service() {
 }
 
 dbus_freeze() {
-    local suffix=
-    suffix="${1##*.}"
+    local name object_path suffix
 
-    local name="$(echo ${1%.$suffix} | sed s/-/_2d/g)"
-    local object_path="/org/freedesktop/systemd1/unit/${name}_2e${suffix}"
+    suffix="${1##*.}"
+    name="${1%.$suffix}"
+    object_path="/org/freedesktop/systemd1/unit/${name//-/_2d}_2e${suffix}"
 
     busctl call \
            org.freedesktop.systemd1 \
@@ -28,11 +28,11 @@ dbus_freeze() {
 }
 
 dbus_thaw() {
-    local suffix=
-    suffix="${1##*.}"
+    local name object_path suffix
 
-    local name="$(echo ${1%.$suffix} | sed s/-/_2d/g)"
-    local object_path="/org/freedesktop/systemd1/unit/${name}_2e${suffix}"
+    suffix="${1##*.}"
+    name="${1%.$suffix}"
+    object_path="/org/freedesktop/systemd1/unit/${name//-/_2d}_2e${suffix}"
 
     busctl call \
            org.freedesktop.systemd1 \
@@ -62,11 +62,11 @@ dbus_thaw_unit() {
 }
 
 dbus_can_freeze() {
-    local suffix=
-    suffix="${1##*.}"
+    local name object_path suffix
 
-    local name="$(echo ${1%.$suffix} | sed s/-/_2d/g)"
-    local object_path="/org/freedesktop/systemd1/unit/${name}_2e${suffix}"
+    suffix="${1##*.}"
+    name="${1%.$suffix}"
+    object_path="/org/freedesktop/systemd1/unit/${name//-/_2d}_2e${suffix}"
 
     busctl get-property \
            org.freedesktop.systemd1 \
@@ -76,11 +76,11 @@ dbus_can_freeze() {
 }
 
 check_freezer_state() {
-    local suffix=
-    suffix="${1##*.}"
+    local name object_path suffix
 
-    local name="$(echo ${1%.$suffix} | sed s/-/_2d/g)"
-    local object_path="/org/freedesktop/systemd1/unit/${name}_2e${suffix}"
+    suffix="${1##*.}"
+    name="${1%.$suffix}"
+    object_path="/org/freedesktop/systemd1/unit/${name//-/_2d}_2e${suffix}"
 
     state=$(busctl get-property \
                    org.freedesktop.systemd1 \
@@ -245,7 +245,7 @@ test_preserve_state() {
     echo "Test that freezer state is preserved when recursive freezing is initiated from outside (e.g. by manager up the tree):"
 
     echo -n "  - freeze from outside: "
-    echo 1 > /sys/fs/cgroup/"${slice}"/cgroup.freeze
+    echo 1 >/sys/fs/cgroup/"${slice}"/cgroup.freeze
     # Give kernel some time to freeze the slice
     sleep 1
 
@@ -259,7 +259,7 @@ test_preserve_state() {
     echo "[ OK ]"
 
     echo -n "  - thaw from outside: "
-    echo 0 > /sys/fs/cgroup/"${slice}"/cgroup.freeze
+    echo 0 >/sys/fs/cgroup/"${slice}"/cgroup.freeze
     sleep 1
 
     check_freezer_state "${unit}" "running"
@@ -271,8 +271,8 @@ test_preserve_state() {
     echo -n "  - thaw from outside while inner service is frozen: "
     systemctl freeze "$unit"
     check_freezer_state "${unit}" "frozen"
-    echo 1 > /sys/fs/cgroup/"${slice}"/cgroup.freeze
-    echo 0 > /sys/fs/cgroup/"${slice}"/cgroup.freeze
+    echo 1 >/sys/fs/cgroup/"${slice}"/cgroup.freeze
+    echo 0 >/sys/fs/cgroup/"${slice}"/cgroup.freeze
     check_freezer_state "${slice}" "running"
     check_freezer_state "${unit}" "frozen"
     echo "[ OK ]"
@@ -293,5 +293,5 @@ test -e /sys/fs/cgroup/system.slice/cgroup.freeze && {
     test_preserve_state
 }
 
-echo OK > /testok
+echo OK >/testok
 exit 0

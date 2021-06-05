@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <getopt.h>
 
@@ -18,12 +18,15 @@
 #include "homectl-fido2.h"
 #include "homectl-pkcs11.h"
 #include "homectl-recovery-key.h"
+#include "libfido2-util.h"
 #include "locale-util.h"
 #include "main-func.h"
 #include "memory-util.h"
 #include "pager.h"
+#include "parse-argument.h"
 #include "parse-util.h"
 #include "path-util.h"
+#include "percent-util.h"
 #include "pkcs11-util.h"
 #include "pretty-print.h"
 #include "process-util.h"
@@ -54,9 +57,9 @@ static uint64_t arg_disk_size = UINT64_MAX;
 static uint64_t arg_disk_size_relative = UINT64_MAX;
 static char **arg_pkcs11_token_uri = NULL;
 static char **arg_fido2_device = NULL;
+static Fido2EnrollFlags arg_fido2_lock_with = FIDO2ENROLL_PIN | FIDO2ENROLL_UP;
 static bool arg_recovery_key = false;
-static bool arg_json = false;
-static JsonFormatFlags arg_json_format_flags = 0;
+static JsonFormatFlags arg_json_format_flags = JSON_FORMAT_OFF;
 static bool arg_and_resize = false;
 static bool arg_and_change_password = false;
 static enum {
@@ -99,7 +102,7 @@ static int acquire_bus(sd_bus **bus) {
 
         r = bus_connect_transport(arg_transport, arg_host, false, bus);
         if (r < 0)
-                return log_error_errno(r, "Failed to connect to bus: %m");
+                return bus_log_connect_error(r);
 
         (void) sd_bus_set_allow_interactive_authorization(*bus, arg_ask_password);
 
@@ -112,8 +115,6 @@ static int list_homes(int argc, char *argv[], void *userdata) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         _cleanup_(table_unrefp) Table *table = NULL;
         int r;
-
-        (void) pager_open(arg_pager_flags);
 
         r = acquire_bus(&bus);
         if (r < 0)
@@ -170,22 +171,17 @@ static int list_homes(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return bus_log_parse_error(r);
 
-        if (table_get_rows(table) > 1 || arg_json) {
-                r = table_set_sort(table, (size_t) 0, (size_t) -1);
+        if (table_get_rows(table) > 1 || !FLAGS_SET(arg_json_format_flags, JSON_FORMAT_OFF)) {
+                r = table_set_sort(table, (size_t) 0);
                 if (r < 0)
                         return table_log_sort_error(r);
 
-                table_set_header(table, arg_legend);
-
-                if (arg_json)
-                        r = table_print_json(table, stdout, arg_json_format_flags);
-                else
-                        r = table_print(table, NULL);
+                r = table_print_with_pager(table, arg_json_format_flags, arg_pager_flags, arg_legend);
                 if (r < 0)
-                        return table_log_print_error(r);
+                        return r;
         }
 
-        if (arg_legend && !arg_json) {
+        if (arg_legend && (arg_json_format_flags & JSON_FORMAT_OFF)) {
                 if (table_get_rows(table) > 1)
                         printf("\n%zu home areas listed.\n", table_get_rows(table) - 1);
                 else
@@ -195,7 +191,12 @@ static int list_homes(int argc, char *argv[], void *userdata) {
         return 0;
 }
 
-static int acquire_existing_password(const char *user_name, UserRecord *hr, bool emphasize_current) {
+static int acquire_existing_password(
+                const char *user_name,
+                UserRecord *hr,
+                bool emphasize_current,
+                AskPasswordFlags flags) {
+
         _cleanup_(strv_free_erasep) char **password = NULL;
         _cleanup_free_ char *question = NULL;
         char *e;
@@ -215,12 +216,14 @@ static int acquire_existing_password(const char *user_name, UserRecord *hr, bool
                         return log_error_errno(r, "Failed to store password: %m");
 
                 string_erase(e);
+                assert_se(unsetenv("PASSWORD") == 0);
 
-                if (unsetenv("PASSWORD") < 0)
-                        return log_error_errno(errno, "Failed to unset $PASSWORD: %m");
-
-                return 0;
+                return 1;
         }
+
+        /* If this is not our own user, then don't use the password cache */
+        if (is_this_me(user_name) <= 0)
+                SET_FLAG(flags, ASK_PASSWORD_ACCEPT_CACHED|ASK_PASSWORD_PUSH_CACHE, false);
 
         if (asprintf(&question, emphasize_current ?
                      "Please enter current password for user %s:" :
@@ -228,7 +231,19 @@ static int acquire_existing_password(const char *user_name, UserRecord *hr, bool
                      user_name) < 0)
                 return log_oom();
 
-        r = ask_password_auto(question, "user-home", NULL, "home-password", USEC_INFINITY, ASK_PASSWORD_ACCEPT_CACHED|ASK_PASSWORD_PUSH_CACHE, &password);
+        r = ask_password_auto(question,
+                              /* icon= */ "user-home",
+                              NULL,
+                              /* key_name= */ "home-password",
+                              /* credential_name= */ "home.password",
+                              USEC_INFINITY,
+                              flags,
+                              &password);
+        if (r == -EUNATCH) { /* EUNATCH is returned if no password was found and asking interactively was
+                              * disabled via the flags. Not an error for us. */
+                log_debug_errno(r, "No passwords acquired.");
+                return 0;
+        }
         if (r < 0)
                 return log_error_errno(r, "Failed to acquire password: %m");
 
@@ -236,10 +251,14 @@ static int acquire_existing_password(const char *user_name, UserRecord *hr, bool
         if (r < 0)
                 return log_error_errno(r, "Failed to store password: %m");
 
-        return 0;
+        return 1;
 }
 
-static int acquire_token_pin(const char *user_name, UserRecord *hr) {
+static int acquire_token_pin(
+                const char *user_name,
+                UserRecord *hr,
+                AskPasswordFlags flags) {
+
         _cleanup_(strv_free_erasep) char **pin = NULL;
         _cleanup_free_ char *question = NULL;
         char *e;
@@ -255,18 +274,32 @@ static int acquire_token_pin(const char *user_name, UserRecord *hr) {
                         return log_error_errno(r, "Failed to store token PIN: %m");
 
                 string_erase(e);
+                assert_se(unsetenv("PIN") == 0);
 
-                if (unsetenv("PIN") < 0)
-                        return log_error_errno(errno, "Failed to unset $PIN: %m");
-
-                return 0;
+                return 1;
         }
+
+        /* If this is not our own user, then don't use the password cache */
+        if (is_this_me(user_name) <= 0)
+                SET_FLAG(flags, ASK_PASSWORD_ACCEPT_CACHED|ASK_PASSWORD_PUSH_CACHE, false);
 
         if (asprintf(&question, "Please enter security token PIN for user %s:", user_name) < 0)
                 return log_oom();
 
-        /* We never cache or use cached PINs, since usually there are only very few attempts allowed before the PIN is blocked */
-        r = ask_password_auto(question, "user-home", NULL, "token-pin", USEC_INFINITY, 0, &pin);
+        r = ask_password_auto(
+                        question,
+                        /* icon= */ "user-home",
+                        NULL,
+                        /* key_name= */ "token-pin",
+                        /* credential_name= */ "home.token-pin",
+                        USEC_INFINITY,
+                        flags,
+                        &pin);
+        if (r == -EUNATCH) { /* EUNATCH is returned if no PIN was found and asking interactively was disabled
+                              * via the flags. Not an error for us. */
+                log_debug_errno(r, "No security token PINs acquired.");
+                return 0;
+        }
         if (r < 0)
                 return log_error_errno(r, "Failed to acquire security token PIN: %m");
 
@@ -274,7 +307,7 @@ static int acquire_token_pin(const char *user_name, UserRecord *hr) {
         if (r < 0)
                 return log_error_errno(r, "Failed to store security token PIN: %m");
 
-        return 0;
+        return 1;
 }
 
 static int handle_generic_user_record_error(
@@ -301,7 +334,13 @@ static int handle_generic_user_record_error(
                 if (!strv_isempty(hr->password))
                         log_notice("Password incorrect or not sufficient, please try again.");
 
-                r = acquire_existing_password(user_name, hr, emphasize_current_password);
+                /* Don't consume cache entries or credentials here, we already tried that unsuccessfully. But
+                 * let's push what we acquire here into the cache */
+                r = acquire_existing_password(
+                                user_name,
+                                hr,
+                                emphasize_current_password,
+                                ASK_PASSWORD_PUSH_CACHE | ASK_PASSWORD_NO_CREDENTIAL);
                 if (r < 0)
                         return r;
 
@@ -312,13 +351,21 @@ static int handle_generic_user_record_error(
                 else
                         log_notice("Password incorrect or not sufficient, and configured security token not inserted, please try again.");
 
-                r = acquire_existing_password(user_name, hr, emphasize_current_password);
+                r = acquire_existing_password(
+                                user_name,
+                                hr,
+                                emphasize_current_password,
+                                ASK_PASSWORD_PUSH_CACHE | ASK_PASSWORD_NO_CREDENTIAL);
                 if (r < 0)
                         return r;
 
         } else if (sd_bus_error_has_name(error, BUS_ERROR_TOKEN_PIN_NEEDED)) {
 
-                r = acquire_token_pin(user_name, hr);
+                /* First time the PIN is requested, let's accept cached data, and allow using credential store */
+                r = acquire_token_pin(
+                                user_name,
+                                hr,
+                                ASK_PASSWORD_ACCEPT_CACHED | ASK_PASSWORD_PUSH_CACHE);
                 if (r < 0)
                         return r;
 
@@ -334,13 +381,23 @@ static int handle_generic_user_record_error(
 
         } else if (sd_bus_error_has_name(error, BUS_ERROR_TOKEN_USER_PRESENCE_NEEDED)) {
 
-                log_notice("%s%sAuthentication requires presence verification on security token.",
+                log_notice("%s%sPlease confirm presence on security token.",
                            emoji_enabled() ? special_glyph(SPECIAL_GLYPH_TOUCH) : "",
                            emoji_enabled() ? " " : "");
 
                 r = user_record_set_fido2_user_presence_permitted(hr, true);
                 if (r < 0)
                         return log_error_errno(r, "Failed to set FIDO2 user presence permitted flag: %m");
+
+        } else if (sd_bus_error_has_name(error, BUS_ERROR_TOKEN_USER_VERIFICATION_NEEDED)) {
+
+                log_notice("%s%sPlease verify user on security token.",
+                           emoji_enabled() ? special_glyph(SPECIAL_GLYPH_TOUCH) : "",
+                           emoji_enabled() ? " " : "");
+
+                r = user_record_set_fido2_user_verification_permitted(hr, true);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to set FIDO2 user verification permitted flag: %m");
 
         } else if (sd_bus_error_has_name(error, BUS_ERROR_TOKEN_PIN_LOCKED))
                 return log_error_errno(SYNTHETIC_ERRNO(EPERM), "Security token PIN is locked, please unlock it first. (Hint: Removal and re-insertion might suffice.)");
@@ -349,7 +406,11 @@ static int handle_generic_user_record_error(
 
                 log_notice("Security token PIN incorrect, please try again.");
 
-                r = acquire_token_pin(user_name, hr);
+                /* If the previous PIN was wrong don't accept cached info anymore, but add to cache. Also, don't use the credential data */
+                r = acquire_token_pin(
+                                user_name,
+                                hr,
+                                ASK_PASSWORD_PUSH_CACHE | ASK_PASSWORD_NO_CREDENTIAL);
                 if (r < 0)
                         return r;
 
@@ -357,7 +418,10 @@ static int handle_generic_user_record_error(
 
                 log_notice("Security token PIN incorrect, please try again (only a few tries left!).");
 
-                r = acquire_token_pin(user_name, hr);
+                r = acquire_token_pin(
+                                user_name,
+                                hr,
+                                ASK_PASSWORD_PUSH_CACHE | ASK_PASSWORD_NO_CREDENTIAL);
                 if (r < 0)
                         return r;
 
@@ -365,12 +429,48 @@ static int handle_generic_user_record_error(
 
                 log_notice("Security token PIN incorrect, please try again (only one try left!).");
 
-                r = acquire_token_pin(user_name, hr);
+                r = acquire_token_pin(
+                                user_name,
+                                hr,
+                                ASK_PASSWORD_PUSH_CACHE | ASK_PASSWORD_NO_CREDENTIAL);
                 if (r < 0)
                         return r;
         } else
                 return log_error_errno(ret, "Operation on home %s failed: %s", user_name, bus_error_message(error, ret));
 
+        return 0;
+}
+
+static int acquire_passed_secrets(const char *user_name, UserRecord **ret) {
+        _cleanup_(user_record_unrefp) UserRecord *secret = NULL;
+        int r;
+
+        assert(ret);
+
+        /* Generates an initial secret objects that contains passwords supplied via $PASSWORD, the password
+         * cache or the credentials subsystem, but excluding any interactive stuff. If nothing is passed,
+         * returns an empty secret object. */
+
+        secret = user_record_new();
+        if (!secret)
+                return log_oom();
+
+        r = acquire_existing_password(
+                        user_name,
+                        secret,
+                        /* emphasize_current_password = */ false,
+                        ASK_PASSWORD_ACCEPT_CACHED | ASK_PASSWORD_NO_TTY | ASK_PASSWORD_NO_AGENT);
+        if (r < 0)
+                return r;
+
+        r = acquire_token_pin(
+                        user_name,
+                        secret,
+                        ASK_PASSWORD_ACCEPT_CACHED | ASK_PASSWORD_NO_TTY | ASK_PASSWORD_NO_AGENT);
+        if (r < 0)
+                return r;
+
+        *ret = TAKE_PTR(secret);
         return 0;
 }
 
@@ -386,9 +486,9 @@ static int activate_home(int argc, char *argv[], void *userdata) {
         STRV_FOREACH(i, strv_skip(argv, 1)) {
                 _cleanup_(user_record_unrefp) UserRecord *secret = NULL;
 
-                secret = user_record_new();
-                if (!secret)
-                        return log_oom();
+                r = acquire_passed_secrets(*i, &secret);
+                if (r < 0)
+                        return r;
 
                 for (;;) {
                         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
@@ -408,7 +508,7 @@ static int activate_home(int argc, char *argv[], void *userdata) {
 
                         r = sd_bus_call(bus, m, HOME_SLOW_BUS_CALL_TIMEOUT_USEC, &error, NULL);
                         if (r < 0) {
-                                r = handle_generic_user_record_error(*i, secret, &error, r, false);
+                                r = handle_generic_user_record_error(*i, secret, &error, r, /* emphasize_current_password= */ false);
                                 if (r < 0) {
                                         if (ret == 0)
                                                 ret = r;
@@ -465,13 +565,15 @@ static void dump_home_record(UserRecord *hr) {
                 log_warning("Warning: lacking rights to acquire privileged fields of user record of '%s', output incomplete.", hr->user_name);
         }
 
-        if (arg_json) {
+        if (arg_json_format_flags & JSON_FORMAT_OFF)
+                user_record_show(hr, true);
+        else {
                 _cleanup_(user_record_unrefp) UserRecord *stripped = NULL;
 
                 if (arg_export_format == EXPORT_FORMAT_STRIPPED)
-                        r = user_record_clone(hr, USER_RECORD_EXTRACT_EMBEDDED, &stripped);
+                        r = user_record_clone(hr, USER_RECORD_EXTRACT_EMBEDDED|USER_RECORD_PERMISSIVE, &stripped);
                 else if (arg_export_format == EXPORT_FORMAT_MINIMAL)
-                        r = user_record_clone(hr, USER_RECORD_EXTRACT_SIGNABLE, &stripped);
+                        r = user_record_clone(hr, USER_RECORD_EXTRACT_SIGNABLE|USER_RECORD_PERMISSIVE, &stripped);
                 else
                         r = 0;
                 if (r < 0)
@@ -480,8 +582,7 @@ static void dump_home_record(UserRecord *hr) {
                         hr = stripped;
 
                 json_variant_dump(hr->json, arg_json_format_flags, stdout, NULL);
-        } else
-                user_record_show(hr, true);
+        }
 }
 
 static char **mangle_user_list(char **list, char ***ret_allocated) {
@@ -577,7 +678,7 @@ static int inspect_home(int argc, char *argv[], void *userdata) {
                 if (!hr)
                         return log_oom();
 
-                r = user_record_load(hr, v, USER_RECORD_LOAD_REFUSE_SECRET|USER_RECORD_LOG);
+                r = user_record_load(hr, v, USER_RECORD_LOAD_REFUSE_SECRET|USER_RECORD_LOG|USER_RECORD_PERMISSIVE);
                 if (r < 0) {
                         if (ret == 0)
                                 ret = r;
@@ -611,9 +712,9 @@ static int authenticate_home(int argc, char *argv[], void *userdata) {
         STRV_FOREACH(i, items) {
                 _cleanup_(user_record_unrefp) UserRecord *secret = NULL;
 
-                secret = user_record_new();
-                if (!secret)
-                        return log_oom();
+                r = acquire_passed_secrets(*i, &secret);
+                if (r < 0)
+                        return r;
 
                 for (;;) {
                         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
@@ -937,7 +1038,7 @@ static int acquire_new_home_record(UserRecord **ret) {
         }
 
         STRV_FOREACH(i, arg_fido2_device) {
-                r = identity_add_fido2_parameters(&v, *i);
+                r = identity_add_fido2_parameters(&v, *i, arg_fido2_lock_with);
                 if (r < 0)
                         return r;
         }
@@ -959,7 +1060,7 @@ static int acquire_new_home_record(UserRecord **ret) {
         if (!hr)
                 return log_oom();
 
-        r = user_record_load(hr, v, USER_RECORD_REQUIRE_REGULAR|USER_RECORD_ALLOW_SECRET|USER_RECORD_ALLOW_PRIVILEGED|USER_RECORD_ALLOW_PER_MACHINE|USER_RECORD_ALLOW_SIGNATURE|USER_RECORD_LOG);
+        r = user_record_load(hr, v, USER_RECORD_REQUIRE_REGULAR|USER_RECORD_ALLOW_SECRET|USER_RECORD_ALLOW_PRIVILEGED|USER_RECORD_ALLOW_PER_MACHINE|USER_RECORD_ALLOW_SIGNATURE|USER_RECORD_LOG|USER_RECORD_PERMISSIVE);
         if (r < 0)
                 return r;
 
@@ -997,9 +1098,7 @@ static int acquire_new_password(
                         return log_error_errno(r, "Failed to store password: %m");
 
                 string_erase(e);
-
-                if (unsetenv("NEWPASSWORD") < 0)
-                        return log_error_errno(errno, "Failed to unset $NEWPASSWORD: %m");
+                assert_se(unsetenv("NEWPASSWORD") == 0);
 
                 if (ret)
                         *ret = TAKE_PTR(copy);
@@ -1020,7 +1119,15 @@ static int acquire_new_password(
                 if (asprintf(&question, "Please enter new password for user %s:", user_name) < 0)
                         return log_oom();
 
-                r = ask_password_auto(question, "user-home", NULL, "home-password", USEC_INFINITY, 0, &first);
+                r = ask_password_auto(
+                                question,
+                                /* icon= */ "user-home",
+                                NULL,
+                                /* key_name= */ "home-password",
+                                /* credential_name= */ "home.new-password",
+                                USEC_INFINITY,
+                                0, /* no caching, we want to collect a new password here after all */
+                                &first);
                 if (r < 0)
                         return log_error_errno(r, "Failed to acquire password: %m");
 
@@ -1028,7 +1135,15 @@ static int acquire_new_password(
                 if (asprintf(&question, "Please enter new password for user %s (repeat):", user_name) < 0)
                         return log_oom();
 
-                r = ask_password_auto(question, "user-home", NULL, "home-password", USEC_INFINITY, 0, &second);
+                r = ask_password_auto(
+                                question,
+                                /* icon= */ "user-home",
+                                NULL,
+                                /* key_name= */ "home-password",
+                                /* credential_name= */ "home.new-password",
+                                USEC_INFINITY,
+                                0, /* no caching */
+                                &second);
                 if (r < 0)
                         return log_error_errno(r, "Failed to acquire password: %m");
 
@@ -1116,7 +1231,11 @@ static int create_home(int argc, char *argv[], void *userdata) {
                                 return log_error_errno(r, "Failed to hash password: %m");
                 } else {
                         /* There's a hash password set in the record, acquire the unhashed version of it. */
-                        r = acquire_existing_password(hr->user_name, hr, /* emphasize_current= */ false);
+                        r = acquire_existing_password(
+                                        hr->user_name,
+                                        hr,
+                                        /* emphasize_current= */ false,
+                                        ASK_PASSWORD_ACCEPT_CACHED | ASK_PASSWORD_PUSH_CACHE);
                         if (r < 0)
                                 return r;
                 }
@@ -1289,7 +1408,7 @@ static int acquire_updated_home_record(
         }
 
         STRV_FOREACH(i, arg_fido2_device) {
-                r = identity_add_fido2_parameters(&json, *i);
+                r = identity_add_fido2_parameters(&json, *i, arg_fido2_lock_with);
                 if (r < 0)
                         return r;
         }
@@ -1307,7 +1426,7 @@ static int acquire_updated_home_record(
         if (!hr)
                 return log_oom();
 
-        r = user_record_load(hr, json, USER_RECORD_REQUIRE_REGULAR|USER_RECORD_ALLOW_PRIVILEGED|USER_RECORD_ALLOW_PER_MACHINE|USER_RECORD_ALLOW_SECRET|USER_RECORD_ALLOW_SIGNATURE|USER_RECORD_LOG);
+        r = user_record_load(hr, json, USER_RECORD_REQUIRE_REGULAR|USER_RECORD_ALLOW_PRIVILEGED|USER_RECORD_ALLOW_PER_MACHINE|USER_RECORD_ALLOW_SECRET|USER_RECORD_ALLOW_SIGNATURE|USER_RECORD_LOG|USER_RECORD_PERMISSIVE);
         if (r < 0)
                 return r;
 
@@ -1331,6 +1450,10 @@ static int home_record_reset_human_interaction_permission(UserRecord *hr) {
         r = user_record_set_fido2_user_presence_permitted(hr, -1);
         if (r < 0)
                 return log_error_errno(r, "Failed to reset FIDO2 user presence permission flag: %m");
+
+        r = user_record_set_fido2_user_verification_permitted(hr, -1);
+        if (r < 0)
+                return log_error_errno(r, "Failed to reset FIDO2 user verification permission flag: %m");
 
         return 0;
 }
@@ -1578,7 +1701,7 @@ static int resize_home(int argc, char *argv[], void *userdata) {
         (void) polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
 
         if (arg_disk_size_relative != UINT64_MAX ||
-            (argc > 2 && parse_percent(argv[2]) >= 0))
+            (argc > 2 && parse_permyriad(argv[2]) >= 0))
                 return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
                                                "Relative disk size specification currently not supported when resizing.");
 
@@ -1595,9 +1718,9 @@ static int resize_home(int argc, char *argv[], void *userdata) {
                 ds = arg_disk_size;
         }
 
-        secret = user_record_new();
-        if (!secret)
-                return log_oom();
+        r = acquire_passed_secrets(argv[1], &secret);
+        if (r < 0)
+                return r;
 
         for (;;) {
                 _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
@@ -1671,9 +1794,9 @@ static int unlock_home(int argc, char *argv[], void *userdata) {
         STRV_FOREACH(i, strv_skip(argv, 1)) {
                 _cleanup_(user_record_unrefp) UserRecord *secret = NULL;
 
-                secret = user_record_new();
-                if (!secret)
-                        return log_oom();
+                r = acquire_passed_secrets(*i, &secret);
+                if (r < 0)
+                        return r;
 
                 for (;;) {
                         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
@@ -1737,9 +1860,9 @@ static int with_home(int argc, char *argv[], void *userdata) {
         if (!cmdline)
                 return log_oom();
 
-        secret = user_record_new();
-        if (!secret)
-                return log_oom();
+        r = acquire_passed_secrets(argv[1], &secret);
+        if (r < 0)
+                return r;
 
         for (;;) {
                 r = bus_message_new_method_call(bus, &m, bus_mgr, "AcquireHome");
@@ -1844,7 +1967,28 @@ static int lock_all_homes(int argc, char *argv[], void *userdata) {
 
         r = sd_bus_call(bus, m, HOME_SLOW_BUS_CALL_TIMEOUT_USEC, &error, NULL);
         if (r < 0)
-                return log_error_errno(r, "Failed to lock home: %s", bus_error_message(&error, r));
+                return log_error_errno(r, "Failed to lock all homes: %s", bus_error_message(&error, r));
+
+        return 0;
+}
+
+static int deactivate_all_homes(int argc, char *argv[], void *userdata) {
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
+        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
+        int r;
+
+        r = acquire_bus(&bus);
+        if (r < 0)
+                return r;
+
+        r = bus_message_new_method_call(bus, &m, bus_mgr, "DeactivateAllHomes");
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        r = sd_bus_call(bus, m, HOME_SLOW_BUS_CALL_TIMEOUT_USEC, &error, NULL);
+        if (r < 0)
+                return log_error_errno(r, "Failed to deactivate all homes: %s", bus_error_message(&error, r));
 
         return 0;
 }
@@ -1902,6 +2046,7 @@ static int help(int argc, char *argv[], void *userdata) {
                "  lock USER…                  Temporarily lock an active home area\n"
                "  unlock USER…                Unlock a temporarily locked home area\n"
                "  lock-all                    Lock all suitable home areas\n"
+               "  deactivate-all              Deactivate all active home areas\n"
                "  with USER [COMMAND…]        Run shell or command with access to a home area\n"
                "\n%4$sOptions:%5$s\n"
                "  -h --help                   Show this help\n"
@@ -1941,6 +2086,15 @@ static int help(int argc, char *argv[], void *userdata) {
                "                              private key and matching X.509 certificate\n"
                "     --fido2-device=PATH      Path to FIDO2 hidraw device with hmac-secret\n"
                "                              extension\n"
+               "     --fido2-with-client-pin=BOOL\n"
+               "                              Whether to require entering a PIN to unlock the\n"
+               "                              account\n"
+               "     --fido2-with-user-presence=BOOL\n"
+               "                              Whether to require user presence to unlock the\n"
+               "                              account\n"
+               "     --fido2-with-user-verification=BOOL\n"
+               "                              Whether to require user verification to unlock the\n"
+               "                              account\n"
                "     --recovery-key=BOOL      Add a recovery key\n"
                "\n%4$sAccount Management User Record Properties:%5$s\n"
                "     --locked=BOOL            Set locked account state\n"
@@ -2016,12 +2170,13 @@ static int help(int argc, char *argv[], void *userdata) {
                "     --kill-processes=BOOL    Whether to kill user processes when sessions\n"
                "                              terminate\n"
                "     --auto-login=BOOL        Try to log this user in automatically\n"
-               "\nSee the %6$s for details.\n"
-               , program_invocation_short_name
-               , ansi_highlight(), ansi_normal()
-               , ansi_underline(), ansi_normal()
-               , link
-        );
+               "\nSee the %6$s for details.\n",
+               program_invocation_short_name,
+               ansi_highlight(),
+               ansi_normal(),
+               ansi_underline(),
+               ansi_normal(),
+               link);
 
         return 0;
 }
@@ -2089,6 +2244,9 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_AUTO_LOGIN,
                 ARG_PKCS11_TOKEN_URI,
                 ARG_FIDO2_DEVICE,
+                ARG_FIDO2_WITH_PIN,
+                ARG_FIDO2_WITH_UP,
+                ARG_FIDO2_WITH_UV,
                 ARG_RECOVERY_KEY,
                 ARG_AND_RESIZE,
                 ARG_AND_CHANGE_PASSWORD,
@@ -2168,6 +2326,9 @@ static int parse_argv(int argc, char *argv[]) {
                 { "export-format",               required_argument, NULL, ARG_EXPORT_FORMAT               },
                 { "pkcs11-token-uri",            required_argument, NULL, ARG_PKCS11_TOKEN_URI            },
                 { "fido2-device",                required_argument, NULL, ARG_FIDO2_DEVICE                },
+                { "fido2-with-client-pin",       required_argument, NULL, ARG_FIDO2_WITH_PIN              },
+                { "fido2-with-user-presence",    required_argument, NULL, ARG_FIDO2_WITH_UP               },
+                { "fido2-with-user-verification",required_argument, NULL, ARG_FIDO2_WITH_UV               },
                 { "recovery-key",                required_argument, NULL, ARG_RECOVERY_KEY                },
                 { "and-resize",                  required_argument, NULL, ARG_AND_RESIZE                  },
                 { "and-change-password",         required_argument, NULL, ARG_AND_CHANGE_PASSWORD         },
@@ -2249,7 +2410,7 @@ static int parse_argv(int argc, char *argv[]) {
                                 break;
                         }
 
-                        r = parse_path_argument_and_warn(optarg, false, &hd);
+                        r = parse_path_argument(optarg, false, &hd);
                         if (r < 0)
                                 return r;
 
@@ -2382,7 +2543,7 @@ static int parse_argv(int argc, char *argv[]) {
 
                         l = rlimit_from_string_harder(field);
                         if (l < 0)
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Unknown resource limit type: %s", field);
+                                return log_error_errno(l, "Unknown resource limit type: %s", field);
 
                         if (isempty(eq + 1)) {
                                 /* Remove only the specific rlimit */
@@ -2470,7 +2631,7 @@ static int parse_argv(int argc, char *argv[]) {
                                 break;
                         }
 
-                        r = parse_path_argument_and_warn(optarg, false, &v);
+                        r = parse_path_argument(optarg, false, &v);
                         if (r < 0)
                                 return r;
 
@@ -2500,7 +2661,7 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_SETENV: {
-                        _cleanup_free_ char **l = NULL, **k = NULL;
+                        _cleanup_free_ char **l = NULL;
                         _cleanup_(json_variant_unrefp) JsonVariant *ne = NULL;
                         JsonVariant *e;
 
@@ -2513,7 +2674,8 @@ static int parse_argv(int argc, char *argv[]) {
                         }
 
                         if (!env_assignment_is_valid(optarg))
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Environment assignment '%s' not valid.", optarg);
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "Environment assignment '%s' not valid.", optarg);
 
                         e = json_variant_by_key(arg_identity_extra, "environment");
                         if (e) {
@@ -2522,13 +2684,13 @@ static int parse_argv(int argc, char *argv[]) {
                                         return log_error_errno(r, "Failed to parse JSON environment field: %m");
                         }
 
-                        k = strv_env_set(l, optarg);
-                        if (!k)
-                                return log_oom();
+                        r = strv_env_replace_strdup(&l, optarg);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to replace JSON environment field: %m");
 
-                        strv_sort(k);
+                        strv_sort(l);
 
-                        r = json_variant_new_array_strv(&ne, k);
+                        r = json_variant_new_array_strv(&ne, l);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to allocate environment list JSON: %m");
 
@@ -2640,7 +2802,7 @@ static int parse_argv(int argc, char *argv[]) {
                                 break;
                         }
 
-                        r = parse_permille(optarg);
+                        r = parse_permyriad(optarg);
                         if (r < 0) {
                                 r = parse_size(optarg, 1024, &arg_disk_size);
                                 if (r < 0)
@@ -2657,7 +2819,7 @@ static int parse_argv(int argc, char *argv[]) {
                                 arg_disk_size_relative = UINT64_MAX;
                         } else {
                                 /* Normalize to UINT32_MAX == 100% */
-                                arg_disk_size_relative = (uint64_t) r * UINT32_MAX / 1000U;
+                                arg_disk_size_relative = UINT32_SCALE_FROM_PERMYRIAD(r);
 
                                 r = drop_from_identity("diskSize");
                                 if (r < 0)
@@ -3130,7 +3292,7 @@ static int parse_argv(int argc, char *argv[]) {
                         const char *p;
 
                         if (streq(optarg, "list"))
-                                return list_pkcs11_tokens();
+                                return pkcs11_list_tokens();
 
                         /* If --pkcs11-token-uri= is specified we always drop everything old */
                         FOREACH_STRING(p, "pkcs11TokenUri", "pkcs11EncryptedKey") {
@@ -3147,7 +3309,7 @@ static int parse_argv(int argc, char *argv[]) {
                         if (streq(optarg, "auto")) {
                                 _cleanup_free_ char *found = NULL;
 
-                                r = find_pkcs11_token_auto(&found);
+                                r = pkcs11_find_token_auto(&found);
                                 if (r < 0)
                                         return r;
                                 r = strv_consume(&arg_pkcs11_token_uri, TAKE_PTR(found));
@@ -3168,7 +3330,7 @@ static int parse_argv(int argc, char *argv[]) {
                         const char *p;
 
                         if (streq(optarg, "list"))
-                                return list_fido2_devices();
+                                return fido2_list_devices();
 
                         FOREACH_STRING(p, "fido2HmacCredential", "fido2HmacSalt") {
                                 r = drop_from_identity(p);
@@ -3184,18 +3346,50 @@ static int parse_argv(int argc, char *argv[]) {
                         if (streq(optarg, "auto")) {
                                 _cleanup_free_ char *found = NULL;
 
-                                r = find_fido2_auto(&found);
+                                r = fido2_find_device_auto(&found);
                                 if (r < 0)
                                         return r;
 
                                 r = strv_consume(&arg_fido2_device, TAKE_PTR(found));
                         } else
                                 r = strv_extend(&arg_fido2_device, optarg);
-
                         if (r < 0)
                                 return r;
 
                         strv_uniq(arg_fido2_device);
+                        break;
+                }
+
+                case ARG_FIDO2_WITH_PIN: {
+                        bool lock_with_pin;
+
+                        r = parse_boolean_argument("--fido2-with-client-pin=", optarg, &lock_with_pin);
+                        if (r < 0)
+                                return r;
+
+                        SET_FLAG(arg_fido2_lock_with, FIDO2ENROLL_PIN, lock_with_pin);
+                        break;
+                }
+
+                case ARG_FIDO2_WITH_UP: {
+                        bool lock_with_up;
+
+                        r = parse_boolean_argument("--fido2-with-user-presence=", optarg, &lock_with_up);
+                        if (r < 0)
+                                return r;
+
+                        SET_FLAG(arg_fido2_lock_with, FIDO2ENROLL_UP, lock_with_up);
+                        break;
+                }
+
+                case ARG_FIDO2_WITH_UV: {
+                        bool lock_with_uv;
+
+                        r = parse_boolean_argument("--fido2-with-user-verification=", optarg, &lock_with_uv);
+                        if (r < 0)
+                                return r;
+
+                        SET_FLAG(arg_fido2_lock_with, FIDO2ENROLL_UV, lock_with_uv);
                         break;
                 }
 
@@ -3218,27 +3412,13 @@ static int parse_argv(int argc, char *argv[]) {
                 }
 
                 case 'j':
-                        arg_json = true;
                         arg_json_format_flags = JSON_FORMAT_PRETTY_AUTO|JSON_FORMAT_COLOR_AUTO;
                         break;
 
                 case ARG_JSON:
-                        if (streq(optarg, "pretty")) {
-                                arg_json = true;
-                                arg_json_format_flags = JSON_FORMAT_PRETTY|JSON_FORMAT_COLOR_AUTO;
-                        } else if (streq(optarg, "short")) {
-                                arg_json = true;
-                                arg_json_format_flags = JSON_FORMAT_NEWLINE;
-                        } else if (streq(optarg, "off")) {
-                                arg_json = false;
-                                arg_json_format_flags = 0;
-                        } else if (streq(optarg, "help")) {
-                                puts("pretty\n"
-                                     "short\n"
-                                     "off");
-                                return 0;
-                        } else
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Unknown argument to --json=: %s", optarg);
+                        r = parse_json_argument(optarg, &arg_json_format_flags);
+                        if (r <= 0)
+                                return r;
 
                         break;
 
@@ -3250,7 +3430,7 @@ static int parse_argv(int argc, char *argv[]) {
                         else
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Specifying -E more than twice is not supported.");
 
-                        arg_json = true;
+                        arg_json_format_flags &= ~JSON_FORMAT_OFF;
                         if (arg_json_format_flags == 0)
                                 arg_json_format_flags = JSON_FORMAT_PRETTY_AUTO|JSON_FORMAT_COLOR_AUTO;
                         break;
@@ -3328,27 +3508,28 @@ static int redirect_bus_mgr(void) {
 
 static int run(int argc, char *argv[]) {
         static const Verb verbs[] = {
-                { "help",         VERB_ANY, VERB_ANY, 0,            help                },
-                { "list",         VERB_ANY, 1,        VERB_DEFAULT, list_homes          },
-                { "activate",     2,        VERB_ANY, 0,            activate_home       },
-                { "deactivate",   2,        VERB_ANY, 0,            deactivate_home     },
-                { "inspect",      VERB_ANY, VERB_ANY, 0,            inspect_home        },
-                { "authenticate", VERB_ANY, VERB_ANY, 0,            authenticate_home   },
-                { "create",       VERB_ANY, 2,        0,            create_home         },
-                { "remove",       2,        VERB_ANY, 0,            remove_home         },
-                { "update",       VERB_ANY, 2,        0,            update_home         },
-                { "passwd",       VERB_ANY, 2,        0,            passwd_home         },
-                { "resize",       2,        3,        0,            resize_home         },
-                { "lock",         2,        VERB_ANY, 0,            lock_home           },
-                { "unlock",       2,        VERB_ANY, 0,            unlock_home         },
-                { "with",         2,        VERB_ANY, 0,            with_home           },
-                { "lock-all",     VERB_ANY, 1,        0,            lock_all_homes      },
+                { "help",           VERB_ANY, VERB_ANY, 0,            help                 },
+                { "list",           VERB_ANY, 1,        VERB_DEFAULT, list_homes           },
+                { "activate",       2,        VERB_ANY, 0,            activate_home        },
+                { "deactivate",     2,        VERB_ANY, 0,            deactivate_home      },
+                { "inspect",        VERB_ANY, VERB_ANY, 0,            inspect_home         },
+                { "authenticate",   VERB_ANY, VERB_ANY, 0,            authenticate_home    },
+                { "create",         VERB_ANY, 2,        0,            create_home          },
+                { "remove",         2,        VERB_ANY, 0,            remove_home          },
+                { "update",         VERB_ANY, 2,        0,            update_home          },
+                { "passwd",         VERB_ANY, 2,        0,            passwd_home          },
+                { "resize",         2,        3,        0,            resize_home          },
+                { "lock",           2,        VERB_ANY, 0,            lock_home            },
+                { "unlock",         2,        VERB_ANY, 0,            unlock_home          },
+                { "with",           2,        VERB_ANY, 0,            with_home            },
+                { "lock-all",       VERB_ANY, 1,        0,            lock_all_homes       },
+                { "deactivate-all", VERB_ANY, 1,        0,            deactivate_all_homes },
                 {}
         };
 
         int r;
 
-        log_setup_cli();
+        log_setup();
 
         r = redirect_bus_mgr();
         if (r < 0)
@@ -3361,4 +3542,4 @@ static int run(int argc, char *argv[]) {
         return dispatch_verb(argc, argv, verbs, NULL);
 }
 
-DEFINE_MAIN_FUNCTION(run);
+DEFINE_MAIN_FUNCTION_WITH_POSITIVE_FAILURE(run);

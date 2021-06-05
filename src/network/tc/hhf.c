@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+
+/* SPDX-License-Identifier: LGPL-2.1-or-later
  * Copyright © 2020 VMware, Inc. */
 
 #include <linux/pkt_sched.h>
@@ -74,7 +74,7 @@ int config_parse_heavy_hitter_filter_packet_limit(
         if (isempty(rvalue)) {
                 hhf->packet_limit = 0;
 
-                qdisc = NULL;
+                TAKE_PTR(qdisc);
                 return 0;
         }
 
@@ -86,7 +86,7 @@ int config_parse_heavy_hitter_filter_packet_limit(
                 return 0;
         }
 
-        qdisc = NULL;
+        TAKE_PTR(qdisc);
 
         return 0;
 }

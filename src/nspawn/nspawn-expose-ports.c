@@ -1,7 +1,8 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "sd-netlink.h"
 
+#include "af-list.h"
 #include "alloc-util.h"
 #include "fd-util.h"
 #include "firewall-util.h"
@@ -82,45 +83,43 @@ void expose_port_free_all(ExposePort *p) {
         }
 }
 
-int expose_port_flush(ExposePort* l, union in_addr_union *exposed) {
+int expose_port_flush(FirewallContext **fw_ctx, ExposePort* l, int af, union in_addr_union *exposed) {
         ExposePort *p;
-        int r, af = AF_INET;
+        int r;
 
         assert(exposed);
 
         if (!l)
                 return 0;
 
-        if (in_addr_is_null(af, exposed))
+        if (!in_addr_is_set(af, exposed))
                 return 0;
 
         log_debug("Lost IP address.");
 
         LIST_FOREACH(ports, p, l) {
-                r = fw_add_local_dnat(false,
+                r = fw_add_local_dnat(fw_ctx,
+                                      false,
                                       af,
                                       p->protocol,
-                                      NULL,
-                                      NULL, 0,
-                                      NULL, 0,
                                       p->host_port,
                                       exposed,
                                       p->container_port,
                                       NULL);
                 if (r < 0)
-                        log_warning_errno(r, "Failed to modify firewall: %m");
+                        log_warning_errno(r, "Failed to modify %s firewall: %m", af_to_name(af));
         }
 
         *exposed = IN_ADDR_NULL;
         return 0;
 }
 
-int expose_port_execute(sd_netlink *rtnl, ExposePort *l, union in_addr_union *exposed) {
+int expose_port_execute(sd_netlink *rtnl, FirewallContext **fw_ctx, ExposePort *l, int af, union in_addr_union *exposed) {
         _cleanup_free_ struct local_address *addresses = NULL;
         union in_addr_union new_exposed;
         ExposePort *p;
         bool add;
-        int af = AF_INET, r;
+        int r;
 
         assert(exposed);
 
@@ -139,7 +138,7 @@ int expose_port_execute(sd_netlink *rtnl, ExposePort *l, union in_addr_union *ex
                 addresses[0].scope < RT_SCOPE_LINK;
 
         if (!add)
-                return expose_port_flush(l, exposed);
+                return expose_port_flush(fw_ctx, l, af, exposed);
 
         new_exposed = addresses[0].address;
         if (in_addr_equal(af, exposed, &new_exposed))
@@ -153,18 +152,16 @@ int expose_port_execute(sd_netlink *rtnl, ExposePort *l, union in_addr_union *ex
 
         LIST_FOREACH(ports, p, l) {
 
-                r = fw_add_local_dnat(true,
+                r = fw_add_local_dnat(fw_ctx,
+                                      true,
                                       af,
                                       p->protocol,
-                                      NULL,
-                                      NULL, 0,
-                                      NULL, 0,
                                       p->host_port,
                                       &new_exposed,
                                       p->container_port,
-                                      in_addr_is_null(af, exposed) ? NULL : exposed);
+                                      in_addr_is_set(af, exposed) ? exposed : NULL);
                 if (r < 0)
-                        log_warning_errno(r, "Failed to modify firewall: %m");
+                        log_warning_errno(r, "Failed to modify %s firewall: %m", af_to_name(af));
         }
 
         *exposed = new_exposed;
@@ -194,7 +191,7 @@ int expose_port_watch_rtnl(
                 sd_event *event,
                 int recv_fd,
                 sd_netlink_message_handler_t handler,
-                union in_addr_union *exposed,
+                void *userdata,
                 sd_netlink **ret) {
         _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
         int fd, r;
@@ -213,11 +210,11 @@ int expose_port_watch_rtnl(
                 return log_error_errno(r, "Failed to create rtnl object: %m");
         }
 
-        r = sd_netlink_add_match(rtnl, NULL, RTM_NEWADDR, handler, NULL, exposed, "nspawn-NEWADDR");
+        r = sd_netlink_add_match(rtnl, NULL, RTM_NEWADDR, handler, NULL, userdata, "nspawn-NEWADDR");
         if (r < 0)
                 return log_error_errno(r, "Failed to subscribe to RTM_NEWADDR messages: %m");
 
-        r = sd_netlink_add_match(rtnl, NULL, RTM_DELADDR, handler, NULL, exposed, "nspawn-DELADDR");
+        r = sd_netlink_add_match(rtnl, NULL, RTM_DELADDR, handler, NULL, userdata, "nspawn-DELADDR");
         if (r < 0)
                 return log_error_errno(r, "Failed to subscribe to RTM_DELADDR messages: %m");
 

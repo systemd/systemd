@@ -1,0 +1,5 @@
+hoge:x:300:
+baz:x:302:
+yyy:x:SYSTEM_UGID_MAX:
+foo:x:301:
+ccc:x:305:

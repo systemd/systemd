@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #if HAVE_SELINUX
 #include <selinux/selinux.h>
@@ -69,7 +69,7 @@
 static size_t cache_max(void) {
         static size_t cached = -1;
 
-        if (cached == (size_t) -1) {
+        if (cached == SIZE_MAX) {
                 uint64_t mem_total;
                 int r;
 
@@ -102,16 +102,12 @@ static int client_context_compare(const void *a, const void *b) {
 }
 
 static int client_context_new(Server *s, pid_t pid, ClientContext **ret) {
-        ClientContext *c;
+        _cleanup_free_ ClientContext *c = NULL;
         int r;
 
         assert(s);
         assert(pid_is_valid(pid));
         assert(ret);
-
-        r = hashmap_ensure_allocated(&s->client_contexts, NULL);
-        if (r < 0)
-                return r;
 
         r = prioq_ensure_allocated(&s->client_contexts_lru, client_context_compare);
         if (r < 0)
@@ -136,13 +132,11 @@ static int client_context_new(Server *s, pid_t pid, ClientContext **ret) {
                 .log_ratelimit_burst = s->ratelimit_burst,
         };
 
-        r = hashmap_put(s->client_contexts, PID_TO_PTR(pid), c);
-        if (r < 0) {
-                free(c);
+        r = hashmap_ensure_put(&s->client_contexts, NULL, PID_TO_PTR(pid), c);
+        if (r < 0)
                 return r;
-        }
 
-        *ret = c;
+        *ret = TAKE_PTR(c);
         return 0;
 }
 
@@ -231,7 +225,7 @@ static void client_context_read_basic(ClientContext *c) {
         if (get_process_exe(c->pid, &t) >= 0)
                 free_and_replace(c->exe, t);
 
-        if (get_process_cmdline(c->pid, SIZE_MAX, 0, &t) >= 0)
+        if (get_process_cmdline(c->pid, SIZE_MAX, PROCESS_CMDLINE_QUOTE, &t) >= 0)
                 free_and_replace(c->cmdline, t);
 
         if (get_process_capeff(c->pid, &t) >= 0)
@@ -374,7 +368,7 @@ static int client_context_read_log_level_max(
 
         ll = log_level_from_string(value);
         if (ll < 0)
-                return -EINVAL;
+                return ll;
 
         c->log_level_max = ll;
         return 0;
@@ -384,8 +378,8 @@ static int client_context_read_extra_fields(
                 Server *s,
                 ClientContext *c) {
 
-        size_t size = 0, n_iovec = 0, n_allocated = 0, left;
         _cleanup_free_ struct iovec *iovec = NULL;
+        size_t size = 0, n_iovec = 0, left;
         _cleanup_free_ void *data = NULL;
         _cleanup_fclose_ FILE *f = NULL;
         struct stat st;
@@ -451,7 +445,7 @@ static int client_context_read_extra_fields(
                 if (!journal_field_valid((const char *) field, eq - field, false))
                         return -EBADMSG;
 
-                if (!GREEDY_REALLOC(iovec, n_allocated, n_iovec+1))
+                if (!GREEDY_REALLOC(iovec, n_iovec+1))
                         return -ENOMEM;
 
                 iovec[n_iovec++] = IOVEC_MAKE(field, v);

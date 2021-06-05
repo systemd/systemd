@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <errno.h>
 
@@ -216,7 +216,7 @@ int bus_user_method_terminate(sd_bus_message *message, void *userdata, sd_bus_er
         if (r == 0)
                 return 1; /* Will call us back */
 
-        r = user_stop(u, /* force */ true);
+        r = user_stop(u, /* force = */ true);
         if (r < 0)
                 return r;
 

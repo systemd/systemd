@@ -8,7 +8,7 @@ $ sudo test/run-integration-tests.sh
 ninja: Entering directory `/home/zbyszek/src/systemd/build'
 ninja: no work to do.
 --x-- Running TEST-01-BASIC --x--
-+ make -C TEST-01-BASIC BUILD_DIR=/home/zbyszek/src/systemd/build clean setup run
++ make -C TEST-01-BASIC clean setup run
 make: Entering directory '/home/zbyszek/src/systemd/test/TEST-01-BASIC'
 TEST-01-BASIC CLEANUP: Basic systemd setup
 TEST-01-BASIC SETUP: Basic systemd setup
@@ -17,7 +17,7 @@ TEST-01-BASIC RUN: Basic systemd setup [OK]
 make: Leaving directory '/home/zbyszek/src/systemd/test/TEST-01-BASIC'
 --x-- Result of TEST-01-BASIC: 0 --x--
 --x-- Running TEST-02-CRYPTSETUP --x--
-+ make -C TEST-02-CRYPTSETUP BUILD_DIR=/home/zbyszek/src/systemd/build clean setup run
++ make -C TEST-02-CRYPTSETUP clean setup run
 
 If one of the tests fails, then $subdir/test.log contains the log file of
 the test.
@@ -41,14 +41,28 @@ $ sudo make -C test/TEST-01-BASIC BUILD_DIR=../../some-other-build/ ...
 Note that in the second case, the path is relative to the test case directory.
 An absolute path may also be used in both cases.
 
+Testing installed binaries instead of built
+===========================================
+
+To run the extended testsuite using the systemd installed on the system instead
+of the systemd from a build, use the NO_BUILD=1:
+
+$ sudo NO_BUILD=1 test/run-integration-tests
+
 Configuration variables
 =======================
 
 TEST_NO_QEMU=1
     Don't run tests under QEMU
 
+TEST_QEMU_ONLY=1
+    Run only tests that require QEMU
+
 TEST_NO_NSPAWN=1
     Don't run tests under systemd-nspawn
+
+TEST_PREFER_NSPAWN=1
+    Run all tests that do not require qemu under systemd-nspawn
 
 TEST_NO_KVM=1
     Disable QEMU KVM auto-detection (may be necessary when you're trying to run the
@@ -120,3 +134,17 @@ https://wiki.debian.org/ArchitectureSpecificsMemo
 
 For PRs that fix a currently deny-listed test, the PR should include removal
 of the deny-list file.
+
+In case a test fails, the full set of artifacts, including the journal of the
+failed run, can be downloaded from the artifacts.tar.gz archive which will be
+reachable in the same URL parent directory as the logs.gz that gets linked on
+the Github CI status.
+
+To add new dependencies or new binaries to the packages used during the tests,
+a merge request can be sent to: https://salsa.debian.org/systemd-team/systemd
+targeting the 'upstream-ci' branch.
+
+The cloud-side infrastructure, that is hooked into the Github interface, is
+located at:
+
+https://git.launchpad.net/autopkgtest-cloud/

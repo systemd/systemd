@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <fcntl.h>
 #include <poll.h>
@@ -10,8 +10,12 @@
 #include <sys/syscall.h>
 #include <sys/types.h>
 #include <unistd.h>
+#if HAVE_VALGRIND_VALGRIND_H
+#include <valgrind/valgrind.h>
+#endif
 
 #include "alloc-util.h"
+#include "capability-util.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "macro.h"
@@ -30,13 +34,75 @@
 #include "virt.h"
 
 /* __NR_socket may be invalid due to libseccomp */
-#if !defined(__NR_socket) || __NR_socket < 0 || defined(__i386__) || defined(__s390x__) || defined(__s390__)
+#if !defined(__NR_socket) || __NR_socket < 0 || defined(__i386__) || defined(__s390x__) || defined(__s390__) || defined(__powerpc64__) || defined(__powerpc__)
 /* On these archs, socket() is implemented via the socketcall() syscall multiplexer,
  * and we can't restrict it hence via seccomp. */
 #  define SECCOMP_RESTRICT_ADDRESS_FAMILIES_BROKEN 1
 #else
 #  define SECCOMP_RESTRICT_ADDRESS_FAMILIES_BROKEN 0
 #endif
+
+static bool have_seccomp_privs(void) {
+        return geteuid() == 0 && have_effective_cap(CAP_SYS_ADMIN) > 0; /* If we are root but CAP_SYS_ADMIN we can't do caps (unless we also do NNP) */
+}
+
+static void test_parse_syscall_and_errno(void) {
+        _cleanup_free_ char *n = NULL;
+        int e;
+
+        assert_se(parse_syscall_and_errno("uname:EILSEQ", &n, &e) >= 0);
+        assert_se(streq(n, "uname"));
+        assert_se(e == errno_from_name("EILSEQ") && e >= 0);
+        n = mfree(n);
+
+        assert_se(parse_syscall_and_errno("uname:EINVAL", &n, &e) >= 0);
+        assert_se(streq(n, "uname"));
+        assert_se(e == errno_from_name("EINVAL") && e >= 0);
+        n = mfree(n);
+
+        assert_se(parse_syscall_and_errno("@sync:4095", &n, &e) >= 0);
+        assert_se(streq(n, "@sync"));
+        assert_se(e == 4095);
+        n = mfree(n);
+
+        /* If errno is omitted, then e is set to -1 */
+        assert_se(parse_syscall_and_errno("mount", &n, &e) >= 0);
+        assert_se(streq(n, "mount"));
+        assert_se(e == -1);
+        n = mfree(n);
+
+        /* parse_syscall_and_errno() does not check the syscall name is valid or not. */
+        assert_se(parse_syscall_and_errno("hoge:255", &n, &e) >= 0);
+        assert_se(streq(n, "hoge"));
+        assert_se(e == 255);
+        n = mfree(n);
+
+        /* 0 is also a valid errno. */
+        assert_se(parse_syscall_and_errno("hoge:0", &n, &e) >= 0);
+        assert_se(streq(n, "hoge"));
+        assert_se(e == 0);
+        n = mfree(n);
+
+        assert_se(parse_syscall_and_errno("hoge:kill", &n, &e) >= 0);
+        assert_se(streq(n, "hoge"));
+        assert_se(e == SECCOMP_ERROR_NUMBER_KILL);
+        n = mfree(n);
+
+        /* The function checks the syscall name is empty or not. */
+        assert_se(parse_syscall_and_errno("", &n, &e) == -EINVAL);
+        assert_se(parse_syscall_and_errno(":255", &n, &e) == -EINVAL);
+
+        /* errno must be a valid errno name or number between 0 and ERRNO_MAX == 4095, or "kill" */
+        assert_se(parse_syscall_and_errno("hoge:4096", &n, &e) == -ERANGE);
+        assert_se(parse_syscall_and_errno("hoge:-3", &n, &e) == -ERANGE);
+        assert_se(parse_syscall_and_errno("hoge:12.3", &n, &e) == -EINVAL);
+        assert_se(parse_syscall_and_errno("hoge:123junk", &n, &e) == -EINVAL);
+        assert_se(parse_syscall_and_errno("hoge:junk123", &n, &e) == -EINVAL);
+        assert_se(parse_syscall_and_errno("hoge:255:EILSEQ", &n, &e) == -EINVAL);
+        assert_se(parse_syscall_and_errno("hoge:-EINVAL", &n, &e) == -EINVAL);
+        assert_se(parse_syscall_and_errno("hoge:EINVALaaa", &n, &e) == -EINVAL);
+        assert_se(parse_syscall_and_errno("hoge:", &n, &e) == -EINVAL);
+}
 
 static void test_seccomp_arch_to_string(void) {
         uint32_t a, b;
@@ -107,13 +173,28 @@ static void test_filter_sets(void) {
                 log_notice("Seccomp not available, skipping %s", __func__);
                 return;
         }
-        if (geteuid() != 0) {
-                log_notice("Not root, skipping %s", __func__);
+        if (!have_seccomp_privs()) {
+                log_notice("Not privileged, skipping %s", __func__);
                 return;
         }
 
         for (unsigned i = 0; i < _SYSCALL_FILTER_SET_MAX; i++) {
                 pid_t pid;
+
+#if HAVE_VALGRIND_VALGRIND_H
+                if (RUNNING_ON_VALGRIND && IN_SET(i, SYSCALL_FILTER_SET_DEFAULT, SYSCALL_FILTER_SET_BASIC_IO, SYSCALL_FILTER_SET_SIGNAL)) {
+                        /* valgrind at least requires rt_sigprocmask(), read(), write(). */
+                        log_info("Running on valgrind, skipping %s", syscall_filter_sets[i].name);
+                        continue;
+                }
+#endif
+#if HAS_FEATURE_ADDRESS_SANITIZER
+                if (IN_SET(i, SYSCALL_FILTER_SET_DEFAULT, SYSCALL_FILTER_SET_BASIC_IO, SYSCALL_FILTER_SET_SIGNAL)) {
+                        /* ASAN at least requires sigaltstack(), read(), write(). */
+                        log_info("Running on address sanitizer, skipping %s", syscall_filter_sets[i].name);
+                        continue;
+                }
+#endif
 
                 log_info("Testing %s", syscall_filter_sets[i].name);
 
@@ -227,8 +308,8 @@ static void test_restrict_namespace(void) {
                 log_notice("Seccomp not available, skipping remaining tests in %s", __func__);
                 return;
         }
-        if (geteuid() != 0) {
-                log_notice("Not root, skipping remaining tests in %s", __func__);
+        if (!have_seccomp_privs()) {
+                log_notice("Not privileged, skipping remaining tests in %s", __func__);
                 return;
         }
 
@@ -297,8 +378,8 @@ static void test_protect_sysctl(void) {
                 log_notice("Seccomp not available, skipping %s", __func__);
                 return;
         }
-        if (geteuid() != 0) {
-                log_notice("Not root, skipping %s", __func__);
+        if (!have_seccomp_privs()) {
+                log_notice("Not privileged, skipping %s", __func__);
                 return;
         }
 
@@ -323,6 +404,13 @@ static void test_protect_sysctl(void) {
 
                 assert_se(seccomp_protect_sysctl() >= 0);
 
+#if HAVE_VALGRIND_VALGRIND_H
+                if (RUNNING_ON_VALGRIND) {
+                        log_info("Running on valgrind, skipping syscall/EPERM test");
+                        _exit(EXIT_SUCCESS);
+                }
+#endif
+
 #if defined __NR__sysctl && __NR__sysctl >= 0
                 assert_se(syscall(__NR__sysctl, 0, 0, 0) < 0);
                 assert_se(errno == EPERM);
@@ -343,8 +431,8 @@ static void test_protect_syslog(void) {
                 log_notice("Seccomp not available, skipping %s", __func__);
                 return;
         }
-        if (geteuid() != 0) {
-                log_notice("Not root, skipping %s", __func__);
+        if (!have_seccomp_privs()) {
+                log_notice("Not privileged, skipping %s", __func__);
                 return;
         }
 
@@ -385,8 +473,8 @@ static void test_restrict_address_families(void) {
                 log_notice("Seccomp not available, skipping %s", __func__);
                 return;
         }
-        if (geteuid() != 0) {
-                log_notice("Not root, skipping %s", __func__);
+        if (!have_seccomp_privs()) {
+                log_notice("Not privileged, skipping %s", __func__);
                 return;
         }
 
@@ -474,8 +562,8 @@ static void test_restrict_realtime(void) {
                 log_notice("Seccomp not available, skipping %s", __func__);
                 return;
         }
-        if (geteuid() != 0) {
-                log_notice("Not root, skipping %s", __func__);
+        if (!have_seccomp_privs()) {
+                log_notice("Not privileged, skipping %s", __func__);
                 return;
         }
 
@@ -521,10 +609,20 @@ static void test_memory_deny_write_execute_mmap(void) {
                 log_notice("Seccomp not available, skipping %s", __func__);
                 return;
         }
-        if (geteuid() != 0) {
-                log_notice("Not root, skipping %s", __func__);
+        if (!have_seccomp_privs()) {
+                log_notice("Not privileged, skipping %s", __func__);
                 return;
         }
+#if HAVE_VALGRIND_VALGRIND_H
+        if (RUNNING_ON_VALGRIND) {
+                log_notice("Running on valgrind, skipping %s", __func__);
+                return;
+        }
+#endif
+#if HAS_FEATURE_ADDRESS_SANITIZER
+        log_notice("Running on address sanitizer, skipping %s", __func__);
+        return;
+#endif
 
         pid = fork();
         assert_se(pid >= 0);
@@ -581,10 +679,20 @@ static void test_memory_deny_write_execute_shmat(void) {
                 log_notice("Seccomp not available, skipping %s", __func__);
                 return;
         }
-        if (geteuid() != 0) {
-                log_notice("Not root, skipping %s", __func__);
+        if (!have_seccomp_privs()) {
+                log_notice("Not privileged, skipping %s", __func__);
                 return;
         }
+#if HAVE_VALGRIND_VALGRIND_H
+        if (RUNNING_ON_VALGRIND) {
+                log_notice("Running on valgrind, skipping %s", __func__);
+                return;
+        }
+#endif
+#if HAS_FEATURE_ADDRESS_SANITIZER
+        log_notice("Running on address sanitizer, skipping %s", __func__);
+        return;
+#endif
 
         shmid = shmget(IPC_PRIVATE, page_size(), 0);
         assert_se(shmid >= 0);
@@ -636,8 +744,8 @@ static void test_restrict_archs(void) {
                 log_notice("Seccomp not available, skipping %s", __func__);
                 return;
         }
-        if (geteuid() != 0) {
-                log_notice("Not root, skipping %s", __func__);
+        if (!have_seccomp_privs()) {
+                log_notice("Not privileged, skipping %s", __func__);
                 return;
         }
 
@@ -676,8 +784,8 @@ static void test_load_syscall_filter_set_raw(void) {
                 log_notice("Seccomp not available, skipping %s", __func__);
                 return;
         }
-        if (geteuid() != 0) {
-                log_notice("Not root, skipping %s", __func__);
+        if (!have_seccomp_privs()) {
+                log_notice("Not privileged, skipping %s", __func__);
                 return;
         }
 
@@ -774,8 +882,8 @@ static void test_lock_personality(void) {
                 log_notice("Seccomp not available, skipping %s", __func__);
                 return;
         }
-        if (geteuid() != 0) {
-                log_notice("Not root, skipping %s", __func__);
+        if (!have_seccomp_privs()) {
+                log_notice("Not privileged, skipping %s", __func__);
                 return;
         }
 
@@ -838,8 +946,8 @@ static void test_restrict_suid_sgid(void) {
                 log_notice("Seccomp not available, skipping %s", __func__);
                 return;
         }
-        if (geteuid() != 0) {
-                log_notice("Not root, skipping %s", __func__);
+        if (!have_seccomp_privs()) {
+                log_notice("Not privileged, skipping %s", __func__);
                 return;
         }
 
@@ -1030,6 +1138,7 @@ static void test_restrict_suid_sgid(void) {
 int main(int argc, char *argv[]) {
         test_setup_logging(LOG_DEBUG);
 
+        test_parse_syscall_and_errno();
         test_seccomp_arch_to_string();
         test_architecture_table();
         test_syscall_filter_set_find();

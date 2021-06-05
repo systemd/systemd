@@ -1,12 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+
- *
- * libudev - interface to udev device information
- *
- * This library is free software; you can redistribute it and/or
- * modify it under the terms of the GNU Lesser General Public
- * License as published by the Free Software Foundation; either
- * version 2.1 of the License, or (at your option) any later version.
- */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <errno.h>
 #include <poll.h>
@@ -44,10 +36,10 @@ struct udev_ctrl {
         int sock_connect;
         union sockaddr_union saddr;
         socklen_t addrlen;
-        bool bound:1;
-        bool cleanup_socket:1;
-        bool connected:1;
-        bool maybe_disconnected:1;
+        bool bound;
+        bool cleanup_socket;
+        bool connected;
+        bool maybe_disconnected;
         sd_event *event;
         sd_event_source *event_source;
         sd_event_source *event_source_connect;
@@ -58,7 +50,6 @@ struct udev_ctrl {
 int udev_ctrl_new_from_fd(struct udev_ctrl **ret, int fd) {
         _cleanup_close_ int sock = -1;
         struct udev_ctrl *uctrl;
-        int r;
 
         assert(ret);
 
@@ -78,14 +69,6 @@ int udev_ctrl_new_from_fd(struct udev_ctrl **ret, int fd) {
                 .sock_connect = -1,
                 .bound = fd >= 0,
         };
-
-        /*
-         * FIXME: remove it as soon as we can depend on this:
-         *   http://git.kernel.org/cgit/linux/kernel/git/torvalds/linux.git/commit/?id=90c6bd34f884cd9cee21f1d152baf6c18bcac949
-         */
-        r = setsockopt_int(uctrl->sock, SOL_SOCKET, SO_PASSCRED, true);
-        if (r < 0)
-                log_warning_errno(r, "Failed to set SO_PASSCRED: %m");
 
         uctrl->saddr.un = (struct sockaddr_un) {
                 .sun_family = AF_UNIX,
@@ -181,9 +164,10 @@ static void udev_ctrl_disconnect_and_listen_again(struct udev_ctrl *uctrl) {
         udev_ctrl_disconnect(uctrl);
         udev_ctrl_unref(uctrl);
         (void) sd_event_source_set_enabled(uctrl->event_source, SD_EVENT_ON);
+        /* We don't return NULL here because uctrl is not freed */
 }
 
-DEFINE_TRIVIAL_CLEANUP_FUNC(struct udev_ctrl *, udev_ctrl_disconnect_and_listen_again);
+DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(struct udev_ctrl*, udev_ctrl_disconnect_and_listen_again, NULL);
 
 static int udev_ctrl_connection_event_handler(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
         _cleanup_(udev_ctrl_disconnect_and_listen_againp) struct udev_ctrl *uctrl = NULL;
@@ -355,10 +339,6 @@ int udev_ctrl_send(struct udev_ctrl *uctrl, enum udev_ctrl_msg_type type, int in
         return 0;
 }
 
-static int udev_ctrl_wait_io_handler(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
-        return sd_event_exit(sd_event_source_get_event(s), 0);
-}
-
 int udev_ctrl_wait(struct udev_ctrl *uctrl, usec_t timeout) {
         _cleanup_(sd_event_source_unrefp) sd_event_source *source_io = NULL, *source_timeout = NULL;
         int r;
@@ -385,7 +365,7 @@ int udev_ctrl_wait(struct udev_ctrl *uctrl, usec_t timeout) {
                         return r;
         }
 
-        r = sd_event_add_io(uctrl->event, &source_io, uctrl->sock, EPOLLIN, udev_ctrl_wait_io_handler, NULL);
+        r = sd_event_add_io(uctrl->event, &source_io, uctrl->sock, EPOLLIN, NULL, INT_TO_PTR(0));
         if (r < 0)
                 return r;
 

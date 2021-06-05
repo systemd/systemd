@@ -1,0 +1,11 @@
+Files in this directory specify a description of hardware devices, in the form
+of mappings from modalias-like keys (which identify specific hardware devices)
+to udev properties.
+
+Files in this directory are not read by udev directly. Instead,
+man:systemd-hwdb(8) compiles them into a binary database.
+
+See man:hwdb(7) for an overview of the configuration file format, and
+man:systemd-udevd.service(8) for a description of the udev daemon.
+
+Use 'systemd-analyze cat-config udev/hwdb.d' to display the effective config.

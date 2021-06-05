@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
 #include "macro.h"
@@ -21,6 +21,9 @@ enum {
         NETLINK_TYPE_NESTED,                    /* NLA_NESTED */
         NETLINK_TYPE_UNION,
         NETLINK_TYPE_SOCKADDR,
+        NETLINK_TYPE_BINARY,
+        NETLINK_TYPE_BITFIELD32,                /* NLA_BITFIELD32 */
+        NETLINK_TYPE_REJECT,                    /* NLA_REJECT */
 };
 
 typedef enum NLMatchType {
@@ -89,8 +92,9 @@ typedef enum NLUnionLinkInfoData {
         NL_UNION_LINK_INFO_DATA_XFRM,
         NL_UNION_LINK_INFO_DATA_IFB,
         NL_UNION_LINK_INFO_DATA_BAREUDP,
+        NL_UNION_LINK_INFO_DATA_BATADV,
         _NL_UNION_LINK_INFO_DATA_MAX,
-        _NL_UNION_LINK_INFO_DATA_INVALID = -1
+        _NL_UNION_LINK_INFO_DATA_INVALID = -EINVAL,
 } NLUnionLinkInfoData;
 
 const char *nl_union_link_info_data_to_string(NLUnionLinkInfoData p) _const_;
@@ -112,8 +116,24 @@ typedef enum NLUnionTCAOptionData {
         NL_UNION_TCA_OPTION_DATA_SFB,
         NL_UNION_TCA_OPTION_DATA_TBF,
         _NL_UNION_TCA_OPTION_DATA_MAX,
-        _NL_UNION_TCA_OPTION_DATA_INVALID = -1,
+        _NL_UNION_TCA_OPTION_DATA_INVALID = -EINVAL,
 } NLUnionTCAOptionData;
 
 const char *nl_union_tca_option_data_to_string(NLUnionTCAOptionData p) _const_;
 NLUnionTCAOptionData nl_union_tca_option_data_from_string(const char *p) _pure_;
+
+typedef enum NLUnionNFTExprData {
+        NL_UNION_NFT_EXPR_DATA_BITWISE,
+        NL_UNION_NFT_EXPR_DATA_CMP,
+        NL_UNION_NFT_EXPR_DATA_FIB,
+        NL_UNION_NFT_EXPR_DATA_LOOKUP,
+        NL_UNION_NFT_EXPR_DATA_PAYLOAD,
+        NL_UNION_NFT_EXPR_DATA_MASQ,
+        NL_UNION_NFT_EXPR_DATA_META,
+        NL_UNION_NFT_EXPR_DATA_NAT,
+        _NL_UNION_NFT_EXPR_DATA_MAX,
+        _NL_UNION_NFT_EXPR_DATA_INVALID = -EINVAL,
+} NLUnionNFTExprData;
+
+const char *nl_union_nft_expr_data_to_string(NLUnionNFTExprData p) _const_;
+NLUnionNFTExprData nl_union_nft_expr_data_from_string(const char *p) _pure_;

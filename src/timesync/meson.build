@@ -1,33 +1,49 @@
-# SPDX-License-Identifier: LGPL-2.1+
+# SPDX-License-Identifier: LGPL-2.1-or-later
 
-systemd_timesyncd_sources = files('''
-        timesyncd.c
-        timesyncd-bus.c
-        timesyncd-bus.h
-        timesyncd-conf.c
-        timesyncd-conf.h
-        timesyncd-manager.c
-        timesyncd-manager.h
-        timesyncd-ntp-message.h
-        timesyncd-server.c
-        timesyncd-server.h
-'''.split())
+sources = files(
+        'timesyncd-conf.c',
+        'timesyncd-conf.h',
+        'timesyncd-manager.c',
+        'timesyncd-manager.h',
+        'timesyncd-ntp-message.h',
+        'timesyncd-server.c',
+        'timesyncd-server.h')
 
-timesyncd_gperf_c = custom_target(
+systemd_timesyncd_sources = files(
+        'timesyncd.c',
+        'timesyncd-bus.c',
+        'timesyncd-bus.h')
+
+sources += custom_target(
         'timesyncd-gperf.c',
         input : 'timesyncd-gperf.gperf',
         output : 'timesyncd-gperf.c',
         command : [gperf, '@INPUT@', '--output-file', '@OUTPUT@'])
 
-systemd_timesyncd_sources += [timesyncd_gperf_c]
+if get_option('link-timesyncd-shared')
+        timesyncd_link_with = [libshared]
+else
+        timesyncd_link_with = [libsystemd_static,
+                               libshared_static,
+                               libbasic_gcrypt]
+endif
+
+libtimesyncd_core = static_library(
+        'timesyncd-core',
+        sources,
+        include_directories : includes,
+        link_with : [timesyncd_link_with])
+
+custom_target(
+        'timesyncd.conf',
+        input : 'timesyncd.conf.in',
+        output : 'timesyncd.conf',
+        command : [meson_render_jinja2, config_h, '@INPUT@'],
+        capture : true,
+        install : conf.get('ENABLE_TIMESYNCD') == 1 and install_sysconfdir_samples,
+        install_dir : pkgsysconfdir)
 
 if conf.get('ENABLE_TIMESYNCD') == 1
-        timesyncd_conf = configure_file(
-                input : 'timesyncd.conf.in',
-                output : 'timesyncd.conf',
-                configuration : substs)
-        install_data(timesyncd_conf,
-                     install_dir : pkgsysconfdir)
         install_data('org.freedesktop.timesync1.conf',
                      install_dir : dbuspolicydir)
         install_data('org.freedesktop.timesync1.service',
@@ -39,15 +55,8 @@ endif
 ############################################################
 
 tests += [
-        [['src/timesync/test-timesync.c',
-          'src/timesync/timesyncd-manager.c',
-          'src/timesync/timesyncd-manager.h',
-          'src/timesync/timesyncd-conf.c',
-          'src/timesync/timesyncd-conf.h',
-          'src/timesync/timesyncd-server.c',
-          'src/timesync/timesyncd-server.h',
-          timesyncd_gperf_c],
-         [libshared],
-         [libm],
-         'ENABLE_TIMESYNCD'],
+        [['src/timesync/test-timesync.c'],
+         [libtimesyncd_core,
+          libshared],
+         [libm]],
 ]

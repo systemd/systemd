@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <errno.h>
 #include <getopt.h>
@@ -22,6 +22,7 @@
 #include "main-func.h"
 #include "memory-util.h"
 #include "pager.h"
+#include "parse-argument.h"
 #include "parse-util.h"
 #include "pretty-print.h"
 #include "process-util.h"
@@ -38,8 +39,7 @@
 #include "verbs.h"
 
 static char **arg_property = NULL;
-static bool arg_all = false;
-static bool arg_value = false;
+static BusPrintPropertyFlags arg_print_flags = 0;
 static bool arg_full = false;
 static PagerFlags arg_pager_flags = 0;
 static bool arg_legend = true;
@@ -56,7 +56,7 @@ STATIC_DESTRUCTOR_REGISTER(arg_property, strv_freep);
 static OutputFlags get_output_flags(void) {
 
         return
-                arg_all * OUTPUT_SHOW_ALL |
+                FLAGS_SET(arg_print_flags, BUS_PRINT_PROPERTY_SHOW_EMPTY) * OUTPUT_SHOW_ALL |
                 (arg_full || !on_tty() || pager_have()) * OUTPUT_FULL_WIDTH |
                 colors_enabled() * OUTPUT_COLOR;
 }
@@ -89,7 +89,7 @@ static int show_table(Table *table, const char *word) {
         assert(word);
 
         if (table_get_rows(table) > 1 || OUTPUT_MODE_IS_JSON(arg_output)) {
-                r = table_set_sort(table, (size_t) 0, (size_t) -1);
+                r = table_set_sort(table, (size_t) 0);
                 if (r < 0)
                         return table_log_sort_error(r);
 
@@ -485,7 +485,7 @@ static int print_session_status_info(sd_bus *bus, const char *path, bool *new_li
 
                 printf("\t  Leader: %"PRIu32, i.leader);
 
-                get_process_comm(i.leader, &t);
+                (void) get_process_comm(i.leader, &t);
                 if (t)
                         printf(" (%s)", t);
 
@@ -545,8 +545,7 @@ static int print_session_status_info(sd_bus *bus, const char *path, bool *new_li
                 printf("\t    Unit: %s\n", i.scope);
                 show_unit_cgroup(bus, "org.freedesktop.systemd1.Scope", i.scope, i.leader);
 
-                if (arg_transport == BUS_TRANSPORT_LOCAL) {
-
+                if (arg_transport == BUS_TRANSPORT_LOCAL)
                         show_journal_by_unit(
                                         stdout,
                                         i.scope,
@@ -560,7 +559,6 @@ static int print_session_status_info(sd_bus *bus, const char *path, bool *new_li
                                         SD_JOURNAL_LOCAL_ONLY,
                                         true,
                                         NULL);
-                }
         }
 
         return 0;
@@ -706,7 +704,7 @@ static int print_seat_status_info(sd_bus *bus, const char *path, bool *new_line)
         return 0;
 }
 
-static int print_property(const char *name, const char *expected_value, sd_bus_message *m, bool value, bool all) {
+static int print_property(const char *name, const char *expected_value, sd_bus_message *m, BusPrintPropertyFlags flags) {
         char type;
         const char *contents;
         int r;
@@ -729,8 +727,7 @@ static int print_property(const char *name, const char *expected_value, sd_bus_m
                         if (r < 0)
                                 return bus_log_parse_error(r);
 
-                        if (all || !isempty(s))
-                                bus_print_property_value(name, expected_value, value, s);
+                        bus_print_property_value(name, expected_value, flags, s);
 
                         return 1;
 
@@ -746,7 +743,7 @@ static int print_property(const char *name, const char *expected_value, sd_bus_m
                                                        "Invalid user ID: " UID_FMT,
                                                        uid);
 
-                        bus_print_property_valuef(name, expected_value, value, UID_FMT, uid);
+                        bus_print_property_valuef(name, expected_value, flags, UID_FMT, uid);
                         return 1;
                 }
                 break;
@@ -761,7 +758,7 @@ static int print_property(const char *name, const char *expected_value, sd_bus_m
                         if (r < 0)
                                 return bus_log_parse_error(r);
 
-                        if (!value)
+                        if (!FLAGS_SET(flags, BUS_PRINT_PROPERTY_ONLY_VALUE))
                                 printf("%s=", name);
 
                         while ((r = sd_bus_message_read(m, "(so)", &s, NULL)) > 0) {
@@ -769,7 +766,7 @@ static int print_property(const char *name, const char *expected_value, sd_bus_m
                                 space = true;
                         }
 
-                        if (space || !value)
+                        if (space || !FLAGS_SET(flags, BUS_PRINT_PROPERTY_ONLY_VALUE))
                                 printf("\n");
 
                         if (r < 0)
@@ -805,8 +802,7 @@ static int show_properties(sd_bus *bus, const char *path, bool *new_line) {
                         path,
                         print_property,
                         arg_property,
-                        arg_value,
-                        arg_all,
+                        arg_print_flags,
                         NULL);
         if (r < 0)
                 return bus_log_parse_error(r);
@@ -1090,9 +1086,15 @@ static int terminate_user(int argc, char *argv[], void *userdata) {
         for (int i = 1; i < argc; i++) {
                 uid_t uid;
 
-                r = get_user_creds((const char**) (argv+i), &uid, NULL, NULL, NULL, 0);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to look up user %s: %m", argv[i]);
+                if (isempty(argv[i]))
+                        uid = getuid();
+                else {
+                        const char *u = argv[i];
+
+                        r = get_user_creds(&u, &uid, NULL, NULL, NULL, 0);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to look up user %s: %m", argv[i]);
+                }
 
                 r = bus_call_method(bus, bus_login_mgr, "TerminateUser", &error, NULL, "u", (uint32_t) uid);
                 if (r < 0)
@@ -1118,9 +1120,15 @@ static int kill_user(int argc, char *argv[], void *userdata) {
         for (int i = 1; i < argc; i++) {
                 uid_t uid;
 
-                r = get_user_creds((const char**) (argv+i), &uid, NULL, NULL, NULL, 0);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to look up user %s: %m", argv[i]);
+                if (isempty(argv[i]))
+                        uid = getuid();
+                else {
+                        const char *u = argv[i];
+
+                        r = get_user_creds(&u, &uid, NULL, NULL, NULL, 0);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to look up user %s: %m", argv[i]);
+                }
 
                 r = bus_call_method(
                         bus,
@@ -1266,6 +1274,7 @@ static int help(int argc, char *argv[], void *userdata) {
                "  -H --host=[USER@]HOST    Operate on remote host\n"
                "  -M --machine=CONTAINER   Operate on local container\n"
                "  -p --property=NAME       Show only properties by this name\n"
+               "  -P NAME                  Equivalent to --value --property=NAME\n"
                "  -a --all                 Show all properties, including empty ones\n"
                "     --value               When showing properties, only print the value\n"
                "  -l --full                Do not ellipsize output\n"
@@ -1277,12 +1286,11 @@ static int help(int argc, char *argv[], void *userdata) {
                "                             short-monotonic, short-unix, verbose, export,\n"
                "                             json, json-pretty, json-sse, json-seq, cat,\n"
                "                             with-unit)\n"
-               "\nSee the %s for details.\n"
-               , program_invocation_short_name
-               , ansi_highlight()
-               , ansi_normal()
-               , link
-        );
+               "\nSee the %s for details.\n",
+               program_invocation_short_name,
+               ansi_highlight(),
+               ansi_normal(),
+               link);
 
         return 0;
 }
@@ -1321,7 +1329,7 @@ static int parse_argv(int argc, char *argv[]) {
         assert(argc >= 0);
         assert(argv);
 
-        while ((c = getopt_long(argc, argv, "hp:als:H:M:n:o:", options, NULL)) >= 0)
+        while ((c = getopt_long(argc, argv, "hp:P:als:H:M:n:o:", options, NULL)) >= 0)
 
                 switch (c) {
 
@@ -1331,6 +1339,10 @@ static int parse_argv(int argc, char *argv[]) {
                 case ARG_VERSION:
                         return version();
 
+                case 'P':
+                        SET_FLAG(arg_print_flags, BUS_PRINT_PROPERTY_ONLY_VALUE, true);
+                        _fallthrough_;
+
                 case 'p': {
                         r = strv_extend(&arg_property, optarg);
                         if (r < 0)
@@ -1339,16 +1351,16 @@ static int parse_argv(int argc, char *argv[]) {
                         /* If the user asked for a particular
                          * property, show it to them, even if it is
                          * empty. */
-                        arg_all = true;
+                        SET_FLAG(arg_print_flags, BUS_PRINT_PROPERTY_SHOW_EMPTY, true);
                         break;
                 }
 
                 case 'a':
-                        arg_all = true;
+                        SET_FLAG(arg_print_flags, BUS_PRINT_PROPERTY_SHOW_EMPTY, true);
                         break;
 
                 case ARG_VALUE:
-                        arg_value = true;
+                        SET_FLAG(arg_print_flags, BUS_PRINT_PROPERTY_ONLY_VALUE, true);
                         break;
 
                 case 'l':
@@ -1369,8 +1381,7 @@ static int parse_argv(int argc, char *argv[]) {
 
                         arg_output = output_mode_from_string(optarg);
                         if (arg_output < 0)
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "Unknown output '%s'.", optarg);
+                                return log_error_errno(arg_output, "Unknown output '%s'.", optarg);
 
                         if (OUTPUT_MODE_IS_JSON(arg_output))
                                 arg_legend = false;
@@ -1394,15 +1405,9 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case 's':
-                        if (streq(optarg, "help")) {
-                                DUMP_STRING_TABLE(signal, int, _NSIG);
-                                return 0;
-                        }
-
-                        arg_signal = signal_from_string(optarg);
-                        if (arg_signal < 0)
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "Failed to parse signal string %s.", optarg);
+                        r = parse_signal_argument(optarg, &arg_signal);
+                        if (r <= 0)
+                                return r;
                         break;
 
                 case 'H':
@@ -1462,7 +1467,7 @@ static int run(int argc, char *argv[]) {
         int r;
 
         setlocale(LC_ALL, "");
-        log_setup_cli();
+        log_setup();
 
         /* The journal merging logic potentially needs a lot of fds. */
         (void) rlimit_nofile_bump(HIGH_RLIMIT_NOFILE);

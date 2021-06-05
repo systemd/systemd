@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <errno.h>
 #include <getopt.h>
@@ -62,12 +62,13 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
 
 static int apply_file(struct kmod_ctx *ctx, const char *path, bool ignore_enoent) {
         _cleanup_fclose_ FILE *f = NULL;
+        _cleanup_free_ char *pp = NULL;
         int r;
 
         assert(ctx);
         assert(path);
 
-        r = search_and_fopen_nulstr(path, "re", NULL, conf_file_dirs, &f);
+        r = search_and_fopen_nulstr(path, "re", NULL, conf_file_dirs, &f, &pp);
         if (r < 0) {
                 if (ignore_enoent && r == -ENOENT)
                         return 0;
@@ -75,7 +76,7 @@ static int apply_file(struct kmod_ctx *ctx, const char *path, bool ignore_enoent
                 return log_error_errno(r, "Failed to open %s: %m", path);
         }
 
-        log_debug("apply: %s", path);
+        log_debug("apply: %s", pp);
         for (;;) {
                 _cleanup_free_ char *line = NULL;
                 char *l;
@@ -83,7 +84,7 @@ static int apply_file(struct kmod_ctx *ctx, const char *path, bool ignore_enoent
 
                 k = read_line(f, LONG_LINE_MAX, &line);
                 if (k < 0)
-                        return log_error_errno(k, "Failed to read file '%s': %m", path);
+                        return log_error_errno(k, "Failed to read file '%s': %m", pp);
                 if (k == 0)
                         break;
 
@@ -115,10 +116,9 @@ static int help(void) {
                "Loads statically configured kernel modules.\n\n"
                "  -h --help             Show this help\n"
                "     --version          Show package version\n"
-               "\nSee the %s for details.\n"
-               , program_invocation_short_name
-               , link
-        );
+               "\nSee the %s for details.\n",
+               program_invocation_short_name,
+               link);
 
         return 0;
 }
@@ -166,7 +166,7 @@ static int run(int argc, char *argv[]) {
         if (r <= 0)
                 return r;
 
-        log_setup_service();
+        log_setup();
 
         umask(0022);
 
@@ -186,9 +186,7 @@ static int run(int argc, char *argv[]) {
         r = 0;
 
         if (argc > optind) {
-                int i;
-
-                for (i = optind; i < argc; i++) {
+                for (int i = optind; i < argc; i++) {
                         k = apply_file(ctx, argv[i], false);
                         if (k < 0 && r == 0)
                                 r = k;

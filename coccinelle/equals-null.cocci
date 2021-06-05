@@ -2,13 +2,28 @@
 expression e;
 statement s;
 @@
-- if (e == NULL)
-+ if (!e)
-s
+if (
+(
+!e
+|
+- e == NULL
++ !e
+)
+   )
+   {...}
+else s
+
 @@
 expression e;
 statement s;
 @@
-- if (e != NULL)
-+ if (e)
-s
+if (
+(
+e
+|
+- e != NULL
++ e
+)
+   )
+   {...}
+else s

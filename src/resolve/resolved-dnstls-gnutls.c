@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #if !ENABLE_DNS_OVER_TLS || !DNS_OVER_TLS_USE_GNUTLS
 #error This source file requires DNS-over-TLS to be enabled and GnuTLS to be available.
@@ -11,7 +11,7 @@
 #include "resolved-manager.h"
 
 #define TLS_PROTOCOL_PRIORITY "NORMAL:-VERS-ALL:+VERS-TLS1.3:+VERS-TLS1.2"
-DEFINE_TRIVIAL_CLEANUP_FUNC(gnutls_session_t, gnutls_deinit);
+DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(gnutls_session_t, gnutls_deinit, NULL);
 
 static ssize_t dnstls_stream_writev(gnutls_transport_ptr_t p, const giovec_t *iov, int iovcnt) {
         int r;

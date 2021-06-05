@@ -1,39 +1,29 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
 #include <inttypes.h>
-#include <stdbool.h>
 
 #include "conf-parser.h"
 #include "in-addr-util.h"
-
-typedef struct AddressLabel AddressLabel;
-
-#include "networkd-link.h"
-#include "networkd-network.h"
 #include "networkd-util.h"
 
 typedef struct Network Network;
 typedef struct Link Link;
-typedef struct NetworkConfigSection NetworkConfigSection;
 
-struct AddressLabel {
+typedef struct AddressLabel {
         Network *network;
         NetworkConfigSection *section;
 
         unsigned char prefixlen;
         uint32_t label;
-
         union in_addr_union in_addr;
+} AddressLabel;
 
-        LIST_FIELDS(AddressLabel, labels);
-};
+AddressLabel *address_label_free(AddressLabel *label);
 
-void address_label_free(AddressLabel *label);
+void network_drop_invalid_address_labels(Network *network);
 
-DEFINE_NETWORK_SECTION_FUNCTIONS(AddressLabel, address_label_free);
-
-int address_label_configure(AddressLabel *address, Link *link, link_netlink_message_handler_t callback, bool update);
+int link_set_address_labels(Link *link);
 
 CONFIG_PARSER_PROTOTYPE(config_parse_address_label);
 CONFIG_PARSER_PROTOTYPE(config_parse_address_label_prefix);

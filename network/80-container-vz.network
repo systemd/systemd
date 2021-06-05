@@ -1,4 +1,4 @@
-#  SPDX-License-Identifier: LGPL-2.1+
+#  SPDX-License-Identifier: LGPL-2.1-or-later
 #
 #  This file is part of systemd.
 #
@@ -19,6 +19,7 @@ Driver=bridge
 Address=0.0.0.0/24
 LinkLocalAddressing=yes
 DHCPServer=yes
-IPMasquerade=yes
+IPMasquerade=both
 LLDP=yes
 EmitLLDP=customer-bridge
+IPv6SendRA=yes

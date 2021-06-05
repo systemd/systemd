@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "selinux-access.h"
 
@@ -162,8 +162,8 @@ static int access_init(sd_bus_error *error) {
                 return sd_bus_error_setf(error, SD_BUS_ERROR_ACCESS_DENIED, "Failed to open the SELinux AVC: %s", strerror_safe(saved_errno));
         }
 
-        selinux_set_callback(SELINUX_CB_AUDIT, (union selinux_callback) audit_callback);
-        selinux_set_callback(SELINUX_CB_LOG, (union selinux_callback) log_callback);
+        selinux_set_callback(SELINUX_CB_AUDIT, (union selinux_callback) { .func_audit = audit_callback });
+        selinux_set_callback(SELINUX_CB_LOG, (union selinux_callback) { .func_log = log_callback });
 
         initialized = true;
         return 1;
@@ -250,7 +250,7 @@ int mac_selinux_generic_access_check(
                         if (!enforce)
                                 return 0;
 
-                        return sd_bus_error_setf(error, SD_BUS_ERROR_ACCESS_DENIED, "Failed to get current context.");
+                        return sd_bus_error_set(error, SD_BUS_ERROR_ACCESS_DENIED, "Failed to get current context.");
                 }
 
                 tclass = "system";
@@ -270,11 +270,12 @@ int mac_selinux_generic_access_check(
                 r = errno_or_else(EPERM);
 
                 if (enforce)
-                        sd_bus_error_setf(error, SD_BUS_ERROR_ACCESS_DENIED, "SELinux policy denies access.");
+                        sd_bus_error_set(error, SD_BUS_ERROR_ACCESS_DENIED, "SELinux policy denies access.");
         }
 
-        log_debug_errno(r, "SELinux access check scon=%s tcon=%s tclass=%s perm=%s state=%s path=%s cmdline=%s: %m",
-                        scon, fcon, tclass, permission, enforce ? "enforcing" : "permissive", path, cl);
+        log_full_errno_zerook(LOG_DEBUG, r,
+                              "SELinux access check scon=%s tcon=%s tclass=%s perm=%s state=%s path=%s cmdline=%s: %m",
+                              scon, fcon, tclass, permission, enforce ? "enforcing" : "permissive", path, cl);
         return enforce ? r : 0;
 }
 

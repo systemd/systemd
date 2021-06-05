@@ -1,4 +1,4 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
 # Copyright 2017 The Chromium OS Authors. All rights reserved.
@@ -11,8 +11,6 @@ This script is executed at build time to generate udev rules. The
 resulting rules file is installed on the device, the script itself
 is not.
 """
-
-from __future__ import print_function
 
 # List of USB devices (vendorid:productid) for which it is safe to enable
 # autosuspend.
@@ -134,6 +132,8 @@ USB_IDS += [
     '12d1:15bb',
     # Fibocom (L850-GL) (coral, nautilus, sarien)
     '2cb7:0007',
+    # Fibocom (NL668, NL652)
+    '2cb7:01a0',
 ]
 
 # Mass Storage
@@ -226,6 +226,8 @@ PCI_IDS += [
     '8086:02a4',
     # USB controller
     '8086:02ed',
+    # Volteer xHCI controller
+    '8086:a0ed',
     # Graphics
     '8086:9b41',
     # DSP

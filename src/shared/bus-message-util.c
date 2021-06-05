@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "bus-message-util.h"
 
@@ -17,7 +17,7 @@ int bus_message_read_ifindex(sd_bus_message *message, sd_bus_error *error, int *
                 return r;
 
         if (ifindex <= 0)
-                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid interface index");
+                return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid interface index");
 
         *ret = ifindex;
 
@@ -62,7 +62,7 @@ int bus_message_read_in_addr_auto(sd_bus_message *message, sd_bus_error *error, 
                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Unknown address family %i", family);
 
         if (sz != FAMILY_ADDRESS_SIZE(family))
-                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid address size");
+                return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid address size");
 
         if (ret_family)
                 *ret_family = family;
@@ -98,8 +98,11 @@ static int bus_message_read_dns_one(
         if (r < 0)
                 return r;
 
-        if (!dns_server_address_valid(family, &a))
-                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid DNS server address");
+        if (!dns_server_address_valid(family, &a)) {
+                r = sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid DNS server address");
+                assert(r < 0);
+                return r;
+        }
 
         if (extended) {
                 r = sd_bus_message_read(message, "q", &port);
@@ -134,7 +137,7 @@ int bus_message_read_dns_servers(
                         size_t *ret_n_dns) {
 
         struct in_addr_full **dns = NULL;
-        size_t n = 0, allocated = 0;
+        size_t n = 0;
         int r;
 
         assert(message);
@@ -157,7 +160,7 @@ int bus_message_read_dns_servers(
                 if (r == 0)
                         break;
 
-                if (!GREEDY_REALLOC(dns, allocated, n+1)) {
+                if (!GREEDY_REALLOC(dns, n+1)) {
                         r = -ENOMEM;
                         goto clear;
                 }

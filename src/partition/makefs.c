@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <fcntl.h>
 #include <sys/file.h>
@@ -24,7 +24,7 @@ static int run(int argc, char *argv[]) {
         struct stat st;
         int r;
 
-        log_setup_service();
+        log_setup();
 
         if (argc != 3)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),

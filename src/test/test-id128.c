@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <fcntl.h>
 #include <sys/types.h>
@@ -31,6 +31,13 @@ int main(int argc, char *argv[]) {
 
         assert_se(sd_id128_from_string(t, &id2) == 0);
         assert_se(sd_id128_equal(id, id2));
+        assert_se(sd_id128_in_set(id, id));
+        assert_se(sd_id128_in_set(id, id2));
+        assert_se(sd_id128_in_set(id, id2, id));
+        assert_se(sd_id128_in_set(id, ID128_WALDI, id));
+        assert_se(!sd_id128_in_set(id));
+        assert_se(!sd_id128_in_set(id, ID128_WALDI));
+        assert_se(!sd_id128_in_set(id, ID128_WALDI, ID128_WALDI));
 
         if (sd_booted() > 0) {
                 assert_se(sd_id128_get_machine(&id) == 0);

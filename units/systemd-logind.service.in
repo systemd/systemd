@@ -1,4 +1,4 @@
-#  SPDX-License-Identifier: LGPL-2.1+
+#  SPDX-License-Identifier: LGPL-2.1-or-later
 #
 #  This file is part of systemd.
 #
@@ -9,9 +9,11 @@
 
 [Unit]
 Description=User Login Management
-Documentation=man:systemd-logind.service(8) man:logind.conf(5)
-Documentation=https://www.freedesktop.org/wiki/Software/systemd/logind
-Documentation=https://www.freedesktop.org/wiki/Software/systemd/multiseat
+Documentation=man:sd-login(3)
+Documentation=man:systemd-logind.service(8)
+Documentation=man:logind.conf(5)
+Documentation=man:org.freedesktop.login1(5)
+
 Wants=user.slice modprobe@drm.service
 After=nss-user-lookup.target user.slice modprobe@drm.service
 
@@ -28,7 +30,7 @@ DeviceAllow=char-drm rw
 DeviceAllow=char-input rw
 DeviceAllow=char-tty rw
 DeviceAllow=char-vcs rw
-ExecStart=@rootlibexecdir@/systemd-logind
+ExecStart={{ROOTLIBEXECDIR}}/systemd-logind
 FileDescriptorStoreMax=512
 IPAddressDeny=any
 LockPersonality=yes
@@ -56,8 +58,8 @@ StateDirectory=systemd/linger
 SystemCallArchitectures=native
 SystemCallErrorNumber=EPERM
 SystemCallFilter=@system-service
-@SERVICE_WATCHDOG@
+{{SERVICE_WATCHDOG}}
 
 # Increase the default a bit in order to allow many simultaneous logins since
 # we keep one fd open per session.
-LimitNOFILE=@HIGH_RLIMIT_NOFILE@
+LimitNOFILE={{HIGH_RLIMIT_NOFILE}}

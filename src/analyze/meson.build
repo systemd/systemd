@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: LGPL-2.1+
+# SPDX-License-Identifier: LGPL-2.1-or-later
 
 systemd_analyze_sources = files('''
         analyze.c
@@ -9,3 +9,13 @@ systemd_analyze_sources = files('''
         analyze-security.c
         analyze-security.h
 '''.split())
+
+tests += [
+        [['src/analyze/test-verify.c',
+          'src/analyze/analyze-verify.c',
+          'src/analyze/analyze-verify.h'],
+         [libcore,
+          libshared],
+         [],
+         core_includes],
+]

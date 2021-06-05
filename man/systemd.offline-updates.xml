@@ -1,7 +1,7 @@
 <?xml version='1.0'?> <!--*-nxml-*-->
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
-<!-- SPDX-License-Identifier: LGPL-2.1+ -->
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
 
 <refentry id="systemd.offline-updates">
   <refentryinfo>
@@ -44,7 +44,7 @@
         created that points to <filename index="false">/var/lib/system-update</filename> (or
         wherever the directory with the upgrade files is located) and the system is rebooted. This
         symlink is in the root directory, since we need to check for it very early at boot, at a
-        time where <filename>/var</filename> is not available yet.</para>
+        time where <filename>/var/</filename> is not available yet.</para>
       </listitem>
 
       <listitem>
@@ -110,7 +110,7 @@
         symlink in the distribution package, rather than depending on <command>systemctl
         enable</command> in the postinst scriptlets of your package. More specifically, for your
         update script create a .service file, without [Install] section, and then add a symlink like
-        <filename index="false">/usr/lib/systemd/system-update.target.wants/foobar.service</filename>
+        <filename index="false">/usr/lib/systemd/system/system-update.target.wants/foobar.service</filename>
         → <filename index="false">../foobar.service</filename> to your package.</para>
       </listitem>
 
@@ -126,8 +126,8 @@
         script exits uncleanly (by non-zero error code, or signal/coredump). If your script succeeds
         you should trigger the reboot in your own code, for example by invoking logind's
         <command>Reboot()</command> call or calling <command>systemctl reboot</command>. See
-        <ulink url="https://www.freedesktop.org/wiki/Software/systemd/logind">logind dbus API</ulink>
-        for details.</para>
+        <citerefentry><refentrytitle>org.freedesktop.login1</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+        for details about the logind D-Bus API.</para>
       </listitem>
 
       <listitem>

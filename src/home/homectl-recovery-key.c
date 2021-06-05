@@ -1,54 +1,15 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#if HAVE_QRENCODE
-#include <qrencode.h>
-#include "qrcode-util.h"
-#endif
-
-#include "dlfcn-util.h"
 #include "errno-util.h"
 #include "homectl-recovery-key.h"
 #include "libcrypt-util.h"
 #include "locale-util.h"
 #include "memory-util.h"
-#include "modhex.h"
+#include "qrcode-util.h"
 #include "random-util.h"
+#include "recovery-key.h"
 #include "strv.h"
 #include "terminal-util.h"
-
-static int make_recovery_key(char **ret) {
-        _cleanup_(erase_and_freep) char *formatted = NULL;
-        _cleanup_(erase_and_freep) uint8_t *key = NULL;
-        int r;
-
-        assert(ret);
-
-        key = new(uint8_t, MODHEX_RAW_LENGTH);
-        if (!key)
-                return log_oom();
-
-        r = genuine_random_bytes(key, MODHEX_RAW_LENGTH, RANDOM_BLOCK);
-        if (r < 0)
-                return log_error_errno(r, "Failed to gather entropy for recovery key: %m");
-
-        /* Let's now format it as 64 modhex chars, and after each 8 chars insert a dash */
-        formatted = new(char, MODHEX_FORMATTED_LENGTH);
-        if (!formatted)
-                return log_oom();
-
-        for (size_t i = 0, j = 0; i < MODHEX_RAW_LENGTH; i++) {
-                formatted[j++] = modhex_alphabet[key[i] >> 4];
-                formatted[j++] = modhex_alphabet[key[i] & 0xF];
-
-                if (i % 4 == 3)
-                        formatted[j++] = '-';
-        }
-
-        formatted[MODHEX_FORMATTED_LENGTH-1] = 0;
-
-        *ret = TAKE_PTR(formatted);
-        return 0;
-}
 
 static int add_privileged(JsonVariant **v, const char *hashed) {
         _cleanup_(json_variant_unrefp) JsonVariant *e = NULL, *w = NULL, *l = NULL;
@@ -140,48 +101,6 @@ static int add_secret(JsonVariant **v, const char *password) {
         return 0;
 }
 
-static int print_qr_code(const char *secret) {
-#if HAVE_QRENCODE
-        QRcode* (*sym_QRcode_encodeString)(const char *string, int version, QRecLevel level, QRencodeMode hint, int casesensitive);
-        void (*sym_QRcode_free)(QRcode *qrcode);
-        _cleanup_(dlclosep) void *dl = NULL;
-        QRcode* qr;
-        int r;
-
-        /* If this is not an UTF-8 system or ANSI colors aren't supported/disabled don't print any QR
-         * codes */
-        if (!is_locale_utf8() || !colors_enabled())
-                return -EOPNOTSUPP;
-
-        dl = dlopen("libqrencode.so.4", RTLD_LAZY);
-        if (!dl)
-                return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
-                                       "QRCODE support is not installed: %s", dlerror());
-
-        r = dlsym_many_and_warn(
-                        dl,
-                        LOG_DEBUG,
-                        &sym_QRcode_encodeString, "QRcode_encodeString",
-                        &sym_QRcode_free, "QRcode_free",
-                        NULL);
-        if (r < 0)
-                return r;
-
-        qr = sym_QRcode_encodeString(secret, 0, QR_ECLEVEL_L, QR_MODE_8, 0);
-        if (!qr)
-                return -ENOMEM;
-
-        fprintf(stderr, "\nYou may optionally scan the recovery key off screen:\n\n");
-
-        write_qrcode(stderr, qr);
-
-        fputc('\n', stderr);
-
-        sym_QRcode_free(qr);
-#endif
-        return 0;
-}
-
 int identity_add_recovery_key(JsonVariant **v) {
         _cleanup_(erase_and_freep) char *password = NULL, *hashed = NULL;
         int r;
@@ -191,7 +110,7 @@ int identity_add_recovery_key(JsonVariant **v) {
         /* First, let's generate a secret key  */
         r = make_recovery_key(&password);
         if (r < 0)
-                return r;
+                return log_error_errno(r, "Failed to generate recovery key: %m");
 
         /* Let's UNIX hash it */
         r = hash_password(password, &hashed);
@@ -240,7 +159,7 @@ int identity_add_recovery_key(JsonVariant **v) {
               "whenever authentication is requested.\n", stderr);
         fflush(stderr);
 
-        print_qr_code(password);
+        (void) print_qrcode(stderr, "You may optionally scan the recovery key off screen", password);
 
         return 0;
 }

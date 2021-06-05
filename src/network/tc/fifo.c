@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+
+/* SPDX-License-Identifier: LGPL-2.1-or-later
  * Copyright © 2020 VMware, Inc. */
 
 #include <linux/pkt_sched.h>
@@ -87,7 +87,7 @@ int config_parse_pfifo_size(
         if (isempty(rvalue)) {
                 fifo->limit = 0;
 
-                qdisc = NULL;
+                TAKE_PTR(qdisc);
                 return 0;
         }
 
@@ -99,7 +99,7 @@ int config_parse_pfifo_size(
                 return 0;
         }
 
-        qdisc = NULL;
+        TAKE_PTR(qdisc);
         return 0;
 }
 
@@ -140,7 +140,7 @@ int config_parse_bfifo_size(
         if (isempty(rvalue)) {
                 fifo->limit = 0;
 
-                qdisc = NULL;
+                TAKE_PTR(qdisc);
                 return 0;
         }
 
@@ -159,7 +159,7 @@ int config_parse_bfifo_size(
 
         fifo->limit = (uint32_t) u;
 
-        qdisc = NULL;
+        TAKE_PTR(qdisc);
         return 0;
 }
 

@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
 #if HAVE_BZIP2
@@ -17,7 +17,7 @@ typedef enum ImportCompressType {
         IMPORT_COMPRESS_GZIP,
         IMPORT_COMPRESS_BZIP2,
         _IMPORT_COMPRESS_TYPE_MAX,
-        _IMPORT_COMPRESS_TYPE_INVALID = -1,
+        _IMPORT_COMPRESS_TYPE_INVALID = -EINVAL,
 } ImportCompressType;
 
 typedef struct ImportCompress {
@@ -37,6 +37,7 @@ typedef int (*ImportCompressCallback)(const void *data, size_t size, void *userd
 void import_compress_free(ImportCompress *c);
 
 int import_uncompress_detect(ImportCompress *c, const void *data, size_t size);
+void import_uncompress_force_off(ImportCompress *c);
 int import_uncompress(ImportCompress *c, const void *data, size_t size, ImportCompressCallback callback, void *userdata);
 
 int import_compress_init(ImportCompress *c, ImportCompressType t);

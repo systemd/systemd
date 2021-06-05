@@ -1,7 +1,7 @@
 <?xml version='1.0'?>
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
-<!-- SPDX-License-Identifier: LGPL-2.1+ -->
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
 
 <refentry id="hwdb" conditional="ENABLE_HWDB">
   <refentryinfo>
@@ -31,12 +31,12 @@
       the local administration directory <filename>/etc/udev/hwdb.d</filename>.
       All hwdb files are collectively sorted and processed in lexical order,
       regardless of the directories in which they live. However, files with
-      identical filenames replace each other. Files in <filename>/etc</filename>
+      identical filenames replace each other. Files in <filename>/etc/</filename>
       have the highest priority and take precedence over files with the same
-      name in <filename>/usr/lib</filename>. This can be used to override a
+      name in <filename>/usr/lib/</filename>. This can be used to override a
       system-supplied hwdb file with a local file if needed;
-      a symlink in <filename>/etc</filename> with the same name as a hwdb file in
-      <filename>/usr/lib</filename>, pointing to <filename>/dev/null</filename>,
+      a symlink in <filename>/etc/</filename> with the same name as a hwdb file in
+      <filename>/usr/lib/</filename>, pointing to <filename>/dev/null</filename>,
       disables that hwdb file entirely. hwdb files must have the extension
       <filename>.hwdb</filename>; other extensions are ignored.</para>
 
@@ -46,6 +46,19 @@
       are specified in consecutive lines. Every match line is compared individually, and
       they are combined by OR. Every match line must start at the first character of the
       line.</para>
+
+      <para>Match patterns consist of literal characters, and shell-style wildcards:</para>
+      <itemizedlist>
+        <listitem><para>Asterisk <literal>*</literal> matches any number of characters
+        </para></listitem>
+        <listitem><para>Question mark <literal>?</literal> matches a single character
+        </para></listitem>
+        <listitem><para>Character list <literal>[<replaceable>chars</replaceable>]</literal> matches one of
+        the characters <replaceable>chars</replaceable> listed between <literal>[</literal> and
+        <literal>]</literal>. A range may be specified as with a dash as
+        <literal>[<replaceable>first</replaceable>-<replaceable>last</replaceable>]</literal>. The match may
+        be inverted with a caret <literal>[^…]</literal>.</para></listitem>
+      </itemizedlist>
 
       <para>The match lines are followed by one or more key-value pair lines, which are
       recognized by a leading space character. The key name and value are separated by
@@ -79,13 +92,18 @@
 # it defines, and the ordering convention.
 
 # A record with three matches and one property
-mouse:*:name:*Trackball*:
-mouse:*:name:*trackball*:
-mouse:*:name:*TrackBall*:
+mouse:*:name:*Trackball*:*
+mouse:*:name:*trackball*:*
+mouse:*:name:*TrackBall*:*
+ ID_INPUT_TRACKBALL=1
+
+# The rule above could be also be written in a form that
+# matches Tb, tb, TB, tB:
+mouse:*:name:*[tT]rack[bB]all*:*
  ID_INPUT_TRACKBALL=1
 
 # A record with a single match and five properties
-mouse:usb:v046dp4041:name:Logitech MX Master:
+mouse:usb:v046dp4041:name:Logitech MX Master:*
  MOUSE_DPI=1000@166
  MOUSE_WHEEL_CLICK_ANGLE=15
  MOUSE_WHEEL_CLICK_ANGLE_HORIZONTAL=26
@@ -98,26 +116,30 @@ mouse:usb:v046dp4041:name:Logitech MX Master:
       <title>Overriding of properties</title>
 
       <programlisting># /usr/lib/udev/hwdb.d/60-keyboard.hwdb
-evdev:atkbd:dmi:bvn*:bvr*:bd*:svnAcer*:pn*
+evdev:atkbd:dmi:bvn*:bvr*:bd*:svnAcer*:pn*:*
  KEYBOARD_KEY_a1=help
  KEYBOARD_KEY_a2=setup
  KEYBOARD_KEY_a3=battery
 
-evdev:atkbd:dmi:bvn*:bvr*:bd*:svnAcer*:pn123*
+# Match vendor name "Acer" and any product name starting with "X123"
+evdev:atkbd:dmi:bvn*:bvr*:bd*:svnAcer:pnX123*:*
  KEYBOARD_KEY_a2=wlan
 
 # /etc/udev/hwdb.d/70-keyboard.hwdb
 # disable wlan key on all at keyboards
 evdev:atkbd:*
- KEYBOARD_KEY_a2=reserved</programlisting>
+ KEYBOARD_KEY_a2=reserved
+ PROPERTY_WITH_SPACES=some string</programlisting>
 
       <para>If the hwdb consists of those two files, a keyboard with the lookup string
-      <literal>evdev:atkbd:dmi:bvnAcer:bdXXXXX:bd08/05/2010:svnAcer:pn123</literal>
+      <literal>evdev:atkbd:dmi:bvnAcer:bdXXXXX:bd08/05/2010:svnAcer:pnX123</literal>
       will match all three records, and end up with the following properties:</para>
 
       <programlisting>KEYBOARD_KEY_a1=help
 KEYBOARD_KEY_a2=reserved
-KEYBOARD_KEY_a3=battery</programlisting>
+KEYBOARD_KEY_a3=battery
+PROPERTY_WITH_SPACES=some string</programlisting>
+
     </example>
   </refsect1>
 

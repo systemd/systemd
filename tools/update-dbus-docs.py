@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# SPDX-License-Identifier: LGPL-2.1+
+# SPDX-License-Identifier: LGPL-2.1-or-later
 
 import argparse
 import collections
@@ -18,6 +18,11 @@ try:
 except ImportError as e:
     shlex_join = e
 
+try:
+    from shlex import quote as shlex_quote
+except ImportError as e:
+    shlex_quote = e
+
 class NoCommand(Exception):
     pass
 
@@ -26,6 +31,10 @@ BORING_INTERFACES = [
     'org.freedesktop.DBus.Introspectable',
     'org.freedesktop.DBus.Properties',
 ]
+RED = '\x1b[31m'
+GREEN = '\x1b[32m'
+YELLOW = '\x1b[33m'
+RESET = '\x1b[39m'
 
 def xml_parser():
     return etree.XMLParser(no_network=True,
@@ -125,8 +134,7 @@ def document_has_elem_with_text(document, elem, item_repr):
     for loc in document.findall(predicate):
         if loc.text == item_repr:
             return True
-    else:
-        return False
+    return False
 
 def check_documented(document, declarations, stats):
     missing = []
@@ -187,10 +195,13 @@ def subst_output(document, programlisting, stats):
     interface = programlisting.get('interface')
 
     argv = [f'{opts.build_dir}/{executable}', f'--bus-introspect={interface}']
-    print(f'COMMAND: {shlex_join(argv)}')
+    if isinstance(shlex_join, Exception):
+        print(f'COMMAND: {" ".join(shlex_quote(arg) for arg in argv)}')
+    else:
+        print(f'COMMAND: {shlex_join(argv)}')
 
     try:
-        out = subprocess.check_output(argv, text=True)
+        out = subprocess.check_output(argv, universal_newlines=True)
     except FileNotFoundError:
         print(f'{executable} not found, ignoring', file=sys.stderr)
         return
@@ -282,7 +293,7 @@ def process(page):
         with open(page, 'w') as out:
             out.write(out_text)
 
-    return dict(stats=stats, outdated=(out_text != src))
+    return dict(stats=stats, modified=(out_text != src))
 
 def parse_args():
     p = argparse.ArgumentParser()
@@ -297,7 +308,7 @@ def parse_args():
 if __name__ == '__main__':
     opts = parse_args()
 
-    for item in (etree, shlex_join):
+    for item in (etree, shlex_quote):
         if isinstance(item, Exception):
             print(item, file=sys.stderr)
             exit(77 if opts.test else 1)
@@ -309,18 +320,20 @@ if __name__ == '__main__':
 
     # Let's print all statistics at the end
     mlen = max(len(page) for page in stats)
-    total = sum((item['stats'] for item in stats.values()), start=collections.Counter())
-    total = 'total', dict(stats=total, outdated=False)
-    outdated = []
+    total = sum((item['stats'] for item in stats.values()), collections.Counter())
+    total = 'total', dict(stats=total, modified=False)
+    modified = []
+    classification = 'OUTDATED' if opts.test else 'MODIFIED'
     for page, info in sorted(stats.items()) + [total]:
         m = info['stats']['missing']
         t = info['stats']['total']
         p = page + ':'
-        c = 'OUTDATED' if info['outdated'] else ''
+        c = classification if info['modified'] else ''
         if c:
-            outdated.append(page)
-        print(f'{p:{mlen + 1}} {t - m}/{t} {c}')
+            modified.append(page)
+        color = RED if m > t/2 else (YELLOW if m else GREEN)
+        print(f'{color}{p:{mlen + 1}} {t - m}/{t} {c}{RESET}')
 
-    if opts.test and outdated:
-        exit(f'Outdated pages: {", ".join(outdated)}\n'
-             f'Hint: ninja -C {opts.build_dir} man/update-dbus-docs')
+    if opts.test and modified:
+        exit(f'Outdated pages: {", ".join(modified)}\n'
+             f'Hint: ninja -C {opts.build_dir} update-dbus-docs')

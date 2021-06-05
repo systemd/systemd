@@ -1,7 +1,7 @@
 <?xml version='1.0'?>
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
-<!-- SPDX-License-Identifier: LGPL-2.1+ -->
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
 
 <refentry id="networkctl" conditional='ENABLE_NETWORKD'
           xmlns:xi="http://www.w3.org/2001/XInclude">
@@ -104,7 +104,7 @@
                 <term>carrier</term>
                 <listitem>
                   <para>the link has a carrier, or for bond or bridge master, all bonding or bridge slave
-                  network interfaces are enslaved to the master.</para>
+                  network interfaces are enslaved to the master</para>
                 </listitem>
               </varlistentry>
               <varlistentry>
@@ -187,14 +187,46 @@
 
           <para>Produces output similar to:
           <programlisting>
-●      State: routable
-     Address: 10.193.76.5 on eth0
-              192.168.122.1 on virbr0
-              169.254.190.105 on eth0
-              fe80::5054:aa:bbbb:cccc on eth0
-     Gateway: 10.193.11.1 (CISCO SYSTEMS, INC.) on eth0
-         DNS: 8.8.8.8
-              8.8.4.4</programlisting></para>
+●        State: routable
+  Online state: online
+       Address: 10.193.76.5 on eth0
+                192.168.122.1 on virbr0
+                169.254.190.105 on eth0
+                fe80::5054:aa:bbbb:cccc on eth0
+       Gateway: 10.193.11.1 (CISCO SYSTEMS, INC.) on eth0
+           DNS: 8.8.8.8
+                8.8.4.4</programlisting></para>
+
+          <para>In the overall network status, the online state depends on the individual online state of all
+          required links. Managed links are required for online by default. In this case, the online state is
+          one of the following:
+          <variablelist>
+            <varlistentry>
+              <term>unknown</term>
+              <listitem>
+                <para>all links have unknown online status (i.e. there are no required links)</para>
+              </listitem>
+            </varlistentry>
+            <varlistentry>
+              <term>offline</term>
+              <listitem>
+                <para>all required links are offline</para>
+              </listitem>
+            </varlistentry>
+            <varlistentry>
+              <term>partial</term>
+              <listitem>
+                <para>some, but not all, required links are online</para>
+              </listitem>
+            </varlistentry>
+            <varlistentry>
+              <term>online</term>
+              <listitem>
+                <para>all required links are online</para>
+              </listitem>
+            </varlistentry>
+          </variablelist>
+          </para>
         </listitem>
 
       </varlistentry>
@@ -301,8 +333,8 @@ s - Service VLAN, m - Two-port MAC Relay (TPMR)
         </term>
         <listitem><para>Reconfigure network interfaces. Takes interface name or index number. Note that
         this does not reload <filename>.netdev</filename> or <filename>.network</filename>
-        corresponding to the the specified interface. So, if you edit config files, it is necessary to
-        call <command>networkctl reload</command> first to apply new settings.</para></listitem>
+        corresponding to the specified interface. So, if you edit config files, it is necessary to call
+        <command>networkctl reload</command> first to apply new settings.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -367,6 +399,7 @@ s - Service VLAN, m - Two-port MAC Relay (TPMR)
         </listitem>
       </varlistentry>
 
+      <xi:include href="standard-options.xml" xpointer="json" />
       <xi:include href="standard-options.xml" xpointer="help" />
       <xi:include href="standard-options.xml" xpointer="version" />
       <xi:include href="standard-options.xml" xpointer="no-legend" />

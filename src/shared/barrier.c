@@ -1,8 +1,7 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <errno.h>
 #include <fcntl.h>
-#include <poll.h>
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdlib.h>
@@ -12,6 +11,7 @@
 
 #include "barrier.h"
 #include "fd-util.h"
+#include "io-util.h"
 #include "macro.h"
 
 /**
@@ -123,14 +123,15 @@ int barrier_create(Barrier *b) {
  *
  * If @b is NULL, this is a no-op.
  */
-void barrier_destroy(Barrier *b) {
+Barrier* barrier_destroy(Barrier *b) {
         if (!b)
-                return;
+                return NULL;
 
         b->me = safe_close(b->me);
         b->them = safe_close(b->them);
         safe_close_pair(b->pipe);
         b->barriers = 0;
+        return NULL;
 }
 
 /**
@@ -218,14 +219,10 @@ static bool barrier_read(Barrier *b, int64_t comp) {
                 uint64_t buf;
                 int r;
 
-                r = poll(pfd, ELEMENTSOF(pfd), -1);
-                if (r < 0) {
-                        if (IN_SET(errno, EAGAIN, EINTR))
-                                continue;
-                        goto error;
-                }
-                if (pfd[0].revents & POLLNVAL ||
-                    pfd[1].revents & POLLNVAL)
+                r = ppoll_usec(pfd, ELEMENTSOF(pfd), USEC_INFINITY);
+                if (r == -EINTR)
+                        continue;
+                if (r < 0)
                         goto error;
 
                 if (pfd[1].revents) {

@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
 #include <stdbool.h>
@@ -17,6 +17,10 @@ bool id128_is_valid(const char *s) _pure_;
 typedef enum Id128Format {
         ID128_ANY,
         ID128_PLAIN,  /* formatted as 32 hex chars as-is */
+        ID128_PLAIN_OR_UNINIT,  /* formatted as 32 hex chars as-is; allow special "uninitialized"
+                                 * value when reading from file (id128_read() and id128_read_fd()).
+                                 *
+                                 * This format should be used when reading a machine-id file. */
         ID128_UUID,   /* formatted as 36 character uuid string */
         _ID128_FORMAT_MAX,
 } Id128Format;
@@ -32,3 +36,5 @@ int id128_compare_func(const sd_id128_t *a, const sd_id128_t *b) _pure_;
 extern const struct hash_ops id128_hash_ops;
 
 sd_id128_t id128_make_v4_uuid(sd_id128_t id);
+
+int id128_get_product(sd_id128_t *ret);

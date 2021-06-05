@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
 #include <linux/netlink.h>
@@ -19,7 +19,7 @@
 struct reply_callback {
         sd_netlink_message_handler_t callback;
         usec_t timeout;
-        uint64_t serial;
+        uint32_t serial;
         unsigned prioq_idx;
 };
 
@@ -33,17 +33,17 @@ struct match_callback {
 typedef enum NetlinkSlotType {
         NETLINK_REPLY_CALLBACK,
         NETLINK_MATCH_CALLBACK,
-        _NETLINK_SLOT_INVALID = -1,
+        _NETLINK_SLOT_INVALID = -EINVAL,
 } NetlinkSlotType;
 
 struct sd_netlink_slot {
         unsigned n_ref;
+        NetlinkSlotType type:8;
+        bool floating;
         sd_netlink *netlink;
         void *userdata;
         sd_netlink_destroy_t destroy_callback;
-        NetlinkSlotType type:2;
 
-        bool floating:1;
         char *description;
 
         LIST_FIELDS(sd_netlink_slot, slots);
@@ -71,14 +71,11 @@ struct sd_netlink {
 
         sd_netlink_message **rqueue;
         unsigned rqueue_size;
-        size_t rqueue_allocated;
 
         sd_netlink_message **rqueue_partial;
         unsigned rqueue_partial_size;
-        size_t rqueue_partial_allocated;
 
         struct nlmsghdr *rbuffer;
-        size_t rbuffer_allocated;
 
         bool processing:1;
 
@@ -139,6 +136,7 @@ int socket_bind(sd_netlink *nl);
 int socket_broadcast_group_ref(sd_netlink *nl, unsigned group);
 int socket_broadcast_group_unref(sd_netlink *nl, unsigned group);
 int socket_write_message(sd_netlink *nl, sd_netlink_message *m);
+int socket_writev_message(sd_netlink *nl, sd_netlink_message **m, size_t msgcount);
 int socket_read_message(sd_netlink *nl);
 
 int rtnl_rqueue_make_room(sd_netlink *rtnl);

@@ -1,3 +1,5 @@
+/* SPDX-License-Identifier: CC0-1.0 */
+
 /*
    SipHash reference C implementation
 
@@ -10,7 +12,7 @@
    worldwide. This software is distributed without any warranty.
 
    You should have received a copy of the CC0 Public Domain Dedication along with
-   this software. If not, see <http://creativecommons.org/publicdomain/zero/1.0/>.
+   this software. If not, see <https://creativecommons.org/publicdomain/zero/1.0/>.
 
    (Minimal changes made by Lennart Poettering, to make clean for inclusion in systemd)
    (Refactored by Tom Gundersen to split up in several functions and follow systemd

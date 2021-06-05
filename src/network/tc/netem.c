@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+
+/* SPDX-License-Identifier: LGPL-2.1-or-later
  * Copyright © 2019 VMware, Inc. */
 
 #include <linux/pkt_sched.h>
@@ -94,7 +94,7 @@ int config_parse_network_emulator_delay(
                 else if (STR_IN_SET(lvalue, "DelayJitterSec", "NetworkEmulatorDelayJitterSec"))
                         ne->jitter = USEC_INFINITY;
 
-                qdisc = NULL;
+                TAKE_PTR(qdisc);
                 return 0;
         }
 
@@ -111,7 +111,7 @@ int config_parse_network_emulator_delay(
         else if (STR_IN_SET(lvalue, "DelayJitterSec", "NetworkEmulatorDelayJitterSec"))
                 ne->jitter = u;
 
-        qdisc = NULL;
+        TAKE_PTR(qdisc);
 
         return 0;
 }
@@ -156,7 +156,7 @@ int config_parse_network_emulator_rate(
                 else if (STR_IN_SET(lvalue, "DuplicateRate", "NetworkEmulatorDuplicateRate"))
                         ne->duplicate = 0;
 
-                qdisc = NULL;
+                TAKE_PTR(qdisc);
                 return 0;
         }
 
@@ -173,7 +173,7 @@ int config_parse_network_emulator_rate(
         else if (STR_IN_SET(lvalue, "DuplicateRate", "NetworkEmulatorDuplicateRate"))
                 ne->duplicate = rate;
 
-        qdisc = NULL;
+        TAKE_PTR(qdisc);
         return 0;
 }
 
@@ -212,8 +212,8 @@ int config_parse_network_emulator_packet_limit(
 
         if (isempty(rvalue)) {
                 ne->limit = 0;
-                qdisc = NULL;
 
+                TAKE_PTR(qdisc);
                 return 0;
         }
 
@@ -225,7 +225,7 @@ int config_parse_network_emulator_packet_limit(
                 return 0;
         }
 
-        qdisc = NULL;
+        TAKE_PTR(qdisc);
         return 0;
 }
 

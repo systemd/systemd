@@ -68,6 +68,7 @@ Most generic unit settings are available for transient units.
 ✓ ConditionKernelCommandLine=
 ✓ ConditionKernelVersion=
 ✓ ConditionArchitecture=
+✓ ConditionFirmware=
 ✓ ConditionVirtualization=
 ✓ ConditionSecurity=
 ✓ ConditionCapability=
@@ -270,6 +271,10 @@ All cgroup/resource control settings are available for transient units
 ✓ IPAccounting=
 ✓ IPAddressAllow=
 ✓ IPAddressDeny=
+✓ ManagedOOMSwap=
+✓ ManagedOOMMemoryPressure=
+✓ ManagedOOMMemoryPressureLimit=
+✓ ManagedOOMPreference=
 ```
 
 ## Process Killing Settings
@@ -299,6 +304,7 @@ Most service unit settings are available for transient units.
 ✓ ExecStartPre=
 ✓ ExecStop=
 ✓ ExecStopPost=
+✓ ExitType=
 ✓ FileDescriptorStoreMax=
 ✓ GuessMainPID=
 ✓ NonBlocking=
@@ -371,6 +377,7 @@ Most timer unit settings are available to transient units.
 ✓ RemainAfterElapse=
 ✓ AccuracySec=
 ✓ RandomizedDelaySec=
+✓ FixedRandomDelay=
   Unit=
 ```
 

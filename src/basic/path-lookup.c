@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <errno.h>
 #include <stdio.h>
@@ -36,35 +36,33 @@ int xdg_user_runtime_dir(char **ret, const char *suffix) {
 }
 
 int xdg_user_config_dir(char **ret, const char *suffix) {
+        _cleanup_free_ char *j = NULL;
         const char *e;
-        char *j;
         int r;
 
         assert(ret);
 
         e = getenv("XDG_CONFIG_HOME");
-        if (e)
+        if (e) {
                 j = path_join(e, suffix);
-        else {
-                _cleanup_free_ char *home = NULL;
-
-                r = get_home_dir(&home);
+                if (!j)
+                        return -ENOMEM;
+        } else {
+                r = get_home_dir(&j);
                 if (r < 0)
                         return r;
 
-                j = path_join(home, "/.config", suffix);
+                if (!path_extend(&j, "/.config", suffix))
+                        return -ENOMEM;
         }
 
-        if (!j)
-                return -ENOMEM;
-
-        *ret = j;
+        *ret = TAKE_PTR(j);
         return 0;
 }
 
 int xdg_user_data_dir(char **ret, const char *suffix) {
+        _cleanup_free_ char *j = NULL;
         const char *e;
-        char *j;
         int r;
 
         assert(ret);
@@ -75,21 +73,20 @@ int xdg_user_data_dir(char **ret, const char *suffix) {
          * /etc/systemd/ anyway. */
 
         e = getenv("XDG_DATA_HOME");
-        if (e)
+        if (e) {
                 j = path_join(e, suffix);
-        else {
-                _cleanup_free_ char *home = NULL;
-
-                r = get_home_dir(&home);
+                if (!j)
+                        return -ENOMEM;
+        } else {
+                r = get_home_dir(&j);
                 if (r < 0)
                         return r;
 
-                j = path_join(home, "/.local/share", suffix);
+                if (!path_extend(&j, "/.local/share", suffix))
+                        return -ENOMEM;
         }
-        if (!j)
-                return -ENOMEM;
 
-        *ret = j;
+        *ret = TAKE_PTR(j);
         return 1;
 }
 
@@ -181,10 +178,10 @@ static char** user_dirs(
         if (strv_extend(&res, generator_early) < 0)
                 return NULL;
 
-        if (strv_extend_strv_concat(&res, config_dirs, "/systemd/user") < 0)
+        if (strv_extend(&res, persistent_config) < 0)
                 return NULL;
 
-        if (strv_extend(&res, persistent_config) < 0)
+        if (strv_extend_strv_concat(&res, config_dirs, "/systemd/user") < 0)
                 return NULL;
 
         /* global config has lower priority than the user config of the same type */
@@ -622,7 +619,7 @@ int lookup_paths_init(
                                         STRV_IFNOTNULL(runtime_attached),
                                         STRV_IFNOTNULL(generator),
                                         "/usr/local/lib/systemd/system",
-                                        SYSTEM_DATA_UNIT_PATH,
+                                        SYSTEM_DATA_UNIT_DIR,
                                         "/usr/lib/systemd/system",
                                         STRV_IFNOTNULL(flags & LOOKUP_PATHS_SPLIT_USR ? "/lib/systemd/system" : NULL),
                                         STRV_IFNOTNULL(generator_late));
@@ -772,7 +769,7 @@ void lookup_paths_log(LookupPaths *p) {
                 log_debug("Ignoring unit files.");
                 p->search_path = strv_free(p->search_path);
         } else {
-                _cleanup_free_ char *t;
+                _cleanup_free_ char *t = NULL;
 
                 t = strv_join(p->search_path, "\n\t");
                 log_debug("Looking for unit files in (higher priority first):\n\t%s", strna(t));

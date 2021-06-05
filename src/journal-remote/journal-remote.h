@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
 #include "sd-event.h"
@@ -23,7 +23,6 @@ struct MHDDaemonWrapper {
 
 struct RemoteServer {
         RemoteSource **sources;
-        size_t sources_size;
         size_t active;
 
         sd_event *events;

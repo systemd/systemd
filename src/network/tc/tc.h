@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
 #include "networkd-link.h"
@@ -8,7 +8,7 @@ typedef enum TrafficControlKind {
         TC_KIND_TCLASS,
         TC_KIND_FILTER,
         _TC_KIND_MAX,
-        _TC_KIND_INVALID = -1,
+        _TC_KIND_INVALID = -EINVAL,
 } TrafficControlKind;
 
 typedef struct TrafficControl {
@@ -28,5 +28,5 @@ typedef struct TrafficControl {
 #define TC(tc) (&(tc)->meta)
 
 void traffic_control_free(TrafficControl *tc);
-int traffic_control_configure(Link *link, TrafficControl *tc);
-int traffic_control_section_verify(TrafficControl *tc, bool *qdisc_has_root, bool *qdisc_has_clsact);
+int link_configure_traffic_control(Link *link);
+void network_drop_invalid_traffic_control(Network *network);

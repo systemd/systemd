@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
 #include "sd-id128.h"
@@ -16,7 +16,7 @@ typedef enum DUIDType {
         DUID_TYPE_LL        = 3,
         DUID_TYPE_UUID      = 4,
         _DUID_TYPE_MAX,
-        _DUID_TYPE_INVALID  = -1,
+        _DUID_TYPE_INVALID  = -EINVAL,
 } DUIDType;
 
 /* RFC 3315 section 9.1:

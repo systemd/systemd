@@ -1,10 +1,11 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
 #include "sd-netlink.h"
 
 #include "conf-parser.h"
 #include "list.h"
+#include "log-link.h"
 #include "networkd-link.h"
 #include "time-util.h"
 
@@ -12,6 +13,7 @@
 /* This is the list of known sections. We need to ignore them in the initial parsing phase. */
 #define NETDEV_OTHER_SECTIONS                     \
         "-BareUDP\0"                              \
+        "-BatmanAdvanced\0"                       \
         "-Bond\0"                                 \
         "-Bridge\0"                               \
         "-FooOverUDP\0"                           \
@@ -83,9 +85,10 @@ typedef enum NetDevKind {
         NETDEV_KIND_XFRM,
         NETDEV_KIND_IFB,
         NETDEV_KIND_BAREUDP,
+        NETDEV_KIND_BATADV,
         _NETDEV_KIND_MAX,
         _NETDEV_KIND_TUNNEL, /* Used by config_parse_stacked_netdev() */
-        _NETDEV_KIND_INVALID = -1
+        _NETDEV_KIND_INVALID = -EINVAL,
 } NetDevKind;
 
 typedef enum NetDevState {
@@ -95,7 +98,7 @@ typedef enum NetDevState {
         NETDEV_STATE_READY,
         NETDEV_STATE_LINGER,
         _NETDEV_STATE_MAX,
-        _NETDEV_STATE_INVALID = -1,
+        _NETDEV_STATE_INVALID = -EINVAL,
 } NetDevState;
 
 typedef enum NetDevCreateType {
@@ -104,7 +107,7 @@ typedef enum NetDevCreateType {
         NETDEV_CREATE_STACKED,
         NETDEV_CREATE_AFTER_CONFIGURED,
         _NETDEV_CREATE_MAX,
-        _NETDEV_CREATE_INVALID = -1,
+        _NETDEV_CREATE_INVALID = -EINVAL,
 } NetDevCreateType;
 
 typedef struct Manager Manager;
@@ -221,24 +224,32 @@ const struct ConfigPerfItem* network_netdev_gperf_lookup(const char *key, GPERF_
 
 /* Macros which append INTERFACE= to the message */
 
-#define log_netdev_full(netdev, level, error, ...)                      \
+#define log_netdev_full_errno_zerook(netdev, level, error, ...)         \
         ({                                                              \
                 const NetDev *_n = (netdev);                            \
-                _n ? log_object_internal(level, error, PROJECT_FILE, __LINE__, __func__, "INTERFACE=", _n->ifname, NULL, NULL, ##__VA_ARGS__) : \
-                        log_internal(level, error, PROJECT_FILE, __LINE__, __func__, ##__VA_ARGS__); \
+                log_interface_full_errno_zerook(_n ? _n->ifname : NULL, level, error, __VA_ARGS__); \
         })
 
-#define log_netdev_debug(netdev, ...)       log_netdev_full(netdev, LOG_DEBUG, 0, ##__VA_ARGS__)
-#define log_netdev_info(netdev, ...)        log_netdev_full(netdev, LOG_INFO, 0, ##__VA_ARGS__)
-#define log_netdev_notice(netdev, ...)      log_netdev_full(netdev, LOG_NOTICE, 0, ##__VA_ARGS__)
-#define log_netdev_warning(netdev, ...)     log_netdev_full(netdev, LOG_WARNING, 0, ## __VA_ARGS__)
-#define log_netdev_error(netdev, ...)       log_netdev_full(netdev, LOG_ERR, 0, ##__VA_ARGS__)
+#define log_netdev_full_errno(netdev, level, error, ...) \
+        ({                                                              \
+                int _error = (error);                                   \
+                ASSERT_NON_ZERO(_error);                                \
+                log_netdev_full_errno_zerook(netdev, level, _error, __VA_ARGS__); \
+        })
 
-#define log_netdev_debug_errno(netdev, error, ...)   log_netdev_full(netdev, LOG_DEBUG, error, ##__VA_ARGS__)
-#define log_netdev_info_errno(netdev, error, ...)    log_netdev_full(netdev, LOG_INFO, error, ##__VA_ARGS__)
-#define log_netdev_notice_errno(netdev, error, ...)  log_netdev_full(netdev, LOG_NOTICE, error, ##__VA_ARGS__)
-#define log_netdev_warning_errno(netdev, error, ...) log_netdev_full(netdev, LOG_WARNING, error, ##__VA_ARGS__)
-#define log_netdev_error_errno(netdev, error, ...)   log_netdev_full(netdev, LOG_ERR, error, ##__VA_ARGS__)
+#define log_netdev_full(netdev, level, ...) (void) log_netdev_full_errno_zerook(netdev, level, 0, __VA_ARGS__)
+
+#define log_netdev_debug(netdev, ...)   log_netdev_full(netdev, LOG_DEBUG, __VA_ARGS__)
+#define log_netdev_info(netdev, ...)    log_netdev_full(netdev, LOG_INFO, __VA_ARGS__)
+#define log_netdev_notice(netdev, ...)  log_netdev_full(netdev, LOG_NOTICE, __VA_ARGS__)
+#define log_netdev_warning(netdev, ...) log_netdev_full(netdev, LOG_WARNING,  __VA_ARGS__)
+#define log_netdev_error(netdev, ...)   log_netdev_full(netdev, LOG_ERR, __VA_ARGS__)
+
+#define log_netdev_debug_errno(netdev, error, ...)   log_netdev_full_errno(netdev, LOG_DEBUG, error, __VA_ARGS__)
+#define log_netdev_info_errno(netdev, error, ...)    log_netdev_full_errno(netdev, LOG_INFO, error, __VA_ARGS__)
+#define log_netdev_notice_errno(netdev, error, ...)  log_netdev_full_errno(netdev, LOG_NOTICE, error, __VA_ARGS__)
+#define log_netdev_warning_errno(netdev, error, ...) log_netdev_full_errno(netdev, LOG_WARNING, error, __VA_ARGS__)
+#define log_netdev_error_errno(netdev, error, ...)   log_netdev_full_errno(netdev, LOG_ERR, error, __VA_ARGS__)
 
 #define LOG_NETDEV_MESSAGE(netdev, fmt, ...) "MESSAGE=%s: " fmt, (netdev)->ifname, ##__VA_ARGS__
 #define LOG_NETDEV_INTERFACE(netdev) "INTERFACE=%s", (netdev)->ifname

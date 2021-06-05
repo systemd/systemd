@@ -1,9 +1,10 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
 #include <netinet/in.h>
 #include <linux/if_macsec.h>
 
+#include "ether-addr-util.h"
 #include "in-addr-util.h"
 #include "netdev.h"
 #include "networkd-util.h"

@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <fcntl.h>
 #include <unistd.h>
@@ -10,13 +10,17 @@
 #include "alloc-util.h"
 #include "ask-password-api.h"
 #include "cryptsetup-pkcs11.h"
-#include "cryptsetup-keyfile.h"
 #include "escape.h"
 #include "fd-util.h"
+#include "fileio.h"
 #include "format-util.h"
+#include "hexdecoct.h"
+#include "json.h"
 #include "macro.h"
 #include "memory-util.h"
+#include "parse-util.h"
 #include "pkcs11-util.h"
+#include "random-util.h"
 #include "stat-util.h"
 #include "strv.h"
 
@@ -28,6 +32,7 @@ struct pkcs11_callback_data {
         void *decrypted_key;
         size_t decrypted_key_size;
         bool free_encrypted_key;
+        bool headless;
 };
 
 static void pkcs11_callback_data_release(struct pkcs11_callback_data *data) {
@@ -66,7 +71,9 @@ static int pkcs11_callback(
                         data->friendly_name,
                         "drive-harddisk",
                         "pkcs11-pin",
+                        "cryptsetup.pkcs11-pin",
                         data->until,
+                        data->headless,
                         NULL);
         if (r < 0)
                 return r;
@@ -95,6 +102,7 @@ static int pkcs11_callback(
 }
 
 int decrypt_pkcs11_key(
+                const char *volume_name,
                 const char *friendly_name,
                 const char *pkcs11_uri,
                 const char *key_file,         /* We either expect key_file and associated parameters to be set (for file keys) … */
@@ -103,12 +111,14 @@ int decrypt_pkcs11_key(
                 const void *key_data,         /* … or key_data and key_data_size (for literal keys) */
                 size_t key_data_size,
                 usec_t until,
+                bool headless,
                 void **ret_decrypted_key,
                 size_t *ret_decrypted_key_size) {
 
         _cleanup_(pkcs11_callback_data_release) struct pkcs11_callback_data data = {
                 .friendly_name = friendly_name,
                 .until = until,
+                .headless = headless,
         };
         int r;
 
@@ -126,7 +136,19 @@ int decrypt_pkcs11_key(
 
                 data.free_encrypted_key = false;
         } else {
-                r = load_key_file(key_file, NULL, key_file_size, key_file_offset, &data.encrypted_key, &data.encrypted_key_size);
+                _cleanup_free_ char *bindname = NULL;
+
+                /* If we read the key via AF_UNIX, make this client recognizable */
+                if (asprintf(&bindname, "@%" PRIx64"/cryptsetup-pkcs11/%s", random_u64(), volume_name) < 0)
+                        return log_oom();
+
+                r = read_full_file_full(
+                                AT_FDCWD, key_file,
+                                key_file_offset == 0 ? UINT64_MAX : key_file_offset,
+                                key_file_size == 0 ? SIZE_MAX : key_file_size,
+                                READ_FULL_FILE_CONNECT_SOCKET,
+                                bindname,
+                                (char**) &data.encrypted_key, &data.encrypted_key_size);
                 if (r < 0)
                         return r;
 
@@ -140,5 +162,82 @@ int decrypt_pkcs11_key(
         *ret_decrypted_key = TAKE_PTR(data.decrypted_key);
         *ret_decrypted_key_size = data.decrypted_key_size;
 
+        return 0;
+}
+
+int find_pkcs11_auto_data(
+                struct crypt_device *cd,
+                char **ret_uri,
+                void **ret_encrypted_key,
+                size_t *ret_encrypted_key_size,
+                int *ret_keyslot) {
+
+        _cleanup_free_ char *uri = NULL;
+        _cleanup_free_ void *key = NULL;
+        int r, keyslot = -1;
+        size_t key_size = 0;
+
+        assert(cd);
+        assert(ret_uri);
+        assert(ret_encrypted_key);
+        assert(ret_encrypted_key_size);
+        assert(ret_keyslot);
+
+        /* Loads PKCS#11 metadata from LUKS2 JSON token headers. */
+
+        for (int token = 0; token < sym_crypt_token_max(CRYPT_LUKS2); token++) {
+                _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
+                JsonVariant *w;
+
+                r = cryptsetup_get_token_as_json(cd, token, "systemd-pkcs11", &v);
+                if (IN_SET(r, -ENOENT, -EINVAL, -EMEDIUMTYPE))
+                        continue;
+                if (r < 0)
+                        return log_error_errno(r, "Failed to read JSON token data off disk: %m");
+
+                if (uri)
+                        return log_error_errno(SYNTHETIC_ERRNO(ENOTUNIQ),
+                                               "Multiple PKCS#11 tokens enrolled, cannot automatically determine token.");
+
+                w = json_variant_by_key(v, "pkcs11-uri");
+                if (!w || !json_variant_is_string(w))
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "PKCS#11 token data lacks 'pkcs11-uri' field.");
+
+                uri = strdup(json_variant_string(w));
+                if (!uri)
+                        return log_oom();
+
+                if (!pkcs11_uri_valid(uri))
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "PKCS#11 token data contains invalid PKCS#11 URI.");
+
+                w = json_variant_by_key(v, "pkcs11-key");
+                if (!w || !json_variant_is_string(w))
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "PKCS#11 token data lacks 'pkcs11-key' field.");
+
+                assert(!key);
+                assert(key_size == 0);
+                r = unbase64mem(json_variant_string(w), SIZE_MAX, &key, &key_size);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to decode base64 encoded key.");
+
+                assert(keyslot < 0);
+                keyslot = cryptsetup_get_keyslot_from_token(v);
+                if (keyslot < 0)
+                        return log_error_errno(keyslot, "Failed to extract keyslot index from PKCS#11 JSON data: %m");
+        }
+
+        if (!uri)
+                return log_error_errno(SYNTHETIC_ERRNO(ENXIO),
+                                       "No valid PKCS#11 token data found.");
+
+        log_info("Automatically discovered security PKCS#11 token '%s' unlocks volume.", uri);
+
+        *ret_uri = TAKE_PTR(uri);
+        *ret_encrypted_key = TAKE_PTR(key);
+        *ret_encrypted_key_size = key_size;
+        *ret_keyslot = keyslot;
         return 0;
 }

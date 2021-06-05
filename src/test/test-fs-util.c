@@ -1,14 +1,17 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <unistd.h>
 
 #include "alloc-util.h"
+#include "copy.h"
 #include "fd-util.h"
+#include "fileio.h"
 #include "fs-util.h"
 #include "id128-util.h"
 #include "macro.h"
 #include "mkdir.h"
 #include "path-util.h"
+#include "random-util.h"
 #include "rm-rf.h"
 #include "stdio-util.h"
 #include "string-util.h"
@@ -329,7 +332,7 @@ static void test_chase_symlinks(void) {
         assert_se(S_ISLNK(st.st_mode));
         result = mfree(result);
 
-        /* Test CHASE_ONE */
+        /* Test CHASE_STEP */
 
         p = strjoina(temp, "/start");
         r = chase_symlinks(p, NULL, CHASE_STEP, &result, NULL);
@@ -340,7 +343,7 @@ static void test_chase_symlinks(void) {
 
         r = chase_symlinks(p, NULL, CHASE_STEP, &result, NULL);
         assert_se(r == 0);
-        p = strjoina(temp, "/top/./dotdota");
+        p = strjoina(temp, "/top/dotdota");
         assert_se(streq(p, result));
         result = mfree(result);
 
@@ -834,6 +837,66 @@ static void test_path_is_encrypted(void) {
         test_path_is_encrypted_one("/dev", booted > 0 ? false : -1);
 }
 
+static void create_binary_file(const char *p, const void *data, size_t l) {
+        _cleanup_close_ int fd = -1;
+
+        fd = open(p, O_CREAT|O_WRONLY|O_EXCL|O_CLOEXEC, 0600);
+        assert_se(fd >= 0);
+        assert_se(write(fd, data, l) == (ssize_t) l);
+}
+
+static void test_conservative_rename(void) {
+        _cleanup_(unlink_and_freep) char *p = NULL;
+        _cleanup_free_ char *q = NULL;
+        size_t l = 16*1024 + random_u64() % (32 * 1024); /* some randomly sized buffer 16k…48k */
+        uint8_t buffer[l+1];
+
+        random_bytes(buffer, l);
+
+        assert_se(tempfn_random_child(NULL, NULL, &p) >= 0);
+        create_binary_file(p, buffer, l);
+
+        assert_se(tempfn_random_child(NULL, NULL, &q) >= 0);
+
+        /* Check that the hardlinked "copy" is detected */
+        assert_se(link(p, q) >= 0);
+        assert_se(conservative_renameat(AT_FDCWD, q, AT_FDCWD, p) == 0);
+        assert_se(access(q, F_OK) < 0 && errno == ENOENT);
+
+        /* Check that a manual copy is detected */
+        assert_se(copy_file(p, q, 0, MODE_INVALID, 0, 0, COPY_REFLINK) >= 0);
+        assert_se(conservative_renameat(AT_FDCWD, q, AT_FDCWD, p) == 0);
+        assert_se(access(q, F_OK) < 0 && errno == ENOENT);
+
+        /* Check that a manual new writeout is also detected */
+        create_binary_file(q, buffer, l);
+        assert_se(conservative_renameat(AT_FDCWD, q, AT_FDCWD, p) == 0);
+        assert_se(access(q, F_OK) < 0 && errno == ENOENT);
+
+        /* Check that a minimally changed version is detected */
+        buffer[47] = ~buffer[47];
+        create_binary_file(q, buffer, l);
+        assert_se(conservative_renameat(AT_FDCWD, q, AT_FDCWD, p) > 0);
+        assert_se(access(q, F_OK) < 0 && errno == ENOENT);
+
+        /* Check that this really is new updated version */
+        create_binary_file(q, buffer, l);
+        assert_se(conservative_renameat(AT_FDCWD, q, AT_FDCWD, p) == 0);
+        assert_se(access(q, F_OK) < 0 && errno == ENOENT);
+
+        /* Make sure we detect extended files */
+        buffer[l++] = 47;
+        create_binary_file(q, buffer, l);
+        assert_se(conservative_renameat(AT_FDCWD, q, AT_FDCWD, p) > 0);
+        assert_se(access(q, F_OK) < 0 && errno == ENOENT);
+
+        /* Make sure we detect truncated files */
+        l--;
+        create_binary_file(q, buffer, l);
+        assert_se(conservative_renameat(AT_FDCWD, q, AT_FDCWD, p) > 0);
+        assert_se(access(q, F_OK) < 0 && errno == ENOENT);
+}
+
 int main(int argc, char *argv[]) {
         test_setup_logging(LOG_INFO);
 
@@ -852,6 +915,7 @@ int main(int argc, char *argv[]) {
         test_rename_noreplace();
         test_chmod_and_chown();
         test_path_is_encrypted();
+        test_conservative_rename();
 
         return 0;
 }

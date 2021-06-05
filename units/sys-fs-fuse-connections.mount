@@ -1,4 +1,4 @@
-#  SPDX-License-Identifier: LGPL-2.1+
+#  SPDX-License-Identifier: LGPL-2.1-or-later
 #
 #  This file is part of systemd.
 #
@@ -15,8 +15,15 @@ DefaultDependencies=no
 ConditionPathExists=/sys/fs/fuse/connections
 ConditionCapability=CAP_SYS_ADMIN
 ConditionVirtualization=!private-users
-After=systemd-modules-load.service
 Before=sysinit.target
+
+# These dependencies are used to make certain that the module is fully
+# loaded. Indeed udev starts this unit when it receives an uevent for the
+# module but the kernel sends it too early, ie before the init() of the module
+# is fully operational and /sys/fs/fuse/connections is created, see issue#17586.
+
+After=modprobe@fuse.service
+Requires=modprobe@fuse.service
 
 [Mount]
 What=fusectl

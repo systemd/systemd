@@ -1,7 +1,7 @@
 <?xml version='1.0'?>
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
-<!-- SPDX-License-Identifier: LGPL-2.1+ -->
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
 
 <refentry id="resolvectl" conditional='ENABLE_RESOLVE'
           xmlns:xi="http://www.w3.org/2001/XInclude">
@@ -55,7 +55,19 @@
       <varlistentry>
         <term><command>query</command> <replaceable>HOSTNAME|ADDRESS</replaceable>…</term>
 
-        <listitem><para>Resolve domain names, IPv4 and IPv6 addresses.</para></listitem>
+        <listitem><para>Resolve domain names, as well as IPv4 and IPv6 addresses. When used in conjunction
+        with <option>--type=</option> or <option>--class=</option> (see below), resolves low-level DNS
+        resource records.</para>
+
+        <para>If a single-label domain name is specified it is searched for according to the configured
+        search domains — unless <option>--search=no</option> or
+        <option>--type=</option>/<option>--class=</option> are specified, both of which turn this logic
+        off.</para>
+
+        <para>If an international domain name is specified, it is automatically translated according to IDNA
+        rules when resolved via classic DNS — but not for look-ups via MulticastDNS or LLMNR. If
+        <option>--type=</option>/<option>--class=</option> is used IDNA translation is turned off and domain
+        names are processed as specified.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -204,7 +216,7 @@
         <listitem><para>Specifies the network interface to execute the query on. This may either be specified as numeric
         interface index or as network interface string (e.g. <literal>en0</literal>). Note that this option has no
         effect if system-wide DNS configuration (as configured in <filename>/etc/resolv.conf</filename> or
-        <filename>/etc/systemd/resolve.conf</filename>) in place of per-link configuration is used.</para></listitem>
+        <filename>/etc/systemd/resolved.conf</filename>) in place of per-link configuration is used.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -233,11 +245,19 @@
         <term><option>-c</option> <replaceable>CLASS</replaceable></term>
         <term><option>--class=</option><replaceable>CLASS</replaceable></term>
 
-        <listitem><para>Specifies the DNS resource record type (e.g. A, AAAA, MX, …) and class (e.g. IN, ANY, …) to
-        look up. If these options are used a DNS resource record set matching the specified class and type is
-        requested. The class defaults to IN if only a type is specified.
-        The special value <literal>help</literal> may be used to list known values.
-        </para></listitem>
+        <listitem><para>When used in conjunction with the <command>query</command> command, specifies the DNS
+        resource record type (e.g. A, AAAA, MX, …) and class (e.g. IN, ANY, …) to look up. If these options
+        are used a DNS resource record set matching the specified class and type is requested. The class
+        defaults to IN if only a type is specified. The special value <literal>help</literal> may be used to
+        list known values.</para>
+
+        <para>Without these options <command>resolvectl query</command> provides high-level domain name to
+        address and address to domain name resolution. With these options it provides low-level DNS resource
+        record resolution. The search domain logic is automatically turned off when these options are used,
+        i.e. specified domain names need to be fully qualified domain names. Moreover, IDNA internal domain
+        name translation is turned off as well, i.e. international domain names should be specified in
+        <literal>xn--…</literal> notation, unless look-up in MulticastDNS/LLMNR is desired, in which case
+        UTF-8 characters should be used.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -263,11 +283,72 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>--validate=</option><replaceable>BOOL</replaceable></term>
+
+        <listitem><para>Takes a boolean parameter; used in conjunction with <command>query</command>. If true
+        (the default), DNSSEC validation is applied as usual — under the condition that it is enabled for the
+        network and for <filename>systemd-resolved.service</filename> as a whole. If false, DNSSEC validation
+        is disabled for the specific query, regardless of whether it is enabled for the network or in the
+        service. Note that setting this option to true does not force DNSSEC validation on systems/networks
+        where DNSSEC is turned off. This option is only suitable to turn off such validation where otherwise
+        enabled, not enable validation where otherwise disabled.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--synthesize=</option><replaceable>BOOL</replaceable></term>
+
+        <listitem><para>Takes a boolean parameter; used in conjunction with <command>query</command>. If true
+        (the default), select domains are resolved on the local system, among them
+        <literal>localhost</literal>, <literal>_gateway</literal> and <literal>_outbound</literal>, or
+        entries from <filename>/etc/hosts</filename>. If false these domains are not resolved locally, and
+        either fail (in case of <literal>localhost</literal>, <literal>_gateway</literal> or
+        <literal>_outbound</literal> and suchlike) or go to the network via regular DNS/mDNS/LLMNR lookups
+        (in case of <filename>/etc/hosts</filename> entries).</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--cache=</option><replaceable>BOOL</replaceable></term>
+
+        <listitem><para>Takes a boolean parameter; used in conjunction with <command>query</command>. If true
+        (the default), lookups use the local DNS resource record cache. If false, lookups are routed to the
+        network instead, regardless if already available in the local cache.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--zone=</option><replaceable>BOOL</replaceable></term>
+
+        <listitem><para>Takes a boolean parameter; used in conjunction with <command>query</command>. If true
+        (the default), lookups are answered from locally registered LLMNR or mDNS resource records, if
+        defined. If false, locally registered LLMNR/mDNS records are not considered for the lookup
+        request.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--trust-anchor=</option><replaceable>BOOL</replaceable></term>
+
+        <listitem><para>Takes a boolean parameter; used in conjunction with <command>query</command>. If true
+        (the default), lookups for DS and DNSKEY are answered from the local DNSSEC trust anchors if
+        possible. If false, the local trust store is not considered for the lookup request.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--network=</option><replaceable>BOOL</replaceable></term>
+
+        <listitem><para>Takes a boolean parameter; used in conjunction with <command>query</command>. If true
+        (the default), lookups are answered via DNS, LLMNR or mDNS network requests if they cannot be
+        synthesized locally, or be answered from the local cache, zone or trust anchors (see above). If false,
+        the request is not answered from the network and will thus fail if none of the indicated sources can
+        answer them.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>--search=</option><replaceable>BOOL</replaceable></term>
 
-        <listitem><para>Takes a boolean parameter. If true (the default), any specified single-label hostnames will be
-        searched in the domains configured in the search domain list, if it is non-empty. Otherwise, the search domain
-        logic is disabled.</para></listitem>
+        <listitem><para>Takes a boolean parameter. If true (the default), any specified single-label
+        hostnames will be searched in the domains configured in the search domain list, if it is
+        non-empty. Otherwise, the search domain logic is disabled. Note that this option has no effect if
+        <option>--type=</option> is used (see above), in which case the search domain logic is
+        unconditionally turned off.</para></listitem>
       </varlistentry>
 
       <varlistentry>

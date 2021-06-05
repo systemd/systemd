@@ -1,7 +1,7 @@
 <?xml version='1.0'?>
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
-<!-- SPDX-License-Identifier: LGPL-2.1+ -->
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
 
 <refentry id="systemd.service">
   <refentryinfo>
@@ -203,12 +203,18 @@
             has <varname>RemainAfterExit=</varname> not set) it will not show up as started afterwards, but
             as dead.</para></listitem>
 
-            <listitem><para>Behavior of <option>dbus</option> is similar to <option>simple</option>; however, it is
-            expected that the service acquires a name on the D-Bus bus, as configured by
-            <varname>BusName=</varname>. systemd will proceed with starting follow-up units after the D-Bus bus name
-            has been acquired. Service units with this option configured implicitly gain dependencies on the
-            <filename>dbus.socket</filename> unit. This type is the default if <varname>BusName=</varname> is
-            specified.</para></listitem>
+            <listitem><para>Behavior of <option>dbus</option> is similar to <option>simple</option>; however,
+            it is expected that the service acquires a name on the D-Bus bus, as configured by
+            <varname>BusName=</varname>. systemd will proceed with starting follow-up units after the D-Bus
+            bus name has been acquired. Service units with this option configured implicitly gain
+            dependencies on the <filename>dbus.socket</filename> unit. This type is the default if
+            <varname>BusName=</varname> is specified. A service unit of this type is considered to be in the
+            activating state until the specified bus name is acquired. It is considered activated while the
+            bus name is taken. Once the bus name is released the service is considered being no longer
+            functional which has the effect that the service manager attempts to terminate any remaining
+            processes belonging to the service. Services that drop their bus name as part of their shutdown
+            logic thus should be prepared to receive a <constant>SIGTERM</constant> (or whichever signal is
+            configured in <varname>KillSignal=</varname>) as result.</para></listitem>
 
             <listitem><para>Behavior of <option>notify</option> is similar to <option>exec</option>; however, it is
             expected that the service sends a notification message via
@@ -250,6 +256,31 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>ExitType=</varname></term>
+
+        <listitem>
+          <para>Configures the process exit type for this service unit. One of <option>main</option> or
+          <option>cgroup</option>:</para>
+
+          <itemizedlist>
+            <listitem><para>If set to <option>main</option> (the default), the service manager
+            will consider the unit stopped when the main process, which is determined according to the `Type`, exits.
+            </para></listitem>
+
+            <listitem><para>The <option>cgroup</option> exit type is meant for applications whose forking model is not
+            known ahead of time and which might not have a specific main process. The service will stay running as long
+            as at least one process in the cgroup is running. The exit status of the service is that of the last
+            process in the cgroup to exit.</para></listitem>
+          </itemizedlist>
+
+          <para>It is generally recommended to use <varname>ExitType=</varname><option>main</option> when a service has
+          a known forking model and a main process can reliably be determined. <varname>ExitType=</varname>
+          <option>cgroup</option> is well suited for transient or automatically generated services, such as graphical
+          applications inside of a desktop environment.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>RemainAfterExit=</varname></term>
 
         <listitem><para>Takes a boolean value that specifies whether
@@ -286,7 +317,11 @@
         will remove the file after the service has shut down if it still exists. The PID file does not need to be owned
         by a privileged user, but if it is owned by an unprivileged user additional safety restrictions are enforced:
         the file may not be a symlink to a file owned by a different user (neither directly nor indirectly), and the
-        PID file must refer to a process already belonging to the service.</para></listitem>
+        PID file must refer to a process already belonging to the service.</para>
+
+        <para>Note that PID files should be avoided in modern projects. Use <option>Type=notify</option> or
+        <option>Type=simple</option> where possible, which does not require use of PID files to determine the
+        main process of a service and avoids needless forking.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -746,14 +781,19 @@
         If set to <option>no</option> (the default), the service will
         not be restarted. If set to <option>on-success</option>, it
         will be restarted only when the service process exits cleanly.
-        In this context, a clean exit means an exit code of 0, or one
-        of the signals
-        <constant>SIGHUP</constant>,
-        <constant>SIGINT</constant>,
-        <constant>SIGTERM</constant> or
-        <constant>SIGPIPE</constant>, and
-        additionally, exit statuses and signals specified in
-        <varname>SuccessExitStatus=</varname>. If set to
+        In this context, a clean exit means any of the following:
+        <itemizedlist>
+            <listitem><simpara>exit code of 0;</simpara></listitem>
+            <listitem><simpara>for types other than
+            <varname>Type=oneshot</varname>, one of the signals
+                <constant>SIGHUP</constant>,
+                <constant>SIGINT</constant>,
+                <constant>SIGTERM</constant>, or
+                <constant>SIGPIPE</constant>;</simpara></listitem>
+            <listitem><simpara>exit statuses and signals specified in
+                <varname>SuccessExitStatus=</varname>.</simpara></listitem>
+        </itemizedlist>
+        If set to
         <option>on-failure</option>, the service will be restarted
         when the process exits with a non-zero exit code, is
         terminated by a signal (including on core dump, but excluding
@@ -774,7 +814,7 @@
         abnormally by a signal, or hit a timeout.</para>
 
         <table>
-          <title>Exit causes and the effect of the <varname>Restart=</varname> settings on them</title>
+          <title>Exit causes and the effect of the <varname>Restart=</varname> settings</title>
 
           <tgroup cols='2'>
             <colspec colname='path' />
@@ -875,7 +915,7 @@
 
         <listitem><para>Takes a list of exit status definitions that, when returned by the main service
         process, will be considered successful termination, in addition to the normal successful exit status
-        0 and the signals <constant>SIGHUP</constant>, <constant>SIGINT</constant>,
+        0 and, except for <varname>Type=oneshot</varname>, the signals <constant>SIGHUP</constant>, <constant>SIGINT</constant>,
         <constant>SIGTERM</constant>, and <constant>SIGPIPE</constant>. Exit status definitions can be
         numeric termination statuses, termination status names, or termination signal names, separated by
         spaces. See the Process Exit Codes section in
@@ -1035,7 +1075,7 @@
         <literal>FDSTORE=1</literal> messages. This is useful for implementing services that can restart
         after an explicit request or a crash without losing state. Any open sockets and other file
         descriptors which should not be closed during the restart may be stored this way. Application state
-        can either be serialized to a file in <filename>/run</filename>, or better, stored in a
+        can either be serialized to a file in <filename>/run/</filename>, or better, stored in a
         <citerefentry><refentrytitle>memfd_create</refentrytitle><manvolnum>2</manvolnum></citerefentry>
         memory file descriptor. Defaults to 0, i.e. no file descriptors may be stored in the service
         manager. All file descriptors passed to the service manager from a specific service are passed back
@@ -1097,11 +1137,9 @@
     </variablelist>
 
     <para>Check
-    <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>
-    and
-    <citerefentry><refentrytitle>systemd.kill</refentrytitle><manvolnum>5</manvolnum></citerefentry>
-    for more settings.</para>
-
+    <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry> and
+    <citerefentry><refentrytitle>systemd.kill</refentrytitle><manvolnum>5</manvolnum></citerefentry> for more
+    settings.</para>
   </refsect1>
 
   <refsect1>
@@ -1116,21 +1154,13 @@
     <varname>ExecStop=</varname>, and
     <varname>ExecStopPost=</varname> options.</para>
 
-    <para>Multiple command lines may be concatenated in a single
-    directive by separating them with semicolons (these semicolons
-    must be passed as separate words). Lone semicolons may be escaped
-    as <literal>\;</literal>.</para>
+    <para>Multiple command lines may be concatenated in a single directive by separating them with semicolons
+    (these semicolons must be passed as separate words). Lone semicolons may be escaped as
+    <literal>\;</literal>.</para>
 
-    <para>Each command line is split on whitespace, with the first item being the command to
-    execute, and the subsequent items being the arguments. Double quotes ("…") and single quotes
-    ('…') may be used to wrap a whole item (the opening quote may appear only at the beginning or
-    after whitespace that is not quoted, and the closing quote must be followed by whitespace or the
-    end of line), in which case everything until the next matching quote becomes part of the same
-    argument. Quotes themselves are removed. C-style escapes are also supported. The table below
-    contains the list of known escape patterns. Only escape patterns which match the syntax in the
-    table are allowed; other patterns may be added in the future and unknown patterns will result in
-    a warning. In particular, any backslashes should be doubled. Finally, a trailing backslash
-    (<literal>\</literal>) may be used to merge lines.</para>
+    <para>Each command line is unquoted using the rules described in "Quoting" section in
+    <citerefentry><refentrytitle>systemd.syntax</refentrytitle><manvolnum>5</manvolnum></citerefentry>. The
+    first item becomes the command to execute, and the subsequent items the arguments.</para>
 
     <para>This syntax is inspired by shell syntax, but only the meta-characters and expansions
     described in the following paragraphs are understood, and the expansion of variables is
@@ -1160,7 +1190,7 @@
     into words, and afterwards removed.</para>
 
     <para>If the command is not a full (absolute) path, it will be resolved to a full path using a
-    fixed search path determinted at compilation time. Searched directories include
+    fixed search path determined at compilation time. Searched directories include
     <filename>/usr/local/bin/</filename>, <filename>/usr/bin/</filename>, <filename>/bin/</filename>
     on systems using split <filename>/usr/bin/</filename> and <filename>/bin/</filename>
     directories, and their <filename>sbin/</filename> counterparts on systems using split
@@ -1230,74 +1260,6 @@ ls</programlisting>
     <literal>&gt;/dev/null</literal>,
     <literal>&amp;</literal>, <literal>;</literal>, and
     <literal>ls</literal>.</para>
-
-    <table>
-      <title>C escapes supported in command lines and environment variables</title>
-      <tgroup cols='2'>
-        <colspec colname='escape' />
-        <colspec colname='meaning' />
-        <thead>
-          <row>
-            <entry>Literal</entry>
-            <entry>Actual value</entry>
-          </row>
-        </thead>
-        <tbody>
-          <row>
-            <entry><literal>\a</literal></entry>
-            <entry>bell</entry>
-          </row>
-          <row>
-            <entry><literal>\b</literal></entry>
-            <entry>backspace</entry>
-          </row>
-          <row>
-            <entry><literal>\f</literal></entry>
-            <entry>form feed</entry>
-          </row>
-          <row>
-            <entry><literal>\n</literal></entry>
-            <entry>newline</entry>
-          </row>
-          <row>
-            <entry><literal>\r</literal></entry>
-            <entry>carriage return</entry>
-          </row>
-          <row>
-            <entry><literal>\t</literal></entry>
-            <entry>tab</entry>
-          </row>
-          <row>
-            <entry><literal>\v</literal></entry>
-            <entry>vertical tab</entry>
-          </row>
-          <row>
-            <entry><literal>\\</literal></entry>
-            <entry>backslash</entry>
-          </row>
-          <row>
-            <entry><literal>\"</literal></entry>
-            <entry>double quotation mark</entry>
-          </row>
-          <row>
-            <entry><literal>\'</literal></entry>
-            <entry>single quotation mark</entry>
-          </row>
-          <row>
-            <entry><literal>\s</literal></entry>
-            <entry>space</entry>
-          </row>
-          <row>
-            <entry><literal>\x<replaceable>xx</replaceable></literal></entry>
-            <entry>character number <replaceable>xx</replaceable> in hexadecimal encoding</entry>
-          </row>
-          <row>
-            <entry><literal>\<replaceable>nnn</replaceable></literal></entry>
-            <entry>character number <replaceable>nnn</replaceable> in octal encoding</entry>
-          </row>
-        </tbody>
-      </tgroup>
-    </table>
   </refsect1>
 
   <refsect1>
@@ -1307,7 +1269,7 @@ ls</programlisting>
       <title>Simple service</title>
 
       <para>The following unit file creates a service that will
-      execute <filename>/usr/sbin/foo-daemon</filename>. Since no
+      execute <filename index="false">/usr/sbin/foo-daemon</filename>. Since no
       <varname>Type=</varname> is specified, the default
       <varname>Type=</varname><option>simple</option> will be assumed.
       systemd will assume the unit to be started immediately after the

@@ -3,7 +3,7 @@
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
 <!--
-  SPDX-License-Identifier: LGPL-2.1+
+  SPDX-License-Identifier: LGPL-2.1-or-later
 
   Copyright © 2016 Red Hat, Inc.
 -->
@@ -76,7 +76,7 @@
         <title>Setup environment to allow access to a program installed in
         <filename index="false">/opt/foo</filename></title>
 
-        <para><filename>/etc/environment.d/60-foo.conf</filename>:
+        <para><filename index="false">/etc/environment.d/60-foo.conf</filename>:
         </para>
         <programlisting>
         FOO_DEBUG=force-software-gl,log-verbose

@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: LGPL-2.1+
+# SPDX-License-Identifier: LGPL-2.1-or-later
 #
 #  Copyright © 2013-2019 Daniele Medri
 
@@ -97,7 +97,7 @@ segnalare la troncatura.
 Subject: La nuova sessione @SESSION_ID@ è stata creata per l'utente @USER_ID@
 Defined-By: systemd
 Support: %SUPPORT_URL%
-Documentation: https://www.freedesktop.org/wiki/Software/systemd/multiseat
+Documentation: sd-login(3)
 
 Una nuova sessione con ID @SESSION_ID@ è stata creata per l'utente @USER_ID@.
 
@@ -108,7 +108,7 @@ Il processo primario della sessione è @LEADER@.
 Subject: La sessione @SESSION_ID@ è terminata
 Defined-By: systemd
 Support: %SUPPORT_URL%
-Documentation: https://www.freedesktop.org/wiki/Software/systemd/multiseat
+Documentation: sd-login(3)
 
 La sessione con ID @SESSION_ID@ è terminata.
 
@@ -117,7 +117,7 @@ La sessione con ID @SESSION_ID@ è terminata.
 Subject: La nuova postazione @SEAT_ID@ è ora disponibile
 Defined-By: systemd
 Support: %SUPPORT_URL%
-Documentation: https://www.freedesktop.org/wiki/Software/systemd/multiseat
+Documentation: sd-login(3)
 
 La nuova postazione @SEAT_ID@ è stata configurata ed è ora disponibile.
 
@@ -126,7 +126,7 @@ La nuova postazione @SEAT_ID@ è stata configurata ed è ora disponibile.
 Subject: La postazione @SEAT_ID@ è stata rimossa
 Defined-By: systemd
 Support: %SUPPORT_URL%
-Documentation: https://www.freedesktop.org/wiki/Software/systemd/multiseat
+Documentation: sd-login(3)
 
 La postazione @SEAT_ID@ è stata rimossa e non è più disponibile.
 

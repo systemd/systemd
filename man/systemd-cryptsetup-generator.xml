@@ -2,7 +2,7 @@
 <!--*-nxml-*-->
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
-<!-- SPDX-License-Identifier: LGPL-2.1+ -->
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
 <refentry id="systemd-cryptsetup-generator" conditional='HAVE_LIBCRYPTSETUP'>
 
   <refentryinfo>
@@ -105,6 +105,9 @@
         LUKS device given by the UUID appear under the provided
         name.</para>
 
+        <para>This parameter is the analogue of the first <citerefentry><refentrytitle>crypttab</refentrytitle>
+        <manvolnum>5</manvolnum></citerefentry> field <replaceable>volume-name</replaceable>.</para>
+
         <para><varname>rd.luks.name=</varname> is honored only by
         initial RAM disk (initrd) while <varname>luks.name=</varname>
         is honored by both the main system and the initrd.</para>
@@ -112,20 +115,30 @@
       </varlistentry>
 
       <varlistentry>
-        <term><varname>luks.options=</varname></term>
-        <term><varname>rd.luks.options=</varname></term>
+        <term><varname>luks.data=</varname></term>
+        <term><varname>rd.luks.data=</varname></term>
 
-        <listitem><para>Takes a LUKS super block UUID followed by an
-        <literal>=</literal> and a string of options separated by
-        commas as argument. This will override the options for the
-        given UUID.</para>
-        <para>If only a list of options, without an UUID, is
-        specified, they apply to any UUIDs not specified elsewhere,
-        and without an entry in
-        <filename>/etc/crypttab</filename>.</para><para>
-        <varname>rd.luks.options=</varname> is honored only by initial
-        RAM disk (initrd) while <varname>luks.options=</varname> is
-        honored by both the main system and the initrd.</para>
+        <listitem><para>Takes a LUKS super block UUID followed by a <literal>=</literal> and a block device
+        specification for device hosting encrypted data.</para>
+
+        <para>For those entries specified with <varname>rd.luks.uuid=</varname> or
+        <varname>luks.uuid=</varname>, the data device will be set to the one specified by
+        <varname>rd.luks.data=</varname> or <varname>luks.data=</varname> of the corresponding UUID.</para>
+
+        <para>LUKS data device parameter is useful for specifying encrypted data devices with detached headers specified in
+        <varname>luks.options</varname> entry containing <literal>header=</literal> argument. For example,
+        <varname>rd.luks.uuid=</varname>b40f1abf-2a53-400a-889a-2eccc27eaa40
+        <varname>rd.luks.options=</varname>b40f1abf-2a53-400a-889a-2eccc27eaa40=header=/path/to/luks.hdr
+        <varname>rd.luks.data=</varname>b40f1abf-2a53-400a-889a-2eccc27eaa40=/dev/sdx.
+        Hence, in this case, we will attempt to unlock LUKS device assembled from data device <literal>/dev/sdx</literal>
+        and LUKS header (metadata) put in <literal>/path/to/luks.hdr</literal> file. This syntax is for now
+        only supported on a per-device basis, i.e. you have to specify LUKS device UUID.</para>
+
+        <para>This parameter is the analogue of the second <citerefentry><refentrytitle>crypttab</refentrytitle>
+        <manvolnum>5</manvolnum></citerefentry> field <replaceable>encrypted-device</replaceable>.</para>
+
+        <para><varname>rd.luks.data=</varname> is honored only by initial RAM disk (initrd) while
+        <varname>luks.data=</varname> is honored by both the main system and the initrd.</para>
         </listitem>
       </varlistentry>
 
@@ -157,12 +170,53 @@
         This syntax is for now only supported on a per-device basis,
         i.e. you have to specify LUKS device UUID.</para>
 
+        <para>This parameter is the analogue of the third <citerefentry><refentrytitle>crypttab</refentrytitle>
+        <manvolnum>5</manvolnum></citerefentry> field <replaceable>key-file</replaceable>.</para>
+
         <para><varname>rd.luks.key=</varname>
         is honored only by initial RAM disk
         (initrd) while
         <varname>luks.key=</varname> is
         honored by both the main system and
         the initrd.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>luks.options=</varname></term>
+        <term><varname>rd.luks.options=</varname></term>
+
+        <listitem><para>Takes a LUKS super block UUID followed by an
+        <literal>=</literal> and a string of options separated by
+        commas as argument. This will override the options for the
+        given UUID.</para>
+        <para>If only a list of options, without an UUID, is
+        specified, they apply to any UUIDs not specified elsewhere,
+        and without an entry in
+        <filename>/etc/crypttab</filename>.</para>
+
+        <para>This parameter is the analogue of the fourth <citerefentry><refentrytitle>crypttab</refentrytitle>
+        <manvolnum>5</manvolnum></citerefentry> field <replaceable>options</replaceable>.</para>
+
+        <para>It is possible to specify an external device which
+        should be mounted before we attempt to unlock the LUKS device.
+        systemd-cryptsetup will assemble LUKS device by combining
+        data device specified in <varname>luks.data</varname> with
+        detached LUKS header found in <literal>header=</literal>
+        argument. For example,
+        <varname>rd.luks.uuid=</varname>b40f1abf-2a53-400a-889a-2eccc27eaa40
+        <varname>rd.luks.options=</varname>b40f1abf-2a53-400a-889a-2eccc27eaa40=header=/luks.hdr:LABEL=hdrdev
+        <varname>rd.luks.data=</varname>b40f1abf-2a53-400a-889a-2eccc27eaa40=/dev/sdx.
+        Hence, in this case, we will attempt to mount file system
+        residing on the block device with label <literal>hdrdev</literal>, and look
+        for <literal>luks.hdr</literal> on that file system. Said header will be used
+        to unlock (decrypt) encrypted data stored on /dev/sdx.
+        This syntax is for now only supported on a per-device basis,
+        i.e. you have to specify LUKS device UUID.</para>
+
+        <para><varname>rd.luks.options=</varname> is honored only by initial
+        RAM disk (initrd) while <varname>luks.options=</varname> is
+        honored by both the main system and the initrd.</para>
         </listitem>
       </varlistentry>
     </variablelist>
@@ -174,6 +228,7 @@
       <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>crypttab</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>systemd-cryptsetup@.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>systemd-cryptenroll</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
       <citerefentry project='die-net'><refentrytitle>cryptsetup</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>systemd-fstab-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>
     </para>

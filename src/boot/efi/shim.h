@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 /*
  * Port to systemd-boot
  * Copyright © 2017 Max Resch <resch.max@gmail.com>
@@ -9,8 +9,8 @@
  */
 #pragma once
 
-BOOLEAN shim_loaded(void);
+#include <efi.h>
 
-BOOLEAN secure_boot_enabled(void);
+BOOLEAN shim_loaded(void);
 
 EFI_STATUS security_policy_install(void);

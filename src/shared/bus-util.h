@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
 #include <stdbool.h>
@@ -9,6 +9,7 @@
 #include "sd-bus.h"
 #include "sd-event.h"
 
+#include "errno-util.h"
 #include "macro.h"
 #include "string-util.h"
 #include "time-util.h"
@@ -18,7 +19,7 @@ typedef enum BusTransport {
         BUS_TRANSPORT_REMOTE,
         BUS_TRANSPORT_MACHINE,
         _BUS_TRANSPORT_MAX,
-        _BUS_TRANSPORT_INVALID = -1
+        _BUS_TRANSPORT_INVALID = -EINVAL,
 } BusTransport;
 
 int bus_async_unregister_and_exit(sd_event *e, sd_bus *bus, const char *name);
@@ -38,13 +39,27 @@ int bus_connect_user_systemd(sd_bus **_bus);
 int bus_connect_transport(BusTransport transport, const char *host, bool user, sd_bus **bus);
 int bus_connect_transport_systemd(BusTransport transport, const char *host, bool user, sd_bus **bus);
 
-#define bus_log_connect_error(r) \
-        log_error_errno(r, "Failed to create bus connection: %m")
+#define bus_log_address_error(r)                                        \
+        ({                                                              \
+                int _k = (r);                                           \
+                log_error_errno(_k,                                     \
+                                _k == -ENOMEDIUM ? "Failed to set bus address: $DBUS_SESSION_BUS_ADDRESS and $XDG_RUNTIME_DIR not defined (consider using --machine=<user>@.host --user to connect to bus of other user)" : \
+                                                   "Failed to set bus address: %m"); \
+        })
 
-#define bus_log_parse_error(r) \
+#define bus_log_connect_error(r)                                        \
+        ({                                                              \
+                int _k = (r);                                           \
+                log_error_errno(_k,                                     \
+                                _k == -ENOMEDIUM       ? "Failed to connect to bus: $DBUS_SESSION_BUS_ADDRESS and $XDG_RUNTIME_DIR not defined (consider using --machine=<user>@.host --user to connect to bus of other user)" : \
+                                ERRNO_IS_PRIVILEGE(_k) ? "Failed to connect to bus: Operation not permitted (consider using --machine=<user>@.host --user to connect to bus of other user)" : \
+                                                         "Failed to connect to bus: %m"); \
+        })
+
+#define bus_log_parse_error(r)                                  \
         log_error_errno(r, "Failed to parse bus message: %m")
 
-#define bus_log_create_error(r) \
+#define bus_log_create_error(r)                                 \
         log_error_errno(r, "Failed to create bus message: %m")
 
 int bus_path_encode_unique(sd_bus *b, const char *prefix, const char *sender_id, const char *external_id, char **ret_path);

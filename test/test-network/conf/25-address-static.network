@@ -52,6 +52,19 @@ Peer=2001:db8:0:f103::10/128
 [Address]
 Address=::/64
 
+[Address]
+Address=10.7.8.9/16
+PreferredLifetime=0
+Scope=link
+
+[Address]
+Address=2001:0db8:1:f101::1/64
+PreferredLifetime=0
+
+[Address]
+Address=10.8.8.1/16
+Broadcast=no
+
 # test for ENOBUFS issue #17012
 [Network]
 Address=10.3.3.1/16
@@ -154,7 +167,6 @@ Address=10.3.3.97/16
 Address=10.3.3.98/16
 Address=10.3.3.99/16
 Address=10.3.3.100/16
-Address=10.3.3.101/16
 Address=10.3.3.101/16
 Address=10.3.3.102/16
 Address=10.3.3.103/16

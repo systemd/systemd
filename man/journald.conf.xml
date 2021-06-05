@@ -1,7 +1,7 @@
 <?xml version='1.0'?> <!--*-nxml-*-->
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
-<!-- SPDX-License-Identifier: LGPL-2.1+ -->
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
 
 <refentry id="journald.conf"
     xmlns:xi="http://www.w3.org/2001/XInclude">
@@ -28,6 +28,9 @@
     <para><filename>/run/systemd/journald.conf.d/*.conf</filename></para>
     <para><filename>/usr/lib/systemd/journald.conf.d/*.conf</filename></para>
     <para><filename>/etc/systemd/journald@<replaceable>NAMESPACE</replaceable>.conf</filename></para>
+    <para><filename>/etc/systemd/journald@<replaceable>NAMESPACE</replaceable>.conf.d/*.conf</filename></para>
+    <para><filename>/run/systemd/journald@<replaceable>NAMESPACE</replaceable>.conf.d/*.conf</filename></para>
+    <para><filename>/usr/lib/systemd/journald@<replaceable>NAMESPACE</replaceable>.conf.d/*.conf</filename></para>
   </refsynopsisdiv>
 
   <refsect1>
@@ -41,8 +44,9 @@
 
     <para>The <command>systemd-journald</command> instance managing the default namespace is configured by
     <filename>/etc/systemd/journald.conf</filename> and associated drop-ins. Instances managing other
-    namespaces read <filename>/etc/systemd/journald@<replaceable>NAMESPACE</replaceable>.conf</filename> with
-    the namespace identifier filled in. This allows each namespace to carry a distinct configuration. See
+    namespaces read <filename>/etc/systemd/journald@<replaceable>NAMESPACE</replaceable>.conf</filename>
+    and associated drop-ins with the namespace identifier filled in. This allows each namespace to carry
+    a distinct configuration. See
     <citerefentry><refentrytitle>systemd-journald.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
     for details about journal namespaces.</para>
   </refsect1>
@@ -73,6 +77,11 @@
         storage, all log data received will be dropped (but forwarding to other targets, such as the console,
         the kernel log buffer, or a syslog socket will still work). Defaults to <literal>auto</literal> in
         the default journal namespace, and <literal>persistent</literal> in all others.</para>
+
+        <para>Note that journald will initially use volatile storage, until a call to
+        <command>journalctl --flush</command> (or sending <constant>SIGUSR1</constant> to journald) will cause
+        it to switch to persistent logging (under the conditions mentioned above). This is done automatically
+        on boot via <literal>systemd-journal-flush.service</literal>.</para>
 
         <para>Note that when this option is changed to <literal>volatile</literal>, existing persistent data
         is not removed. In the other direction,
@@ -216,7 +225,7 @@
         with <literal>Runtime</literal> apply to the journal files
         when stored on a volatile in-memory file system, more
         specifically <filename>/run/log/journal</filename>. The former
-        is used only when <filename>/var</filename> is mounted,
+        is used only when <filename>/var/</filename> is mounted,
         writable, and the directory
         <filename>/var/log/journal</filename> exists. Otherwise, only
         the latter applies. Note that this means that during early
@@ -433,7 +442,7 @@
 
         <listitem><para>The maximum line length to permit when converting stream logs into record logs. When a systemd
         unit's standard output/error are connected to the journal via a stream socket, the data read is split into
-        individual log records at newline (<literal>\n</literal>, ASCII 10) and NUL characters. If no such delimiter is
+        individual log records at newline (<literal>\n</literal>, ASCII 10) and <constant>NUL</constant> characters. If no such delimiter is
         read for the specified number of bytes a hard log record boundary is artificially inserted, breaking up overly
         long lines into multiple log records. Selecting overly large values increases the possible memory usage of the
         Journal daemon for each stream client, as in the worst case the journal daemon needs to buffer the specified

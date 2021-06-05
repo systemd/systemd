@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
 #include "sd-bus.h"
@@ -28,3 +28,5 @@ int bus_append_unit_property_assignment_many(sd_bus_message *m, UnitType t, char
 int bus_deserialize_and_dump_unit_file_changes(sd_bus_message *m, bool quiet, UnitFileChange **changes, size_t *n_changes);
 
 int unit_load_state(sd_bus *bus, const char *name, char **load_state);
+
+int unit_info_compare(const UnitInfo *a, const UnitInfo *b);

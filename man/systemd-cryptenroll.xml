@@ -1,0 +1,313 @@
+<?xml version="1.0"?>
+<!--*-nxml-*-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
+<refentry id="systemd-cryptenroll" xmlns:xi="http://www.w3.org/2001/XInclude" conditional='HAVE_LIBCRYPTSETUP'>
+
+  <refentryinfo>
+    <title>systemd-cryptenroll</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>systemd-cryptenroll</refentrytitle>
+    <manvolnum>1</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>systemd-cryptenroll</refname>
+    <refpurpose>Enroll PKCS#11, FIDO2, TPM2 token/devices to LUKS2 encrypted volumes</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <cmdsynopsis>
+      <command>systemd-cryptenroll <arg choice="opt" rep="repeat">OPTIONS</arg> <arg choice="opt">DEVICE</arg></command>
+    </cmdsynopsis>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para><command>systemd-cryptenroll</command> is a tool for enrolling hardware security tokens and devices into a
+    LUKS2 encrypted volume, which may then be used to unlock the volume during boot. Specifically, it supports
+    tokens and credentials of the following kind to be enrolled:</para>
+
+    <orderedlist>
+      <listitem><para>PKCS#11 security tokens and smartcards that may carry an RSA key pair (e.g. various YubiKeys)</para></listitem>
+
+      <listitem><para>FIDO2 security tokens that implement the <literal>hmac-secret</literal> extension (most FIDO2 keys, including YubiKeys)</para></listitem>
+
+      <listitem><para>TPM2 security devices</para></listitem>
+
+      <listitem><para>Recovery keys. These are similar to regular passphrases, however are randomly generated
+      on the computer and thus generally have higher entropy than user chosen passphrases. Their character
+      set has been designed to ensure they are easy to type in, while having high entropy. They may also be
+      scanned off screen using QR codes. Recovery keys may be used for unlocking LUKS2 volumes wherever
+      passphrases are accepted. They are intended to be used in combination with an enrolled hardware
+      security token, as a recovery option when the token is lost.</para></listitem>
+
+      <listitem><para>Regular passphrases</para></listitem>
+    </orderedlist>
+
+    <para>In addition, the tool may be used to enumerate currently enrolled security tokens and wipe a subset
+    of them. The latter may be combined with the enrollment operation of a new security token, in order to
+    update or replace enrollments.</para>
+
+    <para>The tool supports only LUKS2 volumes, as it stores token meta-information in the LUKS2 JSON token
+    area, which is not available in other encryption formats.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Options</title>
+
+    <para>The following options are understood:</para>
+
+    <variablelist>
+      <varlistentry>
+        <term><option>--password</option></term>
+
+        <listitem><para>Enroll a regular password/passphrase. This command is mostly equivalent to
+        <command>cryptsetup luksAddKey</command>, however may be combined with
+        <option>--wipe-slot=</option> in one call, see below.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--recovery-key</option></term>
+
+        <listitem><para>Enroll a recovery key. Recovery keys are most identical to passphrases, but are
+        computer generated instead of human chosen, and thus have a guaranteed high entropy. The key uses a
+        character set that is easy to type in, and may be scanned off screen via a QR code.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--pkcs11-token-uri=</option><replaceable>URI</replaceable></term>
+
+        <listitem><para>Enroll a PKCS#11 security token or smartcard (e.g. a YubiKey). Expects a PKCS#11
+        smart card URI referring to the token. Alternatively the special value <literal>auto</literal> may
+        be specified, in order to automatically determine the URI of a currently plugged in security token
+        (of which there must be exactly one). The special value <literal>list</literal> may be used to
+        enumerate all suitable PKCS#11 tokens currently plugged in. The security token must contain an RSA
+        key pair which is used to encrypt the randomly generated key that is used to unlock the LUKS2
+        volume. The encrypted key is then stored in the LUKS2 JSON token header area.</para>
+
+        <para>In order to unlock a LUKS2 volume with an enrolled PKCS#11 security token, specify the
+        <option>pkcs11-uri=</option> option in the respective <filename>/etc/crypttab</filename> line:</para>
+
+        <programlisting>myvolume /dev/sda1 - pkcs11-uri=auto</programlisting>
+
+        <para>See
+        <citerefentry><refentrytitle>crypttab</refentrytitle><manvolnum>5</manvolnum></citerefentry> for a
+        more comprehensive example of a <command>systemd-cryptenroll</command> invocation and its matching
+        <filename>/etc/crypttab</filename> line.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--fido2-device=</option><replaceable>PATH</replaceable></term>
+
+        <listitem><para>Enroll a FIDO2 security token that implements the <literal>hmac-secret</literal>
+        extension (e.g. a YubiKey). Expects a <filename>hidraw</filename> device referring to the FIDO2
+        device (e.g. <filename>/dev/hidraw1</filename>). Alternatively the special value
+        <literal>auto</literal> may be specified, in order to automatically determine the device node of a
+        currently plugged in security token (of which there must be exactly one). The special value
+        <literal>list</literal> may be used to enumerate all suitable FIDO2 tokens currently plugged in. Note
+        that many hardware security tokens that implement FIDO2 also implement the older PKCS#11
+        standard. Typically FIDO2 is preferable, given it's simpler to use and more modern.</para>
+
+        <para>In order to unlock a LUKS2 volume with an enrolled FIDO2 security token, specify the
+        <option>fido2-device=</option> option in the respective <filename>/etc/crypttab</filename> line:</para>
+
+        <programlisting>myvolume /dev/sda1 - fido2-device=auto</programlisting>
+
+        <para>See
+        <citerefentry><refentrytitle>crypttab</refentrytitle><manvolnum>5</manvolnum></citerefentry> for a
+        more comprehensive example of a <command>systemd-cryptenroll</command> invocation and its matching
+        <filename>/etc/crypttab</filename> line.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--fido2-with-client-pin=</option><replaceable>BOOL</replaceable></term>
+
+        <listitem><para>When enrolling a FIDO2 security token, controls whether to require the user to enter
+        a PIN when unlocking the volume (the FIDO2 <literal>clientPin</literal> feature). Defaults to
+        <literal>yes</literal>. (Note: this setting is without effect if the security token does not support
+        the <literal>clientPin</literal> feature at all, or does not allow enabling or disabling
+        it.)</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--fido2-with-user-presence=</option><replaceable>BOOL</replaceable></term>
+
+        <listitem><para>When enrolling a FIDO2 security token, controls whether to require the user to
+        verify presence (tap the token, the FIDO2 <literal>up</literal> feature) when unlocking the volume.
+        Defaults to <literal>yes</literal>. (Note: this setting is without effect if the security token does not support
+        the <literal>up</literal> feature at all, or does not allow enabling or disabling it.)
+        </para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--fido2-with-user-verification=</option><replaceable>BOOL</replaceable></term>
+
+        <listitem><para>When enrolling a FIDO2 security token, controls whether to require user verification
+        when unlocking the volume (the FIDO2 <literal>uv</literal> feature). Defaults to
+        <literal>no</literal>. (Note: this setting is without effect if the security token does not support
+        the <literal>uv</literal> feature at all, or does not allow enabling or disabling it.)</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--tpm2-device=</option><replaceable>PATH</replaceable></term>
+
+        <listitem><para>Enroll a TPM2 security chip. Expects a device node path referring to the TPM2 chip
+        (e.g. <filename>/dev/tpmrm0</filename>). Alternatively the special value <literal>auto</literal> may
+        be specified, in order to automatically determine the device node of a currently discovered TPM2
+        device (of which there must be exactly one). The special value <literal>list</literal> may be used to
+        enumerate all suitable TPM2 devices currently discovered.</para>
+
+        <para>In order to unlock a LUKS2 volume with an enrolled TPM2 security chip, specify the
+        <option>tpm2-device=</option> option in the respective <filename>/etc/crypttab</filename> line:</para>
+
+        <programlisting>myvolume /dev/sda1 - tpm2-device=auto</programlisting>
+
+        <para>See
+        <citerefentry><refentrytitle>crypttab</refentrytitle><manvolnum>5</manvolnum></citerefentry> for a
+        more comprehensive example of a <command>systemd-cryptenroll</command> invocation and its matching
+        <filename>/etc/crypttab</filename> line.</para>
+
+        <para>Use <option>--tpm2-pcrs=</option> (see below) to configure which TPM2 PCR indexes to bind the
+        enrollment to.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--tpm2-pcrs=</option><arg rep="repeat">PCR</arg></term>
+
+        <listitem><para>Configures the TPM2 PCRs (Platform Configuration Registers) to bind the enrollment
+        requested via <option>--tpm2-device=</option> to. Takes a <literal>+</literal> separated list of
+        numeric PCR indexes in the range 0…23. If not used, defaults to PCR 7 only. If an empty string is
+        specified, binds the enrollment to no PCRs at all. PCRs allow binding the enrollment to specific
+        software versions and system state, so that the enrolled unlocking key is only accessible (may be
+        "unsealed") if specific trusted software and/or configuration is used.</para></listitem>
+
+        <table>
+          <title>Well-known PCR Definitions</title>
+
+          <tgroup cols='2' align='left' colsep='1' rowsep='1'>
+            <colspec colname="pcr" />
+            <colspec colname="definition" />
+
+            <thead>
+              <row>
+                <entry>PCR</entry>
+                <entry>Explanation</entry>
+              </row>
+            </thead>
+
+            <tbody>
+              <row>
+                <entry>0</entry>
+                <entry>Core system firmware executable code; changes on firmware updates</entry>
+              </row>
+
+              <row>
+                <entry>1</entry>
+                <entry>Core system firmware data/host platform configuration; typically contains serial and model numbers, changes on basic hardware/CPU/RAM replacements</entry>
+              </row>
+
+              <row>
+                <entry>2</entry>
+                <entry>Extended or pluggable executable code; includes option ROMs on pluggable hardware</entry>
+              </row>
+
+              <row>
+                <entry>3</entry>
+                <entry>Extended or pluggable firmware data; includes information about pluggable hardware</entry>
+              </row>
+
+              <row>
+                <entry>4</entry>
+                <entry>Boot loader; changes on boot loader updates</entry>
+              </row>
+
+              <row>
+                <entry>5</entry>
+                <entry>GPT/Partition table; changes when the partitions are added, modified or removed</entry>
+              </row>
+
+              <row>
+                <entry>6</entry>
+                <entry>Power state events; changes on system suspend/sleep</entry>
+              </row>
+
+              <row>
+                <entry>7</entry>
+                <entry>Secure boot state; changes when UEFI SecureBoot mode is enabled/disabled</entry>
+              </row>
+
+              <row>
+                <entry>8</entry>
+                <entry><citerefentry><refentrytitle>sd-boot</refentrytitle><manvolnum>7</manvolnum></citerefentry> measures the kernel command line in this PCR.</entry>
+              </row>
+            </tbody>
+          </tgroup>
+        </table>
+
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--wipe-slot=</option><arg rep="repeat">SLOT</arg></term>
+
+        <listitem><para>Wipes one or more LUKS2 key slots. Takes a comma separated list of numeric slot
+        indexes, or the special strings <literal>all</literal> (for wiping all key slots),
+        <literal>empty</literal> (for wiping all key slots that are unlocked by an empty passphrase),
+        <literal>password</literal> (for wiping all key slots that are unlocked by a traditional passphrase),
+        <literal>recovery</literal> (for wiping all key slots that are unlocked by a recovery key),
+        <literal>pkcs11</literal> (for wiping all key slots that are unlocked by a PKCS#11 token),
+        <literal>fido2</literal> (for wiping all key slots that are unlocked by a FIDO2 token),
+        <literal>tpm2</literal> (for wiping all key slots that are unlocked by a TPM2 chip), or any
+        combination of these strings or numeric indexes, in which case all slots matching either are
+        wiped. As safety precaution an operation that wipes all slots without exception (so that the volume
+        cannot be unlocked at all anymore, unless the volume key is known) is refused.</para>
+
+        <para>This switch may be used alone, in which case only the requested wipe operation is executed. It
+        may also be used in combination with any of the enrollment options listed above, in which case the
+        enrollment is completed first, and only when successful the wipe operation executed — and the newly
+        added slot is always excluded from the wiping. Combining enrollment and slot wiping may thus be used to
+        update existing enrollments:</para>
+
+        <programlisting>systemd-cryptenroll /dev/sda1 --wipe-slot=tpm2 --tpm2-device=auto</programlisting>
+
+        <para>The above command will enroll the TPM2 chip, and then wipe all previously created TPM2
+        enrollments on the LUKS2 volume, leaving only the newly created one. Combining wiping and enrollment
+        may also be used to replace enrollments of different types, for example for changing from a PKCS#11
+        enrollment to a FIDO2 one:</para>
+
+        <programlisting>systemd-cryptenroll /dev/sda1 --wipe-slot=pkcs11 --fido2-device=auto</programlisting>
+
+        <para>Or for replacing an enrolled empty password by TPM2:</para>
+
+        <programlisting>systemd-cryptenroll /dev/sda1 --wipe-slot=empty --tpm2-device=auto</programlisting>
+        </listitem>
+      </varlistentry>
+
+      <xi:include href="standard-options.xml" xpointer="help" />
+      <xi:include href="standard-options.xml" xpointer="version" />
+    </variablelist>
+
+  </refsect1>
+
+  <refsect1>
+    <title>Exit status</title>
+
+    <para>On success, 0 is returned, a non-zero failure code otherwise.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>See Also</title>
+    <para>
+      <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>systemd-cryptsetup@.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>crypttab</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+      <citerefentry project='die-net'><refentrytitle>cryptsetup</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+     </para>
+  </refsect1>
+
+</refentry>

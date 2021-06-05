@@ -1,5 +1,7 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
+
+#include <stdbool.h>
 
 typedef enum UnitFilePresetMode UnitFilePresetMode;
 typedef enum UnitFileChangeType UnitFileChangeType;
@@ -8,8 +10,6 @@ typedef enum UnitFileType UnitFileType;
 typedef struct UnitFileChange UnitFileChange;
 typedef struct UnitFileList UnitFileList;
 typedef struct UnitFileInstallInfo UnitFileInstallInfo;
-
-#include <stdbool.h>
 
 #include "hashmap.h"
 #include "macro.h"
@@ -22,16 +22,19 @@ enum UnitFilePresetMode {
         UNIT_FILE_PRESET_ENABLE_ONLY,
         UNIT_FILE_PRESET_DISABLE_ONLY,
         _UNIT_FILE_PRESET_MAX,
-        _UNIT_FILE_PRESET_INVALID = -1
+        _UNIT_FILE_PRESET_INVALID = -EINVAL,
 };
 
-enum UnitFileChangeType {
+/* This enum type is anonymous, since we usually store it in an 'int', as we overload it with negative errno
+ * values. */
+enum {
         UNIT_FILE_SYMLINK,
         UNIT_FILE_UNLINK,
         UNIT_FILE_IS_MASKED,
         UNIT_FILE_IS_DANGLING,
+        UNIT_FILE_DESTINATION_NOT_PRESENT,
         _UNIT_FILE_CHANGE_TYPE_MAX,
-        _UNIT_FILE_CHANGE_TYPE_INVALID = INT_MIN
+        _UNIT_FILE_CHANGE_TYPE_INVALID = -EINVAL,
 };
 
 enum UnitFileFlags {
@@ -42,20 +45,18 @@ enum UnitFileFlags {
         _UNIT_FILE_FLAGS_MASK_PUBLIC = UNIT_FILE_RUNTIME|UNIT_FILE_PORTABLE|UNIT_FILE_FORCE,
 };
 
-/* type can either one of the UnitFileChangeTypes listed above, or a negative error.
- * If source is specified, it should be the contents of the path symlink.
- * In case of an error, source should be the existing symlink contents or NULL
- */
+/* type can either one of the UNIT_FILE_SYMLINK, UNIT_FILE_UNLINK, … listed above, or a negative errno value.
+ * If source is specified, it should be the contents of the path symlink. In case of an error, source should
+ * be the existing symlink contents or NULL. */
 struct UnitFileChange {
-        int type; /* UnitFileChangeType or bust */
+        int type_or_errno; /* UNIT_FILE_SYMLINK, … if positive, errno if negative */
         char *path;
         char *source;
 };
 
 static inline bool unit_file_changes_have_modification(const UnitFileChange* changes, size_t n_changes) {
-        size_t i;
-        for (i = 0; i < n_changes; i++)
-                if (IN_SET(changes[i].type, UNIT_FILE_SYMLINK, UNIT_FILE_UNLINK))
+        for (size_t i = 0; i < n_changes; i++)
+                if (IN_SET(changes[i].type_or_errno, UNIT_FILE_SYMLINK, UNIT_FILE_UNLINK))
                         return true;
         return false;
 }
@@ -70,7 +71,7 @@ enum UnitFileType {
         UNIT_FILE_TYPE_SYMLINK,
         UNIT_FILE_TYPE_MASKED,
         _UNIT_FILE_TYPE_MAX,
-        _UNIT_FILE_TYPE_INVALID = -1,
+        _UNIT_FILE_TYPE_INVALID = -EINVAL,
 };
 
 struct UnitFileInstallInfo {
@@ -206,8 +207,8 @@ const char *unit_file_state_to_string(UnitFileState s) _const_;
 UnitFileState unit_file_state_from_string(const char *s) _pure_;
 /* from_string conversion is unreliable because of the overlap between -EPERM and -1 for error. */
 
-const char *unit_file_change_type_to_string(UnitFileChangeType s) _const_;
-UnitFileChangeType unit_file_change_type_from_string(const char *s) _pure_;
+const char *unit_file_change_type_to_string(int s) _const_;
+int unit_file_change_type_from_string(const char *s) _pure_;
 
 const char *unit_file_preset_mode_to_string(UnitFilePresetMode m) _const_;
 UnitFilePresetMode unit_file_preset_mode_from_string(const char *s) _pure_;

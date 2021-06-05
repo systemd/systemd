@@ -1,7 +1,7 @@
 <?xml version='1.0'?> <!--*-nxml-*-->
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
-<!-- SPDX-License-Identifier: LGPL-2.1+ -->
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
 
 <refentry id="coredumpctl" conditional='ENABLE_COREDUMP'
     xmlns:xi="http://www.w3.org/2001/XInclude">
@@ -137,7 +137,8 @@
         <citerefentry project='man-pages'><refentrytitle>gdb</refentrytitle><manvolnum>1</manvolnum></citerefentry>
         will be used. This may be changed using the <option>--debugger=</option>
         option or the <varname>$SYSTEMD_DEBUGGER</varname> environment
-        variable.</para></listitem>
+        variable. Use the <option>--debugger-arguments=</option> option to pass extra
+        command line arguments to the debugger.</para></listitem>
       </varlistentry>
 
     </variablelist>
@@ -153,20 +154,22 @@
 
       <xi:include href="standard-options.xml" xpointer="help" />
       <xi:include href="standard-options.xml" xpointer="version" />
-
-      <varlistentry>
-        <term><option>--no-legend</option></term>
-
-        <listitem><para>Do not print column headers.</para></listitem>
-      </varlistentry>
-
       <xi:include href="standard-options.xml" xpointer="no-pager" />
+      <xi:include href="standard-options.xml" xpointer="no-legend" />
+      <xi:include href="standard-options.xml" xpointer="json" />
 
       <varlistentry>
         <term><option>-1</option></term>
 
-        <listitem><para>Show information of a single core dump only, instead of listing
-        all known core dumps.</para></listitem>
+        <listitem><para>Show information of the most recent core dump only, instead of listing all known core
+        dumps. (Equivalent to <option>--reverse -n 1</option></para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>-n</option> <replaceable>INT</replaceable></term>
+
+        <listitem><para>Show at most the specified number of entries. The specified parameter must be an
+        integer greater or equal to 1.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -215,6 +218,15 @@
         command. If not given and <varname>$SYSTEMD_DEBUGGER</varname> is unset, then
         <citerefentry project='man-pages'><refentrytitle>gdb</refentrytitle><manvolnum>1</manvolnum></citerefentry>
         will be used. </para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>-A</option> <replaceable>ARGS</replaceable></term>
+        <term><option>--debugger-arguments=</option><replaceable>ARGS</replaceable></term>
+
+        <listitem><para>Pass the given <replaceable>ARGS</replaceable> as extra command line arguments
+        to the debugger. Quote as appropriate when <replaceable>ARGS</replaceable> contain whitespace.
+        (See Examples.)</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -312,29 +324,77 @@
     <title>Examples</title>
 
     <example>
-      <title>List all the core dumps of a program named foo</title>
+      <title>List all the core dumps of a program</title>
 
-      <programlisting># coredumpctl list foo</programlisting>
+      <programlisting>$ coredumpctl list /usr/lib64/firefox/firefox
+TIME     PID  UID  GID SIG     COREFILE EXE                         SIZE
+Tue …   8018 1000 1000 SIGSEGV missing  /usr/lib64/firefox/firefox   n/a
+Wed … 251609 1000 1000 SIGTRAP missing  /usr/lib64/firefox/firefox   n/a
+Fri … 552351 1000 1000 SIGSEGV present  /usr/lib64/firefox/firefox 28.7M
+</programlisting>
+
+       <para>The journal has three entries pertaining to <filename>/usr/lib64/firefox/firefox</filename>, and
+       only the last entry still has an available core file (in external storage on disk).</para>
+
+       <para>Note that <filename>coredumpctl</filename> needs access to the journal files to retrieve the
+       relevant entries from the journal. Thus, an unprivileged user will normally only see information about
+       crashing programs of this user.</para>
     </example>
 
     <example>
-      <title>Invoke gdb on the last core dump</title>
+      <title>Invoke <command>gdb</command> on the last core dump</title>
 
-      <programlisting># coredumpctl debug</programlisting>
+      <programlisting>$ coredumpctl debug</programlisting>
     </example>
 
     <example>
-      <title>Show information about a process that dumped core,
-      matching by its PID 6654</title>
+      <title>Use <command>gdb</command> to display full register info from the last core dump</title>
 
-      <programlisting># coredumpctl info 6654</programlisting>
+      <programlisting>$ coredumpctl debug --debugger-arguments="-batch -ex 'info all-registers'"</programlisting>
+    </example>
+
+    <example>
+      <title>Show information about a core dump matched by PID</title>
+
+      <programlisting>$ coredumpctl info 6654
+           PID: 6654 (bash)
+           UID: 1000 (user)
+           GID: 1000 (user)
+        Signal: 11 (SEGV)
+     Timestamp: Mon 2021-01-01 00:00:01 CET (20s ago)
+  Command Line: bash -c $'kill -SEGV $$'
+    Executable: /usr/bin/bash
+ Control Group: /user.slice/user-1000.slice/…
+          Unit: user@1000.service
+     User Unit: vte-spawn-….scope
+         Slice: user-1000.slice
+     Owner UID: 1000 (user)
+       Boot ID: …
+    Machine ID: …
+      Hostname: …
+       Storage: /var/lib/systemd/coredump/core.bash.1000.….zst (present)
+     Disk Size: 51.7K
+       Message: Process 130414 (bash) of user 1000 dumped core.
+
+                Stack trace of thread 130414:
+                #0  0x00007f398142358b kill (libc.so.6 + 0x3d58b)
+                #1  0x0000558c2c7fda09 kill_builtin (bash + 0xb1a09)
+                #2  0x0000558c2c79dc59 execute_builtin.lto_priv.0 (bash + 0x51c59)
+                #3  0x0000558c2c79709c execute_simple_command (bash + 0x4b09c)
+                #4  0x0000558c2c798408 execute_command_internal (bash + 0x4c408)
+                #5  0x0000558c2c7f6bdc parse_and_execute (bash + 0xaabdc)
+                #6  0x0000558c2c85415c run_one_command.isra.0 (bash + 0x10815c)
+                #7  0x0000558c2c77d040 main (bash + 0x31040)
+                #8  0x00007f398140db75 __libc_start_main (libc.so.6 + 0x27b75)
+                #9  0x0000558c2c77dd1e _start (bash + 0x31d1e)
+</programlisting>
     </example>
 
     <example>
       <title>Extract the last core dump of /usr/bin/bar to a file named
       <filename index="false">bar.coredump</filename></title>
 
-      <programlisting># coredumpctl -o bar.coredump dump /usr/bin/bar</programlisting>
+      <programlisting>$ coredumpctl -o bar.coredump dump /usr/bin/bar</programlisting>
     </example>
   </refsect1>
 

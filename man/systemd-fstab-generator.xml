@@ -2,7 +2,7 @@
 <!--*-nxml-*-->
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
-<!-- SPDX-License-Identifier: LGPL-2.1+ -->
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
 <refentry id="systemd-fstab-generator">
 
   <refentryinfo>
@@ -82,9 +82,20 @@
       <varlistentry>
         <term><varname>root=</varname></term>
 
-        <listitem><para>Takes the root filesystem to mount in the
-        initrd. <varname>root=</varname> is honored by the
-        initrd.</para></listitem>
+        <listitem><para>Configures the operating system's root filesystem to mount when running in the
+        initrd. This accepts a device node path (usually <filename>/dev/disk/by-uuid/…</filename> or
+        <filename>/dev/disk/by-label/…</filename> or similar), or the special values <literal>gpt-auto</literal>
+        and <literal>tmpfs</literal>.</para>
+
+        <para>Use <literal>gpt-auto</literal> to explicitly request automatic root file system discovery via
+        <citerefentry><refentrytitle>systemd-gpt-auto-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para>
+
+        <para>Use <literal>tmpfs</literal> in order to mount a <citerefentry
+        project='man-pages'><refentrytitle>tmpfs</refentrytitle><manvolnum>5</manvolnum></citerefentry> file
+        system as root file system of the OS. This is useful in combination with
+        <varname>mount.usr=</varname> (see below) in order to combine a volatile root file system with a
+        separate, immutable <filename>/usr/</filename> file system. Also see
+        <varname>systemd.volatile=</varname> below.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -110,7 +121,7 @@
       <varlistentry>
         <term><varname>mount.usr=</varname></term>
 
-        <listitem><para>Takes the <filename>/usr</filename> filesystem
+        <listitem><para>Takes the <filename>/usr/</filename> filesystem
         to be mounted by the initrd. If
         <varname>mount.usrfstype=</varname> or
         <varname>mount.usrflags=</varname> is set, then
@@ -118,7 +129,7 @@
         <varname>root=</varname>.</para>
 
         <para>Otherwise, this parameter defaults to the
-        <filename>/usr</filename> entry found in
+        <filename>/usr/</filename> entry found in
         <filename>/etc/fstab</filename> on the root filesystem.</para>
 
         <para><varname>mount.usr=</varname> is honored by the initrd.
@@ -128,7 +139,7 @@
       <varlistentry>
         <term><varname>mount.usrfstype=</varname></term>
 
-        <listitem><para>Takes the <filename>/usr</filename> filesystem
+        <listitem><para>Takes the <filename>/usr/</filename> filesystem
         type that will be passed to the mount command. If
         <varname>mount.usr=</varname> or
         <varname>mount.usrflags=</varname> is set, then
@@ -136,7 +147,7 @@
         set in <varname>rootfstype=</varname>.</para>
 
         <para>Otherwise, this value will be read from the
-        <filename>/usr</filename> entry in
+        <filename>/usr/</filename> entry in
         <filename>/etc/fstab</filename> on the root filesystem.</para>
 
         <para><varname>mount.usrfstype=</varname> is honored by the
@@ -146,14 +157,14 @@
       <varlistentry>
         <term><varname>mount.usrflags=</varname></term>
 
-        <listitem><para>Takes the <filename>/usr</filename> filesystem
+        <listitem><para>Takes the <filename>/usr/</filename> filesystem
         mount options to use. If <varname>mount.usr=</varname> or
         <varname>mount.usrfstype=</varname> is set, then
         <varname>mount.usrflags=</varname> will default to the value
         set in <varname>rootflags=</varname>.</para>
 
         <para>Otherwise, this value will be read from the
-        <filename>/usr</filename> entry in
+        <filename>/usr/</filename> entry in
         <filename>/etc/fstab</filename> on the root filesystem.</para>
 
         <para><varname>mount.usrflags=</varname> is honored by the
@@ -173,15 +184,15 @@
         <citerefentry><refentrytitle>systemd-volatile-root.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
         is run as part of the initial RAM disk ("initrd"). This service changes the mount table before transitioning to
         the host system, so that a volatile memory file system (<literal>tmpfs</literal>) is used as root directory,
-        with only <filename>/usr</filename> mounted into it from the configured root file system, in read-only
+        with only <filename>/usr/</filename> mounted into it from the configured root file system, in read-only
         mode. This way the system operates in fully stateless mode, with all configuration and state reset at boot and
-        lost at shutdown, as <filename>/etc</filename> and <filename>/var</filename> will be served from the (initially
+        lost at shutdown, as <filename>/etc/</filename> and <filename>/var/</filename> will be served from the (initially
         unpopulated) volatile memory file system.</para>
 
         <para>If set to <option>state</option> the generator will leave the root directory mount point unaltered,
-        however will mount a <literal>tmpfs</literal> file system to <filename>/var</filename>. In this mode the normal
-        system configuration (i.e. the contents of <literal>/etc</literal>) is in effect (and may be modified during
-        system runtime), however the system state (i.e. the contents of <literal>/var</literal>) is reset at boot and
+        however will mount a <literal>tmpfs</literal> file system to <filename>/var/</filename>. In this mode the normal
+        system configuration (i.e. the contents of <literal>/etc/</literal>) is in effect (and may be modified during
+        system runtime), however the system state (i.e. the contents of <literal>/var/</literal>) is reset at boot and
         lost at shutdown.</para>
 
         <para>If this setting is set to <literal>overlay</literal> the root file system is set up as
@@ -189,14 +200,23 @@
         <literal>tmpfs</literal>, so that no modifications are made to disk, but the file system may be modified
         nonetheless with all changes being lost at reboot.</para>
 
-        <para>Note that in none of these modes the root directory, <filename>/etc</filename>, <filename>/var</filename>
+        <para>Note that in none of these modes the root directory, <filename>/etc/</filename>, <filename>/var/</filename>
         or any other resources stored in the root file system are physically removed. It's thus safe to boot a system
         that is normally operated in non-volatile mode temporarily into volatile mode, without losing data.</para>
 
-        <para>Note that with the exception of <literal>overlay</literal> mode, enabling this setting will only work
-        correctly on operating systems that can boot up with only <filename>/usr</filename> mounted, and are able to
-        automatically populate <filename>/etc</filename>, and also <filename>/var</filename> in case of
-        <literal>systemd.volatile=yes</literal>.</para></listitem>
+        <para>Note that with the exception of <literal>overlay</literal> mode, enabling this setting will
+        only work correctly on operating systems that can boot up with only <filename>/usr/</filename>
+        mounted, and are able to automatically populate <filename>/etc/</filename>, and also
+        <filename>/var/</filename> in case of <literal>systemd.volatile=yes</literal>.</para>
+
+        <para>Also see <varname>root=tmpfs</varname> above, for a method to combine a
+        <literal>tmpfs</literal> file system with a regular <filename>/usr/</filename> file system (as
+        configured via <varname>mount.usr=</varname>). The main distinction between
+        <varname>systemd.volatile=yes</varname>, and <varname>root=tmpfs</varname> in combination
+        <varname>mount.usr=</varname> is that the former operates on top of a regular root file system and
+        temporarily obstructs the files and directories above its <filename>/usr/</filename> subdirectory,
+        while the latter does not hide any files, but simply mounts a unpopulated tmpfs as root file system
+        and combines it with a user picked <filename>/usr/</filename> file system.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -218,6 +238,7 @@
       <citerefentry><refentrytitle>systemd.mount</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>systemd.swap</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>systemd-cryptsetup-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>systemd-gpt-auto-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>kernel-command-line</refentrytitle><manvolnum>7</manvolnum></citerefentry>
     </para>
   </refsect1>

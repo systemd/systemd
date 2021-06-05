@@ -1,20 +1,21 @@
-# SPDX-License-Identifier: LGPL-2.1+
+# SPDX-License-Identifier: LGPL-2.1-or-later
 
 enable_tmpfiles = conf.get('ENABLE_TMPFILES') == 1
 
-tmpfiles = [['home.conf',            ''],
-            ['journal-nocow.conf',   ''],
-            ['systemd-nologin.conf', 'HAVE_PAM'],
-            ['systemd-nspawn.conf',  'ENABLE_MACHINED'],
-            ['systemd-tmp.conf',     ''],
-            ['portables.conf',       'ENABLE_PORTABLED'],
-            ['systemd-pstore.conf',  'ENABLE_PSTORE'],
-            ['tmp.conf',             ''],
-            ['x11.conf',             ''],
-            ['legacy.conf',          'HAVE_SYSV_COMPAT'],
-           ]
+files = [['README',               ''],
+         ['home.conf',            ''],
+         ['journal-nocow.conf',   ''],
+         ['systemd-nologin.conf', 'HAVE_PAM'],
+         ['systemd-nspawn.conf',  'ENABLE_MACHINED'],
+         ['systemd-tmp.conf',     ''],
+         ['portables.conf',       'ENABLE_PORTABLED'],
+         ['systemd-pstore.conf',  'ENABLE_PSTORE'],
+         ['tmp.conf',             ''],
+         ['x11.conf',             ''],
+         ['legacy.conf',          'HAVE_SYSV_COMPAT'],
+        ]
 
-foreach pair : tmpfiles
+foreach pair : files
         if not enable_tmpfiles
                 # do nothing
         elif pair[1] == '' or conf.get(pair[1]) == 1
@@ -25,37 +26,24 @@ foreach pair : tmpfiles
         endif
 endforeach
 
-in_files = ['static-nodes-permissions.conf']
-
-foreach file : in_files
-        gen = configure_file(
-                input : file + '.in',
-                output : file,
-                configuration : substs)
-        if enable_tmpfiles
-                install_data(gen,
-                             install_dir : tmpfilesdir)
-        endif
-endforeach
-
-m4_files = ['etc.conf',
+in_files = ['etc.conf',
+            'static-nodes-permissions.conf',
             'systemd.conf',
             'var.conf']
 
-foreach file : m4_files
-        if enable_tmpfiles
-                custom_target(
-                        'tmpfiles.d_' + file,
-                         input : file + '.m4',
-                         output: file,
-                         command : [meson_apply_m4, config_h, '@INPUT@'],
-                         capture : true,
-                         install : true,
-                         install_dir : tmpfilesdir)
-        endif
+foreach file : in_files
+        custom_target(
+                # XXX: workaround for old meson. Drop when upgrading.
+                'tmpfiles+' + file,
+                input : file + '.in',
+                output: file,
+                command : [meson_render_jinja2, config_h, '@INPUT@'],
+                capture : true,
+                install : enable_tmpfiles,
+                install_dir : tmpfilesdir)
 endforeach
 
-if enable_tmpfiles
+if enable_tmpfiles and install_sysconfdir
         meson.add_install_script(
                 'sh', '-c',
                 mkdir_p.format(join_paths(sysconfdir, 'tmpfiles.d')))

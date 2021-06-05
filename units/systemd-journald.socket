@@ -1,4 +1,4 @@
-#  SPDX-License-Identifier: LGPL-2.1+
+#  SPDX-License-Identifier: LGPL-2.1-or-later
 #
 #  This file is part of systemd.
 #
@@ -19,10 +19,11 @@ Before=sockets.target
 IgnoreOnIsolate=yes
 
 [Socket]
-ListenStream=/run/systemd/journal/stdout
 ListenDatagram=/run/systemd/journal/socket
-SocketMode=0666
+ListenStream=/run/systemd/journal/stdout
 PassCredentials=yes
 PassSecurity=yes
 ReceiveBuffer=8M
 Service=systemd-journald.service
+SocketMode=0666
+Timestamping=us

@@ -1,0 +1,8 @@
+[NetDev]
+Name=server
+Kind=veth
+MACAddress=12:34:56:78:9b:bc
+
+[Peer]
+Name=server-peer
+MACAddress=12:34:56:78:9b:bd

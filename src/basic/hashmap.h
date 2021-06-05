@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
 #include <limits.h>
@@ -51,6 +51,7 @@ typedef struct {
 
 #define _IDX_ITERATOR_FIRST (UINT_MAX - 1)
 #define ITERATOR_FIRST ((Iterator) { .idx = _IDX_ITERATOR_FIRST, .next_key = NULL })
+#define ITERATOR_IS_FIRST(i) ((i).idx == _IDX_ITERATOR_FIRST)
 
 /* Macros for type checking */
 #define PTR_COMPATIBLE_WITH_HASHMAP_BASE(h) \
@@ -133,8 +134,11 @@ HashmapBase* _hashmap_copy(HashmapBase *h  HASHMAP_DEBUG_PARAMS);
 #define ordered_hashmap_copy(h) ((OrderedHashmap*) _hashmap_copy(HASHMAP_BASE(h)  HASHMAP_DEBUG_SRC_ARGS))
 
 int _hashmap_ensure_allocated(Hashmap **h, const struct hash_ops *hash_ops  HASHMAP_DEBUG_PARAMS);
+int _hashmap_ensure_put(Hashmap **h, const struct hash_ops *hash_ops, const void *key, void *value  HASHMAP_DEBUG_PARAMS);
 int _ordered_hashmap_ensure_allocated(OrderedHashmap **h, const struct hash_ops *hash_ops  HASHMAP_DEBUG_PARAMS);
+
 #define hashmap_ensure_allocated(h, ops) _hashmap_ensure_allocated(h, ops  HASHMAP_DEBUG_SRC_ARGS)
+#define hashmap_ensure_put(s, ops, key, value) _hashmap_ensure_put(s, ops, key, value  HASHMAP_DEBUG_SRC_ARGS)
 #define ordered_hashmap_ensure_allocated(h, ops) _ordered_hashmap_ensure_allocated(h, ops  HASHMAP_DEBUG_SRC_ARGS)
 
 int _ordered_hashmap_ensure_put(OrderedHashmap **h, const struct hash_ops *hash_ops, const void *key, void *value  HASHMAP_DEBUG_PARAMS);
@@ -153,8 +157,9 @@ static inline int ordered_hashmap_put(OrderedHashmap *h, const void *key, void *
         return hashmap_put(PLAIN_HASHMAP(h), key, value);
 }
 
-int _hashmap_put_strdup(Hashmap **h, const char *k, const char *v  HASHMAP_DEBUG_PARAMS);
-#define hashmap_put_strdup(h, k, v) _hashmap_put_strdup(h, k, v  HASHMAP_DEBUG_SRC_ARGS)
+int _hashmap_put_strdup_full(Hashmap **h, const struct hash_ops *hash_ops, const char *k, const char *v  HASHMAP_DEBUG_PARAMS);
+#define hashmap_put_strdup_full(h, hash_ops, k, v) _hashmap_put_strdup_full(h, hash_ops, k, v  HASHMAP_DEBUG_SRC_ARGS)
+#define hashmap_put_strdup(h, k, v) hashmap_put_strdup_full(h, &string_hash_ops_free_free, k, v)
 
 int hashmap_update(Hashmap *h, const void *key, void *value);
 static inline int ordered_hashmap_update(OrderedHashmap *h, const void *key, void *value) {
@@ -367,28 +372,26 @@ static inline void *ordered_hashmap_first_key(OrderedHashmap *h) {
         return _hashmap_first_key(HASHMAP_BASE(h), false);
 }
 
-#define hashmap_clear_with_destructor(_s, _f)                   \
+#define hashmap_clear_with_destructor(h, f)                     \
         ({                                                      \
+                Hashmap *_h = (h);                              \
                 void *_item;                                    \
-                while ((_item = hashmap_steal_first(_s)))       \
-                        _f(_item);                              \
+                while ((_item = hashmap_steal_first(_h)))       \
+                        f(_item);                               \
+                _h;                                             \
         })
-#define hashmap_free_with_destructor(_s, _f)                    \
-        ({                                                      \
-                hashmap_clear_with_destructor(_s, _f);          \
-                hashmap_free(_s);                               \
-        })
-#define ordered_hashmap_clear_with_destructor(_s, _f)                   \
+#define hashmap_free_with_destructor(h, f)                      \
+        hashmap_free(hashmap_clear_with_destructor(h, f))
+#define ordered_hashmap_clear_with_destructor(h, f)                     \
         ({                                                              \
+                OrderedHashmap *_h = (h);                               \
                 void *_item;                                            \
-                while ((_item = ordered_hashmap_steal_first(_s)))       \
-                        _f(_item);                                      \
+                while ((_item = ordered_hashmap_steal_first(_h)))       \
+                        f(_item);                                       \
+                _h;                                                     \
         })
-#define ordered_hashmap_free_with_destructor(_s, _f)                    \
-        ({                                                              \
-                ordered_hashmap_clear_with_destructor(_s, _f);          \
-                ordered_hashmap_free(_s);                               \
-        })
+#define ordered_hashmap_free_with_destructor(h, f)                      \
+        ordered_hashmap_free(ordered_hashmap_clear_with_destructor(h, f))
 
 /* no hashmap_next */
 void* ordered_hashmap_next(OrderedHashmap *h, const void *key);

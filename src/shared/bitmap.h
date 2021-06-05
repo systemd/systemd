@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
 #include <stdbool.h>
@@ -9,13 +9,12 @@
 typedef struct Bitmap {
         uint64_t *bitmaps;
         size_t n_bitmaps;
-        size_t bitmaps_allocated;
 } Bitmap;
 
-Bitmap *bitmap_new(void);
-Bitmap *bitmap_copy(Bitmap *b);
+Bitmap* bitmap_new(void);
+Bitmap* bitmap_copy(Bitmap *b);
 int bitmap_ensure_allocated(Bitmap **b);
-void bitmap_free(Bitmap *b);
+Bitmap* bitmap_free(Bitmap *b);
 
 int bitmap_set(Bitmap *b, unsigned n);
 void bitmap_unset(Bitmap *b, unsigned n);

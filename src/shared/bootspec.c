@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <stdio.h>
 #include <linux/magic.h>
@@ -80,7 +80,7 @@ static int boot_entry_load(
                 return log_oom();
 
         if (!efi_loader_entry_name_valid(tmp.id))
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid loader entry: %s", tmp.id);
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid loader entry name: %s", tmp.id);
 
         tmp.path = strdup(path);
         if (!tmp.path)
@@ -244,7 +244,7 @@ static int boot_loader_read_conf(const char *path, BootConfig *config) {
 }
 
 static int boot_entry_compare(const BootEntry *a, const BootEntry *b) {
-        return str_verscmp(a->id, b->id);
+        return strverscmp_improved(a->id, b->id);
 }
 
 static int boot_entries_find(
@@ -254,7 +254,6 @@ static int boot_entries_find(
                 size_t *n_entries) {
 
         _cleanup_strv_free_ char **files = NULL;
-        size_t n_allocated = *n_entries;
         char **f;
         int r;
 
@@ -268,7 +267,7 @@ static int boot_entries_find(
                 return log_error_errno(r, "Failed to list files in \"%s\": %m", dir);
 
         STRV_FOREACH(f, files) {
-                if (!GREEDY_REALLOC0(*entries, n_allocated, *n_entries + 1))
+                if (!GREEDY_REALLOC0(*entries, *n_entries + 1))
                         return log_oom();
 
                 r = boot_entry_load(root, *f, *entries + *n_entries);
@@ -327,7 +326,7 @@ static int boot_entry_load_unified(
                 return log_oom();
 
         if (!efi_loader_entry_name_valid(tmp.id))
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid loader entry: %s", tmp.id);
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid loader entry name: %s", tmp.id);
 
         tmp.path = strdup(path);
         if (!tmp.path)
@@ -463,7 +462,6 @@ static int boot_entries_find_unified(
                 size_t *n_entries) {
 
         _cleanup_(closedirp) DIR *d = NULL;
-        size_t n_allocated = *n_entries;
         struct dirent *de;
         int r;
 
@@ -491,7 +489,7 @@ static int boot_entries_find_unified(
                 if (!endswith_no_case(de->d_name, ".efi"))
                         continue;
 
-                if (!GREEDY_REALLOC0(*entries, n_allocated, *n_entries + 1))
+                if (!GREEDY_REALLOC0(*entries, *n_entries + 1))
                         return log_oom();
 
                 fd = openat(dirfd(d), de->d_name, O_RDONLY|O_CLOEXEC|O_NONBLOCK);
@@ -749,15 +747,12 @@ int boot_entries_augment_from_loader(
                 "auto-reboot-to-firmware-setup", "Reboot Into Firmware Interface",
         };
 
-        size_t n_allocated;
         char **i;
 
         assert(config);
 
         /* Let's add the entries discovered by the boot loader to the end of our list, unless they are
          * already included there. */
-
-        n_allocated = config->n_entries;
 
         STRV_FOREACH(i, found_by_loader) {
                 _cleanup_free_ char *c = NULL, *t = NULL, *p = NULL;
@@ -785,7 +780,7 @@ int boot_entries_augment_from_loader(
                 if (!p)
                         return log_oom();
 
-                if (!GREEDY_REALLOC0(config->entries, n_allocated, config->n_entries + 1))
+                if (!GREEDY_REALLOC0(config->entries, config->n_entries + 1))
                         return log_oom();
 
                 config->entries[config->n_entries++] = (BootEntry) {
@@ -842,19 +837,21 @@ static int verify_esp_blkid(
         else if (r != 0)
                 return log_error_errno(errno ?: SYNTHETIC_ERRNO(EIO), "Failed to probe file system \"%s\": %m", node);
 
-        errno = 0;
         r = blkid_probe_lookup_value(b, "TYPE", &v, NULL);
         if (r != 0)
-                return log_error_errno(errno ?: SYNTHETIC_ERRNO(EIO), "Failed to probe file system type of \"%s\": %m", node);
+                return log_full_errno(searching ? LOG_DEBUG : LOG_ERR,
+                                      SYNTHETIC_ERRNO(searching ? EADDRNOTAVAIL : ENODEV),
+                                      "No filesystem found on \"%s\": %m", node);
         if (!streq(v, "vfat"))
                 return log_full_errno(searching ? LOG_DEBUG : LOG_ERR,
                                       SYNTHETIC_ERRNO(searching ? EADDRNOTAVAIL : ENODEV),
                                       "File system \"%s\" is not FAT.", node);
 
-        errno = 0;
         r = blkid_probe_lookup_value(b, "PART_ENTRY_SCHEME", &v, NULL);
         if (r != 0)
-                return log_error_errno(errno ?: SYNTHETIC_ERRNO(EIO), "Failed to probe partition scheme of \"%s\": %m", node);
+                return log_full_errno(searching ? LOG_DEBUG : LOG_ERR,
+                                      SYNTHETIC_ERRNO(searching ? EADDRNOTAVAIL : ENODEV),
+                                      "File system \"%s\" is not located on a partitioned block device.", node);
         if (!streq(v, "gpt"))
                 return log_full_errno(searching ? LOG_DEBUG : LOG_ERR,
                                       SYNTHETIC_ERRNO(searching ? EADDRNOTAVAIL : ENODEV),
@@ -1031,6 +1028,16 @@ static int verify_fsroot_dir(
                                       SYNTHETIC_ERRNO(searching ? EADDRNOTAVAIL : ENODEV),
                                       "Block device node of \"%s\" is invalid.", path);
 
+        if (path_equal(path, "/")) {
+                /* Let's assume that the root directory of the OS is always the root of its file system
+                 * (which technically doesn't have to be the case, but it's close enough, and it's not easy
+                 * to be fully correct for it, since we can't look further up than the root dir easily.) */
+                if (ret_dev)
+                        *ret_dev = st.st_dev;
+
+                return 0;
+        }
+
         t2 = strjoina(path, "/..");
         if (stat(t2, &st2) < 0) {
                 if (errno != EACCES)
@@ -1046,10 +1053,7 @@ static int verify_fsroot_dir(
                         if (!parent)
                                 return log_oom();
 
-                        if (stat(parent, &st2) < 0)
-                                r = -errno;
-                        else
-                                r = 0;
+                        r = stat(parent, &st2) < 0 ? -errno : 0;
                 }
 
                 if (r < 0)

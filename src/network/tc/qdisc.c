@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+
+/* SPDX-License-Identifier: LGPL-2.1-or-later
  * Copyright © 2019 VMware, Inc. */
 
 #include <linux/pkt_sched.h>
@@ -126,11 +126,7 @@ int qdisc_new_static(QDiscKind kind, Network *network, const char *filename, uns
         qdisc->network = network;
         qdisc->section = TAKE_PTR(n);
 
-        r = ordered_hashmap_ensure_allocated(&network->tc_by_section, &network_config_hash_ops);
-        if (r < 0)
-                return r;
-
-        r = ordered_hashmap_put(network->tc_by_section, qdisc->section, TC(qdisc));
+        r = ordered_hashmap_ensure_put(&network->tc_by_section, &network_config_hash_ops, qdisc->section, TC(qdisc));
         if (r < 0)
                 return r;
 
@@ -138,9 +134,9 @@ int qdisc_new_static(QDiscKind kind, Network *network, const char *filename, uns
         return 0;
 }
 
-void qdisc_free(QDisc *qdisc) {
+QDisc* qdisc_free(QDisc *qdisc) {
         if (!qdisc)
-                return;
+                return NULL;
 
         if (qdisc->network && qdisc->section)
                 ordered_hashmap_remove(qdisc->network->tc_by_section, qdisc->section);
@@ -148,7 +144,7 @@ void qdisc_free(QDisc *qdisc) {
         network_config_section_free(qdisc->section);
 
         free(qdisc->tca_kind);
-        free(qdisc);
+        return mfree(qdisc);
 }
 
 static int qdisc_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
@@ -324,7 +320,7 @@ int config_parse_qdisc_parent(
         } else
                 qdisc->tca_kind = mfree(qdisc->tca_kind);
 
-        qdisc = NULL;
+        TAKE_PTR(qdisc);
 
         return 0;
 }
@@ -362,7 +358,7 @@ int config_parse_qdisc_handle(
 
         if (isempty(rvalue)) {
                 qdisc->handle = TC_H_UNSPEC;
-                qdisc = NULL;
+                TAKE_PTR(qdisc);
                 return 0;
         }
 
@@ -375,7 +371,7 @@ int config_parse_qdisc_handle(
         }
 
         qdisc->handle = (uint32_t) n << 16;
-        qdisc = NULL;
+        TAKE_PTR(qdisc);
 
         return 0;
 }

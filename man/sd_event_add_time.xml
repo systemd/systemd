@@ -1,7 +1,7 @@
 <?xml version='1.0'?>
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
-<!-- SPDX-License-Identifier: LGPL-2.1+ -->
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
 
 <refentry id="sd_event_add_time" xmlns:xi="http://www.w3.org/2001/XInclude">
 
@@ -17,8 +17,10 @@
 
   <refnamediv>
     <refname>sd_event_add_time</refname>
+    <refname>sd_event_add_time_relative</refname>
     <refname>sd_event_source_get_time</refname>
     <refname>sd_event_source_set_time</refname>
+    <refname>sd_event_source_set_time_relative</refname>
     <refname>sd_event_source_get_time_accuracy</refname>
     <refname>sd_event_source_set_time_accuracy</refname>
     <refname>sd_event_source_get_time_clock</refname>
@@ -161,12 +163,10 @@
     "floating", and will be destroyed implicitly when the event loop
     itself is destroyed.</para>
 
-    <para>If the <parameter>handler</parameter> to
-    <function>sd_event_add_time()</function> is
-    <constant>NULL</constant>, and the event source fires, this will
-    be considered a request to exit the event loop. In this case, the
-    <parameter>userdata</parameter> parameter, cast to an integer, is
-    used for the exit code passed to
+    <para>If the <parameter>handler</parameter> parameter to <function>sd_event_add_time()</function> is
+    <constant>NULL</constant>, and the event source fires, this will be considered a request to exit the
+    event loop. In this case, the <parameter>userdata</parameter> parameter, cast to an integer, is passed as
+    the exit code parameter to
     <citerefentry><refentrytitle>sd_event_exit</refentrytitle><manvolnum>3</manvolnum></citerefentry>.</para>
 
     <para>Use <constant>CLOCK_BOOTTIME_ALARM</constant> and

@@ -1,7 +1,7 @@
 <?xml version='1.0'?>
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
-<!-- SPDX-License-Identifier: LGPL-2.1+ -->
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
 
 <refentry id="sd_bus_default" xmlns:xi="http://www.w3.org/2001/XInclude">
 
@@ -24,6 +24,7 @@
     <refname>sd_bus_open_with_description</refname>
     <refname>sd_bus_open_user</refname>
     <refname>sd_bus_open_user_with_description</refname>
+    <refname>sd_bus_open_user_machine</refname>
     <refname>sd_bus_open_system</refname>
     <refname>sd_bus_open_system_with_description</refname>
     <refname>sd_bus_open_system_remote</refname>
@@ -71,6 +72,12 @@
         <funcdef>int <function>sd_bus_open_user_with_description</function></funcdef>
         <paramdef>sd_bus **<parameter>bus</parameter></paramdef>
         <paramdef>const char *<parameter>description</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>int <function>sd_bus_open_user_machine</function></funcdef>
+        <paramdef>sd_bus **<parameter>bus</parameter></paramdef>
+        <paramdef>const char *<parameter>machine</parameter></paramdef>
       </funcprototype>
 
       <funcprototype>
@@ -154,7 +161,7 @@
     is equivalent to <function>sd_bus_open()</function>. This description string is used in log
     messages about the bus object, and including a "name" for the bus makes them easier to
     understand. Some messages are emitted during bus initialization, hence using this function is
-    prefereable to setting the description later with
+    preferable to setting the description later with
     <function>sd_bus_open_with_description()</function>. The argument is copied internally and will
     not be referenced after the function returns.</para>
 
@@ -187,13 +194,23 @@
     work for the root user on the remote machine.</para>
 
     <para><function>sd_bus_open_system_machine()</function> connects to the system bus in the specified
-    <parameter>machine</parameter>, where <parameter>machine</parameter> is the name of a local
-    container. See
+    <parameter>machine</parameter>, where <parameter>machine</parameter> is the name of a local container,
+    possibly prefixed by a user name and a separating <literal>@</literal>. If the container name is
+    specified as the special string <literal>.host</literal> the connection is made to the local system. This
+    is useful to connect to the local system bus as specific user, e.g. <literal>foobar@.host</literal> to
+    connect to the local system bus as local user <literal>foobar</literal>. If the <literal>@</literal>
+    syntax is used either the left-hand side or the right-hand side may be omitted (but not both) in which
+    case the local user name or <literal>.host</literal> is implied. If the <literal>@</literal> syntax is
+    not used the connection is always made as root user. See
     <citerefentry><refentrytitle>sd_bus_set_address</refentrytitle><manvolnum>3</manvolnum></citerefentry>
     for a description of the address syntax, and
     <citerefentry><refentrytitle>machinectl</refentrytitle><manvolnum>1</manvolnum></citerefentry> for more
     information about the "machine" concept. Note that connections into local containers are only available
     to privileged processes at this time.</para>
+
+    <para><function>sd_bus_open_user_machine()</function> is similar to
+    <function>sd_bus_open_system_machine()</function>, but connects to the user bus of the root user, or if
+    the <literal>@</literal> syntax is used, of the specified user.</para>
 
     <para>These calls allocate a bus connection object and initiate
     the connection to a well-known bus of some form. An alternative to
@@ -210,6 +227,7 @@
     <title>Reference ownership</title>
     <para>The functions <function>sd_bus_open()</function>,
     <function>sd_bus_open_user()</function>,
+    <function>sd_bus_open_user_machine()</function>,
     <function>sd_bus_open_system()</function>,
     <function>sd_bus_open_system_remote()</function>, and
     <function>sd_bus_open_system_machine()</function> return a new
@@ -276,11 +294,18 @@
       <para>Returned errors may indicate the following problems:</para>
 
       <variablelist>
-
         <varlistentry>
           <term><constant>-EINVAL</constant></term>
 
           <listitem><para>The specified parameters are invalid.</para></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><constant>-ENOMEDIUM</constant></term>
+
+          <listitem><para>The requested bus type is not available because of invalid environment (for example
+          the user session bus is not available because <varname>$XDG_RUNTIME_DIR</varname> is not set).
+          </para></listitem>
         </varlistentry>
 
         <varlistentry>

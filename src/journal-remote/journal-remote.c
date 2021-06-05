@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <errno.h>
 #include <fcntl.h>
@@ -8,6 +8,7 @@
 
 #include "sd-daemon.h"
 
+#include "af-list.h"
 #include "alloc-util.h"
 #include "def.h"
 #include "errno-util.h"
@@ -40,7 +41,7 @@ static int open_output(RemoteServer *s, Writer *w, const char* host) {
                 break;
 
         case JOURNAL_WRITE_SPLIT_HOST: {
-                _cleanup_free_ char *name;
+                _cleanup_free_ char *name = NULL;
 
                 assert(host);
 
@@ -62,7 +63,7 @@ static int open_output(RemoteServer *s, Writer *w, const char* host) {
 
         r = journal_file_open_reliably(filename,
                                        O_RDWR|O_CREAT, 0640,
-                                       s->compress, (uint64_t) -1, s->seal,
+                                       s->compress, UINT64_MAX, s->seal,
                                        &w->metrics,
                                        w->mmap, NULL,
                                        NULL, &w->journal);
@@ -170,7 +171,7 @@ static int get_source_for_fd(RemoteServer *s,
         assert(fd >= 0);
         assert(source);
 
-        if (!GREEDY_REALLOC0(s->sources, s->sources_size, fd + 1))
+        if (!GREEDY_REALLOC0(s->sources, fd + 1))
                 return log_oom();
 
         r = journal_remote_get_writer(s, name, &writer);
@@ -196,7 +197,7 @@ static int remove_source(RemoteServer *s, int fd) {
         RemoteSource *source;
 
         assert(s);
-        assert(fd >= 0 && fd < (ssize_t) s->sources_size);
+        assert(fd >= 0 && fd < (ssize_t) MALLOC_ELEMENTSOF(s->sources));
 
         source = s->sources[fd];
         if (source) {
@@ -351,8 +352,7 @@ void journal_remote_server_destroy(RemoteServer *s) {
         hashmap_free_with_destructor(s->daemons, MHDDaemonWrapper_free);
 #endif
 
-        assert(s->sources_size == 0 || s->sources);
-        for (i = 0; i < s->sources_size; i++)
+        for (i = 0; i < MALLOC_ELEMENTSOF(s->sources); i++)
                 remove_source(s, i);
         free(s->sources);
 
@@ -387,7 +387,7 @@ int journal_remote_handle_raw_source(
          * 0 if data is currently exhausted, negative on error.
          */
 
-        assert(fd >= 0 && fd < (ssize_t) s->sources_size);
+        assert(fd >= 0 && fd < (ssize_t) MALLOC_ELEMENTSOF(s->sources));
         source = s->sources[fd];
         assert(source->importer.fd == fd);
 
@@ -498,7 +498,7 @@ static int accept_connection(
 
                 log_debug("Accepted %s %s connection from %s",
                           type,
-                          socket_address_family(addr) == AF_INET ? "IP" : "IPv6",
+                          af_to_ipv4_ipv6(socket_address_family(addr)),
                           a);
 
                 *hostname = b;

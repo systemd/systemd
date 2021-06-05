@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <unistd.h>
 
@@ -105,39 +105,32 @@ static void test_signal_from_string(void) {
 }
 
 static void test_block_signals(void) {
-        sigset_t ss;
-
-        assert_se(sigprocmask(0, NULL, &ss) >= 0);
-
-        assert_se(sigismember(&ss, SIGUSR1) == 0);
-        assert_se(sigismember(&ss, SIGALRM) == 0);
-        assert_se(sigismember(&ss, SIGVTALRM) == 0);
+        assert_se(signal_is_blocked(SIGUSR1) == 0);
+        assert_se(signal_is_blocked(SIGALRM) == 0);
+        assert_se(signal_is_blocked(SIGVTALRM) == 0);
 
         {
                 BLOCK_SIGNALS(SIGUSR1, SIGVTALRM);
 
-                assert_se(sigprocmask(0, NULL, &ss) >= 0);
-                assert_se(sigismember(&ss, SIGUSR1) == 1);
-                assert_se(sigismember(&ss, SIGALRM) == 0);
-                assert_se(sigismember(&ss, SIGVTALRM) == 1);
-
+                assert_se(signal_is_blocked(SIGUSR1) > 0);
+                assert_se(signal_is_blocked(SIGALRM) == 0);
+                assert_se(signal_is_blocked(SIGVTALRM) > 0);
         }
 
-        assert_se(sigprocmask(0, NULL, &ss) >= 0);
-        assert_se(sigismember(&ss, SIGUSR1) == 0);
-        assert_se(sigismember(&ss, SIGALRM) == 0);
-        assert_se(sigismember(&ss, SIGVTALRM) == 0);
+        assert_se(signal_is_blocked(SIGUSR1) == 0);
+        assert_se(signal_is_blocked(SIGALRM) == 0);
+        assert_se(signal_is_blocked(SIGVTALRM) == 0);
 }
 
 static void test_ignore_signals(void) {
-        assert_se(ignore_signals(SIGINT, -1) >= 0);
+        assert_se(ignore_signals(SIGINT) >= 0);
         assert_se(kill(getpid_cached(), SIGINT) >= 0);
-        assert_se(ignore_signals(SIGUSR1, SIGUSR2, SIGTERM, SIGPIPE, -1) >= 0);
+        assert_se(ignore_signals(SIGUSR1, SIGUSR2, SIGTERM, SIGPIPE) >= 0);
         assert_se(kill(getpid_cached(), SIGUSR1) >= 0);
         assert_se(kill(getpid_cached(), SIGUSR2) >= 0);
         assert_se(kill(getpid_cached(), SIGTERM) >= 0);
         assert_se(kill(getpid_cached(), SIGPIPE) >= 0);
-        assert_se(default_signals(SIGINT, SIGUSR1, SIGUSR2, SIGTERM, SIGPIPE, -1) >= 0);
+        assert_se(default_signals(SIGINT, SIGUSR1, SIGUSR2, SIGTERM, SIGPIPE) >= 0);
 }
 
 int main(int argc, char *argv[]) {

@@ -1,7 +1,10 @@
 <?xml version='1.0'?>
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
-  "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
-<!-- SPDX-License-Identifier: LGPL-2.1+ -->
+  "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd" [
+<!ENTITY % entities SYSTEM "custom-entities.ent" >
+%entities;
+]>
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
 
 <refentry id="machinectl" conditional='ENABLE_MACHINED'
     xmlns:xi="http://www.w3.org/2001/XInclude">
@@ -64,8 +67,8 @@
 
     <itemizedlist>
       <listitem><para>Directory trees containing an OS, including the
-      top-level directories <filename>/usr</filename>,
-      <filename>/etc</filename>, and so on.</para></listitem>
+      top-level directories <filename>/usr/</filename>,
+      <filename>/etc/</filename>, and so on.</para></listitem>
 
       <listitem><para>btrfs subvolumes containing OS trees, similar to regular directory trees.</para></listitem>
 
@@ -440,11 +443,11 @@
         <term><command>clean</command></term>
 
         <listitem><para>Remove hidden VM or container images (or all). This command removes all hidden machine images
-        from <filename>/var/lib/machines</filename>, i.e. those whose name begins with a dot. Use <command>machinectl
+        from <filename>/var/lib/machines/</filename>, i.e. those whose name begins with a dot. Use <command>machinectl
         list-images --all</command> to see a list of all machine images, including the hidden ones.</para>
 
         <para>When combined with the <option>--all</option> switch removes all images, not just hidden ones. This
-        command effectively empties <filename>/var/lib/machines</filename>.</para>
+        command effectively empties <filename>/var/lib/machines/</filename>.</para>
 
         <para>Note that commands such as <command>machinectl pull-tar</command> or <command>machinectl
         pull-raw</command> usually create hidden, read-only, unmodified machine images from the downloaded image first,
@@ -562,7 +565,7 @@
         <command>import-tar</command> is used, the file specified as
         the first argument should be a tar archive, possibly compressed
         with xz, gzip or bzip2. It will then be unpacked into its own
-        subvolume in <filename>/var/lib/machines</filename>. When
+        subvolume in <filename>/var/lib/machines/</filename>. When
         <command>import-raw</command> is used, the file should be a
         qcow2 or raw disk image, possibly compressed with xz, gzip or
         bzip2. If the second argument (the resulting image name) is
@@ -696,17 +699,7 @@
         <option>all</option>.</para></listitem>
       </varlistentry>
 
-      <varlistentry>
-        <term><option>-s</option></term>
-        <term><option>--signal=</option></term>
-
-        <listitem><para>When used with <command>kill</command>, choose
-        which signal to send to selected processes. Must be one of the
-        well-known signal specifiers, such as
-        <constant>SIGTERM</constant>, <constant>SIGINT</constant> or
-        <constant>SIGSTOP</constant>. If omitted, defaults to
-        <constant>SIGTERM</constant>.</para></listitem>
-      </varlistentry>
+      <xi:include href="standard-options.xml" xpointer="signal" />
 
       <varlistentry>
          <term><option>--uid=</option></term>
@@ -890,7 +883,7 @@
     <filename>/usr/lib/machines/</filename>. For compatibility reasons,
     the directory <filename>/var/lib/container/</filename> is
     searched, too. Note that images stored below
-    <filename>/usr</filename> are always considered read-only. It is
+    <filename>/usr/</filename> are always considered read-only. It is
     possible to symlink machines images from other directories into
     <filename>/var/lib/machines/</filename> to make them available for
     control with <command>machinectl</command>.</para>
@@ -939,14 +932,16 @@
 
     <example>
       <title>Download a Fedora image, set a root password in it, start
-      it as service</title>
+      it as a service</title>
 
-      <programlisting># machinectl pull-raw --verify=no https://dl.fedoraproject.org/pub/fedora/linux/releases/27/CloudImages/x86_64/images/Fedora-Cloud-Base-27-1.6.x86_64.raw.xz
-# systemd-nspawn -M Fedora-Cloud-Base-27-1.6.x86_64
+      <programlisting># machinectl pull-raw --verify=no \
+      https://download.fedoraproject.org/pub/fedora/linux/releases/&fedora_latest_version;/Cloud/x86_64/images/Fedora-Cloud-Base-&fedora_latest_version;-&fedora_cloud_release;.x86_64.raw.xz \
+      Fedora-Cloud-Base-&fedora_latest_version;-&fedora_cloud_release;.x86-64
+# systemd-nspawn -M Fedora-Cloud-Base-&fedora_latest_version;-&fedora_cloud_release;.x86-64
 # passwd
 # exit
-# machinectl start Fedora-Cloud-Base-27-1.6.x86_64
-# machinectl login Fedora-Cloud-Base-27-1.6.x86_64</programlisting>
+# machinectl start Fedora-Cloud-Base-&fedora_latest_version;-&fedora_cloud_release;.x86-64
+# machinectl login Fedora-Cloud-Base-&fedora_latest_version;-&fedora_cloud_release;.x86-64</programlisting>
 
       <para>This downloads the specified <filename>.raw</filename>
       image with verification disabled. Then, a shell is opened in it
@@ -985,7 +980,7 @@
     otherwise.</para>
   </refsect1>
 
-  <xi:include href="less-variables.xml" />
+  <xi:include href="common-variables.xml" />
 
   <refsect1>
     <title>See Also</title>

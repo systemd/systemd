@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 /***
   Copyright © 2015-2017 Jason A. Donenfeld <Jason@zx2c4.com>. All Rights Reserved.
 ***/
@@ -26,11 +26,11 @@
 
 static void resolve_endpoints(NetDev *netdev);
 
-static void wireguard_peer_free(WireguardPeer *peer) {
+static WireguardPeer* wireguard_peer_free(WireguardPeer *peer) {
         WireguardIPmask *mask;
 
         if (!peer)
-                return;
+                return NULL;
 
         if (peer->wireguard) {
                 LIST_REMOVE(peers, peer->wireguard->peers, peer);
@@ -54,7 +54,7 @@ static void wireguard_peer_free(WireguardPeer *peer) {
         free(peer->preshared_key_file);
         explicit_bzero_safe(peer->preshared_key, WG_KEY_LEN);
 
-        free(peer);
+        return mfree(peer);
 }
 
 DEFINE_NETWORK_SECTION_FUNCTIONS(WireguardPeer, wireguard_peer_free);
@@ -91,11 +91,7 @@ static int wireguard_peer_new_static(Wireguard *w, const char *filename, unsigne
 
         LIST_PREPEND(peers, w->peers, peer);
 
-        r = hashmap_ensure_allocated(&w->peers_by_section, &network_config_hash_ops);
-        if (r < 0)
-                return r;
-
-        r = hashmap_put(w->peers_by_section, peer->section, peer);
+        r = hashmap_ensure_put(&w->peers_by_section, &network_config_hash_ops, peer->section, peer);
         if (r < 0)
                 return r;
 
@@ -869,9 +865,9 @@ static int wireguard_read_key_file(const char *filename, uint8_t dest[static WG_
         (void) warn_file_is_world_accessible(filename, NULL, NULL, 0);
 
         r = read_full_file_full(
-                        AT_FDCWD, filename,
+                        AT_FDCWD, filename, UINT64_MAX, SIZE_MAX,
                         READ_FULL_FILE_SECURE | READ_FULL_FILE_UNBASE64 | READ_FULL_FILE_WARN_WORLD_READABLE | READ_FULL_FILE_CONNECT_SOCKET,
-                        &key, &key_len);
+                        NULL, &key, &key_len);
         if (r < 0)
                 return r;
 
@@ -918,14 +914,13 @@ static int wireguard_verify(NetDev *netdev, const char *filename) {
         r = wireguard_read_key_file(w->private_key_file, w->private_key);
         if (r < 0)
                 return log_netdev_error_errno(netdev, r,
-                                              "Failed to read private key from %s. Dropping network device %s.",
-                                              w->private_key_file, netdev->ifname);
+                                              "Failed to read private key from %s. Ignoring network device.",
+                                              w->private_key_file);
 
         if (eqzero(w->private_key))
                 return log_netdev_error_errno(netdev, SYNTHETIC_ERRNO(EINVAL),
                                               "%s: Missing PrivateKey= or PrivateKeyFile=, "
-                                              "Dropping network device %s.",
-                                              filename, netdev->ifname);
+                                              "Ignoring network device.", filename);
 
         LIST_FOREACH_SAFE(peers, peer, peer_next, w->peers)
                 if (wireguard_peer_verify(peer) < 0)

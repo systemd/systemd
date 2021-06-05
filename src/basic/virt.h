@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
 #include <stdbool.h>
@@ -10,6 +10,7 @@ enum {
 
         VIRTUALIZATION_VM_FIRST,
         VIRTUALIZATION_KVM = VIRTUALIZATION_VM_FIRST,
+        VIRTUALIZATION_AMAZON,
         VIRTUALIZATION_QEMU,
         VIRTUALIZATION_BOCHS,
         VIRTUALIZATION_XEN,
@@ -22,6 +23,7 @@ enum {
         VIRTUALIZATION_BHYVE,
         VIRTUALIZATION_QNX,
         VIRTUALIZATION_ACRN,
+        VIRTUALIZATION_POWERVM,
         VIRTUALIZATION_VM_OTHER,
         VIRTUALIZATION_VM_LAST = VIRTUALIZATION_VM_OTHER,
 
@@ -40,7 +42,7 @@ enum {
         VIRTUALIZATION_CONTAINER_LAST = VIRTUALIZATION_CONTAINER_OTHER,
 
         _VIRTUALIZATION_MAX,
-        _VIRTUALIZATION_INVALID = -1
+        _VIRTUALIZATION_INVALID = -EINVAL,
 };
 
 static inline bool VIRTUALIZATION_IS_VM(int x) {
@@ -60,3 +62,4 @@ int running_in_chroot(void);
 
 const char *virtualization_to_string(int v) _const_;
 int virtualization_from_string(const char *s) _pure_;
+bool has_cpu_with_flag(const char *flag);

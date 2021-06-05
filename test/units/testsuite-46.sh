@@ -1,25 +1,25 @@
 #!/usr/bin/env bash
-set -ex
+set -eux
 set -o pipefail
 
 # Check if homectl is installed, and if it isn't bail out early instead of failing
 if ! test -x /usr/bin/homectl ; then
-        echo OK > /testok
+        echo OK >/testok
         exit 0
 fi
 
 inspect() {
-        # As updating disk-size-related attributes can take some time on
-        # some filesystems, let's drop these fields before comparing the
-        # outputs to avoid unexpected fails. To see the full outputs of both
-        # homectl & userdbctl (for debugging purposes) drop the fields just
-        # before the comparison.
-        homectl inspect $1 | tee /tmp/a
-        userdbctl user $1 | tee /tmp/b
+    # As updating disk-size-related attributes can take some time on some
+    # filesystems, let's drop these fields before comparing the outputs to
+    # avoid unexpected fails. To see the full outputs of both homectl &
+    # userdbctl (for debugging purposes) drop the fields just before the
+    # comparison.
+    local USERNAME="${1:?missing argument}"
+    homectl inspect "$USERNAME" | tee /tmp/a
+    userdbctl user "$USERNAME" | tee /tmp/b
 
-        local PATTERN='/^\s*Disk (Size|Free|Floor|Ceiling):/d'
-        diff <(sed -r "$PATTERN" /tmp/a) <(sed -r "$PATTERN" /tmp/b)
-        rm /tmp/a /tmp/b
+    diff -I '/^\s*Disk (Size|Free|Floor|Ceiling):/' /tmp/{a,b}
+    rm /tmp/{a,b}
 }
 
 systemd-analyze log-level debug
@@ -66,16 +66,20 @@ inspect test-user
 PASSWORD=xEhErW0ndafV4s homectl deactivate test-user
 inspect test-user
 
-! PASSWORD=xEhErW0ndafV4s homectl with test-user -- test -f /home/test-user/xyz
+PASSWORD=xEhErW0ndafV4s homectl with test-user -- test ! -f /home/test-user/xyz
+PASSWORD=xEhErW0ndafV4s homectl with test-user -- test -f /home/test-user/xyz \
+    && { echo 'unexpected success'; exit 1; }
 PASSWORD=xEhErW0ndafV4s homectl with test-user -- touch /home/test-user/xyz
 PASSWORD=xEhErW0ndafV4s homectl with test-user -- test -f /home/test-user/xyz
 PASSWORD=xEhErW0ndafV4s homectl with test-user -- rm /home/test-user/xyz
-! PASSWORD=xEhErW0ndafV4s homectl with test-user -- test -f /home/test-user/xyz
+PASSWORD=xEhErW0ndafV4s homectl with test-user -- test ! -f /home/test-user/xyz
+PASSWORD=xEhErW0ndafV4s homectl with test-user -- test -f /home/test-user/xyz \
+    && { echo 'unexpected success'; exit 1; }
 
 homectl remove test-user
 
 systemd-analyze log-level info
 
-echo OK > /testok
+echo OK >/testok
 
 exit 0

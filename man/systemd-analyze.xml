@@ -1,7 +1,7 @@
 <?xml version='1.0'?> <!--*-nxml-*-->
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
-<!-- SPDX-License-Identifier: LGPL-2.1+ -->
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
 
 <refentry id="systemd-analyze" conditional='ENABLE_ANALYZE'
     xmlns:xi="http://www.w3.org/2001/XInclude">
@@ -334,7 +334,7 @@ $ eog targets.svg</programlisting>
       definition (one of <literal>glibc</literal>, <literal>systemd</literal>, <literal>LSB</literal>, or
       <literal>BSD</literal>), see the Process Exit Codes section in
       <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
-      If no additional arguments are specified, all known statuses are are shown. Otherwise, only the
+      If no additional arguments are specified, all known statuses are shown. Otherwise, only the
       definitions for the specified codes are shown.</para>
 
       <example>
@@ -782,7 +782,7 @@ Service b@0.service not loaded, b.socket cannot be started.
     otherwise.</para>
   </refsect1>
 
-  <xi:include href="less-variables.xml" />
+  <xi:include href="common-variables.xml" />
 
   <refsect1>
     <title>See Also</title>

@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <getopt.h>
 #include <stdio.h>
@@ -21,6 +21,7 @@
 #include "fd-util.h"
 #include "format-util.h"
 #include "main-func.h"
+#include "parse-argument.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "pretty-print.h"
@@ -131,11 +132,11 @@ static int help(void) {
                "     --on-timezone-change         Run when the timezone changes\n"
                "     --on-clock-change            Run when the realtime clock jumps\n"
                "     --timer-property=NAME=VALUE  Set timer unit property\n"
-               "\nSee the %s for details.\n"
-               , program_invocation_short_name
-               , ansi_highlight(), ansi_normal()
-               , link
-        );
+               "\nSee the %s for details.\n",
+               program_invocation_short_name,
+               ansi_highlight(),
+               ansi_normal(),
+               link);
 
         return 0;
 }
@@ -470,7 +471,7 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_WORKING_DIRECTORY:
-                        r = parse_path_argument_and_warn(optarg, true, &arg_working_directory);
+                        r = parse_path_argument(optarg, true, &arg_working_directory);
                         if (r < 0)
                                 return r;
 
@@ -538,14 +539,13 @@ static int parse_argv(int argc, char *argv[]) {
                 arg_aggressive_gc = true;
         }
 
-        if (arg_stdio == ARG_STDIO_AUTO) {
+        if (arg_stdio == ARG_STDIO_AUTO)
                 /* If we both --pty and --pipe are specified we'll automatically pick --pty if we are connected fully
                  * to a TTY and pick direct fd passing otherwise. This way, we automatically adapt to usage in a shell
                  * pipeline, but we are neatly interactive with tty-level isolation otherwise. */
                 arg_stdio = isatty(STDIN_FILENO) && isatty(STDOUT_FILENO) && isatty(STDERR_FILENO) ?
                         ARG_STDIO_PTY :
                         ARG_STDIO_DIRECT;
-        }
 
         if (argc > optind) {
                 char **l;
@@ -576,13 +576,13 @@ static int parse_argv(int argc, char *argv[]) {
         } else if (!arg_unit || !with_trigger)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Command line to execute required.");
 
-        if (arg_user && arg_transport != BUS_TRANSPORT_LOCAL)
+        if (arg_user && arg_transport == BUS_TRANSPORT_REMOTE)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "Execution in user context is not supported on non-local systems.");
+                                       "Execution in user context is not supported on remote systems.");
 
-        if (arg_scope && arg_transport != BUS_TRANSPORT_LOCAL)
+        if (arg_scope && arg_transport == BUS_TRANSPORT_REMOTE)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "Scope execution is not supported on non-local systems.");
+                                       "Scope execution is not supported on remote systems.");
 
         if (arg_scope && (arg_remain_after_exit || arg_service_type))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
@@ -667,15 +667,8 @@ static int transient_cgroup_set_properties(sd_bus_message *m) {
                 *end = 0;
         }
 
-        if (!isempty(arg_slice)) {
-                if (name) {
-                        char *j = strjoin(name, "-", arg_slice);
-                        free_and_replace(name, j);
-                } else
-                        name = strdup(arg_slice);
-                if (!name)
-                        return log_oom();
-        }
+        if (!isempty(arg_slice) && !strextend_with_separator(&name, "-", arg_slice))
+                return log_oom();
 
         if (!name)
                 return 0;
@@ -956,10 +949,12 @@ static int make_unit_name(sd_bus *bus, UnitType t, char **ret) {
                 return 0;
         }
 
-        /* We managed to get the unique name, then let's use that to
-         * name our transient units. */
+        /* We managed to get the unique name, then let's use that to name our transient units. */
 
-        id = startswith(unique, ":1.");
+        id = startswith(unique, ":1."); /* let' strip the usual prefix */
+        if (!id)
+                id = startswith(unique, ":"); /* the spec only requires things to start with a colon, hence
+                                               * let's add a generic fallback for that. */
         if (!id)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "Unique name %s has unexpected format.",
@@ -1336,7 +1331,7 @@ static int start_transient_service(
                         if (c.cpu_usage_nsec != NSEC_INFINITY) {
                                 char ts[FORMAT_TIMESPAN_MAX];
                                 log_info("CPU time consumed: %s",
-                                         format_timespan(ts, sizeof ts, (c.cpu_usage_nsec + NSEC_PER_USEC - 1) / NSEC_PER_USEC, USEC_PER_MSEC));
+                                         format_timespan(ts, sizeof ts, DIV_ROUND_UP(c.cpu_usage_nsec, NSEC_PER_USEC), USEC_PER_MSEC));
                         }
 
                         if (c.ip_ingress_bytes != UINT64_MAX) {
@@ -1752,7 +1747,7 @@ static int run(int argc, char* argv[]) {
 
         /* If --wait is used connect via the bus, unconditionally, as ref/unref is not supported via the limited direct
          * connection */
-        if (arg_wait || arg_stdio != ARG_STDIO_NONE)
+        if (arg_wait || arg_stdio != ARG_STDIO_NONE || (arg_user && arg_transport != BUS_TRANSPORT_LOCAL))
                 r = bus_connect_transport(arg_transport, arg_host, arg_user, &bus);
         else
                 r = bus_connect_transport_systemd(arg_transport, arg_host, arg_user, &bus);

@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <getopt.h>
 
@@ -21,6 +21,7 @@
 #include "log.h"
 #include "main-func.h"
 #include "pager.h"
+#include "parse-argument.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "pretty-print.h"
@@ -31,11 +32,7 @@
 #include "user-util.h"
 #include "verbs.h"
 
-static enum {
-        JSON_OFF,
-        JSON_SHORT,
-        JSON_PRETTY,
-} arg_json = JSON_OFF;
+static JsonFormatFlags arg_json_format_flags = JSON_FORMAT_OFF;
 static PagerFlags arg_pager_flags = 0;
 static bool arg_legend = true;
 static bool arg_full = false;
@@ -67,7 +64,6 @@ STATIC_DESTRUCTOR_REGISTER(arg_matches, strv_freep);
 #define NAME_IS_ACTIVATABLE INT_TO_PTR(2)
 
 static int json_transform_message(sd_bus_message *m, JsonVariant **ret);
-static void json_dump_with_flags(JsonVariant *v, FILE *f);
 
 static int acquire_bus(bool set_monitor, sd_bus **ret) {
         _cleanup_(sd_bus_close_unrefp) sd_bus *bus = NULL;
@@ -121,7 +117,7 @@ static int acquire_bus(bool set_monitor, sd_bus **ret) {
                         break;
 
                 case BUS_TRANSPORT_MACHINE:
-                        r = bus_set_address_system_machine(bus, arg_host);
+                        r = bus_set_address_machine(bus, arg_user, arg_host);
                         break;
 
                 default:
@@ -129,11 +125,11 @@ static int acquire_bus(bool set_monitor, sd_bus **ret) {
                 }
         }
         if (r < 0)
-                return log_error_errno(r, "Failed to set address: %m");
+                return bus_log_address_error(r);
 
         r = sd_bus_start(bus);
         if (r < 0)
-                return log_error_errno(r, "Failed to connect to bus: %m");
+                return bus_log_connect_error(r);
 
         *ret = TAKE_PTR(bus);
 
@@ -215,7 +211,7 @@ static int list_bus_names(int argc, char **argv, void *userdata) {
         if (r < 0)
                 return log_error_errno(r, "Failed to set empty string: %m");
 
-        r = table_set_sort(table, (size_t) COLUMN_NAME, (size_t) -1);
+        r = table_set_sort(table, (size_t) COLUMN_NAME);
         if (r < 0)
                 return log_error_errno(r, "Failed to set sort column: %m");
 
@@ -228,8 +224,7 @@ static int list_bus_names(int argc, char **argv, void *userdata) {
                                              (size_t) COLUMN_UNIT,
                                              (size_t) COLUMN_SESSION,
                                              (size_t) COLUMN_DESCRIPTION,
-                                             (size_t) COLUMN_MACHINE,
-                                             (size_t) -1);
+                                             (size_t) COLUMN_MACHINE);
         else
                 r = table_set_display(table, (size_t) COLUMN_NAME,
                                              (size_t) COLUMN_PID,
@@ -238,13 +233,10 @@ static int list_bus_names(int argc, char **argv, void *userdata) {
                                              (size_t) COLUMN_CONNECTION,
                                              (size_t) COLUMN_UNIT,
                                              (size_t) COLUMN_SESSION,
-                                             (size_t) COLUMN_DESCRIPTION,
-                                             (size_t) -1);
+                                             (size_t) COLUMN_DESCRIPTION);
 
         if (r < 0)
                 return log_error_errno(r, "Failed to set columns to display: %m");
-
-        table_set_header(table, arg_legend);
 
         HASHMAP_FOREACH_KEY(v, k, names) {
                 _cleanup_(sd_bus_creds_unrefp) sd_bus_creds *creds = NULL;
@@ -362,17 +354,7 @@ static int list_bus_names(int argc, char **argv, void *userdata) {
                         return log_error_errno(r, "Failed to fill line: %m");
         }
 
-        (void) pager_open(arg_pager_flags);
-
-        if (arg_json)
-                r = table_print_json(table, stdout,
-                                     (arg_json == JSON_PRETTY ? JSON_FORMAT_PRETTY : JSON_FORMAT_NEWLINE) | JSON_FORMAT_COLOR_AUTO);
-        else
-                r = table_print(table, stdout);
-        if (r < 0)
-                return table_log_print_error(r);
-
-        return 0;
+        return table_print_with_pager(table, arg_json_format_flags, arg_pager_flags, arg_legend);
 }
 
 static void print_subtree(const char *prefix, const char *path, char **l) {
@@ -459,7 +441,7 @@ static int find_nodes(sd_bus *bus, const char *service, const char *path, Set *p
 
         r = sd_bus_call_method(bus, service, path,
                                "org.freedesktop.DBus.Introspectable", "Introspect",
-                               &error, &reply, "");
+                               &error, &reply, NULL);
         if (r < 0) {
                 printf("%sFailed to introspect object %s of service %s: %s%s\n",
                        ansi_highlight_red(),
@@ -796,28 +778,26 @@ static int member_compare_funcp(Member * const *a, Member * const *b) {
         return member_compare_func(*a, *b);
 }
 
-static void member_free(Member *m) {
+static Member* member_free(Member *m) {
         if (!m)
-                return;
+                return NULL;
 
         free(m->interface);
         free(m->name);
         free(m->signature);
         free(m->result);
         free(m->value);
-        free(m);
+        return mfree(m);
 }
-
 DEFINE_TRIVIAL_CLEANUP_FUNC(Member*, member_free);
 
-static void member_set_free(Set *s) {
-        set_free_with_destructor(s, member_free);
+static Set* member_set_free(Set *s) {
+        return set_free_with_destructor(s, member_free);
 }
-
 DEFINE_TRIVIAL_CLEANUP_FUNC(Set*, member_set_free);
 
 static int on_interface(const char *interface, uint64_t flags, void *userdata) {
-        _cleanup_(member_freep) Member *m;
+        _cleanup_(member_freep) Member *m = NULL;
         Set *members = userdata;
         int r;
 
@@ -848,7 +828,7 @@ static int on_interface(const char *interface, uint64_t flags, void *userdata) {
 }
 
 static int on_method(const char *interface, const char *name, const char *signature, const char *result, uint64_t flags, void *userdata) {
-        _cleanup_(member_freep) Member *m;
+        _cleanup_(member_freep) Member *m = NULL;
         Set *members = userdata;
         int r;
 
@@ -891,7 +871,7 @@ static int on_method(const char *interface, const char *name, const char *signat
 }
 
 static int on_signal(const char *interface, const char *name, const char *signature, uint64_t flags, void *userdata) {
-        _cleanup_(member_freep) Member *m;
+        _cleanup_(member_freep) Member *m = NULL;
         Set *members = userdata;
         int r;
 
@@ -930,7 +910,7 @@ static int on_signal(const char *interface, const char *name, const char *signat
 }
 
 static int on_property(const char *interface, const char *name, const char *signature, bool writable, uint64_t flags, void *userdata) {
-        _cleanup_(member_freep) Member *m;
+        _cleanup_(member_freep) Member *m = NULL;
         Set *members = userdata;
         int r;
 
@@ -998,7 +978,7 @@ static int introspect(int argc, char **argv, void *userdata) {
 
         r = sd_bus_call_method(bus, argv[1], argv[2],
                                "org.freedesktop.DBus.Introspectable", "Introspect",
-                               &error, &reply_xml, "");
+                               &error, &reply_xml, NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to introspect object %s of service %s: %s",
                                        argv[2], argv[1], bus_error_message(&error, r));
@@ -1130,14 +1110,13 @@ static int introspect(int argc, char **argv, void *userdata) {
 
         (void) pager_open(arg_pager_flags);
 
-        if (arg_legend) {
+        if (arg_legend)
                 printf("%-*s %-*s %-*s %-*s %s\n",
                        (int) name_width, "NAME",
                        (int) type_width, "TYPE",
                        (int) signature_width, "SIGNATURE",
                        (int) result_width, "RESULT/VALUE",
                        "FLAGS");
-        }
 
         for (j = 0; j < k; j++) {
                 _cleanup_free_ char *ellipsized = NULL;
@@ -1195,6 +1174,7 @@ static int message_json(sd_bus_message *m, FILE *f) {
         _cleanup_(json_variant_unrefp) JsonVariant *v = NULL, *w = NULL;
         char e[2];
         int r;
+        usec_t ts;
 
         r = json_transform_message(m, &v);
         if (r < 0)
@@ -1203,6 +1183,10 @@ static int message_json(sd_bus_message *m, FILE *f) {
         e[0] = m->header->endian;
         e[1] = 0;
 
+        ts = m->realtime;
+        if (ts == 0)
+                ts = now(CLOCK_REALTIME);
+
         r = json_build(&w, JSON_BUILD_OBJECT(
                 JSON_BUILD_PAIR("type", JSON_BUILD_STRING(bus_message_type_to_string(m->header->type))),
                 JSON_BUILD_PAIR("endian", JSON_BUILD_STRING(e)),
@@ -1210,6 +1194,7 @@ static int message_json(sd_bus_message *m, FILE *f) {
                 JSON_BUILD_PAIR("version", JSON_BUILD_INTEGER(m->header->version)),
                 JSON_BUILD_PAIR("cookie", JSON_BUILD_INTEGER(BUS_MESSAGE_COOKIE(m))),
                 JSON_BUILD_PAIR_CONDITION(m->reply_cookie != 0, "reply_cookie", JSON_BUILD_INTEGER(m->reply_cookie)),
+                JSON_BUILD_PAIR("timestamp-realtime", JSON_BUILD_UNSIGNED(ts)),
                 JSON_BUILD_PAIR_CONDITION(m->sender, "sender", JSON_BUILD_STRING(m->sender)),
                 JSON_BUILD_PAIR_CONDITION(m->destination, "destination", JSON_BUILD_STRING(m->destination)),
                 JSON_BUILD_PAIR_CONDITION(m->path, "path", JSON_BUILD_STRING(m->path)),
@@ -1223,7 +1208,7 @@ static int message_json(sd_bus_message *m, FILE *f) {
         if (r < 0)
                 return log_error_errno(r, "Failed to build JSON object: %m");
 
-        json_dump_with_flags(w, f);
+        json_variant_dump(w, arg_json_format_flags, f, NULL);
         return 0;
 }
 
@@ -1343,14 +1328,14 @@ static int monitor(int argc, char **argv, int (*dump)(sd_bus_message *m, FILE *f
                 if (r > 0)
                         continue;
 
-                r = sd_bus_wait(bus, (uint64_t) -1);
+                r = sd_bus_wait(bus, UINT64_MAX);
                 if (r < 0)
                         return log_error_errno(r, "Failed to wait for bus: %m");
         }
 }
 
 static int verb_monitor(int argc, char **argv, void *userdata) {
-        return monitor(argc, argv, arg_json != JSON_OFF ? message_json : message_dump);
+        return monitor(argc, argv, (arg_json_format_flags & JSON_FORMAT_OFF) ? message_dump : message_json);
 }
 
 static int verb_capture(int argc, char **argv, void *userdata) {
@@ -1659,8 +1644,8 @@ static int message_append_cmdline(sd_bus_message *m, const char *signature, char
 static int json_transform_one(sd_bus_message *m, JsonVariant **ret);
 
 static int json_transform_array_or_struct(sd_bus_message *m, JsonVariant **ret) {
-        size_t n_elements = 0, n_allocated = 0;
         JsonVariant **elements = NULL;
+        size_t n_elements = 0;
         int r;
 
         assert(m);
@@ -1675,7 +1660,7 @@ static int json_transform_array_or_struct(sd_bus_message *m, JsonVariant **ret) 
                 if (r > 0)
                         break;
 
-                if (!GREEDY_REALLOC(elements, n_allocated, n_elements + 1)) {
+                if (!GREEDY_REALLOC(elements, n_elements + 1)) {
                         r = log_oom();
                         goto finish;
                 }
@@ -1717,8 +1702,8 @@ static int json_transform_variant(sd_bus_message *m, const char *contents, JsonV
 }
 
 static int json_transform_dict_array(sd_bus_message *m, JsonVariant **ret) {
-        size_t n_elements = 0, n_allocated = 0;
         JsonVariant **elements = NULL;
+        size_t n_elements = 0;
         int r;
 
         assert(m);
@@ -1742,7 +1727,7 @@ static int json_transform_dict_array(sd_bus_message *m, JsonVariant **ret) {
 
                 assert(type == 'e');
 
-                if (!GREEDY_REALLOC(elements, n_allocated, n_elements + 2)) {
+                if (!GREEDY_REALLOC(elements, n_elements + 2)) {
                         r = log_oom();
                         goto finish;
                 }
@@ -2001,14 +1986,6 @@ static int json_transform_message(sd_bus_message *m, JsonVariant **ret) {
         return 0;
 }
 
-static void json_dump_with_flags(JsonVariant *v, FILE *f) {
-
-        json_variant_dump(v,
-                          (arg_json == JSON_PRETTY ? JSON_FORMAT_PRETTY : JSON_FORMAT_NEWLINE) |
-                          JSON_FORMAT_COLOR_AUTO,
-                          f, NULL);
-}
-
 static int call(int argc, char **argv, void *userdata) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
@@ -2067,17 +2044,17 @@ static int call(int argc, char **argv, void *userdata) {
 
         if (r == 0 && !arg_quiet) {
 
-                if (arg_json != JSON_OFF) {
+                if (!FLAGS_SET(arg_json_format_flags, JSON_FORMAT_OFF)) {
                         _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
 
-                        if (arg_json != JSON_SHORT)
+                        if (arg_json_format_flags & (JSON_FORMAT_PRETTY|JSON_FORMAT_PRETTY_AUTO))
                                 (void) pager_open(arg_pager_flags);
 
                         r = json_transform_message(reply, &v);
                         if (r < 0)
                                 return r;
 
-                        json_dump_with_flags(v, stdout);
+                        json_variant_dump(v, arg_json_format_flags, NULL, NULL);
 
                 } else if (arg_verbose) {
                         (void) pager_open(arg_pager_flags);
@@ -2176,17 +2153,17 @@ static int get_property(int argc, char **argv, void *userdata) {
                 if (r < 0)
                         return bus_log_parse_error(r);
 
-                if (arg_json != JSON_OFF) {
+                if (!FLAGS_SET(arg_json_format_flags, JSON_FORMAT_OFF)) {
                         _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
 
-                        if (arg_json != JSON_SHORT)
+                        if (arg_json_format_flags & (JSON_FORMAT_PRETTY|JSON_FORMAT_PRETTY_AUTO))
                                 (void) pager_open(arg_pager_flags);
 
                         r = json_transform_variant(reply, contents, &v);
                         if (r < 0)
                                 return r;
 
-                        json_dump_with_flags(v, stdout);
+                        json_variant_dump(v, arg_json_format_flags, NULL, NULL);
 
                 } else if (arg_verbose) {
                         (void) pager_open(arg_pager_flags);
@@ -2266,6 +2243,8 @@ static int help(void) {
         if (r < 0)
                 return log_oom();
 
+        (void) pager_open(arg_pager_flags);
+
         printf("%s [OPTIONS...] COMMAND ...\n\n"
                "%sIntrospect the D-Bus IPC bus.%s\n"
                "\nCommands:\n"
@@ -2315,12 +2294,11 @@ static int help(void) {
                "     --watch-bind=BOOL     Wait for bus AF_UNIX socket to be bound in the file\n"
                "                           system\n"
                "     --destination=SERVICE Destination service of a signal\n"
-               "\nSee the %s for details.\n"
-               , program_invocation_short_name
-               , ansi_highlight()
-               , ansi_normal()
-               , link
-        );
+               "\nSee the %s for details.\n",
+               program_invocation_short_name,
+               ansi_highlight(),
+               ansi_normal(),
+               link);
 
         return 0;
 }
@@ -2491,27 +2469,22 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_EXPECT_REPLY:
-                        r = parse_boolean(optarg);
+                        r = parse_boolean_argument("--expect-reply=", optarg, &arg_expect_reply);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to parse --expect-reply= parameter '%s': %m", optarg);
-
-                        arg_expect_reply = r;
+                                return r;
                         break;
 
                 case ARG_AUTO_START:
-                        r = parse_boolean(optarg);
+                        r = parse_boolean_argument("--auto-start=", optarg, &arg_auto_start);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to parse --auto-start= parameter '%s': %m", optarg);
-
-                        arg_auto_start = r;
+                                return r;
                         break;
 
                 case ARG_ALLOW_INTERACTIVE_AUTHORIZATION:
-                        r = parse_boolean(optarg);
+                        r = parse_boolean_argument("--allow-interactive-authorization=", optarg,
+                                                   &arg_allow_interactive_authorization);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to parse --allow-interactive-authorization= parameter '%s': %m", optarg);
-
-                        arg_allow_interactive_authorization = r;
+                                return r;
                         break;
 
                 case ARG_TIMEOUT:
@@ -2522,41 +2495,25 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_AUGMENT_CREDS:
-                        r = parse_boolean(optarg);
+                        r = parse_boolean_argument("--augment-creds=", optarg, &arg_augment_creds);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to parse --augment-creds= parameter '%s': %m", optarg);
-
-                        arg_augment_creds = r;
+                                return r;
                         break;
 
                 case ARG_WATCH_BIND:
-                        r = parse_boolean(optarg);
+                        r = parse_boolean_argument("--watch-bind=", optarg, &arg_watch_bind);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to parse --watch-bind= parameter '%s': %m", optarg);
-
-                        arg_watch_bind = r;
+                                return r;
                         break;
 
                 case 'j':
-                        if (on_tty())
-                                arg_json = JSON_PRETTY;
-                        else
-                                arg_json = JSON_SHORT;
+                        arg_json_format_flags = JSON_FORMAT_PRETTY_AUTO|JSON_FORMAT_COLOR_AUTO;
                         break;
 
                 case ARG_JSON:
-                        if (streq(optarg, "short"))
-                                arg_json = JSON_SHORT;
-                        else if (streq(optarg, "pretty"))
-                                arg_json = JSON_PRETTY;
-                        else if (streq(optarg, "help")) {
-                                fputs("short\n"
-                                      "pretty\n", stdout);
-                                return 0;
-                        } else
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "Unknown JSON out mode: %s",
-                                                       optarg);
+                        r = parse_json_argument(optarg, &arg_json_format_flags);
+                        if (r <= 0)
+                                return r;
 
                         break;
 
@@ -2596,7 +2553,7 @@ static int busctl_main(int argc, char *argv[]) {
 static int run(int argc, char *argv[]) {
         int r;
 
-        log_setup_cli();
+        log_setup();
 
         r = parse_argv(argc, argv);
         if (r <= 0)

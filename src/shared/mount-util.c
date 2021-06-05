@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <errno.h>
 #include <stdlib.h>
@@ -6,23 +6,32 @@
 #include <sys/stat.h>
 #include <sys/statvfs.h>
 #include <unistd.h>
+#include <linux/loop.h>
+#include <linux/fs.h>
 
 #include "alloc-util.h"
+#include "dissect-image.h"
 #include "extract-word.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "fs-util.h"
 #include "hashmap.h"
 #include "libmount-util.h"
+#include "missing_syscall.h"
+#include "mkdir.h"
 #include "mount-util.h"
 #include "mountpoint-util.h"
+#include "namespace-util.h"
 #include "parse-util.h"
 #include "path-util.h"
+#include "process-util.h"
 #include "set.h"
 #include "stat-util.h"
 #include "stdio-util.h"
 #include "string-util.h"
 #include "strv.h"
+#include "tmpfile-util.h"
+#include "user-util.h"
 
 int mount_fd(const char *source,
              int target_fd,
@@ -77,9 +86,8 @@ int umount_recursive(const char *prefix, int flags) {
         int n = 0, r;
         bool again;
 
-        /* Try to umount everything recursively below a
-         * directory. Also, take care of stacked mounts, and keep
-         * unmounting them until they are gone. */
+        /* Try to umount everything recursively below a directory. Also, take care of stacked mounts, and
+         * keep unmounting them until they are gone. */
 
         do {
                 _cleanup_(mnt_free_tablep) struct libmnt_table *table = NULL;
@@ -125,68 +133,6 @@ int umount_recursive(const char *prefix, int flags) {
         return n;
 }
 
-static int get_mount_flags(
-                struct libmnt_table *table,
-                const char *path,
-                unsigned long *ret) {
-
-        _cleanup_close_ int fd = -1;
-        struct libmnt_fs *fs;
-        struct statvfs buf;
-        const char *opts;
-        int r;
-
-        /* Get the mount flags for the mountpoint at "path" from "table". We have a fallback using statvfs()
-         * in place (which provides us with mostly the same info), but it's just a fallback, since using it
-         * means triggering autofs or NFS mounts, which we'd rather avoid needlessly.
-         *
-         * This generally doesn't follow symlinks. */
-
-        fs = mnt_table_find_target(table, path, MNT_ITER_FORWARD);
-        if (!fs) {
-                log_debug("Could not find '%s' in mount table, ignoring.", path);
-                goto fallback;
-        }
-
-        opts = mnt_fs_get_vfs_options(fs);
-        if (!opts) {
-                *ret = 0;
-                return 0;
-        }
-
-        r = mnt_optstr_get_flags(opts, ret, mnt_get_builtin_optmap(MNT_LINUX_MAP));
-        if (r != 0) {
-                log_debug_errno(r, "Could not get flags for '%s', ignoring: %m", path);
-                goto fallback;
-        }
-
-        /* MS_RELATIME is default and trying to set it in an unprivileged container causes EPERM */
-        *ret &= ~MS_RELATIME;
-        return 0;
-
-fallback:
-        fd = open(path, O_PATH|O_CLOEXEC|O_NOFOLLOW);
-        if (fd < 0)
-                return -errno;
-
-        if (fstatvfs(fd, &buf) < 0)
-                return -errno;
-
-        /* The statvfs() flags and the mount flags mostly have the same values, but for some cases do
-         * not. Hence map the flags manually. (Strictly speaking, ST_RELATIME/MS_RELATIME is the most
-         * prominent one that doesn't match, but that's the one we mask away anyway, see above.) */
-
-        *ret =
-                FLAGS_SET(buf.f_flag, ST_RDONLY) * MS_RDONLY |
-                FLAGS_SET(buf.f_flag, ST_NODEV) * MS_NODEV |
-                FLAGS_SET(buf.f_flag, ST_NOEXEC) * MS_NOEXEC |
-                FLAGS_SET(buf.f_flag, ST_NOSUID) * MS_NOSUID |
-                FLAGS_SET(buf.f_flag, ST_NOATIME) * MS_NOATIME |
-                FLAGS_SET(buf.f_flag, ST_NODIRATIME) * MS_NODIRATIME;
-
-        return 0;
-}
-
 /* Use this function only if you do not have direct access to /proc/self/mountinfo but the caller can open it
  * for you. This is the case when /proc is masked or not mounted. Otherwise, use bind_remount_recursive. */
 int bind_remount_recursive_with_mountinfo(
@@ -196,45 +142,35 @@ int bind_remount_recursive_with_mountinfo(
                 char **deny_list,
                 FILE *proc_self_mountinfo) {
 
-        _cleanup_set_free_free_ Set *done = NULL;
-        _cleanup_free_ char *simplified = NULL;
+        _cleanup_set_free_ Set *done = NULL;
+        unsigned n_tries = 0;
         int r;
 
         assert(prefix);
         assert(proc_self_mountinfo);
 
-        /* Recursively remount a directory (and all its submounts) read-only or read-write. If the directory is already
-         * mounted, we reuse the mount and simply mark it MS_BIND|MS_RDONLY (or remove the MS_RDONLY for read-write
-         * operation). If it isn't we first make it one. Afterwards we apply MS_BIND|MS_RDONLY (or remove MS_RDONLY) to
-         * all submounts we can access, too. When mounts are stacked on the same mount point we only care for each
-         * individual "top-level" mount on each point, as we cannot influence/access the underlying mounts anyway. We
-         * do not have any effect on future submounts that might get propagated, they might be writable. This includes
-         * future submounts that have been triggered via autofs.
+        /* Recursively remount a directory (and all its submounts) with desired flags (MS_READONLY,
+         * MS_NOSUID, MS_NOEXEC). If the directory is already mounted, we reuse the mount and simply mark it
+         * MS_BIND|MS_RDONLY (or remove the MS_RDONLY for read-write operation), ditto for other flags. If it
+         * isn't we first make it one. Afterwards we apply (or remove) the flags to all submounts we can
+         * access, too. When mounts are stacked on the same mount point we only care for each individual
+         * "top-level" mount on each point, as we cannot influence/access the underlying mounts anyway. We do
+         * not have any effect on future submounts that might get propagated, they might be writable
+         * etc. This includes future submounts that have been triggered via autofs. Also note that we can't
+         * operate atomically here. Mounts established while we process the tree might or might not get
+         * noticed and thus might or might not be covered.
          *
          * If the "deny_list" parameter is specified it may contain a list of subtrees to exclude from the
          * remount operation. Note that we'll ignore the deny list for the top-level path. */
 
-        simplified = strdup(prefix);
-        if (!simplified)
-                return -ENOMEM;
-
-        path_simplify(simplified, false);
-
-        done = set_new(&path_hash_ops);
-        if (!done)
-                return -ENOMEM;
-
         for (;;) {
-                _cleanup_set_free_free_ Set *todo = NULL;
                 _cleanup_(mnt_free_tablep) struct libmnt_table *table = NULL;
                 _cleanup_(mnt_free_iterp) struct libmnt_iter *iter = NULL;
+                _cleanup_hashmap_free_ Hashmap *todo = NULL;
                 bool top_autofs = false;
-                char *x;
-                unsigned long orig_flags;
 
-                todo = set_new(&path_hash_ops);
-                if (!todo)
-                        return -ENOMEM;
+                if (n_tries++ >= 32) /* Let's not retry this loop forever */
+                        return -EBUSY;
 
                 rewind(proc_self_mountinfo);
 
@@ -243,130 +179,159 @@ int bind_remount_recursive_with_mountinfo(
                         return log_debug_errno(r, "Failed to parse /proc/self/mountinfo: %m");
 
                 for (;;) {
+                        _cleanup_free_ char *d = NULL;
+                        const char *path, *type, *opts;
+                        unsigned long flags = 0;
                         struct libmnt_fs *fs;
-                        const char *path, *type;
 
                         r = mnt_table_next_fs(table, iter, &fs);
-                        if (r == 1)
+                        if (r == 1) /* EOF */
                                 break;
                         if (r < 0)
                                 return log_debug_errno(r, "Failed to get next entry from /proc/self/mountinfo: %m");
 
                         path = mnt_fs_get_target(fs);
-                        type = mnt_fs_get_fstype(fs);
-                        if (!path || !type)
+                        if (!path)
                                 continue;
 
-                        if (!path_startswith(path, simplified))
+                        if (!path_startswith(path, prefix))
+                                continue;
+
+                        type = mnt_fs_get_fstype(fs);
+                        if (!type)
+                                continue;
+
+                        /* Let's ignore autofs mounts. If they aren't triggered yet, we want to avoid
+                         * triggering them, as we don't make any guarantees for future submounts anyway. If
+                         * they are already triggered, then we will find another entry for this. */
+                        if (streq(type, "autofs")) {
+                                top_autofs = top_autofs || path_equal(path, prefix);
+                                continue;
+                        }
+
+                        if (set_contains(done, path))
                                 continue;
 
                         /* Ignore this mount if it is deny-listed, but only if it isn't the top-level mount
                          * we shall operate on. */
-                        if (!path_equal(path, simplified)) {
+                        if (!path_equal(path, prefix)) {
                                 bool deny_listed = false;
                                 char **i;
 
                                 STRV_FOREACH(i, deny_list) {
-                                        if (path_equal(*i, simplified))
+                                        if (path_equal(*i, prefix))
                                                 continue;
 
-                                        if (!path_startswith(*i, simplified))
+                                        if (!path_startswith(*i, prefix))
                                                 continue;
 
                                         if (path_startswith(path, *i)) {
                                                 deny_listed = true;
-                                                log_debug("Not remounting %s deny-listed by %s, called for %s",
-                                                          path, *i, simplified);
+                                                log_debug("Not remounting %s deny-listed by %s, called for %s", path, *i, prefix);
                                                 break;
                                         }
                                 }
+
                                 if (deny_listed)
                                         continue;
                         }
 
-                        /* Let's ignore autofs mounts.  If they aren't
-                         * triggered yet, we want to avoid triggering
-                         * them, as we don't make any guarantees for
-                         * future submounts anyway.  If they are
-                         * already triggered, then we will find
-                         * another entry for this. */
-                        if (streq(type, "autofs")) {
-                                top_autofs = top_autofs || path_equal(path, simplified);
-                                continue;
+                        opts = mnt_fs_get_vfs_options(fs);
+                        if (opts) {
+                                r = mnt_optstr_get_flags(opts, &flags, mnt_get_builtin_optmap(MNT_LINUX_MAP));
+                                if (r < 0)
+                                        log_debug_errno(r, "Could not get flags for '%s', ignoring: %m", path);
                         }
 
-                        if (!set_contains(done, path)) {
-                                r = set_put_strdup(&todo, path);
-                                if (r < 0)
-                                        return r;
-                        }
+                        d = strdup(path);
+                        if (!d)
+                                return -ENOMEM;
+
+                        r = hashmap_ensure_put(&todo, &path_hash_ops_free, d, ULONG_TO_PTR(flags));
+                        if (r == -EEXIST)
+                                continue;
+                        if (r < 0)
+                                return r;
+                        if (r > 0)
+                                TAKE_PTR(d);
                 }
 
-                /* If we have no submounts to process anymore and if
-                 * the root is either already done, or an autofs, we
-                 * are done */
-                if (set_isempty(todo) &&
-                    (top_autofs || set_contains(done, simplified)))
+                /* Check if the top-level directory was among what we have seen so far. For that check both
+                 * 'done' and 'todo'. Also check 'top_autofs' because if the top-level dir is an autofs we'll
+                 * not include it in either set but will set this bool. */
+                if (!set_contains(done, prefix) &&
+                    !(top_autofs || hashmap_contains(todo, prefix))) {
+
+                        /* The prefix directory itself is not yet a mount, make it one. */
+                        r = mount_nofollow(prefix, prefix, NULL, MS_BIND|MS_REC, NULL);
+                        if (r < 0)
+                                return r;
+
+                        /* Immediately rescan, so that we pick up the new mount's flags */
+                        continue;
+                }
+
+                /* If we have no submounts to process anymore, we are done */
+                if (hashmap_isempty(todo))
                         return 0;
 
-                if (!set_contains(done, simplified) &&
-                    !set_contains(todo, simplified)) {
-                        /* The prefix directory itself is not yet a mount, make it one. */
-                        r = mount_nofollow(simplified, simplified, NULL, MS_BIND|MS_REC, NULL);
-                        if (r < 0)
-                                return r;
+                for (;;) {
+                        unsigned long flags;
+                        char *x = NULL;
 
-                        orig_flags = 0;
-                        (void) get_mount_flags(table, simplified, &orig_flags);
+                        /* Take the first mount from our list of mounts to still process */
+                        flags = PTR_TO_ULONG(hashmap_steal_first_key_and_value(todo, (void**) &x));
+                        if (!x)
+                                break;
 
-                        r = mount_nofollow(NULL, simplified, NULL, (orig_flags & ~flags_mask)|MS_BIND|MS_REMOUNT|new_flags, NULL);
-                        if (r < 0)
-                                return r;
-
-                        log_debug("Made top-level directory %s a mount point.", prefix);
-
-                        r = set_put_strdup(&done, simplified);
-                        if (r < 0)
-                                return r;
-                }
-
-                while ((x = set_steal_first(todo))) {
-
-                        r = set_consume(done, x);
+                        r = set_ensure_consume(&done, &path_hash_ops_free, x);
                         if (IN_SET(r, 0, -EEXIST))
-                                continue;
+                                continue; /* Already done */
                         if (r < 0)
                                 return r;
 
-                        /* Deal with mount points that are obstructed by a later mount */
-                        r = path_is_mount_point(x, NULL, 0);
-                        if (IN_SET(r, 0, -ENOENT))
-                                continue;
+                        /* Now, remount this with the new flags set, but exclude MS_RELATIME from it. (It's
+                         * the default anyway, thus redundant, and in userns we'll get an error if we try to
+                         * explicitly enable it) */
+                        r = mount_nofollow(NULL, x, NULL, ((flags & ~flags_mask)|MS_BIND|MS_REMOUNT|new_flags) & ~MS_RELATIME, NULL);
                         if (r < 0) {
-                                if (!ERRNO_IS_PRIVILEGE(r))
+                                int q;
+
+                                /* OK, so the remount of this entry failed. We'll ultimately ignore this in
+                                 * almost all cases (there are simply so many reasons why this can fail,
+                                 * think autofs, NFS, FUSE, …), but let's generate useful debug messages at
+                                 * the very least. */
+
+                                q = path_is_mount_point(x, NULL, 0);
+                                if (IN_SET(q, 0, -ENOENT)) {
+                                        /* Hmm, whaaaa? The mount point is not actually a mount point? Then
+                                         * it is either obstructed by a later mount or somebody has been
+                                         * racing against us and removed it. Either way the mount point
+                                         * doesn't matter to us, let's ignore it hence. */
+                                        log_debug_errno(r, "Mount point '%s' to remount is not a mount point anymore, ignoring remount failure: %m", x);
+                                        continue;
+                                }
+                                if (q < 0) /* Any other error on this? Just log and continue */
+                                        log_debug_errno(q, "Failed to determine whether '%s' is a mount point or not, ignoring: %m", x);
+
+                                if (((flags ^ new_flags) & flags_mask & ~MS_RELATIME) == 0) { /* ignore MS_RELATIME while comparing */
+                                        log_debug_errno(r, "Couldn't remount '%s', but the flags already match what we want, hence ignoring: %m", x);
+                                        continue;
+                                }
+
+                                /* Make this fatal if this is the top-level mount */
+                                if (path_equal(x, prefix))
                                         return r;
 
-                                /* Even if root user invoke this, submounts under private FUSE or NFS mount points
-                                 * may not be acceessed. E.g.,
-                                 *
-                                 * $ bindfs --no-allow-other ~/mnt/mnt ~/mnt/mnt
-                                 * $ bindfs --no-allow-other ~/mnt ~/mnt
-                                 *
-                                 * Then, root user cannot access the mount point ~/mnt/mnt.
-                                 * In such cases, the submounts are ignored, as we have no way to manage them. */
-                                log_debug_errno(r, "Failed to determine '%s' is mount point or not, ignoring: %m", x);
+                                /* If this is not the top-level mount, then handle this gracefully: log but
+                                 * otherwise ignore. With NFS, FUSE, autofs there are just too many reasons
+                                 * this might fail without a chance for us to do anything about it, let's
+                                 * hence be strict on the top-level mount and lenient on the inner ones. */
+                                log_debug_errno(r, "Couldn't remount submount '%s' for unexpected reason, ignoring: %m", x);
                                 continue;
                         }
 
-                        /* Try to reuse the original flag set */
-                        orig_flags = 0;
-                        (void) get_mount_flags(table, x, &orig_flags);
-
-                        r = mount_nofollow(NULL, x, NULL, (orig_flags & ~flags_mask)|MS_BIND|MS_REMOUNT|new_flags, NULL);
-                        if (r < 0)
-                                return r;
-
-                        log_debug("Remounted %s read-only.", x);
+                        log_debug("Remounted %s.", x);
                 }
         }
 }
@@ -394,7 +359,9 @@ int bind_remount_one_with_mountinfo(
                 FILE *proc_self_mountinfo) {
 
         _cleanup_(mnt_free_tablep) struct libmnt_table *table = NULL;
-        unsigned long orig_flags = 0;
+        unsigned long flags = 0;
+        struct libmnt_fs *fs;
+        const char *opts;
         int r;
 
         assert(path);
@@ -410,12 +377,32 @@ int bind_remount_one_with_mountinfo(
         if (r < 0)
                 return r;
 
-        /* Try to reuse the original flag set */
-        (void) get_mount_flags(table, path, &orig_flags);
+        fs = mnt_table_find_target(table, path, MNT_ITER_FORWARD);
+        if (!fs) {
+                if (laccess(path, F_OK) < 0) /* Hmm, it's not in the mount table, but does it exist at all? */
+                        return -errno;
 
-        r = mount_nofollow(NULL, path, NULL, (orig_flags & ~flags_mask)|MS_BIND|MS_REMOUNT|new_flags, NULL);
-        if (r < 0)
-                return r;
+                return -EINVAL; /* Not a mount point we recognize */
+        }
+
+        opts = mnt_fs_get_vfs_options(fs);
+        if (opts) {
+                r = mnt_optstr_get_flags(opts, &flags, mnt_get_builtin_optmap(MNT_LINUX_MAP));
+                if (r < 0)
+                        log_debug_errno(r, "Could not get flags for '%s', ignoring: %m", path);
+        }
+
+        r = mount_nofollow(NULL, path, NULL, ((flags & ~flags_mask)|MS_BIND|MS_REMOUNT|new_flags) & ~MS_RELATIME, NULL);
+        if (r < 0) {
+                if (((flags ^ new_flags) & flags_mask & ~MS_RELATIME) != 0) /* Ignore MS_RELATIME again,
+                                                                             * since kernel adds it in
+                                                                             * everywhere, because it's the
+                                                                             * default. */
+                        return r;
+
+                /* Let's handle redundant remounts gracefully */
+                log_debug_errno(r, "Failed to remount '%s' but flags already match what we want, ignoring: %m", path);
+        }
 
         return 0;
 }
@@ -733,12 +720,372 @@ int mount_option_mangle(
                 }
 
                 /* If 'word' is not a mount flag, then store it in '*ret_remaining_options'. */
-                if (!ent->name && !strextend_with_separator(&ret, ",", word, NULL))
+                if (!ent->name && !strextend_with_separator(&ret, ",", word))
                         return -ENOMEM;
         }
 
         *ret_mount_flags = mount_flags;
         *ret_remaining_options = TAKE_PTR(ret);
+
+        return 0;
+}
+
+static int mount_in_namespace(
+                pid_t target,
+                const char *propagate_path,
+                const char *incoming_path,
+                const char *src,
+                const char *dest,
+                bool read_only,
+                bool make_file_or_directory,
+                const MountOptions *options,
+                bool is_image) {
+
+        _cleanup_close_pair_ int errno_pipe_fd[2] = { -1, -1 };
+        _cleanup_close_ int self_mntns_fd = -1, mntns_fd = -1, root_fd = -1, pidns_fd = -1, chased_src_fd = -1;
+        char mount_slave[] = "/tmp/propagate.XXXXXX", *mount_tmp, *mount_outside, *p,
+                chased_src[STRLEN("/proc/self/fd/") + DECIMAL_STR_MAX(int)];
+        bool mount_slave_created = false, mount_slave_mounted = false,
+                mount_tmp_created = false, mount_tmp_mounted = false,
+                mount_outside_created = false, mount_outside_mounted = false;
+        struct stat st, self_mntns_st;
+        pid_t child;
+        int r;
+
+        assert(target > 0);
+        assert(propagate_path);
+        assert(incoming_path);
+        assert(src);
+        assert(dest);
+        assert(!options || is_image);
+
+        r = namespace_open(target, &pidns_fd, &mntns_fd, NULL, NULL, &root_fd);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to retrieve FDs of the target process' namespace: %m");
+
+        if (fstat(mntns_fd, &st) < 0)
+                return log_debug_errno(errno, "Failed to fstat mount namespace FD of target process: %m");
+
+        r = namespace_open(0, NULL, &self_mntns_fd, NULL, NULL, NULL);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to retrieve FDs of systemd's namespace: %m");
+
+        if (fstat(self_mntns_fd, &self_mntns_st) < 0)
+                return log_debug_errno(errno, "Failed to fstat mount namespace FD of systemd: %m");
+
+        /* We can't add new mounts at runtime if the process wasn't started in a namespace */
+        if (st.st_ino == self_mntns_st.st_ino && st.st_dev == self_mntns_st.st_dev)
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to activate bind mount in target, not running in a mount namespace");
+
+        /* One day, when bind mounting /proc/self/fd/n works across
+         * namespace boundaries we should rework this logic to make
+         * use of it... */
+
+        p = strjoina(propagate_path, "/");
+        r = laccess(p, F_OK);
+        if (r < 0)
+                return log_debug_errno(r == -ENOENT ? SYNTHETIC_ERRNO(EOPNOTSUPP) : r, "Target does not allow propagation of mount points");
+
+        r = chase_symlinks(src, NULL, CHASE_TRAIL_SLASH, NULL, &chased_src_fd);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to resolve source path of %s: %m", src);
+        xsprintf(chased_src, "/proc/self/fd/%i", chased_src_fd);
+
+        if (fstat(chased_src_fd, &st) < 0)
+                return log_debug_errno(errno, "Failed to stat() resolved source path %s: %m", src);
+        if (S_ISLNK(st.st_mode)) /* This shouldn't really happen, given that we just chased the symlinks above, but let's better be safe… */
+                return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Source directory %s can't be a symbolic link", src);
+
+        /* Our goal is to install a new bind mount into the container,
+           possibly read-only. This is irritatingly complex
+           unfortunately, currently.
+
+           First, we start by creating a private playground in /tmp,
+           that we can mount MS_SLAVE. (Which is necessary, since
+           MS_MOVE cannot be applied to mounts with MS_SHARED parent
+           mounts.) */
+
+        if (!mkdtemp(mount_slave))
+                return log_debug_errno(errno, "Failed to create playground %s: %m", mount_slave);
+
+        mount_slave_created = true;
+
+        r = mount_nofollow_verbose(LOG_DEBUG, mount_slave, mount_slave, NULL, MS_BIND, NULL);
+        if (r < 0)
+                goto finish;
+
+        mount_slave_mounted = true;
+
+        r = mount_nofollow_verbose(LOG_DEBUG, NULL, mount_slave, NULL, MS_SLAVE, NULL);
+        if (r < 0)
+                goto finish;
+
+        /* Second, we mount the source file or directory to a directory inside of our MS_SLAVE playground. */
+        mount_tmp = strjoina(mount_slave, "/mount");
+        if (is_image)
+                r = mkdir_p(mount_tmp, 0700);
+        else
+                r = make_mount_point_inode_from_stat(&st, mount_tmp, 0700);
+        if (r < 0) {
+                log_debug_errno(r, "Failed to create temporary mount point %s: %m", mount_tmp);
+                goto finish;
+        }
+
+        mount_tmp_created = true;
+
+        if (is_image)
+                r = verity_dissect_and_mount(chased_src, mount_tmp, options, NULL, NULL, NULL);
+        else
+                r = mount_follow_verbose(LOG_DEBUG, chased_src, mount_tmp, NULL, MS_BIND, NULL);
+        if (r < 0)
+                goto finish;
+
+        mount_tmp_mounted = true;
+
+        /* Third, we remount the new bind mount read-only if requested. */
+        if (read_only) {
+                r = mount_nofollow_verbose(LOG_DEBUG, NULL, mount_tmp, NULL, MS_BIND|MS_REMOUNT|MS_RDONLY, NULL);
+                if (r < 0)
+                        goto finish;
+        }
+
+        /* Fourth, we move the new bind mount into the propagation directory. This way it will appear there read-only
+         * right-away. */
+
+        mount_outside = strjoina(propagate_path, "/XXXXXX");
+        if (is_image || S_ISDIR(st.st_mode))
+                r = mkdtemp(mount_outside) ? 0 : -errno;
+        else {
+                r = mkostemp_safe(mount_outside);
+                safe_close(r);
+        }
+        if (r < 0) {
+                log_debug_errno(r, "Cannot create propagation file or directory %s: %m", mount_outside);
+                goto finish;
+        }
+
+        mount_outside_created = true;
+
+        r = mount_nofollow_verbose(LOG_DEBUG, mount_tmp, mount_outside, NULL, MS_MOVE, NULL);
+        if (r < 0)
+                goto finish;
+
+        mount_outside_mounted = true;
+        mount_tmp_mounted = false;
+
+        if (is_image || S_ISDIR(st.st_mode))
+                (void) rmdir(mount_tmp);
+        else
+                (void) unlink(mount_tmp);
+        mount_tmp_created = false;
+
+        (void) umount_verbose(LOG_DEBUG, mount_slave, UMOUNT_NOFOLLOW);
+        mount_slave_mounted = false;
+
+        (void) rmdir(mount_slave);
+        mount_slave_created = false;
+
+        if (pipe2(errno_pipe_fd, O_CLOEXEC|O_NONBLOCK) < 0) {
+                log_debug_errno(errno, "Failed to create pipe: %m");
+                goto finish;
+        }
+
+        r = namespace_fork("(sd-bindmnt)", "(sd-bindmnt-inner)", NULL, 0, FORK_RESET_SIGNALS|FORK_DEATHSIG,
+                           pidns_fd, mntns_fd, -1, -1, root_fd, &child);
+        if (r < 0)
+                goto finish;
+        if (r == 0) {
+                const char *mount_inside;
+
+                errno_pipe_fd[0] = safe_close(errno_pipe_fd[0]);
+
+                if (make_file_or_directory) {
+                        if (!is_image) {
+                                (void) mkdir_parents(dest, 0755);
+                                (void) make_mount_point_inode_from_stat(&st, dest, 0700);
+                        } else
+                                (void) mkdir_p(dest, 0755);
+                }
+
+                /* Fifth, move the mount to the right place inside */
+                mount_inside = strjoina(incoming_path, basename(mount_outside));
+                r = mount_nofollow_verbose(LOG_ERR, mount_inside, dest, NULL, MS_MOVE, NULL);
+                if (r < 0)
+                        goto child_fail;
+
+                _exit(EXIT_SUCCESS);
+
+        child_fail:
+                (void) write(errno_pipe_fd[1], &r, sizeof(r));
+                errno_pipe_fd[1] = safe_close(errno_pipe_fd[1]);
+
+                _exit(EXIT_FAILURE);
+        }
+
+        errno_pipe_fd[1] = safe_close(errno_pipe_fd[1]);
+
+        r = wait_for_terminate_and_check("(sd-bindmnt)", child, 0);
+        if (r < 0) {
+                log_debug_errno(r, "Failed to wait for child: %m");
+                goto finish;
+        }
+        if (r != EXIT_SUCCESS) {
+                if (read(errno_pipe_fd[0], &r, sizeof(r)) == sizeof(r))
+                        log_debug_errno(r, "Failed to mount: %m");
+                else
+                        log_debug("Child failed.");
+                goto finish;
+        }
+
+finish:
+        if (mount_outside_mounted)
+                (void) umount_verbose(LOG_DEBUG, mount_outside, UMOUNT_NOFOLLOW);
+        if (mount_outside_created) {
+                if (is_image || S_ISDIR(st.st_mode))
+                        (void) rmdir(mount_outside);
+                else
+                        (void) unlink(mount_outside);
+        }
+
+        if (mount_tmp_mounted)
+                (void) umount_verbose(LOG_DEBUG, mount_tmp, UMOUNT_NOFOLLOW);
+        if (mount_tmp_created) {
+                if (is_image || S_ISDIR(st.st_mode))
+                        (void) rmdir(mount_tmp);
+                else
+                        (void) unlink(mount_tmp);
+        }
+
+        if (mount_slave_mounted)
+                (void) umount_verbose(LOG_DEBUG, mount_slave, UMOUNT_NOFOLLOW);
+        if (mount_slave_created)
+                (void) rmdir(mount_slave);
+
+        return r;
+}
+
+int bind_mount_in_namespace(
+                pid_t target,
+                const char *propagate_path,
+                const char *incoming_path,
+                const char *src,
+                const char *dest,
+                bool read_only,
+                bool make_file_or_directory) {
+
+        return mount_in_namespace(target, propagate_path, incoming_path, src, dest, read_only, make_file_or_directory, NULL, false);
+}
+
+int mount_image_in_namespace(
+                pid_t target,
+                const char *propagate_path,
+                const char *incoming_path,
+                const char *src,
+                const char *dest,
+                bool read_only,
+                bool make_file_or_directory,
+                const MountOptions *options) {
+
+        return mount_in_namespace(target, propagate_path, incoming_path, src, dest, read_only, make_file_or_directory, options, true);
+}
+
+int make_mount_point(const char *path) {
+        int r;
+
+        assert(path);
+
+        /* If 'path' is already a mount point, does nothing and returns 0. If it is not it makes it one, and returns 1. */
+
+        r = path_is_mount_point(path, NULL, 0);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to determine whether '%s' is a mount point: %m", path);
+        if (r > 0)
+                return 0;
+
+        r = mount_nofollow_verbose(LOG_DEBUG, path, path, NULL, MS_BIND|MS_REC, NULL);
+        if (r < 0)
+                return r;
+
+        return 1;
+}
+
+static int make_userns(uid_t uid_shift, uid_t uid_range) {
+        char uid_map[STRLEN("/proc//uid_map") + DECIMAL_STR_MAX(uid_t) + 1], line[DECIMAL_STR_MAX(uid_t)*3+3+1];
+        _cleanup_(sigkill_waitp) pid_t pid = 0;
+        _cleanup_close_ int userns_fd = -1;
+        int r;
+
+        /* Allocates a userns file descriptor with the mapping we need. For this we'll fork off a child
+         * process whose only purpose is to give us a new user namespace. It's killed when we got it. */
+
+        r = safe_fork("(sd-mkuserns)", FORK_CLOSE_ALL_FDS|FORK_DEATHSIG|FORK_NEW_USERNS, &pid);
+        if (r < 0)
+                return r;
+        if (r == 0) {
+                /* Child. We do nothing here, just freeze until somebody kills us. */
+                freeze();
+                _exit(EXIT_FAILURE);
+        }
+
+        xsprintf(line, UID_FMT " " UID_FMT " " UID_FMT "\n", 0, uid_shift, uid_range);
+
+        xsprintf(uid_map, "/proc/" PID_FMT "/uid_map", pid);
+        r = write_string_file(uid_map, line, WRITE_STRING_FILE_DISABLE_BUFFER);
+        if (r < 0)
+                return log_error_errno(r, "Failed to write UID map: %m");
+
+        /* We always assign the same UID and GID ranges */
+        xsprintf(uid_map, "/proc/" PID_FMT "/gid_map", pid);
+        r = write_string_file(uid_map, line, WRITE_STRING_FILE_DISABLE_BUFFER);
+        if (r < 0)
+                return log_error_errno(r, "Failed to write GID map: %m");
+
+        r = namespace_open(pid, NULL, NULL, NULL, &userns_fd, NULL);
+        if (r < 0)
+                return r;
+
+        return TAKE_FD(userns_fd);
+}
+
+int remount_idmap(
+                const char *p,
+                uid_t uid_shift,
+                uid_t uid_range) {
+
+        _cleanup_close_ int mount_fd = -1, userns_fd = -1;
+        int r;
+
+        assert(p);
+
+        if (!userns_shift_range_valid(uid_shift, uid_range))
+                return -EINVAL;
+
+        /* Clone the mount point */
+        mount_fd = open_tree(-1, p, OPEN_TREE_CLONE | OPEN_TREE_CLOEXEC);
+        if (mount_fd < 0)
+                return log_debug_errno(errno, "Failed to open tree of mounted filesystem '%s': %m", p);
+
+        /* Create a user namespace mapping */
+        userns_fd = make_userns(uid_shift, uid_range);
+        if (userns_fd < 0)
+                return userns_fd;
+
+        /* Set the user namespace mapping attribute on the cloned mount point */
+        if (mount_setattr(mount_fd, "", AT_EMPTY_PATH | AT_RECURSIVE,
+                          &(struct mount_attr) {
+                                  .attr_set = MOUNT_ATTR_IDMAP,
+                                  .userns_fd = userns_fd,
+                          }, sizeof(struct mount_attr)) < 0)
+                return log_debug_errno(errno, "Failed to change bind mount attributes for '%s': %m", p);
+
+        /* Remove the old mount point */
+        r = umount_verbose(LOG_DEBUG, p, UMOUNT_NOFOLLOW);
+        if (r < 0)
+                return r;
+
+        /* And place the cloned version in its place */
+        if (move_mount(mount_fd, "", -1, p, MOVE_MOUNT_F_EMPTY_PATH) < 0)
+                return log_debug_errno(errno, "Failed to attach UID mapped mount to '%s': %m", p);
 
         return 0;
 }

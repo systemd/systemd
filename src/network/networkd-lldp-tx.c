@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <endian.h>
 #include <inttypes.h>
@@ -17,6 +17,7 @@
 #include "parse-util.h"
 #include "random-util.h"
 #include "socket-util.h"
+#include "string-table.h"
 #include "string-util.h"
 #include "strv.h"
 #include "unaligned.h"
@@ -313,7 +314,7 @@ static int link_send_lldp(Link *link) {
                 SD_LLDP_SYSTEM_CAPABILITIES_STATION;
 
         r = lldp_make_packet(link->network->lldp_emit,
-                             &link->mac,
+                             &link->hw_addr.addr.ether,
                              sd_id128_to_string(machine_id, machine_id_string),
                              link->ifname,
                              (uint16_t) ttl,
@@ -367,7 +368,7 @@ int link_lldp_emit_start(Link *link) {
 
         assert(link);
 
-        if (!link->network || link->network->lldp_emit == LLDP_EMIT_NO) {
+        if (!link_lldp_emit_enabled(link)) {
                 link_lldp_emit_stop(link);
                 return 0;
         }
@@ -377,7 +378,7 @@ int link_lldp_emit_start(Link *link) {
         link->lldp_tx_fast = LLDP_TX_FAST_INIT;
 
         next = usec_add(usec_add(now(clock_boottime_or_monotonic()), LLDP_FAST_TX_USEC),
-                     (usec_t) random_u64() % LLDP_JITTER_USEC);
+                        (usec_t) random_u64() % LLDP_JITTER_USEC);
 
         if (link->lldp_emit_event_source) {
                 usec_t old;
@@ -413,46 +414,6 @@ void link_lldp_emit_stop(Link *link) {
         assert(link);
 
         link->lldp_emit_event_source = sd_event_source_unref(link->lldp_emit_event_source);
-}
-
-int config_parse_lldp_emit(
-                const char *unit,
-                const char *filename,
-                unsigned line,
-                const char *section,
-                unsigned section_line,
-                const char *lvalue,
-                int ltype,
-                const char *rvalue,
-                void *data,
-                void *userdata) {
-
-        LLDPEmit *emit = data;
-        int r;
-
-        assert(filename);
-        assert(lvalue);
-        assert(rvalue);
-
-        if (isempty(rvalue))
-                *emit = LLDP_EMIT_NO;
-        else if (streq(rvalue, "nearest-bridge"))
-                *emit = LLDP_EMIT_NEAREST_BRIDGE;
-        else if (streq(rvalue, "non-tpmr-bridge"))
-                *emit = LLDP_EMIT_NON_TPMR_BRIDGE;
-        else if (streq(rvalue, "customer-bridge"))
-                *emit = LLDP_EMIT_CUSTOMER_BRIDGE;
-        else {
-                r = parse_boolean(rvalue);
-                if (r < 0) {
-                        log_syntax(unit, LOG_WARNING, filename, line, 0, "Failed to parse LLDP emission setting, ignoring: %s", rvalue);
-                        return 0;
-                }
-
-                *emit = r ? LLDP_EMIT_NEAREST_BRIDGE : LLDP_EMIT_NO;
-        }
-
-        return 0;
 }
 
 int config_parse_lldp_mud(
@@ -491,3 +452,13 @@ int config_parse_lldp_mud(
 
         return free_and_replace(n->lldp_mud, unescaped);
 }
+
+static const char * const lldp_emit_table[_LLDP_EMIT_MAX] = {
+        [LLDP_EMIT_NO]              = "no",
+        [LLDP_EMIT_NEAREST_BRIDGE]  = "nearest-bridge",
+        [LLDP_EMIT_NON_TPMR_BRIDGE] = "non-tpmr-bridge",
+        [LLDP_EMIT_CUSTOMER_BRIDGE] = "customer-bridge",
+};
+
+DEFINE_PRIVATE_STRING_TABLE_LOOKUP_FROM_STRING_WITH_BOOLEAN(lldp_emit, LLDPEmit, LLDP_EMIT_NEAREST_BRIDGE);
+DEFINE_CONFIG_PARSE_ENUM_WITH_DEFAULT(config_parse_lldp_emit, lldp_emit, LLDPEmit, LLDP_EMIT_NO, "Failed to parse LLDP emission setting");

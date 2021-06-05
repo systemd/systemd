@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <sys/file.h>
 #include <sys/stat.h>
@@ -19,6 +19,7 @@
 #include "stdio-util.h"
 #include "string-util.h"
 #include "strv.h"
+#include "user-record.h"
 #include "user-util.h"
 
 /* Takes a value generated randomly or by hashing and turns it into a UID in the right range */

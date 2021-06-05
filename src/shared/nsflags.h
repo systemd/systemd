@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
 #include "missing_sched.h"
@@ -16,10 +16,11 @@
                           CLONE_NEWUSER|                                \
                           CLONE_NEWUTS))
 
-#define NAMESPACE_FLAGS_INITIAL  ((unsigned long) -1)
+#define NAMESPACE_FLAGS_INITIAL  ULONG_MAX
 
 int namespace_flags_from_string(const char *name, unsigned long *ret);
 int namespace_flags_to_string(unsigned long flags, char **ret);
+const char *namespace_single_flag_to_string(unsigned long flag);
 
 struct namespace_flag_map {
         unsigned long flag;

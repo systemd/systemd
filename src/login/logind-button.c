@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <errno.h>
 #include <fcntl.h>
@@ -8,6 +8,7 @@
 #include "sd-messages.h"
 
 #include "alloc-util.h"
+#include "async.h"
 #include "fd-util.h"
 #include "logind-button.h"
 #include "missing_input.h"
@@ -59,11 +60,7 @@ void button_free(Button *b) {
         sd_event_source_unref(b->io_event_source);
         sd_event_source_unref(b->check_event_source);
 
-        if (b->fd >= 0)
-                /* If the device has been unplugged close() returns
-                 * ENODEV, let's ignore this, hence we don't use
-                 * safe_close() */
-                (void) close(b->fd);
+        asynchronous_close(b->fd);
 
         free(b->name);
         free(b->seat);
@@ -71,19 +68,9 @@ void button_free(Button *b) {
 }
 
 int button_set_seat(Button *b, const char *sn) {
-        char *s;
-
         assert(b);
-        assert(sn);
 
-        s = strdup(sn);
-        if (!s)
-                return -ENOMEM;
-
-        free(b->seat);
-        b->seat = s;
-
-        return 0;
+        return free_and_strdup(&b->seat, sn);
 }
 
 static void button_lid_switch_handle_action(Manager *manager, bool is_edge) {
@@ -326,14 +313,14 @@ static int button_set_mask(const char *name, int fd) {
 }
 
 int button_open(Button *b) {
-        _cleanup_close_ int fd = -1;
+        _cleanup_(asynchronous_closep) int fd = -1;
         const char *p;
         char name[256];
         int r;
 
         assert(b);
 
-        b->fd = safe_close(b->fd);
+        b->fd = asynchronous_close(b->fd);
 
         p = strjoina("/dev/input/", b->name);
 

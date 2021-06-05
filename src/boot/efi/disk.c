@@ -1,8 +1,9 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <efi.h>
 #include <efilib.h>
 
+#include "disk.h"
 #include "util.h"
 
 EFI_STATUS disk_get_part_uuid(EFI_HANDLE *handle, CHAR16 uuid[static 37]) {
@@ -12,10 +13,9 @@ EFI_STATUS disk_get_part_uuid(EFI_HANDLE *handle, CHAR16 uuid[static 37]) {
         device_path = DevicePathFromHandle(handle);
         if (device_path) {
                 _cleanup_freepool_ EFI_DEVICE_PATH *paths = NULL;
-                EFI_DEVICE_PATH *path;
 
                 paths = UnpackDevicePath(device_path);
-                for (path = paths; !IsDevicePathEnd(path); path = NextDevicePathNode(path)) {
+                for (EFI_DEVICE_PATH *path = paths; !IsDevicePathEnd(path); path = NextDevicePathNode(path)) {
                         HARDDRIVE_DEVICE_PATH *drive;
 
                         if (DevicePathType(path) != MEDIA_DEVICE_PATH)

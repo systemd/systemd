@@ -10,13 +10,15 @@ The systemd project has a number of code quality tools set up in the source
 tree and on the github infrastructure. Here's an incomprehensive list of the
 available functionality:
 
-1. Use `ninja -C build test` to run the unit tests. Some tests are skipped if
+1. Use `meson test -C build` to run the unit tests. Some tests are skipped if
    no privileges are available, hence consider also running them with `sudo
-   ninja -C build test`. A couple of unit tests are considered "unsafe" (as
-   they change system state); to run those too, build with `meson
+   meson test -C build`. A couple of unit tests are considered "unsafe" (as
+   they change system state); to run those too, build with `meson setup
    -Dtests=unsafe`. Finally, some unit tests are considered to be very slow,
-   build them too with `meson -Dslow-tests=true`. (Note that there are a couple
-   of manual tests in addition to these unit tests.)
+   build them too with `meson setup -Dslow-tests=true`. (Note that there are a
+   couple of manual tests in addition to these unit tests.) (Also note: you can
+   change these flags for an already set up build tree, too, with "meson
+   configure -C build -D…".)
 
 2. Use `./test/run-integration-tests.sh` to run the full integration test
    suite. This will build OS images with a number of integration tests and run
@@ -35,14 +37,14 @@ available functionality:
    `./tools/find-tabs.sh recpatch` to fix them. (Again, grain of salt, foreign
    headers should usually be left unmodified.)
 
-6. Use `ninja -C build check-api-docs` to compare the list of exported
+6. Use `meson compile -C build check-api-docs` to compare the list of exported
    symbols of `libsystemd.so` and `libudev.so` with the list of man pages. Symbols
    lacking documentation are highlighted.
 
-7. Use `ninja -C build hwdb-update` to automatically download and import the
+7. Use `meson compile -C build update-hwdb` to automatically download and import the
    PCI, USB and OUI databases into hwdb.
 
-8. Use `ninja -C build man/update-man-rules` to update the meson rules for
+8. Use `meson compile -C build update-man-rules` to update the meson rules for
    building man pages automatically from the docbook XML files included in
    `man/`.
 

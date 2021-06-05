@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <fcntl.h>
 #include <getopt.h>
@@ -16,6 +16,7 @@
 #include "compress.h"
 #include "def.h"
 #include "fd-util.h"
+#include "format-table.h"
 #include "fs-util.h"
 #include "glob-util.h"
 #include "journal-internal.h"
@@ -24,6 +25,7 @@
 #include "macro.h"
 #include "main-func.h"
 #include "pager.h"
+#include "parse-argument.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "pretty-print.h"
@@ -44,15 +46,18 @@
 static usec_t arg_since = USEC_INFINITY, arg_until = USEC_INFINITY;
 static const char* arg_field = NULL;
 static const char *arg_debugger = NULL;
+static char **arg_debugger_args = NULL;
 static const char *arg_directory = NULL;
 static char **arg_file = NULL;
+static JsonFormatFlags arg_json_format_flags = JSON_FORMAT_OFF;
 static PagerFlags arg_pager_flags = 0;
-static int arg_no_legend = false;
-static int arg_one = false;
+static int arg_legend = true;
+static size_t arg_rows_max = SIZE_MAX;
 static const char* arg_output = NULL;
 static bool arg_reverse = false;
 static bool arg_quiet = false;
 
+STATIC_DESTRUCTOR_REGISTER(arg_debugger_args, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_file, strv_freep);
 
 static int add_match(sd_journal *j, const char *match) {
@@ -134,7 +139,7 @@ static int acquire_journal(sd_journal **ret, char **matches) {
                 return r;
 
         if (DEBUG_LOGGING) {
-                _cleanup_free_ char *filter;
+                _cleanup_free_ char *filter = NULL;
 
                 filter = journal_make_match_string(j);
                 log_debug("Journal filter: %s", filter);
@@ -153,34 +158,39 @@ static int help(void) {
         if (r < 0)
                 return log_oom();
 
-        printf("%s [OPTIONS...] COMMAND ...\n\n"
-               "%sList or retrieve coredumps from the journal.%s\n"
-               "\nCommands:\n"
+        printf("%1$s [OPTIONS...] COMMAND ...\n\n"
+               "%5$sList or retrieve coredumps from the journal.%6$s\n"
+               "\n%3$sCommands:%4$s\n"
                "  list [MATCHES...]  List available coredumps (default)\n"
                "  info [MATCHES...]  Show detailed information about one or more coredumps\n"
                "  dump [MATCHES...]  Print first matching coredump to stdout\n"
                "  debug [MATCHES...] Start a debugger for the first matching coredump\n"
-               "\nOptions:\n"
-               "  -h --help              Show this help\n"
-               "     --version           Print version string\n"
-               "     --no-pager          Do not pipe output into a pager\n"
-               "     --no-legend         Do not print the column headers\n"
-               "     --debugger=DEBUGGER Use the given debugger\n"
-               "  -1                     Show information about most recent entry only\n"
-               "  -S --since=DATE        Only print coredumps since the date\n"
-               "  -U --until=DATE        Only print coredumps until the date\n"
-               "  -r --reverse           Show the newest entries first\n"
-               "  -F --field=FIELD       List all values a certain field takes\n"
-               "  -o --output=FILE       Write output to FILE\n"
-               "     --file=PATH         Use journal file\n"
-               "  -D --directory=DIR     Use journal files from directory\n\n"
-               "  -q --quiet             Do not show info messages and privilege warning\n"
-               "\nSee the %s for details.\n"
-               , program_invocation_short_name
-               , ansi_highlight()
-               , ansi_normal()
-               , link
-        );
+               "\n%3$sOptions:%4$s\n"
+               "  -h --help                    Show this help\n"
+               "     --version                 Print version string\n"
+               "     --no-pager                Do not pipe output into a pager\n"
+               "     --no-legend               Do not print the column headers\n"
+               "     --json=pretty|short|off\n"
+               "                               Generate JSON output\n"
+               "     --debugger=DEBUGGER       Use the given debugger\n"
+               "  -A --debugger-arguments=ARGS Pass the given arguments to the debugger\n"
+               "  -n INT                       Show maximum number of rows\n"
+               "  -1                           Show information about most recent entry only\n"
+               "  -S --since=DATE              Only print coredumps since the date\n"
+               "  -U --until=DATE              Only print coredumps until the date\n"
+               "  -r --reverse                 Show the newest entries first\n"
+               "  -F --field=FIELD             List all values a certain field takes\n"
+               "  -o --output=FILE             Write output to FILE\n"
+               "     --file=PATH               Use journal file\n"
+               "  -D --directory=DIR           Use journal files from directory\n\n"
+               "  -q --quiet                   Do not show info messages and privilege warning\n"
+               "\nSee the %2$s for details.\n",
+               program_invocation_short_name,
+               link,
+               ansi_underline(),
+               ansi_normal(),
+               ansi_highlight(),
+               ansi_normal());
 
         return 0;
 }
@@ -190,6 +200,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_VERSION = 0x100,
                 ARG_NO_PAGER,
                 ARG_NO_LEGEND,
+                ARG_JSON,
                 ARG_DEBUGGER,
                 ARG_FILE,
         };
@@ -197,26 +208,28 @@ static int parse_argv(int argc, char *argv[]) {
         int c, r;
 
         static const struct option options[] = {
-                { "help",         no_argument,       NULL, 'h'           },
-                { "version" ,     no_argument,       NULL, ARG_VERSION   },
-                { "no-pager",     no_argument,       NULL, ARG_NO_PAGER  },
-                { "no-legend",    no_argument,       NULL, ARG_NO_LEGEND },
-                { "debugger",     required_argument, NULL, ARG_DEBUGGER  },
-                { "output",       required_argument, NULL, 'o'           },
-                { "field",        required_argument, NULL, 'F'           },
-                { "file",         required_argument, NULL, ARG_FILE      },
-                { "directory",    required_argument, NULL, 'D'           },
-                { "reverse",      no_argument,       NULL, 'r'           },
-                { "since",        required_argument, NULL, 'S'           },
-                { "until",        required_argument, NULL, 'U'           },
-                { "quiet",        no_argument,       NULL, 'q'           },
+                { "help",               no_argument,       NULL, 'h'           },
+                { "version" ,           no_argument,       NULL, ARG_VERSION   },
+                { "no-pager",           no_argument,       NULL, ARG_NO_PAGER  },
+                { "no-legend",          no_argument,       NULL, ARG_NO_LEGEND },
+                { "debugger",           required_argument, NULL, ARG_DEBUGGER  },
+                { "debugger-arguments", required_argument, NULL, 'A'           },
+                { "output",             required_argument, NULL, 'o'           },
+                { "field",              required_argument, NULL, 'F'           },
+                { "file",               required_argument, NULL, ARG_FILE      },
+                { "directory",          required_argument, NULL, 'D'           },
+                { "reverse",            no_argument,       NULL, 'r'           },
+                { "since",              required_argument, NULL, 'S'           },
+                { "until",              required_argument, NULL, 'U'           },
+                { "quiet",              no_argument,       NULL, 'q'           },
+                { "json",               required_argument, NULL, ARG_JSON      },
                 {}
         };
 
         assert(argc >= 0);
         assert(argv);
 
-        while ((c = getopt_long(argc, argv, "ho:F:1D:rS:U:q", options, NULL)) >= 0)
+        while ((c = getopt_long(argc, argv, "hA:o:F:1D:rS:U:qn:", options, NULL)) >= 0)
                 switch(c) {
                 case 'h':
                         return help();
@@ -229,12 +242,21 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_NO_LEGEND:
-                        arg_no_legend = true;
+                        arg_legend = false;
                         break;
 
                 case ARG_DEBUGGER:
                         arg_debugger = optarg;
                         break;
+
+                case 'A': {
+                        _cleanup_strv_free_ char **l = NULL;
+                        r = strv_split_full(&l, optarg, WHITESPACE, EXTRACT_UNQUOTE);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse debugger arguments '%s': %m", optarg);
+                        strv_free_and_replace(arg_debugger_args, l);
+                        break;
+                }
 
                 case ARG_FILE:
                         r = glob_extend(&arg_file, optarg, GLOB_NOCHECK);
@@ -270,8 +292,21 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case '1':
-                        arg_one = true;
+                        arg_rows_max = 1;
+                        arg_reverse = true;
                         break;
+
+                case 'n': {
+                        unsigned n;
+
+                        r = safe_atou(optarg, &n);
+                        if (r < 0 || n < 1)
+                                return log_error_errno(r < 0 ? r : SYNTHETIC_ERRNO(EINVAL),
+                                                       "Invalid numeric parameter to -n: %s", optarg);
+
+                        arg_rows_max = n;
+                        break;
+                }
 
                 case 'D':
                         arg_directory = optarg;
@@ -283,6 +318,13 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case 'q':
                         arg_quiet = true;
+                        break;
+
+                case ARG_JSON:
+                        r = parse_json_argument(optarg, &arg_json_format_flags);
+                        if (r <= 0)
+                                return r;
+
                         break;
 
                 case '?':
@@ -364,21 +406,78 @@ static int print_field(FILE* file, sd_journal *j) {
                         continue;                    \
         }
 
-static int print_list(FILE* file, sd_journal *j, int had_legend) {
+static void analyze_coredump_file(
+                const char *path,
+                const char **ret_state,
+                const char **ret_color,
+                uint64_t *ret_size) {
+
+        _cleanup_close_ int fd = -1;
+        struct stat st;
+        int r;
+
+        assert(path);
+        assert(ret_state);
+        assert(ret_color);
+        assert(ret_size);
+
+        fd = open(path, O_PATH|O_CLOEXEC);
+        if (fd < 0) {
+                if (errno == ENOENT) {
+                        *ret_state = "missing";
+                        *ret_color = ansi_grey();
+                        *ret_size = UINT64_MAX;
+                        return;
+                }
+
+                r = -errno;
+        } else
+                r = access_fd(fd, R_OK);
+        if (ERRNO_IS_PRIVILEGE(r)) {
+                *ret_state = "inaccessible";
+                *ret_color = ansi_highlight_yellow();
+                *ret_size = UINT64_MAX;
+                return;
+        }
+        if (r < 0)
+                goto error;
+
+        if (fstat(fd, &st) < 0)
+                goto error;
+
+        if (!S_ISREG(st.st_mode))
+                goto error;
+
+        *ret_state = "present";
+        *ret_color = NULL;
+        *ret_size = st.st_size;
+        return;
+
+error:
+        *ret_state = "error";
+        *ret_color = ansi_highlight_red();
+        *ret_size = UINT64_MAX;
+}
+
+static int print_list(FILE* file, sd_journal *j, Table *t) {
         _cleanup_free_ char
                 *mid = NULL, *pid = NULL, *uid = NULL, *gid = NULL,
                 *sgnl = NULL, *exe = NULL, *comm = NULL, *cmdline = NULL,
                 *filename = NULL, *truncated = NULL, *coredump = NULL;
         const void *d;
         size_t l;
-        usec_t t;
-        char buf[FORMAT_TIMESTAMP_MAX];
-        int r;
-        const char *present;
+        usec_t ts;
+        int r, signal_as_int = 0;
+        const char *present = NULL, *color = NULL;
+        uint64_t size = UINT64_MAX;
         bool normal_coredump;
+        uid_t uid_as_int = UID_INVALID;
+        gid_t gid_as_int = GID_INVALID;
+        pid_t pid_as_int = 0;
 
         assert(file);
         assert(j);
+        assert(t);
 
         SD_JOURNAL_FOREACH_DATA(j, d, l) {
                 RETRIEVE(d, l, "MESSAGE_ID", mid);
@@ -394,54 +493,46 @@ static int print_list(FILE* file, sd_journal *j, int had_legend) {
                 RETRIEVE(d, l, "COREDUMP", coredump);
         }
 
-        if (!pid && !uid && !gid && !sgnl && !exe && !comm && !cmdline && !filename) {
-                log_warning("Empty coredump log entry");
-                return -EINVAL;
-        }
+        if (!pid && !uid && !gid && !sgnl && !exe && !comm && !cmdline && !filename)
+                return log_warning_errno(SYNTHETIC_ERRNO(EINVAL), "Empty coredump log entry");
 
-        r = sd_journal_get_realtime_usec(j, &t);
+        (void) parse_uid(uid, &uid_as_int);
+        (void) parse_gid(gid, &gid_as_int);
+        (void) parse_pid(pid, &pid_as_int);
+        signal_as_int = signal_from_string(sgnl);
+
+        r = sd_journal_get_realtime_usec(j, &ts);
         if (r < 0)
                 return log_error_errno(r, "Failed to get realtime timestamp: %m");
-
-        format_timestamp(buf, sizeof(buf), t);
-
-        if (!had_legend && !arg_no_legend)
-                fprintf(file, "%-*s %*s %*s %*s %*s %-*s %s\n",
-                        FORMAT_TIMESTAMP_WIDTH, "TIME",
-                        6, "PID",
-                        5, "UID",
-                        5, "GID",
-                        3, "SIG",
-                        9, "COREFILE",
-                           "EXE");
 
         normal_coredump = streq_ptr(mid, SD_MESSAGE_COREDUMP_STR);
 
         if (filename)
-                if (access(filename, R_OK) == 0)
-                        present = "present";
-                else if (errno == ENOENT)
-                        present = "missing";
-                else
-                        present = "error";
+                analyze_coredump_file(filename, &present, &color, &size);
         else if (coredump)
                 present = "journal";
-        else if (normal_coredump)
+        else if (normal_coredump) {
                 present = "none";
-        else
-                present = "-";
+                color = ansi_grey();
+        } else
+                present = NULL;
 
-        if (STR_IN_SET(present, "present", "journal") && truncated && parse_boolean(truncated) > 0)
+        if (STRPTR_IN_SET(present, "present", "journal") && truncated && parse_boolean(truncated) > 0)
                 present = "truncated";
 
-        fprintf(file, "%-*s %*s %*s %*s %*s %-*s %s\n",
-                FORMAT_TIMESTAMP_WIDTH, buf,
-                6, strna(pid),
-                5, strna(uid),
-                5, strna(gid),
-                3, normal_coredump ? strna(sgnl) : "-",
-                9, present,
-                strna(exe ?: (comm ?: cmdline)));
+        r = table_add_many(
+                        t,
+                        TABLE_TIMESTAMP, ts,
+                        TABLE_PID, pid_as_int,
+                        TABLE_UID, uid_as_int,
+                        TABLE_GID, gid_as_int,
+                        TABLE_SIGNAL, normal_coredump ? signal_as_int : 0,
+                        TABLE_STRING, present,
+                        TABLE_SET_COLOR, color,
+                        TABLE_STRING, exe ?: comm ?: cmdline,
+                        TABLE_SIZE, size);
+        if (r < 0)
+                return table_log_add_error(r);
 
         return 0;
 }
@@ -454,7 +545,8 @@ static int print_info(FILE *file, sd_journal *j, bool need_space) {
                 *boot_id = NULL, *machine_id = NULL, *hostname = NULL,
                 *slice = NULL, *cgroup = NULL, *owner_uid = NULL,
                 *message = NULL, *timestamp = NULL, *filename = NULL,
-                *truncated = NULL, *coredump = NULL;
+                *truncated = NULL, *coredump = NULL,
+                *pkgmeta_name = NULL, *pkgmeta_version = NULL, *pkgmeta_json = NULL;
         const void *d;
         size_t l;
         bool normal_coredump;
@@ -472,6 +564,7 @@ static int print_info(FILE *file, sd_journal *j, bool need_space) {
                 RETRIEVE(d, l, "COREDUMP_EXE", exe);
                 RETRIEVE(d, l, "COREDUMP_COMM", comm);
                 RETRIEVE(d, l, "COREDUMP_CMDLINE", cmdline);
+                RETRIEVE(d, l, "COREDUMP_HOSTNAME", hostname);
                 RETRIEVE(d, l, "COREDUMP_UNIT", unit);
                 RETRIEVE(d, l, "COREDUMP_USER_UNIT", user_unit);
                 RETRIEVE(d, l, "COREDUMP_SESSION", session);
@@ -482,9 +575,11 @@ static int print_info(FILE *file, sd_journal *j, bool need_space) {
                 RETRIEVE(d, l, "COREDUMP_FILENAME", filename);
                 RETRIEVE(d, l, "COREDUMP_TRUNCATED", truncated);
                 RETRIEVE(d, l, "COREDUMP", coredump);
+                RETRIEVE(d, l, "COREDUMP_PACKAGE_NAME", pkgmeta_name);
+                RETRIEVE(d, l, "COREDUMP_PACKAGE_VERSION", pkgmeta_version);
+                RETRIEVE(d, l, "COREDUMP_PACKAGE_JSON", pkgmeta_json);
                 RETRIEVE(d, l, "_BOOT_ID", boot_id);
                 RETRIEVE(d, l, "_MACHINE_ID", machine_id);
-                RETRIEVE(d, l, "_HOSTNAME", hostname);
                 RETRIEVE(d, l, "MESSAGE", message);
         }
 
@@ -600,27 +695,61 @@ static int print_info(FILE *file, sd_journal *j, bool need_space) {
                 fprintf(file, "      Hostname: %s\n", hostname);
 
         if (filename) {
-                bool inacc, trunc;
+                const char *state = NULL, *color = NULL;
+                uint64_t size = UINT64_MAX;
+                char buf[FORMAT_BYTES_MAX];
 
-                inacc = access(filename, R_OK) < 0;
-                trunc = truncated && parse_boolean(truncated) > 0;
+                analyze_coredump_file(filename, &state, &color, &size);
 
-                if (inacc || trunc)
-                        fprintf(file, "       Storage: %s%s (%s%s%s)%s\n",
-                                ansi_highlight_red(),
-                                filename,
-                                inacc ? "inaccessible" : "",
-                                inacc && trunc ? ", " : "",
-                                trunc ? "truncated" : "",
-                                ansi_normal());
-                else
-                        fprintf(file, "       Storage: %s\n", filename);
-        }
+                if (STRPTR_IN_SET(state, "present", "journal") && truncated && parse_boolean(truncated) > 0)
+                        state = "truncated";
 
-        else if (coredump)
+                fprintf(file,
+                        "       Storage: %s%s (%s)%s\n",
+                        strempty(color),
+                        filename,
+                        state,
+                        ansi_normal());
+
+                if (size != UINT64_MAX)
+                        fprintf(file,
+                                "     Disk Size: %s\n",
+                                format_bytes(buf, sizeof(buf), size));
+        } else if (coredump)
                 fprintf(file, "       Storage: journal\n");
         else
                 fprintf(file, "       Storage: none\n");
+
+        if (pkgmeta_name && pkgmeta_version)
+                fprintf(file, "       Package: %s/%s\n", pkgmeta_name, pkgmeta_version);
+
+        /* Print out the build-id of the 'main' ELF module, by matching the JSON key
+         * with the 'exe' field. */
+        if (exe && pkgmeta_json) {
+                _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
+
+                r = json_parse(pkgmeta_json, 0, &v, NULL, NULL);
+                if (r < 0)
+                        log_warning_errno(r, "json_parse on %s failed, ignoring: %m", pkgmeta_json);
+                else {
+                        const char *module_name;
+                        JsonVariant *module_json;
+
+                        JSON_VARIANT_OBJECT_FOREACH(module_name, module_json, v) {
+                                JsonVariant *build_id;
+
+                                /* We only print the build-id for the 'main' ELF module */
+                                if (!path_equal_filename(module_name, exe))
+                                        continue;
+
+                                build_id = json_variant_by_key(module_json, "buildId");
+                                if (build_id)
+                                        fprintf(file, "      build-id: %s\n", json_variant_string(build_id));
+
+                                break;
+                        }
+                }
+        }
 
         if (message) {
                 _cleanup_free_ char *m = NULL;
@@ -647,43 +776,61 @@ static int focus(sd_journal *j) {
         return r;
 }
 
-static int print_entry(sd_journal *j, unsigned n_found, bool verb_is_info) {
+static int print_entry(
+                sd_journal *j,
+                size_t n_found,
+                Table *t) {
+
         assert(j);
 
-        if (verb_is_info)
-                return print_info(stdout, j, n_found);
+        if (t)
+                return print_list(stdout, j, t);
         else if (arg_field)
                 return print_field(stdout, j);
         else
-                return print_list(stdout, j, n_found);
+                return print_info(stdout, j, n_found > 0);
 }
 
 static int dump_list(int argc, char **argv, void *userdata) {
         _cleanup_(sd_journal_closep) sd_journal *j = NULL;
-        unsigned n_found = 0;
+        _cleanup_(table_unrefp) Table *t = NULL;
+        size_t n_found = 0;
         bool verb_is_info;
         int r;
 
-        verb_is_info = (argc >= 1 && streq(argv[0], "info"));
+        verb_is_info = argc >= 1 && streq(argv[0], "info");
 
         r = acquire_journal(&j, argv + 1);
         if (r < 0)
                 return r;
 
-        (void) pager_open(arg_pager_flags);
+        /* The coredumps are likely compressed, and for just listing them we don't need to decompress them,
+         * so let's pick a fairly low data threshold here */
+        (void) sd_journal_set_data_threshold(j, 4096);
 
-        /* The coredumps are likely to compressed, and for just
-         * listing them we don't need to decompress them, so let's
-         * pick a fairly low data threshold here */
-        sd_journal_set_data_threshold(j, 4096);
+        if (!verb_is_info && !arg_field) {
+                t = table_new("time", "pid", "uid", "gid", "sig", "corefile", "exe", "size");
+                if (!t)
+                        return log_oom();
+
+                (void) table_set_align_percent(t, TABLE_HEADER_CELL(1), 100);
+                (void) table_set_align_percent(t, TABLE_HEADER_CELL(2), 100);
+                (void) table_set_align_percent(t, TABLE_HEADER_CELL(3), 100);
+                (void) table_set_align_percent(t, TABLE_HEADER_CELL(7), 100);
+
+                (void) table_set_empty_string(t, "-");
+        } else
+                (void) pager_open(arg_pager_flags);
 
         /* "info" without pattern implies "-1" */
-        if (arg_one || (verb_is_info && argc == 1)) {
+        if ((arg_rows_max == 1 && arg_reverse) || (verb_is_info && argc == 1)) {
                 r = focus(j);
                 if (r < 0)
                         return r;
 
-                return print_entry(j, 0, verb_is_info);
+                r = print_entry(j, 0, t);
+                if (r < 0)
+                        return r;
         } else {
                 if (arg_since != USEC_INFINITY && !arg_reverse)
                         r = sd_journal_seek_realtime_usec(j, arg_since);
@@ -701,10 +848,8 @@ static int dump_list(int argc, char **argv, void *userdata) {
                                 r = sd_journal_next(j);
                         else
                                 r = sd_journal_previous(j);
-
                         if (r < 0)
                                 return log_error_errno(r, "Failed to iterate through journal: %m");
-
                         if (r == 0)
                                 break;
 
@@ -728,9 +873,12 @@ static int dump_list(int argc, char **argv, void *userdata) {
                                         continue;
                         }
 
-                        r = print_entry(j, n_found++, verb_is_info);
+                        r = print_entry(j, n_found++, t);
                         if (r < 0)
                                 return r;
+
+                        if (arg_rows_max != SIZE_MAX && n_found >= arg_rows_max)
+                                break;
                 }
 
                 if (!arg_field && n_found <= 0) {
@@ -738,6 +886,12 @@ static int dump_list(int argc, char **argv, void *userdata) {
                                 log_notice("No coredumps found.");
                         return -ESRCH;
                 }
+        }
+
+        if (t) {
+                r = table_print_with_pager(t, arg_json_format_flags, arg_pager_flags, arg_legend);
+                if (r < 0)
+                        return r;
         }
 
         return 0;
@@ -825,7 +979,7 @@ static int save_core(sd_journal *j, FILE *file, char **path, bool *unlink_temp) 
 
         if (filename) {
 #if HAVE_COMPRESSION
-                _cleanup_close_ int fdf;
+                _cleanup_close_ int fdf = -1;
 
                 fdf = open(filename, O_RDONLY | O_CLOEXEC);
                 if (fdf < 0) {
@@ -888,10 +1042,9 @@ static int dump_core(int argc, char **argv, void *userdata) {
         _cleanup_fclose_ FILE *f = NULL;
         int r;
 
-        if (arg_field) {
-                log_error("Option --field/-F only makes sense with list");
-                return -EINVAL;
-        }
+        if (arg_field)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Option --field/-F only makes sense with list");
 
         r = acquire_journal(&j, argv + 1);
         if (r < 0)
@@ -922,7 +1075,8 @@ static int dump_core(int argc, char **argv, void *userdata) {
 
 static int run_debug(int argc, char **argv, void *userdata) {
         _cleanup_(sd_journal_closep) sd_journal *j = NULL;
-        _cleanup_free_ char *exe = NULL, *path = NULL, *debugger = NULL;
+        _cleanup_free_ char *exe = NULL, *path = NULL;
+        _cleanup_strv_free_ char **debugger_call = NULL;
         bool unlink_path = false;
         const char *data, *fork_name;
         size_t len;
@@ -939,14 +1093,17 @@ static int run_debug(int argc, char **argv, void *userdata) {
                         arg_debugger = "gdb";
         }
 
-        debugger = strdup(arg_debugger);
-        if (!debugger)
-                return -ENOMEM;
+        r = strv_extend(&debugger_call, arg_debugger);
+        if (r < 0)
+                return log_oom();
 
-        if (arg_field) {
-                log_error("Option --field/-F only makes sense with list");
-                return -EINVAL;
-        }
+        r = strv_extend_strv(&debugger_call, arg_debugger_args, false);
+        if (r < 0)
+                return log_oom();
+
+        if (arg_field)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Option --field/-F only makes sense with list");
 
         r = acquire_journal(&j, argv + 1);
         if (r < 0)
@@ -956,8 +1113,10 @@ static int run_debug(int argc, char **argv, void *userdata) {
         if (r < 0)
                 return r;
 
-        print_info(stdout, j, false);
-        fputs("\n", stdout);
+        if (!arg_quiet) {
+                print_info(stdout, j, false);
+                fputs("\n", stdout);
+        }
 
         r = sd_journal_get_data(j, "COREDUMP_EXE", (const void**) &data, &len);
         if (r < 0)
@@ -971,39 +1130,41 @@ static int run_debug(int argc, char **argv, void *userdata) {
         if (!exe)
                 return log_oom();
 
-        if (endswith(exe, " (deleted)")) {
-                log_error("Binary already deleted.");
-                return -ENOENT;
-        }
+        if (endswith(exe, " (deleted)"))
+                return log_error_errno(SYNTHETIC_ERRNO(ENOENT),
+                                       "Binary already deleted.");
 
-        if (!path_is_absolute(exe)) {
-                log_error("Binary is not an absolute path.");
-                return -ENOENT;
-        }
+        if (!path_is_absolute(exe))
+                return log_error_errno(SYNTHETIC_ERRNO(ENOENT),
+                                       "Binary is not an absolute path.");
 
         r = save_core(j, NULL, &path, &unlink_path);
         if (r < 0)
                 return r;
 
+        r = strv_extend_strv(&debugger_call, STRV_MAKE(exe, "-c", path), false);
+        if (r < 0)
+                return log_oom();
+
         /* Don't interfere with gdb and its handling of SIGINT. */
-        (void) ignore_signals(SIGINT, -1);
+        (void) ignore_signals(SIGINT);
 
-        fork_name = strjoina("(", debugger, ")");
+        fork_name = strjoina("(", debugger_call[0], ")");
 
-        r = safe_fork(fork_name, FORK_RESET_SIGNALS|FORK_DEATHSIG|FORK_CLOSE_ALL_FDS|FORK_RLIMIT_NOFILE_SAFE|FORK_LOG, &pid);
+        r = safe_fork(fork_name, FORK_RESET_SIGNALS|FORK_DEATHSIG|FORK_CLOSE_ALL_FDS|FORK_RLIMIT_NOFILE_SAFE|FORK_LOG|FORK_FLUSH_STDIO, &pid);
         if (r < 0)
                 goto finish;
         if (r == 0) {
-                execlp(debugger, debugger, exe, "-c", path, NULL);
+                execvp(debugger_call[0], debugger_call);
                 log_open();
-                log_error_errno(errno, "Failed to invoke %s: %m", debugger);
+                log_error_errno(errno, "Failed to invoke %s: %m", debugger_call[0]);
                 _exit(EXIT_FAILURE);
         }
 
-        r = wait_for_terminate_and_check(debugger, pid, WAIT_LOG_ABNORMAL);
+        r = wait_for_terminate_and_check(debugger_call[0], pid, WAIT_LOG_ABNORMAL);
 
 finish:
-        (void) default_signals(SIGINT, -1);
+        (void) default_signals(SIGINT);
 
         if (unlink_path) {
                 log_debug("Removed temporary file %s", path);
@@ -1091,7 +1252,7 @@ static int run(int argc, char *argv[]) {
         int r, units_active;
 
         setlocale(LC_ALL, "");
-        log_setup_cli();
+        log_setup();
 
         /* The journal merging logic potentially needs a lot of fds. */
         (void) rlimit_nofile_bump(HIGH_RLIMIT_NOFILE);

@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <sys/wait.h>
 #include <unistd.h>
@@ -8,10 +8,10 @@
 #include "alloc-util.h"
 #include "bus-internal.h"
 #include "bus-kernel.h"
-#include "bus-util.h"
 #include "def.h"
 #include "fd-util.h"
 #include "missing_resource.h"
+#include "string-util.h"
 #include "time-util.h"
 #include "util.h"
 

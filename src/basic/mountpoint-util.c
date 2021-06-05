@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <errno.h>
 #include <fcntl.h>
@@ -8,14 +8,17 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "fs-util.h"
+#include "label.h"
 #include "missing_stat.h"
 #include "missing_syscall.h"
+#include "mkdir.h"
 #include "mountpoint-util.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "stat-util.h"
 #include "stdio-util.h"
 #include "strv.h"
+#include "user-util.h"
 
 /* This is the original MAX_HANDLE_SZ definition from the kernel, when the API was introduced. We use that in place of
  * any more currently defined value to future-proof things: if the size is increased in the API headers, and our code
@@ -111,7 +114,7 @@ static int fd_fdinfo_mnt_id(int fd, const char *filename, int flags, int *ret_mn
                 xsprintf(path, "/proc/self/fdinfo/%i", subfd);
         }
 
-        r = read_full_file(path, &fdinfo, NULL);
+        r = read_full_virtual_file(path, &fdinfo, NULL);
         if (r == -ENOENT) /* The fdinfo directory is a relatively new addition */
                 return -EOPNOTSUPP;
         if (r < 0)
@@ -132,6 +135,29 @@ static int fd_fdinfo_mnt_id(int fd, const char *filename, int flags, int *ret_mn
         return safe_atoi(p, ret_mnt_id);
 }
 
+static bool filename_possibly_with_slash_suffix(const char *s) {
+        const char *slash, *copied;
+
+        /* Checks whether the specified string is either file name, or a filename with a suffix of
+         * slashes. But nothing else.
+         *
+         * this is OK: foo, bar, foo/, bar/, foo//, bar///
+         * this is not OK: "", "/", "/foo", "foo/bar", ".", ".." … */
+
+        slash = strchr(s, '/');
+        if (!slash)
+                return filename_is_valid(s);
+
+        if (slash - s > PATH_MAX) /* We want to allocate on the stack below, hence do a size check first */
+                return false;
+
+        if (slash[strspn(slash, "/")] != 0) /* Check that the suffix consist only of one or more slashes */
+                return false;
+
+        copied = strndupa(s, slash - s);
+        return filename_is_valid(copied);
+}
+
 int fd_is_mount_point(int fd, const char *filename, int flags) {
         _cleanup_free_ struct file_handle *h = NULL, *h_parent = NULL;
         int mount_id = -1, mount_id_parent = -1;
@@ -143,6 +169,11 @@ int fd_is_mount_point(int fd, const char *filename, int flags) {
         assert(fd >= 0);
         assert(filename);
         assert((flags & ~(AT_SYMLINK_FOLLOW|AT_EMPTY_PATH)) == 0);
+
+        /* Insist that the specified filename is actually a filename, and not a path, i.e. some inode further
+         * up or down the tree then immediately below the specified directory fd. */
+        if (!filename_possibly_with_slash_suffix(filename))
+                return -EINVAL;
 
         /* First we will try statx()' STATX_ATTR_MOUNT_ROOT attribute, which is our ideal API, available
          * since kernel 5.8.
@@ -165,13 +196,15 @@ int fd_is_mount_point(int fd, const char *filename, int flags) {
 
         if (statx(fd, filename, (FLAGS_SET(flags, AT_SYMLINK_FOLLOW) ? 0 : AT_SYMLINK_NOFOLLOW) |
                                 (flags & AT_EMPTY_PATH) |
-                                AT_NO_AUTOMOUNT, 0, &sx) < 0) {
+                                AT_NO_AUTOMOUNT, STATX_TYPE, &sx) < 0) {
                 if (!ERRNO_IS_NOT_SUPPORTED(errno) && !ERRNO_IS_PRIVILEGE(errno))
                         return -errno;
 
                 /* If statx() is not available or forbidden, fall back to name_to_handle_at() below */
         } else if (FLAGS_SET(sx.stx_attributes_mask, STATX_ATTR_MOUNT_ROOT)) /* yay! */
                 return FLAGS_SET(sx.stx_attributes, STATX_ATTR_MOUNT_ROOT);
+        else if (FLAGS_SET(sx.stx_mask, STATX_TYPE) && S_ISLNK(sx.stx_mode))
+                return false; /* symlinks are never mount points */
 
         r = name_to_handle_at_loop(fd, filename, &h, &mount_id, flags);
         if (IN_SET(r, -ENOSYS, -EACCES, -EPERM, -EOVERFLOW, -EINVAL))
@@ -200,16 +233,13 @@ int fd_is_mount_point(int fd, const char *filename, int flags) {
         } else if (r < 0)
                 return r;
 
-        /* The parent can do name_to_handle_at() but the
-         * directory we are interested in can't? If so, it
-         * must be a mount point. */
+        /* The parent can do name_to_handle_at() but the directory we are interested in can't? If so, it must
+         * be a mount point. */
         if (nosupp)
                 return 1;
 
-        /* If the file handle for the directory we are
-         * interested in and its parent are identical, we
-         * assume this is the root directory, which is a mount
-         * point. */
+        /* If the file handle for the directory we are interested in and its parent are identical, we assume
+         * this is the root directory, which is a mount point. */
 
         if (h->handle_bytes == h_parent->handle_bytes &&
             h->handle_type == h_parent->handle_type &&
@@ -232,23 +262,22 @@ fallback_fdinfo:
         if (mount_id != mount_id_parent)
                 return 1;
 
-        /* Hmm, so, the mount ids are the same. This leaves one
-         * special case though for the root file system. For that,
-         * let's see if the parent directory has the same inode as we
-         * are interested in. Hence, let's also do fstat() checks now,
-         * too, but avoid the st_dev comparisons, since they aren't
-         * that useful on unionfs mounts. */
+        /* Hmm, so, the mount ids are the same. This leaves one special case though for the root file
+         * system. For that, let's see if the parent directory has the same inode as we are interested
+         * in. Hence, let's also do fstat() checks now, too, but avoid the st_dev comparisons, since they
+         * aren't that useful on unionfs mounts. */
         check_st_dev = false;
 
 fallback_fstat:
-        /* yay for fstatat() taking a different set of flags than the other
-         * _at() above */
+        /* yay for fstatat() taking a different set of flags than the other _at() above */
         if (flags & AT_SYMLINK_FOLLOW)
                 flags &= ~AT_SYMLINK_FOLLOW;
         else
                 flags |= AT_SYMLINK_NOFOLLOW;
         if (fstatat(fd, filename, &a, flags) < 0)
                 return -errno;
+        if (S_ISLNK(a.st_mode)) /* Symlinks are never mount points */
+                return false;
 
         if (fstatat(fd, "", &b, AT_EMPTY_PATH) < 0)
                 return -errno;
@@ -480,4 +509,26 @@ int mount_propagation_flags_from_string(const char *name, unsigned long *ret) {
         else
                 return -EINVAL;
         return 0;
+}
+
+int make_mount_point_inode_from_stat(const struct stat *st, const char *dest, mode_t mode) {
+        assert(st);
+        assert(dest);
+
+        if (S_ISDIR(st->st_mode))
+                return mkdir_label(dest, mode);
+        else
+                return mknod(dest, S_IFREG|(mode & ~0111), 0);
+}
+
+int make_mount_point_inode_from_path(const char *source, const char *dest, mode_t mode) {
+        struct stat st;
+
+        assert(source);
+        assert(dest);
+
+        if (stat(source, &st) < 0)
+                return -errno;
+
+        return make_mount_point_inode_from_stat(&st, dest, mode);
 }

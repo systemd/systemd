@@ -1,15 +1,4 @@
-# SPDX-License-Identifier: LGPL-2.1+
-
-libcore_shared_sources = '''
-        killall.c
-        killall.h
-        loopback-setup.c
-        loopback-setup.h
-        machine-id-setup.c
-        machine-id-setup.h
-        mount-setup.c
-        mount-setup.h
-'''.split()
+# SPDX-License-Identifier: LGPL-2.1-or-later
 
 libcore_sources = '''
         apparmor-setup.c
@@ -22,6 +11,8 @@ libcore_sources = '''
         bpf-devices.h
         bpf-firewall.c
         bpf-firewall.h
+        bpf-foreign.c
+        bpf-foreign.h
         cgroup.c
         cgroup.h
         core-varlink.c
@@ -76,8 +67,6 @@ libcore_sources = '''
         execute.h
         generator-setup.c
         generator-setup.h
-        hostname-setup.c
-        hostname-setup.h
         ima-setup.c
         ima-setup.h
         ip-address-access.c
@@ -96,6 +85,8 @@ libcore_sources = '''
         locale-setup.h
         manager.c
         manager.h
+        manager-dump.c
+        manager-dump.h
         mount.c
         mount.h
         namespace.c
@@ -116,6 +107,8 @@ libcore_sources = '''
         slice.h
         smack-setup.c
         smack-setup.h
+        socket-bind.c
+        socket-bind.h
         socket.c
         socket.h
         swap.c
@@ -126,17 +119,26 @@ libcore_sources = '''
         timer.h
         transaction.c
         transaction.h
+        unit-dependency-atom.c
+        unit-dependency-atom.h
         unit-printf.c
         unit-printf.h
+        unit-serialize.c
+        unit-serialize.h
         unit.c
         unit.h
 '''.split()
 
+subdir('bpf/socket_bind')
+if conf.get('BPF_FRAMEWORK') == 1
+        libcore_sources += [socket_bind_skel_h]
+endif
+
 load_fragment_gperf_gperf = custom_target(
         'load-fragment-gperf.gperf',
-        input : 'load-fragment-gperf.gperf.m4',
+        input : 'load-fragment-gperf.gperf.in',
         output: 'load-fragment-gperf.gperf',
-        command : [meson_apply_m4, config_h, '@INPUT@'],
+        command : [meson_render_jinja2, config_h, '@INPUT@'],
         capture : true)
 
 load_fragment_gperf_c = custom_target(
@@ -153,24 +155,15 @@ load_fragment_gperf_nulstr_c = custom_target(
         command : [awk, '-f', '@INPUT0@', '@INPUT1@'],
         capture : true)
 
-# A convenience library to share code with other binaries:
-# systemd-shutdown, systemd-remount-fs, systemd-machine-id-setup, …
-libcore_shared = static_library(
-        'core-shared',
-        libcore_shared_sources,
-        include_directories : includes,
-        dependencies : [versiondep,
-                        libmount])
-
 libcore = static_library(
         'core',
         libcore_sources,
         load_fragment_gperf_c,
         load_fragment_gperf_nulstr_c,
         include_directories : includes,
-        link_whole : libcore_shared,
         dependencies : [versiondep,
                         threads,
+                        libdl,
                         librt,
                         libseccomp,
                         libpam,
@@ -181,23 +174,27 @@ libcore = static_library(
                         libmount,
                         libacl])
 
+core_includes = [includes, include_directories('.')]
+
 systemd_sources = files('main.c')
 
-in_files = [['macros.systemd',   rpmmacrosdir],
-            ['system.conf',      pkgsysconfdir],
-            ['user.conf',        pkgsysconfdir],
-            ['systemd.pc',       pkgconfigdatadir],
-            ['triggers.systemd', '']]
+in_files = [['system.conf',                     pkgsysconfdir],
+            ['user.conf',                       pkgsysconfdir],
+            ['systemd.pc',                      pkgconfigdatadir],
+            ['org.freedesktop.systemd1.policy', polkitpolicydir]]
 
 foreach item : in_files
         file = item[0]
         dir = item[1]
 
-        configure_file(
+        custom_target(
+                file,
                 input : file + '.in',
-                output : file,
-                configuration : substs,
-                install_dir : dir == 'no' ? '' : dir)
+                output: file,
+                command : [meson_render_jinja2, config_h, '@INPUT@'],
+                capture : true,
+                install : dir != 'no',
+                install_dir : dir)
 endforeach
 
 install_data('org.freedesktop.systemd1.conf',
@@ -205,18 +202,22 @@ install_data('org.freedesktop.systemd1.conf',
 install_data('org.freedesktop.systemd1.service',
              install_dir : dbussystemservicedir)
 
-policy = configure_file(
-        input : 'org.freedesktop.systemd1.policy.in',
-        output : 'org.freedesktop.systemd1.policy',
-        configuration : substs)
-install_data(policy,
-             install_dir : polkitpolicydir)
-
 meson.add_install_script('sh', '-c', mkdir_p.format(systemshutdowndir))
 meson.add_install_script('sh', '-c', mkdir_p.format(systemsleepdir))
 meson.add_install_script('sh', '-c', mkdir_p.format(systemgeneratordir))
 meson.add_install_script('sh', '-c', mkdir_p.format(usergeneratordir))
 
-meson.add_install_script('sh', '-c', mkdir_p.format(join_paths(pkgsysconfdir, 'system')))
-meson.add_install_script('sh', '-c', mkdir_p.format(join_paths(pkgsysconfdir, 'user')))
-meson.add_install_script('sh', '-c', mkdir_p.format(join_paths(sysconfdir, 'xdg/systemd')))
+if install_sysconfdir
+        meson.add_install_script('sh', '-c', mkdir_p.format(join_paths(pkgsysconfdir, 'system')))
+        meson.add_install_script('sh', '-c', mkdir_p.format(join_paths(pkgsysconfdir, 'user')))
+        meson.add_install_script('sh', '-c', mkdir_p.format(join_paths(sysconfdir, 'xdg/systemd')))
+endif
+
+############################################################
+
+fuzzers += [
+        [['src/core/fuzz-unit-file.c'],
+         [libcore,
+          libshared],
+         [libmount]],
+]

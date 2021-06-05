@@ -36,4 +36,6 @@ __pycache__/
 /mkosi.builddir/
 /mkosi.output/
 /mkosi.default
+mkosi.default.d/*
+!mkosi.default.d/10-systemd.conf
 /tags

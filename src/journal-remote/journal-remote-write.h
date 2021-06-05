@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
 #include "journal-file.h"
@@ -36,5 +36,5 @@ typedef enum JournalWriteSplitMode {
         JOURNAL_WRITE_SPLIT_NONE,
         JOURNAL_WRITE_SPLIT_HOST,
         _JOURNAL_WRITE_SPLIT_MAX,
-        _JOURNAL_WRITE_SPLIT_INVALID = -1
+        _JOURNAL_WRITE_SPLIT_INVALID = -EINVAL,
 } JournalWriteSplitMode;

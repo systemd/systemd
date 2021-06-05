@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #if HAVE_GLIB
 #include <glib.h>
@@ -11,7 +11,6 @@
 #include "bus-gvariant.h"
 #include "bus-internal.h"
 #include "bus-message.h"
-#include "bus-util.h"
 #include "macro.h"
 #include "tests.h"
 #include "util.h"

@@ -1,7 +1,7 @@
 <?xml version='1.0'?> <!--*-nxml-*-->
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
-<!-- SPDX-License-Identifier: LGPL-2.1+ -->
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
 
 <refentry id="sd_bus_add_object"
           xmlns:xi="http://www.w3.org/2001/XInclude">
@@ -292,11 +292,14 @@
     attached to the request object path, interface and member. Finally, the property callbacks
     attached to the request object path, interface and member are called. If the final callback
     returns zero, an error reply is sent back to the caller indicating no matching object for the
-    request was found. Note that you can return a positive integer from a callback without
+    request was found.</para>
+
+    <para>Note that you can return a positive integer from a <parameter>method</parameter> callback without
     immediately sending a reply. This informs sd-bus this callback will take responsibility for
     replying to the request without forcing the callback to produce a reply immediately. This allows
-    a callback to perform any number of asynchronous operations required to construct a reply. Note
-    that if producing a reply takes too long, the method call will time out at the caller.</para>
+    a callback to perform any number of asynchronous operations required to construct a reply.
+    However, if producing a reply takes too long, the method call will time out at the caller. This is
+    only available to methods and not properties.</para>
 
     <para>If a callback was invoked to handle a request that expects a reply and the callback
     returns a negative value, the value is interpreted as a negative errno-style error code and sent
@@ -369,8 +372,8 @@
           with the message the callback was invoked with. Parameter <replaceable>flags</replaceable> is a
           combination of flags, see below.</para>
 
-          <constant>SD_BUS_METHOD_WITH_ARGS()</constant> is a shorthand for calling
-          <constant>SD_BUS_METHOD_WITH_ARGS_OFFSET()</constant> with an offset of zero.
+          <para><constant>SD_BUS_METHOD_WITH_ARGS()</constant> is a shorthand for calling
+          <constant>SD_BUS_METHOD_WITH_ARGS_OFFSET()</constant> with an offset of zero.</para>
           </listitem>
         </varlistentry>
 
@@ -404,7 +407,7 @@
         <varlistentry>
           <term><constant>SD_BUS_SIGNAL_WITH_ARGS()</constant></term>
 
-          <listitem><para>>Declare a D-Bus signal with the name <replaceable>member</replaceable> and
+          <listitem><para>Declare a D-Bus signal with the name <replaceable>member</replaceable> and
           arguments <replaceable>args</replaceable>. <replaceable>args</replaceable> expects a sequence of
           argument type/name pairs wrapped in the <constant>SD_BUS_ARGS()</constant> macro. The elements at
           even indices in this list describe the types of the signal's arguments. The signal's parameter
@@ -620,8 +623,8 @@
         <varlistentry>
           <term><constant>-EPROTOTYPE</constant></term>
 
-          <listitem><para><function>sd_bus_add_object_vtable</function> and
-          <function>sd_bus_add_fallback_vtable</function> have been both called for the same bus
+          <listitem><para><function>sd_bus_add_object_vtable()</function> and
+          <function>sd_bus_add_fallback_vtable()</function> have been both called for the same bus
           object path, which is not allowed.</para></listitem>
         </varlistentry>
 

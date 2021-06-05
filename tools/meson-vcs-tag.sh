@@ -1,16 +1,11 @@
 #!/usr/bin/env bash
+# SPDX-License-Identifier: LGPL-2.1-or-later
 
 set -eu
 set -o pipefail
 
-dir="$1"
-tag="$2"
-fallback="$3"
-
-if [ -n "$tag" ]; then
-    echo "$tag"
-    exit 0
-fi
+dir="${1:?}"
+fallback="${2:?}"
 
 # Apparently git describe has a bug where it always considers the work-tree
 # dirty when invoked with --git-dir (even though 'git status' is happy). Work

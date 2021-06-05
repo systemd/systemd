@@ -1,10 +1,11 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <fcntl.h>
 
 #include "ask-password-api.h"
 #include "escape.h"
 #include "fd-util.h"
+#include "format-table.h"
 #include "io-util.h"
 #include "memory-util.h"
 #if HAVE_OPENSSL
@@ -30,7 +31,7 @@ bool pkcs11_uri_valid(const char *uri) {
         if (isempty(p))
                 return false;
 
-        if (!in_charset(p, ALPHANUMERICAL "-_?;&%="))
+        if (!in_charset(p, ALPHANUMERICAL ".~/-_?;&%="))
                 return false;
 
         return true;
@@ -180,8 +181,10 @@ int pkcs11_token_login(
                 const CK_TOKEN_INFO *token_info,
                 const char *friendly_name,
                 const char *icon_name,
-                const char *keyname,
+                const char *key_name,
+                const char *credential_name,
                 usec_t until,
+                bool headless,
                 char **ret_used_pin) {
 
         _cleanup_free_ char *token_uri_string = NULL, *token_uri_escaped = NULL, *id = NULL, *token_label = NULL;
@@ -245,7 +248,9 @@ int pkcs11_token_login(
                         string_erase(e);
                         if (unsetenv("PIN") < 0)
                                 return log_error_errno(errno, "Failed to unset $PIN: %m");
-                } else {
+                } else if (headless)
+                        return log_error_errno(SYNTHETIC_ERRNO(ENOPKG), "PIN querying disabled via 'headless' option. Use the 'PIN' environment variable.");
+                else {
                         _cleanup_free_ char *text = NULL;
 
                         if (FLAGS_SET(token_info->flags, CKF_USER_PIN_FINAL_TRY))
@@ -268,7 +273,7 @@ int pkcs11_token_login(
                                 return log_oom();
 
                         /* We never cache PINs, simply because it's fatal if we use wrong PINs, since usually there are only 3 tries */
-                        r = ask_password_auto(text, icon_name, id, keyname, until, 0, &passwords);
+                        r = ask_password_auto(text, icon_name, id, key_name, credential_name, until, 0, &passwords);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to query PIN for security token '%s': %m", token_label);
                 }
@@ -671,7 +676,6 @@ int pkcs11_token_acquire_rng(
                 CK_SESSION_HANDLE session) {
 
         _cleanup_free_ void *buffer = NULL;
-        _cleanup_close_ int fd = -1;
         size_t rps;
         CK_RV rv;
         int r;
@@ -696,11 +700,7 @@ int pkcs11_token_acquire_rng(
                 return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
                                        "Failed to generate RNG data on security token: %s", p11_kit_strerror(rv));
 
-        fd = open("/dev/urandom", O_WRONLY|O_CLOEXEC|O_NOCTTY);
-        if (fd < 0)
-                return log_debug_errno(errno, "Failed to open /dev/urandom for writing: %m");
-
-        r = loop_write(fd, buffer, rps, false);
+        r = random_write_entropy(-1, buffer, rps, false);
         if (r < 0)
                 return log_debug_errno(r, "Failed to write PKCS#11 acquired random data to /dev/urandom: %m");
 
@@ -791,8 +791,8 @@ static int slot_process(
 
         rv = m->C_GetTokenInfo(slotid, &token_info);
         if (rv == CKR_TOKEN_NOT_PRESENT) {
-                log_debug("Token not present in slot, ignoring.");
-                return -EAGAIN;
+                return log_debug_errno(SYNTHETIC_ERRNO(EAGAIN),
+                                       "Token not present in slot, ignoring.");
         } else if (rv != CKR_OK) {
                 log_warning("Failed to acquire token info for slot %lu, ignoring slot: %s", slotid, p11_kit_strerror(rv));
                 return -EAGAIN;
@@ -808,10 +808,10 @@ static int slot_process(
                 return -EAGAIN;
         }
 
-        if (search_uri && !p11_kit_uri_match_token_info(search_uri, &token_info)) {
-                log_debug("Found non-matching token with URI %s.", token_uri_string);
-                return -EAGAIN;
-        }
+        if (search_uri && !p11_kit_uri_match_token_info(search_uri, &token_info))
+                return log_debug_errno(SYNTHETIC_ERRNO(EAGAIN),
+                                       "Found non-matching token with URI %s.",
+                                       token_uri_string);
 
         log_debug("Found matching token with URI %s.", token_uri_string);
 
@@ -876,10 +876,9 @@ static int module_process(
                 log_warning("Failed to get slot list, ignoring module: %s", p11_kit_strerror(rv));
                 return -EAGAIN;
         }
-        if (n_slotids == 0) {
-                log_debug("This module has no slots? Ignoring module.");
-                return -EAGAIN;
-        }
+        if (n_slotids == 0)
+                return log_debug_errno(SYNTHETIC_ERRNO(EAGAIN),
+                                       "This module has no slots? Ignoring module.");
 
         for (k = 0; k < n_slotids; k++) {
                 r = slot_process(
@@ -930,4 +929,229 @@ int pkcs11_find_token(
         return -EAGAIN;
 }
 
+#if HAVE_OPENSSL
+struct pkcs11_acquire_certificate_callback_data {
+        char *pin_used;
+        X509 *cert;
+        const char *askpw_friendly_name, *askpw_icon_name;
+};
+
+static void pkcs11_acquire_certificate_callback_data_release(struct pkcs11_acquire_certificate_callback_data *data) {
+        erase_and_free(data->pin_used);
+        X509_free(data->cert);
+}
+
+static int pkcs11_acquire_certificate_callback(
+                CK_FUNCTION_LIST *m,
+                CK_SESSION_HANDLE session,
+                CK_SLOT_ID slot_id,
+                const CK_SLOT_INFO *slot_info,
+                const CK_TOKEN_INFO *token_info,
+                P11KitUri *uri,
+                void *userdata) {
+
+        _cleanup_(erase_and_freep) char *pin_used = NULL;
+        struct pkcs11_acquire_certificate_callback_data *data = userdata;
+        CK_OBJECT_HANDLE object;
+        int r;
+
+        assert(m);
+        assert(slot_info);
+        assert(token_info);
+        assert(uri);
+        assert(data);
+
+        /* Called for every token matching our URI */
+
+        r = pkcs11_token_login(m, session, slot_id, token_info, data->askpw_friendly_name, data->askpw_icon_name, "pkcs11-pin", "pkcs11-pin", UINT64_MAX, false, &pin_used);
+        if (r < 0)
+                return r;
+
+        r = pkcs11_token_find_x509_certificate(m, session, uri, &object);
+        if (r < 0)
+                return r;
+
+        r = pkcs11_token_read_x509_certificate(m, session, object, &data->cert);
+        if (r < 0)
+                return r;
+
+        /* Let's read some random data off the token and write it to the kernel pool before we generate our
+         * random key from it. This way we can claim the quality of the RNG is at least as good as the
+         * kernel's and the token's pool */
+        (void) pkcs11_token_acquire_rng(m, session);
+
+        data->pin_used = TAKE_PTR(pin_used);
+        return 1;
+}
+
+int pkcs11_acquire_certificate(
+                const char *uri,
+                const char *askpw_friendly_name,
+                const char *askpw_icon_name,
+                X509 **ret_cert,
+                char **ret_pin_used) {
+
+        _cleanup_(pkcs11_acquire_certificate_callback_data_release) struct pkcs11_acquire_certificate_callback_data data = {
+                .askpw_friendly_name = askpw_friendly_name,
+                .askpw_icon_name = askpw_icon_name,
+        };
+        int r;
+
+        assert(uri);
+        assert(ret_cert);
+
+        r = pkcs11_find_token(uri, pkcs11_acquire_certificate_callback, &data);
+        if (r == -EAGAIN) /* pkcs11_find_token() doesn't log about this error, but all others */
+                return log_error_errno(SYNTHETIC_ERRNO(ENXIO),
+                                       "Specified PKCS#11 token with URI '%s' not found.",
+                                       uri);
+        if (r < 0)
+                return r;
+
+        *ret_cert = TAKE_PTR(data.cert);
+
+        if (ret_pin_used)
+                *ret_pin_used = TAKE_PTR(data.pin_used);
+
+        return 0;
+}
 #endif
+
+static int list_callback(
+                CK_FUNCTION_LIST *m,
+                CK_SESSION_HANDLE session,
+                CK_SLOT_ID slot_id,
+                const CK_SLOT_INFO *slot_info,
+                const CK_TOKEN_INFO *token_info,
+                P11KitUri *uri,
+                void *userdata) {
+
+        _cleanup_free_ char *token_uri_string = NULL, *token_label = NULL, *token_manufacturer_id = NULL, *token_model = NULL;
+        _cleanup_(p11_kit_uri_freep) P11KitUri *token_uri = NULL;
+        Table *t = userdata;
+        int uri_result, r;
+
+        assert(slot_info);
+        assert(token_info);
+
+        /* We only care about hardware devices here with a token inserted. Let's filter everything else
+         * out. (Note that the user can explicitly specify non-hardware tokens if they like, but during
+         * enumeration we'll filter those, since software tokens are typically the system certificate store
+         * and such, and it's typically not what people want to bind their home directories to.) */
+        if (!FLAGS_SET(token_info->flags, CKF_HW_SLOT|CKF_TOKEN_PRESENT))
+                return -EAGAIN;
+
+        token_label = pkcs11_token_label(token_info);
+        if (!token_label)
+                return log_oom();
+
+        token_manufacturer_id = pkcs11_token_manufacturer_id(token_info);
+        if (!token_manufacturer_id)
+                return log_oom();
+
+        token_model = pkcs11_token_model(token_info);
+        if (!token_model)
+                return log_oom();
+
+        token_uri = uri_from_token_info(token_info);
+        if (!token_uri)
+                return log_oom();
+
+        uri_result = p11_kit_uri_format(token_uri, P11_KIT_URI_FOR_ANY, &token_uri_string);
+        if (uri_result != P11_KIT_URI_OK)
+                return log_warning_errno(SYNTHETIC_ERRNO(EAGAIN), "Failed to format slot URI: %s", p11_kit_uri_message(uri_result));
+
+        r = table_add_many(
+                        t,
+                        TABLE_STRING, token_uri_string,
+                        TABLE_STRING, token_label,
+                        TABLE_STRING, token_manufacturer_id,
+                        TABLE_STRING, token_model);
+        if (r < 0)
+                return table_log_add_error(r);
+
+        return -EAGAIN; /* keep scanning */
+}
+#endif
+
+int pkcs11_list_tokens(void) {
+#if HAVE_P11KIT
+        _cleanup_(table_unrefp) Table *t = NULL;
+        int r;
+
+        t = table_new("uri", "label", "manufacturer", "model");
+        if (!t)
+                return log_oom();
+
+        r = pkcs11_find_token(NULL, list_callback, t);
+        if (r < 0 && r != -EAGAIN)
+                return r;
+
+        if (table_get_rows(t) <= 1) {
+                log_info("No suitable PKCS#11 tokens found.");
+                return 0;
+        }
+
+        r = table_print(t, stdout);
+        if (r < 0)
+                return log_error_errno(r, "Failed to show device table: %m");
+
+        return 0;
+#else
+        return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
+                               "PKCS#11 tokens not supported on this build.");
+#endif
+}
+
+#if HAVE_P11KIT
+static int auto_callback(
+                CK_FUNCTION_LIST *m,
+                CK_SESSION_HANDLE session,
+                CK_SLOT_ID slot_id,
+                const CK_SLOT_INFO *slot_info,
+                const CK_TOKEN_INFO *token_info,
+                P11KitUri *uri,
+                void *userdata) {
+
+        _cleanup_(p11_kit_uri_freep) P11KitUri *token_uri = NULL;
+        char **t = userdata;
+        int uri_result;
+
+        assert(slot_info);
+        assert(token_info);
+
+        if (!FLAGS_SET(token_info->flags, CKF_HW_SLOT|CKF_TOKEN_PRESENT))
+                return -EAGAIN;
+
+        if (*t)
+                return log_error_errno(SYNTHETIC_ERRNO(ENOTUNIQ),
+                                       "More than one suitable PKCS#11 token found.");
+
+        token_uri = uri_from_token_info(token_info);
+        if (!token_uri)
+                return log_oom();
+
+        uri_result = p11_kit_uri_format(token_uri, P11_KIT_URI_FOR_ANY, t);
+        if (uri_result != P11_KIT_URI_OK)
+                return log_warning_errno(SYNTHETIC_ERRNO(EAGAIN), "Failed to format slot URI: %s", p11_kit_uri_message(uri_result));
+
+        return 0;
+}
+#endif
+
+int pkcs11_find_token_auto(char **ret) {
+#if HAVE_P11KIT
+        int r;
+
+        r = pkcs11_find_token(NULL, auto_callback, ret);
+        if (r == -EAGAIN)
+                return log_error_errno(SYNTHETIC_ERRNO(ENODEV), "No suitable PKCS#11 tokens found.");
+        if (r < 0)
+                return r;
+
+        return 0;
+#else
+        return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
+                               "PKCS#11 tokens not supported on this build.");
+#endif
+}

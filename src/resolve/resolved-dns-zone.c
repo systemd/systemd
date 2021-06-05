@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "alloc-util.h"
 #include "dns-domain.h"
@@ -26,16 +26,15 @@ void dns_zone_item_probe_stop(DnsZoneItem *i) {
         dns_transaction_gc(t);
 }
 
-static void dns_zone_item_free(DnsZoneItem *i) {
+static DnsZoneItem* dns_zone_item_free(DnsZoneItem *i) {
         if (!i)
-                return;
+                return NULL;
 
         dns_zone_item_probe_stop(i);
         dns_resource_record_unref(i->rr);
 
-        free(i);
+        return mfree(i);
 }
-
 DEFINE_TRIVIAL_CLEANUP_FUNC(DnsZoneItem*, dns_zone_item_free);
 
 static void dns_zone_item_remove_and_free(DnsZone *z, DnsZoneItem *i) {
@@ -170,7 +169,10 @@ static int dns_zone_item_probe_start(DnsZoneItem *i)  {
         if (i->probe_transaction)
                 return 0;
 
-        t = dns_scope_find_transaction(i->scope, &DNS_RESOURCE_KEY_CONST(i->rr->key->class, DNS_TYPE_ANY, dns_resource_key_name(i->rr->key)), false);
+        t = dns_scope_find_transaction(
+                        i->scope,
+                        &DNS_RESOURCE_KEY_CONST(i->rr->key->class, DNS_TYPE_ANY, dns_resource_key_name(i->rr->key)),
+                        SD_RESOLVED_NO_CACHE|SD_RESOLVED_NO_ZONE);
         if (!t) {
                 _cleanup_(dns_resource_key_unrefp) DnsResourceKey *key = NULL;
 
@@ -178,7 +180,7 @@ static int dns_zone_item_probe_start(DnsZoneItem *i)  {
                 if (!key)
                         return -ENOMEM;
 
-                r = dns_transaction_new(&t, i->scope, key);
+                r = dns_transaction_new(&t, i->scope, key, NULL, SD_RESOLVED_NO_CACHE|SD_RESOLVED_NO_ZONE);
                 if (r < 0)
                         return r;
         }
@@ -231,13 +233,15 @@ int dns_zone_put(DnsZone *z, DnsScope *s, DnsResourceRecord *rr, bool probe) {
         if (r < 0)
                 return r;
 
-        i = new0(DnsZoneItem, 1);
+        i = new(DnsZoneItem, 1);
         if (!i)
                 return -ENOMEM;
 
-        i->scope = s;
-        i->rr = dns_resource_record_ref(rr);
-        i->probing_enabled = probe;
+        *i = (DnsZoneItem) {
+                .scope = s,
+                .rr = dns_resource_record_ref(rr),
+                .probing_enabled = probe,
+        };
 
         r = dns_zone_link_item(z, i);
         if (r < 0)
@@ -294,7 +298,7 @@ static int dns_zone_add_authenticated_answer(DnsAnswer *a, DnsZoneItem *i, int i
         else
                 flags = DNS_ANSWER_AUTHENTICATED;
 
-        return dns_answer_add(a, i->rr, ifindex, flags);
+        return dns_answer_add(a, i->rr, ifindex, flags, NULL);
 }
 
 int dns_zone_lookup(DnsZone *z, DnsResourceKey *key, int ifindex, DnsAnswer **ret_answer, DnsAnswer **ret_soa, bool *ret_tentative) {
@@ -496,7 +500,7 @@ void dns_zone_item_conflict(DnsZoneItem *i) {
         /* Withdraw the conflict item */
         i->state = DNS_ZONE_ITEM_WITHDRAWN;
 
-        dnssd_signal_conflict(i->scope->manager, dns_resource_key_name(i->rr->key));
+        (void) dnssd_signal_conflict(i->scope->manager, dns_resource_key_name(i->rr->key));
 
         /* Maybe change the hostname */
         if (manager_is_own_hostname(i->scope->manager, dns_resource_key_name(i->rr->key)) > 0)

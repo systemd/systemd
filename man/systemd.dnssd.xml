@@ -1,7 +1,7 @@
 <?xml version='1.0'?>
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
-<!-- SPDX-License-Identifier: LGPL-2.1+ -->
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
 
 <refentry id="systemd.dnssd"
           xmlns:xi="http://www.w3.org/2001/XInclude"
@@ -42,9 +42,9 @@
     <filename>/run/systemd/dnssd</filename> and the local administration network directory
     <filename>/etc/systemd/dnssd</filename>. All configuration files are collectively sorted and processed in
     lexical order, regardless of the directories in which they live. However, files with identical filenames
-    replace each other. Files in <filename>/etc</filename> have the highest priority, files in
-    <filename>/run</filename> take precedence over files with the same name in
-    <filename>/usr/lib</filename>. This can be used to override a system-supplied configuration file with a
+    replace each other. Files in <filename>/etc/</filename> have the highest priority, files in
+    <filename>/run/</filename> take precedence over files with the same name in
+    <filename>/usr/lib/</filename>. This can be used to override a system-supplied configuration file with a
     local file if needed.</para>
 
     <para>Along with the network service file <filename>foo.dnssd</filename>, a "drop-in" directory
@@ -55,8 +55,8 @@
 
     <para>In addition to <filename>/etc/systemd/dnssd</filename>, drop-in <literal>.d</literal> directories
     can be placed in <filename>/usr/lib/systemd/dnssd</filename> or <filename>/run/systemd/dnssd</filename>
-    directories. Drop-in files in <filename>/etc</filename> take precedence over those in
-    <filename>/run</filename> which in turn take precedence over those in <filename>/usr/lib</filename> or
+    directories. Drop-in files in <filename>/etc/</filename> take precedence over those in
+    <filename>/run/</filename> which in turn take precedence over those in <filename>/usr/lib/</filename> or
     <filename>/usr/local/lib</filename>. Drop-in files under any of these directories take precedence over
     the main network service file wherever located.</para>
   </refsect1>
@@ -90,10 +90,12 @@
                 </thead>
                 <tbody>
                   <xi:include href="standard-specifiers.xml" xpointer="a"/>
+                  <xi:include href="standard-specifiers.xml" xpointer="A"/>
                   <xi:include href="standard-specifiers.xml" xpointer="b"/>
                   <xi:include href="standard-specifiers.xml" xpointer="B"/>
                   <xi:include href="standard-specifiers.xml" xpointer="H"/>
                   <xi:include href="standard-specifiers.xml" xpointer="m"/>
+                  <xi:include href="standard-specifiers.xml" xpointer="M"/>
                   <xi:include href="standard-specifiers.xml" xpointer="o"/>
                   <xi:include href="standard-specifiers.xml" xpointer="v"/>
                   <xi:include href="standard-specifiers.xml" xpointer="w"/>

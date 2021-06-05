@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <errno.h>
 #include <sys/stat.h>
@@ -19,6 +19,7 @@
 #include "bus-polkit.h"
 #include "def.h"
 #include "dlfcn-util.h"
+#include "kbd-util.h"
 #include "keymap-util.h"
 #include "locale-util.h"
 #include "macro.h"
@@ -37,8 +38,7 @@ static int locale_update_system_manager(Context *c, sd_bus *bus) {
         _cleanup_strv_free_ char **l_set = NULL;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        size_t c_set, c_unset;
-        LocaleVariable p;
+        size_t c_set = 0, c_unset = 0;
         int r;
 
         assert(bus);
@@ -51,7 +51,7 @@ static int locale_update_system_manager(Context *c, sd_bus *bus) {
         if (!l_set)
                 return log_oom();
 
-        for (p = 0, c_set = 0, c_unset = 0; p < _VARIABLE_LC_MAX; p++) {
+        for (LocaleVariable p = 0; p < _VARIABLE_LC_MAX; p++) {
                 const char *name;
 
                 name = locale_variable_to_string(p);
@@ -178,7 +178,7 @@ static int property_get_locale(
 
         Context *c = userdata;
         _cleanup_strv_free_ char **l = NULL;
-        int p, q, r;
+        int r;
 
         r = locale_read_data(c, reply);
         if (r < 0)
@@ -188,7 +188,7 @@ static int property_get_locale(
         if (!l)
                 return -ENOMEM;
 
-        for (p = 0, q = 0; p < _VARIABLE_LC_MAX; p++) {
+        for (LocaleVariable p = 0, q = 0; p < _VARIABLE_LC_MAX; p++) {
                 char *t;
                 const char *name;
 
@@ -262,6 +262,7 @@ static int property_get_xkb(
 static int process_locale_list_item(
                 const char *assignment,
                 char *new_locale[static _VARIABLE_LC_MAX],
+                bool use_localegen,
                 sd_bus_error *error) {
 
         assert(assignment);
@@ -283,7 +284,7 @@ static int process_locale_list_item(
 
                 if (!locale_is_valid(e))
                         return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Locale %s is not valid, refusing.", e);
-                if (locale_is_installed(e) <= 0)
+                if (!use_localegen && locale_is_installed(e) <= 0)
                         return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Locale %s not installed, refusing.", e);
                 if (new_locale[p])
                         return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Locale variable %s set twice, refusing.", name);
@@ -298,6 +299,47 @@ static int process_locale_list_item(
         return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Locale assignment %s not valid, refusing.", assignment);
 }
 
+static int locale_gen_process_locale(char *new_locale[static _VARIABLE_LC_MAX],
+                                     sd_bus_error *error) {
+        int r;
+        assert(new_locale);
+
+        for (LocaleVariable p = 0; p < _VARIABLE_LC_MAX; p++) {
+                if (p == VARIABLE_LANGUAGE)
+                        continue;
+                if (isempty(new_locale[p]))
+                        continue;
+                if (locale_is_installed(new_locale[p]))
+                        continue;
+
+                r = locale_gen_enable_locale(new_locale[p]);
+                if (r == -ENOEXEC) {
+                        log_error_errno(r, "Refused to enable locale for generation: %m");
+                        return sd_bus_error_setf(error,
+                                                 SD_BUS_ERROR_INVALID_ARGS,
+                                                 "Specified locale is not installed and non-UTF-8 locale will not be auto-generated: %s",
+                                                 new_locale[p]);
+                } else if (r == -EINVAL) {
+                        log_error_errno(r, "Failed to enable invalid locale %s for generation.", new_locale[p]);
+                        return sd_bus_error_setf(error,
+                                                 SD_BUS_ERROR_INVALID_ARGS,
+                                                 "Can not enable locale generation for invalid locale: %s",
+                                                 new_locale[p]);
+                } else if (r < 0) {
+                        log_error_errno(r, "Failed to enable locale for generation: %m");
+                        return sd_bus_error_set_errnof(error, r, "Failed to enable locale generation: %m");
+                }
+
+                r = locale_gen_run();
+                if (r < 0) {
+                        log_error_errno(r, "Failed to generate locale: %m");
+                        return sd_bus_error_set_errnof(error, r, "Failed to generate locale: %m");
+                }
+        }
+
+        return 0;
+}
+
 static int method_set_locale(sd_bus_message *m, void *userdata, sd_bus_error *error) {
         _cleanup_(locale_variables_freep) char *new_locale[_VARIABLE_LC_MAX] = {};
         _cleanup_strv_free_ char **settings = NULL, **l = NULL;
@@ -305,6 +347,7 @@ static int method_set_locale(sd_bus_message *m, void *userdata, sd_bus_error *er
         bool modified = false;
         int interactive, r;
         char **i;
+        bool use_localegen;
 
         assert(m);
         assert(c);
@@ -317,11 +360,13 @@ static int method_set_locale(sd_bus_message *m, void *userdata, sd_bus_error *er
         if (r < 0)
                 return r;
 
+        use_localegen = locale_gen_check_available();
+
         /* If single locale without variable name is provided, then we assume it is LANG=. */
         if (strv_length(l) == 1 && !strchr(l[0], '=')) {
                 if (!locale_is_valid(l[0]))
                         return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid locale specification: %s", l[0]);
-                if (locale_is_installed(l[0]) <= 0)
+                if (!use_localegen && locale_is_installed(l[0]) <= 0)
                         return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Specified locale is not installed: %s", l[0]);
 
                 new_locale[VARIABLE_LANG] = strdup(l[0]);
@@ -333,7 +378,7 @@ static int method_set_locale(sd_bus_message *m, void *userdata, sd_bus_error *er
 
         /* Check whether a variable is valid */
         STRV_FOREACH(i, l) {
-                r = process_locale_list_item(*i, new_locale, error);
+                r = process_locale_list_item(*i, new_locale, use_localegen, error);
                 if (r < 0)
                         return r;
         }
@@ -354,7 +399,7 @@ static int method_set_locale(sd_bus_message *m, void *userdata, sd_bus_error *er
         r = locale_read_data(c, m);
         if (r < 0) {
                 log_error_errno(r, "Failed to read locale data: %m");
-                return sd_bus_error_setf(error, SD_BUS_ERROR_FAILED, "Failed to read locale data");
+                return sd_bus_error_set(error, SD_BUS_ERROR_FAILED, "Failed to read locale data");
         }
 
         /* Merge with the current settings */
@@ -392,9 +437,17 @@ static int method_set_locale(sd_bus_message *m, void *userdata, sd_bus_error *er
         if (r == 0)
                 return 1; /* No authorization for now, but the async polkit stuff will call us again when it has it */
 
+        /* Generate locale in case it is missing and the system is using locale-gen */
+        if (use_localegen) {
+                r = locale_gen_process_locale(new_locale, error);
+                if (r < 0)
+                        return r;
+        }
+
         for (LocaleVariable p = 0; p < _VARIABLE_LC_MAX; p++)
                 free_and_replace(c->locale[p], new_locale[p]);
 
+        /* Write locale configuration */
         r = locale_write_data(c, &settings);
         if (r < 0) {
                 log_error_errno(r, "Failed to set locale: %m");
@@ -404,7 +457,7 @@ static int method_set_locale(sd_bus_message *m, void *userdata, sd_bus_error *er
         (void) locale_update_system_manager(c, sd_bus_message_get_bus(m));
 
         if (settings) {
-                _cleanup_free_ char *line;
+                _cleanup_free_ char *line = NULL;
 
                 line = strv_join(settings, ", ");
                 log_info("Changed locale to %s.", strnull(line));
@@ -422,7 +475,7 @@ static int method_set_locale(sd_bus_message *m, void *userdata, sd_bus_error *er
 
 static int method_set_vc_keyboard(sd_bus_message *m, void *userdata, sd_bus_error *error) {
         Context *c = userdata;
-        const char *keymap, *keymap_toggle;
+        const char *name, *keymap, *keymap_toggle;
         int convert, interactive, r;
 
         assert(m);
@@ -438,16 +491,22 @@ static int method_set_vc_keyboard(sd_bus_message *m, void *userdata, sd_bus_erro
         r = vconsole_read_data(c, m);
         if (r < 0) {
                 log_error_errno(r, "Failed to read virtual console keymap data: %m");
-                return sd_bus_error_setf(error, SD_BUS_ERROR_FAILED, "Failed to read virtual console keymap data");
+                return sd_bus_error_set_errnof(error, r, "Failed to read virtual console keymap data: %m");
+        }
+
+        FOREACH_STRING(name, keymap ?: keymap_toggle, keymap ? keymap_toggle : NULL) {
+                r = keymap_exists(name); /* This also verifies that the keymap name is kosher. */
+                if (r < 0) {
+                        log_error_errno(r, "Failed to check keymap %s: %m", name);
+                        return sd_bus_error_set_errnof(error, r, "Failed to check keymap %s: %m", name);
+                }
+                if (r == 0)
+                        return sd_bus_error_setf(error, SD_BUS_ERROR_FAILED, "Keymap %s is not installed.", name);
         }
 
         if (streq_ptr(keymap, c->vc_keymap) &&
             streq_ptr(keymap_toggle, c->vc_keymap_toggle))
                 return sd_bus_reply_method_return(m, NULL);
-
-        if ((keymap && (!filename_is_valid(keymap) || !string_is_safe(keymap))) ||
-            (keymap_toggle && (!filename_is_valid(keymap_toggle) || !string_is_safe(keymap_toggle))))
-                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Received invalid keymap data");
 
         r = bus_verify_polkit_async(
                         m,
@@ -614,7 +673,7 @@ static int method_set_x11_keyboard(sd_bus_message *m, void *userdata, sd_bus_err
         r = x11_read_data(c, m);
         if (r < 0) {
                 log_error_errno(r, "Failed to read x11 keyboard layout data: %m");
-                return sd_bus_error_setf(error, SD_BUS_ERROR_FAILED, "Failed to read x11 keyboard layout data");
+                return sd_bus_error_set(error, SD_BUS_ERROR_FAILED, "Failed to read x11 keyboard layout data");
         }
 
         if (streq_ptr(layout, c->x11_layout) &&
@@ -627,7 +686,7 @@ static int method_set_x11_keyboard(sd_bus_message *m, void *userdata, sd_bus_err
             (model && !string_is_safe(model)) ||
             (variant && !string_is_safe(variant)) ||
             (options && !string_is_safe(options)))
-                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Received invalid keyboard data");
+                return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Received invalid keyboard data");
 
         r = verify_xkb_rmlvo(model, layout, variant, options);
         if (r < 0) {
@@ -635,7 +694,7 @@ static int method_set_x11_keyboard(sd_bus_message *m, void *userdata, sd_bus_err
                                 strempty(model), strempty(layout), strempty(variant), strempty(options));
 
                 if (r == -EOPNOTSUPP)
-                        return sd_bus_error_setf(error, SD_BUS_ERROR_NOT_SUPPORTED, "Local keyboard configuration not supported on this system.");
+                        return sd_bus_error_set(error, SD_BUS_ERROR_NOT_SUPPORTED, "Local keyboard configuration not supported on this system.");
 
                 return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Specified keymap cannot be compiled, refusing as invalid.");
         }
@@ -777,7 +836,7 @@ static int run(int argc, char *argv[]) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         int r;
 
-        log_setup_service();
+        log_setup();
 
         r = service_parse_argv("systemd-localed.service",
                                "Manage system locale settings and key mappings.",

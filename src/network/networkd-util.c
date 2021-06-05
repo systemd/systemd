@@ -1,7 +1,8 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "condition.h"
 #include "conf-parser.h"
+#include "networkd-link.h"
 #include "networkd-util.h"
 #include "parse-util.h"
 #include "string-table.h"
@@ -9,32 +10,42 @@
 #include "util.h"
 
 static const char* const address_family_table[_ADDRESS_FAMILY_MAX] = {
-        [ADDRESS_FAMILY_NO]            = "no",
-        [ADDRESS_FAMILY_YES]           = "yes",
-        [ADDRESS_FAMILY_IPV4]          = "ipv4",
-        [ADDRESS_FAMILY_IPV6]          = "ipv6",
-};
-
-static const char* const link_local_address_family_table[_ADDRESS_FAMILY_MAX] = {
-        [ADDRESS_FAMILY_NO]            = "no",
-        [ADDRESS_FAMILY_YES]           = "yes",
-        [ADDRESS_FAMILY_IPV4]          = "ipv4",
-        [ADDRESS_FAMILY_IPV6]          = "ipv6",
-        [ADDRESS_FAMILY_FALLBACK]      = "fallback",
-        [ADDRESS_FAMILY_FALLBACK_IPV4] = "ipv4-fallback",
+        [ADDRESS_FAMILY_NO]   = "no",
+        [ADDRESS_FAMILY_YES]  = "yes",
+        [ADDRESS_FAMILY_IPV4] = "ipv4",
+        [ADDRESS_FAMILY_IPV6] = "ipv6",
 };
 
 static const char* const routing_policy_rule_address_family_table[_ADDRESS_FAMILY_MAX] = {
-        [ADDRESS_FAMILY_YES]           = "both",
-        [ADDRESS_FAMILY_IPV4]          = "ipv4",
-        [ADDRESS_FAMILY_IPV6]          = "ipv6",
+        [ADDRESS_FAMILY_YES]  = "both",
+        [ADDRESS_FAMILY_IPV4] = "ipv4",
+        [ADDRESS_FAMILY_IPV6] = "ipv6",
+};
+
+static const char* const nexthop_address_family_table[_ADDRESS_FAMILY_MAX] = {
+        [ADDRESS_FAMILY_IPV4] = "ipv4",
+        [ADDRESS_FAMILY_IPV6] = "ipv6",
 };
 
 static const char* const duplicate_address_detection_address_family_table[_ADDRESS_FAMILY_MAX] = {
-        [ADDRESS_FAMILY_NO]            = "none",
-        [ADDRESS_FAMILY_YES]           = "both",
-        [ADDRESS_FAMILY_IPV4]          = "ipv4",
-        [ADDRESS_FAMILY_IPV6]          = "ipv6",
+        [ADDRESS_FAMILY_NO]   = "none",
+        [ADDRESS_FAMILY_YES]  = "both",
+        [ADDRESS_FAMILY_IPV4] = "ipv4",
+        [ADDRESS_FAMILY_IPV6] = "ipv6",
+};
+
+static const char* const dhcp_deprecated_address_family_table[_ADDRESS_FAMILY_MAX] = {
+        [ADDRESS_FAMILY_NO]   = "none",
+        [ADDRESS_FAMILY_YES]  = "both",
+        [ADDRESS_FAMILY_IPV4] = "v4",
+        [ADDRESS_FAMILY_IPV6] = "v6",
+};
+
+static const char* const ip_masquerade_address_family_table[_ADDRESS_FAMILY_MAX] = {
+        [ADDRESS_FAMILY_NO]   = "no",
+        [ADDRESS_FAMILY_YES]  = "both",
+        [ADDRESS_FAMILY_IPV4] = "ipv4",
+        [ADDRESS_FAMILY_IPV6] = "ipv6",
 };
 
 static const char* const dhcp_lease_server_type_table[_SD_DHCP_LEASE_SERVER_TYPE_MAX] = {
@@ -47,12 +58,23 @@ static const char* const dhcp_lease_server_type_table[_SD_DHCP_LEASE_SERVER_TYPE
 };
 
 DEFINE_STRING_TABLE_LOOKUP_WITH_BOOLEAN(address_family, AddressFamily, ADDRESS_FAMILY_YES);
-DEFINE_STRING_TABLE_LOOKUP_WITH_BOOLEAN(link_local_address_family, AddressFamily, ADDRESS_FAMILY_YES);
+
+AddressFamily link_local_address_family_from_string(const char *s) {
+        if (streq_ptr(s, "fallback"))         /* compat name */
+                return ADDRESS_FAMILY_YES;
+        if (streq_ptr(s, "fallback-ipv4"))    /* compat name */
+                return ADDRESS_FAMILY_IPV4;
+        return address_family_from_string(s);
+}
+
 DEFINE_STRING_TABLE_LOOKUP(routing_policy_rule_address_family, AddressFamily);
+DEFINE_STRING_TABLE_LOOKUP(nexthop_address_family, AddressFamily);
 DEFINE_STRING_TABLE_LOOKUP(duplicate_address_detection_address_family, AddressFamily);
 DEFINE_CONFIG_PARSE_ENUM(config_parse_link_local_address_family, link_local_address_family,
                          AddressFamily, "Failed to parse option");
-DEFINE_STRING_TABLE_LOOKUP(dhcp_lease_server_type, sd_dhcp_lease_server_type);
+DEFINE_STRING_TABLE_LOOKUP_FROM_STRING(dhcp_deprecated_address_family, AddressFamily);
+DEFINE_PRIVATE_STRING_TABLE_LOOKUP_FROM_STRING(ip_masquerade_address_family, AddressFamily);
+DEFINE_STRING_TABLE_LOOKUP(dhcp_lease_server_type, sd_dhcp_lease_server_type_t);
 
 int config_parse_address_family_with_kernel(
                 const char* unit,
@@ -93,6 +115,49 @@ int config_parse_address_family_with_kernel(
 
         *fwd = s;
 
+        return 0;
+}
+
+int config_parse_ip_masquerade(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        AddressFamily a, *ret = data;
+        int r;
+
+        if (isempty(rvalue)) {
+                *ret = ADDRESS_FAMILY_NO;
+                return 0;
+        }
+
+        r = parse_boolean(rvalue);
+        if (r >= 0) {
+                if (r)
+                        log_syntax(unit, LOG_WARNING, filename, line, 0,
+                                   "IPMasquerade=%s is deprecated, and it is handled as \"ipv4\" instead of \"both\". "
+                                   "Please use \"ipv4\" or \"both\".",
+                                   rvalue);
+
+                *ret = r ? ADDRESS_FAMILY_IPV4 : ADDRESS_FAMILY_NO;
+                return 0;
+        }
+
+        a = ip_masquerade_address_family_from_string(rvalue);
+        if (a < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, a,
+                           "Failed to parse IPMasquerade= setting, ignoring assignment: %s", rvalue);
+                return 0;
+        }
+
+        *ret = a;
         return 0;
 }
 
@@ -148,6 +213,28 @@ int network_config_section_new(const char *filename, unsigned line, NetworkConfi
         return 0;
 }
 
-void network_config_section_free(NetworkConfigSection *cs) {
-        free(cs);
+unsigned hashmap_find_free_section_line(Hashmap *hashmap) {
+        NetworkConfigSection *cs;
+        unsigned n = 0;
+        void *entry;
+
+        HASHMAP_FOREACH_KEY(entry, cs, hashmap)
+                if (n < cs->line)
+                        n = cs->line;
+
+        return n + 1;
+}
+
+int log_link_message_full_errno(Link *link, sd_netlink_message *m, int level, int err, const char *msg) {
+        const char *err_msg = NULL;
+
+        /* link may be NULL. */
+
+        (void) sd_netlink_message_read_string(m, NLMSGERR_ATTR_MSG, &err_msg);
+        return log_link_full_errno(link, level, err,
+                                   "%s: %s%s%s%m",
+                                   msg,
+                                   strempty(err_msg),
+                                   err_msg && !endswith(err_msg, ".") ? "." : "",
+                                   err_msg ? " " : "");
 }

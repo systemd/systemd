@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# SPDX-License-Identifier: LGPL-2.1+
+# SPDX-License-Identifier: LGPL-2.1-or-later
 
 set -ex
 
@@ -38,7 +38,11 @@ else
     fi
 fi
 
-meson $build -D$fuzzflag -Db_lundef=false
+if ! meson $build -D$fuzzflag -Db_lundef=false; then
+    cat $build/meson-logs/meson-log.txt
+    exit 1
+fi
+
 ninja -v -C $build fuzzers
 
 # The seed corpus is a separate flat archive for each fuzzer,

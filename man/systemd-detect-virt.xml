@@ -1,7 +1,7 @@
 <?xml version='1.0'?> <!--*-nxml-*-->
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
-<!-- SPDX-License-Identifier: LGPL-2.1+ -->
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
 
 <refentry id="systemd-detect-virt"
           xmlns:xi="http://www.w3.org/2001/XInclude">
@@ -62,14 +62,19 @@
         </thead>
         <tbody>
           <row>
-            <entry valign="top" morerows="12">VM</entry>
+            <entry valign="top" morerows="13">VM</entry>
             <entry><varname>qemu</varname></entry>
             <entry>QEMU software virtualization, without KVM</entry>
           </row>
 
           <row>
             <entry><varname>kvm</varname></entry>
-            <entry>Linux KVM kernel virtual machine, with whatever software, except Oracle Virtualbox</entry>
+            <entry>Linux KVM kernel virtual machine, in combination with QEMU. Not used for other virtualizers using the KVM interfaces, such as Oracle VirtualBox or Amazon EC2 Nitro, see below.</entry>
+          </row>
+
+          <row>
+            <entry><varname>amazon</varname></entry>
+            <entry>Amazon EC2 Nitro using Linux KVM</entry>
           </row>
 
           <row>
@@ -90,6 +95,11 @@
           <row>
             <entry><varname>oracle</varname></entry>
             <entry>Oracle VM VirtualBox (historically marketed by innotek and Sun Microsystems), for legacy and KVM hypervisor</entry>
+          </row>
+
+          <row>
+            <entry><varname>powervm</varname></entry>
+            <entry>IBM PowerVM hypervisor — comes as firmware with some IBM POWER servers</entry>
           </row>
 
           <row>
@@ -128,7 +138,7 @@
           </row>
 
           <row>
-            <entry valign="top" morerows="8">Container</entry>
+            <entry valign="top" morerows="9">Container</entry>
             <entry><varname>openvz</varname></entry>
             <entry>OpenVZ/Virtuozzo</entry>
           </row>

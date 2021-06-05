@@ -1,5 +1,5 @@
 #compdef loginctl                    -*- shell-script -*-
-# SPDX-License-Identifier: LGPL-2.1+
+# SPDX-License-Identifier: LGPL-2.1-or-later
 
 (( $+functions[_loginctl_all_sessions] )) ||
 _loginctl_all_sessions() {
@@ -34,6 +34,9 @@ for fun in session-status show-session activate lock-session unlock-session term
     (( $+functions[_loginctl_$fun] )) ||
 _loginctl_$fun() {
     local -a _sys_all_sessions{,_descr}
+
+	_sys_all_sessions=( "self" )
+	_sys_all_sessions_descr=( "self:alias for the current session" )
 
     _loginctl_all_sessions
     for _ignore in $words[2,-1]; do
@@ -80,6 +83,9 @@ done
 (( $+functions[_loginctl_seats] )) ||
 _loginctl_seats() {
     local -a _sys_all_seats{,_descr}
+
+	_sys_all_seats=( "self" )
+	_sys_all_seats_descr=( "self:alias for the current seat" )
 
     _loginctl_all_seats
     for _ignore in $words[2,-1]; do

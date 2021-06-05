@@ -1,5 +1,6 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "af-list.h"
 #include "alloc-util.h"
 #include "bus-error.h"
 #include "bus-unit-util.h"
@@ -28,6 +29,7 @@
 #include "numa-util.h"
 #include "parse-util.h"
 #include "path-util.h"
+#include "percent-util.h"
 #include "process-util.h"
 #include "rlimit-util.h"
 #if HAVE_SECCOMP
@@ -432,8 +434,25 @@ static int bus_append_ip_address_access(sd_bus_message *m, int family, const uni
 static int bus_append_cgroup_property(sd_bus_message *m, const char *field, const char *eq) {
         int r;
 
-        if (STR_IN_SET(field, "DevicePolicy", "Slice"))
+        if (STR_IN_SET(field, "DevicePolicy",
+                              "Slice",
+                              "ManagedOOMSwap",
+                              "ManagedOOMMemoryPressure",
+                              "ManagedOOMPreference"))
                 return bus_append_string(m, field, eq);
+
+        if (STR_IN_SET(field, "ManagedOOMMemoryPressureLimit")) {
+                r = parse_permyriad(eq);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to parse %s value: %s", field, eq);
+
+                /* Pass around scaled to 2^32-1 == 100% */
+                r = sd_bus_message_append(m, "(sv)", field, "u", UINT32_SCALE_FROM_PERMYRIAD(r));
+                if (r < 0)
+                        return bus_log_create_error(r);
+
+                return 1;
+        }
 
         if (STR_IN_SET(field, "CPUAccounting",
                               "MemoryAccounting",
@@ -519,7 +538,7 @@ static int bus_append_cgroup_property(sd_bus_message *m, const char *field, cons
                         return 1;
                 }
 
-                r = parse_permille(eq);
+                r = parse_permyriad(eq);
                 if (r >= 0) {
                         char *n;
 
@@ -528,7 +547,7 @@ static int bus_append_cgroup_property(sd_bus_message *m, const char *field, cons
                          * size can be determined server-side. */
 
                         n = strjoina(field, "Scale");
-                        r = sd_bus_message_append(m, "(sv)", n, "u", (uint32_t) (((uint64_t) r * UINT32_MAX) / 1000U));
+                        r = sd_bus_message_append(m, "(sv)", n, "u", UINT32_SCALE_FROM_PERMYRIAD(r));
                         if (r < 0)
                                 return bus_log_create_error(r);
 
@@ -545,14 +564,14 @@ static int bus_append_cgroup_property(sd_bus_message *m, const char *field, cons
                 if (isempty(eq))
                         r = sd_bus_message_append(m, "(sv)", "CPUQuotaPerSecUSec", "t", USEC_INFINITY);
                 else {
-                        r = parse_permille_unbounded(eq);
+                        r = parse_permyriad_unbounded(eq);
                         if (r == 0)
                                 return log_error_errno(SYNTHETIC_ERRNO(ERANGE),
                                                        "CPU quota too small.");
                         if (r < 0)
                                 return log_error_errno(r, "CPU quota '%s' invalid.", eq);
 
-                        r = sd_bus_message_append(m, "(sv)", "CPUQuotaPerSecUSec", "t", (((uint64_t) r * USEC_PER_SEC) / 1000U));
+                        r = sd_bus_message_append(m, "(sv)", "CPUQuotaPerSecUSec", "t", (((uint64_t) r * USEC_PER_SEC) / 10000U));
                 }
 
                 if (r < 0)
@@ -824,6 +843,73 @@ static int bus_append_cgroup_property(sd_bus_message *m, const char *field, cons
                 return 1;
         }
 
+        if (streq(field, "BPFProgram")) {
+                if (isempty(eq))
+                        r = sd_bus_message_append(m, "(sv)", field, "a(ss)", 0);
+                else {
+                        _cleanup_free_ char *word = NULL;
+
+                        r = extract_first_word(&eq, &word, ":", 0);
+                        if (r == -ENOMEM)
+                                return log_oom();
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse %s: %m", field);
+
+                        r = sd_bus_message_append(m, "(sv)", field, "a(ss)", 1, word, eq);
+                }
+                if (r < 0)
+                        return bus_log_create_error(r);
+
+                return 1;
+        }
+
+        if (STR_IN_SET(field, "SocketBindAllow",
+                              "SocketBindDeny")) {
+                if (isempty(eq))
+                        r = sd_bus_message_append(m, "(sv)", field, "a(iqq)", 0);
+                else {
+                        const char *address_family, *user_port;
+                        _cleanup_free_ char *word = NULL;
+                        int family = AF_UNSPEC;
+
+                        r = extract_first_word(&eq, &word, ":", 0);
+                        if (r == -ENOMEM)
+                                return log_oom();
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse %s: %m", field);
+
+                        address_family = eq ? word : NULL;
+                        if (address_family) {
+                                family = af_from_ipv4_ipv6(address_family);
+                                if (family == AF_UNSPEC)
+                                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                               "Only \"ipv4\" and \"ipv6\" protocols are supported");
+                        }
+
+                        user_port = eq ? eq : word;
+                        if (streq(user_port, "any")) {
+                                r = sd_bus_message_append(m, "(sv)", field, "a(iqq)", 1, family, 0, 0);
+                                if (r < 0)
+                                        return bus_log_create_error(r);
+                        } else {
+                                uint16_t port_min, port_max;
+
+                                r = parse_ip_port_range(user_port, &port_min, &port_max);
+                                if (r == -ENOMEM)
+                                        return log_oom();
+                                if (r < 0)
+                                        return log_error_errno(r, "Invalid port or port range: %s", user_port);
+
+                                r = sd_bus_message_append(
+                                                m, "(sv)", field, "a(iqq)", 1, family, port_max - port_min + 1, port_min);
+                        }
+                }
+                if (r < 0)
+                        return bus_log_create_error(r);
+
+                return 1;
+        }
+
         return 0;
 }
 
@@ -864,6 +950,7 @@ static int bus_append_execute_property(sd_bus_message *m, const char *field, con
                               "ProtectProc",
                               "ProcSubset",
                               "NetworkNamespacePath",
+                              "IPCNamespacePath",
                               "LogNamespace"))
                 return bus_append_string(m, field, eq);
 
@@ -876,6 +963,7 @@ static int bus_append_execute_property(sd_bus_message *m, const char *field, con
                               "PrivateNetwork",
                               "PrivateUsers",
                               "PrivateMounts",
+                              "PrivateIPC",
                               "NoNewPrivileges",
                               "SyslogLevelPrefix",
                               "MemoryDenyWriteExecute",
@@ -900,6 +988,8 @@ static int bus_append_execute_property(sd_bus_message *m, const char *field, con
                               "ReadWritePaths",
                               "ReadOnlyPaths",
                               "InaccessiblePaths",
+                              "ExecPaths",
+                              "NoExecPaths",
                               "RuntimeDirectory",
                               "StateDirectory",
                               "CacheDirectory",
@@ -1140,6 +1230,9 @@ static int bus_append_execute_property(sd_bus_message *m, const char *field, con
                 } else if ((n = startswith(eq, "append:"))) {
                         appended = strjoina(field, "FileToAppend");
                         r = sd_bus_message_append(m, "(sv)", appended, "s", n);
+                } else if ((n = startswith(eq, "truncate:"))) {
+                        appended = strjoina(field, "FileToTruncate");
+                        r = sd_bus_message_append(m, "(sv)", appended, "s", n);
                 } else
                         r = sd_bus_message_append(m, "(sv)", field, "s", eq);
                 if (r < 0)
@@ -1155,7 +1248,7 @@ static int bus_append_execute_property(sd_bus_message *m, const char *field, con
                 if (r < 0)
                         return log_error_errno(r, "Failed to unescape text '%s': %m", eq);
 
-                if (!strextend(&unescaped, "\n", NULL))
+                if (!strextend(&unescaped, "\n"))
                         return log_oom();
 
                 /* Note that we don't expand specifiers here, but that should be OK, as this is a programmatic
@@ -1168,7 +1261,7 @@ static int bus_append_execute_property(sd_bus_message *m, const char *field, con
                 _cleanup_free_ void *decoded = NULL;
                 size_t sz;
 
-                r = unbase64mem(eq, (size_t) -1, &decoded, &sz);
+                r = unbase64mem(eq, SIZE_MAX, &decoded, &sz);
                 if (r < 0)
                         return log_error_errno(r, "Failed to decode base64 data '%s': %m", eq);
 
@@ -1608,10 +1701,6 @@ static int bus_append_execute_property(sd_bus_message *m, const char *field, con
                         return log_error_errno(r, "Failed to parse argument: %m");
 
                 STRV_FOREACH_PAIR(first, second, l) {
-                        /* Format is either 'root:foo' or 'foo' (root is implied) */
-                        if (!isempty(*second) && partition_designator_from_string(*first) < 0)
-                                return bus_log_create_error(-EINVAL);
-
                         r = sd_bus_message_append(m, "(ss)",
                                                   !isempty(*second) ? *first : "root",
                                                   !isempty(*second) ? *second : *first);
@@ -1660,14 +1749,14 @@ static int bus_append_execute_property(sd_bus_message *m, const char *field, con
 
                         r = extract_first_word(&p, &tuple, NULL, EXTRACT_UNQUOTE|EXTRACT_RETAIN_ESCAPE);
                         if (r < 0)
-                                return r;
+                                return log_error_errno(r, "Failed to parse MountImages= property: %s", eq);
                         if (r == 0)
                                 break;
 
                         q = tuple;
                         r = extract_many_words(&q, ":", EXTRACT_CUNESCAPE|EXTRACT_UNESCAPE_SEPARATORS, &first, &second, NULL);
                         if (r < 0)
-                                return r;
+                                return log_error_errno(r, "Failed to parse MountImages= property: %s", eq);
                         if (r == 0)
                                 continue;
 
@@ -1699,7 +1788,7 @@ static int bus_append_execute_property(sd_bus_message *m, const char *field, con
 
                                 r = extract_many_words(&q, ":", EXTRACT_CUNESCAPE|EXTRACT_UNESCAPE_SEPARATORS, &partition, &mount_options, NULL);
                                 if (r < 0)
-                                        return r;
+                                        return log_error_errno(r, "Failed to parse MountImages= property: %s", eq);
                                 if (r == 0)
                                         break;
                                 /* Single set of options, applying to the root partition/single filesystem */
@@ -1711,8 +1800,106 @@ static int bus_append_execute_property(sd_bus_message *m, const char *field, con
                                         break;
                                 }
 
-                                if (partition_designator_from_string(partition) < 0)
-                                        return bus_log_create_error(-EINVAL);
+                                r = sd_bus_message_append(m, "(ss)", partition, mount_options);
+                                if (r < 0)
+                                        return bus_log_create_error(r);
+                        }
+
+                        r = sd_bus_message_close_container(m);
+                        if (r < 0)
+                                return bus_log_create_error(r);
+
+                        r = sd_bus_message_close_container(m);
+                        if (r < 0)
+                                return bus_log_create_error(r);
+                }
+
+                r = sd_bus_message_close_container(m);
+                if (r < 0)
+                        return bus_log_create_error(r);
+
+                r = sd_bus_message_close_container(m);
+                if (r < 0)
+                        return bus_log_create_error(r);
+
+                r = sd_bus_message_close_container(m);
+                if (r < 0)
+                        return bus_log_create_error(r);
+
+                return 1;
+        }
+
+        if (streq(field, "ExtensionImages")) {
+                const char *p = eq;
+
+                r = sd_bus_message_open_container(m, SD_BUS_TYPE_STRUCT, "sv");
+                if (r < 0)
+                        return bus_log_create_error(r);
+
+                r = sd_bus_message_append_basic(m, SD_BUS_TYPE_STRING, field);
+                if (r < 0)
+                        return bus_log_create_error(r);
+
+                r = sd_bus_message_open_container(m, 'v', "a(sba(ss))");
+                if (r < 0)
+                        return bus_log_create_error(r);
+
+                r = sd_bus_message_open_container(m, 'a', "(sba(ss))");
+                if (r < 0)
+                        return bus_log_create_error(r);
+
+                for (;;) {
+                        _cleanup_free_ char *source = NULL, *tuple = NULL;
+                        const char *q = NULL, *s = NULL;
+                        bool permissive = false;
+
+                        r = extract_first_word(&p, &tuple, NULL, EXTRACT_UNQUOTE|EXTRACT_RETAIN_ESCAPE);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse ExtensionImages= property: %s", eq);
+                        if (r == 0)
+                                break;
+
+                        q = tuple;
+                        r = extract_first_word(&q, &source, ":", EXTRACT_CUNESCAPE|EXTRACT_UNESCAPE_SEPARATORS);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse ExtensionImages= property: %s", eq);
+                        if (r == 0)
+                                continue;
+
+                        s = source;
+                        if (s[0] == '-') {
+                                permissive = true;
+                                s++;
+                        }
+
+                        r = sd_bus_message_open_container(m, 'r', "sba(ss)");
+                        if (r < 0)
+                                return bus_log_create_error(r);
+
+                        r = sd_bus_message_append(m, "sb", s, permissive);
+                        if (r < 0)
+                                return bus_log_create_error(r);
+
+                        r = sd_bus_message_open_container(m, 'a', "(ss)");
+                        if (r < 0)
+                                return bus_log_create_error(r);
+
+                        for (;;) {
+                                _cleanup_free_ char *partition = NULL, *mount_options = NULL;
+
+                                r = extract_many_words(&q, ":", EXTRACT_CUNESCAPE|EXTRACT_UNESCAPE_SEPARATORS, &partition, &mount_options, NULL);
+                                if (r < 0)
+                                        return log_error_errno(r, "Failed to parse ExtensionImages= property: %s", eq);
+                                if (r == 0)
+                                        break;
+                                /* Single set of options, applying to the root partition/single filesystem */
+                                if (r == 1) {
+                                        r = sd_bus_message_append(m, "(ss)", "root", partition);
+                                        if (r < 0)
+                                                return bus_log_create_error(r);
+
+                                        break;
+                                }
 
                                 r = sd_bus_message_append(m, "(ss)", partition, mount_options);
                                 if (r < 0)
@@ -1828,6 +2015,7 @@ static int bus_append_service_property(sd_bus_message *m, const char *field, con
 
         if (STR_IN_SET(field, "PIDFile",
                               "Type",
+                              "ExitType",
                               "Restart",
                               "BusName",
                               "NotifyAccess",
@@ -2033,7 +2221,8 @@ static int bus_append_socket_property(sd_bus_message *m, const char *field, cons
                               "BindIPv6Only",
                               "FileDescriptorName",
                               "SocketUser",
-                              "SocketGroup"))
+                              "SocketGroup",
+                              "Timestamping"))
                 return bus_append_string(m, field, eq);
 
         if (streq(field, "Symlinks"))
@@ -2069,7 +2258,8 @@ static int bus_append_timer_property(sd_bus_message *m, const char *field, const
                               "RemainAfterElapse",
                               "Persistent",
                               "OnTimezoneChange",
-                              "OnClockChange"))
+                              "OnClockChange",
+                              "FixedRandomDelay"))
                 return bus_append_parse_boolean(m, field, eq);
 
         if (STR_IN_SET(field, "AccuracySec",
@@ -2165,7 +2355,8 @@ static int bus_append_unit_property(sd_bus_message *m, const char *field, const 
 
         if (unit_dependency_from_string(field) >= 0 ||
             STR_IN_SET(field, "Documentation",
-                              "RequiresMountsFor"))
+                              "RequiresMountsFor",
+                              "Markers"))
                 return bus_append_strv(m, field, eq, EXTRACT_UNQUOTE);
 
         t = condition_type_from_string(field);
@@ -2360,10 +2551,10 @@ int bus_deserialize_and_dump_unit_file_changes(sd_bus_message *m, bool quiet, Un
         while ((r = sd_bus_message_read(m, "(sss)", &type, &path, &source)) > 0) {
                 /* We expect only "success" changes to be sent over the bus.
                    Hence, reject anything negative. */
-                UnitFileChangeType ch = unit_file_change_type_from_string(type);
-
+                int ch = unit_file_change_type_from_string(type);
                 if (ch < 0) {
-                        log_notice("Manager reported unknown change type \"%s\" for path \"%s\", ignoring.", type, path);
+                        log_notice_errno(ch, "Manager reported unknown change type \"%s\" for path \"%s\", ignoring.",
+                                         type, path);
                         continue;
                 }
 
@@ -2406,4 +2597,21 @@ int unit_load_state(sd_bus *bus, const char *name, char **load_state) {
                 return log_error_errno(r, "Failed to get load state of %s: %s", name, bus_error_message(&error, r));
 
         return 0;
+}
+
+int unit_info_compare(const UnitInfo *a, const UnitInfo *b) {
+        int r;
+
+        /* First, order by machine */
+        r = strcasecmp_ptr(a->machine, b->machine);
+        if (r != 0)
+                return r;
+
+        /* Second, order by unit type */
+        r = strcasecmp_ptr(strrchr(a->id, '.'), strrchr(b->id, '.'));
+        if (r != 0)
+                return r;
+
+        /* Third, order by name */
+        return strcasecmp(a->id, b->id);
 }

@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <errno.h>
 #include <linux/netlink.h>
@@ -126,7 +126,7 @@ static int add_syscall_filters(
                  * @pkey
                  * @swap
                  *
-                 * bpf                (NB: bpffs is not namespaced!)
+                 * bpf
                  * fanotify_init
                  * fanotify_mark
                  * kexec_file_load
@@ -186,7 +186,7 @@ int setup_seccomp(uint64_t cap_list_retain, char **syscall_allow_list, char **sy
         int r;
 
         if (!is_seccomp_available()) {
-                log_debug("SECCOMP features not detected in the kernel, disabling SECCOMP filterering");
+                log_debug("SECCOMP features not detected in the kernel or disabled at runtime, disabling SECCOMP filtering");
                 return 0;
         }
 

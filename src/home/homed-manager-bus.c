@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <linux/capability.h>
 
@@ -398,7 +398,7 @@ static int method_register_home(
         assert(message);
         assert(m);
 
-        r = bus_message_read_home_record(message, USER_RECORD_LOAD_EMBEDDED, &hr, error);
+        r = bus_message_read_home_record(message, USER_RECORD_LOAD_EMBEDDED|USER_RECORD_PERMISSIVE, &hr, error);
         if (r < 0)
                 return r;
 
@@ -513,7 +513,7 @@ static int method_update_home(sd_bus_message *message, void *userdata, sd_bus_er
         assert(message);
         assert(m);
 
-        r = bus_message_read_home_record(message, USER_RECORD_REQUIRE_REGULAR|USER_RECORD_ALLOW_SECRET|USER_RECORD_ALLOW_PRIVILEGED|USER_RECORD_ALLOW_PER_MACHINE|USER_RECORD_ALLOW_SIGNATURE, &hr, error);
+        r = bus_message_read_home_record(message, USER_RECORD_REQUIRE_REGULAR|USER_RECORD_ALLOW_SECRET|USER_RECORD_ALLOW_PRIVILEGED|USER_RECORD_ALLOW_PER_MACHINE|USER_RECORD_ALLOW_SIGNATURE|USER_RECORD_PERMISSIVE, &hr, error);
         if (r < 0)
                 return r;
 
@@ -591,7 +591,45 @@ static int method_lock_all_homes(sd_bus_message *message, void *userdata, sd_bus
         }
 
         if (waiting) /* At least one lock operation was enqeued, let's leave here without a reply: it will
-                        * be sent as soon as the last of the lock operations completed. */
+                      * be sent as soon as the last of the lock operations completed. */
+                return 1;
+
+        return sd_bus_reply_method_return(message, NULL);
+}
+
+static int method_deactivate_all_homes(sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        _cleanup_(operation_unrefp) Operation *o = NULL;
+        bool waiting = false;
+        Manager *m = userdata;
+        Home *h;
+        int r;
+
+        assert(m);
+
+        /* This is called from systemd-homed-activate.service's ExecStop= command to ensure that all home
+         * directories are shutdown before the system goes down. Note that we don't do this from
+         * systemd-homed.service itself since we want to allow restarting of it without tearing down all home
+         * directories. */
+
+        HASHMAP_FOREACH(h, m->homes_by_name) {
+
+                if (!o) {
+                        o = operation_new(OPERATION_DEACTIVATE_ALL, message);
+                        if (!o)
+                                return -ENOMEM;
+                }
+
+                log_info("Automatically deactivating home of user %s.", h->user_name);
+
+                r = home_schedule_operation(h, o, error);
+                if (r < 0)
+                        return r;
+
+                waiting = true;
+        }
+
+        if (waiting) /* At least one lock operation was enqeued, let's leave here without a reply: it will be
+                      * sent as soon as the last of the deactivation operations completed. */
                 return 1;
 
         return sd_bus_reply_method_return(message, NULL);
@@ -804,6 +842,7 @@ static const sd_bus_vtable manager_vtable[] = {
 
         /* An operation that acts on all homes that allow it */
         SD_BUS_METHOD("LockAllHomes", NULL, NULL, method_lock_all_homes, 0),
+        SD_BUS_METHOD("DeactivateAllHomes", NULL, NULL, method_deactivate_all_homes, 0),
 
         SD_BUS_VTABLE_END
 };
@@ -821,7 +860,7 @@ static int on_deferred_auto_login(sd_event_source *s, void *userdata) {
 
         assert(m);
 
-        m->deferred_auto_login_event_source = sd_event_source_unref(m->deferred_auto_login_event_source);
+        m->deferred_auto_login_event_source = sd_event_source_disable_unref(m->deferred_auto_login_event_source);
 
         r = sd_bus_emit_properties_changed(
                         m->bus,

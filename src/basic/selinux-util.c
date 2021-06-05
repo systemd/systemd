@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <errno.h>
 #include <fcntl.h>
@@ -29,7 +29,7 @@
 #include "time-util.h"
 
 #if HAVE_SELINUX
-DEFINE_TRIVIAL_CLEANUP_FUNC(context_t, context_free);
+DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(context_t, context_free, NULL);
 #define _cleanup_context_free_ _cleanup_(context_freep)
 
 static int mac_selinux_reload(int seqno);
@@ -50,7 +50,7 @@ static struct selabel_handle *label_hnd = NULL;
                 int _e = (error);                                       \
                                                                         \
                 int _r = (log_get_max_level() >= LOG_PRI(_level))       \
-                        ? log_internal_realm(_level, _e, PROJECT_FILE, __LINE__, __func__, __VA_ARGS__) \
+                        ? log_internal(_level, _e, PROJECT_FILE, __LINE__, __func__, __VA_ARGS__) \
                         : -ERRNO_VALUE(_e);                             \
                 _enforcing ? _r : 0;                                    \
         })
@@ -84,14 +84,34 @@ void mac_selinux_retest(void) {
 }
 
 #if HAVE_SELINUX
+#  if HAVE_MALLINFO2
+#    define HAVE_GENERIC_MALLINFO 1
+typedef struct mallinfo2 generic_mallinfo;
+static generic_mallinfo generic_mallinfo_get(void) {
+        return mallinfo2();
+}
+#  elif HAVE_MALLINFO
+#    define HAVE_GENERIC_MALLINFO 1
+typedef struct mallinfo generic_mallinfo;
+static generic_mallinfo generic_mallinfo_get(void) {
+        /* glibc has deprecated mallinfo(), let's suppress the deprecation warning if mallinfo2() doesn't
+         * exist yet. */
+DISABLE_WARNING_DEPRECATED_DECLARATIONS
+        return mallinfo();
+REENABLE_WARNING
+}
+#  else
+#    define HAVE_GENERIC_MALLINFO 0
+#  endif
+
 static int open_label_db(void) {
         struct selabel_handle *hnd;
         usec_t before_timestamp, after_timestamp;
-        struct mallinfo before_mallinfo, after_mallinfo;
         char timespan[FORMAT_TIMESPAN_MAX];
-        int l;
 
-        before_mallinfo = mallinfo();
+#  if HAVE_GENERIC_MALLINFO
+        generic_mallinfo before_mallinfo = generic_mallinfo_get();
+#  endif
         before_timestamp = now(CLOCK_MONOTONIC);
 
         hnd = selabel_open(SELABEL_CTX_FILE, NULL, 0);
@@ -99,13 +119,16 @@ static int open_label_db(void) {
                 return log_enforcing_errno(errno, "Failed to initialize SELinux labeling handle: %m");
 
         after_timestamp = now(CLOCK_MONOTONIC);
-        after_mallinfo = mallinfo();
-
-        l = after_mallinfo.uordblks > before_mallinfo.uordblks ? after_mallinfo.uordblks - before_mallinfo.uordblks : 0;
-
-        log_debug("Successfully loaded SELinux database in %s, size on heap is %iK.",
+#  if HAVE_GENERIC_MALLINFO
+        generic_mallinfo after_mallinfo = generic_mallinfo_get();
+        size_t l = LESS_BY((size_t) after_mallinfo.uordblks, (size_t) before_mallinfo.uordblks);
+        log_debug("Successfully loaded SELinux database in %s, size on heap is %zuK.",
                   format_timespan(timespan, sizeof(timespan), after_timestamp - before_timestamp, 0),
-                  (l+1023)/1024);
+                  DIV_ROUND_UP(l, 1024));
+#  else
+        log_debug("Successfully loaded SELinux database in %s.",
+                  format_timespan(timespan, sizeof(timespan), after_timestamp - before_timestamp, 0));
+#  endif
 
         /* release memory after measurement */
         if (label_hnd)
@@ -119,6 +142,7 @@ static int open_label_db(void) {
 int mac_selinux_init(void) {
 #if HAVE_SELINUX
         int r;
+        bool have_status_page = false;
 
         if (initialized)
                 return 0;
@@ -126,9 +150,15 @@ int mac_selinux_init(void) {
         if (!mac_selinux_use())
                 return 0;
 
-        r = selinux_status_open(/* no netlink fallback */ 0);
-        if (r < 0)
-                return log_enforcing_errno(errno, "Failed to open SELinux status page: %m");
+        r = selinux_status_open(/* netlink fallback */ 1);
+        if (r < 0) {
+                if (!ERRNO_IS_PRIVILEGE(errno))
+                        return log_enforcing_errno(errno, "Failed to open SELinux status page: %m");
+                log_warning_errno(errno, "selinux_status_open() with netlink fallback failed, not checking for policy reloads: %m");
+        } else if (r == 1)
+                log_warning("selinux_status_open() failed to open the status page, using the netlink fallback.");
+        else
+                have_status_page = true;
 
         r = open_label_db();
         if (r < 0) {
@@ -136,13 +166,14 @@ int mac_selinux_init(void) {
                 return r;
         }
 
-        /* save the current policyload sequence number, so `mac_selinux_maybe_reload()` does
-           not trigger on first call without any actual change */
+        /* Save the current policyload sequence number, so mac_selinux_maybe_reload() does not trigger on
+         * first call without any actual change. */
         last_policyload = selinux_status_policyload();
 
-        /* now that the SELinux status page has been successfully opened,
-           retrieve the enforcing status over it (to avoid system calls in `security_getenforce()`) */
-        enforcing_status_func = selinux_status_getenforce;
+        if (have_status_page)
+                /* Now that the SELinux status page has been successfully opened, retrieve the enforcing
+                 * status over it (to avoid system calls in security_getenforce()). */
+                enforcing_status_func = selinux_status_getenforce;
 
         initialized = true;
 #endif
@@ -151,28 +182,27 @@ int mac_selinux_init(void) {
 
 void mac_selinux_maybe_reload(void) {
 #if HAVE_SELINUX
-        int r;
+        int policyload;
 
         if (!initialized)
                 return;
 
-        r = selinux_status_updated();
-        if (r < 0)
-                log_debug_errno(errno, "Failed to update SELinux from status page: %m");
-        if (r > 0) {
-                int policyload;
+        /* Do not use selinux_status_updated(3), cause since libselinux 3.2 selinux_check_access(3),
+         * called in core and user instances, does also use it under the hood.
+         * That can cause changes to be consumed by selinux_check_access(3) and not being visible here.
+         * Also do not use selinux callbacks, selinux_set_callback(3), cause they are only automatically
+         * invoked since libselinux 3.2 by selinux_status_updated(3).
+         * Relevant libselinux commit: https://github.com/SELinuxProject/selinux/commit/05bdc03130d741e53e1fb45a958d0a2c184be503
+         * Debian Bullseye is going to ship libselinux 3.1, so stay compatible for backports. */
+        policyload = selinux_status_policyload();
+        if (policyload < 0) {
+                log_debug_errno(errno, "Failed to get SELinux policyload from status page: %m");
+                return;
+        }
 
-                log_debug("SELinux status page update");
-
-                /* from libselinux > 3.1 callbacks gets automatically called, see
-                   https://github.com/SELinuxProject/selinux/commit/05bdc03130d741e53e1fb45a958d0a2c184be503 */
-
-                /* only reload on policy changes, not enforcing status changes */
-                policyload = selinux_status_policyload();
-                if (policyload != last_policyload) {
-                        mac_selinux_reload(policyload);
-                        last_policyload = policyload;
-                }
+        if (policyload != last_policyload) {
+                mac_selinux_reload(policyload);
+                last_policyload = policyload;
         }
 #endif
 }
@@ -205,14 +235,11 @@ static int mac_selinux_reload(int seqno) {
 
 int mac_selinux_fix_container(const char *path, const char *inside_path, LabelFixFlags flags) {
 
-#if HAVE_SELINUX
-        char procfs_path[STRLEN("/proc/self/fd/") + DECIMAL_STR_MAX(int)];
-        _cleanup_freecon_ char* fcon = NULL;
-        _cleanup_close_ int fd = -1;
-        struct stat st;
-        int r;
-
         assert(path);
+        assert(inside_path);
+
+#if HAVE_SELINUX
+        _cleanup_close_ int fd = -1;
 
         /* if mac_selinux_init() wasn't called before we are a NOOP */
         if (!label_hnd)
@@ -227,19 +254,41 @@ int mac_selinux_fix_container(const char *path, const char *inside_path, LabelFi
                 return -errno;
         }
 
+        return mac_selinux_fix_container_fd(fd, path, inside_path, flags);
+#endif
+
+        return 0;
+}
+
+int mac_selinux_fix_container_fd(int fd, const char *path, const char *inside_path, LabelFixFlags flags) {
+
+        assert(fd >= 0);
+        assert(inside_path);
+
+#if HAVE_SELINUX
+        char procfs_path[STRLEN("/proc/self/fd/") + DECIMAL_STR_MAX(int)];
+        _cleanup_freecon_ char* fcon = NULL;
+        struct stat st;
+        int r;
+
+        /* if mac_selinux_init() wasn't called before we are a NOOP */
+        if (!label_hnd)
+                return 0;
+
         if (fstat(fd, &st) < 0)
                 return -errno;
 
         /* Check for policy reload so 'label_hnd' is kept up-to-date by callbacks */
         mac_selinux_maybe_reload();
+        if (!label_hnd)
+                return 0;
 
         if (selabel_lookup_raw(label_hnd, &fcon, inside_path, st.st_mode) < 0) {
-                r = -errno;
-
                 /* If there's no label to set, then exit without warning */
-                if (r == -ENOENT)
+                if (errno == ENOENT)
                         return 0;
 
+                r = -errno;
                 goto fail;
         }
 
@@ -247,15 +296,15 @@ int mac_selinux_fix_container(const char *path, const char *inside_path, LabelFi
         if (setfilecon_raw(procfs_path, fcon) < 0) {
                 _cleanup_freecon_ char *oldcon = NULL;
 
-                r = -errno;
-
                 /* If the FS doesn't support labels, then exit without warning */
-                if (r == -EOPNOTSUPP)
+                if (ERRNO_IS_NOT_SUPPORTED(errno))
                         return 0;
 
                 /* It the FS is read-only and we were told to ignore failures caused by that, suppress error */
-                if (r == -EROFS && (flags & LABEL_IGNORE_EROFS))
+                if (errno == EROFS && (flags & LABEL_IGNORE_EROFS))
                         return 0;
+
+                r = -errno;
 
                 /* If the old label is identical to the new one, suppress any kind of error */
                 if (getfilecon_raw(procfs_path, &oldcon) >= 0 && streq(fcon, oldcon))
@@ -267,7 +316,7 @@ int mac_selinux_fix_container(const char *path, const char *inside_path, LabelFi
         return 0;
 
 fail:
-        return log_enforcing_errno(r, "Unable to fix SELinux security context of %s (%s): %m", path, inside_path);
+        return log_enforcing_errno(r, "Unable to fix SELinux security context of %s (%s): %m", strna(path), strna(inside_path));
 #endif
 
         return 0;
@@ -275,15 +324,32 @@ fail:
 
 int mac_selinux_apply(const char *path, const char *label) {
 
+        assert(path);
+
 #if HAVE_SELINUX
         if (!mac_selinux_use())
                 return 0;
 
-        assert(path);
         assert(label);
 
         if (setfilecon(path, label) < 0)
                 return log_enforcing_errno(errno, "Failed to set SELinux security context %s on path %s: %m", label, path);
+#endif
+        return 0;
+}
+
+int mac_selinux_apply_fd(int fd, const char *path, const char *label) {
+
+        assert(fd >= 0);
+
+#if HAVE_SELINUX
+        if (!mac_selinux_use())
+                return 0;
+
+        assert(label);
+
+        if (fsetfilecon(fd, label) < 0)
+                return log_enforcing_errno(errno, "Failed to set SELinux security context %s on path %s: %m", label, strna(path));
 #endif
         return 0;
 }
@@ -428,6 +494,8 @@ static int selinux_create_file_prepare_abspath(const char *abspath, mode_t mode)
 
         /* Check for policy reload so 'label_hnd' is kept up-to-date by callbacks */
         mac_selinux_maybe_reload();
+        if (!label_hnd)
+                return 0;
 
         r = selabel_lookup_raw(label_hnd, &filecon, abspath, mode);
         if (r < 0) {
@@ -450,25 +518,23 @@ int mac_selinux_create_file_prepare_at(int dirfd, const char *path, mode_t mode)
         _cleanup_free_ char *abspath = NULL;
         int r;
 
-
         assert(path);
 
         if (!label_hnd)
                 return 0;
 
         if (!path_is_absolute(path)) {
-                _cleanup_free_ char *p = NULL;
-
                 if (dirfd == AT_FDCWD)
-                        r = safe_getcwd(&p);
+                        r = safe_getcwd(&abspath);
                 else
-                        r = fd_get_path(dirfd, &p);
+                        r = fd_get_path(dirfd, &abspath);
                 if (r < 0)
                         return r;
 
-                path = abspath = path_join(p, path);
-                if (!path)
+                if (!path_extend(&abspath, path))
                         return -ENOMEM;
+
+                path = abspath;
         }
 
         return selinux_create_file_prepare_abspath(path, mode);
@@ -572,6 +638,8 @@ int mac_selinux_bind(int fd, const struct sockaddr *addr, socklen_t addrlen) {
 
         /* Check for policy reload so 'label_hnd' is kept up-to-date by callbacks */
         mac_selinux_maybe_reload();
+        if (!label_hnd)
+                goto skipped;
 
         if (path_is_absolute(path))
                 r = selabel_lookup_raw(label_hnd, &fcon, path, S_IFSOCK);

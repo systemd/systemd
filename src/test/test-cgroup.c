@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <unistd.h>
 
@@ -47,10 +47,11 @@ static void test_cg_create(void) {
         int r;
 
         r = cg_unified_cached(false);
-        if (r < 0) {
-                log_info_errno(r, "Skipping %s: %m", __func__);
+        if (r == -ENOMEDIUM) {
+                log_tests_skipped("cgroup not mounted");
                 return;
         }
+        assert_se(r >= 0);
 
         _cleanup_free_ char *here = NULL;
         assert_se(cg_pid_get_path_shifted(0, NULL, &here) >= 0);

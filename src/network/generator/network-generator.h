@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
 #include <net/ethernet.h>
@@ -19,7 +19,7 @@ typedef enum DHCPType {
         DHCP_TYPE_EITHER6,
         DHCP_TYPE_IBFT,
         _DHCP_TYPE_MAX,
-        _DHCP_TYPE_INVALID = -1,
+        _DHCP_TYPE_INVALID = -EINVAL,
 } DHCPType;
 
 typedef struct Address Address;

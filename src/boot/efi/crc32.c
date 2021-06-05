@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: LicenseRef-crc32-no-restriction */
 /* This is copied from util-linux, which in turn copied in the version from Gary S. Brown */
 
 /*
@@ -127,9 +128,8 @@ UINT32 crc32_exclude_offset(
 
         const UINT8 *p = buf;
         UINT32 crc = seed;
-        UINTN i;
 
-        for (i = 0; i < len; i++) {
+        for (UINTN i = 0; i < len; i++) {
                 UINT8 x = *p++;
 
                 if (i >= exclude_off && i < exclude_off + exclude_len)

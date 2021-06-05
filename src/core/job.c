@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <errno.h>
 
@@ -263,11 +263,7 @@ int job_install_deserialized(Job *j) {
                 return log_unit_debug_errno(j->unit, SYNTHETIC_ERRNO(EEXIST),
                                             "Unit already has a job installed. Not installing deserialized job.");
 
-        r = hashmap_ensure_allocated(&j->manager->jobs, NULL);
-        if (r < 0)
-                return r;
-
-        r = hashmap_put(j->manager->jobs, UINT32_TO_PTR(j->id), j);
+        r = hashmap_ensure_put(&j->manager->jobs, NULL, UINT32_TO_PTR(j->id), j);
         if (r == -EEXIST)
                 return log_unit_debug_errno(j->unit, r, "Job ID %" PRIu32 " already used, cannot deserialize job.", j->id);
         if (r < 0)
@@ -459,7 +455,6 @@ int job_type_merge_and_collapse(JobType *a, JobType b, Unit *u) {
 
 static bool job_is_runnable(Job *j) {
         Unit *other;
-        void *v;
 
         assert(j);
         assert(j->installed);
@@ -481,16 +476,16 @@ static bool job_is_runnable(Job *j) {
         if (j->type == JOB_NOP)
                 return true;
 
-        HASHMAP_FOREACH_KEY(v, other, j->unit->dependencies[UNIT_AFTER])
-                if (other->job && job_compare(j, other->job, UNIT_AFTER) > 0) {
+        UNIT_FOREACH_DEPENDENCY(other, j->unit, UNIT_ATOM_AFTER)
+                if (other->job && job_compare(j, other->job, UNIT_ATOM_AFTER) > 0) {
                         log_unit_debug(j->unit,
                                        "starting held back, waiting for: %s",
                                        other->id);
                         return false;
                 }
 
-        HASHMAP_FOREACH_KEY(v, other, j->unit->dependencies[UNIT_BEFORE])
-                if (other->job && job_compare(j, other->job, UNIT_BEFORE) > 0) {
+        UNIT_FOREACH_DEPENDENCY(other, j->unit, UNIT_ATOM_BEFORE)
+                if (other->job && job_compare(j, other->job, UNIT_ATOM_BEFORE) > 0) {
                         log_unit_debug(j->unit,
                                        "stopping held back, waiting for: %s",
                                        other->id);
@@ -561,6 +556,9 @@ static void job_log_begin_status_message(Unit *u, uint32_t job_id, JobType t) {
         if (!IN_SET(t, JOB_START, JOB_STOP, JOB_RELOAD))
                 return;
 
+        if (!unit_log_level_test(u, LOG_INFO))
+                return;
+
         if (log_on_console()) /* Skip this if it would only go on the console anyway */
                 return;
 
@@ -582,13 +580,12 @@ static void job_log_begin_status_message(Unit *u, uint32_t job_id, JobType t) {
          * which is supposed the highest level, friendliest output
          * possible, which means we should avoid the low-level unit
          * name. */
-        log_struct(LOG_INFO,
-                   LOG_MESSAGE("%s", buf),
-                   "JOB_ID=%" PRIu32, job_id,
-                   "JOB_TYPE=%s", job_type_to_string(t),
-                   LOG_UNIT_ID(u),
-                   LOG_UNIT_INVOCATION_ID(u),
-                   mid);
+        log_unit_struct(u, LOG_INFO,
+                        LOG_MESSAGE("%s", buf),
+                        "JOB_ID=%" PRIu32, job_id,
+                        "JOB_TYPE=%s", job_type_to_string(t),
+                        LOG_UNIT_INVOCATION_ID(u),
+                        mid);
 }
 
 static void job_emit_begin_status_message(Unit *u, uint32_t job_id, JobType t) {
@@ -848,9 +845,9 @@ static void job_print_done_status_message(Unit *u, JobType t, JobResult result) 
         REENABLE_WARNING;
 
         if (t == JOB_START && result == JOB_FAILED) {
-                _cleanup_free_ char *quoted;
+                _cleanup_free_ char *quoted = NULL;
 
-                quoted = shell_maybe_quote(u->id, ESCAPE_BACKSLASH);
+                quoted = shell_maybe_quote(u->id, 0);
                 manager_status_printf(u->manager, STATUS_TYPE_NORMAL, NULL, "See 'systemctl status %s' for details.", strna(quoted));
         }
 }
@@ -882,19 +879,20 @@ static void job_log_done_status_message(Unit *u, uint32_t job_id, JobType t, Job
                 return;
 
         /* Show condition check message if the job did not actually do anything due to failed condition. */
-        if ((t == JOB_START && result == JOB_DONE && !u->condition_result) ||
-            (t == JOB_START && result == JOB_SKIPPED)) {
-                log_struct(LOG_INFO,
-                           "MESSAGE=Condition check resulted in %s being skipped.", unit_status_string(u),
-                           "JOB_ID=%" PRIu32, job_id,
-                           "JOB_TYPE=%s", job_type_to_string(t),
-                           "JOB_RESULT=%s", job_result_to_string(result),
-                           LOG_UNIT_ID(u),
-                           LOG_UNIT_INVOCATION_ID(u),
-                           "MESSAGE_ID=" SD_MESSAGE_UNIT_STARTED_STR);
+        if (t == JOB_START && result == JOB_DONE && !u->condition_result) {
+                log_unit_struct(u, LOG_INFO,
+                                "MESSAGE=Condition check resulted in %s being skipped.", unit_status_string(u),
+                                "JOB_ID=%" PRIu32, job_id,
+                                "JOB_TYPE=%s", job_type_to_string(t),
+                                "JOB_RESULT=%s", job_result_to_string(result),
+                                LOG_UNIT_INVOCATION_ID(u),
+                                "MESSAGE_ID=" SD_MESSAGE_UNIT_STARTED_STR);
 
                 return;
         }
+
+        if (!unit_log_level_test(u, job_result_log_level[result]))
+                return;
 
         format = job_get_done_status_message_format(u, t, result);
         if (!format)
@@ -927,24 +925,22 @@ static void job_log_done_status_message(Unit *u, uint32_t job_id, JobType t, Job
                 break;
 
         default:
-                log_struct(job_result_log_level[result],
-                           LOG_MESSAGE("%s", buf),
-                           "JOB_ID=%" PRIu32, job_id,
-                           "JOB_TYPE=%s", job_type_to_string(t),
-                           "JOB_RESULT=%s", job_result_to_string(result),
-                           LOG_UNIT_ID(u),
-                           LOG_UNIT_INVOCATION_ID(u));
+                log_unit_struct(u, job_result_log_level[result],
+                                LOG_MESSAGE("%s", buf),
+                                "JOB_ID=%" PRIu32, job_id,
+                                "JOB_TYPE=%s", job_type_to_string(t),
+                                "JOB_RESULT=%s", job_result_to_string(result),
+                                LOG_UNIT_INVOCATION_ID(u));
                 return;
         }
 
-        log_struct(job_result_log_level[result],
-                   LOG_MESSAGE("%s", buf),
-                   "JOB_ID=%" PRIu32, job_id,
-                   "JOB_TYPE=%s", job_type_to_string(t),
-                   "JOB_RESULT=%s", job_result_to_string(result),
-                   LOG_UNIT_ID(u),
-                   LOG_UNIT_INVOCATION_ID(u),
-                   mid);
+        log_unit_struct(u, job_result_log_level[result],
+                        LOG_MESSAGE("%s", buf),
+                        "JOB_ID=%" PRIu32, job_id,
+                        "JOB_TYPE=%s", job_type_to_string(t),
+                        "JOB_RESULT=%s", job_result_to_string(result),
+                        LOG_UNIT_INVOCATION_ID(u),
+                        mid);
 }
 
 static void job_emit_done_status_message(Unit *u, uint32_t job_id, JobType t, JobResult result) {
@@ -954,13 +950,12 @@ static void job_emit_done_status_message(Unit *u, uint32_t job_id, JobType t, Jo
         job_print_done_status_message(u, t, result);
 }
 
-static void job_fail_dependencies(Unit *u, UnitDependency d) {
+static void job_fail_dependencies(Unit *u, UnitDependencyAtom match_atom) {
         Unit *other;
-        void *v;
 
         assert(u);
 
-        HASHMAP_FOREACH_KEY(v, other, u->dependencies[d]) {
+        UNIT_FOREACH_DEPENDENCY(other, u, match_atom) {
                 Job *j = other->job;
 
                 if (!j)
@@ -973,10 +968,8 @@ static void job_fail_dependencies(Unit *u, UnitDependency d) {
 }
 
 int job_finish_and_invalidate(Job *j, JobResult result, bool recursive, bool already) {
-        Unit *u;
-        Unit *other;
+        Unit *u, *other;
         JobType t;
-        void *v;
 
         assert(j);
         assert(j->installed);
@@ -1015,66 +1008,58 @@ int job_finish_and_invalidate(Job *j, JobResult result, bool recursive, bool alr
 
         /* Fail depending jobs on failure */
         if (result != JOB_DONE && recursive) {
-                if (IN_SET(t, JOB_START, JOB_VERIFY_ACTIVE)) {
-                        job_fail_dependencies(u, UNIT_REQUIRED_BY);
-                        job_fail_dependencies(u, UNIT_REQUISITE_OF);
-                        job_fail_dependencies(u, UNIT_BOUND_BY);
-                } else if (t == JOB_STOP)
-                        job_fail_dependencies(u, UNIT_CONFLICTED_BY);
+                if (IN_SET(t, JOB_START, JOB_VERIFY_ACTIVE))
+                        job_fail_dependencies(u, UNIT_ATOM_PROPAGATE_START_FAILURE);
+                else if (t == JOB_STOP)
+                        job_fail_dependencies(u, UNIT_ATOM_PROPAGATE_STOP_FAILURE);
         }
 
-        /* A special check to make sure we take down anything RequisiteOf if we
-         * aren't active. This is when the verify-active job merges with a
-         * satisfying job type, and then loses it's invalidation effect, as the
-         * result there is JOB_DONE for the start job we merged into, while we
-         * should be failing the depending job if the said unit isn't in fact
-         * active. Oneshots are an example of this, where going directly from
-         * activating to inactive is success.
+        /* A special check to make sure we take down anything RequisiteOf= if we aren't active. This is when
+         * the verify-active job merges with a satisfying job type, and then loses it's invalidation effect,
+         * as the result there is JOB_DONE for the start job we merged into, while we should be failing the
+         * depending job if the said unit isn't in fact active. Oneshots are an example of this, where going
+         * directly from activating to inactive is success.
          *
-         * This happens when you use ConditionXYZ= in a unit too, since in that
-         * case the job completes with the JOB_DONE result, but the unit never
-         * really becomes active. Note that such a case still involves merging:
+         * This happens when you use ConditionXYZ= in a unit too, since in that case the job completes with
+         * the JOB_DONE result, but the unit never really becomes active. Note that such a case still
+         * involves merging:
          *
-         * A start job waits for something else, and a verify-active comes in
-         * and merges in the installed job. Then, later, when it becomes
-         * runnable, it finishes with JOB_DONE result as execution on conditions
-         * not being met is skipped, breaking our dependency semantics.
+         * A start job waits for something else, and a verify-active comes in and merges in the installed
+         * job. Then, later, when it becomes runnable, it finishes with JOB_DONE result as execution on
+         * conditions not being met is skipped, breaking our dependency semantics.
          *
-         * Also, depending on if start job waits or not, the merging may or may
-         * not happen (the verify-active job may trigger after it finishes), so
-         * you get undeterministic results without this check.
+         * Also, depending on if start job waits or not, the merging may or may not happen (the verify-active
+         * job may trigger after it finishes), so you get undeterministic results without this check.
          */
-        if (result == JOB_DONE && recursive && !UNIT_IS_ACTIVE_OR_RELOADING(unit_active_state(u))) {
-                if (IN_SET(t, JOB_START, JOB_RELOAD))
-                        job_fail_dependencies(u, UNIT_REQUISITE_OF);
-        }
-        /* Trigger OnFailure dependencies that are not generated by
-         * the unit itself. We don't treat JOB_CANCELED as failure in
-         * this context. And JOB_FAILURE is already handled by the
-         * unit itself. */
-        if (IN_SET(result, JOB_TIMEOUT, JOB_DEPENDENCY)) {
-                log_struct(LOG_NOTICE,
-                           "JOB_TYPE=%s", job_type_to_string(t),
-                           "JOB_RESULT=%s", job_result_to_string(result),
-                           LOG_UNIT_ID(u),
-                           LOG_UNIT_MESSAGE(u, "Job %s/%s failed with result '%s'.",
-                                            u->id,
-                                            job_type_to_string(t),
-                                            job_result_to_string(result)));
+        if (result == JOB_DONE && recursive &&
+            IN_SET(t, JOB_START, JOB_RELOAD) &&
+            !UNIT_IS_ACTIVE_OR_RELOADING(unit_active_state(u)))
+                job_fail_dependencies(u, UNIT_ATOM_PROPAGATE_INACTIVE_START_AS_FAILURE);
 
-                unit_start_on_failure(u);
+        /* Trigger OnFailure= dependencies that are not generated by the unit itself. We don't treat
+         * JOB_CANCELED as failure in this context. And JOB_FAILURE is already handled by the unit itself. */
+        if (IN_SET(result, JOB_TIMEOUT, JOB_DEPENDENCY)) {
+                log_unit_struct(u, LOG_NOTICE,
+                                "JOB_TYPE=%s", job_type_to_string(t),
+                                "JOB_RESULT=%s", job_result_to_string(result),
+                                LOG_UNIT_MESSAGE(u, "Job %s/%s failed with result '%s'.",
+                                                 u->id,
+                                                 job_type_to_string(t),
+                                                 job_result_to_string(result)));
+
+                unit_start_on_failure(u, "OnFailure=", UNIT_ATOM_ON_FAILURE, u->on_failure_job_mode);
         }
 
         unit_trigger_notify(u);
 
 finish:
         /* Try to start the next jobs that can be started */
-        HASHMAP_FOREACH_KEY(v, other, u->dependencies[UNIT_AFTER])
+        UNIT_FOREACH_DEPENDENCY(other, u, UNIT_ATOM_AFTER)
                 if (other->job) {
                         job_add_to_run_queue(other->job);
                         job_add_to_gc_queue(other->job);
                 }
-        HASHMAP_FOREACH_KEY(v, other, u->dependencies[UNIT_BEFORE])
+        UNIT_FOREACH_DEPENDENCY(other, u, UNIT_ATOM_BEFORE)
                 if (other->job) {
                         job_add_to_run_queue(other->job);
                         job_add_to_gc_queue(other->job);
@@ -1424,7 +1409,6 @@ int job_get_timeout(Job *j, usec_t *timeout) {
 
 bool job_may_gc(Job *j) {
         Unit *other;
-        void *v;
 
         assert(j);
 
@@ -1453,12 +1437,12 @@ bool job_may_gc(Job *j) {
                 return false;
 
         /* The logic is inverse to job_is_runnable, we cannot GC as long as we block any job. */
-        HASHMAP_FOREACH_KEY(v, other, j->unit->dependencies[UNIT_BEFORE])
-                if (other->job && job_compare(j, other->job, UNIT_BEFORE) < 0)
+        UNIT_FOREACH_DEPENDENCY(other, j->unit, UNIT_ATOM_BEFORE)
+                if (other->job && job_compare(j, other->job, UNIT_ATOM_BEFORE) < 0)
                         return false;
 
-        HASHMAP_FOREACH_KEY(v, other, j->unit->dependencies[UNIT_AFTER])
-                if (other->job && job_compare(j, other->job, UNIT_AFTER) < 0)
+        UNIT_FOREACH_DEPENDENCY(other, j->unit, UNIT_ATOM_AFTER)
+                if (other->job && job_compare(j, other->job, UNIT_ATOM_AFTER) < 0)
                         return false;
 
         return true;
@@ -1502,9 +1486,8 @@ static size_t sort_job_list(Job **list, size_t n) {
 
 int job_get_before(Job *j, Job*** ret) {
         _cleanup_free_ Job** list = NULL;
-        size_t n = 0, n_allocated = 0;
         Unit *other = NULL;
-        void *v;
+        size_t n = 0;
 
         /* Returns a list of all pending jobs that need to finish before this job may be started. */
 
@@ -1516,24 +1499,24 @@ int job_get_before(Job *j, Job*** ret) {
                 return 0;
         }
 
-        HASHMAP_FOREACH_KEY(v, other, j->unit->dependencies[UNIT_AFTER]) {
+        UNIT_FOREACH_DEPENDENCY(other, j->unit, UNIT_ATOM_AFTER) {
                 if (!other->job)
                         continue;
-                if (job_compare(j, other->job, UNIT_AFTER) <= 0)
+                if (job_compare(j, other->job, UNIT_ATOM_AFTER) <= 0)
                         continue;
 
-                if (!GREEDY_REALLOC(list, n_allocated, n+1))
+                if (!GREEDY_REALLOC(list, n+1))
                         return -ENOMEM;
                 list[n++] = other->job;
         }
 
-        HASHMAP_FOREACH_KEY(v, other, j->unit->dependencies[UNIT_BEFORE]) {
+        UNIT_FOREACH_DEPENDENCY(other, j->unit, UNIT_ATOM_BEFORE) {
                 if (!other->job)
                         continue;
-                if (job_compare(j, other->job, UNIT_BEFORE) <= 0)
+                if (job_compare(j, other->job, UNIT_ATOM_BEFORE) <= 0)
                         continue;
 
-                if (!GREEDY_REALLOC(list, n_allocated, n+1))
+                if (!GREEDY_REALLOC(list, n+1))
                         return -ENOMEM;
                 list[n++] = other->job;
         }
@@ -1547,41 +1530,40 @@ int job_get_before(Job *j, Job*** ret) {
 
 int job_get_after(Job *j, Job*** ret) {
         _cleanup_free_ Job** list = NULL;
-        size_t n = 0, n_allocated = 0;
         Unit *other = NULL;
-        void *v;
+        size_t n = 0;
 
         assert(j);
         assert(ret);
 
         /* Returns a list of all pending jobs that are waiting for this job to finish. */
 
-        HASHMAP_FOREACH_KEY(v, other, j->unit->dependencies[UNIT_BEFORE]) {
+        UNIT_FOREACH_DEPENDENCY(other, j->unit, UNIT_ATOM_BEFORE) {
                 if (!other->job)
                         continue;
 
                 if (other->job->ignore_order)
                         continue;
 
-                if (job_compare(j, other->job, UNIT_BEFORE) >= 0)
+                if (job_compare(j, other->job, UNIT_ATOM_BEFORE) >= 0)
                         continue;
 
-                if (!GREEDY_REALLOC(list, n_allocated, n+1))
+                if (!GREEDY_REALLOC(list, n+1))
                         return -ENOMEM;
                 list[n++] = other->job;
         }
 
-        HASHMAP_FOREACH_KEY(v, other, j->unit->dependencies[UNIT_AFTER]) {
+        UNIT_FOREACH_DEPENDENCY(other, j->unit, UNIT_ATOM_AFTER) {
                 if (!other->job)
                         continue;
 
                 if (other->job->ignore_order)
                         continue;
 
-                if (job_compare(j, other->job, UNIT_AFTER) >= 0)
+                if (job_compare(j, other->job, UNIT_ATOM_AFTER) >= 0)
                         continue;
 
-                if (!GREEDY_REALLOC(list, n_allocated, n+1))
+                if (!GREEDY_REALLOC(list, n+1))
                         return -ENOMEM;
                 list[n++] = other->job;
         }
@@ -1670,13 +1652,14 @@ const char* job_type_to_access_method(JobType t) {
  *  stop a  + start b → 1st step stop a,  2nd step start b
  *  stop a  + stop b  → 1st step stop b,  2nd step stop a
  *
- *  This has the side effect that restarts are properly
- *  synchronized too.
+ *  This has the side effect that restarts are properly synchronized too.
  */
-int job_compare(Job *a, Job *b, UnitDependency assume_dep) {
+int job_compare(Job *a, Job *b, UnitDependencyAtom assume_dep) {
+        assert(a);
+        assert(b);
         assert(a->type < _JOB_TYPE_MAX_IN_TRANSACTION);
         assert(b->type < _JOB_TYPE_MAX_IN_TRANSACTION);
-        assert(IN_SET(assume_dep, UNIT_AFTER, UNIT_BEFORE));
+        assert(IN_SET(assume_dep, UNIT_ATOM_AFTER, UNIT_ATOM_BEFORE));
 
         /* Trivial cases first */
         if (a->type == JOB_NOP || b->type == JOB_NOP)
@@ -1685,12 +1668,11 @@ int job_compare(Job *a, Job *b, UnitDependency assume_dep) {
         if (a->ignore_order || b->ignore_order)
                 return 0;
 
-        if (assume_dep == UNIT_AFTER)
-                return -job_compare(b, a, UNIT_BEFORE);
+        if (assume_dep == UNIT_ATOM_AFTER)
+                return -job_compare(b, a, UNIT_ATOM_BEFORE);
 
-        /* Let's make it simple, JOB_STOP goes always first (in case both ua and ub stop,
-         * then ub's stop goes first anyway).
-         * JOB_RESTART is JOB_STOP in disguise (before it is patched to JOB_START). */
+        /* Let's make it simple, JOB_STOP goes always first (in case both ua and ub stop, then ub's stop goes
+         * first anyway). JOB_RESTART is JOB_STOP in disguise (before it is patched to JOB_START). */
         if (IN_SET(b->type, JOB_STOP, JOB_RESTART))
                 return 1;
         else

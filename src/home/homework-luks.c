@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <libfdisk.h>
 #include <linux/loop.h>
@@ -199,12 +199,15 @@ static int run_fsck(const char *node, const char *fstype) {
                 return 0;
         }
 
-        r = safe_fork("(fsck)", FORK_RESET_SIGNALS|FORK_RLIMIT_NOFILE_SAFE|FORK_DEATHSIG|FORK_LOG|FORK_STDOUT_TO_STDERR, &fsck_pid);
+        r = safe_fork("(fsck)",
+                      FORK_RESET_SIGNALS|FORK_RLIMIT_NOFILE_SAFE|FORK_DEATHSIG|FORK_LOG|FORK_STDOUT_TO_STDERR|FORK_CLOSE_ALL_FDS,
+                      &fsck_pid);
         if (r < 0)
                 return r;
         if (r == 0) {
                 /* Child */
                 execl("/sbin/fsck", "/sbin/fsck", "-aTl", node, NULL);
+                log_open();
                 log_error_errno(errno, "Failed to execute fsck: %m");
                 _exit(FSCK_OPERATIONAL_ERROR);
         }
@@ -240,7 +243,7 @@ static int luks_try_passwords(
         STRV_FOREACH(pp, passwords) {
                 size_t vks = *volume_key_size;
 
-                r = crypt_volume_key_get(
+                r = sym_crypt_volume_key_get(
                                 cd,
                                 CRYPT_ANY_SLOT,
                                 volume_key,
@@ -273,7 +276,7 @@ static int luks_setup(
                 void **ret_volume_key,
                 size_t *ret_volume_key_size) {
 
-        _cleanup_(crypt_freep) struct crypt_device *cd = NULL;
+        _cleanup_(sym_crypt_freep) struct crypt_device *cd = NULL;
         _cleanup_(erase_and_freep) void *vk = NULL;
         sd_id128_t p;
         size_t vks;
@@ -284,17 +287,17 @@ static int luks_setup(
         assert(dm_name);
         assert(ret);
 
-        r = crypt_init(&cd, node);
+        r = sym_crypt_init(&cd, node);
         if (r < 0)
                 return log_error_errno(r, "Failed to allocate libcryptsetup context: %m");
 
         cryptsetup_enable_logging(cd);
 
-        r = crypt_load(cd, CRYPT_LUKS2, NULL);
+        r = sym_crypt_load(cd, CRYPT_LUKS2, NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to load LUKS superblock: %m");
 
-        r = crypt_get_volume_key_size(cd);
+        r = sym_crypt_get_volume_key_size(cd);
         if (r <= 0)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to determine LUKS volume key size");
         vks = (size_t) r;
@@ -302,7 +305,7 @@ static int luks_setup(
         if (!sd_id128_is_null(uuid) || ret_found_uuid) {
                 const char *s;
 
-                s = crypt_get_uuid(cd);
+                s = sym_crypt_get_uuid(cd);
                 if (!s)
                         return log_error_errno(SYNTHETIC_ERRNO(EMEDIUMTYPE), "LUKS superblock has no UUID.");
 
@@ -316,10 +319,10 @@ static int luks_setup(
                         return log_error_errno(SYNTHETIC_ERRNO(EMEDIUMTYPE), "LUKS superblock has wrong UUID.");
         }
 
-        if (cipher && !streq_ptr(cipher, crypt_get_cipher(cd)))
+        if (cipher && !streq_ptr(cipher, sym_crypt_get_cipher(cd)))
                 return log_error_errno(SYNTHETIC_ERRNO(EMEDIUMTYPE), "LUKS superblock declares wrong cipher.");
 
-        if (cipher_mode && !streq_ptr(cipher_mode, crypt_get_cipher_mode(cd)))
+        if (cipher_mode && !streq_ptr(cipher_mode, sym_crypt_get_cipher_mode(cd)))
                 return log_error_errno(SYNTHETIC_ERRNO(EMEDIUMTYPE), "LUKS superblock declares wrong cipher mode.");
 
         if (volume_key_size != UINT64_MAX && vks != volume_key_size)
@@ -340,7 +343,7 @@ static int luks_setup(
         if (r < 0)
                 return log_error_errno(r, "Failed to unlocks LUKS superblock: %m");
 
-        r = crypt_activate_by_volume_key(
+        r = sym_crypt_activate_by_volume_key(
                         cd,
                         dm_name,
                         vk, vks,
@@ -371,7 +374,7 @@ static int luks_open(
                 void **ret_volume_key,
                 size_t *ret_volume_key_size) {
 
-        _cleanup_(crypt_freep) struct crypt_device *cd = NULL;
+        _cleanup_(sym_crypt_freep) struct crypt_device *cd = NULL;
         _cleanup_(erase_and_freep) void *vk = NULL;
         sd_id128_t p;
         char **list;
@@ -384,17 +387,17 @@ static int luks_open(
         /* Opens a LUKS device that is already set up. Re-validates the password while doing so (which also
          * provides us with the volume key, which we want). */
 
-        r = crypt_init_by_name(&cd, dm_name);
+        r = sym_crypt_init_by_name(&cd, dm_name);
         if (r < 0)
                 return log_error_errno(r, "Failed to initialize cryptsetup context for %s: %m", dm_name);
 
         cryptsetup_enable_logging(cd);
 
-        r = crypt_load(cd, CRYPT_LUKS2, NULL);
+        r = sym_crypt_load(cd, CRYPT_LUKS2, NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to load LUKS superblock: %m");
 
-        r = crypt_get_volume_key_size(cd);
+        r = sym_crypt_get_volume_key_size(cd);
         if (r <= 0)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to determine LUKS volume key size");
         vks = (size_t) r;
@@ -402,7 +405,7 @@ static int luks_open(
         if (ret_found_uuid) {
                 const char *s;
 
-                s = crypt_get_uuid(cd);
+                s = sym_crypt_get_uuid(cd);
                 if (!s)
                         return log_error_errno(SYNTHETIC_ERRNO(EMEDIUMTYPE), "LUKS superblock has no UUID.");
 
@@ -430,7 +433,7 @@ static int luks_open(
 
         /* This is needed so that crypt_resize() can operate correctly for pre-existing LUKS devices. We need
          * to tell libcryptsetup the volume key explicitly, so that it is in the kernel keyring. */
-        r = crypt_activate_by_volume_key(cd, NULL, vk, vks, CRYPT_ACTIVATE_KEYRING_KEY);
+        r = sym_crypt_activate_by_volume_key(cd, NULL, vk, vks, CRYPT_ACTIVATE_KEYRING_KEY);
         if (r < 0)
                 return log_error_errno(r, "Failed to upload volume key again: %m");
 
@@ -518,7 +521,7 @@ static int luks_validate(
         blkid_loff_t offset = 0, size = 0;
         blkid_partlist pl;
         bool found = false;
-        int r, i, n;
+        int r, n;
 
         assert(fd >= 0);
         assert(label);
@@ -570,9 +573,9 @@ static int luks_validate(
         if (n < 0)
                 return errno > 0 ? -errno : -EIO;
 
-        for (i = 0; i < n; i++) {
+        for (int i = 0; i < n; i++) {
                 blkid_partition pp;
-                sd_id128_t id;
+                sd_id128_t id = SD_ID128_NULL;
                 const char *sid;
 
                 errno = 0;
@@ -637,11 +640,11 @@ static int crypt_device_to_evp_cipher(struct crypt_device *cd, const EVP_CIPHER 
         /* Let's find the right OpenSSL EVP_CIPHER object that matches the encryption settings of the LUKS
          * device */
 
-        cipher = crypt_get_cipher(cd);
+        cipher = sym_crypt_get_cipher(cd);
         if (!cipher)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Cannot get cipher from LUKS device.");
 
-        cipher_mode = crypt_get_cipher_mode(cd);
+        cipher_mode = sym_crypt_get_cipher_mode(cd);
         if (!cipher_mode)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Cannot get cipher mode from LUKS device.");
 
@@ -649,7 +652,7 @@ static int crypt_device_to_evp_cipher(struct crypt_device *cd, const EVP_CIPHER 
         if (e)
                 cipher_mode = strndupa(cipher_mode, e - cipher_mode);
 
-        r = crypt_get_volume_key_size(cd);
+        r = sym_crypt_get_volume_key_size(cd);
         if (r <= 0)
                 return log_error_errno(r < 0 ? r : SYNTHETIC_ERRNO(EINVAL), "Cannot get volume key size from LUKS device.");
 
@@ -681,12 +684,12 @@ static int luks_validate_home_record(
                 PasswordCache *cache,
                 UserRecord **ret_luks_home_record) {
 
-        int r, token;
+        int r;
 
         assert(cd);
         assert(h);
 
-        for (token = 0;; token++) {
+        for (int token = 0;; token++) {
                 _cleanup_(json_variant_unrefp) JsonVariant *v = NULL, *rr = NULL;
                 _cleanup_(EVP_CIPHER_CTX_freep) EVP_CIPHER_CTX *context = NULL;
                 _cleanup_(user_record_unrefp) UserRecord *lhr = NULL;
@@ -700,7 +703,7 @@ static int luks_validate_home_record(
                 unsigned line, column;
                 const EVP_CIPHER *cc;
 
-                state = crypt_token_status(cd, token, &type);
+                state = sym_crypt_token_status(cd, token, &type);
                 if (state == CRYPT_TOKEN_INACTIVE) /* First unconfigured token, give up */
                         break;
                 if (IN_SET(state, CRYPT_TOKEN_INTERNAL, CRYPT_TOKEN_INTERNAL_UNKNOWN, CRYPT_TOKEN_EXTERNAL))
@@ -711,7 +714,7 @@ static int luks_validate_home_record(
                 if (!streq(type, "systemd-homed"))
                         continue;
 
-                r = crypt_token_json_get(cd, token, &text);
+                r = sym_crypt_token_json_get(cd, token, &text);
                 if (r < 0)
                         return log_error_errno(r, "Failed to read LUKS token %i: %m", token);
 
@@ -776,7 +779,7 @@ static int luks_validate_home_record(
                 if (!lhr)
                         return log_oom();
 
-                r = user_record_load(lhr, rr, USER_RECORD_LOAD_EMBEDDED);
+                r = user_record_load(lhr, rr, USER_RECORD_LOAD_EMBEDDED|USER_RECORD_PERMISSIVE);
                 if (r < 0)
                         return log_error_errno(r, "Failed to parse user record: %m");
 
@@ -899,7 +902,7 @@ int home_store_header_identity_luks(
          * the file system, so that we can validate it first, and only then mount the file system. To keep
          * things simple we use the same encryption settings for this record as for the file system itself. */
 
-        r = user_record_clone(h, USER_RECORD_EXTRACT_EMBEDDED, &header_home);
+        r = user_record_clone(h, USER_RECORD_EXTRACT_EMBEDDED|USER_RECORD_PERMISSIVE, &header_home);
         if (r < 0)
                 return log_error_errno(r, "Failed to determine new header record: %m");
 
@@ -916,7 +919,7 @@ int home_store_header_identity_luks(
                 crypt_token_info state;
                 const char *type;
 
-                state = crypt_token_status(setup->crypt_device, token, &type);
+                state = sym_crypt_token_status(setup->crypt_device, token, &type);
                 if (state == CRYPT_TOKEN_INACTIVE) /* First unconfigured token, we are done */
                         break;
                 if (IN_SET(state, CRYPT_TOKEN_INTERNAL, CRYPT_TOKEN_INTERNAL_UNKNOWN, CRYPT_TOKEN_EXTERNAL))
@@ -927,7 +930,7 @@ int home_store_header_identity_luks(
                 if (!streq(type, "systemd-homed"))
                         continue;
 
-                r = crypt_token_json_set(setup->crypt_device, token, text);
+                r = sym_crypt_token_json_set(setup->crypt_device, token, text);
                 if (r < 0)
                         return log_error_errno(r, "Failed to set JSON token for slot %i: %m", token);
 
@@ -1045,7 +1048,7 @@ int home_prepare_luks(
         sd_id128_t found_partition_uuid, found_luks_uuid, found_fs_uuid;
         _cleanup_(user_record_unrefp) UserRecord *luks_home = NULL;
         _cleanup_(loop_device_unrefp) LoopDevice *loop = NULL;
-        _cleanup_(crypt_freep) struct crypt_device *cd = NULL;
+        _cleanup_(sym_crypt_freep) struct crypt_device *cd = NULL;
         _cleanup_(erase_and_freep) void *volume_key = NULL;
         _cleanup_close_ int root_fd = -1, image_fd = -1;
         bool dm_activated = false, mounted = false;
@@ -1060,6 +1063,10 @@ int home_prepare_luks(
         assert(setup->dm_node);
 
         assert(user_record_storage(h) == USER_LUKS);
+
+        r = dlopen_cryptsetup();
+        if (r < 0)
+                return r;
 
         if (already_activated) {
                 struct loop_info64 info;
@@ -1079,7 +1086,7 @@ int home_prepare_luks(
                 if (r < 0)
                         return r;
 
-                n = crypt_get_device_name(cd);
+                n = sym_crypt_get_device_name(cd);
                 if (!n)
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to determine backing device for DM %s.", setup->dm_name);
 
@@ -1262,7 +1269,7 @@ fail:
                 (void) umount_verbose(LOG_ERR, "/run/systemd/user-home-mount", UMOUNT_NOFOLLOW);
 
         if (dm_activated)
-                (void) crypt_deactivate(cd, setup->dm_name);
+                (void) sym_crypt_deactivate_by_name(cd, setup->dm_name, 0);
 
         if (image_fd >= 0 && marked_dirty)
                 (void) run_mark_dirty(image_fd, false);
@@ -1297,6 +1304,10 @@ int home_activate_luks(
         assert(h);
         assert(user_record_storage(h) == USER_LUKS);
         assert(ret_home);
+
+        r = dlopen_cryptsetup();
+        if (r < 0)
+                return r;
 
         assert_se(hdo = user_record_home_directory(h));
         hd = strdupa(hdo); /* copy the string out, since it might change later in the home record object */
@@ -1355,7 +1366,7 @@ int home_activate_luks(
 
         loop_device_relinquish(setup.loop);
 
-        r = crypt_deactivate_by_name(NULL, setup.dm_name, CRYPT_DEACTIVATE_DEFERRED);
+        r = sym_crypt_deactivate_by_name(NULL, setup.dm_name, CRYPT_DEACTIVATE_DEFERRED);
         if (r < 0)
                 log_warning_errno(r, "Failed to relinquish DM device, ignoring: %m");
 
@@ -1372,7 +1383,7 @@ int home_activate_luks(
 }
 
 int home_deactivate_luks(UserRecord *h) {
-        _cleanup_(crypt_freep) struct crypt_device *cd = NULL;
+        _cleanup_(sym_crypt_freep) struct crypt_device *cd = NULL;
         _cleanup_free_ char *dm_name = NULL, *dm_node = NULL;
         bool we_detached;
         int r;
@@ -1383,11 +1394,15 @@ int home_deactivate_luks(UserRecord *h) {
          * don't bother about the loopback device because unlike the DM device it doesn't have a fixed
          * name. */
 
+        r = dlopen_cryptsetup();
+        if (r < 0)
+                return r;
+
         r = make_dm_names(h->user_name, &dm_name, &dm_node);
         if (r < 0)
                 return r;
 
-        r = crypt_init_by_name(&cd, dm_name);
+        r = sym_crypt_init_by_name(&cd, dm_name);
         if (IN_SET(r, -ENODEV, -EINVAL, -ENOENT)) {
                 log_debug_errno(r, "LUKS device %s has already been detached.", dm_name);
                 we_detached = false;
@@ -1398,7 +1413,7 @@ int home_deactivate_luks(UserRecord *h) {
 
                 cryptsetup_enable_logging(cd);
 
-                r = crypt_deactivate(cd, dm_name);
+                r = sym_crypt_deactivate_by_name(cd, dm_name, 0);
                 if (IN_SET(r, -ENODEV, -EINVAL, -ENOENT)) {
                         log_debug_errno(r, "LUKS device %s is already detached.", dm_node);
                         we_detached = false;
@@ -1474,7 +1489,7 @@ static int luks_format(
                 struct crypt_device **ret) {
 
         _cleanup_(user_record_unrefp) UserRecord *reduced = NULL;
-        _cleanup_(crypt_freep) struct crypt_device *cd = NULL;
+        _cleanup_(sym_crypt_freep) struct crypt_device *cd = NULL;
         _cleanup_(erase_and_freep) void *volume_key = NULL;
         struct crypt_pbkdf_type good_pbkdf, minimal_pbkdf;
         char suuid[ID128_UUID_STRING_MAX], **pp;
@@ -1487,7 +1502,7 @@ static int luks_format(
         assert(hr);
         assert(ret);
 
-        r = crypt_init(&cd, node);
+        r = sym_crypt_init(&cd, node);
         if (r < 0)
                 return log_error_errno(r, "Failed to allocate libcryptsetup context: %m");
 
@@ -1508,7 +1523,7 @@ static int luks_format(
 
 #if HAVE_CRYPT_SET_METADATA_SIZE
         /* Increase the metadata space to 4M, the largest LUKS2 supports */
-        r = crypt_set_metadata_size(cd, 4096U*1024U, 0);
+        r = sym_crypt_set_metadata_size(cd, 4096U*1024U, 0);
         if (r < 0)
                 return log_error_errno(r, "Failed to change LUKS2 metadata size: %m");
 #endif
@@ -1516,7 +1531,7 @@ static int luks_format(
         build_good_pbkdf(&good_pbkdf, hr);
         build_minimal_pbkdf(&minimal_pbkdf, hr);
 
-        r = crypt_format(cd,
+        r = sym_crypt_format(cd,
                          CRYPT_LUKS2,
                          user_record_luks_cipher(hr),
                          user_record_luks_cipher_mode(hr),
@@ -1539,15 +1554,15 @@ static int luks_format(
                 if (strv_contains(cache->pkcs11_passwords, *pp) ||
                     strv_contains(cache->fido2_passwords, *pp)) {
                         log_debug("Using minimal PBKDF for slot %i", slot);
-                        r = crypt_set_pbkdf_type(cd, &minimal_pbkdf);
+                        r = sym_crypt_set_pbkdf_type(cd, &minimal_pbkdf);
                 } else {
                         log_debug("Using good PBKDF for slot %i", slot);
-                        r = crypt_set_pbkdf_type(cd, &good_pbkdf);
+                        r = sym_crypt_set_pbkdf_type(cd, &good_pbkdf);
                 }
                 if (r < 0)
                         return log_error_errno(r, "Failed to tweak PBKDF for slot %i: %m", slot);
 
-                r = crypt_keyslot_add_by_volume_key(
+                r = sym_crypt_keyslot_add_by_volume_key(
                                 cd,
                                 slot,
                                 volume_key,
@@ -1561,7 +1576,7 @@ static int luks_format(
                 slot++;
         }
 
-        r = crypt_activate_by_volume_key(
+        r = sym_crypt_activate_by_volume_key(
                         cd,
                         dm_name,
                         volume_key,
@@ -1572,7 +1587,7 @@ static int luks_format(
 
         log_info("LUKS activation by volume key succeeded.");
 
-        r = user_record_clone(hr, USER_RECORD_EXTRACT_EMBEDDED, &reduced);
+        r = user_record_clone(hr, USER_RECORD_EXTRACT_EMBEDDED|USER_RECORD_PERMISSIVE, &reduced);
         if (r < 0)
                 return log_error_errno(r, "Failed to prepare home record for LUKS: %m");
 
@@ -1580,7 +1595,7 @@ static int luks_format(
         if (r < 0)
                 return r;
 
-        r = crypt_token_json_set(cd, CRYPT_ANY_TOKEN, text);
+        r = sym_crypt_token_json_set(cd, CRYPT_ANY_TOKEN, text);
         if (r < 0)
                 return log_error_errno(r, "Failed to set LUKS JSON token: %m");
 
@@ -1592,10 +1607,10 @@ static int luks_format(
         return 0;
 }
 
-DEFINE_TRIVIAL_CLEANUP_FUNC(struct fdisk_context*, fdisk_unref_context);
-DEFINE_TRIVIAL_CLEANUP_FUNC(struct fdisk_partition*, fdisk_unref_partition);
-DEFINE_TRIVIAL_CLEANUP_FUNC(struct fdisk_parttype*, fdisk_unref_parttype);
-DEFINE_TRIVIAL_CLEANUP_FUNC(struct fdisk_table*, fdisk_unref_table);
+DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(struct fdisk_context*, fdisk_unref_context, NULL);
+DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(struct fdisk_partition*, fdisk_unref_partition, NULL);
+DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(struct fdisk_parttype*, fdisk_unref_parttype, NULL);
+DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(struct fdisk_table*, fdisk_unref_table, NULL);
 
 static int make_partition_table(
                 int fd,
@@ -1867,12 +1882,13 @@ int home_create_luks(
                 UserRecord **ret_home) {
 
         _cleanup_free_ char *dm_name = NULL, *dm_node = NULL, *subdir = NULL, *disk_uuid_path = NULL, *temporary_image_path = NULL;
-        uint64_t host_size, encrypted_size, partition_offset, partition_size;
+        uint64_t encrypted_size,
+                host_size = 0, partition_offset = 0, partition_size = 0; /* Unnecessary initialization to appease gcc */
         bool image_created = false, dm_activated = false, mounted = false;
         _cleanup_(user_record_unrefp) UserRecord *new_home = NULL;
         sd_id128_t partition_uuid, fs_uuid, luks_uuid, disk_uuid;
         _cleanup_(loop_device_unrefp) LoopDevice *loop = NULL;
-        _cleanup_(crypt_freep) struct crypt_device *cd = NULL;
+        _cleanup_(sym_crypt_freep) struct crypt_device *cd = NULL;
         _cleanup_close_ int image_fd = -1, root_fd = -1;
         const char *fstype, *ip;
         struct statfs sfs;
@@ -1881,6 +1897,10 @@ int home_create_luks(
         assert(h);
         assert(h->storage < 0 || h->storage == USER_LUKS);
         assert(ret_home);
+
+        r = dlopen_cryptsetup();
+        if (r < 0)
+                return r;
 
         assert_se(ip = user_record_image_path(h));
 
@@ -2135,7 +2155,7 @@ int home_create_luks(
         if (r < 0)
                 goto fail;
 
-        r = user_record_clone(h, USER_RECORD_LOAD_MASK_SECRET|USER_RECORD_LOG, &new_home);
+        r = user_record_clone(h, USER_RECORD_LOAD_MASK_SECRET|USER_RECORD_LOG|USER_RECORD_PERMISSIVE, &new_home);
         if (r < 0) {
                 log_error_errno(r, "Failed to clone record: %m");
                 goto fail;
@@ -2148,8 +2168,8 @@ int home_create_luks(
                         partition_uuid,
                         luks_uuid,
                         fs_uuid,
-                        crypt_get_cipher(cd),
-                        crypt_get_cipher_mode(cd),
+                        sym_crypt_get_cipher(cd),
+                        sym_crypt_get_cipher_mode(cd),
                         luks_volume_key_size_convert(cd),
                         fstype,
                         NULL,
@@ -2174,13 +2194,13 @@ int home_create_luks(
 
         mounted = false;
 
-        r = crypt_deactivate(cd, dm_name);
+        r = sym_crypt_deactivate_by_name(cd, dm_name, 0);
         if (r < 0) {
                 log_error_errno(r, "Failed to deactivate LUKS device: %m");
                 goto fail;
         }
 
-        crypt_free(cd);
+        sym_crypt_free(cd);
         cd = NULL;
 
         dm_activated = false;
@@ -2241,7 +2261,7 @@ fail:
                 (void) umount_verbose(LOG_WARNING, "/run/systemd/user-home-mount", UMOUNT_NOFOLLOW);
 
         if (dm_activated)
-                (void) crypt_deactivate(cd, dm_name);
+                (void) sym_crypt_deactivate_by_name(cd, dm_name, 0);
 
         loop = loop_device_unref(loop);
 
@@ -2351,12 +2371,15 @@ static int ext4_offline_resize_fs(HomeSetup *setup, uint64_t new_size, bool disc
         log_info("Temporary unmounting of file system completed.");
 
         /* resize2fs requires that the file system is force checked first, do so. */
-        r = safe_fork("(e2fsck)", FORK_RESET_SIGNALS|FORK_RLIMIT_NOFILE_SAFE|FORK_DEATHSIG|FORK_LOG|FORK_STDOUT_TO_STDERR, &fsck_pid);
+        r = safe_fork("(e2fsck)",
+                      FORK_RESET_SIGNALS|FORK_RLIMIT_NOFILE_SAFE|FORK_DEATHSIG|FORK_LOG|FORK_STDOUT_TO_STDERR|FORK_CLOSE_ALL_FDS,
+                      &fsck_pid);
         if (r < 0)
                 return r;
         if (r == 0) {
                 /* Child */
                 execlp("e2fsck" ,"e2fsck", "-fp", setup->dm_node, NULL);
+                log_open();
                 log_error_errno(errno, "Failed to execute e2fsck: %m");
                 _exit(EXIT_FAILURE);
         }
@@ -2380,12 +2403,15 @@ static int ext4_offline_resize_fs(HomeSetup *setup, uint64_t new_size, bool disc
                 return log_oom();
 
         /* Resize the thing */
-        r = safe_fork("(e2resize)", FORK_RESET_SIGNALS|FORK_RLIMIT_NOFILE_SAFE|FORK_DEATHSIG|FORK_LOG|FORK_WAIT|FORK_STDOUT_TO_STDERR, &resize_pid);
+        r = safe_fork("(e2resize)",
+                      FORK_RESET_SIGNALS|FORK_RLIMIT_NOFILE_SAFE|FORK_DEATHSIG|FORK_LOG|FORK_WAIT|FORK_STDOUT_TO_STDERR|FORK_CLOSE_ALL_FDS,
+                      &resize_pid);
         if (r < 0)
                 return r;
         if (r == 0) {
                 /* Child */
                 execlp("resize2fs" ,"resize2fs", setup->dm_node, size_str, NULL);
+                log_open();
                 log_error_errno(errno, "Failed to execute resize2fs: %m");
                 _exit(EXIT_FAILURE);
         }
@@ -2423,7 +2449,7 @@ static int prepare_resize_partition(
         _cleanup_(fdisk_unref_contextp) struct fdisk_context *c = NULL;
         _cleanup_(fdisk_unref_tablep) struct fdisk_table *t = NULL;
         _cleanup_free_ char *path = NULL, *disk_uuid_as_string = NULL;
-        size_t n_partitions, i;
+        size_t n_partitions;
         sd_id128_t disk_uuid;
         bool found = false;
         int r;
@@ -2473,7 +2499,7 @@ static int prepare_resize_partition(
                 return log_error_errno(r, "Failed to acquire partition table: %m");
 
         n_partitions = fdisk_table_get_nents(t);
-        for (i = 0; i < n_partitions; i++)  {
+        for (size_t i = 0; i < n_partitions; i++)  {
                 struct fdisk_partition *p;
 
                 p = fdisk_table_get_partition(t, i);
@@ -2623,6 +2649,10 @@ int home_resize_luks(
         assert(setup);
         assert(ret_home);
 
+        r = dlopen_cryptsetup();
+        if (r < 0)
+                return r;
+
         assert_se(ipo = user_record_image_path(h));
         ip = strdupa(ipo); /* copy out since original might change later in home record object */
 
@@ -2723,7 +2753,7 @@ int home_resize_luks(
             setup->partition_offset + new_partition_size > new_image_size)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "New partition doesn't fit into backing storage, refusing.");
 
-        crypto_offset = crypt_get_data_offset(setup->crypt_device);
+        crypto_offset = sym_crypt_get_data_offset(setup->crypt_device);
         if (setup->partition_size / 512U <= crypto_offset)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Weird, old crypto payload offset doesn't actually fit in partition size?");
         if (new_partition_size / 512U <= crypto_offset)
@@ -2787,7 +2817,7 @@ int home_resize_luks(
                         log_debug_errno(errno, "BLKRRPART failed on block device, ignoring: %m");
 
                 /* Tell LUKS about the new bigger size too */
-                r = crypt_resize(setup->crypt_device, setup->dm_name, new_fs_size / 512U);
+                r = sym_crypt_resize(setup->crypt_device, setup->dm_name, new_fs_size / 512U);
                 if (r < 0)
                         return log_error_errno(r, "Failed to grow LUKS device: %m");
 
@@ -2828,7 +2858,7 @@ int home_resize_luks(
         if (new_fs_size < old_fs_size) {
 
                 /* Shrink the LUKS device now, matching the new file system size */
-                r = crypt_resize(setup->crypt_device, setup->dm_name, new_fs_size / 512);
+                r = sym_crypt_resize(setup->crypt_device, setup->dm_name, new_fs_size / 512);
                 if (r < 0)
                         return log_error_errno(r, "Failed to shrink LUKS device: %m");
 
@@ -2898,7 +2928,7 @@ int home_passwd_luks(
                 PasswordCache *cache,      /* the passwords acquired via PKCS#11/FIDO2 security tokens */
                 char **effective_passwords /* new passwords */) {
 
-        size_t volume_key_size, i, max_key_slots, n_effective;
+        size_t volume_key_size, max_key_slots, n_effective;
         _cleanup_(erase_and_freep) void *volume_key = NULL;
         struct crypt_pbkdf_type good_pbkdf, minimal_pbkdf;
         const char *type;
@@ -2909,16 +2939,20 @@ int home_passwd_luks(
         assert(user_record_storage(h) == USER_LUKS);
         assert(setup);
 
-        type = crypt_get_type(setup->crypt_device);
+        r = dlopen_cryptsetup();
+        if (r < 0)
+                return r;
+
+        type = sym_crypt_get_type(setup->crypt_device);
         if (!type)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to determine crypto device type.");
 
-        r = crypt_keyslot_max(type);
+        r = sym_crypt_keyslot_max(type);
         if (r <= 0)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to determine number of key slots.");
         max_key_slots = r;
 
-        r = crypt_get_volume_key_size(setup->crypt_device);
+        r = sym_crypt_get_volume_key_size(setup->crypt_device);
         if (r <= 0)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to determine volume key size.");
         volume_key_size = (size_t) r;
@@ -2943,8 +2977,8 @@ int home_passwd_luks(
         build_good_pbkdf(&good_pbkdf, h);
         build_minimal_pbkdf(&minimal_pbkdf, h);
 
-        for (i = 0; i < max_key_slots; i++) {
-                r = crypt_keyslot_destroy(setup->crypt_device, i);
+        for (size_t i = 0; i < max_key_slots; i++) {
+                r = sym_crypt_keyslot_destroy(setup->crypt_device, i);
                 if (r < 0 && !IN_SET(r, -ENOENT, -EINVAL)) /* Returns EINVAL or ENOENT if there's no key in this slot already */
                         return log_error_errno(r, "Failed to destroy LUKS password: %m");
 
@@ -2957,15 +2991,15 @@ int home_passwd_luks(
                 if (strv_contains(cache->pkcs11_passwords, effective_passwords[i]) ||
                     strv_contains(cache->fido2_passwords, effective_passwords[i])) {
                         log_debug("Using minimal PBKDF for slot %zu", i);
-                        r = crypt_set_pbkdf_type(setup->crypt_device, &minimal_pbkdf);
+                        r = sym_crypt_set_pbkdf_type(setup->crypt_device, &minimal_pbkdf);
                 } else {
                         log_debug("Using good PBKDF for slot %zu", i);
-                        r = crypt_set_pbkdf_type(setup->crypt_device, &good_pbkdf);
+                        r = sym_crypt_set_pbkdf_type(setup->crypt_device, &good_pbkdf);
                 }
                 if (r < 0)
                         return log_error_errno(r, "Failed to tweak PBKDF for slot %zu: %m", i);
 
-                r = crypt_keyslot_add_by_volume_key(
+                r = sym_crypt_keyslot_add_by_volume_key(
                                 setup->crypt_device,
                                 i,
                                 volume_key,
@@ -2982,7 +3016,7 @@ int home_passwd_luks(
 }
 
 int home_lock_luks(UserRecord *h) {
-        _cleanup_(crypt_freep) struct crypt_device *cd = NULL;
+        _cleanup_(sym_crypt_freep) struct crypt_device *cd = NULL;
         _cleanup_free_ char *dm_name = NULL, *dm_node = NULL;
         _cleanup_close_ int root_fd = -1;
         const char *p;
@@ -2999,7 +3033,11 @@ int home_lock_luks(UserRecord *h) {
         if (r < 0)
                 return r;
 
-        r = crypt_init_by_name(&cd, dm_name);
+        r = dlopen_cryptsetup();
+        if (r < 0)
+                return r;
+
+        r = sym_crypt_init_by_name(&cd, dm_name);
         if (r < 0)
                 return log_error_errno(r, "Failed to initialize cryptsetup context for %s: %m", dm_name);
 
@@ -3015,7 +3053,7 @@ int home_lock_luks(UserRecord *h) {
 
         /* Note that we don't invoke FIFREEZE here, it appears libcryptsetup/device-mapper already does that on its own for us */
 
-        r = crypt_suspend(cd, dm_name);
+        r = sym_crypt_suspend(cd, dm_name);
         if (r < 0)
                 return log_error_errno(r, "Failed to suspend cryptsetup device: %s: %m", dm_node);
 
@@ -3035,7 +3073,7 @@ static int luks_try_resume(
         assert(dm_name);
 
         STRV_FOREACH(pp, password) {
-                r = crypt_resume_by_passphrase(
+                r = sym_crypt_resume_by_passphrase(
                                 cd,
                                 dm_name,
                                 CRYPT_ANY_SLOT,
@@ -3054,7 +3092,7 @@ static int luks_try_resume(
 
 int home_unlock_luks(UserRecord *h, PasswordCache *cache) {
         _cleanup_free_ char *dm_name = NULL, *dm_node = NULL;
-        _cleanup_(crypt_freep) struct crypt_device *cd = NULL;
+        _cleanup_(sym_crypt_freep) struct crypt_device *cd = NULL;
         char **list;
         int r;
 
@@ -3064,7 +3102,11 @@ int home_unlock_luks(UserRecord *h, PasswordCache *cache) {
         if (r < 0)
                 return r;
 
-        r = crypt_init_by_name(&cd, dm_name);
+        r = dlopen_cryptsetup();
+        if (r < 0)
+                return r;
+
+        r = sym_crypt_init_by_name(&cd, dm_name);
         if (r < 0)
                 return log_error_errno(r, "Failed to initialize cryptsetup context for %s: %m", dm_name);
 

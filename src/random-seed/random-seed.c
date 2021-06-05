@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <errno.h>
 #include <fcntl.h>
@@ -110,7 +110,7 @@ static int run(int argc, char *argv[]) {
         ssize_t k;
         int r;
 
-        log_setup_service();
+        log_setup();
 
         if (argc != 2)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
@@ -262,7 +262,7 @@ static int run(int argc, char *argv[]) {
                 if (k < 0)
                         log_debug_errno(errno, "Failed to read random data with getrandom(), falling back to /dev/urandom: %m");
                 else if ((size_t) k < buf_size)
-                        log_debug("Short read from getrandom(), falling back to /dev/urandom: %m");
+                        log_debug("Short read from getrandom(), falling back to /dev/urandom.");
                 else
                         getrandom_worked = true;
 

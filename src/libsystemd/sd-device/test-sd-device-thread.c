@@ -1,19 +1,25 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <errno.h>
 #include <pthread.h>
-#include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 
 #include "sd-device.h"
 
 #include "device-util.h"
-#include "macro.h"
+
+#define handle_error_errno(error, msg)                          \
+        ({                                                      \
+                errno = abs(error);                             \
+                perror(msg);                                    \
+                EXIT_FAILURE;                                   \
+        })
 
 static void* thread(void *p) {
         sd_device **d = p;
 
-        assert_se(!(*d = sd_device_unref(*d)));
+        *d = sd_device_unref(*d);
 
         return NULL;
 }
@@ -22,18 +28,25 @@ int main(int argc, char *argv[]) {
         sd_device *loopback;
         pthread_t t;
         const char *key, *value;
+        int r;
 
-        assert_se(unsetenv("SYSTEMD_MEMPOOL") == 0);
-
-        assert_se(sd_device_new_from_syspath(&loopback, "/sys/class/net/lo") >= 0);
+        r = sd_device_new_from_syspath(&loopback, "/sys/class/net/lo");
+        if (r < 0)
+                return handle_error_errno(r, "Failed to create loopback device object");
 
         FOREACH_DEVICE_PROPERTY(loopback, key, value)
                 printf("%s=%s\n", key, value);
 
-        assert_se(pthread_create(&t, NULL, thread, &loopback) == 0);
-        assert_se(pthread_join(t, NULL) == 0);
+        r = pthread_create(&t, NULL, thread, &loopback);
+        if (r != 0)
+                return handle_error_errno(r, "Failed to create thread");
 
-        assert_se(!loopback);
+        r = pthread_join(t, NULL);
+        if (r != 0)
+                return handle_error_errno(r, "Failed to wait thread finished");
+
+        if (loopback)
+                return handle_error_errno(r, "loopback device is not unref()ed");
 
         return 0;
 }

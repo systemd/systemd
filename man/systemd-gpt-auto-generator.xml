@@ -1,7 +1,7 @@
 <?xml version="1.0"?> <!--*-nxml-*-->
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
-<!-- SPDX-License-Identifier: LGPL-2.1+ -->
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
 
 <refentry id="systemd-gpt-auto-generator" conditional='HAVE_BLKID'>
 
@@ -108,6 +108,18 @@
             <entry><filename>Root Partition (Itanium/IA-64)</filename></entry>
             <entry><filename>/</filename></entry>
             <entry>On Itanium systems, the first Itanium root partition on the disk the EFI ESP is located on is mounted to the root directory <filename>/</filename>.</entry>
+          </row>
+          <row>
+            <entry>60d5a7fe-8e7d-435c-b714-3dd8162144e1</entry>
+            <entry><filename>Root Partition (RISCV-V 32)</filename></entry>
+            <entry><filename>/</filename></entry>
+            <entry>On RISC-V 32-bit systems, the first RISCV-V 32-bit root partition on the disk the EFI ESP is located on is mounted to the root directory <filename>/</filename>.</entry>
+          </row>
+          <row>
+            <entry>72ec70a6-cf74-40e6-bd49-4bda08e8f224</entry>
+            <entry><filename>Root Partition (RISCV-V 64)</filename></entry>
+            <entry><filename>/</filename></entry>
+            <entry>On RISC-V 64-bit systems, the first RISCV-V 64-bit root partition on the disk the EFI ESP is located on is mounted to the root directory <filename>/</filename>.</entry>
           </row>
           <row>
             <entry>933ac7e1-2eb4-4f13-b844-0e14e2aef915</entry>

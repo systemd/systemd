@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <errno.h>
 #include <stdlib.h>
@@ -23,6 +23,19 @@ int main(int argc, char *argv[]) {
                 "/usr/lib",
                 "-/lib64",
                 "-/usr/lib64",
+                NULL
+        };
+
+        const char * const exec[] = {
+                "/lib",
+                "/usr",
+                "-/lib64",
+                "-/usr/lib64",
+                NULL
+        };
+
+        const char * const no_exec[] = {
+                "/var",
                 NULL
         };
 
@@ -70,6 +83,8 @@ int main(int argc, char *argv[]) {
                             (char **) writable,
                             (char **) readonly,
                             (char **) inaccessible,
+                            (char **) exec,
+                            (char **) no_exec,
                             NULL,
                             &(BindMount) { .source = (char*) "/usr/bin", .destination = (char*) "/etc/systemd", .read_only = true }, 1,
                             &(TemporaryFileSystem) { .path = (char*) "/var", .options = (char*) "ro" }, 1,
@@ -87,7 +102,11 @@ int main(int argc, char *argv[]) {
                             0,
                             NULL,
                             NULL,
+                            NULL,
                             0,
+                            NULL,
+                            NULL,
+                            NULL,
                             NULL);
         if (r < 0) {
                 log_error_errno(r, "Failed to set up namespace: %m");

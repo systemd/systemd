@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <errno.h>
 #include <fcntl.h>
@@ -101,7 +101,7 @@ int bus_event_loop_with_idle(
                 else
                         idle = true;
 
-                r = sd_event_run(e, exiting || !idle ? (uint64_t) -1 : timeout);
+                r = sd_event_run(e, exiting || !idle ? UINT64_MAX : timeout);
                 if (r < 0)
                         return r;
 
@@ -249,7 +249,12 @@ int bus_connect_user_systemd(sd_bus **_bus) {
         return 0;
 }
 
-int bus_connect_transport(BusTransport transport, const char *host, bool user, sd_bus **ret) {
+int bus_connect_transport(
+                BusTransport transport,
+                const char *host,
+                bool user,
+                sd_bus **ret) {
+
         _cleanup_(sd_bus_close_unrefp) sd_bus *bus = NULL;
         int r;
 
@@ -258,7 +263,7 @@ int bus_connect_transport(BusTransport transport, const char *host, bool user, s
         assert(ret);
 
         assert_return((transport == BUS_TRANSPORT_LOCAL) == !host, -EINVAL);
-        assert_return(transport == BUS_TRANSPORT_LOCAL || !user, -EOPNOTSUPP);
+        assert_return(transport != BUS_TRANSPORT_REMOTE || !user, -EOPNOTSUPP);
 
         switch (transport) {
 
@@ -266,12 +271,10 @@ int bus_connect_transport(BusTransport transport, const char *host, bool user, s
                 if (user)
                         r = sd_bus_default_user(&bus);
                 else {
-                        if (sd_booted() <= 0) {
+                        if (sd_booted() <= 0)
                                 /* Print a friendly message when the local system is actually not running systemd as PID 1. */
-                                log_error("System has not been booted with systemd as init system (PID 1). Can't operate.");
-
-                                return -EHOSTDOWN;
-                        }
+                                return log_error_errno(SYNTHETIC_ERRNO(EHOSTDOWN),
+                                                       "System has not been booted with systemd as init system (PID 1). Can't operate.");
                         r = sd_bus_default_system(&bus);
                 }
                 break;
@@ -281,7 +284,10 @@ int bus_connect_transport(BusTransport transport, const char *host, bool user, s
                 break;
 
         case BUS_TRANSPORT_MACHINE:
-                r = sd_bus_open_system_machine(&bus, host);
+                if (user)
+                        r = sd_bus_open_user_machine(&bus, host);
+                else
+                        r = sd_bus_open_system_machine(&bus, host);
                 break;
 
         default:
@@ -295,7 +301,6 @@ int bus_connect_transport(BusTransport transport, const char *host, bool user, s
                 return r;
 
         *ret = TAKE_PTR(bus);
-
         return 0;
 }
 

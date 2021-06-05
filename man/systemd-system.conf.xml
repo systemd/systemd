@@ -4,7 +4,7 @@
 <!ENTITY % entities SYSTEM "custom-entities.ent" >
 %entities;
 ]>
-<!-- SPDX-License-Identifier: LGPL-2.1+ -->
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
 
 <refentry id="systemd-system.conf"
     xmlns:xi="http://www.w3.org/2001/XInclude">
@@ -31,7 +31,9 @@
     <filename>/etc/systemd/system.conf.d/*.conf</filename>,
     <filename>/run/systemd/system.conf.d/*.conf</filename>,
     <filename>/usr/lib/systemd/system.conf.d/*.conf</filename></para>
-    <para><filename>/etc/systemd/user.conf</filename>,
+
+    <para><filename>~/.config/systemd/user.conf</filename>,
+    <filename>/etc/systemd/user.conf</filename>,
     <filename>/etc/systemd/user.conf.d/*.conf</filename>,
     <filename>/run/systemd/user.conf.d/*.conf</filename>,
     <filename>/usr/lib/systemd/user.conf.d/*.conf</filename></para>
@@ -40,16 +42,16 @@
   <refsect1>
     <title>Description</title>
 
-    <para>When run as a system instance, systemd interprets the
-    configuration file <filename>system.conf</filename> and the files
-    in <filename>system.conf.d</filename> directories; when run as a
-    user instance, systemd interprets the configuration file
-    <filename>user.conf</filename> and the files in
-    <filename>user.conf.d</filename> directories. These configuration
-    files contain a few settings controlling basic manager
-    operations. See
-    <citerefentry><refentrytitle>systemd.syntax</refentrytitle><manvolnum>7</manvolnum></citerefentry>
-    for a general description of the syntax.</para>
+    <para>When run as a system instance, <command>systemd</command> interprets the configuration file
+    <filename>system.conf</filename> and the files in <filename>system.conf.d</filename> directories; when
+    run as a user instance, it interprets the configuration file <filename>user.conf</filename> (either in
+    the home directory of the user, or if not found, under <filename>/etc/systemd/</filename>) and the files
+    in <filename>user.conf.d</filename> directories. These configuration files contain a few settings
+    controlling basic manager operations.</para>
+
+    <para>See
+    <citerefentry><refentrytitle>systemd.syntax</refentrytitle><manvolnum>7</manvolnum></citerefentry> for a
+    general description of the syntax.</para>
   </refsect1>
 
   <xi:include href="standard-conf.xml" xpointer="main-conf" />
@@ -321,11 +323,13 @@
       <varlistentry>
         <term><varname>DefaultEnvironment=</varname></term>
 
-        <listitem><para>Sets manager environment variables passed to
-        all executed processes. Takes a space-separated list of
-        variable assignments. See
-        <citerefentry project='man-pages'><refentrytitle>environ</refentrytitle><manvolnum>7</manvolnum></citerefentry>
-        for details about environment variables.</para>
+        <listitem><para>Configures environment variables passed to all executed processes. Takes a
+        space-separated list of variable assignments. See <citerefentry
+        project='man-pages'><refentrytitle>environ</refentrytitle><manvolnum>7</manvolnum></citerefentry> for
+        details about environment variables.</para>
+
+        <para>Simple <literal>%</literal>-specifier expansion is supported, see below for a list of supported
+        specifiers.</para>
 
         <para>Example:
 
@@ -335,6 +339,24 @@
         <literal>VAR1</literal>,
         <literal>VAR2</literal>,
         <literal>VAR3</literal>.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>ManagerEnvironment=</varname></term>
+
+        <listitem><para>Takes the same arguments as <varname>DefaultEnvironment=</varname>, see above. Sets
+        environment variables just for the manager process itself. In contrast to user managers, these variables
+        are not inherited by processes spawned by the system manager, use <varname>DefaultEnvironment=</varname>
+        for that. Note that these variables are merged into the existing environment block. In particular, in
+        case of the system manager, this includes variables set by the kernel based on the kernel command line.</para>
+
+        <para>Setting environment variables for the manager process may be useful to modify its behaviour.
+        See <ulink url="https://systemd.io/ENVIRONMENT">ENVIRONMENT</ulink> for a descriptions of some
+        variables understood by <command>systemd</command>.</para>
+
+        <para>Simple <literal>%</literal>-specifier expansion is supported, see below for a list of supported
+        specifiers.</para>
+        </listitem>
       </varlistentry>
 
       <varlistentry>
@@ -361,8 +383,11 @@
         <listitem><para>Configure the default value for the per-unit <varname>TasksMax=</varname> setting. See
         <citerefentry><refentrytitle>systemd.resource-control</refentrytitle><manvolnum>5</manvolnum></citerefentry>
         for details. This setting applies to all unit types that support resource control settings, with the exception
-        of slice units. Defaults to 15%, which equals 4915 with the kernel's defaults on the host, but might be smaller
-        in OS containers.</para></listitem>
+        of slice units. Defaults to 15% of the minimum of <varname>kernel.pid_max=</varname>, <varname>kernel.threads-max=</varname>
+        and root cgroup <varname>pids.max</varname>.
+        Kernel has a default value for <varname>kernel.pid_max=</varname> and an algorithm of counting in case of more than 32 cores.
+        For example with the default <varname>kernel.pid_max=</varname>, <varname>DefaultTasksMax=</varname> defaults to 4915,
+        but might be greater in other systems or smaller in OS containers.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -390,7 +415,23 @@
         <varname>LimitXXX=</varname> directives and they accept the same parameter syntax,
         see <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>
         for details. Note that these resource limits are only defaults
-        for units, they are not applied to the service manager process (i.e. PID 1) itself.</para></listitem>
+        for units, they are not applied to the service manager process (i.e. PID 1) itself.</para>
+
+        <para>Most of these settings are unset, which means the resource limits are inherited from the kernel or, if
+        invoked in a container, from the container manager. However, the following have defaults:</para>
+        <itemizedlist>
+          <listitem><para><varname>DefaultLimitNOFILE=</varname> defaults to <literal>1024:&HIGH_RLIMIT_NOFILE;</literal>.
+          </para></listitem>
+
+          <listitem><para><varname>DefaultLimitCORE=</varname> does not have a default but it is worth mentioning that
+          <varname>RLIMIT_CORE</varname> is set to <literal>infinity</literal> by PID 1 which is inherited by its
+          children.</para></listitem>
+
+          <listitem><para>Note that the service manager internally increases <varname>RLIMIT_MEMLOCK</varname> for
+          itself, however the limit is reverted to the original value for child processes forked off.</para></listitem>
+        </itemizedlist>
+
+      </listitem>
       </varlistentry>
 
       <varlistentry>
@@ -404,6 +445,45 @@
         turned on.</para></listitem>
       </varlistentry>
     </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>Specifiers</title>
+
+    <para>Specifiers may be used in the <varname>DefaultEnvironment=</varname> and
+    <varname>ManagerEnvironment=</varname> settings. The following expansions are understood:</para>
+      <table class='specifiers'>
+        <title>Specifiers available</title>
+        <tgroup cols='3' align='left' colsep='1' rowsep='1'>
+          <colspec colname="spec" />
+          <colspec colname="mean" />
+          <colspec colname="detail" />
+          <thead>
+            <row>
+              <entry>Specifier</entry>
+              <entry>Meaning</entry>
+              <entry>Details</entry>
+            </row>
+          </thead>
+          <tbody>
+            <xi:include href="standard-specifiers.xml" xpointer="a"/>
+            <xi:include href="standard-specifiers.xml" xpointer="A"/>
+            <xi:include href="standard-specifiers.xml" xpointer="b"/>
+            <xi:include href="standard-specifiers.xml" xpointer="B"/>
+            <xi:include href="standard-specifiers.xml" xpointer="H"/>
+            <xi:include href="standard-specifiers.xml" xpointer="l"/>
+            <xi:include href="standard-specifiers.xml" xpointer="m"/>
+            <xi:include href="standard-specifiers.xml" xpointer="M"/>
+            <xi:include href="standard-specifiers.xml" xpointer="o"/>
+            <xi:include href="standard-specifiers.xml" xpointer="v"/>
+            <xi:include href="standard-specifiers.xml" xpointer="w"/>
+            <xi:include href="standard-specifiers.xml" xpointer="W"/>
+            <xi:include href="standard-specifiers.xml" xpointer="T"/>
+            <xi:include href="standard-specifiers.xml" xpointer="V"/>
+            <xi:include href="standard-specifiers.xml" xpointer="percent"/>
+          </tbody>
+        </tgroup>
+      </table>
   </refsect1>
 
   <refsect1>

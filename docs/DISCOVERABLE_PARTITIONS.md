@@ -46,29 +46,37 @@ Interface](https://systemd.io/BOOT_LOADER_INTERFACE).
 | `69dad710-2ce4-4e3c-b16c-21a1d49abed3` | _Root Partition (32-bit ARM)_ | ditto | ditto |
 | `b921b045-1df0-41c3-af44-4c6f280d3fae` | _Root Partition (64-bit ARM/AArch64)_ | ditto | ditto |
 | `993d8d3d-f80e-4225-855a-9daf8ed7ea97` | _Root Partition (Itanium/IA-64)_ | ditto | ditto |
+| `60d5a7fe-8e7d-435c-b714-3dd8162144e1` | _Root Partition (RISC-V 32-bit)_ | ditto | ditto |
+| `72ec70a6-cf74-40e6-bd49-4bda08e8f224` | _Root Partition (RISC-V 64-bit)_ | ditto | ditto |
 | `d13c5d3b-b5d1-422a-b29f-9454fdc89d76` | _Root Verity Partition (x86)_ | A dm-verity superblock followed by hash data | On systems with matching architecture, contains dm-verity integrity hash data for the matching root partition. If this feature is used the partition UUID of the root partition should be the first 128bit of the root hash of the dm-verity hash data, and the partition UUID of this dm-verity partition should be the final 128bit of it, so that the root partition and its verity partition can be discovered easily, simply by specifying the root hash. |
 | `2c7357ed-ebd2-46d9-aec1-23d437ec2bf5` | _Root Verity Partition (x86-64)_ | ditto | ditto |
 | `7386cdf2-203c-47a9-a498-f2ecce45a2d6` | _Root Verity Partition (32-bit ARM)_ | ditto | ditto |
 | `df3300ce-d69f-4c92-978c-9bfb0f38d820` | _Root Verity Partition (64-bit ARM/AArch64)_ | ditto | ditto |
 | `86ed10d5-b607-45bb-8957-d350f23d0571` | _Root Verity Partition (Itanium/IA-64)_  | ditto | ditto |
+| `ae0253be-1167-4007-ac68-43926c14c5de` | _Root Verity Partition (RISC-V 32-bit)_  | ditto | ditto |
+| `b6ed5582-440b-4209-b8da-5ff7c419ea3d` | _Root Verity Partition (RISC-V 64-bit)_  | ditto | ditto |
 | `75250d76-8cc6-458e-bd66-bd47cc81a812` | _`/usr/` Partition (x86)_ | Any native, optionally in LUKS | Similar semantics to root partition, but just the `/usr/` partition. |
 | `8484680c-9521-48c6-9c11-b0720656f69e` | _`/usr/` Partition (x86-64)_ | ditto | ditto |
 | `7d0359a3-02b3-4f0a-865c-654403e70625` | _`/usr/` Partition (32-bit ARM)_ | ditto | ditto |
 | `b0e01050-ee5f-4390-949a-9101b17104e9` | _`/usr/` Partition (64-bit ARM/AArch64)_ | ditto | ditto |
 | `4301d2a6-4e3b-4b2a-bb94-9e0b2c4225ea` | _`/usr/` Partition (Itanium/IA-64)_ | ditto | ditto |
-| `8f461b0d-14ee-4e81-9aa9-049b6fb97abd` | _`/usr/` Verity Partition (x86)_ | Any native, optionally in LUKS | Similar semantics to root Verity partition, but just for the `/usr/` partition. |
+| `b933fb22-5c3f-4f91-af90-e2bb0fa50702` | _`/usr/` Partition (RISC-V 32-bit)_ | ditto | ditto |
+| `beaec34b-8442-439b-a40b-984381ed097d` | _`/usr/` Partition (RISC-V 64-bit)_ | ditto | ditto |
+| `8f461b0d-14ee-4e81-9aa9-049b6fb97abd` | _`/usr/` Verity Partition (x86)_ | A dm-verity superblock followed by hash data | Similar semantics to root Verity partition, but just for the `/usr/` partition. |
 | `77ff5f63-e7b6-4633-acf4-1565b864c0e6` | _`/usr/` Verity Partition (x86-64)_ | ditto | ditto |
 | `c215d751-7bcd-4649-be90-6627490a4c05` | _`/usr/` Verity Partition (32-bit ARM)_ | ditto | ditto |
 | `6e11a4e7-fbca-4ded-b9e9-e1a512bb664e` | _`/usr/` Verity Partition (64-bit ARM/AArch64)_ | ditto | ditto |
 | `6a491e03-3be7-4545-8e38-83320e0ea880` | _`/usr/` Verity Partition (Itanium/IA-64)_ | ditto | ditto |
+| `cb1ee4e3-8cd0-4136-a0a4-aa61a32e8730` | _`/usr/` Verity Partition (RISC-V 32-bit)_ | ditto | ditto |
+| `8f1056be-9b05-47c4-81d6-be53128e5b54` | _`/usr/` Verity Partition (RISC-V 64-bit)_ | ditto | ditto |
 | `933ac7e1-2eb4-4f13-b844-0e14e2aef915` | _Home Partition_ | Any native, optionally in LUKS | The first partition with this type UUID on the disk containing the root partition is automatically mounted to `/home/`.  If the partition is encrypted with LUKS, the device mapper file will be named `/dev/mapper/home`. |
 | `3b8f8425-20e0-4f3b-907f-1a25a76f98e8` | _Server Data Partition_ | Any native, optionally in LUKS | The first partition with this type UUID on the disk containing the root partition is automatically mounted to `/srv/`.  If the partition is encrypted with LUKS, the device mapper file will be named `/dev/mapper/srv`. |
 | `4d21b016-b534-45c2-a9fb-5c16e091fd2d` | _Variable Data Partition_ | Any native, optionally in LUKS | The first partition with this type UUID on the disk containing the root partition is automatically mounted to `/var/` — under the condition that its partition UUID matches the first 128 bit of `HMAC-SHA256(machine-id, 0x4d21b016b53445c2a9fb5c16e091fd2d)` (i.e. the SHA256 HMAC hash of the binary type UUID keyed by the machine ID as read from [`/etc/machine-id`](https://www.freedesktop.org/software/systemd/man/machine-id.html). This special requirement is made because `/var/` (unlike the other partition types listed here) is inherently private to a specific installation and cannot possibly be shared between multiple OS installations on the same disk, and thus should be bound to a specific instance of the OS, identified by its machine ID. If the partition is encrypted with LUKS, the device mapper file will be named `/dev/mapper/var`. |
 | `7ec6f557-3bc5-4aca-b293-16ef5df639d1` | _Temporary Data Partition_ | Any native, optionally in LUKS | The first partition with this type UUID on the disk containing the root partition is automatically mounted to `/var/tmp/`.  If the partition is encrypted with LUKS, the device mapper file will be named `/dev/mapper/tmp`. Note that the intended mount point is indeed `/var/tmp/`, not `/tmp/`. The latter is typically maintained in memory via <tt>tmpfs</tt> and does not require a partition on disk. In some cases it might be desirable to make `/tmp/` persistent too, in which case it is recommended to make it a symlink or bind mount to `/var/tmp/`, thus not requiring its own partition type UUID. |
-| `0657fd6d-a4ab-43c4-84e5-0933c84b4f4f` | _Swap_ | Swap | All swap partitions on the disk containing the root partition are automatically enabled. |
+| `0657fd6d-a4ab-43c4-84e5-0933c84b4f4f` | _Swap_ | Swap | All swap partitions on the disk containing the root partition are automatically enabled. This partition type predates the Discoverable Partitions Specification. |
+| `0fc63daf-8483-4772-8e79-3d69d8477de4` | _Generic Linux Data Partitions_ | Any native, optionally in LUKS | No automatic mounting takes place for other Linux data partitions. This partition type should be used for all partitions that carry Linux file systems. The installer needs to mount them explicitly via entries in <tt>/etc/fstab</tt>. Optionally, these partitions may be encrypted with LUKS. This partition type predates the Discoverable Partitions Specification. |
 | `c12a7328-f81f-11d2-ba4b-00a0c93ec93b` | _EFI System Partition_ | VFAT | The ESP used for the current boot is automatically mounted to `/efi/` (or `/boot/` as fallback), unless a different partition is mounted there (possibly via `/etc/fstab`, or because the Extended Boot Loader Partition — see below — exists) or the directory is non-empty on the root disk.  This partition type is defined by the [UEFI Specification](http://www.uefi.org/specifications). |
 | `bc13c2ff-59e6-4262-a352-b275fd6f7172` | _Extended Boot Loader Partition_ | Typically VFAT | The Extended Boot Loader Partition (XBOOTLDR) used for the current boot is automatically mounted to <tt>/boot/</tt>, unless a different partition is mounted there (possibly via <tt>/etc/fstab</tt>) or the directory is non-empty on the root disk. This partition type is defined by the [Boot Loader Specification](https://systemd.io/BOOT_LOADER_SPECIFICATION). |
-| `0fc63daf-8483-4772-8e79-3d69d8477de4` | _Other Data Partitions_ | Any native, optionally in LUKS | No automatic mounting takes place for other Linux data partitions. This partition type should be used for all partitions that carry Linux file systems. The installer needs to mount them explicitly via entries in <tt>/etc/fstab</tt>. Optionally, these partitions may be encrypted with LUKS. |
 
 Other GPT type IDs might be used on Linux, for example to mark software RAID or
 LVM partitions. The definitions of those GPT types is outside of the scope of
@@ -86,24 +94,48 @@ localized.
 
 ## Partition Flags
 
-For the root, `/usr/`, server data, home, variable data, temporary data and swap
-partitions, the partition flag bit 63 ("*no-auto*") may be used to turn off
-auto-discovery for the specific partition.  If set, the partition will not be
-automatically mounted or enabled.
+This specification defines three GPT partition flags that may be set for the
+partition types defined above:
 
-For the root, `/usr/` server data, home, variable data and temporary data
-partitions, the partition flag bit 60 ("*read-only*") may be used to mark a
-partition for read-only mounts only.  If set, the partition will be mounted
-read-only instead of read-write. Note that the variable data partition and the
-temporary data partition will generally not be able to serve their purpose if
-marked read-only, since by their very definition they are supposed to be
-mutable. (The home and server data partitions are generally assumed to be
-mutable as well, but the requirement for them is not equally strong.) Because
-of that, while the read-only flag is defined and supported, it's almost never a
-good idea to actually use it for these partitions.
+1. For the root, `/usr/`, Verity, home, server data, variable data, temporary data,
+   swap and extended boot loader partitions, the partition flag bit 63
+   ("*no-auto*") may be used to turn off auto-discovery for the specific
+   partition.  If set, the partition will not be automatically mounted or
+   enabled.
 
-Note that these two flag definitions happen to map nicely to the ones used by
-Microsoft Basic Data Partitions.
+2. For the root, `/usr/`, Verity, home, server data, variable data, temporary
+   data and extended boot loader partitions, the partition flag bit 60
+   ("*read-only*") may be used to mark a partition for read-only mounts only.
+   If set, the partition will be mounted read-only instead of read-write. Note
+   that the variable data partition and the temporary data partition will
+   generally not be able to serve their purpose if marked read-only, since by
+   their very definition they are supposed to be mutable. (The home and server
+   data partitions are generally assumed to be mutable as well, but the
+   requirement for them is not equally strong.) Because of that, while the
+   read-only flag is defined and supported, it's almost never a good idea to
+   actually use it for these partitions. Also note that Verity partitions are
+   by their semantics always read-only. The flag is hence of little effect for
+   them, and it is recommended to set it unconditionally for the Verity
+   partition types.
+
+3. For the root, `/usr/`, home, server data, variable data, temporary data and
+   extended boot loader partitions, the partition flag bit 59
+   ("*grow-file-system*") may be used to mark a partition for automatic growing
+   of the contained file system to the size of the partition when
+   mounted. Tools that automatically mount disk image with a GPT partition
+   table are suggested to implicitly grow the contained file system to the
+   partition size they are contained in. This flag is without effect on
+   partitions marked read-only.
+
+Note that the first two flag definitions happen to map nicely to the ones used
+by Microsoft Basic Data Partitions.
+
+All three of these flags generally affect only auto-discovery and automatic
+mounting of disk images. If partitions marked with these flags are mounted
+using low-level commands like
+[mount(8)](https://man7.org/linux/man-pages/man2/mount.8.html) or directly with
+[mount(2)](https://man7.org/linux/man-pages/man2/mount.2.html), they typically
+have no effect.
 
 ## Suggested Mode of Operation
 
@@ -154,7 +186,14 @@ partition is listed in `/etc/fstab` or with `root=` on the kernel command line,
 it _must_ take precedence over automatically discovered partitions.  If a
 `/home/`, `/usr/`, `/srv/`, `/boot/`, `/var/`, `/var/tmp/`, `/efi/` or `/boot/`
 directory is found to be populated already in the root partition, the automatic
-discovery _must not_ mount any discovered file system over it.
+discovery _must not_ mount any discovered file system over it. Optionally, in
+case of the root, `/usr/` and their Verity partitions instead of strictly
+mounting the first suitable partition an OS might choose to mount the partition
+whose label compares the highest according to `strverscmp()` or a similar
+logic, in order to implement a simple partition-based A/B versioning
+scheme. The precise rules are left for the implementation to decide, but when
+in doubt earlier partitions (by their index) should always win over later
+partitions if the label comparison is inconclusive.
 
 A *container* *manager* should automatically discover and mount the root,
 `/usr/`, `/home/`, `/srv/`, `/var/`, `/var/tmp/` partitions inside a container
@@ -217,10 +256,12 @@ appliance-like installations.
 
 ### What partitioning tools will create a DPS-compliant partition table?
 
-As of util-linux 2.25.2, the fdisk tool provides type codes to create the root,
-home, and swap partitions that the DPS expects, but the gdisk tool (version
-0.8.10) and its variants do not support creation of a root file system with a
-matching type code.  By default, fdisk will create an old-style MBR, not a GPT,
-so typing 'l' to list partition types will not show the choices that the root
-partition with the correct UUID.  You must first create an empty GPT and then
-type 'l' in order for the DPS-compliant type codes to be available.
+As of util-linux 2.25.2, the `fdisk` tool provides type codes to create the
+root, home, and swap partitions that the DPS expects. By default, `fdisk` will
+create an old-style MBR, not a GPT, so typing `l` to list partition types will
+not show the choices to let you set the correct UUID. Make sure to first create
+an empty GPT, then type `l` in order for the DPS-compliant type codes to be
+available.
+
+The `gdisk` tool (from version 1.0.5 onward) and its variants (`sgdisk`,
+`cgdisk`) also support creation of partitions with a matching type code.

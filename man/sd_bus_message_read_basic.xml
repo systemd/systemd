@@ -3,7 +3,7 @@
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
 
 <!--
-  SPDX-License-Identifier: LGPL-2.1+
+  SPDX-License-Identifier: LGPL-2.1-or-later
 
   Copyright © 2016 Julian Orth
 -->
@@ -58,12 +58,12 @@
       <parameter>type</parameter> is <constant>'s'</constant>, the object passed in <parameter>p</parameter>
       should have type <type>const char **</type>. Note that, if the basic type is a pointer (e.g.,
       <type>const char *</type> in the case of a string), the pointer is only borrowed and the contents must
-      be copied if they are to be used after the end of the messages lifetime. Similarly, during the lifetime
-      of such a pointer, the message must not be modified. If <parameter>type</parameter> is
+      be copied if they are to be used after the end of the message's lifetime. Similarly, during the
+      lifetime of such a pointer, the message must not be modified. If <parameter>type</parameter> is
       <constant>'h'</constant> (UNIX file descriptor), the descriptor is not duplicated by this call and the
-      returned descriptor remains in possession of the message object, and needs to be duplicated by the caller
-      in order to keep an open reference to it after the message object is freed (for example by calling
-      <literal>fcntl(fd, FD_DUPFD_CLOEXEC, 3)</literal>). See the table below for a complete list of
+      returned descriptor remains in possession of the message object, and needs to be duplicated by the
+      caller in order to keep an open reference to it after the message object is freed (for example by
+      calling <literal>fcntl(fd, FD_DUPFD_CLOEXEC, 3)</literal>). See the table below for a complete list of
       allowed types.
     </para>
 
@@ -188,9 +188,9 @@
     <title>Return Value</title>
 
     <para>
-      On success, <function>sd_bus_message_read_basic()</function> returns 0 or
-      a positive integer. On failure, it returns a negative errno-style error
-      code.
+      On success, <function>sd_bus_message_read_basic()</function> returns a positive integer.
+      If the end of the currently opened array has been reached, it returns 0.
+      On failure, it returns a negative errno-style error code.
     </para>
 
     <refsect2 id='errors'>

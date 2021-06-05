@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 /***
   Copyright © 2016 Michal Soltys <soltys@ziu.info>
 ***/
@@ -146,7 +146,7 @@ static int keyboard_load_and_wait(const char *vc, const char *map, const char *m
         args[i++] = NULL;
 
         if (DEBUG_LOGGING) {
-                _cleanup_free_ char *cmd;
+                _cleanup_free_ char *cmd = NULL;
 
                 cmd = strv_join((char**) args, " ");
                 log_debug("Executing \"%s\"...", strnull(cmd));
@@ -189,7 +189,7 @@ static int font_load_and_wait(const char *vc, const char *font, const char *map,
         args[i++] = NULL;
 
         if (DEBUG_LOGGING) {
-                _cleanup_free_ char *cmd;
+                _cleanup_free_ char *cmd = NULL;
 
                 cmd = strv_join((char**) args, " ");
                 log_debug("Executing \"%s\"...", strnull(cmd));
@@ -430,7 +430,7 @@ int main(int argc, char **argv) {
         unsigned idx = 0;
         int r;
 
-        log_setup_service();
+        log_setup();
 
         umask(0022);
 

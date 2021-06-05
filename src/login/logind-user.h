@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
 typedef struct User User;
@@ -16,7 +16,7 @@ typedef enum UserState {
         USER_ACTIVE,     /* User logged in and has a session in the fg */
         USER_CLOSING,    /* User logged out, but processes still remain and lingering is not enabled */
         _USER_STATE_MAX,
-        _USER_STATE_INVALID = -1
+        _USER_STATE_INVALID = -EINVAL,
 } UserState;
 
 struct User {

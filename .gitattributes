@@ -1,1 +1,2 @@
 *.[ch] whitespace=tab-in-indent,trailing-space
+test/dmidecode-dumps/*.bin binary

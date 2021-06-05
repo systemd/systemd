@@ -1,8 +1,10 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
 #include <stdbool.h>
 
+#include "errno-list.h"
+#include "locale-util.h"
 #include "macro.h"
 
 /* The enum order is used to order unit jobs in the job queue
@@ -21,7 +23,8 @@ typedef enum UnitType {
         UNIT_SLICE,
         UNIT_SCOPE,
         _UNIT_TYPE_MAX,
-        _UNIT_TYPE_INVALID = -1
+        _UNIT_TYPE_INVALID = -EINVAL,
+        _UNIT_TYPE_ERRNO_MAX = -ERRNO_MAX, /* Ensure the whole errno range fits into this enum */
 } UnitType;
 
 typedef enum UnitLoadState {
@@ -33,7 +36,7 @@ typedef enum UnitLoadState {
         UNIT_MERGED,
         UNIT_MASKED,
         _UNIT_LOAD_STATE_MAX,
-        _UNIT_LOAD_STATE_INVALID = -1
+        _UNIT_LOAD_STATE_INVALID = -EINVAL,
 } UnitLoadState;
 
 typedef enum UnitActiveState {
@@ -45,7 +48,7 @@ typedef enum UnitActiveState {
         UNIT_DEACTIVATING,
         UNIT_MAINTENANCE,
         _UNIT_ACTIVE_STATE_MAX,
-        _UNIT_ACTIVE_STATE_INVALID = -1
+        _UNIT_ACTIVE_STATE_INVALID = -EINVAL,
 } UnitActiveState;
 
 typedef enum FreezerState {
@@ -54,8 +57,15 @@ typedef enum FreezerState {
         FREEZER_FROZEN,
         FREEZER_THAWING,
         _FREEZER_STATE_MAX,
-        _FREEZER_STATE_INVALID = -1
+        _FREEZER_STATE_INVALID = -EINVAL,
 } FreezerState;
+
+typedef enum UnitMarker {
+        UNIT_MARKER_NEEDS_RELOAD,
+        UNIT_MARKER_NEEDS_RESTART,
+        _UNIT_MARKER_MAX,
+        _UNIT_MARKER_INVALID = -EINVAL,
+} UnitMarker;
 
 typedef enum AutomountState {
         AUTOMOUNT_DEAD,
@@ -63,7 +73,7 @@ typedef enum AutomountState {
         AUTOMOUNT_RUNNING,
         AUTOMOUNT_FAILED,
         _AUTOMOUNT_STATE_MAX,
-        _AUTOMOUNT_STATE_INVALID = -1
+        _AUTOMOUNT_STATE_INVALID = -EINVAL,
 } AutomountState;
 
 /* We simply watch devices, we cannot plug/unplug them. That
@@ -73,7 +83,7 @@ typedef enum DeviceState {
         DEVICE_TENTATIVE, /* mounted or swapped, but not (yet) announced by udev */
         DEVICE_PLUGGED,   /* announced by udev */
         _DEVICE_STATE_MAX,
-        _DEVICE_STATE_INVALID = -1
+        _DEVICE_STATE_INVALID = -EINVAL,
 } DeviceState;
 
 typedef enum MountState {
@@ -90,7 +100,7 @@ typedef enum MountState {
         MOUNT_FAILED,
         MOUNT_CLEANING,
         _MOUNT_STATE_MAX,
-        _MOUNT_STATE_INVALID = -1
+        _MOUNT_STATE_INVALID = -EINVAL,
 } MountState;
 
 typedef enum PathState {
@@ -99,7 +109,7 @@ typedef enum PathState {
         PATH_RUNNING,
         PATH_FAILED,
         _PATH_STATE_MAX,
-        _PATH_STATE_INVALID = -1
+        _PATH_STATE_INVALID = -EINVAL,
 } PathState;
 
 typedef enum ScopeState {
@@ -110,7 +120,7 @@ typedef enum ScopeState {
         SCOPE_STOP_SIGKILL,
         SCOPE_FAILED,
         _SCOPE_STATE_MAX,
-        _SCOPE_STATE_INVALID = -1
+        _SCOPE_STATE_INVALID = -EINVAL,
 } ScopeState;
 
 typedef enum ServiceState {
@@ -134,14 +144,14 @@ typedef enum ServiceState {
         SERVICE_AUTO_RESTART,
         SERVICE_CLEANING,
         _SERVICE_STATE_MAX,
-        _SERVICE_STATE_INVALID = -1
+        _SERVICE_STATE_INVALID = -EINVAL,
 } ServiceState;
 
 typedef enum SliceState {
         SLICE_DEAD,
         SLICE_ACTIVE,
         _SLICE_STATE_MAX,
-        _SLICE_STATE_INVALID = -1
+        _SLICE_STATE_INVALID = -EINVAL,
 } SliceState;
 
 typedef enum SocketState {
@@ -160,7 +170,7 @@ typedef enum SocketState {
         SOCKET_FAILED,
         SOCKET_CLEANING,
         _SOCKET_STATE_MAX,
-        _SOCKET_STATE_INVALID = -1
+        _SOCKET_STATE_INVALID = -EINVAL,
 } SocketState;
 
 typedef enum SwapState {
@@ -174,14 +184,14 @@ typedef enum SwapState {
         SWAP_FAILED,
         SWAP_CLEANING,
         _SWAP_STATE_MAX,
-        _SWAP_STATE_INVALID = -1
+        _SWAP_STATE_INVALID = -EINVAL,
 } SwapState;
 
 typedef enum TargetState {
         TARGET_DEAD,
         TARGET_ACTIVE,
         _TARGET_STATE_MAX,
-        _TARGET_STATE_INVALID = -1
+        _TARGET_STATE_INVALID = -EINVAL,
 } TargetState;
 
 typedef enum TimerState {
@@ -191,7 +201,7 @@ typedef enum TimerState {
         TIMER_ELAPSED,
         TIMER_FAILED,
         _TIMER_STATE_MAX,
-        _TIMER_STATE_INVALID = -1
+        _TIMER_STATE_INVALID = -EINVAL,
 } TimerState;
 
 typedef enum UnitDependency {
@@ -201,6 +211,7 @@ typedef enum UnitDependency {
         UNIT_WANTS,
         UNIT_BINDS_TO,
         UNIT_PART_OF,
+        UNIT_UPHOLDS,
 
         /* Inverse of the above */
         UNIT_REQUIRED_BY,             /* inverse of 'requires' is 'required_by' */
@@ -208,6 +219,7 @@ typedef enum UnitDependency {
         UNIT_WANTED_BY,               /* inverse of 'wants' */
         UNIT_BOUND_BY,                /* inverse of 'binds_to' */
         UNIT_CONSISTS_OF,             /* inverse of 'part_of' */
+        UNIT_UPHELD_BY,               /* inverse of 'uphold' */
 
         /* Negative dependencies */
         UNIT_CONFLICTS,               /* inverse of 'conflicts' is 'conflicted_by' */
@@ -217,8 +229,11 @@ typedef enum UnitDependency {
         UNIT_BEFORE,                  /* inverse of 'before' is 'after' and vice versa */
         UNIT_AFTER,
 
-        /* On Failure */
+        /* OnSuccess= + OnFailure= */
+        UNIT_ON_SUCCESS,
+        UNIT_ON_SUCCESS_OF,
         UNIT_ON_FAILURE,
+        UNIT_ON_FAILURE_OF,
 
         /* Triggers (i.e. a socket triggers a service) */
         UNIT_TRIGGERS,
@@ -228,6 +243,10 @@ typedef enum UnitDependency {
         UNIT_PROPAGATES_RELOAD_TO,
         UNIT_RELOAD_PROPAGATED_FROM,
 
+        /* Propagate stops */
+        UNIT_PROPAGATES_STOP_TO,
+        UNIT_STOP_PROPAGATED_FROM,
+
         /* Joins namespace of */
         UNIT_JOINS_NAMESPACE_OF,
 
@@ -235,8 +254,12 @@ typedef enum UnitDependency {
         UNIT_REFERENCES,              /* Inverse of 'references' is 'referenced_by' */
         UNIT_REFERENCED_BY,
 
+        /* Slice= */
+        UNIT_IN_SLICE,
+        UNIT_SLICE_OF,
+
         _UNIT_DEPENDENCY_MAX,
-        _UNIT_DEPENDENCY_INVALID = -1
+        _UNIT_DEPENDENCY_INVALID = -EINVAL,
 } UnitDependency;
 
 typedef enum NotifyAccess {
@@ -245,7 +268,7 @@ typedef enum NotifyAccess {
         NOTIFY_MAIN,
         NOTIFY_EXEC,
         _NOTIFY_ACCESS_MAX,
-        _NOTIFY_ACCESS_INVALID = -1
+        _NOTIFY_ACCESS_INVALID = -EINVAL,
 } NotifyAccess;
 
 char *unit_dbus_path_from_name(const char *name);
@@ -265,6 +288,9 @@ UnitActiveState unit_active_state_from_string(const char *s) _pure_;
 
 const char *freezer_state_to_string(FreezerState i) _const_;
 FreezerState freezer_state_from_string(const char *s) _pure_;
+
+const char *unit_marker_to_string(UnitMarker m) _const_;
+UnitMarker unit_marker_from_string(const char *s) _pure_;
 
 const char* automount_state_to_string(AutomountState i) _const_;
 AutomountState automount_state_from_string(const char *s) _pure_;
@@ -304,3 +330,5 @@ UnitDependency unit_dependency_from_string(const char *s) _pure_;
 
 const char* notify_access_to_string(NotifyAccess i) _const_;
 NotifyAccess notify_access_from_string(const char *s) _pure_;
+
+SpecialGlyph unit_active_state_to_glyph(UnitActiveState state);

@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <getopt.h>
 #include <utmp.h>
@@ -10,6 +10,7 @@
 #include "format-util.h"
 #include "main-func.h"
 #include "pager.h"
+#include "parse-argument.h"
 #include "parse-util.h"
 #include "pretty-print.h"
 #include "socket-util.h"
@@ -25,7 +26,7 @@ static enum {
         OUTPUT_TABLE,
         OUTPUT_FRIENDLY,
         OUTPUT_JSON,
-        _OUTPUT_INVALID = -1
+        _OUTPUT_INVALID = -EINVAL,
 } arg_output = _OUTPUT_INVALID;
 
 static PagerFlags arg_pager_flags = 0;
@@ -111,8 +112,8 @@ static int display_user(int argc, char *argv[], void *userdata) {
                 (void) table_set_align_percent(table, table_get_cell(table, 0, 2), 100);
                 (void) table_set_align_percent(table, table_get_cell(table, 0, 3), 100);
                 (void) table_set_empty_string(table, "-");
-                (void) table_set_sort(table, (size_t) 7, (size_t) 2, (size_t) -1);
-                (void) table_set_display(table, (size_t) 0, (size_t) 1, (size_t) 2, (size_t) 3, (size_t) 4, (size_t) 5, (size_t) 6, (size_t) -1);
+                (void) table_set_sort(table, (size_t) 7, (size_t) 2);
+                (void) table_set_display(table, (size_t) 0, (size_t) 1, (size_t) 2, (size_t) 3, (size_t) 4, (size_t) 5, (size_t) 6);
         }
 
         if (argc > 1) {
@@ -261,8 +262,8 @@ static int display_group(int argc, char *argv[], void *userdata) {
 
                 (void) table_set_align_percent(table, table_get_cell(table, 0, 2), 100);
                 (void) table_set_empty_string(table, "-");
-                (void) table_set_sort(table, (size_t) 3, (size_t) 2, (size_t) -1);
-                (void) table_set_display(table, (size_t) 0, (size_t) 1, (size_t) 2, (size_t) 3, (size_t) -1);
+                (void) table_set_sort(table, (size_t) 3, (size_t) 2);
+                (void) table_set_display(table, (size_t) 0, (size_t) 1, (size_t) 2, (size_t) 3);
         }
 
         if (argc > 1) {
@@ -401,7 +402,7 @@ static int display_memberships(int argc, char *argv[], void *userdata) {
                 if (!table)
                         return log_oom();
 
-                (void) table_set_sort(table, (size_t) 0, (size_t) 1, (size_t) -1);
+                (void) table_set_sort(table, (size_t) 0, (size_t) 1);
         }
 
         if (argc > 1) {
@@ -490,7 +491,7 @@ static int display_services(int argc, char *argv[], void *userdata) {
         if (!t)
                 return log_oom();
 
-        (void) table_set_sort(t, (size_t) 0, (size_t) -1);
+        (void) table_set_sort(t, (size_t) 0);
 
         FOREACH_DIRENT(de, d, return -errno) {
                 _cleanup_free_ char *j = NULL, *no = NULL;
@@ -600,11 +601,13 @@ static int help(int argc, char *argv[], void *userdata) {
                "  -N                         Do not synthesize or include glibc NSS data\n"
                "                             (Same as --synthesize=no --with-nss=no)\n"
                "     --synthesize=BOOL       Synthesize root/nobody user\n"
-               "\nSee the %s for details.\n"
-               , program_invocation_short_name
-               , ansi_highlight(), ansi_normal()
-               , link
-        );
+               "     --with-dropin=BOOL      Control whether to include drop-in records\n"
+               "     --with-varlink=BOOL     Control whether to talk to services at all\n"
+               "\nSee the %s for details.\n",
+               program_invocation_short_name,
+               ansi_highlight(),
+               ansi_normal(),
+               link);
 
         return 0;
 }
@@ -617,18 +620,22 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_NO_LEGEND,
                 ARG_OUTPUT,
                 ARG_WITH_NSS,
+                ARG_WITH_DROPIN,
+                ARG_WITH_VARLINK,
                 ARG_SYNTHESIZE,
         };
 
         static const struct option options[] = {
-                { "help",       no_argument,       NULL, 'h'            },
-                { "version",    no_argument,       NULL, ARG_VERSION    },
-                { "no-pager",   no_argument,       NULL, ARG_NO_PAGER   },
-                { "no-legend",  no_argument,       NULL, ARG_NO_LEGEND  },
-                { "output",     required_argument, NULL, ARG_OUTPUT     },
-                { "service",    required_argument, NULL, 's'            },
-                { "with-nss",   required_argument, NULL, ARG_WITH_NSS   },
-                { "synthesize", required_argument, NULL, ARG_SYNTHESIZE },
+                { "help",         no_argument,       NULL, 'h'             },
+                { "version",      no_argument,       NULL, ARG_VERSION     },
+                { "no-pager",     no_argument,       NULL, ARG_NO_PAGER    },
+                { "no-legend",    no_argument,       NULL, ARG_NO_LEGEND   },
+                { "output",       required_argument, NULL, ARG_OUTPUT      },
+                { "service",      required_argument, NULL, 's'             },
+                { "with-nss",     required_argument, NULL, ARG_WITH_NSS    },
+                { "with-dropin",  required_argument, NULL, ARG_WITH_DROPIN },
+                { "with-varlink", required_argument, NULL, ARG_WITH_VARLINK },
+                { "synthesize",   required_argument, NULL, ARG_SYNTHESIZE  },
                 {}
         };
 
@@ -716,21 +723,37 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case 'N':
-                        arg_userdb_flags |= USERDB_AVOID_NSS|USERDB_DONT_SYNTHESIZE;
+                        arg_userdb_flags |= USERDB_EXCLUDE_NSS|USERDB_DONT_SYNTHESIZE;
                         break;
 
                 case ARG_WITH_NSS:
-                        r = parse_boolean(optarg);
+                        r = parse_boolean_argument("--with-nss=", optarg, NULL);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to parse --with-nss= parameter: %s", optarg);
+                                return r;
 
-                        SET_FLAG(arg_userdb_flags, USERDB_AVOID_NSS, !r);
+                        SET_FLAG(arg_userdb_flags, USERDB_EXCLUDE_NSS, !r);
+                        break;
+
+                case ARG_WITH_DROPIN:
+                        r = parse_boolean_argument("--with-dropin=", optarg, NULL);
+                        if (r < 0)
+                                return r;
+
+                        SET_FLAG(arg_userdb_flags, USERDB_EXCLUDE_DROPIN, !r);
+                        break;
+
+                case ARG_WITH_VARLINK:
+                        r = parse_boolean_argument("--with-varlink=", optarg, NULL);
+                        if (r < 0)
+                                return r;
+
+                        SET_FLAG(arg_userdb_flags, USERDB_EXCLUDE_VARLINK, !r);
                         break;
 
                 case ARG_SYNTHESIZE:
-                        r = parse_boolean(optarg);
+                        r = parse_boolean_argument("--synthesize=", optarg, NULL);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to parse --synthesize= parameter: %s", optarg);
+                                return r;
 
                         SET_FLAG(arg_userdb_flags, USERDB_DONT_SYNTHESIZE, !r);
                         break;
@@ -763,7 +786,7 @@ static int run(int argc, char *argv[]) {
 
         int r;
 
-        log_setup_cli();
+        log_setup();
 
         r = parse_argv(argc, argv);
         if (r <= 0)
@@ -780,10 +803,8 @@ static int run(int argc, char *argv[]) {
                         return log_error_errno(r, "Failed to set $SYSTEMD_ONLY_USERDB: %m");
 
                 log_info("Enabled services: %s", e);
-        } else {
-                if (unsetenv("SYSTEMD_ONLY_USERDB") < 0)
-                        return log_error_errno(r, "Failed to unset $SYSTEMD_ONLY_USERDB: %m");
-        }
+        } else
+                assert_se(unsetenv("SYSTEMD_ONLY_USERDB") == 0);
 
         return dispatch_verb(argc, argv, verbs, NULL);
 }

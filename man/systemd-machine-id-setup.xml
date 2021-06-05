@@ -1,7 +1,7 @@
 <?xml version='1.0'?>
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
-<!-- SPDX-License-Identifier: LGPL-2.1+ -->
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
 
 <refentry id="systemd-machine-id-setup"
     xmlns:xi="http://www.w3.org/2001/XInclude">
@@ -82,11 +82,17 @@
     <variablelist>
 
       <varlistentry>
-        <term><option>--root=<replaceable>root</replaceable></option></term>
-        <listitem><para>Takes a directory path as argument. All paths
-        operated will be prefixed with the given alternate
-        <replaceable>root</replaceable> path, including the path for
+        <term><option>--root=<replaceable>path</replaceable></option></term>
+        <listitem><para>Takes a directory path as argument. All paths operated on will be prefixed with the
+        given alternate <replaceable>root</replaceable> path, including the path for
         <filename>/etc/machine-id</filename> itself.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--image=<replaceable>path</replaceable></option></term>
+        <listitem><para>Takes a path to a device node or refular file as argument. This is similar to
+        <option>--root=</option> as described above, but operates on a disk image instead of a directory
+        tree.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -98,12 +104,12 @@
         <literal>tmpfs</literal>) to
         <filename>/etc/machine-id</filename> during the early phase of
         the boot process. This may happen because
-        <filename>/etc</filename> is initially read-only and was
+        <filename>/etc/</filename> is initially read-only and was
         missing a valid machine ID file at that point.</para>
 
         <para>This command will execute no operation if
         <filename>/etc/machine-id</filename> is not mounted from a
-        memory file system, or if <filename>/etc</filename> is
+        memory file system, or if <filename>/etc/</filename> is
         read-only. The command will write the current transient
         machine ID to disk and unmount the
         <filename>/etc/machine-id</filename> mount point in a

@@ -1,10 +1,12 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <sys/mount.h>
 
 #include "cgroup-util.h"
 #include "dns-domain.h"
 #include "env-util.h"
+#include "fd-util.h"
+#include "fileio.h"
 #include "fs-util.h"
 #include "hexdecoct.h"
 #include "hostname-util.h"
@@ -20,6 +22,122 @@
 
 #define DEFAULT_RATELIMIT_BURST 30
 #define DEFAULT_RATELIMIT_INTERVAL_USEC (1*USEC_PER_MINUTE)
+
+#if ENABLE_COMPAT_MUTABLE_UID_BOUNDARIES
+static int parse_alloc_uid(const char *path, const char *name, const char *t, uid_t *ret_uid) {
+        uid_t uid;
+        int r;
+
+        r = parse_uid(t, &uid);
+        if (r < 0)
+                return log_debug_errno(r, "%s: failed to parse %s %s, ignoring: %m", path, name, t);
+        if (uid == 0)
+                uid = 1;
+
+        *ret_uid = uid;
+        return 0;
+}
+#endif
+
+int read_login_defs(UGIDAllocationRange *ret_defs, const char *path, const char *root) {
+        UGIDAllocationRange defs = {
+                .system_alloc_uid_min = SYSTEM_ALLOC_UID_MIN,
+                .system_uid_max = SYSTEM_UID_MAX,
+                .system_alloc_gid_min = SYSTEM_ALLOC_GID_MIN,
+                .system_gid_max = SYSTEM_GID_MAX,
+        };
+
+#if ENABLE_COMPAT_MUTABLE_UID_BOUNDARIES
+        _cleanup_fclose_ FILE *f = NULL;
+        int r;
+
+        if (!path)
+                path = "/etc/login.defs";
+
+        r = chase_symlinks_and_fopen_unlocked(path, root, CHASE_PREFIX_ROOT, "re", &f, NULL);
+        if (r == -ENOENT)
+                goto assign;
+        if (r < 0)
+                return log_debug_errno(r, "Failed to open %s: %m", path);
+
+        for (;;) {
+                _cleanup_free_ char *line = NULL;
+                char *t;
+
+                r = read_line(f, LINE_MAX, &line);
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to read %s: %m", path);
+                if (r == 0)
+                        break;
+
+                if ((t = first_word(line, "SYS_UID_MIN")))
+                        (void) parse_alloc_uid(path, "SYS_UID_MIN", t, &defs.system_alloc_uid_min);
+                else if ((t = first_word(line, "SYS_UID_MAX")))
+                        (void) parse_alloc_uid(path, "SYS_UID_MAX", t, &defs.system_uid_max);
+                else if ((t = first_word(line, "SYS_GID_MIN")))
+                        (void) parse_alloc_uid(path, "SYS_GID_MIN", t, &defs.system_alloc_gid_min);
+                else if ((t = first_word(line, "SYS_GID_MAX")))
+                        (void) parse_alloc_uid(path, "SYS_GID_MAX", t, &defs.system_gid_max);
+        }
+
+ assign:
+        if (defs.system_alloc_uid_min > defs.system_uid_max) {
+                log_debug("%s: SYS_UID_MIN > SYS_UID_MAX, resetting.", path);
+                defs.system_alloc_uid_min = MIN(defs.system_uid_max - 1, (uid_t) SYSTEM_ALLOC_UID_MIN);
+                /* Look at sys_uid_max to make sure sys_uid_min..sys_uid_max remains a valid range. */
+        }
+        if (defs.system_alloc_gid_min > defs.system_gid_max) {
+                log_debug("%s: SYS_GID_MIN > SYS_GID_MAX, resetting.", path);
+                defs.system_alloc_gid_min = MIN(defs.system_gid_max - 1, (gid_t) SYSTEM_ALLOC_GID_MIN);
+                /* Look at sys_gid_max to make sure sys_gid_min..sys_gid_max remains a valid range. */
+        }
+#endif
+
+        *ret_defs = defs;
+        return 0;
+}
+
+const UGIDAllocationRange *acquire_ugid_allocation_range(void) {
+#if ENABLE_COMPAT_MUTABLE_UID_BOUNDARIES
+        static thread_local UGIDAllocationRange defs = {
+#else
+        static const UGIDAllocationRange defs = {
+#endif
+                .system_alloc_uid_min = SYSTEM_ALLOC_UID_MIN,
+                .system_uid_max = SYSTEM_UID_MAX,
+                .system_alloc_gid_min = SYSTEM_ALLOC_GID_MIN,
+                .system_gid_max = SYSTEM_GID_MAX,
+        };
+
+#if ENABLE_COMPAT_MUTABLE_UID_BOUNDARIES
+        /* This function will ignore failure to read the file, so it should only be called from places where
+         * we don't crucially depend on the answer. In other words, it's appropriate for journald, but
+         * probably not for sysusers. */
+
+        static thread_local bool initialized = false;
+
+        if (!initialized) {
+                (void) read_login_defs(&defs, NULL, NULL);
+                initialized = true;
+        }
+#endif
+
+        return &defs;
+}
+
+bool uid_is_system(uid_t uid) {
+        const UGIDAllocationRange *defs;
+        assert_se(defs = acquire_ugid_allocation_range());
+
+        return uid <= defs->system_uid_max;
+}
+
+bool gid_is_system(gid_t gid) {
+        const UGIDAllocationRange *defs;
+        assert_se(defs = acquire_ugid_allocation_range());
+
+        return gid <= defs->system_gid_max;
+}
 
 UserRecord* user_record_new(void) {
         UserRecord *h;
@@ -82,6 +200,7 @@ UserRecord* user_record_new(void) {
                 .password_change_now = -1,
                 .pkcs11_protected_authentication_path_permitted = -1,
                 .fido2_user_presence_permitted = -1,
+                .fido2_user_verification_permitted = -1,
         };
 
         return h;
@@ -309,11 +428,11 @@ static int json_dispatch_rlimits(const char *name, JsonVariant *variant, JsonDis
 
                 p = startswith(key, "RLIMIT_");
                 if (!p)
-                        l = -1;
+                        l = -SYNTHETIC_ERRNO(EINVAL);
                 else
                         l = rlimit_from_string(p);
                 if (l < 0)
-                        return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "Resource limit '%s' not known.", key);
+                        return json_log(variant, flags, l, "Resource limit '%s' not known.", key);
 
                 if (!json_variant_is_object(value))
                         return json_log(value, flags, SYNTHETIC_ERRNO(EINVAL), "Resource limit '%s' has invalid value.", key);
@@ -452,7 +571,7 @@ static int json_dispatch_umask(const char *name, JsonVariant *variant, JsonDispa
         uintmax_t k;
 
         if (json_variant_is_null(variant)) {
-                *m = (mode_t) -1;
+                *m = MODE_INVALID;
                 return 0;
         }
 
@@ -472,7 +591,7 @@ static int json_dispatch_access_mode(const char *name, JsonVariant *variant, Jso
         uintmax_t k;
 
         if (json_variant_is_null(variant)) {
-                *m = (mode_t) -1;
+                *m = MODE_INVALID;
                 return 0;
         }
 
@@ -490,7 +609,6 @@ static int json_dispatch_access_mode(const char *name, JsonVariant *variant, Jso
 static int json_dispatch_environment(const char *name, JsonVariant *variant, JsonDispatchFlags flags, void *userdata) {
         _cleanup_strv_free_ char **n = NULL;
         char ***l = userdata;
-        size_t i;
         int r;
 
         if (json_variant_is_null(variant)) {
@@ -501,8 +619,7 @@ static int json_dispatch_environment(const char *name, JsonVariant *variant, Jso
         if (!json_variant_is_array(variant))
                 return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not an array.", strna(name));
 
-        for (i = 0; i < json_variant_elements(variant); i++) {
-                _cleanup_free_ char *c = NULL;
+        for (size_t i = 0; i < json_variant_elements(variant); i++) {
                 JsonVariant *e;
                 const char *a;
 
@@ -515,19 +632,12 @@ static int json_dispatch_environment(const char *name, JsonVariant *variant, Jso
                 if (!env_assignment_is_valid(a))
                         return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not an array of environment variables.", strna(name));
 
-                c = strdup(a);
-                if (!c)
-                        return json_log_oom(variant, flags);
-
-                r = strv_env_replace(&n, c);
+                r = strv_env_replace_strdup(&n, a);
                 if (r < 0)
                         return json_log_oom(variant, flags);
-
-                c = NULL;
         }
 
-        strv_free_and_replace(*l, n);
-        return 0;
+        return strv_free_and_replace(*l, n);
 }
 
 int json_dispatch_user_disposition(const char *name, JsonVariant *variant, JsonDispatchFlags flags, void *userdata) {
@@ -543,7 +653,7 @@ int json_dispatch_user_disposition(const char *name, JsonVariant *variant, JsonD
 
         k = user_disposition_from_string(json_variant_string(variant));
         if (k < 0)
-                return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "Disposition type '%s' not known.", json_variant_string(variant));
+                return json_log(variant, flags, k, "Disposition type '%s' not known.", json_variant_string(variant));
 
         *disposition = k;
         return 0;
@@ -562,7 +672,7 @@ static int json_dispatch_storage(const char *name, JsonVariant *variant, JsonDis
 
         k = user_storage_from_string(json_variant_string(variant));
         if (k < 0)
-                return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "Storage type '%s' not known.", json_variant_string(variant));
+                return json_log(variant, flags, k, "Storage type '%s' not known.", json_variant_string(variant));
 
         *storage = k;
         return 0;
@@ -665,6 +775,7 @@ static int dispatch_secret(const char *name, JsonVariant *variant, JsonDispatchF
                 { "pkcs11Pin",   /* legacy alias */             _JSON_VARIANT_TYPE_INVALID, json_dispatch_strv,     offsetof(UserRecord, token_pin),                                      0 },
                 { "pkcs11ProtectedAuthenticationPathPermitted", JSON_VARIANT_BOOLEAN,       json_dispatch_tristate, offsetof(UserRecord, pkcs11_protected_authentication_path_permitted), 0 },
                 { "fido2UserPresencePermitted",                 JSON_VARIANT_BOOLEAN,       json_dispatch_tristate, offsetof(UserRecord, fido2_user_presence_permitted),                  0 },
+                { "fido2UserVerificationPermitted",             JSON_VARIANT_BOOLEAN,       json_dispatch_tristate, offsetof(UserRecord, fido2_user_verification_permitted),              0 },
                 {},
         };
 
@@ -757,7 +868,7 @@ static int dispatch_pkcs11_key_data(const char *name, JsonVariant *variant, Json
         if (!json_variant_is_string(variant))
                 return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not a string.", strna(name));
 
-        r = unbase64mem(json_variant_string(variant), (size_t) -1, &b, &l);
+        r = unbase64mem(json_variant_string(variant), SIZE_MAX, &b, &l);
         if (r < 0)
                 return json_log(variant, flags, r, "Failed to decode encrypted PKCS#11 key: %m");
 
@@ -824,7 +935,7 @@ static int dispatch_fido2_hmac_credential(const char *name, JsonVariant *variant
         if (!json_variant_is_string(variant))
                 return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not a string.", strna(name));
 
-        r = unbase64mem(json_variant_string(variant), (size_t) -1, &b, &l);
+        r = unbase64mem(json_variant_string(variant), SIZE_MAX, &b, &l);
         if (r < 0)
                 return json_log(variant, flags, r, "Failed to decode FIDO2 credential ID: %m");
 
@@ -854,7 +965,7 @@ static int dispatch_fido2_hmac_credential_array(const char *name, JsonVariant *v
                 if (!array)
                         return log_oom();
 
-                r = unbase64mem(json_variant_string(e), (size_t) -1, &b, &l);
+                r = unbase64mem(json_variant_string(e), SIZE_MAX, &b, &l);
                 if (r < 0)
                         return json_log(variant, flags, r, "Failed to decode FIDO2 credential ID: %m");
 
@@ -884,7 +995,7 @@ static int dispatch_fido2_hmac_salt_value(const char *name, JsonVariant *variant
         if (!json_variant_is_string(variant))
                 return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not a string.", strna(name));
 
-        r = unbase64mem(json_variant_string(variant), (size_t) -1, &b, &l);
+        r = unbase64mem(json_variant_string(variant), SIZE_MAX, &b, &l);
         if (r < 0)
                 return json_log(variant, flags, r, "Failed to decode FIDO2 salt: %m");
 
@@ -907,9 +1018,12 @@ static int dispatch_fido2_hmac_salt(const char *name, JsonVariant *variant, Json
                 Fido2HmacSalt *array, *k;
 
                 static const JsonDispatch fido2_hmac_salt_dispatch_table[] = {
-                        { "credential",     JSON_VARIANT_STRING, dispatch_fido2_hmac_credential, offsetof(Fido2HmacSalt, credential),      JSON_MANDATORY },
-                        { "salt",           JSON_VARIANT_STRING, dispatch_fido2_hmac_salt_value, 0,                                        JSON_MANDATORY },
-                        { "hashedPassword", JSON_VARIANT_STRING, json_dispatch_string,           offsetof(Fido2HmacSalt, hashed_password), JSON_MANDATORY },
+                        { "credential",     JSON_VARIANT_STRING,  dispatch_fido2_hmac_credential, offsetof(Fido2HmacSalt, credential),      JSON_MANDATORY },
+                        { "salt",           JSON_VARIANT_STRING,  dispatch_fido2_hmac_salt_value, 0,                                        JSON_MANDATORY },
+                        { "hashedPassword", JSON_VARIANT_STRING,  json_dispatch_string,           offsetof(Fido2HmacSalt, hashed_password), JSON_MANDATORY },
+                        { "up",             JSON_VARIANT_BOOLEAN, json_dispatch_tristate,         offsetof(Fido2HmacSalt, up),              0              },
+                        { "uv",             JSON_VARIANT_BOOLEAN, json_dispatch_tristate,         offsetof(Fido2HmacSalt, uv),              0              },
+                        { "clientPin",      JSON_VARIANT_BOOLEAN, json_dispatch_tristate,         offsetof(Fido2HmacSalt, client_pin),      0              },
                         {},
                 };
 
@@ -922,7 +1036,11 @@ static int dispatch_fido2_hmac_salt(const char *name, JsonVariant *variant, Json
 
                 h->fido2_hmac_salt = array;
                 k = h->fido2_hmac_salt + h->n_fido2_hmac_salt;
-                *k = (Fido2HmacSalt) {};
+                *k = (Fido2HmacSalt) {
+                        .uv = -1,
+                        .up = -1,
+                        .client_pin = -1,
+                };
 
                 r = json_dispatch(e, fido2_hmac_salt_dispatch_table, NULL, flags, k);
                 if (r < 0) {
@@ -1353,7 +1471,7 @@ int user_group_record_mangle(
         JsonDispatchFlags json_flags = USER_RECORD_LOAD_FLAGS_TO_JSON_DISPATCH_FLAGS(load_flags);
         _cleanup_(json_variant_unrefp) JsonVariant *w = NULL;
         JsonVariant *array[ELEMENTSOF(mask_field) * 2];
-        size_t n_retain = 0, i;
+        size_t n_retain = 0;
         UserRecordMask m = 0;
         int r;
 
@@ -1378,7 +1496,7 @@ int user_group_record_mangle(
                 return json_log(v, json_flags, SYNTHETIC_ERRNO(EINVAL), "Stripping everything from record, refusing.");
 
         /* Check if we have the special sections and if they match our flags set */
-        for (i = 0; i < ELEMENTSOF(mask_field); i++) {
+        for (size_t i = 0; i < ELEMENTSOF(mask_field); i++) {
                 JsonVariant *e, *k;
 
                 if (FLAGS_SET(USER_RECORD_STRIP_MASK(load_flags), mask_field[i].mask)) {
@@ -1417,16 +1535,15 @@ int user_group_record_mangle(
                 r = json_variant_new_object(&w, array, n_retain);
                 if (r < 0)
                         return json_log(v, json_flags, r, "Failed to allocate new object: %m");
-        } else {
+        } else
                 /* And now check if there's anything else in the record */
-                for (i = 0; i < json_variant_elements(v); i += 2) {
+                for (size_t i = 0; i < json_variant_elements(v); i += 2) {
                         const char *f;
                         bool special = false;
-                        size_t j;
 
                         assert_se(f = json_variant_string(json_variant_by_index(v, i)));
 
-                        for (j = 0; j < ELEMENTSOF(mask_field); j++)
+                        for (size_t j = 0; j < ELEMENTSOF(mask_field); j++)
                                 if (streq(f, mask_field[j].name)) { /* already covered in the loop above */
                                         special = true;
                                         continue;
@@ -1440,12 +1557,11 @@ int user_group_record_mangle(
                                 break;
                         }
                 }
-        }
 
         if (FLAGS_SET(load_flags, USER_RECORD_REQUIRE_REGULAR) && !FLAGS_SET(m, USER_RECORD_REGULAR))
                 return json_log(v, json_flags, SYNTHETIC_ERRNO(EBADMSG), "Record lacks basic identity fields, which are required.");
 
-        if (m == 0)
+        if (!FLAGS_SET(load_flags, USER_RECORD_EMPTY_OK) && m == 0)
                 return json_log(v, json_flags, SYNTHETIC_ERRNO(EBADMSG), "Record is empty.");
 
         if (w)
@@ -1647,7 +1763,7 @@ const char *user_record_skeleton_directory(UserRecord *h) {
 mode_t user_record_access_mode(UserRecord *h) {
         assert(h);
 
-        return h->access_mode != (mode_t) -1 ? h->access_mode : 0700;
+        return h->access_mode != MODE_INVALID ? h->access_mode : 0700;
 }
 
 const char* user_record_home_directory(UserRecord *h) {
@@ -1944,7 +2060,7 @@ bool user_record_compatible(UserRecord *a, UserRecord *b) {
         assert(a);
         assert(b);
 
-        /* If either lacks a the regular section, we can't really decide, let's hence say they are
+        /* If either lacks the regular section, we can't really decide, let's hence say they are
          * incompatible. */
         if (!(a->mask & b->mask & USER_RECORD_REGULAR))
                 return false;
@@ -1998,7 +2114,7 @@ int user_record_masked_equal(UserRecord *a, UserRecord *b, UserRecordMask mask) 
         /* Compares the two records, but ignores anything not listed in the specified mask */
 
         if ((a->mask & ~mask) != 0) {
-                r = user_record_clone(a, USER_RECORD_ALLOW(mask) | USER_RECORD_STRIP(~mask & _USER_RECORD_MASK_MAX), &x);
+                r = user_record_clone(a, USER_RECORD_ALLOW(mask) | USER_RECORD_STRIP(~mask & _USER_RECORD_MASK_MAX) | USER_RECORD_PERMISSIVE, &x);
                 if (r < 0)
                         return r;
 
@@ -2006,7 +2122,7 @@ int user_record_masked_equal(UserRecord *a, UserRecord *b, UserRecordMask mask) 
         }
 
         if ((b->mask & ~mask) != 0) {
-                r = user_record_clone(b, USER_RECORD_ALLOW(mask) | USER_RECORD_STRIP(~mask & _USER_RECORD_MASK_MAX), &y);
+                r = user_record_clone(b, USER_RECORD_ALLOW(mask) | USER_RECORD_STRIP(~mask & _USER_RECORD_MASK_MAX) | USER_RECORD_PERMISSIVE, &y);
                 if (r < 0)
                         return r;
 

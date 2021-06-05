@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
 #include <stdbool.h>
@@ -31,6 +31,9 @@ typedef enum NamingSchemeFlags {
         NAMING_NETDEVSIM           = 1 << 6, /* Generate names for netdevsim devices, see eaa9d507d855 */
         NAMING_LABEL_NOPREFIX      = 1 << 7, /* Don't prepend ID_NET_LABEL_ONBOARD with interface type prefix */
         NAMING_NSPAWN_LONG_HASH    = 1 << 8, /* Shorten nspawn interfaces by including 24bit hash, instead of simple truncation  */
+        NAMING_BRIDGE_NO_SLOT      = 1 << 9, /* Don't use PCI hotplug slot information if the corresponding device is a PCI bridge */
+        NAMING_SLOT_FUNCTION_ID    = 1 << 10, /* Use function_id if present to identify PCI hotplug slots */
+        NAMING_16BIT_INDEX         = 1 << 11, /* Allow full 16-bit for the onboard index */
 
         /* And now the masks that combine the features above */
         NAMING_V238 = 0,
@@ -39,8 +42,10 @@ typedef enum NamingSchemeFlags {
         NAMING_V241 = NAMING_V240 | NAMING_STABLE_VIRTUAL_MACS,
         NAMING_V243 = NAMING_V241 | NAMING_NETDEVSIM | NAMING_LABEL_NOPREFIX,
         NAMING_V245 = NAMING_V243 | NAMING_NSPAWN_LONG_HASH,
+        NAMING_V247 = NAMING_V245 | NAMING_BRIDGE_NO_SLOT,
+        NAMING_V249 = NAMING_V247 | NAMING_SLOT_FUNCTION_ID | NAMING_16BIT_INDEX,
 
-        _NAMING_SCHEME_FLAGS_INVALID = -1,
+        _NAMING_SCHEME_FLAGS_INVALID = -EINVAL,
 } NamingSchemeFlags;
 
 typedef struct NamingScheme {

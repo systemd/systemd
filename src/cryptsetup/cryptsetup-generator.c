@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <errno.h>
 #include <fcntl.h>
@@ -29,6 +29,8 @@ typedef struct crypto_device {
         char *uuid;
         char *keyfile;
         char *keydev;
+        char *headerdev;
+        char *datadev;
         char *name;
         char *options;
         bool create;
@@ -48,62 +50,64 @@ STATIC_DESTRUCTOR_REGISTER(arg_disks, hashmap_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_default_options, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_default_keyfile, freep);
 
-static int split_keyspec(const char *keyspec, char **ret_keyfile, char **ret_keydev) {
-        _cleanup_free_ char *keyfile = NULL, *keydev = NULL;
+static int split_locationspec(const char *locationspec, char **ret_file, char **ret_device) {
+        _cleanup_free_ char *file = NULL, *device = NULL;
         const char *c;
 
-        assert(ret_keyfile);
-        assert(ret_keydev);
+        assert(ret_file);
+        assert(ret_device);
 
-        if (!keyspec) {
-                *ret_keyfile = *ret_keydev = NULL;
+        if (!locationspec) {
+                *ret_file = *ret_device = NULL;
                 return 0;
         }
 
-        c = strrchr(keyspec, ':');
+        c = strrchr(locationspec, ':');
         if (c) {
-                /* The keydev part has to be either an absolute path to device node (/dev/something,
+                /* The device part has to be either an absolute path to device node (/dev/something,
                  * /dev/foo/something, or even possibly /dev/foo/something:part), or a fstab device
-                 * specification starting with LABEL= or similar. The keyfile part has the same syntax.
+                 * specification starting with LABEL= or similar. The file part has the same syntax.
                  *
-                 * Let's try to guess if the second part looks like a keydev specification, or just part of a
+                 * Let's try to guess if the second part looks like a device specification, or just part of a
                  * filename with a colon. fstab_node_to_udev_node() will convert the fstab device syntax to
                  * an absolute path. If we didn't get an absolute path, assume that it is just part of the
-                 * first keyfile argument. */
+                 * first file argument. */
 
-                keydev = fstab_node_to_udev_node(c + 1);
-                if (!keydev)
+                device = fstab_node_to_udev_node(c + 1);
+                if (!device)
                         return log_oom();
 
-                if (path_is_absolute(keydev))
-                        keyfile = strndup(keyspec, c-keyspec);
+                if (path_is_absolute(device))
+                        file = strndup(locationspec, c-locationspec);
                 else {
-                        log_debug("Keyspec argument contains a colon, but \"%s\" doesn't look like a device specification.\n"
+                        log_debug("Location specification argument contains a colon, but \"%s\" doesn't look like a device specification.\n"
                                   "Assuming that \"%s\" is a single device specification.",
-                                  c + 1, keyspec);
-                        keydev = mfree(keydev);
+                                  c + 1, locationspec);
+                        device = mfree(device);
                         c = NULL;
                 }
         }
 
         if (!c)
-                /* No keydev specified */
-                keyfile = strdup(keyspec);
+                /* No device specified */
+                file = strdup(locationspec);
 
-        if (!keyfile)
+        if (!file)
                 return log_oom();
 
-        *ret_keyfile = TAKE_PTR(keyfile);
-        *ret_keydev = TAKE_PTR(keydev);
+        *ret_file = TAKE_PTR(file);
+        *ret_device = TAKE_PTR(device);
 
         return 0;
 }
 
-static int generate_keydev_mount(
+static int generate_device_mount(
                 const char *name,
-                const char *keydev,
-                const char *keydev_timeout,
+                const char *device,
+                const char *type_prefix, /* "keydev" or "headerdev" */
+                const char *device_timeout,
                 bool canfail,
+                bool readonly,
                 char **unit,
                 char **mount) {
 
@@ -113,7 +117,7 @@ static int generate_keydev_mount(
         usec_t timeout_us;
 
         assert(name);
-        assert(keydev);
+        assert(device);
         assert(unit);
         assert(mount);
 
@@ -129,7 +133,7 @@ static int generate_keydev_mount(
         if (!name_escaped)
                 return -ENOMEM;
 
-        where = strjoin(arg_runtime_directory, "/keydev-", name_escaped);
+        where = strjoin(arg_runtime_directory, "/", type_prefix, "-", name_escaped);
         if (!where)
                 return -ENOMEM;
 
@@ -151,23 +155,23 @@ static int generate_keydev_mount(
                 "[Mount]\n"
                 "What=%s\n"
                 "Where=%s\n"
-                "Options=ro%s\n", keydev, where, canfail ? ",nofail" : "");
+                "Options=%s%s\n", device, where, readonly ? "ro" : "rw", canfail ? ",nofail" : "");
 
-        if (keydev_timeout) {
-                r = parse_sec_fix_0(keydev_timeout, &timeout_us);
+        if (device_timeout) {
+                r = parse_sec_fix_0(device_timeout, &timeout_us);
                 if (r >= 0) {
-                        r = unit_name_from_path(keydev, ".device", &device_unit);
+                        r = unit_name_from_path(device, ".device", &device_unit);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to generate unit name: %m");
 
                         r = write_drop_in_format(arg_dest, device_unit, 90, "device-timeout",
                                 "# Automatically generated by systemd-cryptsetup-generator \n\n"
-                                "[Unit]\nJobRunningTimeoutSec=%s", keydev_timeout);
+                                "[Unit]\nJobRunningTimeoutSec=%s", device_timeout);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to write device drop-in: %m");
 
                 } else
-                        log_warning_errno(r, "Failed to parse %s, ignoring: %m", keydev_timeout);
+                        log_warning_errno(r, "Failed to parse %s, ignoring: %m", device_timeout);
 
         }
 
@@ -181,8 +185,9 @@ static int generate_keydev_mount(
         return 0;
 }
 
-static int generate_keydev_umount(const char *name,
-                                  const char *keydev_mount,
+static int generate_device_umount(const char *name,
+                                  const char *device_mount,
+                                  const char *type_prefix, /* "keydev" or "headerdev" */
                                   char **ret_umount_unit) {
         _cleanup_fclose_ FILE *f = NULL;
         _cleanup_free_ char *u = NULL, *name_escaped = NULL, *mount = NULL;
@@ -195,11 +200,11 @@ static int generate_keydev_umount(const char *name,
         if (!name_escaped)
                 return -ENOMEM;
 
-        u = strjoin("keydev-", name_escaped, "-umount.service");
+        u = strjoin(type_prefix, "-", name_escaped, "-umount.service");
         if (!u)
                 return -ENOMEM;
 
-        r = unit_name_from_path(keydev_mount, ".mount", &mount);
+        r = unit_name_from_path(device_mount, ".mount", &mount);
         if (r < 0)
                 return r;
 
@@ -212,7 +217,7 @@ static int generate_keydev_umount(const char *name,
                 "DefaultDependencies=no\n"
                 "After=%s\n\n"
                 "[Service]\n"
-                "ExecStart=-" UMOUNT_PATH " %s\n\n", mount, keydev_mount);
+                "ExecStart=-" UMOUNT_PATH " %s\n\n", mount, device_mount);
 
         r = fflush_and_check(f);
         if (r < 0)
@@ -274,13 +279,14 @@ static int create_disk(
                 const char *device,
                 const char *password,
                 const char *keydev,
+                const char *headerdev,
                 const char *options,
                 const char *source) {
 
         _cleanup_free_ char *n = NULL, *d = NULL, *u = NULL, *e = NULL,
                 *keydev_mount = NULL, *keyfile_timeout_value = NULL,
                 *filtered = NULL, *u_escaped = NULL, *name_escaped = NULL, *header_path = NULL, *password_buffer = NULL,
-                *tmp_fstype = NULL;
+                *tmp_fstype = NULL, *filtered_header = NULL, *headerdev_mount = NULL;
         _cleanup_fclose_ FILE *f = NULL;
         const char *dmname;
         bool noauto, nofail, swap, netdev, attach_in_initrd;
@@ -295,15 +301,23 @@ static int create_disk(
         netdev = fstab_test_option(options, "_netdev\0");
         attach_in_initrd = fstab_test_option(options, "x-initrd.attach\0");
 
-        keyfile_can_timeout = fstab_filter_options(options, "keyfile-timeout\0", NULL, &keyfile_timeout_value, NULL);
+        keyfile_can_timeout = fstab_filter_options(options,
+                                                   "keyfile-timeout\0",
+                                                   NULL, &keyfile_timeout_value, NULL, NULL);
         if (keyfile_can_timeout < 0)
                 return log_error_errno(keyfile_can_timeout, "Failed to parse keyfile-timeout= option value: %m");
 
-        detached_header = fstab_filter_options(options, "header\0", NULL, &header_path, NULL);
+        detached_header = fstab_filter_options(
+                options,
+                "header\0",
+                NULL,
+                &header_path,
+                NULL,
+                headerdev ? &filtered_header : NULL);
         if (detached_header < 0)
                 return log_error_errno(detached_header, "Failed to parse header= option value: %m");
 
-        tmp = fstab_filter_options(options, "tmp\0", NULL, &tmp_fstype, NULL);
+        tmp = fstab_filter_options(options, "tmp\0", NULL, &tmp_fstype, NULL, NULL);
         if (tmp < 0)
                 return log_error_errno(tmp, "Failed to parse tmp= option value: %m");
 
@@ -358,11 +372,19 @@ static int create_disk(
         if (keydev) {
                 _cleanup_free_ char *unit = NULL, *umount_unit = NULL;
 
-                r = generate_keydev_mount(name, keydev, keyfile_timeout_value, keyfile_can_timeout > 0, &unit, &keydev_mount);
+                r = generate_device_mount(
+                        name,
+                        keydev,
+                        "keydev",
+                        keyfile_timeout_value,
+                        /* canfail = */ keyfile_can_timeout > 0,
+                        /* readonly= */ true,
+                        &unit,
+                        &keydev_mount);
                 if (r < 0)
                         return log_error_errno(r, "Failed to generate keydev mount unit: %m");
 
-                r = generate_keydev_umount(name, keydev_mount, &umount_unit);
+                r = generate_device_umount(name, keydev_mount, "keydev", &umount_unit);
                 if (r < 0)
                         return log_error_errno(r, "Failed to generate keydev umount unit: %m");
 
@@ -378,14 +400,61 @@ static int create_disk(
                 else
                         fprintf(f, "Requires=%s\n", unit);
 
-                if (umount_unit) {
+                if (umount_unit)
                         fprintf(f,
                                 "Wants=%s\n"
                                 "Before=%s\n",
                                 umount_unit,
                                 umount_unit
                         );
-                }
+        }
+
+        if (headerdev) {
+                _cleanup_free_ char *unit = NULL, *umount_unit = NULL, *p = NULL;
+
+                r = generate_device_mount(
+                        name,
+                        headerdev,
+                        "headerdev",
+                        NULL,
+                        /* canfail=  */ false, /* header is always necessary */
+                        /* readonly= */ false, /* LUKS2 recovery requires rw header access */
+                        &unit,
+                        &headerdev_mount);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to generate header device mount unit: %m");
+
+                r = generate_device_umount(name, headerdev_mount, "headerdev", &umount_unit);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to generate header device umount unit: %m");
+
+                p = path_join(headerdev_mount, header_path);
+                if (!p)
+                        return log_oom();
+
+                free_and_replace(header_path, p);
+
+                if (isempty(filtered_header))
+                        p = strjoin("header=", header_path);
+                else
+                        p = strjoin(filtered_header, ",header=", header_path);
+
+                if (!p)
+                        return log_oom();
+
+                free_and_replace(filtered_header, p);
+                options = filtered_header;
+
+                fprintf(f, "After=%s\n"
+                           "Requires=%s\n", unit, unit);
+
+                if (umount_unit)
+                        fprintf(f,
+                                "Wants=%s\n"
+                                "Before=%s\n",
+                                umount_unit,
+                                umount_unit
+                        );
         }
 
         if (!nofail)
@@ -400,7 +469,7 @@ static int create_disk(
         }
 
         /* Check if a header option was specified */
-        if (detached_header > 0) {
+        if (detached_header > 0 && !headerdev) {
                 r = print_dependencies(f, header_path);
                 if (r < 0)
                         return r;
@@ -515,6 +584,52 @@ static crypto_device *get_crypto_device(const char *uuid) {
         return d;
 }
 
+static bool warn_uuid_invalid(const char *uuid, const char *key) {
+        assert(key);
+
+        if (!id128_is_valid(uuid)) {
+                log_warning("Failed to parse %s= kernel command line switch. UUID is invalid, ignoring.", key);
+                return true;
+        }
+
+        return false;
+}
+
+static int filter_header_device(const char *options,
+                                char **ret_headerdev,
+                                char **ret_filtered_headerdev_options) {
+        int r;
+        _cleanup_free_ char *headerfile = NULL, *headerdev = NULL, *headerspec = NULL,
+                            *filtered_headerdev = NULL, *filtered_headerspec = NULL;
+
+        assert(ret_headerdev);
+        assert(ret_filtered_headerdev_options);
+
+        r = fstab_filter_options(options, "header\0", NULL, &headerspec, NULL, &filtered_headerspec);
+        if (r < 0)
+                return log_error_errno(r, "Failed to parse header= option value: %m");
+
+        if (r > 0) {
+                r = split_locationspec(headerspec, &headerfile, &headerdev);
+                if (r < 0)
+                        return r;
+
+                if (isempty(filtered_headerspec))
+                        filtered_headerdev = strjoin("header=", headerfile);
+                else
+                        filtered_headerdev = strjoin(filtered_headerspec, ",header=", headerfile);
+
+                if (!filtered_headerdev)
+                        return log_oom();
+        } else
+                filtered_headerdev = TAKE_PTR(filtered_headerspec);
+
+        *ret_filtered_headerdev_options = TAKE_PTR(filtered_headerdev);
+        *ret_headerdev = TAKE_PTR(headerdev);
+
+        return 0;
+}
+
 static int parse_proc_cmdline_item(const char *key, const char *value, void *data) {
         _cleanup_free_ char *uuid = NULL, *uuid_value = NULL;
         crypto_device *d;
@@ -548,20 +663,28 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
                 d->create = arg_allow_list = true;
 
         } else if (streq(key, "luks.options")) {
+                _cleanup_free_ char *headerdev = NULL, *filtered_headerdev_options = NULL;
 
                 if (proc_cmdline_value_missing(key, value))
                         return 0;
 
                 r = sscanf(value, "%m[0-9a-fA-F-]=%ms", &uuid, &uuid_value);
-                if (r == 2) {
-                        d = get_crypto_device(uuid);
-                        if (!d)
-                                return log_oom();
+                if (r != 2)
+                        return free_and_strdup_warn(&arg_default_options, value);
 
-                        free_and_replace(d->options, uuid_value);
-                } else if (free_and_strdup(&arg_default_options, value) < 0)
+                if (warn_uuid_invalid(uuid, key))
+                        return 0;
+
+                d = get_crypto_device(uuid);
+                if (!d)
                         return log_oom();
 
+                r = filter_header_device(uuid_value, &headerdev, &filtered_headerdev_options);
+                if (r < 0)
+                        return r;
+
+                free_and_replace(d->options, filtered_headerdev_options);
+                free_and_replace(d->headerdev, headerdev);
         } else if (streq(key, "luks.key")) {
                 size_t n;
                 _cleanup_free_ char *keyfile = NULL, *keydev = NULL;
@@ -570,10 +693,38 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
                 if (proc_cmdline_value_missing(key, value))
                         return 0;
 
-                n = strspn(value, LETTERS DIGITS "-");
+                n = strspn(value, ALPHANUMERICAL "-");
+                if (value[n] != '=')
+                        return free_and_strdup_warn(&arg_default_keyfile, value);
+
+                uuid = strndup(value, n);
+                if (!uuid)
+                        return log_oom();
+
+                if (warn_uuid_invalid(uuid, key))
+                        return 0;
+
+                d = get_crypto_device(uuid);
+                if (!d)
+                        return log_oom();
+
+                keyspec = value + n + 1;
+                r = split_locationspec(keyspec, &keyfile, &keydev);
+                if (r < 0)
+                        return r;
+
+                free_and_replace(d->keyfile, keyfile);
+                free_and_replace(d->keydev, keydev);
+        } else if (streq(key, "luks.data")) {
+                size_t n;
+                _cleanup_free_ char *datadev = NULL;
+
+                if (proc_cmdline_value_missing(key, value))
+                        return 0;
+
+                n = strspn(value, ALPHANUMERICAL "-");
                 if (value[n] != '=') {
-                        if (free_and_strdup(&arg_default_keyfile, value) < 0)
-                                 return log_oom();
+                        log_warning("Failed to parse luks.data= kernel command line switch. UUID is invalid, ignoring.");
                         return 0;
                 }
 
@@ -581,23 +732,18 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
                 if (!uuid)
                         return log_oom();
 
-                if (!id128_is_valid(uuid)) {
-                        log_warning("Failed to parse luks.key= kernel command line switch. UUID is invalid, ignoring.");
+                if (warn_uuid_invalid(uuid, key))
                         return 0;
-                }
 
                 d = get_crypto_device(uuid);
                 if (!d)
                         return log_oom();
 
-                keyspec = value + n + 1;
-                r = split_keyspec(keyspec, &keyfile, &keydev);
-                if (r < 0)
-                        return r;
+                datadev = fstab_node_to_udev_node(value + n + 1);
+                if (!datadev)
+                        return log_oom();
 
-                free_and_replace(d->keyfile, keyfile);
-                free_and_replace(d->keydev, keydev);
-
+                free_and_replace(d->datadev, datadev);
         } else if (streq(key, "luks.name")) {
 
                 if (proc_cmdline_value_missing(key, value))
@@ -622,7 +768,6 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
 static int add_crypttab_devices(void) {
         _cleanup_fclose_ FILE *f = NULL;
         unsigned crypttab_line = 0;
-        struct stat st;
         int r;
 
         if (!arg_read_crypttab)
@@ -635,13 +780,9 @@ static int add_crypttab_devices(void) {
                 return 0;
         }
 
-        if (fstat(fileno(f), &st) < 0) {
-                log_error_errno(errno, "Failed to stat %s: %m", arg_crypttab);
-                return 0;
-        }
-
         for (;;) {
-                _cleanup_free_ char *line = NULL, *name = NULL, *device = NULL, *keyspec = NULL, *options = NULL, *keyfile = NULL, *keydev = NULL;
+                _cleanup_free_ char *line = NULL, *name = NULL, *device = NULL, *keyspec = NULL, *options = NULL,
+                                    *keyfile = NULL, *keydev = NULL, *headerdev = NULL, *filtered_header = NULL;
                 crypto_device *d = NULL;
                 char *l, *uuid;
                 int k;
@@ -677,11 +818,24 @@ static int add_crypttab_devices(void) {
                         continue;
                 }
 
-                r = split_keyspec(keyspec, &keyfile, &keydev);
+                r = split_locationspec(keyspec, &keyfile, &keydev);
                 if (r < 0)
                         return r;
 
-                r = create_disk(name, device, keyfile, keydev, (d && d->options) ? d->options : options, arg_crypttab);
+                if (options && (!d || !d->options)) {
+                        r = filter_header_device(options, &headerdev, &filtered_header);
+                        if (r < 0)
+                                return r;
+                        free_and_replace(options, filtered_header);
+                }
+
+                r = create_disk(name,
+                                device,
+                                keyfile,
+                                keydev,
+                                (d && d->options) ? d->headerdev : headerdev,
+                                (d && d->options) ? d->options : options,
+                                arg_crypttab);
                 if (r < 0)
                         return r;
 
@@ -713,9 +867,10 @@ static int add_proc_cmdline_devices(void) {
                         return log_oom();
 
                 r = create_disk(d->name,
-                                device,
+                                d->datadev ?: device,
                                 d->keyfile ?: arg_default_keyfile,
                                 d->keydev,
+                                d->headerdev,
                                 d->options ?: arg_default_options,
                                 "/proc/cmdline");
                 if (r < 0)

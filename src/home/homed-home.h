@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
 typedef struct Home Home;
@@ -37,7 +37,7 @@ typedef enum HomeState {
         HOME_AUTHENTICATING_WHILE_ACTIVE,
         HOME_AUTHENTICATING_FOR_ACQUIRE,  /* authenticating because Acquire() was called */
         _HOME_STATE_MAX,
-        _HOME_STATE_INVALID = -1
+        _HOME_STATE_INVALID = -EINVAL,
 } HomeState;
 
 static inline bool HOME_STATE_IS_ACTIVE(HomeState state) {

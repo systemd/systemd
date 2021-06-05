@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <errno.h>
 #include <stdio.h>
@@ -28,6 +28,7 @@ XdgAutostartService* xdg_autostart_service_free(XdgAutostartService *s) {
 
         free(s->type);
         free(s->exec_string);
+        free(s->working_directory);
 
         strv_free(s->only_show_in);
         strv_free(s->not_show_in);
@@ -57,7 +58,7 @@ char *xdg_autostart_service_translate_name(const char *name) {
         if (!escaped)
                 return NULL;
 
-        return strjoin("app-", escaped, "-autostart.service");
+        return strjoin("app-", escaped, "@autostart.service");
 }
 
 static int xdg_config_parse_bool(
@@ -187,7 +188,6 @@ static int strv_strndup_unescape_and_push(
                 const char *filename,
                 unsigned line,
                 char ***sv,
-                size_t *n_allocated,
                 size_t *n,
                 const char *start,
                 const char *end) {
@@ -206,7 +206,7 @@ static int strv_strndup_unescape_and_push(
         if (r < 0)
                 return r;
 
-        if (!greedy_realloc((void**) sv, n_allocated, *n + 2, sizeof(char*))) /* One extra for NULL */
+        if (!GREEDY_REALLOC(*sv, *n + 2)) /* One extra for NULL */
                 return log_oom();
 
         (*sv)[*n] = TAKE_PTR(copy);
@@ -242,10 +242,10 @@ static int xdg_config_parse_strv(
                 return 0;
         }
 
-        size_t n = 0, n_allocated = 0;
+        size_t n = 0;
         _cleanup_strv_free_ char **sv = NULL;
 
-        if (!GREEDY_REALLOC0(sv, n_allocated, 1))
+        if (!GREEDY_REALLOC0(sv, 1))
                 return log_oom();
 
         /* We cannot use strv_split because it does not handle escaping correctly. */
@@ -264,7 +264,7 @@ static int xdg_config_parse_strv(
 
                 if (*end == ';') {
                         r = strv_strndup_unescape_and_push(unit, filename, line,
-                                                           &sv, &n_allocated, &n,
+                                                           &sv, &n,
                                                            start, end);
                         if (r < 0)
                                 return r;
@@ -275,7 +275,7 @@ static int xdg_config_parse_strv(
 
         /* Handle the trailing entry after the last separator */
         r = strv_strndup_unescape_and_push(unit, filename, line,
-                                           &sv, &n_allocated, &n,
+                                           &sv, &n,
                                            start, end);
         if (r < 0)
                 return r;
@@ -319,29 +319,34 @@ XdgAutostartService *xdg_autostart_service_parse_desktop(const char *path) {
                 return NULL;
 
         const ConfigTableItem items[] = {
-                { "Desktop Entry", "Name",                      xdg_config_parse_string, 0, &service->description},
-                { "Desktop Entry", "Exec",                      xdg_config_parse_string, 0, &service->exec_string},
-                { "Desktop Entry", "TryExec",                   xdg_config_parse_string, 0, &service->try_exec},
-                { "Desktop Entry", "Type",                      xdg_config_parse_string, 0, &service->type},
-                { "Desktop Entry", "OnlyShowIn",                xdg_config_parse_strv, 0,   &service->only_show_in},
-                { "Desktop Entry", "NotShowIn",                 xdg_config_parse_strv, 0,   &service->not_show_in},
-                { "Desktop Entry", "Hidden",                    xdg_config_parse_bool, 0,   &service->hidden},
-                { "Desktop Entry", "AutostartCondition",        xdg_config_parse_string, 0, &service->autostart_condition},
-                { "Desktop Entry", "X-KDE-autostart-condition", xdg_config_parse_string, 0, &service->kde_autostart_condition},
-                { "Desktop Entry", "X-GNOME-Autostart-Phase",   xdg_config_parse_string, 0, &service->gnome_autostart_phase},
-                { "Desktop Entry", "X-systemd-skip",            xdg_config_parse_bool, 0,   &service->systemd_skip},
+                { "Desktop Entry", "Name",                      xdg_config_parse_string, 0, &service->description             },
+                { "Desktop Entry", "Exec",                      xdg_config_parse_string, 0, &service->exec_string             },
+                { "Desktop Entry", "Path",                      xdg_config_parse_string, 0, &service->working_directory       },
+                { "Desktop Entry", "TryExec",                   xdg_config_parse_string, 0, &service->try_exec                },
+                { "Desktop Entry", "Type",                      xdg_config_parse_string, 0, &service->type                    },
+                { "Desktop Entry", "OnlyShowIn",                xdg_config_parse_strv,   0, &service->only_show_in            },
+                { "Desktop Entry", "NotShowIn",                 xdg_config_parse_strv,   0, &service->not_show_in             },
+                { "Desktop Entry", "Hidden",                    xdg_config_parse_bool,   0, &service->hidden                  },
+                { "Desktop Entry", "AutostartCondition",        xdg_config_parse_string, 0, &service->autostart_condition     },
+                { "Desktop Entry", "X-KDE-autostart-condition", xdg_config_parse_string, 0, &service->kde_autostart_condition },
+                { "Desktop Entry", "X-GNOME-Autostart-Phase",   xdg_config_parse_string, 0, &service->gnome_autostart_phase   },
+                { "Desktop Entry", "X-systemd-skip",            xdg_config_parse_bool,   0, &service->systemd_skip            },
 
                 /* Common entries that we do not use currently. */
-                { "Desktop Entry", "Categories", NULL, 0, NULL},
-                { "Desktop Entry", "Comment", NULL, 0, NULL},
-                { "Desktop Entry", "Encoding", NULL, 0, NULL},
-                { "Desktop Entry", "GenericName", NULL, 0, NULL},
-                { "Desktop Entry", "Icon", NULL, 0, NULL},
-                { "Desktop Entry", "Keywords", NULL, 0, NULL},
-                { "Desktop Entry", "NoDisplay", NULL, 0, NULL},
-                { "Desktop Entry", "StartupNotify", NULL, 0, NULL},
-                { "Desktop Entry", "Terminal", NULL, 0, NULL},
-                { "Desktop Entry", "Version", NULL, 0, NULL},
+                { "Desktop Entry", "Categories",                NULL, 0, NULL},
+                { "Desktop Entry", "Comment",                   NULL, 0, NULL},
+                { "Desktop Entry", "DBusActivatable",           NULL, 0, NULL},
+                { "Desktop Entry", "Encoding",                  NULL, 0, NULL},
+                { "Desktop Entry", "GenericName",               NULL, 0, NULL},
+                { "Desktop Entry", "Icon",                      NULL, 0, NULL},
+                { "Desktop Entry", "Keywords",                  NULL, 0, NULL},
+                { "Desktop Entry", "MimeType",                  NULL, 0, NULL},
+                { "Desktop Entry", "NoDisplay",                 NULL, 0, NULL},
+                { "Desktop Entry", "StartupNotify",             NULL, 0, NULL},
+                { "Desktop Entry", "StartupWMClass",            NULL, 0, NULL},
+                { "Desktop Entry", "Terminal",                  NULL, 0, NULL},
+                { "Desktop Entry", "URL",                       NULL, 0, NULL},
+                { "Desktop Entry", "Version",                   NULL, 0, NULL},
                 {}
         };
 
@@ -370,20 +375,17 @@ int xdg_autostart_format_exec_start(
         int r;
 
         /*
-         * Unfortunately, there is a mismatch between systemd's idea of $PATH
-         * and XDGs. i.e. we need to ensure that we have an absolute path to
-         * support cases where $PATH has been modified from the default set.
+         * Unfortunately, there is a mismatch between systemd's idea of $PATH and XDGs. I.e. we need to
+         * ensure that we have an absolute path to support cases where $PATH has been modified from the
+         * default set.
          *
-         * Note that this is only needed for development environments though;
-         * so while it is important, this should have no effect in production
-         * environments.
+         * Note that this is only needed for development environments though; so while it is important, this
+         * should have no effect in production environments.
          *
-         * To be compliant with the XDG specification, we also need to strip
-         * certain parameters and such. Doing so properly makes parsing the
-         * command line unavoidable.
+         * To be compliant with the XDG specification, we also need to strip certain parameters and
+         * such. Doing so properly makes parsing the command line unavoidable.
          *
-         * NOTE: Technically, XDG only specifies " as quotes, while this also
-         *       accepts '.
+         * NOTE: Technically, XDG only specifies " as quotes, while this also accepts '.
          */
         r = strv_split_full(&exec_split, exec, NULL, EXTRACT_UNQUOTE | EXTRACT_RELAX);
         if (r < 0)
@@ -419,28 +421,26 @@ int xdg_autostart_format_exec_start(
                 }
 
                 /*
-                 * Remove any standardised XDG fields; we assume they never appear as
-                 * part of another argument as that just does not make any sense as
-                 * they can be empty (GLib will e.g. turn "%f" into an empty argument).
-                 * Other implementations may handle this differently.
+                 * Remove any standardised XDG fields; we assume they never appear as part of another
+                 * argument as that just does not make any sense as they can be empty (GLib will e.g. turn
+                 * "%f" into an empty argument).  Other implementations may handle this differently.
                  */
                 if (STR_IN_SET(c,
                                "%f", "%F",
                                "%u", "%U",
                                "%d", "%D",
                                "%n", "%N",
-                               "%i", /* Location of icon, could be implemented. */
-                               "%c", /* Translated application name, could be implemented. */
-                               "%k", /* Location of desktop file, could be implemented. */
+                               "%i",          /* Location of icon, could be implemented. */
+                               "%c",          /* Translated application name, could be implemented. */
+                               "%k",          /* Location of desktop file, could be implemented. */
                                "%v",
                                "%m"
                                ))
                         continue;
 
                 /*
-                 * %% -> % and then % -> %% means that we correctly quote any %
-                 * and also quote any left over (and invalid) % specifier from
-                 * the desktop file.
+                 * %% -> % and then % -> %% means that we correctly quote any % and also quote any left over
+                 * (and invalid) % specifier from the desktop file.
                  */
                 raw = strreplace(c, "%%", "%");
                 if (!raw)
@@ -483,7 +483,7 @@ static int xdg_autostart_generate_desktop_condition(
 
                 r = find_executable(test_binary, &gnome_autostart_condition_path);
                 if (r < 0) {
-                        log_full_errno(r == -ENOENT ? LOG_INFO : LOG_WARNING, r,
+                        log_full_errno(r == -ENOENT ? LOG_DEBUG : LOG_WARNING, r,
                                        "%s not found: %m", test_binary);
                         fprintf(f, "# ExecCondition using %s skipped due to missing binary.\n", test_binary);
                         return r;
@@ -514,18 +514,18 @@ int xdg_autostart_service_generate_unit(
 
         /* Nothing to do for hidden services. */
         if (service->hidden) {
-                log_info("Not generating service for XDG autostart %s, it is hidden.", service->name);
+                log_debug("Not generating service for XDG autostart %s, it is hidden.", service->name);
                 return 0;
         }
 
         if (service->systemd_skip) {
-                log_info("Not generating service for XDG autostart %s, should be skipped by generator.", service->name);
+                log_debug("Not generating service for XDG autostart %s, should be skipped by generator.", service->name);
                 return 0;
         }
 
         /* Nothing to do if type is not Application. */
         if (!streq_ptr(service->type, "Application")) {
-                log_info("Not generating service for XDG autostart %s, only Type=Application is supported.", service->name);
+                log_debug("Not generating service for XDG autostart %s, only Type=Application is supported.", service->name);
                 return 0;
         }
 
@@ -534,14 +534,12 @@ int xdg_autostart_service_generate_unit(
                 return 0;
         }
 
-        /*
-         * The TryExec key cannot be checked properly from the systemd unit,
-         * it is trivial to check using find_executable though.
-         */
+        /* The TryExec key cannot be checked properly from the systemd unit, it is trivial to check using
+         * find_executable though. */
         if (service->try_exec) {
                 r = find_executable(service->try_exec, NULL);
                 if (r < 0) {
-                        log_full_errno(r == -ENOENT ? LOG_INFO : LOG_WARNING, r,
+                        log_full_errno(r == -ENOENT ? LOG_DEBUG : LOG_WARNING, r,
                                        "Not generating service for XDG autostart %s, could not find TryExec= binary %s: %m",
                                        service->name, service->try_exec);
                         return 0;
@@ -558,8 +556,8 @@ int xdg_autostart_service_generate_unit(
 
         if (service->gnome_autostart_phase) {
                 /* There is no explicit value for the "Application" phase. */
-                log_info("Not generating service for XDG autostart %s, startup phases are not supported.",
-                         service->name);
+                log_debug("Not generating service for XDG autostart %s, startup phases are not supported.",
+                          service->name);
                 return 0;
         }
 
@@ -599,12 +597,23 @@ int xdg_autostart_service_generate_unit(
 
         fprintf(f,
                 "\n[Service]\n"
-                "Type=simple\n"
+                "Type=exec\n"
+                "ExitType=cgroup\n"
                 "ExecStart=:%s\n"
                 "Restart=no\n"
                 "TimeoutSec=5s\n"
                 "Slice=app.slice\n",
                 exec_start);
+
+        if (service->working_directory) {
+                _cleanup_free_ char *e_working_directory = NULL;
+
+                e_working_directory = cescape(service->working_directory);
+                if (!e_working_directory)
+                        return log_oom();
+
+                fprintf(f, "WorkingDirectory=-%s\n", e_working_directory);
+        }
 
         /* Generate an ExecCondition to check $XDG_CURRENT_DESKTOP */
         if (!strv_isempty(service->only_show_in) || !strv_isempty(service->not_show_in)) {

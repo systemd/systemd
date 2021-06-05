@@ -77,7 +77,7 @@ manager, please consider supporting the following interfaces.
    container instance) or creating one scope unit for each container instance
    via systemd's transient unit API (in case you have one container manager
    that manages all instances. Either way, make sure to set `Delegate=yes` in
-   it. This ensures that that the unit you created will be part of all cgroup
+   it. This ensures that the unit you created will be part of all cgroup
    controllers (or at least the ones systemd understands). The latter may also
    be done via `systemd-machined`'s `CreateMachine()` API. Make sure to use the
    cgroup path systemd put your process in for all operations of the container.
@@ -140,7 +140,7 @@ manager, please consider supporting the following interfaces.
    `$CREDENTIALS_DIRECTORY` environment variable. If the container managers
    does this, the credentials passed to the service manager can be propagated
    to services via `LoadCredential=` (see ...). The container manager can
-   choose any path, but `/run/host/credentials` is recommended."
+   choose any path, but `/run/host/credentials` is recommended.
 
 ## Advanced Integration
 
@@ -329,6 +329,19 @@ care should be taken to avoid naming conflicts. `systemd` (and in particular
    sub-directories of `/sys/` writable, but make sure to leave the root of
    `/sys/` read-only.)
 
+8. Do not pass the `CAP_AUDIT_CONTROL`, `CAP_AUDIT_READ`, `CAP_AUDIT_WRITE`
+   capabilities to the container, in particular not to those making use of user
+   namespaces. The kernel's audit subsystem is still not virtualized for
+   containers, and passing these credentials is pointless hence, given the
+   actual attempt to make use of the audit subsystem will fail. Note that
+   systemd's audit support is partially conditioned on these capabilities, thus
+   by dropping them you ensure that you get an entirely clean boot, as systemd
+   will make no attempt to use it. If you pass the capabilities to the payload
+   systemd will assume that audit is available and works, and some components
+   will subsequently fail in various ways. Note that once the kernel learnt
+   native support for container-virtualized audit, adding the capability to the
+   container description will automatically make the container payload use it.
+
 ## Fully Unprivileged Container Payload
 
 First things first, to make this clear: Linux containers are not a security
@@ -364,7 +377,7 @@ If you write software that wants to detect whether it is run in a container,
 please check `/proc/1/environ` and look for the `container=` environment
 variable. Do not assume the environment variable is inherited down the process
 tree. It generally is not. Hence check the environment block of PID 1, not your
-own. Note though that that file is only accessible to root. systemd hence early
+own. Note though that this file is only accessible to root. systemd hence early
 on also copies the value into `/run/systemd/container`, which is readable for
 everybody. However, that's a systemd-specific interface and other init systems
 are unlikely to do the same.

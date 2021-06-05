@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
 #include <inttypes.h>
@@ -35,7 +35,7 @@ typedef enum TimestampStyle {
         TIMESTAMP_UTC,
         TIMESTAMP_US_UTC,
         _TIMESTAMP_STYLE_MAX,
-        _TIMESTAMP_STYLE_INVALID = -1,
+        _TIMESTAMP_STYLE_INVALID = -EINVAL,
 } TimestampStyle;
 
 #define USEC_INFINITY ((usec_t) UINT64_MAX)
@@ -63,10 +63,10 @@ typedef enum TimestampStyle {
 
 /* We assume a maximum timezone length of 6. TZNAME_MAX is not defined on Linux, but glibc internally initializes this
  * to 6. Let's rely on that. */
-#define FORMAT_TIMESTAMP_MAX (3+1+10+1+8+1+6+1+6+1)
-#define FORMAT_TIMESTAMP_WIDTH 28 /* when outputting, assume this width */
-#define FORMAT_TIMESTAMP_RELATIVE_MAX 256
-#define FORMAT_TIMESPAN_MAX 64
+#define FORMAT_TIMESTAMP_MAX (3U+1U+10U+1U+8U+1U+6U+1U+6U+1U)
+#define FORMAT_TIMESTAMP_WIDTH 28U /* when outputting, assume this width */
+#define FORMAT_TIMESTAMP_RELATIVE_MAX 256U
+#define FORMAT_TIMESPAN_MAX 64U
 
 #define TIME_T_MAX (time_t)((UINTMAX_C(1) << ((sizeof(time_t) << 3) - 1)) - 1)
 
@@ -133,8 +133,6 @@ int parse_sec_def_infinity(const char *t, usec_t *usec);
 int parse_time(const char *t, usec_t *usec, usec_t default_unit);
 int parse_nsec(const char *t, nsec_t *nsec);
 
-bool ntp_synced(void);
-
 int get_timezones(char ***l);
 bool timezone_is_valid(const char *name, int log_level);
 
@@ -155,16 +153,14 @@ usec_t jiffies_to_usec(uint32_t jiffies);
 bool in_utc_timezone(void);
 
 static inline usec_t usec_add(usec_t a, usec_t b) {
-        usec_t c;
 
         /* Adds two time values, and makes sure USEC_INFINITY as input results as USEC_INFINITY in output, and doesn't
          * overflow. */
 
-        c = a + b;
-        if (c < a || c < b) /* overflow check */
+        if (a > USEC_INFINITY - b) /* overflow check */
                 return USEC_INFINITY;
 
-        return c;
+        return a + b;
 }
 
 static inline usec_t usec_sub_unsigned(usec_t timestamp, usec_t delta) {

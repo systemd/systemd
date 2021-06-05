@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <errno.h>
 #include <getopt.h>
@@ -65,11 +65,12 @@ static int apply_rule(const char *rule) {
 
 static int apply_file(const char *path, bool ignore_enoent) {
         _cleanup_fclose_ FILE *f = NULL;
+        _cleanup_free_ char *pp = NULL;
         int r;
 
         assert(path);
 
-        r = search_and_fopen(path, "re", NULL, (const char**) CONF_PATHS_STRV("binfmt.d"), &f);
+        r = search_and_fopen(path, "re", NULL, (const char**) CONF_PATHS_STRV("binfmt.d"), &f, &pp);
         if (r < 0) {
                 if (ignore_enoent && r == -ENOENT)
                         return 0;
@@ -77,7 +78,7 @@ static int apply_file(const char *path, bool ignore_enoent) {
                 return log_error_errno(r, "Failed to open file '%s': %m", path);
         }
 
-        log_debug("apply: %s", path);
+        log_debug("apply: %s", pp);
         for (;;) {
                 _cleanup_free_ char *line = NULL;
                 char *p;
@@ -85,7 +86,7 @@ static int apply_file(const char *path, bool ignore_enoent) {
 
                 k = read_line(f, LONG_LINE_MAX, &line);
                 if (k < 0)
-                        return log_error_errno(k, "Failed to read file '%s': %m", path);
+                        return log_error_errno(k, "Failed to read file '%s': %m", pp);
                 if (k == 0)
                         break;
 
@@ -118,10 +119,9 @@ static int help(void) {
                "     --cat-config       Show configuration files\n"
                "     --no-pager         Do not pipe output into a pager\n"
                "     --unregister       Unregister all existing entries\n"
-               "\nSee the %s for details.\n"
-               , program_invocation_short_name
-               , link
-        );
+               "\nSee the %s for details.\n",
+               program_invocation_short_name,
+               link);
 
         return 0;
 }
@@ -191,7 +191,7 @@ static int run(int argc, char *argv[]) {
         if (r <= 0)
                 return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
 
-        log_setup_service();
+        log_setup();
 
         umask(0022);
 

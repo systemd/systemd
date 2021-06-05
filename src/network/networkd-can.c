@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <net/if.h>
 #include <linux/can/netlink.h>
@@ -52,7 +52,7 @@ int config_parse_can_bitrate(
         return 0;
 }
 
-static int link_up_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
+static int link_set_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
         int r;
 
         assert(link);
@@ -61,51 +61,22 @@ static int link_up_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) 
                 return 1;
 
         r = sd_netlink_message_get_errno(m);
-        if (r < 0)
-                /* we warn but don't fail the link, as it may be brought up later */
-                log_link_message_warning_errno(link, m, r, "Could not bring up interface");
-
-        return 1;
-}
-
-static int link_up_can(Link *link) {
-        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL;
-        int r;
-
-        assert(link);
-
-        log_link_debug(link, "Bringing CAN link up");
-
-        r = sd_rtnl_message_new_link(link->manager->rtnl, &req, RTM_SETLINK, link->ifindex);
-        if (r < 0)
-                return log_link_error_errno(link, r, "Could not allocate RTM_SETLINK message: %m");
-
-        r = sd_rtnl_message_link_set_flags(req, IFF_UP, IFF_UP);
-        if (r < 0)
-                return log_link_error_errno(link, r, "Could not set link flags: %m");
-
-        r = netlink_call_async(link->manager->rtnl, NULL, req, link_up_handler,
-                               link_netlink_destroy_callback, link);
-        if (r < 0)
-                return log_link_error_errno(link, r, "Could not send rtnetlink message: %m");
-
-        link_ref(link);
-
-        return 0;
-}
-
-static int link_set_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
-        int r;
-
-        assert(link);
-
-        log_link_debug(link, "Set link");
-
-        r = sd_netlink_message_get_errno(m);
         if (r < 0 && r != -EEXIST) {
                 log_link_message_warning_errno(link, m, r, "Failed to configure CAN link");
                 link_enter_failed(link);
+                return 1;
         }
+
+        log_link_debug(link, "Link set");
+
+        r = link_activate(link);
+        if (r < 0) {
+                link_enter_failed(link);
+                return 1;
+        }
+
+        link->can_configured = true;
+        link_check_ready(link);
 
         return 1;
 }
@@ -174,14 +145,14 @@ static int link_set_can(Link *link) {
 
         if (link->network->can_fd_mode >= 0) {
                 cm.mask |= CAN_CTRLMODE_FD;
-                SET_FLAG(cm.flags, CAN_CTRLMODE_FD, link->network->can_fd_mode > 0);
-                log_link_debug(link, "%sabling FD mode", link->network->can_fd_mode > 0 ? "En" : "Dis");
+                SET_FLAG(cm.flags, CAN_CTRLMODE_FD, link->network->can_fd_mode);
+                log_link_debug(link, "Setting FD mode to '%s'.", yes_no(link->network->can_fd_mode));
         }
 
         if (link->network->can_non_iso >= 0) {
                 cm.mask |= CAN_CTRLMODE_FD_NON_ISO;
-                SET_FLAG(cm.flags, CAN_CTRLMODE_FD_NON_ISO, link->network->can_non_iso > 0);
-                log_link_debug(link, "%sabling FD non-ISO mode", link->network->can_non_iso > 0 ? "En" : "Dis");
+                SET_FLAG(cm.flags, CAN_CTRLMODE_FD_NON_ISO, link->network->can_non_iso);
+                log_link_debug(link, "Setting FD non-ISO mode to '%s'.", yes_no(link->network->can_non_iso));
         }
 
         if (link->network->can_restart_us > 0) {
@@ -195,10 +166,8 @@ static int link_set_can(Link *link) {
 
                 format_timespan(time_string, FORMAT_TIMESPAN_MAX, restart_ms * 1000, MSEC_PER_SEC);
 
-                if (restart_ms > UINT32_MAX) {
-                        log_link_error(link, "restart timeout (%s) too big.", time_string);
-                        return -ERANGE;
-                }
+                if (restart_ms > UINT32_MAX)
+                        return log_link_error_errno(link, SYNTHETIC_ERRNO(ERANGE), "restart timeout (%s) too big.", time_string);
 
                 log_link_debug(link, "Setting restart = %s", time_string);
 
@@ -210,13 +179,19 @@ static int link_set_can(Link *link) {
         if (link->network->can_triple_sampling >= 0) {
                 cm.mask |= CAN_CTRLMODE_3_SAMPLES;
                 SET_FLAG(cm.flags, CAN_CTRLMODE_3_SAMPLES, link->network->can_triple_sampling);
-                log_link_debug(link, "%sabling triple-sampling", link->network->can_triple_sampling ? "En" : "Dis");
+                log_link_debug(link, "Setting triple-sampling to '%s'.", yes_no(link->network->can_triple_sampling));
+        }
+
+        if (link->network->can_berr_reporting >= 0) {
+                cm.mask |= CAN_CTRLMODE_BERR_REPORTING;
+                SET_FLAG(cm.flags, CAN_CTRLMODE_BERR_REPORTING, link->network->can_berr_reporting);
+                log_link_debug(link, "Setting bus error reporting to '%s'.", yes_no(link->network->can_berr_reporting));
         }
 
         if (link->network->can_listen_only >= 0) {
                 cm.mask |= CAN_CTRLMODE_LISTENONLY;
                 SET_FLAG(cm.flags, CAN_CTRLMODE_LISTENONLY, link->network->can_listen_only);
-                log_link_debug(link, "%sabling listen-only mode", link->network->can_listen_only ? "En" : "Dis");
+                log_link_debug(link, "Setting listen-only mode to '%s'.", yes_no(link->network->can_listen_only));
         }
 
         if (cm.mask != 0) {
@@ -227,7 +202,7 @@ static int link_set_can(Link *link) {
 
         if (link->network->can_termination >= 0) {
 
-                log_link_debug(link, "%sabling can-termination", link->network->can_termination ? "En" : "Dis");
+                log_link_debug(link, "Setting can-termination to '%s'.", yes_no(link->network->can_termination));
 
                 r = sd_netlink_message_append_u16(m, IFLA_CAN_TERMINATION,
                                 link->network->can_termination ? CAN_TERMINATION_OHM_VALUE : 0);
@@ -250,9 +225,6 @@ static int link_set_can(Link *link) {
                 return log_link_error_errno(link, r, "Could not send rtnetlink message: %m");
 
         link_ref(link);
-
-        if (!(link->flags & IFF_UP))
-                return link_up_can(link);
 
         return 0;
 }
@@ -286,30 +258,21 @@ int link_configure_can(Link *link) {
 
         if (streq_ptr(link->kind, "can")) {
                 /* The CAN interface must be down to configure bitrate, etc... */
-                if ((link->flags & IFF_UP)) {
+                if ((link->flags & IFF_UP))
                         r = link_down(link, link_down_handler);
-                        if (r < 0) {
-                                link_enter_failed(link);
-                                return r;
-                        }
-                } else {
+                else
                         r = link_set_can(link);
-                        if (r < 0) {
-                                link_enter_failed(link);
-                                return r;
-                        }
-                }
-
-                return 0;
-        }
-
-        if (!(link->flags & IFF_UP)) {
-                r = link_up_can(link);
-                if (r < 0) {
+                if (r < 0)
                         link_enter_failed(link);
-                        return r;
-                }
+                return r;
         }
+
+        r = link_activate(link);
+        if (r < 0)
+                return r;
+
+        link->can_configured = true;
+        link_check_ready(link);
 
         return 0;
 }

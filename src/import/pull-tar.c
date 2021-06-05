@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <curl/curl.h>
 #include <sys/prctl.h>
@@ -40,19 +40,19 @@ struct TarPull {
         sd_event *event;
         CurlGlue *glue;
 
+        PullFlags flags;
+        ImportVerify verify;
         char *image_root;
 
         PullJob *tar_job;
-        PullJob *settings_job;
         PullJob *checksum_job;
         PullJob *signature_job;
+        PullJob *settings_job;
 
         TarPullFinished on_finished;
         void *userdata;
 
         char *local;
-        bool force_local;
-        bool settings;
 
         pid_t tar_pid;
 
@@ -61,8 +61,6 @@ struct TarPull {
 
         char *settings_path;
         char *settings_temp_path;
-
-        ImportVerify verify;
 };
 
 TarPull* tar_pull_unref(TarPull *i) {
@@ -75,22 +73,15 @@ TarPull* tar_pull_unref(TarPull *i) {
         }
 
         pull_job_unref(i->tar_job);
-        pull_job_unref(i->settings_job);
         pull_job_unref(i->checksum_job);
         pull_job_unref(i->signature_job);
+        pull_job_unref(i->settings_job);
 
         curl_glue_unref(i->glue);
         sd_event_unref(i->event);
 
-        if (i->temp_path) {
-                (void) rm_rf(i->temp_path, REMOVE_ROOT|REMOVE_PHYSICAL|REMOVE_SUBVOLUME);
-                free(i->temp_path);
-        }
-
-        if (i->settings_temp_path) {
-                (void) unlink(i->settings_temp_path);
-                free(i->settings_temp_path);
-        }
+        rm_rf_subvolume_and_free(i->temp_path);
+        unlink_and_free(i->settings_temp_path);
 
         free(i->final_path);
         free(i->settings_path);
@@ -163,11 +154,6 @@ static void tar_pull_report_progress(TarPull *i, TarProgress p) {
 
                 percent = 0;
 
-                if (i->settings_job) {
-                        percent += i->settings_job->progress_percent * 5 / 100;
-                        remain -= 5;
-                }
-
                 if (i->checksum_job) {
                         percent += i->checksum_job->progress_percent * 5 / 100;
                         remain -= 5;
@@ -175,6 +161,11 @@ static void tar_pull_report_progress(TarPull *i, TarProgress p) {
 
                 if (i->signature_job) {
                         percent += i->signature_job->progress_percent * 5 / 100;
+                        remain -= 5;
+                }
+
+                if (i->settings_job) {
+                        percent += i->settings_job->progress_percent * 5 / 100;
                         remain -= 5;
                 }
 
@@ -230,11 +221,11 @@ static int tar_pull_make_local_copy(TarPull *i) {
         if (!i->local)
                 return 0;
 
-        r = pull_make_local_copy(i->final_path, i->image_root, i->local, i->force_local);
+        r = pull_make_local_copy(i->final_path, i->image_root, i->local, i->flags);
         if (r < 0)
                 return r;
 
-        if (i->settings) {
+        if (FLAGS_SET(i->flags, PULL_SETTINGS)) {
                 const char *local_settings;
                 assert(i->settings_job);
 
@@ -244,7 +235,7 @@ static int tar_pull_make_local_copy(TarPull *i) {
 
                 local_settings = strjoina(i->image_root, "/", i->local, ".nspawn");
 
-                r = copy_file_atomic(i->settings_path, local_settings, 0664, 0, 0, COPY_REFLINK | (i->force_local ? COPY_REPLACE : 0));
+                r = copy_file_atomic(i->settings_path, local_settings, 0664, 0, 0, COPY_REFLINK | (FLAGS_SET(i->flags, PULL_FORCE) ? COPY_REPLACE : 0));
                 if (r == -EEXIST)
                         log_warning_errno(r, "Settings file %s already exists, not replacing.", local_settings);
                 else if (r == -ENOENT)
@@ -264,11 +255,11 @@ static bool tar_pull_is_done(TarPull *i) {
 
         if (!PULL_JOB_IS_COMPLETE(i->tar_job))
                 return false;
-        if (i->settings_job && !PULL_JOB_IS_COMPLETE(i->settings_job))
-                return false;
         if (i->checksum_job && !PULL_JOB_IS_COMPLETE(i->checksum_job))
                 return false;
         if (i->signature_job && !PULL_JOB_IS_COMPLETE(i->signature_job))
+                return false;
+        if (i->settings_job && !PULL_JOB_IS_COMPLETE(i->settings_job))
                 return false;
 
         return true;
@@ -296,18 +287,29 @@ static void tar_pull_job_on_finished(PullJob *j) {
                 goto finish;
         }
 
-        /* This is invoked if either the download completed
-         * successfully, or the download was skipped because we
-         * already have the etag. */
+        /* This is invoked if either the download completed successfully, or the download was skipped because
+         * we already have the etag. */
 
         if (!tar_pull_is_done(i))
                 return;
 
-        if (i->signature_job && i->checksum_job->style == VERIFICATION_PER_DIRECTORY && i->signature_job->error != 0) {
-                log_error_errno(j->error, "Failed to retrieve signature file, cannot verify. (Try --verify=no?)");
+        if (i->signature_job && i->signature_job->error != 0) {
+                VerificationStyle style;
 
-                r = i->signature_job->error;
-                goto finish;
+                r = verification_style_from_url(i->checksum_job->url, &style);
+                if (r < 0) {
+                        log_error_errno(r, "Failed to determine verification style from checksum URL: %m");
+                        goto finish;
+                }
+
+                if (style == VERIFICATION_PER_DIRECTORY) { /* A failed signature file download only matters
+                                                            * in per-directory verification mode, since only
+                                                            * then the signature is detached, and thus a file
+                                                            * of its own. */
+                        log_error_errno(j->error, "Failed to retrieve signature file, cannot verify. (Try --verify=no?)");
+                        r = i->signature_job->error;
+                        goto finish;
+                }
         }
 
         i->tar_job->disk_fd = safe_close(i->tar_job->disk_fd);
@@ -334,11 +336,22 @@ static void tar_pull_job_on_finished(PullJob *j) {
 
                 tar_pull_report_progress(i, TAR_VERIFYING);
 
-                r = pull_verify(i->tar_job, NULL, i->settings_job, i->checksum_job, i->signature_job);
+                r = pull_verify(i->verify,
+                                i->tar_job,
+                                i->checksum_job,
+                                i->signature_job,
+                                i->settings_job,
+                                /* roothash_job = */ NULL,
+                                /* roothash_signature_job = */ NULL,
+                                /* verity_job = */ NULL);
                 if (r < 0)
                         goto finish;
 
                 tar_pull_report_progress(i, TAR_FINALIZING);
+
+                r = import_mangle_os_tree(i->temp_path);
+                if (r < 0)
+                        goto finish;
 
                 r = import_make_read_only(i->temp_path);
                 if (r < 0)
@@ -418,8 +431,10 @@ static int tar_pull_job_on_open_disk_tar(PullJob *j) {
         r = btrfs_subvol_make_fallback(i->temp_path, 0755);
         if (r < 0)
                 return log_error_errno(r, "Failed to create directory/subvolume %s: %m", i->temp_path);
-        if (r > 0) /* actually btrfs subvol */
+        if (r > 0) { /* actually btrfs subvol */
+                (void) import_assign_pool_quota_and_warn(i->image_root);
                 (void) import_assign_pool_quota_and_warn(i->temp_path);
+        }
 
         j->disk_fd = import_fork_tar_x(i->temp_path, &i->tar_pid);
         if (j->disk_fd < 0)
@@ -468,20 +483,20 @@ int tar_pull_start(
                 TarPull *i,
                 const char *url,
                 const char *local,
-                bool force_local,
-                ImportVerify verify,
-                bool settings) {
+                PullFlags flags,
+                ImportVerify verify) {
 
         int r;
 
         assert(i);
         assert(verify < _IMPORT_VERIFY_MAX);
         assert(verify >= 0);
+        assert(!(flags & ~PULL_FLAGS_MASK_TAR));
 
         if (!http_url_is_valid(url))
                 return -EINVAL;
 
-        if (local && !machine_name_is_valid(local))
+        if (local && !hostname_is_valid(local, 0))
                 return -EINVAL;
 
         if (i->tar_job)
@@ -491,9 +506,8 @@ int tar_pull_start(
         if (r < 0)
                 return r;
 
-        i->force_local = force_local;
+        i->flags = flags;
         i->verify = verify;
-        i->settings = settings;
 
         /* Set up download job for TAR file */
         r = pull_job_new(&i->tar_job, url, i->glue, i);
@@ -509,8 +523,13 @@ int tar_pull_start(
         if (r < 0)
                 return r;
 
+        /* Set up download of checksum/signature files */
+        r = pull_make_verification_jobs(&i->checksum_job, &i->signature_job, verify, url, i->glue, tar_pull_job_on_finished, i);
+        if (r < 0)
+                return r;
+
         /* Set up download job for the settings file (.nspawn) */
-        if (settings) {
+        if (FLAGS_SET(flags, PULL_SETTINGS)) {
                 r = pull_make_auxiliary_job(&i->settings_job, url, tar_strip_suffixes, ".nspawn", i->glue, tar_pull_job_on_finished, i);
                 if (r < 0)
                         return r;
@@ -520,24 +539,13 @@ int tar_pull_start(
                 i->settings_job->calc_checksum = verify != IMPORT_VERIFY_NO;
         }
 
-        /* Set up download of checksum/signature files */
-        r = pull_make_verification_jobs(&i->checksum_job, &i->signature_job, verify, url, i->glue, tar_pull_job_on_finished, i);
-        if (r < 0)
-                return r;
-
         r = pull_job_begin(i->tar_job);
         if (r < 0)
                 return r;
 
-        if (i->settings_job) {
-                r = pull_job_begin(i->settings_job);
-                if (r < 0)
-                        return r;
-        }
-
         if (i->checksum_job) {
                 i->checksum_job->on_progress = tar_pull_job_on_progress;
-                i->checksum_job->style = VERIFICATION_PER_FILE;
+                i->checksum_job->on_not_found = pull_job_restart_with_sha256sum;
 
                 r = pull_job_begin(i->checksum_job);
                 if (r < 0)
@@ -548,6 +556,12 @@ int tar_pull_start(
                 i->signature_job->on_progress = tar_pull_job_on_progress;
 
                 r = pull_job_begin(i->signature_job);
+                if (r < 0)
+                        return r;
+        }
+
+        if (i->settings_job) {
+                r = pull_job_begin(i->settings_job);
                 if (r < 0)
                         return r;
         }

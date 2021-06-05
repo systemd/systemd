@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
 #include <stdbool.h>
@@ -25,7 +25,7 @@ typedef enum Storage {
         STORAGE_PERSISTENT,
         STORAGE_NONE,
         _STORAGE_MAX,
-        _STORAGE_INVALID = -1
+        _STORAGE_INVALID = -EINVAL,
 } Storage;
 
 typedef enum SplitMode {
@@ -33,7 +33,7 @@ typedef enum SplitMode {
         SPLIT_LOGIN, /* deprecated */
         SPLIT_NONE,
         _SPLIT_MAX,
-        _SPLIT_INVALID = -1
+        _SPLIT_INVALID = -EINVAL,
 } SplitMode;
 
 typedef struct JournalCompressOptions {
@@ -95,7 +95,6 @@ struct Server {
         uint64_t seqnum;
 
         char *buffer;
-        size_t buffer_size;
 
         JournalRateLimit *ratelimit;
         usec_t sync_interval_usec;

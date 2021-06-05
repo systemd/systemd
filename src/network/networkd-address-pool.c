@@ -1,7 +1,8 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "alloc-util.h"
 #include "networkd-address-pool.h"
+#include "networkd-address.h"
 #include "networkd-manager.h"
 #include "set.h"
 #include "string-util.h"
@@ -10,15 +11,14 @@
 
 static int address_pool_new(
                 Manager *m,
-                AddressPool **ret,
                 int family,
                 const union in_addr_union *u,
                 unsigned prefixlen) {
 
-        AddressPool *p;
+        _cleanup_free_ AddressPool *p = NULL;
+        int r;
 
         assert(m);
-        assert(ret);
         assert(u);
 
         p = new(AddressPool, 1);
@@ -32,15 +32,16 @@ static int address_pool_new(
                 .in_addr = *u,
         };
 
-        LIST_PREPEND(address_pools, m->address_pools, p);
+        r = ordered_set_ensure_put(&m->address_pools, NULL, p);
+        if (r < 0)
+                return r;
 
-        *ret = p;
+        TAKE_PTR(p);
         return 0;
 }
 
-int address_pool_new_from_string(
+static int address_pool_new_from_string(
                 Manager *m,
-                AddressPool **ret,
                 int family,
                 const char *p,
                 unsigned prefixlen) {
@@ -49,25 +50,38 @@ int address_pool_new_from_string(
         int r;
 
         assert(m);
-        assert(ret);
         assert(p);
 
         r = in_addr_from_string(family, p, &u);
         if (r < 0)
                 return r;
 
-        return address_pool_new(m, ret, family, &u, prefixlen);
+        return address_pool_new(m, family, &u, prefixlen);
 }
 
-void address_pool_free(AddressPool *p) {
+int address_pool_setup_default(Manager *m) {
+        int r;
 
-        if (!p)
-                return;
+        assert(m);
 
-        if (p->manager)
-                LIST_REMOVE(address_pools, p->manager->address_pools, p);
+        /* Add in the well-known private address ranges. */
+        r = address_pool_new_from_string(m, AF_INET6, "fd00::", 8);
+        if (r < 0)
+                return r;
 
-        free(p);
+        r = address_pool_new_from_string(m, AF_INET, "192.168.0.0", 16);
+        if (r < 0)
+                return r;
+
+        r = address_pool_new_from_string(m, AF_INET, "172.16.0.0", 12);
+        if (r < 0)
+                return r;
+
+        r = address_pool_new_from_string(m, AF_INET, "10.0.0.0", 8);
+        if (r < 0)
+                return r;
+
+        return 0;
 }
 
 static bool address_pool_prefix_is_taken(
@@ -93,8 +107,17 @@ static bool address_pool_prefix_is_taken(
                                 return true;
                 }
 
+                /* Don't clash with assigned foreign addresses */
+                SET_FOREACH(a, l->addresses_foreign) {
+                        if (a->family != p->family)
+                                continue;
+
+                        if (in_addr_prefix_intersect(p->family, u, prefixlen, &a->in_addr, a->prefixlen))
+                                return true;
+                }
+
                 /* Don't clash with addresses already pulled from the pool, but not assigned yet */
-                LIST_FOREACH(addresses, a, l->pool_addresses) {
+                SET_FOREACH(a, l->pool_addresses) {
                         if (a->family != p->family)
                                 continue;
 
@@ -107,7 +130,7 @@ static bool address_pool_prefix_is_taken(
         ORDERED_HASHMAP_FOREACH(n, p->manager->networks) {
                 Address *a;
 
-                LIST_FOREACH(addresses, a, n->static_addresses) {
+                ORDERED_HASHMAP_FOREACH(a, n->addresses_by_section) {
                         if (a->family != p->family)
                                 continue;
 
@@ -119,21 +142,23 @@ static bool address_pool_prefix_is_taken(
         return false;
 }
 
-int address_pool_acquire(AddressPool *p, unsigned prefixlen, union in_addr_union *found) {
+static int address_pool_acquire_one(AddressPool *p, int family, unsigned prefixlen, union in_addr_union *found) {
         union in_addr_union u;
-        unsigned i;
         int r;
 
         assert(p);
         assert(prefixlen > 0);
         assert(found);
 
+        if (p->family != family)
+                return 0;
+
         if (p->prefixlen >= prefixlen)
                 return 0;
 
         u = p->in_addr;
 
-        for (i = 0; i < RANDOM_PREFIX_TRIAL_MAX; i++) {
+        for (unsigned i = 0; i < RANDOM_PREFIX_TRIAL_MAX; i++) {
                 r = in_addr_random_prefix(p->family, &u, p->prefixlen, prefixlen);
                 if (r <= 0)
                         return r;
@@ -142,13 +167,31 @@ int address_pool_acquire(AddressPool *p, unsigned prefixlen, union in_addr_union
                         if (DEBUG_LOGGING) {
                                 _cleanup_free_ char *s = NULL;
 
-                                (void) in_addr_to_string(p->family, &u, &s);
-                                log_debug("Found range %s/%u", strna(s), prefixlen);
+                                (void) in_addr_prefix_to_string(p->family, &u, prefixlen, &s);
+                                log_debug("Found range %s", strna(s));
                         }
 
                         *found = u;
                         return 1;
                 }
+        }
+
+        return 0;
+}
+
+int address_pool_acquire(Manager *m, int family, unsigned prefixlen, union in_addr_union *found) {
+        AddressPool *p;
+        int r;
+
+        assert(m);
+        assert(IN_SET(family, AF_INET, AF_INET6));
+        assert(prefixlen > 0);
+        assert(found);
+
+        ORDERED_SET_FOREACH(p, m->address_pools) {
+                r = address_pool_acquire_one(p, family, prefixlen, found);
+                if (r != 0)
+                        return r;
         }
 
         return 0;

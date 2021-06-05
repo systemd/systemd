@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: GPL-2.0+ */
+/* SPDX-License-Identifier: GPL-2.0-or-later */
 /*
  * Copyright © 2009 Canonical Ltd.
  * Copyright © 2009 Scott James Remnant <scott@netsplit.com>
@@ -17,12 +17,13 @@
 #include "sd-messages.h"
 
 #include "bus-util.h"
+#include "fd-util.h"
 #include "io-util.h"
-#include "libudev-util.h"
 #include "string-util.h"
 #include "strv.h"
 #include "time-util.h"
 #include "udev-ctrl.h"
+#include "udev-util.h"
 #include "udevadm.h"
 #include "unit-def.h"
 #include "util.h"
@@ -37,8 +38,8 @@ static int help(void) {
                "  -h --help                 Show this help\n"
                "  -V --version              Show package version\n"
                "  -t --timeout=SEC          Maximum time to wait for events\n"
-               "  -E --exit-if-exists=FILE  Stop waiting if file exists\n"
-               , program_invocation_short_name);
+               "  -E --exit-if-exists=FILE  Stop waiting if file exists\n",
+               program_invocation_short_name);
 
         return 0;
 }
@@ -158,9 +159,9 @@ static int emit_deprecation_warning(void) {
 }
 
 int settle_main(int argc, char *argv[], void *userdata) {
-        _cleanup_(udev_queue_unrefp) struct udev_queue *queue = NULL;
+        _cleanup_close_ int fd = -1;
         usec_t deadline;
-        int r, fd;
+        int r;
 
         r = parse_argv(argc, argv);
         if (r <= 0)
@@ -190,11 +191,7 @@ int settle_main(int argc, char *argv[], void *userdata) {
                 }
         }
 
-        queue = udev_queue_new(NULL);
-        if (!queue)
-                return log_error_errno(errno, "Failed to get udev queue: %m");
-
-        fd = udev_queue_get_fd(queue);
+        fd = udev_queue_init();
         if (fd < 0) {
                 log_debug_errno(fd, "Queue is empty, nothing to watch: %m");
                 return 0;
@@ -207,7 +204,10 @@ int settle_main(int argc, char *argv[], void *userdata) {
                         return 0;
 
                 /* exit if queue is empty */
-                if (udev_queue_get_queue_is_empty(queue))
+                r = udev_queue_is_empty();
+                if (r < 0)
+                        return log_error_errno(r, "Failed to check queue is empty: %m");
+                if (r > 0)
                         return 0;
 
                 if (now(CLOCK_MONOTONIC) >= deadline)
@@ -218,7 +218,7 @@ int settle_main(int argc, char *argv[], void *userdata) {
                 if (r < 0)
                         return r;
                 if (r & POLLIN) {
-                        r = udev_queue_flush(queue);
+                        r = flush_fd(fd);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to flush queue: %m");
                 }

@@ -1,5 +1,5 @@
 #compdef systemctl                    -*- shell-script -*-
-# SPDX-License-Identifier: LGPL-2.1+
+# SPDX-License-Identifier: LGPL-2.1-or-later
 
 (( $+functions[_systemctl_commands] )) || _systemctl_commands()
 {
@@ -31,6 +31,8 @@
         "reset-failed:Reset failed state for all, one, or more units"
         "list-dependencies:Show unit dependency tree"
         "clean:Remove configuration, state, cache, logs or runtime data of units"
+        "bind:Bind mount a path from the host into a unit's namespace"
+        "mount-image:Mount an image from the host into a unit's namespace"
     )
 
     local -a machine_commands=(
@@ -145,7 +147,7 @@
 # @todo _systemd-run has a helper with the same name, so we must redefine
 __systemctl()
 {
-    systemctl $_sys_service_mgr --full --no-legend --no-pager --plain "$@" 2>/dev/null
+    systemctl $_sys_service_mgr --full --legend=no --no-pager --plain "$@" 2>/dev/null
 }
 
 
@@ -365,11 +367,24 @@ for fun in set-environment unset-environment ; do
     }
 done
 
+(( $+functions[_systemctl_import-environment] )) || _systemctl_import-environment()
+{
+    _parameters
+}
+
 (( $+functions[_systemctl_link] )) || _systemctl_link() {
         _sd_unit_files
     }
 
 (( $+functions[_systemctl_switch-root] )) || _systemctl_switch-root() {
+        _files
+    }
+
+(( $+functions[_systemctl_bind] )) || _systemctl_bind() {
+        _files
+    }
+
+(( $+functions[_systemctl_mount-image] )) || _systemctl_mount-image() {
         _files
     }
 
@@ -418,7 +433,7 @@ done
         if ( [[ ${+_sys_all_properties} -eq 0 ]] || _cache_invalid SYS_ALL_PROPERTIES$_sys_service_mgr ) ||
                ! _retrieve_cache SYS_ALL_PROPERTIES$_sys_service_mgr;
         then
-            _sys_all_properties=( ${${(M)${(f)"$(@rootlibexecdir@/systemd --dump-bus-properties)"}}} )
+            _sys_all_properties=( ${${(M)${(f)"$({{ROOTLIBEXECDIR}}/systemd --dump-bus-properties)"}}} )
             _store_cache SYS_ALL_PROPERTIES$_sys_service_mgr _sys_all_properties
         fi
         _values -s , "${_sys_all_properties[@]}"
@@ -438,6 +453,13 @@ done
         _values -s , "${_styles[@]}"
     }
 
+(( $+functions[_systemctl_check_inhibitors] )) ||
+    _systemctl_check_inhibitors() {
+        local -a _modes
+        _modes=(auto yes no)
+        _values -s , "${_modes[@]}"
+    }
+
 # Build arguments for "systemctl" to be used in completion.
 local -a _modes; _modes=("--user" "--system")
 # Use the last mode (they are exclusive and the last one is used).
@@ -455,10 +477,10 @@ _arguments -s \
     '--before[Show units ordered before]' \
     {-l,--full}"[Don't ellipsize unit names on output]" \
     '--show-types[When showing sockets, show socket type]' \
-    {-i,--ignore-inhibitors}'[When executing a job, ignore jobs dependencies]' \
+    '--check-inhibitors[Specify if inhibitors should be checked]:mode:_systemctl_check_inhibitors' \
     {-q,--quiet}'[Suppress output]' \
     '--no-block[Do not wait until operation finished]' \
-    '--no-legend[Do not print a legend, i.e. the column headers and the footer with hints]' \
+    '--legend=no[Do not print a legend, i.e. the column headers and the footer with hints]' \
     '--no-pager[Do not pipe output into a pager]' \
     '--system[Connect to system manager]' \
     '--user[Connect to user service manager]' \

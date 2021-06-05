@@ -1,8 +1,9 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "alloc-util.h"
 #include "bus-internal.h"
 #include "bus-message.h"
+#include "escape.h"
 #include "hexdecoct.h"
 #include "string-util.h"
 
@@ -91,8 +92,13 @@ bool interface_name_is_valid(const char *p) {
                                 (!dot && *q >= '0' && *q <= '9') ||
                                 *q == '_';
 
-                        if (!good)
+                        if (!good) {
+                                if (DEBUG_LOGGING) {
+                                        _cleanup_free_ char *iface = cescape(p);
+                                        log_debug("The interface %s is invalid as it contains special character", strnull(iface));
+                                }
                                 return false;
+                        }
 
                         dot = false;
                 }

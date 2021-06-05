@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 #ifndef foosdnetworkhfoo
 #define foosdnetworkhfoo
 
@@ -51,6 +51,9 @@ _SD_BEGIN_DECLARATIONS;
 int sd_network_get_operational_state(char **state);
 int sd_network_get_carrier_state(char **state);
 int sd_network_get_address_state(char **state);
+int sd_network_get_ipv4_address_state(char **state);
+int sd_network_get_ipv6_address_state(char **state);
+int sd_network_get_online_state(char **state);
 
 /* Get DNS entries for all links. These are string representations of
  * IP addresses */
@@ -92,8 +95,12 @@ int sd_network_link_get_setup_state(int ifindex, char **state);
  */
 int sd_network_link_get_operational_state(int ifindex, char **state);
 int sd_network_link_get_required_operstate_for_online(int ifindex, char **state);
+int sd_network_link_get_required_family_for_online(int ifindex, char **state);
 int sd_network_link_get_carrier_state(int ifindex, char **state);
 int sd_network_link_get_address_state(int ifindex, char **state);
+int sd_network_link_get_ipv4_address_state(int ifindex, char **state);
+int sd_network_link_get_ipv6_address_state(int ifindex, char **state);
+int sd_network_link_get_online_state(int ifindex, char **state);
 
 /* Indicates whether the network is relevant to being online.
  * Possible return codes:
@@ -102,6 +109,11 @@ int sd_network_link_get_address_state(int ifindex, char **state);
  *   <0: networkd is not aware of the link
  */
 int sd_network_link_get_required_for_online(int ifindex);
+
+/* Get activation policy for ifindex.
+ * Possible values are as specified for ActivationPolicy=
+ */
+int sd_network_link_get_activation_policy(int ifindex, char **policy);
 
 /* Get path to .network file applied to link */
 int sd_network_link_get_network_file(int ifindex, char **filename);

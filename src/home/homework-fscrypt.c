@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <linux/fs.h>
 #include <openssl/evp.h>
@@ -324,7 +324,9 @@ int home_prepare_fscrypt(
         /* Also install the access key in the user's own keyring */
 
         if (uid_is_valid(h->uid)) {
-                r = safe_fork("(sd-addkey)", FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_DEATHSIG|FORK_LOG|FORK_WAIT, NULL);
+                r = safe_fork("(sd-addkey)",
+                              FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_DEATHSIG|FORK_LOG|FORK_WAIT|FORK_REOPEN_LOG,
+                              NULL);
                 if (r < 0)
                         return log_error_errno(r, "Failed install encryption key in user's keyring: %m");
                 if (r == 0) {
@@ -548,7 +550,7 @@ int home_create_fscrypt(
         if (r < 0)
                 return r;
 
-        r = user_record_clone(h, USER_RECORD_LOAD_MASK_SECRET, &new_home);
+        r = user_record_clone(h, USER_RECORD_LOAD_MASK_SECRET|USER_RECORD_PERMISSIVE, &new_home);
         if (r < 0)
                 return log_error_errno(r, "Failed to clone record: %m");
 

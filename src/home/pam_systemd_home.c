@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <security/pam_ext.h>
 #include <security/pam_modules.h>
@@ -142,7 +142,7 @@ static int acquire_user_record(
         if (r == PAM_SUCCESS && json) {
                 /* We determined earlier that this is not a homed user? Then exit early. (We use -1 as
                  * negative cache indicator) */
-                if (json == (void*) -1)
+                if (json == POINTER_MAX)
                         return PAM_USER_UNKNOWN;
         } else {
                 _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
@@ -216,7 +216,7 @@ static int acquire_user_record(
         if (!ur)
                 return pam_log_oom(handle);
 
-        r = user_record_load(ur, v, USER_RECORD_LOAD_REFUSE_SECRET);
+        r = user_record_load(ur, v, USER_RECORD_LOAD_REFUSE_SECRET|USER_RECORD_PERMISSIVE);
         if (r < 0) {
                 pam_syslog(handle, LOG_ERR, "Failed to load user record: %s", strerror_safe(r));
                 return PAM_SERVICE_ERR;
@@ -235,7 +235,7 @@ static int acquire_user_record(
 
 user_unknown:
         /* Cache this, so that we don't check again */
-        r = pam_set_data(handle, homed_field, (void*) -1, NULL);
+        r = pam_set_data(handle, homed_field, POINTER_MAX, NULL);
         if (r != PAM_SUCCESS)
                 pam_syslog(handle, LOG_ERR, "Failed to set PAM user record data '%s' to invalid, ignoring: %s",
                            homed_field, pam_strerror(handle, r));
@@ -377,11 +377,21 @@ static int handle_generic_user_record_error(
 
         } else if (sd_bus_error_has_name(error, BUS_ERROR_TOKEN_USER_PRESENCE_NEEDED)) {
 
-                (void) pam_prompt(handle, PAM_ERROR_MSG, NULL, "Please verify presence on security token of user %s.", user_name);
+                (void) pam_prompt(handle, PAM_ERROR_MSG, NULL, "Please confirm presence on security token of user %s.", user_name);
 
                 r = user_record_set_fido2_user_presence_permitted(secret, true);
                 if (r < 0) {
                         pam_syslog(handle, LOG_ERR, "Failed to set FIDO2 user presence permitted flag: %s", strerror_safe(r));
+                        return PAM_SERVICE_ERR;
+                }
+
+        } else if (sd_bus_error_has_name(error, BUS_ERROR_TOKEN_USER_VERIFICATION_NEEDED)) {
+
+                (void) pam_prompt(handle, PAM_ERROR_MSG, NULL, "Please verify user on security token of user %s.", user_name);
+
+                r = user_record_set_fido2_user_verification_permitted(secret, true);
+                if (r < 0) {
+                        pam_syslog(handle, LOG_ERR, "Failed to set FIDO2 user verification permitted flag: %s", strerror_safe(r));
                         return PAM_SERVICE_ERR;
                 }
 
@@ -625,6 +635,15 @@ static int acquire_home(
                 do_auth = true;
         }
 
+        /* Later PAM modules may need the auth token, but only during pam_authenticate. */
+        if (please_authenticate && !strv_isempty(secret->password)) {
+                r = pam_set_item(handle, PAM_AUTHTOK, *secret->password);
+                if (r < 0) {
+                        pam_syslog(handle, LOG_ERR, "Failed to set PAM auth token: %s", pam_strerror(handle, r));
+                        return r;
+                }
+        }
+
         r = pam_set_data(handle, fd_field, FD_TO_PTR(acquired_fd), cleanup_home_fd);
         if (r < 0) {
                 pam_syslog(handle, LOG_ERR, "Failed to set PAM bus data: %s", pam_strerror(handle, r));
@@ -833,8 +852,6 @@ _public_ PAM_EXTERN int pam_sm_acct_mgmt(
                 pam_syslog(handle, LOG_DEBUG, "pam-systemd-homed account management");
 
         r = acquire_home(handle, /* please_authenticate = */ false, please_suspend, debug);
-        if (r == PAM_USER_UNKNOWN)
-                return PAM_SUCCESS; /* we don't have anything to say about users we don't manage */
         if (r != PAM_SUCCESS)
                 return r;
 
@@ -891,7 +908,7 @@ _public_ PAM_EXTERN int pam_sm_acct_mgmt(
                 return PAM_NEW_AUTHTOK_REQD;
 
         case -EOWNERDEAD:
-                (void) pam_prompt(handle, PAM_ERROR_MSG, NULL, "Password expired, change requird.");
+                (void) pam_prompt(handle, PAM_ERROR_MSG, NULL, "Password expired, change required.");
                 return PAM_NEW_AUTHTOK_REQD;
 
         case -EKEYREJECTED:

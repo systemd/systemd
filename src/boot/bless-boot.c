@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <getopt.h>
 #include <stdlib.h>
@@ -42,12 +42,11 @@ static int help(int argc, char *argv[], void *userdata) {
                "  -h --help          Show this help\n"
                "     --version       Print version\n"
                "     --path=PATH     Path to the $BOOT partition (may be used multiple times)\n"
-               "\nSee the %s for details.\n"
-               , program_invocation_short_name
-               , ansi_highlight()
-               , ansi_normal()
-               , link
-        );
+               "\nSee the %s for details.\n",
+               program_invocation_short_name,
+               ansi_highlight(),
+               ansi_normal(),
+               link);
 
         return 0;
 }
@@ -127,7 +126,7 @@ static int acquire_path(void) {
         strv_free_and_replace(arg_path, a);
 
         if (DEBUG_LOGGING) {
-                _cleanup_free_ char *j;
+                _cleanup_free_ char *j = NULL;
 
                 j = strv_join(arg_path, ":");
                 log_debug("Using %s as boot loader drop-in search path.", j);

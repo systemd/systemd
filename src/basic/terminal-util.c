@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <errno.h>
 #include <fcntl.h>
@@ -37,21 +37,23 @@
 #include "process-util.h"
 #include "socket-util.h"
 #include "stat-util.h"
+#include "stdio-util.h"
 #include "string-util.h"
 #include "strv.h"
 #include "terminal-util.h"
 #include "time-util.h"
+#include "user-util.h"
 #include "util.h"
 
 static volatile unsigned cached_columns = 0;
 static volatile unsigned cached_lines = 0;
 
 static volatile int cached_on_tty = -1;
-static volatile int cached_colors_enabled = -1;
+static volatile int cached_color_mode = _COLOR_INVALID;
 static volatile int cached_underline_enabled = -1;
 
 int chvt(int vt) {
-        _cleanup_close_ int fd;
+        _cleanup_close_ int fd = -1;
 
         /* Switch to the specified vt number. If the VT is specified <= 0 switch to the VT the kernel log messages go,
          * if that's configured. */
@@ -164,8 +166,7 @@ int ask_char(char *ret, const char *replies, const char *fmt, ...) {
                 char c;
                 bool need_nl = true;
 
-                if (colors_enabled())
-                        fputs(ANSI_HIGHLIGHT, stdout);
+                fputs(ansi_highlight(), stdout);
 
                 putchar('\r');
 
@@ -173,8 +174,7 @@ int ask_char(char *ret, const char *replies, const char *fmt, ...) {
                 vprintf(fmt, ap);
                 va_end(ap);
 
-                if (colors_enabled())
-                        fputs(ANSI_NORMAL, stdout);
+                fputs(ansi_normal(), stdout);
 
                 fflush(stdout);
 
@@ -213,15 +213,13 @@ int ask_string(char **ret, const char *text, ...) {
         assert(ret);
         assert(text);
 
-        if (colors_enabled())
-                fputs(ANSI_HIGHLIGHT, stdout);
+        fputs(ansi_highlight(), stdout);
 
         va_start(ap, text);
         vprintf(text, ap);
         va_end(ap);
 
-        if (colors_enabled())
-                fputs(ANSI_NORMAL, stdout);
+        fputs(ansi_normal(), stdout);
 
         fflush(stdout);
 
@@ -243,22 +241,27 @@ int reset_terminal_fd(int fd, bool switch_to_text) {
 
         assert(fd >= 0);
 
-        /* We leave locked terminal attributes untouched, so that
-         * Plymouth may set whatever it wants to set, and we don't
-         * interfere with that. */
+        if (isatty(fd) < 1)
+                return log_debug_errno(errno, "Asked to reset a terminal that actually isn't a terminal: %m");
+
+        /* We leave locked terminal attributes untouched, so that Plymouth may set whatever it wants to set,
+         * and we don't interfere with that. */
 
         /* Disable exclusive mode, just in case */
-        (void) ioctl(fd, TIOCNXCL);
+        if (ioctl(fd, TIOCNXCL) < 0)
+                log_debug_errno(errno, "TIOCNXCL ioctl failed on TTY, ignoring: %m");
 
         /* Switch to text mode */
         if (switch_to_text)
-                (void) ioctl(fd, KDSETMODE, KD_TEXT);
+                if (ioctl(fd, KDSETMODE, KD_TEXT) < 0)
+                        log_debug_errno(errno, "KDSETMODE ioctl for switching to text mode failed on TTY, ignoring: %m");
+
 
         /* Set default keyboard mode */
         (void) vt_reset_keyboard(fd);
 
         if (tcgetattr(fd, &termios) < 0) {
-                r = -errno;
+                r = log_debug_errno(errno, "Failed to get terminal parameters: %m");
                 goto finish;
         }
 
@@ -314,14 +317,13 @@ int reset_terminal(const char *name) {
 }
 
 int open_terminal(const char *name, int mode) {
+        _cleanup_close_ int fd = -1;
         unsigned c = 0;
-        int fd;
 
         /*
-         * If a TTY is in the process of being closed opening it might
-         * cause EIO. This is horribly awful, but unlikely to be
-         * changed in the kernel. Hence we work around this problem by
-         * retrying a couple of times.
+         * If a TTY is in the process of being closed opening it might cause EIO. This is horribly awful, but
+         * unlikely to be changed in the kernel. Hence we work around this problem by retrying a couple of
+         * times.
          *
          * https://bugs.launchpad.net/ubuntu/+source/linux/+bug/554172/comments/245
          */
@@ -341,16 +343,14 @@ int open_terminal(const char *name, int mode) {
                 if (c >= 20)
                         return -errno;
 
-                usleep(50 * USEC_PER_MSEC);
+                (void) usleep(50 * USEC_PER_MSEC);
                 c++;
         }
 
-        if (isatty(fd) <= 0) {
-                safe_close(fd);
-                return -ENOTTY;
-        }
+        if (isatty(fd) < 1)
+                return negative_errno();
 
-        return fd;
+        return TAKE_FD(fd);
 }
 
 int acquire_terminal(
@@ -444,11 +444,11 @@ int acquire_terminal(
 
                                 assert(ts != USEC_INFINITY);
 
-                                n = now(CLOCK_MONOTONIC);
-                                if (ts + timeout < n)
+                                n = usec_sub_unsigned(now(CLOCK_MONOTONIC), ts);
+                                if (n >= timeout)
                                         return -ETIMEDOUT;
 
-                                r = fd_wait_for_event(notify, POLLIN, ts + timeout - n);
+                                r = fd_wait_for_event(notify, POLLIN, usec_sub_unsigned(timeout, n));
                                 if (r < 0)
                                         return r;
                                 if (r == 0)
@@ -517,7 +517,7 @@ int terminal_vhangup_fd(int fd) {
 }
 
 int terminal_vhangup(const char *name) {
-        _cleanup_close_ int fd;
+        _cleanup_close_ int fd = -1;
 
         fd = open_terminal(name, O_RDWR|O_NOCTTY|O_CLOEXEC|O_NONBLOCK);
         if (fd < 0)
@@ -867,7 +867,7 @@ void reset_terminal_feature_caches(void) {
         cached_columns = 0;
         cached_lines = 0;
 
-        cached_colors_enabled = -1;
+        cached_color_mode = _COLOR_INVALID;
         cached_underline_enabled = -1;
         cached_on_tty = -1;
 }
@@ -963,7 +963,9 @@ int get_ctty_devnr(pid_t pid, dev_t *d) {
 }
 
 int get_ctty(pid_t pid, dev_t *ret_devnr, char **ret) {
-        _cleanup_free_ char *fn = NULL, *b = NULL;
+        char pty[STRLEN("/dev/pts/") + DECIMAL_STR_MAX(dev_t) + 1];
+        _cleanup_free_ char *buf = NULL;
+        const char *fn = NULL, *w;
         dev_t devnr;
         int r;
 
@@ -971,44 +973,53 @@ int get_ctty(pid_t pid, dev_t *ret_devnr, char **ret) {
         if (r < 0)
                 return r;
 
-        r = device_path_make_canonical(S_IFCHR, devnr, &fn);
+        r = device_path_make_canonical(S_IFCHR, devnr, &buf);
         if (r < 0) {
+                struct stat st;
+
                 if (r != -ENOENT) /* No symlink for this in /dev/char/? */
                         return r;
 
-                if (major(devnr) == 136) {
-                        /* This is an ugly hack: PTY devices are not listed in /dev/char/, as they don't follow the
-                         * Linux device model. This means we have no nice way to match them up against their actual
-                         * device node. Let's hence do the check by the fixed, assigned major number. Normally we try
-                         * to avoid such fixed major/minor matches, but there appears to nother nice way to handle
-                         * this. */
+                /* Maybe this is PTY? PTY devices are not listed in /dev/char/, as they don't follow the
+                 * Linux device model and hence device_path_make_canonical() doesn't work for them. Let's
+                 * assume this is a PTY for a moment, and check if the device node this would then map to in
+                 * /dev/pts/ matches the one we are looking for. This way we don't have to hardcode the major
+                 * number (which is 136 btw), but we still rely on the fact that PTY numbers map directly to
+                 * the minor number of the pty. */
+                xsprintf(pty, "/dev/pts/%u", minor(devnr));
 
-                        if (asprintf(&b, "pts/%u", minor(devnr)) < 0)
-                                return -ENOMEM;
-                } else {
-                        /* Probably something similar to the ptys which have no symlink in /dev/char/. Let's return
-                         * something vaguely useful. */
+                if (stat(pty, &st) < 0) {
+                        if (errno != ENOENT)
+                                return -errno;
 
-                        r = device_path_make_major_minor(S_IFCHR, devnr, &fn);
+                } else if (S_ISCHR(st.st_mode) && devnr == st.st_rdev) /* Bingo! */
+                        fn = pty;
+
+                if (!fn) {
+                        /* Doesn't exist, or not a PTY? Probably something similar to the PTYs which have no
+                         * symlink in /dev/char/. Let's return something vaguely useful. */
+                        r = device_path_make_major_minor(S_IFCHR, devnr, &buf);
                         if (r < 0)
                                 return r;
+
+                        fn = buf;
                 }
-        }
+        } else
+                fn = buf;
 
-        if (!b) {
-                const char *w;
+        w = path_startswith(fn, "/dev/");
+        if (!w)
+                return -EINVAL;
 
-                w = path_startswith(fn, "/dev/");
-                if (w) {
-                        b = strdup(w);
-                        if (!b)
-                                return -ENOMEM;
-                } else
-                        b = TAKE_PTR(fn);
-        }
+        if (ret) {
+                _cleanup_free_ char *b = NULL;
 
-        if (ret)
+                b = strdup(w);
+                if (!b)
+                        return -ENOMEM;
+
                 *ret = TAKE_PTR(b);
+        }
 
         if (ret_devnr)
                 *ret_devnr = devnr;
@@ -1206,38 +1217,62 @@ bool terminal_is_dumb(void) {
         return getenv_terminal_is_dumb();
 }
 
-bool colors_enabled(void) {
+static ColorMode parse_systemd_colors(void) {
+        const char *e;
+        int r;
 
-        /* Returns true if colors are considered supported on our stdout. For that we check $SYSTEMD_COLORS first
-         * (which is the explicit way to turn colors on/off). If that didn't work we turn colors off unless we are on a
-         * TTY. And if we are on a TTY we turn it off if $TERM is set to "dumb". There's one special tweak though: if
-         * we are PID 1 then we do not check whether we are connected to a TTY, because we don't keep /dev/console open
-         * continuously due to fear of SAK, and hence things are a bit weird. */
+        e = getenv("SYSTEMD_COLORS");
+        if (!e)
+                return _COLOR_INVALID;
+        if (streq(e, "16"))
+                return COLOR_16;
+        if (streq(e, "256"))
+                return COLOR_256;
+        r = parse_boolean(e);
+        if (r >= 0)
+                return r > 0 ? COLOR_ON : COLOR_OFF;
+        return _COLOR_INVALID;
+}
 
-        if (cached_colors_enabled < 0) {
-                int val;
+ColorMode get_color_mode(void) {
 
-                val = getenv_bool("SYSTEMD_COLORS");
-                if (val >= 0)
-                        cached_colors_enabled = val;
+        /* Returns the mode used to choose output colors. The possible modes are COLOR_OFF for no colors,
+         * COLOR_16 for only the base 16 ANSI colors, COLOR_256 for more colors and COLOR_ON for unrestricted
+         * color output. For that we check $SYSTEMD_COLORS first (which is the explicit way to
+         * change the mode). If that didn't work we turn colors off unless we are on a TTY. And if we are on a TTY
+         * we turn it off if $TERM is set to "dumb". There's one special tweak though: if we are PID 1 then we do not
+         * check whether we are connected to a TTY, because we don't keep /dev/console open continuously due to fear
+         * of SAK, and hence things are a bit weird. */
+        ColorMode m;
 
+        if (cached_color_mode < 0) {
+                m = parse_systemd_colors();
+                if (m >= 0)
+                        cached_color_mode = m;
                 else if (getenv("NO_COLOR"))
                         /* We only check for the presence of the variable; value is ignored. */
-                        cached_colors_enabled = false;
+                        cached_color_mode = COLOR_OFF;
 
                 else if (getpid_cached() == 1)
-                        /* PID1 outputs to the console without holding it open all the time */
-                        cached_colors_enabled = !getenv_terminal_is_dumb();
+                        /* PID1 outputs to the console without holding it open all the time.
+                         *
+                         * Note that the Linux console can only display 16 colors. We still enable 256 color
+                         * mode even for PID1 output though (which typically goes to the Linux console),
+                         * since the Linux console is able to parse the 256 color sequences and automatically
+                         * map them to the closest color in the 16 color palette (since kernel 3.16). Doing
+                         * 256 colors is nice for people who invoke systemd in a container or via a serial
+                         * link or such, and use a true 256 color terminal to do so. */
+                        cached_color_mode = getenv_terminal_is_dumb() ? COLOR_OFF : COLOR_256;
                 else
-                        cached_colors_enabled = !terminal_is_dumb();
+                        cached_color_mode = terminal_is_dumb() ? COLOR_OFF : COLOR_256;
         }
 
-        return cached_colors_enabled;
+        return cached_color_mode;
 }
 
 bool dev_console_colors_enabled(void) {
         _cleanup_free_ char *s = NULL;
-        int b;
+        ColorMode m;
 
         /* Returns true if we assume that color is supported on /dev/console.
          *
@@ -1246,9 +1281,9 @@ bool dev_console_colors_enabled(void) {
          * line. If we find $TERM set we assume color if it's not set to "dumb", similarly to how regular
          * colors_enabled() operates. */
 
-        b = getenv_bool("SYSTEMD_COLORS");
-        if (b >= 0)
-                return b;
+        m = parse_systemd_colors();
+        if (m >= 0)
+                return m;
 
         if (getenv("NO_COLOR"))
                 return false;
@@ -1305,6 +1340,9 @@ int vt_restore(int fd) {
         };
         int r, q = 0;
 
+        if (isatty(fd) < 1)
+                return log_debug_errno(errno, "Asked to restore the VT for an fd that does not refer to a terminal: %m");
+
         if (ioctl(fd, KDSETMODE, KD_TEXT) < 0)
                 q = log_debug_errno(errno, "Failed to set VT in text mode, ignoring: %m");
 
@@ -1321,7 +1359,7 @@ int vt_restore(int fd) {
                         q = -errno;
         }
 
-        r = fchmod_and_chown(fd, TTY_MODE, 0, (gid_t) -1);
+        r = fchmod_and_chown(fd, TTY_MODE, 0, GID_INVALID);
         if (r < 0) {
                 log_debug_errno(r, "Failed to chmod()/chown() VT, ignoring: %m");
                 if (q >= 0)
@@ -1338,6 +1376,9 @@ int vt_release(int fd, bool restore) {
          * sent by the kernel and optionally reset the VT in text and auto
          * VT-switching modes. */
 
+        if (isatty(fd) < 1)
+                return log_debug_errno(errno, "Asked to release the VT for an fd that does not refer to a terminal: %m");
+
         if (ioctl(fd, VT_RELDISP, 1) < 0)
                 return -errno;
 
@@ -1349,38 +1390,38 @@ int vt_release(int fd, bool restore) {
 
 void get_log_colors(int priority, const char **on, const char **off, const char **highlight) {
         /* Note that this will initialize output variables only when there's something to output.
-         * The caller must pre-initalize to "" or NULL as appropriate. */
+         * The caller must pre-initialize to "" or NULL as appropriate. */
 
         if (priority <= LOG_ERR) {
                 if (on)
-                        *on = ANSI_HIGHLIGHT_RED;
+                        *on = ansi_highlight_red();
                 if (off)
-                        *off = ANSI_NORMAL;
+                        *off = ansi_normal();
                 if (highlight)
-                        *highlight = ANSI_HIGHLIGHT;
+                        *highlight = ansi_highlight();
 
         } else if (priority <= LOG_WARNING) {
                 if (on)
-                        *on = ANSI_HIGHLIGHT_YELLOW;
+                        *on = ansi_highlight_yellow();
                 if (off)
-                        *off = ANSI_NORMAL;
+                        *off = ansi_normal();
                 if (highlight)
-                        *highlight = ANSI_HIGHLIGHT;
+                        *highlight = ansi_highlight();
 
         } else if (priority <= LOG_NOTICE) {
                 if (on)
-                        *on = ANSI_HIGHLIGHT;
+                        *on = ansi_highlight();
                 if (off)
-                        *off = ANSI_NORMAL;
+                        *off = ansi_normal();
                 if (highlight)
-                        *highlight = ANSI_HIGHLIGHT_RED;
+                        *highlight = ansi_highlight_red();
 
         } else if (priority >= LOG_DEBUG) {
                 if (on)
-                        *on = ANSI_GREY;
+                        *on = ansi_grey();
                 if (off)
-                        *off = ANSI_NORMAL;
+                        *off = ansi_normal();
                 if (highlight)
-                        *highlight = ANSI_HIGHLIGHT_RED;
+                        *highlight = ansi_highlight_red();
         }
 }

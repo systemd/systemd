@@ -1,7 +1,7 @@
 <?xml version='1.0'?>
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
-<!-- SPDX-License-Identifier: LGPL-2.1+ -->
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
 
 <refentry id="sd_event_add_signal" xmlns:xi="http://www.w3.org/2001/XInclude">
 
@@ -79,9 +79,7 @@
     threads before this function is called (using <citerefentry
     project='man-pages'><refentrytitle>sigprocmask</refentrytitle><manvolnum>2</manvolnum></citerefentry> or
     <citerefentry
-    project='man-pages'><refentrytitle>pthread_sigmask</refentrytitle><manvolnum>3</manvolnum></citerefentry>). If
-    the handler is not specified (<parameter>handler</parameter> is <constant>NULL</constant>), a default
-    handler which causes the program to exit cleanly will be used.</para>
+    project='man-pages'><refentrytitle>pthread_sigmask</refentrytitle><manvolnum>3</manvolnum></citerefentry>).</para>
 
     <para>By default, the event source is enabled permanently
     (<constant>SD_EVENT_ON</constant>), but this may be changed with
@@ -106,6 +104,12 @@
     is returned. In this case the event source is considered
     "floating", and will be destroyed implicitly when the event loop
     itself is destroyed.</para>
+
+    <para>If the <parameter>handler</parameter> parameter to <function>sd_event_add_signal()</function> is
+    <constant>NULL</constant>, and the event source fires, this will be considered a request to exit the
+    event loop. In this case, the <parameter>userdata</parameter> parameter, cast to an integer, is passed as
+    the exit code parameter to
+    <citerefentry><refentrytitle>sd_event_exit</refentrytitle><manvolnum>3</manvolnum></citerefentry>.</para>
 
     <para><function>sd_event_source_get_signal()</function> returns
     the configured signal number of an event source created previously

@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <fcntl.h>
 #include <unistd.h>
@@ -11,6 +11,7 @@
 #include "path-util.h"
 #include "process-util.h"
 #include "random-util.h"
+#include "rlimit-util.h"
 #include "serialize.h"
 #include "string-util.h"
 #include "tests.h"
@@ -317,6 +318,100 @@ static void test_read_nr_open(void) {
         log_info("nr-open: %i", read_nr_open());
 }
 
+static size_t validate_fds(
+                bool opened,
+                const int *fds,
+                size_t n_fds) {
+
+        size_t c = 0;
+
+        /* Validates that fds in the specified array are one of the following three:
+         *
+         *  1. < 0 (test is skipped) or
+         *  2. opened (if 'opened' param is true) or
+         *  3. closed (if 'opened' param is false)
+         */
+
+        for (size_t i = 0; i < n_fds; i++) {
+                if (fds[i] < 0)
+                        continue;
+
+                if (opened)
+                        assert_se(fcntl(fds[i], F_GETFD) >= 0);
+                else
+                        assert_se(fcntl(fds[i], F_GETFD) < 0 && errno == EBADF);
+
+                c++;
+        }
+
+        return c; /* Return number of fds >= 0 in the array */
+}
+
+static void test_close_all_fds(void) {
+        _cleanup_free_ int *fds = NULL, *keep = NULL;
+        struct rlimit rl;
+        size_t n_fds, n_keep;
+
+        log_info("/* %s */", __func__);
+
+        rlimit_nofile_bump(-1);
+
+        assert_se(getrlimit(RLIMIT_NOFILE, &rl) >= 0);
+        assert_se(rl.rlim_cur > 10);
+
+        /* Try to use 5000 fds, but when we can't bump the rlimit to make that happen use the whole limit minus 10 */
+        n_fds = MIN((rl.rlim_cur & ~1U) - 10U, 5000U);
+        assert_se((n_fds & 1U) == 0U); /* make sure even number of fds */
+
+        /* Allocate the determined number of fds, always two at a time */
+        assert_se(fds = new(int, n_fds));
+        for (size_t i = 0; i < n_fds; i += 2)
+                assert_se(pipe2(fds + i, O_CLOEXEC) >= 0);
+
+        /* Validate this worked */
+        assert_se(validate_fds(true, fds, n_fds) == n_fds);
+
+        /* Randomized number of fds to keep, but at most every second */
+        n_keep = (random_u64() % (n_fds / 2));
+
+        /* Now randomly select a number of fds from the array above to keep */
+        assert_se(keep = new(int, n_keep));
+        for (size_t k = 0; k < n_keep; k++) {
+                for (;;) {
+                        size_t p;
+
+                        p = random_u64() % n_fds;
+                        if (fds[p] >= 0) {
+                                keep[k] = TAKE_FD(fds[p]);
+                                break;
+                        }
+                }
+        }
+
+        /* Check that all fds from both arrays are still open, and test how many in each are >= 0 */
+        assert_se(validate_fds(true, fds, n_fds) == n_fds - n_keep);
+        assert_se(validate_fds(true, keep, n_keep) == n_keep);
+
+        /* Close logging fd first, so that we don't confuse it by closing its fd */
+        log_close();
+        log_set_open_when_needed(true);
+
+        /* Close all but the ones to keep */
+        assert_se(close_all_fds(keep, n_keep) >= 0);
+
+        assert_se(validate_fds(false, fds, n_fds) == n_fds - n_keep);
+        assert_se(validate_fds(true, keep, n_keep) == n_keep);
+
+        /* Close everything else too! */
+        assert_se(close_all_fds(NULL, 0) >= 0);
+
+        assert_se(validate_fds(false, fds, n_fds) == n_fds - n_keep);
+        assert_se(validate_fds(false, keep, n_keep) == n_keep);
+
+        log_set_open_when_needed(false);
+        log_open();
+}
+
 int main(int argc, char *argv[]) {
 
         test_setup_logging(LOG_DEBUG);
@@ -330,6 +425,7 @@ int main(int argc, char *argv[]) {
         test_rearrange_stdio();
         test_fd_duplicate_data_fd();
         test_read_nr_open();
+        test_close_all_fds();
 
         return 0;
 }

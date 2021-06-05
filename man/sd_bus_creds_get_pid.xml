@@ -1,7 +1,7 @@
 <?xml version='1.0'?>
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
-<!-- SPDX-License-Identifier: LGPL-2.1+ -->
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
 
 <refentry id="sd_bus_creds_get_pid" xmlns:xi="http://www.w3.org/2001/XInclude">
 
@@ -439,14 +439,14 @@
 
     <para>All functions that take a <parameter>const
     char**</parameter> parameter will store the answer there as an
-    address of a NUL-terminated string. It will be valid as long as
+    address of a <constant>NUL</constant>-terminated string. It will be valid as long as
     <parameter>c</parameter> remains valid, and should not be freed or
     modified by the caller.</para>
 
     <para>All functions that take a <parameter>char***</parameter>
     parameter will store the answer there as an address of an array
-    of strings. Each individual string is NUL-terminated, and the
-    array is NULL-terminated as a whole. It will be valid as long as
+    of strings. Each individual string is <constant>NUL</constant>-terminated, and the
+    array is <constant>NULL</constant>-terminated as a whole. It will be valid as long as
     <parameter>c</parameter> remains valid, and should not be freed or
     modified by the caller.</para>
   </refsect1>

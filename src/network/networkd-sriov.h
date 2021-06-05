@@ -1,10 +1,11 @@
-/* SPDX-License-Identifier: LGPL-2.1+
+/* SPDX-License-Identifier: LGPL-2.1-or-later
  * Copyright © 2020 VMware, Inc. */
 #pragma once
 
 #include <linux/if_link.h>
 
 #include "conf-parser.h"
+#include "ether-addr-util.h"
 #include "networkd-link.h"
 #include "networkd-network.h"
 #include "networkd-util.h"
@@ -14,7 +15,7 @@ typedef enum SRIOVLinkState {
         SR_IOV_LINK_STATE_ENABLE = IFLA_VF_LINK_STATE_ENABLE,
         SR_IOV_LINK_STATE_DISABLE = IFLA_VF_LINK_STATE_DISABLE,
         _SR_IOV_LINK_STATE_MAX,
-        _SR_IOV_LINK_STATE_INVALID = -1,
+        _SR_IOV_LINK_STATE_INVALID = -EINVAL,
 } SRIOVLinkState;
 
 typedef struct SRIOV {
@@ -33,9 +34,8 @@ typedef struct SRIOV {
 } SRIOV;
 
 SRIOV *sr_iov_free(SRIOV *sr_iov);
-
-int sr_iov_configure(Link *link, SRIOV *sr_iov);
-int sr_iov_section_verify(SRIOV *sr_iov);
+int link_configure_sr_iov(Link *link);
+void network_drop_invalid_sr_iov(Network *network);
 
 DEFINE_NETWORK_SECTION_FUNCTIONS(SRIOV, sr_iov_free);
 

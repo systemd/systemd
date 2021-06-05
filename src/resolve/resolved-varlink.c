@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "in-addr-util.h"
 #include "resolved-dns-synthesize.h"
@@ -57,6 +57,12 @@ static int reply_query_state(DnsQuery *q) {
         case DNS_TRANSACTION_NETWORK_DOWN:
                 return varlink_error(q->varlink_request, "io.systemd.Resolve.NetworkDown", NULL);
 
+        case DNS_TRANSACTION_NO_SOURCE:
+                return varlink_error(q->varlink_request, "io.systemd.Resolve.NoSource", NULL);
+
+        case DNS_TRANSACTION_STUB_LOOP:
+                return varlink_error(q->varlink_request, "io.systemd.Resolve.StubLoop", NULL);
+
         case DNS_TRANSACTION_NOT_FOUND:
                 /* We return this as NXDOMAIN. This is only generated when a host doesn't implement LLMNR/TCP, and we
                  * thus quickly know that we cannot resolve an in-addr.arpa or ip6.arpa address. */
@@ -93,13 +99,17 @@ static void vl_on_disconnect(VarlinkServer *s, Varlink *link, void *userdata) {
         dns_query_complete(q, DNS_TRANSACTION_ABORTED);
 }
 
-static bool validate_and_mangle_flags(uint64_t *flags, uint64_t ok) {
+static bool validate_and_mangle_flags(
+                const char *name,
+                uint64_t *flags,
+                uint64_t ok) {
+
         assert(flags);
 
         /* This checks that the specified client-provided flags parameter actually makes sense, and mangles
          * it slightly. Specifically:
          *
-         * 1. We check that only the protocol flags and the NO_CNAME flag are on at most, plus the
+         * 1. We check that only the protocol flags and a bunch of NO_XYZ flags are on at most, plus the
          *    method-specific flags specified in 'ok'.
          *
          * 2. If no protocols are enabled we automatically convert that to "all protocols are enabled".
@@ -110,11 +120,25 @@ static bool validate_and_mangle_flags(uint64_t *flags, uint64_t ok) {
          * "everything".
          */
 
-        if (*flags & ~(SD_RESOLVED_PROTOCOLS_ALL|SD_RESOLVED_NO_CNAME|ok))
+        if (*flags & ~(SD_RESOLVED_PROTOCOLS_ALL|
+                       SD_RESOLVED_NO_CNAME|
+                       SD_RESOLVED_NO_VALIDATE|
+                       SD_RESOLVED_NO_SYNTHESIZE|
+                       SD_RESOLVED_NO_CACHE|
+                       SD_RESOLVED_NO_ZONE|
+                       SD_RESOLVED_NO_TRUST_ANCHOR|
+                       SD_RESOLVED_NO_NETWORK|
+                       ok))
                 return false;
 
         if ((*flags & SD_RESOLVED_PROTOCOLS_ALL) == 0) /* If no protocol is enabled, enable all */
                 *flags |= SD_RESOLVED_PROTOCOLS_ALL;
+
+        /* If the SD_RESOLVED_NO_SEARCH flag is acceptable, and the query name is dot-suffixed, turn off
+         * search domains. Note that DNS name normalization drops the dot suffix, hence we propagate this
+         * into the flags field as early as we can. */
+        if (name && FLAGS_SET(ok, SD_RESOLVED_NO_SEARCH) && dns_name_dot_suffixed(name) > 0)
+                *flags |= SD_RESOLVED_NO_SEARCH;
 
         return true;
 }
@@ -134,14 +158,14 @@ static void vl_method_resolve_hostname_complete(DnsQuery *q) {
                 goto finish;
         }
 
-        r = dns_query_process_cname(q);
+        r = dns_query_process_cname_many(q);
         if (r == -ELOOP) {
                 r = varlink_error(q->varlink_request, "io.systemd.Resolve.CNAMELoop", NULL);
                 goto finish;
         }
         if (r < 0)
                 goto finish;
-        if (r == DNS_QUERY_RESTARTED) /* This was a cname, and the query was restarted. */
+        if (r == DNS_QUERY_CNAME) /* This was a cname, and the query was restarted. */
                 return;
 
         question = dns_query_question_for_protocol(q, q->answer_protocol);
@@ -170,7 +194,7 @@ static void vl_method_resolve_hostname_complete(DnsQuery *q) {
 
                 r = json_build(&entry,
                                JSON_BUILD_OBJECT(
-                                               JSON_BUILD_PAIR("ifindex", JSON_BUILD_INTEGER(ifindex)),
+                                               JSON_BUILD_PAIR_CONDITION(ifindex > 0, "ifindex", JSON_BUILD_INTEGER(ifindex)),
                                                JSON_BUILD_PAIR("family", JSON_BUILD_INTEGER(family)),
                                                JSON_BUILD_PAIR("address", JSON_BUILD_BYTE_ARRAY(p, FAMILY_ADDRESS_SIZE(family)))));
                 if (r < 0)
@@ -198,7 +222,7 @@ static void vl_method_resolve_hostname_complete(DnsQuery *q) {
                            JSON_BUILD_OBJECT(
                                            JSON_BUILD_PAIR("addresses", JSON_BUILD_VARIANT(array)),
                                            JSON_BUILD_PAIR("name", JSON_BUILD_STRING(normalized)),
-                                           JSON_BUILD_PAIR("flags", JSON_BUILD_INTEGER(SD_RESOLVED_FLAGS_MAKE(q->answer_protocol, q->answer_family, dns_query_fully_authenticated(q))))));
+                                           JSON_BUILD_PAIR("flags", JSON_BUILD_INTEGER(dns_query_reply_flags_make(q)))));
 finish:
         if (r < 0) {
                 log_error_errno(r, "Failed to send hostname reply: %m");
@@ -243,7 +267,8 @@ static int parse_as_address(Varlink *link, LookupParameters *p) {
                                                         JSON_BUILD_PAIR("family", JSON_BUILD_INTEGER(ff)),
                                                         JSON_BUILD_PAIR("address", JSON_BUILD_BYTE_ARRAY(&parsed, FAMILY_ADDRESS_SIZE(ff)))))),
                                 JSON_BUILD_PAIR("name", JSON_BUILD_STRING(canonical)),
-                                JSON_BUILD_PAIR("flags", JSON_BUILD_INTEGER(SD_RESOLVED_FLAGS_MAKE(dns_synthesize_protocol(p->flags), ff, true)))));
+                                JSON_BUILD_PAIR("flags", JSON_BUILD_INTEGER(SD_RESOLVED_FLAGS_MAKE(dns_synthesize_protocol(p->flags), ff, true, true)|
+                                                                            SD_RESOLVED_SYNTHETIC))));
 }
 
 static int vl_method_resolve_hostname(Varlink *link, JsonVariant *parameters, VarlinkMethodFlags flags, void *userdata) {
@@ -259,11 +284,13 @@ static int vl_method_resolve_hostname(Varlink *link, JsonVariant *parameters, Va
         _cleanup_(lookup_parameters_destroy) LookupParameters p = {
                 .family = AF_UNSPEC,
         };
-        Manager *m = userdata;
         DnsQuery *q;
+        Manager *m;
         int r;
 
         assert(link);
+
+        m = varlink_server_get_userdata(varlink_get_server(link));
         assert(m);
 
         if (FLAGS_SET(flags, VARLINK_METHOD_ONEWAY))
@@ -285,7 +312,7 @@ static int vl_method_resolve_hostname(Varlink *link, JsonVariant *parameters, Va
         if (!IN_SET(p.family, AF_UNSPEC, AF_INET, AF_INET6))
                 return varlink_error_invalid_parameter(link, JSON_VARIANT_STRING_CONST("family"));
 
-        if (!validate_and_mangle_flags(&p.flags, SD_RESOLVED_NO_SEARCH))
+        if (!validate_and_mangle_flags(p.name, &p.flags, SD_RESOLVED_NO_SEARCH))
                 return varlink_error_invalid_parameter(link, JSON_VARIANT_STRING_CONST("flags"));
 
         r = parse_as_address(link, &p);
@@ -300,7 +327,7 @@ static int vl_method_resolve_hostname(Varlink *link, JsonVariant *parameters, Va
         if (r < 0 && r != -EALREADY)
                 return r;
 
-        r = dns_query_new(m, &q, question_utf8, question_idna ?: question_utf8, p.ifindex, p.flags);
+        r = dns_query_new(m, &q, question_utf8, question_idna ?: question_utf8, NULL, p.ifindex, p.flags);
         if (r < 0)
                 return r;
 
@@ -368,14 +395,14 @@ static void vl_method_resolve_address_complete(DnsQuery *q) {
                 goto finish;
         }
 
-        r = dns_query_process_cname(q);
+        r = dns_query_process_cname_many(q);
         if (r == -ELOOP) {
                 r = varlink_error(q->varlink_request, "io.systemd.Resolve.CNAMELoop", NULL);
                 goto finish;
         }
         if (r < 0)
                 goto finish;
-        if (r == DNS_QUERY_RESTARTED) /* This was a cname, and the query was restarted. */
+        if (r == DNS_QUERY_CNAME) /* This was a cname, and the query was restarted. */
                 return;
 
         question = dns_query_question_for_protocol(q, q->answer_protocol);
@@ -396,7 +423,7 @@ static void vl_method_resolve_address_complete(DnsQuery *q) {
 
                 r = json_build(&entry,
                                JSON_BUILD_OBJECT(
-                                               JSON_BUILD_PAIR("ifindex", JSON_BUILD_INTEGER(ifindex)),
+                                               JSON_BUILD_PAIR_CONDITION(ifindex > 0, "ifindex", JSON_BUILD_INTEGER(ifindex)),
                                                JSON_BUILD_PAIR("name", JSON_BUILD_STRING(normalized))));
                 if (r < 0)
                         goto finish;
@@ -414,7 +441,7 @@ static void vl_method_resolve_address_complete(DnsQuery *q) {
         r = varlink_replyb(q->varlink_request,
                            JSON_BUILD_OBJECT(
                                            JSON_BUILD_PAIR("names", JSON_BUILD_VARIANT(array)),
-                                           JSON_BUILD_PAIR("flags", JSON_BUILD_INTEGER(SD_RESOLVED_FLAGS_MAKE(q->answer_protocol, q->answer_family, dns_query_fully_authenticated(q))))));
+                                           JSON_BUILD_PAIR("flags", JSON_BUILD_INTEGER(dns_query_reply_flags_make(q)))));
 finish:
         if (r < 0) {
                 log_error_errno(r, "Failed to send address reply: %m");
@@ -437,11 +464,13 @@ static int vl_method_resolve_address(Varlink *link, JsonVariant *parameters, Var
         _cleanup_(lookup_parameters_destroy) LookupParameters p = {
                 .family = AF_UNSPEC,
         };
-        Manager *m = userdata;
         DnsQuery *q;
+        Manager *m;
         int r;
 
         assert(link);
+
+        m = varlink_server_get_userdata(varlink_get_server(link));
         assert(m);
 
         if (FLAGS_SET(flags, VARLINK_METHOD_ONEWAY))
@@ -460,14 +489,14 @@ static int vl_method_resolve_address(Varlink *link, JsonVariant *parameters, Var
         if (FAMILY_ADDRESS_SIZE(p.family) != p.address_size)
                 return varlink_error(link, "io.systemd.UserDatabase.BadAddressSize", NULL);
 
-        if (!validate_and_mangle_flags(&p.flags, 0))
+        if (!validate_and_mangle_flags(NULL, &p.flags, 0))
                 return varlink_error_invalid_parameter(link, JSON_VARIANT_STRING_CONST("flags"));
 
         r = dns_question_new_reverse(&question, p.family, &p.address);
         if (r < 0)
                 return r;
 
-        r = dns_query_new(m, &q, question, question, p.ifindex, p.flags|SD_RESOLVED_NO_SEARCH);
+        r = dns_query_new(m, &q, question, question, NULL, p.ifindex, p.flags|SD_RESOLVED_NO_SEARCH);
         if (r < 0)
                 return r;
 

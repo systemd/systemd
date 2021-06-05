@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <fcntl.h>
 #include <getopt.h>
@@ -22,6 +22,7 @@
 #include "mkdir.h"
 #include "mount-util.h"
 #include "namespace-util.h"
+#include "parse-argument.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "pretty-print.h"
@@ -43,10 +44,17 @@ static const char *arg_image = NULL;
 static const char *arg_path = NULL;
 static const char *arg_source = NULL;
 static const char *arg_target = NULL;
-static DissectImageFlags arg_flags = DISSECT_IMAGE_REQUIRE_ROOT|DISSECT_IMAGE_DISCARD_ON_LOOP|DISSECT_IMAGE_RELAX_VAR_CHECK|DISSECT_IMAGE_FSCK;
+static DissectImageFlags arg_flags =
+        DISSECT_IMAGE_GENERIC_ROOT |
+        DISSECT_IMAGE_DISCARD_ON_LOOP |
+        DISSECT_IMAGE_RELAX_VAR_CHECK |
+        DISSECT_IMAGE_FSCK |
+        DISSECT_IMAGE_USR_NO_ROOT |
+        DISSECT_IMAGE_GROWFS;
 static VeritySettings arg_verity_settings = VERITY_SETTINGS_DEFAULT;
-static bool arg_json = false;
-static JsonFormatFlags arg_json_format_flags = 0;
+static JsonFormatFlags arg_json_format_flags = JSON_FORMAT_OFF;
+static PagerFlags arg_pager_flags = 0;
+static bool arg_legend = true;
 
 STATIC_DESTRUCTOR_REGISTER(arg_verity_settings, verity_settings_done);
 
@@ -64,8 +72,11 @@ static int help(void) {
                "%1$s [OPTIONS...] --copy-to IMAGE [SOURCE] PATH\n\n"
                "%5$sDissect a file system OS image.%6$s\n\n"
                "%3$sOptions:%4$s\n"
+               "     --no-pager           Do not pipe output into a pager\n"
+               "     --no-legend          Do not show the headers and footers\n"
                "  -r --read-only          Mount read-only\n"
                "     --fsck=BOOL          Run fsck before mounting\n"
+               "     --growfs=BOOL        Grow file system to partition size, if marked\n"
                "     --mkdir              Make mount directory before mounting, if missing\n"
                "     --discard=MODE       Choose 'discard' mode (disabled, loop, all, crypto)\n"
                "     --root-hash=HASH     Specify root hash for verity\n"
@@ -84,11 +95,13 @@ static int help(void) {
                "  -M                      Shortcut for --mount --mkdir\n"
                "  -x --copy-from          Copy files from image to host\n"
                "  -a --copy-to            Copy files from host to image\n"
-               "\nSee the %2$s for details.\n"
-               , program_invocation_short_name
-               , link
-               , ansi_underline(), ansi_normal()
-               , ansi_highlight(), ansi_normal());
+               "\nSee the %2$s for details.\n",
+               program_invocation_short_name,
+               link,
+               ansi_underline(),
+               ansi_normal(),
+               ansi_highlight(),
+               ansi_normal());
 
         return 0;
 }
@@ -97,8 +110,11 @@ static int parse_argv(int argc, char *argv[]) {
 
         enum {
                 ARG_VERSION = 0x100,
+                ARG_NO_PAGER,
+                ARG_NO_LEGEND,
                 ARG_DISCARD,
                 ARG_FSCK,
+                ARG_GROWFS,
                 ARG_ROOT_HASH,
                 ARG_ROOT_HASH_SIG,
                 ARG_VERITY_DATA,
@@ -109,10 +125,13 @@ static int parse_argv(int argc, char *argv[]) {
         static const struct option options[] = {
                 { "help",          no_argument,       NULL, 'h'               },
                 { "version",       no_argument,       NULL, ARG_VERSION       },
+                { "no-pager",      no_argument,       NULL, ARG_NO_PAGER      },
+                { "no-legend",     no_argument,       NULL, ARG_NO_LEGEND     },
                 { "mount",         no_argument,       NULL, 'm'               },
                 { "read-only",     no_argument,       NULL, 'r'               },
                 { "discard",       required_argument, NULL, ARG_DISCARD       },
                 { "fsck",          required_argument, NULL, ARG_FSCK          },
+                { "growfs",        required_argument, NULL, ARG_GROWFS        },
                 { "root-hash",     required_argument, NULL, ARG_ROOT_HASH     },
                 { "root-hash-sig", required_argument, NULL, ARG_ROOT_HASH_SIG },
                 { "verity-data",   required_argument, NULL, ARG_VERITY_DATA   },
@@ -137,6 +156,14 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_VERSION:
                         return version();
+
+                case ARG_NO_PAGER:
+                        arg_pager_flags |= PAGER_DISABLE;
+                        break;
+
+                case ARG_NO_LEGEND:
+                        arg_legend = false;
+                        break;
 
                 case 'm':
                         arg_action = ACTION_MOUNT;
@@ -228,7 +255,7 @@ static int parse_argv(int argc, char *argv[]) {
                 }
 
                 case ARG_VERITY_DATA:
-                        r = parse_path_argument_and_warn(optarg, false, &arg_verity_settings.data_path);
+                        r = parse_path_argument(optarg, false, &arg_verity_settings.data_path);
                         if (r < 0)
                                 return r;
                         break;
@@ -241,23 +268,18 @@ static int parse_argv(int argc, char *argv[]) {
                         SET_FLAG(arg_flags, DISSECT_IMAGE_FSCK, r);
                         break;
 
+                case ARG_GROWFS:
+                        r = parse_boolean(optarg);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse --growfs= parameter: %s", optarg);
+
+                        SET_FLAG(arg_flags, DISSECT_IMAGE_GROWFS, r);
+                        break;
+
                 case ARG_JSON:
-                        if (streq(optarg, "pretty")) {
-                                arg_json = true;
-                                arg_json_format_flags = JSON_FORMAT_PRETTY|JSON_FORMAT_COLOR_AUTO;
-                        } else if (streq(optarg, "short")) {
-                                arg_json = true;
-                                arg_json_format_flags = JSON_FORMAT_NEWLINE;
-                        } else if (streq(optarg, "off")) {
-                                arg_json = false;
-                                arg_json_format_flags = 0;
-                        } else if (streq(optarg, "help")) {
-                                puts("pretty\n"
-                                     "short\n"
-                                     "off");
-                                return 0;
-                        } else
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Unknown argument to --json=: %s", optarg);
+                        r = parse_json_argument(optarg, &arg_json_format_flags);
+                        if (r <= 0)
+                                return r;
 
                         break;
 
@@ -288,6 +310,7 @@ static int parse_argv(int argc, char *argv[]) {
 
                 arg_image = argv[optind];
                 arg_path = argv[optind + 1];
+                arg_flags |= DISSECT_IMAGE_REQUIRE_ROOT;
                 break;
 
         case ACTION_COPY_FROM:
@@ -299,7 +322,7 @@ static int parse_argv(int argc, char *argv[]) {
                 arg_source = argv[optind + 1];
                 arg_target = argc > optind + 2 ? argv[optind + 2] : "-" /* this means stdout */ ;
 
-                arg_flags |= DISSECT_IMAGE_READ_ONLY;
+                arg_flags |= DISSECT_IMAGE_READ_ONLY | DISSECT_IMAGE_REQUIRE_ROOT;
                 break;
 
         case ACTION_COPY_TO:
@@ -317,6 +340,7 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_target = argv[optind + 1];
                 }
 
+                arg_flags |= DISSECT_IMAGE_REQUIRE_ROOT;
                 break;
 
         default:
@@ -353,17 +377,20 @@ static int action_dissect(DissectedImage *m, LoopDevice *d) {
         assert(m);
         assert(d);
 
-        if (!arg_json)
+        if (arg_json_format_flags & (JSON_FORMAT_OFF|JSON_FORMAT_PRETTY|JSON_FORMAT_PRETTY_AUTO))
+                (void) pager_open(arg_pager_flags);
+
+        if (arg_json_format_flags & JSON_FORMAT_OFF)
                 printf("      Name: %s\n", basename(arg_image));
 
         if (ioctl(d->fd, BLKGETSIZE64, &size) < 0)
                 log_debug_errno(errno, "Failed to query size of loopback device: %m");
-        else if (!arg_json) {
+        else if (arg_json_format_flags & JSON_FORMAT_OFF) {
                 char s[FORMAT_BYTES_MAX];
                 printf("      Size: %s\n", format_bytes(s, sizeof(s), size));
         }
 
-        if (!arg_json)
+        if (arg_json_format_flags & JSON_FORMAT_OFF)
                 putc('\n', stdout);
 
         r = dissected_image_acquire_metadata(m);
@@ -379,7 +406,7 @@ static int action_dissect(DissectedImage *m, LoopDevice *d) {
                 log_warning_errno(r, "OS image is currently in use, proceeding without showing OS image metadata.");
         else if (r < 0)
                 return log_error_errno(r, "Failed to acquire image metadata: %m");
-        else if (!arg_json) {
+        else if (arg_json_format_flags & JSON_FORMAT_OFF) {
                 if (m->hostname)
                         printf("  Hostname: %s\n", m->hostname);
 
@@ -404,13 +431,23 @@ static int action_dissect(DissectedImage *m, LoopDevice *d) {
                                        *p, *q);
                 }
 
+                if (!strv_isempty(m->extension_release)) {
+                        char **p, **q;
+
+                        STRV_FOREACH_PAIR(p, q, m->extension_release)
+                                printf("%s %s=%s\n",
+                                       p == m->extension_release ? "Extension Release:" : "                  ",
+                                       *p, *q);
+                }
+
                 if (m->hostname ||
                     !sd_id128_is_null(m->machine_id) ||
                     !strv_isempty(m->machine_info) ||
+                    !strv_isempty(m->extension_release) ||
                     !strv_isempty(m->os_release))
                         putc('\n', stdout);
         } else {
-                _cleanup_(json_variant_unrefp) JsonVariant *mi = NULL, *osr = NULL;
+                _cleanup_(json_variant_unrefp) JsonVariant *mi = NULL, *osr = NULL, *exr = NULL;
 
                 if (!strv_isempty(m->machine_info)) {
                         r = strv_pair_to_json(m->machine_info, &mi);
@@ -424,18 +461,25 @@ static int action_dissect(DissectedImage *m, LoopDevice *d) {
                                 return log_oom();
                 }
 
+                if (!strv_isempty(m->extension_release)) {
+                        r = strv_pair_to_json(m->extension_release, &exr);
+                        if (r < 0)
+                                return log_oom();
+                }
+
                 r = json_build(&v, JSON_BUILD_OBJECT(
                                                JSON_BUILD_PAIR("name", JSON_BUILD_STRING(basename(arg_image))),
                                                JSON_BUILD_PAIR("size", JSON_BUILD_INTEGER(size)),
                                                JSON_BUILD_PAIR_CONDITION(m->hostname, "hostname", JSON_BUILD_STRING(m->hostname)),
                                                JSON_BUILD_PAIR_CONDITION(!sd_id128_is_null(m->machine_id), "machineId", JSON_BUILD_ID128(m->machine_id)),
                                                JSON_BUILD_PAIR_CONDITION(mi, "machineInfo", JSON_BUILD_VARIANT(mi)),
-                                               JSON_BUILD_PAIR_CONDITION(osr, "osRelease", JSON_BUILD_VARIANT(osr))));
+                                               JSON_BUILD_PAIR_CONDITION(osr, "osRelease", JSON_BUILD_VARIANT(osr)),
+                                               JSON_BUILD_PAIR_CONDITION(exr, "extensionRelease", JSON_BUILD_VARIANT(exr))));
                 if (r < 0)
                         return log_oom();
         }
 
-        t = table_new("rw", "designator", "partition uuid", "fstype", "architecture", "verity", "node", "partno");
+        t = table_new("rw", "designator", "partition uuid", "partition label", "fstype", "architecture", "verity", "growfs", "node", "partno");
         if (!t)
                 return log_oom();
 
@@ -464,6 +508,7 @@ static int action_dissect(DissectedImage *m, LoopDevice *d) {
 
                 r = table_add_many(
                                 t,
+                                TABLE_STRING, p->label,
                                 TABLE_STRING, p->fstype,
                                 TABLE_STRING, architecture_to_string(p->architecture));
                 if (r < 0)
@@ -475,6 +520,10 @@ static int action_dissect(DissectedImage *m, LoopDevice *d) {
                         r = table_add_cell(t, NULL, TABLE_STRING, yes_no(dissected_image_has_verity(m, i)));
                 else
                         r = table_add_cell(t, NULL, TABLE_EMPTY, NULL);
+                if (r < 0)
+                        return table_log_add_error(r);
+
+                r = table_add_many(t, TABLE_BOOLEAN, (int) p->growfs);
                 if (r < 0)
                         return table_log_add_error(r);
 
@@ -495,7 +544,13 @@ static int action_dissect(DissectedImage *m, LoopDevice *d) {
                         return table_log_add_error(r);
         }
 
-        if (arg_json) {
+        if (arg_json_format_flags & JSON_FORMAT_OFF) {
+                (void) table_set_header(t, arg_legend);
+
+                r = table_print(t, NULL);
+                if (r < 0)
+                        return table_log_print_error(r);
+        } else {
                 _cleanup_(json_variant_unrefp) JsonVariant *jt = NULL;
 
                 r = table_to_json(t, &jt);
@@ -507,10 +562,6 @@ static int action_dissect(DissectedImage *m, LoopDevice *d) {
                         return log_oom();
 
                 json_variant_dump(v, arg_json_format_flags, stdout, NULL);
-        } else {
-                r = table_print(t, stdout);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to dump table: %m");
         }
 
         return 0;
@@ -531,7 +582,7 @@ static int action_mount(DissectedImage *m, LoopDevice *d) {
         if (r < 0)
                 return r;
 
-        r = dissected_image_mount_and_warn(m, arg_path, UID_INVALID, arg_flags);
+        r = dissected_image_mount_and_warn(m, arg_path, UID_INVALID, UID_INVALID, arg_flags);
         if (r < 0)
                 return r;
 
@@ -577,7 +628,7 @@ static int action_copy(DissectedImage *m, LoopDevice *d) {
 
         created_dir = TAKE_PTR(temp);
 
-        r = dissected_image_mount_and_warn(m, created_dir, UID_INVALID, arg_flags);
+        r = dissected_image_mount_and_warn(m, created_dir, UID_INVALID, UID_INVALID, arg_flags);
         if (r < 0)
                 return r;
 
@@ -600,11 +651,11 @@ static int action_copy(DissectedImage *m, LoopDevice *d) {
 
                 /* Copying to stdout? */
                 if (streq(arg_target, "-")) {
-                        r = copy_bytes(source_fd, STDOUT_FILENO, (uint64_t) -1, COPY_REFLINK);
+                        r = copy_bytes(source_fd, STDOUT_FILENO, UINT64_MAX, COPY_REFLINK);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to copy bytes from %s in mage '%s' to stdout: %m", arg_source, arg_image);
 
-                        /* When we copy to stdou we don't copy any attributes (i.e. no access mode, no ownership, no xattr, no times) */
+                        /* When we copy to stdout we don't copy any attributes (i.e. no access mode, no ownership, no xattr, no times) */
                         return 0;
                 }
 
@@ -626,7 +677,7 @@ static int action_copy(DissectedImage *m, LoopDevice *d) {
                 if (target_fd < 0)
                         return log_error_errno(errno, "Failed to create regular file at target path '%s': %m", arg_target);
 
-                r = copy_bytes(source_fd, target_fd, (uint64_t) -1, COPY_REFLINK);
+                r = copy_bytes(source_fd, target_fd, UINT64_MAX, COPY_REFLINK);
                 if (r < 0)
                         return log_error_errno(r, "Failed to copy bytes from %s in mage '%s' to '%s': %m", arg_source, arg_image, arg_target);
 
@@ -657,7 +708,7 @@ static int action_copy(DissectedImage *m, LoopDevice *d) {
                         if (target_fd < 0)
                                 return log_error_errno(errno, "Failed to open target file '%s': %m", arg_target);
 
-                        r = copy_bytes(STDIN_FILENO, target_fd, (uint64_t) -1, COPY_REFLINK);
+                        r = copy_bytes(STDIN_FILENO, target_fd, UINT64_MAX, COPY_REFLINK);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to copy bytes from stdin to '%s' in image '%s': %m", arg_target, arg_image);
 
@@ -695,7 +746,7 @@ static int action_copy(DissectedImage *m, LoopDevice *d) {
                 if (target_fd < 0)
                         return log_error_errno(errno, "Failed to open target file '%s': %m", arg_target);
 
-                r = copy_bytes(source_fd, target_fd, (uint64_t) -1, COPY_REFLINK);
+                r = copy_bytes(source_fd, target_fd, UINT64_MAX, COPY_REFLINK);
                 if (r < 0)
                         return log_error_errno(r, "Failed to copy bytes from '%s' to '%s' in image '%s': %m", arg_source, arg_target, arg_image);
 
@@ -735,17 +786,19 @@ static int run(int argc, char *argv[]) {
 
         r = loop_device_make_by_path(
                         arg_image,
-                        FLAGS_SET(arg_flags, DISSECT_IMAGE_READ_ONLY) ? O_RDONLY : O_RDWR,
+                        FLAGS_SET(arg_flags, DISSECT_IMAGE_DEVICE_READ_ONLY) ? O_RDONLY : O_RDWR,
                         FLAGS_SET(arg_flags, DISSECT_IMAGE_NO_PARTITION_TABLE) ? 0 : LO_FLAGS_PARTSCAN,
                         &d);
         if (r < 0)
-                return log_error_errno(r, "Failed to set up loopback device: %m");
+                return log_error_errno(r, "Failed to set up loopback device for %s: %m", arg_image);
 
         r = dissect_image_and_warn(
                         d->fd,
                         arg_image,
                         &arg_verity_settings,
                         NULL,
+                        d->uevent_seqnum_not_before,
+                        d->timestamp_not_before,
                         arg_flags,
                         &m);
         if (r < 0)

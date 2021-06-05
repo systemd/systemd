@@ -6,14 +6,14 @@ if [ -z "$1" ]; then
     exit 1
 fi
 
-# make sure the rules have been regenerated (in case man/update-man-rules was just run)
+# make sure the rules have been regenerated (in case update-man-rules was just run)
 ninja -C "@BUILD_ROOT@" version.h
 
 target="man/$1.html"
 ninja -C "@BUILD_ROOT@" "$target"
 
 fullname="@BUILD_ROOT@/$target"
-redirect="$(readlink "$fullname" 2>/dev/null)"
+redirect="$(test -f "$fullname" && readlink "$fullname" || :)"
 if [ -n "$redirect" ]; then
     ninja -C "@BUILD_ROOT@" "man/$redirect"
 

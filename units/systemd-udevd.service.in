@@ -1,4 +1,4 @@
-#  SPDX-License-Identifier: LGPL-2.1+
+#  SPDX-License-Identifier: LGPL-2.1-or-later
 #
 #  This file is part of systemd.
 #
@@ -19,12 +19,12 @@ ConditionPathIsReadWrite=/sys
 DeviceAllow=block-* rwm
 DeviceAllow=char-* rwm
 Type=notify
-# Note that udev also adjusts the OOM score internally and will reset the value internally for its workers
+# Note that udev will reset the value internally for its workers
 OOMScoreAdjust=-1000
 Sockets=systemd-udevd-control.socket systemd-udevd-kernel.socket
 Restart=always
 RestartSec=0
-ExecStart=@rootlibexecdir@/systemd-udevd
+ExecStart={{ROOTLIBEXECDIR}}/systemd-udevd
 ExecReload=udevadm control --reload --timeout 0
 KillMode=mixed
 TasksMax=infinity
@@ -40,4 +40,4 @@ SystemCallErrorNumber=EPERM
 SystemCallArchitectures=native
 LockPersonality=yes
 IPAddressDeny=any
-@SERVICE_WATCHDOG@
+{{SERVICE_WATCHDOG}}

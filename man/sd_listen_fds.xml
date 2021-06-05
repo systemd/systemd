@@ -1,7 +1,7 @@
 <?xml version='1.0'?>
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
-<!-- SPDX-License-Identifier: LGPL-2.1+ -->
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
 
 <refentry id="sd_listen_fds"
   xmlns:xi="http://www.w3.org/2001/XInclude">
@@ -94,7 +94,7 @@
     <function>sd_listen_fds()</function>, but optionally also returns
     an array of strings with identification names for the passed file
     descriptors, if that is available and the
-    <parameter>names</parameter> parameter is non-NULL. This
+    <parameter>names</parameter> parameter is non-<constant>NULL</constant>. This
     information is read from the <varname>$LISTEN_FDNAMES</varname>
     variable, which may contain a colon-separated list of names. For
     socket-activated services, these names may be configured with the
@@ -113,11 +113,11 @@
     <function>sd_is_socket()</function> and related calls is not
     sufficient. Note that the names used are not unique in any
     way. The returned array of strings has as many entries as file
-    descriptors have been received, plus a final NULL pointer
+    descriptors have been received, plus a final <constant>NULL</constant> pointer
     terminating the array. The caller needs to free the array itself
     and each of its elements with libc's <function>free()</function>
     call after use. If the <parameter>names</parameter> parameter is
-    NULL, the call is entirely equivalent to
+    <constant>NULL</constant>, the call is entirely equivalent to
     <function>sd_listen_fds()</function>.</para>
 
     <para>Under specific conditions, the following automatic file

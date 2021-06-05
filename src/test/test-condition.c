@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <stdio.h>
 #include <sys/types.h>
@@ -31,6 +31,7 @@
 #include "strv.h"
 #include "tests.h"
 #include "tomoyo-util.h"
+#include "user-record.h"
 #include "user-util.h"
 #include "virt.h"
 
@@ -123,18 +124,40 @@ static void test_condition_test_path(void) {
         condition_free(condition);
 }
 
+static void test_condition_test_control_group_hierarchy(void) {
+        Condition *condition;
+        int r;
+
+        r = cg_unified();
+        if (r == -ENOMEDIUM) {
+                log_tests_skipped("cgroup not mounted");
+                return;
+        }
+        assert_se(r >= 0);
+
+        condition = condition_new(CONDITION_CONTROL_GROUP_CONTROLLER, "v1", false, false);
+        assert_se(condition);
+        assert_se(condition_test(condition, environ) == (r < CGROUP_UNIFIED_ALL));
+        condition_free(condition);
+
+        condition = condition_new(CONDITION_CONTROL_GROUP_CONTROLLER, "v2", false, false);
+        assert_se(condition);
+        assert_se(condition_test(condition, environ) == (r >= CGROUP_UNIFIED_ALL));
+        condition_free(condition);
+}
+
 static void test_condition_test_control_group_controller(void) {
         Condition *condition;
         CGroupMask system_mask;
-        CGroupController controller;
         _cleanup_free_ char *controller_name = NULL;
         int r;
 
         r = cg_unified();
-        if (r < 0) {
-                log_notice_errno(r, "Skipping ConditionControlGroupController tests: %m");
+        if (r == -ENOMEDIUM) {
+                log_tests_skipped("cgroup not mounted");
                 return;
         }
+        assert_se(r >= 0);
 
         /* Invalid controllers are ignored */
         condition = condition_new(CONDITION_CONTROL_GROUP_CONTROLLER, "thisisnotarealcontroller", false, false);
@@ -150,7 +173,7 @@ static void test_condition_test_control_group_controller(void) {
         assert_se(cg_mask_supported(&system_mask) >= 0);
 
         /* Individual valid controllers one by one */
-        for (controller = 0; controller < _CGROUP_CONTROLLER_MAX; controller++) {
+        for (CGroupController controller = 0; controller < _CGROUP_CONTROLLER_MAX; controller++) {
                 const char *local_controller_name = cgroup_controller_to_string(controller);
                 log_info("chosen controller is '%s'", local_controller_name);
                 if (system_mask & CGROUP_CONTROLLER_TO_MASK(controller)) {
@@ -438,6 +461,27 @@ static void test_condition_test_kernel_version(void) {
         condition_free(condition);
 }
 
+#if defined(__i386__) || defined(__x86_64__)
+static void test_condition_test_cpufeature(void) {
+        Condition *condition;
+
+        condition = condition_new(CONDITION_CPU_FEATURE, "fpu", false, false);
+        assert_se(condition);
+        assert_se(condition_test(condition, environ) > 0);
+        condition_free(condition);
+
+        condition = condition_new(CONDITION_CPU_FEATURE, "somecpufeaturethatreallydoesntmakesense", false, false);
+        assert_se(condition);
+        assert_se(condition_test(condition, environ) == 0);
+        condition_free(condition);
+
+        condition = condition_new(CONDITION_CPU_FEATURE, "a", false, false);
+        assert_se(condition);
+        assert_se(condition_test(condition, environ) == 0);
+        condition_free(condition);
+}
+#endif
+
 static void test_condition_test_security(void) {
         Condition *condition;
 
@@ -531,6 +575,7 @@ static void test_condition_test_virtualization(void) {
 
         NULSTR_FOREACH(virt,
                        "kvm\0"
+                       "amazon\0"
                        "qemu\0"
                        "bochs\0"
                        "xen\0"
@@ -859,10 +904,14 @@ int main(int argc, char *argv[]) {
         test_condition_test_virtualization();
         test_condition_test_user();
         test_condition_test_group();
+        test_condition_test_control_group_hierarchy();
         test_condition_test_control_group_controller();
         test_condition_test_cpus();
         test_condition_test_memory();
         test_condition_test_environment();
+#if defined(__i386__) || defined(__x86_64__)
+        test_condition_test_cpufeature();
+#endif
 
         return 0;
 }

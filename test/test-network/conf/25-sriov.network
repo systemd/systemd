@@ -3,6 +3,7 @@ Name=eni99np1
 
 [Network]
 Address=192.168.100.100/24
+IPv6AcceptRA=no
 
 [SR-IOV]
 VirtualFunction=0

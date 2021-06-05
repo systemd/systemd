@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
 #include "in-addr-util.h"
@@ -20,7 +20,7 @@ typedef enum DnsServerType {
         DNS_SERVER_FALLBACK,
         DNS_SERVER_LINK,
         _DNS_SERVER_TYPE_MAX,
-        _DNS_SERVER_TYPE_INVALID = -1
+        _DNS_SERVER_TYPE_INVALID = -EINVAL,
 } DnsServerType;
 
 const char* dns_server_type_to_string(DnsServerType i) _const_;
@@ -35,12 +35,15 @@ typedef enum DnsServerFeatureLevel {
         DNS_SERVER_FEATURE_LEVEL_LARGE,
         DNS_SERVER_FEATURE_LEVEL_TLS_DO,
         _DNS_SERVER_FEATURE_LEVEL_MAX,
-        _DNS_SERVER_FEATURE_LEVEL_INVALID = -1
+        _DNS_SERVER_FEATURE_LEVEL_INVALID = -EINVAL,
 } DnsServerFeatureLevel;
 
 #define DNS_SERVER_FEATURE_LEVEL_WORST 0
 #define DNS_SERVER_FEATURE_LEVEL_BEST (_DNS_SERVER_FEATURE_LEVEL_MAX - 1)
+#define DNS_SERVER_FEATURE_LEVEL_IS_EDNS0(x) ((x) >= DNS_SERVER_FEATURE_LEVEL_EDNS0)
 #define DNS_SERVER_FEATURE_LEVEL_IS_TLS(x) IN_SET(x, DNS_SERVER_FEATURE_LEVEL_TLS_PLAIN, DNS_SERVER_FEATURE_LEVEL_TLS_DO)
+#define DNS_SERVER_FEATURE_LEVEL_IS_DNSSEC(x) ((x) >= DNS_SERVER_FEATURE_LEVEL_DO)
+#define DNS_SERVER_FEATURE_LEVEL_IS_UDP(x) IN_SET(x, DNS_SERVER_FEATURE_LEVEL_UDP, DNS_SERVER_FEATURE_LEVEL_EDNS0, DNS_SERVER_FEATURE_LEVEL_DO, DNS_SERVER_FEATURE_LEVEL_LARGE)
 
 const char* dns_server_feature_level_to_string(int i) _const_;
 int dns_server_feature_level_from_string(const char *s) _pure_;
@@ -72,15 +75,18 @@ struct DnsServer {
         DnsServerFeatureLevel verified_feature_level;
         DnsServerFeatureLevel possible_feature_level;
 
-        size_t received_udp_packet_max;
+        size_t received_udp_fragment_max;   /* largest packet or fragment (without IP/UDP header) we saw so far */
 
         unsigned n_failed_udp;
         unsigned n_failed_tcp;
         unsigned n_failed_tls;
 
-        bool packet_truncated:1;
-        bool packet_bad_opt:1;
-        bool packet_rrsig_missing:1;
+        bool packet_truncated:1;        /* Set when TC bit was set on reply */
+        bool packet_bad_opt:1;          /* Set when OPT was missing or otherwise bad on reply */
+        bool packet_rrsig_missing:1;    /* Set when RRSIG was missing */
+        bool packet_invalid:1;          /* Set when we failed to parse a reply */
+        bool packet_do_off:1;           /* Set when the server didn't copy DNSSEC DO flag from request to response */
+        bool packet_fragmented:1;       /* Set when we ever saw a fragmented packet */
 
         usec_t verified_usec;
         usec_t features_grace_period_usec;
@@ -113,12 +119,15 @@ DnsServer* dns_server_unref(DnsServer *s);
 void dns_server_unlink(DnsServer *s);
 void dns_server_move_back_and_unmark(DnsServer *s);
 
-void dns_server_packet_received(DnsServer *s, int protocol, DnsServerFeatureLevel level, size_t size);
+void dns_server_packet_received(DnsServer *s, int protocol, DnsServerFeatureLevel level, size_t fragsize);
 void dns_server_packet_lost(DnsServer *s, int protocol, DnsServerFeatureLevel level);
 void dns_server_packet_truncated(DnsServer *s, DnsServerFeatureLevel level);
 void dns_server_packet_rrsig_missing(DnsServer *s, DnsServerFeatureLevel level);
 void dns_server_packet_bad_opt(DnsServer *s, DnsServerFeatureLevel level);
 void dns_server_packet_rcode_downgrade(DnsServer *s, DnsServerFeatureLevel level);
+void dns_server_packet_invalid(DnsServer *s, DnsServerFeatureLevel level);
+void dns_server_packet_do_off(DnsServer *s, DnsServerFeatureLevel level);
+void dns_server_packet_udp_fragmented(DnsServer *s, size_t fragsize);
 
 DnsServerFeatureLevel dns_server_possible_feature_level(DnsServer *s);
 
@@ -136,17 +145,19 @@ void dns_server_warn_downgrade(DnsServer *server);
 DnsServer *dns_server_find(DnsServer *first, int family, const union in_addr_union *in_addr, uint16_t port, int ifindex, const char *name);
 
 void dns_server_unlink_all(DnsServer *first);
-void dns_server_unlink_marked(DnsServer *first);
+bool dns_server_unlink_marked(DnsServer *first);
 void dns_server_mark_all(DnsServer *first);
 
 DnsServer *manager_get_first_dns_server(Manager *m, DnsServerType t);
 
 DnsServer *manager_set_dns_server(Manager *m, DnsServer *s);
 DnsServer *manager_get_dns_server(Manager *m);
-void manager_next_dns_server(Manager *m);
+void manager_next_dns_server(Manager *m, DnsServer *if_current);
 
 DnssecMode dns_server_get_dnssec_mode(DnsServer *s);
 DnsOverTlsMode dns_server_get_dns_over_tls_mode(DnsServer *s);
+
+size_t dns_server_get_mtu(DnsServer *s);
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(DnsServer*, dns_server_unref);
 

@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <errno.h>
 #include <poll.h>
@@ -46,6 +46,18 @@ _public_ int sd_network_get_carrier_state(char **state) {
 
 _public_ int sd_network_get_address_state(char **state) {
         return network_get_string("ADDRESS_STATE", state);
+}
+
+_public_ int sd_network_get_ipv4_address_state(char **state) {
+        return network_get_string("IPV4_ADDRESS_STATE", state);
+}
+
+_public_ int sd_network_get_ipv6_address_state(char **state) {
+        return network_get_string("IPV6_ADDRESS_STATE", state);
+}
+
+_public_ int sd_network_get_online_state(char **state) {
+        return network_get_string("ONLINE_STATE", state);
 }
 
 static int network_get_strv(const char *key, char ***ret) {
@@ -160,12 +172,44 @@ _public_ int sd_network_link_get_operational_state(int ifindex, char **state) {
         return network_link_get_string(ifindex, "OPER_STATE", state);
 }
 
+_public_ int sd_network_link_get_required_family_for_online(int ifindex, char **state) {
+        _cleanup_free_ char *s = NULL;
+        int r;
+
+        assert_return(state, -EINVAL);
+
+        r = network_link_get_string(ifindex, "REQUIRED_FAMILY_FOR_ONLINE", &s);
+        if (r < 0) {
+                if (r != -ENODATA)
+                        return r;
+
+                s = strdup("any");
+                if (!s)
+                        return -ENOMEM;
+        }
+
+        *state = TAKE_PTR(s);
+        return 0;
+}
+
 _public_ int sd_network_link_get_carrier_state(int ifindex, char **state) {
         return network_link_get_string(ifindex, "CARRIER_STATE", state);
 }
 
 _public_ int sd_network_link_get_address_state(int ifindex, char **state) {
         return network_link_get_string(ifindex, "ADDRESS_STATE", state);
+}
+
+_public_ int sd_network_link_get_ipv4_address_state(int ifindex, char **state) {
+        return network_link_get_string(ifindex, "IPV4_ADDRESS_STATE", state);
+}
+
+_public_ int sd_network_link_get_ipv6_address_state(int ifindex, char **state) {
+        return network_link_get_string(ifindex, "IPV6_ADDRESS_STATE", state);
+}
+
+_public_ int sd_network_link_get_online_state(int ifindex, char **state) {
+        return network_link_get_string(ifindex, "ONLINE_STATE", state);
 }
 
 _public_ int sd_network_link_get_dhcp6_client_iaid_string(int ifindex, char **iaid) {
@@ -209,6 +253,27 @@ _public_ int sd_network_link_get_required_operstate_for_online(int ifindex, char
         }
 
         *state = TAKE_PTR(s);
+        return 0;
+}
+
+_public_ int sd_network_link_get_activation_policy(int ifindex, char **policy) {
+        _cleanup_free_ char *s = NULL;
+        int r;
+
+        assert_return(policy, -EINVAL);
+
+        r = network_link_get_string(ifindex, "ACTIVATION_POLICY", &s);
+        if (r < 0) {
+                if (r != -ENODATA)
+                        return r;
+
+                /* For compatibility, assuming up. */
+                s = strdup("up");
+                if (!s)
+                        return -ENOMEM;
+        }
+
+        *policy = TAKE_PTR(s);
         return 0;
 }
 
@@ -275,7 +340,7 @@ static int network_link_get_ifindexes(int ifindex, const char *key, int **ret) {
         char path[STRLEN("/run/systemd/netif/links/") + DECIMAL_STR_MAX(ifindex) + 1];
         _cleanup_free_ int *ifis = NULL;
         _cleanup_free_ char *s = NULL;
-        size_t allocated = 0, c = 0;
+        size_t c = 0;
         int r;
 
         assert_return(ifindex > 0, -EINVAL);
@@ -297,7 +362,7 @@ static int network_link_get_ifindexes(int ifindex, const char *key, int **ret) {
                 if (r == 0)
                         break;
 
-                if (!GREEDY_REALLOC(ifis, allocated, c + 2))
+                if (!GREEDY_REALLOC(ifis, c + 2))
                         return -ENOMEM;
 
                 r = ifis[c++] = parse_ifindex(word);
@@ -440,9 +505,9 @@ _public_ int sd_network_monitor_get_timeout(sd_network_monitor *m, uint64_t *tim
         assert_return(m, -EINVAL);
         assert_return(timeout_usec, -EINVAL);
 
-        /* For now we will only return (uint64_t) -1, since we don't
+        /* For now we will only return UINT64_MAX, since we don't
          * need any timeout. However, let's have this API to keep our
          * options open should we later on need it. */
-        *timeout_usec = (uint64_t) -1;
+        *timeout_usec = UINT64_MAX;
         return 0;
 }

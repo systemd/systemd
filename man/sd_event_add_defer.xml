@@ -1,7 +1,7 @@
 <?xml version='1.0'?>
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
-<!-- SPDX-License-Identifier: LGPL-2.1+ -->
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
 
 <refentry id="sd_event_add_defer" xmlns:xi="http://www.w3.org/2001/XInclude">
 
@@ -116,11 +116,17 @@
     <constant>SD_EVENT_OFF</constant> with
     <citerefentry><refentrytitle>sd_event_source_set_enabled</refentrytitle><manvolnum>3</manvolnum></citerefentry>.</para>
 
-    <para>If the second parameter of these functions is passed as
-    NULL no reference to the event source object is returned. In this
-    case the event source is considered "floating", and will be
-    destroyed implicitly when the event loop itself is
-    destroyed.</para>
+    <para>If the second parameter of these functions is passed as <constant>NULL</constant> no reference to
+    the event source object is returned. In this case the event source is considered "floating", and will be
+    destroyed implicitly when the event loop itself is destroyed.</para>
+
+    <para>If the <parameter>handler</parameter> parameter to <function>sd_event_add_defer()</function> or
+    <function>sd_event_add_post()</function> is <constant>NULL</constant>, and the event source fires, this
+    will be considered a request to exit the event loop. In this case, the <parameter>userdata</parameter>
+    parameter, cast to an integer, is passed as the exit code parameter to
+    <citerefentry><refentrytitle>sd_event_exit</refentrytitle><manvolnum>3</manvolnum></citerefentry>. Similar
+    functionality is not available for <function>sd_event_add_exit()</function>, as these types of event
+    sources are only dispatched when exiting anyway.</para>
   </refsect1>
 
   <refsect1>

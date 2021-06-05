@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
 #define DEFAULT_TIMEOUT_USEC (90*USEC_PER_SEC)
@@ -63,3 +63,5 @@
                 .un.sun_family = AF_UNIX,                       \
                 .un.sun_path = "\0/org/freedesktop/plymouthd",  \
         }
+
+#define VARLINK_ADDR_PATH_MANAGED_OOM "/run/systemd/io.system.ManagedOOM"

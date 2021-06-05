@@ -1,9 +1,16 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
+
+#include <netinet/in.h>
+#include <linux/if_arp.h>
+#include <linux/if.h>
 
 #include "sd-dhcp-server.h"
 
 #include "fd-util.h"
 #include "fileio.h"
+#include "networkd-address.h"
+#include "networkd-dhcp-server-bus.h"
+#include "networkd-dhcp-server-static-lease.h"
 #include "networkd-dhcp-server.h"
 #include "networkd-link.h"
 #include "networkd-manager.h"
@@ -14,34 +21,89 @@
 #include "string-util.h"
 #include "strv.h"
 
-static Address* link_find_dhcp_server_address(Link *link) {
+static bool link_dhcp4_server_enabled(Link *link) {
+        assert(link);
+
+        if (link->flags & IFF_LOOPBACK)
+                return false;
+
+        if (!link->network)
+                return false;
+
+        if (link->iftype == ARPHRD_CAN)
+                return false;
+
+        return link->network->dhcp_server;
+}
+
+void network_adjust_dhcp_server(Network *network) {
+        assert(network);
+
+        if (!network->dhcp_server)
+                return;
+
+        if (network->bond) {
+                log_warning("%s: DHCPServer= is enabled for bond slave. Disabling DHCP server.",
+                            network->filename);
+                network->dhcp_server = false;
+                return;
+        }
+
+        if (!in4_addr_is_set(&network->dhcp_server_address)) {
+                Address *address;
+                bool have = false;
+
+                ORDERED_HASHMAP_FOREACH(address, network->addresses_by_section) {
+                        if (section_is_invalid(address->section))
+                                continue;
+                        if (address->family == AF_INET &&
+                            !in4_addr_is_localhost(&address->in_addr.in) &&
+                            in4_addr_is_null(&address->in_addr_peer.in)) {
+                                have = true;
+                                break;
+                        }
+                }
+                if (!have) {
+                        log_warning("%s: DHCPServer= is enabled, but no static address configured. "
+                                    "Disabling DHCP server.",
+                                    network->filename);
+                        network->dhcp_server = false;
+                        return;
+                }
+        }
+}
+
+static int link_find_dhcp_server_address(Link *link, Address **ret) {
         Address *address;
 
         assert(link);
         assert(link->network);
 
-        /* The first statically configured address if there is any */
-        LIST_FOREACH(addresses, address, link->network->static_addresses)
+        /* If ServerAddress= is specified, then use the address. */
+        if (in4_addr_is_set(&link->network->dhcp_server_address))
+                return link_get_ipv4_address(link, &link->network->dhcp_server_address,
+                                             link->network->dhcp_server_address_prefixlen, ret);
+
+        /* If not, then select one from static addresses. */
+        SET_FOREACH(address, link->static_addresses)
                 if (address->family == AF_INET &&
-                    !in_addr_is_null(address->family, &address->in_addr))
-                        return address;
+                    !in4_addr_is_localhost(&address->in_addr.in) &&
+                    in4_addr_is_null(&address->in_addr_peer.in)) {
+                        *ret = address;
+                        return 0;
+                }
 
-        /* If that didn't work, find a suitable address we got from the pool */
-        LIST_FOREACH(addresses, address, link->pool_addresses)
-                if (address->family == AF_INET)
-                        return address;
-
-        return NULL;
+        return -ENOENT;
 }
 
 static int link_push_uplink_to_dhcp_server(
                 Link *link,
-                sd_dhcp_lease_server_type what,
+                sd_dhcp_lease_server_type_t what,
                 sd_dhcp_server *s) {
 
         _cleanup_free_ struct in_addr *addresses = NULL;
-        size_t n_addresses = 0, n_allocated = 0;
         bool use_dhcp_lease_data = true;
+        size_t n_addresses = 0;
 
         assert(link);
 
@@ -70,7 +132,7 @@ static int link_push_uplink_to_dhcp_server(
                         if (in4_addr_is_null(&ia) || in4_addr_is_localhost(&ia))
                                 continue;
 
-                        if (!GREEDY_REALLOC(addresses, n_allocated, n_addresses + 1))
+                        if (!GREEDY_REALLOC(addresses, n_addresses + 1))
                                 return log_oom();
 
                         addresses[n_addresses++] = ia;
@@ -95,7 +157,7 @@ static int link_push_uplink_to_dhcp_server(
                         if (in4_addr_is_null(&ia.in) || in4_addr_is_localhost(&ia.in))
                                 continue;
 
-                        if (!GREEDY_REALLOC(addresses, n_allocated, n_addresses + 1))
+                        if (!GREEDY_REALLOC(addresses, n_addresses + 1))
                                 return log_oom();
 
                         addresses[n_addresses++] = ia.in;
@@ -127,7 +189,7 @@ static int link_push_uplink_to_dhcp_server(
 
                 int n = sd_dhcp_lease_get_servers(link->dhcp_lease, what, &da);
                 if (n > 0) {
-                        if (!GREEDY_REALLOC(addresses, n_allocated, n_addresses + n))
+                        if (!GREEDY_REALLOC(addresses, n_addresses + n))
                                 return log_oom();
 
                         for (int j = 0; j < n; j++)
@@ -142,7 +204,11 @@ static int link_push_uplink_to_dhcp_server(
         return sd_dhcp_server_set_servers(s, what, addresses, n_addresses);
 }
 
-static int dhcp4_server_parse_dns_server_string_and_warn(Link *l, const char *string, struct in_addr **addresses, size_t *n_allocated, size_t *n_addresses) {
+static int dhcp4_server_parse_dns_server_string_and_warn(
+                const char *string,
+                struct in_addr **addresses,
+                size_t *n_addresses) {
+
         for (;;) {
                 _cleanup_free_ char *word = NULL, *server_name = NULL;
                 union in_addr_union address;
@@ -168,7 +234,7 @@ static int dhcp4_server_parse_dns_server_string_and_warn(Link *l, const char *st
                 if (in4_addr_is_null(&address.in) || in4_addr_is_localhost(&address.in))
                         continue;
 
-                if (!GREEDY_REALLOC(*addresses, *n_allocated, *n_addresses + 1))
+                if (!GREEDY_REALLOC(*addresses, *n_addresses + 1))
                         return log_oom();
 
                 (*addresses)[(*n_addresses)++] = address.in;
@@ -179,8 +245,8 @@ static int dhcp4_server_parse_dns_server_string_and_warn(Link *l, const char *st
 
 static int dhcp4_server_set_dns_from_resolve_conf(Link *link) {
         _cleanup_free_ struct in_addr *addresses = NULL;
-        size_t n_addresses = 0, n_allocated = 0;
         _cleanup_fclose_ FILE *f = NULL;
+        size_t n_addresses = 0;
         int n = 0, r;
 
         f = fopen(PRIVATE_UPLINK_RESOLV_CONF, "re");
@@ -212,7 +278,7 @@ static int dhcp4_server_set_dns_from_resolve_conf(Link *link) {
                 if (!a)
                         continue;
 
-                r = dhcp4_server_parse_dns_server_string_and_warn(link, a, &addresses, &n_allocated, &n_addresses);
+                r = dhcp4_server_parse_dns_server_string_and_warn(a, &addresses, &n_addresses);
                 if (r < 0)
                         log_warning_errno(r, "Failed to parse DNS server address '%s', ignoring.", a);
         }
@@ -226,14 +292,37 @@ static int dhcp4_server_set_dns_from_resolve_conf(Link *link) {
 int dhcp4_server_configure(Link *link) {
         bool acquired_uplink = false;
         sd_dhcp_option *p;
+        DHCPStaticLease *static_lease;
         Link *uplink = NULL;
         Address *address;
+        bool bind_to_interface;
         int r;
 
-        address = link_find_dhcp_server_address(link);
-        if (!address)
-                return log_link_error_errno(link, SYNTHETIC_ERRNO(EBUSY),
-                                            "Failed to find suitable address for DHCPv4 server instance.");
+        assert(link);
+
+        if (!link_dhcp4_server_enabled(link))
+                return 0;
+
+        if (!(link->flags & IFF_UP))
+                return 0;
+
+        if (!link->dhcp_server) {
+                r = sd_dhcp_server_new(&link->dhcp_server, link->ifindex);
+                if (r < 0)
+                        return r;
+
+                r = sd_dhcp_server_attach_event(link->dhcp_server, link->manager->event, 0);
+                if (r < 0)
+                        return r;
+        }
+
+        r = sd_dhcp_server_set_callback(link->dhcp_server, dhcp_server_callback, link);
+        if (r < 0)
+                return log_link_warning_errno(link, r, "Failed to set callback for DHCPv4 server instance: %m");
+
+        r = link_find_dhcp_server_address(link, &address);
+        if (r < 0)
+                return log_link_error_errno(link, r, "Failed to find suitable address for DHCPv4 server instance: %m");
 
         /* use the server address' subnet as the pool */
         r = sd_dhcp_server_configure_pool(link->dhcp_server, &address->in_addr.in, address->prefixlen,
@@ -261,7 +350,7 @@ int dhcp4_server_configure(Link *link) {
                         return log_link_error_errno(link, r, "Failed to set default lease time for DHCPv4 server instance: %m");
         }
 
-        for (sd_dhcp_lease_server_type type = 0; type < _SD_DHCP_LEASE_SERVER_TYPE_MAX; type ++) {
+        for (sd_dhcp_lease_server_type_t type = 0; type < _SD_DHCP_LEASE_SERVER_TYPE_MAX; type ++) {
 
                 if (!link->network->dhcp_server_emit[type].emit)
                         continue;
@@ -302,23 +391,38 @@ int dhcp4_server_configure(Link *link) {
         if (r < 0)
                 return log_link_error_errno(link, r, "Failed to set router emission for DHCP server: %m");
 
+        r = sd_dhcp_server_set_relay_target(link->dhcp_server, &link->network->dhcp_server_relay_target);
+        if (r < 0)
+                return log_link_error_errno(link, r, "Failed to set relay target for DHCP server: %m");
+
+        bind_to_interface = sd_dhcp_server_is_in_relay_mode(link->dhcp_server) ? false : link->network->dhcp_server_bind_to_interface;
+        r = sd_dhcp_server_set_bind_to_interface(link->dhcp_server, bind_to_interface);
+        if (r < 0)
+                return log_link_error_errno(link, r, "Failed to set interface binding for DHCP server: %m");
+
+        r = sd_dhcp_server_set_relay_agent_information(link->dhcp_server, link->network->dhcp_server_relay_agent_circuit_id, link->network->dhcp_server_relay_agent_remote_id);
+        if (r < 0)
+                return log_link_error_errno(link, r, "Failed to set agent circuit/remote id for DHCP server: %m");
+
         if (link->network->dhcp_server_emit_timezone) {
                 _cleanup_free_ char *buffer = NULL;
-                const char *tz;
+                const char *tz = NULL;
 
                 if (link->network->dhcp_server_timezone)
                         tz = link->network->dhcp_server_timezone;
                 else {
                         r = get_timezone(&buffer);
                         if (r < 0)
-                                return log_link_error_errno(link, r, "Failed to determine timezone: %m");
-
-                        tz = buffer;
+                                log_link_warning_errno(link, r, "Failed to determine timezone, not sending timezone: %m");
+                        else
+                                tz = buffer;
                 }
 
-                r = sd_dhcp_server_set_timezone(link->dhcp_server, tz);
-                if (r < 0)
-                        return log_link_error_errno(link, r, "Failed to set timezone for DHCP server: %m");
+                if (tz) {
+                        r = sd_dhcp_server_set_timezone(link->dhcp_server, tz);
+                        if (r < 0)
+                                return log_link_error_errno(link, r, "Failed to set timezone for DHCP server: %m");
+                }
         }
 
         ORDERED_HASHMAP_FOREACH(p, link->network->dhcp_server_send_options) {
@@ -337,13 +441,54 @@ int dhcp4_server_configure(Link *link) {
                         return log_link_error_errno(link, r, "Failed to set DHCPv4 option: %m");
         }
 
+        HASHMAP_FOREACH(static_lease, link->network->dhcp_static_leases_by_section) {
+                r = sd_dhcp_server_set_static_lease(link->dhcp_server, &static_lease->address, static_lease->client_id, static_lease->client_id_size);
+                if (r < 0)
+                        return log_link_error_errno(link, r, "Failed to set DHCPv4 static lease for DHCP server: %m");
+        }
+
         if (!sd_dhcp_server_is_running(link->dhcp_server)) {
                 r = sd_dhcp_server_start(link->dhcp_server);
                 if (r < 0)
                         return log_link_error_errno(link, r, "Could not start DHCPv4 server instance: %m");
+
+                log_link_debug(link, "Offering DHCPv4 leases");
         }
 
         return 0;
+}
+
+int config_parse_dhcp_server_relay_agent_suboption(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        char **suboption_value = data;
+        char* p;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+
+        if (isempty(rvalue)) {
+                *suboption_value = mfree(*suboption_value);
+                return 0;
+        }
+
+        p = startswith(rvalue, "string:");
+        if (!p) {
+                log_syntax(unit, LOG_WARNING, filename, line, 0,
+                           "Failed to parse %s=%s'. Invalid format, ignoring.", lvalue, rvalue);
+                return 0;
+        }
+        return free_and_strdup(suboption_value, empty_to_null(p));
 }
 
 int config_parse_dhcp_server_emit(
@@ -393,4 +538,49 @@ int config_parse_dhcp_server_emit(
                 emit->addresses = m;
                 emit->addresses[emit->n_addresses++] = a.in;
         }
+}
+
+int config_parse_dhcp_server_address(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        Network *network = userdata;
+        union in_addr_union a;
+        unsigned char prefixlen;
+        int r;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+
+        if (isempty(rvalue)) {
+                network->dhcp_server_address = (struct in_addr) {};
+                network->dhcp_server_address_prefixlen = 0;
+                return 0;
+        }
+
+        r = in_addr_prefix_from_string(rvalue, AF_INET, &a, &prefixlen);
+        if (r < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, r,
+                           "Failed to parse %s=, ignoring assignment: %s", lvalue, rvalue);
+                return 0;
+        }
+        if (in4_addr_is_null(&a.in) || in4_addr_is_localhost(&a.in)) {
+                log_syntax(unit, LOG_WARNING, filename, line, 0,
+                           "DHCP server address cannot be the ANY address or a localhost address, "
+                           "ignoring assignment: %s", rvalue);
+                return 0;
+        }
+
+        network->dhcp_server_address = a.in;
+        network->dhcp_server_address_prefixlen = prefixlen;
+        return 0;
 }

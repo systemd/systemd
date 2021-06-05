@@ -25,7 +25,6 @@
 # Allowed properties are:
 #    ID_AUTOSUSPEND=1
 
-#
 # Sort by brand, model
 
 #########################################
@@ -37,6 +36,16 @@ usb:v058Fp9540*
  ID_AUTOSUSPEND=1
 
 #########################################
+# Lenovo
+#########################################
+
+# X1C8 Touchscreen
+usb:v04F3p2B7C*
+# T14 Gen 1 Touchscreen
+usb:v04F3p2ACC*
+ ID_AUTOSUSPEND=1
+
+#########################################
 # QEMU
 #########################################
 
@@ -44,6 +53,14 @@ usb:v058Fp9540*
 usb:v0627p0001:*QEMU USB Keyboard*
 usb:v0627p0001:*QEMU USB Mouse*
 usb:v0627p0001:*QEMU USB Tablet*
+ ID_AUTOSUSPEND=1
+
+#########################################
+# Sierra Wireless
+#########################################
+
+# Sierra Wireless EM7345 4G LTE modem
+usb:v1199pA001*
  ID_AUTOSUSPEND=1
 
 #########################################

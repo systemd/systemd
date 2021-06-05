@@ -1,7 +1,7 @@
 <?xml version='1.0'?>
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
-<!-- SPDX-License-Identifier: LGPL-2.1+ -->
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
 
 <refentry id="systemd.net-naming-scheme">
   <refentryinfo>
@@ -192,6 +192,9 @@
           <para>SR-IOV virtual devices are named based on the name of the parent interface, with a suffix of
           <constant>v</constant> and the virtual device number, with any leading zeros removed. The bus
           number is ignored.</para>
+
+          <para>In some configurations a parent PCI bridge of a given network controller may be associated
+          with a slot. In such case we don't generate this device property to avoid possible naming conflicts.</para>
           </listitem>
         </varlistentry>
 
@@ -267,7 +270,8 @@
   <refsect1>
     <title>History</title>
 
-    <para>The following "naming schemes" have been defined:</para>
+    <para>The following "naming schemes" have been defined (which may be chosen at system boot-up time via
+    the <varname>net.naming-scheme=</varname> kernel command line switch, see above):</para>
 
     <variablelist>
         <varlistentry>
@@ -354,6 +358,32 @@
           multiple similarly named containers (who only differ in container name suffix) should be less
           likely (but still possible, since the 24bit hash value is very small).</para></listitem>
         </varlistentry>
+
+        <varlistentry>
+          <term><constant>v247</constant></term>
+
+          <listitem><para>When a PCI slot is associated with a PCI bridge that has multiple child network
+          controllers, the same value of the <varname>ID_NET_NAME_SLOT</varname> property might be derived
+          for those controllers. This would cause a naming conflict if the property is selected as the device
+          name. Now, we detect this situation and don't produce the <varname>ID_NET_NAME_SLOT</varname>
+          property.</para></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><constant>v249</constant></term>
+
+          <listitem><para>PCI hotplug slot names for the s390 PCI driver are a hexadecimal representation
+          of the <filename>function_id</filename> device attribute. This attribute is now used to build the
+          <varname>ID_NET_NAME_SLOT</varname>. Before that, all slot names were parsed as decimal
+          numbers, which could either result in an incorrect value of the <varname>ID_NET_NAME_SLOT</varname>
+          property or none at all.</para>
+
+          <para>Some firmware and hypervisor implementations report unreasonable high numbers for the onboard
+          index. To prevent the generation of bogus onbard interface names, index numbers greater than 16381
+          (2^14-1) were ignored. For s390 PCI devices index values up to 65535 (2^16-1) are valid. To account
+          for that, the limit is increased to now 65535.</para></listitem>
+        </varlistentry>
+
       </variablelist>
 
     <para>Note that <constant>latest</constant> may be used to denote the latest scheme known (to this

@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <sys/mount.h>
 
@@ -119,7 +119,7 @@ static int run(int argc, char *argv[]) {
         dev_t devt;
         int r;
 
-        log_setup_service();
+        log_setup();
 
         if (argc > 3)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
@@ -132,7 +132,7 @@ static int run(int argc, char *argv[]) {
                 /* The kernel command line always wins. However if nothing was set there, the argument passed here wins instead. */
                 m = volatile_mode_from_string(argv[1]);
                 if (m < 0)
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Couldn't parse volatile mode: %s", argv[1]);
+                        return log_error_errno(m, "Couldn't parse volatile mode: %s", argv[1]);
         }
 
         if (argc < 3)

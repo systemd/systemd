@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <sys/stat.h>
 #include <sys/types.h>
@@ -75,10 +75,8 @@ static int timer_verify(Timer *t) {
         assert(t);
         assert(UNIT(t)->load_state == UNIT_LOADED);
 
-        if (!t->values && !t->on_clock_change && !t->on_timezone_change) {
-                log_unit_error(UNIT(t), "Timer unit lacks value setting. Refusing.");
-                return -ENOEXEC;
-        }
+        if (!t->values && !t->on_clock_change && !t->on_timezone_change)
+                return log_unit_error_errno(UNIT(t), SYNTHETIC_ERRNO(ENOEXEC), "Timer unit lacks value setting. Refusing.");
 
         return 0;
 }
@@ -102,12 +100,18 @@ static int timer_add_default_dependencies(Timer *t) {
                         return r;
 
                 LIST_FOREACH(value, v, t->values) {
-                        if (v->base == TIMER_CALENDAR) {
-                                r = unit_add_dependency_by_name(UNIT(t), UNIT_AFTER, SPECIAL_TIME_SYNC_TARGET, true, UNIT_DEPENDENCY_DEFAULT);
+                        const char *target;
+
+                        if (v->base != TIMER_CALENDAR)
+                                continue;
+
+                        FOREACH_STRING(target, SPECIAL_TIME_SYNC_TARGET, SPECIAL_TIME_SET_TARGET) {
+                                r = unit_add_dependency_by_name(UNIT(t), UNIT_AFTER, target, true, UNIT_DEPENDENCY_DEFAULT);
                                 if (r < 0)
                                         return r;
-                                break;
                         }
+
+                        break;
                 }
         }
 
@@ -120,7 +124,7 @@ static int timer_add_trigger_dependencies(Timer *t) {
 
         assert(t);
 
-        if (!hashmap_isempty(UNIT(t)->dependencies[UNIT_TRIGGERS]))
+        if (UNIT_TRIGGER(UNIT(t)))
                 return 0;
 
         r = unit_load_related_unit(UNIT(t), ".service", &x);
@@ -169,6 +173,36 @@ static int timer_setup_persistent(Timer *t) {
         return 0;
 }
 
+static uint64_t timer_get_fixed_delay_hash(Timer *t) {
+        static const uint8_t hash_key[] = {
+                0x51, 0x0a, 0xdb, 0x76, 0x29, 0x51, 0x42, 0xc2,
+                0x80, 0x35, 0xea, 0xe6, 0x8e, 0x3a, 0x37, 0xbd
+        };
+
+        struct siphash state;
+        sd_id128_t machine_id;
+        uid_t uid;
+        int r;
+
+        assert(t);
+
+        uid = getuid();
+        r = sd_id128_get_machine(&machine_id);
+        if (r < 0) {
+                log_unit_debug_errno(UNIT(t), r,
+                                     "Failed to get machine ID for the fixed delay calculation, proceeding with 0: %m");
+                machine_id = SD_ID128_NULL;
+        }
+
+        siphash24_init(&state, hash_key);
+        siphash24_compress(&machine_id, sizeof(sd_id128_t), &state);
+        siphash24_compress_boolean(MANAGER_IS_SYSTEM(UNIT(t)->manager), &state);
+        siphash24_compress(&uid, sizeof(uid_t), &state);
+        siphash24_compress_string(UNIT(t)->id, &state);
+
+        return siphash24_finalize(&state);
+}
+
 static int timer_load(Unit *u) {
         Timer *t = TIMER(u);
         int r;
@@ -215,6 +249,7 @@ static void timer_dump(Unit *u, FILE *f, const char *prefix) {
                 "%sWakeSystem: %s\n"
                 "%sAccuracy: %s\n"
                 "%sRemainAfterElapse: %s\n"
+                "%sFixedRandomDelay: %s\n"
                 "%sOnClockChange: %s\n"
                 "%sOnTimeZoneChange: %s\n",
                 prefix, timer_state_to_string(t->state),
@@ -224,11 +259,11 @@ static void timer_dump(Unit *u, FILE *f, const char *prefix) {
                 prefix, yes_no(t->wake_system),
                 prefix, format_timespan(buf, sizeof(buf), t->accuracy_usec, 1),
                 prefix, yes_no(t->remain_after_elapse),
+                prefix, yes_no(t->fixed_random_delay),
                 prefix, yes_no(t->on_clock_change),
                 prefix, yes_no(t->on_timezone_change));
 
-        LIST_FOREACH(value, v, t->values) {
-
+        LIST_FOREACH(value, v, t->values)
                 if (v->base == TIMER_CALENDAR) {
                         _cleanup_free_ char *p = NULL;
 
@@ -248,7 +283,6 @@ static void timer_dump(Unit *u, FILE *f, const char *prefix) {
                                 timer_base_to_string(v->base),
                                 format_timespan(timespan1, sizeof(timespan1), v->value, 0));
                 }
-        }
 }
 
 static void timer_set_state(Timer *t, TimerState state) {
@@ -332,7 +366,7 @@ static void add_random(Timer *t, usec_t *v) {
         if (*v == USEC_INFINITY)
                 return;
 
-        add = random_u64() % t->random_usec;
+        add = (t->fixed_random_delay ? timer_get_fixed_delay_hash(t) : random_u64()) % t->random_usec;
 
         if (*v + add < *v) /* overflow */
                 *v = (usec_t) -2; /* Highest possible value, that is not USEC_INFINITY */
@@ -638,9 +672,7 @@ static int timer_start(Unit *u) {
                         }
 
                 } else if (errno == ENOENT)
-                        /* The timer has never run before,
-                         * make sure a stamp file exists.
-                         */
+                        /* The timer has never run before, make sure a stamp file exists. */
                         (void) touch_file(t->stamp_path, true, USEC_INFINITY, UID_INVALID, GID_INVALID, MODE_INVALID);
         }
 

@@ -1,7 +1,7 @@
 <?xml version='1.0'?>
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
-<!-- SPDX-License-Identifier: LGPL-2.1+ -->
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
 
 <refentry id="dnssec-trust-anchors.d" conditional='ENABLE_RESOLVE'
     xmlns:xi="http://www.w3.org/2001/XInclude">
@@ -138,7 +138,17 @@
     and follow the same overriding rules. They are text files with the
     <filename>.negative</filename> suffix. Empty lines and lines whose first character is
     <literal>;</literal> are ignored. Each line specifies one domain name which is the root of a DNS
-    subtree where validation shall be disabled.</para>
+    subtree where validation shall be disabled. For example:</para>
+
+    <programlisting># Reverse IPv4 mappings
+10.in-addr.arpa
+16.172.in-addr.arpa
+168.192.in-addr.arpa
+...
+# Some custom domains
+prod
+stag
+</programlisting>
 
     <para>Negative trust anchors are useful to support private DNS
     subtrees that are not referenced from the Internet DNS hierarchy,

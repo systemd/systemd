@@ -4,7 +4,7 @@
 <!ENTITY % entities SYSTEM "custom-entities.ent" >
 %entities;
 ]>
-<!-- SPDX-License-Identifier: LGPL-2.1+ -->
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
 
 <refentry id="udev_enumerate_add_match_subsystem"
   xmlns:xi="http://www.w3.org/2001/XInclude">
@@ -106,15 +106,15 @@
     <title>Return Value</title>
 
     <para>On success,
-    <function>udev_enumerate_add_match_subsystem</function>,
-    <function>udev_enumerate_add_nomatch_subsystem</function>,
-    <function>udev_enumerate_add_match_sysattr</function>,
-    <function>udev_enumerate_add_nomatch_sysattr</function>,
-    <function>udev_enumerate_add_match_property</function>,
-    <function>udev_enumerate_add_match_sysname</function>,
-    <function>udev_enumerate_add_match_tag</function>,
-    <function>udev_enumerate_add_match_parent</function> and
-    <function>udev_enumerate_add_match_is_initialized</function>
+    <function>udev_enumerate_add_match_subsystem()</function>,
+    <function>udev_enumerate_add_nomatch_subsystem()</function>,
+    <function>udev_enumerate_add_match_sysattr()</function>,
+    <function>udev_enumerate_add_nomatch_sysattr()</function>,
+    <function>udev_enumerate_add_match_property()</function>,
+    <function>udev_enumerate_add_match_sysname()</function>,
+    <function>udev_enumerate_add_match_tag()</function>,
+    <function>udev_enumerate_add_match_parent()</function> and
+    <function>udev_enumerate_add_match_is_initialized()</function>
     return an integer greater than, or equal to,
     <constant>0</constant>.</para>
   </refsect1>

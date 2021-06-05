@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
 #include <stdbool.h>
@@ -15,9 +15,10 @@ enum {
 };
 
 typedef enum {
-        EXEC_DIR_NONE          = 0,      /* No execdir flags */
-        EXEC_DIR_PARALLEL      = 1 << 0, /* Execute scripts in parallel, if possible */
-        EXEC_DIR_IGNORE_ERRORS = 1 << 1, /* Ignore non-zero exit status of scripts */
+        EXEC_DIR_NONE                 = 0,      /* No execdir flags */
+        EXEC_DIR_PARALLEL             = 1 << 0, /* Execute scripts in parallel, if possible */
+        EXEC_DIR_IGNORE_ERRORS        = 1 << 1, /* Ignore non-zero exit status of scripts */
+        EXEC_DIR_SET_SYSTEMD_EXEC_PID = 1 << 2, /* Set $SYSTEMD_EXEC_PID environment variable */
 } ExecDirFlags;
 
 typedef enum ExecCommandFlags {
@@ -26,7 +27,7 @@ typedef enum ExecCommandFlags {
         EXEC_COMMAND_NO_SETUID        = 1 << 2,
         EXEC_COMMAND_AMBIENT_MAGIC    = 1 << 3,
         EXEC_COMMAND_NO_ENV_EXPAND    = 1 << 4,
-        _EXEC_COMMAND_FLAGS_INVALID   = -1,
+        _EXEC_COMMAND_FLAGS_INVALID   = -EINVAL,
 } ExecCommandFlags;
 
 int execute_directories(
@@ -45,3 +46,5 @@ extern const gather_stdout_callback_t gather_environment[_STDOUT_CONSUME_MAX];
 
 const char* exec_command_flags_to_string(ExecCommandFlags i);
 ExecCommandFlags exec_command_flags_from_string(const char *s);
+
+int fexecve_or_execve(int executable_fd, const char *executable, char *const argv[], char *const envp[]);

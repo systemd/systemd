@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <linux/pkt_sched.h>
 
@@ -80,7 +80,7 @@ int config_parse_hierarchy_token_bucket_default_class(
         if (isempty(rvalue)) {
                 htb->default_class = 0;
 
-                qdisc = NULL;
+                TAKE_PTR(qdisc);
                 return 0;
         }
 
@@ -92,7 +92,7 @@ int config_parse_hierarchy_token_bucket_default_class(
                 return 0;
         }
 
-        qdisc = NULL;
+        TAKE_PTR(qdisc);
 
         return 0;
 }
@@ -133,7 +133,7 @@ int config_parse_hierarchy_token_bucket_u32(
         if (isempty(rvalue)) {
                 htb->rate_to_quantum = HTB_DEFAULT_RATE_TO_QUANTUM;
 
-                qdisc = NULL;
+                TAKE_PTR(qdisc);
                 return 0;
         }
 
@@ -145,7 +145,7 @@ int config_parse_hierarchy_token_bucket_u32(
                 return 0;
         }
 
-        qdisc = NULL;
+        TAKE_PTR(qdisc);
 
         return 0;
 }

@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <errno.h>
 #include <getopt.h>
@@ -19,6 +19,7 @@
 #include "hashmap.h"
 #include "main-func.h"
 #include "missing_sched.h"
+#include "parse-argument.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "pretty-print.h"
@@ -55,7 +56,7 @@ typedef struct Group {
 } Group;
 
 static unsigned arg_depth = 3;
-static unsigned arg_iterations = (unsigned) -1;
+static unsigned arg_iterations = UINT_MAX;
 static bool arg_batch = false;
 static bool arg_raw = false;
 static usec_t arg_delay = 1*USEC_PER_SEC;
@@ -89,6 +90,15 @@ static Group *group_free(Group *g) {
 
         free(g->path);
         return mfree(g);
+}
+
+
+static const char *maybe_format_timespan(char *buf, size_t l, usec_t t, usec_t accuracy) {
+        if (arg_raw) {
+               snprintf(buf, l, USEC_FMT, t);
+               return buf;
+        }
+        return format_timespan(buf, l, t, accuracy);
 }
 
 static const char *maybe_format_bytes(char *buf, size_t l, bool is_valid, uint64_t t) {
@@ -462,7 +472,7 @@ static int refresh_one(
                 if (!p)
                         return -ENOMEM;
 
-                path_simplify(p, false);
+                path_simplify(p);
 
                 r = refresh_one(controller, p, a, b, iteration, depth + 1, &child);
                 if (r < 0)
@@ -586,7 +596,7 @@ static void display(Hashmap *a) {
         Group **array;
         signed path_columns;
         unsigned rows, n = 0, j, maxtcpu = 0, maxtpath = 3; /* 3 for ellipsize() to work properly */
-        char buffer[MAX3(21, FORMAT_BYTES_MAX, FORMAT_TIMESPAN_MAX)];
+        char buffer[MAX4(21U, FORMAT_BYTES_MAX, FORMAT_TIMESPAN_MAX, DECIMAL_STR_MAX(usec_t))];
 
         assert(a);
 
@@ -605,7 +615,7 @@ static void display(Hashmap *a) {
         for (j = 0; j < n; j++) {
                 unsigned cputlen, pathtlen;
 
-                format_timespan(buffer, sizeof(buffer), (usec_t) (array[j]->cpu_usage / NSEC_PER_USEC), 0);
+                maybe_format_timespan(buffer, sizeof(buffer), (usec_t) (array[j]->cpu_usage / NSEC_PER_USEC), 0);
                 cputlen = strlen(buffer);
                 maxtcpu = MAX(maxtcpu, cputlen);
 
@@ -674,7 +684,7 @@ static void display(Hashmap *a) {
                         else
                                 fputs("      -", stdout);
                 } else
-                        printf(" %*s", maxtcpu, format_timespan(buffer, sizeof(buffer), (usec_t) (g->cpu_usage / NSEC_PER_USEC), 0));
+                        printf(" %*s", maxtcpu, maybe_format_timespan(buffer, sizeof(buffer), (usec_t) (g->cpu_usage / NSEC_PER_USEC), 0));
 
                 printf(" %8s", maybe_format_bytes(buffer, sizeof(buffer), g->memory_valid, g->memory));
                 printf(" %8s", maybe_format_bytes(buffer, sizeof(buffer), g->io_valid, g->io_input_bps));
@@ -713,11 +723,10 @@ static int help(void) {
                "  -b --batch          Run in batch mode, accepting no input\n"
                "     --depth=DEPTH    Maximum traversal depth (default: %u)\n"
                "  -M --machine=       Show container\n"
-               "\nSee the %s for details.\n"
-               , program_invocation_short_name
-               , arg_depth
-               , link
-        );
+               "\nSee the %s for details.\n",
+               program_invocation_short_name,
+               arg_depth,
+               link);
 
         return 0;
 }
@@ -859,12 +868,11 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_RECURSIVE:
-                        r = parse_boolean(optarg);
+                        r = parse_boolean_argument("--recursive=", optarg, &arg_recursive);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to parse --recursive= argument '%s': %m", optarg);
+                                return r;
 
-                        arg_recursive = r;
-                        arg_recursive_unset = r == 0;
+                        arg_recursive_unset = !r;
                         break;
 
                 case 'M':
@@ -907,7 +915,7 @@ static int run(int argc, char *argv[]) {
         CGroupMask mask;
         int r;
 
-        log_setup_cli();
+        log_setup();
 
         r = parse_argv(argc, argv);
         if (r <= 0)
@@ -935,7 +943,7 @@ static int run(int argc, char *argv[]) {
 
         signal(SIGWINCH, columns_lines_cache_reset);
 
-        if (arg_iterations == (unsigned) -1)
+        if (arg_iterations == UINT_MAX)
                 arg_iterations = on_tty() ? 0 : 1;
 
         while (!quit) {
@@ -945,7 +953,7 @@ static int run(int argc, char *argv[]) {
 
                 t = now(CLOCK_MONOTONIC);
 
-                if (t >= last_refresh + arg_delay || immediate_refresh) {
+                if (t >= usec_add(last_refresh, arg_delay) || immediate_refresh) {
 
                         r = refresh(root, a, b, iteration++);
                         if (r < 0)
@@ -968,9 +976,9 @@ static int run(int argc, char *argv[]) {
                 fflush(stdout);
 
                 if (arg_batch)
-                        (void) usleep(last_refresh + arg_delay - t);
+                        (void) usleep(usec_add(usec_sub_unsigned(last_refresh, t), arg_delay));
                 else {
-                        r = read_one_char(stdin, &key, last_refresh + arg_delay - t, NULL);
+                        r = read_one_char(stdin, &key, usec_add(usec_sub_unsigned(last_refresh, t), arg_delay), NULL);
                         if (r == -ETIMEDOUT)
                                 continue;
                         if (r < 0)
@@ -1045,10 +1053,7 @@ static int run(int argc, char *argv[]) {
                         break;
 
                 case '+':
-                        if (arg_delay < USEC_PER_SEC)
-                                arg_delay += USEC_PER_MSEC*250;
-                        else
-                                arg_delay += USEC_PER_SEC;
+                        arg_delay = usec_add(arg_delay, arg_delay < USEC_PER_SEC ? USEC_PER_MSEC * 250 : USEC_PER_SEC);
 
                         fprintf(stdout, "\nIncreased delay to %s.", format_timespan(h, sizeof(h), arg_delay, 0));
                         fflush(stdout);
@@ -1058,10 +1063,8 @@ static int run(int argc, char *argv[]) {
                 case '-':
                         if (arg_delay <= USEC_PER_MSEC*500)
                                 arg_delay = USEC_PER_MSEC*250;
-                        else if (arg_delay < USEC_PER_MSEC*1250)
-                                arg_delay -= USEC_PER_MSEC*250;
                         else
-                                arg_delay -= USEC_PER_SEC;
+                                arg_delay = usec_sub_unsigned(arg_delay, arg_delay < USEC_PER_MSEC * 1250 ? USEC_PER_MSEC * 250 : USEC_PER_SEC);
 
                         fprintf(stdout, "\nDecreased delay to %s.", format_timespan(h, sizeof(h), arg_delay, 0));
                         fflush(stdout);
@@ -1071,14 +1074,12 @@ static int run(int argc, char *argv[]) {
                 case '?':
                 case 'h':
 
-#define ON ANSI_HIGHLIGHT
-#define OFF ANSI_NORMAL
-
                         fprintf(stdout,
-                                "\t<" ON "p" OFF "> By path; <" ON "t" OFF "> By tasks/procs; <" ON "c" OFF "> By CPU; <" ON "m" OFF "> By memory; <" ON "i" OFF "> By I/O\n"
-                                "\t<" ON "+" OFF "> Inc. delay; <" ON "-" OFF "> Dec. delay; <" ON "%%" OFF "> Toggle time; <" ON "SPACE" OFF "> Refresh\n"
-                                "\t<" ON "P" OFF "> Toggle count userspace processes; <" ON "k" OFF "> Toggle count all processes\n"
-                                "\t<" ON "r" OFF "> Count processes recursively; <" ON "q" OFF "> Quit");
+                                "\t<%1$sp%2$s> By path; <%1$st%2$s> By tasks/procs; <%1$sc%2$s> By CPU; <%1$sm%2$s> By memory; <%1$si%2$s> By I/O\n"
+                                "\t<%1$s+%2$s> Inc. delay; <%1$s-%2$s> Dec. delay; <%1$s%%%2$s> Toggle time; <%1$sSPACE%2$s> Refresh\n"
+                                "\t<%1$sP%2$s> Toggle count userspace processes; <%1$sk%2$s> Toggle count all processes\n"
+                                "\t<%1$sr%2$s> Count processes recursively; <%1$sq%2$s> Quit",
+                                ansi_highlight(), ansi_normal());
                         fflush(stdout);
                         sleep(3);
                         break;

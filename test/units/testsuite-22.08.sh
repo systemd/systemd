@@ -1,4 +1,4 @@
-#! /bin/bash
+#!/bin/bash
 #
 # Verify tmpfiles can run in a root directory under a path prefix that contains
 # directories owned by unprivileged users, for example when a root file system
@@ -7,7 +7,8 @@
 # https://github.com/systemd/systemd/pull/11820
 #
 
-set -e
+set -eux
+set -o pipefail
 
 rm -fr /tmp/root /tmp/user
 mkdir -p /tmp/root /tmp/user/root
@@ -22,10 +23,12 @@ test -d /tmp/root/test2
 # Verify the command fails to write to a root-owned subdirectory under an
 # unprivileged user's directory when it's not part of the prefix, as expected
 # by the unsafe_transition function.
-! echo 'd /tmp/user/root/test' | systemd-tmpfiles --create -
-! test -e /tmp/user/root/test
-! echo 'd /user/root/test' | systemd-tmpfiles --root=/tmp --create -
-! test -e /tmp/user/root/test
+echo 'd /tmp/user/root/test' | systemd-tmpfiles --create - \
+    && { echo 'unexpected success'; exit 1; }
+test ! -e /tmp/user/root/test
+echo 'd /user/root/test' | systemd-tmpfiles --root=/tmp --create - \
+    && { echo 'unexpected success'; exit 1; }
+test ! -e /tmp/user/root/test
 
 # Verify the above works when all user-owned directories are in the prefix.
 echo 'd /test' | systemd-tmpfiles --root=/tmp/user/root --create -

@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <fcntl.h>
 #include <sys/ioctl.h>
@@ -21,6 +21,7 @@
 #include "parse-util.h"
 #include "path-util.h"
 #include "process-util.h"
+#include "stdio-util.h"
 #include "strv.h"
 #include "terminal-util.h"
 #include "udev-util.h"
@@ -175,7 +176,7 @@ int manager_add_user_by_name(
         assert(m);
         assert(name);
 
-        r = userdb_by_name(name, USERDB_AVOID_SHADOW, &ur);
+        r = userdb_by_name(name, USERDB_SUPPRESS_SHADOW, &ur);
         if (r < 0)
                 return r;
 
@@ -193,7 +194,7 @@ int manager_add_user_by_uid(
         assert(m);
         assert(uid_is_valid(uid));
 
-        r = userdb_by_uid(uid, USERDB_AVOID_SHADOW, &ur);
+        r = userdb_by_uid(uid, USERDB_SUPPRESS_SHADOW, &ur);
         if (r < 0)
                 return r;
 
@@ -245,7 +246,7 @@ int manager_process_seat_device(Manager *m, sd_device *d) {
 
         assert(m);
 
-        if (device_for_action(d, DEVICE_ACTION_REMOVE) ||
+        if (device_for_action(d, SD_DEVICE_REMOVE) ||
             sd_device_has_current_tag(d, "seat") <= 0) {
                 const char *syspath;
 
@@ -316,7 +317,7 @@ int manager_process_button_device(Manager *m, sd_device *d) {
         if (r < 0)
                 return r;
 
-        if (device_for_action(d, DEVICE_ACTION_REMOVE) ||
+        if (device_for_action(d, SD_DEVICE_REMOVE) ||
             sd_device_has_current_tag(d, "power-switch") <= 0) {
 
                 b = hashmap_get(m->buttons, sysname);
@@ -484,7 +485,7 @@ int config_parse_n_autovts(
 static int vt_is_busy(unsigned vtnr) {
         struct vt_stat vt_stat;
         int r;
-        _cleanup_close_ int fd;
+        _cleanup_close_ int fd = -1;
 
         assert(vtnr >= 1);
 
@@ -533,7 +534,7 @@ int manager_spawn_autovt(Manager *m, unsigned vtnr) {
                         return -EBUSY;
         }
 
-        snprintf(name, sizeof(name), "autovt@tty%u.service", vtnr);
+        xsprintf(name, "autovt@tty%u.service", vtnr);
         r = sd_bus_call_method(
                         m->bus,
                         "org.freedesktop.systemd1",

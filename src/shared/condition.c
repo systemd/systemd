@@ -1,10 +1,11 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <errno.h>
 #include <fcntl.h>
 #include <fnmatch.h>
 #include <limits.h>
 #include <stdlib.h>
+#include <sys/stat.h>
 #include <sys/types.h>
 #include <sys/utsname.h>
 #include <time.h>
@@ -43,6 +44,7 @@
 #include "string-table.h"
 #include "string-util.h"
 #include "tomoyo-util.h"
+#include "user-record.h"
 #include "user-util.h"
 #include "util.h"
 #include "virt.h"
@@ -145,7 +147,7 @@ typedef enum {
         ORDER_EQUAL,
         ORDER_UNEQUAL,
         _ORDER_MAX,
-        _ORDER_INVALID = -1
+        _ORDER_INVALID = -EINVAL,
 } OrderOperator;
 
 static OrderOperator parse_order(const char **s) {
@@ -246,7 +248,7 @@ static int condition_test_kernel_version(Condition *c, char **env) {
                                         return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Unexpected end of expression: %s", p);
                         }
 
-                        r = test_order(str_verscmp(u.release, s), order);
+                        r = test_order(strverscmp_improved(u.release, s), order);
                 } else
                         /* No prefix? Then treat as glob string */
                         r = fnmatch(s, u.release, 0) == 0;
@@ -353,6 +355,15 @@ static int condition_test_control_group_controller(Condition *c, char **env) {
         assert(c->parameter);
         assert(c->type == CONDITION_CONTROL_GROUP_CONTROLLER);
 
+        if (streq(c->parameter, "v2"))
+                return cg_all_unified();
+        if (streq(c->parameter, "v1")) {
+                r = cg_all_unified();
+                if (r < 0)
+                        return r;
+                return !r;
+        }
+
         r = cg_mask_supported(&system_mask);
         if (r < 0)
                 return log_debug_errno(r, "Failed to determine supported controllers: %m");
@@ -440,6 +451,81 @@ static int condition_test_architecture(Condition *c, char **env) {
         return a == b;
 }
 
+#define DTCOMPAT_FILE "/sys/firmware/devicetree/base/compatible"
+static int condition_test_firmware_devicetree_compatible(const char *dtcarg) {
+        int r;
+        _cleanup_free_ char *dtcompat = NULL;
+        _cleanup_strv_free_ char **dtcompatlist = NULL;
+        size_t size;
+
+        r = read_full_virtual_file(DTCOMPAT_FILE, &dtcompat, &size);
+        if (r < 0) {
+                /* if the path doesn't exist it is incompatible */
+                if (r != -ENOENT)
+                        log_debug_errno(r, "Failed to open() '%s', assuming machine is incompatible: %m", DTCOMPAT_FILE);
+                return false;
+        }
+
+        /* Not sure this can happen, but play safe. */
+        if (size == 0) {
+                log_debug("%s has zero length, assuming machine is incompatible", DTCOMPAT_FILE);
+                return false;
+        }
+
+        /*
+         * /sys/firmware/devicetree/base/compatible consists of one or more
+         * strings, each ending in '\0'. So the last character in dtcompat must
+         * be a '\0'.
+         */
+        if (dtcompat[size - 1] != '\0') {
+                log_debug("%s is in an unknown format, assuming machine is incompatible", DTCOMPAT_FILE);
+                return false;
+        }
+
+        dtcompatlist = strv_parse_nulstr(dtcompat, size);
+        if (!dtcompatlist)
+                return -ENOMEM;
+
+        return strv_contains(dtcompatlist, dtcarg);
+}
+
+static int condition_test_firmware(Condition *c, char **env) {
+        sd_char *dtc;
+
+        assert(c);
+        assert(c->parameter);
+        assert(c->type == CONDITION_FIRMWARE);
+
+        if (streq(c->parameter, "device-tree")) {
+                if (access("/sys/firmware/device-tree/", F_OK) < 0) {
+                        if (errno != ENOENT)
+                                log_debug_errno(errno, "Unexpected error when checking for /sys/firmware/device-tree/: %m");
+                        return false;
+                } else
+                        return true;
+        } else if ((dtc = startswith(c->parameter, "device-tree-compatible("))) {
+                _cleanup_free_ char *dtcarg = NULL;
+                char *end;
+
+                end = strchr(dtc, ')');
+                if (!end || *(end + 1) != '\0') {
+                        log_debug("Malformed Firmware condition \"%s\"", c->parameter);
+                        return false;
+                }
+
+                dtcarg = strndup(dtc, end - dtc);
+                if (!dtcarg)
+                        return -ENOMEM;
+
+                return condition_test_firmware_devicetree_compatible(dtcarg);
+        } else if (streq(c->parameter, "uefi"))
+                return is_efi_boot();
+        else {
+                log_debug("Unsupported Firmware condition \"%s\"", c->parameter);
+                return false;
+        }
+}
+
 static int condition_test_host(Condition *c, char **env) {
         _cleanup_free_ char *h = NULL;
         sd_id128_t x, y;
@@ -479,6 +565,32 @@ static int condition_test_ac_power(Condition *c, char **env) {
         return (on_ac_power() != 0) == !!r;
 }
 
+static int has_tpm2(void) {
+        int r;
+
+        /* Checks whether the system has at least one TPM2 resource manager device, i.e. at least one "tpmrm"
+         * class device */
+
+        r = dir_is_empty("/sys/class/tpmrm");
+        if (r == 0)
+                return true; /* nice! we have a device */
+
+        /* Hmm, so Linux doesn't know of the TPM2 device (or we couldn't check for it), most likely because
+         * the driver wasn't loaded yet. Let's see if the firmware knows about a TPM2 device, in this
+         * case. This way we can answer the TPM2 question already during early boot (where we most likely
+         * need it) */
+        if (efi_has_tpm2())
+                return true;
+
+        /* OK, this didn't work either, in this case propagate the original errors */
+        if (r == -ENOENT)
+                return false;
+        if (r < 0)
+                return log_debug_errno(r, "Failed to determine whether system has TPM2 support: %m");
+
+        return !r;
+}
+
 static int condition_test_security(Condition *c, char **env) {
         assert(c);
         assert(c->parameter);
@@ -498,6 +610,8 @@ static int condition_test_security(Condition *c, char **env) {
                 return mac_tomoyo_use();
         if (streq(c->parameter, "uefi-secureboot"))
                 return is_efi_secure_boot();
+        if (streq(c->parameter, "tpm2"))
+                return has_tpm2();
 
         return false;
 }
@@ -727,6 +841,14 @@ static int condition_test_path_is_read_write(Condition *c, char **env) {
         return path_is_read_only_fs(c->parameter) <= 0;
 }
 
+static int condition_test_cpufeature(Condition *c, char **env) {
+        assert(c);
+        assert(c->parameter);
+        assert(c->type == CONDITION_CPU_FEATURE);
+
+        return has_cpu_with_flag(ascii_strlower(c->parameter));
+}
+
 static int condition_test_path_is_encrypted(Condition *c, char **env) {
         int r;
 
@@ -797,6 +919,7 @@ int condition_test(Condition *c, char **env) {
                 [CONDITION_HOST]                     = condition_test_host,
                 [CONDITION_AC_POWER]                 = condition_test_ac_power,
                 [CONDITION_ARCHITECTURE]             = condition_test_architecture,
+                [CONDITION_FIRMWARE]                 = condition_test_firmware,
                 [CONDITION_NEEDS_UPDATE]             = condition_test_needs_update,
                 [CONDITION_FIRST_BOOT]               = condition_test_first_boot,
                 [CONDITION_USER]                     = condition_test_user,
@@ -805,6 +928,7 @@ int condition_test(Condition *c, char **env) {
                 [CONDITION_CPUS]                     = condition_test_cpus,
                 [CONDITION_MEMORY]                   = condition_test_memory,
                 [CONDITION_ENVIRONMENT]              = condition_test_environment,
+                [CONDITION_CPU_FEATURE]              = condition_test_cpufeature,
         };
 
         int r, b;
@@ -902,6 +1026,7 @@ void condition_dump_list(Condition *first, FILE *f, const char *prefix, conditio
 
 static const char* const condition_type_table[_CONDITION_TYPE_MAX] = {
         [CONDITION_ARCHITECTURE] = "ConditionArchitecture",
+        [CONDITION_FIRMWARE] = "ConditionFirmware",
         [CONDITION_VIRTUALIZATION] = "ConditionVirtualization",
         [CONDITION_HOST] = "ConditionHost",
         [CONDITION_KERNEL_COMMAND_LINE] = "ConditionKernelCommandLine",
@@ -927,12 +1052,14 @@ static const char* const condition_type_table[_CONDITION_TYPE_MAX] = {
         [CONDITION_CPUS] = "ConditionCPUs",
         [CONDITION_MEMORY] = "ConditionMemory",
         [CONDITION_ENVIRONMENT] = "ConditionEnvironment",
+        [CONDITION_CPU_FEATURE] = "ConditionCPUFeature",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(condition_type, ConditionType);
 
 static const char* const assert_type_table[_CONDITION_TYPE_MAX] = {
         [CONDITION_ARCHITECTURE] = "AssertArchitecture",
+        [CONDITION_FIRMWARE] = "AssertFirmware",
         [CONDITION_VIRTUALIZATION] = "AssertVirtualization",
         [CONDITION_HOST] = "AssertHost",
         [CONDITION_KERNEL_COMMAND_LINE] = "AssertKernelCommandLine",
@@ -958,6 +1085,7 @@ static const char* const assert_type_table[_CONDITION_TYPE_MAX] = {
         [CONDITION_CPUS] = "AssertCPUs",
         [CONDITION_MEMORY] = "AssertMemory",
         [CONDITION_ENVIRONMENT] = "AssertEnvironment",
+        [CONDITION_CPU_FEATURE] = "AssertCPUFeature",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(assert_type, ConditionType);

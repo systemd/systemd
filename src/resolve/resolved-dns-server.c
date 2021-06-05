@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "sd-messages.h"
 
@@ -240,6 +240,7 @@ static void dns_server_reset_counters(DnsServer *s) {
         s->n_failed_tcp = 0;
         s->n_failed_tls = 0;
         s->packet_truncated = false;
+        s->packet_invalid = false;
         s->verified_usec = 0;
 
         /* Note that we do not reset s->packet_bad_opt and s->packet_rrsig_missing here. We reset them only when the
@@ -254,7 +255,7 @@ static void dns_server_reset_counters(DnsServer *s) {
          * incomplete. */
 }
 
-void dns_server_packet_received(DnsServer *s, int protocol, DnsServerFeatureLevel level, size_t size) {
+void dns_server_packet_received(DnsServer *s, int protocol, DnsServerFeatureLevel level, size_t fragsize) {
         assert(s);
 
         if (protocol == IPPROTO_UDP) {
@@ -281,33 +282,33 @@ void dns_server_packet_received(DnsServer *s, int protocol, DnsServerFeatureLeve
         if (s->packet_bad_opt && level >= DNS_SERVER_FEATURE_LEVEL_EDNS0)
                 level = DNS_SERVER_FEATURE_LEVEL_EDNS0 - 1;
 
-        /* Even if we successfully receive a reply to a request announcing support for large packets,
-                that does not mean we can necessarily receive large packets. */
+        /* Even if we successfully receive a reply to a request announcing support for large packets, that
+         * does not mean we can necessarily receive large packets. */
         if (level == DNS_SERVER_FEATURE_LEVEL_LARGE)
                 level = DNS_SERVER_FEATURE_LEVEL_LARGE - 1;
 
         dns_server_verified(s, level);
 
-        /* Remember the size of the largest UDP packet we received from a server,
-           we know that we can always announce support for packets with at least
-           this size. */
-        if (protocol == IPPROTO_UDP && s->received_udp_packet_max < size)
-                s->received_udp_packet_max = size;
+        /* Remember the size of the largest UDP packet fragment we received from a server, we know that we
+         * can always announce support for packets with at least this size. */
+        if (protocol == IPPROTO_UDP && s->received_udp_fragment_max < fragsize)
+                s->received_udp_fragment_max = fragsize;
 }
 
 void dns_server_packet_lost(DnsServer *s, int protocol, DnsServerFeatureLevel level) {
         assert(s);
         assert(s->manager);
 
-        if (s->possible_feature_level == level) {
-                if (protocol == IPPROTO_UDP)
-                        s->n_failed_udp++;
-                else if (protocol == IPPROTO_TCP) {
-                        if (DNS_SERVER_FEATURE_LEVEL_IS_TLS(level))
-                                s->n_failed_tls++;
-                        else
-                                s->n_failed_tcp++;
-                }
+        if (s->possible_feature_level != level)
+                return;
+
+        if (protocol == IPPROTO_UDP)
+                s->n_failed_udp++;
+        else if (protocol == IPPROTO_TCP) {
+                if (DNS_SERVER_FEATURE_LEVEL_IS_TLS(level))
+                        s->n_failed_tls++;
+                else
+                        s->n_failed_tcp++;
         }
 }
 
@@ -364,6 +365,41 @@ void dns_server_packet_rcode_downgrade(DnsServer *s, DnsServerFeatureLevel level
         }
 
         log_debug("Downgrading transaction feature level fixed an RCODE error, downgrading server %s too.", strna(dns_server_string_full(s)));
+}
+
+void dns_server_packet_invalid(DnsServer *s, DnsServerFeatureLevel level) {
+        assert(s);
+
+        /* Invoked whenever we got a packet we couldn't parse at all */
+
+        if (s->possible_feature_level != level)
+                return;
+
+        s->packet_invalid = true;
+}
+
+void dns_server_packet_do_off(DnsServer *s, DnsServerFeatureLevel level) {
+        assert(s);
+
+        /* Invoked whenever the DO flag was not copied from our request to the response. */
+
+        if (s->possible_feature_level != level)
+                return;
+
+        s->packet_do_off = true;
+}
+
+void dns_server_packet_udp_fragmented(DnsServer *s, size_t fragsize) {
+        assert(s);
+
+        /* Invoked whenever we got a fragmented UDP packet. Let's do two things: keep track of the largest
+         * fragment we ever received from the server, and remember this, so that we can use it to lower the
+         * advertised packet size in EDNS0 */
+
+        if (s->received_udp_fragment_max < fragsize)
+                s->received_udp_fragment_max = fragsize;
+
+        s->packet_fragmented = true;
 }
 
 static bool dns_server_grace_period_expired(DnsServer *s) {
@@ -434,21 +470,46 @@ DnsServerFeatureLevel dns_server_possible_feature_level(DnsServer *s) {
                          * work. Upgrade back to UDP again. */
                         log_debug("Reached maximum number of failed TCP connection attempts, trying UDP again...");
                         s->possible_feature_level = DNS_SERVER_FEATURE_LEVEL_UDP;
+
                 } else if (s->n_failed_tls > 0 &&
-                           DNS_SERVER_FEATURE_LEVEL_IS_TLS(s->possible_feature_level) && dns_server_get_dns_over_tls_mode(s) != DNS_OVER_TLS_YES) {
+                           DNS_SERVER_FEATURE_LEVEL_IS_TLS(s->possible_feature_level) &&
+                           dns_server_get_dns_over_tls_mode(s) != DNS_OVER_TLS_YES) {
 
                         /* We tried to connect using DNS-over-TLS, and it didn't work. Downgrade to plaintext UDP
                          * if we don't require DNS-over-TLS */
 
                         log_debug("Server doesn't support DNS-over-TLS, downgrading protocol...");
                         s->possible_feature_level--;
-                } else if (s->packet_bad_opt &&
-                           s->possible_feature_level >= DNS_SERVER_FEATURE_LEVEL_EDNS0) {
 
-                        /* A reply to one of our EDNS0 queries didn't carry a valid OPT RR, then downgrade to below
-                         * EDNS0 levels. After all, some records generate different responses with and without OPT RR
-                         * in the request. Example:
-                         * https://open.nlnetlabs.nl/pipermail/dnssec-trigger/2014-November/000376.html */
+                } else if (s->packet_invalid &&
+                           s->possible_feature_level > DNS_SERVER_FEATURE_LEVEL_UDP &&
+                           s->possible_feature_level != DNS_SERVER_FEATURE_LEVEL_TLS_PLAIN) {
+
+                        /* Downgrade from DO to EDNS0 + from EDNS0 to UDP, from TLS+DO to plain TLS. Or in
+                         * other words, if we receive a packet we cannot parse jump to the next lower feature
+                         * level that actually has an influence on the packet layout (and not just the
+                         * transport). */
+
+                        log_debug("Got invalid packet from server, downgrading protocol...");
+                        s->possible_feature_level =
+                                s->possible_feature_level == DNS_SERVER_FEATURE_LEVEL_TLS_DO  ? DNS_SERVER_FEATURE_LEVEL_TLS_PLAIN :
+                                DNS_SERVER_FEATURE_LEVEL_IS_DNSSEC(s->possible_feature_level) ? DNS_SERVER_FEATURE_LEVEL_EDNS0 :
+                                                                                                DNS_SERVER_FEATURE_LEVEL_UDP;
+
+                } else if (s->packet_bad_opt &&
+                           DNS_SERVER_FEATURE_LEVEL_IS_EDNS0(s->possible_feature_level) &&
+                           dns_server_get_dnssec_mode(s) != DNSSEC_YES &&
+                           dns_server_get_dns_over_tls_mode(s) != DNS_OVER_TLS_YES) {
+
+                        /* A reply to one of our EDNS0 queries didn't carry a valid OPT RR, then downgrade to
+                         * below EDNS0 levels. After all, some servers generate different responses with and
+                         * without OPT RR in the request. Example:
+                         *
+                         * https://open.nlnetlabs.nl/pipermail/dnssec-trigger/2014-November/000376.html
+                         *
+                         * If we are in strict DNSSEC or DoT mode, we don't do this kind of downgrade
+                         * however, as both modes imply EDNS0 to work (DNSSEC strictly requires it, and DoT
+                         * only in our implementation). */
 
                         log_debug("Server doesn't support EDNS(0) properly, downgrading feature level...");
                         s->possible_feature_level = DNS_SERVER_FEATURE_LEVEL_UDP;
@@ -457,43 +518,69 @@ DnsServerFeatureLevel dns_server_possible_feature_level(DnsServer *s) {
                          * when we can't use EDNS because the DNS server doesn't support it. */
                         log_level = LOG_NOTICE;
 
-                } else if (s->packet_rrsig_missing &&
-                           s->possible_feature_level >= DNS_SERVER_FEATURE_LEVEL_DO) {
+                } else if (s->packet_do_off &&
+                           DNS_SERVER_FEATURE_LEVEL_IS_DNSSEC(s->possible_feature_level) &&
+                           dns_server_get_dnssec_mode(s) != DNSSEC_YES) {
 
-                        /* RRSIG data was missing on a EDNS0 packet with DO bit set. This means the server doesn't
-                         * augment responses with DNSSEC RRs. If so, let's better not ask the server for it anymore,
-                         * after all some servers generate different replies depending if an OPT RR is in the query or
-                         * not. */
+                        /* The server didn't copy the DO bit from request to response, thus DNSSEC is not
+                         * correctly implemented, let's downgrade if that's allowed. */
+
+                        log_debug("Detected server didn't copy DO flag from request to response, downgrading feature level...");
+                        s->possible_feature_level = DNS_SERVER_FEATURE_LEVEL_IS_TLS(s->possible_feature_level) ? DNS_SERVER_FEATURE_LEVEL_TLS_PLAIN :
+                                                                                                                 DNS_SERVER_FEATURE_LEVEL_EDNS0;
+
+                } else if (s->packet_rrsig_missing &&
+                           DNS_SERVER_FEATURE_LEVEL_IS_DNSSEC(s->possible_feature_level) &&
+                           dns_server_get_dnssec_mode(s) != DNSSEC_YES) {
+
+                        /* RRSIG data was missing on a EDNS0 packet with DO bit set. This means the server
+                         * doesn't augment responses with DNSSEC RRs. If so, let's better not ask the server
+                         * for it anymore, after all some servers generate different replies depending if an
+                         * OPT RR is in the query or not. If we are in strict DNSSEC mode, don't allow such
+                         * downgrades however, since a DNSSEC feature level is a requirement for strict
+                         * DNSSEC mode. */
 
                         log_debug("Detected server responses lack RRSIG records, downgrading feature level...");
-                        s->possible_feature_level = DNS_SERVER_FEATURE_LEVEL_IS_TLS(s->possible_feature_level) ? DNS_SERVER_FEATURE_LEVEL_TLS_PLAIN : DNS_SERVER_FEATURE_LEVEL_EDNS0;
+                        s->possible_feature_level = DNS_SERVER_FEATURE_LEVEL_IS_TLS(s->possible_feature_level) ? DNS_SERVER_FEATURE_LEVEL_TLS_PLAIN :
+                                                                                                                 DNS_SERVER_FEATURE_LEVEL_EDNS0;
 
                 } else if (s->n_failed_udp >= DNS_SERVER_FEATURE_RETRY_ATTEMPTS &&
-                           s->possible_feature_level >= (dns_server_get_dnssec_mode(s) == DNSSEC_YES ? DNS_SERVER_FEATURE_LEVEL_LARGE : DNS_SERVER_FEATURE_LEVEL_UDP)) {
+                           DNS_SERVER_FEATURE_LEVEL_IS_UDP(s->possible_feature_level) &&
+                           ((s->possible_feature_level != DNS_SERVER_FEATURE_LEVEL_DO) || dns_server_get_dnssec_mode(s) != DNSSEC_YES)) {
 
-                        /* We lost too many UDP packets in a row, and are on a feature level of UDP or higher. If the
-                         * packets are lost, maybe the server cannot parse them, hence downgrading sounds like a good
-                         * idea. We might downgrade all the way down to TCP this way.
+                        /* We lost too many UDP packets in a row, and are on an UDP feature level. If the
+                         * packets are lost, maybe the server cannot parse them, hence downgrading sounds
+                         * like a good idea. We might downgrade all the way down to TCP this way.
                          *
                          * If strict DNSSEC mode is used we won't downgrade below DO level however, as packet loss
                          * might have many reasons, a broken DNSSEC implementation being only one reason. And if the
                          * user is strict on DNSSEC, then let's assume that DNSSEC is not the fault here. */
 
                         log_debug("Lost too many UDP packets, downgrading feature level...");
-                        s->possible_feature_level--;
+                        if (s->possible_feature_level == DNS_SERVER_FEATURE_LEVEL_DO) /* skip over TLS_PLAIN */
+                                s->possible_feature_level = DNS_SERVER_FEATURE_LEVEL_EDNS0;
+                        else
+                                s->possible_feature_level--;
 
                 } else if (s->n_failed_tcp >= DNS_SERVER_FEATURE_RETRY_ATTEMPTS &&
                            s->packet_truncated &&
-                           s->possible_feature_level > (dns_server_get_dnssec_mode(s) == DNSSEC_YES ? DNS_SERVER_FEATURE_LEVEL_LARGE : DNS_SERVER_FEATURE_LEVEL_UDP)) {
+                           s->possible_feature_level > DNS_SERVER_FEATURE_LEVEL_UDP &&
+                           DNS_SERVER_FEATURE_LEVEL_IS_UDP(s->possible_feature_level) &&
+                           (!DNS_SERVER_FEATURE_LEVEL_IS_DNSSEC(s->possible_feature_level) || dns_server_get_dnssec_mode(s) != DNSSEC_YES)) {
 
-                         /* We got too many TCP connection failures in a row, we had at least one truncated packet, and
-                          * are on a feature level above UDP. By downgrading things and getting rid of DNSSEC or EDNS0
-                          * data we hope to make the packet smaller, so that it still works via UDP given that TCP
-                          * appears not to be a fallback. Note that if we are already at the lowest UDP level, we don't
-                          * go further down, since that's TCP, and TCP failed too often after all. */
+                         /* We got too many TCP connection failures in a row, we had at least one truncated
+                          * packet, and are on feature level above UDP. By downgrading things and getting rid
+                          * of DNSSEC or EDNS0 data we hope to make the packet smaller, so that it still
+                          * works via UDP given that TCP appears not to be a fallback. Note that if we are
+                          * already at the lowest UDP level, we don't go further down, since that's TCP, and
+                          * TCP failed too often after all. */
 
                         log_debug("Got too many failed TCP connection failures and truncated UDP packets, downgrading feature level...");
-                        s->possible_feature_level--;
+
+                        if (DNS_SERVER_FEATURE_LEVEL_IS_DNSSEC(s->possible_feature_level))
+                                s->possible_feature_level = DNS_SERVER_FEATURE_LEVEL_EDNS0; /* Go DNSSEC → EDNS0 */
+                        else
+                                s->possible_feature_level = DNS_SERVER_FEATURE_LEVEL_UDP; /* Go EDNS0 → UDP */
                 }
 
                 if (p != s->possible_feature_level) {
@@ -530,12 +617,49 @@ int dns_server_adjust_opt(DnsServer *server, DnsPacket *packet, DnsServerFeature
 
         edns_do = level >= DNS_SERVER_FEATURE_LEVEL_DO;
 
-        if (level >= DNS_SERVER_FEATURE_LEVEL_LARGE)
-                packet_size = DNS_PACKET_UNICAST_SIZE_LARGE_MAX;
-        else
-                packet_size = server->received_udp_packet_max;
+        if (level == DNS_SERVER_FEATURE_LEVEL_LARGE) {
+                size_t udp_size;
 
-        return dns_packet_append_opt(packet, packet_size, edns_do, 0, NULL);
+                /* In large mode, advertise the local MTU, in order to avoid fragmentation (for security
+                 * reasons) – except if we are talking to localhost (where the security considerations don't
+                 * matter). If we see fragmentation, lower the reported size to the largest fragment, to
+                 * avoid it. */
+
+                udp_size = udp_header_size(server->family);
+
+                if (in_addr_is_localhost(server->family, &server->address) > 0)
+                        packet_size = 65536 - udp_size; /* force linux loopback MTU if localhost address */
+                else {
+                        /* Use the MTU pointing to the server, subtract the IP/UDP header size */
+                        packet_size = LESS_BY(dns_server_get_mtu(server), udp_size);
+
+                        /* On the Internet we want to avoid fragmentation for security reasons. If we saw
+                         * fragmented packets, the above was too large, let's clamp it to the largest
+                         * fragment we saw */
+                        if (server->packet_fragmented)
+                                packet_size = MIN(server->received_udp_fragment_max, packet_size);
+
+                        /* Let's not pick ridiculously large sizes, i.e. not more than 4K. No one appears
+                         * to ever use such large sized on the Internet IRL, hence let's not either. */
+                        packet_size = MIN(packet_size, 4096U);
+                }
+
+                /* Strictly speaking we quite possibly can receive larger datagrams than the MTU (since the
+                 * MTU is for egress, not for ingress), but more often than not the value is symmetric, and
+                 * we want something that does the right thing in the majority of cases, and not just in the
+                 * theoretical edge case. */
+        } else
+                /* In non-large mode, let's advertise the size of the largest fragment we ever managed to accept. */
+                packet_size = server->received_udp_fragment_max;
+
+        /* Safety clamp, never advertise less than 512 or more than 65535 */
+        packet_size = CLAMP(packet_size,
+                            DNS_PACKET_UNICAST_SIZE_MAX,
+                            DNS_PACKET_SIZE_MAX);
+
+        log_debug("Announcing packet size %zu in egress EDNS(0) packet.", packet_size);
+
+        return dns_packet_append_opt(packet, packet_size, edns_do, /* include_rfc6975 = */ true, NULL, 0, NULL);
 }
 
 int dns_server_ifindex(const DnsServer *s) {
@@ -589,13 +713,19 @@ bool dns_server_dnssec_supported(DnsServer *server) {
 
         /* Returns whether the server supports DNSSEC according to what we know about it */
 
-        if (server->possible_feature_level < DNS_SERVER_FEATURE_LEVEL_DO)
+        if (dns_server_get_dnssec_mode(server) == DNSSEC_YES) /* If strict DNSSEC mode is enabled, always assume DNSSEC mode is supported. */
+                return true;
+
+        if (!DNS_SERVER_FEATURE_LEVEL_IS_DNSSEC(server->possible_feature_level))
                 return false;
 
         if (server->packet_bad_opt)
                 return false;
 
         if (server->packet_rrsig_missing)
+                return false;
+
+        if (server->packet_do_off)
                 return false;
 
         /* DNSSEC servers need to support TCP properly (see RFC5966), if they don't, we assume DNSSEC is borked too */
@@ -618,6 +748,15 @@ void dns_server_warn_downgrade(DnsServer *server) {
                    "DNS_SERVER_FEATURE_LEVEL=%s", dns_server_feature_level_to_string(server->possible_feature_level));
 
         server->warned_downgrade = true;
+}
+
+size_t dns_server_get_mtu(DnsServer *s) {
+        assert(s);
+
+        if (s->link && s->link->mtu != 0)
+                return s->link->mtu;
+
+        return manager_find_mtu(s->manager);
 }
 
 static void dns_server_hash_func(const DnsServer *s, struct siphash *state) {
@@ -666,18 +805,22 @@ void dns_server_unlink_all(DnsServer *first) {
         dns_server_unlink_all(next);
 }
 
-void dns_server_unlink_marked(DnsServer *first) {
+bool dns_server_unlink_marked(DnsServer *first) {
         DnsServer *next;
+        bool changed;
 
         if (!first)
-                return;
+                return false;
 
         next = first->servers_next;
 
-        if (first->marked)
+        if (first->marked) {
+                changed = true;
                 dns_server_unlink(first);
+        } else
+                changed = false;
 
-        dns_server_unlink_marked(next);
+        return changed || dns_server_unlink_marked(next);
 }
 
 void dns_server_mark_all(DnsServer *first) {
@@ -724,10 +867,11 @@ DnsServer *manager_set_dns_server(Manager *m, DnsServer *s) {
         if (m->current_dns_server == s)
                 return s;
 
+        /* Let's log about the server switch, at debug level. Except if we switch from a non-fallback server
+         * to a fallback server or back, since that is noteworthy and possibly a configuration issue */
         if (s)
-                log_debug("Switching to %s DNS server %s.",
-                          dns_server_type_to_string(s->type),
-                          strna(dns_server_string_full(s)));
+                log_full((s->type == DNS_SERVER_FALLBACK) != (m->current_dns_server && m->current_dns_server->type == DNS_SERVER_FALLBACK) ? LOG_NOTICE : LOG_DEBUG,
+                         "Switching to %s DNS server %s.", dns_server_type_to_string(s->type), strna(dns_server_string_full(s)));
 
         dns_server_unref(m->current_dns_server);
         m->current_dns_server = dns_server_ref(s);
@@ -771,23 +915,25 @@ DnsServer *manager_get_dns_server(Manager *m) {
         return m->current_dns_server;
 }
 
-void manager_next_dns_server(Manager *m) {
+void manager_next_dns_server(Manager *m, DnsServer *if_current) {
         assert(m);
 
-        /* If there's currently no DNS server set, then the next
-         * manager_get_dns_server() will find one */
+        /* If the DNS server is already a different one than the one specified in 'if_current' don't do anything */
+        if (if_current && m->current_dns_server != if_current)
+                return;
+
+        /* If there's currently no DNS server set, then the next manager_get_dns_server() will find one */
         if (!m->current_dns_server)
                 return;
 
-        /* Change to the next one, but make sure to follow the linked
-         * list only if the server is still linked. */
+        /* Change to the next one, but make sure to follow the linked list only if the server is still
+         * linked. */
         if (m->current_dns_server->linked && m->current_dns_server->servers_next) {
                 manager_set_dns_server(m, m->current_dns_server->servers_next);
                 return;
         }
 
-        /* If there was no next one, then start from the beginning of
-         * the list */
+        /* If there was no next one, then start from the beginning of the list */
         if (m->current_dns_server->type == DNS_SERVER_FALLBACK)
                 manager_set_dns_server(m, m->fallback_dns_servers);
         else
@@ -837,10 +983,11 @@ void dns_server_reset_features(DnsServer *s) {
         s->verified_feature_level = _DNS_SERVER_FEATURE_LEVEL_INVALID;
         s->possible_feature_level = DNS_SERVER_FEATURE_LEVEL_BEST;
 
-        s->received_udp_packet_max = DNS_PACKET_UNICAST_SIZE_MAX;
+        s->received_udp_fragment_max = DNS_PACKET_UNICAST_SIZE_MAX;
 
         s->packet_bad_opt = false;
         s->packet_rrsig_missing = false;
+        s->packet_do_off = false;
 
         s->features_grace_period_usec = DNS_SERVER_FEATURE_GRACE_PERIOD_MIN_USEC;
 
@@ -896,18 +1043,22 @@ void dns_server_dump(DnsServer *s, FILE *f) {
         fputc('\n', f);
 
         fprintf(f,
-                "\tMaximum UDP packet size received: %zu\n"
+                "\tMaximum UDP fragment size received: %zu\n"
                 "\tFailed UDP attempts: %u\n"
                 "\tFailed TCP attempts: %u\n"
                 "\tSeen truncated packet: %s\n"
                 "\tSeen OPT RR getting lost: %s\n"
-                "\tSeen RRSIG RR missing: %s\n",
-                s->received_udp_packet_max,
+                "\tSeen RRSIG RR missing: %s\n"
+                "\tSeen invalid packet: %s\n"
+                "\tServer dropped DO flag: %s\n",
+                s->received_udp_fragment_max,
                 s->n_failed_udp,
                 s->n_failed_tcp,
                 yes_no(s->packet_truncated),
                 yes_no(s->packet_bad_opt),
-                yes_no(s->packet_rrsig_missing));
+                yes_no(s->packet_rrsig_missing),
+                yes_no(s->packet_invalid),
+                yes_no(s->packet_do_off));
 }
 
 void dns_server_unref_stream(DnsServer *s) {
@@ -935,19 +1086,19 @@ DnsScope *dns_server_scope(DnsServer *s) {
 }
 
 static const char* const dns_server_type_table[_DNS_SERVER_TYPE_MAX] = {
-        [DNS_SERVER_SYSTEM] = "system",
+        [DNS_SERVER_SYSTEM]   = "system",
         [DNS_SERVER_FALLBACK] = "fallback",
-        [DNS_SERVER_LINK] = "link",
+        [DNS_SERVER_LINK]     = "link",
 };
 DEFINE_STRING_TABLE_LOOKUP(dns_server_type, DnsServerType);
 
 static const char* const dns_server_feature_level_table[_DNS_SERVER_FEATURE_LEVEL_MAX] = {
-        [DNS_SERVER_FEATURE_LEVEL_TCP] = "TCP",
-        [DNS_SERVER_FEATURE_LEVEL_UDP] = "UDP",
-        [DNS_SERVER_FEATURE_LEVEL_EDNS0] = "UDP+EDNS0",
+        [DNS_SERVER_FEATURE_LEVEL_TCP]       = "TCP",
+        [DNS_SERVER_FEATURE_LEVEL_UDP]       = "UDP",
+        [DNS_SERVER_FEATURE_LEVEL_EDNS0]     = "UDP+EDNS0",
         [DNS_SERVER_FEATURE_LEVEL_TLS_PLAIN] = "TLS+EDNS0",
-        [DNS_SERVER_FEATURE_LEVEL_DO] = "UDP+EDNS0+DO",
-        [DNS_SERVER_FEATURE_LEVEL_LARGE] = "UDP+EDNS0+DO+LARGE",
-        [DNS_SERVER_FEATURE_LEVEL_TLS_DO] = "TLS+EDNS0+D0",
+        [DNS_SERVER_FEATURE_LEVEL_DO]        = "UDP+EDNS0+DO",
+        [DNS_SERVER_FEATURE_LEVEL_LARGE]     = "UDP+EDNS0+DO+LARGE",
+        [DNS_SERVER_FEATURE_LEVEL_TLS_DO]    = "TLS+EDNS0+D0",
 };
 DEFINE_STRING_TABLE_LOOKUP(dns_server_feature_level, DnsServerFeatureLevel);

@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <errno.h>
 #include <getopt.h>
@@ -161,7 +161,7 @@ static int apply_all(OrderedHashmap *sysctl_options) {
                                         continue;
 
                                 if (ordered_hashmap_contains(sysctl_options, key)) {
-                                        log_info("Not setting %s (explicit setting exists).", key);
+                                        log_debug("Not setting %s (explicit setting exists).", key);
                                         continue;
                                 }
 
@@ -182,12 +182,13 @@ static int apply_all(OrderedHashmap *sysctl_options) {
 
 static int parse_file(OrderedHashmap **sysctl_options, const char *path, bool ignore_enoent) {
         _cleanup_fclose_ FILE *f = NULL;
+        _cleanup_free_ char *pp = NULL;
         unsigned c = 0;
         int r;
 
         assert(path);
 
-        r = search_and_fopen(path, "re", NULL, (const char**) CONF_PATHS_STRV("sysctl.d"), &f);
+        r = search_and_fopen(path, "re", NULL, (const char**) CONF_PATHS_STRV("sysctl.d"), &f, &pp);
         if (r < 0) {
                 if (ignore_enoent && r == -ENOENT)
                         return 0;
@@ -195,7 +196,7 @@ static int parse_file(OrderedHashmap **sysctl_options, const char *path, bool ig
                 return log_error_errno(r, "Failed to open file '%s', ignoring: %m", path);
         }
 
-        log_debug("Parsing %s", path);
+        log_debug("Parsing %s", pp);
         for (;;) {
                 _cleanup_(option_freep) Option *new_option = NULL;
                 _cleanup_free_ char *l = NULL;
@@ -208,7 +209,7 @@ static int parse_file(OrderedHashmap **sysctl_options, const char *path, bool ig
                 if (k == 0)
                         break;
                 if (k < 0)
-                        return log_error_errno(k, "Failed to read file '%s', ignoring: %m", path);
+                        return log_error_errno(k, "Failed to read file '%s', ignoring: %m", pp);
 
                 c++;
 
@@ -235,7 +236,7 @@ static int parse_file(OrderedHashmap **sysctl_options, const char *path, bool ig
                                 /* We have a "negative match" option. Let's continue with value==NULL. */
                                 p++;
                         else {
-                                log_syntax(NULL, LOG_WARNING, path, c, 0,
+                                log_syntax(NULL, LOG_WARNING, pp, c, 0,
                                            "Line is not an assignment, ignoring: %s", p);
                                 if (r == 0)
                                         r = -EINVAL;
@@ -261,7 +262,7 @@ static int parse_file(OrderedHashmap **sysctl_options, const char *path, bool ig
                                 continue;
                         }
 
-                        log_debug("Overwriting earlier assignment of %s at '%s:%u'.", p, path, c);
+                        log_debug("Overwriting earlier assignment of %s at '%s:%u'.", p, pp, c);
                         option_free(ordered_hashmap_remove(*sysctl_options, p));
                 }
 
@@ -294,10 +295,9 @@ static int help(void) {
                "     --cat-config       Show configuration files\n"
                "     --prefix=PATH      Only apply rules with the specified prefix\n"
                "     --no-pager         Do not pipe output into a pager\n"
-               "\nSee the %s for details.\n"
-               , program_invocation_short_name
-               , link
-        );
+               "\nSee the %s for details.\n",
+               program_invocation_short_name,
+               link);
 
         return 0;
 }
@@ -387,7 +387,7 @@ static int run(int argc, char *argv[]) {
         if (r <= 0)
                 return r;
 
-        log_setup_service();
+        log_setup();
 
         umask(0022);
 

@@ -1,7 +1,7 @@
 <?xml version='1.0'?> <!--*-nxml-*-->
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
-<!-- SPDX-License-Identifier: LGPL-2.1+ -->
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
 
 <refentry id="systemd-tmpfiles"
     xmlns:xi="http://www.w3.org/2001/XInclude">
@@ -48,23 +48,20 @@
   <refsect1>
     <title>Description</title>
 
-    <para><command>systemd-tmpfiles</command> creates, deletes, and
-    cleans up volatile and temporary files and directories, based on
-    the configuration file format and location specified in
-    <citerefentry><refentrytitle>tmpfiles.d</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
-    </para>
+    <para><command>systemd-tmpfiles</command> creates, deletes, and cleans up volatile and temporary files
+    and directories, using the configuration file format and location specified in
+    <citerefentry><refentrytitle>tmpfiles.d</refentrytitle><manvolnum>5</manvolnum></citerefentry>. It must
+    be invoked with one or more options <option>--create</option>, <option>--remove</option>, and
+    <option>--clean</option>, to select the respective subset of operations.</para>
 
-    <para>If invoked with no arguments, it applies all directives from all configuration
-    files. When invoked with <option>--replace=<replaceable>PATH</replaceable></option>,
-    arguments specified on the command line are used instead of the configuration file
-    <replaceable>PATH</replaceable>. Otherwise, if one or more absolute filenames are
-    passed on the command line, only the directives in these files are applied. If
-    <literal>-</literal> is specified instead of a filename, directives are read from
-    standard input. If only the basename of a configuration file is specified, all
-    configuration directories as specified in
-    <citerefentry><refentrytitle>tmpfiles.d</refentrytitle><manvolnum>5</manvolnum></citerefentry>
-    are searched for a matching file and the file found that has the highest priority is
-    executed.</para>
+    <para>By default, directives from all configuration files are applied. When invoked with
+    <option>--replace=<replaceable>PATH</replaceable></option>, arguments specified on the command line are
+    used instead of the configuration file <replaceable>PATH</replaceable>. Otherwise, if one or more
+    absolute filenames are passed on the command line, only the directives in these files are applied. If
+    <literal>-</literal> is specified instead of a filename, directives are read from standard input. If only
+    the basename of a configuration file is specified, all configuration directories as specified in
+    <citerefentry><refentrytitle>tmpfiles.d</refentrytitle><manvolnum>5</manvolnum></citerefentry> are
+    searched for a matching file and the file found that has the highest priority is executed.</para>
 
     <para>System services (<filename>systemd-tmpfiles-setup.service</filename>,
     <filename>systemd-tmpfiles-setup-dev.service</filename>,
@@ -78,9 +75,15 @@
     and administrator-controlled files under <filename>/usr/share/user-tmpfiles.d/</filename>. Users may use
     this to create and clean up files under their control, but the system instance performs global cleanup
     and is not influenced by user configuration. Note that this means a time-based cleanup configured in the
-    system instance, such as the one typically configured for <filename>/tmp</filename>, will thus also
-    affect files created by the user instance if they are placed in <filename>/tmp</filename>, even if the
+    system instance, such as the one typically configured for <filename>/tmp/</filename>, will thus also
+    affect files created by the user instance if they are placed in <filename>/tmp/</filename>, even if the
     user instance's time-based cleanup is turned off.</para>
+
+    <para>To re-apply settings after configuration has been modified, simply restart
+    <filename>systemd-tmpfiles-clean.service</filename>, which will apply any settings which can be safely
+    executed at runtime. To debug <command>systemd-tmpfiles</command>, it may be useful to invoke it
+    directly from the command line with increased log level (see <varname>$SYSTEMD_LOG_LEVEL</varname>
+    below).</para>
   </refsect1>
 
   <refsect1>
@@ -228,6 +231,24 @@
   </refsect1>
 
   <refsect1>
+    <title>Environment</title>
+
+    <variablelist class='environment-variables'>
+      <xi:include href="common-variables.xml" xpointer="log-level" />
+      <xi:include href="common-variables.xml" xpointer="log-color" />
+      <xi:include href="common-variables.xml" xpointer="log-time" />
+      <xi:include href="common-variables.xml" xpointer="log-location" />
+      <xi:include href="common-variables.xml" xpointer="log-target" />
+      <xi:include href="common-variables.xml" xpointer="pager" />
+      <xi:include href="common-variables.xml" xpointer="less" />
+      <xi:include href="common-variables.xml" xpointer="lesscharset" />
+      <xi:include href="common-variables.xml" xpointer="lesssecure" />
+      <xi:include href="common-variables.xml" xpointer="colors" />
+      <xi:include href="common-variables.xml" xpointer="urlify" />
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
     <title>Unprivileged --cleanup operation</title>
 
     <para><command>systemd-tmpfiles</command> tries to avoid changing
@@ -242,16 +263,18 @@
   <refsect1>
     <title>Exit status</title>
 
-    <para>On success, 0 is returned. If the configuration was syntactically invalid (syntax errors,
-    missing arguments, …), so some lines had to be ignored, but no other errors occurred,
-    <constant>65</constant> is returned (<constant>EX_DATAERR</constant> from
-    <filename>/usr/include/sysexits.h</filename>). If the configuration was syntactically valid, but
-    could not be executed (lack of permissions, creation of files in missing directories, invalid
-    contents when writing to <filename>/sys/</filename> values, …), <constant>73</constant> is
-    returned (<constant>EX_CANTCREAT</constant> from <filename>/usr/include/sysexits.h</filename>).
-    Otherwise, <constant>1</constant> is returned (<constant>EXIT_FAILURE</constant> from
-    <filename>/usr/include/stdlib.h</filename>).
-    </para>
+    <para>On success, 0 is returned. If the configuration was syntactically invalid (syntax errors, missing
+    arguments, …), so some lines had to be ignored, but no other errors occurred, <constant>65</constant> is
+    returned (<constant>EX_DATAERR</constant> from <filename>/usr/include/sysexits.h</filename>). If the
+    configuration was syntactically valid, but could not be executed (lack of permissions, creation of files
+    in missing directories, invalid contents when writing to <filename>/sys/</filename> values, …),
+    <constant>73</constant> is returned (<constant>EX_CANTCREAT</constant> from
+    <filename>/usr/include/sysexits.h</filename>). Otherwise, <constant>1</constant> is returned
+    (<constant>EXIT_FAILURE</constant> from <filename>/usr/include/stdlib.h</filename>).</para>
+
+    <para>Note: when creating items, if the target already exists, but is of the wrong type or otherwise does
+    not match the requested state, and forced operation has not been requested with <literal>+</literal>,
+    a message is emitted, but the failure is otherwise ignored.</para>
   </refsect1>
 
   <refsect1>

@@ -1,66 +1,79 @@
-#!/bin/bash
-set -ex
+#!/usr/bin/env bash
+set -eux
 set -o pipefail
 
-mkdir -p /run/udev/rules.d/
+systemd-analyze log-level debug
+systemd-analyze log-target console
 
-! test -f /run/udev/tags/added/c1:3 &&
-    ! test -f /run/udev/tags/changed/c1:3 &&
-    udevadm info /dev/null | grep -q -v 'E: TAGS=.*:added:.*' &&
-    udevadm info /dev/null | grep -q -v 'E: CURRENT_TAGS=.*:added:.*' &&
-    udevadm info /dev/null | grep -q -v 'E: TAGS=.*:changed:.*' &&
-    udevadm info /dev/null | grep -q -v 'E: CURRENT_TAGS=.*:changed:.*'
+# Loose checks to ensure the environment has the necessary features for systemd-oomd
+[[ -e /proc/pressure ]] || echo "no PSI" >>/skipped
+cgroup_type="$(stat -fc %T /sys/fs/cgroup/)"
+if [[ "$cgroup_type" != *"cgroup2"* ]] && [[ "$cgroup_type" != *"0x63677270"* ]]; then
+    echo "no cgroup2" >>/skipped
+fi
+if [ ! -f /usr/lib/systemd/systemd-oomd ] && [ ! -f /lib/systemd/systemd-oomd ]; then
+    echo "no oomd" >>/skipped
+fi
 
-cat > /run/udev/rules.d/50-testsuite.rules <<EOF
-ACTION=="add", SUBSYSTEM=="mem", KERNEL=="null", TAG+="added"
-ACTION=="change", SUBSYSTEM=="mem", KERNEL=="null", TAG+="changed"
-EOF
+if [[ -e /skipped ]]; then
+    exit 0
+fi
 
-udevadm control --reload
-udevadm trigger -c add /dev/null
+rm -rf /etc/systemd/system/testsuite-55-testbloat.service.d
 
-while : ; do
-    test -f /run/udev/tags/added/c1:3 &&
-        ! test -f /run/udev/tags/changed/c1:3 &&
-        udevadm info /dev/null | grep -q 'E: TAGS=.*:added:.*' &&
-        udevadm info /dev/null | grep -q 'E: CURRENT_TAGS=.*:added:.*' &&
-        udevadm info /dev/null | grep -q -v 'E: TAGS=.*:changed:.*' &&
-        udevadm info /dev/null | grep -q -v 'E: CURRENT_TAGS=.*:changed:.*' &&
+echo "DefaultMemoryPressureDurationSec=5s" >>/etc/systemd/oomd.conf
+
+systemctl start testsuite-55-testchill.service
+systemctl start testsuite-55-testbloat.service
+
+# Verify systemd-oomd is monitoring the expected units
+oomctl | grep "/testsuite-55-workload.slice"
+oomctl | grep "1.00%"
+oomctl | grep "Default Memory Pressure Duration: 5s"
+
+# systemd-oomd watches for elevated pressure for 5 seconds before acting.
+# It can take time to build up pressure so either wait 2 minutes or for the service to fail.
+timeout="$(date -ud "2 minutes" +%s)"
+while [[ $(date -u +%s) -le $timeout ]]; do
+    if ! systemctl status testsuite-55-testbloat.service; then
         break
-
-    sleep .5
+    fi
+    sleep 5
 done
 
-udevadm control --reload
-udevadm trigger -c change /dev/null
+# testbloat should be killed and testchill should be fine
+if systemctl status testsuite-55-testbloat.service; then exit 42; fi
+if ! systemctl status testsuite-55-testchill.service; then exit 24; fi
 
-while : ; do
-    test -f /run/udev/tags/added/c1:3 &&
-        test -f /run/udev/tags/changed/c1:3 &&
-        udevadm info /dev/null | grep -q 'E: TAGS=.*:added:.*' &&
-        udevadm info /dev/null | grep -q -v 'E: CURRENT_TAGS=.*:added:.*' &&
-        udevadm info /dev/null | grep -q 'E: TAGS=.*:changed:.*' &&
-        udevadm info /dev/null | grep -q 'E: CURRENT_TAGS=.*:changed:.*' &&
-        break
+# only run this portion of the test if we can set xattrs
+if setfattr -n user.xattr_test -v 1 /sys/fs/cgroup/; then
+    sleep 120 # wait for systemd-oomd kill cool down and elevated memory pressure to come down
 
-    sleep .5
-done
+    mkdir -p /etc/systemd/system/testsuite-55-testbloat.service.d/
+    echo "[Service]" >/etc/systemd/system/testsuite-55-testbloat.service.d/override.conf
+    echo "ManagedOOMPreference=avoid" >>/etc/systemd/system/testsuite-55-testbloat.service.d/override.conf
 
-udevadm control --reload
-udevadm trigger -c add /dev/null
+    systemctl daemon-reload
+    systemctl start testsuite-55-testchill.service
+    systemctl start testsuite-55-testmunch.service
+    systemctl start testsuite-55-testbloat.service
 
-while : ; do
-    test -f /run/udev/tags/added/c1:3 &&
-        test -f /run/udev/tags/changed/c1:3 &&
-        udevadm info /dev/null | grep -q 'E: TAGS=.*:added:.*' &&
-        udevadm info /dev/null | grep -q 'E: CURRENT_TAGS=.*:added:.*' &&
-        udevadm info /dev/null | grep -q 'E: TAGS=.*:changed:.*' &&
-        udevadm info /dev/null | grep -q -v 'E: CURRENT_TAGS=.*:changed:.*' &&
-        break
+    timeout="$(date -ud "2 minutes" +%s)"
+    while [[ "$(date -u +%s)" -le "$timeout" ]]; do
+        if ! systemctl status testsuite-55-testmunch.service; then
+            break
+        fi
+        sleep 5
+    done
 
-    sleep .5
-done
+    # testmunch should be killed since testbloat had the avoid xattr on it
+    if ! systemctl status testsuite-55-testbloat.service; then exit 25; fi
+    if systemctl status testsuite-55-testmunch.service; then exit 43; fi
+    if ! systemctl status testsuite-55-testchill.service; then exit 24; fi
+fi
 
-echo OK > /testok
+systemd-analyze log-level info
+
+echo OK >/testok
 
 exit 0

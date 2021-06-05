@@ -1,7 +1,7 @@
 <?xml version='1.0'?>
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
-<!-- SPDX-License-Identifier: LGPL-2.1+ -->
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
 
 <refentry id="sd_bus_set_address"
           xmlns:xi="http://www.w3.org/2001/XInclude">
@@ -112,7 +112,7 @@
     <citerefentry><refentrytitle>sd_bus_open</refentrytitle><manvolnum>3</manvolnum></citerefentry> and
     similar calls, based on environment variables or built-in defaults.</para>
 
-    <para><function>sd_bus_set_exec</function> is a shorthand function for setting a
+    <para><function>sd_bus_set_exec()</function> is a shorthand function for setting a
     <literal>unixexec</literal> address that spawns the given executable with the given arguments.
     If <parameter>argv</parameter> is <constant>NULL</constant>, the given executable is spawned
     without any extra arguments.</para>

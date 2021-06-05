@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <getopt.h>
 #include <locale.h>
@@ -12,6 +12,7 @@
 #include "bus-locator.h"
 #include "bus-map-properties.h"
 #include "bus-print-properties.h"
+#include "env-util.h"
 #include "format-table.h"
 #include "in-addr-util.h"
 #include "main-func.h"
@@ -33,8 +34,7 @@ static char *arg_host = NULL;
 static bool arg_adjust_system_clock = false;
 static bool arg_monitor = false;
 static char **arg_property = NULL;
-static bool arg_value = false;
-static bool arg_all = false;
+static BusPrintPropertyFlags arg_print_flags = 0;
 
 typedef struct StatusInfo {
         usec_t time;
@@ -95,21 +95,17 @@ static int print_status_info(const StatusInfo *i) {
         } else
                 log_warning("Could not get time from timedated and not operating locally, ignoring.");
 
-        if (have_time)
-                n = strftime(a, sizeof a, "%a %Y-%m-%d %H:%M:%S %Z", localtime_r(&sec, &tm));
-
+        n = have_time ? strftime(a, sizeof a, "%a %Y-%m-%d %H:%M:%S %Z", localtime_r(&sec, &tm)) : 0;
         r = table_add_many(table,
                            TABLE_STRING, "Local time:",
-                           TABLE_STRING, have_time && n > 0 ? a : "n/a");
+                           TABLE_STRING, n > 0 ? a : "n/a");
         if (r < 0)
                 return table_log_add_error(r);
 
-        if (have_time)
-                n = strftime(a, sizeof a, "%a %Y-%m-%d %H:%M:%S UTC", gmtime_r(&sec, &tm));
-
+        n = have_time ? strftime(a, sizeof a, "%a %Y-%m-%d %H:%M:%S UTC", gmtime_r(&sec, &tm)) : 0;
         r = table_add_many(table,
                            TABLE_STRING, "Universal time:",
-                           TABLE_STRING, have_time && n > 0 ? a : "n/a");
+                           TABLE_STRING, n > 0 ? a : "n/a");
         if (r < 0)
                 return table_log_add_error(r);
 
@@ -118,33 +114,27 @@ static int print_status_info(const StatusInfo *i) {
 
                 rtc_sec = (time_t) (i->rtc_time / USEC_PER_SEC);
                 n = strftime(a, sizeof a, "%a %Y-%m-%d %H:%M:%S", gmtime_r(&rtc_sec, &tm));
-        }
-
+        } else
+                n = 0;
         r = table_add_many(table,
                            TABLE_STRING, "RTC time:",
-                           TABLE_STRING, i->rtc_time > 0 && n > 0 ? a : "n/a");
+                           TABLE_STRING, n > 0 ? a : "n/a");
         if (r < 0)
                 return table_log_add_error(r);
-
-        if (have_time)
-                n = strftime(a, sizeof a, "%Z, %z", localtime_r(&sec, &tm));
 
         r = table_add_cell(table, NULL, TABLE_STRING, "Time zone:");
         if (r < 0)
                 return table_log_add_error(r);
 
-        r = table_add_cell_stringf(table, NULL, "%s (%s)", strna(i->timezone), have_time && n > 0 ? a : "n/a");
+        n = have_time ? strftime(a, sizeof a, "%Z, %z", localtime_r(&sec, &tm)) : 0;
+        r = table_add_cell_stringf(table, NULL, "%s (%s)", strna(i->timezone), n > 0 ? a : "n/a");
         if (r < 0)
                 return table_log_add_error(r);
 
-
         /* Restore the $TZ */
-        if (old_tz)
-                r = setenv("TZ", old_tz, true);
-        else
-                r = unsetenv("TZ");
+        r = set_unset_env("TZ", old_tz, true);
         if (r < 0)
-                log_warning_errno(errno, "Failed to set TZ environment variable, ignoring: %m");
+                log_warning_errno(r, "Failed to set TZ environment variable, ignoring: %m");
         else
                 tzset();
 
@@ -219,8 +209,7 @@ static int show_properties(int argc, char **argv, void *userdata) {
                                      "/org/freedesktop/timedate1",
                                      NULL,
                                      arg_property,
-                                     arg_value,
-                                     arg_all,
+                                     arg_print_flags,
                                      NULL);
         if (r < 0)
                 return bus_log_parse_error(r);
@@ -711,7 +700,7 @@ static int show_timesync_status(int argc, char **argv, void *userdata) {
         return 0;
 }
 
-static int print_timesync_property(const char *name, const char *expected_value, sd_bus_message *m, bool value, bool all) {
+static int print_timesync_property(const char *name, const char *expected_value, sd_bus_message *m, BusPrintPropertyFlags flags) {
         char type;
         const char *contents;
         int r;
@@ -737,7 +726,7 @@ static int print_timesync_property(const char *name, const char *expected_value,
                         if (i.packet_count == 0)
                                 return 1;
 
-                        if (!value) {
+                        if (!FLAGS_SET(flags, BUS_PRINT_PROPERTY_ONLY_VALUE)) {
                                 fputs(name, stdout);
                                 fputc('=', stdout);
                         }
@@ -776,8 +765,7 @@ static int print_timesync_property(const char *name, const char *expected_value,
                         if (r < 0)
                                 return r;
 
-                        if (arg_all || !isempty(str))
-                                bus_print_property_value(name, expected_value, value, str);
+                        bus_print_property_value(name, expected_value, flags, str);
 
                         return 1;
                 }
@@ -798,8 +786,7 @@ static int show_timesync(int argc, char **argv, void *userdata) {
                                      "/org/freedesktop/timesync1",
                                      print_timesync_property,
                                      arg_property,
-                                     arg_value,
-                                     arg_all,
+                                     arg_print_flags,
                                      NULL);
         if (r < 0)
                 return bus_log_parse_error(r);
@@ -918,12 +905,11 @@ static int help(void) {
                "  -p --property=NAME       Show only properties by this name\n"
                "  -a --all                 Show all properties, including empty ones\n"
                "     --value               When showing properties, only print the value\n"
-               "\nSee the %s for details.\n"
-               , program_invocation_short_name
-               , ansi_highlight()
-               , ansi_normal()
-               , link
-        );
+               "\nSee the %s for details.\n",
+               program_invocation_short_name,
+               ansi_highlight(),
+               ansi_normal(),
+               link);
 
         return 0;
 }
@@ -1007,16 +993,16 @@ static int parse_argv(int argc, char *argv[]) {
                         /* If the user asked for a particular
                          * property, show it to them, even if it is
                          * empty. */
-                        arg_all = true;
+                        SET_FLAG(arg_print_flags, BUS_PRINT_PROPERTY_SHOW_EMPTY, true);
                         break;
                 }
 
                 case 'a':
-                        arg_all = true;
+                        SET_FLAG(arg_print_flags, BUS_PRINT_PROPERTY_SHOW_EMPTY, true);
                         break;
 
                 case ARG_VALUE:
-                        arg_value = true;
+                        SET_FLAG(arg_print_flags, BUS_PRINT_PROPERTY_ONLY_VALUE, true);
                         break;
 
                 case '?':
@@ -1054,7 +1040,7 @@ static int run(int argc, char *argv[]) {
         int r;
 
         setlocale(LC_ALL, "");
-        log_setup_cli();
+        log_setup();
 
         r = parse_argv(argc, argv);
         if (r <= 0)

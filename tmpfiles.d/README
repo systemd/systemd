@@ -1,0 +1,8 @@
+Files in this directory contain configuration for systemd-tmpfiles, a program
+to create, delete, and clean up volatile and temporary files and directories.
+
+See man:tmpfiles.d(5) for explanation of the configuration file format, and
+man:systemd-tmpfiles(8) for a description of when and how this configuration is
+applied.
+
+Use 'systemd-analyze cat-config tmpfiles.d' to display the effective config.

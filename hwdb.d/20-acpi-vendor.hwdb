@@ -51,6 +51,9 @@ acpi:ATML*:
 acpi:AUTH*:
  ID_VENDOR_FROM_DATABASE=AuthenTec
 
+acpi:BABA*:
+ ID_VENDOR_FROM_DATABASE=Alibaba Co., Ltd.
+
 acpi:BOOT*:
  ID_VENDOR_FROM_DATABASE=Coreboot Project
 
@@ -92,6 +95,9 @@ acpi:ESSX*:
 
 acpi:EXAR*:
  ID_VENDOR_FROM_DATABASE=Exar Corporation
+
+acpi:FRMW*:
+ ID_VENDOR_FROM_DATABASE=Framework Computer LLC
 
 acpi:FRSC*:
  ID_VENDOR_FROM_DATABASE=Freescale, Inc
@@ -168,6 +174,9 @@ acpi:IP3T*:
 acpi:IPHI*:
  ID_VENDOR_FROM_DATABASE=Inphi Corporation
 
+acpi:JSYS*:
+ ID_VENDOR_FROM_DATABASE=Juniper Systems, Inc.
+
 acpi:KIOX*:
  ID_VENDOR_FROM_DATABASE=Kionix, Inc.
 
@@ -176,6 +185,9 @@ acpi:LNRO*:
 
 acpi:LNUX*:
  ID_VENDOR_FROM_DATABASE=The Linux Foundation
+
+acpi:LOON*:
+ ID_VENDOR_FROM_DATABASE=Loongson Technology Corporation Limited
 
 acpi:MCHP*:
  ID_VENDOR_FROM_DATABASE=Microchip Technology Inc
@@ -222,6 +234,12 @@ acpi:PEGA*:
 acpi:PHYT*:
  ID_VENDOR_FROM_DATABASE=Phytium Technology Co. Ltd.
 
+acpi:PIXA*:
+ ID_VENDOR_FROM_DATABASE=PixArt imaging inc.
+
+acpi:PNSO*:
+ ID_VENDOR_FROM_DATABASE=Pensando Systems, Inc.
+
 acpi:QCOM*:
  ID_VENDOR_FROM_DATABASE=Qualcomm Inc
 
@@ -236,6 +254,9 @@ acpi:RKCP*:
 
 acpi:RZSN*:
  ID_VENDOR_FROM_DATABASE=Rozsnyó, s.r.o.
+
+acpi:SECC*:
+ ID_VENDOR_FROM_DATABASE=Seiko Epson Corporation
 
 acpi:SHRP*:
  ID_VENDOR_FROM_DATABASE=Sharp Corporation
@@ -259,7 +280,7 @@ acpi:TCAG*:
  ID_VENDOR_FROM_DATABASE=Teracue AG
 
 acpi:TOSB*:
- ID_VENDOR_FROM_DATABASE=Toshiba Corporation
+ ID_VENDOR_FROM_DATABASE=Dynabook Inc.
 
 acpi:TXNW*:
  ID_VENDOR_FROM_DATABASE=Texas Instruments
@@ -586,7 +607,7 @@ acpi:ALO*:
  ID_VENDOR_FROM_DATABASE=Algolith Inc.
 
 acpi:ALP*:
- ID_VENDOR_FROM_DATABASE=Alps Electric Company Ltd
+ ID_VENDOR_FROM_DATABASE=ALPS ALPINE CO., LTD.
 
 acpi:ALR*:
  ID_VENDOR_FROM_DATABASE=Advanced Logic
@@ -712,7 +733,7 @@ acpi:APD*:
  ID_VENDOR_FROM_DATABASE=AppliAdata
 
 acpi:APE*:
- ID_VENDOR_FROM_DATABASE=Alpine Electronics, Inc.
+ ID_VENDOR_FROM_DATABASE=ALPS ALPINE CO., LTD.
 
 acpi:APG*:
  ID_VENDOR_FROM_DATABASE=Horner Electric Inc
@@ -877,7 +898,7 @@ acpi:AUG*:
  ID_VENDOR_FROM_DATABASE=August Home, Inc.
 
 acpi:AUI*:
- ID_VENDOR_FROM_DATABASE=Alps Electric Inc
+ ID_VENDOR_FROM_DATABASE=ALPS ALPINE CO., LTD.
 
 acpi:AUO*:
  ID_VENDOR_FROM_DATABASE=AU Optronics
@@ -1359,6 +1380,9 @@ acpi:CET*:
 acpi:CFG*:
  ID_VENDOR_FROM_DATABASE=Atlantis
 
+acpi:CFR*:
+ ID_VENDOR_FROM_DATABASE=Meta View, Inc.
+
 acpi:CGA*:
  ID_VENDOR_FROM_DATABASE=Chunghwa Picture Tubes, LTD
 
@@ -1464,6 +1488,9 @@ acpi:CLM*:
 acpi:CLO*:
  ID_VENDOR_FROM_DATABASE=Clone Computers
 
+acpi:CLR*:
+ ID_VENDOR_FROM_DATABASE=Clover Electronics
+
 acpi:CLT*:
  ID_VENDOR_FROM_DATABASE=automated computer control systems
 
@@ -1484,6 +1511,9 @@ acpi:CMG*:
 
 acpi:CMI*:
  ID_VENDOR_FROM_DATABASE=C-Media Electronics
+
+acpi:CMK*:
+ ID_VENDOR_FROM_DATABASE=Comark LLC
 
 acpi:CMM*:
  ID_VENDOR_FROM_DATABASE=Comtime GmbH
@@ -1508,6 +1538,9 @@ acpi:CNB*:
 
 acpi:CNC*:
  ID_VENDOR_FROM_DATABASE=Alvedon Computers Ltd
+
+acpi:CND*:
+ ID_VENDOR_FROM_DATABASE=Micro-Star Int'l Co., Ltd.
 
 acpi:CNE*:
  ID_VENDOR_FROM_DATABASE=Cine-tal
@@ -1607,6 +1640,9 @@ acpi:CRI*:
 
 acpi:CRL*:
  ID_VENDOR_FROM_DATABASE=Creative Logic
+
+acpi:CRM*:
+ ID_VENDOR_FROM_DATABASE=CORSAIR MEMORY Inc.
 
 acpi:CRN*:
  ID_VENDOR_FROM_DATABASE=Cornerstone Imaging
@@ -3879,6 +3915,9 @@ acpi:KTK*:
 acpi:KTN*:
  ID_VENDOR_FROM_DATABASE=Katron Tech Inc
 
+acpi:KTS*:
+ ID_VENDOR_FROM_DATABASE=Kyokko Communication System Co., Ltd.
+
 acpi:KUR*:
  ID_VENDOR_FROM_DATABASE=Kurta Corporation
 
@@ -4425,6 +4464,9 @@ acpi:MKT*:
 acpi:MKV*:
  ID_VENDOR_FROM_DATABASE=Trtheim Technology
 
+acpi:MLC*:
+ ID_VENDOR_FROM_DATABASE=MILCOTS
+
 acpi:MLD*:
  ID_VENDOR_FROM_DATABASE=Deep Video Imaging Ltd
 
@@ -4526,6 +4568,9 @@ acpi:MPN*:
 
 acpi:MPS*:
  ID_VENDOR_FROM_DATABASE=mps Software GmbH
+
+acpi:MPV*:
+ ID_VENDOR_FROM_DATABASE=Megapixel Visual Realty
 
 acpi:MPX*:
  ID_VENDOR_FROM_DATABASE=Micropix Technologies, Ltd.
@@ -4968,6 +5013,9 @@ acpi:NVT*:
 acpi:NWC*:
  ID_VENDOR_FROM_DATABASE=NW Computer Engineering
 
+acpi:NWL*:
+ ID_VENDOR_FROM_DATABASE=Newline Interactive Inc.
+
 acpi:NWP*:
  ID_VENDOR_FROM_DATABASE=NovaWeb Technologies Inc
 
@@ -4988,6 +5036,9 @@ acpi:NXQ*:
 
 acpi:NXS*:
  ID_VENDOR_FROM_DATABASE=Technology Nexus Secure Open Systems AB
+
+acpi:NXT*:
+ ID_VENDOR_FROM_DATABASE=NZXT (PNP same EDID)_
 
 acpi:NYC*:
  ID_VENDOR_FROM_DATABASE=Nakayo Relecommunications, Inc.
@@ -6150,6 +6201,9 @@ acpi:SKM*:
 acpi:SKT*:
  ID_VENDOR_FROM_DATABASE=Samsung Electro-Mechanics Company Ltd
 
+acpi:SKW*:
+ ID_VENDOR_FROM_DATABASE=Skyworth
+
 acpi:SKY*:
  ID_VENDOR_FROM_DATABASE=SKYDATA S.P.A.
 
@@ -6708,6 +6762,9 @@ acpi:TGS*:
 acpi:TGV*:
  ID_VENDOR_FROM_DATABASE=Grass Valley Germany GmbH
 
+acpi:TGW*:
+ ID_VENDOR_FROM_DATABASE=TECHNOGYM S.p.A.
+
 acpi:THN*:
  ID_VENDOR_FROM_DATABASE=Thundercom Holdings Sdn. Bhd.
 
@@ -6789,6 +6846,9 @@ acpi:TMI*:
 acpi:TMM*:
  ID_VENDOR_FROM_DATABASE=Time Management, Inc.
 
+acpi:TMO*:
+ ID_VENDOR_FROM_DATABASE=Terumo Corporation
+
 acpi:TMR*:
  ID_VENDOR_FROM_DATABASE=Taicom International Inc
 
@@ -6829,7 +6889,7 @@ acpi:TOP*:
  ID_VENDOR_FROM_DATABASE=Orion Communications Co., Ltd.
 
 acpi:TOS*:
- ID_VENDOR_FROM_DATABASE=Toshiba Corporation
+ ID_VENDOR_FROM_DATABASE=Dynabook Inc.
 
 acpi:TOU*:
  ID_VENDOR_FROM_DATABASE=Touchstone Technology
@@ -7166,6 +7226,9 @@ acpi:USI*:
 
 acpi:USR*:
  ID_VENDOR_FROM_DATABASE=U.S. Robotics Inc
+
+acpi:UTC*:
+ ID_VENDOR_FROM_DATABASE=Unicompute Technology Co., Ltd.
 
 acpi:UTD*:
  ID_VENDOR_FROM_DATABASE=Up to Date Tech

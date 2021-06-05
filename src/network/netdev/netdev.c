@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <net/if.h>
 #include <netinet/in.h>
@@ -6,6 +6,7 @@
 
 #include "alloc-util.h"
 #include "bareudp.h"
+#include "batadv.h"
 #include "bond.h"
 #include "bridge.h"
 #include "conf-files.h"
@@ -23,7 +24,6 @@
 #include "netdev.h"
 #include "netdevsim.h"
 #include "netlink-util.h"
-#include "network-internal.h"
 #include "networkd-manager.h"
 #include "nlmon.h"
 #include "path-lookup.h"
@@ -44,6 +44,7 @@
 #include "xfrm.h"
 
 const NetDevVTable * const netdev_vtable[_NETDEV_KIND_MAX] = {
+        [NETDEV_KIND_BATADV] = &batadv_vtable,
         [NETDEV_KIND_BRIDGE] = &bridge_vtable,
         [NETDEV_KIND_BOND] = &bond_vtable,
         [NETDEV_KIND_VLAN] = &vlan_vtable,
@@ -83,6 +84,7 @@ const NetDevVTable * const netdev_vtable[_NETDEV_KIND_MAX] = {
 
 static const char* const netdev_kind_table[_NETDEV_KIND_MAX] = {
         [NETDEV_KIND_BAREUDP] = "bareudp",
+        [NETDEV_KIND_BATADV] = "batadv",
         [NETDEV_KIND_BRIDGE] = "bridge",
         [NETDEV_KIND_BOND] = "bond",
         [NETDEV_KIND_VLAN] = "vlan",
@@ -140,7 +142,7 @@ int config_parse_netdev_kind(
 
         k = netdev_kind_from_string(rvalue);
         if (k < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, 0, "Failed to parse netdev kind, ignoring assignment: %s", rvalue);
+                log_syntax(unit, LOG_WARNING, filename, line, k, "Failed to parse netdev kind, ignoring assignment: %s", rvalue);
                 return 0;
         }
 
@@ -263,7 +265,7 @@ static int netdev_enslave_ready(NetDev *netdev, Link* link, link_netlink_message
         assert(netdev->state == NETDEV_STATE_READY);
         assert(netdev->manager);
         assert(netdev->manager->rtnl);
-        assert(IN_SET(netdev->kind, NETDEV_KIND_BRIDGE, NETDEV_KIND_BOND, NETDEV_KIND_VRF));
+        assert(IN_SET(netdev->kind, NETDEV_KIND_BRIDGE, NETDEV_KIND_BOND, NETDEV_KIND_VRF, NETDEV_KIND_BATADV));
         assert(link);
         assert(callback);
 
@@ -354,7 +356,7 @@ static int netdev_enslave(NetDev *netdev, Link *link, link_netlink_message_handl
         assert(netdev);
         assert(netdev->manager);
         assert(netdev->manager->rtnl);
-        assert(IN_SET(netdev->kind, NETDEV_KIND_BRIDGE, NETDEV_KIND_BOND, NETDEV_KIND_VRF));
+        assert(IN_SET(netdev->kind, NETDEV_KIND_BRIDGE, NETDEV_KIND_BOND, NETDEV_KIND_VRF, NETDEV_KIND_BATADV));
 
         if (netdev->state == NETDEV_STATE_READY) {
                 r = netdev_enslave_ready(netdev, link, callback);
@@ -401,10 +403,8 @@ int netdev_set_ifindex(NetDev *netdev, sd_netlink_message *message) {
         if (r < 0)
                 return log_netdev_error_errno(netdev, r, "Could not get rtnl message type: %m");
 
-        if (type != RTM_NEWLINK) {
-                log_netdev_error(netdev, "Cannot set ifindex from unexpected rtnl message type.");
-                return -EINVAL;
-        }
+        if (type != RTM_NEWLINK)
+                return log_netdev_error_errno(netdev, SYNTHETIC_ERRNO(EINVAL), "Cannot set ifindex from unexpected rtnl message type.");
 
         r = sd_rtnl_message_link_get_ifindex(message, &ifindex);
         if (r < 0) {
@@ -435,7 +435,7 @@ int netdev_set_ifindex(NetDev *netdev, sd_netlink_message *message) {
         if (!streq(netdev->ifname, received_name)) {
                 log_netdev_error(netdev, "Received newlink with wrong IFNAME %s", received_name);
                 netdev_enter_failed(netdev);
-                return r;
+                return -EINVAL;
         }
 
         r = sd_netlink_message_enter_container(message, IFLA_LINKINFO);
@@ -463,11 +463,10 @@ int netdev_set_ifindex(NetDev *netdev, sd_netlink_message *message) {
         }
 
         if (!streq(kind, received_kind)) {
-                log_netdev_error(netdev,
-                                 "Received newlink with wrong KIND %s, "
-                                 "expected %s", received_kind, kind);
+                log_netdev_error(netdev, "Received newlink with wrong KIND %s, expected %s",
+                                 received_kind, kind);
                 netdev_enter_failed(netdev);
-                return r;
+                return -EINVAL;
         }
 
         netdev->ifindex = ifindex;
@@ -556,7 +555,7 @@ static int netdev_create(NetDev *netdev, Link *link, link_netlink_message_handle
                                 return log_netdev_error_errno(netdev, r, "Could not append IFLA_ADDRESS attribute: %m");
                 }
 
-                if (netdev->mtu) {
+                if (netdev->mtu != 0) {
                         r = sd_netlink_message_append_u32(m, IFLA_MTU, netdev->mtu);
                         if (r < 0)
                                 return log_netdev_error_errno(netdev, r, "Could not append IFLA_MTU attribute: %m");
@@ -649,7 +648,7 @@ int netdev_join(NetDev *netdev, Link *link, link_netlink_message_handler_t callb
                         return r;
                 break;
         default:
-                assert_not_reached("Can not join independent netdev");
+                assert_not_reached("Cannot join independent netdev");
         }
 
         return 0;
@@ -657,7 +656,6 @@ int netdev_join(NetDev *netdev, Link *link, link_netlink_message_handler_t callb
 
 int netdev_load_one(Manager *manager, const char *filename) {
         _cleanup_(netdev_unrefp) NetDev *netdev_raw = NULL, *netdev = NULL;
-        _cleanup_fclose_ FILE *file = NULL;
         const char *dropin_dirname;
         bool independent = false;
         int r;
@@ -665,15 +663,12 @@ int netdev_load_one(Manager *manager, const char *filename) {
         assert(manager);
         assert(filename);
 
-        file = fopen(filename, "re");
-        if (!file) {
-                if (errno == ENOENT)
-                        return 0;
-
-                return -errno;
-        }
-
-        if (null_or_empty_fd(fileno(file))) {
+        r = null_or_empty_path(filename);
+        if (r == -ENOENT)
+                return 0;
+        if (r < 0)
+                return r;
+        if (r > 0) {
                 log_debug("Skipping empty file: %s", filename);
                 return 0;
         }
@@ -690,7 +685,7 @@ int netdev_load_one(Manager *manager, const char *filename) {
 
         dropin_dirname = strjoina(basename(filename), ".d");
         r = config_parse_many(
-                        filename, NETWORK_DIRS, dropin_dirname,
+                        STRV_MAKE_CONST(filename), NETWORK_DIRS, dropin_dirname,
                         NETDEV_COMMON_SECTIONS NETDEV_OTHER_SECTIONS,
                         config_item_perf_lookup, network_netdev_gperf_lookup,
                         CONFIG_PARSE_WARN,
@@ -715,10 +710,6 @@ int netdev_load_one(Manager *manager, const char *filename) {
                 return 0;
         }
 
-        r = fseek(file, 0, SEEK_SET);
-        if (r < 0)
-                return -errno;
-
         netdev = malloc0(NETDEV_VTABLE(netdev_raw)->object_size);
         if (!netdev)
                 return log_oom();
@@ -733,7 +724,7 @@ int netdev_load_one(Manager *manager, const char *filename) {
                 NETDEV_VTABLE(netdev)->init(netdev);
 
         r = config_parse_many(
-                        filename, NETWORK_DIRS, dropin_dirname,
+                        STRV_MAKE_CONST(filename), NETWORK_DIRS, dropin_dirname,
                         NETDEV_VTABLE(netdev)->sections,
                         config_item_perf_lookup, network_netdev_gperf_lookup,
                         CONFIG_PARSE_WARN,
@@ -756,23 +747,20 @@ int netdev_load_one(Manager *manager, const char *filename) {
                 r = netdev_get_mac(netdev->ifname, &netdev->mac);
                 if (r < 0)
                         return log_netdev_error_errno(netdev, r,
-                                                      "Failed to generate predictable MAC address for %s: %m",
-                                                      netdev->ifname);
+                                                      "Failed to generate predictable MAC address: %m");
         }
 
-        r = hashmap_ensure_allocated(&netdev->manager->netdevs, &string_hash_ops);
-        if (r < 0)
-                return r;
-
-        r = hashmap_put(netdev->manager->netdevs, netdev->ifname, netdev);
+        r = hashmap_ensure_put(&netdev->manager->netdevs, &string_hash_ops, netdev->ifname, netdev);
+        if (r == -ENOMEM)
+                return log_oom();
         if (r == -EEXIST) {
                 NetDev *n = hashmap_get(netdev->manager->netdevs, netdev->ifname);
 
                 assert(n);
                 if (!streq(netdev->filename, n->filename))
                         log_netdev_warning_errno(netdev, r,
-                                                 "The setting Name=%s in %s conflicts with the one in %s, ignoring",
-                                                 netdev->ifname, netdev->filename, n->filename);
+                                                 "Device was already configured by file %s, ignoring %s.",
+                                                 n->filename, netdev->filename);
 
                 /* Clear ifname before netdev_free() is called. Otherwise, the NetDev object 'n' is
                  * removed from the hashmap 'manager->netdevs'. */

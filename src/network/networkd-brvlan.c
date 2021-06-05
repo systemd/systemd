@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 /***
   Copyright © 2016 BISDN GmbH. All rights reserved.
 ***/
@@ -44,9 +44,9 @@ static int find_next_bit(int i, uint32_t x) {
 
 static int append_vlan_info_data(Link *const link, sd_netlink_message *req, uint16_t pvid, const uint32_t *br_vid_bitmap, const uint32_t *br_untagged_bitmap) {
         struct bridge_vlan_info br_vlan;
-        int i, j, k, r, cnt;
-        uint16_t begin, end;
         bool done, untagged = false;
+        uint16_t begin, end;
+        int r, cnt;
 
         assert(link);
         assert(req);
@@ -56,16 +56,17 @@ static int append_vlan_info_data(Link *const link, sd_netlink_message *req, uint
         cnt = 0;
 
         begin = end = UINT16_MAX;
-        for (k = 0; k < BRIDGE_VLAN_BITMAP_LEN; k++) {
-                unsigned base_bit;
-                uint32_t vid_map = br_vid_bitmap[k];
+        for (int k = 0; k < BRIDGE_VLAN_BITMAP_LEN; k++) {
                 uint32_t untagged_map = br_untagged_bitmap[k];
+                uint32_t vid_map = br_vid_bitmap[k];
+                unsigned base_bit;
+                int i;
 
                 base_bit = k * 32;
                 i = -1;
                 done = false;
                 do {
-                        j = find_next_bit(i, vid_map);
+                        int j = find_next_bit(i, vid_map);
                         if (j > 0) {
                                 /* first hit of any bit */
                                 if (begin == UINT16_MAX && end == UINT16_MAX) {
@@ -146,26 +147,26 @@ static int set_brvlan_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *lin
         return 1;
 }
 
-int br_vlan_configure(Link *link, uint16_t pvid, uint32_t *br_vid_bitmap, uint32_t *br_untagged_bitmap) {
+int link_set_bridge_vlan(Link *link) {
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL;
-        sd_netlink *rtnl;
-        uint16_t flags;
         int r;
 
         assert(link);
         assert(link->manager);
-        assert(br_vid_bitmap);
-        assert(br_untagged_bitmap);
         assert(link->network);
 
-        /* pvid might not be in br_vid_bitmap yet */
-        if (pvid)
-                set_bit(pvid, br_vid_bitmap);
+        if (!link->network->use_br_vlan)
+                return 0;
 
-        rtnl = link->manager->rtnl;
+        if (!link->network->bridge && !streq_ptr(link->kind, "bridge"))
+                return 0;
+
+        /* pvid might not be in br_vid_bitmap yet */
+        if (link->network->pvid)
+                set_bit(link->network->pvid, link->network->br_vid_bitmap);
 
         /* create new RTM message */
-        r = sd_rtnl_message_new_link(rtnl, &req, RTM_SETLINK, link->ifindex);
+        r = sd_rtnl_message_new_link(link->manager->rtnl, &req, RTM_SETLINK, link->ifindex);
         if (r < 0)
                 return log_link_error_errno(link, r, "Could not allocate RTM_SETLINK message: %m");
 
@@ -179,14 +180,14 @@ int br_vlan_configure(Link *link, uint16_t pvid, uint32_t *br_vid_bitmap, uint32
 
         /* master needs flag self */
         if (!link->network->bridge) {
-                flags = BRIDGE_FLAGS_SELF;
-                r = sd_netlink_message_append_data(req, IFLA_BRIDGE_FLAGS, &flags, sizeof(uint16_t));
+                uint16_t flags = BRIDGE_FLAGS_SELF;
+                r = sd_netlink_message_append_data(req, IFLA_BRIDGE_FLAGS, &flags, sizeof(flags));
                 if (r < 0)
                         return log_link_error_errno(link, r, "Could not open IFLA_BRIDGE_FLAGS: %m");
         }
 
         /* add vlan info */
-        r = append_vlan_info_data(link, req, pvid, br_vid_bitmap, br_untagged_bitmap);
+        r = append_vlan_info_data(link, req, link->network->pvid, link->network->br_vid_bitmap, link->network->br_untagged_bitmap);
         if (r < 0)
                 return log_link_error_errno(link, r, "Could not append VLANs: %m");
 
@@ -195,7 +196,7 @@ int br_vlan_configure(Link *link, uint16_t pvid, uint32_t *br_vid_bitmap, uint32
                 return log_link_error_errno(link, r, "Could not close IFLA_AF_SPEC container: %m");
 
         /* send message to the kernel */
-        r = netlink_call_async(rtnl, NULL, req, set_brvlan_handler,
+        r = netlink_call_async(link->manager->rtnl, NULL, req, set_brvlan_handler,
                                link_netlink_destroy_callback, link);
         if (r < 0)
                 return log_link_error_errno(link, r, "Could not send rtnetlink message: %m");

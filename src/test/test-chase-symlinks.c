@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 #include <getopt.h>
 
 #include "fd-util.h"
@@ -84,7 +84,7 @@ static int parse_argv(int argc, char *argv[]) {
 static int run(int argc, char **argv) {
         int r;
 
-        log_setup_cli();
+        log_setup();
 
         r = parse_argv(argc, argv);
         if (r <= 0)

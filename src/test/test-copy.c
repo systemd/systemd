@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <sys/xattr.h>
 #include <unistd.h>
@@ -207,7 +207,7 @@ static void test_copy_bytes(void) {
 
         assert_se(pipe2(pipefd, O_CLOEXEC) == 0);
 
-        r = copy_bytes(infd, pipefd[1], (uint64_t) -1, 0);
+        r = copy_bytes(infd, pipefd[1], UINT64_MAX, 0);
         assert_se(r == 0);
 
         r = read(pipefd[0], buf, sizeof(buf));
@@ -249,7 +249,7 @@ static void test_copy_bytes_regular_file(const char *src, bool try_reflink, uint
         assert_se(fd3 >= 0);
 
         r = copy_bytes(fd, fd2, max_bytes, try_reflink ? COPY_REFLINK : 0);
-        if (max_bytes == (uint64_t) -1)
+        if (max_bytes == UINT64_MAX)
                 assert_se(r == 0);
         else
                 assert_se(IN_SET(r, 0, 1));
@@ -258,14 +258,14 @@ static void test_copy_bytes_regular_file(const char *src, bool try_reflink, uint
         assert_se(fstat(fd2, &buf2) == 0);
         assert_se((uint64_t) buf2.st_size == MIN((uint64_t) buf.st_size, max_bytes));
 
-        if (max_bytes < (uint64_t) -1)
+        if (max_bytes < UINT64_MAX)
                 /* Make sure the file is now higher than max_bytes */
                 assert_se(ftruncate(fd2, max_bytes + 1) == 0);
 
         assert_se(lseek(fd2, 0, SEEK_SET) == 0);
 
         r = copy_bytes(fd2, fd3, max_bytes, try_reflink ? COPY_REFLINK : 0);
-        if (max_bytes == (uint64_t) -1)
+        if (max_bytes == UINT64_MAX)
                 assert_se(r == 0);
         else
                 /* We cannot distinguish between the input being exactly max_bytes
@@ -277,7 +277,7 @@ static void test_copy_bytes_regular_file(const char *src, bool try_reflink, uint
 
         assert_se(fstat(fd3, &buf3) == 0);
 
-        if (max_bytes == (uint64_t) -1)
+        if (max_bytes == UINT64_MAX)
                 assert_se(buf3.st_size == buf2.st_size);
         else
                 assert_se((uint64_t) buf3.st_size == max_bytes);
@@ -304,6 +304,22 @@ static void test_copy_atomic(void) {
         assert_se(copy_file_atomic("/etc/fstab", q, 0644, 0, 0, COPY_REPLACE) >= 0);
 }
 
+static void test_copy_proc(void) {
+        _cleanup_(rm_rf_physical_and_freep) char *p = NULL;
+        _cleanup_free_ char *f = NULL, *a = NULL, *b = NULL;
+
+        /* Check if copying data from /proc/ works correctly, i.e. let's see if https://lwn.net/Articles/846403/ is a problem for us */
+
+        assert_se(mkdtemp_malloc(NULL, &p) >= 0);
+        assert_se(f = path_join(p, "version"));
+        assert_se(copy_file("/proc/version", f, 0, MODE_INVALID, 0, 0, 0) >= 0);
+
+        assert_se(read_one_line_file("/proc/version", &a) >= 0);
+        assert_se(read_one_line_file(f, &b) >= 0);
+        assert_se(streq(a, b));
+        assert_se(!isempty(a));
+}
+
 int main(int argc, char *argv[]) {
         test_setup_logging(LOG_DEBUG);
 
@@ -311,13 +327,14 @@ int main(int argc, char *argv[]) {
         test_copy_file_fd();
         test_copy_tree();
         test_copy_bytes();
-        test_copy_bytes_regular_file(argv[0], false, (uint64_t) -1);
-        test_copy_bytes_regular_file(argv[0], true, (uint64_t) -1);
+        test_copy_bytes_regular_file(argv[0], false, UINT64_MAX);
+        test_copy_bytes_regular_file(argv[0], true, UINT64_MAX);
         test_copy_bytes_regular_file(argv[0], false, 1000); /* smaller than copy buffer size */
         test_copy_bytes_regular_file(argv[0], true, 1000);
         test_copy_bytes_regular_file(argv[0], false, 32000); /* larger than copy buffer size */
         test_copy_bytes_regular_file(argv[0], true, 32000);
         test_copy_atomic();
+        test_copy_proc();
 
         return 0;
 }

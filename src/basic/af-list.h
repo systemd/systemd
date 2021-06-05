@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
 #include <sys/socket.h>
@@ -21,5 +21,8 @@ static inline const char* af_to_name_short(int id) {
         assert(startswith(f, "AF_"));
         return f + 3;
 }
+
+const char* af_to_ipv4_ipv6(int id);
+int af_from_ipv4_ipv6(const char *af);
 
 int af_max(void);

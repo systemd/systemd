@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
 #include <endian.h>
@@ -45,7 +45,7 @@ enum {
         ARCHITECTURE_ARC,
         ARCHITECTURE_ARC_BE,
         _ARCHITECTURE_MAX,
-        _ARCHITECTURE_INVALID = -1
+        _ARCHITECTURE_INVALID = -EINVAL,
 };
 
 int uname_architecture(void);

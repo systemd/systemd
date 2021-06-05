@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <stddef.h>
 #include <sys/epoll.h>
@@ -105,7 +105,7 @@ static int server_process_entry(
          *
          * Note that *remaining is altered on both success and failure. */
 
-        size_t n = 0, j, tn = (size_t) -1, m = 0, entry_size = 0;
+        size_t n = 0, j, tn = SIZE_MAX, entry_size = 0;
         char *identifier = NULL, *message = NULL;
         struct iovec *iovec = NULL;
         int priority = LOG_INFO;
@@ -146,7 +146,7 @@ static int server_process_entry(
                 }
 
                 /* n existing properties, 1 new, +1 for _TRANSPORT */
-                if (!GREEDY_REALLOC(iovec, m,
+                if (!GREEDY_REALLOC(iovec,
                                     n + 2 +
                                     N_IOVEC_META_FIELDS + N_IOVEC_OBJECT_FIELDS +
                                     client_context_extra_fields_n_iovec(context))) {
@@ -273,7 +273,7 @@ static int server_process_entry(
                         server_forward_wall(s, priority, identifier, message, ucred);
         }
 
-        server_dispatch_message(s, iovec, n, m, context, tv, priority, object_pid);
+        server_dispatch_message(s, iovec, n, MALLOC_ELEMENTSOF(iovec), context, tv, priority, object_pid);
 
 finish:
         for (j = 0; j < n; j++)  {
@@ -483,13 +483,11 @@ int server_open_native_socket(Server *s, const char *native_socket) {
         if (r < 0)
                 return log_error_errno(r, "SO_PASSCRED failed: %m");
 
-#if HAVE_SELINUX
         if (mac_selinux_use()) {
                 r = setsockopt_int(s->native_fd, SOL_SOCKET, SO_PASSSEC, true);
                 if (r < 0)
                         log_warning_errno(r, "SO_PASSSEC failed: %m");
         }
-#endif
 
         r = setsockopt_int(s->native_fd, SOL_SOCKET, SO_TIMESTAMP, true);
         if (r < 0)

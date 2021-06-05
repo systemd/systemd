@@ -1,4 +1,4 @@
-#  SPDX-License-Identifier: LGPL-2.1+
+#  SPDX-License-Identifier: LGPL-2.1-or-later
 #
 #  This file is part of systemd.
 #
@@ -18,8 +18,8 @@ Before=shutdown.target
 [Service]
 Environment=HOME=/root
 WorkingDirectory=-/root
-ExecStartPre=-@rootbindir@/plymouth --wait quit
-ExecStart=-@rootlibexecdir@/systemd-sulogin-shell rescue
+ExecStartPre=-{{ROOTBINDIR}}/plymouth --wait quit
+ExecStart=-{{ROOTLIBEXECDIR}}/systemd-sulogin-shell rescue
 Type=idle
 StandardInput=tty-force
 StandardOutput=inherit

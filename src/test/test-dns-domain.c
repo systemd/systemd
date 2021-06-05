@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "alloc-util.h"
 #include "dns-domain.h"
@@ -780,6 +780,20 @@ static void test_dns_name_is_valid_or_address(void) {
         assert_se(dns_name_is_valid_or_address("::1") > 0);
 }
 
+static void test_dns_name_dot_suffixed(void) {
+        log_info("/* %s */", __func__);
+
+        assert_se(dns_name_dot_suffixed("") == 0);
+        assert_se(dns_name_dot_suffixed(".") > 0);
+        assert_se(dns_name_dot_suffixed("foo") == 0);
+        assert_se(dns_name_dot_suffixed("foo.") > 0);
+        assert_se(dns_name_dot_suffixed("foo\\..") > 0);
+        assert_se(dns_name_dot_suffixed("foo\\.") == 0);
+        assert_se(dns_name_dot_suffixed("foo.bar.") > 0);
+        assert_se(dns_name_dot_suffixed("foo.bar\\.\\.\\..") > 0);
+        assert_se(dns_name_dot_suffixed("foo.bar\\.\\.\\.\\.") == 0);
+}
+
 int main(int argc, char *argv[]) {
         test_setup_logging(LOG_DEBUG);
 
@@ -810,6 +824,7 @@ int main(int argc, char *argv[]) {
         test_dns_name_common_suffix();
         test_dns_name_apply_idna();
         test_dns_name_is_valid_or_address();
+        test_dns_name_dot_suffixed();
 
         return 0;
 }

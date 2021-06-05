@@ -1,0 +1,6 @@
+[Unit]
+Description=No memory pressure
+
+[Service]
+Slice=testsuite-55-workload.slice
+ExecStart=sleep infinity

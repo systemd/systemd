@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <linux/capability.h>
 
@@ -95,7 +95,7 @@ int bus_home_get_record_json(
                 trusted = false;
         }
 
-        flags = USER_RECORD_REQUIRE_REGULAR|USER_RECORD_ALLOW_PER_MACHINE|USER_RECORD_ALLOW_BINDING|USER_RECORD_STRIP_SECRET|USER_RECORD_ALLOW_STATUS|USER_RECORD_ALLOW_SIGNATURE;
+        flags = USER_RECORD_REQUIRE_REGULAR|USER_RECORD_ALLOW_PER_MACHINE|USER_RECORD_ALLOW_BINDING|USER_RECORD_STRIP_SECRET|USER_RECORD_ALLOW_STATUS|USER_RECORD_ALLOW_SIGNATURE|USER_RECORD_PERMISSIVE;
         if (trusted)
                 flags |= USER_RECORD_ALLOW_PRIVILEGED;
         else
@@ -443,7 +443,7 @@ int bus_home_method_update(
         assert(message);
         assert(h);
 
-        r = bus_message_read_home_record(message, USER_RECORD_REQUIRE_REGULAR|USER_RECORD_REQUIRE_SECRET|USER_RECORD_ALLOW_PRIVILEGED|USER_RECORD_ALLOW_PER_MACHINE|USER_RECORD_ALLOW_SIGNATURE, &hr, error);
+        r = bus_message_read_home_record(message, USER_RECORD_REQUIRE_REGULAR|USER_RECORD_REQUIRE_SECRET|USER_RECORD_ALLOW_PRIVILEGED|USER_RECORD_ALLOW_PER_MACHINE|USER_RECORD_ALLOW_SIGNATURE|USER_RECORD_PERMISSIVE, &hr, error);
         if (r < 0)
                 return r;
 
@@ -885,7 +885,7 @@ static int on_deferred_change(sd_event_source *s, void *userdata) {
 
         assert(h);
 
-        h->deferred_change_event_source = sd_event_source_unref(h->deferred_change_event_source);
+        h->deferred_change_event_source = sd_event_source_disable_unref(h->deferred_change_event_source);
 
         r = bus_home_path(h, &path);
         if (r < 0) {

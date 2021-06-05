@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <errno.h>
 #include <mntent.h>
@@ -31,17 +31,15 @@ static int track_pid(Hashmap **h, const char *path, pid_t pid) {
         assert(path);
         assert(pid_is_valid(pid));
 
-        r = hashmap_ensure_allocated(h, NULL);
-        if (r < 0)
-                return log_oom();
-
         c = strdup(path);
         if (!c)
                 return log_oom();
 
-        r = hashmap_put(*h, PID_TO_PTR(pid), c);
-        if (r < 0)
+        r = hashmap_ensure_put(h, NULL, PID_TO_PTR(pid), c);
+        if (r == -ENOMEM)
                 return log_oom();
+        if (r < 0)
+                return log_error_errno(r, "Failed to store pid " PID_FMT, pid);
 
         TAKE_PTR(c);
         return 0;
@@ -79,7 +77,7 @@ static int run(int argc, char *argv[]) {
         struct mntent* me;
         int r;
 
-        log_setup_service();
+        log_setup();
 
         if (argc > 1)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),

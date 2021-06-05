@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 /* Inspired by Andrew Lutomirski's 'u2f-hidraw-policy.c' */
 
 #include <errno.h>

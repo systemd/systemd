@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <getopt.h>
 #include <sys/epoll.h>
@@ -151,7 +151,7 @@ static int exec_process(const char *name, char **argv, char **env, int start_fd,
 
                         envp[n_env++] = k;
                 } else {
-                        _cleanup_free_ char *p;
+                        _cleanup_free_ char *p = NULL;
                         const char *n;
 
                         p = strjoin(*s, "=");
@@ -342,11 +342,11 @@ static int help(void) {
                "     --fdname=NAME[:NAME...] Specify names for file descriptors\n"
                "     --inetd                 Enable inetd file descriptor passing protocol\n"
                "\nNote: file descriptors from sd_listen_fds() will be passed through.\n"
-               "\nSee the %s for details.\n"
-               , program_invocation_short_name
-               , ansi_highlight(), ansi_normal()
-               , link
-        );
+               "\nSee the %s for details.\n",
+               program_invocation_short_name,
+               ansi_highlight(),
+               ansi_normal(),
+               link);
 
         return 0;
 }
@@ -421,7 +421,7 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_FDNAME: {
-                        _cleanup_strv_free_ char **names;
+                        _cleanup_strv_free_ char **names = NULL;
                         char **s;
 
                         names = strv_split(optarg, ":");
@@ -430,7 +430,7 @@ static int parse_argv(int argc, char *argv[]) {
 
                         STRV_FOREACH(s, names)
                                 if (!fdname_is_valid(*s)) {
-                                        _cleanup_free_ char *esc;
+                                        _cleanup_free_ char *esc = NULL;
 
                                         esc = cescape(*s);
                                         log_warning("File descriptor name \"%s\" is not valid.", esc);

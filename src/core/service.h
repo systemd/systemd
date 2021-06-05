@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
 typedef struct Service Service;
@@ -20,7 +20,7 @@ typedef enum ServiceRestart {
         SERVICE_RESTART_ON_ABORT,
         SERVICE_RESTART_ALWAYS,
         _SERVICE_RESTART_MAX,
-        _SERVICE_RESTART_INVALID = -1
+        _SERVICE_RESTART_INVALID = -EINVAL,
 } ServiceRestart;
 
 typedef enum ServiceType {
@@ -32,8 +32,15 @@ typedef enum ServiceType {
         SERVICE_IDLE,     /* much like simple, but delay exec() until all jobs are dispatched. */
         SERVICE_EXEC,     /* we fork and wait until we execute exec() (this means our own setup is waited for) */
         _SERVICE_TYPE_MAX,
-        _SERVICE_TYPE_INVALID = -1
+        _SERVICE_TYPE_INVALID = -EINVAL,
 } ServiceType;
+
+typedef enum ServiceExitType {
+        SERVICE_EXIT_MAIN,    /* we consider the main PID when deciding if the service exited */
+        SERVICE_EXIT_CGROUP,  /* we wait for the last process in the cgroup to exit */
+        _SERVICE_EXIT_TYPE_MAX,
+        _SERVICE_EXIT_TYPE_INVALID = -EINVAL,
+} ServiceExitType;
 
 typedef enum ServiceExecCommand {
         SERVICE_EXEC_CONDITION,
@@ -44,7 +51,7 @@ typedef enum ServiceExecCommand {
         SERVICE_EXEC_STOP,
         SERVICE_EXEC_STOP_POST,
         _SERVICE_EXEC_COMMAND_MAX,
-        _SERVICE_EXEC_COMMAND_INVALID = -1
+        _SERVICE_EXEC_COMMAND_INVALID = -EINVAL,
 } ServiceExecCommand;
 
 typedef enum NotifyState {
@@ -53,7 +60,7 @@ typedef enum NotifyState {
         NOTIFY_RELOADING,
         NOTIFY_STOPPING,
         _NOTIFY_STATE_MAX,
-        _NOTIFY_STATE_INVALID = -1
+        _NOTIFY_STATE_INVALID = -EINVAL,
 } NotifyState;
 
 /* The values of this enum are referenced in man/systemd.exec.xml and src/shared/bus-unit-util.c.
@@ -71,7 +78,7 @@ typedef enum ServiceResult {
         SERVICE_FAILURE_OOM_KILL,
         SERVICE_SKIP_CONDITION,
         _SERVICE_RESULT_MAX,
-        _SERVICE_RESULT_INVALID = -1
+        _SERVICE_RESULT_INVALID = -EINVAL,
 } ServiceResult;
 
 typedef enum ServiceTimeoutFailureMode {
@@ -79,7 +86,7 @@ typedef enum ServiceTimeoutFailureMode {
         SERVICE_TIMEOUT_ABORT,
         SERVICE_TIMEOUT_KILL,
         _SERVICE_TIMEOUT_FAILURE_MODE_MAX,
-        _SERVICE_TIMEOUT_FAILURE_MODE_INVALID = -1
+        _SERVICE_TIMEOUT_FAILURE_MODE_INVALID = -EINVAL,
 } ServiceTimeoutFailureMode;
 
 struct ServiceFDStore {
@@ -97,6 +104,7 @@ struct Service {
         Unit meta;
 
         ServiceType type;
+        ServiceExitType exit_type;
         ServiceRestart restart;
         ExitStatusSet restart_prevent_status;
         ExitStatusSet restart_force_status;
@@ -226,6 +234,9 @@ ServiceRestart service_restart_from_string(const char *s) _pure_;
 const char* service_type_to_string(ServiceType i) _const_;
 ServiceType service_type_from_string(const char *s) _pure_;
 
+const char* service_exit_type_to_string(ServiceExitType i) _const_;
+ServiceExitType service_exit_type_from_string(const char *s) _pure_;
+
 const char* service_exec_command_to_string(ServiceExecCommand i) _const_;
 ServiceExecCommand service_exec_command_from_string(const char *s) _pure_;
 
@@ -244,3 +255,6 @@ ServiceTimeoutFailureMode service_timeout_failure_mode_from_string(const char *s
 DEFINE_CAST(SERVICE, Service);
 
 #define STATUS_TEXT_MAX (16U*1024U)
+
+/* Only exported for unit tests */
+int service_deserialize_exec_command(Unit *u, const char *key, const char *value);

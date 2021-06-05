@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "alloc-util.h"
 #include "netif-naming-scheme.h"
@@ -12,6 +12,8 @@ static const NamingScheme naming_schemes[] = {
         { "v241", NAMING_V241 },
         { "v243", NAMING_V243 },
         { "v245", NAMING_V245 },
+        { "v247", NAMING_V247 },
+        { "v249", NAMING_V249 },
         /* … add more schemes here, as the logic to name devices is updated … */
 };
 

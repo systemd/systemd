@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <errno.h>
 #include <fcntl.h>
@@ -14,6 +14,7 @@
 #include "bus-log-control-api.h"
 #include "bus-polkit.h"
 #include "cgroup-util.h"
+#include "daemon-util.h"
 #include "def.h"
 #include "device-util.h"
 #include "dirent-util.h"
@@ -267,8 +268,8 @@ static int manager_enumerate_seats(Manager *m) {
                 s = hashmap_get(m->seats, de->d_name);
                 if (!s) {
                         if (unlinkat(dirfd(d), de->d_name, 0) < 0)
-                                log_warning("Failed to remove /run/systemd/seats/%s: %m",
-                                            de->d_name);
+                                log_warning_errno(errno, "Failed to remove /run/systemd/seats/%s, ignoring: %m",
+                                                  de->d_name);
                         continue;
                 }
 
@@ -577,7 +578,7 @@ static int manager_dispatch_vcsa_udev(sd_device_monitor *monitor, sd_device *dev
 
         if (sd_device_get_sysname(device, &name) >= 0 &&
             startswith(name, "vcsa") &&
-            device_for_action(device, DEVICE_ACTION_REMOVE))
+            device_for_action(device, SD_DEVICE_REMOVE))
                 seat_preallocate_vts(m->seat0);
 
         return 0;
@@ -787,7 +788,7 @@ static int manager_connect_console(Manager *m) {
                                        "Not enough real-time signals available: %u-%u",
                                        SIGRTMIN, SIGRTMAX);
 
-        assert_se(ignore_signals(SIGRTMIN + 1, -1) >= 0);
+        assert_se(ignore_signals(SIGRTMIN + 1) >= 0);
         assert_se(sigprocmask_many(SIG_BLOCK, NULL, SIGRTMIN, -1) >= 0);
 
         r = sd_event_add_signal(m->event, NULL, SIGRTMIN, manager_vt_switch, m);
@@ -921,14 +922,13 @@ static void manager_gc(Manager *m, bool drop_not_started) {
                 LIST_REMOVE(gc_queue, m->session_gc_queue, session);
                 session->in_gc_queue = false;
 
-                /* First, if we are not closing yet, initiate stopping */
+                /* First, if we are not closing yet, initiate stopping. */
                 if (session_may_gc(session, drop_not_started) &&
                     session_get_state(session) != SESSION_CLOSING)
                         (void) session_stop(session, /* force = */ false);
 
-                /* Normally, this should make the session referenced
-                 * again, if it doesn't then let's get rid of it
-                 * immediately */
+                /* Normally, this should make the session referenced again, if it doesn't then let's get rid
+                 * of it immediately. */
                 if (session_may_gc(session, drop_not_started)) {
                         (void) session_finalize(session);
                         session_free(session);
@@ -1148,7 +1148,7 @@ static int manager_run(Manager *m) {
                 if (r > 0)
                         continue;
 
-                r = sd_event_run(m->event, (uint64_t) -1);
+                r = sd_event_run(m->event, UINT64_MAX);
                 if (r < 0)
                         return r;
         }
@@ -1156,10 +1156,11 @@ static int manager_run(Manager *m) {
 
 static int run(int argc, char *argv[]) {
         _cleanup_(manager_unrefp) Manager *m = NULL;
+        _cleanup_(notify_on_cleanup) const char *notify_message = NULL;
         int r;
 
         log_set_facility(LOG_AUTH);
-        log_setup_service();
+        log_setup();
 
         r = service_parse_argv("systemd-logind.service",
                                "Manager for user logins and devices and privileged operations.",
@@ -1175,9 +1176,9 @@ static int run(int argc, char *argv[]) {
         if (r < 0)
                 return r;
 
-        /* Always create the directories people can create inotify watches in. Note that some applications might check
-         * for the existence of /run/systemd/seats/ to determine whether logind is available, so please always make
-         * sure these directories are created early on and unconditionally. */
+        /* Always create the directories people can create inotify watches in. Note that some applications
+         * might check for the existence of /run/systemd/seats/ to determine whether logind is available, so
+         * please always make sure these directories are created early on and unconditionally. */
         (void) mkdir_label("/run/systemd/seats", 0755);
         (void) mkdir_label("/run/systemd/users", 0755);
         (void) mkdir_label("/run/systemd/sessions", 0755);
@@ -1194,19 +1195,8 @@ static int run(int argc, char *argv[]) {
         if (r < 0)
                 return log_error_errno(r, "Failed to fully start up daemon: %m");
 
-        log_debug("systemd-logind running as pid "PID_FMT, getpid_cached());
-        (void) sd_notify(false,
-                         "READY=1\n"
-                         "STATUS=Processing requests...");
-
-        r = manager_run(m);
-
-        log_debug("systemd-logind stopped as pid "PID_FMT, getpid_cached());
-        (void) sd_notify(false,
-                         "STOPPING=1\n"
-                         "STATUS=Shutting down...");
-
-        return r;
+        notify_message = notify_start(NOTIFY_READY, NOTIFY_STOPPING);
+        return manager_run(m);
 }
 
 DEFINE_MAIN_FUNCTION(run);

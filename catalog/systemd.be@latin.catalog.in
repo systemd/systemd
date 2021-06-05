@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: LGPL-2.1+
+# SPDX-License-Identifier: LGPL-2.1-or-later
 #
 # Message catalog for systemd's own messages
 # Belarusian Latin translation
@@ -79,7 +79,7 @@ Rekamiendujecca paviedamić ab hetym raspracoŭnikam.
 Subject: Novaja siesija № @SESSION_ID@ stvorana dlia karystaĺnika @USER_ID@
 Defined-By: systemd
 Support: %SUPPORT_URL%
-Documentation: https://www.freedesktop.org/wiki/Software/systemd/multiseat
+Documentation: sd-login(3)
 
 Novaja siesija z № @SESSION_ID@ stvorana dlia karystaĺnika @USER_ID@.
 
@@ -89,7 +89,7 @@ Lidar hetaj siesii pad № @LEADER@.
 Subject: Siesija № @SESSION_ID@ spyniena
 Defined-By: systemd
 Support: %SUPPORT_URL%
-Documentation: https://www.freedesktop.org/wiki/Software/systemd/multiseat
+Documentation: sd-login(3)
 
 Siesija № @SESSION_ID@ spyniena.
 
@@ -97,7 +97,7 @@ Siesija № @SESSION_ID@ spyniena.
 Subject: Dastupna novaje pracoŭnaje miesca № @SEAT_ID@
 Defined-By: systemd
 Support: %SUPPORT_URL%
-Documentation: https://www.freedesktop.org/wiki/Software/systemd/multiseat
+Documentation: sd-login(3)
 
 Novaje pracoŭnaje miesca № @SEAT_ID@ naladžana i dastupna dlia
 vykarystannia.
@@ -106,7 +106,7 @@ vykarystannia.
 Subject: Pracoŭnaje miesca № @SEAT_ID@ vydaliena
 Defined-By: systemd
 Support: %SUPPORT_URL%
-Documentation: https://www.freedesktop.org/wiki/Software/systemd/multiseat
+Documentation: sd-login(3)
 
 Pracoŭnaje miesca № @SEAT_ID@ vydaliena i boĺš nie dastupna.
 

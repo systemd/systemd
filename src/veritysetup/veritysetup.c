@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <errno.h>
 #include <stdio.h>
@@ -15,13 +15,10 @@
 #include "string-util.h"
 #include "terminal-util.h"
 
-static char *arg_root_hash = NULL;
-static char *arg_data_what = NULL;
-static char *arg_hash_what = NULL;
+static uint32_t arg_activate_flags = CRYPT_ACTIVATE_READONLY;
+static char *arg_root_hash_signature = NULL;
 
-STATIC_DESTRUCTOR_REGISTER(arg_root_hash, freep);
-STATIC_DESTRUCTOR_REGISTER(arg_data_what, freep);
-STATIC_DESTRUCTOR_REGISTER(arg_hash_what, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_root_hash_signature, freep);
 
 static int help(void) {
         _cleanup_free_ char *link = NULL;
@@ -31,16 +28,102 @@ static int help(void) {
         if (r < 0)
                 return log_oom();
 
-        printf("%s attach VOLUME DATADEVICE HASHDEVICE ROOTHASH [ROOTHASHSIG]\n"
+        printf("%s attach VOLUME DATADEVICE HASHDEVICE ROOTHASH [OPTIONS]\n"
                "%s detach VOLUME\n\n"
                "Attaches or detaches an integrity protected block device.\n"
-               "\nSee the %s for details.\n"
-               , program_invocation_short_name
-               , program_invocation_short_name
-               , link
-        );
+               "\nSee the %s for details.\n",
+               program_invocation_short_name,
+               program_invocation_short_name,
+               link);
 
         return 0;
+}
+
+static int looks_like_roothashsig(const char *option) {
+        const char *val;
+        int r;
+
+        if (path_is_absolute(option)) {
+
+                r = free_and_strdup(&arg_root_hash_signature, option);
+                if (r < 0)
+                        return log_oom();
+
+                return 1;
+        }
+
+        val = startswith(option, "base64:");
+        if (val) {
+
+                r = free_and_strdup(&arg_root_hash_signature, val);
+                if (r < 0)
+                        return log_oom();
+
+                return 1;
+        }
+
+        return 0;
+}
+
+static int parse_options(const char *options) {
+        int r;
+
+        /* backward compatibility with the obsolete ROOTHASHSIG positional argument */
+        r = looks_like_roothashsig(options);
+        if (r < 0)
+                return r;
+        if (r == 1) {
+                log_warning("Usage of ROOTHASHSIG positional argument is deprecated. "
+                            "Please use the option root-hash-signature=%s instead.", options);
+                return 0;
+        }
+
+        for (;;) {
+                _cleanup_free_ char *word = NULL;
+                char *val;
+
+                r = extract_first_word(&options, &word, ",", EXTRACT_DONT_COALESCE_SEPARATORS | EXTRACT_UNESCAPE_SEPARATORS);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to parse options: %m");
+                if (r == 0)
+                        break;
+
+                if (STR_IN_SET(word, "noauto", "auto", "nofail", "fail", "_netdev"))
+                        continue;
+
+                if (isempty(word))
+                        continue;
+                else if (streq(word, "ignore-corruption"))
+                        arg_activate_flags |= CRYPT_ACTIVATE_IGNORE_CORRUPTION;
+                else if (streq(word, "restart-on-corruption"))
+                        arg_activate_flags |= CRYPT_ACTIVATE_RESTART_ON_CORRUPTION;
+                else if (streq(word, "ignore-zero-blocks"))
+                        arg_activate_flags |= CRYPT_ACTIVATE_IGNORE_ZERO_BLOCKS;
+#ifdef CRYPT_ACTIVATE_CHECK_AT_MOST_ONCE
+                else if (streq(word, "check-at-most-once"))
+                        arg_activate_flags |= CRYPT_ACTIVATE_CHECK_AT_MOST_ONCE;
+#endif
+#ifdef CRYPT_ACTIVATE_PANIC_ON_CORRUPTION
+                else if (streq(word, "panic-on-corruption"))
+                        arg_activate_flags |= CRYPT_ACTIVATE_PANIC_ON_CORRUPTION;
+#endif
+                else if ((val = startswith(word, "root-hash-signature="))) {
+
+                        r = looks_like_roothashsig(val);
+                        if (r < 0)
+                                return r;
+                        if (r == 0)
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "root-hash-signature expects either full path to signature file or "
+                                                                                "base64 string encoding signature prefixed by base64:.");
+
+                        r = free_and_strdup(&arg_root_hash_signature, val);
+                        if (r < 0)
+                                return log_oom();
+                } else
+                        log_warning("Encountered unknown option '%s', ignoring.", word);
+        }
+
+        return r;
 }
 
 static int run(int argc, char *argv[]) {
@@ -53,7 +136,9 @@ static int run(int argc, char *argv[]) {
         if (argc < 3)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "This program requires at least two arguments.");
 
-        log_setup_service();
+        log_setup();
+
+        cryptsetup_enable_logging(NULL);
 
         umask(0022);
 
@@ -81,6 +166,12 @@ static int run(int argc, char *argv[]) {
                         return 0;
                 }
 
+                if (argc > 6) {
+                        r = parse_options(argv[6]);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse options: %m");
+                }
+
                 r = crypt_load(cd, CRYPT_VERITY, NULL);
                 if (r < 0)
                         return log_error_errno(r, "Failed to load verity superblock: %m");
@@ -89,28 +180,32 @@ static int run(int argc, char *argv[]) {
                 if (r < 0)
                         return log_error_errno(r, "Failed to configure data device: %m");
 
-                if (argc > 6) {
+                if (arg_root_hash_signature && *arg_root_hash_signature) {
 #if HAVE_CRYPT_ACTIVATE_BY_SIGNED_KEY
                         _cleanup_free_ char *hash_sig = NULL;
                         size_t hash_sig_size;
                         char *value;
 
-                        if ((value = startswith(argv[6], "base64:"))) {
+                        if ((value = startswith(arg_root_hash_signature, "base64:"))) {
                                 r = unbase64mem(value, strlen(value), (void *)&hash_sig, &hash_sig_size);
                                 if (r < 0)
-                                        return log_error_errno(r, "Failed to parse root hash signature '%s': %m", argv[6]);
+                                        return log_error_errno(r, "Failed to parse root hash signature '%s': %m", arg_root_hash_signature);
                         } else {
-                                r = read_full_file_full(AT_FDCWD, argv[6], READ_FULL_FILE_CONNECT_SOCKET, &hash_sig, &hash_sig_size);
+                                r = read_full_file_full(
+                                                AT_FDCWD, arg_root_hash_signature, UINT64_MAX, SIZE_MAX,
+                                                READ_FULL_FILE_CONNECT_SOCKET,
+                                                NULL,
+                                                &hash_sig, &hash_sig_size);
                                 if (r < 0)
                                         return log_error_errno(r, "Failed to read root hash signature: %m");
                         }
 
-                        r = crypt_activate_by_signed_key(cd, argv[2], m, l, hash_sig, hash_sig_size, CRYPT_ACTIVATE_READONLY);
+                        r = crypt_activate_by_signed_key(cd, argv[2], m, l, hash_sig, hash_sig_size, arg_activate_flags);
 #else
                         return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "activation of verity device with signature %s requested, but not supported by cryptsetup due to missing crypt_activate_by_signed_key()", argv[6]);
 #endif
                 } else
-                        r = crypt_activate_by_volume_key(cd, argv[2], m, l, CRYPT_ACTIVATE_READONLY);
+                        r = crypt_activate_by_volume_key(cd, argv[2], m, l, arg_activate_flags);
                 if (r < 0)
                         return log_error_errno(r, "Failed to set up verity device: %m");
 

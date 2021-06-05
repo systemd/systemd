@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
 #include "bus-object.h"
@@ -13,3 +13,5 @@ int bus_dns_server_append(sd_bus_message *reply, DnsServer *s, bool with_ifindex
 int bus_property_get_resolve_support(sd_bus *bus, const char *path, const char *interface,
                                      const char *property, sd_bus_message *reply,
                                      void *userdata, sd_bus_error *error);
+
+void bus_client_log(sd_bus_message *m, const char *what);

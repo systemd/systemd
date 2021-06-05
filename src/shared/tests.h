@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
 #include <stdbool.h>
@@ -20,6 +20,7 @@ static inline bool manager_errno_skip_test(int r) {
 
 char* setup_fake_runtime_dir(void);
 int enter_cgroup_subroot(char **ret_cgroup);
+int enter_cgroup_root(char **ret_cgroup);
 int get_testdata_dir(const char *suffix, char **ret);
 const char* get_catalog_dir(void);
 bool slow_tests_enabled(void);
@@ -39,3 +40,6 @@ bool can_memlock(void);
         } else {                                                    \
                 printf("systemd not booted skipping '%s'\n", #x);   \
         }
+
+/* Provide a convenient way to check if we're running in CI. */
+const char *ci_environment(void);

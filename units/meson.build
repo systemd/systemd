@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: LGPL-2.1+
+# SPDX-License-Identifier: LGPL-2.1-or-later
 
 with_runlevels = conf.get('HAVE_SYSV_COMPAT') == 1
 
@@ -10,6 +10,9 @@ units = [
         ['cryptsetup-pre.target',               'HAVE_LIBCRYPTSETUP'],
         ['cryptsetup.target',                   'HAVE_LIBCRYPTSETUP',
          'sysinit.target.wants/'],
+        ['veritysetup-pre.target',              'HAVE_LIBCRYPTSETUP'],
+        ['veritysetup.target',                  'HAVE_LIBCRYPTSETUP',
+         'sysinit.target.wants/'],
         ['dev-hugepages.mount',                 '',
          'sysinit.target.wants/'],
         ['dev-mqueue.mount',                    '',
@@ -17,11 +20,12 @@ units = [
         ['emergency.target',                    ''],
         ['exit.target',                         ''],
         ['final.target',                        ''],
+        ['first-boot-complete.target',          ''],
         ['getty.target',                        '',
          'multi-user.target.wants/'],
         ['getty-pre.target',                    ''],
         ['graphical.target',                    '',
-         (with_runlevels ? 'runlevel5.target default.target' : 'default.target')],
+         'default.target' + (with_runlevels ? ' runlevel5.target' : '')],
         ['halt.target',                         ''],
         ['hibernate.target',                    'ENABLE_HIBERNATE'],
         ['hybrid-sleep.target',                 'ENABLE_HIBERNATE'],
@@ -34,6 +38,7 @@ units = [
         ['initrd-switch-root.service',          'ENABLE_INITRD'],
         ['initrd-switch-root.target',           'ENABLE_INITRD'],
         ['initrd-udevadm-cleanup-db.service',   'ENABLE_INITRD'],
+        ['initrd-usr-fs.target',                'ENABLE_INITRD'],
         ['initrd.target',                       'ENABLE_INITRD'],
         ['kexec.target',                        ''],
         ['ldconfig.service',                    'ENABLE_LDCONFIG',
@@ -58,8 +63,11 @@ units = [
          'sysinit.target.wants/'],
         ['proc-sys-fs-binfmt_misc.mount',       'ENABLE_BINFMT'],
         ['reboot.target',                       '',
-         (with_runlevels ? 'runlevel6.target ctrl-alt-del.target' : 'ctrl-alt-del.target')],
-        ['remote-cryptsetup.target',            'HAVE_LIBCRYPTSETUP'],
+         'ctrl-alt-del.target' + (with_runlevels ? ' runlevel6.target' : '')],
+        ['remote-cryptsetup.target',            'HAVE_LIBCRYPTSETUP',
+         'initrd-root-device.target.wants/'],
+        ['remote-veritysetup.target',           'HAVE_LIBCRYPTSETUP',
+         'initrd-root-device.target.wants/'],
         ['remote-fs-pre.target',                ''],
         ['remote-fs.target',                    ''],
         ['rescue.target',                       '',
@@ -102,6 +110,7 @@ units = [
         ['systemd-firstboot.service',           'ENABLE_FIRSTBOOT',
          'sysinit.target.wants/'],
         ['systemd-halt.service',                ''],
+        ['systemd-homed-activate.service',      'ENABLE_HOMED'],
         ['systemd-initctl.socket',              'HAVE_SYSV_COMPAT',
          'sockets.target.wants/'],
         ['systemd-journal-catalog-update.service', '',
@@ -125,6 +134,7 @@ units = [
         ['systemd-poweroff.service',            ''],
         ['systemd-reboot.service',              ''],
         ['systemd-rfkill.socket',               'ENABLE_RFKILL'],
+        ['systemd-sysext.service',              'ENABLE_SYSEXT'],
         ['systemd-sysusers.service',            'ENABLE_SYSUSERS',
          'sysinit.target.wants/'],
         ['systemd-tmpfiles-clean.service',      'ENABLE_TMPFILES'],
@@ -155,13 +165,18 @@ units = [
 ]
 
 in_units = [
+        ['console-getty.service',                ''],
+        ['container-getty@.service',             ''],
         ['debug-shell.service',                  ''],
         ['emergency.service',                    ''],
+        ['getty@.service',                       '',
+         'autovt@.service'],
         ['kmod-static-nodes.service',            'HAVE_KMOD ENABLE_TMPFILES',
          'sysinit.target.wants/'],
         ['quotaon.service',                      'ENABLE_QUOTACHECK'],
         ['rc-local.service',                     'HAVE_SYSV_COMPAT'],
         ['rescue.service',                       ''],
+        ['serial-getty@.service',                ''],
         ['systemd-backlight@.service',           'ENABLE_BACKLIGHT'],
         ['systemd-binfmt.service',               'ENABLE_BINFMT',
          'sysinit.target.wants/'],
@@ -200,6 +215,8 @@ in_units = [
         ['systemd-networkd.service',             'ENABLE_NETWORKD'],
         ['systemd-networkd-wait-online.service', 'ENABLE_NETWORKD'],
         ['systemd-nspawn@.service',              ''],
+        ['systemd-oomd.service',                 'ENABLE_OOMD',
+         'dbus-org.freedesktop.oom1.service'],
         ['systemd-portabled.service',            'ENABLE_PORTABLED',
          'dbus-org.freedesktop.portable1.service'],
         ['systemd-userdbd.service',              'ENABLE_USERDB'],
@@ -235,13 +252,7 @@ in_units = [
         ['user@.service',                        ''],
 ]
 
-m4_units = [
-        ['console-getty.service',              ''],
-        ['container-getty@.service',           ''],
-        ['getty@.service',                     '',
-         'autovt@.service '],
-        ['serial-getty@.service',              ''],
-]
+add_wants = []
 
 foreach tuple : in_units
         file = tuple[0]
@@ -251,47 +262,18 @@ foreach tuple : in_units
         install = ((conds.get(0, '') == '' or conf.get(conds[0]) == 1) and
                    (conds.get(1, '') == '' or conf.get(conds[1]) == 1))
 
-        gen1 = configure_file(
-                input : file + '.in',
-                output : file + '.tmp',
-                configuration : substs)
-        gen2 = custom_target(
+        custom_target(
                 file,
-                input : gen1,
+                input : file + '.in',
                 output : file,
-                command : [sed, '/^## /d', '@INPUT@'],
+                command : [meson_render_jinja2, config_h, '@INPUT@'],
                 capture : true,
                 install : install,
                 install_dir : systemunitdir)
 
         if install and tuple.length() > 2
                 foreach target : tuple[2].split()
-                        meson.add_install_script('meson-add-wants.sh', systemunitdir, target, file)
-                endforeach
-        endif
-endforeach
-
-foreach tuple : m4_units
-        file = tuple[0]
-        input = tuple.get(3, file + '.m4')
-
-        # we do this here because install_data does not accept custom_target output
-        conds = tuple[1].split(' ')
-        install = ((conds.get(0, '') == '' or conf.get(conds[0]) == 1) and
-                   (conds.get(1, '') == '' or conf.get(conds[1]) == 1))
-
-        custom_target(
-                file,
-                input : input,
-                output: file,
-                command : [meson_apply_m4, config_h, '@INPUT@'],
-                capture : true,
-                install : install,
-                install_dir : systemunitdir)
-
-        if tuple.length() > 2 and install
-                foreach target : tuple[2].split()
-                        meson.add_install_script('meson-add-wants.sh', systemunitdir, target, file)
+                        add_wants += [systemunitdir, target, file]
                 endforeach
         endif
 endforeach
@@ -310,21 +292,24 @@ foreach tuple : units
 
                 if tuple.length() > 2
                         foreach target : tuple[2].split()
-                                meson.add_install_script(
-                                        'meson-add-wants.sh', systemunitdir, target, file)
+                                add_wants += [systemunitdir, target, file]
                         endforeach
                 endif
         endif
 endforeach
+
+meson.add_install_script('meson-add-wants.sh', add_wants)
 
 install_data('user-.slice.d/10-defaults.conf',
              install_dir : systemunitdir + '/user-.slice.d')
 
 ############################################################
 
-meson.add_install_script(meson_make_symlink,
-                         join_paths(pkgsysconfdir, 'user'),
-                         join_paths(sysconfdir, 'xdg/systemd/user'))
+if install_sysconfdir
+        meson.add_install_script(meson_make_symlink,
+                                 join_paths(pkgsysconfdir, 'user'),
+                                 join_paths(sysconfdir, 'xdg/systemd/user'))
+endif
 meson.add_install_script(meson_make_symlink,
                          join_paths(dbussystemservicedir, 'org.freedesktop.systemd1.service'),
                          join_paths(dbussessionservicedir, 'org.freedesktop.systemd1.service'))
@@ -332,8 +317,7 @@ if conf.get('HAVE_SYSV_COMPAT') == 1
         foreach i : [1, 2, 3, 4, 5]
                 meson.add_install_script(
                         'sh', '-c',
-                        mkdir_p
-                        .format(join_paths(systemunitdir, 'runlevel@0@.target.wants'.format(i))))
+                        mkdir_p.format(join_paths(systemunitdir, 'runlevel@0@.target.wants'.format(i))))
         endforeach
 endif
 

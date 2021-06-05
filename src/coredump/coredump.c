@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <errno.h>
 #include <stdio.h>
@@ -46,6 +46,7 @@
 #include "string-util.h"
 #include "strv.h"
 #include "tmpfile-util.h"
+#include "user-record.h"
 #include "user-util.h"
 
 /* The maximum size up to which we process coredumps */
@@ -123,7 +124,7 @@ typedef enum CoredumpStorage {
         COREDUMP_STORAGE_EXTERNAL,
         COREDUMP_STORAGE_JOURNAL,
         _COREDUMP_STORAGE_MAX,
-        _COREDUMP_STORAGE_INVALID = -1
+        _COREDUMP_STORAGE_INVALID = -EINVAL,
 } CoredumpStorage;
 
 static const char* const coredump_storage_table[_COREDUMP_STORAGE_MAX] = {
@@ -140,8 +141,8 @@ static bool arg_compress = true;
 static uint64_t arg_process_size_max = PROCESS_SIZE_MAX;
 static uint64_t arg_external_size_max = EXTERNAL_SIZE_MAX;
 static uint64_t arg_journal_size_max = JOURNAL_SIZE_MAX;
-static uint64_t arg_keep_free = (uint64_t) -1;
-static uint64_t arg_max_use = (uint64_t) -1;
+static uint64_t arg_keep_free = UINT64_MAX;
+static uint64_t arg_max_use = UINT64_MAX;
 
 static int parse_config(void) {
         static const ConfigTableItem items[] = {
@@ -209,14 +210,13 @@ static int fix_xattr(int fd, const Context *context) {
         };
 
         int r = 0;
-        unsigned i;
 
         assert(fd >= 0);
 
         /* Attach some metadata to coredumps via extended
          * attributes. Just because we can. */
 
-        for (i = 0; i < _META_MAX; i++) {
+        for (unsigned i = 0; i < _META_MAX; i++) {
                 int k;
 
                 if (isempty(context->meta[i]) || !xattrs[i])
@@ -352,15 +352,14 @@ static int save_external_coredump(
         if (r < 0)
                 return log_error_errno(r, "Failed to parse resource limit '%s': %m",
                                        context->meta[META_ARGV_RLIMIT]);
-        if (rlimit < page_size()) {
+        if (rlimit < page_size())
                 /* Is coredumping disabled? Then don't bother saving/processing the
-                 * coredump.  Anything below PAGE_SIZE cannot give a readable coredump
+                 * coredump. Anything below PAGE_SIZE cannot give a readable coredump
                  * (the kernel uses ELF_EXEC_PAGESIZE which is not easily accessible, but
                  * is usually the same as PAGE_SIZE. */
                 return log_info_errno(SYNTHETIC_ERRNO(EBADSLT),
                                       "Resource limits disable core dumping for process %s (%s).",
                                       context->meta[META_ARGV_PID], context->meta[META_COMM]);
-        }
 
         process_limit = MAX(arg_process_size_max, storage_size_max());
         if (process_limit == 0)
@@ -436,10 +435,10 @@ static int save_external_coredump(
                 if (tmp)
                         unlink_noerrno(tmp);
 
-                *ret_filename = TAKE_PTR(fn_compressed);     /* compressed */
-                *ret_node_fd = TAKE_FD(fd_compressed);      /* compressed */
-                *ret_data_fd = TAKE_FD(fd);                 /* uncompressed */
-                *ret_size = (uint64_t) st.st_size; /* uncompressed */
+                *ret_filename = TAKE_PTR(fn_compressed);  /* compressed */
+                *ret_node_fd = TAKE_FD(fd_compressed);    /* compressed */
+                *ret_data_fd = TAKE_FD(fd);               /* uncompressed */
+                *ret_size = (uint64_t) st.st_size;        /* uncompressed */
 
                 return 0;
 
@@ -589,7 +588,7 @@ static int compose_open_fds(pid_t pid, char **open_fds) {
 static int get_process_ns(pid_t pid, const char *namespace, ino_t *ns) {
         const char *p;
         struct stat stbuf;
-        _cleanup_close_ int proc_ns_dir_fd;
+        _cleanup_close_ int proc_ns_dir_fd = -1;
 
         p = procfs_file_alloca(pid, "ns");
 
@@ -666,7 +665,7 @@ static int get_process_container_parent_cmdline(pid_t pid, char** cmdline) {
         if (r < 0)
                 return r;
 
-        r = get_process_cmdline(container_pid, SIZE_MAX, 0, cmdline);
+        r = get_process_cmdline(container_pid, SIZE_MAX, PROCESS_CMDLINE_QUOTE_POSIX, cmdline);
         if (r < 0)
                 return r;
 
@@ -682,7 +681,7 @@ static int change_uid_gid(const Context *context) {
         if (r < 0)
                 return r;
 
-        if (uid <= SYSTEM_UID_MAX) {
+        if (uid_is_system(uid)) {
                 const char *user = "systemd-coredump";
 
                 r = get_user_creds(&user, &uid, &gid, NULL, NULL, 0);
@@ -704,14 +703,16 @@ static int submit_coredump(
                 struct iovec_wrapper *iovw,
                 int input_fd) {
 
+        _cleanup_(json_variant_unrefp) JsonVariant *json_metadata = NULL;
         _cleanup_close_ int coredump_fd = -1, coredump_node_fd = -1;
         _cleanup_free_ char *filename = NULL, *coredump_data = NULL;
         _cleanup_free_ char *stacktrace = NULL;
         char *core_message;
+        const char *module_name;
         uint64_t coredump_size = UINT64_MAX;
         bool truncated = false;
+        JsonVariant *module_json;
         int r;
-
         assert(context);
         assert(iovw);
         assert(input_fd >= 0);
@@ -758,7 +759,7 @@ static int submit_coredump(
                           "than %"PRIu64" (the configured maximum)",
                           coredump_size, arg_process_size_max);
         } else
-                coredump_make_stack_trace(coredump_fd, context->meta[META_EXE], &stacktrace);
+                coredump_parse_core(coredump_fd, context->meta[META_EXE], &stacktrace, &json_metadata);
 #endif
 
 log:
@@ -781,6 +782,34 @@ log:
 
         if (truncated)
                 (void) iovw_put_string_field(iovw, "COREDUMP_TRUNCATED=", "1");
+
+        /* If we managed to parse any ELF metadata (build-id, ELF package meta),
+         * attach it as journal metadata. */
+        if (json_metadata) {
+                _cleanup_free_ char *formatted_json = NULL;
+
+                r = json_variant_format(json_metadata, 0, &formatted_json);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to format JSON package metadata: %m");
+
+                (void) iovw_put_string_field(iovw, "COREDUMP_PACKAGE_JSON=", formatted_json);
+        }
+
+        JSON_VARIANT_OBJECT_FOREACH(module_name, module_json, json_metadata) {
+                JsonVariant *package_name, *package_version;
+
+                /* We only add structured fields for the 'main' ELF module */
+                if (!path_equal_filename(module_name, context->meta[META_EXE]))
+                        continue;
+
+                package_name = json_variant_by_key(module_json, "name");
+                if (package_name)
+                        (void) iovw_put_string_field(iovw, "COREDUMP_PACKAGE_NAME=", json_variant_string(package_name));
+
+                package_version = json_variant_by_key(module_json, "version");
+                if (package_version)
+                        (void) iovw_put_string_field(iovw, "COREDUMP_PACKAGE_VERSION=", json_variant_string(package_version));
+        }
 
         /* Optionally store the entire coredump in the journal */
         if (arg_storage == COREDUMP_STORAGE_JOURNAL) {
@@ -808,7 +837,7 @@ log:
 }
 
 static int save_context(Context *context, const struct iovec_wrapper *iovw) {
-        unsigned n, i, count = 0;
+        unsigned count = 0;
         const char *unit;
         int r;
 
@@ -818,10 +847,10 @@ static int save_context(Context *context, const struct iovec_wrapper *iovw) {
 
         /* The context does not allocate any memory on its own */
 
-        for (n = 0; n < iovw->count; n++) {
+        for (size_t n = 0; n < iovw->count; n++) {
                 struct iovec *iovec = iovw->iovec + n;
 
-                for (i = 0; i < ELEMENTSOF(meta_field_names); i++) {
+                for (size_t i = 0; i < ELEMENTSOF(meta_field_names); i++) {
                         char *p;
 
                         /* Note that these strings are NUL terminated, because we made sure that a
@@ -858,11 +887,11 @@ static int process_socket(int fd) {
         Context context = {};
         struct iovec_wrapper iovw = {};
         struct iovec iovec;
-        int i, r;
+        int r;
 
         assert(fd >= 0);
 
-        log_setup_service();
+        log_setup();
 
         log_debug("Processing coredump received on stdin...");
 
@@ -936,7 +965,7 @@ static int process_socket(int fd) {
                 goto finish;
 
         /* Make sure we received at least all fields we need. */
-        for (i = 0; i < _META_MANDATORY_MAX; i++)
+        for (int i = 0; i < _META_MANDATORY_MAX; i++)
                 if (!context.meta[i]) {
                         r = log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                             "A mandatory argument (%i) has not been sent, aborting.",
@@ -958,7 +987,6 @@ static int send_iovec(const struct iovec_wrapper *iovw, int input_fd) {
                 .un.sun_path = "/run/systemd/coredump",
         };
         _cleanup_close_ int fd = -1;
-        size_t i;
         int r;
 
         assert(iovw);
@@ -971,7 +999,7 @@ static int send_iovec(const struct iovec_wrapper *iovw, int input_fd) {
         if (connect(fd, &sa.sa, SOCKADDR_UN_LEN(sa.un)) < 0)
                 return log_error_errno(errno, "Failed to connect to coredump service: %m");
 
-        for (i = 0; i < iovw->count; i++) {
+        for (size_t i = 0; i < iovw->count; i++) {
                 struct msghdr mh = {
                         .msg_iov = iovw->iovec + i,
                         .msg_iovlen = 1,
@@ -1022,7 +1050,7 @@ static int gather_pid_metadata_from_argv(
                 int argc, char **argv) {
 
         _cleanup_free_ char *free_timestamp = NULL;
-        int i, r, signo;
+        int r, signo;
         char *t;
 
         /* We gather all metadata that were passed via argv[] into an array of iovecs that
@@ -1033,7 +1061,7 @@ static int gather_pid_metadata_from_argv(
                                        "Not enough arguments passed by the kernel (%i, expected %i).",
                                        argc, _META_ARGV_MAX);
 
-        for (i = 0; i < _META_ARGV_MAX; i++) {
+        for (int i = 0; i < _META_ARGV_MAX; i++) {
 
                 t = argv[i];
 
@@ -1117,7 +1145,7 @@ static int gather_pid_metadata(struct iovec_wrapper *iovw, Context *context) {
         if (sd_pid_get_slice(pid, &t) >= 0)
                 (void) iovw_put_string_field_free(iovw, "COREDUMP_SLICE=", t);
 
-        if (get_process_cmdline(pid, SIZE_MAX, 0, &t) >= 0)
+        if (get_process_cmdline(pid, SIZE_MAX, PROCESS_CMDLINE_QUOTE_POSIX, &t) >= 0)
                 (void) iovw_put_string_field_free(iovw, "COREDUMP_CMDLINE=", t);
 
         if (cg_pid_get_path_shifted(pid, NULL, &t) >= 0)
@@ -1127,23 +1155,23 @@ static int gather_pid_metadata(struct iovec_wrapper *iovw, Context *context) {
                 (void) iovw_put_string_field_free(iovw, "COREDUMP_OPEN_FDS=", t);
 
         p = procfs_file_alloca(pid, "status");
-        if (read_full_file(p, &t, NULL) >= 0)
+        if (read_full_virtual_file(p, &t, NULL) >= 0)
                 (void) iovw_put_string_field_free(iovw, "COREDUMP_PROC_STATUS=", t);
 
         p = procfs_file_alloca(pid, "maps");
-        if (read_full_file(p, &t, NULL) >= 0)
+        if (read_full_virtual_file(p, &t, NULL) >= 0)
                 (void) iovw_put_string_field_free(iovw, "COREDUMP_PROC_MAPS=", t);
 
         p = procfs_file_alloca(pid, "limits");
-        if (read_full_file(p, &t, NULL) >= 0)
+        if (read_full_virtual_file(p, &t, NULL) >= 0)
                 (void) iovw_put_string_field_free(iovw, "COREDUMP_PROC_LIMITS=", t);
 
         p = procfs_file_alloca(pid, "cgroup");
-        if (read_full_file(p, &t, NULL) >=0)
+        if (read_full_virtual_file(p, &t, NULL) >=0)
                 (void) iovw_put_string_field_free(iovw, "COREDUMP_PROC_CGROUP=", t);
 
         p = procfs_file_alloca(pid, "mountinfo");
-        if (read_full_file(p, &t, NULL) >=0)
+        if (read_full_virtual_file(p, &t, NULL) >=0)
                 (void) iovw_put_string_field_free(iovw, "COREDUMP_PROC_MOUNTINFO=", t);
 
         if (get_process_cwd(pid, &t) >= 0)
@@ -1224,7 +1252,6 @@ static int process_backtrace(int argc, char *argv[]) {
         Context context = {};
         struct iovec_wrapper *iovw;
         char *message;
-        size_t i;
         int r;
          _cleanup_(journal_importer_cleanup) JournalImporter importer = JOURNAL_IMPORTER_INIT(STDIN_FILENO);
 
@@ -1274,7 +1301,7 @@ static int process_backtrace(int argc, char *argv[]) {
                 /* The imported iovecs are not supposed to be freed by us so let's store
                  * them at the end of the array so we can skip them while freeing the
                  * rest. */
-                for (i = 0; i < importer.iovw.count; i++) {
+                for (size_t i = 0; i < importer.iovw.count; i++) {
                         struct iovec *iovec = importer.iovw.iovec + i;
 
                         iovw_put(iovw, iovec->iov_base, iovec->iov_len);

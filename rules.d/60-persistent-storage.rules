@@ -104,13 +104,13 @@ KERNEL=="vd*[0-9]", ENV{ID_PATH}=="pci-*", SYMLINK+="disk/by-path/virtio-$env{ID
 
 # probe filesystem metadata of optical drives which have a media inserted
 KERNEL=="sr*", ENV{DISK_EJECT_REQUEST}!="?*", ENV{ID_CDROM_MEDIA_TRACK_COUNT_DATA}=="?*", ENV{ID_CDROM_MEDIA_SESSION_LAST_OFFSET}=="?*", \
-  IMPORT{builtin}="blkid --offset=$env{ID_CDROM_MEDIA_SESSION_LAST_OFFSET}"
+  IMPORT{builtin}="blkid --hint=session_offset=$env{ID_CDROM_MEDIA_SESSION_LAST_OFFSET}"
 # single-session CDs do not have ID_CDROM_MEDIA_SESSION_LAST_OFFSET
 KERNEL=="sr*", ENV{DISK_EJECT_REQUEST}!="?*", ENV{ID_CDROM_MEDIA_TRACK_COUNT_DATA}=="?*", ENV{ID_CDROM_MEDIA_SESSION_LAST_OFFSET}=="", \
   IMPORT{builtin}="blkid --noraid"
 
 # probe filesystem metadata of disks
-KERNEL!="sr*", IMPORT{builtin}="blkid"
+KERNEL!="sr*|mmcblk[0-9]boot[0-9]", IMPORT{builtin}="blkid"
 
 # by-label/by-uuid links (filesystem metadata)
 ENV{ID_FS_USAGE}=="filesystem|other|crypto", ENV{ID_FS_UUID_ENC}=="?*", SYMLINK+="disk/by-uuid/$env{ID_FS_UUID_ENC}"

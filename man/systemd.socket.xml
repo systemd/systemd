@@ -1,7 +1,7 @@
 <?xml version='1.0'?>
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
-<!-- SPDX-License-Identifier: LGPL-2.1+ -->
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
 
 <refentry id="systemd.socket">
   <refentryinfo>
@@ -253,11 +253,10 @@
 
       <varlistentry>
         <term><varname>ListenFIFO=</varname></term>
-        <listitem><para>Specifies a file system FIFO to listen on.
-        This expects an absolute file system path as argument.
-        Behavior otherwise is very similar to the
-        <varname>ListenDatagram=</varname> directive
-        above.</para></listitem>
+        <listitem><para>Specifies a file system FIFO (see <citerefentry
+        project='man-pages'><refentrytitle>fifo</refentrytitle><manvolnum>7</manvolnum></citerefentry> for
+        details) to listen on.  This expects an absolute file system path as argument.  Behavior otherwise is
+        very similar to the <varname>ListenDatagram=</varname> directive above.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -267,8 +266,8 @@
         argument. Behavior otherwise is very similar to the
         <varname>ListenFIFO=</varname> directive above. Use this to
         open character device nodes as well as special files in
-        <filename>/proc</filename> and
-        <filename>/sys</filename>.</para></listitem>
+        <filename>/proc/</filename> and
+        <filename>/sys/</filename>.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -285,12 +284,12 @@
 
       <varlistentry>
         <term><varname>ListenMessageQueue=</varname></term>
-        <listitem><para>Specifies a POSIX message queue name to listen
-        on. This expects a valid message queue name (i.e. beginning
-        with /). Behavior otherwise is very similar to the
-        <varname>ListenFIFO=</varname> directive above. On Linux
-        message queue descriptors are actually file descriptors and
-        can be inherited between processes.</para></listitem>
+        <listitem><para>Specifies a POSIX message queue name to listen on (see <citerefentry
+        project='man-pages'><refentrytitle>mq_overview</refentrytitle><manvolnum>7</manvolnum></citerefentry>
+        for details). This expects a valid message queue name (i.e. beginning with
+        <literal>/</literal>). Behavior otherwise is very similar to the <varname>ListenFIFO=</varname>
+        directive above. On Linux message queue descriptors are actually file descriptors and can be
+        inherited between processes.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -299,7 +298,7 @@
         url="https://www.kernel.org/doc/Documentation/usb/functionfs.txt">USB
         FunctionFS</ulink> endpoints location to listen on, for
         implementation of USB gadget functions. This expects an
-        absolute file system path of FunctionFS mount point as the argument.
+        absolute file system path of a FunctionFS mount point as the argument.
         Behavior otherwise is very similar to the <varname>ListenFIFO=</varname>
         directive above. Use this to open the FunctionFS endpoint
         <filename>ep0</filename>. When using this option, the
@@ -698,10 +697,20 @@
       <varlistentry>
         <term><varname>PassPacketInfo=</varname></term>
         <listitem><para>Takes a boolean value. This controls the <constant>IP_PKTINFO</constant>,
-        <constant>IPV6_RECVPKTINFO</constant> and <constant>NETLINK_PKTINFO</constant> socket options, which
-        enable reception of additional per-packet metadata as ancillary message, on
-        <constant>AF_INET</constant>, <constant>AF_INET6</constant> and <constant>AF_UNIX</constant> sockets.
-        Defaults to <option>false</option>.</para></listitem>
+        <constant>IPV6_RECVPKTINFO</constant>, <constant>NETLINK_PKTINFO</constant> or
+        <constant>PACKET_AUXDATA</constant> socket options, which enable reception of additional per-packet
+        metadata as ancillary message, on <constant>AF_INET</constant>, <constant>AF_INET6</constant>,
+        <constant>AF_UNIX</constant> and <constant>AF_PACKET</constant> sockets.  Defaults to
+        <option>false</option>.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>Timestamping=</varname></term>
+        <listitem><para>Takes one of <literal>off</literal>, <literal>us</literal> (alias:
+        <literal>usec</literal>, <literal>µs</literal>) or <literal>ns</literal> (alias:
+        <literal>nsec</literal>). This controls the <constant>SO_TIMESTAMP</constant> or
+        <constant>SO_TIMESTAMPNS</constant> socket options, and enables whether ingress network traffic shall
+        carry timestamping metadata. Defaults to <option>off</option>.</para></listitem>
       </varlistentry>
 
       <varlistentry>

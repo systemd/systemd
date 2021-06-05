@@ -1,7 +1,7 @@
 <?xml version='1.0'?> <!--*-nxml-*-->
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
-<!-- SPDX-License-Identifier: LGPL-2.1+ -->
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
 
 <refentry id="systemd-journald.service">
 
@@ -53,9 +53,10 @@
       project='man-pages'><refentrytitle>syslog</refentrytitle><manvolnum>3</manvolnum></citerefentry>
       call</para></listitem>
 
-      <listitem><para>Structured system log messages via the native
-      Journal API, see
-      <citerefentry><refentrytitle>sd_journal_print</refentrytitle><manvolnum>3</manvolnum></citerefentry></para></listitem>
+      <listitem><para>Structured system log messages via the native Journal API, see
+      <citerefentry><refentrytitle>sd_journal_print</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+      and <ulink url="https://systemd.io/JOURNAL_NATIVE_PROTOCOL">Native Journal
+      Protocol</ulink></para></listitem>
 
       <listitem><para>Standard output and standard error of service units. For further details see
       below.</para></listitem>
@@ -78,6 +79,11 @@
     to volatile storage otherwise. Use <varname>Storage=</varname> in
     <citerefentry><refentrytitle>journald.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry> to configure
     where log data is placed, independently of the existence of <filename>/var/log/journal/</filename>.</para>
+
+    <para>Note that journald will initially use volatile storage, until a call to
+    <command>journalctl --flush</command> (or sending <constant>SIGUSR1</constant> to journald) will cause
+    it to switch to persistent logging (under the conditions mentioned above). This is done automatically
+    on boot via <literal>systemd-journal-flush.service</literal>.</para>
 
     <para>On systems where <filename>/var/log/journal/</filename> does not exist yet but where persistent logging is
     desired (and the default <filename>journald.conf</filename> is used), it is sufficient to create the directory, and
@@ -179,8 +185,8 @@ systemd-tmpfiles --create --prefix /var/log/journal</programlisting>
 
         <listitem><para>Request that journal data from <filename>/run/</filename> is flushed to
         <filename>/var/</filename> in order to make it persistent (if this is enabled). This must be used
-        after <filename>/var/</filename> is mounted, as otherwise log data from <filename>/run</filename> is
-        never flushed to <filename>/var</filename> regardless of the configuration. Use the
+        after <filename>/var/</filename> is mounted, as otherwise log data from <filename>/run/</filename> is
+        never flushed to <filename>/var/</filename> regardless of the configuration. Use the
         <command>journalctl --flush</command> command to request flushing of the journal files, and wait for
         the operation to complete. See
         <citerefentry><refentrytitle>journalctl</refentrytitle><manvolnum>1</manvolnum></citerefentry> for
@@ -292,7 +298,7 @@ systemd-tmpfiles --create --prefix /var/log/journal</programlisting>
         stopped uncleanly, or if the files are found to be corrupted,
         they are renamed using the <literal>.journal~</literal>
         suffix, and <command>systemd-journald</command> starts writing
-        to a new file. <filename>/run</filename> is used when
+        to a new file. <filename>/run/</filename> is used when
         <filename>/var/log/journal</filename> is not available, or
         when <option>Storage=volatile</option> is set in the
         <citerefentry><refentrytitle>journald.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>

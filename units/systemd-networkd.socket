@@ -1,4 +1,4 @@
-#  SPDX-License-Identifier: LGPL-2.1+
+#  SPDX-License-Identifier: LGPL-2.1-or-later
 #
 #  This file is part of systemd.
 #
@@ -12,7 +12,8 @@ Description=Network Service Netlink Socket
 Documentation=man:systemd-networkd.service(8) man:rtnetlink(7)
 ConditionCapability=CAP_NET_ADMIN
 DefaultDependencies=no
-Before=sockets.target
+Before=sockets.target shutdown.target
+Conflicts=shutdown.target
 
 [Socket]
 ReceiveBuffer=128M

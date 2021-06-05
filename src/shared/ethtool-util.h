@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
 #include <macro.h>
@@ -15,7 +15,7 @@ typedef enum Duplex {
         DUP_HALF = DUPLEX_HALF,
         DUP_FULL = DUPLEX_FULL,
         _DUP_MAX,
-        _DUP_INVALID = -1
+        _DUP_INVALID = -EINVAL,
 } Duplex;
 
 typedef enum WakeOnLan {
@@ -28,7 +28,7 @@ typedef enum WakeOnLan {
         WOL_MAGICSECURE,
         WOL_OFF,
         _WOL_MAX,
-        _WOL_INVALID = -1
+        _WOL_INVALID = -EINVAL,
 } WakeOnLan;
 
 typedef enum NetDevFeature {
@@ -40,7 +40,7 @@ typedef enum NetDevFeature {
         NET_DEV_FEAT_TSO,
         NET_DEV_FEAT_TSO6,
         _NET_DEV_FEAT_MAX,
-        _NET_DEV_FEAT_INVALID = -1
+        _NET_DEV_FEAT_INVALID = -EINVAL,
 } NetDevFeature;
 
 typedef enum NetDevPort {
@@ -53,7 +53,7 @@ typedef enum NetDevPort {
         NET_DEV_PORT_NONE   = PORT_NONE,
         NET_DEV_PORT_OTHER  = PORT_OTHER,
         _NET_DEV_PORT_MAX,
-        _NET_DEV_PORT_INVALID = -1
+        _NET_DEV_PORT_INVALID = -EINVAL,
 } NetDevPort;
 
 #define ETHTOOL_LINK_MODE_MASK_MAX_KERNEL_NU32    (SCHAR_MAX)
@@ -99,14 +99,13 @@ int ethtool_get_link_info(int *ethtool_fd, const char *ifname,
                           int *ret_autonegotiation, uint64_t *ret_speed,
                           Duplex *ret_duplex, NetDevPort *ret_port);
 int ethtool_get_permanent_macaddr(int *ethtool_fd, const char *ifname, struct ether_addr *ret);
-int ethtool_set_speed(int *ethtool_fd, const char *ifname, unsigned speed, Duplex duplex);
 int ethtool_set_wol(int *ethtool_fd, const char *ifname, WakeOnLan wol);
-int ethtool_set_nic_buffer_size(int *ethtool_fd, const char *ifname, netdev_ring_param *ring);
-int ethtool_set_features(int *ethtool_fd, const char *ifname, int *features);
+int ethtool_set_nic_buffer_size(int *ethtool_fd, const char *ifname, const netdev_ring_param *ring);
+int ethtool_set_features(int *ethtool_fd, const char *ifname, const int *features);
 int ethtool_set_glinksettings(int *ethtool_fd, const char *ifname,
-                              int autonegotiation, uint32_t advertise[static N_ADVERTISE],
+                              int autonegotiation, const uint32_t advertise[static N_ADVERTISE],
                               uint64_t speed, Duplex duplex, NetDevPort port);
-int ethtool_set_channels(int *ethtool_fd, const char *ifname, netdev_channels *channels);
+int ethtool_set_channels(int *ethtool_fd, const char *ifname, const netdev_channels *channels);
 int ethtool_set_flow_control(int *fd, const char *ifname, int rx, int tx, int autoneg);
 
 const char *duplex_to_string(Duplex d) _const_;

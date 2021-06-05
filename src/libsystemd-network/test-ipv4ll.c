@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 /***
   Copyright © 2014 Axis Communications AB. All rights reserved.
 ***/
@@ -126,7 +126,6 @@ static void test_public_api_setters(sd_event *e) {
         assert_se(sd_ipv4ll_set_ifindex(ll, -1) == -EINVAL);
         assert_se(sd_ipv4ll_set_ifindex(ll, -99) == -EINVAL);
         assert_se(sd_ipv4ll_set_ifindex(ll, 1) == 0);
-        assert_se(sd_ipv4ll_set_ifindex(ll, 99) == 0);
 
         assert_se(sd_ipv4ll_ref(ll) == ll);
         assert_se(sd_ipv4ll_unref(ll) == NULL);
@@ -161,25 +160,25 @@ static void test_basic_request(sd_event *e) {
         assert_se(sd_ipv4ll_set_ifindex(ll, 1) == 0);
         assert_se(sd_ipv4ll_start(ll) == 1);
 
-        sd_event_run(e, (uint64_t) -1);
+        sd_event_run(e, UINT64_MAX);
         assert_se(sd_ipv4ll_start(ll) == 0);
 
         assert_se(sd_ipv4ll_is_running(ll));
 
         /* PROBE */
-        sd_event_run(e, (uint64_t) -1);
+        sd_event_run(e, UINT64_MAX);
         assert_se(recv(test_fd[1], &arp, sizeof(struct ether_arp), 0) == sizeof(struct ether_arp));
 
         if (extended) {
                 /* PROBE */
-                sd_event_run(e, (uint64_t) -1);
+                sd_event_run(e, UINT64_MAX);
                 assert_se(recv(test_fd[1], &arp, sizeof(struct ether_arp), 0) == sizeof(struct ether_arp));
 
                 /* PROBE */
-                sd_event_run(e, (uint64_t) -1);
+                sd_event_run(e, UINT64_MAX);
                 assert_se(recv(test_fd[1], &arp, sizeof(struct ether_arp), 0) == sizeof(struct ether_arp));
 
-                sd_event_run(e, (uint64_t) -1);
+                sd_event_run(e, UINT64_MAX);
                 assert_se(basic_request_handler_bind == 1);
         }
 

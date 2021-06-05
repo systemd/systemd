@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
 #include <stdint.h>
@@ -62,7 +62,5 @@ static inline unsigned log2u_round_up(unsigned x) {
 int container_get_leader(const char *machine, pid_t *pid);
 
 int version(void);
-
-int str_verscmp(const char *s1, const char *s2);
 
 void disable_coredumps(void);

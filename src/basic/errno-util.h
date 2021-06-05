@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
 #include <stdlib.h>
@@ -33,7 +33,7 @@ static inline int negative_errno(void) {
 
 static inline const char *strerror_safe(int error) {
         /* 'safe' here does NOT mean thread safety. */
-        return strerror(abs(error));
+        return strerror(abs(error)); /* lgtm [cpp/potentially-dangerous-function] */
 }
 
 static inline int errno_or_else(int fallback) {
@@ -50,7 +50,10 @@ static inline int errno_or_else(int fallback) {
 /* Hint #1: ENETUNREACH happens if we try to connect to "non-existing" special IP addresses, such as ::5.
  *
  * Hint #2: The kernel sends e.g., EHOSTUNREACH or ENONET to userspace in some ICMP error cases.  See the
- *          icmp_err_convert[] in net/ipv4/icmp.c in the kernel sources */
+ *          icmp_err_convert[] in net/ipv4/icmp.c in the kernel sources.
+ *
+ * Hint #3: When asynchronous connect() on TCP fails because the host never acknowledges a single packet,
+ *          kernel tells us that with ETIMEDOUT, see tcp(7). */
 static inline bool ERRNO_IS_DISCONNECT(int r) {
         return IN_SET(abs(r),
                       ECONNABORTED,
@@ -66,7 +69,8 @@ static inline bool ERRNO_IS_DISCONNECT(int r) {
                       ENOTCONN,
                       EPIPE,
                       EPROTO,
-                      ESHUTDOWN);
+                      ESHUTDOWN,
+                      ETIMEDOUT);
 }
 
 /* Transient errors we might get on accept() that we should ignore. As per error handling comment in

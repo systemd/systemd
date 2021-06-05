@@ -19,6 +19,12 @@ expose. Or in other words, it both allows applications to efficiently query
 user/group records from local services, and allows local subsystems to provide
 user/group records efficiently to local applications.
 
+The concepts described here define an IPC interface. Alternatively, user/group
+records may be dropped in number of drop-in directories as files where they are
+picked up in addition to the users/groups defined by this IPC logic. See
+[`nss-systemd(8)`](https://www.freedesktop.org/software/systemd/man/nss-systemd.html)
+for details.
+
 This simple API only exposes only three method calls, and requires only a small
 subset of the Varlink functionality.
 
@@ -247,7 +253,7 @@ user is a member of the group. If both arguments are specified the specified
 membership will be tested for, but no others, and the pair is returned if it is
 defined. Unless both arguments are specified the method call needs to be made
 with `more` set, so that multiple replies can be returned (since typically
-there are are multiple members per group and also multiple groups a user is
+there are multiple members per group and also multiple groups a user is
 member of). As with `GetUserRecord` and `GetGroupRecord` the `service`
 parameter needs to contain the name of the service being talked to, in order to
 allow implementation of multiple service within the same IPC socket. In case no

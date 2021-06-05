@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: LGPL-2.1+
+# SPDX-License-Identifier: LGPL-2.1-or-later
 
 systemd_importd_sources = files('''
         importd.c
@@ -73,7 +73,7 @@ tests += [
         [['src/import/test-qcow2.c',
           'src/import/qcow2-util.c',
           'src/import/qcow2-util.h'],
-         [libshared],
+         [],
          [libz],
-         'HAVE_ZLIB', 'manual'],
+         [], 'HAVE_ZLIB', 'manual'],
 ]

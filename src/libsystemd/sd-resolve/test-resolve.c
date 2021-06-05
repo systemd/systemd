@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <arpa/inet.h>
 #include <errno.h>
@@ -63,7 +63,7 @@ int main(int argc, char *argv[]) {
 
         struct sockaddr_in sa = {
                 .sin_family = AF_INET,
-                .sin_port = htons(80)
+                .sin_port = htobe16(80)
         };
 
         assert_se(sd_resolve_default(&resolve) >= 0);

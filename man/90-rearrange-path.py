@@ -34,7 +34,7 @@ def rearrange_bin_sbin(path):
 
 if __name__ == '__main__':
     path = os.environ['PATH'] # This should be always set.
-                              # If it's not, we'll just crash, we is OK too.
+                              # If it's not, we'll just crash, which is OK too.
     new = rearrange_bin_sbin(path)
     if new != path:
         print('PATH={}'.format(new))

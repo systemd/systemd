@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 /***
   Copyright © 2013 Simon Peeters
 ***/
@@ -15,7 +15,6 @@
 #include "analyze-condition.h"
 #include "analyze-security.h"
 #include "analyze-verify.h"
-#include "build.h"
 #include "bus-error.h"
 #include "bus-locator.h"
 #include "bus-map-properties.h"
@@ -37,6 +36,7 @@
 #include "main-func.h"
 #include "nulstr-util.h"
 #include "pager.h"
+#include "parse-argument.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "pretty-print.h"
@@ -52,6 +52,7 @@
 #include "unit-name.h"
 #include "util.h"
 #include "verbs.h"
+#include "version.h"
 
 #define SCALE_X (0.1 / 1000.0) /* pixels per us */
 #define SCALE_Y (20.0)
@@ -92,7 +93,7 @@ static usec_t arg_base_time = USEC_INFINITY;
 STATIC_DESTRUCTOR_REGISTER(arg_dot_from_patterns, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_dot_to_patterns, strv_freep);
 
-struct boot_times {
+typedef struct BootTimes {
         usec_t firmware_time;
         usec_t loader_time;
         usec_t kernel_time;
@@ -124,9 +125,9 @@ struct boot_times {
          * (so it is stored here for reference).
          */
         usec_t reverse_offset;
-};
+} BootTimes;
 
-struct unit_times {
+typedef struct UnitTimes {
         bool has_data;
         char *name;
         usec_t activating;
@@ -134,9 +135,9 @@ struct unit_times {
         usec_t deactivated;
         usec_t deactivating;
         usec_t time;
-};
+} UnitTimes;
 
-struct host_info {
+typedef struct HostInfo {
         char *hostname;
         char *kernel_name;
         char *kernel_release;
@@ -144,7 +145,7 @@ struct host_info {
         char *os_pretty_name;
         char *virtualization;
         char *architecture;
-};
+} HostInfo;
 
 static int acquire_bus(sd_bus **bus, bool *use_full_bus) {
         bool user = arg_scope != UNIT_FILE_SYSTEM;
@@ -209,19 +210,16 @@ static int bus_get_unit_property_strv(sd_bus *bus, const char *path, const char 
         return 0;
 }
 
-static int compare_unit_start(const struct unit_times *a, const struct unit_times *b) {
+static int compare_unit_start(const UnitTimes *a, const UnitTimes *b) {
         return CMP(a->activating, b->activating);
 }
 
-static void unit_times_free(struct unit_times *t) {
-        struct unit_times *p;
-
-        for (p = t; p->has_data; p++)
+static UnitTimes* unit_times_free_array(UnitTimes *t) {
+        for (UnitTimes *p = t; p && p->has_data; p++)
                 free(p->name);
-        free(t);
+        return mfree(t);
 }
-
-DEFINE_TRIVIAL_CLEANUP_FUNC(struct unit_times *, unit_times_free);
+DEFINE_TRIVIAL_CLEANUP_FUNC(UnitTimes*, unit_times_free_array);
 
 static void subtract_timestamp(usec_t *a, usec_t b) {
         assert(a);
@@ -232,30 +230,30 @@ static void subtract_timestamp(usec_t *a, usec_t b) {
         }
 }
 
-static int acquire_boot_times(sd_bus *bus, struct boot_times **bt) {
+static int acquire_boot_times(sd_bus *bus, BootTimes **bt) {
         static const struct bus_properties_map property_map[] = {
-                { "FirmwareTimestampMonotonic",               "t", NULL, offsetof(struct boot_times, firmware_time)                 },
-                { "LoaderTimestampMonotonic",                 "t", NULL, offsetof(struct boot_times, loader_time)                   },
-                { "KernelTimestamp",                          "t", NULL, offsetof(struct boot_times, kernel_time)                   },
-                { "InitRDTimestampMonotonic",                 "t", NULL, offsetof(struct boot_times, initrd_time)                   },
-                { "UserspaceTimestampMonotonic",              "t", NULL, offsetof(struct boot_times, userspace_time)                },
-                { "FinishTimestampMonotonic",                 "t", NULL, offsetof(struct boot_times, finish_time)                   },
-                { "SecurityStartTimestampMonotonic",          "t", NULL, offsetof(struct boot_times, security_start_time)           },
-                { "SecurityFinishTimestampMonotonic",         "t", NULL, offsetof(struct boot_times, security_finish_time)          },
-                { "GeneratorsStartTimestampMonotonic",        "t", NULL, offsetof(struct boot_times, generators_start_time)         },
-                { "GeneratorsFinishTimestampMonotonic",       "t", NULL, offsetof(struct boot_times, generators_finish_time)        },
-                { "UnitsLoadStartTimestampMonotonic",         "t", NULL, offsetof(struct boot_times, unitsload_start_time)          },
-                { "UnitsLoadFinishTimestampMonotonic",        "t", NULL, offsetof(struct boot_times, unitsload_finish_time)         },
-                { "InitRDSecurityStartTimestampMonotonic",    "t", NULL, offsetof(struct boot_times, initrd_security_start_time)    },
-                { "InitRDSecurityFinishTimestampMonotonic",   "t", NULL, offsetof(struct boot_times, initrd_security_finish_time)   },
-                { "InitRDGeneratorsStartTimestampMonotonic",  "t", NULL, offsetof(struct boot_times, initrd_generators_start_time)  },
-                { "InitRDGeneratorsFinishTimestampMonotonic", "t", NULL, offsetof(struct boot_times, initrd_generators_finish_time) },
-                { "InitRDUnitsLoadStartTimestampMonotonic",   "t", NULL, offsetof(struct boot_times, initrd_unitsload_start_time)   },
-                { "InitRDUnitsLoadFinishTimestampMonotonic",  "t", NULL, offsetof(struct boot_times, initrd_unitsload_finish_time)  },
+                { "FirmwareTimestampMonotonic",               "t", NULL, offsetof(BootTimes, firmware_time)                 },
+                { "LoaderTimestampMonotonic",                 "t", NULL, offsetof(BootTimes, loader_time)                   },
+                { "KernelTimestamp",                          "t", NULL, offsetof(BootTimes, kernel_time)                   },
+                { "InitRDTimestampMonotonic",                 "t", NULL, offsetof(BootTimes, initrd_time)                   },
+                { "UserspaceTimestampMonotonic",              "t", NULL, offsetof(BootTimes, userspace_time)                },
+                { "FinishTimestampMonotonic",                 "t", NULL, offsetof(BootTimes, finish_time)                   },
+                { "SecurityStartTimestampMonotonic",          "t", NULL, offsetof(BootTimes, security_start_time)           },
+                { "SecurityFinishTimestampMonotonic",         "t", NULL, offsetof(BootTimes, security_finish_time)          },
+                { "GeneratorsStartTimestampMonotonic",        "t", NULL, offsetof(BootTimes, generators_start_time)         },
+                { "GeneratorsFinishTimestampMonotonic",       "t", NULL, offsetof(BootTimes, generators_finish_time)        },
+                { "UnitsLoadStartTimestampMonotonic",         "t", NULL, offsetof(BootTimes, unitsload_start_time)          },
+                { "UnitsLoadFinishTimestampMonotonic",        "t", NULL, offsetof(BootTimes, unitsload_finish_time)         },
+                { "InitRDSecurityStartTimestampMonotonic",    "t", NULL, offsetof(BootTimes, initrd_security_start_time)    },
+                { "InitRDSecurityFinishTimestampMonotonic",   "t", NULL, offsetof(BootTimes, initrd_security_finish_time)   },
+                { "InitRDGeneratorsStartTimestampMonotonic",  "t", NULL, offsetof(BootTimes, initrd_generators_start_time)  },
+                { "InitRDGeneratorsFinishTimestampMonotonic", "t", NULL, offsetof(BootTimes, initrd_generators_finish_time) },
+                { "InitRDUnitsLoadStartTimestampMonotonic",   "t", NULL, offsetof(BootTimes, initrd_unitsload_start_time)   },
+                { "InitRDUnitsLoadFinishTimestampMonotonic",  "t", NULL, offsetof(BootTimes, initrd_unitsload_finish_time)  },
                 {},
         };
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        static struct boot_times times;
+        static BootTimes times;
         static bool cached = false;
         int r;
 
@@ -293,7 +291,7 @@ static int acquire_boot_times(sd_bus *bus, struct boot_times **bt) {
         } else {
                 /*
                  * User-instance-specific or container-system-specific timestamps processing
-                 * (see comment to reverse_offset in struct boot_times).
+                 * (see comment to reverse_offset in BootTimes).
                  */
                 times.reverse_offset = times.userspace_time;
 
@@ -316,9 +314,9 @@ finish:
         return 0;
 }
 
-static void free_host_info(struct host_info *hi) {
+static HostInfo* free_host_info(HostInfo *hi) {
         if (!hi)
-                return;
+                return NULL;
 
         free(hi->hostname);
         free(hi->kernel_name);
@@ -327,24 +325,24 @@ static void free_host_info(struct host_info *hi) {
         free(hi->os_pretty_name);
         free(hi->virtualization);
         free(hi->architecture);
-        free(hi);
+        return mfree(hi);
 }
 
-DEFINE_TRIVIAL_CLEANUP_FUNC(struct host_info *, free_host_info);
+DEFINE_TRIVIAL_CLEANUP_FUNC(HostInfo *, free_host_info);
 
-static int acquire_time_data(sd_bus *bus, struct unit_times **out) {
+static int acquire_time_data(sd_bus *bus, UnitTimes **out) {
         static const struct bus_properties_map property_map[] = {
-                { "InactiveExitTimestampMonotonic",  "t", NULL, offsetof(struct unit_times, activating)   },
-                { "ActiveEnterTimestampMonotonic",   "t", NULL, offsetof(struct unit_times, activated)    },
-                { "ActiveExitTimestampMonotonic",    "t", NULL, offsetof(struct unit_times, deactivating) },
-                { "InactiveEnterTimestampMonotonic", "t", NULL, offsetof(struct unit_times, deactivated)  },
+                { "InactiveExitTimestampMonotonic",  "t", NULL, offsetof(UnitTimes, activating)   },
+                { "ActiveEnterTimestampMonotonic",   "t", NULL, offsetof(UnitTimes, activated)    },
+                { "ActiveExitTimestampMonotonic",    "t", NULL, offsetof(UnitTimes, deactivating) },
+                { "InactiveEnterTimestampMonotonic", "t", NULL, offsetof(UnitTimes, deactivated)  },
                 {},
         };
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        _cleanup_(unit_times_freep) struct unit_times *unit_times = NULL;
-        struct boot_times *boot_times = NULL;
-        size_t allocated = 0, c = 0;
+        _cleanup_(unit_times_free_arrayp) UnitTimes *unit_times = NULL;
+        BootTimes *boot_times = NULL;
+        size_t c = 0;
         UnitInfo u;
         int r;
 
@@ -361,9 +359,9 @@ static int acquire_time_data(sd_bus *bus, struct unit_times **out) {
                 return bus_log_parse_error(r);
 
         while ((r = bus_parse_unit_info(reply, &u)) > 0) {
-                struct unit_times *t;
+                UnitTimes *t;
 
-                if (!GREEDY_REALLOC(unit_times, allocated, c + 2))
+                if (!GREEDY_REALLOC(unit_times, c + 2))
                         return log_oom();
 
                 unit_times[c + 1].has_data = false;
@@ -414,28 +412,28 @@ static int acquire_time_data(sd_bus *bus, struct unit_times **out) {
         return c;
 }
 
-static int acquire_host_info(sd_bus *bus, struct host_info **hi) {
+static int acquire_host_info(sd_bus *bus, HostInfo **hi) {
         static const struct bus_properties_map hostname_map[] = {
-                { "Hostname",                  "s", NULL, offsetof(struct host_info, hostname)       },
-                { "KernelName",                "s", NULL, offsetof(struct host_info, kernel_name)    },
-                { "KernelRelease",             "s", NULL, offsetof(struct host_info, kernel_release) },
-                { "KernelVersion",             "s", NULL, offsetof(struct host_info, kernel_version) },
-                { "OperatingSystemPrettyName", "s", NULL, offsetof(struct host_info, os_pretty_name) },
+                { "Hostname",                  "s", NULL, offsetof(HostInfo, hostname)       },
+                { "KernelName",                "s", NULL, offsetof(HostInfo, kernel_name)    },
+                { "KernelRelease",             "s", NULL, offsetof(HostInfo, kernel_release) },
+                { "KernelVersion",             "s", NULL, offsetof(HostInfo, kernel_version) },
+                { "OperatingSystemPrettyName", "s", NULL, offsetof(HostInfo, os_pretty_name) },
                 {}
         };
 
         static const struct bus_properties_map manager_map[] = {
-                { "Virtualization", "s", NULL, offsetof(struct host_info, virtualization) },
-                { "Architecture",   "s", NULL, offsetof(struct host_info, architecture)   },
+                { "Virtualization", "s", NULL, offsetof(HostInfo, virtualization) },
+                { "Architecture",   "s", NULL, offsetof(HostInfo, architecture)   },
                 {}
         };
 
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *system_bus = NULL;
-        _cleanup_(free_host_infop) struct host_info *host;
+        _cleanup_(free_host_infop) HostInfo *host = NULL;
         int r;
 
-        host = new0(struct host_info, 1);
+        host = new0(HostInfo, 1);
         if (!host)
                 return log_oom();
 
@@ -482,7 +480,7 @@ manager:
 
 static int pretty_boot_time(sd_bus *bus, char **_buf) {
         char ts[FORMAT_TIMESPAN_MAX];
-        struct boot_times *t;
+        BootTimes *t;
         static char buf[4096];
         size_t size;
         char *ptr;
@@ -559,14 +557,12 @@ static int pretty_boot_time(sd_bus *bus, char **_buf) {
 }
 
 static void svg_graph_box(double height, double begin, double end) {
-        long long i;
-
         /* outside box, fill */
         svg("<rect class=\"box\" x=\"0\" y=\"0\" width=\"%.03f\" height=\"%.03f\" />\n",
             SCALE_X * (end - begin),
             SCALE_Y * height);
 
-        for (i = ((long long) (begin / 100000)) * 100000; i <= end; i += 100000) {
+        for (long long i = ((long long) (begin / 100000)) * 100000; i <= end; i += 100000) {
                 /* lines for each second */
                 if (i % 5000000 == 0)
                         svg("  <line class=\"sec5\" x1=\"%.03f\" y1=\"0\" x2=\"%.03f\" y2=\"%.03f\" />\n"
@@ -594,7 +590,7 @@ static void svg_graph_box(double height, double begin, double end) {
         }
 }
 
-static int plot_unit_times(struct unit_times *u, double width, int y) {
+static int plot_unit_times(UnitTimes *u, double width, int y) {
         char ts[FORMAT_TIMESPAN_MAX];
         bool b;
 
@@ -617,13 +613,13 @@ static int plot_unit_times(struct unit_times *u, double width, int y) {
 }
 
 static int analyze_plot(int argc, char *argv[], void *userdata) {
-        _cleanup_(free_host_infop) struct host_info *host = NULL;
+        _cleanup_(free_host_infop) HostInfo *host = NULL;
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
-        _cleanup_(unit_times_freep) struct unit_times *times = NULL;
+        _cleanup_(unit_times_free_arrayp) UnitTimes *times = NULL;
         _cleanup_free_ char *pretty_times = NULL;
         bool use_full_bus = arg_scope == UNIT_FILE_SYSTEM;
-        struct boot_times *boot;
-        struct unit_times *u;
+        BootTimes *boot;
+        UnitTimes *u;
         int n, m = 1, y = 0, r;
         double width;
 
@@ -837,13 +833,12 @@ static int list_dependencies_print(
                 unsigned level,
                 unsigned branches,
                 bool last,
-                struct unit_times *times,
-                struct boot_times *boot) {
+                UnitTimes *times,
+                BootTimes *boot) {
 
-        unsigned i;
         char ts[FORMAT_TIMESPAN_MAX], ts2[FORMAT_TIMESPAN_MAX];
 
-        for (i = level; i != 0; i--)
+        for (unsigned i = level; i != 0; i--)
                 printf("%s", special_glyph(branches & (1 << (i-1)) ? SPECIAL_GLYPH_TREE_VERTICAL : SPECIAL_GLYPH_TREE_SPACE));
 
         printf("%s", special_glyph(last ? SPECIAL_GLYPH_TREE_RIGHT : SPECIAL_GLYPH_TREE_BRANCH));
@@ -882,7 +877,7 @@ static Hashmap *unit_times_hashmap;
 
 static int list_dependencies_compare(char *const *a, char *const *b) {
         usec_t usa = 0, usb = 0;
-        struct unit_times *times;
+        UnitTimes *times;
 
         times = hashmap_get(unit_times_hashmap, *a);
         if (times)
@@ -894,7 +889,7 @@ static int list_dependencies_compare(char *const *a, char *const *b) {
         return CMP(usb, usa);
 }
 
-static bool times_in_range(const struct unit_times *times, const struct boot_times *boot) {
+static bool times_in_range(const UnitTimes *times, const BootTimes *boot) {
         return times && times->activated > 0 && times->activated <= boot->finish_time;
 }
 
@@ -904,8 +899,8 @@ static int list_dependencies_one(sd_bus *bus, const char *name, unsigned level, 
         int r;
         usec_t service_longest = 0;
         int to_print = 0;
-        struct unit_times *times;
-        struct boot_times *boot;
+        UnitTimes *times;
+        BootTimes *boot;
 
         if (strv_extend(units, name))
                 return log_oom();
@@ -970,13 +965,13 @@ static int list_dependencies_one(sd_bus *bus, const char *name, unsigned level, 
 static int list_dependencies(sd_bus *bus, const char *name) {
         _cleanup_strv_free_ char **units = NULL;
         char ts[FORMAT_TIMESPAN_MAX];
-        struct unit_times *times;
+        UnitTimes *times;
         int r;
         const char *id;
         _cleanup_free_ char *path = NULL;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        struct boot_times *boot;
+        BootTimes *boot;
 
         assert(bus);
 
@@ -1021,8 +1016,7 @@ static int list_dependencies(sd_bus *bus, const char *name) {
 
 static int analyze_critical_chain(int argc, char *argv[], void *userdata) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
-        _cleanup_(unit_times_freep) struct unit_times *times = NULL;
-        struct unit_times *u;
+        _cleanup_(unit_times_free_arrayp) UnitTimes *times = NULL;
         Hashmap *h;
         int n, r;
 
@@ -1038,7 +1032,7 @@ static int analyze_critical_chain(int argc, char *argv[], void *userdata) {
         if (!h)
                 return log_oom();
 
-        for (u = times; u->has_data; u++) {
+        for (UnitTimes *u = times; u->has_data; u++) {
                 r = hashmap_put(h, u->name, u);
                 if (r < 0)
                         return log_error_errno(r, "Failed to add entry to hashmap: %m");
@@ -1063,9 +1057,8 @@ static int analyze_critical_chain(int argc, char *argv[], void *userdata) {
 
 static int analyze_blame(int argc, char *argv[], void *userdata) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
-        _cleanup_(unit_times_freep) struct unit_times *times = NULL;
+        _cleanup_(unit_times_free_arrayp) UnitTimes *times = NULL;
         _cleanup_(table_unrefp) Table *table = NULL;
-        struct unit_times *u;
         TableCell *cell;
         int n, r;
 
@@ -1097,7 +1090,7 @@ static int analyze_blame(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return r;
 
-        r = table_set_sort(table, (size_t) 0, (size_t) SIZE_MAX);
+        r = table_set_sort(table, (size_t) 0);
         if (r < 0)
                 return r;
 
@@ -1105,7 +1098,7 @@ static int analyze_blame(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return r;
 
-        for (u = times; u->has_data; u++) {
+        for (UnitTimes *u = times; u->has_data; u++) {
                 if (u->time <= 0)
                         continue;
 
@@ -1248,8 +1241,7 @@ static int expand_patterns(sd_bus *bus, char **patterns, char ***ret) {
                 }
         }
 
-        *ret = expanded_patterns;
-        expanded_patterns = NULL; /* do not free */
+        *ret = TAKE_PTR(expanded_patterns); /* do not free */
 
         return 0;
 }
@@ -1280,7 +1272,7 @@ static int dot(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return r;
 
-        r = bus_call_method(bus, bus_systemd_mgr, "ListUnits", &error, &reply, "");
+        r = bus_call_method(bus, bus_systemd_mgr, "ListUnits", &error, &reply, NULL);
         if (r < 0)
                 log_error_errno(r, "Failed to list units: %s", bus_error_message(&error, r));
 
@@ -1365,7 +1357,7 @@ static int dump(int argc, char *argv[], void *userdata) {
                 return bus_log_parse_error(r);
 
         fflush(stdout);
-        return copy_bytes(fd, STDOUT_FILENO, (uint64_t) -1, 0);
+        return copy_bytes(fd, STDOUT_FILENO, UINT64_MAX, 0);
 }
 
 static int cat_config(int argc, char *argv[], void *userdata) {
@@ -1577,7 +1569,7 @@ static int dump_exit_status(int argc, char *argv[], void *userdata) {
 
                         status = exit_status_from_string(argv[i]);
                         if (status < 0)
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid exit status \"%s\".", argv[i]);
+                                return log_error_errno(status, "Invalid exit status \"%s\".", argv[i]);
 
                         assert(status >= 0 && (size_t) status < ELEMENTSOF(exit_status_mappings));
                         r = table_add_many(table,
@@ -1630,7 +1622,7 @@ static int dump_capabilities(int argc, char *argv[], void *userdata) {
                                 return table_log_add_error(r);
                 }
 
-                (void) table_set_sort(table, (size_t) 1, (size_t) -1);
+                (void) table_set_sort(table, (size_t) 1);
         }
 
         (void) pager_open(arg_pager_flags);
@@ -1686,7 +1678,7 @@ static int load_kernel_syscalls(Set **ret) {
         return 0;
 }
 
-static void kernel_syscalls_remove(Set *s, const SyscallFilterSet *set) {
+static void syscall_set_remove(Set *s, const SyscallFilterSet *set) {
         const char *syscall;
 
         NULSTR_FOREACH(syscall, set->value) {
@@ -1717,19 +1709,44 @@ static int dump_syscall_filters(int argc, char *argv[], void *userdata) {
         (void) pager_open(arg_pager_flags);
 
         if (strv_isempty(strv_skip(argv, 1))) {
-                _cleanup_set_free_ Set *kernel = NULL;
-                int i, k;
+                _cleanup_set_free_ Set *kernel = NULL, *known = NULL;
+                const char *sys;
+                int k;
+
+                NULSTR_FOREACH(sys, syscall_filter_sets[SYSCALL_FILTER_SET_KNOWN].value)
+                        if (set_put_strdup(&known, sys) < 0)
+                                return log_oom();
 
                 k = load_kernel_syscalls(&kernel);
 
-                for (i = 0; i < _SYSCALL_FILTER_SET_MAX; i++) {
+                for (int i = 0; i < _SYSCALL_FILTER_SET_MAX; i++) {
                         const SyscallFilterSet *set = syscall_filter_sets + i;
                         if (!first)
                                 puts("");
 
                         dump_syscall_filter(set);
-                        kernel_syscalls_remove(kernel, set);
+                        syscall_set_remove(kernel, set);
+                        if (i != SYSCALL_FILTER_SET_KNOWN)
+                                syscall_set_remove(known, set);
                         first = false;
+                }
+
+                if (!set_isempty(known)) {
+                        _cleanup_free_ char **l = NULL;
+                        char **syscall;
+
+                        printf("\n"
+                               "# %sUngrouped System Calls%s (known but not included in any of the groups except @known):\n",
+                               ansi_highlight(), ansi_normal());
+
+                        l = set_get_strv(known);
+                        if (!l)
+                                return log_oom();
+
+                        strv_sort(l);
+
+                        STRV_FOREACH(syscall, l)
+                                printf("#   %s\n", *syscall);
                 }
 
                 if (k < 0) {
@@ -2199,13 +2216,12 @@ static int help(int argc, char *argv[], void *userdata) {
                "     --generators[=BOOL]   Do [not] run unit generators (requires privileges)\n"
                "     --iterations=N        Show the specified number of iterations\n"
                "     --base-time=TIMESTAMP Calculate calendar times relative to specified time\n"
-               "\nSee the %s for details.\n"
-               , program_invocation_short_name
-               , ansi_highlight()
-               , ansi_normal()
-               , dot_link
-               , link
-        );
+               "\nSee the %s for details.\n",
+               program_invocation_short_name,
+               ansi_highlight(),
+               ansi_normal(),
+               dot_link,
+               link);
 
         /* When updating this list, including descriptions, apply changes to
          * shell-completion/bash/systemd-analyze and shell-completion/zsh/_systemd-analyze too. */
@@ -2325,29 +2341,15 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_MAN:
-                        if (optarg) {
-                                r = parse_boolean(optarg);
-                                if (r < 0)
-                                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                               "Failed to parse --man= argument.");
-
-                                arg_man = r;
-                        } else
-                                arg_man = true;
-
+                        r = parse_boolean_argument("--man", optarg, &arg_man);
+                        if (r < 0)
+                                return r;
                         break;
 
                 case ARG_GENERATORS:
-                        if (optarg) {
-                                r = parse_boolean(optarg);
-                                if (r < 0)
-                                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                               "Failed to parse --generators= argument.");
-
-                                arg_generators = r;
-                        } else
-                                arg_generators = true;
-
+                        r = parse_boolean_argument("--generators", optarg, &arg_generators);
+                        if (r < 0)
+                                return r;
                         break;
 
                 case ARG_ITERATIONS:
@@ -2425,7 +2427,7 @@ static int run(int argc, char *argv[]) {
         setlocale(LC_ALL, "");
         setlocale(LC_NUMERIC, "C"); /* we want to format/parse floats in C style */
 
-        log_setup_cli();
+        log_setup();
 
         r = parse_argv(argc, argv);
         if (r <= 0)

@@ -1,7 +1,7 @@
 <?xml version='1.0'?> <!--*-nxml-*-->
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
-<!-- SPDX-License-Identifier: LGPL-2.1+ -->
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
 
 <refentry id="nss-myhostname" conditional='ENABLE_NSS_MYHOSTNAME'>
 
@@ -51,13 +51,20 @@
       ordered by their metric. This assigns a stable hostname to the
       current gateway, useful for referencing it independently of the
       current network configuration state.</para></listitem>
+
+      <listitem><para>The hostname <literal>_outbound</literal> is resolved to the local IPv4 and IPv6
+      addresses that are most likely used for communication with other hosts. This is determined by
+      requesting a routing decision to the configured default gateways from the kernel and then using the
+      local IP addresses selected by this decision. This hostname is only available if there is at least one
+      local default gateway configured. This assigns a stable hostname to the local outbound IP addresses,
+      useful for referencing them independently of the current network configuration state.</para></listitem>
     </itemizedlist>
 
     <para>Various software relies on an always-resolvable local
     hostname. When using dynamic hostnames, this is traditionally
     achieved by patching <filename>/etc/hosts</filename> at the same
     time as changing the hostname. This is problematic since it
-    requires a writable <filename>/etc</filename> file system and is
+    requires a writable <filename>/etc/</filename> file system and is
     fragile because the file might be edited by the administrator at
     the same time. With <command>nss-myhostname</command> enabled,
     changing <filename>/etc/hosts</filename> is unnecessary, and on
@@ -84,7 +91,9 @@
     <!-- synchronize with other nss-* man pages and factory/etc/nsswitch.conf -->
 <programlisting>passwd:         compat systemd
 group:          compat [SUCCESS=merge] systemd
-shadow:         compat
+shadow:         compat systemd
+gshadow:        files systemd
+
 
 # Either (untrusted network, see above):
 hosts:          mymachines resolve [!UNAVAIL=return] files <command>myhostname</command> dns

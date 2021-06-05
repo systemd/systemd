@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <sys/stat.h>
 #include <sys/types.h>
@@ -97,7 +97,7 @@ static int run(int argc, char *argv[]) {
         int r;
 
         log_set_facility(LOG_CRON);
-        log_setup_service();
+        log_setup();
 
         umask(0022);
 

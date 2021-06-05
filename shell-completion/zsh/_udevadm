@@ -1,5 +1,5 @@
 #compdef udevadm                    -*- shell-script -*-
-# SPDX-License-Identifier: LGPL-2.1+
+# SPDX-License-Identifier: LGPL-2.1-or-later
 
 (( $+functions[_udevadm_info] )) ||
 _udevadm_info(){
@@ -21,6 +21,7 @@ _udevadm_trigger(){
     _arguments \
         '--verbose[Print the list of devices which will be triggered.]' \
         '--dry-run[Do not actually trigger the event.]' \
+        '--quiet[Suppress error logging in triggering events.]' \
         '--type=[Trigger a specific type of devices.]:types:(devices subsystems failed)' \
         '--action=[Type of event to be triggered.]:actions:(add change remove)' \
         '--subsystem-match=[Trigger events for devices which belong to a matching subsystem.]' \
@@ -30,7 +31,8 @@ _udevadm_trigger(){
         '--property-match=[Trigger events for devices with a matching property value.]' \
         '--tag-match=property[Trigger events for devices with a matching tag.]' \
         '--sysname-match=[Trigger events for devices with a matching sys device name.]' \
-        '--parent-match=[Trigger events for all children of a given device.]'
+        '--parent-match=[Trigger events for all children of a given device.]' \
+        '--uuid[Print synthetic uevent UUID.]'
 }
 
 (( $+functions[_udevadm_settle] )) ||

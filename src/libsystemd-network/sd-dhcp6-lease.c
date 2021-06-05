@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 /***
   Copyright © 2014-2015 Intel Corporation. All rights reserved.
 ***/
@@ -203,10 +203,9 @@ int dhcp6_lease_set_dns(sd_dhcp6_lease *lease, uint8_t *optval, size_t optlen) {
                 return 0;
 
         r = dhcp6_option_parse_ip6addrs(optval, optlen, &lease->dns,
-                                        lease->dns_count,
-                                        &lease->dns_allocated);
+                                        lease->dns_count);
         if (r < 0)
-                return log_dhcp6_client_errno(client, r, "Invalid DNS server option: %m");
+                return r;
 
         lease->dns_count = r;
 
@@ -269,7 +268,6 @@ int dhcp6_lease_set_ntp(sd_dhcp6_lease *lease, uint8_t *optval, size_t optlen) {
 
         lease->ntp = mfree(lease->ntp);
         lease->ntp_count = 0;
-        lease->ntp_allocated = 0;
 
         while ((r = dhcp6_option_parse(&optval, &optlen, &subopt, &sublen,
                                        &subval)) >= 0) {
@@ -284,8 +282,7 @@ int dhcp6_lease_set_ntp(sd_dhcp6_lease *lease, uint8_t *optval, size_t optlen) {
 
                         s = dhcp6_option_parse_ip6addrs(subval, sublen,
                                                         &lease->ntp,
-                                                        lease->ntp_count,
-                                                        &lease->ntp_allocated);
+                                                        lease->ntp_count);
                         if (s < 0)
                                 return s;
 
@@ -321,19 +318,15 @@ int dhcp6_lease_set_sntp(sd_dhcp6_lease *lease, uint8_t *optval, size_t optlen) 
         if (!optlen)
                 return 0;
 
-        if (lease->ntp || lease->ntp_fqdn) {
-                log_dhcp6_client(client, "NTP information already provided");
+        if (lease->ntp || lease->ntp_fqdn)
+                return -EEXIST;
 
-                return 0;
-        }
-
-        log_dhcp6_client(client, "Using deprecated SNTP information");
+        /* Using deprecated SNTP information */
 
         r = dhcp6_option_parse_ip6addrs(optval, optlen, &lease->ntp,
-                                        lease->ntp_count,
-                                        &lease->ntp_allocated);
+                                        lease->ntp_count);
         if (r < 0)
-                return log_dhcp6_client_errno(client, r, "Invalid SNTP server option: %m");
+                return r;
 
         lease->ntp_count = r;
 

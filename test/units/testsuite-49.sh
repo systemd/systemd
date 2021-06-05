@@ -1,47 +1,43 @@
 #!/usr/bin/env bash
+set -eux
 
-set -ex
+echo "MARKER_FIXED" >/run/testservice-49-fixed
+mkdir -p /run/inaccessible
 
-test_rule="/run/udev/rules.d/49-test.rules"
+systemctl start testsuite-49-namespaced.service
 
-setup() {
-    mkdir -p "${test_rule%/*}"
-    cp -f /etc/udev/udev.conf /etc/udev/udev.conf.bckp
-    echo 'KERNEL=="lo", SUBSYSTEM=="net", PROGRAM=="/bin/sleep 60"' > "${test_rule}"
-    echo "event_timeout=30" >> /etc/udev/udev.conf
-    echo "timeout_signal=SIGABRT" >> /etc/udev/udev.conf
+# Ensure that inaccessible paths aren't bypassed by the runtime setup
+set +e
+systemctl bind --mkdir testsuite-49-namespaced.service /run/testservice-49-fixed /run/inaccessible/testfile_fixed && exit 1
+set -e
 
-    systemctl restart systemd-udevd.service
-}
+echo "MARKER_RUNTIME" >/run/testservice-49-runtime
 
-teardown() {
-    set +e
+systemctl bind --mkdir testsuite-49-namespaced.service /run/testservice-49-runtime /tmp/testfile_runtime
 
-    mv -f /etc/udev/udev.conf.bckp /etc/udev/udev.conf
-    rm -f "$test_rule"
-    systemctl restart systemd-udevd.service
-}
+while systemctl show -P SubState testsuite-49-namespaced.service | grep -q running
+do
+    sleep 0.1
+done
 
-run_test() {
-    since="$(date +%T)"
+systemctl is-active testsuite-49-namespaced.service
 
-    echo add > /sys/class/net/lo/uevent
+# Now test that systemctl bind fails when attempted on a non-namespaced unit
+systemctl start testsuite-49-non-namespaced.service
 
-    for n in {1..20}; do
-        sleep 5
-        if coredumpctl --since "$since" --no-legend --no-pager | grep /bin/udevadm ; then
-            return 0
-        fi
-    done
+set +e
+systemctl bind --mkdir testsuite-49-non-namespaced.service /run/testservice-49-runtime /tmp/testfile_runtime && exit 1
+set -e
 
-    return 1
-}
+while systemctl show -P SubState testsuite-49-non-namespaced.service | grep -q running
+do
+    sleep 0.1
+done
 
-trap teardown EXIT
+set +e
+systemctl is-active testsuite-49-non-namespaced.service && exit 1
+set -e
 
-setup
-run_test
-
-echo OK > /testok
+echo OK >/testok
 
 exit 0

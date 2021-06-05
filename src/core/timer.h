@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
 typedef struct Timer Timer;
@@ -14,7 +14,7 @@ typedef enum TimerBase {
         TIMER_UNIT_INACTIVE,
         TIMER_CALENDAR,
         _TIMER_BASE_MAX,
-        _TIMER_BASE_INVALID = -1
+        _TIMER_BASE_INVALID = -EINVAL,
 } TimerBase;
 
 typedef struct TimerValue {
@@ -33,7 +33,7 @@ typedef enum TimerResult {
         TIMER_FAILURE_RESOURCES,
         TIMER_FAILURE_START_LIMIT_HIT,
         _TIMER_RESULT_MAX,
-        _TIMER_RESULT_INVALID = -1
+        _TIMER_RESULT_INVALID = -EINVAL,
 } TimerResult;
 
 struct Timer {
@@ -59,6 +59,7 @@ struct Timer {
         bool remain_after_elapse;
         bool on_clock_change;
         bool on_timezone_change;
+        bool fixed_random_delay;
 
         char *stamp_path;
 };

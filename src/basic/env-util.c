@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <errno.h>
 #include <limits.h>
@@ -12,17 +12,19 @@
 #include "extract-word.h"
 #include "macro.h"
 #include "parse-util.h"
+#include "path-util.h"
+#include "process-util.h"
+#include "stdio-util.h"
 #include "string-util.h"
 #include "strv.h"
 #include "utf8.h"
 
-#define VALID_CHARS_ENV_NAME                    \
+/* We follow bash for the character set. Different shells have different rules. */
+#define VALID_BASH_ENV_NAME_CHARS               \
         DIGITS LETTERS                          \
         "_"
 
 static bool env_name_is_valid_n(const char *e, size_t n) {
-        const char *p;
-
         if (!e)
                 return false;
 
@@ -40,18 +42,15 @@ static bool env_name_is_valid_n(const char *e, size_t n) {
         if (n > (size_t) sysconf(_SC_ARG_MAX) - 2)
                 return false;
 
-        for (p = e; p < e + n; p++)
-                if (!strchr(VALID_CHARS_ENV_NAME, *p))
+        for (const char *p = e; p < e + n; p++)
+                if (!strchr(VALID_BASH_ENV_NAME_CHARS, *p))
                         return false;
 
         return true;
 }
 
 bool env_name_is_valid(const char *e) {
-        if (!e)
-                return false;
-
-        return env_name_is_valid_n(e, strlen(e));
+        return env_name_is_valid_n(e, strlen_ptr(e));
 }
 
 bool env_value_is_valid(const char *e) {
@@ -61,16 +60,13 @@ bool env_value_is_valid(const char *e) {
         if (!utf8_is_valid(e))
                 return false;
 
-        /* bash allows tabs and newlines in environment variables, and so
-         * should we */
-        if (string_has_cc(e, "\t\n"))
-                return false;
+        /* Note that variable *values* may contain control characters, in particular NL, TAB, BS, DEL, ESC…
+         * When printing those variables with show-environment, we'll escape them. Make sure to print
+         * environment variables carefully! */
 
-        /* POSIX says the overall size of the environment block cannot
-         * be > ARG_MAX, an individual assignment hence cannot be
-         * either. Discounting the shortest possible variable name of
-         * length 1, the equal sign and trailing NUL this hence leaves
-         * ARG_MAX-3 as longest possible variable value. */
+        /* POSIX says the overall size of the environment block cannot be > ARG_MAX, an individual assignment
+         * hence cannot be either. Discounting the shortest possible variable name of length 1, the equal
+         * sign and trailing NUL this hence leaves ARG_MAX-3 as longest possible variable value. */
         if (strlen(e) > sc_arg_max() - 3)
                 return false;
 
@@ -90,10 +86,8 @@ bool env_assignment_is_valid(const char *e) {
         if (!env_value_is_valid(eq + 1))
                 return false;
 
-        /* POSIX says the overall size of the environment block cannot
-         * be > ARG_MAX, hence the individual variable assignments
-         * cannot be either, but let's leave room for one trailing NUL
-         * byte. */
+        /* POSIX says the overall size of the environment block cannot be > ARG_MAX, hence the individual
+         * variable assignments cannot be either, but let's leave room for one trailing NUL byte. */
         if (strlen(e) > sc_arg_max() - 1)
                 return false;
 
@@ -191,14 +185,14 @@ static int env_append(char **r, char ***k, char **a) {
 
 char **strv_env_merge(size_t n_lists, ...) {
         _cleanup_strv_free_ char **ret = NULL;
-        size_t n = 0, i;
+        size_t n = 0;
         char **l, **k;
         va_list ap;
 
         /* Merges an arbitrary number of environment sets */
 
         va_start(ap, n_lists);
-        for (i = 0; i < n_lists; i++) {
+        for (size_t i = 0; i < n_lists; i++) {
                 l = va_arg(ap, char**);
                 n += strv_length(l);
         }
@@ -212,7 +206,7 @@ char **strv_env_merge(size_t n_lists, ...) {
         k = ret;
 
         va_start(ap, n_lists);
-        for (i = 0; i < n_lists; i++) {
+        for (size_t i = 0; i < n_lists; i++) {
                 l = va_arg(ap, char**);
                 if (env_append(ret, &k, l) < 0) {
                         va_end(ap);
@@ -278,10 +272,8 @@ char **strv_env_delete(char **x, size_t n_lists, ...) {
                 return NULL;
 
         STRV_FOREACH(k, x) {
-                size_t v;
-
                 va_start(ap, n_lists);
-                for (v = 0; v < n_lists; v++) {
+                for (size_t v = 0; v < n_lists; v++) {
                         char **l, **j;
 
                         l = va_arg(ap, char**);
@@ -312,7 +304,6 @@ char **strv_env_delete(char **x, size_t n_lists, ...) {
 }
 
 char **strv_env_unset(char **l, const char *p) {
-
         char **f, **t;
 
         if (!l)
@@ -373,20 +364,23 @@ char **strv_env_unset_many(char **l, ...) {
         return l;
 }
 
-int strv_env_replace(char ***l, char *p) {
+int strv_env_replace_consume(char ***l, char *p) {
         const char *t, *name;
         char **f;
         int r;
 
         assert(p);
 
-        /* Replace first occurrence of the env var or add a new one in the string list. Drop other occurrences. Edits
-         * in-place. Does not copy p.  p must be a valid key=value assignment.
-         */
+        /* Replace first occurrence of the env var or add a new one in the string list. Drop other
+         * occurrences. Edits in-place. Does not copy p and CONSUMES p EVEN ON FAILURE.
+         *
+         * p must be a valid key=value assignment. */
 
         t = strchr(p, '=');
-        if (!t)
+        if (!t) {
+                free(p);
                 return -EINVAL;
+        }
 
         name = strndupa(p, t - p);
 
@@ -398,39 +392,39 @@ int strv_env_replace(char ***l, char *p) {
                 }
 
         /* We didn't find a match, we need to append p or create a new strv */
-        r = strv_push(l, p);
+        r = strv_consume(l, p);
         if (r < 0)
                 return r;
 
         return 1;
 }
 
-char **strv_env_set(char **x, const char *p) {
-        _cleanup_strv_free_ char **ret = NULL;
-        size_t n, m;
-        char **k;
+int strv_env_replace_strdup(char ***l, const char *assignment) {
+        /* Like strv_env_replace_consume(), but copies the argument. */
 
-        /* Overrides the env var setting of p, returns a new copy */
+        char *p = strdup(assignment);
+        if (!p)
+                return -ENOMEM;
 
-        n = strv_length(x);
-        m = n + 2;
-        if (m < n) /* overflow? */
-                return NULL;
+        return strv_env_replace_consume(l, p);
+}
 
-        ret = new(char*, m);
-        if (!ret)
-                return NULL;
+int strv_env_assign(char ***l, const char *key, const char *value) {
+        if (!env_name_is_valid(key))
+                return -EINVAL;
 
-        *ret = NULL;
-        k = ret;
+        /* NULL removes assignment, "" creates an empty assignment. */
 
-        if (env_append(ret, &k, x) < 0)
-                return NULL;
+        if (!value) {
+                strv_env_unset(*l, key);
+                return 0;
+        }
 
-        if (env_append(ret, &k, STRV_MAKE(p)) < 0)
-                return NULL;
+        char *p = strjoin(key, "=", value);
+        if (!p)
+                return -ENOMEM;
 
-        return TAKE_PTR(ret);
+        return strv_env_replace_consume(l, p);
 }
 
 char *strv_env_get_n(char **l, const char *name, size_t k, unsigned flags) {
@@ -460,6 +454,18 @@ char *strv_env_get(char **l, const char *name) {
         assert(name);
 
         return strv_env_get_n(l, name, strlen(name), 0);
+}
+
+char *strv_env_pairs_get(char **l, const char *name) {
+        char **key, **value, *result = NULL;
+
+        assert(name);
+
+        STRV_FOREACH_PAIR(key, value, l)
+                if (streq(*key, name))
+                        result = *value;
+
+        return result;
 }
 
 char **strv_env_clean_with_callback(char **e, void (*invalid_callback)(const char *p, void *userdata), void *userdata) {
@@ -509,10 +515,10 @@ char *replace_env_n(const char *format, size_t n, char **env, unsigned flags) {
                 ALTERNATE_VALUE,
         } state = WORD;
 
-        const char *e, *word = format, *test_value;
+        const char *e, *word = format, *test_value = NULL; /* test_value is initialized to appease gcc */
         char *k;
         _cleanup_free_ char *r = NULL;
-        size_t i, len;
+        size_t i, len = 0; /* len is initialized to appease gcc */
         int nest = 0;
 
         assert(format);
@@ -546,7 +552,7 @@ char *replace_env_n(const char *format, size_t n, char **env, unsigned flags) {
                                 word = e+1;
                                 state = WORD;
 
-                        } else if (flags & REPLACE_ENV_ALLOW_BRACELESS && strchr(VALID_CHARS_ENV_NAME, *e)) {
+                        } else if (flags & REPLACE_ENV_ALLOW_BRACELESS && strchr(VALID_BASH_ENV_NAME_CHARS, *e)) {
                                 k = strnappend(r, word, e-word-1);
                                 if (!k)
                                         return NULL;
@@ -566,22 +572,18 @@ char *replace_env_n(const char *format, size_t n, char **env, unsigned flags) {
 
                                 t = strv_env_get_n(env, word+2, e-word-2, flags);
 
-                                k = strjoin(r, t);
-                                if (!k)
+                                if (!strextend(&r, t))
                                         return NULL;
-
-                                free_and_replace(r, k);
 
                                 word = e+1;
                                 state = WORD;
                         } else if (*e == ':') {
-                                if (!(flags & REPLACE_ENV_ALLOW_EXTENDED))
+                                if (flags & REPLACE_ENV_ALLOW_EXTENDED) {
+                                        len = e - word - 2;
+                                        state = TEST;
+                                } else
                                         /* Treat this as unsupported syntax, i.e. do no replacement */
                                         state = WORD;
-                                else {
-                                        len = e-word-2;
-                                        state = TEST;
-                                }
                         }
                         break;
 
@@ -622,11 +624,8 @@ char *replace_env_n(const char *format, size_t n, char **env, unsigned flags) {
                                 else if (!t && state == DEFAULT_VALUE)
                                         t = v = replace_env_n(test_value, e-test_value, env, flags);
 
-                                k = strjoin(r, t);
-                                if (!k)
+                                if (!strextend(&r, t))
                                         return NULL;
-
-                                free_and_replace(r, k);
 
                                 word = e+1;
                                 state = WORD;
@@ -636,16 +635,13 @@ char *replace_env_n(const char *format, size_t n, char **env, unsigned flags) {
                 case VARIABLE_RAW:
                         assert(flags & REPLACE_ENV_ALLOW_BRACELESS);
 
-                        if (!strchr(VALID_CHARS_ENV_NAME, *e)) {
+                        if (!strchr(VALID_BASH_ENV_NAME_CHARS, *e)) {
                                 const char *t;
 
                                 t = strv_env_get_n(env, word+1, e-word-1, flags);
 
-                                k = strjoin(r, t);
-                                if (!k)
+                                if (!strextend(&r, t))
                                         return NULL;
-
-                                free_and_replace(r, k);
 
                                 word = e--;
                                 i--;
@@ -748,4 +744,91 @@ int getenv_bool_secure(const char *p) {
                 return -ENXIO;
 
         return parse_boolean(e);
+}
+
+int set_unset_env(const char *name, const char *value, bool overwrite) {
+        int r;
+
+        if (value)
+                r = setenv(name, value, overwrite);
+        else
+                r = unsetenv(name);
+        if (r < 0)
+                return -errno;
+        return 0;
+}
+
+int putenv_dup(const char *assignment, bool override) {
+        const char *e, *n;
+
+        e = strchr(assignment, '=');
+        if (!e)
+                return -EINVAL;
+
+        n = strndupa(assignment, e - assignment);
+
+        /* This is like putenv(), but uses setenv() so that our memory doesn't become part of environ[]. */
+        if (setenv(n, e + 1, override) < 0)
+                return -errno;
+        return 0;
+}
+
+int setenv_systemd_exec_pid(bool update_only) {
+        char str[DECIMAL_STR_MAX(pid_t)];
+        const char *e;
+
+        /* Update $SYSTEMD_EXEC_PID=pid except when '*' is set for the variable. */
+
+        e = secure_getenv("SYSTEMD_EXEC_PID");
+        if (!e && update_only)
+                return 0;
+
+        if (streq_ptr(e, "*"))
+                return 0;
+
+        xsprintf(str, PID_FMT, getpid_cached());
+
+        if (setenv("SYSTEMD_EXEC_PID", str, 1) < 0)
+                return -errno;
+
+        return 1;
+}
+
+int getenv_path_list(const char *name, char ***ret_paths) {
+        _cleanup_strv_free_ char **l = NULL;
+        const char *e;
+        char **p;
+        int r;
+
+        assert(name);
+        assert(ret_paths);
+
+        e = secure_getenv(name);
+        if (!e)
+                return -ENXIO;
+
+        r = strv_split_full(&l, e, ":", EXTRACT_DONT_COALESCE_SEPARATORS);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to parse $%s: %m", name);
+
+        STRV_FOREACH(p, l) {
+                if (!path_is_absolute(*p))
+                        return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "Path '%s' is not absolute, refusing.", *p);
+
+                if (!path_is_normalized(*p))
+                        return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "Path '%s' is not normalized, refusing.", *p);
+
+                if (path_equal(*p, "/"))
+                        return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "Path '%s' is the root fs, refusing.", *p);
+        }
+
+        if (strv_isempty(l))
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "No paths specified, refusing.");
+
+        *ret_paths = TAKE_PTR(l);
+        return 1;
 }

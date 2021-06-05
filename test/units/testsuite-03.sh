@@ -1,14 +1,15 @@
 #!/usr/bin/env bash
-set -ex
+set -eux
+set -o pipefail
 
 # Test merging of a --job-mode=ignore-dependencies job into a previously
 # installed job.
 
 systemctl start --no-block hello-after-sleep.target
 
-systemctl list-jobs > /root/list-jobs.txt
+systemctl list-jobs >/root/list-jobs.txt
 while ! grep 'sleep\.service.*running' /root/list-jobs.txt; do
-    systemctl list-jobs > /root/list-jobs.txt
+    systemctl list-jobs >/root/list-jobs.txt
 done
 
 grep 'hello\.service.*waiting' /root/list-jobs.txt
@@ -17,22 +18,22 @@ grep 'hello\.service.*waiting' /root/list-jobs.txt
 START_SEC=$(date -u '+%s')
 systemctl start --job-mode=ignore-dependencies hello
 END_SEC=$(date -u '+%s')
-ELAPSED=$(($END_SEC-$START_SEC))
+ELAPSED=$((END_SEC-START_SEC))
 
-[ "$ELAPSED" -lt 3 ]
+test "$ELAPSED" -lt 3
 
 # sleep should still be running, hello not.
-systemctl list-jobs > /root/list-jobs.txt
+systemctl list-jobs >/root/list-jobs.txt
 grep 'sleep\.service.*running' /root/list-jobs.txt
 grep 'hello\.service' /root/list-jobs.txt && exit 1
 systemctl stop sleep.service hello-after-sleep.target
 
 # Some basic testing that --show-transaction does something useful
-! systemctl is-active systemd-importd
+systemctl is-active systemd-importd && { echo 'unexpected success'; exit 1; }
 systemctl -T start systemd-importd
 systemctl is-active systemd-importd
 systemctl --show-transaction stop systemd-importd
-! systemctl is-active systemd-importd
+systemctl is-active systemd-importd && { echo 'unexpected success'; exit 1; }
 
 # Test for a crash when enqueuing a JOB_NOP when other job already exists
 systemctl start --no-block hello-after-sleep.target
@@ -58,13 +59,13 @@ systemctl stop --job-mode=replace-irreversibly unstoppable.service
 systemctl start unstoppable.service
 
 # Test waiting for a started unit(s) to terminate again
-cat <<EOF >  /run/systemd/system/wait2.service
+cat <<EOF >/run/systemd/system/wait2.service
 [Unit]
 Description=Wait for 2 seconds
 [Service]
 ExecStart=/bin/sh -ec 'sleep 2'
 EOF
-cat <<EOF >  /run/systemd/system/wait5fail.service
+cat <<EOF >/run/systemd/system/wait5fail.service
 [Unit]
 Description=Wait for 5 seconds and fail
 [Service]
@@ -75,14 +76,14 @@ EOF
 START_SEC=$(date -u '+%s')
 systemctl start --wait wait2.service
 END_SEC=$(date -u '+%s')
-ELAPSED=$(($END_SEC-$START_SEC))
+ELAPSED=$((END_SEC-START_SEC))
 [[ "$ELAPSED" -ge 2 ]] && [[ "$ELAPSED" -le 4 ]] || exit 1
 
 # wait5fail fails, so systemctl should fail
 START_SEC=$(date -u '+%s')
-! systemctl start --wait wait2.service wait5fail.service || exit 1
+systemctl start --wait wait2.service wait5fail.service && { echo 'unexpected success'; exit 1; }
 END_SEC=$(date -u '+%s')
-ELAPSED=$(($END_SEC-$START_SEC))
+ELAPSED=$((END_SEC-START_SEC))
 [[ "$ELAPSED" -ge 5 ]] && [[ "$ELAPSED" -le 7 ]] || exit 1
 
 # Test time-limited scopes
@@ -91,7 +92,7 @@ set +e
 systemd-run --scope --property=RuntimeMaxSec=3s sleep 10
 RESULT=$?
 END_SEC=$(date -u '+%s')
-ELAPSED=$(($END_SEC-$START_SEC))
+ELAPSED=$((END_SEC-START_SEC))
 [[ "$ELAPSED" -ge 3 ]] && [[ "$ELAPSED" -le 5 ]] || exit 1
 [[ "$RESULT" -ne 0 ]] || exit 1
 

@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: LGPL-2.1+
+# SPDX-License-Identifier: LGPL-2.1-or-later
 #
 #  Copyright © 2013-2017 Sergey Ptashnick
 
@@ -105,7 +105,7 @@ Documentation: man:coredump.conf(5)
 Subject: Для пользователя @USER_ID@ создан новый сеанс @SESSION_ID@
 Defined-By: systemd
 Support: %SUPPORT_URL%
-Documentation: https://www.freedesktop.org/wiki/Software/systemd/multiseat
+Documentation: sd-login(3)
 
 Для пользователя @USER_ID@ создан новый сеанс с идентификатором @SESSION_ID@.
 
@@ -116,7 +116,7 @@ Documentation: https://www.freedesktop.org/wiki/Software/systemd/multiseat
 Subject: Сеанс @SESSION_ID@ завершен
 Defined-By: systemd
 Support: %SUPPORT_URL%
-Documentation: https://www.freedesktop.org/wiki/Software/systemd/multiseat
+Documentation: sd-login(3)
 
 Сеанс с идентификатором @SESSION_ID@ завершился.
 
@@ -125,7 +125,7 @@ Documentation: https://www.freedesktop.org/wiki/Software/systemd/multiseat
 Subject: Добавлено новое рабочее место @SEAT_ID@
 Defined-By: systemd
 Support: %SUPPORT_URL%
-Documentation: https://www.freedesktop.org/wiki/Software/systemd/multiseat
+Documentation: sd-login(3)
 
 Новое рабочее место (seat) @SEAT_ID@ полностью настроено и готово к
 использованию.
@@ -135,7 +135,7 @@ Documentation: https://www.freedesktop.org/wiki/Software/systemd/multiseat
 Subject: Рабочее место @SEAT_ID@ отключено
 Defined-By: systemd
 Support: %SUPPORT_URL%
-Documentation: https://www.freedesktop.org/wiki/Software/systemd/multiseat
+Documentation: sd-login(3)
 
 Рабочее место (seat) @SEAT_ID@ было отключено.
 

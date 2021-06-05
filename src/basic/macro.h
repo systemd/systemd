@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
 #include <assert.h>
@@ -9,6 +9,8 @@
 #include <sys/sysmacros.h>
 #include <sys/types.h>
 
+#include "macro-fundamental.h"
+
 #define _printf_(a, b) __attribute__((__format__(printf, a, b)))
 #ifdef __clang__
 #  define _alloc_(...)
@@ -16,12 +18,7 @@
 #  define _alloc_(...) __attribute__((__alloc_size__(__VA_ARGS__)))
 #endif
 #define _sentinel_ __attribute__((__sentinel__))
-#define _section_(x) __attribute__((__section__(x)))
-#define _used_ __attribute__((__used__))
-#define _unused_ __attribute__((__unused__))
 #define _destructor_ __attribute__((__destructor__))
-#define _pure_ __attribute__((__pure__))
-#define _const_ __attribute__((__const__))
 #define _deprecated_ __attribute__((__deprecated__))
 #define _packed_ __attribute__((__packed__))
 #define _malloc_ __attribute__((__malloc__))
@@ -31,10 +28,8 @@
 #define _public_ __attribute__((__visibility__("default")))
 #define _hidden_ __attribute__((__visibility__("hidden")))
 #define _weakref_(x) __attribute__((__weakref__(#x)))
-#define _align_(x) __attribute__((__aligned__(x)))
 #define _alignas_(x) __attribute__((__aligned__(__alignof(x))))
 #define _alignptr_ __attribute__((__aligned__(sizeof(void*))))
-#define _cleanup_(x) __attribute__((__cleanup__(x)))
 #if __GNUC__ >= 7
 #define _fallthrough_ __attribute__((__fallthrough__))
 #else
@@ -93,6 +88,10 @@
 #endif
 
 /* Temporarily disable some warnings */
+#define DISABLE_WARNING_DEPRECATED_DECLARATIONS                         \
+        _Pragma("GCC diagnostic push");                                 \
+        _Pragma("GCC diagnostic ignored \"-Wdeprecated-declarations\"")
+
 #define DISABLE_WARNING_FORMAT_NONLITERAL                               \
         _Pragma("GCC diagnostic push");                                 \
         _Pragma("GCC diagnostic ignored \"-Wformat-nonliteral\"")
@@ -135,15 +134,6 @@
 
 /* automake test harness */
 #define EXIT_TEST_SKIP 77
-
-#define XSTRINGIFY(x) #x
-#define STRINGIFY(x) XSTRINGIFY(x)
-
-#define XCONCATENATE(x, y) x ## y
-#define CONCATENATE(x, y) XCONCATENATE(x, y)
-
-#define UNIQ_T(x, uniq) CONCATENATE(__unique_prefix_, CONCATENATE(x, uniq))
-#define UNIQ __COUNTER__
 
 /* builtins */
 #if __SIZEOF_INT__ == 4
@@ -218,18 +208,6 @@ static inline size_t GREEDY_ALLOC_ROUND_UP(size_t l) {
         return m;
 }
 
-#ifndef __COVERITY__
-#  define VOID_0 ((void)0)
-#else
-#  define VOID_0 ((void*)0)
-#endif
-
-#define ELEMENTSOF(x)                                                   \
-        (__builtin_choose_expr(                                         \
-                !__builtin_types_compatible_p(typeof(x), typeof(&*(x))), \
-                sizeof(x)/sizeof((x)[0]),                               \
-                VOID_0))
-
 /*
  * STRLEN - return the length of a string literal, minus the trailing NUL byte.
  *          Contrary to strlen(), this is a constant expression.
@@ -248,100 +226,6 @@ static inline size_t GREEDY_ALLOC_ROUND_UP(size_t l) {
         ({                                                              \
                 const typeof( ((type*)0)->member ) *UNIQ_T(A, uniq) = (ptr); \
                 (type*)( (char *)UNIQ_T(A, uniq) - offsetof(type, member) ); \
-        })
-
-#undef MAX
-#define MAX(a, b) __MAX(UNIQ, (a), UNIQ, (b))
-#define __MAX(aq, a, bq, b)                             \
-        ({                                              \
-                const typeof(a) UNIQ_T(A, aq) = (a);    \
-                const typeof(b) UNIQ_T(B, bq) = (b);    \
-                UNIQ_T(A, aq) > UNIQ_T(B, bq) ? UNIQ_T(A, aq) : UNIQ_T(B, bq); \
-        })
-
-/* evaluates to (void) if _A or _B are not constant or of different types */
-#define CONST_MAX(_A, _B) \
-        (__builtin_choose_expr(                                         \
-                __builtin_constant_p(_A) &&                             \
-                __builtin_constant_p(_B) &&                             \
-                __builtin_types_compatible_p(typeof(_A), typeof(_B)),   \
-                ((_A) > (_B)) ? (_A) : (_B),                            \
-                VOID_0))
-
-/* takes two types and returns the size of the larger one */
-#define MAXSIZE(A, B) (sizeof(union _packed_ { typeof(A) a; typeof(B) b; }))
-
-#define MAX3(x, y, z)                                   \
-        ({                                              \
-                const typeof(x) _c = MAX(x, y);         \
-                MAX(_c, z);                             \
-        })
-
-#undef MIN
-#define MIN(a, b) __MIN(UNIQ, (a), UNIQ, (b))
-#define __MIN(aq, a, bq, b)                             \
-        ({                                              \
-                const typeof(a) UNIQ_T(A, aq) = (a);    \
-                const typeof(b) UNIQ_T(B, bq) = (b);    \
-                UNIQ_T(A, aq) < UNIQ_T(B, bq) ? UNIQ_T(A, aq) : UNIQ_T(B, bq); \
-        })
-
-/* evaluates to (void) if _A or _B are not constant or of different types */
-#define CONST_MIN(_A, _B) \
-        (__builtin_choose_expr(                                         \
-                __builtin_constant_p(_A) &&                             \
-                __builtin_constant_p(_B) &&                             \
-                __builtin_types_compatible_p(typeof(_A), typeof(_B)),   \
-                ((_A) < (_B)) ? (_A) : (_B),                            \
-                VOID_0))
-
-#define MIN3(x, y, z)                                   \
-        ({                                              \
-                const typeof(x) _c = MIN(x, y);         \
-                MIN(_c, z);                             \
-        })
-
-#define LESS_BY(a, b) __LESS_BY(UNIQ, (a), UNIQ, (b))
-#define __LESS_BY(aq, a, bq, b)                         \
-        ({                                              \
-                const typeof(a) UNIQ_T(A, aq) = (a);    \
-                const typeof(b) UNIQ_T(B, bq) = (b);    \
-                UNIQ_T(A, aq) > UNIQ_T(B, bq) ? UNIQ_T(A, aq) - UNIQ_T(B, bq) : 0; \
-        })
-
-#define CMP(a, b) __CMP(UNIQ, (a), UNIQ, (b))
-#define __CMP(aq, a, bq, b)                             \
-        ({                                              \
-                const typeof(a) UNIQ_T(A, aq) = (a);    \
-                const typeof(b) UNIQ_T(B, bq) = (b);    \
-                UNIQ_T(A, aq) < UNIQ_T(B, bq) ? -1 :    \
-                UNIQ_T(A, aq) > UNIQ_T(B, bq) ? 1 : 0;  \
-        })
-
-#undef CLAMP
-#define CLAMP(x, low, high) __CLAMP(UNIQ, (x), UNIQ, (low), UNIQ, (high))
-#define __CLAMP(xq, x, lowq, low, highq, high)                          \
-        ({                                                              \
-                const typeof(x) UNIQ_T(X, xq) = (x);                    \
-                const typeof(low) UNIQ_T(LOW, lowq) = (low);            \
-                const typeof(high) UNIQ_T(HIGH, highq) = (high);        \
-                        UNIQ_T(X, xq) > UNIQ_T(HIGH, highq) ?           \
-                                UNIQ_T(HIGH, highq) :                   \
-                                UNIQ_T(X, xq) < UNIQ_T(LOW, lowq) ?     \
-                                        UNIQ_T(LOW, lowq) :             \
-                                        UNIQ_T(X, xq);                  \
-        })
-
-/* [(x + y - 1) / y] suffers from an integer overflow, even though the
- * computation should be possible in the given type. Therefore, we use
- * [x / y + !!(x % y)]. Note that on "Real CPUs" a division returns both the
- * quotient and the remainder, so both should be equally fast. */
-#define DIV_ROUND_UP(x, y) __DIV_ROUND_UP(UNIQ, (x), UNIQ, (y))
-#define __DIV_ROUND_UP(xq, x, yq, y)                                    \
-        ({                                                              \
-                const typeof(x) UNIQ_T(X, xq) = (x);                    \
-                const typeof(y) UNIQ_T(Y, yq) = (y);                    \
-                (UNIQ_T(X, xq) / UNIQ_T(Y, yq) + !!(UNIQ_T(X, xq) % UNIQ_T(Y, yq))); \
         })
 
 #ifdef __COVERITY__
@@ -400,16 +284,6 @@ static inline int __coverity_check_and_return__(int condition) {
 #define assert_not_reached(t)                                           \
         log_assert_failed_unreachable(t, PROJECT_FILE, __LINE__, __PRETTY_FUNCTION__)
 
-#if defined(static_assert)
-#define assert_cc(expr)                                                 \
-        static_assert(expr, #expr)
-#else
-#define assert_cc(expr)                                                 \
-        struct CONCATENATE(_assert_struct_, __COUNTER__) {              \
-                char x[(expr) ? 0 : -1];                                \
-        }
-#endif
-
 #define assert_return(expr, r)                                          \
         do {                                                            \
                 if (!assert_log(expr, #expr))                           \
@@ -439,6 +313,9 @@ static inline int __coverity_check_and_return__(int condition) {
 #define LONG_TO_PTR(u) ((void *) ((intptr_t) (u)))
 #define PTR_TO_ULONG(p) ((unsigned long) ((uintptr_t) (p)))
 #define ULONG_TO_PTR(u) ((void *) ((uintptr_t) (u)))
+
+#define PTR_TO_UINT8(p) ((uint8_t) ((uintptr_t) (p)))
+#define UINT8_TO_PTR(u) ((void *) ((uintptr_t) (u)))
 
 #define PTR_TO_INT32(p) ((int32_t) ((intptr_t) (p)))
 #define INT32_TO_PTR(u) ((void *) ((intptr_t) (u)))
@@ -485,53 +362,6 @@ static inline int __coverity_check_and_return__(int condition) {
 #define FLAGS_SET(v, flags) \
         ((~(v) & (flags)) == 0)
 
-#define CASE_F(X) case X:
-#define CASE_F_1(CASE, X) CASE_F(X)
-#define CASE_F_2(CASE, X, ...)  CASE(X) CASE_F_1(CASE, __VA_ARGS__)
-#define CASE_F_3(CASE, X, ...)  CASE(X) CASE_F_2(CASE, __VA_ARGS__)
-#define CASE_F_4(CASE, X, ...)  CASE(X) CASE_F_3(CASE, __VA_ARGS__)
-#define CASE_F_5(CASE, X, ...)  CASE(X) CASE_F_4(CASE, __VA_ARGS__)
-#define CASE_F_6(CASE, X, ...)  CASE(X) CASE_F_5(CASE, __VA_ARGS__)
-#define CASE_F_7(CASE, X, ...)  CASE(X) CASE_F_6(CASE, __VA_ARGS__)
-#define CASE_F_8(CASE, X, ...)  CASE(X) CASE_F_7(CASE, __VA_ARGS__)
-#define CASE_F_9(CASE, X, ...)  CASE(X) CASE_F_8(CASE, __VA_ARGS__)
-#define CASE_F_10(CASE, X, ...) CASE(X) CASE_F_9(CASE, __VA_ARGS__)
-#define CASE_F_11(CASE, X, ...) CASE(X) CASE_F_10(CASE, __VA_ARGS__)
-#define CASE_F_12(CASE, X, ...) CASE(X) CASE_F_11(CASE, __VA_ARGS__)
-#define CASE_F_13(CASE, X, ...) CASE(X) CASE_F_12(CASE, __VA_ARGS__)
-#define CASE_F_14(CASE, X, ...) CASE(X) CASE_F_13(CASE, __VA_ARGS__)
-#define CASE_F_15(CASE, X, ...) CASE(X) CASE_F_14(CASE, __VA_ARGS__)
-#define CASE_F_16(CASE, X, ...) CASE(X) CASE_F_15(CASE, __VA_ARGS__)
-#define CASE_F_17(CASE, X, ...) CASE(X) CASE_F_16(CASE, __VA_ARGS__)
-#define CASE_F_18(CASE, X, ...) CASE(X) CASE_F_17(CASE, __VA_ARGS__)
-#define CASE_F_19(CASE, X, ...) CASE(X) CASE_F_18(CASE, __VA_ARGS__)
-#define CASE_F_20(CASE, X, ...) CASE(X) CASE_F_19(CASE, __VA_ARGS__)
-
-#define GET_CASE_F(_1,_2,_3,_4,_5,_6,_7,_8,_9,_10,_11,_12,_13,_14,_15,_16,_17,_18,_19,_20,NAME,...) NAME
-#define FOR_EACH_MAKE_CASE(...) \
-        GET_CASE_F(__VA_ARGS__,CASE_F_20,CASE_F_19,CASE_F_18,CASE_F_17,CASE_F_16,CASE_F_15,CASE_F_14,CASE_F_13,CASE_F_12,CASE_F_11, \
-                               CASE_F_10,CASE_F_9,CASE_F_8,CASE_F_7,CASE_F_6,CASE_F_5,CASE_F_4,CASE_F_3,CASE_F_2,CASE_F_1) \
-                   (CASE_F,__VA_ARGS__)
-
-#define IN_SET(x, ...)                          \
-        ({                                      \
-                bool _found = false;            \
-                /* If the build breaks in the line below, you need to extend the case macros. (We use "long double" as  \
-                 * type for the array, in the hope that checkers such as ubsan don't complain that the initializers for \
-                 * the array are not representable by the base type. Ideally we'd use typeof(x) as base type, but that  \
-                 * doesn't work, as we want to use this on bitfields and gcc refuses typeof() on bitfields.) */         \
-                static const long double __assert_in_set[] _unused_ = { __VA_ARGS__ }; \
-                assert_cc(ELEMENTSOF(__assert_in_set) <= 20); \
-                switch(x) {                     \
-                FOR_EACH_MAKE_CASE(__VA_ARGS__) \
-                        _found = true;          \
-                        break;                  \
-                default:                        \
-                        break;                  \
-                }                               \
-                _found;                         \
-        })
-
 #define SWAP_TWO(x, y) do {                        \
                 typeof(x) _t = (x);                \
                 (x) = (y);                         \
@@ -540,11 +370,15 @@ static inline int __coverity_check_and_return__(int condition) {
 
 #define STRV_MAKE(...) ((char**) ((const char*[]) { __VA_ARGS__, NULL }))
 #define STRV_MAKE_EMPTY ((char*[1]) { NULL })
+#define STRV_MAKE_CONST(...) ((const char* const*) ((const char*[]) { __VA_ARGS__, NULL }))
 
-/* Iterates through a specified list of pointers. Accepts NULL pointers, but uses (void*) -1 as internal marker for EOL. */
-#define FOREACH_POINTER(p, x, ...)                                                      \
-        for (typeof(p) *_l = (typeof(p)[]) { ({ p = x; }), ##__VA_ARGS__, (void*) -1 }; \
-             p != (typeof(p)) (void*) -1;                                               \
+/* Pointers range from NULL to POINTER_MAX */
+#define POINTER_MAX ((void*) UINTPTR_MAX)
+
+/* Iterates through a specified list of pointers. Accepts NULL pointers, but uses POINTER_MAX as internal marker for EOL. */
+#define FOREACH_POINTER(p, x, ...)                                                       \
+        for (typeof(p) *_l = (typeof(p)[]) { ({ p = x; }), ##__VA_ARGS__, POINTER_MAX }; \
+             p != (typeof(p)) POINTER_MAX;                                               \
              p = *(++_l))
 
 /* Define C11 thread_local attribute even on older gcc compiler
@@ -566,10 +400,20 @@ static inline int __coverity_check_and_return__(int condition) {
                 func(p);                                        \
         }
 
+/* When func() returns the void value (NULL, -1, …) of the appropriate type */
 #define DEFINE_TRIVIAL_CLEANUP_FUNC(type, func)                 \
         static inline void func##p(type *p) {                   \
                 if (*p)                                         \
+                        *p = func(*p);                          \
+        }
+
+/* When func() doesn't return the appropriate type, set variable to empty afterwards */
+#define DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(type, func, empty)     \
+        static inline void func##p(type *p) {                   \
+                if (*p != (empty)) {                            \
                         func(*p);                               \
+                        *p = (empty);                           \
+                }                                               \
         }
 
 #define _DEFINE_TRIVIAL_REF_FUNC(type, name, scope)             \
@@ -633,5 +477,9 @@ static inline int __coverity_check_and_return__(int condition) {
                 asm volatile ("" : : : "memory");                       \
                 _copy;                                                  \
         })
+
+static inline size_t size_add(size_t x, size_t y) {
+        return y >= SIZE_MAX - x ? SIZE_MAX : x + y;
+}
 
 #include "log.h"

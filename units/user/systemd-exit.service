@@ -1,4 +1,4 @@
-#  SPDX-License-Identifier: LGPL-2.1+
+#  SPDX-License-Identifier: LGPL-2.1-or-later
 #
 #  This file is part of systemd.
 #
@@ -14,3 +14,7 @@ DefaultDependencies=no
 Requires=shutdown.target
 After=shutdown.target
 SuccessAction=exit-force
+
+[Service]
+# Place into the root slice to not keep another slice unit alive
+Slice=-.slice

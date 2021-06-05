@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
 /***
@@ -23,7 +23,7 @@ typedef enum ProtectHome {
         PROTECT_HOME_READ_ONLY,
         PROTECT_HOME_TMPFS,
         _PROTECT_HOME_MAX,
-        _PROTECT_HOME_INVALID = -1
+        _PROTECT_HOME_INVALID = -EINVAL,
 } ProtectHome;
 
 typedef enum NamespaceType {
@@ -35,7 +35,7 @@ typedef enum NamespaceType {
         NAMESPACE_PID,
         NAMESPACE_NET,
         _NAMESPACE_TYPE_MAX,
-        _NAMESPACE_TYPE_INVALID = -1,
+        _NAMESPACE_TYPE_INVALID = -EINVAL,
 } NamespaceType;
 
 typedef enum ProtectSystem {
@@ -44,7 +44,7 @@ typedef enum ProtectSystem {
         PROTECT_SYSTEM_FULL,
         PROTECT_SYSTEM_STRICT,
         _PROTECT_SYSTEM_MAX,
-        _PROTECT_SYSTEM_INVALID = -1
+        _PROTECT_SYSTEM_INVALID = -EINVAL,
 } ProtectSystem;
 
 typedef enum ProtectProc {
@@ -53,14 +53,14 @@ typedef enum ProtectProc {
         PROTECT_PROC_INVISIBLE,  /* hidepid=invisible */
         PROTECT_PROC_PTRACEABLE, /* hidepid=ptraceable */
         _PROTECT_PROC_MAX,
-        _PROTECT_PROC_INVALID = -1,
+        _PROTECT_PROC_INVALID = -EINVAL,
 } ProtectProc;
 
 typedef enum ProcSubset {
         PROC_SUBSET_ALL,
         PROC_SUBSET_PID, /* subset=pid */
         _PROC_SUBSET_MAX,
-        _PROC_SUBSET_INVALID = -1,
+        _PROC_SUBSET_INVALID = -EINVAL,
 } ProcSubset;
 
 struct NamespaceInfo {
@@ -73,6 +73,8 @@ struct NamespaceInfo {
         bool protect_kernel_logs;
         bool mount_apivfs;
         bool protect_hostname;
+        bool private_ipc;
+        bool mount_nosuid;
         ProtectHome protect_home;
         ProtectSystem protect_system;
         ProtectProc protect_proc;
@@ -93,11 +95,19 @@ struct TemporaryFileSystem {
         char *options;
 };
 
+typedef enum MountImageType {
+        MOUNT_IMAGE_DISCRETE,
+        MOUNT_IMAGE_EXTENSION,
+        _MOUNT_IMAGE_TYPE_MAX,
+        _MOUNT_IMAGE_TYPE_INVALID = -EINVAL,
+} MountImageType;
+
 struct MountImage {
         char *source;
-        char *destination;
+        char *destination; /* Unused if MountImageType == MOUNT_IMAGE_EXTENSION */
         LIST_HEAD(MountOptions, mount_options);
         bool ignore_enoent;
+        MountImageType type;
 };
 
 int setup_namespace(
@@ -108,6 +118,8 @@ int setup_namespace(
                 char **read_write_paths,
                 char **read_only_paths,
                 char **inaccessible_paths,
+                char **exec_paths,
+                char **no_exec_paths,
                 char **empty_directories,
                 const BindMount *bind_mounts,
                 size_t n_bind_mounts,
@@ -127,16 +139,20 @@ int setup_namespace(
                 size_t root_hash_sig_size,
                 const char *root_hash_sig_path,
                 const char *root_verity,
-                DissectImageFlags dissected_image_flags,
+                const MountImage *extension_images,
+                size_t n_extension_images,
+                const char *propagate_dir,
+                const char *incoming_dir,
+                const char *notify_socket,
                 char **error_path);
 
 #define RUN_SYSTEMD_EMPTY "/run/systemd/empty"
 
-static inline void namespace_cleanup_tmpdir(char *p) {
+static inline char* namespace_cleanup_tmpdir(char *p) {
         PROTECT_ERRNO;
         if (!streq_ptr(p, RUN_SYSTEMD_EMPTY))
                 (void) rmdir(p);
-        free(p);
+        return mfree(p);
 }
 DEFINE_TRIVIAL_CLEANUP_FUNC(char*, namespace_cleanup_tmpdir);
 
@@ -145,8 +161,8 @@ int setup_tmp_dirs(
                 char **tmp_dir,
                 char **var_tmp_dir);
 
-int setup_netns(const int netns_storage_socket[static 2]);
-int open_netns_path(const int netns_storage_socket[static 2], const char *path);
+int setup_shareable_ns(const int ns_storage_socket[static 2], unsigned long nsflag);
+int open_shareable_ns_path(const int netns_storage_socket[static 2], const char *path, unsigned long nsflag);
 
 const char* protect_home_to_string(ProtectHome p) _const_;
 ProtectHome protect_home_from_string(const char *s) _pure_;

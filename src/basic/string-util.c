@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <errno.h>
 #include <stdarg.h>
@@ -19,64 +19,6 @@
 #include "terminal-util.h"
 #include "utf8.h"
 #include "util.h"
-
-int strcmp_ptr(const char *a, const char *b) {
-        /* Like strcmp(), but tries to make sense of NULL pointers */
-
-        if (a && b)
-                return strcmp(a, b);
-        return CMP(a, b); /* Direct comparison of pointers, one of which is NULL */
-}
-
-int strcasecmp_ptr(const char *a, const char *b) {
-        /* Like strcasecmp(), but tries to make sense of NULL pointers */
-
-        if (a && b)
-                return strcasecmp(a, b);
-        return CMP(a, b); /* Direct comparison of pointers, one of which is NULL */
-}
-
-char* endswith(const char *s, const char *postfix) {
-        size_t sl, pl;
-
-        assert(s);
-        assert(postfix);
-
-        sl = strlen(s);
-        pl = strlen(postfix);
-
-        if (pl == 0)
-                return (char*) s + sl;
-
-        if (sl < pl)
-                return NULL;
-
-        if (memcmp(s + sl - pl, postfix, pl) != 0)
-                return NULL;
-
-        return (char*) s + sl - pl;
-}
-
-char* endswith_no_case(const char *s, const char *postfix) {
-        size_t sl, pl;
-
-        assert(s);
-        assert(postfix);
-
-        sl = strlen(s);
-        pl = strlen(postfix);
-
-        if (pl == 0)
-                return (char*) s + sl;
-
-        if (sl < pl)
-                return NULL;
-
-        if (strcasecmp(s + sl - pl, postfix) != 0)
-                return NULL;
-
-        return (char*) s + sl - pl;
-}
 
 char* first_word(const char *s, const char *word) {
         size_t sl, wl;
@@ -129,7 +71,7 @@ char *strnappend(const char *s, const char *suffix, size_t b) {
         assert(suffix);
 
         a = strlen(s);
-        if (b > ((size_t) -1) - a)
+        if (b > SIZE_MAX - a)
                 return NULL;
 
         r = new(char, a+b+1);
@@ -145,57 +87,32 @@ char *strnappend(const char *s, const char *suffix, size_t b) {
 
 char *strjoin_real(const char *x, ...) {
         va_list ap;
-        size_t l;
+        size_t l = 1;
         char *r, *p;
 
         va_start(ap, x);
+        for (const char *t = x; t; t = va_arg(ap, const char *)) {
+                size_t n;
 
-        if (x) {
-                l = strlen(x);
-
-                for (;;) {
-                        const char *t;
-                        size_t n;
-
-                        t = va_arg(ap, const char *);
-                        if (!t)
-                                break;
-
-                        n = strlen(t);
-                        if (n > ((size_t) -1) - l) {
-                                va_end(ap);
-                                return NULL;
-                        }
-
-                        l += n;
+                n = strlen(t);
+                if (n > SIZE_MAX - l) {
+                        va_end(ap);
+                        return NULL;
                 }
-        } else
-                l = 0;
-
+                l += n;
+        }
         va_end(ap);
 
-        r = new(char, l+1);
+        p = r = new(char, l);
         if (!r)
                 return NULL;
 
-        if (x) {
-                p = stpcpy(r, x);
+        va_start(ap, x);
+        for (const char *t = x; t; t = va_arg(ap, const char *))
+                p = stpcpy(p, t);
+        va_end(ap);
 
-                va_start(ap, x);
-
-                for (;;) {
-                        const char *t;
-
-                        t = va_arg(ap, const char *);
-                        if (!t)
-                                break;
-
-                        p = stpcpy(p, t);
-                }
-
-                va_end(ap);
-        } else
-                r[0] = 0;
+        *p = 0;
 
         return r;
 }
@@ -233,7 +150,7 @@ char *delete_chars(char *s, const char *bad) {
 }
 
 char *delete_trailing_chars(char *s, const char *bad) {
-        char *p, *c = s;
+        char *c = s;
 
         /* Drops all specified bad characters, at the end of the string */
 
@@ -243,7 +160,7 @@ char *delete_trailing_chars(char *s, const char *bad) {
         if (!bad)
                 bad = WHITESPACE;
 
-        for (p = s; *p; p++)
+        for (char *p = s; *p; p++)
                 if (!strchr(bad, *p))
                         c = p + 1;
 
@@ -276,34 +193,28 @@ char ascii_toupper(char x) {
 }
 
 char *ascii_strlower(char *t) {
-        char *p;
-
         assert(t);
 
-        for (p = t; *p; p++)
+        for (char *p = t; *p; p++)
                 *p = ascii_tolower(*p);
 
         return t;
 }
 
 char *ascii_strupper(char *t) {
-        char *p;
-
         assert(t);
 
-        for (p = t; *p; p++)
+        for (char *p = t; *p; p++)
                 *p = ascii_toupper(*p);
 
         return t;
 }
 
 char *ascii_strlower_n(char *t, size_t n) {
-        size_t i;
-
         if (n <= 0)
                 return t;
 
-        for (i = 0; i < n; i++)
+        for (size_t i = 0; i < n; i++)
                 t[i] = ascii_tolower(t[i]);
 
         return t;
@@ -335,10 +246,8 @@ int ascii_strcasecmp_nn(const char *a, size_t n, const char *b, size_t m) {
 }
 
 bool chars_intersect(const char *a, const char *b) {
-        const char *p;
-
         /* Returns true if any of the chars in a are in b. */
-        for (p = a; *p; p++)
+        for (const char *p = a; *p; p++)
                 if (strchr(b, *p))
                         return true;
 
@@ -346,8 +255,6 @@ bool chars_intersect(const char *a, const char *b) {
 }
 
 bool string_has_cc(const char *p, const char *ok) {
-        const char *t;
-
         assert(p);
 
         /*
@@ -356,14 +263,11 @@ bool string_has_cc(const char *p, const char *ok) {
          * considered OK.
          */
 
-        for (t = p; *t; t++) {
+        for (const char *t = p; *t; t++) {
                 if (ok && strchr(ok, *t))
                         continue;
 
-                if (*t > 0 && *t < ' ')
-                        return true;
-
-                if (*t == 127)
+                if (char_is_cc(*t))
                         return true;
         }
 
@@ -390,7 +294,7 @@ static char *ascii_ellipsize_mem(const char *s, size_t old_length, size_t new_le
 
         assert(s);
         assert(percent <= 100);
-        assert(new_length != (size_t) -1);
+        assert(new_length != SIZE_MAX);
 
         if (old_length <= new_length)
                 return strndup(s, old_length);
@@ -461,7 +365,7 @@ char *ellipsize_mem(const char *s, size_t old_length, size_t new_length, unsigne
         assert(s);
         assert(percent <= 100);
 
-        if (new_length == (size_t) -1)
+        if (new_length == SIZE_MAX)
                 return strndup(s, old_length);
 
         if (new_length == 0)
@@ -551,7 +455,7 @@ char *cellescape(char *buf, size_t len, const char *s) {
          * very end.
          */
 
-        size_t i = 0, last_char_width[4] = {}, k = 0, j;
+        size_t i = 0, last_char_width[4] = {}, k = 0;
 
         assert(len > 0); /* at least a terminating NUL */
 
@@ -580,7 +484,7 @@ char *cellescape(char *buf, size_t len, const char *s) {
 
         /* Ellipsation is necessary. This means we might need to truncate the string again to make space for 4
          * characters ideally, but the buffer is shorter than that in the first place take what we can get */
-        for (j = 0; j < ELEMENTSOF(last_char_width); j++) {
+        for (size_t j = 0; j < ELEMENTSOF(last_char_width); j++) {
 
                 if (i + 4 <= len) /* nice, we reached our space goal */
                         break;
@@ -618,7 +522,7 @@ char* strshorten(char *s, size_t l) {
 }
 
 char *strreplace(const char *text, const char *old_string, const char *new_string) {
-        size_t l, old_len, new_len, allocated = 0;
+        size_t l, old_len, new_len;
         char *t, *ret = NULL;
         const char *f;
 
@@ -632,7 +536,7 @@ char *strreplace(const char *text, const char *old_string, const char *new_strin
         new_len = strlen(new_string);
 
         l = strlen(text);
-        if (!GREEDY_REALLOC(ret, allocated, l+1))
+        if (!GREEDY_REALLOC(ret, l+1))
                 return NULL;
 
         f = text;
@@ -648,7 +552,7 @@ char *strreplace(const char *text, const char *old_string, const char *new_strin
                 d = t - ret;
                 nl = l - old_len + new_len;
 
-                if (!GREEDY_REALLOC(ret, allocated, nl + 1))
+                if (!GREEDY_REALLOC(ret, nl + 1))
                         return mfree(ret);
 
                 l = nl;
@@ -816,10 +720,10 @@ char *strip_tab_ansi(char **ibuf, size_t *_isz, size_t highlight[2]) {
         return *ibuf;
 }
 
-char *strextend_with_separator(char **x, const char *separator, ...) {
-        bool need_separator;
+char *strextend_with_separator_internal(char **x, const char *separator, ...) {
         size_t f, l, l_separator;
-        char *r, *p;
+        bool need_separator;
+        char *nr, *p;
         va_list ap;
 
         assert(x);
@@ -843,7 +747,7 @@ char *strextend_with_separator(char **x, const char *separator, ...) {
                 if (need_separator)
                         n += l_separator;
 
-                if (n > ((size_t) -1) - l) {
+                if (n >= SIZE_MAX - l) {
                         va_end(ap);
                         return NULL;
                 }
@@ -855,11 +759,12 @@ char *strextend_with_separator(char **x, const char *separator, ...) {
 
         need_separator = !isempty(*x);
 
-        r = realloc(*x, l+1);
-        if (!r)
+        nr = realloc(*x, GREEDY_ALLOC_ROUND_UP(l+1));
+        if (!nr)
                 return NULL;
 
-        p = r + f;
+        *x = nr;
+        p = nr + f;
 
         va_start(ap, separator);
         for (;;) {
@@ -878,18 +783,102 @@ char *strextend_with_separator(char **x, const char *separator, ...) {
         }
         va_end(ap);
 
-        assert(p == r + l);
+        assert(p == nr + l);
 
         *p = 0;
-        *x = r;
 
-        return r + l;
+        return p;
+}
+
+int strextendf_with_separator(char **x, const char *separator, const char *format, ...) {
+        size_t m, a, l_separator;
+        va_list ap;
+        int l;
+
+        /* Appends a formatted string to the specified string. Don't use this in inner loops, since then
+         * we'll spend a tonload of time in determining the length of the string passed in, over and over
+         * again. */
+
+        assert(x);
+        assert(format);
+
+        l_separator = isempty(*x) ? 0 : strlen_ptr(separator);
+
+        /* Let's try to use the allocated buffer, if there's room at the end still. Otherwise let's extend by 64 chars. */
+        if (*x) {
+                m = strlen(*x);
+                a = MALLOC_SIZEOF_SAFE(*x);
+                assert(a >= m + 1);
+        } else
+                m = a = 0;
+
+        if (a - m < 17 + l_separator) { /* if there's less than 16 chars space, then enlarge the buffer first */
+                char *n;
+
+                if (_unlikely_(l_separator > SIZE_MAX - 64)) /* overflow check #1 */
+                        return -ENOMEM;
+                if (_unlikely_(m > SIZE_MAX - 64 - l_separator)) /* overflow check #2 */
+                        return -ENOMEM;
+
+                n = realloc(*x, m + 64 + l_separator);
+                if (!n)
+                        return -ENOMEM;
+
+                *x = n;
+                a = MALLOC_SIZEOF_SAFE(*x);
+        }
+
+        /* Now, let's try to format the string into it */
+        memcpy_safe(*x + m, separator, l_separator);
+        va_start(ap, format);
+        l = vsnprintf(*x + m + l_separator, a - m - l_separator, format, ap);
+        va_end(ap);
+
+        assert(l >= 0);
+
+        if ((size_t) l < a - m - l_separator) {
+                char *n;
+
+                /* Nice! This worked. We are done. But first, let's return the extra space we don't
+                 * need. This should be a cheap operation, since we only lower the allocation size here,
+                 * never increase. */
+                n = realloc(*x, m + (size_t) l + l_separator + 1);
+                if (n)
+                        *x = n;
+        } else {
+                char *n;
+
+                /* Wasn't enough. Then let's allocate exactly what we need. */
+
+                if (_unlikely_((size_t) l > SIZE_MAX - (l_separator + 1))) /* overflow check #1 */
+                        goto oom;
+                if (_unlikely_(m > SIZE_MAX - ((size_t) l + l_separator + 1))) /* overflow check #2 */
+                        goto oom;
+
+                a = m + (size_t) l + l_separator + 1;
+                n = realloc(*x, a);
+                if (!n)
+                        goto oom;
+                *x = n;
+
+                va_start(ap, format);
+                l = vsnprintf(*x + m + l_separator, a - m - l_separator, format, ap);
+                va_end(ap);
+
+                assert((size_t) l < a - m - l_separator);
+        }
+
+        return 0;
+
+oom:
+        /* truncate the bytes added after the first vsnprintf() attempt again */
+        (*x)[m] = 0;
+        return -ENOMEM;
 }
 
 char *strrep(const char *s, unsigned n) {
-        size_t l;
         char *r, *p;
-        unsigned i;
+        size_t l;
 
         assert(s);
 
@@ -898,7 +887,7 @@ char *strrep(const char *s, unsigned n) {
         if (!r)
                 return NULL;
 
-        for (i = 0; i < n; i++)
+        for (unsigned i = 0; i < n; i++)
                 p = stpcpy(p, s);
 
         *p = 0;
@@ -987,14 +976,12 @@ int free_and_strndup(char **p, const char *s, size_t l) {
 }
 
 bool string_is_safe(const char *p) {
-        const char *t;
-
         if (!p)
                 return false;
 
         /* Checks if the specified string contains no quotes or control characters */
 
-        for (t = p; *t; t++) {
+        for (const char *t = p; *t; t++) {
                 if (*t > 0 && *t < ' ') /* no control characters */
                         return false;
 

@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "sd-messages.h"
 
@@ -60,7 +60,7 @@ static int add_root_ksk(
         if (!rr->ds.digest)
                 return  -ENOMEM;
 
-        r = dns_answer_add(answer, rr, 0, DNS_ANSWER_AUTHENTICATED);
+        r = dns_answer_add(answer, rr, 0, DNS_ANSWER_AUTHENTICATED, NULL);
         if (r < 0)
                 return r;
 
@@ -160,7 +160,10 @@ static int dns_trust_anchor_add_builtin_negative(DnsTrustAnchor *d) {
                 "lan\0"
                 "intranet\0"
                 "internal\0"
-                "private\0";
+                "private\0"
+
+                /* Defined by RFC 8375. The most official choice. */
+                "home.arpa\0";
 
         const char *name;
         int r;
@@ -354,7 +357,7 @@ static int dns_trust_anchor_load_positive(DnsTrustAnchor *d, const char *path, u
         old_answer = hashmap_get(d->positive_by_key, rr->key);
         answer = dns_answer_ref(old_answer);
 
-        r = dns_answer_add_extend(&answer, rr, 0, DNS_ANSWER_AUTHENTICATED);
+        r = dns_answer_add_extend(&answer, rr, 0, DNS_ANSWER_AUTHENTICATED, NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to add trust anchor RR: %m");
 

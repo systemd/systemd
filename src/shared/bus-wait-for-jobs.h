@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
 #include "sd-bus.h"
@@ -8,7 +8,7 @@
 typedef struct BusWaitForJobs BusWaitForJobs;
 
 int bus_wait_for_jobs_new(sd_bus *bus, BusWaitForJobs **ret);
-void bus_wait_for_jobs_free(BusWaitForJobs *d);
+BusWaitForJobs* bus_wait_for_jobs_free(BusWaitForJobs *d);
 int bus_wait_for_jobs_add(BusWaitForJobs *d, const char *path);
 int bus_wait_for_jobs(BusWaitForJobs *d, bool quiet, const char* const* extra_args);
 int bus_wait_for_jobs_one(BusWaitForJobs *d, const char *path, bool quiet);

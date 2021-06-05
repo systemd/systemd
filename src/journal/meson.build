@@ -1,70 +1,6 @@
-# SPDX-License-Identifier: LGPL-2.1+
+# SPDX-License-Identifier: LGPL-2.1-or-later
 
-journal_client_sources = files('''
-        audit-type.c
-        audit-type.h
-        catalog.c
-        catalog.h
-        compress.c
-        compress.h
-        journal-def.h
-        journal-file.c
-        journal-file.h
-        journal-send.c
-        journal-vacuum.c
-        journal-vacuum.h
-        journal-verify.c
-        journal-verify.h
-        lookup3.c
-        lookup3.h
-        mmap-cache.c
-        mmap-cache.h
-        sd-journal.c
-'''.split())
-
-if conf.get('HAVE_GCRYPT') == 1
-        journal_client_sources += files('''
-                journal-authenticate.c
-                journal-authenticate.h
-                fsprg.c
-                fsprg.h
-        '''.split())
-endif
-
-############################################################
-
-audit_type_includes = [config_h,
-                       missing_audit_h,
-                       'linux/audit.h']
-if conf.get('HAVE_AUDIT') == 1
-        audit_type_includes += 'libaudit.h'
-endif
-
-generate_audit_type_list = find_program('generate-audit_type-list.sh')
-audit_type_list_txt = custom_target(
-        'audit_type-list.txt',
-        output : 'audit_type-list.txt',
-        command : [generate_audit_type_list, cpp] + audit_type_includes,
-        capture : true)
-
-audit_type_to_name = custom_target(
-        'audit_type-to-name.h',
-        input : ['audit_type-to-name.awk', audit_type_list_txt],
-        output : 'audit_type-to-name.h',
-        command : [awk, '-f', '@INPUT0@', '@INPUT1@'],
-        capture : true)
-
-journal_client_sources += [audit_type_to_name]
-
-libjournal_client = static_library(
-        'journal-client',
-        journal_client_sources,
-        include_directories : includes,
-        c_args : ['-fvisibility=default'])
-
-############################################################
-
-libjournal_core_sources = files('''
+sources = files('''
         journald-audit.c
         journald-audit.h
         journald-console.c
@@ -85,19 +21,26 @@ libjournal_core_sources = files('''
         journald-syslog.h
         journald-wall.c
         journald-wall.h
-        journal-internal.h
 '''.split())
+
+sources += custom_target(
+        'journald-gperf.c',
+        input : 'journald-gperf.gperf',
+        output : 'journald-gperf.c',
+        command : [gperf, '@INPUT@', '--output-file', '@OUTPUT@'])
+
+libjournal_core = static_library(
+        'journal-core',
+        sources,
+        include_directories : includes,
+        install : false)
+
+journal_includes = [includes, include_directories('.')]
 
 systemd_journald_sources = files('''
         journald.c
         journald-server.h
 '''.split())
-
-journald_gperf_c = custom_target(
-        'journald-gperf.c',
-        input : 'journald-gperf.gperf',
-        output : 'journald-gperf.c',
-        command : [gperf, '@INPUT@', '--output-file', '@OUTPUT@'])
 
 systemd_cat_sources = files('cat.c')
 
@@ -107,13 +50,10 @@ journalctl_sources = files('''
         pcre2-dlopen.h
 '''.split())
 
-if conf.get('HAVE_QRENCODE') == 1
-        journalctl_sources += files('journal-qrcode.c',
-                                    'journal-qrcode.h')
+if install_sysconfdir_samples
+        install_data('journald.conf',
+                     install_dir : pkgsysconfdir)
 endif
-
-install_data('journald.conf',
-             install_dir : pkgsysconfdir)
 
 if get_option('create-log-dirs')
         meson.add_install_script(
@@ -134,3 +74,60 @@ if get_option('create-log-dirs')
                         'setfacl -nm g:wheel:rx,d:g:wheel:rx $DESTDIR/var/log/journal || :')
         endif
 endif
+
+############################################################
+
+tests += [
+        [['src/journal/test-journal-syslog.c'],
+         [libjournal_core,
+          libshared],
+         [threads,
+          libxz,
+          liblz4,
+          libselinux]],
+
+        [['src/journal/test-journal-config.c'],
+         [libjournal_core,
+          libshared],
+         [libxz,
+          liblz4,
+          libselinux]],
+]
+
+fuzzers += [
+        [['src/journal/fuzz-journald-audit.c',
+          'src/journal/fuzz-journald.c'],
+         [libjournal_core,
+          libshared],
+         [libselinux]],
+
+        [['src/journal/fuzz-journald-kmsg.c',
+          'src/journal/fuzz-journald.c'],
+         [libjournal_core,
+          libshared],
+         [libselinux]],
+
+        [['src/journal/fuzz-journald-native.c',
+          'src/journal/fuzz-journald.c'],
+         [libjournal_core,
+          libshared],
+         [libselinux]],
+
+        [['src/journal/fuzz-journald-native-fd.c',
+          'src/journal/fuzz-journald.c'],
+         [libjournal_core,
+          libshared],
+         [libselinux]],
+
+        [['src/journal/fuzz-journald-stream.c',
+          'src/journal/fuzz-journald.c'],
+         [libjournal_core,
+          libshared],
+         [libselinux]],
+
+        [['src/journal/fuzz-journald-syslog.c',
+          'src/journal/fuzz-journald.c'],
+         [libjournal_core,
+          libshared],
+         [libselinux]],
+]

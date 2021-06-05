@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: GPL-2.0+ */
+/* SPDX-License-Identifier: GPL-2.0-or-later */
 /*
  * Copyright (c) 2009 Filippo Argiolas <filippo.argiolas@gmail.com>
  *
@@ -45,8 +45,8 @@ int main(int argc, char *argv[]) {
                 case 'h':
                         printf("%s [-h,--help] <device file>\n\n"
                                "Video4Linux device identification.\n\n"
-                               "  -h  Print this message\n"
-                               , program_invocation_short_name);
+                               "  -h  Print this message\n",
+                               program_invocation_short_name);
                         return 0;
                 case '?':
                         return -EINVAL;

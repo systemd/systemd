@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #if HAVE_CRYPT_H
 /* libxcrypt is a replacement for glibc's libcrypt, and libcrypt might be
@@ -40,7 +40,11 @@ int make_salt(char **ret) {
 
         e = secure_getenv("SYSTEMD_CRYPT_PREFIX");
         if (!e)
+#if HAVE_CRYPT_PREFERRED_METHOD
                 e = crypt_preferred_method();
+#else
+                e = "$6$";
+#endif
 
         log_debug("Generating salt for hash prefix: %s", e);
 

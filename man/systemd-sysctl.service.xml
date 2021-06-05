@@ -2,7 +2,7 @@
 <!--*-nxml-*-->
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
-<!-- SPDX-License-Identifier: LGPL-2.1+ -->
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
 <refentry id="systemd-sysctl.service"
     xmlns:xi="http://www.w3.org/2001/XInclude">
 
@@ -51,7 +51,7 @@
     <para>See
     <citerefentry><refentrytitle>sysctl.d</refentrytitle><manvolnum>5</manvolnum></citerefentry>
     for information about the configuration of sysctl settings. After sysctl configuration is
-    changed on disk, it must be written to the files in <filename>/proc/sys</filename> before it
+    changed on disk, it must be written to the files in <filename>/proc/sys/</filename> before it
     takes effect. It is possible to update specific settings, or simply to reload all configuration,
     see Examples below.</para>
   </refsect1>

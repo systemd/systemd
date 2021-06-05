@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <errno.h>
 
@@ -43,6 +43,8 @@ int setrlimit_closest(int resource, const struct rlimit *rlim) {
             fixed.rlim_max == highest.rlim_max)
                 return 0;
 
+        log_debug("Failed at setting rlimit " RLIM_FMT " for resource RLIMIT_%s. Will attempt setting value " RLIM_FMT " instead.", rlim->rlim_max, rlimit_to_string(resource), fixed.rlim_max);
+
         if (setrlimit(resource, &fixed) < 0)
                 return -errno;
 
@@ -50,13 +52,13 @@ int setrlimit_closest(int resource, const struct rlimit *rlim) {
 }
 
 int setrlimit_closest_all(const struct rlimit *const *rlim, int *which_failed) {
-        int i, r;
+        int r;
 
         assert(rlim);
 
         /* On failure returns the limit's index that failed in *which_failed, but only if non-NULL */
 
-        for (i = 0; i < _RLIMIT_MAX; i++) {
+        for (int i = 0; i < _RLIMIT_MAX; i++) {
                 if (!rlim[i])
                         continue;
 

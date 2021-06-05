@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 #ifndef foosdbushfoo
 #define foosdbushfoo
 
@@ -135,6 +135,7 @@ int sd_bus_open(sd_bus **ret);
 int sd_bus_open_with_description(sd_bus **ret, const char *description);
 int sd_bus_open_user(sd_bus **ret);
 int sd_bus_open_user_with_description(sd_bus **ret, const char *description);
+int sd_bus_open_user_machine(sd_bus **ret, const char *machine);
 int sd_bus_open_system(sd_bus **ret);
 int sd_bus_open_system_with_description(sd_bus **ret, const char *description);
 int sd_bus_open_system_remote(sd_bus **ret, const char *host);
@@ -353,6 +354,7 @@ int sd_bus_get_name_machine_id(sd_bus *bus, const char *name, sd_id128_t *machin
 
 /* Convenience calls */
 
+int sd_bus_message_send(sd_bus_message *m);
 int sd_bus_call_methodv(sd_bus *bus, const char *destination, const char *path, const char *interface, const char *member, sd_bus_error *ret_error, sd_bus_message **reply, const char *types, va_list ap);
 int sd_bus_call_method(sd_bus *bus, const char *destination, const char *path, const char *interface, const char *member, sd_bus_error *ret_error, sd_bus_message **reply, const char *types, ...);
 int sd_bus_call_method_asyncv(sd_bus *bus, sd_bus_slot **slot, const char *destination, const char *path, const char *interface, const char *member, sd_bus_message_handler_t callback, void *userdata, const char *types, va_list ap);

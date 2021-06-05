@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #if HAVE_GCRYPT
 #include <gcrypt.h>
@@ -75,12 +75,16 @@ int dns_packet_new(
         if (!p)
                 return -ENOMEM;
 
-        p->size = p->rindex = DNS_PACKET_HEADER_SIZE;
-        p->allocated = a;
-        p->max_size = max_size;
-        p->protocol = protocol;
-        p->opt_start = p->opt_size = (size_t) -1;
-        p->n_ref = 1;
+        *p = (DnsPacket) {
+                .n_ref = 1,
+                .protocol = protocol,
+                .size = DNS_PACKET_HEADER_SIZE,
+                .rindex = DNS_PACKET_HEADER_SIZE,
+                .allocated = a,
+                .max_size = max_size,
+                .opt_start = SIZE_MAX,
+                .opt_size = SIZE_MAX,
+        };
 
         *ret = p;
 
@@ -153,6 +157,38 @@ int dns_packet_new_query(DnsPacket **ret, DnsProtocol protocol, size_t min_alloc
         dns_packet_set_flags(p, dnssec_checking_disabled, false);
 
         *ret = p;
+        return 0;
+}
+
+int dns_packet_dup(DnsPacket **ret, DnsPacket *p) {
+        DnsPacket *c;
+        int r;
+
+        assert(ret);
+        assert(p);
+
+        r = dns_packet_validate(p);
+        if (r < 0)
+                return r;
+
+        c = malloc(ALIGN(sizeof(DnsPacket)) + p->size);
+        if (!c)
+                return -ENOMEM;
+
+        *c = (DnsPacket) {
+                .n_ref = 1,
+                .protocol = p->protocol,
+                .size = p->size,
+                .rindex = DNS_PACKET_HEADER_SIZE,
+                .allocated = p->size,
+                .max_size = p->max_size,
+                .opt_start = SIZE_MAX,
+                .opt_size = SIZE_MAX,
+        };
+
+        memcpy(DNS_PACKET_DATA(c), DNS_PACKET_DATA(p), p->size);
+
+        *ret = c;
         return 0;
 }
 
@@ -290,13 +326,10 @@ int dns_packet_validate_query(DnsPacket *p) {
                 break;
 
         case DNS_PROTOCOL_MDNS:
-                /* RFC 6762, Section 18 */
-                if (DNS_PACKET_AA(p)    != 0 ||
-                    DNS_PACKET_RD(p)    != 0 ||
-                    DNS_PACKET_RA(p)    != 0 ||
-                    DNS_PACKET_AD(p)    != 0 ||
-                    DNS_PACKET_CD(p)    != 0 ||
-                    DNS_PACKET_RCODE(p) != 0)
+                /* RFC 6762, Section 18 specifies that messages with non-zero RCODE
+                 * must be silently ignored, and that we must ignore the values of
+                 * AA, RD, RA, AD, and CD bits. */
+                if (DNS_PACKET_RCODE(p) != 0)
                         return -EBADMSG;
 
                 break;
@@ -553,15 +586,11 @@ int dns_packet_append_name(
                                 goto fail;
                         }
 
-                        r = hashmap_ensure_allocated(&p->names, &dns_name_hash_ops);
+                        r = hashmap_ensure_put(&p->names, &dns_name_hash_ops, s, SIZE_TO_PTR(n));
                         if (r < 0)
                                 goto fail;
 
-                        r = hashmap_put(p->names, s, SIZE_TO_PTR(n));
-                        if (r < 0)
-                                goto fail;
-
-                        s = NULL;
+                        TAKE_PTR(s);
                 }
         }
 
@@ -598,7 +627,7 @@ int dns_packet_append_key(DnsPacket *p, const DnsResourceKey *k, const DnsAnswer
         if (r < 0)
                 goto fail;
 
-        class = flags & DNS_ANSWER_CACHE_FLUSH ? k->class | MDNS_RR_CACHE_FLUSH : k->class;
+        class = flags & DNS_ANSWER_CACHE_FLUSH ? k->class | MDNS_RR_CACHE_FLUSH_OR_QU : k->class;
         r = dns_packet_append_uint16(p, class, NULL);
         if (r < 0)
                 goto fail;
@@ -689,7 +718,15 @@ fail:
 }
 
 /* Append the OPT pseudo-RR described in RFC6891 */
-int dns_packet_append_opt(DnsPacket *p, uint16_t max_udp_size, bool edns0_do, int rcode, size_t *start) {
+int dns_packet_append_opt(
+                DnsPacket *p,
+                uint16_t max_udp_size,
+                bool edns0_do,
+                bool include_rfc6975,
+                const char *nsid,
+                int rcode,
+                size_t *ret_start) {
+
         size_t saved_size;
         int r;
 
@@ -699,10 +736,10 @@ int dns_packet_append_opt(DnsPacket *p, uint16_t max_udp_size, bool edns0_do, in
         assert(rcode >= 0);
         assert(rcode <= _DNS_RCODE_MAX);
 
-        if (p->opt_start != (size_t) -1)
+        if (p->opt_start != SIZE_MAX)
                 return -EBUSY;
 
-        assert(p->opt_size == (size_t) -1);
+        assert(p->opt_size == SIZE_MAX);
 
         saved_size = p->size;
 
@@ -731,9 +768,10 @@ int dns_packet_append_opt(DnsPacket *p, uint16_t max_udp_size, bool edns0_do, in
         if (r < 0)
                 goto fail;
 
-        /* RDLENGTH */
-        if (edns0_do && !DNS_PACKET_QR(p)) {
-                /* If DO is on and this is not a reply, also append RFC6975 Algorithm data */
+        if (edns0_do && include_rfc6975) {
+                /* If DO is on and this is requested, also append RFC6975 Algorithm data. This is supposed to
+                 * be done on queries, not on replies, hencer callers should turn this off when finishing off
+                 * replies. */
 
                 static const uint8_t rfc6975[] = {
 
@@ -764,11 +802,32 @@ int dns_packet_append_opt(DnsPacket *p, uint16_t max_udp_size, bool edns0_do, in
                         NSEC3_ALGORITHM_SHA1,
                 };
 
-                r = dns_packet_append_uint16(p, sizeof(rfc6975), NULL);
+                r = dns_packet_append_uint16(p, sizeof(rfc6975), NULL); /* RDLENGTH */
                 if (r < 0)
                         goto fail;
 
-                r = dns_packet_append_blob(p, rfc6975, sizeof(rfc6975), NULL);
+                r = dns_packet_append_blob(p, rfc6975, sizeof(rfc6975), NULL); /* the payload, as defined above */
+
+        } else if (nsid) {
+
+                if (strlen(nsid) > UINT16_MAX - 4) {
+                        r = -E2BIG;
+                        goto fail;
+                }
+
+                r = dns_packet_append_uint16(p, 4 + strlen(nsid), NULL); /* RDLENGTH */
+                if (r < 0)
+                        goto fail;
+
+                r = dns_packet_append_uint16(p, 3, NULL); /* OPTION-CODE: NSID */
+                if (r < 0)
+                        goto fail;
+
+                r = dns_packet_append_uint16(p, strlen(nsid), NULL); /* OPTION-LENGTH */
+                if (r < 0)
+                        goto fail;
+
+                r = dns_packet_append_blob(p, nsid, strlen(nsid), NULL);
         } else
                 r = dns_packet_append_uint16(p, 0, NULL);
         if (r < 0)
@@ -779,8 +838,8 @@ int dns_packet_append_opt(DnsPacket *p, uint16_t max_udp_size, bool edns0_do, in
         p->opt_start = saved_size;
         p->opt_size = p->size - saved_size;
 
-        if (start)
-                *start = saved_size;
+        if (ret_start)
+                *ret_start = saved_size;
 
         return 0;
 
@@ -792,12 +851,12 @@ fail:
 int dns_packet_truncate_opt(DnsPacket *p) {
         assert(p);
 
-        if (p->opt_start == (size_t) -1) {
-                assert(p->opt_size == (size_t) -1);
+        if (p->opt_start == SIZE_MAX) {
+                assert(p->opt_size == SIZE_MAX);
                 return 0;
         }
 
-        assert(p->opt_size != (size_t) -1);
+        assert(p->opt_size != SIZE_MAX);
         assert(DNS_PACKET_ARCOUNT(p) > 0);
 
         if (p->opt_start + p->opt_size != p->size)
@@ -805,7 +864,7 @@ int dns_packet_truncate_opt(DnsPacket *p) {
 
         dns_packet_truncate(p, p->opt_start);
         DNS_PACKET_HEADER(p)->arcount = htobe16(DNS_PACKET_ARCOUNT(p) - 1);
-        p->opt_start = p->opt_size = (size_t) -1;
+        p->opt_start = p->opt_size = SIZE_MAX;
 
         return 1;
 }
@@ -1174,7 +1233,7 @@ int dns_packet_append_question(DnsPacket *p, DnsQuestion *q) {
         return 0;
 }
 
-int dns_packet_append_answer(DnsPacket *p, DnsAnswer *a) {
+int dns_packet_append_answer(DnsPacket *p, DnsAnswer *a, unsigned *completed) {
         DnsResourceRecord *rr;
         DnsAnswerFlags flags;
         int r;
@@ -1185,6 +1244,9 @@ int dns_packet_append_answer(DnsPacket *p, DnsAnswer *a) {
                 r = dns_packet_append_rr(p, rr, flags, NULL, NULL);
                 if (r < 0)
                         return r;
+
+                if (completed)
+                        (*completed)++;
         }
 
         return 0;
@@ -1289,7 +1351,8 @@ int dns_packet_read_uint16(DnsPacket *p, uint16_t *ret, size_t *start) {
         if (r < 0)
                 return r;
 
-        *ret = unaligned_read_be16(d);
+        if (ret)
+                *ret = unaligned_read_be16(d);
 
         return 0;
 }
@@ -1375,19 +1438,19 @@ int dns_packet_read_raw_string(DnsPacket *p, const void **ret, size_t *size, siz
 
 int dns_packet_read_name(
                 DnsPacket *p,
-                char **_ret,
+                char **ret,
                 bool allow_compression,
-                size_t *start) {
+                size_t *ret_start) {
 
         _cleanup_(rewind_dns_packet) DnsPacketRewinder rewinder;
         size_t after_rindex = 0, jump_barrier;
-        _cleanup_free_ char *ret = NULL;
-        size_t n = 0, allocated = 0;
+        _cleanup_free_ char *name = NULL;
         bool first = true;
+        size_t n = 0;
         int r;
 
         assert(p);
-        assert(_ret);
+
         INIT_REWINDER(rewinder, p);
         jump_barrier = p->rindex;
 
@@ -1412,21 +1475,21 @@ int dns_packet_read_name(
                         if (r < 0)
                                 return r;
 
-                        if (!GREEDY_REALLOC(ret, allocated, n + !first + DNS_LABEL_ESCAPED_MAX))
+                        if (!GREEDY_REALLOC(name, n + !first + DNS_LABEL_ESCAPED_MAX))
                                 return -ENOMEM;
 
                         if (first)
                                 first = false;
                         else
-                                ret[n++] = '.';
+                                name[n++] = '.';
 
-                        r = dns_label_escape(label, c, ret + n, DNS_LABEL_ESCAPED_MAX);
+                        r = dns_label_escape(label, c, name + n, DNS_LABEL_ESCAPED_MAX);
                         if (r < 0)
                                 return r;
 
                         n += r;
                         continue;
-                } else if (allow_compression && (c & 0xc0) == 0xc0) {
+                } else if (allow_compression && FLAGS_SET(c, 0xc0)) {
                         uint16_t ptr;
 
                         /* Pointer */
@@ -1448,18 +1511,19 @@ int dns_packet_read_name(
                         return -EBADMSG;
         }
 
-        if (!GREEDY_REALLOC(ret, allocated, n + 1))
+        if (!GREEDY_REALLOC(name, n + 1))
                 return -ENOMEM;
 
-        ret[n] = 0;
+        name[n] = 0;
 
         if (after_rindex != 0)
                 p->rindex= after_rindex;
 
-        *_ret = TAKE_PTR(ret);
+        if (ret)
+                *ret = TAKE_PTR(name);
+        if (ret_start)
+                *ret_start = rewinder.saved_rindex;
 
-        if (start)
-                *start = rewinder.saved_rindex;
         CANCEL_REWINDER(rewinder);
 
         return 0;
@@ -1561,16 +1625,19 @@ static int dns_packet_read_type_windows(DnsPacket *p, Bitmap **types, size_t siz
         return 0;
 }
 
-int dns_packet_read_key(DnsPacket *p, DnsResourceKey **ret, bool *ret_cache_flush, size_t *start) {
+int dns_packet_read_key(
+                DnsPacket *p,
+                DnsResourceKey **ret,
+                bool *ret_cache_flush_or_qu,
+                size_t *ret_start) {
+
         _cleanup_(rewind_dns_packet) DnsPacketRewinder rewinder;
         _cleanup_free_ char *name = NULL;
-        bool cache_flush = false;
+        bool cache_flush_or_qu = false;
         uint16_t class, type;
-        DnsResourceKey *key;
         int r;
 
         assert(p);
-        assert(ret);
         INIT_REWINDER(rewinder, p);
 
         r = dns_packet_read_name(p, &name, true, NULL);
@@ -1586,27 +1653,31 @@ int dns_packet_read_key(DnsPacket *p, DnsResourceKey **ret, bool *ret_cache_flus
                 return r;
 
         if (p->protocol == DNS_PROTOCOL_MDNS) {
-                /* See RFC6762, Section 10.2 */
+                /* See RFC6762, sections 5.4 and 10.2 */
 
-                if (type != DNS_TYPE_OPT && (class & MDNS_RR_CACHE_FLUSH)) {
-                        class &= ~MDNS_RR_CACHE_FLUSH;
-                        cache_flush = true;
+                if (type != DNS_TYPE_OPT && (class & MDNS_RR_CACHE_FLUSH_OR_QU)) {
+                        class &= ~MDNS_RR_CACHE_FLUSH_OR_QU;
+                        cache_flush_or_qu = true;
                 }
         }
 
-        key = dns_resource_key_new_consume(class, type, name);
-        if (!key)
-                return -ENOMEM;
+        if (ret) {
+                DnsResourceKey *key;
 
-        name = NULL;
-        *ret = key;
+                key = dns_resource_key_new_consume(class, type, name);
+                if (!key)
+                        return -ENOMEM;
 
-        if (ret_cache_flush)
-                *ret_cache_flush = cache_flush;
-        if (start)
-                *start = rewinder.saved_rindex;
+                TAKE_PTR(name);
+                *ret = key;
+        }
+
+        if (ret_cache_flush_or_qu)
+                *ret_cache_flush_or_qu = cache_flush_or_qu;
+        if (ret_start)
+                *ret_start = rewinder.saved_rindex;
+
         CANCEL_REWINDER(rewinder);
-
         return 0;
 }
 
@@ -1616,7 +1687,12 @@ static bool loc_size_ok(uint8_t size) {
         return m <= 9 && e <= 9 && (m > 0 || e == 0);
 }
 
-int dns_packet_read_rr(DnsPacket *p, DnsResourceRecord **ret, bool *ret_cache_flush, size_t *start) {
+int dns_packet_read_rr(
+                DnsPacket *p,
+                DnsResourceRecord **ret,
+                bool *ret_cache_flush,
+                size_t *ret_start) {
+
         _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *rr = NULL;
         _cleanup_(dns_resource_key_unrefp) DnsResourceKey *key = NULL;
         _cleanup_(rewind_dns_packet) DnsPacketRewinder rewinder;
@@ -1626,7 +1702,6 @@ int dns_packet_read_rr(DnsPacket *p, DnsResourceRecord **ret, bool *ret_cache_fl
         int r;
 
         assert(p);
-        assert(ret);
 
         INIT_REWINDER(rewinder, p);
 
@@ -2067,14 +2142,14 @@ int dns_packet_read_rr(DnsPacket *p, DnsResourceRecord **ret, bool *ret_cache_fl
         if (p->rindex != offset + rdlength)
                 return -EBADMSG;
 
-        *ret = TAKE_PTR(rr);
-
+        if (ret)
+                *ret = TAKE_PTR(rr);
         if (ret_cache_flush)
                 *ret_cache_flush = cache_flush;
-        if (start)
-                *start = rewinder.saved_rindex;
-        CANCEL_REWINDER(rewinder);
+        if (ret_start)
+                *ret_start = rewinder.saved_rindex;
 
+        CANCEL_REWINDER(rewinder);
         return 0;
 }
 
@@ -2140,20 +2215,17 @@ static int dns_packet_extract_question(DnsPacket *p, DnsQuestion **ret_question)
                         return log_oom();
 
                 r = set_reserve(keys, n * 2); /* Higher multipliers give slightly higher efficiency through
-                                               * hash collisions, but the gains quickly drop of after 2. */
+                                               * hash collisions, but the gains quickly drop off after 2. */
                 if (r < 0)
                         return r;
 
                 for (i = 0; i < n; i++) {
                         _cleanup_(dns_resource_key_unrefp) DnsResourceKey *key = NULL;
-                        bool cache_flush;
+                        bool qu;
 
-                        r = dns_packet_read_key(p, &key, &cache_flush, NULL);
+                        r = dns_packet_read_key(p, &key, &qu, NULL);
                         if (r < 0)
                                 return r;
-
-                        if (cache_flush)
-                                return -EBADMSG;
 
                         if (!dns_type_is_valid_query(key->type))
                                 return -EBADMSG;
@@ -2165,7 +2237,7 @@ static int dns_packet_extract_question(DnsPacket *p, DnsQuestion **ret_question)
                                 /* Already in the Question, let's skip */
                                 continue;
 
-                        r = dns_question_add_raw(question, key);
+                        r = dns_question_add_raw(question, key, qu ? DNS_QUESTION_WANTS_UNICAST_REPLY : 0);
                         if (r < 0)
                                 return r;
                 }
@@ -2194,8 +2266,21 @@ static int dns_packet_extract_answer(DnsPacket *p, DnsAnswer **ret_answer) {
         for (i = 0; i < n; i++) {
                 _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *rr = NULL;
                 bool cache_flush = false;
+                size_t start;
 
-                r = dns_packet_read_rr(p, &rr, &cache_flush, NULL);
+                if (p->rindex == p->size && p->opt) {
+                        /* If we reached the end of the packet already, but there are still more RRs
+                         * declared, then that's a corrupt packet. Let's accept the packet anyway, since it's
+                         * apparently a common bug in routers. Let's however suppress OPT support in this
+                         * case, so that we force the rest of the logic into lowest DNS baseline support. Or
+                         * to say this differently: if the DNS server doesn't even get the RR counts right,
+                         * it's highly unlikely it gets EDNS right. */
+                        log_debug("More resource records declared in packet than included, suppressing OPT.");
+                        bad_opt = true;
+                        break;
+                }
+
+                r = dns_packet_read_rr(p, &rr, &cache_flush, &start);
                 if (r < 0)
                         return r;
 
@@ -2241,12 +2326,11 @@ static int dns_packet_extract_answer(DnsPacket *p, DnsAnswer **ret_answer) {
                         if (DNS_PACKET_QR(p)) {
                                 /* Additional checks for responses */
 
-                                if (!DNS_RESOURCE_RECORD_OPT_VERSION_SUPPORTED(rr)) {
+                                if (!DNS_RESOURCE_RECORD_OPT_VERSION_SUPPORTED(rr))
                                         /* If this is a reply and we don't know the EDNS version
                                          * then something is weird... */
-                                        log_debug("EDNS version newer that our request, bad server.");
-                                        return -EBADMSG;
-                                }
+                                        return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG),
+                                                               "EDNS version newer that our request, bad server.");
 
                                 if (has_rfc6975) {
                                         /* If the OPT RR contains RFC6975 algorithm data, then this
@@ -2264,28 +2348,41 @@ static int dns_packet_extract_answer(DnsPacket *p, DnsAnswer **ret_answer) {
                         }
 
                         p->opt = dns_resource_record_ref(rr);
+                        p->opt_start = start;
+                        assert(p->rindex >= start);
+                        p->opt_size = p->rindex - start;
                 } else {
-                        /* According to RFC 4795, section 2.9. only the RRs from the Answer section
-                         * shall be cached. Hence mark only those RRs as cacheable by default, but
-                         * not the ones from the Additional or Authority sections. */
-                        DnsAnswerFlags flags =
-                                (i < DNS_PACKET_ANCOUNT(p) ? DNS_ANSWER_CACHEABLE : 0) |
-                                (p->protocol == DNS_PROTOCOL_MDNS && !cache_flush ? DNS_ANSWER_SHARED_OWNER : 0);
+                        DnsAnswerFlags flags = 0;
 
-                        r = dns_answer_add(answer, rr, p->ifindex, flags);
+                        if (p->protocol == DNS_PROTOCOL_MDNS && !cache_flush)
+                                flags |= DNS_ANSWER_SHARED_OWNER;
+
+                        /* According to RFC 4795, section 2.9. only the RRs from the Answer section shall be
+                         * cached. Hence mark only those RRs as cacheable by default, but not the ones from
+                         * the Additional or Authority sections. */
+                        if (i < DNS_PACKET_ANCOUNT(p))
+                                flags |= DNS_ANSWER_CACHEABLE|DNS_ANSWER_SECTION_ANSWER;
+                        else if (i < DNS_PACKET_ANCOUNT(p) + DNS_PACKET_NSCOUNT(p))
+                                flags |= DNS_ANSWER_SECTION_AUTHORITY;
+                        else
+                                flags |= DNS_ANSWER_SECTION_ADDITIONAL;
+
+                        r = dns_answer_add(answer, rr, p->ifindex, flags, NULL);
                         if (r < 0)
                                 return r;
                 }
 
-                /* Remember this RR, so that we potentically can merge it's ->key object with the
+                /* Remember this RR, so that we can potentially merge its ->key object with the
                  * next RR. Note that we only do this if we actually decided to keep the RR around.
                  */
                 dns_resource_record_unref(previous);
                 previous = dns_resource_record_ref(rr);
         }
 
-        if (bad_opt)
+        if (bad_opt) {
                 p->opt = dns_resource_record_unref(p->opt);
+                p->opt_start = p->opt_size = SIZE_MAX;
+        }
 
         *ret_answer = TAKE_PTR(answer);
 
@@ -2311,6 +2408,12 @@ int dns_packet_extract(DnsPacket *p) {
         r = dns_packet_extract_answer(p, &answer);
         if (r < 0)
                 return r;
+
+        if (p->rindex < p->size)  {
+                log_debug("Trailing garbage in packet, suppressing OPT.");
+                p->opt = dns_resource_record_unref(p->opt);
+                p->opt_start = p->opt_size = SIZE_MAX;
+        }
 
         p->question = TAKE_PTR(question);
         p->answer = TAKE_PTR(answer);
@@ -2345,7 +2448,107 @@ int dns_packet_is_reply_for(DnsPacket *p, const DnsResourceKey *key) {
         if (p->question->n_keys != 1)
                 return 0;
 
-        return dns_resource_key_equal(p->question->keys[0], key);
+        return dns_resource_key_equal(dns_question_first_key(p->question), key);
+}
+
+int dns_packet_patch_max_udp_size(DnsPacket *p, uint16_t max_udp_size) {
+        assert(p);
+        assert(max_udp_size >= DNS_PACKET_UNICAST_SIZE_MAX);
+
+        if (p->opt_start == SIZE_MAX) /* No OPT section, nothing to patch */
+                return 0;
+
+        assert(p->opt_size != SIZE_MAX);
+        assert(p->opt_size >= 5);
+
+        unaligned_write_be16(DNS_PACKET_DATA(p) + p->opt_start + 3, max_udp_size);
+        return 1;
+}
+
+static int patch_rr(DnsPacket *p, usec_t age) {
+        _cleanup_(rewind_dns_packet) DnsPacketRewinder rewinder;
+        size_t ttl_index;
+        uint32_t ttl;
+        uint16_t type, rdlength;
+        int r;
+
+        INIT_REWINDER(rewinder, p);
+
+        /* Patches the RR at the current rindex, subtracts the specified time from the TTL */
+
+        r = dns_packet_read_name(p, NULL, true, NULL);
+        if (r < 0)
+                return r;
+
+        r = dns_packet_read_uint16(p, &type, NULL);
+        if (r < 0)
+                return r;
+
+        r = dns_packet_read_uint16(p, NULL, NULL);
+        if (r < 0)
+                return r;
+
+        r = dns_packet_read_uint32(p, &ttl, &ttl_index);
+        if (r < 0)
+                return r;
+
+        if (type != DNS_TYPE_OPT) { /* The TTL of the OPT field is not actually a TTL, skip it */
+                ttl = LESS_BY(ttl * USEC_PER_SEC, age) / USEC_PER_SEC;
+                unaligned_write_be32(DNS_PACKET_DATA(p) + ttl_index, ttl);
+        }
+
+        r = dns_packet_read_uint16(p, &rdlength, NULL);
+        if (r < 0)
+                return r;
+
+        r = dns_packet_read(p, rdlength, NULL, NULL);
+        if (r < 0)
+                return r;
+
+        CANCEL_REWINDER(rewinder);
+        return 0;
+}
+
+int dns_packet_patch_ttls(DnsPacket *p, usec_t timestamp) {
+        _cleanup_(rewind_dns_packet) DnsPacketRewinder rewinder = {};
+        unsigned i, n;
+        usec_t k;
+        int r;
+
+        assert(p);
+        assert(timestamp_is_set(timestamp));
+
+        /* Adjusts all TTLs in the packet by subtracting the time difference between now and the specified timestamp */
+
+        k = now(clock_boottime_or_monotonic());
+        assert(k >= timestamp);
+        k -= timestamp;
+
+        INIT_REWINDER(rewinder, p);
+
+        dns_packet_rewind(p, DNS_PACKET_HEADER_SIZE);
+
+        n = DNS_PACKET_QDCOUNT(p);
+        for (i = 0; i < n; i++) {
+                r = dns_packet_read_key(p, NULL, NULL, NULL);
+                if (r < 0)
+                        return r;
+        }
+
+        n = DNS_PACKET_RRCOUNT(p);
+        for (i = 0; i < n; i++) {
+
+                /* DNS servers suck, hence the RR count is in many servers off. If we reached the end
+                 * prematurely, accept that, exit early */
+                if (p->rindex == p->size)
+                        break;
+
+                r = patch_rr(p, k);
+                if (r < 0)
+                        return r;
+        }
+
+        return 0;
 }
 
 static void dns_packet_hash_func(const DnsPacket *s, struct siphash *state) {
@@ -2367,32 +2570,96 @@ static int dns_packet_compare_func(const DnsPacket *x, const DnsPacket *y) {
 
 DEFINE_HASH_OPS(dns_packet_hash_ops, DnsPacket, dns_packet_hash_func, dns_packet_compare_func);
 
+bool dns_packet_equal(const DnsPacket *a, const DnsPacket *b) {
+        return dns_packet_compare_func(a, b) == 0;
+}
+
+int dns_packet_has_nsid_request(DnsPacket *p) {
+        bool has_nsid = false;
+        const uint8_t *d;
+        size_t l;
+
+        assert(p);
+
+        if (!p->opt)
+                return false;
+
+        d = p->opt->opt.data;
+        l = p->opt->opt.data_size;
+
+        while (l > 0) {
+                uint16_t code, length;
+
+                if (l < 4U)
+                        return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG),
+                                               "EDNS0 variable part has invalid size.");
+
+                code = unaligned_read_be16(d);
+                length = unaligned_read_be16(d + 2);
+
+                if (l < 4U + length)
+                        return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG),
+                                               "Truncated option in EDNS0 variable part.");
+
+                if (code == 3) {
+                        if (has_nsid)
+                                return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG),
+                                                       "Duplicate NSID option in EDNS0 variable part.");
+
+                        if (length != 0)
+                                return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG),
+                                                       "Non-empty NSID option in DNS request.");
+
+                        has_nsid = true;
+                }
+
+                d += 4U + length;
+                l -= 4U + length;
+        }
+
+        return has_nsid;
+}
+
+size_t dns_packet_size_unfragmented(DnsPacket *p) {
+        assert(p);
+
+        if (p->fragsize == 0) /* Wasn't fragmented */
+                return p->size;
+
+        /* The fragment size (p->fragsize) covers the whole (fragmented) IP packet, while the regular packet
+         * size (p->size) only covers the DNS part. Thus, subtract the UDP header from the largest fragment
+         * size, in order to determine which size of DNS packet would have gone through without
+         * fragmenting. */
+
+        return LESS_BY(p->fragsize, udp_header_size(p->family));
+}
+
 static const char* const dns_rcode_table[_DNS_RCODE_MAX_DEFINED] = {
-        [DNS_RCODE_SUCCESS] = "SUCCESS",
-        [DNS_RCODE_FORMERR] = "FORMERR",
-        [DNS_RCODE_SERVFAIL] = "SERVFAIL",
-        [DNS_RCODE_NXDOMAIN] = "NXDOMAIN",
-        [DNS_RCODE_NOTIMP] = "NOTIMP",
-        [DNS_RCODE_REFUSED] = "REFUSED",
-        [DNS_RCODE_YXDOMAIN] = "YXDOMAIN",
-        [DNS_RCODE_YXRRSET] = "YRRSET",
-        [DNS_RCODE_NXRRSET] = "NXRRSET",
-        [DNS_RCODE_NOTAUTH] = "NOTAUTH",
-        [DNS_RCODE_NOTZONE] = "NOTZONE",
-        [DNS_RCODE_BADVERS] = "BADVERS",
-        [DNS_RCODE_BADKEY] = "BADKEY",
-        [DNS_RCODE_BADTIME] = "BADTIME",
-        [DNS_RCODE_BADMODE] = "BADMODE",
-        [DNS_RCODE_BADNAME] = "BADNAME",
-        [DNS_RCODE_BADALG] = "BADALG",
-        [DNS_RCODE_BADTRUNC] = "BADTRUNC",
+        [DNS_RCODE_SUCCESS]   = "SUCCESS",
+        [DNS_RCODE_FORMERR]   = "FORMERR",
+        [DNS_RCODE_SERVFAIL]  = "SERVFAIL",
+        [DNS_RCODE_NXDOMAIN]  = "NXDOMAIN",
+        [DNS_RCODE_NOTIMP]    = "NOTIMP",
+        [DNS_RCODE_REFUSED]   = "REFUSED",
+        [DNS_RCODE_YXDOMAIN]  = "YXDOMAIN",
+        [DNS_RCODE_YXRRSET]   = "YRRSET",
+        [DNS_RCODE_NXRRSET]   = "NXRRSET",
+        [DNS_RCODE_NOTAUTH]   = "NOTAUTH",
+        [DNS_RCODE_NOTZONE]   = "NOTZONE",
+        [DNS_RCODE_BADVERS]   = "BADVERS",
+        [DNS_RCODE_BADKEY]    = "BADKEY",
+        [DNS_RCODE_BADTIME]   = "BADTIME",
+        [DNS_RCODE_BADMODE]   = "BADMODE",
+        [DNS_RCODE_BADNAME]   = "BADNAME",
+        [DNS_RCODE_BADALG]    = "BADALG",
+        [DNS_RCODE_BADTRUNC]  = "BADTRUNC",
         [DNS_RCODE_BADCOOKIE] = "BADCOOKIE",
 };
 DEFINE_STRING_TABLE_LOOKUP(dns_rcode, int);
 
 static const char* const dns_protocol_table[_DNS_PROTOCOL_MAX] = {
-        [DNS_PROTOCOL_DNS] = "dns",
-        [DNS_PROTOCOL_MDNS] = "mdns",
+        [DNS_PROTOCOL_DNS]   = "dns",
+        [DNS_PROTOCOL_MDNS]  = "mdns",
         [DNS_PROTOCOL_LLMNR] = "llmnr",
 };
 DEFINE_STRING_TABLE_LOOKUP(dns_protocol, DnsProtocol);

@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "bus-unit-procs.h"
 #include "hashmap.h"
@@ -104,11 +104,7 @@ static int add_process(
         if (r < 0)
                 return r;
 
-        r = hashmap_ensure_allocated(&cg->pids, &trivial_hash_ops);
-        if (r < 0)
-                return r;
-
-        return hashmap_put(cg->pids, PID_TO_PTR(pid), (void*) name);
+        return hashmap_ensure_put(&cg->pids, &trivial_hash_ops, PID_TO_PTR(pid), (void*) name);
 }
 
 static void remove_cgroup(Hashmap *cgroups, struct CGroupInfo *cg) {
@@ -259,7 +255,7 @@ static int dump_extra_processes(
         _cleanup_free_ pid_t *pids = NULL;
         _cleanup_hashmap_free_ Hashmap *names = NULL;
         struct CGroupInfo *cg;
-        size_t n_allocated = 0, n = 0, k;
+        size_t n = 0, k;
         int width, r;
 
         /* Prints the extra processes, i.e. those that are in cgroups we haven't displayed yet. We show them as
@@ -279,7 +275,7 @@ static int dump_extra_processes(
                 if (r < 0)
                         return r;
 
-                if (!GREEDY_REALLOC(pids, n_allocated, n + hashmap_size(cg->pids)))
+                if (!GREEDY_REALLOC(pids, n + hashmap_size(cg->pids)))
                         return -ENOMEM;
 
                 HASHMAP_FOREACH_KEY(name, pidp, cg->pids) {

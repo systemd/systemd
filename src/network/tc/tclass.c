@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+
+/* SPDX-License-Identifier: LGPL-2.1-or-later
  * Copyright © 2019 VMware, Inc. */
 
 #include <linux/pkt_sched.h>
@@ -82,11 +82,7 @@ int tclass_new_static(TClassKind kind, Network *network, const char *filename, u
         tclass->network = network;
         tclass->section = TAKE_PTR(n);
 
-        r = ordered_hashmap_ensure_allocated(&network->tc_by_section, &network_config_hash_ops);
-        if (r < 0)
-                return r;
-
-        r = ordered_hashmap_put(network->tc_by_section, tclass->section, tclass);
+        r = ordered_hashmap_ensure_put(&network->tc_by_section, &network_config_hash_ops, tclass->section, tclass);
         if (r < 0)
                 return r;
 
@@ -94,16 +90,16 @@ int tclass_new_static(TClassKind kind, Network *network, const char *filename, u
         return 0;
 }
 
-void tclass_free(TClass *tclass) {
+TClass* tclass_free(TClass *tclass) {
         if (!tclass)
-                return;
+                return NULL;
 
         if (tclass->network && tclass->section)
                 ordered_hashmap_remove(tclass->network->tc_by_section, tclass->section);
 
         network_config_section_free(tclass->section);
 
-        free(tclass);
+        return mfree(tclass);
 }
 
 static int tclass_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
@@ -234,7 +230,7 @@ int config_parse_tclass_parent(
                 }
         }
 
-        tclass = NULL;
+        TAKE_PTR(tclass);
 
         return 0;
 }
@@ -271,7 +267,7 @@ int config_parse_tclass_classid(
 
         if (isempty(rvalue)) {
                 tclass->classid = TC_H_UNSPEC;
-                tclass = NULL;
+                TAKE_PTR(tclass);
                 return 0;
         }
 
@@ -283,7 +279,7 @@ int config_parse_tclass_classid(
                 return 0;
         }
 
-        tclass = NULL;
+        TAKE_PTR(tclass);
 
         return 0;
 }

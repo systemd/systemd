@@ -1,5 +1,5 @@
 [Unit]
-Description=TEST-17-UDEV-WANTS
+Description=TEST-17-UDEV
 
 [Service]
 ExecStartPre=rm -f /failed /testok

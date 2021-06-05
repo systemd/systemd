@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: GPL-2.0+ */
+/* SPDX-License-Identifier: GPL-2.0-or-later */
 /*
  * manage device node user ACL
  */
@@ -11,8 +11,8 @@
 #include "sd-login.h"
 
 #include "device-util.h"
+#include "devnode-acl.h"
 #include "login-util.h"
-#include "logind-acl.h"
 #include "log.h"
 #include "udev-builtin.h"
 

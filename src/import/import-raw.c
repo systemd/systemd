@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <linux/fs.h>
 
@@ -34,8 +34,7 @@ struct RawImport {
         void *userdata;
 
         char *local;
-        bool force_local;
-        bool read_only;
+        ImportFlags flags;
 
         char *temp_path;
         char *final_path;
@@ -65,10 +64,7 @@ RawImport* raw_import_unref(RawImport *i) {
 
         sd_event_unref(i->event);
 
-        if (i->temp_path) {
-                (void) unlink(i->temp_path);
-                free(i->temp_path);
-        }
+        unlink_and_free(i->temp_path);
 
         import_compress_free(&i->compress);
 
@@ -108,7 +104,7 @@ int raw_import_new(
                 .output_fd = -1,
                 .on_finished = on_finished,
                 .userdata = userdata,
-                .last_percent = (unsigned) -1,
+                .last_percent = UINT_MAX,
                 .image_root = TAKE_PTR(root),
                 .progress_ratelimit = { 100 * USEC_PER_MSEC, 1 },
         };
@@ -213,13 +209,13 @@ static int raw_import_finish(RawImport *i) {
                 (void) copy_xattr(i->input_fd, i->output_fd);
         }
 
-        if (i->read_only) {
+        if (i->flags & IMPORT_READ_ONLY) {
                 r = import_make_read_only_fd(i->output_fd);
                 if (r < 0)
                         return r;
         }
 
-        if (i->force_local)
+        if (i->flags & IMPORT_FORCE)
                 (void) rm_rf(i->final_path, REMOVE_ROOT|REMOVE_PHYSICAL|REMOVE_SUBVOLUME);
 
         r = rename_noreplace(AT_FDCWD, i->temp_path, AT_FDCWD, i->final_path);
@@ -317,27 +313,23 @@ static int raw_import_process(RawImport *i) {
                 r = log_error_errno(errno, "Failed to read input file: %m");
                 goto finish;
         }
-        if (l == 0) {
-                if (i->compress.type == IMPORT_COMPRESS_UNKNOWN) {
-                        log_error("Premature end of file.");
-                        r = -EIO;
-                        goto finish;
-                }
-
-                r = raw_import_finish(i);
-                goto finish;
-        }
 
         i->buffer_size += l;
 
         if (i->compress.type == IMPORT_COMPRESS_UNKNOWN) {
-                r = import_uncompress_detect(&i->compress, i->buffer, i->buffer_size);
-                if (r < 0) {
-                        log_error_errno(r, "Failed to detect file compression: %m");
-                        goto finish;
+
+                if (l == 0) { /* EOF */
+                        log_debug("File too short to be compressed, as no compression signature fits in, thus assuming uncompressed.");
+                        import_uncompress_force_off(&i->compress);
+                } else {
+                        r = import_uncompress_detect(&i->compress, i->buffer, i->buffer_size);
+                        if (r < 0) {
+                                log_error_errno(r, "Failed to detect file compression: %m");
+                                goto finish;
+                        }
+                        if (r == 0) /* Need more data */
+                                return 0;
                 }
-                if (r == 0) /* Need more data */
-                        return 0;
 
                 r = raw_import_open_disk(i);
                 if (r < 0)
@@ -346,10 +338,8 @@ static int raw_import_process(RawImport *i) {
                 r = raw_import_try_reflink(i);
                 if (r < 0)
                         goto finish;
-                if (r > 0) {
-                        r = raw_import_finish(i);
-                        goto finish;
-                }
+                if (r > 0)
+                        goto complete;
         }
 
         r = import_uncompress(&i->compress, i->buffer, i->buffer_size, raw_import_write, i);
@@ -361,9 +351,15 @@ static int raw_import_process(RawImport *i) {
         i->written_compressed += i->buffer_size;
         i->buffer_size = 0;
 
+        if (l == 0) /* EOF */
+                goto complete;
+
         raw_import_report_progress(i);
 
         return 0;
+
+complete:
+        r = raw_import_finish(i);
 
 finish:
         if (i->on_finished)
@@ -386,14 +382,15 @@ static int raw_import_on_defer(sd_event_source *s, void *userdata) {
         return raw_import_process(i);
 }
 
-int raw_import_start(RawImport *i, int fd, const char *local, bool force_local, bool read_only) {
+int raw_import_start(RawImport *i, int fd, const char *local, ImportFlags flags) {
         int r;
 
         assert(i);
         assert(fd >= 0);
         assert(local);
+        assert(!(flags & ~IMPORT_FLAGS_MASK));
 
-        if (!machine_name_is_valid(local))
+        if (!hostname_is_valid(local, 0))
                 return -EINVAL;
 
         if (i->input_fd >= 0)
@@ -406,8 +403,8 @@ int raw_import_start(RawImport *i, int fd, const char *local, bool force_local, 
         r = free_and_strdup(&i->local, local);
         if (r < 0)
                 return r;
-        i->force_local = force_local;
-        i->read_only = read_only;
+
+        i->flags = flags;
 
         if (fstat(fd, &i->st) < 0)
                 return -errno;

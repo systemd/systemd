@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <errno.h>
 #include <unistd.h>
@@ -30,7 +30,7 @@ static int generate_symlink(void) {
         }
 
         p = strjoina(arg_dest, "/" SPECIAL_DEFAULT_TARGET);
-        if (symlink(SYSTEM_DATA_UNIT_PATH "/system-update.target", p) < 0)
+        if (symlink(SYSTEM_DATA_UNIT_DIR "/system-update.target", p) < 0)
                 return log_error_errno(errno, "Failed to create symlink %s: %m", p);
 
         return 1;

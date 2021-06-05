@@ -1,10 +1,11 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "alloc-util.h"
 #include "cap-list.h"
 #include "conf-parser.h"
 #include "cpu-set-util.h"
 #include "hostname-util.h"
+#include "namespace-util.h"
 #include "nspawn-network.h"
 #include "nspawn-settings.h"
 #include "parse-util.h"
@@ -33,7 +34,7 @@ Settings *settings_new(void) {
                 .timezone = _TIMEZONE_MODE_INVALID,
 
                 .userns_mode = _USER_NAMESPACE_MODE_INVALID,
-                .userns_chown = -1,
+                .userns_ownership = _USER_NAMESPACE_OWNERSHIP_INVALID,
                 .uid_shift = UID_INVALID,
                 .uid_range = UID_INVALID,
 
@@ -51,10 +52,10 @@ Settings *settings_new(void) {
                 .gid = GID_INVALID,
 
                 .console_mode = _CONSOLE_MODE_INVALID,
-                .console_width = (unsigned) -1,
-                .console_height = (unsigned) -1,
+                .console_width = UINT_MAX,
+                .console_height = UINT_MAX,
 
-                .clone_ns_flags = (unsigned long) -1,
+                .clone_ns_flags = ULONG_MAX,
                 .use_cgns = -1,
         };
 
@@ -84,12 +85,9 @@ int settings_load(FILE *f, const char *path, Settings **ret) {
 
         /* Make sure that if userns_mode is set, userns_chown is set to something appropriate, and vice versa. Either
          * both fields shall be initialized or neither. */
-        if (s->userns_mode == USER_NAMESPACE_PICK)
-                s->userns_chown = true;
-        else if (s->userns_mode != _USER_NAMESPACE_MODE_INVALID && s->userns_chown < 0)
-                s->userns_chown = false;
-
-        if (s->userns_chown >= 0 && s->userns_mode == _USER_NAMESPACE_MODE_INVALID)
+        if (s->userns_mode >= 0 && s->userns_ownership < 0)
+                s->userns_ownership = s->userns_mode == USER_NAMESPACE_PICK ? USER_NAMESPACE_OWNERSHIP_CHOWN : USER_NAMESPACE_OWNERSHIP_OFF;
+        if (s->userns_ownership >= 0 && s->userns_mode < 0)
                 s->userns_mode = USER_NAMESPACE_NO;
 
         *ret = TAKE_PTR(s);
@@ -134,6 +132,7 @@ Settings* settings_free(Settings *s) {
         rlimit_free_all(s->rlimit);
         free(s->hostname);
         cpu_set_reset(&s->cpu_set);
+        strv_free(s->bind_user);
 
         strv_free(s->network_interfaces);
         strv_free(s->network_macvlan);
@@ -274,7 +273,7 @@ int config_parse_capability(
                         break;
 
                 if (streq(word, "all"))
-                        u = (uint64_t) -1;
+                        u = UINT64_MAX;
                 else {
                         r = capability_from_name(word);
                         if (r < 0) {
@@ -614,7 +613,7 @@ int config_parse_private_users(
                         range++;
 
                         r = safe_atou32(range, &rn);
-                        if (r < 0 || rn <= 0) {
+                        if (r < 0) {
                                 log_syntax(unit, LOG_WARNING, filename, line, r, "UID/GID range invalid, ignoring: %s", range);
                                 return 0;
                         }
@@ -626,6 +625,11 @@ int config_parse_private_users(
                 r = parse_uid(shift, &sh);
                 if (r < 0) {
                         log_syntax(unit, LOG_WARNING, filename, line, r, "UID/GID shift invalid, ignoring: %s", range);
+                        return 0;
+                }
+
+                if (!userns_shift_range_valid(sh, rn)) {
+                        log_syntax(unit, LOG_WARNING, filename, line, 0, "UID/GID shift and range combination invalid, ignoring: %s", range);
                         return 0;
                 }
 
@@ -701,15 +705,12 @@ int config_parse_hostname(
         assert(rvalue);
         assert(s);
 
-        if (!hostname_is_valid(rvalue, false)) {
+        if (!hostname_is_valid(rvalue, 0)) {
                 log_syntax(unit, LOG_WARNING, filename, line, 0, "Invalid hostname, ignoring: %s", rvalue);
                 return 0;
         }
 
-        if (free_and_strdup(s, empty_to_null(rvalue)) < 0)
-                return log_oom();
-
-        return 0;
+        return free_and_strdup_warn(s, empty_to_null(rvalue));
 }
 
 int config_parse_oom_score_adjust(
@@ -866,3 +867,92 @@ static const char *const timezone_mode_table[_TIMEZONE_MODE_MAX] = {
 };
 
 DEFINE_STRING_TABLE_LOOKUP_WITH_BOOLEAN(timezone_mode, TimezoneMode, TIMEZONE_AUTO);
+
+DEFINE_CONFIG_PARSE_ENUM(config_parse_userns_ownership, user_namespace_ownership, UserNamespaceOwnership, "Failed to parse user namespace ownership mode");
+
+static const char *const user_namespace_ownership_table[_USER_NAMESPACE_OWNERSHIP_MAX] = {
+        [USER_NAMESPACE_OWNERSHIP_OFF] = "off",
+        [USER_NAMESPACE_OWNERSHIP_CHOWN] = "chown",
+        [USER_NAMESPACE_OWNERSHIP_MAP] = "map",
+        [USER_NAMESPACE_OWNERSHIP_AUTO] = "auto",
+};
+
+DEFINE_STRING_TABLE_LOOKUP(user_namespace_ownership, UserNamespaceOwnership);
+
+int config_parse_userns_chown(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        UserNamespaceOwnership *ownership = data;
+        int r;
+
+        assert(rvalue);
+        assert(ownership);
+
+        /* Compatibility support for UserNamespaceChown=, whose job has been taken over by UserNamespaceOwnership= */
+
+        r = parse_boolean(rvalue);
+        if (r < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to parse user namespace ownership mode, ignoring: %s", rvalue);
+                return 0;
+        }
+
+        *ownership = r ? USER_NAMESPACE_OWNERSHIP_CHOWN : USER_NAMESPACE_OWNERSHIP_OFF;
+        return 0;
+}
+
+int config_parse_bind_user(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        char ***bind_user = data;
+        int r;
+
+        assert(rvalue);
+        assert(bind_user);
+
+        if (isempty(rvalue)) {
+                *bind_user = strv_free(*bind_user);
+                return 0;
+        }
+
+        for (const char* p = rvalue;;) {
+                _cleanup_free_ char *word = NULL;
+
+                r = extract_first_word(&p, &word, NULL, 0);
+                if (r == -ENOMEM)
+                        return log_oom();
+                if (r < 0) {
+                        log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to parse BindUser= list, ignoring: %s", rvalue);
+                        return 0;
+                }
+                if (r == 0)
+                        break;
+
+                if (!valid_user_group_name(word, 0)) {
+                        log_syntax(unit, LOG_WARNING, filename, line, 0, "User name '%s' not valid, ignoring.", word);
+                        return 0;
+                }
+
+                if (strv_consume(bind_user, TAKE_PTR(word)) < 0)
+                        return log_oom();
+        }
+
+        return 0;
+}

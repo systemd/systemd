@@ -1,0 +1,243 @@
+<?xml version='1.0'?> <!--*-nxml-*-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
+
+<refentry id="systemd-sysext"
+    xmlns:xi="http://www.w3.org/2001/XInclude">
+
+  <refentryinfo>
+    <title>systemd-sysext</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>systemd-sysext</refentrytitle>
+    <manvolnum>8</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>systemd-sysext</refname>
+    <refname>systemd-sysext.service</refname>
+    <refpurpose>Activates System Extension Images</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <cmdsynopsis>
+      <command>systemd-sysext</command>
+      <arg choice="opt" rep="repeat">OPTIONS</arg>
+    </cmdsynopsis>
+
+    <para><literallayout><filename>systemd-sysext.service</filename></literallayout></para>
+
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para><command>systemd-sysext</command> activates/deactivates system extension images. System extension
+    images may – dynamically at runtime — extend the <filename>/usr/</filename> and
+    <filename>/opt/</filename> directory hierarchies with additional files. This is particularly useful on
+    immutable system images where a <filename>/usr/</filename> and/or <filename>/opt/</filename> hierarchy
+    residing on a read-only file system shall be extended temporarily at runtime without making any
+    persistent modifications.</para>
+
+    <para>System extension images should contain files and directories similar in fashion to regular
+    operating system tree. When one or more system extension images are activated, their
+    <filename>/usr/</filename> and <filename>/opt/</filename> hierarchies are combined via
+    <literal>overlayfs</literal> with the same hierarchies of the host OS, and the host
+    <filename>/usr/</filename> and <filename>/opt</filename> overmounted with it ("merging"). When they are
+    deactivated, the mount point is disassembled — again revealing the unmodified original host version of
+    the hierarchy ("unmerging"). Merging thus makes the extension's resources suddenly appear below the
+    <filename>/usr/</filename> and <filename>/opt/</filename> hierarchies as if they were included in the
+    base OS image itself. Unmerging makes them disappear again, leaving in place only the files that were
+    shipped with the base OS image itself.</para>
+
+    <para>Files and directories contained in the extension images outside of the <filename>/usr/</filename>
+    and <filename>/opt/</filename> hierarchies are <emphasis>not</emphasis> merged, and hence have no effect
+    when included in a system extension image. In particular, files in the <filename>/etc/</filename> and
+    <filename>/var/</filename> included in a system extension image will <emphasis>not</emphasis> appear in
+    the respective hierarchies after activation.</para>
+
+    <para>System extension images are strictly read-only, and the host <filename>/usr/</filename> and
+    <filename>/opt/</filename> hierarchies become read-only too while they are activated.</para>
+
+    <para>System extensions are supposed to be purely additive, i.e. they are supposed to include only files
+    that do not exist in the underlying basic OS image. However, the underlying mechanism (overlayfs) also
+    allows removing files, but it is recommended not to make use of this.</para>
+
+    <para>System extension images may be provided in the following formats:</para>
+
+    <orderedlist>
+      <listitem><para>Plain directories or btrfs subvolumes containing the OS tree</para></listitem>
+      <listitem><para>Disk images with a GPT disk label, following the <ulink
+      url="https://systemd.io/DISCOVERABLE_PARTITIONS">Discoverable Partition Specification</ulink></para></listitem>
+      <listitem><para>Disk images lacking a partition table, with a naked Linux file system (e.g. squashfs or ext4)</para></listitem>
+    </orderedlist>
+
+    <para>These image formats are the same ones that
+    <citerefentry><refentrytitle>systemd-nspawn</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+    supports via it's <option>--directory=</option>/<option>--image=</option> switches and those that the
+    service manager supports via <option>RootDirectory=</option>/<option>RootImage=</option>. Similar to
+    them they may optionally carry Verity authentication information.</para>
+
+    <para>System extensions are automatically looked for in the directories
+    <filename>/etc/extensions/</filename>, <filename>/run/extensions/</filename>,
+    <filename>/var/lib/extensions/</filename>, <filename>/usr/lib/extensions/</filename> and
+    <filename>/usr/local/lib/extensions/</filename>. The first two listed directories are not suitable for
+    carrying large binary images, however are still useful for carrying symlinks to them. The primary place
+    for installing system extensions is <filename>/var/lib/extensions/</filename>. Any directories found in
+    these search directories are considered directory based extension images, any files with the
+    <filename>.raw</filename> suffix are considered disk image based extension images.</para>
+
+    <para>During boot OS extension images are activated automatically, if the
+    <filename>systemd-sysext.service</filename> is enabled. Note that this service runs only after the
+    underlying file systems where system extensions are searched are mounted. This means they are not
+    suitable for shipping resources that are processed by subsystems running in earliest boot. Specifically,
+    OS extension images are not suitable for shipping system services or
+    <citerefentry><refentrytitle>systemd-sysusers</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+    definitions. See <ulink url="https://systemd.io/PORTABLE_SERVICES">Portable Services</ulink> for a simple
+    mechanism for shipping system services in disk images, in a similar fashion to OS extensions. Note the
+    different isolation on these two mechanisms: while system extension directly extend the underlying OS
+    image with additional files that appear in a way very similar to as if they were shipped in the OS image
+    itself and thus imply no security isolation, portable services imply service level sandboxing in one way
+    or another. The <filename>systemd-sysext.service</filename> service is guaranteed to finish start-up
+    before <filename>basic.target</filename> is reached; i.e. at the time regular services initialize (those
+    which do not use <varname>DefaultDependencies=no</varname>), the files and directories system extensions
+    provide are available in <filename>/usr/</filename> and <filename>/opt/</filename> and may be
+    accessed.</para>
+
+    <para>Note that there is no concept of enabling/disabling installed system extension images: all
+    installed extension images are automatically activated at boot.</para>
+
+    <para>A simple mechanism for version compatibility is enforced: a system extension image must carry a
+    <filename>/usr/lib/extension-release.d/extension-release.<replaceable>$name</replaceable></filename>
+    file, which must match its image name, that is compared with the host <filename>os-release</filename>
+    file: the contained <varname>ID=</varname> fields have to match, as well as the
+    <varname>SYSEXT_LEVEL=</varname> field (if defined). If the latter is not defined, the
+    <varname>VERSION_ID=</varname> field has to match instead. System extensions should not ship a
+    <filename>/usr/lib/os-release</filename> file (as that would be merged into the host
+    <filename>/usr/</filename> tree, overriding the host OS version data, which is not desirable). The
+    <filename>extension-release</filename> file follows the same format and semantics, and carries the same
+    content, as the <filename>os-release</filename> file of the OS, but it describes the resources carried
+    in the extension image.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Uses</title>
+
+    <para>The primary use case for system images are immutable environments where debugging and development
+    tools shall optionally be made available, but not included in the immutable base OS image itself
+    (e.g. <filename>strace</filename> and <filename>gdb</filename> shall be an optionally installable
+    addition in order to make debugging/development easier). System extension images should not be
+    misunderstood as a generic software packaging framework, as no dependency scheme is available: system
+    extensions should carry all files they need themselves, except for those already shipped in the
+    underlying host system image. Typically, system extension images are built at the same time as the base
+    OS image — within the same build system.</para>
+
+    <para>Another use case for the system extension concept is temporarily overriding OS supplied resources
+    with newer ones, for example to install a locally compiled development version of some low-level
+    component over the immutable OS image without doing a full OS rebuild or modifying the nominally
+    immutable image. (e.g. "install" a locally built package with <command>DESTDIR=/var/lib/extensions/mytest
+    make install &amp;&amp; systemd-sysext refresh</command>, making it available in
+    <filename>/usr/</filename> as if it was installed in the OS image itself.) This case works regardless if
+    the underlying host <filename>/usr/</filename> is managed as immutable disk image or is a traditional
+    package manager controlled (i.e. writable) tree.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Commands</title>
+
+    <para>The following commands are understood:</para>
+
+    <variablelist>
+      <varlistentry>
+        <term><option>status</option></term>
+
+        <listitem><para>When invoked without any command verb, or when <option>status</option> is specified
+        the current merge status is shown, separately for both <filename>/usr/</filename> and
+        <filename>/opt/</filename>.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>merge</option></term>
+        <listitem><para>Merges all currently installed system extension images into
+        <filename>/usr/</filename> and <filename>/opt/</filename>, by overmounting these hierarchies with an
+        <literal>overlayfs</literal> file system combining the underlying hierarchies with those included in
+        the extension images. This command will fail if the hierarchies are already merged.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>unmerge</option></term>
+        <listitem><para>Unmerges all currently installed system extension images from
+        <filename>/usr/</filename> and <filename>/opt/</filename>, by unmounting the
+        <literal>overlayfs</literal> file systems created by <option>merge</option>
+        prior.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>refresh</option></term>
+        <listitem><para>A combination of <option>unmerge</option> and <option>merge</option>: if already
+        mounted the existing <literal>overlayfs</literal> instance is unmounted temporarily, and then
+        replaced by a new version. This command is useful after installing/removing system extension images,
+        in order to update the <literal>overlayfs</literal> file system accordingly. If no system extensions
+        are installed when this command is executed, the equivalent of <option>unmerge</option> is
+        executed, without establishing any new <literal>overlayfs</literal> instance. Note that currently
+        there's a brief moment where neither the old nor the new <literal>overlayfs</literal> file system is
+        mounted. This implies that all resources supplied by a system extension will briefly disappear — even
+        if it exists continuously during the refresh operation.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>list</option></term>
+
+        <listitem><para>A brief list of installed extension images is shown.</para></listitem>
+      </varlistentry>
+
+      <xi:include href="standard-options.xml" xpointer="help" />
+      <xi:include href="standard-options.xml" xpointer="version" />
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>Options</title>
+
+    <variablelist>
+      <varlistentry>
+        <term><option>--root=</option></term>
+
+        <listitem><para>Operate relative to the specified root directory, i.e. establish the
+        <literal>overlayfs</literal> mount not on the top-level host <filename>/usr/</filename> and
+        <filename>/opt/</filename> hierarchies, but below some specified root directory.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--force</option></term>
+
+        <listitem><para>When merging system extensions into <filename>/usr/</filename> and
+        <filename>/opt/</filename>, ignore version incompatibilities, i.e. force merging regardless of
+        whether the version information included in the extension images matches the host or
+        not.</para></listitem>
+      </varlistentry>
+
+      <xi:include href="standard-options.xml" xpointer="no-pager" />
+      <xi:include href="standard-options.xml" xpointer="no-legend" />
+      <xi:include href="standard-options.xml" xpointer="json" />
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>Exit status</title>
+
+    <para>On success, 0 is returned.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>See Also</title>
+    <para>
+      <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>systemd-nspawn</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+    </para>
+  </refsect1>
+
+</refentry>

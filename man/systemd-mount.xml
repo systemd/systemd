@@ -1,7 +1,7 @@
 <?xml version='1.0'?>
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
-<!-- SPDX-License-Identifier: LGPL-2.1+ -->
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
 
 <refentry id="systemd-mount"
           xmlns:xi="http://www.w3.org/2001/XInclude">
@@ -131,8 +131,9 @@
         <term><option>--type=</option></term>
         <term><option>-t</option></term>
 
-        <listitem><para>Specifies the file system type to mount (e.g. <literal>vfat</literal>, <literal>ext4</literal>,
-        …). If omitted (or set to <literal>auto</literal>) the file system is determined automatically.</para></listitem>
+        <listitem><para>Specifies the file system type to mount (e.g. <literal>vfat</literal> or
+        <literal>ext4</literal>). If omitted or set to <literal>auto</literal>, the file system type is
+        determined automatically.</para></listitem>
       </varlistentry>
 
       <varlistentry>

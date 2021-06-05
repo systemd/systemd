@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <fcntl.h>
 #include <stddef.h>
@@ -512,7 +512,7 @@ static void test_install_printf(void) {
                 _cleanup_free_ char                                     \
                         *d1 = strdup(i.name),                           \
                         *d2 = strdup(i.path);                           \
-                assert_se(install_full_printf(&src, pattern, &t) >= 0 || !result); \
+                assert_se(install_name_printf(&src, pattern, &t) >= 0 || !result); \
                 memzero(i.name, strlen(i.name));                        \
                 memzero(i.path, strlen(i.path));                        \
                 assert_se(d1 && d2);                                    \
@@ -748,26 +748,25 @@ static void test_config_parse_pass_environ(void) {
         _cleanup_strv_free_ char **passenv = NULL;
 
         r = config_parse_pass_environ(NULL, "fake", 1, "section", 1,
-                              "PassEnvironment", 0, "A B",
-                              &passenv, NULL);
+                                      "PassEnvironment", 0, "A B",
+                                      &passenv, NULL);
         assert_se(r >= 0);
         assert_se(strv_length(passenv) == 2);
         assert_se(streq(passenv[0], "A"));
         assert_se(streq(passenv[1], "B"));
 
         r = config_parse_pass_environ(NULL, "fake", 1, "section", 1,
-                              "PassEnvironment", 0, "",
-                              &passenv, NULL);
+                                      "PassEnvironment", 0, "",
+                                      &passenv, NULL);
         assert_se(r >= 0);
         assert_se(strv_isempty(passenv));
 
         r = config_parse_pass_environ(NULL, "fake", 1, "section", 1,
-                              "PassEnvironment", 0, "'invalid name' 'normal_name' A=1 \\",
-                              &passenv, NULL);
+                                      "PassEnvironment", 0, "'invalid name' 'normal_name' A=1 'special_name$$' \\",
+                                      &passenv, NULL);
         assert_se(r >= 0);
         assert_se(strv_length(passenv) == 1);
         assert_se(streq(passenv[0], "normal_name"));
-
 }
 
 static void test_unit_dump_config_items(void) {

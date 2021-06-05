@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
 typedef struct Automount Automount;
@@ -8,10 +8,11 @@ typedef struct Automount Automount;
 typedef enum AutomountResult {
         AUTOMOUNT_SUCCESS,
         AUTOMOUNT_FAILURE_RESOURCES,
+        AUTOMOUNT_FAILURE_UNMOUNTED,
         AUTOMOUNT_FAILURE_START_LIMIT_HIT,
         AUTOMOUNT_FAILURE_MOUNT_START_LIMIT_HIT,
         _AUTOMOUNT_RESULT_MAX,
-        _AUTOMOUNT_RESULT_INVALID = -1
+        _AUTOMOUNT_RESULT_INVALID = -EINVAL,
 } AutomountResult;
 
 struct Automount {

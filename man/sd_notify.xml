@@ -1,7 +1,7 @@
 <?xml version='1.0'?>
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
-<!-- SPDX-License-Identifier: LGPL-2.1+ -->
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
 
 <refentry id="sd_notify"
   xmlns:xi="http://www.w3.org/2001/XInclude">
@@ -222,7 +222,7 @@
         <citerefentry><refentrytitle>sd_listen_fds</refentrytitle><manvolnum>3</manvolnum></citerefentry>.  This is
         useful for implementing services that can restart after an explicit request or a crash without losing
         state. Any open sockets and other file descriptors which should not be closed during the restart may be stored
-        this way. Application state can either be serialized to a file in <filename>/run</filename>, or better, stored
+        this way. Application state can either be serialized to a file in <filename>/run/</filename>, or better, stored
         in a <citerefentry><refentrytitle>memfd_create</refentrytitle><manvolnum>2</manvolnum></citerefentry> memory
         file descriptor. Note that the service manager will accept messages for a service only if its
         <varname>FileDescriptorStoreMax=</varname> setting is non-zero (defaults to zero, see

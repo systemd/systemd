@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <errno.h>
 #include <fcntl.h>
@@ -48,13 +48,13 @@ struct expire_data {
         int ioctl_fd;
 };
 
-static void expire_data_free(struct expire_data *data) {
+static struct expire_data* expire_data_free(struct expire_data *data) {
         if (!data)
-                return;
+                return NULL;
 
         safe_close(data->dev_autofs_fd);
         safe_close(data->ioctl_fd);
-        free(data);
+        return mfree(data);
 }
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(struct expire_data*, expire_data_free);
@@ -174,19 +174,15 @@ static int automount_verify(Automount *a) {
         assert(a);
         assert(UNIT(a)->load_state == UNIT_LOADED);
 
-        if (path_equal(a->where, "/")) {
-                log_unit_error(UNIT(a), "Cannot have an automount unit for the root directory. Refusing.");
-                return -ENOEXEC;
-        }
+        if (path_equal(a->where, "/"))
+                return log_unit_error_errno(UNIT(a), SYNTHETIC_ERRNO(ENOEXEC), "Cannot have an automount unit for the root directory. Refusing.");
 
         r = unit_name_from_path(a->where, ".automount", &e);
         if (r < 0)
                 return log_unit_error_errno(UNIT(a), r, "Failed to generate unit name from path: %m");
 
-        if (!unit_has_name(UNIT(a), e)) {
-                log_unit_error(UNIT(a), "Where= setting doesn't match unit name. Refusing.");
-                return -ENOEXEC;
-        }
+        if (!unit_has_name(UNIT(a), e))
+                return log_unit_error_errno(UNIT(a), SYNTHETIC_ERRNO(ENOEXEC), "Where= setting doesn't match unit name. Refusing.");
 
         return 0;
 }
@@ -203,7 +199,7 @@ static int automount_set_where(Automount *a) {
         if (r < 0)
                 return r;
 
-        path_simplify(a->where, false);
+        path_simplify(a->where);
         return 1;
 }
 
@@ -540,10 +536,8 @@ static void automount_trigger_notify(Unit *u, Unit *other) {
                    MOUNT_MOUNTED, MOUNT_REMOUNTING,
                    MOUNT_REMOUNTING_SIGTERM, MOUNT_REMOUNTING_SIGKILL,
                    MOUNT_UNMOUNTING_SIGTERM, MOUNT_UNMOUNTING_SIGKILL,
-                   MOUNT_FAILED)) {
-
+                   MOUNT_FAILED))
                 (void) automount_send_ready(a, a->expire_tokens, -ENODEV);
-        }
 
         if (MOUNT(other)->state == MOUNT_DEAD)
                 (void) automount_send_ready(a, a->expire_tokens, 0);
@@ -657,7 +651,7 @@ fail:
 
 static void *expire_thread(void *p) {
         struct autofs_dev_ioctl param;
-        _cleanup_(expire_data_freep) struct expire_data *data = (struct expire_data*)p;
+        _cleanup_(expire_data_freep) struct expire_data *data = p;
         int r;
 
         assert(data->dev_autofs_fd >= 0);
@@ -813,10 +807,8 @@ static int automount_start(Unit *u) {
         assert(a);
         assert(IN_SET(a->state, AUTOMOUNT_DEAD, AUTOMOUNT_FAILED));
 
-        if (path_is_mount_point(a->where, NULL, 0) > 0) {
-                log_unit_error(u, "Path %s is already a mount point, refusing start.", a->where);
-                return -EEXIST;
-        }
+        if (path_is_mount_point(a->where, NULL, 0) > 0)
+                return log_unit_error_errno(u, SYNTHETIC_ERRNO(EEXIST), "Path %s is already a mount point, refusing start.", a->where);
 
         r = unit_test_trigger_loaded(u);
         if (r < 0)
@@ -973,6 +965,12 @@ static int automount_dispatch_io(sd_event_source *s, int fd, uint32_t events, vo
         assert(a);
         assert(fd == a->pipe_fd);
 
+        if (events & (EPOLLHUP|EPOLLERR)) {
+                log_unit_error(UNIT(a), "Got hangup/error on autofs pipe from kernel. Likely our automount point has been unmounted by someone or something else?");
+                automount_enter_dead(a, AUTOMOUNT_FAILURE_UNMOUNTED);
+                return 0;
+        }
+
         if (events != EPOLLIN) {
                 log_unit_error(UNIT(a), "Got invalid poll event %"PRIu32" on pipe (fd=%d)", events, fd);
                 goto fail;
@@ -991,7 +989,7 @@ static int automount_dispatch_io(sd_event_source *s, int fd, uint32_t events, vo
                 if (packet.v5_packet.pid > 0) {
                         _cleanup_free_ char *p = NULL;
 
-                        get_process_comm(packet.v5_packet.pid, &p);
+                        (void) get_process_comm(packet.v5_packet.pid, &p);
                         log_unit_info(UNIT(a), "Got automount request for %s, triggered by %"PRIu32" (%s)", a->where, packet.v5_packet.pid, strna(p));
                 } else
                         log_unit_debug(UNIT(a), "Got direct mount request on %s", a->where);
@@ -1072,6 +1070,7 @@ static const char* const automount_result_table[_AUTOMOUNT_RESULT_MAX] = {
         [AUTOMOUNT_FAILURE_RESOURCES] = "resources",
         [AUTOMOUNT_FAILURE_START_LIMIT_HIT] = "start-limit-hit",
         [AUTOMOUNT_FAILURE_MOUNT_START_LIMIT_HIT] = "mount-start-limit-hit",
+        [AUTOMOUNT_FAILURE_UNMOUNTED] = "unmounted",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(automount_result, AutomountResult);

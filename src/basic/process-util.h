@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
 #include <errno.h>
@@ -35,6 +35,8 @@
 typedef enum ProcessCmdlineFlags {
         PROCESS_CMDLINE_COMM_FALLBACK = 1 << 0,
         PROCESS_CMDLINE_USE_LOCALE    = 1 << 1,
+        PROCESS_CMDLINE_QUOTE         = 1 << 2,
+        PROCESS_CMDLINE_QUOTE_POSIX   = 1 << 3,
 } ProcessCmdlineFlags;
 
 int get_process_comm(pid_t pid, char **name);
@@ -162,6 +164,8 @@ typedef enum ForkFlags {
         FORK_MOUNTNS_SLAVE      = 1 <<  9, /* Make child's mount namespace MS_SLAVE */
         FORK_RLIMIT_NOFILE_SAFE = 1 << 10, /* Set RLIMIT_NOFILE soft limit to 1K for select() compat */
         FORK_STDOUT_TO_STDERR   = 1 << 11, /* Make stdout a copy of stderr */
+        FORK_FLUSH_STDIO        = 1 << 12, /* fflush() stdout (and stderr) before forking */
+        FORK_NEW_USERNS         = 1 << 13, /* Run child in its own user namespace */
 } ForkFlags;
 
 int safe_fork_full(const char *name, const int except_fds[], size_t n_except_fds, ForkFlags flags, pid_t *ret_pid);
@@ -199,3 +203,5 @@ assert_cc(TASKS_MAX <= (unsigned long) PID_T_MAX);
 int pidfd_get_pid(int fd, pid_t *ret);
 
 int setpriority_closest(int priority);
+
+bool invoked_as(char *argv[], const char *token);

@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <sys/utsname.h>
 #include <errno.h>
@@ -21,10 +21,6 @@
 bool urlify_enabled(void) {
         static int cached_urlify_enabled = -1;
 
-        /* Unfortunately 'less' doesn't support links like this yet 😭, hence let's disable this as long as there's a
-         * pager in effect. Let's drop this check as soon as less got fixed a and enough time passed so that it's safe
-         * to assume that a link-enabled 'less' version has hit most installations. */
-
         if (cached_urlify_enabled < 0) {
                 int val;
 
@@ -32,7 +28,7 @@ bool urlify_enabled(void) {
                 if (val >= 0)
                         cached_urlify_enabled = val;
                 else
-                        cached_urlify_enabled = colors_enabled() && !pager_have();
+                        cached_urlify_enabled = colors_enabled();
         }
 
         return cached_urlify_enabled;
@@ -174,7 +170,7 @@ int cat_files(const char *file, char **dropins, CatFlags flags) {
         if (file) {
                 r = cat_file(file, false);
                 if (r == -ENOENT && (flags & CAT_FLAGS_MAIN_FILE_OPTIONAL))
-                        printf("%s# config file %s not found%s\n",
+                        printf("%s# Configuration file %s not found%s\n",
                                ansi_highlight_magenta(),
                                file,
                                ansi_normal());
@@ -284,7 +280,7 @@ static int guess_type(const char **name, char ***prefixes, bool *is_collection, 
 int conf_files_cat(const char *root, const char *name) {
         _cleanup_strv_free_ char **dirs = NULL, **files = NULL;
         _cleanup_free_ char *path = NULL;
-        char **prefixes, **prefix;
+        char **prefix, **prefixes = NULL; /* explicit initialization to appease gcc */
         bool is_collection;
         const char *extension;
         char **t;
@@ -293,6 +289,8 @@ int conf_files_cat(const char *root, const char *name) {
         r = guess_type(&name, &prefixes, &is_collection, &extension);
         if (r < 0)
                 return r;
+        assert(prefixes);
+        assert(extension);
 
         STRV_FOREACH(prefix, prefixes) {
                 assert(endswith(*prefix, "/"));

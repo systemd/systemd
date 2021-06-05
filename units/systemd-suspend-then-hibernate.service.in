@@ -1,4 +1,4 @@
-#  SPDX-License-Identifier: LGPL-2.1+
+#  SPDX-License-Identifier: LGPL-2.1-or-later
 #
 #  This file is part of systemd.
 #
@@ -16,4 +16,4 @@ After=sleep.target
 
 [Service]
 Type=oneshot
-ExecStart=@rootlibexecdir@/systemd-sleep suspend-then-hibernate
+ExecStart={{ROOTLIBEXECDIR}}/systemd-sleep suspend-then-hibernate

@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "sd-bus.h"
 
@@ -71,7 +71,7 @@ int bus_job_method_get_waiting_jobs(sd_bus_message *message, void *userdata, sd_
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         _cleanup_free_ Job **list = NULL;
         Job *j = userdata;
-        int r, i, n;
+        int r, n;
 
         if (strstr(sd_bus_message_get_member(message), "After"))
                 n = job_get_after(j, &list);
@@ -88,7 +88,7 @@ int bus_job_method_get_waiting_jobs(sd_bus_message *message, void *userdata, sd_
         if (r < 0)
                 return r;
 
-        for (i = 0; i < n; i ++) {
+        for (int i = 0; i < n; i ++) {
                 _cleanup_free_ char *unit_path = NULL, *job_path = NULL;
 
                 job_path = job_dbus_path(list[i]);

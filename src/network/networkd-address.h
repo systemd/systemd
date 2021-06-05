@@ -1,28 +1,25 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
 #include <inttypes.h>
 #include <stdbool.h>
-
-#include "conf-parser.h"
-#include "in-addr-util.h"
-
-typedef struct Address Address;
-
-#include "networkd-link.h"
-#include "networkd-network.h"
-#include "networkd-util.h"
+#include <stdio.h>
 
 #include "sd-ipv4acd.h"
 
+#include "conf-parser.h"
+#include "in-addr-util.h"
+#include "networkd-link.h"
+#include "networkd-util.h"
+
 #define CACHE_INFO_INFINITY_LIFE_TIME 0xFFFFFFFFU
 
+typedef struct Manager Manager;
 typedef struct Network Network;
-typedef struct Link Link;
-typedef struct NetworkConfigSection NetworkConfigSection;
+typedef struct Request Request;
 typedef int (*address_ready_callback_t)(Address *address);
 
-struct Address {
+typedef struct Address {
         Network *network;
         NetworkConfigSection *section;
 
@@ -32,8 +29,10 @@ struct Address {
         unsigned char prefixlen;
         unsigned char scope;
         uint32_t flags;
+        uint32_t route_metric; /* route metric for prefix route */
         char *label;
 
+        int set_broadcast;
         struct in_addr broadcast;
         struct ifa_cacheinfo cinfo;
 
@@ -42,38 +41,51 @@ struct Address {
 
         bool scope_set:1;
         bool ip_masquerade_done:1;
-        bool manage_temporary_address:1;
-        bool home_address:1;
-        bool prefix_route:1;
-        bool autojoin:1;
         AddressFamily duplicate_address_detection;
 
         /* Called when address become ready */
         address_ready_callback_t callback;
 
         sd_ipv4acd *acd;
-
-        LIST_FIELDS(Address, addresses);
-};
+} Address;
 
 int address_new(Address **ret);
-void address_free(Address *address);
-int address_add_foreign(Link *link, int family, const union in_addr_union *in_addr, unsigned char prefixlen, Address **ret);
-int address_add(Link *link, int family, const union in_addr_union *in_addr, unsigned char prefixlen, Address **ret);
-int address_get(Link *link, int family, const union in_addr_union *in_addr, unsigned char prefixlen, Address **ret);
-bool address_exists(Link *link, int family, const union in_addr_union *in_addr);
-int address_update(Address *address, unsigned char flags, unsigned char scope, const struct ifa_cacheinfo *cinfo);
-int address_drop(Address *address);
-int address_configure(Address *address, Link *link, link_netlink_message_handler_t callback, bool update, Address **ret);
-int address_remove(Address *address, Link *link, link_netlink_message_handler_t callback);
-bool address_equal(Address *a1, Address *a2);
+Address *address_free(Address *address);
+int address_get(Link *link, const Address *in, Address **ret);
+int address_configure_handler_internal(sd_netlink *rtnl, sd_netlink_message *m, Link *link, const char *error_msg);
+int address_remove(const Address *address, Link *link);
+bool address_equal(const Address *a1, const Address *a2);
 bool address_is_ready(const Address *a);
-int address_section_verify(Address *a);
-int configure_ipv4_duplicate_address_detection(Link *link, Address *address);
+void address_set_broadcast(Address *a);
 
-int generate_ipv6_eui_64_address(Link *link, struct in6_addr *ret);
+int generate_ipv6_eui_64_address(const Link *link, struct in6_addr *ret);
 
 DEFINE_NETWORK_SECTION_FUNCTIONS(Address, address_free);
+
+int link_drop_addresses(Link *link);
+int link_drop_foreign_addresses(Link *link);
+bool link_address_is_dynamic(const Link *link, const Address *address);
+int link_get_ipv6_address(Link *link, const struct in6_addr *address, Address **ret);
+int link_get_ipv4_address(Link *link, const struct in_addr *address, unsigned char prefixlen, Address **ret);
+int manager_has_address(Manager *manager, int family, const union in_addr_union *address, bool check_ready);
+
+void ipv4_dad_unref(Link *link);
+int ipv4_dad_stop(Link *link);
+int ipv4_dad_update_mac(Link *link);
+
+int link_request_address(
+                Link *link,
+                Address *address,
+                bool consume_object,
+                unsigned *message_counter,
+                link_netlink_message_handler_t netlink_handler,
+                Request **ret);
+int link_request_static_addresses(Link *link);
+int request_process_address(Request *req);
+
+int manager_rtnl_process_address(sd_netlink *nl, sd_netlink_message *message, Manager *m);
+
+void network_drop_invalid_addresses(Network *network);
 
 void address_hash_func(const Address *a, struct siphash *state);
 int address_compare_func(const Address *a1, const Address *a2);
@@ -85,4 +97,5 @@ CONFIG_PARSER_PROTOTYPE(config_parse_label);
 CONFIG_PARSER_PROTOTYPE(config_parse_lifetime);
 CONFIG_PARSER_PROTOTYPE(config_parse_address_flags);
 CONFIG_PARSER_PROTOTYPE(config_parse_address_scope);
+CONFIG_PARSER_PROTOTYPE(config_parse_address_route_metric);
 CONFIG_PARSER_PROTOTYPE(config_parse_duplicate_address_detection);

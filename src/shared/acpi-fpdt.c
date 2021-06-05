@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <errno.h>
 #include <fcntl.h>
@@ -72,7 +72,7 @@ int acpi_get_boot_usec(usec_t *loader_start, usec_t *loader_exit) {
         struct acpi_fpdt_boot_header hbrec;
         struct acpi_fpdt_boot brec;
 
-        r = read_full_file("/sys/firmware/acpi/tables/FPDT", &buf, &l);
+        r = read_full_virtual_file("/sys/firmware/acpi/tables/FPDT", &buf, &l);
         if (r < 0)
                 return r;
 

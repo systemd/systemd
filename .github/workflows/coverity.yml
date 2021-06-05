@@ -1,0 +1,39 @@
+---
+# vi: ts=2 sw=2 et:
+#
+name: Coverity
+
+on:
+  schedule:
+    # Run Coverity daily at midnight
+    - cron:  '0 0 * * *'
+
+jobs:
+  build:
+    runs-on: ubuntu-20.04
+    if: github.repository == 'systemd/systemd'
+    env:
+      COVERITY_SCAN_BRANCH_PATTERN:     "${{ github.ref}}"
+      COVERITY_SCAN_NOTIFICATION_EMAIL: ""
+      COVERITY_SCAN_PROJECT_NAME:       "${{ github.repository }}"
+      # Set in repo settings -> secrets -> repository secrets
+      COVERITY_SCAN_TOKEN:              "${{ secrets.COVERITY_SCAN_TOKEN }}"
+      CURRENT_REF:                      "${{ github.ref }}"
+    steps:
+      - name: Repository checkout
+        uses: actions/checkout@v1
+      # https://docs.github.com/en/free-pro-team@latest/actions/reference/workflow-commands-for-github-actions#setting-an-environment-variable
+      - name: Set the $COVERITY_SCAN_NOTIFICATION_EMAIL env variable
+        run: echo "COVERITY_SCAN_NOTIFICATION_EMAIL=$(git log -1 ${{ github.sha }} --pretty=\"%aE\")" >> $GITHUB_ENV
+      - name: Install Coverity tools
+        run: tools/get-coverity.sh
+      # Reuse the setup phase of the unit test script to avoid code duplication
+      - name: Install build dependencies
+        run: sudo -E .github/workflows/unit_tests.sh SETUP
+      # Preconfigure with meson to prevent Coverity from capturing meson metadata
+      - name: Preconfigure the build directory
+        run: meson cov-build -Dman=false
+      - name: Build
+        run: tools/coverity.sh build
+      - name: Upload the results
+        run: tools/coverity.sh upload

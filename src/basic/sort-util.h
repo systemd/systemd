@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
 #include <stdlib.h>
@@ -68,3 +68,5 @@ static inline void qsort_r_safe(void *base, size_t nmemb, size_t size, __compar_
                 int (*_func_)(const typeof(p[0])*, const typeof(p[0])*, typeof(userdata)) = func; \
                 qsort_r_safe((p), (n), sizeof((p)[0]), (__compar_d_fn_t) _func_, userdata); \
         })
+
+int cmp_int(const int *a, const int *b);

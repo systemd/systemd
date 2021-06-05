@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
 #if !ENABLE_EFI
@@ -10,7 +10,6 @@
 
 #include "sd-id128.h"
 
-#include "efi/loader-features.h"
 #include "time-util.h"
 
 #define EFI_VENDOR_LOADER  SD_ID128_MAKE(4a,67,b0,82,0a,4c,41,cf,b6,c7,44,0b,29,bb,8c,4f)

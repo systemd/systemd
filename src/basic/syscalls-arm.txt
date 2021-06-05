@@ -1,0 +1,594 @@
+_llseek	140
+_newselect	142
+_sysctl	149
+accept	285
+accept4	366
+access	33
+acct	51
+add_key	309
+adjtimex	124
+alarm
+arc_gettls
+arc_settls
+arc_usr_cmpxchg
+arch_prctl
+arm_fadvise64_64	270
+atomic_barrier
+atomic_cmpxchg_32
+bdflush	134
+bind	282
+bpf	386
+brk	45
+cachectl
+cacheflush
+capget	184
+capset	185
+chdir	12
+chmod	15
+chown	182
+chown32	212
+chroot	61
+clock_adjtime	372
+clock_adjtime64	405
+clock_getres	264
+clock_getres_time64	406
+clock_gettime	263
+clock_gettime64	403
+clock_nanosleep	265
+clock_nanosleep_time64	407
+clock_settime	262
+clock_settime64	404
+clone	120
+clone2
+clone3	435
+close	6
+close_range	436
+connect	283
+copy_file_range	391
+creat	8
+create_module
+delete_module	129
+dipc
+dup	41
+dup2	63
+dup3	358
+epoll_create	250
+epoll_create1	357
+epoll_ctl	251
+epoll_ctl_old
+epoll_pwait	346
+epoll_pwait2	441
+epoll_wait	252
+epoll_wait_old
+eventfd	351
+eventfd2	356
+exec_with_loader
+execv
+execve	11
+execveat	387
+exit	1
+exit_group	248
+faccessat	334
+faccessat2	439
+fadvise64
+fadvise64_64
+fallocate	352
+fanotify_init	367
+fanotify_mark	368
+fchdir	133
+fchmod	94
+fchmodat	333
+fchown	95
+fchown32	207
+fchownat	325
+fcntl	55
+fcntl64	221
+fdatasync	148
+fgetxattr	231
+finit_module	379
+flistxattr	234
+flock	143
+fork	2
+fp_udfiex_crtl
+fremovexattr	237
+fsconfig	431
+fsetxattr	228
+fsmount	432
+fsopen	430
+fspick	433
+fstat	108
+fstat64	197
+fstatat64	327
+fstatfs	100
+fstatfs64	267
+fsync	118
+ftruncate	93
+ftruncate64	194
+futex	240
+futex_time64	422
+futimesat	326
+get_kernel_syms
+get_mempolicy	320
+get_robust_list	339
+get_thread_area
+getcpu	345
+getcwd	183
+getdents	141
+getdents64	217
+getdomainname
+getdtablesize
+getegid	50
+getegid32	202
+geteuid	49
+geteuid32	201
+getgid	47
+getgid32	200
+getgroups	80
+getgroups32	205
+gethostname
+getitimer	105
+getpagesize
+getpeername	287
+getpgid	132
+getpgrp	65
+getpid	20
+getpmsg
+getppid	64
+getpriority	96
+getrandom	384
+getresgid	171
+getresgid32	211
+getresuid	165
+getresuid32	209
+getrlimit
+getrusage	77
+getsid	147
+getsockname	286
+getsockopt	295
+gettid	224
+gettimeofday	78
+getuid	24
+getuid32	199
+getunwind
+getxattr	229
+getxgid
+getxpid
+getxuid
+idle
+init_module	128
+inotify_add_watch	317
+inotify_init	316
+inotify_init1	360
+inotify_rm_watch	318
+io_cancel	247
+io_destroy	244
+io_getevents	245
+io_pgetevents	399
+io_pgetevents_time64	416
+io_setup	243
+io_submit	246
+io_uring_enter	426
+io_uring_register	427
+io_uring_setup	425
+ioctl	54
+ioperm
+iopl
+ioprio_get	315
+ioprio_set	314
+ipc
+kcmp	378
+kern_features
+kexec_file_load	401
+kexec_load	347
+keyctl	311
+kill	37
+lchown	16
+lchown32	198
+lgetxattr	230
+link	9
+linkat	330
+listen	284
+listxattr	232
+llistxattr	233
+lookup_dcookie	249
+lremovexattr	236
+lseek	19
+lsetxattr	227
+lstat	107
+lstat64	196
+madvise	220
+mbind	319
+membarrier	389
+memfd_create	385
+memory_ordering
+migrate_pages	400
+mincore	219
+mkdir	39
+mkdirat	323
+mknod	14
+mknodat	324
+mlock	150
+mlock2	390
+mlockall	152
+mmap
+mmap2	192
+modify_ldt
+mount	21
+mount_setattr	442
+move_mount	429
+move_pages	344
+mprotect	125
+mq_getsetattr	279
+mq_notify	278
+mq_open	274
+mq_timedreceive	277
+mq_timedreceive_time64	419
+mq_timedsend	276
+mq_timedsend_time64	418
+mq_unlink	275
+mremap	163
+msgctl	304
+msgget	303
+msgrcv	302
+msgsnd	301
+msync	144
+multiplexer
+munlock	151
+munlockall	153
+munmap	91
+name_to_handle_at	370
+nanosleep	162
+newfstatat
+nfsservctl	169
+nice	34
+old_adjtimex
+old_getpagesize
+oldfstat
+oldlstat
+oldolduname
+oldstat
+oldumount
+olduname
+open	5
+open_by_handle_at	371
+open_tree	428
+openat	322
+openat2	437
+or1k_atomic
+osf_adjtime
+osf_afs_syscall
+osf_alt_plock
+osf_alt_setsid
+osf_alt_sigpending
+osf_asynch_daemon
+osf_audcntl
+osf_audgen
+osf_chflags
+osf_execve
+osf_exportfs
+osf_fchflags
+osf_fdatasync
+osf_fpathconf
+osf_fstat
+osf_fstatfs
+osf_fstatfs64
+osf_fuser
+osf_getaddressconf
+osf_getdirentries
+osf_getdomainname
+osf_getfh
+osf_getfsstat
+osf_gethostid
+osf_getitimer
+osf_getlogin
+osf_getmnt
+osf_getrusage
+osf_getsysinfo
+osf_gettimeofday
+osf_kloadcall
+osf_kmodcall
+osf_lstat
+osf_memcntl
+osf_mincore
+osf_mount
+osf_mremap
+osf_msfs_syscall
+osf_msleep
+osf_mvalid
+osf_mwakeup
+osf_naccept
+osf_nfssvc
+osf_ngetpeername
+osf_ngetsockname
+osf_nrecvfrom
+osf_nrecvmsg
+osf_nsendmsg
+osf_ntp_adjtime
+osf_ntp_gettime
+osf_old_creat
+osf_old_fstat
+osf_old_getpgrp
+osf_old_killpg
+osf_old_lstat
+osf_old_open
+osf_old_sigaction
+osf_old_sigblock
+osf_old_sigreturn
+osf_old_sigsetmask
+osf_old_sigvec
+osf_old_stat
+osf_old_vadvise
+osf_old_vtrace
+osf_old_wait
+osf_oldquota
+osf_pathconf
+osf_pid_block
+osf_pid_unblock
+osf_plock
+osf_priocntlset
+osf_profil
+osf_proplist_syscall
+osf_reboot
+osf_revoke
+osf_sbrk
+osf_security
+osf_select
+osf_set_program_attributes
+osf_set_speculative
+osf_sethostid
+osf_setitimer
+osf_setlogin
+osf_setsysinfo
+osf_settimeofday
+osf_shmat
+osf_signal
+osf_sigprocmask
+osf_sigsendset
+osf_sigstack
+osf_sigwaitprim
+osf_sstk
+osf_stat
+osf_statfs
+osf_statfs64
+osf_subsys_info
+osf_swapctl
+osf_swapon
+osf_syscall
+osf_sysinfo
+osf_table
+osf_uadmin
+osf_usleep_thread
+osf_uswitch
+osf_utc_adjtime
+osf_utc_gettime
+osf_utimes
+osf_utsname
+osf_wait4
+osf_waitid
+pause	29
+pciconfig_iobase	271
+pciconfig_read	272
+pciconfig_write	273
+perf_event_open	364
+perfctr
+perfmonctl
+personality	136
+pidfd_getfd	438
+pidfd_open	434
+pidfd_send_signal	424
+pipe	42
+pipe2	359
+pivot_root	218
+pkey_alloc	395
+pkey_free	396
+pkey_mprotect	394
+poll	168
+ppoll	336
+ppoll_time64	414
+prctl	172
+pread64	180
+preadv	361
+preadv2	392
+prlimit64	369
+process_madvise	440
+process_vm_readv	376
+process_vm_writev	377
+pselect6	335
+pselect6_time64	413
+ptrace	26
+pwrite64	181
+pwritev	362
+pwritev2	393
+query_module
+quotactl	131
+read	3
+readahead	225
+readdir
+readlink	85
+readlinkat	332
+readv	145
+reboot	88
+recv	291
+recvfrom	292
+recvmmsg	365
+recvmmsg_time64	417
+recvmsg	297
+remap_file_pages	253
+removexattr	235
+rename	38
+renameat	329
+renameat2	382
+request_key	310
+restart_syscall	0
+riscv_flush_icache
+rmdir	40
+rseq	398
+rt_sigaction	174
+rt_sigpending	176
+rt_sigprocmask	175
+rt_sigqueueinfo	178
+rt_sigreturn	173
+rt_sigsuspend	179
+rt_sigtimedwait	177
+rt_sigtimedwait_time64	421
+rt_tgsigqueueinfo	363
+rtas
+s390_guarded_storage
+s390_pci_mmio_read
+s390_pci_mmio_write
+s390_runtime_instr
+s390_sthyi
+sched_get_affinity
+sched_get_priority_max	159
+sched_get_priority_min	160
+sched_getaffinity	242
+sched_getattr	381
+sched_getparam	155
+sched_getscheduler	157
+sched_rr_get_interval	161
+sched_rr_get_interval_time64	423
+sched_set_affinity
+sched_setaffinity	241
+sched_setattr	380
+sched_setparam	154
+sched_setscheduler	156
+sched_yield	158
+seccomp	383
+select
+semctl	300
+semget	299
+semop	298
+semtimedop	312
+semtimedop_time64	420
+send	289
+sendfile	187
+sendfile64	239
+sendmmsg	374
+sendmsg	296
+sendto	290
+set_mempolicy	321
+set_robust_list	338
+set_thread_area
+set_tid_address	256
+setdomainname	121
+setfsgid	139
+setfsgid32	216
+setfsuid	138
+setfsuid32	215
+setgid	46
+setgid32	214
+setgroups	81
+setgroups32	206
+sethae
+sethostname	74
+setitimer	104
+setns	375
+setpgid	57
+setpgrp
+setpriority	97
+setregid	71
+setregid32	204
+setresgid	170
+setresgid32	210
+setresuid	164
+setresuid32	208
+setreuid	70
+setreuid32	203
+setrlimit	75
+setsid	66
+setsockopt	294
+settimeofday	79
+setuid	23
+setuid32	213
+setxattr	226
+sgetmask
+shmat	305
+shmctl	308
+shmdt	306
+shmget	307
+shutdown	293
+sigaction	67
+sigaltstack	186
+signal
+signalfd	349
+signalfd4	355
+sigpending	73
+sigprocmask	126
+sigreturn	119
+sigsuspend	72
+socket	281
+socketcall
+socketpair	288
+splice	340
+spu_create
+spu_run
+ssetmask
+stat	106
+stat64	195
+statfs	99
+statfs64	266
+statx	397
+stime
+subpage_prot
+swapcontext
+swapoff	115
+swapon	87
+switch_endian
+symlink	83
+symlinkat	331
+sync	36
+sync_file_range
+sync_file_range2	341
+syncfs	373
+sys_debug_setcontext
+syscall
+sysfs	135
+sysinfo	116
+syslog	103
+sysmips
+tee	342
+tgkill	268
+time
+timer_create	257
+timer_delete	261
+timer_getoverrun	260
+timer_gettime	259
+timer_gettime64	408
+timer_settime	258
+timer_settime64	409
+timerfd
+timerfd_create	350
+timerfd_gettime	354
+timerfd_gettime64	410
+timerfd_settime	353
+timerfd_settime64	411
+times	43
+tkill	238
+truncate	92
+truncate64	193
+ugetrlimit	191
+umask	60
+umount
+umount2	52
+uname	122
+unlink	10
+unlinkat	328
+unshare	337
+uselib	86
+userfaultfd	388
+ustat	62
+utime
+utimensat	348
+utimensat_time64	412
+utimes	269
+utrap_install
+vfork	190
+vhangup	111
+vm86
+vm86old
+vmsplice	343
+wait4	114
+waitid	280
+waitpid
+write	4
+writev	146

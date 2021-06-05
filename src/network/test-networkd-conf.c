@@ -1,15 +1,12 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include "ether-addr-util.h"
 #include "hexdecoct.h"
 #include "log.h"
 #include "macro.h"
-#include "set.h"
-#include "string-util.h"
-
-#include "network-internal.h"
+#include "net-condition.h"
 #include "networkd-conf.h"
 #include "networkd-network.h"
+#include "strv.h"
 
 static void test_config_parse_duid_type_one(const char *rvalue, int ret, DUIDType expected, usec_t expected_time) {
         DUID actual = {};
@@ -70,12 +67,11 @@ static void test_config_parse_hwaddr_one(const char *rvalue, int ret, const stru
 
 static void test_config_parse_hwaddrs_one(const char *rvalue, const struct ether_addr* list, size_t n) {
         _cleanup_set_free_free_ Set *s = NULL;
-        size_t m;
 
         assert_se(config_parse_hwaddrs("network", "filename", 1, "section", 1, "lvalue", 0, rvalue, &s, NULL) == 0);
         assert_se(set_size(s) == n);
 
-        for (m = 0; m < n; m++) {
+        for (size_t m = 0; m < n; m++) {
                 _cleanup_free_ struct ether_addr *q = NULL;
 
                 assert_se(q = set_remove(s, &list[m]));
@@ -174,16 +170,18 @@ static void test_config_parse_address_one(const char *rvalue, int family, unsign
         assert_se(network = new0(Network, 1));
         network->n_ref = 1;
         assert_se(network->filename = strdup("hogehoge.network"));
-        assert_se(config_parse_match_ifnames("network", "filename", 1, "section", 1, "Name", 0, "*", &network->match_name, network) == 0);
+        assert_se(config_parse_match_ifnames("network", "filename", 1, "section", 1, "Name", 0, "*", &network->match.ifname, network) == 0);
         assert_se(config_parse_address("network", "filename", 1, "section", 1, "Address", 0, rvalue, network, network) == 0);
-        assert_se(network->n_static_addresses == 1);
+        assert_se(ordered_hashmap_size(network->addresses_by_section) == 1);
         assert_se(network_verify(network) >= 0);
-        assert_se(network->n_static_addresses == n_addresses);
+        assert_se(ordered_hashmap_size(network->addresses_by_section) == n_addresses);
         if (n_addresses > 0) {
-                assert_se(network->static_addresses);
-                assert_se(network->static_addresses->prefixlen == prefixlen);
-                assert_se(network->static_addresses->family == family);
-                assert_se(in_addr_equal(family, &network->static_addresses->in_addr, u));
+                Address *a;
+
+                assert_se(a = ordered_hashmap_first(network->addresses_by_section));
+                assert_se(a->prefixlen == prefixlen);
+                assert_se(a->family == family);
+                assert_se(in_addr_equal(family, &a->in_addr, u));
                 /* TODO: check Address.in_addr and Address.broadcast */
         }
 }
@@ -222,7 +220,7 @@ static void test_config_parse_match_ifnames(void) {
         assert_se(config_parse_match_ifnames("network", "filename", 1, "section", 1, "Name", 0, "!baz", &names, NULL) == 0);
         assert_se(config_parse_match_ifnames("network", "filename", 1, "section", 1, "Name", 0, "aaa bbb ccc", &names, NULL) == 0);
 
-        strv_equal(names, STRV_MAKE("!hoge", "!hogehoge", "!foo", "!baz", "aaa", "bbb", "ccc"));
+        assert_se(strv_equal(names, STRV_MAKE("!hoge", "!hogehoge", "!foo", "!baz", "aaa", "bbb", "ccc")));
 }
 
 static void test_config_parse_match_strv(void) {

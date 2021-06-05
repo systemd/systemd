@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: LGPL-2.1+
+# SPDX-License-Identifier: LGPL-2.1-or-later
 #
 #  Copyright © 2016 Alexander Shopov <ash@kambanaria.org>
 
@@ -81,7 +81,7 @@ Documentation: man:core(5)
 Subject: Създадена е нова сесия № @SESSION_ID@ за потребителя „@USER_ID@“
 Defined-By: systemd
 Support: %SUPPORT_URL%
-Documentation: https://www.freedesktop.org/wiki/Software/systemd/multiseat
+Documentation: sd-login(3)
 
 За потребителя „@USER_ID@“ е създадена нова сесия № @SESSION_ID@.
 
@@ -91,7 +91,7 @@ Documentation: https://www.freedesktop.org/wiki/Software/systemd/multiseat
 Subject: Сесия № @SESSION_ID@ приключи
 Defined-By: systemd
 Support: %SUPPORT_URL%
-Documentation: https://www.freedesktop.org/wiki/Software/systemd/multiseat
+Documentation: sd-login(3)
 
 Сесия № @SESSION_ID@ приключи работа.
 
@@ -99,7 +99,7 @@ Documentation: https://www.freedesktop.org/wiki/Software/systemd/multiseat
 Subject: Налично е ново работно място № @SEAT_ID@
 Defined-By: systemd
 Support: %SUPPORT_URL%
-Documentation: https://www.freedesktop.org/wiki/Software/systemd/multiseat
+Documentation: sd-login(3)
 
 Новото работно място № @SEAT_ID@ е настроено и готово за работа.
 
@@ -107,7 +107,7 @@ Documentation: https://www.freedesktop.org/wiki/Software/systemd/multiseat
 Subject: Работното място № @SEAT_ID@ е премахнато
 Defined-By: systemd
 Support: %SUPPORT_URL%
-Documentation: https://www.freedesktop.org/wiki/Software/systemd/multiseat
+Documentation: sd-login(3)
 
 Работното място № @SEAT_ID@ вече не е налично.
 

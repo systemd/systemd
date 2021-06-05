@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 set -e
+
 TEST_DESCRIPTION="Run unit tests under containers"
 RUN_IN_UNPRIVILEGED_CONTAINER=yes
 
@@ -11,53 +12,63 @@ frobnicate!
 $KERNEL_APPEND
 "
 
-. $TEST_BASE_DIR/test-functions
+# shellcheck source=test/test-functions
+. "${TEST_BASE_DIR:?}/test-functions"
 
 check_result_nspawn() {
-    local _ret=1
-    [[ -e $1/testok ]] && _ret=0
-    if [[ -s $1/failed ]]; then
-        _ret=$(($_ret+1))
+    local workspace="${1:?}"
+    local ret=1
+
+    [[ -e "$workspace/testok" ]] && ret=0
+
+    if [[ -s "$workspace/failed" ]]; then
+        ret=$((ret + 1))
         echo "=== Failed test log ==="
-        cat $1/failed
+        cat "$workspace/failed"
     else
-        if [[ -s $1/skipped ]]; then
+        if [[ -s "$workspace/skipped" ]]; then
             echo "=== Skipped test log =="
-            cat $1/skipped
+            cat "$workspace/skipped"
         fi
-        if [[ -s $1/testok ]]; then
+        if [[ -s "$workspace/testok" ]]; then
             echo "=== Passed tests ==="
-            cat $1/testok
+            cat "$workspace/testok"
         fi
     fi
-    save_journal $1/var/log/journal
-    _umount_dir $initdir
-    [[ -n "$TIMED_OUT" ]] && _ret=$(($_ret+1))
-    return $_ret
+
+    save_journal "$workspace/var/log/journal"
+    _umount_dir "${initdir:?}"
+
+    [[ -n "${TIMED_OUT:=}" ]] && ret=1
+    return $ret
 }
 
 check_result_qemu() {
-    local _ret=1
+    local ret=1
+
     mount_initdir
-    [[ -e $initdir/testok ]] && _ret=0
-    if [[ -s $initdir/failed ]]; then
-        _ret=$(($_ret+1))
+    [[ -e "${initdir:?}/testok" ]] && ret=0
+
+    if [[ -s "$initdir/failed" ]]; then
+        ret=$((ret + 1))
         echo "=== Failed test log ==="
-        cat $initdir/failed
+        cat "$initdir/failed"
     else
-        if [[ -s $initdir/skipped ]]; then
+        if [[ -s "$initdir/skipped" ]]; then
             echo "=== Skipped test log =="
-            cat $initdir/skipped
+            cat "$initdir/skipped"
         fi
-        if [[ -s $initdir/testok ]]; then
+        if [[ -s "$initdir/testok" ]]; then
             echo "=== Passed tests ==="
-            cat $initdir/testok
+            cat "$initdir/testok"
         fi
     fi
-    save_journal $initdir/var/log/journal
-    _umount_dir $initdir
-    [[ -n "$TIMED_OUT" ]] && _ret=$(($_ret+1))
-    return $_ret
+
+    save_journal "$initdir/var/log/journal"
+    _umount_dir "$initdir"
+
+    [[ -n "${TIMED_OUT:=}" ]] && ret=1
+    return $ret
 }
 
-do_test "$@" 02
+do_test "$@"

@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <errno.h>
 #include <stdbool.h>
@@ -29,23 +29,23 @@
  * and "%" used for escaping. */
 #define POSSIBLE_SPECIFIERS ALPHANUMERICAL "%"
 
-int specifier_printf(const char *text, const Specifier table[], const void *userdata, char **_ret) {
-        size_t l, allocated = 0;
-        _cleanup_free_ char *ret = NULL;
-        char *t;
-        const char *f;
+int specifier_printf(const char *text, size_t max_length, const Specifier table[], const void *userdata, char **ret) {
+        _cleanup_free_ char *result = NULL;
         bool percent = false;
+        const char *f;
+        size_t l;
+        char *t;
         int r;
 
         assert(text);
         assert(table);
 
         l = strlen(text);
-        if (!GREEDY_REALLOC(ret, allocated, l + 1))
+        if (!GREEDY_REALLOC(result, l + 1))
                 return -ENOMEM;
-        t = ret;
+        t = result;
 
-        for (f = text; *f; f++, l--)
+        for (f = text; *f != '\0'; f++, l--) {
                 if (percent) {
                         if (*f == '%')
                                 *(t++) = '%';
@@ -64,13 +64,13 @@ int specifier_printf(const char *text, const Specifier table[], const void *user
                                         if (r < 0)
                                                 return r;
 
-                                        j = t - ret;
+                                        j = t - result;
                                         k = strlen(w);
 
-                                        if (!GREEDY_REALLOC(ret, allocated, j + k + l + 1))
+                                        if (!GREEDY_REALLOC(result, j + k + l + 1))
                                                 return -ENOMEM;
-                                        memcpy(ret + j, w, k);
-                                        t = ret + j + k;
+                                        memcpy(result + j, w, k);
+                                        t = result + j + k;
                                 } else if (strchr(POSSIBLE_SPECIFIERS, *f))
                                         /* Oops, an unknown specifier. */
                                         return -EBADSLT;
@@ -86,19 +86,19 @@ int specifier_printf(const char *text, const Specifier table[], const void *user
                 else
                         *(t++) = *f;
 
-        /* If string ended with a stray %, also end with % */
-        if (percent)
-                *(t++) = '%';
-        *(t++) = 0;
-
-        /* Try to deallocate unused bytes, but don't sweat it too much */
-        if ((size_t)(t - ret) < allocated) {
-                t = realloc(ret, t - ret);
-                if (t)
-                        ret = t;
+                if ((size_t) (t - result) > max_length)
+                        return -ENAMETOOLONG;
         }
 
-        *_ret = TAKE_PTR(ret);
+        /* If string ended with a stray %, also end with % */
+        if (percent) {
+                *(t++) = '%';
+                if ((size_t) (t - result) > max_length)
+                        return -ENAMETOOLONG;
+        }
+        *(t++) = 0;
+
+        *ret = TAKE_PTR(result);
         return 0;
 }
 
@@ -124,7 +124,7 @@ int specifier_machine_id(char specifier, const void *data, const void *userdata,
         if (r < 0)
                 return r;
 
-        n = new(char, 33);
+        n = new(char, SD_ID128_STRING_MAX);
         if (!n)
                 return -ENOMEM;
 
@@ -141,7 +141,7 @@ int specifier_boot_id(char specifier, const void *data, const void *userdata, ch
         if (r < 0)
                 return r;
 
-        n = new(char, 33);
+        n = new(char, SD_ID128_STRING_MAX);
         if (!n)
                 return -ENOMEM;
 
@@ -203,7 +203,7 @@ static int specifier_os_release_common(const char *field, char **ret) {
         char *t = NULL;
         int r;
 
-        r = parse_os_release(NULL, field, &t, NULL);
+        r = parse_os_release(NULL, field, &t);
         if (r < 0)
                 return r;
         if (!t) {
@@ -232,6 +232,14 @@ int specifier_os_build_id(char specifier, const void *data, const void *userdata
 
 int specifier_os_variant_id(char specifier, const void *data, const void *userdata, char **ret) {
         return specifier_os_release_common("VARIANT_ID", ret);
+}
+
+int specifier_os_image_id(char specifier, const void *data, const void *userdata, char **ret) {
+        return specifier_os_release_common("IMAGE_ID", ret);
+}
+
+int specifier_os_image_version(char specifier, const void *data, const void *userdata, char **ret) {
+        return specifier_os_release_common("IMAGE_VERSION", ret);
 }
 
 int specifier_group_name(char specifier, const void *data, const void *userdata, char **ret) {
@@ -356,3 +364,9 @@ int specifier_escape_strv(char **l, char ***ret) {
 
         return 0;
 }
+
+const Specifier system_and_tmp_specifier_table[] = {
+        COMMON_SYSTEM_SPECIFIERS,
+        COMMON_TMP_SPECIFIERS,
+        {}
+};

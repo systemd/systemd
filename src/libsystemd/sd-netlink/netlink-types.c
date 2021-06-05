@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <netinet/in.h>
 #include <stdint.h>
@@ -9,6 +9,7 @@
 #include <linux/genetlink.h>
 #include <linux/ip.h>
 #include <linux/if.h>
+#include <linux/batman_adv.h>
 #include <linux/can/netlink.h>
 #include <linux/fib_rules.h>
 #include <linux/fou.h>
@@ -19,6 +20,8 @@
 #include <linux/if_macsec.h>
 #include <linux/if_tunnel.h>
 #include <linux/l2tp.h>
+#include <linux/netfilter/nf_tables.h>
+#include <linux/netfilter/nfnetlink.h>
 #include <linux/nexthop.h>
 #include <linux/nl80211.h>
 #include <linux/pkt_sched.h>
@@ -80,6 +83,10 @@ static const NLTypeSystem empty_type_system = {
         .types = empty_types,
 };
 
+static const NLType rtnl_link_info_data_batadv_types[] = {
+        [IFLA_BATADV_ALGO_NAME] = { .type = NETLINK_TYPE_STRING, .size = 20 },
+};
+
 static const NLType rtnl_link_info_data_veth_types[] = {
         [VETH_INFO_PEER]  = { .type = NETLINK_TYPE_NESTED, .type_system = &rtnl_link_type_system, .size = sizeof(struct ifinfomsg) },
 };
@@ -103,10 +110,13 @@ static const NLTypeSystem rtnl_macvlan_macaddr_type_system = {
 };
 
 static const NLType rtnl_link_info_data_macvlan_types[] = {
-        [IFLA_MACVLAN_MODE]  = { .type = NETLINK_TYPE_U32 },
-        [IFLA_MACVLAN_FLAGS] = { .type = NETLINK_TYPE_U16 },
-        [IFLA_MACVLAN_MACADDR_MODE] = { .type = NETLINK_TYPE_U32 },
-        [IFLA_MACVLAN_MACADDR_DATA] = { .type = NETLINK_TYPE_NESTED, .type_system = &rtnl_macvlan_macaddr_type_system },
+        [IFLA_MACVLAN_MODE]              = { .type = NETLINK_TYPE_U32 },
+        [IFLA_MACVLAN_FLAGS]             = { .type = NETLINK_TYPE_U16 },
+        [IFLA_MACVLAN_MACADDR_MODE]      = { .type = NETLINK_TYPE_U32 },
+        [IFLA_MACVLAN_MACADDR_DATA]      = { .type = NETLINK_TYPE_NESTED, .type_system = &rtnl_macvlan_macaddr_type_system },
+        [IFLA_MACVLAN_MACADDR_COUNT]     = { .type = NETLINK_TYPE_U32 },
+        [IFLA_MACVLAN_BC_QUEUE_LEN]      = { .type = NETLINK_TYPE_U32 },
+        [IFLA_MACVLAN_BC_QUEUE_LEN_USED] = { .type = NETLINK_TYPE_REJECT },
 };
 
 static const NLType rtnl_link_info_data_bridge_types[] = {
@@ -150,13 +160,20 @@ static const NLType rtnl_link_info_data_bridge_types[] = {
         [IFLA_BR_MCAST_IGMP_VERSION]         = { .type = NETLINK_TYPE_U8 },
 };
 
+static const NLType rtnl_vlan_qos_map_types[] = {
+        [IFLA_VLAN_QOS_MAPPING]        = { .size = sizeof(struct ifla_vlan_qos_mapping) },
+};
+
+static const NLTypeSystem rtnl_vlan_qos_map_type_system = {
+        .count = ELEMENTSOF(rtnl_vlan_qos_map_types),
+        .types = rtnl_vlan_qos_map_types,
+};
+
 static const NLType rtnl_link_info_data_vlan_types[] = {
         [IFLA_VLAN_ID]          = { .type = NETLINK_TYPE_U16 },
-/*
-        [IFLA_VLAN_FLAGS]       = { .len = sizeof(struct ifla_vlan_flags) },
-        [IFLA_VLAN_EGRESS_QOS]  = { .type = NETLINK_TYPE_NESTED },
-        [IFLA_VLAN_INGRESS_QOS] = { .type = NETLINK_TYPE_NESTED },
-*/
+        [IFLA_VLAN_FLAGS]       = { .size = sizeof(struct ifla_vlan_flags) },
+        [IFLA_VLAN_EGRESS_QOS]  = { .type = NETLINK_TYPE_NESTED, .type_system = &rtnl_vlan_qos_map_type_system },
+        [IFLA_VLAN_INGRESS_QOS] = { .type = NETLINK_TYPE_NESTED, .type_system = &rtnl_vlan_qos_map_type_system },
         [IFLA_VLAN_PROTOCOL]    = { .type = NETLINK_TYPE_U16 },
 };
 
@@ -391,6 +408,7 @@ static const char* const nl_union_link_info_data_table[] = {
         [NL_UNION_LINK_INFO_DATA_XFRM] = "xfrm",
         [NL_UNION_LINK_INFO_DATA_IFB] = "ifb",
         [NL_UNION_LINK_INFO_DATA_BAREUDP] = "bareudp",
+        [NL_UNION_LINK_INFO_DATA_BATADV] = "batadv",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(nl_union_link_info_data, NLUnionLinkInfoData);
@@ -448,6 +466,8 @@ static const NLTypeSystem rtnl_link_info_data_type_systems[] = {
                                                        .types = rtnl_link_info_data_xfrm_types },
         [NL_UNION_LINK_INFO_DATA_BAREUDP] =          { .count = ELEMENTSOF(rtnl_link_info_data_bareudp_types),
                                                        .types = rtnl_link_info_data_bareudp_types },
+        [NL_UNION_LINK_INFO_DATA_BATADV] =           { .count = ELEMENTSOF(rtnl_link_info_data_batadv_types),
+                                                       .types = rtnl_link_info_data_batadv_types },
 };
 
 static const NLTypeSystemUnion rtnl_link_info_data_type_system_union = {
@@ -640,6 +660,8 @@ static const NLType rtnl_link_types[] = {
         [IFLA_PROMISCUITY]      = { .type = NETLINK_TYPE_U32 },
         [IFLA_NUM_TX_QUEUES]    = { .type = NETLINK_TYPE_U32 },
         [IFLA_NUM_RX_QUEUES]    = { .type = NETLINK_TYPE_U32 },
+        [IFLA_GSO_MAX_SEGS]     = { .type = NETLINK_TYPE_U32 },
+        [IFLA_GSO_MAX_SIZE]     = { .type = NETLINK_TYPE_U32 },
         [IFLA_CARRIER]          = { .type = NETLINK_TYPE_U8 },
 /*
         [IFLA_PHYS_PORT_ID]     = { .type = NETLINK_TYPE_BINARY, .len = MAX_PHYS_PORT_ID_LEN },
@@ -661,13 +683,13 @@ static const NLType rtnl_address_types[] = {
         [IFA_ADDRESS]           = { .type = NETLINK_TYPE_IN_ADDR },
         [IFA_LOCAL]             = { .type = NETLINK_TYPE_IN_ADDR },
         [IFA_LABEL]             = { .type = NETLINK_TYPE_STRING, .size = IFNAMSIZ - 1 },
-        [IFA_BROADCAST]         = { .type = NETLINK_TYPE_IN_ADDR }, /* 6? */
+        [IFA_BROADCAST]         = { .type = NETLINK_TYPE_IN_ADDR },
+        [IFA_ANYCAST]           = { .type = NETLINK_TYPE_IN_ADDR },
         [IFA_CACHEINFO]         = { .type = NETLINK_TYPE_CACHE_INFO, .size = sizeof(struct ifa_cacheinfo) },
-/*
-        [IFA_ANYCAST],
-        [IFA_MULTICAST],
-*/
+        [IFA_MULTICAST]         = { .type = NETLINK_TYPE_IN_ADDR },
         [IFA_FLAGS]             = { .type = NETLINK_TYPE_U32 },
+        [IFA_RT_PRIORITY]       = { .type = NETLINK_TYPE_U32 },
+        [IFA_TARGET_NETNSID]    = { .type = NETLINK_TYPE_S32 },
 };
 
 static const NLTypeSystem rtnl_address_type_system = {
@@ -716,17 +738,18 @@ static const NLType rtnl_route_types[] = {
         [RTA_TABLE]             = { .type = NETLINK_TYPE_U32 },
         [RTA_MARK]              = { .type = NETLINK_TYPE_U32 },
         [RTA_MFC_STATS]         = { .type = NETLINK_TYPE_U64 },
-        [RTA_VIA]               = { .type = NETLINK_TYPE_U32 },
+        [RTA_VIA]               = { /* See struct rtvia */ },
         [RTA_NEWDST]            = { .type = NETLINK_TYPE_U32 },
         [RTA_PREF]              = { .type = NETLINK_TYPE_U8 },
-        [RTA_EXPIRES]           = { .type = NETLINK_TYPE_U32 },
         [RTA_ENCAP_TYPE]        = { .type = NETLINK_TYPE_U16 },
         [RTA_ENCAP]             = { .type = NETLINK_TYPE_NESTED }, /* Multiple type systems i.e. LWTUNNEL_ENCAP_MPLS/LWTUNNEL_ENCAP_IP/LWTUNNEL_ENCAP_ILA etc... */
+        [RTA_EXPIRES]           = { .type = NETLINK_TYPE_U32 },
         [RTA_UID]               = { .type = NETLINK_TYPE_U32 },
         [RTA_TTL_PROPAGATE]     = { .type = NETLINK_TYPE_U8 },
         [RTA_IP_PROTO]          = { .type = NETLINK_TYPE_U8 },
         [RTA_SPORT]             = { .type = NETLINK_TYPE_U16 },
         [RTA_DPORT]             = { .type = NETLINK_TYPE_U16 },
+        [RTA_NH_ID]             = { .type = NETLINK_TYPE_U32 },
 };
 
 static const NLTypeSystem rtnl_route_type_system = {
@@ -790,8 +813,16 @@ static const NLTypeSystem rtnl_routing_policy_rule_type_system = {
 
 static const NLType rtnl_nexthop_types[] = {
         [NHA_ID]                  = { .type = NETLINK_TYPE_U32 },
+        [NHA_GROUP]               = { /* array of struct nexthop_grp */ },
+        [NHA_GROUP_TYPE]          = { .type = NETLINK_TYPE_U16 },
+        [NHA_BLACKHOLE]           = { .type = NETLINK_TYPE_FLAG },
         [NHA_OIF]                 = { .type = NETLINK_TYPE_U32 },
         [NHA_GATEWAY]             = { .type = NETLINK_TYPE_IN_ADDR },
+        [NHA_ENCAP_TYPE]          = { .type = NETLINK_TYPE_U16 },
+        [NHA_ENCAP]               = { .type = NETLINK_TYPE_NESTED },
+        [NHA_GROUPS]              = { .type = NETLINK_TYPE_FLAG },
+        [NHA_MASTER]              = { .type = NETLINK_TYPE_U32 },
+        [NHA_FDB]                 = { .type = NETLINK_TYPE_FLAG },
 };
 
 static const NLTypeSystem rtnl_nexthop_type_system = {
@@ -1025,9 +1056,9 @@ static const NLType rtnl_types[] = {
         [RTM_NEWADDRLABEL] = { .type = NETLINK_TYPE_NESTED, .type_system = &rtnl_addrlabel_type_system, .size = sizeof(struct ifaddrlblmsg) },
         [RTM_DELADDRLABEL] = { .type = NETLINK_TYPE_NESTED, .type_system = &rtnl_addrlabel_type_system, .size = sizeof(struct ifaddrlblmsg) },
         [RTM_GETADDRLABEL] = { .type = NETLINK_TYPE_NESTED, .type_system = &rtnl_addrlabel_type_system, .size = sizeof(struct ifaddrlblmsg) },
-        [RTM_NEWRULE]      = { .type = NETLINK_TYPE_NESTED, .type_system = &rtnl_routing_policy_rule_type_system, .size = sizeof(struct rtmsg) },
-        [RTM_DELRULE]      = { .type = NETLINK_TYPE_NESTED, .type_system = &rtnl_routing_policy_rule_type_system, .size = sizeof(struct rtmsg) },
-        [RTM_GETRULE]      = { .type = NETLINK_TYPE_NESTED, .type_system = &rtnl_routing_policy_rule_type_system, .size = sizeof(struct rtmsg) },
+        [RTM_NEWRULE]      = { .type = NETLINK_TYPE_NESTED, .type_system = &rtnl_routing_policy_rule_type_system, .size = sizeof(struct fib_rule_hdr) },
+        [RTM_DELRULE]      = { .type = NETLINK_TYPE_NESTED, .type_system = &rtnl_routing_policy_rule_type_system, .size = sizeof(struct fib_rule_hdr) },
+        [RTM_GETRULE]      = { .type = NETLINK_TYPE_NESTED, .type_system = &rtnl_routing_policy_rule_type_system, .size = sizeof(struct fib_rule_hdr) },
         [RTM_NEWNEXTHOP]   = { .type = NETLINK_TYPE_NESTED, .type_system = &rtnl_nexthop_type_system, .size = sizeof(struct nhmsg) },
         [RTM_DELNEXTHOP]   = { .type = NETLINK_TYPE_NESTED, .type_system = &rtnl_nexthop_type_system, .size = sizeof(struct nhmsg) },
         [RTM_GETNEXTHOP]   = { .type = NETLINK_TYPE_NESTED, .type_system = &rtnl_nexthop_type_system, .size = sizeof(struct nhmsg) },
@@ -1303,6 +1334,83 @@ static const NLTypeSystem genl_nl80211_cmds_type_system = {
         .types = genl_nl80211_cmds,
 };
 
+static const NLType genl_batadv_types[] = {
+        [BATADV_ATTR_VERSION]                       = { .type = NETLINK_TYPE_STRING },
+        [BATADV_ATTR_ALGO_NAME]                     = { .type = NETLINK_TYPE_STRING },
+        [BATADV_ATTR_MESH_IFINDEX]                  = { .type = NETLINK_TYPE_U32 },
+        [BATADV_ATTR_MESH_IFNAME]                   = { .type = NETLINK_TYPE_STRING, .size = IFNAMSIZ },
+        [BATADV_ATTR_MESH_ADDRESS]                  = { .size = ETH_ALEN },
+        [BATADV_ATTR_HARD_IFINDEX]                  = { .type = NETLINK_TYPE_U32 },
+        [BATADV_ATTR_HARD_IFNAME]                   = { .type = NETLINK_TYPE_STRING, .size = IFNAMSIZ },
+        [BATADV_ATTR_HARD_ADDRESS]                  = { .size = ETH_ALEN },
+        [BATADV_ATTR_ORIG_ADDRESS]                  = { .size = ETH_ALEN },
+        [BATADV_ATTR_TPMETER_RESULT]                = { .type = NETLINK_TYPE_U8 },
+        [BATADV_ATTR_TPMETER_TEST_TIME]             = { .type = NETLINK_TYPE_U32 },
+        [BATADV_ATTR_TPMETER_BYTES]                 = { .type = NETLINK_TYPE_U64 },
+        [BATADV_ATTR_TPMETER_COOKIE]                = { .type = NETLINK_TYPE_U32 },
+        [BATADV_ATTR_PAD]                           = { .type = NETLINK_TYPE_UNSPEC },
+        [BATADV_ATTR_ACTIVE]                        = { .type = NETLINK_TYPE_FLAG },
+        [BATADV_ATTR_TT_ADDRESS]                    = { .size = ETH_ALEN },
+        [BATADV_ATTR_TT_TTVN]                       = { .type = NETLINK_TYPE_U8 },
+        [BATADV_ATTR_TT_LAST_TTVN]                  = { .type = NETLINK_TYPE_U8 },
+        [BATADV_ATTR_TT_CRC32]                      = { .type = NETLINK_TYPE_U32 },
+        [BATADV_ATTR_TT_VID]                        = { .type = NETLINK_TYPE_U16 },
+        [BATADV_ATTR_TT_FLAGS]                      = { .type = NETLINK_TYPE_U32 },
+        [BATADV_ATTR_FLAG_BEST]                     = { .type = NETLINK_TYPE_FLAG },
+        [BATADV_ATTR_LAST_SEEN_MSECS]               = { .type = NETLINK_TYPE_U32 },
+        [BATADV_ATTR_NEIGH_ADDRESS]                 = { .size = ETH_ALEN },
+        [BATADV_ATTR_TQ]                            = { .type = NETLINK_TYPE_U8 },
+        [BATADV_ATTR_THROUGHPUT]                    = { .type = NETLINK_TYPE_U32 },
+        [BATADV_ATTR_BANDWIDTH_UP]                  = { .type = NETLINK_TYPE_U32 },
+        [BATADV_ATTR_BANDWIDTH_DOWN]                = { .type = NETLINK_TYPE_U32 },
+        [BATADV_ATTR_ROUTER]                        = { .size = ETH_ALEN },
+        [BATADV_ATTR_BLA_OWN]                       = { .type = NETLINK_TYPE_FLAG },
+        [BATADV_ATTR_BLA_ADDRESS]                   = { .size = ETH_ALEN },
+        [BATADV_ATTR_BLA_VID]                       = { .type = NETLINK_TYPE_U16 },
+        [BATADV_ATTR_BLA_BACKBONE]                  = { .size = ETH_ALEN },
+        [BATADV_ATTR_BLA_CRC]                       = { .type = NETLINK_TYPE_U16 },
+        [BATADV_ATTR_DAT_CACHE_IP4ADDRESS]          = { .type = NETLINK_TYPE_U32 },
+        [BATADV_ATTR_DAT_CACHE_HWADDRESS]           = { .size = ETH_ALEN },
+        [BATADV_ATTR_DAT_CACHE_VID]                 = { .type = NETLINK_TYPE_U16 },
+        [BATADV_ATTR_MCAST_FLAGS]                   = { .type = NETLINK_TYPE_U32 },
+        [BATADV_ATTR_MCAST_FLAGS_PRIV]              = { .type = NETLINK_TYPE_U32 },
+        [BATADV_ATTR_VLANID]                        = { .type = NETLINK_TYPE_U16 },
+        [BATADV_ATTR_AGGREGATED_OGMS_ENABLED]       = { .type = NETLINK_TYPE_U8 },
+        [BATADV_ATTR_AP_ISOLATION_ENABLED]          = { .type = NETLINK_TYPE_U8 },
+        [BATADV_ATTR_ISOLATION_MARK]                = { .type = NETLINK_TYPE_U32 },
+        [BATADV_ATTR_ISOLATION_MASK]                = { .type = NETLINK_TYPE_U32 },
+        [BATADV_ATTR_BONDING_ENABLED]               = { .type = NETLINK_TYPE_U8 },
+        [BATADV_ATTR_BRIDGE_LOOP_AVOIDANCE_ENABLED] = { .type = NETLINK_TYPE_U8 },
+        [BATADV_ATTR_DISTRIBUTED_ARP_TABLE_ENABLED] = { .type = NETLINK_TYPE_U8 },
+        [BATADV_ATTR_FRAGMENTATION_ENABLED]         = { .type = NETLINK_TYPE_U8 },
+        [BATADV_ATTR_GW_BANDWIDTH_DOWN]             = { .type = NETLINK_TYPE_U32 },
+        [BATADV_ATTR_GW_BANDWIDTH_UP]               = { .type = NETLINK_TYPE_U32 },
+        [BATADV_ATTR_GW_MODE]                       = { .type = NETLINK_TYPE_U8 },
+        [BATADV_ATTR_GW_SEL_CLASS]                  = { .type = NETLINK_TYPE_U32 },
+        [BATADV_ATTR_HOP_PENALTY]                   = { .type = NETLINK_TYPE_U8 },
+        [BATADV_ATTR_LOG_LEVEL]                     = { .type = NETLINK_TYPE_U32 },
+        [BATADV_ATTR_MULTICAST_FORCEFLOOD_ENABLED]  = { .type = NETLINK_TYPE_U8 },
+        [BATADV_ATTR_MULTICAST_FANOUT]              = { .type = NETLINK_TYPE_U32 },
+        [BATADV_ATTR_NETWORK_CODING_ENABLED]        = { .type = NETLINK_TYPE_U8 },
+        [BATADV_ATTR_ORIG_INTERVAL]                 = { .type = NETLINK_TYPE_U32 },
+        [BATADV_ATTR_ELP_INTERVAL]                  = { .type = NETLINK_TYPE_U32 },
+        [BATADV_ATTR_THROUGHPUT_OVERRIDE]           = { .type = NETLINK_TYPE_U32 },
+};
+
+static const NLTypeSystem genl_batadv_type_system = {
+        .count = ELEMENTSOF(genl_batadv_types),
+        .types = genl_batadv_types,
+};
+
+static const NLType genl_batadv_cmds[] = {
+        [BATADV_CMD_SET_MESH] = { .type = NETLINK_TYPE_NESTED, .type_system = &genl_batadv_type_system },
+};
+
+static const NLTypeSystem genl_batadv_cmds_type_system = {
+        .count = ELEMENTSOF(genl_batadv_cmds),
+        .types = genl_batadv_cmds,
+};
+
 static const NLType genl_families[] = {
         [SD_GENL_ID_CTRL]   = { .type = NETLINK_TYPE_NESTED, .type_system = &genl_ctrl_id_ctrl_type_system },
         [SD_GENL_WIREGUARD] = { .type = NETLINK_TYPE_NESTED, .type_system = &genl_wireguard_type_system },
@@ -1310,6 +1418,244 @@ static const NLType genl_families[] = {
         [SD_GENL_L2TP]      = { .type = NETLINK_TYPE_NESTED, .type_system = &genl_l2tp_tunnel_session_type_system },
         [SD_GENL_MACSEC]    = { .type = NETLINK_TYPE_NESTED, .type_system = &genl_macsec_device_type_system },
         [SD_GENL_NL80211]   = { .type = NETLINK_TYPE_NESTED, .type_system = &genl_nl80211_cmds_type_system },
+        [SD_GENL_BATADV]    = { .type = NETLINK_TYPE_NESTED, .type_system = &genl_batadv_cmds_type_system },
+};
+
+static const NLType nfnl_nft_table_types[] = {
+        [NFTA_TABLE_NAME]  = { .type = NETLINK_TYPE_STRING, .size = NFT_TABLE_MAXNAMELEN - 1 },
+        [NFTA_TABLE_FLAGS] = { .type = NETLINK_TYPE_U32 },
+};
+
+static const NLTypeSystem nfnl_nft_table_type_system = {
+        .count = ELEMENTSOF(nfnl_nft_table_types),
+        .types = nfnl_nft_table_types,
+};
+
+static const NLType nfnl_nft_chain_hook_types[] = {
+        [NFTA_HOOK_HOOKNUM]  = { .type = NETLINK_TYPE_U32 },
+        [NFTA_HOOK_PRIORITY] = { .type = NETLINK_TYPE_U32 },
+        [NFTA_HOOK_DEV]      = { .type = NETLINK_TYPE_STRING, .size = IFNAMSIZ - 1 },
+};
+
+static const NLTypeSystem nfnl_nft_chain_hook_type_system = {
+        .count = ELEMENTSOF(nfnl_nft_chain_hook_types),
+        .types = nfnl_nft_chain_hook_types,
+};
+
+static const NLType nfnl_nft_chain_types[] = {
+        [NFTA_CHAIN_TABLE] = { .type = NETLINK_TYPE_STRING, .size = NFT_TABLE_MAXNAMELEN - 1 },
+        [NFTA_CHAIN_NAME]  = { .type = NETLINK_TYPE_STRING, .size = NFT_TABLE_MAXNAMELEN - 1 },
+        [NFTA_CHAIN_HOOK]  = { .type = NETLINK_TYPE_NESTED, .type_system = &nfnl_nft_chain_hook_type_system },
+        [NFTA_CHAIN_TYPE]  = { .type = NETLINK_TYPE_STRING, .size = 16 },
+        [NFTA_CHAIN_FLAGS] = { .type = NETLINK_TYPE_U32 },
+};
+
+static const NLTypeSystem nfnl_nft_chain_type_system = {
+        .count = ELEMENTSOF(nfnl_nft_chain_types),
+        .types = nfnl_nft_chain_types,
+};
+
+static const NLType nfnl_nft_expr_meta_types[] = {
+        [NFTA_META_DREG] = { .type = NETLINK_TYPE_U32 },
+        [NFTA_META_KEY]  = { .type = NETLINK_TYPE_U32 },
+        [NFTA_META_SREG] = { .type = NETLINK_TYPE_U32 },
+};
+
+static const NLType nfnl_nft_expr_payload_types[] = {
+        [NFTA_PAYLOAD_DREG]   = { .type = NETLINK_TYPE_U32 },
+        [NFTA_PAYLOAD_BASE]   = { .type = NETLINK_TYPE_U32 },
+        [NFTA_PAYLOAD_OFFSET] = { .type = NETLINK_TYPE_U32 },
+        [NFTA_PAYLOAD_LEN]    = { .type = NETLINK_TYPE_U32 },
+};
+
+static const NLType nfnl_nft_expr_nat_types[] = {
+        [NFTA_NAT_TYPE]          = { .type = NETLINK_TYPE_U32 },
+        [NFTA_NAT_FAMILY]        = { .type = NETLINK_TYPE_U32 },
+        [NFTA_NAT_REG_ADDR_MIN]  = { .type = NETLINK_TYPE_U32 },
+        [NFTA_NAT_REG_ADDR_MAX]  = { .type = NETLINK_TYPE_U32 },
+        [NFTA_NAT_REG_PROTO_MIN] = { .type = NETLINK_TYPE_U32 },
+        [NFTA_NAT_REG_PROTO_MAX] = { .type = NETLINK_TYPE_U32 },
+        [NFTA_NAT_FLAGS]         = { .type = NETLINK_TYPE_U32 },
+};
+
+static const NLType nfnl_nft_data_types[] = {
+        [NFTA_DATA_VALUE] = { .type = NETLINK_TYPE_BINARY },
+};
+
+static const NLTypeSystem nfnl_nft_data_type_system = {
+        .count = ELEMENTSOF(nfnl_nft_data_types),
+        .types = nfnl_nft_data_types,
+};
+
+static const NLType nfnl_nft_expr_bitwise_types[] = {
+        [NFTA_BITWISE_SREG] = { .type = NETLINK_TYPE_U32 },
+        [NFTA_BITWISE_DREG] = { .type = NETLINK_TYPE_U32 },
+        [NFTA_BITWISE_LEN]  = { .type = NETLINK_TYPE_U32 },
+        [NFTA_BITWISE_MASK] = { .type = NETLINK_TYPE_NESTED, .type_system = &nfnl_nft_data_type_system },
+        [NFTA_BITWISE_XOR]  = { .type = NETLINK_TYPE_NESTED, .type_system = &nfnl_nft_data_type_system },
+};
+
+static const NLType nfnl_nft_expr_cmp_types[] = {
+        [NFTA_CMP_SREG] = { .type = NETLINK_TYPE_U32 },
+        [NFTA_CMP_OP]   = { .type = NETLINK_TYPE_U32 },
+        [NFTA_CMP_DATA] = { .type = NETLINK_TYPE_NESTED, .type_system = &nfnl_nft_data_type_system },
+};
+
+static const NLType nfnl_nft_expr_fib_types[] = {
+        [NFTA_FIB_DREG]   = { .type = NETLINK_TYPE_U32 },
+        [NFTA_FIB_RESULT] = { .type = NETLINK_TYPE_U32 },
+        [NFTA_FIB_FLAGS]  = { .type = NETLINK_TYPE_U32 },
+};
+
+static const NLType nfnl_nft_expr_lookup_types[] = {
+        [NFTA_LOOKUP_SET]   = { .type = NETLINK_TYPE_STRING },
+        [NFTA_LOOKUP_SREG]  = { .type = NETLINK_TYPE_U32 },
+        [NFTA_LOOKUP_DREG]  = { .type = NETLINK_TYPE_U32 },
+        [NFTA_LOOKUP_FLAGS] = { .type = NETLINK_TYPE_U32 },
+};
+
+static const NLType nfnl_nft_expr_masq_types[] = {
+        [NFTA_MASQ_FLAGS]         = { .type = NETLINK_TYPE_U32 },
+        [NFTA_MASQ_REG_PROTO_MIN] = { .type = NETLINK_TYPE_U32 },
+        [NFTA_MASQ_REG_PROTO_MAX] = { .type = NETLINK_TYPE_U32 },
+};
+
+static const NLTypeSystem nfnl_expr_data_type_systems[] = {
+        [NL_UNION_NFT_EXPR_DATA_BITWISE]   =  { .count = ELEMENTSOF(nfnl_nft_expr_bitwise_types),
+                                                .types = nfnl_nft_expr_bitwise_types },
+        [NL_UNION_NFT_EXPR_DATA_CMP]       =  { .count = ELEMENTSOF(nfnl_nft_expr_cmp_types),
+                                                .types = nfnl_nft_expr_cmp_types },
+        [NL_UNION_NFT_EXPR_DATA_FIB]       =  { .count = ELEMENTSOF(nfnl_nft_expr_fib_types),
+                                                .types = nfnl_nft_expr_fib_types },
+        [NL_UNION_NFT_EXPR_DATA_LOOKUP]    =  { .count = ELEMENTSOF(nfnl_nft_expr_lookup_types),
+                                                .types = nfnl_nft_expr_lookup_types },
+        [NL_UNION_NFT_EXPR_DATA_MASQ]      =  { .count = ELEMENTSOF(nfnl_nft_expr_masq_types),
+                                                .types = nfnl_nft_expr_masq_types },
+        [NL_UNION_NFT_EXPR_DATA_META]      =  { .count = ELEMENTSOF(nfnl_nft_expr_meta_types),
+                                                .types = nfnl_nft_expr_meta_types },
+        [NL_UNION_NFT_EXPR_DATA_NAT]       =  { .count = ELEMENTSOF(nfnl_nft_expr_nat_types),
+                                                .types = nfnl_nft_expr_nat_types },
+        [NL_UNION_NFT_EXPR_DATA_PAYLOAD]   =  { .count = ELEMENTSOF(nfnl_nft_expr_payload_types),
+                                                .types = nfnl_nft_expr_payload_types },
+};
+
+static const char* const nl_union_nft_expr_data_table[] = {
+        [NL_UNION_NFT_EXPR_DATA_BITWISE] = "bitwise",
+        [NL_UNION_NFT_EXPR_DATA_CMP]     = "cmp",
+        [NL_UNION_NFT_EXPR_DATA_LOOKUP]  = "lookup",
+        [NL_UNION_NFT_EXPR_DATA_META]    = "meta",
+        [NL_UNION_NFT_EXPR_DATA_FIB]     = "fib",
+        [NL_UNION_NFT_EXPR_DATA_MASQ]    = "masq",
+        [NL_UNION_NFT_EXPR_DATA_NAT]     = "nat",
+        [NL_UNION_NFT_EXPR_DATA_PAYLOAD] = "payload",
+};
+
+DEFINE_STRING_TABLE_LOOKUP(nl_union_nft_expr_data, NLUnionNFTExprData);
+
+static const NLTypeSystemUnion nfnl_nft_data_expr_type_system_union = {
+        .num = _NL_UNION_NFT_EXPR_DATA_MAX,
+        .lookup = nl_union_nft_expr_data_from_string,
+        .type_systems = nfnl_expr_data_type_systems,
+        .match_type = NL_MATCH_SIBLING,
+        .match = NFTA_EXPR_NAME,
+};
+
+static const NLType nfnl_nft_rule_expr_types[] = {
+        [NFTA_EXPR_NAME] = { .type = NETLINK_TYPE_STRING, .size = 16 },
+        [NFTA_EXPR_DATA] = { .type = NETLINK_TYPE_UNION,
+                             .type_system_union = &nfnl_nft_data_expr_type_system_union },
+};
+
+static const NLTypeSystem nfnl_nft_rule_expr_type_system = {
+        .count = ELEMENTSOF(nfnl_nft_rule_expr_types),
+        .types = nfnl_nft_rule_expr_types,
+};
+
+static const NLType nfnl_nft_rule_types[] = {
+        [NFTA_RULE_TABLE]       = { .type = NETLINK_TYPE_STRING, .size = NFT_TABLE_MAXNAMELEN - 1 },
+        [NFTA_RULE_CHAIN]       = { .type = NETLINK_TYPE_STRING, .size = NFT_TABLE_MAXNAMELEN - 1 },
+        [NFTA_RULE_EXPRESSIONS] = { .type = NETLINK_TYPE_NESTED, .type_system = &nfnl_nft_rule_expr_type_system }
+};
+
+static const NLTypeSystem nfnl_nft_rule_type_system = {
+        .count = ELEMENTSOF(nfnl_nft_rule_types),
+        .types = nfnl_nft_rule_types,
+};
+
+static const NLType nfnl_nft_set_types[] = {
+        [NFTA_SET_TABLE]      = { .type = NETLINK_TYPE_STRING, .size = NFT_TABLE_MAXNAMELEN - 1 },
+        [NFTA_SET_NAME]       = { .type = NETLINK_TYPE_STRING, .size = NFT_TABLE_MAXNAMELEN - 1 },
+        [NFTA_SET_FLAGS]      = { .type = NETLINK_TYPE_U32 },
+        [NFTA_SET_KEY_TYPE]   = { .type = NETLINK_TYPE_U32 },
+        [NFTA_SET_KEY_LEN]    = { .type = NETLINK_TYPE_U32 },
+        [NFTA_SET_DATA_TYPE]  = { .type = NETLINK_TYPE_U32 },
+        [NFTA_SET_DATA_LEN]   = { .type = NETLINK_TYPE_U32 },
+        [NFTA_SET_POLICY]     = { .type = NETLINK_TYPE_U32 },
+        [NFTA_SET_ID]         = { .type = NETLINK_TYPE_U32 },
+};
+
+static const NLTypeSystem nfnl_nft_set_type_system = {
+        .count = ELEMENTSOF(nfnl_nft_set_types),
+        .types = nfnl_nft_set_types,
+};
+
+static const NLType nfnl_nft_setelem_types[] = {
+        [NFTA_SET_ELEM_KEY]   = { .type = NETLINK_TYPE_NESTED, .type_system = &nfnl_nft_data_type_system },
+        [NFTA_SET_ELEM_DATA]  = { .type = NETLINK_TYPE_NESTED, .type_system = &nfnl_nft_data_type_system },
+        [NFTA_SET_ELEM_FLAGS] = { .type = NETLINK_TYPE_U32 },
+};
+
+static const NLTypeSystem nfnl_nft_setelem_type_system = {
+        .count = ELEMENTSOF(nfnl_nft_setelem_types),
+        .types = nfnl_nft_setelem_types,
+};
+
+static const NLType nfnl_nft_setelem_list_types[] = {
+        [NFTA_SET_ELEM_LIST_TABLE]    = { .type = NETLINK_TYPE_STRING, .size = NFT_TABLE_MAXNAMELEN - 1 },
+        [NFTA_SET_ELEM_LIST_SET]      = { .type = NETLINK_TYPE_STRING, .size = NFT_TABLE_MAXNAMELEN - 1 },
+        [NFTA_SET_ELEM_LIST_ELEMENTS] = { .type = NETLINK_TYPE_NESTED, .type_system = &nfnl_nft_setelem_type_system },
+};
+
+static const NLTypeSystem nfnl_nft_setelem_list_type_system = {
+        .count = ELEMENTSOF(nfnl_nft_setelem_list_types),
+        .types = nfnl_nft_setelem_list_types,
+};
+
+static const NLType nfnl_nft_msg_types [] = {
+        [NFT_MSG_DELTABLE]   = { .type = NETLINK_TYPE_NESTED, .type_system = &nfnl_nft_table_type_system, .size = sizeof(struct nfgenmsg) },
+        [NFT_MSG_NEWTABLE]   = { .type = NETLINK_TYPE_NESTED, .type_system = &nfnl_nft_table_type_system, .size = sizeof(struct nfgenmsg) },
+        [NFT_MSG_NEWCHAIN]   = { .type = NETLINK_TYPE_NESTED, .type_system = &nfnl_nft_chain_type_system, .size = sizeof(struct nfgenmsg) },
+        [NFT_MSG_NEWRULE]    = { .type = NETLINK_TYPE_NESTED, .type_system = &nfnl_nft_rule_type_system, .size = sizeof(struct nfgenmsg) },
+        [NFT_MSG_NEWSET]     = { .type = NETLINK_TYPE_NESTED, .type_system = &nfnl_nft_set_type_system, .size = sizeof(struct nfgenmsg) },
+        [NFT_MSG_NEWSETELEM] = { .type = NETLINK_TYPE_NESTED, .type_system = &nfnl_nft_setelem_list_type_system, .size = sizeof(struct nfgenmsg) },
+        [NFT_MSG_DELSETELEM] = { .type = NETLINK_TYPE_NESTED, .type_system = &nfnl_nft_setelem_list_type_system, .size = sizeof(struct nfgenmsg) },
+};
+
+static const NLTypeSystem nfnl_nft_msg_type_system = {
+        .count = ELEMENTSOF(nfnl_nft_msg_types),
+        .types = nfnl_nft_msg_types,
+};
+
+static const NLType nfnl_msg_batch_types [] = {
+        [NFNL_BATCH_GENID] = { .type = NETLINK_TYPE_U32 }
+};
+
+static const NLTypeSystem nfnl_msg_batch_type_system = {
+        .count = ELEMENTSOF(nfnl_msg_batch_types),
+        .types = nfnl_msg_batch_types,
+};
+
+static const NLType nfnl_types[] = {
+        [NLMSG_DONE]           = { .type = NETLINK_TYPE_NESTED, .type_system = &empty_type_system, .size = 0 },
+        [NLMSG_ERROR]          = { .type = NETLINK_TYPE_NESTED, .type_system = &error_type_system, .size = sizeof(struct nlmsgerr) },
+        [NFNL_MSG_BATCH_BEGIN] = { .type = NETLINK_TYPE_NESTED, .type_system = &nfnl_msg_batch_type_system, .size = sizeof(struct nfgenmsg) },
+        [NFNL_MSG_BATCH_END]   = { .type = NETLINK_TYPE_NESTED, .type_system = &nfnl_msg_batch_type_system, .size = sizeof(struct nfgenmsg) },
+        [NFNL_SUBSYS_NFTABLES] = { .type = NETLINK_TYPE_NESTED, .type_system = &nfnl_nft_msg_type_system, .size = sizeof(struct nfgenmsg) },
+};
+
+const NLTypeSystem nfnl_type_system_root = {
+        .count = ELEMENTSOF(nfnl_types),
+        .types = nfnl_types,
 };
 
 /* Mainly used when sending message */
@@ -1368,18 +1714,23 @@ const NLTypeSystem *type_system_get_root(int protocol) {
         switch (protocol) {
                 case NETLINK_GENERIC:
                         return &genl_type_system_root;
+                case NETLINK_NETFILTER:
+                        return &nfnl_type_system_root;
                 default: /* NETLINK_ROUTE: */
                         return &rtnl_type_system_root;
         }
 }
 
 int type_system_root_get_type(sd_netlink *nl, const NLType **ret, uint16_t type) {
-        sd_genl_family family;
+        sd_genl_family_t family;
         const NLType *nl_type;
         int r;
 
-        if (!nl || nl->protocol != NETLINK_GENERIC)
+        if (!nl)
                 return type_system_get_type(&rtnl_type_system_root, ret, type);
+
+        if (nl->protocol != NETLINK_GENERIC)
+                return type_system_get_type(type_system_get_root(nl->protocol), ret, type);
 
         r = nlmsg_type_to_genl_family(nl, type, &family);
         if (r < 0)

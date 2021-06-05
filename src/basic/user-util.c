@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <errno.h>
 #include <fcntl.h>
@@ -571,7 +571,7 @@ int get_home_dir(char **_h) {
                 if (!h)
                         return -ENOMEM;
 
-                *_h = path_simplify(h, true);
+                *_h = path_simplify(h);
                 return 0;
         }
 
@@ -609,7 +609,7 @@ int get_home_dir(char **_h) {
         if (!h)
                 return -ENOMEM;
 
-        *_h = path_simplify(h, true);
+        *_h = path_simplify(h);
         return 0;
 }
 
@@ -628,7 +628,7 @@ int get_shell(char **_s) {
                 if (!s)
                         return -ENOMEM;
 
-                *_s = path_simplify(s, true);
+                *_s = path_simplify(s);
                 return 0;
         }
 
@@ -666,7 +666,7 @@ int get_shell(char **_s) {
         if (!s)
                 return -ENOMEM;
 
-        *_s = path_simplify(s, true);
+        *_s = path_simplify(s);
         return 0;
 }
 
@@ -836,7 +836,7 @@ bool valid_user_group_name(const char *u, ValidUserFlags flags) {
 
                 if (l > (size_t) sz)
                         return false;
-                if (l > FILENAME_MAX)
+                if (l > NAME_MAX) /* must fit in a filename */
                         return false;
                 if (l > UT_NAMESIZE - 1)
                         return false;
@@ -882,7 +882,7 @@ char *mangle_gecos(const char *d) {
                         continue;
                 }
 
-                len = utf8_encoded_valid_unichar(i, (size_t) -1);
+                len = utf8_encoded_valid_unichar(i, SIZE_MAX);
                 if (len < 0) {
                         *i = ' ';
                         continue;
@@ -1072,3 +1072,16 @@ int fgetsgent_sane(FILE *stream, struct sgrp **sg) {
         return !!s;
 }
 #endif
+
+int is_this_me(const char *username) {
+        uid_t uid;
+        int r;
+
+        /* Checks if the specified username is our current one. Passed string might be a UID or a user name. */
+
+        r = get_user_creds(&username, &uid, NULL, NULL, NULL, USER_CREDS_ALLOW_MISSING);
+        if (r < 0)
+                return r;
+
+        return uid == getuid();
+}

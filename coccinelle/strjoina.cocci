@@ -1,6 +1,7 @@
 @@
+position p : script:python() { p[0].current_element != "test_strjoina" };
 expression n, m;
 expression list s;
 @@
-- n = strjoina(m, s, NULL);
+- n = strjoina@p(m, s, NULL);
 + n = strjoina(m, s);

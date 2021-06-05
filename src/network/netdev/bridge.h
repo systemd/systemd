@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
 #include <netinet/in.h>
@@ -6,6 +6,9 @@
 
 #include "conf-parser.h"
 #include "netdev.h"
+
+#define LINK_BRIDGE_PORT_PRIORITY_INVALID 128
+#define LINK_BRIDGE_PORT_PRIORITY_MAX 63
 
 typedef struct Bridge {
         NetDev meta;
@@ -32,7 +35,7 @@ typedef enum MulticastRouter {
         MULTICAST_ROUTER_PERMANENT       = MDB_RTR_TYPE_PERM,
         MULTICAST_ROUTER_TEMPORARY       = MDB_RTR_TYPE_TEMP,
         _MULTICAST_ROUTER_MAX,
-        _MULTICAST_ROUTER_INVALID = -1,
+        _MULTICAST_ROUTER_INVALID = -EINVAL,
 } MulticastRouter;
 
 DEFINE_NETDEV_CAST(BRIDGE, Bridge);
@@ -45,3 +48,4 @@ MulticastRouter multicast_router_from_string(const char *s) _pure_;
 
 CONFIG_PARSER_PROTOTYPE(config_parse_multicast_router);
 CONFIG_PARSER_PROTOTYPE(config_parse_bridge_igmp_version);
+CONFIG_PARSER_PROTOTYPE(config_parse_bridge_port_priority);

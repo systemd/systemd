@@ -114,7 +114,23 @@ We define two directories below `$BOOT`:
 
 **Note:** _In all cases the `/loader/` directory should be located directly in the root of the file system. Specifically, if `$BOOT` is the ESP, then `/loader/` directory should be located directly in the root directory of the ESP, and not in the `/EFI/` subdirectory._
 
-Inside the `$BOOT/loader/entries/` directory each OS vendor may drop one or more configuration snippets with the suffix ".conf", one for each boot menu item. The file name of the file is used for identification of the boot item but shall never be presented to the user in the UI. The file name may be chosen freely but should be unique enough to avoid clashes between OS installations. More specifically it is suggested to include the machine ID (`/etc/machine-id` or the D-Bus machine ID for OSes that lack `/etc/machine-id`), the kernel version (as returned by `uname -r`) and an OS identifier (The ID field of `/etc/os-release`). Example: `$BOOT/loader/entries/6a9857a393724b7a981ebb5b8495b9ea-3.8.0-2.fc19.x86_64.conf`.
+Inside the `$BOOT/loader/entries/` directory each OS vendor may drop one or
+more configuration snippets with the suffix ".conf", one for each boot menu
+item. The file name of the file is used for identification of the boot item but
+shall never be presented to the user in the UI. The file name may be chosen
+freely but should be unique enough to avoid clashes between OS
+installations. More specifically it is suggested to include the machine ID
+(`/etc/machine-id` or the D-Bus machine ID for OSes that lack
+`/etc/machine-id`), the kernel version (as returned by `uname -r`) and an OS
+identifier (The ID field of `/etc/os-release`). Example:
+`$BOOT/loader/entries/6a9857a393724b7a981ebb5b8495b9ea-3.8.0-2.fc19.x86_64.conf`.
+
+In order to maximize compatibility with file system implementations and
+restricted boot loader environments, and to minimize conflicting character use
+with other programs, file names shall be chosen from a restricted character set:
+ASCII upper and lower case characters, digits, "+", "-", "_" and ".". Also, the
+file names should have a length of at least one and at most 255 characters
+(including file name suffix).
 
 These configuration snippets shall be Unix-style text files (i.e. line separation with a single newline character), in the UTF-8 encoding. The configuration snippets are loosely inspired on Grub1's configuration syntax. Lines beginning with '#' shall be ignored and used for commenting. The first word of a line is used as key and shall be separated by one or more spaces from its value. The following keys are known:
 
@@ -171,6 +187,10 @@ extension `.efi`. Support for images of this type is of course specific to
 systems with EFI firmware. Ignore this section if you work on systems not
 supporting EFI.
 
+Type #2 file names should be chosen from the same restricted character set as
+Type #1 described above (but use a different file name suffix of `.efi` instead
+of `.conf`).
+
 Images of this type have the advantage that all metadata and payload that makes
 up the boot entry is monopolized in a single PE file that can be signed
 cryptographically as one for the purpose of EFI SecureBoot.
@@ -188,7 +208,7 @@ On EFI, any such images shall be added to the list of valid boot entries.
 
 Note that these configurations snippets do not need to be the only configuration source for a boot loader. It may extend this list of entries with additional items from other configuration files (for example its own native configuration files) or automatically detected other entries without explicit configuration.
 
-To make this explicitly clear: this specification is designed with "free" operating systems in mind, starting Windows or MacOS is out of focus with these configuration snippets, use boot-loader specific solutions for that. In the text above, if we say "OS" we hence imply "free", i.e. primarily Linux (though this could be easily be extended to the BSDs and whatnot).
+To make this explicitly clear: this specification is designed with "free" operating systems in mind, starting Windows or macOS is out of focus with these configuration snippets, use boot-loader specific solutions for that. In the text above, if we say "OS" we hence imply "free", i.e. primarily Linux (though this could be easily be extended to the BSDs and whatnot).
 
 Note that all paths used in the configuration snippets use a Unix-style "/" as path separator. This needs to be converted to an EFI-style "\" separator in EFI boot loaders.
 

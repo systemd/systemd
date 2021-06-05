@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
 #include "conf-parser.h"
@@ -32,6 +32,7 @@ CONFIG_PARSER_PROTOTYPE(config_parse_service_timeout);
 CONFIG_PARSER_PROTOTYPE(config_parse_service_timeout_abort);
 CONFIG_PARSER_PROTOTYPE(config_parse_service_timeout_failure_mode);
 CONFIG_PARSER_PROTOTYPE(config_parse_service_type);
+CONFIG_PARSER_PROTOTYPE(config_parse_service_exit_type);
 CONFIG_PARSER_PROTOTYPE(config_parse_service_restart);
 CONFIG_PARSER_PROTOTYPE(config_parse_socket_bindtodevice);
 CONFIG_PARSER_PROTOTYPE(config_parse_exec_output);
@@ -43,6 +44,7 @@ CONFIG_PARSER_PROTOTYPE(config_parse_exec_io_priority);
 CONFIG_PARSER_PROTOTYPE(config_parse_exec_cpu_sched_policy);
 CONFIG_PARSER_PROTOTYPE(config_parse_exec_cpu_sched_prio);
 CONFIG_PARSER_PROTOTYPE(config_parse_exec_cpu_affinity);
+CONFIG_PARSER_PROTOTYPE(config_parse_exec_mount_apivfs);
 CONFIG_PARSER_PROTOTYPE(config_parse_exec_secure_bits);
 CONFIG_PARSER_PROTOTYPE(config_parse_root_image_options);
 CONFIG_PARSER_PROTOTYPE(config_parse_exec_root_hash);
@@ -75,6 +77,9 @@ CONFIG_PARSER_PROTOTYPE(config_parse_cpu_shares);
 CONFIG_PARSER_PROTOTYPE(config_parse_memory_limit);
 CONFIG_PARSER_PROTOTYPE(config_parse_tasks_max);
 CONFIG_PARSER_PROTOTYPE(config_parse_delegate);
+CONFIG_PARSER_PROTOTYPE(config_parse_managed_oom_mode);
+CONFIG_PARSER_PROTOTYPE(config_parse_managed_oom_mem_pressure_limit);
+CONFIG_PARSER_PROTOTYPE(config_parse_managed_oom_preference);
 CONFIG_PARSER_PROTOTYPE(config_parse_device_policy);
 CONFIG_PARSER_PROTOTYPE(config_parse_device_allow);
 CONFIG_PARSER_PROTOTYPE(config_parse_io_device_latency);
@@ -133,6 +138,10 @@ CONFIG_PARSER_PROTOTYPE(config_parse_crash_chvt);
 CONFIG_PARSER_PROTOTYPE(config_parse_timeout_abort);
 CONFIG_PARSER_PROTOTYPE(config_parse_swap_priority);
 CONFIG_PARSER_PROTOTYPE(config_parse_mount_images);
+CONFIG_PARSER_PROTOTYPE(config_parse_socket_timestamping);
+CONFIG_PARSER_PROTOTYPE(config_parse_extension_images);
+CONFIG_PARSER_PROTOTYPE(config_parse_bpf_foreign_program);
+CONFIG_PARSER_PROTOTYPE(config_parse_cgroup_socket_bind);
 
 /* gperf prototypes */
 const struct ConfigPerfItem* load_fragment_gperf_lookup(const char *key, GPERF_LEN_TYPE length);

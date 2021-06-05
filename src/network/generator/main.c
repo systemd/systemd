@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <getopt.h>
 
@@ -117,9 +117,8 @@ static int help(void) {
         printf("%s [OPTIONS...] [-- KERNEL_CMDLINE]\n"
                "  -h --help                       Show this help\n"
                "     --version                    Show package version\n"
-               "     --root=PATH                  Operate on an alternate filesystem root\n"
-               , program_invocation_short_name
-               );
+               "     --root=PATH                  Operate on an alternate filesystem root\n",
+               program_invocation_short_name);
 
         return 0;
 }
@@ -166,7 +165,7 @@ static int parse_argv(int argc, char *argv[]) {
 
 static int run(int argc, char *argv[]) {
         _cleanup_(context_clear) Context context = {};
-        int i, r;
+        int r;
 
         r = parse_argv(argc, argv);
         if (r <= 0)
@@ -177,7 +176,7 @@ static int run(int argc, char *argv[]) {
                 if (r < 0)
                         return log_warning_errno(r, "Failed to parse kernel command line: %m");
         } else {
-                for (i = optind; i < argc; i++) {
+                for (int i = optind; i < argc; i++) {
                         _cleanup_free_ char *word = NULL;
                         char *value;
 

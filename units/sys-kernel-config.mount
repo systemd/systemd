@@ -1,4 +1,4 @@
-#  SPDX-License-Identifier: LGPL-2.1+
+#  SPDX-License-Identifier: LGPL-2.1-or-later
 #
 #  This file is part of systemd.
 #
@@ -14,8 +14,15 @@ Documentation=https://www.freedesktop.org/wiki/Software/systemd/APIFileSystems
 DefaultDependencies=no
 ConditionPathExists=/sys/kernel/config
 ConditionCapability=CAP_SYS_RAWIO
-After=systemd-modules-load.service
 Before=sysinit.target
+
+# These dependencies are used to make certain that the module is fully
+# loaded. Indeed udev starts this unit when it receives an uevent for the
+# module but the kernel sends it too early, ie before the init() of the module
+# is fully operational and /sys/kernel/config is created, see issue#17586.
+
+After=modprobe@configfs.service
+Requires=modprobe@configfs.service
 
 [Mount]
 What=configfs

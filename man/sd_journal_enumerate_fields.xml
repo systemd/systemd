@@ -1,7 +1,7 @@
 <?xml version='1.0'?> <!--*-nxml-*-->
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
-<!-- SPDX-License-Identifier: LGPL-2.1+ -->
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
 
 <refentry id="sd_journal_enumerate_fields" xmlns:xi="http://www.w3.org/2001/XInclude">
 
@@ -91,7 +91,7 @@
   <refsect1>
     <title>Examples</title>
 
-    <para>Use the <function>SD_JOURNAL_FOREACH_FIELD</function> macro to iterate through all field names in use in the
+    <para>Use the <function>SD_JOURNAL_FOREACH_FIELD()</function> macro to iterate through all field names in use in the
     current journal.</para>
 
     <programlisting>#include &lt;stdio.h&gt;

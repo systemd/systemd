@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <errno.h>
 #include <sys/wait.h>
@@ -316,7 +316,7 @@ static void test_raw_clone(void) {
 
         errno = 0;
         assert_se(raw_clone(CLONE_FS|CLONE_NEWNS) == -1);
-        assert_se(errno == EINVAL);
+        assert_se(errno == EINVAL || ERRNO_IS_PRIVILEGE(errno)); /* Certain container environments prohibit namespaces to us, don't fail in that case */
 }
 
 static void test_physical_memory(void) {
@@ -414,6 +414,8 @@ static void test_foreach_pointer(void) {
         int a, b, c, *i;
         size_t k = 0;
 
+        log_info("/* %s */", __func__);
+
         FOREACH_POINTER(i, &a, &b, &c) {
                 switch (k) {
 
@@ -489,6 +491,17 @@ static void test_foreach_pointer(void) {
         assert(k == 11);
 }
 
+static void test_ptr_to_int(void) {
+        log_info("/* %s */", __func__);
+
+        /* Primary reason to have this test is to validate that pointers are large enough to hold entire int range */
+        assert_se(PTR_TO_INT(INT_TO_PTR(0)) == 0);
+        assert_se(PTR_TO_INT(INT_TO_PTR(1)) == 1);
+        assert_se(PTR_TO_INT(INT_TO_PTR(-1)) == -1);
+        assert_se(PTR_TO_INT(INT_TO_PTR(INT_MAX)) == INT_MAX);
+        assert_se(PTR_TO_INT(INT_TO_PTR(INT_MIN)) == INT_MIN);
+}
+
 int main(int argc, char *argv[]) {
         test_setup_logging(LOG_INFO);
 
@@ -508,6 +521,7 @@ int main(int argc, char *argv[]) {
         test_system_tasks_max();
         test_system_tasks_max_scale();
         test_foreach_pointer();
+        test_ptr_to_int();
 
         return 0;
 }

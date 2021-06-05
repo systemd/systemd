@@ -24,7 +24,7 @@ The systemd journal stores log data in a binary format with several features:
 This document explains the basic structure of the file format on disk. We are
 making this available primarily to allow review and provide documentation. Note
 that the actual implementation in the [systemd
-codebase](https://github.com/systemd/systemd/blob/master/src/journal/) is the
+codebase](https://github.com/systemd/systemd/blob/main/src/libsystemd/sd-journal/) is the
 only ultimately authoritative description of the format, so if this document
 and the code disagree, the code is right. That said we'll of course try hard to
 keep this document up-to-date and accurate.
@@ -106,7 +106,7 @@ ignored on reading. They are currently not used but might be used later on.
 ## Structure
 
 The file format's data structures are declared in
-[journal-def.h](https://github.com/systemd/systemd/blob/master/src/journal/journal-def.h).
+[journal-def.h](https://github.com/systemd/systemd/blob/main/src/libsystemd/sd-journal/journal-def.h).
 
 The file format begins with a header structure. After the header structure
 object structures follow. Objects are appended to the end as time
@@ -517,7 +517,7 @@ _packed_ struct HashTableObject {
 ```
 
 The structure of both DATA_HASH_TABLE and FIELD_HASH_TABLE objects are
-identical. They implement a simple hash table, which each cell containing
+identical. They implement a simple hash table, with each cell containing
 offsets to the head and tail of the singly linked list of the DATA and FIELD
 objects, respectively. DATA's and FIELD's next_hash_offset field are used to
 chain up the objects. Empty cells have both offsets set to 0.
@@ -651,15 +651,15 @@ look up the FIELD object and follow the chain of links to all DATA it includes.
 
 ### Writing
 
-When an entry is appended to the journal for each of its data fields the data
-hash table should be checked. If the data field does not yet exist in the file
-it should be appended and added to the data hash table. When a field data
-object is added the field hash table should be checked for the field name of
+When an entry is appended to the journal, for each of its data fields the data
+hash table should be checked. If the data field does not yet exist in the file,
+it should be appended and added to the data hash table. When a data field's data
+object is added, the field hash table should be checked for the field name of
 the data field, and a field object be added if necessary. After all data fields
 (and recursively all field names) of the new entry are appended and linked up
-in the hashtables the entry object should be appended and linked up too.
+in the hashtables, the entry object should be appended and linked up too.
 
-In regular intervals a tag object should be written if sealing is enabled (see
+At regular intervals a tag object should be written if sealing is enabled (see
 above). Before the file is closed a tag should be written too, to seal it off.
 
 Before writing an object, time and disk space limits should be checked and

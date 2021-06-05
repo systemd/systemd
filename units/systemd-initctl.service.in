@@ -1,4 +1,4 @@
-#  SPDX-License-Identifier: LGPL-2.1+
+#  SPDX-License-Identifier: LGPL-2.1-or-later
 #
 #  This file is part of systemd.
 #
@@ -13,7 +13,7 @@ Documentation=man:systemd-initctl.service(8)
 DefaultDependencies=no
 
 [Service]
-ExecStart=@rootlibexecdir@/systemd-initctl
+ExecStart={{ROOTLIBEXECDIR}}/systemd-initctl
 NoNewPrivileges=yes
 NotifyAccess=all
 SystemCallArchitectures=native

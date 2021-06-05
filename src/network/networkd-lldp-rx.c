@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <net/if.h>
 #include <net/if_arp.h>
@@ -6,9 +6,11 @@
 
 #include "fd-util.h"
 #include "fileio.h"
+#include "fs-util.h"
 #include "networkd-link.h"
 #include "networkd-lldp-rx.h"
 #include "networkd-lldp-tx.h"
+#include "networkd-manager.h"
 #include "networkd-network.h"
 #include "string-table.h"
 #include "string-util.h"
@@ -25,7 +27,7 @@ static const char* const lldp_mode_table[_LLDP_MODE_MAX] = {
 
 DEFINE_STRING_TABLE_LOOKUP_WITH_BOOLEAN(lldp_mode, LLDPMode, LLDP_MODE_YES);
 
-bool link_lldp_rx_enabled(Link *link) {
+static bool link_lldp_rx_enabled(Link *link) {
         assert(link);
 
         if (link->flags & IFF_LOOPBACK)
@@ -46,7 +48,7 @@ bool link_lldp_rx_enabled(Link *link) {
         return link->network->lldp_mode != LLDP_MODE_NO;
 }
 
-static void lldp_handler(sd_lldp *lldp, sd_lldp_event event, sd_lldp_neighbor *n, void *userdata) {
+static void lldp_handler(sd_lldp *lldp, sd_lldp_event_t event, sd_lldp_neighbor *n, void *userdata) {
         Link *link = userdata;
         int r;
 
@@ -68,7 +70,17 @@ static void lldp_handler(sd_lldp *lldp, sd_lldp_event event, sd_lldp_neighbor *n
 int link_lldp_rx_configure(Link *link) {
         int r;
 
+        if (!link_lldp_rx_enabled(link))
+                return 0;
+
+        if (link->lldp)
+                return -EBUSY;
+
         r = sd_lldp_new(&link->lldp);
+        if (r < 0)
+                return r;
+
+        r = sd_lldp_attach_event(link->lldp, link->manager->event, 0);
         if (r < 0)
                 return r;
 
@@ -83,11 +95,7 @@ int link_lldp_rx_configure(Link *link) {
         if (r < 0)
                 return r;
 
-        r = sd_lldp_set_filter_address(link->lldp, &link->mac);
-        if (r < 0)
-                return r;
-
-        r = sd_lldp_attach_event(link->lldp, NULL, 0);
+        r = sd_lldp_set_filter_address(link->lldp, &link->hw_addr.addr.ether);
         if (r < 0)
                 return r;
 
@@ -128,7 +136,7 @@ int link_update_lldp(Link *link) {
 }
 
 int link_lldp_save(Link *link) {
-        _cleanup_free_ char *temp_path = NULL;
+        _cleanup_(unlink_and_freep) char *temp_path = NULL;
         _cleanup_fclose_ FILE *f = NULL;
         sd_lldp_neighbor **l = NULL;
         int n = 0, r, i;
@@ -143,10 +151,10 @@ int link_lldp_save(Link *link) {
 
         r = sd_lldp_get_neighbors(link->lldp, &l);
         if (r < 0)
-                goto finish;
+                return r;
         if (r == 0) {
                 (void) unlink(link->lldp_file);
-                goto finish;
+                return 0;
         }
 
         n = r;
@@ -155,7 +163,7 @@ int link_lldp_save(Link *link) {
         if (r < 0)
                 goto finish;
 
-        fchmod(fileno(f), 0644);
+        (void) fchmod(fileno(f), 0644);
 
         for (i = 0; i < n; i++) {
                 const void *p;
@@ -175,19 +183,13 @@ int link_lldp_save(Link *link) {
         if (r < 0)
                 goto finish;
 
-        if (rename(temp_path, link->lldp_file) < 0) {
-                r = -errno;
+        r = conservative_rename(temp_path, link->lldp_file);
+        if (r < 0)
                 goto finish;
-        }
 
 finish:
-        if (r < 0) {
-                (void) unlink(link->lldp_file);
-                if (temp_path)
-                        (void) unlink(temp_path);
-
+        if (r < 0)
                 log_link_error_errno(link, r, "Failed to save LLDP data to %s: %m", link->lldp_file);
-        }
 
         if (l) {
                 for (i = 0; i < n; i++)

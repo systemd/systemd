@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "alloc-util.h"
 #include "bus-label.h"
@@ -116,6 +116,13 @@ static const char* const freezer_state_table[_FREEZER_STATE_MAX] = {
 };
 
 DEFINE_STRING_TABLE_LOOKUP(freezer_state, FreezerState);
+
+static const char* const unit_marker_table[_UNIT_MARKER_MAX] = {
+        [UNIT_MARKER_NEEDS_RELOAD]  = "needs-reload",
+        [UNIT_MARKER_NEEDS_RESTART] = "needs-restart",
+};
+
+DEFINE_STRING_TABLE_LOOKUP(unit_marker, UnitMarker);
 
 static const char* const automount_state_table[_AUTOMOUNT_STATE_MAX] = {
         [AUTOMOUNT_DEAD] = "dead",
@@ -258,23 +265,32 @@ static const char* const unit_dependency_table[_UNIT_DEPENDENCY_MAX] = {
         [UNIT_WANTS] = "Wants",
         [UNIT_BINDS_TO] = "BindsTo",
         [UNIT_PART_OF] = "PartOf",
+        [UNIT_UPHOLDS] = "Upholds",
         [UNIT_REQUIRED_BY] = "RequiredBy",
         [UNIT_REQUISITE_OF] = "RequisiteOf",
         [UNIT_WANTED_BY] = "WantedBy",
         [UNIT_BOUND_BY] = "BoundBy",
+        [UNIT_UPHELD_BY] = "UpheldBy",
         [UNIT_CONSISTS_OF] = "ConsistsOf",
         [UNIT_CONFLICTS] = "Conflicts",
         [UNIT_CONFLICTED_BY] = "ConflictedBy",
         [UNIT_BEFORE] = "Before",
         [UNIT_AFTER] = "After",
+        [UNIT_ON_SUCCESS] = "OnSuccess",
+        [UNIT_ON_SUCCESS_OF] = "OnSuccessOf",
         [UNIT_ON_FAILURE] = "OnFailure",
+        [UNIT_ON_FAILURE_OF] = "OnFailureOf",
         [UNIT_TRIGGERS] = "Triggers",
         [UNIT_TRIGGERED_BY] = "TriggeredBy",
         [UNIT_PROPAGATES_RELOAD_TO] = "PropagatesReloadTo",
         [UNIT_RELOAD_PROPAGATED_FROM] = "ReloadPropagatedFrom",
+        [UNIT_PROPAGATES_STOP_TO] = "PropagatesStopTo",
+        [UNIT_STOP_PROPAGATED_FROM] = "StopPropagatedFrom",
         [UNIT_JOINS_NAMESPACE_OF] = "JoinsNamespaceOf",
         [UNIT_REFERENCES] = "References",
         [UNIT_REFERENCED_BY] = "ReferencedBy",
+        [UNIT_IN_SLICE] = "InSlice",
+        [UNIT_SLICE_OF] = "SliceOf",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(unit_dependency, UnitDependency);
@@ -287,3 +303,21 @@ static const char* const notify_access_table[_NOTIFY_ACCESS_MAX] = {
 };
 
 DEFINE_STRING_TABLE_LOOKUP(notify_access, NotifyAccess);
+
+SpecialGlyph unit_active_state_to_glyph(UnitActiveState state) {
+        static const SpecialGlyph map[_UNIT_ACTIVE_STATE_MAX] = {
+                [UNIT_ACTIVE]       = SPECIAL_GLYPH_BLACK_CIRCLE,
+                [UNIT_RELOADING]    = SPECIAL_GLYPH_CIRCLE_ARROW,
+                [UNIT_INACTIVE]     = SPECIAL_GLYPH_WHITE_CIRCLE,
+                [UNIT_FAILED]       = SPECIAL_GLYPH_MULTIPLICATION_SIGN,
+                [UNIT_ACTIVATING]   = SPECIAL_GLYPH_BLACK_CIRCLE,
+                [UNIT_DEACTIVATING] = SPECIAL_GLYPH_BLACK_CIRCLE,
+                [UNIT_MAINTENANCE]  = SPECIAL_GLYPH_WHITE_CIRCLE,
+        };
+
+        if (state < 0)
+                return _SPECIAL_GLYPH_INVALID;
+
+        assert(state < _UNIT_ACTIVE_STATE_MAX);
+        return map[state];
+}

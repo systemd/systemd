@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: LGPL-2.1+
+# SPDX-License-Identifier: LGPL-2.1-or-later
 
 sources = files('''
         sd-dhcp-client.c
@@ -16,7 +16,10 @@ sources = files('''
         sd-ipv4acd.c
         arp-util.h
         arp-util.c
+        network-common.c
+        network-common.h
         network-internal.c
+        network-internal.h
         sd-ndisc.c
         ndisc-internal.h
         ndisc-router.h
@@ -42,10 +45,77 @@ sources = files('''
         sd-lldp.c
 '''.split())
 
-network_internal_h = files('network-internal.h')
-
 libsystemd_network = static_library(
         'systemd-network',
         sources,
-        network_internal_h,
         include_directories : includes)
+
+libsystemd_network_includes = [includes, include_directories('.')]
+
+############################################################
+
+tests += [
+        [['src/libsystemd-network/test-dhcp-option.c'],
+         [libshared,
+          libsystemd_network]],
+
+        [['src/libsystemd-network/test-sd-dhcp-lease.c'],
+         [libshared,
+          libsystemd_network]],
+
+        [['src/libsystemd-network/test-dhcp-client.c'],
+         [libshared,
+          libsystemd_network]],
+
+        [['src/libsystemd-network/test-dhcp-server.c'],
+         [libshared,
+          libsystemd_network]],
+
+        [['src/libsystemd-network/test-ipv4ll.c'],
+         [libshared,
+          libsystemd_network]],
+
+        [['src/libsystemd-network/test-ipv4ll-manual.c'],
+         [libshared,
+          libsystemd_network],
+         [], [], '', 'manual'],
+
+        [['src/libsystemd-network/test-acd.c'],
+         [libshared,
+          libsystemd_network],
+         [], [], '', 'manual'],
+
+        [['src/libsystemd-network/test-ndisc-rs.c'],
+         [libshared,
+          libsystemd_network]],
+
+        [['src/libsystemd-network/test-ndisc-ra.c'],
+         [libshared,
+          libsystemd_network]],
+
+        [['src/libsystemd-network/test-dhcp6-client.c'],
+         [libshared,
+          libsystemd_network]],
+
+        [['src/libsystemd-network/test-lldp.c'],
+         [libshared,
+          libsystemd_network]],
+]
+
+fuzzers += [
+        [['src/libsystemd-network/fuzz-dhcp6-client.c'],
+         [libshared,
+          libsystemd_network]],
+
+        [['src/libsystemd-network/fuzz-dhcp-server.c'],
+         [libsystemd_network,
+          libshared]],
+
+        [['src/libsystemd-network/fuzz-lldp.c'],
+         [libshared,
+          libsystemd_network]],
+
+        [['src/libsystemd-network/fuzz-ndisc-rs.c'],
+         [libshared,
+          libsystemd_network]],
+]

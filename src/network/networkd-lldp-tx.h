@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
 #include <stdbool.h>
@@ -13,6 +13,7 @@ typedef enum LLDPEmit {
         LLDP_EMIT_NON_TPMR_BRIDGE,
         LLDP_EMIT_CUSTOMER_BRIDGE,
         _LLDP_EMIT_MAX,
+        _LLDP_EMIT_INVALID = -EINVAL,
 } LLDPEmit;
 
 bool link_lldp_emit_enabled(Link *link);

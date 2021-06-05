@@ -3,10 +3,10 @@
 # The lookup keys are composed in:
 #   60-input-id.rules
 #
-# Note: The format of the "input-id:" prefix match key is a
-# contract between the rules file and the hardware data, it might
-# change in later revisions to support more or better matches, it
-# is not necessarily expected to be a stable ABI.
+# Note: The format of the "input-id:" prefix match key is a contract between
+# the rules file and the hardware data, it might change in later revisions to
+# support more or better matches, it is not necessarily expected to be a stable
+# ABI.
 #
 # Match string formats:
 # id-input:modalias:<modalias>
@@ -27,16 +27,14 @@
 #   udevadm info /dev/input/eventXX.
 #
 # This file must only be used where the input_id builtin assigns the wrong
-# properties or lacks the assignment of some properties. This is almost
-# always caused by a device not adhering to the standard of the device's
-# type.
+# properties or lacks the assignment of some properties. This is almost always
+# caused by a device not adhering to the standard of the device's type.
 #
 # Allowed properties are:
-#    ID_INPUT
-#    ID_INPUT_ACCELEROMETER, ID_INPUT_MOUSE,
-#    ID_INPUT_POINTINGSTICK, ID_INPUT_TOUCHSCREEN, ID_INPUT_TOUCHPAD,
-#    ID_INPUT_TABLET, ID_INPUT_TABLET_PAD, ID_INPUT_JOYSTICK, ID_INPUT_KEY,
-#    ID_INPUT_KEYBOARD, ID_INPUT_SWITCH, ID_INPUT_TRACKBALL
+#    ID_INPUT, ID_INPUT_ACCELEROMETER, ID_INPUT_MOUSE, ID_INPUT_POINTINGSTICK,
+#    ID_INPUT_TOUCHSCREEN, ID_INPUT_TOUCHPAD, ID_INPUT_TABLET,
+#    ID_INPUT_TABLET_PAD, ID_INPUT_JOYSTICK, ID_INPUT_KEY, ID_INPUT_KEYBOARD,
+#    ID_INPUT_SWITCH, ID_INPUT_TRACKBALL
 #
 #    ID_INPUT
 #       * MUST be set when ANY of ID_INPUT_* is set
@@ -45,7 +43,7 @@
 #    ID_INPUT_TABLET
 #       * MUST be set when setting ID_INPUT_TABLET_PAD
 #
-# Allowed values are 1 and 0 to set or unset, repsectively.
+# Allowed values are 1 and 0 to set or unset, respectively.
 #
 # NOT allowed in this file are:
 #    ID_INPUT_WIDTH_MM, ID_INPUT_HEIGHT_MM, ID_INPUT_TOUCHPAD_INTEGRATION
@@ -74,3 +72,7 @@ id-input:modalias:input:b0003v04B3p301Ee0100-e0,1,2,4*
 # Logitech Ultrathin Touch Mouse
 id-input:modalias:input:b0005v046DpB00De0700*
  ID_INPUT_MOUSE=1
+
+# Logitech MX Keys
+id-input:modalias:input:b0003v046Dp408Ae0111*
+ ID_INPUT_MOUSE=0 

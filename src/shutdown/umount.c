@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 /***
   Copyright © 2010 ProFUSION embedded systems
 ***/
@@ -96,13 +96,9 @@ int mount_points_list_get(const char *mountinfo, MountPoint **head) {
                  * Even if there are duplicates later in mount_option_mangle()
                  * they shouldn't hurt anyways as they override each other.
                  */
-                if (!strextend_with_separator(&options, ",",
-                                              mnt_fs_get_vfs_options(fs),
-                                              NULL))
+                if (!strextend_with_separator(&options, ",", mnt_fs_get_vfs_options(fs)))
                         return log_oom();
-                if (!strextend_with_separator(&options, ",",
-                                              mnt_fs_get_fs_options(fs),
-                                              NULL))
+                if (!strextend_with_separator(&options, ",", mnt_fs_get_fs_options(fs)))
                         return log_oom();
 
                 /* Ignore mount points we can't unmount because they
@@ -514,10 +510,8 @@ static int remount_with_timeout(MountPoint *m, int umount_log_level) {
 
         assert(m);
 
-        /* Due to the possibility of a remount operation hanging, we
-         * fork a child process and set a timeout. If the timeout
-         * lapses, the assumption is that that particular remount
-         * failed. */
+        /* Due to the possibility of a remount operation hanging, we fork a child process and set a
+         * timeout. If the timeout lapses, the assumption is that the particular remount failed. */
         r = safe_fork("(sd-remount)", FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_LOG|FORK_REOPEN_LOG, &pid);
         if (r < 0)
                 return r;
@@ -552,10 +546,8 @@ static int umount_with_timeout(MountPoint *m, int umount_log_level) {
 
         assert(m);
 
-        /* Due to the possibility of a umount operation hanging, we
-         * fork a child process and set a timeout. If the timeout
-         * lapses, the assumption is that that particular umount
-         * failed. */
+        /* Due to the possibility of a umount operation hanging, we fork a child process and set a
+         * timeout. If the timeout lapses, the assumption is that the particular umount failed. */
         r = safe_fork("(sd-umount)", FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_LOG|FORK_REOPEN_LOG, &pid);
         if (r < 0)
                 return r;

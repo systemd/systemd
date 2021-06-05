@@ -1,7 +1,7 @@
 <?xml version='1.0'?>
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
-<!-- SPDX-License-Identifier: LGPL-2.1+ -->
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
 
 <refentry id="sd_bus_message_append_string_memfd"
           xmlns:xi="http://www.w3.org/2001/XInclude">
@@ -54,20 +54,20 @@
     <title>Description</title>
 
     <para>The functions
-    <function>sd_bus_message_append_string_memfd</function> and
-    <function>sd_bus_message_append_string_iovec</function> can be
+    <function>sd_bus_message_append_string_memfd()</function> and
+    <function>sd_bus_message_append_string_iovec()</function> can be
     used to append a single string (item of type <literal>s</literal>)
     to message <parameter>m</parameter>.</para>
 
     <para>In case of
-    <function>sd_bus_message_append_string_memfd</function>, the
+    <function>sd_bus_message_append_string_memfd()</function>, the
     contents of <parameter>memfd</parameter> are the string. They must
     satisfy the same constraints as described for the
     <literal>s</literal> type in
     <citerefentry><refentrytitle>sd_bus_message_append_basic</refentrytitle><manvolnum>3</manvolnum></citerefentry>.</para>
 
     <para>In case of
-    <function>sd_bus_message_append_string_iovec</function>, the
+    <function>sd_bus_message_append_string_iovec()</function>, the
     payload of <parameter>iov</parameter> is the string. It must
     satisfy the same constraints as described for the
     <literal>s</literal> type in
@@ -84,9 +84,9 @@
     after this call.</para>
 
     <para>The
-    <function>sd_bus_message_append_string_space</function> function appends
+    <function>sd_bus_message_append_string_space()</function> function appends
     space for a string to message <parameter>m</parameter>. It behaves
-    similar to <function>sd_bus_message_append_basic</function> with
+    similar to <function>sd_bus_message_append_basic()</function> with
     type <literal>s</literal>, but instead of copying a string into
     the message, it returns a pointer to the destination area to
     the caller in pointer <parameter>p</parameter>. Space for the string

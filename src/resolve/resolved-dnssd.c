@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "conf-files.h"
 #include "conf-parser.h"
@@ -88,7 +88,7 @@ static int dnssd_service_load(Manager *manager, const char *filename) {
         dropin_dirname = strjoina(service->name, ".dnssd.d");
 
         r = config_parse_many(
-                        filename, DNSSD_SERVICE_DIRS, dropin_dirname,
+                        STRV_MAKE_CONST(filename), DNSSD_SERVICE_DIRS, dropin_dirname,
                         "Service\0",
                         config_item_perf_lookup, resolved_dnssd_gperf_lookup,
                         CONFIG_PARSE_WARN,
@@ -97,15 +97,15 @@ static int dnssd_service_load(Manager *manager, const char *filename) {
         if (r < 0)
                 return r;
 
-        if (!service->name_template) {
-                log_error("%s doesn't define service instance name", service->name);
-                return -EINVAL;
-        }
+        if (!service->name_template)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "%s doesn't define service instance name",
+                                       service->name);
 
-        if (!service->type) {
-                log_error("%s doesn't define service type", service->name);
-                return -EINVAL;
-        }
+        if (!service->type)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "%s doesn't define service type",
+                                       service->name);
 
         if (LIST_IS_EMPTY(service->txt_data_items)) {
                 txt_data = new0(DnssdTxtData, 1);
@@ -117,14 +117,10 @@ static int dnssd_service_load(Manager *manager, const char *filename) {
                         return r;
 
                 LIST_PREPEND(items, service->txt_data_items, txt_data);
-                txt_data = NULL;
+                TAKE_PTR(txt_data);
         }
 
-        r = hashmap_ensure_allocated(&manager->dnssd_services, &string_hash_ops);
-        if (r < 0)
-                return r;
-
-        r = hashmap_put(manager->dnssd_services, service->name, service);
+        r = hashmap_ensure_put(&manager->dnssd_services, &string_hash_ops, service->name, service);
         if (r < 0)
                 return r;
 
@@ -134,7 +130,7 @@ static int dnssd_service_load(Manager *manager, const char *filename) {
         if (r < 0)
                 return r;
 
-        service = NULL;
+        TAKE_PTR(service);
 
         return 0;
 }
@@ -155,33 +151,35 @@ static int specifier_dnssd_host_name(char specifier, const void *data, const voi
         return 0;
 }
 
-int dnssd_render_instance_name(const char *name_template, char **ret_name) {
+int dnssd_render_instance_name(DnssdService *s, char **ret_name) {
         static const Specifier specifier_table[] = {
-                { 'm', specifier_machine_id,      NULL },
-                { 'b', specifier_boot_id,         NULL },
-                { 'H', specifier_dnssd_host_name, NULL },
-                { 'v', specifier_kernel_release,  NULL },
                 { 'a', specifier_architecture,    NULL },
-                { 'o', specifier_os_id,           NULL },
-                { 'w', specifier_os_version_id,   NULL },
+                { 'b', specifier_boot_id,         NULL },
                 { 'B', specifier_os_build_id,     NULL },
+                { 'H', specifier_dnssd_host_name, NULL },
+                { 'm', specifier_machine_id,      NULL },
+                { 'o', specifier_os_id,           NULL },
+                { 'v', specifier_kernel_release,  NULL },
+                { 'w', specifier_os_version_id,   NULL },
                 { 'W', specifier_os_variant_id,   NULL },
                 {}
         };
         _cleanup_free_ char *name = NULL;
         int r;
 
-        assert(name_template);
+        assert(s);
+        assert(s->name_template);
 
-        r = specifier_printf(name_template, specifier_table, NULL, &name);
+        r = specifier_printf(s->name_template, DNS_LABEL_MAX, specifier_table, s, &name);
         if (r < 0)
-                return r;
+                return log_debug_errno(r, "Failed to replace specifiers: %m");
 
         if (!dns_service_name_is_valid(name))
-                return -EINVAL;
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Service instance name '%s' is invalid.",
+                                       name);
 
-        if (ret_name)
-                *ret_name = TAKE_PTR(name);
+        *ret_name = TAKE_PTR(name);
 
         return 0;
 }
@@ -225,7 +223,7 @@ int dnssd_update_rrs(DnssdService *s) {
         LIST_FOREACH(items, txt_data, s->txt_data_items)
                 txt_data->rr = dns_resource_record_unref(txt_data->rr);
 
-        r = dnssd_render_instance_name(s->name_template, &n);
+        r = dnssd_render_instance_name(s, &n);
         if (r < 0)
                 return r;
 
@@ -331,9 +329,12 @@ int dnssd_txt_item_new_from_data(const char *key, const void *data, const size_t
         return 0;
 }
 
-void dnssd_signal_conflict(Manager *manager, const char *name) {
+int dnssd_signal_conflict(Manager *manager, const char *name) {
         DnssdService *s;
         int r;
+
+        if (sd_bus_is_ready(manager->bus) <= 0)
+                return 0;
 
         HASHMAP_FOREACH(s, manager->dnssd_services) {
                 if (s->withdrawn)
@@ -345,22 +346,20 @@ void dnssd_signal_conflict(Manager *manager, const char *name) {
                         s->withdrawn = true;
 
                         r = sd_bus_path_encode("/org/freedesktop/resolve1/dnssd", s->name, &path);
-                        if (r < 0) {
-                                log_error_errno(r, "Can't get D-BUS object path: %m");
-                                return;
-                        }
+                        if (r < 0)
+                                return log_error_errno(r, "Can't get D-BUS object path: %m");
 
                         r = sd_bus_emit_signal(manager->bus,
                                                path,
                                                "org.freedesktop.resolve1.DnssdService",
                                                "Conflicted",
                                                NULL);
-                        if (r < 0) {
-                                log_error_errno(r, "Cannot emit signal: %m");
-                                return;
-                        }
+                        if (r < 0)
+                                return log_error_errno(r, "Cannot emit signal: %m");
 
                         break;
                 }
         }
+
+        return 0;
 }

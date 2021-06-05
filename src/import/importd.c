@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <sys/prctl.h>
 #include <sys/wait.h>
@@ -11,6 +11,7 @@
 #include "bus-log-control-api.h"
 #include "bus-polkit.h"
 #include "def.h"
+#include "env-util.h"
 #include "fd-util.h"
 #include "float.h"
 #include "hostname-util.h"
@@ -21,6 +22,7 @@
 #include "mkdir.h"
 #include "parse-util.h"
 #include "path-util.h"
+#include "percent-util.h"
 #include "process-util.h"
 #include "service-util.h"
 #include "signal-util.h"
@@ -45,7 +47,7 @@ typedef enum TransferType {
         TRANSFER_PULL_TAR,
         TRANSFER_PULL_RAW,
         _TRANSFER_TYPE_MAX,
-        _TRANSFER_TYPE_INVALID = -1,
+        _TRANSFER_TYPE_INVALID = -EINVAL,
 } TransferType;
 
 struct Transfer {
@@ -149,10 +151,6 @@ static int transfer_new(Manager *m, Transfer **ret) {
         if (hashmap_size(m->transfers) >= TRANSFERS_MAX)
                 return -E2BIG;
 
-        r = hashmap_ensure_allocated(&m->transfers, &trivial_hash_ops);
-        if (r < 0)
-                return r;
-
         t = new(Transfer, 1);
         if (!t)
                 return -ENOMEM;
@@ -163,7 +161,7 @@ static int transfer_new(Manager *m, Transfer **ret) {
                 .stdin_fd = -1,
                 .stdout_fd = -1,
                 .verify = _IMPORT_VERIFY_INVALID,
-                .progress_percent= (unsigned) -1,
+                .progress_percent= UINT_MAX,
         };
 
         id = m->current_transfer_id + 1;
@@ -171,7 +169,7 @@ static int transfer_new(Manager *m, Transfer **ret) {
         if (asprintf(&t->object_path, "/org/freedesktop/import1/transfer/_%" PRIu32, id) < 0)
                 return -ENOMEM;
 
-        r = hashmap_put(m->transfers, UINT32_TO_PTR(id), t);
+        r = hashmap_ensure_put(&m->transfers, &trivial_hash_ops, UINT32_TO_PTR(id), t);
         if (r < 0)
                 return r;
 
@@ -188,7 +186,7 @@ static int transfer_new(Manager *m, Transfer **ret) {
 static double transfer_percent_as_double(Transfer *t) {
         assert(t);
 
-        if (t->progress_percent == (unsigned) -1)
+        if (t->progress_percent == UINT_MAX)
                 return -DBL_MAX;
 
         return (double) t->progress_percent / 100.0;
@@ -406,6 +404,10 @@ static int transfer_start(Transfer *t) {
                         log_error_errno(errno, "setenv() failed: %m");
                         _exit(EXIT_FAILURE);
                 }
+
+                r = setenv_systemd_exec_pid(true);
+                if (r < 0)
+                        log_warning_errno(r, "Failed to update $SYSTEMD_EXEC_PID, ignoring: %m");
 
                 switch (t->type) {
 
@@ -717,7 +719,7 @@ static int method_import_tar_or_raw(sd_bus_message *msg, void *userdata, sd_bus_
         if (!S_ISREG(st.st_mode) && !S_ISFIFO(st.st_mode))
                 return -EINVAL;
 
-        if (!machine_name_is_valid(local))
+        if (!hostname_is_valid(local, 0))
                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS,
                                          "Local name %s is invalid", local);
 
@@ -787,7 +789,7 @@ static int method_import_fs(sd_bus_message *msg, void *userdata, sd_bus_error *e
         if (r < 0)
                 return r;
 
-        if (!machine_name_is_valid(local))
+        if (!hostname_is_valid(local, 0))
                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS,
                                          "Local name %s is invalid", local);
 
@@ -852,7 +854,7 @@ static int method_export_tar_or_raw(sd_bus_message *msg, void *userdata, sd_bus_
         if (r < 0)
                 return r;
 
-        if (!machine_name_is_valid(local))
+        if (!hostname_is_valid(local, 0))
                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS,
                                          "Local name %s is invalid", local);
 
@@ -932,7 +934,7 @@ static int method_pull_tar_or_raw(sd_bus_message *msg, void *userdata, sd_bus_er
 
         if (isempty(local))
                 local = NULL;
-        else if (!machine_name_is_valid(local))
+        else if (!hostname_is_valid(local, 0))
                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS,
                                          "Local name %s is invalid", local);
 
@@ -1078,7 +1080,7 @@ static int method_cancel_transfer(sd_bus_message *msg, void *userdata, sd_bus_er
         if (r < 0)
                 return r;
         if (id <= 0)
-                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid transfer id");
+                return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid transfer id");
 
         t = hashmap_get(m->transfers, UINT32_TO_PTR(id));
         if (!t)
@@ -1365,7 +1367,7 @@ static int run(int argc, char *argv[]) {
         _cleanup_(manager_unrefp) Manager *m = NULL;
         int r;
 
-        log_setup_service();
+        log_setup();
 
         r = service_parse_argv("systemd-importd.service",
                                "VM and container image import and export service.",

@@ -1,7 +1,7 @@
 <?xml version='1.0'?>
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
-<!-- SPDX-License-Identifier: LGPL-2.1+ -->
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
 
 <refentry id="busctl"
           xmlns:xi="http://www.w3.org/2001/XInclude">
@@ -357,9 +357,9 @@
           <para>Controls whether credential data reported by
           <command>list</command> or <command>status</command> shall
           be augmented with data from
-          <filename>/proc</filename>. When this is turned on, the data
+          <filename>/proc/</filename>. When this is turned on, the data
           shown is possibly inconsistent, as the data read from
-          <filename>/proc</filename> might be more recent than the rest of
+          <filename>/proc/</filename> might be more recent than the rest of
           the credential information. Defaults to <literal>yes</literal>.</para>
         </listitem>
       </varlistentry>

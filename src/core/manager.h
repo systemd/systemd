@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
 #include <stdbool.h>
@@ -36,7 +36,7 @@ typedef enum ManagerState {
         MANAGER_MAINTENANCE,
         MANAGER_STOPPING,
         _MANAGER_STATE_MAX,
-        _MANAGER_STATE_INVALID = -1
+        _MANAGER_STATE_INVALID = -EINVAL,
 } ManagerState;
 
 typedef enum ManagerObjective {
@@ -50,7 +50,7 @@ typedef enum ManagerObjective {
         MANAGER_KEXEC,
         MANAGER_SWITCH_ROOT,
         _MANAGER_OBJECTIVE_MAX,
-        _MANAGER_OBJECTIVE_INVALID = -1
+        _MANAGER_OBJECTIVE_INVALID = -EINVAL,
 } ManagerObjective;
 
 typedef enum StatusType {
@@ -65,7 +65,7 @@ typedef enum OOMPolicy {
         OOM_STOP,              /* The kernel kills the process it wants to kill, and we stop the unit */
         OOM_KILL,              /* The kernel kills the process it wants to kill, and all others in the unit, and we stop the unit */
         _OOM_POLICY_MAX,
-        _OOM_POLICY_INVALID = -1
+        _OOM_POLICY_INVALID = -EINVAL,
 } OOMPolicy;
 
 /* Notes:
@@ -111,7 +111,7 @@ typedef enum ManagerTimestamp {
         MANAGER_TIMESTAMP_INITRD_UNITS_LOAD_START,
         MANAGER_TIMESTAMP_INITRD_UNITS_LOAD_FINISH,
         _MANAGER_TIMESTAMP_MAX,
-        _MANAGER_TIMESTAMP_INVALID = -1,
+        _MANAGER_TIMESTAMP_INVALID = -EINVAL,
 } ManagerTimestamp;
 
 typedef enum WatchdogType {
@@ -187,6 +187,12 @@ struct Manager {
         /* Units that might be subject to StopWhenUnneeded= clean-up */
         LIST_HEAD(Unit, stop_when_unneeded_queue);
 
+        /* Units which are upheld by another other which we might need to act on */
+        LIST_HEAD(Unit, start_when_upheld_queue);
+
+        /* Units that have BindsTo= another unit, and might need to be shutdown because the bound unit is not active. */
+        LIST_HEAD(Unit, stop_when_bound_queue);
+
         sd_event *event;
 
         /* This maps PIDs we care about to units that are interested in. We allow multiple units to he interested in
@@ -240,6 +246,8 @@ struct Manager {
 
         usec_t watchdog[_WATCHDOG_TYPE_MAX];
         usec_t watchdog_overridden[_WATCHDOG_TYPE_MAX];
+
+        bool runtime_watchdog_running; /* Whether the runtime HW watchdog was started, so we know if we still need to get the real timeout from the hardware */
 
         dual_timestamp timestamps[_MANAGER_TIMESTAMP_MAX];
 
@@ -309,25 +317,25 @@ struct Manager {
 
         /* The stat() data the last time we saw /etc/localtime */
         usec_t etc_localtime_mtime;
-        bool etc_localtime_accessible:1;
+        bool etc_localtime_accessible;
 
-        ManagerObjective objective:5;
+        ManagerObjective objective;
 
         /* Flags */
-        bool dispatching_load_queue:1;
+        bool dispatching_load_queue;
 
-        bool taint_usr:1;
+        bool taint_usr;
 
         /* Have we already sent out the READY=1 notification? */
-        bool ready_sent:1;
+        bool ready_sent;
 
         /* Have we already printed the taint line if necessary? */
-        bool taint_logged:1;
+        bool taint_logged;
 
         /* Have we ever changed the "kernel.pid_max" sysctl? */
-        bool sysctl_pid_max_changed:1;
+        bool sysctl_pid_max_changed;
 
-        ManagerTestRunFlags test_run_flags:8;
+        ManagerTestRunFlags test_run_flags;
 
         /* If non-zero, exit with the following value when the systemd
          * process terminate. Useful for containers: systemd-nspawn could get
@@ -364,8 +372,8 @@ struct Manager {
 
         int original_log_level;
         LogTarget original_log_target;
-        bool log_level_overridden:1;
-        bool log_target_overridden:1;
+        bool log_level_overridden;
+        bool log_target_overridden;
 
         struct rlimit *rlimit[_RLIMIT_MAX];
 
@@ -434,6 +442,8 @@ struct Manager {
         bool honor_device_enumeration;
 
         VarlinkServer *varlink_server;
+        /* Only systemd-oomd should be using this to subscribe to changes in ManagedOOM settings */
+        Varlink *managed_oom_varlink_request;
 };
 
 static inline usec_t manager_default_timeout_abort_usec(Manager *m) {
@@ -474,11 +484,6 @@ int manager_add_job(Manager *m, JobType type, Unit *unit, JobMode mode, Set *aff
 int manager_add_job_by_name(Manager *m, JobType type, const char *name, JobMode mode, Set *affected_jobs, sd_bus_error *e, Job **_ret);
 int manager_add_job_by_name_and_warn(Manager *m, JobType type, const char *name, JobMode mode, Set *affected_jobs,  Job **ret);
 int manager_propagate_reload(Manager *m, Unit *unit, JobMode mode, sd_bus_error *e);
-
-void manager_dump_units(Manager *s, FILE *f, const char *prefix);
-void manager_dump_jobs(Manager *s, FILE *f, const char *prefix);
-void manager_dump(Manager *s, FILE *f, const char *prefix);
-int manager_get_dump_string(Manager *m, char **ret);
 
 void manager_clear_jobs(Manager *m);
 
@@ -533,7 +538,7 @@ void manager_unref_uid(Manager *m, uid_t uid, bool destroy_now);
 int manager_ref_uid(Manager *m, uid_t uid, bool clean_ipc);
 
 void manager_unref_gid(Manager *m, gid_t gid, bool destroy_now);
-int manager_ref_gid(Manager *m, gid_t gid, bool destroy_now);
+int manager_ref_gid(Manager *m, gid_t gid, bool clean_ipc);
 
 char *manager_taint_string(Manager *m);
 
@@ -560,6 +565,7 @@ ManagerTimestamp manager_timestamp_initrd_mangle(ManagerTimestamp s);
 usec_t manager_get_watchdog(Manager *m, WatchdogType t);
 void manager_set_watchdog(Manager *m, WatchdogType t, usec_t timeout);
 int manager_override_watchdog(Manager *m, WatchdogType t, usec_t timeout);
+void manager_retry_runtime_watchdog(Manager *m);
 
 const char* oom_policy_to_string(OOMPolicy i) _const_;
 OOMPolicy oom_policy_from_string(const char *s) _pure_;

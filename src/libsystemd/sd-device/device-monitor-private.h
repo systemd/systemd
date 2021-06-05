@@ -1,5 +1,7 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
+
+#include <errno.h>
 
 #include "sd-device.h"
 
@@ -8,7 +10,7 @@ typedef enum MonitorNetlinkGroup {
         MONITOR_GROUP_KERNEL,
         MONITOR_GROUP_UDEV,
         _MONITOR_NETLINK_GROUP_MAX,
-        _MONITOR_NETLINK_GROUP_INVALID = -1,
+        _MONITOR_NETLINK_GROUP_INVALID = -EINVAL,
 } MonitorNetlinkGroup;
 
 int device_monitor_new_full(sd_device_monitor **ret, MonitorNetlinkGroup group, int fd);

@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <errno.h>
 #include <unistd.h>
@@ -8,6 +8,7 @@
 #include "dbus-unit.h"
 #include "load-dropin.h"
 #include "log.h"
+#include "process-util.h"
 #include "scope.h"
 #include "serialize.h"
 #include "special.h"
@@ -130,10 +131,8 @@ static int scope_verify(Scope *s) {
 
         if (set_isempty(UNIT(s)->pids) &&
             !MANAGER_IS_RELOADING(UNIT(s)->manager) &&
-            !unit_has_name(UNIT(s), SPECIAL_INIT_SCOPE)) {
-                log_unit_error(UNIT(s), "Scope has no PIDs. Refusing.");
-                return -ENOENT;
-        }
+            !unit_has_name(UNIT(s), SPECIAL_INIT_SCOPE))
+                return log_unit_error_errno(UNIT(s), SYNTHETIC_ERRNO(ENOENT), "Scope has no PIDs. Refusing.");
 
         return 0;
 }
@@ -235,8 +234,18 @@ static int scope_coldplug(Unit *u) {
         if (r < 0)
                 return r;
 
-        if (!IN_SET(s->deserialized_state, SCOPE_DEAD, SCOPE_FAILED))
-                (void) unit_enqueue_rewatch_pids(u);
+        if (!IN_SET(s->deserialized_state, SCOPE_DEAD, SCOPE_FAILED)) {
+                if (u->pids) {
+                        void *pidp;
+
+                        SET_FOREACH(pidp, u->pids) {
+                                r = unit_watch_pid(u, PTR_TO_PID(pidp), false);
+                                if (r < 0 && r != -EEXIST)
+                                        return r;
+                        }
+                } else
+                        (void) unit_enqueue_rewatch_pids(u);
+        }
 
         bus_scope_track_controller(s);
 
@@ -373,7 +382,13 @@ static int scope_start(Unit *u) {
         /* Set the maximum runtime timeout. */
         scope_arm_timer(s, usec_add(UNIT(s)->active_enter_timestamp.monotonic, s->runtime_max_usec));
 
-        /* Start watching the PIDs currently in the scope */
+        /* On unified we use proper notifications hence we can unwatch the PIDs
+         * we just attached to the scope. This can also be done on legacy as
+         * we're going to update the list of the processes we watch with the
+         * PIDs currently in the scope anyway. */
+        unit_unwatch_all_pids(u);
+
+        /* Start watching the PIDs currently in the scope (legacy hierarchy only) */
         (void) unit_enqueue_rewatch_pids(u);
         return 1;
 }
@@ -427,6 +442,7 @@ static int scope_get_timeout(Unit *u, usec_t *timeout) {
 
 static int scope_serialize(Unit *u, FILE *f, FDSet *fds) {
         Scope *s = SCOPE(u);
+        void *pidp;
 
         assert(s);
         assert(f);
@@ -437,6 +453,9 @@ static int scope_serialize(Unit *u, FILE *f, FDSet *fds) {
 
         if (s->controller)
                 (void) serialize_item(f, "controller", s->controller);
+
+        SET_FOREACH(pidp, u->pids)
+                serialize_item_format(f, "pids", PID_FMT, PTR_TO_PID(pidp));
 
         return 0;
 }
@@ -473,6 +492,16 @@ static int scope_deserialize_item(Unit *u, const char *key, const char *value, F
                 if (r < 0)
                         return log_oom();
 
+        } else if (streq(key, "pids")) {
+                pid_t pid;
+
+                if (parse_pid(value, &pid) < 0)
+                        log_unit_debug(u, "Failed to parse pids value: %s", value);
+                else {
+                        r = set_ensure_put(&u->pids, NULL, PID_TO_PTR(pid));
+                        if (r < 0)
+                                return r;
+                }
         } else
                 log_unit_debug(u, "Unknown serialization key: %s", key);
 
@@ -487,6 +516,11 @@ static void scope_notify_cgroup_empty_event(Unit *u) {
 
         if (IN_SET(s->state, SCOPE_RUNNING, SCOPE_ABANDONED, SCOPE_STOP_SIGTERM, SCOPE_STOP_SIGKILL))
                 scope_enter_dead(s, SCOPE_SUCCESS);
+
+        /* If the cgroup empty notification comes when the unit is not active, we must have failed to clean
+         * up the cgroup earlier and should do it now. */
+        if (IN_SET(s->state, SCOPE_DEAD, SCOPE_FAILED))
+                unit_prune_cgroup(u);
 }
 
 static void scope_sigchld_event(Unit *u, pid_t pid, int code, int status) {
@@ -621,6 +655,7 @@ const UnitVTable scope_vtable = {
         .can_delegate = true,
         .can_fail = true,
         .once_only = true,
+        .can_set_managed_oom = true,
 
         .init = scope_init,
         .load = scope_load,

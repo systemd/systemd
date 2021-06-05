@@ -1,7 +1,7 @@
 <?xml version='1.0'?>
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
-<!-- SPDX-License-Identifier: LGPL-2.1+ -->
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
 
 <refentry id="sd_bus_message_read"
           xmlns:xi="http://www.w3.org/2001/XInclude">
@@ -44,6 +44,7 @@
 
       <funcprototype>
         <funcdef>int <function>sd_bus_message_peek_type</function></funcdef>
+        <paramdef>sd_bus_message *<parameter>m</parameter></paramdef>
         <paramdef>char *<parameter>type</parameter></paramdef>
         <paramdef>const char **<parameter>contents</parameter></paramdef>
       </funcprototype>
@@ -73,7 +74,7 @@
     should be read. See the table below for a complete list of allowed arguments and their types. Note that,
     if the basic type is a pointer (e.g., <type>const char *</type> in the case of a string), the argument is
     a pointer to a pointer, and also the pointer value that is written is only borrowed and the contents must
-    be copied if they are to be used after the end of the messages lifetime. If the type is
+    be copied if they are to be used after the end of the message's lifetime. If the type is
     <literal>h</literal> (UNIX file descriptor), the descriptor is not duplicated by this call and the
     returned descriptor remains in possession of the message object, and needs to be duplicated by the caller
     in order to keep an open reference to it after the message object is freed.</para>

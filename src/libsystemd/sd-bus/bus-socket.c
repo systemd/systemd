@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <endian.h>
 #include <poll.h>
@@ -620,7 +620,7 @@ static void bus_get_peercred(sd_bus *b) {
         assert(b);
         assert(!b->ucred_valid);
         assert(!b->label);
-        assert(b->n_groups == (size_t) -1);
+        assert(b->n_groups == SIZE_MAX);
 
         /* Get the peer for socketpair() sockets */
         b->ucred_valid = getpeercred(b->input_fd, &b->ucred) >= 0;
@@ -700,7 +700,7 @@ int bus_socket_start_auth(sd_bus *b) {
 static int bus_socket_inotify_setup(sd_bus *b) {
         _cleanup_free_ int *new_watches = NULL;
         _cleanup_free_ char *absolute = NULL;
-        size_t n_allocated = 0, n = 0, done = 0, i;
+        size_t n = 0, done = 0, i;
         unsigned max_follow = 32;
         const char *p;
         int wd, r;
@@ -737,7 +737,7 @@ static int bus_socket_inotify_setup(sd_bus *b) {
          * that exists we want to know when files are created or moved into it. For all parents of it we just care if
          * they are removed or renamed. */
 
-        if (!GREEDY_REALLOC(new_watches, n_allocated, n + 1)) {
+        if (!GREEDY_REALLOC(new_watches, n + 1)) {
                 r = -ENOMEM;
                 goto fail;
         }
@@ -786,7 +786,7 @@ static int bus_socket_inotify_setup(sd_bus *b) {
                         goto fail;
                 }
 
-                if (!GREEDY_REALLOC(new_watches, n_allocated, n + 1)) {
+                if (!GREEDY_REALLOC(new_watches, n + 1)) {
                         r = -ENOMEM;
                         goto fail;
                 }
@@ -885,6 +885,13 @@ int bus_socket_connect(sd_bus *b) {
                 assert(b->output_fd < 0);
                 assert(b->sockaddr.sa.sa_family != AF_UNSPEC);
 
+                if (DEBUG_LOGGING) {
+                        _cleanup_free_ char *pretty = NULL;
+                        (void) sockaddr_pretty(&b->sockaddr.sa, b->sockaddr_size, false, true, &pretty);
+                        log_debug("sd-bus: starting bus%s%s by connecting to %s...",
+                                  b->description ? " " : "", strempty(b->description), strnull(pretty));
+                }
+
                 b->input_fd = socket(b->sockaddr.sa.sa_family, SOCK_STREAM|SOCK_CLOEXEC|SOCK_NONBLOCK, 0);
                 if (b->input_fd < 0)
                         return -errno;
@@ -955,6 +962,9 @@ int bus_socket_exec(sd_bus *b) {
         assert(b->output_fd < 0);
         assert(b->exec_path);
         assert(b->busexec_pid == 0);
+
+        log_debug("sd-bus: starting bus%s%s with %s...",
+                  b->description ? " " : "", strempty(b->description), b->exec_path);
 
         r = socketpair(AF_UNIX, SOCK_STREAM|SOCK_NONBLOCK|SOCK_CLOEXEC, 0, s);
         if (r < 0)

@@ -1,7 +1,7 @@
 <?xml version='1.0'?>
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
-<!-- SPDX-License-Identifier: LGPL-2.1+ -->
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
 
 <refentry id="udevadm"
           xmlns:xi="http://www.w3.org/2001/XInclude">
@@ -102,8 +102,8 @@
           <term><option>-p</option></term>
           <term><option>--path=<replaceable>DEVPATH</replaceable></option></term>
           <listitem>
-            <para>The <filename>/sys</filename> path of the device to query, e.g.
-            <filename><optional>/sys</optional>/class/block/sda</filename>. This option is an alternative to
+            <para>The <filename>/sys/</filename> path of the device to query, e.g.
+            <filename><optional>/sys/</optional>/class/block/sda</filename>. This option is an alternative to
             the positional argument with a <filename>/sys/</filename> prefix. <command>udevadm info
             --path=/class/block/sda</command> is equivalent to <command>udevadm info
             /sys/class/block/sda</command>.</para>
@@ -114,7 +114,7 @@
           <term><option>--name=<replaceable>FILE</replaceable></option></term>
           <listitem>
             <para>The name of the device node or a symlink to query,
-            e.g. <filename><optional>/dev</optional>/sda</filename>. This option is an alternative to the
+            e.g. <filename><optional>/dev/</optional>/sda</filename>. This option is an alternative to the
             positional argument with a <filename>/dev/</filename> prefix. <command>udevadm info
             --name=sda</command> is equivalent to <command>udevadm info /dev/sda</command>.</para>
           </listitem>
@@ -186,6 +186,45 @@
 
         <xi:include href="standard-options.xml" xpointer="help" />
       </variablelist>
+
+      <para>The generated output shows the current device database entry in a terse format. Each line shown
+      is prefixed with one of the following characters:</para>
+
+      <table>
+        <title><command>udevadm info</command> output prefixes</title>
+        <tgroup cols='2' align='left' colsep='1' rowsep='1'>
+          <colspec colname="prefix" />
+          <colspec colname="meaning" />
+          <thead>
+            <row>
+              <entry>Prefix</entry>
+              <entry>Meaning</entry>
+            </row>
+          </thead>
+          <tbody>
+            <row>
+              <entry><literal>P:</literal></entry>
+              <entry>Device path in <filename>/sys/</filename></entry>
+            </row>
+            <row>
+              <entry><literal>N:</literal></entry>
+              <entry>Kernel device node name</entry>
+            </row>
+            <row>
+              <entry><literal>L:</literal></entry>
+              <entry>Device node symlink priority</entry>
+            </row>
+            <row>
+              <entry><literal>S:</literal></entry>
+              <entry>Device node symlink</entry>
+            </row>
+            <row>
+              <entry><literal>E:</literal></entry>
+              <entry>Device property</entry>
+            </row>
+          </tbody>
+        </tgroup>
+      </table>
     </refsect2>
 
     <refsect2><title>udevadm trigger
@@ -210,6 +249,13 @@
           <term><option>--dry-run</option></term>
           <listitem>
             <para>Do not actually trigger the event.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>-q</option></term>
+          <term><option>--quiet</option></term>
+          <listitem>
+            <para>Suppress error logging in triggering events.</para>
           </listitem>
         </varlistentry>
         <varlistentry>
@@ -297,7 +343,7 @@
           <term><option>--sysname-match=<replaceable>NAME</replaceable></option></term>
           <listitem>
             <para>Trigger events for devices for which the last component (i.e. the filename) of the
-            <filename>/sys</filename> path matches the specified <replaceable>PATH</replaceable>. This option
+            <filename>/sys/</filename> path matches the specified <replaceable>PATH</replaceable>. This option
             supports shell style pattern matching. When this option is specified more than once, then each
             matching result is ORed, that is, all devices which have any of the specified
             <replaceable>NAME</replaceable> are triggered.</para>
@@ -330,6 +376,15 @@
           </listitem>
         </varlistentry>
         <varlistentry>
+          <term><option>--uuid</option></term>
+          <listitem>
+            <para>Trigger the synthetic device events, and associate a randomized UUID with each. These UUIDs
+            are printed to standard output, one line for each event. These UUIDs are included in the uevent
+            environment block (in the <literal>SYNTH_UUID=</literal> property) and may be used to track
+            delivery of the generated events.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
           <term><option>--wait-daemon[=<replaceable>SECONDS</replaceable>]</option></term>
           <listitem>
             <para>Before triggering uevents, wait for systemd-udevd daemon to be initialized.
@@ -343,7 +398,7 @@
 
       <para>In addition, optional positional arguments can be used
       to specify device names or sys paths. They must start with
-      <filename>/dev</filename> or <filename>/sys</filename>
+      <filename>/dev/</filename> or <filename>/sys/</filename>
       respectively.</para>
     </refsect2>
 

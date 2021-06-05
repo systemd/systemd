@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <stdlib.h>
 #include <sys/stat.h>
@@ -493,7 +493,6 @@ int efi_get_boot_options(uint16_t **options) {
         _cleanup_closedir_ DIR *dir = NULL;
         _cleanup_free_ uint16_t *list = NULL;
         struct dirent *de;
-        size_t alloc = 0;
         int count = 0;
 
         assert(options);
@@ -521,7 +520,7 @@ int efi_get_boot_options(uint16_t **options) {
                 if (id < 0)
                         continue;
 
-                if (!GREEDY_REALLOC(list, alloc, count + 1))
+                if (!GREEDY_REALLOC(list, count + 1))
                         return -ENOMEM;
 
                 list[count++] = id;
@@ -783,13 +782,34 @@ int efi_loader_update_entry_one_shot_cache(char **cache, struct stat *cache_stat
         return 0;
 }
 
+bool efi_has_tpm2(void) {
+        static int cache = -1;
+
+        /* Returns whether the system has a TPM2 chip which is known to the EFI firmware. */
+
+        if (cache < 0) {
+
+                /* First, check if we are on an EFI boot at all. */
+                if (!is_efi_boot())
+                        cache = false;
+                else {
+                        /* Then, check if the ACPI table "TPM2" exists, which is the TPM2 event log table, see:
+                         * https://trustedcomputinggroup.org/wp-content/uploads/TCG_ACPIGeneralSpecification_v1.20_r8.pdf
+                         * This table exists whenever the firmware is hooked up to TPM2. */
+                        cache = access("/sys/firmware/acpi/tables/TPM2", F_OK) >= 0;
+                        if (!cache && errno != ENOENT)
+                                log_debug_errno(errno, "Unable to test whether /sys/firmware/acpi/tables/TPM2 exists, assuming it doesn't: %m");
+                }
+        }
+
+        return cache;
+}
+
 #endif
 
 bool efi_loader_entry_name_valid(const char *s) {
-        if (isempty(s))
-                return false;
 
-        if (strlen(s) > FILENAME_MAX) /* Make sure entry names fit in filenames */
+        if (!filename_is_valid(s)) /* Make sure entry names fit in filenames */
                 return false;
 
         return in_charset(s, ALPHANUMERICAL "+-_.");

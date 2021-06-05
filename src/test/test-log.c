@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <stddef.h>
 #include <unistd.h>
@@ -8,15 +8,6 @@
 #include "process-util.h"
 #include "string-util.h"
 #include "util.h"
-
-assert_cc(LOG_REALM_REMOVE_LEVEL(LOG_REALM_PLUS_LEVEL(LOG_REALM_SYSTEMD, LOG_FTP | LOG_DEBUG))
-          == LOG_REALM_SYSTEMD);
-assert_cc(LOG_REALM_REMOVE_LEVEL(LOG_REALM_PLUS_LEVEL(LOG_REALM_UDEV, LOG_LOCAL7 | LOG_DEBUG))
-          == LOG_REALM_UDEV);
-assert_cc((LOG_REALM_PLUS_LEVEL(LOG_REALM_SYSTEMD, LOG_LOCAL3 | LOG_DEBUG) & LOG_FACMASK)
-          == LOG_LOCAL3);
-assert_cc((LOG_REALM_PLUS_LEVEL(LOG_REALM_UDEV, LOG_USER | LOG_INFO) & LOG_PRIMASK)
-          == LOG_INFO);
 
 assert_cc(IS_SYNTHETIC_ERRNO(SYNTHETIC_ERRNO(EINVAL)));
 assert_cc(!IS_SYNTHETIC_ERRNO(EINVAL));

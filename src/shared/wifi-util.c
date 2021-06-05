@@ -1,17 +1,11 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
-
-#include <net/ethernet.h>
-#include <linux/nl80211.h>
-
-#include "sd-bus.h"
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "log.h"
-#include "netlink-util.h"
 #include "wifi-util.h"
 
 int wifi_get_interface(sd_netlink *genl, int ifindex, enum nl80211_iftype *iftype, char **ssid) {
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL, *reply = NULL;
-        sd_genl_family family;
+        sd_genl_family_t family;
         int r;
 
         assert(genl);
@@ -35,8 +29,10 @@ int wifi_get_interface(sd_netlink *genl, int ifindex, enum nl80211_iftype *iftyp
         }
         if (r < 0)
                 return log_debug_errno(r, "Failed to request information about wifi interface %d: %m", ifindex);
-        if (!reply)
+        if (!reply) {
+                log_debug("No reply received to request for information about wifi interface %d, ignoring.", ifindex);
                 goto nodata;
+        }
 
         r = sd_netlink_message_get_errno(reply);
         if (r < 0)
@@ -46,7 +42,7 @@ int wifi_get_interface(sd_netlink *genl, int ifindex, enum nl80211_iftype *iftyp
         if (r < 0)
                 return log_debug_errno(r, "Failed to determine genl family: %m");
         if (family != SD_GENL_NL80211) {
-                log_debug("Received message of unexpected genl family %u, ignoring.", family);
+                log_debug("Received message of unexpected genl family %" PRIi64 ", ignoring.", family);
                 goto nodata;
         }
 
@@ -62,8 +58,8 @@ int wifi_get_interface(sd_netlink *genl, int ifindex, enum nl80211_iftype *iftyp
         if (ssid) {
                 r = sd_netlink_message_read_string_strdup(reply, NL80211_ATTR_SSID, ssid);
                 if (r == -ENODATA)
-                        goto nodata;
-                if (r < 0)
+                        *ssid = NULL;
+                else if (r < 0)
                         return log_debug_errno(r, "Failed to get NL80211_ATTR_SSID attribute: %m");
         }
 
@@ -79,7 +75,7 @@ nodata:
 
 int wifi_get_station(sd_netlink *genl, int ifindex, struct ether_addr *bssid) {
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL, *reply = NULL;
-        sd_genl_family family;
+        sd_genl_family_t family;
         int r;
 
         assert(genl);
@@ -101,8 +97,10 @@ int wifi_get_station(sd_netlink *genl, int ifindex, struct ether_addr *bssid) {
         r = sd_netlink_call(genl, m, 0, &reply);
         if (r < 0)
                 return log_debug_errno(r, "Failed to request information about wifi station: %m");
-        if (!reply)
+        if (!reply) {
+                log_debug("No reply received to request for information about wifi station, ignoring.");
                 goto nodata;
+        }
 
         r = sd_netlink_message_get_errno(reply);
         if (r < 0)
@@ -112,7 +110,7 @@ int wifi_get_station(sd_netlink *genl, int ifindex, struct ether_addr *bssid) {
         if (r < 0)
                 return log_debug_errno(r, "Failed to determine genl family: %m");
         if (family != SD_GENL_NL80211) {
-                log_debug("Received message of unexpected genl family %u, ignoring.", family);
+                log_debug("Received message of unexpected genl family %" PRIi64 ", ignoring.", family);
                 goto nodata;
         }
 

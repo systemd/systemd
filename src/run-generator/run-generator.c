@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <unistd.h>
 
@@ -39,16 +39,14 @@ static int parse(const char *key, const char *value, void *data) {
                 if (proc_cmdline_value_missing(key, value))
                         return 0;
 
-                if (free_and_strdup(&arg_success_action, value) < 0)
-                        return log_oom();
+                return free_and_strdup_warn(&arg_success_action, value);
 
         } else if (proc_cmdline_key_streq(key, "systemd.run_failure_action")) {
 
                 if (proc_cmdline_value_missing(key, value))
                         return 0;
 
-                if (free_and_strdup(&arg_failure_action, value) < 0)
-                        return log_oom();
+                return free_and_strdup_warn(&arg_failure_action, value);
         }
 
         return 0;
@@ -101,7 +99,7 @@ static int generate(void) {
         if (r < 0)
                 return log_error_errno(r, "Failed to write unit file %s: %m", p);
 
-        /* Let's create a a target we can link "default.target" to */
+        /* Let's create a target we can link "default.target" to */
         p = strjoina(arg_dest, "/kernel-command-line.target");
         r = write_string_file(
                         p,

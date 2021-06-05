@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "format-util.h"
 #include "memory-util.h"
@@ -43,17 +43,17 @@ char *format_bytes_full(char *buf, size_t l, uint64_t t, FormatBytesFlag flag) {
                 { "K", UINT64_C(1000) },
         };
         const suffix_table *table;
-        size_t n, i;
+        size_t n;
 
         assert_cc(ELEMENTSOF(table_iec) == ELEMENTSOF(table_si));
 
-        if (t == (uint64_t) -1)
+        if (t == UINT64_MAX)
                 return NULL;
 
         table = flag & FORMAT_BYTES_USE_IEC ? table_iec : table_si;
         n = ELEMENTSOF(table_iec);
 
-        for (i = 0; i < n; i++)
+        for (size_t i = 0; i < n; i++)
                 if (t >= table[i].factor) {
                         if (flag & FORMAT_BYTES_BELOW_POINT) {
                                 snprintf(buf, l,

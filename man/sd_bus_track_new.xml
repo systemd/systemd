@@ -1,7 +1,7 @@
 <?xml version='1.0'?>
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
-<!-- SPDX-License-Identifier: LGPL-2.1+ -->
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
 
 <refentry id="sd_bus_track_new" xmlns:xi="http://www.w3.org/2001/XInclude">
 
@@ -101,11 +101,11 @@
     <function>sd_bus_track_add_sender()</function>. They may be dropped again via
     <function>sd_bus_track_remove_name()</function> and
     <function>sd_bus_track_remove_sender()</function>. Alternatively, references on peers are removed automatically
-    when they disconnect from the bus.  If non-NULL the <parameter>handler</parameter> may specify a function that is
-    invoked whenever the last reference is dropped, regardless whether the reference is dropped explicitly via
-    <function>sd_bus_track_remove_name()</function> or implicitly because the peer disconnected from the bus. The final
-    argument <parameter>userdata</parameter> may be used to attach a generic user data pointer to the object. This
-    pointer is passed to the handler callback when it is invoked.</para>
+    when they disconnect from the bus.  If non-<constant>NULL</constant> the <parameter>handler</parameter> may specify
+    a function that is invoked whenever the last reference is dropped, regardless whether the reference is dropped
+    explicitly via <function>sd_bus_track_remove_name()</function> or implicitly because the peer disconnected from the
+    bus. The final argument <parameter>userdata</parameter> may be used to attach a generic user data pointer to the
+    object. This pointer is passed to the handler callback when it is invoked.</para>
 
     <para><function>sd_bus_track_ref()</function> creates a new reference to a bus peer tracking object. This object
     will not be destroyed until <function>sd_bus_track_unref()</function> has been called as many times plus once

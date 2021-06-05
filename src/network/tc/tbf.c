@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+
+/* SPDX-License-Identifier: LGPL-2.1-or-later
  * Copyright © 2019 VMware, Inc. */
 
 #include <linux/pkt_sched.h>
@@ -156,7 +156,7 @@ int config_parse_token_bucket_filter_size(
                 else
                         assert_not_reached("unknown lvalue");
 
-                qdisc = NULL;
+                TAKE_PTR(qdisc);
                 return 0;
         }
 
@@ -179,7 +179,7 @@ int config_parse_token_bucket_filter_size(
         else
                 assert_not_reached("unknown lvalue");
 
-        qdisc = NULL;
+        TAKE_PTR(qdisc);
 
         return 0;
 }
@@ -227,7 +227,7 @@ int config_parse_token_bucket_filter_rate(
         if (isempty(rvalue)) {
                 *p = 0;
 
-                qdisc = NULL;
+                TAKE_PTR(qdisc);
                 return 0;
         }
 

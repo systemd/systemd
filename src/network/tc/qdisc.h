@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+
+/* SPDX-License-Identifier: LGPL-2.1-or-later
  * Copyright © 2019 VMware, Inc. */
 #pragma once
 
@@ -31,7 +31,7 @@ typedef enum QDiscKind {
         QDISC_KIND_TBF,
         QDISC_KIND_TEQL,
         _QDISC_KIND_MAX,
-        _QDISC_KIND_INVALID = -1,
+        _QDISC_KIND_INVALID = -EINVAL,
 } QDiscKind;
 
 typedef struct QDisc {
@@ -74,7 +74,7 @@ extern const QDiscVTable * const qdisc_vtable[_QDISC_KIND_MAX];
 /* For casting the various qdisc kinds into a qdisc */
 #define QDISC(q) (&(q)->meta)
 
-void qdisc_free(QDisc *qdisc);
+QDisc* qdisc_free(QDisc *qdisc);
 int qdisc_new_static(QDiscKind kind, Network *network, const char *filename, unsigned section_line, QDisc **ret);
 
 int qdisc_configure(Link *link, QDisc *qdisc);

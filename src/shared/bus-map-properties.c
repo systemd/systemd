@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "bus-map-properties.h"
 #include "alloc-util.h"
@@ -22,6 +22,23 @@ int bus_map_id128(sd_bus *bus, const char *member, sd_bus_message *m, sd_bus_err
         else
                 return -EINVAL;
 
+        return 0;
+}
+
+int bus_map_strv_sort(sd_bus *bus, const char *member, sd_bus_message *m, sd_bus_error *error, void *userdata) {
+        _cleanup_strv_free_ char **l = NULL;
+        char ***p = userdata;
+        int r;
+
+        r = bus_message_read_strv_extend(m, &l);
+        if (r < 0)
+                return r;
+
+        r = strv_extend_strv(p, l, false);
+        if (r < 0)
+                return r;
+
+        strv_sort(*p);
         return 0;
 }
 

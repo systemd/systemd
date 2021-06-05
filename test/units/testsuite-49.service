@@ -1,6 +1,7 @@
 [Unit]
-Description=TEST-49-UDEV-EVENT-TIMEOUT
+Description=TEST-49-RUNTIME-BIND-PATHS
 
 [Service]
+ExecStartPre=rm -f /failed /testok
 ExecStart=/usr/lib/systemd/tests/testdata/units/%N.sh
 Type=oneshot

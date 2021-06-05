@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #if !ENABLE_DNS_OVER_TLS || !DNS_OVER_TLS_USE_OPENSSL
 #error This source file requires DNS-over-TLS to be enabled and OpenSSL to be available.
@@ -13,8 +13,8 @@
 #include "resolved-dnstls.h"
 #include "resolved-manager.h"
 
-DEFINE_TRIVIAL_CLEANUP_FUNC(SSL*, SSL_free);
-DEFINE_TRIVIAL_CLEANUP_FUNC(BIO*, BIO_free);
+DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(SSL*, SSL_free, NULL);
+DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(BIO*, BIO_free, NULL);
 
 static int dnstls_flush_write_buffer(DnsStream *stream) {
         ssize_t ss;

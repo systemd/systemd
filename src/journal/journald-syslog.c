@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <stddef.h>
 #include <sys/epoll.h>
@@ -70,9 +70,8 @@ static void forward_syslog_iovec(
                 msghdr.msg_controllen = cmsg->cmsg_len;
         }
 
-        /* Forward the syslog message we received via /dev/log to
-         * /run/systemd/syslog. Unfortunately we currently can't set
-         * the SO_TIMESTAMP auxiliary data, and hence we don't. */
+        /* Forward the syslog message we received via /dev/log to /run/systemd/syslog. Unfortunately we
+         * currently can't set the SO_TIMESTAMP auxiliary data, and hence we don't. */
 
         if (sendmsg(s->syslog_fd, &msghdr, MSG_NOSIGNAL) >= 0)
                 return;
@@ -153,7 +152,7 @@ void server_forward_syslog(Server *s, int priority, const char *identifier, cons
         /* Third: identifier and PID */
         if (ucred) {
                 if (!identifier) {
-                        get_process_comm(ucred->pid, &ident_buf);
+                        (void) get_process_comm(ucred->pid, &ident_buf);
                         identifier = ident_buf;
                 }
 
@@ -484,13 +483,11 @@ int server_open_syslog_socket(Server *s, const char *syslog_socket) {
         if (r < 0)
                 return log_error_errno(r, "SO_PASSCRED failed: %m");
 
-#if HAVE_SELINUX
         if (mac_selinux_use()) {
                 r = setsockopt_int(s->syslog_fd, SOL_SOCKET, SO_PASSSEC, true);
                 if (r < 0)
                         log_warning_errno(r, "SO_PASSSEC failed: %m");
         }
-#endif
 
         r = setsockopt_int(s->syslog_fd, SOL_SOCKET, SO_TIMESTAMP, true);
         if (r < 0)

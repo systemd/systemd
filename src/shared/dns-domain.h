@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
 #include <errno.h>
@@ -6,27 +6,14 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#include "dns-def.h"
 #include "hashmap.h"
 #include "in-addr-util.h"
 
-/* Length of a single label, with all escaping removed, excluding any trailing dot or NUL byte */
-#define DNS_LABEL_MAX 63
-
-/* Worst case length of a single label, with all escaping applied and room for a trailing NUL byte. */
-#define DNS_LABEL_ESCAPED_MAX (DNS_LABEL_MAX*4+1)
-
-/* Maximum length of a full hostname, consisting of a series of unescaped labels, and no trailing dot or NUL byte */
-#define DNS_HOSTNAME_MAX 253
-
-/* Maximum length of a full hostname, on the wire, including the final NUL byte */
-#define DNS_WIRE_FORMAT_HOSTNAME_MAX 255
-
-/* Maximum number of labels per valid hostname */
-#define DNS_N_LABELS_MAX 127
-
 typedef enum DNSLabelFlags {
-        DNS_LABEL_LDH        = 1 << 0, /* Follow the "LDH" rule — only letters, digits, and internal hyphens. */
-        DNS_LABEL_NO_ESCAPES = 1 << 1, /* Do not treat backslashes specially */
+        DNS_LABEL_LDH                = 1 << 0, /* Follow the "LDH" rule — only letters, digits, and internal hyphens. */
+        DNS_LABEL_NO_ESCAPES         = 1 << 1, /* Do not treat backslashes specially */
+        DNS_LABEL_LEAVE_TRAILING_DOT = 1 << 2, /* Leave trailing dot in place */
 } DNSLabelFlags;
 
 int dns_label_unescape(const char **name, char *dest, size_t sz, DNSLabelFlags flags);
@@ -110,3 +97,5 @@ int dns_name_common_suffix(const char *a, const char *b, const char **ret);
 int dns_name_apply_idna(const char *name, char **ret);
 
 int dns_name_is_valid_or_address(const char *name);
+
+int dns_name_dot_suffixed(const char *name);

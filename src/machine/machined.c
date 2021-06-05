@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <errno.h>
 #include <string.h>
@@ -15,11 +15,11 @@
 #include "bus-polkit.h"
 #include "cgroup-util.h"
 #include "dirent-util.h"
+#include "discover-image.h"
 #include "fd-util.h"
 #include "format-util.h"
 #include "hostname-util.h"
 #include "label.h"
-#include "machine-image.h"
 #include "machined-varlink.h"
 #include "machined.h"
 #include "main-func.h"
@@ -83,7 +83,9 @@ static Manager* manager_unref(Manager *m) {
         hashmap_free(m->image_cache);
 
         sd_event_source_unref(m->image_cache_defer_event);
+#if ENABLE_NSCD
         sd_event_source_unref(m->nscd_cache_flush_event);
+#endif
 
         bus_verify_polkit_async_registry_free(m->polkit_registry);
 
@@ -164,7 +166,7 @@ static int manager_enumerate_machines(Manager *m) {
                 if (startswith(de->d_name, "unit:"))
                         continue;
 
-                if (!machine_name_is_valid(de->d_name))
+                if (!hostname_is_valid(de->d_name, 0))
                         continue;
 
                 k = manager_add_machine(m, de->d_name, &machine);
@@ -322,7 +324,7 @@ static int run(int argc, char *argv[]) {
         int r;
 
         log_set_facility(LOG_AUTH);
-        log_setup_service();
+        log_setup();
 
         r = service_parse_argv("systemd-machined.service",
                                "Manage registrations of local VMs and containers.",

@@ -2,7 +2,7 @@
 <!--*-nxml-*-->
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
-<!-- SPDX-License-Identifier: LGPL-2.1+ -->
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
 <refentry id="systemd-veritysetup-generator" conditional='HAVE_LIBCRYPTSETUP'>
 
   <refentryinfo>
@@ -54,7 +54,7 @@
         <listitem><para>Takes a boolean argument. Defaults to <literal>yes</literal>. If <literal>no</literal>,
         disables the generator entirely. <varname>rd.systemd.verity=</varname> is honored only by the initial RAM disk
         (initrd) while <varname>systemd.verity=</varname> is honored by both the host system and the
-        initrd. </para></listitem>
+        initrd.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -79,6 +79,17 @@
         configure the data partition and hash partition to use for setting up the integrity protection for the root file
         system. If not specified, these paths are automatically derived from the <varname>roothash=</varname> argument
         (see above).</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>systemd.verity_root_options=</varname></term>
+
+        <listitem><para>Takes a comma-separated list of dm-verity options. Expects the following options
+        <option>ignore-corruption</option>, <option>restart-on-corruption</option>, <option>ignore-zero-blocks</option>,
+        <option>check-at-most-once</option>, <option>panic-on-corruption</option> and
+        <option>root-hash-signature</option>. See
+        <citerefentry project='die-net'><refentrytitle>veritysetup</refentrytitle><manvolnum>8</manvolnum></citerefentry> for more
+        details.</para></listitem>
       </varlistentry>
 
     </variablelist>

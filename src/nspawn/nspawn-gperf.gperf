@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 %{
 #if __GNUC__ >= 7
 _Pragma("GCC diagnostic ignored \"-Wimplicit-fallthrough\"")
@@ -25,6 +26,7 @@ Exec.Parameters,              config_parse_strv,           0,                 of
 Exec.Environment,             config_parse_strv,           0,                 offsetof(Settings, environment)
 Exec.User,                    config_parse_string,         0,                 offsetof(Settings, user)
 Exec.Capability,              config_parse_capability,     0,                 offsetof(Settings, capability)
+Exec.AmbientCapability,       config_parse_capability,     0,                 offsetof(Settings, ambient_capability)
 Exec.DropCapability,          config_parse_capability,     0,                 offsetof(Settings, drop_capability)
 Exec.KillSignal,              config_parse_signal,         0,                 offsetof(Settings, kill_signal)
 Exec.Personality,             config_parse_personality,    0,                 offsetof(Settings, personality)
@@ -65,7 +67,9 @@ Files.TemporaryFileSystem,    config_parse_tmpfs,          0,                 0
 Files.Inaccessible,           config_parse_inaccessible,   0,                 0
 Files.Overlay,                config_parse_overlay,        0,                 0
 Files.OverlayReadOnly,        config_parse_overlay,        1,                 0
-Files.PrivateUsersChown,      config_parse_tristate,       0,                 offsetof(Settings, userns_chown)
+Files.PrivateUsersChown,      config_parse_userns_chown,   0,                 offsetof(Settings, userns_ownership)
+Files.PrivateUsersOwnership,  config_parse_userns_ownership, 0,               offsetof(Settings, userns_ownership)
+Files.BindUser,               config_parse_bind_user,      0,                 offsetof(Settings, bind_user)
 Network.Private,              config_parse_tristate,       0,                 offsetof(Settings, private_network)
 Network.Interface,            config_parse_strv,           0,                 offsetof(Settings, network_interfaces)
 Network.MACVLAN,              config_parse_strv,           0,                 offsetof(Settings, network_macvlan)

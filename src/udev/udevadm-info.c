@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: GPL-2.0+ */
+/* SPDX-License-Identifier: GPL-2.0-or-later */
 
 #include <ctype.h>
 #include <errno.h>
@@ -66,8 +66,8 @@ static int sysattr_compare(const SysAttr *a, const SysAttr *b) {
 
 static int print_all_attributes(sd_device *device, bool is_parent) {
         _cleanup_free_ SysAttr *sysattrs = NULL;
-        size_t n_items = 0, n_allocated = 0;
         const char *name, *value;
+        size_t n_items = 0;
 
         value = NULL;
         (void) sd_device_get_devpath(device, &value);
@@ -105,7 +105,7 @@ static int print_all_attributes(sd_device *device, bool is_parent) {
                 if (len > 0)
                         continue;
 
-                if (!GREEDY_REALLOC(sysattrs, n_allocated, n_items + 1))
+                if (!GREEDY_REALLOC(sysattrs, n_items + 1))
                         return log_oom();
 
                 sysattrs[n_items] = (SysAttr) {
@@ -249,8 +249,6 @@ static void cleanup_dir(DIR *dir, mode_t mask, int depth) {
 static void cleanup_db(void) {
         _cleanup_closedir_ DIR *dir1 = NULL, *dir2 = NULL, *dir3 = NULL, *dir4 = NULL, *dir5 = NULL;
 
-        (void) unlink("/run/udev/queue.bin");
-
         dir1 = opendir("/run/udev/data");
         if (dir1)
                 cleanup_dir(dir1, S_ISVTX, 1);
@@ -356,8 +354,8 @@ static int help(void) {
                "  -e --export-db              Export the content of the udev database\n"
                "  -c --cleanup-db             Clean up the udev database\n"
                "  -w --wait-for-initialization[=SECONDS]\n"
-               "                              Wait for device to be initialized\n"
-               , program_invocation_short_name);
+               "                              Wait for device to be initialized\n",
+               program_invocation_short_name);
 
         return 0;
 }
@@ -493,7 +491,11 @@ int info_main(int argc, char *argv[], void *userdata) {
                 if (arg_wait_for_initialization_timeout > 0) {
                         sd_device *d;
 
-                        r = device_wait_for_initialization(device, NULL, arg_wait_for_initialization_timeout, &d);
+                        r = device_wait_for_initialization(
+                                        device,
+                                        NULL,
+                                        usec_add(now(CLOCK_MONOTONIC), arg_wait_for_initialization_timeout),
+                                        &d);
                         if (r < 0)
                                 return r;
 

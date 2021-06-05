@@ -2,7 +2,7 @@
 <!--*-nxml-*-->
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
-<!-- SPDX-License-Identifier: LGPL-2.1+ -->
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
 <refentry id="systemd-volatile-root.service">
 
   <refentryinfo>
@@ -31,8 +31,8 @@
 
     <para><filename>systemd-volatile-root.service</filename> is a service that replaces the root directory with a
     volatile memory file system (<literal>tmpfs</literal>), mounting the original (non-volatile)
-    <filename>/usr</filename> inside it read-only. This way, vendor data from <filename>/usr</filename> is available as
-    usual, but all configuration data in <filename>/etc</filename>, all state data in <filename>/var</filename> and all
+    <filename>/usr/</filename> inside it read-only. This way, vendor data from <filename>/usr/</filename> is available as
+    usual, but all configuration data in <filename>/etc/</filename>, all state data in <filename>/var/</filename> and all
     other resources stored directly under the root directory are reset on boot and lost at shutdown, enabling fully
     stateless systems.</para>
 

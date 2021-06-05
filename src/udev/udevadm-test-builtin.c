@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: GPL-2.0+ */
+/* SPDX-License-Identifier: GPL-2.0-or-later */
 
 #include <errno.h>
 #include <getopt.h>
@@ -19,8 +19,8 @@ static int help(void) {
                "Test a built-in command.\n\n"
                "  -h --help     Print this message\n"
                "  -V --version  Print version of the program\n\n"
-               "Commands:\n"
-               , program_invocation_short_name);
+               "Commands:\n",
+               program_invocation_short_name);
 
         udev_builtin_list();
 

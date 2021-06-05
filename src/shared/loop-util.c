@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #if HAVE_VALGRIND_MEMCHECK_H
 #include <valgrind/memcheck.h>
@@ -13,17 +13,22 @@
 #include <sys/ioctl.h>
 #include <unistd.h>
 
+#include "sd-device.h"
+
 #include "alloc-util.h"
 #include "blockdev-util.h"
+#include "device-util.h"
 #include "errno-util.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "loop-util.h"
 #include "missing_loop.h"
 #include "parse-util.h"
+#include "random-util.h"
 #include "stat-util.h"
 #include "stdio-util.h"
 #include "string-util.h"
+#include "tmpfile-util.h"
 
 static void cleanup_clear_loop_close(int *fd) {
         if (*fd < 0)
@@ -33,73 +38,314 @@ static void cleanup_clear_loop_close(int *fd) {
         (void) safe_close(*fd);
 }
 
-static int loop_configure(int fd, const struct loop_config *c) {
+static int loop_is_bound(int fd) {
+        struct loop_info64 info;
+
+        assert(fd >= 0);
+
+        if (ioctl(fd, LOOP_GET_STATUS64, &info) < 0) {
+                if (errno == ENXIO)
+                        return false; /* not bound! */
+
+                return -errno;
+        }
+
+        return true; /* bound! */
+}
+
+static int get_current_uevent_seqnum(uint64_t *ret) {
+        _cleanup_free_ char *p = NULL;
+        int r;
+
+        r = read_full_virtual_file("/sys/kernel/uevent_seqnum", &p, NULL);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to read current uevent sequence number: %m");
+
+        truncate_nl(p);
+
+        r = safe_atou64(p, ret);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to parse current uevent sequence number: %s", p);
+
+        return 0;
+}
+
+static int device_has_block_children(sd_device *d) {
+        _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
+        const char *main_sn, *main_ss;
+        sd_device *q;
+        int r;
+
+        assert(d);
+
+        /* Checks if the specified device currently has block device children (i.e. partition block
+         * devices). */
+
+        r = sd_device_get_sysname(d, &main_sn);
+        if (r < 0)
+                return r;
+
+        r = sd_device_get_subsystem(d, &main_ss);
+        if (r < 0)
+                return r;
+
+        if (!streq(main_ss, "block"))
+                return -EINVAL;
+
+        r = sd_device_enumerator_new(&e);
+        if (r < 0)
+                return r;
+
+        r = sd_device_enumerator_allow_uninitialized(e);
+        if (r < 0)
+                return r;
+
+        r = sd_device_enumerator_add_match_parent(e, d);
+        if (r < 0)
+                return r;
+
+        FOREACH_DEVICE(e, q) {
+                const char *ss, *sn;
+
+                r = sd_device_get_subsystem(q, &ss);
+                if (r < 0)
+                        continue;
+
+                if (!streq(ss, "block"))
+                        continue;
+
+                r = sd_device_get_sysname(q, &sn);
+                if (r < 0)
+                        continue;
+
+                if (streq(sn, main_sn))
+                        continue;
+
+                return 1; /* we have block device children */
+        }
+
+        return 0;
+}
+
+static int loop_configure(
+                int fd,
+                int nr,
+                const struct loop_config *c,
+                bool *try_loop_configure,
+                uint64_t *ret_seqnum_not_before,
+                usec_t *ret_timestamp_not_before) {
+
+        _cleanup_(sd_device_unrefp) sd_device *d = NULL;
+        _cleanup_free_ char *sysname = NULL;
+        _cleanup_close_ int lock_fd = -1;
+        uint64_t seqnum;
+        usec_t timestamp;
         int r;
 
         assert(fd >= 0);
+        assert(nr >= 0);
         assert(c);
+        assert(try_loop_configure);
 
-        if (ioctl(fd, LOOP_CONFIGURE, c) < 0) {
-                /* Do fallback only if LOOP_CONFIGURE is not supported, propagate all other errors. Note that
-                 * the kernel is weird: non-existing ioctls currently return EINVAL rather than ENOTTY on
-                 * loopback block devices. They should fix that in the kernel, but in the meantime we accept
-                 * both here. */
-                if (!ERRNO_IS_NOT_SUPPORTED(errno) && errno != EINVAL)
-                        return -errno;
-        } else {
-                bool good = true;
+        if (asprintf(&sysname, "loop%i", nr) < 0)
+                return -ENOMEM;
 
-                if (c->info.lo_sizelimit != 0) {
-                        /* Kernel 5.8 vanilla doesn't properly propagate the size limit into the block
-                         * device. If it's used, let's immediately check if it had the desired effect
-                         * hence. And if not use classic LOOP_SET_STATUS64. */
-                        uint64_t z;
+        r = sd_device_new_from_subsystem_sysname(&d, "block", sysname);
+        if (r < 0)
+                return r;
 
-                        if (ioctl(fd, BLKGETSIZE64, &z) < 0) {
-                                r = -errno;
-                                goto fail;
-                        }
+        /* Let's lock the device before we do anything. We take the BSD lock on a second, separately opened
+         * fd for the device. udev after all watches for close() events (specifically IN_CLOSE_WRITE) on
+         * block devices to reprobe them, hence by having a separate fd we will later close() we can ensure
+         * we trigger udev after everything is done. If we'd lock our own fd instead and keep it open for a
+         * long time udev would possibly never run on it again, even though the fd is unlocked, simply
+         * because we never close() it. It also has the nice benefit we can use the _cleanup_close_ logic to
+         * automatically release the lock, after we are done. */
+        lock_fd = fd_reopen(fd, O_RDWR|O_CLOEXEC|O_NONBLOCK|O_NOCTTY);
+        if (lock_fd < 0)
+                return lock_fd;
+        if (flock(lock_fd, LOCK_EX) < 0)
+                return -errno;
 
-                        if (z != c->info.lo_sizelimit) {
-                                log_debug("LOOP_CONFIGURE is broken, doesn't honour .lo_sizelimit. Falling back to LOOP_SET_STATUS64.");
-                                good = false;
-                        }
-                }
+        /* Let's see if the device is really detached, i.e. currently has no associated partition block
+         * devices. On various kernels (such as 5.8) it is possible to have a loopback block device that
+         * superficially is detached but still has partition block devices associated for it. They only go
+         * away when the device is reattached. (Yes, LOOP_CLR_FD doesn't work then, because officially
+         * nothing is attached and LOOP_CTL_REMOVE doesn't either, since it doesn't care about partition
+         * block devices. */
+        r = device_has_block_children(d);
+        if (r < 0)
+                return r;
+        if (r > 0) {
+                r = loop_is_bound(fd);
+                if (r < 0)
+                        return r;
+                if (r > 0)
+                        return -EBUSY;
 
-                if (FLAGS_SET(c->info.lo_flags, LO_FLAGS_PARTSCAN)) {
-                        /* Kernel 5.8 vanilla doesn't properly propagate the partition scanning flag into the
-                         * block device. Let's hence verify if things work correctly here before
-                         * returning. */
-
-                        r = blockdev_partscan_enabled(fd);
-                        if (r < 0)
-                                goto fail;
-                        if (r == 0) {
-                                log_debug("LOOP_CONFIGURE is broken, doesn't honour LO_FLAGS_PARTSCAN. Falling back to LOOP_SET_STATUS64.");
-                                good = false;
-                        }
-                }
-
-                if (good)
-                        return 0;
-
-                /* Otherwise, undo the attachment and use the old APIs */
-                (void) ioctl(fd, LOOP_CLR_FD);
+                return -EUCLEAN; /* Bound but children? Tell caller to reattach something so that the
+                                  * partition block devices are gone too. */
         }
+
+        if (*try_loop_configure) {
+                /* Acquire uevent seqnum immediately before attaching the loopback device. This allows
+                 * callers to ignore all uevents with a seqnum before this one, if they need to associate
+                 * uevent with this attachment. Doing so isn't race-free though, as uevents that happen in
+                 * the window between this reading of the seqnum, and the LOOP_CONFIGURE call might still be
+                 * mistaken as originating from our attachment, even though might be caused by an earlier
+                 * use. But doing this at least shortens the race window a bit. */
+                r = get_current_uevent_seqnum(&seqnum);
+                if (r < 0)
+                        return r;
+                timestamp = now(CLOCK_MONOTONIC);
+
+                if (ioctl(fd, LOOP_CONFIGURE, c) < 0) {
+                        /* Do fallback only if LOOP_CONFIGURE is not supported, propagate all other
+                         * errors. Note that the kernel is weird: non-existing ioctls currently return EINVAL
+                         * rather than ENOTTY on loopback block devices. They should fix that in the kernel,
+                         * but in the meantime we accept both here. */
+                        if (!ERRNO_IS_NOT_SUPPORTED(errno) && errno != EINVAL)
+                                return -errno;
+
+                        *try_loop_configure = false;
+                } else {
+                        bool good = true;
+
+                        if (c->info.lo_sizelimit != 0) {
+                                /* Kernel 5.8 vanilla doesn't properly propagate the size limit into the
+                                 * block device. If it's used, let's immediately check if it had the desired
+                                 * effect hence. And if not use classic LOOP_SET_STATUS64. */
+                                uint64_t z;
+
+                                if (ioctl(fd, BLKGETSIZE64, &z) < 0) {
+                                        r = -errno;
+                                        goto fail;
+                                }
+
+                                if (z != c->info.lo_sizelimit) {
+                                        log_debug("LOOP_CONFIGURE is broken, doesn't honour .lo_sizelimit. Falling back to LOOP_SET_STATUS64.");
+                                        good = false;
+                                }
+                        }
+
+                        if (FLAGS_SET(c->info.lo_flags, LO_FLAGS_PARTSCAN)) {
+                                /* Kernel 5.8 vanilla doesn't properly propagate the partition scanning flag
+                                 * into the block device. Let's hence verify if things work correctly here
+                                 * before returning. */
+
+                                r = blockdev_partscan_enabled(fd);
+                                if (r < 0)
+                                        goto fail;
+                                if (r == 0) {
+                                        log_debug("LOOP_CONFIGURE is broken, doesn't honour LO_FLAGS_PARTSCAN. Falling back to LOOP_SET_STATUS64.");
+                                        good = false;
+                                }
+                        }
+
+                        if (!good) {
+                                /* LOOP_CONFIGURE doesn't work. Remember that. */
+                                *try_loop_configure = false;
+
+                                /* We return EBUSY here instead of retrying immediately with LOOP_SET_FD,
+                                 * because LOOP_CLR_FD is async: if the operation cannot be executed right
+                                 * away it just sets the autoclear flag on the device. This means there's a
+                                 * good chance we cannot actually reuse the loopback device right-away. Hence
+                                 * let's assume it's busy, avoid the trouble and let the calling loop call us
+                                 * again with a new, likely unused device. */
+                                r = -EBUSY;
+                                goto fail;
+                        }
+
+                        if (ret_seqnum_not_before)
+                                *ret_seqnum_not_before = seqnum;
+                        if (ret_timestamp_not_before)
+                                *ret_timestamp_not_before = timestamp;
+
+                        return 0;
+                }
+        }
+
+        /* Let's read the seqnum again, to shorten the window. */
+        r = get_current_uevent_seqnum(&seqnum);
+        if (r < 0)
+                return r;
+        timestamp = now(CLOCK_MONOTONIC);
+
+        /* Since kernel commit 5db470e229e22b7eda6e23b5566e532c96fb5bc3 (kernel v5.0) the LOOP_SET_STATUS64
+         * ioctl can return EAGAIN in case we change the lo_offset field, if someone else is accessing the
+         * block device while we try to reconfigure it. This is a pretty common case, since udev might
+         * instantly start probing the device as soon as we attach an fd to it. Hence handle it in two ways:
+         * first, let's take the BSD lock to ensure that udev will not step in between the point in
+         * time where we attach the fd and where we reconfigure the device. Secondly, let's wait 50ms on
+         * EAGAIN and retry. The former should be an efficient mechanism to avoid we have to wait 50ms
+         * needlessly if we are just racing against udev. The latter is protection against all other cases,
+         * i.e. peers that do not take the BSD lock. */
 
         if (ioctl(fd, LOOP_SET_FD, c->fd) < 0)
                 return -errno;
 
-        if (ioctl(fd, LOOP_SET_STATUS64, &c->info) < 0) {
-                r = -errno;
-                goto fail;
+        for (unsigned n_attempts = 0;;) {
+                if (ioctl(fd, LOOP_SET_STATUS64, &c->info) >= 0)
+                        break;
+                if (errno != EAGAIN || ++n_attempts >= 64) {
+                        r = log_debug_errno(errno, "Failed to configure loopback device: %m");
+                        goto fail;
+                }
+
+                /* Sleep some random time, but at least 10ms, at most 250ms. Increase the delay the more
+                 * failed attempts we see */
+                (void) usleep(UINT64_C(10) * USEC_PER_MSEC +
+                              random_u64_range(UINT64_C(240) * USEC_PER_MSEC * n_attempts/64));
         }
+
+        if (ret_seqnum_not_before)
+                *ret_seqnum_not_before = seqnum;
+        if (ret_timestamp_not_before)
+                *ret_timestamp_not_before = timestamp;
 
         return 0;
 
 fail:
         (void) ioctl(fd, LOOP_CLR_FD);
         return r;
+}
+
+static int attach_empty_file(int loop, int nr) {
+        _cleanup_close_ int fd = -1;
+
+        /* So here's the thing: on various kernels (5.8 at least) loop block devices might enter a state
+         * where they are detached but nonetheless have partitions, when used heavily. Accessing these
+         * partitions results in immediatey IO errors. There's no pretty way to get rid of them
+         * again. Neither LOOP_CLR_FD nor LOOP_CTL_REMOVE suffice (see above). What does work is to
+         * reassociate them with a new fd however. This is what we do here hence: we associate the devices
+         * with an empty file (i.e. an image that definitely has no partitions). We then immediately clear it
+         * again. This suffices to make the partitions go away. Ugly but appears to work. */
+
+        log_debug("Found unattached loopback block device /dev/loop%i with partitions. Attaching empty file to remove them.", nr);
+
+        fd = open_tmpfile_unlinkable(NULL, O_RDONLY);
+        if (fd < 0)
+                return fd;
+
+        if (flock(loop, LOCK_EX) < 0)
+                return -errno;
+
+        if (ioctl(loop, LOOP_SET_FD, fd) < 0)
+                return -errno;
+
+        if (ioctl(loop, LOOP_SET_STATUS64, &(struct loop_info64) {
+                                .lo_flags = LO_FLAGS_READ_ONLY|
+                                            LO_FLAGS_AUTOCLEAR|
+                                            LO_FLAGS_PARTSCAN, /* enable partscan, so that the partitions really go away */
+                        }) < 0)
+                return -errno;
+
+        if (ioctl(loop, LOOP_CLR_FD) < 0)
+                return -errno;
+
+        /* The caller is expected to immediately close the loopback device after this, so that the BSD lock
+         * is released, and udev sees the changes. */
+        return 0;
 }
 
 int loop_device_make(
@@ -111,8 +357,11 @@ int loop_device_make(
                 LoopDevice **ret) {
 
         _cleanup_free_ char *loopdev = NULL;
+        bool try_loop_configure = true;
         struct loop_config config;
         LoopDevice *d = NULL;
+        uint64_t seqnum = UINT64_MAX;
+        usec_t timestamp = USEC_INFINITY;
         struct stat st;
         int nr = -1, r;
 
@@ -154,6 +403,9 @@ int loop_device_make(
                                 .nr = nr,
                                 .node = TAKE_PTR(loopdev),
                                 .relinquished = true, /* It's not allocated by us, don't destroy it when this object is freed */
+                                .devno = st.st_rdev,
+                                .uevent_seqnum_not_before = UINT64_MAX,
+                                .timestamp_not_before = USEC_INFINITY,
                         };
 
                         *ret = d;
@@ -201,12 +453,17 @@ int loop_device_make(
                         if (!IN_SET(errno, ENOENT, ENXIO))
                                 return -errno;
                 } else {
-                        r = loop_configure(loop, &config);
+                        r = loop_configure(loop, nr, &config, &try_loop_configure, &seqnum, &timestamp);
                         if (r >= 0) {
                                 loop_with_fd = TAKE_FD(loop);
                                 break;
                         }
-                        if (r != -EBUSY)
+                        if (r == -EUCLEAN) {
+                                /* Make left-over partition disappear hack (see above) */
+                                r = attach_empty_file(loop, nr);
+                                if (r < 0 && r != -EBUSY)
+                                        return r;
+                        } else if (r != -EBUSY)
                                 return r;
                 }
 
@@ -214,7 +471,16 @@ int loop_device_make(
                         return -EBUSY;
 
                 loopdev = mfree(loopdev);
+
+                /* Wait some random time, to make collision less likely. Let's pick a random time in the
+                 * range 0ms…250ms, linearly scaled by the number of failed attempts. */
+                (void) usleep(random_u64_range(UINT64_C(10) * USEC_PER_MSEC +
+                                               UINT64_C(240) * USEC_PER_MSEC * n_attempts/64));
         }
+
+        if (fstat(loop_with_fd, &st) < 0)
+                return -errno;
+        assert(S_ISBLK(st.st_mode));
 
         d = new(LoopDevice, 1);
         if (!d)
@@ -223,13 +489,21 @@ int loop_device_make(
                 .fd = TAKE_FD(loop_with_fd),
                 .node = TAKE_PTR(loopdev),
                 .nr = nr,
+                .devno = st.st_rdev,
+                .uevent_seqnum_not_before = seqnum,
+                .timestamp_not_before = timestamp,
         };
 
         *ret = d;
-        return 0;
+        return d->fd;
 }
 
-int loop_device_make_by_path(const char *path, int open_flags, uint32_t loop_flags, LoopDevice **ret) {
+int loop_device_make_by_path(
+                const char *path,
+                int open_flags,
+                uint32_t loop_flags,
+                LoopDevice **ret) {
+
         _cleanup_close_ int fd = -1;
         int r;
 
@@ -352,6 +626,9 @@ int loop_device_open(const char *loop_path, int open_flags, LoopDevice **ret) {
                 .nr = nr,
                 .node = TAKE_PTR(p),
                 .relinquished = true, /* It's not ours, don't try to destroy it when this object is freed */
+                .devno = st.st_dev,
+                .uevent_seqnum_not_before = UINT64_MAX,
+                .timestamp_not_before = USEC_INFINITY,
         };
 
         *ret = d;

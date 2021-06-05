@@ -1,9 +1,9 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
 #include <stdbool.h>
 
-#define VERB_ANY ((unsigned) -1)
+#define VERB_ANY (UINT_MAX)
 
 typedef enum VerbFlags {
         VERB_DEFAULT      = 1 << 0,  /* The verb to run if no verb is specified */

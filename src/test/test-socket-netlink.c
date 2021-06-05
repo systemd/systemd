@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "alloc-util.h"
 #include "missing_network.h"
@@ -47,7 +47,8 @@ static void test_socket_address_parse(void) {
 
         const int default_family = socket_ipv6_is_supported() ? AF_INET6 : AF_INET;
 
-        test_socket_address_parse_one("65535", 0, default_family, "[::]:65535");
+        test_socket_address_parse_one("65535", 0, default_family,
+                                      default_family == AF_INET6 ? "[::]:65535": "0.0.0.0:65535");
 
         /* The checks below will pass even if ipv6 is disabled in
          * kernel. The underlying glibc's inet_pton() is just a string
@@ -65,14 +66,15 @@ static void test_socket_address_parse(void) {
         test_socket_address_parse_one("[::1]%lo%lo:1234", -EINVAL, 0, NULL);
         test_socket_address_parse_one("[::1]% lo:1234", -EINVAL, 0, NULL);
 
-        test_socket_address_parse_one("8888", 0, default_family, "[::]:8888");
+        test_socket_address_parse_one("8888", 0, default_family,
+                                      default_family == AF_INET6 ? "[::]:8888": "0.0.0.0:8888");
         test_socket_address_parse_one("[2001:0db8:0000:85a3:0000:0000:ac1f:8001]:8888", 0, AF_INET6,
                                       "[2001:db8:0:85a3::ac1f:8001]:8888");
         test_socket_address_parse_one("[::1]:8888", 0, AF_INET6, NULL);
         test_socket_address_parse_one("[::1]:1234%lo", 0, AF_INET6, NULL);
         test_socket_address_parse_one("[::1]:0%lo", -EINVAL, 0, NULL);
         test_socket_address_parse_one("[::1]%lo", -EINVAL, 0, NULL);
-        test_socket_address_parse_one("[::1]:1234%lo%lo", -ENODEV, 0, NULL);
+        test_socket_address_parse_one("[::1]:1234%lo%lo", -EINVAL, 0, NULL);
         test_socket_address_parse_one("[::1]:1234%xxxxasdf", -ENODEV, 0, NULL);
         test_socket_address_parse_one("192.168.1.254:8888", 0, AF_INET, NULL);
         test_socket_address_parse_one("/foo/bar", 0, AF_UNIX, NULL);

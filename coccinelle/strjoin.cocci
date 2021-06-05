@@ -1,16 +1,15 @@
 @@
-expression list args;
-@@
-- strjoin(args, NULL);
-+ strjoin(args);
-@@
+position p : script:python() { p[0].current_element != "test_strjoin" };
 expression t;
 expression list args;
 @@
-- t = strjoin(args, NULL);
+(
+- strjoin@p(args, NULL);
++ strjoin(args);
+|
+- t = strjoin@p(args, NULL);
 + t = strjoin(args);
-@@
-expression list args;
-@@
-- return strjoin(args, NULL);
+|
+- return strjoin@p(args, NULL);
 + return strjoin(args);
+)

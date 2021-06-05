@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: LGPL-2.1+
+# SPDX-License-Identifier: LGPL-2.1-or-later
 
 if conf.get('ENABLE_HOSTNAMED') == 1
         install_data('org.freedesktop.hostname1.conf',

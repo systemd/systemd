@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <efi.h>
 #include <efilib.h>
@@ -31,6 +31,8 @@ struct DosFileHeader {
 #define PE_HEADER_MACHINE_I386          0x014c
 #define PE_HEADER_MACHINE_X64           0x8664
 #define PE_HEADER_MACHINE_ARM64         0xaa64
+#define PE_HEADER_MACHINE_ARM           0x01c2
+#define PE_HEADER_MACHINE_RISCV64       0x5064
 struct PeFileHeader {
         UINT16  Machine;
         UINT16  NumberOfSections;
@@ -62,7 +64,6 @@ struct PeSectionHeader {
 EFI_STATUS pe_memory_locate_sections(CHAR8 *base, CHAR8 **sections, UINTN *addrs, UINTN *offsets, UINTN *sizes) {
         struct DosFileHeader *dos;
         struct PeHeader *pe;
-        UINTN i;
         UINTN offset;
 
         dos = (struct DosFileHeader *)base;
@@ -77,7 +78,9 @@ EFI_STATUS pe_memory_locate_sections(CHAR8 *base, CHAR8 **sections, UINTN *addrs
         /* PE32+ Subsystem type */
         if (pe->FileHeader.Machine != PE_HEADER_MACHINE_X64 &&
             pe->FileHeader.Machine != PE_HEADER_MACHINE_ARM64 &&
-            pe->FileHeader.Machine != PE_HEADER_MACHINE_I386)
+            pe->FileHeader.Machine != PE_HEADER_MACHINE_I386 &&
+            pe->FileHeader.Machine != PE_HEADER_MACHINE_ARM &&
+            pe->FileHeader.Machine != PE_HEADER_MACHINE_RISCV64)
                 return EFI_LOAD_ERROR;
 
         if (pe->FileHeader.NumberOfSections > 96)
@@ -85,12 +88,11 @@ EFI_STATUS pe_memory_locate_sections(CHAR8 *base, CHAR8 **sections, UINTN *addrs
 
         offset = dos->ExeHeader + sizeof(*pe) + pe->FileHeader.SizeOfOptionalHeader;
 
-        for (i = 0; i < pe->FileHeader.NumberOfSections; i++) {
+        for (UINTN i = 0; i < pe->FileHeader.NumberOfSections; i++) {
                 struct PeSectionHeader *sect;
-                UINTN j;
 
                 sect = (struct PeSectionHeader *)&base[offset];
-                for (j = 0; sections[j]; j++) {
+                for (UINTN j = 0; sections[j]; j++) {
                         if (CompareMem(sect->Name, sections[j], strlena(sections[j])) != 0)
                                 continue;
 

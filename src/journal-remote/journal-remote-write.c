@@ -1,10 +1,10 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "alloc-util.h"
 #include "journal-remote.h"
 
 static int do_rotate(JournalFile **f, bool compress, bool seal) {
-        int r = journal_file_rotate(f, compress, (uint64_t) -1, seal, NULL);
+        int r = journal_file_rotate(f, compress, UINT64_MAX, seal, NULL);
         if (r < 0) {
                 if (*f)
                         log_error_errno(r, "Failed to rotate %s: %m", (*f)->path);

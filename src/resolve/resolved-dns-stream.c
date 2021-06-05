@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <netinet/tcp.h>
 #include <unistd.h>
@@ -18,8 +18,8 @@
 static void dns_stream_stop(DnsStream *s) {
         assert(s);
 
-        s->io_event_source = sd_event_source_unref(s->io_event_source);
-        s->timeout_event_source = sd_event_source_unref(s->timeout_event_source);
+        s->io_event_source = sd_event_source_disable_unref(s->io_event_source);
+        s->timeout_event_source = sd_event_source_disable_unref(s->timeout_event_source);
         s->fd = safe_close(s->fd);
 
         /* Disconnect us from the server object if we are now not usable anymore */
@@ -187,7 +187,7 @@ static int dns_stream_identify(DnsStream *s) {
         /* If we don't know the interface index still, we look for the
          * first local interface with a matching address. Yuck! */
         if (s->ifindex <= 0)
-                s->ifindex = manager_find_ifindex(s->manager, s->local.sa.sa_family, s->local.sa.sa_family == AF_INET ? (union in_addr_union*) &s->local.in.sin_addr : (union in_addr_union*)  &s->local.in6.sin6_addr);
+                s->ifindex = manager_find_ifindex(s->manager, s->local.sa.sa_family, sockaddr_in_addr(&s->local.sa));
 
         if (s->protocol == DNS_PROTOCOL_LLMNR && s->ifindex > 0) {
                 /* Make sure all packets for this connection are sent on the same interface */
@@ -315,15 +315,14 @@ static int on_stream_io(sd_event_source *es, int fd, uint32_t revents, void *use
             s->write_packet &&
             s->n_written < sizeof(s->write_size) + s->write_packet->size) {
 
-                struct iovec iov[2];
-                ssize_t ss;
+                struct iovec iov[] = {
+                        IOVEC_MAKE(&s->write_size, sizeof(s->write_size)),
+                        IOVEC_MAKE(DNS_PACKET_DATA(s->write_packet), s->write_packet->size),
+                };
 
-                iov[0] = IOVEC_MAKE(&s->write_size, sizeof(s->write_size));
-                iov[1] = IOVEC_MAKE(DNS_PACKET_DATA(s->write_packet), s->write_packet->size);
+                IOVEC_INCREMENT(iov, ELEMENTSOF(iov), s->n_written);
 
-                IOVEC_INCREMENT(iov, 2, s->n_written);
-
-                ss = dns_stream_writev(s, iov, 2, 0);
+                ssize_t ss = dns_stream_writev(s, iov, ELEMENTSOF(iov), 0);
                 if (ss < 0) {
                         if (!IN_SET(-ss, EINTR, EAGAIN))
                                 return dns_stream_complete(s, -ss);
@@ -377,6 +376,7 @@ static int on_stream_io(sd_event_source *es, int fd, uint32_t revents, void *use
                                         s->read_packet->family = s->peer.sa.sa_family;
                                         s->read_packet->ttl = s->ttl;
                                         s->read_packet->ifindex = s->ifindex;
+                                        s->read_packet->timestamp = now(clock_boottime_or_monotonic());
 
                                         if (s->read_packet->family == AF_INET) {
                                                 s->read_packet->sender.in = s->peer.in.sin_addr;

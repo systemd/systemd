@@ -7,4 +7,4 @@ After=testsuite-28-pre.service
 [Service]
 Type=oneshot
 ExecStart=test -f /tmp/test-specifier-j-%j
-ExecStart=sh -c 'echo OK > /testok'
+ExecStart=sh -c 'echo OK >/testok'

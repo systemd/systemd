@@ -1,0 +1,10 @@
+[Unit]
+Description=Test slice for memory pressure kills
+
+[Slice]
+CPUAccounting=true
+MemoryAccounting=true
+IOAccounting=true
+TasksAccounting=true
+ManagedOOMMemoryPressure=kill
+ManagedOOMMemoryPressureLimit=1%

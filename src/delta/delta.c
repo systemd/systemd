@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <errno.h>
 #include <getopt.h>
@@ -15,6 +15,7 @@
 #include "main-func.h"
 #include "nulstr-util.h"
 #include "pager.h"
+#include "parse-argument.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "pretty-print.h"
@@ -290,7 +291,7 @@ static int enumerate_dir(
         _cleanup_closedir_ DIR *d = NULL;
         struct dirent *de;
         _cleanup_strv_free_ char **files = NULL, **dirs = NULL;
-        size_t n_files = 0, allocated_files = 0, n_dirs = 0, allocated_dirs = 0;
+        size_t n_files = 0, n_dirs = 0;
         char **t;
         int r;
 
@@ -313,7 +314,7 @@ static int enumerate_dir(
                 dirent_ensure_type(d, de);
 
                 if (dropins && de->d_type == DT_DIR && endswith(de->d_name, ".d")) {
-                        if (!GREEDY_REALLOC0(dirs, allocated_dirs, n_dirs + 2))
+                        if (!GREEDY_REALLOC0(dirs, n_dirs + 2))
                                 return -ENOMEM;
 
                         dirs[n_dirs] = strdup(de->d_name);
@@ -325,7 +326,7 @@ static int enumerate_dir(
                 if (!dirent_is_file(de))
                         continue;
 
-                if (!GREEDY_REALLOC0(files, allocated_files, n_files + 2))
+                if (!GREEDY_REALLOC0(files, n_files + 2))
                         return -ENOMEM;
 
                 files[n_files] = strdup(de->d_name);
@@ -532,10 +533,9 @@ static int help(void) {
                "     --no-pager       Do not pipe output into a pager\n"
                "     --diff[=1|0]     Show a diff when overridden files differ\n"
                "  -t --type=LIST...   Only display a selected set of override types\n"
-               "\nSee the %s for details.\n"
-               , program_invocation_short_name
-               , link
-        );
+               "\nSee the %s for details.\n",
+               program_invocation_short_name,
+               link);
 
         return 0;
 }
@@ -587,7 +587,7 @@ static int parse_argv(int argc, char *argv[]) {
                 {}
         };
 
-        int c;
+        int c, r;
 
         assert(argc >= 1);
         assert(argv);
@@ -617,18 +617,10 @@ static int parse_argv(int argc, char *argv[]) {
                 }
 
                 case ARG_DIFF:
-                        if (!optarg)
-                                arg_diff = 1;
-                        else {
-                                int b;
-
-                                b = parse_boolean(optarg);
-                                if (b < 0)
-                                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                               "Failed to parse diff boolean.");
-
-                                arg_diff = b;
-                        }
+                        r = parse_boolean_argument("--diff", optarg, NULL);
+                        if (r < 0)
+                                return r;
+                        arg_diff = r;
                         break;
 
                 case '?':
@@ -644,7 +636,7 @@ static int parse_argv(int argc, char *argv[]) {
 static int run(int argc, char *argv[]) {
         int r, k, n_found = 0;
 
-        log_setup_cli();
+        log_setup();
 
         r = parse_argv(argc, argv);
         if (r <= 0)
@@ -664,7 +656,7 @@ static int run(int argc, char *argv[]) {
                 int i;
 
                 for (i = optind; i < argc; i++) {
-                        path_simplify(argv[i], false);
+                        path_simplify(argv[i]);
 
                         k = process_suffix_chop(argv[i]);
                         if (k < 0)

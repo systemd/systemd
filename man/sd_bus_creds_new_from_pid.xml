@@ -1,7 +1,7 @@
 <?xml version='1.0'?>
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
-<!-- SPDX-License-Identifier: LGPL-2.1+ -->
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
 
 <refentry id="sd_bus_creds_new_from_pid" xmlns:xi="http://www.w3.org/2001/XInclude">
 
@@ -183,7 +183,7 @@
     for the credential fields that could not be determined atomically
     at peer connection time, and which were later added by reading
     augmenting credential data from
-    <filename>/proc</filename>. Similarly, for credential objects
+    <filename>/proc/</filename>. Similarly, for credential objects
     retrieved via <function>sd_bus_get_owner_creds()</function>, the
     mask is set for the fields that could not be determined atomically
     at bus creation time, but have been augmented. Similarly, for
@@ -243,7 +243,7 @@
 
     <para><function>sd_bus_creds_get_augmented_mask()</function>
     returns the mask of fields that have been augmented from data in
-    <filename>/proc</filename>, and are thus not suitable for
+    <filename>/proc/</filename>, and are thus not suitable for
     authorization decisions.</para>
 
     <para><function>sd_bus_creds_ref()</function> always returns the

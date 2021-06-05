@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <errno.h>
 #include <fcntl.h>
@@ -266,7 +266,7 @@ int session_save(Session *s) {
                 fprintf(f, "DISPLAY=%s\n", s->display);
 
         if (s->remote_host) {
-                _cleanup_free_ char *escaped;
+                _cleanup_free_ char *escaped = NULL;
 
                 escaped = cescape(s->remote_host);
                 if (!escaped) {
@@ -278,7 +278,7 @@ int session_save(Session *s) {
         }
 
         if (s->remote_user) {
-                _cleanup_free_ char *escaped;
+                _cleanup_free_ char *escaped = NULL;
 
                 escaped = cescape(s->remote_user);
                 if (!escaped) {
@@ -290,7 +290,7 @@ int session_save(Session *s) {
         }
 
         if (s->service) {
-                _cleanup_free_ char *escaped;
+                _cleanup_free_ char *escaped = NULL;
 
                 escaped = cescape(s->service);
                 if (!escaped) {
@@ -302,7 +302,7 @@ int session_save(Session *s) {
         }
 
         if (s->desktop) {
-                _cleanup_free_ char *escaped;
+                _cleanup_free_ char *escaped = NULL;
 
                 escaped = cescape(s->desktop);
                 if (!escaped) {
@@ -1089,8 +1089,8 @@ int session_create_fifo(Session *s) {
                 if (r < 0)
                         return r;
 
-                /* Let's make sure we noticed dead sessions before we process new bus requests (which might create new
-                 * sessions). */
+                /* Let's make sure we noticed dead sessions before we process new bus requests (which might
+                 * create new sessions). */
                 r = sd_event_source_set_priority(s->fifo_event_source, SD_EVENT_PRIORITY_NORMAL-10);
                 if (r < 0)
                         return r;
@@ -1331,9 +1331,8 @@ static void session_release_controller(Session *s, bool notify) {
 
         name = s->controller;
 
-        /* By resetting the controller before releasing the devices, we won't
-         * send notification signals. This avoids sending useless notifications
-         * if the controller is released on disconnects. */
+        /* By resetting the controller before releasing the devices, we won't send notification signals.
+         * This avoids sending useless notifications if the controller is released on disconnects. */
         if (!notify)
                 s->controller = NULL;
 
@@ -1419,43 +1418,43 @@ void session_drop_controller(Session *s) {
 
 static const char* const session_state_table[_SESSION_STATE_MAX] = {
         [SESSION_OPENING] = "opening",
-        [SESSION_ONLINE] = "online",
-        [SESSION_ACTIVE] = "active",
-        [SESSION_CLOSING] = "closing"
+        [SESSION_ONLINE]  = "online",
+        [SESSION_ACTIVE]  = "active",
+        [SESSION_CLOSING] = "closing",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(session_state, SessionState);
 
 static const char* const session_type_table[_SESSION_TYPE_MAX] = {
         [SESSION_UNSPECIFIED] = "unspecified",
-        [SESSION_TTY] = "tty",
-        [SESSION_X11] = "x11",
-        [SESSION_WAYLAND] = "wayland",
-        [SESSION_MIR] = "mir",
-        [SESSION_WEB] = "web",
+        [SESSION_TTY]         = "tty",
+        [SESSION_X11]         = "x11",
+        [SESSION_WAYLAND]     = "wayland",
+        [SESSION_MIR]         = "mir",
+        [SESSION_WEB]         = "web",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(session_type, SessionType);
 
 static const char* const session_class_table[_SESSION_CLASS_MAX] = {
-        [SESSION_USER] = "user",
-        [SESSION_GREETER] = "greeter",
+        [SESSION_USER]        = "user",
+        [SESSION_GREETER]     = "greeter",
         [SESSION_LOCK_SCREEN] = "lock-screen",
-        [SESSION_BACKGROUND] = "background"
+        [SESSION_BACKGROUND]  = "background",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(session_class, SessionClass);
 
 static const char* const kill_who_table[_KILL_WHO_MAX] = {
         [KILL_LEADER] = "leader",
-        [KILL_ALL] = "all"
+        [KILL_ALL]    = "all",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(kill_who, KillWho);
 
 static const char* const tty_validity_table[_TTY_VALIDITY_MAX] = {
-        [TTY_FROM_PAM] = "from-pam",
-        [TTY_FROM_UTMP] = "from-utmp",
+        [TTY_FROM_PAM]          = "from-pam",
+        [TTY_FROM_UTMP]         = "from-utmp",
         [TTY_UTMP_INCONSISTENT] = "utmp-inconsistent",
 };
 

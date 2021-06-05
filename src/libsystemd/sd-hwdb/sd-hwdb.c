@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 /***
   Copyright © 2008 Alan Jenkins <alan.christopher.jenkins@googlemail.com>
 ***/
@@ -343,10 +343,10 @@ _public_ int sd_hwdb_new(sd_hwdb **ret) {
                 return log_debug_errno(errno, "Failed to map %s: %m", hwdb_bin_path);
 
         if (memcmp(hwdb->map, sig, sizeof(hwdb->head->signature)) != 0 ||
-            (size_t) hwdb->st.st_size != le64toh(hwdb->head->file_size)) {
-                log_debug("Failed to recognize the format of %s", hwdb_bin_path);
-                return -EINVAL;
-        }
+            (size_t) hwdb->st.st_size != le64toh(hwdb->head->file_size))
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Failed to recognize the format of %s",
+                                       hwdb_bin_path);
 
         log_debug("=== trie on-disk ===");
         log_debug("tool version:          %"PRIu64, le64toh(hwdb->head->tool_version));

@@ -1,4 +1,4 @@
-#  SPDX-License-Identifier: LGPL-2.1+
+#  SPDX-License-Identifier: LGPL-2.1-or-later
 #
 #  This file is part of systemd.
 #
@@ -37,6 +37,7 @@ disable systemd-networkd-wait-online.service
 disable systemd-time-wait-sync.service
 disable systemd-boot-check-no-failures.service
 disable systemd-network-generator.service
+disable proc-sys-fs-binfmt_misc.mount
 
 disable syslog.socket
 

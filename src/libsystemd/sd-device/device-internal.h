@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
 #include "sd-device.h"
@@ -8,8 +8,18 @@
 #include "set.h"
 #include "time-util.h"
 
+#define LATEST_UDEV_DATABASE_VERSION 1
+
 struct sd_device {
         unsigned n_ref;
+
+        /* The database version indicates the supported features by the udev database.
+         * This is saved and parsed in V field.
+         *
+         * 0: None of the following features are supported (systemd version <= 246).
+         * 1: The current tags (Q) and the database version (V) features are implemented (>= 247).
+         */
+        unsigned database_version;
 
         int watch_handle;
 
@@ -57,16 +67,16 @@ struct sd_device {
         char *driver_subsystem; /* only set for the 'drivers' subsystem */
         char *driver;
 
-        char *id_filename;
+        char *device_id;
 
-        uint64_t usec_initialized;
+        usec_t usec_initialized;
 
         mode_t devmode;
         uid_t devuid;
         gid_t devgid;
 
         /* only set when device is passed through netlink */
-        DeviceAction action;
+        sd_device_action_t action;
         uint64_t seqnum;
 
         bool parent_set:1; /* no need to try to reload parent */
@@ -74,9 +84,7 @@ struct sd_device {
         bool property_tags_outdated:1; /* need to update TAGS= or CURRENT_TAGS= property */
         bool property_devlinks_outdated:1; /* need to update DEVLINKS= property */
         bool properties_buf_outdated:1; /* need to reread hashmap */
-        bool sysname_set:1; /* don't reread sysname */
         bool subsystem_set:1; /* don't reread subsystem */
-        bool driver_subsystem_set:1; /* don't reread subsystem */
         bool driver_set:1; /* don't reread driver */
         bool uevent_loaded:1; /* don't reread uevent */
         bool db_loaded; /* don't reread db */
@@ -88,7 +96,9 @@ struct sd_device {
 
 int device_new_aux(sd_device **ret);
 int device_add_property_aux(sd_device *device, const char *key, const char *value, bool db);
-int device_add_property_internal(sd_device *device, const char *key, const char *value);
+static inline int device_add_property_internal(sd_device *device, const char *key, const char *value) {
+        return device_add_property_aux(device, key, value, false);
+}
 int device_read_uevent_file(sd_device *device);
 
 int device_set_syspath(sd_device *device, const char *_syspath, bool verify);

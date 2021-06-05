@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
 typedef struct ExecStatus ExecStatus;
@@ -23,6 +23,7 @@ typedef struct Manager Manager;
 #include "namespace.h"
 #include "nsflags.h"
 #include "numa-util.h"
+#include "path-util.h"
 #include "time-util.h"
 
 #define EXEC_STDIN_DATA_MAX (64U*1024U*1024U)
@@ -32,7 +33,7 @@ typedef enum ExecUtmpMode {
         EXEC_UTMP_LOGIN,
         EXEC_UTMP_USER,
         _EXEC_UTMP_MODE_MAX,
-        _EXEC_UTMP_MODE_INVALID = -1
+        _EXEC_UTMP_MODE_INVALID = -EINVAL,
 } ExecUtmpMode;
 
 typedef enum ExecInput {
@@ -45,7 +46,7 @@ typedef enum ExecInput {
         EXEC_INPUT_DATA,
         EXEC_INPUT_FILE,
         _EXEC_INPUT_MAX,
-        _EXEC_INPUT_INVALID = -1
+        _EXEC_INPUT_INVALID = -EINVAL,
 } ExecInput;
 
 typedef enum ExecOutput {
@@ -60,8 +61,9 @@ typedef enum ExecOutput {
         EXEC_OUTPUT_NAMED_FD,
         EXEC_OUTPUT_FILE,
         EXEC_OUTPUT_FILE_APPEND,
+        EXEC_OUTPUT_FILE_TRUNCATE,
         _EXEC_OUTPUT_MAX,
-        _EXEC_OUTPUT_INVALID = -1
+        _EXEC_OUTPUT_INVALID = -EINVAL,
 } ExecOutput;
 
 typedef enum ExecPreserveMode {
@@ -69,7 +71,7 @@ typedef enum ExecPreserveMode {
         EXEC_PRESERVE_YES,
         EXEC_PRESERVE_RESTART,
         _EXEC_PRESERVE_MODE_MAX,
-        _EXEC_PRESERVE_MODE_INVALID = -1
+        _EXEC_PRESERVE_MODE_INVALID = -EINVAL,
 } ExecPreserveMode;
 
 typedef enum ExecKeyringMode {
@@ -77,7 +79,7 @@ typedef enum ExecKeyringMode {
         EXEC_KEYRING_PRIVATE,
         EXEC_KEYRING_SHARED,
         _EXEC_KEYRING_MODE_MAX,
-        _EXEC_KEYRING_MODE_INVALID = -1,
+        _EXEC_KEYRING_MODE_INVALID = -EINVAL,
 } ExecKeyringMode;
 
 /* Contains start and exit information about an executed command.  */
@@ -86,7 +88,7 @@ struct ExecStatus {
         dual_timestamp exit_timestamp;
         pid_t pid;
         int code;     /* as in siginfo_t::si_code */
-        int status;   /* as in sigingo_t::si_status */
+        int status;   /* as in siginfo_t::si_status */
 };
 
 /* Stores information about commands we execute. Covers both configuration settings as well as runtime data. */
@@ -115,6 +117,9 @@ struct ExecRuntime {
         /* An AF_UNIX socket pair, that contains a datagram containing a file descriptor referring to the network
          * namespace. */
         int netns_storage_socket[2];
+
+        /* Like netns_storage_socket, but the file descriptor is referring to the IPC namespace. */
+        int ipcns_storage_socket[2];
 };
 
 typedef enum ExecDirectoryType {
@@ -124,7 +129,7 @@ typedef enum ExecDirectoryType {
         EXEC_DIRECTORY_LOGS,
         EXEC_DIRECTORY_CONFIGURATION,
         _EXEC_DIRECTORY_TYPE_MAX,
-        _EXEC_DIRECTORY_TYPE_INVALID = -1,
+        _EXEC_DIRECTORY_TYPE_INVALID = -EINVAL,
 } ExecDirectoryType;
 
 typedef struct ExecDirectory {
@@ -142,7 +147,7 @@ typedef enum ExecCleanMask {
         EXEC_CLEAN_CONFIGURATION = 1U << EXEC_DIRECTORY_CONFIGURATION,
         EXEC_CLEAN_NONE          = 0,
         EXEC_CLEAN_ALL           = (1U << _EXEC_DIRECTORY_TYPE_MAX) - 1,
-        _EXEC_CLEAN_MASK_INVALID = -1,
+        _EXEC_CLEAN_MASK_INVALID = -EINVAL,
 } ExecCleanMask;
 
 /* A credential configured with SetCredential= */
@@ -174,6 +179,7 @@ struct ExecContext {
         bool nice_set:1;
         bool ioprio_set:1;
         bool cpu_sched_set:1;
+        bool mount_apivfs_set:1;
 
         /* This is not exposed to the user but available internally. We need it to make sure that whenever we
          * spawn /usr/bin/mount it is run in the same process group as us so that the autofs logic detects
@@ -240,7 +246,7 @@ struct ExecContext {
         char *apparmor_profile;
         char *smack_process_label;
 
-        char **read_write_paths, **read_only_paths, **inaccessible_paths;
+        char **read_write_paths, **read_only_paths, **inaccessible_paths, **exec_paths, **no_exec_paths;
         unsigned long mount_flags;
         BindMount *bind_mounts;
         size_t n_bind_mounts;
@@ -248,6 +254,8 @@ struct ExecContext {
         size_t n_temporary_filesystems;
         MountImage *mount_images;
         size_t n_mount_images;
+        MountImage *extension_images;
+        size_t n_extension_images;
 
         uint64_t capability_bounding_set;
         uint64_t capability_ambient_set;
@@ -275,6 +283,7 @@ struct ExecContext {
         bool private_devices;
         bool private_users;
         bool private_mounts;
+        bool private_ipc;
         bool protect_kernel_tunables;
         bool protect_kernel_modules;
         bool protect_kernel_logs;
@@ -309,6 +318,7 @@ struct ExecContext {
         Set *address_families;
 
         char *network_namespace_path;
+        char *ipc_namespace_path;
 
         ExecDirectory directories[_EXEC_DIRECTORY_TYPE_MAX];
         ExecPreserveMode runtime_directory_preserve_mode;
@@ -322,6 +332,14 @@ static inline bool exec_context_restrict_namespaces_set(const ExecContext *c) {
         assert(c);
 
         return (c->restrict_namespaces & NAMESPACE_FLAGS_ALL) != NAMESPACE_FLAGS_ALL;
+}
+
+static inline bool exec_context_with_rootfs(const ExecContext *c) {
+        assert(c);
+
+        /* Checks if RootDirectory= or RootImage= are used */
+
+        return !empty_or_root(c->root_directory) || c->root_image;
 }
 
 typedef enum ExecFlags {
@@ -373,6 +391,8 @@ struct ExecParameters {
 
         /* An fd that is closed by the execve(), and thus will result in EOF when the execve() is done */
         int exec_fd;
+
+        const char *notify_socket;
 };
 
 #include "unit.h"
@@ -409,6 +429,7 @@ bool exec_context_may_touch_console(const ExecContext *c);
 bool exec_context_maintains_privileges(const ExecContext *c);
 
 int exec_context_get_effective_ioprio(const ExecContext *c);
+bool exec_context_get_effective_mount_apivfs(const ExecContext *c);
 
 void exec_context_free_log_extra_fields(ExecContext *c);
 
@@ -459,3 +480,5 @@ ExecDirectoryType exec_directory_type_from_string(const char *s) _pure_;
 
 const char* exec_resource_type_to_string(ExecDirectoryType i) _const_;
 ExecDirectoryType exec_resource_type_from_string(const char *s) _pure_;
+
+bool exec_needs_mount_namespace(const ExecContext *context, const ExecParameters *params, const ExecRuntime *runtime);

@@ -1,8 +1,7 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <errno.h>
 #include <getopt.h>
-#include <poll.h>
 #include <stddef.h>
 #include <string.h>
 #include <unistd.h>
@@ -11,18 +10,20 @@
 #include "sd-daemon.h"
 
 #include "alloc-util.h"
-#include "build.h"
 #include "bus-internal.h"
 #include "bus-util.h"
 #include "errno-util.h"
+#include "io-util.h"
 #include "log.h"
 #include "main-func.h"
 #include "util.h"
+#include "version.h"
 
 #define DEFAULT_BUS_PATH "unix:path=/run/dbus/system_bus_socket"
 
 static const char *arg_bus_path = DEFAULT_BUS_PATH;
 static BusTransport arg_transport = BUS_TRANSPORT_LOCAL;
+static bool arg_user = false;
 
 static int help(void) {
 
@@ -30,8 +31,10 @@ static int help(void) {
                "STDIO or socket-activatable proxy to a given DBus endpoint.\n\n"
                "  -h --help              Show this help\n"
                "     --version           Show package version\n"
-               "  -p --bus-path=PATH     Path to the kernel bus (default: %s)\n"
-               "  -M --machine=MACHINE   Name of machine to connect to\n",
+               "  -p --bus-path=PATH     Path to the bus address (default: %s)\n"
+               "     --system            Connect to system bus\n"
+               "     --user              Connect to user bus\n"
+               "  -M --machine=CONTAINER Name of local container to connect to\n",
                program_invocation_short_name, DEFAULT_BUS_PATH);
 
         return 0;
@@ -42,12 +45,16 @@ static int parse_argv(int argc, char *argv[]) {
         enum {
                 ARG_VERSION = 0x100,
                 ARG_MACHINE,
+                ARG_USER,
+                ARG_SYSTEM,
         };
 
         static const struct option options[] = {
                 { "help",            no_argument,       NULL, 'h'         },
                 { "version",         no_argument,       NULL, ARG_VERSION },
                 { "bus-path",        required_argument, NULL, 'p'         },
+                { "user",            no_argument,       NULL, ARG_USER    },
+                { "system",          no_argument,       NULL, ARG_SYSTEM  },
                 { "machine",         required_argument, NULL, 'M'         },
                 {},
         };
@@ -66,6 +73,14 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_VERSION:
                         return version();
+
+                case ARG_USER:
+                        arg_user = true;
+                        break;
+
+                case ARG_SYSTEM:
+                        arg_user = false;
+                        break;
 
                 case 'p':
                         arg_bus_path = optarg;
@@ -121,7 +136,7 @@ static int run(int argc, char *argv[]) {
                 return log_error_errno(r, "Failed to allocate bus: %m");
 
         if (arg_transport == BUS_TRANSPORT_MACHINE)
-                r = bus_set_address_system_machine(a, arg_bus_path);
+                r = bus_set_address_machine(a, arg_user, arg_bus_path);
         else
                 r = sd_bus_set_address(a, arg_bus_path);
         if (r < 0)
@@ -166,8 +181,9 @@ static int run(int argc, char *argv[]) {
         for (;;) {
                 _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
                 int events_a, events_b, fd;
-                uint64_t timeout_a, timeout_b, t;
-                struct timespec _ts, *ts;
+                usec_t timeout_a, timeout_b, t;
+
+                assert_cc(sizeof(usec_t) == sizeof(uint64_t));
 
                 r = sd_bus_process(a, &m);
                 if (r < 0)
@@ -220,23 +236,7 @@ static int run(int argc, char *argv[]) {
                 if (r < 0)
                         return log_error_errno(r, "Failed to get timeout: %m");
 
-                t = timeout_a;
-                if (t == (uint64_t) -1 || (timeout_b != (uint64_t) -1 && timeout_b < timeout_a))
-                        t = timeout_b;
-
-                if (t == (uint64_t) -1)
-                        ts = NULL;
-                else {
-                        usec_t nw;
-
-                        nw = now(CLOCK_MONOTONIC);
-                        if (t > nw)
-                                t -= nw;
-                        else
-                                t = 0;
-
-                        ts = timespec_store(&_ts, t);
-                }
+                t = usec_sub_unsigned(MIN(timeout_a, timeout_b), now(CLOCK_MONOTONIC));
 
                 struct pollfd p[3] = {
                         { .fd = fd,            .events = events_a           },
@@ -244,13 +244,9 @@ static int run(int argc, char *argv[]) {
                         { .fd = STDOUT_FILENO, .events = events_b & POLLOUT },
                 };
 
-                r = ppoll(p, ELEMENTSOF(p), ts, NULL);
+                r = ppoll_usec(p, ELEMENTSOF(p), t);
                 if (r < 0)
-                        return log_error_errno(errno, "ppoll() failed: %m");
-                if (p[0].revents & POLLNVAL ||
-                    p[1].revents & POLLNVAL ||
-                    p[2].revents & POLLNVAL)
-                        return log_error_errno(SYNTHETIC_ERRNO(EBADF), "Invalid file descriptor to poll on?");
+                        return log_error_errno(r, "ppoll() failed: %m");
         }
 
         return 0;

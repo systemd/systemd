@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
 #include "conf-parser.h"
@@ -15,7 +15,7 @@ typedef enum HandleAction {
         HANDLE_SUSPEND_THEN_HIBERNATE,
         HANDLE_LOCK,
         _HANDLE_ACTION_MAX,
-        _HANDLE_ACTION_INVALID = -1
+        _HANDLE_ACTION_INVALID = -EINVAL,
 } HandleAction;
 
 #include "logind-inhibit.h"

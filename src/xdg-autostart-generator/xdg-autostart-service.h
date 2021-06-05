@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
 #include "macro.h"
@@ -10,6 +10,7 @@ typedef struct XdgAutostartService {
 
         char *type; /* Purely as an assertion check */
         char *exec_string;
+        char *working_directory;
 
         char **only_show_in;
         char **not_show_in;

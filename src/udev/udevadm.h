@@ -1,9 +1,8 @@
-/* SPDX-License-Identifier: GPL-2.0+ */
+/* SPDX-License-Identifier: GPL-2.0-or-later */
 #pragma once
 
 #include <stdio.h>
 
-#include "build.h"
 #include "macro.h"
 
 int info_main(int argc, char *argv[], void *userdata);

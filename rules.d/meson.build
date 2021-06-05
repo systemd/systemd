@@ -1,4 +1,8 @@
-# SPDX-License-Identifier: LGPL-2.1+
+# SPDX-License-Identifier: LGPL-2.1-or-later
+
+install_data(
+        'README',
+        install_dir : udevrulesdir)
 
 rules = files('''
         60-autosuspend.rules
@@ -22,10 +26,15 @@ rules = files('''
         75-probe_mtd.rules
         78-sound-card.rules
         80-net-setup-link.rules
+        81-net-dhcp.rules
 '''.split())
 
 if conf.get('HAVE_KMOD') == 1
         rules += files('80-drivers.rules')
+endif
+
+if dmi_arches.contains(host_machine.cpu_family())
+        rules += files('70-memory.rules')
 endif
 
 install_data(rules,
@@ -33,18 +42,17 @@ install_data(rules,
 
 all_rules = rules
 
-rules_in = '''
-        50-udev-default.rules
-        64-btrfs.rules
-        99-systemd.rules
-'''.split()
+rules_in = ['50-udev-default.rules',
+            '64-btrfs.rules',
+            '99-systemd.rules']
 
 foreach file : rules_in
-        gen = configure_file(
+        all_rules += custom_target(
+                file,
                 input : file + '.in',
-                output : file,
-                configuration : substs)
-        install_data(gen,
-                     install_dir : udevrulesdir)
-        all_rules += gen
+                output: file,
+                command : [meson_render_jinja2, config_h, '@INPUT@'],
+                capture : true,
+                install : true,
+                install_dir : udevrulesdir)
 endforeach

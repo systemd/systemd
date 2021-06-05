@@ -1,7 +1,7 @@
 <?xml version='1.0'?> <!--*-nxml-*-->
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
-<!-- SPDX-License-Identifier: LGPL-2.1+ -->
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
 
 <refentry id="systemd.special">
 
@@ -25,6 +25,8 @@
     <filename>bluetooth.target</filename>,
     <filename>cryptsetup-pre.target</filename>,
     <filename>cryptsetup.target</filename>,
+    <filename>veritysetup-pre.target</filename>,
+    <filename>veritysetup.target</filename>,
     <filename>ctrl-alt-del.target</filename>,
     <filename>blockdev@.target</filename>,
     <filename>boot-complete.target</filename>,
@@ -32,6 +34,7 @@
     <filename>emergency.target</filename>,
     <filename>exit.target</filename>,
     <filename>final.target</filename>,
+    <filename>first-boot-complete.target</filename>,
     <filename>getty.target</filename>,
     <filename>getty-pre.target</filename>,
     <filename>graphical.target</filename>,
@@ -43,6 +46,7 @@
     <filename>initrd-fs.target</filename>,
     <filename>initrd-root-device.target</filename>,
     <filename>initrd-root-fs.target</filename>,
+    <filename>initrd-usr-fs.target</filename>,
     <filename>kbrequest.target</filename>,
     <filename>kexec.target</filename>,
     <filename>local-fs-pre.target</filename>,
@@ -59,6 +63,7 @@
     <filename>printer.target</filename>,
     <filename>reboot.target</filename>,
     <filename>remote-cryptsetup.target</filename>,
+    <filename>remote-veritysetup.target</filename>,
     <filename>remote-fs-pre.target</filename>,
     <filename>remote-fs.target</filename>,
     <filename>rescue.target</filename>,
@@ -132,8 +137,8 @@
             <varname>DefaultDependencies=no</varname>).</para>
 
             <para>Usually, this should pull-in all local mount points plus
-            <filename>/var</filename>, <filename>/tmp</filename> and
-            <filename>/var/tmp</filename>, swap devices, sockets, timers,
+            <filename>/var/</filename>, <filename>/tmp/</filename> and
+            <filename>/var/tmp/</filename>, swap devices, sockets, timers,
             path units and other basic initialization necessary for general
             purpose daemons. The mentioned mount points are special cased
             to allow them to be remote.
@@ -183,6 +188,13 @@
           <listitem>
             <para>A target that pulls in setup services for all
             encrypted block devices.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><filename>veritysetup.target</filename></term>
+          <listitem>
+            <para>A target that pulls in setup services for all
+            verity integrity protected block devices.</para>
           </listitem>
         </varlistentry>
         <varlistentry>
@@ -361,12 +373,13 @@
           <term><filename>initrd-fs.target</filename></term>
           <listitem>
             <para><citerefentry><refentrytitle>systemd-fstab-generator</refentrytitle><manvolnum>3</manvolnum></citerefentry>
-            automatically adds dependencies of type
-            <varname>Before=</varname> to
-            <filename>sysroot-usr.mount</filename> and all mount points
-            found in <filename>/etc/fstab</filename> that have
-            <option>x-initrd.mount</option> and not have
-            <option>noauto</option> mount options set.</para>
+            automatically adds dependencies of type <varname>Before=</varname> to
+            <filename>sysroot-usr.mount</filename> and all mount points found in
+            <filename>/etc/fstab</filename> that have the <option>x-initrd.mount</option> mount option set
+            and do not have the <option>noauto</option> mount option set. It is also indirectly ordered after
+            <filename>sysroot.mount</filename>. Thus, once this target is reached the
+            <filename>/sysroot/</filename> hierarchy is fully set up, in preparation for the transition to
+            the host OS.</para>
           </listitem>
         </varlistentry>
         <varlistentry>
@@ -385,11 +398,27 @@
           <term><filename>initrd-root-fs.target</filename></term>
           <listitem>
             <para><citerefentry><refentrytitle>systemd-fstab-generator</refentrytitle><manvolnum>3</manvolnum></citerefentry>
-            automatically adds dependencies of type
-            <varname>Before=</varname> to the
-            <filename>sysroot.mount</filename> unit, which is generated
-            from the kernel command line.
-            </para>
+            automatically adds dependencies of type <varname>Before=</varname> to the
+            <filename>sysroot.mount</filename> unit, which is generated from the kernel command line's
+            <varname>root=</varname> setting (or equivalent).</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><filename>initrd-usr-fs.target</filename></term>
+          <listitem>
+            <para><citerefentry><refentrytitle>systemd-fstab-generator</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+            automatically adds dependencies of type <varname>Before=</varname> to the
+            <filename>sysusr-usr.mount</filename> unit, which is generated from the kernel command line's
+            <varname>usr=</varname> switch. Services may order themselves after this target unit in order to
+            run once the <filename>/sysusr/</filename> hierarchy becomes available, on systems that come up
+            initially without a root file system, but with an initialized <filename>/usr/</filename> and need
+            to access that before setting up the root file system to ultimately switch to. On systems where
+            <varname>usr=</varname> is not used this target is ordered after
+            <filename>sysroot.mount</filename> and thus mostly equivalent to
+            <filename>initrd-root-fs.target</filename>. In effect on any system once this target is reached
+            the file system backing <filename>/usr/</filename> is mounted, though possibly at two different
+            locations, either below the <filename>/sysusr/</filename> or the <filename>/sysroot/</filename>
+            hierarchies.</para>
           </listitem>
         </varlistentry>
         <varlistentry>
@@ -478,11 +507,10 @@
             Services After the Network is up</ulink> for more
             information.</para>
 
-            <para>All mount units for remote network file systems
-            automatically pull in this unit, and order themselves after
-            it. Note that networking daemons that simply provide
-            functionality to other hosts generally do not need to pull
-            this in.</para>
+            <para>All mount units for remote network file systems automatically pull in this unit, and order
+            themselves after it. Note that networking daemons that simply <emphasis>provide</emphasis>
+            functionality to other hosts (as opposed to <emphasis>consume</emphasis> functionality of other
+            hosts) generally do not need to pull this in.</para>
 
             <para>systemd automatically adds dependencies of type <varname>Wants=</varname> and
             <varname>After=</varname> for this target unit to all SysV init script service units
@@ -548,6 +576,15 @@
             <para>Similar to <filename>cryptsetup.target</filename>, but for encrypted
             devices which are accessed over the network. It is used for
             <citerefentry><refentrytitle>crypttab</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+            entries marked with <option>_netdev</option>.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><filename>remote-veritysetup.target</filename></term>
+          <listitem>
+            <para>Similar to <filename>veritysetup.target</filename>, but for verity
+            integrity protected devices which are accessed over the network. It is used for
+            <citerefentry><refentrytitle>veritytab</refentrytitle><manvolnum>8</manvolnum></citerefentry>
             entries marked with <option>_netdev</option>.</para>
           </listitem>
         </varlistentry>
@@ -854,7 +891,8 @@
           <listitem><para>This template unit is used to order mount units and other consumers of block
           devices after services that synthesize these block devices. In particular, this is intended to be
           used with storage services (such as
-          <citerefentry><refentrytitle>systemd-cryptsetup@.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>)
+          <citerefentry><refentrytitle>systemd-cryptsetup@.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>/
+          <citerefentry><refentrytitle>systemd-veritysetup@.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>)
           that allocate and manage a virtual block device. Storage services are ordered before an instance of
           <filename>blockdev@.target</filename>, and the consumer units after it. The ordering is
           particularly relevant during shutdown, as it ensures that the mount is deactivated first and the
@@ -862,8 +900,8 @@
           pulled in via a <option>Wants=</option> dependency of the storage daemon and thus generally not be
           part of any transaction unless a storage daemon is used. The instance name for instances of this
           template unit must be a properly escaped block device node path, e.g.
-          <filename>blockdev@dev-mapper-foobar.target</filename> for the storage device
-          <filename>/dev/mapper/foobar</filename>.</para></listitem>
+          <filename index="false">blockdev@dev-mapper-foobar.target</filename> for the storage device
+          <filename index="false">/dev/mapper/foobar</filename>.</para></listitem>
         </varlistentry>
         <varlistentry>
           <term><filename>cryptsetup-pre.target</filename></term>
@@ -876,6 +914,30 @@
             particularly useful to ensure that a service is shut down
             only after all encrypted block devices are fully
             stopped.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><filename>veritysetup-pre.target</filename></term>
+          <listitem>
+            <para>This passive target unit may be pulled in by services
+            that want to run before any verity integrity protected block
+            device is set up. All verity integrity protected block
+            devices are set up after this target has been reached. Since
+            the shutdown order is implicitly the reverse start-up order
+            between units, this target is particularly useful to ensure
+            that a service is shut down only after all verity integrity
+            protected block devices are fully stopped.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><filename>first-boot-complete.target</filename></term>
+          <listitem>
+            <para>This passive target is intended as a synchronization point for units that need to run once
+            during the first boot.  Only after all units ordered before this target have finished, will the
+            <citerefentry><refentrytitle>machine-id</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+            be committed to disk, marking the first boot as completed.  If the boot is aborted at any time
+            before that, the next boot will re-run any units with <varname>ConditionFirstBoot=yes</varname>.
+            </para>
           </listitem>
         </varlistentry>
         <varlistentry>
@@ -904,20 +966,29 @@
         <varlistentry>
           <term><filename>network.target</filename></term>
           <listitem>
-            <para>This unit is supposed to indicate when network
-            functionality is available, but it is only very weakly
-            defined what that is supposed to mean, with one exception:
-            at shutdown, a unit that is ordered after
-            <filename>network.target</filename> will be stopped before
-            the network — to whatever level it might be set up then —
-            is shut down. It is hence useful when writing service files
-            that require network access on shutdown, which should order
-            themselves after this target, but not pull it in. Also see
-            <ulink url="https://www.freedesktop.org/wiki/Software/systemd/NetworkTarget">Running
-            Services After the Network is up</ulink> for more
-            information. Also see
-            <filename>network-online.target</filename> described
-            above.</para>
+            <para>This unit is supposed to indicate when network functionality is available, but it is only
+            very weakly defined what that is supposed to mean. However, the following should apply at
+            minimum:</para>
+
+            <itemizedlist>
+              <listitem><para>At start-up, any configured synthetic network devices (i.e. not physical ones
+              that require hardware to show up and be probed, but virtual ones like bridge devices and
+              similar which are created programmatically) that do not depend on any underlying hardware
+              should be allocated by the time this target is reached. It is not necessary for these
+              interfaces to also have completed IP level configuration by the time
+              <filename>network.target</filename> is reached.</para></listitem>
+
+              <listitem><para>At shutdown, a unit that is ordered after <filename>network.target</filename>
+              will be stopped before the network — to whatever level it might be set up by then — is shut
+              down. It is hence useful when writing service files that require network access on shutdown,
+              which should order themselves after this target, but not pull it in. Also see <ulink
+              url="https://www.freedesktop.org/wiki/Software/systemd/NetworkTarget">Running Services After
+              the Network is up</ulink> for more information.</para></listitem>
+            </itemizedlist>
+
+            <para>It must emphasized that at start-up there's no guarantee that hardware-based devices have
+            shown up by the time this target is reached, or even acquired complete IP configuration. For that
+            purpose use <filename>network-online.target</filename> as described above.</para>
           </listitem>
         </varlistentry>
         <varlistentry>
@@ -960,7 +1031,7 @@
           <term><filename>remote-fs-pre.target</filename></term>
           <listitem>
             <para>This target unit is automatically ordered before all
-            mount point units (see above) and cryptsetup devices
+            mount point units (see above) and cryptsetup/veritysetup devices
             marked with the <option>_netdev</option>. It can be used to run
             certain units before remote encrypted devices and mounts are established.
             Note that this unit is generally not part of the initial
@@ -986,27 +1057,103 @@
         <varlistentry>
           <term><filename>time-set.target</filename></term>
           <listitem>
-            <para>Services responsible for setting the system clock from
-            a local source (such as a maintained timestamp file or
-            imprecise real-time clock) should pull in this target and
-            order themselves before it.  Services where approximate time
-            is desired should be ordered after this unit, but not pull
-            it in.  This target does not provide the accuracy guarantees
-            of <filename>time-sync.target</filename>.</para>
+            <para>Services responsible for setting the system clock (<constant>CLOCK_REALTIME</constant>)
+            from a local source (such as a maintained timestamp file or imprecise real-time clock) should
+            pull in this target and order themselves before it. Services where approximate, roughly monotonic
+            time is desired should be ordered after this unit, but not pull it in.</para>
+
+            <para>This target does not provide the accuracy guarantees of
+            <filename>time-sync.target</filename> (see below), however does not depend on remote clock
+            sources to be reachable, i.e. the target is typically not delayed by network problems and
+            similar. Use of this target is recommended for services where approximate clock accuracy and
+            rough monotonicity is desired but activation shall not be delayed for possibly unreliable network
+            communication.</para>
+
+            <para>The service manager automatically adds dependencies of type <varname>After=</varname> for
+            this target unit to all timer units with at least one <varname>OnCalendar=</varname>
+            directive.</para>
+
+            <para>The
+            <citerefentry><refentrytitle>systemd-timesyncd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+            service is a simple daemon that pulls in this target and orders itself before it. Besides
+            implementing the SNTP network protocol it maintains a timestamp file on disk whose modification
+            time is regularlary updated. At service start-up the local system clock is set from that modification time,
+            ensuring it increases roughly monotonically.</para>
+
+            <para>Note that ordering a unit after <filename>time-set.target</filename> only has effect if
+            there's actually a service ordered before it that delays it until the clock is adjusted for rough
+            monotonicity. Otherwise, this target might get reached before the clock is adjusted to be roughly
+            monotonic. Enable
+            <citerefentry><refentrytitle>systemd-timesyncd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+            or an alternative NTP implementation to delay the target.</para>
           </listitem>
         </varlistentry>
         <varlistentry>
           <term><filename>time-sync.target</filename></term>
           <listitem>
-            <para>Services responsible for synchronizing the system
-            clock from a remote source (such as NTP client
-            implementations) should pull in this target and order
-            themselves before it. All services where correct time is
-            essential should be ordered after this unit, but not pull it
-            in. systemd automatically adds dependencies of type
-            <varname>After=</varname> for this target unit to all SysV
-            init script service units with an LSB header referring to
-            the <literal>$time</literal> facility. </para>
+            <para>Services indicating completed synchronization of the system clock
+            (<constant>CLOCK_REALTIME</constant>) to a remote source should pull in this target and order
+            themselves before it. Services where accurate time is essential should be ordered after this
+            unit, but not pull it in.</para>
+
+            <para>The service manager automatically adds dependencies of type <varname>After=</varname> for
+            this target unit to all SysV init script service units with an LSB header referring to the
+            <literal>$time</literal> facility, as well to all timer units with at least one
+            <varname>OnCalendar=</varname> directive.</para>
+
+            <para>This target provides stricter clock accuracy guarantees than
+            <filename>time-set.target</filename> (see above), but likely requires
+            network communication and thus introduces unpredictable delays.
+            Services that require clock accuracy and where network
+            communication delays are acceptable should use this target. Services that require a less accurate
+            clock, and only approximate and roughly monotonic clock behaviour should use
+            <filename>time-set.target</filename> instead.</para>
+
+            <para>Note that ordering a unit after <filename>time-sync.target</filename> only has effect if
+            there's actually a service ordered before it that delays it until clock synchronization is
+            reached. Otherwise, this target might get reached before the clock is synchronized to any remote
+            accurate reference clock. When using
+            <citerefentry><refentrytitle>systemd-timesyncd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+            enable
+            <citerefentry><refentrytitle>systemd-time-wait-sync.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+            to delay the target; or use an equivalent service for other NTP implementations.</para>
+
+            <table>
+              <title>Comparison</title>
+              <tgroup cols='2' align='left' colsep='1' rowsep='1'>
+                <colspec colname="time-set" />
+                <colspec colname="time-sync" />
+                <thead>
+                  <row>
+                    <entry><filename>time-set.target</filename></entry>
+                    <entry><filename>time-sync.target</filename></entry>
+                  </row>
+                </thead>
+                <tbody>
+                  <row>
+                    <entry>"quick" to reach</entry>
+                    <entry>"slow" to reach</entry>
+                  </row>
+                  <row>
+                    <entry>typically uses local clock sources, boot process not affected by availability of external resources</entry>
+                    <entry>typically uses remote clock sources, inserts dependencies on remote resources into boot process</entry>
+                  </row>
+                  <row>
+                    <entry>reliable, because local</entry>
+                    <entry>unreliable, because typically network involved</entry>
+                  </row>
+                  <row>
+                    <entry>typically guarantees an approximate and roughly monotonic clock only</entry>
+                    <entry>typically guarantees an accurate clock</entry>
+                  </row>
+                  <row>
+                    <entry>implemented by <filename>systemd-timesyncd.service</filename></entry>
+                    <entry>implemented by <filename>systemd-time-wait-sync.service</filename></entry>
+                  </row>
+                </tbody>
+              </tgroup>
+            </table>
+
           </listitem>
         </varlistentry>
       </variablelist>
@@ -1126,18 +1273,18 @@
               <para><literal>gnome-session.target</literal> pulls in Nautilus as top-level service:</para>
 
               <programlisting>[Unit]
-  Description=User systemd services for GNOME graphical session
-  Wants=nautilus.service
-  BindsTo=graphical-session.target</programlisting>
+Description=User systemd services for GNOME graphical session
+Wants=nautilus.service
+BindsTo=graphical-session.target</programlisting>
 
               <para><literal>nautilus.service</literal> gets stopped when the session stops:</para>
 
               <programlisting>[Unit]
-  Description=Render the desktop icons with Nautilus
-  PartOf=graphical-session.target
+Description=Render the desktop icons with Nautilus
+PartOf=graphical-session.target
 
-  [Service]
-  …</programlisting>
+[Service]
+…</programlisting>
             </example>
           </listitem>
         </varlistentry>
@@ -1160,9 +1307,63 @@
             <para>The XDG specification defines a way to autostart applications using XDG desktop files.
             systemd ships
             <citerefentry><refentrytitle>systemd-xdg-autostart-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>
-            for the XDG desktop files in autostart directories.
-            Desktop Environments can opt-in to use this service by adding a <varname>Wants=</varname>
-            dependency on <literal>xdg-desktop-autostart.target</literal></para>.
+            for the XDG desktop files in autostart directories. Desktop Environments can opt-in to use this
+            service by adding a <varname>Wants=</varname> dependency on
+            <filename>xdg-desktop-autostart.target</filename>.</para>
+          </listitem>
+        </varlistentry>
+      </variablelist>
+    </refsect2>
+
+    <refsect2>
+      <title>Special User Slice Units</title>
+
+      <para>There are four <literal>.slice</literal> units which form the basis of the user hierarchy for
+      assignment of resources for user applications and services. See
+      <citerefentry><refentrytitle>systemd.slice</refentrytitle><manvolnum>7</manvolnum></citerefentry>
+      for details about slice units and the documentation about
+      <ulink url="https://systemd.io/DESKTOP_ENVIRONMENTS">Desktop Environments</ulink>
+      for further information.</para>
+
+      <variablelist>
+        <varlistentry>
+          <term><filename>-.slice</filename></term>
+          <listitem>
+            <para>The root slice is the root of the user's slice hierarchy.
+            It usually does not contain units directly, but may be used to set defaults for the whole tree.</para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><filename>app.slice</filename></term>
+          <listitem>
+            <para>By default, all user services and applications managed by
+            <command>systemd</command> are found in this slice.
+            All interactively launched applications like web browsers and text editors
+            as well as non-critical services should be placed into this slice.</para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><filename>session.slice</filename></term>
+          <listitem>
+            <para>All essential services and applications required for the
+            session should use this slice.
+            These are services that either cannot be restarted easily
+            or where latency issues may affect the interactivity of the system and applications.
+            This includes the display server, screen readers and other services such as DBus or XDG portals.
+            Such services should be configured to be part of this slice by
+            adding <varname>Slice=session.slice</varname> to their unit files.</para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><filename>background.slice</filename></term>
+          <listitem>
+            <para>All services running low-priority background tasks should use this slice.
+            This permits resources to be preferentially assigned to the other slices.
+            Examples include non-interactive tasks like file indexing or backup operations
+            where latency is not important.</para>
           </listitem>
         </varlistentry>
       </variablelist>

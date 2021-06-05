@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: LGPL-2.1+
+# SPDX-License-Identifier: LGPL-2.1-or-later
 
 if conf.get('ENABLE_NETWORKD') == 1
         install_data('80-container-host0.network',
@@ -10,8 +10,10 @@ if conf.get('ENABLE_NETWORKD') == 1
                      '80-wifi-station.network.example',
                      install_dir : networkdir)
 
-        meson.add_install_script('sh', '-c',
-                                 mkdir_p.format(join_paths(sysconfdir, 'systemd/network')))
+        if install_sysconfdir
+                meson.add_install_script('sh', '-c',
+                                         mkdir_p.format(join_paths(sysconfdir, 'systemd/network')))
+        endif
 endif
 
 install_data('99-default.link',

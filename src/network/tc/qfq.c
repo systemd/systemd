@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+
+/* SPDX-License-Identifier: LGPL-2.1-or-later
  * Copyright © 2020 VMware, Inc. */
 
 #include <linux/pkt_sched.h>
@@ -85,7 +85,7 @@ int config_parse_quick_fair_queueing_weight(
 
         if (isempty(rvalue)) {
                 qfq->weight = 0;
-                tclass = NULL;
+                TAKE_PTR(tclass);
                 return 0;
         }
 
@@ -105,7 +105,7 @@ int config_parse_quick_fair_queueing_weight(
         }
 
         qfq->weight = v;
-        tclass = NULL;
+        TAKE_PTR(tclass);
 
         return 0;
 }
@@ -146,7 +146,7 @@ int config_parse_quick_fair_queueing_max_packet(
 
         if (isempty(rvalue)) {
                 qfq->max_packet = 0;
-                tclass = NULL;
+                TAKE_PTR(tclass);
                 return 0;
         }
 
@@ -166,7 +166,7 @@ int config_parse_quick_fair_queueing_max_packet(
         }
 
         qfq->max_packet = (uint32_t) v;
-        tclass = NULL;
+        TAKE_PTR(tclass);
 
         return 0;
 }

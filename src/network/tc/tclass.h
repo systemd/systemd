@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+
+/* SPDX-License-Identifier: LGPL-2.1-or-later
  * Copyright © 2019 VMware, Inc. */
 #pragma once
 
@@ -13,7 +13,7 @@ typedef enum TClassKind {
         TCLASS_KIND_HTB,
         TCLASS_KIND_QFQ,
         _TCLASS_KIND_MAX,
-        _TCLASS_KIND_INVALID = -1,
+        _TCLASS_KIND_INVALID = -EINVAL,
 } TClassKind;
 
 typedef struct TClass {
@@ -53,7 +53,7 @@ extern const TClassVTable * const tclass_vtable[_TCLASS_KIND_MAX];
 /* For casting the various tclass kinds into a tclass */
 #define TCLASS(t) (&(t)->meta)
 
-void tclass_free(TClass *tclass);
+TClass* tclass_free(TClass *tclass);
 int tclass_new_static(TClassKind kind, Network *network, const char *filename, unsigned section_line, TClass **ret);
 
 int tclass_configure(Link *link, TClass *tclass);

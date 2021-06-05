@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
 typedef struct Scope Scope;
@@ -12,7 +12,7 @@ typedef enum ScopeResult {
         SCOPE_FAILURE_RESOURCES,
         SCOPE_FAILURE_TIMEOUT,
         _SCOPE_RESULT_MAX,
-        _SCOPE_RESULT_INVALID = -1
+        _SCOPE_RESULT_INVALID = -EINVAL,
 } ScopeResult;
 
 struct Scope {

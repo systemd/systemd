@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <dirent.h>
 #include <errno.h>
@@ -11,11 +11,13 @@
 #include "conf-files.h"
 #include "env-file.h"
 #include "env-util.h"
+#include "errno-util.h"
 #include "exec-util.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "hashmap.h"
 #include "macro.h"
+#include "missing_syscall.h"
 #include "process-util.h"
 #include "rlimit-util.h"
 #include "serialize.h"
@@ -32,8 +34,7 @@
 /* Put this test here for a lack of better place */
 assert_cc(EAGAIN == EWOULDBLOCK);
 
-static int do_spawn(const char *path, char *argv[], int stdout_fd, pid_t *pid) {
-
+static int do_spawn(const char *path, char *argv[], int stdout_fd, pid_t *pid, bool set_systemd_exec_pid) {
         pid_t _pid;
         int r;
 
@@ -55,6 +56,12 @@ static int do_spawn(const char *path, char *argv[], int stdout_fd, pid_t *pid) {
                 }
 
                 (void) rlimit_nofile_safe();
+
+                if (set_systemd_exec_pid) {
+                        r = setenv_systemd_exec_pid(false);
+                        if (r < 0)
+                                log_warning_errno(r, "Failed to set $SYSTEMD_EXEC_PID, ignoring: %m");
+                }
 
                 if (!argv) {
                         _argv[0] = (char*) path;
@@ -131,7 +138,7 @@ static int do_execute(
                                 return log_error_errno(fd, "Failed to open serialization file: %m");
                 }
 
-                r = do_spawn(t, argv, fd, &pid);
+                r = do_spawn(t, argv, fd, &pid, FLAGS_SET(flags, EXEC_DIR_SET_SYSTEMD_EXEC_PID));
                 if (r <= 0)
                         continue;
 
@@ -271,18 +278,12 @@ static int gather_environment_generate(int fd, void *arg) {
                 return r;
 
         STRV_FOREACH_PAIR(x, y, new) {
-                char *p;
-
                 if (!env_name_is_valid(*x)) {
                         log_warning("Invalid variable assignment \"%s=...\", ignoring.", *x);
                         continue;
                 }
 
-                p = strjoin(*x, "=", *y);
-                if (!p)
-                        return -ENOMEM;
-
-                r = strv_env_replace(env, p);
+                r = strv_env_assign(env, *x, *y);
                 if (r < 0)
                         return r;
 
@@ -290,7 +291,7 @@ static int gather_environment_generate(int fd, void *arg) {
                         return -errno;
         }
 
-        return r;
+        return 0;
 }
 
 static int gather_environment_collect(int fd, void *arg) {
@@ -374,10 +375,9 @@ int exec_command_flags_from_strv(char **ex_opts, ExecCommandFlags *flags) {
 
         STRV_FOREACH(opt, ex_opts) {
                 ex_flag = exec_command_flags_from_string(*opt);
-                if (ex_flag >= 0)
-                        ret_flags |= ex_flag;
-                else
-                        return -EINVAL;
+                if (ex_flag < 0)
+                        return ex_flag;
+                ret_flags |= ex_flag;
         }
 
         *flags = ret_flags;
@@ -392,6 +392,9 @@ int exec_command_flags_to_strv(ExecCommandFlags flags, char ***ex_opts) {
         int i, r;
 
         assert(ex_opts);
+
+        if (flags < 0)
+                return flags;
 
         for (i = 0; it != 0; it &= ~(1 << i), i++) {
                 if (FLAGS_SET(flags, (1 << i))) {
@@ -443,4 +446,27 @@ ExecCommandFlags exec_command_flags_from_string(const char *s) {
                 return _EXEC_COMMAND_FLAGS_INVALID;
         else
                 return 1 << idx;
+}
+
+int fexecve_or_execve(int executable_fd, const char *executable, char *const argv[], char *const envp[]) {
+#if ENABLE_FEXECVE
+        execveat(executable_fd, "", argv, envp, AT_EMPTY_PATH);
+
+        if (IN_SET(errno, ENOSYS, ENOENT) || ERRNO_IS_PRIVILEGE(errno))
+                /* Old kernel or a script or an overzealous seccomp filter? Let's fall back to execve().
+                 *
+                 * fexecve(3): "If fd refers to a script (i.e., it is an executable text file that names a
+                 * script interpreter with a first line that begins with the characters #!) and the
+                 * close-on-exec flag has been set for fd, then fexecve() fails with the error ENOENT. This
+                 * error occurs because, by the time the script interpreter is executed, fd has already been
+                 * closed because of the close-on-exec flag. Thus, the close-on-exec flag can't be set on fd
+                 * if it refers to a script."
+                 *
+                 * Unfortunately, if we unset close-on-exec, the script will be executed just fine, but (at
+                 * least in case of bash) the script name, $0, will be shown as /dev/fd/nnn, which breaks
+                 * scripts which make use of $0. Thus, let's fall back to execve() in this case.
+                 */
+#endif
+                execve(executable, argv, envp);
+        return -errno;
 }

@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <fcntl.h>
 #include <getopt.h>
@@ -18,10 +18,12 @@
 #include "errno-util.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "glob-util.h"
 #include "hostname-util.h"
 #include "log.h"
 #include "logs-show.h"
 #include "main-func.h"
+#include "memory-util.h"
 #include "microhttpd-util.h"
 #include "os-util.h"
 #include "parse-util.h"
@@ -35,9 +37,12 @@
 static char *arg_key_pem = NULL;
 static char *arg_cert_pem = NULL;
 static char *arg_trust_pem = NULL;
+static bool arg_merge = false;
+static int arg_journal_type = 0;
 static const char *arg_directory = NULL;
+static char **arg_file = NULL;
 
-STATIC_DESTRUCTOR_REGISTER(arg_key_pem, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_key_pem, erase_and_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_cert_pem, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_trust_pem, freep);
 
@@ -58,9 +63,6 @@ typedef struct RequestMeta {
 
         bool follow;
         bool discrete;
-
-        uint64_t n_fields;
-        bool n_fields_set;
 } RequestMeta;
 
 static const char* const mime_types[_OUTPUT_MODE_MAX] = {
@@ -112,9 +114,11 @@ static int open_journal(RequestMeta *m) {
                 return 0;
 
         if (arg_directory)
-                return sd_journal_open_directory(&m->journal, arg_directory, 0);
+                return sd_journal_open_directory(&m->journal, arg_directory, arg_journal_type);
+        else if (arg_file)
+                return sd_journal_open_files(&m->journal, (const char**) arg_file, 0);
         else
-                return sd_journal_open(&m->journal, SD_JOURNAL_LOCAL_ONLY|SD_JOURNAL_SYSTEM);
+                return sd_journal_open(&m->journal, (arg_merge ? 0 : SD_JOURNAL_LOCAL_ONLY) | arg_journal_type);
 }
 
 static int request_meta_ensure_tmp(RequestMeta *m) {
@@ -313,7 +317,7 @@ static int request_parse_range(
 
                 colon2 = strchr(colon + 1, ':');
                 if (colon2) {
-                        _cleanup_free_ char *t;
+                        _cleanup_free_ char *t = NULL;
 
                         t = strndup(colon + 1, colon2 - colon - 1);
                         if (!t)
@@ -503,7 +507,9 @@ static int request_handler_entries(
         if (!response)
                 return respond_oom(connection);
 
-        MHD_add_response_header(response, "Content-Type", mime_types[m->mode]);
+        if (MHD_add_response_header(response, "Content-Type", mime_types[m->mode]) == MHD_NO)
+                return respond_oom(connection);
+
         return MHD_queue_response(connection, MHD_HTTP_OK, response);
 }
 
@@ -554,10 +560,6 @@ static ssize_t request_reader_fields(
                 /* End of this field, so let's serialize the next
                  * one */
 
-                if (m->n_fields_set &&
-                    m->n_fields <= 0)
-                        return MHD_CONTENT_READER_END_OF_STREAM;
-
                 r = sd_journal_enumerate_unique(m->journal, &d, &l);
                 if (r < 0) {
                         log_error_errno(r, "Failed to advance field index: %m");
@@ -567,9 +569,6 @@ static ssize_t request_reader_fields(
 
                 pos -= m->size;
                 m->delta += m->size;
-
-                if (m->n_fields_set)
-                        m->n_fields -= 1;
 
                 r = request_meta_ensure_tmp(m);
                 if (r < 0) {
@@ -638,7 +637,9 @@ static int request_handler_fields(
         if (!response)
                 return respond_oom(connection);
 
-        MHD_add_response_header(response, "Content-Type", mime_types[m->mode == OUTPUT_JSON ? OUTPUT_JSON : OUTPUT_SHORT]);
+        if (MHD_add_response_header(response, "Content-Type", mime_types[m->mode == OUTPUT_JSON ? OUTPUT_JSON : OUTPUT_SHORT]) == MHD_NO)
+                return respond_oom(connection);
+
         return MHD_queue_response(connection, MHD_HTTP_OK, response);
 }
 
@@ -646,7 +647,7 @@ static int request_handler_redirect(
                 struct MHD_Connection *connection,
                 const char *target) {
 
-        char *page;
+        _cleanup_free_ char *page = NULL;
         _cleanup_(MHD_destroy_responsep) struct MHD_Response *response = NULL;
 
         assert(connection);
@@ -656,13 +657,14 @@ static int request_handler_redirect(
                 return respond_oom(connection);
 
         response = MHD_create_response_from_buffer(strlen(page), page, MHD_RESPMEM_MUST_FREE);
-        if (!response) {
-                free(page);
+        if (!response)
                 return respond_oom(connection);
-        }
+        TAKE_PTR(page);
 
-        MHD_add_response_header(response, "Content-Type", "text/html");
-        MHD_add_response_header(response, "Location", target);
+        if (MHD_add_response_header(response, "Content-Type", "text/html") == MHD_NO ||
+            MHD_add_response_header(response, "Location", target) == MHD_NO)
+                return respond_oom(connection);
+
         return MHD_queue_response(connection, MHD_HTTP_MOVED_PERMANENTLY, response);
 }
 
@@ -691,7 +693,9 @@ static int request_handler_file(
                 return respond_oom(connection);
         TAKE_FD(fd);
 
-        MHD_add_response_header(response, "Content-Type", mime_type);
+        if (MHD_add_response_header(response, "Content-Type", mime_type) == MHD_NO)
+                return respond_oom(connection);
+
         return MHD_queue_response(connection, MHD_HTTP_OK, response);
 }
 
@@ -764,7 +768,7 @@ static int request_handler_machine(
         if (r < 0)
                 return mhd_respondf(connection, r, MHD_HTTP_INTERNAL_SERVER_ERROR, "Failed to determine disk usage: %m");
 
-        (void) parse_os_release(NULL, "PRETTY_NAME", &os_name, NULL);
+        (void) parse_os_release(NULL, "PRETTY_NAME", &os_name);
         (void) get_virtualization(&v);
 
         r = asprintf(&json,
@@ -792,7 +796,9 @@ static int request_handler_machine(
                 return respond_oom(connection);
         TAKE_PTR(json);
 
-        MHD_add_response_header(response, "Content-Type", "application/json");
+        if (MHD_add_response_header(response, "Content-Type", "application/json") == MHD_NO)
+                return respond_oom(connection);
+
         return MHD_queue_response(connection, MHD_HTTP_OK, response);
 }
 
@@ -860,11 +866,14 @@ static int help(void) {
                "     --cert=CERT.PEM  Server certificate in PEM format\n"
                "     --key=KEY.PEM    Server key in PEM format\n"
                "     --trust=CERT.PEM Certificate authority certificate in PEM format\n"
+               "     --system         Serve system journal\n"
+               "     --user           Serve the user journal for the current user\n"
+               "  -m --merge          Serve all available journals\n"
                "  -D --directory=PATH Serve journal files in directory\n"
-               "\nSee the %s for details.\n"
-               , program_invocation_short_name
-               , link
-        );
+               "     --file=PATH      Serve this journal file\n"
+               "\nSee the %s for details.\n",
+               program_invocation_short_name,
+               link);
 
         return 0;
 }
@@ -875,6 +884,10 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_KEY,
                 ARG_CERT,
                 ARG_TRUST,
+                ARG_USER,
+                ARG_SYSTEM,
+                ARG_MERGE,
+                ARG_FILE,
         };
 
         int r, c;
@@ -885,7 +898,11 @@ static int parse_argv(int argc, char *argv[]) {
                 { "key",       required_argument, NULL, ARG_KEY       },
                 { "cert",      required_argument, NULL, ARG_CERT      },
                 { "trust",     required_argument, NULL, ARG_TRUST     },
+                { "user",      no_argument,       NULL, ARG_USER      },
+                { "system",    no_argument,       NULL, ARG_SYSTEM    },
+                { "merge",     no_argument,       NULL, 'm'           },
                 { "directory", required_argument, NULL, 'D'           },
+                { "file",      required_argument, NULL, ARG_FILE      },
                 {}
         };
 
@@ -906,7 +923,11 @@ static int parse_argv(int argc, char *argv[]) {
                         if (arg_key_pem)
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                        "Key file specified twice");
-                        r = read_full_file_full(AT_FDCWD, optarg, READ_FULL_FILE_CONNECT_SOCKET, &arg_key_pem, NULL);
+                        r = read_full_file_full(
+                                        AT_FDCWD, optarg, UINT64_MAX, SIZE_MAX,
+                                        READ_FULL_FILE_SECURE|READ_FULL_FILE_WARN_WORLD_READABLE|READ_FULL_FILE_CONNECT_SOCKET,
+                                        NULL,
+                                        &arg_key_pem, NULL);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to read key file: %m");
                         assert(arg_key_pem);
@@ -916,7 +937,11 @@ static int parse_argv(int argc, char *argv[]) {
                         if (arg_cert_pem)
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                        "Certificate file specified twice");
-                        r = read_full_file_full(AT_FDCWD, optarg, READ_FULL_FILE_CONNECT_SOCKET, &arg_cert_pem, NULL);
+                        r = read_full_file_full(
+                                        AT_FDCWD, optarg, UINT64_MAX, SIZE_MAX,
+                                        READ_FULL_FILE_CONNECT_SOCKET,
+                                        NULL,
+                                        &arg_cert_pem, NULL);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to read certificate file: %m");
                         assert(arg_cert_pem);
@@ -927,17 +952,40 @@ static int parse_argv(int argc, char *argv[]) {
                         if (arg_trust_pem)
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                        "CA certificate file specified twice");
-                        r = read_full_file_full(AT_FDCWD, optarg, READ_FULL_FILE_CONNECT_SOCKET, &arg_trust_pem, NULL);
+                        r = read_full_file_full(
+                                        AT_FDCWD, optarg, UINT64_MAX, SIZE_MAX,
+                                        READ_FULL_FILE_CONNECT_SOCKET,
+                                        NULL,
+                                        &arg_trust_pem, NULL);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to read CA certificate file: %m");
                         assert(arg_trust_pem);
                         break;
 #else
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                               "Option --trust is not available.");
+                                               "Option --trust= is not available.");
 #endif
+
+                case ARG_SYSTEM:
+                        arg_journal_type |= SD_JOURNAL_SYSTEM;
+                        break;
+
+                case ARG_USER:
+                        arg_journal_type |= SD_JOURNAL_CURRENT_USER;
+                        break;
+
+                case 'm':
+                        arg_merge = true;
+                        break;
+
                 case 'D':
                         arg_directory = optarg;
+                        break;
+
+                case ARG_FILE:
+                        r = glob_extend(&arg_file, optarg, GLOB_NOCHECK);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to add paths: %m");
                         break;
 
                 case '?':
@@ -993,7 +1041,7 @@ static int run(int argc, char *argv[]) {
                 MHD_USE_THREAD_PER_CONNECTION;
         int r, n;
 
-        log_setup_service();
+        log_setup();
 
         r = parse_argv(argc, argv);
         if (r <= 0)

@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <errno.h>
 #include <fcntl.h>
@@ -54,10 +54,12 @@
 #include "loopback-setup.h"
 #include "machine-id-setup.h"
 #include "manager.h"
+#include "manager-dump.h"
 #include "mkdir.h"
 #include "mount-setup.h"
 #include "os-util.h"
 #include "pager.h"
+#include "parse-argument.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "pretty-print.h"
@@ -133,6 +135,7 @@ static usec_t arg_kexec_watchdog;
 static char *arg_early_core_pattern;
 static char *arg_watchdog_device;
 static char **arg_default_environment;
+static char **arg_manager_environment;
 static struct rlimit *arg_default_rlimit[_RLIMIT_MAX];
 static uint64_t arg_capability_bounding_set;
 static bool arg_no_new_privs;
@@ -161,6 +164,36 @@ static char **saved_env = NULL;
 
 static int parse_configuration(const struct rlimit *saved_rlimit_nofile,
                                const struct rlimit *saved_rlimit_memlock);
+
+static int manager_find_user_config_paths(char ***ret_files, char ***ret_dirs) {
+        _cleanup_free_ char *base = NULL;
+        _cleanup_strv_free_ char **files = NULL, **dirs = NULL;
+        int r;
+
+        r = xdg_user_config_dir(&base, "/systemd");
+        if (r < 0)
+                return r;
+
+        r = strv_extendf(&files, "%s/user.conf", base);
+        if (r < 0)
+                return r;
+
+        r = strv_extend(&files, PKGSYSCONFDIR "/user.conf");
+        if (r < 0)
+                return r;
+
+        r = strv_consume(&dirs, TAKE_PTR(base));
+        if (r < 0)
+                return r;
+
+        r = strv_extend_strv(&dirs, CONF_PATHS_STRV("systemd"), false);
+        if (r < 0)
+                return r;
+
+        *ret_files = TAKE_PTR(files);
+        *ret_dirs = TAKE_PTR(dirs);
+        return 0;
+}
 
 _noreturn_ static void freeze_or_exit_or_reboot(void) {
 
@@ -291,9 +324,8 @@ static void install_crash_handler(void) {
         };
         int r;
 
-        /* We ignore the return value here, since, we don't mind if we
-         * cannot set up a crash handler */
-        r = sigaction_many(&sa, SIGNALS_CRASH_HANDLER, -1);
+        /* We ignore the return value here, since, we don't mind if we cannot set up a crash handler */
+        r = sigaction_many(&sa, SIGNALS_CRASH_HANDLER);
         if (r < 0)
                 log_debug_errno(r, "I had trouble setting up the crash handler, ignoring: %m");
 }
@@ -358,7 +390,7 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
                         return 0;
 
                 if (path_is_absolute(value))
-                        (void) parse_path_argument_and_warn(value, false, &arg_early_core_pattern);
+                        (void) parse_path_argument(value, false, &arg_early_core_pattern);
                 else
                         log_warning("Specified core pattern '%s' is not an absolute path, ignoring.", value);
 
@@ -452,16 +484,13 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
                 if (proc_cmdline_value_missing(key, value))
                         return 0;
 
-                if (env_assignment_is_valid(value)) {
-                        char **env;
-
-                        env = strv_env_set(arg_default_environment, value);
-                        if (!env)
+                if (!env_assignment_is_valid(value))
+                        log_warning("Environment variable assignment '%s' is not valid. Ignoring.", value);
+                else {
+                        r = strv_env_replace_strdup(&arg_default_environment, value);
+                        if (r < 0)
                                 return log_oom();
-
-                        arg_default_environment = env;
-                } else
-                        log_warning("Environment variable name '%s' is not valid. Ignoring.", value);
+                }
 
         } else if (proc_cmdline_key_streq(key, "systemd.machine_id")) {
 
@@ -498,7 +527,7 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
                 if (proc_cmdline_value_missing(key, value))
                         return 0;
 
-                (void) parse_path_argument_and_warn(value, false, &arg_watchdog_device);
+                (void) parse_path_argument(value, false, &arg_watchdog_device);
 
         } else if (proc_cmdline_key_streq(key, "systemd.clock_usec")) {
 
@@ -516,7 +545,7 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
                 if (proc_cmdline_value_missing(key, value))
                         return 0;
 
-                r = unbase64mem(value, (size_t) -1, &p, &sz);
+                r = unbase64mem(value, SIZE_MAX, &p, &sz);
                 if (r < 0)
                         log_warning_errno(r, "Failed to parse systemd.random_seed= argument, ignoring: %s", value);
 
@@ -642,6 +671,7 @@ static int parse_config_file(void) {
                 { "Manager", "DefaultStartLimitIntervalSec", config_parse_sec,                   0, &arg_default_start_limit_interval      },
                 { "Manager", "DefaultStartLimitBurst",       config_parse_unsigned,              0, &arg_default_start_limit_burst         },
                 { "Manager", "DefaultEnvironment",           config_parse_environ,               0, &arg_default_environment               },
+                { "Manager", "ManagerEnvironment",           config_parse_environ,               0, &arg_manager_environment               },
                 { "Manager", "DefaultLimitCPU",              config_parse_rlimit,                RLIMIT_CPU, arg_default_rlimit            },
                 { "Manager", "DefaultLimitFSIZE",            config_parse_rlimit,                RLIMIT_FSIZE, arg_default_rlimit          },
                 { "Manager", "DefaultLimitDATA",             config_parse_rlimit,                RLIMIT_DATA, arg_default_rlimit           },
@@ -670,26 +700,32 @@ static int parse_config_file(void) {
                 {}
         };
 
-        const char *fn, *conf_dirs_nulstr;
+        _cleanup_strv_free_ char **files = NULL, **dirs = NULL;
+        const char *suffix;
+        int r;
 
-        fn = arg_system ?
-                PKGSYSCONFDIR "/system.conf" :
-                PKGSYSCONFDIR "/user.conf";
+        if (arg_system)
+                suffix = "system.conf.d";
+        else {
+                r = manager_find_user_config_paths(&files, &dirs);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to determine config file paths: %m");
 
-        conf_dirs_nulstr = arg_system ?
-                CONF_PATHS_NULSTR("systemd/system.conf.d") :
-                CONF_PATHS_NULSTR("systemd/user.conf.d");
+                suffix = "user.conf.d";
+        }
 
-        (void) config_parse_many_nulstr(
-                        fn, conf_dirs_nulstr,
+        (void) config_parse_many(
+                        (const char* const*) (files ?: STRV_MAKE(PKGSYSCONFDIR "/system.conf")),
+                        (const char* const*) (dirs ?: CONF_PATHS_STRV("systemd")),
+                        suffix,
                         "Manager\0",
                         config_item_table_lookup, items,
                         CONFIG_PARSE_WARN,
                         NULL,
                         NULL);
 
-        /* Traditionally "0" was used to turn off the default unit timeouts. Fix this up so that we used USEC_INFINITY
-         * like everywhere else. */
+        /* Traditionally "0" was used to turn off the default unit timeouts. Fix this up so that we use
+         * USEC_INFINITY like everywhere else. */
         if (arg_default_timeout_start_usec <= 0)
                 arg_default_timeout_start_usec = USEC_INFINITY;
         if (arg_default_timeout_stop_usec <= 0)
@@ -820,6 +856,7 @@ static int parse_argv(int argc, char *argv[]) {
         };
 
         int c, r;
+        bool user_arg_seen = false;
 
         assert(argc >= 1);
         assert(argv);
@@ -909,6 +946,7 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_USER:
                         arg_system = false;
+                        user_arg_seen = true;
                         break;
 
                 case ARG_TEST:
@@ -937,15 +975,9 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_DUMP_CORE:
-                        if (!optarg)
-                                arg_dump_core = true;
-                        else {
-                                r = parse_boolean(optarg);
-                                if (r < 0)
-                                        return log_error_errno(r, "Failed to parse dump core boolean: \"%s\": %m",
-                                                               optarg);
-                                arg_dump_core = r;
-                        }
+                        r = parse_boolean_argument("--dump-core", optarg, &arg_dump_core);
+                        if (r < 0)
+                                return r;
                         break;
 
                 case ARG_CRASH_CHVT:
@@ -956,27 +988,15 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_CRASH_SHELL:
-                        if (!optarg)
-                                arg_crash_shell = true;
-                        else {
-                                r = parse_boolean(optarg);
-                                if (r < 0)
-                                        return log_error_errno(r, "Failed to parse crash shell boolean: \"%s\": %m",
-                                                               optarg);
-                                arg_crash_shell = r;
-                        }
+                        r = parse_boolean_argument("--crash-shell", optarg, &arg_crash_shell);
+                        if (r < 0)
+                                return r;
                         break;
 
                 case ARG_CRASH_REBOOT:
-                        if (!optarg)
-                                arg_crash_reboot = true;
-                        else {
-                                r = parse_boolean(optarg);
-                                if (r < 0)
-                                        return log_error_errno(r, "Failed to parse crash shell boolean: \"%s\": %m",
-                                                               optarg);
-                                arg_crash_reboot = r;
-                        }
+                        r = parse_boolean_argument("--crash-reboot", optarg, &arg_crash_reboot);
+                        if (r < 0)
+                                return r;
                         break;
 
                 case ARG_CONFIRM_SPAWN:
@@ -989,11 +1009,9 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_SERVICE_WATCHDOGS:
-                        r = parse_boolean(optarg);
+                        r = parse_boolean_argument("--service-watchdogs=", optarg, &arg_service_watchdogs);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to parse service watchdogs boolean: \"%s\": %m",
-                                                       optarg);
-                        arg_service_watchdogs = r;
+                                return r;
                         break;
 
                 case ARG_SHOW_STATUS:
@@ -1064,13 +1082,13 @@ static int parse_argv(int argc, char *argv[]) {
                         assert_not_reached("Unhandled option code.");
                 }
 
-        if (optind < argc && getpid_cached() != 1) {
-                /* Hmm, when we aren't run as init system
-                 * let's complain about excess arguments */
+        if (optind < argc && getpid_cached() != 1)
+                /* Hmm, when we aren't run as init system let's complain about excess arguments */
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Excess arguments.");
 
+        if (arg_action == ACTION_RUN && !arg_system && !user_arg_seen)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "Excess arguments.");
-        }
+                                       "Explicit --user argument required to run as user manager.");
 
         return 0;
 }
@@ -1110,12 +1128,13 @@ static int help(void) {
                "     --log-time[=BOOL]           Prefix log messages with current time\n"
                "     --default-standard-output=  Set default standard output for services\n"
                "     --default-standard-error=   Set default standard error output for services\n"
-               "\nSee the %s for details.\n"
-               , program_invocation_short_name
-               , ansi_highlight(), ansi_normal()
-               , ansi_underline(), ansi_normal()
-               , link
-        );
+               "\nSee the %s for details.\n",
+               program_invocation_short_name,
+               ansi_highlight(),
+               ansi_normal(),
+               ansi_underline(),
+               ansi_normal(),
+               link);
 
         return 0;
 }
@@ -1180,8 +1199,8 @@ static void bump_file_max_and_nr_open(void) {
 #endif
 
 #if BUMP_PROC_SYS_FS_FILE_MAX
-        /* The maximum the kernel allows for this since 5.2 is LONG_MAX, use that. (Previously thing where
-         * different but the operation would fail silently.) */
+        /* The maximum the kernel allows for this since 5.2 is LONG_MAX, use that. (Previously things were
+         * different, but the operation would fail silently.) */
         r = sysctl_writef("fs/file-max", "%li\n", LONG_MAX);
         if (r < 0)
                 log_full_errno(IN_SET(r, -EROFS, -EPERM, -EACCES) ? LOG_DEBUG : LOG_WARNING, r, "Failed to bump fs.file-max, ignoring: %m");
@@ -1275,8 +1294,8 @@ static int bump_rlimit_memlock(struct rlimit *saved_rlimit) {
          * must be unsigned, hence this is a given, but let's make this clear here. */
         assert_cc(RLIM_INFINITY > 0);
 
-        mm = physical_memory() / 8; /* Let's scale how much we allow to be locked by the amount of physical
-                                     * RAM. We allow an eighth to be locked by us, just to pick a value. */
+        mm = physical_memory_scale(1, 8); /* Let's scale how much we allow to be locked by the amount of physical
+                                           * RAM. We allow an eighth to be locked by us, just to pick a value. */
 
         new_rlimit = (struct rlimit) {
                 .rlim_cur = MAX3(HIGH_RLIMIT_MEMLOCK, saved_rlimit->rlim_cur, mm),
@@ -1331,8 +1350,7 @@ static int status_welcome(void) {
 
         r = parse_os_release(NULL,
                              "PRETTY_NAME", &pretty_name,
-                             "ANSI_COLOR", &ansi_color,
-                             NULL);
+                             "ANSI_COLOR", &ansi_color);
         if (r < 0)
                 log_full_errno(r == -ENOENT ? LOG_DEBUG : LOG_WARNING, r,
                                "Failed to read os-release file, ignoring: %m");
@@ -1350,7 +1368,7 @@ static int status_welcome(void) {
 
 static int write_container_id(void) {
         const char *c;
-        int r;
+        int r = 0;  /* avoid false maybe-uninitialized warning */
 
         c = getenv("container");
         if (isempty(c))
@@ -1420,9 +1438,8 @@ static int fixup_environment(void) {
                 return -errno;
 
         /* The kernels sets HOME=/ for init. Let's undo this. */
-        if (path_equal_ptr(getenv("HOME"), "/") &&
-            unsetenv("HOME") < 0)
-                log_warning_errno(errno, "Failed to unset $HOME: %m");
+        if (path_equal_ptr(getenv("HOME"), "/"))
+                assert_se(unsetenv("HOME") == 0);
 
         return 0;
 }
@@ -1435,7 +1452,7 @@ static void redirect_telinit(int argc, char *argv[]) {
         if (getpid_cached() == 1)
                 return;
 
-        if (!strstr(program_invocation_short_name, "init"))
+        if (!invoked_as(argv, "init"))
                 return;
 
         execv(SYSTEMCTL_BINARY_PATH, argv);
@@ -1564,7 +1581,7 @@ static void initialize_clock(void) {
                 else
                         log_info("RTC configured in localtime, applying delta of %i minutes to system time.", min);
 
-        } else if (!in_initrd()) {
+        } else if (!in_initrd())
                 /*
                  * Do a dummy very first call to seal the kernel's time warp magic.
                  *
@@ -1577,7 +1594,6 @@ static void initialize_clock(void) {
                  * be treated as UTC that way.
                  */
                 (void) clock_reset_timewarp();
-        }
 
         r = clock_apply_epoch();
         if (r < 0)
@@ -1609,7 +1625,6 @@ static void apply_clock_update(void) {
 }
 
 static void cmdline_take_random_seed(void) {
-        _cleanup_close_ int random_fd = -1;
         size_t suggested;
         int r;
 
@@ -1626,13 +1641,7 @@ static void cmdline_take_random_seed(void) {
                 log_warning("Random seed specified on kernel command line has size %zu, but %zu bytes required to fill entropy pool.",
                             arg_random_seed_size, suggested);
 
-        random_fd = open("/dev/urandom", O_WRONLY|O_CLOEXEC|O_NOCTTY);
-        if (random_fd < 0) {
-                log_warning_errno(errno, "Failed to open /dev/urandom for writing, ignoring: %m");
-                return;
-        }
-
-        r = random_write_entropy(random_fd, arg_random_seed, arg_random_seed_size, true);
+        r = random_write_entropy(-1, arg_random_seed, arg_random_seed_size, true);
         if (r < 0) {
                 log_warning_errno(r, "Failed to credit entropy specified on kernel command line, ignoring: %m");
                 return;
@@ -1991,8 +2000,9 @@ static void log_execution_mode(bool *ret_first_boot) {
         if (arg_system) {
                 int v;
 
-                log_info("systemd " GIT_VERSION " running in %ssystem mode. (" SYSTEMD_FEATURES ")",
-                         arg_action == ACTION_TEST ? "test " : "" );
+                log_info("systemd " GIT_VERSION " running in %ssystem mode (%s)",
+                         arg_action == ACTION_TEST ? "test " : "",
+                         systemd_features);
 
                 v = detect_virtualization();
                 if (v > 0)
@@ -2004,23 +2014,35 @@ static void log_execution_mode(bool *ret_first_boot) {
                         *ret_first_boot = false;
                         log_info("Running in initial RAM disk.");
                 } else {
-                        /* Let's check whether we are in first boot, i.e. whether /etc is still unpopulated. We use
-                         * /etc/machine-id as flag file, for this: if it exists we assume /etc is populated, if it
-                         * doesn't it's unpopulated. This allows container managers and installers to provision a
-                         * couple of files already. If the container manager wants to provision the machine ID itself
-                         * it should pass $container_uuid to PID 1. */
+                        int r;
+                        _cleanup_free_ char *id_text = NULL;
 
-                        *ret_first_boot = access("/etc/machine-id", F_OK) < 0;
-                        if (*ret_first_boot)
-                                log_info("Running with unpopulated /etc.");
+                        /* Let's check whether we are in first boot.  We use /etc/machine-id as flag file
+                         * for this: If it is missing or contains the value "uninitialized", this is the
+                         * first boot.  In any other case, it is not.  This allows container managers and
+                         * installers to provision a couple of files already.  If the container manager
+                         * wants to provision the machine ID itself it should pass $container_uuid to PID 1. */
+
+                        r = read_one_line_file("/etc/machine-id", &id_text);
+                        if (r < 0 || streq(id_text, "uninitialized")) {
+                                if (r < 0 && r != -ENOENT)
+                                        log_warning_errno(r, "Unexpected error while reading /etc/machine-id, ignoring: %m");
+
+                                *ret_first_boot = true;
+                                log_info("Detected first boot.");
+                        } else {
+                                *ret_first_boot = false;
+                                log_debug("Detected initialized system, this is not the first boot.");
+                        }
                 }
         } else {
                 if (DEBUG_LOGGING) {
-                        _cleanup_free_ char *t;
+                        _cleanup_free_ char *t = NULL;
 
                         t = uid_to_name(getuid());
-                        log_debug("systemd " GIT_VERSION " running in %suser mode for user " UID_FMT "/%s. (" SYSTEMD_FEATURES ")",
-                                  arg_action == ACTION_TEST ? " test" : "", getuid(), strna(t));
+                        log_debug("systemd " GIT_VERSION " running in %suser mode for user " UID_FMT "/%s. (%s)",
+                                  arg_action == ACTION_TEST ? " test" : "",
+                                  getuid(), strna(t), systemd_features);
                 }
 
                 *ret_first_boot = false;
@@ -2029,6 +2051,7 @@ static void log_execution_mode(bool *ret_first_boot) {
 
 static int initialize_runtime(
                 bool skip_setup,
+                bool first_boot,
                 struct rlimit *saved_rlimit_nofile,
                 struct rlimit *saved_rlimit_memlock,
                 const char **ret_error_message) {
@@ -2061,8 +2084,9 @@ static int initialize_runtime(
                         }
 
                         status_welcome();
-                        hostname_setup();
-                        machine_id_setup(NULL, arg_machine_id, NULL);
+                        (void) hostname_setup(true);
+                        /* Force transient machine-id on first boot. */
+                        machine_id_setup(NULL, first_boot, arg_machine_id, NULL);
                         (void) loopback_setup();
                         bump_unix_max_dgram_qlen();
                         bump_file_max_and_nr_open();
@@ -2276,6 +2300,19 @@ static void fallback_rlimit_memlock(const struct rlimit *saved_rlimit_memlock) {
         arg_default_rlimit[RLIMIT_MEMLOCK] = rl;
 }
 
+static void setenv_manager_environment(void) {
+        char **p;
+        int r;
+
+        STRV_FOREACH(p, arg_manager_environment) {
+                log_debug("Setting '%s' in our own environment.", *p);
+
+                r = putenv_dup(*p, true);
+                if (r < 0)
+                        log_warning_errno(errno, "Failed to setenv \"%s\", ignoring: %m", *p);
+        }
+}
+
 static void reset_arguments(void) {
         /* Frees/resets arg_* variables, with a few exceptions commented below. */
 
@@ -2309,6 +2346,7 @@ static void reset_arguments(void) {
         arg_watchdog_device = NULL;
 
         arg_default_environment = strv_free(arg_default_environment);
+        arg_manager_environment = strv_free(arg_manager_environment);
         rlimit_free_all(arg_default_rlimit);
 
         arg_capability_bounding_set = CAP_ALL;
@@ -2369,6 +2407,9 @@ static int parse_configuration(const struct rlimit *saved_rlimit_nofile,
         /* Initialize the show status setting if it hasn't been set explicitly yet */
         if (arg_show_status == _SHOW_STATUS_INVALID)
                 arg_show_status = SHOW_STATUS_YES;
+
+        /* Push variables into the manager environment block */
+        setenv_manager_environment();
 
         return 0;
 }
@@ -2460,16 +2501,6 @@ static int initialize_security(
         return 0;
 }
 
-static void test_summary(Manager *m) {
-        assert(m);
-
-        printf("-> By units:\n");
-        manager_dump_units(m, stdout, "\t");
-
-        printf("-> By jobs:\n");
-        manager_dump_jobs(m, stdout, "\t");
-}
-
 static int collect_fds(FDSet **ret_fds, const char **ret_error_message) {
         int r;
 
@@ -2509,18 +2540,16 @@ static void setup_console_terminal(bool skip_setup) {
 
 static bool early_skip_setup_check(int argc, char *argv[]) {
         bool found_deserialize = false;
-        int i;
 
         /* Determine if this is a reexecution or normal bootup. We do the full command line parsing much later, so
          * let's just have a quick peek here. Note that if we have switched root, do all the special setup things
          * anyway, even if in that case we also do deserialization. */
 
-        for (i = 1; i < argc; i++) {
+        for (int i = 1; i < argc; i++)
                 if (streq(argv[i], "--switched-root"))
                         return false; /* If we switched root, don't skip the setup. */
                 else if (streq(argv[i], "--deserialize"))
                         found_deserialize = true;
-        }
 
         return found_deserialize; /* When we are deserializing, then we are reexecuting, hence avoid the extensive setup */
 }
@@ -2715,7 +2744,7 @@ int main(int argc, char *argv[]) {
 
         /* Reset all signal handlers. */
         (void) reset_all_signal_handlers();
-        (void) ignore_signals(SIGNALS_IGNORE, -1);
+        (void) ignore_signals(SIGNALS_IGNORE);
 
         (void) parse_configuration(&saved_rlimit_nofile, &saved_rlimit_memlock);
 
@@ -2790,6 +2819,7 @@ int main(int argc, char *argv[]) {
         log_execution_mode(&first_boot);
 
         r = initialize_runtime(skip_setup,
+                               first_boot,
                                &saved_rlimit_nofile,
                                &saved_rlimit_memlock,
                                &error_message);
@@ -2843,7 +2873,7 @@ int main(int argc, char *argv[]) {
                  format_timespan(timespan, sizeof(timespan), after_startup - before_startup, 100 * USEC_PER_MSEC));
 
         if (arg_action == ACTION_TEST) {
-                test_summary(m);
+                manager_test_summary(m);
                 retval = EXIT_SUCCESS;
                 goto finish;
         }
@@ -2868,7 +2898,6 @@ finish:
                 m = manager_free(m);
         }
 
-        reset_arguments();
         mac_selinux_finish();
 
         if (reexecute)
@@ -2895,6 +2924,7 @@ finish:
                  * in become_shutdown() so normally we cannot free them yet. */
                 watchdog_free_device();
                 arg_watchdog_device = mfree(arg_watchdog_device);
+                reset_arguments();
                 return retval;
         }
 #endif
@@ -2920,5 +2950,6 @@ finish:
                 freeze_or_exit_or_reboot();
         }
 
+        reset_arguments();
         return retval;
 }

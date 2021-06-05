@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "alloc-util.h"
 #include "bond.h"
@@ -342,10 +342,6 @@ int config_parse_arp_ip_target_address(
                         continue;
                 }
 
-                r = ordered_set_ensure_allocated(&b->arp_ip_targets, NULL);
-                if (r < 0)
-                        return log_oom();
-
                 if (ordered_set_size(b->arp_ip_targets) >= NETDEV_BOND_ARP_TARGETS_MAX) {
                         log_syntax(unit, LOG_WARNING, filename, line, 0,
                                    "Too many ARP IP targets are specified. The maximum number is %d. Ignoring assignment: %s",
@@ -353,7 +349,9 @@ int config_parse_arp_ip_target_address(
                         continue;
                 }
 
-                r = ordered_set_put(b->arp_ip_targets, UINT32_TO_PTR(ip.in.s_addr));
+                r = ordered_set_ensure_put(&b->arp_ip_targets, NULL, UINT32_TO_PTR(ip.in.s_addr));
+                if (r == -ENOMEM)
+                        return log_oom();
                 if (r == -EEXIST)
                         log_syntax(unit, LOG_WARNING, filename, line, r,
                                    "Bond ARP IP target address is duplicated, ignoring assignment: %s", n);
@@ -469,7 +467,7 @@ int config_parse_ad_actor_system(
         }
         if (ether_addr_is_null(&n) || (n.ether_addr_octet[0] & 0x01)) {
                 log_syntax(unit, LOG_WARNING, filename, line, 0,
-                           "Not a valid MAC address %s, can not be null or multicast. Ignoring assignment.",
+                           "Not an appropriate MAC address %s, cannot be null or multicast. Ignoring assignment.",
                            rvalue);
                 return 0;
         }

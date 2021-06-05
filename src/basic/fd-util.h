@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
 #include <dirent.h>
@@ -7,6 +7,9 @@
 #include <sys/socket.h>
 
 #include "macro.h"
+
+/* maximum length of fdname */
+#define FDNAME_MAX 255
 
 /* Make sure we can distinguish fd 0 and NULL */
 #define FD_TO_PTR(fd) INT_TO_PTR((fd)+1)
@@ -41,8 +44,8 @@ static inline void fclosep(FILE **f) {
         safe_fclose(*f);
 }
 
-DEFINE_TRIVIAL_CLEANUP_FUNC(FILE*, pclose);
-DEFINE_TRIVIAL_CLEANUP_FUNC(DIR*, closedir);
+DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(FILE*, pclose, NULL);
+DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(DIR*, closedir, NULL);
 
 #define _cleanup_close_ _cleanup_(closep)
 #define _cleanup_fclose_ _cleanup_(fclosep)

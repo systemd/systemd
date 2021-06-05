@@ -1,7 +1,7 @@
 <?xml version='1.0'?>
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
-<!-- SPDX-License-Identifier: LGPL-2.1+ -->
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
 
 <refentry id="sd_event_add_child" xmlns:xi="http://www.w3.org/2001/XInclude">
 
@@ -150,11 +150,10 @@
     <citerefentry
     project='man-pages'><refentrytitle>pthread_sigmask</refentrytitle><manvolnum>3</manvolnum></citerefentry>).</para>
 
-    <para>If the second parameter of
-    <function>sd_event_add_child()</function> is passed as NULL no
-    reference to the event source object is returned. In this case the
-    event source is considered "floating", and will be destroyed
-    implicitly when the event loop itself is destroyed.</para>
+    <para>If the second parameter of <function>sd_event_add_child()</function> is passed as
+    <constant>NULL</constant> no reference to the event source object is returned. In this case the event
+    source is considered "floating", and will be destroyed implicitly when the event loop itself is
+    destroyed.</para>
 
     <para>Note that the <parameter>handler</parameter> function is
     invoked at a time where the child process is not reaped yet (and
@@ -163,6 +162,12 @@
     returns. Child processes for which no child process state change
     event sources are installed will not be reaped by the event loop
     implementation.</para>
+
+    <para>If the <parameter>handler</parameter> parameter to <function>sd_event_add_child()</function> is
+    <constant>NULL</constant>, and the event source fires, this will be considered a request to exit the
+    event loop. In this case, the <parameter>userdata</parameter> parameter, cast to an integer, is passed as
+    the exit code parameter to
+    <citerefentry><refentrytitle>sd_event_exit</refentrytitle><manvolnum>3</manvolnum></citerefentry>.</para>
 
     <para>If both a child process state change event source and a
     <constant>SIGCHLD</constant> signal event source is installed in

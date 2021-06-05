@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <sys/stat.h>
 #include <sys/types.h>
@@ -10,6 +10,7 @@
 #include "resolved-dns-synthesize.h"
 #include "resolved-etc-hosts.h"
 #include "socket-netlink.h"
+#include "stat-util.h"
 #include "string-util.h"
 #include "strv.h"
 #include "time-util.h"
@@ -36,9 +37,7 @@ void etc_hosts_free(EtcHosts *hosts) {
 
 void manager_etc_hosts_flush(Manager *m) {
         etc_hosts_free(&m->etc_hosts);
-        m->etc_hosts_mtime = USEC_INFINITY;
-        m->etc_hosts_ino = 0;
-        m->etc_hosts_dev = 0;
+        m->etc_hosts_stat = (struct stat) {};
 }
 
 static int parse_line(EtcHosts *hosts, unsigned nr, const char *line) {
@@ -62,7 +61,7 @@ static int parse_line(EtcHosts *hosts, unsigned nr, const char *line) {
                 return 0;
         }
 
-        r = in_addr_is_null(address.family, &address.address);
+        r = in_addr_data_is_null(&address);
         if (r < 0) {
                 log_warning_errno(r, "/etc/hosts:%u: address '%s' is invalid, ignoring: %m", nr, address_str);
                 return 0;
@@ -80,11 +79,13 @@ static int parse_line(EtcHosts *hosts, unsigned nr, const char *line) {
                         if (r < 0)
                                 return log_oom();
 
-                        item = new0(EtcHostsItem, 1);
+                        item = new(EtcHostsItem, 1);
                         if (!item)
                                 return log_oom();
 
-                        item->address = address;
+                        *item = (EtcHostsItem) {
+                                .address = address,
+                        };
 
                         r = hashmap_put(hosts->by_address, &item->address, item);
                         if (r < 0) {
@@ -111,10 +112,6 @@ static int parse_line(EtcHosts *hosts, unsigned nr, const char *line) {
                         log_warning_errno(r, "/etc/hosts:%u: hostname \"%s\" is not valid, ignoring.", nr, name);
                         continue;
                 }
-
-                if (is_localhost(name))
-                        /* Suppress the "localhost" line that is often seen */
-                        continue;
 
                 if (!item) {
                         /* Optimize the case where we don't need to store any addresses, by storing
@@ -150,7 +147,7 @@ static int parse_line(EtcHosts *hosts, unsigned nr, const char *line) {
                         bn->name = TAKE_PTR(name);
                 }
 
-                if (!GREEDY_REALLOC(bn->addresses, bn->n_allocated, bn->n_addresses + 1))
+                if (!GREEDY_REALLOC(bn->addresses, bn->n_addresses + 1))
                         return log_oom();
 
                 bn->addresses[bn->n_addresses++] = &item->address;
@@ -160,6 +157,95 @@ static int parse_line(EtcHosts *hosts, unsigned nr, const char *line) {
                 log_warning("/etc/hosts:%u: line is missing any hostnames", nr);
 
         return 0;
+}
+
+static void strip_localhost(EtcHosts *hosts) {
+        static const struct in_addr_data local_in_addrs[] = {
+                {
+                        .family = AF_INET,
+#if __BYTE_ORDER == __LITTLE_ENDIAN
+                        /* We want constant expressions here, that's why we don't use htole32() here */
+                        .address.in.s_addr = UINT32_C(0x0100007F),
+#else
+                        .address.in.s_addr = UINT32_C(0x7F000001),
+#endif
+                },
+                {
+                        .family = AF_INET6,
+                        .address.in6 = IN6ADDR_LOOPBACK_INIT,
+                },
+        };
+
+        EtcHostsItem *item;
+
+        assert(hosts);
+
+        /* Removes the 'localhost' entry from what we loaded. But only if the mapping is exclusively between
+         * 127.0.0.1 and localhost (or aliases to that we recognize). If there's any other name assigned to
+         * it, we leave the entry in.
+         *
+         * This way our regular synthesizing can take over, but only if it would result in the exact same
+         * mappings.  */
+
+        for (size_t j = 0; j < ELEMENTSOF(local_in_addrs); j++) {
+                bool all_localhost, in_order;
+                char **i;
+
+                item = hashmap_get(hosts->by_address, local_in_addrs + j);
+                if (!item)
+                        continue;
+
+                /* Check whether all hostnames the loopback address points to are localhost ones */
+                all_localhost = true;
+                STRV_FOREACH(i, item->names)
+                        if (!is_localhost(*i)) {
+                                all_localhost = false;
+                                break;
+                        }
+
+                if (!all_localhost) /* Not all names are localhost, hence keep the entries for this address. */
+                        continue;
+
+                /* Now check if the names listed for this address actually all point back just to this
+                 * address (or the other loopback address). If not, let's stay away from this too. */
+                in_order = true;
+                STRV_FOREACH(i, item->names) {
+                        EtcHostsItemByName *n;
+                        bool all_local_address;
+
+                        n = hashmap_get(hosts->by_name, *i);
+                        if (!n) /* No reverse entry? Then almost certainly the entry already got deleted from
+                                 * the previous iteration of this loop, i.e. via the other protocol */
+                                break;
+
+                        /* Now check if the addresses of this item are all localhost addresses */
+                        all_local_address = true;
+                        for (size_t m = 0; m < n->n_addresses; m++)
+                                if (!in_addr_is_localhost(n->addresses[m]->family, &n->addresses[m]->address)) {
+                                        all_local_address = false;
+                                        break;
+                                }
+
+                        if (!all_local_address) {
+                                in_order = false;
+                                break;
+                        }
+                }
+
+                if (!in_order)
+                        continue;
+
+                STRV_FOREACH(i, item->names) {
+                        EtcHostsItemByName *n;
+
+                        n = hashmap_remove(hosts->by_name, *i);
+                        if (n)
+                                etc_hosts_item_by_name_free(n);
+                }
+
+                assert_se(hashmap_remove(hosts->by_address, local_in_addrs + j) == item);
+                etc_hosts_item_free(item);
+        }
 }
 
 int etc_hosts_parse(EtcHosts *hosts, FILE *f) {
@@ -192,6 +278,8 @@ int etc_hosts_parse(EtcHosts *hosts, FILE *f) {
                         return r;
         }
 
+        strip_localhost(&t);
+
         etc_hosts_free(hosts);
         *hosts = t;
         t = (EtcHosts) {}; /* prevent cleanup */
@@ -212,7 +300,7 @@ static int manager_etc_hosts_read(Manager *m) {
 
         m->etc_hosts_last = ts;
 
-        if (m->etc_hosts_mtime != USEC_INFINITY) {
+        if (m->etc_hosts_stat.st_mode != 0) {
                 if (stat("/etc/hosts", &st) < 0) {
                         if (errno != ENOENT)
                                 return log_error_errno(errno, "Failed to stat /etc/hosts: %m");
@@ -222,8 +310,7 @@ static int manager_etc_hosts_read(Manager *m) {
                 }
 
                 /* Did the mtime or ino/dev change? If not, there's no point in re-reading the file. */
-                if (timespec_load(&st.st_mtim) == m->etc_hosts_mtime &&
-                    st.st_ino == m->etc_hosts_ino && st.st_dev == m->etc_hosts_dev)
+                if (stat_inode_unmodified(&m->etc_hosts_stat, &st))
                         return 0;
         }
 
@@ -246,9 +333,7 @@ static int manager_etc_hosts_read(Manager *m) {
         if (r < 0)
                 return r;
 
-        m->etc_hosts_mtime = timespec_load(&st.st_mtim);
-        m->etc_hosts_ino = st.st_ino;
-        m->etc_hosts_dev = st.st_dev;
+        m->etc_hosts_stat = st;
         m->etc_hosts_last = ts;
 
         return 1;
@@ -321,7 +406,7 @@ int manager_etc_hosts_lookup(Manager *m, DnsQuestion* q, DnsAnswer **answer) {
                                 if (!rr->ptr.name)
                                         return -ENOMEM;
 
-                                r = dns_answer_add(*answer, rr, 0, DNS_ANSWER_AUTHENTICATED);
+                                r = dns_answer_add(*answer, rr, 0, DNS_ANSWER_AUTHENTICATED, NULL);
                                 if (r < 0)
                                         return r;
                         }
@@ -373,7 +458,7 @@ int manager_etc_hosts_lookup(Manager *m, DnsQuestion* q, DnsAnswer **answer) {
                 if (r < 0)
                         return r;
 
-                r = dns_answer_add(*answer, rr, 0, DNS_ANSWER_AUTHENTICATED);
+                r = dns_answer_add(*answer, rr, 0, DNS_ANSWER_AUTHENTICATED, NULL);
                 if (r < 0)
                         return r;
         }

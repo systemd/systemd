@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: LGPL-2.1+
+# SPDX-License-Identifier: LGPL-2.1-or-later
 
 # Message catalog for systemd's own messages
 # Korean translation
@@ -86,7 +86,7 @@ Documentation: man:core(5)
 Subject: @USER_ID@ 사용자의 새 @SESSION_ID@ 세션 만듦
 Defined-By: systemd
 Support: %SUPPORT_URL%
-Documentation: https://www.freedesktop.org/wiki/Software/systemd/multiseat
+Documentation: sd-login(3)
 
 @USER_ID@ 사용자의 새 @SESSION_ID@ 세션을 만들었습니다.
 
@@ -96,7 +96,7 @@ Documentation: https://www.freedesktop.org/wiki/Software/systemd/multiseat
 Subject: @SESSION_ID@ 세션 마침
 Defined-By: systemd
 Support: %SUPPORT_URL%
-Documentation: https://www.freedesktop.org/wiki/Software/systemd/multiseat
+Documentation: sd-login(3)
 
 @SESSION_ID@ 세션을 끝냈습니다.
 
@@ -104,7 +104,7 @@ Documentation: https://www.freedesktop.org/wiki/Software/systemd/multiseat
 Subject: 새 @SEAT_ID@ 시트 사용할 수 있음
 Defined-By: systemd
 Support: %SUPPORT_URL%
-Documentation: https://www.freedesktop.org/wiki/Software/systemd/multiseat
+Documentation: sd-login(3)
 
 새 @SEAT_ID@ 시트를 설정했고 사용할 수 있습니다.
 
@@ -112,7 +112,7 @@ Documentation: https://www.freedesktop.org/wiki/Software/systemd/multiseat
 Subject: @SEAT_ID@ 시트 제거함
 Defined-By: systemd
 Support: %SUPPORT_URL%
-Documentation: https://www.freedesktop.org/wiki/Software/systemd/multiseat
+Documentation: sd-login(3)
 
 @SEAT_ID@ 시트를 제거했으며 더이상 사용할 수 없습니다.
 

@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <errno.h>
 #include <fcntl.h>
@@ -12,6 +12,7 @@
 #include "alloc-util.h"
 #include "fd-util.h"
 #include "main-func.h"
+#include "parse-argument.h"
 #include "parse-util.h"
 #include "pretty-print.h"
 #include "string-util.h"
@@ -40,11 +41,11 @@ static int help(void) {
                "  -p --priority=PRIORITY         Set priority value (0..7)\n"
                "     --stderr-priority=PRIORITY  Set priority value (0..7) used for stderr\n"
                "     --level-prefix=BOOL         Control whether level prefix shall be parsed\n"
-               "\nSee the %s for details.\n"
-               , program_invocation_short_name
-               , ansi_highlight(), ansi_normal()
-               , link
-        );
+               "\nSee the %s for details.\n",
+               program_invocation_short_name,
+               ansi_highlight(),
+               ansi_normal(),
+               link);
 
         return 0;
 }
@@ -67,7 +68,7 @@ static int parse_argv(int argc, char *argv[]) {
                 {}
         };
 
-        int c;
+        int c, r;
 
         assert(argc >= 0);
         assert(argv);
@@ -104,16 +105,11 @@ static int parse_argv(int argc, char *argv[]) {
                                                        "Failed to parse stderr priority value.");
                         break;
 
-                case ARG_LEVEL_PREFIX: {
-                        int k;
-
-                        k = parse_boolean(optarg);
-                        if (k < 0)
-                                return log_error_errno(k, "Failed to parse level prefix value.");
-
-                        arg_level_prefix = k;
+                case ARG_LEVEL_PREFIX:
+                        r = parse_boolean_argument("--level-prefix=", optarg, &arg_level_prefix);
+                        if (r < 0)
+                                return r;
                         break;
-                }
 
                 case '?':
                         return -EINVAL;
@@ -129,7 +125,7 @@ static int run(int argc, char *argv[]) {
         _cleanup_close_ int outfd = -1, errfd = -1, saved_stderr = -1;
         int r;
 
-        log_setup_cli();
+        log_setup();
 
         r = parse_argv(argc, argv);
         if (r <= 0)

@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <getopt.h>
 #include <locale.h>
@@ -7,21 +7,20 @@
 #include "sd-id128.h"
 
 #include "alloc-util.h"
+#include "discover-image.h"
 #include "fd-util.h"
 #include "fs-util.h"
 #include "hostname-util.h"
 #include "import-raw.h"
 #include "import-tar.h"
 #include "import-util.h"
-#include "machine-image.h"
 #include "main-func.h"
 #include "signal-util.h"
 #include "string-util.h"
 #include "verbs.h"
 
-static bool arg_force = false;
-static bool arg_read_only = false;
 static const char *arg_image_root = "/var/lib/machines";
+static ImportFlags arg_import_flags = 0;
 
 static int interrupt_signal_handler(sd_event_source *s, const struct signalfd_siginfo *si, void *userdata) {
         log_notice("Transfer aborted.");
@@ -48,14 +47,12 @@ static int import_tar(int argc, char *argv[], void *userdata) {
         int r, fd;
 
         if (argc >= 2)
-                path = argv[1];
-        path = empty_or_dash_to_null(path);
+                path = empty_or_dash_to_null(argv[1]);
 
         if (argc >= 3)
-                local = argv[2];
+                local = empty_or_dash_to_null(argv[2]);
         else if (path)
                 local = basename(path);
-        local = empty_or_dash_to_null(local);
 
         if (local) {
                 r = tar_strip_suffixes(local, &ll);
@@ -64,20 +61,20 @@ static int import_tar(int argc, char *argv[], void *userdata) {
 
                 local = ll;
 
-                if (!machine_name_is_valid(local)) {
-                        log_error("Local image name '%s' is not valid.", local);
-                        return -EINVAL;
-                }
+                if (!hostname_is_valid(local, 0))
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "Local image name '%s' is not valid.",
+                                               local);
 
-                if (!arg_force) {
-                        r = image_find(IMAGE_MACHINE, local, NULL);
+                if (!FLAGS_SET(arg_import_flags, IMPORT_FORCE)) {
+                        r = image_find(IMAGE_MACHINE, local, NULL, NULL);
                         if (r < 0) {
                                 if (r != -ENOENT)
                                         return log_error_errno(r, "Failed to check whether image '%s' exists: %m", local);
-                        } else {
-                                log_error("Image '%s' already exists.", local);
-                                return -EEXIST;
-                        }
+                        } else
+                                return log_error_errno(SYNTHETIC_ERRNO(EEXIST),
+                                                       "Image '%s' already exists.",
+                                                       local);
                 }
         } else
                 local = "imported";
@@ -111,7 +108,7 @@ static int import_tar(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return log_error_errno(r, "Failed to allocate importer: %m");
 
-        r = tar_import_start(import, fd, local, arg_force, arg_read_only);
+        r = tar_import_start(import, fd, local, arg_import_flags);
         if (r < 0)
                 return log_error_errno(r, "Failed to import image: %m");
 
@@ -142,14 +139,12 @@ static int import_raw(int argc, char *argv[], void *userdata) {
         int r, fd;
 
         if (argc >= 2)
-                path = argv[1];
-        path = empty_or_dash_to_null(path);
+                path = empty_or_dash_to_null(argv[1]);
 
         if (argc >= 3)
-                local = argv[2];
+                local = empty_or_dash_to_null(argv[2]);
         else if (path)
                 local = basename(path);
-        local = empty_or_dash_to_null(local);
 
         if (local) {
                 r = raw_strip_suffixes(local, &ll);
@@ -158,20 +153,20 @@ static int import_raw(int argc, char *argv[], void *userdata) {
 
                 local = ll;
 
-                if (!machine_name_is_valid(local)) {
-                        log_error("Local image name '%s' is not valid.", local);
-                        return -EINVAL;
-                }
+                if (!hostname_is_valid(local, 0))
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "Local image name '%s' is not valid.",
+                                               local);
 
-                if (!arg_force) {
-                        r = image_find(IMAGE_MACHINE, local, NULL);
+                if (!FLAGS_SET(arg_import_flags, IMPORT_FORCE)) {
+                        r = image_find(IMAGE_MACHINE, local, NULL, NULL);
                         if (r < 0) {
                                 if (r != -ENOENT)
                                         return log_error_errno(r, "Failed to check whether image '%s' exists: %m", local);
-                        } else {
-                                log_error("Image '%s' already exists.", local);
-                                return -EEXIST;
-                        }
+                        } else
+                                return log_error_errno(SYNTHETIC_ERRNO(EEXIST),
+                                                       "Image '%s' already exists.",
+                                                       local);
                 }
         } else
                 local = "imported";
@@ -205,7 +200,7 @@ static int import_raw(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return log_error_errno(r, "Failed to allocate importer: %m");
 
-        r = raw_import_start(import, fd, local, arg_force, arg_read_only);
+        r = raw_import_start(import, fd, local, arg_import_flags);
         if (r < 0)
                 return log_error_errno(r, "Failed to import image: %m");
 
@@ -268,7 +263,7 @@ static int parse_argv(int argc, char *argv[]) {
                         return version();
 
                 case ARG_FORCE:
-                        arg_force = true;
+                        arg_import_flags |= IMPORT_FORCE;
                         break;
 
                 case ARG_IMAGE_ROOT:
@@ -276,7 +271,7 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_READ_ONLY:
-                        arg_read_only = true;
+                        arg_import_flags |= IMPORT_READ_ONLY;
                         break;
 
                 case '?':
@@ -311,7 +306,7 @@ static int run(int argc, char *argv[]) {
         if (r <= 0)
                 return 0;
 
-        (void) ignore_signals(SIGPIPE, -1);
+        (void) ignore_signals(SIGPIPE);
 
         return import_main(argc, argv);
 }

@@ -1,0 +1,594 @@
+_llseek
+_newselect	5022
+_sysctl	5152
+accept	5042
+accept4	5293
+access	5020
+acct	5158
+add_key	5239
+adjtimex	5154
+alarm	5037
+arc_gettls
+arc_settls
+arc_usr_cmpxchg
+arch_prctl
+arm_fadvise64_64
+atomic_barrier
+atomic_cmpxchg_32
+bdflush
+bind	5048
+bpf	5315
+brk	5012
+cachectl	5198
+cacheflush	5197
+capget	5123
+capset	5124
+chdir	5078
+chmod	5088
+chown	5090
+chown32
+chroot	5156
+clock_adjtime	5300
+clock_adjtime64
+clock_getres	5223
+clock_getres_time64
+clock_gettime	5222
+clock_gettime64
+clock_nanosleep	5224
+clock_nanosleep_time64
+clock_settime	5221
+clock_settime64
+clone	5055
+clone2
+clone3	5435
+close	5003
+close_range	5436
+connect	5041
+copy_file_range	5320
+creat	5083
+create_module	5167
+delete_module	5169
+dipc
+dup	5031
+dup2	5032
+dup3	5286
+epoll_create	5207
+epoll_create1	5285
+epoll_ctl	5208
+epoll_ctl_old
+epoll_pwait	5272
+epoll_pwait2	5441
+epoll_wait	5209
+epoll_wait_old
+eventfd	5278
+eventfd2	5284
+exec_with_loader
+execv
+execve	5057
+execveat	5316
+exit	5058
+exit_group	5205
+faccessat	5259
+faccessat2	5439
+fadvise64	5215
+fadvise64_64
+fallocate	5279
+fanotify_init	5295
+fanotify_mark	5296
+fchdir	5079
+fchmod	5089
+fchmodat	5258
+fchown	5091
+fchown32
+fchownat	5250
+fcntl	5070
+fcntl64
+fdatasync	5073
+fgetxattr	5185
+finit_module	5307
+flistxattr	5188
+flock	5071
+fork	5056
+fp_udfiex_crtl
+fremovexattr	5191
+fsconfig	5431
+fsetxattr	5182
+fsmount	5432
+fsopen	5430
+fspick	5433
+fstat	5005
+fstat64
+fstatat64
+fstatfs	5135
+fstatfs64
+fsync	5072
+ftruncate	5075
+ftruncate64
+futex	5194
+futex_time64
+futimesat	5251
+get_kernel_syms	5170
+get_mempolicy	5228
+get_robust_list	5269
+get_thread_area
+getcpu	5271
+getcwd	5077
+getdents	5076
+getdents64	5308
+getdomainname
+getdtablesize
+getegid	5106
+getegid32
+geteuid	5105
+geteuid32
+getgid	5102
+getgid32
+getgroups	5113
+getgroups32
+gethostname
+getitimer	5035
+getpagesize
+getpeername	5051
+getpgid	5119
+getpgrp	5109
+getpid	5038
+getpmsg	5174
+getppid	5108
+getpriority	5137
+getrandom	5313
+getresgid	5118
+getresgid32
+getresuid	5116
+getresuid32
+getrlimit	5095
+getrusage	5096
+getsid	5122
+getsockname	5050
+getsockopt	5054
+gettid	5178
+gettimeofday	5094
+getuid	5100
+getuid32
+getunwind
+getxattr	5183
+getxgid
+getxpid
+getxuid
+idle
+init_module	5168
+inotify_add_watch	5244
+inotify_init	5243
+inotify_init1	5288
+inotify_rm_watch	5245
+io_cancel	5204
+io_destroy	5201
+io_getevents	5202
+io_pgetevents	5328
+io_pgetevents_time64
+io_setup	5200
+io_submit	5203
+io_uring_enter	5426
+io_uring_register	5427
+io_uring_setup	5425
+ioctl	5015
+ioperm
+iopl
+ioprio_get	5274
+ioprio_set	5273
+ipc
+kcmp	5306
+kern_features
+kexec_file_load
+kexec_load	5270
+keyctl	5241
+kill	5060
+lchown	5092
+lchown32
+lgetxattr	5184
+link	5084
+linkat	5255
+listen	5049
+listxattr	5186
+llistxattr	5187
+lookup_dcookie	5206
+lremovexattr	5190
+lseek	5008
+lsetxattr	5181
+lstat	5006
+lstat64
+madvise	5027
+mbind	5227
+membarrier	5318
+memfd_create	5314
+memory_ordering
+migrate_pages	5246
+mincore	5026
+mkdir	5081
+mkdirat	5248
+mknod	5131
+mknodat	5249
+mlock	5146
+mlock2	5319
+mlockall	5148
+mmap	5009
+mmap2
+modify_ldt
+mount	5160
+mount_setattr	5442
+move_mount	5429
+move_pages	5267
+mprotect	5010
+mq_getsetattr	5235
+mq_notify	5234
+mq_open	5230
+mq_timedreceive	5233
+mq_timedreceive_time64
+mq_timedsend	5232
+mq_timedsend_time64
+mq_unlink	5231
+mremap	5024
+msgctl	5069
+msgget	5066
+msgrcv	5068
+msgsnd	5067
+msync	5025
+multiplexer
+munlock	5147
+munlockall	5149
+munmap	5011
+name_to_handle_at	5298
+nanosleep	5034
+newfstatat	5252
+nfsservctl	5173
+nice
+old_adjtimex
+old_getpagesize
+oldfstat
+oldlstat
+oldolduname
+oldstat
+oldumount
+olduname
+open	5002
+open_by_handle_at	5299
+open_tree	5428
+openat	5247
+openat2	5437
+or1k_atomic
+osf_adjtime
+osf_afs_syscall
+osf_alt_plock
+osf_alt_setsid
+osf_alt_sigpending
+osf_asynch_daemon
+osf_audcntl
+osf_audgen
+osf_chflags
+osf_execve
+osf_exportfs
+osf_fchflags
+osf_fdatasync
+osf_fpathconf
+osf_fstat
+osf_fstatfs
+osf_fstatfs64
+osf_fuser
+osf_getaddressconf
+osf_getdirentries
+osf_getdomainname
+osf_getfh
+osf_getfsstat
+osf_gethostid
+osf_getitimer
+osf_getlogin
+osf_getmnt
+osf_getrusage
+osf_getsysinfo
+osf_gettimeofday
+osf_kloadcall
+osf_kmodcall
+osf_lstat
+osf_memcntl
+osf_mincore
+osf_mount
+osf_mremap
+osf_msfs_syscall
+osf_msleep
+osf_mvalid
+osf_mwakeup
+osf_naccept
+osf_nfssvc
+osf_ngetpeername
+osf_ngetsockname
+osf_nrecvfrom
+osf_nrecvmsg
+osf_nsendmsg
+osf_ntp_adjtime
+osf_ntp_gettime
+osf_old_creat
+osf_old_fstat
+osf_old_getpgrp
+osf_old_killpg
+osf_old_lstat
+osf_old_open
+osf_old_sigaction
+osf_old_sigblock
+osf_old_sigreturn
+osf_old_sigsetmask
+osf_old_sigvec
+osf_old_stat
+osf_old_vadvise
+osf_old_vtrace
+osf_old_wait
+osf_oldquota
+osf_pathconf
+osf_pid_block
+osf_pid_unblock
+osf_plock
+osf_priocntlset
+osf_profil
+osf_proplist_syscall
+osf_reboot
+osf_revoke
+osf_sbrk
+osf_security
+osf_select
+osf_set_program_attributes
+osf_set_speculative
+osf_sethostid
+osf_setitimer
+osf_setlogin
+osf_setsysinfo
+osf_settimeofday
+osf_shmat
+osf_signal
+osf_sigprocmask
+osf_sigsendset
+osf_sigstack
+osf_sigwaitprim
+osf_sstk
+osf_stat
+osf_statfs
+osf_statfs64
+osf_subsys_info
+osf_swapctl
+osf_swapon
+osf_syscall
+osf_sysinfo
+osf_table
+osf_uadmin
+osf_usleep_thread
+osf_uswitch
+osf_utc_adjtime
+osf_utc_gettime
+osf_utimes
+osf_utsname
+osf_wait4
+osf_waitid
+pause	5033
+pciconfig_iobase
+pciconfig_read
+pciconfig_write
+perf_event_open	5292
+perfctr
+perfmonctl
+personality	5132
+pidfd_getfd	5438
+pidfd_open	5434
+pidfd_send_signal	5424
+pipe	5021
+pipe2	5287
+pivot_root	5151
+pkey_alloc	5324
+pkey_free	5325
+pkey_mprotect	5323
+poll	5007
+ppoll	5261
+ppoll_time64
+prctl	5153
+pread64	5016
+preadv	5289
+preadv2	5321
+prlimit64	5297
+process_madvise	5440
+process_vm_readv	5304
+process_vm_writev	5305
+pselect6	5260
+pselect6_time64
+ptrace	5099
+pwrite64	5017
+pwritev	5290
+pwritev2	5322
+query_module	5171
+quotactl	5172
+read	5000
+readahead	5179
+readdir
+readlink	5087
+readlinkat	5257
+readv	5018
+reboot	5164
+recv
+recvfrom	5044
+recvmmsg	5294
+recvmmsg_time64
+recvmsg	5046
+remap_file_pages	5210
+removexattr	5189
+rename	5080
+renameat	5254
+renameat2	5311
+request_key	5240
+restart_syscall	5213
+riscv_flush_icache
+rmdir	5082
+rseq	5327
+rt_sigaction	5013
+rt_sigpending	5125
+rt_sigprocmask	5014
+rt_sigqueueinfo	5127
+rt_sigreturn	5211
+rt_sigsuspend	5128
+rt_sigtimedwait	5126
+rt_sigtimedwait_time64
+rt_tgsigqueueinfo	5291
+rtas
+s390_guarded_storage
+s390_pci_mmio_read
+s390_pci_mmio_write
+s390_runtime_instr
+s390_sthyi
+sched_get_affinity
+sched_get_priority_max	5143
+sched_get_priority_min	5144
+sched_getaffinity	5196
+sched_getattr	5310
+sched_getparam	5140
+sched_getscheduler	5142
+sched_rr_get_interval	5145
+sched_rr_get_interval_time64
+sched_set_affinity
+sched_setaffinity	5195
+sched_setattr	5309
+sched_setparam	5139
+sched_setscheduler	5141
+sched_yield	5023
+seccomp	5312
+select
+semctl	5064
+semget	5062
+semop	5063
+semtimedop	5214
+semtimedop_time64
+send
+sendfile	5039
+sendfile64
+sendmmsg	5302
+sendmsg	5045
+sendto	5043
+set_mempolicy	5229
+set_robust_list	5268
+set_thread_area	5242
+set_tid_address	5212
+setdomainname	5166
+setfsgid	5121
+setfsgid32
+setfsuid	5120
+setfsuid32
+setgid	5104
+setgid32
+setgroups	5114
+setgroups32
+sethae
+sethostname	5165
+setitimer	5036
+setns	5303
+setpgid	5107
+setpgrp
+setpriority	5138
+setregid	5112
+setregid32
+setresgid	5117
+setresgid32
+setresuid	5115
+setresuid32
+setreuid	5111
+setreuid32
+setrlimit	5155
+setsid	5110
+setsockopt	5053
+settimeofday	5159
+setuid	5103
+setuid32
+setxattr	5180
+sgetmask
+shmat	5029
+shmctl	5030
+shmdt	5065
+shmget	5028
+shutdown	5047
+sigaction
+sigaltstack	5129
+signal
+signalfd	5276
+signalfd4	5283
+sigpending
+sigprocmask
+sigreturn
+sigsuspend
+socket	5040
+socketcall
+socketpair	5052
+splice	5263
+spu_create
+spu_run
+ssetmask
+stat	5004
+stat64
+statfs	5134
+statfs64
+statx	5326
+stime
+subpage_prot
+swapcontext
+swapoff	5163
+swapon	5162
+switch_endian
+symlink	5086
+symlinkat	5256
+sync	5157
+sync_file_range	5264
+sync_file_range2
+syncfs	5301
+sys_debug_setcontext
+syscall
+sysfs	5136
+sysinfo	5097
+syslog	5101
+sysmips	5199
+tee	5265
+tgkill	5225
+time
+timer_create	5216
+timer_delete	5220
+timer_getoverrun	5219
+timer_gettime	5218
+timer_gettime64
+timer_settime	5217
+timer_settime64
+timerfd	5277
+timerfd_create	5280
+timerfd_gettime	5281
+timerfd_gettime64
+timerfd_settime	5282
+timerfd_settime64
+times	5098
+tkill	5192
+truncate	5074
+truncate64
+ugetrlimit
+umask	5093
+umount
+umount2	5161
+uname	5061
+unlink	5085
+unlinkat	5253
+unshare	5262
+uselib
+userfaultfd	5317
+ustat	5133
+utime	5130
+utimensat	5275
+utimensat_time64
+utimes	5226
+utrap_install
+vfork
+vhangup	5150
+vm86
+vm86old
+vmsplice	5266
+wait4	5059
+waitid	5237
+waitpid
+write	5001
+writev	5019

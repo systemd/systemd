@@ -1,50 +1,56 @@
-/* SPDX-License-Identifier: LGPL-2.1+
+/* SPDX-License-Identifier: LGPL-2.1-or-later
  * Copyright © 2019 VMware, Inc.
  */
 
 #pragma once
 
+#include <inttypes.h>
+
+#include "sd-netlink.h"
+
 #include "conf-parser.h"
-#include "macro.h"
-
-typedef struct NextHop NextHop;
-typedef struct NetworkConfigSection NetworkConfigSection;
-
-#include "networkd-network.h"
+#include "hashmap.h"
+#include "in-addr-util.h"
 #include "networkd-util.h"
 
-struct NextHop {
+typedef struct Link Link;
+typedef struct Manager Manager;
+typedef struct Network Network;
+typedef struct Request Request;
+
+typedef struct NextHop {
         Network *network;
         NetworkConfigSection *section;
 
+        Manager *manager;
         Link *link;
 
-        unsigned char protocol;
+        uint8_t protocol;
 
-        int family;
-        uint32_t oif;
         uint32_t id;
-
+        bool blackhole;
+        int family;
         union in_addr_union gw;
+        int onlink;
+        Hashmap *group;
+} NextHop;
 
-        LIST_FIELDS(NextHop, nexthops);
-};
+NextHop *nexthop_free(NextHop *nexthop);
 
-extern const struct hash_ops nexthop_hash_ops;
+void network_drop_invalid_nexthops(Network *network);
 
-int nexthop_new(NextHop **ret);
-void nexthop_free(NextHop *nexthop);
-int nexthop_configure(NextHop *nexthop, Link *link, link_netlink_message_handler_t callback);
-int nexthop_remove(NextHop *nexthop, Link *link, link_netlink_message_handler_t callback);
+int link_drop_nexthops(Link *link);
+int link_drop_foreign_nexthops(Link *link);
 
-int nexthop_get(Link *link, NextHop *in, NextHop **ret);
-int nexthop_add(Link *link, NextHop *in, NextHop **ret);
-int nexthop_add_foreign(Link *link, NextHop *in, NextHop **ret);
-bool nexthop_equal(NextHop *r1, NextHop *r2);
+int link_request_static_nexthops(Link *link, bool only_ipv4);
+int request_process_nexthop(Request *req);
 
-int nexthop_section_verify(NextHop *nexthop);
-
-DEFINE_NETWORK_SECTION_FUNCTIONS(NextHop, nexthop_free);
+int manager_get_nexthop_by_id(Manager *manager, uint32_t id, NextHop **ret);
+int manager_rtnl_process_nexthop(sd_netlink *rtnl, sd_netlink_message *message, Manager *m);
 
 CONFIG_PARSER_PROTOTYPE(config_parse_nexthop_id);
 CONFIG_PARSER_PROTOTYPE(config_parse_nexthop_gateway);
+CONFIG_PARSER_PROTOTYPE(config_parse_nexthop_family);
+CONFIG_PARSER_PROTOTYPE(config_parse_nexthop_onlink);
+CONFIG_PARSER_PROTOTYPE(config_parse_nexthop_blackhole);
+CONFIG_PARSER_PROTOTYPE(config_parse_nexthop_group);

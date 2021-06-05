@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 #ifndef foosddhcpleasehfoo
 #define foosddhcpleasehfoo
 
@@ -18,6 +18,7 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#include <errno.h>
 #include <inttypes.h>
 #include <net/ethernet.h>
 #include <netinet/in.h>
@@ -33,7 +34,7 @@ typedef struct sd_dhcp_route sd_dhcp_route;
 sd_dhcp_lease *sd_dhcp_lease_ref(sd_dhcp_lease *lease);
 sd_dhcp_lease *sd_dhcp_lease_unref(sd_dhcp_lease *lease);
 
-typedef enum sd_dhcp_lease_server_type {
+typedef enum sd_dhcp_lease_server_type_t {
         SD_DHCP_LEASE_DNS,
         SD_DHCP_LEASE_NTP,
         SD_DHCP_LEASE_SIP,
@@ -41,8 +42,9 @@ typedef enum sd_dhcp_lease_server_type {
         SD_DHCP_LEASE_SMTP,
         SD_DHCP_LEASE_LPR,
         _SD_DHCP_LEASE_SERVER_TYPE_MAX,
-        _SD_DHCP_LEASE_SERVER_TYPE_INVALID = -1,
-} sd_dhcp_lease_server_type;
+        _SD_DHCP_LEASE_SERVER_TYPE_INVALID = -EINVAL,
+        _SD_ENUM_FORCE_S64(DHCP_LEASE_SERVER_TYPE),
+} sd_dhcp_lease_server_type_t;
 
 int sd_dhcp_lease_get_address(sd_dhcp_lease *lease, struct in_addr *addr);
 int sd_dhcp_lease_get_lifetime(sd_dhcp_lease *lease, uint32_t *lifetime);
@@ -53,7 +55,7 @@ int sd_dhcp_lease_get_netmask(sd_dhcp_lease *lease, struct in_addr *addr);
 int sd_dhcp_lease_get_router(sd_dhcp_lease *lease, const struct in_addr **addr);
 int sd_dhcp_lease_get_next_server(sd_dhcp_lease *lease, struct in_addr *addr);
 int sd_dhcp_lease_get_server_identifier(sd_dhcp_lease *lease, struct in_addr *addr);
-int sd_dhcp_lease_get_servers(sd_dhcp_lease *lease, sd_dhcp_lease_server_type what, const struct in_addr **addr);
+int sd_dhcp_lease_get_servers(sd_dhcp_lease *lease, sd_dhcp_lease_server_type_t what, const struct in_addr **addr);
 int sd_dhcp_lease_get_dns(sd_dhcp_lease *lease, const struct in_addr **addr);
 int sd_dhcp_lease_get_ntp(sd_dhcp_lease *lease, const struct in_addr **addr);
 int sd_dhcp_lease_get_sip(sd_dhcp_lease *lease, const struct in_addr **addr);

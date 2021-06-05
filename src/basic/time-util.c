@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <ctype.h>
 #include <errno.h>
@@ -7,7 +7,6 @@
 #include <sys/mman.h>
 #include <sys/time.h>
 #include <sys/timerfd.h>
-#include <sys/timex.h>
 #include <sys/types.h>
 #include <unistd.h>
 
@@ -493,7 +492,6 @@ char *format_timespan(char *buf, size_t l, usec_t t, usec_t accuracy) {
                 { "us",    1               },
         };
 
-        size_t i;
         char *p = buf;
         bool something = false;
 
@@ -514,7 +512,7 @@ char *format_timespan(char *buf, size_t l, usec_t t, usec_t accuracy) {
 
         /* The result of this function can be parsed with parse_sec */
 
-        for (i = 0; i < ELEMENTSOF(table); i++) {
+        for (size_t i = 0; i < ELEMENTSOF(table); i++) {
                 int k = 0;
                 size_t n;
                 bool done = false;
@@ -962,9 +960,8 @@ static const char* extract_multiplier(const char *p, usec_t *multiplier) {
                 { "us",      1ULL            },
                 { "µs",      1ULL            },
         };
-        size_t i;
 
-        for (i = 0; i < ELEMENTSOF(table); i++) {
+        for (size_t i = 0; i < ELEMENTSOF(table); i++) {
                 char *e;
 
                 e = startswith(p, table[i].suffix);
@@ -1247,25 +1244,10 @@ int parse_nsec(const char *t, nsec_t *nsec) {
         return 0;
 }
 
-bool ntp_synced(void) {
-        struct timex txc = {};
-
-        if (adjtimex(&txc) < 0)
-                return false;
-
-        /* Consider the system clock synchronized if the reported maximum error is smaller than the maximum
-         * value (16 seconds). Ignore the STA_UNSYNC flag as it may have been set to prevent the kernel from
-         * touching the RTC. */
-        if (txc.maxerror >= 16000000)
-                return false;
-
-        return true;
-}
-
 int get_timezones(char ***ret) {
         _cleanup_fclose_ FILE *f = NULL;
         _cleanup_strv_free_ char **zones = NULL;
-        size_t n_zones = 0, n_allocated = 0;
+        size_t n_zones = 0;
         int r;
 
         assert(ret);
@@ -1274,14 +1256,13 @@ int get_timezones(char ***ret) {
         if (!zones)
                 return -ENOMEM;
 
-        n_allocated = 2;
         n_zones = 1;
 
         f = fopen("/usr/share/zoneinfo/zone1970.tab", "re");
         if (f) {
                 for (;;) {
-                        _cleanup_free_ char *line = NULL;
-                        char *p, *w;
+                        _cleanup_free_ char *line = NULL, *w = NULL;
+                        char *p;
                         size_t k;
 
                         r = read_line(f, LONG_LINE_MAX, &line);
@@ -1312,12 +1293,10 @@ int get_timezones(char ***ret) {
                         if (!w)
                                 return -ENOMEM;
 
-                        if (!GREEDY_REALLOC(zones, n_allocated, n_zones + 2)) {
-                                free(w);
+                        if (!GREEDY_REALLOC(zones, n_zones + 2))
                                 return -ENOMEM;
-                        }
 
-                        zones[n_zones++] = w;
+                        zones[n_zones++] = TAKE_PTR(w);
                         zones[n_zones] = NULL;
                 }
 
@@ -1549,7 +1528,7 @@ int time_change_fd(void) {
                 .it_value.tv_sec = TIME_T_MAX,
         };
 
-        _cleanup_close_ int fd;
+        _cleanup_close_ int fd = -1;
 
         assert_cc(sizeof(time_t) == sizeof(TIME_T_MAX));
 
@@ -1606,7 +1585,7 @@ TimestampStyle timestamp_style_from_string(const char *s) {
                 return t;
         if (streq_ptr(s, "µs"))
                 return TIMESTAMP_US;
-        if (streq_ptr(s, "µs+uts"))
+        if (streq_ptr(s, "µs+utc"))
                 return TIMESTAMP_US_UTC;
         return t;
 }

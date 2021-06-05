@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
 #include "macro.h"
@@ -19,7 +19,7 @@ extern const char* (*sym_pwquality_strerror)(char *buf, size_t len, int errcode,
 
 int dlopen_pwquality(void);
 
-DEFINE_TRIVIAL_CLEANUP_FUNC(pwquality_settings_t*, sym_pwquality_free_settings);
+DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(pwquality_settings_t*, sym_pwquality_free_settings, NULL);
 
 void pwq_maybe_disable_dictionary(pwquality_settings_t *pwq);
 int pwq_allocate_context(pwquality_settings_t **ret);

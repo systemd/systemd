@@ -1,5 +1,5 @@
 #pragma once
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <sys/epoll.h>
 #include <sys/timerfd.h>
@@ -11,6 +11,7 @@
 #include "hashmap.h"
 #include "list.h"
 #include "prioq.h"
+#include "ratelimit.h"
 
 typedef enum EventSourceType {
         SOURCE_IO,
@@ -27,7 +28,7 @@ typedef enum EventSourceType {
         SOURCE_WATCHDOG,
         SOURCE_INOTIFY,
         _SOURCE_EVENT_SOURCE_TYPE_MAX,
-        _SOURCE_EVENT_SOURCE_TYPE_INVALID = -1
+        _SOURCE_EVENT_SOURCE_TYPE_INVALID = -EINVAL,
 } EventSourceType;
 
 /* All objects we use in epoll events start with this value, so that
@@ -39,7 +40,7 @@ typedef enum WakeupType {
         WAKEUP_SIGNAL_DATA,
         WAKEUP_INOTIFY_DATA,
         _WAKEUP_TYPE_MAX,
-        _WAKEUP_TYPE_INVALID = -1,
+        _WAKEUP_TYPE_INVALID = -EINVAL,
 } WakeupType;
 
 struct inode_data;
@@ -55,11 +56,13 @@ struct sd_event_source {
 
         char *description;
 
-        EventSourceType type:5;
+        EventSourceType type;
         signed int enabled:3;
         bool pending:1;
         bool dispatching:1;
         bool floating:1;
+        bool exit_on_failure:1;
+        bool ratelimited:1;
 
         int64_t priority;
         unsigned pending_index;
@@ -70,6 +73,13 @@ struct sd_event_source {
         sd_event_destroy_t destroy_callback;
 
         LIST_FIELDS(sd_event_source, sources);
+
+        RateLimit rate_limit;
+
+        /* These are primarily fields relevant for time event sources, but since any event source can
+         * effectively become one when rate-limited, this is part of the common fields. */
+        unsigned earliest_index;
+        unsigned latest_index;
 
         union {
                 struct {
@@ -83,8 +93,6 @@ struct sd_event_source {
                 struct {
                         sd_event_time_handler_t callback;
                         usec_t next, accuracy;
-                        unsigned earliest_index;
-                        unsigned latest_index;
                 } time;
                 struct {
                         sd_event_signal_handler_t callback;

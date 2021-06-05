@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 #ifndef foosddhcpserverhfoo
 #define foosddhcpserverhfoo
 
@@ -37,6 +37,9 @@ enum {
 
 int sd_dhcp_server_new(sd_dhcp_server **ret, int ifindex);
 
+int sd_dhcp_server_set_ifname(sd_dhcp_server *server, const char *ifname);
+const char *sd_dhcp_server_get_ifname(sd_dhcp_server *server);
+
 sd_dhcp_server *sd_dhcp_server_ref(sd_dhcp_server *server);
 sd_dhcp_server *sd_dhcp_server_unref(sd_dhcp_server *server);
 
@@ -55,12 +58,13 @@ int sd_dhcp_server_stop(sd_dhcp_server *server);
 
 int sd_dhcp_server_configure_pool(sd_dhcp_server *server, const struct in_addr *address, unsigned char prefixlen, uint32_t offset, uint32_t size);
 
+int sd_dhcp_server_set_bind_to_interface(sd_dhcp_server *server, int enabled);
 int sd_dhcp_server_set_timezone(sd_dhcp_server *server, const char *timezone);
 int sd_dhcp_server_set_emit_router(sd_dhcp_server *server, int enabled);
 
 int sd_dhcp_server_set_servers(
                 sd_dhcp_server *server,
-                sd_dhcp_lease_server_type what,
+                sd_dhcp_lease_server_type_t what,
                 const struct in_addr addresses[],
                 size_t n_addresses);
 
@@ -73,11 +77,16 @@ int sd_dhcp_server_set_smtp(sd_dhcp_server *server, const struct in_addr smtp[],
 
 int sd_dhcp_server_add_option(sd_dhcp_server *server, sd_dhcp_option *v);
 int sd_dhcp_server_add_vendor_option(sd_dhcp_server *server, sd_dhcp_option *v);
+int sd_dhcp_server_set_static_lease(sd_dhcp_server *server, const struct in_addr *address, uint8_t *client_id, size_t client_id_size);
 
 int sd_dhcp_server_set_max_lease_time(sd_dhcp_server *server, uint32_t t);
 int sd_dhcp_server_set_default_lease_time(sd_dhcp_server *server, uint32_t t);
 
 int sd_dhcp_server_forcerenew(sd_dhcp_server *server);
+
+int sd_dhcp_server_is_in_relay_mode(sd_dhcp_server *server);
+int sd_dhcp_server_set_relay_target(sd_dhcp_server *server, const struct in_addr* address);
+int sd_dhcp_server_set_relay_agent_information(sd_dhcp_server *server, const char* circuit_id, const char* remote_id);
 
 _SD_DEFINE_POINTER_CLEANUP_FUNC(sd_dhcp_server, sd_dhcp_server_unref);
 

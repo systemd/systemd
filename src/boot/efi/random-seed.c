@@ -1,16 +1,18 @@
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
+
 #include <efi.h>
 #include <efilib.h>
 
 #include "missing_efi.h"
 #include "random-seed.h"
+#include "secure-boot.h"
 #include "sha256.h"
 #include "util.h"
-#include "shim.h"
 
 #define RANDOM_MAX_SIZE_MIN (32U)
 #define RANDOM_MAX_SIZE_MAX (32U*1024U)
 
-static const EFI_GUID rng_protocol_guid = EFI_RNG_PROTOCOL_GUID;
+#define EFI_RNG_GUID &(EFI_GUID) EFI_RNG_PROTOCOL_GUID
 
 /* SHA256 gives us 256/8=32 bytes */
 #define HASH_VALUE_SIZE 32
@@ -22,7 +24,7 @@ static EFI_STATUS acquire_rng(UINTN size, VOID **ret) {
 
         /* Try to acquire the specified number of bytes from the UEFI RNG */
 
-        err = LibLocateProtocol((EFI_GUID*) &rng_protocol_guid, (VOID**) &rng);
+        err = LibLocateProtocol(EFI_RNG_GUID, (VOID**) &rng);
         if (EFI_ERROR(err))
                 return err;
         if (!rng)
@@ -84,7 +86,6 @@ static EFI_STATUS hash_many(
                 VOID **ret) {
 
         _cleanup_freepool_ VOID *output = NULL;
-        UINTN i;
 
         /* Hashes the specified parameters in counter mode, generating n hash values, with the counter in the
          * range counter_start…counter_start+n-1. */
@@ -93,7 +94,7 @@ static EFI_STATUS hash_many(
         if (!output)
                 return log_oom();
 
-        for (i = 0; i < n; i++)
+        for (UINTN i = 0; i < n; i++)
                 hash_once(old_seed, rng, size,
                           system_token, system_token_size,
                           counter_start + i,
@@ -140,12 +141,12 @@ static EFI_STATUS mangle_random_seed(
         return EFI_SUCCESS;
 }
 
-EFI_STATUS acquire_system_token(VOID **ret, UINTN *ret_size) {
+static EFI_STATUS acquire_system_token(VOID **ret, UINTN *ret_size) {
         _cleanup_freepool_ CHAR8 *data = NULL;
         EFI_STATUS err;
         UINTN size;
 
-        err = efivar_get_raw(&loader_guid, L"LoaderSystemToken", &data, &size);
+        err = efivar_get_raw(LOADER_GUID, L"LoaderSystemToken", &data, &size);
         if (EFI_ERROR(err)) {
                 if (err != EFI_NOT_FOUND)
                         Print(L"Failed to read LoaderSystemToken EFI variable: %r", err);
@@ -199,9 +200,7 @@ static VOID validate_sha256(void) {
                     0xaf, 0xac, 0x45, 0x03, 0x7a, 0xfe, 0xe9, 0xd1 }},
         };
 
-        UINTN i;
-
-        for (i = 0; i < ELEMENTSOF(array); i++) {
+        for (UINTN i = 0; i < ELEMENTSOF(array); i++) {
                 struct sha256_ctx hash;
                 uint8_t result[HASH_VALUE_SIZE];
 
@@ -244,7 +243,7 @@ EFI_STATUS process_random_seed(EFI_FILE *root_dir, RandomSeedMode mode) {
         if (mode != RANDOM_SEED_ALWAYS && EFI_ERROR(err))
                 return err;
 
-        err = uefi_call_wrapper(root_dir->Open, 5, root_dir, &handle, L"\\loader\\random-seed", EFI_FILE_MODE_READ|EFI_FILE_MODE_WRITE, 0ULL);
+        err = uefi_call_wrapper(root_dir->Open, 5, root_dir, &handle, (CHAR16*) L"\\loader\\random-seed", EFI_FILE_MODE_READ|EFI_FILE_MODE_WRITE, 0ULL);
         if (EFI_ERROR(err)) {
                 if (err != EFI_NOT_FOUND)
                         Print(L"Failed to open random seed file: %r\n", err);
@@ -316,7 +315,7 @@ EFI_STATUS process_random_seed(EFI_FILE *root_dir, RandomSeedMode mode) {
         }
 
         /* We are good to go */
-        err = efivar_set_raw(&loader_guid, L"LoaderRandomSeed", for_kernel, size, FALSE);
+        err = efivar_set_raw(LOADER_GUID, L"LoaderRandomSeed", for_kernel, size, 0);
         if (EFI_ERROR(err)) {
                 Print(L"Failed to write random seed to EFI variable: %r\n", err);
                 return err;

@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <errno.h>
 #include <fcntl.h>
@@ -522,17 +522,14 @@ static int accept_cb(sd_event_source *s, int fd, uint32_t revents, void *userdat
 
                 r = add_connection_socket(context, nfd);
                 if (r < 0) {
-                        log_error_errno(r, "Failed to accept connection, ignoring: %m");
-                        safe_close(fd);
+                        log_warning_errno(r, "Failed to accept connection, ignoring: %m");
+                        safe_close(nfd);
                 }
         }
 
         r = sd_event_source_set_enabled(s, SD_EVENT_ONESHOT);
-        if (r < 0) {
-                log_error_errno(r, "Error while re-enabling listener with ONESHOT: %m");
-                sd_event_exit(context->event, r);
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Error while re-enabling listener with ONESHOT: %m");
 
         return 1;
 }
@@ -561,10 +558,13 @@ static int add_listen_socket(Context *context, int fd) {
 
         r = set_ensure_put(&context->listen, NULL, source);
         if (r < 0) {
-                log_error_errno(r, "Failed to add source to set: %m");
                 sd_event_source_unref(source);
-                return r;
+                return log_error_errno(r, "Failed to add source to set: %m");
         }
+
+        r = sd_event_source_set_exit_on_failure(source, true);
+        if (r < 0)
+                return log_error_errno(r, "Failed to enable exit-on-failure logic: %m");
 
         /* Set the watcher to oneshot in case other processes are also
          * watching to accept(). */
@@ -595,11 +595,10 @@ static int help(void) {
                "                         the %3$s for time span format\n"
                "  -h --help              Show this help\n"
                "     --version           Show package version\n"
-               "\nSee the %2$s for details.\n"
-               , program_invocation_short_name
-               , link
-               , time_link
-        );
+               "\nSee the %2$s for details.\n",
+               program_invocation_short_name,
+               link,
+               time_link);
 
         return 0;
 }

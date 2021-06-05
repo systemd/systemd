@@ -1,4 +1,4 @@
-#  SPDX-License-Identifier: LGPL-2.1+
+#  SPDX-License-Identifier: LGPL-2.1-or-later
 #
 #  This file is part of systemd.
 #
@@ -13,7 +13,6 @@ DefaultDependencies=no
 Before=sysinit.target
 Documentation=man:modprobe(8)
 ConditionCapability=CAP_SYS_MODULE
-ConditionPathExists=!/sys/module/%I
 
 [Service]
 Type=oneshot

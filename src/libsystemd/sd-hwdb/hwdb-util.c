@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <ctype.h>
 #include <stdio.h>
@@ -105,25 +105,23 @@ static struct trie_node *node_lookup(const struct trie_node *node, uint8_t c) {
 }
 
 static void trie_node_cleanup(struct trie_node *node) {
-        size_t i;
-
         if (!node)
                 return;
 
-        for (i = 0; i < node->children_count; i++)
+        for (size_t i = 0; i < node->children_count; i++)
                 trie_node_cleanup(node->children[i].child);
         free(node->children);
         free(node->values);
         free(node);
 }
 
-static void trie_free(struct trie *trie) {
+static struct trie* trie_free(struct trie *trie) {
         if (!trie)
-                return;
+                return NULL;
 
         trie_node_cleanup(trie->root);
-        strbuf_cleanup(trie->strings);
-        free(trie);
+        strbuf_free(trie->strings);
+        return mfree(trie);
 }
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(struct trie*, trie_free);
@@ -191,10 +189,9 @@ static int trie_node_add_value(struct trie *trie, struct trie_node *node,
 static int trie_insert(struct trie *trie, struct trie_node *node, const char *search,
                        const char *key, const char *value,
                        const char *filename, uint16_t file_priority, uint32_t line_number, bool compat) {
-        size_t i = 0;
         int r = 0;
 
-        for (;;) {
+        for (size_t i = 0;; i++) {
                 size_t p;
                 uint8_t c;
                 struct trie_node *child;
@@ -273,7 +270,6 @@ static int trie_insert(struct trie *trie, struct trie_node *node, const char *se
                 }
 
                 node = child;
-                i++;
         }
 }
 
@@ -289,20 +285,17 @@ struct trie_f {
 
 /* calculate the storage space for the nodes, children arrays, value arrays */
 static void trie_store_nodes_size(struct trie_f *trie, struct trie_node *node, bool compat) {
-        uint64_t i;
-
-        for (i = 0; i < node->children_count; i++)
+        for (uint64_t i = 0; i < node->children_count; i++)
                 trie_store_nodes_size(trie, node->children[i].child, compat);
 
         trie->strings_off += sizeof(struct trie_node_f);
-        for (i = 0; i < node->children_count; i++)
+        for (uint64_t i = 0; i < node->children_count; i++)
                 trie->strings_off += sizeof(struct trie_child_entry_f);
-        for (i = 0; i < node->values_count; i++)
+        for (uint64_t i = 0; i < node->values_count; i++)
                 trie->strings_off += compat ? sizeof(struct trie_value_entry_f) : sizeof(struct trie_value_entry2_f);
 }
 
 static int64_t trie_store_nodes(struct trie_f *trie, struct trie_node *node, bool compat) {
-        uint64_t i;
         struct trie_node_f n = {
                 .prefix_off = htole64(trie->strings_off + node->prefix_off),
                 .children_count = node->children_count,
@@ -318,7 +311,7 @@ static int64_t trie_store_nodes(struct trie_f *trie, struct trie_node *node, boo
         }
 
         /* post-order recursion */
-        for (i = 0; i < node->children_count; i++) {
+        for (uint64_t i = 0; i < node->children_count; i++) {
                 int64_t child_off;
 
                 child_off = trie_store_nodes(trie, node->children[i].child, compat);
@@ -343,7 +336,7 @@ static int64_t trie_store_nodes(struct trie_f *trie, struct trie_node *node, boo
         }
 
         /* append values array */
-        for (i = 0; i < node->values_count; i++) {
+        for (uint64_t i = 0; i < node->values_count; i++) {
                 struct trie_value_entry2_f v = {
                         .key_off = htole64(trie->strings_off + node->values[i].key_off),
                         .value_off = htole64(trie->strings_off + node->values[i].value_off),
@@ -384,7 +377,7 @@ static int trie_store(struct trie *trie, const char *filename, bool compat) {
         r = fopen_temporary(filename, &t.f, &filename_tmp);
         if (r < 0)
                 return r;
-        fchmod(fileno(t.f), 0444);
+        (void) fchmod(fileno(t.f), 0444);
 
         /* write nodes */
         if (fseeko(t.f, sizeof(struct trie_header_f), SEEK_SET) < 0)
@@ -447,7 +440,7 @@ static int insert_data(struct trie *trie, char **match_list, char *line, const c
         value = strchr(line, '=');
         if (!value)
                 return log_syntax(NULL, LOG_WARNING, filename, line_number, SYNTHETIC_ERRNO(EINVAL),
-                                  "Key-value pair expected but got \"%s\", ignoring", line);
+                                  "Key-value pair expected but got \"%s\", ignoring.", line);
 
         value[0] = '\0';
         value++;
@@ -456,10 +449,9 @@ static int insert_data(struct trie *trie, char **match_list, char *line, const c
         while (isblank(line[0]) && isblank(line[1]))
                 line++;
 
-        if (isempty(line + 1) || isempty(value))
+        if (isempty(line + 1))
                 return log_syntax(NULL, LOG_WARNING, filename, line_number, SYNTHETIC_ERRNO(EINVAL),
-                                  "Empty %s in \"%s=%s\", ignoring",
-                                  isempty(line + 1) ? "key" : "value",
+                                  "Empty key in \"%s=%s\", ignoring.",
                                   line, value);
 
         STRV_FOREACH(entry, match_list)
@@ -494,7 +486,7 @@ static int import_file(struct trie *trie, const char *filename, uint16_t file_pr
                 if (r == 0)
                         break;
 
-                ++line_number;
+                line_number ++;
 
                 /* comment line */
                 if (line[0] == '#')
@@ -518,7 +510,7 @@ static int import_file(struct trie *trie, const char *filename, uint16_t file_pr
 
                         if (line[0] == ' ') {
                                 r = log_syntax(NULL, LOG_WARNING, filename, line_number, SYNTHETIC_ERRNO(EINVAL),
-                                               "Match expected but got indented property \"%s\", ignoring line", line);
+                                               "Match expected but got indented property \"%s\", ignoring line.", line);
                                 break;
                         }
 
@@ -534,7 +526,7 @@ static int import_file(struct trie *trie, const char *filename, uint16_t file_pr
                 case HW_MATCH:
                         if (len == 0) {
                                 r = log_syntax(NULL, LOG_WARNING, filename, line_number, SYNTHETIC_ERRNO(EINVAL),
-                                               "Property expected, ignoring record with no properties");
+                                               "Property expected, ignoring record with no properties.");
                                 state = HW_NONE;
                                 match_list = strv_free(match_list);
                                 break;
@@ -566,7 +558,7 @@ static int import_file(struct trie *trie, const char *filename, uint16_t file_pr
 
                         if (line[0] != ' ') {
                                 r = log_syntax(NULL, LOG_WARNING, filename, line_number, SYNTHETIC_ERRNO(EINVAL),
-                                               "Property or empty line expected, got \"%s\", ignoring record", line);
+                                               "Property or empty line expected, got \"%s\", ignoring record.", line);
                                 state = HW_NONE;
                                 match_list = strv_free(match_list);
                                 break;
@@ -581,7 +573,7 @@ static int import_file(struct trie *trie, const char *filename, uint16_t file_pr
 
         if (state == HW_MATCH)
                 log_syntax(NULL, LOG_WARNING, filename, line_number, 0,
-                           "Property expected, ignoring record with no properties");
+                           "Property expected, ignoring record with no properties.");
 
         return r;
 }

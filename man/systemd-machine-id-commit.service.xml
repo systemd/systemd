@@ -3,7 +3,7 @@
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
 <!--
-  SPDX-License-Identifier: LGPL-2.1+
+  SPDX-License-Identifier: LGPL-2.1-or-later
 
   Copyright © 2014 Didier Roche
 -->
@@ -57,7 +57,7 @@
     transient machine ID file on a memory file system, and mount it
     over <filename>/etc/machine-id</filename>, during the early boot
     phase. This service is then invoked in a later boot phase, as soon
-    as <filename>/etc</filename> has been remounted writable and the
+    as <filename>/etc/</filename> has been remounted writable and the
     ID may thus be committed to disk to make it permanent.</para>
   </refsect1>
 

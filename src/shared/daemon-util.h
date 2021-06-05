@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
 #include <stdbool.h>
@@ -17,6 +17,6 @@ static inline const char *notify_start(const char *start, const char *stop) {
 
 /* This is intended to be used with _cleanup_ attribute. */
 static inline void notify_on_cleanup(const char **p) {
-        if (p)
+        if (*p)
                 (void) sd_notify(false, *p);
 }

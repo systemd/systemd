@@ -1,12 +1,13 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "sd-bus.h"
 
+#include "alloc-util.h"
 #include "bus-common-errors.h"
 #include "bus-error.h"
-#include "bus-util.h"
 #include "errno-list.h"
 #include "errno-util.h"
+#include "string-util.h"
 
 static void test_error(void) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL, second = SD_BUS_ERROR_NULL;
@@ -14,7 +15,7 @@ static void test_error(void) {
         const sd_bus_error temporarily_const_error = {
                 .name = SD_BUS_ERROR_ACCESS_DENIED,
                 .message = "oh! no",
-                ._need_free = -1
+                ._need_free = -1,
         };
 
         assert_se(!sd_bus_error_is_set(&error));

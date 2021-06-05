@@ -1,7 +1,7 @@
 <?xml version='1.0'?>
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd" >
-<!-- SPDX-License-Identifier: LGPL-2.1+ -->
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
 
 <refentry id="org.freedesktop.import1" conditional='ENABLE_IMPORTD'
     xmlns:xi="http://www.w3.org/2001/XInclude">
@@ -156,7 +156,7 @@ node /org/freedesktop/import1 {
       operation (as in that case we know the total size on disk). If a socket or pipe is specified, progress information is not
       available. The file descriptor argument is followed by a local name for the image. This should be a
       name suitable as a hostname and will be used to name the imported image below
-      <filename>/var/lib/machines</filename>. A tar import is placed as a directory tree or a
+      <filename>/var/lib/machines/</filename>. A tar import is placed as a directory tree or a
       <citerefentry project="man-pages"><refentrytitle>btrfs</refentrytitle><manvolnum>8</manvolnum></citerefentry>
       subvolume below <filename>/var/lib/machines/</filename> under the specified name with no suffix
       appended. A raw import is placed as a file in <filename>/var/lib/machines/</filename> with the

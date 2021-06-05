@@ -1,7 +1,7 @@
 <?xml version='1.0'?> <!--*-nxml-*-->
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
-<!-- SPDX-License-Identifier: LGPL-2.1+ -->
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
 
 <refentry id="systemd-homed.service" conditional='ENABLE_HOMED'>
 
@@ -86,9 +86,9 @@
     <para>In order to migrate a home directory from a host <literal>foobar</literal> to another host
     <literal>quux</literal> it is hence sufficient to copy
     <filename>/var/lib/systemd/home/local.public</filename> from the host <literal>foobar</literal> to
-    <literal>quux</literal>, maybe calling the file on the destination
-    <filename>/var/lib/systemd/home/foobar.public</filename>, reflecting the origin of the key. If the user
-    record should be modifiable on <literal>quux</literal> the pair
+    <literal>quux</literal>, maybe calling the file on the destination <filename
+    index="false">/var/lib/systemd/home/foobar.public</filename>, reflecting the origin of the key. If the
+    user record should be modifiable on <literal>quux</literal> the pair
     <filename>/var/lib/systemd/home/local.public</filename> and
     <filename>/var/lib/systemd/home/local.private</filename> need to be copied from <literal>foobar</literal>
     to <literal>quux</literal>, and placed under the identical paths there, as currently only a single

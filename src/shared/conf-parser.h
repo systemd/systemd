@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
 #include <errno.h>
@@ -35,7 +35,7 @@ typedef enum ConfigParseFlags {
 /* Prototype for a parser for a specific configuration setting */
 typedef int (*ConfigParserCallback)(CONFIG_PARSER_ARGUMENTS);
 
-/* A macro declaring the a function prototype, following the typedef above, simply because it's so cumbersomely long
+/* A macro declaring a function prototype, following the typedef above, simply because it's so cumbersomely long
  * otherwise. (And current emacs gets irritatingly slow when editing files that contain lots of very long function
  * prototypes on the same screen…) */
 #define CONFIG_PARSER_PROTOTYPE(name) int name(CONFIG_PARSER_ARGUMENTS)
@@ -89,7 +89,7 @@ int config_parse(
                 const void *table,
                 ConfigParseFlags flags,
                 void *userdata,
-                usec_t *ret_mtime);         /* possibly NULL */
+                usec_t *latest_mtime);      /* input/output, possibly NULL */
 
 int config_parse_many_nulstr(
                 const char *conf_file,      /* possibly NULL */
@@ -102,7 +102,7 @@ int config_parse_many_nulstr(
                 usec_t *ret_mtime);         /* possibly NULL */
 
 int config_parse_many(
-                const char *conf_file,      /* possibly NULL */
+                const char* const* conf_files,  /* possibly empty */
                 const char* const* conf_file_dirs,
                 const char *dropin_dirname,
                 const char *sections,       /* nulstr */
@@ -147,6 +147,11 @@ CONFIG_PARSER_PROTOTYPE(config_parse_ip_port);
 CONFIG_PARSER_PROTOTYPE(config_parse_mtu);
 CONFIG_PARSER_PROTOTYPE(config_parse_rlimit);
 CONFIG_PARSER_PROTOTYPE(config_parse_vlanprotocol);
+CONFIG_PARSER_PROTOTYPE(config_parse_hwaddr);
+CONFIG_PARSER_PROTOTYPE(config_parse_hwaddrs);
+CONFIG_PARSER_PROTOTYPE(config_parse_in_addr_non_null);
+CONFIG_PARSER_PROTOTYPE(config_parse_percent);
+CONFIG_PARSER_PROTOTYPE(config_parse_permyriad);
 
 typedef enum Disabled {
         DISABLED_CONFIGURATION,
@@ -192,7 +197,7 @@ typedef enum Disabled {
                 return 0;                                               \
         }
 
-#define DEFINE_CONFIG_PARSE_ENUM(function, name, type, msg)             \
+#define DEFINE_CONFIG_PARSE_ENUM_FULL(function, from_string, type, msg) \
         CONFIG_PARSER_PROTOTYPE(function) {                             \
                 type *i = data, x;                                      \
                                                                         \
@@ -201,9 +206,9 @@ typedef enum Disabled {
                 assert(rvalue);                                         \
                 assert(data);                                           \
                                                                         \
-                x = name##_from_string(rvalue);                         \
+                x = from_string(rvalue);                                \
                 if (x < 0) {                                            \
-                        log_syntax(unit, LOG_WARNING, filename, line, 0, \
+                        log_syntax(unit, LOG_WARNING, filename, line, x, \
                                    msg ", ignoring: %s", rvalue);       \
                         return 0;                                       \
                 }                                                       \
@@ -211,6 +216,9 @@ typedef enum Disabled {
                 *i = x;                                                 \
                 return 0;                                               \
         }
+
+#define DEFINE_CONFIG_PARSE_ENUM(function, name, type, msg)             \
+        DEFINE_CONFIG_PARSE_ENUM_FULL(function, name##_from_string, type, msg)
 
 #define DEFINE_CONFIG_PARSE_ENUM_WITH_DEFAULT(function, name, type, default_value, msg) \
         CONFIG_PARSER_PROTOTYPE(function) {                             \
@@ -228,7 +236,7 @@ typedef enum Disabled {
                                                                         \
                 x = name##_from_string(rvalue);                         \
                 if (x < 0) {                                            \
-                        log_syntax(unit, LOG_WARNING, filename, line, 0, \
+                        log_syntax(unit, LOG_WARNING, filename, line, x, \
                                    msg ", ignoring: %s", rvalue);       \
                         return 0;                                       \
                 }                                                       \
@@ -262,14 +270,17 @@ typedef enum Disabled {
                         r = extract_first_word(&p, &en, NULL, 0);              \
                         if (r == -ENOMEM)                                      \
                                 return log_oom();                              \
-                        if (r < 0)                                             \
-                                return log_syntax(unit, LOG_ERR, filename, line, 0,   \
-                                                  msg ": %s", en);             \
+                        if (r < 0) {                                           \
+                                log_syntax(unit, LOG_WARNING, filename, line, r, \
+                                           msg ", ignoring: %s", en);          \
+                                return 0;                                      \
+                        }                                                      \
                         if (r == 0)                                            \
                                 break;                                         \
                                                                                \
-                        if ((x = name##_from_string(en)) < 0) {                \
-                                log_syntax(unit, LOG_WARNING, filename, line, 0,        \
+                        x = name##_from_string(en);                            \
+                        if (x < 0) {                                           \
+                                log_syntax(unit, LOG_WARNING, filename, line, x, \
                                            msg ", ignoring: %s", en);          \
                                 continue;                                      \
                         }                                                      \

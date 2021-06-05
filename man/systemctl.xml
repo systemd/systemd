@@ -4,7 +4,7 @@
 <!ENTITY % entities SYSTEM "custom-entities.ent" >
 %entities;
 ]>
-<!-- SPDX-License-Identifier: LGPL-2.1+ -->
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
 
 <refentry id="systemctl"
           xmlns:xi="http://www.w3.org/2001/XInclude">
@@ -230,10 +230,11 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: Current Time Service could not be 
 Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output error (5)
 </programlisting>
 
-            <para>The dot ("●") uses color on supported terminals to summarize the unit state at a glance. White
-            indicates an <literal>inactive</literal> or <literal>deactivating</literal> state. Red indicates a
-            <literal>failed</literal> or <literal>error</literal> state and green indicates an
-            <literal>active</literal>, <literal>reloading</literal> or <literal>activating</literal> state.
+            <para>The dot ("●") uses color on supported terminals to summarize the unit state at a glance. Along with
+            its color, its shape varies according to its state: <literal>inactive</literal> or
+            <literal>maintenance</literal> is a white circle ("○"), <literal>active</literal> is a green dot ("●"),
+            <literal>deactivating</literal> is a white dot, <literal>failed</literal> or <literal>error</literal> is
+            a red cross ("×"), and <literal>reloading</literal> is a green clockwise circle arrow ("↻").
             </para>
 
             <para>The "Loaded:" line in the output will show <literal>loaded</literal> if the unit has been loaded into
@@ -551,6 +552,41 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
         </varlistentry>
 
         <varlistentry>
+          <term><command>bind</command> <replaceable>UNIT</replaceable> <replaceable>PATH</replaceable> [<replaceable>PATH</replaceable>]</term>
+
+          <listitem><para>Bind mounts a file or directory from the host into the specified unit's view. The first path
+          argument is the source file or directory on the host, the second path argument is the destination file or
+          directory in the unit's view. When the latter is omitted, the destination path in the unit's view is the same as
+          the source path on the host. When combined with the <option>--read-only</option> switch, a ready-only bind
+          mount is created. When combined with the <option>--mkdir</option> switch, the destination path is first created
+          before the mount is applied. Note that this option is currently only supported for units that run within a mount
+          namespace (e.g.: with <option>RootImage=</option>, <option>PrivateMounts=</option>, etc.). This command supports bind
+          mounting directories, regular files, device nodes, <constant>AF_UNIX</constant> socket nodes, as well as FIFOs.
+          The bind mount is ephemeral, and it is undone as soon as the current unit process exists.
+          Note that the namespace mentioned here, where the bind mount will be added to, is the one where the main service
+          process runs, as other processes run in distinct namespaces (e.g.: <option>ExecReload=</option>,
+          <option>ExecStartPre=</option>, etc.) </para></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><command>mount-image</command> <replaceable>UNIT</replaceable> <replaceable>IMAGE</replaceable> [<replaceable>PATH</replaceable> [<replaceable>PARTITION_NAME</replaceable>:<replaceable>MOUNT_OPTIONS</replaceable>]]</term>
+
+          <listitem><para>Mounts an image from the host into the specified unit's view. The first path argument is the source
+          image on the host, the second path argument is the destination directory in the unit's view (ie: inside
+          <option>RootImage=</option>/<option>RootDirectory=</option>). Any following argument is interpreted as a
+          colon-separated tuple of partition name and comma-separated list of mount options for that partition. The format is the
+          same as the service <option>MountImages=</option> setting. When combined with the <option>--read-only</option> switch, a
+          ready-only mount is created. When combined with the <option>--mkdir</option> switch, the destination path is first
+          created before the mount is applied. Note that this option is currently only supported for units that run within a mount
+          namespace (e.g.: with <option>RootImage=</option>, <option>PrivateMounts=</option>, etc.).
+          Note that the namespace mentioned here, where the image mount will be added to, is the one where the main service
+          process runs, as other processes run in distinct namespaces (e.g.: <option>ExecReload=</option>,
+          <option>ExecStartPre=</option>, etc.). Example:
+          <programlisting>systemctl mount-image foo.service /tmp/img.raw /var/lib/image root:ro,nosuid</programlisting>
+          <programlisting>systemctl mount-image --mkdir bar.service /tmp/img.raw /var/lib/baz/img</programlisting></para></listitem>
+        </varlistentry>
+
+        <varlistentry>
           <term><command>service-log-level</command> <replaceable>SERVICE</replaceable> [<replaceable>LEVEL</replaceable>]</term>
 
           <listitem><para>If the <replaceable>LEVEL</replaceable> argument is not given, print the current
@@ -663,7 +699,7 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
             directories, an additional symlink is created, linking it into the unit configuration path, thus ensuring
             it is found when requested by commands such as <command>start</command>. The file system where the linked
             unit files are located must be accessible when systemd is started (e.g. anything underneath
-            <filename>/home</filename> or <filename>/var</filename> is not allowed, unless those directories are
+            <filename>/home/</filename> or <filename>/var/</filename> is not allowed, unless those directories are
             located on the root file system).</para>
 
             <para>This command will print the file system operations executed. This output may be suppressed by passing
@@ -757,9 +793,7 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
 
             <para>For more information on the preset policy format, see
             <citerefentry><refentrytitle>systemd.preset</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
-            For more information on the concept of presets, please consult the
-            <ulink url="https://www.freedesktop.org/wiki/Software/systemd/Preset">Preset</ulink>
-            document.</para>
+            </para>
           </listitem>
         </varlistentry>
 
@@ -901,7 +935,7 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
             <command>disable</command>. The effect of this command is that a unit file is made available for commands
             such as <command>start</command>, even though it is not installed directly in the unit search path. The
             file system where the linked unit files are located must be accessible when systemd is started
-            (e.g. anything underneath <filename>/home</filename> or <filename>/var</filename> is not allowed, unless
+            (e.g. anything underneath <filename>/home/</filename> or <filename>/var/</filename> is not allowed, unless
             those directories are located on the root file system).</para>
           </listitem>
         </varlistentry>
@@ -916,10 +950,10 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
             <literal>foo.service.d/</literal> with all their contained files are removed, both below the persistent and
             runtime configuration directories (i.e. below <filename>/etc/systemd/system</filename> and
             <filename>/run/systemd/system</filename>); if the unit file has a vendor-supplied version (i.e. a unit file
-            located below <filename>/usr</filename>) any matching persistent or runtime unit file that overrides it is
+            located below <filename>/usr/</filename>) any matching persistent or runtime unit file that overrides it is
             removed, too. Note that if a unit file has no vendor-supplied version (i.e. is only defined below
             <filename>/etc/systemd/system</filename> or <filename>/run/systemd/system</filename>, but not in a unit
-            file stored below <filename>/usr</filename>), then it is not removed. Also, if a unit is masked, it is
+            file stored below <filename>/usr/</filename>), then it is not removed. Also, if a unit is masked, it is
             unmasked.</para>
 
             <para>Effectively, this command may be used to undo all changes made with <command>systemctl
@@ -970,7 +1004,7 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
             not already exist, new unit files will be opened for editing.</para>
 
             <para>If <option>--runtime</option> is specified, the changes will
-            be made temporarily in <filename>/run</filename> and they will be
+            be made temporarily in <filename>/run/</filename> and they will be
             lost on the next reboot.</para>
 
             <para>If the temporary file is empty upon exit, the modification of
@@ -982,8 +1016,8 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
 
             <para>Note that this command cannot be used to remotely edit units
             and that you cannot temporarily edit units which are in
-            <filename>/etc</filename>, since they take precedence over
-            <filename>/run</filename>.</para>
+            <filename>/etc/</filename>, since they take precedence over
+            <filename>/run/</filename>.</para>
           </listitem>
         </varlistentry>
 
@@ -1060,6 +1094,16 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
     <refsect2>
       <title>Environment Commands</title>
 
+      <para><command>systemd</command> supports an environment block that is passed to processes the manager
+      spawns. The names of the variables can contain ASCII letters, digits, and the underscore
+      character. Variable names cannot be empty or start with a digit. In variable values, most characters
+      are allowed, but the whole sequence must be valid UTF-8. (Note that control characters like newline
+      (<constant>NL</constant>), tab (<constant>TAB</constant>), or the escape character
+      (<constant>ESC</constant>), <emphasis>are</emphasis> valid ASCII and thus valid UTF-8). The total
+      length of the environment block is limited to <constant>_SC_ARG_MAX</constant> value defined by
+      <citerefentry project='man-pages'><refentrytitle>sysconf</refentrytitle><manvolnum>3</manvolnum></citerefentry>.
+      </para>
+
       <variablelist>
         <varlistentry>
           <term><command>show-environment</command></term>
@@ -1091,8 +1135,9 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
           <term><command>set-environment <replaceable>VARIABLE=VALUE</replaceable>…</command></term>
 
           <listitem>
-            <para>Set one or more systemd manager environment variables,
-            as specified on the command line.</para>
+            <para>Set one or more systemd manager environment variables, as specified on the command
+            line. This command will fail if variable names and values do not conform to the rules listed
+            above.</para>
           </listitem>
         </varlistentry>
         <varlistentry>
@@ -1109,17 +1154,22 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
         <varlistentry>
           <term>
             <command>import-environment</command>
-            <optional><replaceable>VARIABLE…</replaceable></optional>
+            <replaceable>VARIABLE…</replaceable>
           </term>
 
           <listitem>
-            <para>Import all, one or more environment variables set on
-            the client into the systemd manager environment block. If
-            no arguments are passed, the entire environment block is
-            imported. Otherwise, a list of one or more environment
-            variable names should be passed, whose client-side values
-            are then imported into the manager's environment
-            block.</para>
+            <para>Import all, one or more environment variables set on the client into the systemd manager
+            environment block. If a list of environment variable names is passed, client-side values are then
+            imported into the manager's environment block. If any names are not valid environment variable
+            names or have invalid values according to the rules described above, an error is raised. If no
+            arguments are passed, the entire environment block inherited by the <command>systemctl</command>
+            process is imported. In this mode, any inherited invalid environment variables are quietly
+            ignored.</para>
+
+            <para>Importing of the full inherited environment block (calling this command without any
+            arguments) is deprecated. A shell will set dozens of variables which only make sense locally and
+            are only meant for processes which are descendants of the shell. Such variables in the global
+            environment block are confusing to other processes.</para>
           </listitem>
         </varlistentry>
       </variablelist>
@@ -1835,17 +1885,34 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
       </varlistentry>
 
       <varlistentry>
-        <term><option>-i</option></term>
-        <term><option>--ignore-inhibitors</option></term>
+        <term><option>--check-inhibitors=</option></term>
 
         <listitem>
-          <para>When system shutdown or a sleep state is requested, ignore inhibitor locks. Applications can establish
-          inhibitor locks to avoid that certain important operations (such as CD burning or suchlike) are interrupted
-          by system shutdown or a sleep state. Any user may take these locks and privileged users may override these
-          locks. If any locks are taken, shutdown and sleep state requests will normally fail (unless privileged) and a
-          list of active locks is printed. However, if <option>--ignore-inhibitors</option> is specified, the
-          established locks are ignored and not shown, and the operation attempted anyway, possibly requiring
-          additional privileges.</para>
+          <para>When system shutdown or sleep state is request, this option controls how to deal with
+          inhibitor locks. It takes one of <literal>auto</literal>, <literal>yes</literal> or
+          <literal>no</literal>. Defaults to <literal>auto</literal>, which will behave like
+          <literal>yes</literal> for interactive invocations (i.e. from a TTY) and <literal>no</literal>
+          for non-interactive invocations.
+          <literal>yes</literal> will let the request respect inhibitor locks.
+          <literal>no</literal> will let the request ignore inhibitor locks.
+          </para>
+          <para>Applications can establish inhibitor locks to avoid that certain important operations
+          (such as CD burning or suchlike) are interrupted by system shutdown or a sleep state. Any user may
+          take these locks and privileged users may override these locks.
+          If any locks are taken, shutdown and sleep state requests will normally fail (unless privileged)
+          and a list of active locks is printed.
+          However, if <literal>no</literal> is specified or <literal>auto</literal> is specified on a
+          non-interactive requests, the established locks are ignored and not shown, and the operation
+          attempted anyway, possibly requiring additional privileges.
+          May be overridden by <option>--force</option>.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>-i</option></term>
+
+        <listitem>
+          <para>Shortcut for <option>--check-inhibitors=no</option>.</para>
         </listitem>
       </varlistentry>
 
@@ -2000,21 +2067,9 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
           is defined. If omitted, defaults to
           <option>all</option>.</para>
         </listitem>
-
       </varlistentry>
 
-      <varlistentry>
-        <term><option>-s</option></term>
-        <term><option>--signal=</option></term>
-
-        <listitem>
-          <para>When used with <command>kill</command>, choose which
-          signal to send to selected processes. Must be one of the
-          well-known signal specifiers such as <constant>SIGTERM</constant>, <constant>SIGINT</constant> or
-          <constant>SIGSTOP</constant>. If omitted, defaults to
-          <option>SIGTERM</option>.</para>
-        </listitem>
-      </varlistentry>
+      <xi:include href="standard-options.xml" xpointer="signal" />
 
       <varlistentry>
         <term><option>--what=</option></term>
@@ -2100,7 +2155,7 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
           (and related commands), make changes only temporarily, so
           that they are lost on the next reboot. This will have the
           effect that changes are not made in subdirectories of
-          <filename>/etc</filename> but in <filename>/run</filename>,
+          <filename>/etc/</filename> but in <filename>/run/</filename>,
           with identical immediate effects, however, since the latter
           is lost on reboot, the changes are lost too.</para>
 
@@ -2205,21 +2260,73 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
         <term><option>--timestamp=</option></term>
 
         <listitem>
-          <para>Takes one of <literal>pretty</literal> (the default),
-          <literal>us</literal>, <literal>µs</literal>, <literal>utc</literal>.
-          Changes the format of printed timestamps.
-          <literal>pretty</literal>: <literal>Day YYYY-MM-DD HH:MM:SS TZ</literal>
-          <literal>us</literal> or <literal>µs</literal>: <literal>Day YYYY-MM-DD HH:MM:SS.UUUUUU TZ</literal>
-          <literal>utc</literal>: <literal>Day YYYY-MM-DD HH:MM:SS UTC</literal></para>
-          <literal>us+utc</literal> or <literal>µs+utc</literal>: <literal>Day YYYY-MM-DD HH:MM:SS.UUUUUU UTC</literal>
+          <para>Change the format of printed timestamps. The following values may be used:
+          </para>
+
+          <variablelist>
+            <varlistentry>
+              <term><option>pretty</option> (this is the default)</term>
+              <listitem><para><literal>Day YYYY-MM-DD HH:MM:SS TZ</literal></para></listitem>
+            </varlistentry>
+          </variablelist>
+
+          <variablelist>
+            <varlistentry>
+              <term><option>us</option></term>
+              <term><option>µs</option></term>
+              <listitem><para><literal>Day YYYY-MM-DD HH:MM:SS.UUUUUU TZ</literal></para></listitem>
+            </varlistentry>
+          </variablelist>
+
+          <variablelist>
+            <varlistentry>
+              <term><option>utc</option></term>
+              <listitem><para><literal>Day YYYY-MM-DD HH:MM:SS UTC</literal></para></listitem>
+            </varlistentry>
+          </variablelist>
+
+          <variablelist>
+            <varlistentry>
+              <term><option>us+utc</option></term>
+              <term><option>µs+utc</option></term>
+              <listitem><para><literal>Day YYYY-MM-DD HH:MM:SS.UUUUUU UTC</literal></para></listitem>
+            </varlistentry>
+          </variablelist>
         </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--mkdir</option></term>
+
+        <listitem><para>When used with <command>bind</command>, creates the destination file or directory before
+        applying the bind mount. Note that even though the name of this option suggests that it is suitable only for
+        directories, this option also creates the destination file node to mount over if the object to mount is not
+        a directory, but a regular file, device node, socket or FIFO.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--marked</option></term>
+
+        <listitem><para>Only allowed with <command>reload-or-restart</command>. Enqueues restart jobs for all
+        units that have the <literal>needs-restart</literal> mark, and reload jobs for units that have the
+        <literal>needs-reload</literal> mark. When a unit marked for reload does not support reload, restart
+        will be queued. Those properties can be set using <command>set-property Marks</command>.</para>
+
+        <para>Unless <option>--no-block</option> is used, <command>systemctl</command> will wait for the
+        queued jobs to finish.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--read-only</option></term>
+
+        <listitem><para>When used with <command>bind</command>, creates a read-only bind mount.</para></listitem>
       </varlistentry>
 
       <xi:include href="user-system-options.xml" xpointer="host" />
       <xi:include href="user-system-options.xml" xpointer="machine" />
 
       <xi:include href="standard-options.xml" xpointer="no-pager" />
-      <xi:include href="standard-options.xml" xpointer="no-legend" />
+      <xi:include href="standard-options.xml" xpointer="legend" />
       <xi:include href="standard-options.xml" xpointer="help" />
       <xi:include href="standard-options.xml" xpointer="version" />
     </variablelist>
@@ -2300,11 +2407,17 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
         </para></listitem>
       </varlistentry>
     </variablelist>
-    <xi:include href="less-variables.xml" xpointer="pager"/>
-    <xi:include href="less-variables.xml" xpointer="less"/>
-    <xi:include href="less-variables.xml" xpointer="lesscharset"/>
-    <xi:include href="less-variables.xml" xpointer="colors"/>
-    <xi:include href="less-variables.xml" xpointer="urlify"/>
+    <xi:include href="common-variables.xml" xpointer="log-level"/>
+    <xi:include href="common-variables.xml" xpointer="log-color"/>
+    <xi:include href="common-variables.xml" xpointer="log-time"/>
+    <xi:include href="common-variables.xml" xpointer="log-location"/>
+    <xi:include href="common-variables.xml" xpointer="log-target"/>
+    <xi:include href="common-variables.xml" xpointer="pager"/>
+    <xi:include href="common-variables.xml" xpointer="less"/>
+    <xi:include href="common-variables.xml" xpointer="lesscharset"/>
+    <xi:include href="common-variables.xml" xpointer="lesssecure"/>
+    <xi:include href="common-variables.xml" xpointer="colors"/>
+    <xi:include href="common-variables.xml" xpointer="urlify"/>
   </refsect1>
 
   <refsect1>

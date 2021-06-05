@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <errno.h>
 #include <unistd.h>
@@ -134,7 +134,7 @@ int machine_save(Machine *m) {
                 m->name);
 
         if (m->unit) {
-                _cleanup_free_ char *escaped;
+                _cleanup_free_ char *escaped = NULL;
 
                 escaped = cescape(m->unit);
                 if (!escaped) {
@@ -149,7 +149,7 @@ int machine_save(Machine *m) {
                 fprintf(f, "SCOPE_JOB=%s\n", m->scope_job);
 
         if (m->service) {
-                _cleanup_free_ char *escaped;
+                _cleanup_free_ char *escaped = NULL;
 
                 escaped = cescape(m->service);
                 if (!escaped) {
@@ -160,7 +160,7 @@ int machine_save(Machine *m) {
         }
 
         if (m->root_directory) {
-                _cleanup_free_ char *escaped;
+                _cleanup_free_ char *escaped = NULL;
 
                 escaped = cescape(m->root_directory);
                 if (!escaped) {
@@ -292,9 +292,9 @@ int machine_load(Machine *m) {
                 (void) deserialize_usec(monotonic, &m->timestamp.monotonic);
 
         if (netif) {
-                size_t allocated = 0, nr = 0;
-                const char *p;
                 _cleanup_free_ int *ni = NULL;
+                size_t nr = 0;
+                const char *p;
 
                 p = netif;
                 for (;;) {
@@ -314,14 +314,13 @@ int machine_load(Machine *m) {
                         if (r < 0)
                                 continue;
 
-                        if (!GREEDY_REALLOC(ni, allocated, nr + 1))
+                        if (!GREEDY_REALLOC(ni, nr + 1))
                                 return log_oom();
 
                         ni[nr++] = r;
                 }
 
-                free(m->netif);
-                m->netif = TAKE_PTR(ni);
+                free_and_replace(m->netif, ni);
                 m->n_netif = nr;
         }
 

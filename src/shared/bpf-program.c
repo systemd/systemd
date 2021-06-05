@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <fcntl.h>
 #include <sys/stat.h>
@@ -8,22 +8,97 @@
 #include "alloc-util.h"
 #include "bpf-program.h"
 #include "fd-util.h"
-#include "log.h"
 #include "memory-util.h"
 #include "missing_syscall.h"
 #include "path-util.h"
+#include "string-table.h"
+
+static const char *const bpf_cgroup_attach_type_table[__MAX_BPF_ATTACH_TYPE] = {
+        [BPF_CGROUP_INET_INGRESS] =     "ingress",
+        [BPF_CGROUP_INET_EGRESS] =      "egress",
+        [BPF_CGROUP_INET_SOCK_CREATE] = "sock_create",
+        [BPF_CGROUP_SOCK_OPS] =         "sock_ops",
+        [BPF_CGROUP_DEVICE] =           "device",
+        [BPF_CGROUP_INET4_BIND] =       "bind4",
+        [BPF_CGROUP_INET6_BIND] =       "bind6",
+        [BPF_CGROUP_INET4_CONNECT] =    "connect4",
+        [BPF_CGROUP_INET6_CONNECT] =    "connect6",
+        [BPF_CGROUP_INET4_POST_BIND] =  "post_bind4",
+        [BPF_CGROUP_INET6_POST_BIND] =  "post_bind6",
+        [BPF_CGROUP_UDP4_SENDMSG] =     "sendmsg4",
+        [BPF_CGROUP_UDP6_SENDMSG] =     "sendmsg6",
+        [BPF_CGROUP_SYSCTL] =           "sysctl",
+        [BPF_CGROUP_UDP4_RECVMSG] =     "recvmsg4",
+        [BPF_CGROUP_UDP6_RECVMSG] =     "recvmsg6",
+        [BPF_CGROUP_GETSOCKOPT] =       "getsockopt",
+        [BPF_CGROUP_SETSOCKOPT] =       "setsockopt",
+};
+
+DEFINE_STRING_TABLE_LOOKUP(bpf_cgroup_attach_type, int);
+
+ /* struct bpf_prog_info info must be initialized since its value is both input and output
+  * for BPF_OBJ_GET_INFO_BY_FD syscall. */
+static int bpf_program_get_info_by_fd(int prog_fd, struct bpf_prog_info *info, uint32_t info_len) {
+        union bpf_attr attr;
+
+        /* Explicitly memset to zero since some compilers may produce non-zero-initialized padding when
+         * structured initialization is used.
+         * Refer to https://github.com/systemd/systemd/issues/18164
+         */
+        zero(attr);
+        attr.info.bpf_fd = prog_fd;
+        attr.info.info_len = info_len;
+        attr.info.info = PTR_TO_UINT64(info);
+
+        if (bpf(BPF_OBJ_GET_INFO_BY_FD, &attr, sizeof(attr)) < 0)
+                return -errno;
+
+        return 0;
+}
 
 int bpf_program_new(uint32_t prog_type, BPFProgram **ret) {
         _cleanup_(bpf_program_unrefp) BPFProgram *p = NULL;
 
         p = new0(BPFProgram, 1);
         if (!p)
-                return log_oom();
+                return -ENOMEM;
 
         p->n_ref = 1;
         p->prog_type = prog_type;
         p->kernel_fd = -1;
 
+        *ret = TAKE_PTR(p);
+
+        return 0;
+}
+
+int bpf_program_new_from_bpffs_path(const char *path, BPFProgram **ret) {
+        _cleanup_(bpf_program_unrefp) BPFProgram *p = NULL;
+        struct bpf_prog_info info = {};
+        int r;
+
+        assert(path);
+        assert(ret);
+
+        p = new(BPFProgram, 1);
+        if (!p)
+                return -ENOMEM;
+
+        *p = (BPFProgram) {
+                .prog_type = BPF_PROG_TYPE_UNSPEC,
+                .n_ref = 1,
+                .kernel_fd = -1,
+        };
+
+        r = bpf_program_load_from_bpf_fs(p, path);
+        if (r < 0)
+                return r;
+
+        r = bpf_program_get_info_by_fd(p->kernel_fd, &info, sizeof(info));
+        if (r < 0)
+                return r;
+
+        p->prog_type = info.type;
         *ret = TAKE_PTR(p);
 
         return 0;
@@ -58,7 +133,7 @@ int bpf_program_add_instructions(BPFProgram *p, const struct bpf_insn *instructi
         if (p->kernel_fd >= 0) /* don't allow modification after we uploaded things to the kernel */
                 return -EBUSY;
 
-        if (!GREEDY_REALLOC(p->instructions, p->allocated, p->n_instructions + count))
+        if (!GREEDY_REALLOC(p->instructions, p->n_instructions + count))
                 return -ENOMEM;
 
         memcpy(p->instructions + p->n_instructions, instructions, sizeof(struct bpf_insn) * count);
@@ -77,15 +152,18 @@ int bpf_program_load_kernel(BPFProgram *p, char *log_buf, size_t log_size) {
                 return 0;
         }
 
-        attr = (union bpf_attr) {
-                .prog_type = p->prog_type,
-                .insns = PTR_TO_UINT64(p->instructions),
-                .insn_cnt = p->n_instructions,
-                .license = PTR_TO_UINT64("GPL"),
-                .log_buf = PTR_TO_UINT64(log_buf),
-                .log_level = !!log_buf,
-                .log_size = log_size,
-        };
+        // FIXME: Clang doesn't 0-pad with structured initialization, causing
+        // the kernel to reject the bpf_attr as invalid. See:
+        // https://github.com/torvalds/linux/blob/v5.9/kernel/bpf/syscall.c#L65
+        // Ideally it should behave like GCC, so that we can remove these workarounds.
+        zero(attr);
+        attr.prog_type = p->prog_type;
+        attr.insns = PTR_TO_UINT64(p->instructions);
+        attr.insn_cnt = p->n_instructions;
+        attr.license = PTR_TO_UINT64("GPL");
+        attr.log_buf = PTR_TO_UINT64(log_buf);
+        attr.log_level = !!log_buf;
+        attr.log_size = log_size;
 
         p->kernel_fd = bpf(BPF_PROG_LOAD, &attr, sizeof(attr));
         if (p->kernel_fd < 0)
@@ -102,9 +180,8 @@ int bpf_program_load_from_bpf_fs(BPFProgram *p, const char *path) {
         if (p->kernel_fd >= 0) /* don't overwrite an assembled or loaded program */
                 return -EBUSY;
 
-        attr = (union bpf_attr) {
-                .pathname = PTR_TO_UINT64(path),
-        };
+        zero(attr);
+        attr.pathname = PTR_TO_UINT64(path);
 
         p->kernel_fd = bpf(BPF_OBJ_GET, &attr, sizeof(attr));
         if (p->kernel_fd < 0)
@@ -159,12 +236,11 @@ int bpf_program_cgroup_attach(BPFProgram *p, int type, const char *path, uint32_
         if (fd < 0)
                 return -errno;
 
-        attr = (union bpf_attr) {
-                .attach_type = type,
-                .target_fd = fd,
-                .attach_bpf_fd = p->kernel_fd,
-                .attach_flags = flags,
-        };
+        zero(attr);
+        attr.attach_type = type;
+        attr.target_fd = fd;
+        attr.attach_bpf_fd = p->kernel_fd;
+        attr.attach_flags = flags;
 
         if (bpf(BPF_PROG_ATTACH, &attr, sizeof(attr)) < 0)
                 return -errno;
@@ -195,11 +271,10 @@ int bpf_program_cgroup_detach(BPFProgram *p) {
         } else {
                 union bpf_attr attr;
 
-                attr = (union bpf_attr) {
-                        .attach_type = p->attached_type,
-                        .target_fd = fd,
-                        .attach_bpf_fd = p->kernel_fd,
-                };
+                zero(attr);
+                attr.attach_type = p->attached_type;
+                attr.target_fd = fd;
+                attr.attach_bpf_fd = p->kernel_fd;
 
                 if (bpf(BPF_PROG_DETACH, &attr, sizeof(attr)) < 0)
                         return -errno;
@@ -211,14 +286,15 @@ int bpf_program_cgroup_detach(BPFProgram *p) {
 }
 
 int bpf_map_new(enum bpf_map_type type, size_t key_size, size_t value_size, size_t max_entries, uint32_t flags) {
-        union bpf_attr attr = {
-                .map_type = type,
-                .key_size = key_size,
-                .value_size = value_size,
-                .max_entries = max_entries,
-                .map_flags = flags,
-        };
+        union bpf_attr attr;
         int fd;
+
+        zero(attr);
+        attr.map_type = type;
+        attr.key_size = key_size;
+        attr.value_size = value_size;
+        attr.max_entries = max_entries;
+        attr.map_flags = flags;
 
         fd = bpf(BPF_MAP_CREATE, &attr, sizeof(attr));
         if (fd < 0)
@@ -228,12 +304,12 @@ int bpf_map_new(enum bpf_map_type type, size_t key_size, size_t value_size, size
 }
 
 int bpf_map_update_element(int fd, const void *key, void *value) {
+        union bpf_attr attr;
 
-        union bpf_attr attr = {
-                .map_fd = fd,
-                .key = PTR_TO_UINT64(key),
-                .value = PTR_TO_UINT64(value),
-        };
+        zero(attr);
+        attr.map_fd = fd;
+        attr.key = PTR_TO_UINT64(key);
+        attr.value = PTR_TO_UINT64(value);
 
         if (bpf(BPF_MAP_UPDATE_ELEM, &attr, sizeof(attr)) < 0)
                 return -errno;
@@ -242,15 +318,43 @@ int bpf_map_update_element(int fd, const void *key, void *value) {
 }
 
 int bpf_map_lookup_element(int fd, const void *key, void *value) {
+        union bpf_attr attr;
 
-        union bpf_attr attr = {
-                .map_fd = fd,
-                .key = PTR_TO_UINT64(key),
-                .value = PTR_TO_UINT64(value),
-        };
+        zero(attr);
+        attr.map_fd = fd;
+        attr.key = PTR_TO_UINT64(key);
+        attr.value = PTR_TO_UINT64(value);
 
         if (bpf(BPF_MAP_LOOKUP_ELEM, &attr, sizeof(attr)) < 0)
                 return -errno;
 
         return 0;
 }
+
+int bpf_program_pin(int prog_fd, const char *bpffs_path) {
+        union bpf_attr attr;
+
+        zero(attr);
+        attr.pathname = PTR_TO_UINT64((void *) bpffs_path);
+        attr.bpf_fd = prog_fd;
+
+        if (bpf(BPF_OBJ_PIN, &attr, sizeof(attr)) < 0)
+                return -errno;
+
+        return 0;
+}
+
+int bpf_program_get_id_by_fd(int prog_fd, uint32_t *ret_id) {
+        struct bpf_prog_info info = {};
+        int r;
+
+        assert(ret_id);
+
+        r = bpf_program_get_info_by_fd(prog_fd, &info, sizeof(info));
+        if (r < 0)
+                return r;
+
+        *ret_id = info.id;
+
+        return 0;
+};

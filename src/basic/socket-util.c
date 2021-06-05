@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <arpa/inet.h>
 #include <errno.h>
@@ -23,10 +23,7 @@
 #include "format-util.h"
 #include "io-util.h"
 #include "log.h"
-#include "macro.h"
 #include "memory-util.h"
-#include "missing_socket.h"
-#include "missing_network.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "process-util.h"
@@ -34,6 +31,7 @@
 #include "string-table.h"
 #include "string-util.h"
 #include "strv.h"
+#include "sysctl-util.h"
 #include "user-util.h"
 #include "utf8.h"
 
@@ -280,10 +278,48 @@ const char* socket_address_get_path(const SocketAddress *a) {
 }
 
 bool socket_ipv6_is_supported(void) {
-        if (access("/proc/net/if_inet6", F_OK) != 0)
+        static int cached = -1;
+
+        if (cached < 0) {
+
+                if (access("/proc/net/if_inet6", F_OK) < 0) {
+
+                        if (errno != ENOENT) {
+                                log_debug_errno(errno, "Unexpected error when checking whether /proc/net/if_inet6 exists: %m");
+                                return false;
+                        }
+
+                        cached = false;
+                } else
+                        cached = true;
+        }
+
+        return cached;
+}
+
+bool socket_ipv6_is_enabled(void) {
+        _cleanup_free_ char *v = NULL;
+        int r;
+
+        /* Much like socket_ipv6_is_supported(), but also checks that the sysctl that disables IPv6 on all
+         * interfaces isn't turned on */
+
+        if (!socket_ipv6_is_supported())
                 return false;
 
-        return true;
+        r = sysctl_read_ip_property(AF_INET6, "all", "disable_ipv6", &v);
+        if (r < 0) {
+                log_debug_errno(r, "Unexpected error reading 'net.ipv6.conf.all.disable_ipv6' sysctl: %m");
+                return true;
+        }
+
+        r = parse_boolean(v);
+        if (r < 0) {
+                log_debug_errno(r, "Failed to pare 'net.ipv6.conf.all.disable_ipv6' sysctl: %m");
+                return true;
+        }
+
+        return !r;
 }
 
 bool socket_address_matches_fd(const SocketAddress *a, int fd) {
@@ -320,7 +356,7 @@ bool socket_address_matches_fd(const SocketAddress *a, int fd) {
 }
 
 int sockaddr_port(const struct sockaddr *_sa, unsigned *ret_port) {
-        union sockaddr_union *sa = (union sockaddr_union*) _sa;
+        const union sockaddr_union *sa = (const union sockaddr_union*) _sa;
 
         /* Note, this returns the port as 'unsigned' rather than 'uint16_t', as AF_VSOCK knows larger ports */
 
@@ -342,6 +378,25 @@ int sockaddr_port(const struct sockaddr *_sa, unsigned *ret_port) {
 
         default:
                 return -EAFNOSUPPORT;
+        }
+}
+
+const union in_addr_union *sockaddr_in_addr(const struct sockaddr *_sa) {
+        const union sockaddr_union *sa = (const union sockaddr_union*) _sa;
+
+        if (!sa)
+                return NULL;
+
+        switch (sa->sa.sa_family) {
+
+        case AF_INET:
+                return (const union in_addr_union*) &sa->in.sin_addr;
+
+        case AF_INET6:
+                return (const union in_addr_union*) &sa->in6.sin6_addr;
+
+        default:
+                return NULL;
         }
 }
 
@@ -705,6 +760,10 @@ bool ifname_valid_full(const char *p, IfnameValidFlags flags) {
         if (isempty(p))
                 return false;
 
+        /* A valid ifindex? If so, it's valid iff IFNAME_VALID_NUMERIC is set */
+        if (parse_ifindex(p) >= 0)
+                return flags & IFNAME_VALID_NUMERIC;
+
         if (flags & IFNAME_VALID_ALTERNATIVE) {
                 if (strlen(p) >= ALTIFNAMSIZ)
                         return false;
@@ -716,6 +775,11 @@ bool ifname_valid_full(const char *p, IfnameValidFlags flags) {
         if (dot_or_dot_dot(p))
                 return false;
 
+        /* Let's refuse "all" and "default" as interface name, to avoid collisions with the special sysctl
+         * directories /proc/sys/net/{ipv4,ipv6}/conf/{all,default} */
+        if (STR_IN_SET(p, "all", "default"))
+                return false;
+
         for (const char *t = p; *t; t++) {
                 if ((unsigned char) *t >= 127U)
                         return false;
@@ -723,20 +787,19 @@ bool ifname_valid_full(const char *p, IfnameValidFlags flags) {
                 if ((unsigned char) *t <= 32U)
                         return false;
 
-                if (IN_SET(*t, ':', '/'))
+                if (IN_SET(*t,
+                           ':',  /* colons are used by the legacy "alias" interface logic */
+                           '/',  /* slashes cannot work, since we need to use network interfaces in sysfs paths, and in paths slashes are separators */
+                           '%')) /* %d is used in the kernel's weird foo%d format string naming feature which we really really don't want to ever run into by accident */
                         return false;
 
                 numeric = numeric && (*t >= '0' && *t <= '9');
         }
 
-        if (numeric) {
-                if (!(flags & IFNAME_VALID_NUMERIC))
-                        return false;
-
-                /* Verify that the number is well-formatted and in range. */
-                if (parse_ifindex(p) < 0)
-                        return false;
-        }
+        /* It's fully numeric but didn't parse as valid ifindex above? if so, it must be too large or zero or
+         * so, let's refuse that. */
+        if (numeric)
+                return false;
 
         return true;
 }
@@ -1240,71 +1303,8 @@ int socket_set_recvpktinfo(int fd, int af, bool b) {
         case AF_NETLINK:
                 return setsockopt_int(fd, SOL_NETLINK, NETLINK_PKTINFO, b);
 
-        default:
-                return -EAFNOSUPPORT;
-        }
-}
-
-int socket_set_recverr(int fd, int af, bool b) {
-        int r;
-
-        if (af == AF_UNSPEC) {
-                r = socket_get_family(fd, &af);
-                if (r < 0)
-                        return r;
-        }
-
-        switch (af) {
-
-        case AF_INET:
-                return setsockopt_int(fd, IPPROTO_IP, IP_RECVERR, b);
-
-        case AF_INET6:
-                return setsockopt_int(fd, IPPROTO_IPV6, IPV6_RECVERR, b);
-
-        default:
-                return -EAFNOSUPPORT;
-        }
-}
-
-int socket_set_recvttl(int fd, int af, bool b) {
-        int r;
-
-        if (af == AF_UNSPEC) {
-                r = socket_get_family(fd, &af);
-                if (r < 0)
-                        return r;
-        }
-
-        switch (af) {
-
-        case AF_INET:
-                return setsockopt_int(fd, IPPROTO_IP, IP_RECVTTL, b);
-
-        case AF_INET6:
-                return setsockopt_int(fd, IPPROTO_IPV6, IPV6_RECVHOPLIMIT, b);
-
-        default:
-                return -EAFNOSUPPORT;
-        }
-}
-
-int socket_set_ttl(int fd, int af, int ttl) {
-        int r;
-
-        if (af == AF_UNSPEC) {
-                r = socket_get_family(fd, &af);
-                if (r < 0)
-                        return r;
-        }
-
-        switch (af) {
-
-        case AF_INET:
-                return setsockopt_int(fd, IPPROTO_IP, IP_TTL, ttl);
-
-        case AF_INET6:
-                return setsockopt_int(fd, IPPROTO_IPV6, IPV6_UNICAST_HOPS, ttl);
+        case AF_PACKET:
+                return setsockopt_int(fd, SOL_PACKET, PACKET_AUXDATA, b);
 
         default:
                 return -EAFNOSUPPORT;
@@ -1340,7 +1340,7 @@ int socket_set_unicast_if(int fd, int af, int ifi) {
         }
 }
 
-int socket_set_freebind(int fd, int af, bool b) {
+int socket_set_option(int fd, int af, int opt_ipv4, int opt_ipv6, int val) {
         int r;
 
         if (af == AF_UNSPEC) {
@@ -1352,18 +1352,18 @@ int socket_set_freebind(int fd, int af, bool b) {
         switch (af) {
 
         case AF_INET:
-                return setsockopt_int(fd, IPPROTO_IP, IP_FREEBIND, b);
+                return setsockopt_int(fd, IPPROTO_IP, opt_ipv4, val);
 
         case AF_INET6:
-                return setsockopt_int(fd, IPPROTO_IPV6, IPV6_FREEBIND, b);
+                return setsockopt_int(fd, IPPROTO_IPV6, opt_ipv6, val);
 
         default:
                 return -EAFNOSUPPORT;
         }
 }
 
-int socket_set_transparent(int fd, int af, bool b) {
-        int r;
+int socket_get_mtu(int fd, int af, size_t *ret) {
+        int mtu, r;
 
         if (af == AF_UNSPEC) {
                 r = socket_get_family(fd, &af);
@@ -1374,12 +1374,22 @@ int socket_set_transparent(int fd, int af, bool b) {
         switch (af) {
 
         case AF_INET:
-                return setsockopt_int(fd, IPPROTO_IP, IP_TRANSPARENT, b);
+                r = getsockopt_int(fd, IPPROTO_IP, IP_MTU, &mtu);
+                break;
 
         case AF_INET6:
-                return setsockopt_int(fd, IPPROTO_IPV6, IPV6_TRANSPARENT, b);
+                r = getsockopt_int(fd, IPPROTO_IPV6, IPV6_MTU, &mtu);
+                break;
 
         default:
                 return -EAFNOSUPPORT;
         }
+
+        if (r < 0)
+                return r;
+        if (mtu <= 0)
+                return -EINVAL;
+
+        *ret = (size_t) mtu;
+        return 0;
 }

@@ -1,7 +1,7 @@
 <?xml version='1.0'?>
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
-<!-- SPDX-License-Identifier: LGPL-2.1+ -->
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
 
 <refentry id="sd_bus_path_encode" xmlns:xi="http://www.w3.org/2001/XInclude">
 
@@ -118,7 +118,7 @@
     will be stored there. Each <literal>%</literal> character will
     only match the current label. It will never match across labels.
     Furthermore, only a single directive is allowed per label.
-    If <literal>NULL</literal> is passed as output storage, the
+    If <constant>NULL</constant> is passed as output storage, the
     label is verified but not returned to the caller.</para>
   </refsect1>
 
@@ -130,7 +130,7 @@
     argument. On success, <function>sd_bus_path_decode()</function>
     returns a positive value if the prefixed matched, or 0 if it
     did not. If the prefix matched, the external identifier is returned
-    in the return parameter. If it did not match, NULL is returned in
+    in the return parameter. If it did not match, <constant>NULL</constant> is returned in
     the return parameter. On failure, a negative errno-style error
     number is returned by either function. The returned strings must
     be

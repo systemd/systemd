@@ -1,7 +1,7 @@
 <?xml version='1.0'?> <!--*-nxml-*-->
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
-<!-- SPDX-License-Identifier: LGPL-2.1+ -->
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
 
 <refentry id="systemd-notify"
     xmlns:xi="http://www.w3.org/2001/XInclude">
@@ -136,11 +136,10 @@
       <varlistentry>
         <term><option>--no-block</option></term>
 
-        <listitem><para>Do not synchronously wait for the requested operation to finish.
-        Use of this option is only recommended when <command>systemd-notify</command>
-        is spawned by the service manager, or when the invoking process is directly spawned
-        by the service manager and has enough privileges to allow <command>systemd-notify
-        </command> to send the notification on its behalf. Sending notifications with
+        <listitem><para>Do not synchronously wait for the requested operation to finish.  Use of this option
+        is only recommended when <command>systemd-notify</command> is spawned by the service manager, or when
+        the invoking process is directly spawned by the service manager and has enough privileges to allow
+        <command>systemd-notify</command> to send the notification on its behalf. Sending notifications with
         this option set is prone to race conditions in all other cases.</para></listitem>
       </varlistentry>
 

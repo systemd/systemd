@@ -1,4 +1,4 @@
-#  SPDX-License-Identifier: LGPL-2.1+
+#  SPDX-License-Identifier: LGPL-2.1-or-later
 #
 #  This file is part of systemd.
 #
@@ -18,7 +18,7 @@ IgnoreOnIsolate=yes
 User=%i
 PAMName=systemd-user
 Type=notify
-ExecStart=@rootlibexecdir@/systemd --user
+ExecStart={{ROOTLIBEXECDIR}}/systemd --user
 Slice=user-%i.slice
 KillMode=mixed
 Delegate=pids memory

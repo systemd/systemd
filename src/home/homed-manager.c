@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <grp.h>
 #include <linux/fs.h>
@@ -79,7 +79,7 @@ static void manager_watch_home(Manager *m) {
 
         assert(m);
 
-        m->inotify_event_source = sd_event_source_unref(m->inotify_event_source);
+        m->inotify_event_source = sd_event_source_disable_unref(m->inotify_event_source);
         m->scan_slash_home = false;
 
         if (statfs("/home/", &sfs) < 0) {
@@ -100,7 +100,9 @@ static void manager_watch_home(Manager *m) {
 
         m->scan_slash_home = true;
 
-        r = sd_event_add_inotify(m->event, &m->inotify_event_source, "/home/", IN_CREATE|IN_CLOSE_WRITE|IN_DELETE_SELF|IN_MOVE_SELF|IN_ONLYDIR|IN_MOVED_TO|IN_MOVED_FROM|IN_DELETE, on_home_inotify, m);
+        r = sd_event_add_inotify(m->event, &m->inotify_event_source, "/home/",
+                                 IN_CREATE|IN_CLOSE_WRITE|IN_DELETE_SELF|IN_MOVE_SELF|IN_ONLYDIR|IN_MOVED_TO|IN_MOVED_FROM|IN_DELETE,
+                                 on_home_inotify, m);
         if (r < 0)
                 log_full_errno(r == -ENOENT ? LOG_DEBUG : LOG_WARNING, r,
                                "Failed to create inotify watch on /home/, ignoring.");
@@ -159,7 +161,7 @@ static int on_home_inotify(sd_event_source *s, const struct inotify_event *event
                 (void) bus_manager_emit_auto_login_changed(m);
         }
 
-        if ((event->mask & (IN_DELETE|IN_MOVED_FROM|IN_DELETE)) != 0) {
+        if ((event->mask & (IN_DELETE | IN_CLOSE_WRITE | IN_MOVED_FROM)) != 0) {
                 Home *h;
 
                 if (FLAGS_SET(event->mask, IN_DELETE))
@@ -239,24 +241,23 @@ Manager* manager_free(Manager *m) {
         HASHMAP_FOREACH(h, m->homes_by_worker_pid)
                 (void) home_wait_for_worker(h);
 
+        sd_bus_flush_close_unref(m->bus);
+        bus_verify_polkit_async_registry_free(m->polkit_registry);
+
+        m->device_monitor = sd_device_monitor_unref(m->device_monitor);
+
+        m->inotify_event_source = sd_event_source_unref(m->inotify_event_source);
+        m->notify_socket_event_source = sd_event_source_unref(m->notify_socket_event_source);
+        m->deferred_rescan_event_source = sd_event_source_unref(m->deferred_rescan_event_source);
+        m->deferred_gc_event_source = sd_event_source_unref(m->deferred_gc_event_source);
+        m->deferred_auto_login_event_source = sd_event_source_unref(m->deferred_auto_login_event_source);
+
+        sd_event_unref(m->event);
+
         hashmap_free(m->homes_by_uid);
         hashmap_free(m->homes_by_name);
         hashmap_free(m->homes_by_worker_pid);
         hashmap_free(m->homes_by_sysfs);
-
-        m->inotify_event_source = sd_event_source_unref(m->inotify_event_source);
-
-        bus_verify_polkit_async_registry_free(m->polkit_registry);
-
-        sd_bus_flush_close_unref(m->bus);
-        sd_event_unref(m->event);
-
-        m->notify_socket_event_source = sd_event_source_unref(m->notify_socket_event_source);
-        m->device_monitor = sd_device_monitor_unref(m->device_monitor);
-
-        m->deferred_rescan_event_source = sd_event_source_unref(m->deferred_rescan_event_source);
-        m->deferred_gc_event_source = sd_event_source_unref(m->deferred_gc_event_source);
-        m->deferred_auto_login_event_source = sd_event_source_unref(m->deferred_auto_login_event_source);
 
         if (m->private_key)
                 EVP_PKEY_free(m->private_key);
@@ -363,12 +364,14 @@ static int manager_add_home_by_record(
         if (!hr)
                 return log_oom();
 
-        r = user_record_load(hr, v, USER_RECORD_LOAD_REFUSE_SECRET|USER_RECORD_LOG);
+        r = user_record_load(hr, v, USER_RECORD_LOAD_REFUSE_SECRET|USER_RECORD_LOG|USER_RECORD_PERMISSIVE);
         if (r < 0)
                 return r;
 
         if (!streq_ptr(hr->user_name, name))
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Identity's user name %s does not match file name %s, refusing.", hr->user_name, name);
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Identity's user name %s does not match file name %s, refusing.",
+                                       hr->user_name, name);
 
         is_signed = manager_verify_user_record(m, hr);
         switch (is_signed) {
@@ -599,19 +602,22 @@ static int manager_acquire_uid(
 
                 other = hashmap_get(m->homes_by_uid, UID_TO_PTR(candidate));
                 if (other) {
-                        log_debug("Candidate UID " UID_FMT " already used by another home directory (%s), let's try another.", candidate, other->user_name);
+                        log_debug("Candidate UID " UID_FMT " already used by another home directory (%s), let's try another.",
+                                  candidate, other->user_name);
                         continue;
                 }
 
                 pw = getpwuid(candidate);
                 if (pw) {
-                        log_debug("Candidate UID " UID_FMT " already registered by another user in NSS (%s), let's try another.", candidate, pw->pw_name);
+                        log_debug("Candidate UID " UID_FMT " already registered by another user in NSS (%s), let's try another.",
+                                  candidate, pw->pw_name);
                         continue;
                 }
 
                 gr = getgrgid((gid_t) candidate);
                 if (gr) {
-                        log_debug("Candidate UID " UID_FMT " already registered by another group in NSS (%s), let's try another.", candidate, gr->gr_name);
+                        log_debug("Candidate UID " UID_FMT " already registered by another group in NSS (%s), let's try another.",
+                                  candidate, gr->gr_name);
                         continue;
                 }
 
@@ -619,7 +625,8 @@ static int manager_acquire_uid(
                 if (r < 0)
                         continue;
                 if (r > 0) {
-                        log_debug_errno(r, "Candidate UID " UID_FMT " already owns IPC objects, let's try another: %m", candidate);
+                        log_debug_errno(r, "Candidate UID " UID_FMT " already owns IPC objects, let's try another: %m",
+                                        candidate);
                         continue;
                 }
 
@@ -692,7 +699,9 @@ static int manager_add_home_by_image(
         if (h && uid_is_valid(h->uid))
                 uid = h->uid;
         else {
-                r = manager_acquire_uid(m, start_uid, user_name, IN_SET(storage, USER_SUBVOLUME, USER_DIRECTORY, USER_FSCRYPT) ? image_path : NULL, &uid);
+                r = manager_acquire_uid(m, start_uid, user_name,
+                                        IN_SET(storage, USER_SUBVOLUME, USER_DIRECTORY, USER_FSCRYPT) ? image_path : NULL,
+                                        &uid);
                 if (r < 0)
                         return log_warning_errno(r, "Failed to acquire unused UID for %s: %m", user_name);
         }
@@ -956,7 +965,7 @@ static int manager_bind_varlink(Manager *m) {
         assert(m);
         assert(!m->varlink_server);
 
-        r = varlink_server_new(&m->varlink_server, VARLINK_SERVER_ACCOUNT_UID);
+        r = varlink_server_new(&m->varlink_server, VARLINK_SERVER_ACCOUNT_UID|VARLINK_SERVER_INHERIT_USERDATA);
         if (r < 0)
                 return log_error_errno(r, "Failed to allocate varlink server object: %m");
 
@@ -1234,7 +1243,7 @@ static int manager_on_device(sd_device_monitor *monitor, sd_device *d, void *use
         assert(m);
         assert(d);
 
-        if (device_for_action(d, DEVICE_ACTION_REMOVE)) {
+        if (device_for_action(d, SD_DEVICE_REMOVE)) {
                 const char *sysfs;
                 Home *h;
 
@@ -1318,7 +1327,7 @@ static int manager_load_key_pair(Manager *m) {
                 m->private_key = NULL;
         }
 
-        r = search_and_fopen_nulstr("local.private", "re", NULL, KEY_PATHS_NULSTR, &f);
+        r = search_and_fopen_nulstr("local.private", "re", NULL, KEY_PATHS_NULSTR, &f, NULL);
         if (r == -ENOENT)
                 return 0;
         if (r < 0)
@@ -1343,7 +1352,7 @@ static int manager_load_key_pair(Manager *m) {
         return 1;
 }
 
-DEFINE_TRIVIAL_CLEANUP_FUNC(EVP_PKEY_CTX*, EVP_PKEY_CTX_free);
+DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(EVP_PKEY_CTX*, EVP_PKEY_CTX_free, NULL);
 
 static int manager_generate_key_pair(Manager *m) {
         _cleanup_(EVP_PKEY_CTX_freep) EVP_PKEY_CTX *ctx = NULL;
@@ -1448,13 +1457,13 @@ int manager_sign_user_record(Manager *m, UserRecord *u, UserRecord **ret, sd_bus
         if (r < 0)
                 return r;
         if (r == 0)
-                return sd_bus_error_setf(error, BUS_ERROR_NO_PRIVATE_KEY, "Can't sign without local key.");
+                return sd_bus_error_set(error, BUS_ERROR_NO_PRIVATE_KEY, "Can't sign without local key.");
 
         return user_record_sign(u, m->private_key, ret);
 }
 
 DEFINE_PRIVATE_HASH_OPS_FULL(public_key_hash_ops, char, string_hash_func, string_compare_func, free, EVP_PKEY, EVP_PKEY_free);
-DEFINE_TRIVIAL_CLEANUP_FUNC(EVP_PKEY*, EVP_PKEY_free);
+DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(EVP_PKEY*, EVP_PKEY_free, NULL);
 
 static int manager_load_public_key_one(Manager *m, const char *path) {
         _cleanup_(EVP_PKEY_freep) EVP_PKEY *pkey = NULL;
@@ -1660,7 +1669,7 @@ static int on_deferred_rescan(sd_event_source *s, void *userdata) {
 
         assert(m);
 
-        m->deferred_rescan_event_source = sd_event_source_unref(m->deferred_rescan_event_source);
+        m->deferred_rescan_event_source = sd_event_source_disable_unref(m->deferred_rescan_event_source);
 
         manager_enumerate_devices(m);
         manager_enumerate_images(m);
@@ -1698,7 +1707,7 @@ static int on_deferred_gc(sd_event_source *s, void *userdata) {
 
         assert(m);
 
-        m->deferred_gc_event_source = sd_event_source_unref(m->deferred_gc_event_source);
+        m->deferred_gc_event_source = sd_event_source_disable_unref(m->deferred_gc_event_source);
 
         manager_gc_images(m);
         return 0;

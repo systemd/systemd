@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <errno.h>
 #include <pthread.h>
@@ -230,7 +230,7 @@ struct Set {
 
 typedef struct CacheMem {
         const void **ptr;
-        size_t n_populated, n_allocated;
+        size_t n_populated;
         bool active:1;
 } CacheMem;
 
@@ -843,6 +843,16 @@ int _ordered_hashmap_ensure_allocated(OrderedHashmap **h, const struct hash_ops 
 
 int _set_ensure_allocated(Set **s, const struct hash_ops *hash_ops  HASHMAP_DEBUG_PARAMS) {
         return hashmap_base_ensure_allocated((HashmapBase**)s, hash_ops, HASHMAP_TYPE_SET  HASHMAP_DEBUG_PASS_ARGS);
+}
+
+int _hashmap_ensure_put(Hashmap **h, const struct hash_ops *hash_ops, const void *key, void *value  HASHMAP_DEBUG_PARAMS) {
+        int r;
+
+        r = _hashmap_ensure_allocated(h, hash_ops  HASHMAP_DEBUG_PASS_ARGS);
+        if (r < 0)
+                return r;
+
+        return hashmap_put(*h, key, value);
 }
 
 int _ordered_hashmap_ensure_put(OrderedHashmap **h, const struct hash_ops *hash_ops, const void *key, void *value  HASHMAP_DEBUG_PARAMS) {
@@ -1794,10 +1804,10 @@ int set_consume(Set *s, void *value) {
         return r;
 }
 
-int _hashmap_put_strdup(Hashmap **h, const char *k, const char *v  HASHMAP_DEBUG_PARAMS) {
+int _hashmap_put_strdup_full(Hashmap **h, const struct hash_ops *hash_ops, const char *k, const char *v  HASHMAP_DEBUG_PARAMS) {
         int r;
 
-        r = _hashmap_ensure_allocated(h, &string_hash_ops_free_free  HASHMAP_DEBUG_PASS_ARGS);
+        r = _hashmap_ensure_allocated(h, hash_ops  HASHMAP_DEBUG_PASS_ARGS);
         if (r < 0)
                 return r;
 
@@ -1828,14 +1838,14 @@ int _hashmap_put_strdup(Hashmap **h, const char *k, const char *v  HASHMAP_DEBUG
         return r;
 }
 
-int _set_put_strdup(Set **s, const char *p  HASHMAP_DEBUG_PARAMS) {
+int _set_put_strdup_full(Set **s, const struct hash_ops *hash_ops, const char *p  HASHMAP_DEBUG_PARAMS) {
         char *c;
         int r;
 
         assert(s);
         assert(p);
 
-        r = _set_ensure_allocated(s, &string_hash_ops_free  HASHMAP_DEBUG_PASS_ARGS);
+        r = _set_ensure_allocated(s, hash_ops  HASHMAP_DEBUG_PASS_ARGS);
         if (r < 0)
                 return r;
 
@@ -1849,14 +1859,14 @@ int _set_put_strdup(Set **s, const char *p  HASHMAP_DEBUG_PARAMS) {
         return set_consume(*s, c);
 }
 
-int _set_put_strdupv(Set **s, char **l  HASHMAP_DEBUG_PARAMS) {
+int _set_put_strdupv_full(Set **s, const struct hash_ops *hash_ops, char **l  HASHMAP_DEBUG_PARAMS) {
         int n = 0, r;
         char **i;
 
         assert(s);
 
         STRV_FOREACH(i, l) {
-                r = _set_put_strdup(s, *i  HASHMAP_DEBUG_PASS_ARGS);
+                r = _set_put_strdup_full(s, hash_ops, *i  HASHMAP_DEBUG_PASS_ARGS);
                 if (r < 0)
                         return r;
 
@@ -1887,10 +1897,10 @@ int set_put_strsplit(Set *s, const char *v, const char *separators, ExtractFlags
 }
 
 /* expand the cachemem if needed, return true if newly (re)activated. */
-static int cachemem_maintain(CacheMem *mem, unsigned size) {
+static int cachemem_maintain(CacheMem *mem, size_t size) {
         assert(mem);
 
-        if (!GREEDY_REALLOC(mem->ptr, mem->n_allocated, size)) {
+        if (!GREEDY_REALLOC(mem->ptr, size)) {
                 if (size > 0)
                         return -ENOMEM;
         }
@@ -1905,7 +1915,7 @@ static int cachemem_maintain(CacheMem *mem, unsigned size) {
 
 int iterated_cache_get(IteratedCache *cache, const void ***res_keys, const void ***res_values, unsigned *res_n_entries) {
         bool sync_keys = false, sync_values = false;
-        unsigned size;
+        size_t size;
         int r;
 
         assert(cache);
@@ -1975,4 +1985,86 @@ IteratedCache* iterated_cache_free(IteratedCache *cache) {
         }
 
         return mfree(cache);
+}
+
+int set_strjoin(Set *s, const char *separator, bool wrap_with_separator, char **ret) {
+        _cleanup_free_ char *str = NULL;
+        size_t separator_len, len = 0;
+        const char *value;
+        bool first;
+
+        assert(ret);
+
+        if (set_isempty(s)) {
+                *ret = NULL;
+                return 0;
+        }
+
+        separator_len = strlen_ptr(separator);
+
+        if (separator_len == 0)
+                wrap_with_separator = false;
+
+        first = !wrap_with_separator;
+
+        SET_FOREACH(value, s) {
+                size_t l = strlen_ptr(value);
+
+                if (l == 0)
+                        continue;
+
+                if (!GREEDY_REALLOC(str, len + l + (first ? 0 : separator_len) + (wrap_with_separator ? separator_len : 0) + 1))
+                        return -ENOMEM;
+
+                if (separator_len > 0 && !first) {
+                        memcpy(str + len, separator, separator_len);
+                        len += separator_len;
+                }
+
+                memcpy(str + len, value, l);
+                len += l;
+                first = false;
+        }
+
+        if (wrap_with_separator) {
+                memcpy(str + len, separator, separator_len);
+                len += separator_len;
+        }
+
+        str[len] = '\0';
+
+        *ret = TAKE_PTR(str);
+        return 0;
+}
+
+bool set_equal(Set *a, Set *b) {
+        void *p;
+
+        /* Checks whether each entry of 'a' is also in 'b' and vice versa, i.e. the two sets contain the same
+         * entries */
+
+        if (a == b)
+                return true;
+
+        if (set_isempty(a) && set_isempty(b))
+                return true;
+
+        if (set_size(a) != set_size(b)) /* Cheap check that hopefully catches a lot of inequality cases
+                                         * already */
+                return false;
+
+        SET_FOREACH(p, a)
+                if (!set_contains(b, p))
+                        return false;
+
+        /* If we have the same hashops, then we don't need to check things backwards given we compared the
+         * size and that all of a is in b. */
+        if (a->b.hash_ops == b->b.hash_ops)
+                return true;
+
+        SET_FOREACH(p, b)
+                if (!set_contains(a, p))
+                        return false;
+
+        return true;
 }

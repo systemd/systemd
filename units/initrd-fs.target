@@ -1,4 +1,4 @@
-#  SPDX-License-Identifier: LGPL-2.1+
+#  SPDX-License-Identifier: LGPL-2.1-or-later
 #
 #  This file is part of systemd.
 #
@@ -10,9 +10,9 @@
 [Unit]
 Description=Initrd File Systems
 Documentation=man:systemd.special(7)
+AssertPathExists=/etc/initrd-release
 OnFailure=emergency.target
 OnFailureJobMode=replace-irreversibly
-AssertPathExists=/etc/initrd-release
 After=initrd-parse-etc.service
 DefaultDependencies=no
 Conflicts=shutdown.target

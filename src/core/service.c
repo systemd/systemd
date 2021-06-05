@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <errno.h>
 #include <sys/stat.h>
@@ -548,51 +548,35 @@ static int service_verify(Service *s) {
         assert(s);
         assert(UNIT(s)->load_state == UNIT_LOADED);
 
-        if (!s->exec_command[SERVICE_EXEC_START] && !s->exec_command[SERVICE_EXEC_STOP]
-            && UNIT(s)->success_action == EMERGENCY_ACTION_NONE) {
+        if (!s->exec_command[SERVICE_EXEC_START] && !s->exec_command[SERVICE_EXEC_STOP] &&
+            UNIT(s)->success_action == EMERGENCY_ACTION_NONE)
                 /* FailureAction= only makes sense if one of the start or stop commands is specified.
                  * SuccessAction= will be executed unconditionally if no commands are specified. Hence,
                  * either a command or SuccessAction= are required. */
 
-                log_unit_error(UNIT(s), "Service has no ExecStart=, ExecStop=, or SuccessAction=. Refusing.");
-                return -ENOEXEC;
-        }
+                return log_unit_error_errno(UNIT(s), SYNTHETIC_ERRNO(ENOEXEC), "Service has no ExecStart=, ExecStop=, or SuccessAction=. Refusing.");
 
-        if (s->type != SERVICE_ONESHOT && !s->exec_command[SERVICE_EXEC_START]) {
-                log_unit_error(UNIT(s), "Service has no ExecStart= setting, which is only allowed for Type=oneshot services. Refusing.");
-                return -ENOEXEC;
-        }
+        if (s->type != SERVICE_ONESHOT && !s->exec_command[SERVICE_EXEC_START])
+                return log_unit_error_errno(UNIT(s), SYNTHETIC_ERRNO(ENOEXEC), "Service has no ExecStart= setting, which is only allowed for Type=oneshot services. Refusing.");
 
-        if (!s->remain_after_exit && !s->exec_command[SERVICE_EXEC_START] && UNIT(s)->success_action == EMERGENCY_ACTION_NONE) {
-                log_unit_error(UNIT(s), "Service has no ExecStart= and no SuccessAction= settings and does not have RemainAfterExit=yes set. Refusing.");
-                return -ENOEXEC;
-        }
+        if (!s->remain_after_exit && !s->exec_command[SERVICE_EXEC_START] && UNIT(s)->success_action == EMERGENCY_ACTION_NONE)
+                return log_unit_error_errno(UNIT(s), SYNTHETIC_ERRNO(ENOEXEC), "Service has no ExecStart= and no SuccessAction= settings and does not have RemainAfterExit=yes set. Refusing.");
 
-        if (s->type != SERVICE_ONESHOT && s->exec_command[SERVICE_EXEC_START]->command_next) {
-                log_unit_error(UNIT(s), "Service has more than one ExecStart= setting, which is only allowed for Type=oneshot services. Refusing.");
-                return -ENOEXEC;
-        }
+        if (s->type != SERVICE_ONESHOT && s->exec_command[SERVICE_EXEC_START]->command_next)
+                return log_unit_error_errno(UNIT(s), SYNTHETIC_ERRNO(ENOEXEC), "Service has more than one ExecStart= setting, which is only allowed for Type=oneshot services. Refusing.");
 
-        if (s->type == SERVICE_ONESHOT
-            && !IN_SET(s->restart, SERVICE_RESTART_NO, SERVICE_RESTART_ON_FAILURE, SERVICE_RESTART_ON_ABNORMAL, SERVICE_RESTART_ON_WATCHDOG, SERVICE_RESTART_ON_ABORT)) {
-                log_unit_error(UNIT(s), "Service has Restart= set to either always or on-success, which isn't allowed for Type=oneshot services. Refusing.");
-                return -ENOEXEC;
-        }
+        if (s->type == SERVICE_ONESHOT &&
+            !IN_SET(s->restart, SERVICE_RESTART_NO, SERVICE_RESTART_ON_FAILURE, SERVICE_RESTART_ON_ABNORMAL, SERVICE_RESTART_ON_WATCHDOG, SERVICE_RESTART_ON_ABORT))
+                return log_unit_error_errno(UNIT(s), SYNTHETIC_ERRNO(ENOEXEC), "Service has Restart= set to either always or on-success, which isn't allowed for Type=oneshot services. Refusing.");
 
-        if (s->type == SERVICE_ONESHOT && !exit_status_set_is_empty(&s->restart_force_status)) {
-                log_unit_error(UNIT(s), "Service has RestartForceStatus= set, which isn't allowed for Type=oneshot services. Refusing.");
-                return -ENOEXEC;
-        }
+        if (s->type == SERVICE_ONESHOT && !exit_status_set_is_empty(&s->restart_force_status))
+                return log_unit_error_errno(UNIT(s), SYNTHETIC_ERRNO(ENOEXEC), "Service has RestartForceStatus= set, which isn't allowed for Type=oneshot services. Refusing.");
 
-        if (s->type == SERVICE_DBUS && !s->bus_name) {
-                log_unit_error(UNIT(s), "Service is of type D-Bus but no D-Bus service name has been specified. Refusing.");
-                return -ENOEXEC;
-        }
+        if (s->type == SERVICE_DBUS && !s->bus_name)
+                return log_unit_error_errno(UNIT(s), SYNTHETIC_ERRNO(ENOEXEC), "Service is of type D-Bus but no D-Bus service name has been specified. Refusing.");
 
-        if (s->exec_context.pam_name && !IN_SET(s->kill_context.kill_mode, KILL_CONTROL_GROUP, KILL_MIXED)) {
-                log_unit_error(UNIT(s), "Service has PAM enabled. Kill mode must be set to 'control-group' or 'mixed'. Refusing.");
-                return -ENOEXEC;
-        }
+        if (s->exec_context.pam_name && !IN_SET(s->kill_context.kill_mode, KILL_CONTROL_GROUP, KILL_MIXED))
+                return log_unit_error_errno(UNIT(s), SYNTHETIC_ERRNO(ENOEXEC), "Service has PAM enabled. Kill mode must be set to 'control-group' or 'mixed'. Refusing.");
 
         if (s->usb_function_descriptors && !s->usb_function_strings)
                 log_unit_warning(UNIT(s), "Service has USBFunctionDescriptors= setting, but no USBFunctionStrings=. Ignoring.");
@@ -914,20 +898,14 @@ static int service_is_suitable_main_pid(Service *s, pid_t pid, int prio) {
          * PID is questionnable but should be accepted if the source of configuration is trusted. > 0 if the PID is
          * good */
 
-        if (pid == getpid_cached() || pid == 1) {
-                log_unit_full(UNIT(s), prio, "New main PID "PID_FMT" is the manager, refusing.", pid);
-                return -EPERM;
-        }
+        if (pid == getpid_cached() || pid == 1)
+                return log_unit_full_errno(UNIT(s), prio, SYNTHETIC_ERRNO(EPERM), "New main PID "PID_FMT" is the manager, refusing.", pid);
 
-        if (pid == s->control_pid) {
-                log_unit_full(UNIT(s), prio, "New main PID "PID_FMT" is the control process, refusing.", pid);
-                return -EPERM;
-        }
+        if (pid == s->control_pid)
+                return log_unit_full_errno(UNIT(s), prio, SYNTHETIC_ERRNO(EPERM), "New main PID "PID_FMT" is the control process, refusing.", pid);
 
-        if (!pid_is_alive(pid)) {
-                log_unit_full(UNIT(s), prio, "New main PID "PID_FMT" does not exist or is a zombie.", pid);
-                return -ESRCH;
-        }
+        if (!pid_is_alive(pid))
+                return log_unit_full_errno(UNIT(s), prio, SYNTHETIC_ERRNO(ESRCH), "New main PID "PID_FMT" does not exist or is a zombie.", pid);
 
         owner = manager_get_unit_by_pid(UNIT(s)->manager, pid);
         if (owner == UNIT(s)) {
@@ -988,20 +966,18 @@ static int service_load_pid_file(Service *s, bool may_warn) {
         if (r == 0) {
                 struct stat st;
 
-                if (questionable_pid_file) {
-                        log_unit_error(UNIT(s), "Refusing to accept PID outside of service control group, acquired through unsafe symlink chain: %s", s->pid_file);
-                        return -EPERM;
-                }
+                if (questionable_pid_file)
+                        return log_unit_error_errno(UNIT(s), SYNTHETIC_ERRNO(EPERM),
+                                                    "Refusing to accept PID outside of service control group, acquired through unsafe symlink chain: %s", s->pid_file);
 
                 /* Hmm, it's not clear if the new main PID is safe. Let's allow this if the PID file is owned by root */
 
                 if (fstat(fd, &st) < 0)
                         return log_unit_error_errno(UNIT(s), errno, "Failed to fstat() PID file O_PATH fd: %m");
 
-                if (st.st_uid != 0) {
-                        log_unit_error(UNIT(s), "New main PID "PID_FMT" does not belong to service, and PID file is not owned by root. Refusing.", pid);
-                        return -EPERM;
-                }
+                if (st.st_uid != 0)
+                        return log_unit_error_errno(UNIT(s), SYNTHETIC_ERRNO(EPERM),
+                                                    "New main PID "PID_FMT" does not belong to service, and PID file is not owned by root. Refusing.", pid);
 
                 log_unit_debug(UNIT(s), "New main PID "PID_FMT" does not belong to service, but we'll accept it since PID file is owned by root.", pid);
         }
@@ -1129,8 +1105,7 @@ static void service_set_state(Service *s, ServiceState state) {
 
         unit_notify(UNIT(s), table[old_state], table[state],
                     (s->reload_result == SERVICE_SUCCESS ? 0 : UNIT_NOTIFY_RELOAD_FAILURE) |
-                    (s->will_auto_restart ? UNIT_NOTIFY_WILL_AUTO_RESTART : 0) |
-                    (s->result == SERVICE_SKIP_CONDITION ? UNIT_NOTIFY_SKIP_CONDITION : 0));
+                    (s->will_auto_restart ? UNIT_NOTIFY_WILL_AUTO_RESTART : 0));
 }
 
 static usec_t service_coldplug_timeout(Service *s) {
@@ -1270,12 +1245,11 @@ static int service_collect_fds(
 
                 rn_socket_fds = 1;
         } else {
-                void *v;
                 Unit *u;
 
                 /* Pass all our configured sockets for singleton services */
 
-                HASHMAP_FOREACH_KEY(v, u, UNIT(s)->dependencies[UNIT_TRIGGERED_BY]) {
+                UNIT_FOREACH_DEPENDENCY(u, UNIT(s), UNIT_ATOM_TRIGGERED_BY) {
                         _cleanup_free_ int *cfds = NULL;
                         Socket *sock;
                         int cn_fds;
@@ -1389,9 +1363,9 @@ static int service_allocate_exec_fd_event_source(
 static int service_allocate_exec_fd(
                 Service *s,
                 sd_event_source **ret_event_source,
-                int* ret_exec_fd) {
+                int *ret_exec_fd) {
 
-        _cleanup_close_pair_ int p[2] = { -1, -1 };
+        _cleanup_close_pair_ int p[] = { -1, -1 };
         int r;
 
         assert(s);
@@ -1405,7 +1379,7 @@ static int service_allocate_exec_fd(
         if (r < 0)
                 return r;
 
-        p[0] = -1;
+        TAKE_FD(p[0]);
         *ret_exec_fd = TAKE_FD(p[1]);
 
         return 0;
@@ -1435,7 +1409,7 @@ static int service_spawn(
                 ExecCommand *c,
                 usec_t timeout,
                 ExecFlags flags,
-                pid_t *_pid) {
+                pid_t *ret_pid) {
 
         _cleanup_(exec_params_clear) ExecParameters exec_params = {
                 .flags     = flags,
@@ -1452,7 +1426,7 @@ static int service_spawn(
 
         assert(s);
         assert(c);
-        assert(_pid);
+        assert(ret_pid);
 
         r = unit_prepare_exec(UNIT(s)); /* This realizes the cgroup, among other things */
         if (r < 0)
@@ -1498,9 +1472,12 @@ static int service_spawn(
         if (!our_env)
                 return -ENOMEM;
 
-        if (service_exec_needs_notify_socket(s, flags))
+        if (service_exec_needs_notify_socket(s, flags)) {
                 if (asprintf(our_env + n_env++, "NOTIFY_SOCKET=%s", UNIT(s)->manager->notify_socket) < 0)
                         return -ENOMEM;
+
+                exec_params.notify_socket = UNIT(s)->manager->notify_socket;
+        }
 
         if (s->main_pid > 0)
                 if (asprintf(our_env + n_env++, "MAINPID="PID_FMT, s->main_pid) < 0)
@@ -1604,7 +1581,7 @@ static int service_spawn(
         if (r < 0)
                 return r;
 
-        *_pid = pid;
+        *ret_pid = pid;
 
         return 0;
 }
@@ -1643,18 +1620,25 @@ static int control_pid_good(Service *s) {
         return s->control_pid > 0;
 }
 
-static int cgroup_good(Service *s) {
-        int r;
-
+static int cgroup_empty(Service *s) {
         assert(s);
 
-        /* Returns 0 if the cgroup is empty or doesn't exist, > 0 if it is exists and is populated, < 0 if we can't
-         * figure it out */
+        /* Returns 0 if there is no cgroup, > 0 if is empty or doesn't exist, < 0 if we can't figure it out */
 
         if (!UNIT(s)->cgroup_path)
                 return 0;
 
-        r = cg_is_empty_recursive(SYSTEMD_CGROUP_CONTROLLER, UNIT(s)->cgroup_path);
+        return cg_is_empty_recursive(SYSTEMD_CGROUP_CONTROLLER, UNIT(s)->cgroup_path);
+}
+
+
+static int cgroup_good(Service *s) {
+        int r;
+
+        /* Returns 0 if the cgroup is empty or doesn't exist, > 0 if it is exists and is populated, < 0 if we can't
+         * figure it out */
+
+        r = cgroup_empty(s);
         if (r < 0)
                 return r;
 
@@ -2127,8 +2111,7 @@ static void service_enter_start(Service *s) {
                         /* There's no command line configured for the main command? Hmm, that is strange.
                          * This can only happen if the configuration changes at runtime. In this case,
                          * let's enter a failure state. */
-                        log_unit_error(UNIT(s), "There's no 'start' task anymore we could start.");
-                        r = -ENXIO;
+                        r = log_unit_error_errno(UNIT(s), SYNTHETIC_ERRNO(ENXIO), "There's no 'start' task anymore we could start.");
                         goto fail;
                 }
 
@@ -2288,17 +2271,16 @@ static void service_enter_restart(Service *s) {
                 goto fail;
 
         /* Count the jobs we enqueue for restarting. This counter is maintained as long as the unit isn't fully
-         * stopped, i.e. as long as it remains up or remains in auto-start states. The use can reset the counter
+         * stopped, i.e. as long as it remains up or remains in auto-start states. The user can reset the counter
          * explicitly however via the usual "systemctl reset-failure" logic. */
         s->n_restarts ++;
         s->flush_n_restarts = false;
 
-        log_struct(LOG_INFO,
-                   "MESSAGE_ID=" SD_MESSAGE_UNIT_RESTART_SCHEDULED_STR,
-                   LOG_UNIT_ID(UNIT(s)),
-                   LOG_UNIT_INVOCATION_ID(UNIT(s)),
-                   LOG_UNIT_MESSAGE(UNIT(s), "Scheduled restart job, restart counter is at %u.", s->n_restarts),
-                   "N_RESTARTS=%u", s->n_restarts);
+        log_unit_struct(UNIT(s), LOG_INFO,
+                        "MESSAGE_ID=" SD_MESSAGE_UNIT_RESTART_SCHEDULED_STR,
+                        LOG_UNIT_INVOCATION_ID(UNIT(s)),
+                        LOG_UNIT_MESSAGE(UNIT(s), "Scheduled restart job, restart counter is at %u.", s->n_restarts),
+                        "N_RESTARTS=%u", s->n_restarts);
 
         /* Notify clients about changed restart counter */
         unit_add_to_dbus_queue(UNIT(s));
@@ -2583,10 +2565,10 @@ static unsigned service_exec_command_index(Unit *u, ServiceExecCommand id, ExecC
 
 static int service_serialize_exec_command(Unit *u, FILE *f, ExecCommand *command) {
         _cleanup_free_ char *args = NULL, *p = NULL;
-        size_t allocated = 0, length = 0;
         Service *s = SERVICE(u);
         const char *type, *key;
         ServiceExecCommand id;
+        size_t length = 0;
         unsigned idx;
         char **arg;
 
@@ -2615,7 +2597,7 @@ static int service_serialize_exec_command(Unit *u, FILE *f, ExecCommand *command
                         return log_oom();
 
                 n = strlen(e);
-                if (!GREEDY_REALLOC(args, allocated, length + 2 + n + 2))
+                if (!GREEDY_REALLOC(args, length + 2 + n + 2))
                         return log_oom();
 
                 if (length > 0)
@@ -2627,7 +2609,7 @@ static int service_serialize_exec_command(Unit *u, FILE *f, ExecCommand *command
                 args[length++] = '"';
         }
 
-        if (!GREEDY_REALLOC(args, allocated, length + 1))
+        if (!GREEDY_REALLOC(args, length + 1))
                 return log_oom();
 
         args[length++] = 0;
@@ -2741,7 +2723,7 @@ static int service_serialize(Unit *u, FILE *f, FDSet *fds) {
         return 0;
 }
 
-static int service_deserialize_exec_command(
+int service_deserialize_exec_command(
                 Unit *u,
                 const char *key,
                 const char *value) {
@@ -2761,7 +2743,7 @@ static int service_deserialize_exec_command(
                 STATE_EXEC_COMMAND_PATH,
                 STATE_EXEC_COMMAND_ARGS,
                 _STATE_EXEC_COMMAND_MAX,
-                _STATE_EXEC_COMMAND_INVALID = -1,
+                _STATE_EXEC_COMMAND_INVALID = -EINVAL,
         } state;
 
         assert(s);
@@ -2785,23 +2767,20 @@ static int service_deserialize_exec_command(
                 case STATE_EXEC_COMMAND_TYPE:
                         id = service_exec_command_from_string(arg);
                         if (id < 0)
-                                return -EINVAL;
+                                return id;
 
                         state = STATE_EXEC_COMMAND_INDEX;
                         break;
                 case STATE_EXEC_COMMAND_INDEX:
                         r = safe_atou(arg, &idx);
                         if (r < 0)
-                                return -EINVAL;
+                                return r;
 
                         state = STATE_EXEC_COMMAND_PATH;
                         break;
                 case STATE_EXEC_COMMAND_PATH:
                         path = TAKE_PTR(arg);
                         state = STATE_EXEC_COMMAND_ARGS;
-
-                        if (!path_is_absolute(path))
-                                return -EINVAL;
                         break;
                 case STATE_EXEC_COMMAND_ARGS:
                         r = strv_extend(&argv, arg);
@@ -2809,13 +2788,14 @@ static int service_deserialize_exec_command(
                                 return -ENOMEM;
                         break;
                 default:
-                        assert_not_reached("Unknown error at deserialization of exec command");
-                        break;
+                        assert_not_reached("Logic error in exec command deserialization");
                 }
         }
 
         if (state != STATE_EXEC_COMMAND_ARGS)
                 return -EINVAL;
+        if (strv_isempty(argv))
+                return -EINVAL; /* At least argv[0] must be always present. */
 
         /* Let's check whether exec command on given offset matches data that we just deserialized */
         for (command = s->exec_command[id], i = 0; command; command = command->command_next, i++) {
@@ -2956,7 +2936,7 @@ static int service_deserialize_item(Unit *u, const char *key, const char *value,
 
                 r = extract_first_word(&value, &fdn, NULL, EXTRACT_CUNESCAPE | EXTRACT_UNQUOTE);
                 if (r <= 0) {
-                        log_unit_debug_errno(u, r, "Failed to parse fd-store-fd value \"%s\": %m", value);
+                        log_unit_debug(u, "Failed to parse fd-store-fd value: %s", value);
                         return 0;
                 }
 
@@ -3168,7 +3148,7 @@ static int service_demand_pid_file(Service *s) {
                 return -ENOMEM;
         }
 
-        path_simplify(ps->path, false);
+        path_simplify(ps->path);
 
         /* PATH_CHANGED would not be enough. There are daemons (sendmail) that
          * keep their PID file open all the time. */
@@ -3330,6 +3310,13 @@ static void service_notify_cgroup_empty_event(Unit *u) {
 
                 break;
 
+        /* If the cgroup empty notification comes when the unit is not active, we must have failed to clean
+         * up the cgroup earlier and should do it now. */
+        case SERVICE_DEAD:
+        case SERVICE_FAILED:
+                unit_prune_cgroup(u);
+                break;
+
         default:
                 ;
         }
@@ -3414,7 +3401,14 @@ static void service_sigchld_event(Unit *u, pid_t pid, int code, int status) {
         else
                 assert_not_reached("Unknown code");
 
-        if (s->main_pid == pid) {
+        /* Services with ExitType=cgroup ignore the main PID for purposes of exit status */
+        if (s->exit_type == SERVICE_EXIT_CGROUP && s->main_pid == pid) {
+                service_unwatch_main_pid(s);
+                s->main_pid_known = false;
+        }
+
+        if ((s->exit_type == SERVICE_EXIT_MAIN && s->main_pid == pid) ||
+            (s->exit_type == SERVICE_EXIT_CGROUP && cgroup_empty(s) && !control_pid_good(s))) {
                 /* Forking services may occasionally move to a new PID.
                  * As long as they update the PID file before exiting the old
                  * PID, they're fine. */
@@ -3447,7 +3441,7 @@ static void service_sigchld_event(Unit *u, pid_t pid, int code, int status) {
 
                 unit_log_process_exit(
                                 u,
-                                "Main process",
+                                s->exit_type == SERVICE_EXIT_CGROUP ? "Last process" : "Main process",
                                 service_exec_command_to_string(SERVICE_EXEC_START),
                                 f == SERVICE_SUCCESS,
                                 code, status);
@@ -3460,25 +3454,31 @@ static void service_sigchld_event(Unit *u, pid_t pid, int code, int status) {
                     s->type == SERVICE_ONESHOT &&
                     f == SERVICE_SUCCESS) {
 
-                        /* There is another command to *
-                         * execute, so let's do that. */
+                        /* There is another command to execute, so let's do that. */
 
                         log_unit_debug(u, "Running next main command for state %s.", service_state_to_string(s->state));
                         service_run_next_main(s);
 
                 } else {
 
-                        /* The service exited, so the service is officially
-                         * gone. */
+                        /* The service exited, so the service is officially gone. */
                         s->main_command = NULL;
 
                         switch (s->state) {
 
                         case SERVICE_START_POST:
                         case SERVICE_RELOAD:
+                                /* If neither main nor control processes are running then
+                                 * the current state can never exit cleanly, hence immediately
+                                 * terminate the service. */
+                                if (control_pid_good(s) <= 0)
+                                        service_enter_stop(s, f);
+
+                                /* Otherwise need to wait until the operation is done. */
+                                break;
+
                         case SERVICE_STOP:
-                                /* Need to wait until the operation is
-                                 * done */
+                                /* Need to wait until the operation is done. */
                                 break;
 
                         case SERVICE_START:
@@ -3539,15 +3539,20 @@ static void service_sigchld_event(Unit *u, pid_t pid, int code, int status) {
         } else if (s->control_pid == pid) {
                 s->control_pid = 0;
 
-                /* ExecCondition= calls that exit with (0, 254] should invoke skip-like behavior instead of failing */
-                if (f == SERVICE_FAILURE_EXIT_CODE && s->state == SERVICE_CONDITION && status < 255)
-                        f = SERVICE_SKIP_CONDITION;
-
                 if (s->control_command) {
                         exec_status_exit(&s->control_command->exec_status, &s->exec_context, pid, code, status);
 
                         if (s->control_command->flags & EXEC_COMMAND_IGNORE_FAILURE)
                                 f = SERVICE_SUCCESS;
+                }
+
+                /* ExecCondition= calls that exit with (0, 254] should invoke skip-like behavior instead of failing */
+                if (s->state == SERVICE_CONDITION) {
+                        if (f == SERVICE_FAILURE_EXIT_CODE && status < 255) {
+                                UNIT(s)->condition_result = false;
+                                f = SERVICE_SKIP_CONDITION;
+                        } else if (f == SERVICE_SUCCESS)
+                                UNIT(s)->condition_result = true;
                 }
 
                 unit_log_process_exit(
@@ -4201,7 +4206,7 @@ static void service_bus_name_owner_change(Unit *u, const char *new_owner) {
         else
                 log_unit_debug(u, "D-Bus name %s now not owned by anyone.", s->bus_name);
 
-        s->bus_name_good = !!new_owner;
+        s->bus_name_good = new_owner;
 
         /* Track the current owner, so we can reconstruct changes after a daemon reload */
         r = free_and_strdup(&s->bus_name_owner, new_owner);
@@ -4266,7 +4271,7 @@ int service_set_socket_fd(Service *s, int fd, Socket *sock, bool selinux_context
         if (getpeername_pretty(fd, true, &peer) >= 0) {
 
                 if (UNIT(s)->description) {
-                        _cleanup_free_ char *a;
+                        _cleanup_free_ char *a = NULL;
 
                         a = strjoin(UNIT(s)->description, " (", peer, ")");
                         if (!a)
@@ -4459,6 +4464,13 @@ static const char* const service_type_table[_SERVICE_TYPE_MAX] = {
 
 DEFINE_STRING_TABLE_LOOKUP(service_type, ServiceType);
 
+static const char* const service_exit_type_table[_SERVICE_EXIT_TYPE_MAX] = {
+        [SERVICE_EXIT_MAIN] = "main",
+        [SERVICE_EXIT_CGROUP] = "cgroup",
+};
+
+DEFINE_STRING_TABLE_LOOKUP(service_exit_type, ServiceExitType);
+
 static const char* const service_exec_command_table[_SERVICE_EXEC_COMMAND_MAX] = {
         [SERVICE_EXEC_CONDITION] = "ExecCondition",
         [SERVICE_EXEC_START_PRE] = "ExecStartPre",
@@ -4533,6 +4545,7 @@ const UnitVTable service_vtable = {
         .can_transient = true,
         .can_delegate = true,
         .can_fail = true,
+        .can_set_managed_oom = true,
 
         .init = service_init,
         .done = service_done,
@@ -4593,7 +4606,6 @@ const UnitVTable service_vtable = {
                 },
                 .finished_start_job = {
                         [JOB_FAILED]     = "Failed to start %s.",
-                        [JOB_SKIPPED]    = "Skipped %s.",
                 },
                 .finished_stop_job = {
                         [JOB_DONE]       = "Stopped %s.",

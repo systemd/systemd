@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <sys/utsname.h>
 
@@ -1528,11 +1528,11 @@ static int assess(const struct security_info *info, Table *overview_table, Analy
                 if (!details_table)
                         return log_oom();
 
-                (void) table_set_sort(details_table, (size_t) 3, (size_t) 1, (size_t) -1);
+                (void) table_set_sort(details_table, (size_t) 3, (size_t) 1);
                 (void) table_set_reverse(details_table, 3, true);
 
                 if (getenv_bool("SYSTEMD_ANALYZE_DEBUG") <= 0)
-                        (void) table_set_display(details_table, (size_t) 0, (size_t) 1, (size_t) 2, (size_t) 6, (size_t) -1);
+                        (void) table_set_display(details_table, (size_t) 0, (size_t) 1, (size_t) 2, (size_t) 6);
         }
 
         for (i = 0; i < ELEMENTSOF(security_assessor_table); i++) {
@@ -1545,7 +1545,7 @@ static int assess(const struct security_info *info, Table *overview_table, Analy
 
                 if (a->default_dependencies_only && !info->default_dependencies) {
                         badness = UINT64_MAX;
-                        d = strdup("Service runs in special boot phase, option does not apply");
+                        d = strdup("Service runs in special boot phase, option is not appropriate");
                         if (!d)
                                 return log_oom();
                 } else {
@@ -2116,7 +2116,7 @@ int analyze_security(sd_bus *bus, char **units, AnalyzeSecurityFlags flags) {
                 _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
                 _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
                 _cleanup_strv_free_ char **list = NULL;
-                size_t allocated = 0, n = 0;
+                size_t n = 0;
                 char **i;
 
                 r = sd_bus_call_method(
@@ -2148,7 +2148,7 @@ int analyze_security(sd_bus *bus, char **units, AnalyzeSecurityFlags flags) {
                         if (!endswith(info.id, ".service"))
                                 continue;
 
-                        if (!GREEDY_REALLOC(list, allocated, n + 2))
+                        if (!GREEDY_REALLOC(list, n + 2))
                                 return log_oom();
 
                         copy = strdup(info.id);
@@ -2185,10 +2185,10 @@ int analyze_security(sd_bus *bus, char **units, AnalyzeSecurityFlags flags) {
                         if (r < 0)
                                 return log_error_errno(r, "Failed to mangle unit name '%s': %m", *i);
 
-                        if (!endswith(mangled, ".service")) {
-                                log_error("Unit %s is not a service unit, refusing.", *i);
-                                return -EINVAL;
-                        }
+                        if (!endswith(mangled, ".service"))
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "Unit %s is not a service unit, refusing.",
+                                                       *i);
 
                         if (unit_name_is_valid(mangled, UNIT_NAME_TEMPLATE)) {
                                 r = unit_name_replace_instance(mangled, "test-instance", &instance);

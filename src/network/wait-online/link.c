@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "sd-network.h"
 
@@ -15,14 +15,7 @@ int link_new(Manager *m, Link **ret, int ifindex, const char *ifname) {
 
         assert(m);
         assert(ifindex > 0);
-
-        r = hashmap_ensure_allocated(&m->links, NULL);
-        if (r < 0)
-                return r;
-
-        r = hashmap_ensure_allocated(&m->links_by_name, &string_hash_ops);
-        if (r < 0)
-                return r;
+        assert(ifname);
 
         n = strdup(ifname);
         if (!n)
@@ -39,11 +32,11 @@ int link_new(Manager *m, Link **ret, int ifindex, const char *ifname) {
                 .required_operstate = LINK_OPERSTATE_RANGE_DEFAULT,
         };
 
-        r = hashmap_put(m->links_by_name, l->ifname, l);
+        r = hashmap_ensure_put(&m->links, NULL, INT_TO_PTR(ifindex), l);
         if (r < 0)
                 return r;
 
-        r = hashmap_put(m->links, INT_TO_PTR(ifindex), l);
+        r = hashmap_ensure_put(&m->links_by_name, &string_hash_ops, l->ifname, l);
         if (r < 0)
                 return r;
 
@@ -104,7 +97,8 @@ int link_update_rtnl(Link *l, sd_netlink_message *m) {
 }
 
 int link_update_monitor(Link *l) {
-        _cleanup_free_ char *operstate = NULL, *required_operstate = NULL, *state = NULL;
+        _cleanup_free_ char *operstate = NULL, *required_operstate = NULL, *required_family = NULL,
+                *ipv4_address_state = NULL, *ipv6_address_state = NULL, *state = NULL;
         int r, ret = 0;
 
         assert(l);
@@ -137,10 +131,50 @@ int link_update_monitor(Link *l) {
 
                 s = link_operstate_from_string(operstate);
                 if (s < 0)
-                        ret = log_link_debug_errno(l, SYNTHETIC_ERRNO(EINVAL),
-                                                   "Failed to parse operational state, ignoring: %m");
+                        ret = log_link_debug_errno(l, s, "Failed to parse operational state, ignoring: %m");
                 else
                         l->operational_state = s;
+        }
+
+        r = sd_network_link_get_required_family_for_online(l->ifindex, &required_family);
+        if (r < 0)
+                ret = log_link_debug_errno(l, r, "Failed to get required address family, ignoring: %m");
+        else if (isempty(required_family))
+                l->required_family = ADDRESS_FAMILY_NO;
+        else {
+                AddressFamily f;
+
+                f = link_required_address_family_from_string(required_family);
+                if (f < 0)
+                        ret = log_link_debug_errno(l, f, "Failed to parse required address family, ignoring: %m");
+                else
+                        l->required_family = f;
+        }
+
+        r = sd_network_link_get_ipv4_address_state(l->ifindex, &ipv4_address_state);
+        if (r < 0)
+                ret = log_link_debug_errno(l, r, "Failed to get IPv4 address state, ignoring: %m");
+        else {
+                LinkAddressState s;
+
+                s = link_address_state_from_string(ipv4_address_state);
+                if (s < 0)
+                        ret = log_link_debug_errno(l, s, "Failed to parse IPv4 address state, ignoring: %m");
+                else
+                        l->ipv4_address_state = s;
+        }
+
+        r = sd_network_link_get_ipv6_address_state(l->ifindex, &ipv6_address_state);
+        if (r < 0)
+                ret = log_link_debug_errno(l, r, "Failed to get IPv6 address state, ignoring: %m");
+        else {
+                LinkAddressState s;
+
+                s = link_address_state_from_string(ipv6_address_state);
+                if (s < 0)
+                        ret = log_link_debug_errno(l, s, "Failed to parse IPv6 address state, ignoring: %m");
+                else
+                        l->ipv6_address_state = s;
         }
 
         r = sd_network_link_get_setup_state(l->ifindex, &state);

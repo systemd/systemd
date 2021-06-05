@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 /***
   Copyright © 2014 Axis Communications AB. All rights reserved.
 ***/
@@ -17,9 +17,11 @@
 #include "event-util.h"
 #include "fd-util.h"
 #include "in-addr-util.h"
-#include "list.h"
+#include "log-link.h"
+#include "network-common.h"
 #include "random-util.h"
 #include "siphash24.h"
+#include "string-table.h"
 #include "string-util.h"
 #include "time-util.h"
 
@@ -44,7 +46,7 @@ typedef enum IPv4ACDState {
         IPV4ACD_STATE_ANNOUNCING,
         IPV4ACD_STATE_RUNNING,
         _IPV4ACD_STATE_MAX,
-        _IPV4ACD_STATE_INVALID = -1
+        _IPV4ACD_STATE_INVALID = -EINVAL,
 } IPv4ACDState;
 
 struct sd_ipv4acd {
@@ -54,6 +56,7 @@ struct sd_ipv4acd {
         int ifindex;
         int fd;
 
+        char *ifname;
         unsigned n_iteration;
         unsigned n_conflict;
 
@@ -72,12 +75,35 @@ struct sd_ipv4acd {
         void* userdata;
 };
 
-#define log_ipv4acd_errno(acd, error, fmt, ...) log_internal(LOG_DEBUG, error, PROJECT_FILE, __LINE__, __func__, "IPV4ACD: " fmt, ##__VA_ARGS__)
-#define log_ipv4acd(acd, fmt, ...) log_ipv4acd_errno(acd, 0, fmt, ##__VA_ARGS__)
+#define log_ipv4acd_errno(acd, error, fmt, ...)         \
+        log_interface_prefix_full_errno(                \
+                "IPv4ACD: ",                            \
+                sd_ipv4acd_get_ifname(acd),             \
+                error, fmt, ##__VA_ARGS__)
+#define log_ipv4acd(acd, fmt, ...)                      \
+        log_interface_prefix_full_errno_zerook(         \
+                "IPv4ACD: ",                            \
+                sd_ipv4acd_get_ifname(acd),             \
+                0, fmt, ##__VA_ARGS__)
+
+static const char * const ipv4acd_state_table[_IPV4ACD_STATE_MAX] = {
+        [IPV4ACD_STATE_INIT]             = "init",
+        [IPV4ACD_STATE_STARTED]          = "started",
+        [IPV4ACD_STATE_WAITING_PROBE]    = "waiting-probe",
+        [IPV4ACD_STATE_PROBING]          = "probing",
+        [IPV4ACD_STATE_WAITING_ANNOUNCE] = "waiting-announce",
+        [IPV4ACD_STATE_ANNOUNCING]       = "announcing",
+        [IPV4ACD_STATE_RUNNING]          = "running",
+};
+
+DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(ipv4acd_state, IPv4ACDState);
 
 static void ipv4acd_set_state(sd_ipv4acd *acd, IPv4ACDState st, bool reset_counter) {
         assert(acd);
         assert(st < _IPV4ACD_STATE_MAX);
+
+        if (st != acd->state)
+                log_ipv4acd(acd, "%s -> %s", ipv4acd_state_to_string(acd->state), ipv4acd_state_to_string(st));
 
         if (st == acd->state && !reset_counter)
                 acd->n_iteration++;
@@ -105,7 +131,7 @@ static sd_ipv4acd *ipv4acd_free(sd_ipv4acd *acd) {
 
         ipv4acd_reset(acd);
         sd_ipv4acd_detach_event(acd);
-
+        free(acd->ifname);
         return mfree(acd);
 }
 
@@ -144,7 +170,8 @@ static void ipv4acd_client_notify(sd_ipv4acd *acd, int event) {
 int sd_ipv4acd_stop(sd_ipv4acd *acd) {
         IPv4ACDState old_state;
 
-        assert_return(acd, -EINVAL);
+        if (!acd)
+                return 0;
 
         old_state = acd->state;
 
@@ -384,6 +411,30 @@ int sd_ipv4acd_set_ifindex(sd_ipv4acd *acd, int ifindex) {
         acd->ifindex = ifindex;
 
         return 0;
+}
+
+int sd_ipv4acd_get_ifindex(sd_ipv4acd *acd) {
+        if (!acd)
+                return -EINVAL;
+
+        return acd->ifindex;
+}
+
+int sd_ipv4acd_set_ifname(sd_ipv4acd *acd, const char *ifname) {
+        assert_return(acd, -EINVAL);
+        assert_return(ifname, -EINVAL);
+
+        if (!ifname_valid_full(ifname, IFNAME_VALID_ALTERNATIVE))
+                return -EINVAL;
+
+        return free_and_strdup(&acd->ifname, ifname);
+}
+
+const char *sd_ipv4acd_get_ifname(sd_ipv4acd *acd) {
+        if (!acd)
+                return NULL;
+
+        return get_ifname(acd->ifindex, &acd->ifname);
 }
 
 int sd_ipv4acd_set_mac(sd_ipv4acd *acd, const struct ether_addr *addr) {

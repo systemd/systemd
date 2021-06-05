@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #if defined(__i386__) || defined(__x86_64__)
 #include <cpuid.h>
@@ -452,10 +452,21 @@ size_t random_pool_size(void) {
 }
 
 int random_write_entropy(int fd, const void *seed, size_t size, bool credit) {
+        _cleanup_close_ int opened_fd = -1;
         int r;
 
-        assert(fd >= 0);
-        assert(seed && size > 0);
+        assert(seed || size == 0);
+
+        if (size == 0)
+                return 0;
+
+        if (fd < 0) {
+                opened_fd = open("/dev/urandom", O_WRONLY|O_CLOEXEC|O_NOCTTY);
+                if (opened_fd < 0)
+                        return -errno;
+
+                fd = opened_fd;
+        }
 
         if (credit) {
                 _cleanup_free_ struct rand_pool_info *info = NULL;
@@ -481,5 +492,24 @@ int random_write_entropy(int fd, const void *seed, size_t size, bool credit) {
                         return r;
         }
 
-        return 0;
+        return 1;
+}
+
+uint64_t random_u64_range(uint64_t m) {
+        uint64_t x, remainder;
+
+        /* Generates a random number in the range 0…m-1, unbiased. (Java's algorithm) */
+
+        if (m == 0) /* Let's take m == 0 as special case to return an integer from the full range */
+                return random_u64();
+        if (m == 1)
+                return 0;
+
+        remainder = UINT64_MAX % m;
+
+        do {
+                x = random_u64();
+        } while (x >= UINT64_MAX - remainder);
+
+        return x % m;
 }

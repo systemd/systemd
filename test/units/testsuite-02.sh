@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
-#set -ex
-#set -o pipefail
+set -eux
+set -o pipefail
 
 NPROC=$(nproc)
 MAX_QUEUE_SIZE=${NPROC:-2}
-IFS=$'\n' TEST_LIST=($(ls /usr/lib/systemd/tests/test-*))
+mapfile -t TEST_LIST < <(find /usr/lib/systemd/tests/ -maxdepth 1 -type f -name "test-*")
 
 # reset state
-rm /failed-tests /skipped-tests /skipped
+rm -fv /failed-tests /skipped-tests /skipped
 
 # Check & report test results
 # Arguments:
@@ -54,10 +54,9 @@ for task in "${TEST_LIST[@]}"; do
     # until one of the tasks finishes, so we can replace it.
     while [[ ${#running[@]} -ge $MAX_QUEUE_SIZE ]]; do
         for key in "${!running[@]}"; do
-            if ! kill -0 ${running[$key]} &>/dev/null; then
+            if ! kill -0 "${running[$key]}" &>/dev/null; then
                 # Task has finished, report its result and drop it from the queue
-                wait ${running[$key]}
-                ec=$?
+                wait "${running[$key]}" && ec=0 || ec=$?
                 report_result "$key" $ec
                 unset running["$key"]
                 # Break from inner for loop and outer while loop to skip

@@ -1,29 +1,31 @@
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 %{
 #if __GNUC__ >= 7
 _Pragma("GCC diagnostic ignored \"-Wimplicit-fallthrough\"")
 #endif
 #include <stddef.h>
 #include "bareudp.h"
+#include "batadv.h"
 #include "bond.h"
 #include "bridge.h"
 #include "conf-parser.h"
+#include "fou-tunnel.h"
 #include "geneve.h"
 #include "ipvlan.h"
+#include "l2tp-tunnel.h"
 #include "macsec.h"
 #include "macvlan.h"
+#include "net-condition.h"
+#include "netdev.h"
 #include "tunnel.h"
 #include "tuntap.h"
 #include "veth.h"
 #include "vlan-util.h"
 #include "vlan.h"
-#include "vxlan.h"
 #include "vrf.h"
-#include "netdev.h"
-#include "network-internal.h"
 #include "vxcan.h"
+#include "vxlan.h"
 #include "wireguard.h"
-#include "fou-tunnel.h"
-#include "l2tp-tunnel.h"
 #include "xfrm.h"
 %}
 struct ConfigPerfItem;
@@ -42,18 +44,23 @@ Match.Virtualization,                     config_parse_net_condition,           
 Match.KernelCommandLine,                  config_parse_net_condition,                CONDITION_KERNEL_COMMAND_LINE, offsetof(NetDev, conditions)
 Match.KernelVersion,                      config_parse_net_condition,                CONDITION_KERNEL_VERSION,      offsetof(NetDev, conditions)
 Match.Architecture,                       config_parse_net_condition,                CONDITION_ARCHITECTURE,        offsetof(NetDev, conditions)
+Match.Firmware,                           config_parse_net_condition,                CONDITION_FIRMWARE,            offsetof(NetDev, conditions)
 NetDev.Description,                       config_parse_string,                       0,                             offsetof(NetDev, description)
 NetDev.Name,                              config_parse_ifname,                       0,                             offsetof(NetDev, ifname)
 NetDev.Kind,                              config_parse_netdev_kind,                  0,                             offsetof(NetDev, kind)
 NetDev.MTUBytes,                          config_parse_mtu,                          AF_UNSPEC,                     offsetof(NetDev, mtu)
 NetDev.MACAddress,                        config_parse_hwaddr,                       0,                             offsetof(NetDev, mac)
 VLAN.Id,                                  config_parse_vlanid,                       0,                             offsetof(VLan, id)
+VLAN.Protocol,                            config_parse_vlanprotocol,                 0,                             offsetof(VLan, protocol)
 VLAN.GVRP,                                config_parse_tristate,                     0,                             offsetof(VLan, gvrp)
 VLAN.MVRP,                                config_parse_tristate,                     0,                             offsetof(VLan, mvrp)
 VLAN.LooseBinding,                        config_parse_tristate,                     0,                             offsetof(VLan, loose_binding)
 VLAN.ReorderHeader,                       config_parse_tristate,                     0,                             offsetof(VLan, reorder_hdr)
+VLAN.EgressQOSMaps,                       config_parse_vlan_qos_maps,                0,                             offsetof(VLan, egress_qos_maps)
+VLAN.IngressQOSMaps,                      config_parse_vlan_qos_maps,                0,                             offsetof(VLan, ingress_qos_maps)
 MACVLAN.Mode,                             config_parse_macvlan_mode,                 0,                             offsetof(MacVlan, mode)
 MACVLAN.SourceMACAddress,                 config_parse_hwaddrs,                      0,                             offsetof(MacVlan, match_source_mac)
+MACVLAN.BroadcastMulticastQueueLength,    config_parse_macvlan_broadcast_queue_size, 0,                             offsetof(MacVlan, bc_queue_length)
 MACVTAP.Mode,                             config_parse_macvlan_mode,                 0,                             offsetof(MacVlan, mode)
 MACVTAP.SourceMACAddress,                 config_parse_hwaddrs,                      0,                             offsetof(MacVlan, match_source_mac)
 IPVLAN.Mode,                              config_parse_ipvlan_mode,                  0,                             offsetof(IPVlan, mode)
@@ -230,3 +237,15 @@ WireGuardPeer.PresharedKeyFile,           config_parse_wireguard_preshared_key_f
 WireGuardPeer.PersistentKeepalive,        config_parse_wireguard_keepalive,          0,                             0
 Xfrm.InterfaceId,                         config_parse_uint32,                       0,                             offsetof(Xfrm, if_id)
 Xfrm.Independent,                         config_parse_bool,                         0,                             offsetof(Xfrm, independent)
+BatmanAdvanced.Aggregation,               config_parse_bool,                         0,                             offsetof(BatmanAdvanced, aggregation)
+BatmanAdvanced.BridgeLoopAvoidance,       config_parse_bool,                         0,                             offsetof(BatmanAdvanced, bridge_loop_avoidance)
+BatmanAdvanced.DistributedArpTable,       config_parse_bool,                         0,                             offsetof(BatmanAdvanced, distributed_arp_table)
+BatmanAdvanced.Fragmentation,             config_parse_bool,                         0,                             offsetof(BatmanAdvanced, fragmentation)
+BatmanAdvanced.GatewayMode,               config_parse_batadv_gateway_mode,          0,                             offsetof(BatmanAdvanced, gateway_mode)
+BatmanAdvanced.GatewayBandwithDown,       config_parse_badadv_bandwidth,             0,                             offsetof(BatmanAdvanced, gateway_bandwidth_down)
+BatmanAdvanced.GatewayBandwithUp,         config_parse_badadv_bandwidth,             0,                             offsetof(BatmanAdvanced, gateway_bandwidth_up)
+BatmanAdvanced.GatewayBandwidthDown,      config_parse_badadv_bandwidth,             0,                             offsetof(BatmanAdvanced, gateway_bandwidth_down)
+BatmanAdvanced.GatewayBandwidthUp,        config_parse_badadv_bandwidth,             0,                             offsetof(BatmanAdvanced, gateway_bandwidth_up)
+BatmanAdvanced.HopPenalty,                config_parse_uint8,                        0,                             offsetof(BatmanAdvanced, hop_penalty)
+BatmanAdvanced.OriginatorIntervalSec,     config_parse_sec,                          0,                             offsetof(BatmanAdvanced, originator_interval)
+BatmanAdvanced.RoutingAlgorithm,          config_parse_batadv_routing_algorithm,     0,                             offsetof(BatmanAdvanced, routing_algorithm)
