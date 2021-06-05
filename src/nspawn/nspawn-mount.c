@@ -672,9 +672,10 @@ int mount_all(const char *dest,
         return 0;
 }
 
-static int parse_mount_bind_options(const char *options, unsigned long *mount_flags, char **mount_opts) {
+static int parse_mount_bind_options(const char *options, unsigned long *mount_flags, char **mount_opts, bool *idmapped) {
         unsigned long flags = *mount_flags;
         char *opts = NULL;
+        bool flag_idmapped = *idmapped;
         int r;
 
         assert(options);
@@ -692,29 +693,35 @@ static int parse_mount_bind_options(const char *options, unsigned long *mount_fl
                         flags |= MS_REC;
                 else if (streq(word, "norbind"))
                         flags &= ~MS_REC;
+                else if (streq(word, "idmap"))
+                        flag_idmapped = true;
+                else if (streq(word, "noidmap"))
+                        flag_idmapped = false;
                 else
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                "Invalid bind mount option: %s", word);
         }
 
         *mount_flags = flags;
+        *idmapped = flag_idmapped;
         /* in the future mount_opts will hold string options for mount(2) */
         *mount_opts = opts;
 
         return 0;
 }
 
-static int mount_bind(const char *dest, CustomMount *m) {
+static int mount_bind(const char *dest, CustomMount *m, uid_t uid_shift, uid_t uid_range) {
         _cleanup_free_ char *mount_opts = NULL, *where = NULL;
         unsigned long mount_flags = MS_BIND | MS_REC;
         struct stat source_st, dest_st;
         int r;
+        bool idmapped = false;
 
         assert(dest);
         assert(m);
 
         if (m->options) {
-                r = parse_mount_bind_options(m->options, &mount_flags, &mount_opts);
+                r = parse_mount_bind_options(m->options, &mount_flags, &mount_opts, &idmapped);
                 if (r < 0)
                         return r;
         }
@@ -765,6 +772,12 @@ static int mount_bind(const char *dest, CustomMount *m) {
                 r = bind_remount_recursive(where, MS_RDONLY, MS_RDONLY, NULL);
                 if (r < 0)
                         return log_error_errno(r, "Read-only bind mount failed: %m");
+        }
+
+        if (idmapped) {
+                r = remount_idmap(where, uid_shift, uid_range);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to map ids for bind mount %s: %m", where);
         }
 
         return 0;
@@ -906,6 +919,7 @@ int mount_custom(
                 const char *dest,
                 CustomMount *mounts, size_t n,
                 uid_t uid_shift,
+                uid_t uid_range,
                 const char *selinux_apifs_context,
                 MountSettingsMask mount_settings) {
         int r;
@@ -927,7 +941,7 @@ int mount_custom(
                 switch (m->type) {
 
                 case CUSTOM_MOUNT_BIND:
-                        r = mount_bind(dest, m);
+                        r = mount_bind(dest, m, uid_shift, uid_range);
                         break;
 
                 case CUSTOM_MOUNT_TMPFS:

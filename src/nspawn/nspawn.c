@@ -3314,6 +3314,7 @@ static int inner_child(
                         arg_custom_mounts,
                         arg_n_custom_mounts,
                         0,
+                        0,
                         arg_selinux_apifs_context,
                         MOUNT_NON_ROOT_ONLY | MOUNT_IN_USERNS);
         if (r < 0)
@@ -3719,32 +3720,6 @@ static int outer_child(
                 directory = "/run/systemd/nspawn-root";
         }
 
-        if (arg_userns_mode != USER_NAMESPACE_NO &&
-            IN_SET(arg_userns_ownership, USER_NAMESPACE_OWNERSHIP_MAP, USER_NAMESPACE_OWNERSHIP_AUTO) &&
-            arg_uid_shift != 0) {
-                r = make_mount_point(directory);
-                if (r < 0)
-                        return r;
-
-                r = remount_idmap(directory, arg_uid_shift, arg_uid_range);
-                if (r == -EINVAL || ERRNO_IS_NOT_SUPPORTED(r)) {
-                        /* This might fail because the kernel or file system doesn't support idmapping. We
-                         * can't really distinguish this nicely, nor do we have any guarantees about the
-                         * error codes we see, could be EOPNOTSUPP or EINVAL. */
-                        if (arg_userns_ownership != USER_NAMESPACE_OWNERSHIP_AUTO)
-                                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
-                                                       "ID mapped mounts are apparently not available, sorry.");
-
-                        log_debug("ID mapped mounts are apparently not available on this kernel or for the selected file system, reverting to recursive chown()ing.");
-                        arg_userns_ownership = USER_NAMESPACE_OWNERSHIP_CHOWN;
-                } else if (r < 0)
-                        return log_error_errno(r, "Failed to set up ID mapped mounts: %m");
-                else {
-                        log_debug("ID mapped mounts available, making use of them.");
-                        idmap = true;
-                }
-        }
-
         r = setup_pivot_root(
                         directory,
                         arg_pivot_root_new,
@@ -3795,6 +3770,7 @@ static int outer_child(
                         arg_custom_mounts,
                         arg_n_custom_mounts,
                         arg_uid_shift,
+                        arg_uid_range,
                         arg_selinux_apifs_context,
                         MOUNT_ROOT_ONLY);
         if (r < 0)
@@ -3804,6 +3780,29 @@ static int outer_child(
         r = make_mount_point(directory);
         if (r < 0)
                 return r;
+
+        if (arg_userns_mode != USER_NAMESPACE_NO &&
+            IN_SET(arg_userns_ownership, USER_NAMESPACE_OWNERSHIP_MAP, USER_NAMESPACE_OWNERSHIP_AUTO) &&
+            arg_uid_shift != 0) {
+
+                r = remount_idmap(directory, arg_uid_shift, arg_uid_range);
+                if (r == -EINVAL || ERRNO_IS_NOT_SUPPORTED(r)) {
+                        /* This might fail because the kernel or file system doesn't support idmapping. We
+                         * can't really distinguish this nicely, nor do we have any guarantees about the
+                         * error codes we see, could be EOPNOTSUPP or EINVAL. */
+                        if (arg_userns_ownership != USER_NAMESPACE_OWNERSHIP_AUTO)
+                                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
+                                                       "ID mapped mounts are apparently not available, sorry.");
+
+                        log_debug("ID mapped mounts are apparently not available on this kernel or for the selected file system, reverting to recursive chown()ing.");
+                        arg_userns_ownership = USER_NAMESPACE_OWNERSHIP_CHOWN;
+                } else if (r < 0)
+                        return log_error_errno(r, "Failed to set up ID mapped mounts: %m");
+                else {
+                        log_debug("ID mapped mounts available, making use of them.");
+                        idmap = true;
+                }
+        }
 
         if (dissected_image) {
                 /* Now we know the uid shift, let's now mount everything else that might be in the image. */
@@ -3915,6 +3914,7 @@ static int outer_child(
                         arg_custom_mounts,
                         arg_n_custom_mounts,
                         arg_uid_shift,
+                        arg_uid_range,
                         arg_selinux_apifs_context,
                         MOUNT_NON_ROOT_ONLY);
         if (r < 0)
