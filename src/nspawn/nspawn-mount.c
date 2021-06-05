@@ -1,6 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <unistd.h>
 #include <sys/mount.h>
+#include <sys/fsuid.h>
 #include <linux/magic.h>
 
 #include "alloc-util.h"
@@ -746,12 +748,18 @@ static int mount_bind(const char *dest, CustomMount *m, uid_t uid_shift, uid_t u
 
                 /* Create the mount point. Any non-directory file can be
                 * mounted on any non-directory file (regular, fifo, socket,
-                * char, block).
+                * char, block). If we use filesystem id mapping, then our
+                * current euid/fsuid is not mapped on the parent filesystem.
+                * Creating the mount point would result in an EOVERFLOW.
                 */
+                if (uid_shift != 0 && uid_range != 0)
+                        setfsuid(uid_shift + 0);
                 if (S_ISDIR(source_st.st_mode))
                         r = mkdir_label(where, 0755);
                 else
                         r = touch(where);
+                if (uid_shift != 0 && uid_range != 0)
+                        setfsuid(geteuid());
                 if (r < 0)
                         return log_error_errno(r, "Failed to create mount point %s: %m", where);
         }
@@ -769,7 +777,7 @@ static int mount_bind(const char *dest, CustomMount *m, uid_t uid_shift, uid_t u
         if (uid_shift != 0 && uid_range != 0) {
                 r = remount_idmap(where, uid_shift, uid_range);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to map ids for bind mount %s: %m", where);
+                        return log_error_errno(r, "Failed to map ids (shift %d, range %d) for bind mount %s: %m", uid_shift, uid_range, where);
         }
 
         return 0;
