@@ -184,6 +184,8 @@ static int link_set_ipv6_proxy_ndp(Link *link) {
 }
 
 int link_set_ipv6_mtu(Link *link) {
+        uint32_t mtu;
+
         assert(link);
 
         /* Make this a NOP if IPv6 is not available */
@@ -199,7 +201,14 @@ int link_set_ipv6_mtu(Link *link) {
         if (link->network->ipv6_mtu == 0)
                 return 0;
 
-        return sysctl_write_ip_property_uint32(AF_INET6, link->ifname, "mtu", link->network->ipv6_mtu);
+        mtu = link->network->ipv6_mtu;
+        if (mtu > link->max_mtu) {
+                log_link_warning(link, "Reducing requested IPv6 MTU %"PRIu32" to the interface's maximum MTU %"PRIu32".",
+                                 mtu, link->max_mtu);
+                mtu = link->max_mtu;
+        }
+
+        return sysctl_write_ip_property_uint32(AF_INET6, link->ifname, "mtu", mtu);
 }
 
 static int link_set_ipv4_accept_local(Link *link) {
