@@ -58,6 +58,9 @@ typedef struct Link {
         struct ether_addr permanent_mac;
         struct in6_addr ipv6ll_address;
         uint32_t mtu;
+        uint32_t min_mtu;
+        uint32_t max_mtu;
+        uint32_t original_mtu;
         sd_device *sd_device;
         char *driver;
 
@@ -79,9 +82,11 @@ typedef struct Link {
         LinkAddressState ipv6_address_state;
         LinkOnlineState online_state;
 
-        unsigned address_label_messages;
         unsigned static_address_messages;
+        unsigned static_address_label_messages;
         unsigned static_bridge_fdb_messages;
+        unsigned static_bridge_mdb_messages;
+        unsigned static_ipv6_proxy_ndp_messages;
         unsigned static_neighbor_messages;
         unsigned static_nexthop_messages;
         unsigned static_route_messages;
@@ -92,8 +97,9 @@ typedef struct Link {
         unsigned route_remove_messages;
         unsigned tc_messages;
         unsigned sr_iov_messages;
-        unsigned enslaving;
-        unsigned bridge_mdb_messages;
+        unsigned set_link_messages;
+        unsigned create_stacked_netdev_messages;
+        unsigned create_stacked_netdev_after_configured_messages;
 
         Set *addresses;
         Set *addresses_foreign;
@@ -111,7 +117,6 @@ typedef struct Link {
         Address *dhcp_address, *dhcp_address_old;
         Set *dhcp_routes, *dhcp_routes_old;
         char *lease_file;
-        uint32_t original_mtu;
         unsigned dhcp4_messages;
         sd_ipv4acd *dhcp_acd;
         bool dhcp4_route_failed:1;
@@ -123,19 +128,20 @@ typedef struct Link {
         bool ipv4ll_address_configured:1;
 
         bool static_addresses_configured:1;
+        bool static_address_labels_configured:1;
         bool static_bridge_fdb_configured:1;
+        bool static_bridge_mdb_configured:1;
+        bool static_ipv6_proxy_ndp_configured:1;
         bool static_neighbors_configured:1;
         bool static_nexthops_configured:1;
         bool static_routes_configured:1;
         bool static_routing_policy_rules_configured:1;
         bool tc_configured:1;
         bool sr_iov_configured:1;
-        bool setting_mtu:1;
-        bool setting_genmode:1;
-        bool ipv6_mtu_set:1;
-        bool bridge_mdb_configured:1;
-        bool can_configured:1;
         bool activated:1;
+        bool master_set:1;
+        bool stacked_netdevs_created:1;
+        bool stacked_netdevs_after_configured_created:1;
 
         sd_dhcp_server *dhcp_server;
 
@@ -213,13 +219,13 @@ DEFINE_TRIVIAL_DESTRUCTOR(link_netlink_destroy_callback, Link, link_unref);
 
 int link_get(Manager *m, int ifindex, Link **ret);
 int link_get_by_name(Manager *m, const char *ifname, Link **ret);
+int link_get_master(Link *link, Link **ret);
 
-int link_up(Link *link);
-int link_down(Link *link, link_netlink_message_handler_t callback);
-int link_activate(Link *link);
+int link_getlink_handler_internal(sd_netlink *rtnl, sd_netlink_message *m, Link *link, const char *error_msg);
+int link_call_getlink(Link *link, link_netlink_message_handler_t callback);
+int link_handle_bound_to_list(Link *link);
 
 void link_enter_failed(Link *link);
-
 void link_set_state(Link *link, LinkState state);
 void link_check_ready(Link *link);
 
@@ -231,8 +237,6 @@ bool link_has_carrier(Link *link);
 bool link_ipv6_enabled(Link *link);
 bool link_ipv6ll_enabled(Link *link);
 int link_ipv6ll_gained(Link *link, const struct in6_addr *address);
-
-int link_set_mtu(Link *link, uint32_t mtu);
 
 bool link_ipv4ll_enabled(Link *link);
 
