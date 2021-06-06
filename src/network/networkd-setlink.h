@@ -36,7 +36,6 @@ int link_configure_mtu(Link *link);
 
 int request_process_set_link(Request *req);
 
-int link_up(Link *link);
 int link_down(Link *link);
 
 int request_process_activation(Request *req);
