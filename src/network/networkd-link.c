@@ -692,6 +692,9 @@ int link_handle_bound_to_list(Link *link) {
 
         assert(link);
 
+        /* If at least one interface in bound_to_links has carrier, then make this interface up.
+         * If all interfaces in bound_to_links do not, then make this interface down. */
+
         if (hashmap_isempty(link->bound_to_links))
                 return 0;
 
@@ -717,6 +720,8 @@ static int link_handle_bound_by_list(Link *link) {
         int r;
 
         assert(link);
+
+        /* Update up or down state of interfaces which depend on this interface's carrier state. */
 
         if (hashmap_isempty(link->bound_by_links))
                 return 0;
