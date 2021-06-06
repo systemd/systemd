@@ -1567,7 +1567,7 @@ static int link_admin_state_up(Link *link) {
         if (!link->network)
                 return 0;
 
-        if (link->network->activation_policy == ACTIVATION_POLICY_ALWAYS_DOWN) {
+        if (link->activated && link->network->activation_policy == ACTIVATION_POLICY_ALWAYS_DOWN) {
                 log_link_info(link, "ActivationPolicy is \"always-off\", forcing link down");
                 return link_down(link);
         }
@@ -1587,7 +1587,7 @@ static int link_admin_state_down(Link *link) {
         if (!link->network)
                 return 0;
 
-        if (link->network->activation_policy == ACTIVATION_POLICY_ALWAYS_UP) {
+        if (link->activated && link->network->activation_policy == ACTIVATION_POLICY_ALWAYS_UP) {
                 log_link_info(link, "ActivationPolicy is \"always-on\", forcing link up");
                 return link_up(link);
         }
