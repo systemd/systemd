@@ -630,7 +630,9 @@ MMapFileDescriptor* mmap_cache_add_fd(MMapCache *m, int fd, int prot) {
 
 void mmap_cache_free_fd(MMapCache *m, MMapFileDescriptor *f) {
         assert(m);
-        assert(f);
+
+        if (!f)
+                return;
 
         /* Make sure that any queued SIGBUS are first dispatched, so
          * that we don't end up with a SIGBUS entry we cannot relate

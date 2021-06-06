@@ -2000,44 +2000,54 @@ static int setup_keys(void) {
 }
 
 static int verify(sd_journal *j) {
-        int r = 0;
         JournalFile *f;
+        int r = 0;
 
         assert(j);
 
         log_show_color(true);
 
         ORDERED_HASHMAP_FOREACH(f, j->files) {
-                int k;
                 usec_t first = 0, validated = 0, last = 0;
-
-#if HAVE_GCRYPT
-                if (!arg_verify_key && JOURNAL_HEADER_SEALED(f->header))
-                        log_notice("Journal file %s has sealing enabled but verification key has not been passed using --verify-key=.", f->path);
-#endif
-
+                int k;
+retry:
+                /* FIXME: why passing 'first' and 'last' since we can read them
+                 * from the journal header ? */
                 k = journal_file_verify(f, arg_verify_key, &first, &validated, &last, true);
                 if (k == -EINVAL)
                         /* If the key was invalid give up right-away. */
                         return k;
-                else if (k < 0)
+                if (k == -EAGAIN) {
+                        /* FIXME: maybe sleep between 2 attempts, if so how long ? */
+                        log_warning("File was modified since the validation started, retrying...");
+                        goto retry;
+                }
+                if (k < 0) {
                         r = log_warning_errno(k, "FAIL: %s (%m)", f->path);
-                else {
-                        char a[FORMAT_TIMESTAMP_MAX], b[FORMAT_TIMESTAMP_MAX], c[FORMAT_TIMESPAN_MAX];
-                        log_info("PASS: %s", f->path);
+                        continue;
+                }
 
-                        if (arg_verify_key && JOURNAL_HEADER_SEALED(f->header)) {
-                                if (validated > 0) {
-                                        log_info("=> Validated from %s to %s, final %s entries not sealed.",
-                                                 format_timestamp_maybe_utc(a, sizeof(a), first),
-                                                 format_timestamp_maybe_utc(b, sizeof(b), validated),
-                                                 format_timespan(c, sizeof(c), last > validated ? last - validated : 0, 0));
-                                } else if (last > 0)
-                                        log_info("=> No sealing yet, %s of entries not sealed.",
-                                                 format_timespan(c, sizeof(c), last - first, 0));
-                                else
-                                        log_info("=> No sealing yet, no entries in file.");
-                        }
+                log_info("PASS: %s", f->path);
+
+                if (f->seal) {
+                        char a[FORMAT_TIMESTAMP_MAX], b[FORMAT_TIMESTAMP_MAX], c[FORMAT_TIMESPAN_MAX];
+
+                        assert(arg_verify_key);
+
+                        if (last == validated)
+                                log_info("=> Validated from %s to %s, all entries sealed.",
+                                         format_timestamp_maybe_utc(a, sizeof(a), first),
+                                         format_timestamp_maybe_utc(b, sizeof(b), validated));
+                        else if (validated > 0)
+                                log_info("=> Validated from %s to %s, final %s of entries not sealed.",
+                                         format_timestamp_maybe_utc(a, sizeof(a), first),
+                                         format_timestamp_maybe_utc(b, sizeof(b), validated),
+                                         format_timespan(c, sizeof(c), last - validated, 0));
+                        else if (last > 0)
+                                log_info("=> No sealing yet, %s of entries not sealed.",
+                                         format_timespan(c, sizeof(c), last - first, 0));
+                        else
+                                log_info("=> No sealing yet, no entries in file.");
                 }
         }
 

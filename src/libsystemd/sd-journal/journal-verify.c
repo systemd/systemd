@@ -90,23 +90,28 @@ static void flush_progress(void) {
         fflush(stdout);
 }
 
+static void flush_progress_level(int level) {
+        if (log_get_max_level() >= level)
+                flush_progress();
+}
+
 #define debug(_offset, _fmt, ...) do {                                  \
-                flush_progress();                                       \
+                flush_progress_level(LOG_DEBUG);                        \
                 log_debug(OFSfmt": " _fmt, _offset, ##__VA_ARGS__);     \
         } while (0)
 
 #define warning(_offset, _fmt, ...) do {                                \
-                flush_progress();                                       \
+                flush_progress_level(LOG_WARNING);                      \
                 log_warning(OFSfmt": " _fmt, _offset, ##__VA_ARGS__);   \
         } while (0)
 
 #define error(_offset, _fmt, ...) do {                                  \
-                flush_progress();                                       \
+                flush_progress_level(LOG_ERR);                          \
                 log_error(OFSfmt": " _fmt, (uint64_t)_offset, ##__VA_ARGS__); \
         } while (0)
 
-#define error_errno(_offset, error, _fmt, ...) do {               \
-                flush_progress();                                       \
+#define error_errno(_offset, error, _fmt, ...) do {                     \
+                flush_progress_level(LOG_ERR);                          \
                 log_error_errno(error, OFSfmt": " _fmt, (uint64_t)_offset, ##__VA_ARGS__); \
         } while (0)
 
@@ -801,7 +806,7 @@ static int verify_entry_array(
         return 0;
 }
 
-int journal_file_verify(
+static int verify_journal_file(
                 JournalFile *f,
                 const char *key,
                 usec_t *first_contained, usec_t *last_validated, usec_t *last_contained,
@@ -815,7 +820,7 @@ int journal_file_verify(
         bool entry_seqnum_set = false, entry_monotonic_set = false, entry_realtime_set = false, found_main_entry_array = false;
         uint64_t n_weird = 0, n_objects = 0, n_entries = 0, n_data = 0, n_fields = 0, n_data_hash_tables = 0, n_field_hash_tables = 0, n_entry_arrays = 0, n_tags = 0;
         usec_t last_usec = 0;
-        int data_fd = -1, entry_fd = -1, entry_array_fd = -1;
+        _cleanup_close_ int data_fd = -1, entry_fd = -1, entry_array_fd = -1;
         MMapFileDescriptor *cache_data_fd = NULL, *cache_entry_fd = NULL, *cache_entry_array_fd = NULL;
         unsigned i;
         bool found_last = false;
@@ -829,15 +834,14 @@ int journal_file_verify(
         if (key) {
 #if HAVE_GCRYPT
                 r = journal_file_parse_verification_key(f, key);
-                if (r < 0) {
-                        log_error("Failed to parse seed.");
-                        return r;
-                }
+                if (r < 0)
+                        return log_error_errno(r, "Failed to parse seed: %m");
 #else
                 return -EOPNOTSUPP;
 #endif
         } else if (f->seal)
-                return -ENOKEY;
+                return log_error_errno(SYNTHETIC_ERRNO(ENOKEY),
+                                       "File has sealing enabled but no verification key was provided.");
 
         r = var_tmp_dir(&tmp_dir);
         if (r < 0) {
@@ -931,7 +935,7 @@ int journal_file_verify(
                     !!(o->object.flags & OBJECT_COMPRESSED_LZ4) +
                     !!(o->object.flags & OBJECT_COMPRESSED_ZSTD) > 1) {
                         error(p, "Object has multiple compression flags set");
-                        r = -EINVAL;
+                        r = -EBADMSG;
                         goto fail;
                 }
 
@@ -1284,10 +1288,6 @@ int journal_file_verify(
         mmap_cache_free_fd(f->mmap, cache_entry_fd);
         mmap_cache_free_fd(f->mmap, cache_entry_array_fd);
 
-        safe_close(data_fd);
-        safe_close(entry_fd);
-        safe_close(entry_array_fd);
-
         if (first_contained)
                 *first_contained = le64toh(f->header->head_entry_realtime);
         if (last_validated)
@@ -1307,23 +1307,43 @@ fail:
                   (unsigned long long) f->last_stat.st_size,
                   100 * p / f->last_stat.st_size);
 
-        if (data_fd >= 0)
-                safe_close(data_fd);
-
-        if (entry_fd >= 0)
-                safe_close(entry_fd);
-
-        if (entry_array_fd >= 0)
-                safe_close(entry_array_fd);
-
-        if (cache_data_fd)
-                mmap_cache_free_fd(f->mmap, cache_data_fd);
-
-        if (cache_entry_fd)
-                mmap_cache_free_fd(f->mmap, cache_entry_fd);
-
-        if (cache_entry_array_fd)
-                mmap_cache_free_fd(f->mmap, cache_entry_array_fd);
+        mmap_cache_free_fd(f->mmap, cache_data_fd);
+        mmap_cache_free_fd(f->mmap, cache_entry_fd);
+        mmap_cache_free_fd(f->mmap, cache_entry_array_fd);
 
         return r;
+}
+
+int journal_file_verify(
+                JournalFile *f,
+                const char *key,
+                usec_t *first_contained, usec_t *last_validated, usec_t *last_contained,
+                bool show_progress) {
+
+        le64_t tail_object_offset;
+        uint8_t state;
+        int r;
+
+        assert(f);
+
+        state = READ_NOW(f->header->state);
+
+        /* Remember where the last object lives when we started the verification so we can check
+         * later whether new ojbects have been appended if something goes wrong. */
+        if (state != STATE_ARCHIVED)
+                tail_object_offset = READ_NOW(f->header->tail_object_offset);
+
+        r = verify_journal_file(f, key, first_contained, last_validated, last_contained, show_progress);
+        if (r != -EBADMSG || state == STATE_ARCHIVED)
+                return r;
+
+        /* So we detected a potential file corruption. Make sure no new object was added since we
+         * started the validation otherwise the picture we took of the journal file at the
+         * beginning of the validation might have become outdated hence inconsistent with the data
+         * we expect to read. If that's the case, we return EAGAIN so the caller can choose to
+         * retry the verification. */
+         if (tail_object_offset != READ_NOW(f->header->tail_object_offset))
+                 return -EAGAIN;
+
+         return r;
 }
