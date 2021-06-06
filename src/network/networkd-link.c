@@ -411,20 +411,20 @@ void link_check_ready(Link *link) {
         if (!link->network)
                 return (void) log_link_debug(link, "%s(): link is unmanaged.", __func__);
 
-        if (link->iftype == ARPHRD_CAN) {
-                /* let's shortcut things for CAN which doesn't need most of checks below. */
-                if (!link->can_configured)
-                        return (void) log_link_debug(link, "%s(): CAN device is not configured.", __func__);
-
-                link_set_state(link, LINK_STATE_CONFIGURED);
-                return;
-        }
+        if (!link->tc_configured)
+                return (void) log_link_debug(link, "%s(): traffic controls are not configured.", __func__);
 
         if (link->set_link_messages > 0)
                 return (void) log_link_debug(link, "%s(): link layer is configuring.", __func__);
 
         if (!link->activated)
                 return (void) log_link_debug(link, "%s(): link is not activated.", __func__);
+
+        if (link->iftype == ARPHRD_CAN) {
+                /* let's shortcut things for CAN which doesn't need most of checks below. */
+                link_set_state(link, LINK_STATE_CONFIGURED);
+                return;
+        }
 
         if (!link->static_addresses_configured)
                 return (void) log_link_debug(link, "%s(): static addresses are not configured.", __func__);
@@ -460,9 +460,6 @@ void link_check_ready(Link *link) {
 
         if (!link->static_routing_policy_rules_configured)
                 return (void) log_link_debug(link, "%s(): static routing policy rules are not configured.", __func__);
-
-        if (!link->tc_configured)
-                return (void) log_link_debug(link, "%s(): traffic controls are not configured.", __func__);
 
         if (!link->sr_iov_configured)
                 return (void) log_link_debug(link, "%s(): SR-IOV is not configured.", __func__);
@@ -1028,13 +1025,18 @@ static int link_configure(Link *link) {
         if (r < 0)
                 return r;
 
+        if (link->iftype == ARPHRD_CAN) {
+                /* let's shortcut things for CAN which doesn't need most of what's done below. */
+                r = link_request_to_set_can(link);
+                if (r < 0)
+                        return r;
+
+                return link_request_to_activate(link);
+        }
+
         r = link_configure_sr_iov(link);
         if (r < 0)
                 return r;
-
-        if (link->iftype == ARPHRD_CAN)
-                /* let's shortcut things for CAN which doesn't need most of what's done below. */
-                return link_configure_can(link);
 
         r = link_set_sysctl(link);
         if (r < 0)
@@ -1588,10 +1590,6 @@ static int link_admin_state_down(Link *link) {
                 return 0;
 
         if (link->network->activation_policy == ACTIVATION_POLICY_ALWAYS_UP) {
-                if (streq_ptr(link->kind, "can") && !link->can_configured)
-                        /* CAN device needs to be down on configure. */
-                        return 0;
-
                 log_link_info(link, "ActivationPolicy is \"always-on\", forcing link up");
                 return link_up(link);
         }

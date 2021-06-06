@@ -2,9 +2,11 @@
 
 #include <netinet/in.h>
 #include <linux/if.h>
+#include <linux/if_arp.h>
 
 #include "missing_network.h"
 #include "netlink-util.h"
+#include "networkd-can.h"
 #include "networkd-link.h"
 #include "networkd-manager.h"
 #include "networkd-queue.h"
@@ -16,6 +18,7 @@ static const char *const set_link_operation_table[_SET_LINK_OPERATION_MAX] = {
         [SET_LINK_BOND]                    = "bond configurations",
         [SET_LINK_BRIDGE]                  = "bridge configurations",
         [SET_LINK_BRIDGE_VLAN]             = "bridge VLAN configurations",
+        [SET_LINK_CAN]                     = "CAN interface configurations",
         [SET_LINK_FLAGS]                   = "link flags",
         [SET_LINK_GROUP]                   = "interface group",
         [SET_LINK_MAC]                     = "MAC address",
@@ -111,6 +114,10 @@ static int link_set_bridge_vlan_handler(sd_netlink *rtnl, sd_netlink_message *m,
         return set_link_handler_internal(rtnl, m, link, SET_LINK_BRIDGE_VLAN, true, NULL);
 }
 
+static int link_set_can_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
+        return set_link_handler_internal(rtnl, m, link, SET_LINK_CAN, false, NULL);
+}
+
 static int link_set_flags_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
         return set_link_handler_internal(rtnl, m, link, SET_LINK_FLAGS, true, get_link_default_handler);
 }
@@ -161,7 +168,7 @@ static int link_configure(
 
         log_link_debug(link, "Setting %s", set_link_operation_to_string(op));
 
-        if (op == SET_LINK_BOND) {
+        if (IN_SET(op, SET_LINK_BOND, SET_LINK_CAN)) {
                 r = sd_rtnl_message_new_link(link->manager->rtnl, &req, RTM_NEWLINK, link->master_ifindex);
                 if (r < 0)
                         return log_link_debug_errno(link, r, "Could not allocate RTM_NEWLINK message: %m");
@@ -349,6 +356,11 @@ static int link_configure(
                         return log_link_debug_errno(link, r, "Could not close IFLA_AF_SPEC container: %m");
 
                 break;
+        case SET_LINK_CAN:
+                r = can_set_netlink_message(link, req);
+                if (r < 0)
+                        return r;
+                break;
         case SET_LINK_FLAGS: {
                 unsigned ifi_change = 0, ifi_flags = 0;
 
@@ -441,6 +453,16 @@ static bool link_is_ready_to_call_set_link(Request *req) {
         case SET_LINK_BRIDGE_VLAN:
                 if (!link->master_set)
                         return false;
+                break;
+        case SET_LINK_CAN:
+                if (FLAGS_SET(link->flags, IFF_UP)) {
+                        /* The CAN interface must be down to configure bitrate, etc... */
+                        r = link_down(link);
+                        if (r < 0) {
+                                link_enter_failed(link);
+                                return false;
+                        }
+                }
                 break;
         case SET_LINK_MASTER: {
                 uint32_t m = 0;
@@ -597,6 +619,19 @@ int link_request_to_set_bridge_vlan(Link *link) {
                 return 0;
 
         return link_request_set_link(link, SET_LINK_BRIDGE_VLAN, link_set_bridge_vlan_handler, NULL);
+}
+
+int link_request_to_set_can(Link *link) {
+        assert(link);
+        assert(link->network);
+
+        if (link->iftype != ARPHRD_CAN)
+                return 0;
+
+        if (!streq_ptr(link->kind, "can"))
+                return 0;
+
+        return link_request_set_link(link, SET_LINK_CAN, link_set_can_handler, NULL);
 }
 
 int link_request_to_set_flags(Link *link) {

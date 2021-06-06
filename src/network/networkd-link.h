@@ -136,7 +136,6 @@ typedef struct Link {
         bool static_routing_policy_rules_configured:1;
         bool tc_configured:1;
         bool sr_iov_configured:1;
-        bool can_configured:1;
         bool activated:1;
         bool master_set:1;
         bool stacked_netdevs_created:1;
