@@ -2012,7 +2012,7 @@ static int link_update_hardware_address(Link *link, sd_netlink_message *message)
 }
 
 static int link_update_mtu(Link *link, sd_netlink_message *message) {
-        uint32_t mtu;
+        uint32_t mtu, min_mtu = 0, max_mtu = UINT32_MAX;
         int r;
 
         assert(link);
@@ -2024,16 +2024,34 @@ static int link_update_mtu(Link *link, sd_netlink_message *message) {
         if (r < 0)
                 return log_link_debug_errno(link, r, "rtnl: failed to read MTU in RTM_NEWLINK message: %m");
 
-        if (mtu == 0 || link->mtu == mtu)
+        r = sd_netlink_message_read_u32(message, IFLA_MIN_MTU, &min_mtu);
+        if (r < 0 && r != -ENODATA)
+                return log_link_debug_errno(link, r, "rtnl: failed to read minimum MTU in RTM_NEWLINK message: %m");
+
+        r = sd_netlink_message_read_u32(message, IFLA_MAX_MTU, &max_mtu);
+        if (r < 0 && r != -ENODATA)
+                return log_link_debug_errno(link, r, "rtnl: failed to read maximum MTU in RTM_NEWLINK message: %m");
+
+        if (mtu == 0)
                 return 0;
+
+        if (max_mtu == 0)
+                max_mtu = UINT32_MAX;
+
+        link->min_mtu = min_mtu;
+        link->max_mtu = max_mtu;
 
         if (link->original_mtu == 0) {
                 link->original_mtu = mtu;
-                log_link_debug(link, "Saved original MTU: %" PRIu32, link->original_mtu);
+                log_link_debug(link, "Saved original MTU %" PRIu32" (min: %"PRIu32", max: %"PRIu32")",
+                               link->original_mtu, link->min_mtu, link->max_mtu);
         }
 
-        if (link->mtu != 0)
-                log_link_debug(link, "MTU is changed: %"PRIu32" → %"PRIu32, link->mtu, mtu);
+        if (link->mtu == mtu)
+                return 0;
+
+        log_link_debug(link, "MTU is changed: %"PRIu32" → %"PRIu32" (min: %"PRIu32", max: %"PRIu32")",
+                       link->mtu, mtu, link->min_mtu, link->max_mtu);
 
         link->mtu = mtu;
 

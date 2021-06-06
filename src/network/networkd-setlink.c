@@ -677,16 +677,38 @@ int link_request_to_set_master(Link *link) {
 
 int link_request_to_set_mtu(Link *link, uint32_t mtu) {
         Request *req = NULL;  /* avoid false maybe-uninitialized warning */
+        const char *origin;
+        uint32_t min_mtu;
         int r;
 
         assert(link);
+        assert(link->network);
 
-        /* IPv6 protocol requires a minimum MTU of IPV6_MTU_MIN(1280) bytes on the interface. Bump up
-         * MTU bytes to IPV6_MTU_MIN. */
-        if (mtu < IPV6_MIN_MTU && link_ipv6_enabled(link)) {
-                log_link_warning(link, "Bumping MTU to " STRINGIFY(IPV6_MIN_MTU) ", as IPv6 is enabled "
-                                 "and requires a minimum MTU of " STRINGIFY(IPV6_MIN_MTU) " bytes");
-                mtu = IPV6_MIN_MTU;
+        min_mtu = link->min_mtu;
+        origin = "the minimum MTU of the interface";
+        if (link_ipv6_enabled(link)) {
+                /* IPv6 protocol requires a minimum MTU of IPV6_MTU_MIN(1280) bytes on the interface. Bump up
+                 * MTU bytes to IPV6_MTU_MIN. */
+                if (min_mtu < IPV6_MIN_MTU) {
+                        min_mtu = IPV6_MIN_MTU;
+                        origin = "the minimum IPv6 MTU";
+                }
+                if (min_mtu < link->network->ipv6_mtu) {
+                        min_mtu = link->network->ipv6_mtu;
+                        origin = "the requested IPv6 MTU in IPv6MTUBytes=";
+                }
+        }
+
+        if (mtu < min_mtu) {
+                log_link_warning(link, "Bumping the requested MTU %"PRIu32" to %s (%"PRIu32")",
+                                 mtu, origin, min_mtu);
+                mtu = min_mtu;
+        }
+
+        if (mtu > link->max_mtu) {
+                log_link_warning(link, "Reducing the requested MTU %"PRIu32" to the interface's maximum MTU %"PRIu32".",
+                                 mtu, link->max_mtu);
+                mtu = link->max_mtu;
         }
 
         if (link->mtu == mtu)
