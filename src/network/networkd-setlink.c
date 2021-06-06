@@ -835,10 +835,6 @@ static int link_up_or_down(Link *link, bool up, link_netlink_message_handler_t c
         return 0;
 }
 
-int link_up(Link *link) {
-        return link_up_or_down(link, true, link_up_handler);
-}
-
 int link_down(Link *link) {
         return link_up_or_down(link, false, link_down_handler);
 }
