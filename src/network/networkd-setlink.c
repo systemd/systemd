@@ -103,15 +103,15 @@ static int link_set_addrgen_mode_handler(sd_netlink *rtnl, sd_netlink_message *m
 }
 
 static int link_set_bond_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
-        return set_link_handler_internal(rtnl, m, link, SET_LINK_BOND, true, NULL);
+        return set_link_handler_internal(rtnl, m, link, SET_LINK_BOND, false, NULL);
 }
 
 static int link_set_bridge_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
-        return set_link_handler_internal(rtnl, m, link, SET_LINK_BRIDGE, true, NULL);
+        return set_link_handler_internal(rtnl, m, link, SET_LINK_BRIDGE, false, NULL);
 }
 
 static int link_set_bridge_vlan_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
-        return set_link_handler_internal(rtnl, m, link, SET_LINK_BRIDGE_VLAN, true, NULL);
+        return set_link_handler_internal(rtnl, m, link, SET_LINK_BRIDGE_VLAN, false, NULL);
 }
 
 static int link_set_can_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
@@ -119,11 +119,11 @@ static int link_set_can_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *l
 }
 
 static int link_set_flags_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
-        return set_link_handler_internal(rtnl, m, link, SET_LINK_FLAGS, true, get_link_default_handler);
+        return set_link_handler_internal(rtnl, m, link, SET_LINK_FLAGS, false, get_link_default_handler);
 }
 
 static int link_set_group_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
-        return set_link_handler_internal(rtnl, m, link, SET_LINK_GROUP, true, NULL);
+        return set_link_handler_internal(rtnl, m, link, SET_LINK_GROUP, false, NULL);
 }
 
 static int link_set_mac_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
@@ -131,7 +131,7 @@ static int link_set_mac_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *l
 }
 
 static int link_set_master_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
-        return set_link_handler_internal(rtnl, m, link, SET_LINK_MASTER, true, get_link_master_handler);
+        return set_link_handler_internal(rtnl, m, link, SET_LINK_MASTER, false, get_link_master_handler);
 }
 
 static int link_set_mtu_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
