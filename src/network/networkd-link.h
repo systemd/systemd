@@ -58,6 +58,9 @@ typedef struct Link {
         struct ether_addr permanent_mac;
         struct in6_addr ipv6ll_address;
         uint32_t mtu;
+        uint32_t min_mtu;
+        uint32_t max_mtu;
+        uint32_t original_mtu;
         sd_device *sd_device;
         char *driver;
 
@@ -114,7 +117,6 @@ typedef struct Link {
         Address *dhcp_address, *dhcp_address_old;
         Set *dhcp_routes, *dhcp_routes_old;
         char *lease_file;
-        uint32_t original_mtu;
         unsigned dhcp4_messages;
         sd_ipv4acd *dhcp_acd;
         bool dhcp4_route_failed:1;
