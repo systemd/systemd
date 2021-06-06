@@ -81,7 +81,7 @@ static int prepare_socket_bind_bpf(
                                 "Failed to resize BPF map '%s': %m", sym_bpf_map__name(obj->maps.sd_bind_deny));
 
         if (socket_bind_bpf__load(obj) != 0)
-                return log_unit_error_errno(u, errno, "Failed to load BPF object");
+                return log_unit_error_errno(u, errno, "Failed to load BPF object: %m");
 
         allow_map_fd = sym_bpf_map__fd(obj->maps.sd_bind_allow);
         assert(allow_map_fd >= 0);
