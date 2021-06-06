@@ -708,9 +708,9 @@ int link_handle_bound_to_list(Link *link) {
                 }
 
         if (!required_up && link_is_up)
-                return link_down(link);
+                return link_request_to_bring_up_or_down(link, /* up = */ false);
         if (required_up && !link_is_up)
-                return link_up(link);
+                return link_request_to_bring_up_or_down(link, /* up = */ true);
 
         return 0;
 }

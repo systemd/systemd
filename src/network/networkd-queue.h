@@ -35,6 +35,7 @@ typedef enum RequestType {
         REQUEST_TYPE_ROUTE,
         REQUEST_TYPE_ROUTING_POLICY_RULE,
         REQUEST_TYPE_SET_LINK,
+        REQUEST_TYPE_UP_DOWN,
         _REQUEST_TYPE_MAX,
         _REQUEST_TYPE_INVALID = -EINVAL,
 } RequestType;

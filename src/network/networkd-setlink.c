@@ -802,6 +802,10 @@ static int link_down_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link
         return link_up_or_down_handler_internal(rtnl, m, link, false, false);
 }
 
+static const char *up_or_down(bool up) {
+        return up ? "up" : "down";
+}
+
 static int link_up_or_down(Link *link, bool up, link_netlink_message_handler_t callback) {
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL;
         int r;
@@ -811,7 +815,7 @@ static int link_up_or_down(Link *link, bool up, link_netlink_message_handler_t c
         assert(link->manager->rtnl);
         assert(callback);
 
-        log_link_debug(link, "Bringing link %s", up ? "up" : "down");
+        log_link_debug(link, "Bringing link %s", up_or_down(up));
 
         r = sd_rtnl_message_new_link(link->manager->rtnl, &req, RTM_SETLINK, link->ifindex);
         if (r < 0)
@@ -869,7 +873,7 @@ int request_process_activation(Request *req) {
 
         r = link_up_or_down(link, up, req->netlink_handler);
         if (r < 0)
-                return log_link_error_errno(link, r, "Failed to bring %s: %m", up ? "up" : "down");
+                return log_link_error_errno(link, r, "Failed to bring %s: %m", up_or_down(up));
 
         return 1;
 }
@@ -884,7 +888,6 @@ int link_request_to_activate(Link *link) {
 
         switch (link->network->activation_policy) {
         case ACTIVATION_POLICY_BOUND:
-                /* FIXME: also use request queue to handle the list. */
                 r = link_handle_bound_to_list(link);
                 if (r < 0)
                         return r;
@@ -915,5 +918,63 @@ int link_request_to_activate(Link *link) {
         req->userdata = INT_TO_PTR(up);
 
         log_link_debug(link, "Requested to activate link");
+        return 0;
+}
+
+static bool link_is_ready_to_bring_up_or_down(Link *link) {
+        assert(link);
+
+        if (link->state == LINK_STATE_UNMANAGED)
+                return true;
+
+        if (!IN_SET(link->state, LINK_STATE_CONFIGURING, LINK_STATE_CONFIGURED))
+                return false;
+
+        if (link->set_link_messages > 0)
+                return false;
+
+        if (!link->activated)
+                return false;
+
+        return true;
+}
+
+int request_process_link_up_or_down(Request *req) {
+        Link *link;
+        bool up;
+        int r;
+
+        assert(req);
+        assert(req->link);
+        assert(req->type == REQUEST_TYPE_UP_DOWN);
+
+        link = req->link;
+        up = PTR_TO_INT(req->userdata);
+
+        if (!link_is_ready_to_bring_up_or_down(link))
+                return 0;
+
+        r = link_up_or_down(link, up, req->netlink_handler);
+        if (r < 0)
+                return log_link_error_errno(link, r, "Failed to bring %s: %m", up_or_down(up));
+
+        return 1;
+}
+
+int link_request_to_bring_up_or_down(Link *link, bool up) {
+        Request *req;
+        int r;
+
+        assert(link);
+
+        r = link_queue_request(link, REQUEST_TYPE_UP_DOWN, NULL, false, NULL,
+                               up ? link_up_handler : link_down_handler, &req);
+        if (r < 0)
+                return log_link_error_errno(link, r, "Failed to request to bring %s link: %m",
+                                            up_or_down(up));
+
+        req->userdata = INT_TO_PTR(up);
+
+        log_link_debug(link, "Requested to bring link %s", up_or_down(up));
         return 0;
 }

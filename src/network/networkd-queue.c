@@ -49,6 +49,7 @@ static void request_free_object(RequestType type, void *object) {
                 routing_policy_rule_free(object);
                 break;
         case REQUEST_TYPE_SET_LINK:
+        case REQUEST_TYPE_UP_DOWN:
                 break;
         default:
                 assert_not_reached("invalid request type.");
@@ -125,6 +126,8 @@ static void request_hash_func(const Request *req, struct siphash *state) {
         case REQUEST_TYPE_SET_LINK:
                 siphash24_compress(&req->set_link_operation, sizeof(req->set_link_operation), state);
                 break;
+        case REQUEST_TYPE_UP_DOWN:
+                break;
         default:
                 assert_not_reached("invalid request type.");
         }
@@ -170,6 +173,8 @@ static int request_compare_func(const struct Request *a, const struct Request *b
                 return routing_policy_rule_compare_func(a->rule, b->rule);
         case REQUEST_TYPE_SET_LINK:
                 return CMP(a->set_link_operation, b->set_link_operation);
+        case REQUEST_TYPE_UP_DOWN:
+                return 0;
         default:
                 assert_not_reached("invalid request type.");
         }
@@ -201,7 +206,8 @@ int link_queue_request(
         assert(IN_SET(type,
                       REQUEST_TYPE_ACTIVATE_LINK,
                       REQUEST_TYPE_DHCP_SERVER,
-                      REQUEST_TYPE_SET_LINK) ||
+                      REQUEST_TYPE_SET_LINK,
+                      REQUEST_TYPE_UP_DOWN) ||
                object);
         assert(type == REQUEST_TYPE_DHCP_SERVER || netlink_handler);
 
@@ -295,6 +301,9 @@ int manager_process_requests(sd_event_source *s, void *userdata) {
                                 break;
                         case REQUEST_TYPE_SET_LINK:
                                 r = request_process_set_link(req);
+                                break;
+                        case REQUEST_TYPE_UP_DOWN:
+                                r = request_process_link_up_or_down(req);
                                 break;
                         default:
                                 return -EINVAL;
