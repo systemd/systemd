@@ -1483,9 +1483,13 @@ static int link_carrier_gained(Link *link) {
 
         assert(link);
 
+        r = link_handle_bound_by_list(link);
+        if (r < 0)
+                return r;
+
         if (link->iftype == ARPHRD_CAN)
                 /* let's shortcut things for CAN which doesn't need most of what's done below. */
-                return link_handle_bound_by_list(link);
+                return 0;
 
         r = wifi_get_info(link);
         if (r < 0)
@@ -1506,7 +1510,7 @@ static int link_carrier_gained(Link *link) {
                         return r;
         }
 
-        return link_handle_bound_by_list(link);
+        return 0;
 }
 
 static int link_carrier_lost(Link *link) {
@@ -1514,12 +1518,16 @@ static int link_carrier_lost(Link *link) {
 
         assert(link);
 
-        if (link->network && link->network->ignore_carrier_loss)
-                return 0;
+        r = link_handle_bound_by_list(link);
+        if (r < 0)
+                return r;
 
         if (link->iftype == ARPHRD_CAN)
                 /* let's shortcut things for CAN which doesn't need most of what's done below. */
-                return link_handle_bound_by_list(link);
+                return 0;
+
+        if (link->network && link->network->ignore_carrier_loss)
+                return 0;
 
         r = link_stop_engines(link, false);
         if (r < 0) {
@@ -1538,7 +1546,7 @@ static int link_carrier_lost(Link *link) {
                         return r;
         }
 
-        return link_handle_bound_by_list(link);
+        return 0;
 }
 
 int link_carrier_reset(Link *link) {
