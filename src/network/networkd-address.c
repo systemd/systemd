@@ -19,6 +19,40 @@
 #define ADDRESSES_PER_LINK_MAX 2048U
 #define STATIC_ADDRESSES_PER_NETWORK_MAX 1024U
 
+static int address_flags_to_string_alloc(uint32_t flags, int family, char **ret) {
+        _cleanup_free_ char *str = NULL;
+        static const struct {
+                uint32_t flag;
+                const char *name;
+        } map[] = {
+                { IFA_F_SECONDARY,      "secondary"                }, /* This is also called "temporary" for ipv6. */
+                { IFA_F_NODAD,          "nodad"                    },
+                { IFA_F_OPTIMISTIC,     "optimistic"               },
+                { IFA_F_DADFAILED,      "dadfailed"                },
+                { IFA_F_HOMEADDRESS,    "home-address"             },
+                { IFA_F_DEPRECATED,     "deprecated"               },
+                { IFA_F_TENTATIVE,      "tentative"                },
+                { IFA_F_PERMANENT,      "permanent"                },
+                { IFA_F_MANAGETEMPADDR, "manage-temporary-address" },
+                { IFA_F_NOPREFIXROUTE,  "no-prefixroute"           },
+                { IFA_F_MCAUTOJOIN,     "auto-join"                },
+                { IFA_F_STABLE_PRIVACY, "stable-privacy"           },
+        };
+
+        assert(IN_SET(family, AF_INET, AF_INET6));
+        assert(ret);
+
+        for (size_t i = 0; i < ELEMENTSOF(map); i++)
+                if (flags & map[i].flag &&
+                    !strextend_with_separator(
+                                &str, ",",
+                                map[i].flag == IFA_F_SECONDARY && family == AF_INET6 ? "temporary" : map[i].name))
+                        return -ENOMEM;
+
+        *ret = TAKE_PTR(str);
+        return 0;
+}
+
 int generate_ipv6_eui_64_address(const Link *link, struct in6_addr *ret) {
         assert(link);
         assert(ret);
@@ -348,7 +382,7 @@ static int address_add_internal(Link *link, Set **addresses, const Address *in, 
                 return r;
 
         /* Consider address tentative until we get the real flags from the kernel */
-        address->flags = IFA_F_TENTATIVE;
+        address->flags |= IFA_F_TENTATIVE;
 
         r = set_ensure_put(addresses, &address_hash_ops, address);
         if (r < 0)
@@ -586,7 +620,7 @@ int manager_has_address(Manager *manager, int family, const union in_addr_union 
 }
 
 static void log_address_debug(const Address *address, const char *str, const Link *link) {
-        _cleanup_free_ char *addr = NULL, *peer = NULL;
+        _cleanup_free_ char *addr = NULL, *peer = NULL, *flags_str = NULL;
         char valid_buf[FORMAT_TIMESPAN_MAX], preferred_buf[FORMAT_TIMESPAN_MAX];
         const char *valid_str = NULL, *preferred_str = NULL;
         bool has_peer;
@@ -613,11 +647,14 @@ static void log_address_debug(const Address *address, const char *str, const Lin
                                                 address->cinfo.ifa_prefered * USEC_PER_SEC,
                                                 USEC_PER_SEC);
 
-        log_link_debug(link, "%s address: %s%s%s/%u (valid %s%s, preferred %s%s)",
+        (void) address_flags_to_string_alloc(address->flags, address->family, &flags_str);
+
+        log_link_debug(link, "%s address: %s%s%s/%u (valid %s%s, preferred %s%s), flags: %s",
                        str, strnull(addr), has_peer ? " peer " : "",
                        has_peer ? strnull(peer) : "", address->prefixlen,
                        valid_str ? "for " : "forever", strempty(valid_str),
-                       preferred_str ? "for " : "forever", strempty(preferred_str));
+                       preferred_str ? "for " : "forever", strempty(preferred_str),
+                       strna(flags_str));
 }
 
 static int address_set_netlink_message(const Address *address, sd_netlink_message *req, Link *link) {
@@ -1221,7 +1258,6 @@ int manager_rtnl_process_address(sd_netlink *rtnl, sd_netlink_message *message, 
         _cleanup_(address_freep) Address *tmp = NULL;
         Link *link = NULL;
         uint16_t type;
-        unsigned char flags;
         Address *address = NULL;
         int ifindex, r;
 
@@ -1289,12 +1325,11 @@ int manager_rtnl_process_address(sd_netlink *rtnl, sd_netlink_message *message, 
                 return 0;
         }
 
-        r = sd_rtnl_message_addr_get_flags(message, &flags);
+        r = sd_netlink_message_read_u32(message, IFA_FLAGS, &tmp->flags);
         if (r < 0) {
                 log_link_warning_errno(link, r, "rtnl: received address message without flags, ignoring: %m");
                 return 0;
         }
-        tmp->flags = flags;
 
         switch (tmp->family) {
         case AF_INET:
