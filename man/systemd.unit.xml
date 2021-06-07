@@ -1374,11 +1374,23 @@
 
           <para>If the <varname>systemd.condition-needs-update=</varname> option is specified on the kernel
           command line (taking a boolean), it will override the result of this condition check, taking
-          precedence over any file modification time checks. If it is used
+          precedence over any file modification time checks. If the kernel command line option is used,
           <filename>systemd-update-done.service</filename> will not have immediate effect on any following
           <varname>ConditionNeedsUpdate=</varname> checks, until the system is rebooted where the kernel
           command line option is not specified anymore.</para>
-          </listitem>
+
+          <para>Note that to make this scheme effective, the timestamp of <filename>/usr/</filename> should
+          be explicitly updated after its contents are modified. The kernel will automatically update
+          modification timestamp on a directory only when immediate children of a directory are modified; an
+          modification of nested files will not automatically result in mtime of <filename>/usr/</filename>
+          being updated.</para>
+
+          <para>Also note that if the update method includes a call to execute appropriate post-update steps
+          itself, it should not touch the timestamp of <filename>/usr/</filename>. In a typical distribution
+          packaging scheme, packages will do any required update steps as part of the installation or
+          upgrade, to make package contents immediately usable. <varname>ConditionNeedsUpdate=</varname>
+          should be used with other update mechanisms where such an immediate update does not
+          happen.</para></listitem>
         </varlistentry>
 
         <varlistentry>
