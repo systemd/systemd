@@ -228,7 +228,9 @@
     Configurations in <filename><replaceable>type</replaceable>.d/</filename> have the lowest precedence
     compared to settings in the name specific override directories. So the contents of
     <filename>foo-.service.d/10-override.conf</filename> would override
-    <filename>service.d/10-override.conf</filename>.</para>
+    <filename>service.d/10-override.conf</filename>. In order to disable a top-level drop-in for a specific unit
+    it suffices to create a symlink to <filename>/dev/null</filename> from the unit drop-in directory. This symlink
+    should have the same name as the top-level drop-in file.</para>
 
     <para>Note that while systemd offers a flexible dependency system
     between units it is recommended to use this functionality only
