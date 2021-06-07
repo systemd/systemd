@@ -222,7 +222,7 @@ static int help(void) {
                "  -a --attr-match=FILE[=VALUE]      Trigger devices with a matching attribute\n"
                "  -A --attr-nomatch=FILE[=VALUE]    Exclude devices with a matching attribute\n"
                "  -p --property-match=KEY=VALUE     Trigger devices with a matching property\n"
-               "  -g --tag-match=KEY=VALUE          Trigger devices with a matching property\n"
+               "  -g --tag-match=TAG                Trigger devices with a matching tag\n"
                "  -y --sysname-match=NAME           Trigger devices with this /sys path\n"
                "     --name-match=NAME              Trigger devices with this /dev name\n"
                "  -b --parent-match=NAME            Trigger devices with that parent device\n"
