@@ -387,7 +387,7 @@ static int address_add_internal(Link *link, Set **addresses, const Address *in, 
                 return r;
 
         /* Consider address tentative until we get the real flags from the kernel */
-        address->flags = IFA_F_TENTATIVE;
+        address->flags |= IFA_F_TENTATIVE;
 
         r = set_ensure_put(addresses, &address_hash_ops, address);
         if (r < 0)
@@ -1291,7 +1291,6 @@ int manager_rtnl_process_address(sd_netlink *rtnl, sd_netlink_message *message, 
         _cleanup_(address_freep) Address *tmp = NULL;
         Link *link = NULL;
         uint16_t type;
-        unsigned char flags;
         Address *address = NULL;
         int ifindex, r;
 
@@ -1359,12 +1358,11 @@ int manager_rtnl_process_address(sd_netlink *rtnl, sd_netlink_message *message, 
                 return 0;
         }
 
-        r = sd_rtnl_message_addr_get_flags(message, &flags);
+        r = sd_netlink_message_read_u32(message, IFA_FLAGS, &tmp->flags);
         if (r < 0) {
                 log_link_warning_errno(link, r, "rtnl: received address message without flags, ignoring: %m");
                 return 0;
         }
-        tmp->flags = flags;
 
         switch (tmp->family) {
         case AF_INET:
