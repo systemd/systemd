@@ -175,6 +175,10 @@ int network_verify(Network *network) {
         if (network->ipv6ll_address_gen_mode == IPV6_LINK_LOCAL_ADDRESSS_GEN_MODE_NONE)
                 SET_FLAG(network->link_local, ADDRESS_FAMILY_IPV6, false);
 
+        if (in6_addr_is_set(&network->ipv6ll_stable_secret) &&
+            network->ipv6ll_address_gen_mode < 0)
+                network->ipv6ll_address_gen_mode = IPV6_LINK_LOCAL_ADDRESSS_GEN_MODE_STABLE_PRIVACY;
+
         /* IPMasquerade implies IPForward */
         network->ip_forward |= network->ip_masquerade;
 

@@ -591,18 +591,10 @@ int link_request_to_set_addrgen_mode(Link *link) {
                 mode = IN6_ADDR_GEN_MODE_NONE;
         else if (link->network->ipv6ll_address_gen_mode >= 0)
                 mode = link->network->ipv6ll_address_gen_mode;
-        else {
-                r = sysctl_read_ip_property(AF_INET6, link->ifname, "stable_secret", NULL);
-                if (r < 0) {
-                        /* The file may not exist. And even if it exists, when stable_secret is unset,
-                         * reading the file fails with ENOMEM when read_full_virtual_file(), which uses
-                         * read() as the backend, and EIO when read_one_line_file() which uses fgetc(). */
-                        log_link_debug_errno(link, r, "Failed to read sysctl property stable_secret, ignoring: %m");
-
-                        mode = IN6_ADDR_GEN_MODE_EUI64;
-                } else
-                        mode = IN6_ADDR_GEN_MODE_STABLE_PRIVACY;
-        }
+        else if (in6_addr_is_set(&link->network->ipv6ll_stable_secret))
+                mode = IN6_ADDR_GEN_MODE_STABLE_PRIVACY;
+        else
+                mode = IN6_ADDR_GEN_MODE_EUI64;
 
         r = link_request_set_link(link, SET_LINK_ADDRESS_GENERATION_MODE, link_set_addrgen_mode_handler, &req);
         if (r < 0)

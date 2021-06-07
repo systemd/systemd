@@ -222,6 +222,7 @@ L2TP=
 MACsec=
 LinkLocalAddressing=
 IPv6LinkLocalAddressGenerationMode=
+IPv6StableSecretAddress=
 ConfigureWithoutCarrier=
 NTP=
 DHCP=
