@@ -116,6 +116,9 @@ static int link_configure_and_start_dhcp_delayed(Link *link) {
                         return r;
         }
 
+        if (link->set_flags_messages > 0)
+                return 0;
+
         if (!link_has_carrier(link))
                 return 0;
 
