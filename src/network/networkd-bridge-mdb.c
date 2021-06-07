@@ -258,6 +258,9 @@ static bool bridge_mdb_is_ready_to_configure(Link *link) {
         if (!IN_SET(master->state, LINK_STATE_CONFIGURING, LINK_STATE_CONFIGURED))
                 return false;
 
+        if (master->set_flags_messages > 0)
+                return false;
+
         if (!link_has_carrier(master))
                 return false;
 

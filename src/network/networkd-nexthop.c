@@ -757,9 +757,11 @@ static bool nexthop_is_ready_to_configure(Link *link, const NextHop *nexthop) {
         } else {
                 Link *l;
 
-                /* TODO: fdb nexthop does not require IFF_UP. The condition below needs to be updated
+                /* TODO: fdb nexthop does not require IFF_UP. The conditions below needs to be updated
                  * when fdb nexthop support is added. See rtm_to_nh_config() in net/ipv4/nexthop.c of
                  * kernel. */
+                if (link->set_flags_messages > 0)
+                        return false;
                 if (!FLAGS_SET(link->flags, IFF_UP))
                         return false;
 
