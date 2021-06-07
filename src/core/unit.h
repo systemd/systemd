@@ -906,6 +906,7 @@ int unit_fork_helper_process(Unit *u, const char *name, pid_t *ret);
 int unit_fork_and_watch_rm_rf(Unit *u, char **paths, pid_t *ret_pid);
 
 void unit_remove_dependencies(Unit *u, UnitDependencyMask mask);
+void unit_remove_dependencies_of_type(Unit *u, UnitDependency d);
 
 void unit_export_state_files(Unit *u);
 void unit_unlink_state_files(Unit *u);
