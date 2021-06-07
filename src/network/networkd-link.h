@@ -98,6 +98,7 @@ typedef struct Link {
         unsigned tc_messages;
         unsigned sr_iov_messages;
         unsigned set_link_messages;
+        unsigned set_flags_messages;
         unsigned create_stacked_netdev_messages;
         unsigned create_stacked_netdev_after_configured_messages;
 
