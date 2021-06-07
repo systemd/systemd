@@ -659,11 +659,18 @@ static void test_ratelimit(void) {
         count = 0;
         for (unsigned i = 0; i < 10; i++) {
                 log_debug("fast event loop iteration %u", i);
-                assert_se(sd_event_run(e, UINT64_MAX) >= 0);
-                assert_se(usleep(10) >= 0);
+                assert_se(sd_event_run(e, 0) >= 0);
         }
+
+        /* We are ratelimited now. */
         log_info("ratelimit_io_handler: called %d times, event source got ratelimited", count);
-        assert_se(count < 10);
+        assert_se(sd_event_source_is_ratelimited(s) == 1);
+        assert_se(count == 5);
+
+        /* However, we should leave ratelimited state after 1s */
+        usleep(1000000);
+        assert_se(sd_event_run(e, 0) >= 0);
+        assert_se(sd_event_source_is_ratelimited(s) == 0);
 
         s = sd_event_source_unref(s);
         safe_close_pair(p);

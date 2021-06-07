@@ -3085,22 +3085,21 @@ static int process_timer(
         assert(e);
         assert(d);
 
+        PRIOQ_FOREACH_ITEM(d->earliest, s) {
+                assert_se(s);
+
+                if (!s->ratelimited || !ratelimit_below(&s->rate_limit))
+                        continue;
+
+                r = event_source_leave_ratelimit(s);
+                if (r < 0)
+                        return r;
+        }
+
         for (;;) {
                 s = prioq_peek(d->earliest);
                 if (!s || time_event_source_next(s) > n)
                         break;
-
-                if (s->ratelimited) {
-                        /* This is an event sources whose ratelimit window has ended. Let's turn it on
-                         * again. */
-                        assert(s->ratelimited);
-
-                        r = event_source_leave_ratelimit(s);
-                        if (r < 0)
-                                return r;
-
-                        continue;
-                }
 
                 if (s->enabled == SD_EVENT_OFF || s->pending)
                         break;
