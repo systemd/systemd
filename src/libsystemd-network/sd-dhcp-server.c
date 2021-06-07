@@ -1202,6 +1202,10 @@ int sd_dhcp_server_start(sd_dhcp_server *server) {
 
         assert_return(server, -EINVAL);
         assert_return(server->event, -EINVAL);
+
+        if (sd_dhcp_server_is_running(server))
+                return 0;
+
         assert_return(!server->receive_message, -EBUSY);
         assert_return(server->fd_raw < 0, -EBUSY);
         assert_return(server->fd < 0, -EBUSY);
