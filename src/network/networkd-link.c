@@ -1522,8 +1522,6 @@ static int link_carrier_lost(Link *link) {
                 return r;
         }
 
-        link_drop_requests(link);
-
         r = link_drop_config(link);
         if (r < 0)
                 return r;
