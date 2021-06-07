@@ -675,6 +675,11 @@ static int condition_test_needs_update(Condition *c, char **env) {
         if (r > 0)
                 return b;
 
+        if (in_initrd()) {
+                log_debug("We are in an initrd, not doing any updates.");
+                return false;
+        }
+
         if (!path_is_absolute(c->parameter)) {
                 log_debug("Specified condition parameter '%s' is not absolute, assuming an update is needed.", c->parameter);
                 return true;
