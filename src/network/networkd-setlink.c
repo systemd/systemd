@@ -38,6 +38,15 @@ static int get_link_master_handler(sd_netlink *rtnl, sd_netlink_message *m, Link
         return 0;
 }
 
+static int get_link_update_flag_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
+        assert(link);
+        assert(link->set_flags_messages > 0);
+
+        link->set_flags_messages--;
+
+        return get_link_default_handler(rtnl, m, link);
+}
+
 static int set_link_handler_internal(
                 sd_netlink *rtnl,
                 sd_netlink_message *m,
@@ -56,7 +65,7 @@ static int set_link_handler_internal(
         link->set_link_messages--;
 
         if (IN_SET(link->state, LINK_STATE_FAILED, LINK_STATE_LINGER))
-                return 0;
+                goto on_error;
 
         r = sd_netlink_message_get_errno(m);
         if (r < 0) {
@@ -67,7 +76,7 @@ static int set_link_handler_internal(
 
                 if (!ignore)
                         link_enter_failed(link);
-                return 0;
+                goto on_error;
         }
 
         log_link_debug(link, "%s set.", set_link_operation_to_string(op));
@@ -76,7 +85,7 @@ static int set_link_handler_internal(
                 r = link_call_getlink(link, get_link_handler);
                 if (r < 0) {
                         link_enter_failed(link);
-                        return 0;
+                        goto on_error;
                 }
         }
 
@@ -84,6 +93,14 @@ static int set_link_handler_internal(
                 link_check_ready(link);
 
         return 1;
+
+on_error:
+        if (op == SET_LINK_FLAGS) {
+                assert(link->set_flags_messages > 0);
+                link->set_flags_messages--;
+        }
+
+        return 0;
 }
 
 static int link_set_addrgen_mode_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
@@ -119,7 +136,7 @@ static int link_set_can_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *l
 }
 
 static int link_set_flags_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
-        return set_link_handler_internal(rtnl, m, link, SET_LINK_FLAGS, false, get_link_default_handler);
+        return set_link_handler_internal(rtnl, m, link, SET_LINK_FLAGS, false, get_link_update_flag_handler);
 }
 
 static int link_set_group_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
@@ -455,6 +472,8 @@ static bool link_is_ready_to_call_set_link(Request *req) {
                         return false;
                 break;
         case SET_LINK_CAN:
+                /* Do not check link->set_flgas_messages here, as it is ok even if link->flags
+                 * is outdated, and checking the counter causes a deadlock. */
                 if (FLAGS_SET(link->flags, IFF_UP)) {
                         /* The CAN interface must be down to configure bitrate, etc... */
                         r = link_down(link);
@@ -478,6 +497,8 @@ static bool link_is_ready_to_call_set_link(Request *req) {
                                 return false;
                         m = link->network->bond->ifindex;
 
+                        /* Do not check link->set_flgas_messages here, as it is ok even if link->flags
+                         * is outdated, and checking the counter causes a deadlock. */
                         if (FLAGS_SET(link->flags, IFF_UP)) {
                                 /* link must be down when joining to bond master. */
                                 r = link_down(link);
@@ -522,6 +543,9 @@ int request_process_set_link(Request *req) {
         if (r < 0)
                 return log_link_error_errno(req->link, r, "Failed to set %s: %m",
                                             set_link_operation_to_string(req->set_link_operation));
+
+        if (req->set_link_operation == SET_LINK_FLAGS)
+                req->link->set_flags_messages++;
 
         return 1;
 }
@@ -770,7 +794,7 @@ static int link_up_or_down_handler_internal(sd_netlink *rtnl, sd_netlink_message
         assert(link);
 
         if (IN_SET(link->state, LINK_STATE_FAILED, LINK_STATE_LINGER))
-                return 0;
+                goto on_error;
 
         r = sd_netlink_message_get_errno(m);
         if (r < 0)
@@ -778,10 +802,22 @@ static int link_up_or_down_handler_internal(sd_netlink *rtnl, sd_netlink_message
                                                "Could not bring up interface, ignoring" :
                                                "Could not bring down interface, ignoring");
 
+        r = link_call_getlink(link, get_link_update_flag_handler);
+        if (r < 0) {
+                link_enter_failed(link);
+                goto on_error;
+        }
+
         if (check_ready) {
                 link->activated = true;
                 link_check_ready(link);
         }
+
+        return 1;
+
+on_error:
+        assert(link->set_flags_messages > 0);
+        link->set_flags_messages--;
 
         return 0;
 }
@@ -906,7 +942,7 @@ int link_request_to_activate(Link *link) {
 
         link->activated = false;
 
-        r = link_queue_request(link, REQUEST_TYPE_ACTIVATE_LINK, NULL, false, NULL,
+        r = link_queue_request(link, REQUEST_TYPE_ACTIVATE_LINK, NULL, false, &link->set_flags_messages,
                                up ? link_activate_up_handler : link_activate_down_handler, &req);
         if (r < 0)
                 return log_link_error_errno(link, r, "Failed to request to activate link: %m");
@@ -963,7 +999,7 @@ int link_request_to_bring_up_or_down(Link *link, bool up) {
 
         assert(link);
 
-        r = link_queue_request(link, REQUEST_TYPE_UP_DOWN, NULL, false, NULL,
+        r = link_queue_request(link, REQUEST_TYPE_UP_DOWN, NULL, false, &link->set_flags_messages,
                                up ? link_up_handler : link_down_handler, &req);
         if (r < 0)
                 return log_link_error_errno(link, r, "Failed to request to bring %s link: %m",
