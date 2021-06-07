@@ -332,7 +332,7 @@
         </varlistentry>
         <varlistentry>
           <term><option>-g</option></term>
-          <term><option>--tag-match=<replaceable>PROPERTY</replaceable></option></term>
+          <term><option>--tag-match=<replaceable>TAG</replaceable></option></term>
           <listitem>
             <para>Trigger events for devices with a matching tag. When this option is specified multiple times,
             then each matching result is ANDed, that is, devices which have all specified tags are triggered.</para>
