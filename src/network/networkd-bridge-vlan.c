@@ -10,7 +10,7 @@
 #include "alloc-util.h"
 #include "conf-parser.h"
 #include "netlink-util.h"
-#include "networkd-brvlan.h"
+#include "networkd-bridge-vlan.h"
 #include "networkd-link.h"
 #include "networkd-manager.h"
 #include "networkd-network.h"
@@ -42,7 +42,13 @@ static int find_next_bit(int i, uint32_t x) {
         return j ? j + i : 0;
 }
 
-static int append_vlan_info_data(Link *const link, sd_netlink_message *req, uint16_t pvid, const uint32_t *br_vid_bitmap, const uint32_t *br_untagged_bitmap) {
+int bridge_vlan_append_info(
+                const Link *link,
+                sd_netlink_message *req,
+                uint16_t pvid,
+                const uint32_t *br_vid_bitmap,
+                const uint32_t *br_untagged_bitmap) {
+
         struct bridge_vlan_info br_vlan;
         bool done, untagged = false;
         uint16_t begin, end;
@@ -135,82 +141,29 @@ static int append_vlan_info_data(Link *const link, sd_netlink_message *req, uint
         return cnt;
 }
 
-static int set_brvlan_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
-        int r;
+void network_adjust_bridge_vlan(Network *network) {
+        assert(network);
 
-        assert(link);
-
-        r = sd_netlink_message_get_errno(m);
-        if (r < 0 && r != -EEXIST)
-                log_link_message_warning_errno(link, m, r, "Could not add VLAN to bridge port");
-
-        return 1;
-}
-
-int link_set_bridge_vlan(Link *link) {
-        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL;
-        int r;
-
-        assert(link);
-        assert(link->manager);
-        assert(link->network);
-
-        if (!link->network->use_br_vlan)
-                return 0;
-
-        if (!link->network->bridge && !streq_ptr(link->kind, "bridge"))
-                return 0;
+        if (!network->use_br_vlan)
+                return;
 
         /* pvid might not be in br_vid_bitmap yet */
-        if (link->network->pvid)
-                set_bit(link->network->pvid, link->network->br_vid_bitmap);
-
-        /* create new RTM message */
-        r = sd_rtnl_message_new_link(link->manager->rtnl, &req, RTM_SETLINK, link->ifindex);
-        if (r < 0)
-                return log_link_error_errno(link, r, "Could not allocate RTM_SETLINK message: %m");
-
-        r = sd_rtnl_message_link_set_family(req, AF_BRIDGE);
-        if (r < 0)
-                return log_link_error_errno(link, r, "Could not set message family: %m");
-
-        r = sd_netlink_message_open_container(req, IFLA_AF_SPEC);
-        if (r < 0)
-                return log_link_error_errno(link, r, "Could not open IFLA_AF_SPEC container: %m");
-
-        /* master needs flag self */
-        if (!link->network->bridge) {
-                uint16_t flags = BRIDGE_FLAGS_SELF;
-                r = sd_netlink_message_append_data(req, IFLA_BRIDGE_FLAGS, &flags, sizeof(flags));
-                if (r < 0)
-                        return log_link_error_errno(link, r, "Could not open IFLA_BRIDGE_FLAGS: %m");
-        }
-
-        /* add vlan info */
-        r = append_vlan_info_data(link, req, link->network->pvid, link->network->br_vid_bitmap, link->network->br_untagged_bitmap);
-        if (r < 0)
-                return log_link_error_errno(link, r, "Could not append VLANs: %m");
-
-        r = sd_netlink_message_close_container(req);
-        if (r < 0)
-                return log_link_error_errno(link, r, "Could not close IFLA_AF_SPEC container: %m");
-
-        /* send message to the kernel */
-        r = netlink_call_async(link->manager->rtnl, NULL, req, set_brvlan_handler,
-                               link_netlink_destroy_callback, link);
-        if (r < 0)
-                return log_link_error_errno(link, r, "Could not send rtnetlink message: %m");
-
-        link_ref(link);
-
-        return 0;
+        if (network->pvid)
+                set_bit(network->pvid, network->br_vid_bitmap);
 }
 
-int config_parse_brvlan_pvid(const char *unit, const char *filename,
-                             unsigned line, const char *section,
-                             unsigned section_line, const char *lvalue,
-                             int ltype, const char *rvalue, void *data,
-                             void *userdata) {
+int config_parse_brvlan_pvid(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
         Network *network = userdata;
         uint16_t pvid;
         int r;
@@ -225,11 +178,18 @@ int config_parse_brvlan_pvid(const char *unit, const char *filename,
         return 0;
 }
 
-int config_parse_brvlan_vlan(const char *unit, const char *filename,
-                             unsigned line, const char *section,
-                             unsigned section_line, const char *lvalue,
-                             int ltype, const char *rvalue, void *data,
-                             void *userdata) {
+int config_parse_brvlan_vlan(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
         Network *network = userdata;
         uint16_t vid, vid_end;
         int r;
@@ -253,14 +213,21 @@ int config_parse_brvlan_vlan(const char *unit, const char *filename,
         return 0;
 }
 
-int config_parse_brvlan_untagged(const char *unit, const char *filename,
-                                 unsigned line, const char *section,
-                                 unsigned section_line, const char *lvalue,
-                                 int ltype, const char *rvalue, void *data,
-                                 void *userdata) {
+int config_parse_brvlan_untagged(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
         Network *network = userdata;
-        int r;
         uint16_t vid, vid_end;
+        int r;
 
         assert(filename);
         assert(section);
