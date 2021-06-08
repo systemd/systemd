@@ -10,7 +10,8 @@ typedef enum SetLinkOperation {
         SET_LINK_ADDRESS_GENERATION_MODE, /* Setting IPv6LL address generation mode. */
         SET_LINK_BOND,                    /* Setting bond configs. */
         SET_LINK_BRIDGE,                  /* Setting bridge configs. */
-        SET_LINK_BRIDGE_VLAN,             /* Setting bridge vlan configs. */
+        SET_LINK_BRIDGE_VLAN,             /* Setting bridge VLAN configs. */
+        SET_LINK_CAN,                     /* Setting CAN interface configs. */
         SET_LINK_FLAGS,                   /* Setting IFF_NOARP or friends. */
         SET_LINK_GROUP,                   /* Setting interface group. */
         SET_LINK_MAC,                     /* Setting MAC address. */
@@ -24,6 +25,7 @@ int link_request_to_set_addrgen_mode(Link *link);
 int link_request_to_set_bond(Link *link);
 int link_request_to_set_bridge(Link *link);
 int link_request_to_set_bridge_vlan(Link *link);
+int link_request_to_set_can(Link *link);
 int link_request_to_set_flags(Link *link);
 int link_request_to_set_group(Link *link);
 int link_request_to_set_mac(Link *link);
@@ -34,8 +36,10 @@ int link_configure_mtu(Link *link);
 
 int request_process_set_link(Request *req);
 
-int link_up(Link *link);
 int link_down(Link *link);
 
 int request_process_activation(Request *req);
 int link_request_to_activate(Link *link);
+
+int request_process_link_up_or_down(Request *req);
+int link_request_to_bring_up_or_down(Link *link, bool up);
