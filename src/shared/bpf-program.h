@@ -38,6 +38,8 @@ int bpf_program_cgroup_detach(BPFProgram *p);
 int bpf_program_pin(int prog_fd, const char *bpffs_path);
 int bpf_program_get_id_by_fd(int prog_fd, uint32_t *ret_id);
 
+extern const struct hash_ops bpf_program_hash_ops;
+
 int bpf_map_new(enum bpf_map_type type, size_t key_size, size_t value_size, size_t max_entries, uint32_t flags);
 int bpf_map_update_element(int fd, const void *key, void *value);
 int bpf_map_lookup_element(int fd, const void *key, void *value);
