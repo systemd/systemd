@@ -220,11 +220,16 @@
           <command>systemd-networkd-wait-online</command>). When <literal>no</literal>, the network is ignored
           when determining the online state. When a minimum operational state and an optional maximum operational
           state are set, <literal>yes</literal> is implied, and this controls the minimum and maximum
-          operational state required for the network interface to be considered online.
-          Defaults to <literal>yes</literal>.</para>
+          operational state required for the network interface to be considered online.</para>
 
-          <para>The network will be brought up normally in all cases, but in
-          the event that there is no address being assigned by DHCP or the
+          <para>Defaults to <literal>yes</literal> when <varname>ActivationPolicy=</varname> is not set,
+          or set to <literal>up</literal>, <literal>always-up</literal>, or <literal>bound</literal>.
+          Defaults to <literal>no</literal> when <varname>ActivationPolicy=</varname> is set to
+          <literal>manual</literal> or <literal>down</literal>. This is forced to <literal>no</literal>
+          when <varname>ActivationPolicy=</varname> is set to <literal>always-down</literal>.</para>
+
+          <para>The network will be brought up normally (as configured by <varname>ActivationPolicy=</varname>),
+          but in the event that there is no address being assigned by DHCP or the
           cable is not plugged in, the link will simply remain offline and be
           skipped automatically by <command>systemd-networkd-wait-online</command>
           if <literal>RequiredForOnline=no</literal>.</para>
@@ -264,6 +269,11 @@
           or down, respectively, any time <command>systemd-networkd</command> detects a change in
           the administrative state. When <varname>BindCarrier=</varname> is also set, this is
           automatically set to <literal>bound</literal> and any other value is ignored.</para>
+
+          <para>When the policy is set to <literal>down</literal> or <literal>manual</literal>,
+          the default value of <varname>RequiredForOnline=</varname> is <literal>no</literal>.
+          When the policy is set to <literal>always-down</literal>, the value of
+          <varname>RequiredForOnline=</varname> forced to <literal>no</literal>.</para>
 
           <para>The administrative state is not the same as the carrier state, so using
           <literal>always-up</literal> does not mean the link will never lose carrier. The link

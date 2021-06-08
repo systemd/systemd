@@ -102,7 +102,7 @@ struct Network {
         int allmulticast;
         int promiscuous;
         bool unmanaged;
-        bool required_for_online; /* Is this network required to be considered online? */
+        int required_for_online; /* Is this network required to be considered online? */
         LinkOperationalStateRange required_operstate_for_online;
         AddressFamily required_family_for_online;
         ActivationPolicy activation_policy;
