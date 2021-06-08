@@ -5,7 +5,7 @@
 #endif
 
 #include "fd-util.h"
-#include "socket-bind.h"
+#include "bpf-socket-bind.h"
 
 #if BPF_FRAMEWORK
 /* libbpf, clang, llvm and bpftool compile time dependencies are satisfied */
@@ -114,7 +114,7 @@ static int prepare_socket_bind_bpf(
         return 0;
 }
 
-int socket_bind_supported(void) {
+int bpf_socket_bind_supported(void) {
         _cleanup_(socket_bind_bpf_freep) struct socket_bind_bpf *obj = NULL;
         int r;
 
@@ -143,7 +143,7 @@ int socket_bind_supported(void) {
         return can_link_bpf_program(obj->progs.sd_bind4);
 }
 
-int socket_bind_add_initial_link_fd(Unit *u, int fd) {
+int bpf_socket_bind_add_initial_link_fd(Unit *u, int fd) {
         int r;
 
         assert(u);
@@ -208,7 +208,7 @@ static int socket_bind_install_impl(Unit *u) {
         return 0;
 }
 
-int socket_bind_install(Unit *u) {
+int bpf_socket_bind_install(Unit *u) {
         int r;
 
         assert(u);
@@ -221,7 +221,7 @@ int socket_bind_install(Unit *u) {
         return r;
 }
 
-int serialize_socket_bind(Unit *u, FILE *f, FDSet *fds) {
+int bpf_serialize_socket_bind(Unit *u, FILE *f, FDSet *fds) {
         int r;
 
         assert(u);
@@ -234,19 +234,19 @@ int serialize_socket_bind(Unit *u, FILE *f, FDSet *fds) {
 }
 
 #else /* ! BPF_FRAMEWORK */
-int socket_bind_supported(void) {
+int bpf_socket_bind_supported(void) {
         return false;
 }
 
-int socket_bind_add_initial_link_fd(Unit *u, int fd) {
+int bpf_socket_bind_add_initial_link_fd(Unit *u, int fd) {
         return 0;
 }
 
-int socket_bind_install(Unit *u) {
+int bpf_socket_bind_install(Unit *u) {
         return log_unit_debug_errno(u, SYNTHETIC_ERRNO(EOPNOTSUPP), "Failed to install socket bind: BPF framework is not supported");
 }
 
-int serialize_socket_bind(Unit *u, FILE *f, FDSet *fds) {
+int bpf_serialize_socket_bind(Unit *u, FILE *f, FDSet *fds) {
         return 0;
 }
 #endif

@@ -1,12 +1,12 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "bpf-socket-bind.h"
 #include "load-fragment.h"
 #include "manager.h"
 #include "process-util.h"
 #include "rlimit-util.h"
 #include "rm-rf.h"
 #include "service.h"
-#include "socket-bind.h"
 #include "strv.h"
 #include "tests.h"
 #include "unit.h"
@@ -122,7 +122,7 @@ int main(int argc, char *argv[]) {
         if (!can_memlock())
                 return log_tests_skipped("Can't use mlock(), skipping.");
 
-        r = socket_bind_supported();
+        r = bpf_socket_bind_supported();
         if (r <= 0)
                 return log_tests_skipped("socket-bind is not supported, skipping.");
 

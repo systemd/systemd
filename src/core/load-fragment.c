@@ -20,6 +20,7 @@
 #include "alloc-util.h"
 #include "bpf-firewall.h"
 #include "bpf-program.h"
+#include "bpf-socket-bind.h"
 #include "bus-error.h"
 #include "bus-internal.h"
 #include "bus-util.h"
@@ -55,7 +56,6 @@
 #endif
 #include "securebits-util.h"
 #include "signal-util.h"
-#include "socket-bind.h"
 #include "socket-netlink.h"
 #include "specifier.h"
 #include "stat-util.h"
