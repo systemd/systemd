@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "bpf-socket-bind.h"
 #include "bus-util.h"
 #include "dbus.h"
 #include "fileio-label.h"
@@ -7,7 +8,6 @@
 #include "format-util.h"
 #include "parse-util.h"
 #include "serialize.h"
-#include "socket-bind.h"
 #include "string-table.h"
 #include "unit-serialize.h"
 #include "user-util.h"
@@ -164,7 +164,7 @@ int unit_serialize(Unit *u, FILE *f, FDSet *fds, bool switching_root) {
         (void) serialize_cgroup_mask(f, "cgroup-enabled-mask", u->cgroup_enabled_mask);
         (void) serialize_cgroup_mask(f, "cgroup-invalidated-mask", u->cgroup_invalidated_mask);
 
-        (void) serialize_socket_bind(u, f, fds);
+        (void) bpf_serialize_socket_bind(u, f, fds);
 
         if (uid_is_valid(u->ref_uid))
                 (void) serialize_item_format(f, "ref-uid", UID_FMT, u->ref_uid);
@@ -389,7 +389,7 @@ int unit_deserialize(Unit *u, FILE *f, FDSet *fds) {
                                         continue;
                                 }
 
-                                (void) socket_bind_add_initial_link_fd(u, fd);
+                                (void) bpf_socket_bind_add_initial_link_fd(u, fd);
                         }
                         continue;
                 }
