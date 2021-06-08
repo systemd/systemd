@@ -35,7 +35,7 @@
     <varlistentry id='log-time'>
       <term><varname>$SYSTEMD_LOG_TIME</varname></term>
 
-      <listitem><para id='log-time-body'>A boolean. If true, log messages will be prefixed with a
+      <listitem><para id='log-time-body'>A boolean. If true, console log messages will be prefixed with a
       timestamp.</para>
 
       <para>This setting is only useful when messages are written directly to the terminal or a file, because
