@@ -12,15 +12,23 @@
 
 typedef struct BPFProgram BPFProgram;
 
+/* This encapsulates three different concepts: the loaded BPF program, the BPF code, and the attachment to a
+ * cgroup. Typically our BPF programs go through all three stages: we build the code, we load it, and finally
+ * we attach it, but it might happen that we operate with programs that aren't loaded or aren't attached, or
+ * where we don't have the code. */
 struct BPFProgram {
         unsigned n_ref;
 
+        /* The loaded BPF program, if loaded */
         int kernel_fd;
         uint32_t prog_type;
 
+        /* The code of it BPF program, if known */
         size_t n_instructions;
         struct bpf_insn *instructions;
 
+        /* The cgroup path the program is attached to, if it is attached. If non-NULL bpf_program_unref()
+         * will detach on destruction. */
         char *attached_path;
         int attached_type;
         uint32_t attached_flags;
@@ -37,6 +45,7 @@ int bpf_program_load_from_bpf_fs(BPFProgram *p, const char *path);
 
 int bpf_program_cgroup_attach(BPFProgram *p, int type, const char *path, uint32_t flags);
 int bpf_program_cgroup_detach(BPFProgram *p);
+
 int bpf_program_pin(int prog_fd, const char *bpffs_path);
 int bpf_program_get_id_by_fd(int prog_fd, uint32_t *ret_id);
 
