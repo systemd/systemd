@@ -108,7 +108,9 @@ int unit_serialize(Unit *u, FILE *f, FDSet *fds, bool switching_root) {
         fputs(u->id, f);
         fputc('\n', f);
 
-        if (unit_can_serialize(u)) {
+        assert(!!UNIT_VTABLE(u)->serialize == !!UNIT_VTABLE(u)->deserialize_item);
+
+        if (UNIT_VTABLE(u)->serialize) {
                 r = UNIT_VTABLE(u)->serialize(u, f, fds);
                 if (r < 0)
                         return r;
@@ -506,7 +508,7 @@ int unit_deserialize(Unit *u, FILE *f, FDSet *fds) {
                         /* Returns positive if key was handled by the call */
                         continue;
 
-                if (unit_can_serialize(u)) {
+                if (UNIT_VTABLE(u)->deserialize_item) {
                         r = UNIT_VTABLE(u)->deserialize_item(u, l, v, fds);
                         if (r < 0)
                                 log_unit_warning(u, "Failed to deserialize unit parameter '%s', ignoring.", l);
