@@ -3004,7 +3004,13 @@ _public_ int sd_journal_enumerate_unique(
                         if (JOURNAL_HEADER_CONTAINS(of->header, n_fields) && le64toh(of->header->n_fields) <= 0)
                                 continue;
 
-                        r = journal_file_find_data_object_with_hash(of, odata, ol, le64toh(o->data.hash), NULL, NULL);
+                        /* We can reuse the hash from our current file only on old-style journal files
+                         * without keyed hashes. On new-style files we have to calculate the hash anew, to
+                         * take the per-file hash seed into consideration. */
+                        if (!JOURNAL_HEADER_KEYED_HASH(j->unique_file->header) && !JOURNAL_HEADER_KEYED_HASH(of->header))
+                                r = journal_file_find_data_object_with_hash(of, odata, ol, le64toh(o->data.hash), NULL, NULL);
+                        else
+                                r = journal_file_find_data_object(of, odata, ol, NULL, NULL);
                         if (r < 0)
                                 return r;
                         if (r > 0) {
