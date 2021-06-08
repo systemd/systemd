@@ -3488,12 +3488,6 @@ void unit_unwatch_bus_name(Unit *u, const char *name) {
         u->get_name_owner_slot = sd_bus_slot_unref(u->get_name_owner_slot);
 }
 
-bool unit_can_serialize(Unit *u) {
-        assert(u);
-
-        return UNIT_VTABLE(u)->serialize && UNIT_VTABLE(u)->deserialize_item;
-}
-
 int unit_add_node_dependency(Unit *u, const char *what, UnitDependency dep, UnitDependencyMask mask) {
         _cleanup_free_ char *e = NULL;
         Unit *device;
