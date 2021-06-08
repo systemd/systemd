@@ -499,6 +499,9 @@ static bool dhcp_server_is_ready_to_configure(Link *link) {
         if (!IN_SET(link->state, LINK_STATE_CONFIGURING, LINK_STATE_CONFIGURED))
                 return false;
 
+        if (link->set_flags_messages > 0)
+                return false;
+
         if (!link_has_carrier(link))
                 return false;
 

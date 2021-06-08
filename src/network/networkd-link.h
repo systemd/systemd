@@ -58,6 +58,9 @@ typedef struct Link {
         struct ether_addr permanent_mac;
         struct in6_addr ipv6ll_address;
         uint32_t mtu;
+        uint32_t min_mtu;
+        uint32_t max_mtu;
+        uint32_t original_mtu;
         sd_device *sd_device;
         char *driver;
 
@@ -95,6 +98,7 @@ typedef struct Link {
         unsigned tc_messages;
         unsigned sr_iov_messages;
         unsigned set_link_messages;
+        unsigned set_flags_messages;
         unsigned create_stacked_netdev_messages;
         unsigned create_stacked_netdev_after_configured_messages;
 
@@ -114,7 +118,6 @@ typedef struct Link {
         Address *dhcp_address, *dhcp_address_old;
         Set *dhcp_routes, *dhcp_routes_old;
         char *lease_file;
-        uint32_t original_mtu;
         unsigned dhcp4_messages;
         sd_ipv4acd *dhcp_acd;
         bool dhcp4_route_failed:1;
@@ -136,7 +139,6 @@ typedef struct Link {
         bool static_routing_policy_rules_configured:1;
         bool tc_configured:1;
         bool sr_iov_configured:1;
-        bool can_configured:1;
         bool activated:1;
         bool master_set:1;
         bool stacked_netdevs_created:1;

@@ -148,8 +148,13 @@ bool link_is_ready_to_configure(Link *link, bool allow_unmanaged) {
         if (!IN_SET(link->state, LINK_STATE_CONFIGURING, LINK_STATE_CONFIGURED))
                 return false;
 
-        if (!link_has_carrier(link) && !link->network->configure_without_carrier)
-                return false;
+        if (!link->network->configure_without_carrier) {
+                if (link->set_flags_messages > 0)
+                        return false;
+
+                if (!link_has_carrier(link))
+                        return false;
+        }
 
         if (link->set_link_messages > 0)
                 return false;
@@ -411,20 +416,20 @@ void link_check_ready(Link *link) {
         if (!link->network)
                 return (void) log_link_debug(link, "%s(): link is unmanaged.", __func__);
 
-        if (link->iftype == ARPHRD_CAN) {
-                /* let's shortcut things for CAN which doesn't need most of checks below. */
-                if (!link->can_configured)
-                        return (void) log_link_debug(link, "%s(): CAN device is not configured.", __func__);
-
-                link_set_state(link, LINK_STATE_CONFIGURED);
-                return;
-        }
+        if (!link->tc_configured)
+                return (void) log_link_debug(link, "%s(): traffic controls are not configured.", __func__);
 
         if (link->set_link_messages > 0)
                 return (void) log_link_debug(link, "%s(): link layer is configuring.", __func__);
 
         if (!link->activated)
                 return (void) log_link_debug(link, "%s(): link is not activated.", __func__);
+
+        if (link->iftype == ARPHRD_CAN) {
+                /* let's shortcut things for CAN which doesn't need most of checks below. */
+                link_set_state(link, LINK_STATE_CONFIGURED);
+                return;
+        }
 
         if (!link->static_addresses_configured)
                 return (void) log_link_debug(link, "%s(): static addresses are not configured.", __func__);
@@ -460,9 +465,6 @@ void link_check_ready(Link *link) {
 
         if (!link->static_routing_policy_rules_configured)
                 return (void) log_link_debug(link, "%s(): static routing policy rules are not configured.", __func__);
-
-        if (!link->tc_configured)
-                return (void) log_link_debug(link, "%s(): traffic controls are not configured.", __func__);
 
         if (!link->sr_iov_configured)
                 return (void) log_link_debug(link, "%s(): SR-IOV is not configured.", __func__);
@@ -695,6 +697,9 @@ int link_handle_bound_to_list(Link *link) {
 
         assert(link);
 
+        /* If at least one interface in bound_to_links has carrier, then make this interface up.
+         * If all interfaces in bound_to_links do not, then make this interface down. */
+
         if (hashmap_isempty(link->bound_to_links))
                 return 0;
 
@@ -708,9 +713,9 @@ int link_handle_bound_to_list(Link *link) {
                 }
 
         if (!required_up && link_is_up)
-                return link_down(link);
+                return link_request_to_bring_up_or_down(link, false);
         if (required_up && !link_is_up)
-                return link_up(link);
+                return link_request_to_bring_up_or_down(link, true);
 
         return 0;
 }
@@ -720,6 +725,8 @@ static int link_handle_bound_by_list(Link *link) {
         int r;
 
         assert(link);
+
+        /* Update up or down state of interfaces which depend on this interface's carrier state. */
 
         if (hashmap_isempty(link->bound_by_links))
                 return 0;
@@ -1028,13 +1035,18 @@ static int link_configure(Link *link) {
         if (r < 0)
                 return r;
 
+        if (link->iftype == ARPHRD_CAN) {
+                /* let's shortcut things for CAN which doesn't need most of what's done below. */
+                r = link_request_to_set_can(link);
+                if (r < 0)
+                        return r;
+
+                return link_request_to_activate(link);
+        }
+
         r = link_configure_sr_iov(link);
         if (r < 0)
                 return r;
-
-        if (link->iftype == ARPHRD_CAN)
-                /* let's shortcut things for CAN which doesn't need most of what's done below. */
-                return link_configure_can(link);
 
         r = link_set_sysctl(link);
         if (r < 0)
@@ -1476,9 +1488,13 @@ static int link_carrier_gained(Link *link) {
 
         assert(link);
 
+        r = link_handle_bound_by_list(link);
+        if (r < 0)
+                return r;
+
         if (link->iftype == ARPHRD_CAN)
                 /* let's shortcut things for CAN which doesn't need most of what's done below. */
-                return link_handle_bound_by_list(link);
+                return 0;
 
         r = wifi_get_info(link);
         if (r < 0)
@@ -1499,7 +1515,7 @@ static int link_carrier_gained(Link *link) {
                         return r;
         }
 
-        return link_handle_bound_by_list(link);
+        return 0;
 }
 
 static int link_carrier_lost(Link *link) {
@@ -1507,20 +1523,22 @@ static int link_carrier_lost(Link *link) {
 
         assert(link);
 
-        if (link->network && link->network->ignore_carrier_loss)
-                return 0;
+        r = link_handle_bound_by_list(link);
+        if (r < 0)
+                return r;
 
         if (link->iftype == ARPHRD_CAN)
                 /* let's shortcut things for CAN which doesn't need most of what's done below. */
-                return link_handle_bound_by_list(link);
+                return 0;
+
+        if (link->network && link->network->ignore_carrier_loss)
+                return 0;
 
         r = link_stop_engines(link, false);
         if (r < 0) {
                 link_enter_failed(link);
                 return r;
         }
-
-        link_drop_requests(link);
 
         r = link_drop_config(link);
         if (r < 0)
@@ -1533,7 +1551,7 @@ static int link_carrier_lost(Link *link) {
                         return r;
         }
 
-        return link_handle_bound_by_list(link);
+        return 0;
 }
 
 int link_carrier_reset(Link *link) {
@@ -1567,9 +1585,9 @@ static int link_admin_state_up(Link *link) {
         if (!link->network)
                 return 0;
 
-        if (link->network->activation_policy == ACTIVATION_POLICY_ALWAYS_DOWN) {
-                log_link_info(link, "ActivationPolicy is \"always-off\", forcing link down");
-                return link_down(link);
+        if (link->activated && link->network->activation_policy == ACTIVATION_POLICY_ALWAYS_DOWN) {
+                log_link_info(link, "ActivationPolicy is \"always-off\", forcing link down.");
+                return link_request_to_bring_up_or_down(link, false);
         }
 
         /* We set the ipv6 mtu after the device mtu, but the kernel resets
@@ -1587,13 +1605,9 @@ static int link_admin_state_down(Link *link) {
         if (!link->network)
                 return 0;
 
-        if (link->network->activation_policy == ACTIVATION_POLICY_ALWAYS_UP) {
-                if (streq_ptr(link->kind, "can") && !link->can_configured)
-                        /* CAN device needs to be down on configure. */
-                        return 0;
-
-                log_link_info(link, "ActivationPolicy is \"always-on\", forcing link up");
-                return link_up(link);
+        if (link->activated && link->network->activation_policy == ACTIVATION_POLICY_ALWAYS_UP) {
+                log_link_info(link, "ActivationPolicy is \"always-on\", forcing link up.");
+                return link_request_to_bring_up_or_down(link, true);
         }
 
         return 0;
@@ -2014,7 +2028,7 @@ static int link_update_hardware_address(Link *link, sd_netlink_message *message)
 }
 
 static int link_update_mtu(Link *link, sd_netlink_message *message) {
-        uint32_t mtu;
+        uint32_t mtu, min_mtu = 0, max_mtu = UINT32_MAX;
         int r;
 
         assert(link);
@@ -2026,16 +2040,34 @@ static int link_update_mtu(Link *link, sd_netlink_message *message) {
         if (r < 0)
                 return log_link_debug_errno(link, r, "rtnl: failed to read MTU in RTM_NEWLINK message: %m");
 
-        if (mtu == 0 || link->mtu == mtu)
+        r = sd_netlink_message_read_u32(message, IFLA_MIN_MTU, &min_mtu);
+        if (r < 0 && r != -ENODATA)
+                return log_link_debug_errno(link, r, "rtnl: failed to read minimum MTU in RTM_NEWLINK message: %m");
+
+        r = sd_netlink_message_read_u32(message, IFLA_MAX_MTU, &max_mtu);
+        if (r < 0 && r != -ENODATA)
+                return log_link_debug_errno(link, r, "rtnl: failed to read maximum MTU in RTM_NEWLINK message: %m");
+
+        if (mtu == 0)
                 return 0;
+
+        if (max_mtu == 0)
+                max_mtu = UINT32_MAX;
+
+        link->min_mtu = min_mtu;
+        link->max_mtu = max_mtu;
 
         if (link->original_mtu == 0) {
                 link->original_mtu = mtu;
-                log_link_debug(link, "Saved original MTU: %" PRIu32, link->original_mtu);
+                log_link_debug(link, "Saved original MTU %" PRIu32" (min: %"PRIu32", max: %"PRIu32")",
+                               link->original_mtu, link->min_mtu, link->max_mtu);
         }
 
-        if (link->mtu != 0)
-                log_link_debug(link, "MTU is changed: %"PRIu32" → %"PRIu32, link->mtu, mtu);
+        if (link->mtu == mtu)
+                return 0;
+
+        log_link_debug(link, "MTU is changed: %"PRIu32" → %"PRIu32" (min: %"PRIu32", max: %"PRIu32")",
+                       link->mtu, mtu, link->min_mtu, link->max_mtu);
 
         link->mtu = mtu;
 
