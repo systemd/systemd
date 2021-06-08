@@ -587,8 +587,6 @@ int bpf_firewall_compile(Unit *u) {
         return 0;
 }
 
-DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(filter_prog_hash_ops, void, trivial_hash_func, trivial_compare_func, BPFProgram, bpf_program_unref);
-
 static int load_bpf_progs_from_fs_to_set(Unit *u, char **filter_paths, Set **set) {
         char **bpf_fs_path;
 
@@ -606,7 +604,7 @@ static int load_bpf_progs_from_fs_to_set(Unit *u, char **filter_paths, Set **set
                 if (r < 0)
                         return log_unit_error_errno(u, r, "Loading of ingress BPF program %s failed: %m", *bpf_fs_path);
 
-                r = set_ensure_consume(set, &filter_prog_hash_ops, TAKE_PTR(prog));
+                r = set_ensure_consume(set, &bpf_program_hash_ops, TAKE_PTR(prog));
                 if (r < 0)
                         return log_unit_error_errno(u, r, "Can't add program to BPF program set: %m");
         }
@@ -658,7 +656,7 @@ static int attach_custom_bpf_progs(Unit *u, const char *path, int attach_type, S
                         return log_unit_error_errno(u, r, "Attaching custom egress BPF program to cgroup %s failed: %m", path);
 
                 /* Remember that these BPF programs are installed now. */
-                r = set_ensure_put(set_installed, &filter_prog_hash_ops, prog);
+                r = set_ensure_put(set_installed, &bpf_program_hash_ops, prog);
                 if (r < 0)
                         return log_unit_error_errno(u, r, "Can't add program to BPF program set: %m");
 
