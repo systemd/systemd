@@ -37,7 +37,7 @@ int dlopen_bpf(void) {
 
         r = dlsym_many_and_warn(
                         dl,
-                        LOG_ERR,
+                        LOG_DEBUG,
                         DLSYM_ARG(bpf_link__destroy),
                         DLSYM_ARG(bpf_link__fd),
                         DLSYM_ARG(bpf_map__fd),
@@ -60,7 +60,6 @@ int dlopen_bpf(void) {
         /* Note that we never release the reference here, because there's no real reason to, after all this
          * was traditionally a regular shared library dependency which lives forever too. */
         bpf_dl = TAKE_PTR(dl);
-
         return 1;
 }
 

@@ -10,6 +10,7 @@
 #include "bpf-devices.h"
 #include "bpf-firewall.h"
 #include "bpf-foreign.h"
+#include "bpf-socket-bind.h"
 #include "btrfs-util.h"
 #include "bus-error.h"
 #include "cgroup-setup.h"
@@ -26,7 +27,6 @@
 #include "percent-util.h"
 #include "process-util.h"
 #include "procfs-util.h"
-#include "socket-bind.h"
 #include "special.h"
 #include "stat-util.h"
 #include "stdio-util.h"
@@ -1096,7 +1096,7 @@ static void cgroup_apply_firewall(Unit *u) {
 static void cgroup_apply_socket_bind(Unit *u) {
         assert(u);
 
-        (void) socket_bind_install(u);
+        (void) bpf_socket_bind_install(u);
 }
 
 static int cgroup_apply_devices(Unit *u) {
@@ -3126,7 +3126,7 @@ static int cg_bpf_mask_supported(CGroupMask *ret) {
                 mask |= CGROUP_MASK_BPF_FOREIGN;
 
         /* BPF-based bind{4|6} hooks */
-        r = socket_bind_supported();
+        r = bpf_socket_bind_supported();
         if (r > 0)
                 mask |= CGROUP_MASK_BPF_SOCKET_BIND;
 
