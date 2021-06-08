@@ -2847,11 +2847,19 @@ _public_ int sd_journal_get_usage(sd_journal *j, uint64_t *bytes) {
 
         ORDERED_HASHMAP_FOREACH(f, j->files) {
                 struct stat st;
+                uint64_t b;
 
                 if (fstat(f->fd, &st) < 0)
                         return -errno;
 
-                sum += (uint64_t) st.st_blocks * 512ULL;
+                b = (uint64_t) st.st_blocks;
+                if (b > UINT64_MAX / 512)
+                        return -EOVERFLOW;
+                b *= 512;
+
+                if (sum > UINT64_MAX - b)
+                        return -EOVERFLOW;
+                sum += b;
         }
 
         *bytes = sum;
