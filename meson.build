@@ -355,13 +355,6 @@ possible_common_cc_flags = [
         # negative arguments are correctly detected starting with meson 0.46.
         '-Wno-error=#warnings',  # clang
         '-Wno-string-plus-int',  # clang
-
-        '-ffast-math',
-        '-fno-common',
-        '-fdiagnostics-show-option',
-        '-fno-strict-aliasing',
-        '-fvisibility=hidden',
-        '--param=ssp-buffer-size=4',
 ]
 
 # Disable -Wmaybe-unitialized when compiling with -Os/-O1/-O3/etc. There are
@@ -388,21 +381,27 @@ if cc.get_id() == 'clang'
         ]
 endif
 
+possible_cc_flags = possible_common_cc_flags + [
+        '-Werror=missing-declarations',
+        '-Werror=missing-prototypes',
+        '-fdiagnostics-show-option',
+        '-ffast-math',
+        '-fno-common',
+        '-fno-strict-aliasing',
+        '-fstack-protector',
+        '-fstack-protector-strong',
+        '-fvisibility=hidden',
+        '--param=ssp-buffer-size=4',
+]
+
 if get_option('buildtype') != 'debug'
-        possible_common_cc_flags += [
+        possible_cc_flags += [
                 '-ffunction-sections',
                 '-fdata-sections',
         ]
 
         possible_link_flags += '-Wl,--gc-sections'
 endif
-
-possible_cc_flags = possible_common_cc_flags + [
-        '-Werror=missing-declarations',
-        '-Werror=missing-prototypes',
-        '-fstack-protector',
-        '-fstack-protector-strong',
-]
 
 add_project_arguments(cc.get_supported_arguments(basic_disabled_warnings), language : 'c')
 add_project_arguments(cc.get_supported_arguments(possible_cc_flags), language : 'c')
