@@ -4,7 +4,7 @@
 #include "bpf-link.h"
 #include "serialize.h"
 
-bool can_link_bpf_program(struct bpf_program *prog) {
+bool bpf_can_link_program(struct bpf_program *prog) {
         _cleanup_(bpf_link_freep) struct bpf_link *link = NULL;
 
         assert(prog);
@@ -19,7 +19,7 @@ bool can_link_bpf_program(struct bpf_program *prog) {
         return sym_libbpf_get_error(link) == -EBADF;
 }
 
-int serialize_bpf_link(FILE *f, FDSet *fds, const char *key, struct bpf_link *link) {
+int bpf_serialize_link(FILE *f, FDSet *fds, const char *key, struct bpf_link *link) {
         assert(key);
 
         if (!link)
