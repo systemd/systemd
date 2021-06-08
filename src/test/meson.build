@@ -224,7 +224,7 @@ tests += [
         [['src/test/test-os-util.c']],
 
         [['src/test/test-libcrypt-util.c'],
-         [], [], [], '', 'timeout=120'],
+         [], [libcrypt], [], '', 'timeout=120'],
 
         [['src/test/test-escape.c']],
 
