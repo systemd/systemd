@@ -424,13 +424,27 @@
           <listitem>
             <para>Specifies how IPv6 link local address is generated. Takes one of
             <literal>eui64</literal>, <literal>none</literal>, <literal>stable-privacy</literal> and
-            <literal>random</literal>. When unset, the kernel's default will be used. Note that if
-            <varname>LinkLocalAddressing=</varname> is <literal>no</literal> or
-            <literal>ipv4</literal>, then <varname>IPv6LinkLocalAddressGenerationMode=</varname> will
-            be ignored. Also, even if <varname>LinkLocalAddressing=</varname> is <literal>yes</literal>
-            or <literal>ipv6</literal>, setting
-            <varname>IPv6LinkLocalAddressGenerationMode=none</varname> disables to configure an IPv6
-            link-local address.</para>
+            <literal>random</literal>. When unset, <literal>stable-privacy</literal> is used if
+            <varname>IPv6StableSecretAddress=</varname> is specified, and if not,
+            <literal>eui64</literal> is used. Note that if <varname>LinkLocalAddressing=</varname> is
+            <literal>no</literal> or <literal>ipv4</literal>, then
+            <varname>IPv6LinkLocalAddressGenerationMode=</varname> will be ignored. Also, even if
+            <varname>LinkLocalAddressing=</varname> is <literal>yes</literal> or
+            <literal>ipv6</literal>, setting <varname>IPv6LinkLocalAddressGenerationMode=none</varname>
+            disables to configure an IPv6 link-local address.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><varname>IPv6StableSecretAddress=</varname></term>
+          <listitem>
+            <para>Takes an IPv6 address. The specified address will be used as a stable secret for
+            generating IPv6 link-local address. If this setting is specified, and
+            <varname>IPv6LinkLocalAddressGenerationMode=</varname> is unset, then
+            <varname>IPv6LinkLocalAddressGenerationMode=stable-privacy</varname> is implied.
+            If this setting is not specified, and <literal>stable-privacy</literal> is set to
+            <varname>IPv6LinkLocalAddressGenerationMode=</varname>,
+            then a stable secret address will be generated from the local machine ID and the interface
+            name.</para>
           </listitem>
         </varlistentry>
         <varlistentry>
