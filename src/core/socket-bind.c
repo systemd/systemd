@@ -24,19 +24,22 @@ static struct socket_bind_bpf *socket_bind_bpf_free(struct socket_bind_bpf *obj)
 DEFINE_TRIVIAL_CLEANUP_FUNC(struct socket_bind_bpf *, socket_bind_bpf_free);
 
 static int update_rules_map(
-                int map_fd, CGroupSocketBindItem *head) {
+                int map_fd,
+                CGroupSocketBindItem *head) {
+
         CGroupSocketBindItem *item;
         uint32_t i = 0;
 
         assert(map_fd >= 0);
 
         LIST_FOREACH(socket_bind_items, item, head) {
-                const uint32_t key = i++;
                 struct socket_bind_rule val = {
                         .address_family = (uint32_t) item->address_family,
                         .nr_ports = item->nr_ports,
                         .port_min = item->port_min,
                 };
+
+                uint32_t key = i++;
 
                 if (sym_bpf_map_update_elem(map_fd, &key, &val, BPF_ANY) != 0)
                         return -errno;
@@ -46,15 +49,19 @@ static int update_rules_map(
 }
 
 static int prepare_socket_bind_bpf(
-                Unit *u, CGroupSocketBindItem *allow, CGroupSocketBindItem *deny, struct socket_bind_bpf **ret_obj) {
-        _cleanup_(socket_bind_bpf_freep) struct socket_bind_bpf *obj = 0;
-        uint32_t allow_count = 0, deny_count = 0;
+                Unit *u,
+                CGroupSocketBindItem *allow,
+                CGroupSocketBindItem *deny,
+                struct socket_bind_bpf **ret_obj) {
+
+        _cleanup_(socket_bind_bpf_freep) struct socket_bind_bpf *obj = NULL;
+        size_t allow_count = 0, deny_count = 0;
         int allow_map_fd, deny_map_fd, r;
         CGroupSocketBindItem *item;
 
         assert(ret_obj);
 
-        LIST_FOREACH(socket_bind_items, item,  allow)
+        LIST_FOREACH(socket_bind_items, item, allow)
                 allow_count++;
 
         LIST_FOREACH(socket_bind_items, item, deny)
@@ -109,33 +116,28 @@ static int prepare_socket_bind_bpf(
 
 int socket_bind_supported(void) {
         _cleanup_(socket_bind_bpf_freep) struct socket_bind_bpf *obj = NULL;
+        int r;
 
-        int r = cg_unified_controller(SYSTEMD_CGROUP_CONTROLLER);
+        r = cg_unified_controller(SYSTEMD_CGROUP_CONTROLLER);
         if (r < 0)
-                return log_error_errno(r, "Can't determine whether the unified hierarchy is used: %m");
-
+                return log_debug_errno(r, "Can't determine whether the unified hierarchy is used: %m");
         if (r == 0) {
-                log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
-                                "Not running with unified cgroup hierarchy, BPF is not supported");
-                return 0;
+                log_debug("Not running with unified cgroup hierarchy, BPF is not supported");
+                return false;
         }
 
-        r = dlopen_bpf();
-        if (r < 0) {
-                log_info_errno(r, "Could not load libbpf: %m");
-                return 0;
-        }
+        if (dlopen_bpf() < 0)
+                return false;
 
         if (!sym_bpf_probe_prog_type(BPF_PROG_TYPE_CGROUP_SOCK_ADDR, /*ifindex=*/0)) {
-                log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
-                                "BPF program type cgroup_sock_addr is not supported");
-                return 0;
+                log_debug("BPF program type cgroup_sock_addr is not supported");
+                return false;
         }
 
         r = prepare_socket_bind_bpf(/*unit=*/NULL, /*allow_rules=*/NULL, /*deny_rules=*/NULL, &obj);
         if (r < 0) {
                 log_debug_errno(r, "BPF based socket_bind is not supported: %m");
-                return 0;
+                return false;
         }
 
         return can_link_bpf_program(obj->progs.sd_bind4);
@@ -167,6 +169,8 @@ static int socket_bind_install_impl(Unit *u) {
         CGroupContext *cc;
         int r;
 
+        assert(u);
+
         cc = unit_get_cgroup_context(u);
         if (!cc)
                 return 0;
@@ -184,20 +188,19 @@ static int socket_bind_install_impl(Unit *u) {
 
         cgroup_fd = open(cgroup_path, O_RDONLY | O_CLOEXEC, 0);
         if (cgroup_fd < 0)
-                return log_unit_error_errno(
-                                u, errno, "Failed to open cgroup=%s for reading", cgroup_path);
+                return log_unit_error_errno(u, errno, "Failed to open cgroup=%s for reading: %m", cgroup_path);
 
         ipv4 = sym_bpf_program__attach_cgroup(obj->progs.sd_bind4, cgroup_fd);
         r = sym_libbpf_get_error(ipv4);
         if (r != 0)
-                return log_unit_error_errno(u, r, "Failed to link '%s' cgroup-bpf program",
-                                sym_bpf_program__name(obj->progs.sd_bind4));
+                return log_unit_error_errno(u, r, "Failed to link '%s' cgroup-bpf program: %m",
+                                            sym_bpf_program__name(obj->progs.sd_bind4));
 
         ipv6 = sym_bpf_program__attach_cgroup(obj->progs.sd_bind6, cgroup_fd);
         r = sym_libbpf_get_error(ipv6);
         if (r != 0)
-                return log_unit_error_errno(u, r, "Failed to link '%s' cgroup-bpf program",
-                                sym_bpf_program__name(obj->progs.sd_bind6));
+                return log_unit_error_errno(u, r, "Failed to link '%s' cgroup-bpf program: %m",
+                                            sym_bpf_program__name(obj->progs.sd_bind6));
 
         u->ipv4_socket_bind_link = TAKE_PTR(ipv4);
         u->ipv6_socket_bind_link = TAKE_PTR(ipv6);
@@ -206,12 +209,15 @@ static int socket_bind_install_impl(Unit *u) {
 }
 
 int socket_bind_install(Unit *u) {
-        int r = socket_bind_install_impl(u);
+        int r;
+
+        assert(u);
+
+        r = socket_bind_install_impl(u);
         if (r == -ENOMEM)
                 return r;
 
         fdset_close(u->initial_socket_bind_link_fds);
-
         return r;
 }
 
@@ -229,7 +235,7 @@ int serialize_socket_bind(Unit *u, FILE *f, FDSet *fds) {
 
 #else /* ! BPF_FRAMEWORK */
 int socket_bind_supported(void) {
-        return 0;
+        return false;
 }
 
 int socket_bind_add_initial_link_fd(Unit *u, int fd) {
@@ -237,8 +243,7 @@ int socket_bind_add_initial_link_fd(Unit *u, int fd) {
 }
 
 int socket_bind_install(Unit *u) {
-        log_unit_debug(u, "Failed to install socket bind: BPF framework is not supported");
-        return 0;
+        return log_unit_debug_errno(u, SYNTHETIC_ERRNO(EOPNOTSUPP), "Failed to install socket bind: BPF framework is not supported");
 }
 
 int serialize_socket_bind(Unit *u, FILE *f, FDSet *fds) {
