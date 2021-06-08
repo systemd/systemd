@@ -6412,27 +6412,6 @@ int exec_runtime_deserialize_compat(Unit *u, const char *key, const char *value,
                 safe_close(rt->netns_storage_socket[1]);
                 rt->netns_storage_socket[1] = fdset_remove(fds, fd);
 
-        } else if (streq(key, "ipcns-socket-0")) {
-                int fd;
-
-                if (safe_atoi(value, &fd) < 0 || !fdset_contains(fds, fd)) {
-                        log_unit_debug(u, "Failed to parse ipcns socket value: %s", value);
-                        return 0;
-                }
-
-                safe_close(rt->ipcns_storage_socket[0]);
-                rt->ipcns_storage_socket[0] = fdset_remove(fds, fd);
-
-        } else if (streq(key, "ipcns-socket-1")) {
-                int fd;
-
-                if (safe_atoi(value, &fd) < 0 || !fdset_contains(fds, fd)) {
-                        log_unit_debug(u, "Failed to parse ipcns socket value: %s", value);
-                        return 0;
-                }
-
-                safe_close(rt->ipcns_storage_socket[1]);
-                rt->ipcns_storage_socket[1] = fdset_remove(fds, fd);
         } else
                 return 0;
 
