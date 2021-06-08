@@ -5,13 +5,14 @@
 # Daniel Mustieles <daniel.mustieles@gmail.com>, 2015.
 # Álex Puchades <alex94puchades@gmail.com>, 2015.
 # Adolfo Jayme Barrientos <fitoschido@gmail.com>, 2020.
+# Emilio Herrera <ehespinosa57@gmail.com>, 2021.
 msgid ""
 msgstr ""
 "Project-Id-Version: systemd master\n"
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2021-01-08 17:48+0100\n"
-"PO-Revision-Date: 2020-08-24 07:29+0000\n"
-"Last-Translator: Adolfo Jayme Barrientos <fitoschido@gmail.com>\n"
+"PO-Revision-Date: 2021-06-08 09:04+0000\n"
+"Last-Translator: Emilio Herrera <ehespinosa57@gmail.com>\n"
 "Language-Team: Spanish <https://translate.fedoraproject.org/projects/systemd/"
 "master/es/>\n"
 "Language: es\n"
@@ -19,7 +20,7 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=n != 1;\n"
-"X-Generator: Weblate 4.2.1\n"
+"X-Generator: Weblate 4.6.2\n"
 
 #: src/core/org.freedesktop.systemd1.policy.in:22
 msgid "Send passphrase back to system"
@@ -73,49 +74,38 @@ msgstr "Necesita autenticarse para recargar el estado de systemd."
 
 #: src/home/org.freedesktop.home1.policy:13
 msgid "Create a home area"
-msgstr ""
+msgstr "Crear un área home"
 
 #: src/home/org.freedesktop.home1.policy:14
-#, fuzzy
-#| msgid "Authentication is required to reload the systemd state."
 msgid "Authentication is required to create a user's home area."
-msgstr "Se requiere autenticación para recargar el estado de systemd."
+msgstr "Se requiere autenticación para crear un área home de usuario."
 
 #: src/home/org.freedesktop.home1.policy:23
 msgid "Remove a home area"
-msgstr ""
+msgstr "Quitar un área home"
 
 #: src/home/org.freedesktop.home1.policy:24
-#, fuzzy
-#| msgid "Authentication is required to reload the systemd state."
 msgid "Authentication is required to remove a user's home area."
-msgstr "Se requiere autenticación para recargar el estado de systemd."
+msgstr "Se requiere autenticación para quitar un área home de usuario."
 
 #: src/home/org.freedesktop.home1.policy:33
 msgid "Check credentials of a home area"
-msgstr ""
+msgstr "Comprobar las credenciales de un área home"
 
 #: src/home/org.freedesktop.home1.policy:34
-#, fuzzy
-#| msgid ""
-#| "Authentication is required to manage active sessions, users and seats."
 msgid ""
 "Authentication is required to check credentials against a user's home area."
 msgstr ""
-"Se requiere autenticación para administrar las sesiones activas, usuarios y "
-"puestos de trabajo."
+"Se requiere autenticación para comprobar las credenciales contra un área "
+"home de usuario."
 
 #: src/home/org.freedesktop.home1.policy:43
 msgid "Update a home area"
-msgstr ""
+msgstr "Actualizar un área home"
 
 #: src/home/org.freedesktop.home1.policy:44
-#, fuzzy
-#| msgid "Authentication is required to attach a device to a seat."
 msgid "Authentication is required to update a user's home area."
-msgstr ""
-"Se requiere autenticación para conectar un dispositivo a un puesto de "
-"trabajo."
+msgstr "Se requiere autenticación para actualizar un área home de usuario."
 
 #: src/home/org.freedesktop.home1.policy:53
 msgid "Resize a home area"
