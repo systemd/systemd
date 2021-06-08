@@ -6371,38 +6371,24 @@ int exec_runtime_deserialize_compat(Unit *u, const char *key, const char *value,
                 return 0;
         }
 
-        r = hashmap_ensure_allocated(&u->manager->exec_runtime_by_id, &string_hash_ops);
-        if (r < 0) {
-                log_unit_debug_errno(u, r, "Failed to allocate storage for runtime parameter: %m");
-                return 0;
-        }
+        if (hashmap_ensure_allocated(&u->manager->exec_runtime_by_id, &string_hash_ops) < 0)
+                return log_oom();
 
         rt = hashmap_get(u->manager->exec_runtime_by_id, u->id);
         if (!rt) {
-                r = exec_runtime_allocate(&rt_create, u->id);
-                if (r < 0)
+                if (exec_runtime_allocate(&rt_create, u->id) < 0)
                         return log_oom();
 
                 rt = rt_create;
         }
 
         if (streq(key, "tmp-dir")) {
-                char *copy;
-
-                copy = strdup(value);
-                if (!copy)
-                        return log_oom();
-
-                free_and_replace(rt->tmp_dir, copy);
+                if (free_and_strdup_warn(&rt->tmp_dir, value) < 0)
+                        return -ENOMEM;
 
         } else if (streq(key, "var-tmp-dir")) {
-                char *copy;
-
-                copy = strdup(value);
-                if (!copy)
-                        return log_oom();
-
-                free_and_replace(rt->var_tmp_dir, copy);
+                if (free_and_strdup_warn(&rt->var_tmp_dir, value) < 0)
+                        return -ENOMEM;
 
         } else if (streq(key, "netns-socket-0")) {
                 int fd;
