@@ -180,6 +180,7 @@ if have_gnu_efi
                 possible_common_cc_flags + [
                         '-ffreestanding',
                         '-fno-stack-protector',
+                        '-fno-strict-aliasing',
                         '-fpic',
                         '-fshort-wchar',
                         '-Wall',
