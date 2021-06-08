@@ -59,13 +59,15 @@ static int bpf_program_get_info_by_fd(int prog_fd, struct bpf_prog_info *info, u
 int bpf_program_new(uint32_t prog_type, BPFProgram **ret) {
         _cleanup_(bpf_program_unrefp) BPFProgram *p = NULL;
 
-        p = new0(BPFProgram, 1);
+        p = new(BPFProgram, 1);
         if (!p)
                 return -ENOMEM;
 
-        p->n_ref = 1;
-        p->prog_type = prog_type;
-        p->kernel_fd = -1;
+        *p = (BPFProgram) {
+                .n_ref = 1,
+                .prog_type = prog_type,
+                .kernel_fd = -1,
+        };
 
         *ret = TAKE_PTR(p);
 
