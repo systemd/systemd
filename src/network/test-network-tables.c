@@ -37,7 +37,6 @@ int main(int argc, char **argv) {
         test_table(netdev_kind, NETDEV_KIND);
         test_table(nl_union_link_info_data, NL_UNION_LINK_INFO_DATA);
         test_table(radv_prefix_delegation, RADV_PREFIX_DELEGATION);
-        test_table(wol, WOL);
         test_table(lldp_event, SD_LLDP_EVENT);
         test_table(ndisc_event, SD_NDISC_EVENT);
         test_table(dhcp_lease_server_type, SD_DHCP_LEASE_SERVER_TYPE);

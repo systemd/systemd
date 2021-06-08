@@ -56,7 +56,7 @@ struct LinkConfig {
         Duplex duplex;
         int autonegotiation;
         uint32_t advertise[N_ADVERTISE];
-        WakeOnLan wol;
+        uint32_t wol;
         NetDevPort port;
         int features[_NET_DEV_FEAT_MAX];
         netdev_channels channels;

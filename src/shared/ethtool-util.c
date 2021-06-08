@@ -24,19 +24,38 @@ static const char* const duplex_table[_DUP_MAX] = {
 DEFINE_STRING_TABLE_LOOKUP(duplex, Duplex);
 DEFINE_CONFIG_PARSE_ENUM(config_parse_duplex, duplex, Duplex, "Failed to parse duplex setting");
 
-static const char* const wol_table[_WOL_MAX] = {
-        [WOL_PHY]         = "phy",
-        [WOL_UCAST]       = "unicast",
-        [WOL_MCAST]       = "multicast",
-        [WOL_BCAST]       = "broadcast",
-        [WOL_ARP]         = "arp",
-        [WOL_MAGIC]       = "magic",
-        [WOL_MAGICSECURE] = "secureon",
-        [WOL_OFF]         = "off",
+static const struct {
+        uint32_t opt;
+        const char *name;
+} wol_option_map[] = {
+        { WAKE_PHY,         "phy"        },
+        { WAKE_UCAST,       "unicast",   },
+        { WAKE_MCAST,       "multicast", },
+        { WAKE_BCAST,       "broadcast", },
+        { WAKE_ARP,         "arp",       },
+        { WAKE_MAGIC,       "magic",     },
+        { WAKE_MAGICSECURE, "secureon",  },
 };
 
-DEFINE_STRING_TABLE_LOOKUP(wol, WakeOnLan);
-DEFINE_CONFIG_PARSE_ENUM(config_parse_wol, wol, WakeOnLan, "Failed to parse WakeOnLan setting");
+int wol_options_to_string_alloc(uint32_t opts, char **ret) {
+        _cleanup_free_ char *str = NULL;
+
+        assert(ret);
+
+        for (size_t i = 0; i < ELEMENTSOF(wol_option_map); i++)
+                if (opts & wol_option_map[i].opt &&
+                    !strextend_with_separator(&str, ",", wol_option_map[i].name))
+                        return -ENOMEM;
+
+        if (!str) {
+                str = strdup("off");
+                if (!str)
+                        return -ENOMEM;
+        }
+
+        *ret = TAKE_PTR(str);
+        return 0;
+}
 
 static const char* const port_table[] = {
         [NET_DEV_PORT_TP]     = "tp",
@@ -310,7 +329,7 @@ int ethtool_get_permanent_macaddr(int *ethtool_fd, const char *ifname, struct et
                 dest = _v;                             \
         } while(false)
 
-int ethtool_set_wol(int *ethtool_fd, const char *ifname, WakeOnLan wol) {
+int ethtool_set_wol(int *ethtool_fd, const char *ifname, uint32_t wolopts) {
         struct ethtool_wolinfo ecmd = {
                 .cmd = ETHTOOL_GWOL,
         };
@@ -323,7 +342,7 @@ int ethtool_set_wol(int *ethtool_fd, const char *ifname, WakeOnLan wol) {
         assert(ethtool_fd);
         assert(ifname);
 
-        if (wol == _WOL_INVALID)
+        if (wolopts == UINT32_MAX)
                 return 0;
 
         r = ethtool_connect(ethtool_fd);
@@ -336,66 +355,15 @@ int ethtool_set_wol(int *ethtool_fd, const char *ifname, WakeOnLan wol) {
         if (r < 0)
                 return -errno;
 
-        switch (wol) {
-        case WOL_PHY:
-                if (ecmd.wolopts != WAKE_PHY) {
-                        ecmd.wolopts = WAKE_PHY;
-                        need_update = true;
-                }
-                break;
-        case WOL_UCAST:
-                if (ecmd.wolopts != WAKE_UCAST) {
-                        ecmd.wolopts = WAKE_UCAST;
-                        need_update = true;
-                }
-                break;
-        case WOL_MCAST:
-                if (ecmd.wolopts != WAKE_MCAST) {
-                        ecmd.wolopts = WAKE_MCAST;
-                        need_update = true;
-                }
-                break;
-        case WOL_BCAST:
-                if (ecmd.wolopts != WAKE_BCAST) {
-                        ecmd.wolopts = WAKE_BCAST;
-                        need_update = true;
-                }
-                break;
-        case WOL_ARP:
-                if (ecmd.wolopts != WAKE_ARP) {
-                        ecmd.wolopts = WAKE_ARP;
-                        need_update = true;
-                }
-                break;
-        case WOL_MAGIC:
-                if (ecmd.wolopts != WAKE_MAGIC) {
-                        ecmd.wolopts = WAKE_MAGIC;
-                        need_update = true;
-                }
-                break;
-        case WOL_MAGICSECURE:
-                if (ecmd.wolopts != WAKE_MAGICSECURE) {
-                        ecmd.wolopts = WAKE_MAGICSECURE;
-                        need_update = true;
-                }
-                break;
-        case WOL_OFF:
-                if (ecmd.wolopts != 0) {
-                        ecmd.wolopts = 0;
-                        need_update = true;
-                }
-                break;
-        default:
-                break;
-        }
+        UPDATE(ecmd.wolopts, wolopts, need_update);
 
-        if (need_update) {
-                ecmd.cmd = ETHTOOL_SWOL;
+        if (!need_update)
+                return 0;
 
-                r = ioctl(*ethtool_fd, SIOCETHTOOL, &ifr);
-                if (r < 0)
-                        return -errno;
-        }
+        ecmd.cmd = ETHTOOL_SWOL;
+        r = ioctl(*ethtool_fd, SIOCETHTOOL, &ifr);
+        if (r < 0)
+                return -errno;
 
         return 0;
 }
@@ -1005,7 +973,6 @@ int config_parse_advertise(
                 void *userdata) {
 
         uint32_t *advertise = data;
-        const char *p;
         int r;
 
         assert(filename);
@@ -1020,7 +987,7 @@ int config_parse_advertise(
                 return 0;
         }
 
-        for (p = rvalue;;) {
+        for (const char *p = rvalue;;) {
                 _cleanup_free_ char *w = NULL;
                 enum ethtool_link_mode_bit_indices mode;
 
@@ -1095,6 +1062,72 @@ int config_parse_nic_buffer_size(
                 ring->tx_pending = k;
                 ring->tx_pending_set = true;
         }
+
+        return 0;
+}
+
+int config_parse_wol(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        uint32_t new_opts = 0, *opts = data;
+        int r;
+
+        assert(filename);
+        assert(section);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        if (isempty(rvalue)) {
+                *opts = UINT32_MAX; /* Do not update WOL option. */
+                return 0;
+        }
+
+        if (streq(rvalue, "off")) {
+                *opts = 0; /* Disable WOL. */
+                return 0;
+        }
+
+        for (const char *p = rvalue;;) {
+                _cleanup_free_ char *w = NULL;
+                bool found = false;
+
+                r = extract_first_word(&p, &w, NULL, 0);
+                if (r == -ENOMEM)
+                        return log_oom();
+                if (r < 0) {
+                        log_syntax(unit, LOG_WARNING, filename, line, r,
+                                   "Failed to split wake-on-lan modes '%s', ignoring assignment: %m", rvalue);
+                        return 0;
+                }
+                if (r == 0)
+                        break;
+
+                for (size_t i = 0; i < ELEMENTSOF(wol_option_map); i++)
+                        if (streq(w, wol_option_map[i].name)) {
+                                new_opts |= wol_option_map[i].opt;
+                                found = true;
+                                break;
+                        }
+
+                if (!found)
+                        log_syntax(unit, LOG_WARNING, filename, line, 0,
+                                   "Unknown wake-on-lan mode '%s', ignoring.", w);
+        }
+
+        if (*opts == UINT32_MAX)
+                *opts = new_opts;
+        else
+                *opts |= new_opts;
 
         return 0;
 }

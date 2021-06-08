@@ -18,19 +18,6 @@ typedef enum Duplex {
         _DUP_INVALID = -EINVAL,
 } Duplex;
 
-typedef enum WakeOnLan {
-        WOL_PHY,
-        WOL_UCAST,
-        WOL_MCAST,
-        WOL_BCAST,
-        WOL_ARP,
-        WOL_MAGIC,
-        WOL_MAGICSECURE,
-        WOL_OFF,
-        _WOL_MAX,
-        _WOL_INVALID = -EINVAL,
-} WakeOnLan;
-
 typedef enum NetDevFeature {
         NET_DEV_FEAT_RX,
         NET_DEV_FEAT_TX,
@@ -99,7 +86,7 @@ int ethtool_get_link_info(int *ethtool_fd, const char *ifname,
                           int *ret_autonegotiation, uint64_t *ret_speed,
                           Duplex *ret_duplex, NetDevPort *ret_port);
 int ethtool_get_permanent_macaddr(int *ethtool_fd, const char *ifname, struct ether_addr *ret);
-int ethtool_set_wol(int *ethtool_fd, const char *ifname, WakeOnLan wol);
+int ethtool_set_wol(int *ethtool_fd, const char *ifname, uint32_t wolopts);
 int ethtool_set_nic_buffer_size(int *ethtool_fd, const char *ifname, const netdev_ring_param *ring);
 int ethtool_set_features(int *ethtool_fd, const char *ifname, const int *features);
 int ethtool_set_glinksettings(int *ethtool_fd, const char *ifname,
@@ -111,8 +98,7 @@ int ethtool_set_flow_control(int *fd, const char *ifname, int rx, int tx, int au
 const char *duplex_to_string(Duplex d) _const_;
 Duplex duplex_from_string(const char *d) _pure_;
 
-const char *wol_to_string(WakeOnLan wol) _const_;
-WakeOnLan wol_from_string(const char *wol) _pure_;
+int wol_options_to_string_alloc(uint32_t opts, char **ret);
 
 const char *port_to_string(NetDevPort port) _const_;
 NetDevPort port_from_string(const char *port) _pure_;
