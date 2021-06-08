@@ -2783,20 +2783,25 @@ _public_ int sd_journal_get_cutoff_realtime_usec(sd_journal *j, uint64_t *from, 
         return first ? 0 : 1;
 }
 
-_public_ int sd_journal_get_cutoff_monotonic_usec(sd_journal *j, sd_id128_t boot_id, uint64_t *from, uint64_t *to) {
-        JournalFile *f;
+_public_ int sd_journal_get_cutoff_monotonic_usec(
+                sd_journal *j,
+                sd_id128_t boot_id,
+                uint64_t *ret_from,
+                uint64_t *ret_to) {
+
+        uint64_t from = UINT64_MAX, to = UINT64_MAX;
         bool found = false;
+        JournalFile *f;
         int r;
 
         assert_return(j, -EINVAL);
         assert_return(!journal_pid_changed(j), -ECHILD);
-        assert_return(from || to, -EINVAL);
-        assert_return(from != to, -EINVAL);
+        assert_return(ret_from != ret_to, -EINVAL);
 
         ORDERED_HASHMAP_FOREACH(f, j->files) {
-                usec_t fr, t;
+                usec_t ff, tt;
 
-                r = journal_file_get_cutoff_monotonic_usec(f, boot_id, &fr, &t);
+                r = journal_file_get_cutoff_monotonic_usec(f, boot_id, &ff, &tt);
                 if (r == -ENOENT)
                         continue;
                 if (r < 0)
@@ -2805,18 +2810,19 @@ _public_ int sd_journal_get_cutoff_monotonic_usec(sd_journal *j, sd_id128_t boot
                         continue;
 
                 if (found) {
-                        if (from)
-                                *from = MIN(fr, *from);
-                        if (to)
-                                *to = MAX(t, *to);
+                        from = MIN(ff, from);
+                        to = MAX(tt, to);
                 } else {
-                        if (from)
-                                *from = fr;
-                        if (to)
-                                *to = t;
+                        from = ff;
+                        to = tt;
                         found = true;
                 }
         }
+
+        if (ret_from)
+                *ret_from = from;
+        if (ret_to)
+                *ret_to = to;
 
         return found;
 }
