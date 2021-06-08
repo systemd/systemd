@@ -2867,19 +2867,17 @@ _public_ int sd_journal_get_usage(sd_journal *j, uint64_t *ret) {
 }
 
 _public_ int sd_journal_query_unique(sd_journal *j, const char *field) {
-        char *f;
+        int r;
 
         assert_return(j, -EINVAL);
         assert_return(!journal_pid_changed(j), -ECHILD);
         assert_return(!isempty(field), -EINVAL);
         assert_return(field_is_valid(field), -EINVAL);
 
-        f = strdup(field);
-        if (!f)
-                return -ENOMEM;
+        r = free_and_strdup(&j->unique_field, field);
+        if (r < 0)
+                return r;
 
-        free(j->unique_field);
-        j->unique_field = f;
         j->unique_file = NULL;
         j->unique_offset = 0;
         j->unique_file_lost = false;
