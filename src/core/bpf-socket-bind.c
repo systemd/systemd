@@ -243,7 +243,7 @@ int bpf_socket_bind_add_initial_link_fd(Unit *u, int fd) {
 }
 
 int bpf_socket_bind_install(Unit *u) {
-        return log_unit_debug_errnor(u, SYNTHETIC_ERRNO(EOPNOTSUPP), "Failed to install socket bind: BPF framework is not supported");
+        return log_unit_debug_errno(u, SYNTHETIC_ERRNO(EOPNOTSUPP), "Failed to install socket bind: BPF framework is not supported");
 }
 
 int bpf_serialize_socket_bind(Unit *u, FILE *f, FDSet *fds) {
