@@ -1184,7 +1184,7 @@
         <varlistentry>
           <term><option>--log-time=</option></term>
 
-          <listitem><para>Prefix messages with timestamp. See <varname>systemd.log_time</varname> above.
+          <listitem><para>Prefix console messages with timestamp. See <varname>systemd.log_time</varname> above.
           </para></listitem>
         </varlistentry>
 
