@@ -667,6 +667,7 @@ static int attach_custom_bpf_progs(Unit *u, const char *path, int attach_type, S
 }
 
 int bpf_firewall_install(Unit *u) {
+        _cleanup_(bpf_program_unrefp) BPFProgram *ip_bpf_ingress_uninstall = NULL, *ip_bpf_egress_uninstall = NULL;
         _cleanup_free_ char *path = NULL;
         CGroupContext *cc;
         int r, supported;
@@ -699,10 +700,20 @@ int bpf_firewall_install(Unit *u) {
 
         flags = supported == BPF_FIREWALL_SUPPORTED_WITH_MULTI ? BPF_F_ALLOW_MULTI : 0;
 
-        /* Unref the old BPF program (which will implicitly detach it) right before attaching the new program, to
-         * minimize the time window when we don't account for IP traffic. */
-        u->ip_bpf_egress_installed = bpf_program_unref(u->ip_bpf_egress_installed);
-        u->ip_bpf_ingress_installed = bpf_program_unref(u->ip_bpf_ingress_installed);
+        if (FLAGS_SET(flags, BPF_F_ALLOW_MULTI)) {
+                /* If we have BPF_F_ALLOW_MULTI, then let's clear the fields, but destroy the programs only
+                 * after attaching the new programs, so that there's no time window where neither program is
+                 * attached. (There will be a program where both are attached, but that's OK, since this is a
+                 * security feature where we rather want to lock down too much than too little */
+                ip_bpf_egress_uninstall = TAKE_PTR(u->ip_bpf_egress_installed);
+                ip_bpf_ingress_uninstall = TAKE_PTR(u->ip_bpf_ingress_installed);
+        } else {
+                /* If we don't have BPF_F_ALLOW_MULTI then unref the old BPF programs (which will implicitly
+                 * detach them) right before attaching the new program, to minimize the time window when we
+                 * don't account for IP traffic. */
+                u->ip_bpf_egress_installed = bpf_program_unref(u->ip_bpf_egress_installed);
+                u->ip_bpf_ingress_installed = bpf_program_unref(u->ip_bpf_ingress_installed);
+        }
 
         if (u->ip_bpf_egress) {
                 r = bpf_program_cgroup_attach(u->ip_bpf_egress, BPF_CGROUP_INET_EGRESS, path, flags);
@@ -720,6 +731,10 @@ int bpf_firewall_install(Unit *u) {
 
                 u->ip_bpf_ingress_installed = bpf_program_ref(u->ip_bpf_ingress);
         }
+
+        /* And now, definitely get rid of the old programs, and detach them */
+        ip_bpf_egress_uninstall = bpf_program_unref(ip_bpf_egress_uninstall);
+        ip_bpf_ingress_uninstall = bpf_program_unref(ip_bpf_ingress_uninstall);
 
         r = attach_custom_bpf_progs(u, path, BPF_CGROUP_INET_EGRESS, &u->ip_bpf_custom_egress, &u->ip_bpf_custom_egress_installed);
         if (r < 0)
