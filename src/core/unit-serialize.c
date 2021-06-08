@@ -498,17 +498,15 @@ int unit_deserialize(Unit *u, FILE *f, FDSet *fds) {
                         continue;
                 }
 
-                if (unit_can_serialize(u)) {
-                        r = exec_runtime_deserialize_compat(u, l, v, fds);
-                        if (r < 0) {
-                                log_unit_warning(u, "Failed to deserialize runtime parameter '%s', ignoring.", l);
-                                continue;
-                        }
-
+                r = exec_runtime_deserialize_compat(u, l, v, fds);
+                if (r < 0) {
+                        log_unit_warning(u, "Failed to deserialize runtime parameter '%s', ignoring.", l);
+                        continue;
+                } else if (r > 0)
                         /* Returns positive if key was handled by the call */
-                        if (r > 0)
-                                continue;
+                        continue;
 
+                if (unit_can_serialize(u)) {
                         r = UNIT_VTABLE(u)->deserialize_item(u, l, v, fds);
                         if (r < 0)
                                 log_unit_warning(u, "Failed to deserialize unit parameter '%s', ignoring.", l);
