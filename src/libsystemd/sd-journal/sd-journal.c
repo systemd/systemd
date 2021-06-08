@@ -2837,24 +2837,32 @@ void journal_print_header(sd_journal *j) {
         }
 }
 
-_public_ int sd_journal_get_usage(sd_journal *j, uint64_t *bytes) {
+_public_ int sd_journal_get_usage(sd_journal *j, uint64_t *ret) {
         JournalFile *f;
         uint64_t sum = 0;
 
         assert_return(j, -EINVAL);
         assert_return(!journal_pid_changed(j), -ECHILD);
-        assert_return(bytes, -EINVAL);
+        assert_return(ret, -EINVAL);
 
         ORDERED_HASHMAP_FOREACH(f, j->files) {
                 struct stat st;
+                uint64_t b;
 
                 if (fstat(f->fd, &st) < 0)
                         return -errno;
 
-                sum += (uint64_t) st.st_blocks * 512ULL;
+                b = (uint64_t) st.st_blocks;
+                if (b > UINT64_MAX / 512)
+                        return -EOVERFLOW;
+                b *= 512;
+
+                if (sum > UINT64_MAX - b)
+                        return -EOVERFLOW;
+                sum += b;
         }
 
-        *bytes = sum;
+        *ret = sum;
         return 0;
 }
 
