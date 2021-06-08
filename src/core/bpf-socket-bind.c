@@ -140,7 +140,7 @@ int bpf_socket_bind_supported(void) {
                 return false;
         }
 
-        return can_link_bpf_program(obj->progs.sd_bind4);
+        return bpf_can_link_program(obj->progs.sd_bind4);
 }
 
 int bpf_socket_bind_add_initial_link_fd(Unit *u, int fd) {
@@ -226,11 +226,11 @@ int bpf_serialize_socket_bind(Unit *u, FILE *f, FDSet *fds) {
 
         assert(u);
 
-        r = serialize_bpf_link(f, fds, "ipv4-socket-bind-bpf-link", u->ipv4_socket_bind_link);
+        r = bpf_serialize_link(f, fds, "ipv4-socket-bind-bpf-link", u->ipv4_socket_bind_link);
         if (r < 0)
                 return r;
 
-        return serialize_bpf_link(f, fds, "ipv6-socket-bind-bpf-link", u->ipv6_socket_bind_link);
+        return bpf_serialize_link(f, fds, "ipv6-socket-bind-bpf-link", u->ipv6_socket_bind_link);
 }
 
 #else /* ! BPF_FRAMEWORK */
