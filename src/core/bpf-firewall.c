@@ -661,6 +661,7 @@ static int attach_custom_bpf_progs(Unit *u, const char *path, int attach_type, S
                 r = set_ensure_put(set_installed, &filter_prog_hash_ops, prog);
                 if (r < 0)
                         return log_unit_error_errno(u, r, "Can't add program to BPF program set: %m");
+
                 bpf_program_ref(prog);
         }
 
@@ -901,4 +902,26 @@ void emit_bpf_firewall_warning(Unit *u) {
                                                     "the local system does not support BPF/cgroup firewalling");
                 warned = true;
         }
+}
+
+void bpf_firewall_close(Unit *u) {
+        assert(u);
+
+        u->ip_accounting_ingress_map_fd = safe_close(u->ip_accounting_ingress_map_fd);
+        u->ip_accounting_egress_map_fd = safe_close(u->ip_accounting_egress_map_fd);
+
+        u->ipv4_allow_map_fd = safe_close(u->ipv4_allow_map_fd);
+        u->ipv6_allow_map_fd = safe_close(u->ipv6_allow_map_fd);
+        u->ipv4_deny_map_fd = safe_close(u->ipv4_deny_map_fd);
+        u->ipv6_deny_map_fd = safe_close(u->ipv6_deny_map_fd);
+
+        u->ip_bpf_ingress = bpf_program_unref(u->ip_bpf_ingress);
+        u->ip_bpf_ingress_installed = bpf_program_unref(u->ip_bpf_ingress_installed);
+        u->ip_bpf_egress = bpf_program_unref(u->ip_bpf_egress);
+        u->ip_bpf_egress_installed = bpf_program_unref(u->ip_bpf_egress_installed);
+
+        u->ip_bpf_custom_ingress = set_free(u->ip_bpf_custom_ingress);
+        u->ip_bpf_custom_egress = set_free(u->ip_bpf_custom_egress);
+        u->ip_bpf_custom_ingress_installed = set_free(u->ip_bpf_custom_ingress_installed);
+        u->ip_bpf_custom_egress_installed = set_free(u->ip_bpf_custom_egress_installed);
 }
