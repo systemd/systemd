@@ -3,8 +3,10 @@
 
 #include <linux/bpf.h>
 #include <stdint.h>
+#include <stdio.h>
 #include <sys/syscall.h>
 
+#include "fdset.h"
 #include "list.h"
 #include "macro.h"
 
@@ -37,6 +39,11 @@ int bpf_program_cgroup_attach(BPFProgram *p, int type, const char *path, uint32_
 int bpf_program_cgroup_detach(BPFProgram *p);
 int bpf_program_pin(int prog_fd, const char *bpffs_path);
 int bpf_program_get_id_by_fd(int prog_fd, uint32_t *ret_id);
+
+int bpf_program_serialize_attachment(FILE *f, FDSet *fds, const char *key, BPFProgram *p);
+int bpf_program_serialize_attachment_set(FILE *f, FDSet *fds, const char *key, Set *set);
+int bpf_program_deserialize_attachment(const char *v, FDSet *fds, BPFProgram **bpfp);
+int bpf_program_deserialize_attachment_set(const char *v, FDSet *fds, Set **bpfsetp);
 
 extern const struct hash_ops bpf_program_hash_ops;
 
