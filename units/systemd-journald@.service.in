@@ -32,7 +32,6 @@ RestrictSUIDSGID=yes
 RuntimeDirectory=systemd/journal.%i
 RuntimeDirectoryPreserve=yes
 Sockets=systemd-journald@%i.socket
-StandardOutput=null
 SystemCallArchitectures=native
 SystemCallErrorNumber=EPERM
 SystemCallFilter=@system-service
