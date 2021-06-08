@@ -2619,24 +2619,9 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         3: generate stable privacy addresses, using a random secret if unset
         '''
 
-        test1_addr_gen_mode = ''
-        if os.path.exists(os.path.join(os.path.join(network_sysctl_ipv6_path, 'test1'), 'stable_secret')):
-            with open(os.path.join(os.path.join(network_sysctl_ipv6_path, 'test1'), 'stable_secret')) as f:
-                try:
-                    f.readline()
-                except IOError:
-                    # if stable_secret is unset, then EIO is returned
-                    test1_addr_gen_mode = '0'
-                else:
-                    test1_addr_gen_mode = '2'
-        else:
-            test1_addr_gen_mode = '0'
-
-        if os.path.exists(os.path.join(os.path.join(network_sysctl_ipv6_path, 'test1'), 'addr_gen_mode')):
-            self.assertEqual(read_ipv6_sysctl_attr('test1', 'addr_gen_mode'), test1_addr_gen_mode)
-
-        if os.path.exists(os.path.join(os.path.join(network_sysctl_ipv6_path, 'dummy98'), 'addr_gen_mode')):
-            self.assertEqual(read_ipv6_sysctl_attr('dummy98', 'addr_gen_mode'), '1')
+        self.assertEqual(read_ipv6_sysctl_attr('test1', 'stable_secret'), '0123:4567:89ab:cdef:0123:4567:89ab:cdef')
+        self.assertEqual(read_ipv6_sysctl_attr('test1', 'addr_gen_mode'), '2')
+        self.assertEqual(read_ipv6_sysctl_attr('dummy98', 'addr_gen_mode'), '1')
 
     def test_link_local_addressing_remove_ipv6ll(self):
         copy_unit_to_networkd_unit_path('26-link-local-addressing-ipv6.network', '12-dummy.netdev')
