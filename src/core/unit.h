@@ -308,14 +308,15 @@ typedef struct Unit {
         /* IP BPF Firewalling/accounting */
         int ip_accounting_ingress_map_fd;
         int ip_accounting_egress_map_fd;
+        uint64_t ip_accounting_extra[_CGROUP_IP_ACCOUNTING_METRIC_MAX];
 
         int ipv4_allow_map_fd;
         int ipv6_allow_map_fd;
         int ipv4_deny_map_fd;
         int ipv6_deny_map_fd;
-
         BPFProgram *ip_bpf_ingress, *ip_bpf_ingress_installed;
         BPFProgram *ip_bpf_egress, *ip_bpf_egress_installed;
+
         Set *ip_bpf_custom_ingress;
         Set *ip_bpf_custom_ingress_installed;
         Set *ip_bpf_custom_egress;
@@ -333,8 +334,6 @@ typedef struct Unit {
         struct bpf_link *ipv4_socket_bind_link;
         struct bpf_link *ipv6_socket_bind_link;
 #endif
-
-        uint64_t ip_accounting_extra[_CGROUP_IP_ACCOUNTING_METRIC_MAX];
 
         /* Low-priority event source which is used to remove watched PIDs that have gone away, and subscribe to any new
          * ones which might have appeared. */
