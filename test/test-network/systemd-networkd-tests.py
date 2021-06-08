@@ -2794,6 +2794,45 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
             with self.subTest(test=test):
                 self._test_activation_policy(test)
 
+    def _test_activation_policy_required_for_online(self, policy, required):
+        self.setUp()
+        conffile = '25-activation-policy.network'
+        units = ['11-dummy.netdev', '12-dummy.netdev', conffile]
+        if policy:
+            units += [f'{conffile}.d/{policy}.conf']
+        if required:
+            units += [f'{conffile}.d/required-{required}.conf']
+        copy_unit_to_networkd_unit_path(*units, dropins=False)
+        start_networkd()
+
+        if policy == 'always-down':
+            # if always-down, required for online is forced to no
+            expected = False
+        elif required:
+            # otherwise if required for online is specified, it should match that
+            expected = required == 'yes'
+        elif policy:
+            # otherwise if only policy specified, required for online defaults to
+            # true if policy is up, always-up, or bound
+            expected = policy.endswith('up') or policy == 'bound'
+        else:
+            # default is true, if neither are specified
+            expected = True
+
+        output = check_output(*networkctl_cmd, '-n', '0', 'status', 'test1', env=env)
+        print(output)
+
+        yesno = 'yes' if expected else 'no'
+        self.assertRegex(output, f'Required For Online: {yesno}')
+
+        self.tearDown()
+
+    def test_activation_policy_required_for_online(self):
+        for policy in ['up', 'always-up', 'manual', 'always-down', 'down', 'bound', '']:
+            for required in ['yes', 'no', '']:
+                with self.subTest(policy=policy, required=required):
+                    self._test_activation_policy_required_for_online(policy, required)
+
     def test_domain(self):
         copy_unit_to_networkd_unit_path('12-dummy.netdev', '24-search-domain.network')
         start_networkd()
