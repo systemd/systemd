@@ -237,25 +237,6 @@ static usec_t time_event_source_next(const sd_event_source *s) {
         return USEC_INFINITY;
 }
 
-static int earliest_time_prioq_compare(const void *a, const void *b) {
-        const sd_event_source *x = a, *y = b;
-
-        /* Enabled ones first */
-        if (x->enabled != SD_EVENT_OFF && y->enabled == SD_EVENT_OFF)
-                return -1;
-        if (x->enabled == SD_EVENT_OFF && y->enabled != SD_EVENT_OFF)
-                return 1;
-
-        /* Move the pending ones to the end */
-        if (!x->pending && y->pending)
-                return -1;
-        if (x->pending && !y->pending)
-                return 1;
-
-        /* Order by time */
-        return CMP(time_event_source_next(x), time_event_source_next(y));
-}
-
 static usec_t time_event_source_latest(const sd_event_source *s) {
         assert(s);
 
@@ -274,7 +255,15 @@ static usec_t time_event_source_latest(const sd_event_source *s) {
         return USEC_INFINITY;
 }
 
-static int latest_time_prioq_compare(const void *a, const void *b) {
+static bool event_source_timer_candidate(const sd_event_source *s) {
+        assert(s);
+
+        /* Returns true for event sources that either are not pending yet (i.e. where it's worth to mark them pending)
+         * or which are currently ratelimited (i.e. where it's worth leaving the ratelimited state) */
+        return !s->pending || s->ratelimited;
+}
+
+static int time_prioq_compare(const void *a, const void *b, usec_t (*time_func)(const sd_event_source *s)) {
         const sd_event_source *x = a, *y = b;
 
         /* Enabled ones first */
@@ -283,14 +272,22 @@ static int latest_time_prioq_compare(const void *a, const void *b) {
         if (x->enabled == SD_EVENT_OFF && y->enabled != SD_EVENT_OFF)
                 return 1;
 
-        /* Move the pending ones to the end */
-        if (!x->pending && y->pending)
+        /* Order "non-pending OR ratelimited" before "pending AND not-ratelimited" */
+        if (event_source_timer_candidate(x) && !event_source_timer_candidate(y))
                 return -1;
-        if (x->pending && !y->pending)
+        if (!event_source_timer_candidate(x) && event_source_timer_candidate(y))
                 return 1;
 
         /* Order by time */
-        return CMP(time_event_source_latest(x), time_event_source_latest(y));
+        return CMP(time_func(x), time_func(y));
+}
+
+static int earliest_time_prioq_compare(const void *a, const void *b) {
+        return time_prioq_compare(a, b, time_event_source_next);
+}
+
+static int latest_time_prioq_compare(const void *a, const void *b) {
+        return time_prioq_compare(a, b, time_event_source_latest);
 }
 
 static int exit_prioq_compare(const void *a, const void *b) {
