@@ -2,9 +2,11 @@
 
 #include <netinet/in.h>
 #include <linux/if.h>
+#include <linux/if_arp.h>
 
 #include "missing_network.h"
 #include "netlink-util.h"
+#include "networkd-can.h"
 #include "networkd-link.h"
 #include "networkd-manager.h"
 #include "networkd-queue.h"
@@ -16,6 +18,7 @@ static const char *const set_link_operation_table[_SET_LINK_OPERATION_MAX] = {
         [SET_LINK_BOND]                    = "bond configurations",
         [SET_LINK_BRIDGE]                  = "bridge configurations",
         [SET_LINK_BRIDGE_VLAN]             = "bridge VLAN configurations",
+        [SET_LINK_CAN]                     = "can interface configurations",
         [SET_LINK_FLAGS]                   = "link flags",
         [SET_LINK_GROUP]                   = "interface group",
         [SET_LINK_MAC]                     = "MAC address",
@@ -33,6 +36,15 @@ static int get_link_master_handler(sd_netlink *rtnl, sd_netlink_message *m, Link
         if (get_link_default_handler(rtnl, m, link) > 0)
                 link->master_set = true;
         return 0;
+}
+
+static int get_link_update_flag_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
+        assert(link);
+        assert(link->set_flags_messages > 0);
+
+        link->set_flags_messages--;
+
+        return get_link_default_handler(rtnl, m, link);
 }
 
 static int set_link_handler_internal(
@@ -53,7 +65,7 @@ static int set_link_handler_internal(
         link->set_link_messages--;
 
         if (IN_SET(link->state, LINK_STATE_FAILED, LINK_STATE_LINGER))
-                return 0;
+                goto on_error;
 
         r = sd_netlink_message_get_errno(m);
         if (r < 0) {
@@ -64,7 +76,7 @@ static int set_link_handler_internal(
 
                 if (!ignore)
                         link_enter_failed(link);
-                return 0;
+                goto on_error;
         }
 
         log_link_debug(link, "%s set.", set_link_operation_to_string(op));
@@ -73,7 +85,7 @@ static int set_link_handler_internal(
                 r = link_call_getlink(link, get_link_handler);
                 if (r < 0) {
                         link_enter_failed(link);
-                        return 0;
+                        goto on_error;
                 }
         }
 
@@ -81,6 +93,14 @@ static int set_link_handler_internal(
                 link_check_ready(link);
 
         return 1;
+
+on_error:
+        if (op == SET_LINK_FLAGS) {
+                assert(link->set_flags_messages > 0);
+                link->set_flags_messages--;
+        }
+
+        return 0;
 }
 
 static int link_set_addrgen_mode_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
@@ -100,23 +120,27 @@ static int link_set_addrgen_mode_handler(sd_netlink *rtnl, sd_netlink_message *m
 }
 
 static int link_set_bond_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
-        return set_link_handler_internal(rtnl, m, link, SET_LINK_BOND, true, NULL);
+        return set_link_handler_internal(rtnl, m, link, SET_LINK_BOND, false, NULL);
 }
 
 static int link_set_bridge_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
-        return set_link_handler_internal(rtnl, m, link, SET_LINK_BRIDGE, true, NULL);
+        return set_link_handler_internal(rtnl, m, link, SET_LINK_BRIDGE, false, NULL);
 }
 
 static int link_set_bridge_vlan_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
-        return set_link_handler_internal(rtnl, m, link, SET_LINK_BRIDGE_VLAN, true, NULL);
+        return set_link_handler_internal(rtnl, m, link, SET_LINK_BRIDGE_VLAN, false, NULL);
+}
+
+static int link_set_can_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
+        return set_link_handler_internal(rtnl, m, link, SET_LINK_CAN, false, NULL);
 }
 
 static int link_set_flags_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
-        return set_link_handler_internal(rtnl, m, link, SET_LINK_FLAGS, true, get_link_default_handler);
+        return set_link_handler_internal(rtnl, m, link, SET_LINK_FLAGS, false, get_link_update_flag_handler);
 }
 
 static int link_set_group_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
-        return set_link_handler_internal(rtnl, m, link, SET_LINK_GROUP, true, NULL);
+        return set_link_handler_internal(rtnl, m, link, SET_LINK_GROUP, false, NULL);
 }
 
 static int link_set_mac_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
@@ -124,7 +148,7 @@ static int link_set_mac_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *l
 }
 
 static int link_set_master_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
-        return set_link_handler_internal(rtnl, m, link, SET_LINK_MASTER, true, get_link_master_handler);
+        return set_link_handler_internal(rtnl, m, link, SET_LINK_MASTER, false, get_link_master_handler);
 }
 
 static int link_set_mtu_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
@@ -161,7 +185,7 @@ static int link_configure(
 
         log_link_debug(link, "Setting %s", set_link_operation_to_string(op));
 
-        if (op == SET_LINK_BOND) {
+        if (IN_SET(op, SET_LINK_BOND, SET_LINK_CAN)) {
                 r = sd_rtnl_message_new_link(link->manager->rtnl, &req, RTM_NEWLINK, link->master_ifindex);
                 if (r < 0)
                         return log_link_debug_errno(link, r, "Could not allocate RTM_NEWLINK message: %m");
@@ -349,6 +373,11 @@ static int link_configure(
                         return log_link_debug_errno(link, r, "Could not close IFLA_AF_SPEC container: %m");
 
                 break;
+        case SET_LINK_CAN:
+                r = can_set_netlink_message(link, req);
+                if (r < 0)
+                        return r;
+                break;
         case SET_LINK_FLAGS: {
                 unsigned ifi_change = 0, ifi_flags = 0;
 
@@ -442,6 +471,18 @@ static bool link_is_ready_to_call_set_link(Request *req) {
                 if (!link->master_set)
                         return false;
                 break;
+        case SET_LINK_CAN:
+                /* Do not check link->set_flgas_messages here, as it is ok even if link->flags
+                 * is outdated, and checking the counter causes a deadlock. */
+                if (FLAGS_SET(link->flags, IFF_UP)) {
+                        /* The CAN interface must be down to configure bitrate, etc... */
+                        r = link_down(link);
+                        if (r < 0) {
+                                link_enter_failed(link);
+                                return false;
+                        }
+                }
+                break;
         case SET_LINK_MASTER: {
                 uint32_t m = 0;
 
@@ -456,6 +497,8 @@ static bool link_is_ready_to_call_set_link(Request *req) {
                                 return false;
                         m = link->network->bond->ifindex;
 
+                        /* Do not check link->set_flgas_messages here, as it is ok even if link->flags
+                         * is outdated, and checking the counter causes a deadlock. */
                         if (FLAGS_SET(link->flags, IFF_UP)) {
                                 /* link must be down when joining to bond master. */
                                 r = link_down(link);
@@ -500,6 +543,9 @@ int request_process_set_link(Request *req) {
         if (r < 0)
                 return log_link_error_errno(req->link, r, "Failed to set %s: %m",
                                             set_link_operation_to_string(req->set_link_operation));
+
+        if (req->set_link_operation == SET_LINK_FLAGS)
+                req->link->set_flags_messages++;
 
         return 1;
 }
@@ -599,6 +645,19 @@ int link_request_to_set_bridge_vlan(Link *link) {
         return link_request_set_link(link, SET_LINK_BRIDGE_VLAN, link_set_bridge_vlan_handler, NULL);
 }
 
+int link_request_to_set_can(Link *link) {
+        assert(link);
+        assert(link->network);
+
+        if (link->iftype != ARPHRD_CAN)
+                return 0;
+
+        if (!streq_ptr(link->kind, "can"))
+                return 0;
+
+        return link_request_set_link(link, SET_LINK_CAN, link_set_can_handler, NULL);
+}
+
 int link_request_to_set_flags(Link *link) {
         assert(link);
         assert(link->network);
@@ -642,16 +701,38 @@ int link_request_to_set_master(Link *link) {
 
 int link_request_to_set_mtu(Link *link, uint32_t mtu) {
         Request *req = NULL;  /* avoid false maybe-uninitialized warning */
+        const char *origin;
+        uint32_t min_mtu;
         int r;
 
         assert(link);
+        assert(link->network);
 
-        /* IPv6 protocol requires a minimum MTU of IPV6_MTU_MIN(1280) bytes on the interface. Bump up
-         * MTU bytes to IPV6_MTU_MIN. */
-        if (mtu < IPV6_MIN_MTU && link_ipv6_enabled(link)) {
-                log_link_warning(link, "Bumping MTU to " STRINGIFY(IPV6_MIN_MTU) ", as IPv6 is enabled "
-                                 "and requires a minimum MTU of " STRINGIFY(IPV6_MIN_MTU) " bytes");
-                mtu = IPV6_MIN_MTU;
+        min_mtu = link->min_mtu;
+        origin = "the minimum MTU of the interface";
+        if (link_ipv6_enabled(link)) {
+                /* IPv6 protocol requires a minimum MTU of IPV6_MTU_MIN(1280) bytes on the interface. Bump up
+                 * MTU bytes to IPV6_MTU_MIN. */
+                if (min_mtu < IPV6_MIN_MTU) {
+                        min_mtu = IPV6_MIN_MTU;
+                        origin = "the minimum IPv6 MTU";
+                }
+                if (min_mtu < link->network->ipv6_mtu) {
+                        min_mtu = link->network->ipv6_mtu;
+                        origin = "the requested IPv6 MTU in IPv6MTUBytes=";
+                }
+        }
+
+        if (mtu < min_mtu) {
+                log_link_warning(link, "Bumping the requested MTU %"PRIu32" to %s (%"PRIu32")",
+                                 mtu, origin, min_mtu);
+                mtu = min_mtu;
+        }
+
+        if (mtu > link->max_mtu) {
+                log_link_warning(link, "Reducing the requested MTU %"PRIu32" to the interface's maximum MTU %"PRIu32".",
+                                 mtu, link->max_mtu);
+                mtu = link->max_mtu;
         }
 
         if (link->mtu == mtu)
@@ -713,7 +794,7 @@ static int link_up_or_down_handler_internal(sd_netlink *rtnl, sd_netlink_message
         assert(link);
 
         if (IN_SET(link->state, LINK_STATE_FAILED, LINK_STATE_LINGER))
-                return 0;
+                goto on_error;
 
         r = sd_netlink_message_get_errno(m);
         if (r < 0)
@@ -721,10 +802,22 @@ static int link_up_or_down_handler_internal(sd_netlink *rtnl, sd_netlink_message
                                                "Could not bring up interface, ignoring" :
                                                "Could not bring down interface, ignoring");
 
+        r = link_call_getlink(link, get_link_update_flag_handler);
+        if (r < 0) {
+                link_enter_failed(link);
+                goto on_error;
+        }
+
         if (check_ready) {
                 link->activated = true;
                 link_check_ready(link);
         }
+
+        return 1;
+
+on_error:
+        assert(link->set_flags_messages > 0);
+        link->set_flags_messages--;
 
         return 0;
 }
@@ -745,6 +838,10 @@ static int link_down_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link
         return link_up_or_down_handler_internal(rtnl, m, link, false, false);
 }
 
+static const char *up_or_down(bool up) {
+        return up ? "up" : "down";
+}
+
 static int link_up_or_down(Link *link, bool up, link_netlink_message_handler_t callback) {
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL;
         int r;
@@ -754,7 +851,7 @@ static int link_up_or_down(Link *link, bool up, link_netlink_message_handler_t c
         assert(link->manager->rtnl);
         assert(callback);
 
-        log_link_debug(link, "Bringing link %s", up ? "up" : "down");
+        log_link_debug(link, "Bringing link %s", up_or_down(up));
 
         r = sd_rtnl_message_new_link(link->manager->rtnl, &req, RTM_SETLINK, link->ifindex);
         if (r < 0)
@@ -772,10 +869,6 @@ static int link_up_or_down(Link *link, bool up, link_netlink_message_handler_t c
         link_ref(link);
 
         return 0;
-}
-
-int link_up(Link *link) {
-        return link_up_or_down(link, true, link_up_handler);
 }
 
 int link_down(Link *link) {
@@ -812,7 +905,7 @@ int request_process_activation(Request *req) {
 
         r = link_up_or_down(link, up, req->netlink_handler);
         if (r < 0)
-                return log_link_error_errno(link, r, "Failed to bring %s: %m", up ? "up" : "down");
+                return log_link_error_errno(link, r, "Failed to bring %s: %m", up_or_down(up));
 
         return 1;
 }
@@ -827,7 +920,6 @@ int link_request_to_activate(Link *link) {
 
         switch (link->network->activation_policy) {
         case ACTIVATION_POLICY_BOUND:
-                /* FIXME: also use request queue to handle the list. */
                 r = link_handle_bound_to_list(link);
                 if (r < 0)
                         return r;
@@ -850,7 +942,7 @@ int link_request_to_activate(Link *link) {
 
         link->activated = false;
 
-        r = link_queue_request(link, REQUEST_TYPE_ACTIVATE_LINK, NULL, false, NULL,
+        r = link_queue_request(link, REQUEST_TYPE_ACTIVATE_LINK, NULL, false, &link->set_flags_messages,
                                up ? link_activate_up_handler : link_activate_down_handler, &req);
         if (r < 0)
                 return log_link_error_errno(link, r, "Failed to request to activate link: %m");
@@ -858,5 +950,63 @@ int link_request_to_activate(Link *link) {
         req->userdata = INT_TO_PTR(up);
 
         log_link_debug(link, "Requested to activate link");
+        return 0;
+}
+
+static bool link_is_ready_to_bring_up_or_down(Link *link) {
+        assert(link);
+
+        if (link->state == LINK_STATE_UNMANAGED)
+                return true;
+
+        if (!IN_SET(link->state, LINK_STATE_CONFIGURING, LINK_STATE_CONFIGURED))
+                return false;
+
+        if (link->set_link_messages > 0)
+                return false;
+
+        if (!link->activated)
+                return false;
+
+        return true;
+}
+
+int request_process_link_up_or_down(Request *req) {
+        Link *link;
+        bool up;
+        int r;
+
+        assert(req);
+        assert(req->link);
+        assert(req->type == REQUEST_TYPE_UP_DOWN);
+
+        link = req->link;
+        up = PTR_TO_INT(req->userdata);
+
+        if (!link_is_ready_to_bring_up_or_down(link))
+                return 0;
+
+        r = link_up_or_down(link, up, req->netlink_handler);
+        if (r < 0)
+                return log_link_error_errno(link, r, "Failed to bring %s: %m", up_or_down(up));
+
+        return 1;
+}
+
+int link_request_to_bring_up_or_down(Link *link, bool up) {
+        Request *req;
+        int r;
+
+        assert(link);
+
+        r = link_queue_request(link, REQUEST_TYPE_UP_DOWN, NULL, false, &link->set_flags_messages,
+                               up ? link_up_handler : link_down_handler, &req);
+        if (r < 0)
+                return log_link_error_errno(link, r, "Failed to request to bring %s link: %m",
+                                            up_or_down(up));
+
+        req->userdata = INT_TO_PTR(up);
+
+        log_link_debug(link, "Requested to bring link %s", up_or_down(up));
         return 0;
 }
