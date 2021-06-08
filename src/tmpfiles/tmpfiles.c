@@ -110,6 +110,17 @@ typedef enum ItemType {
         ADJUST_MODE = 'm', /* legacy, 'z' is identical to this */
 } ItemType;
 
+typedef enum AgeBy {
+        AGE_BY_ATIME = 1 << 0,
+        AGE_BY_BTIME = 1 << 1,
+        AGE_BY_CTIME = 1 << 2,
+        AGE_BY_MTIME = 1 << 3,
+
+        /* All file timestamp types are checked by default. */
+        AGE_BY_DEFAULT_FILE = AGE_BY_ATIME | AGE_BY_BTIME | AGE_BY_CTIME | AGE_BY_MTIME,
+        AGE_BY_DEFAULT_DIR  = AGE_BY_ATIME | AGE_BY_BTIME | AGE_BY_MTIME
+} AgeBy;
+
 typedef struct Item {
         ItemType type;
 
@@ -124,6 +135,7 @@ typedef struct Item {
         gid_t gid;
         mode_t mode;
         usec_t age;
+        AgeBy age_by_file, age_by_dir;
 
         dev_t major_minor;
         unsigned attribute_value;
@@ -505,6 +517,64 @@ static inline nsec_t load_statx_timestamp_nsec(const struct statx_timestamp *ts)
         return ts->tv_sec * NSEC_PER_SEC + ts->tv_nsec;
 }
 
+static bool needs_cleanup(
+                nsec_t atime,
+                nsec_t btime,
+                nsec_t ctime,
+                nsec_t mtime,
+                nsec_t cutoff,
+                const char *sub_path,
+                AgeBy age_by,
+                bool is_dir) {
+
+        if (FLAGS_SET(age_by, AGE_BY_MTIME) && mtime != NSEC_INFINITY && mtime >= cutoff) {
+                char a[FORMAT_TIMESTAMP_MAX];
+                /* Follows spelling in stat(1). */
+                log_debug("%s \"%s\": modify time %s is too new.",
+                          is_dir ? "Directory" : "File",
+                          sub_path,
+                          format_timestamp_style(a, sizeof(a), mtime / NSEC_PER_USEC, TIMESTAMP_US));
+
+                return false;
+        }
+
+        if (FLAGS_SET(age_by, AGE_BY_ATIME) && atime != NSEC_INFINITY && atime >= cutoff) {
+                char a[FORMAT_TIMESTAMP_MAX];
+                log_debug("%s \"%s\": access time %s is too new.",
+                          is_dir ? "Directory" : "File",
+                          sub_path,
+                          format_timestamp_style(a, sizeof(a), atime / NSEC_PER_USEC, TIMESTAMP_US));
+
+                return false;
+        }
+
+        /*
+         * Note: Unless explicitly specified by the user, "ctime" is ignored
+         * by default for directories, because we change it when deleting.
+         */
+        if (FLAGS_SET(age_by, AGE_BY_CTIME) && ctime != NSEC_INFINITY && ctime >= cutoff) {
+                char a[FORMAT_TIMESTAMP_MAX];
+                log_debug("%s \"%s\": change time %s is too new.",
+                          is_dir ? "Directory" : "File",
+                          sub_path,
+                          format_timestamp_style(a, sizeof(a), ctime / NSEC_PER_USEC, TIMESTAMP_US));
+
+                return false;
+        }
+
+        if (FLAGS_SET(age_by, AGE_BY_BTIME) && btime != NSEC_INFINITY && btime >= cutoff) {
+                char a[FORMAT_TIMESTAMP_MAX];
+                log_debug("%s \"%s\": birth time %s is too new.",
+                          is_dir ? "Directory" : "File",
+                          sub_path,
+                          format_timestamp_style(a, sizeof(a), btime / NSEC_PER_USEC, TIMESTAMP_US));
+
+                return false;
+        }
+
+        return true;
+}
+
 static int dir_cleanup(
                 Item *i,
                 const char *p,
@@ -516,7 +586,9 @@ static int dir_cleanup(
                 dev_t rootdev_minor,
                 bool mountpoint,
                 int maxdepth,
-                bool keep_this_level) {
+                bool keep_this_level,
+                AgeBy age_by_file,
+                AgeBy age_by_dir) {
 
         bool deleted = false;
         struct dirent *dent;
@@ -641,7 +713,8 @@ static int dir_cleanup(
                                                 sub_path, sub_dir,
                                                 atime_nsec, mtime_nsec, cutoff_nsec,
                                                 rootdev_major, rootdev_minor,
-                                                false, maxdepth-1, false);
+                                                false, maxdepth-1, false,
+                                                age_by_file, age_by_dir);
                                 if (q < 0)
                                         r = q;
                         }
@@ -656,31 +729,13 @@ static int dir_cleanup(
                                 continue;
                         }
 
-                        /* Ignore ctime, we change it when deleting */
-                        if (mtime_nsec != NSEC_INFINITY && mtime_nsec >= cutoff_nsec) {
-                                char a[FORMAT_TIMESTAMP_MAX];
-                                /* Follows spelling in stat(1). */
-                                log_debug("Directory \"%s\": modify time %s is too new.",
-                                          sub_path,
-                                          format_timestamp_style(a, sizeof(a), mtime_nsec / NSEC_PER_USEC, TIMESTAMP_US));
+                        /*
+                         * Check the file timestamps of an entry against the
+                         * given cutoff time; delete if it is older.
+                         */
+                        if (!needs_cleanup(atime_nsec, btime_nsec, ctime_nsec, mtime_nsec,
+                                           cutoff_nsec, sub_path, age_by_dir, true))
                                 continue;
-                        }
-
-                        if (atime_nsec != NSEC_INFINITY && atime_nsec >= cutoff_nsec) {
-                                char a[FORMAT_TIMESTAMP_MAX];
-                                log_debug("Directory \"%s\": access time %s is too new.",
-                                          sub_path,
-                                          format_timestamp_style(a, sizeof(a), atime_nsec / NSEC_PER_USEC, TIMESTAMP_US));
-                                continue;
-                        }
-
-                        if (btime_nsec != NSEC_INFINITY && btime_nsec >= cutoff_nsec) {
-                                char a[FORMAT_TIMESTAMP_MAX];
-                                log_debug("Directory \"%s\": birth time %s is too new.",
-                                          sub_path,
-                                          format_timestamp_style(a, sizeof(a), btime_nsec / NSEC_PER_USEC, TIMESTAMP_US));
-                                continue;
-                        }
 
                         log_debug("Removing directory \"%s\".", sub_path);
                         if (unlinkat(dirfd(d), dent->d_name, AT_REMOVEDIR) < 0)
@@ -724,38 +779,9 @@ static int dir_cleanup(
                                 continue;
                         }
 
-                        if (mtime_nsec != NSEC_INFINITY && mtime_nsec >= cutoff_nsec) {
-                                char a[FORMAT_TIMESTAMP_MAX];
-                                /* Follows spelling in stat(1). */
-                                log_debug("File \"%s\": modify time %s is too new.",
-                                          sub_path,
-                                          format_timestamp_style(a, sizeof(a), mtime_nsec / NSEC_PER_USEC, TIMESTAMP_US));
+                        if (!needs_cleanup(atime_nsec, btime_nsec, ctime_nsec, mtime_nsec,
+                                           cutoff_nsec, sub_path, age_by_file, false))
                                 continue;
-                        }
-
-                        if (atime_nsec != NSEC_INFINITY && atime_nsec >= cutoff_nsec) {
-                                char a[FORMAT_TIMESTAMP_MAX];
-                                log_debug("File \"%s\": access time %s is too new.",
-                                          sub_path,
-                                          format_timestamp_style(a, sizeof(a), atime_nsec / NSEC_PER_USEC, TIMESTAMP_US));
-                                continue;
-                        }
-
-                        if (ctime_nsec != NSEC_INFINITY && ctime_nsec >= cutoff_nsec) {
-                                char a[FORMAT_TIMESTAMP_MAX];
-                                log_debug("File \"%s\": change time %s is too new.",
-                                          sub_path,
-                                          format_timestamp_style(a, sizeof(a), ctime_nsec / NSEC_PER_USEC, TIMESTAMP_US));
-                                continue;
-                        }
-
-                        if (btime_nsec != NSEC_INFINITY && btime_nsec >= cutoff_nsec) {
-                                char a[FORMAT_TIMESTAMP_MAX];
-                                log_debug("File \"%s\": birth time %s is too new.",
-                                          sub_path,
-                                          format_timestamp_style(a, sizeof(a), btime_nsec / NSEC_PER_USEC, TIMESTAMP_US));
-                                continue;
-                        }
 
                         log_debug("Removing \"%s\".", sub_path);
                         if (unlinkat(dirfd(d), dent->d_name, 0) < 0)
@@ -2443,6 +2469,23 @@ static int remove_item(Item *i) {
         }
 }
 
+static char *age_by_to_string(AgeBy ab, bool is_dir) {
+        static const char ab_map[] = { 'a', 'b', 'c', 'm' };
+        size_t j = 0;
+        char *ret;
+
+        ret = new(char, ELEMENTSOF(ab_map) + 1);
+        if (!ret)
+                return NULL;
+
+        for (size_t i = 0; i < ELEMENTSOF(ab_map); i++)
+                if (FLAGS_SET(ab, 1U << i))
+                        ret[j++] = is_dir ? ascii_toupper(ab_map[i]) : ab_map[i];
+
+        ret[j] = 0;
+        return ret;
+}
+
 static int clean_item_instance(Item *i, const char* instance) {
         char timestamp[FORMAT_TIMESTAMP_MAX];
         _cleanup_closedir_ DIR *d = NULL;
@@ -2489,17 +2532,31 @@ static int clean_item_instance(Item *i, const char* instance) {
                         sx.stx_ino != ps.st_ino;
         }
 
-        log_debug("Cleanup threshold for %s \"%s\" is %s",
-                  mountpoint ? "mount point" : "directory",
-                  instance,
-                  format_timestamp_style(timestamp, sizeof(timestamp), cutoff, TIMESTAMP_US));
+        if (DEBUG_LOGGING) {
+                _cleanup_free_ char *ab_f = NULL, *ab_d = NULL;
+
+                ab_f = age_by_to_string(i->age_by_file, false);
+                if (!ab_f)
+                        return log_oom();
+
+                ab_d = age_by_to_string(i->age_by_dir, true);
+                if (!ab_d)
+                        return log_oom();
+
+                log_debug("Cleanup threshold for %s \"%s\" is %s; age-by: %s%s",
+                          mountpoint ? "mount point" : "directory",
+                          instance,
+                          format_timestamp_style(timestamp, sizeof(timestamp), cutoff, TIMESTAMP_US),
+                          ab_f, ab_d);
+        }
 
         return dir_cleanup(i, instance, d,
                            load_statx_timestamp_nsec(&sx.stx_atime),
                            load_statx_timestamp_nsec(&sx.stx_mtime),
                            cutoff * NSEC_PER_USEC,
                            sx.stx_dev_major, sx.stx_dev_minor, mountpoint,
-                           MAX_DEPTH, i->keep_first_level);
+                           MAX_DEPTH, i->keep_first_level,
+                           i->age_by_file, i->age_by_dir);
 }
 
 static int clean_item(Item *i) {
@@ -2665,6 +2722,9 @@ static bool item_compatible(Item *a, Item *b) {
                         a->age_set == b->age_set &&
                         a->age == b->age &&
 
+                        a->age_by_file == b->age_by_file &&
+                        a->age_by_dir == b->age_by_dir &&
+
                         a->mask_perms == b->mask_perms &&
 
                         a->keep_first_level == b->keep_first_level &&
@@ -2829,6 +2889,58 @@ static int find_gid(const char *group, gid_t *ret_gid, Hashmap **cache) {
         return name_to_gid_offline(arg_root, group, ret_gid, cache);
 }
 
+static int parse_age_by_from_arg(const char *age_by_str, Item *item) {
+        AgeBy ab_f = 0, ab_d = 0;
+
+        static const struct {
+                char age_by_chr;
+                AgeBy age_by_flag;
+        } age_by_types[] = {
+                { 'a', AGE_BY_ATIME },
+                { 'b', AGE_BY_BTIME },
+                { 'c', AGE_BY_CTIME },
+                { 'm', AGE_BY_MTIME },
+        };
+
+        assert(age_by_str);
+        assert(item);
+
+        if (isempty(age_by_str))
+                return -EINVAL;
+
+        for (const char *s = age_by_str; *s != 0; s++) {
+                size_t i;
+
+                /* Ignore whitespace. */
+                if (strchr(WHITESPACE, *s))
+                        continue;
+
+                for (i = 0; i < ELEMENTSOF(age_by_types); i++) {
+                        /* Check lower-case for files, upper-case for directories. */
+                        if (*s == age_by_types[i].age_by_chr) {
+                                ab_f |= age_by_types[i].age_by_flag;
+                                break;
+                        } else if (*s == ascii_toupper(age_by_types[i].age_by_chr)) {
+                                ab_d |= age_by_types[i].age_by_flag;
+                                break;
+                        }
+                }
+
+                /* Invalid character. */
+                if (i >= ELEMENTSOF(age_by_types))
+                        return -EINVAL;
+        }
+
+        /* No match. */
+        if (ab_f == 0 && ab_d == 0)
+                return -EINVAL;
+
+        item->age_by_file = ab_f > 0 ? ab_f : AGE_BY_DEFAULT_FILE;
+        item->age_by_dir = ab_d > 0 ? ab_d : AGE_BY_DEFAULT_DIR;
+
+        return 0;
+}
+
 static int parse_line(
                 const char *fname,
                 unsigned line,
@@ -2838,7 +2950,11 @@ static int parse_line(
                 Hashmap **gid_cache) {
 
         _cleanup_free_ char *action = NULL, *mode = NULL, *user = NULL, *group = NULL, *age = NULL, *path = NULL;
-        _cleanup_(item_free_contents) Item i = {};
+        _cleanup_(item_free_contents) Item i = {
+                /* The "age-by" argument considers all file timestamp types by default. */
+                .age_by_file = AGE_BY_DEFAULT_FILE,
+                .age_by_dir = AGE_BY_DEFAULT_DIR,
+        };
         ItemArray *existing;
         OrderedHashmap *h;
         int r, pos;
@@ -3112,16 +3228,37 @@ static int parse_line(
 
         if (!empty_or_dash(age)) {
                 const char *a = age;
+                _cleanup_free_ char *seconds = NULL, *age_by = NULL;
 
                 if (*a == '~') {
                         i.keep_first_level = true;
                         a++;
                 }
 
+                /* Format: "age-by:age"; where age-by is "[abcmABCM]+". */
+                r = split_pair(a, ":", &age_by, &seconds);
+                if (r == -ENOMEM)
+                        return log_oom();
+                if (r < 0 && r != -EINVAL)
+                        return log_error_errno(r, "Failed to parse age-by for '%s': %m", age);
+                if (r >= 0) {
+                        /* We found a ":", parse the "age-by" part. */
+                        r = parse_age_by_from_arg(age_by, &i);
+                        if (r == -ENOMEM)
+                                return log_oom();
+                        if (r < 0) {
+                                *invalid_config = true;
+                                return log_syntax(NULL, LOG_ERR, fname, line, r, "Invalid age-by '%s'.", age_by);
+                        }
+
+                        /* For parsing the "age" part, after the ":". */
+                        a = seconds;
+                }
+
                 r = parse_sec(a, &i.age);
                 if (r < 0) {
                         *invalid_config = true;
-                        return log_syntax(NULL, LOG_ERR, fname, line, r, "Invalid age '%s'.", age);
+                        return log_syntax(NULL, LOG_ERR, fname, line, r, "Invalid age '%s'.", a);
                 }
 
                 i.age_set = true;
