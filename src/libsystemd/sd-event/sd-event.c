@@ -2901,9 +2901,15 @@ fail:
 }
 
 static usec_t sleep_between(sd_event *e, usec_t a, usec_t b) {
-        usec_t c;
+        usec_t c, tmp;
         assert(e);
-        assert(a <= b);
+
+        /* swap a and b such that we always have a <= b */
+        if (a > b) {
+                tmp = a;
+                a = b;
+                b = tmp;
+        }
 
         if (a <= 0)
                 return 0;
