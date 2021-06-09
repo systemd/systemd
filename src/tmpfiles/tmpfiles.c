@@ -2033,7 +2033,7 @@ static int glob_item_recursively(Item *i, fdaction_t action) {
 static int rm_if_wrong_type_safe(
                 mode_t mode,
                 int parent_fd,
-                const struct stat *parent_st /* Only used if follow is true. */,
+                const struct stat *parent_st, /* Only used if follow_links below is true. */
                 const char *name,
                 int flags) {
         _cleanup_free_ char *parent_name = NULL;
@@ -2110,12 +2110,10 @@ static int rm_if_wrong_type_safe(
 
 /* If child_mode is non-zero, rm_if_wrong_type_safe will be executed for the last path component. */
 static int mkdir_parents_rm_if_wrong_type(mode_t child_mode, const char *path) {
-        _cleanup_close_ int parent_fd = -1, next_fd = -1;
-        _cleanup_free_ char *parent_name = NULL;
+        _cleanup_close_ int parent_fd = -1;
         struct stat parent_st;
-        const char *s, *e;
-        int r;
         size_t path_len;
+        int r;
 
         assert(path);
         assert((child_mode & ~S_IFMT) == 0);
@@ -2131,19 +2129,18 @@ static int mkdir_parents_rm_if_wrong_type(mode_t child_mode, const char *path) {
                                 "Trailing path separators are only allowed if child_mode is not set; got \"%s\"", path);
 
         /* Get the parent_fd and stat. */
-        parent_fd = AT_FDCWD;
-        if (path_is_absolute(path)) {
-                parent_fd = open("/", O_NOCTTY | O_CLOEXEC | O_DIRECTORY);
-                if (parent_fd < 0)
-                        return log_error_errno(errno, "Failed to open root: %m");
-        }
+        parent_fd = openat(AT_FDCWD, path_is_absolute(path) ? "/" : "", O_NOCTTY | O_CLOEXEC | O_DIRECTORY);
+        if (parent_fd < 0)
+                return log_error_errno(errno, "Failed to open root: %m");
+
         if (fstat(parent_fd, &parent_st) < 0)
                 return log_error_errno(errno, "Failed to stat root: %m");
 
         /* Check every parent directory in the path, except the last component */
-        e = path;
-        for (;;) {
+        for (const char *e = path;;) {
+                _cleanup_close_ int next_fd = -1;
                 char t[path_len + 1];
+                const char *s;
 
                 /* Find the start of the next path component. */
                 s = e + strspn(e, "/");
@@ -2156,19 +2153,19 @@ static int mkdir_parents_rm_if_wrong_type(mode_t child_mode, const char *path) {
                 /* Is this the last component? If so, then check the type */
                 if (*e == 0)
                         return child_mode != 0 ? rm_if_wrong_type_safe(child_mode, parent_fd, &parent_st, t, AT_SYMLINK_NOFOLLOW) : 0;
-                else {
-                        r = rm_if_wrong_type_safe(S_IFDIR, parent_fd, &parent_st, t, 0);
-                        /* Remove dangling symlinks. */
-                        if (r == -ENOENT)
-                                r = rm_if_wrong_type_safe(S_IFDIR, parent_fd, &parent_st, t, AT_SYMLINK_NOFOLLOW);
-                }
 
+                r = rm_if_wrong_type_safe(S_IFDIR, parent_fd, &parent_st, t, 0);
+                /* Remove dangling symlinks. */
+                if (r == -ENOENT)
+                        r = rm_if_wrong_type_safe(S_IFDIR, parent_fd, &parent_st, t, AT_SYMLINK_NOFOLLOW);
                 if (r == -ENOENT) {
                         RUN_WITH_UMASK(0000)
                                 r = mkdirat_label(parent_fd, t, 0755);
                         if (r < 0) {
+                                _cleanup_free_ char *parent_name = NULL;
+
                                 (void) fd_get_path(parent_fd, &parent_name);
-                                return log_error_errno(r, "Failed to mkdir \"%s\" at \"%s\": %m", t, parent_name);
+                                return log_error_errno(r, "Failed to mkdir \"%s\" at \"%s\": %m", t, strnull(parent_name));
                         }
                 } else if (r < 0)
                         /* rm_if_wrong_type_safe already logs errors. */
@@ -2176,18 +2173,21 @@ static int mkdir_parents_rm_if_wrong_type(mode_t child_mode, const char *path) {
 
                 next_fd = openat(parent_fd, t, O_NOCTTY | O_CLOEXEC | O_DIRECTORY);
                 if (next_fd < 0) {
+                        _cleanup_free_ char *parent_name = NULL;
+
                         r = -errno;
                         (void) fd_get_path(parent_fd, &parent_name);
-                        return log_error_errno(r, "Failed to open \"%s\" at \"%s\": %m", t, parent_name);
+                        return log_error_errno(r, "Failed to open \"%s\" at \"%s\": %m", t, strnull(parent_name));
                 }
                 if (fstat(next_fd, &parent_st) < 0) {
+                        _cleanup_free_ char *parent_name = NULL;
+
                         r = -errno;
                         (void) fd_get_path(parent_fd, &parent_name);
-                        return log_error_errno(r, "Failed to stat \"%s\" at \"%s\": %m", t, parent_name);
+                        return log_error_errno(r, "Failed to stat \"%s\" at \"%s\": %m", t, strnull(parent_name));
                 }
 
-                safe_close(parent_fd);
-                parent_fd = TAKE_FD(next_fd);
+                CLOSE_AND_REPLACE(parent_fd, next_fd);
         }
 }
 
