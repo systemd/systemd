@@ -259,7 +259,7 @@ static int systemctl_help(void) {
                "     --no-legend         Do not print a legend (column headers and hints)\n"
                "     --no-pager          Do not pipe output into a pager\n"
                "     --no-ask-password   Do not ask for system passwords\n"
-               "     --global            Enable/disable/mask unit files globally\n"
+               "     --global            Enable/disable/mask default user unit files globally\n"
                "     --runtime           Enable/disable/mask unit files temporarily until next\n"
                "                         reboot\n"
                "  -f --force             When enabling unit files, override existing symlinks\n"
