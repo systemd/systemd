@@ -117,6 +117,9 @@ struct sd_dhcp_client {
         sd_dhcp_lease *lease;
         usec_t start_delay;
         int ip_service_type;
+
+        /* Ignore ifindex when generating iaid. See dhcp_identifier_set_iaid(). */
+        bool test_mode;
 };
 
 static const uint8_t default_req_opts[] = {
@@ -466,7 +469,8 @@ static int dhcp_client_set_iaid_duid_internal(
                 else {
                         r = dhcp_identifier_set_iaid(client->ifindex, client->mac_addr,
                                                      client->mac_addr_len,
-                                                     true,
+                                                     /* legacy_unstable_byteorder = */ true,
+                                                     /* use_mac = */ client->test_mode,
                                                      &client->client_id.ns.iaid);
                         if (r < 0)
                                 return log_dhcp_client_errno(client, r, "Failed to set IAID: %m");
@@ -553,6 +557,12 @@ int sd_dhcp_client_set_duid_llt(
                 sd_dhcp_client *client,
                 usec_t llt_time) {
         return dhcp_client_set_iaid_duid_internal(client, false, false, 0, DUID_TYPE_LLT, NULL, 0, llt_time);
+}
+
+void dhcp_client_set_test_mode(sd_dhcp_client *client, bool test_mode) {
+        assert(client);
+
+        client->test_mode = test_mode;
 }
 
 int sd_dhcp_client_set_hostname(
@@ -860,7 +870,9 @@ static int client_message_init(
                 client->client_id.type = 255;
 
                 r = dhcp_identifier_set_iaid(client->ifindex, client->mac_addr, client->mac_addr_len,
-                                             true, &client->client_id.ns.iaid);
+                                             /* legacy_unstable_byteorder = */ true,
+                                             /* use_mac = */ client->test_mode,
+                                             &client->client_id.ns.iaid);
                 if (r < 0)
                         return r;
 
