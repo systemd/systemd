@@ -13,7 +13,6 @@
 #include "networkd-queue.h"
 #include "networkd-route.h"
 #include "parse-util.h"
-#include "socket-netlink.h"
 #include "string-table.h"
 #include "string-util.h"
 #include "strv.h"
@@ -708,13 +707,10 @@ int link_has_route(Link *link, const Route *route) {
                 Link *l;
 
                 if (m->ifname) {
-                        r = resolve_interface(&link->manager->rtnl, m->ifname);
-                        if (r < 0)
+                        if (link_get_by_name(link->manager, m->ifname, &l) < 0)
                                 return false;
-                        m->ifindex = r;
 
-                        if (link_get(link->manager, m->ifindex, &l) < 0)
-                                return false;
+                        m->ifindex = l->ifindex;
                 } else
                         l = link;
 
