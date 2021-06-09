@@ -55,11 +55,9 @@ int wifi_get_info(Link *link) {
         }
 
         if (r > 0 || s > 0) {
-                char buf[ETHER_ADDR_TO_STRING_MAX];
-
                 if (link->wlan_iftype == NL80211_IFTYPE_STATION && link->ssid)
                         log_link_info(link, "Connected WiFi access point: %s (%s)",
-                                      link->ssid, ether_addr_to_string(&link->bssid, buf));
+                                      link->ssid, ETHER_ADDR_TO_STR(&link->bssid));
 
                 return 1; /* Some information is updated. */
         }

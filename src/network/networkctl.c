@@ -1702,7 +1702,6 @@ static int link_status_one(
 
         if (info->has_permanent_mac_address) {
                 _cleanup_free_ char *description = NULL;
-                char ea[ETHER_ADDR_TO_STRING_MAX];
 
                 (void) ieee_oui(hwdb, &info->permanent_mac_address, &description);
 
@@ -1712,7 +1711,7 @@ static int link_status_one(
                 if (r < 0)
                         return table_log_add_error(r);
                 r = table_add_cell_stringf(table, NULL, "%s%s%s%s",
-                                           ether_addr_to_string(&info->permanent_mac_address, ea),
+                                           ETHER_ADDR_TO_STR(&info->permanent_mac_address),
                                            description ? " (" : "",
                                            strempty(description),
                                            description ? ")" : "");
@@ -2107,7 +2106,6 @@ static int link_status_one(
 
         if (info->has_wlan_link_info) {
                 _cleanup_free_ char *esc = NULL;
-                char buf[ETHER_ADDR_TO_STRING_MAX];
 
                 r = table_add_many(table,
                                    TABLE_EMPTY,
@@ -2120,7 +2118,7 @@ static int link_status_one(
 
                 r = table_add_cell_stringf(table, NULL, "%s (%s)",
                                            strnull(esc),
-                                           ether_addr_to_string(&info->bssid, buf));
+                                           ETHER_ADDR_TO_STR(&info->bssid));
                 if (r < 0)
                         return table_log_add_error(r);
         }
