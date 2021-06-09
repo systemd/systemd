@@ -2207,14 +2207,14 @@ PrivateTmp=yes</programlisting>
     <example>
       <title>Top level drop-ins with template units</title>
 
-      <para>Top level drop-ins can be used to change some aspect of all units
-      of a particular type. For example by creating the
-      <filename index='false'>/etc/systemd/system/service.d</filename>
+      <para>Top level per-type drop-ins can be used to change some aspect of
+      all units of a particular type. For example by creating the
+      <filename index='false'>/etc/systemd/system/service.d/</filename>
       directory with a drop-in file, the contents of the drop-in file can be
       applied to all service units. We can take this further by having the
       top-level drop-in instantiate a secondary helper unit. Consider for
       example the following set of units and drop-in files where we install
-      an OnFailure dependency for all service units.</para>
+      an <varname>OnFailure=</varname> dependency for all service units.</para>
 
       <para>
       <filename index='false'>/etc/systemd/system/failure-handler@.service</filename>:</para>
@@ -2226,10 +2226,9 @@ Description=My failure handler for %i
 Type=oneshot
 # Perform some special action for when %i exits unexpectedly.
 ExecStart=/usr/sbin/myfailurehandler %i
-
      </programlisting>
 
-     <para>We can then add an instance of the
+     <para>We can then add an instance of
      <filename index='false'>failure-handler@.service</filename> as an
      <varname>OnFailure=</varname> dependency for all service units.</para>
 
@@ -2237,25 +2236,25 @@ ExecStart=/usr/sbin/myfailurehandler %i
     <filename index='false'>/etc/systemd/system/service.d/10-all.conf</filename>:</para>
 
     <programlisting>[Unit]
-OnFailure=failure-handler@%n.service
+OnFailure=failure-handler@%N.service
     </programlisting>
 
     <para>Now, after running <command>systemctl daemon-reload</command> all
     services will have acquired an <varname>OnFailure=</varname> dependency on
-    <filename index='false'>failure-handler@%n.service</filename>. The
+    <filename index='false'>failure-handler@%N.service</filename>. The
     template instance units will also have gained the dependency which results
     in the creation of a recursive dependency chain. We can break the chain by
     disabling the drop-in for the template instance units via a symlink to
     <filename index='false'>/dev/null</filename>:</para>
 
     <programlisting>
-<command>mkdir /etc/systemd/system/failure-handler@.service.d</command>
+<command>mkdir /etc/systemd/system/failure-handler@.service.d/</command>
 <command>ln -s /dev/null /etc/systemd/system/failure-handler@.service.d/10-all.conf</command>
 <command>systemctl daemon-reload</command>
     </programlisting>
 
     <para>This ensures that if a <filename index='false'>failure-handler@.service</filename> instance fails it will not trigger an instance named
-    <filename index='false'>failure-handler@failure-handler.service.service</filename>.</para>
+    <filename index='false'>failure-handler@failure-handler.service</filename>.</para>
 
     </example>
 
