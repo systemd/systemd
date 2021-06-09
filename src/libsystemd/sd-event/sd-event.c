@@ -237,6 +237,14 @@ static usec_t time_event_source_next(const sd_event_source *s) {
         return USEC_INFINITY;
 }
 
+static bool event_source_timer_candidate(const sd_event_source *s) {
+        assert(s);
+
+        /* Returns true for event sources that either are not pending yet (i.e. where it's worth to mark them pending)
+         * or which are currently ratelimited (i.e. where it's worth leaving the ratelimited state) */
+        return !s->pending || s->ratelimited;
+}
+
 static int earliest_time_prioq_compare(const void *a, const void *b) {
         const sd_event_source *x = a, *y = b;
 
@@ -246,10 +254,9 @@ static int earliest_time_prioq_compare(const void *a, const void *b) {
         if (x->enabled == SD_EVENT_OFF && y->enabled != SD_EVENT_OFF)
                 return 1;
 
-        /* Move the pending ones to the end */
-        if (!x->pending && y->pending)
+        if (event_source_timer_candidate(x) && !event_source_timer_candidate(y))
                 return -1;
-        if (x->pending && !y->pending)
+        if (!event_source_timer_candidate(x) && event_source_timer_candidate(y))
                 return 1;
 
         /* Order by time */
@@ -2894,9 +2901,15 @@ fail:
 }
 
 static usec_t sleep_between(sd_event *e, usec_t a, usec_t b) {
-        usec_t c;
+        usec_t c, tmp;
         assert(e);
-        assert(a <= b);
+
+        /* swap a and b such that we always have a <= b */
+        if (a > b) {
+                tmp = a;
+                a = b;
+                b = tmp;
+        }
 
         if (a <= 0)
                 return 0;
