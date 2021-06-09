@@ -116,7 +116,7 @@ int enable_unit(int argc, char *argv[], void *userdata) {
                 } else if (streq(verb, "link"))
                         r = unit_file_link(arg_scope, flags, arg_root, names, &changes, &n_changes);
                 else if (streq(verb, "preset")) {
-                        r = unit_file_preset(arg_scope, flags, arg_root, names, arg_preset_mode, &changes, &n_changes);
+                        r = unit_file_preset(arg_scope, arg_preset_mode, flags, arg_root, names, &changes, &n_changes);
                 } else if (streq(verb, "mask"))
                         r = unit_file_mask(arg_scope, flags, arg_root, names, &changes, &n_changes);
                 else if (streq(verb, "unmask"))

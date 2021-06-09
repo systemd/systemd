@@ -114,17 +114,17 @@ int unit_file_reenable(
                 size_t *n_changes);
 int unit_file_preset(
                 UnitFileScope scope,
+                UnitFilePresetMode preset_mode,
                 UnitFileFlags flags,
                 const char *root_dir,
                 char **files,
-                UnitFilePresetMode mode,
                 UnitFileChange **changes,
                 size_t *n_changes);
 int unit_file_preset_all(
                 UnitFileScope scope,
+                UnitFilePresetMode preset_mode,
                 UnitFileFlags flags,
                 const char *root_dir,
-                UnitFilePresetMode mode,
                 UnitFileChange **changes,
                 size_t *n_changes);
 int unit_file_mask(

@@ -258,7 +258,7 @@ int main(int argc, char* argv[]) {
         changes = NULL;
         n_changes = 0;
 
-        r = unit_file_preset(UNIT_FILE_SYSTEM, 0, NULL, (char**) files, UNIT_FILE_PRESET_FULL, &changes, &n_changes);
+        r = unit_file_preset(UNIT_FILE_SYSTEM, UNIT_FILE_PRESET_FULL, 0, NULL, (char**) files, &changes, &n_changes);
         assert_se(r >= 0);
 
         dump_changes(changes, n_changes);
