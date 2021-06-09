@@ -338,7 +338,9 @@ static int routing_policy_rule_add(Manager *m, const RoutingPolicyRule *in, Rout
 
                 rule->manager = m;
                 existing = TAKE_PTR(rule);
-        } else if (r == 0) {
+        } else if (r < 0)
+                return r;
+        else if (r == 0) {
                 /* Take over a foreign rule. */
                 r = set_ensure_put(&m->rules, &routing_policy_rule_hash_ops, existing);
                 if (r < 0)
@@ -346,11 +348,7 @@ static int routing_policy_rule_add(Manager *m, const RoutingPolicyRule *in, Rout
                 assert(r > 0);
 
                 set_remove(m->rules_foreign, existing);
-        } else if (r == 1) {
-                /* Already exists, do nothing. */
-                ;
-        } else
-                return r;
+        } /* else r > 0: already exists, do nothing. */
 
         if (ret)
                 *ret = existing;
