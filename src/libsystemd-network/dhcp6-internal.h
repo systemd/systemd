@@ -91,6 +91,8 @@ typedef struct DHCP6IA {
         LIST_HEAD(DHCP6Address, addresses);
 } DHCP6IA;
 
+typedef struct sd_dhcp6_client sd_dhcp6_client;
+
 int dhcp6_option_append(uint8_t **buf, size_t *buflen, uint16_t code,
                         size_t optlen, const void *optval);
 int dhcp6_option_append_ia(uint8_t **buf, size_t *buflen, const DHCP6IA *ia);
@@ -117,6 +119,8 @@ const char *dhcp6_message_type_to_string(int s) _const_;
 int dhcp6_message_type_from_string(const char *s) _pure_;
 const char *dhcp6_message_status_to_string(int s) _const_;
 int dhcp6_message_status_from_string(const char *s) _pure_;
+
+void dhcp6_client_set_test_mode(sd_dhcp6_client *client, bool test_mode);
 
 #define log_dhcp6_client_errno(client, error, fmt, ...)         \
         log_interface_prefix_full_errno(                        \

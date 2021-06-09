@@ -33,6 +33,7 @@ static void fuzz_client(const uint8_t *data, size_t size, bool is_information_re
         assert_se(sd_dhcp6_client_set_ifindex(client, 42) == 0);
         assert_se(sd_dhcp6_client_set_local_address(client, &address) >= 0);
         assert_se(sd_dhcp6_client_set_information_request(client, is_information_request_enabled) == 0);
+        dhcp6_client_set_test_mode(client, true);
 
         assert_se(sd_dhcp6_client_start(client) >= 0);
 
