@@ -1648,7 +1648,7 @@ static int journal_file_append_field(
         r = journal_file_find_field_object_with_hash(f, field, size, hash, &o, &p);
         if (r < 0)
                 return r;
-        else if (r > 0) {
+        if (r > 0) {
 
                 if (ret)
                         *ret = o;
