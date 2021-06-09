@@ -902,73 +902,27 @@ IPv6Token=prefixstable:2002:da8:1::</programlisting></para>
           </para></listitem>
         </varlistentry>
         <varlistentry>
-          <term><varname>Bridge=</varname></term>
-          <listitem>
-            <para>The name of the bridge to add the link to. See
-            <citerefentry><refentrytitle>systemd.netdev</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
-            </para>
-          </listitem>
-        </varlistentry>
-        <varlistentry>
+          <term><varname>BatmanAdvanced=</varname></term>
           <term><varname>Bond=</varname></term>
-          <listitem>
-            <para>The name of the bond to add the link to. See
-            <citerefentry><refentrytitle>systemd.netdev</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
-            </para>
-          </listitem>
-        </varlistentry>
-        <varlistentry>
+          <term><varname>Bridge=</varname></term>
           <term><varname>VRF=</varname></term>
           <listitem>
-            <para>The name of the VRF to add the link to. See
+            <para>The name of the B.A.T.M.A.N. Advanced, bond, bridge, or VRF interface to add the link
+            to. See
             <citerefentry><refentrytitle>systemd.netdev</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
             </para>
-          </listitem>
-        </varlistentry>
-        <varlistentry>
-          <term><varname>VLAN=</varname></term>
-          <listitem>
-            <para>The name of a VLAN to create on the link. See
-            <citerefentry><refentrytitle>systemd.netdev</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
-            This option may be specified more than once.</para>
           </listitem>
         </varlistentry>
         <varlistentry>
           <term><varname>IPVLAN=</varname></term>
-          <listitem>
-            <para>The name of a IPVLAN to create on the link. See
-            <citerefentry><refentrytitle>systemd.netdev</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
-            This option may be specified more than once.</para>
-          </listitem>
-        </varlistentry>
-        <varlistentry>
+          <term><varname>MACsec=</varname></term>
           <term><varname>MACVLAN=</varname></term>
-          <listitem>
-            <para>The name of a MACVLAN to create on the link. See
-            <citerefentry><refentrytitle>systemd.netdev</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
-            This option may be specified more than once.</para>
-          </listitem>
-        </varlistentry>
-        <varlistentry>
+          <term><varname>Tunnel=</varname></term>
+          <term><varname>VLAN=</varname></term>
           <term><varname>VXLAN=</varname></term>
           <listitem>
-            <para>The name of a VXLAN to create on the link. See
-            <citerefentry><refentrytitle>systemd.netdev</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
-            This option may be specified more than once.</para>
-          </listitem>
-        </varlistentry>
-        <varlistentry>
-          <term><varname>Tunnel=</varname></term>
-          <listitem>
-            <para>The name of a Tunnel to create on the link. See
-            <citerefentry><refentrytitle>systemd.netdev</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
-            This option may be specified more than once.</para>
-          </listitem>
-        </varlistentry>
-        <varlistentry>
-          <term><varname>MACsec=</varname></term>
-          <listitem>
-            <para>The name of a MACsec device to create on the link. See
+            <para>The name of a IPVLAN, MACsec, MACVLAN, tunnel, VLAN, or VXLAN to be created on the
+            link. See
             <citerefentry><refentrytitle>systemd.netdev</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
             This option may be specified more than once.</para>
           </listitem>
@@ -1045,16 +999,7 @@ IPv6Token=prefixstable:2002:da8:1::</programlisting></para>
           </para>
         </listitem>
       </varlistentry>
-      <varlistentry>
-          <term><varname>BatmanAdvanced=</varname></term>
-          <listitem>
-            <para>The name of the B.A.T.M.A.N. Advanced interface to add the link to. See
-            <citerefentry><refentrytitle>systemd.netdev</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
-            </para>
-          </listitem>
-        </varlistentry>
-      </variablelist>
-
+    </variablelist>
   </refsect1>
 
   <refsect1>
