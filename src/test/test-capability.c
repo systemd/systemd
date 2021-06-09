@@ -248,7 +248,7 @@ static void test_ensure_cap_64bit(void) {
 }
 
 int main(int argc, char *argv[]) {
-        bool run_ambient = false;  /* avoid false maybe-uninitialized warning */
+        bool run_ambient;
 
         test_setup_logging(LOG_INFO);
 
