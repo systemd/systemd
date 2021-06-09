@@ -13,6 +13,7 @@
 #include "sd-dhcp6-client.h"
 #include "sd-event.h"
 
+#include "dhcp-identifier.h"
 #include "dhcp6-internal.h"
 #include "dhcp6-lease-internal.h"
 #include "dhcp6-protocol.h"
@@ -24,7 +25,6 @@
 #include "strv.h"
 #include "tests.h"
 #include "time-util.h"
-#include "virt.h"
 
 static struct ether_addr mac_addr = {
         .ether_addr_octet = {'A', 'B', 'C', '1', '2', '3'}
@@ -948,6 +948,7 @@ static int test_client_solicit(sd_event *e) {
         assert_se(sd_dhcp6_client_attach_event(client, e, 0) >= 0);
 
         assert_se(sd_dhcp6_client_set_ifindex(client, test_ifindex) == 0);
+        dhcp_identifier_use_mac_to_set_iaid(true);
         assert_se(sd_dhcp6_client_set_mac(client, (const uint8_t *) &mac_addr,
                                           sizeof (mac_addr),
                                           ARPHRD_ETHER) >= 0);

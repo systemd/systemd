@@ -5,6 +5,7 @@
 #include "sd-dhcp6-client.h"
 #include "sd-event.h"
 
+#include "dhcp-identifier.h"
 #include "dhcp6-internal.h"
 #include "dhcp6-protocol.h"
 #include "fd-util.h"
@@ -31,6 +32,7 @@ static void fuzz_client(const uint8_t *data, size_t size, bool is_information_re
         assert_se(sd_dhcp6_client_new(&client) >= 0);
         assert_se(sd_dhcp6_client_attach_event(client, e, 0) >= 0);
         assert_se(sd_dhcp6_client_set_ifindex(client, 42) == 0);
+        dhcp_identifier_use_mac_to_set_iaid(true);
         assert_se(sd_dhcp6_client_set_local_address(client, &address) >= 0);
         assert_se(sd_dhcp6_client_set_information_request(client, is_information_request_enabled) == 0);
 
