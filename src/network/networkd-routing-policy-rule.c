@@ -790,7 +790,7 @@ int link_request_static_routing_policy_rules(Link *link) {
 }
 
 int request_process_routing_policy_rule(Request *req) {
-        RoutingPolicyRule *ret = NULL;  /* avoid false maybe-uninitialized warning */
+        RoutingPolicyRule *ret = NULL;
         int r;
 
         assert(req);
