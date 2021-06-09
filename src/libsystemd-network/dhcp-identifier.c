@@ -12,6 +12,7 @@
 #include "network-util.h"
 #include "siphash24.h"
 #include "sparse-endian.h"
+#include "stat-util.h"
 #include "stdio-util.h"
 #include "udev-util.h"
 #include "virt.h"
@@ -169,8 +170,8 @@ int dhcp_identifier_set_iaid(
         uint32_t id32;
         int r;
 
-        if (detect_container() <= 0) {
-                /* not in a container, udev will be around */
+        if (path_is_read_only_fs("/sys") <= 0) {
+                /* udev should be around */
 
                 if (sd_device_new_from_ifindex(&device, ifindex) >= 0) {
                         r = sd_device_get_is_initialized(device);
