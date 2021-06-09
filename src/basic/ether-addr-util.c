@@ -24,6 +24,19 @@ char* hw_addr_to_string(const struct hw_addr_data *addr, char buffer[HW_ADDR_TO_
         return buffer;
 }
 
+int hw_addr_compare(const struct hw_addr_data *a, const struct hw_addr_data *b) {
+        int r;
+
+        assert(a);
+        assert(b);
+
+        r = CMP(a->length, b->length);
+        if (r != 0)
+                return r;
+
+        return memcmp(a->bytes, b->bytes, a->length);
+}
+
 char* ether_addr_to_string(const struct ether_addr *addr, char buffer[ETHER_ADDR_TO_STRING_MAX]) {
         assert(addr);
         assert(buffer);
