@@ -759,4 +759,6 @@ global:
         sd_device_get_usec_initialized;
         sd_device_trigger_with_uuid;
         sd_device_get_trigger_uuid;
+        sd_device_new_from_ifname;
+        sd_device_new_from_ifindex;
 } LIBSYSTEMD_248;
