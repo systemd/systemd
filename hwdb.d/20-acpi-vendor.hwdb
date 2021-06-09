@@ -75,6 +75,9 @@ acpi:CPLM*:
 acpi:DELL*:
  ID_VENDOR_FROM_DATABASE=Dell, Inc.
 
+acpi:DIOO*:
+ ID_VENDOR_FROM_DATABASE=Dioo Microcircuits Co., Ltd. Jiangsu
+
 acpi:DLGS*:
  ID_VENDOR_FROM_DATABASE=Dialog Semiconductor PLC
 
@@ -83,6 +86,9 @@ acpi:DLLK*:
 
 acpi:DMST*:
  ID_VENDOR_FROM_DATABASE=DMIST RESEARCH LTD
+
+acpi:DNBK*:
+ ID_VENDOR_FROM_DATABASE=Dynabook Inc.
 
 acpi:DSUO*:
  ID_VENDOR_FROM_DATABASE=Shenzhen DSO Microelectronics Co.,Ltd.
@@ -2007,6 +2013,9 @@ acpi:DMB*:
 acpi:DMC*:
  ID_VENDOR_FROM_DATABASE=Dune Microsystems Corporation
 
+acpi:DMG*:
+ ID_VENDOR_FROM_DATABASE=Monoprice.Inc
+
 acpi:DMM*:
  ID_VENDOR_FROM_DATABASE=Dimond Multimedia Systems Inc
 
@@ -3062,6 +3071,9 @@ acpi:HHC*:
 
 acpi:HHI*:
  ID_VENDOR_FROM_DATABASE=Fraunhofer Heinrich-Hertz-Institute
+
+acpi:HHT*:
+ ID_VENDOR_FROM_DATABASE=Hitevision Group
 
 acpi:HIB*:
  ID_VENDOR_FROM_DATABASE=Hibino Corporation
@@ -6192,6 +6204,9 @@ acpi:SJE*:
 acpi:SKD*:
  ID_VENDOR_FROM_DATABASE=Schneider & Koch
 
+acpi:SKG*:
+ ID_VENDOR_FROM_DATABASE=Shenzhen KTC Technology Group
+
 acpi:SKI*:
  ID_VENDOR_FROM_DATABASE=LLC SKTB “SKIT”
 
@@ -6834,6 +6849,9 @@ acpi:TLV*:
 acpi:TLX*:
  ID_VENDOR_FROM_DATABASE=Telxon Corporation
 
+acpi:TLY*:
+ ID_VENDOR_FROM_DATABASE=Truly Semiconductors Ltd.
+
 acpi:TMC*:
  ID_VENDOR_FROM_DATABASE=Techmedia Computer Systems Corporation
 
@@ -7250,6 +7268,9 @@ acpi:VAR*:
 
 acpi:VAT*:
  ID_VENDOR_FROM_DATABASE=VADATECH INC
+
+acpi:VAV*:
+ ID_VENDOR_FROM_DATABASE=aviica
 
 acpi:VBR*:
  ID_VENDOR_FROM_DATABASE=VBrick Systems Inc.
