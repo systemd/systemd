@@ -10,13 +10,13 @@
 #include "macro.h"
 #include "string-util.h"
 
-char* hw_addr_to_string(const hw_addr_data *addr, char buffer[HW_ADDR_TO_STRING_MAX]) {
+char* hw_addr_to_string(const struct hw_addr_data *addr, char buffer[HW_ADDR_TO_STRING_MAX]) {
         assert(addr);
         assert(buffer);
         assert(addr->length <= HW_ADDR_MAX_SIZE);
 
         for (size_t i = 0; i < addr->length; i++) {
-                sprintf(&buffer[3*i], "%02"PRIx8, addr->addr.bytes[i]);
+                sprintf(&buffer[3*i], "%02"PRIx8, addr->bytes[i]);
                 if (i < addr->length - 1)
                         buffer[3*i + 2] = ':';
         }

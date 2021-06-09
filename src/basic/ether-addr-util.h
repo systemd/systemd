@@ -11,24 +11,22 @@
  * defines a macro of the same name with a much lower size. */
 #define HW_ADDR_MAX_SIZE 32
 
-union hw_addr_union {
-        struct ether_addr ether;
-        uint8_t infiniband[INFINIBAND_ALEN];
-        uint8_t bytes[HW_ADDR_MAX_SIZE];
+struct hw_addr_data {
+        size_t length;
+        union {
+                struct ether_addr ether;
+                uint8_t infiniband[INFINIBAND_ALEN];
+                uint8_t bytes[HW_ADDR_MAX_SIZE];
+        };
 };
 
-typedef struct hw_addr_data {
-        union hw_addr_union addr;
-        size_t length;
-} hw_addr_data;
-
 #define HW_ADDR_TO_STRING_MAX (3*HW_ADDR_MAX_SIZE)
-char* hw_addr_to_string(const hw_addr_data *addr, char buffer[HW_ADDR_TO_STRING_MAX]);
+char* hw_addr_to_string(const struct hw_addr_data *addr, char buffer[HW_ADDR_TO_STRING_MAX]);
 
 /* Use only as function argument, never stand-alone! */
 #define HW_ADDR_TO_STR(hw_addr) hw_addr_to_string((hw_addr), (char[HW_ADDR_TO_STRING_MAX]){})
 
-#define HW_ADDR_NULL ((const hw_addr_data){})
+#define HW_ADDR_NULL ((const struct hw_addr_data){})
 
 #define ETHER_ADDR_FORMAT_STR "%02X%02X%02X%02X%02X%02X"
 #define ETHER_ADDR_FORMAT_VAL(x) (x).ether_addr_octet[0], (x).ether_addr_octet[1], (x).ether_addr_octet[2], (x).ether_addr_octet[3], (x).ether_addr_octet[4], (x).ether_addr_octet[5]

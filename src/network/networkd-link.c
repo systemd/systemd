@@ -1157,7 +1157,7 @@ static int link_get_network(Link *link, Network **ret) {
                 r = net_match_config(
                                 &network->match,
                                 link->sd_device,
-                                &link->hw_addr.addr.ether,
+                                &link->hw_addr.ether,
                                 &link->permanent_mac,
                                 link->driver,
                                 link->iftype,
@@ -1968,7 +1968,7 @@ static int link_update_master(Link *link, sd_netlink_message *message) {
 }
 
 static int link_update_hardware_address(Link *link, sd_netlink_message *message) {
-        hw_addr_data hw_addr;
+        struct hw_addr_data hw_addr;
         int r;
 
         assert(link);
@@ -1985,7 +1985,7 @@ static int link_update_hardware_address(Link *link, sd_netlink_message *message)
                 return log_link_warning_errno(link, r, "rtnl: failed to read hardware address: %m");
 
         if (link->hw_addr.length == hw_addr.length &&
-            memcmp(link->hw_addr.addr.bytes, hw_addr.addr.bytes, hw_addr.length) == 0)
+            memcmp(link->hw_addr.bytes, hw_addr.bytes, hw_addr.length) == 0)
                 return 0;
 
         link->hw_addr = hw_addr;
@@ -2009,13 +2009,13 @@ static int link_update_hardware_address(Link *link, sd_netlink_message *message)
                 return log_link_debug_errno(link, r, "Could not update MAC address for Router Advertisement: %m");
 
         if (link->ndisc) {
-                r = sd_ndisc_set_mac(link->ndisc, &link->hw_addr.addr.ether);
+                r = sd_ndisc_set_mac(link->ndisc, &link->hw_addr.ether);
                 if (r < 0)
                         return log_link_debug_errno(link, r, "Could not update MAC for NDisc: %m");
         }
 
         if (link->lldp) {
-                r = sd_lldp_set_filter_address(link->lldp, &link->hw_addr.addr.ether);
+                r = sd_lldp_set_filter_address(link->lldp, &link->hw_addr.ether);
                 if (r < 0)
                         return log_link_debug_errno(link, r, "Could not update MAC address for LLDP: %m");
         }
