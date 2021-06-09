@@ -3370,17 +3370,11 @@ int unit_file_preset_all(
                         if (!IN_SET(de->d_type, DT_LNK, DT_REG))
                                 continue;
 
-                        /* we don't pass changes[] in, because we want to handle errors on our own */
-                        r = preset_prepare_one(scope, &plus, &minus, &paths, de->d_name, &presets, NULL, 0);
-                        if (r == -ERFKILL)
-                                r = unit_file_changes_add(changes, n_changes,
-                                                          UNIT_FILE_IS_MASKED, de->d_name, NULL);
-                        else if (r == -ENOLINK)
-                                r = unit_file_changes_add(changes, n_changes,
-                                                          UNIT_FILE_IS_DANGLING, de->d_name, NULL);
-                        else if (r == -EADDRNOTAVAIL) /* Ignore generated/transient units when applying preset */
-                                continue;
-                        if (r < 0)
+                        r = preset_prepare_one(scope, &plus, &minus, &paths, de->d_name, &presets, changes, n_changes);
+                        if (r < 0 &&
+                            !IN_SET(r, -EEXIST, -ERFKILL, -EADDRNOTAVAIL, -EIDRM, -EUCLEAN, -ELOOP, -ENOENT))
+                                /* Ignore generated/transient/missing/invalid units when applying preset, propagate other errors.
+                                 * Coordinate with unit_file_dump_changes() above. */
                                 return r;
                 }
         }
