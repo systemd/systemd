@@ -382,8 +382,8 @@ void unit_file_dump_changes(int r, const char *verb, const UnitFileChange *chang
                         logged = true;
                         break;
                 case -EIDRM:
-                        log_error_errno(changes[i].type_or_errno, "Failed to %s unit, unit %s is a non-template unit.",
-                                        verb, changes[i].path);
+                        log_error_errno(changes[i].type_or_errno, "Failed to %s %s, destination unit %s is a non-template unit.",
+                                        verb, changes[i].source, changes[i].path);
                         logged = true;
                         break;
                 case -EUCLEAN:
