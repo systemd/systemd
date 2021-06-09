@@ -1916,8 +1916,16 @@ static int install_info_symlink_wants(
                         return q;
 
                 if (!unit_name_is_valid(dst, valid_dst_type)) {
-                        /* Generate a proper error here: EUCLEAN if the name is generally bad,
-                         * EIDRM if the template status doesn't match. */
+                        /* Generate a proper error here: EUCLEAN if the name is generally bad, EIDRM if the
+                         * template status doesn't match. If we are doing presets don't bother reporting the
+                         * error. This also covers cases like 'systemctl preset serial-getty@.service', which
+                         * has no DefaultInstance, so there is nothing we can do. At the same time,
+                         * 'systemctl enable serial-getty@.service' should fail, the user should specify an
+                         * instance like in 'systemctl enable serial-getty@ttyS0.service'.
+                         */
+                        if (file_flags & UNIT_FILE_IGNORE_AUXILIARY_FAILURE)
+                                continue;
+
                         if (unit_name_is_valid(dst, UNIT_NAME_ANY)) {
                                 unit_file_changes_add(changes, n_changes, -EIDRM, dst, n);
                                 r = -EIDRM;
@@ -3214,7 +3222,9 @@ static int execute_preset(
                 int q;
 
                 /* Returns number of symlinks that where supposed to be installed. */
-                q = install_context_apply(scope, file_flags, plus, paths, config_path, SEARCH_LOAD, changes, n_changes);
+                q = install_context_apply(scope,
+                                          file_flags | UNIT_FILE_IGNORE_AUXILIARY_FAILURE,
+                                          plus, paths, config_path, SEARCH_LOAD, changes, n_changes);
                 if (r >= 0) {
                         if (q < 0)
                                 r = q;
