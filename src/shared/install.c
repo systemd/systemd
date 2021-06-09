@@ -269,7 +269,6 @@ int unit_file_changes_add(
         _cleanup_free_ char *p = NULL, *s = NULL;
         UnitFileChange *c;
 
-        assert(path);
         assert(!changes == !n_changes);
 
         if (type_or_errno >= 0)
@@ -285,11 +284,13 @@ int unit_file_changes_add(
                 return -ENOMEM;
         *changes = c;
 
-        p = strdup(path);
-        if (!p)
-                return -ENOMEM;
+        if (path) {
+                p = strdup(path);
+                if (!p)
+                        return -ENOMEM;
 
-        path_simplify(p);
+                path_simplify(p);
+        }
 
         if (source) {
                 s = strdup(source);
@@ -354,6 +355,10 @@ void unit_file_dump_changes(int r, const char *verb, const UnitFileChange *chang
                         if (!quiet)
                                 log_warning("Unit %s is added as a dependency to a non-existent unit %s.",
                                             changes[i].source, changes[i].path);
+                        break;
+                case UNIT_FILE_AUXILIARY_FAILED:
+                        if (!quiet)
+                                log_warning("Failed to enable auxiliary unit %s, ignoring.", changes[i].source);
                         break;
                 case -EEXIST:
                         if (changes[i].source)
@@ -2037,6 +2042,13 @@ static int install_context_apply(
 
                 q = install_info_traverse(scope, c, paths, i, flags, NULL);
                 if (q < 0) {
+                        if (i->auxiliary) {
+                                q = unit_file_changes_add(changes, n_changes, UNIT_FILE_AUXILIARY_FAILED, NULL, i->name);
+                                if (q < 0)
+                                        return q;
+                                continue;
+                        }
+
                         unit_file_changes_add(changes, n_changes, q, i->name, NULL);
                         return q;
                 }
@@ -3493,6 +3505,7 @@ static const char* const unit_file_change_type_table[_UNIT_FILE_CHANGE_TYPE_MAX]
         [UNIT_FILE_IS_MASKED]               = "masked",
         [UNIT_FILE_IS_DANGLING]             = "dangling",
         [UNIT_FILE_DESTINATION_NOT_PRESENT] = "destination not present",
+        [UNIT_FILE_AUXILIARY_FAILED]        = "auxiliary unit failed",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(unit_file_change_type, int);
