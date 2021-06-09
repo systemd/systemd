@@ -915,14 +915,18 @@ IPv6Token=prefixstable:2002:da8:1::</programlisting></para>
         </varlistentry>
         <varlistentry>
           <term><varname>IPVLAN=</varname></term>
+          <term><varname>IPVTAP=</varname></term>
+          <term><varname>L2TP=</varname></term>
           <term><varname>MACsec=</varname></term>
           <term><varname>MACVLAN=</varname></term>
+          <term><varname>MACVTAP=</varname></term>
           <term><varname>Tunnel=</varname></term>
           <term><varname>VLAN=</varname></term>
           <term><varname>VXLAN=</varname></term>
+          <term><varname>Xfrm=</varname></term>
           <listitem>
-            <para>The name of a IPVLAN, MACsec, MACVLAN, tunnel, VLAN, or VXLAN to be created on the
-            link. See
+            <para>The name of a IPVLAN, IPVTAP, L2TP, MACsec, MACVLAN, MACVTAP, tunnel, VLAN, VXLAN, or
+            Xfrm to be created on the link. See
             <citerefentry><refentrytitle>systemd.netdev</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
             This option may be specified more than once.</para>
           </listitem>
