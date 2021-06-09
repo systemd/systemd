@@ -554,11 +554,11 @@ static int decode_link(sd_netlink_message *m, LinkInfo *info, char **patterns, b
 
         info->has_mac_address =
                 netlink_message_read_hw_addr(m, IFLA_ADDRESS, &info->hw_address) >= 0 &&
-                memcmp(&info->hw_address, &HW_ADDR_NULL, sizeof(struct hw_addr_data)) != 0;
+                !hw_addr_is_null(&info->hw_address);
 
         info->has_permanent_mac_address =
                 ethtool_get_permanent_macaddr(NULL, info->name, &info->permanent_mac_address) >= 0 &&
-                memcmp(&info->permanent_mac_address, &ETHER_ADDR_NULL, sizeof(struct ether_addr)) != 0 &&
+                !ether_addr_is_null(&info->permanent_mac_address) &&
                 (info->hw_address.length != sizeof(struct ether_addr) ||
                  memcmp(&info->permanent_mac_address, info->hw_address.bytes, sizeof(struct ether_addr)) != 0);
 

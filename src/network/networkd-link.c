@@ -1984,8 +1984,7 @@ static int link_update_hardware_address(Link *link, sd_netlink_message *message)
         if (r < 0)
                 return log_link_warning_errno(link, r, "rtnl: failed to read hardware address: %m");
 
-        if (link->hw_addr.length == hw_addr.length &&
-            memcmp(link->hw_addr.bytes, hw_addr.bytes, hw_addr.length) == 0)
+        if (hw_addr_equal(&link->hw_addr, &hw_addr))
                 return 0;
 
         link->hw_addr = hw_addr;
