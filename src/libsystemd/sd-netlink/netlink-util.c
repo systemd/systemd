@@ -6,6 +6,7 @@
 #include "memory-util.h"
 #include "netlink-internal.h"
 #include "netlink-util.h"
+#include "parse-util.h"
 #include "strv.h"
 
 int rtnl_set_link_name(sd_netlink **rtnl, int ifindex, const char *name) {
@@ -300,6 +301,44 @@ int rtnl_resolve_link_alternative_name(sd_netlink **rtnl, const char *name) {
                 return r;
         assert(ret > 0);
         return ret;
+}
+
+int rtnl_resolve_ifname(sd_netlink **rtnl, const char *name) {
+        int r;
+
+        /* Like if_nametoindex, but resolves "alternative names" too. */
+
+        assert(name);
+
+        r = if_nametoindex(name);
+        if (r > 0)
+                return r;
+
+        return rtnl_resolve_link_alternative_name(rtnl, name);
+}
+
+int rtnl_resolve_interface(sd_netlink **rtnl, const char *name) {
+        int r;
+
+        /* Like rtnl_resolve_ifname, but resolves interface numbers too. */
+
+        assert(name);
+
+        r = parse_ifindex(name);
+        if (r > 0)
+                return r;
+        assert(r < 0);
+
+        return rtnl_resolve_ifname(rtnl, name);
+}
+
+int rtnl_resolve_interface_or_warn(sd_netlink **rtnl, const char *name) {
+        int r;
+
+        r = rtnl_resolve_interface(rtnl, name);
+        if (r < 0)
+                return log_error_errno(r, "Failed to resolve interface \"%s\": %m", name);
+        return r;
 }
 
 int rtnl_get_link_info(sd_netlink **rtnl, int ifindex, unsigned short *ret_iftype, unsigned *ret_flags) {
