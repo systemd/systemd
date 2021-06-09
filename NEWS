@@ -294,6 +294,12 @@ CHANGES WITH 249 in spe:
           be skipped. This is useful on systems that are headless, i.e. where
           an interactive user is generally not present.
 
+        * /etc/crypttab also learnt a new option "password-echo=" that allows
+          configuring whether the encryption password prompt shall echo the
+          typed password and if so, do so literally or via asterisks. (The
+          default is the same behaviour as before: provide echo feedback via
+          asterisks.)
+
         * FIDO2 support in systemd-cryptenroll/systemd-cryptsetup and
           systemd-homed has been updated to allow explicit configuration of the
           "user presence" and "user verification" checks, as well as whether a
@@ -420,9 +426,9 @@ CHANGES WITH 249 in spe:
         * Units using ConditionNeedsUpdate= will no longer be activated in
           the initrd.
 
-        * It is now possible to list a template unit in WantedBy= or RequiredBy=
-          of another template unit, which will be triggered using the same
-          instance name.
+        * It is now possible to list a template unit in the WantedBy= or
+          RequiredBy= settings of the [Install] section of another template
+          unit, which will be instantiated using the same instance name.
 
         * A new MemoryAvailable property is available for units. If the unit,
           or the slice(s) it is part of, have a memory limit set via MemoryMax=/
@@ -438,19 +444,53 @@ CHANGES WITH 249 in spe:
           storage directly (if enabled) and it will avoid analyzing the core file
           to print backtrace and metadata in the journal.
 
-        * tmpfiles.d gained a new '=' modifier to check if the type of a path
-          matches the configured expectations, and remove it if not.
+        * tmpfiles.d/ drop-ins gained a new '=' modifier to check if the type
+          of a path matches the configured expectations, and remove it if not.
 
-        * tmpfiles.d's 'Age' now accepts an 'age-by' argument, which allows to
-          specify which of the several available filesystem timestamp to look
-          at when deciding whether a path has aged enough to be cleaned.
+        * tmpfiles.d/'s 'Age' now accepts an 'age-by' argument, which allows to
+          specify which of the several available filesystem timestamps (access
+          time, birth time, change time, modification time) to look at when
+          deciding whether a path has aged enough to be cleaned.
 
         * Journal files, which are allocated in fixed incremenets, are now
           truncated when rotated/archived to remove unused space from their tails.
 
-        * …
+        * A new IPv6StableSecretAddress= setting has been added to .network
+          files, which takes an IPv6 address to use as secret for IPv6 address
+          generation.
 
-        Contributions from: …
+        * The [DHCPServer] logic in .network files gained support for a new
+          UplinkInterface= setting that permits configuration of the uplink
+          interface name to propagate DHCP lease information from.
+
+        * The WakeOnLan= setting in .link files now accepts a list of flags
+          instead of a single one, to configure multiple wake-on-LAN policies.
+
+        Contributions from: Aakash Singh, adrian5, Alexander Sverdlin,
+        alexlzhu, Allen Webb, Alvin Šipraga, Alyssa Ross, Anita Zhang, asavah,
+        Balint Reczey, Bertrand Jacquin, borna-blazevic, caoxia2008cxx,
+        Carlo Teubner, Christian Göttsche, Christian Hesse, Dan Streetman,
+        David Santamaría Rogado, David Tardon, Deepak Rawat,
+        Dimitri John Ledkov, ei-ke, Emilio Herrera, Emil Renner Berthing,
+        Flos Lonicerae, Franck Bui, Francois Gervais, Frantisek Sumsal,
+        Gibeom Gwon, gitm0, Hans de Goede, Harsh Barsaiyan, Henri Chain,
+        Igor Zhbanov, imayoda, Jakub Warczarek, James Buren, Jan Janssen,
+        Jan Synacek, Jason Francis, Jérôme Carretero, jiangchuangang,
+        Joerg Behrmann, Jóhann B. Guðmundsson, Jörg Deckert, Jörg Thalheim,
+        Julia Kartseva, Kai-Heng Feng, Khem Raj, KoyamaSohei,
+        Lennart Poettering, LetzteInstanz, Luca Adrian L, Luca Boccassi,
+        Lucas Magasweran, Mantas Mikulėnas, Marco Antonio Mauro, Mark Wielaard,
+        Masahiro Matsuya, Michael Catanzaro, Mike Kazantsev, Milan,
+        Miroslav Suchý, Morten Linderud, Noah Meyerhans, Oleg Popov,
+        Olle Lundberg, Ondrej Kozina, Perry.Yuan, Peter Hutterer,
+        Peter Kjellerstedt, Peter Morrow, Phaedrus Leeds, Roman Beranek,
+        Roshan Shariff, Ryan Hendrickson, Samuel BF, scootergrisen,
+        Sebastian Blunt, Seong-ho Cho, Sergey Bugaev, Sevan Janiyan, Sibo Dong,
+        simmon, Simon Watts, Srinidhi Kaushik, Štěpán Němec, Steve Bonds,
+        Susant Sahani, sverdlin, syyhao1994, Takashi Sakamoto, Topi Miettinen,
+        tramsay, Uwe Kleine-König, Viktor Mihajlovski, Vincent Dechenaux,
+        Vito Caputo, William A. Kennington III, Yangyang Shen, Yegor Alexeyev,
+        Yi Gao, Yu Watanabe, Zbigniew Jędrzejewski-Szmek, zsien, наб
 
         — Berlin, 2021-06-XX
 
