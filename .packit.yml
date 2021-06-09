@@ -16,14 +16,12 @@ upstream_tag_template: "v{version}"
 
 actions:
   post-upstream-clone:
-    # Use the Fedora Rawhide specfile
-    - "git clone https://src.fedoraproject.org/rpms/systemd .packit_rpm --depth=1"
+    # Use the CentOS Stream specfile
+    - "git clone https://gitlab.com/redhat/centos-stream/rpms/systemd.git .packit_rpm --depth=1"
     # Drop the "sources" file so rebase-helper doesn't think we're a dist-git
     - "rm -fv .packit_rpm/sources"
-    # Drop backported patches from the specfile, but keep the downstream-only ones
-    # - Patch0000-0499: backported patches from upstream
-    # - Patch0500-9999: downstream-only patches
-    - "sed -ri '/^Patch0[0-4]?[0-9]{0,2}\\:.+\\.patch/d' .packit_rpm/systemd.spec"
+    # Drop all patches, since they're already included in the tarball
+    - "sed -ri '/^Patch[0-9]+:/d' .packit_rpm/systemd.spec"
     # Build the RPM with --werror. Even though --werror doesn't work in all
     # cases (see [0]), we can't use -Dc_args=/-Dcpp_args= here because of the
     # RPM hardening macros, that use $CFLAGS/$CPPFLAGS (see [1]).
@@ -32,11 +30,22 @@ actions:
     # [1] https://github.com/systemd/systemd/pull/18908#issuecomment-792250110
     - 'sed -i "/^CONFIGURE_OPTS=(/a--werror" .packit_rpm/systemd.spec'
 
+# Available targets can be listed via `copr-cli list-chroots`
 jobs:
+# Build test
 - job: copr_build
   trigger: pull_request
   metadata:
     targets:
-    - fedora-rawhide-aarch64
-    - fedora-rawhide-i386
-    - fedora-rawhide-x86_64
+      # FIXME: change to CentOS 9 once it's available
+      - fedora-34-x86_64
+      - fedora-34-aarch64
+
+# TODO: can't use TFT yet due to https://pagure.io/fedora-ci/general/issue/184
+# Run tests (via testing farm)
+#- job: tests
+#  trigger: pull_request
+#  metadata:
+#    targets:
+#      # FIXME: change to CentOS 9 once it's available
+#      - fedora-34-x86_64
