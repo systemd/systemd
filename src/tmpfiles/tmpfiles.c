@@ -2129,12 +2129,10 @@ static int mkdir_parents_rm_if_wrong_type(mode_t child_mode, const char *path) {
                                 "Trailing path separators are only allowed if child_mode is not set; got \"%s\"", path);
 
         /* Get the parent_fd and stat. */
-        parent_fd = AT_FDCWD;
-        if (path_is_absolute(path)) {
-                parent_fd = open("/", O_NOCTTY | O_CLOEXEC | O_DIRECTORY);
-                if (parent_fd < 0)
-                        return log_error_errno(errno, "Failed to open root: %m");
-        }
+        parent_fd = openat(AT_FDCWD, path_is_absolute(path) ? "/" : ".", O_NOCTTY | O_CLOEXEC | O_DIRECTORY);
+        if (parent_fd < 0)
+                return log_error_errno(errno, "Failed to open root: %m");
+
         if (fstat(parent_fd, &parent_st) < 0)
                 return log_error_errno(errno, "Failed to stat root: %m");
 
