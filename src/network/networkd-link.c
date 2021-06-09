@@ -1394,7 +1394,6 @@ static int link_initialized(Link *link, sd_device *device) {
 
 static int link_check_initialized(Link *link) {
         _cleanup_(sd_device_unrefp) sd_device *device = NULL;
-        char ifindex_str[2 + DECIMAL_STR_MAX(int)];
         int r;
 
         assert(link);
@@ -1404,8 +1403,7 @@ static int link_check_initialized(Link *link) {
                 return link_initialized_and_synced(link);
 
         /* udev should be around */
-        xsprintf(ifindex_str, "n%d", link->ifindex);
-        r = sd_device_new_from_device_id(&device, ifindex_str);
+        r = sd_device_new_from_ifindex(&device, link->ifindex);
         if (r < 0) {
                 log_link_debug_errno(link, r, "Could not find device, waiting for device initialization: %m");
                 return 0;

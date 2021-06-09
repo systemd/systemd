@@ -753,9 +753,7 @@ static int acquire_link_info(sd_bus *bus, sd_netlink *rtnl, char **patterns, Lin
 
                 links[c].needs_freeing = true;
 
-                char devid[2 + DECIMAL_STR_MAX(int)];
-                xsprintf(devid, "n%i", links[c].ifindex);
-                (void) sd_device_new_from_device_id(&links[c].sd_device, devid);
+                (void) sd_device_new_from_ifindex(&links[c].sd_device, links[c].ifindex);
 
                 acquire_ether_link_info(&fd, &links[c]);
                 acquire_wlan_link_info(&links[c]);

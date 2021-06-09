@@ -167,14 +167,12 @@ int dhcp_identifier_set_iaid(
         const char *name = NULL;
         uint64_t id;
         uint32_t id32;
+        int r;
 
         if (detect_container() <= 0) {
                 /* not in a container, udev will be around */
-                char ifindex_str[1 + DECIMAL_STR_MAX(int)];
-                int r;
 
-                xsprintf(ifindex_str, "n%d", ifindex);
-                if (sd_device_new_from_device_id(&device, ifindex_str) >= 0) {
+                if (sd_device_new_from_ifindex(&device, ifindex) >= 0) {
                         r = sd_device_get_is_initialized(device);
                         if (r < 0)
                                 return r;
