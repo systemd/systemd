@@ -33,6 +33,7 @@ enum {
         UNIT_FILE_IS_MASKED,
         UNIT_FILE_IS_DANGLING,
         UNIT_FILE_DESTINATION_NOT_PRESENT,
+        UNIT_FILE_AUXILIARY_FAILED,
         _UNIT_FILE_CHANGE_TYPE_MAX,
         _UNIT_FILE_CHANGE_TYPE_INVALID = -EINVAL,
 };
@@ -113,17 +114,17 @@ int unit_file_reenable(
                 size_t *n_changes);
 int unit_file_preset(
                 UnitFileScope scope,
+                UnitFilePresetMode preset_mode,
                 UnitFileFlags flags,
                 const char *root_dir,
                 char **files,
-                UnitFilePresetMode mode,
                 UnitFileChange **changes,
                 size_t *n_changes);
 int unit_file_preset_all(
                 UnitFileScope scope,
+                UnitFilePresetMode preset_mode,
                 UnitFileFlags flags,
                 const char *root_dir,
-                UnitFilePresetMode mode,
                 UnitFileChange **changes,
                 size_t *n_changes);
 int unit_file_mask(
