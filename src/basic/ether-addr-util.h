@@ -28,6 +28,14 @@ char* hw_addr_to_string(const struct hw_addr_data *addr, char buffer[HW_ADDR_TO_
 
 #define HW_ADDR_NULL ((const struct hw_addr_data){})
 
+int hw_addr_compare(const struct hw_addr_data *a, const struct hw_addr_data *b);
+static inline bool hw_addr_equal(const struct hw_addr_data *a, const struct hw_addr_data *b) {
+        return hw_addr_compare(a, b) == 0;
+}
+static inline bool hw_addr_is_null(const struct hw_addr_data *addr) {
+        return hw_addr_equal(addr, &HW_ADDR_NULL);
+}
+
 #define ETHER_ADDR_FORMAT_STR "%02X%02X%02X%02X%02X%02X"
 #define ETHER_ADDR_FORMAT_VAL(x) (x).ether_addr_octet[0], (x).ether_addr_octet[1], (x).ether_addr_octet[2], (x).ether_addr_octet[3], (x).ether_addr_octet[4], (x).ether_addr_octet[5]
 
