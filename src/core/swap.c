@@ -342,7 +342,7 @@ static int swap_add_extras(Swap *s) {
                         return -ENOMEM;
         }
 
-        path_simplify(s->what, false);
+        path_simplify(s->what);
 
         if (!UNIT(s)->description) {
                 r = unit_set_description(UNIT(s), s->what);
@@ -492,7 +492,7 @@ fail:
         return r;
 }
 
-static int swap_process_new(Manager *m, const char *device, int prio, bool set_flags) {
+static void swap_process_new(Manager *m, const char *device, int prio, bool set_flags) {
         _cleanup_(sd_device_unrefp) sd_device *d = NULL;
         const char *dn, *devlink;
         struct stat st, st_link;
@@ -500,25 +500,22 @@ static int swap_process_new(Manager *m, const char *device, int prio, bool set_f
 
         assert(m);
 
-        r = swap_setup_unit(m, device, device, prio, set_flags);
-        if (r < 0)
-                return r;
+        if (swap_setup_unit(m, device, device, prio, set_flags) < 0)
+                return;
 
         /* If this is a block device, then let's add duplicates for
          * all other names of this block device */
         if (stat(device, &st) < 0 || !S_ISBLK(st.st_mode))
-                return 0;
+                return;
 
         r = sd_device_new_from_stat_rdev(&d, &st);
-        if (r < 0) {
-                log_full_errno(r == -ENOENT ? LOG_DEBUG : LOG_WARNING, r,
-                               "Failed to allocate device for swap %s: %m", device);
-                return 0;
-        }
+        if (r < 0)
+                return (void) log_full_errno(r == -ENOENT ? LOG_DEBUG : LOG_WARNING, r,
+                                             "Failed to allocate device for swap %s: %m", device);
 
         /* Add the main device node */
         if (sd_device_get_devname(d, &dn) >= 0 && !streq(dn, device))
-                swap_setup_unit(m, dn, device, prio, set_flags);
+                (void) swap_setup_unit(m, dn, device, prio, set_flags);
 
         /* Add additional units for all symlinks */
         FOREACH_DEVICE_DEVLINK(d, devlink) {
@@ -535,10 +532,8 @@ static int swap_process_new(Manager *m, const char *device, int prio, bool set_f
                      st_link.st_rdev != st.st_rdev))
                         continue;
 
-                swap_setup_unit(m, devlink, device, prio, set_flags);
+                (void) swap_setup_unit(m, devlink, device, prio, set_flags);
         }
-
-        return 0;
 }
 
 static void swap_set_state(Swap *s, SwapState state) {
@@ -1431,13 +1426,14 @@ int swap_process_device_new(Manager *m, sd_device *dev) {
         assert(m);
         assert(dev);
 
-        r = sd_device_get_devname(dev, &dn);
-        if (r < 0)
+        if (sd_device_get_devname(dev, &dn) < 0)
                 return 0;
 
         r = unit_name_from_path(dn, ".swap", &e);
-        if (r < 0)
-                return r;
+        if (r < 0) {
+                log_debug_errno(r, "Cannot convert device name '%s' to unit name, ignoring: %m", dn);
+                return 0;
+        }
 
         u = manager_get_unit(m, e);
         if (u)
@@ -1448,6 +1444,9 @@ int swap_process_device_new(Manager *m, sd_device *dev) {
                 int q;
 
                 q = unit_name_from_path(devlink, ".swap", &n);
+                if (IN_SET(q, -EINVAL, -ENAMETOOLONG)) /* If name too long or otherwise not convertible to
+                                                        * unit name, we can't manage it */
+                        continue;
                 if (q < 0)
                         return q;
 

@@ -165,7 +165,6 @@ static int parse_argv(int argc, char *argv[]) {
                                 return r;
 
                         SET_FLAG(arg_fido2_lock_with, FIDO2ENROLL_PIN, lock_with_pin);
-
                         break;
                 }
 
@@ -177,7 +176,6 @@ static int parse_argv(int argc, char *argv[]) {
                                 return r;
 
                         SET_FLAG(arg_fido2_lock_with, FIDO2ENROLL_UP, lock_with_up);
-
                         break;
                 }
 
@@ -189,7 +187,6 @@ static int parse_argv(int argc, char *argv[]) {
                                 return r;
 
                         SET_FLAG(arg_fido2_lock_with, FIDO2ENROLL_UV, lock_with_uv);
-
                         break;
                 }
 
@@ -512,6 +509,8 @@ static int run(int argc, char *argv[]) {
         r = parse_argv(argc, argv);
         if (r <= 0)
                 return r;
+
+        cryptsetup_enable_logging(NULL);
 
         if (arg_enroll_type < 0)
                 r = prepare_luks(&cd, NULL, NULL); /* No need to unlock device if we don't need the volume key because we don't need to enroll anything */

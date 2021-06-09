@@ -42,8 +42,9 @@
     <filename>/dev/urandom</filename> kernel random number
     generator.</para>
 
-    <para>Note that <function>sd_id128_randomize()</function> always
-    returns a UUID v4-compatible ID.</para>
+    <para>Note that <function>sd_id128_randomize()</function> always returns a UUID v4-compatible ID. It is
+    hence guaranteed that this function will never return the ID consisting of all zero or all one bits
+    (<constant>SD_ID128_NULL</constant>, <constant>SD_ID128_ALLF</constant>).</para>
 
     <para>For more information about the <literal>sd_id128_t</literal>
     type, see

@@ -2,13 +2,13 @@
 #
 # Danish translation for systemd.
 # Daniel Machon <dmachon.dev@gmail.com>, 2015.
-# scootergrisen <scootergrisen@gmail.com>, 2020.
+# scootergrisen <scootergrisen@gmail.com>, 2020, 2021.
 msgid ""
 msgstr ""
 "Project-Id-Version: systemd master\n"
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2021-01-08 17:48+0100\n"
-"PO-Revision-Date: 2020-09-19 12:22+0000\n"
+"PO-Revision-Date: 2021-06-02 16:03+0000\n"
 "Last-Translator: scootergrisen <scootergrisen@gmail.com>\n"
 "Language-Team: Danish <https://translate.fedoraproject.org/projects/systemd/"
 "master/da/>\n"
@@ -17,7 +17,7 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=n != 1;\n"
-"X-Generator: Weblate 4.2.2\n"
+"X-Generator: Weblate 4.6.2\n"
 
 #: src/core/org.freedesktop.systemd1.policy.in:22
 msgid "Send passphrase back to system"
@@ -296,22 +296,16 @@ msgstr ""
 "skærmlukning."
 
 #: src/login/org.freedesktop.login1.policy:117
-#, fuzzy
-#| msgid "Allow applications to inhibit system handling of the power key"
 msgid "Allow applications to inhibit system handling of the reboot key"
-msgstr "Tillad programmer at hæmme systemhåndtering af tænd/sluk-knappen"
+msgstr "Tillad programmer at hæmme systemhåndtering af genstart-knappen"
 
 #: src/login/org.freedesktop.login1.policy:118
-#, fuzzy
-#| msgid ""
-#| "Authentication is required for an application to inhibit system handling "
-#| "of the power key."
 msgid ""
 "Authentication is required for an application to inhibit system handling of "
 "the reboot key."
 msgstr ""
-"Der kræves godkendelse for at et program kan hæmme systemhåndtering af tænd/"
-"sluk-knappen."
+"Der kræves godkendelse for at et program kan hæmme systemhåndtering af "
+"genstart-knappen."
 
 #: src/login/org.freedesktop.login1.policy:128
 msgid "Allow non-logged-in user to run programs"

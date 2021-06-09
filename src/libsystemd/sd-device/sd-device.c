@@ -16,6 +16,7 @@
 #include "fileio.h"
 #include "fs-util.h"
 #include "hashmap.h"
+#include "id128-util.h"
 #include "macro.h"
 #include "parse-util.h"
 #include "path-util.h"
@@ -170,7 +171,7 @@ int device_set_syspath(sd_device *device, const char *_syspath, bool verify) {
                                 return -ENOMEM;
 
                         free_and_replace(syspath, new_syspath);
-                        path_simplify(syspath, false);
+                        path_simplify(syspath);
                 }
 
                 if (path_startswith(syspath,  "/sys/devices/")) {
@@ -538,21 +539,16 @@ int device_read_uevent_file(sd_device *device) {
         if (r < 0)
                 return r;
 
+        device->uevent_loaded = true;
+
         path = strjoina(syspath, "/uevent");
 
         r = read_full_virtual_file(path, &uevent, &uevent_len);
-        if (r == -EACCES) {
-                /* empty uevent files may be write-only */
-                device->uevent_loaded = true;
-                return 0;
-        }
-        if (r == -ENOENT)
-                /* some devices may not have uevent files, see device_set_syspath() */
+        if (IN_SET(r, -EACCES, -ENOENT))
+                /* The uevent files may be write-only, or the device may not have uevent file. */
                 return 0;
         if (r < 0)
                 return log_device_debug_errno(device, r, "sd-device: Failed to read uevent file '%s': %m", path);
-
-        device->uevent_loaded = true;
 
         for (size_t i = 0; i < uevent_len; i++)
                 switch (state) {
@@ -778,7 +774,7 @@ int device_set_subsystem(sd_device *device, const char *_subsystem) {
         return free_and_replace(device->subsystem, subsystem);
 }
 
-static int device_set_drivers_subsystem(sd_device *device) {
+int device_set_drivers_subsystem(sd_device *device) {
         _cleanup_free_ char *subsystem = NULL;
         const char *syspath, *drivers, *p;
         int r;
@@ -1869,6 +1865,34 @@ _public_ int sd_device_get_property_value(sd_device *device, const char *key, co
         return 0;
 }
 
+_public_ int sd_device_get_trigger_uuid(sd_device *device, sd_id128_t *ret) {
+        const char *s;
+        sd_id128_t id;
+        int r;
+
+        assert_return(device, -EINVAL);
+
+        /* Retrieves the UUID attached to a uevent when triggering it from userspace via
+         * sd_device_trigger_with_uuid() or an equivalent interface. Returns -ENOENT if the record is not
+         * caused by a synthetic event and -ENODATA if it was but no UUID was specified */
+
+        r = sd_device_get_property_value(device, "SYNTH_UUID", &s);
+        if (r < 0)
+                return r;
+
+        if (streq(s, "0")) /* SYNTH_UUID=0 is set whenever a device is triggered by userspace without specifying a UUID */
+                return -ENODATA;
+
+        r = sd_id128_from_string(s, &id);
+        if (r < 0)
+                return r;
+
+        if (ret)
+                *ret = id;
+
+        return 0;
+}
+
 static int device_cache_sysattr_value(sd_device *device, const char *key, char *value) {
         _cleanup_free_ char *new_key = NULL, *old_value = NULL;
         int r;
@@ -2096,5 +2120,41 @@ _public_ int sd_device_trigger(sd_device *device, sd_device_action_t action) {
         if (!s)
                 return -EINVAL;
 
+        /* This uses the simple no-UUID interface of kernel < 4.13 */
         return sd_device_set_sysattr_value(device, "uevent", s);
+}
+
+_public_ int sd_device_trigger_with_uuid(
+                sd_device *device,
+                sd_device_action_t action,
+                sd_id128_t *ret_uuid) {
+
+        char buf[ID128_UUID_STRING_MAX];
+        const char *s, *j;
+        sd_id128_t u;
+        int r;
+
+        assert_return(device, -EINVAL);
+
+        /* If no one wants to know the UUID, use the simple interface from pre-4.13 times */
+        if (!ret_uuid)
+                return sd_device_trigger(device, action);
+
+        s = device_action_to_string(action);
+        if (!s)
+                return -EINVAL;
+
+        r = sd_id128_randomize(&u);
+        if (r < 0)
+                return r;
+
+        id128_to_uuid_string(u, buf);
+        j = strjoina(s, " ", buf);
+
+        r = sd_device_set_sysattr_value(device, "uevent", j);
+        if (r < 0)
+                return r;
+
+        *ret_uuid = u;
+        return 0;
 }

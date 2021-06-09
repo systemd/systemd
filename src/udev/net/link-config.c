@@ -134,7 +134,7 @@ int link_load_one(LinkConfigContext *ctx, const char *filename) {
         *link = (LinkConfig) {
                 .filename = TAKE_PTR(name),
                 .mac_address_policy = _MAC_ADDRESS_POLICY_INVALID,
-                .wol = _WOL_INVALID,
+                .wol = UINT32_MAX, /* UINT32_MAX means do not change WOL setting. */
                 .duplex = _DUP_INVALID,
                 .port = _NET_DEV_PORT_INVALID,
                 .autonegotiation = -1,
@@ -329,9 +329,13 @@ static int link_config_apply_ethtool_settings(int *ethtool_fd, const LinkConfig 
         }
 
         r = ethtool_set_wol(ethtool_fd, name, config->wol);
-        if (r < 0)
+        if (r < 0) {
+                _cleanup_free_ char *str = NULL;
+
+                (void) wol_options_to_string_alloc(config->wol, &str);
                 log_device_warning_errno(device, r, "Could not set WakeOnLan to %s, ignoring: %m",
-                                         wol_to_string(config->wol));
+                                         strna(str));
+        }
 
         r = ethtool_set_features(ethtool_fd, name, config->features);
         if (r < 0)

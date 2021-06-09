@@ -13,6 +13,8 @@ libcore_sources = '''
         bpf-firewall.h
         bpf-foreign.c
         bpf-foreign.h
+        bpf-socket-bind.c
+        bpf-socket-bind.h
         cgroup.c
         cgroup.h
         core-varlink.c
@@ -83,6 +85,8 @@ libcore_sources = '''
         load-fragment.h
         locale-setup.c
         locale-setup.h
+        manager-dump.c
+        manager-dump.h
         manager.c
         manager.h
         mount.c
@@ -105,8 +109,6 @@ libcore_sources = '''
         slice.h
         smack-setup.c
         smack-setup.h
-        socket-bind.c
-        socket-bind.h
         socket.c
         socket.h
         swap.c

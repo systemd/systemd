@@ -82,7 +82,8 @@ static int load_user(
                         USER_RECORD_ALLOW_PER_MACHINE|
                         USER_RECORD_ALLOW_BINDING|
                         USER_RECORD_ALLOW_SIGNATURE|
-                        (have_privileged ? USER_RECORD_ALLOW_PRIVILEGED : 0));
+                        (have_privileged ? USER_RECORD_ALLOW_PRIVILEGED : 0)|
+                        USER_RECORD_PERMISSIVE);
         if (r < 0)
                 return r;
 
@@ -225,7 +226,8 @@ static int load_group(
                         USER_RECORD_ALLOW_PER_MACHINE|
                         USER_RECORD_ALLOW_BINDING|
                         USER_RECORD_ALLOW_SIGNATURE|
-                        (have_privileged ? USER_RECORD_ALLOW_PRIVILEGED : 0));
+                        (have_privileged ? USER_RECORD_ALLOW_PRIVILEGED : 0)|
+                        USER_RECORD_PERMISSIVE);
         if (r < 0)
                 return r;
 

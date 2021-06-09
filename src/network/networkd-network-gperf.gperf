@@ -10,14 +10,15 @@ _Pragma("GCC diagnostic ignored \"-Wimplicit-fallthrough\"")
 #include "networkd-address-label.h"
 #include "networkd-address.h"
 #include "networkd-bridge-fdb.h"
+#include "networkd-bridge-mdb.h"
 #include "networkd-can.h"
 #include "networkd-dhcp-common.h"
+#include "networkd-dhcp-server-static-lease.h"
 #include "networkd-dhcp-server.h"
 #include "networkd-dhcp4.h"
 #include "networkd-dhcp6.h"
 #include "networkd-ipv4ll.h"
 #include "networkd-ipv6-proxy-ndp.h"
-#include "networkd-mdb.h"
 #include "networkd-ndisc.h"
 #include "networkd-network.h"
 #include "networkd-neighbor.h"
@@ -96,6 +97,7 @@ Network.DHCP,                                config_parse_dhcp,                 
 Network.DHCPServer,                          config_parse_bool,                                        0,                             offsetof(Network, dhcp_server)
 Network.LinkLocalAddressing,                 config_parse_link_local_address_family,                   0,                             offsetof(Network, link_local)
 Network.IPv6LinkLocalAddressGenerationMode,  config_parse_ipv6_link_local_address_gen_mode,            0,                             offsetof(Network, ipv6ll_address_gen_mode)
+Network.IPv6StableSecretAddress,             config_parse_in_addr_non_null,                            AF_INET6,                      offsetof(Network, ipv6ll_stable_secret)
 Network.IPv4LLRoute,                         config_parse_bool,                                        0,                             offsetof(Network, ipv4ll_route)
 Network.DefaultRouteOnDevice,                config_parse_bool,                                        0,                             offsetof(Network, default_route_on_device)
 Network.IPv6Token,                           config_parse_address_generation_type,                     0,                             0
@@ -263,6 +265,7 @@ IPv6AcceptRA.PrefixDenyList,                 config_parse_ndisc_address_filter, 
 IPv6AcceptRA.RouteAllowList,                 config_parse_ndisc_address_filter,                        0,                             offsetof(Network, ndisc_allow_listed_route_prefix)
 IPv6AcceptRA.RouteDenyList,                  config_parse_ndisc_address_filter,                        0,                             offsetof(Network, ndisc_deny_listed_route_prefix)
 DHCPServer.ServerAddress,                    config_parse_dhcp_server_address,                         0,                             0
+DHCPServer.UplinkInterface,                  config_parse_dhcp_server_uplink,                          0,                             0
 DHCPServer.RelayTarget,                      config_parse_in_addr_non_null,                            AF_INET,                       offsetof(Network, dhcp_server_relay_target)
 DHCPServer.RelayAgentCircuitId,              config_parse_dhcp_server_relay_agent_suboption,           0,                             offsetof(Network, dhcp_server_relay_agent_circuit_id)
 DHCPServer.RelayAgentRemoteId,               config_parse_dhcp_server_relay_agent_suboption,           0,                             offsetof(Network, dhcp_server_relay_agent_remote_id)
@@ -288,6 +291,8 @@ DHCPServer.PoolSize,                         config_parse_uint32,               
 DHCPServer.SendVendorOption,                 config_parse_dhcp_send_option,                            0,                             offsetof(Network, dhcp_server_send_vendor_options)
 DHCPServer.SendOption,                       config_parse_dhcp_send_option,                            0,                             offsetof(Network, dhcp_server_send_options)
 DHCPServer.BindToInterface,                  config_parse_bool,                                        0,                             offsetof(Network, dhcp_server_bind_to_interface)
+DHCPServerStaticLease.Address,               config_parse_dhcp_static_lease_address,                   0,                             0
+DHCPServerStaticLease.MACAddress,            config_parse_dhcp_static_lease_hwaddr,                    0,                             0
 Bridge.Cost,                                 config_parse_uint32,                                      0,                             offsetof(Network, cost)
 Bridge.UseBPDU,                              config_parse_tristate,                                    0,                             offsetof(Network, use_bpdu)
 Bridge.HairPin,                              config_parse_tristate,                                    0,                             offsetof(Network, hairpin)

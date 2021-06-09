@@ -492,8 +492,9 @@
       <varlistentry>
         <term><varname>WakeOnLan=</varname></term>
         <listitem>
-          <para>The Wake-on-LAN policy to set for the device. The
-          supported values are:</para>
+          <para>The Wake-on-LAN policy to set for the device. Takes the special value
+          <literal>off</literal> which disables Wake-on-LAN, or space separated list of the following
+          words:</para>
 
           <variablelist>
             <varlistentry>
@@ -540,15 +541,11 @@
                 </para>
               </listitem>
             </varlistentry>
-            <varlistentry>
-              <term><option>off</option></term>
-              <listitem>
-                <para>Never wake.</para>
-              </listitem>
-            </varlistentry>
           </variablelist>
 
-          <para>Defaults to <option>off</option>.</para>
+          <para>Defaults to unset, and the device's default will be used. This setting can be specified
+          multiple times. If an empty string is assigned, then the all previous assignments are
+          cleared.</para>
         </listitem>
       </varlistentry>
       <varlistentry>

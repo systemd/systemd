@@ -16,10 +16,12 @@
 #include "networkd-address-label.h"
 #include "networkd-address.h"
 #include "networkd-bridge-fdb.h"
+#include "networkd-bridge-mdb.h"
 #include "networkd-dhcp-common.h"
+#include "networkd-dhcp-server-static-lease.h"
 #include "networkd-dhcp-server.h"
+#include "networkd-ipv6-proxy-ndp.h"
 #include "networkd-manager.h"
-#include "networkd-mdb.h"
 #include "networkd-ndisc.h"
 #include "networkd-neighbor.h"
 #include "networkd-network.h"
@@ -173,12 +175,18 @@ int network_verify(Network *network) {
         if (network->ipv6ll_address_gen_mode == IPV6_LINK_LOCAL_ADDRESSS_GEN_MODE_NONE)
                 SET_FLAG(network->link_local, ADDRESS_FAMILY_IPV6, false);
 
+        if (in6_addr_is_set(&network->ipv6ll_stable_secret) &&
+            network->ipv6ll_address_gen_mode < 0)
+                network->ipv6ll_address_gen_mode = IPV6_LINK_LOCAL_ADDRESSS_GEN_MODE_STABLE_PRIVACY;
+
         /* IPMasquerade implies IPForward */
         network->ip_forward |= network->ip_masquerade;
 
+        network_adjust_ipv6_proxy_ndp(network);
         network_adjust_ipv6_accept_ra(network);
         network_adjust_dhcp(network);
         network_adjust_radv(network);
+        network_adjust_bridge_vlan(network);
 
         if (network->mtu > 0 && network->dhcp_use_mtu) {
                 log_warning("%s: MTUBytes= in [Link] section and UseMTU= in [DHCP] section are set. "
@@ -233,7 +241,7 @@ int network_verify(Network *network) {
         network_drop_invalid_routes(network);
         network_drop_invalid_nexthops(network);
         network_drop_invalid_bridge_fdb_entries(network);
-        network_drop_invalid_mdb_entries(network);
+        network_drop_invalid_bridge_mdb_entries(network);
         network_drop_invalid_neighbors(network);
         network_drop_invalid_address_labels(network);
         network_drop_invalid_prefixes(network);
@@ -241,6 +249,7 @@ int network_verify(Network *network) {
         network_drop_invalid_routing_policy_rules(network);
         network_drop_invalid_traffic_control(network);
         network_drop_invalid_sr_iov(network);
+        network_drop_invalid_static_leases(network);
 
         network_adjust_dhcp_server(network);
 
@@ -414,6 +423,7 @@ int network_load_one(Manager *manager, OrderedHashmap **networks, const char *fi
                         "DHCPv6\0"
                         "DHCPv6PrefixDelegation\0"
                         "DHCPServer\0"
+                        "DHCPServerStaticLease\0"
                         "IPv6AcceptRA\0"
                         "IPv6NDPProxyAddress\0"
                         "Bridge\0"
@@ -601,18 +611,20 @@ static Network *network_free(Network *network) {
         hashmap_free_with_destructor(network->routes_by_section, route_free);
         hashmap_free_with_destructor(network->nexthops_by_section, nexthop_free);
         hashmap_free_with_destructor(network->bridge_fdb_entries_by_section, bridge_fdb_free);
-        hashmap_free_with_destructor(network->mdb_entries_by_section, mdb_entry_free);
+        hashmap_free_with_destructor(network->bridge_mdb_entries_by_section, bridge_mdb_free);
         hashmap_free_with_destructor(network->neighbors_by_section, neighbor_free);
         hashmap_free_with_destructor(network->address_labels_by_section, address_label_free);
         hashmap_free_with_destructor(network->prefixes_by_section, prefix_free);
         hashmap_free_with_destructor(network->route_prefixes_by_section, route_prefix_free);
         hashmap_free_with_destructor(network->rules_by_section, routing_policy_rule_free);
+        hashmap_free_with_destructor(network->dhcp_static_leases_by_section, dhcp_static_lease_free);
         ordered_hashmap_free_with_destructor(network->sr_iov_by_section, sr_iov_free);
         ordered_hashmap_free_with_destructor(network->tc_by_section, traffic_control_free);
 
         free(network->name);
 
         free(network->dhcp_server_timezone);
+        free(network->dhcp_server_uplink_name);
 
         for (sd_dhcp_lease_server_type_t t = 0; t < _SD_DHCP_LEASE_SERVER_TYPE_MAX; t++)
                 free(network->dhcp_server_emit[t].addresses);
@@ -654,7 +666,7 @@ bool network_has_static_ipv6_configurations(Network *network) {
         Address *address;
         Route *route;
         BridgeFDB *fdb;
-        MdbEntry *mdb;
+        BridgeMDB *mdb;
         Neighbor *neighbor;
 
         assert(network);
@@ -671,7 +683,7 @@ bool network_has_static_ipv6_configurations(Network *network) {
                 if (fdb->family == AF_INET6)
                         return true;
 
-        HASHMAP_FOREACH(mdb, network->mdb_entries_by_section)
+        HASHMAP_FOREACH(mdb, network->bridge_mdb_entries_by_section)
                 if (mdb->family == AF_INET6)
                         return true;
 

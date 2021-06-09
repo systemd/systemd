@@ -805,30 +805,30 @@ void dns_server_unlink_all(DnsServer *first) {
         dns_server_unlink_all(next);
 }
 
-bool dns_server_unlink_marked(DnsServer *first) {
-        DnsServer *next;
-        bool changed;
+bool dns_server_unlink_marked(DnsServer *server) {
+        bool changed = false;
 
-        if (!first)
-                return false;
+        while (server) {
+                DnsServer *next;
 
-        next = first->servers_next;
+                next = server->servers_next;
 
-        if (first->marked) {
-                changed = true;
-                dns_server_unlink(first);
-        } else
-                changed = false;
+                if (server->marked) {
+                        dns_server_unlink(server);
+                        changed = true;
+                }
 
-        return changed || dns_server_unlink_marked(next);
+                server = next;
+        }
+
+        return changed;
 }
 
-void dns_server_mark_all(DnsServer *first) {
-        if (!first)
-                return;
-
-        first->marked = true;
-        dns_server_mark_all(first->servers_next);
+void dns_server_mark_all(DnsServer *server) {
+        while (server) {
+                server->marked = true;
+                server = server->servers_next;
+        }
 }
 
 DnsServer *dns_server_find(DnsServer *first, int family, const union in_addr_union *in_addr, uint16_t port, int ifindex, const char *name) {

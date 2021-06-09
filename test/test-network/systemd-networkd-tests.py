@@ -2619,24 +2619,9 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         3: generate stable privacy addresses, using a random secret if unset
         '''
 
-        test1_addr_gen_mode = ''
-        if os.path.exists(os.path.join(os.path.join(network_sysctl_ipv6_path, 'test1'), 'stable_secret')):
-            with open(os.path.join(os.path.join(network_sysctl_ipv6_path, 'test1'), 'stable_secret')) as f:
-                try:
-                    f.readline()
-                except IOError:
-                    # if stable_secret is unset, then EIO is returned
-                    test1_addr_gen_mode = '0'
-                else:
-                    test1_addr_gen_mode = '2'
-        else:
-            test1_addr_gen_mode = '0'
-
-        if os.path.exists(os.path.join(os.path.join(network_sysctl_ipv6_path, 'test1'), 'addr_gen_mode')):
-            self.assertEqual(read_ipv6_sysctl_attr('test1', 'addr_gen_mode'), test1_addr_gen_mode)
-
-        if os.path.exists(os.path.join(os.path.join(network_sysctl_ipv6_path, 'dummy98'), 'addr_gen_mode')):
-            self.assertEqual(read_ipv6_sysctl_attr('dummy98', 'addr_gen_mode'), '1')
+        self.assertEqual(read_ipv6_sysctl_attr('test1', 'stable_secret'), '0123:4567:89ab:cdef:0123:4567:89ab:cdef')
+        self.assertEqual(read_ipv6_sysctl_attr('test1', 'addr_gen_mode'), '2')
+        self.assertEqual(read_ipv6_sysctl_attr('dummy98', 'addr_gen_mode'), '1')
 
     def test_link_local_addressing_remove_ipv6ll(self):
         copy_unit_to_networkd_unit_path('26-link-local-addressing-ipv6.network', '12-dummy.netdev')
@@ -3668,14 +3653,22 @@ class NetworkdRATests(unittest.TestCase, Utilities):
         self.assertRegex(output, '2002:da8:2:0')
 
 class NetworkdDHCPServerTests(unittest.TestCase, Utilities):
-    links = ['veth99']
+    links = [
+        'dummy98',
+        'veth99',
+    ]
 
     units = [
+        '12-dummy.netdev',
         '25-veth.netdev',
         'dhcp-client.network',
+        'dhcp-client-static-lease.network',
         'dhcp-client-timezone-router.network',
         'dhcp-server.network',
-        'dhcp-server-timezone-router.network']
+        'dhcp-server-static-lease.network',
+        'dhcp-server-timezone-router.network',
+        'dhcp-server-uplink.network',
+    ]
 
     def setUp(self):
         remove_links(self.links)
@@ -3687,7 +3680,8 @@ class NetworkdDHCPServerTests(unittest.TestCase, Utilities):
         stop_networkd(show_logs=True)
 
     def test_dhcp_server(self):
-        copy_unit_to_networkd_unit_path('25-veth.netdev', 'dhcp-client.network', 'dhcp-server.network')
+        copy_unit_to_networkd_unit_path('25-veth.netdev', 'dhcp-client.network', 'dhcp-server.network',
+                                        '12-dummy.netdev', 'dhcp-server-uplink.network')
         start_networkd()
         self.wait_online(['veth99:routable', 'veth-peer:routable'])
 
@@ -3708,6 +3702,15 @@ class NetworkdDHCPServerTests(unittest.TestCase, Utilities):
         self.assertRegex(output, 'Gateway: 192.168.5.*')
         self.assertRegex(output, '192.168.5.*')
         self.assertRegex(output, 'Europe/Berlin')
+
+    def test_dhcp_server_static_lease(self):
+        copy_unit_to_networkd_unit_path('25-veth.netdev', 'dhcp-client-static-lease.network', 'dhcp-server-static-lease.network')
+        start_networkd()
+        self.wait_online(['veth99:routable', 'veth-peer:routable'])
+
+        output = check_output(*networkctl_cmd, '-n', '0', 'status', 'veth99', env=env)
+        print(output)
+        self.assertIn('10.1.1.3 (DHCP4 via 10.1.1.1)', output)
 
 class NetworkdDHCPServerRelayAgentTests(unittest.TestCase, Utilities):
     links = [

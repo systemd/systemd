@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "bpf-socket-bind.h"
 #include "bus-util.h"
 #include "dbus.h"
 #include "fileio-label.h"
@@ -7,7 +8,6 @@
 #include "format-util.h"
 #include "parse-util.h"
 #include "serialize.h"
-#include "socket-bind.h"
 #include "string-table.h"
 #include "unit-serialize.h"
 #include "user-util.h"
@@ -89,12 +89,24 @@ static const char *const io_accounting_metric_field_last[_CGROUP_IO_ACCOUNTING_M
         [CGROUP_IO_WRITE_OPERATIONS] = "io-accounting-write-operations-last",
 };
 
-int unit_serialize(Unit *u, FILE *f, FDSet *fds, bool serialize_jobs) {
+int unit_serialize(Unit *u, FILE *f, FDSet *fds, bool switching_root) {
         int r;
 
         assert(u);
         assert(f);
         assert(fds);
+
+        if (switching_root && UNIT_VTABLE(u)->exclude_from_switch_root_serialization) {
+                /* In the new root, paths for mounts and automounts will be different, so it doesn't make
+                 * much sense to serialize things. API file systems will be moved to the new root, but we
+                 * don't have mount units for those. */
+                log_unit_debug(u, "not serializing before switch-root");
+                return 0;
+        }
+
+        /* Start marker */
+        fputs(u->id, f);
+        fputc('\n', f);
 
         if (unit_can_serialize(u)) {
                 r = UNIT_VTABLE(u)->serialize(u, f, fds);
@@ -152,7 +164,12 @@ int unit_serialize(Unit *u, FILE *f, FDSet *fds, bool serialize_jobs) {
         (void) serialize_cgroup_mask(f, "cgroup-enabled-mask", u->cgroup_enabled_mask);
         (void) serialize_cgroup_mask(f, "cgroup-invalidated-mask", u->cgroup_invalidated_mask);
 
-        (void) serialize_socket_bind(u, f, fds);
+        (void) bpf_serialize_socket_bind(u, f, fds);
+
+        (void) bpf_program_serialize_attachment(f, fds, "ip-bpf-ingress-installed", u->ip_bpf_ingress_installed);
+        (void) bpf_program_serialize_attachment(f, fds, "ip-bpf-egress-installed", u->ip_bpf_egress_installed);
+        (void) bpf_program_serialize_attachment_set(f, fds, "ip-bpf-custom-ingress-installed", u->ip_bpf_custom_ingress_installed);
+        (void) bpf_program_serialize_attachment_set(f, fds, "ip-bpf-custom-egress-installed", u->ip_bpf_custom_egress_installed);
 
         if (uid_is_valid(u->ref_uid))
                 (void) serialize_item_format(f, "ref-uid", UID_FMT, u->ref_uid);
@@ -175,7 +192,7 @@ int unit_serialize(Unit *u, FILE *f, FDSet *fds, bool serialize_jobs) {
                         (void) serialize_item_format(f, ip_accounting_metric_field[m], "%" PRIu64, v);
         }
 
-        if (serialize_jobs) {
+        if (!switching_root) {
                 if (u->job) {
                         fputs("job\n", f);
                         job_serialize(u->job, f);
@@ -373,16 +390,28 @@ int unit_deserialize(Unit *u, FILE *f, FDSet *fds) {
                         else {
                                 if (fdset_remove(fds, fd) < 0) {
                                         log_unit_debug(u, "Failed to remove %s value=%d from fdset", l, fd);
-
                                         continue;
                                 }
 
-                                (void) socket_bind_add_initial_link_fd(u, fd);
+                                (void) bpf_socket_bind_add_initial_link_fd(u, fd);
                         }
                         continue;
-                }
 
-                else if (streq(l, "ref-uid")) {
+                } else if (streq(l, "ip-bpf-ingress-installed")) {
+                         (void) bpf_program_deserialize_attachment(v, fds, &u->ip_bpf_ingress_installed);
+                         continue;
+                } else if (streq(l, "ip-bpf-egress-installed")) {
+                         (void) bpf_program_deserialize_attachment(v, fds, &u->ip_bpf_egress_installed);
+                         continue;
+
+                } else if (streq(l, "ip-bpf-custom-ingress-installed")) {
+                         (void) bpf_program_deserialize_attachment_set(v, fds, &u->ip_bpf_custom_ingress_installed);
+                         continue;
+                } else if (streq(l, "ip-bpf-custom-egress-installed")) {
+                         (void) bpf_program_deserialize_attachment_set(v, fds, &u->ip_bpf_custom_egress_installed);
+                         continue;
+
+                } else if (streq(l, "ref-uid")) {
                         uid_t uid;
 
                         r = parse_uid(v, &uid);

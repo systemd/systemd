@@ -9,6 +9,10 @@ Bugfixes:
 
 * Get rid of nftw(). We should refuse to use such useless APIs on principle.
 
+* Jun 01 09:43:02 krowka systemd[1]: Unit user@1000.service has alias user@.service.
+  Jun 01 09:43:02 krowka systemd[1]: Unit user@6.service has alias user@.service.
+  Jun 01 09:43:02 krowka systemd[1]: Unit user-runtime-dir@6.service has alias user-runtime-dir@.service.
+
 External:
 
 * Fedora: add an rpmlint check that verifies that all unit files in the RPM are listed in %systemd_post macros.
@@ -665,8 +669,6 @@ Features:
 
 * add support for "portablectl attach http://foobar.com/waaa.raw (i.e. importd integration)
 
-* add attach --enable and attach --now (for attach+enable+start)
-
 * sync dynamic uids/gids between host+portable srvice (i.e. if DynamicUser=1 is set for a service, make sure that the
   selected user is resolvable in the service even if it ships its own /etc/passwd)
 
@@ -708,9 +710,6 @@ Features:
 
 * add proper dbus APIs for the various sd_notify() commands, such as MAINPID=1
   and so on, which would mean we could report errors and such.
-
-* teach tmpfiles.d q/Q logic something sensible in the context of XFS/ext4
-  project quota
 
 * introduce DefaultSlice= or so in system.conf that allows changing where we
   place our units by default, i.e. change system.slice to something
@@ -859,6 +858,9 @@ Features:
 * ProtectReboot= that masks reboot() and kexec_load() syscalls, prohibits kill
   on PID 1 with the relevant signals, and makes relevant files in /sys and
   /proc (such as the sysrq stuff) unavailable
+
+* Support ReadWritePaths/ReadOnlyPaths/InaccessiblePaths in systemd --user instances
+  via the new unprivileged Landlock LSM (https://landlock.io)
 
 * make sure the ratelimit object can deal with USEC_INFINITY as way to turn off things
 
@@ -1330,6 +1332,8 @@ Features:
     should not follow symlinks. None of the other adjustment or creation
     calls follow symlinks.
   - add --test mode
+  - teach tmpfiles.d q/Q logic something sensible in the context of XFS/ext4
+    project quota
 
 * make sure systemd-ask-password-wall does not shutdown systemd-ask-password-console too early
 

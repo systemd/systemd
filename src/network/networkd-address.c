@@ -19,6 +19,40 @@
 #define ADDRESSES_PER_LINK_MAX 2048U
 #define STATIC_ADDRESSES_PER_NETWORK_MAX 1024U
 
+static int address_flags_to_string_alloc(uint32_t flags, int family, char **ret) {
+        _cleanup_free_ char *str = NULL;
+        static const struct {
+                uint32_t flag;
+                const char *name;
+        } map[] = {
+                { IFA_F_SECONDARY,      "secondary"                }, /* This is also called "temporary" for ipv6. */
+                { IFA_F_NODAD,          "nodad"                    },
+                { IFA_F_OPTIMISTIC,     "optimistic"               },
+                { IFA_F_DADFAILED,      "dadfailed"                },
+                { IFA_F_HOMEADDRESS,    "home-address"             },
+                { IFA_F_DEPRECATED,     "deprecated"               },
+                { IFA_F_TENTATIVE,      "tentative"                },
+                { IFA_F_PERMANENT,      "permanent"                },
+                { IFA_F_MANAGETEMPADDR, "manage-temporary-address" },
+                { IFA_F_NOPREFIXROUTE,  "no-prefixroute"           },
+                { IFA_F_MCAUTOJOIN,     "auto-join"                },
+                { IFA_F_STABLE_PRIVACY, "stable-privacy"           },
+        };
+
+        assert(IN_SET(family, AF_INET, AF_INET6));
+        assert(ret);
+
+        for (size_t i = 0; i < ELEMENTSOF(map); i++)
+                if (flags & map[i].flag &&
+                    !strextend_with_separator(
+                                &str, ",",
+                                map[i].flag == IFA_F_SECONDARY && family == AF_INET6 ? "temporary" : map[i].name))
+                        return -ENOMEM;
+
+        *ret = TAKE_PTR(str);
+        return 0;
+}
+
 int generate_ipv6_eui_64_address(const Link *link, struct in6_addr *ret) {
         assert(link);
         assert(ret);
@@ -348,7 +382,7 @@ static int address_add_internal(Link *link, Set **addresses, const Address *in, 
                 return r;
 
         /* Consider address tentative until we get the real flags from the kernel */
-        address->flags = IFA_F_TENTATIVE;
+        address->flags |= IFA_F_TENTATIVE;
 
         r = set_ensure_put(addresses, &address_hash_ops, address);
         if (r < 0)
@@ -586,7 +620,7 @@ int manager_has_address(Manager *manager, int family, const union in_addr_union 
 }
 
 static void log_address_debug(const Address *address, const char *str, const Link *link) {
-        _cleanup_free_ char *addr = NULL, *peer = NULL;
+        _cleanup_free_ char *addr = NULL, *peer = NULL, *flags_str = NULL;
         char valid_buf[FORMAT_TIMESPAN_MAX], preferred_buf[FORMAT_TIMESPAN_MAX];
         const char *valid_str = NULL, *preferred_str = NULL;
         bool has_peer;
@@ -613,11 +647,14 @@ static void log_address_debug(const Address *address, const char *str, const Lin
                                                 address->cinfo.ifa_prefered * USEC_PER_SEC,
                                                 USEC_PER_SEC);
 
-        log_link_debug(link, "%s address: %s%s%s/%u (valid %s%s, preferred %s%s)",
+        (void) address_flags_to_string_alloc(address->flags, address->family, &flags_str);
+
+        log_link_debug(link, "%s address: %s%s%s/%u (valid %s%s, preferred %s%s), flags: %s",
                        str, strnull(addr), has_peer ? " peer " : "",
                        has_peer ? strnull(peer) : "", address->prefixlen,
                        valid_str ? "for " : "forever", strempty(valid_str),
-                       preferred_str ? "for " : "forever", strempty(preferred_str));
+                       preferred_str ? "for " : "forever", strempty(preferred_str),
+                       strna(flags_str));
 }
 
 static int address_set_netlink_message(const Address *address, sd_netlink_message *req, Link *link) {
@@ -747,13 +784,19 @@ bool link_address_is_dynamic(const Link *link, const Address *address) {
         return false;
 }
 
-static int link_enumerate_ipv6_tentative_addresses(Link *link) {
+int link_drop_ipv6ll_addresses(Link *link) {
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL, *reply = NULL;
         int r;
 
         assert(link);
         assert(link->manager);
         assert(link->manager->rtnl);
+
+        /* IPv6LL address may be in the tentative state, and in that case networkd has not received it.
+         * So, we need to dump all IPv6 addresses. */
+
+        if (link_ipv6ll_enabled(link))
+                return 0;
 
         r = sd_rtnl_message_new_addr(link->manager->rtnl, &req, RTM_GETADDR, link->ifindex, AF_INET6);
         if (r < 0)
@@ -768,27 +811,57 @@ static int link_enumerate_ipv6_tentative_addresses(Link *link) {
                 return r;
 
         for (sd_netlink_message *addr = reply; addr; addr = sd_netlink_message_next(addr)) {
-                unsigned char flags;
+                _cleanup_(address_freep) Address *a = NULL;
+                unsigned char flags, prefixlen;
+                struct in6_addr address;
                 int ifindex;
 
                 /* NETLINK_GET_STRICT_CHK socket option is supported since kernel 4.20. To support
                  * older kernels, we need to check ifindex here. */
                 r = sd_rtnl_message_addr_get_ifindex(addr, &ifindex);
                 if (r < 0) {
-                        log_link_warning_errno(link, r, "rtnl: received address message without valid ifindex, ignoring: %m");
+                        log_link_debug_errno(link, r, "rtnl: received address message without valid ifindex, ignoring: %m");
                         continue;
                 } else if (link->ifindex != ifindex)
                         continue;
 
                 r = sd_rtnl_message_addr_get_flags(addr, &flags);
                 if (r < 0) {
-                        log_link_warning_errno(link, r, "rtnl: received address message without valid flags, ignoring: %m");
+                        log_link_debug_errno(link, r, "rtnl: received address message without valid flags, ignoring: %m");
                         continue;
-                } else if (!(flags & IFA_F_TENTATIVE))
+                }
+
+                r = sd_rtnl_message_addr_get_prefixlen(addr, &prefixlen);
+                if (r < 0) {
+                        log_link_debug_errno(link, r, "rtnl: received address message without prefixlen, ignoring: %m");
+                        continue;
+                }
+
+                if (sd_netlink_message_read_in6_addr(addr, IFA_LOCAL, NULL) >= 0)
+                        /* address with peer, ignoring. */
                         continue;
 
-                log_link_debug(link, "Found tentative ipv6 link-local address");
-                (void) manager_rtnl_process_address(link->manager->rtnl, addr, link->manager);
+                r = sd_netlink_message_read_in6_addr(addr, IFA_ADDRESS, &address);
+                if (r < 0) {
+                        log_link_debug_errno(link, r, "rtnl: received address message without valid address, ignoring: %m");
+                        continue;
+                }
+
+                if (!in6_addr_is_link_local(&address))
+                         continue;
+
+                r = address_new(&a);
+                if (r < 0)
+                        return -ENOMEM;
+
+                a->family = AF_INET6;
+                a->in_addr.in6 = address;
+                a->prefixlen = prefixlen;
+                a->flags = flags;
+
+                r = address_remove(a, link);
+                if (r < 0)
+                        return r;
         }
 
         return 0;
@@ -800,17 +873,9 @@ int link_drop_foreign_addresses(Link *link) {
 
         assert(link);
 
-        /* The kernel doesn't notify us about tentative addresses;
-         * so if ipv6ll is disabled, we need to enumerate them now so we can drop them below */
-        if (!link_ipv6ll_enabled(link)) {
-                r = link_enumerate_ipv6_tentative_addresses(link);
-                if (r < 0)
-                        return r;
-        }
-
         SET_FOREACH(address, link->addresses_foreign) {
-                /* we consider IPv6LL addresses to be managed by the kernel */
-                if (address->family == AF_INET6 && in6_addr_is_link_local(&address->in_addr.in6) == 1 && link_ipv6ll_enabled(link))
+                /* We consider IPv6LL addresses to be managed by the kernel, or dropped in link_drop_ipv6ll_addresses() */
+                if (address->family == AF_INET6 && in6_addr_is_link_local(&address->in_addr.in6) == 1)
                         continue;
 
                 if (link_address_is_dynamic(link, address)) {
@@ -1054,10 +1119,6 @@ static int static_address_handler(sd_netlink *rtnl, sd_netlink_message *m, Link 
                 log_link_debug(link, "Addresses set");
                 link->static_addresses_configured = true;
                 link_check_ready(link);
-
-                r = dhcp4_server_configure(link);
-                if (r < 0)
-                        link_enter_failed(link);
         }
 
         return 1;
@@ -1115,6 +1176,8 @@ int link_request_static_addresses(Link *link) {
                                          static_address_handler, &req);
                 if (r < 0)
                         return r;
+                if (r == 0)
+                        continue;
 
                 req->after_configure = static_address_after_configure;
         }
@@ -1145,6 +1208,8 @@ int link_request_static_addresses(Link *link) {
                                          static_address_handler, &req);
                 if (r < 0)
                         return r;
+                if (r == 0)
+                        continue;
 
                 req->after_configure = static_address_after_configure;
         }
@@ -1170,8 +1235,8 @@ int link_request_static_addresses(Link *link) {
                                                  static_address_handler, &req);
                         if (r < 0)
                                 return r;
-
-                        req->after_configure = static_address_after_configure;
+                        if (r > 0)
+                                req->after_configure = static_address_after_configure;
                 }
         }
 
@@ -1221,7 +1286,6 @@ int manager_rtnl_process_address(sd_netlink *rtnl, sd_netlink_message *message, 
         _cleanup_(address_freep) Address *tmp = NULL;
         Link *link = NULL;
         uint16_t type;
-        unsigned char flags;
         Address *address = NULL;
         int ifindex, r;
 
@@ -1289,12 +1353,11 @@ int manager_rtnl_process_address(sd_netlink *rtnl, sd_netlink_message *message, 
                 return 0;
         }
 
-        r = sd_rtnl_message_addr_get_flags(message, &flags);
+        r = sd_netlink_message_read_u32(message, IFA_FLAGS, &tmp->flags);
         if (r < 0) {
                 log_link_warning_errno(link, r, "rtnl: received address message without flags, ignoring: %m");
                 return 0;
         }
-        tmp->flags = flags;
 
         switch (tmp->family) {
         case AF_INET:

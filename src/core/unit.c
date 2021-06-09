@@ -12,6 +12,7 @@
 #include "alloc-util.h"
 #include "bpf-firewall.h"
 #include "bpf-foreign.h"
+#include "bpf-socket-bind.h"
 #include "bus-common-errors.h"
 #include "bus-util.h"
 #include "cgroup-setup.h"
@@ -41,7 +42,6 @@
 #include "rm-rf.h"
 #include "set.h"
 #include "signal-util.h"
-#include "socket-bind.h"
 #include "sparse-endian.h"
 #include "special.h"
 #include "specifier.h"
@@ -114,6 +114,9 @@ Unit* unit_new(Manager *m, size_t size) {
 
         u->ip_accounting_ingress_map_fd = -1;
         u->ip_accounting_egress_map_fd = -1;
+        for (CGroupIOAccountingMetric i = 0; i < _CGROUP_IO_ACCOUNTING_METRIC_MAX; i++)
+                u->io_accounting_last[i] = UINT64_MAX;
+
         u->ipv4_allow_map_fd = -1;
         u->ipv6_allow_map_fd = -1;
         u->ipv4_deny_map_fd = -1;
@@ -123,9 +126,6 @@ Unit* unit_new(Manager *m, size_t size) {
 
         u->start_ratelimit = (RateLimit) { m->default_start_limit_interval, m->default_start_limit_burst };
         u->auto_start_stop_ratelimit = (RateLimit) { 10 * USEC_PER_SEC, 16 };
-
-        for (CGroupIOAccountingMetric i = 0; i < _CGROUP_IO_ACCOUNTING_METRIC_MAX; i++)
-                u->io_accounting_last[i] = UINT64_MAX;
 
         return u;
 }
@@ -757,23 +757,7 @@ Unit* unit_free(Unit *u) {
         if (u->in_stop_when_bound_queue)
                 LIST_REMOVE(stop_when_bound_queue, u->manager->stop_when_bound_queue, u);
 
-        safe_close(u->ip_accounting_ingress_map_fd);
-        safe_close(u->ip_accounting_egress_map_fd);
-
-        safe_close(u->ipv4_allow_map_fd);
-        safe_close(u->ipv6_allow_map_fd);
-        safe_close(u->ipv4_deny_map_fd);
-        safe_close(u->ipv6_deny_map_fd);
-
-        bpf_program_unref(u->ip_bpf_ingress);
-        bpf_program_unref(u->ip_bpf_ingress_installed);
-        bpf_program_unref(u->ip_bpf_egress);
-        bpf_program_unref(u->ip_bpf_egress_installed);
-
-        set_free(u->ip_bpf_custom_ingress);
-        set_free(u->ip_bpf_custom_egress);
-        set_free(u->ip_bpf_custom_ingress_installed);
-        set_free(u->ip_bpf_custom_egress_installed);
+        bpf_firewall_close(u);
 
         hashmap_free(u->bpf_foreign_by_key);
 
@@ -1282,13 +1266,18 @@ int unit_add_exec_dependencies(Unit *u, ExecContext *c) {
         }
 
         if (c->private_tmp) {
-                const char *p;
 
-                FOREACH_STRING(p, "/tmp", "/var/tmp") {
-                        r = unit_require_mounts_for(u, p, UNIT_DEPENDENCY_FILE);
-                        if (r < 0)
-                                return r;
-                }
+                /* FIXME: for now we make a special case for /tmp and add a weak dependency on
+                 * tmp.mount so /tmp being masked is supported. However there's no reason to treat
+                 * /tmp specifically and masking other mount units should be handled more
+                 * gracefully too, see PR#16894. */
+                r = unit_add_two_dependencies_by_name(u, UNIT_AFTER, UNIT_WANTS, "tmp.mount", true, UNIT_DEPENDENCY_FILE);
+                if (r < 0)
+                        return r;
+
+                r = unit_require_mounts_for(u, "/var/tmp", UNIT_DEPENDENCY_FILE);
+                if (r < 0)
+                        return r;
 
                 r = unit_add_dependency_by_name(u, UNIT_AFTER, SPECIAL_TMPFILES_SETUP_SERVICE, true, UNIT_DEPENDENCY_FILE);
                 if (r < 0)
@@ -1473,16 +1462,17 @@ static int unit_add_mount_dependencies(Unit *u) {
                         Unit *m;
 
                         r = unit_name_from_path(prefix, ".mount", &p);
+                        if (IN_SET(r, -EINVAL, -ENAMETOOLONG))
+                                continue; /* If the path cannot be converted to a mount unit name, then it's
+                                           * not manageable as a unit by systemd, and hence we don't need a
+                                           * dependency on it. Let's thus silently ignore the issue. */
                         if (r < 0)
                                 return r;
 
                         m = manager_get_unit(u->manager, p);
                         if (!m) {
-                                /* Make sure to load the mount unit if
-                                 * it exists. If so the dependencies
-                                 * on this unit will be added later
-                                 * during the loading of the mount
-                                 * unit. */
+                                /* Make sure to load the mount unit if it exists. If so the dependencies on
+                                 * this unit will be added later during the loading of the mount unit. */
                                 (void) manager_load_unit_prepare(u->manager, p, NULL, NULL, &m);
                                 continue;
                         }
@@ -2708,7 +2698,7 @@ void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns, UnitNotifyFlag
         }
 
         /* And now, add the unit or depending units to various queues that will act on the new situation if
-         * needed. These queues generally check for continous state changes rather than events (like most of
+         * needed. These queues generally check for continuous state changes rather than events (like most of
          * the state propagation above), and do work deferred instead of instantly, since they typically
          * don't want to run during reloading, and usually involve checking combined state of multiple units
          * at once. */
@@ -4601,7 +4591,7 @@ int unit_require_mounts_for(Unit *u, const char *path, UnitDependencyMask mask) 
         if (!p)
                 return -ENOMEM;
 
-        path = path_simplify(p, true);
+        path = path_simplify(p);
 
         if (!path_is_normalized(path))
                 return -EPERM;
@@ -5831,7 +5821,7 @@ int unit_get_dependency_array(const Unit *u, UnitDependencyAtom atom, Unit ***re
 
         /* Gets a list of units matching a specific atom as array. This is useful when iterating through
          * dependencies while modifying them: the array is an "atomic snapshot" of sorts, that can be read
-         * while the dependency table is continously updated. */
+         * while the dependency table is continuously updated. */
 
         UNIT_FOREACH_DEPENDENCY(other, u, atom) {
                 if (!GREEDY_REALLOC(array, n + 1))

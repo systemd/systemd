@@ -10,6 +10,7 @@
 #include "bpf-devices.h"
 #include "bpf-firewall.h"
 #include "bpf-foreign.h"
+#include "bpf-socket-bind.h"
 #include "btrfs-util.h"
 #include "bus-error.h"
 #include "cgroup-setup.h"
@@ -26,7 +27,6 @@
 #include "percent-util.h"
 #include "process-util.h"
 #include "procfs-util.h"
-#include "socket-bind.h"
 #include "special.h"
 #include "stat-util.h"
 #include "stdio-util.h"
@@ -1096,7 +1096,7 @@ static void cgroup_apply_firewall(Unit *u) {
 static void cgroup_apply_socket_bind(Unit *u) {
         assert(u);
 
-        (void) socket_bind_install(u);
+        (void) bpf_socket_bind_install(u);
 }
 
 static int cgroup_apply_devices(Unit *u) {
@@ -2113,7 +2113,7 @@ static int unit_attach_pid_to_cgroup_via_bus(Unit *u, pid_t pid, const char *suf
                 return -EINVAL;
 
         pp = strjoina("/", pp, suffix_path);
-        path_simplify(pp, false);
+        path_simplify(pp);
 
         r = sd_bus_call_method(u->manager->system_bus,
                                "org.freedesktop.systemd1",
@@ -3126,7 +3126,7 @@ static int cg_bpf_mask_supported(CGroupMask *ret) {
                 mask |= CGROUP_MASK_BPF_FOREIGN;
 
         /* BPF-based bind{4|6} hooks */
-        r = socket_bind_supported();
+        r = bpf_socket_bind_supported();
         if (r > 0)
                 mask |= CGROUP_MASK_BPF_SOCKET_BIND;
 
@@ -3400,6 +3400,77 @@ int manager_notify_cgroup_empty(Manager *m, const char *cgroup) {
 
         unit_add_to_cgroup_empty_queue(u);
         return 1;
+}
+
+int unit_get_memory_available(Unit *u, uint64_t *ret) {
+        uint64_t unit_current, available = UINT64_MAX;
+        CGroupContext *unit_context;
+        const char *memory_file;
+        int r;
+
+        assert(u);
+        assert(ret);
+
+        /* If data from cgroups can be accessed, try to find out how much more memory a unit can
+         * claim before hitting the configured cgroup limits (if any). Consider both MemoryHigh
+         * and MemoryMax, and also any slice the unit might be nested below. */
+
+        if (!UNIT_CGROUP_BOOL(u, memory_accounting))
+                return -ENODATA;
+
+        if (!u->cgroup_path)
+                return -ENODATA;
+
+        /* The root cgroup doesn't expose this information */
+        if (unit_has_host_root_cgroup(u))
+                return -ENODATA;
+
+        if ((u->cgroup_realized_mask & CGROUP_MASK_MEMORY) == 0)
+                return -ENODATA;
+
+        r = cg_all_unified();
+        if (r < 0)
+                return r;
+        memory_file = r > 0 ? "memory.current" : "memory.usage_in_bytes";
+
+        r = cg_get_attribute_as_uint64("memory", u->cgroup_path, memory_file, &unit_current);
+        if (r < 0)
+                return r;
+
+        assert_se(unit_context = unit_get_cgroup_context(u));
+
+        if (unit_context->memory_max != UINT64_MAX || unit_context->memory_high != UINT64_MAX)
+                available = LESS_BY(MIN(unit_context->memory_max, unit_context->memory_high), unit_current);
+
+        for (Unit *slice = UNIT_GET_SLICE(u); slice; slice = UNIT_GET_SLICE(slice)) {
+                uint64_t slice_current, slice_available = UINT64_MAX;
+                CGroupContext *slice_context;
+
+                /* No point in continuing if we can't go any lower */
+                if (available == 0)
+                        break;
+
+                if (!slice->cgroup_path)
+                        continue;
+
+                slice_context = unit_get_cgroup_context(slice);
+                if (!slice_context)
+                        continue;
+
+                if (slice_context->memory_max == UINT64_MAX && slice_context->memory_high == UINT64_MAX)
+                        continue;
+
+                r = cg_get_attribute_as_uint64("memory", slice->cgroup_path, memory_file, &slice_current);
+                if (r < 0)
+                        continue;
+
+                slice_available = LESS_BY(MIN(slice_context->memory_max, slice_context->memory_high), slice_current);
+                available = MIN(slice_available, available);
+        }
+
+        *ret = available;
+
+        return 0;
 }
 
 int unit_get_memory_current(Unit *u, uint64_t *ret) {

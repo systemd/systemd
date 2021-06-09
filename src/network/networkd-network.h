@@ -12,11 +12,10 @@
 #include "hashmap.h"
 #include "net-condition.h"
 #include "netdev.h"
-#include "networkd-brvlan.h"
+#include "networkd-bridge-vlan.h"
 #include "networkd-dhcp-common.h"
 #include "networkd-dhcp4.h"
 #include "networkd-dhcp6.h"
-#include "networkd-dhcp-server.h"
 #include "networkd-lldp-rx.h"
 #include "networkd-lldp-tx.h"
 #include "networkd-ndisc.h"
@@ -192,6 +191,8 @@ struct Network {
         bool dhcp_server_bind_to_interface;
         unsigned char dhcp_server_address_prefixlen;
         struct in_addr dhcp_server_address;
+        int dhcp_server_uplink_index;
+        char *dhcp_server_uplink_name;
         struct in_addr dhcp_server_relay_target;
         char *dhcp_server_relay_agent_circuit_id;
         char *dhcp_server_relay_agent_remote_id;
@@ -208,6 +209,7 @@ struct Network {
         /* link local addressing support */
         AddressFamily link_local;
         IPv6LinkLocalAddressGenMode ipv6ll_address_gen_mode;
+        struct in6_addr ipv6ll_stable_secret;
         bool ipv4ll_route;
 
         /* IPv6 RA support */
@@ -309,12 +311,13 @@ struct Network {
         Hashmap *routes_by_section;
         Hashmap *nexthops_by_section;
         Hashmap *bridge_fdb_entries_by_section;
-        Hashmap *mdb_entries_by_section;
+        Hashmap *bridge_mdb_entries_by_section;
         Hashmap *neighbors_by_section;
         Hashmap *address_labels_by_section;
         Hashmap *prefixes_by_section;
         Hashmap *route_prefixes_by_section;
         Hashmap *rules_by_section;
+        Hashmap *dhcp_static_leases_by_section;
         OrderedHashmap *tc_by_section;
         OrderedHashmap *sr_iov_by_section;
 
