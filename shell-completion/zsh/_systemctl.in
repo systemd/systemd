@@ -485,7 +485,7 @@ _arguments -s \
     '--system[Connect to system manager]' \
     '--user[Connect to user service manager]' \
     "--no-wall[Don't send wall message before halt/power-off/reboot]" \
-    '--global[Enable/disable/mask unit files globally]' \
+    '--global[Enable/disable/mask default user unit files globally]' \
     "--no-reload[When enabling/disabling unit files, don't reload daemon configuration]" \
     '--no-ask-password[Do not ask for system passwords]' \
     '--kill-who=[Who to send signal to]:killwho:(main control all)' \
