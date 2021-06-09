@@ -1056,7 +1056,7 @@ static int attach_luks_or_plain_or_bitlk_by_tpm2(
         _cleanup_(sd_event_unrefp) sd_event *event = NULL;
         _cleanup_free_ char *friendly = NULL;
         int keyslot = arg_key_slot, r;
-        size_t decrypted_key_size = 0;  /* avoid false maybe-uninitialized warning */
+        size_t decrypted_key_size;
 
         assert(cd);
         assert(name);
