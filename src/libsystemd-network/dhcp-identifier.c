@@ -21,6 +21,8 @@
 #define APPLICATION_ID SD_ID128_MAKE(a5,0a,d1,12,bf,60,45,77,a2,fb,74,1a,b1,95,5b,03)
 #define USEC_2000       ((usec_t) 946684800000000) /* 2000-01-01 00:00:00 UTC */
 
+static bool dhcp_iaid_use_mac = false;
+
 int dhcp_validate_duid_len(uint16_t duid_type, size_t duid_len, bool strict) {
         struct duid d;
 
@@ -156,6 +158,11 @@ int dhcp_identifier_set_duid_uuid(struct duid *duid, size_t *len) {
         return 0;
 }
 
+void dhcp_identifier_use_mac_to_set_iaid(bool use_mac) {
+        /* This is mostly for tests. */
+        dhcp_iaid_use_mac = use_mac;
+}
+
 int dhcp_identifier_set_iaid(
                 int ifindex,
                 const uint8_t *mac,
@@ -170,7 +177,7 @@ int dhcp_identifier_set_iaid(
         uint32_t id32;
         int r;
 
-        if (path_is_read_only_fs("/sys") <= 0) {
+        if (path_is_read_only_fs("/sys") <= 0 && !dhcp_iaid_use_mac) {
                 /* udev should be around */
 
                 if (sd_device_new_from_ifindex(&device, ifindex) >= 0) {
