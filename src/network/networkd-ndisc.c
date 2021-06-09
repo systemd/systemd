@@ -657,9 +657,9 @@ static int make_stableprivate_address(Link *link, const struct in6_addr *prefix,
         siphash24_compress_string(link->ifname, &state);
         /* Only last 8 bytes of IB MAC are stable */
         if (link->iftype == ARPHRD_INFINIBAND)
-                siphash24_compress(&link->hw_addr.addr.infiniband[12], 8, &state);
+                siphash24_compress(&link->hw_addr.infiniband[12], 8, &state);
         else
-                siphash24_compress(link->hw_addr.addr.bytes, link->hw_addr.length, &state);
+                siphash24_compress(link->hw_addr.bytes, link->hw_addr.length, &state);
         siphash24_compress(&dad_counter, sizeof(uint8_t), &state);
 
         rid = htole64(siphash24_finalize(&state));
@@ -1370,7 +1370,7 @@ int ndisc_configure(Link *link) {
         if (r < 0)
                 return r;
 
-        r = sd_ndisc_set_mac(link->ndisc, &link->hw_addr.addr.ether);
+        r = sd_ndisc_set_mac(link->ndisc, &link->hw_addr.ether);
         if (r < 0)
                 return r;
 

@@ -166,7 +166,7 @@ int ipv4ll_configure(Link *link) {
                         return r;
         }
 
-        r = sd_ipv4ll_set_mac(link->ipv4ll, &link->hw_addr.addr.ether);
+        r = sd_ipv4ll_set_mac(link->ipv4ll, &link->hw_addr.ether);
         if (r < 0)
                 return r;
 
@@ -196,7 +196,7 @@ int ipv4ll_update_mac(Link *link) {
         if (r < 0)
                 return r;
 
-        r = sd_ipv4ll_set_mac(link->ipv4ll, &link->hw_addr.addr.ether);
+        r = sd_ipv4ll_set_mac(link->ipv4ll, &link->hw_addr.ether);
         if (r < 0)
                 return r;
 

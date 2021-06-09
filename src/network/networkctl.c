@@ -272,7 +272,7 @@ typedef struct LinkInfo {
         sd_device *sd_device;
         int ifindex;
         unsigned short iftype;
-        hw_addr_data hw_address;
+        struct hw_addr_data hw_address;
         struct ether_addr permanent_mac_address;
         uint32_t master;
         uint32_t mtu;
@@ -554,13 +554,13 @@ static int decode_link(sd_netlink_message *m, LinkInfo *info, char **patterns, b
 
         info->has_mac_address =
                 netlink_message_read_hw_addr(m, IFLA_ADDRESS, &info->hw_address) >= 0 &&
-                memcmp(&info->hw_address, &HW_ADDR_NULL, sizeof(hw_addr_data)) != 0;
+                memcmp(&info->hw_address, &HW_ADDR_NULL, sizeof(struct hw_addr_data)) != 0;
 
         info->has_permanent_mac_address =
                 ethtool_get_permanent_macaddr(NULL, info->name, &info->permanent_mac_address) >= 0 &&
                 memcmp(&info->permanent_mac_address, &ETHER_ADDR_NULL, sizeof(struct ether_addr)) != 0 &&
                 (info->hw_address.length != sizeof(struct ether_addr) ||
-                 memcmp(&info->permanent_mac_address, info->hw_address.addr.bytes, sizeof(struct ether_addr)) != 0);
+                 memcmp(&info->permanent_mac_address, info->hw_address.bytes, sizeof(struct ether_addr)) != 0);
 
         (void) sd_netlink_message_read_u32(m, IFLA_MTU, &info->mtu);
         (void) sd_netlink_message_read_u32(m, IFLA_MIN_MTU, &info->min_mtu);
@@ -1684,7 +1684,7 @@ static int link_status_one(
                 _cleanup_free_ char *description = NULL;
 
                 if (info->hw_address.length == ETH_ALEN)
-                        (void) ieee_oui(hwdb, &info->hw_address.addr.ether, &description);
+                        (void) ieee_oui(hwdb, &info->hw_address.ether, &description);
 
                 r = table_add_many(table,
                                    TABLE_EMPTY,

@@ -494,7 +494,7 @@ int sd_netlink_message_append_ether_addr(sd_netlink_message *m, unsigned short t
         return 0;
 }
 
-int netlink_message_append_hw_addr(sd_netlink_message *m, unsigned short type, const hw_addr_data *data) {
+int netlink_message_append_hw_addr(sd_netlink_message *m, unsigned short type, const struct hw_addr_data *data) {
         int r;
 
         assert_return(m, -EINVAL);
@@ -506,7 +506,7 @@ int netlink_message_append_hw_addr(sd_netlink_message *m, unsigned short type, c
         if (r < 0)
                 return r;
 
-        r = add_rtattr(m, type, data->addr.bytes, data->length);
+        r = add_rtattr(m, type, data->bytes, data->length);
         if (r < 0)
                 return r;
 
@@ -886,7 +886,7 @@ int sd_netlink_message_read_ether_addr(sd_netlink_message *m, unsigned short typ
         return 0;
 }
 
-int netlink_message_read_hw_addr(sd_netlink_message *m, unsigned short type, hw_addr_data *data) {
+int netlink_message_read_hw_addr(sd_netlink_message *m, unsigned short type, struct hw_addr_data *data) {
         int r;
         void *attr_data;
 
@@ -899,11 +899,11 @@ int netlink_message_read_hw_addr(sd_netlink_message *m, unsigned short type, hw_
         r = netlink_message_read_internal(m, type, &attr_data, NULL);
         if (r < 0)
                 return r;
-        else if ((size_t) r > sizeof(union hw_addr_union))
+        else if (r > HW_ADDR_MAX_SIZE)
                 return -EIO;
 
         if (data) {
-                memcpy(data->addr.bytes, attr_data, r);
+                memcpy(data->bytes, attr_data, r);
                 data->length = r;
         }
 

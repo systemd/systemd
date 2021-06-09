@@ -117,11 +117,11 @@ int rtnl_log_create_error(int r);
                                      userdata, description);            \
         })
 
-int netlink_message_append_hw_addr(sd_netlink_message *m, unsigned short type, const hw_addr_data *data);
+int netlink_message_append_hw_addr(sd_netlink_message *m, unsigned short type, const struct hw_addr_data *data);
 int netlink_message_append_in_addr_union(sd_netlink_message *m, unsigned short type, int family, const union in_addr_union *data);
 int netlink_message_append_sockaddr_union(sd_netlink_message *m, unsigned short type, const union sockaddr_union *data);
 
-int netlink_message_read_hw_addr(sd_netlink_message *m, unsigned short type, hw_addr_data *data);
+int netlink_message_read_hw_addr(sd_netlink_message *m, unsigned short type, struct hw_addr_data *data);
 int netlink_message_read_in_addr_union(sd_netlink_message *m, unsigned short type, int family, union in_addr_union *data);
 
 void rtattr_append_attribute_internal(struct rtattr *rta, unsigned short type, const void *data, size_t data_length);

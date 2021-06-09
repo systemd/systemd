@@ -694,7 +694,7 @@ int radv_configure(Link *link) {
         if (r < 0)
                 return r;
 
-        r = sd_radv_set_mac(link->radv, &link->hw_addr.addr.ether);
+        r = sd_radv_set_mac(link->radv, &link->hw_addr.ether);
         if (r < 0)
                 return r;
 
@@ -766,7 +766,7 @@ int radv_update_mac(Link *link) {
         if (r < 0)
                 return r;
 
-        r = sd_radv_set_mac(link->radv, &link->hw_addr.addr.ether);
+        r = sd_radv_set_mac(link->radv, &link->hw_addr.ether);
         if (r < 0)
                 return r;
 

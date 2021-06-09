@@ -59,22 +59,22 @@ int generate_ipv6_eui_64_address(const Link *link, struct in6_addr *ret) {
 
         if (link->iftype == ARPHRD_INFINIBAND) {
                 /* see RFC4391 section 8 */
-                memcpy(&ret->s6_addr[8], &link->hw_addr.addr.infiniband[12], 8);
+                memcpy(&ret->s6_addr[8], &link->hw_addr.infiniband[12], 8);
                 ret->s6_addr[8] ^= 1 << 1;
 
                 return 0;
         }
 
         /* see RFC4291 section 2.5.1 */
-        ret->s6_addr[8]  = link->hw_addr.addr.ether.ether_addr_octet[0];
+        ret->s6_addr[8]  = link->hw_addr.ether.ether_addr_octet[0];
         ret->s6_addr[8] ^= 1 << 1;
-        ret->s6_addr[9]  = link->hw_addr.addr.ether.ether_addr_octet[1];
-        ret->s6_addr[10] = link->hw_addr.addr.ether.ether_addr_octet[2];
+        ret->s6_addr[9]  = link->hw_addr.ether.ether_addr_octet[1];
+        ret->s6_addr[10] = link->hw_addr.ether.ether_addr_octet[2];
         ret->s6_addr[11] = 0xff;
         ret->s6_addr[12] = 0xfe;
-        ret->s6_addr[13] = link->hw_addr.addr.ether.ether_addr_octet[3];
-        ret->s6_addr[14] = link->hw_addr.addr.ether.ether_addr_octet[4];
-        ret->s6_addr[15] = link->hw_addr.addr.ether.ether_addr_octet[5];
+        ret->s6_addr[13] = link->hw_addr.ether.ether_addr_octet[3];
+        ret->s6_addr[14] = link->hw_addr.ether.ether_addr_octet[4];
+        ret->s6_addr[15] = link->hw_addr.ether.ether_addr_octet[5];
 
         return 0;
 }
@@ -1531,7 +1531,7 @@ static int ipv4_dad_configure(Address *address) {
         if (r < 0)
                 return r;
 
-        r = sd_ipv4acd_set_mac(address->acd, &address->link->hw_addr.addr.ether);
+        r = sd_ipv4acd_set_mac(address->acd, &address->link->hw_addr.ether);
         if (r < 0)
                 return r;
 
@@ -1561,7 +1561,7 @@ static int ipv4_dad_update_mac_one(Address *address) {
         if (r < 0)
                 return r;
 
-        r = sd_ipv4acd_set_mac(address->acd, &address->link->hw_addr.addr.ether);
+        r = sd_ipv4acd_set_mac(address->acd, &address->link->hw_addr.ether);
         if (r < 0)
                 return r;
 
