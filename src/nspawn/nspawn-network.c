@@ -468,7 +468,6 @@ int remove_bridge(const char *bridge_name) {
 int test_network_interface_initialized(const char *name) {
         _cleanup_(sd_device_unrefp) sd_device *d = NULL;
         int ifi, r;
-        char ifi_str[2 + DECIMAL_STR_MAX(int)];
 
         if (path_is_read_only_fs("/sys"))
                 return 0;
@@ -479,8 +478,7 @@ int test_network_interface_initialized(const char *name) {
         if (ifi < 0)
                 return ifi;
 
-        sprintf(ifi_str, "n%i", ifi);
-        r = sd_device_new_from_device_id(&d, ifi_str);
+        r = sd_device_new_from_ifindex(&d, ifi);
         if (r < 0)
                 return log_error_errno(r, "Failed to get device %s: %m", name);
 
