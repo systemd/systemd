@@ -131,7 +131,7 @@ If you wonder how to detect which of these three modes is currently used, use
 you are either in legacy or hybrid mode. To distinguish these two cases, run
 `statfs()` again on `/sys/fs/cgroup/unified/`. If that succeeds and reports
 `CGROUP2_SUPER_MAGIC` you are in hybrid mode, otherwise not.
-From a shell, you can use check the `Type` in `stat -f /sys/fs/cgroup` and
+From a shell, you can check the `Type` in `stat -f /sys/fs/cgroup` and
 `stat -f /sys/fs/cgroup/unified`.
 
 ## systemd's Unit Types
@@ -224,7 +224,7 @@ guarantees:
    cgroups below it. Note however that systemd will do that only in the unified
    hierarchy (in unified and hybrid mode) as well as on systemd's own private
    hierarchy (in legacy and hybrid mode). It won't pass ownership of the legacy
-   controller hierarchies. Delegation to less privileges processes is not safe
+   controller hierarchies. Delegation to less privileged processes is not safe
    in cgroup v1 (as a limitation of the kernel), hence systemd won't facilitate
    access to it.
 
@@ -243,7 +243,7 @@ delegated.
 
 Let's stress one thing: delegation is available on scope and service units
 only. It's expressly not available on slice units. Why? Because slice units are
-our *inner* nodes of the cgroup trees and we freely attach service and scopes
+our *inner* nodes of the cgroup trees and we freely attach services and scopes
 to them. If we'd allow delegation on slice units then this would mean that
 both systemd and your own manager would create/delete cgroups below the slice
 unit and that conflicts with the single-writer rule.
