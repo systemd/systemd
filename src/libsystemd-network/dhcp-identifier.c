@@ -12,6 +12,7 @@
 #include "network-util.h"
 #include "siphash24.h"
 #include "sparse-endian.h"
+#include "stat-util.h"
 #include "stdio-util.h"
 #include "udev-util.h"
 #include "virt.h"
@@ -161,41 +162,38 @@ int dhcp_identifier_set_iaid(
                 size_t mac_len,
                 bool legacy_unstable_byteorder,
                 void *_id) {
-        /* name is a pointer to memory in the sd_device struct, so must
-         * have the same scope */
-        _cleanup_(sd_device_unrefp) sd_device *device = NULL;
-        const char *name = NULL;
-        uint64_t id;
+
         uint32_t id32;
+        uint64_t id;
+        int r;
 
-        if (detect_container() <= 0) {
-                /* not in a container, udev will be around */
-                char ifindex_str[1 + DECIMAL_STR_MAX(int)];
-                int r;
+        if (path_is_read_only_fs("/sys") <= 0) {
+                _cleanup_(sd_device_unrefp) sd_device *device = NULL;
+                const char *name = NULL;
 
-                xsprintf(ifindex_str, "n%d", ifindex);
-                if (sd_device_new_from_device_id(&device, ifindex_str) >= 0) {
-                        r = sd_device_get_is_initialized(device);
-                        if (r < 0)
-                                return r;
-                        if (r == 0)
-                                /* not yet ready */
-                                return -EBUSY;
+                /* udev should be around */
 
-                        r = device_is_renaming(device);
-                        if (r < 0)
-                                return r;
-                        if (r > 0)
-                                /* device is under renaming */
-                                return -EBUSY;
+                r = sd_device_new_from_ifindex(&device, ifindex);
+                if (r < 0)
+                        return r;
 
-                        name = net_get_name_persistent(device);
-                }
-        }
+                r = sd_device_get_is_initialized(device);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        /* not yet ready */
+                        return -EBUSY;
 
-        if (name)
+                r = device_is_renaming(device);
+                if (r < 0)
+                        return r;
+                if (r > 0)
+                        /* device is under renaming */
+                        return -EBUSY;
+
+                name = net_get_name_persistent(device);
                 id = siphash24(name, strlen(name), HASH_KEY.bytes);
-        else
+        } else
                 /* fall back to MAC address if no predictable name available */
                 id = siphash24(mac, mac_len, HASH_KEY.bytes);
 

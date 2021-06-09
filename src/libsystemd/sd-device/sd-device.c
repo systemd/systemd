@@ -14,6 +14,7 @@
 #include "dirent-util.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "format-util.h"
 #include "fs-util.h"
 #include "hashmap.h"
 #include "id128-util.h"
@@ -243,6 +244,28 @@ _public_ int sd_device_new_from_devnum(sd_device **ret, char type, dev_t devnum)
         syspath = strjoina("/sys/dev/", (type == 'b' ? "block" : "char"), "/", id);
 
         return sd_device_new_from_syspath(ret, syspath);
+}
+
+_public_ int sd_device_new_from_ifname(sd_device **ret, const char *ifname) {
+        const char *syspath;
+
+        assert_return(ret, -EINVAL);
+        assert_return(ifname, -EINVAL);
+
+        syspath = strjoina("/sys/class/net/", ifname);
+        return sd_device_new_from_syspath(ret, syspath);
+}
+
+_public_ int sd_device_new_from_ifindex(sd_device **ret, int ifindex) {
+        char ifname[IF_NAMESIZE + 1];
+
+        assert_return(ret, -EINVAL);
+        assert_return(ifindex > 0, -EINVAL);
+
+        if (!format_ifname(ifindex, ifname))
+                return -ENODEV;
+
+        return sd_device_new_from_ifname(ret, ifname);
 }
 
 static int device_strjoin_new(
@@ -643,37 +666,13 @@ _public_ int sd_device_new_from_device_id(sd_device **ret, const char *id) {
         }
 
         case 'n': {
-                _cleanup_(sd_device_unrefp) sd_device *device = NULL;
-                _cleanup_close_ int sk = -1;
-                struct ifreq ifr = {};
                 int ifindex;
 
-                r = ifr.ifr_ifindex = parse_ifindex(id + 1);
-                if (r < 0)
-                        return r;
+                ifindex = parse_ifindex(id + 1);
+                if (ifindex < 0)
+                        return ifindex;
 
-                sk = socket_ioctl_fd();
-                if (sk < 0)
-                        return sk;
-
-                r = ioctl(sk, SIOCGIFNAME, &ifr);
-                if (r < 0)
-                        return -errno;
-
-                r = sd_device_new_from_subsystem_sysname(&device, "net", ifr.ifr_name);
-                if (r < 0)
-                        return r;
-
-                r = sd_device_get_ifindex(device, &ifindex);
-                if (r < 0)
-                        return r;
-
-                /* this is racey, so we might end up with the wrong device */
-                if (ifr.ifr_ifindex != ifindex)
-                        return -ENODEV;
-
-                *ret = TAKE_PTR(device);
-                return 0;
+                return sd_device_new_from_ifindex(ret, ifindex);
         }
 
         case '+': {
