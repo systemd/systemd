@@ -161,6 +161,7 @@ int dhcp_identifier_set_iaid(
                 const uint8_t *mac,
                 size_t mac_len,
                 bool legacy_unstable_byteorder,
+                bool use_mac,
                 void *_id) {
         /* name is a pointer to memory in the sd_device struct, so must
          * have the same scope */
@@ -170,7 +171,7 @@ int dhcp_identifier_set_iaid(
         uint32_t id32;
         int r;
 
-        if (path_is_read_only_fs("/sys") <= 0) {
+        if (path_is_read_only_fs("/sys") <= 0 && !use_mac) {
                 /* udev should be around */
 
                 if (sd_device_new_from_ifindex(&device, ifindex) >= 0) {
