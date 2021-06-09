@@ -2667,7 +2667,7 @@ static int link_up_down(int argc, char *argv[], void *userdata) {
                 return log_oom();
 
         for (int i = 1; i < argc; i++) {
-                index = resolve_interface_or_warn(&rtnl, argv[i]);
+                index = rtnl_resolve_interface_or_warn(&rtnl, argv[i]);
                 if (index < 0)
                         return index;
 
@@ -2705,7 +2705,7 @@ static int link_delete(int argc, char *argv[], void *userdata) {
                 return log_oom();
 
         for (int i = 1; i < argc; i++) {
-                index = resolve_interface_or_warn(&rtnl, argv[i]);
+                index = rtnl_resolve_interface_or_warn(&rtnl, argv[i]);
                 if (index < 0)
                         return index;
 
@@ -2750,7 +2750,7 @@ static int link_renew(int argc, char *argv[], void *userdata) {
                 return log_error_errno(r, "Failed to connect system bus: %m");
 
         for (int i = 1; i < argc; i++) {
-                index = resolve_interface_or_warn(&rtnl, argv[i]);
+                index = rtnl_resolve_interface_or_warn(&rtnl, argv[i]);
                 if (index < 0)
                         return index;
 
@@ -2784,7 +2784,7 @@ static int link_force_renew(int argc, char *argv[], void *userdata) {
                 return log_error_errno(r, "Failed to connect system bus: %m");
 
         for (int i = 1; i < argc; i++) {
-                int index = resolve_interface_or_warn(&rtnl, argv[i]);
+                int index = rtnl_resolve_interface_or_warn(&rtnl, argv[i]);
                 if (index < 0)
                         return index;
 
@@ -2829,7 +2829,7 @@ static int verb_reconfigure(int argc, char *argv[], void *userdata) {
                 return log_oom();
 
         for (int i = 1; i < argc; i++) {
-                index = resolve_interface_or_warn(&rtnl, argv[i]);
+                index = rtnl_resolve_interface_or_warn(&rtnl, argv[i]);
                 if (index < 0)
                         return index;
 
