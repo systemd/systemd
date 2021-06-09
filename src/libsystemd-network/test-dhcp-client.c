@@ -145,20 +145,10 @@ static void test_checksum(void) {
 static void test_dhcp_identifier_set_iaid(void) {
         uint32_t iaid_legacy;
         be32_t iaid;
-        int ifindex;
 
-        for (;;) {
-                char ifname[IFNAMSIZ];
-
-                /* try to find an ifindex which does not exist. I causes dhcp_identifier_set_iaid()
-                 * to hash the MAC address. */
-                pseudo_random_bytes(&ifindex, sizeof(ifindex));
-                if (ifindex > 0 && !if_indextoname(ifindex, ifname))
-                        break;
-        }
-
-        assert_se(dhcp_identifier_set_iaid(ifindex, mac_addr, sizeof(mac_addr), true, &iaid_legacy) >= 0);
-        assert_se(dhcp_identifier_set_iaid(ifindex, mac_addr, sizeof(mac_addr), false, &iaid) >= 0);
+        dhcp_identifier_use_mac_to_set_iaid(true);
+        assert_se(dhcp_identifier_set_iaid(42, mac_addr, sizeof(mac_addr), true, &iaid_legacy) >= 0);
+        assert_se(dhcp_identifier_set_iaid(42, mac_addr, sizeof(mac_addr), false, &iaid) >= 0);
 
         /* we expect, that the MAC address was hashed. The legacy value is in native
          * endianness. */
@@ -298,6 +288,7 @@ static void test_discover_message(sd_event *e) {
         assert_se(r >= 0);
 
         assert_se(sd_dhcp_client_set_ifindex(client, 42) >= 0);
+        dhcp_identifier_use_mac_to_set_iaid(true);
         assert_se(sd_dhcp_client_set_mac(client, mac_addr, bcast_addr, ETH_ALEN, ARPHRD_ETHER) >= 0);
 
         assert_se(sd_dhcp_client_set_request_option(client, 248) >= 0);
@@ -515,6 +506,7 @@ static void test_addr_acq(sd_event *e) {
         assert_se(r >= 0);
 
         assert_se(sd_dhcp_client_set_ifindex(client, 42) >= 0);
+        dhcp_identifier_use_mac_to_set_iaid(true);
         assert_se(sd_dhcp_client_set_mac(client, mac_addr, bcast_addr, ETH_ALEN, ARPHRD_ETHER) >= 0);
 
         assert_se(sd_dhcp_client_set_callback(client, test_addr_acq_acquired, e) >= 0);

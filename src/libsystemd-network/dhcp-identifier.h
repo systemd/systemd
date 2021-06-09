@@ -60,3 +60,4 @@ int dhcp_identifier_set_duid_ll(struct duid *duid, const uint8_t *addr, size_t a
 int dhcp_identifier_set_duid_en(struct duid *duid, size_t *len);
 int dhcp_identifier_set_duid_uuid(struct duid *duid, size_t *len);
 int dhcp_identifier_set_iaid(int ifindex, const uint8_t *mac, size_t mac_len, bool legacy_unstable_byteorder, void *_id);
+void dhcp_identifier_use_mac_to_set_iaid(bool use_mac);
