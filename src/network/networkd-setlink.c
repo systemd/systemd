@@ -692,7 +692,7 @@ int link_request_to_set_master(Link *link) {
 }
 
 int link_request_to_set_mtu(Link *link, uint32_t mtu) {
-        Request *req = NULL;  /* avoid false maybe-uninitialized warning */
+        Request *req;
         const char *origin;
         uint32_t min_mtu;
         int r;
