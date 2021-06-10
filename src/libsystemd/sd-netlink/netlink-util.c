@@ -274,6 +274,9 @@ int rtnl_resolve_link_alternative_name(sd_netlink **rtnl, const char *name) {
 
         assert(name);
 
+        if (!ifname_valid_full(name, IFNAME_VALID_ALTERNATIVE))
+                return -EINVAL;
+
         if (!rtnl)
                 rtnl = &our_rtnl;
         if (!*rtnl) {
