@@ -227,6 +227,10 @@ Gateway=192.168.250.1
 ''')
         subprocess.call(['systemctl', 'reset-failed', 'systemd-networkd', 'systemd-resolved'])
         subprocess.check_call(['systemctl', 'start', 'systemd-networkd'])
+        subprocess.check_call([NETWORKD_WAIT_ONLINE,
+                               '--interface', 'mybridge',
+                               '--interface', 'port1',
+                               '--interface', 'port2'])
 
     def tearDown(self):
         subprocess.check_call(['systemctl', 'stop', 'systemd-networkd.socket'])
