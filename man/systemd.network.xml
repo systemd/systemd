@@ -220,8 +220,11 @@
           <command>systemd-networkd-wait-online</command>). When <literal>no</literal>, the network is ignored
           when determining the online state. When a minimum operational state and an optional maximum operational
           state are set, <literal>yes</literal> is implied, and this controls the minimum and maximum
-          operational state required for the network interface to be considered online.
-          Defaults to <literal>yes</literal>.</para>
+          operational state required for the network interface to be considered online.</para>
+
+          <para>Defaults to <literal>yes</literal>, except when <varname>ActivationPolicy=</varname>
+          is set to a value other than <literal>up</literal> or <literal>always-up</literal>,
+          this defaults to <literal>no</literal>.</para>
 
           <para>The network will be brought up normally in all cases, but in
           the event that there is no address being assigned by DHCP or the
@@ -264,6 +267,10 @@
           or down, respectively, any time <command>systemd-networkd</command> detects a change in
           the administrative state. When <varname>BindCarrier=</varname> is also set, this is
           automatically set to <literal>bound</literal> and any other value is ignored.</para>
+
+          <para>When the policy is set to a value other than <literal>up</literal> or
+          <literal>always-up</literal>, the default value of <varname>RequiredForOnline=</varname>
+          is <literal>no</literal>.</para>
 
           <para>The administrative state is not the same as the carrier state, so using
           <literal>always-up</literal> does not mean the link will never lose carrier. The link

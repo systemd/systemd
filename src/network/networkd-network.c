@@ -229,6 +229,19 @@ int network_verify(Network *network) {
         if (network->ignore_carrier_loss < 0)
                 network->ignore_carrier_loss = network->configure_without_carrier;
 
+        if (!IN_SET(network->activation_policy, ACTIVATION_POLICY_UP, ACTIVATION_POLICY_ALWAYS_UP)) {
+                if (network->required_for_online < 0) {
+                        log_debug("%s: ActivationPolicy= is not up and RequiredForOnline= is not set, "
+                                  "Setting RequiredForOnline=false.", network->filename);
+                        network->required_for_online = false;
+                } else if (network->required_for_online == true)
+                        log_warning("%s: ActivationPolicy= is not up and RequiredForOnline=true, "
+                                    "This may cause a delay at boot.", network->filename);
+        }
+
+        if (network->required_for_online < 0)
+                network->required_for_online = true;
+
         if (network->keep_configuration < 0)
                 network->keep_configuration = KEEP_CONFIGURATION_NO;
 
@@ -303,7 +316,7 @@ int network_load_one(Manager *manager, OrderedHashmap **networks, const char *fi
                 .manager = manager,
                 .n_ref = 1,
 
-                .required_for_online = true,
+                .required_for_online = -1,
                 .required_operstate_for_online = LINK_OPERSTATE_RANGE_DEFAULT,
                 .activation_policy = _ACTIVATION_POLICY_INVALID,
                 .arp = -1,
