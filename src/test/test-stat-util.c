@@ -63,8 +63,10 @@ static void test_path_is_fs_type(void) {
                 assert_se(path_is_fs_type("/run", TMPFS_MAGIC) > 0);
                 assert_se(path_is_fs_type("/run", BTRFS_SUPER_MAGIC) == 0);
         }
-        assert_se(path_is_fs_type("/proc", PROC_SUPER_MAGIC) > 0);
-        assert_se(path_is_fs_type("/proc", BTRFS_SUPER_MAGIC) == 0);
+        if (path_is_mount_point("/proc", NULL, AT_SYMLINK_FOLLOW) > 0) {
+                assert_se(path_is_fs_type("/proc", PROC_SUPER_MAGIC) > 0);
+                assert_se(path_is_fs_type("/proc", BTRFS_SUPER_MAGIC) == 0);
+        }
         assert_se(path_is_fs_type("/i-dont-exist", BTRFS_SUPER_MAGIC) == -ENOENT);
 }
 
@@ -117,7 +119,13 @@ static void test_fd_is_ns(void) {
         assert_se(fd_is_ns(STDERR_FILENO, CLONE_NEWNET) == 0);
         assert_se(fd_is_ns(STDOUT_FILENO, CLONE_NEWNET) == 0);
 
-        assert_se((fd = open("/proc/self/ns/mnt", O_CLOEXEC|O_RDONLY)) >= 0);
+        fd = open("/proc/self/ns/mnt", O_CLOEXEC|O_RDONLY);
+        if (fd < 0) {
+                assert_se(errno == ENOENT);
+                log_notice("Path %s not found, skipping test", "/proc/self/ns/mnt");
+                return;
+        }
+        assert_se(fd >= 0);
         assert_se(IN_SET(fd_is_ns(fd, CLONE_NEWNET), 0, -EUCLEAN));
         fd = safe_close(fd);
 
@@ -175,11 +183,19 @@ static void test_device_path_make_canonical_one(const char *path) {
 
         log_debug("> %s", path);
 
-        assert_se(stat(path, &st) >= 0);
-        r = device_path_make_canonical(st.st_mode, st.st_rdev, &resolved);
-        if (r == -ENOENT) /* maybe /dev/char/x:y and /dev/block/x:y are missing in this test environment, because we
-                           * run in a container or so? */
+        if (stat(path, &st) < 0) {
+                assert(errno == ENOENT);
+                log_notice("Path %s not found, skipping test", path);
                 return;
+        }
+
+        r = device_path_make_canonical(st.st_mode, st.st_rdev, &resolved);
+        if (r == -ENOENT) {
+                /* maybe /dev/char/x:y and /dev/block/x:y are missing in this test environment, because we
+                 * run in a container or so? */
+                log_notice("Device %s cannot be resolved, skipping test", path);
+                return;
+        }
 
         assert_se(r >= 0);
         assert_se(path_equal(path, resolved));
