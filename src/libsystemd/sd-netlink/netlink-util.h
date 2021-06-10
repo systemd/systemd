@@ -91,7 +91,7 @@ int rtnl_get_link_alternative_names(sd_netlink **rtnl, int ifindex, char ***ret)
 int rtnl_set_link_alternative_names(sd_netlink **rtnl, int ifindex, char * const *alternative_names);
 int rtnl_set_link_alternative_names_by_ifname(sd_netlink **rtnl, const char *ifname, char * const *alternative_names);
 int rtnl_delete_link_alternative_names(sd_netlink **rtnl, int ifindex, char * const *alternative_names);
-int rtnl_resolve_link_alternative_name(sd_netlink **rtnl, const char *name);
+int rtnl_resolve_link_alternative_name(sd_netlink **rtnl, const char *name, char **ret);
 int rtnl_resolve_ifname(sd_netlink **rtnl, const char *name);
 int rtnl_resolve_interface(sd_netlink **rtnl, const char *name);
 int rtnl_resolve_interface_or_warn(sd_netlink **rtnl, const char *name);
