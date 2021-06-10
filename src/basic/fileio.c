@@ -27,8 +27,17 @@
 #include "string-util.h"
 #include "tmpfile-util.h"
 
-/* The maximum size of the file we'll read in one go. */
-#define READ_FULL_BYTES_MAX (4U*1024U*1024U - 1)
+/* The maximum size of the file we'll read in one go in read_full_file() (64M). */
+#define READ_FULL_BYTES_MAX (64U*1024U*1024U - 1U)
+
+/* The maximum size of virtual files we'll read in one go in read_virtual_file() (4M). Note that this limit
+ * is different (and much lower) than the READ_FULL_BYTES_MAX limit. This reflects the fact that we use
+ * different strategies for reading virtual and regular files: virtual files are generally size constrained:
+ * there we allocate the full buffer size in advance. Regular files OTOH can be much larger, and here we grow
+ * the allocations exponentially in a loop. In glibc large allocations are immediately backed by mmap()
+ * making them relatively slow (measurably so). Thus, when allocating the full buffer in advance the large
+ * limit is a problem. When allocating piecemeal it's not. Hence pick two distinct limits. */
+#define READ_VIRTUAL_BYTES_MAX (4U*1024U*1024U - 1U)
 
 int fopen_unlocked(const char *path, const char *options, FILE **ret) {
         assert(ret);
@@ -396,15 +405,15 @@ int read_full_virtual_file(const char *filename, char **ret_contents, size_t *re
                         return -EBADF;
 
                 /* Be prepared for files from /proc which generally report a file size of 0. */
-                assert_cc(READ_FULL_BYTES_MAX < SSIZE_MAX);
+                assert_cc(READ_VIRTUAL_BYTES_MAX < SSIZE_MAX);
                 if (st.st_size > 0) {
-                        if (st.st_size > READ_FULL_BYTES_MAX)
+                        if (st.st_size > READ_VIRTUAL_BYTES_MAX)
                                 return -EFBIG;
 
                         size = st.st_size;
                         n_retries--;
                 } else {
-                        size = READ_FULL_BYTES_MAX;
+                        size = READ_VIRTUAL_BYTES_MAX;
                         n_retries = 0;
                 }
 
@@ -412,7 +421,7 @@ int read_full_virtual_file(const char *filename, char **ret_contents, size_t *re
                 if (!buf)
                         return -ENOMEM;
                 /* Use a bigger allocation if we got it anyway, but not more than the limit. */
-                size = MIN(malloc_usable_size(buf) - 1, READ_FULL_BYTES_MAX);
+                size = MIN(malloc_usable_size(buf) - 1, READ_VIRTUAL_BYTES_MAX);
 
                 for (;;) {
                         ssize_t k;
@@ -541,7 +550,7 @@ int read_full_stream_full(
                         }
                         memcpy_safe(t, buf, n);
                         explicit_bzero_safe(buf, n);
-                        buf = mfree(buf);
+                        free(buf);
                 } else {
                         t = realloc(buf, n_next + 1);
                         if (!t)
