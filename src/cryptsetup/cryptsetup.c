@@ -1261,6 +1261,10 @@ static int attach_luks_or_plain_or_bitlk_by_key_file(
                         READ_FULL_FILE_SECURE|READ_FULL_FILE_WARN_WORLD_READABLE|READ_FULL_FILE_CONNECT_SOCKET,
                         bindname,
                         &kfdata, &kfsize);
+        if (r == -E2BIG) {
+                log_error_errno(r, "Failed to activate, key file '%s' too large.", key_file);
+                return -EAGAIN;
+        }
         if (r == -ENOENT) {
                 log_error_errno(r, "Failed to activate, key file '%s' missing.", key_file);
                 return -EAGAIN; /* Log actual error, but return EAGAIN */
