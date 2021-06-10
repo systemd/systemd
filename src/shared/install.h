@@ -33,15 +33,17 @@ enum {
         UNIT_FILE_IS_MASKED,
         UNIT_FILE_IS_DANGLING,
         UNIT_FILE_DESTINATION_NOT_PRESENT,
+        UNIT_FILE_AUXILIARY_FAILED,
         _UNIT_FILE_CHANGE_TYPE_MAX,
         _UNIT_FILE_CHANGE_TYPE_INVALID = -EINVAL,
 };
 
 enum UnitFileFlags {
-        UNIT_FILE_RUNTIME  = 1 << 0, /* Public API via DBUS, do not change */
-        UNIT_FILE_FORCE    = 1 << 1, /* Public API via DBUS, do not change */
-        UNIT_FILE_PORTABLE = 1 << 2, /* Public API via DBUS, do not change */
-        UNIT_FILE_DRY_RUN  = 1 << 3,
+        UNIT_FILE_RUNTIME                  = 1 << 0, /* Public API via DBUS, do not change */
+        UNIT_FILE_FORCE                    = 1 << 1, /* Public API via DBUS, do not change */
+        UNIT_FILE_PORTABLE                 = 1 << 2, /* Public API via DBUS, do not change */
+        UNIT_FILE_DRY_RUN                  = 1 << 3,
+        UNIT_FILE_IGNORE_AUXILIARY_FAILURE = 1 << 4,
         _UNIT_FILE_FLAGS_MASK_PUBLIC = UNIT_FILE_RUNTIME|UNIT_FILE_PORTABLE|UNIT_FILE_FORCE,
 };
 
