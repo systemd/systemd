@@ -2272,7 +2272,7 @@ static int method_preset_unit_files_with_mode(sd_bus_message *message, void *use
         UnitFileChange *changes = NULL;
         size_t n_changes = 0;
         Manager *m = userdata;
-        UnitFilePresetMode mm;
+        UnitFilePresetMode preset_mode;
         int runtime, force, r;
         UnitFileFlags flags;
         const char *mode;
@@ -2291,10 +2291,10 @@ static int method_preset_unit_files_with_mode(sd_bus_message *message, void *use
         flags = unit_file_bools_to_flags(runtime, force);
 
         if (isempty(mode))
-                mm = UNIT_FILE_PRESET_FULL;
+                preset_mode = UNIT_FILE_PRESET_FULL;
         else {
-                mm = unit_file_preset_mode_from_string(mode);
-                if (mm < 0)
+                preset_mode = unit_file_preset_mode_from_string(mode);
+                if (preset_mode < 0)
                         return -EINVAL;
         }
 
@@ -2304,7 +2304,7 @@ static int method_preset_unit_files_with_mode(sd_bus_message *message, void *use
         if (r == 0)
                 return 1; /* No authorization for now, but the async polkit stuff will call us again when it has it */
 
-        r = unit_file_preset(m->unit_file_scope, flags, NULL, l, mm, &changes, &n_changes);
+        r = unit_file_preset(m->unit_file_scope, flags, NULL, l, preset_mode, &changes, &n_changes);
         if (r < 0)
                 return install_error(error, r, changes, n_changes);
 
@@ -2436,7 +2436,7 @@ static int method_preset_all_unit_files(sd_bus_message *message, void *userdata,
         UnitFileChange *changes = NULL;
         size_t n_changes = 0;
         Manager *m = userdata;
-        UnitFilePresetMode mm;
+        UnitFilePresetMode preset_mode;
         const char *mode;
         UnitFileFlags flags;
         int force, runtime, r;
@@ -2455,10 +2455,10 @@ static int method_preset_all_unit_files(sd_bus_message *message, void *userdata,
         flags = unit_file_bools_to_flags(runtime, force);
 
         if (isempty(mode))
-                mm = UNIT_FILE_PRESET_FULL;
+                preset_mode = UNIT_FILE_PRESET_FULL;
         else {
-                mm = unit_file_preset_mode_from_string(mode);
-                if (mm < 0)
+                preset_mode = unit_file_preset_mode_from_string(mode);
+                if (preset_mode < 0)
                         return -EINVAL;
         }
 
@@ -2468,7 +2468,7 @@ static int method_preset_all_unit_files(sd_bus_message *message, void *userdata,
         if (r == 0)
                 return 1; /* No authorization for now, but the async polkit stuff will call us again when it has it */
 
-        r = unit_file_preset_all(m->unit_file_scope, flags, NULL, mm, &changes, &n_changes);
+        r = unit_file_preset_all(m->unit_file_scope, flags, NULL, preset_mode, &changes, &n_changes);
         if (r < 0)
                 return install_error(error, r, changes, n_changes);
 
