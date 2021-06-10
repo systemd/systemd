@@ -12,12 +12,15 @@
 #include "namespace-util.h"
 #include "path-util.h"
 #include "stat-util.h"
+#include "tests.h"
 #include "tmpfile-util.h"
 
 static void test_files_same(void) {
         _cleanup_close_ int fd = -1;
         char name[] = "/tmp/test-files_same.XXXXXX";
         char name_alias[] = "/tmp/test-files_same.alias";
+
+        log_info("/* %s */", __func__);
 
         fd = mkostemp_safe(name);
         assert_se(fd >= 0);
@@ -37,6 +40,8 @@ static void test_is_symlink(void) {
         char name_link[] = "/tmp/test-is_symlink.link";
         _cleanup_close_ int fd = -1;
 
+        log_info("/* %s */", __func__);
+
         fd = mkostemp_safe(name);
         assert_se(fd >= 0);
         assert_se(symlink(name, name_link) >= 0);
@@ -50,6 +55,8 @@ static void test_is_symlink(void) {
 }
 
 static void test_path_is_fs_type(void) {
+        log_info("/* %s */", __func__);
+
         /* run might not be a mount point in build chroots */
         if (path_is_mount_point("/run", NULL, AT_SYMLINK_FOLLOW) > 0) {
                 assert_se(path_is_fs_type("/run", TMPFS_MAGIC) > 0);
@@ -61,6 +68,8 @@ static void test_path_is_fs_type(void) {
 }
 
 static void test_path_is_temporary_fs(void) {
+        log_info("/* %s */", __func__);
+
         /* run might not be a mount point in build chroots */
         if (path_is_mount_point("/run", NULL, AT_SYMLINK_FOLLOW) > 0)
                 assert_se(path_is_temporary_fs("/run") > 0);
@@ -70,6 +79,9 @@ static void test_path_is_temporary_fs(void) {
 
 static void test_fd_is_ns(void) {
         _cleanup_close_ int fd = -1;
+
+        log_info("/* %s */", __func__);
+
         assert_se(fd_is_ns(STDIN_FILENO, CLONE_NEWNET) == 0);
         assert_se(fd_is_ns(STDERR_FILENO, CLONE_NEWNET) == 0);
         assert_se(fd_is_ns(STDOUT_FILENO, CLONE_NEWNET) == 0);
@@ -87,6 +99,8 @@ static void test_fd_is_ns(void) {
 }
 
 static void test_device_major_minor_valid(void) {
+        log_info("/* %s */", __func__);
+
         /* on glibc dev_t is 64bit, even though in the kernel it is only 32bit */
         assert_cc(sizeof(dev_t) == sizeof(uint64_t));
 
@@ -128,6 +142,8 @@ static void test_device_path_make_canonical_one(const char *path) {
         mode_t mode;
         int r;
 
+        log_debug("> %s", path);
+
         assert_se(stat(path, &st) >= 0);
         r = device_path_make_canonical(st.st_mode, st.st_rdev, &resolved);
         if (r == -ENOENT) /* maybe /dev/char/x:y and /dev/block/x:y are missing in this test environment, because we
@@ -145,6 +161,7 @@ static void test_device_path_make_canonical_one(const char *path) {
 }
 
 static void test_device_path_make_canonical(void) {
+        log_info("/* %s */", __func__);
 
         test_device_path_make_canonical_one("/dev/null");
         test_device_path_make_canonical_one("/dev/zero");
@@ -160,6 +177,9 @@ static void test_device_path_make_canonical(void) {
 }
 
 int main(int argc, char *argv[]) {
+        log_show_color(true);
+        test_setup_logging(LOG_INFO);
+
         test_files_same();
         test_is_symlink();
         test_path_is_fs_type();
