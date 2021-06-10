@@ -60,7 +60,9 @@
     Without swap, the system enters a livelocked state much more quickly and may prevent <command>systemd-oomd</command>
     from responding in a reasonable amount of time. See
     <ulink url="https://chrisdown.name/2018/01/02/in-defence-of-swap.html">"In defence of swap: common misconceptions"</ulink>
-    for more details on swap.</para>
+    for more details on swap. Any swap-based actions on systems without swap will be ignored. While
+    <command>systemd-oomd</command> can perform pressure-based actions on a system without swap, the pressure increases
+    will be more abrupt and may require more tuning to get the desired thresholds and behavior.</para>
 
     <para>Be aware that if you intend to enable monitoring and actions on <filename>user.slice</filename>,
     <filename>user-$UID.slice</filename>, or their ancestor cgroups, it is highly recommended that your programs be
