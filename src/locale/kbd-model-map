@@ -67,3 +67,5 @@ lt.l4			lt	pc105		-		terminate:ctrl_alt_bksp
 lt			lt	pc105		-		terminate:ctrl_alt_bksp
 khmer			kh,us	pc105		-		terminate:ctrl_alt_bksp
 es-dvorak		es	microsoftpro	dvorak		terminate:ctrl_alt_bksp
+lv			lv	pc105		apostrophe	terminate:ctrl_alt_bksp
+lv-tilde		lv	pc105		tilde		terminate:ctrl_alt_bksp
