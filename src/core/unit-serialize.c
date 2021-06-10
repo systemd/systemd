@@ -526,8 +526,10 @@ int unit_deserialize(Unit *u, FILE *f, FDSet *fds) {
         /* Let's make sure that everything that is deserialized also gets any potential new cgroup settings
          * applied after we are done. For that we invalidate anything already realized, so that we can
          * realize it again. */
-        unit_invalidate_cgroup(u, _CGROUP_MASK_ALL);
-        unit_invalidate_cgroup_bpf(u);
+        if (u->cgroup_realized) {
+                unit_invalidate_cgroup(u, _CGROUP_MASK_ALL);
+                unit_invalidate_cgroup_bpf(u);
+        }
 
         return 0;
 }
