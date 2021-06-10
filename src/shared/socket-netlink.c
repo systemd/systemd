@@ -16,44 +16,6 @@
 #include "socket-util.h"
 #include "string-util.h"
 
-int resolve_ifname(sd_netlink **rtnl, const char *name) {
-        int r;
-
-        /* Like if_nametoindex, but resolves "alternative names" too. */
-
-        assert(name);
-
-        r = if_nametoindex(name);
-        if (r > 0)
-                return r;
-
-        return rtnl_resolve_link_alternative_name(rtnl, name);
-}
-
-int resolve_interface(sd_netlink **rtnl, const char *name) {
-        int r;
-
-        /* Like resolve_ifname, but resolves interface numbers too. */
-
-        assert(name);
-
-        r = parse_ifindex(name);
-        if (r > 0)
-                return r;
-        assert(r < 0);
-
-        return resolve_ifname(rtnl, name);
-}
-
-int resolve_interface_or_warn(sd_netlink **rtnl, const char *name) {
-        int r;
-
-        r = resolve_interface(rtnl, name);
-        if (r < 0)
-                return log_error_errno(r, "Failed to resolve interface \"%s\": %m", name);
-        return r;
-}
-
 int socket_address_parse(SocketAddress *a, const char *s) {
         _cleanup_free_ char *n = NULL;
         char *e;
@@ -338,7 +300,7 @@ int in_addr_port_ifindex_name_from_string_auto(
                         return -EINVAL; /* We want to return -EINVAL for syntactically invalid names,
                                          * and -ENODEV for valid but nonexistent interfaces. */
 
-                ifindex = resolve_interface(NULL, m + 1);
+                ifindex = rtnl_resolve_interface(NULL, m + 1);
                 if (ifindex < 0)
                         return ifindex;
 
