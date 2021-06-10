@@ -814,8 +814,6 @@ char *unit_dbus_path_invocation_id(Unit *u);
 
 int unit_load_related_unit(Unit *u, const char *type, Unit **_found);
 
-bool unit_can_serialize(Unit *u) _pure_;
-
 int unit_add_node_dependency(Unit *u, const char *what, UnitDependency d, UnitDependencyMask mask);
 int unit_add_blockdev_dependency(Unit *u, const char *what, UnitDependencyMask mask);
 
