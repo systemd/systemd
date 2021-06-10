@@ -267,12 +267,14 @@ int rtnl_set_link_alternative_names_by_ifname(sd_netlink **rtnl, const char *ifn
         return 0;
 }
 
-int rtnl_resolve_link_alternative_name(sd_netlink **rtnl, const char *name) {
+int rtnl_resolve_link_alternative_name(sd_netlink **rtnl, const char *name, char **ret) {
         _cleanup_(sd_netlink_unrefp) sd_netlink *our_rtnl = NULL;
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *message = NULL, *reply = NULL;
-        int r, ret;
+        int r, ifindex;
 
         assert(name);
+
+        /* This returns ifindex and the main interface name. */
 
         if (!ifname_valid_full(name, IFNAME_VALID_ALTERNATIVE))
                 return -EINVAL;
@@ -299,11 +301,18 @@ int rtnl_resolve_link_alternative_name(sd_netlink **rtnl, const char *name) {
         if (r < 0)
                 return r;
 
-        r = sd_rtnl_message_link_get_ifindex(reply, &ret);
+        r = sd_rtnl_message_link_get_ifindex(reply, &ifindex);
         if (r < 0)
                 return r;
-        assert(ret > 0);
-        return ret;
+        assert(ifindex > 0);
+
+        if (ret) {
+                r = sd_netlink_message_read_string_strdup(message, IFLA_IFNAME, ret);
+                if (r < 0)
+                        return r;
+        }
+
+        return ifindex;
 }
 
 int rtnl_resolve_ifname(sd_netlink **rtnl, const char *name) {
@@ -317,7 +326,7 @@ int rtnl_resolve_ifname(sd_netlink **rtnl, const char *name) {
         if (r > 0)
                 return r;
 
-        return rtnl_resolve_link_alternative_name(rtnl, name);
+        return rtnl_resolve_link_alternative_name(rtnl, name, NULL);
 }
 
 int rtnl_resolve_interface(sd_netlink **rtnl, const char *name) {
