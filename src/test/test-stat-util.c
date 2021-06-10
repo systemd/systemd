@@ -6,6 +6,7 @@
 #include <unistd.h>
 
 #include "alloc-util.h"
+#include "errno-list.h"
 #include "fd-util.h"
 #include "macro.h"
 #include "mountpoint-util.h"
@@ -68,13 +69,43 @@ static void test_path_is_fs_type(void) {
 }
 
 static void test_path_is_temporary_fs(void) {
+        const char *s;
+        int r;
+
         log_info("/* %s */", __func__);
+
+        FOREACH_STRING(s, "/", "/run", "/sys", "/sys/", "/proc", "/i-dont-exist", "/var", "/var/lib") {
+                r = path_is_temporary_fs(s);
+
+                log_info_errno(r, "path_is_temporary_fs(\"%s\"): %d, %s",
+                               s, r, r < 0 ? errno_to_name(r) : yes_no(r));
+        }
 
         /* run might not be a mount point in build chroots */
         if (path_is_mount_point("/run", NULL, AT_SYMLINK_FOLLOW) > 0)
                 assert_se(path_is_temporary_fs("/run") > 0);
         assert_se(path_is_temporary_fs("/proc") == 0);
         assert_se(path_is_temporary_fs("/i-dont-exist") == -ENOENT);
+}
+
+static void test_path_is_read_only_fs(void) {
+        const char *s;
+        int r;
+
+        log_info("/* %s */", __func__);
+
+        FOREACH_STRING(s, "/", "/run", "/sys", "/sys/", "/proc", "/i-dont-exist", "/var", "/var/lib") {
+                r = path_is_read_only_fs(s);
+
+                log_info_errno(r, "path_is_read_only_fs(\"%s\"): %d, %s",
+                               s, r, r < 0 ? errno_to_name(r) : yes_no(r));
+        }
+
+        if (path_is_mount_point("/sys", NULL, AT_SYMLINK_FOLLOW) > 0)
+                assert_se(IN_SET(path_is_read_only_fs("/sys"), 0, 1));
+
+        assert_se(path_is_read_only_fs("/proc") == 0);
+        assert_se(path_is_read_only_fs("/i-dont-exist") == -ENOENT);
 }
 
 static void test_fd_is_ns(void) {
@@ -184,6 +215,7 @@ int main(int argc, char *argv[]) {
         test_is_symlink();
         test_path_is_fs_type();
         test_path_is_temporary_fs();
+        test_path_is_read_only_fs();
         test_fd_is_ns();
         test_device_major_minor_valid();
         test_device_path_make_canonical();
