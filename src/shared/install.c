@@ -1848,6 +1848,7 @@ static int install_info_symlink_alias(
 
 static int install_info_symlink_wants(
                 UnitFileScope scope,
+                UnitFileFlags file_flags,
                 UnitFileInstallInfo *i,
                 const LookupPaths *paths,
                 const char *config_path,
@@ -1974,10 +1975,10 @@ static int install_info_symlink_link(
 
 static int install_info_apply(
                 UnitFileScope scope,
+                UnitFileFlags file_flags,
                 UnitFileInstallInfo *i,
                 const LookupPaths *paths,
                 const char *config_path,
-                bool force,
                 UnitFileChange **changes,
                 size_t *n_changes) {
 
@@ -1990,13 +1991,15 @@ static int install_info_apply(
         if (i->type != UNIT_FILE_TYPE_REGULAR)
                 return 0;
 
+        bool force = file_flags & UNIT_FILE_FORCE;
+
         r = install_info_symlink_alias(i, paths, config_path, force, changes, n_changes);
 
-        q = install_info_symlink_wants(scope, i, paths, config_path, i->wanted_by, ".wants/", changes, n_changes);
+        q = install_info_symlink_wants(scope, file_flags, i, paths, config_path, i->wanted_by, ".wants/", changes, n_changes);
         if (r == 0)
                 r = q;
 
-        q = install_info_symlink_wants(scope, i, paths, config_path, i->required_by, ".requires/", changes, n_changes);
+        q = install_info_symlink_wants(scope, file_flags, i, paths, config_path, i->required_by, ".requires/", changes, n_changes);
         if (r == 0)
                 r = q;
 
@@ -2010,10 +2013,10 @@ static int install_info_apply(
 
 static int install_context_apply(
                 UnitFileScope scope,
+                UnitFileFlags file_flags,
                 InstallContext *c,
                 const LookupPaths *paths,
                 const char *config_path,
-                bool force,
                 SearchFlags flags,
                 UnitFileChange **changes,
                 size_t *n_changes) {
@@ -2067,7 +2070,7 @@ static int install_context_apply(
                 if (i->type != UNIT_FILE_TYPE_REGULAR)
                         continue;
 
-                q = install_info_apply(scope, i, paths, config_path, force, changes, n_changes);
+                q = install_info_apply(scope, file_flags, i, paths, config_path, changes, n_changes);
                 if (r >= 0) {
                         if (q < 0)
                                 r = q;
@@ -2540,7 +2543,7 @@ int unit_file_revert(
 
 int unit_file_add_dependency(
                 UnitFileScope scope,
-                UnitFileFlags flags,
+                UnitFileFlags file_flags,
                 const char *root_dir,
                 char **files,
                 const char *target,
@@ -2569,7 +2572,7 @@ int unit_file_add_dependency(
         if (r < 0)
                 return r;
 
-        config_path = (flags & UNIT_FILE_RUNTIME) ? paths.runtime_config : paths.persistent_config;
+        config_path = (file_flags & UNIT_FILE_RUNTIME) ? paths.runtime_config : paths.persistent_config;
         if (!config_path)
                 return -ENXIO;
 
@@ -2605,12 +2608,13 @@ int unit_file_add_dependency(
                         return -ENOMEM;
         }
 
-        return install_context_apply(scope, &c, &paths, config_path, !!(flags & UNIT_FILE_FORCE), SEARCH_FOLLOW_CONFIG_SYMLINKS, changes, n_changes);
+        return install_context_apply(scope, file_flags, &c, &paths, config_path,
+                                     SEARCH_FOLLOW_CONFIG_SYMLINKS, changes, n_changes);
 }
 
 int unit_file_enable(
                 UnitFileScope scope,
-                UnitFileFlags flags,
+                UnitFileFlags file_flags,
                 const char *root_dir,
                 char **files,
                 UnitFileChange **changes,
@@ -2630,7 +2634,7 @@ int unit_file_enable(
         if (r < 0)
                 return r;
 
-        config_path = config_path_from_flags(&paths, flags);
+        config_path = config_path_from_flags(&paths, file_flags);
         if (!config_path)
                 return -ENXIO;
 
@@ -2648,7 +2652,7 @@ int unit_file_enable(
            is useful to determine whether the passed files had any
            installation data at all. */
 
-        return install_context_apply(scope, &c, &paths, config_path, !!(flags & UNIT_FILE_FORCE), SEARCH_LOAD, changes, n_changes);
+        return install_context_apply(scope, file_flags, &c, &paths, config_path, SEARCH_LOAD, changes, n_changes);
 }
 
 int unit_file_disable(
@@ -3178,13 +3182,13 @@ int unit_file_query_preset(UnitFileScope scope, const char *root_dir, const char
 
 static int execute_preset(
                 UnitFileScope scope,
+                UnitFileFlags file_flags,
                 InstallContext *plus,
                 InstallContext *minus,
                 const LookupPaths *paths,
                 const char *config_path,
                 char **files,
                 UnitFilePresetMode mode,
-                bool force,
                 UnitFileChange **changes,
                 size_t *n_changes) {
 
@@ -3210,7 +3214,7 @@ static int execute_preset(
                 int q;
 
                 /* Returns number of symlinks that where supposed to be installed. */
-                q = install_context_apply(scope, plus, paths, config_path, force, SEARCH_LOAD, changes, n_changes);
+                q = install_context_apply(scope, file_flags, plus, paths, config_path, SEARCH_LOAD, changes, n_changes);
                 if (r >= 0) {
                         if (q < 0)
                                 r = q;
@@ -3278,7 +3282,7 @@ static int preset_prepare_one(
 
 int unit_file_preset(
                 UnitFileScope scope,
-                UnitFileFlags flags,
+                UnitFileFlags file_flags,
                 const char *root_dir,
                 char **files,
                 UnitFilePresetMode mode,
@@ -3300,7 +3304,7 @@ int unit_file_preset(
         if (r < 0)
                 return r;
 
-        config_path = (flags & UNIT_FILE_RUNTIME) ? paths.runtime_config : paths.persistent_config;
+        config_path = (file_flags & UNIT_FILE_RUNTIME) ? paths.runtime_config : paths.persistent_config;
         if (!config_path)
                 return -ENXIO;
 
@@ -3314,12 +3318,12 @@ int unit_file_preset(
                         return r;
         }
 
-        return execute_preset(scope, &plus, &minus, &paths, config_path, files, mode, !!(flags & UNIT_FILE_FORCE), changes, n_changes);
+        return execute_preset(scope, file_flags, &plus, &minus, &paths, config_path, files, mode, changes, n_changes);
 }
 
 int unit_file_preset_all(
                 UnitFileScope scope,
-                UnitFileFlags flags,
+                UnitFileFlags file_flags,
                 const char *root_dir,
                 UnitFilePresetMode mode,
                 UnitFileChange **changes,
@@ -3340,7 +3344,7 @@ int unit_file_preset_all(
         if (r < 0)
                 return r;
 
-        config_path = (flags & UNIT_FILE_RUNTIME) ? paths.runtime_config : paths.persistent_config;
+        config_path = (file_flags & UNIT_FILE_RUNTIME) ? paths.runtime_config : paths.persistent_config;
         if (!config_path)
                 return -ENXIO;
 
@@ -3379,7 +3383,7 @@ int unit_file_preset_all(
                 }
         }
 
-        return execute_preset(scope, &plus, &minus, &paths, config_path, NULL, mode, !!(flags & UNIT_FILE_FORCE), changes, n_changes);
+        return execute_preset(scope, file_flags, &plus, &minus, &paths, config_path, NULL, mode, changes, n_changes);
 }
 
 static UnitFileList* unit_file_list_free_one(UnitFileList *f) {
