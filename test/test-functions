@@ -863,6 +863,7 @@ install_modules() {
 
     instmods loop
     instmods vfat
+    instmods dummy
 
     if [[ "$LOOKS_LIKE_SUSE" ]]; then
         instmods ext4
