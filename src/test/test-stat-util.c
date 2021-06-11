@@ -6,18 +6,22 @@
 #include <unistd.h>
 
 #include "alloc-util.h"
+#include "errno-list.h"
 #include "fd-util.h"
 #include "macro.h"
 #include "mountpoint-util.h"
 #include "namespace-util.h"
 #include "path-util.h"
 #include "stat-util.h"
+#include "tests.h"
 #include "tmpfile-util.h"
 
 static void test_files_same(void) {
         _cleanup_close_ int fd = -1;
         char name[] = "/tmp/test-files_same.XXXXXX";
         char name_alias[] = "/tmp/test-files_same.alias";
+
+        log_info("/* %s */", __func__);
 
         fd = mkostemp_safe(name);
         assert_se(fd >= 0);
@@ -37,6 +41,8 @@ static void test_is_symlink(void) {
         char name_link[] = "/tmp/test-is_symlink.link";
         _cleanup_close_ int fd = -1;
 
+        log_info("/* %s */", __func__);
+
         fd = mkostemp_safe(name);
         assert_se(fd >= 0);
         assert_se(symlink(name, name_link) >= 0);
@@ -50,17 +56,33 @@ static void test_is_symlink(void) {
 }
 
 static void test_path_is_fs_type(void) {
+        log_info("/* %s */", __func__);
+
         /* run might not be a mount point in build chroots */
         if (path_is_mount_point("/run", NULL, AT_SYMLINK_FOLLOW) > 0) {
                 assert_se(path_is_fs_type("/run", TMPFS_MAGIC) > 0);
                 assert_se(path_is_fs_type("/run", BTRFS_SUPER_MAGIC) == 0);
         }
-        assert_se(path_is_fs_type("/proc", PROC_SUPER_MAGIC) > 0);
-        assert_se(path_is_fs_type("/proc", BTRFS_SUPER_MAGIC) == 0);
+        if (path_is_mount_point("/proc", NULL, AT_SYMLINK_FOLLOW) > 0) {
+                assert_se(path_is_fs_type("/proc", PROC_SUPER_MAGIC) > 0);
+                assert_se(path_is_fs_type("/proc", BTRFS_SUPER_MAGIC) == 0);
+        }
         assert_se(path_is_fs_type("/i-dont-exist", BTRFS_SUPER_MAGIC) == -ENOENT);
 }
 
 static void test_path_is_temporary_fs(void) {
+        const char *s;
+        int r;
+
+        log_info("/* %s */", __func__);
+
+        FOREACH_STRING(s, "/", "/run", "/sys", "/sys/", "/proc", "/i-dont-exist", "/var", "/var/lib") {
+                r = path_is_temporary_fs(s);
+
+                log_info_errno(r, "path_is_temporary_fs(\"%s\"): %d, %s",
+                               s, r, r < 0 ? errno_to_name(r) : yes_no(r));
+        }
+
         /* run might not be a mount point in build chroots */
         if (path_is_mount_point("/run", NULL, AT_SYMLINK_FOLLOW) > 0)
                 assert_se(path_is_temporary_fs("/run") > 0);
@@ -68,13 +90,42 @@ static void test_path_is_temporary_fs(void) {
         assert_se(path_is_temporary_fs("/i-dont-exist") == -ENOENT);
 }
 
+static void test_path_is_read_only_fs(void) {
+        const char *s;
+        int r;
+
+        log_info("/* %s */", __func__);
+
+        FOREACH_STRING(s, "/", "/run", "/sys", "/sys/", "/proc", "/i-dont-exist", "/var", "/var/lib") {
+                r = path_is_read_only_fs(s);
+
+                log_info_errno(r, "path_is_read_only_fs(\"%s\"): %d, %s",
+                               s, r, r < 0 ? errno_to_name(r) : yes_no(r));
+        }
+
+        if (path_is_mount_point("/sys", NULL, AT_SYMLINK_FOLLOW) > 0)
+                assert_se(IN_SET(path_is_read_only_fs("/sys"), 0, 1));
+
+        assert_se(path_is_read_only_fs("/proc") == 0);
+        assert_se(path_is_read_only_fs("/i-dont-exist") == -ENOENT);
+}
+
 static void test_fd_is_ns(void) {
         _cleanup_close_ int fd = -1;
+
+        log_info("/* %s */", __func__);
+
         assert_se(fd_is_ns(STDIN_FILENO, CLONE_NEWNET) == 0);
         assert_se(fd_is_ns(STDERR_FILENO, CLONE_NEWNET) == 0);
         assert_se(fd_is_ns(STDOUT_FILENO, CLONE_NEWNET) == 0);
 
-        assert_se((fd = open("/proc/self/ns/mnt", O_CLOEXEC|O_RDONLY)) >= 0);
+        fd = open("/proc/self/ns/mnt", O_CLOEXEC|O_RDONLY);
+        if (fd < 0) {
+                assert_se(errno == ENOENT);
+                log_notice("Path %s not found, skipping test", "/proc/self/ns/mnt");
+                return;
+        }
+        assert_se(fd >= 0);
         assert_se(IN_SET(fd_is_ns(fd, CLONE_NEWNET), 0, -EUCLEAN));
         fd = safe_close(fd);
 
@@ -87,6 +138,8 @@ static void test_fd_is_ns(void) {
 }
 
 static void test_device_major_minor_valid(void) {
+        log_info("/* %s */", __func__);
+
         /* on glibc dev_t is 64bit, even though in the kernel it is only 32bit */
         assert_cc(sizeof(dev_t) == sizeof(uint64_t));
 
@@ -128,11 +181,21 @@ static void test_device_path_make_canonical_one(const char *path) {
         mode_t mode;
         int r;
 
-        assert_se(stat(path, &st) >= 0);
-        r = device_path_make_canonical(st.st_mode, st.st_rdev, &resolved);
-        if (r == -ENOENT) /* maybe /dev/char/x:y and /dev/block/x:y are missing in this test environment, because we
-                           * run in a container or so? */
+        log_debug("> %s", path);
+
+        if (stat(path, &st) < 0) {
+                assert(errno == ENOENT);
+                log_notice("Path %s not found, skipping test", path);
                 return;
+        }
+
+        r = device_path_make_canonical(st.st_mode, st.st_rdev, &resolved);
+        if (r == -ENOENT) {
+                /* maybe /dev/char/x:y and /dev/block/x:y are missing in this test environment, because we
+                 * run in a container or so? */
+                log_notice("Device %s cannot be resolved, skipping test", path);
+                return;
+        }
 
         assert_se(r >= 0);
         assert_se(path_equal(path, resolved));
@@ -145,6 +208,7 @@ static void test_device_path_make_canonical_one(const char *path) {
 }
 
 static void test_device_path_make_canonical(void) {
+        log_info("/* %s */", __func__);
 
         test_device_path_make_canonical_one("/dev/null");
         test_device_path_make_canonical_one("/dev/zero");
@@ -160,10 +224,14 @@ static void test_device_path_make_canonical(void) {
 }
 
 int main(int argc, char *argv[]) {
+        log_show_color(true);
+        test_setup_logging(LOG_INFO);
+
         test_files_same();
         test_is_symlink();
         test_path_is_fs_type();
         test_path_is_temporary_fs();
+        test_path_is_read_only_fs();
         test_fd_is_ns();
         test_device_major_minor_valid();
         test_device_path_make_canonical();
