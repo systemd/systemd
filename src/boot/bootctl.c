@@ -288,7 +288,7 @@ static int print_efi_option(uint16_t id, bool in_order) {
 
 static int status_variables(void) {
         _cleanup_free_ uint16_t *options = NULL, *order = NULL;
-        int n_options, n_order, i;
+        int n_options, n_order;
 
         n_options = efi_get_boot_options(&options);
         if (n_options == -ENOENT)
@@ -306,14 +306,12 @@ static int status_variables(void) {
 
         /* print entries in BootOrder first */
         printf("Boot Loaders Listed in EFI Variables:\n");
-        for (i = 0; i < n_order; i++)
+        for (int i = 0; i < n_order; i++)
                 print_efi_option(order[i], true);
 
         /* print remaining entries */
-        for (i = 0; i < n_options; i++) {
-                int j;
-
-                for (j = 0; j < n_order; j++)
+        for (int i = 0; i < n_options; i++) {
+                for (int j = 0; j < n_order; j++)
                         if (options[i] == order[j])
                                 goto next_option;
 
@@ -726,7 +724,7 @@ static int find_slot(sd_id128_t uuid, const char *path, uint16_t *id) {
 static int insert_into_order(uint16_t slot, bool first) {
         _cleanup_free_ uint16_t *order = NULL;
         uint16_t *t;
-        int n, i;
+        int n;
 
         n = efi_get_boot_order(&order);
         if (n <= 0)
@@ -738,7 +736,7 @@ static int insert_into_order(uint16_t slot, bool first) {
                 return 0;
 
         /* are we already in the boot order? */
-        for (i = 0; i < n; i++) {
+        for (int i = 0; i < n; i++) {
                 if (order[i] != slot)
                         continue;
 
@@ -770,13 +768,13 @@ static int insert_into_order(uint16_t slot, bool first) {
 
 static int remove_from_order(uint16_t slot) {
         _cleanup_free_ uint16_t *order = NULL;
-        int n, i;
+        int n;
 
         n = efi_get_boot_order(&order);
         if (n <= 0)
                 return n;
 
-        for (i = 0; i < n; i++) {
+        for (int i = 0; i < n; i++) {
                 if (order[i] != slot)
                         continue;
 
@@ -979,29 +977,29 @@ static int remove_variables(sd_id128_t uuid, const char *path, bool in_order) {
 }
 
 static int remove_loader_variables(void) {
-        const char *p;
+        const char *variable;
         int r = 0;
 
         /* Remove all persistent loader variables we define */
 
-        FOREACH_STRING(p,
-                       "LoaderConfigTimeout",
-                       "LoaderConfigTimeoutOneShot",
-                       "LoaderEntryDefault",
-                       "LoaderEntryOneShot",
-                       "LoaderSystemToken") {
+        FOREACH_STRING(variable,
+                       EFI_VARIABLE_LoaderConfigTimeout,
+                       EFI_VARIABLE_LoaderConfigTimeoutOneShot,
+                       EFI_VARIABLE_LoaderEntryDefault,
+                       EFI_VARIABLE_LoaderEntryOneShot,
+                       EFI_VARIABLE_LoaderSystemToken){
 
                 int q;
 
-                q = efi_set_variable(EFI_VENDOR_LOADER, p, NULL, 0);
+                q = efi_set_variable(variable, NULL, 0);
                 if (q == -ENOENT)
                         continue;
                 if (q < 0) {
-                        log_warning_errno(q, "Failed to remove %s variable: %m", p);
+                        log_warning_errno(q, "Failed to remove EFI variable %s: %m", variable);
                         if (r >= 0)
                                 r = q;
                 } else
-                        log_info("Removed EFI variable %s.", p);
+                        log_info("Removed EFI variable %s.", variable);
         }
 
         return r;
@@ -1224,12 +1222,12 @@ static int parse_argv(int argc, char *argv[]) {
         return 1;
 }
 
-static void read_loader_efi_var(const char *name, char **var) {
+static void read_efi_var(const char *variable, char **ret) {
         int r;
 
-        r = efi_get_variable_string(EFI_VENDOR_LOADER, name, var);
+        r = efi_get_variable_string(variable, ret);
         if (r < 0 && r != -ENOENT)
-                log_warning_errno(r, "Failed to read EFI variable %s: %m", name);
+                log_warning_errno(r, "Failed to read EFI variable %s: %m", variable);
 }
 
 static void print_yes_no_line(bool first, bool good, const char *name) {
@@ -1295,13 +1293,13 @@ static int verb_status(int argc, char *argv[], void *userdata) {
                 _cleanup_free_ char *fw_type = NULL, *fw_info = NULL, *loader = NULL, *loader_path = NULL, *stub = NULL;
                 sd_id128_t loader_part_uuid = SD_ID128_NULL;
                 uint64_t loader_features = 0;
-                size_t i;
+                int have;
 
-                read_loader_efi_var("LoaderFirmwareType", &fw_type);
-                read_loader_efi_var("LoaderFirmwareInfo", &fw_info);
-                read_loader_efi_var("LoaderInfo", &loader);
-                read_loader_efi_var("StubInfo", &stub);
-                read_loader_efi_var("LoaderImageIdentifier", &loader_path);
+                read_efi_var(EFI_VARIABLE_LoaderFirmwareType, &fw_type);
+                read_efi_var(EFI_VARIABLE_LoaderFirmwareInfo, &fw_info);
+                read_efi_var(EFI_VARIABLE_LoaderInfo, &loader);
+                read_efi_var(EFI_VARIABLE_StubInfo, &stub);
+                read_efi_var(EFI_VARIABLE_LoaderImageIdentifier, &loader_path);
                 (void) efi_loader_get_features(&loader_features);
 
                 if (loader_path)
@@ -1333,7 +1331,7 @@ static int verb_status(int argc, char *argv[], void *userdata) {
                 printf("Current Boot Loader:\n");
                 printf("      Product: %s%s%s\n", ansi_highlight(), strna(loader), ansi_normal());
 
-                for (i = 0; i < ELEMENTSOF(flags); i++)
+                for (size_t i = 0; i < ELEMENTSOF(flags); i++)
                         print_yes_no_line(i == 0, FLAGS_SET(loader_features, flags[i].flag), flags[i].name);
 
                 sd_id128_t bootloader_esp_uuid;
@@ -1354,8 +1352,10 @@ static int verb_status(int argc, char *argv[], void *userdata) {
                 printf("\n");
 
                 printf("Random Seed:\n");
-                printf(" Passed to OS: %s\n", yes_no(access("/sys/firmware/efi/efivars/LoaderRandomSeed-4a67b082-0a4c-41cf-b6c7-440b29bb8c4f", F_OK) >= 0));
-                printf(" System Token: %s\n", access("/sys/firmware/efi/efivars/LoaderSystemToken-4a67b082-0a4c-41cf-b6c7-440b29bb8c4f", F_OK) >= 0 ? "set" : "not set");
+                have = access(EFIVAR_PATH(EFI_VARIABLE_LoaderRandomSeed), F_OK) >= 0;
+                printf(" Passed to OS: %s\n", yes_no(have));
+                have = access(EFIVAR_PATH(EFI_VARIABLE_LoaderSystemToken), F_OK) >= 0;
+                printf(" System Token: %s\n", have ? "set" : "not set");
 
                 if (arg_esp_path) {
                         _cleanup_free_ char *p = NULL;
@@ -1364,7 +1364,8 @@ static int verb_status(int argc, char *argv[], void *userdata) {
                         if (!p)
                                 return log_oom();
 
-                        printf("       Exists: %s\n", yes_no(access(p, F_OK) >= 0));
+                        have = access(p, F_OK) >= 0;
+                        printf("       Exists: %s\n", yes_no(have));
                 }
 
                 printf("\n");
@@ -1428,13 +1429,11 @@ static int verb_list(int argc, char *argv[], void *userdata) {
         if (config.n_entries == 0)
                 log_info("No boot loader entries found.");
         else {
-                size_t n;
-
                 (void) pager_open(arg_pager_flags);
 
                 printf("Boot Loader Entries:\n");
 
-                for (n = 0; n < config.n_entries; n++) {
+                for (size_t n = 0; n < config.n_entries; n++) {
                         r = boot_entry_show(config.entries + n, n == (size_t) config.default_entry);
                         if (r < 0)
                                 return r;
@@ -1539,7 +1538,7 @@ static int install_random_seed(const char *esp) {
                 return 0;
         }
 
-        r = efi_get_variable(EFI_VENDOR_LOADER, "LoaderSystemToken", NULL, NULL, &token_size);
+        r = efi_get_variable(EFI_VARIABLE_LoaderSystemToken, NULL, NULL, &token_size);
         if (r == -ENODATA)
                 log_debug_errno(r, "LoaderSystemToken EFI variable is invalid (too short?), replacing.");
         else if (r < 0) {
@@ -1563,7 +1562,7 @@ static int install_random_seed(const char *esp) {
          * and possibly get identification information or too much insight into the kernel's entropy pool
          * state. */
         RUN_WITH_UMASK(0077) {
-                r = efi_set_variable(EFI_VENDOR_LOADER, "LoaderSystemToken", buffer, sz);
+                r = efi_set_variable(EFI_VARIABLE_LoaderSystemToken, buffer, sz);
                 if (r < 0) {
                         if (!arg_graceful)
                                 return log_error_errno(r, "Failed to write 'LoaderSystemToken' EFI variable: %m");
@@ -1764,15 +1763,15 @@ static int verb_is_installed(int argc, char *argv[], void *userdata) {
 static int parse_loader_entry_target_arg(const char *arg1, char16_t **ret_target, size_t *ret_target_size) {
         int r;
         if (streq(arg1, "@current")) {
-                r = efi_get_variable(EFI_VENDOR_LOADER, "LoaderEntrySelected", NULL, (void *) ret_target, ret_target_size);
+                r = efi_get_variable(EFI_VARIABLE_LoaderEntrySelected, NULL, (void *) ret_target, ret_target_size);
                 if (r < 0)
                         return log_error_errno(r, "Failed to get EFI variable 'LoaderEntrySelected': %m");
         } else if (streq(arg1, "@oneshot")) {
-                r = efi_get_variable(EFI_VENDOR_LOADER, "LoaderEntryOneShot", NULL, (void *) ret_target, ret_target_size);
+                r = efi_get_variable(EFI_VARIABLE_LoaderEntryOneShot, NULL, (void *) ret_target, ret_target_size);
                 if (r < 0)
                         return log_error_errno(r, "Failed to get EFI variable 'LoaderEntryOneShot': %m");
         } else if (streq(arg1, "@default")) {
-                r = efi_get_variable(EFI_VENDOR_LOADER, "LoaderEntryDefault", NULL, (void *) ret_target, ret_target_size);
+                r = efi_get_variable(EFI_VARIABLE_LoaderEntryDefault, NULL, (void *) ret_target, ret_target_size);
                 if (r < 0)
                         return log_error_errno(r, "Failed to get EFI variable 'LoaderEntryDefault': %m");
         } else {
@@ -1787,14 +1786,13 @@ static int parse_loader_entry_target_arg(const char *arg1, char16_t **ret_target
 }
 
 static int verb_set_default(int argc, char *argv[], void *userdata) {
-        const char *name;
         int r;
 
         if (!is_efi_boot())
                 return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
                                        "Not booted with UEFI.");
 
-        if (access("/sys/firmware/efi/efivars/LoaderInfo-4a67b082-0a4c-41cf-b6c7-440b29bb8c4f", F_OK) < 0) {
+        if (access(EFIVAR_PATH(EFI_VARIABLE_LoaderInfo), F_OK) < 0) {
                 if (errno == ENOENT) {
                         log_error_errno(errno, "Not booted with a supported boot loader.");
                         return -EOPNOTSUPP;
@@ -1813,12 +1811,13 @@ static int verb_set_default(int argc, char *argv[], void *userdata) {
                                        "'%s' operation cannot be combined with --touch-variables=no.",
                                        argv[0]);
 
-        name = streq(argv[0], "set-default") ? "LoaderEntryDefault" : "LoaderEntryOneShot";
+        const char *variable = streq(argv[0], "set-default") ?
+                EFI_VARIABLE_LoaderEntryDefault : EFI_VARIABLE_LoaderEntryOneShot;
 
         if (isempty(argv[1])) {
-                r = efi_set_variable(EFI_VENDOR_LOADER, name, NULL, 0);
+                r = efi_set_variable(variable, NULL, 0);
                 if (r < 0 && r != -ENOENT)
-                        return log_error_errno(r, "Failed to remove EFI variable '%s': %m", name);
+                        return log_error_errno(r, "Failed to remove EFI variable '%s': %m", variable);
         } else {
                 _cleanup_free_ char16_t *target = NULL;
                 size_t target_size = 0;
@@ -1826,9 +1825,9 @@ static int verb_set_default(int argc, char *argv[], void *userdata) {
                 r = parse_loader_entry_target_arg(argv[1], &target, &target_size);
                 if (r < 0)
                         return r;
-                r = efi_set_variable(EFI_VENDOR_LOADER, name, target, target_size);
+                r = efi_set_variable(variable, target, target_size);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to update EFI variable '%s': %m", name);
+                        return log_error_errno(r, "Failed to update EFI variable '%s': %m", variable);
         }
 
         return 0;
@@ -1861,16 +1860,25 @@ static int verb_systemd_efi_options(int argc, char *argv[], void *userdata) {
         int r;
 
         if (argc == 1) {
-                _cleanup_free_ char *line = NULL;
+                _cleanup_free_ char *line = NULL, *new = NULL;
 
                 r = systemd_efi_options_variable(&line);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to query SystemdOptions EFI variable: %m");
+                if (r == -ENODATA)
+                        log_debug("No SystemdOptions EFI variable present in cache.");
+                else if (r < 0)
+                        return log_error_errno(r, "Failed to read SystemdOptions EFI variable from cache: %m");
+                else
+                        puts(line);
 
-                puts(line);
+                r = systemd_efi_options_efivarfs_if_newer(&new);
+                if (r < 0 && r != -ENODATA)
+                        log_warning_errno(r, "Failed to check EFI variable in efivarfs, ignoring: %m");
+                if (new)
+                        log_notice("Note: SystemdOptions EFI variable has been modified since boot. New value: %s",
+                                   new);
 
         } else {
-                r = efi_set_variable_string(EFI_VENDOR_SYSTEMD, "SystemdOptions", argv[1]);
+                r = efi_set_variable_string(EFI_VARIABLE_SystemdOptions, argv[1]);
                 if (r < 0)
                         return log_error_errno(r, "Failed to set SystemdOptions EFI variable: %m");
         }
