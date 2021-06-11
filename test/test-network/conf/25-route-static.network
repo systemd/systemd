@@ -82,8 +82,8 @@ Destination=149.10.123.4
 
 [Route]
 Destination=192.168.10.1/32
-MultiPathRoute=149.10.124.59@dummy98 10
-MultiPathRoute=149.10.124.60@dummy98 5
+MultiPathRoute=149.10.124.59 10
+MultiPathRoute=149.10.124.60 5
 
 [Route]
 Destination=2001:1234:5:7fff:ff:ff:ff:ff/128
