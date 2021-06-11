@@ -102,12 +102,17 @@ struct Manager {
         HandleAction idle_action;
 
         HandleAction handle_power_key;
+        HandleAction handle_power_key_long_press;
+        HandleAction handle_reboot_key;
+        HandleAction handle_reboot_key_long_press;
         HandleAction handle_suspend_key;
+        HandleAction handle_suspend_key_long_press;
         HandleAction handle_hibernate_key;
+        HandleAction handle_hibernate_key_long_press;
+
         HandleAction handle_lid_switch;
         HandleAction handle_lid_switch_ep;
         HandleAction handle_lid_switch_docked;
-        HandleAction handle_reboot_key;
 
         bool power_key_ignore_inhibited;
         bool suspend_key_ignore_inhibited;
@@ -121,6 +126,11 @@ struct Manager {
 
         usec_t holdoff_timeout_usec;
         sd_event_source *lid_switch_ignore_event_source;
+
+        sd_event_source *power_key_long_press_event_source;
+        sd_event_source *reboot_key_long_press_event_source;
+        sd_event_source *suspend_key_long_press_event_source;
+        sd_event_source *hibernate_key_long_press_event_source;
 
         uint64_t runtime_dir_size;
         uint64_t runtime_dir_inodes;
