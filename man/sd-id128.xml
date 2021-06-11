@@ -24,6 +24,7 @@
     <refname>SD_ID128_FORMAT_VAL</refname>
     <refname>SD_ID128_MAKE</refname>
     <refname>SD_ID128_MAKE_STR</refname>
+    <refname>SD_ID128_MAKE_UUID_STR</refname>
     <refname>SD_ID128_NULL</refname>
     <refname>SD_ID128_UUID_FORMAT_STR</refname>
     <refname>sd_id128_equal</refname>
@@ -121,10 +122,12 @@ int main(int argc, char **argv) {
   return 0;
 }</programlisting>
 
-    <para><constant>SD_ID128_UUID_FORMAT_STR</constant> is similar to
-    <constant>SD_ID128_FORMAT_STR</constant> but includes separating hyphens to conform to the "<ulink
-    url="https://en.wikipedia.org/wiki/Universally_unique_identifier#Format">canonical
-    representation</ulink>". This formats the string based on <ulink
+    <para><constant>SD_ID128_UUID_FORMAT_STR</constant> and <function>SD_ID128_MAKE_UUID_STR()</function>
+    are similar to
+    <constant>SD_ID128_FORMAT_STR</constant> and <function>SD_ID128_MAKE_STR()</function>,
+    but include separating hyphens to conform to the
+    "<ulink url="https://en.wikipedia.org/wiki/Universally_unique_identifier#Format">canonical representation</ulink>".
+    They format the string based on <ulink
     url="https://tools.ietf.org/html/rfc4122">RFC4122</ulink> Variant 1 rules, i.e. converting from Big
     Endian byte order. This matches behaviour of most other Linux userspace infrastructure. It's probably
     best to avoid UUIDs of other variants, in order to avoid unnecessary ambiguities. All 128-bit IDs
