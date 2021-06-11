@@ -49,11 +49,6 @@ Features:
 * nspawn: make --bind= work sanely with --private-users when uid mapping mounts
   are used.
 
-* cryptsetup: tweak tpm2-device=auto logic, abort quickly if firmware tells us
-  there isn't any TPM2 device anyway. that way, we'll wait for the TPM2 device
-  to show up only if registered in LUKS header + the firmware suggests there is
-  a device worth waiting for.
-
 * systemd-sysext: optionally, run it in initrd already, before transitioning
   into host, to open up possibility for services shipped like that.
 
@@ -101,20 +96,6 @@ Features:
 * move logind udev rules to top-level rule.d/ directory
 
 * move multiseat vid/pid matches from logind udev rule to hwdb
-
-* nspawn: default to 1:1 userns
-
-* Provide a reasonably bespoke solution for mounting host $HOME directories
-  into containers:
-  • add new option --mount-user=$USER for mounting $HOME of the user into the
-    container at the same place
-  • check /etc/passwd for UID or user name clashes. If UID clash pick a different
-    UID in container, and map via userns. If user name clash, refuse. If
-    matching user already exists use that.
-  • otherwise: write user record of specified user into /run/host/passwd or so
-  • in nss-systemd pick up user record from there and make available to system
-  With all that in place if nspawn host and container payload are up-to-date
-  enough we have a very simple way to make host users available in containers.
 
 * whenever we receive fds via SCM_RIGHTS make sure none got dropped due to the
   reception limit the kernel silently enforces.
@@ -241,8 +222,6 @@ Features:
 
 * homed: keep an fd to the homedir open at all times, to keep the fs pinned
   (autofs and such) while user is logged in.
-
-* nss-systemd: also synthesize shadow records for users/groups
 
 * make use of new glibc 2.32 APIs sigabbrev_np() and strerrorname_np().
 
@@ -456,9 +435,6 @@ Features:
   shouldn't operate in a volatile mode unless we got told so from a trusted
   source.
 
-* figure out automatic partition discovery when combining writable root dir
-  with immutable /usr
-
 * coredump: maybe when coredumping read a new xattr from /proc/$PID/exe that
   may be used to mark a whole binary as non-coredumpable. Would fix:
   https://bugs.freedesktop.org/show_bug.cgi?id=69447
@@ -579,10 +555,6 @@ Features:
   a seccomp option we don't have to set NNP. For that, change uid first whil
   keeping CAP_SYS_ADMIN, then apply seccomp, the drop cap.
 
-* add a concept for automatically loading per-unit secrets off disk and
-  inserting them into the kernel keyring. Maybe SecretsDirectory= similar to
-  ConfigurationDirectory=.
-
 * when no locale is configured, default to UEFI's PlatformLang variable
 
 * bootctl,sd-boot: actually honour the "architecture" key
@@ -634,13 +606,6 @@ Features:
 * Add a "systemctl list-units --by-slice" mode or so, which rearranges the
   output of "systemctl list-units" slightly by showing the tree structure of
   the slices, and the units attached to them.
-
-* the a-posteriori stopping of units bound to units that disappeared logic
-  should be reworked: there should be a queue of units, and we should only
-  enqueue stop jobs from a defer event that processes queue instead of
-  right-away when we find a unit that is bound to one that doesn't exist
-  anymore. (similar to how the stop-unneeded queue has been reworked the same
-  way)
 
 * nspawn: make nspawn suitable for shell pipelines: instead of triggering a
   hangup when input is finished, send ^D, which synthesizes an EOF. Then wait
@@ -1403,7 +1368,6 @@ Features:
     https://bugzilla.redhat.com/show_bug.cgi?id=723942
   - allow writing multiple conditions in unit files on one line
   - introduce Type=pid-file
-  - introduce mix of BindTo and Requisite
   - add a concept of RemainAfterExit= to scope units
   - Allow multiple ExecStart= for all Type= settings, so that we can cover rescue.service nicely
   - add verification of [Install] section to systemd-analyze verify
