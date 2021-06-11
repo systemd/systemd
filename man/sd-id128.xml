@@ -24,6 +24,7 @@
     <refname>SD_ID128_FORMAT_VAL</refname>
     <refname>SD_ID128_MAKE</refname>
     <refname>SD_ID128_MAKE_STR</refname>
+    <refname>SD_ID128_MAKE_UUID_STR</refname>
     <refname>SD_ID128_NULL</refname>
     <refname>SD_ID128_UUID_FORMAT_STR</refname>
     <refname>sd_id128_equal</refname>
@@ -122,10 +123,13 @@ int main(int argc, char **argv) {
   id = SD_ID128_MAKE(ee,89,be,71,bd,6e,43,d6,91,e6,c5,5d,eb,03,02,07);
   printf("The ID encoded in this C file is " SD_ID128_FORMAT_STR ".\n", SD_ID128_FORMAT_VAL(id));
   return 0;
-}</programlisting>
+}
+    </programlisting>
 
-    <para><constant>SD_ID128_UUID_FORMAT_STR</constant> is similar to
-    <constant>SD_ID128_FORMAT_STR</constant> but includes separating hyphens to conform to the
+    <para><constant>SD_ID128_UUID_FORMAT_STR</constant> and <function>SD_ID128_MAKE_UUID_STR()</function>
+    are similar to
+    <constant>SD_ID128_FORMAT_STR</constant> and <function>SD_ID128_MAKE_STR()</function>,
+    but include separating hyphens to conform to the
     "<ulink url="https://en.wikipedia.org/wiki/Universally_unique_identifier#Format">canonical representation</ulink>".
     </para>
 
