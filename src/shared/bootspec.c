@@ -677,14 +677,14 @@ int boot_entries_load_config(
                 return log_error_errno(r, "Failed to uniquify boot entries: %m");
 
         if (is_efi_boot()) {
-                r = efi_get_variable_string(EFI_VENDOR_LOADER, "LoaderEntryOneShot", &config->entry_oneshot);
+                r = efi_get_variable_string(EFI_LOADER_VARIABLE(LoaderEntryOneShot), &config->entry_oneshot);
                 if (r < 0 && !IN_SET(r, -ENOENT, -ENODATA)) {
                         log_warning_errno(r, "Failed to read EFI variable \"LoaderEntryOneShot\": %m");
                         if (r == -ENOMEM)
                                 return r;
                 }
 
-                r = efi_get_variable_string(EFI_VENDOR_LOADER, "LoaderEntryDefault", &config->entry_default);
+                r = efi_get_variable_string(EFI_LOADER_VARIABLE(LoaderEntryDefault), &config->entry_default);
                 if (r < 0 && !IN_SET(r, -ENOENT, -ENODATA)) {
                         log_warning_errno(r, "Failed to read EFI variable \"LoaderEntryDefault\": %m");
                         if (r == -ENOMEM)
@@ -776,7 +776,7 @@ int boot_entries_augment_from_loader(
                                 break;
                         }
 
-                p = efi_variable_path(EFI_VENDOR_LOADER, "LoaderEntries");
+                p = strdup(EFIVAR_PATH(EFI_LOADER_VARIABLE(LoaderEntries)));
                 if (!p)
                         return log_oom();
 
