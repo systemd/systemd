@@ -305,8 +305,7 @@ bool is_efi_secure_boot_setup_mode(void) {
         return cache > 0;
 }
 
-int cache_efi_options_variable(void) {
-        _cleanup_free_ char *line = NULL;
+static int read_efi_options_variable(char **line) {
         int r;
 
         /* In SecureBoot mode this is probably not what you want. As your cmdline is cryptographically signed
@@ -326,9 +325,17 @@ int cache_efi_options_variable(void) {
                 return -EPERM;
         }
 
-        r = efi_get_variable_string(EFI_SYSTEMD_VARIABLE(SystemdOptions), &line);
+        r = efi_get_variable_string(EFI_SYSTEMD_VARIABLE(SystemdOptions), line);
         if (r == -ENOENT)
                 return -ENODATA;
+        return r;
+}
+
+int cache_efi_options_variable(void) {
+        _cleanup_free_ char *line = NULL;
+        int r;
+
+        r = read_efi_options_variable(&line);
         if (r < 0)
                 return r;
 
@@ -339,6 +346,8 @@ int cache_efi_options_variable(void) {
 int systemd_efi_options_variable(char **line) {
         const char *e;
         int r;
+
+        /* Returns the contents of the variable for current boot from the cache. */
 
         assert(line);
 
@@ -356,6 +365,36 @@ int systemd_efi_options_variable(char **line) {
         }
 
         r = read_one_line_file(EFIVAR_CACHE_PATH(EFI_SYSTEMD_VARIABLE(SystemdOptions)), line);
+        if (r == -ENOENT)
+                return -ENODATA;
+        return r;
+}
+
+static inline int compare_stat_mtime(const struct stat *a, const struct stat *b) {
+        return CMP(timespec_load(&a->st_mtim), timespec_load(&b->st_mtim));
+}
+
+int systemd_efi_options_efivarfs_if_newer(char **line) {
+        struct stat a = {}, b;
+        int r;
+
+        if (stat(EFIVAR_PATH(EFI_SYSTEMD_VARIABLE(SystemdOptions)), &a) < 0 && errno != ENOENT)
+                return log_debug_errno(errno, "Failed to stat EFI variable SystemdOptions: %m");
+
+        if (stat(EFIVAR_CACHE_PATH(EFI_SYSTEMD_VARIABLE(SystemdOptions)), &b) < 0) {
+                if (errno != -ENOENT)
+                        log_debug_errno(errno, "Failed to stat "EFIVAR_CACHE_PATH(EFI_SYSTEMD_VARIABLE(SystemdOptions))": %m");
+        } else if (compare_stat_mtime(&a, &b) > 0)
+                log_debug("Variable SystemdOptions in evifarfs is newer than in cache.");
+        else {
+                log_debug("Variable SystemdOptions in cache is up to date.");
+                *line = NULL;
+                return 0;
+        }
+
+        r = read_efi_options_variable(line);
+        if (r < 0)
+                log_warning_errno(r, "Failed to read SystemdOptions EFI variable: %m");
         if (r == -ENOENT)
                 return -ENODATA;
         return r;
