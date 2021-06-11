@@ -288,7 +288,7 @@ static int print_efi_option(uint16_t id, bool in_order) {
 
 static int status_variables(void) {
         _cleanup_free_ uint16_t *options = NULL, *order = NULL;
-        int n_options, n_order, i;
+        int n_options, n_order;
 
         n_options = efi_get_boot_options(&options);
         if (n_options == -ENOENT)
@@ -306,14 +306,12 @@ static int status_variables(void) {
 
         /* print entries in BootOrder first */
         printf("Boot Loaders Listed in EFI Variables:\n");
-        for (i = 0; i < n_order; i++)
+        for (int i = 0; i < n_order; i++)
                 print_efi_option(order[i], true);
 
         /* print remaining entries */
-        for (i = 0; i < n_options; i++) {
-                int j;
-
-                for (j = 0; j < n_order; j++)
+        for (int i = 0; i < n_options; i++) {
+                for (int j = 0; j < n_order; j++)
                         if (options[i] == order[j])
                                 goto next_option;
 
@@ -726,7 +724,7 @@ static int find_slot(sd_id128_t uuid, const char *path, uint16_t *id) {
 static int insert_into_order(uint16_t slot, bool first) {
         _cleanup_free_ uint16_t *order = NULL;
         uint16_t *t;
-        int n, i;
+        int n;
 
         n = efi_get_boot_order(&order);
         if (n <= 0)
@@ -738,7 +736,7 @@ static int insert_into_order(uint16_t slot, bool first) {
                 return 0;
 
         /* are we already in the boot order? */
-        for (i = 0; i < n; i++) {
+        for (int i = 0; i < n; i++) {
                 if (order[i] != slot)
                         continue;
 
@@ -770,13 +768,13 @@ static int insert_into_order(uint16_t slot, bool first) {
 
 static int remove_from_order(uint16_t slot) {
         _cleanup_free_ uint16_t *order = NULL;
-        int n, i;
+        int n;
 
         n = efi_get_boot_order(&order);
         if (n <= 0)
                 return n;
 
-        for (i = 0; i < n; i++) {
+        for (int i = 0; i < n; i++) {
                 if (order[i] != slot)
                         continue;
 
@@ -1295,7 +1293,6 @@ static int verb_status(int argc, char *argv[], void *userdata) {
                 _cleanup_free_ char *fw_type = NULL, *fw_info = NULL, *loader = NULL, *loader_path = NULL, *stub = NULL;
                 sd_id128_t loader_part_uuid = SD_ID128_NULL;
                 uint64_t loader_features = 0;
-                size_t i;
                 int have;
 
                 read_efi_var(EFI_LOADER_VARIABLE(LoaderFirmwareType), &fw_type);
@@ -1334,7 +1331,7 @@ static int verb_status(int argc, char *argv[], void *userdata) {
                 printf("Current Boot Loader:\n");
                 printf("      Product: %s%s%s\n", ansi_highlight(), strna(loader), ansi_normal());
 
-                for (i = 0; i < ELEMENTSOF(flags); i++)
+                for (size_t i = 0; i < ELEMENTSOF(flags); i++)
                         print_yes_no_line(i == 0, FLAGS_SET(loader_features, flags[i].flag), flags[i].name);
 
                 sd_id128_t bootloader_esp_uuid;
@@ -1432,13 +1429,11 @@ static int verb_list(int argc, char *argv[], void *userdata) {
         if (config.n_entries == 0)
                 log_info("No boot loader entries found.");
         else {
-                size_t n;
-
                 (void) pager_open(arg_pager_flags);
 
                 printf("Boot Loader Entries:\n");
 
-                for (n = 0; n < config.n_entries; n++) {
+                for (size_t n = 0; n < config.n_entries; n++) {
                         r = boot_entry_show(config.entries + n, n == (size_t) config.default_entry);
                         if (r < 0)
                                 return r;

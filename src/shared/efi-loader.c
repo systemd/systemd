@@ -345,9 +345,7 @@ static void id128_to_efi_guid(sd_id128_t id, void *guid) {
 }
 
 static uint16_t *tilt_slashes(uint16_t *s) {
-        uint16_t *p;
-
-        for (p = s; *p; p++)
+        for (uint16_t *p = s; *p; p++)
                 if (*p == '/')
                         *p = '\\';
 
@@ -465,11 +463,11 @@ int efi_set_boot_order(uint16_t *order, size_t n) {
 }
 
 static int boot_id_hex(const char s[static 4]) {
-        int id = 0, i;
+        int id = 0;
 
         assert(s);
 
-        for (i = 0; i < 4; i++)
+        for (int i = 0; i < 4; i++)
                 if (s[i] >= '0' && s[i] <= '9')
                         id |= (s[i] - '0') << (3 - i) * 4;
                 else if (s[i] >= 'A' && s[i] <= 'F')
@@ -595,12 +593,9 @@ int efi_loader_get_device_part_uuid(sd_id128_t *u) {
                    &parsed[12], &parsed[13], &parsed[14], &parsed[15]) != 16)
                 return -EIO;
 
-        if (u) {
-                unsigned i;
-
-                for (i = 0; i < ELEMENTSOF(parsed); i++)
+        if (u)
+                for (unsigned i = 0; i < ELEMENTSOF(parsed); i++)
                         u->bytes[i] = parsed[i];
-        }
 
         return 0;
 }
@@ -608,7 +603,7 @@ int efi_loader_get_device_part_uuid(sd_id128_t *u) {
 int efi_loader_get_entries(char ***ret) {
         _cleanup_free_ char16_t *entries = NULL;
         _cleanup_strv_free_ char **l = NULL;
-        size_t size, i, start;
+        size_t size;
         int r;
 
         assert(ret);
@@ -622,7 +617,7 @@ int efi_loader_get_entries(char ***ret) {
 
         /* The variable contains a series of individually NUL terminated UTF-16 strings. */
 
-        for (i = 0, start = 0;; i++) {
+        for (size_t i = 0, start = 0;; i++) {
                 _cleanup_free_ char *decoded = NULL;
                 bool end;
 
@@ -795,7 +790,6 @@ bool efi_has_tpm2(void) {
 #endif
 
 bool efi_loader_entry_name_valid(const char *s) {
-
         if (!filename_is_valid(s)) /* Make sure entry names fit in filenames */
                 return false;
 
@@ -803,9 +797,7 @@ bool efi_loader_entry_name_valid(const char *s) {
 }
 
 char *efi_tilt_backslashes(char *s) {
-        char *p;
-
-        for (p = s; *p; p++)
+        for (char *p = s; *p; p++)
                 if (*p == '\\')
                         *p = '/';
 
