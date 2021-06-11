@@ -1860,14 +1860,25 @@ static int verb_systemd_efi_options(int argc, char *argv[], void *userdata) {
         int r;
 
         if (argc == 1) {
-                _cleanup_free_ char *line = NULL;
+                _cleanup_free_ char *line = NULL, *new = NULL;
 
                 r = systemd_efi_options_variable(&line);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to query SystemdOptions EFI variable: %m");
+                if (r == -ENODATA)
+                        log_debug("No SystemdOptions EFI variable present in cache.");
+                else if (r < 0)
+                        return log_error_errno(r, "Failed to read SystemdOptions EFI variable from cache: %m");
+                else
+                        puts(line);
 
-                puts(line);
-
+                r = systemd_efi_options_efivarfs_if_newer(&new);
+                if (r == -ENODATA) {
+                        if (line)
+                                log_notice("Note: SystemdOptions EFI variable has been removed since boot.");
+                } else if (r < 0)
+                        log_warning_errno(r, "Failed to check SystemdOptions EFI variable in efivarfs, ignoring: %m");
+                else if (new && !streq_ptr(line, new))
+                        log_notice("Note: SystemdOptions EFI variable has been modified since boot. New value: %s",
+                                   new);
         } else {
                 r = efi_set_variable_string(EFI_SYSTEMD_VARIABLE(SystemdOptions), argv[1]);
                 if (r < 0)
