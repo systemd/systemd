@@ -143,18 +143,37 @@ layout: default
 
 ## Using C Constructs
 
-- Preferably allocate local variables on the top of the block:
+- Allocate local variables where it makes sense: at the top of the block, or at
+  the point where they can be initialized. `r` is typically used for a local
+  state variable, but should almost always be declared at the top of the
+  function.
 
   ```c
   {
-          int a, b;
+          uint64_t a, b;
+          int r;
 
-          a = 5;
-          b = a;
+          a = frobnicate();
+          b = a + 5;
+
+          r = do_something();
+          if (r < 0)
+                  …
   }
   ```
 
-- Do not mix function invocations with variable definitions in one line. Wrong:
+- Do not mix function invocations with variable definitions in one line.
+
+  ```c
+  {
+          uint64_t x = 7;
+          int a;
+
+          a = foobar();
+  }
+  ```
+
+  instead of:
 
   ```c
   {
@@ -163,18 +182,7 @@ layout: default
   }
   ```
 
-  Right:
-
-  ```c
-  {
-          int a;
-          uint64_t x = 7;
-
-          a = foobar();
-  }
-  ```
-
-- Use `goto` for cleaning up, and only use it for that. i.e. you may only jump
+- Use `goto` for cleaning up, and only use it for that. I.e. you may only jump
   to the end of a function, and little else. Never jump backwards!
 
 - To minimize strict aliasing violations, we prefer unions over casting.
@@ -347,8 +355,7 @@ layout: default
   `log_oom()` for then printing a short message, but not in "library" code.
 
 - Avoid fixed-size string buffers, unless you really know the maximum size and
-  that maximum size is small. They are a source of errors, since they possibly
-  result in truncated strings. It is often nicer to use dynamic memory,
+  that maximum size is small. It is often nicer to use dynamic memory,
   `alloca()` or VLAs. If you do allocate fixed-size strings on the stack, then
   it is probably only OK if you either use a maximum size such as `LINE_MAX`,
   or count in detail the maximum size a string can have. (`DECIMAL_STR_MAX` and
