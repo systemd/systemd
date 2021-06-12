@@ -216,7 +216,7 @@ static int bus_method_reload(sd_bus_message *message, void *userdata, sd_bus_err
                 return r;
 
         HASHMAP_FOREACH(link, manager->links) {
-                r = link_reconfigure(link, false);
+                r = link_reconfigure(link, /* force = */ false);
                 if (r < 0)
                         return r;
         }
