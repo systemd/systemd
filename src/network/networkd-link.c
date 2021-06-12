@@ -690,6 +690,12 @@ static int link_acquire_dynamic_conf(Link *link) {
         if (r < 0)
                 return log_link_warning_errno(link, r, "Failed to start LLDP transmission: %m");
 
+        if (link->lldp) {
+                r = sd_lldp_start(link->lldp);
+                if (r < 0)
+                        return log_link_warning_errno(link, r, "Failed to start LLDP client: %m");
+        }
+
         return 0;
 }
 
@@ -1985,10 +1991,6 @@ static int link_update_flags(Link *link, sd_netlink_message *message) {
                 if (r < 0)
                         return r;
         }
-
-        r = link_update_lldp(link);
-        if (r < 0)
-                return r;
 
         if (!had_carrier && link_has_carrier(link)) {
                 log_link_info(link, "Gained carrier");
