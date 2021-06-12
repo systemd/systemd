@@ -28,7 +28,7 @@ int link_request_to_set_bridge_vlan(Link *link);
 int link_request_to_set_can(Link *link);
 int link_request_to_set_flags(Link *link);
 int link_request_to_set_group(Link *link);
-int link_request_to_set_mac(Link *link);
+int link_request_to_set_mac(Link *link, bool allow_retry);
 int link_request_to_set_master(Link *link);
 int link_request_to_set_mtu(Link *link, uint32_t mtu);
 
