@@ -680,6 +680,16 @@ int link_request_to_set_mac(Link *link) {
         if (!link->network->mac)
                 return 0;
 
+        if (link->hw_addr.length != sizeof(struct ether_addr)) {
+                /* Note that for now we only support changing hardware addresses on Ethernet. */
+                log_link_debug(link, "Size of the hardware address (%zu) does not match the size of MAC address (%zu), ignoring.",
+                               link->hw_addr.length, sizeof(struct ether_addr));
+                return 0;
+        }
+
+        if (ether_addr_equal(&link->hw_addr.ether, link->network->mac))
+                return 0;
+
         return link_request_set_link(link, SET_LINK_MAC, link_set_mac_handler, NULL);
 }
 
