@@ -59,9 +59,9 @@ static int manager_reset_all(Manager *m) {
         assert(m);
 
         HASHMAP_FOREACH(link, m->links_by_index) {
-                r = link_carrier_reset(link);
+                r = link_reconfigure_after_sleep(link);
                 if (r < 0) {
-                        log_link_warning_errno(link, r, "Could not reset carrier: %m");
+                        log_link_warning_errno(link, r, "Failed to reconfigure interface: %m");
                         link_enter_failed(link);
                 }
         }
