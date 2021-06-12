@@ -147,6 +147,38 @@ static int link_set_mac_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *l
         return set_link_handler_internal(rtnl, m, link, SET_LINK_MAC, true, get_link_default_handler);
 }
 
+static int link_set_mac_allow_retry_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
+        int r;
+
+        assert(m);
+        assert(link);
+        assert(link->set_link_messages > 0);
+
+        link->set_link_messages--;
+
+        if (IN_SET(link->state, LINK_STATE_FAILED, LINK_STATE_LINGER))
+                return 0;
+
+        r = sd_netlink_message_get_errno(m);
+        if (r == -EBUSY) {
+                /* Most real network devices refuse to set its hardware address with -EBUSY when its
+                 * operstate is not down. See, eth_prepare_mac_addr_change() in net/ethernet/eth.c
+                 * of kernel. */
+
+                log_link_message_debug_errno(link, m, r, "Failed to set MAC address, retrying again: %m");
+
+                r = link_request_to_set_mac(link, /* allow_retry = */ false);
+                if (r < 0)
+                        link_enter_failed(link);
+
+                return 0;
+        }
+
+        /* set_link_mac_handler() also decrement set_link_messages, so once increment the value. */
+        link->set_link_messages++;
+        return link_set_mac_handler(rtnl, m, link);
+}
+
 static int link_set_master_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
         return set_link_handler_internal(rtnl, m, link, SET_LINK_MASTER, false, get_link_master_handler);
 }
@@ -483,6 +515,18 @@ static bool link_is_ready_to_call_set_link(Request *req) {
                         }
                 }
                 break;
+        case SET_LINK_MAC:
+                if (req->netlink_handler == link_set_mac_handler) {
+                        /* This is the second trial to set MTU. On the first attempt
+                         * req->netlink_handler points to link_set_mac_allow_retry_handler().
+                         * The first trial failed as the interface was up. */
+                        r = link_down(link);
+                        if (r < 0) {
+                                link_enter_failed(link);
+                                return false;
+                        }
+                }
+                break;
         case SET_LINK_MASTER: {
                 uint32_t m = 0;
 
@@ -673,7 +717,7 @@ int link_request_to_set_group(Link *link) {
         return link_request_set_link(link, SET_LINK_GROUP, link_set_group_handler, NULL);
 }
 
-int link_request_to_set_mac(Link *link) {
+int link_request_to_set_mac(Link *link, bool allow_retry) {
         assert(link);
         assert(link->network);
 
@@ -690,7 +734,9 @@ int link_request_to_set_mac(Link *link) {
         if (ether_addr_equal(&link->hw_addr.ether, link->network->mac))
                 return 0;
 
-        return link_request_set_link(link, SET_LINK_MAC, link_set_mac_handler, NULL);
+        return link_request_set_link(link, SET_LINK_MAC,
+                                     allow_retry ? link_set_mac_allow_retry_handler : link_set_mac_handler,
+                                     NULL);
 }
 
 int link_request_to_set_master(Link *link) {
