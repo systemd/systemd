@@ -1,6 +1,0 @@
-[Unit]
-Description=TEST-60-MOUNT-RATELIMIT
-
-[Service]
-Type=oneshot
-ExecStart=/usr/lib/systemd/tests/testdata/units/%N.sh
