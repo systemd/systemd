@@ -35,6 +35,7 @@ static int update_rules_map(
         LIST_FOREACH(socket_bind_items, item, head) {
                 struct socket_bind_rule val = {
                         .address_family = (uint32_t) item->address_family,
+                        .protocol = item->ip_protocol,
                         .nr_ports = item->nr_ports,
                         .port_min = item->port_min,
                 };
