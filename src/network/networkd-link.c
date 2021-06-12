@@ -1199,7 +1199,7 @@ static int link_get_network(Link *link, Network **ret) {
         return -ENOENT;
 }
 
-static int link_reconfigure_internal(Link *link, bool force) {
+static int link_reconfigure_impl(Link *link, bool force) {
         Network *network;
         int r;
 
@@ -1267,7 +1267,7 @@ static int link_reconfigure_handler_internal(sd_netlink *rtnl, sd_netlink_messag
         if (r <= 0)
                 return r;
 
-        r = link_reconfigure_internal(link, force);
+        r = link_reconfigure_impl(link, force);
         if (r < 0)
                 link_enter_failed(link);
 
@@ -1501,7 +1501,9 @@ static int link_carrier_gained(Link *link) {
         if (r < 0)
                 return r;
         if (r > 0) {
-                r = link_reconfigure_internal(link, false);
+                /* All link information is up-to-date. So, it is not necessary to call RTM_GETLINK
+                 * netlink method again. */
+                r = link_reconfigure_impl(link, /* force = */ false);
                 if (r != 0)
                         return r;
         }
