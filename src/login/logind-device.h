@@ -21,5 +21,5 @@ struct Device {
 };
 
 Device* device_new(Manager *m, const char *sysfs, bool master);
-void device_free(Device *d);
+void device_free(Device *d, bool drop_resources);
 void device_attach(Device *d, Seat *s);

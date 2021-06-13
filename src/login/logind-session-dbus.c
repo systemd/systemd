@@ -382,7 +382,7 @@ static int method_release_control(sd_bus_message *message, void *userdata, sd_bu
         if (!session_is_controller(s, sd_bus_message_get_sender(message)))
                 return sd_bus_error_set(error, BUS_ERROR_NOT_IN_CONTROL, "You are not in control of this session");
 
-        session_drop_controller(s);
+        session_drop_controller(s, true);
 
         return sd_bus_reply_method_return(message, NULL);
 }
@@ -459,7 +459,7 @@ static int method_take_device(sd_bus_message *message, void *userdata, sd_bus_er
         return 1;
 
 error:
-        session_device_free(sd);
+        session_device_free(sd, true);
         return r;
 }
 
@@ -488,7 +488,7 @@ static int method_release_device(sd_bus_message *message, void *userdata, sd_bus
         if (!sd)
                 return sd_bus_error_set(error, BUS_ERROR_DEVICE_NOT_TAKEN, "Device not taken");
 
-        session_device_free(sd);
+        session_device_free(sd, true);
         session_save(s);
 
         return sd_bus_reply_method_return(message, NULL);
