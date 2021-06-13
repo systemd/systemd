@@ -1005,6 +1005,16 @@ static int link_drop_foreign_config(Link *link) {
         assert(link);
         assert(link->manager);
 
+        /* Drop foreign config, but ignore unmanaged, loopback, or critical interfaces. We do not want
+         * to remove loopback address or addresses used for root NFS. */
+
+        if (IN_SET(link->state, LINK_STATE_UNMANAGED, LINK_STATE_PENDING, LINK_STATE_INITIALIZED))
+                return 0;
+        if (FLAGS_SET(link->flags, IFF_LOOPBACK))
+                return 0;
+        if (link->network->keep_configuration == KEEP_CONFIGURATION_YES)
+                return 0;
+
         r = link_drop_foreign_routes(link);
 
         k = link_drop_foreign_nexthops(link);
@@ -1157,14 +1167,9 @@ static int link_configure(Link *link) {
         if (r < 0)
                 return r;
 
-        /* Drop foreign config, but ignore loopback or critical devices.
-         * We do not want to remove loopback address or addresses used for root NFS. */
-        if (!(link->flags & IFF_LOOPBACK) &&
-            link->network->keep_configuration != KEEP_CONFIGURATION_YES) {
-                r = link_drop_foreign_config(link);
-                if (r < 0)
-                        return r;
-        }
+        r = link_drop_foreign_config(link);
+        if (r < 0)
+                return r;
 
         r = link_request_static_configs(link);
         if (r < 0)
@@ -1622,14 +1627,7 @@ static int link_carrier_lost(Link *link) {
         if (r < 0)
                 return r;
 
-        if (!IN_SET(link->state, LINK_STATE_UNMANAGED, LINK_STATE_PENDING, LINK_STATE_INITIALIZED)) {
-                log_link_debug(link, "State is %s, dropping foreign config", link_state_to_string(link->state));
-                r = link_drop_foreign_config(link);
-                if (r < 0)
-                        return r;
-        }
-
-        return 0;
+        return link_drop_foreign_config(link);
 }
 
 static int link_admin_state_up(Link *link) {
