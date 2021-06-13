@@ -563,6 +563,8 @@ static int link_request_set_link(
         assert(op >= 0 && op < _SET_LINK_OPERATION_MAX);
         assert(netlink_handler);
 
+        log_link_debug(link, "Requesting to set %s (%p).", set_link_operation_to_string(op), INT_TO_PTR(op));
+
         r = link_queue_request(link, REQUEST_TYPE_SET_LINK, INT_TO_PTR(op), false,
                                &link->set_link_messages, netlink_handler, &req);
         if (r < 0)
