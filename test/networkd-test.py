@@ -42,6 +42,28 @@ tmpmounts = []
 running_units = []
 stopped_units = []
 
+def check_output(*command, **kwargs):
+    # This replaces both check_output and check_call (output can be ignored)
+    command = command[0].split() + list(command[1:])
+    return subprocess.check_output(command, universal_newlines=True, **kwargs).rstrip()
+
+def call(*command, **kwargs):
+    command = command[0].split() + list(command[1:])
+    return subprocess.call(command, universal_newlines=True, **kwargs)
+
+def expectedFailureIfBridgePortNotFound():
+    def f(func):
+        call('ip link add bridge99-port type dummy', stderr=subprocess.DEVNULL)
+        call('ip link add bridge99-master type bridge', stderr=subprocess.DEVNULL)
+        call('ip link set bridge99-port master bridge99-master', stderr=subprocess.DEVNULL)
+        ret = os.path.isfile('/sys/class/net/bridge99-port/brport/priority')
+        call('ip link del bridge99-port', stderr=subprocess.DEVNULL)
+        call('ip link del bridge99-master', stderr=subprocess.DEVNULL)
+        if ret:
+            return func
+        else:
+            return unittest.expectedFailure(func)
+    return f
 
 def setUpModule():
     global tmpmounts
@@ -87,6 +109,13 @@ def setUpModule():
     # Ensure the unit directory exists so tests can dump files into it.
     os.makedirs(NETWORK_UNITDIR, exist_ok=True)
 
+    drop_in = [
+        '[Service]',
+        'Environment=SYSTEMD_LOG_LEVEL=debug',
+    ]
+    os.makedirs('/run/systemd/system/systemd-networkd.service.d', exist_ok=True)
+    with open('/run/systemd/system/systemd-networkd.service.d/00-override.conf', mode='w') as f:
+        f.write('\n'.join(drop_in))
 
 def tearDownModule():
     global tmpmounts
@@ -240,7 +269,10 @@ Gateway=192.168.250.1
             port1='managed',
             port2='managed',
             mybridge='managed')
+        invocation_id = check_output('systemctl show systemd-networkd -p InvocationID --value')
+        print(check_output('journalctl _SYSTEMD_INVOCATION_ID=' + invocation_id))
 
+    @expectedFailureIfBridgePortNotFound()
     def test_bridge_port_priority(self):
         self.assertEqual(self.read_attr('port1', 'brport/priority'), '32')
         self.write_network_dropin('port1.network', 'priority', '''\
@@ -253,6 +285,7 @@ Priority=28
                                'port1', '--timeout=5'])
         self.assertEqual(self.read_attr('port1', 'brport/priority'), '28')
 
+    @expectedFailureIfBridgePortNotFound()
     def test_bridge_port_priority_set_zero(self):
         """It should be possible to set the bridge port priority to 0"""
         self.assertEqual(self.read_attr('port2', 'brport/priority'), '32')
@@ -266,6 +299,7 @@ Priority=0
                                'port2', '--timeout=5'])
         self.assertEqual(self.read_attr('port2', 'brport/priority'), '0')
 
+    @expectedFailureIfBridgePortNotFound()
     def test_bridge_port_property(self):
         """Test the "[Bridge]" section keys"""
         self.assertEqual(self.read_attr('port2', 'brport/priority'), '32')
