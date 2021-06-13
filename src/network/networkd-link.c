@@ -1259,13 +1259,6 @@ static int link_reconfigure_impl(Link *link, bool force) {
         if (r < 0)
                 return r;
 
-        if (!IN_SET(link->state, LINK_STATE_UNMANAGED, LINK_STATE_PENDING, LINK_STATE_INITIALIZED)) {
-                log_link_debug(link, "State is %s, dropping foreign config", link_state_to_string(link->state));
-                r = link_drop_foreign_config(link);
-                if (r < 0)
-                        return r;
-        }
-
         link_free_carrier_maps(link);
         link_free_engines(link);
         link->network = network_unref(link->network);
