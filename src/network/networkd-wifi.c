@@ -38,20 +38,26 @@ int wifi_get_info(Link *link) {
         r = wifi_get_interface(link->manager->genl, link->ifindex, &iftype, &ssid);
         if (r < 0)
                 return r;
-        if (r > 0 && link->wlan_iftype == iftype && streq_ptr(link->ssid, ssid))
-                r = 0;
+        if (r > 0) {
+                if (link->wlan_iftype == iftype && streq_ptr(link->ssid, ssid))
+                        r = 0;
 
-        link->wlan_iftype = iftype;
-        free_and_replace(link->ssid, ssid);
+                link->wlan_iftype = iftype;
+                free_and_replace(link->ssid, ssid);
+        }
 
         if (link->wlan_iftype == NL80211_IFTYPE_STATION) {
-                struct ether_addr old_bssid = link->bssid;
+                struct ether_addr bssid;
 
-                s = wifi_get_station(link->manager->genl, link->ifindex, &link->bssid);
+                s = wifi_get_station(link->manager->genl, link->ifindex, &bssid);
                 if (s < 0)
                         return s;
-                if (s > 0 && memcmp(&old_bssid, &link->bssid, sizeof old_bssid) == 0)
-                        s = 0;
+                if (s > 0) {
+                        if (ether_addr_equal(&link->bssid, &bssid))
+                                s = 0;
+
+                        link->bssid = bssid;
+                }
         }
 
         if (r > 0 || s > 0) {
