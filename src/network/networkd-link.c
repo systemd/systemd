@@ -1235,23 +1235,22 @@ static int link_get_network(Link *link, Network **ret) {
 }
 
 static int link_reconfigure_impl(Link *link, bool force) {
-        Network *network;
+        Network *network = NULL;
         int r;
 
         assert(link);
 
         r = link_get_network(link, &network);
-        if (r == -ENOENT) {
-                link_set_state(link, LINK_STATE_UNMANAGED);
-                return 0;
-        }
-        if (r < 0)
+        if (r < 0 && r != -ENOENT)
                 return r;
 
         if (link->network == network && !force)
                 return 0;
 
-        log_link_info(link, "Re-configuring with %s", network->filename);
+        if (network)
+                log_link_info(link, "Reconfiguring with %s.", network->filename);
+        else
+                log_link_info(link, "Unmanaging interface.");
 
         /* Dropping old .network file */
         r = link_stop_engines(link, false);
@@ -1268,6 +1267,11 @@ static int link_reconfigure_impl(Link *link, bool force) {
         link_free_engines(link);
         link->network = network_unref(link->network);
         link_unref(set_remove(link->manager->links_requesting_uuid, link));
+
+        if (!network) {
+                link_set_state(link, LINK_STATE_UNMANAGED);
+                return 0;
+        }
 
         /* Then, apply new .network file */
         link->network = network_ref(network);
