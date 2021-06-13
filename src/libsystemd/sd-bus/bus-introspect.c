@@ -159,19 +159,15 @@ static void introspect_write_flags(struct introspect *i, int type, uint64_t flag
 /* Note that "names" is both an input and an output parameter. It initially points to the first argument name in a
    NULL-separated list of strings, and is then advanced with each argument, and the resulting pointer is returned. */
 static int introspect_write_arguments(struct introspect *i, const char *signature, const char **names, const char *direction) {
-        int r;
-
         for (;;) {
-                size_t l;
-
                 if (!*signature)
                         return 0;
 
-                r = signature_element_length(signature, &l);
-                if (r < 0)
-                        return r;
+                int l = signature_element_length(signature);
+                if (l < 0)
+                        return l;
 
-                fprintf(i->f, "   <arg type=\"%.*s\"", (int) l, signature);
+                fprintf(i->f, "   <arg type=\"%.*s\"", l, signature);
 
                 if (**names != '\0') {
                         fprintf(i->f, " name=\"%s\"", *names);

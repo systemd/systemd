@@ -1696,19 +1696,15 @@ typedef enum {
 } names_flags;
 
 static bool names_are_valid(const char *signature, const char **names, names_flags *flags) {
-        int r;
-
         if ((*flags & NAMES_FIRST_PART || *flags & NAMES_SINGLE_PART) && **names != '\0')
                 *flags |= NAMES_PRESENT;
 
         for (;*flags & NAMES_PRESENT;) {
-                size_t l;
-
                 if (!*signature)
                         break;
 
-                r = signature_element_length(signature, &l);
-                if (r < 0)
+                int l = signature_element_length(signature);
+                if (l < 0)
                         return false;
 
                 if (**names != '\0') {

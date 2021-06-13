@@ -1547,15 +1547,15 @@ static int message_append_cmdline(sd_bus_message *m, const char *signature, char
 
                 case SD_BUS_TYPE_ARRAY: {
                         uint32_t n;
-                        size_t k;
+                        int k;
 
                         r = safe_atou32(v, &n);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to parse '%s' number of array entries: %m", v);
 
-                        r = signature_element_length(signature, &k);
-                        if (r < 0)
-                                return log_error_errno(r, "Invalid array signature: %m");
+                        k = signature_element_length(signature);
+                        if (k < 0)
+                                return log_error_errno(k, "Invalid array signature: %m");
 
                         {
                                 char s[k + 1];
@@ -1593,14 +1593,14 @@ static int message_append_cmdline(sd_bus_message *m, const char *signature, char
 
                 case SD_BUS_TYPE_STRUCT_BEGIN:
                 case SD_BUS_TYPE_DICT_ENTRY_BEGIN: {
-                        size_t k;
+                        int k;
 
                         signature--;
                         p--;
 
-                        r = signature_element_length(signature, &k);
-                        if (r < 0)
-                                return log_error_errno(r, "Invalid struct/dict entry signature: %m");
+                        k = signature_element_length(signature);
+                        if (k < 0)
+                                return log_error_errno(k, "Invalid struct/dict entry signature: %m");
 
                         {
                                 char s[k-1];

@@ -40,8 +40,7 @@ static void *adjust_pointer(const void *p, void *old_base, size_t sz, void *new_
         return (uint8_t*) new_base + ((uint8_t*) p - (uint8_t*) old_base);
 }
 
-static void message_free_part(sd_bus_message *m, struct bus_body_part *part) {
-        assert(m);
+static void part_free(struct bus_body_part *part, bool free_part) {
         assert(part);
 
         if (part->memfd >= 0) {
@@ -63,7 +62,7 @@ static void message_free_part(sd_bus_message *m, struct bus_body_part *part) {
                         free(part->data);
         }
 
-        if (part != &m->body)
+        if (free_part)
                 free(part);
 }
 
@@ -75,7 +74,7 @@ static void message_reset_parts(sd_bus_message *m) {
         part = &m->body;
         while (m->n_body_parts > 0) {
                 struct bus_body_part *next = part->next;
-                message_free_part(m, part);
+                part_free(part, part != &m->body);
                 part = next;
                 m->n_body_parts--;
         }
@@ -2149,11 +2148,11 @@ static int bus_message_close_struct(sd_bus_message *m, struct bus_container *c, 
 
         p = strempty(c->signature);
         while (*p != 0) {
-                size_t n;
+                int n;
 
-                r = signature_element_length(p, &n);
-                if (r < 0)
-                        return r;
+                n = signature_element_length(p);
+                if (n < 0)
+                        return n;
                 else {
                         char t[n+1];
 
@@ -2220,11 +2219,11 @@ static int bus_message_close_struct(sd_bus_message *m, struct bus_container *c, 
                 p = strempty(c->signature);
                 for (i = 0, j = 0; i < c->n_offsets; i++) {
                         unsigned k;
-                        size_t n;
+                        int n;
 
-                        r = signature_element_length(p, &n);
-                        if (r < 0)
-                                return r;
+                        n = signature_element_length(p);
+                        if (n < 0)
+                                return n;
                         else {
                                 char t[n+1];
 
@@ -2426,11 +2425,11 @@ _public_ int sd_bus_message_appendv(
                 }
 
                 case SD_BUS_TYPE_ARRAY: {
-                        size_t k;
+                        int k;
 
-                        r = signature_element_length(t + 1, &k);
-                        if (r < 0)
-                                return r;
+                        k = signature_element_length(t + 1);
+                        if (k < 0)
+                                return k;
 
                         {
                                 char s[k + 1];
@@ -2482,11 +2481,11 @@ _public_ int sd_bus_message_appendv(
 
                 case SD_BUS_TYPE_STRUCT_BEGIN:
                 case SD_BUS_TYPE_DICT_ENTRY_BEGIN: {
-                        size_t k;
+                        int k;
 
-                        r = signature_element_length(t, &k);
-                        if (r < 0)
-                                return r;
+                        k = signature_element_length(t);
+                        if (k < 0)
+                                return k;
 
                         {
                                 char s[k - 1];
@@ -3172,8 +3171,6 @@ static struct bus_body_part* find_part(sd_bus_message *m, size_t index, size_t s
 }
 
 static int container_next_item(sd_bus_message *m, struct bus_container *c, size_t *rindex) {
-        int r;
-
         assert(m);
         assert(c);
         assert(rindex);
@@ -3214,24 +3211,22 @@ static int container_next_item(sd_bus_message *m, struct bus_container *c, size_
                 c->offset_index++;
 
         } else if (IN_SET(c->enclosing, 0, SD_BUS_TYPE_STRUCT, SD_BUS_TYPE_DICT_ENTRY)) {
-
-                int alignment;
-                size_t n, j;
+                int alignment, n, k;
 
                 if (c->offset_index+1 >= c->n_offsets)
                         goto end;
 
-                r = signature_element_length(c->signature + c->index, &n);
-                if (r < 0)
-                        return r;
+                n = signature_element_length(c->signature + c->index);
+                if (n < 0)
+                        return n;
 
-                r = signature_element_length(c->signature + c->index + n, &j);
-                if (r < 0)
-                        return r;
+                k = signature_element_length(c->signature + c->index + n);
+                if (k < 0)
+                        return k;
                 else {
-                        char t[j+1];
-                        memcpy(t, c->signature + c->index + n, j);
-                        t[j] = 0;
+                        char t[k+1];
+                        memcpy(t, c->signature + c->index + n, k);
+                        t[k] = 0;
 
                         alignment = bus_gvariant_get_alignment(t);
                 }
@@ -3843,23 +3838,14 @@ static int build_struct_offsets(
 
         p = signature;
         while (*p != 0) {
-                size_t n;
+                int n;
+                bool fixed_size;
 
-                r = signature_element_length(p, &n);
-                if (r < 0)
-                        return r;
-                else {
-                        char t[n+1];
+                n = signature_element_length_full(p, &fixed_size, NULL, NULL);
+                if (n < 0)
+                        return n;
 
-                        memcpy(t, p, n);
-                        t[n] = 0;
-
-                        r = bus_gvariant_is_fixed_size(t);
-                }
-
-                if (r < 0)
-                        return r;
-                if (r == 0 && p[n] != 0) /* except the last item */
+                if (!fixed_size && p[n] != 0) /* except the last item */
                         n_variable++;
                 n_total++;
 
@@ -3886,51 +3872,43 @@ static int build_struct_offsets(
         p = signature;
         previous = m->rindex;
         while (*p != 0) {
-                size_t n, offset;
-                int k;
+                int n, align, length;
+                size_t offset;
 
-                r = signature_element_length(p, &n);
-                if (r < 0)
-                        return r;
-                else {
-                        char t[n+1];
+                n = signature_element_length_full(p, NULL, &align, &length);
+                if (n < 0)
+                        return n;
 
-                        memcpy(t, p, n);
-                        t[n] = 0;
+                assert(align > 0);
 
-                        size_t align = bus_gvariant_get_alignment(t);
-                        assert(align > 0);
+                /* The possible start of this member after including alignment */
+                size_t start = ALIGN_TO(previous, align);
 
-                        /* The possible start of this member after including alignment */
-                        size_t start = ALIGN_TO(previous, align);
+                if (length > 0) {
+                        /* Fixed size */
+                        offset = start + length;
+                } else {
+                        size_t x;
 
-                        k = bus_gvariant_get_size(t);
-                        if (k < 0) {
-                                size_t x;
+                        /* Variable size */
+                        if (v > 0) {
+                                v--;
 
-                                /* Variable size */
-                                if (v > 0) {
-                                        v--;
-
-                                        x = bus_gvariant_read_word_le((uint8_t*) q + v*sz, sz);
-                                        if (x >= size)
-                                                return -EBADMSG;
-                                } else
-                                        /* The last item's end is determined
-                                         * from the start of the offset array */
-                                        x = size - (n_variable * sz);
-
-                                offset = m->rindex + x;
-                                if (offset < start)
-                                        return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG),
-                                                               "For type %s with alignment %zu, message specifies offset %zu which is smaller than previous end %zu + alignment = %zu",
-                                                               t, align,
-                                                               offset,
-                                                               previous,
-                                                               start);
+                                x = bus_gvariant_read_word_le((uint8_t*) q + v*sz, sz);
+                                if (x >= size)
+                                        return -EBADMSG;
                         } else
-                                /* Fixed size */
-                                offset = start + k;
+                                /* The last item's end is determined
+                                 * from the start of the offset array */
+                                x = size - (n_variable * sz);
+
+                        offset = m->rindex + x;
+                        if (offset < start)
+                                return log_debug_errno(
+                                                SYNTHETIC_ERRNO(EBADMSG),
+                                                "For type %.*s with alignment %d, message specifies offset %zu which is smaller than previous end %zu + alignment = %zu",
+                                                n, p, align,
+                                                offset, previous, start);
                 }
 
                 previous = (*offsets)[(*n_offsets)++] = offset;
@@ -4253,11 +4231,11 @@ _public_ int sd_bus_message_peek_type(sd_bus_message *m, char *type, const char 
         if (c->signature[c->index] == SD_BUS_TYPE_ARRAY) {
 
                 if (contents) {
-                        size_t l;
+                        int l;
 
-                        r = signature_element_length(c->signature+c->index+1, &l);
-                        if (r < 0)
-                                return r;
+                        l = signature_element_length(c->signature + c->index + 1);
+                        if (l < 0)
+                                return l;
 
                         /* signature_element_length does verification internally */
 
@@ -4279,11 +4257,11 @@ _public_ int sd_bus_message_peek_type(sd_bus_message *m, char *type, const char 
         if (IN_SET(c->signature[c->index], SD_BUS_TYPE_STRUCT_BEGIN, SD_BUS_TYPE_DICT_ENTRY_BEGIN)) {
 
                 if (contents) {
-                        size_t l;
+                        int l;
 
-                        r = signature_element_length(c->signature+c->index, &l);
-                        if (r < 0)
-                                return r;
+                        l = signature_element_length(c->signature+c->index);
+                        if (l < 0)
+                                return l;
 
                         assert(l >= 3);
                         if (free_and_strndup(&c->peeked_signature,
@@ -4489,11 +4467,11 @@ _public_ int sd_bus_message_readv(
                 }
 
                 case SD_BUS_TYPE_ARRAY: {
-                        size_t k;
+                        int k;
 
-                        r = signature_element_length(t + 1, &k);
-                        if (r < 0)
-                                return r;
+                        k = signature_element_length(t + 1);
+                        if (k < 0)
+                                return k;
 
                         {
                                 char s[k + 1];
@@ -4557,11 +4535,11 @@ _public_ int sd_bus_message_readv(
 
                 case SD_BUS_TYPE_STRUCT_BEGIN:
                 case SD_BUS_TYPE_DICT_ENTRY_BEGIN: {
-                        size_t k;
+                        int k;
 
-                        r = signature_element_length(t, &k);
-                        if (r < 0)
-                                return r;
+                        k = signature_element_length(t);
+                        if (k < 0)
+                                return k;
 
                         {
                                 char s[k - 1];
@@ -4622,7 +4600,6 @@ _public_ int sd_bus_message_skip(sd_bus_message *m, const char *types) {
         /* If types is NULL, read exactly one element */
         if (!types) {
                 struct bus_container *c;
-                size_t l;
 
                 if (message_end_of_signature(m))
                         return -ENXIO;
@@ -4632,9 +4609,9 @@ _public_ int sd_bus_message_skip(sd_bus_message *m, const char *types) {
 
                 c = message_get_last_container(m);
 
-                r = signature_element_length(c->signature + c->index, &l);
-                if (r < 0)
-                        return r;
+                int l = signature_element_length(c->signature + c->index);
+                if (l < 0)
+                        return l;
 
                 types = strndupa(c->signature + c->index, l);
         }
@@ -4669,11 +4646,11 @@ _public_ int sd_bus_message_skip(sd_bus_message *m, const char *types) {
                 return 1;
 
         case SD_BUS_TYPE_ARRAY: {
-                size_t k;
+                int k;
 
-                r = signature_element_length(types + 1, &k);
-                if (r < 0)
-                        return r;
+                k = signature_element_length(types + 1);
+                if (k < 0)
+                        return k;
 
                 {
                         char s[k+1];
@@ -4737,11 +4714,11 @@ _public_ int sd_bus_message_skip(sd_bus_message *m, const char *types) {
 
         case SD_BUS_TYPE_STRUCT_BEGIN:
         case SD_BUS_TYPE_DICT_ENTRY_BEGIN: {
-                size_t k;
+                int k;
 
-                r = signature_element_length(types, &k);
-                if (r < 0)
-                        return r;
+                k = signature_element_length(types);
+                if (k < 0)
+                        return k;
 
                 {
                         char s[k-1];
@@ -5029,7 +5006,6 @@ static int message_skip_fields(
 
         for (;;) {
                 char t;
-                size_t l;
 
                 if (array_size != UINT32_MAX &&
                     array_size <= *ri - original_index)
@@ -5077,10 +5053,11 @@ static int message_skip_fields(
                         (*signature)++;
 
                 } else if (t == SD_BUS_TYPE_ARRAY) {
+                        int l;
 
-                        r = signature_element_length(*signature + 1, &l);
-                        if (r < 0)
-                                return r;
+                        l = signature_element_length(*signature + 1);
+                        if (l < 0)
+                                return l;
 
                         assert(l >= 1);
                         {
@@ -5126,8 +5103,9 @@ static int message_skip_fields(
                         (*signature)++;
 
                 } else if (IN_SET(t, SD_BUS_TYPE_STRUCT, SD_BUS_TYPE_DICT_ENTRY)) {
+                        int l;
 
-                        r = signature_element_length(*signature, &l);
+                        l = signature_element_length(*signature);
                         if (r < 0)
                                 return r;
 

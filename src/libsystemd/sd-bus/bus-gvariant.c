@@ -10,85 +10,21 @@
 #include "bus-type.h"
 
 int bus_gvariant_get_size(const char *signature) {
-        const char *p;
         int sum = 0, r;
 
         /* For fixed size structs. Fails for variable size structs. */
 
-        p = signature;
-        while (*p != 0) {
-                size_t n;
+        for (const char *p = signature; *p; ) {
+                int n, alignment, size;
 
-                r = signature_element_length(p, &n);
-                if (r < 0)
-                        return r;
-                else {
-                        char t[n+1];
+                n = signature_element_length_full(p, NULL, &alignment, &size);
+                if (n < 0)
+                        return n;
+                if (size < 0)
+                        return size;
 
-                        memcpy(t, p, n);
-                        t[n] = 0;
-
-                        r = bus_gvariant_get_alignment(t);
-                        if (r < 0)
-                                return r;
-
-                        sum = ALIGN_TO(sum, r);
-                }
-
-                switch (*p) {
-
-                case SD_BUS_TYPE_BOOLEAN:
-                case SD_BUS_TYPE_BYTE:
-                        sum += 1;
-                        break;
-
-                case SD_BUS_TYPE_INT16:
-                case SD_BUS_TYPE_UINT16:
-                        sum += 2;
-                        break;
-
-                case SD_BUS_TYPE_INT32:
-                case SD_BUS_TYPE_UINT32:
-                case SD_BUS_TYPE_UNIX_FD:
-                        sum += 4;
-                        break;
-
-                case SD_BUS_TYPE_INT64:
-                case SD_BUS_TYPE_UINT64:
-                case SD_BUS_TYPE_DOUBLE:
-                        sum += 8;
-                        break;
-
-                case SD_BUS_TYPE_STRUCT_BEGIN:
-                case SD_BUS_TYPE_DICT_ENTRY_BEGIN: {
-                        if (n == 2) {
-                                /* unary type () has fixed size of 1 */
-                                r = 1;
-                        } else {
-                                char t[n-1];
-
-                                memcpy(t, p + 1, n - 2);
-                                t[n - 2] = 0;
-
-                                r = bus_gvariant_get_size(t);
-                                if (r < 0)
-                                        return r;
-                        }
-
-                        sum += r;
-                        break;
-                }
-
-                case SD_BUS_TYPE_STRING:
-                case SD_BUS_TYPE_OBJECT_PATH:
-                case SD_BUS_TYPE_SIGNATURE:
-                case SD_BUS_TYPE_ARRAY:
-                case SD_BUS_TYPE_VARIANT:
-                        return -EINVAL;
-
-                default:
-                        assert_not_reached("Unknown signature type");
-                }
+                sum = ALIGN_TO(sum, alignment);
+                sum += size;
 
                 p += n;
         }
@@ -101,78 +37,16 @@ int bus_gvariant_get_size(const char *signature) {
 }
 
 int bus_gvariant_get_alignment(const char *signature) {
-        size_t alignment = 1;
-        const char *p;
-        int r;
+        int alignment = 1;
 
-        p = signature;
-        while (*p != 0 && alignment < 8) {
-                size_t n;
-                int a;
+        for (const char *p = signature; *p && alignment < 8; ) {
+                int alignment_nested, n;
 
-                r = signature_element_length(p, &n);
-                if (r < 0)
-                        return r;
+                n = signature_element_length_full(p, NULL, &alignment_nested, NULL);
+                if (n < 0)
+                        return n;
 
-                switch (*p) {
-
-                case SD_BUS_TYPE_BYTE:
-                case SD_BUS_TYPE_BOOLEAN:
-                case SD_BUS_TYPE_STRING:
-                case SD_BUS_TYPE_OBJECT_PATH:
-                case SD_BUS_TYPE_SIGNATURE:
-                        a = 1;
-                        break;
-
-                case SD_BUS_TYPE_INT16:
-                case SD_BUS_TYPE_UINT16:
-                        a = 2;
-                        break;
-
-                case SD_BUS_TYPE_INT32:
-                case SD_BUS_TYPE_UINT32:
-                case SD_BUS_TYPE_UNIX_FD:
-                        a = 4;
-                        break;
-
-                case SD_BUS_TYPE_INT64:
-                case SD_BUS_TYPE_UINT64:
-                case SD_BUS_TYPE_DOUBLE:
-                case SD_BUS_TYPE_VARIANT:
-                        a = 8;
-                        break;
-
-                case SD_BUS_TYPE_ARRAY: {
-                        char t[n];
-
-                        memcpy(t, p + 1, n - 1);
-                        t[n - 1] = 0;
-
-                        a = bus_gvariant_get_alignment(t);
-                        break;
-                }
-
-                case SD_BUS_TYPE_STRUCT_BEGIN:
-                case SD_BUS_TYPE_DICT_ENTRY_BEGIN: {
-                        char t[n-1];
-
-                        memcpy(t, p + 1, n - 2);
-                        t[n - 2] = 0;
-
-                        a = bus_gvariant_get_alignment(t);
-                        break;
-                }
-
-                default:
-                        assert_not_reached("Unknown signature type");
-                }
-
-                if (a < 0)
-                        return a;
-
-                assert(a > 0 && a <= 8);
-                if ((size_t) a > alignment)
-                        alignment = (size_t) a;
+                alignment = MAX(alignment, alignment_nested);
 
                 p += n;
         }
@@ -181,56 +55,17 @@ int bus_gvariant_get_alignment(const char *signature) {
 }
 
 int bus_gvariant_is_fixed_size(const char *signature) {
-        const char *p;
-        int r;
-
         assert(signature);
 
-        p = signature;
-        while (*p != 0) {
-                size_t n;
+        for (const char *p = signature; *p; ) {
+                int n;
+                bool fixed;
 
-                r = signature_element_length(p, &n);
-                if (r < 0)
-                        return r;
-
-                switch (*p) {
-
-                case SD_BUS_TYPE_STRING:
-                case SD_BUS_TYPE_OBJECT_PATH:
-                case SD_BUS_TYPE_SIGNATURE:
-                case SD_BUS_TYPE_ARRAY:
-                case SD_BUS_TYPE_VARIANT:
-                        return 0;
-
-                case SD_BUS_TYPE_BYTE:
-                case SD_BUS_TYPE_BOOLEAN:
-                case SD_BUS_TYPE_INT16:
-                case SD_BUS_TYPE_UINT16:
-                case SD_BUS_TYPE_INT32:
-                case SD_BUS_TYPE_UINT32:
-                case SD_BUS_TYPE_UNIX_FD:
-                case SD_BUS_TYPE_INT64:
-                case SD_BUS_TYPE_UINT64:
-                case SD_BUS_TYPE_DOUBLE:
-                        break;
-
-                case SD_BUS_TYPE_STRUCT_BEGIN:
-                case SD_BUS_TYPE_DICT_ENTRY_BEGIN: {
-                        char t[n-1];
-
-                        memcpy(t, p + 1, n - 2);
-                        t[n - 2] = 0;
-
-                        r = bus_gvariant_is_fixed_size(t);
-                        if (r <= 0)
-                                return r;
-                        break;
-                }
-
-                default:
-                        assert_not_reached("Unknown signature type");
-                }
+                n = signature_element_length_full(p, &fixed, NULL, NULL);
+                if (n < 0)
+                        return n;
+                if (!fixed)
+                        return false;
 
                 p += n;
         }
