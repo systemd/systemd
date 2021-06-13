@@ -25,6 +25,7 @@
 #include "netdevsim.h"
 #include "netlink-util.h"
 #include "networkd-manager.h"
+#include "networkd-setlink.h"
 #include "networkd-queue.h"
 #include "nlmon.h"
 #include "path-lookup.h"
@@ -550,7 +551,7 @@ static bool netdev_is_ready_to_create(NetDev *netdev, Link *link) {
         req = (Request) {
                 .link = link,
                 .type = REQUEST_TYPE_SET_LINK,
-                .set_link_operation = SET_LINK_MTU,
+                .object = INT_TO_PTR(SET_LINK_MTU),
         };
 
         if (ordered_set_contains(link->manager->request_queue, &req))

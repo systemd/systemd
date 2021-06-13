@@ -11,6 +11,7 @@
 #include "networkd-nexthop.h"
 #include "networkd-route.h"
 #include "networkd-routing-policy-rule.h"
+#include "networkd-setlink.h"
 #include "networkd-queue.h"
 
 static void request_free_object(RequestType type, void *object) {
