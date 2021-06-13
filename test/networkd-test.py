@@ -42,6 +42,11 @@ tmpmounts = []
 running_units = []
 stopped_units = []
 
+def check_output(*command, **kwargs):
+    # This replaces both check_output and check_call (output can be ignored)
+    command = command[0].split() + list(command[1:])
+    return subprocess.check_output(command, universal_newlines=True, **kwargs).rstrip()
+
 def call(*command, **kwargs):
     command = command[0].split() + list(command[1:])
     return subprocess.call(command, universal_newlines=True, **kwargs)
@@ -104,6 +109,13 @@ def setUpModule():
     # Ensure the unit directory exists so tests can dump files into it.
     os.makedirs(NETWORK_UNITDIR, exist_ok=True)
 
+    drop_in = [
+        '[Service]',
+        'Environment=SYSTEMD_LOG_LEVEL=debug',
+    ]
+    os.makedirs('/run/systemd/system/systemd-networkd.service.d', exist_ok=True)
+    with open('/run/systemd/system/systemd-networkd.service.d/00-override.conf', mode='w') as f:
+        f.write('\n'.join(drop_in))
 
 def tearDownModule():
     global tmpmounts
@@ -257,6 +269,8 @@ Gateway=192.168.250.1
             port1='managed',
             port2='managed',
             mybridge='managed')
+        invocation_id = check_output('systemctl show systemd-networkd -p InvocationID --value')
+        print(check_output('journalctl _SYSTEMD_INVOCATION_ID=' + invocation_id))
 
     @expectedFailureIfBridgePortNotFound()
     def test_bridge_port_priority(self):
