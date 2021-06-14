@@ -55,7 +55,7 @@ _udevadm() {
         [TRIGGER_ARG]='-t --type -c --action -s --subsystem-match -S --subsystem-nomatch
                        -a --attr-match -A --attr-nomatch -p --property-match
                        -g --tag-match -y --sysname-match --name-match -b --parent-match
-                       --prioritized-subsystem'
+                       --prioritized-subsystem --initialized'
         [SETTLE]='-t --timeout -E --exit-if-exists'
         [CONTROL_STANDALONE]='-e --exit -s --stop-exec-queue -S --start-exec-queue -R --reload --ping'
         [CONTROL_ARG]='-l --log-priority -p --property -m --children-max -t --timeout'
@@ -130,6 +130,8 @@ _udevadm() {
                     --name-match)
                         comps=$( __get_all_devs )
                         ;;
+                    --initialized)
+                        comps='yes no'
                     *)
                         comps=''
                         ;;
