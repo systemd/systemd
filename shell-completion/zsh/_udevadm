@@ -35,7 +35,8 @@ _udevadm_trigger(){
         '--sysname-match=[Trigger events for devices with a matching sys device name.]' \
         '--parent-match=[Trigger events for all children of a given device.]' \
         '--uuid[Print synthetic uevent UUID.]' \
-        '--prioritized-subsystem=[Trigger events for devices which belong to a matching subsystem earlier.]'
+        '--prioritized-subsystem=[Trigger events for devices which belong to a matching subsystem earlier.]' \
+        '--initialized=[Trigger events for devices with/without a udev db entry]:boolean:(yes no)'
 }
 
 (( $+functions[_udevadm_settle] )) ||
