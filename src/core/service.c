@@ -758,12 +758,13 @@ static int service_load(Unit *u) {
         if (u->load_state != UNIT_LOADED)
                 return 0;
 
-        /* This is a new unit? Then let's add in some extras */
-        r = service_add_extras(s);
+        /* This is a new unit? Then let's verify it and add some extras. */
+
+        r = service_verify(s);
         if (r < 0)
                 return r;
 
-        return service_verify(s);
+        return service_add_extras(s);
 }
 
 static void service_dump(Unit *u, FILE *f, const char *prefix) {
