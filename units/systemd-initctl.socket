@@ -9,7 +9,7 @@
 
 [Unit]
 Description=initctl Compatibility Named Pipe
-Documentation=man:systemd-initctl.service(8)
+Documentation=man:systemd-initctl.socket(8)
 DefaultDependencies=no
 Before=sockets.target
 
