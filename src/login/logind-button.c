@@ -117,6 +117,41 @@ static int button_install_check_event_source(Button *b) {
         return sd_event_source_set_priority(b->check_event_source, SD_EVENT_PRIORITY_IDLE+1);
 }
 
+static int longpress_of_reboot_key_handler(sd_event_source *e, uint64_t usec, void *userdata) {
+        Manager *m = userdata;
+
+        assert(e);
+        assert(m);
+
+        m->reboot_key_longpress_event_source = sd_event_source_unref(m->reboot_key_longpress_event_source);
+
+        log_struct(LOG_INFO,
+                   LOG_MESSAGE("Reboot key long press detected."),
+                   "MESSAGE_ID=" SD_MESSAGE_REBOOT_KEY_LONGPRESS_STR);
+
+        manager_handle_action(m, INHIBIT_HANDLE_REBOOT_KEY, m->handle_reboot_key_longpress, m->reboot_key_ignore_inhibited, true);
+        return 0;
+}
+
+static int start_longpress_of_reboot_key(Manager *m) {
+        int r = 0;
+        usec_t until = usec_add(now(CLOCK_MONOTONIC), m->longpress_duration);
+
+        assert(m);
+
+        if (until <= now(CLOCK_MONOTONIC))
+                return 0;
+        if (!m->reboot_key_longpress_event_source)
+                r = sd_event_add_time(
+                                m->event,
+                                &m->reboot_key_longpress_event_source,
+                                CLOCK_MONOTONIC,
+                                until, 0,
+                                longpress_of_reboot_key_handler, m);
+
+        return r;
+}
+
 static int button_dispatch(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
         Button *b = userdata;
         struct input_event ev;
@@ -155,7 +190,10 @@ static int button_dispatch(sd_event_source *s, int fd, uint32_t revents, void *u
                                    LOG_MESSAGE("Reboot key pressed."),
                                    "MESSAGE_ID=" SD_MESSAGE_REBOOT_KEY_STR);
 
-                        manager_handle_action(b->manager, INHIBIT_HANDLE_REBOOT_KEY, b->manager->handle_reboot_key, b->manager->reboot_key_ignore_inhibited, true);
+                        if (b->manager->handle_reboot_key_longpress != HANDLE_IGNORE)
+                                start_longpress_of_reboot_key(b->manager);
+                        else
+                                manager_handle_action(b->manager, INHIBIT_HANDLE_REBOOT_KEY, b->manager->handle_reboot_key, b->manager->reboot_key_ignore_inhibited, true);
                         break;
 
                 /* The kernel naming is a bit confusing here:
@@ -179,6 +217,19 @@ static int button_dispatch(sd_event_source *s, int fd, uint32_t revents, void *u
 
                         manager_handle_action(b->manager, INHIBIT_HANDLE_HIBERNATE_KEY, b->manager->handle_hibernate_key, b->manager->hibernate_key_ignore_inhibited, true);
                         break;
+                }
+
+        } else if (ev.type == EV_KEY && ev.value == 0) {
+                if (ev.code == KEY_RESTART) {
+                        log_struct(LOG_INFO,
+                                   LOG_MESSAGE("Reboot key released."),
+                                   "MESSAGE_ID=" SD_MESSAGE_REBOOT_KEY_RELEASE_STR);
+
+                        if (b->manager->reboot_key_longpress_event_source) {
+                                b->manager->reboot_key_longpress_event_source = sd_event_source_unref(b->manager->reboot_key_longpress_event_source);
+
+                                manager_handle_action(b->manager, INHIBIT_HANDLE_REBOOT_KEY, b->manager->handle_reboot_key, b->manager->reboot_key_ignore_inhibited, true);
+                        }
                 }
 
         } else if (ev.type == EV_SW && ev.value > 0) {
