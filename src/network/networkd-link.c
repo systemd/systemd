@@ -2038,6 +2038,8 @@ static int link_update_mtu(Link *link, sd_netlink_message *message) {
                 return 0;
         if (r < 0)
                 return log_link_debug_errno(link, r, "rtnl: failed to read MTU in RTM_NEWLINK message: %m");
+        if (mtu == 0)
+                return 0;
 
         r = sd_netlink_message_read_u32(message, IFLA_MIN_MTU, &min_mtu);
         if (r < 0 && r != -ENODATA)
@@ -2046,9 +2048,6 @@ static int link_update_mtu(Link *link, sd_netlink_message *message) {
         r = sd_netlink_message_read_u32(message, IFLA_MAX_MTU, &max_mtu);
         if (r < 0 && r != -ENODATA)
                 return log_link_debug_errno(link, r, "rtnl: failed to read maximum MTU in RTM_NEWLINK message: %m");
-
-        if (mtu == 0)
-                return 0;
 
         if (max_mtu == 0)
                 max_mtu = UINT32_MAX;
@@ -2065,8 +2064,9 @@ static int link_update_mtu(Link *link, sd_netlink_message *message) {
         if (link->mtu == mtu)
                 return 0;
 
-        log_link_debug(link, "MTU is changed: %"PRIu32" → %"PRIu32" (min: %"PRIu32", max: %"PRIu32")",
-                       link->mtu, mtu, link->min_mtu, link->max_mtu);
+        if (link->mtu != 0)
+                log_link_debug(link, "MTU is changed: %"PRIu32" → %"PRIu32" (min: %"PRIu32", max: %"PRIu32")",
+                               link->mtu, mtu, link->min_mtu, link->max_mtu);
 
         link->mtu = mtu;
 
