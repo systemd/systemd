@@ -14,7 +14,6 @@
 #include "networkd-manager-bus.h"
 #include "networkd-manager.h"
 #include "path-util.h"
-#include "socket-netlink.h"
 #include "strv.h"
 #include "user-util.h"
 
@@ -60,19 +59,14 @@ static int method_get_link_by_name(sd_bus_message *message, void *userdata, sd_b
         _cleanup_free_ char *path = NULL;
         Manager *manager = userdata;
         const char *name;
-        int index, r;
         Link *link;
+        int r;
 
         r = sd_bus_message_read(message, "s", &name);
         if (r < 0)
                 return r;
 
-        index = resolve_ifname(&manager->rtnl, name);
-        if (index < 0)
-                return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_LINK, "Link %s cannot be resolved", name);
-
-        link = hashmap_get(manager->links, INT_TO_PTR(index));
-        if (!link)
+        if (link_get_by_name(manager, name, &link) < 0)
                 return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_LINK, "Link %s not known", name);
 
         r = sd_bus_message_new_method_return(message, &reply);
