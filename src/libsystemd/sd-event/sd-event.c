@@ -168,10 +168,9 @@ static int pending_prioq_compare(const void *a, const void *b) {
         assert(y->pending);
 
         /* Enabled ones first */
-        if (x->enabled != SD_EVENT_OFF && y->enabled == SD_EVENT_OFF)
-                return -1;
-        if (x->enabled == SD_EVENT_OFF && y->enabled != SD_EVENT_OFF)
-                return 1;
+        r = CMP(x->enabled == SD_EVENT_OFF, y->enabled == SD_EVENT_OFF);
+        if (r != 0)
+                return r;
 
         /* Non rate-limited ones first. */
         r = CMP(!!x->ratelimited, !!y->ratelimited);
@@ -195,10 +194,9 @@ static int prepare_prioq_compare(const void *a, const void *b) {
         assert(y->prepare);
 
         /* Enabled ones first */
-        if (x->enabled != SD_EVENT_OFF && y->enabled == SD_EVENT_OFF)
-                return -1;
-        if (x->enabled == SD_EVENT_OFF && y->enabled != SD_EVENT_OFF)
-                return 1;
+        r = CMP(x->enabled == SD_EVENT_OFF, y->enabled == SD_EVENT_OFF);
+        if (r != 0)
+                return r;
 
         /* Non rate-limited ones first. */
         r = CMP(!!x->ratelimited, !!y->ratelimited);
@@ -265,18 +263,17 @@ static bool event_source_timer_candidate(const sd_event_source *s) {
 
 static int time_prioq_compare(const void *a, const void *b, usec_t (*time_func)(const sd_event_source *s)) {
         const sd_event_source *x = a, *y = b;
+        int r;
 
         /* Enabled ones first */
-        if (x->enabled != SD_EVENT_OFF && y->enabled == SD_EVENT_OFF)
-                return -1;
-        if (x->enabled == SD_EVENT_OFF && y->enabled != SD_EVENT_OFF)
-                return 1;
+        r = CMP(x->enabled == SD_EVENT_OFF, y->enabled == SD_EVENT_OFF);
+        if (r != 0)
+                return r;
 
         /* Order "non-pending OR ratelimited" before "pending AND not-ratelimited" */
-        if (event_source_timer_candidate(x) && !event_source_timer_candidate(y))
-                return -1;
-        if (!event_source_timer_candidate(x) && event_source_timer_candidate(y))
-                return 1;
+        r = CMP(!event_source_timer_candidate(x), !event_source_timer_candidate(y));
+        if (r != 0)
+                return r;
 
         /* Order by time */
         return CMP(time_func(x), time_func(y));
@@ -292,15 +289,15 @@ static int latest_time_prioq_compare(const void *a, const void *b) {
 
 static int exit_prioq_compare(const void *a, const void *b) {
         const sd_event_source *x = a, *y = b;
+        int r;
 
         assert(x->type == SOURCE_EXIT);
         assert(y->type == SOURCE_EXIT);
 
         /* Enabled ones first */
-        if (x->enabled != SD_EVENT_OFF && y->enabled == SD_EVENT_OFF)
-                return -1;
-        if (x->enabled == SD_EVENT_OFF && y->enabled != SD_EVENT_OFF)
-                return 1;
+        r = CMP(x->enabled == SD_EVENT_OFF, y->enabled == SD_EVENT_OFF);
+        if (r != 0)
+                return r;
 
         /* Lower priority values first */
         return CMP(x->priority, y->priority);
