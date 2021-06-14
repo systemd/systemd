@@ -2819,17 +2819,15 @@ static int event_source_enter_ratelimited(sd_event_source *s) {
         if (EVENT_SOURCE_IS_TIME(s->type))
                 event_source_time_prioq_remove(s, event_get_clock_data(s->event, s->type));
 
+        /* And let's take the event source officially offline */
+        r = event_source_offline(s, s->enabled, /* ratelimited= */ true);
+        if (r < 0)
+                goto fail;
+
         /* Now, let's add the event source to the monotonic clock instead */
         r = event_source_time_prioq_put(s, &s->event->monotonic);
         if (r < 0)
                 goto fail;
-
-        /* And let's take the event source officially offline */
-        r = event_source_offline(s, s->enabled, /* ratelimited= */ true);
-        if (r < 0) {
-                event_source_time_prioq_remove(s, &s->event->monotonic);
-                goto fail;
-        }
 
         event_source_pp_prioq_reshuffle(s);
 
@@ -2856,13 +2854,6 @@ static int event_source_leave_ratelimit(sd_event_source *s) {
         /* Let's take the event source out of the monotonic prioq first. */
         event_source_time_prioq_remove(s, &s->event->monotonic);
 
-        /* Let's then add the event source to its native clock prioq again — if this is a timer event source */
-        if (EVENT_SOURCE_IS_TIME(s->type)) {
-                r = event_source_time_prioq_put(s, event_get_clock_data(s->event, s->type));
-                if (r < 0)
-                        goto fail;
-        }
-
         /* Let's try to take it online again.  */
         r = event_source_online(s, s->enabled, /* ratelimited= */ false);
         if (r < 0) {
@@ -2871,6 +2862,13 @@ static int event_source_leave_ratelimit(sd_event_source *s) {
                         event_source_time_prioq_remove(s, event_get_clock_data(s->event, s->type));
 
                 goto fail;
+        }
+
+        /* Let's then add the event source to its native clock prioq again — if this is a timer event source */
+        if (EVENT_SOURCE_IS_TIME(s->type)) {
+                r = event_source_time_prioq_put(s, event_get_clock_data(s->event, s->type));
+                if (r < 0)
+                        goto fail;
         }
 
         event_source_pp_prioq_reshuffle(s);
