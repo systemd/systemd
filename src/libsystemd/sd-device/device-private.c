@@ -1001,6 +1001,7 @@ int device_update_db(sd_device *device) {
 
         path = strjoina("/run/udev/data/", id);
 
+#if !UDEV_DB_STORE_ALL
         /* do not store anything for otherwise empty devices */
         if (!has_info && major(device->devnum) == 0 && device->ifindex == 0) {
                 r = unlink(path);
@@ -1009,6 +1010,7 @@ int device_update_db(sd_device *device) {
 
                 return 0;
         }
+#endif
 
         /* write a database file */
         r = mkdir_parents(path, 0755);
