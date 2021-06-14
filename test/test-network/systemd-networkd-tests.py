@@ -2044,7 +2044,7 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
             with self.subTest(carrier=carrier):
                 if carrier_map[carrier] != read_link_attr('test1', 'carrier'):
                     check_output(f'ip link set dev test1 carrier {carrier}')
-                self.wait_online([f'test1:{routable_map[carrier]}'])
+                self.wait_online([f'test1:{routable_map[carrier]}:{routable_map[carrier]}'])
 
                 output = check_output(*networkctl_cmd, '-n', '0', 'status', 'test1', env=env)
                 print(output)
@@ -2068,7 +2068,7 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
             with self.subTest(carrier=carrier, have_config=have_config):
                 if carrier_map[carrier] != read_link_attr('test1', 'carrier'):
                     check_output(f'ip link set dev test1 carrier {carrier}')
-                self.wait_online([f'test1:{routable_map[carrier]}'])
+                self.wait_online([f'test1:{routable_map[carrier]}:{routable_map[carrier]}'])
 
                 output = check_output(*networkctl_cmd, '-n', '0', 'status', 'test1', env=env)
                 print(output)
