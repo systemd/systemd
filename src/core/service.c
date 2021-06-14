@@ -668,7 +668,8 @@ static int service_setup_bus_name(Service *s) {
 
         assert(s);
 
-        if (s->type != SERVICE_DBUS)
+        /* If s->bus_name is not set, then the unit will be refused by service_verify() later. */
+        if (s->type != SERVICE_DBUS || !s->bus_name)
                 return 0;
 
         r = unit_add_dependency_by_name(UNIT(s), UNIT_REQUIRES, SPECIAL_DBUS_SOCKET, true, UNIT_DEPENDENCY_FILE);
