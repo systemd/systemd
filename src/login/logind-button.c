@@ -134,7 +134,7 @@ static int longpress_of_reboot_key_handler(sd_event_source *e, uint64_t usec, vo
 }
 
 static int start_longpress_of_reboot_key(Manager *m) {
-        int r;
+        int r = 0;
         usec_t until = usec_add(now(CLOCK_MONOTONIC), m->longpress_duration);
 
         assert(m);
