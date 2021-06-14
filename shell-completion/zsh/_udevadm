@@ -34,6 +34,8 @@ _udevadm_trigger(){
         '--tag-match=property[Trigger events for devices with a matching tag.]' \
         '--sysname-match=[Trigger events for devices with a matching sys device name.]' \
         '--parent-match=[Trigger events for all children of a given device.]' \
+        '--initialized-match[Trigger events for devices that are already initialized.]' \
+        '--initialized-nomatch[Trigger events for devices that are not initialized yet.]' \
         '--uuid[Print synthetic uevent UUID.]' \
         '--prioritized-subsystem=[Trigger events for devices which belong to a matching subsystem earlier.]'
 }

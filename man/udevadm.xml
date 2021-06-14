@@ -396,6 +396,35 @@
           </listitem>
         </varlistentry>
         <varlistentry>
+          <term><option>--initialized-match</option></term>
+          <term><option>--initialized-nomatch</option></term>
+          <listitem>
+            <para>When <option>--initialized-match</option> is specified, trigger events for devices
+            that are already initialized by <command>systemd-udevd</command>, and skip devices that
+            are not initialized yet.</para>
+            <para>When <option>--initialized-nomatch</option> is specified, trigger events for devices
+            that are not initialized by <command>systemd-udevd</command> yet, and skip devices that
+            are already initialized.</para>
+            <para>Here, initialized devices are those for which at least one udev rule already
+            completed execution – for any action but <literal>remove</literal> — that set a property
+            or other device setting (and thus has an entry in the udev device database). Devices are
+            no longer considered initialized if a <literal>remove</literal> action is seen for them
+            (which removes their entry in the udev device database). Note that devices that have no
+            udev rules are never considered initialized, but might still be announced via the sd-device
+            API (or similar). Typically, it is thus essential that applications which intend to use
+            such a match, make sure a suitable udev rule is installed that sets at least one property
+            on devices that shall be matched.</para>
+            <para>WARNING: <option>--initialized-nomatch</option> can potentially save a significant
+            amount of time compared to re-triggering all devices in the system and e.g. can be used to
+            optimize boot time. However, this is not safe to be used in a boot sequence in general.
+            Especially, when udev rules for a device depend on its parent devices (e.g.
+            <literal>ATTRS</literal> or <literal>IMPORT{parent}</literal> keys, see
+            <citerefentry><refentrytitle>udev</refentrytitle><manvolnum>7</manvolnum></citerefentry>
+            for more details), the final state of the device becomes easily unstable with this option.
+            </para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
           <term><option>-w</option></term>
           <term><option>--settle</option></term>
           <listitem>
