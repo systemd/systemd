@@ -1055,7 +1055,7 @@ static int link_configure(Link *link) {
         if (r < 0)
                 return r;
 
-        r = link_request_to_set_mac(link);
+        r = link_request_to_set_mac(link, /* allow_retry = */ true);
         if (r < 0)
                 return r;
 
