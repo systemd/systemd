@@ -9,7 +9,7 @@
 
 [Unit]
 Description=Hybrid Suspend+Hibernate
-Documentation=man:systemd-suspend.service(8)
+Documentation=man:systemd-hybrid-sleep.service(8)
 DefaultDependencies=no
 Requires=sleep.target
 After=sleep.target

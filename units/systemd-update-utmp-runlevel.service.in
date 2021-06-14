@@ -9,7 +9,7 @@
 
 [Unit]
 Description=Update UTMP about System Runlevel Changes
-Documentation=man:systemd-update-utmp.service(8) man:utmp(5)
+Documentation=man:systemd-update-utmp-runlevel.service(8) man:utmp(5)
 DefaultDependencies=no
 RequiresMountsFor=/var/log/wtmp
 Conflicts=shutdown.target
