@@ -550,7 +550,7 @@ static bool netdev_is_ready_to_create(NetDev *netdev, Link *link) {
         req = (Request) {
                 .link = link,
                 .type = REQUEST_TYPE_SET_LINK,
-                .set_link_operation = SET_LINK_MTU,
+                .set_link_operation_ptr = SET_LINK_OPERATION_TO_PTR(SET_LINK_MTU),
         };
 
         if (ordered_set_contains(link->manager->request_queue, &req))

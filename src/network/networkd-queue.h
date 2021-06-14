@@ -40,8 +40,6 @@ typedef enum RequestType {
         _REQUEST_TYPE_INVALID = -EINVAL,
 } RequestType;
 
-assert_cc(sizeof(SetLinkOperation) <= sizeof(void*));
-
 typedef struct Request {
         Link *link;
         RequestType type;
@@ -56,7 +54,7 @@ typedef struct Request {
                 NextHop *nexthop;
                 Route *route;
                 RoutingPolicyRule *rule;
-                SetLinkOperation set_link_operation;
+                SetLinkOperationAsPtr set_link_operation_ptr;
                 NetDev *netdev;
                 void *object;
         };
