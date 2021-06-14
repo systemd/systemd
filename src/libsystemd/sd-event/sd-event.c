@@ -3677,8 +3677,8 @@ static int arm_watchdog(sd_event *e) {
         assert(e->watchdog_fd >= 0);
 
         t = sleep_between(e,
-                          e->watchdog_last + (e->watchdog_period / 2),
-                          e->watchdog_last + (e->watchdog_period * 3 / 4));
+                          usec_add(e->watchdog_last, (e->watchdog_period / 2)),
+                          usec_add(e->watchdog_last, (e->watchdog_period * 3 / 4)));
 
         timespec_store(&its.it_value, t);
 
