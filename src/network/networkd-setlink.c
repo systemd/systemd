@@ -10,8 +10,8 @@
 #include "networkd-link.h"
 #include "networkd-manager.h"
 #include "networkd-queue.h"
+#include "networkd-setlink.h"
 #include "string-table.h"
-#include "sysctl-util.h"
 
 static const char *const set_link_operation_table[_SET_LINK_OPERATION_MAX] = {
         [SET_LINK_ADDRESS_GENERATION_MODE] = "IPv6LL address generation mode",
@@ -491,7 +491,7 @@ static bool link_is_ready_to_call_set_link(Request *req) {
         assert(req);
 
         link = req->link;
-        op = req->set_link_operation;
+        op = PTR_TO_INT(req->set_link_operation_ptr);
 
         if (!IN_SET(link->state, LINK_STATE_INITIALIZED, LINK_STATE_CONFIGURING, LINK_STATE_CONFIGURED))
                 return false;
@@ -572,23 +572,27 @@ static bool link_is_ready_to_call_set_link(Request *req) {
 }
 
 int request_process_set_link(Request *req) {
+        SetLinkOperation op;
         int r;
 
         assert(req);
         assert(req->link);
         assert(req->type == REQUEST_TYPE_SET_LINK);
-        assert(req->set_link_operation >= 0 && req->set_link_operation < _SET_LINK_OPERATION_MAX);
         assert(req->netlink_handler);
+
+        op = PTR_TO_INT(req->set_link_operation_ptr);
+
+        assert(op >= 0 && op < _SET_LINK_OPERATION_MAX);
 
         if (!link_is_ready_to_call_set_link(req))
                 return 0;
 
-        r = link_configure(req->link, req->set_link_operation, req->userdata, req->netlink_handler);
+        r = link_configure(req->link, op, req->userdata, req->netlink_handler);
         if (r < 0)
                 return log_link_error_errno(req->link, r, "Failed to set %s: %m",
-                                            set_link_operation_to_string(req->set_link_operation));
+                                            set_link_operation_to_string(op));
 
-        if (req->set_link_operation == SET_LINK_FLAGS)
+        if (op == SET_LINK_FLAGS)
                 req->link->set_flags_messages++;
 
         return 1;

@@ -21,6 +21,10 @@ typedef enum SetLinkOperation {
         _SET_LINK_OPERATION_INVALID = -EINVAL,
 } SetLinkOperation;
 
+/* SetLinkOperation is casted to int, then stored in void* with INT_TO_PTR(). */
+assert_cc(sizeof(SetLinkOperation) <= sizeof(void*));
+assert_cc(sizeof(SetLinkOperation) <= sizeof(int));
+
 int link_request_to_set_addrgen_mode(Link *link);
 int link_request_to_set_bond(Link *link);
 int link_request_to_set_bridge(Link *link);
