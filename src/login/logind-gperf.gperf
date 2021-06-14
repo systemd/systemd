@@ -32,6 +32,7 @@ Login.HandleLidSwitch,              config_parse_handle_action,         0, offse
 Login.HandleLidSwitchExternalPower, config_parse_handle_action,         0, offsetof(Manager, handle_lid_switch_ep)
 Login.HandleLidSwitchDocked,        config_parse_handle_action,         0, offsetof(Manager, handle_lid_switch_docked)
 Login.HandleRebootKey,              config_parse_handle_action,         0, offsetof(Manager, handle_reboot_key)
+Login.HandleRebootKeyLongPress,     config_parse_handle_action,         0, offsetof(Manager, handle_reboot_key_longpress)
 Login.PowerKeyIgnoreInhibited,      config_parse_bool,                  0, offsetof(Manager, power_key_ignore_inhibited)
 Login.SuspendKeyIgnoreInhibited,    config_parse_bool,                  0, offsetof(Manager, suspend_key_ignore_inhibited)
 Login.HibernateKeyIgnoreInhibited,  config_parse_bool,                  0, offsetof(Manager, hibernate_key_ignore_inhibited)
