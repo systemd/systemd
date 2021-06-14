@@ -168,10 +168,9 @@ static int pending_prioq_compare(const void *a, const void *b) {
         assert(y->pending);
 
         /* Enabled ones first */
-        if (x->enabled != SD_EVENT_OFF && y->enabled == SD_EVENT_OFF)
-                return -1;
-        if (x->enabled == SD_EVENT_OFF && y->enabled != SD_EVENT_OFF)
-                return 1;
+        r = CMP(x->enabled == SD_EVENT_OFF, y->enabled == SD_EVENT_OFF);
+        if (r != 0)
+                return r;
 
         /* Non rate-limited ones first. */
         r = CMP(!!x->ratelimited, !!y->ratelimited);
@@ -195,10 +194,9 @@ static int prepare_prioq_compare(const void *a, const void *b) {
         assert(y->prepare);
 
         /* Enabled ones first */
-        if (x->enabled != SD_EVENT_OFF && y->enabled == SD_EVENT_OFF)
-                return -1;
-        if (x->enabled == SD_EVENT_OFF && y->enabled != SD_EVENT_OFF)
-                return 1;
+        r = CMP(x->enabled == SD_EVENT_OFF, y->enabled == SD_EVENT_OFF);
+        if (r != 0)
+                return r;
 
         /* Non rate-limited ones first. */
         r = CMP(!!x->ratelimited, !!y->ratelimited);
@@ -265,18 +263,17 @@ static bool event_source_timer_candidate(const sd_event_source *s) {
 
 static int time_prioq_compare(const void *a, const void *b, usec_t (*time_func)(const sd_event_source *s)) {
         const sd_event_source *x = a, *y = b;
+        int r;
 
         /* Enabled ones first */
-        if (x->enabled != SD_EVENT_OFF && y->enabled == SD_EVENT_OFF)
-                return -1;
-        if (x->enabled == SD_EVENT_OFF && y->enabled != SD_EVENT_OFF)
-                return 1;
+        r = CMP(x->enabled == SD_EVENT_OFF, y->enabled == SD_EVENT_OFF);
+        if (r != 0)
+                return r;
 
         /* Order "non-pending OR ratelimited" before "pending AND not-ratelimited" */
-        if (event_source_timer_candidate(x) && !event_source_timer_candidate(y))
-                return -1;
-        if (!event_source_timer_candidate(x) && event_source_timer_candidate(y))
-                return 1;
+        r = CMP(!event_source_timer_candidate(x), !event_source_timer_candidate(y));
+        if (r != 0)
+                return r;
 
         /* Order by time */
         return CMP(time_func(x), time_func(y));
@@ -292,15 +289,15 @@ static int latest_time_prioq_compare(const void *a, const void *b) {
 
 static int exit_prioq_compare(const void *a, const void *b) {
         const sd_event_source *x = a, *y = b;
+        int r;
 
         assert(x->type == SOURCE_EXIT);
         assert(y->type == SOURCE_EXIT);
 
         /* Enabled ones first */
-        if (x->enabled != SD_EVENT_OFF && y->enabled == SD_EVENT_OFF)
-                return -1;
-        if (x->enabled == SD_EVENT_OFF && y->enabled != SD_EVENT_OFF)
-                return 1;
+        r = CMP(x->enabled == SD_EVENT_OFF, y->enabled == SD_EVENT_OFF);
+        if (r != 0)
+                return r;
 
         /* Lower priority values first */
         return CMP(x->priority, y->priority);
@@ -2822,17 +2819,15 @@ static int event_source_enter_ratelimited(sd_event_source *s) {
         if (EVENT_SOURCE_IS_TIME(s->type))
                 event_source_time_prioq_remove(s, event_get_clock_data(s->event, s->type));
 
+        /* And let's take the event source officially offline */
+        r = event_source_offline(s, s->enabled, /* ratelimited= */ true);
+        if (r < 0)
+                goto fail;
+
         /* Now, let's add the event source to the monotonic clock instead */
         r = event_source_time_prioq_put(s, &s->event->monotonic);
         if (r < 0)
                 goto fail;
-
-        /* And let's take the event source officially offline */
-        r = event_source_offline(s, s->enabled, /* ratelimited= */ true);
-        if (r < 0) {
-                event_source_time_prioq_remove(s, &s->event->monotonic);
-                goto fail;
-        }
 
         event_source_pp_prioq_reshuffle(s);
 
@@ -2859,13 +2854,6 @@ static int event_source_leave_ratelimit(sd_event_source *s) {
         /* Let's take the event source out of the monotonic prioq first. */
         event_source_time_prioq_remove(s, &s->event->monotonic);
 
-        /* Let's then add the event source to its native clock prioq again — if this is a timer event source */
-        if (EVENT_SOURCE_IS_TIME(s->type)) {
-                r = event_source_time_prioq_put(s, event_get_clock_data(s->event, s->type));
-                if (r < 0)
-                        goto fail;
-        }
-
         /* Let's try to take it online again.  */
         r = event_source_online(s, s->enabled, /* ratelimited= */ false);
         if (r < 0) {
@@ -2874,6 +2862,13 @@ static int event_source_leave_ratelimit(sd_event_source *s) {
                         event_source_time_prioq_remove(s, event_get_clock_data(s->event, s->type));
 
                 goto fail;
+        }
+
+        /* Let's then add the event source to its native clock prioq again — if this is a timer event source */
+        if (EVENT_SOURCE_IS_TIME(s->type)) {
+                r = event_source_time_prioq_put(s, event_get_clock_data(s->event, s->type));
+                if (r < 0)
+                        goto fail;
         }
 
         event_source_pp_prioq_reshuffle(s);
@@ -2983,8 +2978,8 @@ static int event_arm_timer(
 
         if (!d->needs_rearm)
                 return 0;
-        else
-                d->needs_rearm = false;
+
+        d->needs_rearm = false;
 
         a = prioq_peek(d->earliest);
         if (!a || a->enabled == SD_EVENT_OFF || time_event_source_next(a) == USEC_INFINITY) {
@@ -3680,8 +3675,8 @@ static int arm_watchdog(sd_event *e) {
         assert(e->watchdog_fd >= 0);
 
         t = sleep_between(e,
-                          e->watchdog_last + (e->watchdog_period / 2),
-                          e->watchdog_last + (e->watchdog_period * 3 / 4));
+                          usec_add(e->watchdog_last, (e->watchdog_period / 2)),
+                          usec_add(e->watchdog_last, (e->watchdog_period * 3 / 4)));
 
         timespec_store(&its.it_value, t);
 
