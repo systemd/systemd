@@ -19,8 +19,6 @@
 
 #define ULONG_BITS (sizeof(unsigned long)*8)
 
-#define LONGPRESS_DURATION_USEC (4*USEC_PER_SEC)
-
 static bool bitset_get(const unsigned long *bits, unsigned i) {
         return (bits[i / ULONG_BITS] >> (i % ULONG_BITS)) & 1UL;
 }
@@ -137,7 +135,7 @@ static int longpress_of_reboot_key_handler(sd_event_source *e, uint64_t usec, vo
 
 static int start_longpress_of_reboot_key(Manager *m) {
         int r;
-        usec_t until = usec_add(now(CLOCK_MONOTONIC), LONGPRESS_DURATION_USEC);
+        usec_t until = usec_add(now(CLOCK_MONOTONIC), m->longpress_duration);
 
         assert(m);
 

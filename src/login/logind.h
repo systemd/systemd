@@ -110,6 +110,8 @@ struct Manager {
         HandleAction handle_reboot_key;
         HandleAction handle_reboot_key_longpress;
 
+        usec_t longpress_duration;
+
         bool power_key_ignore_inhibited;
         bool suspend_key_ignore_inhibited;
         bool hibernate_key_ignore_inhibited;
