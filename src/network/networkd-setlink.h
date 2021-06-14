@@ -21,6 +21,32 @@ typedef enum SetLinkOperation {
         _SET_LINK_OPERATION_INVALID = -EINVAL,
 } SetLinkOperation;
 
+struct _SetLinkOperation;
+typedef struct _SetLinkOperation *SetLinkOperationAsPtr;
+
+static inline SetLinkOperationAsPtr SET_LINK_OPERATION_TO_PTR(SetLinkOperation o) {
+        union {
+                SetLinkOperation o;
+                SetLinkOperationAsPtr p;
+        } t = {
+                .o = o,
+        };
+
+        /* guarantee that the pointer is space enough to carry the enum */
+        assert_cc(sizeof(t) == sizeof(SetLinkOperationAsPtr));
+        return t.p;
+}
+
+static inline SetLinkOperation SET_LINK_OPERATION_FROM_PTR(SetLinkOperationAsPtr p) {
+        union {
+                SetLinkOperation o;
+                SetLinkOperationAsPtr p;
+        } t = {
+                .p = p,
+        };
+        return t.o;
+}
+
 int link_request_to_set_addrgen_mode(Link *link);
 int link_request_to_set_bond(Link *link);
 int link_request_to_set_bridge(Link *link);

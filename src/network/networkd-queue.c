@@ -123,9 +123,13 @@ static void request_hash_func(const Request *req, struct siphash *state) {
         case REQUEST_TYPE_ROUTING_POLICY_RULE:
                 routing_policy_rule_hash_func(req->rule, state);
                 break;
-        case REQUEST_TYPE_SET_LINK:
-                siphash24_compress(&req->set_link_operation, sizeof(req->set_link_operation), state);
+        case REQUEST_TYPE_SET_LINK: {
+                SetLinkOperation op;
+
+                op = SET_LINK_OPERATION_FROM_PTR(req->set_link_operation_ptr);
+                siphash24_compress(&op, sizeof(op), state);
                 break;
+        }
         case REQUEST_TYPE_UP_DOWN:
                 break;
         default:
@@ -172,7 +176,8 @@ static int request_compare_func(const struct Request *a, const struct Request *b
         case REQUEST_TYPE_ROUTING_POLICY_RULE:
                 return routing_policy_rule_compare_func(a->rule, b->rule);
         case REQUEST_TYPE_SET_LINK:
-                return CMP(a->set_link_operation, b->set_link_operation);
+                return CMP(SET_LINK_OPERATION_FROM_PTR(a->set_link_operation_ptr),
+                           SET_LINK_OPERATION_FROM_PTR(b->set_link_operation_ptr));
         case REQUEST_TYPE_UP_DOWN:
                 return 0;
         default:
