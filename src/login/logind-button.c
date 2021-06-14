@@ -19,6 +19,8 @@
 
 #define ULONG_BITS (sizeof(unsigned long)*8)
 
+#define LONGPRESS_DURATION_USEC (4*USEC_PER_SEC)
+
 static bool bitset_get(const unsigned long *bits, unsigned i) {
         return (bits[i / ULONG_BITS] >> (i % ULONG_BITS)) & 1UL;
 }
@@ -117,7 +119,6 @@ static int button_install_check_event_source(Button *b) {
         return sd_event_source_set_priority(b->check_event_source, SD_EVENT_PRIORITY_IDLE+1);
 }
 
-
 static int longpress_of_reboot_key_handler(sd_event_source *e, uint64_t usec, void *userdata) {
         Manager *m = userdata;
 
@@ -136,7 +137,7 @@ static int longpress_of_reboot_key_handler(sd_event_source *e, uint64_t usec, vo
 
 static int start_longpress_of_reboot_key(Manager *m) {
         int r;
-        usec_t until = usec_add(now(CLOCK_MONOTONIC), 4*1000*1000);
+        usec_t until = usec_add(now(CLOCK_MONOTONIC), LONGPRESS_DURATION_USEC);
 
         assert(m);
 
@@ -152,7 +153,6 @@ static int start_longpress_of_reboot_key(Manager *m) {
 
         return r;
 }
-
 
 static int button_dispatch(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
         Button *b = userdata;
