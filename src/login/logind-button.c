@@ -139,8 +139,6 @@ static int start_longpress_of_reboot_key(Manager *m) {
 
         assert(m);
 
-        if (until <= now(CLOCK_MONOTONIC))
-                return 0;
         if (!m->reboot_key_longpress_event_source)
                 r = sd_event_add_time(
                                 m->event,

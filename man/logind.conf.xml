@@ -254,7 +254,7 @@
       </varlistentry>
 
       <varlistentry>
-        <term><varname>LongpressDuration=</varname></term>
+        <term><varname>KeyLongPressDurationSec=</varname></term>
 
         <listitem><para>Specifies a period of time which counts as a long press.</para></listitem>
       </varlistentry>
