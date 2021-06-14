@@ -2370,14 +2370,6 @@ static int event_source_offline(
                 source_io_unregister(s);
                 break;
 
-        case SOURCE_TIME_REALTIME:
-        case SOURCE_TIME_BOOTTIME:
-        case SOURCE_TIME_MONOTONIC:
-        case SOURCE_TIME_REALTIME_ALARM:
-        case SOURCE_TIME_BOOTTIME_ALARM:
-                event_source_time_prioq_reshuffle(s);
-                break;
-
         case SOURCE_SIGNAL:
                 event_gc_signal_data(s->event, &s->priority, s->signal.sig);
                 break;
@@ -2398,6 +2390,11 @@ static int event_source_offline(
                 prioq_reshuffle(s->event->exit, s, &s->exit.prioq_index);
                 break;
 
+        case SOURCE_TIME_REALTIME:
+        case SOURCE_TIME_BOOTTIME:
+        case SOURCE_TIME_MONOTONIC:
+        case SOURCE_TIME_REALTIME_ALARM:
+        case SOURCE_TIME_BOOTTIME_ALARM:
         case SOURCE_DEFER:
         case SOURCE_POST:
         case SOURCE_INOTIFY:
@@ -2406,6 +2403,9 @@ static int event_source_offline(
         default:
                 assert_not_reached("Wut? I shouldn't exist.");
         }
+
+        /* Always reshuffle time prioq, as the ratelimited flag may be changed. */
+        event_source_time_prioq_reshuffle(s);
 
         return 1;
 }
@@ -2496,22 +2496,11 @@ static int event_source_online(
         s->ratelimited = ratelimited;
 
         /* Non-failing operations below */
-        switch (s->type) {
-        case SOURCE_TIME_REALTIME:
-        case SOURCE_TIME_BOOTTIME:
-        case SOURCE_TIME_MONOTONIC:
-        case SOURCE_TIME_REALTIME_ALARM:
-        case SOURCE_TIME_BOOTTIME_ALARM:
-                event_source_time_prioq_reshuffle(s);
-                break;
-
-        case SOURCE_EXIT:
+        if (s->type == SOURCE_EXIT)
                 prioq_reshuffle(s->event->exit, s, &s->exit.prioq_index);
-                break;
 
-        default:
-                break;
-        }
+        /* Always reshuffle time prioq, as the ratelimited flag may be changed. */
+        event_source_time_prioq_reshuffle(s);
 
         return 1;
 }
