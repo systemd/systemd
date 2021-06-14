@@ -12,6 +12,7 @@
 #include "networkd-route.h"
 #include "networkd-routing-policy-rule.h"
 #include "networkd-queue.h"
+#include "networkd-setlink.h"
 
 static void request_free_object(RequestType type, void *object) {
         switch(type) {
@@ -123,9 +124,10 @@ static void request_hash_func(const Request *req, struct siphash *state) {
         case REQUEST_TYPE_ROUTING_POLICY_RULE:
                 routing_policy_rule_hash_func(req->rule, state);
                 break;
-        case REQUEST_TYPE_SET_LINK:
-                siphash24_compress(&req->set_link_operation, sizeof(req->set_link_operation), state);
+        case REQUEST_TYPE_SET_LINK: {
+                trivial_hash_func(req->set_link_operation_ptr, state);
                 break;
+        }
         case REQUEST_TYPE_UP_DOWN:
                 break;
         default:
@@ -172,7 +174,7 @@ static int request_compare_func(const struct Request *a, const struct Request *b
         case REQUEST_TYPE_ROUTING_POLICY_RULE:
                 return routing_policy_rule_compare_func(a->rule, b->rule);
         case REQUEST_TYPE_SET_LINK:
-                return CMP(a->set_link_operation, b->set_link_operation);
+                return trivial_compare_func(a->set_link_operation_ptr, b->set_link_operation_ptr);
         case REQUEST_TYPE_UP_DOWN:
                 return 0;
         default:
