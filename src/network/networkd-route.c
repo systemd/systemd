@@ -963,7 +963,9 @@ static int route_set_netlink_message(const Route *route, sd_netlink_message *req
                         return log_link_error_errno(link, r, "Could not append RTA_TABLE attribute: %m");
         }
 
-        if (!route_type_is_reject(route) && route->nexthop_id == 0) {
+        if (!route_type_is_reject(route) &&
+            route->nexthop_id == 0 &&
+            ordered_set_isempty(route->multipath_routes)) {
                 assert(link); /* Those routes must be attached to a specific link */
 
                 r = sd_netlink_message_append_u32(req, RTA_OIF, link->ifindex);
@@ -1354,7 +1356,7 @@ static int route_add_and_setup_timer(Link *link, const Route *route, unsigned *r
         return 0;
 }
 
-static int append_nexthop_one(const Route *route, const MultipathRoute *m, struct rtattr **rta, size_t offset) {
+static int append_nexthop_one(const Link *link, const Route *route, const MultipathRoute *m, struct rtattr **rta, size_t offset) {
         struct rtnexthop *rtnh;
         struct rtattr *new_rta;
         int r;
@@ -1372,7 +1374,7 @@ static int append_nexthop_one(const Route *route, const MultipathRoute *m, struc
         rtnh = (struct rtnexthop *)((uint8_t *) *rta + offset);
         *rtnh = (struct rtnexthop) {
                 .rtnh_len = sizeof(*rtnh),
-                .rtnh_ifindex = m->ifindex,
+                .rtnh_ifindex = m->ifindex > 0 ? m->ifindex : link->ifindex,
                 .rtnh_hops = m->weight,
         };
 
@@ -1399,12 +1401,16 @@ clear:
         return r;
 }
 
-static int append_nexthops(const Route *route, sd_netlink_message *req) {
+static int append_nexthops(const Link *link, const Route *route, sd_netlink_message *req) {
         _cleanup_free_ struct rtattr *rta = NULL;
         struct rtnexthop *rtnh;
         MultipathRoute *m;
         size_t offset;
         int r;
+
+        assert(link);
+        assert(route);
+        assert(req);
 
         if (ordered_set_isempty(route->multipath_routes))
                 return 0;
@@ -1420,7 +1426,7 @@ static int append_nexthops(const Route *route, sd_netlink_message *req) {
         offset = (uint8_t *) RTA_DATA(rta) - (uint8_t *) rta;
 
         ORDERED_SET_FOREACH(m, route->multipath_routes) {
-                r = append_nexthop_one(route, m, &rta, offset);
+                r = append_nexthop_one(link, route, m, &rta, offset);
                 if (r < 0)
                         return r;
 
@@ -1557,7 +1563,7 @@ static int route_configure(
                 assert(route->nexthop_id == 0);
                 assert(!in_addr_is_set(route->gw_family, &route->gw));
 
-                r = append_nexthops(route, req);
+                r = append_nexthops(link, route, req);
                 if (r < 0)
                         return log_link_error_errno(link, r, "Could not append RTA_MULTIPATH attribute: %m");
         }
