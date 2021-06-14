@@ -65,6 +65,10 @@ test -f /run/dbus1
 systemd-run --unit=dbus2.service --wait -p StandardOutput=tty -p StandardError=tty -p Type=dbus -p BusName=systemd.test.ExecStopPost -p ExecStopPost='/bin/touch /run/dbus2' true
 test -f /run/dbus2
 
+# https://github.com/systemd/systemd/issues/19920
+systemd-run --unit=dbus3.service --wait -p StandardOutput=tty -p StandardError=tty -p Type=dbus -p ExecStopPost='/bin/touch /run/dbus3' true \
+     && { echo 'unexpected success'; exit 1; }
+
 cat >/tmp/notify1.sh <<EOF
 #!/usr/bin/env bash
 
