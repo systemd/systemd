@@ -2990,8 +2990,8 @@ static int event_arm_timer(
 
         if (!d->needs_rearm)
                 return 0;
-        else
-                d->needs_rearm = false;
+
+        d->needs_rearm = false;
 
         a = prioq_peek(d->earliest);
         assert(!a || EVENT_SOURCE_USES_TIME_PRIOQ(a->type));
