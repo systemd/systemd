@@ -2983,8 +2983,8 @@ static int event_arm_timer(
 
         if (!d->needs_rearm)
                 return 0;
-        else
-                d->needs_rearm = false;
+
+        d->needs_rearm = false;
 
         a = prioq_peek(d->earliest);
         if (!a || a->enabled == SD_EVENT_OFF || time_event_source_next(a) == USEC_INFINITY) {
