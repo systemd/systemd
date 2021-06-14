@@ -9,7 +9,7 @@
 
 [Unit]
 Description=udev Kernel Socket
-Documentation=man:systemd-udevd.service(8) man:udev(7)
+Documentation=man:systemd-udevd-kernel.socket(8) man:udev(7)
 DefaultDependencies=no
 Before=sockets.target
 ConditionPathIsReadWrite=/sys
