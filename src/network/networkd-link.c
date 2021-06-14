@@ -1497,17 +1497,6 @@ static int link_carrier_gained(Link *link) {
                 /* let's shortcut things for CAN which doesn't need most of what's done below. */
                 return 0;
 
-        r = wifi_get_info(link);
-        if (r < 0)
-                return r;
-        if (r > 0) {
-                /* All link information is up-to-date. So, it is not necessary to call RTM_GETLINK
-                 * netlink method again. */
-                r = link_reconfigure_impl(link, /* force = */ false);
-                if (r != 0)
-                        return r;
-        }
-
         if (IN_SET(link->state, LINK_STATE_CONFIGURING, LINK_STATE_CONFIGURED)) {
                 r = link_acquire_dynamic_conf(link);
                 if (r < 0)
@@ -1832,7 +1821,7 @@ void link_update_operstate(Link *link, bool also_update_master) {
          : "")
 
 static int link_update_flags(Link *link, sd_netlink_message *message) {
-        bool link_was_admin_up, had_carrier;
+        bool link_was_lower_up, link_was_admin_up, had_carrier;
         uint8_t operstate;
         unsigned flags;
         int r;
@@ -1894,6 +1883,7 @@ static int link_update_flags(Link *link, sd_netlink_message *message) {
                         log_link_debug(link, "Unknown link flags lost, ignoring: %#.5x", unknown_flags_removed);
         }
 
+        link_was_lower_up = link->flags & IFF_LOWER_UP;
         link_was_admin_up = link->flags & IFF_UP;
         had_carrier = link_has_carrier(link);
 
@@ -1901,6 +1891,19 @@ static int link_update_flags(Link *link, sd_netlink_message *message) {
         link->kernel_operstate = operstate;
 
         link_update_operstate(link, true);
+
+        if (!link_was_lower_up && (link->flags & IFF_LOWER_UP)) {
+                r = wifi_get_info(link);
+                if (r < 0)
+                        return r;
+                if (r > 0) {
+                        /* All link information is up-to-date. So, it is not necessary to call
+                         * RTM_GETLINK netlink method again. */
+                        r = link_reconfigure_impl(link, /* force = */ false);
+                        if (r < 0)
+                                return r;
+                }
+        }
 
         if (!link_was_admin_up && (link->flags & IFF_UP)) {
                 log_link_info(link, "Link UP");
