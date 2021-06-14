@@ -9,7 +9,7 @@
 
 [Unit]
 Description=udev Control Socket
-Documentation=man:systemd-udevd.service(8) man:udev(7)
+Documentation=man:systemd-udevd-control.socket(8) man:udev(7)
 DefaultDependencies=no
 Before=sockets.target
 ConditionPathIsReadWrite=/sys
