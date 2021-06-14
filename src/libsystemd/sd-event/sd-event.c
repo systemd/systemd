@@ -168,10 +168,9 @@ static int pending_prioq_compare(const void *a, const void *b) {
         assert(y->pending);
 
         /* Enabled ones first */
-        if (x->enabled != SD_EVENT_OFF && y->enabled == SD_EVENT_OFF)
-                return -1;
-        if (x->enabled == SD_EVENT_OFF && y->enabled != SD_EVENT_OFF)
-                return 1;
+        r = CMP(x->enabled == SD_EVENT_OFF, y->enabled == SD_EVENT_OFF);
+        if (r != 0)
+                return r;
 
         /* Non rate-limited ones first. */
         r = CMP(!!x->ratelimited, !!y->ratelimited);
@@ -195,10 +194,9 @@ static int prepare_prioq_compare(const void *a, const void *b) {
         assert(y->prepare);
 
         /* Enabled ones first */
-        if (x->enabled != SD_EVENT_OFF && y->enabled == SD_EVENT_OFF)
-                return -1;
-        if (x->enabled == SD_EVENT_OFF && y->enabled != SD_EVENT_OFF)
-                return 1;
+        r = CMP(x->enabled == SD_EVENT_OFF, y->enabled == SD_EVENT_OFF);
+        if (r != 0)
+                return r;
 
         /* Non rate-limited ones first. */
         r = CMP(!!x->ratelimited, !!y->ratelimited);
@@ -265,18 +263,17 @@ static bool event_source_timer_candidate(const sd_event_source *s) {
 
 static int time_prioq_compare(const void *a, const void *b, usec_t (*time_func)(const sd_event_source *s)) {
         const sd_event_source *x = a, *y = b;
+        int r;
 
         /* Enabled ones first */
-        if (x->enabled != SD_EVENT_OFF && y->enabled == SD_EVENT_OFF)
-                return -1;
-        if (x->enabled == SD_EVENT_OFF && y->enabled != SD_EVENT_OFF)
-                return 1;
+        r = CMP(x->enabled == SD_EVENT_OFF, y->enabled == SD_EVENT_OFF);
+        if (r != 0)
+                return r;
 
         /* Order "non-pending OR ratelimited" before "pending AND not-ratelimited" */
-        if (event_source_timer_candidate(x) && !event_source_timer_candidate(y))
-                return -1;
-        if (!event_source_timer_candidate(x) && event_source_timer_candidate(y))
-                return 1;
+        r = CMP(!event_source_timer_candidate(x), !event_source_timer_candidate(y));
+        if (r != 0)
+                return r;
 
         /* Order by time */
         return CMP(time_func(x), time_func(y));
@@ -292,15 +289,15 @@ static int latest_time_prioq_compare(const void *a, const void *b) {
 
 static int exit_prioq_compare(const void *a, const void *b) {
         const sd_event_source *x = a, *y = b;
+        int r;
 
         assert(x->type == SOURCE_EXIT);
         assert(y->type == SOURCE_EXIT);
 
         /* Enabled ones first */
-        if (x->enabled != SD_EVENT_OFF && y->enabled == SD_EVENT_OFF)
-                return -1;
-        if (x->enabled == SD_EVENT_OFF && y->enabled != SD_EVENT_OFF)
-                return 1;
+        r = CMP(x->enabled == SD_EVENT_OFF, y->enabled == SD_EVENT_OFF);
+        if (r != 0)
+                return r;
 
         /* Lower priority values first */
         return CMP(x->priority, y->priority);
@@ -774,14 +771,15 @@ static void event_source_time_prioq_reshuffle(sd_event_source *s) {
         assert(s);
 
         /* Called whenever the event source's timer ordering properties changed, i.e. time, accuracy,
-         * pending, enable state. Makes sure the two prioq's are ordered properly again. */
+         * pending, enable state, and ratelimiting state. Makes sure the two prioq's are ordered
+         * properly again. */
 
         if (s->ratelimited)
                 d = &s->event->monotonic;
-        else {
-                assert(EVENT_SOURCE_IS_TIME(s->type));
+        else if (EVENT_SOURCE_IS_TIME(s->type))
                 assert_se(d = event_get_clock_data(s->event, s->type));
-        }
+        else
+                return; /* no-op for an event source which is neither a timer nor ratelimited. */
 
         prioq_reshuffle(d->earliest, s, &s->earliest_index);
         prioq_reshuffle(d->latest, s, &s->latest_index);
@@ -2372,14 +2370,6 @@ static int event_source_offline(
                 source_io_unregister(s);
                 break;
 
-        case SOURCE_TIME_REALTIME:
-        case SOURCE_TIME_BOOTTIME:
-        case SOURCE_TIME_MONOTONIC:
-        case SOURCE_TIME_REALTIME_ALARM:
-        case SOURCE_TIME_BOOTTIME_ALARM:
-                event_source_time_prioq_reshuffle(s);
-                break;
-
         case SOURCE_SIGNAL:
                 event_gc_signal_data(s->event, &s->priority, s->signal.sig);
                 break;
@@ -2400,6 +2390,11 @@ static int event_source_offline(
                 prioq_reshuffle(s->event->exit, s, &s->exit.prioq_index);
                 break;
 
+        case SOURCE_TIME_REALTIME:
+        case SOURCE_TIME_BOOTTIME:
+        case SOURCE_TIME_MONOTONIC:
+        case SOURCE_TIME_REALTIME_ALARM:
+        case SOURCE_TIME_BOOTTIME_ALARM:
         case SOURCE_DEFER:
         case SOURCE_POST:
         case SOURCE_INOTIFY:
@@ -2408,6 +2403,9 @@ static int event_source_offline(
         default:
                 assert_not_reached("Wut? I shouldn't exist.");
         }
+
+        /* Always reshuffle time prioq, as the ratelimited flag may be changed. */
+        event_source_time_prioq_reshuffle(s);
 
         return 1;
 }
@@ -2498,22 +2496,11 @@ static int event_source_online(
         s->ratelimited = ratelimited;
 
         /* Non-failing operations below */
-        switch (s->type) {
-        case SOURCE_TIME_REALTIME:
-        case SOURCE_TIME_BOOTTIME:
-        case SOURCE_TIME_MONOTONIC:
-        case SOURCE_TIME_REALTIME_ALARM:
-        case SOURCE_TIME_BOOTTIME_ALARM:
-                event_source_time_prioq_reshuffle(s);
-                break;
-
-        case SOURCE_EXIT:
+        if (s->type == SOURCE_EXIT)
                 prioq_reshuffle(s->event->exit, s, &s->exit.prioq_index);
-                break;
 
-        default:
-                break;
-        }
+        /* Always reshuffle time prioq, as the ratelimited flag may be changed. */
+        event_source_time_prioq_reshuffle(s);
 
         return 1;
 }
@@ -2983,8 +2970,8 @@ static int event_arm_timer(
 
         if (!d->needs_rearm)
                 return 0;
-        else
-                d->needs_rearm = false;
+
+        d->needs_rearm = false;
 
         a = prioq_peek(d->earliest);
         if (!a || a->enabled == SD_EVENT_OFF || time_event_source_next(a) == USEC_INFINITY) {
@@ -3680,8 +3667,8 @@ static int arm_watchdog(sd_event *e) {
         assert(e->watchdog_fd >= 0);
 
         t = sleep_between(e,
-                          e->watchdog_last + (e->watchdog_period / 2),
-                          e->watchdog_last + (e->watchdog_period * 3 / 4));
+                          usec_add(e->watchdog_last, (e->watchdog_period / 2)),
+                          usec_add(e->watchdog_last, (e->watchdog_period * 3 / 4)));
 
         timespec_store(&its.it_value, t);
 
