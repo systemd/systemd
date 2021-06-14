@@ -11,6 +11,7 @@
 #include "device-util.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "parse-util.h"
 #include "path-util.h"
 #include "process-util.h"
 #include "set.h"
@@ -226,6 +227,7 @@ static int help(void) {
                "  -y --sysname-match=NAME           Trigger devices with this /sys path\n"
                "     --name-match=NAME              Trigger devices with this /dev name\n"
                "  -b --parent-match=NAME            Trigger devices with that parent device\n"
+               "     --initialized=BOOL             Trigger devices with/without a udev db entry\n"
                "  -w --settle                       Wait for the triggered events to complete\n"
                "     --wait-daemon[=SECONDS]        Wait for udevd daemon to be initialized\n"
                "                                    before triggering uevents\n"
@@ -243,6 +245,7 @@ int trigger_main(int argc, char *argv[], void *userdata) {
                 ARG_PING,
                 ARG_UUID,
                 ARG_PRIORITIZED_SUBSYSTEM,
+                ARG_INITIALIZED,
         };
 
         static const struct option options[] = {
@@ -266,6 +269,7 @@ int trigger_main(int argc, char *argv[], void *userdata) {
                 { "help",                  no_argument,       NULL, 'h'                       },
                 { "uuid",                  no_argument,       NULL, ARG_UUID                  },
                 { "prioritized-subsystem", required_argument, NULL, ARG_PRIORITIZED_SUBSYSTEM },
+                { "initialized",           required_argument, NULL, ARG_INITIALIZED           },
                 {}
         };
         enum {
@@ -427,6 +431,15 @@ int trigger_main(int argc, char *argv[], void *userdata) {
                         }
                         break;
                 }
+                case ARG_INITIALIZED:
+                        r = parse_boolean(optarg);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse --initialized=%s: %m", optarg);
+
+                        r = device_enumerator_add_match_is_initialized(e, r);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to set initialized filter: %m");
+                        break;
                 case 'V':
                         return print_version();
                 case 'h':

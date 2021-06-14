@@ -396,6 +396,16 @@
           </listitem>
         </varlistentry>
         <varlistentry>
+          <term><option>--initialized=<replaceable>BOOL</replaceable></option></term>
+          <listitem>
+            <para>When false, trigger events for devices that are not processed by
+            <command>systemd-udevd</command>, and skip already processed devices. This can potentially
+            save a significant amount of time compared to re-triggering all devices in the system and
+            e.g. can be used to optimize boot time. When true, trigger events for devices that are
+            already processed by <command>systemd-udevd</command>.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
           <term><option>-w</option></term>
           <term><option>--settle</option></term>
           <listitem>
