@@ -396,6 +396,26 @@
           </listitem>
         </varlistentry>
         <varlistentry>
+          <term><option>--initialized-match</option></term>
+          <listitem>
+            <para>Trigger events for devices that are already initialized by
+            <command>systemd-udevd</command>, and skip devices that are not initialized yet.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--initialized-nomatch</option></term>
+          <listitem>
+            <para>Trigger events for devices that are not initialized yet by
+            <command>systemd-udevd</command>, and skip devices that are already initialized. This can
+            potentially save a significant amount of time compared to re-triggering all devices in the
+            system and e.g. can be used to optimize boot time.</para>
+            <para>WARNING: this is not safe to be used in a boot sequence in general. Especially, when
+            udev rules for a device depends on its parent devices (e.g. <literal>ATTRS</literal> or
+            <literal>IMPORT{parent}</literal> keys), the final state of the device becomes easily
+            unstable with this option.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
           <term><option>-w</option></term>
           <term><option>--settle</option></term>
           <listitem>
