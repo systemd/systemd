@@ -11,6 +11,7 @@
 #include "device-util.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "parse-util.h"
 #include "path-util.h"
 #include "process-util.h"
 #include "set.h"
@@ -226,6 +227,8 @@ static int help(void) {
                "  -y --sysname-match=NAME           Trigger devices with this /sys path\n"
                "     --name-match=NAME              Trigger devices with this /dev name\n"
                "  -b --parent-match=NAME            Trigger devices with that parent device\n"
+               "     --initialized-match            Trigger devices that are already initialized\n"
+               "     --initialized-nomatch          Trigger devices that are not initialized yet\n"
                "  -w --settle                       Wait for the triggered events to complete\n"
                "     --wait-daemon[=SECONDS]        Wait for udevd daemon to be initialized\n"
                "                                    before triggering uevents\n"
@@ -243,6 +246,8 @@ int trigger_main(int argc, char *argv[], void *userdata) {
                 ARG_PING,
                 ARG_UUID,
                 ARG_PRIORITIZED_SUBSYSTEM,
+                ARG_INITIALIZED_MATCH,
+                ARG_INITIALIZED_NOMATCH,
         };
 
         static const struct option options[] = {
@@ -260,6 +265,8 @@ int trigger_main(int argc, char *argv[], void *userdata) {
                 { "sysname-match",         required_argument, NULL, 'y'                       },
                 { "name-match",            required_argument, NULL, ARG_NAME                  },
                 { "parent-match",          required_argument, NULL, 'b'                       },
+                { "initialized-match",     no_argument,       NULL, ARG_INITIALIZED_MATCH     },
+                { "initialized-nomatch",   no_argument,       NULL, ARG_INITIALIZED_NOMATCH   },
                 { "settle",                no_argument,       NULL, 'w'                       },
                 { "wait-daemon",           optional_argument, NULL, ARG_PING                  },
                 { "version",               no_argument,       NULL, 'V'                       },
@@ -426,6 +433,12 @@ int trigger_main(int argc, char *argv[], void *userdata) {
                         }
                         break;
                 }
+                case ARG_INITIALIZED_MATCH:
+                case ARG_INITIALIZED_NOMATCH:
+                        r = device_enumerator_add_match_is_initialized(e, c == ARG_INITIALIZED_MATCH ? MATCH_INITIALIZED_YES : MATCH_INITIALIZED_NO);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to set initialized filter: %m");
+                        break;
                 case 'V':
                         return print_version();
                 case 'h':
