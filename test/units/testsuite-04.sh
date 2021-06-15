@@ -2,6 +2,18 @@
 set -eux
 set -o pipefail
 
+# Limit the maximum journal size
+trap "journalctl --rotate --vacuum-size=16M" EXIT
+
+# Rotation/flush test, see https://github.com/systemd/systemd/issues/19895
+journalctl --relinquish-var
+for i in {0..50}; do
+    dd if=/dev/random bs=1M count=1 | base64 | systemd-cat
+done
+journalctl --rotate
+journalctl --flush
+journalctl --sync
+
 # Test stdout stream
 
 # Skip empty lines
