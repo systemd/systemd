@@ -40,7 +40,7 @@ clock_settime	112
 clock_settime64
 clone	220
 clone2
-clone3	435
+clone3
 close	57
 close_range	436
 connect	203
@@ -96,7 +96,7 @@ fsetxattr	7
 fsmount	432
 fsopen	430
 fspick	433
-fstat	80
+fstat
 fstat64
 fstatat64
 fstatfs	44
@@ -140,7 +140,7 @@ getresgid	150
 getresgid32
 getresuid	148
 getresuid32
-getrlimit	163
+getrlimit
 getrusage	165
 getsid	156
 getsockname	204
@@ -241,7 +241,7 @@ munlockall	231
 munmap	215
 name_to_handle_at	264
 nanosleep	101
-newfstatat	79
+newfstatat
 nfsservctl	42
 nice
 old_adjtimex
@@ -498,7 +498,7 @@ setresuid	147
 setresuid32
 setreuid	145
 setreuid32
-setrlimit	164
+setrlimit
 setsid	157
 setsockopt	208
 settimeofday	170
