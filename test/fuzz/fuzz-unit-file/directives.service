@@ -50,6 +50,7 @@ ConditionKernelCommandLine=
 ConditionKernelVersion=
 ConditionMemory=
 ConditionNeedsUpdate=
+ConditionOSRelease=
 ConditionPathExists=
 ConditionPathExistsGlob=
 ConditionPathIsDirectory=
