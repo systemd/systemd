@@ -107,6 +107,9 @@ int sd_id128_get_boot_app_specific(sd_id128_t app_id, sd_id128_t *ret);
 #define SD_ID128_MAKE_STR(a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p) \
         #a #b #c #d #e #f #g #h #i #j #k #l #m #n #o #p
 
+#define SD_ID128_MAKE_UUID_STR(a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p) \
+        #a #b #c #d "-" #e #f "-" #g #h "-" #i #j "-" #k #l #m #n #o #p
+
 _sd_pure_ static __inline__ int sd_id128_equal(sd_id128_t a, sd_id128_t b) {
         return memcmp(&a, &b, 16) == 0;
 }
