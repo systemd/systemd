@@ -584,10 +584,7 @@ static int radv_set_dns(Link *link, Link *uplink) {
                 goto set_dns;
 
         if (uplink) {
-                if (!uplink->network) {
-                        log_link_debug(uplink, "Cannot fetch DNS servers as uplink interface is not managed by us");
-                        return 0;
-                }
+                assert(uplink->network);
 
                 r = network_get_ipv6_dns(uplink->network, &dns, &n_dns);
                 if (r > 0)
@@ -623,10 +620,7 @@ static int radv_set_domains(Link *link, Link *uplink) {
                 goto set_domains;
 
         if (uplink) {
-                if (!uplink->network) {
-                        log_link_debug(uplink, "Cannot fetch DNS search domains as uplink interface is not managed by us");
-                        return 0;
-                }
+                assert(uplink->network);
 
                 search_domains = uplink->network->search_domains;
                 if (search_domains)
@@ -644,6 +638,26 @@ set_domains:
                                  DIV_ROUND_UP(lifetime_usec, USEC_PER_SEC),
                                  s);
 
+}
+
+static int radv_find_uplink(Link *link, Link **ret) {
+        assert(link);
+
+        if (link->network->router_uplink_name)
+                return link_get_by_name(link->manager, link->network->router_uplink_name, ret);
+
+        if (link->network->router_uplink_index > 0)
+                return link_get_by_index(link->manager, link->network->router_uplink_index, ret);
+
+        if (link->network->router_uplink_index == UPLINK_INDEX_AUTO) {
+                /* It is not necessary to propagate error in automatic selection. */
+                if (manager_find_uplink(link->manager, AF_INET6, link, ret) < 0)
+                        *ret = NULL;
+                return 0;
+        }
+
+        *ret = NULL;
+        return 0;
 }
 
 static bool link_radv_enabled(Link *link) {
@@ -730,7 +744,7 @@ static int radv_configure(Link *link) {
                         return r;
         }
 
-        (void) manager_find_uplink(link->manager, AF_INET6, link, &uplink);
+        (void) radv_find_uplink(link, &uplink);
 
         r = radv_set_dns(link, uplink);
         if (r < 0)
@@ -771,7 +785,10 @@ int radv_update_mac(Link *link) {
         return 0;
 }
 
-static bool radv_is_ready_to_configure(Link *link) {
+static int radv_is_ready_to_configure(Link *link) {
+        bool needs_uplink = false;
+        int r;
+
         assert(link);
         assert(link->network);
 
@@ -780,6 +797,32 @@ static bool radv_is_ready_to_configure(Link *link) {
 
         if (in6_addr_is_null(&link->ipv6ll_address))
                 return false;
+
+        if (link->network->router_emit_dns && !link->network->router_dns) {
+                _cleanup_free_ struct in6_addr *dns = NULL;
+                size_t n_dns;
+
+                r = network_get_ipv6_dns(link->network, &dns, &n_dns);
+                if (r < 0)
+                        return r;
+
+                needs_uplink = r == 0;
+        }
+
+        if (link->network->router_emit_domains &&
+            !link->network->router_search_domains &&
+            !link->network->search_domains)
+                needs_uplink = true;
+
+        if (needs_uplink) {
+                Link *uplink = NULL;
+
+                if (radv_find_uplink(link, &uplink) < 0)
+                        return false;
+
+                if (uplink && !uplink->network)
+                        return false;
+        }
 
         return true;
 }
@@ -794,8 +837,9 @@ int request_process_radv(Request *req) {
 
         link = req->link;
 
-        if (!radv_is_ready_to_configure(link))
-                return 0;
+        r = radv_is_ready_to_configure(link);
+        if (r <= 0)
+                return r;
 
         r = radv_configure(link);
         if (r < 0)

@@ -106,7 +106,7 @@ static int dhcp_server_find_uplink(Link *link, Link **ret) {
         if (link->network->dhcp_server_uplink_index > 0)
                 return link_get_by_index(link->manager, link->network->dhcp_server_uplink_index, ret);
 
-        if (link->network->dhcp_server_uplink_index == 0) {
+        if (link->network->dhcp_server_uplink_index == UPLINK_INDEX_AUTO) {
                 /* It is not necessary to propagate error in automatic selection. */
                 if (manager_find_uplink(link->manager, AF_INET, link, ret) < 0)
                         *ret = NULL;
@@ -661,57 +661,5 @@ int config_parse_dhcp_server_address(
 
         network->dhcp_server_address = a.in;
         network->dhcp_server_address_prefixlen = prefixlen;
-        return 0;
-}
-
-int config_parse_dhcp_server_uplink(
-                const char *unit,
-                const char *filename,
-                unsigned line,
-                const char *section,
-                unsigned section_line,
-                const char *lvalue,
-                int ltype,
-                const char *rvalue,
-                void *data,
-                void *userdata) {
-
-        Network *network = userdata;
-        int r;
-
-        assert(filename);
-        assert(lvalue);
-        assert(rvalue);
-
-        if (isempty(rvalue) || streq(rvalue, ":auto")) {
-                network->dhcp_server_uplink_index = 0; /* uplink will be selected automatically */
-                network->dhcp_server_uplink_name = mfree(network->dhcp_server_uplink_name);
-                return 0;
-        }
-
-        if (streq(rvalue, ":none")) {
-                network->dhcp_server_uplink_index = -1; /* uplink will not be selected automatically */
-                network->dhcp_server_uplink_name = mfree(network->dhcp_server_uplink_name);
-                return 0;
-        }
-
-        r = parse_ifindex(rvalue);
-        if (r > 0) {
-                network->dhcp_server_uplink_index = r;
-                network->dhcp_server_uplink_name = mfree(network->dhcp_server_uplink_name);
-                return 0;
-        }
-
-        if (!ifname_valid_full(rvalue, IFNAME_VALID_ALTERNATIVE)) {
-                log_syntax(unit, LOG_WARNING, filename, line, 0,
-                           "Invalid interface name in %s=, ignoring assignment: %s", lvalue, rvalue);
-                return 0;
-        }
-
-        r = free_and_strdup_warn(&network->dhcp_server_uplink_name, rvalue);
-        if (r < 0)
-                return r;
-
-        network->dhcp_server_uplink_index = 0;
         return 0;
 }
