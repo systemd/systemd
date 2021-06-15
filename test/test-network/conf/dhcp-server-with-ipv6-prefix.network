@@ -13,3 +13,7 @@ Prefix=2002:da8:1:0::/64
 [DHCPServer]
 DNS=192.168.5.1
 NTP=192.168.5.1
+
+[IPv6SendRA]
+EmitDNS=no
+EmitDomains=no
