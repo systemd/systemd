@@ -461,8 +461,17 @@
           <listitem>
             <para>Takes a boolean. If set to true, sets up the default route bound to the interface.
             Defaults to false. This is useful when creating routes on point-to-point interfaces.
-            This is equivalent to e.g. the following.
-            <programlisting>ip route add default dev veth99</programlisting></para>
+            This is equivalent to e.g. the following,
+            <programlisting>ip route add default dev veth99</programlisting>
+            or,
+            <programlisting>[Route]
+Gateway=0.0.0.0</programlisting></para>
+            <para>Currently, there are no way to specify e.g., the table for the route configured by
+            this setting. To configure the default route with such an additional property, please use
+            the following instead:
+            <programlisting>[Route]
+Gateway=0.0.0.0
+Table=1234</programlisting></para>
           </listitem>
         </varlistentry>
         <varlistentry>
