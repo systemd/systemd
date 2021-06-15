@@ -182,6 +182,9 @@ kexec_file_load
 kexec_load	6274
 keyctl	6245
 kill	6060
+landlock_add_rule	6445
+landlock_create_ruleset	6444
+landlock_restrict_self	6446
 lchown	6092
 lchown32
 lgetxattr	6184
@@ -401,7 +404,7 @@ pwritev	6294
 pwritev2	6326
 query_module	6171
 quotactl	6172
-quotactl_path	6443
+quotactl_path
 read	6000
 readahead	6179
 readdir
