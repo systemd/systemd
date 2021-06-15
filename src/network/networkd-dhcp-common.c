@@ -96,112 +96,63 @@ const DUID *link_get_duid(Link *link, int family) {
         return duid;
 }
 
-static int link_configure_and_start_dhcp_delayed(Link *link) {
-        int r;
-
-        assert(link);
-
-        if (!IN_SET(link->state, LINK_STATE_CONFIGURING, LINK_STATE_CONFIGURED))
-                return 0;
-
-        if (!link->dhcp_client) {
-                r = dhcp4_configure(link);
-                if (r < 0)
-                        return log_link_warning_errno(link, r, "Failed to configure DHCP4 client: %m");
-        }
-
-        if (!link->dhcp6_client) {
-                r = dhcp6_configure(link);
-                if (r < 0)
-                        return log_link_warning_errno(link, r, "Failed to configure DHCP6 client: %m");
-        }
-
-        if (link->set_flags_messages > 0)
-                return 0;
-
-        if (!link_has_carrier(link))
-                return 0;
-
-        r = dhcp4_start(link);
-        if (r < 0)
-                return log_link_warning_errno(link, r, "Failed to start DHCPv4 client: %m");
-
-        r = ndisc_start(link);
-        if (r < 0)
-                return log_link_warning_errno(link, r, "Failed to start IPv6 Router Discovery: %m");
-
-        r = dhcp6_start(link);
-        if (r < 0)
-                return log_link_warning_errno(link, r, "Failed to start DHCPv6 client: %m");
-
-        return 0;
-}
-
 static int get_product_uuid_handler(sd_bus_message *m, void *userdata, sd_bus_error *ret_error) {
         Manager *manager = userdata;
         const sd_bus_error *e;
         const void *a;
         size_t sz;
-        Link *link;
         int r;
 
         assert(m);
         assert(manager);
+
+        /* To avoid calling GetProductUUID() bus method so frequently, set the flag below
+         * even if the method fails. */
+        manager->has_product_uuid = true;
 
         e = sd_bus_message_get_error(m);
         if (e) {
                 r = sd_bus_error_get_errno(e);
                 log_warning_errno(r, "Could not get product UUID. Falling back to use machine-app-specific ID as DUID-UUID: %s",
                                   bus_error_message(e, r));
-                goto configure;
+                return 0;
         }
 
         r = sd_bus_message_read_array(m, 'y', &a, &sz);
         if (r < 0) {
                 log_warning_errno(r, "Failed to get product UUID. Falling back to use machine-app-specific ID as DUID-UUID: %m");
-                goto configure;
+                return 0;
         }
 
         if (sz != sizeof(sd_id128_t)) {
                 log_warning("Invalid product UUID. Falling back to use machine-app-specific ID as DUID-UUID.");
-                goto configure;
+                return 0;
         }
+
+        log_debug("Successfully obtained product UUID");
 
         memcpy(&manager->duid_product_uuid.raw_data, a, sz);
         manager->duid_product_uuid.raw_data_len = sz;
 
-configure:
-        /* To avoid calling GetProductUUID() bus method so frequently, set the flag below
-         * even if the method fails. */
-        manager->has_product_uuid = true;
-
-        while ((link = set_steal_first(manager->links_requesting_uuid))) {
-                r = link_configure_and_start_dhcp_delayed(link);
-                if (r < 0)
-                        link_enter_failed(link);
-
-                link_unref(link);
-        }
-
-        manager->links_requesting_uuid = set_free(manager->links_requesting_uuid);
-
-        return 1;
+        return 0;
 }
 
 int manager_request_product_uuid(Manager *m) {
+        static bool bus_method_is_called = false;
         int r;
 
         assert(m);
 
-        if (m->product_uuid_requested)
+        if (bus_method_is_called)
                 return 0;
 
-        log_debug("Requesting product UUID");
-
-        if (sd_bus_is_ready(m->bus) <= 0) {
+        if (sd_bus_is_ready(m->bus) <= 0 && !m->product_uuid_requested) {
                 log_debug("Not connected to system bus, requesting product UUID later.");
+                m->product_uuid_requested = true;
                 return 0;
         }
+
+        m->product_uuid_requested = false;
 
         r = sd_bus_call_method_async(
                         m->bus,
@@ -217,7 +168,9 @@ int manager_request_product_uuid(Manager *m) {
         if (r < 0)
                 return log_warning_errno(r, "Failed to get product UUID: %m");
 
-        m->product_uuid_requested = true;
+        log_debug("Requesting product UUID.");
+
+        bus_method_is_called = true;
 
         return 0;
 }
@@ -246,12 +199,6 @@ int dhcp_configure_duid(Link *link, const DUID *duid) {
                 m->has_product_uuid = true; /* Do not request UUID again on failure. */
                 return 1;
         }
-
-        r = set_ensure_put(&m->links_requesting_uuid, NULL, link);
-        if (r < 0)
-                return log_oom();
-        if (r > 0)
-                link_ref(link);
 
         return 0;
 }
