@@ -1395,15 +1395,6 @@ static int dhcp4_set_client_identifier(Link *link) {
         return 0;
 }
 
-static int dhcp4_configure_duid(Link *link) {
-        assert(link);
-
-        if (!IN_SET(link->network->dhcp_client_identifier, DHCP_CLIENT_ID_DUID, DHCP_CLIENT_ID_DUID_ONLY))
-                return 1;
-
-        return dhcp_configure_duid(link, link_get_dhcp4_duid(link));
-}
-
 static int dhcp4_set_request_address(Link *link) {
         Address *a;
 
@@ -1453,7 +1444,7 @@ static bool link_needs_dhcp_broadcast(Link *link) {
         return r == true;
 }
 
-int dhcp4_configure(Link *link) {
+static int dhcp4_configure(Link *link) {
         sd_dhcp_option *send_option;
         void *request_options;
         int r;
@@ -1461,15 +1452,8 @@ int dhcp4_configure(Link *link) {
         assert(link);
         assert(link->network);
 
-        if (!link_dhcp4_enabled(link))
-                return 0;
-
         if (link->dhcp_client)
                 return log_link_debug_errno(link, SYNTHETIC_ERRNO(EBUSY), "DHCP4 client is already configured.");
-
-        r = dhcp4_configure_duid(link);
-        if (r <= 0)
-                return r;
 
         r = sd_dhcp_client_new(&link->dhcp_client, link->network->dhcp_anonymize);
         if (r < 0)
@@ -1642,17 +1626,83 @@ int dhcp4_update_mac(Link *link) {
 }
 
 int dhcp4_start(Link *link) {
+        int r;
+
         assert(link);
 
         if (!link->dhcp_client)
                 return 0;
 
+        if (!link_has_carrier(link))
+                return 0;
+
         if (sd_dhcp_client_is_running(link->dhcp_client) > 0)
                 return 0;
 
-        log_link_debug(link, "Acquiring DHCPv4 lease");
+        r = sd_dhcp_client_start(link->dhcp_client);
+        if (r < 0)
+                return r;
 
-        return sd_dhcp_client_start(link->dhcp_client);
+        return 1;
+}
+
+static int dhcp4_configure_duid(Link *link) {
+        assert(link);
+
+        if (!IN_SET(link->network->dhcp_client_identifier, DHCP_CLIENT_ID_DUID, DHCP_CLIENT_ID_DUID_ONLY))
+                return 1;
+
+        return dhcp_configure_duid(link, link_get_dhcp4_duid(link));
+}
+
+int request_process_dhcp4_client(Request *req) {
+        Link *link;
+        int r;
+
+        assert(req);
+        assert(req->link);
+        assert(req->type == REQUEST_TYPE_DHCP4_CLIENT);
+
+        link = req->link;
+
+        if (!IN_SET(link->state, LINK_STATE_CONFIGURING, LINK_STATE_CONFIGURED))
+                return 0;
+
+        r = dhcp4_configure_duid(link);
+        if (r <= 0)
+                return r;
+
+        r = dhcp4_configure(req->link);
+        if (r < 0)
+                return log_link_warning_errno(link, r, "Failed to configure DHCPv4 client: %m");
+
+        r = dhcp4_start(link);
+        if (r < 0)
+                return log_link_warning_errno(link, r, "Failed to start DHCPv4 client: %m");
+
+        log_link_debug(link, "DHCPv4 client is configured%s.",
+                       r > 0 ? ", acquiring DHCPv4 lease" : "");
+
+        return 1;
+}
+
+int link_request_dhcp4_client(Link *link) {
+        int r;
+
+        assert(link);
+
+        if (!link_dhcp4_enabled(link))
+                return 0;
+
+        if (link->dhcp_client)
+                return 0;
+
+        r = link_queue_request(link, REQUEST_TYPE_DHCP4_CLIENT, NULL, false, NULL, NULL, NULL);
+        if (r < 0)
+                return log_link_warning_errno(link, r, "Failed to request configuring of the DHCPv4 client: %m");
+
+        log_link_debug(link, "Requested configuring of the DHCPv4 client.");
+        return 0;
 }
 
 int config_parse_dhcp_max_attempts(
