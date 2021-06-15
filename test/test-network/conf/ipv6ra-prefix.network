@@ -5,6 +5,9 @@ Name=veth99
 DHCP=no
 IPv6SendRA=yes
 
+[IPv6SendRA]
+UplinkInterface=dummy98
+
 [IPv6Prefix]
 Prefix=2001:db8:0:1::/64
 

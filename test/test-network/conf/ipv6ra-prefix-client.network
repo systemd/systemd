@@ -11,3 +11,4 @@ PrefixAllowList=2001:db8:0:1:: 2001:db8:0:1::
 PrefixDenyList=2001:db8:0:1:: 2001:db8:0:1::
 RouteAllowList=2001:db0:fff:: 2001:db0:fff::
 RouteDenyList=2001:db0:fff:: 2001:db0:fff::
+UseDomains=yes

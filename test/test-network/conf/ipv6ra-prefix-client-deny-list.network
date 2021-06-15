@@ -9,3 +9,4 @@ IPv6AcceptRA=yes
 RouterDenyList=2001::1
 PrefixDenyList=2001:db8:0:2::
 RouteDenyList=2001:db1:fff::
+UseDomains=yes
