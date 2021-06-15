@@ -14,8 +14,9 @@
 #include "conf-parser.h"
 #include "networkd-util.h"
 
-typedef struct Network Network;
 typedef struct Link Link;
+typedef struct Network Network;
+typedef struct Request Request;
 
 typedef enum RADVPrefixDelegation {
         RADV_PREFIX_DELEGATION_NONE   = 0,
@@ -50,11 +51,12 @@ void network_drop_invalid_prefixes(Network *network);
 void network_drop_invalid_route_prefixes(Network *network);
 void network_adjust_radv(Network *network);
 
-int radv_emit_dns(Link *link);
-int radv_configure(Link *link);
 int radv_update_mac(Link *link);
 int radv_add_prefix(Link *link, const struct in6_addr *prefix, uint8_t prefix_len,
                     uint32_t lifetime_preferred, uint32_t lifetime_valid);
+
+int request_process_radv(Request *req);
+int link_request_radv(Link *link);
 
 const char* radv_prefix_delegation_to_string(RADVPrefixDelegation i) _const_;
 RADVPrefixDelegation radv_prefix_delegation_from_string(const char *s) _pure_;
