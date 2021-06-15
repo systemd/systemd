@@ -242,6 +242,8 @@ int dhcp_configure_duid(Link *link, const DUID *duid) {
         if (r < 0) {
                 log_link_warning_errno(link, r,
                                        "Failed to get product UUID. Falling back to use machine-app-specific ID as DUID-UUID: %m");
+
+                m->has_product_uuid = true; /* Do not request UUID again on failure. */
                 return 1;
         }
 
