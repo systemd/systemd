@@ -1712,11 +1712,7 @@ int dhcp4_update_mac(Link *link) {
         if (r < 0)
                 return r;
 
-        r = dhcp4_dad_update_mac(link);
-        if (r < 0)
-                return r;
-
-        return 0;
+        return dhcp4_dad_update_mac(link);
 }
 
 int dhcp4_start(Link *link) {
