@@ -10,6 +10,7 @@
 #include "networkd-link.h"
 #include "networkd-manager.h"
 #include "networkd-network.h"
+#include "networkd-queue.h"
 #include "networkd-radv.h"
 #include "parse-util.h"
 #include "string-util.h"
@@ -595,7 +596,7 @@ static int radv_set_dns(Link *link, Link *uplink) {
 
         return 0;
 
- set_dns:
+set_dns:
         return sd_radv_set_rdnss(link->radv,
                                  DIV_ROUND_UP(lifetime_usec, USEC_PER_SEC),
                                  dns, n_dns);
@@ -634,7 +635,7 @@ static int radv_set_domains(Link *link, Link *uplink) {
 
         return 0;
 
- set_domains:
+set_domains:
         s = ordered_set_get_strv(search_domains);
         if (!s)
                 return log_oom();
@@ -643,23 +644,6 @@ static int radv_set_domains(Link *link, Link *uplink) {
                                  DIV_ROUND_UP(lifetime_usec, USEC_PER_SEC),
                                  s);
 
-}
-
-int radv_emit_dns(Link *link) {
-        Link *uplink = NULL;
-        int r;
-
-        (void) manager_find_uplink(link->manager, AF_INET6, link, &uplink);
-
-        r = radv_set_dns(link, uplink);
-        if (r < 0)
-                log_link_warning_errno(link, r, "Could not set RA DNS: %m");
-
-        r = radv_set_domains(link, uplink);
-        if (r < 0)
-                log_link_warning_errno(link, r, "Could not set RA Domains: %m");
-
-        return 0;
 }
 
 static bool link_radv_enabled(Link *link) {
@@ -671,17 +655,15 @@ static bool link_radv_enabled(Link *link) {
         return link->network->router_prefix_delegation;
 }
 
-int radv_configure(Link *link) {
+static int radv_configure(Link *link) {
         uint16_t router_lifetime;
+        Link *uplink = NULL;
         RoutePrefix *q;
         Prefix *p;
         int r;
 
         assert(link);
         assert(link->network);
-
-        if (!link_radv_enabled(link))
-                return 0;
 
         if (link->radv)
                 return -EBUSY;
@@ -748,6 +730,16 @@ int radv_configure(Link *link) {
                         return r;
         }
 
+        (void) manager_find_uplink(link->manager, AF_INET6, link, &uplink);
+
+        r = radv_set_dns(link, uplink);
+        if (r < 0)
+                return log_link_debug_errno(link, r, "Could not set RA DNS: %m");
+
+        r = radv_set_domains(link, uplink);
+        if (r < 0)
+                return log_link_debug_errno(link, r, "Could not set RA Domains: %m");
+
         return 0;
 }
 
@@ -776,6 +768,66 @@ int radv_update_mac(Link *link) {
                         return r;
         }
 
+        return 0;
+}
+
+static bool radv_is_ready_to_configure(Link *link) {
+        assert(link);
+        assert(link->network);
+
+        if (!IN_SET(link->state, LINK_STATE_CONFIGURING, LINK_STATE_CONFIGURED))
+                return false;
+
+        if (in6_addr_is_null(&link->ipv6ll_address))
+                return false;
+
+        return true;
+}
+
+int request_process_radv(Request *req) {
+        Link *link;
+        int r;
+
+        assert(req);
+        assert(req->link);
+        assert(req->type == REQUEST_TYPE_RADV);
+
+        link = req->link;
+
+        if (!radv_is_ready_to_configure(link))
+                return 0;
+
+        r = radv_configure(link);
+        if (r < 0)
+                return log_link_warning_errno(link, r, "Failed to configure IPv6 Router Advertisement engine: %m");
+
+        if (link_has_carrier(link)) {
+                r = sd_radv_start(link->radv);
+                if (r < 0)
+                        return log_link_warning_errno(link, r, "Failed to start IPv6 Router Advertisement engine: %m");
+        }
+
+        log_link_debug(link, "IPv6 Router Advertisement engine is configured%s.",
+                       link_has_carrier(link) ? " and started." : "");
+        return 1;
+}
+
+int link_request_radv(Link *link) {
+        int r;
+
+        assert(link);
+
+        if (!link_radv_enabled(link))
+                return 0;
+
+        if (link->radv)
+                return 0;
+
+        r = link_queue_request(link, REQUEST_TYPE_RADV, NULL, false, NULL, NULL, NULL);
+        if (r < 0)
+                return log_link_warning_errno(link, r, "Failed to request IPv6 Router Advertisement engine: %m");
+
+        log_link_debug(link, "IPv6 Router Advertisement engine is requested.");
         return 0;
 }
 

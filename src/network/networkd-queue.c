@@ -43,6 +43,8 @@ static void request_free_object(RequestType type, void *object) {
         case REQUEST_TYPE_NEXTHOP:
                 nexthop_free(object);
                 break;
+        case REQUEST_TYPE_RADV:
+                break;
         case REQUEST_TYPE_ROUTE:
                 route_free(object);
                 break;
@@ -121,6 +123,9 @@ static void request_hash_func(const Request *req, struct siphash *state) {
         case REQUEST_TYPE_NEXTHOP:
                 nexthop_hash_func(req->nexthop, state);
                 break;
+        case REQUEST_TYPE_RADV:
+                /* This type does not have an object. */
+                break;
         case REQUEST_TYPE_ROUTE:
                 route_hash_func(req->route, state);
                 break;
@@ -174,6 +179,8 @@ static int request_compare_func(const struct Request *a, const struct Request *b
                 return nexthop_compare_func(a->nexthop, b->nexthop);
         case REQUEST_TYPE_ROUTE:
                 return route_compare_func(a->route, b->route);
+        case REQUEST_TYPE_RADV:
+                return 0;
         case REQUEST_TYPE_ROUTING_POLICY_RULE:
                 return routing_policy_rule_compare_func(a->rule, b->rule);
         case REQUEST_TYPE_SET_LINK:
@@ -211,10 +218,14 @@ int link_queue_request(
         assert(IN_SET(type,
                       REQUEST_TYPE_ACTIVATE_LINK,
                       REQUEST_TYPE_DHCP_SERVER,
+                      REQUEST_TYPE_RADV,
                       REQUEST_TYPE_SET_LINK,
                       REQUEST_TYPE_UP_DOWN) ||
                object);
-        assert(type == REQUEST_TYPE_DHCP_SERVER || netlink_handler);
+        assert(IN_SET(type,
+                      REQUEST_TYPE_DHCP_SERVER,
+                      REQUEST_TYPE_RADV) ||
+               netlink_handler);
 
         req = new(Request, 1);
         if (!req) {
@@ -297,6 +308,9 @@ int manager_process_requests(sd_event_source *s, void *userdata) {
                                 break;
                         case REQUEST_TYPE_NEXTHOP:
                                 r = request_process_nexthop(req);
+                                break;
+                        case REQUEST_TYPE_RADV:
+                                r = request_process_radv(req);
                                 break;
                         case REQUEST_TYPE_ROUTE:
                                 r = request_process_route(req);
