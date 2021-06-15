@@ -837,7 +837,7 @@ static void test_load_syscall_filter_set_raw(void) {
                 assert_se(s = hashmap_new(NULL));
 #if defined __NR_poll && __NR_poll >= 0
                 assert_se(hashmap_put(s, UINT32_TO_PTR(__NR_poll + 1), INT_TO_PTR(-1)) >= 0);
-#else
+#elif defined __NR_ppoll
                 assert_se(hashmap_put(s, UINT32_TO_PTR(__NR_ppoll + 1), INT_TO_PTR(-1)) >= 0);
 #endif
 
@@ -854,7 +854,8 @@ static void test_load_syscall_filter_set_raw(void) {
                 assert_se(s = hashmap_new(NULL));
 #if defined __NR_poll && __NR_poll >= 0
                 assert_se(hashmap_put(s, UINT32_TO_PTR(__NR_poll + 1), INT_TO_PTR(EILSEQ)) >= 0);
-#else
+#elif defined __NR_ppoll
+                assert_se(hashmap_put(s, UINT32_TO_PTR(__NR_ppoll + 1), INT_TO_PTR(-1)) >= 0);
                 assert_se(hashmap_put(s, UINT32_TO_PTR(__NR_ppoll + 1), INT_TO_PTR(EILSEQ)) >= 0);
 #endif
 
