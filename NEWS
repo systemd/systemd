@@ -125,6 +125,12 @@ CHANGES WITH 249 in spe:
           gained a new parameter --uuid that prints the UUID for each generated
           uevent.
 
+        * sd-device also gained new APIs sd_device_new_from_ifname() and
+          sd_device_new_from_ifindex() for allocating an sd-device object for
+          the specified network interface. The former accepts an interface name
+          (either a primary or an alternative name), the latter an interface
+          index.
+
         * The native Journal protocol has been documented. Clients may talk
           this as alternative to the classic BSD syslog protocol for locally
           delivering log records to the Journal. The protocol has been stable
@@ -463,33 +469,42 @@ CHANGES WITH 249 in spe:
         * The WakeOnLan= setting in .link files now accepts a list of flags
           instead of a single one, to configure multiple wake-on-LAN policies.
 
+        * User-space defined tracepoints (USDT) have been added to udev at
+          strategic locations. This is useful for tracing udev behaviour and
+          performance with bpftrace and similar tools.
+
+        * systemd-journald-upload gained a new NetworkTimeoutSec= option for
+          setting a network timeout time.
+
         Contributions from: Aakash Singh, adrian5, Alexander Sverdlin,
         alexlzhu, Allen Webb, Alvin Šipraga, Alyssa Ross, Anita Zhang, asavah,
         Balint Reczey, Bertrand Jacquin, borna-blazevic, caoxia2008cxx,
-        Carlo Teubner, Christian Göttsche, Christian Hesse, Dan Streetman,
-        David Santamaría Rogado, David Tardon, Deepak Rawat,
+        Carlo Teubner, Christian Göttsche, Christian Hesse, Daniel Schaefer,
+        Dan Streetman, David Santamaría Rogado, David Tardon, Deepak Rawat,
         Dimitri John Ledkov, ei-ke, Emilio Herrera, Emil Renner Berthing,
         Flos Lonicerae, Franck Bui, Francois Gervais, Frantisek Sumsal,
         Gibeom Gwon, gitm0, Hans de Goede, Harsh Barsaiyan, Henri Chain,
         Igor Zhbanov, imayoda, Jakub Warczarek, James Buren, Jan Janssen,
-        Jan Synacek, Jason Francis, Jérôme Carretero, jiangchuangang,
-        Joerg Behrmann, Jóhann B. Guðmundsson, Jörg Deckert, Jörg Thalheim,
-        Julia Kartseva, Kai-Heng Feng, Khem Raj, KoyamaSohei,
-        Lennart Poettering, LetzteInstanz, Luca Adrian L, Luca Boccassi,
-        Lucas Magasweran, Mantas Mikulėnas, Marco Antonio Mauro, Mark Wielaard,
-        Masahiro Matsuya, Michael Catanzaro, Mike Kazantsev, Milan,
-        Miroslav Suchý, Morten Linderud, Noah Meyerhans, Oleg Popov,
-        Olle Lundberg, Ondrej Kozina, Perry.Yuan, Peter Hutterer,
-        Peter Kjellerstedt, Peter Morrow, Phaedrus Leeds, Roman Beranek,
-        Roshan Shariff, Ryan Hendrickson, Samuel BF, scootergrisen,
-        Sebastian Blunt, Seong-ho Cho, Sergey Bugaev, Sevan Janiyan, Sibo Dong,
-        simmon, Simon Watts, Srinidhi Kaushik, Štěpán Němec, Steve Bonds,
-        Susant Sahani, sverdlin, syyhao1994, Takashi Sakamoto, Topi Miettinen,
-        tramsay, Uwe Kleine-König, Viktor Mihajlovski, Vincent Dechenaux,
-        Vito Caputo, William A. Kennington III, Yangyang Shen, Yegor Alexeyev,
-        Yi Gao, Yu Watanabe, Zbigniew Jędrzejewski-Szmek, zsien, наб
+        Jan Synacek, Jason Francis, Jayanth Ananthapadmanaban,
+        Jérôme Carretero, jiangchuangang, Joerg Behrmann,
+        Jóhann B. Guðmundsson, Jörg Deckert, Jörg Thalheim, Julia Kartseva,
+        Kai-Heng Feng, Khem Raj, KoyamaSohei, Lennart Poettering,
+        LetzteInstanz, Luca Adrian L, Luca Boccassi, Lucas Magasweran,
+        Mantas Mikulėnas, Marco Antonio Mauro, Mark Wielaard, Masahiro Matsuya,
+        Matt Johnston, Michael Catanzaro, Michal Koutný, Michal Sekletár,
+        Mike Kazantsev, Milan, Miroslav Suchý, Morten Linderud, nerdopolis,
+        nl6720, Noah Meyerhans, Oleg Popov, Olle Lundberg, Ondrej Kozina,
+        Perry.Yuan, Peter Hutterer, Peter Kjellerstedt, Peter Morrow,
+        Phaedrus Leeds, Roman Beranek, Roshan Shariff, Ryan Hendrickson,
+        Samuel BF, scootergrisen, Sebastian Blunt, Seong-ho Cho, Sergey Bugaev,
+        Sevan Janiyan, Sibo Dong, simmon, Simon Watts, Srinidhi Kaushik,
+        Štěpán Němec, Steve Bonds, Susant Sahani, sverdlin, syyhao1994,
+        Takashi Sakamoto, Topi Miettinen, tramsay, Uwe Kleine-König,
+        Viktor Mihajlovski, Vincent Dechenaux, Vito Caputo,
+        William A. Kennington III, Yangyang Shen, Yegor Alexeyev, Yi Gao,
+        Yu Watanabe, Zbigniew Jędrzejewski-Szmek, zsien, наб
 
-        — Berlin, 2021-06-XX
+        — Berlin, 2021-06-15
 
 CHANGES WITH 248:
 
