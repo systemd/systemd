@@ -104,6 +104,7 @@ fi
 
 BASICTOOLS=(
     awk
+    base64
     basename
     bash
     busybox
