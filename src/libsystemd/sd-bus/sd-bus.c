@@ -1526,7 +1526,7 @@ int bus_set_address_machine(sd_bus *b, bool user, const char *machine) {
                  * since the --user socket path depends on $XDG_RUNTIME_DIR which is set via PAM. Thus, to be
                  * able to connect, we need to have a PAM session. Our way out?  We use systemd-run to get
                  * into the container and acquire a PAM session there, and then invoke systemd-stdio-bridge
-                 * in it, which propagates the bus transport to us.*/
+                 * in it, which propagates the bus transport to us. */
 
                 if (rhs) {
                         if (rhs > machine)

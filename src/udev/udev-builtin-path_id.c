@@ -282,7 +282,7 @@ static sd_device *handle_scsi_ata(sd_device *parent, char **path, char **compat_
                 return NULL;
 
         if (bus != 0)
-                /* Devices behind port multiplier have a bus != 0*/
+                /* Devices behind port multiplier have a bus != 0 */
                 path_prepend(path, "ata-%s.%u.0", port_no, bus);
         else
                 /* Master/slave are distinguished by target id */

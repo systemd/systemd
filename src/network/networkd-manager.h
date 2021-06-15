@@ -85,7 +85,7 @@ struct Manager {
         Hashmap *route_table_numbers_by_name;
         Hashmap *route_table_names_by_number;
 
-        /* For link speed meter*/
+        /* For link speed meter */
         bool use_speed_meter;
         sd_event_source *speed_meter_event_source;
         usec_t speed_meter_interval_usec;

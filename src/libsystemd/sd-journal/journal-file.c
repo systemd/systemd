@@ -2854,7 +2854,7 @@ int journal_file_compare_locations(JournalFile *af, JournalFile *bf) {
         assert(bf->location_type == LOCATION_SEEK);
 
         /* If contents, timestamps and seqnum match, these entries are
-         * identical*/
+         * identical. */
         if (sd_id128_equal(af->current_boot_id, bf->current_boot_id) &&
             af->current_monotonic == bf->current_monotonic &&
             af->current_realtime == bf->current_realtime &&

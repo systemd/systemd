@@ -23,7 +23,7 @@ static void test_read_mem_pressure(void) {
         assert_se(write_string_file(path, "herpdederp\n", WRITE_STRING_FILE_CREATE) == 0);
         assert_se(read_resource_pressure(path, PRESSURE_TYPE_SOME, &rp) < 0);
 
-        /* Pressure file with some invalid values*/
+        /* Pressure file with some invalid values */
         assert_se(write_string_file(path, "some avg10=0.22=55 avg60=0.17=8 avg300=1.11=00 total=58761459\n"
                                           "full avg10=0.23=55 avg60=0.16=8 avg300=1.08=00 total=58464525", WRITE_STRING_FILE_CREATE) == 0);
         assert_se(read_resource_pressure(path, PRESSURE_TYPE_SOME, &rp) < 0);
