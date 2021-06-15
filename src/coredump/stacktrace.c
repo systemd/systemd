@@ -287,7 +287,7 @@ static int module_callback(Dwfl_Module *mod, void **userdata, const char *name, 
                 GElf_Phdr mem, *program_header;
                 Elf_Data *data;
 
-                /* The core file stores the ELF files in the PT_LOAD segment .*/
+                /* The core file stores the ELF files in the PT_LOAD segment. */
                 program_header = gelf_getphdr(c->elf, i, &mem);
                 if (!program_header || program_header->p_type != PT_LOAD)
                         continue;

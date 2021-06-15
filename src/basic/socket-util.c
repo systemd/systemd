@@ -107,7 +107,7 @@ int socket_address_verify(const SocketAddress *a, bool strict) {
                                 /* If there's no embedded NUL byte, then the size needs to match the whole
                                  * structure or the structure with one extra NUL byte suffixed. (Yeah, Linux is awful,
                                  * and considers both equivalent: getsockname() even extends sockaddr_un beyond its
-                                 * size if the path is non NUL terminated.)*/
+                                 * size if the path is non NUL terminated.) */
                                 if (!IN_SET(a->size, sizeof(a->sockaddr.un.sun_path), sizeof(a->sockaddr.un.sun_path)+1))
                                         return -EINVAL;
                         }
@@ -1192,7 +1192,7 @@ int sockaddr_un_set_path(struct sockaddr_un *ret, const char *path) {
         /* Don't allow paths larger than the space in sockaddr_un. Note that we are a tiny bit more restrictive than
          * the kernel is: we insist on NUL termination (both for abstract namespace and regular file system socket
          * addresses!), which the kernel doesn't. We do this to reduce chance of incompatibility with other apps that
-         * do not expect non-NUL terminated file system path*/
+         * do not expect non-NUL terminated file system path. */
         if (l+1 > sizeof(ret->sun_path))
                 return -EINVAL;
 

@@ -188,7 +188,7 @@ int genuine_random_bytes(void *p, size_t n, RandomFlags flags) {
                  * invocations or so. That's because we don't really care about the quality here. We
                  * generally prefer using RDRAND if the caller allows us to, since this way we won't upset
                  * the kernel's random subsystem by accessing it before the pool is initialized (after all it
-                 * will kmsg log about every attempt to do so)..*/
+                 * will kmsg log about every attempt to do so). */
                 for (;;) {
                         unsigned long u;
                         size_t m;

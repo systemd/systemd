@@ -2450,7 +2450,7 @@ static int setup_exec_directory(
 
                 /* Then, change the ownership of the whole tree, if necessary. When dynamic users are used we
                  * drop the suid/sgid bits, since we really don't want SUID/SGID files for dynamic UID/GID
-                 * assignments to exist.*/
+                 * assignments to exist. */
                 r = path_chown_recursive(pp ?: p, uid, gid, context->dynamic_user ? 01777 : 07777);
                 if (r < 0)
                         goto fail;
@@ -2886,7 +2886,7 @@ static int setup_credentials(
                  * Yes it's nasty playing games with /dev/ and /dev/shm/ like this, since it does not exist
                  * for this purpose, but there are few other candidates that work equally well for us, and
                  * given that the we do this in a privately namespaced short-lived single-threaded process
-                 * that no one else sees this should be OK to do.*/
+                 * that no one else sees this should be OK to do. */
 
                 r = mount_nofollow_verbose(LOG_DEBUG, NULL, "/dev", NULL, MS_SLAVE|MS_REC, NULL); /* Turn off propagation from our namespace to host */
                 if (r < 0)
@@ -3836,7 +3836,7 @@ static int exec_child(
                 _cleanup_strv_free_ char **suggested_paths = NULL;
 
                 /* On top of that, make sure we bypass our own NSS module nss-systemd comprehensively for any NSS
-                 * checks, if DynamicUser=1 is used, as we shouldn't create a feedback loop with ourselves here.*/
+                 * checks, if DynamicUser=1 is used, as we shouldn't create a feedback loop with ourselves here. */
                 if (putenv((char*) "SYSTEMD_NSS_DYNAMIC_BYPASS=1") != 0) {
                         *exit_status = EXIT_USER;
                         return log_unit_error_errno(unit, errno, "Failed to update environment: %m");

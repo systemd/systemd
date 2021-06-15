@@ -913,7 +913,7 @@ static void test_filename_is_valid(void) {
 }
 
 static void test_path_is_valid_and_safe_one(const char *p, bool ret) {
-        log_debug("/* %s(\"%s\")*/", __func__, strnull(p));
+        log_debug("/* %s(\"%s\") */", __func__, strnull(p));
 
         assert_se(path_is_valid(p) == ret);
         if (ret)

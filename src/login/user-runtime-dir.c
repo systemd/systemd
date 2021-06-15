@@ -167,7 +167,7 @@ static int do_umount(const char *user) {
         int r;
 
         /* The user may be already removed. So, first try to parse the string by parse_uid(),
-         * and if it fails, fall back to get_user_creds().*/
+         * and if it fails, fall back to get_user_creds(). */
         if (parse_uid(user, &uid) < 0) {
                 r = get_user_creds(&user, &uid, NULL, NULL, NULL, 0);
                 if (r < 0)

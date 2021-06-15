@@ -560,7 +560,7 @@ static int umount_with_timeout(MountPoint *m, int umount_log_level) {
                  * rather than blocking indefinitely. If the filesysten is
                  * "busy", this may allow processes to die, thus making the
                  * filesystem less busy so the unmount might succeed (rather
-                 * then return EBUSY).*/
+                 * than return EBUSY). */
                 r = umount2(m->path, MNT_FORCE);
                 if (r < 0)
                         log_full_errno(umount_log_level, errno, "Failed to unmount %s: %m", m->path);

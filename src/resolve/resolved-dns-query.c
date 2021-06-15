@@ -1102,7 +1102,7 @@ int dns_query_process_cname_one(DnsQuery *q) {
          * Hence we first check of the answers we collected are sufficient to answer all our questions
          * directly. If one question wasn't answered we go on, waiting for more replies. However, if there's
          * a CNAME/DNAME response we use it, and redirect to it, regardless if it was a response to the A or
-         * the AAAA query.*/
+         * the AAAA query. */
 
         DNS_QUESTION_FOREACH(k, question) {
                 bool match = false;
@@ -1276,12 +1276,12 @@ bool dns_query_fully_authoritative(DnsQuery *q) {
 
         /* We are authoritative for everything synthetic (except if a previous CNAME/DNAME) wasn't
          * synthetic. (Note: SD_RESOLVED_SYNTHETIC is reset on each CNAME/DNAME, hence the explicit check for
-         * previous synthetic DNAME/CNAME redirections.)*/
+         * previous synthetic DNAME/CNAME redirections.) */
         if ((q->answer_query_flags & SD_RESOLVED_SYNTHETIC) && !q->previous_redirect_non_synthetic)
                 return true;
 
         /* We are also authoritative for everything coming only from the trust anchor and the local
          * zones. (Note: the SD_RESOLVED_FROM_xyz flags we merge on each redirect, hence no need to
-         * explicitly check previous redirects here.)*/
+         * explicitly check previous redirects here.) */
         return (q->answer_query_flags & SD_RESOLVED_FROM_MASK & ~(SD_RESOLVED_FROM_TRUST_ANCHOR | SD_RESOLVED_FROM_ZONE)) == 0;
 }

@@ -2126,7 +2126,7 @@ static int link_update_name(Link *link, sd_netlink_message *message) {
 
         r = sd_netlink_message_read_string(message, IFLA_IFNAME, &ifname);
         if (r == -ENODATA)
-                /* Hmm?? But ok.*/
+                /* Hmm?? But ok. */
                 return 0;
         if (r < 0)
                 return log_link_debug_errno(link, r, "Failed to read interface name in RTM_NEWLINK message: %m");

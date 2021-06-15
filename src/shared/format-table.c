@@ -2136,7 +2136,7 @@ int table_print(Table *t, FILE *f) {
                                                 /* Never give more than requested. If we hit a column like this, there's more
                                                  * space to allocate to other columns which means we need to restart the
                                                  * iteration. However, if we hit a column like this, let's assign it the space
-                                                 * it wanted for good early.*/
+                                                 * it wanted for good early. */
 
                                                 w = requested_width[j];
                                                 restart = true;

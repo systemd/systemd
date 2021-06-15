@@ -199,7 +199,7 @@ int user_record_reconcile(
         if (!user_record_compatible(host, embedded))
                 return -EREMCHG;
 
-        /* Embedded identities may not contain secrets or binding info*/
+        /* Embedded identities may not contain secrets or binding info */
         if ((embedded->mask & (USER_RECORD_SECRET|USER_RECORD_BINDING)) != 0)
                 return -EINVAL;
 

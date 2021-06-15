@@ -560,7 +560,7 @@ static int worker_main(Manager *_manager, sd_device_monitor *monitor, sd_device 
         if (r < 0)
                 log_debug_errno(r, "Failed to reset OOM score, ignoring: %m");
 
-        /* Clear unnecessary data in Manager object.*/
+        /* Clear unnecessary data in Manager object. */
         manager_clear_for_worker(manager);
 
         r = sd_event_new(&manager->event);

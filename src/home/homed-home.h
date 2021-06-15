@@ -84,7 +84,7 @@ struct Home {
         /* Note that the 'state' field is only set to a state while we are doing something (i.e. activating,
          * deactivating, creating, removing, and such), or when the home is an "unfixated" one. When we are
          * done with an operation we invalidate the state. This is hint for home_get_state() to check the
-         * state on request as needed from the mount table and similar.*/
+         * state on request as needed from the mount table and similar. */
         HomeState state;
         int signed_locally; /* signed only by us */
 
