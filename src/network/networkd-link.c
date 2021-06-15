@@ -1149,7 +1149,7 @@ static int link_configure(Link *link) {
 
         r = dhcp6_configure(link);
         if (r < 0)
-                return r;
+                return log_link_warning_errno(link, r, "Failed to configure DHCP6 client: %m");
 
         r = ndisc_configure(link);
         if (r < 0)

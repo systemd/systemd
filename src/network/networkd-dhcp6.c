@@ -1505,7 +1505,7 @@ static int dhcp6_set_hostname(sd_dhcp6_client *client, Link *link) {
         else {
                 r = gethostname_strict(&hostname);
                 if (r < 0 && r != -ENXIO) /* ENXIO: no hostname set or hostname is "localhost" */
-                        return r;
+                        return log_link_debug_errno(link, r, "DHCP6 CLIENT: Failed to get hostname: %m");
 
                 hn = hostname;
         }
@@ -1513,9 +1513,9 @@ static int dhcp6_set_hostname(sd_dhcp6_client *client, Link *link) {
         r = sd_dhcp6_client_set_fqdn(client, hn);
         if (r == -EINVAL && hostname)
                 /* Ignore error when the machine's hostname is not suitable to send in DHCP packet. */
-                log_link_warning_errno(link, r, "DHCP6 CLIENT: Failed to set hostname from kernel hostname, ignoring: %m");
+                log_link_debug_errno(link, r, "DHCP6 CLIENT: Failed to set hostname from kernel hostname, ignoring: %m");
         else if (r < 0)
-                return log_link_error_errno(link, r, "DHCP6 CLIENT: Failed to set hostname: %m");
+                return log_link_debug_errno(link, r, "DHCP6 CLIENT: Failed to set hostname: %m");
 
         return 0;
 }
@@ -1585,7 +1585,7 @@ int dhcp6_configure(Link *link) {
                 return 0;
 
         if (link->dhcp6_client)
-                return -EBUSY;
+                return log_link_debug_errno(link, SYNTHETIC_ERRNO(EBUSY), "DHCP6 client is already configured.");
 
         r = dhcp_configure_duid(link, link_get_dhcp6_duid(link));
         if (r <= 0)
@@ -1593,24 +1593,24 @@ int dhcp6_configure(Link *link) {
 
         r = sd_dhcp6_client_new(&client);
         if (r == -ENOMEM)
-                return log_oom();
+                return log_oom_debug();
         if (r < 0)
-                return log_link_error_errno(link, r, "DHCP6 CLIENT: Failed to create DHCP6 client: %m");
+                return log_link_debug_errno(link, r, "DHCP6 CLIENT: Failed to create DHCP6 client: %m");
 
         r = sd_dhcp6_client_attach_event(client, link->manager->event, 0);
         if (r < 0)
-                return log_link_error_errno(link, r, "DHCP6 CLIENT: Failed to attach event: %m");
+                return log_link_debug_errno(link, r, "DHCP6 CLIENT: Failed to attach event: %m");
 
         r = dhcp6_set_identifier(link, client);
         if (r < 0)
-                return log_link_error_errno(link, r, "DHCP6 CLIENT: Failed to set identifier: %m");
+                return log_link_debug_errno(link, r, "DHCP6 CLIENT: Failed to set identifier: %m");
 
         ORDERED_HASHMAP_FOREACH(send_option, link->network->dhcp6_client_send_options) {
                 r = sd_dhcp6_client_add_option(client, send_option);
                 if (r == -EEXIST)
                         continue;
                 if (r < 0)
-                        return log_link_error_errno(link, r, "DHCP6 CLIENT: Failed to set option: %m");
+                        return log_link_debug_errno(link, r, "DHCP6 CLIENT: Failed to set option: %m");
         }
 
         r = dhcp6_set_hostname(client, link);
@@ -1619,18 +1619,18 @@ int dhcp6_configure(Link *link) {
 
         r = sd_dhcp6_client_set_ifindex(client, link->ifindex);
         if (r < 0)
-                return log_link_error_errno(link, r, "DHCP6 CLIENT: Failed to set ifindex: %m");
+                return log_link_debug_errno(link, r, "DHCP6 CLIENT: Failed to set ifindex: %m");
 
         if (link->network->dhcp6_rapid_commit) {
                 r = sd_dhcp6_client_set_request_option(client, SD_DHCP6_OPTION_RAPID_COMMIT);
                 if (r < 0)
-                        return log_link_error_errno(link, r, "DHCP6 CLIENT: Failed to set request flag for rapid commit: %m");
+                        return log_link_debug_errno(link, r, "DHCP6 CLIENT: Failed to set request flag for rapid commit: %m");
         }
 
         if (link->network->dhcp6_mudurl) {
                 r = sd_dhcp6_client_set_request_mud_url(client, link->network->dhcp6_mudurl);
                 if (r < 0)
-                        return log_link_error_errno(link, r, "DHCP6 CLIENT: Failed to set MUD URL: %m");
+                        return log_link_debug_errno(link, r, "DHCP6 CLIENT: Failed to set MUD URL: %m");
         }
 
         SET_FOREACH(request_options, link->network->dhcp6_request_options) {
@@ -1642,19 +1642,19 @@ int dhcp6_configure(Link *link) {
                         continue;
                 }
                 if (r < 0)
-                        return log_link_error_errno(link, r, "DHCP6 CLIENT: Failed to set request flag for '%u': %m", option);
+                        return log_link_debug_errno(link, r, "DHCP6 CLIENT: Failed to set request flag for '%u': %m", option);
         }
 
         if (link->network->dhcp6_user_class) {
                 r = sd_dhcp6_client_set_request_user_class(client, link->network->dhcp6_user_class);
                 if (r < 0)
-                        return log_link_error_errno(link, r, "DHCP6 CLIENT: Failed to set user class: %m");
+                        return log_link_debug_errno(link, r, "DHCP6 CLIENT: Failed to set user class: %m");
         }
 
         if (link->network->dhcp6_vendor_class) {
                 r = sd_dhcp6_client_set_request_vendor_class(client, link->network->dhcp6_vendor_class);
                 if (r < 0)
-                        return log_link_error_errno(link, r, "DHCP6 CLIENT: Failed to set vendor class: %m");
+                        return log_link_debug_errno(link, r, "DHCP6 CLIENT: Failed to set vendor class: %m");
         }
 
         ORDERED_HASHMAP_FOREACH(vendor_option, link->network->dhcp6_client_send_vendor_options) {
@@ -1662,23 +1662,23 @@ int dhcp6_configure(Link *link) {
                 if (r == -EEXIST)
                         continue;
                 if (r < 0)
-                        return log_link_error_errno(link, r, "DHCP6 CLIENT: Failed to set vendor option: %m");
+                        return log_link_debug_errno(link, r, "DHCP6 CLIENT: Failed to set vendor option: %m");
         }
 
         r = sd_dhcp6_client_set_callback(client, dhcp6_handler, link);
         if (r < 0)
-                return log_link_error_errno(link, r, "DHCP6 CLIENT: Failed to set callback: %m");
+                return log_link_debug_errno(link, r, "DHCP6 CLIENT: Failed to set callback: %m");
 
         if (dhcp6_enable_prefix_delegation(link)) {
                 r = sd_dhcp6_client_set_prefix_delegation(client, true);
                 if (r < 0)
-                        return log_link_error_errno(link, r, "DHCP6 CLIENT: Failed to set prefix delegation: %m");
+                        return log_link_debug_errno(link, r, "DHCP6 CLIENT: Failed to set prefix delegation: %m");
         }
 
         if (link->network->dhcp6_pd_length > 0) {
                 r = sd_dhcp6_client_set_prefix_delegation_hint(client, link->network->dhcp6_pd_length, &link->network->dhcp6_pd_address);
                 if (r < 0)
-                        return log_link_error_errno(link, r, "DHCP6 CLIENT: Failed to set prefix hint: %m");
+                        return log_link_debug_errno(link, r, "DHCP6 CLIENT: Failed to set prefix hint: %m");
         }
 
         link->dhcp6_client = TAKE_PTR(client);
