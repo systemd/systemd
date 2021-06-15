@@ -253,7 +253,7 @@
     <para><function>sd_bus_error_move()</function> is similar to <function>sd_bus_error_copy()</function>,
     but will move any error information from <parameter>e</parameter> into <parameter>dst</parameter>,
     resetting the former. This function cannot fail, as no new memory is allocated. Note that if
-    <parameter>e</parameter> is not set, <parameter>dst</parameter> is initializated to
+    <parameter>e</parameter> is not set, <parameter>dst</parameter> is initialized to
     <constant>SD_BUS_ERROR_NULL</constant>. Moreover, if <parameter>dst</parameter> is
     <constant>NULL</constant> no operation is executed on it and resources held by <parameter>e</parameter>
     are freed and reset. Returns a converted <varname>errno</varname>-like, non-positive error value.</para>

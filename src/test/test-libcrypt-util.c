@@ -36,7 +36,7 @@ static void test_make_salt(void) {
 static int test_hash_password(void) {
         log_info("/* %s */", __func__);
 
-        /* As a warmup exercise, check if we can hash passwords. */
+        /* As a warm-up exercise, check if we can hash passwords. */
 
         bool have_sane_hash = false;
         const char *hash;
