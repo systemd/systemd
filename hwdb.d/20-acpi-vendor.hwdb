@@ -246,6 +246,9 @@ acpi:PIXA*:
 acpi:PNSO*:
  ID_VENDOR_FROM_DATABASE=Pensando Systems, Inc.
 
+acpi:PURI*:
+ ID_VENDOR_FROM_DATABASE=Purism SPC
+
 acpi:QCOM*:
  ID_VENDOR_FROM_DATABASE=Qualcomm Inc
 
@@ -2001,6 +2004,9 @@ acpi:DLK*:
 acpi:DLL*:
  ID_VENDOR_FROM_DATABASE=Dell Inc
 
+acpi:DLM*:
+ ID_VENDOR_FROM_DATABASE=DLOGIC Ltd.
+
 acpi:DLO*:
  ID_VENDOR_FROM_DATABASE=Shenzhen Dlodlo Technologies Co., Ltd.
 
@@ -2388,6 +2394,9 @@ acpi:EMK*:
 acpi:EMO*:
  ID_VENDOR_FROM_DATABASE=ELMO COMPANY, LIMITED
 
+acpi:EMR*:
+ ID_VENDOR_FROM_DATABASE=ICC Intelligent Platforms GmbH
+
 acpi:EMU*:
  ID_VENDOR_FROM_DATABASE=Emulex Corporation
 
@@ -2765,6 +2774,9 @@ acpi:FTW*:
 
 acpi:FUJ*:
  ID_VENDOR_FROM_DATABASE=Fujitsu Ltd
+
+acpi:FUL*:
+ ID_VENDOR_FROM_DATABASE=Fun Technology Innovation INC.
 
 acpi:FUN*:
  ID_VENDOR_FROM_DATABASE=sisel muhendislik
@@ -3522,6 +3534,9 @@ acpi:INZ*:
 acpi:IOA*:
  ID_VENDOR_FROM_DATABASE=CRE Technology Corporation
 
+acpi:IOC*:
+ ID_VENDOR_FROM_DATABASE=Guangxi Century Innovation Display Electronics Co., Ltd
+
 acpi:IOD*:
  ID_VENDOR_FROM_DATABASE=I-O Data Device Inc
 
@@ -4004,6 +4019,9 @@ acpi:LCM*:
 
 acpi:LCN*:
  ID_VENDOR_FROM_DATABASE=LEXICON
+
+acpi:LCP*:
+ ID_VENDOR_FROM_DATABASE=Silent Power Electronics GmbH
 
 acpi:LCS*:
  ID_VENDOR_FROM_DATABASE=Longshine Electronics Company
@@ -4880,6 +4898,9 @@ acpi:NGC*:
 
 acpi:NGS*:
  ID_VENDOR_FROM_DATABASE=A D S Exports
+
+acpi:NHC*:
+ ID_VENDOR_FROM_DATABASE=New H3C Technology Co., Ltd.
 
 acpi:NHT*:
  ID_VENDOR_FROM_DATABASE=Vinci Labs
@@ -5990,6 +6011,9 @@ acpi:SCD*:
 
 acpi:SCE*:
  ID_VENDOR_FROM_DATABASE=Sun Corporation
+
+acpi:SCG*:
+ ID_VENDOR_FROM_DATABASE=Seco S.p.A.
 
 acpi:SCH*:
  ID_VENDOR_FROM_DATABASE=Schlumberger Cards

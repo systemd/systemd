@@ -5255,6 +5255,24 @@ CE3000-CE3FFF     (base 16)		Pixel Design & Manufacturing Sdn. Bhd.
 				Tehran    0512258788
 				IR
 
+8C-1F-64   (hex)		Esys Srl
+C1F000-C1FFFF     (base 16)		Esys Srl
+				via Spagna 240/242
+				Rende  Calabria  87036
+				IT
+
+8C-1F-64   (hex)		Sicon srl
+193000-193FFF     (base 16)		Sicon srl
+				Via Sila 1/3
+				Isola Vicentina  Vicenza  36033
+				IT
+
+8C-1F-64   (hex)		YULISTA INTEGRATED SOLUTION
+128000-128FFF     (base 16)		YULISTA INTEGRATED SOLUTION
+				7600 ADVANCED GATEWAY
+				HUNTSVILLE  AL  35808
+				US
+
 70-B3-D5   (hex)		EVCO SPA
 A80000-A80FFF     (base 16)		EVCO SPA
 				VIA FELTRE N. 81
@@ -10475,6 +10493,24 @@ AA4000-AA4FFF     (base 16)		HEINEN ELEKTRONIK GmbH
 				Johannesburg  Guateng  2170
 				ZA
 
+8C-1F-64   (hex)		SVMS
+3B5000-3B5FFF     (base 16)		SVMS
+				ZA de Berroueta
+				Urrugne    64122
+				FR
+
+8C-1F-64   (hex)		JUSTMORPH PTE. LTD.
+AB5000-AB5FFF     (base 16)		JUSTMORPH PTE. LTD.
+				29A Mosque Street
+				Singapore    059507
+				SG
+
+8C-1F-64   (hex)		INFOSTECH Co., Ltd.
+F86000-F86FFF     (base 16)		INFOSTECH Co., Ltd.
+				26, Namsan-ro 39beon-gil, Uichang-gu
+				Changwon-si  Gyeongsangnam-do  51368
+				KR
+
 70-B3-D5   (hex)		System West dba ICS Electronics
 E06000-E06FFF     (base 16)		System West dba ICS Electronics
 				7034 Commerce Circle Suite A
@@ -15637,6 +15673,12 @@ DC9000-DC9FFF     (base 16)		Peter Huber Kaeltemaschinenbau AG
 				101,Building 1,No.28,Wenqiao Rd,Wenbian Village,Shiji Town,Panyu District,Duangzhou
 				Duangzhou    511400
 				CN
+
+8C-1F-64   (hex)		Xacti Corporation
+90E000-90EFFF     (base 16)		Xacti Corporation
+				Tower East 28F,Umeda Sky Building,1-1-88,Oyodonaka,Kita-ku
+				Osaka  Osaka  531-6048
+				JP
 
 70-B3-D5   (hex)		YUYAMA MFG Co.,Ltd
 BBB000-BBBFFF     (base 16)		YUYAMA MFG Co.,Ltd
@@ -20984,6 +21026,36 @@ AE1000-AE1FFF     (base 16)		YUYAMA MFG Co.,Ltd
 				Broomfield  CO  80021
 				US
 
+8C-1F-64   (hex)		Cirrus Systems, Inc.
+8C2000-8C2FFF     (base 16)		Cirrus Systems, Inc.
+				200 West Road
+				Portsmouth  NH  03801
+				US
+
+8C-1F-64   (hex)		Florida R&D Associates LLC
+2F5000-2F5FFF     (base 16)		Florida R&D Associates LLC
+				76 Spring Vista Drive
+				DeBary  FL  32713
+				US
+
+8C-1F-64   (hex)		Sonora Network Solutions
+2E8000-2E8FFF     (base 16)		Sonora Network Solutions
+				8 The Green Suite A
+				Dover  DE  19901
+				US
+
+8C-1F-64   (hex)		Global Organ Group B.V.
+EE8000-EE8FFF     (base 16)		Global Organ Group B.V.
+				Keplerlaan 2
+				EDE  The Netherlands  6716BS
+				NL
+
+8C-1F-64   (hex)		UBISCALE
+73F000-73FFFF     (base 16)		UBISCALE
+				1 Avenue de Bellefontaine
+				Cesson-Sevigne    35510
+				FR
+
 70-B3-D5   (hex)		DISMUNTEL SAL
 92C000-92CFFF     (base 16)		DISMUNTEL SAL
 				Pol ind cotes
@@ -26120,8 +26192,26 @@ A4E000-A4EFFF     (base 16)		Syscom Instruments SA
 				Sainte-Croix    1450
 				CH
 
+8C-1F-64   (hex)		Caproc Oy
+D4A000-D4AFFF     (base 16)		Caproc Oy
+				Vintilänkatu 20
+				Lahti    15680
+				FI
+
+8C-1F-64   (hex)		KIB Energo LLC
+D3C000-D3CFFF     (base 16)		KIB Energo LLC
+				Moskovskoe ave. 9
+				Saint-Petersburg    196158
+				RU
+
 8C-1F-64   (hex)		Nonet Inc
 2A5000-2A5FFF     (base 16)		Nonet Inc
 				Daan Dist, Xinhai Road Section 1, No. 79, 5F
 				Taipei  Taipei  10647
 				TW
+
+8C-1F-64   (hex)		WBNet
+1E3000-1E3FFF     (base 16)		WBNet
+				Drielse Wetering 17
+				Kerkdriel  Gelderland  5331RK
+				NL
