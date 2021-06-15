@@ -2587,17 +2587,27 @@ IPv6Token=prefixstable:2002:da8:1::</programlisting></para>
       </varlistentry>
 
       <varlistentry>
+        <term><varname>UplinkInterface=</varname></term>
+        <listitem><para>Specifies the name or the index of the uplink interface, or one of the special
+        values <literal>:none</literal> and <literal>:auto</literal>. When emitting DNS servers or
+        search domains is enabled but no servers are specified, the servers configured in the uplink
+        interface will be emitted. When <literal>:auto</literal>, the link which has a default gateway
+        with the highest priority will be automatically selected. When <literal>:none</literal>, no
+        uplink interface will be selected. Defaults to <literal>:auto</literal>.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>EmitDNS=</varname></term>
         <term><varname>DNS=</varname></term>
 
-        <listitem><para><varname>DNS=</varname> specifies a list of recursive DNS server IPv6 addresses that
-        are distributed via Router Advertisement messages when <varname>EmitDNS=</varname> is
-        true. <varname>DNS=</varname> also takes special value <literal>_link_local</literal>; in that case
-        the IPv6 link local address is distributed. If <varname>DNS=</varname> is empty, DNS servers are read
-        from the [Network] section. If the [Network] section does not contain any DNS servers either, DNS
-        servers from the uplink with the highest priority default route are used. When
-        <varname>EmitDNS=</varname> is false, no DNS server information is sent in Router Advertisement
-        messages. <varname>EmitDNS=</varname> defaults to true.</para></listitem>
+        <listitem><para><varname>DNS=</varname> specifies a list of recursive DNS server IPv6 addresses
+        that are distributed via Router Advertisement messages when <varname>EmitDNS=</varname> is true.
+        <varname>DNS=</varname> also takes special value <literal>_link_local</literal>; in that case
+        the IPv6 link local address is distributed. If <varname>DNS=</varname> is empty, DNS servers are
+        read from the [Network] section. If the [Network] section does not contain any DNS servers
+        either, DNS servers from the uplink interface specified in <varname>UplinkInterface=</varname>
+        will be used. When <varname>EmitDNS=</varname> is false, no DNS server information is sent in
+        Router Advertisement messages. <varname>EmitDNS=</varname> defaults to true.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -2605,11 +2615,12 @@ IPv6Token=prefixstable:2002:da8:1::</programlisting></para>
         <term><varname>Domains=</varname></term>
 
         <listitem><para>A list of DNS search domains distributed via Router Advertisement messages when
-        <varname>EmitDomains=</varname> is true. If <varname>Domains=</varname> is empty, DNS search domains
-        are read from the [Network] section. If the [Network] section does not contain any DNS search domains
-        either, DNS search domains from the uplink with the highest priority default route are used. When
-        <varname>EmitDomains=</varname> is false, no DNS search domain information is sent in Router
-        Advertisement messages. <varname>EmitDomains=</varname> defaults to true.</para></listitem>
+        <varname>EmitDomains=</varname> is true. If <varname>Domains=</varname> is empty, DNS search
+        domains are read from the [Network] section. If the [Network] section does not contain any DNS
+        search domains either, DNS search domains from the uplink interface specified in
+        <varname>UplinkInterface=</varname> will be used. When <varname>EmitDomains=</varname> is false,
+        no DNS search domain information is sent in Router Advertisement messages.
+        <varname>EmitDomains=</varname> defaults to true.</para></listitem>
       </varlistentry>
 
       <varlistentry>
