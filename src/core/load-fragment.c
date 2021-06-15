@@ -47,6 +47,7 @@
 #include "log.h"
 #include "mountpoint-util.h"
 #include "nulstr-util.h"
+#include "parse-socket-bind-item.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "percent-util.h"
@@ -5633,53 +5634,22 @@ int config_parse_cgroup_socket_bind(
                 void *data,
                 void *userdata) {
         _cleanup_free_ CGroupSocketBindItem *item = NULL;
-        const char *user_port;
-        uint16_t nr_ports = 0, port_min = 0;
         CGroupSocketBindItem **head = data;
-        _cleanup_free_ char *word = NULL;
-        int af, r;
+        uint16_t nr_ports, port_min;
+        int af, ip_protocol, r;
 
         if (isempty(rvalue)) {
                 cgroup_context_remove_socket_bind(head);
                 return 0;
         }
 
-        r = extract_first_word(&rvalue, &word, ":", 0);
+        r = parse_socket_bind_item(rvalue, &af, &ip_protocol, &nr_ports, &port_min);
         if (r == -ENOMEM)
                 return log_oom();
-        if (r <= 0) {
+        if (r < 0) {
                 log_syntax(unit, LOG_WARNING, filename, line, r,
                            "Unable to parse %s= assignment, ignoring: %s", lvalue, rvalue);
                 return 0;
-        }
-
-        if (rvalue) {
-                af = af_from_ipv4_ipv6(word);
-                if (af == AF_UNSPEC) {
-                        log_syntax(unit, LOG_WARNING, filename, line, 0,
-                                   "Only \"ipv4\" and \"ipv6\" protocols are supported, ignoring.");
-                        return 0;
-                }
-
-                user_port = rvalue;
-        } else {
-                af = AF_UNSPEC;
-                user_port = word;
-        }
-
-        if (!streq(user_port, "any")) {
-                uint16_t port_max;
-
-                r = parse_ip_port_range(user_port, &port_min, &port_max);
-                if (r == -ENOMEM)
-                        return log_oom();
-                if (r < 0) {
-                        log_syntax(unit, LOG_WARNING, filename, line, r,
-                                   "Invalid port or port range, ignoring: %m");
-                        return 0;
-                }
-
-                nr_ports = 1 + port_max - port_min;
         }
 
         item = new(CGroupSocketBindItem, 1);
@@ -5687,8 +5657,7 @@ int config_parse_cgroup_socket_bind(
                 return log_oom();
         *item = (CGroupSocketBindItem) {
                 .address_family = af,
-                 /* No ip protocol specified for now. */
-                .ip_protocol = 0,
+                .ip_protocol = ip_protocol,
                 .nr_ports = nr_ports,
                 .port_min = port_min,
         };
