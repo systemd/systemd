@@ -107,7 +107,7 @@ static int link_configure_and_start_dhcp_delayed(Link *link) {
         if (!link->dhcp_client) {
                 r = dhcp4_configure(link);
                 if (r < 0)
-                        return r;
+                        return log_link_warning_errno(link, r, "Failed to configure DHCP4 client: %m");
         }
 
         if (!link->dhcp6_client) {

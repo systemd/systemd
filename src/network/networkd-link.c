@@ -1145,7 +1145,7 @@ static int link_configure(Link *link) {
 
         r = dhcp4_configure(link);
         if (r < 0)
-                return r;
+                return log_link_warning_errno(link, r, "Failed to configure DHCP4 client: %m");
 
         r = dhcp6_configure(link);
         if (r < 0)
