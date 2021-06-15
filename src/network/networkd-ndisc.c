@@ -1391,6 +1391,9 @@ int ndisc_start(Link *link) {
         if (!link->ndisc || !link->dhcp6_client)
                 return 0;
 
+        if (!link_has_carrier(link))
+                return 0;
+
         log_link_debug(link, "Discovering IPv6 routers");
 
         return sd_ndisc_start(link->ndisc);
