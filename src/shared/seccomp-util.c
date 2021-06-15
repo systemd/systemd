@@ -691,7 +691,6 @@ const SyscallFilterSet syscall_filter_sets[_SYSCALL_FILTER_SET_MAX] = {
                 "open_by_handle_at\0"
                 "pivot_root\0"
                 "quotactl\0"
-                "quotactl_path\0"
                 "setdomainname\0"
                 "setfsuid\0"
                 "setfsuid32\0"
