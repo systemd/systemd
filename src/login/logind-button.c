@@ -133,20 +133,22 @@ static int long_press_of_reboot_key_handler(sd_event_source *e, uint64_t usec, v
         return 0;
 }
 
-static int start_long_press_of_reboot_key(Manager *m) {
-        int r = 0;
+static void start_long_press_of_reboot_key(Manager *m) {
+        int r;
 
         assert(m);
 
-        if (!m->reboot_key_long_press_event_source)
-                r = sd_event_add_time_relative(
-                                m->event,
-                                &m->reboot_key_long_press_event_source,
-                                CLOCK_MONOTONIC,
-                                m->long_press_duration, 0,
-                                long_press_of_reboot_key_handler, m);
+        if (m->reboot_key_long_press_event_source)
+                return;
 
-        return r;
+        r = sd_event_add_time_relative(
+                        m->event,
+                        &m->reboot_key_long_press_event_source,
+                        CLOCK_MONOTONIC,
+                        m->long_press_duration, 0,
+                        long_press_of_reboot_key_handler, m);
+        if (r < 0)
+                log_error_errno(r, "Failed to add long press timer event");
 }
 
 static int button_dispatch(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
