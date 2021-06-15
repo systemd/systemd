@@ -29,7 +29,7 @@
 #HandleLidSwitchExternalPower=suspend
 #HandleLidSwitchDocked=ignore
 #HandleRebootKey=reboot
-#HandleRebootKeyLongPress=ignore
+#HandleRebootKeyLongPress=poweroff
 #PowerKeyIgnoreInhibited=no
 #SuspendKeyIgnoreInhibited=no
 #HibernateKeyIgnoreInhibited=no

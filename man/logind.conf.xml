@@ -223,7 +223,7 @@
         key/lid switch events. <varname>HandlePowerKey=</varname>
         defaults to <literal>poweroff</literal>, <varname>HandleRebootKey=</varname>
         defaults to <literal>reboot</literal>, <varname>HandleRebootKeyLongPress=</varname>
-        defaults to <literal>ignore</literal>.
+        defaults to <literal>poweroff</literal>.
         <varname>HandleSuspendKey=</varname> and
         <varname>HandleLidSwitch=</varname> default to
         <literal>suspend</literal>.
