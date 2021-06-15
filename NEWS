@@ -452,9 +452,6 @@ CHANGES WITH 249 in spe:
           time, birth time, change time, modification time) to look at when
           deciding whether a path has aged enough to be cleaned.
 
-        * Journal files, which are allocated in fixed incremenets, are now
-          truncated when rotated/archived to remove unused space from their tails.
-
         * A new IPv6StableSecretAddress= setting has been added to .network
           files, which takes an IPv6 address to use as secret for IPv6 address
           generation.
