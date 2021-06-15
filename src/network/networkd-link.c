@@ -669,6 +669,12 @@ static int link_acquire_dynamic_conf(Link *link) {
         if (r < 0)
                 return log_link_warning_errno(link, r, "Failed to start LLDP transmission: %m");
 
+        if (link->lldp) {
+                r = sd_lldp_start(link->lldp);
+                if (r < 0)
+                        return log_link_warning_errno(link, r, "Failed to start LLDP client: %m");
+        }
+
         return 0;
 }
 
@@ -975,6 +981,16 @@ static int link_drop_foreign_config(Link *link) {
         assert(link);
         assert(link->manager);
 
+        /* Drop foreign config, but ignore unmanaged, loopback, or critical interfaces. We do not want
+         * to remove loopback address or addresses used for root NFS. */
+
+        if (IN_SET(link->state, LINK_STATE_UNMANAGED, LINK_STATE_PENDING, LINK_STATE_INITIALIZED))
+                return 0;
+        if (FLAGS_SET(link->flags, IFF_LOOPBACK))
+                return 0;
+        if (link->network->keep_configuration == KEEP_CONFIGURATION_YES)
+                return 0;
+
         r = link_drop_foreign_routes(link);
 
         k = link_drop_foreign_nexthops(link);
@@ -1127,14 +1143,9 @@ static int link_configure(Link *link) {
         if (r < 0)
                 return r;
 
-        /* Drop foreign config, but ignore loopback or critical devices.
-         * We do not want to remove loopback address or addresses used for root NFS. */
-        if (!(link->flags & IFF_LOOPBACK) &&
-            link->network->keep_configuration != KEEP_CONFIGURATION_YES) {
-                r = link_drop_foreign_config(link);
-                if (r < 0)
-                        return r;
-        }
+        r = link_drop_foreign_config(link);
+        if (r < 0)
+                return r;
 
         r = link_request_static_configs(link);
         if (r < 0)
@@ -1200,23 +1211,22 @@ static int link_get_network(Link *link, Network **ret) {
 }
 
 static int link_reconfigure_impl(Link *link, bool force) {
-        Network *network;
+        Network *network = NULL;
         int r;
 
         assert(link);
 
         r = link_get_network(link, &network);
-        if (r == -ENOENT) {
-                link_set_state(link, LINK_STATE_UNMANAGED);
-                return 0;
-        }
-        if (r < 0)
+        if (r < 0 && r != -ENOENT)
                 return r;
 
         if (link->network == network && !force)
                 return 0;
 
-        log_link_info(link, "Re-configuring with %s", network->filename);
+        if (network)
+                log_link_info(link, "Re-configuring with %s.", network->filename);
+        else
+                log_link_info(link, "Unmanaging interface.");
 
         /* Dropping old .network file */
         r = link_stop_engines(link, false);
@@ -1229,17 +1239,15 @@ static int link_reconfigure_impl(Link *link, bool force) {
         if (r < 0)
                 return r;
 
-        if (!IN_SET(link->state, LINK_STATE_UNMANAGED, LINK_STATE_PENDING, LINK_STATE_INITIALIZED)) {
-                log_link_debug(link, "State is %s, dropping foreign config", link_state_to_string(link->state));
-                r = link_drop_foreign_config(link);
-                if (r < 0)
-                        return r;
-        }
-
         link_free_carrier_maps(link);
         link_free_engines(link);
         link->network = network_unref(link->network);
         link_unref(set_remove(link->manager->links_requesting_uuid, link));
+
+        if (!network) {
+                link_set_state(link, LINK_STATE_UNMANAGED);
+                return 0;
+        }
 
         /* Then, apply new .network file */
         link->network = network_ref(network);
@@ -1260,30 +1268,85 @@ static int link_reconfigure_impl(Link *link, bool force) {
         return 1;
 }
 
-static int link_reconfigure_handler_internal(sd_netlink *rtnl, sd_netlink_message *m, Link *link, bool force) {
+static int link_reconfigure_handler_internal(sd_netlink *rtnl, sd_netlink_message *m, Link *link, bool force, bool update_wifi) {
+        bool link_was_lower_up;
         int r;
+
+        assert(link);
+
+        link_was_lower_up = link->flags & IFF_LOWER_UP;
 
         r = link_getlink_handler_internal(rtnl, m, link, "Failed to update link state");
         if (r <= 0)
                 return r;
 
+        if (update_wifi && link_was_lower_up && link->flags & IFF_LOWER_UP) {
+                /* If the interface's L1 was not up, then wifi_get_info() is already called in
+                 * link_update_flags(). So, it is not necessary to re-call here. */
+                r = wifi_get_info(link);
+                if (r < 0) {
+                        link_enter_failed(link);
+                        return 0;
+                }
+        }
+
         r = link_reconfigure_impl(link, force);
-        if (r < 0)
+        if (r < 0) {
                 link_enter_failed(link);
+                return 0;
+        }
+
+        return r;
+}
+
+static int link_reconfigure_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
+        return link_reconfigure_handler_internal(rtnl, m, link, /* force = */ false, /* update_wifi = */ false);
+}
+
+static int link_force_reconfigure_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
+        return link_reconfigure_handler_internal(rtnl, m, link, /* force = */ true, /* update_wifi = */ false);
+}
+
+static int link_reconfigure_after_sleep_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
+        int r;
+
+        assert(link);
+
+        r = link_reconfigure_handler_internal(rtnl, m, link, /* force = */ false, /* update_wifi = */ true);
+        if (r != 0)
+                return r;
+
+        /* r == 0 means an error occurs, the link is unmanaged, or the matching network file is unchanged. */
+        if (!IN_SET(link->state, LINK_STATE_CONFIGURING, LINK_STATE_CONFIGURED))
+                return 0;
+
+        /* re-request static configs, and restart engines. */
+        r = link_stop_engines(link, false);
+        if (r < 0) {
+                link_enter_failed(link);
+                return 0;
+        }
+
+        r = link_acquire_dynamic_conf(link);
+        if (r < 0) {
+                link_enter_failed(link);
+                return 0;
+        }
+
+        r = link_request_static_configs(link);
+        if (r < 0) {
+                link_enter_failed(link);
+                return 0;
+        }
 
         return 0;
 }
 
-static int link_reconfigure_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
-        return link_reconfigure_handler_internal(rtnl, m, link, false);
-}
-
-static int link_force_reconfigure_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
-        return link_reconfigure_handler_internal(rtnl, m, link, true);
-}
-
-int link_reconfigure(Link *link, bool force) {
+static int link_reconfigure_internal(Link *link, link_netlink_message_handler_t callback) {
         int r;
+
+        assert(link);
+        assert(callback);
 
         /* When link in pending or initialized state, then link_configure() will be called. To prevent
          * the function from being called multiple times simultaneously, refuse to reconfigure the
@@ -1291,11 +1354,19 @@ int link_reconfigure(Link *link, bool force) {
         if (IN_SET(link->state, LINK_STATE_PENDING, LINK_STATE_INITIALIZED, LINK_STATE_LINGER))
                 return 0; /* 0 means no-op. */
 
-        r = link_call_getlink(link, force ? link_force_reconfigure_handler : link_reconfigure_handler);
+        r = link_call_getlink(link, callback);
         if (r < 0)
                 return r;
 
         return 1; /* 1 means the interface will be reconfigured. */
+}
+
+int link_reconfigure(Link *link, bool force) {
+        return link_reconfigure_internal(link, force ? link_force_reconfigure_handler : link_reconfigure_handler);
+}
+
+int link_reconfigure_after_sleep(Link *link) {
+        return link_reconfigure_internal(link, link_reconfigure_after_sleep_handler);
 }
 
 static int link_initialized_and_synced(Link *link) {
@@ -1536,34 +1607,7 @@ static int link_carrier_lost(Link *link) {
         if (r < 0)
                 return r;
 
-        if (!IN_SET(link->state, LINK_STATE_UNMANAGED, LINK_STATE_PENDING, LINK_STATE_INITIALIZED)) {
-                log_link_debug(link, "State is %s, dropping foreign config", link_state_to_string(link->state));
-                r = link_drop_foreign_config(link);
-                if (r < 0)
-                        return r;
-        }
-
-        return 0;
-}
-
-int link_carrier_reset(Link *link) {
-        int r;
-
-        assert(link);
-
-        if (!link_has_carrier(link))
-                return 0;
-
-        r = link_carrier_lost(link);
-        if (r < 0)
-                return r;
-
-        r = link_carrier_gained(link);
-        if (r < 0)
-                return r;
-
-        log_link_info(link, "Reset carrier");
-        return 0;
+        return link_drop_foreign_config(link);
 }
 
 static int link_admin_state_up(Link *link) {
@@ -1918,10 +1962,6 @@ static int link_update_flags(Link *link, sd_netlink_message *message) {
                 if (r < 0)
                         return r;
         }
-
-        r = link_update_lldp(link);
-        if (r < 0)
-                return r;
 
         if (!had_carrier && link_has_carrier(link)) {
                 log_link_info(link, "Gained carrier");

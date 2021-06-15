@@ -59,9 +59,9 @@ static int manager_reset_all(Manager *m) {
         assert(m);
 
         HASHMAP_FOREACH(link, m->links) {
-                r = link_carrier_reset(link);
+                r = link_reconfigure_after_sleep(link);
                 if (r < 0) {
-                        log_link_warning_errno(link, r, "Could not reset carrier: %m");
+                        log_link_warning_errno(link, r, "Failed to reconfigure interface: %m");
                         link_enter_failed(link);
                 }
         }
@@ -85,7 +85,7 @@ static int match_prepare_for_sleep(sd_bus_message *message, void *userdata, sd_b
         if (b)
                 return 0;
 
-        log_debug("Coming back from suspend, resetting all connections...");
+        log_debug("Coming back from sleep, resetting all connections...");
 
         (void) manager_reset_all(m);
 

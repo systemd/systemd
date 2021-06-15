@@ -103,36 +103,7 @@ int link_lldp_rx_configure(Link *link) {
         if (r < 0)
                 return r;
 
-        r = link_update_lldp(link);
-        if (r < 0)
-                return r;
-
         return 0;
-}
-
-int link_update_lldp(Link *link) {
-        int r;
-
-        assert(link);
-
-        if (!link->lldp)
-                return 0;
-
-        if (link->flags & IFF_UP) {
-                r = sd_lldp_start(link->lldp);
-                if (r < 0)
-                        return log_link_warning_errno(link, r, "Failed to start LLDP: %m");
-                if (r > 0)
-                        log_link_debug(link, "Started LLDP.");
-        } else {
-                r = sd_lldp_stop(link->lldp);
-                if (r < 0)
-                        return log_link_warning_errno(link, r, "Failed to stop LLDP: %m");
-                if (r > 0)
-                        log_link_debug(link, "Stopped LLDP.");
-        }
-
-        return r;
 }
 
 int link_lldp_save(Link *link) {
