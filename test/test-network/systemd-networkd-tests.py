@@ -674,9 +674,9 @@ class NetworkctlTests(unittest.TestCase, Utilities):
 
         output = check_output('ip -4 address show dev dummy98')
         print(output)
-        self.assertRegex(output, 'inet 10.1.2.3/16 brd 10.1.255.255 scope global dummy98')
-        self.assertRegex(output, 'inet 10.1.2.4/16 brd 10.1.255.255 scope global secondary dummy98')
-        self.assertRegex(output, 'inet 10.2.2.4/16 brd 10.2.255.255 scope global dummy98')
+        self.assertIn('inet 10.1.2.3/16 brd 10.1.255.255 scope global dummy98', output)
+        self.assertIn('inet 10.1.2.4/16 brd 10.1.255.255 scope global secondary dummy98', output)
+        self.assertIn('inet 10.2.2.4/16 brd 10.2.255.255 scope global dummy98', output)
 
         check_output('ip address del 10.1.2.3/16 dev dummy98')
         check_output('ip address del 10.1.2.4/16 dev dummy98')
@@ -687,9 +687,30 @@ class NetworkctlTests(unittest.TestCase, Utilities):
 
         output = check_output('ip -4 address show dev dummy98')
         print(output)
-        self.assertRegex(output, 'inet 10.1.2.3/16 brd 10.1.255.255 scope global dummy98')
-        self.assertRegex(output, 'inet 10.1.2.4/16 brd 10.1.255.255 scope global secondary dummy98')
-        self.assertRegex(output, 'inet 10.2.2.4/16 brd 10.2.255.255 scope global dummy98')
+        self.assertIn('inet 10.1.2.3/16 brd 10.1.255.255 scope global dummy98', output)
+        self.assertIn('inet 10.1.2.4/16 brd 10.1.255.255 scope global secondary dummy98', output)
+        self.assertIn('inet 10.2.2.4/16 brd 10.2.255.255 scope global dummy98', output)
+
+        remove_unit_from_networkd_path(['25-address-static.network'])
+
+        check_output(*networkctl_cmd, 'reload', env=env)
+        self.wait_operstate('dummy98', 'degraded', setup_state='unmanaged')
+
+        output = check_output('ip -4 address show dev dummy98')
+        print(output)
+        self.assertNotIn('inet 10.1.2.3/16 brd 10.1.255.255 scope global dummy98', output)
+        self.assertNotIn('inet 10.1.2.4/16 brd 10.1.255.255 scope global secondary dummy98', output)
+        self.assertNotIn('inet 10.2.2.4/16 brd 10.2.255.255 scope global dummy98', output)
+
+        copy_unit_to_networkd_unit_path('25-address-static.network')
+        check_output(*networkctl_cmd, 'reload', env=env)
+        self.wait_online(['dummy98:routable'])
+
+        output = check_output('ip -4 address show dev dummy98')
+        print(output)
+        self.assertIn('inet 10.1.2.3/16 brd 10.1.255.255 scope global dummy98', output)
+        self.assertIn('inet 10.1.2.4/16 brd 10.1.255.255 scope global secondary dummy98', output)
+        self.assertIn('inet 10.2.2.4/16 brd 10.2.255.255 scope global dummy98', output)
 
     def test_reload(self):
         start_networkd(3)
