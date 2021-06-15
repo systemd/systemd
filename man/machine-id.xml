@@ -147,15 +147,13 @@
   <refsect1>
     <title>Relation to OSF UUIDs</title>
 
-    <para>Note that the machine ID historically is not an OSF UUID as
-    defined by <ulink url="https://tools.ietf.org/html/rfc4122">RFC
-    4122</ulink>, nor a Microsoft GUID; however, starting with systemd
-    v30, newly generated machine IDs do qualify as v4 UUIDs.</para>
+    <para>Note that the machine ID historically is not an OSF UUID as defined by <ulink
+    url="https://tools.ietf.org/html/rfc4122">RFC 4122</ulink>, nor a Microsoft GUID; however, starting with
+    systemd v30, newly generated machine IDs do qualify as Variant 1 Version 4 UUIDs, as per RFC 4122.</para>
 
-    <para>In order to maintain compatibility with existing
-    installations, an application requiring a UUID should decode the
-    machine ID, and then apply the following operations to turn it
-    into a valid OSF v4 UUID. With <literal>id</literal> being an
+    <para>In order to maintain compatibility with existing installations, an application requiring a strictly
+    RFC 4122 compliant UUID should decode the machine ID, and then (non-reversibly) apply the following
+    operations to turn it into a valid RFC 4122 Variant 1 Version 4 UUID. With <literal>id</literal> being an
     unsigned character array:</para>
 
     <programlisting>/* Set UUID version to 4 --- truly random generation */

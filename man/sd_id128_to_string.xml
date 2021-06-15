@@ -54,6 +54,11 @@
     <constant>NULL</constant> the function will validate the passed ID string, but not actually return it in parsed
     form.</para>
 
+    <para>Note that when parsing 37 character UUIDs this is done strictly in Big Endian byte order,
+    i.e. according to <ulink url="https://tools.ietf.org/html/rfc4122">RFC4122</ulink> Variant 1
+    rules, even if the UUID encodes a different variant. This matches behaviour in various other Linux
+    userspace tools. It's probably wise to avoid UUIDs of other variant types.</para>
+
     <para>For more information about the <literal>sd_id128_t</literal>
     type see
     <citerefentry><refentrytitle>sd-id128</refentrytitle><manvolnum>3</manvolnum></citerefentry>.
