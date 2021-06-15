@@ -2111,7 +2111,8 @@ static int address_section_verify(Address *address) {
                 address->scope = RT_SCOPE_HOST;
         }
 
-        if (!FLAGS_SET(address->duplicate_address_detection, ADDRESS_FAMILY_IPV6))
+        if (address->family == AF_INET6 &&
+            !FLAGS_SET(address->duplicate_address_detection, ADDRESS_FAMILY_IPV6))
                 address->flags |= IFA_F_NODAD;
 
         return 0;
