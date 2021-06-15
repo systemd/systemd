@@ -1393,12 +1393,17 @@ int dhcp6_request_information(Link *link, int ir) {
 }
 
 int dhcp6_start(Link *link) {
+        int r;
+
         assert(link);
 
         if (!link->dhcp6_client)
                 return 0;
 
         if (!link_dhcp6_enabled(link))
+                return 0;
+
+        if (!link_has_carrier(link))
                 return 0;
 
         if (link->network->dhcp6_without_ra == DHCP6_CLIENT_START_MODE_NO)
@@ -1412,9 +1417,11 @@ int dhcp6_start(Link *link) {
         if (sd_dhcp6_client_is_running(link->dhcp6_client) > 0)
                 return 0;
 
-        log_link_debug(link, "Acquiring DHCPv6 lease");
+        r = dhcp6_request_information(link, link->network->dhcp6_without_ra == DHCP6_CLIENT_START_MODE_INFORMATION_REQUEST);
+        if (r < 0)
+                return r;
 
-        return dhcp6_request_information(link, link->network->dhcp6_without_ra == DHCP6_CLIENT_START_MODE_INFORMATION_REQUEST);
+        return 1;
 }
 
 int dhcp6_request_prefix_delegation(Link *link) {
@@ -1571,7 +1578,7 @@ static int dhcp6_set_identifier(Link *link, sd_dhcp6_client *client) {
         return 0;
 }
 
-int dhcp6_configure(Link *link) {
+static int dhcp6_configure(Link *link) {
         _cleanup_(sd_dhcp6_client_unrefp) sd_dhcp6_client *client = NULL;
         sd_dhcp6_option *vendor_option;
         sd_dhcp6_option *send_option;
@@ -1581,15 +1588,8 @@ int dhcp6_configure(Link *link) {
         assert(link);
         assert(link->network);
 
-        if (!link_dhcp6_enabled(link) && !link_ipv6_accept_ra_enabled(link))
-                return 0;
-
         if (link->dhcp6_client)
                 return log_link_debug_errno(link, SYNTHETIC_ERRNO(EBUSY), "DHCP6 client is already configured.");
-
-        r = dhcp_configure_duid(link, link_get_dhcp6_duid(link));
-        if (r <= 0)
-                return r;
 
         r = sd_dhcp6_client_new(&client);
         if (r == -ENOMEM)
@@ -1713,6 +1713,60 @@ int dhcp6_update_mac(Link *link) {
                         return log_link_warning_errno(link, r, "Could not restart DHCPv6 client: %m");
         }
 
+        return 0;
+}
+
+int request_process_dhcp6_client(Request *req) {
+        Link *link;
+        int r;
+
+        assert(req);
+        assert(req->link);
+        assert(req->type == REQUEST_TYPE_DHCP6_CLIENT);
+
+        link = req->link;
+
+        if (!IN_SET(link->state, LINK_STATE_CONFIGURING, LINK_STATE_CONFIGURED))
+                return 0;
+
+        r = dhcp_configure_duid(link, link_get_dhcp6_duid(link));
+        if (r <= 0)
+                return r;
+
+        r = dhcp6_configure(link);
+        if (r < 0)
+                return log_link_warning_errno(link, r, "Failed to configure DHCPv6 client: %m");
+
+        r = ndisc_start(link);
+        if (r < 0)
+                return log_link_warning_errno(link, r, "Failed to start IPv6 Router Discovery: %m");
+
+        r = dhcp6_start(link);
+        if (r < 0)
+                return log_link_warning_errno(link, r, "Failed to start DHCPv6 client: %m");
+
+        log_link_debug(link, "DHCPv6 client is configured%s.",
+                       r > 0 ? ", acquiring DHCPv6 lease" : "");
+
+        return 1;
+}
+
+int link_request_dhcp6_client(Link *link) {
+        int r;
+
+        assert(link);
+
+        if (!link_dhcp6_enabled(link) && !link_ipv6_accept_ra_enabled(link))
+                return 0;
+
+        if (link->dhcp6_client)
+                return 0;
+
+        r = link_queue_request(link, REQUEST_TYPE_DHCP6_CLIENT, NULL, false, NULL, NULL, NULL);
+        if (r < 0)
+                return log_link_warning_errno(link, r, "Failed to request configuring of the DHCPv6 client: %m");
+
+        log_link_debug(link, "Requested configuring of the DHCPv6 client.");
         return 0;
 }
 

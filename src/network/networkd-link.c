@@ -650,12 +650,14 @@ static int link_acquire_dynamic_ipv4_conf(Link *link) {
                 if (r < 0)
                         return log_link_warning_errno(link, r, "Failed to start DHCPv4 client: %m");
 
-        } else if (link->ipv4ll) {
-                log_link_debug(link, "Acquiring IPv4 link-local address");
+                log_link_debug(link, "Acquiring DHCPv4 lease.");
 
+        } else if (link->ipv4ll) {
                 r = sd_ipv4ll_start(link->ipv4ll);
                 if (r < 0)
                         return log_link_warning_errno(link, r, "Could not acquire IPv4 link-local address: %m");
+
+                log_link_debug(link, "Acquiring IPv4 link-local address.");
         }
 
         if (link->dhcp_server) {
@@ -981,8 +983,6 @@ static Link *link_drop(Link *link) {
 
         link_drop_from_master(link);
 
-        link_unref(set_remove(link->manager->links_requesting_uuid, link));
-
         (void) unlink(link->state_file);
         link_clean(link);
 
@@ -1143,13 +1143,13 @@ static int link_configure(Link *link) {
         if (r < 0)
                 return r;
 
-        r = dhcp4_configure(link);
+        r = link_request_dhcp4_client(link);
         if (r < 0)
-                return log_link_warning_errno(link, r, "Failed to configure DHCP4 client: %m");
+                return r;
 
-        r = dhcp6_configure(link);
+        r = link_request_dhcp6_client(link);
         if (r < 0)
-                return log_link_warning_errno(link, r, "Failed to configure DHCP6 client: %m");
+                return r;
 
         r = ndisc_configure(link);
         if (r < 0)
@@ -1266,7 +1266,6 @@ static int link_reconfigure_impl(Link *link, bool force) {
         link_free_carrier_maps(link);
         link_free_engines(link);
         link->network = network_unref(link->network);
-        link_unref(set_remove(link->manager->links_requesting_uuid, link));
 
         if (!network) {
                 link_set_state(link, LINK_STATE_UNMANAGED);

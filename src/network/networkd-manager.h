@@ -60,7 +60,6 @@ struct Manager {
         DUID duid_product_uuid;
         bool has_product_uuid;
         bool product_uuid_requested;
-        Set *links_requesting_uuid;
 
         char* dynamic_hostname;
         char* dynamic_timezone;
