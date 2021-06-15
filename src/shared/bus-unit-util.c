@@ -866,11 +866,12 @@ static int bus_append_cgroup_property(sd_bus_message *m, const char *field, cons
         if (STR_IN_SET(field, "SocketBindAllow",
                               "SocketBindDeny")) {
                 if (isempty(eq))
-                        r = sd_bus_message_append(m, "(sv)", field, "a(iqq)", 0);
+                        r = sd_bus_message_append(m, "(sv)", field, "a(iiqq)", 0);
                 else {
+                        /* No ip protocol specified for now. */
+                        int32_t family = AF_UNSPEC, ip_protocol = 0;
                         const char *address_family, *user_port;
                         _cleanup_free_ char *word = NULL;
-                        int family = AF_UNSPEC;
 
                         r = extract_first_word(&eq, &word, ":", 0);
                         if (r == -ENOMEM)
@@ -888,7 +889,7 @@ static int bus_append_cgroup_property(sd_bus_message *m, const char *field, cons
 
                         user_port = eq ? eq : word;
                         if (streq(user_port, "any")) {
-                                r = sd_bus_message_append(m, "(sv)", field, "a(iqq)", 1, family, 0, 0);
+                                r = sd_bus_message_append(m, "(sv)", field, "a(iiqq)", 1, family, ip_protocol, 0, 0);
                                 if (r < 0)
                                         return bus_log_create_error(r);
                         } else {
@@ -901,7 +902,7 @@ static int bus_append_cgroup_property(sd_bus_message *m, const char *field, cons
                                         return log_error_errno(r, "Invalid port or port range: %s", user_port);
 
                                 r = sd_bus_message_append(
-                                                m, "(sv)", field, "a(iqq)", 1, family, port_max - port_min + 1, port_min);
+                                                m, "(sv)", field, "a(iiqq)", 1, family, ip_protocol, port_max - port_min + 1, port_min);
                         }
                 }
                 if (r < 0)

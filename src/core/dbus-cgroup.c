@@ -389,12 +389,12 @@ static int property_get_socket_bind(
 
         assert(items);
 
-        r = sd_bus_message_open_container(reply, 'a', "(iqq)");
+        r = sd_bus_message_open_container(reply, 'a', "(iiqq)");
         if (r < 0)
                 return r;
 
         LIST_FOREACH(socket_bind_items, i, *items) {
-                r = sd_bus_message_append(reply, "(iqq)", i->address_family, i->nr_ports, i->port_min);
+                r = sd_bus_message_append(reply, "(iiqq)", i->address_family, i->ip_protocol, i->nr_ports, i->port_min);
                 if (r < 0)
                         return r;
         }
@@ -454,8 +454,8 @@ const sd_bus_vtable bus_cgroup_vtable[] = {
         SD_BUS_PROPERTY("ManagedOOMMemoryPressureLimit", "u", NULL, offsetof(CGroupContext, moom_mem_pressure_limit), 0),
         SD_BUS_PROPERTY("ManagedOOMPreference", "s", property_get_managed_oom_preference, offsetof(CGroupContext, moom_preference), 0),
         SD_BUS_PROPERTY("BPFProgram", "a(ss)", property_get_bpf_foreign_program, 0, 0),
-        SD_BUS_PROPERTY("SocketBindAllow", "a(iqq)", property_get_socket_bind, offsetof(CGroupContext, socket_bind_allow), 0),
-        SD_BUS_PROPERTY("SocketBindDeny", "a(iqq)", property_get_socket_bind, offsetof(CGroupContext, socket_bind_deny), 0),
+        SD_BUS_PROPERTY("SocketBindAllow", "a(iiqq)", property_get_socket_bind, offsetof(CGroupContext, socket_bind_allow), 0),
+        SD_BUS_PROPERTY("SocketBindDeny", "a(iiqq)", property_get_socket_bind, offsetof(CGroupContext, socket_bind_deny), 0),
         SD_BUS_VTABLE_END
 };
 
@@ -1882,18 +1882,21 @@ int bus_cgroup_set_property(
                 CGroupSocketBindItem **list;
                 uint16_t nr_ports, port_min;
                 size_t n = 0;
-                int family;
+                int32_t family, ip_protocol;
 
                 list = streq(name, "SocketBindAllow") ? &c->socket_bind_allow : &c->socket_bind_deny;
 
-                r = sd_bus_message_enter_container(message, 'a', "(iqq)");
+                r = sd_bus_message_enter_container(message, 'a', "(iiqq)");
                 if (r < 0)
                         return r;
 
-                while ((r = sd_bus_message_read(message, "(iqq)", &family, &nr_ports, &port_min)) > 0) {
+                while ((r = sd_bus_message_read(message, "(iiqq)", &family, &ip_protocol, &nr_ports, &port_min)) > 0) {
 
                         if (!IN_SET(family, AF_UNSPEC, AF_INET, AF_INET6))
                                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "%s= expects INET or INET6 family, if specified.", name);
+
+                        if (ip_protocol != 0)
+                                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "%s= expects ip protocol equals to 0, for the time being.", name);
 
                         if (port_min + (uint32_t) nr_ports > (1 << 16))
                                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "%s= expects maximum port value lesser than 65536.", name);
@@ -1910,6 +1913,7 @@ int bus_cgroup_set_property(
 
                                 *item = (CGroupSocketBindItem) {
                                         .address_family = family,
+                                        .ip_protocol = ip_protocol,
                                         .nr_ports = nr_ports,
                                         .port_min = port_min
                                 };

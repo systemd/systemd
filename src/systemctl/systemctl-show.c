@@ -1712,12 +1712,12 @@ static int print_property(const char *name, const char *expected_value, sd_bus_m
                         return 1;
                 } else if (STR_IN_SET(name, "SocketBindAllow", "SocketBindDeny")) {
                         uint16_t nr_ports, port_min;
-                        int af;
+                        int32_t af, ip_protocol;
 
-                        r = sd_bus_message_enter_container(m, SD_BUS_TYPE_ARRAY, "(iqq)");
+                        r = sd_bus_message_enter_container(m, SD_BUS_TYPE_ARRAY, "(iiqq)");
                         if (r < 0)
                                 return bus_log_parse_error(r);
-                        while ((r = sd_bus_message_read(m, "(iqq)", &af, &nr_ports, &port_min)) > 0) {
+                        while ((r = sd_bus_message_read(m, "(iiqq)", &af, &ip_protocol, &nr_ports, &port_min)) > 0) {
                                 const char *family, *colon;
 
                                 family = strempty(af_to_ipv4_ipv6(af));

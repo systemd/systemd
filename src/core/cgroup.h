@@ -104,7 +104,8 @@ struct CGroupBPFForeignProgram {
 
 struct CGroupSocketBindItem {
         LIST_FIELDS(CGroupSocketBindItem, socket_bind_items);
-        int address_family;
+        int32_t address_family;
+        int32_t ip_protocol;
         uint16_t nr_ports;
         uint16_t port_min;
 };

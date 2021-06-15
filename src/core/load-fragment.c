@@ -5687,6 +5687,8 @@ int config_parse_cgroup_socket_bind(
                 return log_oom();
         *item = (CGroupSocketBindItem) {
                 .address_family = af,
+                 /* No ip protocol specified for now. */
+                .ip_protocol = 0,
                 .nr_ports = nr_ports,
                 .port_min = port_min,
         };
