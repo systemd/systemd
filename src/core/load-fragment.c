@@ -5687,6 +5687,7 @@ int config_parse_cgroup_socket_bind(
                 return log_oom();
         *item = (CGroupSocketBindItem) {
                 .address_family = af,
+                .ip_protocol = IPPROTO_IP,
                 .nr_ports = nr_ports,
                 .port_min = port_min,
         };
