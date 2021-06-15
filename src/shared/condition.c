@@ -34,6 +34,7 @@
 #include "list.h"
 #include "macro.h"
 #include "mountpoint-util.h"
+#include "os-util.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "proc-cmdline.h"
@@ -133,6 +134,31 @@ static int condition_test_kernel_command_line(Condition *c, char **env) {
                 if (found)
                         return true;
         }
+
+        return false;
+}
+
+static int condition_test_osrelease(Condition *c, char **env) {
+        _cleanup_free_ char *key = NULL, *requested_value = NULL, *actual_value = NULL;
+        const char *parameter = c->parameter;
+        int r;
+
+        assert(c);
+        assert(c->parameter);
+        assert(c->type == CONDITION_OS_RELEASE);
+
+        r = extract_many_words(&parameter, "=", 0, &key, &requested_value, NULL);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to parse parameter: %m");
+        if (r < 2)
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Failed to parse parameter, key=value format expected: %m");
+
+        r = parse_os_release(NULL, key, &actual_value);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to parse os-release: %m");
+        if (streq_ptr(actual_value, requested_value))
+                return true;
 
         return false;
 }
@@ -934,6 +960,7 @@ int condition_test(Condition *c, char **env) {
                 [CONDITION_MEMORY]                   = condition_test_memory,
                 [CONDITION_ENVIRONMENT]              = condition_test_environment,
                 [CONDITION_CPU_FEATURE]              = condition_test_cpufeature,
+                [CONDITION_OS_RELEASE]               = condition_test_osrelease,
         };
 
         int r, b;
@@ -1058,6 +1085,7 @@ static const char* const condition_type_table[_CONDITION_TYPE_MAX] = {
         [CONDITION_MEMORY] = "ConditionMemory",
         [CONDITION_ENVIRONMENT] = "ConditionEnvironment",
         [CONDITION_CPU_FEATURE] = "ConditionCPUFeature",
+        [CONDITION_OS_RELEASE] = "ConditionOSRelease",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(condition_type, ConditionType);
@@ -1091,6 +1119,7 @@ static const char* const assert_type_table[_CONDITION_TYPE_MAX] = {
         [CONDITION_MEMORY] = "AssertMemory",
         [CONDITION_ENVIRONMENT] = "AssertEnvironment",
         [CONDITION_CPU_FEATURE] = "AssertCPUFeature",
+        [CONDITION_OS_RELEASE] = "AssertOSRelease",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(assert_type, ConditionType);

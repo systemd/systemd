@@ -1647,6 +1647,16 @@
         </varlistentry>
 
         <varlistentry>
+          <term><varname>ConditionOSRelease=</varname></term>
+
+          <listitem><para>Verify that a specific <literal>key=value</literal> pair is set in the host's
+          <citerefentry><refentrytitle>os-release</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
+
+          <para>The argument must be a single <literal>key=value</literal> pair.</para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
           <term><varname>AssertArchitecture=</varname></term>
           <term><varname>AssertVirtualization=</varname></term>
           <term><varname>AssertHost=</varname></term>
@@ -1673,6 +1683,7 @@
           <term><varname>AssertControlGroupController=</varname></term>
           <term><varname>AssertMemory=</varname></term>
           <term><varname>AssertCPUs=</varname></term>
+          <term><varname>AssertOSRelease=</varname></term>
 
           <listitem><para>Similar to the <varname>ConditionArchitecture=</varname>,
           <varname>ConditionVirtualization=</varname>, …, condition settings described above, these settings
