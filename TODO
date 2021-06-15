@@ -26,6 +26,8 @@ Janitorial Clean-ups:
 
 Features:
 
+* in sd-id128: also parse UUIDs in RFC4122 URN syntax (i.e. chop off urn:uuid: prefix)
+
 * ability to insert trusted configuration and secrets into the boot parameters
   of a kernel booting in a VM or on baremetal some way, via TPM
   protection. idea:
@@ -1028,8 +1030,6 @@ Features:
     operations instead of IO ready events into event loops. See considerations
     here:
     http://blog.vmsplice.net/2020/07/rethinking-event-loop-integration-for.html
-
-* investigate endianness issues of UUID vs. GUID
 
 * dbus: when a unit failed to load (i.e. is in UNIT_ERROR state), we
   should be able to safely try another attempt when the bus call LoadUnit() is invoked.
