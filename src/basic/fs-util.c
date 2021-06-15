@@ -1378,18 +1378,39 @@ int unlinkat_deallocate(int fd, const char *name, UnlinkDeallocateFlags flags) {
 }
 
 int fsync_directory_of_file(int fd) {
-        _cleanup_free_ char *path = NULL;
         _cleanup_close_ int dfd = -1;
         struct stat st;
         int r;
 
         assert(fd >= 0);
 
-        /* We only reasonably can do this for regular files and directories, hence check for that */
+        /* We only reasonably can do this for regular files and directories, or for O_PATH fds, hence check
+         * for the inode type first */
         if (fstat(fd, &st) < 0)
                 return -errno;
 
-        if (S_ISREG(st.st_mode)) {
+        if (S_ISDIR(st.st_mode)) {
+                dfd = openat(fd, "..", O_RDONLY|O_DIRECTORY|O_CLOEXEC, 0);
+                if (dfd < 0)
+                        return -errno;
+
+        } else if (!S_ISREG(st.st_mode)) { /* Regular files are OK regardles if O_PATH or not, for all other
+                                            * types check O_PATH flag */
+                int flags;
+
+                flags = fcntl(fd, F_GETFL);
+                if (flags < 0)
+                        return -errno;
+
+                if (!FLAGS_SET(flags, O_PATH)) /* If O_PATH this refers to the inode in the fs, in which case
+                                                * we can sensibly do what is requested. Otherwise this refers
+                                                * to a socket, fifo or device node, where the concept of a
+                                                * containing directory doesn't make too much sense. */
+                        return -ENOTTY;
+        }
+
+        if (dfd < 0) {
+                _cleanup_free_ char *path = NULL;
 
                 r = fd_get_path(fd, &path);
                 if (r < 0) {
@@ -1412,13 +1433,7 @@ int fsync_directory_of_file(int fd) {
                 dfd = open_parent(path, O_CLOEXEC|O_NOFOLLOW, 0);
                 if (dfd < 0)
                         return dfd;
-
-        } else if (S_ISDIR(st.st_mode)) {
-                dfd = openat(fd, "..", O_RDONLY|O_DIRECTORY|O_CLOEXEC, 0);
-                if (dfd < 0)
-                        return -errno;
-        } else
-                return -ENOTTY;
+        }
 
         if (fsync(dfd) < 0)
                 return -errno;
