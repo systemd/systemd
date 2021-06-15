@@ -165,7 +165,7 @@ CHANGES WITH 249 in spe:
         * In .network files a new OutgoingInterface= setting has been added to
           specify the output interface in bridge FDB setups.
 
-        * In ,network files the Multipath group ID may now be configured for
+        * In .network files the Multipath group ID may now be configured for
           [NextHop] entries, via the new Group= setting.
 
         * The DHCP server logic configured in .network files gained a new
