@@ -113,7 +113,7 @@ static int link_configure_and_start_dhcp_delayed(Link *link) {
         if (!link->dhcp6_client) {
                 r = dhcp6_configure(link);
                 if (r < 0)
-                        return r;
+                        return log_link_warning_errno(link, r, "Failed to configure DHCP6 client: %m");
         }
 
         if (link->set_flags_messages > 0)
