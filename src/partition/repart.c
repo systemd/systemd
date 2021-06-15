@@ -4952,7 +4952,7 @@ static int run(int argc, char *argv[]) {
         r = context_open_copy_block_paths(
                         context,
                         arg_root,
-                        loop_device ? loop_device->devno :         /* if --image= is specified, only allow partitions on the loopback device*/
+                        loop_device ? loop_device->devno :         /* if --image= is specified, only allow partitions on the loopback device */
                                       arg_root && !arg_image ? 0 : /* if --root= is specified, don't accept any block device */
                                       (dev_t) -1);                 /* if neither is specified, make no restrictions */
         if (r < 0)

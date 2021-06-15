@@ -2075,7 +2075,7 @@ bool unit_is_bound_by_inactive(Unit *u, Unit **ret_culprit) {
         assert(u);
 
         /* Checks whether this unit is bound to another unit that is inactive, i.e. whether we should stop
-         * because the other unit is down.*/
+         * because the other unit is down. */
 
         if (unit_active_state(u) != UNIT_ACTIVE || u->job) {
                 /* Don't clean up while the unit is transitioning or is even inactive. */

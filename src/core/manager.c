@@ -3791,7 +3791,7 @@ int manager_reload(Manager *m) {
 
         /* Start by flushing out all jobs and units, all generated units, all runtime environments, all dynamic users
          * and everything else that is worth flushing out. We'll get it all back from the serialization — if we need
-         * it.*/
+         * it. */
 
         manager_clear_jobs_and_units(m);
         lookup_paths_flush_generator(&m->lookup_paths);
@@ -3927,7 +3927,7 @@ static void manager_notify_finished(Manager *m) {
 
                 if (dual_timestamp_is_set(&m->timestamps[MANAGER_TIMESTAMP_INITRD])) {
 
-                        /* The initrd case on bare-metal*/
+                        /* The initrd case on bare-metal */
                         kernel_usec = m->timestamps[MANAGER_TIMESTAMP_INITRD].monotonic - m->timestamps[MANAGER_TIMESTAMP_KERNEL].monotonic;
                         initrd_usec = m->timestamps[MANAGER_TIMESTAMP_USERSPACE].monotonic - m->timestamps[MANAGER_TIMESTAMP_INITRD].monotonic;
 
@@ -3943,7 +3943,7 @@ static void manager_notify_finished(Manager *m) {
                                                format_timespan(userspace, sizeof(userspace), userspace_usec, USEC_PER_MSEC),
                                                format_timespan(sum, sizeof(sum), total_usec, USEC_PER_MSEC)));
                 } else {
-                        /* The initrd-less case on bare-metal*/
+                        /* The initrd-less case on bare-metal */
 
                         kernel_usec = m->timestamps[MANAGER_TIMESTAMP_USERSPACE].monotonic - m->timestamps[MANAGER_TIMESTAMP_KERNEL].monotonic;
                         initrd_usec = 0;

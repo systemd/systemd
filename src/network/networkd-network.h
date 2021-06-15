@@ -160,7 +160,7 @@ struct Network {
         OrderedHashmap *dhcp_client_send_options;
         OrderedHashmap *dhcp_client_send_vendor_options;
 
-        /* DHCPv6 Client support*/
+        /* DHCPv6 Client support */
         bool dhcp6_use_address;
         bool dhcp6_use_dns;
         bool dhcp6_use_dns_set;
