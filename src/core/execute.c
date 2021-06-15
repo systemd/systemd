@@ -1468,7 +1468,8 @@ static bool skip_seccomp_unavailable(const Unit* u, const char* msg) {
 }
 
 static int apply_syscall_filter(const Unit* u, const ExecContext *c, bool needs_ambient_hack) {
-        uint32_t negative_action, default_action, action;
+        uint32_t default_action, action;
+        Hashmap *known;
         int r;
 
         assert(u);
@@ -1480,20 +1481,45 @@ static int apply_syscall_filter(const Unit* u, const ExecContext *c, bool needs_
         if (skip_seccomp_unavailable(u, "SystemCallFilter="))
                 return 0;
 
-        negative_action = c->syscall_errno == SECCOMP_ERROR_NUMBER_KILL ? scmp_act_kill_process() : SCMP_ACT_ERRNO(c->syscall_errno);
-
         if (c->syscall_allow_list) {
-                default_action = negative_action;
+                /* For allow-list, the syscall_errno will be applied below by adding an entry for each syscall in the @known list.
+                 * Thus, we can fall back to ENOSYS for all remaining syscalls (those that are unknown). */
+                default_action = SCMP_ACT_ERRNO(ENOSYS);
                 action = SCMP_ACT_ALLOW;
         } else {
                 default_action = SCMP_ACT_ALLOW;
-                action = negative_action;
+                action = c->syscall_errno == SECCOMP_ERROR_NUMBER_KILL ? scmp_act_kill_process() : SCMP_ACT_ERRNO(c->syscall_errno);
         }
 
         if (needs_ambient_hack) {
                 r = seccomp_filter_set_add(c->syscall_filter, c->syscall_allow_list, syscall_filter_sets + SYSCALL_FILTER_SET_SETUID);
                 if (r < 0)
                         return r;
+        }
+
+        /* Reject syscalls in @known list with specified error code.
+         * This allows us to set ENOSYS as default error code for unknown syscalls. */
+        if (c->syscall_allow_list) {
+            known = hashmap_new(NULL);
+            if (!known)
+                return log_oom();
+
+            r = seccomp_parse_syscall_filter(
+                "@known", c->syscall_errno, known,
+                SECCOMP_PARSE_PERMISSIVE|SECCOMP_PARSE_INVERT,
+                "", NULL, 0);
+            if (r < 0) {
+                hashmap_free(known);
+                return r;
+            }
+
+            r = hashmap_move(c->syscall_filter, known);
+            if (r < 0) {
+                hashmap_free(known);
+                return r;
+            }
+
+            hashmap_free(known);
         }
 
         return seccomp_load_syscall_filter_set_raw(default_action, c->syscall_filter, action, false);
