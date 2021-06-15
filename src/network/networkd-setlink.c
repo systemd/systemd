@@ -920,7 +920,16 @@ static int link_up_or_down(Link *link, bool up, link_netlink_message_handler_t c
 }
 
 int link_down(Link *link) {
-        return link_up_or_down(link, false, link_down_handler);
+        int r;
+
+        assert(link);
+
+        r = link_up_or_down(link, false, link_down_handler);
+        if (r < 0)
+                return log_link_error_errno(link, r, "Failed to bring down interface: %m");
+
+        link->set_flags_messages++;
+        return 0;
 }
 
 static bool link_is_ready_to_activate(Link *link) {

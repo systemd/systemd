@@ -1199,7 +1199,7 @@ static int link_get_network(Link *link, Network **ret) {
         return -ENOENT;
 }
 
-static int link_reconfigure_internal(Link *link, bool force) {
+static int link_reconfigure_impl(Link *link, bool force) {
         Network *network;
         int r;
 
@@ -1267,7 +1267,7 @@ static int link_reconfigure_handler_internal(sd_netlink *rtnl, sd_netlink_messag
         if (r <= 0)
                 return r;
 
-        r = link_reconfigure_internal(link, force);
+        r = link_reconfigure_impl(link, force);
         if (r < 0)
                 link_enter_failed(link);
 
@@ -1496,15 +1496,6 @@ static int link_carrier_gained(Link *link) {
         if (link->iftype == ARPHRD_CAN)
                 /* let's shortcut things for CAN which doesn't need most of what's done below. */
                 return 0;
-
-        r = wifi_get_info(link);
-        if (r < 0)
-                return r;
-        if (r > 0) {
-                r = link_reconfigure_internal(link, false);
-                if (r != 0)
-                        return r;
-        }
 
         if (IN_SET(link->state, LINK_STATE_CONFIGURING, LINK_STATE_CONFIGURED)) {
                 r = link_acquire_dynamic_conf(link);
@@ -1830,7 +1821,7 @@ void link_update_operstate(Link *link, bool also_update_master) {
          : "")
 
 static int link_update_flags(Link *link, sd_netlink_message *message) {
-        bool link_was_admin_up, had_carrier;
+        bool link_was_lower_up, link_was_admin_up, had_carrier;
         uint8_t operstate;
         unsigned flags;
         int r;
@@ -1892,6 +1883,7 @@ static int link_update_flags(Link *link, sd_netlink_message *message) {
                         log_link_debug(link, "Unknown link flags lost, ignoring: %#.5x", unknown_flags_removed);
         }
 
+        link_was_lower_up = link->flags & IFF_LOWER_UP;
         link_was_admin_up = link->flags & IFF_UP;
         had_carrier = link_has_carrier(link);
 
@@ -1899,6 +1891,19 @@ static int link_update_flags(Link *link, sd_netlink_message *message) {
         link->kernel_operstate = operstate;
 
         link_update_operstate(link, true);
+
+        if (!link_was_lower_up && (link->flags & IFF_LOWER_UP)) {
+                r = wifi_get_info(link);
+                if (r < 0)
+                        return r;
+                if (r > 0) {
+                        /* All link information is up-to-date. So, it is not necessary to call
+                         * RTM_GETLINK netlink method again. */
+                        r = link_reconfigure_impl(link, /* force = */ false);
+                        if (r < 0)
+                                return r;
+                }
+        }
 
         if (!link_was_admin_up && (link->flags & IFF_UP)) {
                 log_link_info(link, "Link UP");
