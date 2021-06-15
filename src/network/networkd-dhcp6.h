@@ -1,9 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "sd-dhcp6-client.h"
-
 #include "conf-parser.h"
+#include "in-addr-util.h"
 #include "macro.h"
 
 typedef enum DHCP6ClientStartMode {
@@ -15,7 +14,7 @@ typedef enum DHCP6ClientStartMode {
 } DHCP6ClientStartMode;
 
 typedef struct Link Link;
-typedef struct Manager Manager;
+typedef struct Request Request;
 
 typedef struct DHCP6DelegatedPrefix {
         struct in6_addr prefix;     /* Prefix assigned to the link */
@@ -29,11 +28,13 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(DHCP6DelegatedPrefix*, dhcp6_pd_free);
 bool link_dhcp6_with_address_enabled(Link *link);
 bool link_dhcp6_pd_is_enabled(Link *link);
 int dhcp6_pd_remove(Link *link);
-int dhcp6_configure(Link *link);
 int dhcp6_update_mac(Link *link);
 int dhcp6_start(Link *link);
 int dhcp6_request_information(Link *link, int ir);
 int dhcp6_request_prefix_delegation(Link *link);
+
+int request_process_dhcp6_client(Request *req);
+int link_request_dhcp6_client(Link *link);
 
 int link_serialize_dhcp6_client(Link *link, FILE *f);
 
