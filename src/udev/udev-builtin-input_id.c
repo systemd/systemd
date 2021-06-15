@@ -35,7 +35,7 @@ struct range {
         unsigned end;
 };
 
-/* key code ranges above BTN_MISC (start is inclusive, stop is exclusive)*/
+/* key code ranges above BTN_MISC (start is inclusive, stop is exclusive) */
 static const struct range high_key_blocks[] = {
         { KEY_OK, BTN_DPAD_UP },
         { KEY_ALS_TOGGLE, BTN_TRIGGER_HAPPY }

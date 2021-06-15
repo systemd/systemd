@@ -41,7 +41,7 @@ static bool link_lldp_rx_enabled(Link *link) {
 
         /* LLDP should be handled on bridge and bond slaves as those have a direct connection to their peers,
          * not on the bridge/bond master. Linux doesn't even (by default) forward lldp packets to the bridge
-         * master.*/
+         * master. */
         if (link->kind && STR_IN_SET(link->kind, "bridge", "bond"))
                 return false;
 
