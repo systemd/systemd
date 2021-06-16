@@ -1,7 +1,7 @@
-#compdef busctl                    -*- shell-script -*-
+#compdef busctl
 # SPDX-License-Identifier: LGPL-2.1+
 
-# busctl(1) completion                               -*- shell-script -*-
+# busctl(1) completion
 #
 # This file is part of systemd.
 #

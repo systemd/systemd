@@ -1,4 +1,4 @@
-#compdef udevadm                    -*- shell-script -*-
+#compdef udevadm
 # SPDX-License-Identifier: LGPL-2.1+
 
 (( $+functions[_udevadm_info] )) ||
