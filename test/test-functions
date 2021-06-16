@@ -1006,11 +1006,13 @@ create_empty_image() {
     fi
 
     local size=500
-    if meson configure "${BUILD_DIR:?}" | grep 'static-lib\|standalone-binaries' | awk '{ print $2 }' | grep -q 'true'; then
-        size=$((size+=200))
-    fi
-    if meson configure "${BUILD_DIR:?}" | grep 'link-.*-shared' | awk '{ print $2 }' | grep -q 'false'; then
-        size=$((size+=200))
+    if [ -z "$NO_BUILD" ]; then
+        if meson configure "${BUILD_DIR:?}" | grep 'static-lib\|standalone-binaries' | awk '{ print $2 }' | grep -q 'true'; then
+            size=$((size+=200))
+        fi
+        if meson configure "${BUILD_DIR:?}" | grep 'link-.*-shared' | awk '{ print $2 }' | grep -q 'false'; then
+            size=$((size+=200))
+        fi
     fi
     if [[ "$STRIP_BINARIES" = "no" ]]; then
         size=$((4 * size))
