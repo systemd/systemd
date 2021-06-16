@@ -1,4 +1,4 @@
-#compdef loginctl                    -*- shell-script -*-
+#compdef loginctl
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
 (( $+functions[_loginctl_all_sessions] )) ||

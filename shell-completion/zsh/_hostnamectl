@@ -1,4 +1,4 @@
-#compdef hostnamectl                    -*- shell-script -*-
+#compdef hostnamectl
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
 (( $+functions[_hostnamectl_hostname] )) ||
