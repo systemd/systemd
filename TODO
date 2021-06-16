@@ -251,10 +251,25 @@ Features:
   that images cannot be misused.
 
 * New udev block device symlink names:
-  /dev/disk/by-parttypelabel/<pttype>/<ptlabel>. Use case: if pt label is used
+  /dev/disk/by-parttypelabel/<pttype>-<ptlabel>. Use case: if pt label is used
   as partition image version string, this is a safe way to reference a specific
   version of a specific partition type, in particular where related partitions
   are processed (e.g. verity + rootfs both named "LennartOS_0.7").
+
+* sysupdate:
+  - add fuzzing to the pattern parser
+  - support casync as download mechanism
+  - direct TPM2 PCR change handling, possible renrolling LUKS2 media if needed.
+  - "systemd-sysupdate update --all" support, that iterates through all components
+    defined on the host, plus all images installed into /var/lib/machines/,
+    /var/lib/portable/ and so on.
+  - figure out what to do about system extensions (i.e. they need to imply an
+    update component, since otherwise system extenion' sysupdate.d/ files would
+    override the host's update files.)
+  - Allow invocation with a single transfer definition, i.e. with
+    --definitions= pointing to a file rather than a dir.
+  - add ability to disable implicit decompression of downloaded artifacts,
+    i.e. a Compress=no option in the transfer definitions
 
 * in sd-id128: also parse UUIDs in RFC4122 URN syntax (i.e. chop off urn:uuid: prefix)
 
