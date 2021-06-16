@@ -110,6 +110,12 @@
             <entry>On Itanium systems, the first Itanium root partition on the disk the EFI ESP is located on is mounted to the root directory <filename>/</filename>.</entry>
           </row>
           <row>
+            <entry>77055800-792c-4f94-b39a-98c91b762bb6</entry>
+            <entry><filename>Root Partition (LoongArch 64)</filename></entry>
+            <entry><filename>/</filename></entry>
+            <entry>On LoongArch 64-bit systems, the first LoongArch 64-bit root partition on the disk the EFI ESP is located on is mounted to the root directory <filename>/</filename>.</entry>
+          </row>
+          <row>
             <entry>60d5a7fe-8e7d-435c-b714-3dd8162144e1</entry>
             <entry><filename>Root Partition (RISCV-V 32)</filename></entry>
             <entry><filename>/</filename></entry>
