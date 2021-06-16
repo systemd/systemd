@@ -2111,8 +2111,16 @@ static int address_section_verify(Address *address) {
                 address->scope = RT_SCOPE_HOST;
         }
 
-        if (!FLAGS_SET(address->duplicate_address_detection, ADDRESS_FAMILY_IPV6))
+        if (address->family == AF_INET6 &&
+            !FLAGS_SET(address->duplicate_address_detection, ADDRESS_FAMILY_IPV6))
                 address->flags |= IFA_F_NODAD;
+
+        if (address->family == AF_INET && in4_addr_is_link_local(&address->in_addr.in) &&
+            !FLAGS_SET(address->duplicate_address_detection, ADDRESS_FAMILY_IPV4)) {
+                log_debug("%s: An IPv4 link-local address is specified, enabling IPv4 Address Conflict Detection (ACD).",
+                          address->section->filename);
+                address->duplicate_address_detection |= ADDRESS_FAMILY_IPV4;
+        }
 
         return 0;
 }
