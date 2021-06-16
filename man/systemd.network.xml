@@ -1098,8 +1098,8 @@ IPv6Token=prefixstable:2002:da8:1::</programlisting></para>
           <listitem>
             <para>Takes one of <literal>ipv4</literal>, <literal>ipv6</literal>,
             <literal>both</literal>, <literal>none</literal>. When <literal>ipv4</literal>,
-            performs IPv4 Duplicate Address Detection. See
-            <ulink url="https://tools.ietf.org/html/rfc5227">RFC 5224</ulink>.
+            performs IPv4 Address Conflict Detection. See
+            <ulink url="https://tools.ietf.org/html/rfc5227">RFC 5227</ulink>.
             When <literal>ipv6</literal>, performs IPv6 Duplicate Address Detection. See
             <ulink url="https://tools.ietf.org/html/rfc4862">RFC 4862</ulink>.
             Defaults to <literal>ipv6</literal>.</para>
