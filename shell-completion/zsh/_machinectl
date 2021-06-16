@@ -1,4 +1,4 @@
-#compdef machinectl                    -*- shell-script -*-
+#compdef machinectl
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
 (( $+functions[__machinectl_get_machines] )) ||
