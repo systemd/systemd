@@ -1,4 +1,4 @@
-#compdef systemd-inhibit                    -*- shell-script -*-
+#compdef systemd-inhibit
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
 (( $+functions[_systemd-inhibit_commands] )) ||

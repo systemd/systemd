@@ -1,4 +1,4 @@
-#compdef busctl                    -*- shell-script -*-
+#compdef busctl
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
 # busctl(1) completion                               -*- shell-script -*-
