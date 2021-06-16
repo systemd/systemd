@@ -793,12 +793,37 @@ endif
 conf.set_quoted('NOBODY_USER_NAME', nobody_user)
 conf.set_quoted('NOBODY_GROUP_NAME', nobody_group)
 
-tty_gid = get_option('tty-gid')
-conf.set('TTY_GID', tty_gid)
+static_ugids = []
+foreach option : ['adm-gid',
+                  'audio-gid',
+                  'cdrom-gid',
+                  'dialout-gid',
+                  'disk-gid',
+                  'input-gid',
+                  'kmem-gid',
+                  'kvm-gid',
+                  'lp-gid',
+                  'render-gid',
+                  'sgx-gid',
+                  'tape-gid',
+                  'tty-gid',
+                  'users-gid',
+                  'utmp-gid',
+                  'video-gid',
+                  'wheel-gid',
+                  'systemd-journal-gid',
+                  'systemd-network-uid',
+                  'systemd-resolve-uid',
+                  'systemd-timesync-uid']
+        name = option.underscorify().to_upper()
+        val = get_option(option)
 
-# Ensure provided GID argument is numeric, otherwise fall back to default assignment
-users_gid = get_option('users-gid')
-conf.set('USERS_GID', users_gid < 0 ? '-' : users_gid)
+        # Ensure provided GID argument is numeric, otherwise fall back to default assignment
+        conf.set(name, val >= 0 ? val : '-')
+        if val >= 0
+                static_ugids += '@0@:@1@'.format(option, val)
+        endif
+endforeach
 
 conf.set10('ENABLE_ADM_GROUP', get_option('adm-group'))
 conf.set10('ENABLE_WHEEL_GROUP', get_option('wheel-group'))
@@ -3713,14 +3738,13 @@ status = [
         'extra start script:                @0@'.format(get_option('rc-local')),
         'debug shell:                       @0@ @ @1@'.format(get_option('debug-shell'),
                                                               get_option('debug-tty')),
-        'TTY GID:                           @0@'.format(tty_gid),
-        'users GID:                         @0@'.format(conf.get('USERS_GID')),
         'system UIDs:                       <=@0@ (alloc >=@1@)'.format(conf.get('SYSTEM_UID_MAX'),
                                                                         conf.get('SYSTEM_ALLOC_UID_MIN')),
         'system GIDs:                       <=@0@ (alloc >=@1@)'.format(conf.get('SYSTEM_GID_MAX'),
                                                                         conf.get('SYSTEM_ALLOC_GID_MIN')),
         'dynamic UIDs:                      @0@…@1@'.format(dynamic_uid_min, dynamic_uid_max),
         'container UID bases:               @0@…@1@'.format(container_uid_base_min, container_uid_base_max),
+        'static UID/GID allocations:        @0@'.format(' '.join(static_ugids)),
         '/dev/kvm access mode:              @0@'.format(get_option('dev-kvm-mode')),
         'render group access mode:          @0@'.format(get_option('group-render-mode')),
         'certificate root directory:        @0@'.format(get_option('certificate-root')),
