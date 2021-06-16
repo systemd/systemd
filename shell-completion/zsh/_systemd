@@ -1,4 +1,4 @@
-#compdef systemd-cat systemd-ask-password systemd-cgls systemd-cgtop systemd-detect-virt systemd-machine-id-setup systemd-notify systemd-tty-ask-password-agent                    -*- shell-script -*-
+#compdef systemd-cat systemd-ask-password systemd-cgls systemd-cgtop systemd-detect-virt systemd-machine-id-setup systemd-notify systemd-tty-ask-password-agent
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
 local curcontext="$curcontext" state lstate line

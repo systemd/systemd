@@ -1,4 +1,4 @@
-#compdef coredumpctl                    -*- shell-script -*-
+#compdef coredumpctl
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
 (( $+functions[_coredumpctl_commands] )) ||
