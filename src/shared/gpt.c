@@ -15,6 +15,8 @@ const GptPartitionType gpt_partition_type_table[] = {
         { GPT_ROOT_ARM_64_VERITY,    "root-arm64-verity"     },
         { GPT_ROOT_IA64,             "root-ia64"             },
         { GPT_ROOT_IA64_VERITY,      "root-ia64-verity"      },
+        { GPT_ROOT_LOONGARCH64,      "root-loongarch64"      },
+        { GPT_ROOT_LOONGARCH64_VERITY, "root-loongarch64-verity" },
         { GPT_ROOT_RISCV32,          "root-riscv32"          },
         { GPT_ROOT_RISCV32_VERITY,   "root-riscv32-verity"   },
         { GPT_ROOT_RISCV64,          "root-riscv64"          },
@@ -37,6 +39,8 @@ const GptPartitionType gpt_partition_type_table[] = {
         { GPT_USR_ARM_64_VERITY,     "usr-arm64-verity"      },
         { GPT_USR_IA64,              "usr-ia64"              },
         { GPT_USR_IA64_VERITY,       "usr-ia64-verity"       },
+        { GPT_USR_LOONGARCH64,       "usr-loongarch64"       },
+        { GPT_USR_LOONGARCH64_VERITY, "usr-loongarch64-verity" },
         { GPT_USR_RISCV32,           "usr-riscv32"           },
         { GPT_USR_RISCV32_VERITY,    "usr-riscv32-verity"    },
         { GPT_USR_RISCV64,           "usr-riscv64"           },
@@ -114,6 +118,7 @@ bool gpt_partition_type_is_root(sd_id128_t id) {
                                GPT_ROOT_ARM,
                                GPT_ROOT_ARM_64,
                                GPT_ROOT_IA64,
+                               GPT_ROOT_LOONGARCH64,
                                GPT_ROOT_RISCV32,
                                GPT_ROOT_RISCV64);
 }
@@ -125,6 +130,7 @@ bool gpt_partition_type_is_root_verity(sd_id128_t id) {
                                GPT_ROOT_ARM_VERITY,
                                GPT_ROOT_ARM_64_VERITY,
                                GPT_ROOT_IA64_VERITY,
+                               GPT_ROOT_LOONGARCH64_VERITY,
                                GPT_ROOT_RISCV32_VERITY,
                                GPT_ROOT_RISCV64_VERITY);
 }
@@ -136,6 +142,7 @@ bool gpt_partition_type_is_usr(sd_id128_t id) {
                                GPT_USR_ARM,
                                GPT_USR_ARM_64,
                                GPT_USR_IA64,
+                               GPT_USR_LOONGARCH64,
                                GPT_USR_RISCV32,
                                GPT_USR_RISCV64);
 }
@@ -147,6 +154,7 @@ bool gpt_partition_type_is_usr_verity(sd_id128_t id) {
                                GPT_USR_ARM_VERITY,
                                GPT_USR_ARM_64_VERITY,
                                GPT_USR_IA64_VERITY,
+                               GPT_USR_LOONGARCH64_VERITY,
                                GPT_USR_RISCV32_VERITY,
                                GPT_USR_RISCV64_VERITY);
 }
