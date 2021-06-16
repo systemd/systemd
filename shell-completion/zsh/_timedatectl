@@ -1,4 +1,4 @@
-#compdef timedatectl                    -*- shell-script -*-
+#compdef timedatectl
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
 _timedatectl_set-timezone(){

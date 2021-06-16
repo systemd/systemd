@@ -1,4 +1,4 @@
-#compdef networkctl                    -*- shell-script -*-
+#compdef networkctl
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
 (( $+functions[_networkctl_commands] )) ||
