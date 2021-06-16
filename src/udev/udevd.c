@@ -171,8 +171,8 @@ static void event_free(Event *event) {
         /* only clean up the queue from the process that created it */
         if (LIST_IS_EMPTY(event->manager->events) &&
             event->manager->pid == getpid_cached())
-                if (unlink("/run/udev/queue") < 0)
-                        log_warning_errno(errno, "Failed to unlink /run/udev/queue: %m");
+                if (unlink("/run/udev/queue") < 0 && errno != ENOENT)
+                        log_warning_errno(errno, "Failed to unlink /run/udev/queue, ignoring: %m");
 
         free(event);
 }
@@ -965,7 +965,7 @@ static int event_queue_insert(Manager *manager, sd_device *dev) {
         if (LIST_IS_EMPTY(manager->events)) {
                 r = touch("/run/udev/queue");
                 if (r < 0)
-                        log_warning_errno(r, "Failed to touch /run/udev/queue: %m");
+                        log_warning_errno(r, "Failed to touch /run/udev/queue, ignoring: %m");
         }
 
         LIST_APPEND(event, manager->events, event);
