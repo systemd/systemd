@@ -1,4 +1,4 @@
-#compdef kernel-install                    -*- shell-script -*-
+#compdef kernel-install
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
 (( $+functions[_kernel-install_images] )) ||

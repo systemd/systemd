@@ -1,4 +1,4 @@
-#compdef systemd-nspawn                    -*- shell-script -*-
+#compdef systemd-nspawn
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
 (( $+functions[_systemd-nspawn_caps] )) ||
