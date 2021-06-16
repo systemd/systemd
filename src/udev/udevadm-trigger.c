@@ -421,7 +421,7 @@ int trigger_main(int argc, char *argv[], void *userdata) {
         }
 
         if (ping) {
-                _cleanup_(udev_ctrl_unrefp) struct udev_ctrl *uctrl = NULL;
+                _cleanup_(udev_ctrl_unrefp) UdevCtrl *uctrl = NULL;
 
                 r = udev_ctrl_new(&uctrl);
                 if (r < 0)
