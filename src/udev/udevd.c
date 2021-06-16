@@ -94,7 +94,7 @@ typedef struct Manager {
         sd_netlink *rtnl;
 
         sd_device_monitor *monitor;
-        struct udev_ctrl *ctrl;
+        UdevCtrl *ctrl;
         int worker_watch[2];
 
         /* used by udev-watch */
@@ -1067,7 +1067,7 @@ static int on_uevent(sd_device_monitor *monitor, sd_device *dev, void *userdata)
 }
 
 /* receive the udevd message from userspace */
-static int on_ctrl_msg(struct udev_ctrl *uctrl, enum udev_ctrl_msg_type type, const union udev_ctrl_msg_value *value, void *userdata) {
+static int on_ctrl_msg(UdevCtrl *uctrl, UdevCtrlMessageType type, const UdevCtrlMessageValue *value, void *userdata) {
         Manager *manager = userdata;
         int r;
 

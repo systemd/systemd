@@ -48,7 +48,7 @@ static int help(void) {
 }
 
 int control_main(int argc, char *argv[], void *userdata) {
-        _cleanup_(udev_ctrl_unrefp) struct udev_ctrl *uctrl = NULL;
+        _cleanup_(udev_ctrl_unrefp) UdevCtrl *uctrl = NULL;
         usec_t timeout = 60 * USEC_PER_SEC;
         int c, r;
 
