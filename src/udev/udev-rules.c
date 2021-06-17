@@ -1154,7 +1154,7 @@ static void rule_resolve_goto(UdevRuleFile *rule_file) {
                 if (!FLAGS_SET(line->type, LINE_HAS_GOTO))
                         continue;
 
-                LIST_FOREACH_AFTER(rule_lines, i, line)
+                LIST_FOREACH(rule_lines, i, line->rule_lines_next)
                         if (streq_ptr(i->label, line->goto_label)) {
                                 line->goto_line = i;
                                 break;

@@ -771,11 +771,11 @@ static Unit *device_following(Unit *u) {
                 return NULL;
 
         /* Make everybody follow the unit that's named after the sysfs path */
-        LIST_FOREACH_AFTER(same_sysfs, other, d)
+        LIST_FOREACH(same_sysfs, other, d->same_sysfs_next)
                 if (startswith(UNIT(other)->id, "sys-"))
                         return UNIT(other);
 
-        LIST_FOREACH_BEFORE(same_sysfs, other, d) {
+        LIST_FOREACH_BACKWARDS(same_sysfs, other, d->same_sysfs_prev) {
                 if (startswith(UNIT(other)->id, "sys-"))
                         return UNIT(other);
 
@@ -802,13 +802,13 @@ static int device_following_set(Unit *u, Set **_set) {
         if (!set)
                 return -ENOMEM;
 
-        LIST_FOREACH_AFTER(same_sysfs, other, d) {
+        LIST_FOREACH(same_sysfs, other, d->same_sysfs_next) {
                 r = set_put(set, other);
                 if (r < 0)
                         return r;
         }
 
-        LIST_FOREACH_BEFORE(same_sysfs, other, d) {
+        LIST_FOREACH_BACKWARDS(same_sysfs, other, d->same_sysfs_prev) {
                 r = set_put(set, other);
                 if (r < 0)
                         return r;

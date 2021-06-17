@@ -1323,11 +1323,11 @@ static Unit *swap_following(Unit *u) {
         if (streq_ptr(s->what, s->devnode))
                 return NULL;
 
-        LIST_FOREACH_AFTER(same_devnode, other, s)
+        LIST_FOREACH(same_devnode, other, s->same_devnode_next)
                 if (streq_ptr(other->what, other->devnode))
                         return UNIT(other);
 
-        LIST_FOREACH_BEFORE(same_devnode, other, s) {
+        LIST_FOREACH_BACKWARDS(same_devnode, other, s->same_devnode_prev) {
                 if (streq_ptr(other->what, other->devnode))
                         return UNIT(other);
 
