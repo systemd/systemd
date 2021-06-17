@@ -780,6 +780,35 @@ static int event_is_blocked(Event *event) {
 
         /* lookup event for identical, parent, child device */
 
+        assert(event);
+        assert(event->manager);
+        assert(event->blocker_seqnum <= event->seqnum);
+
+        if (event->blocker_seqnum == event->seqnum)
+                /* we have checked previously and no blocker found */
+                return false;
+
+        LIST_FOREACH(event, loop_event, event->manager->events) {
+                /* we already found a later event, earlier cannot block us, no need to check again */
+                if (loop_event->seqnum < event->blocker_seqnum)
+                        continue;
+
+                /* event we checked earlier still exists, no need to check again */
+                if (loop_event->seqnum == event->blocker_seqnum)
+                        return true;
+
+                /* found ourself, no later event can block us */
+                if (loop_event->seqnum >= event->seqnum)
+                        goto no_blocker;
+
+                /* found event we have not checked */
+                break;
+        }
+
+        assert(loop_event);
+        assert(loop_event->seqnum > event->blocker_seqnum &&
+               loop_event->seqnum < event->seqnum);
+
         r = sd_device_get_subsystem(event->dev, &subsystem);
         if (r < 0)
                 return r;
@@ -805,21 +834,13 @@ static int event_is_blocked(Event *event) {
                 return r;
 
         /* check if queue contains events we depend on */
-        LIST_FOREACH(event, loop_event, event->manager->events) {
+        LIST_FOREACH(event, loop_event, loop_event) {
                 size_t loop_devpath_len, common;
                 const char *loop_devpath;
 
-                /* we already found a later event, earlier cannot block us, no need to check again */
-                if (loop_event->seqnum < event->blocker_seqnum)
-                        continue;
-
-                /* event we checked earlier still exists, no need to check again */
-                if (loop_event->seqnum == event->blocker_seqnum)
-                        return true;
-
                 /* found ourself, no later event can block us */
                 if (loop_event->seqnum >= event->seqnum)
-                        return false;
+                        goto no_blocker;
 
                 /* check major/minor */
                 if (major(devnum) != 0) {
@@ -879,6 +900,10 @@ static int event_is_blocked(Event *event) {
 
         event->blocker_seqnum = loop_event->seqnum;
         return true;
+
+no_blocker:
+        event->blocker_seqnum = event->seqnum;
+        return false;
 }
 
 static int event_queue_start(Manager *manager) {
