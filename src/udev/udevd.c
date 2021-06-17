@@ -717,16 +717,18 @@ static int worker_spawn(Manager *manager, Event *event) {
         return 0;
 }
 
-static void event_run(Manager *manager, Event *event) {
+static int event_run(Event *event) {
         static bool log_children_max_reached = true;
+        Manager *manager;
         Worker *worker;
         int r;
 
-        assert(manager);
         assert(event);
+        assert(event->manager);
 
         log_device_uevent(event->dev, "Device ready for processing");
 
+        manager = event->manager;
         HASHMAP_FOREACH(worker, manager->workers) {
                 if (worker->state != WORKER_IDLE)
                         continue;
@@ -740,29 +742,32 @@ static void event_run(Manager *manager, Event *event) {
                         continue;
                 }
                 worker_attach_event(worker, event);
-                return;
+                return 1; /* event is now processing. */
         }
 
         if (hashmap_size(manager->workers) >= arg_children_max) {
-
                 /* Avoid spamming the debug logs if the limit is already reached and
                  * many events still need to be processed */
                 if (log_children_max_reached && arg_children_max > 1) {
                         log_debug("Maximum number (%u) of children reached.", hashmap_size(manager->workers));
                         log_children_max_reached = false;
                 }
-                return;
+                return 0; /* no free worker */
         }
 
         /* Re-enable the debug message for the next batch of events */
         log_children_max_reached = true;
 
         /* fork with up-to-date SELinux label database, so the child inherits the up-to-date db
-           and, until the next SELinux policy changes, we safe further reloads in future children */
+         * and, until the next SELinux policy changes, we safe further reloads in future children */
         mac_selinux_maybe_reload();
 
         /* start new worker and pass initial device */
-        worker_spawn(manager, event);
+        r = worker_spawn(manager, event);
+        if (r < 0)
+                return r;
+
+        return 1; /* event is now processing. */
 }
 
 /* lookup event for identical, parent, child device */
@@ -918,7 +923,9 @@ static int event_queue_start(Manager *manager) {
                 if (is_device_busy(manager, event) != 0)
                         continue;
 
-                event_run(manager, event);
+                r = event_run(event);
+                if (r < 0)
+                        return r;
         }
 
         return 0;
