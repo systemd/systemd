@@ -876,7 +876,7 @@ set_delaying_seqnum:
         return true;
 }
 
-static void event_queue_start(Manager *manager) {
+static int event_queue_start(Manager *manager) {
         Event *event;
         usec_t usec;
         int r;
@@ -885,7 +885,7 @@ static void event_queue_start(Manager *manager) {
 
         if (LIST_IS_EMPTY(manager->events) ||
             manager->exit || manager->stop_exec_queue)
-                return;
+                return 0;
 
         assert_se(sd_event_now(manager->event, CLOCK_MONOTONIC, &usec) >= 0);
         /* check for changed config, every 3 seconds at most */
@@ -906,10 +906,8 @@ static void event_queue_start(Manager *manager) {
 
         if (!manager->rules) {
                 r = udev_rules_load(&manager->rules, arg_resolve_name_timing);
-                if (r < 0) {
-                        log_warning_errno(r, "Failed to read udev rules: %m");
-                        return;
-                }
+                if (r < 0)
+                        return log_warning_errno(r, "Failed to read udev rules: %m");
         }
 
         LIST_FOREACH(event, event, manager->events) {
@@ -922,6 +920,8 @@ static void event_queue_start(Manager *manager) {
 
                 event_run(manager, event);
         }
+
+        return 0;
 }
 
 static int event_queue_insert(Manager *manager, sd_device *dev) {
