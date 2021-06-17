@@ -174,3 +174,17 @@ bool gpt_partition_type_knows_growfs(sd_id128_t id) {
                                 GPT_TMP,
                                 GPT_XBOOTLDR);
 }
+
+bool gpt_partition_type_knows_no_auto(sd_id128_t id) {
+        return gpt_partition_type_is_root(id) ||
+                gpt_partition_type_is_root_verity(id) ||
+                gpt_partition_type_is_usr(id) ||
+                gpt_partition_type_is_usr_verity(id) ||
+                sd_id128_in_set(id,
+                                GPT_HOME,
+                                GPT_SRV,
+                                GPT_VAR,
+                                GPT_TMP,
+                                GPT_XBOOTLDR,
+                                GPT_SWAP);
+}
