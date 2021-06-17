@@ -124,7 +124,7 @@ typedef struct Event {
         sd_device *dev_kernel; /* clone of originally received device */
 
         uint64_t seqnum;
-        uint64_t delaying_seqnum;
+        uint64_t blocker_seqnum;
 
         sd_event_source *timeout_warning_event;
         sd_event_source *timeout_event;
@@ -770,14 +770,15 @@ static int event_run(Event *event) {
         return 1; /* event is now processing. */
 }
 
-/* lookup event for identical, parent, child device */
-static int is_device_busy(Manager *manager, Event *event) {
+static int event_is_blocked(Event *event) {
         const char *subsystem, *devpath, *devpath_old = NULL;
         dev_t devnum = makedev(0, 0);
         Event *loop_event;
         size_t devpath_len;
         int r, ifindex = 0;
         bool is_block;
+
+        /* lookup event for identical, parent, child device */
 
         r = sd_device_get_subsystem(event->dev, &subsystem);
         if (r < 0)
@@ -804,21 +805,21 @@ static int is_device_busy(Manager *manager, Event *event) {
                 return r;
 
         /* check if queue contains events we depend on */
-        LIST_FOREACH(event, loop_event, manager->events) {
+        LIST_FOREACH(event, loop_event, event->manager->events) {
                 size_t loop_devpath_len, common;
                 const char *loop_devpath;
 
                 /* we already found a later event, earlier cannot block us, no need to check again */
-                if (loop_event->seqnum < event->delaying_seqnum)
+                if (loop_event->seqnum < event->blocker_seqnum)
                         continue;
 
                 /* event we checked earlier still exists, no need to check again */
-                if (loop_event->seqnum == event->delaying_seqnum)
+                if (loop_event->seqnum == event->blocker_seqnum)
                         return true;
 
                 /* found ourself, no later event can block us */
                 if (loop_event->seqnum >= event->seqnum)
-                        break;
+                        return false;
 
                 /* check major/minor */
                 if (major(devnum) != 0) {
@@ -830,7 +831,7 @@ static int is_device_busy(Manager *manager, Event *event) {
 
                         if (sd_device_get_devnum(loop_event->dev, &d) >= 0 &&
                             devnum == d && is_block == streq(s, "block"))
-                                goto set_delaying_seqnum;
+                                break;
                 }
 
                 /* check network device ifindex */
@@ -839,7 +840,7 @@ static int is_device_busy(Manager *manager, Event *event) {
 
                         if (sd_device_get_ifindex(loop_event->dev, &i) >= 0 &&
                             ifindex == i)
-                                goto set_delaying_seqnum;
+                                break;
                 }
 
                 if (sd_device_get_devpath(loop_event->dev, &loop_devpath) < 0)
@@ -847,7 +848,7 @@ static int is_device_busy(Manager *manager, Event *event) {
 
                 /* check our old name */
                 if (devpath_old && streq(devpath_old, loop_devpath))
-                        goto set_delaying_seqnum;
+                        break;
 
                 loop_devpath_len = strlen(loop_devpath);
 
@@ -860,24 +861,23 @@ static int is_device_busy(Manager *manager, Event *event) {
 
                 /* identical device event found */
                 if (devpath_len == loop_devpath_len)
-                        goto set_delaying_seqnum;
+                        break;
 
                 /* parent device event found */
                 if (devpath[common] == '/')
-                        goto set_delaying_seqnum;
+                        break;
 
                 /* child device event found */
                 if (loop_devpath[common] == '/')
-                        goto set_delaying_seqnum;
+                        break;
         }
 
-        return false;
+        assert(loop_event);
 
-set_delaying_seqnum:
         log_device_debug(event->dev, "SEQNUM=%" PRIu64 " blocked by SEQNUM=%" PRIu64,
                          event->seqnum, loop_event->seqnum);
 
-        event->delaying_seqnum = loop_event->seqnum;
+        event->blocker_seqnum = loop_event->seqnum;
         return true;
 }
 
@@ -920,7 +920,7 @@ static int event_queue_start(Manager *manager) {
                         continue;
 
                 /* do not start event if parent or child event is still running */
-                if (is_device_busy(manager, event) != 0)
+                if (event_is_blocked(event) != 0)
                         continue;
 
                 r = event_run(event);
