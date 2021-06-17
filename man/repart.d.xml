@@ -571,33 +571,34 @@
       <varlistentry>
         <term><varname>Flags=</varname></term>
 
-        <listitem><para>Configures the 64bit GPT partition flags to set for the partition when creating
+        <listitem><para>Configures the 64bit GPT partition flags field to set for the partition when creating
         it. This option has no effect if the partition already exists. If not specified the flags values is
-        set to all zeroes, except if the partition type (as configured with <varname>Type=</varname> above)
-        refers to a Verity partition, in which case bit 60 is set (i.e. the read-only bit). This bit may also
-        be configured separately via <varname>ReadOnly=</varname>, see below. Specify the flags value in
-        hexadecimal (by prefixing it with <literal>0x</literal>), binary (prefix <literal>0b</literal>) or
-        decimal (no prefix).</para></listitem>
+        set to all zeroes, except for the three bits that can also be configured via
+        <varname>NoAuto=</varname>, <varname>ReadOnly=</varname> and <varname>GrowFileSystem=</varname>; see
+        below for details on the defaults for these three flags. Specify the flags value in hexadecimal (by
+        prefixing it with <literal>0x</literal>), binary (prefix <literal>0b</literal>) or decimal (no
+        prefix).</para></listitem>
       </varlistentry>
 
       <varlistentry>
+        <term><varname>NoAuto=</varname></term>
         <term><varname>ReadOnly=</varname></term>
         <term><varname>GrowFileSystem=</varname></term>
 
-        <listitem><para>Configures the Read-Only and Grow-File-System partition flags (bit 60 and 59) of the
-        partition table entry, as defined by the <ulink
+        <listitem><para>Configures the No-Auto, Read-Only and Grow-File-System partition flags (bit 63, 60
+        and 59) of the partition table entry, as defined by the <ulink
         url="https://systemd.io/DISCOVERABLE_PARTITIONS">Discoverable Partitions Specification</ulink>. Only
-        available for partition types supported by the specification. This option is a friendly way to set bit
-        60 and 59 of the partition flags value without setting any of the other bits, and may be set via
-        <varname>Flags=</varname> too, see above.</para>
+        available for partition types supported by the specification. This option is a friendly way to set
+        bits 63, 60 and 59 of the partition flags value without setting any of the other bits, and may be set
+        via <varname>Flags=</varname> too, see above.</para>
 
-        <para>If <varname>Flags=</varname> is used in conjunction with one or both of
-        <varname>ReadOnly=</varname>/<varname>GrowFileSystem=</varname> the latter control the value of the
-        relevant flags, i.e. the high-level settings
-        <varname>ReadOnly=</varname>/<varname>GrowFileSystem=</varname> override the low-level setting
-        <varname>Flags=</varname>.</para>
+        <para>If <varname>Flags=</varname> is used in conjunction with one or more of
+        <varname>NoAuto=</varname>/<varname>ReadOnly=</varname>/<varname>GrowFileSystem=</varname> the latter
+        control the value of the relevant flags, i.e. the high-level settings
+        <varname>NoAuto=</varname>/<varname>ReadOnly=</varname>/<varname>GrowFileSystem=</varname> override
+        the relevant bits of the low-level setting <varname>Flags=</varname>.</para>
 
-        <para>Note that the two flags affect only automatic partition mounting, as implemented by
+        <para>Note that the three flags affect only automatic partition mounting, as implemented by
         <citerefentry><refentrytitle>systemd-gpt-auto-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>
         or the <option>--image=</option> option of various commands (such as
         <citerefentry><refentrytitle>systemd-nspawn</refentrytitle><manvolnum>1</manvolnum></citerefentry>). It
@@ -611,10 +612,10 @@
         precedence in most tools reading these flags, and since growing the file system involves writing to
         the partition it is consequently ignored.</para>
 
-        <para><varname>ReadOnly=</varname> defaults to on for Verity partition
-        types. <varname>GrowFileSystem=</varname> defaults to on for all partition types that support it,
-        except if the partition is marked read-only (and thus effectively, defaults to off for Verity
-        partitions).</para></listitem>
+        <para><varname>NoAuto=</varname> defaults to off. <varname>ReadOnly=</varname> defaults to on for
+        Verity partition types, and off for all others. <varname>GrowFileSystem=</varname> defaults to on for
+        all partition types that support it, except if the partition is marked read-only (and thus
+        effectively, defaults to off for Verity partitions).</para></listitem>
       </varlistentry>
     </variablelist>
   </refsect1>
