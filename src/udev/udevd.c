@@ -152,9 +152,9 @@ typedef struct Worker {
 typedef struct WorkerMessage {
 } WorkerMessage;
 
-static void event_free(Event *event) {
+static Event *event_free(Event *event) {
         if (!event)
-                return;
+                return NULL;
 
         assert(event->manager);
 
@@ -174,7 +174,7 @@ static void event_free(Event *event) {
                 if (unlink("/run/udev/queue") < 0 && errno != ENOENT)
                         log_warning_errno(errno, "Failed to unlink /run/udev/queue, ignoring: %m");
 
-        free(event);
+        return mfree(event);
 }
 
 static void event_queue_cleanup(Manager *manager, EventState match_state) {
