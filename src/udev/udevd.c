@@ -907,7 +907,7 @@ no_blocker:
 }
 
 static int event_queue_start(Manager *manager) {
-        Event *event;
+        Event *event, *event_next;
         usec_t usec;
         int r;
 
@@ -940,12 +940,26 @@ static int event_queue_start(Manager *manager) {
                         return log_warning_errno(r, "Failed to read udev rules: %m");
         }
 
-        LIST_FOREACH(event, event, manager->events) {
+        LIST_FOREACH_SAFE(event, event, event_next, manager->events) {
                 if (event->state != EVENT_QUEUED)
                         continue;
 
-                /* do not start event if parent or child event is still running */
-                if (event_is_blocked(event) != 0)
+                /* do not start event if parent or child event is still running or queued */
+                r = event_is_blocked(event);
+                if (r < 0) {
+                        sd_device_action_t a = _SD_DEVICE_ACTION_INVALID;
+
+                        (void) sd_device_get_action(event->dev, &a);
+                        log_device_warning_errno(event->dev, r,
+                                                 "Failed to check event dependency, "
+                                                 "skipping event (SEQNUM=%"PRIu64", ACTION=%s)",
+                                                 event->seqnum,
+                                                 strna(device_action_to_string(a)));
+
+                        event_free(event);
+                        return r;
+                }
+                if (r > 0)
                         continue;
 
                 r = event_run(event);
