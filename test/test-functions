@@ -2036,7 +2036,7 @@ inst_rule_programs() {
     local rule="${1:?}"
     local prog bin
 
-    awk 'match($0, /PROGRAM==?"([^ "]+)/, m) { print m[1]; }' "$rule" | while read -r prog; do
+    sed -rn 's/^.*?PROGRAM==?"([^ "]+).*$/\1/p' "$rule" | while read -r prog; do
         if [ -x "/lib/udev/$prog" ]; then
             bin="/lib/udev/$prog"
         else
