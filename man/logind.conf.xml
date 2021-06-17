@@ -200,6 +200,7 @@
         <term><varname>HandleLidSwitchExternalPower=</varname></term>
         <term><varname>HandleLidSwitchDocked=</varname></term>
         <term><varname>HandleRebootKey=</varname></term>
+        <term><varname>HandleRebootKeyLongPress=</varname></term>
 
         <listitem><para>Controls how logind shall handle the
         system power, reboot and sleep keys and the lid switch to trigger
@@ -221,7 +222,8 @@
         <literal>power-switch</literal> udev tag will be watched for
         key/lid switch events. <varname>HandlePowerKey=</varname>
         defaults to <literal>poweroff</literal>, <varname>HandleRebootKey=</varname>
-        defaults to <literal>reboot</literal>.
+        defaults to <literal>reboot</literal>, <varname>HandleRebootKeyLongPress=</varname>
+        defaults to <literal>poweroff</literal>.
         <varname>HandleSuspendKey=</varname> and
         <varname>HandleLidSwitch=</varname> default to
         <literal>suspend</literal>.
@@ -243,7 +245,7 @@
         sleep keys and the lid switch by taking a low-level inhibitor lock
         (<literal>handle-power-key</literal>, <literal>handle-suspend-key</literal>,
         <literal>handle-hibernate-key</literal>, <literal>handle-lid-switch</literal>,
-        <literal>handle-reboot-switch</literal>).
+        <literal>handle-reboot-key</literal>).
         This is most commonly used by graphical desktop environments
         to take over suspend and hibernation handling, and to use their own configuration
         mechanisms. If a low-level inhibitor lock is taken, logind will not take any
