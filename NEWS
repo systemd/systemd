@@ -61,8 +61,8 @@ CHANGES WITH 249 in spe:
           included in the image. For example, a disk image that contains a
           root, /home/, and /var/ partitions, may set MakeDirectories=yes to
           create /home/ and /var/ as empty directories in the root file system
-          on its creation, so that the resulting image can mounted immediately,
-          even in read-only mode.
+          on its creation, so that the resulting image can be mounted
+          immediately, even in read-only mode.
 
         * systemd-repart's CopyBlocks= setting gained support for the special
           value "auto". If used, a suitable matching partition on the booted OS
@@ -134,7 +134,7 @@ CHANGES WITH 249 in spe:
         * The native Journal protocol has been documented. Clients may talk
           this as alternative to the classic BSD syslog protocol for locally
           delivering log records to the Journal. The protocol has been stable
-          since a long time and in fact been implemented already in a variety
+          for a long time and in fact been implemented already in a variety
           of alternative client libraries. This documentation makes the support
           for that official:
 
