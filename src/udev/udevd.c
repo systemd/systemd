@@ -890,7 +890,7 @@ static int event_queue_start(Manager *manager) {
         assert_se(sd_event_now(manager->event, CLOCK_MONOTONIC, &usec) >= 0);
         /* check for changed config, every 3 seconds at most */
         if (manager->last_usec == 0 ||
-            usec - manager->last_usec > 3 * USEC_PER_SEC) {
+            usec > usec_add(manager->last_usec, 3 * USEC_PER_SEC)) {
                 if (udev_rules_check_timestamp(manager->rules) ||
                     udev_builtin_validate())
                         manager_reload(manager);
