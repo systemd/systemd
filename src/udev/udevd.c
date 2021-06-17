@@ -77,10 +77,13 @@ static usec_t arg_event_timeout_usec = 180 * USEC_PER_SEC;
 static int arg_timeout_signal = SIGKILL;
 static bool arg_blockdev_read_only = false;
 
+typedef struct Event Event;
+typedef struct Worker Worker;
+
 typedef struct Manager {
         sd_event *event;
         Hashmap *workers;
-        LIST_HEAD(struct event, events);
+        LIST_HEAD(Event, events);
         const char *cgroup;
         pid_t pid; /* the process that originally allocated the manager object */
         int log_level;
@@ -91,7 +94,7 @@ typedef struct Manager {
         sd_netlink *rtnl;
 
         sd_device_monitor *monitor;
-        struct udev_ctrl *ctrl;
+        UdevCtrl *ctrl;
         int worker_watch[2];
 
         /* used by udev-watch */
@@ -106,54 +109,52 @@ typedef struct Manager {
         bool exit;
 } Manager;
 
-enum event_state {
+typedef enum EventState {
         EVENT_UNDEF,
         EVENT_QUEUED,
         EVENT_RUNNING,
-};
+} EventState;
 
-struct event {
+typedef struct Event {
         Manager *manager;
-        struct worker *worker;
-        enum event_state state;
+        Worker *worker;
+        EventState state;
 
         sd_device *dev;
         sd_device *dev_kernel; /* clone of originally received device */
 
         uint64_t seqnum;
-        uint64_t delaying_seqnum;
+        uint64_t blocker_seqnum;
 
         sd_event_source *timeout_warning_event;
         sd_event_source *timeout_event;
 
-        LIST_FIELDS(struct event, event);
-};
+        LIST_FIELDS(Event, event);
+} Event;
 
-static void event_queue_cleanup(Manager *manager, enum event_state type);
-
-enum worker_state {
+typedef enum WorkerState {
         WORKER_UNDEF,
         WORKER_RUNNING,
         WORKER_IDLE,
         WORKER_KILLED,
         WORKER_KILLING,
-};
+} WorkerState;
 
-struct worker {
+typedef struct Worker {
         Manager *manager;
         pid_t pid;
         sd_device_monitor *monitor;
-        enum worker_state state;
-        struct event *event;
-};
+        WorkerState state;
+        Event *event;
+} Worker;
 
 /* passed from worker to main process */
-struct worker_message {
-};
+typedef struct WorkerMessage {
+} WorkerMessage;
 
-static void event_free(struct event *event) {
+static Event *event_free(Event *event) {
         if (!event)
-                return;
+                return NULL;
 
         assert(event->manager);
 
@@ -170,13 +171,24 @@ static void event_free(struct event *event) {
         /* only clean up the queue from the process that created it */
         if (LIST_IS_EMPTY(event->manager->events) &&
             event->manager->pid == getpid_cached())
-                if (unlink("/run/udev/queue") < 0)
-                        log_warning_errno(errno, "Failed to unlink /run/udev/queue: %m");
+                if (unlink("/run/udev/queue") < 0 && errno != ENOENT)
+                        log_warning_errno(errno, "Failed to unlink /run/udev/queue, ignoring: %m");
 
-        free(event);
+        return mfree(event);
 }
 
-static struct worker* worker_free(struct worker *worker) {
+static void event_queue_cleanup(Manager *manager, EventState match_state) {
+        Event *event, *tmp;
+
+        LIST_FOREACH_SAFE(event, event, tmp, manager->events) {
+                if (match_state != EVENT_UNDEF && match_state != event->state)
+                        continue;
+
+                event_free(event);
+        }
+}
+
+static Worker *worker_free(Worker *worker) {
         if (!worker)
                 return NULL;
 
@@ -189,89 +201,8 @@ static struct worker* worker_free(struct worker *worker) {
         return mfree(worker);
 }
 
-DEFINE_TRIVIAL_CLEANUP_FUNC(struct worker *, worker_free);
-DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(worker_hash_op, void, trivial_hash_func, trivial_compare_func, struct worker, worker_free);
-
-static int worker_new(struct worker **ret, Manager *manager, sd_device_monitor *worker_monitor, pid_t pid) {
-        _cleanup_(worker_freep) struct worker *worker = NULL;
-        int r;
-
-        assert(ret);
-        assert(manager);
-        assert(worker_monitor);
-        assert(pid > 1);
-
-        /* close monitor, but keep address around */
-        device_monitor_disconnect(worker_monitor);
-
-        worker = new(struct worker, 1);
-        if (!worker)
-                return -ENOMEM;
-
-        *worker = (struct worker) {
-                .manager = manager,
-                .monitor = sd_device_monitor_ref(worker_monitor),
-                .pid = pid,
-        };
-
-        r = hashmap_ensure_put(&manager->workers, &worker_hash_op, PID_TO_PTR(pid), worker);
-        if (r < 0)
-                return r;
-
-        *ret = TAKE_PTR(worker);
-
-        return 0;
-}
-
-static int on_event_timeout(sd_event_source *s, uint64_t usec, void *userdata) {
-        struct event *event = userdata;
-
-        assert(event);
-        assert(event->worker);
-
-        kill_and_sigcont(event->worker->pid, arg_timeout_signal);
-        event->worker->state = WORKER_KILLED;
-
-        log_device_error(event->dev, "Worker ["PID_FMT"] processing SEQNUM=%"PRIu64" killed", event->worker->pid, event->seqnum);
-
-        return 1;
-}
-
-static int on_event_timeout_warning(sd_event_source *s, uint64_t usec, void *userdata) {
-        struct event *event = userdata;
-
-        assert(event);
-        assert(event->worker);
-
-        log_device_warning(event->dev, "Worker ["PID_FMT"] processing SEQNUM=%"PRIu64" is taking a long time", event->worker->pid, event->seqnum);
-
-        return 1;
-}
-
-static void worker_attach_event(struct worker *worker, struct event *event) {
-        sd_event *e;
-
-        assert(worker);
-        assert(worker->manager);
-        assert(event);
-        assert(!event->worker);
-        assert(!worker->event);
-
-        worker->state = WORKER_RUNNING;
-        worker->event = event;
-        event->state = EVENT_RUNNING;
-        event->worker = worker;
-
-        e = worker->manager->event;
-
-        (void) sd_event_add_time_relative(e, &event->timeout_warning_event, CLOCK_MONOTONIC,
-                                          udev_warn_timeout(arg_event_timeout_usec), USEC_PER_SEC,
-                                          on_event_timeout_warning, event);
-
-        (void) sd_event_add_time_relative(e, &event->timeout_event, CLOCK_MONOTONIC,
-                                          arg_event_timeout_usec, USEC_PER_SEC,
-                                          on_event_timeout, event);
-}
+DEFINE_TRIVIAL_CLEANUP_FUNC(Worker*, worker_free);
+DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(worker_hash_op, void, trivial_hash_func, trivial_compare_func, Worker, worker_free);
 
 static void manager_clear_for_worker(Manager *manager) {
         assert(manager);
@@ -314,8 +245,109 @@ static Manager* manager_free(Manager *manager) {
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(Manager*, manager_free);
 
+static int worker_new(Worker **ret, Manager *manager, sd_device_monitor *worker_monitor, pid_t pid) {
+        _cleanup_(worker_freep) Worker *worker = NULL;
+        int r;
+
+        assert(ret);
+        assert(manager);
+        assert(worker_monitor);
+        assert(pid > 1);
+
+        /* close monitor, but keep address around */
+        device_monitor_disconnect(worker_monitor);
+
+        worker = new(Worker, 1);
+        if (!worker)
+                return -ENOMEM;
+
+        *worker = (Worker) {
+                .manager = manager,
+                .monitor = sd_device_monitor_ref(worker_monitor),
+                .pid = pid,
+        };
+
+        r = hashmap_ensure_put(&manager->workers, &worker_hash_op, PID_TO_PTR(pid), worker);
+        if (r < 0)
+                return r;
+
+        *ret = TAKE_PTR(worker);
+
+        return 0;
+}
+
+static void manager_kill_workers(Manager *manager, bool force) {
+        Worker *worker;
+
+        assert(manager);
+
+        HASHMAP_FOREACH(worker, manager->workers) {
+                if (worker->state == WORKER_KILLED)
+                        continue;
+
+                if (worker->state == WORKER_RUNNING && !force) {
+                        worker->state = WORKER_KILLING;
+                        continue;
+                }
+
+                worker->state = WORKER_KILLED;
+                (void) kill(worker->pid, SIGTERM);
+        }
+}
+
+static void manager_exit(Manager *manager) {
+        assert(manager);
+
+        manager->exit = true;
+
+        sd_notify(false,
+                  "STOPPING=1\n"
+                  "STATUS=Starting shutdown...");
+
+        /* close sources of new events and discard buffered events */
+        manager->ctrl = udev_ctrl_unref(manager->ctrl);
+
+        manager->inotify_event = sd_event_source_unref(manager->inotify_event);
+        manager->inotify_fd = safe_close(manager->inotify_fd);
+
+        manager->monitor = sd_device_monitor_unref(manager->monitor);
+
+        /* discard queued events and kill workers */
+        event_queue_cleanup(manager, EVENT_QUEUED);
+        manager_kill_workers(manager, true);
+}
+
+/* reload requested, HUP signal received, rules changed, builtin changed */
+static void manager_reload(Manager *manager) {
+
+        assert(manager);
+
+        sd_notify(false,
+                  "RELOADING=1\n"
+                  "STATUS=Flushing configuration...");
+
+        manager_kill_workers(manager, false);
+        manager->rules = udev_rules_free(manager->rules);
+        udev_builtin_exit();
+
+        sd_notifyf(false,
+                   "READY=1\n"
+                   "STATUS=Processing with %u children at max", arg_children_max);
+}
+
+static int on_kill_workers_event(sd_event_source *s, uint64_t usec, void *userdata) {
+        Manager *manager = userdata;
+
+        assert(manager);
+
+        log_debug("Cleanup idle workers");
+        manager_kill_workers(manager, false);
+
+        return 1;
+}
+
 static int worker_send_message(int fd) {
-        struct worker_message message = {};
+        WorkerMessage message = {};
 
         return loop_write(fd, &message, sizeof(message), false);
 }
@@ -591,9 +623,59 @@ static int worker_main(Manager *_manager, sd_device_monitor *monitor, sd_device 
         return 0;
 }
 
-static int worker_spawn(Manager *manager, struct event *event) {
+static int on_event_timeout(sd_event_source *s, uint64_t usec, void *userdata) {
+        Event *event = userdata;
+
+        assert(event);
+        assert(event->worker);
+
+        kill_and_sigcont(event->worker->pid, arg_timeout_signal);
+        event->worker->state = WORKER_KILLED;
+
+        log_device_error(event->dev, "Worker ["PID_FMT"] processing SEQNUM=%"PRIu64" killed", event->worker->pid, event->seqnum);
+
+        return 1;
+}
+
+static int on_event_timeout_warning(sd_event_source *s, uint64_t usec, void *userdata) {
+        Event *event = userdata;
+
+        assert(event);
+        assert(event->worker);
+
+        log_device_warning(event->dev, "Worker ["PID_FMT"] processing SEQNUM=%"PRIu64" is taking a long time", event->worker->pid, event->seqnum);
+
+        return 1;
+}
+
+static void worker_attach_event(Worker *worker, Event *event) {
+        sd_event *e;
+
+        assert(worker);
+        assert(worker->manager);
+        assert(event);
+        assert(!event->worker);
+        assert(!worker->event);
+
+        worker->state = WORKER_RUNNING;
+        worker->event = event;
+        event->state = EVENT_RUNNING;
+        event->worker = worker;
+
+        e = worker->manager->event;
+
+        (void) sd_event_add_time_relative(e, &event->timeout_warning_event, CLOCK_MONOTONIC,
+                                          udev_warn_timeout(arg_event_timeout_usec), USEC_PER_SEC,
+                                          on_event_timeout_warning, event);
+
+        (void) sd_event_add_time_relative(e, &event->timeout_event, CLOCK_MONOTONIC,
+                                          arg_event_timeout_usec, USEC_PER_SEC,
+                                          on_event_timeout, event);
+}
+
+static int worker_spawn(Manager *manager, Event *event) {
         _cleanup_(sd_device_monitor_unrefp) sd_device_monitor *worker_monitor = NULL;
-        struct worker *worker;
+        Worker *worker;
         pid_t pid;
         int r;
 
@@ -635,16 +717,18 @@ static int worker_spawn(Manager *manager, struct event *event) {
         return 0;
 }
 
-static void event_run(Manager *manager, struct event *event) {
+static int event_run(Event *event) {
         static bool log_children_max_reached = true;
-        struct worker *worker;
+        Manager *manager;
+        Worker *worker;
         int r;
 
-        assert(manager);
         assert(event);
+        assert(event->manager);
 
         log_device_uevent(event->dev, "Device ready for processing");
 
+        manager = event->manager;
         HASHMAP_FOREACH(worker, manager->workers) {
                 if (worker->state != WORKER_IDLE)
                         continue;
@@ -658,109 +742,72 @@ static void event_run(Manager *manager, struct event *event) {
                         continue;
                 }
                 worker_attach_event(worker, event);
-                return;
+                return 1; /* event is now processing. */
         }
 
         if (hashmap_size(manager->workers) >= arg_children_max) {
-
                 /* Avoid spamming the debug logs if the limit is already reached and
                  * many events still need to be processed */
                 if (log_children_max_reached && arg_children_max > 1) {
                         log_debug("Maximum number (%u) of children reached.", hashmap_size(manager->workers));
                         log_children_max_reached = false;
                 }
-                return;
+                return 0; /* no free worker */
         }
 
         /* Re-enable the debug message for the next batch of events */
         log_children_max_reached = true;
 
         /* fork with up-to-date SELinux label database, so the child inherits the up-to-date db
-           and, until the next SELinux policy changes, we safe further reloads in future children */
+         * and, until the next SELinux policy changes, we safe further reloads in future children */
         mac_selinux_maybe_reload();
 
         /* start new worker and pass initial device */
-        worker_spawn(manager, event);
-}
-
-static int event_queue_insert(Manager *manager, sd_device *dev) {
-        _cleanup_(sd_device_unrefp) sd_device *clone = NULL;
-        struct event *event;
-        uint64_t seqnum;
-        int r;
-
-        assert(manager);
-        assert(dev);
-
-        /* only one process can add events to the queue */
-        assert(manager->pid == getpid_cached());
-
-        /* We only accepts devices received by device monitor. */
-        r = sd_device_get_seqnum(dev, &seqnum);
+        r = worker_spawn(manager, event);
         if (r < 0)
                 return r;
 
-        /* Save original device to restore the state on failures. */
-        r = device_shallow_clone(dev, &clone);
-        if (r < 0)
-                return r;
-
-        r = device_copy_properties(clone, dev);
-        if (r < 0)
-                return r;
-
-        event = new(struct event, 1);
-        if (!event)
-                return -ENOMEM;
-
-        *event = (struct event) {
-                .manager = manager,
-                .dev = sd_device_ref(dev),
-                .dev_kernel = TAKE_PTR(clone),
-                .seqnum = seqnum,
-                .state = EVENT_QUEUED,
-        };
-
-        if (LIST_IS_EMPTY(manager->events)) {
-                r = touch("/run/udev/queue");
-                if (r < 0)
-                        log_warning_errno(r, "Failed to touch /run/udev/queue: %m");
-        }
-
-        LIST_APPEND(event, manager->events, event);
-
-        log_device_uevent(dev, "Device is queued");
-
-        return 0;
+        return 1; /* event is now processing. */
 }
 
-static void manager_kill_workers(Manager *manager, bool force) {
-        struct worker *worker;
-
-        assert(manager);
-
-        HASHMAP_FOREACH(worker, manager->workers) {
-                if (worker->state == WORKER_KILLED)
-                        continue;
-
-                if (worker->state == WORKER_RUNNING && !force) {
-                        worker->state = WORKER_KILLING;
-                        continue;
-                }
-
-                worker->state = WORKER_KILLED;
-                (void) kill(worker->pid, SIGTERM);
-        }
-}
-
-/* lookup event for identical, parent, child device */
-static int is_device_busy(Manager *manager, struct event *event) {
+static int event_is_blocked(Event *event) {
         const char *subsystem, *devpath, *devpath_old = NULL;
         dev_t devnum = makedev(0, 0);
-        struct event *loop_event;
+        Event *loop_event;
         size_t devpath_len;
         int r, ifindex = 0;
         bool is_block;
+
+        /* lookup event for identical, parent, child device */
+
+        assert(event);
+        assert(event->manager);
+        assert(event->blocker_seqnum <= event->seqnum);
+
+        if (event->blocker_seqnum == event->seqnum)
+                /* we have checked previously and no blocker found */
+                return false;
+
+        LIST_FOREACH(event, loop_event, event->manager->events) {
+                /* we already found a later event, earlier cannot block us, no need to check again */
+                if (loop_event->seqnum < event->blocker_seqnum)
+                        continue;
+
+                /* event we checked earlier still exists, no need to check again */
+                if (loop_event->seqnum == event->blocker_seqnum)
+                        return true;
+
+                /* found ourself, no later event can block us */
+                if (loop_event->seqnum >= event->seqnum)
+                        goto no_blocker;
+
+                /* found event we have not checked */
+                break;
+        }
+
+        assert(loop_event);
+        assert(loop_event->seqnum > event->blocker_seqnum &&
+               loop_event->seqnum < event->seqnum);
 
         r = sd_device_get_subsystem(event->dev, &subsystem);
         if (r < 0)
@@ -787,21 +834,13 @@ static int is_device_busy(Manager *manager, struct event *event) {
                 return r;
 
         /* check if queue contains events we depend on */
-        LIST_FOREACH(event, loop_event, manager->events) {
+        LIST_FOREACH_AFTER_FROM(event, loop_event, loop_event) {
                 size_t loop_devpath_len, common;
                 const char *loop_devpath;
 
-                /* we already found a later event, earlier cannot block us, no need to check again */
-                if (loop_event->seqnum < event->delaying_seqnum)
-                        continue;
-
-                /* event we checked earlier still exists, no need to check again */
-                if (loop_event->seqnum == event->delaying_seqnum)
-                        return true;
-
                 /* found ourself, no later event can block us */
                 if (loop_event->seqnum >= event->seqnum)
-                        break;
+                        goto no_blocker;
 
                 /* check major/minor */
                 if (major(devnum) != 0) {
@@ -813,7 +852,7 @@ static int is_device_busy(Manager *manager, struct event *event) {
 
                         if (sd_device_get_devnum(loop_event->dev, &d) >= 0 &&
                             devnum == d && is_block == streq(s, "block"))
-                                goto set_delaying_seqnum;
+                                break;
                 }
 
                 /* check network device ifindex */
@@ -822,7 +861,7 @@ static int is_device_busy(Manager *manager, struct event *event) {
 
                         if (sd_device_get_ifindex(loop_event->dev, &i) >= 0 &&
                             ifindex == i)
-                                goto set_delaying_seqnum;
+                                break;
                 }
 
                 if (sd_device_get_devpath(loop_event->dev, &loop_devpath) < 0)
@@ -830,7 +869,7 @@ static int is_device_busy(Manager *manager, struct event *event) {
 
                 /* check our old name */
                 if (devpath_old && streq(devpath_old, loop_devpath))
-                        goto set_delaying_seqnum;
+                        break;
 
                 loop_devpath_len = strlen(loop_devpath);
 
@@ -843,80 +882,32 @@ static int is_device_busy(Manager *manager, struct event *event) {
 
                 /* identical device event found */
                 if (devpath_len == loop_devpath_len)
-                        goto set_delaying_seqnum;
+                        break;
 
                 /* parent device event found */
                 if (devpath[common] == '/')
-                        goto set_delaying_seqnum;
+                        break;
 
                 /* child device event found */
                 if (loop_devpath[common] == '/')
-                        goto set_delaying_seqnum;
+                        break;
         }
 
-        return false;
+        assert(loop_event);
 
-set_delaying_seqnum:
         log_device_debug(event->dev, "SEQNUM=%" PRIu64 " blocked by SEQNUM=%" PRIu64,
                          event->seqnum, loop_event->seqnum);
 
-        event->delaying_seqnum = loop_event->seqnum;
+        event->blocker_seqnum = loop_event->seqnum;
         return true;
+
+no_blocker:
+        event->blocker_seqnum = event->seqnum;
+        return false;
 }
 
-static void manager_exit(Manager *manager) {
-        assert(manager);
-
-        manager->exit = true;
-
-        sd_notify(false,
-                  "STOPPING=1\n"
-                  "STATUS=Starting shutdown...");
-
-        /* close sources of new events and discard buffered events */
-        manager->ctrl = udev_ctrl_unref(manager->ctrl);
-
-        manager->inotify_event = sd_event_source_unref(manager->inotify_event);
-        manager->inotify_fd = safe_close(manager->inotify_fd);
-
-        manager->monitor = sd_device_monitor_unref(manager->monitor);
-
-        /* discard queued events and kill workers */
-        event_queue_cleanup(manager, EVENT_QUEUED);
-        manager_kill_workers(manager, true);
-}
-
-/* reload requested, HUP signal received, rules changed, builtin changed */
-static void manager_reload(Manager *manager) {
-
-        assert(manager);
-
-        sd_notify(false,
-                  "RELOADING=1\n"
-                  "STATUS=Flushing configuration...");
-
-        manager_kill_workers(manager, false);
-        manager->rules = udev_rules_free(manager->rules);
-        udev_builtin_exit();
-
-        sd_notifyf(false,
-                   "READY=1\n"
-                   "STATUS=Processing with %u children at max", arg_children_max);
-}
-
-static int on_kill_workers_event(sd_event_source *s, uint64_t usec, void *userdata) {
-        Manager *manager = userdata;
-
-        assert(manager);
-
-        log_debug("Cleanup idle workers");
-        manager_kill_workers(manager, false);
-
-        return 1;
-}
-
-static void event_queue_start(Manager *manager) {
-        struct event *event;
+static int event_queue_start(Manager *manager) {
+        Event *event, *event_next;
         usec_t usec;
         int r;
 
@@ -924,12 +915,12 @@ static void event_queue_start(Manager *manager) {
 
         if (LIST_IS_EMPTY(manager->events) ||
             manager->exit || manager->stop_exec_queue)
-                return;
+                return 0;
 
         assert_se(sd_event_now(manager->event, CLOCK_MONOTONIC, &usec) >= 0);
         /* check for changed config, every 3 seconds at most */
         if (manager->last_usec == 0 ||
-            usec - manager->last_usec > 3 * USEC_PER_SEC) {
+            usec > usec_add(manager->last_usec, 3 * USEC_PER_SEC)) {
                 if (udev_rules_check_timestamp(manager->rules) ||
                     udev_builtin_validate())
                         manager_reload(manager);
@@ -945,33 +936,111 @@ static void event_queue_start(Manager *manager) {
 
         if (!manager->rules) {
                 r = udev_rules_load(&manager->rules, arg_resolve_name_timing);
-                if (r < 0) {
-                        log_warning_errno(r, "Failed to read udev rules: %m");
-                        return;
-                }
+                if (r < 0)
+                        return log_warning_errno(r, "Failed to read udev rules: %m");
         }
 
-        LIST_FOREACH(event, event, manager->events) {
+        LIST_FOREACH_SAFE(event, event, event_next, manager->events) {
                 if (event->state != EVENT_QUEUED)
                         continue;
 
-                /* do not start event if parent or child event is still running */
-                if (is_device_busy(manager, event) != 0)
+                /* do not start event if parent or child event is still running or queued */
+                r = event_is_blocked(event);
+                if (r < 0) {
+                        sd_device_action_t a = _SD_DEVICE_ACTION_INVALID;
+
+                        (void) sd_device_get_action(event->dev, &a);
+                        log_device_warning_errno(event->dev, r,
+                                                 "Failed to check event dependency, "
+                                                 "skipping event (SEQNUM=%"PRIu64", ACTION=%s)",
+                                                 event->seqnum,
+                                                 strna(device_action_to_string(a)));
+
+                        event_free(event);
+                        return r;
+                }
+                if (r)
                         continue;
 
-                event_run(manager, event);
+                r = event_run(event);
+                if (r <= 0)
+                        return r;
         }
+
+        return 0;
 }
 
-static void event_queue_cleanup(Manager *manager, enum event_state match_type) {
-        struct event *event, *tmp;
+static int event_queue_insert(Manager *manager, sd_device *dev) {
+        _cleanup_(sd_device_unrefp) sd_device *clone = NULL;
+        Event *event;
+        uint64_t seqnum;
+        int r;
 
-        LIST_FOREACH_SAFE(event, event, tmp, manager->events) {
-                if (match_type != EVENT_UNDEF && match_type != event->state)
-                        continue;
+        assert(manager);
+        assert(dev);
 
-                event_free(event);
+        /* only one process can add events to the queue */
+        assert(manager->pid == getpid_cached());
+
+        /* We only accepts devices received by device monitor. */
+        r = sd_device_get_seqnum(dev, &seqnum);
+        if (r < 0)
+                return r;
+
+        /* Save original device to restore the state on failures. */
+        r = device_shallow_clone(dev, &clone);
+        if (r < 0)
+                return r;
+
+        r = device_copy_properties(clone, dev);
+        if (r < 0)
+                return r;
+
+        event = new(Event, 1);
+        if (!event)
+                return -ENOMEM;
+
+        *event = (Event) {
+                .manager = manager,
+                .dev = sd_device_ref(dev),
+                .dev_kernel = TAKE_PTR(clone),
+                .seqnum = seqnum,
+                .state = EVENT_QUEUED,
+        };
+
+        if (LIST_IS_EMPTY(manager->events)) {
+                r = touch("/run/udev/queue");
+                if (r < 0)
+                        log_warning_errno(r, "Failed to touch /run/udev/queue, ignoring: %m");
         }
+
+        LIST_APPEND(event, manager->events, event);
+
+        log_device_uevent(dev, "Device is queued");
+
+        return 0;
+}
+
+static int on_uevent(sd_device_monitor *monitor, sd_device *dev, void *userdata) {
+        Manager *manager = userdata;
+        int r;
+
+        assert(manager);
+
+        DEVICE_TRACE_POINT(kernel_uevent_received, dev);
+
+        device_ensure_usec_initialized(dev, NULL);
+
+        r = event_queue_insert(manager, dev);
+        if (r < 0) {
+                log_device_error_errno(dev, r, "Failed to insert device into event queue: %m");
+                return 1;
+        }
+
+        /* we have fresh events, try to schedule them */
+        (void) event_queue_start(manager);
+
+        return 1;
 }
 
 static int on_worker(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
@@ -980,7 +1049,7 @@ static int on_worker(sd_event_source *s, int fd, uint32_t revents, void *userdat
         assert(manager);
 
         for (;;) {
-                struct worker_message msg;
+                WorkerMessage msg;
                 struct iovec iovec = {
                         .iov_base = &msg,
                         .iov_len = sizeof(msg),
@@ -994,7 +1063,7 @@ static int on_worker(sd_event_source *s, int fd, uint32_t revents, void *userdat
                 };
                 ssize_t size;
                 struct ucred *ucred;
-                struct worker *worker;
+                Worker *worker;
 
                 size = recvmsg_safe(fd, &msghdr, MSG_DONTWAIT);
                 if (size == -EINTR)
@@ -1007,7 +1076,7 @@ static int on_worker(sd_event_source *s, int fd, uint32_t revents, void *userdat
 
                 cmsg_close_all(&msghdr);
 
-                if (size != sizeof(struct worker_message)) {
+                if (size != sizeof(WorkerMessage)) {
                         log_warning("Ignoring worker message with invalid size %zi bytes", size);
                         continue;
                 }
@@ -1036,35 +1105,13 @@ static int on_worker(sd_event_source *s, int fd, uint32_t revents, void *userdat
         }
 
         /* we have free workers, try to schedule events */
-        event_queue_start(manager);
-
-        return 1;
-}
-
-static int on_uevent(sd_device_monitor *monitor, sd_device *dev, void *userdata) {
-        Manager *manager = userdata;
-        int r;
-
-        assert(manager);
-
-        DEVICE_TRACE_POINT(kernel_uevent_received, dev);
-
-        device_ensure_usec_initialized(dev, NULL);
-
-        r = event_queue_insert(manager, dev);
-        if (r < 0) {
-                log_device_error_errno(dev, r, "Failed to insert device into event queue: %m");
-                return 1;
-        }
-
-        /* we have fresh events, try to schedule them */
-        event_queue_start(manager);
+        (void) event_queue_start(manager);
 
         return 1;
 }
 
 /* receive the udevd message from userspace */
-static int on_ctrl_msg(struct udev_ctrl *uctrl, enum udev_ctrl_msg_type type, const union udev_ctrl_msg_value *value, void *userdata) {
+static int on_ctrl_msg(UdevCtrl *uctrl, UdevCtrlMessageType type, const UdevCtrlMessageValue *value, void *userdata) {
         Manager *manager = userdata;
         int r;
 
@@ -1085,7 +1132,7 @@ static int on_ctrl_msg(struct udev_ctrl *uctrl, enum udev_ctrl_msg_type type, co
         case UDEV_CTRL_START_EXEC_QUEUE:
                 log_debug("Received udev control message (START_EXEC_QUEUE)");
                 manager->stop_exec_queue = false;
-                event_queue_start(manager);
+                (void) event_queue_start(manager);
                 break;
         case UDEV_CTRL_RELOAD:
                 log_debug("Received udev control message (RELOAD)");
@@ -1357,7 +1404,7 @@ static int on_sigchld(sd_event_source *s, const struct signalfd_siginfo *si, voi
         for (;;) {
                 pid_t pid;
                 int status;
-                struct worker *worker;
+                Worker *worker;
 
                 pid = waitpid(-1, &status, WNOHANG);
                 if (pid <= 0)
@@ -1404,7 +1451,7 @@ static int on_sigchld(sd_event_source *s, const struct signalfd_siginfo *si, voi
         }
 
         /* we can start new workers, try to schedule events */
-        event_queue_start(manager);
+        (void) event_queue_start(manager);
 
         /* Disable unnecessary cleanup event */
         if (hashmap_isempty(manager->workers)) {
