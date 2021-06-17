@@ -26,6 +26,11 @@ Janitorial Clean-ups:
 
 Features:
 
+* firstboot: allow provisioning of /etc/hosts entries, so that we can via the
+  credentials logic insert host name to resolve into containers/hosts. Usecase:
+  fork a container, and make it ping some specific address which is defined by
+  the host on invocation
+
 * in sd-id128: also parse UUIDs in RFC4122 URN syntax (i.e. chop off urn:uuid: prefix)
 
 * ability to insert trusted configuration and secrets into the boot parameters
