@@ -924,7 +924,7 @@ static int event_queue_start(Manager *manager) {
                         continue;
 
                 r = event_run(event);
-                if (r < 0)
+                if (r <= 0)
                         return r;
         }
 
