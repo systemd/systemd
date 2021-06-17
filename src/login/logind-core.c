@@ -47,8 +47,6 @@ void manager_reset_config(Manager *m) {
         m->handle_reboot_key = HANDLE_REBOOT;
         m->handle_reboot_key_long_press = HANDLE_POWEROFF;
 
-        m->long_press_duration = 4 * USEC_PER_SEC;
-
         m->power_key_ignore_inhibited = false;
         m->suspend_key_ignore_inhibited = false;
         m->hibernate_key_ignore_inhibited = false;

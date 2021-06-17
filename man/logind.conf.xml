@@ -254,12 +254,6 @@
       </varlistentry>
 
       <varlistentry>
-        <term><varname>KeyLongPressDurationSec=</varname></term>
-
-        <listitem><para>Specifies a period of time which counts as a long press.</para></listitem>
-      </varlistentry>
-
-      <varlistentry>
         <term><varname>PowerKeyIgnoreInhibited=</varname></term>
         <term><varname>SuspendKeyIgnoreInhibited=</varname></term>
         <term><varname>HibernateKeyIgnoreInhibited=</varname></term>
