@@ -466,8 +466,10 @@ char *path_startswith_full(const char *path, const char *prefix, bool accept_dot
 int path_compare(const char *a, const char *b) {
         int r;
 
-        assert(a);
-        assert(b);
+        /* Order NULL before non-NULL */
+        r = CMP(!!a, !!b);
+        if (r != 0)
+                return r;
 
         /* A relative path and an absolute path must not compare as equal.
          * Which one is sorted before the other does not really matter.
