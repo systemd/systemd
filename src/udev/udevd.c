@@ -876,7 +876,7 @@ set_delaying_seqnum:
         return true;
 }
 
-static void event_queue_start(Manager *manager) {
+static int event_queue_start(Manager *manager) {
         Event *event;
         usec_t usec;
         int r;
@@ -885,7 +885,7 @@ static void event_queue_start(Manager *manager) {
 
         if (LIST_IS_EMPTY(manager->events) ||
             manager->exit || manager->stop_exec_queue)
-                return;
+                return 0;
 
         assert_se(sd_event_now(manager->event, CLOCK_MONOTONIC, &usec) >= 0);
         /* check for changed config, every 3 seconds at most */
@@ -906,10 +906,8 @@ static void event_queue_start(Manager *manager) {
 
         if (!manager->rules) {
                 r = udev_rules_load(&manager->rules, arg_resolve_name_timing);
-                if (r < 0) {
-                        log_warning_errno(r, "Failed to read udev rules: %m");
-                        return;
-                }
+                if (r < 0)
+                        return log_warning_errno(r, "Failed to read udev rules: %m");
         }
 
         LIST_FOREACH(event, event, manager->events) {
@@ -922,6 +920,8 @@ static void event_queue_start(Manager *manager) {
 
                 event_run(manager, event);
         }
+
+        return 0;
 }
 
 static int event_queue_insert(Manager *manager, sd_device *dev) {
@@ -992,7 +992,7 @@ static int on_uevent(sd_device_monitor *monitor, sd_device *dev, void *userdata)
         }
 
         /* we have fresh events, try to schedule them */
-        event_queue_start(manager);
+        (void) event_queue_start(manager);
 
         return 1;
 }
@@ -1059,7 +1059,7 @@ static int on_worker(sd_event_source *s, int fd, uint32_t revents, void *userdat
         }
 
         /* we have free workers, try to schedule events */
-        event_queue_start(manager);
+        (void) event_queue_start(manager);
 
         return 1;
 }
@@ -1086,7 +1086,7 @@ static int on_ctrl_msg(UdevCtrl *uctrl, UdevCtrlMessageType type, const UdevCtrl
         case UDEV_CTRL_START_EXEC_QUEUE:
                 log_debug("Received udev control message (START_EXEC_QUEUE)");
                 manager->stop_exec_queue = false;
-                event_queue_start(manager);
+                (void) event_queue_start(manager);
                 break;
         case UDEV_CTRL_RELOAD:
                 log_debug("Received udev control message (RELOAD)");
@@ -1405,7 +1405,7 @@ static int on_sigchld(sd_event_source *s, const struct signalfd_siginfo *si, voi
         }
 
         /* we can start new workers, try to schedule events */
-        event_queue_start(manager);
+        (void) event_queue_start(manager);
 
         /* Disable unnecessary cleanup event */
         if (hashmap_isempty(manager->workers)) {
