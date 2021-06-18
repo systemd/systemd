@@ -8,6 +8,7 @@
 #include <netinet/if_ether.h>
 
 #include "arp-util.h"
+#include "ether-addr-util.h"
 #include "fd-util.h"
 #include "unaligned.h"
 #include "util.h"
@@ -115,8 +116,10 @@ static int arp_send_packet(
         ssize_t n;
 
         assert(fd >= 0);
+        assert(ifindex > 0);
         assert(pa != 0);
         assert(ha);
+        assert(!ether_addr_is_null(ha));
 
         memcpy(&arp.arp_sha, ha, ETH_ALEN);
         memcpy(&arp.arp_tpa, &pa, sizeof(pa));
