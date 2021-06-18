@@ -61,15 +61,15 @@ int arp_network_bind_raw_socket(int ifindex, be32_t address, const struct ether_
                 BPF_STMT(BPF_RET + BPF_K, 0),                                                  /* ignore */
         };
         struct sock_fprog fprog = {
-                .len = ELEMENTSOF(filter),
-                .filter = (struct sock_filter*) filter
+                .len    = ELEMENTSOF(filter),
+                .filter = (struct sock_filter*) filter,
         };
         union sockaddr_union link = {
-                .ll.sll_family = AF_PACKET,
+                .ll.sll_family   = AF_PACKET,
                 .ll.sll_protocol = htobe16(ETH_P_ARP),
-                .ll.sll_ifindex = ifindex,
-                .ll.sll_halen = ETH_ALEN,
-                .ll.sll_addr = { 0xff, 0xff, 0xff, 0xff, 0xff, 0xff },
+                .ll.sll_ifindex  = ifindex,
+                .ll.sll_halen    = ETH_ALEN,
+                .ll.sll_addr     = { 0xff, 0xff, 0xff, 0xff, 0xff, 0xff },
         };
         _cleanup_close_ int s = -1;
         int r;
@@ -91,22 +91,26 @@ int arp_network_bind_raw_socket(int ifindex, be32_t address, const struct ether_
         return TAKE_FD(s);
 }
 
-static int arp_send_packet(int fd, int ifindex,
-                           be32_t pa, const struct ether_addr *ha,
-                           bool announce) {
+static int arp_send_packet(
+                int fd,
+                int ifindex,
+                be32_t pa,
+                const struct ether_addr *ha,
+                bool announce) {
+
         union sockaddr_union link = {
-                .ll.sll_family = AF_PACKET,
+                .ll.sll_family   = AF_PACKET,
                 .ll.sll_protocol = htobe16(ETH_P_ARP),
-                .ll.sll_ifindex = ifindex,
-                .ll.sll_halen = ETH_ALEN,
-                .ll.sll_addr = { 0xff, 0xff, 0xff, 0xff, 0xff, 0xff },
+                .ll.sll_ifindex  = ifindex,
+                .ll.sll_halen    = ETH_ALEN,
+                .ll.sll_addr     = { 0xff, 0xff, 0xff, 0xff, 0xff, 0xff },
         };
         struct ether_arp arp = {
-                .ea_hdr.ar_hrd = htobe16(ARPHRD_ETHER), /* HTYPE */
-                .ea_hdr.ar_pro = htobe16(ETHERTYPE_IP), /* PTYPE */
-                .ea_hdr.ar_hln = ETH_ALEN, /* HLEN */
-                .ea_hdr.ar_pln = sizeof(be32_t), /* PLEN */
-                .ea_hdr.ar_op = htobe16(ARPOP_REQUEST), /* REQUEST */
+                .ea_hdr.ar_hrd = htobe16(ARPHRD_ETHER),  /* HTYPE */
+                .ea_hdr.ar_pro = htobe16(ETHERTYPE_IP),  /* PTYPE */
+                .ea_hdr.ar_hln = ETH_ALEN,               /* HLEN */
+                .ea_hdr.ar_pln = sizeof(be32_t),         /* PLEN */
+                .ea_hdr.ar_op  = htobe16(ARPOP_REQUEST), /* REQUEST */
         };
         int r;
 
