@@ -89,7 +89,7 @@ int arp_network_bind_raw_socket(int ifindex, be32_t address, const struct ether_
         return TAKE_FD(s);
 }
 
-static int arp_send_packet(
+int arp_send_packet(
                 int fd,
                 int ifindex,
                 be32_t pa,
@@ -131,14 +131,4 @@ static int arp_send_packet(
                 return -EIO;
 
         return 0;
-}
-
-int arp_send_probe(int fd, int ifindex,
-                    be32_t pa, const struct ether_addr *ha) {
-        return arp_send_packet(fd, ifindex, pa, ha, false);
-}
-
-int arp_send_announcement(int fd, int ifindex,
-                          be32_t pa, const struct ether_addr *ha) {
-        return arp_send_packet(fd, ifindex, pa, ha, true);
 }
