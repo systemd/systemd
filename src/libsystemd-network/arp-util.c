@@ -112,7 +112,7 @@ static int arp_send_packet(
                 .ea_hdr.ar_pln = sizeof(be32_t),         /* PLEN */
                 .ea_hdr.ar_op  = htobe16(ARPOP_REQUEST), /* REQUEST */
         };
-        int r;
+        ssize_t n;
 
         assert(fd >= 0);
         assert(pa != 0);
@@ -124,9 +124,11 @@ static int arp_send_packet(
         if (announce)
                 memcpy(&arp.arp_spa, &pa, sizeof(pa));
 
-        r = sendto(fd, &arp, sizeof(struct ether_arp), 0, &link.sa, sizeof(link.ll));
-        if (r < 0)
+        n = sendto(fd, &arp, sizeof(struct ether_arp), 0, &link.sa, sizeof(link.ll));
+        if (n < 0)
                 return -errno;
+        if (n != sizeof(struct ether_arp))
+                return -EIO;
 
         return 0;
 }
