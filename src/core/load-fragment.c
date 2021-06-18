@@ -20,6 +20,7 @@
 #include "alloc-util.h"
 #include "bpf-firewall.h"
 #include "bpf-program.h"
+#include "bpf-socket-bind.h"
 #include "bus-error.h"
 #include "bus-internal.h"
 #include "bus-util.h"
@@ -55,8 +56,8 @@
 #endif
 #include "securebits-util.h"
 #include "signal-util.h"
-#include "socket-bind.h"
 #include "socket-netlink.h"
+#include "specifier.h"
 #include "stat-util.h"
 #include "string-util.h"
 #include "strv.h"
@@ -712,7 +713,7 @@ int config_parse_exec(
                 bool ignore = false, separate_argv0 = false;
                 _cleanup_free_ ExecCommand *nce = NULL;
                 _cleanup_strv_free_ char **n = NULL;
-                size_t nlen = 0, nbufsize = 0;
+                size_t nlen = 0;
                 const char *f;
 
                 semicolon = false;
@@ -789,7 +790,7 @@ int config_parse_exec(
                         return ignore ? 0 : -ENOEXEC;
                 }
 
-                if (!path_is_absolute(path) && !filename_is_valid(path)) {
+                if (!(path_is_absolute(path) ? path_is_valid(path) : filename_is_valid(path))) {
                         log_syntax(unit, ignore ? LOG_WARNING : LOG_ERR, filename, line, 0,
                                    "Neither a valid executable name nor an absolute path%s: %s",
                                    ignore ? ", ignoring" : "", path);
@@ -799,7 +800,7 @@ int config_parse_exec(
                 if (!separate_argv0) {
                         char *w = NULL;
 
-                        if (!GREEDY_REALLOC(n, nbufsize, nlen + 2))
+                        if (!GREEDY_REALLOC(n, nlen + 2))
                                 return log_oom();
 
                         w = strdup(path);
@@ -809,7 +810,7 @@ int config_parse_exec(
                         n[nlen] = NULL;
                 }
 
-                path_simplify(path, false);
+                path_simplify(path);
 
                 while (!isempty(p)) {
                         _cleanup_free_ char *word = NULL, *resolved = NULL;
@@ -831,7 +832,7 @@ int config_parse_exec(
                                 p += 2;
                                 p += strspn(p, WHITESPACE);
 
-                                if (!GREEDY_REALLOC(n, nbufsize, nlen + 2))
+                                if (!GREEDY_REALLOC(n, nlen + 2))
                                         return log_oom();
 
                                 w = strdup(";");
@@ -856,7 +857,7 @@ int config_parse_exec(
                                 return ignore ? 0 : -ENOEXEC;
                         }
 
-                        if (!GREEDY_REALLOC(n, nbufsize, nlen + 2))
+                        if (!GREEDY_REALLOC(n, nlen + 2))
                                 return log_oom();
 
                         n[nlen++] = TAKE_PTR(resolved);
@@ -2656,15 +2657,15 @@ int config_parse_environ(
                 if (r == 0)
                         return 0;
 
-                if (u) {
+                if (u)
                         r = unit_env_printf(u, word, &resolved);
-                        if (r < 0) {
-                                log_syntax(unit, LOG_WARNING, filename, line, r,
-                                           "Failed to resolve unit specifiers in %s, ignoring: %m", word);
-                                continue;
-                        }
-                } else
-                        resolved = TAKE_PTR(word);
+                else
+                        r = specifier_printf(word, sc_arg_max(), system_and_tmp_specifier_table, NULL, &resolved);
+                if (r < 0) {
+                        log_syntax(unit, LOG_WARNING, filename, line, r,
+                                   "Failed to resolve specifiers in %s, ignoring: %m", word);
+                        continue;
+                }
 
                 if (!env_assignment_is_valid(resolved)) {
                         log_syntax(unit, LOG_WARNING, filename, line, 0,
@@ -2691,9 +2692,9 @@ int config_parse_pass_environ(
                 void *userdata) {
 
         _cleanup_strv_free_ char **n = NULL;
-        size_t nlen = 0, nbufsize = 0;
-        char*** passenv = data;
         const Unit *u = userdata;
+        char*** passenv = data;
+        size_t nlen = 0;
         int r;
 
         assert(filename);
@@ -2737,7 +2738,7 @@ int config_parse_pass_environ(
                         continue;
                 }
 
-                if (!GREEDY_REALLOC(n, nbufsize, nlen + 2))
+                if (!GREEDY_REALLOC(n, nlen + 2))
                         return log_oom();
 
                 n[nlen++] = TAKE_PTR(k);
@@ -2766,9 +2767,9 @@ int config_parse_unset_environ(
                 void *userdata) {
 
         _cleanup_strv_free_ char **n = NULL;
-        size_t nlen = 0, nbufsize = 0;
         char*** unsetenv = data;
         const Unit *u = userdata;
+        size_t nlen = 0;
         int r;
 
         assert(filename);
@@ -2812,7 +2813,7 @@ int config_parse_unset_environ(
                         continue;
                 }
 
-                if (!GREEDY_REALLOC(n, nbufsize, nlen + 2))
+                if (!GREEDY_REALLOC(n, nlen + 2))
                         return log_oom();
 
                 n[nlen++] = TAKE_PTR(k);
@@ -3574,7 +3575,7 @@ int config_parse_unit_slice(
                 return 0;
         }
 
-        r = unit_set_slice(u, slice);
+        r = unit_set_slice(u, slice, UNIT_DEPENDENCY_FILE);
         if (r < 0) {
                 log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to assign slice %s to unit %s, ignoring: %m", slice->id, u->id);
                 return 0;
@@ -5686,6 +5687,8 @@ int config_parse_cgroup_socket_bind(
                 return log_oom();
         *item = (CGroupSocketBindItem) {
                 .address_family = af,
+                 /* No ip protocol specified for now. */
+                .ip_protocol = 0,
                 .nr_ports = nr_ports,
                 .port_min = port_min,
         };

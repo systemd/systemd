@@ -72,14 +72,14 @@ if conf.get('ENABLE_EFI') == 1 and get_option('gnu-efi') != 'false'
         if efi_libdir == ''
                 # New location first introduced with gnu-efi 3.0.11
                 efi_libdir = join_paths('/usr/lib/gnuefi', EFI_MACHINE_TYPE_NAME)
-                cmd = run_command('test', '-e', efi_libdir)
+                cmd = run_command(test, '-e', efi_libdir)
 
                 if cmd.returncode() != 0
                         # Fall back to the old approach
                         cmd = run_command(efi_cc + ['-print-multi-os-directory'])
                         if cmd.returncode() == 0
                                 path = join_paths('/usr/lib', cmd.stdout().strip())
-                                cmd = run_command('realpath', '-e', path)
+                                cmd = run_command(env, 'realpath', '-e', path)
                                 if cmd.returncode() == 0
                                         efi_libdir = cmd.stdout().strip()
                                 endif
@@ -104,8 +104,8 @@ if have_gnu_efi
 
         if get_option('sbat-distro') != ''
                 efi_conf.set_quoted('SBAT_PROJECT', meson.project_name())
-                efi_conf.set_quoted('PROJECT_VERSION', substs.get('PROJECT_VERSION'))
-                efi_conf.set_quoted('PROJECT_URL', substs.get('PROJECT_URL'))
+                efi_conf.set_quoted('PROJECT_VERSION', meson.project_version())
+                efi_conf.set('PROJECT_URL', conf.get('PROJECT_URL'))
                 if get_option('sbat-distro-generation') < 1
                        error('SBAT Distro Generation must be a positive integer')
                 endif
@@ -116,7 +116,9 @@ if have_gnu_efi
                 foreach sbatvar : sbatvars
                         value = get_option(sbatvar[0])
                         if value == '' or value == 'auto'
-                                value = run_command('sh', '-c', 'if [ -e /etc/os-release ]; then . /etc/os-release; else . /usr/lib/os-release; fi; echo $' + sbatvar[1]).stdout().strip()
+                                cmd = 'if [ -e /etc/os-release ]; then . /etc/os-release; else . /usr/lib/os-release; fi; echo $@0@'.format(sbatvar[1])
+                                value = run_command(sh, '-c', cmd).stdout().strip()
+                                message('@0@ (from @1@): @2@'.format(sbatvar[0], sbatvar[1], value))
                         endif
                         if value == ''
                                 error('Required @0@ option not set and autodetection failed'.format(sbatvar[0]))
@@ -156,7 +158,7 @@ if have_gnu_efi
         efi_lds = ''
         foreach location : efi_location_map
                 if efi_lds == ''
-                        cmd = run_command('test', '-f', location[0])
+                        cmd = run_command(test, '-f', location[0])
                         if cmd.returncode() == 0
                                 efi_lds = location[0]
                                 efi_crt0 = location[1]
@@ -173,23 +175,28 @@ if have_gnu_efi
 endif
 
 if have_gnu_efi
-        compile_args = ['-Wall',
-                        '-Wextra',
-                        '-std=gnu99',
-                        '-nostdlib',
+        compile_args = cc.get_supported_arguments(
+                basic_disabled_warnings +
+                possible_common_cc_flags + [
+                        '-ffreestanding',
+                        '-fno-stack-protector',
+                        '-fno-strict-aliasing',
                         '-fpic',
                         '-fshort-wchar',
-                        '-ffreestanding',
-                        '-fno-strict-aliasing',
-                        '-fno-stack-protector',
+                        '-Wall',
+                        '-Wextra',
                         '-Wsign-compare',
-                        '-Wno-missing-field-initializers',
-                        '-isystem', efi_incdir,
-                        '-isystem', join_paths(efi_incdir, gnu_efi_path_arch),
-                        '-I', fundamental_path,
-                        '-DSD_BOOT',
-                        '-include', efi_config_h,
-                        '-include', version_h]
+                ]
+        ) + [
+                '-nostdlib',
+                '-std=gnu99',
+                '-isystem', efi_incdir,
+                '-isystem', join_paths(efi_incdir, gnu_efi_path_arch),
+                '-I', fundamental_path,
+                '-DSD_BOOT',
+                '-include', efi_config_h,
+                '-include', version_h,
+        ]
         if efi_arch == 'x86_64'
                 compile_args += ['-mno-red-zone',
                                  '-mno-sse',

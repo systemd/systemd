@@ -200,6 +200,7 @@ UserRecord* user_record_new(void) {
                 .password_change_now = -1,
                 .pkcs11_protected_authentication_path_permitted = -1,
                 .fido2_user_presence_permitted = -1,
+                .fido2_user_verification_permitted = -1,
         };
 
         return h;
@@ -774,6 +775,7 @@ static int dispatch_secret(const char *name, JsonVariant *variant, JsonDispatchF
                 { "pkcs11Pin",   /* legacy alias */             _JSON_VARIANT_TYPE_INVALID, json_dispatch_strv,     offsetof(UserRecord, token_pin),                                      0 },
                 { "pkcs11ProtectedAuthenticationPathPermitted", JSON_VARIANT_BOOLEAN,       json_dispatch_tristate, offsetof(UserRecord, pkcs11_protected_authentication_path_permitted), 0 },
                 { "fido2UserPresencePermitted",                 JSON_VARIANT_BOOLEAN,       json_dispatch_tristate, offsetof(UserRecord, fido2_user_presence_permitted),                  0 },
+                { "fido2UserVerificationPermitted",             JSON_VARIANT_BOOLEAN,       json_dispatch_tristate, offsetof(UserRecord, fido2_user_verification_permitted),              0 },
                 {},
         };
 
@@ -1016,9 +1018,12 @@ static int dispatch_fido2_hmac_salt(const char *name, JsonVariant *variant, Json
                 Fido2HmacSalt *array, *k;
 
                 static const JsonDispatch fido2_hmac_salt_dispatch_table[] = {
-                        { "credential",     JSON_VARIANT_STRING, dispatch_fido2_hmac_credential, offsetof(Fido2HmacSalt, credential),      JSON_MANDATORY },
-                        { "salt",           JSON_VARIANT_STRING, dispatch_fido2_hmac_salt_value, 0,                                        JSON_MANDATORY },
-                        { "hashedPassword", JSON_VARIANT_STRING, json_dispatch_string,           offsetof(Fido2HmacSalt, hashed_password), JSON_MANDATORY },
+                        { "credential",     JSON_VARIANT_STRING,  dispatch_fido2_hmac_credential, offsetof(Fido2HmacSalt, credential),      JSON_MANDATORY },
+                        { "salt",           JSON_VARIANT_STRING,  dispatch_fido2_hmac_salt_value, 0,                                        JSON_MANDATORY },
+                        { "hashedPassword", JSON_VARIANT_STRING,  json_dispatch_string,           offsetof(Fido2HmacSalt, hashed_password), JSON_MANDATORY },
+                        { "up",             JSON_VARIANT_BOOLEAN, json_dispatch_tristate,         offsetof(Fido2HmacSalt, up),              0              },
+                        { "uv",             JSON_VARIANT_BOOLEAN, json_dispatch_tristate,         offsetof(Fido2HmacSalt, uv),              0              },
+                        { "clientPin",      JSON_VARIANT_BOOLEAN, json_dispatch_tristate,         offsetof(Fido2HmacSalt, client_pin),      0              },
                         {},
                 };
 
@@ -1031,7 +1036,11 @@ static int dispatch_fido2_hmac_salt(const char *name, JsonVariant *variant, Json
 
                 h->fido2_hmac_salt = array;
                 k = h->fido2_hmac_salt + h->n_fido2_hmac_salt;
-                *k = (Fido2HmacSalt) {};
+                *k = (Fido2HmacSalt) {
+                        .uv = -1,
+                        .up = -1,
+                        .client_pin = -1,
+                };
 
                 r = json_dispatch(e, fido2_hmac_salt_dispatch_table, NULL, flags, k);
                 if (r < 0) {
@@ -1552,7 +1561,7 @@ int user_group_record_mangle(
         if (FLAGS_SET(load_flags, USER_RECORD_REQUIRE_REGULAR) && !FLAGS_SET(m, USER_RECORD_REGULAR))
                 return json_log(v, json_flags, SYNTHETIC_ERRNO(EBADMSG), "Record lacks basic identity fields, which are required.");
 
-        if (m == 0)
+        if (!FLAGS_SET(load_flags, USER_RECORD_EMPTY_OK) && m == 0)
                 return json_log(v, json_flags, SYNTHETIC_ERRNO(EBADMSG), "Record is empty.");
 
         if (w)
@@ -2105,7 +2114,7 @@ int user_record_masked_equal(UserRecord *a, UserRecord *b, UserRecordMask mask) 
         /* Compares the two records, but ignores anything not listed in the specified mask */
 
         if ((a->mask & ~mask) != 0) {
-                r = user_record_clone(a, USER_RECORD_ALLOW(mask) | USER_RECORD_STRIP(~mask & _USER_RECORD_MASK_MAX), &x);
+                r = user_record_clone(a, USER_RECORD_ALLOW(mask) | USER_RECORD_STRIP(~mask & _USER_RECORD_MASK_MAX) | USER_RECORD_PERMISSIVE, &x);
                 if (r < 0)
                         return r;
 
@@ -2113,7 +2122,7 @@ int user_record_masked_equal(UserRecord *a, UserRecord *b, UserRecordMask mask) 
         }
 
         if ((b->mask & ~mask) != 0) {
-                r = user_record_clone(b, USER_RECORD_ALLOW(mask) | USER_RECORD_STRIP(~mask & _USER_RECORD_MASK_MAX), &y);
+                r = user_record_clone(b, USER_RECORD_ALLOW(mask) | USER_RECORD_STRIP(~mask & _USER_RECORD_MASK_MAX) | USER_RECORD_PERMISSIVE, &y);
                 if (r < 0)
                         return r;
 

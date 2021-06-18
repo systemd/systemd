@@ -26,7 +26,7 @@ typedef struct NetMatch {
 void net_match_clear(NetMatch *match);
 bool net_match_is_empty(const NetMatch *match);
 
-bool net_match_config(
+int net_match_config(
                 const NetMatch *match,
                 sd_device *device,
                 const struct ether_addr *mac,

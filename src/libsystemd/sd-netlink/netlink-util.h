@@ -91,8 +91,11 @@ int rtnl_get_link_alternative_names(sd_netlink **rtnl, int ifindex, char ***ret)
 int rtnl_set_link_alternative_names(sd_netlink **rtnl, int ifindex, char * const *alternative_names);
 int rtnl_set_link_alternative_names_by_ifname(sd_netlink **rtnl, const char *ifname, char * const *alternative_names);
 int rtnl_delete_link_alternative_names(sd_netlink **rtnl, int ifindex, char * const *alternative_names);
-int rtnl_resolve_link_alternative_name(sd_netlink **rtnl, const char *name);
-int rtnl_get_link_iftype(sd_netlink **rtnl, int ifindex, unsigned short *ret);
+int rtnl_resolve_link_alternative_name(sd_netlink **rtnl, const char *name, char **ret);
+int rtnl_resolve_ifname(sd_netlink **rtnl, const char *name);
+int rtnl_resolve_interface(sd_netlink **rtnl, const char *name);
+int rtnl_resolve_interface_or_warn(sd_netlink **rtnl, const char *name);
+int rtnl_get_link_info(sd_netlink **rtnl, int ifindex, unsigned short *ret_iftype, unsigned *ret_flags);
 
 int rtnl_log_parse_error(int r);
 int rtnl_log_create_error(int r);
@@ -117,11 +120,11 @@ int rtnl_log_create_error(int r);
                                      userdata, description);            \
         })
 
-int netlink_message_append_hw_addr(sd_netlink_message *m, unsigned short type, const hw_addr_data *data);
+int netlink_message_append_hw_addr(sd_netlink_message *m, unsigned short type, const struct hw_addr_data *data);
 int netlink_message_append_in_addr_union(sd_netlink_message *m, unsigned short type, int family, const union in_addr_union *data);
 int netlink_message_append_sockaddr_union(sd_netlink_message *m, unsigned short type, const union sockaddr_union *data);
 
-int netlink_message_read_hw_addr(sd_netlink_message *m, unsigned short type, hw_addr_data *data);
+int netlink_message_read_hw_addr(sd_netlink_message *m, unsigned short type, struct hw_addr_data *data);
 int netlink_message_read_in_addr_union(sd_netlink_message *m, unsigned short type, int family, union in_addr_union *data);
 
 void rtattr_append_attribute_internal(struct rtattr *rta, unsigned short type, const void *data, size_t data_length);

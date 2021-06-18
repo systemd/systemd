@@ -254,7 +254,6 @@ static int boot_entries_find(
                 size_t *n_entries) {
 
         _cleanup_strv_free_ char **files = NULL;
-        size_t n_allocated = *n_entries;
         char **f;
         int r;
 
@@ -268,7 +267,7 @@ static int boot_entries_find(
                 return log_error_errno(r, "Failed to list files in \"%s\": %m", dir);
 
         STRV_FOREACH(f, files) {
-                if (!GREEDY_REALLOC0(*entries, n_allocated, *n_entries + 1))
+                if (!GREEDY_REALLOC0(*entries, *n_entries + 1))
                         return log_oom();
 
                 r = boot_entry_load(root, *f, *entries + *n_entries);
@@ -463,7 +462,6 @@ static int boot_entries_find_unified(
                 size_t *n_entries) {
 
         _cleanup_(closedirp) DIR *d = NULL;
-        size_t n_allocated = *n_entries;
         struct dirent *de;
         int r;
 
@@ -491,7 +489,7 @@ static int boot_entries_find_unified(
                 if (!endswith_no_case(de->d_name, ".efi"))
                         continue;
 
-                if (!GREEDY_REALLOC0(*entries, n_allocated, *n_entries + 1))
+                if (!GREEDY_REALLOC0(*entries, *n_entries + 1))
                         return log_oom();
 
                 fd = openat(dirfd(d), de->d_name, O_RDONLY|O_CLOEXEC|O_NONBLOCK);
@@ -679,14 +677,14 @@ int boot_entries_load_config(
                 return log_error_errno(r, "Failed to uniquify boot entries: %m");
 
         if (is_efi_boot()) {
-                r = efi_get_variable_string(EFI_VENDOR_LOADER, "LoaderEntryOneShot", &config->entry_oneshot);
+                r = efi_get_variable_string(EFI_LOADER_VARIABLE(LoaderEntryOneShot), &config->entry_oneshot);
                 if (r < 0 && !IN_SET(r, -ENOENT, -ENODATA)) {
                         log_warning_errno(r, "Failed to read EFI variable \"LoaderEntryOneShot\": %m");
                         if (r == -ENOMEM)
                                 return r;
                 }
 
-                r = efi_get_variable_string(EFI_VENDOR_LOADER, "LoaderEntryDefault", &config->entry_default);
+                r = efi_get_variable_string(EFI_LOADER_VARIABLE(LoaderEntryDefault), &config->entry_default);
                 if (r < 0 && !IN_SET(r, -ENOENT, -ENODATA)) {
                         log_warning_errno(r, "Failed to read EFI variable \"LoaderEntryDefault\": %m");
                         if (r == -ENOMEM)
@@ -749,15 +747,12 @@ int boot_entries_augment_from_loader(
                 "auto-reboot-to-firmware-setup", "Reboot Into Firmware Interface",
         };
 
-        size_t n_allocated;
         char **i;
 
         assert(config);
 
         /* Let's add the entries discovered by the boot loader to the end of our list, unless they are
          * already included there. */
-
-        n_allocated = config->n_entries;
 
         STRV_FOREACH(i, found_by_loader) {
                 _cleanup_free_ char *c = NULL, *t = NULL, *p = NULL;
@@ -781,11 +776,11 @@ int boot_entries_augment_from_loader(
                                 break;
                         }
 
-                p = efi_variable_path(EFI_VENDOR_LOADER, "LoaderEntries");
+                p = strdup(EFIVAR_PATH(EFI_LOADER_VARIABLE(LoaderEntries)));
                 if (!p)
                         return log_oom();
 
-                if (!GREEDY_REALLOC0(config->entries, n_allocated, config->n_entries + 1))
+                if (!GREEDY_REALLOC0(config->entries, config->n_entries + 1))
                         return log_oom();
 
                 config->entries[config->n_entries++] = (BootEntry) {

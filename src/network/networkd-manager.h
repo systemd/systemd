@@ -42,8 +42,10 @@ struct Manager {
         LinkAddressState address_state;
         LinkAddressState ipv4_address_state;
         LinkAddressState ipv6_address_state;
+        LinkOnlineState online_state;
 
         Hashmap *links;
+        Hashmap *links_by_name;
         Hashmap *netdevs;
         OrderedHashmap *networks;
         Hashmap *dhcp6_prefixes;
@@ -83,7 +85,7 @@ struct Manager {
         Hashmap *route_table_numbers_by_name;
         Hashmap *route_table_names_by_number;
 
-        /* For link speed meter*/
+        /* For link speed meter */
         bool use_speed_meter;
         sd_event_source *speed_meter_event_source;
         usec_t speed_meter_interval_usec;
@@ -108,8 +110,6 @@ int manager_load_config(Manager *m);
 bool manager_should_reload(Manager *m);
 
 int manager_enumerate(Manager *m);
-
-Link* manager_find_uplink(Manager *m, Link *exclude);
 
 int manager_set_hostname(Manager *m, const char *hostname);
 int manager_set_timezone(Manager *m, const char *timezone);

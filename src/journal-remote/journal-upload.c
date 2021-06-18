@@ -53,6 +53,7 @@ static const char *arg_machine = NULL;
 static bool arg_merge = false;
 static int arg_follow = -1;
 static const char *arg_save_state = NULL;
+static usec_t arg_network_timeout_usec = USEC_INFINITY;
 
 static void close_fd_input(Uploader *u);
 
@@ -210,6 +211,12 @@ int start_upload(Uploader *u,
                 if (!curl)
                         return log_error_errno(SYNTHETIC_ERRNO(ENOSR),
                                                "Call to curl_easy_init failed.");
+
+                /* If configured, set a timeout for the curl operation. */
+                if (arg_network_timeout_usec != USEC_INFINITY)
+                        easy_setopt(curl, CURLOPT_TIMEOUT,
+                                    (long) DIV_ROUND_UP(arg_network_timeout_usec, USEC_PER_SEC),
+                                    LOG_ERR, return -EXFULL);
 
                 /* tell it to POST to the URL */
                 easy_setopt(curl, CURLOPT_POST, 1L,
@@ -561,10 +568,11 @@ finalize:
 
 static int parse_config(void) {
         const ConfigTableItem items[] = {
-                { "Upload",  "URL",                    config_parse_string,         0, &arg_url    },
-                { "Upload",  "ServerKeyFile",          config_parse_path_or_ignore, 0, &arg_key    },
-                { "Upload",  "ServerCertificateFile",  config_parse_path_or_ignore, 0, &arg_cert   },
-                { "Upload",  "TrustedCertificateFile", config_parse_path_or_ignore, 0, &arg_trust  },
+                { "Upload",  "URL",                    config_parse_string,         0, &arg_url                  },
+                { "Upload",  "ServerKeyFile",          config_parse_path_or_ignore, 0, &arg_key                  },
+                { "Upload",  "ServerCertificateFile",  config_parse_path_or_ignore, 0, &arg_cert                 },
+                { "Upload",  "TrustedCertificateFile", config_parse_path_or_ignore, 0, &arg_trust                },
+                { "Upload",  "NetworkTimeoutSec",      config_parse_sec,            0, &arg_network_timeout_usec },
                 {}
         };
 

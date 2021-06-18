@@ -1030,7 +1030,7 @@ int parse_time(const char *t, usec_t *usec, usec_t default_unit) {
 
                 s = extract_multiplier(p + strspn(p, WHITESPACE), &multiplier);
                 if (s == p && *s != '\0')
-                        /* Don't allow '12.34.56', but accept '12.34 .56' or '12.34s.56'*/
+                        /* Don't allow '12.34.56', but accept '12.34 .56' or '12.34s.56' */
                         return -EINVAL;
 
                 p = s;
@@ -1058,7 +1058,7 @@ int parse_time(const char *t, usec_t *usec, usec_t default_unit) {
                                 r += k;
                         }
 
-                        /* Don't allow "0.-0", "3.+1", "3. 1", "3.sec" or "3.hoge"*/
+                        /* Don't allow "0.-0", "3.+1", "3. 1", "3.sec" or "3.hoge" */
                         if (b == e + 1)
                                 return -EINVAL;
                 }
@@ -1205,7 +1205,7 @@ int parse_nsec(const char *t, nsec_t *nsec) {
 
                 s = extract_nsec_multiplier(p + strspn(p, WHITESPACE), &multiplier);
                 if (s == p && *s != '\0')
-                        /* Don't allow '12.34.56', but accept '12.34 .56' or '12.34s.56'*/
+                        /* Don't allow '12.34.56', but accept '12.34 .56' or '12.34s.56' */
                         return -EINVAL;
 
                 p = s;
@@ -1233,7 +1233,7 @@ int parse_nsec(const char *t, nsec_t *nsec) {
                                 r += k;
                         }
 
-                        /* Don't allow "0.-0", "3.+1", "3. 1", "3.sec" or "3.hoge"*/
+                        /* Don't allow "0.-0", "3.+1", "3. 1", "3.sec" or "3.hoge" */
                         if (b == e + 1)
                                 return -EINVAL;
                 }
@@ -1247,7 +1247,7 @@ int parse_nsec(const char *t, nsec_t *nsec) {
 int get_timezones(char ***ret) {
         _cleanup_fclose_ FILE *f = NULL;
         _cleanup_strv_free_ char **zones = NULL;
-        size_t n_zones = 0, n_allocated = 0;
+        size_t n_zones = 0;
         int r;
 
         assert(ret);
@@ -1256,7 +1256,6 @@ int get_timezones(char ***ret) {
         if (!zones)
                 return -ENOMEM;
 
-        n_allocated = 2;
         n_zones = 1;
 
         f = fopen("/usr/share/zoneinfo/zone1970.tab", "re");
@@ -1294,7 +1293,7 @@ int get_timezones(char ***ret) {
                         if (!w)
                                 return -ENOMEM;
 
-                        if (!GREEDY_REALLOC(zones, n_allocated, n_zones + 2))
+                        if (!GREEDY_REALLOC(zones, n_zones + 2))
                                 return -ENOMEM;
 
                         zones[n_zones++] = TAKE_PTR(w);
@@ -1439,7 +1438,7 @@ int get_timezone(char **ret) {
 
         r = readlink_malloc("/etc/localtime", &t);
         if (r == -ENOENT) {
-                /* If the symlink does not exist, assume "UTC", like glibc does*/
+                /* If the symlink does not exist, assume "UTC", like glibc does */
                 z = strdup("UTC");
                 if (!z)
                         return -ENOMEM;

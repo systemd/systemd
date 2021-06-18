@@ -24,7 +24,7 @@ static int add_symlink(const char *service, const char *where) {
         assert(service);
         assert(where);
 
-        from = strjoina(SYSTEM_DATA_UNIT_PATH "/", service);
+        from = strjoina(SYSTEM_DATA_UNIT_DIR "/", service);
         to = strjoina(arg_dest, "/", where, ".wants/", service);
 
         (void) mkdir_parents_label(to, 0755);

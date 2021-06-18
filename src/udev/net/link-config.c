@@ -33,19 +33,15 @@
 #include "strv.h"
 #include "utf8.h"
 
-struct link_config_ctx {
-        LIST_HEAD(link_config, links);
-
+struct LinkConfigContext {
+        LIST_HEAD(LinkConfig, links);
         int ethtool_fd;
-
         bool enable_name_policy;
-
         sd_netlink *rtnl;
-
         usec_t network_dirs_ts_usec;
 };
 
-static link_config* link_config_free(link_config *link) {
+static LinkConfig* link_config_free(LinkConfig *link) {
         if (!link)
                 return NULL;
 
@@ -65,10 +61,10 @@ static link_config* link_config_free(link_config *link) {
         return mfree(link);
 }
 
-DEFINE_TRIVIAL_CLEANUP_FUNC(link_config*, link_config_free);
+DEFINE_TRIVIAL_CLEANUP_FUNC(LinkConfig*, link_config_free);
 
-static void link_configs_free(link_config_ctx *ctx) {
-        link_config *link, *link_next;
+static void link_configs_free(LinkConfigContext *ctx) {
+        LinkConfig *link, *link_next;
 
         if (!ctx)
                 return;
@@ -77,7 +73,7 @@ static void link_configs_free(link_config_ctx *ctx) {
                 link_config_free(link);
 }
 
-link_config_ctx* link_config_ctx_free(link_config_ctx *ctx) {
+LinkConfigContext *link_config_ctx_free(LinkConfigContext *ctx) {
         if (!ctx)
                 return NULL;
 
@@ -87,29 +83,28 @@ link_config_ctx* link_config_ctx_free(link_config_ctx *ctx) {
         return mfree(ctx);
 }
 
-int link_config_ctx_new(link_config_ctx **ret) {
-        _cleanup_(link_config_ctx_freep) link_config_ctx *ctx = NULL;
+int link_config_ctx_new(LinkConfigContext **ret) {
+        _cleanup_(link_config_ctx_freep) LinkConfigContext *ctx = NULL;
 
         if (!ret)
                 return -EINVAL;
 
-        ctx = new0(link_config_ctx, 1);
+        ctx = new(LinkConfigContext, 1);
         if (!ctx)
                 return -ENOMEM;
 
-        LIST_HEAD_INIT(ctx->links);
-
-        ctx->ethtool_fd = -1;
-
-        ctx->enable_name_policy = true;
+        *ctx = (LinkConfigContext) {
+                .ethtool_fd = -1,
+                .enable_name_policy = true,
+        };
 
         *ret = TAKE_PTR(ctx);
 
         return 0;
 }
 
-int link_load_one(link_config_ctx *ctx, const char *filename) {
-        _cleanup_(link_config_freep) link_config *link = NULL;
+int link_load_one(LinkConfigContext *ctx, const char *filename) {
+        _cleanup_(link_config_freep) LinkConfig *link = NULL;
         _cleanup_free_ char *name = NULL;
         const char *dropin_dirname;
         size_t i;
@@ -132,14 +127,14 @@ int link_load_one(link_config_ctx *ctx, const char *filename) {
         if (!name)
                 return -ENOMEM;
 
-        link = new(link_config, 1);
+        link = new(LinkConfig, 1);
         if (!link)
                 return -ENOMEM;
 
-        *link = (link_config) {
+        *link = (LinkConfig) {
                 .filename = TAKE_PTR(name),
                 .mac_address_policy = _MAC_ADDRESS_POLICY_INVALID,
-                .wol = _WOL_INVALID,
+                .wol = UINT32_MAX, /* UINT32_MAX means do not change WOL setting. */
                 .duplex = _DUP_INVALID,
                 .port = _NET_DEV_PORT_INVALID,
                 .autonegotiation = -1,
@@ -210,7 +205,7 @@ static int link_unsigned_attribute(sd_device *device, const char *attr, unsigned
         return 0;
 }
 
-int link_config_load(link_config_ctx *ctx) {
+int link_config_load(LinkConfigContext *ctx) {
         _cleanup_strv_free_ char **files = NULL;
         char **f;
         int r;
@@ -238,16 +233,17 @@ int link_config_load(link_config_ctx *ctx) {
         return 0;
 }
 
-bool link_config_should_reload(link_config_ctx *ctx) {
+bool link_config_should_reload(LinkConfigContext *ctx) {
         return paths_check_timestamp(NETWORK_DIRS, &ctx->network_dirs_ts_usec, false);
 }
 
-int link_config_get(link_config_ctx *ctx, sd_device *device, link_config **ret) {
+int link_config_get(LinkConfigContext *ctx, sd_device *device, LinkConfig **ret) {
         unsigned name_assign_type = NET_NAME_UNKNOWN;
         struct ether_addr permanent_mac = {};
-        unsigned short iftype = 0;
-        link_config *link;
+        unsigned short iftype;
+        LinkConfig *link;
         const char *name;
+        unsigned flags;
         int ifindex, r;
 
         assert(ctx);
@@ -262,9 +258,13 @@ int link_config_get(link_config_ctx *ctx, sd_device *device, link_config **ret) 
         if (r < 0)
                 return r;
 
-        r = rtnl_get_link_iftype(&ctx->rtnl, ifindex, &iftype);
+        r = rtnl_get_link_info(&ctx->rtnl, ifindex, &iftype, &flags);
         if (r < 0)
                 return r;
+
+        /* Do not configure loopback interfaces by .link files. */
+        if (flags & IFF_LOOPBACK)
+                return -ENOENT;
 
         r = ethtool_get_permanent_macaddr(&ctx->ethtool_fd, name, &permanent_mac);
         if (r < 0)
@@ -273,22 +273,26 @@ int link_config_get(link_config_ctx *ctx, sd_device *device, link_config **ret) 
         (void) link_unsigned_attribute(device, "name_assign_type", &name_assign_type);
 
         LIST_FOREACH(links, link, ctx->links) {
-                if (net_match_config(&link->match, device, NULL, &permanent_mac, NULL, iftype, NULL, NULL, 0, NULL, NULL)) {
-                        if (link->match.ifname && !strv_contains(link->match.ifname, "*") && name_assign_type == NET_NAME_ENUM)
-                                log_device_warning(device, "Config file %s is applied to device based on potentially unpredictable interface name.",
-                                                   link->filename);
-                        else
-                                log_device_debug(device, "Config file %s is applied", link->filename);
+                r = net_match_config(&link->match, device, NULL, &permanent_mac, NULL, iftype, NULL, NULL, 0, NULL, NULL);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        continue;
 
-                        *ret = link;
-                        return 0;
-                }
+                if (link->match.ifname && !strv_contains(link->match.ifname, "*") && name_assign_type == NET_NAME_ENUM)
+                        log_device_warning(device, "Config file %s is applied to device based on potentially unpredictable interface name.",
+                                           link->filename);
+                else
+                        log_device_debug(device, "Config file %s is applied", link->filename);
+
+                *ret = link;
+                return 0;
         }
 
         return -ENOENT;
 }
 
-static int link_config_apply_ethtool_settings(int *ethtool_fd, const link_config *config, sd_device *device) {
+static int link_config_apply_ethtool_settings(int *ethtool_fd, const LinkConfig *config, sd_device *device) {
         const char *name;
         int r;
 
@@ -304,50 +308,50 @@ static int link_config_apply_ethtool_settings(int *ethtool_fd, const link_config
                                       config->autonegotiation, config->advertise,
                                       config->speed, config->duplex, config->port);
         if (r < 0) {
-                if (config->port != _NET_DEV_PORT_INVALID)
-                        log_device_warning_errno(device, r, "Could not set port '%s', ignoring: %m", port_to_string(config->port));
+                if (config->autonegotiation >= 0)
+                        log_device_warning_errno(device, r, "Could not %s auto negotiation, ignoring: %m",
+                                                 enable_disable(config->autonegotiation));
 
                 if (!eqzero(config->advertise))
-                        log_device_warning_errno(device, r, "Could not set advertise mode, ignoring: %m"); /* TODO: include modes in the log message. */
+                        log_device_warning_errno(device, r, "Could not set advertise mode, ignoring: %m");
 
-                if (config->speed) {
-                        unsigned speed = DIV_ROUND_UP(config->speed, 1000000);
-                        if (r == -EOPNOTSUPP) {
-                                r = ethtool_set_speed(ethtool_fd, name, speed, config->duplex);
-                                if (r < 0)
-                                        log_device_warning_errno(device, r, "Could not set speed to %uMbps, ignoring: %m", speed);
-                        }
-                }
+                if (config->speed > 0)
+                        log_device_warning_errno(device, r, "Could not set speed to %"PRIu64"Mbps, ignoring: %m",
+                                                 DIV_ROUND_UP(config->speed, 1000000));
 
-                if (config->duplex != _DUP_INVALID)
-                        log_device_warning_errno(device, r, "Could not set duplex to %s, ignoring: %m", duplex_to_string(config->duplex));
+                if (config->duplex >= 0)
+                        log_device_warning_errno(device, r, "Could not set duplex to %s, ignoring: %m",
+                                                 duplex_to_string(config->duplex));
+
+                if (config->port >= 0)
+                        log_device_warning_errno(device, r, "Could not set port to '%s', ignoring: %m",
+                                                 port_to_string(config->port));
         }
 
         r = ethtool_set_wol(ethtool_fd, name, config->wol);
-        if (r < 0)
-                log_device_warning_errno(device, r, "Could not set WakeOnLan to %s, ignoring: %m", wol_to_string(config->wol));
+        if (r < 0) {
+                _cleanup_free_ char *str = NULL;
+
+                (void) wol_options_to_string_alloc(config->wol, &str);
+                log_device_warning_errno(device, r, "Could not set WakeOnLan to %s, ignoring: %m",
+                                         strna(str));
+        }
 
         r = ethtool_set_features(ethtool_fd, name, config->features);
         if (r < 0)
                 log_device_warning_errno(device, r, "Could not set offload features, ignoring: %m");
 
-        if (config->channels.rx_count_set || config->channels.tx_count_set || config->channels.other_count_set || config->channels.combined_count_set) {
-                r = ethtool_set_channels(ethtool_fd, name, &config->channels);
-                if (r < 0)
-                        log_device_warning_errno(device, r, "Could not set channels, ignoring: %m");
-        }
+        r = ethtool_set_channels(ethtool_fd, name, &config->channels);
+        if (r < 0)
+                log_device_warning_errno(device, r, "Could not set channels, ignoring: %m");
 
-        if (config->ring.rx_pending_set || config->ring.rx_mini_pending_set || config->ring.rx_jumbo_pending_set || config->ring.tx_pending_set) {
-                r = ethtool_set_nic_buffer_size(ethtool_fd, name, &config->ring);
-                if (r < 0)
-                        log_device_warning_errno(device, r, "Could not set ring buffer, ignoring: %m");
-        }
+        r = ethtool_set_nic_buffer_size(ethtool_fd, name, &config->ring);
+        if (r < 0)
+                log_device_warning_errno(device, r, "Could not set ring buffer, ignoring: %m");
 
-        if (config->rx_flow_control >= 0 || config->tx_flow_control >= 0 || config->autoneg_flow_control >= 0) {
-                r = ethtool_set_flow_control(ethtool_fd, name, config->rx_flow_control, config->tx_flow_control, config->autoneg_flow_control);
-                if (r < 0)
-                        log_device_warning_errno(device, r, "Could not set flow control, ignoring: %m");
-        }
+        r = ethtool_set_flow_control(ethtool_fd, name, config->rx_flow_control, config->tx_flow_control, config->autoneg_flow_control);
+        if (r < 0)
+                log_device_warning_errno(device, r, "Could not set flow control, ignoring: %m");
 
         return 0;
 }
@@ -412,7 +416,7 @@ static int get_mac(sd_device *device, MACAddressPolicy policy, struct ether_addr
         return 1;
 }
 
-static int link_config_apply_rtnl_settings(sd_netlink **rtnl, const link_config *config, sd_device *device) {
+static int link_config_apply_rtnl_settings(sd_netlink **rtnl, const LinkConfig *config, sd_device *device) {
         struct ether_addr generated_mac, *mac = NULL;
         int ifindex, r;
 
@@ -443,7 +447,7 @@ static int link_config_apply_rtnl_settings(sd_netlink **rtnl, const link_config 
         return 0;
 }
 
-static int link_config_generate_new_name(const link_config_ctx *ctx, const link_config *config, sd_device *device, const char **ret_name) {
+static int link_config_generate_new_name(const LinkConfigContext *ctx, const LinkConfig *config, sd_device *device, const char **ret_name) {
         unsigned name_type = NET_NAME_UNKNOWN;
         int r;
 
@@ -521,7 +525,7 @@ no_rename:
         return 0;
 }
 
-static int link_config_apply_alternative_names(sd_netlink **rtnl, const link_config *config, sd_device *device, const char *new_name) {
+static int link_config_apply_alternative_names(sd_netlink **rtnl, const LinkConfig *config, sd_device *device, const char *new_name) {
         _cleanup_strv_free_ char **altnames = NULL, **current_altnames = NULL;
         const char *current_name;
         int ifindex, r;
@@ -596,7 +600,7 @@ static int link_config_apply_alternative_names(sd_netlink **rtnl, const link_con
         return 0;
 }
 
-int link_config_apply(link_config_ctx *ctx, const link_config *config, sd_device *device, const char **ret_name) {
+int link_config_apply(LinkConfigContext *ctx, const LinkConfig *config, sd_device *device, const char **ret_name) {
         const char *new_name;
         sd_device_action_t a;
         int r;
@@ -648,7 +652,7 @@ int link_config_apply(link_config_ctx *ctx, const link_config *config, sd_device
         return 0;
 }
 
-int link_get_driver(link_config_ctx *ctx, sd_device *device, char **ret) {
+int link_get_driver(LinkConfigContext *ctx, sd_device *device, char **ret) {
         const char *name;
         char *driver = NULL;
         int r;

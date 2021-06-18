@@ -51,9 +51,10 @@
 
     <para>Along with the network file <filename>foo.network</filename>, a "drop-in" directory
     <filename>foo.network.d/</filename> may exist. All files with the suffix
-    <literal>.conf</literal> from this directory will be parsed after the file itself is
-    parsed. This is useful to alter or add configuration settings, without having to modify the main
-    configuration file. Each drop-in file must have appropriate section headers.</para>
+    <literal>.conf</literal> from this directory will be merged in the alphanumeric order and parsed
+    after the main file itself has been parsed. This is useful to alter or add configuration settings,
+    without having to modify the main configuration file. Each drop-in file must have appropriate
+    section headers.</para>
 
     <para>In addition to <filename>/etc/systemd/network</filename>, drop-in <literal>.d</literal>
     directories can be placed in <filename>/usr/lib/systemd/network</filename> or
@@ -203,10 +204,10 @@
       <varlistentry>
         <term><varname>Group=</varname></term>
         <listitem>
-          <para>Link groups are similar to port ranges found in managed switches.
-          When network interfaces are added to a numbered group, operations on
-          all the interfaces from that group can be performed at once. An unsigned
-          integer in the range 0…4294967294. Defaults to unset.</para>
+          <para>Link groups are similar to port ranges found in managed switches. When network interfaces
+          are added to a numbered group, operations on all the interfaces from that group can be
+          performed at once. Takes an unsigned integer in the range 0…4294967295. Defaults to unset.
+          </para>
         </listitem>
       </varlistentry>
       <varlistentry>
@@ -215,9 +216,9 @@
           <para>Takes a boolean or a minimum operational state and an optional maximum operational state.
           Please see <citerefentry><refentrytitle>networkctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>
           for possible operational states. When <literal>yes</literal>, the network is deemed required when
-          determining whether the system is online when running
-          <command>systemd-networkd-wait-online</command>. When <literal>no</literal>, the network is ignored
-          when checking for online state. When a minimum operational state and an optional maximum operational
+          determining whether the system is online (including when running
+          <command>systemd-networkd-wait-online</command>). When <literal>no</literal>, the network is ignored
+          when determining the online state. When a minimum operational state and an optional maximum operational
           state are set, <literal>yes</literal> is implied, and this controls the minimum and maximum
           operational state required for the network interface to be considered online.
           Defaults to <literal>yes</literal>.</para>
@@ -232,13 +233,13 @@
       <varlistentry>
         <term><varname>RequiredFamilyForOnline=</varname></term>
         <listitem>
-          <para>Specifies an address family. When specified,
-          <command>systemd-networkd-wait-online</command> waits for at least one routable or link-local
-          IP address in the family should be configured on the link. Takes one of
-          <literal>ipv4</literal>, <literal>ipv6</literal>, <literal>both</literal>, or
-          <literal>any</literal>. Defaults to <literal>any</literal>. Note that this will be used only
-          when <varname>RequiredForOnline=</varname> is true, or its minimum operational state is
-          <literal>degraded</literal> or above. Otherwise, it will be ignored.</para>
+          <para>Takes an address family. When specified, an IP address in the given family is deemed required
+          when determining whether the link is online (including when running
+          <command>systemd-networkd-wait-online</command>). Takes one of <literal>ipv4</literal>,
+          <literal>ipv6</literal>, <literal>both</literal>, or <literal>any</literal>. Defaults to
+          <literal>any</literal>. Note that this option has no effect if
+          <literal>RequiredForOnline=no</literal>, or if <literal>RequiredForOnline=</literal> specifies a
+          minimum operational state below <literal>degraded</literal>.</para>
         </listitem>
       </varlistentry>
       <varlistentry>
@@ -421,11 +422,29 @@
         <varlistentry>
           <term><varname>IPv6LinkLocalAddressGenerationMode=</varname></term>
           <listitem>
-            <para>Specifies how IPv6 link local address is generated. Takes one of <literal>eui64</literal>,
-            <literal>none</literal>, <literal>stable-privacy</literal> and <literal>random</literal>.
-            When unset, the kernel's default will be used. Note that if <varname>LinkLocalAdressing=</varname>
-            not configured as <literal>ipv6</literal> then <varname>IPv6LinkLocalAddressGenerationMode=</varname>
-            is ignored.</para>
+            <para>Specifies how IPv6 link local address is generated. Takes one of
+            <literal>eui64</literal>, <literal>none</literal>, <literal>stable-privacy</literal> and
+            <literal>random</literal>. When unset, <literal>stable-privacy</literal> is used if
+            <varname>IPv6StableSecretAddress=</varname> is specified, and if not,
+            <literal>eui64</literal> is used. Note that if <varname>LinkLocalAddressing=</varname> is
+            <literal>no</literal> or <literal>ipv4</literal>, then
+            <varname>IPv6LinkLocalAddressGenerationMode=</varname> will be ignored. Also, even if
+            <varname>LinkLocalAddressing=</varname> is <literal>yes</literal> or
+            <literal>ipv6</literal>, setting <varname>IPv6LinkLocalAddressGenerationMode=none</varname>
+            disables to configure an IPv6 link-local address.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><varname>IPv6StableSecretAddress=</varname></term>
+          <listitem>
+            <para>Takes an IPv6 address. The specified address will be used as a stable secret for
+            generating IPv6 link-local address. If this setting is specified, and
+            <varname>IPv6LinkLocalAddressGenerationMode=</varname> is unset, then
+            <varname>IPv6LinkLocalAddressGenerationMode=stable-privacy</varname> is implied.
+            If this setting is not specified, and <literal>stable-privacy</literal> is set to
+            <varname>IPv6LinkLocalAddressGenerationMode=</varname>,
+            then a stable secret address will be generated from the local machine ID and the interface
+            name.</para>
           </listitem>
         </varlistentry>
         <varlistentry>
@@ -442,8 +461,17 @@
           <listitem>
             <para>Takes a boolean. If set to true, sets up the default route bound to the interface.
             Defaults to false. This is useful when creating routes on point-to-point interfaces.
-            This is equivalent to e.g. the following.
-            <programlisting>ip route add default dev veth99</programlisting></para>
+            This is equivalent to e.g. the following,
+            <programlisting>ip route add default dev veth99</programlisting>
+            or,
+            <programlisting>[Route]
+Gateway=0.0.0.0</programlisting></para>
+            <para>Currently, there are no way to specify e.g., the table for the route configured by
+            this setting. To configure the default route with such an additional property, please use
+            the following instead:
+            <programlisting>[Route]
+Gateway=0.0.0.0
+Table=1234</programlisting></para>
           </listitem>
         </varlistentry>
         <varlistentry>
@@ -883,73 +911,31 @@ IPv6Token=prefixstable:2002:da8:1::</programlisting></para>
           </para></listitem>
         </varlistentry>
         <varlistentry>
-          <term><varname>Bridge=</varname></term>
-          <listitem>
-            <para>The name of the bridge to add the link to. See
-            <citerefentry><refentrytitle>systemd.netdev</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
-            </para>
-          </listitem>
-        </varlistentry>
-        <varlistentry>
+          <term><varname>BatmanAdvanced=</varname></term>
           <term><varname>Bond=</varname></term>
-          <listitem>
-            <para>The name of the bond to add the link to. See
-            <citerefentry><refentrytitle>systemd.netdev</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
-            </para>
-          </listitem>
-        </varlistentry>
-        <varlistentry>
+          <term><varname>Bridge=</varname></term>
           <term><varname>VRF=</varname></term>
           <listitem>
-            <para>The name of the VRF to add the link to. See
+            <para>The name of the B.A.T.M.A.N. Advanced, bond, bridge, or VRF interface to add the link
+            to. See
             <citerefentry><refentrytitle>systemd.netdev</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
             </para>
-          </listitem>
-        </varlistentry>
-        <varlistentry>
-          <term><varname>VLAN=</varname></term>
-          <listitem>
-            <para>The name of a VLAN to create on the link. See
-            <citerefentry><refentrytitle>systemd.netdev</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
-            This option may be specified more than once.</para>
           </listitem>
         </varlistentry>
         <varlistentry>
           <term><varname>IPVLAN=</varname></term>
-          <listitem>
-            <para>The name of a IPVLAN to create on the link. See
-            <citerefentry><refentrytitle>systemd.netdev</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
-            This option may be specified more than once.</para>
-          </listitem>
-        </varlistentry>
-        <varlistentry>
-          <term><varname>MACVLAN=</varname></term>
-          <listitem>
-            <para>The name of a MACVLAN to create on the link. See
-            <citerefentry><refentrytitle>systemd.netdev</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
-            This option may be specified more than once.</para>
-          </listitem>
-        </varlistentry>
-        <varlistentry>
-          <term><varname>VXLAN=</varname></term>
-          <listitem>
-            <para>The name of a VXLAN to create on the link. See
-            <citerefentry><refentrytitle>systemd.netdev</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
-            This option may be specified more than once.</para>
-          </listitem>
-        </varlistentry>
-        <varlistentry>
-          <term><varname>Tunnel=</varname></term>
-          <listitem>
-            <para>The name of a Tunnel to create on the link. See
-            <citerefentry><refentrytitle>systemd.netdev</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
-            This option may be specified more than once.</para>
-          </listitem>
-        </varlistentry>
-        <varlistentry>
+          <term><varname>IPVTAP=</varname></term>
+          <term><varname>L2TP=</varname></term>
           <term><varname>MACsec=</varname></term>
+          <term><varname>MACVLAN=</varname></term>
+          <term><varname>MACVTAP=</varname></term>
+          <term><varname>Tunnel=</varname></term>
+          <term><varname>VLAN=</varname></term>
+          <term><varname>VXLAN=</varname></term>
+          <term><varname>Xfrm=</varname></term>
           <listitem>
-            <para>The name of a MACsec device to create on the link. See
+            <para>The name of a IPVLAN, IPVTAP, L2TP, MACsec, MACVLAN, MACVTAP, tunnel, VLAN, VXLAN, or
+            Xfrm to be created on the link. See
             <citerefentry><refentrytitle>systemd.netdev</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
             This option may be specified more than once.</para>
           </listitem>
@@ -1026,16 +1012,7 @@ IPv6Token=prefixstable:2002:da8:1::</programlisting></para>
           </para>
         </listitem>
       </varlistentry>
-      <varlistentry>
-          <term><varname>BatmanAdvanced=</varname></term>
-          <listitem>
-            <para>The name of the B.A.T.M.A.N. Advanced interface to add the link to. See
-            <citerefentry><refentrytitle>systemd.netdev</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
-            </para>
-          </listitem>
-        </varlistentry>
-      </variablelist>
-
+    </variablelist>
   </refsect1>
 
   <refsect1>
@@ -1121,8 +1098,8 @@ IPv6Token=prefixstable:2002:da8:1::</programlisting></para>
           <listitem>
             <para>Takes one of <literal>ipv4</literal>, <literal>ipv6</literal>,
             <literal>both</literal>, <literal>none</literal>. When <literal>ipv4</literal>,
-            performs IPv4 Duplicate Address Detection. See
-            <ulink url="https://tools.ietf.org/html/rfc5227">RFC 5224</ulink>.
+            performs IPv4 Address Conflict Detection. See
+            <ulink url="https://tools.ietf.org/html/rfc5227">RFC 5227</ulink>.
             When <literal>ipv6</literal>, performs IPv6 Duplicate Address Detection. See
             <ulink url="https://tools.ietf.org/html/rfc4862">RFC 4862</ulink>.
             Defaults to <literal>ipv6</literal>.</para>
@@ -1385,6 +1362,19 @@ IPv6Token=prefixstable:2002:da8:1::</programlisting></para>
             <literal>no</literal>.</para>
           </listitem>
         </varlistentry>
+        <varlistentry>
+          <term><varname>Group=</varname></term>
+          <listitem>
+            <para>Takes a whitespace separated list of nexthop IDs. Each ID must be in the range
+            1…4294967295. Optionally, each nexthop ID can take a weight after a colon
+            (<literal><replaceable>id</replaceable><optional>:<replaceable>weight</replaceable></optional></literal>).
+            The weight must be in the range 1…255. If the weight is not specified, then it is assumed
+            that the weight is 1. This setting cannot be specified with <varname>Gateway=</varname>,
+            <varname>Family=</varname>, <varname>Blackhole=</varname>. This setting can be specified
+            multiple times. If an empty string is assigned, then the all previous assignments are
+            cleared. Defaults to unset.</para>
+          </listitem>
+        </varlistentry>
       </variablelist>
   </refsect1>
 
@@ -1616,86 +1606,25 @@ IPv6Token=prefixstable:2002:da8:1::</programlisting></para>
       <varname>DHCP=</varname> setting described above:</para>
 
       <variablelist class='network-directives'>
-        <varlistentry>
-          <term><varname>UseDNS=</varname></term>
-          <listitem>
-            <para>When true (the default), the DNS servers received from the DHCP server will be used.</para>
 
-            <para>This corresponds to the <option>nameserver</option>
-            option in <citerefentry
-            project='man-pages'><refentrytitle>resolv.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
-          </listitem>
-        </varlistentry>
-        <varlistentry>
-          <term><varname>RoutesToDNS=</varname></term>
-          <listitem>
-            <para>When true, the routes to the DNS servers received from the DHCP server will be
-            configured. When <varname>UseDNS=</varname> is disabled, this setting is ignored.
-            Defaults to true.</para>
-          </listitem>
-        </varlistentry>
-        <varlistentry>
-          <term><varname>UseNTP=</varname></term>
-          <listitem>
-            <para>When true (the default), the NTP servers received from the DHCP server will be used by
-            <filename>systemd-timesyncd.service</filename>.</para>
-          </listitem>
-        </varlistentry>
-        <varlistentry>
-          <term><varname>RoutesToNTP=</varname></term>
-          <listitem>
-            <para>When true, the routes to the NTP servers received from the DHCP server will be
-            configured. When <varname>UseNTP=</varname> is disabled, this setting is ignored.
-            Defaults to true.</para>
-          </listitem>
-        </varlistentry>
-        <varlistentry>
-          <term><varname>UseSIP=</varname></term>
-          <listitem>
-            <para>When true (the default), the SIP servers received from the DHCP server will be collected
-            and made available to client programs.</para>
-          </listitem>
-        </varlistentry>
+        <!-- DHCP packet contents -->
 
-        <varlistentry>
-          <term><varname>UseMTU=</varname></term>
-          <listitem>
-            <para>When true, the interface maximum transmission unit
-            from the DHCP server will be used on the current link.
-            If <varname>MTUBytes=</varname> is set, then this setting is ignored.
-            Defaults to false.</para>
-          </listitem>
-        </varlistentry>
-        <varlistentry>
-          <term><varname>Anonymize=</varname></term>
-          <listitem>
-            <para>Takes a boolean. When true, the options sent to the DHCP server will follow the
-            <ulink url="https://tools.ietf.org/html/rfc7844">RFC 7844</ulink> (Anonymity Profiles for
-            DHCP Clients) to minimize disclosure of identifying information. Defaults to false.</para>
-
-            <para>This option should only be set to true when <varname>MACAddressPolicy=</varname> is
-            set to <literal>random</literal> (see
-            <citerefentry project='man-pages'><refentrytitle>systemd.link</refentrytitle><manvolnum>5</manvolnum></citerefentry>).
-            </para>
-
-            <para>When true, <varname>SendHostname=</varname>, <varname>ClientIdentifier=</varname>,
-            <varname>VendorClassIdentifier=</varname>, <varname>UserClass=</varname>,
-            <varname>RequestOptions=</varname>, <varname>SendOption=</varname>,
-            <varname>SendVendorOption=</varname>, and <varname>MUDURL=</varname> are ignored.</para>
-
-            <para>With this option enabled DHCP requests will mimic those generated by Microsoft
-            Windows, in order to reduce the ability to fingerprint and recognize installations. This
-            means DHCP request sizes will grow and lease data will be more comprehensive than normally,
-            though most of the requested data is not actually used.</para>
-          </listitem>
-        </varlistentry>
         <varlistentry>
           <term><varname>SendHostname=</varname></term>
           <listitem>
-            <para>When true (the default), the machine's hostname will be sent to the DHCP server.
-            Note that the machine's hostname must consist only of 7-bit ASCII lower-case characters and
-            no spaces or dots, and be formatted as a valid DNS domain name. Otherwise, the hostname is not
-            sent even if this is set to true.</para>
+            <para>When true (the default), the machine's hostname (or the value specified with
+            <varname>Hostname=</varname> below) will be sent to the DHCP server. Note that the hostname must
+            consist only of 7-bit ASCII lower-case characters and no spaces or dots, and be formatted as a
+            valid DNS domain name. Otherwise, the hostname is not sent even if this option is true.</para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><varname>Hostname=</varname></term>
+          <listitem>
+            <para>Use this value for the hostname which is sent to the DHCP server, instead of machine's hostname.
+            Note that the specified hostname must consist only of 7-bit ASCII lower-case characters and
+            no spaces or dots, and be formatted as a valid DNS domain name.</para>
           </listitem>
         </varlistentry>
 
@@ -1716,73 +1645,14 @@ IPv6Token=prefixstable:2002:da8:1::</programlisting></para>
         </varlistentry>
 
         <varlistentry>
-          <term><varname>UseHostname=</varname></term>
-          <listitem>
-            <para>When true (the default), the hostname received from
-            the DHCP server will be set as the transient hostname of the system.
-            </para>
-          </listitem>
-        </varlistentry>
-        <varlistentry>
-          <term><varname>Hostname=</varname></term>
-          <listitem>
-            <para>Use this value for the hostname which is sent to the DHCP server, instead of machine's hostname.
-            Note that the specified hostname must consist only of 7-bit ASCII lower-case characters and
-            no spaces or dots, and be formatted as a valid DNS domain name.</para>
-          </listitem>
-        </varlistentry>
-        <varlistentry>
-          <term><varname>UseDomains=</varname></term>
-          <listitem>
-            <para>Takes a boolean, or the special value <literal>route</literal>. When true, the domain name
-            received from the DHCP server will be used as DNS search domain over this link, similar to the effect of
-            the <option>Domains=</option> setting. If set to <literal>route</literal>, the domain name received from
-            the DHCP server will be used for routing DNS queries only, but not for searching, similar to the effect of
-            the <option>Domains=</option> setting when the argument is prefixed with <literal>~</literal>. Defaults to
-            false.</para>
-
-            <para>It is recommended to enable this option only on trusted networks, as setting this affects resolution
-            of all hostnames, in particular of single-label names. It is generally safer to use the supplied domain
-            only as routing domain, rather than as search domain, in order to not have it affect local resolution of
-            single-label names.</para>
-
-            <para>When set to true, this setting corresponds to the <option>domain</option> option in <citerefentry
-            project='man-pages'><refentrytitle>resolv.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
-          </listitem>
-        </varlistentry>
-        <varlistentry>
-          <term><varname>UseRoutes=</varname></term>
-          <listitem>
-            <para>When true (the default), the static routes will be requested from the DHCP server and added to the
-              routing table with a metric of 1024, and a scope of "global", "link" or "host", depending on the route's
-              destination and gateway. If the destination is on the local host, e.g., 127.x.x.x, or the same as the
-              link's own address, the scope will be set to "host". Otherwise if the gateway is null (a direct route), a
-              "link" scope will be used. For anything else, scope defaults to "global".</para>
-          </listitem>
-        </varlistentry>
-        <varlistentry>
-          <term><varname>UseGateway=</varname></term>
-          <listitem>
-            <para>When true, the gateway will be requested from the DHCP server and added to the routing table with a
-            metric of 1024, and a scope of "link". When unset, the value specified with <option>UseRoutes=</option>
-            is used.</para>
-          </listitem>
-        </varlistentry>
-        <varlistentry>
-          <term><varname>UseTimezone=</varname></term>
-          <listitem><para>When true, the timezone received from the
-          DHCP server will be set as timezone of the local
-          system. Defaults to <literal>no</literal>.</para></listitem>
-        </varlistentry>
-
-        <varlistentry>
           <term><varname>ClientIdentifier=</varname></term>
           <listitem>
-            <para>The DHCPv4 client identifier to use. Takes one of <literal>mac</literal>, <literal>duid</literal> or <literal>duid-only</literal>.
-            If set to <literal>mac</literal>, the MAC address of the link is used.
-            If set to <literal>duid</literal>, an RFC4361-compliant Client ID, which is the combination of IAID and DUID (see below), is used.
-            If set to <literal>duid-only</literal>, only DUID is used, this may not be RFC compliant, but some setups may require to use this.
-            Defaults to <literal>duid</literal>.</para>
+            <para>The DHCPv4 client identifier to use. Takes one of <option>mac</option>,
+            <option>duid</option> or <option>duid-only</option>. If set to <option>mac</option>, the
+            MAC address of the link is used. If set to <option>duid</option>, an RFC4361-compliant Client
+            ID, which is the combination of IAID and DUID (see below), is used. If set to
+            <option>duid-only</option>, only DUID is used, this may not be RFC compliant, but some setups
+            may require to use this.  Defaults to <option>duid</option>.</para>
           </listitem>
         </varlistentry>
 
@@ -1797,28 +1667,18 @@ IPv6Token=prefixstable:2002:da8:1::</programlisting></para>
         <varlistentry>
           <term><varname>UserClass=</varname></term>
           <listitem>
-            <para>A DHCPv4 client can use UserClass option to identify the type or category of user or applications
-            it represents. The information contained in this option is a string that represents the user class of which
-            the client is a member. Each class sets an identifying string of information to be used by the DHCP
-            service to classify clients. Takes a whitespace-separated list of strings.</para>
-          </listitem>
-        </varlistentry>
-
-        <varlistentry>
-          <term><varname>MaxAttempts=</varname></term>
-          <listitem>
-            <para>Specifies how many times the DHCPv4 client configuration should be attempted. Takes a
-            number or <literal>infinity</literal>. Defaults to <literal>infinity</literal>. Note that the
-            time between retries is increased exponentially, up to approximately one per minute, so the
-            network will not be overloaded even if this number is high. The default is suitable in most
-            circumstances.</para>
+            <para>A DHCPv4 client can use UserClass option to identify the type or category of user or
+            applications it represents. The information contained in this option is a string that represents
+            the user class of which the client is a member. Each class sets an identifying string of
+            information to be used by the DHCP service to classify clients. Takes a whitespace-separated list
+            of strings.</para>
           </listitem>
         </varlistentry>
 
         <varlistentry>
           <term><varname>DUIDType=</varname></term>
           <listitem>
-            <para>Override the global <varname>DUIDType</varname> setting for this network. See
+            <para>Override the global <varname>DUIDType=</varname> setting for this network. See
             <citerefentry><refentrytitle>networkd.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>
             for a description of possible values.</para>
           </listitem>
@@ -1827,7 +1687,7 @@ IPv6Token=prefixstable:2002:da8:1::</programlisting></para>
         <varlistentry>
           <term><varname>DUIDRawData=</varname></term>
           <listitem>
-            <para>Override the global <varname>DUIDRawData</varname> setting for this network. See
+            <para>Override the global <varname>DUIDRawData=</varname> setting for this network. See
             <citerefentry><refentrytitle>networkd.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>
             for a description of possible values.</para>
           </listitem>
@@ -1836,98 +1696,33 @@ IPv6Token=prefixstable:2002:da8:1::</programlisting></para>
         <varlistentry>
           <term><varname>IAID=</varname></term>
           <listitem>
-            <para>The DHCP Identity Association Identifier (IAID) for the interface, a 32-bit unsigned integer.</para>
+            <para>The DHCP Identity Association Identifier (IAID) for the interface, a 32-bit unsigned
+            integer.</para>
           </listitem>
         </varlistentry>
 
         <varlistentry>
-          <term><varname>RequestBroadcast=</varname></term>
+          <term><varname>Anonymize=</varname></term>
           <listitem>
-            <para>Request the server to use broadcast messages before
-            the IP address has been configured. This is necessary for
-            devices that cannot receive RAW packets, or that cannot
-            receive packets at all before an IP address has been
-            configured. On the other hand, this must not be enabled on
-            networks where broadcasts are filtered out.</para>
-          </listitem>
-        </varlistentry>
+            <para>Takes a boolean. When true, the options sent to the DHCP server will follow the
+            <ulink url="https://tools.ietf.org/html/rfc7844">RFC 7844</ulink> (Anonymity Profiles for
+            DHCP Clients) to minimize disclosure of identifying information. Defaults to false.</para>
 
-        <varlistentry>
-          <term><varname>RouteMetric=</varname></term>
-          <listitem>
-            <para>Set the routing metric for routes specified by the DHCP server. Takes an unsigned
-            integer in the range 0…4294967295. Defaults to 1024.</para>
-          </listitem>
-        </varlistentry>
-
-        <varlistentry>
-          <term><varname>RouteTable=<replaceable>num</replaceable></varname></term>
-          <listitem>
-            <para>The table identifier for DHCP routes (a number between 1 and 4294967295, or 0 to unset).
-            The table can be retrieved using <command>ip route show table <replaceable>num</replaceable></command>.
+            <para>This option should only be set to true when <varname>MACAddressPolicy=</varname> is
+            set to <option>random</option> (see
+            <citerefentry project='man-pages'><refentrytitle>systemd.link</refentrytitle><manvolnum>5</manvolnum></citerefentry>).
             </para>
-            <para>When used in combination with <varname>VRF=</varname>, the
-            VRF's routing table is used when this parameter is not specified.
-            </para>
+
+            <para>When true, <varname>SendHostname=</varname>, <varname>ClientIdentifier=</varname>,
+            <varname>VendorClassIdentifier=</varname>, <varname>UserClass=</varname>,
+            <varname>RequestOptions=</varname>, <varname>SendOption=</varname>,
+            <varname>SendVendorOption=</varname>, and <varname>MUDURL=</varname> are ignored.</para>
+
+            <para>With this option enabled DHCP requests will mimic those generated by Microsoft
+            Windows, in order to reduce the ability to fingerprint and recognize installations. This
+            means DHCP request sizes will grow and lease data will be more comprehensive than normally,
+            though most of the requested data is not actually used.</para>
           </listitem>
-        </varlistentry>
-
-        <varlistentry>
-          <term><varname>RouteMTUBytes=</varname></term>
-          <listitem>
-            <para>Specifies the MTU for the DHCP routes. Please see the [Route] section for further details.</para>
-          </listitem>
-        </varlistentry>
-
-        <varlistentry>
-          <term><varname>ListenPort=</varname></term>
-          <listitem>
-            <para>Allow setting custom port for the DHCP client to listen on.</para>
-          </listitem>
-        </varlistentry>
-
-         <varlistentry>
-          <term><varname>FallbackLeaseLifetimeSec=</varname></term>
-          <listitem>
-            <para>Allows to set DHCPv4 lease lifetime when DHCPv4 server does not send the lease lifetime.
-            Takes one of <literal>forever</literal> or <literal>infinity</literal> means that the address
-            never expires. Defaults to unset.</para>
-          </listitem>
-        </varlistentry>
-
-        <varlistentry>
-          <term><varname>SendRelease=</varname></term>
-          <listitem>
-            <para>When true, the DHCPv4 client sends a DHCP release packet when it stops.
-            Defaults to true.</para>
-          </listitem>
-        </varlistentry>
-
-        <varlistentry>
-          <term><varname>SendDecline=</varname></term>
-          <listitem>
-            <para>A boolean. When <literal>true</literal>, the DHCPv4 client receives the IP address from the
-            DHCP server.  After a new IP is received, the DHCPv4 client performs IPv4 Duplicate Address
-            Detection. If duplicate use is detected, the DHCPv4 client rejects the IP by sending a
-            DHCPDECLINE packet and tries to obtain an IP address again. See <ulink
-            url="https://tools.ietf.org/html/rfc5227">RFC 5224</ulink>. Defaults to
-            <literal>unset</literal>.</para>
-          </listitem>
-        </varlistentry>
-
-        <varlistentry>
-        <term><varname>DenyList=</varname></term>
-        <listitem>
-          <para>A whitespace-separated list of IPv4 addresses. DHCP offers from servers in the list are rejected. Note that
-          if <varname>AllowList=</varname> is configured then <varname>DenyList=</varname> is ignored.</para>
-        </listitem>
-        </varlistentry>
-
-        <varlistentry>
-        <term><varname>AllowList=</varname></term>
-        <listitem>
-          <para>A whitespace-separated list of IPv4 addresses. DHCP offers from servers in the list are accepted.</para>
-        </listitem>
         </varlistentry>
 
         <varlistentry>
@@ -1969,7 +1764,224 @@ IPv6Token=prefixstable:2002:da8:1::</programlisting></para>
             then all options specified earlier are cleared. Defaults to unset.</para>
           </listitem>
         </varlistentry>
-       </variablelist>
+
+        <!-- How to use the DHCP lease -->
+
+        <varlistentry>
+          <term><varname>UseDNS=</varname></term>
+          <listitem>
+            <para>When true (the default), the DNS servers received from the DHCP server will be used.</para>
+
+            <para>This corresponds to the <option>nameserver</option>
+            option in <citerefentry
+            project='man-pages'><refentrytitle>resolv.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><varname>RoutesToDNS=</varname></term>
+          <listitem>
+            <para>When true, the routes to the DNS servers received from the DHCP server will be
+            configured. When <varname>UseDNS=</varname> is disabled, this setting is ignored.
+            Defaults to true.</para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><varname>UseNTP=</varname></term>
+          <listitem>
+            <para>When true (the default), the NTP servers received from the DHCP server will be used by
+            <filename>systemd-timesyncd.service</filename>.</para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><varname>RoutesToNTP=</varname></term>
+          <listitem>
+            <para>When true, the routes to the NTP servers received from the DHCP server will be
+            configured. When <varname>UseNTP=</varname> is disabled, this setting is ignored.
+            Defaults to true.</para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><varname>UseSIP=</varname></term>
+          <listitem>
+            <para>When true (the default), the SIP servers received from the DHCP server will be collected
+            and made available to client programs.</para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><varname>UseMTU=</varname></term>
+          <listitem>
+            <para>When true, the interface maximum transmission unit from the DHCP server will be used on the
+            current link. If <varname>MTUBytes=</varname> is set, then this setting is ignored. Defaults to
+            false.</para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><varname>UseHostname=</varname></term>
+          <listitem>
+            <para>When true (the default), the hostname received from the DHCP server will be set as the
+            transient hostname of the system.</para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><varname>UseDomains=</varname></term>
+          <listitem>
+            <para>Takes a boolean, or the special value <option>route</option>. When true, the domain name
+            received from the DHCP server will be used as DNS search domain over this link, similar to the
+            effect of the <option>Domains=</option> setting. If set to <option>route</option>, the domain
+            name received from the DHCP server will be used for routing DNS queries only, but not for
+            searching, similar to the effect of the <option>Domains=</option> setting when the argument is
+            prefixed with <literal>~</literal>. Defaults to false.</para>
+
+            <para>It is recommended to enable this option only on trusted networks, as setting this affects
+            resolution of all hostnames, in particular of single-label names. It is generally safer to use
+            the supplied domain only as routing domain, rather than as search domain, in order to not have it
+            affect local resolution of single-label names.</para>
+
+            <para>When set to true, this setting corresponds to the <option>domain</option> option in
+            <citerefentry project='man-pages'><refentrytitle>resolv.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+            </para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><varname>UseRoutes=</varname></term>
+          <listitem>
+            <para>When true (the default), the static routes will be requested from the DHCP server and added
+            to the routing table with a metric of 1024, and a scope of <option>global</option>,
+            <option>link</option> or <option>host</option>, depending on the route's destination and
+            gateway. If the destination is on the local host, e.g., 127.x.x.x, or the same as the link's own
+            address, the scope will be set to <option>host</option>. Otherwise if the gateway is null (a
+            direct route), a <option>link</option> scope will be used. For anything else, scope defaults to
+            <option>global</option>.</para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><varname>RouteMetric=</varname></term>
+          <listitem>
+            <para>Set the routing metric for routes specified by the DHCP server. Takes an unsigned
+            integer in the range 0…4294967295. Defaults to 1024.</para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><varname>RouteTable=<replaceable>num</replaceable></varname></term>
+          <listitem>
+            <para>The table identifier for DHCP routes (a number between 1 and 4294967295, or 0 to unset).
+            The table can be retrieved using <command>ip route show table <replaceable>num</replaceable></command>.
+            </para>
+            <para>When used in combination with <varname>VRF=</varname>, the
+            VRF's routing table is used when this parameter is not specified.
+            </para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><varname>RouteMTUBytes=</varname></term>
+          <listitem>
+            <para>Specifies the MTU for the DHCP routes. Please see the [Route] section for further details.</para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><varname>UseGateway=</varname></term>
+          <listitem>
+            <para>When true, the gateway will be requested from the DHCP server and added to the routing
+            table with a metric of 1024, and a scope of <option>link</option>. When unset, the value specified
+            with <varname>UseRoutes=</varname> is used.</para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><varname>UseTimezone=</varname></term>
+          <listitem><para>When true, the timezone received from the DHCP server will be set as timezone of
+          the local system. Defaults to false.</para></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><varname>FallbackLeaseLifetimeSec=</varname></term>
+          <listitem>
+            <para>Allows to set DHCPv4 lease lifetime when DHCPv4 server does not send the lease lifetime.
+            Takes one of <literal>forever</literal> or <literal>infinity</literal> means that the address
+            never expires. Defaults to unset.</para>
+          </listitem>
+        </varlistentry>
+
+        <!-- How to communicate with the server -->
+
+        <varlistentry>
+          <term><varname>RequestBroadcast=</varname></term>
+          <listitem>
+            <para>Request the server to use broadcast messages before the IP address has been configured.
+            This is necessary for devices that cannot receive RAW packets, or that cannot receive packets at
+            all before an IP address has been configured. On the other hand, this must not be enabled on
+            networks where broadcasts are filtered out.</para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><varname>MaxAttempts=</varname></term>
+          <listitem>
+            <para>Specifies how many times the DHCPv4 client configuration should be attempted. Takes a
+            number or <literal>infinity</literal>. Defaults to <literal>infinity</literal>. Note that the
+            time between retries is increased exponentially, up to approximately one per minute, so the
+            network will not be overloaded even if this number is high. The default is suitable in most
+            circumstances.</para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><varname>ListenPort=</varname></term>
+          <listitem>
+            <para>Set the port from which the DHCP client packets originate.</para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><varname>DenyList=</varname></term>
+          <listitem>
+            <para>A whitespace-separated list of IPv4 addresses. DHCP offers from servers in the list are
+            rejected. Note that if <varname>AllowList=</varname> is configured then
+            <varname>DenyList=</varname> is ignored.</para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><varname>AllowList=</varname></term>
+          <listitem>
+            <para>A whitespace-separated list of IPv4 addresses. DHCP offers from servers in the list are
+            accepted.</para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><varname>SendRelease=</varname></term>
+          <listitem>
+            <para>When true, the DHCPv4 client sends a DHCP release packet when it stops. Defaults to
+            true.</para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><varname>SendDecline=</varname></term>
+          <listitem>
+            <para>A boolean. When <literal>true</literal>, the DHCPv4 client receives the IP address from the
+            DHCP server. After a new IP is received, the DHCPv4 client performs IPv4 Duplicate Address
+            Detection. If duplicate use is detected, the DHCPv4 client rejects the IP by sending a
+            <constant>DHCPDECLINE</constant> packet and tries to obtain an IP address again. See <ulink
+            url="https://tools.ietf.org/html/rfc5227">RFC 5224</ulink>. Defaults to
+            <literal>unset</literal>.</para>
+          </listitem>
+        </varlistentry>
+
+      </variablelist>
    </refsect1>
 
   <refsect1>
@@ -1978,55 +1990,25 @@ IPv6Token=prefixstable:2002:da8:1::</programlisting></para>
       <varname>DHCP=</varname> setting described above, or invoked by the IPv6 Router Advertisement:</para>
 
       <variablelist class='network-directives'>
-        <varlistentry>
-          <term><varname>UseAddress=</varname></term>
-          <listitem>
-            <para>When true (the default), the IP addresses provided by the DHCPv6 server will be
-            assigned.</para>
-          </listitem>
-        </varlistentry>
+
+        <!-- DHCP packet contents -->
 
         <varlistentry>
-          <term><varname>UseDNS=</varname></term>
-          <term><varname>UseNTP=</varname></term>
-          <term><varname>UseHostname=</varname></term>
-          <term><varname>UseDomains=</varname></term>
+          <term><varname>MUDURL=</varname></term>
           <term><varname>IAID=</varname></term>
           <term><varname>DUIDType=</varname></term>
           <term><varname>DUIDRawData=</varname></term>
+          <term><varname>RequestOptions=</varname></term>
           <listitem>
             <para>As in the [DHCPv4] section.</para>
           </listitem>
         </varlistentry>
 
         <varlistentry>
-          <term><varname>RapidCommit=</varname></term>
+          <term><varname>SendOption=</varname></term>
           <listitem>
-            <para>Takes a boolean. The DHCPv6 client can obtain configuration parameters from a DHCPv6 server through
-            a rapid two-message exchange (solicit and reply). When the rapid commit option is enabled by both
-            the DHCPv6 client and the DHCPv6 server, the two-message exchange is used, rather than the default
-            four-message exchange (solicit, advertise, request, and reply). The two-message exchange provides
-            faster client configuration and is beneficial in environments in which networks are under a heavy load.
-            See <ulink url="https://tools.ietf.org/html/rfc3315#section-17.2.1">RFC 3315</ulink> for details.
-            Defaults to true.</para>
-          </listitem>
-        </varlistentry>
-
-        <varlistentry>
-          <term><varname>MUDURL=</varname></term>
-          <listitem>
-            <para>When configured, the specified Manufacturer Usage Description (MUD) URL will be sent to
-            the DHCPv6 server. The syntax and semantics are the same as for <varname>MUDURL=</varname> in the
-            [DHCPv4] section described above.</para>
-          </listitem>
-        </varlistentry>
-
-        <varlistentry>
-          <term><varname>RequestOptions=</varname></term>
-          <listitem>
-            <para>When configured, allows to set arbitrary request options in the DHCPv6 request options list
-            that will be sent to the DHCPv6 server. A whitespace-separated list of integers in the range
-            1…254. Defaults to unset.</para>
+            <para>As in the [DHCPv4] section, however because DHCPv6 uses 16-bit fields to store option
+            numbers, the option number is an integer in the range 1…65536.</para>
           </listitem>
         </varlistentry>
 
@@ -2035,12 +2017,12 @@ IPv6Token=prefixstable:2002:da8:1::</programlisting></para>
           <listitem>
             <para>Send an arbitrary vendor option in the DHCPv6 request. Takes an enterprise identifier, DHCP
             option number, data type, and data separated with a colon (<literal><replaceable>enterprise
-            identifier</replaceable>:<replaceable>option</replaceable>:<replaceable>type</replaceable>:
-            <replaceable>value</replaceable></literal>). Enterprise identifier is an unsigned integer in the
-            range 1–4294967294. The option number must be an integer in the range 1–254. Data type takes one
-            of <literal>uint8</literal>, <literal>uint16</literal>, <literal>uint32</literal>,
-            <literal>ipv4address</literal>, <literal>ipv6address</literal>, or
-            <literal>string</literal>. Special characters in the data string may be escaped using <ulink
+            identifier</replaceable>:<replaceable>option</replaceable>:<replaceable>type</replaceable>:<replaceable>value</replaceable></literal>).
+            Enterprise identifier is an unsigned integer in the range 1…4294967294. The option number must be
+            an integer in the range 1…254. Data type takes one of <literal>uint8</literal>,
+            <literal>uint16</literal>, <literal>uint32</literal>, <literal>ipv4address</literal>,
+            <literal>ipv6address</literal>, or <literal>string</literal>. Special characters in the data
+            string may be escaped using <ulink
             url="https://en.wikipedia.org/wiki/Escape_sequences_in_C#Table_of_escape_sequences">C-style
             escapes</ulink>. This setting can be specified multiple times. If an empty string is specified,
             then all options specified earlier are cleared. Defaults to unset.</para>
@@ -2048,18 +2030,27 @@ IPv6Token=prefixstable:2002:da8:1::</programlisting></para>
         </varlistentry>
 
         <varlistentry>
-          <term><varname>ForceDHCPv6PDOtherInformation=</varname></term>
+          <term><varname>UserClass=</varname></term>
           <listitem>
-            <para>Takes a boolean that enforces DHCPv6 stateful mode when the 'Other information' bit is set in
-            Router Advertisement messages. By default setting only the 'O' bit in Router Advertisements
-            makes DHCPv6 request network information in a stateless manner using a two-message Information
-            Request and Information Reply message exchange.
-            <ulink url="https://tools.ietf.org/html/rfc7084">RFC 7084</ulink>, requirement WPD-4, updates
-            this behavior for a Customer Edge router so that stateful DHCPv6 Prefix Delegation is also
-            requested when only the 'O' bit is set in Router Advertisements. This option enables such a CE
-            behavior as it is impossible to automatically distinguish the intention of the 'O' bit otherwise.
-            By default this option is set to 'false', enable it if no prefixes are delegated when the device
-            should be acting as a CE router.</para>
+            <para>A DHCPv6 client can use User Class option to identify the type or category of user or
+            applications it represents. The information contained in this option is a string that represents
+            the user class of which the client is a member. Each class sets an identifying string of
+            information to be used by the DHCP service to classify clients. Special characters in the data
+            string may be escaped using <ulink
+            url="https://en.wikipedia.org/wiki/Escape_sequences_in_C#Table_of_escape_sequences">C-style
+            escapes</ulink>. This setting can be specified multiple times. If an empty string is specified,
+            then all options specified earlier are cleared. Takes a whitespace-separated list of
+            strings. Note that currently <constant>NUL</constant> bytes are not allowed.</para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><varname>VendorClass=</varname></term>
+          <listitem>
+            <para>A DHCPv6 client can use VendorClass option to identify the vendor that manufactured the
+            hardware on which the client is running. The information contained in the data area of this
+            option is contained in one or more opaque fields that identify details of the hardware
+            configuration. Takes a whitespace-separated list of strings.</para>
           </listitem>
         </varlistentry>
 
@@ -2073,6 +2064,44 @@ IPv6Token=prefixstable:2002:da8:1::</programlisting></para>
           </listitem>
         </varlistentry>
 
+        <!-- How to use the DHCP lease -->
+
+        <varlistentry>
+          <term><varname>UseAddress=</varname></term>
+          <listitem>
+            <para>When true (the default), the IP addresses provided by the DHCPv6 server will be
+            assigned.</para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><varname>UseDNS=</varname></term>
+          <term><varname>UseNTP=</varname></term>
+          <term><varname>UseHostname=</varname></term>
+          <term><varname>UseDomains=</varname></term>
+          <listitem>
+            <para>As in the [DHCPv4] section.</para>
+          </listitem>
+        </varlistentry>
+
+        <!-- How to communicate with the server -->
+
+        <varlistentry>
+          <term><varname>ForceDHCPv6PDOtherInformation=</varname></term>
+          <listitem>
+            <para>Takes a boolean that enforces DHCPv6 stateful mode when the 'Other information' bit is set in
+            Router Advertisement messages. By default setting only the 'O' bit in Router Advertisements
+            makes DHCPv6 request network information in a stateless manner using a two-message Information
+            Request and Information Reply message exchange.
+            <ulink url="https://tools.ietf.org/html/rfc7084">RFC 7084</ulink>, requirement WPD-4, updates
+            this behavior for a Customer Edge router so that stateful DHCPv6 Prefix Delegation is also
+            requested when only the 'O' bit is set in Router Advertisements. This option enables such a CE
+            behavior as it is impossible to automatically distinguish the intention of the 'O' bit otherwise.
+            By default this option is set to false, enable it if no prefixes are delegated when the device
+            should be acting as a CE router.</para>
+          </listitem>
+        </varlistentry>
+
         <varlistentry>
           <term><varname>WithoutRA=</varname></term>
           <listitem>
@@ -2083,35 +2112,15 @@ IPv6Token=prefixstable:2002:da8:1::</programlisting></para>
         </varlistentry>
 
         <varlistentry>
-          <term><varname>SendOption=</varname></term>
+          <term><varname>RapidCommit=</varname></term>
           <listitem>
-            <para>As in the [DHCPv4] section, however because DHCPv6 uses 16-bit fields to store
-            option numbers, the option number is an integer in the range 1…65536.</para>
-          </listitem>
-        </varlistentry>
-
-        <varlistentry>
-          <term><varname>UserClass=</varname></term>
-          <listitem>
-            <para>A DHCPv6 client can use User Class option to identify the type or category of user or applications
-            it represents. The information contained in this option is a string that represents the user class of which
-            the client is a member. Each class sets an identifying string of information to be used by the DHCP
-            service to classify clients. Special characters in the data string may be escaped using
-            <ulink url="https://en.wikipedia.org/wiki/Escape_sequences_in_C#Table_of_escape_sequences">C-style
-            escapes</ulink>. This setting can be specified multiple times. If an empty string is specified,
-            then all options specified earlier are cleared. Takes a whitespace-separated list of strings. Note that
-            currently <constant>NUL</constant> bytes are not allowed.</para>
-          </listitem>
-        </varlistentry>
-
-        <varlistentry>
-          <term><varname>VendorClass=</varname></term>
-          <listitem>
-            <para>A DHCPv6 client can use VendorClass option to identify the vendor that
-            manufactured the hardware on which the client is running. The information
-            contained in the data area of this option is contained in one or more opaque
-            fields that identify details of the hardware configuration. Takes a
-            whitespace-separated list of strings.</para>
+            <para>Takes a boolean. The DHCPv6 client can obtain configuration parameters from a DHCPv6 server through
+            a rapid two-message exchange (solicit and reply). When the rapid commit option is enabled by both
+            the DHCPv6 client and the DHCPv6 server, the two-message exchange is used, rather than the default
+            four-message exchange (solicit, advertise, request, and reply). The two-message exchange provides
+            faster client configuration and is beneficial in environments in which networks are under a heavy load.
+            See <ulink url="https://tools.ietf.org/html/rfc3315#section-17.2.1">RFC 3315</ulink> for details.
+            Defaults to true.</para>
           </listitem>
         </varlistentry>
       </variablelist>
@@ -2326,6 +2335,14 @@ IPv6Token=prefixstable:2002:da8:1::</programlisting></para>
     <variablelist class='network-directives'>
 
       <varlistentry>
+        <term><varname>ServerAddress=</varname></term>
+        <listitem><para>Specifies server address for the DHCP server. Takes an IPv4 address with prefix
+        length, e.g., <literal>192.168.0.1/24</literal>. This setting may be useful when the link which
+        DHCP server running on has multiple static addresses. When unset, one of static addresses in
+        the link will be automatically selected. Defaults to unset.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>PoolOffset=</varname></term>
         <term><varname>PoolSize=</varname></term>
 
@@ -2358,6 +2375,16 @@ IPv6Token=prefixstable:2002:da8:1::</programlisting></para>
         and clients shall learn the new settings with shorter
         latencies. Longer lease times reduce the generated DHCP
         network traffic.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>UplinkInterface=</varname></term>
+        <listitem><para>Specifies name or index of uplink interface, or one of the special values
+        <literal>:none</literal> and <literal>:auto</literal>. When emitting DNS, NTP, or SIP servers
+        are enabled but no servers are specified, the servers configured in the uplink interface will
+        be emitted. When <literal>:auto</literal>, the link which has default gateway with higher
+        priority will be automatically selected. When <literal>:none</literal>, no uplink interface
+        will be selected. Defaults to <literal>:auto</literal>.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -2487,6 +2514,29 @@ IPv6Token=prefixstable:2002:da8:1::</programlisting></para>
         </listitem>
       </varlistentry>
 
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>[DHCPServerStaticLease] Section Options</title>
+    <para>The <literal>[DHCPServerStaticLease]</literal> section configures a static DHCP lease to
+    assign a pre-set IPv4 address to a specific device based on its MAC address. This section can be
+    specified multiple times.</para>
+
+    <variablelist class='network-directives'>
+      <varlistentry>
+        <term><varname>MACAddress=</varname></term>
+
+        <listitem><para>The hardware address of a device which should be assigned IPv4 address
+        specified in <varname>Address=</varname>. This key is mandatory.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>Address=</varname></term>
+
+        <listitem><para>IPv4 address that should be assigned to a device with a hardware address
+        specified in <varname>MACAddress=</varname>. This key is mandatory.</para></listitem>
+      </varlistentry>
     </variablelist>
   </refsect1>
 
@@ -2827,6 +2877,13 @@ IPv6Token=prefixstable:2002:da8:1::</programlisting></para>
             means the address is associated with master devices fdb. <literal>router</literal> means
             the destination address is associated with a router. Note that it's valid if the referenced
             device is a VXLAN type device and has route shortcircuit enabled. Defaults to <literal>self</literal>.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><varname>OutgoingInterface=</varname></term>
+          <listitem>
+            <para>Specifies the name or index of the outgoing interface for the VXLAN device driver to
+            reach the remote VXLAN tunnel endpoint. Defaults to unset.</para>
           </listitem>
         </varlistentry>
       </variablelist>

@@ -71,21 +71,23 @@ struct DnsPacket {
         DnsAnswer *answer;
         DnsResourceRecord *opt;
 
+        /* For support of truncated packets */
+        DnsPacket *more;
+
         /* Packet reception metadata */
+        usec_t timestamp; /* CLOCK_BOOTTIME (or CLOCK_MONOTONIC if the former doesn't exist) */
         int ifindex;
         int family, ipproto;
         union in_addr_union sender, destination;
         uint16_t sender_port, destination_port;
         uint32_t ttl;
-        usec_t timestamp; /* CLOCK_BOOTTIME (or CLOCK_MONOTONIC if the former doesn't exist) */
 
-        /* For support of truncated packets */
-        DnsPacket *more;
+        bool on_stack;
+        bool extracted;
+        bool refuse_compression;
+        bool canonical_form;
 
-        bool on_stack:1;
-        bool extracted:1;
-        bool refuse_compression:1;
-        bool canonical_form:1;
+        /* Note: fields should be ordered to minimize alignment gaps. Use pahole! */
 };
 
 static inline uint8_t* DNS_PACKET_DATA(const DnsPacket *p) {

@@ -46,6 +46,7 @@
 #include "network-internal.h"
 #include "network-util.h"
 #include "pager.h"
+#include "parse-argument.h"
 #include "parse-util.h"
 #include "pretty-print.h"
 #include "set.h"
@@ -75,6 +76,110 @@ static bool arg_all = false;
 static bool arg_stats = false;
 static bool arg_full = false;
 static unsigned arg_lines = 10;
+static JsonFormatFlags arg_json_format_flags = JSON_FORMAT_OFF;
+
+static int get_description(JsonVariant **ret) {
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
+        const char *text = NULL;
+        int r;
+
+        r = sd_bus_open_system(&bus);
+        if (r < 0)
+                return log_error_errno(r, "Failed to connect system bus: %m");
+
+        r = bus_call_method(bus, bus_network_mgr, "Describe", &error, &reply, NULL);
+        if (r < 0)
+                return log_error_errno(r, "Failed to get description: %s", bus_error_message(&error, r));
+
+        r = sd_bus_message_read(reply, "s", &text);
+        if (r < 0)
+                return bus_log_parse_error(r);
+
+        r = json_parse(text, 0, ret, NULL, NULL);
+        if (r < 0)
+                return log_error_errno(r, "Failed to parse JSON: %m");
+
+        return 0;
+}
+
+static int dump_manager_description(void) {
+        _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
+        int r;
+
+        r = get_description(&v);
+        if (r < 0)
+                return r;
+
+        json_variant_dump(v, arg_json_format_flags, NULL, NULL);
+        return 0;
+}
+
+static int dump_link_description(char **patterns) {
+        _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
+        _cleanup_free_ bool *matched_patterns = NULL;
+        JsonVariant *i;
+        size_t c = 0;
+        int r;
+
+        r = get_description(&v);
+        if (r < 0)
+                return r;
+
+        matched_patterns = new0(bool, strv_length(patterns));
+        if (!matched_patterns)
+                return log_oom();
+
+        JSON_VARIANT_ARRAY_FOREACH(i, json_variant_by_key(v, "Interfaces")) {
+                char ifindex_str[DECIMAL_STR_MAX(intmax_t)];
+                const char *name;
+                intmax_t index;
+                size_t pos;
+
+                name = json_variant_string(json_variant_by_key(i, "Name"));
+                index = json_variant_integer(json_variant_by_key(i, "Index"));
+                xsprintf(ifindex_str, "%ji", index);
+
+                if (!strv_fnmatch_full(patterns, ifindex_str, 0, &pos) &&
+                    !strv_fnmatch_full(patterns, name, 0, &pos)) {
+                        bool match = false;
+                        JsonVariant *a;
+
+                        JSON_VARIANT_ARRAY_FOREACH(a, json_variant_by_key(i, "AlternativeNames"))
+                                if (strv_fnmatch_full(patterns, json_variant_string(a), 0, &pos)) {
+                                        match = true;
+                                        break;
+                                }
+
+                        if (!match)
+                                continue;
+                }
+
+                matched_patterns[pos] = true;
+                json_variant_dump(i, arg_json_format_flags, NULL, NULL);
+                c++;
+        }
+
+        /* Look if we matched all our arguments that are not globs. It is OK for a glob to match
+         * nothing, but not for an exact argument. */
+        for (size_t pos = 0; pos < strv_length(patterns); pos++) {
+                if (matched_patterns[pos])
+                        continue;
+
+                if (string_is_glob(patterns[pos]))
+                        log_debug("Pattern \"%s\" doesn't match any interface, ignoring.",
+                                  patterns[pos]);
+                else
+                        return log_error_errno(SYNTHETIC_ERRNO(ENODEV),
+                                               "Interface \"%s\" not found.", patterns[pos]);
+        }
+
+        if (c == 0)
+                log_warning("No interfaces matched.");
+
+        return 0;
+}
 
 static void operational_state_to_color(const char *name, const char *state, const char **on, const char **off) {
         if (STRPTR_IN_SET(state, "routable", "enslaved") ||
@@ -120,6 +225,25 @@ static void setup_state_to_color(const char *state, const char **on, const char 
         }
 }
 
+static void online_state_to_color(const char *state, const char **on, const char **off) {
+        if (streq_ptr(state, "online")) {
+                if (on)
+                        *on = ansi_highlight_green();
+                if (off)
+                        *off = ansi_normal();
+        } else if (streq_ptr(state, "partial")) {
+                if (on)
+                        *on = ansi_highlight_yellow();
+                if (off)
+                        *off = ansi_normal();
+        } else {
+                if (on)
+                        *on = "";
+                if (off)
+                        *off = "";
+        }
+}
+
 typedef struct VxLanInfo {
         uint32_t vni;
         uint32_t link;
@@ -148,7 +272,7 @@ typedef struct LinkInfo {
         sd_device *sd_device;
         int ifindex;
         unsigned short iftype;
-        hw_addr_data hw_address;
+        struct hw_addr_data hw_address;
         struct ether_addr permanent_mac_address;
         uint32_t master;
         uint32_t mtu;
@@ -430,13 +554,13 @@ static int decode_link(sd_netlink_message *m, LinkInfo *info, char **patterns, b
 
         info->has_mac_address =
                 netlink_message_read_hw_addr(m, IFLA_ADDRESS, &info->hw_address) >= 0 &&
-                memcmp(&info->hw_address, &HW_ADDR_NULL, sizeof(hw_addr_data)) != 0;
+                !hw_addr_is_null(&info->hw_address);
 
         info->has_permanent_mac_address =
                 ethtool_get_permanent_macaddr(NULL, info->name, &info->permanent_mac_address) >= 0 &&
-                memcmp(&info->permanent_mac_address, &ETHER_ADDR_NULL, sizeof(struct ether_addr)) != 0 &&
+                !ether_addr_is_null(&info->permanent_mac_address) &&
                 (info->hw_address.length != sizeof(struct ether_addr) ||
-                 memcmp(&info->permanent_mac_address, info->hw_address.addr.bytes, sizeof(struct ether_addr)) != 0);
+                 memcmp(&info->permanent_mac_address, info->hw_address.bytes, sizeof(struct ether_addr)) != 0);
 
         (void) sd_netlink_message_read_u32(m, IFLA_MTU, &info->mtu);
         (void) sd_netlink_message_read_u32(m, IFLA_MIN_MTU, &info->min_mtu);
@@ -592,7 +716,7 @@ static int acquire_link_info(sd_bus *bus, sd_netlink *rtnl, char **patterns, Lin
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL, *reply = NULL;
         _cleanup_(link_info_array_freep) LinkInfo *links = NULL;
         _cleanup_close_ int fd = -1;
-        size_t allocated = 0, c = 0;
+        size_t c = 0;
         int r;
 
         assert(rtnl);
@@ -618,7 +742,7 @@ static int acquire_link_info(sd_bus *bus, sd_netlink *rtnl, char **patterns, Lin
         }
 
         for (sd_netlink_message *i = reply; i; i = sd_netlink_message_next(i)) {
-                if (!GREEDY_REALLOC0(links, allocated, c + 2)) /* We keep one trailing one as marker */
+                if (!GREEDY_REALLOC0(links, c + 2)) /* We keep one trailing one as marker */
                         return -ENOMEM;
 
                 r = decode_link(i, links + c, patterns, matched_patterns);
@@ -629,9 +753,7 @@ static int acquire_link_info(sd_bus *bus, sd_netlink *rtnl, char **patterns, Lin
 
                 links[c].needs_freeing = true;
 
-                char devid[2 + DECIMAL_STR_MAX(int)];
-                xsprintf(devid, "n%i", links[c].ifindex);
-                (void) sd_device_new_from_device_id(&links[c].sd_device, devid);
+                (void) sd_device_new_from_ifindex(&links[c].sd_device, links[c].ifindex);
 
                 acquire_ether_link_info(&fd, &links[c]);
                 acquire_wlan_link_info(&links[c]);
@@ -674,6 +796,13 @@ static int list_links(int argc, char *argv[], void *userdata) {
         TableCell *cell;
         int c, r;
 
+        if (arg_json_format_flags != JSON_FORMAT_OFF) {
+                if (arg_all || argc <= 1)
+                        return dump_manager_description();
+                else
+                        return dump_link_description(strv_skip(argv, 1));
+        }
+
         r = sd_netlink_open(&rtnl);
         if (r < 0)
                 return log_error_errno(r, "Failed to connect to netlink: %m");
@@ -692,6 +821,8 @@ static int list_links(int argc, char *argv[], void *userdata) {
                 table_set_width(table, 0);
 
         table_set_header(table, arg_legend);
+        if (table_set_empty_string(table, "n/a") < 0)
+                return log_oom();
 
         assert_se(cell = table_get_cell(table, 0, 0));
         (void) table_set_minimum_width(table, cell, 3);
@@ -715,15 +846,17 @@ static int list_links(int argc, char *argv[], void *userdata) {
                         setup_state = strdup("unmanaged");
                 setup_state_to_color(setup_state, &on_color_setup, NULL);
 
-                t = link_get_type_string(links[i].sd_device, links[i].iftype);
+                r = link_get_type_string(links[i].sd_device, links[i].iftype, &t);
+                if (r == -ENOMEM)
+                        return log_oom();
 
                 r = table_add_many(table,
                                    TABLE_INT, links[i].ifindex,
                                    TABLE_STRING, links[i].name,
-                                   TABLE_STRING, strna(t),
-                                   TABLE_STRING, strna(operational_state),
+                                   TABLE_STRING, t,
+                                   TABLE_STRING, operational_state,
                                    TABLE_SET_COLOR, on_color_operational,
-                                   TABLE_STRING, strna(setup_state),
+                                   TABLE_STRING, setup_state,
                                    TABLE_SET_COLOR, on_color_setup);
                 if (r < 0)
                         return table_log_add_error(r);
@@ -911,26 +1044,25 @@ static int dump_gateways(
                 return n;
 
         for (int i = 0; i < n; i++) {
-                _cleanup_free_ char *gateway = NULL, *description = NULL, *with_description = NULL;
+                _cleanup_free_ char *gateway = NULL, *description = NULL;
                 char name[IF_NAMESIZE+1];
 
                 r = in_addr_to_string(local[i].family, &local[i].address, &gateway);
                 if (r < 0)
-                        return r;
+                        return log_oom();
 
                 r = get_gateway_description(rtnl, hwdb, local[i].ifindex, local[i].family, &local[i].address, &description);
                 if (r < 0)
                         log_debug_errno(r, "Could not get description of gateway, ignoring: %m");
 
                 if (description) {
-                        with_description = strjoin(gateway, " (", description, ")");
-                        if (!with_description)
+                        if (!strextend(&gateway, " (", description, ")"))
                                 return log_oom();
                 }
 
                 /* Show interface name for the entry if we show entries for all interfaces */
                 r = strv_extendf(&buf, "%s%s%s",
-                                 with_description ?: gateway,
+                                 gateway,
                                  ifindex <= 0 ? " on " : "",
                                  ifindex <= 0 ? format_ifname_full(local[i].ifindex, name, FORMAT_IFNAME_IFINDEX_WITH_PERCENT) : "");
                 if (r < 0)
@@ -1398,9 +1530,9 @@ static int link_status_one(
 
         _cleanup_strv_free_ char **dns = NULL, **ntp = NULL, **sip = NULL, **search_domains = NULL, **route_domains = NULL;
         _cleanup_free_ char *t = NULL, *network = NULL, *iaid = NULL, *duid = NULL,
-                *setup_state = NULL, *operational_state = NULL, *lease_file = NULL, *activation_policy = NULL;
+                *setup_state = NULL, *operational_state = NULL, *online_state = NULL, *lease_file = NULL, *activation_policy = NULL;
         const char *driver = NULL, *path = NULL, *vendor = NULL, *model = NULL, *link = NULL,
-                *on_color_operational, *off_color_operational, *on_color_setup, *off_color_setup;
+                *on_color_operational, *off_color_operational, *on_color_setup, *off_color_setup, *on_color_online;
         _cleanup_free_ int *carrier_bound_to = NULL, *carrier_bound_by = NULL;
         _cleanup_(sd_dhcp_lease_unrefp) sd_dhcp_lease *lease = NULL;
         _cleanup_(table_unrefp) Table *table = NULL;
@@ -1412,6 +1544,9 @@ static int link_status_one(
 
         (void) sd_network_link_get_operational_state(info->ifindex, &operational_state);
         operational_state_to_color(info->name, operational_state, &on_color_operational, &off_color_operational);
+
+        (void) sd_network_link_get_online_state(info->ifindex, &online_state);
+        online_state_to_color(online_state, &on_color_online, NULL);
 
         r = sd_network_link_get_setup_state(info->ifindex, &setup_state);
         if (r == -ENODATA) /* If there's no info available about this iface, it's unmanaged by networkd */
@@ -1436,7 +1571,9 @@ static int link_status_one(
                         (void) sd_device_get_property_value(info->sd_device, "ID_MODEL", &model);
         }
 
-        t = link_get_type_string(info->sd_device, info->iftype);
+        r = link_get_type_string(info->sd_device, info->iftype, &t);
+        if (r == -ENOMEM)
+                return log_oom();
 
         (void) sd_network_link_get_network_file(info->ifindex, &network);
 
@@ -1495,6 +1632,14 @@ static int link_status_one(
         if (r < 0)
                 return table_log_add_error(r);
 
+        r = table_add_many(table,
+                           TABLE_EMPTY,
+                           TABLE_STRING, "Online state:",
+                           TABLE_STRING, online_state ?: "unknown",
+                           TABLE_SET_COLOR, on_color_online);
+        if (r < 0)
+                return table_log_add_error(r);
+
         strv_sort(info->alternative_names);
         r = dump_list(table, "Alternative Names:", info->alternative_names);
         if (r < 0)
@@ -1537,7 +1682,7 @@ static int link_status_one(
                 _cleanup_free_ char *description = NULL;
 
                 if (info->hw_address.length == ETH_ALEN)
-                        (void) ieee_oui(hwdb, &info->hw_address.addr.ether, &description);
+                        (void) ieee_oui(hwdb, &info->hw_address.ether, &description);
 
                 r = table_add_many(table,
                                    TABLE_EMPTY,
@@ -1555,7 +1700,6 @@ static int link_status_one(
 
         if (info->has_permanent_mac_address) {
                 _cleanup_free_ char *description = NULL;
-                char ea[ETHER_ADDR_TO_STRING_MAX];
 
                 (void) ieee_oui(hwdb, &info->permanent_mac_address, &description);
 
@@ -1565,7 +1709,7 @@ static int link_status_one(
                 if (r < 0)
                         return table_log_add_error(r);
                 r = table_add_cell_stringf(table, NULL, "%s%s%s%s",
-                                           ether_addr_to_string(&info->permanent_mac_address, ea),
+                                           ETHER_ADDR_TO_STR(&info->permanent_mac_address),
                                            description ? " (" : "",
                                            strempty(description),
                                            description ? ")" : "");
@@ -1960,7 +2104,6 @@ static int link_status_one(
 
         if (info->has_wlan_link_info) {
                 _cleanup_free_ char *esc = NULL;
-                char buf[ETHER_ADDR_TO_STRING_MAX];
 
                 r = table_add_many(table,
                                    TABLE_EMPTY,
@@ -1973,7 +2116,7 @@ static int link_status_one(
 
                 r = table_add_cell_stringf(table, NULL, "%s (%s)",
                                            strnull(esc),
-                                           ether_addr_to_string(&info->bssid, buf));
+                                           ETHER_ADDR_TO_STR(&info->bssid));
                 if (r < 0)
                         return table_log_add_error(r);
         }
@@ -2154,9 +2297,9 @@ static int link_status_one(
 }
 
 static int system_status(sd_netlink *rtnl, sd_hwdb *hwdb) {
-        _cleanup_free_ char *operational_state = NULL;
+        _cleanup_free_ char *operational_state = NULL, *online_state = NULL;
         _cleanup_strv_free_ char **dns = NULL, **ntp = NULL, **search_domains = NULL, **route_domains = NULL;
-        const char *on_color_operational;
+        const char *on_color_operational, *on_color_online;
         _cleanup_(table_unrefp) Table *table = NULL;
         TableCell *cell;
         int r;
@@ -2165,6 +2308,9 @@ static int system_status(sd_netlink *rtnl, sd_hwdb *hwdb) {
 
         (void) sd_network_get_operational_state(&operational_state);
         operational_state_to_color(NULL, operational_state, &on_color_operational, NULL);
+
+        (void) sd_network_get_online_state(&online_state);
+        online_state_to_color(online_state, &on_color_online, NULL);
 
         table = table_new("dot", "key", "value");
         if (!table)
@@ -2187,7 +2333,11 @@ static int system_status(sd_netlink *rtnl, sd_hwdb *hwdb) {
                            TABLE_SET_COLOR, on_color_operational,
                            TABLE_STRING, "State:",
                            TABLE_STRING, strna(operational_state),
-                           TABLE_SET_COLOR, on_color_operational);
+                           TABLE_SET_COLOR, on_color_operational,
+                           TABLE_EMPTY,
+                           TABLE_STRING, "Online state:",
+                           TABLE_STRING, online_state ?: "unknown",
+                           TABLE_SET_COLOR, on_color_online);
         if (r < 0)
                 return table_log_add_error(r);
 
@@ -2231,6 +2381,13 @@ static int link_status(int argc, char *argv[], void *userdata) {
         _cleanup_(sd_hwdb_unrefp) sd_hwdb *hwdb = NULL;
         _cleanup_(link_info_array_freep) LinkInfo *links = NULL;
         int r, c;
+
+        if (arg_json_format_flags != JSON_FORMAT_OFF) {
+                if (arg_all || argc <= 1)
+                        return dump_manager_description();
+                else
+                        return dump_link_description(strv_skip(argv, 1));
+        }
 
         (void) pager_open(arg_pager_flags);
 
@@ -2506,7 +2663,7 @@ static int link_up_down(int argc, char *argv[], void *userdata) {
                 return log_oom();
 
         for (int i = 1; i < argc; i++) {
-                index = resolve_interface_or_warn(&rtnl, argv[i]);
+                index = rtnl_resolve_interface_or_warn(&rtnl, argv[i]);
                 if (index < 0)
                         return index;
 
@@ -2544,7 +2701,7 @@ static int link_delete(int argc, char *argv[], void *userdata) {
                 return log_oom();
 
         for (int i = 1; i < argc; i++) {
-                index = resolve_interface_or_warn(&rtnl, argv[i]);
+                index = rtnl_resolve_interface_or_warn(&rtnl, argv[i]);
                 if (index < 0)
                         return index;
 
@@ -2589,7 +2746,7 @@ static int link_renew(int argc, char *argv[], void *userdata) {
                 return log_error_errno(r, "Failed to connect system bus: %m");
 
         for (int i = 1; i < argc; i++) {
-                index = resolve_interface_or_warn(&rtnl, argv[i]);
+                index = rtnl_resolve_interface_or_warn(&rtnl, argv[i]);
                 if (index < 0)
                         return index;
 
@@ -2623,7 +2780,7 @@ static int link_force_renew(int argc, char *argv[], void *userdata) {
                 return log_error_errno(r, "Failed to connect system bus: %m");
 
         for (int i = 1; i < argc; i++) {
-                int index = resolve_interface_or_warn(&rtnl, argv[i]);
+                int index = rtnl_resolve_interface_or_warn(&rtnl, argv[i]);
                 if (index < 0)
                         return index;
 
@@ -2668,7 +2825,7 @@ static int verb_reconfigure(int argc, char *argv[], void *userdata) {
                 return log_oom();
 
         for (int i = 1; i < argc; i++) {
-                index = resolve_interface_or_warn(&rtnl, argv[i]);
+                index = rtnl_resolve_interface_or_warn(&rtnl, argv[i]);
                 if (index < 0)
                         return index;
 
@@ -2722,6 +2879,8 @@ static int help(void) {
                "  -s --stats             Show detailed link statics\n"
                "  -l --full              Do not ellipsize output\n"
                "  -n --lines=INTEGER     Number of journal entries to show\n"
+               "     --json=pretty|short|off\n"
+               "                         Generate JSON output\n"
                "\nSee the %s for details.\n",
                program_invocation_short_name,
                ansi_highlight(),
@@ -2737,6 +2896,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_VERSION = 0x100,
                 ARG_NO_PAGER,
                 ARG_NO_LEGEND,
+                ARG_JSON,
         };
 
         static const struct option options[] = {
@@ -2748,10 +2908,11 @@ static int parse_argv(int argc, char *argv[]) {
                 { "stats",     no_argument,       NULL, 's'           },
                 { "full",      no_argument,       NULL, 'l'           },
                 { "lines",     required_argument, NULL, 'n'           },
+                { "json",      required_argument, NULL, ARG_JSON      },
                 {}
         };
 
-        int c;
+        int c, r;
 
         assert(argc >= 0);
         assert(argv);
@@ -2792,6 +2953,12 @@ static int parse_argv(int argc, char *argv[]) {
                                                        "Failed to parse lines '%s'", optarg);
                         break;
 
+                case ARG_JSON:
+                        r = parse_json_argument(optarg, &arg_json_format_flags);
+                        if (r <= 0)
+                                return r;
+                        break;
+
                 case '?':
                         return -EINVAL;
 
@@ -2822,6 +2989,45 @@ static int networkctl_main(int argc, char *argv[]) {
         return dispatch_verb(argc, argv, verbs, NULL);
 }
 
+static int check_netns_match(void) {
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
+        struct stat st;
+        uint64_t id;
+        int r;
+
+        r = sd_bus_open_system(&bus);
+        if (r < 0)
+                return log_error_errno(r, "Failed to connect system bus: %m");
+
+        r = sd_bus_get_property_trivial(
+                        bus,
+                        "org.freedesktop.network1",
+                        "/org/freedesktop/network1",
+                        "org.freedesktop.network1.Manager",
+                        "NamespaceId",
+                        &error,
+                        't',
+                        &id);
+        if (r < 0) {
+                log_debug_errno(r, "Failed to query network namespace of networkd, ignoring: %s", bus_error_message(&error, r));
+                return 0;
+        }
+        if (id == 0) {
+                log_debug("systemd-networkd.service not running in a network namespace (?), skipping netns check.");
+                return 0;
+        }
+
+        if (stat("/proc/self/ns/net", &st) < 0)
+                return log_error_errno(r, "Failed to determine our own network namespace ID: %m");
+
+        if (id != st.st_ino)
+                return log_error_errno(SYNTHETIC_ERRNO(EREMOTE),
+                                       "networkctl must be invoked in same network namespace as systemd-networkd.service.");
+
+        return 0;
+}
+
 static void warn_networkd_missing(void) {
 
         if (access("/run/systemd/netif/state", F_OK) >= 0)
@@ -2837,6 +3043,10 @@ static int run(int argc, char* argv[]) {
 
         r = parse_argv(argc, argv);
         if (r <= 0)
+                return r;
+
+        r = check_netns_match();
+        if (r < 0)
                 return r;
 
         warn_networkd_missing();

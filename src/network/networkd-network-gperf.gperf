@@ -9,15 +9,16 @@ _Pragma("GCC diagnostic ignored \"-Wimplicit-fallthrough\"")
 #include "net-condition.h"
 #include "networkd-address-label.h"
 #include "networkd-address.h"
+#include "networkd-bridge-fdb.h"
+#include "networkd-bridge-mdb.h"
 #include "networkd-can.h"
 #include "networkd-dhcp-common.h"
+#include "networkd-dhcp-server-static-lease.h"
 #include "networkd-dhcp-server.h"
 #include "networkd-dhcp4.h"
 #include "networkd-dhcp6.h"
-#include "networkd-fdb.h"
 #include "networkd-ipv4ll.h"
 #include "networkd-ipv6-proxy-ndp.h"
-#include "networkd-mdb.h"
 #include "networkd-ndisc.h"
 #include "networkd-network.h"
 #include "networkd-neighbor.h"
@@ -59,7 +60,7 @@ Match.Architecture,                          config_parse_net_condition,        
 Match.Firmware,                              config_parse_net_condition,                               CONDITION_FIRMWARE,            offsetof(Network, conditions)
 Link.MACAddress,                             config_parse_hwaddr,                                      0,                             offsetof(Network, mac)
 Link.MTUBytes,                               config_parse_mtu,                                         AF_UNSPEC,                     offsetof(Network, mtu)
-Link.Group,                                  config_parse_uint32,                                      0,                             offsetof(Network, group)
+Link.Group,                                  config_parse_link_group,                                  0,                             0
 Link.ARP,                                    config_parse_tristate,                                    0,                             offsetof(Network, arp)
 Link.Multicast,                              config_parse_tristate,                                    0,                             offsetof(Network, multicast)
 Link.AllMulticast,                           config_parse_tristate,                                    0,                             offsetof(Network, allmulticast)
@@ -79,23 +80,24 @@ SR-IOV.LinkState,                            config_parse_sr_iov_link_state,    
 SR-IOV.MACAddress,                           config_parse_sr_iov_mac,                                  0,                             0
 Network.Description,                         config_parse_string,                                      0,                             offsetof(Network, description)
 Network.BatmanAdvanced,                      config_parse_ifname,                                      0,                             offsetof(Network, batadv_name)
-Network.Bridge,                              config_parse_ifname,                                      0,                             offsetof(Network, bridge_name)
 Network.Bond,                                config_parse_ifname,                                      0,                             offsetof(Network, bond_name)
-Network.VLAN,                                config_parse_stacked_netdev,                              NETDEV_KIND_VLAN,              offsetof(Network, stacked_netdev_names)
-Network.MACVLAN,                             config_parse_stacked_netdev,                              NETDEV_KIND_MACVLAN,           offsetof(Network, stacked_netdev_names)
-Network.MACVTAP,                             config_parse_stacked_netdev,                              NETDEV_KIND_MACVTAP,           offsetof(Network, stacked_netdev_names)
+Network.Bridge,                              config_parse_ifname,                                      0,                             offsetof(Network, bridge_name)
+Network.VRF,                                 config_parse_ifname,                                      0,                             offsetof(Network, vrf_name)
 Network.IPVLAN,                              config_parse_stacked_netdev,                              NETDEV_KIND_IPVLAN,            offsetof(Network, stacked_netdev_names)
 Network.IPVTAP,                              config_parse_stacked_netdev,                              NETDEV_KIND_IPVTAP,            offsetof(Network, stacked_netdev_names)
-Network.VXLAN,                               config_parse_stacked_netdev,                              NETDEV_KIND_VXLAN,             offsetof(Network, stacked_netdev_names)
 Network.L2TP,                                config_parse_stacked_netdev,                              NETDEV_KIND_L2TP,              offsetof(Network, stacked_netdev_names)
 Network.MACsec,                              config_parse_stacked_netdev,                              NETDEV_KIND_MACSEC,            offsetof(Network, stacked_netdev_names)
+Network.MACVLAN,                             config_parse_stacked_netdev,                              NETDEV_KIND_MACVLAN,           offsetof(Network, stacked_netdev_names)
+Network.MACVTAP,                             config_parse_stacked_netdev,                              NETDEV_KIND_MACVTAP,           offsetof(Network, stacked_netdev_names)
 Network.Tunnel,                              config_parse_stacked_netdev,                              _NETDEV_KIND_TUNNEL,           offsetof(Network, stacked_netdev_names)
+Network.VLAN,                                config_parse_stacked_netdev,                              NETDEV_KIND_VLAN,              offsetof(Network, stacked_netdev_names)
+Network.VXLAN,                               config_parse_stacked_netdev,                              NETDEV_KIND_VXLAN,             offsetof(Network, stacked_netdev_names)
 Network.Xfrm,                                config_parse_stacked_netdev,                              NETDEV_KIND_XFRM,              offsetof(Network, stacked_netdev_names)
-Network.VRF,                                 config_parse_ifname,                                      0,                             offsetof(Network, vrf_name)
 Network.DHCP,                                config_parse_dhcp,                                        0,                             offsetof(Network, dhcp)
 Network.DHCPServer,                          config_parse_bool,                                        0,                             offsetof(Network, dhcp_server)
 Network.LinkLocalAddressing,                 config_parse_link_local_address_family,                   0,                             offsetof(Network, link_local)
 Network.IPv6LinkLocalAddressGenerationMode,  config_parse_ipv6_link_local_address_gen_mode,            0,                             offsetof(Network, ipv6ll_address_gen_mode)
+Network.IPv6StableSecretAddress,             config_parse_in_addr_non_null,                            AF_INET6,                      offsetof(Network, ipv6ll_stable_secret)
 Network.IPv4LLRoute,                         config_parse_bool,                                        0,                             offsetof(Network, ipv4ll_route)
 Network.DefaultRouteOnDevice,                config_parse_bool,                                        0,                             offsetof(Network, default_route_on_device)
 Network.IPv6Token,                           config_parse_address_generation_type,                     0,                             0
@@ -110,7 +112,7 @@ Network.LLMNR,                               config_parse_resolve_support,      
 Network.MulticastDNS,                        config_parse_resolve_support,                             0,                             offsetof(Network, mdns)
 Network.DNSOverTLS,                          config_parse_dns_over_tls_mode,                           0,                             offsetof(Network, dns_over_tls_mode)
 Network.DNSSEC,                              config_parse_dnssec_mode,                                 0,                             offsetof(Network, dnssec_mode)
-Network.DNSSECNegativeTrustAnchors,          config_parse_dnssec_negative_trust_anchors,               0,                             0
+Network.DNSSECNegativeTrustAnchors,          config_parse_dnssec_negative_trust_anchors,               0,                             offsetof(Network, dnssec_negative_trust_anchors)
 Network.NTP,                                 config_parse_ntp,                                         0,                             offsetof(Network, ntp)
 Network.IPForward,                           config_parse_address_family_with_kernel,                  0,                             offsetof(Network, ip_forward)
 Network.IPMasquerade,                        config_parse_ip_masquerade,                               0,                             offsetof(Network, ip_masquerade)
@@ -194,6 +196,7 @@ NextHop.Gateway,                             config_parse_nexthop_gateway,      
 NextHop.Family,                              config_parse_nexthop_family,                              0,                             0
 NextHop.OnLink,                              config_parse_nexthop_onlink,                              0,                             0
 NextHop.Blackhole,                           config_parse_nexthop_blackhole,                           0,                             0
+NextHop.Group,                               config_parse_nexthop_group,                               0,                             0
 DHCPv4.ClientIdentifier,                     config_parse_dhcp_client_identifier,                      0,                             offsetof(Network, dhcp_client_identifier)
 DHCPv4.UseDNS,                               config_parse_dhcp_use_dns,                                0,                             0
 DHCPv4.RoutesToDNS,                          config_parse_bool,                                        0,                             offsetof(Network, dhcp_routes_to_dns)
@@ -261,7 +264,9 @@ IPv6AcceptRA.PrefixAllowList,                config_parse_ndisc_address_filter, 
 IPv6AcceptRA.PrefixDenyList,                 config_parse_ndisc_address_filter,                        0,                             offsetof(Network, ndisc_deny_listed_prefix)
 IPv6AcceptRA.RouteAllowList,                 config_parse_ndisc_address_filter,                        0,                             offsetof(Network, ndisc_allow_listed_route_prefix)
 IPv6AcceptRA.RouteDenyList,                  config_parse_ndisc_address_filter,                        0,                             offsetof(Network, ndisc_deny_listed_route_prefix)
-DHCPServer.RelayTarget,                      config_parse_dhcp_server_relay_target,                    0,                             0
+DHCPServer.ServerAddress,                    config_parse_dhcp_server_address,                         0,                             0
+DHCPServer.UplinkInterface,                  config_parse_dhcp_server_uplink,                          0,                             0
+DHCPServer.RelayTarget,                      config_parse_in_addr_non_null,                            AF_INET,                       offsetof(Network, dhcp_server_relay_target)
 DHCPServer.RelayAgentCircuitId,              config_parse_dhcp_server_relay_agent_suboption,           0,                             offsetof(Network, dhcp_server_relay_agent_circuit_id)
 DHCPServer.RelayAgentRemoteId,               config_parse_dhcp_server_relay_agent_suboption,           0,                             offsetof(Network, dhcp_server_relay_agent_remote_id)
 DHCPServer.MaxLeaseTimeSec,                  config_parse_sec,                                         0,                             offsetof(Network, dhcp_server_max_lease_time_usec)
@@ -286,6 +291,8 @@ DHCPServer.PoolSize,                         config_parse_uint32,               
 DHCPServer.SendVendorOption,                 config_parse_dhcp_send_option,                            0,                             offsetof(Network, dhcp_server_send_vendor_options)
 DHCPServer.SendOption,                       config_parse_dhcp_send_option,                            0,                             offsetof(Network, dhcp_server_send_options)
 DHCPServer.BindToInterface,                  config_parse_bool,                                        0,                             offsetof(Network, dhcp_server_bind_to_interface)
+DHCPServerStaticLease.Address,               config_parse_dhcp_static_lease_address,                   0,                             0
+DHCPServerStaticLease.MACAddress,            config_parse_dhcp_static_lease_hwaddr,                    0,                             0
 Bridge.Cost,                                 config_parse_uint32,                                      0,                             offsetof(Network, cost)
 Bridge.UseBPDU,                              config_parse_tristate,                                    0,                             offsetof(Network, use_bpdu)
 Bridge.HairPin,                              config_parse_tristate,                                    0,                             offsetof(Network, hairpin)
@@ -305,6 +312,7 @@ BridgeFDB.VLANId,                            config_parse_fdb_vlan_id,          
 BridgeFDB.Destination,                       config_parse_fdb_destination,                             0,                             0
 BridgeFDB.VNI,                               config_parse_fdb_vxlan_vni,                               0,                             0
 BridgeFDB.AssociatedWith,                    config_parse_fdb_ntf_flags,                               0,                             0
+BridgeFDB.OutgoingInterface,                 config_parse_fdb_interface,                               0,                             0
 BridgeMDB.MulticastGroupAddress,             config_parse_mdb_group_address,                           0,                             0
 BridgeMDB.VLANId,                            config_parse_mdb_vlan_id,                                 0,                             0
 BridgeVLAN.PVID,                             config_parse_brvlan_pvid,                                 0,                             0
@@ -314,7 +322,7 @@ DHCPv6PrefixDelegation.SubnetId,             config_parse_dhcp6_pd_subnet_id,   
 DHCPv6PrefixDelegation.Announce,             config_parse_bool,                                        0,                             offsetof(Network, dhcp6_pd_announce)
 DHCPv6PrefixDelegation.Assign,               config_parse_bool,                                        0,                             offsetof(Network, dhcp6_pd_assign)
 DHCPv6PrefixDelegation.ManageTemporaryAddress, config_parse_bool,                                      0,                             offsetof(Network, dhcp6_pd_manage_temporary_address)
-DHCPv6PrefixDelegation.Token,                config_parse_dhcp6_pd_token,                              0,                             offsetof(Network, dhcp6_pd_token)
+DHCPv6PrefixDelegation.Token,                config_parse_in_addr_non_null,                            AF_INET6,                      offsetof(Network, dhcp6_pd_token)
 DHCPv6PrefixDelegation.RouteMetric,          config_parse_uint32,                                      0,                             offsetof(Network, dhcp6_pd_route_metric)
 IPv6SendRA.RouterLifetimeSec,                config_parse_sec,                                         0,                             offsetof(Network, router_lifetime_usec)
 IPv6SendRA.Managed,                          config_parse_bool,                                        0,                             offsetof(Network, router_managed)

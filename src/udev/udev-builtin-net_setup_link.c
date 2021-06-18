@@ -8,12 +8,12 @@
 #include "string-util.h"
 #include "udev-builtin.h"
 
-static link_config_ctx *ctx = NULL;
+static LinkConfigContext *ctx = NULL;
 
 static int builtin_net_setup_link(sd_device *dev, int argc, char **argv, bool test) {
         _cleanup_free_ char *driver = NULL;
         const char *name = NULL;
-        link_config *link;
+        LinkConfig *link;
         int r;
 
         if (argc > 1)
@@ -69,8 +69,7 @@ static int builtin_net_setup_link_init(void) {
 }
 
 static void builtin_net_setup_link_exit(void) {
-        link_config_ctx_free(ctx);
-        ctx = NULL;
+        ctx = link_config_ctx_free(ctx);
         log_debug("Unloaded link configuration context.");
 }
 

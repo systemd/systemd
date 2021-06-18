@@ -169,6 +169,9 @@ typedef enum UserRecordLoadFlags {
 
         /* Whether to ignore errors and load what we can */
         USER_RECORD_PERMISSIVE          = 1U << 29,
+
+        /* Whether an empty record is OK */
+        USER_RECORD_EMPTY_OK            = 1U << 30,
 } UserRecordLoadFlags;
 
 static inline UserRecordLoadFlags USER_RECORD_REQUIRE(UserRecordMask m) {
@@ -233,6 +236,9 @@ typedef struct Fido2HmacSalt {
 
         /* What to test the hashed salt value against, usually UNIX password hash here. */
         char *hashed_password;
+
+        /* Whether the 'up', 'uv', 'clientPin' features are enabled. */
+        int uv, up, client_pin;
 } Fido2HmacSalt;
 
 typedef struct RecoveryKey {
@@ -368,6 +374,7 @@ typedef struct UserRecord {
         Fido2HmacSalt *fido2_hmac_salt;
         size_t n_fido2_hmac_salt;
         int fido2_user_presence_permitted;
+        int fido2_user_verification_permitted;
 
         char **recovery_key_type;
         RecoveryKey *recovery_key;

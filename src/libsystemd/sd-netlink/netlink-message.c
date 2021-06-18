@@ -494,7 +494,7 @@ int sd_netlink_message_append_ether_addr(sd_netlink_message *m, unsigned short t
         return 0;
 }
 
-int netlink_message_append_hw_addr(sd_netlink_message *m, unsigned short type, const hw_addr_data *data) {
+int netlink_message_append_hw_addr(sd_netlink_message *m, unsigned short type, const struct hw_addr_data *data) {
         int r;
 
         assert_return(m, -EINVAL);
@@ -506,7 +506,7 @@ int netlink_message_append_hw_addr(sd_netlink_message *m, unsigned short type, c
         if (r < 0)
                 return r;
 
-        r = add_rtattr(m, type, data->addr.bytes, data->length);
+        r = add_rtattr(m, type, data->bytes, data->length);
         if (r < 0)
                 return r;
 
@@ -886,7 +886,7 @@ int sd_netlink_message_read_ether_addr(sd_netlink_message *m, unsigned short typ
         return 0;
 }
 
-int netlink_message_read_hw_addr(sd_netlink_message *m, unsigned short type, hw_addr_data *data) {
+int netlink_message_read_hw_addr(sd_netlink_message *m, unsigned short type, struct hw_addr_data *data) {
         int r;
         void *attr_data;
 
@@ -899,11 +899,11 @@ int netlink_message_read_hw_addr(sd_netlink_message *m, unsigned short type, hw_
         r = netlink_message_read_internal(m, type, &attr_data, NULL);
         if (r < 0)
                 return r;
-        else if ((size_t) r > sizeof(union hw_addr_union))
+        else if (r > HW_ADDR_MAX_SIZE)
                 return -EIO;
 
         if (data) {
-                memcpy(data->addr.bytes, attr_data, r);
+                memcpy(data->bytes, attr_data, r);
                 data->length = r;
         }
 
@@ -1064,7 +1064,7 @@ static int netlink_container_parse(sd_netlink_message *m,
                                    struct rtattr *rta,
                                    size_t rt_len) {
         _cleanup_free_ struct netlink_attribute *attributes = NULL;
-        size_t n_allocated = 0;
+        size_t n = 0;
 
         /* RTA_OK() macro compares with rta->rt_len, which is unsigned short, and
          * LGTM.com analysis does not like the type difference. Hence, here we
@@ -1075,7 +1075,7 @@ static int netlink_container_parse(sd_netlink_message *m,
 
                 type = RTA_TYPE(rta);
 
-                if (!GREEDY_REALLOC0(attributes, n_allocated, type + 1))
+                if (!GREEDY_REALLOC0(attributes, type + 1))
                         return -ENOMEM;
 
                 if (attributes[type].offset != 0)
@@ -1084,10 +1084,13 @@ static int netlink_container_parse(sd_netlink_message *m,
                 attributes[type].offset = (uint8_t *) rta - (uint8_t *) m->hdr;
                 attributes[type].nested = RTA_FLAGS(rta) & NLA_F_NESTED;
                 attributes[type].net_byteorder = RTA_FLAGS(rta) & NLA_F_NET_BYTEORDER;
+
+                if (type + 1U > n)
+                        n = type + 1U;
         }
 
         container->attributes = TAKE_PTR(attributes);
-        container->n_attributes = n_allocated;
+        container->n_attributes = n;
 
         return 0;
 }

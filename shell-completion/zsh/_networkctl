@@ -1,4 +1,4 @@
-#compdef networkctl                    -*- shell-script -*-
+#compdef networkctl
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
 (( $+functions[_networkctl_commands] )) ||
@@ -39,10 +39,18 @@
         fi
     }
 
+(( $+functions[_networkctl_get_json] )) || _networkctl_get_json()
+{
+    local -a _json_forms
+    _json_forms=( $(networkctl --json=help 2>/dev/null) )
+    _values 'format' $_json_forms
+}
+
 _arguments \
     {-a,--all}'[Show all links with status]' \
     '--no-pager[Do not pipe output into a pager]' \
     '--no-legend[Do not print the column headers]' \
     {-h,--help}'[Show this help]' \
     '--version[Show package version]' \
+    '--json[Shows output formatted as JSON]:format:_networkctl_get_json' \
     '*::networkctl commands:_networkctl_commands'

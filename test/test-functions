@@ -104,6 +104,7 @@ fi
 
 BASICTOOLS=(
     awk
+    base64
     basename
     bash
     busybox
@@ -863,6 +864,7 @@ install_modules() {
 
     instmods loop
     instmods vfat
+    instmods dummy
 
     if [[ "$LOOKS_LIKE_SUSE" ]]; then
         instmods ext4
@@ -964,7 +966,7 @@ install_missing_libraries() {
     local lib path
     # A number of dependencies is now optional via dlopen, so the install
     # script will not pick them up, since it looks at linkage.
-    for lib in libcryptsetup libidn libidn2 pwquality libqrencode tss2-esys tss2-rc tss2-mu libfido2; do
+    for lib in libcryptsetup libidn libidn2 pwquality libqrencode tss2-esys tss2-rc tss2-mu libfido2 libbpf; do
         ddebug "Searching for $lib via pkg-config"
         if pkg-config --exists "$lib"; then
                 path="$(pkg-config --variable=libdir "$lib")"
@@ -1004,11 +1006,13 @@ create_empty_image() {
     fi
 
     local size=500
-    if meson configure "${BUILD_DIR:?}" | grep 'static-lib\|standalone-binaries' | awk '{ print $2 }' | grep -q 'true'; then
-        size=$((size+=200))
-    fi
-    if meson configure "${BUILD_DIR:?}" | grep 'link-.*-shared' | awk '{ print $2 }' | grep -q 'false'; then
-        size=$((size+=200))
+    if [ -z "$NO_BUILD" ]; then
+        if meson configure "${BUILD_DIR:?}" | grep 'static-lib\|standalone-binaries' | awk '{ print $2 }' | grep -q 'true'; then
+            size=$((size+=200))
+        fi
+        if meson configure "${BUILD_DIR:?}" | grep 'link-.*-shared' | awk '{ print $2 }' | grep -q 'false'; then
+            size=$((size+=200))
+        fi
     fi
     if [[ "$STRIP_BINARIES" = "no" ]]; then
         size=$((4 * size))
@@ -2032,7 +2036,7 @@ inst_rule_programs() {
     local rule="${1:?}"
     local prog bin
 
-    awk 'match($0, /PROGRAM==?"([^ "]+)/, m) { print m[1]; }' "$rule" | while read -r prog; do
+    sed -rn 's/^.*?PROGRAM==?"([^ "]+).*$/\1/p' "$rule" | while read -r prog; do
         if [ -x "/lib/udev/$prog" ]; then
             bin="/lib/udev/$prog"
         else

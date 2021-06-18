@@ -610,7 +610,7 @@ static int parse_fstab(bool initrd) {
                         return log_oom();
 
                 if (is_path(where)) {
-                        path_simplify(where, false);
+                        path_simplify(where);
 
                         /* Follow symlinks here; see 5261ba901845c084de5a8fd06500ed09bfb0bd80 which makes sense for
                          * mount units, but causes problems since it historically worked to have symlinks in e.g.
@@ -881,7 +881,7 @@ static int add_volatile_root(void) {
                 return 0;
 
         return generator_add_symlink(arg_dest, SPECIAL_INITRD_ROOT_FS_TARGET, "requires",
-                                     SYSTEM_DATA_UNIT_PATH "/" SPECIAL_VOLATILE_ROOT_SERVICE);
+                                     SYSTEM_DATA_UNIT_DIR "/" SPECIAL_VOLATILE_ROOT_SERVICE);
 }
 
 static int add_volatile_var(void) {

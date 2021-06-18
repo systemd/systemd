@@ -34,7 +34,10 @@ int readlink_value(const char *p, char **ret);
 int readlink_and_make_absolute(const char *p, char **r);
 
 int chmod_and_chown(const char *path, mode_t mode, uid_t uid, gid_t gid);
-int fchmod_and_chown(int fd, mode_t mode, uid_t uid, gid_t gid);
+int fchmod_and_chown_with_fallback(int fd, const char *path, mode_t mode, uid_t uid, gid_t gid);
+static inline int fchmod_and_chown(int fd, mode_t mode, uid_t uid, gid_t gid) {
+        return fchmod_and_chown_with_fallback(fd, NULL, mode, uid, gid); /* no fallback */
+}
 
 int fchmod_umask(int fd, mode_t mode);
 int fchmod_opath(int fd, mode_t m);
@@ -90,6 +93,8 @@ enum {
                                      * right-most component refers to symlink, return O_PATH fd of the symlink. */
         CHASE_WARN        = 1 << 7, /* Emit an appropriate warning when an error is encountered */
 };
+
+bool unsafe_transition(const struct stat *a, const struct stat *b);
 
 /* How many iterations to execute before returning -ELOOP */
 #define CHASE_SYMLINKS_MAX 32

@@ -127,7 +127,7 @@ int journal_directory_vacuum(
                 bool verbose) {
 
         uint64_t sum = 0, freed = 0, n_active_files = 0;
-        size_t n_list = 0, n_allocated = 0, i;
+        size_t n_list = 0, i;
         _cleanup_closedir_ DIR *d = NULL;
         struct vacuum_info *list = NULL;
         usec_t retention_limit = 0;
@@ -206,6 +206,9 @@ int journal_directory_vacuum(
                 } else if (endswith(de->d_name, ".journal~")) {
                         unsigned long long tmp;
 
+                        /* seqnum_id won't be initialised before use below, so set to 0 */
+                        seqnum_id = SD_ID128_NULL;
+
                         /* Vacuum corrupted files */
 
                         if (q < 1 + 16 + 1 + 16 + 8 + 1) {
@@ -262,7 +265,7 @@ int journal_directory_vacuum(
 
                 patch_realtime(dirfd(d), p, &st, &realtime);
 
-                if (!GREEDY_REALLOC(list, n_allocated, n_list + 1)) {
+                if (!GREEDY_REALLOC(list, n_list + 1)) {
                         r = -ENOMEM;
                         goto finish;
                 }

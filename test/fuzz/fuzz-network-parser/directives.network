@@ -58,6 +58,7 @@ MACAddress=
 Destination=
 VNI=
 AssociatedWith=
+OutgoingInterface=
 [BridgeMDB]
 MulticastGroupAddress=
 VLANId=
@@ -221,6 +222,7 @@ L2TP=
 MACsec=
 LinkLocalAddressing=
 IPv6LinkLocalAddressGenerationMode=
+IPv6StableSecretAddress=
 ConfigureWithoutCarrier=
 NTP=
 DHCP=
@@ -364,12 +366,18 @@ BindToInterface=
 RelayTarget=
 RelayAgentCircuitId=
 RelayAgentRemoteId=
+ServerAddress=
+UplinkInterface=
+[DHCPServerStaticLease]
+MACAddress=
+Address=
 [NextHop]
 Id=
 Gateway=
 Family=
 OnLink=
 Blackhole=
+Group=
 [QDisc]
 Parent=
 Handle=

@@ -247,6 +247,7 @@ typedef struct UnitStatusInfo {
         uint64_t memory_max;
         uint64_t memory_swap_max;
         uint64_t memory_limit;
+        uint64_t memory_available;
         uint64_t cpu_usage_nsec;
         uint64_t tasks_current;
         uint64_t tasks_max;
@@ -324,7 +325,7 @@ static void print_status_info(
         printf("\n");
 
         if (i->following)
-                printf("   Follow: unit currently follows state of %s\n", i->following);
+                printf("    Follows: unit currently follows state of %s\n", i->following);
 
         if (STRPTR_IN_SET(i->load_state, "error", "not-found", "bad-setting")) {
                 on = ansi_highlight_red();
@@ -682,6 +683,7 @@ static void print_status_info(
                 if (i->memory_min > 0 || i->memory_low > 0 ||
                     i->memory_high != CGROUP_LIMIT_MAX || i->memory_max != CGROUP_LIMIT_MAX ||
                     i->memory_swap_max != CGROUP_LIMIT_MAX ||
+                    i->memory_available != CGROUP_LIMIT_MAX ||
                     i->memory_limit != CGROUP_LIMIT_MAX) {
                         const char *prefix = "";
 
@@ -708,6 +710,10 @@ static void print_status_info(
                         }
                         if (i->memory_limit != CGROUP_LIMIT_MAX) {
                                 printf("%slimit: %s", prefix, format_bytes(buf, sizeof(buf), i->memory_limit));
+                                prefix = " ";
+                        }
+                        if (i->memory_available != CGROUP_LIMIT_MAX) {
+                                printf("%savailable: %s", prefix, format_bytes(buf, sizeof(buf), i->memory_available));
                                 prefix = " ";
                         }
                         printf(")");
@@ -1659,14 +1665,9 @@ static int print_property(const char *name, const char *expected_value, sd_bus_m
                                 if (r < 0)
                                         return r;
 
-                                while ((r = sd_bus_message_read(m, "(ss)", &partition, &mount_options)) > 0) {
-                                        _cleanup_free_ char *previous = NULL;
-
-                                        previous = TAKE_PTR(str);
-                                        str = strjoin(strempty(previous), previous ? ":" : "", partition, ":", mount_options);
-                                        if (!str)
+                                while ((r = sd_bus_message_read(m, "(ss)", &partition, &mount_options)) > 0)
+                                        if (!strextend_with_separator(&str, ":", partition, ":", mount_options))
                                                 return log_oom();
-                                }
                                 if (r < 0)
                                         return r;
 
@@ -1711,12 +1712,12 @@ static int print_property(const char *name, const char *expected_value, sd_bus_m
                         return 1;
                 } else if (STR_IN_SET(name, "SocketBindAllow", "SocketBindDeny")) {
                         uint16_t nr_ports, port_min;
-                        int af;
+                        int32_t af, ip_protocol;
 
-                        r = sd_bus_message_enter_container(m, SD_BUS_TYPE_ARRAY, "(iqq)");
+                        r = sd_bus_message_enter_container(m, SD_BUS_TYPE_ARRAY, "(iiqq)");
                         if (r < 0)
                                 return bus_log_parse_error(r);
-                        while ((r = sd_bus_message_read(m, "(iqq)", &af, &nr_ports, &port_min)) > 0) {
+                        while ((r = sd_bus_message_read(m, "(iiqq)", &af, &ip_protocol, &nr_ports, &port_min)) > 0) {
                                 const char *family, *colon;
 
                                 family = strempty(af_to_ipv4_ipv6(af));
@@ -1832,6 +1833,7 @@ static int show_one(
                 { "Where",                          "s",               NULL,           offsetof(UnitStatusInfo, where)                             },
                 { "What",                           "s",               NULL,           offsetof(UnitStatusInfo, what)                              },
                 { "MemoryCurrent",                  "t",               NULL,           offsetof(UnitStatusInfo, memory_current)                    },
+                { "MemoryAvailable",                "t",               NULL,           offsetof(UnitStatusInfo, memory_available)                  },
                 { "DefaultMemoryMin",               "t",               NULL,           offsetof(UnitStatusInfo, default_memory_min)                },
                 { "DefaultMemoryLow",               "t",               NULL,           offsetof(UnitStatusInfo, default_memory_low)                },
                 { "MemoryMin",                      "t",               NULL,           offsetof(UnitStatusInfo, memory_min)                        },
@@ -1874,6 +1876,7 @@ static int show_one(
                 .memory_max = CGROUP_LIMIT_MAX,
                 .memory_swap_max = CGROUP_LIMIT_MAX,
                 .memory_limit = UINT64_MAX,
+                .memory_available = CGROUP_LIMIT_MAX,
                 .cpu_usage_nsec = UINT64_MAX,
                 .tasks_current = UINT64_MAX,
                 .tasks_max = UINT64_MAX,

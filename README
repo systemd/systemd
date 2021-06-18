@@ -14,7 +14,7 @@ MAILING LIST:
         https://lists.freedesktop.org/mailman/listinfo/systemd-devel
 
 IRC:
-        #systemd on irc.freenode.org
+        #systemd on irc.libera.chat
 
 BUG REPORTS:
         https://github.com/systemd/systemd/issues
@@ -190,11 +190,12 @@ REQUIREMENTS:
         gperf
         docbook-xsl (optional, required for documentation)
         xsltproc    (optional, required for documentation)
+        python-jinja2
         python-lxml (optional, required to build the indices)
         python >= 3.5
         meson >= 0.46 (>= 0.49 is required to build position-independent executables)
         ninja
-        gcc, awk, sed, grep, m4, and similar tools
+        gcc, awk, sed, grep, and similar tools
         clang >= 10.0, llvm >= 10.0 (optional, required to build BPF programs
                 from source code in C)
 
@@ -356,8 +357,3 @@ STABLE BRANCHES AND BACKPORTS:
         distribution maintainers on an as needed basis. See
         https://www.freedesktop.org/wiki/Software/systemd/Backports/ for some
         more information and examples.
-
-ENGINEERING AND CONSULTING SERVICES:
-        Kinvolk (https://kinvolk.io) offers professional engineering
-        and consulting services for systemd. Please contact Chris Kühl
-        <chris@kinvolk.io> for more information.

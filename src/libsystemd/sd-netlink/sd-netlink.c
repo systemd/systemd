@@ -63,8 +63,7 @@ static int sd_netlink_new(sd_netlink **ret) {
 
         /* We guarantee that the read buffer has at least space for
          * a message header */
-        if (!greedy_realloc((void**)&rtnl->rbuffer, &rtnl->rbuffer_allocated,
-                            sizeof(struct nlmsghdr), sizeof(uint8_t)))
+        if (!greedy_realloc((void**)&rtnl->rbuffer, sizeof(struct nlmsghdr), sizeof(uint8_t)))
                 return -ENOMEM;
 
         *ret = TAKE_PTR(rtnl);
@@ -126,9 +125,13 @@ int sd_netlink_open_fd(sd_netlink **ret, int fd) {
         rtnl->fd = fd;
         rtnl->protocol = protocol;
 
-        r = setsockopt_int(fd, SOL_NETLINK, NETLINK_EXT_ACK, 1);
+        r = setsockopt_int(fd, SOL_NETLINK, NETLINK_EXT_ACK, true);
         if (r < 0)
                 log_debug_errno(r, "sd-netlink: Failed to enable NETLINK_EXT_ACK option, ignoring: %m");
+
+        r = setsockopt_int(fd, SOL_NETLINK, NETLINK_GET_STRICT_CHK, true);
+        if (r < 0)
+                log_debug_errno(r, "sd-netlink: Failed to enable NETLINK_GET_STRICT_CHK option, ignoring: %m");
 
         r = socket_bind(rtnl);
         if (r < 0) {
@@ -295,7 +298,7 @@ int rtnl_rqueue_make_room(sd_netlink *rtnl) {
                                        "rtnl: exhausted the read queue size (%d)",
                                        RTNL_RQUEUE_MAX);
 
-        if (!GREEDY_REALLOC(rtnl->rqueue, rtnl->rqueue_allocated, rtnl->rqueue_size + 1))
+        if (!GREEDY_REALLOC(rtnl->rqueue, rtnl->rqueue_size + 1))
                 return -ENOMEM;
 
         return 0;
@@ -309,8 +312,7 @@ int rtnl_rqueue_partial_make_room(sd_netlink *rtnl) {
                                        "rtnl: exhausted the partial read queue size (%d)",
                                        RTNL_RQUEUE_MAX);
 
-        if (!GREEDY_REALLOC(rtnl->rqueue_partial, rtnl->rqueue_partial_allocated,
-                            rtnl->rqueue_partial_size + 1))
+        if (!GREEDY_REALLOC(rtnl->rqueue_partial, rtnl->rqueue_partial_size + 1))
                 return -ENOMEM;
 
         return 0;

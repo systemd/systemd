@@ -25,7 +25,7 @@
 
 #include "sha256.h"
 
-#if __BYTE_ORDER == __LITTLE_ENDIAN
+#if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
 # define SWAP(n)                                                        \
         (((n) << 24) | (((n) & 0xff00) << 8) | (((n) >> 8) & 0xff00) | ((n) >> 24))
 # define SWAP64(n)                              \
@@ -143,9 +143,12 @@ void sha256_process_bytes(const void *buffer, UINTN len, struct sha256_ctx *ctx)
 
         /* Process available complete blocks.  */
         if (len >= 64) {
-#if !_STRING_ARCH_unaligned
-/* To check alignment gcc has an appropriate operator.  Other
-   compilers don't.  */
+
+/* The condition below is from glibc's string/string-inline.c.
+ * See definition of _STRING_INLINE_unaligned. */
+#if !defined(__mc68020__) && !defined(__s390__) && !defined(__i386__)
+
+/* To check alignment gcc has an appropriate operator. Other compilers don't.  */
 # if __GNUC__ >= 2
 #  define UNALIGNED_P(p) (((UINTN) p) % __alignof__ (UINT32) != 0)
 # else

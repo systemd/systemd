@@ -236,6 +236,29 @@ int log_emergency_level(void);
 #define log_error_errno(error, ...)     log_full_errno(LOG_ERR,     error, __VA_ARGS__)
 #define log_emergency_errno(error, ...) log_full_errno(log_emergency_level(), error, __VA_ARGS__)
 
+/* This logs at the specified level the first time it is called, and then
+ * logs at debug. If the specified level is debug, this logs only the first
+ * time it is called. */
+#define log_once(level, ...)                                             \
+        ({                                                               \
+                if (ONCE)                                                \
+                        log_full(level, __VA_ARGS__);                    \
+                else if (LOG_PRI(level) != LOG_DEBUG)                    \
+                        log_debug(__VA_ARGS__);                          \
+        })
+
+#define log_once_errno(level, error, ...)                                \
+        ({                                                               \
+                int _err = (error);                                      \
+                if (ONCE)                                                \
+                        _err = log_full_errno(level, _err, __VA_ARGS__); \
+                else if (LOG_PRI(level) != LOG_DEBUG)                    \
+                        _err = log_debug_errno(_err, __VA_ARGS__);       \
+                else                                                     \
+                        _err = -ERRNO_VALUE(_err);                       \
+                _err;                                                    \
+        })
+
 #if LOG_TRACE
 #  define log_trace(...) log_debug(__VA_ARGS__)
 #else

@@ -8,7 +8,7 @@
 #
 # Minimum rpm version supported: 4.14.0
 
-%transfiletriggerin -P 900900 -p <lua> -- @systemunitdir@ /etc/systemd/system
+%transfiletriggerin -P 900900 -p <lua> -- {{SYSTEM_DATA_UNIT_DIR}} /etc/systemd/system
 -- This script will run after any package is initially installed or
 -- upgraded. We care about the case where a package is initially
 -- installed, because other cases are covered by the *un scriptlets,
@@ -29,7 +29,7 @@ if posix.access("/run/systemd/system") then
     end
 end
 
-%transfiletriggerpostun -P 1000100 -p <lua> -- @systemunitdir@ /etc/systemd/system
+%transfiletriggerpostun -P 1000100 -p <lua> -- {{SYSTEM_DATA_UNIT_DIR}} /etc/systemd/system
 -- On removal, we need to run daemon-reload after any units have been
 -- removed.
 -- On upgrade, we need to run daemon-reload after any new unit files
@@ -44,7 +44,7 @@ if posix.access("/run/systemd/system") then
     end
 end
 
-%transfiletriggerpostun -P 10000 -p <lua> -- @systemunitdir@ /etc/systemd/system
+%transfiletriggerpostun -P 10000 -p <lua> -- {{SYSTEM_DATA_UNIT_DIR}} /etc/systemd/system
 -- We restart remaining services that should be restarted here.
 if posix.access("/run/systemd/system") then
     pid = posix.fork()
@@ -55,8 +55,8 @@ if posix.access("/run/systemd/system") then
     end
 end
 
-%transfiletriggerin -P 100700 -p <lua> -- @sysusersdir@
--- This script will process files installed in @sysusersdir@ to create
+%transfiletriggerin -P 100700 -p <lua> -- {{SYSUSERS_DIR}}
+-- This script will process files installed in {{SYSUSERS_DIR}} to create
 -- specified users automatically. The priority is set such that it
 -- will run before the tmpfiles file trigger.
 if posix.access("/run/systemd/system") then
@@ -68,9 +68,9 @@ if posix.access("/run/systemd/system") then
     end
 end
 
-%transfiletriggerin -P 1000700 udev -p <lua> -- @udevhwdbdir@
+%transfiletriggerin -P 1000700 udev -p <lua> -- {{UDEV_HWDB_DIR}}
 -- This script will automatically invoke hwdb update if files have been
--- installed or updated in @udevhwdbdir@.
+-- installed or updated in {{UDEV_HWDB_DIR}}.
 if posix.access("/run/systemd/system") then
     pid = posix.fork()
     if pid == 0 then
@@ -80,9 +80,9 @@ if posix.access("/run/systemd/system") then
     end
 end
 
-%transfiletriggerin -P 1000700 -p <lua> -- @catalogdir@
+%transfiletriggerin -P 1000700 -p <lua> -- {{SYSTEMD_CATALOG_DIR}}
 -- This script will automatically invoke journal catalog update if files
--- have been installed or updated in @catalogdir@.
+-- have been installed or updated in {{SYSTEMD_CATALOG_DIR}}.
 if posix.access("/run/systemd/system") then
     pid = posix.fork()
     if pid == 0 then
@@ -92,20 +92,20 @@ if posix.access("/run/systemd/system") then
     end
 end
 
-%transfiletriggerin -P 1000700 -p <lua> -- @binfmtdir@
+%transfiletriggerin -P 1000700 -p <lua> -- {{BINFMT_DIR}}
 -- This script will automatically apply binfmt rules if files have been
--- installed or updated in @binfmtdir@.
+-- installed or updated in {{BINFMT_DIR}}.
 if posix.access("/run/systemd/system") then
     pid = posix.fork()
     if pid == 0 then
-        assert(posix.exec("@rootlibexecdir@/systemd-binfmt"))
+        assert(posix.exec("{{ROOTLIBEXECDIR}}/systemd-binfmt"))
     elseif pid > 0 then
         posix.wait(pid)
     end
 end
 
-%transfiletriggerin -P 1000600 -p <lua> -- @tmpfilesdir@
--- This script will process files installed in @tmpfilesdir@ to create
+%transfiletriggerin -P 1000600 -p <lua> -- {{TMPFILES_DIR}}
+-- This script will process files installed in {{TMPFILES_DIR}} to create
 -- tmpfiles automatically. The priority is set such that it will run
 -- after the sysusers file trigger, but before any other triggers.
 if posix.access("/run/systemd/system") then
@@ -117,9 +117,9 @@ if posix.access("/run/systemd/system") then
     end
 end
 
-%transfiletriggerin -P 1000600 udev -p <lua> -- @udevrulesdir@
+%transfiletriggerin -P 1000600 udev -p <lua> -- {{UDEV_RULES_DIR}}
 -- This script will automatically update udev with new rules if files
--- have been installed or updated in @udevrulesdir@.
+-- have been installed or updated in {{UDEV_RULES_DIR}}.
 if posix.access("/run/systemd/system") then
     pid = posix.fork()
     if pid == 0 then
@@ -129,13 +129,13 @@ if posix.access("/run/systemd/system") then
     end
 end
 
-%transfiletriggerin -P 1000500 -p <lua> -- @sysctldir@
+%transfiletriggerin -P 1000500 -p <lua> -- {{SYSCTL_DIR}}
 -- This script will automatically apply sysctl rules if files have been
--- installed or updated in @sysctldir@.
+-- installed or updated in {{SYSCTL_DIR}}.
 if posix.access("/run/systemd/system") then
     pid = posix.fork()
     if pid == 0 then
-        assert(posix.exec("@rootlibexecdir@/systemd-sysctl"))
+        assert(posix.exec("{{ROOTLIBEXECDIR}}/systemd-sysctl"))
     elseif pid > 0 then
         posix.wait(pid)
     end

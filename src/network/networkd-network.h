@@ -12,11 +12,10 @@
 #include "hashmap.h"
 #include "net-condition.h"
 #include "netdev.h"
-#include "networkd-brvlan.h"
+#include "networkd-bridge-vlan.h"
 #include "networkd-dhcp-common.h"
 #include "networkd-dhcp4.h"
 #include "networkd-dhcp6.h"
-#include "networkd-dhcp-server.h"
 #include "networkd-lldp-rx.h"
 #include "networkd-lldp-tx.h"
 #include "networkd-ndisc.h"
@@ -97,6 +96,7 @@ struct Network {
         struct ether_addr *mac;
         uint32_t mtu;
         uint32_t group;
+        bool group_set;
         int arp;
         int multicast;
         int allmulticast;
@@ -160,7 +160,7 @@ struct Network {
         OrderedHashmap *dhcp_client_send_options;
         OrderedHashmap *dhcp_client_send_vendor_options;
 
-        /* DHCPv6 Client support*/
+        /* DHCPv6 Client support */
         bool dhcp6_use_address;
         bool dhcp6_use_dns;
         bool dhcp6_use_dns_set;
@@ -189,10 +189,13 @@ struct Network {
         /* DHCP Server Support */
         bool dhcp_server;
         bool dhcp_server_bind_to_interface;
+        unsigned char dhcp_server_address_prefixlen;
+        struct in_addr dhcp_server_address;
+        int dhcp_server_uplink_index;
+        char *dhcp_server_uplink_name;
         struct in_addr dhcp_server_relay_target;
         char *dhcp_server_relay_agent_circuit_id;
         char *dhcp_server_relay_agent_remote_id;
-
         NetworkDHCPServerEmitAddress dhcp_server_emit[_SD_DHCP_LEASE_SERVER_TYPE_MAX];
         bool dhcp_server_emit_router;
         bool dhcp_server_emit_timezone;
@@ -206,6 +209,7 @@ struct Network {
         /* link local addressing support */
         AddressFamily link_local;
         IPv6LinkLocalAddressGenMode ipv6ll_address_gen_mode;
+        struct in6_addr ipv6ll_stable_secret;
         bool ipv4ll_route;
 
         /* IPv6 RA support */
@@ -306,13 +310,14 @@ struct Network {
         OrderedHashmap *addresses_by_section;
         Hashmap *routes_by_section;
         Hashmap *nexthops_by_section;
-        Hashmap *fdb_entries_by_section;
-        Hashmap *mdb_entries_by_section;
+        Hashmap *bridge_fdb_entries_by_section;
+        Hashmap *bridge_mdb_entries_by_section;
         Hashmap *neighbors_by_section;
         Hashmap *address_labels_by_section;
         Hashmap *prefixes_by_section;
         Hashmap *route_prefixes_by_section;
         Hashmap *rules_by_section;
+        Hashmap *dhcp_static_leases_by_section;
         OrderedHashmap *tc_by_section;
         OrderedHashmap *sr_iov_by_section;
 
@@ -341,11 +346,6 @@ int network_load_one(Manager *manager, OrderedHashmap **networks, const char *fi
 int network_verify(Network *network);
 
 int network_get_by_name(Manager *manager, const char *name, Network **ret);
-int network_get(Manager *manager, unsigned short iftype, sd_device *device,
-                const char *ifname, char * const *alternative_names, const char *driver,
-                const struct ether_addr *mac, const struct ether_addr *permanent_mac,
-                enum nl80211_iftype wlan_iftype, const char *ssid, const struct ether_addr *bssid,
-                Network **ret);
 void network_apply_anonymize_if_set(Network *network);
 
 bool network_has_static_ipv6_configurations(Network *network);
@@ -363,6 +363,7 @@ CONFIG_PARSER_PROTOTYPE(config_parse_required_family_for_online);
 CONFIG_PARSER_PROTOTYPE(config_parse_keep_configuration);
 CONFIG_PARSER_PROTOTYPE(config_parse_ipv6_link_local_address_gen_mode);
 CONFIG_PARSER_PROTOTYPE(config_parse_activation_policy);
+CONFIG_PARSER_PROTOTYPE(config_parse_link_group);
 
 const struct ConfigPerfItem* network_network_gperf_lookup(const char *key, GPERF_LEN_TYPE length);
 

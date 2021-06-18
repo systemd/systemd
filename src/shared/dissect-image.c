@@ -238,6 +238,7 @@ static int find_partition(
                 sd_device *parent,
                 blkid_partition pp,
                 usec_t timestamp_not_before,
+                DissectImageFlags flags,
                 sd_device **ret) {
 
         _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
@@ -255,15 +256,17 @@ static int find_partition(
         FOREACH_DEVICE(e, q) {
                 uint64_t usec;
 
-                r = sd_device_get_usec_initialized(q, &usec);
-                if (r == -EBUSY) /* Not initialized yet */
-                        continue;
-                if (r < 0)
-                        return r;
+                if (!FLAGS_SET(flags, DISSECT_IMAGE_NO_UDEV)) {
+                        r = sd_device_get_usec_initialized(q, &usec);
+                        if (r == -EBUSY) /* Not initialized yet */
+                                continue;
+                        if (r < 0)
+                                return r;
 
-                if (timestamp_not_before != USEC_INFINITY &&
-                    usec < timestamp_not_before) /* udev database entry older than our attachment? Then it's not ours */
-                        continue;
+                        if (timestamp_not_before != USEC_INFINITY &&
+                            usec < timestamp_not_before) /* udev database entry older than our attachment? Then it's not ours */
+                                continue;
+                }
 
                 r = device_is_partition(q, parent, pp);
                 if (r < 0)
@@ -282,6 +285,8 @@ struct wait_data {
         blkid_partition blkidp;
         sd_device *found;
         uint64_t uevent_seqnum_not_before;
+        usec_t timestamp_not_before;
+        DissectImageFlags flags;
 };
 
 static inline void wait_data_done(struct wait_data *d) {
@@ -326,15 +331,59 @@ finish:
         return sd_event_exit(sd_device_monitor_get_event(monitor), r);
 }
 
+static int timeout_handler(sd_event_source *s, uint64_t usec, void *userdata) {
+        struct wait_data *w = userdata;
+        int r;
+
+        assert(w);
+
+        /* Why partition not appeared within the timeout? We may lost some uevent, as some properties
+         * were not ready when we received uevent... Not sure, but anyway, let's try to find the
+         * partition again before give up. */
+
+        r = find_partition(w->parent_device, w->blkidp, w->timestamp_not_before, w->flags, &w->found);
+        if (r == -ENXIO)
+                return log_debug_errno(SYNTHETIC_ERRNO(ETIMEDOUT),
+                                       "Partition still not appeared after timeout reached.");
+        if (r < 0)
+                return log_debug_errno(r, "Failed to find partition: %m");
+
+        log_debug("Partition appeared after timeout reached.");
+        return sd_event_exit(sd_event_source_get_event(s), 0);
+}
+
+static int retry_handler(sd_event_source *s, uint64_t usec, void *userdata) {
+        struct wait_data *w = userdata;
+        int r;
+
+        assert(w);
+
+        r = find_partition(w->parent_device, w->blkidp, w->timestamp_not_before, w->flags, &w->found);
+        if (r != -ENXIO) {
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to find partition: %m");
+
+                log_debug("Partition found by a periodic search.");
+                return sd_event_exit(sd_event_source_get_event(s), 0);
+        }
+
+        r = sd_event_source_set_time_relative(s, 500 * USEC_PER_MSEC);
+        if (r < 0)
+                return r;
+
+        return sd_event_source_set_enabled(s, SD_EVENT_ONESHOT);
+}
+
 static int wait_for_partition_device(
                 sd_device *parent,
                 blkid_partition pp,
                 usec_t deadline,
                 uint64_t uevent_seqnum_not_before,
                 usec_t timestamp_not_before,
+                DissectImageFlags flags,
                 sd_device **ret) {
 
-        _cleanup_(sd_event_source_unrefp) sd_event_source *timeout_source = NULL;
+        _cleanup_(sd_event_source_unrefp) sd_event_source *timeout_source = NULL, *retry_source = NULL;
         _cleanup_(sd_device_monitor_unrefp) sd_device_monitor *monitor = NULL;
         _cleanup_(sd_event_unrefp) sd_event *event = NULL;
         int r;
@@ -343,7 +392,7 @@ static int wait_for_partition_device(
         assert(pp);
         assert(ret);
 
-        r = find_partition(parent, pp, timestamp_not_before, ret);
+        r = find_partition(parent, pp, timestamp_not_before, flags, ret);
         if (r != -ENXIO)
                 return r;
 
@@ -375,6 +424,8 @@ static int wait_for_partition_device(
                 .parent_device = parent,
                 .blkidp = pp,
                 .uevent_seqnum_not_before = uevent_seqnum_not_before,
+                .timestamp_not_before = timestamp_not_before,
+                .flags = flags,
         };
 
         r = sd_device_monitor_start(monitor, device_monitor_handler, &w);
@@ -382,7 +433,7 @@ static int wait_for_partition_device(
                 return r;
 
         /* Check again, the partition might have appeared in the meantime */
-        r = find_partition(parent, pp, timestamp_not_before, ret);
+        r = find_partition(parent, pp, timestamp_not_before, flags, ret);
         if (r != -ENXIO)
                 return r;
 
@@ -390,10 +441,25 @@ static int wait_for_partition_device(
                 r = sd_event_add_time(
                                 event, &timeout_source,
                                 CLOCK_MONOTONIC, deadline, 0,
-                                NULL, INT_TO_PTR(-ETIMEDOUT));
+                                timeout_handler, &w);
+                if (r < 0)
+                        return r;
+
+                r = sd_event_source_set_exit_on_failure(timeout_source, true);
                 if (r < 0)
                         return r;
         }
+
+        r = sd_event_add_time_relative(
+                        event, &retry_source,
+                        CLOCK_MONOTONIC, 500 * USEC_PER_MSEC, 0,
+                        retry_handler, &w);
+        if (r < 0)
+                return r;
+
+        r = sd_event_source_set_exit_on_failure(retry_source, true);
+        if (r < 0)
+                return r;
 
         r = sd_event_loop(event);
         if (r < 0)
@@ -777,7 +843,7 @@ int dissect_image(
                 if (!pp)
                         return errno_or_else(EIO);
 
-                r = wait_for_partition_device(d, pp, deadline, uevent_seqnum_not_before, timestamp_not_before, &q);
+                r = wait_for_partition_device(d, pp, deadline, uevent_seqnum_not_before, timestamp_not_before, flags, &q);
                 if (r < 0)
                         return r;
 
@@ -1780,7 +1846,6 @@ typedef struct DecryptedPartition {
 struct DecryptedImage {
         DecryptedPartition *decrypted;
         size_t n_decrypted;
-        size_t n_allocated;
 };
 #endif
 
@@ -1876,7 +1941,7 @@ static int decrypt_partition(
         if (r < 0)
                 return r;
 
-        if (!GREEDY_REALLOC0(d->decrypted, d->n_allocated, d->n_decrypted + 1))
+        if (!GREEDY_REALLOC0(d->decrypted, d->n_decrypted + 1))
                 return -ENOMEM;
 
         r = sym_crypt_init(&cd, m->node);
@@ -1926,6 +1991,8 @@ static int verity_can_reuse(
         r = sym_crypt_init_by_name(&cd, name);
         if (r < 0)
                 return log_debug_errno(r, "Error opening verity device, crypt_init_by_name failed: %m");
+
+        cryptsetup_enable_logging(cd);
 
         r = sym_crypt_get_verity_info(cd, &crypt_params);
         if (r < 0)
@@ -2028,7 +2095,7 @@ static int verity_partition(
         if (r < 0)
                 return r;
 
-        if (!GREEDY_REALLOC0(d->decrypted, d->n_allocated, d->n_decrypted + 1))
+        if (!GREEDY_REALLOC0(d->decrypted, d->n_decrypted + 1))
                 return -ENOMEM;
 
         /* If activating fails because the device already exists, check the metadata and reuse it if it matches.

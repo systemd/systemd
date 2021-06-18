@@ -189,7 +189,7 @@ struct Context {
         size_t n_partitions;
 
         FreeArea **free_areas;
-        size_t n_free_areas, n_allocated_free_areas;
+        size_t n_free_areas;
 
         uint64_t start, end, total;
 
@@ -312,7 +312,6 @@ static void context_free_free_areas(Context *context) {
 
         context->free_areas = mfree(context->free_areas);
         context->n_free_areas = 0;
-        context->n_allocated_free_areas = 0;
 }
 
 static Context *context_free(Context *context) {
@@ -343,7 +342,7 @@ static int context_add_free_area(
         assert(context);
         assert(!after || !after->padding_area);
 
-        if (!GREEDY_REALLOC(context->free_areas, context->n_allocated_free_areas, context->n_free_areas + 1))
+        if (!GREEDY_REALLOC(context->free_areas, context->n_free_areas + 1))
                 return -ENOMEM;
 
         a = new(FreeArea, 1);
@@ -950,11 +949,6 @@ static int config_parse_type(
         return 0;
 }
 
-static const Specifier specifier_table[] = {
-        COMMON_SYSTEM_SPECIFIERS,
-        {}
-};
-
 static int config_parse_label(
                 const char *unit,
                 const char *filename,
@@ -977,7 +971,7 @@ static int config_parse_label(
         /* Nota bene: the empty label is a totally valid one. Let's hence not follow our usual rule of
          * assigning the empty string to reset to default here, but really accept it as label to set. */
 
-        r = specifier_printf(rvalue, GPT_LABEL_MAX, specifier_table, NULL, &resolved);
+        r = specifier_printf(rvalue, GPT_LABEL_MAX, system_and_tmp_specifier_table, NULL, &resolved);
         if (r < 0) {
                 log_syntax(unit, LOG_WARNING, filename, line, r,
                            "Failed to expand specifiers in Label=, ignoring: %s", rvalue);
@@ -1142,7 +1136,7 @@ static int config_parse_copy_files(
         if (!isempty(p))
                 return log_syntax(unit, LOG_ERR, filename, line, SYNTHETIC_ERRNO(EINVAL), "Too many arguments: %s", rvalue);
 
-        r = specifier_printf(source, PATH_MAX-1, specifier_table, NULL, &resolved_source);
+        r = specifier_printf(source, PATH_MAX-1, system_and_tmp_specifier_table, NULL, &resolved_source);
         if (r < 0) {
                 log_syntax(unit, LOG_WARNING, filename, line, r,
                            "Failed to expand specifiers in CopyFiles= source, ignoring: %s", rvalue);
@@ -1153,7 +1147,7 @@ static int config_parse_copy_files(
         if (r < 0)
                 return 0;
 
-        r = specifier_printf(target, PATH_MAX-1, specifier_table, NULL, &resolved_target);
+        r = specifier_printf(target, PATH_MAX-1, system_and_tmp_specifier_table, NULL, &resolved_target);
         if (r < 0) {
                 log_syntax(unit, LOG_WARNING, filename, line, r,
                            "Failed to expand specifiers in CopyFiles= target, ignoring: %s", resolved_target);
@@ -1202,7 +1196,7 @@ static int config_parse_copy_blocks(
                 return 0;
         }
 
-        r = specifier_printf(rvalue, PATH_MAX-1, specifier_table, NULL, &d);
+        r = specifier_printf(rvalue, PATH_MAX-1, system_and_tmp_specifier_table, NULL, &d);
         if (r < 0) {
                 log_syntax(unit, LOG_WARNING, filename, line, r,
                            "Failed to expand specifiers in CopyBlocks= source path, ignoring: %s", rvalue);
@@ -1250,7 +1244,7 @@ static int config_parse_make_dirs(
                 if (r == 0)
                         return 0;
 
-                r = specifier_printf(word, PATH_MAX-1, specifier_table, NULL, &d);
+                r = specifier_printf(word, PATH_MAX-1, system_and_tmp_specifier_table, NULL, &d);
                 if (r < 0) {
                         log_syntax(unit, LOG_WARNING, filename, line, r,
                                    "Failed to expand specifiers in MakeDirectories= parameter, ignoring: %s", word);
@@ -1992,8 +1986,13 @@ static int context_dump_partitions(Context *context, const char *node) {
                                                     (size_t) 5, (size_t) 6, (size_t) 7, (size_t) 9, (size_t) 10, (size_t) 12);
         }
 
-        (void) table_set_align_percent(t, table_get_cell(t, 0, 4), 100);
         (void) table_set_align_percent(t, table_get_cell(t, 0, 5), 100);
+        (void) table_set_align_percent(t, table_get_cell(t, 0, 6), 100);
+        (void) table_set_align_percent(t, table_get_cell(t, 0, 7), 100);
+        (void) table_set_align_percent(t, table_get_cell(t, 0, 8), 100);
+        (void) table_set_align_percent(t, table_get_cell(t, 0, 9), 100);
+        (void) table_set_align_percent(t, table_get_cell(t, 0, 10), 100);
+        (void) table_set_align_percent(t, table_get_cell(t, 0, 11), 100);
 
         LIST_FOREACH(partitions, p, context->partitions) {
                 _cleanup_free_ char *size_change = NULL, *padding_change = NULL, *partname = NULL;
@@ -2038,7 +2037,7 @@ static int context_dump_partitions(Context *context, const char *node) {
                                 TABLE_UINT64, p->current_padding == UINT64_MAX ? 0 : p->current_padding,
                                 TABLE_UINT64, p->new_padding,
                                 TABLE_STRING, padding_change, TABLE_SET_COLOR, !p->partitions_next && sum_padding > 0 ? ansi_underline() : NULL,
-                                TABLE_STRING, activity ?: "unknown");
+                                TABLE_STRING, activity ?: "unchanged");
                 if (r < 0)
                         return table_log_add_error(r);
         }
@@ -4071,7 +4070,7 @@ static int help(void) {
                "     --definitions=DIR    Find partition definitions in specified directory\n"
                "     --key-file=PATH      Key to use when encrypting partitions\n"
                "     --tpm2-device=PATH   Path to TPM2 device node to use\n"
-               "     --tpm2-pcrs=PCR1,PCR2,…\n"
+               "     --tpm2-pcrs=PCR1+PCR2+PCR3+…\n"
                "                          TPM2 PCR indexes to use for TPM2 enrollment\n"
                "     --seed=UUID          128bit seed UUID to derive all UUIDs from\n"
                "     --size=BYTES         Grow loopback file to specified size\n"
@@ -4420,7 +4419,7 @@ static int parse_efi_variable_factory_reset(void) {
         if (!in_initrd()) /* Never honour EFI variable factory reset request outside of the initrd */
                 return 0;
 
-        r = efi_get_variable_string(EFI_VENDOR_SYSTEMD, "FactoryReset", &value);
+        r = efi_get_variable_string(EFI_SYSTEMD_VARIABLE(FactoryReset), &value);
         if (r == -ENOENT || ERRNO_IS_NOT_SUPPORTED(r))
                 return 0;
         if (r < 0)
@@ -4440,7 +4439,7 @@ static int parse_efi_variable_factory_reset(void) {
 static int remove_efi_variable_factory_reset(void) {
         int r;
 
-        r = efi_set_variable(EFI_VENDOR_SYSTEMD, "FactoryReset", NULL, 0);
+        r = efi_set_variable(EFI_SYSTEMD_VARIABLE(FactoryReset), NULL, 0);
         if (r == -ENOENT || ERRNO_IS_NOT_SUPPORTED(r))
                 return 0;
         if (r < 0)
@@ -4953,7 +4952,7 @@ static int run(int argc, char *argv[]) {
         r = context_open_copy_block_paths(
                         context,
                         arg_root,
-                        loop_device ? loop_device->devno :         /* if --image= is specified, only allow partitions on the loopback device*/
+                        loop_device ? loop_device->devno :         /* if --image= is specified, only allow partitions on the loopback device */
                                       arg_root && !arg_image ? 0 : /* if --root= is specified, don't accept any block device */
                                       (dev_t) -1);                 /* if neither is specified, make no restrictions */
         if (r < 0)

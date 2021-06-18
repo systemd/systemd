@@ -91,6 +91,8 @@ typedef struct DHCP6IA {
         LIST_HEAD(DHCP6Address, addresses);
 } DHCP6IA;
 
+typedef struct sd_dhcp6_client sd_dhcp6_client;
+
 int dhcp6_option_append(uint8_t **buf, size_t *buflen, uint16_t code,
                         size_t optlen, const void *optval);
 int dhcp6_option_append_ia(uint8_t **buf, size_t *buflen, const DHCP6IA *ia);
@@ -104,8 +106,7 @@ int dhcp6_option_parse(uint8_t **buf, size_t *buflen, uint16_t *optcode,
 int dhcp6_option_parse_status(DHCP6Option *option, size_t len);
 int dhcp6_option_parse_ia(sd_dhcp6_client *client, DHCP6Option *iaoption, DHCP6IA *ia, uint16_t *ret_status_code);
 int dhcp6_option_parse_ip6addrs(uint8_t *optval, uint16_t optlen,
-                                struct in6_addr **addrs, size_t count,
-                                size_t *allocated);
+                                struct in6_addr **addrs, size_t count);
 int dhcp6_option_parse_domainname_list(const uint8_t *optval, uint16_t optlen,
                                        char ***str_arr);
 int dhcp6_option_parse_domainname(const uint8_t *optval, uint16_t optlen, char **str);
@@ -118,6 +119,8 @@ const char *dhcp6_message_type_to_string(int s) _const_;
 int dhcp6_message_type_from_string(const char *s) _pure_;
 const char *dhcp6_message_status_to_string(int s) _const_;
 int dhcp6_message_status_from_string(const char *s) _pure_;
+
+void dhcp6_client_set_test_mode(sd_dhcp6_client *client, bool test_mode);
 
 #define log_dhcp6_client_errno(client, error, fmt, ...)         \
         log_interface_prefix_full_errno(                        \

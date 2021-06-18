@@ -199,7 +199,7 @@ int user_record_reconcile(
         if (!user_record_compatible(host, embedded))
                 return -EREMCHG;
 
-        /* Embedded identities may not contain secrets or binding info*/
+        /* Embedded identities may not contain secrets or binding info */
         if ((embedded->mask & (USER_RECORD_SECRET|USER_RECORD_BINDING)) != 0)
                 return -EINVAL;
 
@@ -252,7 +252,7 @@ int user_record_reconcile(
                 if (!merged)
                         return -ENOMEM;
 
-                r = user_record_load(merged, extended, USER_RECORD_LOAD_MASK_SECRET);
+                r = user_record_load(merged, extended, USER_RECORD_LOAD_MASK_SECRET|USER_RECORD_PERMISSIVE);
                 if (r < 0)
                         return r;
 
@@ -261,7 +261,7 @@ int user_record_reconcile(
         }
 
         /* Strip out secrets */
-        r = user_record_clone(host, USER_RECORD_LOAD_MASK_SECRET, ret);
+        r = user_record_clone(host, USER_RECORD_LOAD_MASK_SECRET|USER_RECORD_PERMISSIVE, ret);
         if (r < 0)
                 return r;
 
@@ -1065,6 +1065,34 @@ int user_record_set_fido2_user_presence_permitted(UserRecord *h, int b) {
         return 0;
 }
 
+int user_record_set_fido2_user_verification_permitted(UserRecord *h, int b) {
+        _cleanup_(json_variant_unrefp) JsonVariant *w = NULL;
+        int r;
+
+        assert(h);
+
+        w = json_variant_ref(json_variant_by_key(h->json, "secret"));
+
+        if (b < 0)
+                r = json_variant_filter(&w, STRV_MAKE("fido2UserVerificationPermitted"));
+        else
+                r = json_variant_set_field_boolean(&w, "fido2UserVerificationPermitted", b);
+        if (r < 0)
+                return r;
+
+        if (json_variant_is_blank_object(w))
+                r = json_variant_filter(&h->json, STRV_MAKE("secret"));
+        else
+                r = json_variant_set_field(&h->json, "secret", w);
+        if (r < 0)
+                return r;
+
+        h->fido2_user_verification_permitted = b;
+
+        SET_FLAG(h->mask, USER_RECORD_SECRET, !json_variant_is_blank_object(w));
+        return 0;
+}
+
 static bool per_machine_entry_empty(JsonVariant *v) {
         const char *k;
         _unused_ JsonVariant *e;
@@ -1163,6 +1191,14 @@ int user_record_merge_secret(UserRecord *h, UserRecord *secret) {
                 r = user_record_set_fido2_user_presence_permitted(
                                 h,
                                 secret->fido2_user_presence_permitted);
+                if (r < 0)
+                        return r;
+        }
+
+        if (secret->fido2_user_verification_permitted >= 0) {
+                r = user_record_set_fido2_user_verification_permitted(
+                                h,
+                                secret->fido2_user_verification_permitted);
                 if (r < 0)
                         return r;
         }

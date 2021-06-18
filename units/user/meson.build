@@ -24,7 +24,7 @@ units = [
 ]
 
 if conf.get('ENABLE_XDG_AUTOSTART') == 1
-        units += [ 'xdg-desktop-autostart.target', ]
+        units += 'xdg-desktop-autostart.target'
 endif
 
 foreach file : units

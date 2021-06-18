@@ -382,11 +382,19 @@ void device_seal(sd_device *device) {
 }
 
 static int device_verify(sd_device *device) {
+        int r;
+
         assert(device);
 
         if (!device->devpath || !device->subsystem || device->action < 0 || device->seqnum == 0)
                 return log_device_debug_errno(device, SYNTHETIC_ERRNO(EINVAL),
                                               "sd-device: Device created from strv or nulstr lacks devpath, subsystem, action or seqnum.");
+
+        if (streq(device->subsystem, "drivers")) {
+                r = device_set_drivers_subsystem(device);
+                if (r < 0)
+                        return r;
+        }
 
         device->sealed = true;
 
@@ -480,7 +488,6 @@ static int device_update_properties_bufs(sd_device *device) {
         const char *val, *prop;
         _cleanup_free_ char **buf_strv = NULL;
         _cleanup_free_ uint8_t *buf_nulstr = NULL;
-        size_t allocated_nulstr = 0;
         size_t nulstr_len = 0, num = 0, i = 0;
 
         assert(device);
@@ -493,7 +500,7 @@ static int device_update_properties_bufs(sd_device *device) {
 
                 len = strlen(prop) + 1 + strlen(val);
 
-                buf_nulstr = GREEDY_REALLOC0(buf_nulstr, allocated_nulstr, nulstr_len + len + 2);
+                buf_nulstr = GREEDY_REALLOC0(buf_nulstr, nulstr_len + len + 2);
                 if (!buf_nulstr)
                         return -ENOMEM;
 
@@ -744,6 +751,7 @@ int device_rename(sd_device *device, const char *name) {
 
 int device_shallow_clone(sd_device *old_device, sd_device **new_device) {
         _cleanup_(sd_device_unrefp) sd_device *ret = NULL;
+        const char *val;
         int r;
 
         assert(old_device);
@@ -757,14 +765,40 @@ int device_shallow_clone(sd_device *old_device, sd_device **new_device) {
         if (r < 0)
                 return r;
 
-        r = device_set_subsystem(ret, old_device->subsystem);
+        (void) sd_device_get_subsystem(old_device, &val);
+        r = device_set_subsystem(ret, val);
         if (r < 0)
                 return r;
+        if (streq_ptr(val, "drivers")) {
+                r = free_and_strdup(&ret->driver_subsystem, old_device->driver_subsystem);
+                if (r < 0)
+                        return r;
+        }
 
-        ret->devnum = old_device->devnum;
+        /* The device may be already removed. Let's copy minimal set of information to make
+         * device_get_device_id() work without uevent file. */
+
+        if (sd_device_get_property_value(old_device, "IFINDEX", &val) >= 0) {
+                r = device_set_ifindex(ret, val);
+                if (r < 0)
+                        return r;
+        }
+
+        if (sd_device_get_property_value(old_device, "MAJOR", &val) >= 0) {
+                const char *minor = NULL;
+
+                (void) sd_device_get_property_value(old_device, "MINOR", &minor);
+                r = device_set_devnum(ret, val, minor);
+                if (r < 0)
+                        return r;
+        }
+
+        /* And then read uevent file, but ignore errors, as some devices seem to return a spurious
+         * error on read, e.g. -ENODEV, and even if ifindex or devnum is set in the above,
+         * sd_device_get_ifindex() or sd_device_get_devnum() fails. See. #19788. */
+        (void) device_read_uevent_file(ret);
 
         *new_device = TAKE_PTR(ret);
-
         return 0;
 }
 

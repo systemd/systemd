@@ -9,11 +9,11 @@
 
 [Unit]
 Description=Hibernate
-Documentation=man:systemd-suspend.service(8)
+Documentation=man:systemd-hibernate.service(8)
 DefaultDependencies=no
 Requires=sleep.target
 After=sleep.target
 
 [Service]
 Type=oneshot
-ExecStart=@rootlibexecdir@/systemd-sleep hibernate
+ExecStart={{ROOTLIBEXECDIR}}/systemd-sleep hibernate

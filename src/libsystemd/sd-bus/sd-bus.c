@@ -153,13 +153,11 @@ static void bus_reset_queues(sd_bus *b) {
                 bus_message_unref_queued(b->rqueue[--b->rqueue_size], b);
 
         b->rqueue = mfree(b->rqueue);
-        b->rqueue_allocated = 0;
 
         while (b->wqueue_size > 0)
                 bus_message_unref_queued(b->wqueue[--b->wqueue_size], b);
 
         b->wqueue = mfree(b->wqueue);
-        b->wqueue_allocated = 0;
 }
 
 static sd_bus* bus_free(sd_bus *b) {
@@ -253,7 +251,7 @@ _public_ int sd_bus_new(sd_bus **ret) {
         };
 
         /* We guarantee that wqueue always has space for at least one entry */
-        if (!GREEDY_REALLOC(b->wqueue, b->wqueue_allocated, 1))
+        if (!GREEDY_REALLOC(b->wqueue, 1))
                 return -ENOMEM;
 
         assert_se(pthread_mutex_init(&b->memfd_cache_mutex, NULL) == 0);
@@ -631,8 +629,8 @@ int bus_start_running(sd_bus *bus) {
 }
 
 static int parse_address_key(const char **p, const char *key, char **value) {
-        size_t l, n = 0, allocated = 0;
         _cleanup_free_ char *r = NULL;
+        size_t l, n = 0;
         const char *a;
 
         assert(p);
@@ -675,7 +673,7 @@ static int parse_address_key(const char **p, const char *key, char **value) {
                         a++;
                 }
 
-                if (!GREEDY_REALLOC(r, allocated, n + 2))
+                if (!GREEDY_REALLOC(r, n + 2))
                         return -ENOMEM;
 
                 r[n++] = c;
@@ -847,7 +845,6 @@ static int parse_exec_address(sd_bus *b, const char **p, char **guid) {
         char *path = NULL;
         unsigned n_argv = 0, j;
         char **argv = NULL;
-        size_t allocated = 0;
         int r;
 
         assert(b);
@@ -881,7 +878,7 @@ static int parse_exec_address(sd_bus *b, const char **p, char **guid) {
                         (*p)++;
 
                         if (ul >= n_argv) {
-                                if (!GREEDY_REALLOC0(argv, allocated, ul + 2)) {
+                                if (!GREEDY_REALLOC0(argv, ul + 2)) {
                                         r = -ENOMEM;
                                         goto fail;
                                 }
@@ -1529,7 +1526,7 @@ int bus_set_address_machine(sd_bus *b, bool user, const char *machine) {
                  * since the --user socket path depends on $XDG_RUNTIME_DIR which is set via PAM. Thus, to be
                  * able to connect, we need to have a PAM session. Our way out?  We use systemd-run to get
                  * into the container and acquire a PAM session there, and then invoke systemd-stdio-bridge
-                 * in it, which propagates the bus transport to us.*/
+                 * in it, which propagates the bus transport to us. */
 
                 if (rhs) {
                         if (rhs > machine)
@@ -1577,18 +1574,12 @@ int bus_set_address_machine(sd_bus *b, bool user, const char *machine) {
                         return -ENOMEM;
 
                 if (user) {
-                        char *k;
-
                         /* Ideally we'd use the "--user" switch to systemd-stdio-bridge here, but it's only
                          * available in recent systemd versions. Using the "-p" switch with the explicit path
                          * is a working alternative, and is compatible with older versions, hence that's what
                          * we use here. */
-
-                        k = strjoin(a, ",argv7=-punix:path%3d%24%7bXDG_RUNTIME_DIR%7d/bus");
-                        if (!k)
+                        if (!strextend(&a, ",argv7=-punix:path%3d%24%7bXDG_RUNTIME_DIR%7d/bus"))
                                 return -ENOMEM;
-
-                        free_and_replace(a, k);
                 }
         } else {
                 _cleanup_free_ char *e = NULL;
@@ -2048,7 +2039,7 @@ int bus_rqueue_make_room(sd_bus *bus) {
         if (bus->rqueue_size >= BUS_RQUEUE_MAX)
                 return -ENOBUFS;
 
-        if (!GREEDY_REALLOC(bus->rqueue, bus->rqueue_allocated, bus->rqueue_size + 1))
+        if (!GREEDY_REALLOC(bus->rqueue, bus->rqueue_size + 1))
                 return -ENOMEM;
 
         return 0;
@@ -2164,7 +2155,7 @@ _public_ int sd_bus_send(sd_bus *bus, sd_bus_message *_m, uint64_t *cookie) {
                 if (bus->wqueue_size >= BUS_WQUEUE_MAX)
                         return -ENOBUFS;
 
-                if (!GREEDY_REALLOC(bus->wqueue, bus->wqueue_allocated, bus->wqueue_size + 1))
+                if (!GREEDY_REALLOC(bus->wqueue, bus->wqueue_size + 1))
                         return -ENOMEM;
 
                 bus->wqueue[bus->wqueue_size++] = bus_message_ref_queued(m, bus);

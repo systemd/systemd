@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <arpa/inet.h>
+#include <malloc.h>
 #include <netinet/in.h>
 #include <sys/socket.h>
 
@@ -77,19 +78,19 @@ static void test_parse_etc_hosts(void) {
         EtcHostsItemByName *bn;
         assert_se(bn = hashmap_get(hosts.by_name, "some.where"));
         assert_se(bn->n_addresses == 3);
-        assert_se(bn->n_allocated >= 3);
+        assert_se(MALLOC_ELEMENTSOF(bn->addresses) >= 3);
         assert_se(address_equal_4(bn->addresses[0], inet_addr("1.2.3.4")));
         assert_se(address_equal_4(bn->addresses[1], inet_addr("1.2.3.5")));
         assert_se(address_equal_6(bn->addresses[2], {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 5}));
 
         assert_se(bn = hashmap_get(hosts.by_name, "dash"));
         assert_se(bn->n_addresses == 1);
-        assert_se(bn->n_allocated >= 1);
+        assert_se(MALLOC_ELEMENTSOF(bn->addresses) >= 1);
         assert_se(address_equal_4(bn->addresses[0], inet_addr("1.2.3.6")));
 
         assert_se(bn = hashmap_get(hosts.by_name, "dash-dash.where-dash"));
         assert_se(bn->n_addresses == 1);
-        assert_se(bn->n_allocated >= 1);
+        assert_se(MALLOC_ELEMENTSOF(bn->addresses) >= 1);
         assert_se(address_equal_4(bn->addresses[0], inet_addr("1.2.3.6")));
 
         /* See https://tools.ietf.org/html/rfc1035#section-2.3.1 */
@@ -98,7 +99,7 @@ static void test_parse_etc_hosts(void) {
 
         assert_se(bn = hashmap_get(hosts.by_name, "before.comment"));
         assert_se(bn->n_addresses == 4);
-        assert_se(bn->n_allocated >= 4);
+        assert_se(MALLOC_ELEMENTSOF(bn->addresses) >= 4);
         assert_se(address_equal_4(bn->addresses[0], inet_addr("1.2.3.9")));
         assert_se(address_equal_4(bn->addresses[1], inet_addr("1.2.3.10")));
         assert_se(address_equal_4(bn->addresses[2], inet_addr("1.2.3.11")));
@@ -118,7 +119,7 @@ static void test_parse_etc_hosts(void) {
 
         assert_se(bn = hashmap_get(hosts.by_name, "some.other"));
         assert_se(bn->n_addresses == 1);
-        assert_se(bn->n_allocated >= 1);
+        assert_se(MALLOC_ELEMENTSOF(bn->addresses) >= 1);
         assert_se(address_equal_6(bn->addresses[0], {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 5}));
 
         assert_se( set_contains(hosts.no_address, "some.where"));

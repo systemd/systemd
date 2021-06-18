@@ -27,7 +27,7 @@ jobs:
     - uses: systemd/mkosi@v9
 
     - name: Install
-      run: sudo apt-get update && sudo apt-get install --no-install-recommends python3-pexpect
+      run: sudo apt-get update && sudo apt-get install --no-install-recommends python3-pexpect python3-jinja2
 
     - name: Symlink
       run: ln -s .mkosi/mkosi.${{ matrix.distro }} mkosi.default
@@ -48,8 +48,17 @@ jobs:
     - name: Build ${{ matrix.distro }}
       run: sudo python3 -m mkosi --password= --qemu-headless build
 
+    - name: Show ${{ matrix.distro }} image summary
+      run: sudo python3 -m mkosi --password= --qemu-headless summary
+
+    # Ugly workaround for systemd/systemd#19442 where systemd-nspawn
+    # occasionally fails with 'Failed to dissect image xxx: Connection timed out
+    - name: Retry the build if necessary
+      if: ${{ matrix.distro == 'arch' }}
+      run: echo "BUILD_RETRY_MAX=3" >> $GITHUB_ENV
+
     - name: Boot ${{ matrix.distro }} systemd-nspawn
-      run: sudo ./.github/workflows/test_mkosi_boot.py python3 -m mkosi --password= --qemu-headless boot
+      run: sudo -E bash +e -x -c 'for _ in $(seq 1 ${BUILD_RETRY_MAX:-1}); do ./.github/workflows/test_mkosi_boot.py python3 -m mkosi --password= --qemu-headless boot && break; done'
 
     - name: Boot ${{ matrix.distro }} QEMU
       run: sudo ./.github/workflows/test_mkosi_boot.py python3 -m mkosi --password= --qemu-headless qemu

@@ -186,6 +186,45 @@
 
         <xi:include href="standard-options.xml" xpointer="help" />
       </variablelist>
+
+      <para>The generated output shows the current device database entry in a terse format. Each line shown
+      is prefixed with one of the following characters:</para>
+
+      <table>
+        <title><command>udevadm info</command> output prefixes</title>
+        <tgroup cols='2' align='left' colsep='1' rowsep='1'>
+          <colspec colname="prefix" />
+          <colspec colname="meaning" />
+          <thead>
+            <row>
+              <entry>Prefix</entry>
+              <entry>Meaning</entry>
+            </row>
+          </thead>
+          <tbody>
+            <row>
+              <entry><literal>P:</literal></entry>
+              <entry>Device path in <filename>/sys/</filename></entry>
+            </row>
+            <row>
+              <entry><literal>N:</literal></entry>
+              <entry>Kernel device node name</entry>
+            </row>
+            <row>
+              <entry><literal>L:</literal></entry>
+              <entry>Device node symlink priority</entry>
+            </row>
+            <row>
+              <entry><literal>S:</literal></entry>
+              <entry>Device node symlink</entry>
+            </row>
+            <row>
+              <entry><literal>E:</literal></entry>
+              <entry>Device property</entry>
+            </row>
+          </tbody>
+        </tgroup>
+      </table>
     </refsect2>
 
     <refsect2><title>udevadm trigger
@@ -293,7 +332,7 @@
         </varlistentry>
         <varlistentry>
           <term><option>-g</option></term>
-          <term><option>--tag-match=<replaceable>PROPERTY</replaceable></option></term>
+          <term><option>--tag-match=<replaceable>TAG</replaceable></option></term>
           <listitem>
             <para>Trigger events for devices with a matching tag. When this option is specified multiple times,
             then each matching result is ANDed, that is, devices which have all specified tags are triggered.</para>
@@ -334,6 +373,15 @@
             settle</command>. <command>udevadm settle</command> waits for all
             events to finish. This option only waits for events triggered by
             the same command to finish.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--uuid</option></term>
+          <listitem>
+            <para>Trigger the synthetic device events, and associate a randomized UUID with each. These UUIDs
+            are printed to standard output, one line for each event. These UUIDs are included in the uevent
+            environment block (in the <literal>SYNTH_UUID=</literal> property) and may be used to track
+            delivery of the generated events.</para>
           </listitem>
         </varlistentry>
         <varlistentry>

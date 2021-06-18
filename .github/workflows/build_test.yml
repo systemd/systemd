@@ -19,6 +19,7 @@ jobs:
       matrix:
         env:
           - { COMPILER: "gcc",   COMPILER_VERSION: "10" }
+          - { COMPILER: "gcc",   COMPILER_VERSION: "11" }
           - { COMPILER: "clang", COMPILER_VERSION: "10" }
           - { COMPILER: "clang", COMPILER_VERSION: "11" }
           - { COMPILER: "clang", COMPILER_VERSION: "12" }

@@ -41,7 +41,7 @@ static bool link_lldp_rx_enabled(Link *link) {
 
         /* LLDP should be handled on bridge and bond slaves as those have a direct connection to their peers,
          * not on the bridge/bond master. Linux doesn't even (by default) forward lldp packets to the bridge
-         * master.*/
+         * master. */
         if (link->kind && STR_IN_SET(link->kind, "bridge", "bond"))
                 return false;
 
@@ -95,7 +95,7 @@ int link_lldp_rx_configure(Link *link) {
         if (r < 0)
                 return r;
 
-        r = sd_lldp_set_filter_address(link->lldp, &link->hw_addr.addr.ether);
+        r = sd_lldp_set_filter_address(link->lldp, &link->hw_addr.ether);
         if (r < 0)
                 return r;
 
@@ -163,7 +163,7 @@ int link_lldp_save(Link *link) {
         if (r < 0)
                 goto finish;
 
-        fchmod(fileno(f), 0644);
+        (void) fchmod(fileno(f), 0644);
 
         for (i = 0; i < n; i++) {
                 const void *p;

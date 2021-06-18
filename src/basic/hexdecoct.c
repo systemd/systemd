@@ -115,8 +115,6 @@ int unhexmem_full(const char *p, size_t l, bool secure, void **ret, size_t *ret_
         uint8_t *z;
         int r;
 
-        assert(ret);
-        assert(ret_len);
         assert(p || l == 0);
 
         if (l == SIZE_MAX)
@@ -150,8 +148,10 @@ int unhexmem_full(const char *p, size_t l, bool secure, void **ret, size_t *ret_
 
         *z = 0;
 
-        *ret_len = (size_t) (z - buf);
-        *ret = TAKE_PTR(buf);
+        if (ret_len)
+                *ret_len = (size_t) (z - buf);
+        if (ret)
+                *ret = TAKE_PTR(buf);
 
         return 0;
 
@@ -526,6 +526,16 @@ char base64char(int x) {
         return table[x & 63];
 }
 
+/* This is almost base64char(), but not entirely, as it uses the "url and filename safe" alphabet,
+ * since we don't want "/" appear in interface names (since interfaces appear in sysfs as filenames).
+ * See section #5 of RFC 4648. */
+char urlsafe_base64char(int x) {
+        static const char table[64] = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+                                      "abcdefghijklmnopqrstuvwxyz"
+                                      "0123456789-_";
+        return table[x & 63];
+}
+
 int unbase64char(char c) {
         unsigned offset;
 
@@ -705,8 +715,6 @@ int unbase64mem_full(const char *p, size_t l, bool secure, void **ret, size_t *r
         int r;
 
         assert(p || l == 0);
-        assert(ret);
-        assert(ret_size);
 
         if (l == SIZE_MAX)
                 l = strlen(p);
@@ -802,8 +810,10 @@ int unbase64mem_full(const char *p, size_t l, bool secure, void **ret, size_t *r
 
         *z = 0;
 
-        *ret_size = (size_t) (z - buf);
-        *ret = TAKE_PTR(buf);
+        if (ret_size)
+                *ret_size = (size_t) (z - buf);
+        if (ret)
+                *ret = TAKE_PTR(buf);
 
         return 0;
 

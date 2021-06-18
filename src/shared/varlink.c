@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <malloc.h>
 #include <sys/poll.h>
 
 #include "alloc-util.h"
@@ -113,13 +114,11 @@ struct Varlink {
         int fd;
 
         char *input_buffer; /* valid data starts at input_buffer_index, ends at input_buffer_index+input_buffer_size */
-        size_t input_buffer_allocated;
         size_t input_buffer_index;
         size_t input_buffer_size;
         size_t input_buffer_unscanned;
 
         char *output_buffer; /* valid data starts at output_buffer_index, ends at output_buffer_index+output_buffer_size */
-        size_t output_buffer_allocated;
         size_t output_buffer_index;
         size_t output_buffer_size;
 
@@ -222,11 +221,11 @@ DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(varlink_state, VarlinkState);
         log_debug("%s: " fmt, varlink_server_description(s), ##__VA_ARGS__)
 
 static inline const char *varlink_description(Varlink *v) {
-        return strna(v ? v->description : NULL);
+        return (v ? v->description : NULL) ?: "varlink";
 }
 
 static inline const char *varlink_server_description(VarlinkServer *s) {
-        return strna(s ? s->description : NULL);
+        return (s ? s->description : NULL) ?: "varlink";
 }
 
 static void varlink_set_state(Varlink *v, VarlinkState state) {
@@ -234,10 +233,10 @@ static void varlink_set_state(Varlink *v, VarlinkState state) {
         assert(state >= 0 && state < _VARLINK_STATE_MAX);
 
         if (v->state < 0)
-                varlink_log(v, "varlink: setting state %s",
+                varlink_log(v, "Setting state %s",
                             varlink_state_to_string(state));
         else
-                varlink_log(v, "varlink: changing state %s → %s",
+                varlink_log(v, "Changing state %s → %s",
                             varlink_state_to_string(v->state),
                             varlink_state_to_string(state));
 
@@ -506,14 +505,14 @@ static int varlink_read(Varlink *v) {
 
         assert(v->fd >= 0);
 
-        if (v->input_buffer_allocated <= v->input_buffer_index + v->input_buffer_size) {
+        if (MALLOC_SIZEOF_SAFE(v->input_buffer) <= v->input_buffer_index + v->input_buffer_size) {
                 size_t add;
 
                 add = MIN(VARLINK_BUFFER_MAX - v->input_buffer_size, VARLINK_READ_SIZE);
 
                 if (v->input_buffer_index == 0) {
 
-                        if (!GREEDY_REALLOC(v->input_buffer, v->input_buffer_allocated, v->input_buffer_size + add))
+                        if (!GREEDY_REALLOC(v->input_buffer, v->input_buffer_size + add))
                                 return -ENOMEM;
 
                 } else {
@@ -526,13 +525,11 @@ static int varlink_read(Varlink *v) {
                         memcpy(b, v->input_buffer + v->input_buffer_index, v->input_buffer_size);
 
                         free_and_replace(v->input_buffer, b);
-
-                        v->input_buffer_allocated = v->input_buffer_size + add;
                         v->input_buffer_index = 0;
                 }
         }
 
-        rs = v->input_buffer_allocated - (v->input_buffer_index + v->input_buffer_size);
+        rs = MALLOC_SIZEOF_SAFE(v->input_buffer) - (v->input_buffer_index + v->input_buffer_size);
 
         bool prefer_read = v->prefer_read_write;
         if (!prefer_read) {
@@ -577,7 +574,7 @@ static int varlink_parse_message(Varlink *v) {
                 return 0;
 
         assert(v->input_buffer_unscanned <= v->input_buffer_size);
-        assert(v->input_buffer_index + v->input_buffer_size <= v->input_buffer_allocated);
+        assert(v->input_buffer_index + v->input_buffer_size <= MALLOC_SIZEOF_SAFE(v->input_buffer));
 
         begin = v->input_buffer + v->input_buffer_index;
 
@@ -1257,12 +1254,12 @@ static int varlink_enqueue_json(Varlink *v, JsonVariant *m) {
 
                 free_and_replace(v->output_buffer, text);
 
-                v->output_buffer_size = v->output_buffer_allocated = r + 1;
+                v->output_buffer_size = r + 1;
                 v->output_buffer_index = 0;
 
         } else if (v->output_buffer_index == 0) {
 
-                if (!GREEDY_REALLOC(v->output_buffer, v->output_buffer_allocated, v->output_buffer_size + r + 1))
+                if (!GREEDY_REALLOC(v->output_buffer, v->output_buffer_size + r + 1))
                         return -ENOMEM;
 
                 memcpy(v->output_buffer + v->output_buffer_size, text, r + 1);
@@ -1279,7 +1276,7 @@ static int varlink_enqueue_json(Varlink *v, JsonVariant *m) {
                 memcpy(mempcpy(n, v->output_buffer + v->output_buffer_index, v->output_buffer_size), text, r + 1);
 
                 free_and_replace(v->output_buffer, n);
-                v->output_buffer_allocated = v->output_buffer_size = new_size;
+                v->output_buffer_size = new_size;
                 v->output_buffer_index = 0;
         }
 

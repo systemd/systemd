@@ -46,11 +46,11 @@ static void test_deserialize_in_addr(void) {
 }
 
 static void test_deserialize_dhcp_routes(void) {
-        size_t size, allocated;
+        size_t size;
 
         {
                 _cleanup_free_ struct sd_dhcp_route *routes = NULL;
-                assert_se(deserialize_dhcp_routes(&routes, &size, &allocated, "") >= 0);
+                assert_se(deserialize_dhcp_routes(&routes, &size, "") >= 0);
                 assert_se(size == 0);
         }
 
@@ -59,7 +59,7 @@ static void test_deserialize_dhcp_routes(void) {
                 _cleanup_free_ struct sd_dhcp_route *routes = NULL;
                 const char *routes_string = "192.168.0.0/16,192.168.0.1 10.1.2.0/24,10.1.2.1 0.0.0.0/0,10.0.1.1";
 
-                assert_se(deserialize_dhcp_routes(&routes, &size, &allocated, routes_string) >= 0);
+                assert_se(deserialize_dhcp_routes(&routes, &size, routes_string) >= 0);
 
                 assert_se(size == 3);
                 assert_se(routes[0].dst_addr.s_addr == inet_addr("192.168.0.0"));
@@ -80,7 +80,7 @@ static void test_deserialize_dhcp_routes(void) {
                 _cleanup_free_ struct sd_dhcp_route *routes = NULL;
                 const char *routes_string = "192.168.0.0/16,192.168.0.1 10.1.2.0#24,10.1.2.1 0.0.0.0/0,10.0.1.1";
 
-                assert_se(deserialize_dhcp_routes(&routes, &size, &allocated, routes_string) >= 0);
+                assert_se(deserialize_dhcp_routes(&routes, &size, routes_string) >= 0);
 
                 assert_se(size == 2);
                 assert_se(routes[0].dst_addr.s_addr == inet_addr("192.168.0.0"));
@@ -97,7 +97,7 @@ static void test_deserialize_dhcp_routes(void) {
                 _cleanup_free_ struct sd_dhcp_route *routes = NULL;
                 const char *routes_string = "192.168.0.0/55,192.168.0.1 10.1.2.0#24,10.1.2.1 0.0.0.0/0,10.0.1.X";
 
-                assert_se(deserialize_dhcp_routes(&routes, &size, &allocated, routes_string) >= 0);
+                assert_se(deserialize_dhcp_routes(&routes, &size, routes_string) >= 0);
                 assert_se(size == 0);
         }
 }
@@ -166,23 +166,6 @@ static int test_load_config(Manager *manager) {
         assert_se(manager_should_reload(manager) == false);
 
         return 0;
-}
-
-static void test_network_get(Manager *manager, sd_device *loopback) {
-        Network *network;
-        const struct ether_addr mac = ETHER_ADDR_NULL;
-        int r;
-
-        /* Let's hope that the test machine does not have a .network file that applies to loopback device…
-         * But it is still possible, so let's allow that case too. */
-        r = network_get(manager, 0, loopback, "lo", NULL, NULL, &mac, &mac, 0, NULL, NULL, &network);
-        if (r == -ENOENT)
-                /* The expected case */
-                assert_se(!network);
-        else if (r >= 0)
-                assert_se(network);
-        else
-                assert_not_reached("bad error!");
 }
 
 static void test_address_equality(void) {
@@ -277,8 +260,7 @@ static void test_dhcp_hostname_shorten_overlong(void) {
 
 int main(void) {
         _cleanup_(manager_freep) Manager *manager = NULL;
-        _cleanup_(sd_device_unrefp) sd_device *loopback = NULL;
-        int ifindex, r;
+        int r;
 
         test_setup_logging(LOG_INFO);
 
@@ -293,15 +275,9 @@ int main(void) {
 
         r = test_load_config(manager);
         if (r == -EPERM)
-                return log_tests_skipped("Cannot load configuration");
-        assert_se(r == 0);
-
-        assert_se(sd_device_new_from_syspath(&loopback, "/sys/class/net/lo") >= 0);
-        assert_se(loopback);
-        assert_se(sd_device_get_ifindex(loopback, &ifindex) >= 0);
-        assert_se(ifindex == 1);
-
-        test_network_get(manager, loopback);
+                log_debug("Cannot load configuration, ignoring.");
+        else
+                assert_se(r == 0);
 
         assert_se(manager_enumerate(manager) >= 0);
         return 0;

@@ -82,7 +82,7 @@ int efi_reboot_to_firmware_supported(void) {
         if (!is_efi_boot())
                 goto not_supported;
 
-        r = efi_get_variable(EFI_VENDOR_GLOBAL, "OsIndicationsSupported", NULL, &v, &s);
+        r = efi_get_variable(EFI_GLOBAL_VARIABLE(OsIndicationsSupported), NULL, &v, &s);
         if (r == -ENOENT)
                 goto not_supported; /* variable doesn't exist? it's not supported then */
         if (r < 0)
@@ -105,7 +105,6 @@ not_supported:
 static int get_os_indications(uint64_t *ret) {
         static struct stat cache_stat = {};
         _cleanup_free_ void *v = NULL;
-        _cleanup_free_ char *fn = NULL;
         static uint64_t cache;
         struct stat new_stat;
         size_t s;
@@ -118,12 +117,8 @@ static int get_os_indications(uint64_t *ret) {
         if (r < 0)
                 return r;
 
-        fn = efi_variable_path(EFI_VENDOR_GLOBAL, "OsIndications");
-        if (!fn)
-                return -ENOMEM;
-
         /* stat() the EFI variable, to see if the mtime changed. If it did we need to cache again. */
-        if (stat(fn, &new_stat) < 0) {
+        if (stat(EFIVAR_PATH(EFI_GLOBAL_VARIABLE(OsIndications)), &new_stat) < 0) {
                 if (errno != ENOENT)
                         return -errno;
 
@@ -137,7 +132,7 @@ static int get_os_indications(uint64_t *ret) {
                 return 0;
         }
 
-        r = efi_get_variable(EFI_VENDOR_GLOBAL, "OsIndications", NULL, &v, &s);
+        r = efi_get_variable(EFI_GLOBAL_VARIABLE(OsIndications), NULL, &v, &s);
         if (r == -ENOENT) {
                 /* Some firmware implementations that do support OsIndications and report that with
                  * OsIndicationsSupported will remove the OsIndications variable when it is unset. Let's
@@ -180,7 +175,7 @@ int efi_set_reboot_to_firmware(bool value) {
 
         /* Avoid writing to efi vars store if we can due to firmware bugs. */
         if (b != b_new)
-                return efi_set_variable(EFI_VENDOR_GLOBAL, "OsIndications", &b_new, sizeof(uint64_t));
+                return efi_set_variable(EFI_GLOBAL_VARIABLE(OsIndications), &b_new, sizeof(uint64_t));
 
         return 0;
 }
@@ -235,7 +230,7 @@ int efi_get_boot_option(
                 char **path,
                 bool *active) {
 
-        char boot_id[9];
+        char variable[STRLEN(EFI_GLOBAL_VARIABLE_STR("Boot")) + 4 + 1];
         _cleanup_free_ uint8_t *buf = NULL;
         size_t l;
         struct boot_option *header;
@@ -247,8 +242,8 @@ int efi_get_boot_option(
         if (!is_efi_boot())
                 return -EOPNOTSUPP;
 
-        xsprintf(boot_id, "Boot%04X", id);
-        r = efi_get_variable(EFI_VENDOR_GLOBAL, boot_id, NULL, (void **)&buf, &l);
+        xsprintf(variable, EFI_GLOBAL_VARIABLE_STR("Boot%04X"), id);
+        r = efi_get_variable(variable, NULL, (void **)&buf, &l);
         if (r < 0)
                 return r;
         if (l < offsetof(struct boot_option, title))
@@ -350,9 +345,7 @@ static void id128_to_efi_guid(sd_id128_t id, void *guid) {
 }
 
 static uint16_t *tilt_slashes(uint16_t *s) {
-        uint16_t *p;
-
-        for (p = s; *p; p++)
+        for (uint16_t *p = s; *p; p++)
                 if (*p == '/')
                         *p = '\\';
 
@@ -372,7 +365,7 @@ int efi_add_boot_option(
         _cleanup_free_ char *buf = NULL;
         struct boot_option *option;
         struct device_path *devicep;
-        char boot_id[9];
+        char variable[STRLEN(EFI_GLOBAL_VARIABLE_STR("Boot")) + 4 + 1];
 
         if (!is_efi_boot())
                 return -EOPNOTSUPP;
@@ -424,18 +417,18 @@ int efi_add_boot_option(
         devicep->length = offsetof(struct device_path, path);
         size += devicep->length;
 
-        xsprintf(boot_id, "Boot%04X", id);
-        return efi_set_variable(EFI_VENDOR_GLOBAL, boot_id, buf, size);
+        xsprintf(variable, EFI_GLOBAL_VARIABLE_STR("Boot%04X"), id);
+        return efi_set_variable(variable, buf, size);
 }
 
 int efi_remove_boot_option(uint16_t id) {
-        char boot_id[9];
+        char variable[STRLEN(EFI_GLOBAL_VARIABLE_STR("Boot")) + 4 + 1];
 
         if (!is_efi_boot())
                 return -EOPNOTSUPP;
 
-        xsprintf(boot_id, "Boot%04X", id);
-        return efi_set_variable(EFI_VENDOR_GLOBAL, boot_id, NULL, 0);
+        xsprintf(variable, EFI_GLOBAL_VARIABLE_STR("Boot%04X"), id);
+        return efi_set_variable(variable, NULL, 0);
 }
 
 int efi_get_boot_order(uint16_t **order) {
@@ -446,7 +439,7 @@ int efi_get_boot_order(uint16_t **order) {
         if (!is_efi_boot())
                 return -EOPNOTSUPP;
 
-        r = efi_get_variable(EFI_VENDOR_GLOBAL, "BootOrder", NULL, &buf, &l);
+        r = efi_get_variable(EFI_GLOBAL_VARIABLE(BootOrder), NULL, &buf, &l);
         if (r < 0)
                 return r;
 
@@ -466,15 +459,15 @@ int efi_set_boot_order(uint16_t *order, size_t n) {
         if (!is_efi_boot())
                 return -EOPNOTSUPP;
 
-        return efi_set_variable(EFI_VENDOR_GLOBAL, "BootOrder", order, n * sizeof(uint16_t));
+        return efi_set_variable(EFI_GLOBAL_VARIABLE(BootOrder), order, n * sizeof(uint16_t));
 }
 
 static int boot_id_hex(const char s[static 4]) {
-        int id = 0, i;
+        int id = 0;
 
         assert(s);
 
-        for (i = 0; i < 4; i++)
+        for (int i = 0; i < 4; i++)
                 if (s[i] >= '0' && s[i] <= '9')
                         id |= (s[i] - '0') << (3 - i) * 4;
                 else if (s[i] >= 'A' && s[i] <= 'F')
@@ -493,7 +486,6 @@ int efi_get_boot_options(uint16_t **options) {
         _cleanup_closedir_ DIR *dir = NULL;
         _cleanup_free_ uint16_t *list = NULL;
         struct dirent *de;
-        size_t alloc = 0;
         int count = 0;
 
         assert(options);
@@ -501,7 +493,7 @@ int efi_get_boot_options(uint16_t **options) {
         if (!is_efi_boot())
                 return -EOPNOTSUPP;
 
-        dir = opendir("/sys/firmware/efi/efivars/");
+        dir = opendir(EFIVAR_PATH("."));
         if (!dir)
                 return -errno;
 
@@ -514,14 +506,14 @@ int efi_get_boot_options(uint16_t **options) {
                 if (strlen(de->d_name) != 45)
                         continue;
 
-                if (strcmp(de->d_name + 8, "-8be4df61-93ca-11d2-aa0d-00e098032b8c") != 0)
+                if (strcmp(de->d_name + 8, EFI_GLOBAL_VARIABLE_STR("")) != 0)  /* generate variable suffix using macro */
                         continue;
 
                 id = boot_id_hex(de->d_name + 4);
                 if (id < 0)
                         continue;
 
-                if (!GREEDY_REALLOC(list, alloc, count + 1))
+                if (!GREEDY_REALLOC(list, count + 1))
                         return -ENOMEM;
 
                 list[count++] = id;
@@ -534,15 +526,15 @@ int efi_get_boot_options(uint16_t **options) {
         return count;
 }
 
-static int read_usec(sd_id128_t vendor, const char *name, usec_t *u) {
+static int read_usec(const char *variable, usec_t *u) {
         _cleanup_free_ char *j = NULL;
         int r;
         uint64_t x = 0;
 
-        assert(name);
+        assert(variable);
         assert(u);
 
-        r = efi_get_variable_string(EFI_VENDOR_LOADER, name, &j);
+        r = efi_get_variable_string(variable, &j);
         if (r < 0)
                 return r;
 
@@ -564,11 +556,11 @@ int efi_loader_get_boot_usec(usec_t *firmware, usec_t *loader) {
         if (!is_efi_boot())
                 return -EOPNOTSUPP;
 
-        r = read_usec(EFI_VENDOR_LOADER, "LoaderTimeInitUSec", &x);
+        r = read_usec(EFI_LOADER_VARIABLE(LoaderTimeInitUSec), &x);
         if (r < 0)
                 return log_debug_errno(r, "Failed to read LoaderTimeInitUSec: %m");
 
-        r = read_usec(EFI_VENDOR_LOADER, "LoaderTimeExecUSec", &y);
+        r = read_usec(EFI_LOADER_VARIABLE(LoaderTimeExecUSec), &y);
         if (r < 0)
                 return log_debug_errno(r, "Failed to read LoaderTimeExecUSec: %m");
 
@@ -590,7 +582,7 @@ int efi_loader_get_device_part_uuid(sd_id128_t *u) {
         if (!is_efi_boot())
                 return -EOPNOTSUPP;
 
-        r = efi_get_variable_string(EFI_VENDOR_LOADER, "LoaderDevicePartUUID", &p);
+        r = efi_get_variable_string(EFI_LOADER_VARIABLE(LoaderDevicePartUUID), &p);
         if (r < 0)
                 return r;
 
@@ -601,12 +593,9 @@ int efi_loader_get_device_part_uuid(sd_id128_t *u) {
                    &parsed[12], &parsed[13], &parsed[14], &parsed[15]) != 16)
                 return -EIO;
 
-        if (u) {
-                unsigned i;
-
-                for (i = 0; i < ELEMENTSOF(parsed); i++)
+        if (u)
+                for (unsigned i = 0; i < ELEMENTSOF(parsed); i++)
                         u->bytes[i] = parsed[i];
-        }
 
         return 0;
 }
@@ -614,7 +603,7 @@ int efi_loader_get_device_part_uuid(sd_id128_t *u) {
 int efi_loader_get_entries(char ***ret) {
         _cleanup_free_ char16_t *entries = NULL;
         _cleanup_strv_free_ char **l = NULL;
-        size_t size, i, start;
+        size_t size;
         int r;
 
         assert(ret);
@@ -622,13 +611,13 @@ int efi_loader_get_entries(char ***ret) {
         if (!is_efi_boot())
                 return -EOPNOTSUPP;
 
-        r = efi_get_variable(EFI_VENDOR_LOADER, "LoaderEntries", NULL, (void**) &entries, &size);
+        r = efi_get_variable(EFI_LOADER_VARIABLE(LoaderEntries), NULL, (void**) &entries, &size);
         if (r < 0)
                 return r;
 
         /* The variable contains a series of individually NUL terminated UTF-16 strings. */
 
-        for (i = 0, start = 0;; i++) {
+        for (size_t i = 0, start = 0;; i++) {
                 _cleanup_free_ char *decoded = NULL;
                 bool end;
 
@@ -674,12 +663,12 @@ int efi_loader_get_features(uint64_t *ret) {
                 return 0;
         }
 
-        r = efi_get_variable(EFI_VENDOR_LOADER, "LoaderFeatures", NULL, &v, &s);
+        r = efi_get_variable(EFI_LOADER_VARIABLE(LoaderFeatures), NULL, &v, &s);
         if (r == -ENOENT) {
                 _cleanup_free_ char *info = NULL;
 
                 /* The new (v240+) LoaderFeatures variable is not supported, let's see if it's systemd-boot at all */
-                r = efi_get_variable_string(EFI_VENDOR_LOADER, "LoaderInfo", &info);
+                r = efi_get_variable_string(EFI_LOADER_VARIABLE(LoaderInfo), &info);
                 if (r < 0) {
                         if (r != -ENOENT)
                                 return r;
@@ -714,7 +703,7 @@ int efi_loader_get_features(uint64_t *ret) {
 }
 
 int efi_loader_get_config_timeout_one_shot(usec_t *ret) {
-        _cleanup_free_ char *v = NULL, *fn = NULL;
+        _cleanup_free_ char *v = NULL;
         static struct stat cache_stat = {};
         struct stat new_stat;
         static usec_t cache;
@@ -723,12 +712,8 @@ int efi_loader_get_config_timeout_one_shot(usec_t *ret) {
 
         assert(ret);
 
-        fn = efi_variable_path(EFI_VENDOR_LOADER, "LoaderConfigTimeoutOneShot");
-        if (!fn)
-                return -ENOMEM;
-
-        /* stat() the EFI variable, to see if the mtime changed. If it did we need to cache again. */
-        if (stat(fn, &new_stat) < 0)
+        /* stat() the EFI variable, to see if the mtime changed. If it did, we need to cache again. */
+        if (stat(EFIVAR_PATH(EFI_LOADER_VARIABLE(LoaderConfigTimeoutOneShot)), &new_stat) < 0)
                 return -errno;
 
         if (stat_inode_unmodified(&new_stat, &cache_stat)) {
@@ -736,7 +721,7 @@ int efi_loader_get_config_timeout_one_shot(usec_t *ret) {
                 return 0;
         }
 
-        r = efi_get_variable_string(EFI_VENDOR_LOADER, "LoaderConfigTimeoutOneShot", &v);
+        r = efi_get_variable_string(EFI_LOADER_VARIABLE(LoaderConfigTimeoutOneShot), &v);
         if (r < 0)
                 return r;
 
@@ -752,25 +737,21 @@ int efi_loader_get_config_timeout_one_shot(usec_t *ret) {
 }
 
 int efi_loader_update_entry_one_shot_cache(char **cache, struct stat *cache_stat) {
-        _cleanup_free_ char *fn = NULL, *v = NULL;
+        _cleanup_free_ char *v = NULL;
         struct stat new_stat;
         int r;
 
         assert(cache);
         assert(cache_stat);
 
-        fn = efi_variable_path(EFI_VENDOR_LOADER, "LoaderEntryOneShot");
-        if (!fn)
-                return -ENOMEM;
-
         /* stat() the EFI variable, to see if the mtime changed. If it did we need to cache again. */
-        if (stat(fn, &new_stat) < 0)
+        if (stat(EFIVAR_PATH(EFI_LOADER_VARIABLE(LoaderEntryOneShot)), &new_stat) < 0)
                 return -errno;
 
         if (stat_inode_unmodified(&new_stat, cache_stat))
                 return 0;
 
-        r = efi_get_variable_string(EFI_VENDOR_LOADER, "LoaderEntryOneShot", &v);
+        r = efi_get_variable_string(EFI_LOADER_VARIABLE(LoaderEntryOneShot), &v);
         if (r < 0)
                 return r;
 
@@ -809,7 +790,6 @@ bool efi_has_tpm2(void) {
 #endif
 
 bool efi_loader_entry_name_valid(const char *s) {
-
         if (!filename_is_valid(s)) /* Make sure entry names fit in filenames */
                 return false;
 
@@ -817,9 +797,7 @@ bool efi_loader_entry_name_valid(const char *s) {
 }
 
 char *efi_tilt_backslashes(char *s) {
-        char *p;
-
-        for (p = s; *p; p++)
+        for (char *p = s; *p; p++)
                 if (*p == '\\')
                         *p = '/';
 

@@ -11,6 +11,7 @@
 
 #include "alloc-util.h"
 #include "ether-addr-util.h"
+#include "hexdecoct.h"
 #include "lockfile-util.h"
 #include "missing_network.h"
 #include "netif-naming-scheme.h"
@@ -200,16 +201,6 @@ static int add_veth(
         return 0;
 }
 
-/* This is almost base64char(), but not entirely, as it uses the "url and filename safe" alphabet, since we
- * don't want "/" appear in interface names (since interfaces appear in sysfs as filenames). See section #5
- * of RFC 4648. */
-static char urlsafe_base64char(int x) {
-        static const char table[64] = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
-                                      "abcdefghijklmnopqrstuvwxyz"
-                                      "0123456789-_";
-        return table[x & 63];
-}
-
 static int shorten_ifname(char *ifname) {
         char new_ifname[IFNAMSIZ];
 
@@ -281,7 +272,7 @@ int setup_veth(const char *machine_name,
         if (r < 0)
                 return r;
 
-        u = if_nametoindex(n); /* We don't need to use resolve_ifname() here because the
+        u = if_nametoindex(n); /* We don't need to use rtnl_resolve_ifname() here because the
                                 * name we assigned is always the main name. */
         if (u == 0)
                 return log_error_errno(errno, "Failed to resolve interface %s: %m", n);
@@ -339,7 +330,7 @@ static int join_bridge(sd_netlink *rtnl, const char *veth_name, const char *brid
         assert(veth_name);
         assert(bridge_name);
 
-        bridge_ifi = resolve_interface(&rtnl, bridge_name);
+        bridge_ifi = rtnl_resolve_interface(&rtnl, bridge_name);
         if (bridge_ifi < 0)
                 return bridge_ifi;
 
@@ -476,20 +467,14 @@ int remove_bridge(const char *bridge_name) {
 
 int test_network_interface_initialized(const char *name) {
         _cleanup_(sd_device_unrefp) sd_device *d = NULL;
-        int ifi, r;
-        char ifi_str[2 + DECIMAL_STR_MAX(int)];
+        int r;
 
-        if (path_is_read_only_fs("/sys"))
+        if (path_is_read_only_fs("/sys") > 0)
                 return 0;
 
         /* udev should be around. */
 
-        ifi = resolve_interface_or_warn(NULL, name);
-        if (ifi < 0)
-                return ifi;
-
-        sprintf(ifi_str, "n%i", ifi);
-        r = sd_device_new_from_device_id(&d, ifi_str);
+        r = sd_device_new_from_ifname(&d, name);
         if (r < 0)
                 return log_error_errno(r, "Failed to get device %s: %m", name);
 
@@ -524,7 +509,7 @@ int move_network_interfaces(int netns_fd, char **ifaces) {
                 _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
                 int ifi;
 
-                ifi = resolve_interface_or_warn(&rtnl, *i);
+                ifi = rtnl_resolve_interface_or_warn(&rtnl, *i);
                 if (ifi < 0)
                         return ifi;
 
@@ -563,7 +548,7 @@ int setup_macvlan(const char *machine_name, pid_t pid, char **ifaces) {
                 struct ether_addr mac;
                 int ifi;
 
-                ifi = resolve_interface_or_warn(&rtnl, *i);
+                ifi = rtnl_resolve_interface_or_warn(&rtnl, *i);
                 if (ifi < 0)
                         return ifi;
 
@@ -649,7 +634,7 @@ int setup_ipvlan(const char *machine_name, pid_t pid, char **ifaces) {
                 _cleanup_free_ char *n = NULL, *a = NULL;
                 int ifi;
 
-                ifi = resolve_interface_or_warn(&rtnl, *i);
+                ifi = rtnl_resolve_interface_or_warn(&rtnl, *i);
                 if (ifi < 0)
                         return ifi;
 

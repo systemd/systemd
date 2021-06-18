@@ -56,6 +56,10 @@ _public_ int sd_network_get_ipv6_address_state(char **state) {
         return network_get_string("IPV6_ADDRESS_STATE", state);
 }
 
+_public_ int sd_network_get_online_state(char **state) {
+        return network_get_string("ONLINE_STATE", state);
+}
+
 static int network_get_strv(const char *key, char ***ret) {
         _cleanup_strv_free_ char **a = NULL;
         _cleanup_free_ char *s = NULL;
@@ -204,6 +208,10 @@ _public_ int sd_network_link_get_ipv6_address_state(int ifindex, char **state) {
         return network_link_get_string(ifindex, "IPV6_ADDRESS_STATE", state);
 }
 
+_public_ int sd_network_link_get_online_state(int ifindex, char **state) {
+        return network_link_get_string(ifindex, "ONLINE_STATE", state);
+}
+
 _public_ int sd_network_link_get_dhcp6_client_iaid_string(int ifindex, char **iaid) {
         return network_link_get_string(ifindex, "DHCP6_CLIENT_IAID", iaid);
 }
@@ -332,7 +340,7 @@ static int network_link_get_ifindexes(int ifindex, const char *key, int **ret) {
         char path[STRLEN("/run/systemd/netif/links/") + DECIMAL_STR_MAX(ifindex) + 1];
         _cleanup_free_ int *ifis = NULL;
         _cleanup_free_ char *s = NULL;
-        size_t allocated = 0, c = 0;
+        size_t c = 0;
         int r;
 
         assert_return(ifindex > 0, -EINVAL);
@@ -354,7 +362,7 @@ static int network_link_get_ifindexes(int ifindex, const char *key, int **ret) {
                 if (r == 0)
                         break;
 
-                if (!GREEDY_REALLOC(ifis, allocated, c + 2))
+                if (!GREEDY_REALLOC(ifis, c + 2))
                         return -ENOMEM;
 
                 r = ifis[c++] = parse_ifindex(word);

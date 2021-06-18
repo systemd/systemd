@@ -53,6 +53,7 @@ int sd_network_get_carrier_state(char **state);
 int sd_network_get_address_state(char **state);
 int sd_network_get_ipv4_address_state(char **state);
 int sd_network_get_ipv6_address_state(char **state);
+int sd_network_get_online_state(char **state);
 
 /* Get DNS entries for all links. These are string representations of
  * IP addresses */
@@ -99,6 +100,7 @@ int sd_network_link_get_carrier_state(int ifindex, char **state);
 int sd_network_link_get_address_state(int ifindex, char **state);
 int sd_network_link_get_ipv4_address_state(int ifindex, char **state);
 int sd_network_link_get_ipv6_address_state(int ifindex, char **state);
+int sd_network_link_get_online_state(int ifindex, char **state);
 
 /* Indicates whether the network is relevant to being online.
  * Possible return codes:

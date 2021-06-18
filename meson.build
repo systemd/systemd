@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
 project('systemd', 'c',
-        version : '248',
+        version : '249',
         license : 'LGPLv2+',
         default_options: [
                 'c_std=gnu99',
@@ -13,21 +13,13 @@ project('systemd', 'c',
         meson_version : '>= 0.46',
        )
 
-libsystemd_version = '0.31.0'
-libudev_version = '1.7.1'
+libsystemd_version = '0.32.0'
+libudev_version = '1.7.2'
 
-# We need the same data in two different formats, ugh!
-# Also, for hysterical reasons, we use different variable
-# names, sometimes. Not all variables are included in every
-# set. Ugh, ugh, ugh!
 conf = configuration_data()
-conf.set('PROJECT_VERSION',        meson.project_version(),
+conf.set_quoted('PROJECT_URL', 'https://www.freedesktop.org/wiki/Software/systemd')
+conf.set('PROJECT_VERSION',    meson.project_version(),
          description : 'Numerical project version (used where a simple number is expected)')
-
-substs = configuration_data()
-substs.set('PROJECT_URL',          'https://www.freedesktop.org/wiki/Software/systemd')
-substs.set('PROJECT_VERSION',      meson.project_version(),
-           description : 'Numerical project version (used where a simple number is expected)')
 
 # This is to be used instead of meson.source_root(), as the latter will return
 # the wrong result when systemd is being built as a meson subproject
@@ -115,7 +107,7 @@ prefixdir = get_option('prefix')
 if not prefixdir.startswith('/')
         error('Prefix is not absolute: "@0@"'.format(prefixdir))
 endif
-if prefixdir != rootprefixdir and not prefixdir.startswith(rootprefixdir.strip('/') + '/')
+if prefixdir != rootprefixdir and rootprefixdir != '/' and not prefixdir.strip('/').startswith(rootprefixdir.strip('/') + '/')
         error('Prefix is not below root prefix (now rootprefix=@0@ prefix=@1@)'.format(
                 rootprefixdir, prefixdir))
 endif
@@ -219,106 +211,77 @@ endif
 memory_accounting_default = get_option('memory-accounting-default')
 status_unit_format_default = get_option('status-unit-format-default')
 
+conf.set_quoted('BINFMT_DIR',                                 binfmtdir)
+conf.set_quoted('BOOTLIBDIR',                                 bootlibdir)
+conf.set_quoted('CATALOG_DATABASE',                           join_paths(catalogstatedir, 'database'))
+conf.set_quoted('CERTIFICATE_ROOT',                           get_option('certificate-root'))
+conf.set_quoted('DOCUMENT_ROOT',                              join_paths(pkgdatadir, 'gatewayd'))
+conf.set_quoted('ENVIRONMENT_DIR',                            environmentdir)
+conf.set_quoted('INCLUDE_DIR',                                includedir)
+conf.set_quoted('LIBDIR',                                     libdir)
+conf.set_quoted('MODPROBE_DIR',                               modprobedir)
+conf.set_quoted('MODULESLOAD_DIR',                            modulesloaddir)
 conf.set_quoted('PKGSYSCONFDIR',                              pkgsysconfdir)
+conf.set_quoted('POLKIT_AGENT_BINARY_PATH',                   join_paths(bindir, 'pkttyagent'))
+conf.set_quoted('PREFIX',                                     prefixdir)
+conf.set_quoted('RANDOM_SEED',                                join_paths(randomseeddir, 'random-seed'))
+conf.set_quoted('RANDOM_SEED_DIR',                            randomseeddir)
+conf.set_quoted('RC_LOCAL_PATH',                              get_option('rc-local'))
+conf.set_quoted('ROOTBINDIR',                                 rootbindir)
+conf.set_quoted('ROOTLIBDIR',                                 rootlibdir)
+conf.set_quoted('ROOTLIBEXECDIR',                             rootlibexecdir)
+conf.set_quoted('ROOTPREFIX',                                 rootprefixdir)
+conf.set_quoted('ROOTPREFIX_NOSLASH',                         rootprefixdir_noslash)
+conf.set_quoted('SYSCONF_DIR',                                sysconfdir)
+conf.set_quoted('SYSCTL_DIR',                                 sysctldir)
+conf.set_quoted('SYSTEMCTL_BINARY_PATH',                      join_paths(rootbindir, 'systemctl'))
+conf.set_quoted('SYSTEMD_BINARY_PATH',                        join_paths(rootlibexecdir, 'systemd'))
+conf.set_quoted('SYSTEMD_CATALOG_DIR',                        catalogdir)
+conf.set_quoted('SYSTEMD_CGROUPS_AGENT_PATH',                 join_paths(rootlibexecdir, 'systemd-cgroups-agent'))
+conf.set_quoted('SYSTEMD_CRYPTSETUP_PATH',                    join_paths(rootlibexecdir, 'systemd-cryptsetup'))
+conf.set_quoted('SYSTEMD_EXPORT_PATH',                        join_paths(rootlibexecdir, 'systemd-export'))
+conf.set_quoted('SYSTEMD_FSCK_PATH',                          join_paths(rootlibexecdir, 'systemd-fsck'))
+conf.set_quoted('SYSTEMD_GROWFS_PATH',                        join_paths(rootlibexecdir, 'systemd-growfs'))
+conf.set_quoted('SYSTEMD_HOMEWORK_PATH',                      join_paths(rootlibexecdir, 'systemd-homework'))
+conf.set_quoted('SYSTEMD_IMPORT_FS_PATH',                     join_paths(rootlibexecdir, 'systemd-import-fs'))
+conf.set_quoted('SYSTEMD_IMPORT_PATH',                        join_paths(rootlibexecdir, 'systemd-import'))
+conf.set_quoted('SYSTEMD_KBD_MODEL_MAP',                      join_paths(pkgdatadir, 'kbd-model-map'))
+conf.set_quoted('SYSTEMD_LANGUAGE_FALLBACK_MAP',              join_paths(pkgdatadir, 'language-fallback-map'))
+conf.set_quoted('SYSTEMD_MAKEFS_PATH',                        join_paths(rootlibexecdir, 'systemd-makefs'))
+conf.set_quoted('SYSTEMD_PULL_PATH',                          join_paths(rootlibexecdir, 'systemd-pull'))
+conf.set_quoted('SYSTEMD_SHUTDOWN_BINARY_PATH',               join_paths(rootlibexecdir, 'systemd-shutdown'))
+conf.set_quoted('SYSTEMD_STDIO_BRIDGE_BINARY_PATH',           join_paths(bindir, 'systemd-stdio-bridge'))
+conf.set_quoted('SYSTEMD_TEST_DATA',                          join_paths(testsdir, 'testdata'))
+conf.set_quoted('SYSTEMD_TTY_ASK_PASSWORD_AGENT_BINARY_PATH', join_paths(rootbindir, 'systemd-tty-ask-password-agent'))
+conf.set_quoted('SYSTEMD_USERWORK_PATH',                      join_paths(rootlibexecdir, 'systemd-userwork'))
+conf.set_quoted('SYSTEMD_VERITYSETUP_PATH',                   join_paths(rootlibexecdir, 'systemd-veritysetup'))
 conf.set_quoted('SYSTEM_CONFIG_UNIT_DIR',                     join_paths(pkgsysconfdir, 'system'))
-conf.set_quoted('SYSTEM_DATA_UNIT_PATH',                      systemunitdir)
+conf.set_quoted('SYSTEM_DATA_UNIT_DIR',                       systemunitdir)
+conf.set_quoted('SYSTEM_ENV_GENERATOR_DIR',                   systemenvgeneratordir)
+conf.set_quoted('SYSTEM_GENERATOR_DIR',                       systemgeneratordir)
+conf.set_quoted('SYSTEM_PRESET_DIR',                          systempresetdir)
+conf.set_quoted('SYSTEM_SHUTDOWN_PATH',                       systemshutdowndir)
+conf.set_quoted('SYSTEM_SLEEP_PATH',                          systemsleepdir)
 conf.set_quoted('SYSTEM_SYSVINIT_PATH',                       sysvinit_path)
 conf.set_quoted('SYSTEM_SYSVRCND_PATH',                       sysvrcnd_path)
-conf.set_quoted('RC_LOCAL_PATH',                              get_option('rc-local'))
+conf.set_quoted('SYSUSERS_DIR',                               sysusersdir)
+conf.set_quoted('TMPFILES_DIR',                               tmpfilesdir)
+conf.set_quoted('UDEVLIBEXECDIR',                             udevlibexecdir)
+conf.set_quoted('UDEV_HWDB_DIR',                              udevhwdbdir)
+conf.set_quoted('UDEV_RULES_DIR',                             udevrulesdir)
+conf.set_quoted('USER_CONFIG_UNIT_DIR',                       join_paths(pkgsysconfdir, 'user'))
+conf.set_quoted('USER_DATA_UNIT_DIR',                         userunitdir)
+conf.set_quoted('USER_ENV_GENERATOR_DIR',                     userenvgeneratordir)
+conf.set_quoted('USER_GENERATOR_DIR',                         usergeneratordir)
+conf.set_quoted('USER_KEYRING_PATH',                          join_paths(pkgsysconfdir, 'import-pubring.gpg'))
+conf.set_quoted('USER_PRESET_DIR',                            userpresetdir)
+conf.set_quoted('VENDOR_KEYRING_PATH',                        join_paths(rootlibexecdir, 'import-pubring.gpg'))
 
 conf.set('ANSI_OK_COLOR',                                     'ANSI_' + get_option('ok-color').underscorify().to_upper())
 conf.set10('ENABLE_FEXECVE',                                  get_option('fexecve'))
-
-conf.set_quoted('USER_CONFIG_UNIT_DIR',                       join_paths(pkgsysconfdir, 'user'))
-conf.set_quoted('USER_DATA_UNIT_DIR',                         userunitdir)
-conf.set_quoted('CERTIFICATE_ROOT',                           get_option('certificate-root'))
-conf.set_quoted('CATALOG_DATABASE',                           join_paths(catalogstatedir, 'database'))
-conf.set_quoted('SYSTEMD_BINARY_PATH',                        join_paths(rootlibexecdir, 'systemd'))
-conf.set_quoted('SYSTEMD_CGROUPS_AGENT_PATH',                 join_paths(rootlibexecdir, 'systemd-cgroups-agent'))
-conf.set_quoted('SYSTEMD_FSCK_PATH',                          join_paths(rootlibexecdir, 'systemd-fsck'))
-conf.set_quoted('SYSTEMD_GROWFS_PATH',                        join_paths(rootlibexecdir, 'systemd-growfs'))
-conf.set_quoted('SYSTEMD_MAKEFS_PATH',                        join_paths(rootlibexecdir, 'systemd-makefs'))
-conf.set_quoted('SYSTEMD_SHUTDOWN_BINARY_PATH',               join_paths(rootlibexecdir, 'systemd-shutdown'))
-conf.set_quoted('SYSTEMCTL_BINARY_PATH',                      join_paths(rootbindir, 'systemctl'))
-conf.set_quoted('SYSTEMD_TTY_ASK_PASSWORD_AGENT_BINARY_PATH', join_paths(rootbindir, 'systemd-tty-ask-password-agent'))
-conf.set_quoted('SYSTEMD_STDIO_BRIDGE_BINARY_PATH',           join_paths(bindir, 'systemd-stdio-bridge'))
-conf.set_quoted('ROOTPREFIX',                                 rootprefixdir)
-conf.set_quoted('ROOTPREFIX_NOSLASH',                         rootprefixdir_noslash)
-conf.set_quoted('RANDOM_SEED_DIR',                            randomseeddir)
-conf.set_quoted('RANDOM_SEED',                                join_paths(randomseeddir, 'random-seed'))
-conf.set_quoted('SYSTEMD_CRYPTSETUP_PATH',                    join_paths(rootlibexecdir, 'systemd-cryptsetup'))
-conf.set_quoted('SYSTEMD_VERITYSETUP_PATH',                   join_paths(rootlibexecdir, 'systemd-veritysetup'))
-conf.set_quoted('SYSTEM_GENERATOR_DIR',                       systemgeneratordir)
-conf.set_quoted('USER_GENERATOR_DIR',                         usergeneratordir)
-conf.set_quoted('SYSTEM_ENV_GENERATOR_DIR',                   systemenvgeneratordir)
-conf.set_quoted('USER_ENV_GENERATOR_DIR',                     userenvgeneratordir)
-conf.set_quoted('SYSTEM_SHUTDOWN_PATH',                       systemshutdowndir)
-conf.set_quoted('SYSTEM_SLEEP_PATH',                          systemsleepdir)
-conf.set_quoted('SYSTEMD_KBD_MODEL_MAP',                      join_paths(pkgdatadir, 'kbd-model-map'))
-conf.set_quoted('SYSTEMD_LANGUAGE_FALLBACK_MAP',              join_paths(pkgdatadir, 'language-fallback-map'))
-conf.set_quoted('SYSTEMD_TEST_DATA',                          join_paths(testsdir, 'testdata'))
-conf.set_quoted('SYSTEMD_CATALOG_DIR',                        catalogdir)
-conf.set_quoted('UDEVLIBEXECDIR',                             udevlibexecdir)
-conf.set_quoted('POLKIT_AGENT_BINARY_PATH',                   join_paths(bindir, 'pkttyagent'))
-conf.set_quoted('LIBDIR',                                     libdir)
-conf.set_quoted('ROOTLIBDIR',                                 rootlibdir)
-conf.set_quoted('ROOTLIBEXECDIR',                             rootlibexecdir)
-conf.set_quoted('BOOTLIBDIR',                                 bootlibdir)
-conf.set_quoted('SYSTEMD_PULL_PATH',                          join_paths(rootlibexecdir, 'systemd-pull'))
-conf.set_quoted('SYSTEMD_IMPORT_PATH',                        join_paths(rootlibexecdir, 'systemd-import'))
-conf.set_quoted('SYSTEMD_IMPORT_FS_PATH',                     join_paths(rootlibexecdir, 'systemd-import-fs'))
-conf.set_quoted('SYSTEMD_EXPORT_PATH',                        join_paths(rootlibexecdir, 'systemd-export'))
-conf.set_quoted('VENDOR_KEYRING_PATH',                        join_paths(rootlibexecdir, 'import-pubring.gpg'))
-conf.set_quoted('USER_KEYRING_PATH',                          join_paths(pkgsysconfdir, 'import-pubring.gpg'))
-conf.set_quoted('DOCUMENT_ROOT',                              join_paths(pkgdatadir, 'gatewayd'))
-conf.set_quoted('SYSTEMD_HOMEWORK_PATH',                      join_paths(rootlibexecdir, 'systemd-homework'))
-conf.set_quoted('SYSTEMD_USERWORK_PATH',                      join_paths(rootlibexecdir, 'systemd-userwork'))
 conf.set10('MEMORY_ACCOUNTING_DEFAULT',                       memory_accounting_default)
-conf.set_quoted('MEMORY_ACCOUNTING_DEFAULT_YES_NO',           memory_accounting_default ? 'yes' : 'no')
 conf.set('STATUS_UNIT_FORMAT_DEFAULT',                        'STATUS_UNIT_FORMAT_' + status_unit_format_default.to_upper())
-
-substs.set('prefix',                                          prefixdir)
-substs.set('rootprefix',                                      rootprefixdir)
-substs.set('rootprefix_noslash',                              rootprefixdir_noslash)
-substs.set('exec_prefix',                                     prefixdir)
-substs.set('libdir',                                          libdir)
-substs.set('rootlibdir',                                      rootlibdir)
-substs.set('includedir',                                      includedir)
-substs.set('sysconfdir',                                      sysconfdir)
-substs.set('bindir',                                          bindir)
-substs.set('rootbindir',                                      rootbindir)
-substs.set('rootlibexecdir',                                  rootlibexecdir)
-substs.set('systemunitdir',                                   systemunitdir)
-substs.set('userunitdir',                                     userunitdir)
-substs.set('systempresetdir',                                 systempresetdir)
-substs.set('userpresetdir',                                   userpresetdir)
-substs.set('udevhwdbdir',                                     udevhwdbdir)
-substs.set('udevrulesdir',                                    udevrulesdir)
-substs.set('udevlibexecdir',                                  udevlibexecdir)
-substs.set('environmentdir',                                  environmentdir)
-substs.set('catalogdir',                                      catalogdir)
-substs.set('tmpfilesdir',                                     tmpfilesdir)
-substs.set('sysusersdir',                                     sysusersdir)
-substs.set('sysctldir',                                       sysctldir)
-substs.set('binfmtdir',                                       binfmtdir)
-substs.set('modulesloaddir',                                  modulesloaddir)
-substs.set('modprobedir',                                     modprobedir)
-substs.set('systemgeneratordir',                              systemgeneratordir)
-substs.set('usergeneratordir',                                usergeneratordir)
-substs.set('systemenvgeneratordir',                           systemenvgeneratordir)
-substs.set('userenvgeneratordir',                             userenvgeneratordir)
-substs.set('systemshutdowndir',                               systemshutdowndir)
-substs.set('systemsleepdir',                                  systemsleepdir)
-substs.set('CERTIFICATEROOT',                                 get_option('certificate-root'))
-substs.set('RANDOM_SEED',                                     join_paths(randomseeddir, 'random-seed'))
-substs.set('SYSTEM_SYSVINIT_PATH',                            sysvinit_path)
-substs.set('SYSTEM_SYSVRCND_PATH',                            sysvrcnd_path)
-substs.set('SYSTEMD_TEST_DATA',                               join_paths(testsdir, 'testdata'))
-substs.set('RC_LOCAL_PATH',                                   get_option('rc-local'))
-substs.set('MEMORY_ACCOUNTING_DEFAULT',                       memory_accounting_default ? 'yes' : 'no')
-substs.set('STATUS_UNIT_FORMAT_DEFAULT',                      status_unit_format_default)
-substs.set('HIGH_RLIMIT_NOFILE',                              conf.get('HIGH_RLIMIT_NOFILE'))
-substs.set('BUILD_ROOT',                                      project_build_root)
+conf.set_quoted('STATUS_UNIT_FORMAT_DEFAULT_STR',             status_unit_format_default)
 
 #####################################################################
 
@@ -356,53 +319,42 @@ endif
 # Those generate many false positives, and we do not want to change the code to
 # avoid them.
 basic_disabled_warnings = [
-        '-Wno-unused-parameter',
-        '-Wno-missing-field-initializers',
-        '-Wno-unused-result',
         '-Wno-format-signedness',
+        '-Wno-missing-field-initializers',
+        '-Wno-unused-parameter',
+        '-Wno-unused-result',
 ]
 
-possible_cc_flags = [
-        '-Werror=undef',
-        '-Wlogical-op',
-        '-Wmissing-include-dirs',
-        '-Wold-style-definition',
-        '-Wpointer-arith',
-        '-Winit-self',
-        '-Wfloat-equal',
-        '-Wsuggest-attribute=noreturn',
-        '-Werror=missing-prototypes',
-        '-Werror=implicit-function-declaration',
-        '-Werror=missing-declarations',
-        '-Werror=return-type',
-        '-Werror=incompatible-pointer-types',
-        '-Werror=format=2',
-        '-Wstrict-prototypes',
-        '-Wredundant-decls',
-        '-Wmissing-noreturn',
-        '-Wimplicit-fallthrough=5',
-        '-Wshadow',
+possible_common_cc_flags = [
+        '-Wdate-time',
         '-Wendif-labels',
-        '-Wstrict-aliasing=2',
-        '-Wwrite-strings',
+        '-Werror=format=2',
+        '-Werror=implicit-function-declaration',
+        '-Werror=incompatible-pointer-types',
         '-Werror=overflow',
+        '-Werror=return-type',
         '-Werror=shift-count-overflow',
         '-Werror=shift-overflow=2',
-        '-Wdate-time',
+        '-Werror=undef',
+        '-Wfloat-equal',
+        '-Wimplicit-fallthrough=5',
+        '-Winit-self',
+        '-Wlogical-op',
+        '-Wmissing-include-dirs',
+        '-Wmissing-noreturn',
         '-Wnested-externs',
+        '-Wold-style-definition',
+        '-Wpointer-arith',
+        '-Wredundant-decls',
+        '-Wshadow',
+        '-Wstrict-aliasing=2',
+        '-Wstrict-prototypes',
+        '-Wsuggest-attribute=noreturn',
+        '-Wwrite-strings',
 
         # negative arguments are correctly detected starting with meson 0.46.
         '-Wno-error=#warnings',  # clang
         '-Wno-string-plus-int',  # clang
-
-        '-ffast-math',
-        '-fno-common',
-        '-fdiagnostics-show-option',
-        '-fno-strict-aliasing',
-        '-fvisibility=hidden',
-        '-fstack-protector',
-        '-fstack-protector-strong',
-        '--param=ssp-buffer-size=4',
 ]
 
 # Disable -Wmaybe-unitialized when compiling with -Os/-O1/-O3/etc. There are
@@ -411,7 +363,7 @@ possible_cc_flags = [
 # busywork. See https://github.com/systemd/systemd/pull/19226.
 if cc.get_id() == 'gcc' and (not '02'.contains(get_option('optimization')) or
                              cc.version().version_compare('<10'))
-        possible_cc_flags += '-Wno-maybe-uninitialized'
+        possible_common_cc_flags += '-Wno-maybe-uninitialized'
 endif
 
 # --as-needed and --no-undefined are provided by meson by default,
@@ -423,11 +375,24 @@ possible_link_flags = [
 ]
 
 if cc.get_id() == 'clang'
-        possible_cc_flags += [
+        possible_common_cc_flags += [
                 '-Wno-typedef-redefinition',
                 '-Wno-gnu-variable-sized-type-not-at-end',
         ]
 endif
+
+possible_cc_flags = possible_common_cc_flags + [
+        '-Werror=missing-declarations',
+        '-Werror=missing-prototypes',
+        '-fdiagnostics-show-option',
+        '-ffast-math',
+        '-fno-common',
+        '-fno-strict-aliasing',
+        '-fstack-protector',
+        '-fstack-protector-strong',
+        '-fvisibility=hidden',
+        '--param=ssp-buffer-size=4',
+]
 
 if get_option('buildtype') != 'debug'
         possible_cc_flags += [
@@ -600,17 +565,21 @@ endif
 
 versiondep = declare_dependency(sources: version_h)
 
+sh = find_program('sh')
+echo = find_program('echo')
+test = find_program('test')
 sed = find_program('sed')
 awk = find_program('awk')
-m4 = find_program('m4')
 stat = find_program('stat')
+ln = find_program('ln')
 git = find_program('git', required : false)
 env = find_program('env')
 perl = find_program('perl', required : false)
-
+rsync = find_program('rsync', required : false)
 meson_make_symlink = project_source_root + '/tools/meson-make-symlink.sh'
-mkdir_p = 'mkdir -p $DESTDIR/@0@'
 test_efi_create_disk_sh = find_program('test/test-efi-create-disk.sh')
+
+mkdir_p = 'mkdir -p $DESTDIR/@0@'
 splash_bmp = files('test/splash.bmp')
 
 # if -Dxxx-path option is found, use that. Otherwise, check in $PATH,
@@ -639,13 +608,18 @@ foreach prog : progs
         endif
         name = prog.length() > 2 ? prog[2] : prog[0].to_upper()
         conf.set_quoted(name, path)
-        substs.set(name, path)
 endforeach
 
 conf.set_quoted('TELINIT', get_option('telinit-path'))
 
-if run_command('ln', '--relative', '--help').returncode() != 0
+if run_command(ln, '--relative', '--help').returncode() != 0
         error('ln does not support --relative (added in coreutils 8.16)')
+endif
+
+############################################################
+
+if run_command('python3', '-c', 'import jinja2').returncode() != 0
+        error('python3 jinja2 missing')
 endif
 
 ############################################################
@@ -658,7 +632,7 @@ const char * in_word_set(const char *, @0@);
 @1@
 '''
 gperf_snippet_format = 'echo foo,bar | @0@ -L ANSI-C'
-gperf_snippet = run_command('sh', '-c', gperf_snippet_format.format(gperf.path()))
+gperf_snippet = run_command(sh, '-c', gperf_snippet_format.format(gperf.path()))
 gperf_test = gperf_test_format.format('size_t', gperf_snippet.stdout())
 if cc.compiles(gperf_test)
         gperf_len_type = 'size_t'
@@ -686,6 +660,7 @@ foreach header : ['crypt.h',
                   'valgrind/memcheck.h',
                   'valgrind/valgrind.h',
                   'linux/time_types.h',
+                  'sys/sdt.h',
                  ]
 
         conf.set10('HAVE_' + header.underscorify().to_upper(),
@@ -718,11 +693,11 @@ conf.set_quoted('DEFAULT_NET_NAMING_SCHEME', default_net_naming_scheme)
 
 time_epoch = get_option('time-epoch')
 if time_epoch == -1
-        time_epoch = run_command('sh', ['-c', 'echo "$SOURCE_DATE_EPOCH"']).stdout().strip()
+        time_epoch = run_command(sh, '-c', 'echo "$SOURCE_DATE_EPOCH"').stdout().strip()
         if time_epoch == '' and git.found() and run_command('test', '-e', '.git').returncode() == 0
                 # If we're in a git repository, use the creation time of the latest git tag.
-                latest_tag = run_command('git', 'describe', '--abbrev=0', '--tags').stdout().strip()
-                time_epoch = run_command('git', 'log', '--no-show-signature', '-1', '--format=%at', latest_tag).stdout()
+                latest_tag = run_command(git, 'describe', '--abbrev=0', '--tags').stdout().strip()
+                time_epoch = run_command(git, 'log', '--no-show-signature', '-1', '--format=%at', latest_tag).stdout()
         endif
         if time_epoch == ''
                 NEWS = files('NEWS')
@@ -749,7 +724,6 @@ foreach tuple : [['system-alloc-uid-min', 'SYS_UID_MIN', 1],  # Also see login.d
                 endif
         endif
         conf.set(tuple[0].underscorify().to_upper(), v)
-        substs.set(tuple[0].underscorify().to_upper(), v)
 endforeach
 if conf.get('SYSTEM_ALLOC_UID_MIN') >= conf.get('SYSTEM_UID_MAX')
         error('Invalid uid allocation range')
@@ -762,15 +736,11 @@ dynamic_uid_min = get_option('dynamic-uid-min')
 dynamic_uid_max = get_option('dynamic-uid-max')
 conf.set('DYNAMIC_UID_MIN', dynamic_uid_min)
 conf.set('DYNAMIC_UID_MAX', dynamic_uid_max)
-substs.set('dynamicuidmin', dynamic_uid_min)
-substs.set('dynamicuidmax', dynamic_uid_max)
 
 container_uid_base_min = get_option('container-uid-base-min')
 container_uid_base_max = get_option('container-uid-base-max')
 conf.set('CONTAINER_UID_BASE_MIN', container_uid_base_min)
 conf.set('CONTAINER_UID_BASE_MAX', container_uid_base_max)
-substs.set('containeruidbasemin', container_uid_base_min)
-substs.set('containeruidbasemax', container_uid_base_max)
 
 nobody_user = get_option('nobody-user')
 nobody_group = get_option('nobody-group')
@@ -822,39 +792,57 @@ endif
 
 conf.set_quoted('NOBODY_USER_NAME', nobody_user)
 conf.set_quoted('NOBODY_GROUP_NAME', nobody_group)
-substs.set('NOBODY_USER_NAME', nobody_user)
-substs.set('NOBODY_GROUP_NAME', nobody_group)
 
-tty_gid = get_option('tty-gid')
-conf.set('TTY_GID', tty_gid)
-substs.set('TTY_GID', tty_gid)
+static_ugids = []
+foreach option : ['adm-gid',
+                  'audio-gid',
+                  'cdrom-gid',
+                  'dialout-gid',
+                  'disk-gid',
+                  'input-gid',
+                  'kmem-gid',
+                  'kvm-gid',
+                  'lp-gid',
+                  'render-gid',
+                  'sgx-gid',
+                  'tape-gid',
+                  'tty-gid',
+                  'users-gid',
+                  'utmp-gid',
+                  'video-gid',
+                  'wheel-gid',
+                  'systemd-journal-gid',
+                  'systemd-network-uid',
+                  'systemd-resolve-uid',
+                  'systemd-timesync-uid']
+        name = option.underscorify().to_upper()
+        val = get_option(option)
 
-# Ensure provided GID argument is numeric, otherwise fall back to default assignment
-users_gid = get_option('users-gid')
-substs.set('USERS_GID', users_gid < 0 ? '-' : users_gid)
+        # Ensure provided GID argument is numeric, otherwise fall back to default assignment
+        conf.set(name, val >= 0 ? val : '-')
+        if val >= 0
+                static_ugids += '@0@:@1@'.format(option, val)
+        endif
+endforeach
 
 conf.set10('ENABLE_ADM_GROUP', get_option('adm-group'))
 conf.set10('ENABLE_WHEEL_GROUP', get_option('wheel-group'))
 
 dev_kvm_mode = get_option('dev-kvm-mode')
-substs.set('DEV_KVM_MODE', dev_kvm_mode)
+conf.set_quoted('DEV_KVM_MODE', dev_kvm_mode) # FIXME: convert to 0o… notation
 conf.set10('DEV_KVM_UACCESS', dev_kvm_mode != '0666')
 group_render_mode = get_option('group-render-mode')
-substs.set('GROUP_RENDER_MODE', group_render_mode)
+conf.set_quoted('GROUP_RENDER_MODE', group_render_mode)
 conf.set10('GROUP_RENDER_UACCESS', group_render_mode != '0666')
 
 kill_user_processes = get_option('default-kill-user-processes')
 conf.set10('KILL_USER_PROCESSES', kill_user_processes)
-conf.set_quoted('KILL_USER_PROCESSES_YES_NO', kill_user_processes ? 'yes' : 'no')
-substs.set('KILL_USER_PROCESSES', kill_user_processes ? 'yes' : 'no')
 
 dns_servers = get_option('dns-servers')
 conf.set_quoted('DNS_SERVERS', dns_servers)
-substs.set('DNS_SERVERS', dns_servers)
 
 ntp_servers = get_option('ntp-servers')
 conf.set_quoted('NTP_SERVERS', ntp_servers)
-substs.set('NTP_SERVERS', ntp_servers)
 
 default_locale = get_option('default-locale')
 if default_locale == ''
@@ -868,24 +856,18 @@ endif
 conf.set_quoted('SYSTEMD_DEFAULT_LOCALE', default_locale)
 
 localegen_path = get_option('localegen-path')
-have = false
-writable = ''
 if localegen_path != ''
         conf.set_quoted('LOCALEGEN_PATH', localegen_path)
-        have = true
-        writable = ' /usr/lib/locale'
 endif
-substs.set('SERVICE_LOCALEGEN_WRITABLE', writable)
-conf.set10('HAVE_LOCALEGEN', have)
+conf.set10('HAVE_LOCALEGEN', localegen_path != '')
 
 conf.set_quoted('GETTEXT_PACKAGE', meson.project_name())
 
 service_watchdog = get_option('service-watchdog')
 watchdog_value = service_watchdog == '' ? '' : 'WatchdogSec=' + service_watchdog
-substs.set('SERVICE_WATCHDOG', watchdog_value)
+conf.set_quoted('SERVICE_WATCHDOG', watchdog_value)
 
-substs.set('SUSHELL', get_option('debug-shell'))
-substs.set('DEBUGTTY', get_option('debug-tty'))
+conf.set_quoted('SUSHELL', get_option('debug-shell'))
 conf.set_quoted('DEBUGTTY', get_option('debug-tty'))
 
 enable_debug_hashmap = false
@@ -955,7 +937,9 @@ if want_bpf_framework == 'false'
 else
         clang = find_program('clang', required : bpf_framework_required)
         llvm_strip = find_program('llvm-strip', required : bpf_framework_required)
-        bpftool = find_program('bpftool', required : bpf_framework_required)
+        # Debian installs this in /usr/sbin/ which is not in $PATH
+        # FIXME: use the 'dirs' parameter once we bump Meson version to >= 0.53
+        bpftool = find_program('bpftool', '/usr/sbin/bpftool', required : bpf_framework_required)
         bpf_arches = ['x86_64']
         deps_found = libbpf.found() and clang.found() and llvm_strip.found() and bpftool.found()
         # Can build BPF program from source code in restricted C
@@ -1024,10 +1008,8 @@ else
 endif
 conf.set10('HAVE_APPARMOR', have)
 
-smack_run_label = get_option('smack-run-label')
-if smack_run_label != ''
-        conf.set_quoted('SMACK_RUN_LABEL', smack_run_label)
-endif
+conf.set10('HAVE_SMACK_RUN_LABEL', get_option('smack-run-label') != '')
+conf.set_quoted('SMACK_RUN_LABEL', get_option('smack-run-label'))
 
 want_polkit = get_option('polkit')
 install_polkit = false
@@ -1400,7 +1382,7 @@ if default_dnssec != 'no' and conf.get('HAVE_GCRYPT') == 0
 endif
 conf.set('DEFAULT_DNSSEC_MODE',
          'DNSSEC_' + default_dnssec.underscorify().to_upper())
-substs.set('DEFAULT_DNSSEC_MODE', default_dnssec)
+conf.set_quoted('DEFAULT_DNSSEC_MODE_STR', default_dnssec)
 
 dns_over_tls = get_option('dns-over-tls')
 if dns_over_tls != 'false'
@@ -1441,17 +1423,17 @@ if default_dns_over_tls != 'no' and conf.get('ENABLE_DNS_OVER_TLS') == 0
 endif
 conf.set('DEFAULT_DNS_OVER_TLS_MODE',
          'DNS_OVER_TLS_' + default_dns_over_tls.underscorify().to_upper())
-substs.set('DEFAULT_DNS_OVER_TLS_MODE', default_dns_over_tls)
+conf.set_quoted('DEFAULT_DNS_OVER_TLS_MODE_STR', default_dns_over_tls)
 
 default_mdns = get_option('default-mdns')
 conf.set('DEFAULT_MDNS_MODE',
          'RESOLVE_SUPPORT_' + default_mdns.to_upper())
-substs.set('DEFAULT_MDNS_MODE', default_mdns)
+conf.set_quoted('DEFAULT_MDNS_MODE_STR', default_mdns)
 
 default_llmnr = get_option('default-llmnr')
 conf.set('DEFAULT_LLMNR_MODE',
          'RESOLVE_SUPPORT_' + default_llmnr.to_upper())
-substs.set('DEFAULT_LLMNR_MODE', default_llmnr)
+conf.set_quoted('DEFAULT_LLMNR_MODE_STR', default_llmnr)
 
 want_repart = get_option('repart')
 if want_repart != 'false'
@@ -1497,7 +1479,6 @@ conf.set10('ENABLE_PAM_HOME', have)
 
 have = get_option('oomd')
 conf.set10('ENABLE_OOMD', have)
-substs.set10('ENABLE_OOMD', have)
 
 want_remote = get_option('remote')
 if want_remote != 'false'
@@ -1559,7 +1540,6 @@ foreach term : ['analyze',
         have = get_option(term)
         name = 'ENABLE_' + term.underscorify().to_upper()
         conf.set10(name, have)
-        substs.set10(name, have)
 endforeach
 
 enable_sysusers = conf.get('ENABLE_SYSUSERS') == 1
@@ -1635,7 +1615,7 @@ generate_gperfs = find_program('tools/generate-gperfs.py')
 make_autosuspend_rules_py = find_program('tools/make-autosuspend-rules.py')
 make_directive_index_py = find_program('tools/make-directive-index.py')
 make_man_index_py = find_program('tools/make-man-index.py')
-meson_apply_m4 = find_program('tools/meson-apply-m4.sh')
+meson_render_jinja2 = find_program('tools/meson-render-jinja2.py')
 update_dbus_docs_py = find_program('tools/update-dbus-docs.py')
 update_hwdb_sh = find_program('tools/update-hwdb.sh')
 update_hwdb_autosuspend_sh = find_program('tools/update-hwdb-autosuspend.sh')
@@ -1723,7 +1703,7 @@ install_libsystemd_static = static_library(
                         libxz,
                         libzstd,
                         liblz4,
-                        libbpf,
+                        libdl,
                         libcap,
                         libblkid,
                         libmount,
@@ -2302,7 +2282,6 @@ if conf.get('ENABLE_HOMED') == 1
                 include_directories : includes,
                 link_with : [libshared],
                 dependencies : [threads,
-                                libcryptsetup,
                                 libblkid,
                                 libcrypt,
                                 libopenssl,
@@ -3351,10 +3330,10 @@ executable(
 custom_target(
         'systemd-runtest.env',
         output : 'systemd-runtest.env',
-        command : ['sh', '-c', '{ ' +
-                               'echo SYSTEMD_TEST_DATA=@0@; '.format(join_paths(project_source_root, 'test')) +
-                               'echo SYSTEMD_CATALOG_DIR=@0@; '.format(join_paths(project_build_root, 'catalog')) +
-                               '} >@OUTPUT@'],
+        command : [sh, '-c',
+                   '{ echo SYSTEMD_TEST_DATA=@0@; echo SYSTEMD_CATALOG_DIR=@1@; } >@OUTPUT@'.format(
+                           join_paths(project_source_root, 'test'),
+                           join_paths(project_build_root, 'catalog'))],
         build_by_default : true)
 
 test_cflags = ['-DTEST_CODE=1']
@@ -3490,7 +3469,7 @@ foreach tuple : fuzzers
 
         name = sources[0].split('/')[-1].split('.')[0]
 
-        fuzzer_exes += executable(
+        exe = executable(
                 name,
                 sources,
                 include_directories : [incs, include_directories('src/fuzz')],
@@ -3499,7 +3478,23 @@ foreach tuple : fuzzers
                 c_args : defs + test_cflags,
                 link_args: link_args,
                 install : false,
-                build_by_default : fuzz_tests or fuzzer_build)
+                build_by_default : fuzzer_build)
+        fuzzer_exes += exe
+
+        if want_tests != 'false'
+                # Run the fuzz regression tests without any sanitizers enabled.
+                # Additional invocations with sanitizers may be added below.
+                foreach p : fuzz_regression_tests
+                        b = p.split('/')[-2]
+                        c = p.split('/')[-1]
+
+                        if b == name
+                                test('@0@_@1@'.format(b, c),
+                                     exe,
+                                     args : [join_paths(project_source_root, p)])
+                        endif
+                endforeach
+        endif
 endforeach
 
 run_target(
@@ -3551,6 +3546,21 @@ meson.add_install_script('sh', '-c', 'touch $DESTDIR@0@'.format(prefixdir))
 
 ############################################################
 
+# Ensure that changes to the docs/ directory do not break the
+# basic Github pages build. But only run it in developer mode,
+# as it might be fragile due to changes in the tooling, and it is
+# not generally useful for users.
+jekyll = find_program('jekyll', required : false)
+if get_option('mode') == 'developer' and want_tests != 'false' and jekyll.found()
+        test('github-pages',
+             jekyll,
+             args : ['build',
+                     '--source', join_paths(project_source_root, 'docs'),
+                     '--destination', join_paths(project_build_root, '_site')])
+endif
+
+############################################################
+
 check_help = find_program('tools/check-help.sh')
 
 foreach exec : public_programs
@@ -3595,7 +3605,7 @@ foreach tuple : sanitizers
                                                 name,
                                                 output : name,
                                                 depends : build,
-                                                command : [env, 'ln', '-fs',
+                                                command : [ln, '-fs',
                                                            join_paths(build.full_path(), b),
                                                            '@OUTPUT@'],
                                                 build_by_default : true)
@@ -3622,9 +3632,8 @@ endforeach
 
 if git.found()
         all_files = run_command(
-                'env', '-u', 'GIT_WORK_TREE',
-                git,
-                '--git-dir=@0@/.git'.format(project_source_root),
+                env, '-u', 'GIT_WORK_TREE',
+                git, '--git-dir=@0@/.git'.format(project_source_root),
                 'ls-files', ':/*.[ch]')
 
         all_files = files(all_files.stdout().split())
@@ -3648,16 +3657,16 @@ endif
 if git.found()
         git_head = run_command(
                 git,
-                ['--git-dir=@0@/.git'.format(project_source_root),
-                 'rev-parse', 'HEAD']).stdout().strip()
+                '--git-dir=@0@/.git'.format(project_source_root),
+                'rev-parse', 'HEAD').stdout().strip()
         git_head_short = run_command(
                 git,
-                ['--git-dir=@0@/.git'.format(project_source_root),
-                 'rev-parse', '--short=7', 'HEAD']).stdout().strip()
+                '--git-dir=@0@/.git'.format(project_source_root),
+                'rev-parse', '--short=7', 'HEAD').stdout().strip()
 
         run_target(
                 'git-snapshot',
-                command : ['git', 'archive',
+                command : [git, 'archive',
                            '-o', '@0@/systemd-@1@.tar.gz'.format(project_source_root,
                                                                  git_head_short),
                            '--prefix', 'systemd-@0@/'.format(git_head),
@@ -3694,11 +3703,11 @@ endif
 custom_target(
         'update-man-rules',
         output : 'update-man-rules',
-        command : ['sh', '-c',
+        command : [sh, '-c',
                    'cd @0@ && '.format(meson.build_root()) +
                    'python3 @0@/tools/update-man-rules.py $(find @0@ -wholename "*/man/*.xml") >t && '.format(project_source_root) +
                    'mv t @0@/man/rules/meson.build'.format(meson.current_source_dir())],
-        depend_files : custom_entities_ent)
+        depends : custom_entities_ent)
 
 ############################################################
 watchdog_opt = service_watchdog == '' ? 'disabled' : service_watchdog
@@ -3729,14 +3738,13 @@ status = [
         'extra start script:                @0@'.format(get_option('rc-local')),
         'debug shell:                       @0@ @ @1@'.format(get_option('debug-shell'),
                                                               get_option('debug-tty')),
-        'TTY GID:                           @0@'.format(tty_gid),
-        'users GID:                         @0@'.format(substs.get('USERS_GID')),
         'system UIDs:                       <=@0@ (alloc >=@1@)'.format(conf.get('SYSTEM_UID_MAX'),
                                                                         conf.get('SYSTEM_ALLOC_UID_MIN')),
         'system GIDs:                       <=@0@ (alloc >=@1@)'.format(conf.get('SYSTEM_GID_MAX'),
                                                                         conf.get('SYSTEM_ALLOC_GID_MIN')),
         'dynamic UIDs:                      @0@…@1@'.format(dynamic_uid_min, dynamic_uid_max),
         'container UID bases:               @0@…@1@'.format(container_uid_base_min, container_uid_base_max),
+        'static UID/GID allocations:        @0@'.format(' '.join(static_ugids)),
         '/dev/kvm access mode:              @0@'.format(get_option('dev-kvm-mode')),
         'render group access mode:          @0@'.format(get_option('group-render-mode')),
         'certificate root directory:        @0@'.format(get_option('certificate-root')),

@@ -66,6 +66,24 @@ static bool MOUNT_STATE_WITH_PROCESS(MountState state) {
                       MOUNT_CLEANING);
 }
 
+static MountParameters* get_mount_parameters_fragment(Mount *m) {
+        assert(m);
+
+        if (m->from_fragment)
+                return &m->parameters_fragment;
+
+        return NULL;
+}
+
+static MountParameters* get_mount_parameters(Mount *m) {
+        assert(m);
+
+        if (m->from_proc_self_mountinfo)
+                return &m->parameters_proc_self_mountinfo;
+
+        return get_mount_parameters_fragment(m);
+}
+
 static bool mount_is_automount(const MountParameters *p) {
         assert(p);
 
@@ -116,14 +134,31 @@ static bool mount_is_bind(const MountParameters *p) {
         return false;
 }
 
-static bool mount_is_bound_to_device(const Mount *m) {
+static bool mount_is_bound_to_device(Mount *m) {
         const MountParameters *p;
 
-        if (m->from_fragment)
-                return true;
+        assert(m);
 
-        p = &m->parameters_proc_self_mountinfo;
+        /* Determines whether to place a Requires= or BindsTo= dependency on the backing device unit. We do
+         * this by checking for the x-systemd.device-bound mount option. Iff it is set we use BindsTo=,
+         * otherwise Requires=. But note that we might combine the latter with StopPropagatedFrom=, see
+         * below. */
+
+        p = get_mount_parameters(m);
+        if (!p)
+                return false;
+
         return fstab_test_option(p->options, "x-systemd.device-bound\0");
+}
+
+static bool mount_propagate_stop(Mount *m) {
+        assert(m);
+
+        if (mount_is_bound_to_device(m)) /* If we are using BindsTo= the stop propagation is implicit, no need to bother */
+                return false;
+
+        return m->from_fragment; /* let's propagate stop whenever this is an explicitly configured unit,
+                                  * otherwise let's not bother. */
 }
 
 static bool mount_needs_quota(const MountParameters *p) {
@@ -232,24 +267,6 @@ static void mount_done(Unit *u) {
         mount_unwatch_control_pid(m);
 
         m->timer_event_source = sd_event_source_unref(m->timer_event_source);
-}
-
-static MountParameters* get_mount_parameters_fragment(Mount *m) {
-        assert(m);
-
-        if (m->from_fragment)
-                return &m->parameters_fragment;
-
-        return NULL;
-}
-
-static MountParameters* get_mount_parameters(Mount *m) {
-        assert(m);
-
-        if (m->from_proc_self_mountinfo)
-                return &m->parameters_proc_self_mountinfo;
-
-        return get_mount_parameters_fragment(m);
 }
 
 static int update_parameters_proc_self_mountinfo(
@@ -367,8 +384,9 @@ static int mount_add_device_dependencies(Mount *m) {
                 return 0;
 
         /* Mount units from /proc/self/mountinfo are not bound to devices by default since they're subject to
-         * races when devices are unplugged. But the user can still force this dep with an appropriate option
-         * (or udev property) so the mount units are automatically stopped when the device disappears
+         * races when mounts are established by other tools with different backing devices than what we
+         * maintain. The user can still force this to be a BindsTo= dependency with an appropriate option (or
+         * udev property) so the mount units are automatically stopped when the device disappears
          * suddenly. */
         dep = mount_is_bound_to_device(m) ? UNIT_BINDS_TO : UNIT_REQUIRES;
 
@@ -378,6 +396,11 @@ static int mount_add_device_dependencies(Mount *m) {
         r = unit_add_node_dependency(UNIT(m), p->what, dep, mask);
         if (r < 0)
                 return r;
+        if (mount_propagate_stop(m)) {
+                r = unit_add_node_dependency(UNIT(m), p->what, UNIT_STOP_PROPAGATED_FROM, mask);
+                if (r < 0)
+                        return r;
+        }
 
         return unit_add_blockdev_dependency(UNIT(m), p->what, mask);
 }
@@ -611,7 +634,7 @@ static int mount_add_extras(Mount *m) {
                         return r;
         }
 
-        path_simplify(m->where, false);
+        path_simplify(m->where);
 
         if (!u->description) {
                 r = unit_set_description(u, m->where);
@@ -1561,7 +1584,7 @@ static int mount_setup_new_unit(
 
         /* This unit was generated because /proc/self/mountinfo reported it. Remember this, so that by the time we load
          * the unit file for it (and thus add in extra deps right after) we know what source to attributes the deps
-         * to.*/
+         * to. */
         MOUNT(u)->from_proc_self_mountinfo = true;
 
         /* We have only allocated the stub now, let's enqueue this unit for loading now, so that everything else is
@@ -1690,11 +1713,18 @@ static int mount_setup_unit(
                         .burst = 1,
                 };
 
+                if (r == -ENAMETOOLONG)
+                        return log_struct_errno(
+                                        ratelimit_below(&rate_limit) ? LOG_WARNING : LOG_DEBUG, r,
+                                        "MESSAGE_ID=" SD_MESSAGE_MOUNT_POINT_PATH_NOT_SUITABLE_STR,
+                                        "MOUNT_POINT=%s", where,
+                                        LOG_MESSAGE("Mount point path '%s' too long to fit into unit name, ignoring mount point.", where));
+
                 return log_struct_errno(
                                 ratelimit_below(&rate_limit) ? LOG_WARNING : LOG_DEBUG, r,
                                 "MESSAGE_ID=" SD_MESSAGE_MOUNT_POINT_PATH_NOT_SUITABLE_STR,
                                 "MOUNT_POINT=%s", where,
-                                LOG_MESSAGE("Failed to generate valid unit name from path '%s', ignoring mount point: %m", where));
+                                LOG_MESSAGE("Failed to generate valid unit name from mount point path '%s', ignoring mount point: %m", where));
         }
 
         u = manager_get_unit(m, e);
@@ -2146,6 +2176,7 @@ const UnitVTable mount_vtable = {
 
         .can_transient = true,
         .can_fail = true,
+        .exclude_from_switch_root_serialization = true,
 
         .init = mount_init,
         .load = mount_load,

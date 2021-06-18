@@ -762,7 +762,7 @@ class NetworkctlTests(unittest.TestCase, Utilities):
 
         output = check_output(*networkctl_cmd, '-n', '0', 'status', 'lo', env=env)
         print(output)
-        self.assertRegex(output, r'Link File: (/usr)?/lib/systemd/network/99-default.link')
+        self.assertRegex(output, r'Link File: n/a')
         self.assertRegex(output, r'Network File: n/a')
 
     def test_delete_links(self):
@@ -1645,16 +1645,13 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
         print(output)
         self.assertRegex(output, '00:11:22:33:44:55 dst 10.0.0.5 self permanent')
         self.assertRegex(output, '00:11:22:33:44:66 dst 10.0.0.6 self permanent')
-        self.assertRegex(output, '00:11:22:33:44:77 dst 10.0.0.7 self permanent')
+        self.assertRegex(output, '00:11:22:33:44:77 dst 10.0.0.7 via test1 self permanent')
 
         output = check_output(*networkctl_cmd, '-n', '0', 'status', 'vxlan99', env=env)
         print(output)
         self.assertRegex(output, 'VNI: 999')
         self.assertRegex(output, 'Destination Port: 5555')
         self.assertRegex(output, 'Underlying Device: test1')
-
-        output = check_output('ip -d link show vxlan98')
-        print(output)
 
     def test_macsec(self):
         copy_unit_to_networkd_unit_path('25-macsec.netdev', '25-macsec.network', '25-macsec.key',
@@ -1822,6 +1819,7 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         '25-neighbor-ipv6.network',
         '25-neighbor-ip-dummy.network',
         '25-neighbor-ip.network',
+        '25-nexthop-dummy.network',
         '25-nexthop-nothing.network',
         '25-nexthop.network',
         '25-qdisc-cake.network',
@@ -2046,7 +2044,7 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
             with self.subTest(carrier=carrier):
                 if carrier_map[carrier] != read_link_attr('test1', 'carrier'):
                     check_output(f'ip link set dev test1 carrier {carrier}')
-                self.wait_online([f'test1:{routable_map[carrier]}'])
+                self.wait_online([f'test1:{routable_map[carrier]}:{routable_map[carrier]}'])
 
                 output = check_output(*networkctl_cmd, '-n', '0', 'status', 'test1', env=env)
                 print(output)
@@ -2070,7 +2068,7 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
             with self.subTest(carrier=carrier, have_config=have_config):
                 if carrier_map[carrier] != read_link_attr('test1', 'carrier'):
                     check_output(f'ip link set dev test1 carrier {carrier}')
-                self.wait_online([f'test1:{routable_map[carrier]}'])
+                self.wait_online([f'test1:{routable_map[carrier]}:{routable_map[carrier]}'])
 
                 output = check_output(*networkctl_cmd, '-n', '0', 'status', 'test1', env=env)
                 print(output)
@@ -2621,24 +2619,9 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         3: generate stable privacy addresses, using a random secret if unset
         '''
 
-        test1_addr_gen_mode = ''
-        if os.path.exists(os.path.join(os.path.join(network_sysctl_ipv6_path, 'test1'), 'stable_secret')):
-            with open(os.path.join(os.path.join(network_sysctl_ipv6_path, 'test1'), 'stable_secret')) as f:
-                try:
-                    f.readline()
-                except IOError:
-                    # if stable_secret is unset, then EIO is returned
-                    test1_addr_gen_mode = '0'
-                else:
-                    test1_addr_gen_mode = '2'
-        else:
-            test1_addr_gen_mode = '0'
-
-        if os.path.exists(os.path.join(os.path.join(network_sysctl_ipv6_path, 'test1'), 'addr_gen_mode')):
-            self.assertEqual(read_ipv6_sysctl_attr('test1', 'addr_gen_mode'), test1_addr_gen_mode)
-
-        if os.path.exists(os.path.join(os.path.join(network_sysctl_ipv6_path, 'dummy98'), 'addr_gen_mode')):
-            self.assertEqual(read_ipv6_sysctl_attr('dummy98', 'addr_gen_mode'), '1')
+        self.assertEqual(read_ipv6_sysctl_attr('test1', 'stable_secret'), '0123:4567:89ab:cdef:0123:4567:89ab:cdef')
+        self.assertEqual(read_ipv6_sysctl_attr('test1', 'addr_gen_mode'), '2')
+        self.assertEqual(read_ipv6_sysctl_attr('dummy98', 'addr_gen_mode'), '1')
 
     def test_link_local_addressing_remove_ipv6ll(self):
         copy_unit_to_networkd_unit_path('26-link-local-addressing-ipv6.network', '12-dummy.netdev')
@@ -2787,7 +2770,7 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         for iteration in range(4):
             with self.subTest(iteration=iteration, expect_up=expect_up):
                 operstate = 'routable' if expect_up else 'off'
-                setup_state = 'configured' if expect_up else None
+                setup_state = 'configured' if expect_up else ('configuring' if iteration == 0 else None)
                 self.wait_operstate('test1', operstate, setup_state=setup_state, setup_timeout=20)
 
                 if expect_up:
@@ -2847,48 +2830,68 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
 
     @expectedFailureIfNexthopIsNotAvailable()
     def test_nexthop(self):
-        copy_unit_to_networkd_unit_path('25-nexthop.network', '25-veth.netdev', '25-veth-peer.network')
+        def check_nexthop(self):
+            self.wait_online(['veth99:routable', 'veth-peer:routable', 'dummy98:routable'])
+
+            output = check_output('ip nexthop list dev veth99')
+            print(output)
+            self.assertIn('id 1 via 192.168.5.1 dev veth99', output)
+            self.assertIn('id 2 via 2001:1234:5:8f63::2 dev veth99', output)
+            self.assertIn('id 3 dev veth99', output)
+            self.assertIn('id 4 dev veth99', output)
+            self.assertRegex(output, 'id 5 via 192.168.10.1 dev veth99 .*onlink')
+            self.assertRegex(output, r'id [0-9]* via 192.168.5.2 dev veth99')
+
+            output = check_output('ip nexthop list dev dummy98')
+            print(output)
+            self.assertIn('id 20 via 192.168.20.1 dev dummy98', output)
+
+            # kernel manages blackhole nexthops on lo
+            output = check_output('ip nexthop list dev lo')
+            print(output)
+            self.assertIn('id 6 blackhole', output)
+            self.assertIn('id 7 blackhole', output)
+
+            # group nexthops are shown with -0 option
+            output = check_output('ip -0 nexthop list id 21')
+            print(output)
+            self.assertRegex(output, r'id 21 group (1,3/20|20/1,3)')
+
+            output = check_output('ip route show dev veth99 10.10.10.10')
+            print(output)
+            self.assertEqual('10.10.10.10 nhid 1 via 192.168.5.1 proto static', output)
+
+            output = check_output('ip route show dev veth99 10.10.10.11')
+            print(output)
+            self.assertEqual('10.10.10.11 nhid 2 via inet6 2001:1234:5:8f63::2 proto static', output)
+
+            output = check_output('ip route show dev veth99 10.10.10.12')
+            print(output)
+            self.assertEqual('10.10.10.12 nhid 5 via 192.168.10.1 proto static onlink', output)
+
+            output = check_output('ip -6 route show dev veth99 2001:1234:5:8f62::1')
+            print(output)
+            self.assertEqual('2001:1234:5:8f62::1 nhid 2 via 2001:1234:5:8f63::2 proto static metric 1024 pref medium', output)
+
+            output = check_output('ip route show 10.10.10.13')
+            print(output)
+            self.assertEqual('blackhole 10.10.10.13 nhid 6 dev lo proto static', output)
+
+            output = check_output('ip -6 route show 2001:1234:5:8f62::2')
+            print(output)
+            self.assertEqual('blackhole 2001:1234:5:8f62::2 nhid 7 dev lo proto static metric 1024 pref medium', output)
+
+            output = check_output('ip route show 10.10.10.14')
+            print(output)
+            self.assertIn('10.10.10.14 nhid 21 proto static', output)
+            self.assertIn('nexthop via 192.168.20.1 dev dummy98 weight 1', output)
+            self.assertIn('nexthop via 192.168.5.1 dev veth99 weight 3', output)
+
+        copy_unit_to_networkd_unit_path('25-nexthop.network', '25-veth.netdev', '25-veth-peer.network',
+                                        '12-dummy.netdev', '25-nexthop-dummy.network')
         start_networkd()
-        self.wait_online(['veth99:routable', 'veth-peer:routable'])
 
-        output = check_output('ip nexthop list dev veth99')
-        print(output)
-        self.assertIn('id 1 via 192.168.5.1 dev veth99', output)
-        self.assertIn('id 2 via 2001:1234:5:8f63::2 dev veth99', output)
-        self.assertIn('id 3 dev veth99', output)
-        self.assertIn('id 4 dev veth99', output)
-        self.assertRegex(output, 'id 5 via 192.168.10.1 dev veth99 .*onlink')
-        self.assertRegex(output, r'id [0-9]* via 192.168.5.2 dev veth99')
-
-        # kernel manages blackhole nexthops on lo
-        output = check_output('ip nexthop list dev lo')
-        print(output)
-        self.assertIn('id 6 blackhole', output)
-        self.assertIn('id 7 blackhole', output)
-
-        output = check_output('ip route show dev veth99 10.10.10.10')
-        print(output)
-        self.assertEqual('10.10.10.10 nhid 1 via 192.168.5.1 proto static', output)
-
-        output = check_output('ip route show dev veth99 10.10.10.11')
-        print(output)
-        self.assertEqual('10.10.10.11 nhid 2 via inet6 2001:1234:5:8f63::2 proto static', output)
-
-        output = check_output('ip route show dev veth99 10.10.10.12')
-        print(output)
-        self.assertEqual('10.10.10.12 nhid 5 via 192.168.10.1 proto static onlink', output)
-
-        output = check_output('ip -6 route show dev veth99 2001:1234:5:8f62::1')
-        print(output)
-        self.assertEqual('2001:1234:5:8f62::1 nhid 2 via 2001:1234:5:8f63::2 proto static metric 1024 pref medium', output)
-
-        output = check_output('ip route show 10.10.10.13')
-        print(output)
-        self.assertEqual('blackhole 10.10.10.13 nhid 6 dev lo proto static', output)
-
-        output = check_output('ip -6 route show 2001:1234:5:8f62::2')
-        print(output)
-        self.assertEqual('blackhole 2001:1234:5:8f62::2 nhid 7 dev lo proto static metric 1024 pref medium', output)
+        check_nexthop(self)
 
         remove_unit_from_networkd_path(['25-nexthop.network'])
         copy_unit_to_networkd_unit_path('25-nexthop-nothing.network')
@@ -2907,11 +2910,13 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
 
         remove_unit_from_networkd_path(['25-nexthop-nothing.network'])
         copy_unit_to_networkd_unit_path('25-nexthop.network')
+        rc = call(*networkctl_cmd, 'reconfigure', 'dummy98', env=env)
+        self.assertEqual(rc, 0)
         rc = call(*networkctl_cmd, 'reload', env=env)
         self.assertEqual(rc, 0)
         time.sleep(1)
 
-        self.wait_online(['veth99:routable', 'veth-peer:routable'])
+        check_nexthop(self)
 
         rc = call('ip link del veth99')
         self.assertEqual(rc, 0)
@@ -3648,14 +3653,22 @@ class NetworkdRATests(unittest.TestCase, Utilities):
         self.assertRegex(output, '2002:da8:2:0')
 
 class NetworkdDHCPServerTests(unittest.TestCase, Utilities):
-    links = ['veth99']
+    links = [
+        'dummy98',
+        'veth99',
+    ]
 
     units = [
+        '12-dummy.netdev',
         '25-veth.netdev',
         'dhcp-client.network',
+        'dhcp-client-static-lease.network',
         'dhcp-client-timezone-router.network',
         'dhcp-server.network',
-        'dhcp-server-timezone-router.network']
+        'dhcp-server-static-lease.network',
+        'dhcp-server-timezone-router.network',
+        'dhcp-server-uplink.network',
+    ]
 
     def setUp(self):
         remove_links(self.links)
@@ -3667,7 +3680,8 @@ class NetworkdDHCPServerTests(unittest.TestCase, Utilities):
         stop_networkd(show_logs=True)
 
     def test_dhcp_server(self):
-        copy_unit_to_networkd_unit_path('25-veth.netdev', 'dhcp-client.network', 'dhcp-server.network')
+        copy_unit_to_networkd_unit_path('25-veth.netdev', 'dhcp-client.network', 'dhcp-server.network',
+                                        '12-dummy.netdev', 'dhcp-server-uplink.network')
         start_networkd()
         self.wait_online(['veth99:routable', 'veth-peer:routable'])
 
@@ -3688,6 +3702,15 @@ class NetworkdDHCPServerTests(unittest.TestCase, Utilities):
         self.assertRegex(output, 'Gateway: 192.168.5.*')
         self.assertRegex(output, '192.168.5.*')
         self.assertRegex(output, 'Europe/Berlin')
+
+    def test_dhcp_server_static_lease(self):
+        copy_unit_to_networkd_unit_path('25-veth.netdev', 'dhcp-client-static-lease.network', 'dhcp-server-static-lease.network')
+        start_networkd()
+        self.wait_online(['veth99:routable', 'veth-peer:routable'])
+
+        output = check_output(*networkctl_cmd, '-n', '0', 'status', 'veth99', env=env)
+        print(output)
+        self.assertIn('10.1.1.3 (DHCP4 via 10.1.1.1)', output)
 
 class NetworkdDHCPServerRelayAgentTests(unittest.TestCase, Utilities):
     links = [

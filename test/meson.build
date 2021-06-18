@@ -65,7 +65,7 @@ hwdb_test_sh = find_program('hwdb-test.sh')
 test_sysusers_sh = configure_file(
         input : 'test-sysusers.sh.in',
         output : 'test-sysusers.sh',
-        configuration : substs)
+        configuration : conf)
 if install_tests and conf.get('ENABLE_SYSUSERS') == 1
         install_data(test_sysusers_sh,
                      install_dir : testsdir)
@@ -131,13 +131,12 @@ if want_tests != 'false' and dmi_arches.contains(host_machine.cpu_family())
 
         if git.found()
                 out = run_command(
-                        'env', '-u', 'GIT_WORK_TREE',
-                        git,
-                        '--git-dir=@0@/.git'.format(project_source_root),
+                        env, '-u', 'GIT_WORK_TREE',
+                        git, '--git-dir=@0@/.git'.format(project_source_root),
                         'ls-files', ':/test/dmidecode-dumps/*.bin')
         else
                 out = run_command(
-                        'sh', '-c', 'ls @0@/test/dmidecode-dumps/*.bin'.format(project_source_root))
+                        sh, '-c', 'ls @0@/test/dmidecode-dumps/*.bin'.format(project_source_root))
         endif
 
         foreach p : out.stdout().split()

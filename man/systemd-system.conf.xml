@@ -343,6 +343,9 @@
         project='man-pages'><refentrytitle>environ</refentrytitle><manvolnum>7</manvolnum></citerefentry> for
         details about environment variables.</para>
 
+        <para>Simple <literal>%</literal>-specifier expansion is supported, see below for a list of supported
+        specifiers.</para>
+
         <para>Example:
 
         <programlisting>DefaultEnvironment="VAR1=word1 word2" VAR2=word3 "VAR3=word 5 6"</programlisting>
@@ -357,14 +360,18 @@
         <term><varname>ManagerEnvironment=</varname></term>
 
         <listitem><para>Takes the same arguments as <varname>DefaultEnvironment=</varname>, see above. Sets
-        environment variables just for the manager process itself. These variables are not inherited by
-        processes spawned by the service manager, use <varname>DefaultEnvironment=</varname> for that. Note
-        that these variables are merged into the existing environment block. In particular, in case of the
-        system manager, this includes variables set by the kernel based on the kernel command line.</para>
+        environment variables just for the manager process itself. In contrast to user managers, these variables
+        are not inherited by processes spawned by the system manager, use <varname>DefaultEnvironment=</varname>
+        for that. Note that these variables are merged into the existing environment block. In particular, in
+        case of the system manager, this includes variables set by the kernel based on the kernel command line.</para>
 
         <para>Setting environment variables for the manager process may be useful to modify its behaviour.
         See <ulink url="https://systemd.io/ENVIRONMENT">ENVIRONMENT</ulink> for a descriptions of some
-        variables understood by <command>systemd</command>.</para></listitem>
+        variables understood by <command>systemd</command>.</para>
+
+        <para>Simple <literal>%</literal>-specifier expansion is supported, see below for a list of supported
+        specifiers.</para>
+        </listitem>
       </varlistentry>
 
       <varlistentry>
@@ -423,7 +430,23 @@
         <varname>LimitXXX=</varname> directives and they accept the same parameter syntax,
         see <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>
         for details. Note that these resource limits are only defaults
-        for units, they are not applied to the service manager process (i.e. PID 1) itself.</para></listitem>
+        for units, they are not applied to the service manager process (i.e. PID 1) itself.</para>
+
+        <para>Most of these settings are unset, which means the resource limits are inherited from the kernel or, if
+        invoked in a container, from the container manager. However, the following have defaults:</para>
+        <itemizedlist>
+          <listitem><para><varname>DefaultLimitNOFILE=</varname> defaults to <literal>1024:&HIGH_RLIMIT_NOFILE;</literal>.
+          </para></listitem>
+
+          <listitem><para><varname>DefaultLimitCORE=</varname> does not have a default but it is worth mentioning that
+          <varname>RLIMIT_CORE</varname> is set to <literal>infinity</literal> by PID 1 which is inherited by its
+          children.</para></listitem>
+
+          <listitem><para>Note that the service manager internally increases <varname>RLIMIT_MEMLOCK</varname> for
+          itself, however the limit is reverted to the original value for child processes forked off.</para></listitem>
+        </itemizedlist>
+
+      </listitem>
       </varlistentry>
 
       <varlistentry>
@@ -437,6 +460,45 @@
         turned on.</para></listitem>
       </varlistentry>
     </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>Specifiers</title>
+
+    <para>Specifiers may be used in the <varname>DefaultEnvironment=</varname> and
+    <varname>ManagerEnvironment=</varname> settings. The following expansions are understood:</para>
+      <table class='specifiers'>
+        <title>Specifiers available</title>
+        <tgroup cols='3' align='left' colsep='1' rowsep='1'>
+          <colspec colname="spec" />
+          <colspec colname="mean" />
+          <colspec colname="detail" />
+          <thead>
+            <row>
+              <entry>Specifier</entry>
+              <entry>Meaning</entry>
+              <entry>Details</entry>
+            </row>
+          </thead>
+          <tbody>
+            <xi:include href="standard-specifiers.xml" xpointer="a"/>
+            <xi:include href="standard-specifiers.xml" xpointer="A"/>
+            <xi:include href="standard-specifiers.xml" xpointer="b"/>
+            <xi:include href="standard-specifiers.xml" xpointer="B"/>
+            <xi:include href="standard-specifiers.xml" xpointer="H"/>
+            <xi:include href="standard-specifiers.xml" xpointer="l"/>
+            <xi:include href="standard-specifiers.xml" xpointer="m"/>
+            <xi:include href="standard-specifiers.xml" xpointer="M"/>
+            <xi:include href="standard-specifiers.xml" xpointer="o"/>
+            <xi:include href="standard-specifiers.xml" xpointer="v"/>
+            <xi:include href="standard-specifiers.xml" xpointer="w"/>
+            <xi:include href="standard-specifiers.xml" xpointer="W"/>
+            <xi:include href="standard-specifiers.xml" xpointer="T"/>
+            <xi:include href="standard-specifiers.xml" xpointer="V"/>
+            <xi:include href="standard-specifiers.xml" xpointer="percent"/>
+          </tbody>
+        </tgroup>
+      </table>
   </refsect1>
 
   <refsect1>

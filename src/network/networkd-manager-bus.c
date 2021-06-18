@@ -8,12 +8,12 @@
 #include "bus-common-errors.h"
 #include "bus-message-util.h"
 #include "bus-polkit.h"
+#include "networkd-json.h"
 #include "networkd-link-bus.h"
 #include "networkd-link.h"
 #include "networkd-manager-bus.h"
 #include "networkd-manager.h"
 #include "path-util.h"
-#include "socket-netlink.h"
 #include "strv.h"
 #include "user-util.h"
 
@@ -59,19 +59,14 @@ static int method_get_link_by_name(sd_bus_message *message, void *userdata, sd_b
         _cleanup_free_ char *path = NULL;
         Manager *manager = userdata;
         const char *name;
-        int index, r;
         Link *link;
+        int r;
 
         r = sd_bus_message_read(message, "s", &name);
         if (r < 0)
                 return r;
 
-        index = resolve_ifname(&manager->rtnl, name);
-        if (index < 0)
-                return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_LINK, "Link %s cannot be resolved", name);
-
-        link = hashmap_get(manager->links, INT_TO_PTR(index));
-        if (!link)
+        if (link_get_by_name(manager, name, &link) < 0)
                 return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_LINK, "Link %s not known", name);
 
         r = sd_bus_message_new_method_return(message, &reply);
@@ -221,12 +216,73 @@ static int bus_method_reload(sd_bus_message *message, void *userdata, sd_bus_err
                 return r;
 
         HASHMAP_FOREACH(link, manager->links) {
-                r = link_reconfigure(link, false);
+                r = link_reconfigure(link, /* force = */ false);
                 if (r < 0)
                         return r;
         }
 
         return sd_bus_reply_method_return(message, NULL);
+}
+
+static int bus_method_describe_link(sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        return call_link_method(userdata, message, bus_link_method_describe, error);
+}
+
+static int bus_method_describe(sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+        _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
+        _cleanup_free_ char *text = NULL;
+        Manager *manager = userdata;
+        int r;
+
+        assert(message);
+        assert(manager);
+
+        r = manager_build_json(manager, &v);
+        if (r < 0)
+                return log_error_errno(r, "Failed to build JSON data: %m");
+
+        r = json_variant_format(v, 0, &text);
+        if (r < 0)
+                return log_error_errno(r, "Failed to format JSON data: %m");
+
+        r = sd_bus_message_new_method_return(message, &reply);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_message_append(reply, "s", text);
+        if (r < 0)
+                return r;
+
+        return sd_bus_send(NULL, reply, NULL);
+}
+
+static int property_get_namespace_id(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                void *userdata,
+                sd_bus_error *error) {
+
+        uint64_t id = 0;
+        struct stat st;
+
+        assert(bus);
+        assert(reply);
+
+        /* Returns our own network namespace ID, i.e. the inode number of /proc/self/ns/net. This allows
+         * unprivileged clients to determine whether they are in the same network namespace as us (note that
+         * access to that path is restricted, thus they can't check directly unless privileged). */
+
+        if (stat("/proc/self/ns/net", &st) < 0) {
+                log_warning_errno(errno, "Failed to stat network namespace, ignoring: %m");
+                id = 0;
+        } else
+                id = st.st_ino;
+
+        return sd_bus_message_append(reply, "t", id);
 }
 
 const sd_bus_vtable manager_vtable[] = {
@@ -237,6 +293,8 @@ const sd_bus_vtable manager_vtable[] = {
         SD_BUS_PROPERTY("AddressState", "s", property_get_address_state, offsetof(Manager, address_state), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
         SD_BUS_PROPERTY("IPv4AddressState", "s", property_get_address_state, offsetof(Manager, ipv4_address_state), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
         SD_BUS_PROPERTY("IPv6AddressState", "s", property_get_address_state, offsetof(Manager, ipv6_address_state), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
+        SD_BUS_PROPERTY("OnlineState", "s", property_get_online_state, offsetof(Manager, online_state), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
+        SD_BUS_PROPERTY("NamespaceId", "t", property_get_namespace_id, 0, SD_BUS_VTABLE_PROPERTY_CONST),
 
         SD_BUS_METHOD_WITH_ARGS("ListLinks",
                                 SD_BUS_NO_ARGS,
@@ -332,6 +390,16 @@ const sd_bus_vtable manager_vtable[] = {
                                 SD_BUS_NO_ARGS,
                                 SD_BUS_NO_RESULT,
                                 bus_method_reload,
+                                SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD_WITH_ARGS("DescribeLink",
+                                SD_BUS_ARGS("i", ifindex),
+                                SD_BUS_RESULT("s", json),
+                                bus_method_describe_link,
+                                SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD_WITH_ARGS("Describe",
+                                SD_BUS_NO_ARGS,
+                                SD_BUS_RESULT("s", json),
+                                bus_method_describe,
                                 SD_BUS_VTABLE_UNPRIVILEGED),
 
         SD_BUS_VTABLE_END

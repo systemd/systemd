@@ -128,8 +128,11 @@
       <varlistentry>
         <term><option>--fido2-with-client-pin=</option><replaceable>BOOL</replaceable></term>
 
-        <listitem><para>When enrolling a FIDO2 security token, controls whether to require the user to
-        enter a PIN when unlocking the volume. Defaults to <literal>yes</literal>.</para></listitem>
+        <listitem><para>When enrolling a FIDO2 security token, controls whether to require the user to enter
+        a PIN when unlocking the volume (the FIDO2 <literal>clientPin</literal> feature). Defaults to
+        <literal>yes</literal>. (Note: this setting is without effect if the security token does not support
+        the <literal>clientPin</literal> feature at all, or does not allow enabling or disabling
+        it.)</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -137,7 +140,8 @@
 
         <listitem><para>When enrolling a FIDO2 security token, controls whether to require the user to
         verify presence (tap the token, the FIDO2 <literal>up</literal> feature) when unlocking the volume.
-        Defaults to <literal>yes</literal>.
+        Defaults to <literal>yes</literal>. (Note: this setting is without effect if the security token does not support
+        the <literal>up</literal> feature at all, or does not allow enabling or disabling it.)
         </para></listitem>
       </varlistentry>
 
@@ -145,8 +149,9 @@
         <term><option>--fido2-with-user-verification=</option><replaceable>BOOL</replaceable></term>
 
         <listitem><para>When enrolling a FIDO2 security token, controls whether to require user verification
-        when unlocking the volume (the FIDO2 <literal>uv</literal> feature)). Defaults to <literal>no</literal>.
-        </para></listitem>
+        when unlocking the volume (the FIDO2 <literal>uv</literal> feature). Defaults to
+        <literal>no</literal>. (Note: this setting is without effect if the security token does not support
+        the <literal>uv</literal> feature at all, or does not allow enabling or disabling it.)</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -176,11 +181,11 @@
         <term><option>--tpm2-pcrs=</option><arg rep="repeat">PCR</arg></term>
 
         <listitem><para>Configures the TPM2 PCRs (Platform Configuration Registers) to bind the enrollment
-        requested via <option>--tpm2-device=</option> to. Takes a comma separated list of numeric PCR indexes
-        in the range 0…23. If not used, defaults to PCR 7 only. If an empty string is specified, binds the
-        enrollment to no PCRs at all. PCRs allow binding the enrollment to specific software versions and
-        system state, so that the enrolled unlocking key is only accessible (may be "unsealed") if specific
-        trusted software and/or configuration is used.</para></listitem>
+        requested via <option>--tpm2-device=</option> to. Takes a <literal>+</literal> separated list of
+        numeric PCR indexes in the range 0…23. If not used, defaults to PCR 7 only. If an empty string is
+        specified, binds the enrollment to no PCRs at all. PCRs allow binding the enrollment to specific
+        software versions and system state, so that the enrolled unlocking key is only accessible (may be
+        "unsealed") if specific trusted software and/or configuration is used.</para></listitem>
 
         <table>
           <title>Well-known PCR Definitions</title>

@@ -66,7 +66,6 @@ struct sd_dhcp6_client {
         bool information_request;
         bool iaid_set;
         be16_t *req_opts;
-        size_t req_opts_allocated;
         size_t req_opts_len;
         char *fqdn;
         char *mudurl;
@@ -85,6 +84,9 @@ struct sd_dhcp6_client {
         usec_t information_refresh_time_usec;
         OrderedHashmap *extra_options;
         OrderedHashmap *vendor_options;
+
+        /* Ignore ifindex when generating iaid. See dhcp_identifier_set_iaid(). */
+        bool test_mode;
 };
 
 static const uint16_t default_req_opts[] = {
@@ -399,6 +401,12 @@ int sd_dhcp6_client_set_iaid(sd_dhcp6_client *client, uint32_t iaid) {
         return 0;
 }
 
+void dhcp6_client_set_test_mode(sd_dhcp6_client *client, bool test_mode) {
+        assert(client);
+
+        client->test_mode = test_mode;
+}
+
 int sd_dhcp6_client_get_iaid(sd_dhcp6_client *client, uint32_t *iaid) {
         assert_return(client, -EINVAL);
         assert_return(iaid, -EINVAL);
@@ -456,8 +464,7 @@ int sd_dhcp6_client_set_request_option(sd_dhcp6_client *client, uint16_t option)
                 if (client->req_opts[t] == htobe16(option))
                         return -EEXIST;
 
-        if (!GREEDY_REALLOC(client->req_opts, client->req_opts_allocated,
-                            client->req_opts_len + 1))
+        if (!GREEDY_REALLOC(client->req_opts, client->req_opts_len + 1))
                 return -ENOMEM;
 
         client->req_opts[client->req_opts_len++] = htobe16(option);
@@ -1075,7 +1082,10 @@ static int client_ensure_iaid(sd_dhcp6_client *client) {
         if (client->iaid_set)
                 return 0;
 
-        r = dhcp_identifier_set_iaid(client->ifindex, client->mac_addr, client->mac_addr_len, true, &iaid);
+        r = dhcp_identifier_set_iaid(client->ifindex, client->mac_addr, client->mac_addr_len,
+                                     /* legacy_unstable_byteorder = */ true,
+                                     /* use_mac = */ client->test_mode,
+                                     &iaid);
         if (r < 0)
                 return r;
 

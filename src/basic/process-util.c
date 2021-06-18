@@ -601,7 +601,7 @@ int get_process_root(pid_t pid, char **root) {
 int get_process_environ(pid_t pid, char **env) {
         _cleanup_fclose_ FILE *f = NULL;
         _cleanup_free_ char *outcome = NULL;
-        size_t allocated = 0, sz = 0;
+        size_t sz = 0;
         const char *p;
         int r;
 
@@ -622,7 +622,7 @@ int get_process_environ(pid_t pid, char **env) {
                 if (sz >= ENVIRONMENT_BLOCK_MAX)
                         return -ENOBUFS;
 
-                if (!GREEDY_REALLOC(outcome, allocated, sz + 5))
+                if (!GREEDY_REALLOC(outcome, sz + 5))
                         return -ENOMEM;
 
                 r = safe_fgetc(f, &c);
@@ -820,7 +820,7 @@ int wait_for_terminate_with_timeout(pid_t pid, usec_t timeout) {
                 /* Assuming we woke due to the child exiting. */
                 if (waitid(P_PID, pid, &status, WEXITED|WNOHANG) == 0) {
                         if (status.si_pid == pid) {
-                                /* This is the correct child.*/
+                                /* This is the correct child. */
                                 if (status.si_code == CLD_EXITED)
                                         return (status.si_status == 0) ? 0 : -EPROTO;
                                 else

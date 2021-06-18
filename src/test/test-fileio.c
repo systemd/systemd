@@ -1034,8 +1034,11 @@ static void test_read_virtual_file(size_t max_size) {
                 size_t size = 0;
 
                 r = read_virtual_file(filename, max_size, &buf, &size);
-                log_info_errno(r, "read_virtual_file(\"%s\", %zu): %m (%zu bytes)", filename, max_size, size);
-                assert_se(r == 0 || ERRNO_IS_PRIVILEGE(r) || r == -ENOENT);
+                if (r < 0) {
+                        log_info_errno(r, "read_virtual_file(\"%s\", %zu): %m", filename, max_size);
+                        assert_se(ERRNO_IS_PRIVILEGE(r) || r == -ENOENT);
+                } else
+                        log_info("read_virtual_file(\"%s\", %zu): %s (%zu bytes)", filename, max_size, r ? "non-truncated" : "truncated", size);
         }
 }
 
@@ -1066,8 +1069,12 @@ int main(int argc, char *argv[]) {
         test_read_nul_string();
         test_read_full_file_socket();
         test_read_full_file_offset_size();
+        test_read_virtual_file(0);
+        test_read_virtual_file(1);
+        test_read_virtual_file(2);
         test_read_virtual_file(20);
         test_read_virtual_file(4096);
+        test_read_virtual_file(4097);
         test_read_virtual_file(SIZE_MAX);
 
         return 0;

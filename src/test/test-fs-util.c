@@ -332,7 +332,7 @@ static void test_chase_symlinks(void) {
         assert_se(S_ISLNK(st.st_mode));
         result = mfree(result);
 
-        /* Test CHASE_ONE */
+        /* Test CHASE_STEP */
 
         p = strjoina(temp, "/start");
         r = chase_symlinks(p, NULL, CHASE_STEP, &result, NULL);
@@ -343,7 +343,7 @@ static void test_chase_symlinks(void) {
 
         r = chase_symlinks(p, NULL, CHASE_STEP, &result, NULL);
         assert_se(r == 0);
-        p = strjoina(temp, "/top/./dotdota");
+        p = strjoina(temp, "/top/dotdota");
         assert_se(streq(p, result));
         result = mfree(result);
 
@@ -827,7 +827,7 @@ static void test_path_is_encrypted(void) {
         int booted = sd_booted(); /* If this is run in build environments such as koji, /dev might be a
                                    * reguar fs. Don't assume too much if not running under systemd. */
 
-        log_info("/* %s (sd_booted=%d)*/", __func__, booted);
+        log_info("/* %s (sd_booted=%d) */", __func__, booted);
 
         test_path_is_encrypted_one("/home", -1);
         test_path_is_encrypted_one("/var", -1);

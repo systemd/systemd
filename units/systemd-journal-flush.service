@@ -15,6 +15,7 @@ Requires=systemd-journald.service
 After=systemd-journald.service systemd-remount-fs.service
 Before=systemd-tmpfiles-setup.service
 RequiresMountsFor=/var/log/journal
+ConditionPathExists=!/etc/initrd-release
 
 [Service]
 ExecStart=journalctl --flush

@@ -1040,7 +1040,6 @@ static int route_dump(Route *route, FILE *f) {
 }
 
 void network_dump(Network *network, FILE *f) {
-        char mac[ETHER_ADDR_TO_STRING_MAX];
         Address *address;
         Route *route;
         const char *dhcp;
@@ -1057,7 +1056,7 @@ void network_dump(Network *network, FILE *f) {
         fputs("\n[Link]\n", f);
 
         if (!ether_addr_is_null(&network->mac))
-                fprintf(f, "MACAddress=%s\n", ether_addr_to_string(&network->mac, mac));
+                fprintf(f, "MACAddress=%s\n", ETHER_ADDR_TO_STR(&network->mac));
         if (network->mtu > 0)
                 fprintf(f, "MTUBytes=%" PRIu32 "\n", network->mtu);
 
@@ -1111,15 +1110,13 @@ void netdev_dump(NetDev *netdev, FILE *f) {
 }
 
 void link_dump(Link *link, FILE *f) {
-        char mac[ETHER_ADDR_TO_STRING_MAX];
-
         assert(link);
         assert(f);
 
         fputs("[Match]\n", f);
 
         if (!ether_addr_is_null(&link->mac))
-                fprintf(f, "MACAddress=%s\n", ether_addr_to_string(&link->mac, mac));
+                fprintf(f, "MACAddress=%s\n", ETHER_ADDR_TO_STR(&link->mac));
 
         fprintf(f,
                 "\n[Link]\n"

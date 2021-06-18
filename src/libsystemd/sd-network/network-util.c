@@ -13,20 +13,34 @@
 #include "strv.h"
 
 bool network_is_online(void) {
-        _cleanup_free_ char *carrier_state = NULL, *addr_state = NULL;
+        _cleanup_free_ char *online_state = NULL;
+        LinkOnlineState state;
         int r;
 
-        r = sd_network_get_carrier_state(&carrier_state);
-        if (r < 0) /* if we don't know anything, we consider the system online */
-                return true;
+        r = sd_network_get_online_state(&online_state);
+        if (r < 0)
+                state = _LINK_ONLINE_STATE_INVALID;
+        else
+                state = link_online_state_from_string(online_state);
 
-        r = sd_network_get_address_state(&addr_state);
-        if (r < 0) /* if we don't know anything, we consider the system online */
+        if (state >= LINK_ONLINE_STATE_PARTIAL)
                 return true;
+        else if (state < 0) {
+                _cleanup_free_ char *carrier_state = NULL, *addr_state = NULL;
 
-        if (STR_IN_SET(carrier_state, "degraded-carrier", "carrier") &&
-            STR_IN_SET(addr_state, "routable", "degraded"))
-                return true;
+                r = sd_network_get_carrier_state(&carrier_state);
+                if (r < 0) /* if we don't know anything, we consider the system online */
+                        return true;
+
+                r = sd_network_get_address_state(&addr_state);
+                if (r < 0) /* if we don't know anything, we consider the system online */
+                        return true;
+
+                /* we don't know the online state for certain, so make an educated guess */
+                if (STR_IN_SET(carrier_state, "degraded-carrier", "carrier") &&
+                    STR_IN_SET(addr_state, "routable", "degraded"))
+                        return true;
+        }
 
         return false;
 }
@@ -72,6 +86,14 @@ static const char* const link_address_state_table[_LINK_ADDRESS_STATE_MAX] = {
 };
 
 DEFINE_STRING_TABLE_LOOKUP(link_address_state, LinkAddressState);
+
+static const char *const link_online_state_table[_LINK_ONLINE_STATE_MAX] = {
+        [LINK_ONLINE_STATE_OFFLINE] = "offline",
+        [LINK_ONLINE_STATE_PARTIAL] = "partial",
+        [LINK_ONLINE_STATE_ONLINE]  = "online",
+};
+
+DEFINE_STRING_TABLE_LOOKUP(link_online_state, LinkOnlineState);
 
 int parse_operational_state_range(const char *str, LinkOperationalStateRange *out) {
         LinkOperationalStateRange range = { _LINK_OPERSTATE_INVALID, _LINK_OPERSTATE_INVALID };
@@ -119,24 +141,31 @@ int parse_operational_state_range(const char *str, LinkOperationalStateRange *ou
         return 0;
 }
 
-char *link_get_type_string(sd_device *device, unsigned short iftype) {
+int link_get_type_string(sd_device *device, unsigned short iftype, char **ret) {
         const char *t;
         char *p;
 
         if (device &&
             sd_device_get_devtype(device, &t) >= 0 &&
-            !isempty(t))
-                return strdup(t);
+            !isempty(t)) {
+                p = strdup(t);
+                if (!p)
+                        return -ENOMEM;
+
+                *ret = p;
+                return 0;
+        }
 
         t = arphrd_to_name(iftype);
         if (!t)
-                return NULL;
+                return -ENOENT;
 
         p = strdup(t);
         if (!p)
-                return NULL;
+                return -ENOMEM;
 
-        return ascii_strlower(p);
+        *ret = ascii_strlower(p);
+        return 0;
 }
 
 const char *net_get_name_persistent(sd_device *device) {

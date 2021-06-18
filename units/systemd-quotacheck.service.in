@@ -13,10 +13,10 @@ Documentation=man:systemd-quotacheck.service(8)
 DefaultDependencies=no
 After=systemd-remount-fs.service
 Before=remote-fs.target shutdown.target
-ConditionPathExists=@QUOTACHECK@
+ConditionPathExists={{QUOTACHECK}}
 
 [Service]
 Type=oneshot
 RemainAfterExit=yes
-ExecStart=@rootlibexecdir@/systemd-quotacheck
+ExecStart={{ROOTLIBEXECDIR}}/systemd-quotacheck
 TimeoutSec=0

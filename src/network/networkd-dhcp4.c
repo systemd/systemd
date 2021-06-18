@@ -20,6 +20,7 @@
 #include "networkd-nexthop.h"
 #include "networkd-queue.h"
 #include "networkd-route.h"
+#include "networkd-setlink.h"
 #include "networkd-state-file.h"
 #include "string-table.h"
 #include "strv.h"
@@ -66,13 +67,13 @@ static int dhcp4_release_old_lease(Link *link) {
         log_link_debug(link, "Removing old DHCPv4 address and routes.");
 
         SET_FOREACH(route, link->dhcp_routes_old) {
-                k = route_remove(route, NULL, link, NULL);
+                k = route_remove(route, NULL, link);
                 if (k < 0)
                         r = k;
         }
 
         if (link->dhcp_address_old) {
-                k = address_remove(link->dhcp_address_old, link, NULL);
+                k = address_remove(link->dhcp_address_old, link);
                 if (k < 0)
                         r = k;
         }
@@ -180,6 +181,10 @@ static int dhcp4_route_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *li
                 if (r < 0)
                         link_enter_failed(link);
 
+                r = dhcp4_request_address_and_routes(link, false);
+                if (r < 0)
+                        link_enter_failed(link);
+
                 return 1;
         }
 
@@ -204,7 +209,7 @@ static int dhcp4_request_route(Route *in, Link *link) {
 
         r = link_request_route(link, TAKE_PTR(route), true, &link->dhcp4_messages,
                                dhcp4_route_handler, &req);
-        if (r < 0)
+        if (r <= 0)
                 return r;
 
         req->after_configure = dhcp4_after_route_configure;
@@ -681,7 +686,7 @@ static int dhcp_reset_mtu(Link *link) {
         if (link->original_mtu == mtu)
                 return 0;
 
-        r = link_set_mtu(link, link->original_mtu);
+        r = link_request_to_set_mtu(link, link->original_mtu);
         if (r < 0)
                 return log_link_error_errno(link, r, "DHCP error: could not reset MTU: %m");
 
@@ -712,48 +717,6 @@ static int dhcp_reset_hostname(Link *link) {
         return 0;
 }
 
-static int dhcp4_route_remove_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
-        int r;
-
-        assert(link);
-        assert(link->dhcp4_remove_messages > 0);
-
-        link->dhcp4_remove_messages--;
-
-        r = link_route_remove_handler_internal(rtnl, m, link, "Failed to remove DHCPv4 route, ignoring");
-        if (r <= 0)
-                return r;
-
-        if (link->dhcp4_remove_messages == 0) {
-                r = dhcp4_request_address_and_routes(link, false);
-                if (r < 0)
-                        link_enter_failed(link);
-        }
-
-        return 1;
-}
-
-static int dhcp4_address_remove_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
-        int r;
-
-        assert(link);
-        assert(link->dhcp4_remove_messages > 0);
-
-        link->dhcp4_remove_messages--;
-
-        r = address_remove_handler_internal(rtnl, m, link, "Failed to remove DHCPv4 address, ignoring");
-        if (r <= 0)
-                return r;
-
-        if (link->dhcp4_remove_messages == 0) {
-                r = dhcp4_request_address_and_routes(link, false);
-                if (r < 0)
-                        link_enter_failed(link);
-        }
-
-        return 1;
-}
-
 static int dhcp4_remove_all(Link *link) {
         Route *route;
         int k, r = 0;
@@ -761,19 +724,15 @@ static int dhcp4_remove_all(Link *link) {
         assert(link);
 
         SET_FOREACH(route, link->dhcp_routes) {
-                k = route_remove(route, NULL, link, dhcp4_route_remove_handler);
+                k = route_remove(route, NULL, link);
                 if (k < 0)
                         r = k;
-                else
-                        link->dhcp4_remove_messages++;
         }
 
         if (link->dhcp_address) {
-                k = address_remove(link->dhcp_address, link, dhcp4_address_remove_handler);
+                k = address_remove(link->dhcp_address, link);
                 if (k < 0)
                         r = k;
-                else
-                        link->dhcp4_remove_messages++;
         }
 
         return r;
@@ -893,7 +852,7 @@ static int dhcp4_configure_dad(Link *link) {
         if (r < 0)
                 return r;
 
-        r = sd_ipv4acd_set_mac(link->dhcp_acd, &link->hw_addr.addr.ether);
+        r = sd_ipv4acd_set_mac(link->dhcp_acd, &link->hw_addr.ether);
         if (r < 0)
                 return r;
 
@@ -915,7 +874,7 @@ static int dhcp4_dad_update_mac(Link *link) {
         if (r < 0)
                 return r;
 
-        r = sd_ipv4acd_set_mac(link->dhcp_acd, &link->hw_addr.addr.ether);
+        r = sd_ipv4acd_set_mac(link->dhcp_acd, &link->hw_addr.ether);
         if (r < 0)
                 return r;
 
@@ -990,7 +949,7 @@ static int dhcp4_after_address_configure(Request *req, void *object) {
                 if (link->dhcp_address_old &&
                     !address_equal(link->dhcp_address_old, link->dhcp_address)) {
                         /* Still too old address exists? Let's remove it immediately. */
-                        r = address_remove(link->dhcp_address_old, link, NULL);
+                        r = address_remove(link->dhcp_address_old, link);
                         if (r < 0)
                                 return r;
                 }
@@ -1106,6 +1065,8 @@ static int dhcp4_request_address(Link *link, bool announce) {
                                  dhcp4_address_handler, &req);
         if (r < 0)
                 return log_link_error_errno(link, r, "Failed to request DHCPv4 address: %m");
+        if (r == 0)
+                return 0;
 
         req->after_configure = dhcp4_after_address_configure;
 
@@ -1169,7 +1130,7 @@ static int dhcp_lease_acquired(sd_dhcp_client *client, Link *link) {
 
                 r = sd_dhcp_lease_get_mtu(lease, &mtu);
                 if (r >= 0) {
-                        r = link_set_mtu(link, mtu);
+                        r = link_request_to_set_mtu(link, mtu);
                         if (r < 0)
                                 log_link_error_errno(link, r, "Failed to set MTU to %" PRIu16 ": %m", mtu);
                 }
@@ -1476,7 +1437,7 @@ static int dhcp4_set_client_identifier(Link *link) {
                 break;
         }
         case DHCP_CLIENT_ID_MAC: {
-                const uint8_t *hw_addr = link->hw_addr.addr.bytes;
+                const uint8_t *hw_addr = link->hw_addr.bytes;
                 size_t hw_addr_len = link->hw_addr.length;
 
                 if (link->iftype == ARPHRD_INFINIBAND && hw_addr_len == INFINIBAND_ALEN) {
@@ -1585,8 +1546,8 @@ int dhcp4_configure(Link *link) {
                 return log_link_warning_errno(link, r, "DHCP4 CLIENT: Failed to attach event to DHCP4 client: %m");
 
         r = sd_dhcp_client_set_mac(link->dhcp_client,
-                                   link->hw_addr.addr.bytes,
-                                   link->bcast_addr.length > 0 ? link->bcast_addr.addr.bytes : NULL,
+                                   link->hw_addr.bytes,
+                                   link->bcast_addr.length > 0 ? link->bcast_addr.bytes : NULL,
                                    link->hw_addr.length, link->iftype);
         if (r < 0)
                 return log_link_warning_errno(link, r, "DHCP4 CLIENT: Failed to set MAC address: %m");
@@ -1741,8 +1702,8 @@ int dhcp4_update_mac(Link *link) {
         if (!link->dhcp_client)
                 return 0;
 
-        r = sd_dhcp_client_set_mac(link->dhcp_client, link->hw_addr.addr.bytes,
-                                   link->bcast_addr.length > 0 ? link->bcast_addr.addr.bytes : NULL,
+        r = sd_dhcp_client_set_mac(link->dhcp_client, link->hw_addr.bytes,
+                                   link->bcast_addr.length > 0 ? link->bcast_addr.bytes : NULL,
                                    link->hw_addr.length, link->iftype);
         if (r < 0)
                 return r;

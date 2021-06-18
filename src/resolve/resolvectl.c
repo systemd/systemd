@@ -119,7 +119,7 @@ int ifname_mangle(const char *s) {
         if (!iface)
                 return log_oom();
 
-        ifi = resolve_interface(NULL, iface);
+        ifi = rtnl_resolve_interface(NULL, iface);
         if (ifi < 0) {
                 if (ifi == -ENODEV && arg_ifindex_permissive) {
                         log_debug("Interface '%s' not found, but -f specified, ignoring.", iface);
@@ -1963,7 +1963,7 @@ static int status_all(sd_bus *bus, StatusMode mode) {
                 return log_error_errno(r, "Failed to enumerate links: %m");
 
         _cleanup_free_ InterfaceInfo *infos = NULL;
-        size_t n_allocated = 0, n_infos = 0;
+        size_t n_infos = 0;
 
         for (sd_netlink_message *i = reply; i; i = sd_netlink_message_next(i)) {
                 const char *name;
@@ -1988,7 +1988,7 @@ static int status_all(sd_bus *bus, StatusMode mode) {
                 if (r < 0)
                         return rtnl_log_parse_error(r);
 
-                if (!GREEDY_REALLOC(infos, n_allocated, n_infos + 1))
+                if (!GREEDY_REALLOC(infos, n_infos + 1))
                         return log_oom();
 
                 infos[n_infos++] = (InterfaceInfo) { ifindex, name };
@@ -2018,7 +2018,7 @@ static int verb_status(int argc, char **argv, void *userdata) {
                 STRV_FOREACH(ifname, argv + 1) {
                         int ifindex, q;
 
-                        ifindex = resolve_interface(&rtnl, *ifname);
+                        ifindex = rtnl_resolve_interface(&rtnl, *ifname);
                         if (ifindex < 0) {
                                 log_warning_errno(ifindex, "Failed to resolve interface \"%s\", ignoring: %m", *ifname);
                                 continue;

@@ -30,18 +30,18 @@
 #define POSSIBLE_SPECIFIERS ALPHANUMERICAL "%"
 
 int specifier_printf(const char *text, size_t max_length, const Specifier table[], const void *userdata, char **ret) {
-        size_t l, allocated = 0;
         _cleanup_free_ char *result = NULL;
-        char *t;
-        const char *f;
         bool percent = false;
+        const char *f;
+        size_t l;
+        char *t;
         int r;
 
         assert(text);
         assert(table);
 
         l = strlen(text);
-        if (!GREEDY_REALLOC(result, allocated, l + 1))
+        if (!GREEDY_REALLOC(result, l + 1))
                 return -ENOMEM;
         t = result;
 
@@ -67,7 +67,7 @@ int specifier_printf(const char *text, size_t max_length, const Specifier table[
                                         j = t - result;
                                         k = strlen(w);
 
-                                        if (!GREEDY_REALLOC(result, allocated, j + k + l + 1))
+                                        if (!GREEDY_REALLOC(result, j + k + l + 1))
                                                 return -ENOMEM;
                                         memcpy(result + j, w, k);
                                         t = result + j + k;
@@ -97,13 +97,6 @@ int specifier_printf(const char *text, size_t max_length, const Specifier table[
                         return -ENAMETOOLONG;
         }
         *(t++) = 0;
-
-        /* Try to deallocate unused bytes, but don't sweat it too much */
-        if ((size_t)(t - result) < allocated) {
-                t = realloc(result, t - result);
-                if (t)
-                        result = t;
-        }
 
         *ret = TAKE_PTR(result);
         return 0;
@@ -371,3 +364,9 @@ int specifier_escape_strv(char **l, char ***ret) {
 
         return 0;
 }
+
+const Specifier system_and_tmp_specifier_table[] = {
+        COMMON_SYSTEM_SPECIFIERS,
+        COMMON_TMP_SPECIFIERS,
+        {}
+};

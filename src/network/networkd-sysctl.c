@@ -11,6 +11,9 @@
 #include "string-table.h"
 #include "sysctl-util.h"
 
+#define STABLE_SECRET_APP_ID_1 SD_ID128_MAKE(aa,05,1d,94,43,68,45,07,b9,73,f1,e8,e4,b7,34,52)
+#define STABLE_SECRET_APP_ID_2 SD_ID128_MAKE(52,c4,40,a0,9f,2f,48,58,a9,3a,f6,29,25,ba,7a,7d)
+
 static int link_update_ipv6_sysctl(Link *link) {
         assert(link);
 
@@ -161,6 +164,98 @@ static int link_set_ipv6_hop_limit(Link *link) {
         return sysctl_write_ip_property_int(AF_INET6, link->ifname, "hop_limit", link->network->ipv6_hop_limit);
 }
 
+static int link_set_ipv6_proxy_ndp(Link *link) {
+        bool v;
+
+        assert(link);
+
+        if (!socket_ipv6_is_supported())
+                return 0;
+
+        if (link->flags & IFF_LOOPBACK)
+                return 0;
+
+        if (!link->network)
+                return 0;
+
+        if (link->network->ipv6_proxy_ndp >= 0)
+                v = link->network->ipv6_proxy_ndp;
+        else
+                v = !set_isempty(link->network->ipv6_proxy_ndp_addresses);
+
+        return sysctl_write_ip_property_boolean(AF_INET6, link->ifname, "proxy_ndp", v);
+}
+
+int link_set_ipv6_mtu(Link *link) {
+        uint32_t mtu;
+
+        assert(link);
+
+        /* Make this a NOP if IPv6 is not available */
+        if (!socket_ipv6_is_supported())
+                return 0;
+
+        if (link->flags & IFF_LOOPBACK)
+                return 0;
+
+        if (!link->network)
+                return 0;
+
+        if (link->network->ipv6_mtu == 0)
+                return 0;
+
+        mtu = link->network->ipv6_mtu;
+        if (mtu > link->max_mtu) {
+                log_link_warning(link, "Reducing requested IPv6 MTU %"PRIu32" to the interface's maximum MTU %"PRIu32".",
+                                 mtu, link->max_mtu);
+                mtu = link->max_mtu;
+        }
+
+        return sysctl_write_ip_property_uint32(AF_INET6, link->ifname, "mtu", mtu);
+}
+
+static int link_set_ipv6ll_stable_secret(Link *link) {
+        _cleanup_free_ char *str = NULL;
+        struct in6_addr a;
+        int r;
+
+        assert(link);
+        assert(link->network);
+
+        if (link->network->ipv6ll_address_gen_mode != IPV6_LINK_LOCAL_ADDRESSS_GEN_MODE_STABLE_PRIVACY)
+                return 0;
+
+        if (in6_addr_is_set(&link->network->ipv6ll_stable_secret))
+                a = link->network->ipv6ll_stable_secret;
+        else {
+                sd_id128_t key;
+                le64_t v;
+
+                /* Generate a stable secret address from machine-ID and the interface name. */
+
+                r = sd_id128_get_machine_app_specific(STABLE_SECRET_APP_ID_1, &key);
+                if (r < 0)
+                        return log_link_debug_errno(link, r, "Failed to generate key: %m");
+
+                v = htole64(siphash24_string(link->ifname, key.bytes));
+                memcpy(a.s6_addr, &v, sizeof(v));
+
+                r = sd_id128_get_machine_app_specific(STABLE_SECRET_APP_ID_2, &key);
+                if (r < 0)
+                        return log_link_debug_errno(link, r, "Failed to generate key: %m");
+
+                v = htole64(siphash24_string(link->ifname, key.bytes));
+                assert_cc(sizeof(v) * 2 == sizeof(a.s6_addr));
+                memcpy(a.s6_addr + sizeof(v), &v, sizeof(v));
+        }
+
+        r = in6_addr_to_string(&a, &str);
+        if (r < 0)
+                return r;
+
+        return sysctl_write_ip_property(AF_INET6, link->ifname, "stable_secret", str);
+}
+
 static int link_set_ipv4_accept_local(Link *link) {
         assert(link);
 
@@ -224,6 +319,18 @@ int link_set_sysctl(Link *link) {
         if (r < 0)
                 log_link_warning_errno(link, r, "Cannot set IPv6 hop limit for interface, ignoring: %m");
 
+        r = link_set_ipv6_proxy_ndp(link);
+        if (r < 0)
+                log_link_warning_errno(link, r, "Cannot set IPv6 proxy NDP, ignoring: %m");
+
+        r = link_set_ipv6_mtu(link);
+        if (r < 0)
+                log_link_warning_errno(link, r, "Cannot set IPv6 MTU, ignoring: %m");
+
+        r = link_set_ipv6ll_stable_secret(link);
+        if (r < 0)
+                log_link_warning_errno(link, r, "Cannot set stable secret address for IPv6 link local address: %m");
+
         r = link_set_ipv4_accept_local(link);
         if (r < 0)
                 log_link_warning_errno(link, r, "Cannot set IPv4 accept_local flag for interface, ignoring: %m");
@@ -240,30 +347,6 @@ int link_set_sysctl(Link *link) {
         r = sysctl_write_ip_property_boolean(AF_INET, link->ifname, "promote_secondaries", true);
         if (r < 0)
                 log_link_warning_errno(link, r, "Cannot enable promote_secondaries for interface, ignoring: %m");
-
-        return 0;
-}
-
-int link_set_ipv6_mtu(Link *link) {
-        int r;
-
-        assert(link);
-
-        /* Make this a NOP if IPv6 is not available */
-        if (!socket_ipv6_is_supported())
-                return 0;
-
-        if (link->flags & IFF_LOOPBACK)
-                return 0;
-
-        if (link->network->ipv6_mtu == 0)
-                return 0;
-
-        r = sysctl_write_ip_property_uint32(AF_INET6, link->ifname, "mtu", link->network->ipv6_mtu);
-        if (r < 0)
-                return r;
-
-        link->ipv6_mtu_set = true;
 
         return 0;
 }

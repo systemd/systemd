@@ -15,6 +15,7 @@
 #endif
 
 #include "alloc-util.h"
+#include "capability-util.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "macro.h"
@@ -40,6 +41,10 @@
 #else
 #  define SECCOMP_RESTRICT_ADDRESS_FAMILIES_BROKEN 0
 #endif
+
+static bool have_seccomp_privs(void) {
+        return geteuid() == 0 && have_effective_cap(CAP_SYS_ADMIN) > 0; /* If we are root but CAP_SYS_ADMIN we can't do caps (unless we also do NNP) */
+}
 
 static void test_parse_syscall_and_errno(void) {
         _cleanup_free_ char *n = NULL;
@@ -168,8 +173,8 @@ static void test_filter_sets(void) {
                 log_notice("Seccomp not available, skipping %s", __func__);
                 return;
         }
-        if (geteuid() != 0) {
-                log_notice("Not root, skipping %s", __func__);
+        if (!have_seccomp_privs()) {
+                log_notice("Not privileged, skipping %s", __func__);
                 return;
         }
 
@@ -303,8 +308,8 @@ static void test_restrict_namespace(void) {
                 log_notice("Seccomp not available, skipping remaining tests in %s", __func__);
                 return;
         }
-        if (geteuid() != 0) {
-                log_notice("Not root, skipping remaining tests in %s", __func__);
+        if (!have_seccomp_privs()) {
+                log_notice("Not privileged, skipping remaining tests in %s", __func__);
                 return;
         }
 
@@ -373,8 +378,8 @@ static void test_protect_sysctl(void) {
                 log_notice("Seccomp not available, skipping %s", __func__);
                 return;
         }
-        if (geteuid() != 0) {
-                log_notice("Not root, skipping %s", __func__);
+        if (!have_seccomp_privs()) {
+                log_notice("Not privileged, skipping %s", __func__);
                 return;
         }
 
@@ -426,8 +431,8 @@ static void test_protect_syslog(void) {
                 log_notice("Seccomp not available, skipping %s", __func__);
                 return;
         }
-        if (geteuid() != 0) {
-                log_notice("Not root, skipping %s", __func__);
+        if (!have_seccomp_privs()) {
+                log_notice("Not privileged, skipping %s", __func__);
                 return;
         }
 
@@ -468,8 +473,8 @@ static void test_restrict_address_families(void) {
                 log_notice("Seccomp not available, skipping %s", __func__);
                 return;
         }
-        if (geteuid() != 0) {
-                log_notice("Not root, skipping %s", __func__);
+        if (!have_seccomp_privs()) {
+                log_notice("Not privileged, skipping %s", __func__);
                 return;
         }
 
@@ -557,8 +562,8 @@ static void test_restrict_realtime(void) {
                 log_notice("Seccomp not available, skipping %s", __func__);
                 return;
         }
-        if (geteuid() != 0) {
-                log_notice("Not root, skipping %s", __func__);
+        if (!have_seccomp_privs()) {
+                log_notice("Not privileged, skipping %s", __func__);
                 return;
         }
 
@@ -604,8 +609,8 @@ static void test_memory_deny_write_execute_mmap(void) {
                 log_notice("Seccomp not available, skipping %s", __func__);
                 return;
         }
-        if (geteuid() != 0) {
-                log_notice("Not root, skipping %s", __func__);
+        if (!have_seccomp_privs()) {
+                log_notice("Not privileged, skipping %s", __func__);
                 return;
         }
 #if HAVE_VALGRIND_VALGRIND_H
@@ -674,8 +679,8 @@ static void test_memory_deny_write_execute_shmat(void) {
                 log_notice("Seccomp not available, skipping %s", __func__);
                 return;
         }
-        if (geteuid() != 0) {
-                log_notice("Not root, skipping %s", __func__);
+        if (!have_seccomp_privs()) {
+                log_notice("Not privileged, skipping %s", __func__);
                 return;
         }
 #if HAVE_VALGRIND_VALGRIND_H
@@ -739,8 +744,8 @@ static void test_restrict_archs(void) {
                 log_notice("Seccomp not available, skipping %s", __func__);
                 return;
         }
-        if (geteuid() != 0) {
-                log_notice("Not root, skipping %s", __func__);
+        if (!have_seccomp_privs()) {
+                log_notice("Not privileged, skipping %s", __func__);
                 return;
         }
 
@@ -779,8 +784,8 @@ static void test_load_syscall_filter_set_raw(void) {
                 log_notice("Seccomp not available, skipping %s", __func__);
                 return;
         }
-        if (geteuid() != 0) {
-                log_notice("Not root, skipping %s", __func__);
+        if (!have_seccomp_privs()) {
+                log_notice("Not privileged, skipping %s", __func__);
                 return;
         }
 
@@ -800,10 +805,18 @@ static void test_load_syscall_filter_set_raw(void) {
                 assert_se(s = hashmap_new(NULL));
 #if defined __NR_access && __NR_access >= 0
                 assert_se(hashmap_put(s, UINT32_TO_PTR(__NR_access + 1), INT_TO_PTR(-1)) >= 0);
-#else
+                log_debug("has access()");
+#endif
+#if defined __NR_faccessat && __NR_faccessat >= 0
                 assert_se(hashmap_put(s, UINT32_TO_PTR(__NR_faccessat + 1), INT_TO_PTR(-1)) >= 0);
+                log_debug("has faccessat()");
+#endif
+#if defined __NR_faccessat2 && __NR_faccessat2 >= 0
+                assert_se(hashmap_put(s, UINT32_TO_PTR(__NR_faccessat2 + 1), INT_TO_PTR(-1)) >= 0);
+                log_debug("has faccessat2()");
 #endif
 
+                assert_se(!hashmap_isempty(s));
                 assert_se(seccomp_load_syscall_filter_set_raw(SCMP_ACT_ALLOW, s, SCMP_ACT_ERRNO(EUCLEAN), true) >= 0);
 
                 assert_se(access("/", F_OK) < 0);
@@ -811,13 +824,15 @@ static void test_load_syscall_filter_set_raw(void) {
 
                 assert_se(poll(NULL, 0, 0) == 0);
 
-                s = hashmap_free(s);
-
-                assert_se(s = hashmap_new(NULL));
+                hashmap_clear(s);
 #if defined __NR_access && __NR_access >= 0
                 assert_se(hashmap_put(s, UINT32_TO_PTR(__NR_access + 1), INT_TO_PTR(EILSEQ)) >= 0);
-#else
+#endif
+#if defined __NR_faccessat && __NR_faccessat >= 0
                 assert_se(hashmap_put(s, UINT32_TO_PTR(__NR_faccessat + 1), INT_TO_PTR(EILSEQ)) >= 0);
+#endif
+#if defined __NR_faccessat2 && __NR_faccessat2 >= 0
+                assert_se(hashmap_put(s, UINT32_TO_PTR(__NR_faccessat2 + 1), INT_TO_PTR(EILSEQ)) >= 0);
 #endif
 
                 assert_se(seccomp_load_syscall_filter_set_raw(SCMP_ACT_ALLOW, s, SCMP_ACT_ERRNO(EUCLEAN), true) >= 0);
@@ -827,15 +842,21 @@ static void test_load_syscall_filter_set_raw(void) {
 
                 assert_se(poll(NULL, 0, 0) == 0);
 
-                s = hashmap_free(s);
-
-                assert_se(s = hashmap_new(NULL));
+                hashmap_clear(s);
 #if defined __NR_poll && __NR_poll >= 0
                 assert_se(hashmap_put(s, UINT32_TO_PTR(__NR_poll + 1), INT_TO_PTR(-1)) >= 0);
-#else
+                log_debug("has poll()");
+#endif
+#if defined __NR_ppoll && __NR_ppoll >= 0
                 assert_se(hashmap_put(s, UINT32_TO_PTR(__NR_ppoll + 1), INT_TO_PTR(-1)) >= 0);
+                log_debug("has ppoll()");
+#endif
+#if defined __NR_ppoll_time64 && __NR_ppoll_time64 >= 0
+                assert_se(hashmap_put(s, UINT32_TO_PTR(__NR_ppoll_time64 + 1), INT_TO_PTR(-1)) >= 0);
+                log_debug("has ppoll_time64()");
 #endif
 
+                assert_se(!hashmap_isempty(s));
                 assert_se(seccomp_load_syscall_filter_set_raw(SCMP_ACT_ALLOW, s, SCMP_ACT_ERRNO(EUNATCH), true) >= 0);
 
                 assert_se(access("/", F_OK) < 0);
@@ -844,13 +865,15 @@ static void test_load_syscall_filter_set_raw(void) {
                 assert_se(poll(NULL, 0, 0) < 0);
                 assert_se(errno == EUNATCH);
 
-                s = hashmap_free(s);
-
-                assert_se(s = hashmap_new(NULL));
+                hashmap_clear(s);
 #if defined __NR_poll && __NR_poll >= 0
                 assert_se(hashmap_put(s, UINT32_TO_PTR(__NR_poll + 1), INT_TO_PTR(EILSEQ)) >= 0);
-#else
+#endif
+#if defined __NR_ppoll && __NR_ppoll >= 0
                 assert_se(hashmap_put(s, UINT32_TO_PTR(__NR_ppoll + 1), INT_TO_PTR(EILSEQ)) >= 0);
+#endif
+#if defined __NR_ppoll_time64 && __NR_ppoll_time64 >= 0
+                assert_se(hashmap_put(s, UINT32_TO_PTR(__NR_ppoll_time64 + 1), INT_TO_PTR(EILSEQ)) >= 0);
 #endif
 
                 assert_se(seccomp_load_syscall_filter_set_raw(SCMP_ACT_ALLOW, s, SCMP_ACT_ERRNO(EUNATCH), true) >= 0);
@@ -877,8 +900,8 @@ static void test_lock_personality(void) {
                 log_notice("Seccomp not available, skipping %s", __func__);
                 return;
         }
-        if (geteuid() != 0) {
-                log_notice("Not root, skipping %s", __func__);
+        if (!have_seccomp_privs()) {
+                log_notice("Not privileged, skipping %s", __func__);
                 return;
         }
 
@@ -941,8 +964,8 @@ static void test_restrict_suid_sgid(void) {
                 log_notice("Seccomp not available, skipping %s", __func__);
                 return;
         }
-        if (geteuid() != 0) {
-                log_notice("Not root, skipping %s", __func__);
+        if (!have_seccomp_privs()) {
+                log_notice("Not privileged, skipping %s", __func__);
                 return;
         }
 

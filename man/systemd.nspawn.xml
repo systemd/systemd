@@ -416,6 +416,16 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>BindUser=</varname></term>
+
+        <listitem><para>Binds a user from the host into the container. This option is equivalent to the
+        command line switch <option>--bind-user=</option>, see
+        <citerefentry><refentrytitle>systemd-nspawn</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+        for details about the specific options supported. This setting is privileged (see
+        above).</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>TemporaryFileSystem=</varname></term>
 
         <listitem><para>Adds a <literal>tmpfs</literal> mount to the

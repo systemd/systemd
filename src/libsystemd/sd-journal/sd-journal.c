@@ -2321,7 +2321,7 @@ _public_ int sd_journal_get_data(sd_journal *j, const char *field, const void **
 #if HAVE_COMPRESSION
                         r = decompress_startswith(compression,
                                                   o->data.payload, l,
-                                                  &f->compress_buffer, &f->compress_buffer_size,
+                                                  &f->compress_buffer,
                                                   field, field_length, '=');
                         if (r < 0)
                                 log_debug_errno(r, "Cannot decompress %s object of length %"PRIu64" at offset "OFSfmt": %m",
@@ -2332,7 +2332,7 @@ _public_ int sd_journal_get_data(sd_journal *j, const char *field, const void **
 
                                 r = decompress_blob(compression,
                                                     o->data.payload, l,
-                                                    &f->compress_buffer, &f->compress_buffer_size, &rsize,
+                                                    &f->compress_buffer, &rsize,
                                                     j->data_threshold);
                                 if (r < 0)
                                         return r;
@@ -2368,18 +2368,27 @@ _public_ int sd_journal_get_data(sd_journal *j, const char *field, const void **
         return -ENOENT;
 }
 
-static int return_data(sd_journal *j, JournalFile *f, Object *o, const void **data, size_t *size) {
+static int return_data(
+                sd_journal *j,
+                JournalFile *f,
+                Object *o,
+                const void **ret_data,
+                size_t *ret_size) {
+
         size_t t;
         uint64_t l;
         int compression;
+
+        assert(j);
+        assert(f);
 
         l = le64toh(READ_NOW(o->object.size));
         if (l < offsetof(Object, data.payload))
                 return -EBADMSG;
         l -= offsetof(Object, data.payload);
-        t = (size_t) l;
 
         /* We can't read objects larger than 4G on a 32bit machine */
+        t = (size_t) l;
         if ((uint64_t) t != l)
                 return -E2BIG;
 
@@ -2389,20 +2398,26 @@ static int return_data(sd_journal *j, JournalFile *f, Object *o, const void **da
                 size_t rsize;
                 int r;
 
-                r = decompress_blob(compression,
-                                    o->data.payload, l, &f->compress_buffer,
-                                    &f->compress_buffer_size, &rsize, j->data_threshold);
+                r = decompress_blob(
+                                compression,
+                                o->data.payload, l,
+                                &f->compress_buffer, &rsize,
+                                j->data_threshold);
                 if (r < 0)
                         return r;
 
-                *data = f->compress_buffer;
-                *size = (size_t) rsize;
+                if (ret_data)
+                        *ret_data = f->compress_buffer;
+                if (ret_size)
+                        *ret_size = (size_t) rsize;
 #else
                 return -EPROTONOSUPPORT;
 #endif
         } else {
-                *data = o->data.payload;
-                *size = t;
+                if (ret_data)
+                        *ret_data = o->data.payload;
+                if (ret_size)
+                        *ret_size = t;
         }
 
         return 0;
@@ -2781,20 +2796,25 @@ _public_ int sd_journal_get_cutoff_realtime_usec(sd_journal *j, uint64_t *from, 
         return first ? 0 : 1;
 }
 
-_public_ int sd_journal_get_cutoff_monotonic_usec(sd_journal *j, sd_id128_t boot_id, uint64_t *from, uint64_t *to) {
-        JournalFile *f;
+_public_ int sd_journal_get_cutoff_monotonic_usec(
+                sd_journal *j,
+                sd_id128_t boot_id,
+                uint64_t *ret_from,
+                uint64_t *ret_to) {
+
+        uint64_t from = UINT64_MAX, to = UINT64_MAX;
         bool found = false;
+        JournalFile *f;
         int r;
 
         assert_return(j, -EINVAL);
         assert_return(!journal_pid_changed(j), -ECHILD);
-        assert_return(from || to, -EINVAL);
-        assert_return(from != to, -EINVAL);
+        assert_return(ret_from != ret_to, -EINVAL);
 
         ORDERED_HASHMAP_FOREACH(f, j->files) {
-                usec_t fr, t;
+                usec_t ff, tt;
 
-                r = journal_file_get_cutoff_monotonic_usec(f, boot_id, &fr, &t);
+                r = journal_file_get_cutoff_monotonic_usec(f, boot_id, &ff, &tt);
                 if (r == -ENOENT)
                         continue;
                 if (r < 0)
@@ -2803,18 +2823,19 @@ _public_ int sd_journal_get_cutoff_monotonic_usec(sd_journal *j, sd_id128_t boot
                         continue;
 
                 if (found) {
-                        if (from)
-                                *from = MIN(fr, *from);
-                        if (to)
-                                *to = MAX(t, *to);
+                        from = MIN(ff, from);
+                        to = MAX(tt, to);
                 } else {
-                        if (from)
-                                *from = fr;
-                        if (to)
-                                *to = t;
+                        from = ff;
+                        to = tt;
                         found = true;
                 }
         }
+
+        if (ret_from)
+                *ret_from = from;
+        if (ret_to)
+                *ret_to = to;
 
         return found;
 }
@@ -2835,41 +2856,47 @@ void journal_print_header(sd_journal *j) {
         }
 }
 
-_public_ int sd_journal_get_usage(sd_journal *j, uint64_t *bytes) {
+_public_ int sd_journal_get_usage(sd_journal *j, uint64_t *ret) {
         JournalFile *f;
         uint64_t sum = 0;
 
         assert_return(j, -EINVAL);
         assert_return(!journal_pid_changed(j), -ECHILD);
-        assert_return(bytes, -EINVAL);
+        assert_return(ret, -EINVAL);
 
         ORDERED_HASHMAP_FOREACH(f, j->files) {
                 struct stat st;
+                uint64_t b;
 
                 if (fstat(f->fd, &st) < 0)
                         return -errno;
 
-                sum += (uint64_t) st.st_blocks * 512ULL;
+                b = (uint64_t) st.st_blocks;
+                if (b > UINT64_MAX / 512)
+                        return -EOVERFLOW;
+                b *= 512;
+
+                if (sum > UINT64_MAX - b)
+                        return -EOVERFLOW;
+                sum += b;
         }
 
-        *bytes = sum;
+        *ret = sum;
         return 0;
 }
 
 _public_ int sd_journal_query_unique(sd_journal *j, const char *field) {
-        char *f;
+        int r;
 
         assert_return(j, -EINVAL);
         assert_return(!journal_pid_changed(j), -ECHILD);
         assert_return(!isempty(field), -EINVAL);
         assert_return(field_is_valid(field), -EINVAL);
 
-        f = strdup(field);
-        if (!f)
-                return -ENOMEM;
+        r = free_and_strdup(&j->unique_field, field);
+        if (r < 0)
+                return r;
 
-        free(j->unique_field);
-        j->unique_field = f;
         j->unique_file = NULL;
         j->unique_offset = 0;
         j->unique_file_lost = false;
@@ -2877,13 +2904,15 @@ _public_ int sd_journal_query_unique(sd_journal *j, const char *field) {
         return 0;
 }
 
-_public_ int sd_journal_enumerate_unique(sd_journal *j, const void **data, size_t *l) {
+_public_ int sd_journal_enumerate_unique(
+                sd_journal *j,
+                const void **ret_data,
+                size_t *ret_size) {
+
         size_t k;
 
         assert_return(j, -EINVAL);
         assert_return(!journal_pid_changed(j), -ECHILD);
-        assert_return(data, -EINVAL);
-        assert_return(l, -EINVAL);
         assert_return(j->unique_field, -EINVAL);
 
         k = strlen(j->unique_field);
@@ -2957,16 +2986,15 @@ _public_ int sd_journal_enumerate_unique(sd_journal *j, const void **data, size_
                                                j->unique_file->path,
                                                j->unique_offset, ol, k + 1);
 
-                if (memcmp(odata, j->unique_field, k) || ((const char*) odata)[k] != '=')
+                if (memcmp(odata, j->unique_field, k) != 0 || ((const char*) odata)[k] != '=')
                         return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG),
                                                "%s:offset " OFSfmt ": object does not start with \"%s=\"",
                                                j->unique_file->path,
                                                j->unique_offset,
                                                j->unique_field);
 
-                /* OK, now let's see if we already returned this data
-                 * object by checking if it exists in the earlier
-                 * traversed files. */
+                /* OK, now let's see if we already returned this data object by checking if it exists in the
+                 * earlier traversed files. */
                 found = false;
                 ORDERED_HASHMAP_FOREACH(of, j->files) {
                         if (of == j->unique_file)
@@ -2976,7 +3004,13 @@ _public_ int sd_journal_enumerate_unique(sd_journal *j, const void **data, size_
                         if (JOURNAL_HEADER_CONTAINS(of->header, n_fields) && le64toh(of->header->n_fields) <= 0)
                                 continue;
 
-                        r = journal_file_find_data_object_with_hash(of, odata, ol, le64toh(o->data.hash), NULL, NULL);
+                        /* We can reuse the hash from our current file only on old-style journal files
+                         * without keyed hashes. On new-style files we have to calculate the hash anew, to
+                         * take the per-file hash seed into consideration. */
+                        if (!JOURNAL_HEADER_KEYED_HASH(j->unique_file->header) && !JOURNAL_HEADER_KEYED_HASH(of->header))
+                                r = journal_file_find_data_object_with_hash(of, odata, ol, le64toh(o->data.hash), NULL, NULL);
+                        else
+                                r = journal_file_find_data_object(of, odata, ol, NULL, NULL);
                         if (r < 0)
                                 return r;
                         if (r > 0) {
@@ -2988,7 +3022,7 @@ _public_ int sd_journal_enumerate_unique(sd_journal *j, const void **data, size_
                 if (found)
                         continue;
 
-                r = return_data(j, j->unique_file, o, data, l);
+                r = return_data(j, j->unique_file, o, ret_data, ret_size);
                 if (r < 0)
                         return r;
 
@@ -3143,7 +3177,7 @@ _public_ int sd_journal_enumerate_fields(sd_journal *j, const char **field) {
                 if (sz > j->data_threshold)
                         sz = j->data_threshold;
 
-                if (!GREEDY_REALLOC(j->fields_buffer, j->fields_buffer_allocated, sz + 1))
+                if (!GREEDY_REALLOC(j->fields_buffer, sz + 1))
                         return -ENOMEM;
 
                 memcpy(j->fields_buffer, o->field.payload, sz);

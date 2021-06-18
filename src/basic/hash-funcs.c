@@ -14,10 +14,10 @@ DEFINE_HASH_OPS_WITH_KEY_DESTRUCTOR(string_hash_ops_free,
                                     char, string_hash_func, string_compare_func, free);
 DEFINE_HASH_OPS_FULL(string_hash_ops_free_free,
                      char, string_hash_func, string_compare_func, free,
-                     char, free);
+                     void, free);
 
 void path_hash_func(const char *q, struct siphash *state) {
-        size_t n;
+        bool add_slash = false;
 
         assert(q);
         assert(state);
@@ -27,36 +27,40 @@ void path_hash_func(const char *q, struct siphash *state) {
          * similar checks and also doesn't care for trailing slashes. Note that relative and absolute paths (i.e. those
          * which begin in a slash or not) will hash differently though. */
 
-        n = strspn(q, "/");
-        if (n > 0) { /* Eat up initial slashes, and add one "/" to the hash for all of them */
-                siphash24_compress(q, 1, state);
-                q += n;
-        }
+        /* if path is absolute, add one "/" to the hash. */
+        if (path_is_absolute(q))
+                siphash24_compress("/", 1, state);
 
         for (;;) {
-                /* Determine length of next component */
-                n = strcspn(q, "/");
-                if (n == 0) /* Reached the end? */
-                        break;
+                const char *e;
+                int r;
 
-                /* Add this component to the hash and skip over it */
-                siphash24_compress(q, n, state);
-                q += n;
+                r = path_find_first_component(&q, true, &e);
+                if (r == 0)
+                        return;
 
-                /* How many slashes follow this component? */
-                n = strspn(q, "/");
-                if (q[n] == 0) /* Is this a trailing slash? If so, we are at the end, and don't care about the slashes anymore */
-                        break;
+                if (add_slash)
+                        siphash24_compress_byte('/', state);
 
-                /* We are not add the end yet. Hash exactly one slash for all of the ones we just encountered. */
-                siphash24_compress(q, 1, state);
-                q += n;
+                if (r < 0) {
+                        /* if a component is invalid, then add remaining part as a string. */
+                        string_hash_func(q, state);
+                        return;
+                }
+
+                /* Add this component to the hash. */
+                siphash24_compress(e, r, state);
+
+                add_slash = true;
         }
 }
 
 DEFINE_HASH_OPS(path_hash_ops, char, path_hash_func, path_compare);
 DEFINE_HASH_OPS_WITH_KEY_DESTRUCTOR(path_hash_ops_free,
                                     char, path_hash_func, path_compare, free);
+DEFINE_HASH_OPS_FULL(path_hash_ops_free_free,
+                     char, path_hash_func, path_compare, free,
+                     void, free);
 
 void trivial_hash_func(const void *p, struct siphash *state) {
         siphash24_compress(&p, sizeof(p), state);

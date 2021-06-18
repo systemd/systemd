@@ -26,10 +26,12 @@ custom_man_xsl = files('custom-man.xsl')
 custom_html_xsl = files('custom-html.xsl')
 xslt_cmd = [xsltproc, '-o', '@OUTPUT0@'] + xsltproc_flags
 
-custom_entities_ent = configure_file(
+custom_entities_ent = custom_target(
+        'custom-entities.ent',
         input : 'custom-entities.ent.in',
         output : 'custom-entities.ent',
-        configuration : conf)
+        command : [meson_render_jinja2, config_h, '@INPUT@'],
+        capture : true)
 
 man_pages = []
 html_pages = []
@@ -60,7 +62,7 @@ foreach tuple : xsltproc.found() ? manpages : []
                         input : xml,
                         output : [man] + manaliases,
                         command : xslt_cmd + [custom_man_xsl, '@INPUT@'],
-                        depend_files : custom_entities_ent,
+                        depends : custom_entities_ent,
                         install : want_man,
                         install_dir : mandirn)
                 man_pages += p1
@@ -70,7 +72,7 @@ foreach tuple : xsltproc.found() ? manpages : []
                         link = custom_target(
                                 htmlalias,
                                 output : htmlalias,
-                                command : ['ln', '-fs', html, '@OUTPUT@'])
+                                command : [ln, '-fs', html, '@OUTPUT@'])
                         if want_html
                                 dst = join_paths(docdir, 'html', htmlalias)
                                 cmd = 'ln -fs @0@ $DESTDIR@1@'.format(html, dst)
@@ -85,8 +87,7 @@ foreach tuple : xsltproc.found() ? manpages : []
                         input : xml,
                         output : html,
                         command : xslt_cmd + [custom_html_xsl, '@INPUT@'],
-                        depend_files : custom_entities_ent,
-                        depends : p2,
+                        depends : [custom_entities_ent, p2],
                         install : want_html,
                         install_dir : join_paths(docdir, 'html'))
                 html_pages += p3
@@ -112,6 +113,7 @@ systemd_directives_xml = custom_target(
         'systemd.directives.xml',
         input : ['directives-template.xml', source_xml_files],
         output : 'systemd.directives.xml',
+        depends : custom_entities_ent,
         command : [make_directive_index_py, '@OUTPUT@', '@INPUT@'])
 
 nonindex_xml_files = source_xml_files + [systemd_directives_xml]
@@ -148,7 +150,7 @@ foreach tuple : xsltproc.found() ? [['systemd.directives', '7', systemd_directiv
                         htmlalias,
                         input : p2,
                         output : htmlalias,
-                        command : ['ln', '-fs', html, '@OUTPUT@'])
+                        command : [ln, '-fs', html, '@OUTPUT@'])
                 if want_html
                         dst = join_paths(docdir, 'html', htmlalias)
                         cmd = 'ln -fs @0@ $DESTDIR@1@'.format(html, dst)
@@ -163,8 +165,7 @@ foreach tuple : xsltproc.found() ? [['systemd.directives', '7', systemd_directiv
                 input : xml,
                 output : html,
                 command : xslt_cmd + [custom_html_xsl, '@INPUT@'],
-                depend_files : custom_entities_ent,
-                depends : p2,
+                depends : [custom_entities_ent, p2],
                 install : want_html and have_lxml,
                 install_dir : join_paths(docdir, 'html'))
         html_pages += p3
@@ -176,15 +177,14 @@ man = custom_target(
         'man',
         output : 'man',
         depends : man_pages,
-        command : ['echo'])
+        command : [echo])
 
 html = custom_target(
         'html',
         output : 'html',
         depends : html_pages,
-        command : ['echo'])
+        command : [echo])
 
-rsync = find_program('rsync', required : false)
 if rsync.found()
         run_target(
                 'doc-sync',
@@ -201,12 +201,15 @@ endif
 
 ############################################################
 
+buildroot_substs = configuration_data()
+buildroot_substs.set_quoted('BUILD_ROOT', project_build_root)
+
 configure_file(
         input : 'man.in',
         output : 'man',
-        configuration : substs)
+        configuration : buildroot_substs)
 
 configure_file(
         input : 'html.in',
         output : 'html',
-        configuration : substs)
+        configuration : buildroot_substs)

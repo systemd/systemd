@@ -379,6 +379,35 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>--fido2-with-client-pin=</option><replaceable>BOOL</replaceable></term>
+
+        <listitem><para>When enrolling a FIDO2 security token, controls whether to require the user to enter
+        a PIN when unlocking the account (the FIDO2 <literal>clientPin</literal> feature). Defaults to
+        <literal>yes</literal>. (Note: this setting is without effect if the security token does not support
+        the <literal>clientPin</literal> feature at all, or does not allow enabling or disabling
+        it.)</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--fido2-with-user-presence=</option><replaceable>BOOL</replaceable></term>
+
+        <listitem><para>When enrolling a FIDO2 security token, controls whether to require the user to
+        verify presence (tap the token, the FIDO2 <literal>up</literal> feature) when unlocking the account.
+        Defaults to <literal>yes</literal>. (Note: this setting is without effect if the security token does not support
+        the <literal>up</literal> feature at all, or does not allow enabling or disabling it.)
+        </para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--fido2-with-user-verification=</option><replaceable>BOOL</replaceable></term>
+
+        <listitem><para>When enrolling a FIDO2 security token, controls whether to require user verification
+        when unlocking the account (the FIDO2 <literal>uv</literal> feature). Defaults to
+        <literal>no</literal>. (Note: this setting is without effect if the security token does not support
+        the <literal>uv</literal> feature at all, or does not allow enabling or disabling it.)</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>--recovery-key=</option><replaceable>BOOL</replaceable></term>
 
         <listitem><para>Accepts a boolean argument. If enabled a recovery key is configured for the

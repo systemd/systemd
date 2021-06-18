@@ -67,7 +67,7 @@ int local_addresses(
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL, *reply = NULL;
         _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
         _cleanup_free_ struct local_address *list = NULL;
-        size_t n_list = 0, n_allocated = 0;
+        size_t n_list = 0;
         sd_netlink_message *m;
         int r;
 
@@ -79,7 +79,11 @@ int local_addresses(
                         return r;
         }
 
-        r = sd_rtnl_message_new_addr(rtnl, &req, RTM_GETADDR, 0, af);
+        r = sd_rtnl_message_new_addr(rtnl, &req, RTM_GETADDR, ifindex, af);
+        if (r < 0)
+                return r;
+
+        r = sd_netlink_message_request_dump(req, true);
         if (r < 0)
                 return r;
 
@@ -121,7 +125,7 @@ int local_addresses(
                 if (flags & IFA_F_DEPRECATED)
                         continue;
 
-                if (!GREEDY_REALLOC0(list, n_allocated, n_list+1))
+                if (!GREEDY_REALLOC0(list, n_list+1))
                         return -ENOMEM;
 
                 a = list + n_list;
@@ -175,7 +179,6 @@ int local_addresses(
 static int add_local_gateway(
                 struct local_address **list,
                 size_t *n_list,
-                size_t *n_allocated,
                 int af,
                 int ifindex,
                 uint32_t metric,
@@ -183,13 +186,12 @@ static int add_local_gateway(
 
         assert(list);
         assert(n_list);
-        assert(n_allocated);
         assert(via);
 
         if (af != AF_UNSPEC && af != via->family)
                 return 0;
 
-        if (!GREEDY_REALLOC(*list, *n_allocated, *n_list + 1))
+        if (!GREEDY_REALLOC(*list, *n_list + 1))
                 return -ENOMEM;
 
         (*list)[(*n_list)++] = (struct local_address) {
@@ -211,7 +213,7 @@ int local_gateways(
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL, *reply = NULL;
         _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
         _cleanup_free_ struct local_address *list = NULL;
-        size_t n_list = 0, n_allocated = 0;
+        size_t n_list = 0;
         int r;
 
         if (context)
@@ -223,6 +225,14 @@ int local_gateways(
         }
 
         r = sd_rtnl_message_new_route(rtnl, &req, RTM_GETROUTE, af, RTPROT_UNSPEC);
+        if (r < 0)
+                return r;
+
+        r = sd_rtnl_message_route_set_type(req, RTN_UNICAST);
+        if (r < 0)
+                return r;
+
+        r = sd_rtnl_message_route_set_table(req, RT_TABLE_MAIN);
         if (r < 0)
                 return r;
 
@@ -299,7 +309,7 @@ int local_gateways(
                         if (r >= 0) {
                                 via.family = family;
                                 via.address = gateway;
-                                r = add_local_gateway(&list, &n_list, &n_allocated, af, ifi, metric, &via);
+                                r = add_local_gateway(&list, &n_list, af, ifi, metric, &via);
                                 if (r < 0)
                                         return r;
 
@@ -313,7 +323,7 @@ int local_gateways(
                         if (r < 0 && r != -ENODATA)
                                 return r;
                         if (r >= 0) {
-                                r = add_local_gateway(&list, &n_list, &n_allocated, af, ifi, metric, &via);
+                                r = add_local_gateway(&list, &n_list, af, ifi, metric, &via);
                                 if (r < 0)
                                         return r;
 
@@ -335,7 +345,7 @@ int local_gateways(
                                 if (ifindex > 0 && mr->ifindex != ifindex)
                                         continue;
 
-                                r = add_local_gateway(&list, &n_list, &n_allocated, af, ifi, metric, &mr->gateway);
+                                r = add_local_gateway(&list, &n_list, af, ifi, metric, &mr->gateway);
                                 if (r < 0)
                                         return r;
                         }
@@ -358,7 +368,7 @@ int local_outbounds(
                 struct local_address **ret) {
 
         _cleanup_free_ struct local_address *list = NULL, *gateways = NULL;
-        size_t n_list = 0, n_allocated = 0;
+        size_t n_list = 0;
         int r, n_gateways;
 
         /* Determines our default outbound addresses, i.e. the "primary" local addresses we use to talk to IP
@@ -457,7 +467,7 @@ int local_outbounds(
                         if (in4_addr_is_null(&sa.in.sin_addr)) /* Auto-binding didn't work. :-( */
                                 continue;
 
-                        if (!GREEDY_REALLOC(list, n_allocated, n_list+1))
+                        if (!GREEDY_REALLOC(list, n_list+1))
                                 return -ENOMEM;
 
                         list[n_list++] = (struct local_address) {
@@ -472,7 +482,7 @@ int local_outbounds(
                         if (in6_addr_is_null(&sa.in6.sin6_addr))
                                 continue;
 
-                        if (!GREEDY_REALLOC(list, n_allocated, n_list+1))
+                        if (!GREEDY_REALLOC(list, n_list+1))
                                 return -ENOMEM;
 
                         list[n_list++] = (struct local_address) {

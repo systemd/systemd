@@ -9,6 +9,10 @@ Bugfixes:
 
 * Get rid of nftw(). We should refuse to use such useless APIs on principle.
 
+* Jun 01 09:43:02 krowka systemd[1]: Unit user@1000.service has alias user@.service.
+  Jun 01 09:43:02 krowka systemd[1]: Unit user@6.service has alias user@.service.
+  Jun 01 09:43:02 krowka systemd[1]: Unit user-runtime-dir@6.service has alias user-runtime-dir@.service.
+
 External:
 
 * Fedora: add an rpmlint check that verifies that all unit files in the RPM are listed in %systemd_post macros.
@@ -21,6 +25,13 @@ Janitorial Clean-ups:
   semantics, like we do for device.c now
 
 Features:
+
+* firstboot: allow provisioning of /etc/hosts entries, so that we can via the
+  credentials logic insert host name to resolve into containers/hosts. Usecase:
+  fork a container, and make it ping some specific address which is defined by
+  the host on invocation
+
+* in sd-id128: also parse UUIDs in RFC4122 URN syntax (i.e. chop off urn:uuid: prefix)
 
 * ability to insert trusted configuration and secrets into the boot parameters
   of a kernel booting in a VM or on baremetal some way, via TPM
@@ -44,11 +55,6 @@ Features:
 
 * nspawn: make --bind= work sanely with --private-users when uid mapping mounts
   are used.
-
-* cryptsetup: tweak tpm2-device=auto logic, abort quickly if firmware tells us
-  there isn't any TPM2 device anyway. that way, we'll wait for the TPM2 device
-  to show up only if registered in LUKS header + the firmware suggests there is
-  a device worth waiting for.
 
 * systemd-sysext: optionally, run it in initrd already, before transitioning
   into host, to open up possibility for services shipped like that.
@@ -97,20 +103,6 @@ Features:
 * move logind udev rules to top-level rule.d/ directory
 
 * move multiseat vid/pid matches from logind udev rule to hwdb
-
-* nspawn: default to 1:1 userns
-
-* Provide a reasonably bespoke solution for mounting host $HOME directories
-  into containers:
-  • add new option --mount-user=$USER for mounting $HOME of the user into the
-    container at the same place
-  • check /etc/passwd for UID or user name clashes. If UID clash pick a different
-    UID in container, and map via userns. If user name clash, refuse. If
-    matching user already exists use that.
-  • otherwise: write user record of specified user into /run/host/passwd or so
-  • in nss-systemd pick up user record from there and make available to system
-  With all that in place if nspawn host and container payload are up-to-date
-  enough we have a very simple way to make host users available in containers.
 
 * whenever we receive fds via SCM_RIGHTS make sure none got dropped due to the
   reception limit the kernel silently enforces.
@@ -237,8 +229,6 @@ Features:
 
 * homed: keep an fd to the homedir open at all times, to keep the fs pinned
   (autofs and such) while user is logged in.
-
-* nss-systemd: also synthesize shadow records for users/groups
 
 * make use of new glibc 2.32 APIs sigabbrev_np() and strerrorname_np().
 
@@ -452,9 +442,6 @@ Features:
   shouldn't operate in a volatile mode unless we got told so from a trusted
   source.
 
-* figure out automatic partition discovery when combining writable root dir
-  with immutable /usr
-
 * coredump: maybe when coredumping read a new xattr from /proc/$PID/exe that
   may be used to mark a whole binary as non-coredumpable. Would fix:
   https://bugs.freedesktop.org/show_bug.cgi?id=69447
@@ -575,10 +562,6 @@ Features:
   a seccomp option we don't have to set NNP. For that, change uid first whil
   keeping CAP_SYS_ADMIN, then apply seccomp, the drop cap.
 
-* add a concept for automatically loading per-unit secrets off disk and
-  inserting them into the kernel keyring. Maybe SecretsDirectory= similar to
-  ConfigurationDirectory=.
-
 * when no locale is configured, default to UEFI's PlatformLang variable
 
 * bootctl,sd-boot: actually honour the "architecture" key
@@ -631,13 +614,6 @@ Features:
   output of "systemctl list-units" slightly by showing the tree structure of
   the slices, and the units attached to them.
 
-* the a-posteriori stopping of units bound to units that disappeared logic
-  should be reworked: there should be a queue of units, and we should only
-  enqueue stop jobs from a defer event that processes queue instead of
-  right-away when we find a unit that is bound to one that doesn't exist
-  anymore. (similar to how the stop-unneeded queue has been reworked the same
-  way)
-
 * nspawn: make nspawn suitable for shell pipelines: instead of triggering a
   hangup when input is finished, send ^D, which synthesizes an EOF. Then wait
   for hangup or ^D before passing on the EOF.
@@ -664,8 +640,6 @@ Features:
   files and suchlike we operate on.
 
 * add support for "portablectl attach http://foobar.com/waaa.raw (i.e. importd integration)
-
-* add attach --enable and attach --now (for attach+enable+start)
 
 * sync dynamic uids/gids between host+portable srvice (i.e. if DynamicUser=1 is set for a service, make sure that the
   selected user is resolvable in the service even if it ships its own /etc/passwd)
@@ -708,9 +682,6 @@ Features:
 
 * add proper dbus APIs for the various sd_notify() commands, such as MAINPID=1
   and so on, which would mean we could report errors and such.
-
-* teach tmpfiles.d q/Q logic something sensible in the context of XFS/ext4
-  project quota
 
 * introduce DefaultSlice= or so in system.conf that allows changing where we
   place our units by default, i.e. change system.slice to something
@@ -860,6 +831,9 @@ Features:
   on PID 1 with the relevant signals, and makes relevant files in /sys and
   /proc (such as the sysrq stuff) unavailable
 
+* Support ReadWritePaths/ReadOnlyPaths/InaccessiblePaths in systemd --user instances
+  via the new unprivileged Landlock LSM (https://landlock.io)
+
 * make sure the ratelimit object can deal with USEC_INFINITY as way to turn off things
 
 * journalctl: make sure -f ends when the container indicated by -M terminates
@@ -948,8 +922,6 @@ Features:
   returning from the "systemctl stop".
 
 * firstboot: make it useful to be run immediately after yum --installroot to set up a machine. (most specifically, make --copy-root-password work even if /etc/passwd already exists
-
-* maybe add support for specifier expansion in user.conf, specifically DefaultEnvironment=
 
 * maybe allow timer units with an empty Units= setting, so that they
   can be used for resuming the system but nothing else.
@@ -1063,8 +1035,6 @@ Features:
     operations instead of IO ready events into event loops. See considerations
     here:
     http://blog.vmsplice.net/2020/07/rethinking-event-loop-integration-for.html
-
-* investigate endianness issues of UUID vs. GUID
 
 * dbus: when a unit failed to load (i.e. is in UNIT_ERROR state), we
   should be able to safely try another attempt when the bus call LoadUnit() is invoked.
@@ -1332,6 +1302,8 @@ Features:
     should not follow symlinks. None of the other adjustment or creation
     calls follow symlinks.
   - add --test mode
+  - teach tmpfiles.d q/Q logic something sensible in the context of XFS/ext4
+    project quota
 
 * make sure systemd-ask-password-wall does not shutdown systemd-ask-password-console too early
 
@@ -1401,7 +1373,6 @@ Features:
     https://bugzilla.redhat.com/show_bug.cgi?id=723942
   - allow writing multiple conditions in unit files on one line
   - introduce Type=pid-file
-  - introduce mix of BindTo and Requisite
   - add a concept of RemainAfterExit= to scope units
   - Allow multiple ExecStart= for all Type= settings, so that we can cover rescue.service nicely
   - add verification of [Install] section to systemd-analyze verify

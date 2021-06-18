@@ -188,6 +188,12 @@ struct Manager {
         /* Units that might be subject to StopWhenUnneeded= clean-up */
         LIST_HEAD(Unit, stop_when_unneeded_queue);
 
+        /* Units which are upheld by another other which we might need to act on */
+        LIST_HEAD(Unit, start_when_upheld_queue);
+
+        /* Units that have BindsTo= another unit, and might need to be shutdown because the bound unit is not active. */
+        LIST_HEAD(Unit, stop_when_bound_queue);
+
         sd_event *event;
 
         /* This maps PIDs we care about to units that are interested in. We allow multiple units to he interested in
@@ -479,11 +485,6 @@ int manager_add_job(Manager *m, JobType type, Unit *unit, JobMode mode, Set *aff
 int manager_add_job_by_name(Manager *m, JobType type, const char *name, JobMode mode, Set *affected_jobs, sd_bus_error *e, Job **_ret);
 int manager_add_job_by_name_and_warn(Manager *m, JobType type, const char *name, JobMode mode, Set *affected_jobs,  Job **ret);
 int manager_propagate_reload(Manager *m, Unit *unit, JobMode mode, sd_bus_error *e);
-
-void manager_dump_units(Manager *s, FILE *f, const char *prefix);
-void manager_dump_jobs(Manager *s, FILE *f, const char *prefix);
-void manager_dump(Manager *s, FILE *f, const char *prefix);
-int manager_get_dump_string(Manager *m, char **ret);
 
 void manager_clear_jobs(Manager *m);
 

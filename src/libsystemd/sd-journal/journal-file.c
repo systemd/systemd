@@ -1495,7 +1495,7 @@ int journal_file_find_data_object_with_hash(
                         l -= offsetof(Object, data.payload);
 
                         r = decompress_blob(o->object.flags & OBJECT_COMPRESSION_MASK,
-                                            o->data.payload, l, &f->compress_buffer, &f->compress_buffer_size, &rsize, 0);
+                                            o->data.payload, l, &f->compress_buffer, &rsize, 0);
                         if (r < 0)
                                 return r;
 
@@ -1611,7 +1611,7 @@ static int journal_file_append_field(
         r = journal_file_find_field_object_with_hash(f, field, size, hash, &o, &p);
         if (r < 0)
                 return r;
-        else if (r > 0) {
+        if (r > 0) {
 
                 if (ret)
                         *ret = o;
@@ -2817,7 +2817,7 @@ int journal_file_compare_locations(JournalFile *af, JournalFile *bf) {
         assert(bf->location_type == LOCATION_SEEK);
 
         /* If contents, timestamps and seqnum match, these entries are
-         * identical*/
+         * identical. */
         if (sd_id128_equal(af->current_boot_id, bf->current_boot_id) &&
             af->current_monotonic == bf->current_monotonic &&
             af->current_realtime == bf->current_realtime &&
@@ -3919,8 +3919,11 @@ int journal_file_copy_entry(JournalFile *from, JournalFile *to, Object *o, uint6
 #if HAVE_COMPRESSION
                         size_t rsize = 0;
 
-                        r = decompress_blob(o->object.flags & OBJECT_COMPRESSION_MASK,
-                                            o->data.payload, l, &from->compress_buffer, &from->compress_buffer_size, &rsize, 0);
+                        r = decompress_blob(
+                                        o->object.flags & OBJECT_COMPRESSION_MASK,
+                                        o->data.payload, l,
+                                        &from->compress_buffer, &rsize,
+                                        0);
                         if (r < 0)
                                 return r;
 

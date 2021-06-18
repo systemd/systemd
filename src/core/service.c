@@ -668,7 +668,8 @@ static int service_setup_bus_name(Service *s) {
 
         assert(s);
 
-        if (s->type != SERVICE_DBUS)
+        /* If s->bus_name is not set, then the unit will be refused by service_verify() later. */
+        if (s->type != SERVICE_DBUS || !s->bus_name)
                 return 0;
 
         r = unit_add_dependency_by_name(UNIT(s), UNIT_REQUIRES, SPECIAL_DBUS_SOCKET, true, UNIT_DEPENDENCY_FILE);
@@ -1245,12 +1246,11 @@ static int service_collect_fds(
 
                 rn_socket_fds = 1;
         } else {
-                void *v;
                 Unit *u;
 
                 /* Pass all our configured sockets for singleton services */
 
-                HASHMAP_FOREACH_KEY(v, u, UNIT(s)->dependencies[UNIT_TRIGGERED_BY]) {
+                UNIT_FOREACH_DEPENDENCY(u, UNIT(s), UNIT_ATOM_TRIGGERED_BY) {
                         _cleanup_free_ int *cfds = NULL;
                         Socket *sock;
                         int cn_fds;
@@ -2272,7 +2272,7 @@ static void service_enter_restart(Service *s) {
                 goto fail;
 
         /* Count the jobs we enqueue for restarting. This counter is maintained as long as the unit isn't fully
-         * stopped, i.e. as long as it remains up or remains in auto-start states. The use can reset the counter
+         * stopped, i.e. as long as it remains up or remains in auto-start states. The user can reset the counter
          * explicitly however via the usual "systemctl reset-failure" logic. */
         s->n_restarts ++;
         s->flush_n_restarts = false;
@@ -2566,10 +2566,10 @@ static unsigned service_exec_command_index(Unit *u, ServiceExecCommand id, ExecC
 
 static int service_serialize_exec_command(Unit *u, FILE *f, ExecCommand *command) {
         _cleanup_free_ char *args = NULL, *p = NULL;
-        size_t allocated = 0, length = 0;
         Service *s = SERVICE(u);
         const char *type, *key;
         ServiceExecCommand id;
+        size_t length = 0;
         unsigned idx;
         char **arg;
 
@@ -2598,7 +2598,7 @@ static int service_serialize_exec_command(Unit *u, FILE *f, ExecCommand *command
                         return log_oom();
 
                 n = strlen(e);
-                if (!GREEDY_REALLOC(args, allocated, length + 2 + n + 2))
+                if (!GREEDY_REALLOC(args, length + 2 + n + 2))
                         return log_oom();
 
                 if (length > 0)
@@ -2610,7 +2610,7 @@ static int service_serialize_exec_command(Unit *u, FILE *f, ExecCommand *command
                 args[length++] = '"';
         }
 
-        if (!GREEDY_REALLOC(args, allocated, length + 1))
+        if (!GREEDY_REALLOC(args, length + 1))
                 return log_oom();
 
         args[length++] = 0;
@@ -2937,7 +2937,7 @@ static int service_deserialize_item(Unit *u, const char *key, const char *value,
 
                 r = extract_first_word(&value, &fdn, NULL, EXTRACT_CUNESCAPE | EXTRACT_UNQUOTE);
                 if (r <= 0) {
-                        log_unit_debug_errno(u, r, "Failed to parse fd-store-fd value \"%s\": %m", value);
+                        log_unit_debug(u, "Failed to parse fd-store-fd value: %s", value);
                         return 0;
                 }
 
@@ -3149,7 +3149,7 @@ static int service_demand_pid_file(Service *s) {
                 return -ENOMEM;
         }
 
-        path_simplify(ps->path, false);
+        path_simplify(ps->path);
 
         /* PATH_CHANGED would not be enough. There are daemons (sendmail) that
          * keep their PID file open all the time. */

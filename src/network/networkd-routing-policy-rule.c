@@ -143,7 +143,7 @@ static int routing_policy_rule_dup(const RoutingPolicyRule *src, RoutingPolicyRu
         return 0;
 }
 
-static void routing_policy_rule_hash_func(const RoutingPolicyRule *rule, struct siphash *state) {
+void routing_policy_rule_hash_func(const RoutingPolicyRule *rule, struct siphash *state) {
         assert(rule);
 
         siphash24_compress(&rule->family, sizeof(rule->family), state);
@@ -183,7 +183,7 @@ static void routing_policy_rule_hash_func(const RoutingPolicyRule *rule, struct 
         }
 }
 
-static int routing_policy_rule_compare_func(const RoutingPolicyRule *a, const RoutingPolicyRule *b) {
+int routing_policy_rule_compare_func(const RoutingPolicyRule *a, const RoutingPolicyRule *b) {
         int r;
 
         r = CMP(a->family, b->family);
@@ -318,7 +318,6 @@ static int routing_policy_rule_get(Manager *m, const RoutingPolicyRule *rule, Ro
 static int routing_policy_rule_add(Manager *m, const RoutingPolicyRule *in, RoutingPolicyRule **ret) {
         _cleanup_(routing_policy_rule_freep) RoutingPolicyRule *rule = NULL;
         RoutingPolicyRule *existing;
-        bool is_new = false;
         int r;
 
         assert(m);
@@ -339,8 +338,9 @@ static int routing_policy_rule_add(Manager *m, const RoutingPolicyRule *in, Rout
 
                 rule->manager = m;
                 existing = TAKE_PTR(rule);
-                is_new = true;
-        } else if (r == 0) {
+        } else if (r < 0)
+                return r;
+        else if (r == 0) {
                 /* Take over a foreign rule. */
                 r = set_ensure_put(&m->rules, &routing_policy_rule_hash_ops, existing);
                 if (r < 0)
@@ -348,15 +348,11 @@ static int routing_policy_rule_add(Manager *m, const RoutingPolicyRule *in, Rout
                 assert(r > 0);
 
                 set_remove(m->rules_foreign, existing);
-        } else if (r == 1) {
-                /* Already exists, do nothing. */
-                ;
-        } else
-                return r;
+        } /* else r > 0: already exists, do nothing. */
 
         if (ret)
                 *ret = existing;
-        return is_new;
+        return 0;
 }
 
 static int routing_policy_rule_consume_foreign(Manager *m, RoutingPolicyRule *rule) {
@@ -510,11 +506,9 @@ static int routing_policy_rule_set_netlink_message(const RoutingPolicyRule *rule
                         return log_link_error_errno(link, r, "Could not append FRA_SUPPRESS_PREFIXLEN attribute: %m");
         }
 
-        if (rule->type != FR_ACT_TO_TBL) {
-                r = sd_rtnl_message_routing_policy_rule_set_fib_type(m, rule->type);
-                if (r < 0)
-                        return log_link_error_errno(link, r, "Could not append FIB rule type attribute: %m");
-        }
+        r = sd_rtnl_message_routing_policy_rule_set_fib_type(m, rule->type);
+        if (r < 0)
+                return log_link_error_errno(link, r, "Could not append FIB rule type attribute: %m");
 
         return 0;
 }
@@ -813,6 +807,9 @@ int request_process_routing_policy_rule(Request *req) {
         r = routing_policy_rule_configure(req->rule, req->link, req->netlink_handler, &ret);
         if (r < 0)
                 return r;
+
+        /* To prevent a double decrement on failure in after_configure(). */
+        req->message_counter = NULL;
 
         if (req->after_configure) {
                 r = req->after_configure(req, ret);
@@ -1317,19 +1314,14 @@ int config_parse_routing_policy_rule_device(
                 return log_oom();
 
         if (!ifname_valid(rvalue)) {
-                log_syntax(unit, LOG_WARNING, filename, line, 0, "Failed to parse '%s' interface name, ignoring: %s", lvalue, rvalue);
+                log_syntax(unit, LOG_WARNING, filename, line, 0,
+                           "Invalid interface name '%s' in %s=, ignoring assignment.", rvalue, lvalue);
                 return 0;
         }
 
-        if (streq(lvalue, "IncomingInterface")) {
-                r = free_and_strdup(&n->iif, rvalue);
-                if (r < 0)
-                        return log_oom();
-        } else {
-                r = free_and_strdup(&n->oif, rvalue);
-                if (r < 0)
-                        return log_oom();
-        }
+        r = free_and_strdup(streq(lvalue, "IncomingInterface") ? &n->iif : &n->oif, rvalue);
+        if (r < 0)
+                return log_oom();
 
         TAKE_PTR(n);
         return 0;
@@ -1346,6 +1338,7 @@ int config_parse_routing_policy_rule_port_range(
                 const char *rvalue,
                 void *data,
                 void *userdata) {
+
         _cleanup_(routing_policy_rule_free_or_set_invalidp) RoutingPolicyRule *n = NULL;
         Network *network = userdata;
         uint16_t low, high;
