@@ -864,6 +864,8 @@ install_modules() {
 
     instmods loop
     instmods vfat
+    instmods nls_cp437
+    instmods nls_ascii
     instmods dummy
 
     if [[ "$LOOKS_LIKE_SUSE" ]]; then
