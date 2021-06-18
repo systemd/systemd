@@ -42,40 +42,24 @@ static void basic_request_handler(sd_ipv4ll *ll, int event, void *userdata) {
         }
 }
 
-static int arp_network_send_raw_socket(int fd, int ifindex,
-                                       const struct ether_arp *arp) {
-        assert_se(arp);
-        assert_se(ifindex > 0);
-        assert_se(fd >= 0);
+int arp_send_packet(
+                int fd,
+                int ifindex,
+                be32_t pa,
+                const struct ether_addr *ha,
+                bool announce) {
 
-        if (send(fd, arp, sizeof(struct ether_arp), 0) < 0)
+        struct ether_arp ea = {};
+
+        assert_se(fd >= 0);
+        assert_se(ifindex > 0);
+        assert_se(pa != 0);
+        assert_se(ha);
+
+        if (send(fd, &ea, sizeof(struct ether_arp), 0) < 0)
                 return -errno;
 
         return 0;
-}
-
-int arp_send_probe(int fd, int ifindex,
-                    be32_t pa, const struct ether_addr *ha) {
-        struct ether_arp ea = {};
-
-        assert_se(fd >= 0);
-        assert_se(ifindex > 0);
-        assert_se(pa != 0);
-        assert_se(ha);
-
-        return arp_network_send_raw_socket(fd, ifindex, &ea);
-}
-
-int arp_send_announcement(int fd, int ifindex,
-                          be32_t pa, const struct ether_addr *ha) {
-        struct ether_arp ea = {};
-
-        assert_se(fd >= 0);
-        assert_se(ifindex > 0);
-        assert_se(pa != 0);
-        assert_se(ha);
-
-        return arp_network_send_raw_socket(fd, ifindex, &ea);
 }
 
 int arp_network_bind_raw_socket(int ifindex, be32_t address, const struct ether_addr *eth_mac) {
