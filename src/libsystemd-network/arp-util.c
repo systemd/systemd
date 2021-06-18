@@ -73,7 +73,6 @@ int arp_network_bind_raw_socket(int ifindex, be32_t address, const struct ether_
                 .ll.sll_addr     = { 0xff, 0xff, 0xff, 0xff, 0xff, 0xff },
         };
         _cleanup_close_ int s = -1;
-        int r;
 
         assert(ifindex > 0);
 
@@ -81,12 +80,10 @@ int arp_network_bind_raw_socket(int ifindex, be32_t address, const struct ether_
         if (s < 0)
                 return -errno;
 
-        r = setsockopt(s, SOL_SOCKET, SO_ATTACH_FILTER, &fprog, sizeof(fprog));
-        if (r < 0)
+        if (setsockopt(s, SOL_SOCKET, SO_ATTACH_FILTER, &fprog, sizeof(fprog)) < 0)
                 return -errno;
 
-        r = bind(s, &link.sa, sizeof(link.ll));
-        if (r < 0)
+        if (bind(s, &link.sa, sizeof(link.ll)) < 0)
                 return -errno;
 
         return TAKE_FD(s);
