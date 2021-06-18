@@ -10,10 +10,11 @@
 #include "arp-util.h"
 #include "ether-addr-util.h"
 #include "fd-util.h"
+#include "in-addr-util.h"
 #include "unaligned.h"
 #include "util.h"
 
-int arp_network_bind_raw_socket(int ifindex, be32_t address, const struct ether_addr *eth_mac) {
+int arp_network_bind_raw_socket(int ifindex, const struct in_addr *a, const struct ether_addr *eth_mac) {
         struct sock_filter filter[] = {
                 BPF_STMT(BPF_LD + BPF_W + BPF_LEN, 0),                                         /* A <- packet length */
                 BPF_JUMP(BPF_JMP + BPF_JGE + BPF_K, sizeof(struct ether_arp), 1, 0),           /* packet >= arp packet ? */
@@ -47,13 +48,13 @@ int arp_network_bind_raw_socket(int ifindex, be32_t address, const struct ether_
                 BPF_JUMP(BPF_JMP + BPF_JEQ + BPF_K, 0, 0, 1),                                  /* A == 0 ? */
                 BPF_STMT(BPF_RET + BPF_K, 0),                                                  /* ignore */
                 /* Sender Protocol Address or Target Protocol Address must be equal to the one we care about */
-                BPF_STMT(BPF_LD + BPF_IMM, htobe32(address)),                                  /* A <- clients IP */
+                BPF_STMT(BPF_LD + BPF_IMM, htobe32(a->s_addr)),                                /* A <- clients IP */
                 BPF_STMT(BPF_MISC + BPF_TAX, 0),                                               /* X <- A */
                 BPF_STMT(BPF_LD + BPF_W + BPF_ABS, offsetof(struct ether_arp, arp_spa)),       /* A <- SPA */
                 BPF_STMT(BPF_ALU + BPF_XOR + BPF_X, 0),                                        /* X xor A */
                 BPF_JUMP(BPF_JMP + BPF_JEQ + BPF_K, 0, 0, 1),                                  /* A == 0 ? */
                 BPF_STMT(BPF_RET + BPF_K, 65535),                                              /* return all */
-                BPF_STMT(BPF_LD + BPF_IMM, htobe32(address)),                                  /* A <- clients IP */
+                BPF_STMT(BPF_LD + BPF_IMM, htobe32(a->s_addr)),                                /* A <- clients IP */
                 BPF_STMT(BPF_MISC + BPF_TAX, 0),                                               /* X <- A */
                 BPF_STMT(BPF_LD + BPF_W + BPF_ABS, offsetof(struct ether_arp, arp_tpa)),       /* A <- TPA */
                 BPF_STMT(BPF_ALU + BPF_XOR + BPF_X, 0),                                        /* X xor A */
@@ -92,7 +93,7 @@ int arp_network_bind_raw_socket(int ifindex, be32_t address, const struct ether_
 int arp_send_packet(
                 int fd,
                 int ifindex,
-                be32_t pa,
+                const struct in_addr *pa,
                 const struct ether_addr *ha,
                 bool announce) {
 
@@ -107,22 +108,23 @@ int arp_send_packet(
                 .ea_hdr.ar_hrd = htobe16(ARPHRD_ETHER),  /* HTYPE */
                 .ea_hdr.ar_pro = htobe16(ETHERTYPE_IP),  /* PTYPE */
                 .ea_hdr.ar_hln = ETH_ALEN,               /* HLEN */
-                .ea_hdr.ar_pln = sizeof(be32_t),         /* PLEN */
+                .ea_hdr.ar_pln = sizeof(struct in_addr), /* PLEN */
                 .ea_hdr.ar_op  = htobe16(ARPOP_REQUEST), /* REQUEST */
         };
         ssize_t n;
 
         assert(fd >= 0);
         assert(ifindex > 0);
-        assert(pa != 0);
+        assert(pa);
+        assert(in4_addr_is_set(pa));
         assert(ha);
         assert(!ether_addr_is_null(ha));
 
         memcpy(&arp.arp_sha, ha, ETH_ALEN);
-        memcpy(&arp.arp_tpa, &pa, sizeof(pa));
+        memcpy(&arp.arp_tpa, pa, sizeof(struct in_addr));
 
         if (announce)
-                memcpy(&arp.arp_spa, &pa, sizeof(pa));
+                memcpy(&arp.arp_spa, pa, sizeof(struct in_addr));
 
         n = sendto(fd, &arp, sizeof(struct ether_arp), 0, &link.sa, sizeof(link.ll));
         if (n < 0)
