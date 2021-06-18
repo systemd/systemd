@@ -392,6 +392,8 @@ possible_cc_flags = possible_common_cc_flags + [
         '-fstack-protector-strong',
         '-fvisibility=hidden',
         '--param=ssp-buffer-size=4',
+        '-Wvla-larger-than=8192',
+        '-Walloca-larger-than=8192',
 ]
 
 if get_option('buildtype') != 'debug'
