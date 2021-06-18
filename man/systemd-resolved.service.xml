@@ -242,7 +242,7 @@
       control of the client library. <filename>nss-dns</filename> will first try to resolve names using
       search domains and even if those queries are routed to <filename>systemd-resolved</filename>, it will
       send them out over the network using the usual rules for multi-label name routing <footnote><para>For
-      example, if <filename>/etc/nsswitch.conf</filename> has <programlisting>nameserver 127.0.0.53
+      example, if <filename>/etc/resolv.conf</filename> has <programlisting>nameserver 127.0.0.53
 search foobar.com barbar.com
       </programlisting>and we look up <literal>localhost</literal>, <filename>nss-dns</filename> will send
       the following queries to <filename>systemd-resolved</filename> listening on 127.0.0.53:53: first
