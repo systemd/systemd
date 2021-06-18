@@ -45,7 +45,7 @@ static void basic_request_handler(sd_ipv4ll *ll, int event, void *userdata) {
 int arp_send_packet(
                 int fd,
                 int ifindex,
-                be32_t pa,
+                const struct in_addr *pa,
                 const struct ether_addr *ha,
                 bool announce) {
 
@@ -53,7 +53,7 @@ int arp_send_packet(
 
         assert_se(fd >= 0);
         assert_se(ifindex > 0);
-        assert_se(pa != 0);
+        assert_se(pa);
         assert_se(ha);
 
         if (send(fd, &ea, sizeof(struct ether_arp), 0) < 0)
@@ -62,7 +62,7 @@ int arp_send_packet(
         return 0;
 }
 
-int arp_network_bind_raw_socket(int ifindex, be32_t address, const struct ether_addr *eth_mac) {
+int arp_network_bind_raw_socket(int ifindex, const struct in_addr *a, const struct ether_addr *eth_mac) {
         if (socketpair(AF_UNIX, SOCK_DGRAM | SOCK_CLOEXEC | SOCK_NONBLOCK, 0, test_fd) < 0)
                 return -errno;
 
