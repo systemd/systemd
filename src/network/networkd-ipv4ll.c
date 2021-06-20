@@ -184,31 +184,16 @@ int ipv4ll_configure(Link *link) {
 }
 
 int ipv4ll_update_mac(Link *link) {
-        bool restart;
-        int r;
-
         assert(link);
 
+        if (link->hw_addr.length != ETH_ALEN)
+                return 0;
+        if (ether_addr_is_null(&link->hw_addr.ether))
+                return 0;
         if (!link->ipv4ll)
                 return 0;
 
-        restart = sd_ipv4ll_is_running(link->ipv4ll) > 0;
-
-        r = sd_ipv4ll_stop(link->ipv4ll);
-        if (r < 0)
-                return r;
-
-        r = sd_ipv4ll_set_mac(link->ipv4ll, &link->hw_addr.ether);
-        if (r < 0)
-                return r;
-
-        if (restart) {
-                r = sd_ipv4ll_start(link->ipv4ll);
-                if (r < 0)
-                        return r;
-        }
-
-        return 0;
+        return sd_ipv4ll_set_mac(link->ipv4ll, &link->hw_addr.ether);
 }
 
 int config_parse_ipv4ll(
