@@ -137,7 +137,7 @@ int sd_ipv4ll_set_mac(sd_ipv4ll *ll, const struct ether_addr *addr) {
 
         assert_return(ll, -EINVAL);
         assert_return(addr, -EINVAL);
-        assert_return(sd_ipv4ll_is_running(ll) == 0, -EBUSY);
+        assert_return(!ether_addr_is_null(addr), -EINVAL);
 
         r = sd_ipv4acd_set_mac(ll->acd, addr);
         if (r < 0)
