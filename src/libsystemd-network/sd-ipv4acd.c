@@ -20,6 +20,7 @@
 #include "log-link.h"
 #include "network-common.h"
 #include "random-util.h"
+#include "set.h"
 #include "siphash24.h"
 #include "string-table.h"
 #include "string-util.h"
@@ -66,8 +67,8 @@ struct sd_ipv4acd {
         usec_t defend_window;
         struct in_addr address;
 
-        /* External */
         struct ether_addr mac_addr;
+        Set *other_mac_addrs;
 
         sd_event *event;
         int event_priority;
@@ -131,6 +132,7 @@ static sd_ipv4acd *ipv4acd_free(sd_ipv4acd *acd) {
 
         ipv4acd_reset(acd);
         sd_ipv4acd_detach_event(acd);
+        set_free(acd->other_mac_addrs);
         free(acd->ifname);
         return mfree(acd);
 }
@@ -450,6 +452,28 @@ int sd_ipv4acd_set_mac(sd_ipv4acd *acd, const struct ether_addr *addr) {
                 return r;
         }
 
+        return 0;
+}
+
+int sd_ipv4acd_add_other_mac(sd_ipv4acd *acd, const struct ether_addr *addr) {
+        struct ether_addr *a;
+
+        assert_return(acd, -EINVAL);
+        assert_return(addr, -EINVAL);
+        assert_return(!ether_addr_is_null(addr), -EINVAL);
+
+        a = newdup(struct ether_addr, addr, 1);
+        if (!a)
+                return -ENOMEM;
+
+        return set_ensure_consume(&acd->other_mac_addrs, &ether_addr_hash_ops_free, a);
+}
+
+int sd_ipv4acd_remove_other_mac(sd_ipv4acd *acd, const struct ether_addr *addr) {
+        assert_return(acd, -EINVAL);
+        assert_return(addr, -EINVAL);
+
+        free(set_remove(acd->other_mac_addrs, addr));
         return 0;
 }
 
