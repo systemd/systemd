@@ -229,20 +229,20 @@ static int ipv4acd_on_timeout(sd_event_source *s, uint64_t usec, void *userdata)
         switch (acd->state) {
 
         case IPV4ACD_STATE_STARTED:
+                acd->defend_window = 0;
+
                 ipv4acd_set_state(acd, IPV4ACD_STATE_WAITING_PROBE, true);
 
                 if (acd->n_conflict >= MAX_CONFLICTS) {
                         char ts[FORMAT_TIMESPAN_MAX];
-                        log_ipv4acd(acd, "Max conflicts reached, delaying by %s", format_timespan(ts, sizeof(ts), RATE_LIMIT_INTERVAL_USEC, 0));
 
+                        log_ipv4acd(acd, "Max conflicts reached, delaying by %s",
+                                    format_timespan(ts, sizeof(ts), RATE_LIMIT_INTERVAL_USEC, 0));
                         r = ipv4acd_set_next_wakeup(acd, RATE_LIMIT_INTERVAL_USEC, PROBE_WAIT_USEC);
-                        if (r < 0)
-                                goto fail;
-                } else {
+                } else
                         r = ipv4acd_set_next_wakeup(acd, 0, PROBE_WAIT_USEC);
-                        if (r < 0)
-                                goto fail;
-                }
+                if (r < 0)
+                        goto fail;
 
                 break;
 
@@ -530,7 +530,6 @@ int sd_ipv4acd_start(sd_ipv4acd *acd, bool reset_conflicts) {
                 return r;
 
         CLOSE_AND_REPLACE(acd->fd, r);
-        acd->defend_window = 0;
 
         if (reset_conflicts)
                 acd->n_conflict = 0;
