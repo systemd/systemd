@@ -1993,9 +1993,11 @@ static int link_update_hardware_address(Link *link, sd_netlink_message *message)
         if (hw_addr_equal(&link->hw_addr, &hw_addr))
                 return 0;
 
-        link->hw_addr = hw_addr;
-
-        log_link_debug(link, "Gained new hardware address: %s", HW_ADDR_TO_STR(&hw_addr));
+        if (hw_addr_is_null(&link->hw_addr))
+                log_link_debug(link, "Saved hardware address: %s", HW_ADDR_TO_STR(&link->hw_addr));
+        else
+                log_link_debug(link, "Hardware address is changed: %s → %s",
+                               HW_ADDR_TO_STR(&link->hw_addr), HW_ADDR_TO_STR(&hw_addr));
 
         r = ipv4ll_update_mac(link);
         if (r < 0)
