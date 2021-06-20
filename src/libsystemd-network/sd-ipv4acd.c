@@ -286,8 +286,9 @@ static int ipv4acd_on_timeout(sd_event_source *s, uint64_t usec, void *userdata)
                 if (r < 0) {
                         log_ipv4acd_errno(acd, r, "Failed to send ARP announcement: %m");
                         goto fail;
-                } else
-                        log_ipv4acd(acd, "ANNOUNCE");
+                }
+
+                log_ipv4acd(acd, "Announcing "IPV4_ADDRESS_FMT_STR, IPV4_ADDRESS_FMT_VAL(acd->address));
 
                 ipv4acd_set_state(acd, IPV4ACD_STATE_ANNOUNCING, false);
 
@@ -369,8 +370,9 @@ static int ipv4acd_on_packet(
                                 if (r < 0) {
                                         log_ipv4acd_errno(acd, r, "Failed to send ARP announcement: %m");
                                         goto fail;
-                                } else
-                                        log_ipv4acd(acd, "DEFEND");
+                                }
+
+                                log_ipv4acd(acd, "Defending "IPV4_ADDRESS_FMT_STR, IPV4_ADDRESS_FMT_VAL(acd->address));
 
                         } else
                                 ipv4acd_on_conflict(acd);
