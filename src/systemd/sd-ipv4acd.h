@@ -36,11 +36,13 @@ enum {
 
 typedef struct sd_ipv4acd sd_ipv4acd;
 typedef void (*sd_ipv4acd_callback_t)(sd_ipv4acd *acd, int event, void *userdata);
+typedef int (*sd_ipv4acd_check_mac_callback_t)(sd_ipv4acd *acd, const struct ether_addr *mac, void *userdata);
 
 int sd_ipv4acd_detach_event(sd_ipv4acd *acd);
 int sd_ipv4acd_attach_event(sd_ipv4acd *acd, sd_event *event, int64_t priority);
 int sd_ipv4acd_get_address(sd_ipv4acd *acd, struct in_addr *address);
 int sd_ipv4acd_set_callback(sd_ipv4acd *acd, sd_ipv4acd_callback_t cb, void *userdata);
+int sd_ipv4acd_set_check_mac_callback(sd_ipv4acd *acd, sd_ipv4acd_check_mac_callback_t cb, void *userdata);
 int sd_ipv4acd_set_mac(sd_ipv4acd *acd, const struct ether_addr *addr);
 int sd_ipv4acd_set_ifindex(sd_ipv4acd *acd, int interface_index);
 int sd_ipv4acd_get_ifindex(sd_ipv4acd *acd);
