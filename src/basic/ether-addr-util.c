@@ -81,6 +81,12 @@ static void ether_addr_hash_func(const struct ether_addr *p, struct siphash *sta
 }
 
 DEFINE_HASH_OPS(ether_addr_hash_ops, struct ether_addr, ether_addr_hash_func, ether_addr_compare);
+DEFINE_HASH_OPS_WITH_KEY_DESTRUCTOR(
+                ether_addr_hash_ops_free,
+                struct ether_addr,
+                ether_addr_hash_func,
+                ether_addr_compare,
+                free);
 
 int ether_addr_from_string(const char *s, struct ether_addr *ret) {
         size_t pos = 0, n, field;
