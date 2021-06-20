@@ -14,7 +14,7 @@
 #include "unaligned.h"
 #include "util.h"
 
-int arp_network_bind_raw_socket(int ifindex, const struct in_addr *a, const struct ether_addr *eth_mac) {
+int arp_update_filter(int fd, const struct in_addr *a, const struct ether_addr *eth_mac) {
         struct sock_filter filter[] = {
                 BPF_STMT(BPF_LD + BPF_W + BPF_LEN, 0),                                         /* A <- packet length */
                 BPF_JUMP(BPF_JMP + BPF_JGE + BPF_K, sizeof(struct ether_arp), 1, 0),           /* packet >= arp packet ? */
@@ -66,6 +66,16 @@ int arp_network_bind_raw_socket(int ifindex, const struct in_addr *a, const stru
                 .len    = ELEMENTSOF(filter),
                 .filter = (struct sock_filter*) filter,
         };
+
+        assert(fd >= 0);
+
+        if (setsockopt(fd, SOL_SOCKET, SO_ATTACH_FILTER, &fprog, sizeof(fprog)) < 0)
+                return -errno;
+
+        return 0;
+}
+
+int arp_network_bind_raw_socket(int ifindex, const struct in_addr *a, const struct ether_addr *eth_mac) {
         union sockaddr_union link = {
                 .ll.sll_family   = AF_PACKET,
                 .ll.sll_protocol = htobe16(ETH_P_ARP),
@@ -74,6 +84,7 @@ int arp_network_bind_raw_socket(int ifindex, const struct in_addr *a, const stru
                 .ll.sll_addr     = { 0xff, 0xff, 0xff, 0xff, 0xff, 0xff },
         };
         _cleanup_close_ int s = -1;
+        int r;
 
         assert(ifindex > 0);
 
@@ -81,8 +92,9 @@ int arp_network_bind_raw_socket(int ifindex, const struct in_addr *a, const stru
         if (s < 0)
                 return -errno;
 
-        if (setsockopt(s, SOL_SOCKET, SO_ATTACH_FILTER, &fprog, sizeof(fprog)) < 0)
-                return -errno;
+        r = arp_update_filter(s, a, eth_mac);
+        if (r < 0)
+                return r;
 
         if (bind(s, &link.sa, sizeof(link.ll)) < 0)
                 return -errno;
