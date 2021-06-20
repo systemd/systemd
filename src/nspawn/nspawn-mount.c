@@ -398,7 +398,7 @@ int tmpfs_patch_options(
 
 #if HAVE_SELINUX
         if (selinux_apifs_context)
-                if (!strextend_with_separator(&buf, ",", "context=\"", selinux_apifs_context, "\""))
+                if (strextendf_with_separator(&buf, ",", "context=\"%s\"", selinux_apifs_context) < 0)
                         return -ENOMEM;
 #endif
 
