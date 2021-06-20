@@ -18,6 +18,7 @@
 #include "fd-util.h"
 #include "in-addr-util.h"
 #include "log-link.h"
+#include "memory-util.h"
 #include "network-common.h"
 #include "random-util.h"
 #include "siphash24.h"
@@ -72,7 +73,9 @@ struct sd_ipv4acd {
         sd_event *event;
         int event_priority;
         sd_ipv4acd_callback_t callback;
-        void* userdata;
+        void *userdata;
+        sd_ipv4acd_check_mac_callback_t check_mac_callback;
+        void *check_mac_userdata;
 };
 
 #define log_ipv4acd_errno(acd, error, fmt, ...)         \
@@ -208,18 +211,6 @@ static int ipv4acd_set_next_wakeup(sd_ipv4acd *acd, usec_t usec, usec_t random_u
                                 acd->event_priority, "ipv4acd-timer", true);
 }
 
-static bool ipv4acd_arp_conflict(sd_ipv4acd *acd, struct ether_arp *arp) {
-        assert(acd);
-        assert(arp);
-
-        /* see the BPF */
-        if (memcmp(arp->arp_spa, &acd->address, sizeof(acd->address)) == 0)
-                return true;
-
-        /* the TPA matched instead of the SPA, this is not a conflict */
-        return false;
-}
-
 static int ipv4acd_on_timeout(sd_event_source *s, uint64_t usec, void *userdata) {
         sd_ipv4acd *acd = userdata;
         int r = 0;
@@ -314,6 +305,39 @@ fail:
         return 0;
 }
 
+static bool ipv4acd_arp_conflict(sd_ipv4acd *acd, const struct ether_arp *arp, bool announced) {
+        assert(acd);
+        assert(arp);
+
+        /* RFC 5227 section 2.1.1.
+         * "the host receives any ARP packet (Request *or* Reply) on the interface where the probe is
+         * being performed, where the packet's 'sender IP address' is the address being probed for,
+         * then the host MUST treat this address as being in use by some other host" */
+        if (memcmp(arp->arp_spa, &acd->address, sizeof(struct in_addr)) == 0)
+                return true;
+
+        if (announced)
+                /* the TPA matched instead of SPA, this is not a conflict */
+                return false;
+
+        /* "any ARP Probe where the packet's 'target IP address' is the address being probed for, and
+         * the packet's 'sender hardware address' is not the hardware address of any of the host's
+         * interfaces, then the host SHOULD similarly treat this as an address conflict" */
+        if (arp->ea_hdr.ar_op != htobe16(ARPOP_REQUEST))
+                return false; /* not ARP Request, ignoring. */
+        if (memeqzero(arp->arp_spa, sizeof(struct in_addr)) == 0)
+                return false; /* not ARP Probe, ignoring. */
+        if (memcmp(arp->arp_tpa, &acd->address, sizeof(struct in_addr)) != 0)
+                return false; /* target IP address does not match, BPF code is broken? */
+
+        if (acd->check_mac_callback &&
+            acd->check_mac_callback(acd, (const struct ether_addr*) arp->arp_sha, acd->check_mac_userdata) > 0)
+                /* sender hardware is one of the host's interfaces, ignoring. */
+                return true;
+
+        return true; /* conflict! */
+}
+
 static void ipv4acd_on_conflict(sd_ipv4acd *acd) {
         assert(acd);
 
@@ -358,7 +382,7 @@ static int ipv4acd_on_packet(
         case IPV4ACD_STATE_ANNOUNCING:
         case IPV4ACD_STATE_RUNNING:
 
-                if (ipv4acd_arp_conflict(acd, &packet)) {
+                if (ipv4acd_arp_conflict(acd, &packet, true)) {
                         usec_t ts;
 
                         assert_se(sd_event_now(acd->event, clock_boottime_or_monotonic(), &ts) >= 0);
@@ -382,8 +406,8 @@ static int ipv4acd_on_packet(
         case IPV4ACD_STATE_WAITING_PROBE:
         case IPV4ACD_STATE_PROBING:
         case IPV4ACD_STATE_WAITING_ANNOUNCE:
-                /* BPF ensures this packet indicates a conflict */
-                ipv4acd_on_conflict(acd);
+                if (ipv4acd_arp_conflict(acd, &packet, false))
+                        ipv4acd_on_conflict(acd);
                 break;
 
         default:
@@ -486,6 +510,14 @@ int sd_ipv4acd_set_callback(sd_ipv4acd *acd, sd_ipv4acd_callback_t cb, void *use
         acd->callback = cb;
         acd->userdata = userdata;
 
+        return 0;
+}
+
+int sd_ipv4acd_set_check_mac_callback(sd_ipv4acd *acd, sd_ipv4acd_check_mac_callback_t cb, void *userdata) {
+        assert_return(acd, -EINVAL);
+
+        acd->check_mac_callback = cb;
+        acd->check_mac_userdata = userdata;
         return 0;
 }
 
