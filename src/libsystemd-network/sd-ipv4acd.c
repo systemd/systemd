@@ -432,11 +432,23 @@ const char *sd_ipv4acd_get_ifname(sd_ipv4acd *acd) {
 }
 
 int sd_ipv4acd_set_mac(sd_ipv4acd *acd, const struct ether_addr *addr) {
+        int r;
+
         assert_return(acd, -EINVAL);
         assert_return(addr, -EINVAL);
-        assert_return(acd->state == IPV4ACD_STATE_INIT, -EBUSY);
+        assert_return(!ether_addr_is_null(addr), -EINVAL);
 
         acd->mac_addr = *addr;
+
+        if (!sd_ipv4acd_is_running(acd))
+                return 0;
+
+        assert(acd->fd >= 0);
+        r = arp_update_filter(acd->fd, &acd->address, &acd->mac_addr);
+        if (r < 0) {
+                ipv4acd_reset(acd);
+                return r;
+        }
 
         return 0;
 }
