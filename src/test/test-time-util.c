@@ -360,6 +360,80 @@ static void test_format_timestamp(void) {
         }
 }
 
+static void test_format_timestamp_relative(void) {
+        log_info("/* %s */", __func__);
+
+        char buf[MAX(FORMAT_TIMESTAMP_MAX, FORMAT_TIMESPAN_MAX)];
+        usec_t x;
+
+        /* Only testing timestamps in the past so we don't need to add some delta to account for time passing
+         * by while we are running the tests (unless we're running on potatoes and 24 hours somehow passes
+         * between our call to now() and format_timestamp_relative's call to now()). */
+
+        /* Years and months */
+        x = now(CLOCK_REALTIME) - (1*USEC_PER_YEAR + 1*USEC_PER_MONTH);
+        assert_se(format_timestamp_relative(buf, sizeof(buf), x));
+        log_info("%s", buf);
+        assert_se(streq(buf, "1 year 1 month ago"));
+
+        x = now(CLOCK_REALTIME) - (1*USEC_PER_YEAR + 2*USEC_PER_MONTH);
+        assert_se(format_timestamp_relative(buf, sizeof(buf), x));
+        log_info("%s", buf);
+        assert_se(streq(buf, "1 year 2 months ago"));
+
+        x = now(CLOCK_REALTIME) - (2*USEC_PER_YEAR + 1*USEC_PER_MONTH);
+        assert_se(format_timestamp_relative(buf, sizeof(buf), x));
+        log_info("%s", buf);
+        assert_se(streq(buf, "2 years 1 month ago"));
+
+        x = now(CLOCK_REALTIME) - (2*USEC_PER_YEAR + 2*USEC_PER_MONTH);
+        assert_se(format_timestamp_relative(buf, sizeof(buf), x));
+        log_info("%s", buf);
+        assert_se(streq(buf, "2 years 2 months ago"));
+
+        /* Months and days */
+        x = now(CLOCK_REALTIME) - (1*USEC_PER_MONTH + 1*USEC_PER_DAY);
+        assert_se(format_timestamp_relative(buf, sizeof(buf), x));
+        log_info("%s", buf);
+        assert_se(streq(buf, "1 month 1 day ago"));
+
+        x = now(CLOCK_REALTIME) - (1*USEC_PER_MONTH + 2*USEC_PER_DAY);
+        assert_se(format_timestamp_relative(buf, sizeof(buf), x));
+        log_info("%s", buf);
+        assert_se(streq(buf, "1 month 2 days ago"));
+
+        x = now(CLOCK_REALTIME) - (2*USEC_PER_MONTH + 1*USEC_PER_DAY);
+        assert_se(format_timestamp_relative(buf, sizeof(buf), x));
+        log_info("%s", buf);
+        assert_se(streq(buf, "2 months 1 day ago"));
+
+        x = now(CLOCK_REALTIME) - (2*USEC_PER_MONTH + 2*USEC_PER_DAY);
+        assert_se(format_timestamp_relative(buf, sizeof(buf), x));
+        log_info("%s", buf);
+        assert_se(streq(buf, "2 months 2 days ago"));
+
+        /* Weeks and days */
+        x = now(CLOCK_REALTIME) - (1*USEC_PER_WEEK + 1*USEC_PER_DAY);
+        assert_se(format_timestamp_relative(buf, sizeof(buf), x));
+        log_info("%s", buf);
+        assert_se(streq(buf, "1 week 1 day ago"));
+
+        x = now(CLOCK_REALTIME) - (1*USEC_PER_WEEK + 2*USEC_PER_DAY);
+        assert_se(format_timestamp_relative(buf, sizeof(buf), x));
+        log_info("%s", buf);
+        assert_se(streq(buf, "1 week 2 days ago"));
+
+        x = now(CLOCK_REALTIME) - (2*USEC_PER_WEEK + 1*USEC_PER_DAY);
+        assert_se(format_timestamp_relative(buf, sizeof(buf), x));
+        log_info("%s", buf);
+        assert_se(streq(buf, "2 weeks 1 day ago"));
+
+        x = now(CLOCK_REALTIME) - (2*USEC_PER_WEEK + 2*USEC_PER_DAY);
+        assert_se(format_timestamp_relative(buf, sizeof(buf), x));
+        log_info("%s", buf);
+        assert_se(streq(buf, "2 weeks 2 days ago"));
+}
+
 static void test_format_timestamp_utc_one(usec_t val, const char *result) {
         char buf[FORMAT_TIMESTAMP_MAX];
         const char *t;
@@ -539,6 +613,7 @@ int main(int argc, char *argv[]) {
         test_usec_sub_signed();
         test_usec_sub_unsigned();
         test_format_timestamp();
+        test_format_timestamp_relative();
         test_format_timestamp_utc();
         test_deserialize_dual_timestamp();
         test_usec_shift_clock();
