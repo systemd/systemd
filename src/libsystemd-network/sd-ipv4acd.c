@@ -490,14 +490,35 @@ int sd_ipv4acd_set_callback(sd_ipv4acd *acd, sd_ipv4acd_callback_t cb, void *use
 }
 
 int sd_ipv4acd_set_address(sd_ipv4acd *acd, const struct in_addr *address) {
+        int r;
+
         assert_return(acd, -EINVAL);
         assert_return(address, -EINVAL);
         assert_return(in4_addr_is_set(address), -EINVAL);
-        assert_return(acd->state == IPV4ACD_STATE_INIT, -EBUSY);
+
+        if (in4_addr_equal(&acd->address, address))
+                return 0;
 
         acd->address = *address;
 
+        if (!sd_ipv4acd_is_running(acd))
+                return 0;
+
+        assert(acd->fd >= 0);
+        r = arp_update_filter(acd->fd, &acd->address, &acd->mac_addr);
+        if (r < 0)
+                goto fail;
+
+        r = ipv4acd_set_next_wakeup(acd, 0, 0);
+        if (r < 0)
+                goto fail;
+
+        ipv4acd_set_state(acd, IPV4ACD_STATE_STARTED, true);
         return 0;
+
+fail:
+        ipv4acd_reset(acd);
+        return r;
 }
 
 int sd_ipv4acd_get_address(sd_ipv4acd *acd, struct in_addr *address) {
