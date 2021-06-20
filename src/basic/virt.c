@@ -186,6 +186,7 @@ static int detect_vm_dmi_vendor(void) {
                                 return dmi_vendor_table[j].id;
                         }
         }
+        log_debug("No virtualization found in DMI vendor table.");
         return VIRTUALIZATION_NONE;
 }
 
@@ -202,7 +203,8 @@ static int detect_vm_smbios(void) {
 
         r = read_full_virtual_file("/sys/firmware/dmi/entries/0-0/raw", &s, &readsize);
         if (r < 0) {
-                log_debug_errno(r, "Unable to read /sys/firmware/dmi/entries/0-0/raw, ignoring: %m");
+                log_debug_errno(r, "Unable to read /sys/firmware/dmi/entries/0-0/raw, "
+                                "using the virtualization information found in DMI vendor table, ignoring: %m");
                 return SMBIOS_VM_BIT_UNKNOWN;
         }
         if (readsize < 20 || s[1] < 20) {
@@ -210,16 +212,17 @@ static int detect_vm_smbios(void) {
                  * extension bytes. The data we're interested in is in extension byte 2, which would be at
                  * 0x13. If we didn't read that much data, or if the BIOS indicates that we don't have that
                  * much data, we don't infer anything from the SMBIOS. */
-                log_debug("Only read %zu bytes from /sys/firmware/dmi/entries/0-0/raw (expected 20)", readsize);
+                log_debug("Only read %zu bytes from /sys/firmware/dmi/entries/0-0/raw (expected 20). "
+                          "Using the virtualization information found in DMI vendor table.", readsize);
                 return SMBIOS_VM_BIT_UNKNOWN;
         }
 
         uint8_t byte = (uint8_t) s[19];
         if (byte & (1U<<4)) {
-                log_debug("DMI BIOS Extension table indicates virtualization");
+                log_debug("DMI BIOS Extension table indicates virtualization.");
                 return SMBIOS_VM_BIT_SET;
         }
-        log_debug("DMI BIOS Extension table does not indicate virtualization");
+        log_debug("DMI BIOS Extension table does not indicate virtualization.");
         return SMBIOS_VM_BIT_UNSET;
 }
 #endif /* defined(__i386__) || defined(__x86_64__) || defined(__arm__) || defined(__aarch64__) */
