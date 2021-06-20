@@ -951,6 +951,8 @@ static Link *link_drop(Link *link) {
 
         link_set_state(link, LINK_STATE_LINGER);
 
+        ipv4ll_drop_mac(link);
+
         /* Drop all references from other links and manager. Note that async netlink calls may have
          * references to the link, and they will be dropped when we receive replies. */
 
@@ -1980,7 +1982,7 @@ static int link_update_master(Link *link, sd_netlink_message *message) {
 }
 
 static int link_update_hardware_address(Link *link, sd_netlink_message *message) {
-        struct hw_addr_data hw_addr;
+        struct hw_addr_data hw_addr, old;
         int r;
 
         assert(link);
@@ -2005,7 +2007,10 @@ static int link_update_hardware_address(Link *link, sd_netlink_message *message)
                 log_link_debug(link, "Hardware address is changed: %s → %s",
                                HW_ADDR_TO_STR(&link->hw_addr), HW_ADDR_TO_STR(&hw_addr));
 
-        r = ipv4ll_update_mac(link);
+        old = link->hw_addr;
+        link->hw_addr = hw_addr;
+
+        r = ipv4ll_update_mac(link, &old);
         if (r < 0)
                 return log_link_debug_errno(link, r, "Could not update MAC address in IPv4LL client: %m");
 
