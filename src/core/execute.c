@@ -46,6 +46,7 @@
 #include "cgroup-setup.h"
 #include "chown-recursive.h"
 #include "cpu-set-util.h"
+#include "data-fd-util.h"
 #include "def.h"
 #include "env-file.h"
 #include "env-util.h"

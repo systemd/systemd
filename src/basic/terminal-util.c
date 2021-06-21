@@ -21,7 +21,6 @@
 #include <unistd.h>
 
 #include "alloc-util.h"
-#include "copy.h"
 #include "def.h"
 #include "env-util.h"
 #include "fd-util.h"
