@@ -142,10 +142,10 @@ shared_sources = files('''
         install-printf.h
         install.c
         install.h
-        ipvlan-util.c
-        ipvlan-util.h
         ip-protocol-list.c
         ip-protocol-list.h
+        ipvlan-util.c
+        ipvlan-util.h
         journal-importer.c
         journal-importer.h
         journal-util.c
@@ -264,10 +264,10 @@ shared_sources = files('''
         user-record-show.h
         user-record.c
         user-record.h
-        userdb.c
-        userdb.h
         userdb-dropin.c
         userdb-dropin.h
+        userdb.c
+        userdb.h
         utmp-wtmp.h
         varlink.c
         varlink.h
