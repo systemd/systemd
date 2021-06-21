@@ -3,7 +3,9 @@
 
 #include "conf-parser.h"
 
+typedef struct Address Address;
 typedef struct Link Link;
+typedef struct Network Network;
 
 typedef enum DHCPClientIdentifier {
         DHCP_CLIENT_ID_MAC,
@@ -21,6 +23,8 @@ void network_adjust_dhcp4(Network *network);
 int dhcp4_configure(Link *link);
 int dhcp4_update_mac(Link *link);
 int dhcp4_start(Link *link);
+int dhcp4_lease_lost(Link *link);
+int link_request_dhcp4_address(Link *link, Address *address, bool consume);
 
 CONFIG_PARSER_PROTOTYPE(config_parse_dhcp_client_identifier);
 CONFIG_PARSER_PROTOTYPE(config_parse_dhcp_acl_ip_address);
