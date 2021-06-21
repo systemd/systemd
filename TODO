@@ -142,16 +142,37 @@ Features:
 
 * expose MS_NOSYMFOLLOW in various places
 
-* ability to insert trusted configuration and secrets into the boot parameters
-  of a kernel booting in a VM or on baremetal some way, via TPM
-  protection. idea:
-  1. pass via /proc/bootconfig
-  2. for secrets: put secrets in node of /proc/bootconfig, decrypt them via
-     TPM early on in PID 1, put them in $CREDENTIAL_PATH logic
-  3. for config: put signed data in node /proc/booconfig, validate via TPM
-     early on in PID 1, put data into /run/bootconfig/ as individual files
-  4. boot loader/stub should pick these up automatically from the boot loader
-     file systems
+* allow passing creds into kernel when booting: in EFI stub, collect creds
+  files from ESP directory, generate CPIO archive on the fly from them, so that
+  they are dropped into /run/initramfs/creds/ and pass to kernel as additional
+  initrd. Then, use LoadCredentialEncrypted=foo:/run/initramfs/creds/foo to
+  load them.
+
+* make LoadCredential= automatically find credentials in /etc/creds,
+  /run/creds, … and so on, if path component is unqualified
+
+* teach LoadCredential=/LoadCredentialEncrypted= to load credentials from
+  kernel cmdline, maybe: LoadCredentialEncrypted=foobar:proc-cmdline:foobar
+
+* credentials system:
+  - acquire from kernel command line
+  - acquire from EFI variable?
+  - acquire via via ask-password?
+  - acquire creds via keyring?
+  - pass creds via keyring?
+  - pass creds via memfd?
+  - acquire + decrypt creds from pkcs11?
+  - make systemd-cryptsetup acquire pw via creds logic
+  - make PAMName= acquire pw via creds logic
+  - make macsec/wireguard code in networkd read key via creds logic
+  - make gatwayd/remote read key via creds logic
+  - add sd_notify() command for flushing out creds not needed anymore
+
+* teach LoadCredential= the ability to load all files from a specified dir as
+  individual creds
+
+* add tpm.target or so which is delayed until TPM2 device showed up in case
+  firmware indicates there is one.
 
 * tpm2: support a PIN policy, i.e. allowing windows-style short authentication
   passwords by using the TPM2 to enforce ratelimiting and such, use for
@@ -195,19 +216,6 @@ Features:
   - cryptsetup-generator: allow specification of passwords in crypttab itself
   - support rd.luks.allow-discards= kernel cmdline params in cryptsetup generator
 
-* credentials system:
-  - maybe add AcquireCredential= for querying a cred via ask-password
-  - maybe try to acquire creds via keyring?
-  - maybe try to pass creds via keyring?
-  - maybe optionally pass creds via memfd
-  - maybe add support for decrypting creds via TPM
-  - maybe add support for decrypting/importing creds via pkcs11
-  - make systemd-cryptsetup acquire pw via creds logic
-  - make PAMName= acquire pw via creds logic
-  - make macsec/wireguard code in networkd read key via creds logic
-  - make gatwayd/remote read key via creds logic
-  - add sd_notify() command for flushing out creds not needed anymore
-
 * when configuring loopback netif, and it fails due to EPERM, eat up error if
   it happens to be set up alright already.
 
@@ -222,9 +230,6 @@ Features:
   it up from there in sd_bus_creds logic. i.e. we can use the socket peer
   address as conduit for some minimal connection metainfo, and use it to
   restore the "description" logic that kdbus used to have.
-
-* teach LoadCredential= the ability to load all files from a specified dir as
-  individual creds
 
 * systemd-analyze netif that explains predictable interface (or networkctl)
 
