@@ -74,6 +74,12 @@ bool link_ipv4ll_enabled(Link *link) {
         if (link->iftype == ARPHRD_CAN)
                 return false;
 
+        if (link->hw_addr.length != ETH_ALEN)
+                return false;
+
+        if (ether_addr_is_null(&link->hw_addr.ether))
+                return false;
+
         if (STRPTR_IN_SET(link->kind,
                           "vrf", "wireguard", "ipip", "gre", "ip6gre","ip6tnl", "sit", "vti",
                           "vti6", "nlmon", "xfrm", "bareudp"))
