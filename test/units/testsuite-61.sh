@@ -4,7 +4,7 @@ set -o pipefail
 
 NPROC=$(nproc)
 MAX_QUEUE_SIZE=${NPROC:-2}
-mapfile -t TEST_LIST < <(find /usr/lib/systemd/tests/ -maxdepth 1 -type f -name "test-*")
+mapfile -t TEST_LIST < <(find /usr/lib/systemd/tests/ -maxdepth 1 -type f -name "test-loop-block")
 
 # reset state
 rm -fv /failed-tests /skipped-tests /skipped
@@ -82,5 +82,8 @@ for key in "${!running[@]}"; do
     report_result "$key" $ec
     unset running["$key"]
 done
+
+# Test logs are sometimes lost, as the system shuts down immediately after
+journalctl --sync
 
 exit 0
