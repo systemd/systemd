@@ -820,6 +820,9 @@ static int property_get_set_credential(
 
         HASHMAP_FOREACH(sc, c->set_credentials) {
 
+                if (sc->encrypted != streq(property, "SetCredentialEncrypted"))
+                        continue;
+
                 r = sd_bus_message_open_container(reply, 'r', "say");
                 if (r < 0)
                         return r;
@@ -850,7 +853,7 @@ static int property_get_load_credential(
                 sd_bus_error *error) {
 
         ExecContext *c = userdata;
-        char **i, **j;
+        ExecLoadCredential *lc;
         int r;
 
         assert(bus);
@@ -862,8 +865,12 @@ static int property_get_load_credential(
         if (r < 0)
                 return r;
 
-        STRV_FOREACH_PAIR(i, j, c->load_credentials) {
-                r = sd_bus_message_append(reply, "(ss)", *i, *j);
+        HASHMAP_FOREACH(lc, c->load_credentials) {
+
+                if (lc->encrypted != streq(property, "LoadCredentialEncrypted"))
+                        continue;
+
+                r = sd_bus_message_append(reply, "(ss)", lc->id, lc->path);
                 if (r < 0)
                         return r;
         }
@@ -1144,7 +1151,9 @@ const sd_bus_vtable bus_exec_vtable[] = {
         SD_BUS_PROPERTY("DynamicUser", "b", bus_property_get_bool, offsetof(ExecContext, dynamic_user), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("RemoveIPC", "b", bus_property_get_bool, offsetof(ExecContext, remove_ipc), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("SetCredential", "a(say)", property_get_set_credential, 0, SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("SetCredentialEncrypted", "a(say)", property_get_set_credential, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("LoadCredential", "a(ss)", property_get_load_credential, 0, SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("LoadCredentialEncrypted", "a(ss)", property_get_load_credential, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("SupplementaryGroups", "as", NULL, offsetof(ExecContext, supplementary_groups), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("PAMName", "s", NULL, offsetof(ExecContext, pam_name), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("ReadWritePaths", "as", NULL, offsetof(ExecContext, read_write_paths), SD_BUS_VTABLE_PROPERTY_CONST),
@@ -1916,7 +1925,7 @@ int bus_exec_context_set_transient_property(
 
                 return 1;
 
-        } else if (streq(name, "SetCredential")) {
+        } else if (STR_IN_SET(name, "SetCredential", "SetCredentialEncrypted")) {
                 bool isempty = true;
 
                 r = sd_bus_message_enter_container(message, 'a', "(say)");
@@ -1964,19 +1973,23 @@ int bus_exec_context_set_transient_property(
                                 if (old) {
                                         free_and_replace(old->data, copy);
                                         old->size = sz;
+                                        old->encrypted = streq(name, "SetCredentialEncrypted");
                                 } else {
                                         _cleanup_(exec_set_credential_freep) ExecSetCredential *sc = NULL;
 
-                                        sc = new0(ExecSetCredential, 1);
+                                        sc = new(ExecSetCredential, 1);
                                         if (!sc)
                                                 return -ENOMEM;
 
-                                        sc->id = strdup(id);
+                                        *sc = (ExecSetCredential) {
+                                                .id = strdup(id),
+                                                .data = TAKE_PTR(copy),
+                                                .size = sz,
+                                                .encrypted = streq(name, "SetCredentialEncrypted"),
+                                        };
+
                                         if (!sc->id)
                                                 return -ENOMEM;
-
-                                        sc->data = TAKE_PTR(copy);
-                                        sc->size = sz;
 
                                         r = hashmap_ensure_put(&c->set_credentials, &exec_set_credential_hash_ops, sc->id, sc);
                                         if (r < 0)
@@ -2008,7 +2021,7 @@ int bus_exec_context_set_transient_property(
 
                 return 1;
 
-        } else if (streq(name, "LoadCredential")) {
+        } else if (STR_IN_SET(name, "LoadCredential", "LoadCredentialEncrypted")) {
                 bool isempty = true;
 
                 r = sd_bus_message_enter_container(message, 'a', "(ss)");
@@ -2033,9 +2046,39 @@ int bus_exec_context_set_transient_property(
                         isempty = false;
 
                         if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
-                                r = strv_extend_strv(&c->load_credentials, STRV_MAKE(id, source), /* filter_duplicates = */ false);
-                                if (r < 0)
-                                        return r;
+                                _cleanup_free_ char *copy = NULL;
+                                ExecLoadCredential *old;
+
+                                copy = strdup(source);
+                                if (!copy)
+                                        return -ENOMEM;
+
+                                old = hashmap_get(c->load_credentials, id);
+                                if (old) {
+                                        free_and_replace(old->path, copy);
+                                        old->encrypted = streq(name, "LoadCredentialEncrypted");
+                                } else {
+                                        _cleanup_(exec_load_credential_freep) ExecLoadCredential *lc = NULL;
+
+                                        lc = new(ExecLoadCredential, 1);
+                                        if (!lc)
+                                                return -ENOMEM;
+
+                                        *lc = (ExecLoadCredential) {
+                                                .id = strdup(id),
+                                                .path = TAKE_PTR(copy),
+                                                .encrypted = streq(name, "LoadCredentialEncrypted"),
+                                        };
+
+                                        if (!lc->id)
+                                                return -ENOMEM;
+
+                                        r = hashmap_ensure_put(&c->load_credentials, &exec_load_credential_hash_ops, lc->id, lc);
+                                        if (r < 0)
+                                                return r;
+
+                                        TAKE_PTR(lc);
+                                }
 
                                 (void) unit_write_settingf(u, flags|UNIT_ESCAPE_SPECIFIERS, name, "%s=%s:%s", name, id, source);
                         }
@@ -2046,7 +2089,7 @@ int bus_exec_context_set_transient_property(
                         return r;
 
                 if (!UNIT_WRITE_FLAGS_NOOP(flags) && isempty) {
-                        c->load_credentials = strv_free(c->load_credentials);
+                        c->load_credentials = hashmap_free(c->load_credentials);
                         (void) unit_write_settingf(u, flags, name, "%s=", name);
                 }
 
