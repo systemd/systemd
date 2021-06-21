@@ -69,6 +69,11 @@ static void test_mount_option_mangle(void) {
         opts = mfree(opts);
 
         assert_se(mount_option_mangle("rw,relatime,fmask=0022,dmask=0022,\"hogehoge", MS_RDONLY, &f, &opts) < 0);
+
+        assert_se(mount_option_mangle("mode=1777,size=10%,nr_inodes=400k,uid=496107520,gid=496107520,context=\"system_u:object_r:svirt_sandbox_file_t:s0:c0,c1\"", 0, &f, &opts) == 0);
+        assert_se(f == 0);
+        assert_se(streq(opts, "mode=1777,size=10%,nr_inodes=400k,uid=496107520,gid=496107520,context=\"system_u:object_r:svirt_sandbox_file_t:s0:c0,c1\""));
+        opts = mfree(opts);
 }
 
 static void test_bind_remount_recursive(void) {
