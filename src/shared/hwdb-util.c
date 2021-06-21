@@ -13,6 +13,7 @@
 #include "hwdb-util.h"
 #include "label.h"
 #include "mkdir.h"
+#include "nulstr-util.h"
 #include "path-util.h"
 #include "sort-util.h"
 #include "strbuf.h"
@@ -586,10 +587,10 @@ int hwdb_update(const char *root, const char *hwdb_bin_dir, bool strict, bool co
         uint16_t file_priority = 1;
         int r = 0, err;
 
-        /* The argument 'compat' controls the format version of database. If false, then hwdb.bin will be created with
-         * additional information such that priority, line number, and filename of database source. If true, then hwdb.bin
-         * will be created without the information. systemd-hwdb command should set the argument false, and 'udevadm hwdb'
-         * command should set it true. */
+        /* The argument 'compat' controls the format version of database. If false, then hwdb.bin will be
+         * created with additional information such that priority, line number, and filename of database
+         * source. If true, then hwdb.bin will be created without the information. systemd-hwdb command
+         * should set the argument false, and 'udevadm hwdb' command should set it true. */
 
         trie = new0(struct trie, 1);
         if (!trie)
@@ -665,4 +666,28 @@ int hwdb_query(const char *modalias) {
                 printf("%s=%s\n", key, value);
 
         return 0;
+}
+
+bool hwdb_validate(sd_hwdb *hwdb) {
+        bool found = false;
+        const char* p;
+        struct stat st;
+
+        if (!hwdb)
+                return false;
+        if (!hwdb->f)
+                return false;
+
+        /* if hwdb.bin doesn't exist anywhere, we need to update */
+        NULSTR_FOREACH(p, hwdb_bin_paths)
+                if (stat(p, &st) >= 0) {
+                        found = true;
+                        break;
+                }
+        if (!found)
+                return true;
+
+        if (timespec_load(&hwdb->st.st_mtim) != timespec_load(&st.st_mtim))
+                return true;
+        return false;
 }

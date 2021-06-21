@@ -3,9 +3,26 @@
 
 #include <stdint.h>
 
+#include "def.h"
+#include "hashmap.h"
 #include "sparse-endian.h"
 
 #define HWDB_SIG { 'K', 'S', 'L', 'P', 'H', 'H', 'R', 'H' }
+
+struct sd_hwdb {
+        unsigned n_ref;
+
+        FILE *f;
+        struct stat st;
+        union {
+                struct trie_header_f *head;
+                const char *map;
+        };
+
+        OrderedHashmap *properties;
+        Iterator properties_iterator;
+        bool properties_modified;
+};
 
 /* on-disk trie objects */
 struct trie_header_f {
@@ -63,3 +80,10 @@ struct trie_value_entry2_f {
         le16_t file_priority;
         le16_t padding;
 } _packed_;
+
+#define hwdb_bin_paths                          \
+        "/etc/systemd/hwdb/hwdb.bin\0"          \
+        "/etc/udev/hwdb.bin\0"                  \
+        "/usr/lib/systemd/hwdb/hwdb.bin\0"      \
+        _CONF_PATHS_SPLIT_USR_NULSTR("systemd/hwdb/hwdb.bin") \
+        UDEVLIBEXECDIR "/hwdb.bin\0"
