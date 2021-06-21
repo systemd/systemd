@@ -2,6 +2,9 @@
 
 #include <errno.h>
 #include <fcntl.h>
+#include <linux/btrfs.h>
+#include <linux/magic.h>
+#include <sys/ioctl.h>
 #include <sys/resource.h>
 #include <sys/stat.h>
 #include <unistd.h>
@@ -1056,4 +1059,21 @@ int read_nr_open(void) {
 
         /* If we fail, fall back to the hard-coded kernel limit of 1024 * 1024. */
         return 1024 * 1024;
+}
+
+/* This is here because it's fd-related and is called from sd-journal code. Other btrfs-related utilities are
+ * in src/shared, but libsystemd must not link to libsystemd-shared, see docs/ARCHITECTURE.md. */
+int btrfs_defrag_fd(int fd) {
+        int r;
+
+        assert(fd >= 0);
+
+        r = fd_verify_regular(fd);
+        if (r < 0)
+                return r;
+
+        if (ioctl(fd, BTRFS_IOC_DEFRAG, NULL) < 0)
+                return -errno;
+
+        return 0;
 }

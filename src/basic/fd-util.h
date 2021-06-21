@@ -107,5 +107,5 @@ static inline int make_null_stdio(void) {
 
 
 int fd_reopen(int fd, int flags);
-
 int read_nr_open(void);
+int btrfs_defrag_fd(int fd);

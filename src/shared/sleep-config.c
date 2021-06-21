@@ -6,6 +6,7 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <linux/fs.h>
+#include <linux/magic.h>
 #include <stdbool.h>
 #include <stddef.h>
 #include <sys/ioctl.h>
@@ -28,6 +29,7 @@
 #include "parse-util.h"
 #include "path-util.h"
 #include "sleep-config.h"
+#include "stat-util.h"
 #include "stdio-util.h"
 #include "string-table.h"
 #include "string-util.h"
@@ -232,7 +234,7 @@ static int calculate_swap_file_offset(const SwapEntry *swap, uint64_t *ret_offse
         _cleanup_close_ int fd = -1;
         _cleanup_free_ struct fiemap *fiemap = NULL;
         struct stat sb;
-        int r, btrfs;
+        int r;
 
         assert(swap);
         assert(swap->device);
@@ -245,10 +247,10 @@ static int calculate_swap_file_offset(const SwapEntry *swap, uint64_t *ret_offse
         if (fstat(fd, &sb) < 0)
                 return log_debug_errno(errno, "Failed to stat %s: %m", swap->device);
 
-        btrfs = btrfs_is_filesystem(fd);
-        if (btrfs < 0)
-                return log_debug_errno(btrfs, "Error checking %s for Btrfs filesystem: %m", swap->device);
-        if (btrfs > 0) {
+        r = fd_is_fs_type(fd, BTRFS_SUPER_MAGIC);
+        if (r < 0)
+                return log_debug_errno(r, "Error checking %s for Btrfs filesystem: %m", swap->device);
+        if (r > 0) {
                 log_debug("%s: detection of swap file offset on Btrfs is not supported", swap->device);
                 *ret_offset = UINT64_MAX;
                 return 0;

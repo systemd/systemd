@@ -42,8 +42,6 @@ typedef enum BtrfsRemoveFlags {
         BTRFS_REMOVE_QUOTA     = 1 << 1,
 } BtrfsRemoveFlags;
 
-int btrfs_is_filesystem(int fd);
-
 int btrfs_is_subvol_fd(int fd);
 int btrfs_is_subvol(const char *path);
 
@@ -53,7 +51,6 @@ int btrfs_clone_range(int infd, uint64_t in_offset, int ofd, uint64_t out_offset
 int btrfs_get_block_device_fd(int fd, dev_t *dev);
 int btrfs_get_block_device(const char *path, dev_t *dev);
 
-int btrfs_defrag_fd(int fd);
 int btrfs_defrag(const char *p);
 
 int btrfs_quota_enable_fd(int fd, bool b);
