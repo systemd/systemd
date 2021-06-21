@@ -3,6 +3,7 @@
 #include <stddef.h>
 #include <sys/mount.h>
 
+#include "blockdev-util.h"
 #include "chown-recursive.h"
 #include "copy.h"
 #include "fd-util.h"

@@ -22,3 +22,5 @@ int get_block_device_harder(const char *path, dev_t *dev);
 int lock_whole_block_device(dev_t devt, int operation);
 
 int blockdev_partscan_enabled(int fd);
+
+int path_is_encrypted(const char *path);

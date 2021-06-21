@@ -15,10 +15,6 @@ basic_sources = files('''
         async.h
         audit-util.c
         audit-util.h
-        blockdev-util.c
-        blockdev-util.h
-        btrfs-util.c
-        btrfs-util.h
         build.c
         build.h
         bus-label.c
@@ -33,8 +29,6 @@ basic_sources = files('''
         chattr-util.h
         conf-files.c
         conf-files.h
-        copy.c
-        copy.h
         creds-util.c
         creds-util.h
         def.h
@@ -83,8 +77,6 @@ basic_sources = files('''
         ioprio.h
         khash.c
         khash.h
-        label.c
-        label.h
         limits-util.c
         limits-util.h
         linux/btrfs.h
@@ -155,7 +147,6 @@ basic_sources = files('''
         missing_syscall.h
         missing_timerfd.h
         missing_type.h
-        mkdir-label.c
         mkdir.c
         mkdir.h
         mountpoint-util.c
@@ -198,10 +189,6 @@ basic_sources = files('''
         replace-var.h
         rlimit-util.c
         rlimit-util.h
-        rm-rf.c
-        rm-rf.h
-        selinux-util.c
-        selinux-util.h
         set.h
         sigbus.c
         sigbus.h
@@ -209,9 +196,6 @@ basic_sources = files('''
         signal-util.h
         siphash24.c
         siphash24.h
-        smack-util.c
-        smack-util.h
-        socket-label.c
         socket-util.c
         socket-util.h
         sort-util.c

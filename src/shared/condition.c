@@ -17,6 +17,7 @@
 #include "apparmor-util.h"
 #include "architecture.h"
 #include "audit-util.h"
+#include "blockdev-util.h"
 #include "cap-list.h"
 #include "cgroup-util.h"
 #include "condition.h"
