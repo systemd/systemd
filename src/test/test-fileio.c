@@ -999,6 +999,25 @@ static void test_read_full_file_offset_size(void) {
         assert_se(memcmp(buf, rbuf, rbuf_size) == 0);
         rbuf = mfree(rbuf);
 
+        assert_se(read_full_file_full(AT_FDCWD, fn, UINT64_MAX, 128, READ_FULL_FILE_FAIL_WHEN_LARGER, NULL, &rbuf, &rbuf_size) == -E2BIG);
+        assert_se(read_full_file_full(AT_FDCWD, fn, UINT64_MAX, sizeof(buf)-1, READ_FULL_FILE_FAIL_WHEN_LARGER, NULL, &rbuf, &rbuf_size) == -E2BIG);
+        assert_se(read_full_file_full(AT_FDCWD, fn, UINT64_MAX, sizeof(buf), READ_FULL_FILE_FAIL_WHEN_LARGER, NULL, &rbuf, &rbuf_size) >= 0);
+        assert_se(rbuf_size == sizeof(buf));
+        assert_se(memcmp(buf, rbuf, rbuf_size) == 0);
+        rbuf = mfree(rbuf);
+
+        assert_se(read_full_file_full(AT_FDCWD, fn, 47, 128, READ_FULL_FILE_FAIL_WHEN_LARGER, NULL, &rbuf, &rbuf_size) == -E2BIG);
+        assert_se(read_full_file_full(AT_FDCWD, fn, 47, sizeof(buf)-47-1, READ_FULL_FILE_FAIL_WHEN_LARGER, NULL, &rbuf, &rbuf_size) == -E2BIG);
+        assert_se(read_full_file_full(AT_FDCWD, fn, 47, sizeof(buf)-47, READ_FULL_FILE_FAIL_WHEN_LARGER, NULL, &rbuf, &rbuf_size) >= 0);
+        assert_se(rbuf_size == sizeof(buf)-47);
+        assert_se(memcmp(buf+47, rbuf, rbuf_size) == 0);
+        rbuf = mfree(rbuf);
+
+        assert_se(read_full_file_full(AT_FDCWD, fn, UINT64_MAX, sizeof(buf)+1, READ_FULL_FILE_FAIL_WHEN_LARGER, NULL, &rbuf, &rbuf_size) >= 0);
+        assert_se(rbuf_size == sizeof(buf));
+        assert_se(memcmp(buf, rbuf, rbuf_size) == 0);
+        rbuf = mfree(rbuf);
+
         assert_se(read_full_file_full(AT_FDCWD, fn, 1234, SIZE_MAX, 0, NULL, &rbuf, &rbuf_size) >= 0);
         assert_se(rbuf_size == sizeof(buf) - 1234);
         assert_se(memcmp(buf + 1234, rbuf, rbuf_size) == 0);
