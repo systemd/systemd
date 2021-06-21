@@ -75,6 +75,8 @@ shared_sources = files('''
         coredump-util.h
         cpu-set-util.c
         cpu-set-util.h
+        creds-util.c
+        creds-util.h
         cryptsetup-util.c
         cryptsetup-util.h
         daemon-util.h

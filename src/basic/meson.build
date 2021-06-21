@@ -35,8 +35,6 @@ basic_sources = files('''
         conf-files.h
         copy.c
         copy.h
-        creds-util.c
-        creds-util.h
         def.h
         dirent-util.c
         dirent-util.h
