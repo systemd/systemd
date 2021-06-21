@@ -87,6 +87,8 @@ shared_sources = files('''
         discover-image.h
         dissect-image.c
         dissect-image.h
+        dlfcn-util.c
+        dlfcn-util.h
         dm-util.c
         dm-util.h
         dns-domain.c

@@ -40,8 +40,6 @@ basic_sources = files('''
         def.h
         dirent-util.c
         dirent-util.h
-        dlfcn-util.c
-        dlfcn-util.h
         dns-def.h
         efivars.c
         efivars.h
@@ -394,8 +392,7 @@ libbasic = static_library(
                         libcap,
                         libseccomp,
                         libselinux,
-                        libm,
-                        libdl],
+                        libm],
         c_args : ['-fvisibility=default'],
         install : false)
 
