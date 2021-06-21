@@ -442,6 +442,46 @@ static void test_extract_first_word(void) {
         assert_se(extract_first_word(&p, &t, "=\", ", 0) > 0);
         assert_se(streq(t, "baldo"));
         free(t);
+
+        p = original = "mode=\"1777\",size=\"10%\",nr_inodes=\"400\"k,uid=\"496,,107\"520,gi\"\"'d=49610,'\"\"7520,context=\"sys.id:sys.role:systemd.nspawn.container.fs:s0,s1\"";
+        assert_se(extract_first_word(&p, &t, ",", EXTRACT_KEEP_QUOTE) > 0);
+        assert_se(streq(t, "mode=\"1777\""));
+        free(t);
+        assert_se(extract_first_word(&p, &t, ",", EXTRACT_KEEP_QUOTE) > 0);
+        assert_se(streq(t, "size=\"10%\""));
+        free(t);
+        assert_se(extract_first_word(&p, &t, ",", EXTRACT_KEEP_QUOTE) > 0);
+        assert_se(streq(t, "nr_inodes=\"400\"k"));
+        free(t);
+        assert_se(extract_first_word(&p, &t, ",", EXTRACT_KEEP_QUOTE) > 0);
+        assert_se(streq(t, "uid=\"496,,107\"520"));
+        free(t);
+        assert_se(extract_first_word(&p, &t, ",", EXTRACT_KEEP_QUOTE) > 0);
+        assert_se(streq(t, "gi\"\"'d=49610,'\"\"7520"));
+        free(t);
+        assert_se(extract_first_word(&p, &t, ",", EXTRACT_KEEP_QUOTE) > 0);
+        assert_se(streq(t, "context=\"sys.id:sys.role:systemd.nspawn.container.fs:s0,s1\""));
+        free(t);
+
+        p = original = "mode=\"1777\",size=\"10%\",nr_inodes=\"400\"k,uid=\"496,,107\"520,gi\"\"'d=49610,'\"\"7520,context=\"sys.id:sys.role:systemd.nspawn.container.fs:s0,s1\"";
+        assert_se(extract_first_word(&p, &t, ",", EXTRACT_UNQUOTE) > 0);
+        assert_se(streq(t, "mode=1777"));
+        free(t);
+        assert_se(extract_first_word(&p, &t, ",", EXTRACT_UNQUOTE) > 0);
+        assert_se(streq(t, "size=10%"));
+        free(t);
+        assert_se(extract_first_word(&p, &t, ",", EXTRACT_UNQUOTE) > 0);
+        assert_se(streq(t, "nr_inodes=400k"));
+        free(t);
+        assert_se(extract_first_word(&p, &t, ",", EXTRACT_UNQUOTE) > 0);
+        assert_se(streq(t, "uid=496,,107520"));
+        free(t);
+        assert_se(extract_first_word(&p, &t, ",", EXTRACT_UNQUOTE) > 0);
+        assert_se(streq(t, "gid=49610,7520"));
+        free(t);
+        assert_se(extract_first_word(&p, &t, ",", EXTRACT_UNQUOTE) > 0);
+        assert_se(streq(t, "context=sys.id:sys.role:systemd.nspawn.container.fs:s0,s1"));
+        free(t);
 }
 
 static void test_extract_first_word_and_warn(void) {
