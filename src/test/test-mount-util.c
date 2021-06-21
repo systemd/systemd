@@ -7,6 +7,7 @@
 #include "capability-util.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "missing_mount.h"
 #include "mount-util.h"
 #include "namespace-util.h"
 #include "path-util.h"
@@ -76,6 +77,54 @@ static void test_mount_option_mangle(void) {
         assert_se(f == 0);
         assert_se(streq(opts, "mode=1777,size=10%,nr_inodes=400k,uid=496107520,gid=496107520,context=\"system_u:object_r:svirt_sandbox_file_t:s0:c0,c1\""));
         opts = mfree(opts);
+}
+
+static void test_mount_flags_to_string_one(unsigned long flags, const char *expected) {
+        _cleanup_free_ char *x = NULL;
+        int r;
+
+        r = mount_flags_to_string(flags, &x);
+        log_info("flags: %#lX → %d/\"%s\"", flags, r, strnull(x));
+        assert_se(r >= 0);
+        assert_se(streq(x, expected));
+}
+
+static void test_mount_flags_to_string(void) {
+        log_info("/* %s */", __func__);
+
+        test_mount_flags_to_string_one(0, "0");
+        test_mount_flags_to_string_one(MS_RDONLY, "MS_RDONLY");
+        test_mount_flags_to_string_one(MS_NOSUID, "MS_NOSUID");
+        test_mount_flags_to_string_one(MS_NODEV, "MS_NODEV");
+        test_mount_flags_to_string_one(MS_NOEXEC, "MS_NOEXEC");
+        test_mount_flags_to_string_one(MS_SYNCHRONOUS, "MS_SYNCHRONOUS");
+        test_mount_flags_to_string_one(MS_REMOUNT, "MS_REMOUNT");
+        test_mount_flags_to_string_one(MS_MANDLOCK, "MS_MANDLOCK");
+        test_mount_flags_to_string_one(MS_DIRSYNC, "MS_DIRSYNC");
+        test_mount_flags_to_string_one(MS_NOSYMFOLLOW, "MS_NOSYMFOLLOW");
+        test_mount_flags_to_string_one(MS_NOATIME, "MS_NOATIME");
+        test_mount_flags_to_string_one(MS_NODIRATIME, "MS_NODIRATIME");
+        test_mount_flags_to_string_one(MS_BIND, "MS_BIND");
+        test_mount_flags_to_string_one(MS_MOVE, "MS_MOVE");
+        test_mount_flags_to_string_one(MS_REC, "MS_REC");
+        test_mount_flags_to_string_one(MS_SILENT, "MS_SILENT");
+        test_mount_flags_to_string_one(MS_POSIXACL, "MS_POSIXACL");
+        test_mount_flags_to_string_one(MS_UNBINDABLE, "MS_UNBINDABLE");
+        test_mount_flags_to_string_one(MS_PRIVATE, "MS_PRIVATE");
+        test_mount_flags_to_string_one(MS_SLAVE, "MS_SLAVE");
+        test_mount_flags_to_string_one(MS_SHARED, "MS_SHARED");
+        test_mount_flags_to_string_one(MS_RELATIME, "MS_RELATIME");
+        test_mount_flags_to_string_one(MS_KERNMOUNT, "MS_KERNMOUNT");
+        test_mount_flags_to_string_one(MS_I_VERSION, "MS_I_VERSION");
+        test_mount_flags_to_string_one(MS_STRICTATIME, "MS_STRICTATIME");
+        test_mount_flags_to_string_one(MS_LAZYTIME, "MS_LAZYTIME");
+        test_mount_flags_to_string_one(MS_LAZYTIME|MS_STRICTATIME, "MS_STRICTATIME|MS_LAZYTIME");
+        test_mount_flags_to_string_one(UINT_MAX,
+                                       "MS_RDONLY|MS_NOSUID|MS_NODEV|MS_NOEXEC|MS_SYNCHRONOUS|MS_REMOUNT|"
+                                       "MS_MANDLOCK|MS_DIRSYNC|MS_NOSYMFOLLOW|MS_NOATIME|MS_NODIRATIME|"
+                                       "MS_BIND|MS_MOVE|MS_REC|MS_SILENT|MS_POSIXACL|MS_UNBINDABLE|"
+                                       "MS_PRIVATE|MS_SLAVE|MS_SHARED|MS_RELATIME|MS_KERNMOUNT|"
+                                       "MS_I_VERSION|MS_STRICTATIME|MS_LAZYTIME|fc000200");
 }
 
 static void test_bind_remount_recursive(void) {
@@ -172,6 +221,7 @@ int main(int argc, char *argv[]) {
         test_setup_logging(LOG_DEBUG);
 
         test_mount_option_mangle();
+        test_mount_flags_to_string();
         test_bind_remount_recursive();
         test_bind_remount_one();
 
