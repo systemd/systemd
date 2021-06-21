@@ -104,6 +104,7 @@ typedef struct Link {
 
         Set *addresses;
         Set *addresses_foreign;
+        Set *addresses_ipv4acd;
         Set *pool_addresses;
         Set *static_addresses;
         Set *neighbors;
@@ -119,11 +120,9 @@ typedef struct Link {
         Set *dhcp_routes, *dhcp_routes_old;
         char *lease_file;
         unsigned dhcp4_messages;
-        sd_ipv4acd *dhcp_acd;
         bool dhcp4_route_failed:1;
         bool dhcp4_route_retrying:1;
         bool dhcp4_configured:1;
-        bool dhcp4_address_bind:1;
 
         sd_ipv4ll *ipv4ll;
         bool ipv4ll_address_configured:1;
