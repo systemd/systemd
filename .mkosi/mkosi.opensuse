@@ -36,7 +36,7 @@ BuildPackages=
         pcre-devel
         python3
         python3-lxml
-        python3-jinja2
+        python3-Jinja2
         qrencode-devel
         system-user-nobody
         systemd-sysvinit
@@ -60,6 +60,7 @@ Packages=
         libapparmor1
         libcrypt1
         libcryptsetup12
+        libgcrypt20
         libkmod2
         liblz4-1
         libmount1
