@@ -33,6 +33,7 @@
 #include "networkd-dhcp-server.h"
 #include "networkd-dhcp4.h"
 #include "networkd-dhcp6.h"
+#include "networkd-ipv4acd.h"
 #include "networkd-ipv4ll.h"
 #include "networkd-ipv6-proxy-ndp.h"
 #include "networkd-link-bus.h"
@@ -204,7 +205,6 @@ static void link_free_engines(Link *link) {
         link->dhcp_server = sd_dhcp_server_unref(link->dhcp_server);
         link->dhcp_client = sd_dhcp_client_unref(link->dhcp_client);
         link->dhcp_lease = sd_dhcp_lease_unref(link->dhcp_lease);
-        link->dhcp_acd = sd_ipv4acd_unref(link->dhcp_acd);
 
         link->lldp = sd_lldp_unref(link->lldp);
         link_lldp_emit_stop(link);
@@ -216,8 +216,6 @@ static void link_free_engines(Link *link) {
         link->dhcp6_lease = sd_dhcp6_lease_unref(link->dhcp6_lease);
         link->ndisc = sd_ndisc_unref(link->ndisc);
         link->radv = sd_radv_unref(link->radv);
-
-        ipv4_dad_unref(link);
 }
 
 static Link *link_free(Link *link) {
@@ -244,6 +242,7 @@ static Link *link_free(Link *link) {
 
         link->addresses = set_free(link->addresses);
         link->addresses_foreign = set_free(link->addresses_foreign);
+        link->addresses_ipv4acd = set_free(link->addresses_ipv4acd);
         link->pool_addresses = set_free(link->pool_addresses);
         link->static_addresses = set_free(link->static_addresses);
         link->dhcp6_addresses = set_free(link->dhcp6_addresses);
@@ -361,6 +360,7 @@ int link_stop_engines(Link *link, bool may_keep_dhcp) {
 
         bool keep_dhcp = may_keep_dhcp &&
                          link->network &&
+                         !link->network->dhcp_send_decline && /* IPv4 ACD for the DHCPv4 address is running. */
                          (link->manager->restarting ||
                           FLAGS_SET(link->network->keep_configuration, KEEP_CONFIGURATION_DHCP_ON_STOP));
 
@@ -369,10 +369,6 @@ int link_stop_engines(Link *link, bool may_keep_dhcp) {
                 if (k < 0)
                         r = log_link_warning_errno(link, k, "Could not stop DHCPv4 client: %m");
         }
-
-        k = sd_ipv4acd_stop(link->dhcp_acd);
-        if (k < 0)
-                r = log_link_warning_errno(link, k, "Could not stop IPv4 ACD client for DHCPv4: %m");
 
         k = sd_dhcp_server_stop(link->dhcp_server);
         if (k < 0)
@@ -386,7 +382,7 @@ int link_stop_engines(Link *link, bool may_keep_dhcp) {
         if (k < 0)
                 r = log_link_warning_errno(link, k, "Could not stop IPv4 link-local: %m");
 
-        k = ipv4_dad_stop(link);
+        k = ipv4acd_stop(link);
         if (k < 0)
                 r = log_link_warning_errno(link, k, "Could not stop IPv4 ACD client: %m");
 
@@ -667,6 +663,10 @@ static int link_acquire_dynamic_ipv4_conf(Link *link) {
                 if (r < 0)
                         return log_link_warning_errno(link, r, "Could not start DHCP server: %m");
         }
+
+        r = ipv4acd_start(link);
+        if (r < 0)
+                return log_link_warning_errno(link, r, "Could not start IPv4 ACD client: %m");
 
         return 0;
 }
@@ -2039,6 +2039,10 @@ static int link_update_hardware_address(Link *link, sd_netlink_message *message)
 
         r = ipv4ll_update_mac(link);
         if (r < 0)
+                return log_link_debug_errno(link, r, "Could not update MAC address in IPv4 ACD client: %m");
+
+        r = ipv4ll_update_mac(link);
+        if (r < 0)
                 return log_link_debug_errno(link, r, "Could not update MAC address in IPv4LL client: %m");
 
         r = dhcp4_update_mac(link);
@@ -2064,10 +2068,6 @@ static int link_update_hardware_address(Link *link, sd_netlink_message *message)
                 if (r < 0)
                         return log_link_debug_errno(link, r, "Could not update MAC address for LLDP: %m");
         }
-
-        r = ipv4_dad_update_mac(link);
-        if (r < 0)
-                return log_link_debug_errno(link, r, "Could not update MAC address in IPv4 ACD client: %m");
 
         return 0;
 }
