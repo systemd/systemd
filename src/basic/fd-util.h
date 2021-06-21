@@ -65,6 +65,7 @@ void cmsg_close_all(struct msghdr *mh);
 bool fdname_is_valid(const char *s);
 
 int fd_get_path(int fd, char **ret);
+int fd_is_on_btrfs(int fd);
 
 int move_fd(int from, int to, int cloexec);
 
@@ -107,5 +108,5 @@ static inline int make_null_stdio(void) {
 
 
 int fd_reopen(int fd, int flags);
-
 int read_nr_open(void);
+int btrfs_defrag_fd(int fd);
