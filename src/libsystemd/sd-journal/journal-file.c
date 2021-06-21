@@ -3,6 +3,7 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <linux/fs.h>
+#include <linux/magic.h>
 #include <pthread.h>
 #include <stddef.h>
 #include <sys/mman.h>
@@ -13,7 +14,6 @@
 #include "sd-event.h"
 
 #include "alloc-util.h"
-#include "btrfs-util.h"
 #include "chattr-util.h"
 #include "compress.h"
 #include "env-util.h"
@@ -3379,7 +3379,7 @@ static int journal_file_warn_btrfs(JournalFile *f) {
          * expense of data integrity features (which shouldn't be too
          * bad, given that we do our own checksumming). */
 
-        r = btrfs_is_filesystem(f->fd);
+        r = fd_is_fs_type(f->fd, BTRFS_SUPER_MAGIC);
         if (r < 0)
                 return log_warning_errno(r, "Failed to determine if journal is on btrfs: %m");
         if (!r)
