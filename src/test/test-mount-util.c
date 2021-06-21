@@ -21,6 +21,8 @@ static void test_mount_option_mangle(void) {
         char *opts = NULL;
         unsigned long f;
 
+        log_info("/* %s */", __func__);
+
         assert_se(mount_option_mangle(NULL, MS_RDONLY|MS_NOSUID, &f, &opts) == 0);
         assert_se(f == (MS_RDONLY|MS_NOSUID));
         assert_se(opts == NULL);
@@ -81,6 +83,8 @@ static void test_bind_remount_recursive(void) {
         _cleanup_free_ char *subdir = NULL;
         const char *p;
 
+        log_info("/* %s */", __func__);
+
         if (geteuid() != 0 || have_effective_cap(CAP_SYS_ADMIN) <= 0) {
                 (void) log_tests_skipped("not running privileged");
                 return;
@@ -133,6 +137,8 @@ static void test_bind_remount_recursive(void) {
 
 static void test_bind_remount_one(void) {
         pid_t pid;
+
+        log_info("/* %s */", __func__);
 
         if (geteuid() != 0 || have_effective_cap(CAP_SYS_ADMIN) <= 0) {
                 (void) log_tests_skipped("not running privileged");
