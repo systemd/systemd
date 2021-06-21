@@ -78,8 +78,7 @@ done
 
 # Wait for remaining running tasks
 for key in "${!running[@]}"; do
-    wait ${running[$key]}
-    ec=$?
+    wait ${running[$key]} && ec=0 || ec=$?
     report_result "$key" $ec
     unset running["$key"]
 done
