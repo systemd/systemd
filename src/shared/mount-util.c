@@ -17,6 +17,7 @@
 #include "fs-util.h"
 #include "hashmap.h"
 #include "libmount-util.h"
+#include "missing_mount.h"
 #include "missing_syscall.h"
 #include "mkdir.h"
 #include "mount-util.h"
@@ -530,71 +531,52 @@ int mode_to_inaccessible_node(
         return 0;
 }
 
-#define FLAG(name) (flags & name ? STRINGIFY(name) "|" : "")
-static char* mount_flags_to_string(long unsigned flags) {
-        char *x;
-        _cleanup_free_ char *y = NULL;
-        long unsigned overflow;
+static int mount_flags_to_string(long unsigned flags, char **ret) {
+        static const struct {
+                long unsigned flag;
+                const char *name;
+        } map[] = {
+                { .flag = MS_RDONLY,      .name = "MS_RDONLY",      },
+                { .flag = MS_NOSUID,      .name = "MS_NOSUID",      },
+                { .flag = MS_NODEV,       .name = "MS_NODEV",       },
+                { .flag = MS_NOEXEC,      .name = "MS_NOEXEC",      },
+                { .flag = MS_SYNCHRONOUS, .name = "MS_SYNCHRONOUS", },
+                { .flag = MS_REMOUNT,     .name = "MS_REMOUNT",     },
+                { .flag = MS_MANDLOCK,    .name = "MS_MANDLOCK",    },
+                { .flag = MS_DIRSYNC,     .name = "MS_DIRSYNC",     },
+                { .flag = MS_NOSYMFOLLOW, .name = "MS_NOSYMFOLLOW", },
+                { .flag = MS_NOATIME,     .name = "MS_NOATIME",     },
+                { .flag = MS_NODIRATIME,  .name = "MS_NODIRATIME",  },
+                { .flag = MS_BIND,        .name = "MS_BIND",        },
+                { .flag = MS_MOVE,        .name = "MS_MOVE",        },
+                { .flag = MS_REC,         .name = "MS_REC",         },
+                { .flag = MS_SILENT,      .name = "MS_SILENT",      },
+                { .flag = MS_POSIXACL,    .name = "MS_POSIXACL",    },
+                { .flag = MS_UNBINDABLE,  .name = "MS_UNBINDABLE",  },
+                { .flag = MS_PRIVATE,     .name = "MS_PRIVATE",     },
+                { .flag = MS_SLAVE,       .name = "MS_SLAVE",       },
+                { .flag = MS_SHARED,      .name = "MS_SHARED",      },
+                { .flag = MS_RELATIME,    .name = "MS_RELATIME",    },
+                { .flag = MS_KERNMOUNT,   .name = "MS_KERNMOUNT",   },
+                { .flag = MS_I_VERSION,   .name = "MS_I_VERSION",   },
+                { .flag = MS_STRICTATIME, .name = "MS_STRICTATIME", },
+                { .flag = MS_LAZYTIME,    .name = "MS_LAZYTIME",    },
+        };
+        _cleanup_free_ char *str = NULL;
 
-        overflow = flags & ~(MS_RDONLY |
-                             MS_NOSUID |
-                             MS_NODEV |
-                             MS_NOEXEC |
-                             MS_SYNCHRONOUS |
-                             MS_REMOUNT |
-                             MS_MANDLOCK |
-                             MS_DIRSYNC |
-                             MS_NOATIME |
-                             MS_NODIRATIME |
-                             MS_BIND |
-                             MS_MOVE |
-                             MS_REC |
-                             MS_SILENT |
-                             MS_POSIXACL |
-                             MS_UNBINDABLE |
-                             MS_PRIVATE |
-                             MS_SLAVE |
-                             MS_SHARED |
-                             MS_RELATIME |
-                             MS_KERNMOUNT |
-                             MS_I_VERSION |
-                             MS_STRICTATIME |
-                             MS_LAZYTIME);
+        for (size_t i = 0; i < ELEMENTSOF(map); i++)
+                if (flags & map[i].flag) {
+                        if (!strextend_with_separator(&str, "|", map[i].name))
+                                return -ENOMEM;
+                        flags &= ~map[i].flag;
+                }
 
-        if (flags == 0 || overflow != 0)
-                if (asprintf(&y, "%lx", overflow) < 0)
-                        return NULL;
+        if (!str || flags != 0)
+                if (strextendf_with_separator(&str, "|", "%lx", flags) < 0)
+                        return -ENOMEM;
 
-        x = strjoin(FLAG(MS_RDONLY),
-                    FLAG(MS_NOSUID),
-                    FLAG(MS_NODEV),
-                    FLAG(MS_NOEXEC),
-                    FLAG(MS_SYNCHRONOUS),
-                    FLAG(MS_REMOUNT),
-                    FLAG(MS_MANDLOCK),
-                    FLAG(MS_DIRSYNC),
-                    FLAG(MS_NOATIME),
-                    FLAG(MS_NODIRATIME),
-                    FLAG(MS_BIND),
-                    FLAG(MS_MOVE),
-                    FLAG(MS_REC),
-                    FLAG(MS_SILENT),
-                    FLAG(MS_POSIXACL),
-                    FLAG(MS_UNBINDABLE),
-                    FLAG(MS_PRIVATE),
-                    FLAG(MS_SLAVE),
-                    FLAG(MS_SHARED),
-                    FLAG(MS_RELATIME),
-                    FLAG(MS_KERNMOUNT),
-                    FLAG(MS_I_VERSION),
-                    FLAG(MS_STRICTATIME),
-                    FLAG(MS_LAZYTIME),
-                    y);
-        if (!x)
-                return NULL;
-        if (!y)
-                x[strlen(x) - 1] = '\0'; /* truncate the last | */
-        return x;
+        *ret = TAKE_PTR(str);
+        return 0;
 }
 
 int mount_verbose_full(
@@ -616,7 +598,7 @@ int mount_verbose_full(
                                       "Failed to mangle mount options %s: %m",
                                       strempty(options));
 
-        fl = mount_flags_to_string(f);
+        (void) mount_flags_to_string(f, &fl);
 
         if ((f & MS_REMOUNT) && !what && !type)
                 log_debug("Remounting %s (%s \"%s\")...",
