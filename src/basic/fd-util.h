@@ -76,10 +76,6 @@ enum {
         ACQUIRE_NO_REGULAR  = 1 << 4,
 };
 
-int acquire_data_fd(const void *data, size_t size, unsigned flags);
-
-int fd_duplicate_data_fd(int fd);
-
 int fd_move_above_stdio(int fd);
 
 int rearrange_stdio(int original_input_fd, int original_output_fd, int original_error_fd);

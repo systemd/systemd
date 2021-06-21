@@ -159,6 +159,8 @@ tests += [
 
         [['src/test/test-copy.c']],
 
+        [['src/test/test-data-fd-util.c']],
+
         [['src/test/test-static-destruct.c']],
 
         [['src/test/test-sigbus.c']],
