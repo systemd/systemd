@@ -7,7 +7,9 @@
 #include "capability-util.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "fs-util.h"
 #include "missing_mount.h"
+#include "mkdir.h"
 #include "mount-util.h"
 #include "namespace-util.h"
 #include "path-util.h"
@@ -217,6 +219,52 @@ static void test_bind_remount_one(void) {
         assert_se(wait_for_terminate_and_check("test-remount-one", pid, WAIT_LOG) == EXIT_SUCCESS);
 }
 
+static void test_make_mount_point_inode(void) {
+        _cleanup_(rm_rf_physical_and_freep) char *d = NULL;
+        const char *src_file, *src_dir, *dst_file, *dst_dir;
+        struct stat st;
+
+        log_info("/* %s */", __func__);
+
+        assert_se(mkdtemp_malloc(NULL, &d) >= 0);
+
+        src_file = strjoina(d, "/src/file");
+        src_dir = strjoina(d, "/src/dir");
+        dst_file = strjoina(d, "/dst/file");
+        dst_dir = strjoina(d, "/dst/dir");
+
+        assert_se(mkdir_p(src_dir, 0755) >= 0);
+        assert_se(mkdir_parents(dst_file, 0755) >= 0);
+        assert_se(touch(src_file) >= 0);
+
+        assert_se(make_mount_point_inode_from_path(src_file, dst_file, 0755) >= 0);
+        assert_se(make_mount_point_inode_from_path(src_dir, dst_dir, 0755) >= 0);
+
+        assert_se(stat(dst_dir, &st) == 0);
+        assert_se(S_ISDIR(st.st_mode));
+        assert_se(stat(dst_file, &st) == 0);
+        assert_se(S_ISREG(st.st_mode));
+        assert_se(!(S_IXUSR & st.st_mode));
+        assert_se(!(S_IXGRP & st.st_mode));
+        assert_se(!(S_IXOTH & st.st_mode));
+
+        assert_se(unlink(dst_file) == 0);
+        assert_se(rmdir(dst_dir) == 0);
+
+        assert_se(stat(src_file, &st) == 0);
+        assert_se(make_mount_point_inode_from_stat(&st, dst_file, 0755) >= 0);
+        assert_se(stat(src_dir, &st) == 0);
+        assert_se(make_mount_point_inode_from_stat(&st, dst_dir, 0755) >= 0);
+
+        assert_se(stat(dst_dir, &st) == 0);
+        assert_se(S_ISDIR(st.st_mode));
+        assert_se(stat(dst_file, &st) == 0);
+        assert_se(S_ISREG(st.st_mode));
+        assert_se(!(S_IXUSR & st.st_mode));
+        assert_se(!(S_IXGRP & st.st_mode));
+        assert_se(!(S_IXOTH & st.st_mode));
+}
+
 int main(int argc, char *argv[]) {
         test_setup_logging(LOG_DEBUG);
 
@@ -224,6 +272,7 @@ int main(int argc, char *argv[]) {
         test_mount_flags_to_string();
         test_bind_remount_recursive();
         test_bind_remount_one();
+        test_make_mount_point_inode();
 
         return 0;
 }
