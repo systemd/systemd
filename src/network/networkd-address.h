@@ -41,12 +41,13 @@ typedef struct Address {
 
         bool scope_set:1;
         bool ip_masquerade_done:1;
+        bool is_static:1; /* currently only used by IPv4ACD */
+        bool acd_announced:1;
         AddressFamily duplicate_address_detection;
+        sd_ipv4acd *acd;
 
         /* Called when address become ready */
         address_ready_callback_t callback;
-
-        sd_ipv4acd *acd;
 } Address;
 
 int address_new(Address **ret);
@@ -70,10 +71,6 @@ bool link_address_is_dynamic(const Link *link, const Address *address);
 int link_get_ipv6_address(Link *link, const struct in6_addr *address, Address **ret);
 int link_get_ipv4_address(Link *link, const struct in_addr *address, unsigned char prefixlen, Address **ret);
 int manager_has_address(Manager *manager, int family, const union in_addr_union *address, bool check_ready);
-
-void ipv4_dad_unref(Link *link);
-int ipv4_dad_stop(Link *link);
-int ipv4_dad_update_mac(Link *link);
 
 int link_request_address(
                 Link *link,
