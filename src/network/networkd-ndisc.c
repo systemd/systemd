@@ -505,7 +505,7 @@ static int ndisc_request_address(Address *in, Link *link, sd_ndisc_router *rt) {
         if (address_get(link, address, NULL) < 0)
                 link->ndisc_addresses_configured = false;
 
-        r = link_request_address(link, TAKE_PTR(address), true, &link->ndisc_addresses_messages,
+        r = link_request_address(link, TAKE_PTR(address), true, false, &link->ndisc_addresses_messages,
                                  ndisc_address_handler, &req);
         if (r <= 0)
                 return r;

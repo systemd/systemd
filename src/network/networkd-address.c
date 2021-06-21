@@ -9,6 +9,7 @@
 #include "netlink-util.h"
 #include "networkd-address-pool.h"
 #include "networkd-address.h"
+#include "networkd-ipv4acd.h"
 #include "networkd-manager.h"
 #include "networkd-network.h"
 #include "networkd-queue.h"
@@ -152,6 +153,7 @@ Address *address_free(Address *address) {
 
                 set_remove(address->link->addresses, address);
                 set_remove(address->link->addresses_foreign, address);
+                set_remove(address->link->addresses_ipv4acd, address);
                 set_remove(address->link->static_addresses, address);
                 if (address->link->dhcp_address == address)
                         address->link->dhcp_address = NULL;
@@ -994,8 +996,6 @@ int address_configure_handler_internal(sd_netlink *rtnl, sd_netlink_message *m, 
         return 1;
 }
 
-static int ipv4_dad_configure(Address *address);
-
 static int address_configure(
                 const Address *address,
                 Link *link,
@@ -1082,12 +1082,6 @@ static int address_configure(
 
         link_ref(link);
 
-        if (FLAGS_SET(address->duplicate_address_detection, ADDRESS_FAMILY_IPV4)) {
-                r = ipv4_dad_configure(a);
-                if (r < 0)
-                        log_link_warning_errno(link, r, "Failed to start IPv4ACD client, ignoring: %m");
-        }
-
         if (ret)
                 *ret = a;
 
@@ -1138,6 +1132,7 @@ int link_request_address(
                 Link *link,
                 Address *address,
                 bool consume_object,
+                bool is_static,
                 unsigned *message_counter,
                 link_netlink_message_handler_t netlink_handler,
                 Request **ret) {
@@ -1162,7 +1157,20 @@ int link_request_address(
                 if (r < 0)
                         return r;
         }
-        consume_object = true;
+
+        if (a->family == AF_INET &&
+            a->duplicate_address_detection & ADDRESS_FAMILY_IPV4 &&
+            link->hw_addr.length == ETH_ALEN &&
+            !ether_addr_is_null(&link->hw_addr.ether) &&
+            address_get(link, a, NULL) < 0) {
+
+                r = ipv4acd_configure(link, a, is_static);
+                if (r < 0)
+                        return r;
+
+                consume_object = false; /* The object is already managed by Link. */
+        } else
+                consume_object = true;
 
         log_address_debug(a, "Requesting", link);
         return link_queue_request(link, REQUEST_TYPE_ADDRESS, TAKE_PTR(a), consume_object,
@@ -1176,7 +1184,8 @@ int link_request_static_address(Link *link, Address *address, bool consume) {
         assert(link);
         assert(address);
 
-        r = link_request_address(link, address, consume, &link->static_address_messages,
+        r = link_request_address(link, address, consume, /* is_static = */ true,
+                                 &link->static_address_messages,
                                  static_address_handler, &req);
         if (r < 0)
                 return r;
@@ -1259,6 +1268,34 @@ int link_request_static_addresses(Link *link) {
         return 0;
 }
 
+static int address_is_ready_to_configure(Link *link, Address *address) {
+        int r;
+
+        if (!link_is_ready_to_configure(link, false))
+                return false;
+
+        if (link->address_remove_messages > 0)
+                return false;
+
+        if (address->acd) {
+                if (!address->acd_announced)
+                        return false;
+
+                if (address_get(link, address, NULL) >= 0)
+                        return -EEXIST;
+
+                r = set_ensure_put(&link->addresses, &address_hash_ops, address);
+                if (r < 0)
+                        return r;
+                assert(r > 0);
+
+                /* Consider address tentative until we get the real flags from the kernel */
+                address->flags |= IFA_F_TENTATIVE;
+        }
+
+        return true;
+}
+
 int request_process_address(Request *req) {
         Address *ret = NULL;  /* avoid false maybe-uninitialized warning */
         int r;
@@ -1268,11 +1305,9 @@ int request_process_address(Request *req) {
         assert(req->address);
         assert(req->type == REQUEST_TYPE_ADDRESS);
 
-        if (!link_is_ready_to_configure(req->link, false))
-                return 0;
-
-        if (req->link->address_remove_messages > 0)
-                return 0;
+        r = address_is_ready_to_configure(req->link, req->address);
+        if (r <= 0)
+                return r;
 
         r = address_configure(req->address, req->link, req->netlink_handler, &ret);
         if (r < 0)
@@ -1468,157 +1503,6 @@ int manager_rtnl_process_address(sd_netlink *rtnl, sd_netlink_message *message, 
         }
 
         return 1;
-}
-
-static void static_address_on_acd(sd_ipv4acd *acd, int event, void *userdata) {
-        Address *address;
-        Link *link;
-        int r;
-
-        assert(acd);
-        assert(userdata);
-
-        address = (Address *) userdata;
-        link = address->link;
-
-        assert(address->family == AF_INET);
-
-        switch (event) {
-        case SD_IPV4ACD_EVENT_STOP:
-                log_link_debug(link, "Stopping ACD client...");
-                return;
-
-        case SD_IPV4ACD_EVENT_BIND:
-                log_link_debug(link, "Successfully claimed address "IPV4_ADDRESS_FMT_STR,
-                               IPV4_ADDRESS_FMT_VAL(address->in_addr.in));
-                link_check_ready(link);
-                break;
-
-        case SD_IPV4ACD_EVENT_CONFLICT:
-                log_link_warning(link, "DAD conflict. Dropping address "IPV4_ADDRESS_FMT_STR,
-                                 IPV4_ADDRESS_FMT_VAL(address->in_addr.in));
-                r = address_remove(address, link);
-                if (r < 0)
-                        log_link_error_errno(link, r, "Failed to drop DAD conflicted address "IPV4_ADDRESS_FMT_STR,
-                                             IPV4_ADDRESS_FMT_VAL(address->in_addr.in));
-
-                link_check_ready(link);
-                break;
-
-        default:
-                assert_not_reached("Invalid IPv4ACD event.");
-        }
-
-        (void) sd_ipv4acd_stop(acd);
-
-        return;
-}
-
-static int ipv4_dad_configure(Address *address) {
-        int r;
-
-        assert(address);
-        assert(address->link);
-
-        if (address->family != AF_INET)
-                return 0;
-
-        log_address_debug(address, "Starting IPv4ACD client. Probing", address->link);
-
-        if (!address->acd) {
-                r = sd_ipv4acd_new(&address->acd);
-                if (r < 0)
-                        return r;
-
-                r = sd_ipv4acd_attach_event(address->acd, address->link->manager->event, 0);
-                if (r < 0)
-                        return r;
-        }
-
-        r = sd_ipv4acd_set_ifindex(address->acd, address->link->ifindex);
-        if (r < 0)
-                return r;
-
-        r = sd_ipv4acd_set_mac(address->acd, &address->link->hw_addr.ether);
-        if (r < 0)
-                return r;
-
-        r = sd_ipv4acd_set_address(address->acd, &address->in_addr.in);
-        if (r < 0)
-                return r;
-
-        r = sd_ipv4acd_set_callback(address->acd, static_address_on_acd, address);
-        if (r < 0)
-                return r;
-
-        return sd_ipv4acd_start(address->acd, true);
-}
-
-static int ipv4_dad_update_mac_one(Address *address) {
-        bool running;
-        int r;
-
-        assert(address);
-
-        if (!address->acd)
-                return 0;
-
-        running = sd_ipv4acd_is_running(address->acd);
-
-        r = sd_ipv4acd_stop(address->acd);
-        if (r < 0)
-                return r;
-
-        r = sd_ipv4acd_set_mac(address->acd, &address->link->hw_addr.ether);
-        if (r < 0)
-                return r;
-
-        if (running) {
-                r = sd_ipv4acd_start(address->acd, true);
-                if (r < 0)
-                        return r;
-        }
-
-        return 0;
-}
-
-int ipv4_dad_update_mac(Link *link) {
-        Address *address;
-        int k, r = 0;
-
-        assert(link);
-
-        SET_FOREACH(address, link->addresses) {
-                k = ipv4_dad_update_mac_one(address);
-                if (k < 0 && r >= 0)
-                        r = k;
-        }
-
-        return r;
-}
-
-int ipv4_dad_stop(Link *link) {
-        Address *address;
-        int k, r = 0;
-
-        assert(link);
-
-        SET_FOREACH(address, link->addresses) {
-                k = sd_ipv4acd_stop(address->acd);
-                if (k < 0 && r >= 0)
-                        r = k;
-        }
-
-        return r;
-}
-
-void ipv4_dad_unref(Link *link) {
-        Address *address;
-
-        assert(link);
-
-        SET_FOREACH(address, link->addresses)
-                address->acd = sd_ipv4acd_unref(address->acd);
 }
 
 int config_parse_broadcast(
