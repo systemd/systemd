@@ -301,11 +301,16 @@ bool address_equal(const Address *a1, const Address *a2) {
         return address_compare_func(a1, a2) == 0;
 }
 
-static int address_copy(Address *dest, const Address *src) {
+static int address_dup(const Address *src, Address **ret) {
+        _cleanup_(address_freep) Address *dest = NULL;
         int r;
 
-        assert(dest);
         assert(src);
+        assert(ret);
+
+        r = address_new(&dest);
+        if (r < 0)
+                return r;
 
         if (src->family == AF_INET) {
                 r = free_and_strdup(&dest->label, src->label);
@@ -324,6 +329,7 @@ static int address_copy(Address *dest, const Address *src) {
                 dest->broadcast = src->broadcast;
         dest->duplicate_address_detection = src->duplicate_address_detection;
 
+        *ret = TAKE_PTR(dest);
         return 0;
 }
 
@@ -373,11 +379,7 @@ static int address_add_internal(Link *link, Set **addresses, const Address *in, 
         assert(addresses);
         assert(in);
 
-        r = address_new(&address);
-        if (r < 0)
-                return r;
-
-        r = address_copy(address, in);
+        r = address_dup(in, &address);
         if (r < 0)
                 return r;
 
@@ -955,11 +957,7 @@ static int address_acquire(Link *link, const Address *original, Address **ret) {
         else if (original->family == AF_INET6)
                 in_addr.in6.s6_addr[15] |= 1;
 
-        r = address_new(&na);
-        if (r < 0)
-                return r;
-
-        r = address_copy(na, original);
+        r = address_dup(original, &na);
         if (r < 0)
                 return r;
 
