@@ -531,6 +531,15 @@ _443._tcp.fedoraproject.org IN TLSA 0 0 1 19400be5b7a31fb733917700789d2f0a2471c0
         -- Matching type: SHA-256
 </programlisting>
     </example>
+
+    <example>
+      <title>Resolve local services</title>
+
+      <programlisting>$ resolvectl --type=PTR _googlecast._tcp.local
+                      $ resolvectl --type=SRV somenamefromprevious._googlecast._tcp.local
+                      $ resolvectl --type=A hostnamefromprevious.local
+      </programlisting>
+    </example>
   </refsect1>
 
   <refsect1>
