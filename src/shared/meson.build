@@ -17,6 +17,8 @@ shared_sources = files('''
         bitmap.c
         bitmap.h
         blkid-util.h
+        blockdev-util.c
+        blockdev-util.h
         bond-util.c
         bond-util.h
         boot-timestamps.c
@@ -29,6 +31,8 @@ shared_sources = files('''
         bpf-program.h
         bridge-util.c
         bridge-util.h
+        btrfs-util.c
+        btrfs-util.h
         bus-get-properties.c
         bus-get-properties.h
         bus-locator.c
@@ -71,6 +75,8 @@ shared_sources = files('''
         condition.h
         conf-parser.c
         conf-parser.h
+        copy.c
+        copy.h
         coredump-util.c
         coredump-util.h
         cpu-set-util.c
@@ -78,6 +84,8 @@ shared_sources = files('''
         cryptsetup-util.c
         cryptsetup-util.h
         daemon-util.h
+        data-fd-util.c
+        data-fd-util.h
         dev-setup.c
         dev-setup.h
         device-nodes.c
@@ -161,6 +169,8 @@ shared_sources = files('''
         kbd-util.h
         killall.c
         killall.h
+        label.c
+        label.h
         libcrypt-util.c
         libcrypt-util.h
         libfido2-util.c
@@ -190,6 +200,7 @@ shared_sources = files('''
         macvlan-util.c
         macvlan-util.h
         main-func.h
+        mkdir-label.c
         mkfs-util.c
         mkfs-util.h
         module-util.h
@@ -235,15 +246,22 @@ shared_sources = files('''
         resize-fs.h
         resolve-util.c
         resolve-util.h
+        rm-rf.c
+        rm-rf.h
         seccomp-util.h
         securebits-util.c
         securebits-util.h
+        selinux-util.c
+        selinux-util.h
         serialize.c
         serialize.h
         service-util.c
         service-util.h
         sleep-config.c
         sleep-config.h
+        smack-util.c
+        smack-util.h
+        socket-label.c
         socket-netlink.c
         socket-netlink.h
         spawn-ask-password-agent.c
