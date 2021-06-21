@@ -1046,12 +1046,12 @@ static int bus_append_execute_property(sd_bus_message *m, const char *field, con
                 return 1;
         }
 
-        if (streq(field, "SetCredential")) {
+        if (STR_IN_SET(field, "SetCredential", "SetCredentialEncrypted")) {
                 r = sd_bus_message_open_container(m, 'r', "sv");
                 if (r < 0)
                         return bus_log_create_error(r);
 
-                r = sd_bus_message_append_basic(m, 's', "SetCredential");
+                r = sd_bus_message_append_basic(m, 's', field);
                 if (r < 0)
                         return bus_log_create_error(r);
 
@@ -1062,21 +1062,16 @@ static int bus_append_execute_property(sd_bus_message *m, const char *field, con
                 if (isempty(eq))
                         r = sd_bus_message_append(m, "a(say)", 0);
                 else {
-                        _cleanup_free_ char *word = NULL, *unescaped = NULL;
+                        _cleanup_free_ char *word = NULL;
                         const char *p = eq;
-                        int l;
 
                         r = extract_first_word(&p, &word, ":", EXTRACT_DONT_COALESCE_SEPARATORS);
                         if (r == -ENOMEM)
                                 return log_oom();
                         if (r < 0)
-                                return log_error_errno(r, "Failed to parse SetCredential= parameter: %s", eq);
+                                return log_error_errno(r, "Failed to parse %s= parameter: %s", field, eq);
                         if (r == 0 || !p)
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Missing argument to SetCredential=.");
-
-                        l = cunescape(p, UNESCAPE_ACCEPT_NUL, &unescaped);
-                        if (l < 0)
-                                return log_error_errno(l, "Failed to unescape SetCredential= value: %s", p);
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Missing argument to %s=.", field);
 
                         r = sd_bus_message_open_container(m, 'a', "(say)");
                         if (r < 0)
@@ -1090,7 +1085,25 @@ static int bus_append_execute_property(sd_bus_message *m, const char *field, con
                         if (r < 0)
                                 return bus_log_create_error(r);
 
-                        r = sd_bus_message_append_array(m, 'y', unescaped, l);
+                        if (streq(field, "SetCredentialEncrypted")) {
+                                _cleanup_free_ void *decoded = NULL;
+                                size_t decoded_size;
+
+                                r = unbase64mem(p, SIZE_MAX, &decoded, &decoded_size);
+                                if (r < 0)
+                                        return log_error_errno(r, "Failed to base64 decode encrypted credential: %m");
+
+                                r = sd_bus_message_append_array(m, 'y', decoded, decoded_size);
+                        } else {
+                                _cleanup_free_ char *unescaped = NULL;
+                                int l;
+
+                                l = cunescape(p, UNESCAPE_ACCEPT_NUL, &unescaped);
+                                if (l < 0)
+                                        return log_error_errno(l, "Failed to unescape %s= value: %s", field, p);
+
+                                r = sd_bus_message_append_array(m, 'y', unescaped, l);
+                        }
                         if (r < 0)
                                 return bus_log_create_error(r);
 
@@ -1114,12 +1127,12 @@ static int bus_append_execute_property(sd_bus_message *m, const char *field, con
                 return 1;
         }
 
-        if (streq(field, "LoadCredential")) {
+        if (STR_IN_SET(field, "LoadCredential", "LoadCredentialEncrypted")) {
                 r = sd_bus_message_open_container(m, 'r', "sv");
                 if (r < 0)
                         return bus_log_create_error(r);
 
-                r = sd_bus_message_append_basic(m, 's', "LoadCredential");
+                r = sd_bus_message_append_basic(m, 's', field);
                 if (r < 0)
                         return bus_log_create_error(r);
 
@@ -1137,9 +1150,9 @@ static int bus_append_execute_property(sd_bus_message *m, const char *field, con
                         if (r == -ENOMEM)
                                 return log_oom();
                         if (r < 0)
-                                return log_error_errno(r, "Failed to parse LoadCredential= parameter: %s", eq);
+                                return log_error_errno(r, "Failed to parse %s= parameter: %s", field, eq);
                         if (r == 0 || !p)
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Missing argument to LoadCredential=.");
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Missing argument to %s=.", field);
 
                         r = sd_bus_message_append(m, "a(ss)", 1, word, p);
                 }
