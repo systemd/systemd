@@ -137,7 +137,7 @@ int sd_ipv4ll_set_mac(sd_ipv4ll *ll, const struct ether_addr *addr) {
 
         assert_return(ll, -EINVAL);
         assert_return(addr, -EINVAL);
-        assert_return(sd_ipv4ll_is_running(ll) == 0, -EBUSY);
+        assert_return(!ether_addr_is_null(addr), -EINVAL);
 
         r = sd_ipv4acd_set_mac(ll->acd, addr);
         if (r < 0)
@@ -145,6 +145,21 @@ int sd_ipv4ll_set_mac(sd_ipv4ll *ll, const struct ether_addr *addr) {
 
         ll->mac = *addr;
         return 0;
+}
+
+int sd_ipv4ll_add_other_mac(sd_ipv4ll *ll, const struct ether_addr *addr) {
+        assert_return(ll, -EINVAL);
+        assert_return(addr, -EINVAL);
+        assert_return(!ether_addr_is_null(addr), -EINVAL);
+
+        return sd_ipv4acd_add_other_mac(ll->acd, addr);
+}
+
+int sd_ipv4ll_remove_other_mac(sd_ipv4ll *ll, const struct ether_addr *addr) {
+        assert_return(ll, -EINVAL);
+        assert_return(addr, -EINVAL);
+
+        return sd_ipv4acd_remove_other_mac(ll->acd, addr);
 }
 
 int sd_ipv4ll_detach_event(sd_ipv4ll *ll) {

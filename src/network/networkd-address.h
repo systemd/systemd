@@ -55,8 +55,10 @@ int address_get(Link *link, const Address *in, Address **ret);
 int address_configure_handler_internal(sd_netlink *rtnl, sd_netlink_message *m, Link *link, const char *error_msg);
 int address_remove(const Address *address, Link *link);
 bool address_equal(const Address *a1, const Address *a2);
+int address_dup(const Address *src, Address **ret);
 bool address_is_ready(const Address *a);
 void address_set_broadcast(Address *a);
+int address_acquire(Link *link, const Address *original, Address **ret);
 
 int generate_ipv6_eui_64_address(const Link *link, struct in6_addr *ret);
 
@@ -70,10 +72,6 @@ int link_get_ipv6_address(Link *link, const struct in6_addr *address, Address **
 int link_get_ipv4_address(Link *link, const struct in_addr *address, unsigned char prefixlen, Address **ret);
 int manager_has_address(Manager *manager, int family, const union in_addr_union *address, bool check_ready);
 
-void ipv4_dad_unref(Link *link);
-int ipv4_dad_stop(Link *link);
-int ipv4_dad_update_mac(Link *link);
-
 int link_request_address(
                 Link *link,
                 Address *address,
@@ -81,6 +79,7 @@ int link_request_address(
                 unsigned *message_counter,
                 link_netlink_message_handler_t netlink_handler,
                 Request **ret);
+int link_request_static_address(Link *link, Address *address, bool consume);
 int link_request_static_addresses(Link *link);
 int request_process_address(Request *req);
 
