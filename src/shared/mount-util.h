@@ -3,6 +3,7 @@
 
 #include <mntent.h>
 #include <stdio.h>
+#include <sys/stat.h>
 #include <unistd.h>
 
 #include "alloc-util.h"
@@ -108,3 +109,7 @@ int mount_image_in_namespace(pid_t target, const char *propagate_path, const cha
 int make_mount_point(const char *path);
 
 int remount_idmap(const char *p, uid_t uid_shift, uid_t uid_range);
+
+/* Creates a mount point (not parents) based on the source path or stat - ie, a file or a directory */
+int make_mount_point_inode_from_stat(const struct stat *st, const char *dest, mode_t mode);
+int make_mount_point_inode_from_path(const char *source, const char *dest, mode_t mode);
