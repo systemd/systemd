@@ -17,9 +17,9 @@ $KERNEL_APPEND
 
 check_result_nspawn() {
     local workspace="${1:?}"
-    local ret=1
+    local ret=0
 
-    [[ -e "$workspace/testok" ]] && ret=0
+    [[ -e "$workspace/testok" ]]
 
     if [[ -s "$workspace/failed" ]]; then
         ret=$((ret + 1))
@@ -44,10 +44,10 @@ check_result_nspawn() {
 }
 
 check_result_qemu() {
-    local ret=1
+    local ret=0
 
     mount_initdir
-    [[ -e "${initdir:?}/testok" ]] && ret=0
+    [[ -e "${initdir:?}/testok" ]]
 
     if [[ -s "$initdir/failed" ]]; then
         ret=$((ret + 1))
