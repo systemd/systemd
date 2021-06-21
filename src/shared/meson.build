@@ -129,6 +129,8 @@ shared_sources = files('''
         group-record.h
         hostname-setup.c
         hostname-setup.h
+        hwdb-util.c
+        hwdb-util.h
         id128-print.c
         id128-print.h
         idn-util.c
