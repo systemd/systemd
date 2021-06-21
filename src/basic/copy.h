@@ -57,6 +57,9 @@ static inline int copy_directory(const char *from, const char *to, CopyFlags cop
         return copy_directory_full(from, to, copy_flags, NULL, NULL, NULL);
 }
 
+int acquire_data_fd(const void *data, size_t size, unsigned flags);
+int copy_data_fd(int fd);
+
 int copy_bytes_full(int fdf, int fdt, uint64_t max_bytes, CopyFlags copy_flags, void **ret_remains, size_t *ret_remains_size, copy_progress_bytes_t progress, void *userdata);
 static inline int copy_bytes(int fdf, int fdt, uint64_t max_bytes, CopyFlags copy_flags) {
         return copy_bytes_full(fdf, fdt, max_bytes, copy_flags, NULL, NULL, NULL, NULL);

@@ -4,6 +4,7 @@
 
 #include "bus-common-errors.h"
 #include "bus-polkit.h"
+#include "copy.h"
 #include "fd-util.h"
 #include "oomd-manager-bus.h"
 #include "oomd-manager.h"
