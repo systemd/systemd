@@ -29,6 +29,8 @@ check_result_nspawn() {
         if [[ -s "$workspace/skipped" ]]; then
             echo "=== Skipped test log =="
             cat "$workspace/skipped"
+            # We might have only skipped tests - that should not fail the job
+            ret=0
         fi
         if [[ -s "$workspace/testok" ]]; then
             echo "=== Passed tests ==="
@@ -57,6 +59,8 @@ check_result_qemu() {
         if [[ -s "$initdir/skipped" ]]; then
             echo "=== Skipped test log =="
             cat "$initdir/skipped"
+            # We might have only skipped tests - that should not fail the job
+            ret=0
         fi
         if [[ -s "$initdir/testok" ]]; then
             echo "=== Passed tests ==="
