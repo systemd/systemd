@@ -27,6 +27,7 @@ int extract_first_word(const char **p, char **ret, const char *separators, Extra
 
         assert(p);
         assert(ret);
+        assert(!FLAGS_SET(flags, EXTRACT_KEEP_QUOTE | EXTRACT_UNQUOTE));
 
         /* Bail early if called after last value or with no input */
         if (!*p)
@@ -123,25 +124,30 @@ int extract_first_word(const char **p, char **ret, const char *separators, Extra
                                         return -EINVAL;
                                 } else if (c == quote) {        /* found the end quote */
                                         quote = 0;
-                                        break;
+                                        if (flags & EXTRACT_UNQUOTE)
+                                                break;
                                 } else if (c == '\\' && !(flags & EXTRACT_RETAIN_ESCAPE)) {
                                         backslash = true;
                                         break;
-                                } else {
-                                        if (!GREEDY_REALLOC(s, sz+2))
-                                                return -ENOMEM;
-
-                                        s[sz++] = c;
                                 }
+
+                                if (!GREEDY_REALLOC(s, sz+2))
+                                        return -ENOMEM;
+
+                                s[sz++] = c;
+
+                                if (quote == 0)
+                                        break;
                         }
 
                 } else {
                         for (;; (*p)++, c = **p) {
                                 if (c == 0)
                                         goto finish_force_terminate;
-                                else if (IN_SET(c, '\'', '"') && (flags & EXTRACT_UNQUOTE)) {
+                                else if (IN_SET(c, '\'', '"') && (flags & (EXTRACT_KEEP_QUOTE | EXTRACT_UNQUOTE))) {
                                         quote = c;
-                                        break;
+                                        if (flags & EXTRACT_UNQUOTE)
+                                                break;
                                 } else if (c == '\\' && !(flags & EXTRACT_RETAIN_ESCAPE)) {
                                         backslash = true;
                                         break;
@@ -159,12 +165,15 @@ int extract_first_word(const char **p, char **ret, const char *separators, Extra
                                         }
                                         goto finish;
 
-                                } else {
-                                        if (!GREEDY_REALLOC(s, sz+2))
-                                                return -ENOMEM;
-
-                                        s[sz++] = c;
                                 }
+
+                                if (!GREEDY_REALLOC(s, sz+2))
+                                        return -ENOMEM;
+
+                                s[sz++] = c;
+
+                                if (quote != 0)
+                                        break;
                         }
                 }
         }
