@@ -458,3 +458,6 @@ option('analyze', type: 'boolean', value: 'true',
 
 option('bpf-framework', type : 'combo', choices : ['auto', 'true', 'false'],
     description: 'build BPF programs from source code in restricted C')
+
+option('udev-db-store-all', type : 'boolean', value : 'false',
+       description : 'store all devices in udev database, including emtpy ones')

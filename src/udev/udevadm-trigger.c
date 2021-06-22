@@ -25,6 +25,30 @@ static bool arg_verbose = false;
 static bool arg_dry_run = false;
 static bool arg_quiet = false;
 static bool arg_uuid = false;
+static bool arg_entry_match = false;
+static bool arg_entry_nomatch = false;
+
+static int db_present(sd_device *device) {
+        struct stat statbuf;
+        const char *id, *path;
+        int r;
+
+        assert(device);
+
+        if (sd_device_get_is_initialized(device))
+                return 0;
+
+        r = device_get_device_id(device, &id);
+        if (r < 0)
+                return r;
+
+        path = strjoina("/run/udev/data/", id);
+
+        if (stat(path, &statbuf) != 0)
+                return errno == ENOENT ? ENOENT : -errno;
+
+        return 0;
+}
 
 static int exec_list(
                 sd_device_enumerator *e,
@@ -46,6 +70,23 @@ static int exec_list(
                 if (r < 0) {
                         log_debug_errno(r, "Failed to get syspath of enumerated devices, ignoring: %m");
                         continue;
+                }
+
+                /* XOR arg_entry_match and arg_entry_nomatch, because in case both are set or unset
+                 * respectively, we just want to fall through and process all entries.
+                 */
+                if (arg_entry_match != arg_entry_nomatch) {
+                        r = db_present(d);
+
+                        if (!r) {
+                                if (arg_entry_nomatch)
+                                        continue;
+                        } else if (r == ENOENT) {
+                                if (arg_entry_match)
+                                        continue;
+                        } else {
+                                log_warning_errno(r, "Failed to check presence of %s in udev db", syspath);
+                        }
                 }
 
                 if (arg_verbose)
@@ -226,6 +267,8 @@ static int help(void) {
                "  -y --sysname-match=NAME           Trigger devices with this /sys path\n"
                "     --name-match=NAME              Trigger devices with this /dev name\n"
                "  -b --parent-match=NAME            Trigger devices with that parent device\n"
+               "  -e --entry-match                  Trigger devices having a udev db entry\n"
+               "  -x --entry-nomatch                Trigger devices not having a udev db entry\n"
                "  -w --settle                       Wait for the triggered events to complete\n"
                "     --wait-daemon[=SECONDS]        Wait for udevd daemon to be initialized\n"
                "                                    before triggering uevents\n"
@@ -257,6 +300,8 @@ int trigger_main(int argc, char *argv[], void *userdata) {
                 { "sysname-match",     required_argument, NULL, 'y'      },
                 { "name-match",        required_argument, NULL, ARG_NAME },
                 { "parent-match",      required_argument, NULL, 'b'      },
+                { "entry-match",       no_argument,       NULL, 'e'      },
+                { "entry-nomatch",     no_argument,       NULL, 'x'      },
                 { "settle",            no_argument,       NULL, 'w'      },
                 { "wait-daemon",       optional_argument, NULL, ARG_PING },
                 { "version",           no_argument,       NULL, 'V'      },
@@ -290,7 +335,7 @@ int trigger_main(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return r;
 
-        while ((c = getopt_long(argc, argv, "vnqt:c:s:S:a:A:p:g:y:b:wVh", options, NULL)) >= 0) {
+        while ((c = getopt_long(argc, argv, "vnqt:c:s:S:a:A:p:g:y:b:exwVh", options, NULL)) >= 0) {
                 _cleanup_free_ char *buf = NULL;
                 const char *key, *val;
 
@@ -379,6 +424,12 @@ int trigger_main(int argc, char *argv[], void *userdata) {
                                 return log_error_errno(r, "Failed to add parent match '%s': %m", optarg);
                         break;
                 }
+                case 'e':
+                          arg_entry_match = true;
+                          break;
+                case 'x':
+                          arg_entry_nomatch = true;
+                          break;
                 case 'w':
                         settle = true;
                         break;

@@ -900,6 +900,7 @@ else
         default_user_path_display = '(same as system services)'
 endif
 
+conf.set10('UDEV_DB_STORE_ALL', get_option('udev-db-store-all'))
 
 #####################################################################
 
