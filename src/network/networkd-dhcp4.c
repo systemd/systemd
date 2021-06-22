@@ -738,7 +738,7 @@ static int dhcp4_remove_all(Link *link) {
         return r;
 }
 
-static int dhcp_lease_lost(Link *link) {
+int dhcp4_lease_lost(Link *link) {
         int k, r = 0;
 
         assert(link);
@@ -748,7 +748,7 @@ static int dhcp_lease_lost(Link *link) {
 
         link->dhcp4_configured = false;
 
-        /* dhcp_lease_lost() may be called during renewing IP address. */
+        /* dhcp4_lease_lost() may be called during renewing IP address. */
         k = dhcp4_release_old_lease(link);
         if (k < 0)
                 r = k;
@@ -813,7 +813,7 @@ static void dhcp_address_on_acd(sd_ipv4acd *acd, int event, void *userdata) {
                         log_link_warning_errno(link, r, "Failed to send DHCP DECLINE, ignoring: %m");
 
                 if (link->dhcp_lease) {
-                        r = dhcp_lease_lost(link);
+                        r = dhcp4_lease_lost(link);
                         if (r < 0)
                                 link_enter_failed(link);
                 }
@@ -1180,7 +1180,7 @@ static int dhcp_lease_ip_change(sd_dhcp_client *client, Link *link) {
 
         r = dhcp_lease_acquired(client, link);
         if (r < 0)
-                (void) dhcp_lease_lost(link);
+                (void) dhcp4_lease_lost(link);
 
         return r;
 }
@@ -1276,7 +1276,7 @@ static int dhcp4_handler(sd_dhcp_client *client, int event, void *userdata) {
                                                                     r, "Failed to send DHCP RELEASE, ignoring: %m");
                                 }
 
-                                r = dhcp_lease_lost(link);
+                                r = dhcp4_lease_lost(link);
                                 if (r < 0) {
                                         link_enter_failed(link);
                                         return r;
@@ -1291,7 +1291,7 @@ static int dhcp4_handler(sd_dhcp_client *client, int event, void *userdata) {
                         }
 
                         if (link->dhcp_lease) {
-                                r = dhcp_lease_lost(link);
+                                r = dhcp4_lease_lost(link);
                                 if (r < 0) {
                                         link_enter_failed(link);
                                         return r;
