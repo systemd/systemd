@@ -999,12 +999,9 @@ static int ipv4_dad_configure(Address *address);
 static int address_configure(
                 const Address *address,
                 Link *link,
-                link_netlink_message_handler_t callback,
-                Address **ret) {
+                link_netlink_message_handler_t callback) {
 
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL;
-        Address *acquired_address, *a;
-        bool update;
         int r;
 
         assert(address);
@@ -1015,28 +1012,10 @@ static int address_configure(
         assert(link->manager->rtnl);
         assert(callback);
 
-        /* If this is a new address, then refuse adding more than the limit */
-        if (address_get(link, address, NULL) <= 0 &&
-            set_size(link->addresses) >= ADDRESSES_PER_LINK_MAX)
-                return log_link_error_errno(link, SYNTHETIC_ERRNO(E2BIG),
-                                            "Too many addresses are configured, refusing: %m");
+        log_address_debug(address, "Configuring", link);
 
-        r = address_acquire(link, address, &acquired_address);
-        if (r < 0)
-                return log_link_error_errno(link, r, "Failed to acquire an address from pool: %m");
-        if (acquired_address)
-                address = acquired_address;
-
-        update = address_get(link, address, NULL) >= 0;
-
-        log_address_debug(address, update ? "Updating" : "Configuring", link);
-
-        if (update)
-                r = sd_rtnl_message_new_addr_update(link->manager->rtnl, &req,
-                                                    link->ifindex, address->family);
-        else
-                r = sd_rtnl_message_new_addr(link->manager->rtnl, &req, RTM_NEWADDR,
-                                             link->ifindex, address->family);
+        r = sd_rtnl_message_new_addr_update(link->manager->rtnl, &req,
+                                            link->ifindex, address->family);
         if (r < 0)
                 return log_link_error_errno(link, r, "Could not allocate RTM_NEWADDR message: %m");
 
@@ -1072,31 +1051,11 @@ static int address_configure(
         if (r < 0)
                 return log_link_error_errno(link, r, "Could not append IFA_RT_PRIORITY attribute: %m");
 
-        r = address_add(link, address, &a);
-        if (r < 0)
-                return log_link_error_errno(link, r, "Could not add address: %m");
-
-        r = address_set_masquerade(a, true);
-        if (r < 0)
-                log_link_warning_errno(link, r, "Could not enable IP masquerading, ignoring: %m");
-
         r = netlink_call_async(link->manager->rtnl, NULL, req, callback, link_netlink_destroy_callback, link);
-        if (r < 0) {
-                (void) address_set_masquerade(a, false);
+        if (r < 0)
                 return log_link_error_errno(link, r, "Could not send rtnetlink message: %m");
-        }
 
         link_ref(link);
-
-        if (FLAGS_SET(address->duplicate_address_detection, ADDRESS_FAMILY_IPV4)) {
-                r = ipv4_dad_configure(a);
-                if (r < 0)
-                        log_link_warning_errno(link, r, "Failed to start IPv4ACD client, ignoring: %m");
-        }
-
-        if (ret)
-                *ret = a;
-
         return 0;
 }
 
@@ -1148,12 +1107,29 @@ int link_request_address(
                 link_netlink_message_handler_t netlink_handler,
                 Request **ret) {
 
+        Address *acquired;
+        int r;
+
         assert(link);
         assert(address);
 
+        r = address_acquire(link, address, &acquired);
+        if (r < 0)
+                return log_link_warning_errno(link, r, "Failed to acquire an address from pool: %m");
+        if (r > 0) {
+                if (consume_object) {
+                        address_free(address);
+                        consume_object = false; /* address from pool is already managed by Link. */
+                }
+                address = acquired;
+        }
+
         log_address_debug(address, "Requesting", link);
-        return link_queue_request(link, REQUEST_TYPE_ADDRESS, address, consume_object,
-                                  message_counter, netlink_handler, ret);
+        r = link_queue_request(link, REQUEST_TYPE_ADDRESS, address, consume_object,
+                               message_counter, netlink_handler, ret);
+        if (r < 0)
+                return log_link_warning_errno(link, r, "Failed to request address: %m");
+        return r;
 }
 
 int link_request_static_address(Link *link, Address *address, bool consume) {
@@ -1246,8 +1222,36 @@ int link_request_static_addresses(Link *link) {
         return 0;
 }
 
+static int address_is_ready_to_configure(Link *link, const Address *address) {
+        int r;
+
+        assert(link);
+        assert(address);
+
+        if (!link_is_ready_to_configure(link, false))
+                return false;
+
+        if (link->address_remove_messages > 0)
+                return false;
+
+        if (address_get(link, address, NULL) >= 0)
+                return true;
+
+        /* If this is a new address, then refuse adding more than the limit */
+        if (set_size(link->addresses) >= ADDRESSES_PER_LINK_MAX)
+                return log_link_warning_errno(link, SYNTHETIC_ERRNO(E2BIG),
+                                              "Too many addresses are configured, refusing: %m");
+
+        r = address_add(link, address, NULL);
+        if (r < 0)
+                return log_link_warning_errno(link, r, "Could not add address: %m");;
+
+        return true;
+}
+
 int request_process_address(Request *req) {
-        Address *ret = NULL;  /* avoid false maybe-uninitialized warning */
+        Address *a;
+        Link *link;
         int r;
 
         assert(req);
@@ -1255,13 +1259,17 @@ int request_process_address(Request *req) {
         assert(req->address);
         assert(req->type == REQUEST_TYPE_ADDRESS);
 
-        if (!link_is_ready_to_configure(req->link, false))
-                return 0;
+        link = req->link;
 
-        if (req->link->address_remove_messages > 0)
-                return 0;
+        r = address_is_ready_to_configure(link, req->address);
+        if (r <= 0)
+                return r;
 
-        r = address_configure(req->address, req->link, req->netlink_handler, &ret);
+        r = address_get(link, req->address, &a);
+        if (r < 0)
+                return r;
+
+        r = address_configure(a, link, req->netlink_handler);
         if (r < 0)
                 return r;
 
@@ -1269,9 +1277,19 @@ int request_process_address(Request *req) {
         req->message_counter = NULL;
 
         if (req->after_configure) {
-                r = req->after_configure(req, ret);
+                r = req->after_configure(req, a);
                 if (r < 0)
                         return r;
+        }
+
+        r = address_set_masquerade(a, true);
+        if (r < 0)
+                log_link_warning_errno(link, r, "Could not enable IP masquerading, ignoring: %m");
+
+        if (FLAGS_SET(a->duplicate_address_detection, ADDRESS_FAMILY_IPV4)) {
+                r = ipv4_dad_configure(a);
+                if (r < 0)
+                        log_link_warning_errno(link, r, "Failed to start IPv4ACD client, ignoring: %m");
         }
 
         return 1;
