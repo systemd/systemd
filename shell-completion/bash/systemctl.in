@@ -254,7 +254,7 @@ _systemctl () {
         cur_orig="$(printf '%q' $cur)"
     fi
 
-    if [[ -z $verb ]]; then
+    if [[ -z ${verb-} ]]; then
         comps="${VERBS[*]}"
 
     elif __contains_word "$verb" ${VERBS[ALL_UNITS]}; then

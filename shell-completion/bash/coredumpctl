@@ -83,7 +83,7 @@ _coredumpctl() {
             fi
         done
 
-        if [[ -z $verb ]]; then
+        if [[ -z ${verb-} ]]; then
             comps=${VERBS[*]}
         elif __contains_word "$verb" ${VERBS[LIST]} ${VERBS[DUMP]}; then
             comps=''
