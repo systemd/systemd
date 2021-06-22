@@ -1,8 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include "alloc-util.h"
 #include "dlfcn-util.h"
 #include "bpf-dlopen.h"
+#include "log.h"
 
 #if HAVE_LIBBPF
 static void *bpf_dl = NULL;
@@ -24,20 +24,8 @@ bool (*sym_bpf_probe_prog_type)(enum bpf_prog_type, __u32);
 const char* (*sym_bpf_program__name)(const struct bpf_program *);
 
 int dlopen_bpf(void) {
-        _cleanup_(dlclosep) void *dl = NULL;
-        int r;
-
-        if (bpf_dl)
-                return 0; /* Already loaded */
-
-        dl = dlopen("libbpf.so.0", RTLD_LAZY);
-        if (!dl)
-                return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
-                                       "libbpf is not installed: %s", dlerror());
-
-        r = dlsym_many_or_warn(
-                        dl,
-                        LOG_DEBUG,
+        return dlopen_many_sym_or_warn(
+                        &bpf_dl, "libbpf.so.0", LOG_DEBUG,
                         DLSYM_ARG(bpf_link__destroy),
                         DLSYM_ARG(bpf_link__fd),
                         DLSYM_ARG(bpf_map__fd),
@@ -52,15 +40,7 @@ int dlopen_bpf(void) {
                         DLSYM_ARG(bpf_probe_prog_type),
                         DLSYM_ARG(bpf_program__attach_cgroup),
                         DLSYM_ARG(bpf_program__name),
-                        DLSYM_ARG(libbpf_get_error),
-                        NULL);
-        if (r < 0)
-                return r;
-
-        /* Note that we never release the reference here, because there's no real reason to, after all this
-         * was traditionally a regular shared library dependency which lives forever too. */
-        bpf_dl = TAKE_PTR(dl);
-        return 1;
+                        DLSYM_ARG(libbpf_get_error));
 }
 
 #else
