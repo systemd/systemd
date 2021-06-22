@@ -42,84 +42,38 @@ TSS2_RC (*sym_Tss2_MU_TPM2B_PUBLIC_Marshal)(TPM2B_PUBLIC const *src, uint8_t buf
 TSS2_RC (*sym_Tss2_MU_TPM2B_PUBLIC_Unmarshal)(uint8_t const buffer[], size_t buffer_size, size_t *offset, TPM2B_PUBLIC *dest) = NULL;
 
 int dlopen_tpm2(void) {
-        int r, k = 0;
+        int r;
 
-        if (!libtss2_esys_dl) {
-                _cleanup_(dlclosep) void *dl = NULL;
+        r = dlopen_many_sym_or_warn(
+                        &libtss2_esys_dl, "libtss2-esys.so.0", LOG_DEBUG,
+                        DLSYM_ARG(Esys_Create),
+                        DLSYM_ARG(Esys_CreatePrimary),
+                        DLSYM_ARG(Esys_Finalize),
+                        DLSYM_ARG(Esys_FlushContext),
+                        DLSYM_ARG(Esys_Free),
+                        DLSYM_ARG(Esys_GetRandom),
+                        DLSYM_ARG(Esys_Initialize),
+                        DLSYM_ARG(Esys_Load),
+                        DLSYM_ARG(Esys_PolicyGetDigest),
+                        DLSYM_ARG(Esys_PolicyPCR),
+                        DLSYM_ARG(Esys_StartAuthSession),
+                        DLSYM_ARG(Esys_Startup),
+                        DLSYM_ARG(Esys_Unseal));
+        if (r < 0)
+                return r;
 
-                dl = dlopen("libtss2-esys.so.0", RTLD_LAZY);
-                if (!dl)
-                        return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
-                                               "TPM2 support is not installed: %s", dlerror());
+        r = dlopen_many_sym_or_warn(
+                        &libtss2_rc_dl, "libtss2-rc.so.0", LOG_DEBUG,
+                        DLSYM_ARG(Tss2_RC_Decode));
+        if (r < 0)
+                return r;
 
-                r = dlsym_many_or_warn(
-                                dl,
-                                LOG_DEBUG,
-                                DLSYM_ARG(Esys_Create),
-                                DLSYM_ARG(Esys_CreatePrimary),
-                                DLSYM_ARG(Esys_Finalize),
-                                DLSYM_ARG(Esys_FlushContext),
-                                DLSYM_ARG(Esys_Free),
-                                DLSYM_ARG(Esys_GetRandom),
-                                DLSYM_ARG(Esys_Initialize),
-                                DLSYM_ARG(Esys_Load),
-                                DLSYM_ARG(Esys_PolicyGetDigest),
-                                DLSYM_ARG(Esys_PolicyPCR),
-                                DLSYM_ARG(Esys_StartAuthSession),
-                                DLSYM_ARG(Esys_Startup),
-                                DLSYM_ARG(Esys_Unseal),
-                                NULL);
-                if (r < 0)
-                        return r;
-
-                libtss2_esys_dl = TAKE_PTR(dl);
-                k++;
-        }
-
-        if (!libtss2_rc_dl) {
-                _cleanup_(dlclosep) void *dl = NULL;
-
-                dl = dlopen("libtss2-rc.so.0", RTLD_LAZY);
-                if (!dl)
-                        return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
-                                               "TPM2 support is not installed: %s", dlerror());
-
-                r = dlsym_many_or_warn(
-                                dl,
-                                LOG_DEBUG,
-                                DLSYM_ARG(Tss2_RC_Decode),
-                                NULL);
-                if (r < 0)
-                        return r;
-
-                libtss2_rc_dl = TAKE_PTR(dl);
-                k++;
-        }
-
-        if (!libtss2_mu_dl) {
-                _cleanup_(dlclosep) void *dl = NULL;
-
-                dl = dlopen("libtss2-mu.so.0", RTLD_LAZY);
-                if (!dl)
-                        return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
-                                               "TPM2 support is not installed: %s", dlerror());
-
-                r = dlsym_many_or_warn(
-                                dl,
-                                LOG_DEBUG,
-                                DLSYM_ARG(Tss2_MU_TPM2B_PRIVATE_Marshal),
-                                DLSYM_ARG(Tss2_MU_TPM2B_PRIVATE_Unmarshal),
-                                DLSYM_ARG(Tss2_MU_TPM2B_PUBLIC_Marshal),
-                                DLSYM_ARG(Tss2_MU_TPM2B_PUBLIC_Unmarshal),
-                                NULL);
-                if (r < 0)
-                        return r;
-
-                libtss2_mu_dl = TAKE_PTR(dl);
-                k++;
-        }
-
-        return k;
+        return dlopen_many_sym_or_warn(
+                        &libtss2_mu_dl, "libtss2-mu.so.0", LOG_DEBUG,
+                        DLSYM_ARG(Tss2_MU_TPM2B_PRIVATE_Marshal),
+                        DLSYM_ARG(Tss2_MU_TPM2B_PRIVATE_Unmarshal),
+                        DLSYM_ARG(Tss2_MU_TPM2B_PUBLIC_Marshal),
+                        DLSYM_ARG(Tss2_MU_TPM2B_PUBLIC_Unmarshal));
 }
 
 struct tpm2_context {
