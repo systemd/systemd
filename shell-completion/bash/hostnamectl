@@ -77,7 +77,7 @@ _hostnamectl() {
         fi
     done
 
-    if [[ -z $verb ]]; then
+    if [[ -z ${verb-} ]]; then
         comps=${VERBS[*]}
     elif __contains_word "$verb" ${VERBS[CHASSIS]}; then
         comps='desktop laptop convertible server tablet handset watch embedded vm container'

@@ -73,7 +73,7 @@ _udevadm() {
         fi
     done
 
-    if [[ -z $verb ]]; then
+    if [[ -z ${verb-} ]]; then
         if [[ "$cur" = -* ]]; then
             COMPREPLY=( $(compgen -W '${OPTS[COMMON]} ${OPTS[DEBUG]}' -- "$cur") )
         else
