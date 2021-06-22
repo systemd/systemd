@@ -51,20 +51,10 @@ crypt_token_info (*sym_crypt_token_status)(struct crypt_device *cd, int token, c
 int (*sym_crypt_volume_key_get)(struct crypt_device *cd, int keyslot, char *volume_key, size_t *volume_key_size, const char *passphrase, size_t passphrase_size);
 
 int dlopen_cryptsetup(void) {
-        _cleanup_(dlclosep) void *dl = NULL;
         int r;
 
-        if (cryptsetup_dl)
-                return 0; /* Already loaded */
-
-        dl = dlopen("libcryptsetup.so.12", RTLD_LAZY);
-        if (!dl)
-                return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
-                                       "libcryptsetup support is not installed: %s", dlerror());
-
-        r = dlsym_many_or_warn(
-                        dl,
-                        LOG_DEBUG,
+        r = dlopen_many_sym_or_warn(
+                        &cryptsetup_dl, "libcryptsetup.so.12", LOG_DEBUG,
                         DLSYM_ARG(crypt_activate_by_passphrase),
 #if HAVE_CRYPT_ACTIVATE_BY_SIGNED_KEY
                         DLSYM_ARG(crypt_activate_by_signed_key),
@@ -104,14 +94,9 @@ int dlopen_cryptsetup(void) {
                         DLSYM_ARG(crypt_token_max),
 #endif
                         DLSYM_ARG(crypt_token_status),
-                        DLSYM_ARG(crypt_volume_key_get),
-                        NULL);
-        if (r < 0)
+                        DLSYM_ARG(crypt_volume_key_get));
+        if (r <= 0)
                 return r;
-
-        /* Note that we never release the reference here, because there's no real reason to, after all this
-         * was traditionally a regular shared library dependency which lives forever too. */
-        cryptsetup_dl = TAKE_PTR(dl);
 
         /* Redirect the default logging calls of libcryptsetup to our own logging infra. (Note that
          * libcryptsetup also maintains per-"struct crypt_device" log functions, which we'll also set
