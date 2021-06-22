@@ -145,6 +145,7 @@ int syncfs_path(int atfd, const char *path);
 
 int open_parent(const char *path, int flags, mode_t mode);
 
+int fd_is_encrypted(int fd);
 int path_is_encrypted(const char *path);
 
 int conservative_renameat(int olddirfd, const char *oldpath, int newdirfd, const char *newpath);

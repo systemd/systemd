@@ -522,17 +522,16 @@ int read_full_stream_full(
                 size_t *ret_size) {
 
         _cleanup_free_ char *buf = NULL;
-        size_t n, n_next, l;
+        size_t n, n_next = 0, l;
         int fd, r;
 
         assert(f);
         assert(ret_contents);
         assert(!FLAGS_SET(flags, READ_FULL_FILE_UNBASE64 | READ_FULL_FILE_UNHEX));
+        assert(size != UINT64_MAX || !FLAGS_SET(flags, READ_FULL_FILE_FAIL_WHEN_LARGER));
 
-        if (offset != UINT64_MAX && offset > LONG_MAX)
+        if (offset != UINT64_MAX && offset > LONG_MAX) /* fseek() can only deal with "long" offsets */
                 return -ERANGE;
-
-        n_next = size != SIZE_MAX ? size : LINE_MAX; /* Start size */
 
         fd = fileno(f);
         if (fd >= 0) { /* If the FILE* object is backed by an fd (as opposed to memory or such, see
@@ -543,20 +542,20 @@ int read_full_stream_full(
                         return -errno;
 
                 if (S_ISREG(st.st_mode)) {
-                        if (size == SIZE_MAX) {
+
+                        /* Try to start with the right file size if we shall read the file in full. Note
+                         * that we increase the size to read here by one, so that the first read attempt
+                         * already makes us notice the EOF. If the reported size of the file is zero, we
+                         * avoid this logic however, since quite likely it might be a virtual file in procfs
+                         * that all report a zero file size. */
+
+                        if (st.st_size > 0 &&
+                            (size == SIZE_MAX || FLAGS_SET(flags, READ_FULL_FILE_FAIL_WHEN_LARGER))) {
+
                                 uint64_t rsize =
                                         LESS_BY((uint64_t) st.st_size, offset == UINT64_MAX ? 0 : offset);
 
-                                /* Safety check */
-                                if (rsize > READ_FULL_BYTES_MAX)
-                                        return -E2BIG;
-
-                                /* Start with the right file size. Note that we increase the size to read
-                                 * here by one, so that the first read attempt already makes us notice the
-                                 * EOF. If the reported size of the file is zero, we avoid this logic
-                                 * however, since quite likely it might be a virtual file in procfs that all
-                                 * report a zero file size. */
-                                if (st.st_size > 0)
+                                if (rsize < SIZE_MAX) /* overflow check */
                                         n_next = rsize + 1;
                         }
 
@@ -565,6 +564,17 @@ int read_full_stream_full(
                 }
         }
 
+        /* If we don't know how much to read, figure it out now. If we shall read a part of the file, then
+         * allocate the requested size. If we shall load the full file start with LINE_MAX. Note that if
+         * READ_FULL_FILE_FAIL_WHEN_LARGER we consider the specified size a safety limit, and thus also start
+         * with LINE_MAX, under assumption the file is most likely much shorter. */
+        if (n_next == 0)
+                n_next = size != SIZE_MAX && !FLAGS_SET(flags, READ_FULL_FILE_FAIL_WHEN_LARGER) ? size : LINE_MAX;
+
+        /* Never read more than we need to determine that our own limit is hit */
+        if (n_next > READ_FULL_BYTES_MAX)
+                n_next = READ_FULL_BYTES_MAX + 1;
+
         if (offset != UINT64_MAX && fseek(f, offset, SEEK_SET) < 0)
                 return -errno;
 
@@ -572,6 +582,11 @@ int read_full_stream_full(
         for (;;) {
                 char *t;
                 size_t k;
+
+                /* If we shall fail when reading overly large data, then read exactly one byte more than the
+                 * specified size at max, since that'll tell us if there's anymore data beyond the limit*/
+                if (FLAGS_SET(flags, READ_FULL_FILE_FAIL_WHEN_LARGER) && n_next > size)
+                        n_next = size + 1;
 
                 if (flags & READ_FULL_FILE_SECURE) {
                         t = malloc(n_next + 1);
@@ -606,14 +621,18 @@ int read_full_stream_full(
                 if (feof(f))
                         break;
 
-                if (size != SIZE_MAX) { /* If we got asked to read some specific size, we already sized the buffer right, hence leave */
+                if (size != SIZE_MAX && !FLAGS_SET(flags, READ_FULL_FILE_FAIL_WHEN_LARGER)) { /* If we got asked to read some specific size, we already sized the buffer right, hence leave */
                         assert(l == size);
                         break;
                 }
 
                 assert(k > 0); /* we can't have read zero bytes because that would have been EOF */
 
-                /* Safety check */
+                if (FLAGS_SET(flags, READ_FULL_FILE_FAIL_WHEN_LARGER) && l > size) {
+                        r = -E2BIG;
+                        goto finalize;
+                }
+
                 if (n >= READ_FULL_BYTES_MAX) {
                         r = -E2BIG;
                         goto finalize;
