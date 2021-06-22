@@ -531,7 +531,7 @@ int mode_to_inaccessible_node(
         return 0;
 }
 
-static int mount_flags_to_string(long unsigned flags, char **ret) {
+int mount_flags_to_string(long unsigned flags, char **ret) {
         static const struct {
                 long unsigned flag;
                 const char *name;
@@ -563,6 +563,8 @@ static int mount_flags_to_string(long unsigned flags, char **ret) {
                 { .flag = MS_LAZYTIME,    .name = "MS_LAZYTIME",    },
         };
         _cleanup_free_ char *str = NULL;
+
+        assert(ret);
 
         for (size_t i = 0; i < ELEMENTSOF(map); i++)
                 if (flags & map[i].flag) {
