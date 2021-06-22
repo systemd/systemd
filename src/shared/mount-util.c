@@ -564,6 +564,8 @@ static int mount_flags_to_string(long unsigned flags, char **ret) {
         };
         _cleanup_free_ char *str = NULL;
 
+        assert(ret);
+
         for (size_t i = 0; i < ELEMENTSOF(map); i++)
                 if (flags & map[i].flag) {
                         if (!strextend_with_separator(&str, "|", map[i].name))
