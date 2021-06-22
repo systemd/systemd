@@ -1153,6 +1153,22 @@ int link_request_address(
                                   message_counter, netlink_handler, ret);
 }
 
+int link_request_static_address(Link *link, Address *address, bool consume) {
+        Request *req;
+        int r;
+
+        assert(link);
+        assert(address);
+
+        r = link_request_address(link, address, consume, &link->static_address_messages,
+                                 static_address_handler, &req);
+        if (r <= 0)
+                return r;
+
+        req->after_configure = static_address_after_configure;
+        return 0;
+}
+
 int link_request_static_addresses(Link *link) {
         Address *a;
         Prefix *p;
@@ -1164,21 +1180,13 @@ int link_request_static_addresses(Link *link) {
         link->static_addresses_configured = false;
 
         ORDERED_HASHMAP_FOREACH(a, link->network->addresses_by_section) {
-                Request *req;
-
-                r = link_request_address(link, a, false, &link->static_address_messages,
-                                         static_address_handler, &req);
+                r = link_request_static_address(link, a, false);
                 if (r < 0)
                         return r;
-                if (r == 0)
-                        continue;
-
-                req->after_configure = static_address_after_configure;
         }
 
         HASHMAP_FOREACH(p, link->network->prefixes_by_section) {
                 _cleanup_(address_freep) Address *address = NULL;
-                Request *req;
 
                 if (!p->assign)
                         continue;
@@ -1198,14 +1206,9 @@ int link_request_static_addresses(Link *link) {
                 address->family = AF_INET6;
                 address->route_metric = p->route_metric;
 
-                r = link_request_address(link, TAKE_PTR(address), true, &link->static_address_messages,
-                                         static_address_handler, &req);
+                r = link_request_static_address(link, TAKE_PTR(address), true);
                 if (r < 0)
                         return r;
-                if (r == 0)
-                        continue;
-
-                req->after_configure = static_address_after_configure;
         }
 
         if (in4_addr_is_set(&link->network->dhcp_server_address)) {
@@ -1223,14 +1226,9 @@ int link_request_static_addresses(Link *link) {
                 /* The same address may be explicitly configured in [Address] or [Network] section.
                  * Configure the DHCP server address only when it is not. */
                 if (!link_is_static_address_configured(link, address)) {
-                        Request *req;
-
-                        r = link_request_address(link, TAKE_PTR(address), true, &link->static_address_messages,
-                                                 static_address_handler, &req);
+                        r = link_request_static_address(link, TAKE_PTR(address), true);
                         if (r < 0)
                                 return r;
-                        if (r > 0)
-                                req->after_configure = static_address_after_configure;
                 }
         }
 
