@@ -82,11 +82,18 @@ check_freezer_state() {
     name="${1%.$suffix}"
     object_path="/org/freedesktop/systemd1/unit/${name//-/_2d}_2e${suffix}"
 
-    state=$(busctl get-property \
-                   org.freedesktop.systemd1 \
-                   "${object_path}" \
-                   org.freedesktop.systemd1.Unit \
-                   FreezerState | cut -d " " -f2 | tr -d '"')
+    for _ in {0..10}; do
+        state=$(busctl get-property \
+                       org.freedesktop.systemd1 \
+                       "${object_path}" \
+                       org.freedesktop.systemd1.Unit \
+                       FreezerState | cut -d " " -f2 | tr -d '"')
+
+        # Ignore the intermediate freezing & thawing states in case we check
+        # the unit state too quickly
+        [[ "$state" =~ ^(freezing|thawing)$ ]] || break
+        sleep .5
+    done
 
     [ "$state" = "$2" ] || {
         echo "error: unexpected freezer state, expected: $2, actual: $state" >&2
