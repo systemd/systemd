@@ -1797,8 +1797,7 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         '23-active-slave.network',
         '24-keep-configuration-static.network',
         '24-search-domain.network',
-        '25-address-dad-veth-peer.network',
-        '25-address-dad-veth99.network',
+        '25-address-ipv4acd-veth99.network',
         '25-address-link-section.network',
         '25-address-peer-ipv4.network',
         '25-address-static.network',
@@ -1868,6 +1867,7 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         remove_routes(self.routes)
         remove_links(self.links)
         stop_networkd(show_logs=False)
+        call('ip netns del ns99', stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
     def tearDown(self):
         remove_blackhole_nexthops()
@@ -1876,6 +1876,7 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         remove_links(self.links)
         remove_unit_from_networkd_path(self.units)
         stop_networkd(show_logs=True)
+        call('ip netns del ns99', stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
     def test_address_static(self):
         copy_unit_to_networkd_unit_path('25-address-static.network', '12-dummy.netdev')
@@ -1929,19 +1930,33 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         for i in range(1,254):
             self.assertIn(f'inet 10.3.3.{i}/16 brd 10.3.255.255', output)
 
-    def test_address_dad(self):
-        copy_unit_to_networkd_unit_path('25-address-dad-veth99.network', '25-address-dad-veth-peer.network',
-                                        '25-veth.netdev')
+    def test_address_ipv4acd(self):
+        check_output('ip netns add ns99')
+        check_output('ip link add veth99 type veth peer veth-peer')
+        check_output('ip link set veth-peer netns ns99')
+        check_output('ip link set veth99 up')
+        check_output('ip netns exec ns99 ip link set veth-peer up')
+        check_output('ip netns exec ns99 ip address add 192.168.100.10/24 dev veth-peer')
+
+        copy_unit_to_networkd_unit_path('25-address-ipv4acd-veth99.network', dropins=False)
         start_networkd()
-        self.wait_online(['veth99:routable', 'veth-peer:degraded'])
+        self.wait_online(['veth99:routable'])
 
         output = check_output('ip -4 address show dev veth99')
         print(output)
-        self.assertRegex(output, '192.168.100.10/24')
+        self.assertNotIn('192.168.100.10/24', output)
+        self.assertIn('192.168.100.11/24', output)
 
-        output = check_output('ip -4 address show dev veth-peer')
+        copy_unit_to_networkd_unit_path('25-address-ipv4acd-veth99.network.d/conflict-address.conf')
+        run(*networkctl_cmd, 'reload', env=env)
+        time.sleep(1)
+        rc = call(*wait_online_cmd, '--timeout=10s', '--interface=veth99:routable', env=env)
+        self.assertTrue(rc == 1)
+
+        output = check_output('ip -4 address show dev veth99')
         print(output)
-        self.assertNotRegex(output, '192.168.100.10/24')
+        self.assertNotIn('192.168.100.10/24', output)
+        self.assertIn('192.168.100.11/24', output)
 
     def test_address_peer_ipv4(self):
         # test for issue #17304
@@ -4619,9 +4634,11 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
         copy_unit_to_networkd_unit_path('25-veth.netdev', 'dhcp-server-decline.network', 'dhcp-client-decline.network')
 
         start_networkd()
-        self.wait_online(['veth-peer:carrier'])
-        rc = call(*wait_online_cmd, '--timeout=10s', '--interface=veth99:routable', env=env)
-        self.assertTrue(rc == 1)
+        self.wait_online(['veth99:routable', 'veth-peer:routable'])
+
+        output = check_output('ip -4 address show dev veth99 scope global dynamic')
+        print(output)
+        self.assertRegex(output, 'inet 192.168.5.[0-9]*/24 metric 1024 brd 192.168.5.255 scope global dynamic veth99')
 
 class NetworkdIPv6PrefixTests(unittest.TestCase, Utilities):
     links = ['veth99']
