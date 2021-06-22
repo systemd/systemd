@@ -987,12 +987,27 @@ static int dhcp4_address_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *
         return 1;
 }
 
+int link_request_dhcp4_address(Link *link, Address *address, bool consume) {
+        Request *req;
+        int r;
+
+        assert(link);
+        assert(address);
+
+        r = link_request_address(link, address, consume, &link->dhcp4_messages,
+                                 dhcp4_address_handler, &req);
+        if (r < 0)
+                return log_link_error_errno(link, r, "Failed to request DHCPv4 address: %m");
+
+        req->after_configure = dhcp4_after_address_configure;
+        return 0;
+}
+
 static int dhcp4_request_address(Link *link, bool announce) {
         _cleanup_(address_freep) Address *addr = NULL;
         uint32_t lifetime = CACHE_INFO_INFINITY_LIFE_TIME;
         struct in_addr address, netmask;
         unsigned prefixlen;
-        Request *req;
         int r;
 
         assert(link);
@@ -1061,16 +1076,7 @@ static int dhcp4_request_address(Link *link, bool announce) {
         if (address_get(link, addr, NULL) < 0)
                 link->dhcp4_configured = false;
 
-        r = link_request_address(link, TAKE_PTR(addr), true, &link->dhcp4_messages,
-                                 dhcp4_address_handler, &req);
-        if (r < 0)
-                return log_link_error_errno(link, r, "Failed to request DHCPv4 address: %m");
-        if (r == 0)
-                return 0;
-
-        req->after_configure = dhcp4_after_address_configure;
-
-        return 0;
+        return link_request_dhcp4_address(link, TAKE_PTR(addr), true);
 }
 
 static int dhcp4_request_address_and_routes(Link *link, bool announce) {
