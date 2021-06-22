@@ -4,7 +4,8 @@
 #include "macro.h"
 
 #if HAVE_OPENSSL
-#  include <openssl/pem.h>
+#  include <openssl/evp.h>
+#  include <openssl/x509.h>
 
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(X509*, X509_free, NULL);
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(X509_NAME*, X509_NAME_free, NULL);
