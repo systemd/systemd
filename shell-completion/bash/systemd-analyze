@@ -93,12 +93,12 @@ _systemd_analyze() {
         return 0
     fi
 
-    if [[ -z $verb  && $cur = -* ]]; then
+    if [[ -z ${verb-}  && $cur = -* ]]; then
         COMPREPLY=( $(compgen -W '${OPTS[*]}' -- "$cur") )
         return 0
     fi
 
-    if [[ -z $verb ]]; then
+    if [[ -z ${verb-} ]]; then
         comps=${VERBS[*]}
 
     elif __contains_word "$verb" ${VERBS[STANDALONE]}; then
