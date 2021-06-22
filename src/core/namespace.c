@@ -1157,6 +1157,15 @@ static int mount_image(const MountEntry *m, const char *root_directory) {
                                 host_os_release_id, host_os_release_version_id, host_os_release_sysext_level);
         if (r == -ENOENT && m->ignore)
                 return 0;
+        if (r == -ESTALE && host_os_release_id)
+                return log_error_errno(r,
+                                       "Failed to mount image %s, extension-release metadata does not match the lower layer's: ID=%s%s%s%s%s",
+                                       mount_entry_source(m),
+                                       host_os_release_id,
+                                       host_os_release_version_id ? " VERSION_ID=" : "",
+                                       strempty(host_os_release_version_id),
+                                       host_os_release_sysext_level ? " SYSEXT_LEVEL=" : "",
+                                       strempty(host_os_release_sysext_level));
         if (r < 0)
                 return log_debug_errno(r, "Failed to mount image %s on %s: %m", mount_entry_source(m), mount_entry_path(m));
 
