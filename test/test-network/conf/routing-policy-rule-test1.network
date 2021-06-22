@@ -14,6 +14,7 @@ OutgoingInterface=test1
 
 [RoutingPolicyRule]
 IncomingInterface=test1
+From=::/0
 Table=8
 Priority=100
 Family=ipv6
@@ -23,3 +24,9 @@ IncomingInterface=test1
 Table=9
 Priority=101
 Family=both
+
+[RoutingPolicyRule]
+IncomingInterface=test1
+From=0.0.0.0/8
+Table=10
+Priority=102
