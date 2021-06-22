@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 set -e
 
-TEST_DESCRIPTION="Run unit tests under containers"
-RUN_IN_UNPRIVILEGED_CONTAINER=yes
+TEST_DESCRIPTION="Run unit tests under qemu"
+# this subset of unit tests requires qemu, so they are ran here to avoid slowing down TEST-02
+TEST_NO_NSPAWN=1
 
 # embed some newlines in the kernel command line to stress our test suite
 KERNEL_APPEND="

@@ -4,7 +4,8 @@ set -o pipefail
 
 NPROC=$(nproc)
 MAX_QUEUE_SIZE=${NPROC:-2}
-mapfile -t TEST_LIST < <(find /usr/lib/systemd/tests/ -maxdepth 1 -type f -name "test-*")
+TESTS_GLOB=${TESTS_GLOB:-test-*}
+mapfile -t TEST_LIST < <(find /usr/lib/systemd/tests/ -maxdepth 1 -type f -name "${TESTS_GLOB}")
 
 # reset state
 rm -fv /failed-tests /skipped-tests /skipped
@@ -78,10 +79,12 @@ done
 
 # Wait for remaining running tasks
 for key in "${!running[@]}"; do
-    wait ${running[$key]}
-    ec=$?
+    wait ${running[$key]} && ec=0 || ec=$?
     report_result "$key" $ec
     unset running["$key"]
 done
+
+# Test logs are sometimes lost, as the system shuts down immediately after
+journalctl --sync
 
 exit 0
