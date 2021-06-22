@@ -24,20 +24,8 @@ int (*sym_pwquality_set_int_value)(pwquality_settings_t *pwq, int setting, int v
 const char* (*sym_pwquality_strerror)(char *buf, size_t len, int errcode, void *auxerror);
 
 int dlopen_pwquality(void) {
-        _cleanup_(dlclosep) void *dl = NULL;
-        int r;
-
-        if (pwquality_dl)
-                return 0; /* Already loaded */
-
-        dl = dlopen("libpwquality.so.1", RTLD_LAZY);
-        if (!dl)
-                return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
-                                       "libpwquality support is not installed: %s", dlerror());
-
-        r = dlsym_many_or_warn(
-                        dl,
-                        LOG_DEBUG,
+        return dlopen_many_sym_or_warn(
+                        &pwquality_dl, "libpwquality.so.1", LOG_DEBUG,
                         DLSYM_ARG(pwquality_check),
                         DLSYM_ARG(pwquality_default_settings),
                         DLSYM_ARG(pwquality_free_settings),
@@ -45,15 +33,7 @@ int dlopen_pwquality(void) {
                         DLSYM_ARG(pwquality_get_str_value),
                         DLSYM_ARG(pwquality_read_config),
                         DLSYM_ARG(pwquality_set_int_value),
-                        DLSYM_ARG(pwquality_strerror),
-                        NULL);
-        if (r < 0)
-                return r;
-
-        /* Note that we never release the reference here, because there's no real reason to, after all this
-         * was traditionally a regular shared library dependency which lives forever too. */
-        pwquality_dl = TAKE_PTR(dl);
-        return 1;
+                        DLSYM_ARG(pwquality_strerror));
 }
 
 void pwq_maybe_disable_dictionary(pwquality_settings_t *pwq) {
