@@ -468,7 +468,7 @@ static int dhcp6_pd_request_address(
         if (address_get(link, address, NULL) < 0)
                 link->dhcp6_pd_address_configured = false;
 
-        r = link_request_address(link, TAKE_PTR(address), true, &link->dhcp6_pd_address_messages,
+        r = link_request_address(link, TAKE_PTR(address), true, false, &link->dhcp6_pd_address_messages,
                                  dhcp6_pd_address_handler, &req);
         if (r < 0)
                 return log_link_error_errno(link, r, "Failed to request DHCPv6 delegated prefix address: %m");
@@ -1175,7 +1175,7 @@ static int dhcp6_request_address(
         if (address_get(link, addr, NULL) < 0)
                 link->dhcp6_address_configured = false;
 
-        r = link_request_address(link, TAKE_PTR(addr), true, &link->dhcp6_address_messages,
+        r = link_request_address(link, TAKE_PTR(addr), true, false, &link->dhcp6_address_messages,
                                  dhcp6_address_handler, &req);
         if (r < 0)
                 return log_link_error_errno(link, r, "Failed to request DHCPv6 address %s: %m", strna(buffer));

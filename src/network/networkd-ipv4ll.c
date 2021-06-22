@@ -93,7 +93,7 @@ static int ipv4ll_address_claimed(sd_ipv4ll *ll, Link *link) {
         log_link_debug(link, "IPv4 link-local claim "IPV4_ADDRESS_FMT_STR,
                        IPV4_ADDRESS_FMT_VAL(address->in_addr.in));
 
-        return link_request_address(link, TAKE_PTR(address), true, NULL, ipv4ll_address_handler, NULL);
+        return link_request_address(link, TAKE_PTR(address), true, false, NULL, ipv4ll_address_handler, NULL);
 }
 
 static void ipv4ll_handler(sd_ipv4ll *ll, int event, void *userdata) {
@@ -122,8 +122,10 @@ static void ipv4ll_handler(sd_ipv4ll *ll, int event, void *userdata) {
                         }
 
                         r = sd_ipv4ll_restart(ll);
-                        if (r < 0)
+                        if (r < 0) {
                                 log_link_warning_errno(link, r, "Could not acquire IPv4 link-local address: %m");
+                                link_enter_failed(link);
+                        }
                         break;
                 case SD_IPV4LL_EVENT_BIND:
                         r = ipv4ll_address_claimed(ll, link);
@@ -141,6 +143,7 @@ static void ipv4ll_handler(sd_ipv4ll *ll, int event, void *userdata) {
 
 int ipv4ll_configure(Link *link) {
         uint64_t seed;
+        Link *l;
         int r;
 
         assert(link);
@@ -170,6 +173,18 @@ int ipv4ll_configure(Link *link) {
         if (r < 0)
                 return r;
 
+        HASHMAP_FOREACH(l, link->manager->links) {
+                if (l == link)
+                        continue;
+                if (l->hw_addr.length != ETH_ALEN)
+                        continue;
+                if (ether_addr_is_null(&l->hw_addr.ether))
+                        continue;
+                r = sd_ipv4ll_add_other_mac(link->ipv4ll, &l->hw_addr.ether);
+                if (r < 0)
+                        return r;
+        }
+
         r = sd_ipv4ll_set_ifindex(link->ipv4ll, link->ifindex);
         if (r < 0)
                 return r;
@@ -181,32 +196,63 @@ int ipv4ll_configure(Link *link) {
         return 0;
 }
 
-int ipv4ll_update_mac(Link *link) {
-        bool restart;
+int ipv4ll_update_mac(Link *link, struct hw_addr_data *old) {
+        Link *l;
         int r;
 
         assert(link);
+        assert(old);
 
-        if (!link->ipv4ll)
+        if (link->hw_addr.length != ETH_ALEN)
+                return 0;
+        if (ether_addr_is_null(&link->hw_addr.ether))
                 return 0;
 
-        restart = sd_ipv4ll_is_running(link->ipv4ll) > 0;
+        HASHMAP_FOREACH(l, link->manager->links) {
+                if (l == link)
+                        continue;
+                if (!l->ipv4ll)
+                        continue;
 
-        r = sd_ipv4ll_stop(link->ipv4ll);
-        if (r < 0)
-                return r;
+                r = sd_ipv4ll_remove_other_mac(l->ipv4ll, &old->ether);
+                if (r < 0) {
+                        link_enter_failed(l);
+                        continue;
+                }
 
-        r = sd_ipv4ll_set_mac(link->ipv4ll, &link->hw_addr.ether);
-        if (r < 0)
-                return r;
+                r = sd_ipv4ll_add_other_mac(l->ipv4ll, &link->hw_addr.ether);
+                if (r < 0)
+                        link_enter_failed(l);
+        }
 
-        if (restart) {
-                r = sd_ipv4ll_start(link->ipv4ll);
+        if (link->ipv4ll) {
+                r = sd_ipv4ll_set_mac(link->ipv4ll, &link->hw_addr.ether);
                 if (r < 0)
                         return r;
         }
 
         return 0;
+}
+
+void ipv4ll_drop_mac(Link *link) {
+        Link *l;
+        int r;
+
+        if (link->hw_addr.length != ETH_ALEN)
+                return;
+        if (ether_addr_is_null(&link->hw_addr.ether))
+                return;
+
+        HASHMAP_FOREACH(l, link->manager->links) {
+                if (l == link)
+                        continue;
+                if (!l->ipv4ll)
+                        continue;
+
+                r = sd_ipv4ll_remove_other_mac(l->ipv4ll, &link->hw_addr.ether);
+                if (r < 0)
+                        link_enter_failed(l);
+        }
 }
 
 int config_parse_ipv4ll(
