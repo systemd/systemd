@@ -199,8 +199,11 @@ static int dev_pci_onboard(sd_device *dev, struct netnames *names) {
                 return -ENOENT;
 
         /* kernel provided port index for multiple ports on a single PCI function */
-        if (sd_device_get_sysattr_value(dev, "dev_port", &attr) >= 0)
-                dev_port = strtoul(attr, NULL, 10);
+        if (sd_device_get_sysattr_value(dev, "dev_port", &attr) >= 0) {
+                r = safe_atolu_full(attr, 10, &dev_port);
+                if (r < 0)
+                        log_device_debug_errno(dev, r, "Failed to parse dev_port, ignoring: %m");
+        }
 
         /* kernel provided front panel port name for multiple port PCI device */
         (void) sd_device_get_sysattr_value(dev, "phys_port_name", &port_name);
