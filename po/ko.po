@@ -9,7 +9,7 @@ msgstr ""
 "Project-Id-Version: systemd\n"
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2021-01-08 17:48+0100\n"
-"PO-Revision-Date: 2021-04-15 10:01+0000\n"
+"PO-Revision-Date: 2021-06-22 10:04+0000\n"
 "Last-Translator: simmon <simmon@nplob.com>\n"
 "Language-Team: Korean <https://translate.fedoraproject.org/projects/systemd/"
 "master/ko/>\n"
@@ -18,7 +18,7 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=1; plural=0;\n"
-"X-Generator: Weblate 4.5.3\n"
+"X-Generator: Weblate 4.7\n"
 "X-Poedit-SourceCharset: UTF-8\n"
 
 #: src/core/org.freedesktop.systemd1.policy.in:22
@@ -112,7 +112,7 @@ msgstr "홈 영역 암호 변경"
 #: src/home/org.freedesktop.home1.policy:64
 msgid ""
 "Authentication is required to change the password of a user's home area."
-msgstr "사용자 홈 영역의 암호를 바꾸려면 인증이 필요합니다."
+msgstr "사용자 홈 영역의 비밀번호를 변경하려면 인증이 필요합니다."
 
 #: src/hostname/org.freedesktop.hostname1.policy:20
 msgid "Set hostname"
