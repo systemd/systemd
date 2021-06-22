@@ -5,6 +5,7 @@
 #include "alloc-util.h"
 #include "hexdecoct.h"
 #include "macro.h"
+#include "random-util.h"
 #include "string-util.h"
 
 static void test_hexchar(void) {
@@ -275,6 +276,37 @@ static void test_base64mem(void) {
         free(b64);
 }
 
+static void test_base64mem_linebreak(void) {
+        uint8_t data[4096];
+
+        for (size_t i = 0; i < 20; i++) {
+                _cleanup_free_ char *encoded = NULL;
+                _cleanup_free_ void *decoded = NULL;
+                size_t decoded_size;
+                uint64_t n, m;
+                ssize_t l;
+
+                /* Try a bunch of differently sized blobs */
+                n = random_u64_range(sizeof(data));
+                random_bytes(data, n);
+
+                /* Break at various different columns */
+                m = 1 + random_u64_range(n + 5);
+
+                l = base64mem_full(data, n, m, &encoded);
+                assert_se(l >= 0);
+                assert_se(encoded);
+                assert_se((size_t) l == strlen(encoded));
+
+                assert_se(unbase64mem(encoded, SIZE_MAX, &decoded, &decoded_size) >= 0);
+                assert_se(decoded_size == n);
+                assert_se(memcmp(data, decoded, n) == 0);
+
+                for (size_t j = 0; j < (size_t) l; j++)
+                        assert_se((encoded[j] == '\n') == (j % (m + 1) == m));
+        }
+}
+
 static void test_unbase64mem_one(const char *input, const char *output, int ret) {
         _cleanup_free_ void *buffer = NULL;
         size_t size = 0;
@@ -348,6 +380,7 @@ int main(int argc, char *argv[]) {
         test_base32hexmem();
         test_unbase32hexmem();
         test_base64mem();
+        test_base64mem_linebreak();
         test_unbase64mem();
         test_hexdump();
 
