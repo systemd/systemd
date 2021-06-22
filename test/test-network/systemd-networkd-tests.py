@@ -2108,6 +2108,13 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         self.assertRegex(output, 'iif test1')
         self.assertRegex(output, 'lookup 8')
 
+        output = check_output('ip rule list iif test1 priority 102')
+        print(output)
+        self.assertRegex(output, '102:')
+        self.assertRegex(output, 'from 0.0.0.0/8')
+        self.assertRegex(output, 'iif test1')
+        self.assertRegex(output, 'lookup 10')
+
     def test_routing_policy_rule_issue_11280(self):
         copy_unit_to_networkd_unit_path('routing-policy-rule-test1.network', '11-dummy.netdev',
                                         'routing-policy-rule-dummy98.network', '12-dummy.netdev')
