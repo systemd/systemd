@@ -927,7 +927,7 @@ int link_drop_addresses(Link *link) {
         return r;
 }
 
-static int address_acquire(Link *link, const Address *original, Address **ret) {
+int address_acquire(Link *link, const Address *original, Address **ret) {
         union in_addr_union in_addr = IN_ADDR_NULL;
         _cleanup_(address_freep) Address *na = NULL;
         int r;
