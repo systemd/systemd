@@ -344,18 +344,25 @@ static int dev_pci_slot(sd_device *dev, struct netnames *names) {
 
         /* kernel provided port index for multiple ports on a single PCI function */
         if (sd_device_get_sysattr_value(dev, "dev_port", &attr) >= 0) {
-                dev_port = strtoul(attr, NULL, 10);
+                r = safe_atolu_full(attr, 10, &dev_port);
+                if (r < 0)
+                        log_device_debug_errno(dev, r, "Failed to parse attribute dev_port, ignoring: %m");
                 /* With older kernels IP-over-InfiniBand network interfaces sometimes erroneously
                  * provide the port number in the 'dev_id' sysfs attribute instead of 'dev_port',
                  * which thus stays initialized as 0. */
-                if (dev_port == 0 &&
+                else if (dev_port == 0 &&
                     sd_device_get_sysattr_value(dev, "type", &attr) >= 0) {
                         unsigned long type;
 
-                        type = strtoul(attr, NULL, 10);
+                        r = safe_atolu_full(attr, 10, &type);
+                        if (r < 0)
+                                log_device_debug_errno(dev, r, "Failed to parse attribute type, ignoring: %m");
                         if (type == ARPHRD_INFINIBAND &&
-                            sd_device_get_sysattr_value(dev, "dev_id", &attr) >= 0)
-                                dev_port = strtoul(attr, NULL, 16);
+                            sd_device_get_sysattr_value(dev, "dev_id", &attr) >= 0) {
+                                r = safe_atolu_full(attr, 10, &dev_port);
+                                if (r < 0)
+                                        log_device_debug_errno(dev, r, "Failed to parse attribute dev_id, ignoring: %m");
+                        }
                 }
         }
 
