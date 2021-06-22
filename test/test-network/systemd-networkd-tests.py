@@ -1858,7 +1858,7 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         'routing-policy-rule-reconfigure2.network',
     ]
 
-    routing_policy_rule_tables = ['7', '8', '9', '1011']
+    routing_policy_rule_tables = ['7', '8', '9', '10', '1011']
     routes = [['blackhole', '202.54.1.2'], ['unreachable', '202.54.1.3'], ['prohibit', '202.54.1.4']]
 
     def setUp(self):
@@ -2107,6 +2107,13 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         self.assertRegex(output, 'from all')
         self.assertRegex(output, 'iif test1')
         self.assertRegex(output, 'lookup 8')
+
+        output = check_output('ip rule list iif test1 priority 102')
+        print(output)
+        self.assertRegex(output, '102:')
+        self.assertRegex(output, 'from 0.0.0.0/8')
+        self.assertRegex(output, 'iif test1')
+        self.assertRegex(output, 'lookup 10')
 
     def test_routing_policy_rule_issue_11280(self):
         copy_unit_to_networkd_unit_path('routing-policy-rule-test1.network', '11-dummy.netdev',

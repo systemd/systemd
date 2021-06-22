@@ -402,7 +402,7 @@ static int routing_policy_rule_set_netlink_message(const RoutingPolicyRule *rule
 
         /* link may be NULL. */
 
-        if (in_addr_is_set(rule->family, &rule->from)) {
+        if (rule->from_prefixlen > 0) {
                 r = netlink_message_append_in_addr_union(m, FRA_SRC, rule->family, &rule->from);
                 if (r < 0)
                         return log_link_error_errno(link, r, "Could not append FRA_SRC attribute: %m");
@@ -412,7 +412,7 @@ static int routing_policy_rule_set_netlink_message(const RoutingPolicyRule *rule
                         return log_link_error_errno(link, r, "Could not set source prefix length: %m");
         }
 
-        if (in_addr_is_set(rule->family, &rule->to)) {
+        if (rule->to_prefixlen > 0) {
                 r = netlink_message_append_in_addr_union(m, FRA_DST, rule->family, &rule->to);
                 if (r < 0)
                         return log_link_error_errno(link, r, "Could not append FRA_DST attribute: %m");
