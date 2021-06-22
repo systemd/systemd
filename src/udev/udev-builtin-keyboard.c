@@ -172,16 +172,14 @@ static int builtin_keyboard(sd_device *dev, int argc, char *argv[], bool test) {
                 return log_device_error_errno(dev, r, "Failed to get device name: %m");
 
         FOREACH_DEVICE_PROPERTY(dev, key, value) {
-                char *endptr;
-
                 if (startswith(key, "KEYBOARD_KEY_")) {
                         const char *keycode = value;
                         unsigned scancode;
 
                         /* KEYBOARD_KEY_<hex scan code>=<key identifier string> */
-                        scancode = strtoul(key + 13, &endptr, 16);
-                        if (endptr[0] != '\0') {
-                                log_device_warning(dev, "Failed to parse scan code from \"%s\", ignoring", key);
+                        r = safe_atou_full(key + 13, 16, &scancode);
+                        if (r < 0) {
+                                log_device_warning_errno(dev, r, "Failed to parse scan code from \"%s\", ignoring: %m", key);
                                 continue;
                         }
 
@@ -208,9 +206,9 @@ static int builtin_keyboard(sd_device *dev, int argc, char *argv[], bool test) {
                         unsigned evcode;
 
                         /* EVDEV_ABS_<EV_ABS code>=<min>:<max>:<res>:<fuzz>:<flat> */
-                        evcode = strtoul(key + 10, &endptr, 16);
-                        if (endptr[0] != '\0') {
-                                log_device_warning(dev, "Failed to parse EV_ABS code from \"%s\", ignoring", key);
+                        r = safe_atou_full(key + 10, 16, &evcode);
+                        if (r < 0) {
+                                log_device_warning_errno(dev, r, "Failed to parse EV_ABS code from \"%s\", ignoring: %m", key);
                                 continue;
                         }
 
