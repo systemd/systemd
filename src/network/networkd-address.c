@@ -1003,8 +1003,8 @@ static int address_configure(
                 Address **ret) {
 
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL;
-        Address *acquired_address, *a;
         bool update;
+        Address *a;
         int r;
 
         assert(address);
@@ -1020,12 +1020,6 @@ static int address_configure(
             set_size(link->addresses) >= ADDRESSES_PER_LINK_MAX)
                 return log_link_error_errno(link, SYNTHETIC_ERRNO(E2BIG),
                                             "Too many addresses are configured, refusing: %m");
-
-        r = address_acquire(link, address, &acquired_address);
-        if (r < 0)
-                return log_link_error_errno(link, r, "Failed to acquire an address from pool: %m");
-        if (acquired_address)
-                address = acquired_address;
 
         update = address_get(link, address, NULL) >= 0;
 
@@ -1148,11 +1142,30 @@ int link_request_address(
                 link_netlink_message_handler_t netlink_handler,
                 Request **ret) {
 
+        _cleanup_(address_freep) Address *a = NULL, *free_on_return = NULL;
+        Address *acquired;
+        int r;
+
         assert(link);
         assert(address);
 
-        log_address_debug(address, "Requesting", link);
-        return link_queue_request(link, REQUEST_TYPE_ADDRESS, address, consume_object,
+        if (consume_object)
+                free_on_return = address;
+
+        r = address_acquire(link, address, &acquired);
+        if (r < 0)
+                return r;
+        if (!acquired && consume_object)
+                a = TAKE_PTR(free_on_return);
+        else {
+                r = address_dup(acquired ?: address, &a);
+                if (r < 0)
+                        return r;
+        }
+        consume_object = true;
+
+        log_address_debug(a, "Requesting", link);
+        return link_queue_request(link, REQUEST_TYPE_ADDRESS, TAKE_PTR(a), consume_object,
                                   message_counter, netlink_handler, ret);
 }
 
