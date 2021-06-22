@@ -60,9 +60,9 @@ static int map_keycode(sd_device *dev, int fd, int scancode, const char *keycode
                 unsigned scan;
                 unsigned key;
         } map;
-        char *endptr;
         const struct key_name *k;
         unsigned keycode_num;
+        int r;
 
         /* translate identifier to key code */
         k = keyboard_lookup_key(keycode, strlen(keycode));
@@ -70,9 +70,9 @@ static int map_keycode(sd_device *dev, int fd, int scancode, const char *keycode
                 keycode_num = k->id;
         } else {
                 /* check if it's a numeric code already */
-                keycode_num = strtoul(keycode, &endptr, 0);
-                if (endptr[0] !='\0')
-                        return log_device_error_errno(dev, SYNTHETIC_ERRNO(EINVAL), "Failed to parse key identifier '%s'", keycode);
+                r = safe_atou(keycode, &keycode_num);
+                if (r < 0)
+                        return log_device_error_errno(dev, r, "Failed to parse key identifier '%s': %m", keycode);
         }
 
         map.scan = scancode;
