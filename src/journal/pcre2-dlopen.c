@@ -35,7 +35,7 @@ int dlopen_pcre2(void) {
          * string actually contains the "_8" suffix already due to that and we don't have to append it
          * manually anymore. C is weird. 🤯 */
 
-        r = dlsym_many_and_warn(
+        r = dlsym_many_or_warn(
                         dl,
                         LOG_ERR,
                         DLSYM_ARG(pcre2_match_data_create),

@@ -32,7 +32,7 @@ int dlopen_idn(void) {
                 return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
                                        "libidn2 support is not installed: %s", dlerror());
 
-        r = dlsym_many_and_warn(
+        r = dlsym_many_or_warn(
                         dl,
                         LOG_DEBUG,
                         DLSYM_ARG(idn2_lookup_u8),
@@ -73,7 +73,7 @@ int dlopen_idn(void) {
                                                "libidn support is not installed: %s", dlerror());
         }
 
-        r = dlsym_many_and_warn(
+        r = dlsym_many_or_warn(
                         dl,
                         LOG_DEBUG,
                         DLSYM_ARG(idna_to_ascii_4i),

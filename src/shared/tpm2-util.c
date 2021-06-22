@@ -52,7 +52,7 @@ int dlopen_tpm2(void) {
                         return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
                                                "TPM2 support is not installed: %s", dlerror());
 
-                r = dlsym_many_and_warn(
+                r = dlsym_many_or_warn(
                                 dl,
                                 LOG_DEBUG,
                                 DLSYM_ARG(Esys_Create),
@@ -84,7 +84,7 @@ int dlopen_tpm2(void) {
                         return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
                                                "TPM2 support is not installed: %s", dlerror());
 
-                r = dlsym_many_and_warn(
+                r = dlsym_many_or_warn(
                                 dl,
                                 LOG_DEBUG,
                                 DLSYM_ARG(Tss2_RC_Decode),
@@ -104,7 +104,7 @@ int dlopen_tpm2(void) {
                         return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
                                                "TPM2 support is not installed: %s", dlerror());
 
-                r = dlsym_many_and_warn(
+                r = dlsym_many_or_warn(
                                 dl,
                                 LOG_DEBUG,
                                 DLSYM_ARG(Tss2_MU_TPM2B_PRIVATE_Marshal),

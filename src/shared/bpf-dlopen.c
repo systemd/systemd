@@ -35,7 +35,7 @@ int dlopen_bpf(void) {
                 return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
                                        "libbpf is not installed: %s", dlerror());
 
-        r = dlsym_many_and_warn(
+        r = dlsym_many_or_warn(
                         dl,
                         LOG_DEBUG,
                         DLSYM_ARG(bpf_link__destroy),
