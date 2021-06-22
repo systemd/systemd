@@ -82,6 +82,7 @@ int link_request_address(
                 unsigned *message_counter,
                 link_netlink_message_handler_t netlink_handler,
                 Request **ret);
+int link_request_static_address(Link *link, Address *address, bool consume);
 int link_request_static_addresses(Link *link);
 int request_process_address(Request *req);
 
