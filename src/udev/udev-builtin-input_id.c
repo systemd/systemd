@@ -9,7 +9,6 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <stdarg.h>
-#include <stdlib.h>
 #include <unistd.h>
 #include <linux/limits.h>
 
@@ -83,6 +82,7 @@ static void get_cap_mask(sd_device *pdev, const char* attr,
         unsigned i;
         char* word;
         unsigned long val;
+        int r;
 
         if (sd_device_get_sysattr_value(pdev, attr, &v) < 0)
                 v = "";
@@ -93,16 +93,20 @@ static void get_cap_mask(sd_device *pdev, const char* attr,
         memzero(bitmask, bitmask_size);
         i = 0;
         while ((word = strrchr(text, ' ')) != NULL) {
-                val = strtoul(word+1, NULL, 16);
-                if (i < bitmask_size / sizeof(unsigned long))
+                r = safe_atolu_full(word+1, 16, &val);
+                if (r < 0)
+                        log_device_debug_errno(pdev, r, "Ignoring %s block which failed to parse: %m", attr);
+                else if (i < bitmask_size / sizeof(unsigned long))
                         bitmask[i] = val;
                 else
                         log_device_debug(pdev, "Ignoring %s block %lX which is larger than maximum size", attr, val);
                 *word = '\0';
                 ++i;
         }
-        val = strtoul (text, NULL, 16);
-        if (i < bitmask_size / sizeof(unsigned long))
+        r = safe_atolu_full(text, 16, &val);
+        if (r < 0)
+                log_device_debug_errno(pdev, r, "Ignoring %s block which failed to parse: %m", attr);
+        else if (i < bitmask_size / sizeof(unsigned long))
                 bitmask[i] = val;
         else
                 log_device_debug(pdev, "Ignoring %s block %lX which is larger than maximum size", attr, val);
