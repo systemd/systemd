@@ -565,38 +565,79 @@ int unbase64char(char c) {
         return -EINVAL;
 }
 
-ssize_t base64mem(const void *p, size_t l, char **out) {
-        char *r, *z;
+static void maybe_line_break(char **x, char *start, size_t line_break) {
+        size_t n;
+
+        assert(x);
+        assert(*x);
+        assert(start);
+        assert(*x >= start);
+
+        if (line_break == SIZE_MAX)
+                return;
+
+        n = *x - start;
+
+        if (n % (line_break + 1) == line_break)
+                *((*x)++) = '\n';
+}
+
+ssize_t base64mem_full(
+                const void *p,
+                size_t l,
+                size_t line_break,
+                char **out) {
+
         const uint8_t *x;
+        char *r, *z;
+        size_t m;
 
         assert(p || l == 0);
         assert(out);
+        assert(line_break > 0);
 
         /* three input bytes makes four output bytes, padding is added so we must round up */
-        z = r = malloc(4 * (l + 2) / 3 + 1);
+        m = 4 * (l + 2) / 3 + 1;
+
+        if (line_break != SIZE_MAX)
+                m += m / line_break;
+
+        z = r = malloc(m);
         if (!r)
                 return -ENOMEM;
 
         for (x = p; x < (const uint8_t*) p + (l / 3) * 3; x += 3) {
                 /* x[0] == XXXXXXXX; x[1] == YYYYYYYY; x[2] == ZZZZZZZZ */
+                maybe_line_break(&z, r, line_break);
                 *(z++) = base64char(x[0] >> 2);                    /* 00XXXXXX */
+                maybe_line_break(&z, r, line_break);
                 *(z++) = base64char((x[0] & 3) << 4 | x[1] >> 4);  /* 00XXYYYY */
+                maybe_line_break(&z, r, line_break);
                 *(z++) = base64char((x[1] & 15) << 2 | x[2] >> 6); /* 00YYYYZZ */
+                maybe_line_break(&z, r, line_break);
                 *(z++) = base64char(x[2] & 63);                    /* 00ZZZZZZ */
         }
 
         switch (l % 3) {
         case 2:
+                maybe_line_break(&z, r, line_break);
                 *(z++) = base64char(x[0] >> 2);                   /* 00XXXXXX */
+                maybe_line_break(&z, r, line_break);
                 *(z++) = base64char((x[0] & 3) << 4 | x[1] >> 4); /* 00XXYYYY */
+                maybe_line_break(&z, r, line_break);
                 *(z++) = base64char((x[1] & 15) << 2);            /* 00YYYY00 */
+                maybe_line_break(&z, r, line_break);
                 *(z++) = '=';
 
                 break;
         case 1:
+                maybe_line_break(&z, r, line_break);
                 *(z++) = base64char(x[0] >> 2);        /* 00XXXXXX */
+                maybe_line_break(&z, r, line_break);
                 *(z++) = base64char((x[0] & 3) << 4);  /* 00XX0000 */
+                maybe_line_break(&z, r, line_break);
                 *(z++) = '=';
+                maybe_line_break(&z, r, line_break);
                 *(z++) = '=';
 
                 break;
