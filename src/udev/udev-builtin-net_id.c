@@ -17,7 +17,6 @@
 #include <net/if.h>
 #include <net/if_arp.h>
 #include <stdarg.h>
-#include <stdlib.h>
 #include <unistd.h>
 #include <linux/if.h>
 #include <linux/pci_regs.h>
@@ -199,8 +198,11 @@ static int dev_pci_onboard(sd_device *dev, struct netnames *names) {
                 return -ENOENT;
 
         /* kernel provided port index for multiple ports on a single PCI function */
-        if (sd_device_get_sysattr_value(dev, "dev_port", &attr) >= 0)
-                dev_port = strtoul(attr, NULL, 10);
+        if (sd_device_get_sysattr_value(dev, "dev_port", &attr) >= 0) {
+                r = safe_atolu_full(attr, 10, &dev_port);
+                if (r < 0)
+                        log_device_debug_errno(dev, r, "Failed to parse dev_port, ignoring: %m");
+        }
 
         /* kernel provided front panel port name for multiple port PCI device */
         (void) sd_device_get_sysattr_value(dev, "phys_port_name", &port_name);
@@ -341,7 +343,9 @@ static int dev_pci_slot(sd_device *dev, struct netnames *names) {
 
         /* kernel provided port index for multiple ports on a single PCI function */
         if (sd_device_get_sysattr_value(dev, "dev_port", &attr) >= 0) {
-                dev_port = strtoul(attr, NULL, 10);
+                r = safe_atolu_full(attr, 10, &dev_port);
+                if (r < 0)
+                        log_device_debug_errno(dev, r, "Failed to parse attribute dev_port, ignoring: %m");
                 /* With older kernels IP-over-InfiniBand network interfaces sometimes erroneously
                  * provide the port number in the 'dev_id' sysfs attribute instead of 'dev_port',
                  * which thus stays initialized as 0. */
@@ -349,10 +353,15 @@ static int dev_pci_slot(sd_device *dev, struct netnames *names) {
                     sd_device_get_sysattr_value(dev, "type", &attr) >= 0) {
                         unsigned long type;
 
-                        type = strtoul(attr, NULL, 10);
-                        if (type == ARPHRD_INFINIBAND &&
-                            sd_device_get_sysattr_value(dev, "dev_id", &attr) >= 0)
-                                dev_port = strtoul(attr, NULL, 16);
+                        r = safe_atolu_full(attr, 10, &type);
+                        if (r < 0)
+                                log_device_debug_errno(dev, r, "Failed to parse attribute type, ignoring: %m");
+                        else if (type == ARPHRD_INFINIBAND &&
+                                 sd_device_get_sysattr_value(dev, "dev_id", &attr) >= 0) {
+                                r = safe_atolu_full(attr, 10, &dev_port);
+                                if (r < 0)
+                                        log_device_debug_errno(dev, r, "Failed to parse attribute dev_id, ignoring: %m");
+                        }
                 }
         }
 
@@ -765,7 +774,9 @@ static int names_mac(sd_device *dev, struct netnames *names) {
         if (r < 0)
                 return r;
 
-        i = strtoul(s, NULL, 0);
+        r = safe_atolu_full(s, 10, &i);
+        if (r < 0)
+                return r;
         switch (i) {
         /* The persistent part of a hardware address of an InfiniBand NIC
          * is 8 bytes long. We cannot fit this much in an iface name.
@@ -780,7 +791,9 @@ static int names_mac(sd_device *dev, struct netnames *names) {
         r = sd_device_get_sysattr_value(dev, "addr_assign_type", &s);
         if (r < 0)
                 return r;
-        i = strtoul(s, NULL, 0);
+        r = safe_atolu(s, &i);
+        if (r < 0)
+                return r;
         if (i != 0)
                 return 0;
 
@@ -868,7 +881,9 @@ static int builtin_net_id(sd_device *dev, int argc, char *argv[], bool test) {
         if (r < 0)
                 return r;
 
-        i = strtoul(s, NULL, 0);
+        r = safe_atolu_full(s, 10, &i);
+        if (r < 0)
+                return r;
         switch (i) {
         case ARPHRD_ETHER:
                 prefix = "en";

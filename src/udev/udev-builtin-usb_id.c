@@ -11,13 +11,13 @@
 #include <fcntl.h>
 #include <stdarg.h>
 #include <stdio.h>
-#include <stdlib.h>
 #include <unistd.h>
 
 #include "alloc-util.h"
 #include "device-nodes.h"
 #include "device-util.h"
 #include "fd-util.h"
+#include "parse-util.h"
 #include "string-util.h"
 #include "strxcpyx.h"
 #include "udev-builtin.h"
@@ -75,11 +75,9 @@ static void set_usb_iftype(char *to, int if_class_num, size_t len) {
 
 static int set_usb_mass_storage_ifsubtype(char *to, const char *from, size_t len) {
         int type_num = 0;
-        char *eptr;
         const char *type = "generic";
 
-        type_num = strtoul(from, &eptr, 0);
-        if (eptr != from) {
+        if (safe_atoi(from, &type_num) >= 0) {
                 switch (type_num) {
                 case 1: /* RBC devices */
                         type = "rbc";
@@ -105,12 +103,10 @@ static int set_usb_mass_storage_ifsubtype(char *to, const char *from, size_t len
 }
 
 static void set_scsi_type(char *to, const char *from, size_t len) {
-        int type_num;
-        char *eptr;
+        unsigned type_num;
         const char *type = "generic";
 
-        type_num = strtoul(from, &eptr, 0);
-        if (eptr != from) {
+        if (safe_atou(from, &type_num) >= 0) {
                 switch (type_num) {
                 case 0:
                 case 0xe:
@@ -246,7 +242,7 @@ static int builtin_usb_id(sd_device *dev, int argc, char *argv[], bool test) {
 
         sd_device *dev_interface, *dev_usb;
         const char *if_class, *if_subclass;
-        int if_class_num;
+        unsigned if_class_num;
         int protocol = 0;
         size_t l;
         char *s;
@@ -286,7 +282,9 @@ static int builtin_usb_id(sd_device *dev, int argc, char *argv[], bool test) {
         if (r < 0)
                 return log_device_debug_errno(dev_interface, r, "Failed to get bInterfaceClass attribute: %m");
 
-        if_class_num = strtoul(if_class, NULL, 16);
+        r = safe_atou_full(if_class, 16, &if_class_num);
+        if (r < 0)
+                return log_device_debug_errno(dev_interface, r, "Failed to parse if_class: %m");
         if (if_class_num == 8) {
                 /* mass storage */
                 if (sd_device_get_sysattr_value(dev_interface, "bInterfaceSubClass", &if_subclass) >= 0)
