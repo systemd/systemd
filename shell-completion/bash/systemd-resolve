@@ -71,7 +71,7 @@ _systemd-resolve() {
         return 0
     fi
 
-    if [[ "$cur" = -* ]]; then
+    if [[ "$cur" = -* ]] || [[ -z ${comps-} ]]; then
         COMPREPLY=( $(compgen -W '${OPTS[*]}' -- "$cur") )
         return 0
     fi
