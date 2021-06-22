@@ -58,8 +58,7 @@ int dlopen_idn(void) {
                         DLSYM_ARG(idna_to_ascii_4i),
                         DLSYM_ARG(idna_to_unicode_44i),
                         DLSYM_ARG(stringprep_ucs4_to_utf8),
-                        DLSYM_ARG(stringprep_utf8_to_ucs4),
-                        NULL);
+                        DLSYM_ARG(stringprep_utf8_to_ucs4));
         if (r < 0)
                 return r;
 

@@ -26,7 +26,7 @@ static int dlsym_many_or_warnv(void *dl, int log_level, va_list ap) {
         return 0;
 }
 
-int dlsym_many_or_warn(void *dl, int log_level, ...) {
+int dlsym_many_or_warn_sentinel(void *dl, int log_level, ...) {
         va_list ap;
         int r;
 
