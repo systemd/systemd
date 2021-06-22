@@ -882,7 +882,9 @@ static int builtin_net_id(sd_device *dev, int argc, char *argv[], bool test) {
         if (r < 0)
                 return r;
 
-        i = strtoul(s, NULL, 0);
+        r = safe_atolu_full(s, 10, &i);
+        if (r < 0)
+                return r;
         switch (i) {
         case ARPHRD_ETHER:
                 prefix = "en";
