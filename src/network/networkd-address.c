@@ -586,7 +586,7 @@ int link_get_ipv4_address(Link *link, const struct in_addr *address, unsigned ch
         return addresses_get_ipv4_address(link->addresses_foreign, address, ret);
 }
 
-int manager_has_address(Manager *manager, int family, const union in_addr_union *address, bool check_ready) {
+int manager_has_address(Manager *manager, int family, const union in_addr_union *address) {
         Address *a;
         Link *link;
         int r;
@@ -598,7 +598,7 @@ int manager_has_address(Manager *manager, int family, const union in_addr_union 
         if (family == AF_INET) {
                 HASHMAP_FOREACH(link, manager->links)
                         if (link_get_ipv4_address(link, &address->in, 0, &a) >= 0)
-                                return !check_ready || address_is_ready(a);
+                                return address_is_ready(a);
         } else {
                 _cleanup_(address_freep) Address *tmp = NULL;
 
@@ -611,7 +611,7 @@ int manager_has_address(Manager *manager, int family, const union in_addr_union 
 
                 HASHMAP_FOREACH(link, manager->links)
                         if (address_get(link, tmp, &a) >= 0)
-                                return !check_ready || address_is_ready(a);
+                                return address_is_ready(a);
         }
 
         return false;

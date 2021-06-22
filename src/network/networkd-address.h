@@ -69,7 +69,7 @@ int link_drop_ipv6ll_addresses(Link *link);
 bool link_address_is_dynamic(const Link *link, const Address *address);
 int link_get_ipv6_address(Link *link, const struct in6_addr *address, Address **ret);
 int link_get_ipv4_address(Link *link, const struct in_addr *address, unsigned char prefixlen, Address **ret);
-int manager_has_address(Manager *manager, int family, const union in_addr_union *address, bool check_ready);
+int manager_has_address(Manager *manager, int family, const union in_addr_union *address);
 
 void ipv4_dad_unref(Link *link);
 int ipv4_dad_stop(Link *link);
