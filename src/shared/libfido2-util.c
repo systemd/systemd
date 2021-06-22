@@ -61,20 +61,8 @@ int (*sym_fido_dev_open)(fido_dev_t *, const char *) = NULL;
 const char* (*sym_fido_strerr)(int) = NULL;
 
 int dlopen_libfido2(void) {
-        _cleanup_(dlclosep) void *dl = NULL;
-        int r;
-
-        if (libfido2_dl)
-                return 0; /* Already loaded */
-
-        dl = dlopen("libfido2.so.1", RTLD_LAZY);
-        if (!dl)
-                return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
-                                       "libfido2 support is not installed: %s", dlerror());
-
-        r = dlsym_many_or_warn(
-                        dl,
-                        LOG_DEBUG,
+        return dlopen_many_sym_or_warn(
+                        &libfido2_dl, "libfido2.so.1", LOG_DEBUG,
                         DLSYM_ARG(fido_assert_allow_cred),
                         DLSYM_ARG(fido_assert_free),
                         DLSYM_ARG(fido_assert_hmac_secret_len),
@@ -118,15 +106,7 @@ int dlopen_libfido2(void) {
                         DLSYM_ARG(fido_dev_make_cred),
                         DLSYM_ARG(fido_dev_new),
                         DLSYM_ARG(fido_dev_open),
-                        DLSYM_ARG(fido_strerr),
-                        NULL);
-        if (r < 0)
-                return r;
-
-        /* Note that we never release the reference here, because there's no real reason to, after all this
-         * was traditionally a regular shared library dependency which lives forever too. */
-        libfido2_dl = TAKE_PTR(dl);
-        return 1;
+                        DLSYM_ARG(fido_strerr));
 }
 
 static int verify_features(
