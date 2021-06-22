@@ -53,7 +53,7 @@ _systemd-delta() {
         return 0
     fi
 
-    COMPREPLY=( $(compgen -W '$comps' -- "$cur") )
+    COMPREPLY=( $(compgen -W '${comps-}' -- "$cur") )
     return 0
 }
 
