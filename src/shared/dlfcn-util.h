@@ -7,9 +7,13 @@
 
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(void*, dlclose, NULL);
 
-int dlsym_many_and_warn(void *dl, int level, ...);
+int dlsym_many_or_warn(void *dl, int log_level, ...) _sentinel_;
+int dlopen_many_sym_or_warn_sentinel(void **dlp, const char *filename, int log_level, ...) _sentinel_;
 
-/* Macro useful for putting together variable/symbol name pairs when calling dlsym_many_and_warn(). Assumes
+#define dlopen_many_sym_or_warn(dlp, filename, log_level, ...) \
+        dlopen_many_sym_or_warn_sentinel(dlp, filename, log_level, __VA_ARGS__, NULL)
+
+/* Macro useful for putting together variable/symbol name pairs when calling dlsym_many_or_warn(). Assumes
  * that each library symbol to resolve will be placed in a variable with the "sym_" prefix, i.e. a symbol
  * "foobar" is loaded into a variable "sym_foobar". */
 #define DLSYM_ARG(arg) \
