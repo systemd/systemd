@@ -39,7 +39,7 @@ _hostnamectl() {
         [ARG]='-H --host -M --machine --json'
     )
 
-    if __contains_word "$prev" ${OPTS[ARG]} ${OPTS[ARGUNKNOWN]}; then
+    if __contains_word "$prev" ${OPTS[ARG]}; then
         case $prev in
             --host|-H)
                 comps=$(compgen -A hostname)
