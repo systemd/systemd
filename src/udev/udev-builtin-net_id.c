@@ -775,7 +775,9 @@ static int names_mac(sd_device *dev, struct netnames *names) {
         if (r < 0)
                 return r;
 
-        i = strtoul(s, NULL, 0);
+        r = safe_atolu_full(s, 10, &i);
+        if (r < 0)
+                return r;
         switch (i) {
         /* The persistent part of a hardware address of an InfiniBand NIC
          * is 8 bytes long. We cannot fit this much in an iface name.
@@ -790,7 +792,9 @@ static int names_mac(sd_device *dev, struct netnames *names) {
         r = sd_device_get_sysattr_value(dev, "addr_assign_type", &s);
         if (r < 0)
                 return r;
-        i = strtoul(s, NULL, 0);
+        r = safe_atolu(s, &i);
+        if (r < 0)
+                return r;
         if (i != 0)
                 return 0;
 
