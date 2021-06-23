@@ -18,6 +18,7 @@
 #include "parse-util.h"
 #include "path-util.h"
 #include "signal-util.h"
+#include "socket-util.h"
 #include "string-table.h"
 #include "string-util.h"
 #include "strxcpyx.h"
@@ -434,6 +435,22 @@ size_t udev_replace_whitespace(const char *str, char *to, size_t len) {
 
         to[j] = '\0';
         return j;
+}
+
+size_t udev_replace_ifname(char *str) {
+        size_t replaced = 0;
+
+        assert(str);
+
+        /* See ifname_valid_full(). */
+
+        for (char *p = str; *p != '\0'; p++)
+                if (!ifname_valid_char(*p)) {
+                        *p = '_';
+                        replaced++;
+                }
+
+        return replaced;
 }
 
 size_t udev_replace_chars(char *str, const char *allow) {
