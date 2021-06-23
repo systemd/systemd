@@ -17,6 +17,7 @@
 #include "alloc-util.h"
 #include "dirent-util.h"
 #include "fd-util.h"
+#include "parse-util.h"
 #include "string-util.h"
 #include "strv.h"
 #include "sysexits.h"
@@ -66,7 +67,9 @@ static int format_lun_number(sd_device *dev, char **path) {
         if (!sysnum)
                 return -ENOENT;
 
-        lun = strtoul(sysnum, NULL, 10);
+        r = safe_atolu_full(sysnum, 10, &lun);
+        if (r < 0)
+                return r;
         if (lun < 256)
                 /* address method 0, peripheral device addressing with bus id of zero */
                 path_prepend(path, "lun-%lu", lun);
