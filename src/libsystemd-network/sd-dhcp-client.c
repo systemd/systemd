@@ -1777,7 +1777,7 @@ static int client_set_lease_timeouts(sd_dhcp_client *client) {
 static int client_handle_message(sd_dhcp_client *client, DHCPMessage *message, int len) {
         DHCP_CLIENT_DONT_DESTROY(client);
         char time_string[FORMAT_TIMESPAN_MAX];
-        int r, notify_event = 0;
+        int r, notify_event;
 
         assert(client);
         assert(client->event);
@@ -1832,15 +1832,15 @@ static int client_handle_message(sd_dhcp_client *client, DHCPMessage *message, i
                 if (r < 0)
                         goto error;
 
+                if (IN_SET(client->state, DHCP_STATE_REQUESTING, DHCP_STATE_REBOOTING))
+                        notify_event = SD_DHCP_CLIENT_EVENT_IP_ACQUIRE;
+                else
+                        notify_event = r;
+
                 client->start_delay = 0;
                 (void) event_source_disable(client->timeout_resend);
                 client->receive_message = sd_event_source_unref(client->receive_message);
                 client->fd = safe_close(client->fd);
-
-                if (IN_SET(client->state, DHCP_STATE_REQUESTING, DHCP_STATE_REBOOTING))
-                        notify_event = SD_DHCP_CLIENT_EVENT_IP_ACQUIRE;
-                else if (r != SD_DHCP_CLIENT_EVENT_IP_ACQUIRE)
-                        notify_event = r;
 
                 client->state = DHCP_STATE_BOUND;
                 client->attempt = 0;
@@ -1863,12 +1863,13 @@ static int client_handle_message(sd_dhcp_client *client, DHCPMessage *message, i
 
                 client_initialize_io_events(client, client_receive_message_udp);
 
-                if (notify_event) {
+                if (IN_SET(client->state, DHCP_STATE_RENEWING, DHCP_STATE_REBINDING) &&
+                    notify_event == SD_DHCP_CLIENT_EVENT_IP_ACQUIRE)
+                        /* FIXME: hmm, maybe this is a bug... */
+                        log_dhcp_client(client, "client_handle_ack() returned SD_DHCP_CLIENT_EVENT_IP_ACQUIRE while DHCP client is %s the address, skipping callback.",
+                                        client->state == DHCP_STATE_RENEWING ? "renewing" : "rebinding");
+                else
                         client_notify(client, notify_event);
-                        if (client->state == DHCP_STATE_STOPPED)
-                                return 0;
-                }
-
                 break;
 
         case DHCP_STATE_BOUND:
