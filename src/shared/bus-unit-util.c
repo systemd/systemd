@@ -868,41 +868,57 @@ static int bus_append_cgroup_property(sd_bus_message *m, const char *field, cons
                 if (isempty(eq))
                         r = sd_bus_message_append(m, "(sv)", field, "a(iiqq)", 0);
                 else {
-                        /* No ip protocol specified for now. */
-                        int32_t family = AF_UNSPEC, ip_protocol = 0;
-                        const char *address_family, *user_port;
-                        _cleanup_free_ char *word = NULL;
+                        _cleanup_strv_free_ char **parts = NULL;
+                        int family = AF_UNSPEC, ip_protocol = 0;
+                        size_t parts_len;
 
-                        r = extract_first_word(&eq, &word, ":", 0);
-                        if (r == -ENOMEM)
+                        parts = strv_split(eq, ":");
+                        if (!parts)
                                 return log_oom();
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to parse %s: %m", field);
 
-                        address_family = eq ? word : NULL;
-                        if (address_family) {
-                                family = af_from_ipv4_ipv6(address_family);
+                        parts_len = strv_length(parts);
+
+                        switch (parts_len) {
+                        case 3:
+                                /* IP protocol. */
+                                if (safe_atoi32(parts[1], &ip_protocol) == 0) {
+                                        if (!ip_protocol_to_name(ip_protocol))
+                                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                                       "Invalid ip protocol #%s", parts[1]);
+                                } else {
+                                        ip_protocol = ip_protocol_from_name(parts[1]);
+                                        if (ip_protocol < 0)
+                                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                        "Invalid ip protocol \"%s\"", parts[1]);
+                                }
+                                _fallthrough_;
+                        case 2:
+                                /* Address family. */
+                                family = af_from_ipv4_ipv6(parts[0]);
                                 if (family == AF_UNSPEC)
                                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                                "Only \"ipv4\" and \"ipv6\" protocols are supported");
-                        }
+                                _fallthrough_;
+                        case 1:
+                                /* User port. */
+                                if (streq(parts[parts_len - 1], "any")) {
+                                        r = sd_bus_message_append(m, "(sv)", field, "a(iiqq)", 1, family, ip_protocol, 0, 0);
+                                        if (r < 0)
+                                                return bus_log_create_error(r);
+                                } else {
+                                        uint16_t port_min, port_max;
 
-                        user_port = eq ? eq : word;
-                        if (streq(user_port, "any")) {
-                                r = sd_bus_message_append(m, "(sv)", field, "a(iiqq)", 1, family, ip_protocol, 0, 0);
-                                if (r < 0)
-                                        return bus_log_create_error(r);
-                        } else {
-                                uint16_t port_min, port_max;
-
-                                r = parse_ip_port_range(user_port, &port_min, &port_max);
-                                if (r == -ENOMEM)
-                                        return log_oom();
-                                if (r < 0)
-                                        return log_error_errno(r, "Invalid port or port range: %s", user_port);
-
-                                r = sd_bus_message_append(
-                                                m, "(sv)", field, "a(iiqq)", 1, family, ip_protocol, port_max - port_min + 1, port_min);
+                                        r = parse_ip_port_range(parts[parts_len - 1], &port_min, &port_max);
+                                        if (r == -ENOMEM)
+                                                return log_oom();
+                                        if (r < 0)
+                                                return log_error_errno(r, "Invalid port or port range: %s", parts[parts_len - 1]);
+                                        r = sd_bus_message_append(
+                                                        m, "(sv)", field, "a(iiqq)", 1, family, ip_protocol, port_max - port_min + 1, port_min);
+                                }
+                                break;
+                        default:
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to parse %s: too many tokens", field);
                         }
                 }
                 if (r < 0)
