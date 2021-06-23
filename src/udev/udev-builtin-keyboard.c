@@ -66,9 +66,9 @@ static int map_keycode(sd_device *dev, int fd, int scancode, const char *keycode
 
         /* translate identifier to key code */
         k = keyboard_lookup_key(keycode, strlen(keycode));
-        if (k) {
+        if (k)
                 keycode_num = k->id;
-        } else {
+        else {
                 /* check if it's a numeric code already */
                 r = safe_atou(keycode, &keycode_num);
                 if (r < 0)
