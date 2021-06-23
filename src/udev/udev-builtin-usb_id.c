@@ -104,12 +104,10 @@ static int set_usb_mass_storage_ifsubtype(char *to, const char *from, size_t len
 }
 
 static void set_scsi_type(char *to, const char *from, size_t len) {
-        int type_num;
-        char *eptr;
+        unsigned type_num;
         const char *type = "generic";
 
-        type_num = strtoul(from, &eptr, 0);
-        if (eptr != from) {
+        if (safe_atou(from, &type_num) >= 0) {
                 switch (type_num) {
                 case 0:
                 case 0xe:
