@@ -18,6 +18,7 @@
 #include "device-nodes.h"
 #include "device-util.h"
 #include "fd-util.h"
+#include "parse-util.h"
 #include "string-util.h"
 #include "strxcpyx.h"
 #include "udev-builtin.h"
@@ -75,11 +76,9 @@ static void set_usb_iftype(char *to, int if_class_num, size_t len) {
 
 static int set_usb_mass_storage_ifsubtype(char *to, const char *from, size_t len) {
         int type_num = 0;
-        char *eptr;
         const char *type = "generic";
 
-        type_num = strtoul(from, &eptr, 0);
-        if (eptr != from) {
+        if (safe_atoi(from, &type_num) >= 0) {
                 switch (type_num) {
                 case 1: /* RBC devices */
                         type = "rbc";
