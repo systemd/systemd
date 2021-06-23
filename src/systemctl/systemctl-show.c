@@ -17,6 +17,7 @@
 #include "hexdecoct.h"
 #include "hostname-util.h"
 #include "in-addr-util.h"
+#include "ip-protocol-list.h"
 #include "journal-file.h"
 #include "list.h"
 #include "locale-util.h"
@@ -1718,19 +1719,27 @@ static int print_property(const char *name, const char *expected_value, sd_bus_m
                         if (r < 0)
                                 return bus_log_parse_error(r);
                         while ((r = sd_bus_message_read(m, "(iiqq)", &af, &ip_protocol, &nr_ports, &port_min)) > 0) {
-                                const char *family, *colon;
+                                const char *family, *colon1, *protocol = "", *colon2 = "";
 
                                 family = strempty(af_to_ipv4_ipv6(af));
-                                colon = isempty(family) ? "" : ":";
+                                colon1 = isempty(family) ? "" : ":";
+
+                                if (ip_protocol != 0) {
+                                        protocol = ip_protocol_to_tcp_udp(ip_protocol);
+                                        colon2 = "";
+                                }
 
                                 if (nr_ports == 0)
-                                        bus_print_property_valuef(name, expected_value, flags, "%s%sany", family, colon);
+                                        bus_print_property_valuef(name, expected_value, flags, "%s%s%s%sany",
+                                                        family, colon1, protocol, colon2);
                                 else if (nr_ports == 1)
                                         bus_print_property_valuef(
-                                                        name, expected_value, flags, "%s%s%hu", family, colon, port_min);
+                                                        name, expected_value, flags, "%s%s%s%s%hu",
+                                                        family, colon1, protocol, colon2, port_min);
                                 else
                                         bus_print_property_valuef(
-                                                        name, expected_value, flags, "%s%s%hu-%hu", family, colon, port_min,
+                                                        name, expected_value, flags, "%s%s%s%s%hu-%hu",
+                                                        family, colon1, protocol, colon2, port_min,
                                                         (uint16_t) (port_min + nr_ports - 1));
                         }
                         if (r < 0)
