@@ -153,7 +153,7 @@ static int send_item(
         assert(name);
         assert(fd >= 0);
 
-        data_fd = fd_duplicate_data_fd(fd);
+        data_fd = copy_data_fd(fd);
         if (data_fd < 0)
                 return data_fd;
 

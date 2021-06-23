@@ -245,7 +245,7 @@ static int calculate_swap_file_offset(const SwapEntry *swap, uint64_t *ret_offse
         if (fstat(fd, &sb) < 0)
                 return log_debug_errno(errno, "Failed to stat %s: %m", swap->device);
 
-        btrfs = btrfs_is_filesystem(fd);
+        btrfs = fd_is_on_btrfs(fd);
         if (btrfs < 0)
                 return log_debug_errno(btrfs, "Error checking %s for Btrfs filesystem: %m", swap->device);
         if (btrfs > 0) {
