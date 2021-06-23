@@ -59,8 +59,20 @@ bool dirent_is_file_with_suffix(const struct dirent *de, const char *suffix) {
         return endswith(de->d_name, suffix);
 }
 
-struct dirent* readdir_no_dot(DIR *dirp) {
-        struct dirent* d;
+struct dirent *readdir_ensure_type(DIR *d) {
+        struct dirent *de;
+
+        assert(d);
+
+        errno = 0;
+        de = readdir(d);
+        if (de)
+                (void) dirent_ensure_type(d, de);
+        return de;
+}
+
+struct dirent *readdir_no_dot(DIR *dirp) {
+        struct dirent *d;
 
         for (;;) {
                 d = readdir(dirp);
