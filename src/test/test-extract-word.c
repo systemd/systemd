@@ -482,6 +482,58 @@ static void test_extract_first_word(void) {
         assert_se(extract_first_word(&p, &t, ",", EXTRACT_UNQUOTE) > 0);
         assert_se(streq(t, "context=system_u:object_r:svirt_sandbox_file_t:s0:c0,c1"));
         free(t);
+
+        p = "a:b";
+        assert_se(extract_first_word(&p, &t, ":", EXTRACT_RETAIN_SEPARATORS) == 1);
+        assert_se(streq(t, "a"));
+        assert_se(streq(p, ":b"));
+        free(t);
+        assert_se(extract_first_word(&p, &t, ":", EXTRACT_RETAIN_SEPARATORS) == 1);
+        assert_se(streq(t, "b"));
+        free(t);
+
+        p = "a>:b";
+        assert_se(extract_first_word(&p, &t, ">:", EXTRACT_RETAIN_SEPARATORS) == 1);
+        assert_se(streq(t, "a"));
+        assert_se(streq(p, ">:b"));
+        free(t);
+        assert_se(extract_first_word(&p, &t, ">:", EXTRACT_RETAIN_SEPARATORS) == 1);
+        assert_se(streq(t, "b"));
+        free(t);
+
+        p = "a>:b";
+        assert_se(extract_first_word(&p, &t, ">:", EXTRACT_RETAIN_SEPARATORS|EXTRACT_DONT_COALESCE_SEPARATORS) == 1);
+        assert_se(streq(t, "a"));
+        assert_se(streq(p, ">:b"));
+        free(t);
+        assert_se(extract_first_word(&p, &t, ">:", EXTRACT_RETAIN_SEPARATORS|EXTRACT_DONT_COALESCE_SEPARATORS) == 1);
+        assert_se(streq(t, ""));
+        assert_se(streq(p, ">:b"));
+        free(t);
+
+        p = "a\\:b";
+        assert_se(extract_first_word(&p, &t, ":", EXTRACT_RETAIN_SEPARATORS|EXTRACT_RETAIN_ESCAPE) == 1);
+        assert_se(streq(t, "a\\"));
+        assert_se(streq(p, ":b"));
+        free(t);
+
+        p = "a\\:b";
+        assert_se(extract_first_word(&p, &t, ":", EXTRACT_RETAIN_SEPARATORS) == 1);
+        assert_se(streq(t, "a:b"));
+        assert_se(!p);
+        free(t);
+
+        p = "a\\:b";
+        assert_se(extract_first_word(&p, &t, ":", EXTRACT_RETAIN_SEPARATORS|EXTRACT_UNESCAPE_SEPARATORS) == 1);
+        assert_se(streq(t, "a:b"));
+        assert_se(!p);
+        free(t);
+
+        p = "a\\:a:b";
+        assert_se(extract_first_word(&p, &t, ":", EXTRACT_RETAIN_SEPARATORS|EXTRACT_UNESCAPE_SEPARATORS) == 1);
+        assert_se(streq(t, "a:a"));
+        assert_se(streq(p, ":b"));
+        free(t);
 }
 
 static void test_extract_first_word_and_warn(void) {

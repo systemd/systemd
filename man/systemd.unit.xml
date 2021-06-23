@@ -1293,9 +1293,9 @@
           version (as reported by <command>uname -r</command>) matches a certain expression (or if prefixed
           with the exclamation mark does not match it). The argument must be a list of (potentially quoted)
           expressions.  For each of the expressions, if it starts with one of <literal>&lt;</literal>,
-          <literal>&lt;=</literal>, <literal>=</literal>, <literal>!=</literal>, <literal>&gt;=</literal>,
-          <literal>&gt;</literal> a relative version comparison is done, otherwise the specified string is
-          matched with shell-style globs.</para>
+          <literal>&lt;=</literal>, <literal>=</literal>, <literal>==</literal>, <literal>!=</literal>,
+          <literal>&gt;=</literal>, <literal>&gt;</literal> a relative version comparison is done, otherwise
+          the specified string is matched with shell-style globs.</para>
 
           <para>Note that using the kernel version string is an unreliable way to determine which features
           are supported by a kernel, because of the widespread practice of backporting drivers, features, and
@@ -1647,6 +1647,19 @@
         </varlistentry>
 
         <varlistentry>
+          <term><varname>ConditionOSRelease=</varname></term>
+
+          <listitem><para>Verify that a specific <literal>key=value</literal> pair is set in the host's
+          <citerefentry><refentrytitle>os-release</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
+
+          <para>Other than exact matching with <literal>=</literal>, <literal>==</literal> and <literal>!=</literal>,
+          relative comparisons are supported for versioned parameters (e.g. <literal>VERSION_ID</literal>). The
+          comparator can be one of <literal>&lt;</literal>, <literal>&lt;=</literal>, <literal>=</literal>, <literal>==</literal>,
+          <literal>!=</literal>, <literal>&gt;=</literal> and <literal>&gt;</literal>.</para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
           <term><varname>AssertArchitecture=</varname></term>
           <term><varname>AssertVirtualization=</varname></term>
           <term><varname>AssertHost=</varname></term>
@@ -1673,6 +1686,7 @@
           <term><varname>AssertControlGroupController=</varname></term>
           <term><varname>AssertMemory=</varname></term>
           <term><varname>AssertCPUs=</varname></term>
+          <term><varname>AssertOSRelease=</varname></term>
 
           <listitem><para>Similar to the <varname>ConditionArchitecture=</varname>,
           <varname>ConditionVirtualization=</varname>, …, condition settings described above, these settings
