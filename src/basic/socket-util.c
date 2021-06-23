@@ -748,6 +748,22 @@ static const char* const ip_tos_table[] = {
 
 DEFINE_STRING_TABLE_LOOKUP_WITH_FALLBACK(ip_tos, int, 0xff);
 
+bool ifname_valid_char(char a) {
+        if ((unsigned char) a >= 127U)
+                return false;
+
+        if ((unsigned char) a <= 32U)
+                return false;
+
+        if (IN_SET(a,
+                   ':',  /* colons are used by the legacy "alias" interface logic */
+                   '/',  /* slashes cannot work, since we need to use network interfaces in sysfs paths, and in paths slashes are separators */
+                   '%')) /* %d is used in the kernel's weird foo%d format string naming feature which we really really don't want to ever run into by accident */
+                return false;
+
+        return true;
+}
+
 bool ifname_valid_full(const char *p, IfnameValidFlags flags) {
         bool numeric = true;
 
@@ -781,16 +797,7 @@ bool ifname_valid_full(const char *p, IfnameValidFlags flags) {
                 return false;
 
         for (const char *t = p; *t; t++) {
-                if ((unsigned char) *t >= 127U)
-                        return false;
-
-                if ((unsigned char) *t <= 32U)
-                        return false;
-
-                if (IN_SET(*t,
-                           ':',  /* colons are used by the legacy "alias" interface logic */
-                           '/',  /* slashes cannot work, since we need to use network interfaces in sysfs paths, and in paths slashes are separators */
-                           '%')) /* %d is used in the kernel's weird foo%d format string naming feature which we really really don't want to ever run into by accident */
+                if (!ifname_valid_char(*t))
                         return false;
 
                 numeric = numeric && (*t >= '0' && *t <= '9');
