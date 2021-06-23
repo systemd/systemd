@@ -126,8 +126,6 @@ static void test_get_process_cmdline(void) {
         FOREACH_DIRENT(de, d, return) {
                 pid_t pid;
 
-                dirent_ensure_type(d, de);
-
                 if (de->d_type != DT_DIR)
                         continue;
 
