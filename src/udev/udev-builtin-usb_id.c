@@ -245,7 +245,7 @@ static int builtin_usb_id(sd_device *dev, int argc, char *argv[], bool test) {
 
         sd_device *dev_interface, *dev_usb;
         const char *if_class, *if_subclass;
-        int if_class_num;
+        unsigned if_class_num;
         int protocol = 0;
         size_t l;
         char *s;
@@ -285,7 +285,9 @@ static int builtin_usb_id(sd_device *dev, int argc, char *argv[], bool test) {
         if (r < 0)
                 return log_device_debug_errno(dev_interface, r, "Failed to get bInterfaceClass attribute: %m");
 
-        if_class_num = strtoul(if_class, NULL, 16);
+        r = safe_atou_full(if_class, 16, &if_class_num);
+        if (r < 0)
+                return log_device_debug_errno(dev_interface, r, "Failed to parse if_class: %m");
         if (if_class_num == 8) {
                 /* mass storage */
                 if (sd_device_get_sysattr_value(dev_interface, "bInterfaceSubClass", &if_subclass) >= 0)
