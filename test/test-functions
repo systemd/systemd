@@ -1173,7 +1173,7 @@ check_result_common() {
 
     check_asan_reports "$workspace" || ret=4
 
-    save_journal "$workspace/var/log/journal"
+    [ $ret == 0 ] || save_journal "$workspace/var/log/journal"
 
     if [ -d "${ARTIFACT_DIRECTORY}" ] && [ -f "$workspace/strace.out" ]; then
         cp "$workspace/strace.out" "${ARTIFACT_DIRECTORY}/"
@@ -1254,7 +1254,7 @@ check_result_nspawn_unittests() {
 
     [[ -n "${TIMED_OUT:=}" ]] && ret=1
 
-    save_journal "$workspace/var/log/journal"
+    [ $ret == 0 ] || save_journal "$workspace/var/log/journal"
 
     _umount_dir "${initdir:?}"
 
@@ -1286,7 +1286,7 @@ check_result_qemu_unittests() {
 
     [[ -n "${TIMED_OUT:=}" ]] && ret=1
 
-    save_journal "$initdir/var/log/journal"
+    [ $ret == 0 ] || save_journal "$initdir/var/log/journal"
 
     _umount_dir "$initdir"
 
