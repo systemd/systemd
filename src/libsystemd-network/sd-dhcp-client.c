@@ -1587,9 +1587,17 @@ static int client_handle_forcerenew(sd_dhcp_client *client, DHCPMessage *force, 
         if (r != DHCP_FORCERENEW)
                 return -ENOMSG;
 
+#if 0
         log_dhcp_client(client, "FORCERENEW");
 
         return 0;
+#else
+        /* FIXME: Ignore FORCERENEW requests until we implement RFC3118 (Authentication for DHCP
+         * Messages) and/or RFC6704 (Forcerenew Nonce Authentication), as unauthenticated FORCERENEW
+         * requests causes a security issue (TALOS-2020-1142, CVE-2020-13529). */
+        log_dhcp_client(client, "Received FORCERENEW, ignoring.");
+        return -ENOMSG;
+#endif
 }
 
 static bool lease_equal(const sd_dhcp_lease *a, const sd_dhcp_lease *b) {
