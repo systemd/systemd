@@ -2053,20 +2053,19 @@ static int udev_rule_apply_token_to_event(
                 if (token->op == OP_ASSIGN_FINAL)
                         event->name_final = true;
 
+                if (sd_device_get_ifindex(dev, NULL) < 0) {
+                        log_rule_error(dev, rules,
+                                       "Only network interface can be renamed, ignoring NAME=\"%s\"; please fix it.",
+                                       token->value);
+                        break;
+                }
+
                 (void) udev_event_apply_format(event, token->value, buf, sizeof(buf), false);
                 if (IN_SET(event->esc, ESCAPE_UNSET, ESCAPE_REPLACE)) {
                         count = udev_replace_chars(buf, "/");
                         if (count > 0)
                                 log_rule_debug(dev, rules, "Replaced %zu character(s) from result of NAME=\"%s\"",
                                                count, token->value);
-                }
-                if (sd_device_get_devnum(dev, NULL) >= 0 &&
-                    (sd_device_get_devname(dev, &val) < 0 ||
-                     !streq_ptr(buf, path_startswith(val, "/dev/")))) {
-                        log_rule_error(dev, rules,
-                                       "Kernel device nodes cannot be renamed, ignoring NAME=\"%s\"; please fix it.",
-                                       token->value);
-                        break;
                 }
                 r = free_and_strdup_warn(&event->name, buf);
                 if (r < 0)
