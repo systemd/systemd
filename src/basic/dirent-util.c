@@ -7,7 +7,7 @@
 #include "path-util.h"
 #include "string-util.h"
 
-int dirent_ensure_type(DIR *d, struct dirent *de) {
+static int dirent_ensure_type(DIR *d, struct dirent *de) {
         struct stat st;
 
         assert(d);
@@ -75,7 +75,7 @@ struct dirent *readdir_no_dot(DIR *dirp) {
         struct dirent *d;
 
         for (;;) {
-                d = readdir(dirp);
+                d = readdir_ensure_type(dirp);
                 if (d && dot_or_dot_dot(d->d_name))
                         continue;
                 return d;

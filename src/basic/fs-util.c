@@ -580,8 +580,6 @@ int get_files_in_directory(const char *path, char ***list) {
                 return -errno;
 
         FOREACH_DIRENT_ALL(de, d, return -errno) {
-                dirent_ensure_type(d, de);
-
                 if (!dirent_is_file(de))
                         continue;
 

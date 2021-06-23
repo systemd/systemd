@@ -787,8 +787,6 @@ static int find_loop_device(const char *backing_file, char **loop_dev) {
                 _cleanup_free_ char *sys = NULL, *fname = NULL;
                 int r;
 
-                dirent_ensure_type(d, de);
-
                 if (de->d_type != DT_DIR)
                         continue;
 

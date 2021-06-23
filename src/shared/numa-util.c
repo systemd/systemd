@@ -139,8 +139,6 @@ static int numa_max_node(void) {
                 int node;
                 const char *n;
 
-                (void) dirent_ensure_type(d, de);
-
                 if (de->d_type != DT_DIR)
                         continue;
 

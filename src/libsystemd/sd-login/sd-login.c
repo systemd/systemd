@@ -795,8 +795,6 @@ _public_ int sd_get_uids(uid_t **users) {
                 int k;
                 uid_t uid;
 
-                dirent_ensure_type(d, de);
-
                 if (!dirent_is_file(de))
                         continue;
 
