@@ -528,7 +528,7 @@ int unit_name_from_path(const char *path, const char *suffix, char **ret) {
         if (strlen(s) >= UNIT_NAME_MAX) /* Return a slightly more descriptive error for this specific condition */
                 return -ENAMETOOLONG;
 
-        /* Refuse this if this got too long or for some other reason didn't result in a valid name */
+        /* Refuse if this for some other reason didn't result in a valid name */
         if (!unit_name_is_valid(s, UNIT_NAME_PLAIN))
                 return -EINVAL;
 
@@ -562,7 +562,7 @@ int unit_name_from_path_instance(const char *prefix, const char *path, const cha
         if (strlen(s) >= UNIT_NAME_MAX) /* Return a slightly more descriptive error for this specific condition */
                 return -ENAMETOOLONG;
 
-        /* Refuse this if this got too long or for some other reason didn't result in a valid name */
+        /* Refuse if this for some other reason didn't result in a valid name */
         if (!unit_name_is_valid(s, UNIT_NAME_INSTANCE))
                 return -EINVAL;
 
