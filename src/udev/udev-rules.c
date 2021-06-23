@@ -2099,7 +2099,8 @@ static int udev_rule_apply_token_to_event(
                 else
                         count = 0;
                 if (count > 0)
-                        log_rule_debug(dev, rules, "Replaced %zu character(s) from result of LINK", count);
+                        log_rule_debug(dev, rules, "Replaced %zu character(s) from result of SYMLINK=\"%s\"",
+                                       count, token->value);
 
                 p = skip_leading_chars(buf, NULL);
                 while (!isempty(p)) {
