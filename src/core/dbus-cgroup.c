@@ -15,6 +15,7 @@
 #include "errno-util.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "ip-protocol-list.h"
 #include "limits-util.h"
 #include "parse-util.h"
 #include "path-util.h"
@@ -1895,8 +1896,8 @@ int bus_cgroup_set_property(
                         if (!IN_SET(family, AF_UNSPEC, AF_INET, AF_INET6))
                                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "%s= expects INET or INET6 family, if specified.", name);
 
-                        if (ip_protocol != 0)
-                                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "%s= expects ip protocol equals to 0, for the time being.", name);
+                        if (!IN_SET(ip_protocol, 0, IPPROTO_TCP, IPPROTO_UDP))
+                                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "%s= expects TCP or UDP protocol, if specified.", name);
 
                         if (port_min + (uint32_t) nr_ports > (1 << 16))
                                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "%s= expects maximum port value lesser than 65536.", name);
