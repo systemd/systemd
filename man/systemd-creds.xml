@@ -1,0 +1,378 @@
+<?xml version='1.0'?> <!--*-nxml-*-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
+
+<refentry id="systemd-creds"
+    xmlns:xi="http://www.w3.org/2001/XInclude">
+
+  <refentryinfo>
+    <title>systemd-creds</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>systemd-creds</refentrytitle>
+    <manvolnum>1</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>systemd-creds</refname>
+    <refpurpose>Lists, shows, encrypts and decrypts service credentials</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <cmdsynopsis>
+      <command>systemd-creds</command>
+      <arg choice="opt" rep="repeat">OPTIONS</arg>
+    </cmdsynopsis>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para><command>systemd-creds</command> is a tool for listing, showing, encrypting and decrypting unit
+    credentials. Credentials are limited-size binary or textual objects that may be passed to unit
+    processes. They are primarily used for passing cryptographic keys (both public and private) or
+    certificates, user account information or identity information from the host to services.</para>
+
+    <para>Credentials are configured in unit files via the <varname>LoadCredential=</varname>,
+    <varname>SetCredential=</varname>, <varname>LoadCredentialEncrypted=</varname> and
+    <varname>SetCredentialEncrypted=</varname> settings, see
+    <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry> for
+    details.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Commands</title>
+
+    <para>The following commands are understood:</para>
+
+    <variablelist>
+      <varlistentry>
+        <term><command>list</command></term>
+
+        <listitem><para>Show a list of credentials passed into the current execution context. This command
+        shows the files in the directory referenced by the <varname>$CREDENTIALS_DIRECTORY</varname>
+        environment variable, and is intended to be executed from within service context.</para>
+
+        <para>Along with each credential name, the size and security state is shown. The latter is one of
+        <literal>secure</literal> (in case the credential is backed by unswappable memory,
+        i.e. <literal>ramfs</literal>), <literal>weak</literal> (in case it is backed by any other type of
+        memory), or <literal>insecure</literal> (if having any access mode that is not 0400, i.e. if readable
+        by anyone but the owner).</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><command>cat</command> <replaceable>credential...</replaceable></term>
+
+        <listitem><para>Show contents of specified credentials passed into the current execution
+        context. Takes one or more credential names, whose contents shall be written to standard
+        output.</para>
+
+        <para>When combined with <option>--json=</option> or <option>--transcode=</option> the output is
+        transcoded in simple ways before outputting.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><command>setup</command></term>
+
+        <listitem><para>Generates a host encryption key for credentials, if none has been generated
+        before. This ensures the <filename>/var/lib/systemd/credential.secret</filename> file is initialized
+        with a random secret key if it doesn't exist yet. This secret key is used when encrypting/decrypting
+        credentials with <command>encrypt</command> or <command>decrypt</command>, and is only accessible to
+        the root user. Note that there's typically no need to invoke this command explicitly as it is
+        implicitly called when <command>encrypt</command> is invoked, and credential host key encryption
+        selected.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><command>encrypt</command> <replaceable>input</replaceable> <replaceable>output</replaceable></term>
+
+        <listitem><para>Loads the specified (unencrypted plaintext) input credential file, encrypts it and
+        writes the (encrypted ciphertext) version to the specified output credential file. The resulting file
+        may be referenced in the <varname>LoadCredentialEncrypted=</varname> setting in unit files, or its
+        contents used literally in <varname>SetCredentialEncrypted=</varname> settings.</para>
+
+        <para>Takes two file system paths. The file name part of the output path is embedded as name in the
+        encrypted credential, to ensure encrypted credentials cannot be renamed and reused for different
+        purposes without this being noticed. The credential name to embed may be overridden with the
+        <option>--name=</option> setting. The input or output paths may be specified as <literal>-</literal>,
+        in which case the credential data is read from/written to standard input and standard output. If the
+        output path is specified as <literal>-</literal> the credential name cannot be derived from the file
+        system path, and thus should be specified explicitly via the <option>--name=</option> switch.</para>
+
+        <para>The credential data is encrypted symmetrically with one of the following encryption
+        keys:</para>
+
+        <orderedlist>
+          <listitem><para>A secret key automatically derived from the system's TPM2 chip. This encryption key
+          is not stored on the host system and thus decryption is only possible with access to the original
+          TPM2 chip. Or in other words, the credential secured in this way can only be decrypted again by the
+          local machine.</para></listitem>
+
+          <listitem><para>A secret key stored in the <filename>/var/lib/systemd/credential.secret</filename>
+          file which is only accessible to the root user. This "host" encryption key is stored on the host
+          file system, and thus decryption is possible with access to the host file system and sufficient
+          privileges. The key is automatically generated when needed, but can also be created explicitly with
+          the <command>setup</command> command, see above.</para></listitem>
+
+          <listitem><para>A combination of the above: an encryption key derived from both the TPM2 chip and
+          the host file system. This means decryption requires both access to the original TPM2 chip and the
+          OS installation. This is the default mode of operation if a TPM2 chip is available and
+          <filename>/var/lib/systemd/</filename> resides on persistent media.</para></listitem>
+        </orderedlist>
+
+        <para>Which of the three keys shall be used for encryption may be configured with the
+        <option>--with-key=</option> switch. Depending on the use-case for the encrypted credential the key to
+        use may differ. For example, for credentials that shall be accessible from the initial RAM disk
+        (initrd) of the system encryption with the host key is not appropriate since access to the host key
+        is typically not available from the initrd. Thus, for such credentials only the TPM2 key should be
+        used.</para>
+
+        <para>Encrypted credentials are always encoded in Base64.</para>
+
+        <para>Use <command>decrypt</command> (see below) to undo the encryption operation, and acquire the
+        decrypted plaintext credential from the encrypted ciphertext credential.</para>
+
+        <para>The credential data is encrypted using AES256-GCM, i.e. providing both confidentiality and
+        integrity, keyed by a SHA256 hash of one or both of the secret keys described above.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><command>decrypt</command> <replaceable>input</replaceable>
+        <optional><replaceable>output</replaceable></optional></term>
+
+        <listitem><para>Undoes the effect of the <command>encrypt</command> operation: loads the specified
+        (encrypted ciphertext) input credential file, decrypts it and writes the (decrypted plaintext)
+        version to the specified output credential file.</para>
+
+        <para>Takes one or two file system paths. The file name part of the input path is compared with the
+        credential name embedded in the encrypted file. If it does not match decryption fails. This is done
+        in order to ensure that encrypted credentials are not re-purposed without this being detected. The
+        credential name to compare with the embedded credential name may also be overridden with the
+        <option>--name=</option> switch. If only one path is specified (or the output path specified as
+        <literal>-</literal>) it is taken as input path and the decrypted credential is written to standard
+        output. If the input path is specified as <literal>-</literal> the encrypted credential is read from
+        standard input. In this mode, the expected name embedded in the credential cannot be derived from the
+        path and should be specified explicitly with <option>--name=</option>.</para>
+
+        <para>Decrypting credentials requires access to the original TPM2 chip and/or credentials host key,
+        see above. Information about which keys are required is embedded in the encrypted credential data,
+        and thus decryption is entirely automatic.</para></listitem>
+      </varlistentry>
+
+      <xi:include href="standard-options.xml" xpointer="help" />
+      <xi:include href="standard-options.xml" xpointer="version" />
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>Options</title>
+
+    <variablelist>
+
+      <varlistentry>
+        <term><option>--system</option></term>
+
+        <listitem><para>When specified with the <command>list</command> and <command>cat</command> commands
+        operates on the credentials passed to system as a whole instead of on those passed to the current
+        execution context. This is useful in container environments where credentials may be passed in from
+        the container manager.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--transcode=</option></term>
+
+        <listitem><para>When specified with the <command>cat</command> or <command>decrypt</command>
+        commands, transcodes the output before showing it. Takes one of <literal>base64</literal>,
+        <literal>unbase64</literal>, <literal>hex</literal> or <literal>unhex</literal> as argument, in order
+        to encode/decode the credential data with Base64 or as series of hexadecimal values.</para>
+
+        <para>Note that this has no effect on the <command>encrypt</command> command, as encrypted
+        credentials are unconditionally encoded in Base64.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--newline=</option></term>
+
+        <listitem><para>When specified with <command>cat</command> or <command>decrypt</command> controls
+        whether to add a trailing newline character to the end of the output if it doesn't end in one,
+        anyway. Takes one of <literal>auto</literal>, <literal>yes</literal> or <literal>no</literal>. The
+        default mode of <literal>auto</literal> will suffix the output with a single newline character only
+        when writing credential data to a TTY.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--pretty</option></term>
+        <term><option>-p</option></term>
+
+        <listitem><para>When specified with <command>encrypt</command> controls whether to show the encrypted
+        credential as <varname>SetCredentialEncrypted=</varname> setting that may be pasted directly into a
+        unit file.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--name=</option><replaceable>name</replaceable></term>
+
+        <listitem><para>When specified with the <command>encrypt</command> command controls the credential
+        name to embed in the encrypted credential data. If not specified the name is chosen automatically
+        from the filename component of the specified output path. If specified as empty string no
+        credential name is embedded in the encrypted credential, and no verification of credential name is
+        done when the credential is decrypted.</para>
+
+        <para>When specified with the <command>decrypt</command> command control the credential name to
+        validate the credential name embedded in the encrypted credential with. If not specified the name is
+        chosen automatically from the filename component of the specified input path. If no credential name
+        is embedded in the encrypted credential file (i.e. the <option>--name=</option> with an empty string
+        was used when encrypted) the specified name has no effect as no credential name validation is
+        done.</para>
+
+        <para>Embedding the credential name in the encrypted credential is done in order to protect against
+        reuse of credentials for purposes they weren't originally intended for, under the assumption the
+        credential name is chosen carefully to encode its intended purpose.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--timestamp=</option><replaceable>timestamp</replaceable></term>
+
+        <listitem><para>When specified with the <command>encrypt</command> command controls the timestamp to
+        embed into the encrypted credential. Defaults to the current time. Takes a timestamp specification in
+        the format described in
+        <citerefentry><refentrytitle>systemd.time</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
+
+        <para>When specified with the <command>decrypt</command> command controls the timestamp to use to
+        validate the "not-after" timestamp that was configured with <option>--not-after=</option> during
+        encryption. If not specified defaults to the current system time.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--not-after=</option><replaceable>timestamp</replaceable></term>
+
+        <listitem><para>When specified with the <command>encrypt</command> command controls the time when the
+        credential shall not be used anymore. This embeds the specified timestamp in the encrypted
+        credential. During decryption the timestamp is checked against the current system clock, and if the
+        timestamp is in the past the decryption will fail. By default no such timestamp is set. Takes a
+        timestamp specification in the format described in
+        <citerefentry><refentrytitle>systemd.time</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--with-key=</option></term>
+        <term><option>-H</option></term>
+        <term><option>-T</option></term>
+
+        <listitem><para>When specified with the <command>encrypt</command> command controls the encryption
+        key to use. Takes one of <literal>host</literal>, <literal>tpm2</literal>,
+        <literal>host+tpm2</literal> or <literal>auto</literal>. See above for details on the three key
+        types. If set to <literal>auto</literal> (which is the default) the TPM2 key is used if a TPM2 device
+        is found and not running in a container. The host key is used if
+        <filename>/var/lib/systemd/</filename> is on persistent media. This means on typical systems the
+        encryption is by default bound to both the TPM2 chip and the OS installation, and both need to be
+        available to decrypt the credential again. If <literal>auto</literal> is selected but neither TPM2 is
+        available (or running in container) nor <filename>/var/lib/systemd/</filename> is on persistent
+        media, encryption will fail.</para>
+
+        <para>The <option>-H</option> switch is a shortcut for <option>--with-key=host</option>. Similar,
+        <option>-T</option> is a shortcut for <option>-with-key=tpm2</option>.</para>
+
+        <para>When encrypting credentials that shall be used in the initial RAM disk (initrd) where
+        <filename>/var/lib/systemd/</filename> is typically not available make sure to use
+        <option>--with-key=tpm2</option> mode, to disable binding against the host secret.</para>
+
+        <para>This switch has no effect on the <command>decrypt</command> command, as information on which
+        key to use for decryption is included in the encrypted credential already.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--tpm2-device=</option><replaceable>PATH</replaceable></term>
+
+        <listitem><para>Controls the TPM2 device to use. Expects a device node path referring to the TPM2
+        chip (e.g. <filename>/dev/tpmrm0</filename>). Alternatively the special value <literal>auto</literal>
+        may be specified, in order to automatically determine the device node of a suitable TPM2 device (of
+        which there must be exactly one). The special value <literal>list</literal> may be used to enumerate
+        all suitable TPM2 devices currently discovered.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--tpm2-pcrs=</option><arg rep="repeat">PCR</arg></term>
+
+        <listitem><para>Configures the TPM2 PCRs (Platform Configuration Registers) to bind the encryption
+        key to. Takes a <literal>+</literal> separated list of numeric PCR indexes in the range 0…23. If not
+        used, defaults to PCR 7 only. If an empty string is specified, binds the encryption key to no PCRs at
+        all. For details about the PCRs available, see the documentation of the switch of the same name for
+        <citerefentry><refentrytitle>systemd-cryptenroll</refentrytitle><manvolnum>1</manvolnum></citerefentry>.</para></listitem>
+      </varlistentry>
+
+      <xi:include href="standard-options.xml" xpointer="no-pager" />
+      <xi:include href="standard-options.xml" xpointer="no-legend" />
+      <xi:include href="standard-options.xml" xpointer="json" />
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>Exit status</title>
+
+    <para>On success, 0 is returned.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Examples</title>
+
+    <example>
+      <title>Encrypt a password for use as credential</title>
+
+      <para>The following command line encrypts the specified password <literal>hunter2</literal>, writing the result
+      to a file <filename>password.cred</filename>.</para>
+
+      <programlisting># echo -n hunter2 | systemd-creds encrypt - password.cred</programlisting>
+
+      <para>This decrypts the file <filename>password.cred</filename> again, revealing the literal password:</para>
+
+      <programlisting># systemd-creds decrypt password.cred
+hunter2</programlisting>
+    </example>
+
+    <example>
+      <title>Encrypt a password and include it in a unit file</title>
+
+      <para>The following command line prompts the user for a password and generates a
+      <varname>SetCredentialEncrypted=</varname> line from it for a credential named
+      <literal>mysql-password</literal>, suitable for inclusion in a unit file.</para>
+
+      <programlisting># systemd-ask-password -n | systemd-creds encrypt --name=mysql-password -p - -
+🔐 Password: ****
+SetCredentialEncrypted=mysql-password: \
+        k6iUCUh0RJCQyvL8k8q1UyAAAAABAAAADAAAABAAAAASfFsBoPLIm/dlDoGAAAAAAAAAA \
+        NAAAAAgAAAAAH4AILIOZ3w6rTzYsBy9G7liaCAd4i+Kpvs8mAgArzwuKxd0ABDjgSeO5k \
+        mKQc58zM94ZffyRmuNeX1lVHE+9e2YD87KfRFNoDLS7F3YmCb347gCiSk2an9egZ7Y0Xs \
+        700Kr6heqQswQEemNEc62k9RJnEl2q7SbcEYguegnPQUATgAIAAsAAAASACA/B90W7E+6 \
+        yAR9NgiIJvxr9bpElztwzB5lUJAxtMBHIgAQACCaSV9DradOZz4EvO/LSaRyRSq2Hj0ym \
+        gVJk/dVzE8Uxj8H3RbsT7rIBH02CIgm/Gv1ukSXO3DMHmVQkDG0wEciyageTfrVEer8z5 \
+        9cUQfM5ynSaV2UjeUWEHuz4fwDsXGLB9eELXLztzUU9nsAyLvs3ZRR+eEK/A==</programlisting>
+
+      <para>The generated line can be pasted 1:1 into a unit file, and will ensure the acquired password will
+      be made available in the <varname>$CREDENTIALS_DIRECTORY</varname><filename>/mysql-password</filename>
+      credential file for the started service.</para>
+
+      <para>Utilizing the unit file drop-in logic this can be used to securely pass a password credential to
+      a unit. A similar, more comprehensive set of commands to insert a password into a service
+      <filename>xyz.service</filename>:</para>
+
+      <programlisting># mkdir -p /etc/systemd/system/xyz.service.d
+# systemd-ask-password -n | systemd-creds encrypt --name=mysql-password -p - - > /etc/systemd/system/xyz.service.d/50-password.conf
+# systemctl daemon-reload
+# systemctl restart xyz.service</programlisting>
+    </example>
+  </refsect1>
+
+  <refsect1>
+    <title>See Also</title>
+    <para>
+      <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+    </para>
+  </refsect1>
+
+</refentry>
