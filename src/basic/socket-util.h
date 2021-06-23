@@ -139,6 +139,7 @@ typedef enum {
         IFNAME_VALID_NUMERIC     = 1 << 1,
         _IFNAME_VALID_ALL        = IFNAME_VALID_ALTERNATIVE | IFNAME_VALID_NUMERIC,
 } IfnameValidFlags;
+bool ifname_valid_char(char a);
 bool ifname_valid_full(const char *p, IfnameValidFlags flags);
 static inline bool ifname_valid(const char *p) {
         return ifname_valid_full(p, 0);
