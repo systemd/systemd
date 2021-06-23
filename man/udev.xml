@@ -117,7 +117,7 @@
           <varlistentry>
             <term><literal>:=</literal></term>
             <listitem>
-              <para>Assign  a  value  to  a key finally; disallow any later changes.</para>
+              <para>Assign a value to a key finally; disallow any later changes.</para>
             </listitem>
           </varlistentry>
         </variablelist>
@@ -607,9 +607,12 @@
                 <varlistentry>
                   <term><option>string_escape=<replaceable>none|replace</replaceable></option></term>
                   <listitem>
-                    <para>Usually, control and other possibly unsafe characters are replaced
-                    in strings used for device naming. The mode of replacement can be specified
-                    with this option.</para>
+                    <para>When <literal>replace</literal>, possibly unsafe characters in strings
+                    assigned to <varname>NAME</varname>, <varname>SYMLINK</varname>, and
+                    <varname>ENV{<replaceable>key</replaceable>}</varname> are replaced. When
+                    <literal>none</literal>, no replacement is performed. When unset, the replacement
+                    is performed for <varname>NAME</varname>, <varname>SYMLINK</varname>, but not for
+                    <varname>ENV{<replaceable>key</replaceable>}</varname>. Defaults to unset.</para>
                   </listitem>
                 </varlistentry>
                 <varlistentry>
