@@ -26,6 +26,9 @@ Janitorial Clean-ups:
 
 Features:
 
+* add tpm.target or so which is delayed until TPM2 device showed up in case
+  firmware indicates there is one.
+
 * firstboot: allow provisioning of /etc/hosts entries, so that we can via the
   credentials logic insert host name to resolve into containers/hosts. Usecase:
   fork a container, and make it ping some specific address which is defined by
@@ -33,16 +36,17 @@ Features:
 
 * in sd-id128: also parse UUIDs in RFC4122 URN syntax (i.e. chop off urn:uuid: prefix)
 
-* ability to insert trusted configuration and secrets into the boot parameters
-  of a kernel booting in a VM or on baremetal some way, via TPM
-  protection. idea:
-  1. pass via /proc/bootconfig
-  2. for secrets: put secrets in node of /proc/bootconfig, decrypt them via
-     TPM early on in PID 1, put them in $CREDENTIAL_PATH logic
-  3. for config: put signed data in node /proc/booconfig, validate via TPM
-     early on in PID 1, put data into /run/bootconfig/ as individual files
-  4. boot loader/stub should pick these up automatically from the boot loader
-     file systems
+* allow passing creds into kernel when booting: in EFI stub, collect creds
+  files from ESP directory, generate CPIO archive on the fly from them, so that
+  they are dropped into /run/initramfs/creds/ and pass to kernel as additional
+  initrd. Then, use LoadCredentialEncrypted=foo:/run/initramfs/creds/foo to
+  load them.
+
+* make LoadCredential= automatically find credentials in /etc/creds,
+  /run/creds, … and so on, if path component is unqualified
+
+* teach LoadCredential=/LoadCredentialEncrypted= to load credentials from
+  kernel cmdline, maybe: LoadCredentialEncrypted=foobar:proc-cmdline:foobar
 
 * journald: support RFC3164 fully for the incoming syslog transport, see
   https://github.com/systemd/systemd/issues/19251#issuecomment-816601955
@@ -305,12 +309,13 @@ Features:
 * seccomp: maybe merge all filters we install into one with that libseccomp API that allows merging.
 
 * credentials system:
-  - maybe add AcquireCredential= for querying a cred via ask-password
-  - maybe try to acquire creds via keyring?
-  - maybe try to pass creds via keyring?
-  - maybe optionally pass creds via memfd
-  - maybe add support for decrypting creds via TPM
-  - maybe add support for decrypting/importing creds via pkcs11
+  - acquire from kernel command line
+  - acquire from EFI variable?
+  - acquire via via ask-password?
+  - acquire creds via keyring?
+  - pass creds via keyring?
+  - pass creds via memfd?
+  - acquire + decrypt creds from pkcs11?
   - make systemd-cryptsetup acquire pw via creds logic
   - make PAMName= acquire pw via creds logic
   - make macsec/wireguard code in networkd read key via creds logic
