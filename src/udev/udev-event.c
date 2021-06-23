@@ -17,6 +17,7 @@
 #include "fd-util.h"
 #include "fs-util.h"
 #include "format-util.h"
+#include "netif-naming-scheme.h"
 #include "netlink-util.h"
 #include "parse-util.h"
 #include "path-util.h"
@@ -847,6 +848,12 @@ static int rename_netif(UdevEvent *event) {
                 return 0; /* Device is not a network interface. */
         if (r < 0)
                 return log_device_error_errno(dev, r, "Failed to get ifindex: %m");
+
+        if (naming_scheme_has(NAMING_REPLACE_STRICTLY) &&
+            !ifname_valid(event->name)) {
+                log_device_warning(dev, "Invalid network interface name, ignoring: %s", event->name);
+                return 0;
+        }
 
         /* Set ID_RENAMING boolean property here, and drop it in the corresponding move uevent later. */
         r = device_add_property(dev, "ID_RENAMING", "1");

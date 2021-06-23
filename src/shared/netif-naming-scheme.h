@@ -34,6 +34,7 @@ typedef enum NamingSchemeFlags {
         NAMING_BRIDGE_NO_SLOT      = 1 << 9, /* Don't use PCI hotplug slot information if the corresponding device is a PCI bridge */
         NAMING_SLOT_FUNCTION_ID    = 1 << 10, /* Use function_id if present to identify PCI hotplug slots */
         NAMING_16BIT_INDEX         = 1 << 11, /* Allow full 16-bit for the onboard index */
+        NAMING_REPLACE_STRICTLY    = 1 << 12, /* Use udev_replace_ifname() for NAME= rule */
 
         /* And now the masks that combine the features above */
         NAMING_V238 = 0,
@@ -43,7 +44,7 @@ typedef enum NamingSchemeFlags {
         NAMING_V243 = NAMING_V241 | NAMING_NETDEVSIM | NAMING_LABEL_NOPREFIX,
         NAMING_V245 = NAMING_V243 | NAMING_NSPAWN_LONG_HASH,
         NAMING_V247 = NAMING_V245 | NAMING_BRIDGE_NO_SLOT,
-        NAMING_V249 = NAMING_V247 | NAMING_SLOT_FUNCTION_ID | NAMING_16BIT_INDEX,
+        NAMING_V249 = NAMING_V247 | NAMING_SLOT_FUNCTION_ID | NAMING_16BIT_INDEX | NAMING_REPLACE_STRICTLY,
 
         _NAMING_SCHEME_FLAGS_INVALID = -EINVAL,
 } NamingSchemeFlags;
