@@ -17,6 +17,7 @@
 #include "glob-util.h"
 #include "list.h"
 #include "mkdir.h"
+#include "netif-naming-scheme.h"
 #include "nulstr-util.h"
 #include "parse-util.h"
 #include "path-util.h"
@@ -2062,7 +2063,10 @@ static int udev_rule_apply_token_to_event(
 
                 (void) udev_event_apply_format(event, token->value, buf, sizeof(buf), false);
                 if (IN_SET(event->esc, ESCAPE_UNSET, ESCAPE_REPLACE)) {
-                        count = udev_replace_chars(buf, "/");
+                        if (naming_scheme_has(NAMING_REPLACE_STRICTLY))
+                                count = udev_replace_ifname(buf);
+                        else
+                                count = udev_replace_chars(buf, "/");
                         if (count > 0)
                                 log_rule_debug(dev, rules, "Replaced %zu character(s) from result of NAME=\"%s\"",
                                                count, token->value);
