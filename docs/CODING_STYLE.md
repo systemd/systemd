@@ -69,6 +69,14 @@ layout: default
   ```
 
 - Do not write `foo ()`, write `foo()`.
+- `else` blocks should generally start on the same line as the closing `}`:
+  ```c
+  if (foobar) {
+          find();
+          waldo();
+  } else
+          dont_find_waldo();
+  ```
 
 ## Code Organization and Semantics
 
