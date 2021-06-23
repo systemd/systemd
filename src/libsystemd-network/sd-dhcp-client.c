@@ -1777,7 +1777,7 @@ static int client_set_lease_timeouts(sd_dhcp_client *client) {
 static int client_handle_message(sd_dhcp_client *client, DHCPMessage *message, int len) {
         DHCP_CLIENT_DONT_DESTROY(client);
         char time_string[FORMAT_TIMESPAN_MAX];
-        int r = 0, notify_event = 0;
+        int r, notify_event = 0;
 
         assert(client);
         assert(client->event);
@@ -1800,9 +1800,6 @@ static int client_handle_message(sd_dhcp_client *client, DHCPMessage *message, i
                                      0, 0,
                                      client_timeout_resend, client,
                                      client->event_priority, "dhcp4-resend-timer", true);
-                if (r < 0)
-                        goto error;
-
                 break;
 
         case DHCP_STATE_REBOOTING:
@@ -1830,7 +1827,6 @@ static int client_handle_message(sd_dhcp_client *client, DHCPMessage *message, i
 
                         client->start_delay = CLAMP(client->start_delay * 2,
                                                     RESTART_AFTER_NAK_MIN_USEC, RESTART_AFTER_NAK_MAX_USEC);
-
                         return 0;
                 }
                 if (r < 0)
@@ -1883,19 +1879,18 @@ static int client_handle_message(sd_dhcp_client *client, DHCPMessage *message, i
                         goto error;
 
                 r = client_timeout_t1(NULL, 0, client);
-                if (r < 0)
-                        goto error;
-
                 break;
 
         case DHCP_STATE_INIT:
         case DHCP_STATE_INIT_REBOOT:
-
+                r = 0;
                 break;
 
         case DHCP_STATE_STOPPED:
                 r = -EINVAL;
                 goto error;
+        default:
+                assert_not_reached("invalid state");
         }
 
 error:
