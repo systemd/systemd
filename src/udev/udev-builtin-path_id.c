@@ -347,8 +347,8 @@ static sd_device *handle_scsi_default(sd_device *parent, char **path) {
                 return NULL;
 
         FOREACH_DIRENT_ALL(dent, dir, break) {
-                char *rest;
-                int i;
+                unsigned i;
+                int r;
 
                 if (dent->d_name[0] == '.')
                         continue;
@@ -356,15 +356,15 @@ static sd_device *handle_scsi_default(sd_device *parent, char **path) {
                         continue;
                 if (!startswith(dent->d_name, "host"))
                         continue;
-                i = strtoul(&dent->d_name[4], &rest, 10);
-                if (rest[0] != '\0')
+                r = safe_atou_full(&dent->d_name[4], 10, &i);
+                if (r < 0)
                         continue;
                 /*
                  * find the smallest number; the host really needs to export its
                  * own instance number per parent device; relying on the global host
                  * enumeration and plainly rebasing the numbers sounds unreliable
                  */
-                if (basenum == -1 || i < basenum)
+                if (basenum == -1 || (int) i < basenum)
                         basenum = i;
         }
         if (basenum == -1)
