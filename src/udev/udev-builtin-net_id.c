@@ -17,7 +17,6 @@
 #include <net/if.h>
 #include <net/if_arp.h>
 #include <stdarg.h>
-#include <stdlib.h>
 #include <unistd.h>
 #include <linux/if.h>
 #include <linux/pci_regs.h>
