@@ -126,6 +126,8 @@ static void test_path_compare_one(const char *a, const char *b, int expected) {
 }
 
 static void test_path_compare(void) {
+        log_info("/* %s */", __func__);
+
         test_path_compare_one("/goo", "/goo", 0);
         test_path_compare_one("/goo", "/goo", 0);
         test_path_compare_one("//goo", "/goo", 0);
@@ -138,6 +140,12 @@ static void test_path_compare(void) {
         test_path_compare_one("/x", "x/", 1);
         test_path_compare_one("x/", "/", -1);
         test_path_compare_one("/x/./y", "x/y", 1);
+        test_path_compare_one("/x/./y", "/x/y", 0);
+        test_path_compare_one("/x/./././y", "/x/y/././.", 0);
+        test_path_compare_one("./x/./././y", "./x/y/././.", 0);
+        test_path_compare_one(".", "./.", 0);
+        test_path_compare_one(".", "././.", 0);
+        test_path_compare_one("./..", ".", 1);
         test_path_compare_one("x/.y", "x/y", -1);
         test_path_compare_one("foo", "/foo", -1);
         test_path_compare_one("/foo", "/foo/bar", -1);
