@@ -262,7 +262,7 @@ static int image_make(
 
                 if (btrfs_might_be_subvol(st)) {
 
-                        r = btrfs_is_filesystem(fd);
+                        r = fd_is_on_btrfs(fd);
                         if (r < 0)
                                 return r;
                         if (r) {

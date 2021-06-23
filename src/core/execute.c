@@ -45,6 +45,7 @@
 #include "capability-util.h"
 #include "cgroup-setup.h"
 #include "chown-recursive.h"
+#include "copy.h"
 #include "cpu-set-util.h"
 #include "def.h"
 #include "env-file.h"

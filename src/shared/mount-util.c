@@ -16,6 +16,7 @@
 #include "fileio.h"
 #include "fs-util.h"
 #include "hashmap.h"
+#include "label.h"
 #include "libmount-util.h"
 #include "missing_mount.h"
 #include "missing_syscall.h"
@@ -1070,4 +1071,26 @@ int remount_idmap(
                 return log_debug_errno(errno, "Failed to attach UID mapped mount to '%s': %m", p);
 
         return 0;
+}
+
+int make_mount_point_inode_from_stat(const struct stat *st, const char *dest, mode_t mode) {
+        assert(st);
+        assert(dest);
+
+        if (S_ISDIR(st->st_mode))
+                return mkdir_label(dest, mode);
+        else
+                return mknod(dest, S_IFREG|(mode & ~0111), 0);
+}
+
+int make_mount_point_inode_from_path(const char *source, const char *dest, mode_t mode) {
+        struct stat st;
+
+        assert(source);
+        assert(dest);
+
+        if (stat(source, &st) < 0)
+                return -errno;
+
+        return make_mount_point_inode_from_stat(&st, dest, mode);
 }
