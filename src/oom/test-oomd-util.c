@@ -258,10 +258,6 @@ static void test_oomd_system_context_acquire(void) {
                                           "SwapFree:           7604 kB bad\n", WRITE_STRING_FILE_CREATE) == 0);
         assert_se(oomd_system_context_acquire(path, &ctx) == -EINVAL);
 
-        assert_se(oomd_system_context_acquire("/proc/meminfo", &ctx) == 0);
-        assert_se(ctx.swap_total > 0);
-        assert_se(ctx.swap_used <= ctx.swap_total);
-
         assert_se(write_string_file(path, "MemTotal:       32495256 kB\n"
                                           "MemFree:         9880512 kB\n"
                                           "MemAvailable:   21777088 kB\n"
@@ -272,6 +268,8 @@ static void test_oomd_system_context_acquire(void) {
                                           "SwapTotal:       8388604 kB\n"
                                           "SwapFree:           7604 kB\n", WRITE_STRING_FILE_CREATE) == 0);
         assert_se(oomd_system_context_acquire(path, &ctx) == 0);
+        assert_se(ctx.mem_total == 33275142144);
+        assert_se(ctx.mem_used == 23157497856);
         assert_se(ctx.swap_total == 8589930496);
         assert_se(ctx.swap_used == 8582144000);
 }
@@ -324,23 +322,32 @@ static void test_oomd_pressure_above(void) {
         assert_se(c->mem_pressure_limit_hit_start == 0);
 }
 
-static void test_oomd_swap_free_below(void) {
+static void test_oomd_mem_and_swap_free_below(void) {
         OomdSystemContext ctx = (OomdSystemContext) {
+                .mem_total = 20971512 * 1024U,
+                .mem_used = 3310136 * 1024U,
                 .swap_total = 20971512 * 1024U,
                 .swap_used = 20971440 * 1024U,
         };
+        assert_se(oomd_mem_free_below(&ctx, 2000) == false);
         assert_se(oomd_swap_free_below(&ctx, 2000) == true);
 
         ctx = (OomdSystemContext) {
+                .mem_total = 20971512 * 1024U,
+                .mem_used = 20971440 * 1024U,
                 .swap_total = 20971512 * 1024U,
                 .swap_used = 3310136 * 1024U,
         };
+        assert_se(oomd_mem_free_below(&ctx, 2000) == true);
         assert_se(oomd_swap_free_below(&ctx, 2000) == false);
 
         ctx = (OomdSystemContext) {
+                .mem_total = 0,
+                .mem_used = 0,
                 .swap_total = 0,
                 .swap_used = 0,
         };
+        assert_se(oomd_mem_free_below(&ctx, 2000) == false);
         assert_se(oomd_swap_free_below(&ctx, 2000) == false);
 }
 
@@ -440,7 +447,7 @@ int main(void) {
         test_oomd_update_cgroup_contexts_between_hashmaps();
         test_oomd_system_context_acquire();
         test_oomd_pressure_above();
-        test_oomd_swap_free_below();
+        test_oomd_mem_and_swap_free_below();
         test_oomd_sort_cgroups();
 
         /* The following tests operate on live cgroups */
