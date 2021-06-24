@@ -50,10 +50,10 @@
       <varlistentry>
         <term><varname>SwapUsedLimit=</varname></term>
 
-        <listitem><para>Sets the limit for swap usage on the system before <command>systemd-oomd</command>
-        will take action. If the fraction of swap used on the system is more than what is defined here,
-        <command>systemd-oomd</command> will act on eligible descendant control groups with swap usage greater
-        than 5% of total swap, starting from the ones with the highest swap usage. Which
+        <listitem><para>Sets the limit for memory and swap usage on the system before <command>systemd-oomd</command>
+        will take action. If the fraction of memory used and the fraction of swap used on the system are both more than
+        what is defined here, <command>systemd-oomd</command> will act on eligible descendant control groups with swap
+        usage greater than 5% of total swap, starting from the ones with the highest swap usage. Which
         control groups are monitored and what action gets taken depends on what the unit has configured for
         <varname>ManagedOOMSwap=</varname>.  Takes a value specified in percent (when suffixed with "%"),
         permille ("‰") or permyriad ("‱"), between 0% and 100%, inclusive. Defaults to 90%.</para></listitem>
