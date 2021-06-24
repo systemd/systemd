@@ -2416,7 +2416,6 @@ test_create_image() {
     (
         LOG_LEVEL=5
         setup_basic_environment
-        mask_supporting_services
     )
 }
 
@@ -2467,6 +2466,13 @@ test_setup() {
         fi
 
         mount_initdir
+        # We want to test all services in TEST-01-BASIC, but mask them in
+        # all other tests
+        if [[ "${TESTID:?}" != "01" ]]; then
+            dinfo "Masking supporting services"
+            mask_supporting_services
+        fi
+
         if [ "$hook_defined" -eq 0 ]; then
             test_append_files "${initdir:?}"
         fi
