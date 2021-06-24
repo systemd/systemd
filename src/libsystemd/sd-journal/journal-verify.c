@@ -170,7 +170,7 @@ static int journal_file_object_verify(JournalFile *f, uint64_t offset, Object *o
                         h2 = journal_file_hash_data(f, o->data.payload, le64toh(o->object.size) - offsetof(Object, data.payload));
 
                 if (h1 != h2) {
-                        error(offset, "Invalid hash (%08"PRIx64" vs. %08"PRIx64, h1, h2);
+                        error(offset, "Invalid hash (%08" PRIx64 " vs. %08" PRIx64 ")", h1, h2);
                         return -EBADMSG;
                 }
 
