@@ -323,14 +323,10 @@ static int monitor_swap_contexts_handler(sd_event_source *s, uint64_t usec, void
                         return log_error_errno(r, "Failed to acquire varlink connection: %m");
         }
 
-        /* We still try to acquire swap information for oomctl even if no units want swap monitoring */
-        r = oomd_system_context_acquire("/proc/swaps", &m->system_context);
-        /* If there are no units depending on swap actions, the only error we exit on is ENOMEM.
-         * Allow ENOENT in the event that swap is disabled on the system. */
-        if (r == -ENOENT) {
-                zero(m->system_context);
-                return 0;
-        } else if (r == -ENOMEM || (r < 0 && !hashmap_isempty(m->monitored_swap_cgroup_contexts)))
+        /* We still try to acquire system information for oomctl even if no units want swap monitoring */
+        r = oomd_system_context_acquire("/proc/meminfo", &m->system_context);
+        /* If there are no units depending on swap actions, the only error we exit on is ENOMEM. */
+        if (r == -ENOMEM || (r < 0 && !hashmap_isempty(m->monitored_swap_cgroup_contexts)))
                 return log_error_errno(r, "Failed to acquire system context: %m");
 
         /* Return early if nothing is requesting swap monitoring */

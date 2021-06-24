@@ -35,8 +35,8 @@ int read_resource_pressure(const char *path, PressureType type, ResourcePressure
                 return -EINVAL;
 
         r = fopen_unlocked(path, "re", &f);
-         if (r < 0)
-                 return r;
+        if (r < 0)
+                return r;
 
         for (;;) {
                 _cleanup_free_ char *l = NULL;
