@@ -312,7 +312,6 @@ static int extract_now(
                         if (hashmap_get(unit_files, de->d_name))
                                 continue;
 
-                        dirent_ensure_type(d, de);
                         if (!IN_SET(de->d_type, DT_LNK, DT_REG))
                                 continue;
 
@@ -1397,7 +1396,6 @@ int portable_detach(
                 if (set_contains(unit_files, de->d_name))
                         continue;
 
-                dirent_ensure_type(d, de);
                 if (!IN_SET(de->d_type, DT_LNK, DT_REG))
                         continue;
 
@@ -1570,7 +1568,6 @@ static int portable_get_state_internal(
                 if (set_contains(unit_files, de->d_name))
                         continue;
 
-                dirent_ensure_type(d, de);
                 if (!IN_SET(de->d_type, DT_LNK, DT_REG))
                         continue;
 

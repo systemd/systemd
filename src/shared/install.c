@@ -568,8 +568,6 @@ static int remove_marked_symlinks_fd(
 
         FOREACH_DIRENT(de, d, return -errno) {
 
-                dirent_ensure_type(d, de);
-
                 if (de->d_type == DT_DIR) {
                         _cleanup_free_ char *p = NULL;
                         int nfd, q;
@@ -738,8 +736,6 @@ static int find_symlinks_in_directory(
                 bool found_path = false, found_dest, b = false;
                 int q;
 
-                dirent_ensure_type(dir, de);
-
                 if (de->d_type != DT_LNK)
                         continue;
 
@@ -835,8 +831,6 @@ static int find_symlinks(
                 const char *suffix;
                 _cleanup_free_ const char *path = NULL;
                 _cleanup_closedir_ DIR *d = NULL;
-
-                dirent_ensure_type(config_dir, de);
 
                 if (de->d_type != DT_DIR)
                         continue;
@@ -3379,8 +3373,6 @@ int unit_file_preset_all(
                         if (!unit_name_is_valid(de->d_name, UNIT_NAME_ANY))
                                 continue;
 
-                        dirent_ensure_type(d, de);
-
                         if (!IN_SET(de->d_type, DT_LNK, DT_REG))
                                 continue;
 
@@ -3456,8 +3448,6 @@ int unit_file_get_list(
 
                         if (hashmap_get(h, de->d_name))
                                 continue;
-
-                        dirent_ensure_type(d, de);
 
                         if (!IN_SET(de->d_type, DT_LNK, DT_REG))
                                 continue;
