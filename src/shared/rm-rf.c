@@ -27,7 +27,7 @@ static int patch_dirfd_mode(
                 int dfd,
                 mode_t *ret_old_mode) {
 
-        struct stat st;
+        struct stat st = {};
 
         assert(dfd >= 0);
         assert(ret_old_mode);
