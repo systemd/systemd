@@ -146,6 +146,8 @@ tests += [
 
         [['src/test/test-utf8.c']],
 
+        [['src/test/test-blockdev-util.c']],
+
         [['src/test/test-dev-setup.c']],
 
         [['src/test/test-capability.c'],
@@ -158,6 +160,8 @@ tests += [
         [['src/test/test-locale-util.c']],
 
         [['src/test/test-copy.c']],
+
+        [['src/test/test-data-fd-util.c']],
 
         [['src/test/test-static-destruct.c']],
 

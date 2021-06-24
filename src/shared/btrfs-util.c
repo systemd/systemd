@@ -69,17 +69,6 @@ static int extract_subvolume_name(const char *path, const char **subvolume) {
         return 0;
 }
 
-int btrfs_is_filesystem(int fd) {
-        struct statfs sfs;
-
-        assert(fd >= 0);
-
-        if (fstatfs(fd, &sfs) < 0)
-                return -errno;
-
-        return F_TYPE_EQUAL(sfs.f_type, BTRFS_SUPER_MAGIC);
-}
-
 int btrfs_is_subvol_fd(int fd) {
         struct stat st;
 
@@ -93,7 +82,7 @@ int btrfs_is_subvol_fd(int fd) {
         if (!btrfs_might_be_subvol(&st))
                 return 0;
 
-        return btrfs_is_filesystem(fd);
+        return fd_is_fs_type(fd, BTRFS_SUPER_MAGIC);
 }
 
 int btrfs_is_subvol(const char *path) {
@@ -286,7 +275,7 @@ int btrfs_get_block_device_fd(int fd, dev_t *dev) {
         assert(fd >= 0);
         assert(dev);
 
-        r = btrfs_is_filesystem(fd);
+        r = fd_is_fs_type(fd, BTRFS_SUPER_MAGIC);
         if (r < 0)
                 return r;
         if (!r)
@@ -361,7 +350,7 @@ int btrfs_subvol_get_id_fd(int fd, uint64_t *ret) {
         assert(fd >= 0);
         assert(ret);
 
-        r = btrfs_is_filesystem(fd);
+        r = fd_is_fs_type(fd, BTRFS_SUPER_MAGIC);
         if (r < 0)
                 return r;
         if (!r)
@@ -481,7 +470,7 @@ int btrfs_subvol_get_info_fd(int fd, uint64_t subvol_id, BtrfsSubvolInfo *ret) {
                 if (r < 0)
                         return r;
         } else {
-                r = btrfs_is_filesystem(fd);
+                r = fd_is_fs_type(fd, BTRFS_SUPER_MAGIC);
                 if (r < 0)
                         return r;
                 if (!r)
@@ -575,7 +564,7 @@ int btrfs_qgroup_get_quota_fd(int fd, uint64_t qgroupid, BtrfsQuotaInfo *ret) {
                 if (r < 0)
                         return r;
         } else {
-                r = btrfs_is_filesystem(fd);
+                r = fd_is_fs_type(fd, BTRFS_SUPER_MAGIC);
                 if (r < 0)
                         return r;
                 if (!r)
@@ -762,21 +751,6 @@ int btrfs_subvol_get_subtree_quota(const char *path, uint64_t subvol_id, BtrfsQu
         return btrfs_subvol_get_subtree_quota_fd(fd, subvol_id, ret);
 }
 
-int btrfs_defrag_fd(int fd) {
-        int r;
-
-        assert(fd >= 0);
-
-        r = fd_verify_regular(fd);
-        if (r < 0)
-                return r;
-
-        if (ioctl(fd, BTRFS_IOC_DEFRAG, NULL) < 0)
-                return -errno;
-
-        return 0;
-}
-
 int btrfs_defrag(const char *p) {
         _cleanup_close_ int fd = -1;
 
@@ -795,7 +769,7 @@ int btrfs_quota_enable_fd(int fd, bool b) {
 
         assert(fd >= 0);
 
-        r = btrfs_is_filesystem(fd);
+        r = fd_is_fs_type(fd, BTRFS_SUPER_MAGIC);
         if (r < 0)
                 return r;
         if (!r)
@@ -832,7 +806,7 @@ int btrfs_qgroup_set_limit_fd(int fd, uint64_t qgroupid, uint64_t referenced_max
                 if (r < 0)
                         return r;
         } else {
-                r = btrfs_is_filesystem(fd);
+                r = fd_is_fs_type(fd, BTRFS_SUPER_MAGIC);
                 if (r < 0)
                         return r;
                 if (!r)
@@ -924,7 +898,7 @@ static int qgroup_create_or_destroy(int fd, bool b, uint64_t qgroupid) {
         };
         int r;
 
-        r = btrfs_is_filesystem(fd);
+        r = fd_is_fs_type(fd, BTRFS_SUPER_MAGIC);
         if (r < 0)
                 return r;
         if (r == 0)
@@ -1042,7 +1016,7 @@ static int qgroup_assign_or_unassign(int fd, bool b, uint64_t child, uint64_t pa
         };
         int r;
 
-        r = btrfs_is_filesystem(fd);
+        r = fd_is_fs_type(fd, BTRFS_SUPER_MAGIC);
         if (r < 0)
                 return r;
         if (r == 0)
@@ -1269,7 +1243,7 @@ int btrfs_qgroup_copy_limits(int fd, uint64_t old_qgroupid, uint64_t new_qgroupi
 
         int r;
 
-        r = btrfs_is_filesystem(fd);
+        r = fd_is_fs_type(fd, BTRFS_SUPER_MAGIC);
         if (r < 0)
                 return r;
         if (!r)
@@ -1738,7 +1712,7 @@ int btrfs_qgroup_find_parents(int fd, uint64_t qgroupid, uint64_t **ret) {
                 if (r < 0)
                         return r;
         } else {
-                r = btrfs_is_filesystem(fd);
+                r = fd_is_fs_type(fd, BTRFS_SUPER_MAGIC);
                 if (r < 0)
                         return r;
                 if (!r)
@@ -1979,7 +1953,7 @@ int btrfs_subvol_get_parent(int fd, uint64_t subvol_id, uint64_t *ret) {
                 if (r < 0)
                         return r;
         } else {
-                r = btrfs_is_filesystem(fd);
+                r = fd_is_fs_type(fd, BTRFS_SUPER_MAGIC);
                 if (r < 0)
                         return r;
                 if (!r)
