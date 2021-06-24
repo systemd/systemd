@@ -168,7 +168,8 @@ libsystemd_static = static_library(
         include_directories : libsystemd_includes,
         link_with : libbasic,
         dependencies : [threads,
-                        librt],
+                        librt,
+                        libopenssl],
         c_args : libsystemd_c_args)
 
 libsystemd_sym = files('libsystemd.sym')
