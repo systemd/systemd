@@ -2660,7 +2660,7 @@ int config_parse_environ(
                 if (u)
                         r = unit_env_printf(u, word, &resolved);
                 else
-                        r = specifier_printf(word, sc_arg_max(), system_and_tmp_specifier_table, NULL, &resolved);
+                        r = specifier_printf(word, sc_arg_max(), system_and_tmp_specifier_table, NULL, NULL, &resolved);
                 if (r < 0) {
                         log_syntax(unit, LOG_WARNING, filename, line, r,
                                    "Failed to resolve specifiers in %s, ignoring: %m", word);
