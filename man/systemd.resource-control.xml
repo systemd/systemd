@@ -772,26 +772,32 @@ BPFProgram=bind6:/sys/fs/bpf/sock-addr-hook
           <para>Allow or deny binding a socket address to a socket by matching it with the <replaceable>bind-rule</replaceable> and
           applying a corresponding action if there is a match.</para>
 
-          <para><replaceable>bind-rule</replaceable> describes socket properties such as <replaceable>address-family</replaceable>
-          and <replaceable>ip-ports</replaceable>.</para>
+          <para><replaceable>bind-rule</replaceable> describes socket properties such as <replaceable>address-family</replaceable>,
+          <replaceable>transport-protocol</replaceable> and <replaceable>ip-ports</replaceable>.</para>
 
-          <para><replaceable>bind-rule</replaceable> := [<replaceable>address-family</replaceable><constant>:</constant>]<replaceable>ip-ports</replaceable></para>
+          <para><replaceable>bind-rule</replaceable> :=
+          { [<replaceable>address-family</replaceable><constant>:</constant>][<replaceable>transport-protocol</replaceable><constant>:</constant>][<replaceable>ip-ports</replaceable>] | <constant>any</constant> }</para>
 
           <para><replaceable>address-family</replaceable> := { <constant>ipv4</constant> | <constant>ipv6</constant> }</para>
 
-          <para><replaceable>ip-ports</replaceable> := { <replaceable>ip-port</replaceable> | <replaceable>ip-port-range</replaceable> |
-          <constant>any</constant> }</para>
+          <para><replaceable>transport-protocol</replaceable> := { <constant>tcp</constant> | <constant>udp</constant> }</para>
 
-          <para>An optional <replaceable>address-family</replaceable> expects <constant>IPv4</constant> or <constant>IPv6</constant> values.
-          If not specified, a rule will be matched for both IPv4 and IPv6 addresses and applied depending on other socket fields, e.g.
+          <para><replaceable>ip-ports</replaceable> := { <replaceable>ip-port</replaceable> | <replaceable>ip-port-range</replaceable> }</para>
+
+          <para>An optional <replaceable>address-family</replaceable> expects <constant>ipv4</constant> or <constant>ipv6</constant> values.
+          If not specified, a rule will be matched for both IPv4 and IPv6 addresses and applied depending on other socket fields, e.g. <replaceable>transport-protocol</replaceable>,
           <replaceable>ip-port</replaceable>.</para>
 
-          <para><replaceable>ip-port</replaceable> value must lie within 1…65535 interval inclusively, i.e.
+          <para>An optional <replaceable>transport-protocol</replaceable> expects <constant>tcp</constant> or <constant>udp</constant> transport protocol names.
+          If not specified, a rule will be matched for any transport protocol.</para>
+
+          <para>An optional <replaceable>ip-port</replaceable> value must lie within 1…65535 interval inclusively, i.e.
           dynamic port <constant>0</constant> is not allowed. A range of sequential ports is described by
           <replaceable>ip-port-range</replaceable> := <replaceable>ip-port-low</replaceable><constant>-</constant><replaceable>ip-port-high</replaceable>,
           where <replaceable>ip-port-low</replaceable> is smaller than or equal to <replaceable>ip-port-high</replaceable>
-          and both are within 1…65535 inclusively. A special value <constant>any</constant>
-          should be used to apply a rule to any port with a positive value.</para>
+          and both are within 1…65535 inclusively.</para>
+
+          <para>A special value <constant>any</constant> can be used to apply a rule to any address family, transport protocol and any port with a positive value.</para>
 
           <para>To allow multiple rules assign <varname>SocketBindAllow=</varname> or <varname>SocketBindDeny=</varname> multiple times.
           To clear the existing assignments pass an empty <varname>SocketBindAllow=</varname> or <varname>SocketBindDeny=</varname>
@@ -825,10 +831,25 @@ SocketBindDeny=any
 …
 # Deny binding IPv6 socket addresses.
 [Service]
-SocketBindDeny=ipv6:any
+SocketBindDeny=ipv6
 …
 # Deny binding IPv4 and IPv6 socket addresses.
 [Service]
+SocketBindDeny=any
+…
+# Allow binding only over TCP
+[Service]
+SocketBindAllow=tcp
+SocketBindDeny=any
+…
+# Allow binding only over IPv6/TCP
+[Service]
+SocketBindAllow=ipv6:tcp
+SocketBindDeny=any
+…
+# Allow binding ports within 10000-65535 range over IPv4/UDP.
+[Service]
+SocketBindAllow=ipv4:udp:10000-65535
 SocketBindDeny=any
 …</programlisting></para>
         </listitem>
