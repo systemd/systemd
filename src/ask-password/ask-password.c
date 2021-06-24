@@ -24,6 +24,7 @@ static usec_t arg_timeout = DEFAULT_TIMEOUT_USEC;
 static bool arg_multiple = false;
 static bool arg_no_output = false;
 static AskPasswordFlags arg_flags = ASK_PASSWORD_PUSH_CACHE;
+static bool arg_newline = true;
 
 STATIC_DESTRUCTOR_REGISTER(arg_message, freep);
 
@@ -54,6 +55,8 @@ static int help(void) {
                "     --accept-cached  Accept cached passwords\n"
                "     --multiple       List multiple passwords if available\n"
                "     --no-output      Do not print password to standard output\n"
+               "  -n                  Do not suffix password written to standard output with\n"
+               "                      newline\n"
                "\nSee the %2$s for details.\n",
                program_invocation_short_name,
                link,
@@ -104,7 +107,7 @@ static int parse_argv(int argc, char *argv[]) {
 
         /* Note the asymmetry: the long option --echo= allows an optional argument, the short option does
          * not. */
-        while ((c = getopt_long(argc, argv, "+he", options, NULL)) >= 0)
+        while ((c = getopt_long(argc, argv, "+hen", options, NULL)) >= 0)
 
                 switch (c) {
 
@@ -177,6 +180,10 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_credential_name = optarg;
                         break;
 
+                case 'n':
+                        arg_newline = false;
+                        break;
+
                 case '?':
                         return -EINVAL;
 
@@ -237,8 +244,14 @@ static int run(int argc, char *argv[]) {
                 return log_error_errno(r, "Failed to query password: %m");
 
         STRV_FOREACH(p, l) {
-                if (!arg_no_output)
-                        puts(*p);
+                if (!arg_no_output) {
+                        if (arg_newline)
+                                puts(*p);
+                        else
+                                fputs(*p, stdout);
+                }
+
+                fflush(stdout);
 
                 if (!arg_multiple)
                         break;

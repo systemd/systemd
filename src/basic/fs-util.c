@@ -1589,6 +1589,22 @@ int path_is_encrypted(const char *path) {
         return blockdev_is_encrypted(p, 10 /* safety net: maximum recursion depth */);
 }
 
+int fd_is_encrypted(int fd) {
+        char p[SYS_BLOCK_PATH_MAX(NULL)];
+        dev_t devt;
+        int r;
+
+        r = get_block_device_fd(fd, &devt);
+        if (r < 0)
+                return r;
+        if (r == 0) /* doesn't have a block device */
+                return false;
+
+        xsprintf_sys_block_path(p, NULL, devt);
+
+        return blockdev_is_encrypted(p, 10 /* safety net: maximum recursion depth */);
+}
+
 int conservative_renameat(
                 int olddirfd, const char *oldpath,
                 int newdirfd, const char *newpath) {
