@@ -104,18 +104,11 @@ static int interface_info_compare(const InterfaceInfo *a, const InterfaceInfo *b
 
 int ifname_mangle(const char *s) {
         _cleanup_free_ char *iface = NULL;
-        const char *dot;
         int ifi;
 
         assert(s);
 
-        dot = strchr(s, '.');
-        if (dot) {
-                log_debug("Ignoring protocol specifier '%s'.", dot + 1);
-                iface = strndup(s, dot - s);
-
-        } else
-                iface = strdup(s);
+        iface = strdup(s);
         if (!iface)
                 return log_oom();
 
@@ -136,6 +129,24 @@ int ifname_mangle(const char *s) {
         free_and_replace(arg_ifname, iface);
 
         return 1;
+}
+
+int ifname_resolvconf_mangle(const char *s) {
+        const char *dot;
+
+        assert(s);
+
+        dot = strchr(s, '.');
+        if (dot) {
+                _cleanup_free_ char *iface = NULL;
+
+                log_debug("Ignoring protocol specifier '%s'.", dot + 1);
+                iface = strndup(s, dot - s);
+                if (!iface)
+                        return log_oom();
+                return ifname_mangle(iface);
+        } else
+                return ifname_mangle(s);
 }
 
 static void print_source(uint64_t flags, usec_t rtt) {

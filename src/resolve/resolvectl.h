@@ -27,3 +27,4 @@ extern char **arg_set_domain;
 extern bool arg_ifindex_permissive;
 
 int ifname_mangle(const char *s);
+int ifname_resolvconf_mangle(const char *s);
