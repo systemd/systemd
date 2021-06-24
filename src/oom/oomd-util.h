@@ -39,6 +39,8 @@ struct OomdCGroupContext {
 };
 
 struct OomdSystemContext {
+        uint64_t mem_total;
+        uint64_t mem_used;
         uint64_t swap_total;
         uint64_t swap_used;
 };
@@ -56,6 +58,9 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(OomdCGroupContext*, oomd_cgroup_context_free);
  * Returns 0 and sets `ret` to an empty set if no entries exceeded limits for `duration`.
  * Returns -ENOMEM for allocation errors. */
 int oomd_pressure_above(Hashmap *h, usec_t duration, Set **ret);
+
+/* Returns true if the amount of memory free is below the permyriad of memory specified by `threshold_permyriad`. */
+bool oomd_mem_free_below(const OomdSystemContext *ctx, int threshold_permyriad);
 
 /* Returns true if the amount of swap free is below the permyriad of swap specified by `threshold_permyriad`. */
 bool oomd_swap_free_below(const OomdSystemContext *ctx, int threshold_permyriad);

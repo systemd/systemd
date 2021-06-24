@@ -122,6 +122,16 @@ uint64_t oomd_pgscan_rate(const OomdCGroupContext *c) {
         return c->pgscan - last_pgscan;
 }
 
+bool oomd_mem_free_below(const OomdSystemContext *ctx, int threshold_permyriad) {
+        uint64_t mem_threshold;
+
+        assert(ctx);
+        assert(threshold_permyriad <= 10000);
+
+        mem_threshold = ctx->mem_total * threshold_permyriad / (uint64_t) 10000;
+        return (ctx->mem_total - ctx->mem_used) < mem_threshold;
+}
+
 bool oomd_swap_free_below(const OomdSystemContext *ctx, int threshold_permyriad) {
         uint64_t swap_threshold;
 
@@ -362,7 +372,7 @@ int oomd_system_context_acquire(const char *proc_meminfo_path, OomdSystemContext
         _cleanup_fclose_ FILE *f = NULL;
         unsigned field_filled = 0;
         OomdSystemContext ctx = {};
-        uint64_t swap_free;
+        uint64_t mem_free, swap_free;
         int r;
 
         assert(proc_meminfo_path);
@@ -382,11 +392,17 @@ int oomd_system_context_acquire(const char *proc_meminfo_path, OomdSystemContext
                 if (r == 0)
                         return -EINVAL;
 
-                if ((word = startswith(line, "SwapTotal:"))) {
+                if ((word = startswith(line, "MemTotal:"))) {
                         field_filled |= 1U << 0;
+                        r = convert_meminfo_value_to_uint64_bytes(word, &ctx.mem_total);
+                } else if ((word = startswith(line, "MemFree:"))) {
+                        field_filled |= 1U << 1;
+                        r = convert_meminfo_value_to_uint64_bytes(word, &mem_free);
+                } else if ((word = startswith(line, "SwapTotal:"))) {
+                        field_filled |= 1U << 2;
                         r = convert_meminfo_value_to_uint64_bytes(word, &ctx.swap_total);
                 } else if ((word = startswith(line, "SwapFree:"))) {
-                        field_filled |= 1U << 1;
+                        field_filled |= 1U << 3;
                         r = convert_meminfo_value_to_uint64_bytes(word, &swap_free);
                 } else
                         continue;
@@ -394,12 +410,18 @@ int oomd_system_context_acquire(const char *proc_meminfo_path, OomdSystemContext
                 if (r < 0)
                         return log_debug_errno(r, "Error converting '%s' from %s to uint64_t: %m", line, proc_meminfo_path);
 
-                if (field_filled == 3U)
+                if (field_filled == 15U)
                         break;
         }
 
-        if (field_filled != 3U)
+        if (field_filled != 15U)
                 return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "%s is missing expected fields", proc_meminfo_path);
+
+        if (mem_free > ctx.mem_total)
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "MemFree (%" PRIu64 ") cannot be greater than MemTotal (%" PRIu64 ") %m",
+                                       mem_free,
+                                       ctx.mem_total);
 
         if (swap_free > ctx.swap_total)
                 return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
@@ -407,6 +429,7 @@ int oomd_system_context_acquire(const char *proc_meminfo_path, OomdSystemContext
                                        swap_free,
                                        ctx.swap_total);
 
+        ctx.mem_used = ctx.mem_total - mem_free;
         ctx.swap_used = ctx.swap_total - swap_free;
 
         *ret = ctx;
@@ -525,14 +548,19 @@ void oomd_dump_memory_pressure_cgroup_context(const OomdCGroupContext *ctx, FILE
 }
 
 void oomd_dump_system_context(const OomdSystemContext *ctx, FILE *f, const char *prefix) {
-        char used[FORMAT_BYTES_MAX], total[FORMAT_BYTES_MAX];
+        char mem_used[FORMAT_BYTES_MAX], mem_total[FORMAT_BYTES_MAX];
+        char swap_used[FORMAT_BYTES_MAX], swap_total[FORMAT_BYTES_MAX];
 
         assert(ctx);
         assert(f);
 
         fprintf(f,
+                "%sMemory: Used: %s Total: %s\n"
                 "%sSwap: Used: %s Total: %s\n",
                 strempty(prefix),
-                format_bytes(used, sizeof(used), ctx->swap_used),
-                format_bytes(total, sizeof(total), ctx->swap_total));
+                format_bytes(mem_used, sizeof(mem_used), ctx->mem_used),
+                format_bytes(mem_total, sizeof(mem_total), ctx->mem_total),
+                strempty(prefix),
+                format_bytes(swap_used, sizeof(swap_used), ctx->swap_used),
+                format_bytes(swap_total, sizeof(swap_total), ctx->swap_total));
 }
