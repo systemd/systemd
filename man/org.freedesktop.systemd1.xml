@@ -2713,7 +2713,11 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly a(say) SetCredential = [...];
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly a(say) SetCredentialEncrypted = [...];
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly a(ss) LoadCredential = [...];
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly a(ss) LoadCredentialEncrypted = [...];
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly as SupplementaryGroups = ['...', ...];
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
@@ -3228,7 +3232,11 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
 
     <!--property SetCredential is not documented!-->
 
+    <!--property SetCredentialEncrypted is not documented!-->
+
     <!--property LoadCredential is not documented!-->
+
+    <!--property LoadCredentialEncrypted is not documented!-->
 
     <!--property SupplementaryGroups is not documented!-->
 
@@ -3818,7 +3826,11 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
 
     <variablelist class="dbus-property" generated="True" extra-ref="SetCredential"/>
 
+    <variablelist class="dbus-property" generated="True" extra-ref="SetCredentialEncrypted"/>
+
     <variablelist class="dbus-property" generated="True" extra-ref="LoadCredential"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="LoadCredentialEncrypted"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="SupplementaryGroups"/>
 
@@ -4517,7 +4529,11 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2esocket {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly a(say) SetCredential = [...];
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly a(say) SetCredentialEncrypted = [...];
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly a(ss) LoadCredential = [...];
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly a(ss) LoadCredentialEncrypted = [...];
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly as SupplementaryGroups = ['...', ...];
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
@@ -5058,7 +5074,11 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2esocket {
 
     <!--property SetCredential is not documented!-->
 
+    <!--property SetCredentialEncrypted is not documented!-->
+
     <!--property LoadCredential is not documented!-->
+
+    <!--property LoadCredentialEncrypted is not documented!-->
 
     <!--property SupplementaryGroups is not documented!-->
 
@@ -5644,7 +5664,11 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2esocket {
 
     <variablelist class="dbus-property" generated="True" extra-ref="SetCredential"/>
 
+    <variablelist class="dbus-property" generated="True" extra-ref="SetCredentialEncrypted"/>
+
     <variablelist class="dbus-property" generated="True" extra-ref="LoadCredential"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="LoadCredentialEncrypted"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="SupplementaryGroups"/>
 
@@ -6240,7 +6264,11 @@ node /org/freedesktop/systemd1/unit/home_2emount {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly a(say) SetCredential = [...];
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly a(say) SetCredentialEncrypted = [...];
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly a(ss) LoadCredential = [...];
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly a(ss) LoadCredentialEncrypted = [...];
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly as SupplementaryGroups = ['...', ...];
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
@@ -6709,7 +6737,11 @@ node /org/freedesktop/systemd1/unit/home_2emount {
 
     <!--property SetCredential is not documented!-->
 
+    <!--property SetCredentialEncrypted is not documented!-->
+
     <!--property LoadCredential is not documented!-->
+
+    <!--property LoadCredentialEncrypted is not documented!-->
 
     <!--property SupplementaryGroups is not documented!-->
 
@@ -7213,7 +7245,11 @@ node /org/freedesktop/systemd1/unit/home_2emount {
 
     <variablelist class="dbus-property" generated="True" extra-ref="SetCredential"/>
 
+    <variablelist class="dbus-property" generated="True" extra-ref="SetCredentialEncrypted"/>
+
     <variablelist class="dbus-property" generated="True" extra-ref="LoadCredential"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="LoadCredentialEncrypted"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="SupplementaryGroups"/>
 
@@ -7930,7 +7966,11 @@ node /org/freedesktop/systemd1/unit/dev_2dsda3_2eswap {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly a(say) SetCredential = [...];
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly a(say) SetCredentialEncrypted = [...];
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly a(ss) LoadCredential = [...];
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly a(ss) LoadCredentialEncrypted = [...];
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly as SupplementaryGroups = ['...', ...];
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
@@ -8385,7 +8425,11 @@ node /org/freedesktop/systemd1/unit/dev_2dsda3_2eswap {
 
     <!--property SetCredential is not documented!-->
 
+    <!--property SetCredentialEncrypted is not documented!-->
+
     <!--property LoadCredential is not documented!-->
+
+    <!--property LoadCredentialEncrypted is not documented!-->
 
     <!--property SupplementaryGroups is not documented!-->
 
@@ -8875,7 +8919,11 @@ node /org/freedesktop/systemd1/unit/dev_2dsda3_2eswap {
 
     <variablelist class="dbus-property" generated="True" extra-ref="SetCredential"/>
 
+    <variablelist class="dbus-property" generated="True" extra-ref="SetCredentialEncrypted"/>
+
     <variablelist class="dbus-property" generated="True" extra-ref="LoadCredential"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="LoadCredentialEncrypted"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="SupplementaryGroups"/>
 

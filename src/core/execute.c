@@ -46,6 +46,7 @@
 #include "cgroup-setup.h"
 #include "chown-recursive.h"
 #include "cpu-set-util.h"
+#include "creds-util.h"
 #include "data-fd-util.h"
 #include "def.h"
 #include "env-file.h"
@@ -1454,7 +1455,7 @@ static bool exec_context_has_credentials(const ExecContext *context) {
         assert(context);
 
         return !hashmap_isempty(context->set_credentials) ||
-                context->load_credentials;
+                !hashmap_isempty(context->load_credentials);
 }
 
 #if HAVE_SECCOMP
@@ -2486,7 +2487,7 @@ static int write_credential(
                 return -errno;
         }
 
-        r = loop_write(fd, data, size, /* do_pool = */ false);
+        r = loop_write(fd, data, size, /* do_poll = */ false);
         if (r < 0)
                 return r;
 
@@ -2519,8 +2520,6 @@ static int write_credential(
         return 0;
 }
 
-#define CREDENTIALS_BYTES_MAX (1024LU * 1024LU) /* Refuse to pass more than 1M, after all this is unswappable memory */
-
 static int acquire_credentials(
                 const ExecContext *context,
                 const ExecParameters *params,
@@ -2529,10 +2528,10 @@ static int acquire_credentials(
                 uid_t uid,
                 bool ownership_ok) {
 
-        uint64_t left = CREDENTIALS_BYTES_MAX;
+        uint64_t left = CREDENTIALS_TOTAL_SIZE_MAX;
         _cleanup_close_ int dfd = -1;
+        ExecLoadCredential *lc;
         ExecSetCredential *sc;
-        char **id, **fn;
         int r;
 
         assert(context);
@@ -2542,39 +2541,23 @@ static int acquire_credentials(
         if (dfd < 0)
                 return -errno;
 
-        /* First we use the literally specified credentials. Note that they might be overridden again below,
-         * and thus act as a "default" if the same credential is specified multiple times */
-        HASHMAP_FOREACH(sc, context->set_credentials) {
-                size_t add;
-
-                add = strlen(sc->id) + sc->size;
-                if (add > left)
-                        return -E2BIG;
-
-                r = write_credential(dfd, sc->id, sc->data, sc->size, uid, ownership_ok);
-                if (r < 0)
-                        return r;
-
-                left -= add;
-        }
-
-        /* Then, load credential off disk (or acquire via AF_UNIX socket) */
-        STRV_FOREACH_PAIR(id, fn, context->load_credentials) {
-                ReadFullFileFlags flags = READ_FULL_FILE_SECURE;
+        /* First, load credentials off disk (or acquire via AF_UNIX socket) */
+        HASHMAP_FOREACH(lc, context->load_credentials) {
+                ReadFullFileFlags flags = READ_FULL_FILE_SECURE|READ_FULL_FILE_FAIL_WHEN_LARGER;
                 _cleanup_(erase_and_freep) char *data = NULL;
                 _cleanup_free_ char *j = NULL, *bindname = NULL;
                 bool missing_ok = true;
                 const char *source;
                 size_t size, add;
 
-                if (path_is_absolute(*fn)) {
+                if (path_is_absolute(lc->path)) {
                         /* If this is an absolute path, read the data directly from it, and support AF_UNIX sockets */
-                        source = *fn;
+                        source = lc->path;
                         flags |= READ_FULL_FILE_CONNECT_SOCKET;
 
                         /* Pass some minimal info about the unit and the credential name we are looking to acquire
                          * via the source socket address in case we read off an AF_UNIX socket. */
-                        if (asprintf(&bindname, "@%" PRIx64"/unit/%s/%s", random_u64(), unit, *id) < 0)
+                        if (asprintf(&bindname, "@%" PRIx64"/unit/%s/%s", random_u64(), unit, lc->id) < 0)
                                 return -ENOMEM;
 
                         missing_ok = false;
@@ -2583,7 +2566,7 @@ static int acquire_credentials(
                         /* If this is a relative path, take it relative to the credentials we received
                          * ourselves. We don't support the AF_UNIX stuff in this mode, since we are operating
                          * on a credential store, i.e. this is guaranteed to be regular files. */
-                        j = path_join(params->received_credentials, *fn);
+                        j = path_join(params->received_credentials, lc->path);
                         if (!j)
                                 return -ENOMEM;
 
@@ -2592,30 +2575,83 @@ static int acquire_credentials(
                         source = NULL;
 
                 if (source)
-                        r = read_full_file_full(AT_FDCWD, source, UINT64_MAX, SIZE_MAX, flags, bindname, &data, &size);
+                        r = read_full_file_full(
+                                        AT_FDCWD, source,
+                                        UINT64_MAX,
+                                        lc->encrypted ? CREDENTIAL_ENCRYPTED_SIZE_MAX : CREDENTIAL_SIZE_MAX,
+                                        flags | (lc->encrypted ? READ_FULL_FILE_UNBASE64 : 0),
+                                        bindname,
+                                        &data, &size);
                 else
                         r = -ENOENT;
-                if (r == -ENOENT && (missing_ok || faccessat(dfd, *id, F_OK, AT_SYMLINK_NOFOLLOW) >= 0)) {
+                if (r == -ENOENT && (missing_ok || hashmap_contains(context->set_credentials, lc->id))) {
                         /* Make a missing inherited credential non-fatal, let's just continue. After all apps
                          * will get clear errors if we don't pass such a missing credential on as they
                          * themselves will get ENOENT when trying to read them, which should not be much
                          * worse than when we handle the error here and make it fatal.
                          *
-                         * Also, if the source file doesn't exist, but we already acquired the key otherwise,
-                         * then don't fail either. */
-                        log_debug_errno(r, "Couldn't read inherited credential '%s', skipping: %m", *fn);
+                         * Also, if the source file doesn't exist, but a fallback is set via SetCredentials=
+                         * we are fine, too. */
+                        log_debug_errno(r, "Couldn't read inherited credential '%s', skipping: %m", lc->path);
                         continue;
                 }
                 if (r < 0)
-                        return log_debug_errno(r, "Failed to read credential '%s': %m", *fn);
+                        return log_debug_errno(r, "Failed to read credential '%s': %m", lc->path);
 
-                add = strlen(*id) + size;
+                if (lc->encrypted) {
+                        _cleanup_free_ void *plaintext = NULL;
+                        size_t plaintext_size = 0;
+
+                        r = decrypt_credential_and_warn(lc->id, now(CLOCK_REALTIME), NULL, data, size, &plaintext, &plaintext_size);
+                        if (r < 0)
+                                return r;
+
+                        free_and_replace(data, plaintext);
+                        size = plaintext_size;
+                }
+
+                add = strlen(lc->id) + size;
                 if (add > left)
                         return -E2BIG;
 
-                r = write_credential(dfd, *id, data, size, uid, ownership_ok);
+                r = write_credential(dfd, lc->id, data, size, uid, ownership_ok);
                 if (r < 0)
                         return r;
+
+                left -= add;
+        }
+
+        /* First we use the literally specified credentials. Note that they might be overridden again below,
+         * and thus act as a "default" if the same credential is specified multiple times */
+        HASHMAP_FOREACH(sc, context->set_credentials) {
+                _cleanup_(erase_and_freep) void *plaintext = NULL;
+                const char *data;
+                size_t size, add;
+
+                if (faccessat(dfd, sc->id, F_OK, AT_SYMLINK_NOFOLLOW) >= 0)
+                        continue;
+                if (errno != ENOENT)
+                        return log_debug_errno(errno, "Failed to test if credential %s exists: %m", sc->id);
+
+                if (sc->encrypted) {
+                        r = decrypt_credential_and_warn(sc->id, now(CLOCK_REALTIME), NULL, sc->data, sc->size, &plaintext, &size);
+                        if (r < 0)
+                                return r;
+
+                        data = plaintext;
+                } else {
+                        data = sc->data;
+                        size = sc->size;
+                }
+
+                add = strlen(sc->id) + size;
+                if (add > left)
+                        return -E2BIG;
+
+                r = write_credential(dfd, sc->id, data, size, uid, ownership_ok);
+                if (r < 0)
+                        return r;
+
 
                 left -= add;
         }
@@ -2715,7 +2751,7 @@ static int setup_credentials_internal(
                         } else if (try == 1) {
                                 _cleanup_free_ char *opts = NULL;
 
-                                if (asprintf(&opts, "mode=0700,nr_inodes=1024,size=%lu", CREDENTIALS_BYTES_MAX) < 0)
+                                if (asprintf(&opts, "mode=0700,nr_inodes=1024,size=%zu", (size_t) CREDENTIALS_TOTAL_SIZE_MAX) < 0)
                                         return -ENOMEM;
 
                                 /* Fall back to "tmpfs" otherwise */
@@ -4915,7 +4951,7 @@ void exec_context_done(ExecContext *c) {
 
         c->log_namespace = mfree(c->log_namespace);
 
-        c->load_credentials = strv_free(c->load_credentials);
+        c->load_credentials = hashmap_free(c->load_credentials);
         c->set_credentials = hashmap_free(c->set_credentials);
 }
 
@@ -6584,7 +6620,17 @@ ExecSetCredential *exec_set_credential_free(ExecSetCredential *sc) {
         return mfree(sc);
 }
 
+ExecLoadCredential *exec_load_credential_free(ExecLoadCredential *lc) {
+        if (!lc)
+                return NULL;
+
+        free(lc->id);
+        free(lc->path);
+        return mfree(lc);
+}
+
 DEFINE_HASH_OPS_WITH_VALUE_DESTRUCTOR(exec_set_credential_hash_ops, char, string_hash_func, string_compare_func, ExecSetCredential, exec_set_credential_free);
+DEFINE_HASH_OPS_WITH_VALUE_DESTRUCTOR(exec_load_credential_hash_ops, char, string_hash_func, string_compare_func, ExecLoadCredential, exec_load_credential_free);
 
 static const char* const exec_input_table[_EXEC_INPUT_MAX] = {
         [EXEC_INPUT_NULL] = "null",
