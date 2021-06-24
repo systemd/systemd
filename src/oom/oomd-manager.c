@@ -338,12 +338,16 @@ static int monitor_swap_contexts_handler(sd_event_source *s, uint64_t usec, void
          * is only used to decide which cgroups to kill (and even then only the resource usages of its descendent
          * nodes are the ones that matter). */
 
-        if (oomd_swap_free_below(&m->system_context, 10000 - m->swap_used_limit_permyriad)) {
+        /* Check amount of memory free and swap free so we don't free up swap when memory is still available. */
+        if (oomd_mem_free_below(&m->system_context, 10000 - m->swap_used_limit_permyriad) &&
+                        oomd_swap_free_below(&m->system_context, 10000 - m->swap_used_limit_permyriad)) {
                 _cleanup_hashmap_free_ Hashmap *candidates = NULL;
                 _cleanup_free_ char *selected = NULL;
                 uint64_t threshold;
 
-                log_debug("Swap used (%"PRIu64") / total (%"PRIu64") is more than " PERMYRIAD_AS_PERCENT_FORMAT_STR,
+                log_debug("Memory used (%"PRIu64") / total (%"PRIu64") and "
+                          "swap used (%"PRIu64") / total (%"PRIu64") is more than " PERMYRIAD_AS_PERCENT_FORMAT_STR,
+                          m->system_context.mem_used, m->system_context.mem_total,
                           m->system_context.swap_used, m->system_context.swap_total,
                           PERMYRIAD_AS_PERCENT_FORMAT_VAL(m->swap_used_limit_permyriad));
 
@@ -361,9 +365,12 @@ static int monitor_swap_contexts_handler(sd_event_source *s, uint64_t usec, void
                         log_notice_errno(r, "Failed to kill any cgroup(s) based on swap: %m");
                 else {
                         if (selected)
-                                log_notice("Killed %s due to swap used (%"PRIu64") / total (%"PRIu64") being more than "
+                                log_notice("Killed %s due to memory used (%"PRIu64") / total (%"PRIu64") and "
+                                           "swap used (%"PRIu64") / total (%"PRIu64") being more than "
                                            PERMYRIAD_AS_PERCENT_FORMAT_STR,
-                                           selected, m->system_context.swap_used, m->system_context.swap_total,
+                                           selected,
+                                           m->system_context.mem_used, m->system_context.mem_total,
+                                           m->system_context.swap_used, m->system_context.swap_total,
                                            PERMYRIAD_AS_PERCENT_FORMAT_VAL(m->swap_used_limit_permyriad));
                         return 0;
                 }
