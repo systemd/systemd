@@ -4562,45 +4562,43 @@ int unit_kill_context(
 }
 
 int unit_require_mounts_for(Unit *u, const char *path, UnitDependencyMask mask) {
-        _cleanup_free_ char *p = NULL;
-        UnitDependencyInfo di;
         int r;
 
         assert(u);
         assert(path);
 
-        /* Registers a unit for requiring a certain path and all its prefixes. We keep a hashtable of these paths in
-         * the unit (from the path to the UnitDependencyInfo structure indicating how to the dependency came to
-         * be). However, we build a prefix table for all possible prefixes so that new appearing mount units can easily
-         * determine which units to make themselves a dependency of. */
+        /* Registers a unit for requiring a certain path and all its prefixes. We keep a hashtable of these
+         * paths in the unit (from the path to the UnitDependencyInfo structure indicating how to the
+         * dependency came to be). However, we build a prefix table for all possible prefixes so that new
+         * appearing mount units can easily determine which units to make themselves a dependency of. */
 
         if (!path_is_absolute(path))
                 return -EINVAL;
 
-        r = hashmap_ensure_allocated(&u->requires_mounts_for, &path_hash_ops);
-        if (r < 0)
-                return r;
+        if (hashmap_contains(u->requires_mounts_for, path)) /* Exit quickly if the path is already covered. */
+                return 0;
 
-        p = strdup(path);
+        _cleanup_free_ char *p = strdup(path);
         if (!p)
                 return -ENOMEM;
 
+        /* Use the canonical form of the path as the stored key. We call path_is_normalized()
+         * only after simplification, since path_is_normalized() rejects paths with '.'.
+         * path_is_normalized() also verifies that the path fits in PATH_MAX. */
         path = path_simplify(p);
 
         if (!path_is_normalized(path))
                 return -EPERM;
 
-        if (hashmap_contains(u->requires_mounts_for, path))
-                return 0;
-
-        di = (UnitDependencyInfo) {
+        UnitDependencyInfo di = {
                 .origin_mask = mask
         };
 
-        r = hashmap_put(u->requires_mounts_for, path, di.data);
+        r = hashmap_ensure_put(&u->requires_mounts_for, &path_hash_ops, p, di.data);
         if (r < 0)
                 return r;
-        p = NULL;
+        assert(r > 0);
+        TAKE_PTR(p); /* path remains a valid pointer to the string stored in the hashmap */
 
         char prefix[strlen(path) + 1];
         PATH_FOREACH_PREFIX_MORE(prefix, path) {

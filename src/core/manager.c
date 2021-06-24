@@ -4511,16 +4511,14 @@ void manager_status_printf(Manager *m, StatusType type, const char *status, cons
         va_end(ap);
 }
 
-Set *manager_get_units_requiring_mounts_for(Manager *m, const char *path) {
-        char p[strlen(path)+1];
-
+Set* manager_get_units_requiring_mounts_for(Manager *m, const char *path) {
         assert(m);
         assert(path);
 
-        strcpy(p, path);
-        path_simplify(p);
+        if (path_equal(path, "/"))
+                path = "";
 
-        return hashmap_get(m->units_requiring_mounts_for, streq(p, "/") ? "" : p);
+        return hashmap_get(m->units_requiring_mounts_for, path);
 }
 
 int manager_update_failed_units(Manager *m, Unit *u, bool failed) {
