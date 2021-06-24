@@ -61,7 +61,7 @@ static void set_type(const char *from, char *to, size_t len) {
         unsigned type_num;
         const char *type = "generic";
 
-        if (safe_atou_full(from, 16, &type_num) >= 0) {
+        if (safe_atou_full(from, 0, &type_num) >= 0) {
                 switch (type_num) {
                 case 0:
                         type = "disk";
