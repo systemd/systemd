@@ -228,8 +228,8 @@ static int test_unit_printf(void) {
 
         log_info("/* %s */", __func__);
 
-        assert_se(specifier_machine_id('m', NULL, NULL, &mid) >= 0 && mid);
-        assert_se(specifier_boot_id('b', NULL, NULL, &bid) >= 0 && bid);
+        assert_se(specifier_machine_id('m', NULL, NULL, NULL, &mid) >= 0 && mid);
+        assert_se(specifier_boot_id('b', NULL, NULL, NULL, &bid) >= 0 && bid);
         assert_se(host = gethostname_malloc());
         assert_se(user = uid_to_name(getuid()));
         assert_se(group = gid_to_name(getgid()));

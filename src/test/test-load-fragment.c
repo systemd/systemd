@@ -498,8 +498,8 @@ static void test_install_printf(void) {
 
         _cleanup_free_ char *mid = NULL, *bid = NULL, *host = NULL, *gid = NULL, *group = NULL, *uid = NULL, *user = NULL;
 
-        assert_se(specifier_machine_id('m', NULL, NULL, &mid) >= 0 && mid);
-        assert_se(specifier_boot_id('b', NULL, NULL, &bid) >= 0 && bid);
+        assert_se(specifier_machine_id('m', NULL, NULL, NULL, &mid) >= 0 && mid);
+        assert_se(specifier_boot_id('b', NULL, NULL, NULL, &bid) >= 0 && bid);
         assert_se(host = gethostname_malloc());
         assert_se(group = gid_to_name(getgid()));
         assert_se(asprintf(&gid, UID_FMT, getgid()) >= 0);
@@ -512,7 +512,7 @@ static void test_install_printf(void) {
                 _cleanup_free_ char                                     \
                         *d1 = strdup(i.name),                           \
                         *d2 = strdup(i.path);                           \
-                assert_se(install_name_printf(&src, pattern, &t) >= 0 || !result); \
+                assert_se(install_name_printf(&src, pattern, NULL, &t) >= 0 || !result); \
                 memzero(i.name, strlen(i.name));                        \
                 memzero(i.path, strlen(i.path));                        \
                 assert_se(d1 && d2);                                    \
