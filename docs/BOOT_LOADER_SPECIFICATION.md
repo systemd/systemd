@@ -210,7 +210,7 @@ Note that these configurations snippets do not need to be the only configuration
 
 To make this explicitly clear: this specification is designed with "free" operating systems in mind, starting Windows or macOS is out of focus with these configuration snippets, use boot-loader specific solutions for that. In the text above, if we say "OS" we hence imply "free", i.e. primarily Linux (though this could be easily be extended to the BSDs and whatnot).
 
-Note that all paths used in the configuration snippets use a Unix-style "/" as path separator. This needs to be converted to an EFI-style "\" separator in EFI boot loaders.
+Note that all paths used in the configuration snippets use a Unix-style "/" as path separator. This needs to be converted to an EFI-style "\\" separator in EFI boot loaders.
 
 
 ## Logic
