@@ -247,26 +247,33 @@ static void test_oomd_system_context_acquire(void) {
 
         assert_se(oomd_system_context_acquire("/verylikelynonexistentpath", &ctx) == -ENOENT);
 
-        assert_se(oomd_system_context_acquire(path, &ctx) == 0);
-        assert_se(ctx.swap_total == 0);
-        assert_se(ctx.swap_used == 0);
+        assert_se(oomd_system_context_acquire(path, &ctx) == -EINVAL);
 
         assert_se(write_string_file(path, "some\nwords\nacross\nmultiple\nlines", WRITE_STRING_FILE_CREATE) == 0);
-        assert_se(oomd_system_context_acquire(path, &ctx) == 0);
-        assert_se(ctx.swap_total == 0);
-        assert_se(ctx.swap_used == 0);
+        assert_se(oomd_system_context_acquire(path, &ctx) == -EINVAL);
 
-        assert_se(write_string_file(path, "Filename                                Type            Size    Used    Priority", WRITE_STRING_FILE_CREATE) == 0);
-        assert_se(oomd_system_context_acquire(path, &ctx) == 0);
-        assert_se(ctx.swap_total == 0);
-        assert_se(ctx.swap_used == 0);
+        assert_se(write_string_file(path, "MemTotal:       32495256 kB trailing\n"
+                                          "MemFree:         9880512 kB data\n"
+                                          "SwapTotal:       8388604 kB is\n"
+                                          "SwapFree:           7604 kB bad\n", WRITE_STRING_FILE_CREATE) == 0);
+        assert_se(oomd_system_context_acquire(path, &ctx) == -EINVAL);
 
-        assert_se(write_string_file(path, "Filename                                Type            Size    Used    Priority\n"
-                                          "/swapvol/swapfile                       file            18971644        0       -3\n"
-                                          "/dev/vda2                               partition       1999868 993780  -2", WRITE_STRING_FILE_CREATE) == 0);
+        assert_se(oomd_system_context_acquire("/proc/meminfo", &ctx) == 0);
+        assert_se(ctx.swap_total > 0);
+        assert_se(ctx.swap_used <= ctx.swap_total);
+
+        assert_se(write_string_file(path, "MemTotal:       32495256 kB\n"
+                                          "MemFree:         9880512 kB\n"
+                                          "MemAvailable:   21777088 kB\n"
+                                          "Buffers:            5968 kB\n"
+                                          "Cached:         14344796 kB\n"
+                                          "Unevictable:      740004 kB\n"
+                                          "Mlocked:            4484 kB\n"
+                                          "SwapTotal:       8388604 kB\n"
+                                          "SwapFree:           7604 kB\n", WRITE_STRING_FILE_CREATE) == 0);
         assert_se(oomd_system_context_acquire(path, &ctx) == 0);
-        assert_se(ctx.swap_total == 21474828288);
-        assert_se(ctx.swap_used == 1017630720);
+        assert_se(ctx.swap_total == 8589930496);
+        assert_se(ctx.swap_used == 8582144000);
 }
 
 static void test_oomd_pressure_above(void) {
