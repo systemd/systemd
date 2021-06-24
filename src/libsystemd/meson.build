@@ -131,8 +131,6 @@ libsystemd_sources = files('''
         sd-device/device-util.h
         sd-device/sd-device.c
         sd-hwdb/hwdb-internal.h
-        sd-hwdb/hwdb-util.c
-        sd-hwdb/hwdb-util.h
         sd-hwdb/sd-hwdb.c
         sd-netlink/generic-netlink.c
         sd-netlink/generic-netlink.h

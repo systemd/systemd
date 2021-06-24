@@ -4,6 +4,7 @@
 #include <fcntl.h>
 #include <linux/fs.h>
 #include <linux/loop.h>
+#include <linux/magic.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/file.h>
@@ -34,6 +35,7 @@
 #include "os-util.h"
 #include "path-util.h"
 #include "rm-rf.h"
+#include "stat-util.h"
 #include "string-table.h"
 #include "string-util.h"
 #include "strv.h"
@@ -262,7 +264,7 @@ static int image_make(
 
                 if (btrfs_might_be_subvol(st)) {
 
-                        r = btrfs_is_filesystem(fd);
+                        r = fd_is_fs_type(fd, BTRFS_SUPER_MAGIC);
                         if (r < 0)
                                 return r;
                         if (r) {

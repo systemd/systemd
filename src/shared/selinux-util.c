@@ -36,9 +36,9 @@ static int mac_selinux_reload(int seqno);
 
 static int cached_use = -1;
 static bool initialized = false;
-static int (*enforcing_status_func)(void) = security_getenforce;
 static int last_policyload = 0;
 static struct selabel_handle *label_hnd = NULL;
+static bool have_status_page = false;
 
 #define log_enforcing(...)                                              \
         log_full(mac_selinux_enforcing() ? LOG_ERR : LOG_WARNING, __VA_ARGS__)
@@ -70,11 +70,19 @@ bool mac_selinux_use(void) {
 }
 
 bool mac_selinux_enforcing(void) {
+        int r = 0;
 #if HAVE_SELINUX
-        return enforcing_status_func() != 0;
-#else
-        return false;
+
+        /* If the SELinux status page has been successfully opened, retrieve the enforcing
+         * status over it to avoid system calls in security_getenforce(). */
+
+        if (have_status_page)
+                r = selinux_status_getenforce();
+        else
+                r = security_getenforce();
+
 #endif
+        return r != 0;
 }
 
 void mac_selinux_retest(void) {
@@ -142,7 +150,6 @@ static int open_label_db(void) {
 int mac_selinux_init(void) {
 #if HAVE_SELINUX
         int r;
-        bool have_status_page = false;
 
         if (initialized)
                 return 0;
@@ -169,11 +176,6 @@ int mac_selinux_init(void) {
         /* Save the current policyload sequence number, so mac_selinux_maybe_reload() does not trigger on
          * first call without any actual change. */
         last_policyload = selinux_status_policyload();
-
-        if (have_status_page)
-                /* Now that the SELinux status page has been successfully opened, retrieve the enforcing
-                 * status over it (to avoid system calls in security_getenforce()). */
-                enforcing_status_func = selinux_status_getenforce;
 
         initialized = true;
 #endif
@@ -215,9 +217,8 @@ void mac_selinux_finish(void) {
                 label_hnd = NULL;
         }
 
-        enforcing_status_func = security_getenforce;
-
         selinux_status_close();
+        have_status_page = false;
 
         initialized = false;
 #endif
