@@ -4,6 +4,7 @@
 #include <unistd.h>
 
 #include "fd-util.h"
+#include "fileio.h"
 #include "format-util.h"
 #include "oomd-util.h"
 #include "parse-util.h"
@@ -357,45 +358,56 @@ int oomd_cgroup_context_acquire(const char *path, OomdCGroupContext **ret) {
         return 0;
 }
 
-int oomd_system_context_acquire(const char *proc_swaps_path, OomdSystemContext *ret) {
+int oomd_system_context_acquire(const char *proc_meminfo_path, OomdSystemContext *ret) {
         _cleanup_fclose_ FILE *f = NULL;
+        unsigned field_filled = 0;
         OomdSystemContext ctx = {};
+        uint64_t swap_free;
         int r;
 
-        assert(proc_swaps_path);
+        assert(proc_meminfo_path);
         assert(ret);
 
-        f = fopen(proc_swaps_path, "re");
+        f = fopen(proc_meminfo_path, "re");
         if (!f)
                 return -errno;
 
-        (void) fscanf(f, "%*s %*s %*s %*s %*s\n");
-
         for (;;) {
-                uint64_t total, used;
+                _cleanup_free_ char *line = NULL;
+                char *word;
 
-                r = fscanf(f,
-                           "%*s "          /* device/file */
-                           "%*s "          /* type of swap */
-                           "%" PRIu64 " "  /* swap size */
-                           "%" PRIu64 " "  /* used */
-                           "%*s\n",        /* priority */
-                           &total, &used);
+                r = read_line(f, LONG_LINE_MAX, &line);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        return -EINVAL;
 
-                if (r == EOF && feof(f))
-                         break;
+                if ((word = startswith(line, "SwapTotal:"))) {
+                        field_filled |= 1U << 0;
+                        r = convert_meminfo_value_to_uint64_bytes(word, &ctx.swap_total);
+                } else if ((word = startswith(line, "SwapFree:"))) {
+                        field_filled |= 1U << 1;
+                        r = convert_meminfo_value_to_uint64_bytes(word, &swap_free);
+                } else
+                        continue;
 
-                if (r != 2) {
-                        if (ferror(f))
-                                return log_debug_errno(errno, "Error reading from %s: %m", proc_swaps_path);
+                if (r < 0)
+                        return log_debug_errno(r, "Error converting '%s' from %s to uint64_t: %m", line, proc_meminfo_path);
 
-                        return log_debug_errno(SYNTHETIC_ERRNO(EIO),
-                                               "Failed to parse values from %s: %m", proc_swaps_path);
-                }
-
-                ctx.swap_total += total * 1024U;
-                ctx.swap_used += used * 1024U;
+                if (field_filled == 3U)
+                        break;
         }
+
+        if (field_filled != 3U)
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "%s is missing expected fields", proc_meminfo_path);
+
+        if (swap_free > ctx.swap_total)
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "SwapFree (%" PRIu64 ") cannot be greater than SwapTotal (%" PRIu64 ") %m",
+                                       swap_free,
+                                       ctx.swap_total);
+
+        ctx.swap_used = ctx.swap_total - swap_free;
 
         *ret = ctx;
         return 0;
