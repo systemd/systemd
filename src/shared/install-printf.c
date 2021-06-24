@@ -13,7 +13,7 @@
 #include "unit-name.h"
 #include "user-util.h"
 
-static int specifier_prefix_and_instance(char specifier, const void *data, const void *userdata, char **ret) {
+static int specifier_prefix_and_instance(char specifier, const void *data, const char *root, const void *userdata, char **ret) {
         const UnitFileInstallInfo *i = userdata;
         _cleanup_free_ char *prefix = NULL;
         int r;
@@ -37,7 +37,7 @@ static int specifier_prefix_and_instance(char specifier, const void *data, const
         return 0;
 }
 
-static int specifier_name(char specifier, const void *data, const void *userdata, char **ret) {
+static int specifier_name(char specifier, const void *data, const char *root, const void *userdata, char **ret) {
         const UnitFileInstallInfo *i = userdata;
         char *ans;
 
@@ -53,7 +53,7 @@ static int specifier_name(char specifier, const void *data, const void *userdata
         return 0;
 }
 
-static int specifier_prefix(char specifier, const void *data, const void *userdata, char **ret) {
+static int specifier_prefix(char specifier, const void *data, const char *root, const void *userdata, char **ret) {
         const UnitFileInstallInfo *i = userdata;
 
         assert(i);
@@ -61,7 +61,7 @@ static int specifier_prefix(char specifier, const void *data, const void *userda
         return unit_name_to_prefix(i->name, ret);
 }
 
-static int specifier_instance(char specifier, const void *data, const void *userdata, char **ret) {
+static int specifier_instance(char specifier, const void *data, const char *root, const void *userdata, char **ret) {
         const UnitFileInstallInfo *i = userdata;
         char *instance;
         int r;
@@ -82,12 +82,12 @@ static int specifier_instance(char specifier, const void *data, const void *user
         return 0;
 }
 
-static int specifier_last_component(char specifier, const void *data, const void *userdata, char **ret) {
+static int specifier_last_component(char specifier, const void *data, const char *root, const void *userdata, char **ret) {
         _cleanup_free_ char *prefix = NULL;
         char *dash;
         int r;
 
-        r = specifier_prefix(specifier, data, userdata, &prefix);
+        r = specifier_prefix(specifier, data, root, userdata, &prefix);
         if (r < 0)
                 return r;
 
@@ -103,7 +103,7 @@ static int specifier_last_component(char specifier, const void *data, const void
         return 0;
 }
 
-int install_full_printf_internal(const UnitFileInstallInfo *i, const char *format, size_t max_length, char **ret) {
+int install_full_printf_internal(const UnitFileInstallInfo *i, const char *format, size_t max_length, const char *root, char **ret) {
         /* This is similar to unit_name_printf() */
 
         const Specifier table[] = {
@@ -123,5 +123,5 @@ int install_full_printf_internal(const UnitFileInstallInfo *i, const char *forma
         assert(format);
         assert(ret);
 
-        return specifier_printf(format, max_length, table, i, ret);
+        return specifier_printf(format, max_length, table, root, i, ret);
 }

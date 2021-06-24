@@ -12,7 +12,7 @@
 #include "unit.h"
 #include "user-util.h"
 
-static int specifier_prefix_and_instance(char specifier, const void *data, const void *userdata, char **ret) {
+static int specifier_prefix_and_instance(char specifier, const void *data, const char *root, const void *userdata, char **ret) {
         const Unit *u = userdata;
 
         assert(u);
@@ -20,7 +20,7 @@ static int specifier_prefix_and_instance(char specifier, const void *data, const
         return unit_name_to_prefix_and_instance(u->id, ret);
 }
 
-static int specifier_prefix(char specifier, const void *data, const void *userdata, char **ret) {
+static int specifier_prefix(char specifier, const void *data, const char *root, const void *userdata, char **ret) {
         const Unit *u = userdata;
 
         assert(u);
@@ -28,7 +28,7 @@ static int specifier_prefix(char specifier, const void *data, const void *userda
         return unit_name_to_prefix(u->id, ret);
 }
 
-static int specifier_prefix_unescaped(char specifier, const void *data, const void *userdata, char **ret) {
+static int specifier_prefix_unescaped(char specifier, const void *data, const char *root, const void *userdata, char **ret) {
         _cleanup_free_ char *p = NULL;
         const Unit *u = userdata;
         int r;
@@ -42,7 +42,7 @@ static int specifier_prefix_unescaped(char specifier, const void *data, const vo
         return unit_name_unescape(p, ret);
 }
 
-static int specifier_instance_unescaped(char specifier, const void *data, const void *userdata, char **ret) {
+static int specifier_instance_unescaped(char specifier, const void *data, const char *root, const void *userdata, char **ret) {
         const Unit *u = userdata;
 
         assert(u);
@@ -50,7 +50,7 @@ static int specifier_instance_unescaped(char specifier, const void *data, const 
         return unit_name_unescape(strempty(u->instance), ret);
 }
 
-static int specifier_last_component(char specifier, const void *data, const void *userdata, char **ret) {
+static int specifier_last_component(char specifier, const void *data, const char *root, const void *userdata, char **ret) {
         const Unit *u = userdata;
         _cleanup_free_ char *prefix = NULL;
         char *dash;
@@ -64,24 +64,24 @@ static int specifier_last_component(char specifier, const void *data, const void
 
         dash = strrchr(prefix, '-');
         if (dash)
-                return specifier_string(specifier, dash + 1, userdata, ret);
+                return specifier_string(specifier, dash + 1, root, userdata, ret);
 
         *ret = TAKE_PTR(prefix);
         return 0;
 }
 
-static int specifier_last_component_unescaped(char specifier, const void *data, const void *userdata, char **ret) {
+static int specifier_last_component_unescaped(char specifier, const void *data, const char *root, const void *userdata, char **ret) {
         _cleanup_free_ char *p = NULL;
         int r;
 
-        r = specifier_last_component(specifier, data, userdata, &p);
+        r = specifier_last_component(specifier, data, root, userdata, &p);
         if (r < 0)
                 return r;
 
         return unit_name_unescape(p, ret);
 }
 
-static int specifier_filename(char specifier, const void *data, const void *userdata, char **ret) {
+static int specifier_filename(char specifier, const void *data, const char *root, const void *userdata, char **ret) {
         const Unit *u = userdata;
 
         assert(u);
@@ -96,7 +96,7 @@ static void bad_specifier(const Unit *u, char specifier) {
         log_unit_warning(u, "Specifier '%%%c' used in unit configuration, which is deprecated. Please update your unit file, as it does not work as intended.", specifier);
 }
 
-static int specifier_cgroup(char specifier, const void *data, const void *userdata, char **ret) {
+static int specifier_cgroup(char specifier, const void *data, const char *root, const void *userdata, char **ret) {
         const Unit *u = userdata;
         char *n;
 
@@ -115,7 +115,7 @@ static int specifier_cgroup(char specifier, const void *data, const void *userda
         return 0;
 }
 
-static int specifier_cgroup_root(char specifier, const void *data, const void *userdata, char **ret) {
+static int specifier_cgroup_root(char specifier, const void *data, const char *root, const void *userdata, char **ret) {
         const Unit *u = userdata;
         char *n;
 
@@ -131,7 +131,7 @@ static int specifier_cgroup_root(char specifier, const void *data, const void *u
         return 0;
 }
 
-static int specifier_cgroup_slice(char specifier, const void *data, const void *userdata, char **ret) {
+static int specifier_cgroup_slice(char specifier, const void *data, const char *root, const void *userdata, char **ret) {
         const Unit *u = userdata, *slice;
         char *n;
 
@@ -154,7 +154,7 @@ static int specifier_cgroup_slice(char specifier, const void *data, const void *
         return 0;
 }
 
-static int specifier_special_directory(char specifier, const void *data, const void *userdata, char **ret) {
+static int specifier_special_directory(char specifier, const void *data, const char *root, const void *userdata, char **ret) {
         const Unit *u = userdata;
         char *n = NULL;
 
@@ -198,7 +198,7 @@ int unit_name_printf(const Unit *u, const char* format, char **ret) {
         assert(format);
         assert(ret);
 
-        return specifier_printf(format, UNIT_NAME_MAX, table, u, ret);
+        return specifier_printf(format, UNIT_NAME_MAX, table, NULL, u, ret);
 }
 
 int unit_full_printf_full(const Unit *u, const char *format, size_t max_length, char **ret) {
@@ -262,5 +262,5 @@ int unit_full_printf_full(const Unit *u, const char *format, size_t max_length, 
                 {}
         };
 
-        return specifier_printf(format, max_length, table, u, ret);
+        return specifier_printf(format, max_length, table, NULL, u, ret);
 }

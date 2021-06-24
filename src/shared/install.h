@@ -79,6 +79,7 @@ enum UnitFileType {
 struct UnitFileInstallInfo {
         char *name;
         char *path;
+        char *root;
 
         char **aliases;
         char **wanted_by;

@@ -135,7 +135,7 @@ static int dnssd_service_load(Manager *manager, const char *filename) {
         return 0;
 }
 
-static int specifier_dnssd_host_name(char specifier, const void *data, const void *userdata, char **ret) {
+static int specifier_dnssd_host_name(char specifier, const void *data, const char *root, const void *userdata, char **ret) {
         DnssdService *s  = (DnssdService *) userdata;
         char *n;
 
@@ -170,7 +170,7 @@ int dnssd_render_instance_name(DnssdService *s, char **ret_name) {
         assert(s);
         assert(s->name_template);
 
-        r = specifier_printf(s->name_template, DNS_LABEL_MAX, specifier_table, s, &name);
+        r = specifier_printf(s->name_template, DNS_LABEL_MAX, specifier_table, NULL, s, &name);
         if (r < 0)
                 return log_debug_errno(r, "Failed to replace specifiers: %m");
 
