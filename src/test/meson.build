@@ -370,6 +370,8 @@ tests += [
          [],
          [threads]],
 
+        [['src/test/test-hash-funcs.c']],
+
         [['src/test/test-bitmap.c']],
 
         [['src/test/test-xml.c']],
