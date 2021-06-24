@@ -85,7 +85,7 @@ REQUIREMENTS:
 
         Optional but strongly recommended:
           CONFIG_IPV6
-          CONFIG_AUTOFS4_FS
+          CONFIG_AUTOFS_FS
           CONFIG_TMPFS_XATTR
           CONFIG_{TMPFS,EXT4_FS,XFS,BTRFS_FS,...}_POSIX_ACL
           CONFIG_SECCOMP
