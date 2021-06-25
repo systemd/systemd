@@ -95,7 +95,7 @@ static bool address_pool_prefix_is_taken(
         assert(p);
         assert(u);
 
-        HASHMAP_FOREACH(l, p->manager->links) {
+        HASHMAP_FOREACH(l, p->manager->links_by_index) {
                 Address *a;
 
                 /* Don't clash with assigned addresses */

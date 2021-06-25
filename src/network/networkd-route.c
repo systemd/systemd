@@ -753,7 +753,7 @@ bool manager_address_is_reachable(Manager *manager, int family, const union in_a
         assert(IN_SET(family, AF_INET, AF_INET6));
         assert(address);
 
-        HASHMAP_FOREACH(link, manager->links) {
+        HASHMAP_FOREACH(link, manager->links_by_index) {
                 Route *route;
 
                 SET_FOREACH(route, link->routes)
@@ -807,7 +807,7 @@ int manager_find_uplink(Manager *m, int family, Link *exclude, Link **ret) {
         /* Looks for a suitable "uplink", via black magic: an interface that is up and where the
          * default route with the highest priority points to. */
 
-        HASHMAP_FOREACH(link, m->links) {
+        HASHMAP_FOREACH(link, m->links_by_index) {
                 if (link == exclude)
                         continue;
 
@@ -1106,7 +1106,7 @@ static bool links_have_static_route(const Manager *manager, const Route *route, 
 
         assert(manager);
 
-        HASHMAP_FOREACH(link, manager->links) {
+        HASHMAP_FOREACH(link, manager->links_by_index) {
                 if (link == except)
                         continue;
 
@@ -1260,7 +1260,7 @@ static int route_add_and_setup_timer_one(Link *link, const Route *route, const M
         } else if (m && m->ifindex != 0 && m->ifindex != link->ifindex) {
                 Link *link_gw;
 
-                r = link_get(link->manager, m->ifindex, &link_gw);
+                r = link_get_by_index(link->manager, m->ifindex, &link_gw);
                 if (r < 0)
                         return log_link_error_errno(link, r, "Failed to get link with ifindex %d: %m", m->ifindex);
 
@@ -1685,7 +1685,7 @@ static int route_is_ready_to_configure(const Route *route, Link *link) {
         } else {
                 Link *l;
 
-                HASHMAP_FOREACH(l, link->manager->links) {
+                HASHMAP_FOREACH(l, link->manager->links_by_index) {
                         if (l->address_remove_messages > 0)
                                 return false;
                         if (l->nexthop_remove_messages > 0)
@@ -1720,7 +1720,7 @@ static int route_is_ready_to_configure(const Route *route, Link *link) {
 
                         m->ifindex = l->ifindex;
                 } else if (m->ifindex > 0) {
-                        if (link_get(link->manager, m->ifindex, &l) < 0)
+                        if (link_get_by_index(link->manager, m->ifindex, &l) < 0)
                                 return false;
                 }
                 if (l && !link_is_ready_to_configure(l, true))
@@ -1805,7 +1805,7 @@ static int process_route_one(Manager *manager, Link *link, uint16_t type, const 
                         return log_warning_errno(SYNTHETIC_ERRNO(EINVAL),
                                                  "rtnl: received multipath route with invalid ifindex, ignoring.");
 
-                r = link_get(manager, m->ifindex, &link);
+                r = link_get_by_index(manager, m->ifindex, &link);
                 if (r < 0) {
                         log_warning_errno(r, "rtnl: received multipath route for link (%d) we do not know, ignoring: %m", m->ifindex);
                         return 0;
@@ -1898,7 +1898,7 @@ int manager_rtnl_process_route(sd_netlink *rtnl, sd_netlink_message *message, Ma
                         return 0;
                 }
 
-                r = link_get(m, ifindex, &link);
+                r = link_get_by_index(m, ifindex, &link);
                 if (r < 0 || !link) {
                         /* when enumerating we might be out of sync, but we will
                          * get the route again, so just ignore it */

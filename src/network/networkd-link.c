@@ -33,6 +33,7 @@
 #include "networkd-dhcp-server.h"
 #include "networkd-dhcp4.h"
 #include "networkd-dhcp6.h"
+#include "networkd-ipv4acd.h"
 #include "networkd-ipv4ll.h"
 #include "networkd-ipv6-proxy-ndp.h"
 #include "networkd-link-bus.h"
@@ -72,6 +73,12 @@ bool link_ipv4ll_enabled(Link *link) {
                 return false;
 
         if (link->iftype == ARPHRD_CAN)
+                return false;
+
+        if (link->hw_addr.length != ETH_ALEN)
+                return false;
+
+        if (ether_addr_is_null(&link->hw_addr.ether))
                 return false;
 
         if (STRPTR_IN_SET(link->kind,
@@ -198,7 +205,6 @@ static void link_free_engines(Link *link) {
         link->dhcp_server = sd_dhcp_server_unref(link->dhcp_server);
         link->dhcp_client = sd_dhcp_client_unref(link->dhcp_client);
         link->dhcp_lease = sd_dhcp_lease_unref(link->dhcp_lease);
-        link->dhcp_acd = sd_ipv4acd_unref(link->dhcp_acd);
 
         link->lldp = sd_lldp_unref(link->lldp);
         link_lldp_emit_stop(link);
@@ -210,8 +216,6 @@ static void link_free_engines(Link *link) {
         link->dhcp6_lease = sd_dhcp6_lease_unref(link->dhcp6_lease);
         link->ndisc = sd_ndisc_unref(link->ndisc);
         link->radv = sd_radv_unref(link->radv);
-
-        ipv4_dad_unref(link);
 }
 
 static Link *link_free(Link *link) {
@@ -238,6 +242,7 @@ static Link *link_free(Link *link) {
 
         link->addresses = set_free(link->addresses);
         link->addresses_foreign = set_free(link->addresses_foreign);
+        link->addresses_ipv4acd = set_free(link->addresses_ipv4acd);
         link->pool_addresses = set_free(link->pool_addresses);
         link->static_addresses = set_free(link->static_addresses);
         link->dhcp6_addresses = set_free(link->dhcp6_addresses);
@@ -274,13 +279,13 @@ static Link *link_free(Link *link) {
 
 DEFINE_TRIVIAL_REF_UNREF_FUNC(Link, link, link_free);
 
-int link_get(Manager *m, int ifindex, Link **ret) {
+int link_get_by_index(Manager *m, int ifindex, Link **ret) {
         Link *link;
 
         assert(m);
         assert(ifindex > 0);
 
-        link = hashmap_get(m->links, INT_TO_PTR(ifindex));
+        link = hashmap_get(m->links_by_index, INT_TO_PTR(ifindex));
         if (!link)
                 return -ENODEV;
 
@@ -304,6 +309,21 @@ int link_get_by_name(Manager *m, const char *ifname, Link **ret) {
         return 0;
 }
 
+int link_get_by_hw_addr(Manager *m, const struct hw_addr_data *hw_addr, Link **ret) {
+        Link *link;
+
+        assert(m);
+        assert(hw_addr);
+
+        link = hashmap_get(m->links_by_hw_addr, hw_addr);
+        if (!link)
+                return -ENODEV;
+
+        if (ret)
+                *ret = link;
+        return 0;
+}
+
 int link_get_master(Link *link, Link **ret) {
         assert(link);
         assert(link->manager);
@@ -312,7 +332,7 @@ int link_get_master(Link *link, Link **ret) {
         if (link->master_ifindex <= 0 || link->master_ifindex == link->ifindex)
                 return -ENODEV;
 
-        return link_get(link->manager, link->master_ifindex, ret);
+        return link_get_by_index(link->manager, link->master_ifindex, ret);
 }
 
 void link_set_state(Link *link, LinkState state) {
@@ -349,10 +369,6 @@ int link_stop_engines(Link *link, bool may_keep_dhcp) {
                         r = log_link_warning_errno(link, k, "Could not stop DHCPv4 client: %m");
         }
 
-        k = sd_ipv4acd_stop(link->dhcp_acd);
-        if (k < 0)
-                r = log_link_warning_errno(link, k, "Could not stop IPv4 ACD client for DHCPv4: %m");
-
         k = sd_dhcp_server_stop(link->dhcp_server);
         if (k < 0)
                 r = log_link_warning_errno(link, k, "Could not stop DHCPv4 server: %m");
@@ -365,7 +381,7 @@ int link_stop_engines(Link *link, bool may_keep_dhcp) {
         if (k < 0)
                 r = log_link_warning_errno(link, k, "Could not stop IPv4 link-local: %m");
 
-        k = ipv4_dad_stop(link);
+        k = ipv4acd_stop(link);
         if (k < 0)
                 r = log_link_warning_errno(link, k, "Could not stop IPv4 ACD client: %m");
 
@@ -647,6 +663,10 @@ static int link_acquire_dynamic_ipv4_conf(Link *link) {
                         return log_link_warning_errno(link, r, "Could not start DHCP server: %m");
         }
 
+        r = ipv4acd_start(link);
+        if (r < 0)
+                return log_link_warning_errno(link, r, "Could not start IPv4 ACD client: %m");
+
         return 0;
 }
 
@@ -774,7 +794,7 @@ static int link_new_bound_by_list(Link *link) {
 
         m = link->manager;
 
-        HASHMAP_FOREACH(carrier, m->links) {
+        HASHMAP_FOREACH(carrier, m->links_by_index) {
                 if (!carrier->network)
                         continue;
 
@@ -813,7 +833,7 @@ static int link_new_bound_to_list(Link *link) {
 
         m = link->manager;
 
-        HASHMAP_FOREACH(carrier, m->links) {
+        HASHMAP_FOREACH(carrier, m->links_by_index) {
                 if (strv_fnmatch(link->network->bind_carrier, carrier->ifname)) {
                         r = link_put_carrier(link, carrier, &link->bound_to_links);
                         if (r < 0)
@@ -961,11 +981,14 @@ static Link *link_drop(Link *link) {
 
         STRV_FOREACH(n, link->alternative_names)
                 hashmap_remove(link->manager->links_by_name, *n);
-
         hashmap_remove(link->manager->links_by_name, link->ifname);
 
+        /* bonding master and its slaves have the same hardware address. */
+        if (hashmap_get(link->manager->links_by_hw_addr, &link->hw_addr) == link)
+                hashmap_remove(link->manager->links_by_hw_addr, &link->hw_addr);
+
         /* The following must be called at last. */
-        assert_se(hashmap_remove(link->manager->links, INT_TO_PTR(link->ifindex)) == link);
+        assert_se(hashmap_remove(link->manager->links_by_index, INT_TO_PTR(link->ifindex)) == link);
         return link_unref(link);
 }
 
@@ -1471,7 +1494,7 @@ int manager_udev_process_link(sd_device_monitor *monitor, sd_device *device, voi
                 return 0;
         }
 
-        r = link_get(m, ifindex, &link);
+        r = link_get_by_index(m, ifindex, &link);
         if (r < 0) {
                 log_device_debug_errno(device, r, "Failed to get link from ifindex %i, ignoring: %m", ifindex);
                 return 0;
@@ -1974,7 +1997,7 @@ static int link_update_master(Link *link, sd_netlink_message *message) {
 }
 
 static int link_update_hardware_address(Link *link, sd_netlink_message *message) {
-        struct hw_addr_data hw_addr;
+        struct hw_addr_data old;
         int r;
 
         assert(link);
@@ -1984,18 +2007,38 @@ static int link_update_hardware_address(Link *link, sd_netlink_message *message)
         if (r < 0 && r != -ENODATA)
                 return log_link_debug_errno(link, r, "rtnl: failed to read broadcast address: %m");
 
-        r = netlink_message_read_hw_addr(message, IFLA_ADDRESS, &hw_addr);
+        old = link->hw_addr;
+        r = netlink_message_read_hw_addr(message, IFLA_ADDRESS, &link->hw_addr);
         if (r == -ENODATA)
                 return 0;
         if (r < 0)
-                return log_link_warning_errno(link, r, "rtnl: failed to read hardware address: %m");
+                return log_link_debug_errno(link, r, "rtnl: failed to read hardware address: %m");
 
-        if (hw_addr_equal(&link->hw_addr, &hw_addr))
+        if (hw_addr_equal(&link->hw_addr, &old))
                 return 0;
 
-        link->hw_addr = hw_addr;
+        if (hw_addr_is_null(&old))
+                log_link_debug(link, "Saved hardware address: %s", HW_ADDR_TO_STR(&link->hw_addr));
+        else {
+                log_link_debug(link, "Hardware address is changed: %s → %s",
+                               HW_ADDR_TO_STR(&old), HW_ADDR_TO_STR(&link->hw_addr));
 
-        log_link_debug(link, "Gained new hardware address: %s", HW_ADDR_TO_STR(&hw_addr));
+                if (hashmap_get(link->manager->links_by_hw_addr, &old) == link)
+                        hashmap_remove(link->manager->links_by_hw_addr, &old);
+        }
+
+        if (!hw_addr_is_null(&link->hw_addr)) {
+                r = hashmap_ensure_put(&link->manager->links_by_hw_addr, &hw_addr_hash_ops, &link->hw_addr, link);
+                if (r == -EEXIST && streq_ptr(link->kind, "bond"))
+                        /* bonding master and its slaves have the same hardware address. */
+                        r = hashmap_replace(link->manager->links_by_hw_addr, &link->hw_addr, link);
+                if (r < 0)
+                        log_link_debug_errno(link, r, "Failed to manage link by its new hardware address, ignoring: %m");
+        }
+
+        r = ipv4ll_update_mac(link);
+        if (r < 0)
+                return log_link_debug_errno(link, r, "Could not update MAC address in IPv4 ACD client: %m");
 
         r = ipv4ll_update_mac(link);
         if (r < 0)
@@ -2024,10 +2067,6 @@ static int link_update_hardware_address(Link *link, sd_netlink_message *message)
                 if (r < 0)
                         return log_link_debug_errno(link, r, "Could not update MAC address for LLDP: %m");
         }
-
-        r = ipv4_dad_update_mac(link);
-        if (r < 0)
-                return log_link_debug_errno(link, r, "Could not update MAC address in IPv4 ACD client: %m");
 
         return 0;
 }
@@ -2257,7 +2296,7 @@ static int link_new(Manager *manager, sd_netlink_message *message, Link **ret) {
                 .dns_over_tls_mode = _DNS_OVER_TLS_MODE_INVALID,
         };
 
-        r = hashmap_ensure_put(&manager->links, NULL, INT_TO_PTR(link->ifindex), link);
+        r = hashmap_ensure_put(&manager->links_by_index, NULL, INT_TO_PTR(link->ifindex), link);
         if (r < 0)
                 return log_link_debug_errno(link, r, "Failed to store link into manager: %m");
 
@@ -2323,7 +2362,7 @@ int manager_rtnl_process_link(sd_netlink *rtnl, sd_netlink_message *message, Man
                 return 0;
         }
 
-        (void) link_get(manager, ifindex, &link);
+        (void) link_get_by_index(manager, ifindex, &link);
         (void) netdev_get(manager, name, &netdev);
 
         switch (type) {
