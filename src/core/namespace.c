@@ -1480,6 +1480,9 @@ static int make_nosuid(const MountEntry *m, FILE *proc_self_mountinfo) {
         assert(m);
         assert(proc_self_mountinfo);
 
+        if (IN_SET(m->mode, PROCFS, SYSFS))
+                return 0;
+
         submounts = !IN_SET(m->mode, EMPTY_DIR, TMPFS);
 
         if (submounts)
