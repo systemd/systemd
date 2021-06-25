@@ -228,7 +228,7 @@ static bool bridge_fdb_is_ready_to_configure(BridgeFDB *fdb, Link *link) {
 
                 fdb->outgoing_ifindex = out->ifindex;
         } else if (fdb->outgoing_ifindex > 0) {
-                if (link_get(link->manager, fdb->outgoing_ifindex, &out) < 0)
+                if (link_get_by_index(link->manager, fdb->outgoing_ifindex, &out) < 0)
                         return false;
         }
         if (out && !link_is_ready_to_configure(out, false))
