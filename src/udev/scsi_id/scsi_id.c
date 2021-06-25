@@ -57,36 +57,34 @@ static char model_enc_str[256];
 static char revision_str[16];
 static char type_str[16];
 
-static void set_type(const char *from, char *to, size_t len) {
-        unsigned type_num;
-        const char *type = "generic";
+static void set_type(unsigned type_num, char *to, size_t len) {
+        const char *type;
 
-        if (safe_atou_full(from, 16, &type_num) >= 0) {
-                switch (type_num) {
-                case 0:
-                        type = "disk";
-                        break;
-                case 1:
-                        type = "tape";
-                        break;
-                case 4:
-                        type = "optical";
-                        break;
-                case 5:
-                        type = "cd";
-                        break;
-                case 7:
-                        type = "optical";
-                        break;
-                case 0xe:
-                        type = "disk";
-                        break;
-                case 0xf:
-                        type = "optical";
-                        break;
-                default:
-                        break;
-                }
+        switch (type_num) {
+        case 0:
+                type = "disk";
+                break;
+        case 1:
+                type = "tape";
+                break;
+        case 4:
+                type = "optical";
+                break;
+        case 5:
+                type = "cd";
+                break;
+        case 7:
+                type = "optical";
+                break;
+        case 0xe:
+                type = "disk";
+                break;
+        case 0xf:
+                type = "optical";
+                break;
+        default:
+                type = "generic";
+                break;
         }
         strscpy(to, len, type);
 }
