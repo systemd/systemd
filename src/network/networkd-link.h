@@ -218,7 +218,7 @@ Link *link_ref(Link *link);
 DEFINE_TRIVIAL_CLEANUP_FUNC(Link*, link_unref);
 DEFINE_TRIVIAL_DESTRUCTOR(link_netlink_destroy_callback, Link, link_unref);
 
-int link_get(Manager *m, int ifindex, Link **ret);
+int link_get_by_index(Manager *m, int ifindex, Link **ret);
 int link_get_by_name(Manager *m, const char *ifname, Link **ret);
 int link_get_master(Link *link, Link **ret);
 

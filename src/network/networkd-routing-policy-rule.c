@@ -607,7 +607,7 @@ static int links_have_routing_policy_rule(const Manager *m, const RoutingPolicyR
         assert(m);
         assert(rule);
 
-        HASHMAP_FOREACH(link, m->links) {
+        HASHMAP_FOREACH(link, m->links_by_index) {
                 RoutingPolicyRule *link_rule;
 
                 if (link == except)

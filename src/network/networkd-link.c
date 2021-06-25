@@ -274,13 +274,13 @@ static Link *link_free(Link *link) {
 
 DEFINE_TRIVIAL_REF_UNREF_FUNC(Link, link, link_free);
 
-int link_get(Manager *m, int ifindex, Link **ret) {
+int link_get_by_index(Manager *m, int ifindex, Link **ret) {
         Link *link;
 
         assert(m);
         assert(ifindex > 0);
 
-        link = hashmap_get(m->links, INT_TO_PTR(ifindex));
+        link = hashmap_get(m->links_by_index, INT_TO_PTR(ifindex));
         if (!link)
                 return -ENODEV;
 
@@ -312,7 +312,7 @@ int link_get_master(Link *link, Link **ret) {
         if (link->master_ifindex <= 0 || link->master_ifindex == link->ifindex)
                 return -ENODEV;
 
-        return link_get(link->manager, link->master_ifindex, ret);
+        return link_get_by_index(link->manager, link->master_ifindex, ret);
 }
 
 void link_set_state(Link *link, LinkState state) {
@@ -774,7 +774,7 @@ static int link_new_bound_by_list(Link *link) {
 
         m = link->manager;
 
-        HASHMAP_FOREACH(carrier, m->links) {
+        HASHMAP_FOREACH(carrier, m->links_by_index) {
                 if (!carrier->network)
                         continue;
 
@@ -813,7 +813,7 @@ static int link_new_bound_to_list(Link *link) {
 
         m = link->manager;
 
-        HASHMAP_FOREACH(carrier, m->links) {
+        HASHMAP_FOREACH(carrier, m->links_by_index) {
                 if (strv_fnmatch(link->network->bind_carrier, carrier->ifname)) {
                         r = link_put_carrier(link, carrier, &link->bound_to_links);
                         if (r < 0)
@@ -965,7 +965,7 @@ static Link *link_drop(Link *link) {
         hashmap_remove(link->manager->links_by_name, link->ifname);
 
         /* The following must be called at last. */
-        assert_se(hashmap_remove(link->manager->links, INT_TO_PTR(link->ifindex)) == link);
+        assert_se(hashmap_remove(link->manager->links_by_index, INT_TO_PTR(link->ifindex)) == link);
         return link_unref(link);
 }
 
@@ -1471,7 +1471,7 @@ int manager_udev_process_link(sd_device_monitor *monitor, sd_device *device, voi
                 return 0;
         }
 
-        r = link_get(m, ifindex, &link);
+        r = link_get_by_index(m, ifindex, &link);
         if (r < 0) {
                 log_device_debug_errno(device, r, "Failed to get link from ifindex %i, ignoring: %m", ifindex);
                 return 0;
@@ -2257,7 +2257,7 @@ static int link_new(Manager *manager, sd_netlink_message *message, Link **ret) {
                 .dns_over_tls_mode = _DNS_OVER_TLS_MODE_INVALID,
         };
 
-        r = hashmap_ensure_put(&manager->links, NULL, INT_TO_PTR(link->ifindex), link);
+        r = hashmap_ensure_put(&manager->links_by_index, NULL, INT_TO_PTR(link->ifindex), link);
         if (r < 0)
                 return log_link_debug_errno(link, r, "Failed to store link into manager: %m");
 
@@ -2323,7 +2323,7 @@ int manager_rtnl_process_link(sd_netlink *rtnl, sd_netlink_message *message, Man
                 return 0;
         }
 
-        (void) link_get(manager, ifindex, &link);
+        (void) link_get_by_index(manager, ifindex, &link);
         (void) netdev_get(manager, name, &netdev);
 
         switch (type) {

@@ -249,7 +249,7 @@ static bool bridge_mdb_is_ready_to_configure(Link *link) {
         if (link->master_ifindex != link->network->bridge->ifindex)
                 return false;
 
-        if (link_get(link->manager, link->master_ifindex, &master) < 0)
+        if (link_get_by_index(link->manager, link->master_ifindex, &master) < 0)
                 return false;
 
         if (!streq_ptr(master->kind, "bridge"))
