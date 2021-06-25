@@ -135,11 +135,16 @@ usb:v1C7Ap0603*
 
 # Supported by libfprint driver goodixmoc
 usb:v27C6p5840*
-usb:v27C6p6496*
+usb:v27C6p609C*
 usb:v27C6p60A2*
-usb:v27C6p63AC*
 usb:v27C6p639C*
+usb:v27C6p63AC*
+usb:v27C6p6496*
+usb:v27C6p6584*
+usb:v27C6p658C*
+usb:v27C6p6592*
 usb:v27C6p6594*
+usb:v27C6p659C*
 usb:v27C6p6A94*
  ID_AUTOSUSPEND=1
 
@@ -149,7 +154,6 @@ usb:v298Dp1010*
 
 # Supported by libfprint driver synaptics
 usb:v06CBp00BD*
-usb:v06CBp00E9*
 usb:v06CBp00DF*
 usb:v06CBp00F9*
 usb:v06CBp00FC*
@@ -234,6 +238,7 @@ usb:v06CBp00C4*
 usb:v06CBp00CB*
 usb:v06CBp00D8*
 usb:v06CBp00DA*
+usb:v06CBp00E9*
 usb:v0A5Cp5801*
 usb:v0A5Cp5805*
 usb:v0A5Cp5834*
