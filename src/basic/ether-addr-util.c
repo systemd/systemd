@@ -37,6 +37,16 @@ int hw_addr_compare(const struct hw_addr_data *a, const struct hw_addr_data *b) 
         return memcmp(a->bytes, b->bytes, a->length);
 }
 
+static void hw_addr_hash_func(const struct hw_addr_data *p, struct siphash *state) {
+        assert(p);
+        assert(state);
+
+        siphash24_compress(&p->length, sizeof(p->length), state);
+        siphash24_compress(p->bytes, p->length, state);
+}
+
+DEFINE_HASH_OPS(hw_addr_hash_ops, struct hw_addr_data, hw_addr_hash_func, hw_addr_compare);
+
 char* ether_addr_to_string(const struct ether_addr *addr, char buffer[ETHER_ADDR_TO_STRING_MAX]) {
         assert(addr);
         assert(buffer);

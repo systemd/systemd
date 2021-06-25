@@ -36,6 +36,8 @@ static inline bool hw_addr_is_null(const struct hw_addr_data *addr) {
         return hw_addr_equal(addr, &HW_ADDR_NULL);
 }
 
+extern const struct hash_ops hw_addr_hash_ops;
+
 #define ETHER_ADDR_FORMAT_STR "%02X%02X%02X%02X%02X%02X"
 #define ETHER_ADDR_FORMAT_VAL(x) (x).ether_addr_octet[0], (x).ether_addr_octet[1], (x).ether_addr_octet[2], (x).ether_addr_octet[3], (x).ether_addr_octet[4], (x).ether_addr_octet[5]
 
