@@ -501,6 +501,10 @@ CHANGES WITH 249 in spe:
         * systemd-journald-upload gained a new NetworkTimeoutSec= option for
           setting a network timeout time.
 
+        * If a system service is running in a new mount namespace (RootDirectory=
+          and friends), all file systems will be mounted with MS_NOSUID by
+          default, unless the system is running with SELinux enabled.
+
         Contributions from: Aakash Singh, adrian5, Alexander Sverdlin,
         alexlzhu, Allen Webb, Alvin Šipraga, Alyssa Ross, Anders Wenhaug,
         Andrea Pappacoda, Anita Zhang, asavah, Balint Reczey, Bertrand Jacquin,
