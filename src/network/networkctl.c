@@ -258,7 +258,6 @@ typedef struct VxLanInfo {
 
         uint8_t proxy;
         uint8_t learning;
-        uint8_t inerit;
         uint8_t rsc;
         uint8_t l2miss;
         uint8_t l3miss;
