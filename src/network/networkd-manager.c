@@ -58,7 +58,7 @@ static int manager_reset_all(Manager *m) {
 
         assert(m);
 
-        HASHMAP_FOREACH(link, m->links) {
+        HASHMAP_FOREACH(link, m->links_by_index) {
                 r = link_carrier_reset(link);
                 if (r < 0) {
                         log_link_warning_errno(link, r, "Could not reset carrier: %m");
@@ -451,7 +451,7 @@ Manager* manager_free(Manager *m) {
 
         free(m->state_file);
 
-        HASHMAP_FOREACH(link, m->links)
+        HASHMAP_FOREACH(link, m->links_by_index)
                 (void) link_stop_engines(link, true);
 
         m->request_queue = ordered_set_free(m->request_queue);
@@ -462,7 +462,7 @@ Manager* manager_free(Manager *m) {
         m->dirty_links = set_free_with_destructor(m->dirty_links, link_unref);
         m->links_requesting_uuid = set_free_with_destructor(m->links_requesting_uuid, link_unref);
         m->links_by_name = hashmap_free(m->links_by_name);
-        m->links = hashmap_free_with_destructor(m->links, link_unref);
+        m->links_by_index = hashmap_free_with_destructor(m->links_by_index, link_unref);
 
         m->networks = ordered_hashmap_free_with_destructor(m->networks, network_unref);
 
@@ -528,7 +528,7 @@ int manager_start(Manager *m) {
         if (r < 0)
                 log_warning_errno(r, "Failed to update state file %s, ignoring: %m", m->state_file);
 
-        HASHMAP_FOREACH(link, m->links) {
+        HASHMAP_FOREACH(link, m->links_by_index) {
                 r = link_save(link);
                 if (r < 0)
                         log_link_warning_errno(link, r, "Failed to update link state file %s, ignoring: %m", link->state_file);

@@ -114,11 +114,11 @@ int manager_build_json(Manager *manager, JsonVariant **ret) {
         assert(manager);
         assert(ret);
 
-        elements = new(JsonVariant*, hashmap_size(manager->links));
+        elements = new(JsonVariant*, hashmap_size(manager->links_by_index));
         if (!elements)
                 return -ENOMEM;
 
-        HASHMAP_FOREACH(link, manager->links) {
+        HASHMAP_FOREACH(link, manager->links_by_index) {
                 r = link_build_json(link, elements + n);
                 if (r < 0)
                         goto finalize;
