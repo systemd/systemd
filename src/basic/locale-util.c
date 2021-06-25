@@ -375,6 +375,9 @@ const char *special_glyph(SpecialGlyph code) {
                         [SPECIAL_GLYPH_DEPRESSED_SMILEY]        = ":-[",
                         [SPECIAL_GLYPH_LOCK_AND_KEY]            = "o-,",
                         [SPECIAL_GLYPH_TOUCH]                   = "O=",    /* Yeah, not very convincing, can you do it better? */
+                        [SPECIAL_GLYPH_RECYCLING]               = "~",
+                        [SPECIAL_GLYPH_DOWNLOAD]                = "\\",
+                        [SPECIAL_GLYPH_SPARKLES]                = "*",
                 },
 
                 /* UTF-8 */
@@ -421,7 +424,12 @@ const char *special_glyph(SpecialGlyph code) {
                         [SPECIAL_GLYPH_LOCK_AND_KEY]            = "\360\237\224\220",         /* 🔐 (actually called: CLOSED LOCK WITH KEY) */
 
                         /* This emoji is a single character cell glyph in Unicode, and two in ASCII */
-                        [SPECIAL_GLYPH_TOUCH]                   = "\360\237\221\206",         /* 👆 (actually called: BACKHAND INDEX POINTING UP */
+                        [SPECIAL_GLYPH_TOUCH]                   = "\360\237\221\206",         /* 👆 (actually called: BACKHAND INDEX POINTING UP) */
+
+                        /* These three emojis are single character cell glyphs in Unicode and also in ASCII. */
+                        [SPECIAL_GLYPH_RECYCLING]               = "\u267B\uFE0F ",            /* ♻️  (actually called: UNIVERSAL RECYCLNG SYMBOL) */
+                        [SPECIAL_GLYPH_DOWNLOAD]                = "\u2935\uFE0F ",            /* ⤵️  (actually called: RIGHT ARROW CURVING DOWN) */
+                        [SPECIAL_GLYPH_SPARKLES]                = "\u2728",                   /* ✨ */
                 },
         };
 
