@@ -4598,17 +4598,23 @@ B00000-BFFFFF     (base 16)		Amethystum Storage Technology Co., Ltd
 				Walnut  CA  91789
 				US
 
-64-33-B5   (hex)		Geksacon
-C00000-CFFFFF     (base 16)		Geksacon
-				revolutionary street
-				Ufa  Republic of Bashkortostan  450005
-				RU
-
 04-71-4B   (hex)		uAvionix Corporation
 100000-1FFFFF     (base 16)		uAvionix Corporation
 				300 Pine Needle Lane
 				Bigfork  MT  59911
 				US
+
+28-36-13   (hex)		shenzhen technology limited
+700000-7FFFFF     (base 16)		shenzhen technology limited
+				903,No. 1 Shifeng Building, Xinzhuang Community Villa Road, Matian Street, Guangming District, Shenzhen City
+				Shenzhen  Guangdong  518000
+				CN
+
+64-33-B5   (hex)		Geksacon
+C00000-CFFFFF     (base 16)		Geksacon
+				Revolutionary Street 78
+				Ufa  Republic of Bashkortostan  450005
+				RU
 
 4C-4B-F9   (hex)		Shenzhen dingsheng technology co., LTD
 400000-4FFFFF     (base 16)		Shenzhen dingsheng technology co., LTD
@@ -8810,11 +8816,23 @@ B00000-BFFFFF     (base 16)		Daatrics LTD
 				Kwai Chung  NT  999077
 				HK
 
+28-36-13   (hex)		Qingdao Airpoint Electronics Co.,Ltd.
+900000-9FFFFF     (base 16)		Qingdao Airpoint Electronics Co.,Ltd.
+				Yuhuangling industrial Park, Xiazhuang-Rd, Chengyang-Qu
+				QingDao City  ShanDong Province  266109
+				CN
+
 64-33-B5   (hex)		University of Texas at Austin
 E00000-EFFFFF     (base 16)		University of Texas at Austin
 				1 University Station C3800
 				Austin  TX  78713-7407
 				US
+
+28-36-13   (hex)		Elytone Electronic Co., Ltd.
+400000-4FFFFF     (base 16)		Elytone Electronic Co., Ltd.
+				#218, Sec.2, Chung Cheng Road
+				San-Hsia District, New Taipei City    23742
+				TW
 
 20-85-93   (hex)		UNILUMIN GROUP CO.,LTD
 300000-3FFFFF     (base 16)		UNILUMIN GROUP CO.,LTD
@@ -13319,6 +13337,24 @@ D00000-DFFFFF     (base 16)		IIYAMA CORPORATION
 				Hoofddorp    2131HA
 				NL
 
+28-36-13   (hex)		Linear Computing Inc.
+300000-3FFFFF     (base 16)		Linear Computing Inc.
+				110 Galaxy Blvd
+				Etobicoke  Ontario  M9W 4Y6
+				CA
+
+28-36-13   (hex)		Hi-p (Suzhou) Electronics Co,Ltd
+100000-1FFFFF     (base 16)		Hi-p (Suzhou) Electronics Co,Ltd
+				5th floor, building G, no. 2337 gudai road (weijing center)
+				Shanghai  minhang district  215128
+				CN
+
+78-5E-E8   (hex)		Yake (Tianjin) Technology Co.,Ltd.
+A00000-AFFFFF     (base 16)		Yake (Tianjin) Technology Co.,Ltd.
+				No.2, Zhengtong Road, Caozili Town, Wuqing District, Tianjin
+				Tianjin  Tianjin  301727
+				CN
+
 4C-4B-F9   (hex)		Shandong Linkotech Electronic Co., Ltd.
 600000-6FFFFF     (base 16)		Shandong Linkotech Electronic Co., Ltd.
 				22nd Floor, Building 2, Aosheng Building, No.1166 Xinyi Street, High-tech Zone
@@ -17692,6 +17728,24 @@ C00000-CFFFFF     (base 16)		Haag-Streit AG
 				3/F,Building 8 ,Taihua Wutong Island,Xixiang,Bao'an District
 				China  Guang Dong  518000
 				CN
+
+28-36-13   (hex)		Shandong SIASUN Industrial Software Research Institute Co., Ltd
+000000-0FFFFF     (base 16)		Shandong SIASUN Industrial Software Research Institute Co., Ltd
+				Rm301,Artificial Intelligence Building,Jingshi Road,Jinan Area Of China(Shandong) Pilot Free Trade Zone
+				jinan    250000
+				CN
+
+28-36-13   (hex)		AVYCON
+D00000-DFFFFF     (base 16)		AVYCON
+				16682 Millikan Ave
+				Irvine  CA  92606
+				US
+
+28-36-13   (hex)		ESI Ventures, LLC
+600000-6FFFFF     (base 16)		ESI Ventures, LLC
+				2085 Humphrey Street
+				Fort Wayne  IN  46803
+				US
 
 20-85-93   (hex)		Great Lite International
 700000-7FFFFF     (base 16)		Great Lite International
@@ -22195,3 +22249,39 @@ B00000-BFFFFF     (base 16)		electroCore Inc.
 				Matam Scientific Industries Center,   Building 8.2
 				Mail box 15123  Haifa  3508409
 				IL
+
+28-36-13   (hex)		midBit Technologies, LLC
+C00000-CFFFFF     (base 16)		midBit Technologies, LLC
+				153 Homestead Ln
+				Romney  WV  26757
+				US
+
+28-36-13   (hex)		Turing Video
+500000-5FFFFF     (base 16)		Turing Video
+				1730 S El Camino Real, Suite 350
+				San Mateo  CA  94402
+				US
+
+28-36-13   (hex)		MAKEEN Energy
+A00000-AFFFFF     (base 16)		MAKEEN Energy
+				Alsvej 21
+				Randers    8940
+				DK
+
+28-36-13   (hex)		Fuzhou Lesi Intelligent Technology Co., Ltd
+800000-8FFFFF     (base 16)		Fuzhou Lesi Intelligent Technology Co., Ltd
+				Room 1-3-5, north 9 / F, building 1, Fujian hi tech Pioneer Park, 611 Gongye Road, Gulou District
+				Fuzhou  Fujian  350000
+				CN
+
+28-36-13   (hex)		EGMedical, s.r.o.
+E00000-EFFFFF     (base 16)		EGMedical, s.r.o.
+				KRENOVA 19
+				Brno  JHMK  60200
+				CZ
+
+28-36-13   (hex)		Qorvo, Inc.
+B00000-BFFFFF     (base 16)		Qorvo, Inc.
+				500 W. Renner Road
+				Richardson  TX  75080
+				US

@@ -3207,6 +3207,9 @@ acpi:HSL*:
 acpi:HSM*:
  ID_VENDOR_FROM_DATABASE=AT&T Microelectronics
 
+acpi:HSN*:
+ ID_VENDOR_FROM_DATABASE=Hansung Co., Ltd
+
 acpi:HSP*:
  ID_VENDOR_FROM_DATABASE=HannStar Display Corp
 
@@ -4089,6 +4092,9 @@ acpi:LIN*:
 acpi:LIP*:
  ID_VENDOR_FROM_DATABASE=Linked IP GmbH
 
+acpi:LIS*:
+ ID_VENDOR_FROM_DATABASE=Life is Style Inc.
+
 acpi:LIT*:
  ID_VENDOR_FROM_DATABASE=Lithics Silicon Technology
 
@@ -4797,6 +4803,9 @@ acpi:NAC*:
 acpi:NAD*:
  ID_VENDOR_FROM_DATABASE=NAD Electronics
 
+acpi:NAF*:
+ ID_VENDOR_FROM_DATABASE=NAFASAE INDIA Pvt. Ltd
+
 acpi:NAK*:
  ID_VENDOR_FROM_DATABASE=Nakano Engineering Co.,Ltd.
 
@@ -5253,6 +5262,9 @@ acpi:PAC*:
 acpi:PAD*:
  ID_VENDOR_FROM_DATABASE=Promotion and Display Technology Ltd.
 
+acpi:PAE*:
+ ID_VENDOR_FROM_DATABASE=PreSonus Audio Electronics
+
 acpi:PAK*:
  ID_VENDOR_FROM_DATABASE=Many CNC System Co., Ltd.
 
@@ -5408,6 +5420,9 @@ acpi:PIM*:
 
 acpi:PIO*:
  ID_VENDOR_FROM_DATABASE=Pioneer Electronic Corporation
+
+acpi:PIR*:
+ ID_VENDOR_FROM_DATABASE=Pico Technology Inc.
 
 acpi:PIS*:
  ID_VENDOR_FROM_DATABASE=TECNART CO.,LTD.
@@ -7077,6 +7092,9 @@ acpi:TTL*:
 acpi:TTP*:
  ID_VENDOR_FROM_DATABASE=Toshiba Corporation
 
+acpi:TTR*:
+ ID_VENDOR_FROM_DATABASE=Hubei Century Joint Innovation Technology Co.Ltd
+
 acpi:TTS*:
  ID_VENDOR_FROM_DATABASE=TechnoTrend Systemtechnik GmbH
 
@@ -7370,6 +7388,9 @@ acpi:VIM*:
 
 acpi:VIN*:
  ID_VENDOR_FROM_DATABASE=Vine Micros Ltd
+
+acpi:VIO*:
+ ID_VENDOR_FROM_DATABASE=Zake IP Holdings LLC (3B tech)
 
 acpi:VIR*:
  ID_VENDOR_FROM_DATABASE=Visual Interface, Inc
