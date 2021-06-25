@@ -122,8 +122,10 @@ static void ipv4ll_handler(sd_ipv4ll *ll, int event, void *userdata) {
                         }
 
                         r = sd_ipv4ll_restart(ll);
-                        if (r < 0)
+                        if (r < 0) {
                                 log_link_warning_errno(link, r, "Could not acquire IPv4 link-local address: %m");
+                                link_enter_failed(link);
+                        }
                         break;
                 case SD_IPV4LL_EVENT_BIND:
                         r = ipv4ll_address_claimed(ll, link);
@@ -137,6 +139,21 @@ static void ipv4ll_handler(sd_ipv4ll *ll, int event, void *userdata) {
                         log_link_warning(link, "IPv4 link-local unknown event: %d", event);
                         break;
         }
+}
+
+static int ipv4ll_check_mac(sd_ipv4ll *ll, const struct ether_addr *mac, void *userdata) {
+        Manager *m = userdata;
+        struct hw_addr_data hw_addr;
+
+        assert(m);
+        assert(mac);
+
+        hw_addr = (struct hw_addr_data) {
+                .length = ETH_ALEN,
+                .ether = *mac,
+        };
+
+        return link_get_by_hw_addr(m, &hw_addr, NULL) >= 0;
 }
 
 int ipv4ll_configure(Link *link) {
@@ -178,35 +195,20 @@ int ipv4ll_configure(Link *link) {
         if (r < 0)
                 return r;
 
-        return 0;
+        return sd_ipv4ll_set_check_mac_callback(link->ipv4ll, ipv4ll_check_mac, link->manager);
 }
 
 int ipv4ll_update_mac(Link *link) {
-        bool restart;
-        int r;
-
         assert(link);
 
+        if (link->hw_addr.length != ETH_ALEN)
+                return 0;
+        if (ether_addr_is_null(&link->hw_addr.ether))
+                return 0;
         if (!link->ipv4ll)
                 return 0;
 
-        restart = sd_ipv4ll_is_running(link->ipv4ll) > 0;
-
-        r = sd_ipv4ll_stop(link->ipv4ll);
-        if (r < 0)
-                return r;
-
-        r = sd_ipv4ll_set_mac(link->ipv4ll, &link->hw_addr.ether);
-        if (r < 0)
-                return r;
-
-        if (restart) {
-                r = sd_ipv4ll_start(link->ipv4ll);
-                if (r < 0)
-                        return r;
-        }
-
-        return 0;
+        return sd_ipv4ll_set_mac(link->ipv4ll, &link->hw_addr.ether);
 }
 
 int config_parse_ipv4ll(
