@@ -46,7 +46,10 @@ struct sd_ipv4ll {
         be32_t claimed_address;
 
         sd_ipv4ll_callback_t callback;
-        void* userdata;
+        void *userdata;
+
+        sd_ipv4ll_check_mac_callback_t check_mac_callback;
+        void *check_mac_userdata;
 };
 
 #define log_ipv4ll_errno(ll, error, fmt, ...)           \
@@ -60,7 +63,8 @@ struct sd_ipv4ll {
                 sd_ipv4ll_get_ifname(ll),               \
                 0, fmt, ##__VA_ARGS__)
 
-static void ipv4ll_on_acd(sd_ipv4acd *ll, int event, void *userdata);
+static void ipv4ll_on_acd(sd_ipv4acd *acd, int event, void *userdata);
+static int ipv4ll_check_mac(sd_ipv4acd *acd, const struct ether_addr *mac, void *userdata);
 
 static sd_ipv4ll *ipv4ll_free(sd_ipv4ll *ll) {
         assert(ll);
@@ -88,6 +92,10 @@ int sd_ipv4ll_new(sd_ipv4ll **ret) {
                 return r;
 
         r = sd_ipv4acd_set_callback(ll->acd, ipv4ll_on_acd, ll);
+        if (r < 0)
+                return r;
+
+        r = sd_ipv4acd_set_check_mac_callback(ll->acd, ipv4ll_check_mac, ll);
         if (r < 0)
                 return r;
 
@@ -164,6 +172,15 @@ int sd_ipv4ll_set_callback(sd_ipv4ll *ll, sd_ipv4ll_callback_t cb, void *userdat
 
         ll->callback = cb;
         ll->userdata = userdata;
+
+        return 0;
+}
+
+int sd_ipv4ll_set_check_mac_callback(sd_ipv4ll *ll, sd_ipv4ll_check_mac_callback_t cb, void *userdata) {
+        assert_return(ll, -EINVAL);
+
+        ll->check_mac_callback = cb;
+        ll->check_mac_userdata = userdata;
 
         return 0;
 }
@@ -350,4 +367,15 @@ void ipv4ll_on_acd(sd_ipv4acd *acd, int event, void *userdata) {
 
 error:
         ipv4ll_client_notify(ll, SD_IPV4LL_EVENT_STOP);
+}
+
+static int ipv4ll_check_mac(sd_ipv4acd *acd, const struct ether_addr *mac, void *userdata) {
+        sd_ipv4ll *ll = userdata;
+
+        assert(ll);
+
+        if (ll->check_mac_callback)
+                return ll->check_mac_callback(ll, mac, ll->check_mac_userdata);
+
+        return 0;
 }
