@@ -3191,7 +3191,7 @@ static int apply_mount_namespace(
                         .proc_subset = context->proc_subset,
                         .private_ipc = context->private_ipc || context->ipc_namespace_path,
                         /* If NNP is on, we can turn on MS_NOSUID, since it won't have any effect anymore. */
-                        .mount_nosuid = context->no_new_privileges,
+                        .mount_nosuid = context->no_new_privileges && !mac_selinux_use(),
                 };
         } else if (!context->dynamic_user && root_dir)
                 /*
