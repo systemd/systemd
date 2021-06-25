@@ -39,13 +39,17 @@ void manager_reset_config(Manager *m) {
         m->user_stop_delay = 10 * USEC_PER_SEC;
 
         m->handle_power_key = HANDLE_POWEROFF;
+        m->handle_power_key_long_press = HANDLE_IGNORE;
+        m->handle_reboot_key = HANDLE_REBOOT;
+        m->handle_reboot_key_long_press = HANDLE_POWEROFF;
         m->handle_suspend_key = HANDLE_SUSPEND;
+        m->handle_suspend_key_long_press = HANDLE_IGNORE;
         m->handle_hibernate_key = HANDLE_HIBERNATE;
+        m->handle_hibernate_key_long_press = HANDLE_IGNORE;
+
         m->handle_lid_switch = HANDLE_SUSPEND;
         m->handle_lid_switch_ep = _HANDLE_ACTION_INVALID;
         m->handle_lid_switch_docked = HANDLE_IGNORE;
-        m->handle_reboot_key = HANDLE_REBOOT;
-        m->handle_reboot_key_long_press = HANDLE_POWEROFF;
 
         m->power_key_ignore_inhibited = false;
         m->suspend_key_ignore_inhibited = false;

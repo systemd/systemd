@@ -143,6 +143,9 @@ _SD_BEGIN_DECLARATIONS;
 #define SD_MESSAGE_SYSTEM_UNDOCKED_STR    SD_ID128_MAKE_STR(51,e1,71,bd,58,52,48,56,81,10,14,4c,51,7c,ca,53)
 #define SD_MESSAGE_POWER_KEY              SD_ID128_MAKE(b7,2e,a4,a2,88,15,45,a0,b5,0e,20,0e,55,b9,b0,71)
 #define SD_MESSAGE_POWER_KEY_STR          SD_ID128_MAKE_STR(b7,2e,a4,a2,88,15,45,a0,b5,0e,20,0e,55,b9,b0,71)
+#define SD_MESSAGE_POWER_KEY_LONG_PRESS   SD_ID128_MAKE(3e,01,17,10,1e,b2,43,c1,b9,a5,0d,b3,49,4a,b1,0b)
+#define SD_MESSAGE_POWER_KEY_LONG_PRESS_STR \
+                                          SD_ID128_MAKE_STR(3e,01,17,10,1e,b2,43,c1,b9,a5,0d,b3,49,4a,b1,0b)
 #define SD_MESSAGE_REBOOT_KEY             SD_ID128_MAKE(9f,a9,d2,c0,12,13,4e,c3,85,45,1f,fe,31,6f,97,d0)
 #define SD_MESSAGE_REBOOT_KEY_STR         SD_ID128_MAKE_STR(9f,a9,d2,c0,12,13,4e,c3,85,45,1f,fe,31,6f,97,d0)
 #define SD_MESSAGE_REBOOT_KEY_LONG_PRESS  SD_ID128_MAKE(f1,c5,9a,58,c9,d9,43,66,89,65,c3,37,ca,ec,59,75)
@@ -150,8 +153,15 @@ _SD_BEGIN_DECLARATIONS;
                                           SD_ID128_MAKE_STR(f1,c5,9a,58,c9,d9,43,66,89,65,c3,37,ca,ec,59,75)
 #define SD_MESSAGE_SUSPEND_KEY            SD_ID128_MAKE(b7,2e,a4,a2,88,15,45,a0,b5,0e,20,0e,55,b9,b0,72)
 #define SD_MESSAGE_SUSPEND_KEY_STR        SD_ID128_MAKE_STR(b7,2e,a4,a2,88,15,45,a0,b5,0e,20,0e,55,b9,b0,72)
+#define SD_MESSAGE_SUSPEND_KEY_LONG_PRESS SD_ID128_MAKE(bf,da,f6,d3,12,ab,40,07,bc,1f,e4,0a,15,df,78,e8)
+#define SD_MESSAGE_SUSPEND_KEY_LONG_PRESS_STR \
+                                          SD_ID128_MAKE_STR(bf,da,f6,d3,12,ab,40,07,bc,1f,e4,0a,15,df,78,e8)
 #define SD_MESSAGE_HIBERNATE_KEY          SD_ID128_MAKE(b7,2e,a4,a2,88,15,45,a0,b5,0e,20,0e,55,b9,b0,73)
 #define SD_MESSAGE_HIBERNATE_KEY_STR      SD_ID128_MAKE_STR(b7,2e,a4,a2,88,15,45,a0,b5,0e,20,0e,55,b9,b0,73)
+#define SD_MESSAGE_HIBERNATE_KEY_LONG_PRESS \
+                                          SD_ID128_MAKE(16,78,36,df,6f,7f,42,8e,98,14,72,27,b2,dc,89,45)
+#define SD_MESSAGE_HIBERNATE_KEY_LONG_PRESS_STR \
+                                          SD_ID128_MAKE_STR(16,78,36,df,6f,7f,42,8e,98,14,72,27,b2,dc,89,45)
 
 #define SD_MESSAGE_INVALID_CONFIGURATION  SD_ID128_MAKE(c7,72,d2,4e,9a,88,4c,be,b9,ea,12,62,5c,30,6c,01)
 #define SD_MESSAGE_INVALID_CONFIGURATION_STR \
