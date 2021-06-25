@@ -244,7 +244,6 @@ int copy_bytes_full(
                                         break;
 
                                 try_sendfile = try_splice = false; /* same logic as above for copy_file_range() */
-                                break;
                         } else
                                 /* Success! */
                                 goto next;
