@@ -9,8 +9,8 @@
 #	The latest version can be obtained from
 #		http://www.linux-usb.org/usb.ids
 #
-# Version: 2021.06.06
-# Date:    2021-06-06 20:34:10
+# Version: 2021.06.16
+# Date:    2021-06-16 20:34:10
 #
 
 # Vendors, devices and interfaces. Please keep sorted.
@@ -18177,8 +18177,8 @@
 	0042  Antec Veris Multimedia Station E-Z IR Receiver
 	ffda  iMON PAD Remote Controller
 	ffdc  iMON PAD Remote Controller
-15c5  Advance Multimedia Internet Technology Inc. (AMIT)
-	0008  WL532U 802.11g Adapter
+15c5  Pressure Profile Systems, Inc.
+	0008  Advance Multimedia Internet Technology Inc. (AMIT) WL532U 802.11g Adapter
 15c6  Laboratoires MXM
 	1000  DigistimSP (cold)
 	1001  DigistimSP (warm)
