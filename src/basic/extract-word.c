@@ -51,7 +51,8 @@ int extract_first_word(const char **p, char **ret, const char *separators, Extra
                         goto finish_force_terminate;
                 else if (strchr(separators, c)) {
                         if (flags & EXTRACT_DONT_COALESCE_SEPARATORS) {
-                                (*p)++;
+                                if (!(flags & EXTRACT_RETAIN_SEPARATORS))
+                                        (*p)++;
                                 goto finish_force_next;
                         }
                 } else {
@@ -153,16 +154,18 @@ int extract_first_word(const char **p, char **ret, const char *separators, Extra
                                         break;
                                 } else if (strchr(separators, c)) {
                                         if (flags & EXTRACT_DONT_COALESCE_SEPARATORS) {
-                                                (*p)++;
+                                                if (!(flags & EXTRACT_RETAIN_SEPARATORS))
+                                                        (*p)++;
                                                 goto finish_force_next;
                                         }
-                                        /* Skip additional coalesced separators. */
-                                        for (;; (*p)++, c = **p) {
-                                                if (c == 0)
-                                                        goto finish_force_terminate;
-                                                if (!strchr(separators, c))
-                                                        break;
-                                        }
+                                        if (!(flags & EXTRACT_RETAIN_SEPARATORS))
+                                                /* Skip additional coalesced separators. */
+                                                for (;; (*p)++, c = **p) {
+                                                        if (c == 0)
+                                                                goto finish_force_terminate;
+                                                        if (!strchr(separators, c))
+                                                                break;
+                                                }
                                         goto finish;
 
                                 }
