@@ -304,6 +304,21 @@ int link_get_by_name(Manager *m, const char *ifname, Link **ret) {
         return 0;
 }
 
+int link_get_by_hw_addr(Manager *m, const struct hw_addr_data *hw_addr, Link **ret) {
+        Link *link;
+
+        assert(m);
+        assert(hw_addr);
+
+        link = hashmap_get(m->links_by_hw_addr, hw_addr);
+        if (!link)
+                return -ENODEV;
+
+        if (ret)
+                *ret = link;
+        return 0;
+}
+
 int link_get_master(Link *link, Link **ret) {
         assert(link);
         assert(link->manager);
@@ -961,8 +976,11 @@ static Link *link_drop(Link *link) {
 
         STRV_FOREACH(n, link->alternative_names)
                 hashmap_remove(link->manager->links_by_name, *n);
-
         hashmap_remove(link->manager->links_by_name, link->ifname);
+
+        /* bonding master and its slaves have the same hardware address. */
+        if (hashmap_get(link->manager->links_by_hw_addr, &link->hw_addr) == link)
+                hashmap_remove(link->manager->links_by_hw_addr, &link->hw_addr);
 
         /* The following must be called at last. */
         assert_se(hashmap_remove(link->manager->links_by_index, INT_TO_PTR(link->ifindex)) == link);
@@ -1974,7 +1992,7 @@ static int link_update_master(Link *link, sd_netlink_message *message) {
 }
 
 static int link_update_hardware_address(Link *link, sd_netlink_message *message) {
-        struct hw_addr_data hw_addr;
+        struct hw_addr_data old;
         int r;
 
         assert(link);
@@ -1984,18 +2002,34 @@ static int link_update_hardware_address(Link *link, sd_netlink_message *message)
         if (r < 0 && r != -ENODATA)
                 return log_link_debug_errno(link, r, "rtnl: failed to read broadcast address: %m");
 
-        r = netlink_message_read_hw_addr(message, IFLA_ADDRESS, &hw_addr);
+        old = link->hw_addr;
+        r = netlink_message_read_hw_addr(message, IFLA_ADDRESS, &link->hw_addr);
         if (r == -ENODATA)
                 return 0;
         if (r < 0)
-                return log_link_warning_errno(link, r, "rtnl: failed to read hardware address: %m");
+                return log_link_debug_errno(link, r, "rtnl: failed to read hardware address: %m");
 
-        if (hw_addr_equal(&link->hw_addr, &hw_addr))
+        if (hw_addr_equal(&link->hw_addr, &old))
                 return 0;
 
-        link->hw_addr = hw_addr;
+        if (hw_addr_is_null(&old))
+                log_link_debug(link, "Saved hardware address: %s", HW_ADDR_TO_STR(&link->hw_addr));
+        else {
+                log_link_debug(link, "Hardware address is changed: %s → %s",
+                               HW_ADDR_TO_STR(&old), HW_ADDR_TO_STR(&link->hw_addr));
 
-        log_link_debug(link, "Gained new hardware address: %s", HW_ADDR_TO_STR(&hw_addr));
+                if (hashmap_get(link->manager->links_by_hw_addr, &old) == link)
+                        hashmap_remove(link->manager->links_by_hw_addr, &old);
+        }
+
+        if (!hw_addr_is_null(&link->hw_addr)) {
+                r = hashmap_ensure_put(&link->manager->links_by_hw_addr, &hw_addr_hash_ops, &link->hw_addr, link);
+                if (r == -EEXIST && streq_ptr(link->kind, "bond"))
+                        /* bonding master and its slaves have the same hardware address. */
+                        r = hashmap_replace(link->manager->links_by_hw_addr, &link->hw_addr, link);
+                if (r < 0)
+                        log_link_debug_errno(link, r, "Failed to manage link by its new hardware address, ignoring: %m");
+        }
 
         r = ipv4ll_update_mac(link);
         if (r < 0)
