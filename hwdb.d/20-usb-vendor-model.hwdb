@@ -54471,10 +54471,10 @@ usb:v15C2pFFDC*
  ID_MODEL_FROM_DATABASE=iMON PAD Remote Controller
 
 usb:v15C5*
- ID_VENDOR_FROM_DATABASE=Advance Multimedia Internet Technology Inc. (AMIT)
+ ID_VENDOR_FROM_DATABASE=Pressure Profile Systems, Inc.
 
 usb:v15C5p0008*
- ID_MODEL_FROM_DATABASE=WL532U 802.11g Adapter
+ ID_MODEL_FROM_DATABASE=Advance Multimedia Internet Technology Inc. (AMIT) WL532U 802.11g Adapter
 
 usb:v15C6*
  ID_VENDOR_FROM_DATABASE=Laboratoires MXM
