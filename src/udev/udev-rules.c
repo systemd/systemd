@@ -246,11 +246,11 @@ struct UdevRules {
 
 #define log_token_invalid_attr_format(rules, key, attr, offset, hint)   \
         log_token_error_errno(rules, SYNTHETIC_ERRNO(EINVAL),           \
-                              "Invalid attribute \"%s\" for %s (char %zu: %s), ignoring, but please fix it.", \
+                              "Invalid attribute \"%s\" for %s (char %zu: %s), ignoring.", \
                               attr, key, offset, hint)
 #define log_token_invalid_value(rules, key, value, offset, hint)        \
         log_token_error_errno(rules, SYNTHETIC_ERRNO(EINVAL),           \
-                              "Invalid value \"%s\" for %s (char %zu: %s), ignoring, but please fix it.", \
+                              "Invalid value \"%s\" for %s (char %zu: %s), ignoring.", \
                               value, key, offset, hint)
 
 static void log_unknown_owner(sd_device *dev, UdevRules *rules, int error, const char *entity, const char *name) {
@@ -597,17 +597,17 @@ static int parse_token(UdevRules *rules, const char *key, char *attr, UdevRuleOp
                 if (op == OP_REMOVE)
                         return log_token_invalid_op(rules, key);
                 if (op == OP_ADD) {
-                        log_token_warning(rules, "%s key takes '==', '!=', '=', or ':=' operator, assuming '=', but please fix it.", key);
+                        log_token_warning(rules, "%s key takes '==', '!=', '=', or ':=' operator, assuming '='.", key);
                         op = OP_ASSIGN;
                 }
 
                 if (!is_match) {
                         if (streq(value, "%k"))
                                 return log_token_error_errno(rules, SYNTHETIC_ERRNO(EINVAL),
-                                                             "NAME=\"%%k\" is ignored, as it breaks kernel supplied names.");
+                                                             "Ignoring NAME=\"%%k\", as it will take no effect.");
                         if (isempty(value))
                                 return log_token_error_errno(rules, SYNTHETIC_ERRNO(EINVAL),
-                                                             "Ignoring NAME=\"\", as udev will not delete any device nodes.");
+                                                             "Ignoring NAME=\"\", as udev will not delete any network interfaces.");
                         check_value_format_and_warn(rules, key, value, false);
 
                         r = rule_line_add_token(rule_line, TK_A_NAME, op, value, NULL);
@@ -619,7 +619,7 @@ static int parse_token(UdevRules *rules, const char *key, char *attr, UdevRuleOp
                 if (op == OP_REMOVE)
                         return log_token_invalid_op(rules, key);
                 if (op == OP_ASSIGN_FINAL) {
-                        log_token_warning(rules, "%s key takes '==', '!=', '=', or '+=' operator, assuming '=', but please fix it.", key);
+                        log_token_warning(rules, "%s key takes '==', '!=', '=', or '+=' operator, assuming '='.", key);
                         op = OP_ASSIGN;
                 }
 
@@ -645,7 +645,7 @@ static int parse_token(UdevRules *rules, const char *key, char *attr, UdevRuleOp
                 if (attr)
                         return log_token_invalid_attr(rules, key);
                 if (op == OP_ASSIGN_FINAL) {
-                        log_token_warning(rules, "%s key takes '==', '!=', '=', or '+=' operator, assuming '=', but please fix it.", key);
+                        log_token_warning(rules, "%s key takes '==', '!=', '=', or '+=' operator, assuming '='.", key);
                         op = OP_ASSIGN;
                 }
 
@@ -662,7 +662,7 @@ static int parse_token(UdevRules *rules, const char *key, char *attr, UdevRuleOp
                         return log_token_invalid_op(rules, key);
 
                 if (STR_IN_SET(value, "bus", "class"))
-                        log_token_warning(rules, "'%s' must be specified as 'subsystem'; please fix it", value);
+                        log_token_warning(rules, "\"%s\" must be specified as \"subsystem\".", value);
 
                 r = rule_line_add_token(rule_line, TK_M_SUBSYSTEM, op, value, NULL);
         } else if (streq(key, "DRIVER")) {
@@ -679,7 +679,7 @@ static int parse_token(UdevRules *rules, const char *key, char *attr, UdevRuleOp
                 if (op == OP_REMOVE)
                         return log_token_invalid_op(rules, key);
                 if (IN_SET(op, OP_ADD, OP_ASSIGN_FINAL)) {
-                        log_token_warning(rules, "%s key takes '==', '!=', or '=' operator, assuming '=', but please fix it.", key);
+                        log_token_warning(rules, "%s key takes '==', '!=', or '=' operator, assuming '='.", key);
                         op = OP_ASSIGN;
                 }
 
@@ -695,7 +695,7 @@ static int parse_token(UdevRules *rules, const char *key, char *attr, UdevRuleOp
                 if (op == OP_REMOVE)
                         return log_token_invalid_op(rules, key);
                 if (IN_SET(op, OP_ADD, OP_ASSIGN_FINAL)) {
-                        log_token_warning(rules, "%s key takes '==', '!=', or '=' operator, assuming '=', but please fix it.", key);
+                        log_token_warning(rules, "%s key takes '==', '!=', or '=' operator, assuming '='.", key);
                         op = OP_ASSIGN;
                 }
 
@@ -733,9 +733,9 @@ static int parse_token(UdevRules *rules, const char *key, char *attr, UdevRuleOp
                         return log_token_invalid_op(rules, key);
 
                 if (startswith(attr, "device/"))
-                        log_token_warning(rules, "'device' link may not be available in future kernels; please fix it.");
+                        log_token_warning(rules, "'device' link may not be available in future kernels.");
                 if (strstr(attr, "../"))
-                        log_token_warning(rules, "Direct reference to parent sysfs directory, may break in future kernels; please fix it.");
+                        log_token_warning(rules, "Direct reference to parent sysfs directory, may break in future kernels.");
 
                 r = rule_line_add_token(rule_line, TK_M_PARENTS_ATTR, op, value, attr);
         } else if (streq(key, "TAGS")) {
@@ -863,7 +863,7 @@ static int parse_token(UdevRules *rules, const char *key, char *attr, UdevRuleOp
                 if (is_match || op == OP_REMOVE)
                         return log_token_invalid_op(rules, key);
                 if (op == OP_ADD) {
-                        log_token_warning(rules, "%s key takes '=' or ':=' operator, assuming '=', but please fix it.", key);
+                        log_token_warning(rules, "%s key takes '=' or ':=' operator, assuming '='.", key);
                         op = OP_ASSIGN;
                 }
 
@@ -891,7 +891,7 @@ static int parse_token(UdevRules *rules, const char *key, char *attr, UdevRuleOp
                 if (is_match || op == OP_REMOVE)
                         return log_token_invalid_op(rules, key);
                 if (op == OP_ADD) {
-                        log_token_warning(rules, "%s key takes '=' or ':=' operator, assuming '=', but please fix it.", key);
+                        log_token_warning(rules, "%s key takes '=' or ':=' operator, assuming '='.", key);
                         op = OP_ASSIGN;
                 }
 
@@ -908,7 +908,7 @@ static int parse_token(UdevRules *rules, const char *key, char *attr, UdevRuleOp
                         check_value_format_and_warn(rules, key, value, true);
                         r = rule_line_add_token(rule_line, TK_A_GROUP, op, value, NULL);
                 } else {
-                        log_token_debug(rules, "Resolving group name is disabled, ignoring %s=%s", key, value);
+                        log_token_debug(rules, "Resolving group name is disabled, ignoring GROUP=\"%s\"", value);
                         return 0;
                 }
         } else if (streq(key, "MODE")) {
@@ -919,7 +919,7 @@ static int parse_token(UdevRules *rules, const char *key, char *attr, UdevRuleOp
                 if (is_match || op == OP_REMOVE)
                         return log_token_invalid_op(rules, key);
                 if (op == OP_ADD) {
-                        log_token_warning(rules, "%s key takes '=' or ':=' operator, assuming '=', but please fix it.", key);
+                        log_token_warning(rules, "%s key takes '=' or ':=' operator, assuming '='.", key);
                         op = OP_ASSIGN;
                 }
 
@@ -936,7 +936,7 @@ static int parse_token(UdevRules *rules, const char *key, char *attr, UdevRuleOp
                 if (is_match || op == OP_REMOVE)
                         return log_token_invalid_op(rules, key);
                 if (op == OP_ASSIGN_FINAL) {
-                        log_token_warning(rules, "%s key takes '=' or '+=' operator, assuming '=', but please fix it.", key);
+                        log_token_warning(rules, "%s key takes '=' or '+=' operator, assuming '='.", key);
                         op = OP_ASSIGN;
                 }
 
@@ -2062,7 +2062,7 @@ static int udev_rule_apply_token_to_event(
 
                 if (sd_device_get_ifindex(dev, NULL) < 0) {
                         log_rule_error(dev, rules,
-                                       "Only network interface can be renamed, ignoring NAME=\"%s\"; please fix it.",
+                                       "Only network interfaces can be renamed, ignoring NAME=\"%s\".",
                                        token->value);
                         break;
                 }
