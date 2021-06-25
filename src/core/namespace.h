@@ -74,6 +74,7 @@ struct NamespaceInfo {
         bool mount_apivfs;
         bool protect_hostname;
         bool private_ipc;
+        bool mount_nosuid;
         ProtectHome protect_home;
         ProtectSystem protect_system;
         ProtectProc protect_proc;
