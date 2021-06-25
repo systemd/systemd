@@ -5633,53 +5633,80 @@ int config_parse_cgroup_socket_bind(
                 void *data,
                 void *userdata) {
         _cleanup_free_ CGroupSocketBindItem *item = NULL;
-        const char *user_port;
+        _cleanup_strv_free_ char **parts = NULL;
+        int af = AF_UNSPEC, ip_protocol = 0, r;
         uint16_t nr_ports = 0, port_min = 0;
         CGroupSocketBindItem **head = data;
-        _cleanup_free_ char *word = NULL;
-        int af, r;
+        size_t parts_len;
 
         if (isempty(rvalue)) {
                 cgroup_context_remove_socket_bind(head);
                 return 0;
         }
 
-        r = extract_first_word(&rvalue, &word, ":", 0);
-        if (r == -ENOMEM)
+        parts = strv_split(rvalue, ":");
+        if (!parts)
                 return log_oom();
-        if (r <= 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r,
-                           "Unable to parse %s= assignment, ignoring: %s", lvalue, rvalue);
+
+        parts_len = strv_length(parts);
+        if (parts_len == 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, 0,
+                           "Unable to parse %s= assignment, ignoring: %s.", lvalue, rvalue);
                 return 0;
         }
 
-        if (rvalue) {
-                af = af_from_ipv4_ipv6(word);
+        switch (parts_len) {
+        case 3:
+                /* IP protocol. */
+                if (safe_atoi32(parts[1], &ip_protocol) == 0) {
+                        if (!ip_protocol_to_name(ip_protocol)) {
+                                log_syntax(unit, LOG_WARNING, filename, line, 0,
+                                          "Invalid ip protocol #%s, ignoring.", parts[1]);
+                                return 0;
+                        }
+                } else {
+                        ip_protocol = ip_protocol_from_name(parts[1]);
+                        if (ip_protocol < 0) {
+                                log_syntax(unit, LOG_WARNING, filename, line, 0,
+                                           "Invalid ip protocol \"%s\", ignoring.", parts[1]);
+                                return 0;
+                        }
+                }
+                if (ip_protocol == 0)
+                        log_syntax(unit, LOG_WARNING, filename, line, 0,
+                                   "Dummy IP protocol \"%s\" in %s= assignment.",
+                                   ip_protocol_to_name(ip_protocol), lvalue);
+                _fallthrough_;
+        case 2:
+                /* Address family. */
+                af = af_from_ipv4_ipv6(parts[0]);
                 if (af == AF_UNSPEC) {
                         log_syntax(unit, LOG_WARNING, filename, line, 0,
                                    "Only \"ipv4\" and \"ipv6\" protocols are supported, ignoring.");
                         return 0;
                 }
+                _fallthrough_;
+        case 1:
+                /* User port. */
+                if (!streq(parts[parts_len - 1], "any")) {
+                        uint16_t port_max;
 
-                user_port = rvalue;
-        } else {
-                af = AF_UNSPEC;
-                user_port = word;
-        }
+                        r = parse_ip_port_range(parts[parts_len - 1], &port_min, &port_max);
+                        if (r == -ENOMEM)
+                                return log_oom();
+                        if (r < 0) {
+                                log_syntax(unit, LOG_WARNING, filename, line, r,
+                                           "Invalid port or port range, ignoring: %m");
+                                return 0;
+                        }
 
-        if (!streq(user_port, "any")) {
-                uint16_t port_max;
-
-                r = parse_ip_port_range(user_port, &port_min, &port_max);
-                if (r == -ENOMEM)
-                        return log_oom();
-                if (r < 0) {
-                        log_syntax(unit, LOG_WARNING, filename, line, r,
-                                   "Invalid port or port range, ignoring: %m");
-                        return 0;
+                        nr_ports = 1 + port_max - port_min;
                 }
-
-                nr_ports = 1 + port_max - port_min;
+                break;
+        default:
+                log_syntax(unit, LOG_WARNING, filename, line, 0,
+                           "Unable to parse %s= assignment, ignoring: %s.", lvalue, rvalue);
+                return 0;
         }
 
         item = new(CGroupSocketBindItem, 1);
@@ -5687,8 +5714,7 @@ int config_parse_cgroup_socket_bind(
                 return log_oom();
         *item = (CGroupSocketBindItem) {
                 .address_family = af,
-                 /* No ip protocol specified for now. */
-                .ip_protocol = 0,
+                .ip_protocol = ip_protocol,
                 .nr_ports = nr_ports,
                 .port_min = port_min,
         };
