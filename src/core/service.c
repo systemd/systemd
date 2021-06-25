@@ -196,7 +196,7 @@ void service_close_socket_fd(Service *s) {
 static void service_stop_watchdog(Service *s) {
         assert(s);
 
-        s->watchdog_event_source = sd_event_source_unref(s->watchdog_event_source);
+        s->watchdog_event_source = sd_event_source_disable_unref(s->watchdog_event_source);
         s->watchdog_timestamp = DUAL_TIMESTAMP_NULL;
 }
 
@@ -395,8 +395,8 @@ static void service_done(Unit *u) {
 
         service_stop_watchdog(s);
 
-        s->timer_event_source = sd_event_source_unref(s->timer_event_source);
-        s->exec_fd_event_source = sd_event_source_unref(s->exec_fd_event_source);
+        s->timer_event_source = sd_event_source_disable_unref(s->timer_event_source);
+        s->exec_fd_event_source = sd_event_source_disable_unref(s->exec_fd_event_source);
 
         service_release_resources(u);
 }
@@ -1055,7 +1055,7 @@ static void service_set_state(Service *s, ServiceState state) {
                     SERVICE_FINAL_WATCHDOG, SERVICE_FINAL_SIGTERM, SERVICE_FINAL_SIGKILL,
                     SERVICE_AUTO_RESTART,
                     SERVICE_CLEANING))
-                s->timer_event_source = sd_event_source_unref(s->timer_event_source);
+                s->timer_event_source = sd_event_source_disable_unref(s->timer_event_source);
 
         if (!IN_SET(state,
                     SERVICE_START, SERVICE_START_POST,
@@ -1091,7 +1091,7 @@ static void service_set_state(Service *s, ServiceState state) {
                 service_close_socket_fd(s);
 
         if (state != SERVICE_START)
-                s->exec_fd_event_source = sd_event_source_unref(s->exec_fd_event_source);
+                s->exec_fd_event_source = sd_event_source_disable_unref(s->exec_fd_event_source);
 
         if (!IN_SET(state, SERVICE_START_POST, SERVICE_RUNNING, SERVICE_RELOAD))
                 service_stop_watchdog(s);
@@ -1351,7 +1351,7 @@ static int service_allocate_exec_fd_event_source(
         if (r < 0)
                 return log_unit_error_errno(UNIT(s), r, "Failed to adjust priority of exec_fd event source: %m");
 
-        (void) sd_event_source_set_description(source, "service event_fd");
+        (void) sd_event_source_set_description(source, "service exec_fd");
 
         r = sd_event_source_set_io_fd_own(source, true);
         if (r < 0)
@@ -1433,6 +1433,8 @@ static int service_spawn(
         if (r < 0)
                 return r;
 
+        assert(!s->exec_fd_event_source);
+
         if (flags & EXEC_IS_CONTROL) {
                 /* If this is a control process, mask the permissions/chroot application if this is requested. */
                 if (s->permissions_start_only)
@@ -1458,8 +1460,6 @@ static int service_spawn(
         }
 
         if (!FLAGS_SET(flags, EXEC_IS_CONTROL) && s->type == SERVICE_EXEC) {
-                assert(!s->exec_fd_event_source);
-
                 r = service_allocate_exec_fd(s, &exec_fd_source, &exec_params.exec_fd);
                 if (r < 0)
                         return r;
@@ -3026,7 +3026,7 @@ static int service_deserialize_item(Unit *u, const char *key, const char *value,
                 if (safe_atoi(value, &fd) < 0 || fd < 0 || !fdset_contains(fds, fd))
                         log_unit_debug(u, "Failed to parse exec-fd value: %s", value);
                 else {
-                        s->exec_fd_event_source = sd_event_source_unref(s->exec_fd_event_source);
+                        s->exec_fd_event_source = sd_event_source_disable_unref(s->exec_fd_event_source);
 
                         fd = fdset_remove(fds, fd);
                         if (service_allocate_exec_fd_event_source(s, fd, &s->exec_fd_event_source) < 0)
@@ -3223,7 +3223,7 @@ static int service_dispatch_exec_io(sd_event_source *source, int fd, uint32_t ev
                 }
                 if (n == 0) { /* EOF → the event we are waiting for */
 
-                        s->exec_fd_event_source = sd_event_source_unref(s->exec_fd_event_source);
+                        s->exec_fd_event_source = sd_event_source_disable_unref(s->exec_fd_event_source);
 
                         if (s->exec_fd_hot) { /* Did the child tell us to expect EOF now? */
                                 log_unit_debug(UNIT(s), "Got EOF on exec-fd");
@@ -3390,6 +3390,11 @@ static void service_sigchld_event(Unit *u, pid_t pid, int code, int status) {
                 clean_mode = EXIT_CLEAN_COMMAND;
         else
                 clean_mode = EXIT_CLEAN_DAEMON;
+
+        if (s->main_pid == pid)
+                /* Clean up the exec_fd event source. The source owns its end of the pipe, so this will close
+                 * that too. */
+                s->exec_fd_event_source = sd_event_source_disable_unref(s->exec_fd_event_source);
 
         if (is_clean_exit(code, status, clean_mode, &s->success_status))
                 f = SERVICE_SUCCESS;
@@ -4417,7 +4422,7 @@ static int service_clean(Unit *u, ExecCleanMask mask) {
 fail:
         log_unit_warning_errno(u, r, "Failed to initiate cleaning: %m");
         s->clean_result = SERVICE_FAILURE_RESOURCES;
-        s->timer_event_source = sd_event_source_unref(s->timer_event_source);
+        s->timer_event_source = sd_event_source_disable_unref(s->timer_event_source);
         return r;
 }
 

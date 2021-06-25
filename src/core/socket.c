@@ -174,7 +174,7 @@ static void socket_done(Unit *u) {
 
         s->fdname = mfree(s->fdname);
 
-        s->timer_event_source = sd_event_source_unref(s->timer_event_source);
+        s->timer_event_source = sd_event_source_disable_unref(s->timer_event_source);
 }
 
 static int socket_arm_timer(Socket *s, usec_t usec) {
@@ -934,7 +934,7 @@ static void socket_close_fds(Socket *s) {
 
                 was_open = p->fd >= 0;
 
-                p->event_source = sd_event_source_unref(p->event_source);
+                p->event_source = sd_event_source_disable_unref(p->event_source);
                 p->fd = safe_close(p->fd);
                 socket_cleanup_fd_list(p);
 
@@ -1834,7 +1834,7 @@ static void socket_set_state(Socket *s, SocketState state) {
                     SOCKET_FINAL_SIGKILL,
                     SOCKET_CLEANING)) {
 
-                s->timer_event_source = sd_event_source_unref(s->timer_event_source);
+                s->timer_event_source = sd_event_source_disable_unref(s->timer_event_source);
                 socket_unwatch_control_pid(s);
                 s->control_command = NULL;
                 s->control_command_id = _SOCKET_EXEC_COMMAND_INVALID;
@@ -2048,7 +2048,7 @@ static int socket_chown(Socket *s, pid_t *_pid) {
         return 0;
 
 fail:
-        s->timer_event_source = sd_event_source_unref(s->timer_event_source);
+        s->timer_event_source = sd_event_source_disable_unref(s->timer_event_source);
         return r;
 }
 
@@ -3416,7 +3416,7 @@ static int socket_clean(Unit *u, ExecCleanMask mask) {
 fail:
         log_unit_warning_errno(u, r, "Failed to initiate cleaning: %m");
         s->clean_result = SOCKET_FAILURE_RESOURCES;
-        s->timer_event_source = sd_event_source_unref(s->timer_event_source);
+        s->timer_event_source = sd_event_source_disable_unref(s->timer_event_source);
         return r;
 }
 
