@@ -141,6 +141,19 @@ static void ipv4ll_handler(sd_ipv4ll *ll, int event, void *userdata) {
         }
 }
 
+static int ipv4ll_check_mac(sd_ipv4ll *ll, const struct ether_addr *mac, void *userdata) {
+        Manager *m = userdata;
+        struct hw_addr_data hw_addr;
+
+        assert(m);
+        assert(mac);
+
+        hw_addr.length = ETH_ALEN;
+        memcpy(hw_addr.bytes, mac, ETH_ALEN);
+
+        return link_get_by_hw_addr(m, &hw_addr, NULL) >= 0;
+}
+
 int ipv4ll_configure(Link *link) {
         uint64_t seed;
         int r;
@@ -180,7 +193,7 @@ int ipv4ll_configure(Link *link) {
         if (r < 0)
                 return r;
 
-        return 0;
+        return sd_ipv4ll_set_check_mac_callback(link->ipv4ll, ipv4ll_check_mac, link->manager);
 }
 
 int ipv4ll_update_mac(Link *link) {
