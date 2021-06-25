@@ -220,6 +220,7 @@ DEFINE_TRIVIAL_DESTRUCTOR(link_netlink_destroy_callback, Link, link_unref);
 
 int link_get_by_index(Manager *m, int ifindex, Link **ret);
 int link_get_by_name(Manager *m, const char *ifname, Link **ret);
+int link_get_by_hw_addr(Manager *m, const struct hw_addr_data *hw_addr, Link **ret);
 int link_get_master(Link *link, Link **ret);
 
 int link_getlink_handler_internal(sd_netlink *rtnl, sd_netlink_message *m, Link *link, const char *error_msg);
