@@ -17,6 +17,7 @@
 #include "glob-util.h"
 #include "list.h"
 #include "mkdir.h"
+#include "netif-naming-scheme.h"
 #include "nulstr-util.h"
 #include "parse-util.h"
 #include "path-util.h"
@@ -2023,6 +2024,12 @@ static int udev_rule_apply_token_to_event(
                         l = strpcpyl(&p, l, val, " ", NULL);
 
                 (void) udev_event_apply_format(event, token->value, p, l, false);
+                if (event->esc == ESCAPE_REPLACE) {
+                        count = udev_replace_chars(buf, NULL);
+                        if (count > 0)
+                                log_rule_debug(dev, rules, "Replaced %zu slash(es) from result of ENV{%s}%s=\"%s\"",
+                                               count, name, token->op == OP_ADD ? "+" : "", token->value);
+                }
 
                 r = device_add_property(dev, name, value_new);
                 if (r < 0)
@@ -2053,20 +2060,22 @@ static int udev_rule_apply_token_to_event(
                 if (token->op == OP_ASSIGN_FINAL)
                         event->name_final = true;
 
+                if (sd_device_get_ifindex(dev, NULL) < 0) {
+                        log_rule_error(dev, rules,
+                                       "Only network interface can be renamed, ignoring NAME=\"%s\"; please fix it.",
+                                       token->value);
+                        break;
+                }
+
                 (void) udev_event_apply_format(event, token->value, buf, sizeof(buf), false);
                 if (IN_SET(event->esc, ESCAPE_UNSET, ESCAPE_REPLACE)) {
-                        count = udev_replace_chars(buf, "/");
+                        if (naming_scheme_has(NAMING_REPLACE_STRICTLY))
+                                count = udev_replace_ifname(buf);
+                        else
+                                count = udev_replace_chars(buf, "/");
                         if (count > 0)
                                 log_rule_debug(dev, rules, "Replaced %zu character(s) from result of NAME=\"%s\"",
                                                count, token->value);
-                }
-                if (sd_device_get_devnum(dev, NULL) >= 0 &&
-                    (sd_device_get_devname(dev, &val) < 0 ||
-                     !streq_ptr(buf, path_startswith(val, "/dev/")))) {
-                        log_rule_error(dev, rules,
-                                       "Kernel device nodes cannot be renamed, ignoring NAME=\"%s\"; please fix it.",
-                                       token->value);
-                        break;
                 }
                 r = free_and_strdup_warn(&event->name, buf);
                 if (r < 0)
@@ -2096,7 +2105,8 @@ static int udev_rule_apply_token_to_event(
                 else
                         count = 0;
                 if (count > 0)
-                        log_rule_debug(dev, rules, "Replaced %zu character(s) from result of LINK", count);
+                        log_rule_debug(dev, rules, "Replaced %zu character(s) from result of SYMLINK=\"%s\"",
+                                       count, token->value);
 
                 p = skip_leading_chars(buf, NULL);
                 while (!isempty(p)) {

@@ -46,6 +46,7 @@ void log_device_uevent(sd_device *device, const char *str);
 
 int udev_rule_parse_value(char *str, char **ret_value, char **ret_endpos);
 size_t udev_replace_whitespace(const char *str, char *to, size_t len);
+size_t udev_replace_ifname(char *str);
 size_t udev_replace_chars(char *str, const char *allow);
 int udev_resolve_subsys_kernel(const char *string, char *result, size_t maxsize, bool read_value);
 
