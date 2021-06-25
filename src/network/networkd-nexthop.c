@@ -645,7 +645,7 @@ static bool links_have_nexthop(const Manager *manager, const NextHop *nexthop, c
 
         assert(manager);
 
-        HASHMAP_FOREACH(link, manager->links) {
+        HASHMAP_FOREACH(link, manager->links_by_index) {
                 if (link == except)
                         continue;
 
@@ -765,7 +765,7 @@ static bool nexthop_is_ready_to_configure(Link *link, const NextHop *nexthop) {
                 if (!FLAGS_SET(link->flags, IFF_UP))
                         return false;
 
-                HASHMAP_FOREACH(l, link->manager->links) {
+                HASHMAP_FOREACH(l, link->manager->links_by_index) {
                         if (l->address_remove_messages > 0)
                                 return false;
                         if (l->nexthop_remove_messages > 0)
@@ -868,7 +868,7 @@ int manager_rtnl_process_nexthop(sd_netlink *rtnl, sd_netlink_message *message, 
                         return 0;
                 }
 
-                r = link_get(m, ifindex, &link);
+                r = link_get_by_index(m, ifindex, &link);
                 if (r < 0 || !link) {
                         if (!m->enumerating)
                                 log_warning("rtnl: received nexthop message for link (%"PRIu32") we do not know about, ignoring", ifindex);

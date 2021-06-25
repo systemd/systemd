@@ -26,9 +26,9 @@ static int process_message(Manager *manager, sd_netlink_message *message) {
         if (r < 0)
                 return r;
 
-        link = hashmap_get(manager->links, INT_TO_PTR(ifindex));
-        if (!link)
-                return -ENODEV;
+        r = link_get_by_index(manager, ifindex, &link);
+        if (r < 0)
+                return r;
 
         link->stats_old = link->stats_new;
 
@@ -62,7 +62,7 @@ static int speed_meter_handler(sd_event_source *s, uint64_t usec, void *userdata
         manager->speed_meter_usec_old = manager->speed_meter_usec_new;
         manager->speed_meter_usec_new = usec_now;
 
-        HASHMAP_FOREACH(link, manager->links)
+        HASHMAP_FOREACH(link, manager->links_by_index)
                 link->stats_updated = false;
 
         r = sd_rtnl_message_new_link(manager->rtnl, &req, RTM_GETLINK, 0);

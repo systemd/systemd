@@ -598,7 +598,7 @@ int manager_has_address(Manager *manager, int family, const union in_addr_union 
         assert(address);
 
         if (family == AF_INET) {
-                HASHMAP_FOREACH(link, manager->links)
+                HASHMAP_FOREACH(link, manager->links_by_index)
                         if (link_get_ipv4_address(link, &address->in, 0, &a) >= 0)
                                 return !check_ready || address_is_ready(a);
         } else {
@@ -611,7 +611,7 @@ int manager_has_address(Manager *manager, int family, const union in_addr_union 
                 tmp->family = family;
                 tmp->in_addr = *address;
 
-                HASHMAP_FOREACH(link, manager->links)
+                HASHMAP_FOREACH(link, manager->links_by_index)
                         if (address_get(link, tmp, &a) >= 0)
                                 return !check_ready || address_is_ready(a);
         }
@@ -1319,7 +1319,7 @@ int manager_rtnl_process_address(sd_netlink *rtnl, sd_netlink_message *message, 
                 return 0;
         }
 
-        r = link_get(m, ifindex, &link);
+        r = link_get_by_index(m, ifindex, &link);
         if (r < 0 || !link) {
                 /* when enumerating we might be out of sync, but we will get the address again, so just
                  * ignore it */

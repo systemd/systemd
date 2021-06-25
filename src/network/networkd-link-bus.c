@@ -834,11 +834,11 @@ int link_node_enumerator(sd_bus *bus, const char *path, void *userdata, char ***
         assert(m);
         assert(nodes);
 
-        l = new0(char*, hashmap_size(m->links) + 1);
+        l = new0(char*, hashmap_size(m->links_by_index) + 1);
         if (!l)
                 return -ENOMEM;
 
-        HASHMAP_FOREACH(link, m->links) {
+        HASHMAP_FOREACH(link, m->links_by_index) {
                 char *p;
 
                 p = link_bus_path(link);
@@ -874,7 +874,7 @@ int link_object_find(sd_bus *bus, const char *path, const char *interface, void 
         if (ifindex < 0)
                 return 0;
 
-        r = link_get(m, ifindex, &link);
+        r = link_get_by_index(m, ifindex, &link);
         if (r < 0)
                 return 0;
 

@@ -121,7 +121,7 @@ int manager_save(Manager *m) {
         assert(m);
         assert(m->state_file);
 
-        HASHMAP_FOREACH(link, m->links) {
+        HASHMAP_FOREACH(link, m->links_by_index) {
                 const struct in_addr *addresses;
 
                 if (link->flags & IFF_LOOPBACK)

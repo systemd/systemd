@@ -104,7 +104,7 @@ static int dhcp_server_find_uplink(Link *link, Link **ret) {
                 return link_get_by_name(link->manager, link->network->dhcp_server_uplink_name, ret);
 
         if (link->network->dhcp_server_uplink_index > 0)
-                return link_get(link->manager, link->network->dhcp_server_uplink_index, ret);
+                return link_get_by_index(link->manager, link->network->dhcp_server_uplink_index, ret);
 
         if (link->network->dhcp_server_uplink_index == 0) {
                 /* It is not necessary to propagate error in automatic selection. */

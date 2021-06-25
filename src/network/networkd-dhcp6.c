@@ -602,7 +602,7 @@ static void dhcp6_pd_prefix_distribute(Link *dhcp6_link,
         assert(masked_pd_prefix);
         assert(pd_prefix_len <= 64);
 
-        HASHMAP_FOREACH(link, dhcp6_link->manager->links) {
+        HASHMAP_FOREACH(link, dhcp6_link->manager->links_by_index) {
                 _cleanup_free_ char *assigned_buf = NULL;
                 struct in6_addr assigned_prefix;
 
@@ -706,7 +706,7 @@ static void dhcp6_pd_prefix_lost(Link *dhcp6_link) {
         assert(dhcp6_link);
         assert(dhcp6_link->manager);
 
-        HASHMAP_FOREACH(link, dhcp6_link->manager->links) {
+        HASHMAP_FOREACH(link, dhcp6_link->manager->links_by_index) {
                 if (link == dhcp6_link)
                         continue;
 
@@ -954,7 +954,7 @@ static int dhcp6_pd_prefix_acquired(Link *dhcp6_link) {
         assert(dhcp6_link);
         assert(dhcp6_link->dhcp6_lease);
 
-        HASHMAP_FOREACH(link, dhcp6_link->manager->links) {
+        HASHMAP_FOREACH(link, dhcp6_link->manager->links_by_index) {
                 if (link == dhcp6_link)
                         continue;
 
@@ -1024,7 +1024,7 @@ static int dhcp6_pd_prefix_acquired(Link *dhcp6_link) {
                                            false);
         }
 
-        HASHMAP_FOREACH(link, dhcp6_link->manager->links) {
+        HASHMAP_FOREACH(link, dhcp6_link->manager->links_by_index) {
                 if (link == dhcp6_link)
                         continue;
 
@@ -1450,7 +1450,7 @@ int dhcp6_request_prefix_delegation(Link *link) {
 
         log_link_debug(link, "Requesting DHCPv6 prefixes to be delegated for new link");
 
-        HASHMAP_FOREACH(l, link->manager->links) {
+        HASHMAP_FOREACH(l, link->manager->links_by_index) {
                 int r, enabled;
 
                 if (l == link)
@@ -1548,7 +1548,7 @@ static bool dhcp6_enable_prefix_delegation(Link *dhcp6_link) {
         assert(dhcp6_link);
         assert(dhcp6_link->manager);
 
-        HASHMAP_FOREACH(link, dhcp6_link->manager->links) {
+        HASHMAP_FOREACH(link, dhcp6_link->manager->links_by_index) {
                 if (link == dhcp6_link)
                         continue;
 
