@@ -502,34 +502,36 @@ CHANGES WITH 249 in spe:
           setting a network timeout time.
 
         Contributions from: Aakash Singh, adrian5, Alexander Sverdlin,
-        alexlzhu, Allen Webb, Alvin Šipraga, Alyssa Ross, Anita Zhang, asavah,
-        Balint Reczey, Bertrand Jacquin, borna-blazevic, caoxia2008cxx,
-        Carlo Teubner, Christian Göttsche, Christian Hesse, Daniel Schaefer,
-        Dan Streetman, David Santamaría Rogado, David Tardon, Deepak Rawat,
+        alexlzhu, Allen Webb, Alvin Šipraga, Alyssa Ross, Anders Wenhaug,
+        Andrea Pappacoda, Anita Zhang, asavah, Balint Reczey, Bertrand Jacquin,
+        borna-blazevic, caoxia2008cxx, Carlo Teubner, Christian Göttsche,
+        Christian Hesse, Daniel Schaefer, Dan Streetman,
+        David Santamaría Rogado, David Tardon, Deepak Rawat,
         Dimitri John Ledkov, ei-ke, Emilio Herrera, Emil Renner Berthing,
-        Flos Lonicerae, Franck Bui, Francois Gervais, Frantisek Sumsal,
-        Gibeom Gwon, gitm0, Hans de Goede, Harsh Barsaiyan, Henri Chain,
-        Igor Zhbanov, imayoda, Jakub Warczarek, James Buren, Jan Janssen,
-        Jan Synacek, Jason Francis, Jayanth Ananthapadmanaban,
-        Jérôme Carretero, jiangchuangang, Joerg Behrmann,
-        Jóhann B. Guðmundsson, Jörg Deckert, Jörg Thalheim, Julia Kartseva,
+        Eric Cook, Flos Lonicerae, Franck Bui, Francois Gervais,
+        Frantisek Sumsal, Gibeom Gwon, gitm0, Hans de Goede, Harsh Barsaiyan,
+        Henri Chain, Hristo Venev, Igor Zhbanov, imayoda, Jakub Warczarek,
+        James Buren, Jan Janssen, Jan Macku, Jan Synacek, Jason Francis,
+        Jayanth Ananthapadmanaban, Jeremy Szu, Jérôme Carretero,
+        Jesse Stricker, jiangchuangang, Joerg Behrmann, Jóhann B. Guðmundsson,
+        Jörg Deckert, Jörg Thalheim, Juergen Hoetzel, Julia Kartseva,
         Kai-Heng Feng, Khem Raj, KoyamaSohei, Lennart Poettering,
         LetzteInstanz, Luca Adrian L, Luca Boccassi, Lucas Magasweran,
         Mantas Mikulėnas, Marco Antonio Mauro, Mark Wielaard, Masahiro Matsuya,
         Matt Johnston, Michael Catanzaro, Michal Koutný, Michal Sekletár,
-        Mike Kazantsev, Milan, Miroslav Suchý, Morten Linderud, nerdopolis,
-        nl6720, Noah Meyerhans, Oleg Popov, Olle Lundberg, Ondrej Kozina,
-        Perry.Yuan, Peter Hutterer, Peter Kjellerstedt, Peter Morrow,
-        Phaedrus Leeds, Roman Beranek, Roshan Shariff, Ryan Hendrickson,
-        Samuel BF, scootergrisen, Sebastian Blunt, Seong-ho Cho, Sergey Bugaev,
-        Sevan Janiyan, Sibo Dong, simmon, Simon Watts, Srinidhi Kaushik,
-        Štěpán Němec, Steve Bonds, Susant Sahani, sverdlin, syyhao1994,
-        Takashi Sakamoto, Topi Miettinen, tramsay, Uwe Kleine-König,
-        Viktor Mihajlovski, Vincent Dechenaux, Vito Caputo,
-        William A. Kennington III, Yangyang Shen, Yegor Alexeyev, Yi Gao,
-        Yu Watanabe, Zbigniew Jędrzejewski-Szmek, zsien, наб
+        Mike Crowe, Mike Kazantsev, Milan, Miroslav Suchý, Morten Linderud,
+        nerdopolis, nl6720, Noah Meyerhans, Oleg Popov, Olle Lundberg,
+        Ondrej Kozina, Perry.Yuan, Peter Hutterer, Peter Kjellerstedt,
+        Peter Morrow, Phaedrus Leeds, plattrap, Roman Beranek, Roshan Shariff,
+        Ryan Hendrickson, Samuel BF, scootergrisen, Sebastian Blunt,
+        Seong-ho Cho, Sergey Bugaev, Sevan Janiyan, Sibo Dong, simmon,
+        Simon Watts, Srinidhi Kaushik, Štěpán Němec, Steve Bonds,
+        Susant Sahani, sverdlin, syyhao1994, Takashi Sakamoto, Topi Miettinen,
+        tramsay, Uwe Kleine-König, Viktor Mihajlovski, Vincent Dechenaux,
+        Vito Caputo, William A. Kennington III, Yangyang Shen, Yegor Alexeyev,
+        Yi Gao, Yu Watanabe, Zbigniew Jędrzejewski-Szmek, zsien, наб
 
-        — Berlin, 2021-06-15
+        — Warsaw, 2021-06-25
 
 CHANGES WITH 248:
 
