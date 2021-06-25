@@ -129,6 +129,21 @@ static void dhcp4_address_on_acd(sd_ipv4acd *acd, int event, void *userdata) {
         on_acd(acd, event, userdata, false);
 }
 
+static int ipv4acd_check_mac(sd_ipv4acd *acd, const struct ether_addr *mac, void *userdata) {
+        Manager *m = userdata;
+        struct hw_addr_data hw_addr;
+
+        assert(m);
+        assert(mac);
+
+        hw_addr = (struct hw_addr_data) {
+                .length = ETH_ALEN,
+                .ether = *mac,
+        };
+
+        return link_get_by_hw_addr(m, &hw_addr, NULL) >= 0;
+}
+
 static int ipv4acd_configure(Link *link, const Address *a) {
         _cleanup_(address_freep) Address *address = NULL;
         int r;
@@ -174,6 +189,10 @@ static int ipv4acd_configure(Link *link, const Address *a) {
         r = sd_ipv4acd_set_callback(address->acd,
                                     address->is_static ? static_address_on_acd : dhcp4_address_on_acd,
                                     address);
+        if (r < 0)
+                return r;
+
+        r = sd_ipv4acd_set_check_mac_callback(address->acd, ipv4acd_check_mac, link->manager);
         if (r < 0)
                 return r;
 
