@@ -104,6 +104,24 @@ CHANGES WITH 249 in spe:
         * A new udev hardware database has been added for FireWire devices
           (IEEE 1394).
 
+        * The "net_id" built-in of udev has been updated with three
+          backwards-incompatible changes:
+
+          - PCI hotplug slot names on s390 systems are now parsed as
+            hexadecimal numbers. They were incorrectly parsed as decimal
+            previously, or ignored if the name was not a valid decimal
+            number.
+
+          - PCI onboard indices up to 65535 are allowed. Previously, numbers
+            above 16383 were rejected. This primarily impacts s390 systems,
+            where values up to 65535 are used.
+
+          - Invalid characters in interface names are replaced with "_".
+
+          The new version of the net naming scheme is "v249". The previous
+          scheme can be selected via the "net.naming-scheme=v247" kernel
+          command line parameter.
+
         * sd-bus' sd_bus_is_ready() and sd_bus_is_open() calls now accept a
           NULL bus object, for which they will return false. Or in other words,
           an unallocated bus connection is neither ready nor open.
@@ -256,10 +274,17 @@ CHANGES WITH 249 in spe:
           sockets created by the service may be bound to. This is implemented
           via BPF.
 
-        * A new ConditionFirmware= condition type has been added to unit files.
-          It may be used to detect certain firmware features. At the moment it
-          may check whether running on an UEFI system, a device.tree system, or
-          if the system is compatible with some specified device-tree feature.
+        * A new ConditionFirmware= setting has been added to unit files to
+          conditionalize on certain firmware features. At the moment it may
+          check whether running on an UEFI system, a device.tree system, or if
+          the system is compatible with some specified device-tree feature.
+
+        * A new ConditionOSRelease= setting has been added to unit files to
+          check os-release(5) fields. The "=", "!=", "<", "<=", ">=", ">"
+          operators may be used to check if some field has some specific value
+          or do a aphanumerical comparison. Equality comparisons are useful for
+          fields like ID, but relative comparisons for fields like VERSION_ID
+          or IMAGE_VERSION.
 
         * hostnamed gained a new Describe() D-Bus method that returns a JSON
           serialization of the host data it exposes. This is exposed via
