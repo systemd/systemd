@@ -251,8 +251,8 @@ int sd_nfnl_nft_message_add_setelem_end(sd_netlink_message *m);
 
 /* genl */
 int sd_genl_socket_open(sd_netlink **nl);
-int sd_genl_message_new(sd_netlink *nl, sd_genl_family_t family, uint8_t cmd, sd_netlink_message **m);
-int sd_genl_message_get_family(sd_netlink *nl, sd_netlink_message *m, sd_genl_family_t *family);
+int sd_genl_message_new(sd_netlink *nl, sd_genl_family_t family, uint8_t cmd, sd_netlink_message **ret);
+int sd_genl_message_get_family(sd_netlink *nl, sd_netlink_message *m, sd_genl_family_t *ret);
 
 /* slot */
 sd_netlink_slot *sd_netlink_slot_ref(sd_netlink_slot *nl);
