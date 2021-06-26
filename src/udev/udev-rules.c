@@ -2025,7 +2025,7 @@ static int udev_rule_apply_token_to_event(
 
                 (void) udev_event_apply_format(event, token->value, p, l, false);
                 if (event->esc == ESCAPE_REPLACE) {
-                        count = udev_replace_chars(buf, NULL);
+                        count = udev_replace_chars(p, NULL);
                         if (count > 0)
                                 log_rule_debug(dev, rules, "Replaced %zu slash(es) from result of ENV{%s}%s=\"%s\"",
                                                count, name, token->op == OP_ADD ? "+" : "", token->value);
