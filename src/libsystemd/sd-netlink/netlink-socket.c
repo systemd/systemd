@@ -160,8 +160,8 @@ int socket_broadcast_group_unref(sd_netlink *nl, unsigned group) {
         assert(nl);
 
         n_ref = broadcast_group_get_ref(nl, group);
-
-        assert(n_ref > 0);
+        if (n_ref == 0)
+                return 0;
 
         n_ref--;
 
