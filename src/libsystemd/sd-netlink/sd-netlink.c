@@ -525,7 +525,7 @@ static usec_t calc_elapse(uint64_t usec) {
         return usec_add(now(CLOCK_MONOTONIC), usec);
 }
 
-static int rtnl_poll(sd_netlink *rtnl, bool need_more, uint64_t timeout_usec) {
+static int rtnl_poll(sd_netlink *rtnl, bool need_more, usec_t timeout_usec) {
         usec_t m = USEC_INFINITY;
         int r, e;
 
@@ -541,23 +541,18 @@ static int rtnl_poll(sd_netlink *rtnl, bool need_more, uint64_t timeout_usec) {
                 e |= POLLIN;
         else {
                 usec_t until;
+
                 /* Caller wants to process if there is something to
                  * process, but doesn't care otherwise */
 
                 r = sd_netlink_get_timeout(rtnl, &until);
                 if (r < 0)
                         return r;
-                if (r > 0) {
-                        usec_t nw;
-                        nw = now(CLOCK_MONOTONIC);
-                        m = until > nw ? until - nw : 0;
-                }
+
+                m = usec_sub_unsigned(until, now(CLOCK_MONOTONIC));
         }
 
-        if (timeout_usec != UINT64_MAX && (m == USEC_INFINITY || timeout_usec < m))
-                m = timeout_usec;
-
-        r = fd_wait_for_event(rtnl->fd, e, m);
+        r = fd_wait_for_event(rtnl->fd, e, MIN(m, timeout_usec));
         if (r <= 0)
                 return r;
 
@@ -716,9 +711,9 @@ int sd_netlink_read(
                         if (n >= timeout)
                                 return -ETIMEDOUT;
 
-                        left = timeout - n;
+                        left = usec_sub_unsigned(timeout, n);
                 } else
-                        left = UINT64_MAX;
+                        left = USEC_INFINITY;
 
                 r = rtnl_poll(rtnl, true, left);
                 if (r < 0)
