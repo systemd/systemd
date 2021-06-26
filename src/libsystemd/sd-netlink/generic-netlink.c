@@ -95,7 +95,7 @@ static int lookup_nlmsg_type(sd_netlink *nl, sd_genl_family_t family, uint16_t *
                 return 0;
         }
 
-        r = sd_genl_message_new(nl, SD_GENL_ID_CTRL, CTRL_CMD_GETFAMILY, &req);
+        r = genl_message_new(nl, SD_GENL_ID_CTRL, GENL_ID_CTRL, CTRL_CMD_GETFAMILY, &req);
         if (r < 0)
                 return r;
 
