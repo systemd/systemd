@@ -35,8 +35,7 @@ static int broadcast_groups_get(sd_netlink *nl) {
         assert(nl);
         assert(nl->fd >= 0);
 
-        r = getsockopt(nl->fd, SOL_NETLINK, NETLINK_LIST_MEMBERSHIPS, NULL, &len);
-        if (r < 0) {
+        if (getsockopt(nl->fd, SOL_NETLINK, NETLINK_LIST_MEMBERSHIPS, NULL, &len) < 0) {
                 if (errno != ENOPROTOOPT)
                         return -errno;
 
@@ -53,23 +52,18 @@ static int broadcast_groups_get(sd_netlink *nl) {
 
         old_len = len;
 
-        r = getsockopt(nl->fd, SOL_NETLINK, NETLINK_LIST_MEMBERSHIPS, groups, &len);
-        if (r < 0)
+        if (getsockopt(nl->fd, SOL_NETLINK, NETLINK_LIST_MEMBERSHIPS, groups, &len) < 0)
                 return -errno;
 
         if (old_len != len)
                 return -EIO;
-
-        r = hashmap_ensure_allocated(&nl->broadcast_group_refs, NULL);
-        if (r < 0)
-                return r;
 
         for (unsigned i = 0; i < len; i++)
                 for (unsigned j = 0; j < sizeof(uint32_t) * 8; j++)
                         if (groups[i] & (1U << j)) {
                                 unsigned group = i * sizeof(uint32_t) * 8 + j + 1;
 
-                                r = hashmap_put(nl->broadcast_group_refs, UINT_TO_PTR(group), UINT_TO_PTR(1));
+                                r = hashmap_ensure_put(&nl->broadcast_group_refs, NULL, UINT_TO_PTR(group), UINT_TO_PTR(1));
                                 if (r < 0)
                                         return r;
                         }
@@ -88,7 +82,7 @@ int socket_bind(sd_netlink *nl) {
         addrlen = sizeof(nl->sockaddr);
 
         r = bind(nl->fd, &nl->sockaddr.sa, addrlen);
-        /* ignore EINVAL to allow opening an already bound socket */
+        /* ignore EINVAL to allow binding an already bound socket */
         if (r < 0 && errno != EINVAL)
                 return -errno;
 
@@ -110,11 +104,11 @@ static int broadcast_group_set_ref(sd_netlink *nl, unsigned group, unsigned n_re
 
         assert(nl);
 
-        r = hashmap_replace(nl->broadcast_group_refs, UINT_TO_PTR(group), UINT_TO_PTR(n_ref));
+        r = hashmap_ensure_allocated(&nl->broadcast_group_refs, NULL);
         if (r < 0)
                 return r;
 
-        return 0;
+        return hashmap_replace(nl->broadcast_group_refs, UINT_TO_PTR(group), UINT_TO_PTR(n_ref));
 }
 
 static int broadcast_group_join(sd_netlink *nl, unsigned group) {
@@ -136,23 +130,15 @@ int socket_broadcast_group_ref(sd_netlink *nl, unsigned group) {
 
         n_ref++;
 
-        r = hashmap_ensure_allocated(&nl->broadcast_group_refs, NULL);
-        if (r < 0)
-                return r;
-
         r = broadcast_group_set_ref(nl, group, n_ref);
         if (r < 0)
                 return r;
 
         if (n_ref > 1)
-                /* not yet in the group */
+                /* already in the group */
                 return 0;
 
-        r = broadcast_group_join(nl, group);
-        if (r < 0)
-                return r;
-
-        return 0;
+        return broadcast_group_join(nl, group);
 }
 
 static int broadcast_group_leave(sd_netlink *nl, unsigned group) {
@@ -187,19 +173,12 @@ int socket_broadcast_group_unref(sd_netlink *nl, unsigned group) {
                 /* still refs left */
                 return 0;
 
-        r = broadcast_group_leave(nl, group);
-        if (r < 0)
-                return r;
-
-        return 0;
+        return broadcast_group_leave(nl, group);
 }
 
 /* returns the number of bytes sent, or a negative error code */
 int socket_write_message(sd_netlink *nl, sd_netlink_message *m) {
-        union {
-                struct sockaddr sa;
-                struct sockaddr_nl nl;
-        } addr = {
+        union sockaddr_union addr = {
                 .nl.nl_family = AF_NETLINK,
         };
         ssize_t k;
@@ -208,8 +187,7 @@ int socket_write_message(sd_netlink *nl, sd_netlink_message *m) {
         assert(m);
         assert(m->hdr);
 
-        k = sendto(nl->fd, m->hdr, m->hdr->nlmsg_len,
-                        0, &addr.sa, sizeof(addr));
+        k = sendto(nl->fd, m->hdr, m->hdr->nlmsg_len, 0, &addr.sa, sizeof(addr));
         if (k < 0)
                 return -errno;
 
@@ -218,22 +196,24 @@ int socket_write_message(sd_netlink *nl, sd_netlink_message *m) {
 
 int socket_writev_message(sd_netlink *nl, sd_netlink_message **m, size_t msgcount) {
         _cleanup_free_ struct iovec *iovs = NULL;
+        ssize_t k;
 
         assert(nl);
         assert(m);
         assert(msgcount > 0);
 
-        iovs = new0(struct iovec, msgcount);
+        iovs = new(struct iovec, msgcount);
         if (!iovs)
                 return -ENOMEM;
 
         for (size_t i = 0; i < msgcount; i++) {
-                assert(m[i]->hdr != NULL);
+                assert(m[i]->hdr);
                 assert(m[i]->hdr->nlmsg_len > 0);
+
                 iovs[i] = IOVEC_MAKE(m[i]->hdr, m[i]->hdr->nlmsg_len);
         }
 
-        ssize_t k = writev(nl->fd, iovs, msgcount);
+        k = writev(nl->fd, iovs, msgcount);
         if (k < 0)
                 return -errno;
 
@@ -266,7 +246,7 @@ static int socket_recv_message(int fd, struct iovec *iov, uint32_t *ret_mcast_gr
 
         if (sender.nl.nl_pid != 0) {
                 /* not from the kernel, ignore */
-                log_debug("rtnl: ignoring message from portid %"PRIu32, sender.nl.nl_pid);
+                log_debug("rtnl: ignoring message from PID %"PRIu32, sender.nl.nl_pid);
 
                 if (peek) {
                         /* drop the message */
@@ -336,13 +316,12 @@ int socket_read_message(sd_netlink *rtnl) {
         if (NLMSG_OK(rtnl->rbuffer, len) && rtnl->rbuffer->nlmsg_flags & NLM_F_MULTI) {
                 multi_part = true;
 
-                for (i = 0; i < rtnl->rqueue_partial_size; i++) {
+                for (i = 0; i < rtnl->rqueue_partial_size; i++)
                         if (rtnl_message_get_serial(rtnl->rqueue_partial[i]) ==
                             rtnl->rbuffer->nlmsg_seq) {
                                 first = rtnl->rqueue_partial[i];
                                 break;
                         }
-                }
         }
 
         for (struct nlmsghdr *new_msg = rtnl->rbuffer; NLMSG_OK(new_msg, len) && !done; new_msg = NLMSG_NEXT(new_msg, len)) {
