@@ -2022,13 +2022,17 @@ _public_ int sd_device_get_sysattr_value(sd_device *device, const char *sysattr,
                 /* skip non-readable files */
                 return -EPERM;
         else {
-                /* read attribute value */
-                r = read_full_virtual_file(path, &value, NULL);
+                size_t size;
+
+                /* Read attribute value, Some attributes contain embedded '\0'. So, it is necessary to
+                 * also get the size of the result. See issue #20025. */
+                r = read_full_virtual_file(path, &value, &size);
                 if (r < 0)
                         return r;
 
                 /* drop trailing newlines */
-                delete_trailing_chars(value, "\n");
+                while (size > 0 && strchr(NEWLINE, value[--size]))
+                        value[size] = '\0';
         }
 
         /* Unfortunately, we need to return 'const char*' instead of 'char*'. Hence, failure in caching
