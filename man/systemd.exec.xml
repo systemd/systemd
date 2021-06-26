@@ -1290,16 +1290,15 @@ CapabilityBoundingSet=~CAP_B CAP_C</programlisting>
         <varname>RootDirectory=</varname> or <varname>RootImage=</varname> these paths always reside on the host and
         are mounted from there into the unit's file system namespace.</para>
 
-        <para>If <varname>DynamicUser=</varname> is used in conjunction with
-        <varname>StateDirectory=</varname>, the logic for <varname>CacheDirectory=</varname> and
-        <varname>LogsDirectory=</varname> is slightly altered: the directories are created below
-        <filename>/var/lib/private</filename>, <filename>/var/cache/private</filename> and
-        <filename>/var/log/private</filename>, respectively, which are host directories made inaccessible to
+        <para>If <varname>DynamicUser=</varname> is used, the logic for <varname>CacheDirectory=</varname>,
+        <varname>LogsDirectory=</varname> and <varname>StateDirectory=</varname> is slightly altered: the directories are created below
+        <filename>/var/cache/private</filename>, <filename>/var/log/private</filename> and <filename>/var/lib/private</filename>,
+        respectively, which are host directories made inaccessible to
         unprivileged users, which ensures that access to these directories cannot be gained through dynamic
         user ID recycling. Symbolic links are created to hide this difference in behaviour. Both from
         perspective of the host and from inside the unit, the relevant directories hence always appear
-        directly below <filename>/var/lib</filename>, <filename>/var/cache</filename> and
-        <filename>/var/log</filename>.</para>
+        directly below <filename>/var/cache</filename>, <filename>/var/log</filename> and
+        <filename>/var/lib</filename>.</para>
 
         <para>Use <varname>RuntimeDirectory=</varname> to manage one or more runtime directories for the unit and bind
         their lifetime to the daemon runtime. This is particularly useful for unprivileged daemons that cannot create
