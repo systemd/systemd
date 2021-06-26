@@ -257,10 +257,12 @@
       <varlistentry>
         <term><varname>StatusUnitFormat=</varname></term>
 
-        <listitem><para>Takes either <option>name</option> or <option>description</option> as the value. If
-        <option>name</option>, the system manager will use unit names in status messages, instead of the
-        longer and more informative descriptions set with <varname>Description=</varname>, see
-        <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+        <listitem><para>Takes <option>name</option>, <option>description</option> or
+        <option>combined</option> as the value. If <option>name</option>, the system manager will use unit
+        names in status messages, instead of the longer and more informative descriptions set with
+        <varname>Description=</varname>, see
+        <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>. If
+        <option>combined</option>, the system manager will use unit names and description in status messages.
         </para></listitem>
       </varlistentry>
 

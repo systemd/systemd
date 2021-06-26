@@ -25,6 +25,7 @@ typedef enum ShowStatusFlags {
 typedef enum StatusUnitFormat {
         STATUS_UNIT_FORMAT_NAME,
         STATUS_UNIT_FORMAT_DESCRIPTION,
+        STATUS_UNIT_FORMAT_COMBINED,
         _STATUS_UNIT_FORMAT_MAX,
         _STATUS_UNIT_FORMAT_INVALID = -EINVAL,
 } StatusUnitFormat;
