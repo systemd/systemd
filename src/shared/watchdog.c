@@ -19,6 +19,11 @@ static char *watchdog_device = NULL;
 static usec_t watchdog_timeout = USEC_INFINITY;
 static usec_t watchdog_last_ping = USEC_INFINITY;
 
+static unsigned int usec_to_sec(usec_t val) {
+        usec_t t = DIV_ROUND_UP(val, USEC_PER_SEC);
+        return (unsigned int) t >= (UINT_MAX / 1000) ? (UINT_MAX / 1000) : t; /* Saturate to watchdog max */
+}
+
 static int update_timeout(void) {
         if (watchdog_fd < 0)
                 return 0;
@@ -26,20 +31,18 @@ static int update_timeout(void) {
                 return 0;
 
         if (watchdog_timeout == 0) {
-                int flags;
+                unsigned int flags;
 
                 flags = WDIOS_DISABLECARD;
                 if (ioctl(watchdog_fd, WDIOC_SETOPTIONS, &flags) < 0)
                         return log_warning_errno(errno, "Failed to disable hardware watchdog: %m");
         } else {
                 char buf[FORMAT_TIMESPAN_MAX];
-                int sec, flags;
-                usec_t t;
+                unsigned int sec, flags;
 
-                t = DIV_ROUND_UP(watchdog_timeout, USEC_PER_SEC);
-                sec = (int) t >= INT_MAX ? INT_MAX : t; /* Saturate */
+                sec = usec_to_sec(watchdog_timeout);
                 if (ioctl(watchdog_fd, WDIOC_SETTIMEOUT, &sec) < 0)
-                        return log_warning_errno(errno, "Failed to set timeout to %is: %m", sec);
+                        return log_warning_errno(errno, "Failed to set timeout to %us: %m", sec);
 
                 watchdog_timeout = (usec_t) sec * USEC_PER_SEC;
                 log_info("Set hardware watchdog to %s.", format_timespan(buf, sizeof(buf), watchdog_timeout, 0));
@@ -166,7 +169,7 @@ void watchdog_close(bool disarm) {
                 return;
 
         if (disarm) {
-                int flags;
+                unsigned int flags;
 
                 /* Explicitly disarm it */
                 flags = WDIOS_DISABLECARD;
