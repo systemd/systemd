@@ -402,6 +402,9 @@ node /org/freedesktop/systemd1 {
       readwrite t RuntimeWatchdogUSec = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       @org.freedesktop.systemd1.Privileged("true")
+      readwrite t RuntimeWatchdogPreUSec = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      @org.freedesktop.systemd1.Privileged("true")
       readwrite t RebootWatchdogUSec = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       @org.freedesktop.systemd1.Privileged("true")
@@ -649,6 +652,8 @@ node /org/freedesktop/systemd1 {
     <!--property DefaultStandardError is not documented!-->
 
     <!--property RuntimeWatchdogUSec is not documented!-->
+
+    <!--property RuntimeWatchdogPreUSec is not documented!-->
 
     <!--property RebootWatchdogUSec is not documented!-->
 
@@ -1051,6 +1056,8 @@ node /org/freedesktop/systemd1 {
     <variablelist class="dbus-property" generated="True" extra-ref="DefaultStandardError"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="RuntimeWatchdogUSec"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="RuntimeWatchdogPreUSec"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="RebootWatchdogUSec"/>
 

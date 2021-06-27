@@ -813,6 +813,7 @@ int manager_new(UnitFileScope scope, ManagerTestRunFlags test_run_flags, Manager
                 .watchdog_overridden[WATCHDOG_RUNTIME] = USEC_INFINITY,
                 .watchdog_overridden[WATCHDOG_REBOOT] = USEC_INFINITY,
                 .watchdog_overridden[WATCHDOG_KEXEC] = USEC_INFINITY,
+                .watchdog_overridden[WATCHDOG_PRETIMEOUT] = USEC_INFINITY,
 
                 .show_status_overridden = _SHOW_STATUS_INVALID,
 
@@ -3232,9 +3233,12 @@ void manager_set_watchdog(Manager *m, WatchdogType t, usec_t timeout) {
         if (m->watchdog[t] == timeout)
                 return;
 
-        if (t == WATCHDOG_RUNTIME)
+        if (t == WATCHDOG_RUNTIME) {
                 if (!timestamp_is_set(m->watchdog_overridden[WATCHDOG_RUNTIME]))
                         (void) watchdog_setup(timeout);
+        } else if (t == WATCHDOG_PRETIMEOUT)
+                if (m->watchdog_overridden[WATCHDOG_PRETIMEOUT] == USEC_INFINITY)
+                        (void) watchdog_setup_pretimeout(timeout);
 
         m->watchdog[t] = timeout;
 }
@@ -3253,7 +3257,8 @@ void manager_override_watchdog(Manager *m, WatchdogType t, usec_t timeout) {
                 usec_t usec = timestamp_is_set(timeout) ? timeout : m->watchdog[t];
 
                 (void) watchdog_setup(usec);
-        }
+        } else if (t == WATCHDOG_PRETIMEOUT)
+                (void) watchdog_setup_pretimeout(timeout);
 
         m->watchdog_overridden[t] = timeout;
 }
