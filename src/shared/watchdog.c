@@ -19,6 +19,16 @@ static char *watchdog_device = NULL;
 static usec_t watchdog_timeout = USEC_INFINITY;
 static usec_t watchdog_last_ping = USEC_INFINITY;
 
+/* Starting from kernel version 4.5, the maximum allowable watchdog timeout is
+ * UINT_MAX/1000U seconds (since internal calculations are done in milliseconds).
+ */
+#define WATCHDOG_TIMEOUT_MAX_SEC (UINT_MAX/1000U)
+
+static unsigned saturated_usec_to_sec(usec_t val) {
+        usec_t t = DIV_ROUND_UP(val, USEC_PER_SEC);
+        return (unsigned)MIN(WATCHDOG_TIMEOUT_MAX_SEC, t); /* Saturate to watchdog max */
+}
+
 static int update_timeout(void) {
         if (watchdog_fd < 0)
                 return 0;
@@ -26,19 +36,17 @@ static int update_timeout(void) {
                 return 0;
 
         if (watchdog_timeout == 0) {
-                int flags;
+                unsigned flags;
 
                 flags = WDIOS_DISABLECARD;
                 if (ioctl(watchdog_fd, WDIOC_SETOPTIONS, &flags) < 0)
                         return log_warning_errno(errno, "Failed to disable hardware watchdog, ignoring: %m");
         } else {
-                int sec, flags;
-                usec_t t;
+                unsigned sec, flags;
 
-                t = DIV_ROUND_UP(watchdog_timeout, USEC_PER_SEC);
-                sec = MIN(t, (usec_t) INT_MAX); /* Saturate */
+                sec = saturated_usec_to_sec(watchdog_timeout);
                 if (ioctl(watchdog_fd, WDIOC_SETTIMEOUT, &sec) < 0)
-                        return log_warning_errno(errno, "Failed to set timeout to %is, ignoring: %m", sec);
+                        return log_warning_errno(errno, "Failed to set timeout to %us, ignorning: %m", sec);
 
                 /* Just in case the driver is buggy */
                 assert(sec > 0);
@@ -167,7 +175,7 @@ void watchdog_close(bool disarm) {
                 return;
 
         if (disarm) {
-                int flags;
+                unsigned flags;
 
                 /* Explicitly disarm it */
                 flags = WDIOS_DISABLECARD;
