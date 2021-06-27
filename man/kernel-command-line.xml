@@ -429,6 +429,18 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>systemd.watchdog_pre_sec=</varname></term>
+
+        <listitem>
+          <para>Overrides the watchdog pre-timeout settings otherwise configured with
+          <varname>RuntimeWatchdogPreSec=</varname>. Takes a time value (if no unit is specified, seconds is the
+          implicitly assumed time unit) or the special strings <literal>off</literal> or
+          <literal>default</literal>. For details, see
+          <citerefentry><refentrytitle>systemd-system.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>systemd.cpu_affinity=</varname></term>
 
         <listitem>
