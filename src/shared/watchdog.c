@@ -17,7 +17,10 @@
 static int watchdog_fd = -1;
 static char *watchdog_device;
 static usec_t watchdog_timeout; /* 0 → close device and USEC_INFINITY → don't change timeout */
+static usec_t watchdog_pretimeout; /* 0 → disable pretimeout and USEC_INFINITY → don't change pretimeout */
 static usec_t watchdog_last_ping = USEC_INFINITY;
+
+#define DEFAULT_WATCHDOG_DEV "/dev/watchdog"
 
 /* Starting from kernel version 4.5, the maximum allowable watchdog timeout is
  * UINT_MAX/1000U seconds (since internal calculations are done in milliseconds
@@ -69,7 +72,6 @@ static int watchdog_get_timeout(void) {
 }
 
 static int watchdog_set_timeout(void) {
-        usec_t t;
         int sec;
 
         assert(watchdog_fd >= 0);
@@ -86,6 +88,35 @@ static int watchdog_set_timeout(void) {
         return 0;
 }
 
+static int watchdog_get_pretimeout(void) {
+        int sec = 0;
+
+        assert(watchdog_fd > 0);
+
+        if (ioctl(watchdog_fd, WDIOC_GETPRETIMEOUT, &sec) < 0)
+                return log_warning_errno(errno, "Failed to get pretimeout value, ignoring: %m");
+
+        watchdog_pretimeout = sec * USEC_PER_SEC;
+
+        return 0;
+}
+
+static int watchdog_set_pretimeout(void) {
+        int sec, r;
+
+        assert(watchdog_fd >= 0);
+        assert(watchdog_pretimeout != USEC_INFINITY);
+
+	sec = saturated_usec_to_sec(watchdog_timeout);
+
+        r = ioctl(watchdog_fd, WDIOC_SETPRETIMEOUT, &sec) < 0;
+
+        /* The set ioctl does not return the actual value set so get it now. */
+        watchdog_get_pretimeout();
+
+        return r;
+}
+
 static int watchdog_ping_now(void) {
         assert(watchdog_fd >= 0);
 
@@ -95,6 +126,43 @@ static int watchdog_ping_now(void) {
         watchdog_last_ping = now(clock_boottime_or_monotonic());
 
         return 0;
+}
+
+static int update_pretimeout(void) {
+        int r, t_sec, pt_sec;
+
+        if (watchdog_fd < 0)
+                return 0;
+
+        if (watchdog_pretimeout == USEC_INFINITY)
+                return 0;
+
+        /* Determine if the pretimeout is valid for the current watchdog timeout. */
+        t_sec = saturated_usec_to_sec(watchdog_timeout);
+        pt_sec = saturated_usec_to_sec(watchdog_pretimeout);
+        if (pt_sec >= t_sec) {
+                r = log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                    "Cannot set watchdog pretimeout to %is (%s watchdog timeout of %is)",
+                                    pt_sec, pt_sec == t_sec ? "same as" : "longer than", t_sec);
+                watchdog_get_pretimeout();
+        } else {
+                r = watchdog_set_pretimeout();
+                if (r < 0) {
+                        if (ERRNO_IS_NOT_SUPPORTED(r)) {
+                                log_info("Watchdog does not support pretimeouts.");
+                                return 0;
+                        }
+
+                        log_error_errno(r, "Failed to set pretimeout to %is: %m", pt_sec);
+                }
+        }
+
+        if (watchdog_pretimeout == 0)
+                log_info("Watchdog pretimeout is disabled.");
+        else
+                log_info("Watchdog running with a pretimeout of %s.", FORMAT_TIMESPAN(watchdog_pretimeout, 0));
+
+        return r;
 }
 
 static int update_timeout(void) {
@@ -123,6 +191,12 @@ static int update_timeout(void) {
                         return log_error_errno(errno, "Failed to query watchdog HW timeout: %m");
         }
 
+        /* If the watchdog timeout was changed, the pretimeout could have been
+         * changed as well by the driver or the kernel so we need to update the
+         * pretimeout now. Or if the watchdog is being configured for the first
+         * time, we want to configure the pretimeout before it is enabled. */
+        update_pretimeout();
+
         r = watchdog_set_enable(true);
         if (r < 0)
                 return r;
@@ -140,7 +214,7 @@ static int open_watchdog(void) {
         if (watchdog_fd >= 0)
                 return 0;
 
-        fn = watchdog_device ?: "/dev/watchdog";
+        fn = watchdog_device ?: DEFAULT_WATCHDOG_DEV;
         watchdog_fd = open(fn, O_WRONLY|O_CLOEXEC);
         if (watchdog_fd < 0)
                 return log_debug_errno(errno, "Failed to open watchdog device %s, ignoring: %m", fn);
@@ -208,9 +282,32 @@ int watchdog_setup(usec_t timeout) {
         return r;
 }
 
-usec_t watchdog_runtime_wait(void) {
+int watchdog_setup_pretimeout(usec_t timeout) {
+        /* timeout=0 disables the pretimeout whereas timeout=USEC_INFINITY is a nop. */
+        if ((watchdog_fd >= 0 && timeout == watchdog_pretimeout) || timeout == USEC_INFINITY)
+                return 0;
 
-        if (!timestamp_is_set(watchdog_timeout))
+        /* Initialize the watchdog timeout with the caller value. This value is
+         * going to be updated by update_pretimeout() with the running value,
+         * even if it fails to update the timeout. */
+        watchdog_pretimeout = timeout;
+
+        return update_pretimeout();
+}
+
+static usec_t calc_timeout(void) {
+        /* Calculate the effective timeout which accounts for the watchdog
+         * pretimeout if configured and supported.
+         */
+        if (timestamp_is_set(watchdog_pretimeout) && watchdog_timeout >= watchdog_pretimeout)
+                return usec_sub_unsigned(watchdog_timeout, watchdog_pretimeout);
+        else
+                return watchdog_timeout;
+}
+
+usec_t watchdog_runtime_wait(void) {
+        usec_t timeout = calc_timeout();
+        if (!timestamp_is_set(timeout))
                 return USEC_INFINITY;
 
         /* Sleep half the watchdog timeout since the last successful ping at most */
@@ -221,11 +318,11 @@ usec_t watchdog_runtime_wait(void) {
                 return usec_sub_unsigned(watchdog_last_ping + (watchdog_timeout / 2), ntime);
         }
 
-        return watchdog_timeout / 2;
+        return timeout / 2;
 }
 
 int watchdog_ping(void) {
-        usec_t ntime;
+        usec_t ntime, timeout;
 
         if (watchdog_timeout == 0)
                 return 0;
@@ -235,12 +332,13 @@ int watchdog_ping(void) {
                 return open_watchdog();
 
         ntime = now(clock_boottime_or_monotonic());
+        timeout = calc_timeout();
 
         /* Never ping earlier than watchdog_timeout/4 and try to ping
-         * by watchdog_timeout/2 plus scheduling latencies the latest */
+         * by watchdog_timeout/2 plus scheduling latencies at the latest */
         if (timestamp_is_set(watchdog_last_ping)) {
                 assert(ntime >= watchdog_last_ping);
-                if ((ntime - watchdog_last_ping) < (watchdog_timeout / 4))
+                if ((ntime - watchdog_last_ping) < (timeout / 4))
                         return 0;
         }
 
