@@ -132,9 +132,15 @@
   <refsect1>
     <title>Constants</title>
 
-    <para>Various constant used and/or defined by systemd.</para>
+    <para>Various constants used and/or defined by systemd.</para>
 
     <variablelist id='constants' />
+  </refsect1>
+
+  <refsect1>
+    <title>DNS resource record types</title>
+
+    <variablelist id='dns' />
   </refsect1>
 
   <refsect1>
