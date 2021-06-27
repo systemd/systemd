@@ -118,6 +118,7 @@ typedef enum WatchdogType {
         WATCHDOG_RUNTIME,
         WATCHDOG_REBOOT,
         WATCHDOG_KEXEC,
+        WATCHDOG_PRETIMEOUT,
         _WATCHDOG_TYPE_MAX,
 } WatchdogType;
 
