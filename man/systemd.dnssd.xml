@@ -123,13 +123,15 @@
         <varlistentry>
           <term><varname>Priority=</varname></term>
           <listitem>
-            <para>A priority number set in SRV resource records corresponding to the network service.</para>
+            <para>A priority number set in <constant class='dns'>SRV</constant> resource records corresponding
+            to the network service.</para>
           </listitem>
         </varlistentry>
         <varlistentry>
           <term><varname>Weight=</varname></term>
           <listitem>
-            <para>A weight number set in SRV resource records corresponding to the network service.</para>
+            <para>A weight number set in <constant class='dns'>SRV</constant> resource records corresponding
+            to the network service.</para>
           </listitem>
         </varlistentry>
         <varlistentry>

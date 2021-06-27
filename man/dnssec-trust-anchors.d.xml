@@ -43,12 +43,10 @@
   <refsect1>
     <title>Positive Trust Anchors</title>
 
-    <para>Positive trust anchor configuration files contain DNSKEY and
-    DS resource record definitions to use as base for DNSSEC integrity
-    proofs. See <ulink
-    url="https://tools.ietf.org/html/rfc4035#section-4.4">RFC 4035,
-    Section 4.4</ulink> for more information about DNSSEC trust
-    anchors.</para>
+    <para>Positive trust anchor configuration files contain <constant class='dns'>DNSKEY</constant> and
+    <constant class='dns'>DS</constant> resource record definitions to use as base for DNSSEC integrity
+    proofs. See <ulink url="https://tools.ietf.org/html/rfc4035#section-4.4">RFC 4035, Section 4.4</ulink>
+    for more information about DNSSEC trust anchors.</para>
 
     <para>Positive trust anchors are read from files with the suffix
     <filename>.positive</filename> located in
@@ -65,10 +63,11 @@
     empty or a symlink to <filename>/dev/null</filename> ("masked").</para>
 
     <para>Positive trust anchor files are simple text files resembling DNS zone files, as documented in
-    <ulink url="https://tools.ietf.org/html/rfc1035#section-5">RFC 1035, Section 5</ulink>. One DS or DNSKEY
-    resource record may be listed per line. Empty lines and lines starting with <literal>#</literal> or
-    <literal>;</literal> are ignored, which may be used for commenting. A DS resource record is specified
-    like in the following example:</para>
+    <ulink url="https://tools.ietf.org/html/rfc1035#section-5">RFC 1035, Section 5</ulink>. One <constant
+    class='dns'>DS</constant> or <constant class='dns'>DNSKEY</constant> resource record may be listed per
+    line. Empty lines and lines starting with <literal>#</literal> or <literal>;</literal> are ignored, which
+    may be used for commenting. A <consant class='dns'>DS</consant> resource record is specified like in the
+    following example:</para>
 
     <programlisting>. IN DS 19036 8 2 49aac11d7b6f6446702e54a1607371607a1a41855200fd2ce1cdde32f24e8fb5</programlisting>
 
@@ -83,24 +82,20 @@
     Section 5</ulink> for details about the precise syntax and meaning
     of these fields.</para>
 
-    <para>Alternatively, DNSKEY resource records may be used to define
-    trust anchors, like in the following example:</para>
+    <para>Alternatively, <constant class='dns'>DNSKEY</constant> resource records may be used to define trust
+    anchors, like in the following example:</para>
 
     <programlisting>. IN DNSKEY 257 3 8 AwEAAagAIKlVZrpC6Ia7gEzahOR+9W29euxhJhVVLOyQbSEW0O8gcCjFFVQUTf6v58fLjwBd0YI0EzrAcQqBGCzh/RStIoO8g0NfnfL2MTJRkxoXbfDaUeVPQuYEhg37NZWAJQ9VnMVDxP/VHL496M/QZxkjf5/Efucp2gaDX6RS6CXpoY68LsvPVjR0ZSwzz1apAzvN9dlzEheX7ICJBBtuA6G3LQpzW5hOA2hzCTMjJPJ8LbqF6dsV6DoBQzgul0sGIcGOYl7OyQdXfZ57relSQageu+ipAdTTJ25AsRTAoub8ONGcLmqrAmRLKBP1dfwhYB4N7knNnulqQxA+Uk1ihz0=</programlisting>
 
-    <para>The first word specifies the domain again, the second word
-    must be <literal>IN</literal>, followed by
-    <literal>DNSKEY</literal>. The subsequent words encode the DNSKEY
-    flags, protocol and algorithm fields, followed by the key data
-    encoded in Base64. See <ulink
-    url="https://tools.ietf.org/html/rfc4034#section-2">RFC 4034,
-    Section 2</ulink> for details about the precise syntax and meaning
-    of these fields.</para>
+    <para>The first word specifies the domain again, the second word must be <literal>IN</literal>, followed
+    by <literal>DNSKEY</literal>. The subsequent words encode the <constant class='dns'>DNSKEY</constant>
+    flags, protocol and algorithm fields, followed by the key data encoded in Base64. See <ulink
+    url="https://tools.ietf.org/html/rfc4034#section-2">RFC 4034, Section 2</ulink> for details about the
+    precise syntax and meaning of these fields.</para>
 
-    <para>If multiple DS or DNSKEY records are defined for the same
-    domain (possibly even in different trust anchor files), all keys
-    are used and are considered equivalent as base for DNSSEC
-    proofs.</para>
+    <para>If multiple <constant class='dns'>DS</constant> or <constant class='dns'>DNSKEY</constant> records
+    are defined for the same domain (possibly even in different trust anchor files), all keys are used and
+    are considered equivalent as base for DNSSEC proofs.</para>
 
     <para>Note that <filename>systemd-resolved</filename> will
     automatically use a built-in trust anchor key for the Internet
@@ -110,17 +105,15 @@
     as soon as at least one trust anchor key for the root domain is
     defined in trust anchor files.</para>
 
-    <para>It is generally recommended to encode trust anchors in DS
-    resource records, rather than DNSKEY resource records.</para>
+    <para>It is generally recommended to encode trust anchors in <constant class='dns'>DS</constant> resource
+    records, rather than <constant class='dns'>DNSKEY</constant> resource records.</para>
 
-    <para>If a trust anchor specified via a DS record is found revoked
-    it is automatically removed from the trust anchor database for the
-    runtime. See <ulink url="https://tools.ietf.org/html/rfc5011">RFC
-    5011</ulink> for details about revoked trust anchors. Note that
-    <filename>systemd-resolved</filename> will not update its trust
-    anchor database from DNS servers automatically. Instead, it is
-    recommended to update the resolver software or update the new
-    trust anchor via adding in new trust anchor files.</para>
+    <para>If a trust anchor specified via a <constant class='dns'>DS</constant> record is found revoked it is
+    automatically removed from the trust anchor database for the runtime. See <ulink
+    url="https://tools.ietf.org/html/rfc5011">RFC 5011</ulink> for details about revoked trust anchors. Note
+    that <filename>systemd-resolved</filename> will not update its trust anchor database from DNS servers
+    automatically. Instead, it is recommended to update the resolver software or update the new trust anchor
+    via adding in new trust anchor files.</para>
 
     <para>The current DNSSEC trust anchor for the Internet's root
     domain is available at the <ulink

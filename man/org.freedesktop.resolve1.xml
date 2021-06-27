@@ -308,12 +308,15 @@ node /org/freedesktop/resolve1 {
       records of many types, it is crucial that clients using this API understand that the RR data originates
       from the network and should be thoroughly validated before use.</para>
 
-      <para><function>ResolveService()</function> may be used to resolve a DNS SRV service record, as well as the
-      hostnames referenced in it, and possibly an accompanying DNS-SD TXT record containing additional
-      service metadata. The primary benefit of using this method over <function>ResolveRecord()</function>
-      specifying the SRV type is that it will resolve the SRV and TXT RRs as well as the hostnames referenced
-      in the SRV in a single operation. As parameters it takes a Linux network interface index, a service
-      name, a service type and a service domain. This method may be invoked in three different modes:</para>
+      <para><function>ResolveService()</function> may be used to resolve a DNS
+      <constant class="dns">SRV</constant> service record, as well as the hostnames referenced in it, and
+      possibly an accompanying DNS-SD <constant class="dns">TXT</constant> record containing additional
+      service metadata.  The primary benefit of using this method over <function>ResolveRecord()</function>
+      specifying the <constant class="dns">SRV</constant> type is that it will resolve the
+      <constant class="dns">SRV</constant> and <constant class="dns">TXT</constant> RRs as well as the
+      hostnames referenced in the SRV in a single operation. As parameters it takes a Linux network interface
+      index, a service name, a service type and a service domain. This method may be invoked in three
+      different modes:</para>
 
       <orderedlist>
         <listitem><para>To resolve a DNS-SD service, specify the service name (e.g. <literal>Lennart's
@@ -323,13 +326,13 @@ node /org/freedesktop/resolve1 {
         specifications). However, if necessary, IDNA conversion is applied to the domain parameter.</para>
         </listitem>
 
-        <listitem><para>To resolve a plain SRV record, set the service name parameter to the empty string
-        and set the service type and domain properly. (IDNA conversion is applied to the domain, if
-        necessary.)</para></listitem>
+        <listitem><para>To resolve a plain <constant class="dns">SRV</constant> record, set the service name
+        parameter to the empty string and set the service type and domain properly. (IDNA conversion is
+        applied to the domain, if necessary.)</para></listitem>
 
-        <listitem><para>Alternatively, leave both the service name and type empty and specify the full
-        domain name of the SRV record (i.e. prefixed with the service type) in the domain parameter. (No IDNA
-        conversion is applied in this mode.)</para></listitem>
+        <listitem><para>Alternatively, leave both the service name and type empty and specify the full domain
+        name of the <constant class="dns">SRV</constant> record (i.e. prefixed with the service type) in the
+        domain parameter. (No IDNA conversion is applied in this mode.)</para></listitem>
       </orderedlist>
 
       <para>The <varname>family</varname> parameter of the <function>ResolveService()</function> method encodes
@@ -339,15 +342,16 @@ node /org/freedesktop/resolve1 {
       <varname>flags</varname> parameter takes a couple of flags that may be used to alter the resolver
       operation.</para>
 
-      <para>On completion, <function>ResolveService()</function> returns an array of SRV record structures. Each
-      items consisting of the priority, weight and port fields as well as the hostname to contact, as encoded in the SRV
+      <para>On completion, <function>ResolveService()</function> returns an array of
+      <constant class="dns">SRV</constant> record structures. Each items consisting of the priority, weight and port
+      fields as well as the hostname to contact, as encoded in the <constant class="dns">SRV</constant>
       record. Immediately following is an array of the addresses of this hostname, with each item consisting
       of the interface index, the address family and the address data in a byte array. This address array is
-      followed by the canonicalized hostname. After this array of SRV record structures an array of byte
-      arrays follows that encodes the TXT RR strings, in case DNS-SD look-ups are enabled. The next parameters
-      are the canonical service name, type and domain. This may or may not be identical to the parameters
-      passed in. Finally, a <varname>flags</varname> field is returned that contains information about the
-      resolver operation performed.</para>
+      followed by the canonicalized hostname. After this array of <constant class="dns">SRV</constant> record
+      structures an array of byte arrays follows that encodes the TXT RR strings, in case DNS-SD look-ups are
+      enabled. The next parameters are the canonical service name, type and domain. This may or may not be
+      identical to the parameters passed in. Finally, a <varname>flags</varname> field is returned that
+      contains information about the resolver operation performed.</para>
 
       <para>The <function>ResetStatistics()</function> method resets the various statistics counters that
       <filename>systemd-resolved</filename> maintains to zero. (For details, see the statistics properties below.)</para>
@@ -779,8 +783,8 @@ node /org/freedesktop/resolve1/link/_1 {
       </varlistentry>
 
       <varlistentry><term><constant>org.freedesktop.resolve1.NoSuchService</constant></term>
-      <listitem><para>A service look-up was successful, but the SRV record reported that the service is not
-      available.</para></listitem></varlistentry>
+      <listitem><para>A service look-up was successful, but the <constant class="dns">SRV</constant> record
+      reported that the service is not available.</para></listitem></varlistentry>
 
       <varlistentry><term><constant>org.freedesktop.resolve1.DnssecFailed</constant></term>
       <listitem><para>The acquired response did not pass DNSSEC validation.</para></listitem>
