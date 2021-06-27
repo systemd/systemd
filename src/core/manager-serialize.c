@@ -118,6 +118,7 @@ int manager_serialize(
         (void) serialize_usec(f, "runtime-watchdog-overridden", m->watchdog_overridden[WATCHDOG_RUNTIME]);
         (void) serialize_usec(f, "reboot-watchdog-overridden", m->watchdog_overridden[WATCHDOG_REBOOT]);
         (void) serialize_usec(f, "kexec-watchdog-overridden", m->watchdog_overridden[WATCHDOG_KEXEC]);
+        (void) serialize_usec(f, "pretimeout-watchdog-overridden", m->watchdog_overridden[WATCHDOG_PRETIMEOUT]);
 
         for (ManagerTimestamp q = 0; q < _MANAGER_TIMESTAMP_MAX; q++) {
                 _cleanup_free_ char *joined = NULL;
@@ -454,6 +455,14 @@ int manager_deserialize(Manager *m, FILE *f, FDSet *fds) {
                                 log_notice("Failed to parse kexec-watchdog-overridden value '%s', ignoring.", val);
                         else
                                 manager_override_watchdog(m, WATCHDOG_KEXEC, t);
+
+                } else if ((val = startswith(l, "pretimeout-watchdog-overridden="))) {
+                        usec_t t;
+
+                        if (deserialize_usec(val, &t) < 0)
+                                log_notice("Failed to parse pretimeout-watchdog-overridden value '%s', ignoring.", val);
+                        else
+                                manager_override_watchdog(m, WATCHDOG_PRETIMEOUT, t);
 
                 } else if (startswith(l, "env=")) {
                         r = deserialize_environment(l + 4, &m->client_environment);
