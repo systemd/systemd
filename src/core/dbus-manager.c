@@ -265,6 +265,24 @@ static int property_get_runtime_watchdog(
         return sd_bus_message_append(reply, "t", manager_get_watchdog(m, WATCHDOG_RUNTIME));
 }
 
+static int property_get_pretimeout_watchdog(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                void *userdata,
+                sd_bus_error *error) {
+
+        Manager *m = userdata;
+
+        assert(m);
+        assert(bus);
+        assert(reply);
+
+        return sd_bus_message_append(reply, "t", manager_get_watchdog(m, WATCHDOG_PRETIMEOUT));
+}
+
 static int property_get_reboot_watchdog(
                 sd_bus *bus,
                 const char *path,
@@ -328,6 +346,18 @@ static int property_set_runtime_watchdog(
                 sd_bus_error *error) {
 
         return property_set_watchdog(userdata, WATCHDOG_RUNTIME, value);
+}
+
+static int property_set_pretimeout_watchdog(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *value,
+                void *userdata,
+                sd_bus_error *error) {
+
+        return property_set_watchdog(userdata, WATCHDOG_PRETIMEOUT, value);
 }
 
 static int property_set_reboot_watchdog(
@@ -2696,6 +2726,7 @@ const sd_bus_vtable bus_manager_vtable[] = {
         SD_BUS_PROPERTY("DefaultStandardOutput", "s", bus_property_get_exec_output, offsetof(Manager, default_std_output), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("DefaultStandardError", "s", bus_property_get_exec_output, offsetof(Manager, default_std_error), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_WRITABLE_PROPERTY("RuntimeWatchdogUSec", "t", property_get_runtime_watchdog, property_set_runtime_watchdog, 0, 0),
+        SD_BUS_WRITABLE_PROPERTY("RuntimeWatchdogPreUSec", "t", property_get_pretimeout_watchdog, property_set_pretimeout_watchdog, 0, 0),
         SD_BUS_WRITABLE_PROPERTY("RebootWatchdogUSec", "t", property_get_reboot_watchdog, property_set_reboot_watchdog, 0, 0),
         /* The following item is an obsolete alias */
         SD_BUS_WRITABLE_PROPERTY("ShutdownWatchdogUSec", "t", property_get_reboot_watchdog, property_set_reboot_watchdog, 0, SD_BUS_VTABLE_HIDDEN),

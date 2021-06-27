@@ -138,6 +138,7 @@ static unsigned arg_default_start_limit_burst;
 static usec_t arg_runtime_watchdog;
 static usec_t arg_reboot_watchdog;
 static usec_t arg_kexec_watchdog;
+static usec_t arg_pretimeout_watchdog;
 static char *arg_early_core_pattern;
 static char *arg_watchdog_device;
 static char **arg_default_environment;
@@ -557,6 +558,23 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
 
                 arg_kexec_watchdog = arg_reboot_watchdog = arg_runtime_watchdog;
 
+        } else if (proc_cmdline_key_streq(key, "systemd.watchdog_pre_sec")) {
+
+                if (proc_cmdline_value_missing(key, value))
+                        return 0;
+
+                if (streq(value, "default"))
+                        arg_pretimeout_watchdog = USEC_INFINITY;
+                else if (streq(value, "off"))
+                        arg_pretimeout_watchdog = 0;
+                else {
+                        r = parse_sec(value, &arg_pretimeout_watchdog);
+                        if (r < 0) {
+                                log_warning_errno(r, "Failed to parse systemd.watchdog_pre_sec= argument '%s', ignoring: %m", value);
+                                return 0;
+                        }
+                }
+
         } else if (proc_cmdline_key_streq(key, "systemd.clock_usec")) {
 
                 if (proc_cmdline_value_missing(key, value))
@@ -709,6 +727,7 @@ static int parse_config_file(void) {
                 { "Manager", "NUMAMask",                     config_parse_numa_mask,             0, &arg_numa_policy                       },
                 { "Manager", "JoinControllers",              config_parse_warn_compat,           DISABLED_CONFIGURATION, NULL              },
                 { "Manager", "RuntimeWatchdogSec",           config_parse_watchdog_sec,          0, &arg_runtime_watchdog                  },
+                { "Manager", "RuntimeWatchdogPreSec",        config_parse_watchdog_sec,          0, &arg_pretimeout_watchdog               },
                 { "Manager", "RebootWatchdogSec",            config_parse_watchdog_sec,          0, &arg_reboot_watchdog                   },
                 { "Manager", "ShutdownWatchdogSec",          config_parse_watchdog_sec,          0, &arg_reboot_watchdog                   }, /* obsolete alias */
                 { "Manager", "KExecWatchdogSec",             config_parse_watchdog_sec,          0, &arg_kexec_watchdog                    },
@@ -851,6 +870,7 @@ static void set_manager_settings(Manager *m) {
         manager_set_watchdog(m, WATCHDOG_RUNTIME, arg_runtime_watchdog);
         manager_set_watchdog(m, WATCHDOG_REBOOT, arg_reboot_watchdog);
         manager_set_watchdog(m, WATCHDOG_KEXEC, arg_kexec_watchdog);
+        manager_set_watchdog(m, WATCHDOG_PRETIMEOUT, arg_pretimeout_watchdog);
 
         manager_set_show_status(m, arg_show_status, "commandline");
         m->status_unit_format = arg_status_unit_format;
@@ -1595,7 +1615,9 @@ static int become_shutdown(
                 watchdog_timer = arg_kexec_watchdog;
 
         /* If we reboot or kexec let's set the shutdown watchdog and tell the
-         * shutdown binary to repeatedly ping it */
+         * shutdown binary to repeatedly ping it.
+         * Disable the pretimeout watchdog, as we do not support it from the shutdown binary. */
+        (void) watchdog_setup_pretimeout(0);
         r = watchdog_setup(watchdog_timer);
         watchdog_close(r < 0);
 
@@ -2448,6 +2470,7 @@ static void reset_arguments(void) {
         arg_runtime_watchdog = 0;
         arg_reboot_watchdog = 10 * USEC_PER_MINUTE;
         arg_kexec_watchdog = 0;
+        arg_pretimeout_watchdog = 0;
         arg_early_core_pattern = NULL;
         arg_watchdog_device = NULL;
 
