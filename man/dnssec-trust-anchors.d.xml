@@ -64,13 +64,11 @@
     <filename>/run/dnssec-trust-anchors.d/</filename> that is either
     empty or a symlink to <filename>/dev/null</filename> ("masked").</para>
 
-    <para>Positive trust anchor files are simple text files resembling
-    DNS zone files, as documented in <ulink
-    url="https://tools.ietf.org/html/rfc1035#section-5">RFC 1035, Section
-    5</ulink>. One DS or DNSKEY resource record may be listed per
-    line. Empty lines and lines starting with a semicolon
-    (<literal>;</literal>) are ignored and considered comments. A DS
-    resource record is specified like in the following example:</para>
+    <para>Positive trust anchor files are simple text files resembling DNS zone files, as documented in
+    <ulink url="https://tools.ietf.org/html/rfc1035#section-5">RFC 1035, Section 5</ulink>. One DS or DNSKEY
+    resource record may be listed per line. Empty lines and lines starting with <literal>#</literal> or
+    <literal>;</literal> are ignored, which may be used for commenting. A DS resource record is specified
+    like in the following example:</para>
 
     <programlisting>. IN DS 19036 8 2 49aac11d7b6f6446702e54a1607371607a1a41855200fd2ce1cdde32f24e8fb5</programlisting>
 
