@@ -1543,10 +1543,6 @@ static int dns_packet_read_type_window(DnsPacket *p, Bitmap **types, size_t *sta
         assert(types);
         INIT_REWINDER(rewinder, p);
 
-        r = bitmap_ensure_allocated(types);
-        if (r < 0)
-                return r;
-
         r = dns_packet_read_uint8(p, &window, NULL);
         if (r < 0)
                 return r;
@@ -1604,6 +1600,10 @@ static int dns_packet_read_type_windows(DnsPacket *p, Bitmap **types, size_t siz
         int r;
 
         INIT_REWINDER(rewinder, p);
+
+        r = bitmap_ensure_allocated(types);
+        if (r < 0)
+                return r;
 
         while (p->rindex < rewinder.saved_rindex + size) {
                 r = dns_packet_read_type_window(p, types, NULL);
