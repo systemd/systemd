@@ -742,8 +742,7 @@ bool unsafe_transition(const struct stat *a, const struct stat *b) {
 }
 
 static int log_unsafe_transition(int a, int b, unsigned flags) {
-        _cleanup_free_ char *n1 = NULL, *n2 = NULL;
-        _cleanup_free_ char *user_a, *user_b;
+        _cleanup_free_ char *n1 = NULL, *n2 = NULL, *user_a = NULL, *user_b = NULL;
         struct stat stat_a, stat_b;
 
         if (!FLAGS_SET(flags, CHASE_WARN))
