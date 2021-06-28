@@ -4430,12 +4430,10 @@ static int service_can_clean(Unit *u, ExecCleanMask *ret) {
 }
 
 static const char *service_finished_job(Unit *u, JobType t, JobResult result) {
-        if (t == JOB_START && result == JOB_DONE) {
-                Service *s = SERVICE(u);
-
-                if (s->type == SERVICE_ONESHOT)
-                        return "Finished %s.";
-        }
+        if (t == JOB_START &&
+            result == JOB_DONE &&
+            SERVICE(u)->type == SERVICE_ONESHOT)
+                return "Finished %s.";
 
         /* Fall back to generic */
         return NULL;
@@ -4601,10 +4599,6 @@ const UnitVTable service_vtable = {
         .exit_status = service_exit_status,
 
         .status_message_formats = {
-                .starting_stopping = {
-                        [0] = "Starting %s...",
-                        [1] = "Stopping %s...",
-                },
                 .finished_start_job = {
                         [JOB_FAILED]     = "Failed to start %s.",
                 },

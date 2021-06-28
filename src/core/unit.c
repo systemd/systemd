@@ -1331,7 +1331,7 @@ int unit_add_exec_dependencies(Unit *u, ExecContext *c) {
         return 0;
 }
 
-const char *unit_description(Unit *u) {
+const char* unit_description(Unit *u) {
         assert(u);
 
         if (u->description)
@@ -1340,13 +1340,29 @@ const char *unit_description(Unit *u) {
         return strna(u->id);
 }
 
-const char *unit_status_string(Unit *u) {
+const char* unit_status_string(Unit *u, char **combined) {
         assert(u);
+        assert(u->id);
 
-        if (u->manager->status_unit_format == STATUS_UNIT_FORMAT_NAME && u->id)
+        /* Return u->id, u->description, or "{u->id} - {u->description}".
+         * Versions with u->description are only used if it is set.
+         * The last option is used if configured and the caller provided 'combined' pointer. */
+
+        if (!u->description ||
+            u->manager->status_unit_format == STATUS_UNIT_FORMAT_NAME ||
+            (u->manager->status_unit_format == STATUS_UNIT_FORMAT_COMBINED && !combined))
                 return u->id;
 
-        return unit_description(u);
+        if (u->description && u->manager->status_unit_format == STATUS_UNIT_FORMAT_COMBINED && combined) {
+                char *t = strjoin(u->id, " - ", u->description);
+                if (t) {
+                        *combined = t;
+                        return t;
+                } else
+                        log_oom();
+        }
+
+        return u->description;
 }
 
 /* Common implementation for multiple backends */
@@ -1730,15 +1746,16 @@ static bool unit_test_assert(Unit *u) {
         return u->assert_result;
 }
 
-void unit_status_printf(Unit *u, StatusType status_type, const char *status, const char *unit_status_msg_format) {
-        const char *d;
-
-        d = unit_status_string(u);
-        if (log_get_show_color())
-                d = strjoina(ANSI_HIGHLIGHT, d, ANSI_NORMAL);
+void unit_status_printf(Unit *u, StatusType status_type, const char *status, const char *format, const char *ident) {
+        if (log_get_show_color()) {
+                if (u->manager->status_unit_format == STATUS_UNIT_FORMAT_COMBINED && strchr(ident, ' '))
+                        ident = strjoina(ANSI_HIGHLIGHT, u->id, ANSI_NORMAL, " - ", u->description);
+                else
+                        ident = strjoina(ANSI_HIGHLIGHT, ident, ANSI_NORMAL);
+        }
 
         DISABLE_WARNING_FORMAT_NONLITERAL;
-        manager_status_printf(u->manager, status_type, status, unit_status_msg_format, d);
+        manager_status_printf(u->manager, status_type, status, format, ident);
         REENABLE_WARNING;
 }
 

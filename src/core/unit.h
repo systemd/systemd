@@ -765,7 +765,7 @@ int unit_set_slice(Unit *u, Unit *slice, UnitDependencyMask mask);
 int unit_set_default_slice(Unit *u);
 
 const char *unit_description(Unit *u) _pure_;
-const char *unit_status_string(Unit *u) _pure_;
+const char *unit_status_string(Unit *u, char **combined);
 
 bool unit_has_name(const Unit *u, const char *name);
 
@@ -820,7 +820,7 @@ int unit_add_blockdev_dependency(Unit *u, const char *what, UnitDependencyMask m
 int unit_coldplug(Unit *u);
 void unit_catchup(Unit *u);
 
-void unit_status_printf(Unit *u, StatusType status_type, const char *status, const char *unit_status_msg_format) _printf_(4, 0);
+void unit_status_printf(Unit *u, StatusType status_type, const char *status, const char *format, const char *ident) _printf_(4, 0);
 
 bool unit_need_daemon_reload(Unit *u);
 
