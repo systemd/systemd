@@ -4,10 +4,15 @@ if enable_sysusers
         install_data('README', install_dir : sysusersdir)
 endif
 
-in_files = [['basic.conf',          enable_sysusers],
-            ['systemd.conf',        enable_sysusers],
-            ['systemd-remote.conf', enable_sysusers and
-                                    conf.get('ENABLE_REMOTE') == 1 and conf.get('HAVE_MICROHTTPD') == 1]]
+in_files = [['basic.conf',            enable_sysusers],
+            ['systemd-journal.conf',  enable_sysusers],
+            ['systemd-coredump.conf', enable_sysusers and conf.get('ENABLE_COREDUMP') == 1],
+            ['systemd-network.conf',  enable_sysusers and conf.get('ENABLE_NETWORKD') == 1],
+            ['systemd-oom.conf',      enable_sysusers and conf.get('ENABLE_OOMD') == 1],
+            ['systemd-resolve.conf',  enable_sysusers and conf.get('ENABLE_RESOLVE') == 1],
+            ['systemd-timesync.conf', enable_sysusers and conf.get('ENABLE_TIMESYNCD') == 1],
+            ['systemd-remote.conf',   enable_sysusers and conf.get('ENABLE_REMOTE') == 1 and
+                                      conf.get('HAVE_MICROHTTPD') == 1]]
 
 foreach tuple : in_files
         file = tuple[0]
