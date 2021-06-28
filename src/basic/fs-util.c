@@ -761,8 +761,8 @@ static int log_unsafe_transition(int a, int b, unsigned flags) {
         user_b = uid_to_name(stat_b.st_uid);
 
         return log_warning_errno(SYNTHETIC_ERRNO(ENOLINK),
-                "Path transition %s %s %s is unsafe: owner is %s, wanted %s",
-                strna(n1), special_glyph(SPECIAL_GLYPH_ARROW), strna(n2), user_b, user_a);
+                                 "Path transition %s %s %s is unsafe: owner is %s, wanted %s",
+                                 strna(n1), special_glyph(SPECIAL_GLYPH_ARROW), strna(n2), user_b, user_a);
 }
 
 static int log_autofs_mount_point(int fd, const char *path, unsigned flags) {
