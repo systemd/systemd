@@ -752,9 +752,9 @@ static int log_unsafe_transition(int a, int b, const char *path, unsigned flags)
         (void) fd_get_path(b, &n2);
 
         if (fstat(a, &st) == 0)
-            user_a = uid_to_name(st.st_uid);
+                user_a = uid_to_name(st.st_uid);
         if (fstat(b, &st) == 0)
-            user_b = uid_to_name(st.st_uid);
+                user_b = uid_to_name(st.st_uid);
 
         return log_warning_errno(SYNTHETIC_ERRNO(ENOLINK),
                                  "Detected unsafe path transition %s (owned by %s) %s %s (owned by %s) during canonicalization of %s.",
