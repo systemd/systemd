@@ -1613,9 +1613,11 @@ DnsResourceRecord *dns_resource_record_copy(DnsResourceRecord *rr) {
                 copy->nsec.next_domain_name = strdup(rr->nsec.next_domain_name);
                 if (!copy->nsec.next_domain_name)
                         return NULL;
-                copy->nsec.types = bitmap_copy(rr->nsec.types);
-                if (!copy->nsec.types)
-                        return NULL;
+                if (rr->nsec.types) {
+                        copy->nsec.types = bitmap_copy(rr->nsec.types);
+                        if (!copy->nsec.types)
+                                return NULL;
+                }
                 break;
 
         case DNS_TYPE_DS:
@@ -1640,9 +1642,11 @@ DnsResourceRecord *dns_resource_record_copy(DnsResourceRecord *rr) {
                 if (!copy->nsec3.next_hashed_name)
                         return NULL;
                 copy->nsec3.next_hashed_name_size = rr->nsec3.next_hashed_name_size;
-                copy->nsec3.types = bitmap_copy(rr->nsec3.types);
-                if (!copy->nsec3.types)
-                        return NULL;
+                if (rr->nsec3.types) {
+                        copy->nsec3.types = bitmap_copy(rr->nsec3.types);
+                        if (!copy->nsec3.types)
+                                return NULL;
+                }
                 break;
 
         case DNS_TYPE_TLSA:
