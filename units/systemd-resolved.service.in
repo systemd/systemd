@@ -46,6 +46,7 @@ RestrictRealtime=yes
 RestrictSUIDSGID=yes
 RuntimeDirectory=systemd/resolve
 RuntimeDirectoryPreserve=yes
+StandardOutput=journal+console
 SystemCallArchitectures=native
 SystemCallErrorNumber=EPERM
 SystemCallFilter=@system-service

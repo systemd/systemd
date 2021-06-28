@@ -7,6 +7,7 @@
 #include "resolve-util.h"
 #include "resolved-dns-dnssec.h"
 #include "time-util.h"
+#include "sd-bus.h"
 
 typedef struct DnsCache {
         Hashmap *by_key;
@@ -19,9 +20,10 @@ typedef struct DnsCache {
 #include "resolved-dns-packet.h"
 #include "resolved-dns-question.h"
 #include "resolved-dns-rr.h"
+#include "resolved-manager.h"
 
 void dns_cache_flush(DnsCache *c);
-void dns_cache_prune(DnsCache *c);
+void dns_cache_prune(DnsCache *c, int owner_family, char *ifname, DnsProtocol protocol);
 
 int dns_cache_put(
                 DnsCache *c,
@@ -34,7 +36,9 @@ int dns_cache_put(
                 DnssecResult dnssec_result,
                 uint32_t nsec_ttl,
                 int owner_family,
-                const union in_addr_union *owner_address);
+                const union in_addr_union *owner_address,
+                char *ifname,
+                DnsProtocol protocol);
 
 int dns_cache_lookup(
                 DnsCache *c,
@@ -46,9 +50,10 @@ int dns_cache_lookup(
                 uint64_t *ret_query_flags,
                 DnssecResult *ret_dnssec_result);
 
-int dns_cache_check_conflicts(DnsCache *cache, DnsResourceRecord *rr, int owner_family, const union in_addr_union *owner_address);
+int dns_cache_check_conflicts(DnsCache *cache, DnsResourceRecord *rr, int owner_family, const union in_addr_union *owner_address, char *ifname, DnsProtocol protocol);
 
 void dns_cache_dump(DnsCache *cache, FILE *f);
+int dns_cache_dump_mdns(Manager *m, sd_bus_message *reply);
 bool dns_cache_is_empty(DnsCache *cache);
 
 unsigned dns_cache_size(DnsCache *cache);
