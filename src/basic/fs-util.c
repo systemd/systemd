@@ -743,7 +743,7 @@ bool unsafe_transition(const struct stat *a, const struct stat *b) {
 
 static int log_unsafe_transition(int a, int b, const char *path, unsigned flags) {
         _cleanup_free_ char *n1 = NULL, *n2 = NULL, *user_a = NULL, *user_b = NULL;
-        struct stat stat_a, stat_b;
+        struct stat st;
 
         if (!FLAGS_SET(flags, CHASE_WARN))
                 return -ENOLINK;
@@ -751,10 +751,10 @@ static int log_unsafe_transition(int a, int b, const char *path, unsigned flags)
         (void) fd_get_path(a, &n1);
         (void) fd_get_path(b, &n2);
 
-        if (fstat(a, &stat_a) == 0)
-            user_a = uid_to_name(stat_a.st_uid);
-        if (fstat(b, &stat_b) == 0)
-            user_b = uid_to_name(stat_b.st_uid);
+        if (fstat(a, &st) == 0)
+            user_a = uid_to_name(st.st_uid);
+        if (fstat(b, &st) == 0)
+            user_b = uid_to_name(st.st_uid);
 
         return log_warning_errno(SYNTHETIC_ERRNO(ENOLINK),
                                  "Detected unsafe path transition %s (owned by %s) %s %s (owned by %s) during canonicalization of %s.",
