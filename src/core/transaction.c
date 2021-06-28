@@ -419,7 +419,8 @@ static int transaction_verify_order_one(Transaction *tr, Job *j, Job *from, unsi
                         unit_status_printf(delete->unit,
                                            STATUS_TYPE_NOTICE,
                                            status,
-                                           "Ordering cycle found, skipping %s");
+                                           "Ordering cycle found, skipping %s",
+                                           unit_status_string(delete->unit, NULL));
                         transaction_delete_unit(tr, delete->unit);
                         return -EAGAIN;
                 }

@@ -2219,7 +2219,7 @@ static int do_queue_default_job(
         } else
                 log_info("Queued %s job for default target %s.",
                          job_type_to_string(job->type),
-                         unit_status_string(job->unit));
+                         unit_status_string(job->unit, NULL));
 
         m->default_unit_job_id = job->id;
 

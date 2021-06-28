@@ -3543,10 +3543,6 @@ const UnitVTable socket_vtable = {
         .bus_commit_properties = bus_socket_commit_properties,
 
         .status_message_formats = {
-                /*.starting_stopping = {
-                        [0] = "Starting socket %s...",
-                        [1] = "Stopping socket %s...",
-                },*/
                 .finished_start_job = {
                         [JOB_DONE]       = "Listening on %s.",
                         [JOB_FAILED]     = "Failed to listen on %s.",

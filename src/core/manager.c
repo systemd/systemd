@@ -240,11 +240,18 @@ static void manager_print_jobs_in_progress(Manager *m) {
         if (job_get_timeout(j, &x) > 0)
                 format_timespan(limit, sizeof(limit), x - j->begin_usec, 1*USEC_PER_SEC);
 
+        /* We want to use enough information for the user to identify previous lines talking about the same
+         * unit, but keep the message as short as possible. So if 'Starting foo.service' or 'Starting
+         * foo.service (Description)' were used, 'foo.service' is enough here. On the other hand, if we used
+         * 'Starting Description' before, then we shall also use 'Description' here. So we pass NULL as the
+         * second argument to unit_status_string(). */
+        const char *ident = unit_status_string(j->unit, NULL);
+
         manager_status_printf(m, STATUS_TYPE_EPHEMERAL, cylon,
                               "%sA %s job is running for %s (%s / %s)",
                               strempty(job_of_n),
                               job_type_to_string(j->type),
-                              unit_status_string(j->unit),
+                              ident,
                               time, limit);
 }
 
