@@ -741,7 +741,7 @@ bool unsafe_transition(const struct stat *a, const struct stat *b) {
         return a->st_uid != b->st_uid; /* Otherwise we need to stay within the same UID */
 }
 
-static int log_unsafe_transition(int a, int b, unsigned flags) {
+static int log_unsafe_transition(int a, int b, const char *path, unsigned flags) {
         _cleanup_free_ char *n1 = NULL, *n2 = NULL, *user_a = NULL, *user_b = NULL;
         struct stat stat_a, stat_b;
 
@@ -760,8 +760,8 @@ static int log_unsafe_transition(int a, int b, unsigned flags) {
         user_b = uid_to_name(stat_b.st_uid);
 
         return log_warning_errno(SYNTHETIC_ERRNO(ENOLINK),
-                                 "Path transition %s %s %s is unsafe: owner is %s, wanted %s",
-                                 strna(n1), special_glyph(SPECIAL_GLYPH_ARROW), strna(n2), user_b, user_a);
+                                 "Detected unsafe path transition %s (owned by %s) %s %s (owned by %s) during canonicalization of %s.",
+                                 strna(n1), strna(user_a), special_glyph(SPECIAL_GLYPH_ARROW), strna(n2), strna(user_b), path);
 }
 
 static int log_autofs_mount_point(int fd, const char *path, unsigned flags) {
@@ -968,7 +968,7 @@ int chase_symlinks(const char *path, const char *original_root, unsigned flags, 
                                         return -errno;
 
                                 if (unsafe_transition(&previous_stat, &st))
-                                        return log_unsafe_transition(fd, fd_parent, flags);
+                                        return log_unsafe_transition(fd, fd_parent, path, flags);
 
                                 previous_stat = st;
                         }
@@ -1003,7 +1003,7 @@ int chase_symlinks(const char *path, const char *original_root, unsigned flags, 
                         return -errno;
                 if ((flags & CHASE_SAFE) &&
                     unsafe_transition(&previous_stat, &st))
-                        return log_unsafe_transition(fd, child, flags);
+                        return log_unsafe_transition(fd, child, path, flags);
 
                 previous_stat = st;
 
@@ -1040,7 +1040,7 @@ int chase_symlinks(const char *path, const char *original_root, unsigned flags, 
                                                 return -errno;
 
                                         if (unsafe_transition(&previous_stat, &st))
-                                                return log_unsafe_transition(child, fd, flags);
+                                                return log_unsafe_transition(child, fd, path, flags);
 
                                         previous_stat = st;
                                 }
