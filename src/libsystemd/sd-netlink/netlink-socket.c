@@ -345,8 +345,18 @@ int socket_read_message(sd_netlink *rtnl) {
                                 continue;
                 }
 
+                r = message_new_empty(rtnl, &m);
+                if (r < 0)
+                        return r;
+
+                m->broadcast = !!group;
+
+                m->hdr = memdup(new_msg, new_msg->nlmsg_len);
+                if (!m->hdr)
+                        return log_oom_debug();
+
                 /* check that we support this message type */
-                r = type_system_root_get_type(rtnl, &nl_type, new_msg->nlmsg_type);
+                r = type_system_root_get_type_by_message(rtnl, m, &nl_type);
                 if (r < 0) {
                         if (r == -EOPNOTSUPP)
                                 log_debug("sd-netlink: ignored message with unknown type: %i",
@@ -356,20 +366,10 @@ int socket_read_message(sd_netlink *rtnl) {
                 }
 
                 /* check that the size matches the message type */
-                if (new_msg->nlmsg_len < NLMSG_LENGTH(type_get_size(nl_type))) {
+                if (m->hdr->nlmsg_len < NLMSG_LENGTH(type_get_size(nl_type))) {
                         log_debug("sd-netlink: message is shorter than expected, dropping");
                         continue;
                 }
-
-                r = message_new_empty(rtnl, &m);
-                if (r < 0)
-                        return r;
-
-                m->broadcast = !!group;
-
-                m->hdr = memdup(new_msg, new_msg->nlmsg_len);
-                if (!m->hdr)
-                        return -ENOMEM;
 
                 /* seal and parse the top-level message */
                 r = sd_netlink_message_rewind(m, rtnl);
