@@ -1098,7 +1098,7 @@ static const NLType rtnl_types[] = {
         [RTM_GETMDB]       = { .type = NETLINK_TYPE_NESTED, .type_system = &rtnl_mdb_type_system, .size = sizeof(struct br_port_msg) },
 };
 
-const NLTypeSystem rtnl_type_system_root = {
+static const NLTypeSystem rtnl_type_system_root = {
         .count = ELEMENTSOF(rtnl_types),
         .types = rtnl_types,
 };
@@ -1337,7 +1337,7 @@ static const NLType nfnl_types[] = {
         [NFNL_SUBSYS_NFTABLES] = { .type = NETLINK_TYPE_NESTED, .type_system = &nfnl_nft_msg_type_system, .size = sizeof(struct nfgenmsg) },
 };
 
-const NLTypeSystem nfnl_type_system_root = {
+static const NLTypeSystem nfnl_type_system_root = {
         .count = ELEMENTSOF(nfnl_types),
         .types = nfnl_types,
 };
@@ -1708,7 +1708,7 @@ static const NLType genl_types[] = {
 };
 
 /* Mainly used when message received */
-const NLTypeSystem genl_type_system_root = {
+static const NLTypeSystem genl_type_system_root = {
         .count = ELEMENTSOF(genl_types),
         .types = genl_types,
 };
@@ -1742,7 +1742,7 @@ uint16_t type_system_get_count(const NLTypeSystem *type_system) {
         return type_system->count;
 }
 
-const NLTypeSystem *type_system_get_root(int protocol) {
+static const NLTypeSystem *type_system_get_root(int protocol) {
         switch (protocol) {
                 case NETLINK_GENERIC:
                         return &genl_type_system_root;
