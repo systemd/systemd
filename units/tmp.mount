@@ -8,7 +8,7 @@
 #  (at your option) any later version.
 
 [Unit]
-Description=Temporary Directory (/tmp)
+Description=Temporary Directory /tmp
 Documentation=https://systemd.io/TEMPORARY_DIRECTORIES
 Documentation=man:file-hierarchy(7)
 Documentation=https://www.freedesktop.org/wiki/Software/systemd/APIFileSystems

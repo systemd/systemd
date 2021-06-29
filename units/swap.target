@@ -8,5 +8,5 @@
 #  (at your option) any later version.
 
 [Unit]
-Description=Swap
+Description=Swaps
 Documentation=man:systemd.special(7)
