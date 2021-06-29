@@ -8,6 +8,6 @@
 #  (at your option) any later version.
 
 [Unit]
-Description=Printer
+Description=Printer Support
 Documentation=man:systemd.special(7)
 StopWhenUnneeded=yes

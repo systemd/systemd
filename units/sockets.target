@@ -8,5 +8,5 @@
 #  (at your option) any later version.
 
 [Unit]
-Description=Sockets
+Description=Socket Units
 Documentation=man:systemd.special(7)

@@ -8,5 +8,5 @@
 #  (at your option) any later version.
 
 [Unit]
-Description=Paths
+Description=Path Units
 Documentation=man:systemd.special(7)

@@ -8,7 +8,7 @@
 #  (at your option) any later version.
 
 [Unit]
-Description=Hibernate
+Description=System Hibernation
 Documentation=man:systemd.special(7)
 DefaultDependencies=no
 Requires=systemd-hibernate.service

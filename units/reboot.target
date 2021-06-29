@@ -8,7 +8,7 @@
 #  (at your option) any later version.
 
 [Unit]
-Description=Reboot
+Description=System Reboot
 Documentation=man:systemd.special(7)
 DefaultDependencies=no
 Requires=systemd-reboot.service
