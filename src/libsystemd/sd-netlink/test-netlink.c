@@ -2,7 +2,12 @@
 
 #include <net/if.h>
 #include <netinet/ether.h>
+#include <netinet/in.h>
+#include <linux/fou.h>
 #include <linux/genetlink.h>
+#include <linux/if_macsec.h>
+#include <linux/l2tp.h>
+#include <linux/nl80211.h>
 
 #include "sd-netlink.h"
 
@@ -583,24 +588,82 @@ static void test_strv(sd_netlink *rtnl) {
         assert_se(sd_netlink_message_exit_container(m) >= 0);
 }
 
+static int genl_ctrl_match_callback(sd_netlink *genl, sd_netlink_message *m, void *userdata) {
+        const char *name;
+        uint16_t id;
+        uint8_t cmd;
+
+        assert(genl);
+        assert(m);
+
+        assert_se(sd_genl_message_get_family_name(genl, m, &name) >= 0);
+        assert_se(streq(name, CTRL_GENL_NAME));
+
+        assert_se(sd_genl_message_get_command(genl, m, &cmd) >= 0);
+
+        switch (cmd) {
+        case CTRL_CMD_NEWFAMILY:
+        case CTRL_CMD_DELFAMILY:
+                assert_se(sd_netlink_message_read_string(m, CTRL_ATTR_FAMILY_NAME, &name) >= 0);
+                assert_se(sd_netlink_message_read_u16(m, CTRL_ATTR_FAMILY_ID, &id) >= 0);
+                log_debug("%s: %s (id=%"PRIu16") family is %s.",
+                          __func__, name, id, cmd == CTRL_CMD_NEWFAMILY ? "added" : "removed");
+                break;
+        case CTRL_CMD_NEWMCAST_GRP:
+        case CTRL_CMD_DELMCAST_GRP:
+                assert_se(sd_netlink_message_read_string(m, CTRL_ATTR_FAMILY_NAME, &name) >= 0);
+                assert_se(sd_netlink_message_read_u16(m, CTRL_ATTR_FAMILY_ID, &id) >= 0);
+                log_debug("%s: multicast group for %s (id=%"PRIu16") family is %s.",
+                          __func__, name, id, cmd == CTRL_CMD_NEWMCAST_GRP ? "added" : "removed");
+                break;
+        default:
+                log_debug("%s: received nlctrl message with unknown command '%"PRIu8"'.", __func__, cmd);
+        }
+
+        return 0;
+}
+
 static void test_genl(void) {
+        _cleanup_(sd_event_unrefp) sd_event *event = NULL;
         _cleanup_(sd_netlink_unrefp) sd_netlink *genl = NULL;
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
         const char *name;
         uint8_t cmd;
+        int r;
 
         log_debug("/* %s */", __func__);
 
         assert_se(sd_genl_socket_open(&genl) >= 0);
+        assert_se(sd_event_default(&event) >= 0);
+        assert_se(sd_netlink_attach_event(genl, event, 0) >= 0);
+
         assert_se(sd_genl_message_new(genl, CTRL_GENL_NAME, CTRL_CMD_GETFAMILY, &m) >= 0);
         assert_se(sd_genl_message_get_family_name(genl, m, &name) >= 0);
         assert_se(streq(name, CTRL_GENL_NAME));
         assert_se(sd_genl_message_get_command(genl, m, &cmd) >= 0);
         assert_se(cmd == CTRL_CMD_GETFAMILY);
 
+        assert_se(sd_genl_add_match(genl, NULL, CTRL_GENL_NAME, "notify", 0, genl_ctrl_match_callback, NULL, NULL, "genl-ctrl-notify") >= 0);
+
         m = sd_netlink_message_unref(m);
         assert_se(sd_genl_message_new(genl, "should-not-exist", CTRL_CMD_GETFAMILY, &m) < 0);
         assert_se(sd_genl_message_new(genl, "should-not-exist", CTRL_CMD_GETFAMILY, &m) == -EOPNOTSUPP);
+
+        /* These families may not be supported by kernel. Hence, ignore results. */
+        (void) sd_genl_message_new(genl, FOU_GENL_NAME, 0, &m);
+        m = sd_netlink_message_unref(m);
+        (void) sd_genl_message_new(genl, L2TP_GENL_NAME, 0, &m);
+        m = sd_netlink_message_unref(m);
+        (void) sd_genl_message_new(genl, MACSEC_GENL_NAME, 0, &m);
+        m = sd_netlink_message_unref(m);
+        (void) sd_genl_message_new(genl, NL80211_GENL_NAME, 0, &m);
+
+        for (;;) {
+                r = sd_event_run(event, 500 * USEC_PER_MSEC);
+                assert_se(r >= 0);
+                if (r == 0)
+                        return;
+        }
 }
 
 int main(void) {

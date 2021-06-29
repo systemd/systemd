@@ -18,6 +18,7 @@ typedef struct GenericNetlinkFamily {
         char *name;
         uint32_t version;
         uint32_t additional_header_size;
+        Hashmap *multicast_group_by_name;
 } GenericNetlinkFamily;
 
 static const GenericNetlinkFamily nlctrl_static = {
@@ -38,6 +39,7 @@ static GenericNetlinkFamily *genl_family_free(GenericNetlinkFamily *f) {
         }
 
         free(f->name);
+        hashmap_free(f->multicast_group_by_name);
 
         return mfree(f);
 }
@@ -131,6 +133,48 @@ static int genl_family_new(
         r = sd_netlink_message_read_u32(message, CTRL_ATTR_HDRSIZE, &f->additional_header_size);
         if (r < 0)
                 return r;
+
+        r = sd_netlink_message_enter_container(message, CTRL_ATTR_MCAST_GROUPS);
+        if (r >= 0) {
+                for (uint16_t i = 0; i < UINT16_MAX; i++) {
+                        _cleanup_free_ char *group_name = NULL;
+                        uint32_t group_id;
+
+                        r = sd_netlink_message_enter_array(message, i + 1);
+                        if (r == -ENODATA)
+                                break;
+                        if (r < 0)
+                                return r;
+
+                        r = sd_netlink_message_read_u32(message, CTRL_ATTR_MCAST_GRP_ID, &group_id);
+                        if (r < 0)
+                                return r;
+
+                        r = sd_netlink_message_read_string_strdup(message, CTRL_ATTR_MCAST_GRP_NAME, &group_name);
+                        if (r < 0)
+                                return r;
+
+                        r = sd_netlink_message_exit_container(message);
+                        if (r < 0)
+                                return r;
+
+                        if (group_id == 0) {
+                                log_debug("sd-netlink: received multicast group '%s' for generic netlink family '%s' with id == 0, ignoring",
+                                          group_name, f->name);
+                                continue;
+                        }
+
+                        r = hashmap_ensure_put(&f->multicast_group_by_name, &string_hash_ops_free, group_name, UINT32_TO_PTR(group_id));
+                        if (r < 0)
+                                return r;
+
+                        TAKE_PTR(group_name);
+                }
+
+                r = sd_netlink_message_exit_container(message);
+                if (r < 0)
+                        return r;
+        }
 
         r = hashmap_ensure_put(&nl->genl_family_by_id, NULL, UINT_TO_PTR(f->id), f);
         if (r < 0)
@@ -371,6 +415,56 @@ int sd_genl_message_get_command(sd_netlink *nl, sd_netlink_message *m, uint8_t *
 
         *ret = h->cmd;
         return 0;
+}
+
+static int genl_family_get_multicast_group_id_by_name(const GenericNetlinkFamily *f, const char *name, uint32_t *ret) {
+        void *p;
+
+        assert(f);
+        assert(name);
+
+        p = hashmap_get(f->multicast_group_by_name, name);
+        if (!p)
+                return -ENOENT;
+
+        if (ret)
+                *ret = PTR_TO_UINT32(p);
+        return 0;
+}
+
+int sd_genl_add_match(
+                sd_netlink *nl,
+                sd_netlink_slot **ret_slot,
+                const char *family_name,
+                const char *multicast_group_name,
+                uint8_t command,
+                sd_netlink_message_handler_t callback,
+                sd_netlink_destroy_t destroy_callback,
+                void *userdata,
+                const char *description) {
+
+        const GenericNetlinkFamily *f;
+        uint32_t multicast_group_id;
+        int r;
+
+        assert_return(nl, -EINVAL);
+        assert_return(nl->protocol == NETLINK_GENERIC, -EINVAL);
+        assert_return(callback, -EINVAL);
+        assert_return(family_name, -EINVAL);
+        assert_return(multicast_group_name, -EINVAL);
+
+        /* If command == 0, then all commands belonging to the multicast group trigger the callback. */
+
+        r = genl_family_get_by_name(nl, family_name, &f);
+        if (r < 0)
+                return r;
+
+        r = genl_family_get_multicast_group_id_by_name(f, multicast_group_name, &multicast_group_id);
+        if (r < 0)
+                return r;
+
+        return netlink_add_match_internal(nl, ret_slot, &multicast_group_id, 1, f->id, command,
+                                          callback, destroy_callback, userdata, description);
 }
 
 int sd_genl_socket_open(sd_netlink **ret) {
