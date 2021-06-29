@@ -31,7 +31,6 @@
 _SD_BEGIN_DECLARATIONS;
 
 typedef struct sd_netlink sd_netlink;
-typedef struct sd_genl_socket sd_genl_socket;
 typedef struct sd_netlink_message sd_netlink_message;
 typedef struct sd_netlink_slot sd_netlink_slot;
 
