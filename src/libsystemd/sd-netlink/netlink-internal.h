@@ -25,7 +25,10 @@ struct reply_callback {
 
 struct match_callback {
         sd_netlink_message_handler_t callback;
+        uint32_t *groups;
+        size_t n_groups;
         uint16_t type;
+        uint8_t cmd; /* used by genl */
 
         LIST_FIELDS(struct match_callback, match_callbacks);
 };
@@ -95,8 +98,8 @@ struct sd_netlink {
         sd_event_source *exit_event_source;
         sd_event *event;
 
-        Hashmap *genl_family_to_nlmsg_type;
-        Hashmap *nlmsg_type_to_genl_family;
+        Hashmap *genl_family_by_name;
+        Hashmap *genl_family_by_id;
 };
 
 struct netlink_attribute {
@@ -141,6 +144,28 @@ int socket_read_message(sd_netlink *nl);
 
 int rtnl_rqueue_make_room(sd_netlink *rtnl);
 int rtnl_rqueue_partial_make_room(sd_netlink *rtnl);
+
+int netlink_add_match_internal(
+                sd_netlink *nl,
+                sd_netlink_slot **ret_slot,
+                const uint32_t *groups,
+                size_t n_groups,
+                uint16_t type,
+                uint8_t cmd,
+                sd_netlink_message_handler_t callback,
+                sd_netlink_destroy_t destroy_callback,
+                void *userdata,
+                const char *description);
+
+void genl_clear_family(sd_netlink *nl);
+
+static inline bool message_needs_genl_type_system(sd_netlink_message *m) {
+        assert(m);
+        assert(m->hdr);
+
+        return m->protocol == NETLINK_GENERIC &&
+                !IN_SET(m->hdr->nlmsg_type, NLMSG_DONE, NLMSG_ERROR);
+}
 
 /* Make sure callbacks don't destroy the rtnl connection */
 #define NETLINK_DONT_DESTROY(rtnl) \
