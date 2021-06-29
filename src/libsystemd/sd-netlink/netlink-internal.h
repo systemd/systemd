@@ -25,6 +25,8 @@ struct reply_callback {
 
 struct match_callback {
         sd_netlink_message_handler_t callback;
+        uint32_t *groups;
+        size_t n_groups;
         uint16_t type;
 
         LIST_FIELDS(struct match_callback, match_callbacks);
@@ -141,6 +143,17 @@ int socket_read_message(sd_netlink *nl);
 
 int rtnl_rqueue_make_room(sd_netlink *rtnl);
 int rtnl_rqueue_partial_make_room(sd_netlink *rtnl);
+
+int netlink_add_match_internal(
+                sd_netlink *nl,
+                sd_netlink_slot **ret_slot,
+                const uint32_t *groups,
+                size_t n_groups,
+                uint16_t type,
+                sd_netlink_message_handler_t callback,
+                sd_netlink_destroy_t destroy_callback,
+                void *userdata,
+                const char *description);
 
 void genl_clear_family(sd_netlink *nl);
 
