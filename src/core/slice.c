@@ -180,6 +180,14 @@ static int slice_load(Unit *u) {
         if (r < 0)
                 return r;
 
+        if (!u->description) {
+                _cleanup_free_ char *tmp = NULL;
+
+                r = unit_name_to_path(u->id, &tmp);
+                if (r >= 0)  /* Failure is ignored… */
+                        u->description = strjoin("Slice ", tmp);
+        }
+
         return slice_verify(s);
 }
 
