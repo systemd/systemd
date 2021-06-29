@@ -25,7 +25,7 @@ static int nft_message_new(sd_netlink *nfnl, sd_netlink_message **ret, int famil
 
         assert_return(nfnl, -EINVAL);
 
-        r = type_system_root_get_type(nfnl, &nl_type, NFNL_SUBSYS_NFTABLES);
+        r = type_system_root_get_type(nfnl, &nl_type, NFNL_SUBSYS_NFTABLES, 0);
         if (r < 0)
                 return r;
 
