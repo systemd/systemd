@@ -1739,8 +1739,8 @@ int type_system_root_get_type(sd_netlink *nl, const NLType **ret, uint16_t type)
         const NLType *nl_type;
         int r;
 
-        if (!nl)
-                return type_system_get_type(&rtnl_type_system_root, ret, type);
+        assert(nl);
+        assert(ret);
 
         if (nl->protocol != NETLINK_GENERIC)
                 return type_system_get_type(type_system_get_root(nl->protocol), ret, type);
