@@ -334,7 +334,7 @@ DNSStubListenerExtra=udp:[2001:db8:0:f102::13]:9953</programlisting>
       <citerefentry><refentrytitle>systemd-resolved.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>systemd-networkd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>dnssec-trust-anchors.d</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
-      <citerefentry project='man-pages'><refentrytitle>resolv.conf</refentrytitle><manvolnum>4</manvolnum></citerefentry>
+      <citerefentry project='man-pages'><refentrytitle>resolv.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>
       </para>
   </refsect1>
 
