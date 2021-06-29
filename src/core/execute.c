@@ -4345,11 +4345,22 @@ static int exec_child(
         }
 
 #if HAVE_SELINUX
-        if (needs_sandboxing && use_selinux && params->selinux_context_net && socket_fd >= 0) {
-                r = mac_selinux_get_child_mls_label(socket_fd, executable, context->selinux_context, &mac_selinux_context_net);
-                if (r < 0) {
-                        *exit_status = EXIT_SELINUX_CONTEXT;
-                        return log_unit_error_errno(unit, r, "Failed to determine SELinux context: %m");
+        if (needs_sandboxing && use_selinux && params->selinux_context_net) {
+                int fd = -1;
+
+                if (socket_fd >= 0)
+                        fd = socket_fd;
+                else if (params->n_socket_fds == 1)
+                        /* If stdin is not connected to a socket but we are triggered by exactly one socket unit then we
+                         * use context from that fd to compute the label. */
+                        fd = params->fds[0];
+
+                if (fd >= 0) {
+                        r = mac_selinux_get_child_mls_label(fd, executable, context->selinux_context, &mac_selinux_context_net);
+                        if (r < 0) {
+                                *exit_status = EXIT_SELINUX_CONTEXT;
+                                return log_unit_error_errno(unit, r, "Failed to determine SELinux context: %m");
+                        }
                 }
         }
 #endif
