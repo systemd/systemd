@@ -1337,34 +1337,34 @@ static const NLTypeSystem nfnl_type_system_root = {
 /***************** genl type systems *****************/
 
 /***************** genl ctrl type systems *****************/
-static const NLType genl_mcast_group_types[] = {
+static const NLType genl_ctrl_mcast_group_types[] = {
         [CTRL_ATTR_MCAST_GRP_NAME]  = { .type = NETLINK_TYPE_STRING },
         [CTRL_ATTR_MCAST_GRP_ID]    = { .type = NETLINK_TYPE_U32 },
 };
 
-static const NLTypeSystem genl_mcast_group_type_system = {
-        .count = ELEMENTSOF(genl_mcast_group_types),
-        .types = genl_mcast_group_types,
+static const NLTypeSystem genl_ctrl_mcast_group_type_system = {
+        .count = ELEMENTSOF(genl_ctrl_mcast_group_types),
+        .types = genl_ctrl_mcast_group_types,
 };
 
-static const NLType genl_get_family_types[] = {
-        [CTRL_ATTR_FAMILY_NAME]  = { .type = NETLINK_TYPE_STRING },
+static const NLType genl_ctrl_types[] = {
         [CTRL_ATTR_FAMILY_ID]    = { .type = NETLINK_TYPE_U16 },
-        [CTRL_ATTR_MCAST_GROUPS] = { .type = NETLINK_TYPE_NESTED, .type_system = &genl_mcast_group_type_system },
+        [CTRL_ATTR_FAMILY_NAME]  = { .type = NETLINK_TYPE_STRING },
+        [CTRL_ATTR_MCAST_GROUPS] = { .type = NETLINK_TYPE_NESTED, .type_system = &genl_ctrl_mcast_group_type_system },
 };
 
-static const NLTypeSystem genl_get_family_type_system = {
-        .count = ELEMENTSOF(genl_get_family_types),
-        .types = genl_get_family_types,
+static const NLTypeSystem genl_ctrl_type_system = {
+        .count = ELEMENTSOF(genl_ctrl_types),
+        .types = genl_ctrl_types,
 };
 
-static const NLType genl_ctrl_id_ctrl_cmds[] = {
-        [CTRL_CMD_GETFAMILY] = { .type = NETLINK_TYPE_NESTED, .type_system = &genl_get_family_type_system },
+static const NLType genl_ctrl_cmds[] = {
+        [CTRL_CMD_GETFAMILY]    = { .type = NETLINK_TYPE_NESTED, .type_system = &genl_ctrl_type_system, },
 };
 
-static const NLTypeSystem genl_ctrl_id_ctrl_type_system = {
-        .count = ELEMENTSOF(genl_ctrl_id_ctrl_cmds),
-        .types = genl_ctrl_id_ctrl_cmds,
+static const NLTypeSystem genl_ctrl_type_system_root = {
+        .count = ELEMENTSOF(genl_ctrl_cmds),
+        .types = genl_ctrl_cmds,
 };
 
 /***************** genl batadv type systems *****************/
@@ -1440,7 +1440,7 @@ static const NLType genl_batadv_cmds[] = {
         [BATADV_CMD_SET_MESH] = { .type = NETLINK_TYPE_NESTED, .type_system = &genl_batadv_type_system },
 };
 
-static const NLTypeSystem genl_batadv_cmds_type_system = {
+static const NLTypeSystem genl_batadv_type_system_root = {
         .count = ELEMENTSOF(genl_batadv_cmds),
         .types = genl_batadv_cmds,
 };
@@ -1471,7 +1471,7 @@ static const NLType genl_fou_cmds[] = {
         [FOU_CMD_GET] = { .type = NETLINK_TYPE_NESTED, .type_system = &genl_fou_type_system },
 };
 
-static const NLTypeSystem genl_fou_cmds_type_system = {
+static const NLTypeSystem genl_fou_type_system_root = {
         .count = ELEMENTSOF(genl_fou_cmds),
         .types = genl_fou_cmds,
 };
@@ -1512,7 +1512,7 @@ static const NLTypeSystem genl_l2tp_type_system = {
         .types = genl_l2tp_types,
 };
 
-static const NLType genl_l2tp[]   = {
+static const NLType genl_l2tp_cmds[] = {
         [L2TP_CMD_TUNNEL_CREATE]  = { .type = NETLINK_TYPE_NESTED, .type_system = &genl_l2tp_type_system },
         [L2TP_CMD_TUNNEL_DELETE]  = { .type = NETLINK_TYPE_NESTED, .type_system = &genl_l2tp_type_system },
         [L2TP_CMD_TUNNEL_MODIFY]  = { .type = NETLINK_TYPE_NESTED, .type_system = &genl_l2tp_type_system },
@@ -1523,24 +1523,14 @@ static const NLType genl_l2tp[]   = {
         [L2TP_CMD_SESSION_GET]    = { .type = NETLINK_TYPE_NESTED, .type_system = &genl_l2tp_type_system },
 };
 
-static const NLTypeSystem genl_l2tp_tunnel_session_type_system = {
-        .count = ELEMENTSOF(genl_l2tp),
-        .types = genl_l2tp,
+static const NLTypeSystem genl_l2tp_type_system_root = {
+        .count = ELEMENTSOF(genl_l2tp_cmds),
+        .types = genl_l2tp_cmds,
 };
 
 /***************** genl macsec type systems *****************/
-static const NLType genl_rxsc_types[] = {
-        [MACSEC_RXSC_ATTR_SCI] = { .type = NETLINK_TYPE_U64 },
-};
-
-static const NLTypeSystem genl_rxsc_config_type_system = {
-        .count = ELEMENTSOF(genl_rxsc_types),
-        .types = genl_rxsc_types,
-};
-
 static const NLType genl_macsec_rxsc_types[] = {
-        [MACSEC_ATTR_IFINDEX]     = { .type = NETLINK_TYPE_U32 },
-        [MACSEC_ATTR_RXSC_CONFIG] = { .type = NETLINK_TYPE_NESTED, .type_system = &genl_rxsc_config_type_system },
+        [MACSEC_RXSC_ATTR_SCI] = { .type = NETLINK_TYPE_U64 },
 };
 
 static const NLTypeSystem genl_macsec_rxsc_type_system = {
@@ -1548,7 +1538,7 @@ static const NLTypeSystem genl_macsec_rxsc_type_system = {
         .types = genl_macsec_rxsc_types,
 };
 
-static const NLType genl_macsec_sa_config_types[] = {
+static const NLType genl_macsec_sa_types[] = {
         [MACSEC_SA_ATTR_AN]     = { .type = NETLINK_TYPE_U8 },
         [MACSEC_SA_ATTR_ACTIVE] = { .type = NETLINK_TYPE_U8 },
         [MACSEC_SA_ATTR_PN]     = { .type = NETLINK_TYPE_U32 },
@@ -1556,41 +1546,31 @@ static const NLType genl_macsec_sa_config_types[] = {
         [MACSEC_SA_ATTR_KEY]    = { .size = MACSEC_MAX_KEY_LEN },
 };
 
-static const NLTypeSystem genl_macsec_sa_config_type_system = {
-        .count = ELEMENTSOF(genl_macsec_sa_config_types),
-        .types = genl_macsec_sa_config_types,
-};
-
-static const NLType genl_macsec_rxsa_types[] = {
-        [MACSEC_ATTR_IFINDEX]   = { .type = NETLINK_TYPE_U32 },
-        [MACSEC_ATTR_SA_CONFIG] = { .type = NETLINK_TYPE_NESTED, .type_system = &genl_macsec_sa_config_type_system },
-};
-
-static const NLTypeSystem genl_macsec_rxsa_type_system = {
-        .count = ELEMENTSOF(genl_macsec_rxsa_types),
-        .types = genl_macsec_rxsa_types,
-};
-
-static const NLType genl_macsec_sa_types[] = {
-        [MACSEC_ATTR_IFINDEX]     = { .type = NETLINK_TYPE_U32 },
-        [MACSEC_ATTR_RXSC_CONFIG] = { .type = NETLINK_TYPE_NESTED, .type_system = &genl_rxsc_config_type_system },
-        [MACSEC_ATTR_SA_CONFIG]   = { .type = NETLINK_TYPE_NESTED, .type_system = &genl_macsec_sa_config_type_system },
-};
-
 static const NLTypeSystem genl_macsec_sa_type_system = {
         .count = ELEMENTSOF(genl_macsec_sa_types),
         .types = genl_macsec_sa_types,
 };
 
-static const NLType genl_macsec[]   = {
-        [MACSEC_CMD_ADD_RXSC]  = { .type = NETLINK_TYPE_NESTED, .type_system = &genl_macsec_rxsc_type_system },
-        [MACSEC_CMD_ADD_TXSA]  = { .type = NETLINK_TYPE_NESTED, .type_system = &genl_macsec_rxsa_type_system},
-        [MACSEC_CMD_ADD_RXSA]  = { .type = NETLINK_TYPE_NESTED, .type_system = &genl_macsec_sa_type_system },
+static const NLType genl_macsec_types[] = {
+        [MACSEC_ATTR_IFINDEX]     = { .type = NETLINK_TYPE_U32 },
+        [MACSEC_ATTR_RXSC_CONFIG] = { .type = NETLINK_TYPE_NESTED, .type_system = &genl_macsec_rxsc_type_system },
+        [MACSEC_ATTR_SA_CONFIG]   = { .type = NETLINK_TYPE_NESTED, .type_system = &genl_macsec_sa_type_system },
 };
 
-static const NLTypeSystem genl_macsec_device_type_system = {
-        .count = ELEMENTSOF(genl_macsec),
-        .types = genl_macsec,
+static const NLTypeSystem genl_macsec_type_system = {
+        .count = ELEMENTSOF(genl_macsec_types),
+        .types = genl_macsec_types,
+};
+
+static const NLType genl_macsec_cmds[] = {
+        [MACSEC_CMD_ADD_RXSC]  = { .type = NETLINK_TYPE_NESTED, .type_system = &genl_macsec_type_system },
+        [MACSEC_CMD_ADD_TXSA]  = { .type = NETLINK_TYPE_NESTED, .type_system = &genl_macsec_type_system },
+        [MACSEC_CMD_ADD_RXSA]  = { .type = NETLINK_TYPE_NESTED, .type_system = &genl_macsec_type_system },
+};
+
+static const NLTypeSystem genl_macsec_type_system_root = {
+        .count = ELEMENTSOF(genl_macsec_cmds),
+        .types = genl_macsec_cmds,
 };
 
 /***************** genl nl80211 type systems *****************/
@@ -1621,15 +1601,15 @@ static const NLType genl_nl80211_cmds[] = {
         [NL80211_CMD_DEL_STATION]   = { .type = NETLINK_TYPE_NESTED, .type_system = &genl_nl80211_type_system },
 };
 
-static const NLTypeSystem genl_nl80211_cmds_type_system = {
+static const NLTypeSystem genl_nl80211_type_system_root = {
         .count = ELEMENTSOF(genl_nl80211_cmds),
         .types = genl_nl80211_cmds,
 };
 
 /***************** genl wireguard type systems *****************/
 static const NLType genl_wireguard_allowedip_types[] = {
-        [WGALLOWEDIP_A_FAMILY] = { .type = NETLINK_TYPE_U16 },
-        [WGALLOWEDIP_A_IPADDR] = { .type = NETLINK_TYPE_IN_ADDR },
+        [WGALLOWEDIP_A_FAMILY]    = { .type = NETLINK_TYPE_U16 },
+        [WGALLOWEDIP_A_IPADDR]    = { .type = NETLINK_TYPE_IN_ADDR },
         [WGALLOWEDIP_A_CIDR_MASK] = { .type = NETLINK_TYPE_U8 },
 };
 
@@ -1639,12 +1619,12 @@ static const NLTypeSystem genl_wireguard_allowedip_type_system = {
 };
 
 static const NLType genl_wireguard_peer_types[] = {
-        [WGPEER_A_PUBLIC_KEY] = { .size = WG_KEY_LEN  },
-        [WGPEER_A_FLAGS] = { .type = NETLINK_TYPE_U32 },
-        [WGPEER_A_PRESHARED_KEY] = { .size = WG_KEY_LEN },
+        [WGPEER_A_PUBLIC_KEY]                    = { .size = WG_KEY_LEN },
+        [WGPEER_A_FLAGS]                         = { .type = NETLINK_TYPE_U32 },
+        [WGPEER_A_PRESHARED_KEY]                 = { .size = WG_KEY_LEN },
         [WGPEER_A_PERSISTENT_KEEPALIVE_INTERVAL] = { .type = NETLINK_TYPE_U16 },
-        [WGPEER_A_ENDPOINT] = { .type = NETLINK_TYPE_SOCKADDR },
-        [WGPEER_A_ALLOWEDIPS] = { .type = NETLINK_TYPE_NESTED, .type_system = &genl_wireguard_allowedip_type_system },
+        [WGPEER_A_ENDPOINT]                      = { .type = NETLINK_TYPE_SOCKADDR },
+        [WGPEER_A_ALLOWEDIPS]                    = { .type = NETLINK_TYPE_NESTED, .type_system = &genl_wireguard_allowedip_type_system },
 };
 
 static const NLTypeSystem genl_wireguard_peer_type_system = {
@@ -1652,38 +1632,38 @@ static const NLTypeSystem genl_wireguard_peer_type_system = {
         .types = genl_wireguard_peer_types,
 };
 
-static const NLType genl_wireguard_set_device_types[] = {
-        [WGDEVICE_A_IFINDEX] = { .type = NETLINK_TYPE_U32 },
-        [WGDEVICE_A_IFNAME] = { .type = NETLINK_TYPE_STRING, .size = IFNAMSIZ-1 },
-        [WGDEVICE_A_FLAGS] = { .type = NETLINK_TYPE_U32 },
+static const NLType genl_wireguard_types[] = {
+        [WGDEVICE_A_IFINDEX]     = { .type = NETLINK_TYPE_U32 },
+        [WGDEVICE_A_IFNAME]      = { .type = NETLINK_TYPE_STRING, .size = IFNAMSIZ-1 },
+        [WGDEVICE_A_FLAGS]       = { .type = NETLINK_TYPE_U32 },
         [WGDEVICE_A_PRIVATE_KEY] = { .size = WG_KEY_LEN },
         [WGDEVICE_A_LISTEN_PORT] = { .type = NETLINK_TYPE_U16 },
-        [WGDEVICE_A_FWMARK] = { .type = NETLINK_TYPE_U32 },
-        [WGDEVICE_A_PEERS] = { .type = NETLINK_TYPE_NESTED, .type_system = &genl_wireguard_peer_type_system },
-};
-
-static const NLTypeSystem genl_wireguard_set_device_type_system = {
-        .count = ELEMENTSOF(genl_wireguard_set_device_types),
-        .types = genl_wireguard_set_device_types,
-};
-
-static const NLType genl_wireguard_cmds[] = {
-        [WG_CMD_SET_DEVICE] = { .type = NETLINK_TYPE_NESTED, .type_system = &genl_wireguard_set_device_type_system },
+        [WGDEVICE_A_FWMARK]      = { .type = NETLINK_TYPE_U32 },
+        [WGDEVICE_A_PEERS]       = { .type = NETLINK_TYPE_NESTED, .type_system = &genl_wireguard_peer_type_system },
 };
 
 static const NLTypeSystem genl_wireguard_type_system = {
+        .count = ELEMENTSOF(genl_wireguard_types),
+        .types = genl_wireguard_types,
+};
+
+static const NLType genl_wireguard_cmds[] = {
+        [WG_CMD_SET_DEVICE] = { .type = NETLINK_TYPE_NESTED, .type_system = &genl_wireguard_type_system },
+};
+
+static const NLTypeSystem genl_wireguard_type_system_root = {
         .count = ELEMENTSOF(genl_wireguard_cmds),
         .types = genl_wireguard_cmds,
 };
 
 static const NLType genl_families[] = {
-        [SD_GENL_ID_CTRL]   = { .type = NETLINK_TYPE_NESTED, .type_system = &genl_ctrl_id_ctrl_type_system },
-        [SD_GENL_WIREGUARD] = { .type = NETLINK_TYPE_NESTED, .type_system = &genl_wireguard_type_system },
-        [SD_GENL_FOU]       = { .type = NETLINK_TYPE_NESTED, .type_system = &genl_fou_cmds_type_system },
-        [SD_GENL_L2TP]      = { .type = NETLINK_TYPE_NESTED, .type_system = &genl_l2tp_tunnel_session_type_system },
-        [SD_GENL_MACSEC]    = { .type = NETLINK_TYPE_NESTED, .type_system = &genl_macsec_device_type_system },
-        [SD_GENL_NL80211]   = { .type = NETLINK_TYPE_NESTED, .type_system = &genl_nl80211_cmds_type_system },
-        [SD_GENL_BATADV]    = { .type = NETLINK_TYPE_NESTED, .type_system = &genl_batadv_cmds_type_system },
+        [SD_GENL_ID_CTRL]   = { .type = NETLINK_TYPE_NESTED, .type_system = &genl_ctrl_type_system_root },
+        [SD_GENL_WIREGUARD] = { .type = NETLINK_TYPE_NESTED, .type_system = &genl_wireguard_type_system_root },
+        [SD_GENL_FOU]       = { .type = NETLINK_TYPE_NESTED, .type_system = &genl_fou_type_system_root },
+        [SD_GENL_L2TP]      = { .type = NETLINK_TYPE_NESTED, .type_system = &genl_l2tp_type_system_root },
+        [SD_GENL_MACSEC]    = { .type = NETLINK_TYPE_NESTED, .type_system = &genl_macsec_type_system_root },
+        [SD_GENL_NL80211]   = { .type = NETLINK_TYPE_NESTED, .type_system = &genl_nl80211_type_system_root },
+        [SD_GENL_BATADV]    = { .type = NETLINK_TYPE_NESTED, .type_system = &genl_batadv_type_system_root },
 };
 
 /* Mainly used when sending message */
@@ -1693,10 +1673,10 @@ const NLTypeSystem genl_family_type_system_root = {
 };
 
 static const NLType genl_types[] = {
-        [SD_GENL_ERROR]   = { .type = NETLINK_TYPE_NESTED, .type_system = &error_type_system, .size = sizeof(struct nlmsgerr) },
         [SD_GENL_DONE]    = { .type = NETLINK_TYPE_NESTED, .type_system = &empty_type_system },
-        [SD_GENL_ID_CTRL] = { .type = NETLINK_TYPE_NESTED, .type_system = &genl_get_family_type_system, .size = sizeof(struct genlmsghdr) },
-        [SD_GENL_NL80211] = { .type = NETLINK_TYPE_NESTED, .type_system = &genl_nl80211_type_system, .size = sizeof(struct genlmsghdr) },
+        [SD_GENL_ERROR]   = { .type = NETLINK_TYPE_NESTED, .type_system = &error_type_system, .size = sizeof(struct nlmsgerr) },
+        [SD_GENL_ID_CTRL] = { .type = NETLINK_TYPE_NESTED, .type_system = &genl_ctrl_type_system, .size = sizeof(struct genlmsghdr) },
+        [SD_GENL_NL80211] = { .type = NETLINK_TYPE_NESTED, .type_system = &genl_nl80211_type_system_root, .size = sizeof(struct genlmsghdr) },
 };
 
 /* Mainly used when message received */
