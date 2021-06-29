@@ -1262,7 +1262,7 @@ int parse_nsec(const char *t, nsec_t *nsec) {
         return 0;
 }
 
-int get_timezones(char ***ret) {
+static int get_timezones_from_zone1970_tab(char ***ret) {
         _cleanup_fclose_ FILE *f = NULL;
         _cleanup_strv_free_ char **zones = NULL;
         size_t n_zones = 0;
@@ -1327,6 +1327,94 @@ int get_timezones(char ***ret) {
         *ret = TAKE_PTR(zones);
 
         return 0;
+}
+
+static int get_timezones_from_tzdata_zi(char ***ret) {
+        _cleanup_fclose_ FILE *f = NULL;
+        _cleanup_strv_free_ char **zones = NULL;
+        size_t n_zones = 0;
+        int r;
+
+        assert(ret);
+
+        zones = strv_new("UTC");
+        if (!zones)
+                return -ENOMEM;
+
+        n_zones = 1;
+
+        f = fopen("/usr/share/zoneinfo/tzdata.zi", "re");
+        if (f) {
+                for (;;) {
+                        _cleanup_free_ char *line = NULL, *w = NULL;
+                        char *p, type;
+                        size_t k;
+
+                        r = read_line(f, LONG_LINE_MAX, &line);
+                        if (r < 0)
+                                return r;
+                        if (r == 0)
+                                break;
+
+                        p = strstrip(line);
+
+                        /* The only lines we care about are Zone and Link lines.
+                         * Zone lines have the timezone in the 2nd field.
+                         * Link lines have the timezone in the 3rd field.
+                         * See 'man zic' for more detail. */
+                        if (isempty(p) || !IN_SET(*p, 'Z', 'z', 'L', 'l'))
+                                continue;
+
+                        type = *p;
+
+                        /* move to second field */
+                        p += strcspn(p, WHITESPACE);
+                        p += strspn(p, WHITESPACE);
+
+                        if (type == 'L' || type == 'l') {
+                                /* move to third field */
+                                p += strcspn(p, WHITESPACE);
+                                p += strspn(p, WHITESPACE);
+                        }
+
+                        k = strcspn(p, WHITESPACE);
+                        if (k <= 0)
+                                continue;
+
+                        w = strndup(p, k);
+                        if (!w)
+                                return -ENOMEM;
+
+                        if (!GREEDY_REALLOC(zones, n_zones + 2))
+                                return -ENOMEM;
+
+                        zones[n_zones++] = TAKE_PTR(w);
+                        zones[n_zones] = NULL;
+                }
+
+                strv_sort(zones);
+                strv_uniq(zones);
+
+        } else if (errno != ENOENT)
+                return -errno;
+
+        *ret = TAKE_PTR(zones);
+
+        return 0;
+}
+
+int get_timezones(char ***ret) {
+        int r;
+
+        r = get_timezones_from_tzdata_zi(ret);
+        if (r == 0)
+                return 0;
+
+        r = get_timezones_from_zone1970_tab(ret);
+        if (r == 0)
+                return 0;
+
+        return r;
 }
 
 bool timezone_is_valid(const char *name, int log_level) {
