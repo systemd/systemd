@@ -8,6 +8,6 @@
 #  (at your option) any later version.
 
 [Unit]
-Description=Local File Systems (Pre)
+Description=Preparation for Local File Systems
 Documentation=man:systemd.special(7)
 RefuseManualStart=yes

@@ -8,6 +8,6 @@
 #  (at your option) any later version.
 
 [Unit]
-Description=Remote File Systems (Pre)
+Description=Preparation for Remote File Systems
 Documentation=man:systemd.special(7)
 RefuseManualStart=yes

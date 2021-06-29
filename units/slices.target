@@ -8,7 +8,7 @@
 #  (at your option) any later version.
 
 [Unit]
-Description=Slices
+Description=Slice Units
 Documentation=man:systemd.special(7)
 Wants=-.slice system.slice
 After=-.slice system.slice

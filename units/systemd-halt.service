@@ -8,7 +8,7 @@
 #  (at your option) any later version.
 
 [Unit]
-Description=Halt
+Description=System Halt
 Documentation=man:systemd-halt.service(8)
 DefaultDependencies=no
 Requires=shutdown.target umount.target final.target

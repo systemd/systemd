@@ -8,7 +8,7 @@
 #  (at your option) any later version.
 
 [Unit]
-Description=Network Service
+Description=Network Configuration
 Documentation=man:systemd-networkd.service(8)
 ConditionCapability=CAP_NET_ADMIN
 DefaultDependencies=no
