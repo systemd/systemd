@@ -239,6 +239,12 @@ int sd_genl_message_new(sd_netlink *nl, const char *family_name, uint8_t cmd, sd
 int sd_genl_message_get_family_name(sd_netlink *nl, sd_netlink_message *m, const char **ret);
 int sd_genl_message_get_command(sd_netlink *nl, sd_netlink_message *m, uint8_t *ret);
 
+int sd_genl_add_match(sd_netlink *nl, sd_netlink_slot **ret_slot, const char *family_name,
+                      const char *multicast_group_name, uint8_t command,
+                      sd_netlink_message_handler_t callback,
+                      sd_netlink_destroy_t destroy_callback,
+                      void *userdata, const char *description);
+
 /* slot */
 sd_netlink_slot *sd_netlink_slot_ref(sd_netlink_slot *nl);
 sd_netlink_slot *sd_netlink_slot_unref(sd_netlink_slot *nl);
