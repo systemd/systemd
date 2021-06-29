@@ -77,13 +77,14 @@ def _extract_directives(directive_groups, formatting, page):
                 storfile[text].append((pagename, section))
                 formatting[text] = name
 
-    storfile = directive_groups['constants']
     for name in t.iterfind('.//constant'):
         if name.attrib.get('index') == 'false':
             continue
         name.tail = ''
         if name.text.startswith('('): # a cast, strip it
             name.text = name.text.partition(' ')[2]
+        klass = name.attrib.get('class') or 'constants'
+        storfile = directive_groups[klass]
         storfile[name.text].append((pagename, section))
         formatting[name.text] = name
 
