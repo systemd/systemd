@@ -242,6 +242,8 @@ tests += [
 
         [['src/test/test-parse-argument.c']],
 
+        [['src/test/test-parse-socket-bind-item.c']],
+
         [['src/test/test-parse-util.c']],
 
         [['src/test/test-sysctl-util.c']],

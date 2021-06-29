@@ -225,6 +225,8 @@ shared_sources = files('''
         pager.h
         parse-argument.c
         parse-argument.h
+        parse-socket-bind-item.c
+        parse-socket-bind-item.h
         pe-header.h
         pkcs11-util.c
         pkcs11-util.h
