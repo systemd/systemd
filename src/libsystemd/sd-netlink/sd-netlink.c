@@ -426,26 +426,37 @@ static int process_reply(sd_netlink *rtnl, sd_netlink_message *m) {
         return 1;
 }
 
-static int process_match(sd_netlink *rtnl, sd_netlink_message *m) {
+static int process_match(sd_netlink *nl, sd_netlink_message *m) {
         struct match_callback *c;
-        sd_netlink_slot *slot;
         uint16_t type;
+        uint8_t cmd;
         int r;
 
-        assert(rtnl);
+        assert(nl);
         assert(m);
 
         r = sd_netlink_message_get_type(m, &type);
         if (r < 0)
                 return r;
 
-        LIST_FOREACH(match_callbacks, c, rtnl->match_callbacks) {
+        if (message_needs_genl_type_system(m)) {
+                r = sd_genl_message_get_command(nl, m, &cmd);
+                if (r < 0)
+                        return r;
+        } else
+                cmd = 0;
+
+        LIST_FOREACH(match_callbacks, c, nl->match_callbacks) {
+                sd_netlink_slot *slot;
+
                 if (type != c->type)
+                        continue;
+                if (cmd != c->cmd)
                         continue;
 
                 slot = container_of(c, sd_netlink_slot, match_callback);
 
-                r = c->callback(rtnl, m, slot->userdata);
+                r = c->callback(nl, m, slot->userdata);
                 if (r < 0)
                         log_debug_errno(r, "sd-netlink: match callback %s%s%sfailed: %m",
                                         slot->description ? "'" : "",
@@ -903,6 +914,7 @@ int netlink_add_match_internal(
                 const uint32_t *groups,
                 size_t n_groups,
                 uint16_t type,
+                uint8_t cmd,
                 sd_netlink_message_handler_t callback,
                 sd_netlink_destroy_t destroy_callback,
                 void *userdata,
@@ -932,6 +944,7 @@ int netlink_add_match_internal(
         slot->match_callback.n_groups = n_groups;
         slot->match_callback.callback = callback;
         slot->match_callback.type = type;
+        slot->match_callback.cmd = cmd;
 
         LIST_PREPEND(match_callbacks, nl->match_callbacks, &slot->match_callback);
 
@@ -1003,6 +1016,6 @@ int sd_netlink_add_match(
                         return -EOPNOTSUPP;
         }
 
-        return netlink_add_match_internal(rtnl, ret_slot, groups, n_groups, type, callback,
+        return netlink_add_match_internal(rtnl, ret_slot, groups, n_groups, type, 0, callback,
                                           destroy_callback, userdata, description);
 }

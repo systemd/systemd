@@ -28,6 +28,7 @@ struct match_callback {
         uint32_t *groups;
         size_t n_groups;
         uint16_t type;
+        uint8_t cmd; /* used by genl */
 
         LIST_FIELDS(struct match_callback, match_callbacks);
 };
@@ -150,6 +151,7 @@ int netlink_add_match_internal(
                 const uint32_t *groups,
                 size_t n_groups,
                 uint16_t type,
+                uint8_t cmd,
                 sd_netlink_message_handler_t callback,
                 sd_netlink_destroy_t destroy_callback,
                 void *userdata,
