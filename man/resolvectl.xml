@@ -19,6 +19,7 @@
   <refnamediv>
     <refname>resolvectl</refname>
     <refname>resolvconf</refname>
+    <refname>systemd-resolve</refname>
     <refpurpose>Resolve domain names, IPV4 and IPv6 addresses, DNS resource records, and services; introspect and reconfigure the DNS resolver</refpurpose>
   </refnamediv>
 
@@ -470,6 +471,18 @@
     <para>See
     <citerefentry project="debian"><refentrytitle>resolvconf</refentrytitle><manvolnum>8</manvolnum></citerefentry>
     for details on those command line options.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Backwards compatibility with <command>systemd-resolve</command></title>
+
+    <para><command>resolvectl</command> is a multi-call binary, which previously was named <literal>systemd-resolve</literal>
+    and used slightly different parameters. When it is invoked as <literal>systemd-resolve</literal>
+    (generally achieved by means of a symbolic link of this name to the <command>resolvectl</command> binary),
+    it runs in compatibility mode. For details on the specific parameters and calling syntax, see the output from
+    <command>systemd-resolve --help</command>. Calling the binary as <literal>systemd-resolve</literal> is
+    deprecated and should only be done for backwards compatibility. All current and new use should call the binary
+    as <literal>resolvectl</literal>.</para>
   </refsect1>
 
   <refsect1>
