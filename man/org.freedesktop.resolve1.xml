@@ -114,7 +114,21 @@ node /org/freedesktop/resolve1 {
       UnregisterService(in  o service_path);
       ResetStatistics();
       FlushCaches();
+      ShowCaches(out a(sssss) mdns_cache);
       ResetServerFeatures();
+    signals:
+      ItemNew(s interface,
+              s protocol,
+              s name,
+              s type,
+              s domain);
+      ItemRemove(s interface,
+                 s protocol,
+                 s name,
+                 s type,
+                 s domain);
+      AllForNow(s status);
+      CacheExhausted(s status);
     properties:
       readonly s LLMNRHostname = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
@@ -162,7 +176,17 @@ node /org/freedesktop/resolve1 {
 
     <!--method FlushCaches is not documented!-->
 
+    <!--method ShowCaches is not documented!-->
+
     <!--method ResetServerFeatures is not documented!-->
+
+    <!--signal ItemNew is not documented!-->
+
+    <!--signal ItemRemove is not documented!-->
+
+    <!--signal AllForNow is not documented!-->
+
+    <!--signal CacheExhausted is not documented!-->
 
     <!--property DNSSECNegativeTrustAnchors is not documented!-->
 
@@ -210,7 +234,17 @@ node /org/freedesktop/resolve1 {
 
     <variablelist class="dbus-method" generated="True" extra-ref="FlushCaches()"/>
 
+    <variablelist class="dbus-method" generated="True" extra-ref="ShowCaches()"/>
+
     <variablelist class="dbus-method" generated="True" extra-ref="ResetServerFeatures()"/>
+
+    <variablelist class="dbus-signal" generated="True" extra-ref="ItemNew"/>
+
+    <variablelist class="dbus-signal" generated="True" extra-ref="ItemRemove"/>
+
+    <variablelist class="dbus-signal" generated="True" extra-ref="AllForNow"/>
+
+    <variablelist class="dbus-signal" generated="True" extra-ref="CacheExhausted"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="LLMNRHostname"/>
 
