@@ -681,7 +681,7 @@ DNSSECNegativeTrustAnchors=company lab
         self.assertIn(b'kettle.cantina.company: 10.241.4.4', out)
 
         # test general domains
-        out = subprocess.check_output(['resolvectl', 'query', 'megasearch.net'])
+        out = subprocess.getoutput(['resolvectl', 'query', 'megasearch.net'])
         self.assertIn(b'megasearch.net: 192.168.42.1', out)
 
         with open(self.dnsmasq_log) as f:
@@ -747,7 +747,7 @@ DNSSECNegativeTrustAnchors=company lab
             self.assertIn(b'172.16.99.99: my.example.com', out)
 
             # non-address RRs should fall back to DNS
-            out = subprocess.check_output(['resolvectl', 'query', '--type=MX', 'example.com'])
+            out = subprocess.getoutput(['resolvectl', 'query', '--type=MX', 'example.com'])
             self.assertIn(b'example.com IN MX 1 mail.example.com', out)
 
             # other domains query DNS
