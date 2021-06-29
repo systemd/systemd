@@ -655,7 +655,7 @@ static int session_start_scope(Session *s, sd_bus_message *properties, sd_bus_er
                 if (!scope)
                         return log_oom();
 
-                description = strjoina("Session ", s->id, " of user ", s->user->user_record->user_name);
+                description = strjoina("Session ", s->id, " of User ", s->user->user_record->user_name);
 
                 r = manager_start_scope(
                                 s->manager,
