@@ -67,7 +67,7 @@ manpages = [
  ['portablectl', '1', [], 'ENABLE_PORTABLED'],
  ['pstore.conf', '5', ['pstore.conf.d'], 'ENABLE_PSTORE'],
  ['repart.d', '5', [], 'ENABLE_REPART'],
- ['resolvectl', '1', ['resolvconf'], 'ENABLE_RESOLVE'],
+ ['resolvectl', '1', ['resolvconf', 'systemd-resolve'], 'ENABLE_RESOLVE'],
  ['resolved.conf', '5', ['resolved.conf.d'], 'ENABLE_RESOLVE'],
  ['runlevel', '8', [], 'HAVE_SYSV_COMPAT'],
  ['sd-bus-errors',
