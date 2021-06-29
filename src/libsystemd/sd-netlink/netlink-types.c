@@ -1660,8 +1660,8 @@ uint16_t type_system_get_count(const NLTypeSystem *type_system) {
 int type_system_root_get_type(sd_netlink *nl, const NLType **ret, uint16_t type) {
         int r;
 
-        if (!nl)
-                return type_system_get_type(&rtnl_type_system_root, ret, type);
+        assert(nl);
+        assert(ret);
 
         if (IN_SET(type, NLMSG_DONE, NLMSG_ERROR))
                 return type_system_get_type(&basic_type_system_root, ret, type);
