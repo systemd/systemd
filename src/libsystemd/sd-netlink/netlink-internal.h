@@ -25,6 +25,8 @@ struct reply_callback {
 
 struct match_callback {
         sd_netlink_message_handler_t callback;
+        uint32_t *groups;
+        size_t n_groups;
         uint16_t type;
 
         LIST_FIELDS(struct match_callback, match_callbacks);
@@ -150,6 +152,17 @@ int socket_broadcast_group_unref(sd_netlink *nl, unsigned group);
 int socket_write_message(sd_netlink *nl, sd_netlink_message *m);
 int socket_writev_message(sd_netlink *nl, sd_netlink_message **m, size_t msgcount);
 int socket_read_message(sd_netlink *nl);
+
+int netlink_add_match_internal(
+                sd_netlink *nl,
+                sd_netlink_slot **ret_slot,
+                const uint32_t *groups,
+                size_t n_groups,
+                uint16_t type,
+                sd_netlink_message_handler_t callback,
+                sd_netlink_destroy_t destroy_callback,
+                void *userdata,
+                const char *description);
 
 /* Make sure callbacks don't destroy the netlink connection */
 #define NETLINK_DONT_DESTROY(nl) \

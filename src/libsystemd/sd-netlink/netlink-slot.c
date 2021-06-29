@@ -70,25 +70,11 @@ void netlink_slot_disconnect(sd_netlink_slot *slot, bool unref) {
         case NETLINK_MATCH_CALLBACK:
                 LIST_REMOVE(match_callbacks, nl->match_callbacks, &slot->match_callback);
 
-                switch (slot->match_callback.type) {
-                case RTM_NEWLINK:
-                case RTM_DELLINK:
-                        (void) socket_broadcast_group_unref(nl, RTNLGRP_LINK);
+                for (size_t i = 0; i < slot->match_callback.n_groups; i++)
+                        (void) socket_broadcast_group_unref(nl, slot->match_callback.groups[i]);
 
-                        break;
-                case RTM_NEWADDR:
-                case RTM_DELADDR:
-                        (void) socket_broadcast_group_unref(nl, RTNLGRP_IPV4_IFADDR);
-                        (void) socket_broadcast_group_unref(nl, RTNLGRP_IPV6_IFADDR);
-
-                        break;
-                case RTM_NEWROUTE:
-                case RTM_DELROUTE:
-                        (void) socket_broadcast_group_unref(nl, RTNLGRP_IPV4_ROUTE);
-                        (void) socket_broadcast_group_unref(nl, RTNLGRP_IPV6_ROUTE);
-
-                        break;
-                }
+                slot->match_callback.n_groups = 0;
+                slot->match_callback.groups = mfree(slot->match_callback.groups);
 
                 break;
         default:
