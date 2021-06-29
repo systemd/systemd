@@ -44,6 +44,8 @@ test_dlopen_c = files('test-dlopen.c')
 tests += [
         [['src/test/test-device-nodes.c']],
 
+        [['src/test/test-ether-addr-util.c']],
+
         [['src/test/test-engine.c'],
          [libcore,
           libshared],

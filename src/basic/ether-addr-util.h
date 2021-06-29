@@ -23,7 +23,9 @@ struct hw_addr_data {
 #define HW_ADDR_TO_STRING_MAX (3*HW_ADDR_MAX_SIZE)
 char* hw_addr_to_string(const struct hw_addr_data *addr, char buffer[HW_ADDR_TO_STRING_MAX]);
 
-/* Use only as function argument, never stand-alone! */
+/* Note: the lifetime of the compound literal is the immediately surrounding block,
+ * see C11 §6.5.2.5, and
+ * https://stackoverflow.com/questions/34880638/compound-literal-lifetime-and-if-blocks */
 #define HW_ADDR_TO_STR(hw_addr) hw_addr_to_string((hw_addr), (char[HW_ADDR_TO_STRING_MAX]){})
 
 #define HW_ADDR_NULL ((const struct hw_addr_data){})
