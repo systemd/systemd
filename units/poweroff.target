@@ -8,7 +8,7 @@
 #  (at your option) any later version.
 
 [Unit]
-Description=Power-Off
+Description=System Power Off
 Documentation=man:systemd.special(7)
 DefaultDependencies=no
 Requires=systemd-poweroff.service
