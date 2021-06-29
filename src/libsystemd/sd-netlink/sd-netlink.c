@@ -426,8 +426,8 @@ static int process_reply(sd_netlink *nl, sd_netlink_message *m) {
 
 static int process_match(sd_netlink *nl, sd_netlink_message *m) {
         struct match_callback *c;
-        sd_netlink_slot *slot;
         uint16_t type;
+        uint8_t cmd;
         int r;
 
         assert(nl);
@@ -437,8 +437,19 @@ static int process_match(sd_netlink *nl, sd_netlink_message *m) {
         if (r < 0)
                 return r;
 
+        if (m->protocol == NETLINK_GENERIC) {
+                r = sd_genl_message_get_command(nl, m, &cmd);
+                if (r < 0)
+                        return r;
+        } else
+                cmd = 0;
+
         LIST_FOREACH(match_callbacks, c, nl->match_callbacks) {
-                if (type != c->type)
+                sd_netlink_slot *slot;
+
+                if (c->type != type)
+                        continue;
+                if (c->cmd != 0 && c->cmd != cmd)
                         continue;
 
                 slot = container_of(c, sd_netlink_slot, match_callback);
@@ -901,6 +912,7 @@ int netlink_add_match_internal(
                 const uint32_t *groups,
                 size_t n_groups,
                 uint16_t type,
+                uint8_t cmd,
                 sd_netlink_message_handler_t callback,
                 sd_netlink_destroy_t destroy_callback,
                 void *userdata,
@@ -930,6 +942,7 @@ int netlink_add_match_internal(
         slot->match_callback.n_groups = n_groups;
         slot->match_callback.callback = callback;
         slot->match_callback.type = type;
+        slot->match_callback.cmd = cmd;
 
         LIST_PREPEND(match_callbacks, nl->match_callbacks, &slot->match_callback);
 
@@ -1001,6 +1014,6 @@ int sd_netlink_add_match(
                         return -EOPNOTSUPP;
         }
 
-        return netlink_add_match_internal(rtnl, ret_slot, groups, n_groups, type, callback,
+        return netlink_add_match_internal(rtnl, ret_slot, groups, n_groups, type, 0, callback,
                                           destroy_callback, userdata, description);
 }
