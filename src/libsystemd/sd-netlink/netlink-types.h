@@ -50,7 +50,6 @@ size_t type_get_size(const NLType *type);
 void type_get_type_system(const NLType *type, const NLTypeSystem **ret);
 void type_get_type_system_union(const NLType *type, const NLTypeSystemUnion **ret);
 
-const NLTypeSystem* type_system_get_root(int protocol);
 uint16_t type_system_get_count(const NLTypeSystem *type_system);
 int type_system_root_get_type(sd_netlink *nl, const NLType **ret, uint16_t type);
 int type_system_get_type(const NLTypeSystem *type_system, const NLType **ret, uint16_t type);
