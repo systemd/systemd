@@ -3,4 +3,7 @@
 
 #include "sd-netlink.h"
 
-int nlmsg_type_to_genl_family(const sd_netlink *nl, uint16_t type, sd_genl_family_t *ret);
+#define CTRL_GENL_NAME "nlctrl"
+
+int genl_family_get_name_by_id(sd_netlink *nl, uint16_t id, const char **ret);
+int genl_message_get_header_size(sd_netlink *nl, sd_netlink_message *m, size_t *ret);
