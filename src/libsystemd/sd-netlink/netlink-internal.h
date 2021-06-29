@@ -95,8 +95,8 @@ struct sd_netlink {
         sd_event_source *exit_event_source;
         sd_event *event;
 
-        Hashmap *genl_family_to_nlmsg_type;
-        Hashmap *nlmsg_type_to_genl_family;
+        Hashmap *genl_family_by_name;
+        Hashmap *genl_family_by_id;
 };
 
 struct netlink_attribute {
@@ -141,6 +141,8 @@ int socket_read_message(sd_netlink *nl);
 
 int rtnl_rqueue_make_room(sd_netlink *rtnl);
 int rtnl_rqueue_partial_make_room(sd_netlink *rtnl);
+
+void genl_clear_family(sd_netlink *nl);
 
 /* Make sure callbacks don't destroy the rtnl connection */
 #define NETLINK_DONT_DESTROY(rtnl) \

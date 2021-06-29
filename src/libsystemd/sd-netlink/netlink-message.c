@@ -53,7 +53,7 @@ int message_new(sd_netlink *rtnl, sd_netlink_message **ret, uint16_t type) {
 
         assert_return(rtnl, -EINVAL);
 
-        r = type_system_root_get_type(rtnl, &nl_type, type);
+        r = type_system_root_get_type(rtnl, &nl_type, type, 0);
         if (r < 0)
                 return r;
 
@@ -1280,14 +1280,14 @@ static int netlink_message_parse_error(sd_netlink_message *m) {
                                        NLMSG_PAYLOAD(m->hdr, hlen));
 }
 
-int sd_netlink_message_rewind(sd_netlink_message *m, sd_netlink *genl) {
+int sd_netlink_message_rewind(sd_netlink_message *m, sd_netlink *nl) {
         const NLType *nl_type;
         uint16_t type;
         size_t size;
         int r;
 
         assert_return(m, -EINVAL);
-        assert_return(genl || m->protocol != NETLINK_GENERIC, -EINVAL);
+        assert_return(nl, -EINVAL);
 
         /* don't allow appending to message once parsed */
         if (!m->sealed)
@@ -1304,7 +1304,7 @@ int sd_netlink_message_rewind(sd_netlink_message *m, sd_netlink *genl) {
 
         assert(m->hdr);
 
-        r = type_system_root_get_type(genl, &nl_type, m->hdr->nlmsg_type);
+        r = type_system_root_get_type_by_message(nl, m, &nl_type);
         if (r < 0)
                 return r;
 

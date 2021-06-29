@@ -229,7 +229,7 @@ static int wireguard_set_interface(NetDev *netdev) {
 
                 message = sd_netlink_message_unref(message);
 
-                r = sd_genl_message_new(netdev->manager->genl, SD_GENL_WIREGUARD, WG_CMD_SET_DEVICE, &message);
+                r = sd_genl_message_new(netdev->manager->genl, WG_GENL_NAME, WG_CMD_SET_DEVICE, &message);
                 if (r < 0)
                         return log_netdev_error_errno(netdev, r, "Failed to allocate generic netlink message: %m");
 
