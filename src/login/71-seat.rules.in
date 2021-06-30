@@ -29,6 +29,10 @@ SUBSYSTEM=="graphics", KERNEL=="fb[0-9]", IMPORT{cmdline}="nomodeset", TAG+="mas
 SUBSYSTEM=="pci", ENV{ID_PCI_CLASS_FROM_DATABASE}=="Display controller", \
                   ENV{DRIVER}=="", IMPORT{cmdline}="nomodeset", TAG+="seat", TAG+="master-of-seat"
 
+# eXtreme Graphic Innovation Z7/Z9 (XG20 core), a rather ancient graphic chip,
+# doesn't have a DRM driver and fallback to vesafb.
+SUBSYSTEM=="pci", ATTR{vendor}=="0x18ca", ATTR{device}=="0x0020", TAG+="master-of-seat"
+
 SUBSYSTEM=="drm", KERNEL=="card[0-9]*", TAG+="seat", TAG+="master-of-seat"
 
 # Allow individual USB ports to be assigned to a seat
