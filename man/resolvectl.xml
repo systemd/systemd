@@ -93,7 +93,7 @@
         <term><command>openpgp</command> <replaceable>EMAIL@DOMAIN</replaceable>…</term>
 
         <listitem><para>Query PGP keys stored as <constant class='dns'>OPENPGPKEY</constant> resource records,
-        ssee <ulink url="https://tools.ietf.org/html/rfc7929">RFC 7929</ulink>. Specified e-mail addresses
+        see <ulink url="https://tools.ietf.org/html/rfc7929">RFC 7929</ulink>. Specified e-mail addresses
         are converted to the corresponding DNS domain name, and any <constant class='dns'>OPENPGPKEY</constant>
         keys are printed.</para></listitem>
       </varlistentry>
