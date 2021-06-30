@@ -1262,70 +1262,122 @@ int parse_nsec(const char *t, nsec_t *nsec) {
         return 0;
 }
 
-int get_timezones(char ***ret) {
+static int get_timezones_from_zone1970_tab(char ***ret) {
         _cleanup_fclose_ FILE *f = NULL;
         _cleanup_strv_free_ char **zones = NULL;
-        size_t n_zones = 0;
         int r;
 
         assert(ret);
 
-        zones = strv_new("UTC");
-        if (!zones)
-                return -ENOMEM;
-
-        n_zones = 1;
-
         f = fopen("/usr/share/zoneinfo/zone1970.tab", "re");
-        if (f) {
-                for (;;) {
-                        _cleanup_free_ char *line = NULL, *w = NULL;
-                        char *p;
-                        size_t k;
-
-                        r = read_line(f, LONG_LINE_MAX, &line);
-                        if (r < 0)
-                                return r;
-                        if (r == 0)
-                                break;
-
-                        p = strstrip(line);
-
-                        if (isempty(p) || *p == '#')
-                                continue;
-
-                        /* Skip over country code */
-                        p += strcspn(p, WHITESPACE);
-                        p += strspn(p, WHITESPACE);
-
-                        /* Skip over coordinates */
-                        p += strcspn(p, WHITESPACE);
-                        p += strspn(p, WHITESPACE);
-
-                        /* Found timezone name */
-                        k = strcspn(p, WHITESPACE);
-                        if (k <= 0)
-                                continue;
-
-                        w = strndup(p, k);
-                        if (!w)
-                                return -ENOMEM;
-
-                        if (!GREEDY_REALLOC(zones, n_zones + 2))
-                                return -ENOMEM;
-
-                        zones[n_zones++] = TAKE_PTR(w);
-                        zones[n_zones] = NULL;
-                }
-
-                strv_sort(zones);
-                strv_uniq(zones);
-
-        } else if (errno != ENOENT)
+        if (!f)
                 return -errno;
 
-        *ret = TAKE_PTR(zones);
+        for (;;) {
+                _cleanup_free_ char *line = NULL, *cc = NULL, *co = NULL, *tz = NULL;
 
+                r = read_line(f, LONG_LINE_MAX, &line);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        break;
+
+                const char *p = line;
+
+                /* Line format is:
+                 * 'country codes' 'coordinates' 'timezone' 'comments' */
+                r = extract_many_words(&p, NULL, 0, &cc, &co, &tz, NULL);
+                if (r < 0)
+                        continue;
+
+                /* Lines that start with # are comments. */
+                if (*cc == '#')
+                        continue;
+
+                r = strv_extend(&zones, tz);
+                if (r < 0)
+                        return r;
+        }
+
+        *ret = TAKE_PTR(zones);
+        return 0;
+}
+
+static int get_timezones_from_tzdata_zi(char ***ret) {
+        _cleanup_fclose_ FILE *f = NULL;
+        _cleanup_strv_free_ char **zones = NULL;
+        int r;
+
+        f = fopen("/usr/share/zoneinfo/tzdata.zi", "re");
+        if (!f)
+                return -errno;
+
+        for (;;) {
+                _cleanup_free_ char *line = NULL, *type = NULL, *f1 = NULL, *f2 = NULL;
+
+                r = read_line(f, LONG_LINE_MAX, &line);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        break;
+
+                const char *p = line;
+
+                /* The only lines we care about are Zone and Link lines.
+                 * Zone line format is:
+                 * 'Zone' 'timezone' ...
+                 * Link line format is:
+                 * 'Link' 'target' 'alias'
+                 * See 'man zic' for more detail. */
+                r = extract_many_words(&p, NULL, 0, &type, &f1, &f2, NULL);
+                if (r < 0)
+                        continue;
+
+                char *tz;
+                if (*type == 'Z' || *type == 'z')
+                        /* Zone lines have timezone in field 1. */
+                        tz = f1;
+                else if (*type == 'L' || *type == 'l')
+                        /* Link lines have timezone in field 2. */
+                        tz = f2;
+                else
+                        /* Not a line we care about. */
+                        continue;
+
+                r = strv_extend(&zones, tz);
+                if (r < 0)
+                        return r;
+        }
+
+        *ret = TAKE_PTR(zones);
+        return 0;
+}
+
+int get_timezones(char ***ret) {
+        _cleanup_strv_free_ char **zones = NULL;
+        int r;
+
+        assert(ret);
+
+        r = get_timezones_from_tzdata_zi(&zones);
+        if (r == -ENOENT) {
+                log_debug_errno(r, "Could not get timezone data from tzdata.zi, using zone1970.tab: %m");
+                r = get_timezones_from_zone1970_tab(&zones);
+                if (r == -ENOENT)
+                        log_debug_errno(r, "Could not get timezone data from zone1970.tab, using UTC: %m");
+        }
+        if (r < 0 && r != -ENOENT)
+                return r;
+
+        /* Always include UTC */
+        r = strv_extend(&zones, "UTC");
+        if (r < 0)
+                return -ENOMEM;
+
+        strv_sort(zones);
+        strv_uniq(zones);
+
+        *ret = TAKE_PTR(zones);
         return 0;
 }
 
