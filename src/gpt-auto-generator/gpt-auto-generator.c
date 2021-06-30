@@ -633,7 +633,7 @@ static int add_root_mount(void) {
         int r;
 
         if (!is_efi_boot()) {
-                log_debug("Not a EFI boot, not creating root mount.");
+                log_debug("Not an EFI boot, not creating root mount.");
                 return 0;
         }
 

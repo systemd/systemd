@@ -489,7 +489,7 @@ int main(int argc, char *argv[]) {
                 if (!changed && umount_log_level == LOG_INFO && !can_initrd) {
                         /* There are things we cannot get rid of. Loop one more time
                          * with LOG_ERR to inform the user. Note that we don't need
-                         * to do this if there is a initrd to switch to, because that
+                         * to do this if there is an initrd to switch to, because that
                          * one is likely to get rid of the remaining mounts. If not,
                          * it will log about them. */
                         umount_log_level = LOG_ERR;

@@ -2694,7 +2694,7 @@ int table_print_with_pager(
 
         assert(t);
 
-        /* A all-in-one solution for showing tables, and turning on a pager first. Also optionally suppresses
+        /* An all-in-one solution for showing tables, and turning on a pager first. Also optionally suppresses
          * the table header and logs about any error. */
 
         if (json_format_flags & (JSON_FORMAT_OFF|JSON_FORMAT_PRETTY|JSON_FORMAT_PRETTY_AUTO))

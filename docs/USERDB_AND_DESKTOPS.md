@@ -56,7 +56,7 @@ and only switches back to the shell's UI after the user re-authenticated there.
 Note that this change in behavior is a good idea in any case, and does not
 create any dependencies on `systemd-homed` or systemd-specific APIs. It's
 simply a change of behavior regarding use of existing APIs, not a suggested
-hook-up to a any new API.
+hook-up to any new APIs.
 
 A display manager which supports this kind of out-of-context screen lock
 operation needs to inform systemd-homed about this so that systemd-homed knows

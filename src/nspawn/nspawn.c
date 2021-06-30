@@ -368,7 +368,7 @@ static int help(void) {
                "                            Create a macvlan network interface based on an\n"
                "                            existing network interface to the container\n"
                "     --network-ipvlan=INTERFACE\n"
-               "                            Create a ipvlan network interface based on an\n"
+               "                            Create an ipvlan network interface based on an\n"
                "                            existing network interface to the container\n"
                "  -n --network-veth         Add a virtual Ethernet connection between host\n"
                "                            and container\n"
