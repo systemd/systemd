@@ -36,12 +36,12 @@ static int static_address_on_conflict(Link *link, Address *address) {
         assert(address);
 
         if (address_get(link, address, NULL) < 0) {
-                log_link_warning(link, "Cannot configure requested address "IPV4_ADDRESS_FMT_STR", as an address conflict is detected.",
+                log_link_warning(link, "Cannot configure requested address "IPV4_ADDRESS_FMT_STR", as an address conflict was detected.",
                                  IPV4_ADDRESS_FMT_VAL(address->in_addr.in));
                 return 0;
         }
 
-        log_link_warning(link, "Dropping address "IPV4_ADDRESS_FMT_STR", as an address conflict is detected.",
+        log_link_warning(link, "Dropping address "IPV4_ADDRESS_FMT_STR", as an address conflict was detected.",
                          IPV4_ADDRESS_FMT_VAL(address->in_addr.in));
 
         r = address_remove(address, link);
@@ -66,7 +66,7 @@ static int dhcp4_address_on_conflict(Link *link) {
                 /* Unlikely, but during probing the address, the lease may be lost. */
                 return 0;
 
-        log_link_warning(link, "Dropping DHCPv4 lease, as an address conflict is detected.");
+        log_link_warning(link, "Dropping DHCPv4 lease, as an address conflict was detected.");
         r = dhcp4_lease_lost(link);
         if (r < 0)
                 return log_link_warning_errno(link, r, "Failed to drop DHCPv4 lease: %m");
