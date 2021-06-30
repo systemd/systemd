@@ -295,7 +295,7 @@
     <parameter>name</parameter> parameter otherwise. The functions
     <function>sd_bus_error_set_errno()</function>, <function>sd_bus_error_set_errnof()</function> and
     <function>sd_bus_error_set_errnofv()</function>, return <constant>0</constant> when the specified error
-    value is <constant>0</constant>, and a a negative errno-like value corresponding to the
+    value is <constant>0</constant>, and a negative errno-like value corresponding to the
     <parameter>error</parameter> parameter otherwise. If an error occurs internally, one of the negative
     error values listed below will be returned.</para>
 

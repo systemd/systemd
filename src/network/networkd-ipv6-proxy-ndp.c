@@ -47,7 +47,7 @@ static int ipv6_proxy_ndp_address_configure_handler(sd_netlink *rtnl, sd_netlink
         return 1;
 }
 
-/* send a request to the kernel to add a IPv6 Proxy entry to the neighbour table */
+/* send a request to the kernel to add an IPv6 Proxy entry to the neighbour table */
 static int ipv6_proxy_ndp_address_configure(
                 const struct in6_addr *address,
                 Link *link,

@@ -112,7 +112,7 @@ assert_cc(IDX_FIRST == _IDX_SWAP_END);
 assert_cc(IDX_FIRST == _IDX_ITERATOR_FIRST);
 
 /* Storage space for the "swap" buckets.
- * All entry types can fit into a ordered_hashmap_entry. */
+ * All entry types can fit into an ordered_hashmap_entry. */
 struct swap_entries {
         struct ordered_hashmap_entry e[_IDX_SWAP_END - _IDX_SWAP_BEGIN];
 };
