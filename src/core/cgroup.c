@@ -518,9 +518,8 @@ void cgroup_context_dump(Unit *u, FILE* f, const char *prefix) {
 
         LIST_FOREACH(device_limits, il, c->io_device_limits) {
                 char buf[FORMAT_BYTES_MAX];
-                CGroupIOLimitType type;
 
-                for (type = 0; type < _CGROUP_IO_LIMIT_TYPE_MAX; type++)
+                for (CGroupIOLimitType type = 0; type < _CGROUP_IO_LIMIT_TYPE_MAX; type++)
                         if (il->limits[type] != cgroup_io_limit_defaults[type])
                                 fprintf(f,
                                         "%s%s: %s %s\n",
@@ -1354,9 +1353,8 @@ static void cgroup_context_apply(
 
                         LIST_FOREACH(device_bandwidths, b, c->blockio_device_bandwidths) {
                                 uint64_t limits[_CGROUP_IO_LIMIT_TYPE_MAX];
-                                CGroupIOLimitType type;
 
-                                for (type = 0; type < _CGROUP_IO_LIMIT_TYPE_MAX; type++)
+                                for (CGroupIOLimitType type = 0; type < _CGROUP_IO_LIMIT_TYPE_MAX; type++)
                                         limits[type] = cgroup_io_limit_defaults[type];
 
                                 limits[CGROUP_IO_RBPS_MAX] = b->rbps;
@@ -1541,7 +1539,6 @@ static void cgroup_context_apply(
 
 static bool unit_get_needs_bpf_firewall(Unit *u) {
         CGroupContext *c;
-        Unit *p;
         assert(u);
 
         c = unit_get_cgroup_context(u);
@@ -1556,7 +1553,7 @@ static bool unit_get_needs_bpf_firewall(Unit *u) {
                 return true;
 
         /* If any parent slice has an IP access list defined, it applies too */
-        for (p = UNIT_GET_SLICE(u); p; p = UNIT_GET_SLICE(p)) {
+        for (Unit *p = UNIT_GET_SLICE(u); p; p = UNIT_GET_SLICE(p)) {
                 c = unit_get_cgroup_context(p);
                 if (!c)
                         return false;
@@ -2170,24 +2167,26 @@ int unit_attach_pids_to_cgroup(Unit *u, Set *pids, const char *suffix_path) {
         r = 0;
         SET_FOREACH(pidp, pids) {
                 pid_t pid = PTR_TO_PID(pidp);
-                CGroupController c;
 
                 /* First, attach the PID to the main cgroup hierarchy */
                 q = cg_attach(SYSTEMD_CGROUP_CONTROLLER, p, pid);
                 if (q < 0) {
-                        log_unit_debug_errno(u, q, "Couldn't move process " PID_FMT " to requested cgroup '%s': %m", pid, p);
+                        bool again = MANAGER_IS_USER(u->manager) && ERRNO_IS_PRIVILEGE(q);
 
-                        if (MANAGER_IS_USER(u->manager) && ERRNO_IS_PRIVILEGE(q)) {
+                        log_unit_full_errno(u, again ? LOG_DEBUG : LOG_INFO,  q,
+                                            "Couldn't move process " PID_FMT " to requested cgroup '%s': %m", pid, p);
+
+                        if (again) {
                                 int z;
 
-                                /* If we are in a user instance, and we can't move the process ourselves due to
-                                 * permission problems, let's ask the system instance about it instead. Since it's more
-                                 * privileged it might be able to move the process across the leaves of a subtree who's
-                                 * top node is not owned by us. */
+                                /* If we are in a user instance, and we can't move the process ourselves due
+                                 * to permission problems, let's ask the system instance about it instead.
+                                 * Since it's more privileged it might be able to move the process across the
+                                 * leaves of a subtree whose top node is not owned by us. */
 
                                 z = unit_attach_pid_to_cgroup_via_bus(u, pid, suffix_path);
                                 if (z < 0)
-                                        log_unit_debug_errno(u, z, "Couldn't move process " PID_FMT " to requested cgroup '%s' via the system bus either: %m", pid, p);
+                                        log_unit_info_errno(u, z, "Couldn't move process "PID_FMT" to requested cgroup '%s' (directly or via the system bus): %m", pid, p);
                                 else
                                         continue; /* When the bus thing worked via the bus we are fully done for this PID. */
                         }
@@ -2207,7 +2206,7 @@ int unit_attach_pids_to_cgroup(Unit *u, Set *pids, const char *suffix_path) {
                 /* In the legacy hierarchy, attach the process to the request cgroup if possible, and if not to the
                  * innermost realized one */
 
-                for (c = 0; c < _CGROUP_CONTROLLER_MAX; c++) {
+                for (CGroupController c = 0; c < _CGROUP_CONTROLLER_MAX; c++) {
                         CGroupMask bit = CGROUP_CONTROLLER_TO_MASK(c);
                         const char *realized;
 
@@ -3144,7 +3143,6 @@ static int cg_bpf_mask_supported(CGroupMask *ret) {
 int manager_setup_cgroup(Manager *m) {
         _cleanup_free_ char *path = NULL;
         const char *scope_path;
-        CGroupController c;
         int r, all_unified;
         CGroupMask mask;
         char *e;
@@ -3292,8 +3290,9 @@ int manager_setup_cgroup(Manager *m) {
         m->cgroup_supported |= mask;
 
         /* 10. Log which controllers are supported */
-        for (c = 0; c < _CGROUP_CONTROLLER_MAX; c++)
-                log_debug("Controller '%s' supported: %s", cgroup_controller_to_string(c), yes_no(m->cgroup_supported & CGROUP_CONTROLLER_TO_MASK(c)));
+        for (CGroupController c = 0; c < _CGROUP_CONTROLLER_MAX; c++)
+                log_debug("Controller '%s' supported: %s", cgroup_controller_to_string(c),
+                          yes_no(m->cgroup_supported & CGROUP_CONTROLLER_TO_MASK(c)));
 
         return 0;
 }
