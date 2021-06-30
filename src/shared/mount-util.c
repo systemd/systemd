@@ -249,9 +249,11 @@ int bind_remount_recursive_with_mountinfo(
                         if (!d)
                                 return -ENOMEM;
 
-                        r = hashmap_ensure_put(&todo, &path_hash_ops_free, d, ULONG_TO_PTR(flags));
-                        if (r == -EEXIST)
-                                continue;
+                        /* If the same path was recorded, but with different mount flags, update it:
+                         * it means a mount point is overmounted, and libmount returns the "bottom" (or
+                         * older one) first, but we want to reapply the flags from the "top" (or newer
+                         * one). See: https://github.com/systemd/systemd/issues/20032 */
+                        r = hashmap_ensure_replace(&todo, &path_hash_ops_free, d, ULONG_TO_PTR(flags));
                         if (r < 0)
                                 return r;
                         if (r > 0)
