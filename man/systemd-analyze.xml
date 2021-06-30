@@ -753,6 +753,14 @@ Service b@0.service not loaded, b.socket cannot be started.
       </varlistentry>
 
       <varlistentry>
+        <term><option>--image=<replaceable>PATH</replaceable></option></term>
+
+        <listitem><para>With <command>verify</command>,
+        within the referenced image located at <replaceable>PATH</replaceable>.
+        </para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>--iterations=<replaceable>NUMBER</replaceable></option></term>
 
         <listitem><para>When used with the <command>calendar</command> command, show the specified number of
