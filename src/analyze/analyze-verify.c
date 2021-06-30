@@ -52,7 +52,7 @@ static int prepare_filename(const char *filename, char **ret) {
         return 0;
 }
 
-static int generate_path(char **var, char **filenames) {
+static int generate_path(char **var, char **filenames, char *arg_root) {
         const char *old;
         char **filename;
 
@@ -60,13 +60,19 @@ static int generate_path(char **var, char **filenames) {
         int r;
 
         STRV_FOREACH(filename, filenames) {
-                char *t;
+                _cleanup_free_ char *t = NULL;
+                char *path_temp;
 
                 t = dirname_malloc(*filename);
                 if (!t)
                         return -ENOMEM;
 
-                r = strv_consume(&ans, t);
+                /* this allows verification of files from discrete images and directories */
+                path_temp = path_join(arg_root, t);
+                if (!path_temp)
+                        return -ENOMEM;
+
+                r = strv_consume(&ans, path_temp);
                 if (r < 0)
                         return r;
         }
@@ -218,7 +224,7 @@ static int verify_unit(Unit *u, bool check_man) {
         return r;
 }
 
-int verify_units(char **filenames, UnitFileScope scope, bool check_man, bool run_generators) {
+int verify_units(char **filenames, UnitFileScope scope, bool check_man, bool run_generators, char *root) {
         const ManagerTestRunFlags flags =
                 MANAGER_TEST_RUN_BASIC |
                 MANAGER_TEST_RUN_ENV_GENERATORS |
@@ -234,7 +240,7 @@ int verify_units(char **filenames, UnitFileScope scope, bool check_man, bool run
                 return 0;
 
         /* set the path */
-        r = generate_path(&var, filenames);
+        r = generate_path(&var, filenames, root);
         if (r < 0)
                 return log_error_errno(r, "Failed to generate unit load path: %m");
 
