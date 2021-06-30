@@ -440,7 +440,7 @@
         source to copy from — if its partition type is set to <literal>root</literal> as well. If the
         declared type is <literal>usr</literal> the partition backing <filename>/usr/</filename> is used as
         source to copy blocks from — if its partition type is set to <literal>usr</literal> too. The logic is
-        capable of automatically tracking down the the backing partitions for encrypted and Verity-enabled
+        capable of automatically tracking down the backing partitions for encrypted and Verity-enabled
         volumes. <literal>CopyBlocks=auto</literal> is useful for implementing "self-replicating" systems,
         i.e. systems that are their own installer.</para>
 

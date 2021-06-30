@@ -193,7 +193,7 @@ node /org/freedesktop/hostname1 {
     <para>The <varname>HostnameSource</varname> property exposes the origin of the currently configured
     hostname. One of <literal>static</literal> (set from <filename>/etc/hostname</filename>),
     <literal>transient</literal> (a non-permanent hostname from an external source),
-    <literal>default</literal> (the value from <filename>os-release</filename> or the the compiled-in
+    <literal>default</literal> (the value from <filename>os-release</filename> or the compiled-in
     fallback).</para>
 
     <para>The <varname>IconName</varname> property exposes the <emphasis>icon name</emphasis> following the
