@@ -38,6 +38,21 @@
 
 #define NDISC_APP_ID SD_ID128_MAKE(13,ac,81,a7,d5,3f,49,78,92,79,5d,0c,29,3a,bc,7e)
 
+typedef enum IPv6TokenAddressGeneration {
+        IPV6_TOKEN_ADDRESS_GENERATION_NONE,
+        IPV6_TOKEN_ADDRESS_GENERATION_STATIC,
+        IPV6_TOKEN_ADDRESS_GENERATION_PREFIXSTABLE,
+        _IPV6_TOKEN_ADDRESS_GENERATION_MAX,
+        _IPV6_TOKEN_ADDRESS_GENERATION_INVALID = -EINVAL,
+} IPv6TokenAddressGeneration;
+
+typedef struct IPv6Token {
+        IPv6TokenAddressGeneration address_generation_type;
+
+        uint8_t dad_counter;
+        struct in6_addr prefix;
+} IPv6Token;
+
 bool link_ipv6_accept_ra_enabled(Link *link) {
         assert(link);
 
@@ -1433,7 +1448,7 @@ void ndisc_flush(Link *link) {
         link->ndisc_dnssl = set_free(link->ndisc_dnssl);
 }
 
-int ipv6token_new(IPv6Token **ret) {
+static int ipv6token_new(IPv6Token **ret) {
         IPv6Token *p;
 
         p = new(IPv6Token, 1);
