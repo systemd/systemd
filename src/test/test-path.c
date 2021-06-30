@@ -38,7 +38,7 @@ static int setup_test(Manager **m) {
         if (manager_errno_skip_test(r))
                 return log_tests_skipped_errno(r, "manager_new");
         assert_se(r >= 0);
-        assert_se(manager_startup(tmp, NULL, NULL) >= 0);
+        assert_se(manager_startup(tmp, NULL, NULL, NULL) >= 0);
 
         STRV_FOREACH(test_path, tests_path) {
                 _cleanup_free_ char *p = NULL;
