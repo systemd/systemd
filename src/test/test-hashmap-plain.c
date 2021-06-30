@@ -52,6 +52,48 @@ static void test_hashmap_replace(void) {
         hashmap_free(m);
 }
 
+static void test_hashmap_ensure_replace(void) {
+        Hashmap *m = NULL;
+        char *val1, *val2, *val3, *val4, *val5, *r;
+
+        log_info("/* %s */", __func__);
+
+        val1 = strdup("val1");
+        assert_se(val1);
+        val2 = strdup("val2");
+        assert_se(val2);
+        val3 = strdup("val3");
+        assert_se(val3);
+        val4 = strdup("val4");
+        assert_se(val4);
+        val5 = strdup("val5");
+        assert_se(val5);
+
+        assert_se(hashmap_ensure_replace(&m, &string_hash_ops, "key 1", val1) == 1);
+        r = hashmap_get(m, "key 1");
+        assert_se(streq(r, "val1"));
+
+        hashmap_put(m, "key 1", val1);
+        hashmap_put(m, "key 2", val2);
+        hashmap_put(m, "key 3", val3);
+        hashmap_put(m, "key 4", val4);
+
+        assert_se(hashmap_ensure_replace(&m, &string_hash_ops, "key 3", val1) == 0);
+        r = hashmap_get(m, "key 3");
+        assert_se(streq(r, "val1"));
+
+        assert_se(hashmap_ensure_replace(&m, &string_hash_ops, "key 5", val5) == 1);
+        r = hashmap_get(m, "key 5");
+        assert_se(streq(r, "val5"));
+
+        free(val1);
+        free(val2);
+        free(val3);
+        free(val4);
+        free(val5);
+        hashmap_free(m);
+}
+
 static void test_hashmap_copy(void) {
         Hashmap *m, *copy;
         char *val1, *val2, *val3, *val4, *r;
@@ -1072,6 +1114,7 @@ void test_hashmap_funcs(void) {
         test_hashmap_move_one();
         test_hashmap_move();
         test_hashmap_replace();
+        test_hashmap_ensure_replace();
         test_hashmap_update();
         test_hashmap_put();
         test_hashmap_remove();
