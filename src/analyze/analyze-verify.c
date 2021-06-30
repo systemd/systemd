@@ -218,7 +218,7 @@ static int verify_unit(Unit *u, bool check_man) {
         return r;
 }
 
-int verify_units(char **filenames, UnitFileScope scope, bool check_man, bool run_generators) {
+int verify_units(char **filenames, UnitFileScope scope, bool check_man, bool run_generators, const char *root) {
         const ManagerTestRunFlags flags =
                 MANAGER_TEST_RUN_MINIMAL |
                 MANAGER_TEST_RUN_ENV_GENERATORS |
@@ -246,7 +246,7 @@ int verify_units(char **filenames, UnitFileScope scope, bool check_man, bool run
 
         log_debug("Starting manager...");
 
-        r = manager_startup(m, NULL, NULL);
+        r = manager_startup(m, /* serialization= */ NULL, /* fds= */ NULL, root);
         if (r < 0)
                 return r;
 

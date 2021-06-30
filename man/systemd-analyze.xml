@@ -747,8 +747,8 @@ Service b@0.service not loaded, b.socket cannot be started.
       <varlistentry>
         <term><option>--root=<replaceable>PATH</replaceable></option></term>
 
-        <listitem><para>With <command>cat-files</command>, show config files underneath
-        the specified root path <replaceable>PATH</replaceable>.</para></listitem>
+        <listitem><para>With <command>cat-files</command> and <command>verify</command>,
+        operate on files underneath the specified root path <replaceable>PATH</replaceable>.</para></listitem>
       </varlistentry>
 
       <varlistentry>

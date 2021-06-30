@@ -33,7 +33,7 @@ static int test_default_memory_low(void) {
         }
 
         assert_se(r >= 0);
-        assert_se(manager_startup(m, NULL, NULL) >= 0);
+        assert_se(manager_startup(m, NULL, NULL, NULL) >= 0);
 
         /* dml.slice has DefaultMemoryLow=50. Beyond that, individual subhierarchies look like this:
          *

@@ -83,7 +83,7 @@ int verify_conditions(char **lines, UnitFileScope scope) {
                 return log_error_errno(r, "Failed to initialize manager: %m");
 
         log_debug("Starting manager...");
-        r = manager_startup(m, NULL, NULL);
+        r = manager_startup(m, /* serialization= */ NULL, /* fds= */ NULL, /* root= */ NULL);
         if (r < 0)
                 return r;
 

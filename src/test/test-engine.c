@@ -95,7 +95,7 @@ int main(int argc, char *argv[]) {
         if (manager_errno_skip_test(r))
                 return log_tests_skipped_errno(r, "manager_new");
         assert_se(r >= 0);
-        assert_se(manager_startup(m, NULL, NULL) >= 0);
+        assert_se(manager_startup(m, NULL, NULL, NULL) >= 0);
 
         printf("Load1:\n");
         assert_se(manager_load_startable_unit_or_warn(m, "a.service", NULL, &a) >= 0);

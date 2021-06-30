@@ -844,7 +844,7 @@ static int run_tests(UnitFileScope scope, const test_entry tests[], char **patte
         if (manager_errno_skip_test(r))
                 return log_tests_skipped_errno(r, "manager_new");
         assert_se(r >= 0);
-        assert_se(manager_startup(m, NULL, NULL) >= 0);
+        assert_se(manager_startup(m, NULL, NULL, NULL) >= 0);
 
         for (const test_entry *test = tests; test->f; test++)
                 if (strv_fnmatch_or_empty(patterns, test->name, FNM_NOESCAPE))
