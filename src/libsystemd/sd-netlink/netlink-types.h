@@ -35,8 +35,6 @@ typedef struct NLTypeSystemUnion NLTypeSystemUnion;
 typedef struct NLTypeSystem NLTypeSystem;
 typedef struct NLType NLType;
 
-extern const NLTypeSystem genl_family_type_system_root;
-
 uint16_t type_get_type(const NLType *type);
 size_t type_get_size(const NLType *type);
 const NLTypeSystem *type_get_type_system(const NLType *type);
