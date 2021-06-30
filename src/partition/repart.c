@@ -4886,7 +4886,7 @@ static int run(int argc, char *argv[]) {
                         if (!arg_node)
                                 return log_oom();
 
-                        /* Remember that the the device we are about to manipulate is actually the one we
+                        /* Remember that the device we are about to manipulate is actually the one we
                          * allocated here, and thus to increase its backing file we know what to do */
                         node_is_our_loop = true;
                 }

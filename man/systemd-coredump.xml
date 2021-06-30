@@ -340,7 +340,7 @@ flags:   ...
       <varlistentry>
         <term><varname>COREDUMP_FILENAME=</varname></term>
 
-        <listitem><para>When the core is stored externally, the path the the core file.</para>
+        <listitem><para>When the core is stored externally, the path to the core file.</para>
         </listitem>
       </varlistentry>
 
