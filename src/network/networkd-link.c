@@ -233,7 +233,6 @@ static Link *link_free(Link *link) {
         link->dhcp6_routes_old = set_free(link->dhcp6_routes_old);
         link->dhcp6_pd_routes = set_free(link->dhcp6_pd_routes);
         link->dhcp6_pd_routes_old = set_free(link->dhcp6_pd_routes_old);
-        link->ndisc_routes = set_free(link->ndisc_routes);
 
         link->nexthops = set_free(link->nexthops);
         link->nexthops_foreign = set_free(link->nexthops_foreign);
@@ -250,7 +249,8 @@ static Link *link_free(Link *link) {
         link->dhcp6_addresses_old = set_free(link->dhcp6_addresses_old);
         link->dhcp6_pd_addresses = set_free(link->dhcp6_pd_addresses);
         link->dhcp6_pd_addresses_old = set_free(link->dhcp6_pd_addresses_old);
-        link->ndisc_addresses = set_free(link->ndisc_addresses);
+
+        link->ndisc_info_by_router = hashmap_free(link->ndisc_info_by_router);
 
         link->dhcp6_pd_prefixes = set_free(link->dhcp6_pd_prefixes);
 
@@ -493,16 +493,8 @@ void link_check_ready(Link *link) {
             !in6_addr_is_set(&link->ipv6ll_address))
                 return (void) log_link_debug(link, "%s(): IPv6LL is not configured yet.", __func__);
 
-        bool has_ndisc_address = false;
-        NDiscAddress *n;
-        SET_FOREACH(n, link->ndisc_addresses)
-                if (!n->marked) {
-                        has_ndisc_address = true;
-                        break;
-                }
-
         if ((link_dhcp4_enabled(link) || link_dhcp6_with_address_enabled(link) || link_ipv4ll_enabled(link)) &&
-            !link->dhcp_address && set_isempty(link->dhcp6_addresses) && !has_ndisc_address &&
+            !link->dhcp_address && set_isempty(link->dhcp6_addresses) && !ndisc_has_address(link) &&
             !link->ipv4ll_address_configured)
                 /* When DHCP[46] or IPv4LL is enabled, at least one address is acquired by them. */
                 return (void) log_link_debug(link, "%s(): DHCP4, DHCP6 or IPv4LL is enabled but no dynamic address is assigned yet.", __func__);
@@ -515,12 +507,12 @@ void link_check_ready(Link *link) {
                 if (!link->dhcp4_configured &&
                     !(link->dhcp6_address_configured && link->dhcp6_route_configured) &&
                     !(link->dhcp6_pd_address_configured && link->dhcp6_pd_route_configured) &&
-                    !(link->ndisc_addresses_configured && link->ndisc_routes_configured) &&
+                    !link->ndisc_configured &&
                     !link->ipv4ll_address_configured)
                         /* When DHCP[46], NDisc, or IPv4LL is enabled, at least one protocol must be finished. */
                         return (void) log_link_debug(link, "%s(): dynamic addresses or routes are not configured.", __func__);
 
-                log_link_debug(link, "%s(): dhcp4:%s ipv4ll:%s dhcp6_addresses:%s dhcp_routes:%s dhcp_pd_addresses:%s dhcp_pd_routes:%s ndisc_addresses:%s ndisc_routes:%s",
+                log_link_debug(link, "%s(): dhcp4:%s ipv4ll:%s dhcp6_addresses:%s dhcp_routes:%s dhcp_pd_addresses:%s dhcp_pd_routes:%s ndisc:%s",
                                __func__,
                                yes_no(link->dhcp4_configured),
                                yes_no(link->ipv4ll_address_configured),
@@ -528,8 +520,7 @@ void link_check_ready(Link *link) {
                                yes_no(link->dhcp6_route_configured),
                                yes_no(link->dhcp6_pd_address_configured),
                                yes_no(link->dhcp6_pd_route_configured),
-                               yes_no(link->ndisc_addresses_configured),
-                               yes_no(link->ndisc_routes_configured));
+                               yes_no(link->ndisc_configured));
         }
 
         link_set_state(link, LINK_STATE_CONFIGURED);

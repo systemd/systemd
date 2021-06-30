@@ -4,12 +4,11 @@
 #include "conf-parser.h"
 #include "in-addr-util.h"
 #include "macro.h"
+#include "set.h"
 #include "time-util.h"
 
 typedef struct Link Link;
 typedef struct Network Network;
-typedef struct Address Address;
-typedef struct Route Route;
 
 typedef enum IPv6AcceptRAStartDHCP6Client {
         IPV6_ACCEPT_RA_START_DHCP6_CLIENT_NO,
@@ -19,24 +18,9 @@ typedef enum IPv6AcceptRAStartDHCP6Client {
         _IPV6_ACCEPT_RA_START_DHCP6_CLIENT_INVALID = -EINVAL,
 } IPv6AcceptRAStartDHCP6Client;
 
-typedef struct NDiscAddress {
-        /* Used when GC'ing old DNS servers when configuration changes. */
-        bool marked;
-        struct in6_addr router;
-        Address *address;
-} NDiscAddress;
-
-typedef struct NDiscRoute {
-        /* Used when GC'ing old DNS servers when configuration changes. */
-        bool marked;
-        struct in6_addr router;
-        Route *route;
-} NDiscRoute;
-
 typedef struct NDiscRDNSS {
         /* Used when GC'ing old DNS servers when configuration changes. */
         bool marked;
-        struct in6_addr router;
         usec_t valid_until;
         struct in6_addr address;
 } NDiscRDNSS;
@@ -44,10 +28,19 @@ typedef struct NDiscRDNSS {
 typedef struct NDiscDNSSL {
         /* Used when GC'ing old domains when configuration changes. */
         bool marked;
-        struct in6_addr router;
         usec_t valid_until;
         /* The domain name follows immediately. */
 } NDiscDNSSL;
+
+typedef struct NDiscInfo {
+        Link *link;
+        struct in6_addr router;
+
+        Set *addresses;
+        Set *routes;
+        Set *rdnss;
+        Set *dnssl;
+} NDiscInfo;
 
 static inline char* NDISC_DNSSL_DOMAIN(const NDiscDNSSL *n) {
         return ((char*) n) + ALIGN(sizeof(NDiscDNSSL));
@@ -61,6 +54,7 @@ int ndisc_configure(Link *link);
 int ndisc_start(Link *link);
 void ndisc_vacuum(Link *link);
 void ndisc_flush(Link *link);
+bool ndisc_has_address(Link *link);
 
 CONFIG_PARSER_PROTOTYPE(config_parse_ndisc_address_filter);
 CONFIG_PARSER_PROTOTYPE(config_parse_address_generation_type);
