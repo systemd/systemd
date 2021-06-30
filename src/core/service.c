@@ -3524,6 +3524,9 @@ static void service_sigchld_event(Unit *u, pid_t pid, int code, int status) {
                 }
 
         } else if (s->control_pid == pid) {
+                const char *kind;
+                bool success;
+
                 s->control_pid = 0;
 
                 if (s->control_command) {
@@ -3538,15 +3541,24 @@ static void service_sigchld_event(Unit *u, pid_t pid, int code, int status) {
                         if (f == SERVICE_FAILURE_EXIT_CODE && status < 255) {
                                 UNIT(s)->condition_result = false;
                                 f = SERVICE_SKIP_CONDITION;
-                        } else if (f == SERVICE_SUCCESS)
+                                success = true;
+                        } else if (f == SERVICE_SUCCESS) {
                                 UNIT(s)->condition_result = true;
+                                success = true;
+                        } else
+                                success = false;
+
+                        kind = "Condition check process";
+                } else {
+                        kind = "Control process";
+                        success = f == SERVICE_SUCCESS;
                 }
 
                 unit_log_process_exit(
                                 u,
-                                "Control process",
+                                kind,
                                 service_exec_command_to_string(s->control_command_id),
-                                f == SERVICE_SUCCESS,
+                                success,
                                 code, status);
 
                 if (s->state != SERVICE_RELOAD && s->result == SERVICE_SUCCESS)
