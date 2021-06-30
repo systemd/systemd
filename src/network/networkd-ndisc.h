@@ -9,6 +9,7 @@
 
 typedef struct Link Link;
 typedef struct Network Network;
+typedef struct Request Request;
 
 typedef enum IPv6AcceptRAStartDHCP6Client {
         IPV6_ACCEPT_RA_START_DHCP6_CLIENT_NO,
@@ -49,6 +50,8 @@ static inline char* NDISC_DNSSL_DOMAIN(const NDiscDNSSL *n) {
 bool link_ipv6_accept_ra_enabled(Link *link);
 
 void network_adjust_ipv6_accept_ra(Network *network);
+
+int request_process_ndisc_cleanup(Request *req);
 
 int ndisc_configure(Link *link);
 int ndisc_start(Link *link);

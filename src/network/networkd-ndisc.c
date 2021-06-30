@@ -216,6 +216,55 @@ static int ndisc_info_remove_marked(NDiscInfo *info) {
         return r;
 }
 
+static int ndisc_cleanup(Link *link) {
+        NDiscInfo *info;
+        int k, r = 0;
+
+        assert(link);
+
+        HASHMAP_FOREACH(info, link->ndisc_info_by_router) {
+                k = ndisc_info_remove_marked(info);
+                if (k < 0)
+                        r = k;
+        }
+
+        return r;
+}
+
+static bool ndisc_is_ready_to_cleanup(Link *link) {
+        NDiscInfo *info;
+        Address *a;
+
+        assert(link);
+
+        if (link->ndisc_messages > 0)
+                return false;
+
+        HASHMAP_FOREACH(info, link->ndisc_info_by_router)
+                SET_FOREACH(a, info->addresses)
+                        if (!a->marked && !address_is_ready(a))
+                                return false;
+
+        return true;
+}
+
+int request_process_ndisc_cleanup(Request *req) {
+        assert(req);
+        assert(req->link);
+        assert(req->type == REQUEST_TYPE_NDISC_CLEANUP);
+
+        if (!ndisc_is_ready_to_cleanup(req->link))
+                return 0;
+
+        return ndisc_cleanup(req->link);
+}
+
+static int ndisc_request_cleanup(Link *link) {
+        assert(link);
+
+        return link_queue_request(link, REQUEST_TYPE_NDISC_CLEANUP, NULL, false, NULL, NULL, NULL);
+}
+
 static int ndisc_route_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
         int r;
 
@@ -1123,9 +1172,7 @@ static int ndisc_router_handler(Link *link, sd_ndisc_router *rt) {
         if (r < 0)
                 return r;
 
-        /* FIXME: this removes all previous addresses and routes, as all requests are still in queue
-         * and no request is processed yet. See #20050. */
-        r = ndisc_info_remove_marked(info);
+        r = ndisc_request_cleanup(link);
         if (r < 0)
                 return r;
 
