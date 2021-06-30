@@ -43,8 +43,6 @@ struct NLTypeSystemUnion {
         const NLTypeSystem *type_systems;
 };
 
-extern const NLTypeSystem genl_family_type_system_root;
-
 uint16_t type_get_type(const NLType *type);
 size_t type_get_size(const NLType *type);
 void type_get_type_system(const NLType *type, const NLTypeSystem **ret);

@@ -1571,30 +1571,18 @@ static const NLTypeSystem genl_wireguard_type_system = {
         .types = genl_wireguard_types,
 };
 
-static const NLType genl_families[] = {
-        [SD_GENL_ID_CTRL]   = { .type = NETLINK_TYPE_NESTED, .type_system = &genl_ctrl_type_system },
-        [SD_GENL_WIREGUARD] = { .type = NETLINK_TYPE_NESTED, .type_system = &genl_wireguard_type_system },
-        [SD_GENL_FOU]       = { .type = NETLINK_TYPE_NESTED, .type_system = &genl_fou_type_system },
-        [SD_GENL_L2TP]      = { .type = NETLINK_TYPE_NESTED, .type_system = &genl_l2tp_type_system },
-        [SD_GENL_MACSEC]    = { .type = NETLINK_TYPE_NESTED, .type_system = &genl_macsec_type_system },
-        [SD_GENL_NL80211]   = { .type = NETLINK_TYPE_NESTED, .type_system = &genl_nl80211_type_system },
-        [SD_GENL_BATADV]    = { .type = NETLINK_TYPE_NESTED, .type_system = &genl_batadv_type_system },
-};
-
-/* Mainly used when sending message */
-const NLTypeSystem genl_family_type_system_root = {
-        .count = ELEMENTSOF(genl_families),
-        .types = genl_families,
-};
-
 static const NLType genl_types[] = {
-        [SD_GENL_DONE]    = { .type = NETLINK_TYPE_NESTED, .type_system = &empty_type_system },
-        [SD_GENL_ERROR]   = { .type = NETLINK_TYPE_NESTED, .type_system = &error_type_system, .size = sizeof(struct nlmsgerr) },
-        [SD_GENL_ID_CTRL] = { .type = NETLINK_TYPE_NESTED, .type_system = &genl_ctrl_type_system, .size = sizeof(struct genlmsghdr) },
-        [SD_GENL_NL80211] = { .type = NETLINK_TYPE_NESTED, .type_system = &genl_nl80211_type_system, .size = sizeof(struct genlmsghdr) },
+        [SD_GENL_DONE]      = { .type = NETLINK_TYPE_NESTED, .type_system = &empty_type_system },
+        [SD_GENL_ERROR]     = { .type = NETLINK_TYPE_NESTED, .type_system = &error_type_system, .size = sizeof(struct nlmsgerr) },
+        [SD_GENL_ID_CTRL]   = { .type = NETLINK_TYPE_NESTED, .type_system = &genl_ctrl_type_system, .size = sizeof(struct genlmsghdr) },
+        [SD_GENL_WIREGUARD] = { .type = NETLINK_TYPE_NESTED, .type_system = &genl_wireguard_type_system, .size = sizeof(struct genlmsghdr) },
+        [SD_GENL_FOU]       = { .type = NETLINK_TYPE_NESTED, .type_system = &genl_fou_type_system, .size = sizeof(struct genlmsghdr) },
+        [SD_GENL_L2TP]      = { .type = NETLINK_TYPE_NESTED, .type_system = &genl_l2tp_type_system, .size = sizeof(struct genlmsghdr) },
+        [SD_GENL_MACSEC]    = { .type = NETLINK_TYPE_NESTED, .type_system = &genl_macsec_type_system, .size = sizeof(struct genlmsghdr) },
+        [SD_GENL_NL80211]   = { .type = NETLINK_TYPE_NESTED, .type_system = &genl_nl80211_type_system, .size = sizeof(struct genlmsghdr) },
+        [SD_GENL_BATADV]    = { .type = NETLINK_TYPE_NESTED, .type_system = &genl_batadv_type_system, .size = sizeof(struct genlmsghdr) },
 };
 
-/* Mainly used when message received */
 static const NLTypeSystem genl_type_system_root = {
         .count = ELEMENTSOF(genl_types),
         .types = genl_types,
@@ -1633,43 +1621,27 @@ uint16_t type_system_get_count(const NLTypeSystem *type_system) {
         return type_system->count;
 }
 
-static const NLTypeSystem *type_system_get_root(int protocol) {
-        switch (protocol) {
-                case NETLINK_GENERIC:
-                        return &genl_type_system_root;
-                case NETLINK_NETFILTER:
-                        return &nfnl_type_system_root;
-                default: /* NETLINK_ROUTE: */
-                        return &rtnl_type_system_root;
-        }
-}
-
 int type_system_root_get_type(sd_netlink *nl, const NLType **ret, uint16_t type) {
-        sd_genl_family_t family;
-        const NLType *nl_type;
         int r;
 
         assert(nl);
         assert(ret);
 
-        if (nl->protocol != NETLINK_GENERIC)
-                return type_system_get_type(type_system_get_root(nl->protocol), ret, type);
+        if (nl->protocol == NETLINK_ROUTE)
+                return type_system_get_type(&rtnl_type_system_root, ret, type);
+        if (nl->protocol == NETLINK_NETFILTER)
+                return type_system_get_type(&nfnl_type_system_root, ret, type);
+        if (nl->protocol == NETLINK_GENERIC) {
+                sd_genl_family_t family;
 
-        r = nlmsg_type_to_genl_family(nl, type, &family);
-        if (r < 0)
-                return r;
+                r = nlmsg_type_to_genl_family(nl, type, &family);
+                if (r < 0)
+                        return r;
 
-        if (family >= genl_type_system_root.count)
-                return -EOPNOTSUPP;
+                return type_system_get_type(&genl_type_system_root, ret, family);
+        }
 
-        nl_type = &genl_type_system_root.types[family];
-
-        if (nl_type->type == NETLINK_TYPE_UNSPEC)
-                return -EOPNOTSUPP;
-
-        *ret = nl_type;
-
-        return 0;
+        return -EOPNOTSUPP;
 }
 
 int type_system_get_type(const NLTypeSystem *type_system, const NLType **ret, uint16_t type) {
