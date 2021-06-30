@@ -41,6 +41,7 @@ typedef struct Address {
 
         bool scope_set:1;
         bool ip_masquerade_done:1;
+        bool marked:1; /* used when GC'ing old address by NDisc */
         bool is_static:1; /* currently only used by IPv4ACD */
         bool acd_announced:1;
         AddressFamily duplicate_address_detection;

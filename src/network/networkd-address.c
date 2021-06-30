@@ -13,6 +13,7 @@
 #include "networkd-manager.h"
 #include "networkd-network.h"
 #include "networkd-queue.h"
+#include "networkd-route.h"
 #include "parse-util.h"
 #include "string-util.h"
 #include "strv.h"
@@ -150,7 +151,7 @@ Address *address_free(Address *address) {
         }
 
         if (address->link) {
-                NDiscAddress *n;
+                NDiscInfo *info;
 
                 set_remove(address->link->addresses, address);
                 set_remove(address->link->addresses_foreign, address);
@@ -164,9 +165,9 @@ Address *address_free(Address *address) {
                 set_remove(address->link->dhcp6_addresses_old, address);
                 set_remove(address->link->dhcp6_pd_addresses, address);
                 set_remove(address->link->dhcp6_pd_addresses_old, address);
-                SET_FOREACH(n, address->link->ndisc_addresses)
-                        if (n->address == address)
-                                free(set_remove(address->link->ndisc_addresses, n));
+
+                HASHMAP_FOREACH(info, address->link->ndisc_info_by_router)
+                        set_remove(info->addresses, address);
 
                 if (address->family == AF_INET6 &&
                     in6_addr_equal(&address->in_addr.in6, &address->link->ipv6ll_address))
