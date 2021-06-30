@@ -16,6 +16,7 @@
 #include "networkd-manager.h"
 #include "networkd-ndisc.h"
 #include "networkd-queue.h"
+#include "networkd-route.h"
 #include "networkd-state-file.h"
 #include "string-table.h"
 #include "string-util.h"

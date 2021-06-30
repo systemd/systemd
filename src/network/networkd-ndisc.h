@@ -2,10 +2,14 @@
 #pragma once
 
 #include "conf-parser.h"
-#include "networkd-address.h"
-#include "networkd-link.h"
-#include "networkd-route.h"
+#include "in-addr-util.h"
+#include "macro.h"
 #include "time-util.h"
+
+typedef struct Link Link;
+typedef struct Network Network;
+typedef struct Address Address;
+typedef struct Route Route;
 
 typedef enum IPv6AcceptRAStartDHCP6Client {
         IPV6_ACCEPT_RA_START_DHCP6_CLIENT_NO,

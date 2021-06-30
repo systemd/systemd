@@ -6,6 +6,7 @@
 
 #include "alloc-util.h"
 #include "netlink-util.h"
+#include "networkd-address.h"
 #include "networkd-ipv4ll.h"
 #include "networkd-manager.h"
 #include "networkd-network.h"

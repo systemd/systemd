@@ -45,6 +45,7 @@
 #include "networkd-nexthop.h"
 #include "networkd-queue.h"
 #include "networkd-radv.h"
+#include "networkd-route.h"
 #include "networkd-routing-policy-rule.h"
 #include "networkd-setlink.h"
 #include "networkd-sriov.h"

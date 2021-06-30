@@ -20,6 +20,7 @@
 #include "networkd-manager.h"
 #include "networkd-queue.h"
 #include "networkd-radv.h"
+#include "networkd-route.h"
 #include "siphash24.h"
 #include "string-table.h"
 #include "string-util.h"
