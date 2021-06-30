@@ -34,13 +34,6 @@ CHANGES WITH 249 in spe:
           previously unprovisioned images (i.e. images with a mostly empty
           /etc/).
 
-        * Services gained a new ExitType= setting which can configure how to
-          determine when a service exited: the default is "main" which defines
-          the runtime by the service's main process lifetime (this matches the
-          only behaviour implemented in v248 and before), but with "cgroup" the
-          runtime is defined by the existence of any process in the service's
-          cgroup.
-
         * The systemd-machine-id-setup tool now supports a --image= switch for
           provisioning a machine ID file into an OS disk image, similar to how
           --root= operates on an OS file tree. This matches the existing switch

@@ -45,7 +45,7 @@ _arguments \
     {-p+,--property=}'[Set unit property]:NAME=VALUE:(( \
                 CPUAccounting= MemoryAccounting= BlockIOAccounting= SendSIGHUP= \
                 SendSIGKILL= MemoryLimit= CPUShares= BlockIOWeight= User= Group= \
-                DevicePolicy= KillMode= ExitType= DeviceAllow= BlockIOReadBandwidth= \
+                DevicePolicy= KillMode= DeviceAllow= BlockIOReadBandwidth= \
                 BlockIOWriteBandwidth= BlockIODeviceWeight= Nice= Environment= \
                 KillSignal= RestartKillSignal= FinalKillSignal= LimitCPU= LimitFSIZE= LimitDATA= \
                 LimitSTACK= LimitCORE= LimitRSS= LimitNOFILE= LimitAS= LimitNPROC= \

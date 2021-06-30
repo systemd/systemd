@@ -1621,25 +1621,18 @@ static int control_pid_good(Service *s) {
         return s->control_pid > 0;
 }
 
-static int cgroup_empty(Service *s) {
-        assert(s);
-
-        /* Returns 0 if there is no cgroup, > 0 if is empty or doesn't exist, < 0 if we can't figure it out */
-
-        if (!UNIT(s)->cgroup_path)
-                return 0;
-
-        return cg_is_empty_recursive(SYSTEMD_CGROUP_CONTROLLER, UNIT(s)->cgroup_path);
-}
-
-
 static int cgroup_good(Service *s) {
         int r;
+
+        assert(s);
 
         /* Returns 0 if the cgroup is empty or doesn't exist, > 0 if it is exists and is populated, < 0 if we can't
          * figure it out */
 
-        r = cgroup_empty(s);
+        if (!UNIT(s)->cgroup_path)
+                return 0;
+
+        r = cg_is_empty_recursive(SYSTEMD_CGROUP_CONTROLLER, UNIT(s)->cgroup_path);
         if (r < 0)
                 return r;
 
@@ -3402,14 +3395,7 @@ static void service_sigchld_event(Unit *u, pid_t pid, int code, int status) {
         else
                 assert_not_reached("Unknown code");
 
-        /* Services with ExitType=cgroup ignore the main PID for purposes of exit status */
-        if (s->exit_type == SERVICE_EXIT_CGROUP && s->main_pid == pid) {
-                service_unwatch_main_pid(s);
-                s->main_pid_known = false;
-        }
-
-        if ((s->exit_type == SERVICE_EXIT_MAIN && s->main_pid == pid) ||
-            (s->exit_type == SERVICE_EXIT_CGROUP && cgroup_empty(s) && !control_pid_good(s))) {
+        if (s->main_pid == pid) {
                 /* Forking services may occasionally move to a new PID.
                  * As long as they update the PID file before exiting the old
                  * PID, they're fine. */
@@ -3442,7 +3428,7 @@ static void service_sigchld_event(Unit *u, pid_t pid, int code, int status) {
 
                 unit_log_process_exit(
                                 u,
-                                s->exit_type == SERVICE_EXIT_CGROUP ? "Last process" : "Main process",
+                                "Main process",
                                 service_exec_command_to_string(SERVICE_EXEC_START),
                                 f == SERVICE_SUCCESS,
                                 code, status);
@@ -4464,13 +4450,6 @@ static const char* const service_type_table[_SERVICE_TYPE_MAX] = {
 };
 
 DEFINE_STRING_TABLE_LOOKUP(service_type, ServiceType);
-
-static const char* const service_exit_type_table[_SERVICE_EXIT_TYPE_MAX] = {
-        [SERVICE_EXIT_MAIN] = "main",
-        [SERVICE_EXIT_CGROUP] = "cgroup",
-};
-
-DEFINE_STRING_TABLE_LOOKUP(service_exit_type, ServiceExitType);
 
 static const char* const service_exec_command_table[_SERVICE_EXEC_COMMAND_MAX] = {
         [SERVICE_EXEC_CONDITION] = "ExecCondition",
