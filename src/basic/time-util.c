@@ -1262,7 +1262,7 @@ int parse_nsec(const char *t, nsec_t *nsec) {
         return 0;
 }
 
-int get_timezones(char ***ret) {
+static int get_timezones_from_zone1970_tab(char ***ret) {
         _cleanup_fclose_ FILE *f = NULL;
         _cleanup_strv_free_ char **zones = NULL;
         int r;
@@ -1270,34 +1270,48 @@ int get_timezones(char ***ret) {
         assert(ret);
 
         f = fopen("/usr/share/zoneinfo/zone1970.tab", "re");
-        if (f) {
-                for (;;) {
-                        _cleanup_free_ char *line = NULL, *cc = NULL, *co = NULL, *tz = NULL;
-
-                        r = read_line(f, LONG_LINE_MAX, &line);
-                        if (r < 0)
-                                return r;
-                        if (r == 0)
-                                break;
-
-                        const char *p = line;
-
-                        /* Line format is:
-                         * 'country codes' 'coordinates' 'timezone' 'comments' */
-                        r = extract_many_words(&p, NULL, 0, &cc, &co, &tz, NULL);
-                        if (r < 0)
-                                continue;
-
-                        /* Lines that start with # are comments. */
-                        if (*cc == '#')
-                                continue;
-
-                        r = strv_extend(&zones, tz);
-                        if (r < 0)
-                                return r;
-                }
-        } else if (errno != ENOENT)
+        if (!f)
                 return -errno;
+
+        for (;;) {
+                _cleanup_free_ char *line = NULL, *cc = NULL, *co = NULL, *tz = NULL;
+
+                r = read_line(f, LONG_LINE_MAX, &line);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        break;
+
+                const char *p = line;
+
+                /* Line format is:
+                 * 'country codes' 'coordinates' 'timezone' 'comments' */
+                r = extract_many_words(&p, NULL, 0, &cc, &co, &tz, NULL);
+                if (r < 0)
+                        continue;
+
+                /* Lines that start with # are comments. */
+                if (*cc == '#')
+                        continue;
+
+                r = strv_extend(&zones, tz);
+                if (r < 0)
+                        return r;
+        }
+
+        *ret = TAKE_PTR(zones);
+        return 0;
+}
+
+int get_timezones(char ***ret) {
+        _cleanup_strv_free_ char **zones = NULL;
+        int r;
+
+        assert(ret);
+
+        r = get_timezones_from_zone1970_tab(&zones);
+        if (r < 0 && r != -ENOENT)
+                return r;
 
         /* Always include UTC */
         r = strv_extend(&zones, "UTC");
