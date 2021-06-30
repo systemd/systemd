@@ -256,31 +256,6 @@
       </varlistentry>
 
       <varlistentry>
-        <term><varname>ExitType=</varname></term>
-
-        <listitem>
-          <para>Configures the process exit type for this service unit. One of <option>main</option> or
-          <option>cgroup</option>:</para>
-
-          <itemizedlist>
-            <listitem><para>If set to <option>main</option> (the default), the service manager
-            will consider the unit stopped when the main process, which is determined according to the `Type`, exits.
-            </para></listitem>
-
-            <listitem><para>The <option>cgroup</option> exit type is meant for applications whose forking model is not
-            known ahead of time and which might not have a specific main process. The service will stay running as long
-            as at least one process in the cgroup is running. The exit status of the service is that of the last
-            process in the cgroup to exit.</para></listitem>
-          </itemizedlist>
-
-          <para>It is generally recommended to use <varname>ExitType=</varname><option>main</option> when a service has
-          a known forking model and a main process can reliably be determined. <varname>ExitType=</varname>
-          <option>cgroup</option> is well suited for transient or automatically generated services, such as graphical
-          applications inside of a desktop environment.</para>
-        </listitem>
-      </varlistentry>
-
-      <varlistentry>
         <term><varname>RemainAfterExit=</varname></term>
 
         <listitem><para>Takes a boolean value that specifies whether
