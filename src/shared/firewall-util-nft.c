@@ -561,7 +561,7 @@ static int nft_add_element(sd_netlink *nfnl, sd_netlink_message **ret,
         /*
          * Ideally there would be an API that provides:
          *
-         * 1) a init function to add the main ruleset skeleton
+         * 1) an init function to add the main ruleset skeleton
          * 2) a function that populates the sets with all known address/port pairs to s/dnat for
          * 3) a function that can remove address/port pairs again.
          *

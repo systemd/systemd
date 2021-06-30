@@ -92,7 +92,7 @@ static int files_add(
                 if (flags & (CONF_FILES_REGULAR|CONF_FILES_DIRECTORY))
                         if (!((flags & CONF_FILES_DIRECTORY) && S_ISDIR(st.st_mode)) &&
                             !((flags & CONF_FILES_REGULAR) && S_ISREG(st.st_mode))) {
-                                log_debug("Ignoring '%s/%s', as it is not a of the right type.", dirpath, de->d_name);
+                                log_debug("Ignoring '%s/%s', as it does not have the right type.", dirpath, de->d_name);
                                 continue;
                         }
 
