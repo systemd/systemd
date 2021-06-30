@@ -5,6 +5,4 @@
 #  the Free Software Foundation; either version 2.1 of the License, or
 #  (at your option) any later version.
 
-{% if HAVE_MICROHTTPD %}
 u systemd-journal-remote  - "systemd Journal Remote"
-{% endif %}
