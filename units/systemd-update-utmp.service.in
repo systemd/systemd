@@ -8,7 +8,7 @@
 #  (at your option) any later version.
 
 [Unit]
-Description=Update UTMP about System Boot/Shutdown
+Description=Record System Boot/Shutdown in UTMP
 Documentation=man:systemd-update-utmp.service(8) man:utmp(5)
 DefaultDependencies=no
 RequiresMountsFor=/var/log/wtmp
