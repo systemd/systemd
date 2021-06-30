@@ -1040,7 +1040,7 @@ static int ndisc_router_process_rdnss(Link *link, sd_ndisc_router *rt) {
                 if (rdnss) {
                         rdnss->marked = false;
                         rdnss->router = router;
-                        rdnss->valid_until = time_now + lifetime * USEC_PER_SEC;
+                        rdnss->valid_until = usec_add(time_now, lifetime * USEC_PER_SEC);
                         continue;
                 }
 
@@ -1051,7 +1051,7 @@ static int ndisc_router_process_rdnss(Link *link, sd_ndisc_router *rt) {
                 *x = (NDiscRDNSS) {
                         .address = a[j],
                         .router = router,
-                        .valid_until = time_now + lifetime * USEC_PER_SEC,
+                        .valid_until = usec_add(time_now, lifetime * USEC_PER_SEC),
                 };
 
                 r = set_ensure_consume(&link->ndisc_rdnss, &ndisc_rdnss_hash_ops, TAKE_PTR(x));
@@ -1138,12 +1138,12 @@ static int ndisc_router_process_dnssl(Link *link, sd_ndisc_router *rt) {
                 if (dnssl) {
                         dnssl->marked = false;
                         dnssl->router = router;
-                        dnssl->valid_until = time_now + lifetime * USEC_PER_SEC;
+                        dnssl->valid_until = usec_add(time_now, lifetime * USEC_PER_SEC);
                         continue;
                 }
 
                 s->router = router;
-                s->valid_until = time_now + lifetime * USEC_PER_SEC;
+                s->valid_until = usec_add(time_now, lifetime * USEC_PER_SEC);
 
                 r = set_ensure_consume(&link->ndisc_dnssl, &ndisc_dnssl_hash_ops, TAKE_PTR(s));
                 if (r < 0)
