@@ -1303,13 +1303,69 @@ static int get_timezones_from_zone1970_tab(char ***ret) {
         return 0;
 }
 
+static int get_timezones_from_tzdata_zi(char ***ret) {
+        _cleanup_fclose_ FILE *f = NULL;
+        _cleanup_strv_free_ char **zones = NULL;
+        int r;
+
+        f = fopen("/usr/share/zoneinfo/tzdata.zi", "re");
+        if (!f)
+                return -errno;
+
+        for (;;) {
+                _cleanup_free_ char *line = NULL, *type = NULL, *f1 = NULL, *f2 = NULL;
+
+                r = read_line(f, LONG_LINE_MAX, &line);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        break;
+
+                const char *p = line;
+
+                /* The only lines we care about are Zone and Link lines.
+                 * Zone line format is:
+                 * 'Zone' 'timezone' ...
+                 * Link line format is:
+                 * 'Link' 'target' 'alias'
+                 * See 'man zic' for more detail. */
+                r = extract_many_words(&p, NULL, 0, &type, &f1, &f2, NULL);
+                if (r < 0)
+                        continue;
+
+                char *tz;
+                if (*type == 'Z' || *type == 'z')
+                        /* Zone lines have timezone in field 1. */
+                        tz = f1;
+                else if (*type == 'L' || *type == 'l')
+                        /* Link lines have timezone in field 2. */
+                        tz = f2;
+                else
+                        /* Not a line we care about. */
+                        continue;
+
+                r = strv_extend(&zones, tz);
+                if (r < 0)
+                        return r;
+        }
+
+        *ret = TAKE_PTR(zones);
+        return 0;
+}
+
 int get_timezones(char ***ret) {
         _cleanup_strv_free_ char **zones = NULL;
         int r;
 
         assert(ret);
 
-        r = get_timezones_from_zone1970_tab(&zones);
+        r = get_timezones_from_tzdata_zi(&zones);
+        if (r == -ENOENT) {
+                log_debug_errno(r, "Could not get timezone data from tzdata.zi, using zone1970.tab: %m");
+                r = get_timezones_from_zone1970_tab(&zones);
+                if (r == -ENOENT)
+                        log_debug_errno(r, "Could not get timezone data from zone1970.tab, using UTC: %m");
+        }
         if (r < 0 && r != -ENOENT)
                 return r;
 
