@@ -78,6 +78,9 @@ static Request *request_free(Request *req) {
 DEFINE_TRIVIAL_CLEANUP_FUNC(Request*, request_free);
 
 void request_drop(Request *req) {
+        if (!req)
+                return;
+
         if (req->message_counter)
                 (*req->message_counter)--;
 
