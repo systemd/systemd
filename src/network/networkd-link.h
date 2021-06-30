@@ -104,6 +104,7 @@ typedef struct Link {
 
         Set *addresses;
         Set *addresses_foreign;
+        Set *addresses_ipv4acd;
         Set *pool_addresses;
         Set *static_addresses;
         Set *neighbors;
@@ -119,11 +120,9 @@ typedef struct Link {
         Set *dhcp_routes, *dhcp_routes_old;
         char *lease_file;
         unsigned dhcp4_messages;
-        sd_ipv4acd *dhcp_acd;
         bool dhcp4_route_failed:1;
         bool dhcp4_route_retrying:1;
         bool dhcp4_configured:1;
-        bool dhcp4_address_bind:1;
 
         sd_ipv4ll *ipv4ll;
         bool ipv4ll_address_configured:1;
@@ -218,8 +217,9 @@ Link *link_ref(Link *link);
 DEFINE_TRIVIAL_CLEANUP_FUNC(Link*, link_unref);
 DEFINE_TRIVIAL_DESTRUCTOR(link_netlink_destroy_callback, Link, link_unref);
 
-int link_get(Manager *m, int ifindex, Link **ret);
+int link_get_by_index(Manager *m, int ifindex, Link **ret);
 int link_get_by_name(Manager *m, const char *ifname, Link **ret);
+int link_get_by_hw_addr(Manager *m, const struct hw_addr_data *hw_addr, Link **ret);
 int link_get_master(Link *link, Link **ret);
 
 int link_getlink_handler_internal(sd_netlink *rtnl, sd_netlink_message *m, Link *link, const char *error_msg);
