@@ -506,52 +506,26 @@ static void job_change_type(Job *j, JobType newtype) {
         j->type = newtype;
 }
 
-_pure_ static const char* job_get_begin_status_message_format(Unit *u, JobType t) {
-        const char *format;
-
+static const char* job_start_message_format(Unit *u, JobType t) {
         assert(u);
+        assert(IN_SET(t, JOB_START, JOB_STOP, JOB_RELOAD));
 
         if (t == JOB_RELOAD)
-                return "Reloading %s.";
-
-        assert(IN_SET(t, JOB_START, JOB_STOP));
-
-        format = UNIT_VTABLE(u)->status_message_formats.starting_stopping[t == JOB_STOP];
-        if (format)
-                return format;
-
-        /* Return generic strings */
-        if (t == JOB_START)
-                return "Starting %s.";
-        else {
-                assert(t == JOB_STOP);
-                return "Stopping %s.";
-        }
+                return "Reloading %s...";
+        else if (t == JOB_START)
+                return UNIT_VTABLE(u)->status_message_formats.starting_stopping[0] ?: "Starting %s...";
+        else
+                return UNIT_VTABLE(u)->status_message_formats.starting_stopping[1] ?: "Stopping %s...";
 }
 
-static void job_print_begin_status_message(Unit *u, JobType t) {
-        const char *format;
-
-        assert(u);
-
-        /* Reload status messages have traditionally not been printed to console. */
-        if (!IN_SET(t, JOB_START, JOB_STOP))
-                return;
-
-        format = job_get_begin_status_message_format(u, t);
-
-        DISABLE_WARNING_FORMAT_NONLITERAL;
-        unit_status_printf(u, STATUS_TYPE_NORMAL, "", format);
-        REENABLE_WARNING;
-}
-
-static void job_log_begin_status_message(Unit *u, uint32_t job_id, JobType t) {
-        const char *format, *mid;
-        char buf[LINE_MAX];
+static void job_emit_start_message(Unit *u, uint32_t job_id, JobType t) {
+        _cleanup_free_ char *free_ident = NULL;
+        const char *ident, *format;
 
         assert(u);
         assert(t >= 0);
         assert(t < _JOB_TYPE_MAX);
+        assert(u->id); /* We better don't try to run a unit that doesn't even have an id. */
 
         if (!IN_SET(t, JOB_START, JOB_STOP, JOB_RELOAD))
                 return;
@@ -559,42 +533,214 @@ static void job_log_begin_status_message(Unit *u, uint32_t job_id, JobType t) {
         if (!unit_log_level_test(u, LOG_INFO))
                 return;
 
-        if (log_on_console()) /* Skip this if it would only go on the console anyway */
-                return;
+        format = job_start_message_format(u, t);
+        ident = unit_status_string(u, &free_ident);
 
-        /* We log status messages for all units and all operations. */
+        bool do_console = t != JOB_RELOAD;
+        bool console_only = do_console && log_on_console(); /* Reload status messages have traditionally
+                                                             * not been printed to the console. */
 
-        format = job_get_begin_status_message_format(u, t);
+        /* Print to the log first. */
+        if (!console_only) {  /* Skip this if it would only go on the console anyway */
 
-        DISABLE_WARNING_FORMAT_NONLITERAL;
-        (void) snprintf(buf, sizeof buf, format, unit_status_string(u));
-        REENABLE_WARNING;
+                const char *mid =
+                        t == JOB_START ? "MESSAGE_ID=" SD_MESSAGE_UNIT_STARTING_STR :
+                        t == JOB_STOP  ? "MESSAGE_ID=" SD_MESSAGE_UNIT_STOPPING_STR :
+                                         "MESSAGE_ID=" SD_MESSAGE_UNIT_RELOADING_STR;
+                const char *msg_fmt = strjoina("MESSAGE=", format);
 
-        mid = t == JOB_START ? "MESSAGE_ID=" SD_MESSAGE_UNIT_STARTING_STR :
-              t == JOB_STOP  ? "MESSAGE_ID=" SD_MESSAGE_UNIT_STOPPING_STR :
-                               "MESSAGE_ID=" SD_MESSAGE_UNIT_RELOADING_STR;
+                /* Note that we deliberately use LOG_MESSAGE() instead of LOG_UNIT_MESSAGE() here, since this
+                 * is supposed to mimic closely what is written to screen using the status output, which is
+                 * supposed to be high level friendly output. */
 
-        /* Note that we deliberately use LOG_MESSAGE() instead of
-         * LOG_UNIT_MESSAGE() here, since this is supposed to mimic
-         * closely what is written to screen using the status output,
-         * which is supposed the highest level, friendliest output
-         * possible, which means we should avoid the low-level unit
-         * name. */
-        log_unit_struct(u, LOG_INFO,
-                        LOG_MESSAGE("%s", buf),
-                        "JOB_ID=%" PRIu32, job_id,
-                        "JOB_TYPE=%s", job_type_to_string(t),
-                        LOG_UNIT_INVOCATION_ID(u),
-                        mid);
+                DISABLE_WARNING_FORMAT_NONLITERAL;
+                log_unit_struct(u, LOG_INFO,
+                                msg_fmt, ident,
+                                "JOB_ID=%" PRIu32, job_id,
+                                "JOB_TYPE=%s", job_type_to_string(t),
+                                LOG_UNIT_INVOCATION_ID(u),
+                                mid);
+                REENABLE_WARNING;
+        }
+
+        /* Log to the console second. */
+        if (do_console) {
+                DISABLE_WARNING_FORMAT_NONLITERAL;
+                unit_status_printf(u, STATUS_TYPE_NORMAL, "", format, ident);
+                REENABLE_WARNING;
+        }
 }
 
-static void job_emit_begin_status_message(Unit *u, uint32_t job_id, JobType t) {
+static const char* job_done_message_format(Unit *u, JobType t, JobResult result) {
+        static const char* const generic_finished_start_job[_JOB_RESULT_MAX] = {
+                [JOB_DONE]        = "Started %s.",
+                [JOB_TIMEOUT]     = "Timed out starting %s.",
+                [JOB_FAILED]      = "Failed to start %s.",
+                [JOB_DEPENDENCY]  = "Dependency failed for %s.",
+                [JOB_ASSERT]      = "Assertion failed for %s.",
+                [JOB_UNSUPPORTED] = "Starting of %s unsupported.",
+                [JOB_COLLECTED]   = "Unnecessary job was removed for %s.",
+                [JOB_ONCE]        = "Unit %s has been started before and cannot be started again.",
+        };
+        static const char* const generic_finished_stop_job[_JOB_RESULT_MAX] = {
+                [JOB_DONE]        = "Stopped %s.",
+                [JOB_FAILED]      = "Stopped %s with error.",
+                [JOB_TIMEOUT]     = "Timed out stopping %s.",
+        };
+        static const char* const generic_finished_reload_job[_JOB_RESULT_MAX] = {
+                [JOB_DONE]        = "Reloaded %s.",
+                [JOB_FAILED]      = "Reload failed for %s.",
+                [JOB_TIMEOUT]     = "Timed out reloading %s.",
+        };
+        /* When verify-active detects the unit is inactive, report it.
+         * Most likely a DEPEND warning from a requisiting unit will
+         * occur next and it's nice to see what was requisited. */
+        static const char* const generic_finished_verify_active_job[_JOB_RESULT_MAX] = {
+                [JOB_SKIPPED]     = "%s is inactive.",
+        };
+        const char *format;
+
         assert(u);
         assert(t >= 0);
         assert(t < _JOB_TYPE_MAX);
 
-        job_log_begin_status_message(u, job_id, t);
-        job_print_begin_status_message(u, t);
+        /* Show condition check message if the job did not actually do anything due to failed condition. */
+        if (t == JOB_START && result == JOB_DONE && !u->condition_result)
+                return "Condition check resulted in %s being skipped.";
+
+        if (IN_SET(t, JOB_START, JOB_STOP, JOB_RESTART)) {
+                const UnitStatusMessageFormats *formats = &UNIT_VTABLE(u)->status_message_formats;
+                if (formats->finished_job) {
+                        format = formats->finished_job(u, t, result);
+                        if (format)
+                                return format;
+                }
+
+                format = (t == JOB_START ? formats->finished_start_job : formats->finished_stop_job)[result];
+                if (format)
+                        return format;
+        }
+
+        /* Return generic strings */
+        switch (t) {
+        case JOB_START:
+                return generic_finished_start_job[result];
+        case JOB_STOP:
+        case JOB_RESTART:
+                return generic_finished_stop_job[result];
+        case JOB_RELOAD:
+                return generic_finished_reload_job[result];
+        case JOB_VERIFY_ACTIVE:
+                return generic_finished_verify_active_job[result];
+        default:
+                return NULL;
+        }
+}
+
+static const struct {
+        int log_level;
+        const char *color, *word;
+} job_done_messages[_JOB_RESULT_MAX] = {
+        [JOB_DONE]        = { LOG_INFO,    ANSI_OK_COLOR,         "  OK  " },
+        [JOB_CANCELED]    = { LOG_INFO,                                    },
+        [JOB_TIMEOUT]     = { LOG_ERR,     ANSI_HIGHLIGHT_RED,    " TIME " },
+        [JOB_FAILED]      = { LOG_ERR,     ANSI_HIGHLIGHT_RED,    "FAILED" },
+        [JOB_DEPENDENCY]  = { LOG_WARNING, ANSI_HIGHLIGHT_YELLOW, "DEPEND" },
+        [JOB_SKIPPED]     = { LOG_NOTICE,  ANSI_HIGHLIGHT,        " INFO " },
+        [JOB_INVALID]     = { LOG_INFO,                                    },
+        [JOB_ASSERT]      = { LOG_WARNING, ANSI_HIGHLIGHT_YELLOW, "ASSERT" },
+        [JOB_UNSUPPORTED] = { LOG_WARNING, ANSI_HIGHLIGHT_YELLOW, "UNSUPP" },
+        [JOB_COLLECTED]   = { LOG_INFO,                                    },
+        [JOB_ONCE]        = { LOG_ERR,     ANSI_HIGHLIGHT_RED,    " ONCE " },
+};
+
+static const char* job_done_mid(JobType type, JobResult result) {
+        switch (type) {
+        case JOB_START:
+                if (result == JOB_DONE)
+                        return "MESSAGE_ID=" SD_MESSAGE_UNIT_STARTED_STR;
+                else
+                        return "MESSAGE_ID=" SD_MESSAGE_UNIT_FAILED_STR;
+
+        case JOB_RELOAD:
+                return "MESSAGE_ID=" SD_MESSAGE_UNIT_RELOADED_STR;
+
+        case JOB_STOP:
+        case JOB_RESTART:
+                return "MESSAGE_ID=" SD_MESSAGE_UNIT_STOPPED_STR;
+
+        default:
+                return NULL;
+        }
+}
+
+static void job_emit_done_message(Unit *u, uint32_t job_id, JobType t, JobResult result) {
+        _cleanup_free_ char *free_ident = NULL;
+        const char *ident, *format;
+
+        assert(u);
+        assert(t >= 0);
+        assert(t < _JOB_TYPE_MAX);
+
+        if (!unit_log_level_test(u, job_done_messages[result].log_level))
+                return;
+
+        format = job_done_message_format(u, t, result);
+        if (!format)
+                return;
+
+        ident = unit_status_string(u, &free_ident);
+
+        const char *status = job_done_messages[result].word;
+        bool do_console = t != JOB_RELOAD && status;
+        bool console_only = do_console && log_on_console();
+
+        if (t == JOB_START && result == JOB_DONE && !u->condition_result) {
+                /* No message on the console if the job did not actually do anything due to failed condition. */
+                if (console_only)
+                        return;
+                else
+                        do_console = false;
+        }
+
+        if (!console_only) {  /* Skip printing if output goes to the console, and job_print_status_message()
+                               * will actually print something to the console. */
+
+                const char *mid = job_done_mid(t, result);  /* mid may be NULL. log_unit_struct() will ignore it. */
+                const char *msg_fmt = strjoina("MESSAGE=", format);
+
+                DISABLE_WARNING_FORMAT_NONLITERAL;
+                log_unit_struct(u, job_done_messages[result].log_level,
+                                msg_fmt, ident,
+                                "JOB_ID=%" PRIu32, job_id,
+                                "JOB_TYPE=%s", job_type_to_string(t),
+                                "JOB_RESULT=%s", job_result_to_string(result),
+                                LOG_UNIT_INVOCATION_ID(u),
+                                mid);
+                REENABLE_WARNING;
+        }
+
+        if (do_console) {
+                if (log_get_show_color())
+                        status = strjoina(job_done_messages[result].color,
+                                          status,
+                                          ANSI_NORMAL);
+
+                DISABLE_WARNING_FORMAT_NONLITERAL;
+                unit_status_printf(u,
+                                   result == JOB_DONE ? STATUS_TYPE_NORMAL : STATUS_TYPE_NOTICE,
+                                   status, format, ident);
+                REENABLE_WARNING;
+
+                if (t == JOB_START && result == JOB_FAILED) {
+                        _cleanup_free_ char *quoted = NULL;
+
+                        quoted = shell_maybe_quote(u->id, 0);
+                        if (quoted)
+                                manager_status_printf(u->manager, STATUS_TYPE_NORMAL, NULL,
+                                                      "See 'systemctl status %s' for details.", quoted);
+                }
+        }
 }
 
 static int job_perform_on_unit(Job **j) {
@@ -643,7 +789,7 @@ static int job_perform_on_unit(Job **j) {
          * 'active') we'll possibly skip the "Starting..." message. */
         *j = manager_get_job(m, id);
         if (*j && r > 0)
-                job_emit_begin_status_message(u, id, t);
+                job_emit_start_message(u, id, t);
 
         return r;
 }
@@ -732,224 +878,6 @@ int job_run_and_invalidate(Job *j) {
         return r;
 }
 
-_pure_ static const char *job_get_done_status_message_format(Unit *u, JobType t, JobResult result) {
-
-        static const char *const generic_finished_start_job[_JOB_RESULT_MAX] = {
-                [JOB_DONE]        = "Started %s.",
-                [JOB_TIMEOUT]     = "Timed out starting %s.",
-                [JOB_FAILED]      = "Failed to start %s.",
-                [JOB_DEPENDENCY]  = "Dependency failed for %s.",
-                [JOB_ASSERT]      = "Assertion failed for %s.",
-                [JOB_UNSUPPORTED] = "Starting of %s not supported.",
-                [JOB_COLLECTED]   = "Unnecessary job for %s was removed.",
-                [JOB_ONCE]        = "Unit %s has been started before and cannot be started again."
-        };
-        static const char *const generic_finished_stop_job[_JOB_RESULT_MAX] = {
-                [JOB_DONE]        = "Stopped %s.",
-                [JOB_FAILED]      = "Stopped (with error) %s.",
-                [JOB_TIMEOUT]     = "Timed out stopping %s.",
-        };
-        static const char *const generic_finished_reload_job[_JOB_RESULT_MAX] = {
-                [JOB_DONE]        = "Reloaded %s.",
-                [JOB_FAILED]      = "Reload failed for %s.",
-                [JOB_TIMEOUT]     = "Timed out reloading %s.",
-        };
-        /* When verify-active detects the unit is inactive, report it.
-         * Most likely a DEPEND warning from a requisiting unit will
-         * occur next and it's nice to see what was requisited. */
-        static const char *const generic_finished_verify_active_job[_JOB_RESULT_MAX] = {
-                [JOB_SKIPPED]     = "%s is not active.",
-        };
-
-        const char *format;
-
-        assert(u);
-        assert(t >= 0);
-        assert(t < _JOB_TYPE_MAX);
-
-        if (IN_SET(t, JOB_START, JOB_STOP, JOB_RESTART)) {
-                const UnitStatusMessageFormats *formats = &UNIT_VTABLE(u)->status_message_formats;
-                if (formats->finished_job) {
-                        format = formats->finished_job(u, t, result);
-                        if (format)
-                                return format;
-                }
-                format = t == JOB_START ?
-                        formats->finished_start_job[result] :
-                        formats->finished_stop_job[result];
-                if (format)
-                        return format;
-        }
-
-        /* Return generic strings */
-        if (t == JOB_START)
-                return generic_finished_start_job[result];
-        else if (IN_SET(t, JOB_STOP, JOB_RESTART))
-                return generic_finished_stop_job[result];
-        else if (t == JOB_RELOAD)
-                return generic_finished_reload_job[result];
-        else if (t == JOB_VERIFY_ACTIVE)
-                return generic_finished_verify_active_job[result];
-
-        return NULL;
-}
-
-static const struct {
-        const char *color, *word;
-} job_print_done_status_messages[_JOB_RESULT_MAX] = {
-        [JOB_DONE]        = { ANSI_OK_COLOR,         "  OK  " },
-        [JOB_TIMEOUT]     = { ANSI_HIGHLIGHT_RED,    " TIME " },
-        [JOB_FAILED]      = { ANSI_HIGHLIGHT_RED,    "FAILED" },
-        [JOB_DEPENDENCY]  = { ANSI_HIGHLIGHT_YELLOW, "DEPEND" },
-        [JOB_SKIPPED]     = { ANSI_HIGHLIGHT,        " INFO " },
-        [JOB_ASSERT]      = { ANSI_HIGHLIGHT_YELLOW, "ASSERT" },
-        [JOB_UNSUPPORTED] = { ANSI_HIGHLIGHT_YELLOW, "UNSUPP" },
-        /* JOB_COLLECTED */
-        [JOB_ONCE]        = { ANSI_HIGHLIGHT_RED,    " ONCE " },
-};
-
-static void job_print_done_status_message(Unit *u, JobType t, JobResult result) {
-        const char *format;
-        const char *status;
-
-        assert(u);
-        assert(t >= 0);
-        assert(t < _JOB_TYPE_MAX);
-
-        /* Reload status messages have traditionally not been printed to console. */
-        if (t == JOB_RELOAD)
-                return;
-
-        /* No message if the job did not actually do anything due to failed condition. */
-        if (t == JOB_START && result == JOB_DONE && !u->condition_result)
-                return;
-
-        if (!job_print_done_status_messages[result].word)
-                return;
-
-        format = job_get_done_status_message_format(u, t, result);
-        if (!format)
-                return;
-
-        if (log_get_show_color())
-                status = strjoina(job_print_done_status_messages[result].color,
-                                  job_print_done_status_messages[result].word,
-                                  ANSI_NORMAL);
-        else
-                status = job_print_done_status_messages[result].word;
-
-        DISABLE_WARNING_FORMAT_NONLITERAL;
-        unit_status_printf(u,
-                           result == JOB_DONE ? STATUS_TYPE_NORMAL : STATUS_TYPE_NOTICE,
-                           status, format);
-        REENABLE_WARNING;
-
-        if (t == JOB_START && result == JOB_FAILED) {
-                _cleanup_free_ char *quoted = NULL;
-
-                quoted = shell_maybe_quote(u->id, 0);
-                manager_status_printf(u->manager, STATUS_TYPE_NORMAL, NULL, "See 'systemctl status %s' for details.", strna(quoted));
-        }
-}
-
-static void job_log_done_status_message(Unit *u, uint32_t job_id, JobType t, JobResult result) {
-        const char *format, *mid;
-        char buf[LINE_MAX];
-        static const int job_result_log_level[_JOB_RESULT_MAX] = {
-                [JOB_DONE]        = LOG_INFO,
-                [JOB_CANCELED]    = LOG_INFO,
-                [JOB_TIMEOUT]     = LOG_ERR,
-                [JOB_FAILED]      = LOG_ERR,
-                [JOB_DEPENDENCY]  = LOG_WARNING,
-                [JOB_SKIPPED]     = LOG_NOTICE,
-                [JOB_INVALID]     = LOG_INFO,
-                [JOB_ASSERT]      = LOG_WARNING,
-                [JOB_UNSUPPORTED] = LOG_WARNING,
-                [JOB_COLLECTED]   = LOG_INFO,
-                [JOB_ONCE]        = LOG_ERR,
-        };
-
-        assert(u);
-        assert(t >= 0);
-        assert(t < _JOB_TYPE_MAX);
-
-        /* Skip printing if output goes to the console, and job_print_status_message()
-           will actually print something to the console. */
-        if (log_on_console() && job_print_done_status_messages[result].word)
-                return;
-
-        /* Show condition check message if the job did not actually do anything due to failed condition. */
-        if (t == JOB_START && result == JOB_DONE && !u->condition_result) {
-                log_unit_struct(u, LOG_INFO,
-                                "MESSAGE=Condition check resulted in %s being skipped.", unit_status_string(u),
-                                "JOB_ID=%" PRIu32, job_id,
-                                "JOB_TYPE=%s", job_type_to_string(t),
-                                "JOB_RESULT=%s", job_result_to_string(result),
-                                LOG_UNIT_INVOCATION_ID(u),
-                                "MESSAGE_ID=" SD_MESSAGE_UNIT_STARTED_STR);
-
-                return;
-        }
-
-        if (!unit_log_level_test(u, job_result_log_level[result]))
-                return;
-
-        format = job_get_done_status_message_format(u, t, result);
-        if (!format)
-                return;
-
-        /* The description might be longer than the buffer, but that's OK,
-         * we'll just truncate it here. Note that we use snprintf() rather than
-         * xsprintf() on purpose here: we are fine with truncation and don't
-         * consider that an error. */
-        DISABLE_WARNING_FORMAT_NONLITERAL;
-        (void) snprintf(buf, sizeof(buf), format, unit_status_string(u));
-        REENABLE_WARNING;
-
-        switch (t) {
-
-        case JOB_START:
-                if (result == JOB_DONE)
-                        mid = "MESSAGE_ID=" SD_MESSAGE_UNIT_STARTED_STR;
-                else
-                        mid = "MESSAGE_ID=" SD_MESSAGE_UNIT_FAILED_STR;
-                break;
-
-        case JOB_RELOAD:
-                mid = "MESSAGE_ID=" SD_MESSAGE_UNIT_RELOADED_STR;
-                break;
-
-        case JOB_STOP:
-        case JOB_RESTART:
-                mid = "MESSAGE_ID=" SD_MESSAGE_UNIT_STOPPED_STR;
-                break;
-
-        default:
-                log_unit_struct(u, job_result_log_level[result],
-                                LOG_MESSAGE("%s", buf),
-                                "JOB_ID=%" PRIu32, job_id,
-                                "JOB_TYPE=%s", job_type_to_string(t),
-                                "JOB_RESULT=%s", job_result_to_string(result),
-                                LOG_UNIT_INVOCATION_ID(u));
-                return;
-        }
-
-        log_unit_struct(u, job_result_log_level[result],
-                        LOG_MESSAGE("%s", buf),
-                        "JOB_ID=%" PRIu32, job_id,
-                        "JOB_TYPE=%s", job_type_to_string(t),
-                        "JOB_RESULT=%s", job_result_to_string(result),
-                        LOG_UNIT_INVOCATION_ID(u),
-                        mid);
-}
-
-static void job_emit_done_status_message(Unit *u, uint32_t job_id, JobType t, JobResult result) {
-        assert(u);
-
-        job_log_done_status_message(u, job_id, t, result);
-        job_print_done_status_message(u, t, result);
-}
-
 static void job_fail_dependencies(Unit *u, UnitDependencyAtom match_atom) {
         Unit *other;
 
@@ -985,7 +913,7 @@ int job_finish_and_invalidate(Job *j, JobResult result, bool recursive, bool alr
 
         /* If this job did nothing to the respective unit we don't log the status message */
         if (!already)
-                job_emit_done_status_message(u, j->id, t, result);
+                job_emit_done_message(u, j->id, t, result);
 
         /* Patch restart jobs so that they become normal start jobs */
         if (result == JOB_DONE && t == JOB_RESTART) {
