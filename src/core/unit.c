@@ -5576,12 +5576,13 @@ void unit_log_process_exit(
 
         log_unit_struct(u, level,
                         "MESSAGE_ID=" SD_MESSAGE_UNIT_PROCESS_EXIT_STR,
-                        LOG_UNIT_MESSAGE(u, "%s exited, code=%s, status=%i/%s",
+                        LOG_UNIT_MESSAGE(u, "%s exited, code=%s, status=%i/%s%s",
                                          kind,
                                          sigchld_code_to_string(code), status,
                                          strna(code == CLD_EXITED
                                                ? exit_status_to_string(status, EXIT_STATUS_FULL)
-                                               : signal_to_string(status))),
+                                               : signal_to_string(status)),
+                                         success ? " (success)" : ""),
                         "EXIT_CODE=%s", sigchld_code_to_string(code),
                         "EXIT_STATUS=%i", status,
                         "COMMAND=%s", strna(command),
