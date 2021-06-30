@@ -27,6 +27,7 @@
 #include "mountpoint-util.h"
 #include "nsflags.h"
 #include "numa-util.h"
+#include "parse-socket-bind-item.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "percent-util.h"
@@ -868,42 +869,17 @@ static int bus_append_cgroup_property(sd_bus_message *m, const char *field, cons
                 if (isempty(eq))
                         r = sd_bus_message_append(m, "(sv)", field, "a(iiqq)", 0);
                 else {
-                        /* No ip protocol specified for now. */
-                        int32_t family = AF_UNSPEC, ip_protocol = 0;
-                        const char *address_family, *user_port;
-                        _cleanup_free_ char *word = NULL;
+                        int32_t family, ip_protocol;
+                        uint16_t nr_ports, port_min;
 
-                        r = extract_first_word(&eq, &word, ":", 0);
+                        r = parse_socket_bind_item(eq, &family, &ip_protocol, &nr_ports, &port_min);
                         if (r == -ENOMEM)
                                 return log_oom();
                         if (r < 0)
-                                return log_error_errno(r, "Failed to parse %s: %m", field);
+                                return log_error_errno(r, "Failed to parse %s", field);
 
-                        address_family = eq ? word : NULL;
-                        if (address_family) {
-                                family = af_from_ipv4_ipv6(address_family);
-                                if (family == AF_UNSPEC)
-                                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                               "Only \"ipv4\" and \"ipv6\" protocols are supported");
-                        }
-
-                        user_port = eq ? eq : word;
-                        if (streq(user_port, "any")) {
-                                r = sd_bus_message_append(m, "(sv)", field, "a(iiqq)", 1, family, ip_protocol, 0, 0);
-                                if (r < 0)
-                                        return bus_log_create_error(r);
-                        } else {
-                                uint16_t port_min, port_max;
-
-                                r = parse_ip_port_range(user_port, &port_min, &port_max);
-                                if (r == -ENOMEM)
-                                        return log_oom();
-                                if (r < 0)
-                                        return log_error_errno(r, "Invalid port or port range: %s", user_port);
-
-                                r = sd_bus_message_append(
-                                                m, "(sv)", field, "a(iiqq)", 1, family, ip_protocol, port_max - port_min + 1, port_min);
-                        }
+                        r = sd_bus_message_append(
+                                        m, "(sv)", field, "a(iiqq)", 1, family, ip_protocol, nr_ports, port_min);
                 }
                 if (r < 0)
                         return bus_log_create_error(r);
