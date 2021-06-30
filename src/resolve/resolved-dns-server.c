@@ -533,7 +533,7 @@ DnsServerFeatureLevel dns_server_possible_feature_level(DnsServer *s) {
                            DNS_SERVER_FEATURE_LEVEL_IS_DNSSEC(s->possible_feature_level) &&
                            dns_server_get_dnssec_mode(s) != DNSSEC_YES) {
 
-                        /* RRSIG data was missing on a EDNS0 packet with DO bit set. This means the server
+                        /* RRSIG data was missing on an EDNS0 packet with DO bit set. This means the server
                          * doesn't augment responses with DNSSEC RRs. If so, let's better not ask the server
                          * for it anymore, after all some servers generate different replies depending if an
                          * OPT RR is in the query or not. If we are in strict DNSSEC mode, don't allow such

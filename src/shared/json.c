@@ -4242,7 +4242,7 @@ int json_dispatch_uid_gid(const char *name, JsonVariant *variant, JsonDispatchFl
         }
 
         if (!json_variant_is_unsigned(variant))
-                return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not a integer.", strna(name));
+                return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not an integer.", strna(name));
 
         k = json_variant_unsigned(variant);
         if (k > UINT32_MAX || !uid_is_valid(k))
