@@ -122,7 +122,7 @@
       <varlistentry>
         <term><command>emit</command> <arg choice="plain"><replaceable>OBJECT</replaceable></arg> <arg choice="plain"><replaceable>INTERFACE</replaceable></arg> <arg choice="plain"><replaceable>SIGNAL</replaceable></arg> <arg choice="opt"><replaceable>SIGNATURE</replaceable> <arg choice="opt" rep="repeat"><replaceable>ARGUMENT</replaceable></arg></arg></term>
 
-        <listitem><para>Emit a signal. Takes a object path, interface name and method name. If parameters
+        <listitem><para>Emit a signal. Takes an object path, interface name and method name. If parameters
         shall be passed, a signature string is required, followed by the arguments, individually formatted as
         strings. For details on the formatting used, see below. To specify the destination of the signal,
         use the <option>--destination=</option> option.</para></listitem>

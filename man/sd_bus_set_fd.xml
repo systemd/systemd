@@ -45,7 +45,7 @@
     <para><function>sd_bus_set_fd()</function> sets the file descriptors used to communicate by a bus
     connection object. Both <parameter>input_fd</parameter> and <parameter>output_fd</parameter> must be
     valid file descriptors, referring to stream-based file objects (e.g. a stream socket, a pair of pipes or
-    FIFOs, or a even a TTY device). <parameter>input_fd</parameter> must be readable, and
+    FIFOs, or even a TTY device). <parameter>input_fd</parameter> must be readable, and
     <parameter>output_fd</parameter> must be writable. The same file descriptor may be used (and typically is
     used) as both the input and the output file descriptor. This function must be called before the bus
     connection is started via

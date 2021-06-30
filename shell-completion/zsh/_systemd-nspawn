@@ -28,7 +28,7 @@ _arguments \
     '--private-network[Disconnect networking of the container from the host.]' \
     '--network-interface=[Assign the specified network interface to the container.]: : _net_interfaces' \
     '--network-macvlan=[Create a "macvlan" interface of the specified Ethernet network interface and add it to the container.]: : _net_interfaces' \
-    '--network-ipvlan=[Create a ipvlan network interface based on an existing network interface to the container.]: : _net_interfaces' \
+    '--network-ipvlan=[Create an "ipvlan" network interface based on an existing network interface to the container.]: : _net_interfaces' \
     {--network-veth,-n}'[Create a virtual Ethernet link (veth) between host and container.]' \
     '--network-bridge=[Adds the host side of the Ethernet link created with --network-veth to the specified bridge.]: : _net_interfaces' \
     {--port=,-p+}'[Expose a container IP port on the host.]: : _message port' \

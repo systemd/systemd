@@ -144,7 +144,7 @@
       <varlistentry id='property'>
         <term><varname>Property=</varname></term>
         <listitem>
-          <para>A whitespace-separated list of udev property name with its value after a equal
+          <para>A whitespace-separated list of udev property names with their values after equals sign
           (<literal>=</literal>). If multiple properties are specified, the test results are ANDed.
           If the list is prefixed with a "!", the test is inverted. If a value contains white
           spaces, then please quote whole key and value pair. If a value contains quotation, then

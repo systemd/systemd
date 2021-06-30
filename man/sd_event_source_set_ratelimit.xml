@@ -121,7 +121,7 @@
         <varlistentry>
           <term><constant>-ENOEXEC</constant></term>
 
-          <listitem><para><function>sd_event_source_get_ratelimit()</function> was called on a event source
+          <listitem><para><function>sd_event_source_get_ratelimit()</function> was called on an event source
           that doesn't have rate limiting configured.</para></listitem>
         </varlistentry>
 

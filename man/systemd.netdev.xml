@@ -1108,7 +1108,7 @@
       <varlistentry>
         <term><varname>KeyFile=</varname></term>
         <listitem>
-          <para>Takes a absolute path to a file which contains a 128-bit key encoded in a hexadecimal string,
+          <para>Takes an absolute path to a file which contains a 128-bit key encoded in a hexadecimal string,
           which will be used in the transmission channel. When this option is specified,
           <varname>Key=</varname> is ignored. Note that the file must be readable by the user
           <literal>systemd-network</literal>, so it should be, e.g., owned by

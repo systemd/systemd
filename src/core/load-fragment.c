@@ -3196,7 +3196,7 @@ int config_parse_syscall_filter(
                         /* Allow nothing but the ones listed */
                         c->syscall_allow_list = true;
 
-                        /* Accept default syscalls if we are on a allow_list */
+                        /* Accept default syscalls if we are on an allow_list */
                         r = seccomp_parse_syscall_filter(
                                         "@default", -1, c->syscall_filter,
                                         SECCOMP_PARSE_PERMISSIVE|SECCOMP_PARSE_ALLOW_LIST,

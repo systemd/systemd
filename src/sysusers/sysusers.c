@@ -1588,7 +1588,7 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
 
                 if (!resolved_id)
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                               "[%s:%u] Lines of type 'r' require a ID range in the third field.",
+                                               "[%s:%u] Lines of type 'r' require an ID range in the third field.",
                                                fname, line);
 
                 if (description || home || shell)

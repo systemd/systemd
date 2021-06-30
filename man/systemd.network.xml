@@ -944,7 +944,7 @@ IPv6Token=prefixstable:2002:da8:1::</programlisting></para>
           <term><varname>VXLAN=</varname></term>
           <term><varname>Xfrm=</varname></term>
           <listitem>
-            <para>The name of a IPVLAN, IPVTAP, L2TP, MACsec, MACVLAN, MACVTAP, tunnel, VLAN, VXLAN, or
+            <para>The name of an IPVLAN, IPVTAP, L2TP, MACsec, MACVLAN, MACVTAP, tunnel, VLAN, VXLAN, or
             Xfrm to be created on the link. See
             <citerefentry><refentrytitle>systemd.netdev</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
             This option may be specified more than once.</para>
@@ -3495,7 +3495,7 @@ IPv6Token=prefixstable:2002:da8:1::</programlisting></para>
       <varlistentry>
         <term><varname>VirtualQueues=</varname></term>
         <listitem>
-          <para>Specifies the number of virtual queues. Takes a integer in the range 1…16. Defaults to unset
+          <para>Specifies the number of virtual queues. Takes an integer in the range 1…16. Defaults to unset
           and kernel's default is used.</para>
         </listitem>
       </varlistentry>

@@ -224,7 +224,7 @@ static inline int ordered_hashmap_remove_and_replace(OrderedHashmap *h, const vo
         return hashmap_remove_and_replace(PLAIN_HASHMAP(h), old_key, new_key, value);
 }
 
-/* Since merging data from a OrderedHashmap into a Hashmap or vice-versa
+/* Since merging data from an OrderedHashmap into a Hashmap or vice-versa
  * should just work, allow this by having looser type-checking here. */
 int _hashmap_merge(Hashmap *h, Hashmap *other);
 #define hashmap_merge(h, other) _hashmap_merge(PLAIN_HASHMAP(h), PLAIN_HASHMAP(other))

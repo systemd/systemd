@@ -708,7 +708,7 @@ static int json_dispatch_tasks_or_memory_max(const char *name, JsonVariant *vari
         }
 
         if (!json_variant_is_unsigned(variant))
-                return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not a integer.", strna(name));
+                return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not an integer.", strna(name));
 
         k = json_variant_unsigned(variant);
         if (k <= 0 || k >= UINT64_MAX)
@@ -728,7 +728,7 @@ static int json_dispatch_weight(const char *name, JsonVariant *variant, JsonDisp
         }
 
         if (!json_variant_is_unsigned(variant))
-                return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not a integer.", strna(name));
+                return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not an integer.", strna(name));
 
         k = json_variant_unsigned(variant);
         if (k <= CGROUP_WEIGHT_MIN || k >= CGROUP_WEIGHT_MAX)

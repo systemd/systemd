@@ -685,11 +685,11 @@ in full).
 
 The following fields are defined in this section:
 
-`matchMachineId` → An array of strings with each a formatted 128bit ID in
+`matchMachineId` → An array of strings that are formatted 128bit IDs in
 hex. If any of the specified IDs match the system's local machine ID
 (i.e. matches `/etc/machine-id`) the fields in this object are honored.
 
-`matchHostname` → An array of string with a each a valid hostname. If any of
+`matchHostname` → An array of strings that are valid hostnames. If any of
 the specified hostnames match the system's local hostname, the fields in this
 object are honored. If both `matchHostname` and `matchMachineId` are used
 within the same array entry, the object is honored when either match succeeds,
