@@ -297,7 +297,7 @@ static void disk_identify_fixup_uint16 (uint8_t identify[512], unsigned offset_w
  * disk_identify:
  * @fd: File descriptor for the block device.
  * @out_identify: Return location for IDENTIFY data.
- * @out_is_packet_device: Return location for whether returned data is from a IDENTIFY PACKET DEVICE.
+ * @out_is_packet_device: Return location for whether returned data is from an IDENTIFY PACKET DEVICE.
  *
  * Sends the IDENTIFY DEVICE or IDENTIFY PACKET DEVICE command to the
  * device represented by @fd. If successful, then the result will be

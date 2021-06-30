@@ -3018,7 +3018,7 @@ StandardInputData=SWNrIHNpdHplIGRhIHVuJyBlc3NlIEtsb3BzLAp1ZmYgZWVtYWwga2xvcHAncy
           in the system manager. When compiled for systems with "unmerged <filename>/usr/</filename>"
           (<filename>/bin</filename> is not a symlink to <filename>/usr/bin</filename>),
           <literal>:<filename>/sbin</filename>:<filename>/bin</filename></literal> is appended. In case of
-          the the user manager, a different path may be configured by the distribution. It is recommended to
+          the user manager, a different path may be configured by the distribution. It is recommended to
           not rely on the order of entries, and have only one program with a given name in
           <varname>$PATH</varname>.</para></listitem>
         </varlistentry>

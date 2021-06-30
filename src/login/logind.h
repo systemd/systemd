@@ -72,7 +72,7 @@ struct Manager {
          * this is != 0 and encodes what is being done */
         InhibitWhat action_what;
 
-        /* If a shutdown/suspend was delayed due to a inhibitor this
+        /* If a shutdown/suspend was delayed due to an inhibitor this
            contains the unit name we are supposed to start after the
            delay is over */
         const char *action_unit;

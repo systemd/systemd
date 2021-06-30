@@ -6251,7 +6251,7 @@ int exec_runtime_acquire(Manager *m, const ExecContext *c, const char *id, bool 
 
         rt = hashmap_get(m->exec_runtime_by_id, id);
         if (rt)
-                /* We already have a ExecRuntime object, let's increase the ref count and reuse it */
+                /* We already have an ExecRuntime object, let's increase the ref count and reuse it */
                 goto ref;
 
         if (!create) {

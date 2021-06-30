@@ -282,9 +282,9 @@ CHANGES WITH 249 in spe:
         * A new ConditionOSRelease= setting has been added to unit files to
           check os-release(5) fields. The "=", "!=", "<", "<=", ">=", ">"
           operators may be used to check if some field has some specific value
-          or do a aphanumerical comparison. Equality comparisons are useful for
-          fields like ID, but relative comparisons for fields like VERSION_ID
-          or IMAGE_VERSION.
+          or do an alphanumerical comparison. Equality comparisons are useful
+          for fields like ID, but relative comparisons for fields like
+          VERSION_ID or IMAGE_VERSION.
 
         * hostnamed gained a new Describe() D-Bus method that returns a JSON
           serialization of the host data it exposes. This is exposed via
@@ -1332,7 +1332,7 @@ CHANGES WITH 247:
           all system calls known at the time systemd was built.
 
         * Behaviour of system call filter allow lists has changed slightly:
-          system calls that are contained in @known will result in a EPERM by
+          system calls that are contained in @known will result in EPERM by
           default, while those not contained in it result in ENOSYS. This
           should improve compatibility because known system calls will thus be
           communicated as prohibited, while unknown (and thus newer ones) will
@@ -5803,7 +5803,7 @@ CHANGES WITH 233:
         * sd-id128 gained a new API for generating unique IDs for the host in a
           way that does not leak the machine ID. Specifically,
           sd_id128_get_machine_app_specific() derives an ID based on the
-          machine ID a in well-defined, non-reversible, stable way. This is
+          machine ID in a well-defined, non-reversible, stable way. This is
           useful whenever an identifier for the host is needed but where the
           identifier shall not be useful to identify the system beyond the
           scope of the application itself. (Internally this uses HMAC-SHA256 as
@@ -8053,7 +8053,7 @@ CHANGES WITH 220:
 
         * udev will no longer create device symlinks for all block devices by
           default. A deny list for excluding special block devices from this
-          logic has been turned into a allow list that requires picking block
+          logic has been turned into an allow list that requires picking block
           devices explicitly that require device symlinks.
 
         * A new (currently still internal) API sd-device.h has been
