@@ -1349,6 +1349,7 @@ const char* unit_status_string(Unit *u, char **combined) {
          * The last option is used if configured and the caller provided 'combined' pointer. */
 
         if (!u->description ||
+            streq(u->description, u->id) ||
             u->manager->status_unit_format == STATUS_UNIT_FORMAT_NAME ||
             (u->manager->status_unit_format == STATUS_UNIT_FORMAT_COMBINED && !combined))
                 return u->id;
