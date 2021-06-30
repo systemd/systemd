@@ -86,12 +86,13 @@ static const char *arg_host = NULL;
 static UnitFileScope arg_scope = UNIT_FILE_SYSTEM;
 static bool arg_man = true;
 static bool arg_generators = false;
-static const char *arg_root = NULL;
+static char *arg_root = NULL;
 static unsigned arg_iterations = 1;
 static usec_t arg_base_time = USEC_INFINITY;
 
 STATIC_DESTRUCTOR_REGISTER(arg_dot_from_patterns, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_dot_to_patterns, strv_freep);
+STATIC_DESTRUCTOR_REGISTER(arg_root, freep);
 
 typedef struct BootTimes {
         usec_t firmware_time;
@@ -2281,7 +2282,9 @@ static int parse_argv(int argc, char *argv[]) {
                         return version();
 
                 case ARG_ROOT:
-                        arg_root = optarg;
+                        r = parse_path_argument(optarg, /* suppress_root= */ true, &arg_root);
+                        if (r < 0)
+                                return r;
                         break;
 
                 case ARG_SYSTEM:
