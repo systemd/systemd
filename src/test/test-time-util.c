@@ -335,8 +335,7 @@ static void test_format_timestamp(void) {
                 char buf[MAX(FORMAT_TIMESTAMP_MAX, FORMAT_TIMESPAN_MAX)];
                 usec_t x, y;
 
-                random_bytes(&x, sizeof(x));
-                x = x % (2147483600 * USEC_PER_SEC) + 1;
+                x = random_u64_range(2147483600 * USEC_PER_SEC) + 1;
 
                 assert_se(format_timestamp(buf, sizeof(buf), x));
                 log_debug("%s", buf);
@@ -367,6 +366,26 @@ static void test_format_timestamp(void) {
                  * format_timestamp_relative() scales the accuracy with the distance from the current time up to one
                  * month, cover for that too. */
                 assert_se(y > x ? y - x : x - y <= USEC_PER_MONTH + USEC_PER_DAY);
+        }
+}
+
+static void test_FORMAT_TIMESTAMP(void) {
+        log_info("/* %s */", __func__);
+
+        for (unsigned i = 0; i < 100; i++) {
+                _cleanup_free_ char *buf;
+                usec_t x, y;
+
+                x = random_u64_range(2147483600 * USEC_PER_SEC) + 1;
+
+                /* strbuf() is to test the macro in an argument to a function call. */
+                assert_se(buf = strdup(FORMAT_TIMESTAMP(x)));
+                log_debug("%s", buf);
+                assert_se(parse_timestamp(buf, &y) >= 0);
+                assert_se(x / USEC_PER_SEC == y / USEC_PER_SEC);
+
+                char *t = FORMAT_TIMESTAMP(x);
+                assert_se(streq(t, buf));
         }
 }
 
@@ -624,6 +643,7 @@ int main(int argc, char *argv[]) {
         test_usec_sub_signed();
         test_usec_sub_unsigned();
         test_format_timestamp();
+        test_FORMAT_TIMESTAMP();
         test_format_timestamp_relative();
         test_format_timestamp_utc();
         test_deserialize_dual_timestamp();
