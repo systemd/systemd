@@ -360,6 +360,23 @@ static void test_format_timestamp(void) {
         }
 }
 
+static void test_FORMAT_TIMESTAMP(void) {
+        log_info("/* %s */", __func__);
+
+        for (unsigned i = 0; i < 100; i++) {
+                _cleanup_free_ char *buf;
+                usec_t x, y;
+
+                random_bytes(&x, sizeof(x));
+                x = x % (2147483600 * USEC_PER_SEC) + 1;
+
+                buf = strdup(FORMAT_TIMESTAMP(x));
+                log_debug("%s", buf);
+                assert_se(parse_timestamp(buf, &y) >= 0);
+                assert_se(x / USEC_PER_SEC == y / USEC_PER_SEC);
+        }
+}
+
 static void test_format_timestamp_relative(void) {
         log_info("/* %s */", __func__);
 
@@ -613,6 +630,7 @@ int main(int argc, char *argv[]) {
         test_usec_sub_signed();
         test_usec_sub_unsigned();
         test_format_timestamp();
+        test_FORMAT_TIMESTAMP();
         test_format_timestamp_relative();
         test_format_timestamp_utc();
         test_deserialize_dual_timestamp();
