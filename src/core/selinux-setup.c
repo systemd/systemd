@@ -64,7 +64,6 @@ int mac_selinux_setup(bool *loaded_policy) {
         r = selinux_init_load_policy(&enforce);
         if (r == 0) {
                 _cleanup_(mac_selinux_freep) char *label = NULL;
-                char timespan[FORMAT_TIMESPAN_MAX];
 
                 mac_selinux_retest();
 
@@ -84,7 +83,7 @@ int mac_selinux_setup(bool *loaded_policy) {
                 after_load = now(CLOCK_MONOTONIC);
 
                 log_info("Successfully loaded SELinux policy in %s.",
-                         format_timespan(timespan, sizeof(timespan), after_load - before_load, 0));
+                         FORMAT_TIMESPAN(after_load - before_load, 0));
 
                 *loaded_policy = true;
 

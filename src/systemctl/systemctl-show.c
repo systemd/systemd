@@ -722,10 +722,8 @@ static void print_status_info(
                 printf("\n");
         }
 
-        if (i->cpu_usage_nsec != UINT64_MAX) {
-                char buf[FORMAT_TIMESPAN_MAX];
-                printf("        CPU: %s\n", format_timespan(buf, sizeof(buf), i->cpu_usage_nsec / NSEC_PER_USEC, USEC_PER_MSEC));
-        }
+        if (i->cpu_usage_nsec != UINT64_MAX)
+                printf("        CPU: %s\n", FORMAT_TIMESPAN(i->cpu_usage_nsec / NSEC_PER_USEC, USEC_PER_MSEC));
 
         if (i->control_group) {
                 _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
@@ -1235,15 +1233,12 @@ static int print_property(const char *name, const char *expected_value, sd_bus_m
                         if (r < 0)
                                 return bus_log_parse_error(r);
 
-                        while ((r = sd_bus_message_read(m, "(stt)", &base, &v, &next_elapse)) > 0) {
-                                char timespan1[FORMAT_TIMESPAN_MAX] = "n/a", timespan2[FORMAT_TIMESPAN_MAX] = "n/a";
-
-                                (void) format_timespan(timespan1, sizeof timespan1, v, 0);
-                                (void) format_timespan(timespan2, sizeof timespan2, next_elapse, 0);
-
+                        while ((r = sd_bus_message_read(m, "(stt)", &base, &v, &next_elapse)) > 0)
                                 bus_print_property_valuef(name, expected_value, flags,
-                                                          "{ %s=%s ; next_elapse=%s }", base, timespan1, timespan2);
-                        }
+                                                          "{ %s=%s ; next_elapse=%s }",
+                                                          base,
+                                                          strna(FORMAT_TIMESPAN(v, 0)),
+                                                          strna(FORMAT_TIMESPAN(next_elapse, 0)));
                         if (r < 0)
                                 return bus_log_parse_error(r);
 
@@ -1397,7 +1392,6 @@ static int print_property(const char *name, const char *expected_value, sd_bus_m
 
                 }  else if (contents[0] == SD_BUS_TYPE_STRUCT_BEGIN &&
                             streq(name, "IODeviceLatencyTargetUSec")) {
-                        char ts[FORMAT_TIMESPAN_MAX];
                         const char *path;
                         uint64_t target;
 
@@ -1407,7 +1401,7 @@ static int print_property(const char *name, const char *expected_value, sd_bus_m
 
                         while ((r = sd_bus_message_read(m, "(st)", &path, &target)) > 0)
                                 bus_print_property_valuef(name, expected_value, flags, "%s %s", strna(path),
-                                                          format_timespan(ts, sizeof(ts), target, 1));
+                                                          FORMAT_TIMESPAN(target, 1));
                         if (r < 0)
                                 return bus_log_parse_error(r);
 

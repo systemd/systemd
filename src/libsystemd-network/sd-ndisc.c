@@ -279,7 +279,6 @@ static usec_t ndisc_timeout_compute_random(usec_t val) {
 }
 
 static int ndisc_timeout(sd_event_source *s, uint64_t usec, void *userdata) {
-        char time_string[FORMAT_TIMESPAN_MAX];
         sd_ndisc *nd = userdata;
         usec_t time_now;
         int r;
@@ -314,8 +313,7 @@ static int ndisc_timeout(sd_event_source *s, uint64_t usec, void *userdata) {
         }
 
         log_ndisc(nd, "Sent Router Solicitation, next solicitation in %s",
-                  format_timespan(time_string, FORMAT_TIMESPAN_MAX,
-                                  nd->retransmit_time, USEC_PER_SEC));
+                  FORMAT_TIMESPAN(nd->retransmit_time, USEC_PER_SEC));
 
         return 0;
 

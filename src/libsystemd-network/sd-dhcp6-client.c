@@ -946,7 +946,6 @@ static int client_timeout_resend(sd_event_source *s, uint64_t usec, void *userda
         usec_t time_now, init_retransmit_time = 0, max_retransmit_time = 0;
         usec_t max_retransmit_duration = 0;
         uint8_t max_retransmit_count = 0;
-        char time_string[FORMAT_TIMESPAN_MAX];
 
         assert(s);
         assert(client);
@@ -1042,7 +1041,7 @@ static int client_timeout_resend(sd_event_source *s, uint64_t usec, void *userda
         }
 
         log_dhcp6_client(client, "Next retransmission in %s",
-                         format_timespan(time_string, FORMAT_TIMESPAN_MAX, client->retransmit_time, USEC_PER_SEC));
+                         FORMAT_TIMESPAN(client->retransmit_time, USEC_PER_SEC));
 
         r = event_reset_time(client->event, &client->timeout_resend,
                              clock_boottime_or_monotonic(),
@@ -1566,7 +1565,6 @@ static int client_get_lifetime(sd_dhcp6_client *client, uint32_t *lifetime_t1,
 static int client_start(sd_dhcp6_client *client, enum DHCP6State state) {
         int r;
         usec_t timeout, time_now;
-        char time_string[FORMAT_TIMESPAN_MAX];
         uint32_t lifetime_t1, lifetime_t2;
 
         assert_return(client, -EINVAL);
@@ -1639,8 +1637,7 @@ static int client_start(sd_dhcp6_client *client, enum DHCP6State state) {
 
                 timeout = client_timeout_compute_random(lifetime_t1 * USEC_PER_SEC);
 
-                log_dhcp6_client(client, "T1 expires in %s",
-                                 format_timespan(time_string, FORMAT_TIMESPAN_MAX, timeout, USEC_PER_SEC));
+                log_dhcp6_client(client, "T1 expires in %s", FORMAT_TIMESPAN(timeout, USEC_PER_SEC));
 
                 r = event_reset_time(client->event, &client->timeout_t1,
                                      clock_boottime_or_monotonic(),
@@ -1652,8 +1649,7 @@ static int client_start(sd_dhcp6_client *client, enum DHCP6State state) {
 
                 timeout = client_timeout_compute_random(lifetime_t2 * USEC_PER_SEC);
 
-                log_dhcp6_client(client, "T2 expires in %s",
-                                 format_timespan(time_string, FORMAT_TIMESPAN_MAX, timeout, USEC_PER_SEC));
+                log_dhcp6_client(client, "T2 expires in %s", FORMAT_TIMESPAN(timeout, USEC_PER_SEC));
 
                 r = event_reset_time(client->event, &client->timeout_t2,
                                      clock_boottime_or_monotonic(),

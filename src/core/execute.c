@@ -5288,7 +5288,7 @@ static void strv_dump(FILE* f, const char *prefix, const char *name, char **strv
 }
 
 void exec_context_dump(const ExecContext *c, FILE* f, const char *prefix) {
-        char **e, **d, buf_clean[FORMAT_TIMESPAN_MAX];
+        char **e, **d;
         int r;
 
         assert(c);
@@ -5406,24 +5406,16 @@ void exec_context_dump(const ExecContext *c, FILE* f, const char *prefix) {
                         fprintf(f, "%s%s: %s\n", prefix, exec_directory_type_to_string(dt), *d);
         }
 
-        fprintf(f,
-                "%sTimeoutCleanSec: %s\n",
-                prefix, format_timespan(buf_clean, sizeof(buf_clean), c->timeout_clean_usec, USEC_PER_SEC));
+        fprintf(f, "%sTimeoutCleanSec: %s\n", prefix, FORMAT_TIMESPAN(c->timeout_clean_usec, USEC_PER_SEC));
 
         if (c->nice_set)
-                fprintf(f,
-                        "%sNice: %i\n",
-                        prefix, c->nice);
+                fprintf(f, "%sNice: %i\n", prefix, c->nice);
 
         if (c->oom_score_adjust_set)
-                fprintf(f,
-                        "%sOOMScoreAdjust: %i\n",
-                        prefix, c->oom_score_adjust);
+                fprintf(f, "%sOOMScoreAdjust: %i\n", prefix, c->oom_score_adjust);
 
         if (c->coredump_filter_set)
-                fprintf(f,
-                        "%sCoredumpFilter: 0x%"PRIx64"\n",
-                        prefix, c->coredump_filter);
+                fprintf(f, "%sCoredumpFilter: 0x%"PRIx64"\n", prefix, c->coredump_filter);
 
         for (unsigned i = 0; i < RLIM_NLIMITS; i++)
                 if (c->rlimit[i]) {
@@ -5546,13 +5538,10 @@ void exec_context_dump(const ExecContext *c, FILE* f, const char *prefix) {
                 fprintf(f, "%sLogLevelMax: %s\n", prefix, strna(t));
         }
 
-        if (c->log_ratelimit_interval_usec > 0) {
-                char buf_timespan[FORMAT_TIMESPAN_MAX];
-
+        if (c->log_ratelimit_interval_usec > 0)
                 fprintf(f,
                         "%sLogRateLimitIntervalSec: %s\n",
-                        prefix, format_timespan(buf_timespan, sizeof(buf_timespan), c->log_ratelimit_interval_usec, USEC_PER_SEC));
-        }
+                        prefix, FORMAT_TIMESPAN(c->log_ratelimit_interval_usec, USEC_PER_SEC));
 
         if (c->log_ratelimit_burst > 0)
                 fprintf(f, "%sLogRateLimitBurst: %u\n", prefix, c->log_ratelimit_burst);

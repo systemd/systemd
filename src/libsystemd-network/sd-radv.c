@@ -301,7 +301,6 @@ static int radv_timeout(sd_event_source *s, uint64_t usec, void *userdata) {
         usec_t min_timeout = SD_RADV_DEFAULT_MIN_TIMEOUT_USEC;
         usec_t max_timeout = SD_RADV_DEFAULT_MAX_TIMEOUT_USEC;
         usec_t time_now, timeout;
-        char time_string[FORMAT_TIMESPAN_MAX];
 
         assert(s);
         assert(ra);
@@ -329,10 +328,7 @@ static int radv_timeout(sd_event_source *s, uint64_t usec, void *userdata) {
         }
 
         timeout = radv_compute_timeout(min_timeout, max_timeout);
-
-        log_radv(ra, "Next Router Advertisement in %s",
-                 format_timespan(time_string, FORMAT_TIMESPAN_MAX,
-                                 timeout, USEC_PER_SEC));
+        log_radv(ra, "Next Router Advertisement in %s", FORMAT_TIMESPAN(timeout, USEC_PER_SEC));
 
         r = event_reset_time(ra->event, &ra->timeout_event_source,
                              clock_boottime_or_monotonic(),
@@ -545,8 +541,6 @@ _public_ int sd_radv_add_prefix(sd_radv *ra, sd_radv_prefix *p, int dynamic) {
         sd_radv_prefix *cur;
         int r;
         _cleanup_free_ char *addr_p = NULL;
-        char time_string_preferred[FORMAT_TIMESPAN_MAX];
-        char time_string_valid[FORMAT_TIMESPAN_MAX];
         usec_t time_now, valid, preferred, valid_until, preferred_until;
 
         assert_return(ra, -EINVAL);
@@ -628,10 +622,8 @@ _public_ int sd_radv_add_prefix(sd_radv *ra, sd_radv_prefix *p, int dynamic) {
 
         log_radv(ra, "Updated prefix %s preferred %s valid %s",
                  strna(addr_p),
-                 format_timespan(time_string_preferred, FORMAT_TIMESPAN_MAX,
-                                 preferred, USEC_PER_SEC),
-                 format_timespan(time_string_valid, FORMAT_TIMESPAN_MAX,
-                                 valid, USEC_PER_SEC));
+                 FORMAT_TIMESPAN(preferred, USEC_PER_SEC),
+                 FORMAT_TIMESPAN(valid, USEC_PER_SEC));
 
         return 0;
 }
@@ -662,7 +654,6 @@ _public_ sd_radv_prefix *sd_radv_remove_prefix(sd_radv *ra,
 }
 
 _public_ int sd_radv_add_route_prefix(sd_radv *ra, sd_radv_route_prefix *p, int dynamic) {
-        char time_string_valid[FORMAT_TIMESPAN_MAX];
         usec_t time_now, valid, valid_until;
         _cleanup_free_ char *pretty = NULL;
         sd_radv_route_prefix *cur;
@@ -732,7 +723,7 @@ _public_ int sd_radv_add_route_prefix(sd_radv *ra, sd_radv_route_prefix *p, int 
 
         log_radv(ra, "Updated route prefix %s valid %s",
                  strna(pretty),
-                 format_timespan(time_string_valid, FORMAT_TIMESPAN_MAX, valid, USEC_PER_SEC));
+                 FORMAT_TIMESPAN(valid, USEC_PER_SEC));
 
         return 0;
 }

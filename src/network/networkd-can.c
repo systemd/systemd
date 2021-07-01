@@ -107,7 +107,6 @@ int can_set_netlink_message(Link *link, sd_netlink_message *m) {
         }
 
         if (link->network->can_restart_us > 0) {
-                char time_string[FORMAT_TIMESPAN_MAX];
                 uint64_t restart_ms;
 
                 if (link->network->can_restart_us == USEC_INFINITY)
@@ -115,12 +114,11 @@ int can_set_netlink_message(Link *link, sd_netlink_message *m) {
                 else
                         restart_ms = DIV_ROUND_UP(link->network->can_restart_us, USEC_PER_MSEC);
 
-                format_timespan(time_string, FORMAT_TIMESPAN_MAX, restart_ms * 1000, MSEC_PER_SEC);
-
                 if (restart_ms > UINT32_MAX)
-                        return log_link_debug_errno(link, SYNTHETIC_ERRNO(ERANGE), "restart timeout (%s) too big.", time_string);
+                        return log_link_debug_errno(link, SYNTHETIC_ERRNO(ERANGE), "restart timeout (%s) too big.",
+                                                    FORMAT_TIMESPAN(restart_ms * 1000, MSEC_PER_SEC));
 
-                log_link_debug(link, "Setting restart = %s", time_string);
+                log_link_debug(link, "Setting restart = %s", FORMAT_TIMESPAN(restart_ms * 1000, MSEC_PER_SEC));
 
                 r = sd_netlink_message_append_u32(m, IFLA_CAN_RESTART_MS, restart_ms);
                 if (r < 0)

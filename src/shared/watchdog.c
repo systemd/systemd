@@ -32,7 +32,6 @@ static int update_timeout(void) {
                 if (ioctl(watchdog_fd, WDIOC_SETOPTIONS, &flags) < 0)
                         return log_warning_errno(errno, "Failed to disable hardware watchdog: %m");
         } else {
-                char buf[FORMAT_TIMESPAN_MAX];
                 int sec, flags;
                 usec_t t;
 
@@ -41,8 +40,7 @@ static int update_timeout(void) {
                 if (ioctl(watchdog_fd, WDIOC_SETTIMEOUT, &sec) < 0)
                         return log_warning_errno(errno, "Failed to set timeout to %is: %m", sec);
 
-                watchdog_timeout = (usec_t) sec * USEC_PER_SEC;
-                log_info("Set hardware watchdog to %s.", format_timespan(buf, sizeof(buf), watchdog_timeout, 0));
+                log_info("Set hardware watchdog to %s.", FORMAT_TIMESPAN(sec * USEC_PER_SEC, 0));
 
                 flags = WDIOS_ENABLECARD;
                 if (ioctl(watchdog_fd, WDIOC_SETOPTIONS, &flags) < 0) {

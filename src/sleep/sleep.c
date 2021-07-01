@@ -266,7 +266,6 @@ static int execute(
 
 static int execute_s2h(const SleepConfig *sleep_config) {
         _cleanup_close_ int tfd = -1;
-        char buf[FORMAT_TIMESPAN_MAX];
         struct itimerspec ts = {};
         int r;
 
@@ -277,7 +276,7 @@ static int execute_s2h(const SleepConfig *sleep_config) {
                 return log_error_errno(errno, "Error creating timerfd: %m");
 
         log_debug("Set timerfd wake alarm for %s",
-                  format_timespan(buf, sizeof(buf), sleep_config->hibernate_delay_sec, USEC_PER_SEC));
+                  FORMAT_TIMESPAN(sleep_config->hibernate_delay_sec, USEC_PER_SEC));
 
         timespec_store(&ts.it_value, sleep_config->hibernate_delay_sec);
 
@@ -299,7 +298,7 @@ static int execute_s2h(const SleepConfig *sleep_config) {
 
         /* If woken up after alarm time, hibernate */
         log_debug("Attempting to hibernate after waking from %s timer",
-                  format_timespan(buf, sizeof(buf), sleep_config->hibernate_delay_sec, USEC_PER_SEC));
+                  FORMAT_TIMESPAN(sleep_config->hibernate_delay_sec, USEC_PER_SEC));
 
         r = execute(sleep_config, SLEEP_HIBERNATE, NULL);
         if (r < 0) {

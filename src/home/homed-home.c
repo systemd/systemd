@@ -1097,15 +1097,15 @@ static int home_ratelimit(Home *h, sd_bus_error *error) {
         }
 
         if (ret == 0) {
-                char buf[FORMAT_TIMESPAN_MAX];
                 usec_t t, n;
 
                 n = now(CLOCK_REALTIME);
                 t = user_record_ratelimit_next_try(h->record);
 
                 if (t != USEC_INFINITY && t > n)
-                        return sd_bus_error_setf(error, BUS_ERROR_AUTHENTICATION_LIMIT_HIT, "Too many login attempts, please try again in %s!",
-                                                 format_timespan(buf, sizeof(buf), t - n, USEC_PER_SEC));
+                        return sd_bus_error_setf(error, BUS_ERROR_AUTHENTICATION_LIMIT_HIT,
+                                                 "Too many login attempts, please try again in %s!",
+                                                 FORMAT_TIMESPAN(t - n, USEC_PER_SEC));
 
                 return sd_bus_error_set(error, BUS_ERROR_AUTHENTICATION_LIMIT_HIT, "Too many login attempts, please try again later.");
         }

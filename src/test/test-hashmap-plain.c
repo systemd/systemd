@@ -752,7 +752,6 @@ static void test_hashmap_many(void) {
 
         for (j = 0; j < ELEMENTSOF(tests); j++) {
                 usec_t ts = now(CLOCK_MONOTONIC), n;
-                char b[FORMAT_TIMESPAN_MAX];
 
                 assert_se(h = hashmap_new(tests[j].ops));
 
@@ -779,7 +778,7 @@ static void test_hashmap_many(void) {
                 hashmap_free(h);
 
                 n = now(CLOCK_MONOTONIC);
-                log_info("test took %s", format_timespan(b, sizeof b, n - ts, 0));
+                log_info("test took %s", FORMAT_TIMESPAN(n - ts, 0));
         }
 }
 
@@ -790,7 +789,6 @@ static void test_hashmap_free(void) {
         Hashmap *h;
         bool slow = slow_tests_enabled();
         usec_t ts, n;
-        char b[FORMAT_TIMESPAN_MAX];
         unsigned n_entries = slow ? 1 << 20 : 240;
 
         const struct {
@@ -824,7 +822,7 @@ static void test_hashmap_free(void) {
                 hashmap_free(h);
 
                 n = now(CLOCK_MONOTONIC);
-                log_info("%s test took %s", tests[j].title, format_timespan(b, sizeof b, n - ts, 0));
+                log_info("%s test took %s", tests[j].title, FORMAT_TIMESPAN(n - ts, 0));
 
                 assert_se(custom_counter == tests[j].expect_counter);
         }

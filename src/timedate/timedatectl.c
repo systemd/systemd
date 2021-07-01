@@ -359,8 +359,6 @@ DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(ntp_leap, uint32_t);
 REENABLE_WARNING;
 
 static int print_ntp_status_info(NTPStatusInfo *i) {
-        char ts[FORMAT_TIMESPAN_MAX], jitter[FORMAT_TIMESPAN_MAX],
-                tmin[FORMAT_TIMESPAN_MAX], tmax[FORMAT_TIMESPAN_MAX];
         usec_t delay, t14, t23, offset, root_distance;
         _cleanup_(table_unrefp) Table *table = NULL;
         bool offset_sign;
@@ -407,9 +405,9 @@ static int print_ntp_status_info(NTPStatusInfo *i) {
                 return table_log_add_error(r);
 
         r = table_add_cell_stringf(table, NULL, "%s (min: %s; max %s)",
-                                   format_timespan(ts, sizeof(ts), i->poll_interval, 0),
-                                   format_timespan(tmin, sizeof(tmin), i->poll_min, 0),
-                                   format_timespan(tmax, sizeof(tmax), i->poll_max, 0));
+                                   FORMAT_TIMESPAN(i->poll_interval, 0),
+                                   FORMAT_TIMESPAN(i->poll_min, 0),
+                                   FORMAT_TIMESPAN(i->poll_max, 0));
         if (r < 0)
                 return table_log_add_error(r);
 
@@ -468,7 +466,7 @@ static int print_ntp_status_info(NTPStatusInfo *i) {
                 return table_log_add_error(r);
 
         r = table_add_cell_stringf(table, NULL, "%s (%" PRIi32 ")",
-                                   format_timespan(ts, sizeof(ts), DIV_ROUND_UP((nsec_t) (exp2(i->precision) * NSEC_PER_SEC), NSEC_PER_USEC), 0),
+                                   FORMAT_TIMESPAN(DIV_ROUND_UP((nsec_t) (exp2(i->precision) * NSEC_PER_SEC), NSEC_PER_USEC), 0),
                                    i->precision);
         if (r < 0)
                 return table_log_add_error(r);
@@ -478,8 +476,8 @@ static int print_ntp_status_info(NTPStatusInfo *i) {
                 return table_log_add_error(r);
 
         r = table_add_cell_stringf(table, NULL, "%s (max: %s)",
-                                   format_timespan(ts, sizeof(ts), root_distance, 0),
-                                   format_timespan(tmax, sizeof(tmax), i->root_distance_max, 0));
+                                   FORMAT_TIMESPAN(root_distance, 0),
+                                   FORMAT_TIMESPAN(i->root_distance_max, 0));
         if (r < 0)
                 return table_log_add_error(r);
 
@@ -489,15 +487,15 @@ static int print_ntp_status_info(NTPStatusInfo *i) {
 
         r = table_add_cell_stringf(table, NULL, "%s%s",
                                    offset_sign ? "+" : "-",
-                                   format_timespan(ts, sizeof(ts), offset, 0));
+                                   FORMAT_TIMESPAN(offset, 0));
         if (r < 0)
                 return table_log_add_error(r);
 
         r = table_add_many(table,
                            TABLE_STRING, "Delay:",
-                           TABLE_STRING, format_timespan(ts, sizeof(ts), delay, 0),
+                           TABLE_STRING, FORMAT_TIMESPAN(delay, 0),
                            TABLE_STRING, "Jitter:",
-                           TABLE_STRING, format_timespan(jitter, sizeof(jitter), i->jitter, 0),
+                           TABLE_STRING, FORMAT_TIMESPAN(i->jitter, 0),
                            TABLE_STRING, "Packet count:",
                            TABLE_UINT64, i->packet_count);
         if (r < 0)
@@ -717,7 +715,6 @@ static int print_timesync_property(const char *name, const char *expected_value,
         case SD_BUS_TYPE_STRUCT:
                 if (streq(name, "NTPMessage")) {
                         _cleanup_(ntp_status_info_clear) NTPStatusInfo i = {};
-                        char ts[FORMAT_TIMESPAN_MAX];
 
                         r = map_ntp_message(NULL, NULL, m, NULL, &i);
                         if (r < 0)
@@ -733,10 +730,8 @@ static int print_timesync_property(const char *name, const char *expected_value,
 
                         printf("{ Leap=%u, Version=%u, Mode=%u, Stratum=%u, Precision=%i,",
                                i.leap, i.version, i.mode, i.stratum, i.precision);
-                        printf(" RootDelay=%s,",
-                               format_timespan(ts, sizeof(ts), i.root_delay, 0));
-                        printf(" RootDispersion=%s,",
-                               format_timespan(ts, sizeof(ts), i.root_dispersion, 0));
+                        printf(" RootDelay=%s,", FORMAT_TIMESPAN(i.root_delay, 0));
+                        printf(" RootDispersion=%s,", FORMAT_TIMESPAN(i.root_dispersion, 0));
 
                         if (i.stratum == 1)
                                 printf(" Reference=%s,", i.reference.str);
@@ -749,8 +744,7 @@ static int print_timesync_property(const char *name, const char *expected_value,
                         printf(" DestinationTimestamp=%s,", FORMAT_TIMESTAMP(i.dest));
                         printf(" Ignored=%s PacketCount=%" PRIu64 ",",
                                yes_no(i.spike), i.packet_count);
-                        printf(" Jitter=%s }\n",
-                               format_timespan(ts, sizeof(ts), i.jitter, 0));
+                        printf(" Jitter=%s }\n", FORMAT_TIMESPAN(i.jitter, 0));
 
                         return 1;
 

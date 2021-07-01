@@ -115,7 +115,6 @@ REENABLE_WARNING
 static int open_label_db(void) {
         struct selabel_handle *hnd;
         usec_t before_timestamp, after_timestamp;
-        char timespan[FORMAT_TIMESPAN_MAX];
 
 #  if HAVE_GENERIC_MALLINFO
         generic_mallinfo before_mallinfo = generic_mallinfo_get();
@@ -131,11 +130,11 @@ static int open_label_db(void) {
         generic_mallinfo after_mallinfo = generic_mallinfo_get();
         size_t l = LESS_BY((size_t) after_mallinfo.uordblks, (size_t) before_mallinfo.uordblks);
         log_debug("Successfully loaded SELinux database in %s, size on heap is %zuK.",
-                  format_timespan(timespan, sizeof(timespan), after_timestamp - before_timestamp, 0),
+                  FORMAT_TIMESPAN(after_timestamp - before_timestamp, 0),
                   DIV_ROUND_UP(l, 1024));
 #  else
         log_debug("Successfully loaded SELinux database in %s.",
-                  format_timespan(timespan, sizeof(timespan), after_timestamp - before_timestamp, 0));
+                  FORMAT_TIMESPAN(after_timestamp - before_timestamp, 0));
 #  endif
 
         /* release memory after measurement */

@@ -1322,17 +1322,13 @@ static int start_transient_service(
 
                         if (timestamp_is_set(c.inactive_enter_usec) &&
                             timestamp_is_set(c.inactive_exit_usec) &&
-                            c.inactive_enter_usec > c.inactive_exit_usec) {
-                                char ts[FORMAT_TIMESPAN_MAX];
+                            c.inactive_enter_usec > c.inactive_exit_usec)
                                 log_info("Service runtime: %s",
-                                         format_timespan(ts, sizeof ts, c.inactive_enter_usec - c.inactive_exit_usec, USEC_PER_MSEC));
-                        }
+                                         FORMAT_TIMESPAN(c.inactive_enter_usec - c.inactive_exit_usec, USEC_PER_MSEC));
 
-                        if (c.cpu_usage_nsec != NSEC_INFINITY) {
-                                char ts[FORMAT_TIMESPAN_MAX];
+                        if (c.cpu_usage_nsec != NSEC_INFINITY)
                                 log_info("CPU time consumed: %s",
-                                         format_timespan(ts, sizeof ts, DIV_ROUND_UP(c.cpu_usage_nsec, NSEC_PER_USEC), USEC_PER_MSEC));
-                        }
+                                         FORMAT_TIMESPAN(DIV_ROUND_UP(c.cpu_usage_nsec, NSEC_PER_USEC), USEC_PER_MSEC));
 
                         if (c.ip_ingress_bytes != UINT64_MAX) {
                                 char bytes[FORMAT_BYTES_MAX];
