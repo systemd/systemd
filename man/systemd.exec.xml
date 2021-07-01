@@ -2338,7 +2338,8 @@ SystemCallErrorNumber=EPERM</programlisting>
         clients via D-Bus IPC, and generally not understood as being data that requires protection. Moreover,
         environment variables are propagated down the process tree, including across security boundaries
         (such as setuid/setgid executables), and hence might leak to processes that should not have access to
-        the secret data. Use <varname>LoadCredential=</varname> (see below) to pass data to unit processes
+        the secret data. Use <varname>LoadCredential=</varname>, <varname>LoadCredentialEncrypted=</varname>
+        or <varname>SetCredentialEncrypted=</varname> (see below) to pass data to unit processes
         securely.</para></listitem>
       </varlistentry>
 
@@ -2832,6 +2833,7 @@ StandardInputData=SWNrIHNpdHplIGRhIHVuJyBlc3NlIEtsb3BzLAp1ZmYgZWVtYWwga2xvcHAncy
 
       <varlistentry>
         <term><varname>LoadCredential=</varname><replaceable>ID</replaceable><optional>:<replaceable>PATH</replaceable></optional></term>
+        <term><varname>LoadCredentialEncrypted=</varname><replaceable>ID</replaceable><optional>:<replaceable>PATH</replaceable></optional></term>
 
         <listitem><para>Pass a credential to the unit. Credentials are limited-size binary or textual objects
         that may be passed to unit processes. They are primarily used for passing cryptographic keys (both
@@ -2859,6 +2861,20 @@ StandardInputData=SWNrIHNpdHplIGRhIHVuJyBlc3NlIEtsb3BzLAp1ZmYgZWVtYWwga2xvcHAncy
         chosen identical to the credential name, i.e. this is a terse way do declare credentials to inherit
         from the service manager into a service. This option may be used multiple times, each time defining
         an additional credential to pass to the unit.</para>
+
+        <para>The <varname>LoadCredentialEncrypted=</varname> setting is identical to
+        <varname>LoadCredential=</varname>, except that the credential data is decrypted before being passed
+        on to the executed processes. Specifically, the referenced path should refer to a file or socket with
+        an encrypted credential, as implemented by
+        <citerefentry><refentrytitle>systemd-creds</refentrytitle><manvolnum>1</manvolnum></citerefentry>. This
+        credential is loaded, decrypted and then passed to the application in decrypted plaintext form, in
+        the same way a regular credential specified via <varname>LoadCredential=</varname> would be. A
+        credential configured this way may encrypted with a secret key derived from the system's TPM2
+        security chip, or with a secret key stored in
+        <filename>/var/lib/systemd/credentials.secret</filename>, or with both. Using encrypted credentials
+        improves security as credentials are not stored in plaintext and only decrypted into plaintext the
+        moment a service requiring them is started. Moreover, credentials may be bound to the local hardware
+        and installations, so that they cannot easily be analyzed offline.</para>
 
         <para>The credential files/IPC sockets must be accessible to the service manager, but don't have to
         be directly accessible to the unit's processes: the credential data is read and copied into separate,
@@ -2891,6 +2907,7 @@ StandardInputData=SWNrIHNpdHplIGRhIHVuJyBlc3NlIEtsb3BzLAp1ZmYgZWVtYWwga2xvcHAncy
 
       <varlistentry>
         <term><varname>SetCredential=</varname><replaceable>ID</replaceable>:<replaceable>VALUE</replaceable></term>
+        <term><varname>SetCredentialEncrypted=</varname><replaceable>ID</replaceable>:<replaceable>VALUE</replaceable></term>
 
         <listitem><para>The <varname>SetCredential=</varname> setting is similar to
         <varname>LoadCredential=</varname> but accepts a literal value to use as data for the credential,
@@ -2900,6 +2917,14 @@ StandardInputData=SWNrIHNpdHplIGRhIHVuJyBlc3NlIEtsb3BzLAp1ZmYgZWVtYWwga2xvcHAncy
         <varname>LoadCredential=</varname>. In order to embed binary data into the credential data use
         C-style escaping (i.e. <literal>\n</literal> to embed a newline, or <literal>\x00</literal> to embed
         a <constant>NUL</constant> byte).</para>
+
+        <para>The <varname>SetCredentialEncrypted=</varname> setting is identical to
+        <varname>SetCredential=</varname> but expects an encrypted credential in literal form as value. This
+        allows embedding confidential credentials securely directly in unit files. Use
+        <citerefentry><refentrytitle>systemd-creds</refentrytitle><manvolnum>1</manvolnum></citerefentry>'
+        <option>-p</option> switch to generate suitable <varname>SetCredentialEncrypted=</varname> lines
+        directly from plaintext credentials. For further details see
+        <varname>LoadCredentialEncrypted=</varname> above.</para>
 
         <para>If a credential of the same ID is listed in both <varname>LoadCredential=</varname> and
         <varname>SetCredential=</varname>, the latter will act as default if the former cannot be
