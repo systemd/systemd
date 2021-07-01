@@ -216,6 +216,12 @@ sensor:modalias:acpi:BOSC0200*:dmi:*:svnHampoo:pnE4D6_HI-122LP:*
 sensor:modalias:acpi:KIOX000A*:dmi:*:svnChuwi*:pnHi13:*
  ACCEL_MOUNT_MATRIX=1, 0, 0; 0, -1, 0; 0, 0, 1
 
+# Chuwi Hi13 (CWI534) with BMA250 sensor
+# Note this sets the norm matrix, since the matrix which the kernel reads
+# from the ACPI tables is actually wrong on these models
+sensor:modalias:acpi:BOSC0200*:dmi:*:svnChuwi*:pnHi13:*
+ ACCEL_MOUNT_MATRIX=1, 0, 0; 0, 1, 0; 0, 0, 1
+
 # Chuwi HiBook
 # Chuwi HiBook does not have its product name filled, so we
 # match the entire dmi-alias, assuming that the use of a BOSC0200 +
