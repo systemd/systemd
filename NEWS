@@ -28,16 +28,16 @@ CHANGES WITH 249 in spe:
           specified root user exists already in the image. (Note that
           --volatile=yes ensures it doesn't, though.)
 
-        * PID 1 may now show both the unit name and the unit description
-          strings in its status output during boot. This may be configured with
-          StatusUnitFormat=combined in system.conf or
-          systemd.status-unit-format=combined on the kernel command line.
-
         * systemd-firstboot now also supports querying various system
           parameters via the credential subsystems. Thus, as above this may be
           used to initialize important system parameters on first boot of
           previously unprovisioned images (i.e. images with a mostly empty
           /etc/).
+
+        * PID 1 may now show both the unit name and the unit description
+          strings in its status output during boot. This may be configured with
+          StatusUnitFormat=combined in system.conf or
+          systemd.status-unit-format=combined on the kernel command line.
 
         * The systemd-machine-id-setup tool now supports a --image= switch for
           provisioning a machine ID file into an OS disk image, similar to how
@@ -69,9 +69,10 @@ CHANGES WITH 249 in spe:
           and then stream their own root partition onto the target medium.
 
         * systemd-repart's partition configuration files gained support for a
-          Flags= and a ReadOnly= setting, allowing control of the GPT partition
-          flags for the created partitions: this is useful for marking newly
-          created partitions as read-only from the start.
+          Flags=, a ReadOnly= and a NoAuto= setting, allowing control of these
+          GPT partition flags for the created partitions: this is useful for
+          marking newly created partitions as read-only, or as not being
+          subject for automatic mounting from creation on.
 
         * The /etc/os-release file has been extended with two new (optional)
           variables IMAGE_VERSION= and IMAGE_ID=, carrying identity and version
@@ -447,6 +448,11 @@ CHANGES WITH 249 in spe:
           (default, as before), turn echo off entirely, or echo the typed
           characters literally.
 
+        * The systemd-ask-password tool also gained a new -n switch for
+          suppressing output of a trailing newline character when writing the
+          acquired password to standard output, similar to /bin/echo's -n
+          switch.
+
         * New documentation has been added that describes the organization of
           the systemd source code tree:
 
@@ -503,6 +509,14 @@ CHANGES WITH 249 in spe:
           and friends), all file systems will be mounted with MS_NOSUID by
           default, unless the system is running with SELinux enabled.
 
+        * When enumerating time zones the timedatectl tool will now consult the
+          'tzdata.zi' file shipped by the IANA time zone database package, in
+          addition to 'zone1970.tab', as before. This makes sure time zone
+          aliases are now correctly supported. Some distributions so far did
+          not install this additional file, most do however. If you
+          distribution does not install it yet, it might make sense to change
+          that.
+
         Contributions from: Aakash Singh, adrian5, Albert Brox,
         Alexander Sverdlin, Alexander Tsoy, alexlzhu, Allen Webb,
         Alvin Šipraga, Alyssa Ross, Anders Wenhaug, Andrea Pappacoda,
@@ -534,7 +548,7 @@ CHANGES WITH 249 in spe:
         William A. Kennington III, Yangyang Shen, Yegor Alexeyev, Yi Gao,
         Yu Watanabe, Zbigniew Jędrzejewski-Szmek, zsien, наб
 
-        — Warsaw, 2021-06-25
+        — Berlin, 2021-07-01
 
 CHANGES WITH 248:
 
