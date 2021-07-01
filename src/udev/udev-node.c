@@ -100,7 +100,7 @@ static int node_symlink(sd_device *dev, const char *node, const char *slink) {
 
                 r = create_symlink(target, slink);
                 if (r >= 0)
-                        return 0;
+                        return 1;
 
                 log_device_debug_errno(dev, r, "Failed to create symlink '%s' to '%s', trying to replace '%s': %m", slink, target, slink);
         } else
