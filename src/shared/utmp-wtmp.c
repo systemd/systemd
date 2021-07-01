@@ -340,7 +340,6 @@ int utmp_wall(
         void *userdata) {
 
         _cleanup_free_ char *text = NULL, *hn = NULL, *un = NULL, *stdin_tty = NULL;
-        char date[FORMAT_TIMESTAMP_MAX];
         struct utmpx *u;
         int r;
 
@@ -364,7 +363,7 @@ int utmp_wall(
                      "%s\r\n\r\n",
                      un ?: username, hn,
                      origin_tty ? " on " : "", strempty(origin_tty),
-                     format_timestamp(date, sizeof(date), now(CLOCK_REALTIME)),
+                     FORMAT_TIMESTAMP(now(CLOCK_REALTIME)),
                      message) < 0)
                 return -ENOMEM;
 
