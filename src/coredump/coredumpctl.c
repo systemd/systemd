@@ -645,15 +645,11 @@ static int print_info(FILE *file, sd_journal *j, bool need_space) {
                 usec_t u;
 
                 r = safe_atou64(timestamp, &u);
-                if (r >= 0) {
-                        char relative[FORMAT_TIMESPAN_MAX];
+                if (r >= 0)
+                        fprintf(file, "     Timestamp: %s (%s)\n",
+                                FORMAT_TIMESTAMP(u), FORMAT_TIMESTAMP_RELATIVE(u));
 
-                        fprintf(file,
-                                "     Timestamp: %s (%s)\n",
-                                FORMAT_TIMESTAMP(u),
-                                format_timestamp_relative(relative, sizeof(relative), u));
-
-                } else
+                else
                         fprintf(file, "     Timestamp: %s\n", timestamp);
         }
 

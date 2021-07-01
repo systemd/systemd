@@ -2016,7 +2016,7 @@ static int show_all(
 }
 
 static int show_system_status(sd_bus *bus) {
-        char since1[FORMAT_TIMESTAMP_RELATIVE_MAX], since2[FORMAT_TIMESTAMP_MAX];
+        char since2[FORMAT_TIMESTAMP_MAX];
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(machine_info_clear) struct machine_info mi = {};
         _cleanup_free_ char *hn = NULL;
@@ -2060,7 +2060,7 @@ static int show_system_status(sd_bus *bus) {
 
         printf("    Since: %s; %s\n",
                format_timestamp_style(since2, sizeof(since2), mi.timestamp, arg_timestamp_style),
-               format_timestamp_relative(since1, sizeof(since1), mi.timestamp));
+               FORMAT_TIMESTAMP_RELATIVE(mi.timestamp));
 
         printf("   CGroup: %s\n", mi.control_group ?: "/");
         if (IN_SET(arg_transport,
