@@ -1340,27 +1340,35 @@ const char* unit_description(Unit *u) {
         return strna(u->id);
 }
 
-const char* unit_status_string(Unit *u, char **combined) {
+const char* unit_status_string(Unit *u, char **ret_combined_buffer) {
         assert(u);
         assert(u->id);
 
         /* Return u->id, u->description, or "{u->id} - {u->description}".
          * Versions with u->description are only used if it is set.
-         * The last option is used if configured and the caller provided 'combined' pointer. */
+         * The last option is used if configured and the caller provided the 'ret_combined_buffer'
+         * pointer.
+         *
+         * Note that *ret_combined_buffer may be set to NULL. */
 
         if (!u->description ||
-            streq(u->description, u->id) ||
             u->manager->status_unit_format == STATUS_UNIT_FORMAT_NAME ||
-            (u->manager->status_unit_format == STATUS_UNIT_FORMAT_COMBINED && !combined))
-                return u->id;
+            (u->manager->status_unit_format == STATUS_UNIT_FORMAT_COMBINED && !ret_combined_buffer) ||
+            streq(u->description, u->id)) {
 
-        if (u->description && u->manager->status_unit_format == STATUS_UNIT_FORMAT_COMBINED && combined) {
-                char *t = strjoin(u->id, " - ", u->description);
-                if (t) {
-                        *combined = t;
-                        return t;
+                if (ret_combined_buffer)
+                        *ret_combined_buffer = NULL;
+                return u->id;
+        }
+
+        if (ret_combined_buffer) {
+                if (u->manager->status_unit_format == STATUS_UNIT_FORMAT_COMBINED) {
+                        *ret_combined_buffer = strjoin(u->id, " - ", u->description);
+                        if (*ret_combined_buffer)
+                                return *ret_combined_buffer;
+                        log_oom(); /* Fall back to ->description */
                 } else
-                        log_oom();
+                        *ret_combined_buffer = NULL;
         }
 
         return u->description;
