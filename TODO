@@ -1366,6 +1366,9 @@ Features:
     but much rather a disconnect on success.
   - when breaking cycles drop sysv services first, then services from /run, then from /etc, then from /usr
   - when a bus name of a service disappears from the bus make sure to queue further activation requests
+  - maybe introduce CoreScheduling=yes/no to optionally set a PR_SCHED_CORE cookie, so that all
+    processes in a service's cgroup share the same cookie and are guaranteed not to share SMT cores
+    with other units https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/Documentation/admin-guide/hw-vuln/core-scheduling.rst
 
 * unit files:
   - allow port=0 in .socket units
