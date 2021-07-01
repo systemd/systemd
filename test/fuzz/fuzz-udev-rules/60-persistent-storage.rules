@@ -66,9 +66,6 @@ KERNEL=="mmcblk[0-9]", SUBSYSTEMS=="mmc", ATTRS{name}=="?*", ATTRS{serial}=="?*"
   ENV{ID_NAME}="$attr{name}", ENV{ID_SERIAL}="$attr{serial}", SYMLINK+="disk/by-id/mmc-$env{ID_NAME}_$env{ID_SERIAL}"
 KERNEL=="mmcblk[0-9]p[0-9]*", ENV{ID_NAME}=="?*", ENV{ID_SERIAL}=="?*", SYMLINK+="disk/by-id/mmc-$env{ID_NAME}_$env{ID_SERIAL}-part%n"
 
-# UBI-MTD
-SUBSYSTEM=="ubi", KERNEL=="ubi*_*", ATTRS{mtd_num}=="*", SYMLINK+="ubi_mtd%s{mtd_num}_%s{name}"
-
 # Memstick
 KERNEL=="msblk[0-9]|mspblk[0-9]", SUBSYSTEMS=="memstick", ATTRS{name}=="?*", ATTRS{serial}=="?*", \
   ENV{ID_NAME}="$attr{name}", ENV{ID_SERIAL}="$attr{serial}", SYMLINK+="disk/by-id/memstick-$env{ID_NAME}_$env{ID_SERIAL}"
