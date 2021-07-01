@@ -179,7 +179,7 @@ static void swap_done(Unit *u) {
 
         swap_unwatch_control_pid(s);
 
-        s->timer_event_source = sd_event_source_unref(s->timer_event_source);
+        s->timer_event_source = sd_event_source_disable_unref(s->timer_event_source);
 }
 
 static int swap_arm_timer(Swap *s, usec_t usec) {
@@ -549,7 +549,7 @@ static void swap_set_state(Swap *s, SwapState state) {
         s->state = state;
 
         if (!SWAP_STATE_WITH_PROCESS(state)) {
-                s->timer_event_source = sd_event_source_unref(s->timer_event_source);
+                s->timer_event_source = sd_event_source_disable_unref(s->timer_event_source);
                 swap_unwatch_control_pid(s);
                 s->control_command = NULL;
                 s->control_command_id = _SWAP_EXEC_COMMAND_INVALID;
@@ -710,7 +710,7 @@ static int swap_spawn(Swap *s, ExecCommand *c, pid_t *_pid) {
         return 0;
 
 fail:
-        s->timer_event_source = sd_event_source_unref(s->timer_event_source);
+        s->timer_event_source = sd_event_source_disable_unref(s->timer_event_source);
 
         return r;
 }
@@ -1368,7 +1368,7 @@ static int swap_following_set(Unit *u, Set **_set) {
 static void swap_shutdown(Manager *m) {
         assert(m);
 
-        m->swap_event_source = sd_event_source_unref(m->swap_event_source);
+        m->swap_event_source = sd_event_source_disable_unref(m->swap_event_source);
         m->proc_swaps = safe_fclose(m->proc_swaps);
         m->swaps_by_devnode = hashmap_free(m->swaps_by_devnode);
 }
@@ -1576,7 +1576,7 @@ static int swap_clean(Unit *u, ExecCleanMask mask) {
 fail:
         log_unit_warning_errno(u, r, "Failed to initiate cleaning: %m");
         s->clean_result = SWAP_FAILURE_RESOURCES;
-        s->timer_event_source = sd_event_source_unref(s->timer_event_source);
+        s->timer_event_source = sd_event_source_disable_unref(s->timer_event_source);
         return r;
 }
 

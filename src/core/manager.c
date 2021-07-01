@@ -287,7 +287,7 @@ static int manager_dispatch_ask_password_fd(sd_event_source *source,
 static void manager_close_ask_password(Manager *m) {
         assert(m);
 
-        m->ask_password_event_source = sd_event_source_unref(m->ask_password_event_source);
+        m->ask_password_event_source = sd_event_source_disable_unref(m->ask_password_event_source);
         m->ask_password_inotify_fd = safe_close(m->ask_password_inotify_fd);
         m->have_ask_password = -EINVAL;
 }
@@ -356,7 +356,7 @@ static int manager_watch_idle_pipe(Manager *m) {
 static void manager_close_idle_pipe(Manager *m) {
         assert(m);
 
-        m->idle_pipe_event_source = sd_event_source_unref(m->idle_pipe_event_source);
+        m->idle_pipe_event_source = sd_event_source_disable_unref(m->idle_pipe_event_source);
 
         safe_close_pair(m->idle_pipe);
         safe_close_pair(m->idle_pipe + 2);
@@ -370,7 +370,7 @@ static int manager_setup_time_change(Manager *m) {
         if (MANAGER_IS_TEST_RUN(m))
                 return 0;
 
-        m->time_change_event_source = sd_event_source_unref(m->time_change_event_source);
+        m->time_change_event_source = sd_event_source_disable_unref(m->time_change_event_source);
         m->time_change_fd = safe_close(m->time_change_fd);
 
         m->time_change_fd = time_change_fd();
@@ -938,7 +938,7 @@ static int manager_setup_notify(Manager *m) {
 
                 /* First free all secondary fields */
                 m->notify_socket = mfree(m->notify_socket);
-                m->notify_event_source = sd_event_source_unref(m->notify_event_source);
+                m->notify_event_source = sd_event_source_disable_unref(m->notify_event_source);
 
                 fd = socket(AF_UNIX, SOCK_DGRAM|SOCK_CLOEXEC|SOCK_NONBLOCK, 0);
                 if (fd < 0)
@@ -1026,7 +1026,7 @@ static int manager_setup_cgroups_agent(Manager *m) {
                 _cleanup_close_ int fd = -1;
 
                 /* First free all secondary fields */
-                m->cgroups_agent_event_source = sd_event_source_unref(m->cgroups_agent_event_source);
+                m->cgroups_agent_event_source = sd_event_source_disable_unref(m->cgroups_agent_event_source);
 
                 fd = socket(AF_UNIX, SOCK_DGRAM|SOCK_CLOEXEC|SOCK_NONBLOCK, 0);
                 if (fd < 0)
@@ -1091,7 +1091,7 @@ static int manager_setup_user_lookup_fd(Manager *m) {
 
                 /* Free all secondary fields */
                 safe_close_pair(m->user_lookup_fds);
-                m->user_lookup_event_source = sd_event_source_unref(m->user_lookup_event_source);
+                m->user_lookup_event_source = sd_event_source_disable_unref(m->user_lookup_event_source);
 
                 if (socketpair(AF_UNIX, SOCK_DGRAM|SOCK_CLOEXEC, 0, m->user_lookup_fds) < 0)
                         return log_error_errno(errno, "Failed to allocate user lookup socket: %m");
@@ -3689,7 +3689,7 @@ int manager_deserialize(Manager *m, FILE *f, FDSet *fds) {
                         if (safe_atoi(val, &fd) < 0 || fd < 0 || !fdset_contains(fds, fd))
                                 log_notice("Failed to parse notify fd, ignoring: \"%s\"", val);
                         else {
-                                m->notify_event_source = sd_event_source_unref(m->notify_event_source);
+                                m->notify_event_source = sd_event_source_disable_unref(m->notify_event_source);
                                 safe_close(m->notify_fd);
                                 m->notify_fd = fdset_remove(fds, fd);
                         }
@@ -3705,7 +3705,7 @@ int manager_deserialize(Manager *m, FILE *f, FDSet *fds) {
                         if (safe_atoi(val, &fd) < 0 || fd < 0 || !fdset_contains(fds, fd))
                                 log_notice("Failed to parse cgroups agent fd, ignoring.: %s", val);
                         else {
-                                m->cgroups_agent_event_source = sd_event_source_unref(m->cgroups_agent_event_source);
+                                m->cgroups_agent_event_source = sd_event_source_disable_unref(m->cgroups_agent_event_source);
                                 safe_close(m->cgroups_agent_fd);
                                 m->cgroups_agent_fd = fdset_remove(fds, fd);
                         }
@@ -3716,7 +3716,7 @@ int manager_deserialize(Manager *m, FILE *f, FDSet *fds) {
                         if (sscanf(val, "%i %i", &fd0, &fd1) != 2 || fd0 < 0 || fd1 < 0 || fd0 == fd1 || !fdset_contains(fds, fd0) || !fdset_contains(fds, fd1))
                                 log_notice("Failed to parse user lookup fd, ignoring: %s", val);
                         else {
-                                m->user_lookup_event_source = sd_event_source_unref(m->user_lookup_event_source);
+                                m->user_lookup_event_source = sd_event_source_disable_unref(m->user_lookup_event_source);
                                 safe_close_pair(m->user_lookup_fds);
                                 m->user_lookup_fds[0] = fdset_remove(fds, fd0);
                                 m->user_lookup_fds[1] = fdset_remove(fds, fd1);
