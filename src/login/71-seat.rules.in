@@ -18,9 +18,6 @@ SUBSYSTEM=="graphics", KERNEL=="fb[0-9]*", TAG+="seat"
 SUBSYSTEM=="leds", TAG+="seat"
 SUBSYSTEM=="backlight", TAG+="seat"
 
-# HyperV currently doesn't do DRM, hence we need to synthesize for HyperV's fb device instead
-SUBSYSTEM=="graphics", KERNEL=="fb[0-9]", DRIVERS=="hyperv_fb", TAG+="master-of-seat"
-
 # Allow efifb / uvesafb to be a master if KMS is disabled
 SUBSYSTEM=="graphics", KERNEL=="fb[0-9]", IMPORT{cmdline}="nomodeset", TAG+="master-of-seat"
 
