@@ -3303,7 +3303,7 @@ void manager_shutdown_cgroup(Manager *m, bool delete) {
 
         /* We can't really delete the group, since we are in it. But
          * let's trim it. */
-        if (delete && m->cgroup_root && m->test_run_flags != MANAGER_TEST_RUN_MINIMAL)
+        if (delete && m->cgroup_root && !FLAGS_SET(m->test_run_flags, MANAGER_TEST_RUN_MINIMAL))
                 (void) cg_trim(SYSTEMD_CGROUP_CONTROLLER, m->cgroup_root, false);
 
         m->cgroup_empty_event_source = sd_event_source_disable_unref(m->cgroup_empty_event_source);
