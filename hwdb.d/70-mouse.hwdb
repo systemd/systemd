@@ -362,7 +362,7 @@ mouse:usb:v046dpc08f:name:Logitech G403 HERO Gaming Mouse:*
 
 # Logitech G500 Mouse
 mouse:usb:v046dpc068:name:Logitech G500:*
- MOUSE_DPI=*1600@500 2600@500 3600@500
+ MOUSE_DPI=400@500 *800@500 2000@500
 
 # Logitech G502 Proteus Spectrum
 mouse:usb:v046dpc332:name:Logitech Gaming Mouse G502:*
