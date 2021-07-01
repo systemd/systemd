@@ -1381,7 +1381,7 @@ int get_timezones(char ***ret) {
         return 0;
 }
 
-bool timezone_is_valid(const char *name, int log_level) {
+int verify_timezone(const char *name, int log_level) {
         bool slash = false;
         const char *p, *t;
         _cleanup_close_ int fd = -1;
@@ -1389,26 +1389,26 @@ bool timezone_is_valid(const char *name, int log_level) {
         int r;
 
         if (isempty(name))
-                return false;
+                return -EINVAL;
 
         /* Always accept "UTC" as valid timezone, since it's the fallback, even if user has no timezones installed. */
         if (streq(name, "UTC"))
-                return true;
+                return 0;
 
         if (name[0] == '/')
-                return false;
+                return -EINVAL;
 
         for (p = name; *p; p++) {
                 if (!(*p >= '0' && *p <= '9') &&
                     !(*p >= 'a' && *p <= 'z') &&
                     !(*p >= 'A' && *p <= 'Z') &&
                     !IN_SET(*p, '-', '_', '+', '/'))
-                        return false;
+                        return -EINVAL;
 
                 if (*p == '/') {
 
                         if (slash)
-                                return false;
+                                return -EINVAL;
 
                         slash = true;
                 } else
@@ -1416,38 +1416,31 @@ bool timezone_is_valid(const char *name, int log_level) {
         }
 
         if (slash)
-                return false;
+                return -EINVAL;
 
         if (p - name >= PATH_MAX)
-                return false;
+                return -ENAMETOOLONG;
 
         t = strjoina("/usr/share/zoneinfo/", name);
 
         fd = open(t, O_RDONLY|O_CLOEXEC);
-        if (fd < 0) {
-                log_full_errno(log_level, errno, "Failed to open timezone file '%s': %m", t);
-                return false;
-        }
+        if (fd < 0)
+                return log_full_errno(log_level, errno, "Failed to open timezone file '%s': %m", t);
 
         r = fd_verify_regular(fd);
-        if (r < 0) {
-                log_full_errno(log_level, r, "Timezone file '%s' is not  a regular file: %m", t);
-                return false;
-        }
+        if (r < 0)
+                return log_full_errno(log_level, r, "Timezone file '%s' is not  a regular file: %m", t);
 
         r = loop_read_exact(fd, buf, 4, false);
-        if (r < 0) {
-                log_full_errno(log_level, r, "Failed to read from timezone file '%s': %m", t);
-                return false;
-        }
+        if (r < 0)
+                return log_full_errno(log_level, r, "Failed to read from timezone file '%s': %m", t);
 
         /* Magic from tzfile(5) */
-        if (memcmp(buf, "TZif", 4) != 0) {
-                log_full(log_level, "Timezone file '%s' has wrong magic bytes", t);
-                return false;
-        }
+        if (memcmp(buf, "TZif", 4) != 0)
+                return log_full_errno(log_level, SYNTHETIC_ERRNO(EIO),
+                                      "Timezone file '%s' has wrong magic bytes", t);
 
-        return true;
+        return 0;
 }
 
 bool clock_boottime_supported(void) {
