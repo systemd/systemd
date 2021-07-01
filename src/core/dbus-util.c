@@ -112,16 +112,13 @@ int bus_set_transient_usec_internal(
                 return r;
 
         if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
-                char *n, ts[FORMAT_TIMESPAN_MAX];
-
                 if (fix_0)
                         *p = v != 0 ? v: USEC_INFINITY;
                 else
                         *p = v;
 
-                n = strndupa(name, strlen(name) - 4);
-                unit_write_settingf(u, flags, name, "%sSec=%s", n,
-                                    format_timespan(ts, sizeof(ts), v, USEC_PER_MSEC));
+                char *n = strndupa(name, strlen(name) - 4);
+                unit_write_settingf(u, flags, name, "%sSec=%s", n, FORMAT_TIMESPAN(v, USEC_PER_MSEC));
         }
 
         return 1;

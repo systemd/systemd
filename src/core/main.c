@@ -2575,7 +2575,6 @@ int main(int argc, char *argv[]) {
         char *switch_root_dir = NULL, *switch_root_init = NULL;
         usec_t before_startup, after_startup;
         static char systemd[] = "systemd";
-        char timespan[FORMAT_TIMESPAN_MAX];
         const char *shutdown_verb = NULL, *error_message = NULL;
         int r, retval = EXIT_FAILURE;
         Manager *m = NULL;
@@ -2867,7 +2866,7 @@ int main(int argc, char *argv[]) {
 
         log_full(arg_action == ACTION_TEST ? LOG_INFO : LOG_DEBUG,
                  "Loaded units and determined initial transaction in %s.",
-                 format_timespan(timespan, sizeof(timespan), after_startup - before_startup, 100 * USEC_PER_MSEC));
+                 FORMAT_TIMESPAN(after_startup - before_startup, 100 * USEC_PER_MSEC));
 
         if (arg_action == ACTION_TEST) {
                 manager_test_summary(m);

@@ -38,14 +38,13 @@ void manager_dump(Manager *m, FILE *f, const char *prefix) {
 
         for (ManagerTimestamp q = 0; q < _MANAGER_TIMESTAMP_MAX; q++) {
                 const dual_timestamp *t = m->timestamps + q;
-                char buf[FORMAT_TIMESPAN_MAX];
 
                 if (dual_timestamp_is_set(t))
                         fprintf(f, "%sTimestamp %s: %s\n",
                                 strempty(prefix),
                                 manager_timestamp_to_string(q),
                                 timestamp_is_set(t->realtime) ? FORMAT_TIMESTAMP(t->realtime) :
-                                                                format_timespan(buf, sizeof buf, t->monotonic, 1));
+                                                                FORMAT_TIMESPAN(t->monotonic, 1));
         }
 
         manager_dump_units(m, f, prefix);
