@@ -300,7 +300,7 @@ static void print_status_info(
                 UnitStatusInfo *i,
                 bool *ellipsized) {
 
-        char since1[FORMAT_TIMESTAMP_RELATIVE_MAX], since2[FORMAT_TIMESTAMP_MAX];
+        char since2[FORMAT_TIMESTAMP_MAX];
         const char *s1, *s2, *active_on, *active_off, *on, *off, *ss, *fs;
         _cleanup_free_ char *formatted_path = NULL;
         ExecStatusInfo *p;
@@ -419,7 +419,7 @@ static void print_status_info(
                     STRPTR_IN_SET(i->active_state, "activating")          ? i->inactive_exit_timestamp :
                                                                             i->active_exit_timestamp;
 
-        s1 = format_timestamp_relative(since1, sizeof(since1), timestamp);
+        s1 = FORMAT_TIMESTAMP_RELATIVE(timestamp);
         s2 = format_timestamp_style(since2, sizeof(since2), timestamp, arg_timestamp_style);
 
         if (s1)
@@ -442,8 +442,7 @@ static void print_status_info(
         }
 
         if (endswith(i->id, ".timer")) {
-                char tstamp1[FORMAT_TIMESTAMP_RELATIVE_MAX],
-                     tstamp2[FORMAT_TIMESTAMP_MAX];
+                char tstamp2[FORMAT_TIMESTAMP_MAX];
                 const char *next_rel_time, *next_time;
                 dual_timestamp nw, next = {i->next_elapse_real,
                                            i->next_elapse_monotonic};
@@ -453,7 +452,7 @@ static void print_status_info(
 
                 dual_timestamp_get(&nw);
                 next_elapse = calc_next_elapse(&nw, &next);
-                next_rel_time = format_timestamp_relative(tstamp1, sizeof tstamp1, next_elapse);
+                next_rel_time = FORMAT_TIMESTAMP_RELATIVE(next_elapse);
                 next_time = format_timestamp_style(tstamp2, sizeof tstamp2, next_elapse, arg_timestamp_style);
 
                 if (next_time && next_rel_time)
@@ -478,7 +477,7 @@ static void print_status_info(
                 UnitCondition *c;
                 int n = 0;
 
-                s1 = format_timestamp_relative(since1, sizeof(since1), i->condition_timestamp);
+                s1 = FORMAT_TIMESTAMP_RELATIVE(i->condition_timestamp);
                 s2 = format_timestamp_style(since2, sizeof(since2), i->condition_timestamp, arg_timestamp_style);
 
                 printf("  Condition: start %scondition failed%s at %s%s%s\n",
@@ -500,7 +499,7 @@ static void print_status_info(
         }
 
         if (!i->assert_result && i->assert_timestamp > 0) {
-                s1 = format_timestamp_relative(since1, sizeof(since1), i->assert_timestamp);
+                s1 = FORMAT_TIMESTAMP_RELATIVE(i->assert_timestamp);
                 s2 = format_timestamp_style(since2, sizeof(since2), i->assert_timestamp, arg_timestamp_style);
 
                 printf("     Assert: start %sassertion failed%s at %s%s%s\n",
@@ -2015,7 +2014,7 @@ static int show_all(
 }
 
 static int show_system_status(sd_bus *bus) {
-        char since1[FORMAT_TIMESTAMP_RELATIVE_MAX], since2[FORMAT_TIMESTAMP_MAX];
+        char since2[FORMAT_TIMESTAMP_MAX];
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(machine_info_clear) struct machine_info mi = {};
         _cleanup_free_ char *hn = NULL;
@@ -2059,7 +2058,7 @@ static int show_system_status(sd_bus *bus) {
 
         printf("    Since: %s; %s\n",
                format_timestamp_style(since2, sizeof(since2), mi.timestamp, arg_timestamp_style),
-               format_timestamp_relative(since1, sizeof(since1), mi.timestamp));
+               FORMAT_TIMESTAMP_RELATIVE(mi.timestamp));
 
         printf("   CGroup: %s\n", mi.control_group ?: "/");
         if (IN_SET(arg_transport,
