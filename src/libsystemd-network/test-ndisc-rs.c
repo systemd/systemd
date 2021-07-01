@@ -31,7 +31,6 @@ static send_ra_t send_ra_function;
 
 static void router_dump(sd_ndisc_router *rt) {
         struct in6_addr addr;
-        char buf[FORMAT_TIMESTAMP_MAX];
         uint8_t hop_limit;
         uint64_t t, flags;
         uint32_t mtu;
@@ -45,7 +44,7 @@ static void router_dump(sd_ndisc_router *rt) {
         assert_se(sd_ndisc_router_get_address(rt, &addr) == -ENODATA);
 
         assert_se(sd_ndisc_router_get_timestamp(rt, CLOCK_REALTIME, &t) >= 0);
-        log_info("Timestamp: %s", format_timestamp(buf, sizeof(buf), t));
+        log_info("Timestamp: %s", FORMAT_TIMESTAMP(t));
 
         assert_se(sd_ndisc_router_get_timestamp(rt, CLOCK_MONOTONIC, &t) >= 0);
         log_info("Monotonic: %" PRIu64, t);
