@@ -394,8 +394,6 @@ void cgroup_context_dump(Unit *u, FILE* f, const char *prefix) {
         CGroupSocketBindItem *bi;
         IPAddressAccessItem *iaai;
         char **path;
-        char q[FORMAT_TIMESPAN_MAX];
-        char v[FORMAT_TIMESPAN_MAX];
 
         char cda[FORMAT_CGROUP_DIFF_MAX];
         char cdb[FORMAT_CGROUP_DIFF_MAX];
@@ -460,8 +458,8 @@ void cgroup_context_dump(Unit *u, FILE* f, const char *prefix) {
                 prefix, c->startup_cpu_weight,
                 prefix, c->cpu_shares,
                 prefix, c->startup_cpu_shares,
-                prefix, format_timespan(q, sizeof(q), c->cpu_quota_per_sec_usec, 1),
-                prefix, format_timespan(v, sizeof(v), c->cpu_quota_period_usec, 1),
+                prefix, FORMAT_TIMESPAN(c->cpu_quota_per_sec_usec, 1),
+                prefix, FORMAT_TIMESPAN(c->cpu_quota_period_usec, 1),
                 prefix, strempty(cpuset_cpus),
                 prefix, strempty(cpuset_mems),
                 prefix, c->io_weight,
@@ -514,7 +512,7 @@ void cgroup_context_dump(Unit *u, FILE* f, const char *prefix) {
                         "%sIODeviceLatencyTargetSec: %s %s\n",
                         prefix,
                         l->path,
-                        format_timespan(q, sizeof(q), l->target_usec, 1));
+                        FORMAT_TIMESPAN(l->target_usec, 1));
 
         LIST_FOREACH(device_limits, il, c->io_device_limits) {
                 char buf[FORMAT_BYTES_MAX];
@@ -869,10 +867,9 @@ static usec_t cgroup_cpu_adjust_period_and_log(Unit *u, usec_t period, usec_t qu
         new_period = cgroup_cpu_adjust_period(period, quota, USEC_PER_MSEC, USEC_PER_SEC);
 
         if (new_period != period) {
-                char v[FORMAT_TIMESPAN_MAX];
                 log_unit_full(u, u->warned_clamping_cpu_quota_period ? LOG_DEBUG : LOG_WARNING,
                               "Clamping CPU interval for cpu.max: period is now %s",
-                              format_timespan(v, sizeof(v), new_period, 1));
+                              FORMAT_TIMESPAN(new_period, 1));
                 u->warned_clamping_cpu_quota_period = true;
         }
 

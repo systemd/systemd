@@ -127,6 +127,7 @@ static inline char* format_timestamp(char *buf, size_t l, usec_t t) {
 
 /* Use only as function argument, never stand-alone! */
 #define FORMAT_TIMESTAMP(t) format_timestamp((char[FORMAT_TIMESTAMP_MAX]){}, FORMAT_TIMESTAMP_MAX, t)
+#define FORMAT_TIMESPAN(t, accuracy) format_timespan((char[FORMAT_TIMESPAN_MAX]){}, FORMAT_TIMESPAN_MAX, t, accuracy)
 
 int parse_timestamp(const char *t, usec_t *usec);
 

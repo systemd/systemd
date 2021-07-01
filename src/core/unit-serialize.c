@@ -602,7 +602,6 @@ static void print_unit_dependency_mask(FILE *f, const char *kind, UnitDependency
 void unit_dump(Unit *u, FILE *f, const char *prefix) {
         char *t, **j;
         const char *prefix2;
-        char timespan[FORMAT_TIMESPAN_MAX];
         Unit *following;
         _cleanup_set_free_ Set *following_set = NULL;
         CGroupMask m;
@@ -741,7 +740,7 @@ void unit_dump(Unit *u, FILE *f, const char *prefix) {
                 fprintf(f, "%s\tSuccess Action Exit Status: %i\n", prefix, u->success_action_exit_status);
 
         if (u->job_timeout != USEC_INFINITY)
-                fprintf(f, "%s\tJob Timeout: %s\n", prefix, format_timespan(timespan, sizeof(timespan), u->job_timeout, 0));
+                fprintf(f, "%s\tJob Timeout: %s\n", prefix, FORMAT_TIMESPAN(u->job_timeout, 0));
 
         if (u->job_timeout_action != EMERGENCY_ACTION_NONE)
                 fprintf(f, "%s\tJob Timeout Action: %s\n", prefix, emergency_action_to_string(u->job_timeout_action));
