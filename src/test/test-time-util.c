@@ -243,6 +243,17 @@ static void test_format_timespan(usec_t accuracy) {
         test_format_timespan_one(USEC_INFINITY, accuracy);
 }
 
+static void test_verify_timezone(void) {
+        log_info("/* %s */", __func__);
+
+        assert_se(verify_timezone("Europe/Berlin", LOG_DEBUG) == 0);
+        assert_se(verify_timezone("Australia/Sydney", LOG_DEBUG) == 0);
+        assert_se(verify_timezone("Europe/Do not exist", LOG_DEBUG) == -EINVAL);
+        assert_se(verify_timezone("Europe/DoNotExist", LOG_DEBUG) == -ENOENT);
+        assert_se(verify_timezone("/DoNotExist", LOG_DEBUG) == -EINVAL);
+        assert_se(verify_timezone("DoNotExist/", LOG_DEBUG) == -EINVAL);
+}
+
 static void test_timezone_is_valid(void) {
         log_info("/* %s */", __func__);
 
@@ -607,6 +618,7 @@ int main(int argc, char *argv[]) {
         test_format_timespan(1);
         test_format_timespan(USEC_PER_MSEC);
         test_format_timespan(USEC_PER_SEC);
+        test_verify_timezone();
         test_timezone_is_valid();
         test_get_timezones();
         test_usec_add();
