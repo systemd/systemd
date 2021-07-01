@@ -2273,8 +2273,6 @@ static int unit_log_resources(Unit *u) {
 
         (void) unit_get_cpu_usage(u, &nsec);
         if (nsec != NSEC_INFINITY) {
-                char buf[FORMAT_TIMESPAN_MAX] = "";
-
                 /* Format the CPU time for inclusion in the structured log message */
                 if (asprintf(&t, "CPU_USAGE_NSEC=%" PRIu64, nsec) < 0) {
                         r = log_oom();
@@ -2283,8 +2281,7 @@ static int unit_log_resources(Unit *u) {
                 iovec[n_iovec++] = IOVEC_MAKE_STRING(t);
 
                 /* Format the CPU time for inclusion in the human language message string */
-                format_timespan(buf, sizeof(buf), nsec / NSEC_PER_USEC, USEC_PER_MSEC);
-                t = strjoin("consumed ", buf, " CPU time");
+                t = strjoin("consumed ", FORMAT_TIMESPAN(nsec / NSEC_PER_USEC, USEC_PER_MSEC), " CPU time");
                 if (!t) {
                         r = log_oom();
                         goto finish;

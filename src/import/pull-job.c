@@ -554,7 +554,6 @@ static int pull_job_progress_callback(void *userdata, curl_off_t dltotal, curl_o
         if (n > j->last_status_usec + USEC_PER_SEC &&
             percent != j->progress_percent &&
             dlnow < dltotal) {
-                char buf[FORMAT_TIMESPAN_MAX];
 
                 if (n - j->start_usec > USEC_PER_SEC && dlnow > 0) {
                         char y[FORMAT_BYTES_MAX];
@@ -566,7 +565,7 @@ static int pull_job_progress_callback(void *userdata, curl_off_t dltotal, curl_o
                         log_info("Got %u%% of %s. %s left at %s/s.",
                                  percent,
                                  j->url,
-                                 format_timespan(buf, sizeof(buf), left, USEC_PER_SEC),
+                                 FORMAT_TIMESPAN(left, USEC_PER_SEC),
                                  format_bytes(y, sizeof(y), (uint64_t) ((double) dlnow / ((double) done / (double) USEC_PER_SEC))));
                 } else
                         log_info("Got %u%% of %s.", percent, j->url);

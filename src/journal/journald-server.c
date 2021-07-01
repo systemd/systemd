@@ -1113,7 +1113,6 @@ void server_dispatch_message(
 }
 
 int server_flush_to_var(Server *s, bool require_flag_file) {
-        char ts[FORMAT_TIMESPAN_MAX];
         sd_journal *j = NULL;
         const char *fn;
         unsigned n = 0;
@@ -1206,7 +1205,7 @@ finish:
         server_driver_message(s, 0, NULL,
                               LOG_MESSAGE("Time spent on flushing to %s is %s for %u entries.",
                                           s->system_storage.path,
-                                          format_timespan(ts, sizeof(ts), usec_sub_unsigned(now(CLOCK_MONOTONIC), start), 0),
+                                          FORMAT_TIMESPAN(usec_sub_unsigned(now(CLOCK_MONOTONIC), start), 0),
                                           n),
                               NULL);
 

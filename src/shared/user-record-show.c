@@ -299,10 +299,8 @@ void user_record_show(UserRecord *hr, bool show_full_group_info) {
                         printf("  PBKDF Type: %s\n", hr->luks_pbkdf_type);
                 if (hr->luks_pbkdf_hash_algorithm)
                         printf("  PBKDF Hash: %s\n", hr->luks_pbkdf_hash_algorithm);
-                if (hr->luks_pbkdf_time_cost_usec != UINT64_MAX) {
-                        char buf[FORMAT_TIMESPAN_MAX];
-                        printf("  PBKDF Time: %s\n", format_timespan(buf, sizeof(buf), hr->luks_pbkdf_time_cost_usec, 0));
-                }
+                if (hr->luks_pbkdf_time_cost_usec != UINT64_MAX)
+                        printf("  PBKDF Time: %s\n", FORMAT_TIMESPAN(hr->luks_pbkdf_time_cost_usec, 0));
                 if (hr->luks_pbkdf_memory_cost != UINT64_MAX) {
                         char buf[FORMAT_BYTES_MAX];
                         printf(" PBKDF Bytes: %s\n", format_bytes(buf, sizeof(buf), hr->luks_pbkdf_memory_cost));
@@ -409,20 +407,16 @@ void user_record_show(UserRecord *hr, bool show_full_group_info) {
 
                 if (t <= n)
                         printf("    Next Try: anytime\n");
-                else {
-                        char buf[FORMAT_TIMESPAN_MAX];
+                else
                         printf("    Next Try: %sin %s%s\n",
                                ansi_highlight_red(),
-                               format_timespan(buf, sizeof(buf), t - n, USEC_PER_SEC),
+                               FORMAT_TIMESPAN(t - n, USEC_PER_SEC),
                                ansi_normal());
-                }
         }
 
-        if (storage != USER_CLASSIC) {
-                char buf[FORMAT_TIMESPAN_MAX];
+        if (storage != USER_CLASSIC)
                 printf(" Auth. Limit: %" PRIu64 " attempts per %s\n", user_record_ratelimit_burst(hr),
-                       format_timespan(buf, sizeof(buf), user_record_ratelimit_interval_usec(hr), 0));
-        }
+                       FORMAT_TIMESPAN(user_record_ratelimit_interval_usec(hr), 0));
 
         if (hr->enforce_password_policy >= 0)
                 printf(" Passwd Pol.: %s\n", yes_no(hr->enforce_password_policy));
@@ -432,24 +426,23 @@ void user_record_show(UserRecord *hr, bool show_full_group_info) {
             hr->password_change_warn_usec != UINT64_MAX ||
             hr->password_change_inactive_usec != UINT64_MAX) {
 
-                char buf[FORMAT_TIMESPAN_MAX];
                 printf(" Passwd Chg.:");
 
                 if (hr->password_change_min_usec != UINT64_MAX) {
-                        printf(" min %s", format_timespan(buf, sizeof(buf), hr->password_change_min_usec, 0));
+                        printf(" min %s", FORMAT_TIMESPAN(hr->password_change_min_usec, 0));
 
                         if (hr->password_change_max_usec != UINT64_MAX)
                                 printf(" …");
                 }
 
                 if (hr->password_change_max_usec != UINT64_MAX)
-                        printf(" max %s", format_timespan(buf, sizeof(buf), hr->password_change_max_usec, 0));
+                        printf(" max %s", FORMAT_TIMESPAN(hr->password_change_max_usec, 0));
 
                 if (hr->password_change_warn_usec != UINT64_MAX)
-                        printf("/warn %s", format_timespan(buf, sizeof(buf), hr->password_change_warn_usec, 0));
+                        printf("/warn %s", FORMAT_TIMESPAN(hr->password_change_warn_usec, 0));
 
                 if (hr->password_change_inactive_usec != UINT64_MAX)
-                        printf("/inactive %s", format_timespan(buf, sizeof(buf), hr->password_change_inactive_usec, 0));
+                        printf("/inactive %s", FORMAT_TIMESPAN(hr->password_change_inactive_usec, 0));
 
                 printf("\n");
         }
@@ -485,10 +478,8 @@ void user_record_show(UserRecord *hr, bool show_full_group_info) {
         if (hr->signed_locally >= 0)
                 printf("  Local Sig.: %s\n", yes_no(hr->signed_locally));
 
-        if (hr->stop_delay_usec != UINT64_MAX) {
-                char buf[FORMAT_TIMESPAN_MAX];
-                printf("  Stop Delay: %s\n", format_timespan(buf, sizeof(buf), hr->stop_delay_usec, 0));
-        }
+        if (hr->stop_delay_usec != UINT64_MAX)
+                printf("  Stop Delay: %s\n", FORMAT_TIMESPAN(hr->stop_delay_usec, 0));
 
         if (hr->auto_login >= 0)
                 printf("Autom. Login: %s\n", yes_no(hr->auto_login));

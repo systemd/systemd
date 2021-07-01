@@ -305,7 +305,6 @@ static int automount_coldplug(Unit *u) {
 }
 
 static void automount_dump(Unit *u, FILE *f, const char *prefix) {
-        char time_string[FORMAT_TIMESPAN_MAX];
         Automount *a = AUTOMOUNT(u);
 
         assert(a);
@@ -320,7 +319,7 @@ static void automount_dump(Unit *u, FILE *f, const char *prefix) {
                 prefix, automount_result_to_string(a->result),
                 prefix, a->where,
                 prefix, a->directory_mode,
-                prefix, format_timespan(time_string, FORMAT_TIMESPAN_MAX, a->timeout_idle_usec, USEC_PER_SEC));
+                prefix, FORMAT_TIMESPAN(a->timeout_idle_usec, USEC_PER_SEC));
 }
 
 static void automount_enter_dead(Automount *a, AutomountResult f) {

@@ -1942,7 +1942,6 @@ static int setup_keys(void) {
                 if (hn)
                         hostname_cleanup(hn);
 
-                char tsb[FORMAT_TIMESPAN_MAX];
                 fprintf(stderr,
                         "\nNew keys have been generated for host %s%s" SD_ID128_FORMAT_STR ".\n"
                         "\n"
@@ -1961,7 +1960,7 @@ static int setup_keys(void) {
                         SD_ID128_FORMAT_VAL(machine),
                         ansi_highlight(), ansi_normal(),
                         p,
-                        format_timespan(tsb, sizeof(tsb), arg_interval, 0),
+                        FORMAT_TIMESPAN(arg_interval, 0),
                         ansi_highlight(), ansi_normal(),
                         ansi_highlight_red());
                 fflush(stderr);
@@ -2014,7 +2013,7 @@ static int verify(sd_journal *j) {
                 else if (k < 0)
                         r = log_warning_errno(k, "FAIL: %s (%m)", f->path);
                 else {
-                        char a[FORMAT_TIMESTAMP_MAX], b[FORMAT_TIMESTAMP_MAX], c[FORMAT_TIMESPAN_MAX];
+                        char a[FORMAT_TIMESTAMP_MAX], b[FORMAT_TIMESTAMP_MAX];
                         log_info("PASS: %s", f->path);
 
                         if (arg_verify_key && JOURNAL_HEADER_SEALED(f->header)) {
@@ -2022,10 +2021,10 @@ static int verify(sd_journal *j) {
                                         log_info("=> Validated from %s to %s, final %s entries not sealed.",
                                                  format_timestamp_maybe_utc(a, sizeof(a), first),
                                                  format_timestamp_maybe_utc(b, sizeof(b), validated),
-                                                 format_timespan(c, sizeof(c), last > validated ? last - validated : 0, 0));
+                                                 FORMAT_TIMESPAN(last > validated ? last - validated : 0, 0));
                                 } else if (last > 0)
                                         log_info("=> No sealing yet, %s of entries not sealed.",
-                                                 format_timespan(c, sizeof(c), last - first, 0));
+                                                 FORMAT_TIMESPAN(last - first, 0));
                                 else
                                         log_info("=> No sealing yet, no entries in file.");
                         }

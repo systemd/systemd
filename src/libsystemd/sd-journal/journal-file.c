@@ -3274,7 +3274,6 @@ fail:
 
 void journal_file_print_header(JournalFile *f) {
         char a[SD_ID128_STRING_MAX], b[SD_ID128_STRING_MAX], c[SD_ID128_STRING_MAX], d[SD_ID128_STRING_MAX];
-        char z[FORMAT_TIMESPAN_MAX];
         struct stat st;
         char bytes[FORMAT_BYTES_MAX];
 
@@ -3325,7 +3324,7 @@ void journal_file_print_header(JournalFile *f) {
                le64toh(f->header->tail_entry_seqnum), le64toh(f->header->tail_entry_seqnum),
                FORMAT_TIMESTAMP_SAFE(le64toh(f->header->head_entry_realtime)), le64toh(f->header->head_entry_realtime),
                FORMAT_TIMESTAMP_SAFE(le64toh(f->header->tail_entry_realtime)), le64toh(f->header->tail_entry_realtime),
-               format_timespan(z, sizeof(z), le64toh(f->header->tail_entry_monotonic), USEC_PER_MSEC), le64toh(f->header->tail_entry_monotonic),
+               FORMAT_TIMESPAN(le64toh(f->header->tail_entry_monotonic), USEC_PER_MSEC), le64toh(f->header->tail_entry_monotonic),
                le64toh(f->header->n_objects),
                le64toh(f->header->n_entries));
 

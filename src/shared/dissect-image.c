@@ -506,12 +506,11 @@ static int device_wait_for_initialization_harder(
         left = usec_sub_unsigned(deadline, start);
 
         if (DEBUG_LOGGING) {
-                char buf[FORMAT_TIMESPAN_MAX];
                 const char *sn = NULL;
 
                 (void) sd_device_get_sysname(device, &sn);
                 log_device_debug(device,
-                                 "Waiting for device '%s' to initialize for %s.", strna(sn), format_timespan(buf, sizeof(buf), left, 0));
+                                 "Waiting for device '%s' to initialize for %s.", strna(sn), FORMAT_TIMESPAN(left, 0));
         }
 
         if (left != USEC_INFINITY)
@@ -538,26 +537,22 @@ static int device_wait_for_initialization_harder(
 
                 r = device_wait_for_initialization(device, subsystem, local_deadline, ret);
                 if (r >= 0 && DEBUG_LOGGING) {
-                        char buf[FORMAT_TIMESPAN_MAX];
                         const char *sn = NULL;
 
                         (void) sd_device_get_sysname(device, &sn);
                         log_device_debug(device,
                                          "Successfully waited for device '%s' to initialize for %s.",
                                          strna(sn),
-                                         format_timespan(buf, sizeof(buf), usec_sub_unsigned(now(CLOCK_MONOTONIC), start), 0));
+                                         FORMAT_TIMESPAN(usec_sub_unsigned(now(CLOCK_MONOTONIC), start), 0));
 
                 }
                 if (r != -ETIMEDOUT || last_try)
                         return r;
 
-                if (DEBUG_LOGGING) {
-                        char buf[FORMAT_TIMESPAN_MAX];
-
+                if (DEBUG_LOGGING)
                         log_device_debug(device,
                                          "Device didn't initialize within %s, assuming lost event. Retriggering device.",
-                                         format_timespan(buf, sizeof(buf), usec_sub_unsigned(now(CLOCK_MONOTONIC), start), 0));
-                }
+                                         FORMAT_TIMESPAN(usec_sub_unsigned(now(CLOCK_MONOTONIC), start), 0));
 
                 r = sd_device_trigger(device, SD_DEVICE_CHANGE);
                 if (r < 0)

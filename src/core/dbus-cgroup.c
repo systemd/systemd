@@ -1114,12 +1114,10 @@ int bus_cgroup_set_property(
                         unit_invalidate_cgroup(u, CGROUP_MASK_CPU);
                         if (c->cpu_quota_period_usec == USEC_INFINITY)
                                 unit_write_setting(u, flags, "CPUQuotaPeriodSec", "CPUQuotaPeriodSec=");
-                        else {
-                                char v[FORMAT_TIMESPAN_MAX];
+                        else
                                 unit_write_settingf(u, flags, "CPUQuotaPeriodSec",
                                                     "CPUQuotaPeriodSec=%s",
-                                                    format_timespan(v, sizeof(v), c->cpu_quota_period_usec, 1));
-                        }
+                                                    FORMAT_TIMESPAN(c->cpu_quota_period_usec, 1));
                 }
 
                 return 1;
@@ -1374,7 +1372,6 @@ int bus_cgroup_set_property(
                 if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
                         _cleanup_free_ char *buf = NULL;
                         _cleanup_fclose_ FILE *f = NULL;
-                        char ts[FORMAT_TIMESPAN_MAX];
                         CGroupIODeviceLatency *a;
                         size_t size = 0;
 
@@ -1392,7 +1389,7 @@ int bus_cgroup_set_property(
                         fputs("IODeviceLatencyTargetSec=\n", f);
                         LIST_FOREACH(device_latencies, a, c->io_device_latencies)
                                 fprintf(f, "IODeviceLatencyTargetSec=%s %s\n",
-                                        a->path, format_timespan(ts, sizeof(ts), a->target_usec, 1));
+                                        a->path, FORMAT_TIMESPAN(a->target_usec, 1));
 
                         r = fflush_and_check(f);
                         if (r < 0)

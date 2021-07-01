@@ -234,7 +234,6 @@ static int timer_load(Unit *u) {
 }
 
 static void timer_dump(Unit *u, FILE *f, const char *prefix) {
-        char buf[FORMAT_TIMESPAN_MAX];
         Timer *t = TIMER(u);
         Unit *trigger;
         TimerValue *v;
@@ -257,7 +256,7 @@ static void timer_dump(Unit *u, FILE *f, const char *prefix) {
                 prefix, trigger ? trigger->id : "n/a",
                 prefix, yes_no(t->persistent),
                 prefix, yes_no(t->wake_system),
-                prefix, format_timespan(buf, sizeof(buf), t->accuracy_usec, 1),
+                prefix, FORMAT_TIMESPAN(t->accuracy_usec, 1),
                 prefix, yes_no(t->remain_after_elapse),
                 prefix, yes_no(t->fixed_random_delay),
                 prefix, yes_no(t->on_clock_change),
@@ -274,15 +273,12 @@ static void timer_dump(Unit *u, FILE *f, const char *prefix) {
                                 prefix,
                                 timer_base_to_string(v->base),
                                 strna(p));
-                } else  {
-                        char timespan1[FORMAT_TIMESPAN_MAX];
-
+                } else
                         fprintf(f,
                                 "%s%s: %s\n",
                                 prefix,
                                 timer_base_to_string(v->base),
-                                format_timespan(timespan1, sizeof(timespan1), v->value, 0));
-                }
+                                FORMAT_TIMESPAN(v->value, 0));
 }
 
 static void timer_set_state(Timer *t, TimerState state) {
@@ -355,7 +351,6 @@ static void timer_enter_elapsed(Timer *t, bool leave_around) {
 }
 
 static void add_random(Timer *t, usec_t *v) {
-        char s[FORMAT_TIMESPAN_MAX];
         usec_t add;
 
         assert(t);
@@ -373,7 +368,7 @@ static void add_random(Timer *t, usec_t *v) {
         else
                 *v += add;
 
-        log_unit_debug(UNIT(t), "Adding %s random time.", format_timespan(s, sizeof(s), add, 0));
+        log_unit_debug(UNIT(t), "Adding %s random time.", FORMAT_TIMESPAN(add, 0));
 }
 
 static void timer_enter_waiting(Timer *t, bool time_change) {
@@ -508,13 +503,12 @@ static void timer_enter_waiting(Timer *t, bool time_change) {
         }
 
         if (found_monotonic) {
-                char buf[FORMAT_TIMESPAN_MAX];
                 usec_t left;
 
                 add_random(t, &t->next_elapse_monotonic_or_boottime);
 
                 left = usec_sub_unsigned(t->next_elapse_monotonic_or_boottime, triple_timestamp_by_clock(&ts, TIMER_MONOTONIC_CLOCK(t)));
-                log_unit_debug(UNIT(t), "Monotonic timer elapses in %s.", format_timespan(buf, sizeof(buf), left, 0));
+                log_unit_debug(UNIT(t), "Monotonic timer elapses in %s.", FORMAT_TIMESPAN(left, 0));
 
                 if (t->monotonic_event_source) {
                         r = sd_event_source_set_time(t->monotonic_event_source, t->next_elapse_monotonic_or_boottime);

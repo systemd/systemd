@@ -892,9 +892,8 @@ _public_ PAM_EXTERN int pam_sm_acct_mgmt(
                 usec_t n = now(CLOCK_REALTIME);
 
                 if (t > n) {
-                        char buf[FORMAT_TIMESPAN_MAX];
                         (void) pam_prompt(handle, PAM_ERROR_MSG, NULL, "Too many logins, try again in %s.",
-                                          format_timespan(buf, sizeof(buf), t - n, USEC_PER_SEC));
+                                          FORMAT_TIMESPAN(t - n, USEC_PER_SEC));
 
                         return PAM_MAXTRIES;
                 }

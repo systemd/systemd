@@ -523,8 +523,7 @@ void oomd_dump_swap_cgroup_context(const OomdCGroupContext *ctx, FILE *f, const 
 }
 
 void oomd_dump_memory_pressure_cgroup_context(const OomdCGroupContext *ctx, FILE *f, const char *prefix) {
-        char tbuf[FORMAT_TIMESPAN_MAX], mem_use[FORMAT_BYTES_MAX];
-        char mem_min[FORMAT_BYTES_MAX], mem_low[FORMAT_BYTES_MAX];
+        char mem_use[FORMAT_BYTES_MAX], mem_min[FORMAT_BYTES_MAX], mem_low[FORMAT_BYTES_MAX];
 
         assert(ctx);
         assert(f);
@@ -540,7 +539,7 @@ void oomd_dump_memory_pressure_cgroup_context(const OomdCGroupContext *ctx, FILE
                 LOAD_INT(ctx->memory_pressure.avg10), LOAD_FRAC(ctx->memory_pressure.avg10),
                 LOAD_INT(ctx->memory_pressure.avg60), LOAD_FRAC(ctx->memory_pressure.avg60),
                 LOAD_INT(ctx->memory_pressure.avg300), LOAD_FRAC(ctx->memory_pressure.avg300),
-                format_timespan(tbuf, sizeof(tbuf), ctx->memory_pressure.total, USEC_PER_SEC),
+                FORMAT_TIMESPAN(ctx->memory_pressure.total, USEC_PER_SEC),
                 strempty(prefix), format_bytes(mem_use, sizeof(mem_use), ctx->current_memory_usage));
 
         if (!empty_or_root(ctx->path))

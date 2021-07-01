@@ -11,7 +11,6 @@
 #include "util.h"
 
 static int test_acpi_fpdt(void) {
-        char ts_start[FORMAT_TIMESPAN_MAX], ts_exit[FORMAT_TIMESPAN_MAX], ts_span[FORMAT_TIMESPAN_MAX];
         usec_t loader_start, loader_exit;
         int r;
 
@@ -24,14 +23,13 @@ static int test_acpi_fpdt(void) {
         }
 
         log_info("ACPI FPDT: loader start=%s exit=%s duration=%s",
-                 format_timespan(ts_start, sizeof(ts_start), loader_start, USEC_PER_MSEC),
-                 format_timespan(ts_exit, sizeof(ts_exit), loader_exit, USEC_PER_MSEC),
-                 format_timespan(ts_span, sizeof(ts_span), loader_exit - loader_start, USEC_PER_MSEC));
+                 FORMAT_TIMESPAN(loader_start, USEC_PER_MSEC),
+                 FORMAT_TIMESPAN(loader_exit, USEC_PER_MSEC),
+                 FORMAT_TIMESPAN(loader_exit - loader_start, USEC_PER_MSEC));
         return 1;
 }
 
 static int test_efi_loader(void) {
-        char ts_start[FORMAT_TIMESPAN_MAX], ts_exit[FORMAT_TIMESPAN_MAX], ts_span[FORMAT_TIMESPAN_MAX];
         usec_t loader_start, loader_exit;
         int r;
 
@@ -44,14 +42,13 @@ static int test_efi_loader(void) {
         }
 
         log_info("EFI Loader: start=%s exit=%s duration=%s",
-                 format_timespan(ts_start, sizeof(ts_start), loader_start, USEC_PER_MSEC),
-                 format_timespan(ts_exit, sizeof(ts_exit), loader_exit, USEC_PER_MSEC),
-                 format_timespan(ts_span, sizeof(ts_span), loader_exit - loader_start, USEC_PER_MSEC));
+                 FORMAT_TIMESPAN(loader_start, USEC_PER_MSEC),
+                 FORMAT_TIMESPAN(loader_exit, USEC_PER_MSEC),
+                 FORMAT_TIMESPAN(loader_exit - loader_start, USEC_PER_MSEC));
         return 1;
 }
 
 static int test_boot_timestamps(void) {
-        char s[FORMAT_TIMESPAN_MAX];
         dual_timestamp fw, l, k;
         int r;
 
@@ -65,8 +62,8 @@ static int test_boot_timestamps(void) {
                 return ok ? 0 : r;
         }
 
-        log_info("Firmware began %s before kernel.", format_timespan(s, sizeof(s), fw.monotonic, 0));
-        log_info("Loader began %s before kernel.", format_timespan(s, sizeof(s), l.monotonic, 0));
+        log_info("Firmware began %s before kernel.", FORMAT_TIMESPAN(fw.monotonic, 0));
+        log_info("Loader began %s before kernel.", FORMAT_TIMESPAN(l.monotonic, 0));
         log_info("Firmware began %s.", FORMAT_TIMESTAMP(fw.realtime));
         log_info("Loader began %s.", FORMAT_TIMESTAMP(l.realtime));
         log_info("Kernel began %s.", FORMAT_TIMESTAMP(k.realtime));

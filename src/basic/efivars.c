@@ -120,13 +120,10 @@ int efi_get_variable(
                 n = st.st_size - 4;
 
         if (DEBUG_LOGGING) {
-                char ts[FORMAT_TIMESPAN_MAX];
-                usec_t end;
-
-                end = now(CLOCK_MONOTONIC);
+                usec_t end = now(CLOCK_MONOTONIC);
                 if (end > begin + EFI_RETRY_DELAY)
                         log_debug("Detected slow EFI variable read access on %s: %s",
-                                  variable, format_timespan(ts, sizeof(ts), end - begin, 1));
+                                  variable, FORMAT_TIMESPAN(end - begin, 1));
         }
 
         /* Note that efivarfs interestingly doesn't require ftruncate() to update an existing EFI variable
