@@ -163,6 +163,7 @@ def property_grammar():
              ('IEEE1394_UNIT_FUNCTION_VIDEO', Or((Literal('0'), Literal('1')))),
              ('ID_VENDOR_FROM_DATABASE', name_literal),
              ('ID_MODEL_FROM_DATABASE', name_literal),
+             ('ID_TAG_MASTER_OF_SEAT', Literal('1')),
             )
     fixed_props = [Literal(name)('NAME') - Suppress('=') - val('VALUE')
                    for name, val in props]
