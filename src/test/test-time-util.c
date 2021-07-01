@@ -273,8 +273,9 @@ static void test_get_timezones(void) {
         assert_se(r == 0);
 
         STRV_FOREACH(zone, zones) {
-                log_info("zone: %s", *zone);
-                assert_se(timezone_is_valid(*zone, LOG_ERR));
+                r = verify_timezone(*zone, LOG_ERR);
+                log_debug_errno(r, "verify_timezone(\"%s\"): %m", *zone);
+                assert_se(r >= 0 || r == -ENOENT);
         }
 }
 
