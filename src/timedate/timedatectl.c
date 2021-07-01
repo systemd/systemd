@@ -717,7 +717,7 @@ static int print_timesync_property(const char *name, const char *expected_value,
         case SD_BUS_TYPE_STRUCT:
                 if (streq(name, "NTPMessage")) {
                         _cleanup_(ntp_status_info_clear) NTPStatusInfo i = {};
-                        char ts[FORMAT_TIMESPAN_MAX], stamp[FORMAT_TIMESTAMP_MAX];
+                        char ts[FORMAT_TIMESPAN_MAX];
 
                         r = map_ntp_message(NULL, NULL, m, NULL, &i);
                         if (r < 0)
@@ -743,14 +743,10 @@ static int print_timesync_property(const char *name, const char *expected_value,
                         else
                                 printf(" Reference=%" PRIX32 ",", be32toh(i.reference.val));
 
-                        printf(" OriginateTimestamp=%s,",
-                               format_timestamp(stamp, sizeof(stamp), i.origin));
-                        printf(" ReceiveTimestamp=%s,",
-                               format_timestamp(stamp, sizeof(stamp), i.recv));
-                        printf(" TransmitTimestamp=%s,",
-                               format_timestamp(stamp, sizeof(stamp), i.trans));
-                        printf(" DestinationTimestamp=%s,",
-                               format_timestamp(stamp, sizeof(stamp), i.dest));
+                        printf(" OriginateTimestamp=%s,", FORMAT_TIMESTAMP(i.origin));
+                        printf(" ReceiveTimestamp=%s,", FORMAT_TIMESTAMP(i.recv));
+                        printf(" TransmitTimestamp=%s,", FORMAT_TIMESTAMP(i.trans));
+                        printf(" DestinationTimestamp=%s,", FORMAT_TIMESTAMP(i.dest));
                         printf(" Ignored=%s PacketCount=%" PRIu64 ",",
                                yes_no(i.spike), i.packet_count);
                         printf(" Jitter=%s }\n",

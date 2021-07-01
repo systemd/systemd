@@ -10,7 +10,6 @@ static void _test_one(int line, const char *input, const char *output) {
         CalendarSpec *c;
         _cleanup_free_ char *p = NULL, *q = NULL;
         usec_t u;
-        char buf[FORMAT_TIMESTAMP_MAX];
         int r;
 
         assert_se(calendar_spec_from_string(input, &c) >= 0);
@@ -22,7 +21,7 @@ static void _test_one(int line, const char *input, const char *output) {
 
         u = now(CLOCK_REALTIME);
         r = calendar_spec_next_usec(c, u, &u);
-        log_info("Next: %s", r < 0 ? strerror_safe(r) : format_timestamp(buf, sizeof buf, u));
+        log_info("Next: %s", r < 0 ? strerror_safe(r) : FORMAT_TIMESTAMP(u));
         calendar_spec_free(c);
 
         assert_se(calendar_spec_from_string(p, &c) >= 0);

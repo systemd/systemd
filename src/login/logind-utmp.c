@@ -58,7 +58,6 @@ bool logind_wall_tty_filter(const char *tty, void *userdata) {
 }
 
 static int warn_wall(Manager *m, usec_t n) {
-        char date[FORMAT_TIMESTAMP_MAX] = {};
         _cleanup_free_ char *l = NULL, *username = NULL;
         usec_t left;
         int r;
@@ -75,7 +74,7 @@ static int warn_wall(Manager *m, usec_t n) {
                      isempty(m->wall_message) ? "" : "\n",
                      m->scheduled_shutdown_type,
                      left ? "at " : "NOW",
-                     left ? format_timestamp(date, sizeof(date), m->scheduled_shutdown_timeout) : "");
+                     left ? FORMAT_TIMESTAMP(m->scheduled_shutdown_timeout) : "");
         if (r < 0) {
                 log_oom();
                 return 0;

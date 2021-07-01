@@ -546,11 +546,9 @@ static void timer_enter_waiting(Timer *t, bool time_change) {
         }
 
         if (found_realtime) {
-                char buf[FORMAT_TIMESTAMP_MAX];
-
                 add_random(t, &t->next_elapse_realtime);
 
-                log_unit_debug(UNIT(t), "Realtime timer elapses at %s.", format_timestamp(buf, sizeof(buf), t->next_elapse_realtime));
+                log_unit_debug(UNIT(t), "Realtime timer elapses at %s.", FORMAT_TIMESTAMP(t->next_elapse_realtime));
 
                 if (t->realtime_event_source) {
                         r = sd_event_source_set_time(t->realtime_event_source, t->next_elapse_realtime);
@@ -664,12 +662,9 @@ static int timer_start(Unit *u) {
                         ft = timespec_load(&st.st_mtim);
                         if (ft < now(CLOCK_REALTIME))
                                 t->last_trigger.realtime = ft;
-                        else {
-                                char z[FORMAT_TIMESTAMP_MAX];
-
+                        else
                                 log_unit_warning(u, "Not using persistent file timestamp %s as it is in the future.",
-                                                 format_timestamp(z, sizeof(z), ft));
-                        }
+                                                 FORMAT_TIMESTAMP(ft));
 
                 } else if (errno == ENOENT)
                         /* The timer has never run before, make sure a stamp file exists. */

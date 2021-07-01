@@ -18,14 +18,14 @@ int main(int argc, char *argv[]) {
         if (fd < 0)
                 log_error_errno(errno, "Failed to open root directory: %m");
         else {
-                char ts[FORMAT_TIMESTAMP_MAX], bs[FORMAT_BYTES_MAX];
+                char bs[FORMAT_BYTES_MAX];
                 BtrfsSubvolInfo info;
 
                 r = btrfs_subvol_get_info_fd(fd, 0, &info);
                 if (r < 0)
                         log_error_errno(r, "Failed to get subvolume info: %m");
                 else {
-                        log_info("otime: %s", format_timestamp(ts, sizeof(ts), info.otime));
+                        log_info("otime: %s", FORMAT_TIMESTAMP(info.otime));
                         log_info("read-only (search): %s", yes_no(info.read_only));
                 }
 

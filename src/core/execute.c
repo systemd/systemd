@@ -5965,8 +5965,6 @@ void exec_status_reset(ExecStatus *s) {
 }
 
 void exec_status_dump(const ExecStatus *s, FILE *f, const char *prefix) {
-        char buf[FORMAT_TIMESTAMP_MAX];
-
         assert(s);
         assert(f);
 
@@ -5982,14 +5980,14 @@ void exec_status_dump(const ExecStatus *s, FILE *f, const char *prefix) {
         if (dual_timestamp_is_set(&s->start_timestamp))
                 fprintf(f,
                         "%sStart Timestamp: %s\n",
-                        prefix, format_timestamp(buf, sizeof(buf), s->start_timestamp.realtime));
+                        prefix, FORMAT_TIMESTAMP(s->start_timestamp.realtime));
 
         if (dual_timestamp_is_set(&s->exit_timestamp))
                 fprintf(f,
                         "%sExit Timestamp: %s\n"
                         "%sExit Code: %s\n"
                         "%sExit Status: %i\n",
-                        prefix, format_timestamp(buf, sizeof(buf), s->exit_timestamp.realtime),
+                        prefix, FORMAT_TIMESTAMP(s->exit_timestamp.realtime),
                         prefix, sigchld_code_to_string(s->code),
                         prefix, s->status);
 }
