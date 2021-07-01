@@ -28,6 +28,11 @@ CHANGES WITH 249 in spe:
           specified root user exists already in the image. (Note that
           --volatile=yes ensures it doesn't, though.)
 
+        * PID 1 may now show both the unit name and the unit description
+          strings in its status output during boot. This may be configured with
+          StatusUnitFormat=combined (or systemd.status-unit-format=combined) on
+          the kernel command line.
+
         * systemd-firstboot now also supports querying various system
           parameters via the credential subsystems. Thus, as above this may be
           used to initialize important system parameters on first boot of
