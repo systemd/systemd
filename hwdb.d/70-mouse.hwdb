@@ -500,6 +500,7 @@ mouse:usb:v046dp406f:name:Logitech MX Ergo:*
 mouse:usb:v046dpc52b:name:Logitech Unifying Device. Wireless PID:406f:*
 mouse:bluetooth:v046dpb01d:name:MX Ergo Mouse:*
  ID_INPUT_TRACKBALL=1
+ MOUSE_DPI=380@125
 
 ## Other ##
 
