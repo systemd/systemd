@@ -417,7 +417,7 @@ mouse:usb:v046dpc52f:name:Logitech USB Receiver:*
 
 # Logitech Wireless Mouse M310
 mouse:usb:v046dp1024:name:Logitech M310:*
- MOUSE_DPI=1100@168
+ MOUSE_DPI=800@125
 
 # Logitech Wireless Mouse M325
 mouse:usb:v046dp400a:name:Logitech M325:*
