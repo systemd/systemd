@@ -3269,18 +3269,12 @@ fail:
         log_error("File corrupt");
 }
 
-static const char* format_timestamp_safe(char *buf, size_t l, usec_t t) {
-        const char *x;
-
-        x = format_timestamp(buf, l, t);
-        if (x)
-                return x;
-        return " --- ";
-}
+/* Note: the lifetime of the compound literal is the immediately surrounding block. */
+#define FORMAT_TIMESTAMP_SAFE(t) (FORMAT_TIMESTAMP(t) ?: " --- ")
 
 void journal_file_print_header(JournalFile *f) {
         char a[SD_ID128_STRING_MAX], b[SD_ID128_STRING_MAX], c[SD_ID128_STRING_MAX], d[SD_ID128_STRING_MAX];
-        char x[FORMAT_TIMESTAMP_MAX], y[FORMAT_TIMESTAMP_MAX], z[FORMAT_TIMESTAMP_MAX];
+        char z[FORMAT_TIMESPAN_MAX];
         struct stat st;
         char bytes[FORMAT_BYTES_MAX];
 
@@ -3329,8 +3323,8 @@ void journal_file_print_header(JournalFile *f) {
                yes_no(journal_file_rotate_suggested(f, 0)),
                le64toh(f->header->head_entry_seqnum), le64toh(f->header->head_entry_seqnum),
                le64toh(f->header->tail_entry_seqnum), le64toh(f->header->tail_entry_seqnum),
-               format_timestamp_safe(x, sizeof(x), le64toh(f->header->head_entry_realtime)), le64toh(f->header->head_entry_realtime),
-               format_timestamp_safe(y, sizeof(y), le64toh(f->header->tail_entry_realtime)), le64toh(f->header->tail_entry_realtime),
+               FORMAT_TIMESTAMP_SAFE(le64toh(f->header->head_entry_realtime)), le64toh(f->header->head_entry_realtime),
+               FORMAT_TIMESTAMP_SAFE(le64toh(f->header->tail_entry_realtime)), le64toh(f->header->tail_entry_realtime),
                format_timespan(z, sizeof(z), le64toh(f->header->tail_entry_monotonic), USEC_PER_MSEC), le64toh(f->header->tail_entry_monotonic),
                le64toh(f->header->n_objects),
                le64toh(f->header->n_entries));
