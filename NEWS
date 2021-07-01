@@ -30,8 +30,8 @@ CHANGES WITH 249 in spe:
 
         * PID 1 may now show both the unit name and the unit description
           strings in its status output during boot. This may be configured with
-          StatusUnitFormat=combined (or systemd.status-unit-format=combined) on
-          the kernel command line.
+          StatusUnitFormat=combined in system.conf or
+          systemd.status-unit-format=combined on the kernel command line.
 
         * systemd-firstboot now also supports querying various system
           parameters via the credential subsystems. Thus, as above this may be
