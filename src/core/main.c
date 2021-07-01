@@ -1616,12 +1616,9 @@ static void apply_clock_update(void) {
 
         if (clock_settime(CLOCK_REALTIME, timespec_store(&ts, arg_clock_usec)) < 0)
                 log_error_errno(errno, "Failed to set system clock to time specified on kernel command line: %m");
-        else {
-                char buf[FORMAT_TIMESTAMP_MAX];
-
+        else
                 log_info("Set system clock to %s, as specified on the kernel command line.",
-                         format_timestamp(buf, sizeof(buf), arg_clock_usec));
-        }
+                         FORMAT_TIMESTAMP(arg_clock_usec));
 }
 
 static void cmdline_take_random_seed(void) {
