@@ -3384,11 +3384,6 @@ static void service_sigchld_event(Unit *u, pid_t pid, int code, int status) {
         else
                 clean_mode = EXIT_CLEAN_DAEMON;
 
-        if (s->main_pid == pid)
-                /* Clean up the exec_fd event source. The source owns its end of the pipe, so this will close
-                 * that too. */
-                s->exec_fd_event_source = sd_event_source_disable_unref(s->exec_fd_event_source);
-
         if (is_clean_exit(code, status, clean_mode, &s->success_status))
                 f = SERVICE_SUCCESS;
         else if (code == CLD_EXITED)
@@ -3401,6 +3396,11 @@ static void service_sigchld_event(Unit *u, pid_t pid, int code, int status) {
                 assert_not_reached("Unknown code");
 
         if (s->main_pid == pid) {
+                /* Clean up the exec_fd event source. We want to do this here, not later in
+                 * service_set_state(), because service_enter_stop_post() calls service_spawn().
+                 * The source owns its end of the pipe, so this will close that too. */
+                s->exec_fd_event_source = sd_event_source_disable_unref(s->exec_fd_event_source);
+
                 /* Forking services may occasionally move to a new PID.
                  * As long as they update the PID file before exiting the old
                  * PID, they're fine. */
