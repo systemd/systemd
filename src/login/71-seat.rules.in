@@ -29,6 +29,11 @@ SUBSYSTEM=="graphics", KERNEL=="fb[0-9]", IMPORT{cmdline}="nomodeset", TAG+="mas
 SUBSYSTEM=="pci", ENV{ID_PCI_CLASS_FROM_DATABASE}=="Display controller", \
                   ENV{DRIVER}=="", IMPORT{cmdline}="nomodeset", TAG+="seat", TAG+="master-of-seat"
 
+# Synthesize a seat for graphic devices without DRM and that fall back to fb
+# device instead. Such HWs are listed in hwdb.
+SUBSYSTEM=="graphics", KERNEL=="fb[0-9]*", ATTRS{modalias}=="?*", IMPORT{builtin}="hwdb fb:$attr{modalias}"
+ENV{ID_TAG_MASTER_OF_SEAT}=="1", TAG+="master-of-seat"
+
 SUBSYSTEM=="drm", KERNEL=="card[0-9]*", TAG+="seat", TAG+="master-of-seat"
 
 # Allow individual USB ports to be assigned to a seat
