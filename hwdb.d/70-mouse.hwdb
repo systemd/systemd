@@ -616,6 +616,10 @@ mouse:usb:v046dpc52b:name:Logitech Unifying Device. Wireless PID:4026:*
 mouse:usb:v046dpc404:name:Logitech Trackball:*
  MOUSE_DPI=300@125
 
+# Logitech Trackman Marble
+mouse:usb:v046dpc408:name:Logitech USB Trackball:*
+ MOUSE_DPI=300@125
+
 # Logitech Ultrathin Touch Mouse
 mouse:bluetooth:v046dpb00d:name:Ultrathin Touch Mouse:*
  MOUSE_DPI=1000@1000
