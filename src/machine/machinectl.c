@@ -507,7 +507,6 @@ static void machine_status_info_clear(MachineStatusInfo *info) {
 }
 
 static void print_machine_status_info(sd_bus *bus, MachineStatusInfo *i) {
-        char since1[FORMAT_TIMESTAMP_RELATIVE_MAX];
         _cleanup_free_ char *addresses = NULL;
         const char *s1, *s2;
         int ifi = -1;
@@ -522,7 +521,7 @@ static void print_machine_status_info(sd_bus *bus, MachineStatusInfo *i) {
         else
                 putchar('\n');
 
-        s1 = format_timestamp_relative(since1, sizeof(since1), i->timestamp.realtime);
+        s1 = FORMAT_TIMESTAMP_RELATIVE(i->timestamp.realtime);
         s2 = FORMAT_TIMESTAMP(i->timestamp.realtime);
 
         if (s1)
@@ -827,7 +826,6 @@ typedef struct ImageStatusInfo {
 } ImageStatusInfo;
 
 static void print_image_status_info(sd_bus *bus, ImageStatusInfo *i) {
-        char ts_relative[FORMAT_TIMESTAMP_RELATIVE_MAX];
         char bs[FORMAT_BYTES_MAX];
         char bs_exclusive[FORMAT_BYTES_MAX];
         const char *s1, *s2, *s3, *s4;
@@ -857,14 +855,14 @@ static void print_image_status_info(sd_bus *bus, ImageStatusInfo *i) {
                i->read_only ? "read-only" : "writable",
                i->read_only ? ansi_normal() : "");
 
-        s1 = format_timestamp_relative(ts_relative, sizeof(ts_relative), i->crtime);
+        s1 = FORMAT_TIMESTAMP_RELATIVE(i->crtime);
         s2 = FORMAT_TIMESTAMP(i->crtime);
         if (s1 && s2)
                 printf("\t Created: %s; %s\n", s2, s1);
         else if (s2)
                 printf("\t Created: %s\n", s2);
 
-        s1 = format_timestamp_relative(ts_relative, sizeof(ts_relative), i->mtime);
+        s1 = FORMAT_TIMESTAMP_RELATIVE(i->mtime);
         s2 = FORMAT_TIMESTAMP(i->mtime);
         if (s1 && s2)
                 printf("\tModified: %s; %s\n", s2, s1);
