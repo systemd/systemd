@@ -223,7 +223,7 @@ static int button_dispatch(sd_event_source *s, int fd, uint32_t revents, void *u
 
                 case KEY_POWER:
                 case KEY_POWER2:
-                        if (b->manager->handle_power_key_long_press != HANDLE_IGNORE) {
+                        if (b->manager->handle_power_key_long_press != HANDLE_IGNORE && b->manager->handle_power_key_long_press != b->manager->handle_power_key) {
                                 log_debug("Power key pressed. Further action depends on the key press duration.");
                                 start_long_press(b->manager, &b->manager->power_key_long_press_event_source, long_press_of_power_key_handler);
                         } else {
@@ -239,7 +239,7 @@ static int button_dispatch(sd_event_source *s, int fd, uint32_t revents, void *u
                 */
 
                 case KEY_RESTART:
-                        if (b->manager->handle_reboot_key_long_press != HANDLE_IGNORE) {
+                        if (b->manager->handle_reboot_key_long_press != HANDLE_IGNORE && b->manager->handle_reboot_key_long_press != b->manager->handle_reboot_key) {
                                 log_debug("Reboot key pressed. Further action depends on the key press duration.");
                                 start_long_press(b->manager, &b->manager->reboot_key_long_press_event_source, long_press_of_reboot_key_handler);
                         } else {
@@ -256,7 +256,7 @@ static int button_dispatch(sd_event_source *s, int fd, uint32_t revents, void *u
                 */
 
                 case KEY_SLEEP:
-                        if (b->manager->handle_suspend_key_long_press != HANDLE_IGNORE) {
+                        if (b->manager->handle_suspend_key_long_press != HANDLE_IGNORE && b->manager->handle_suspend_key_long_press != b->manager->handle_suspend_key) {
                                 log_debug("Suspend key pressed. Further action depends on the key press duration.");
                                 start_long_press(b->manager, &b->manager->suspend_key_long_press_event_source, long_press_of_suspend_key_handler);
                         } else {
@@ -267,7 +267,7 @@ static int button_dispatch(sd_event_source *s, int fd, uint32_t revents, void *u
                         break;
 
                 case KEY_SUSPEND:
-                        if (b->manager->handle_hibernate_key_long_press != HANDLE_IGNORE) {
+                        if (b->manager->handle_hibernate_key_long_press != HANDLE_IGNORE && b->manager->handle_hibernate_key_long_press != b->manager->handle_hibernate_key) {
                                 log_debug("Hibernate key pressed. Further action depends on the key press duration.");
                                 start_long_press(b->manager, &b->manager->hibernate_key_long_press_event_source, long_press_of_hibernate_key_handler);
                         } else {
