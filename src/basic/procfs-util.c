@@ -201,7 +201,8 @@ int procfs_cpu_get_usage(nsec_t *ret) {
         return 0;
 }
 
-int convert_meminfo_value_to_uint64_bytes(char *word, uint64_t *ret) {
+int convert_meminfo_value_to_uint64_bytes(const char *word, uint64_t *ret) {
+        _cleanup_free_ char *w = NULL;
         char *digits, *e;
         uint64_t v;
         size_t n;
@@ -210,9 +211,13 @@ int convert_meminfo_value_to_uint64_bytes(char *word, uint64_t *ret) {
         assert(word);
         assert(ret);
 
+        w = strdup(word);
+        if (!w)
+                return -ENOMEM;
+
         /* Determine length of numeric value */
-        n = strspn(word, WHITESPACE);
-        digits = word + n;
+        n = strspn(w, WHITESPACE);
+        digits = w + n;
         n = strspn(digits, DIGITS);
         if (n == 0)
                 return -EINVAL;
@@ -231,6 +236,9 @@ int convert_meminfo_value_to_uint64_bytes(char *word, uint64_t *ret) {
                 return r;
         if (v == UINT64_MAX)
                 return -EINVAL;
+
+        if (v > UINT64_MAX/1024)
+                return -EOVERFLOW;
 
         *ret = v * 1024U;
         return 0;
