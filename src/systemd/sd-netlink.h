@@ -237,6 +237,7 @@ int sd_nfnl_nft_message_add_setelem_end(sd_netlink_message *m);
 int sd_genl_socket_open(sd_netlink **ret);
 int sd_genl_message_new(sd_netlink *genl, const char *family_name, uint8_t cmd, sd_netlink_message **ret);
 int sd_genl_message_get_family_name(sd_netlink *genl, sd_netlink_message *m, const char **ret);
+int sd_genl_message_get_command(sd_netlink *genl, sd_netlink_message *m, uint8_t *ret);
 
 /* slot */
 sd_netlink_slot *sd_netlink_slot_ref(sd_netlink_slot *slot);
