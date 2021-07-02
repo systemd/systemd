@@ -538,14 +538,22 @@ static uint64_t charge_weight(uint64_t total, uint64_t amount) {
         return total - amount;
 }
 
-static bool context_allocate_partitions(Context *context) {
+static bool context_allocate_partitions(Context *context, uint64_t *ret_largest_free_area) {
         Partition *p;
 
         assert(context);
 
-        /* A simple first-fit algorithm, assuming the array of free areas is sorted by size in decreasing
-         * order. */
+        /* Sort free areas by size, putting smallest first */
+        typesafe_qsort(context->free_areas, context->n_free_areas, free_area_compare);
 
+        /* In any case return size of the largest free area (i.e. not the size of all free areas
+         * combined!) */
+        if (ret_largest_free_area)
+                *ret_largest_free_area =
+                        context->n_free_areas == 0 ? 0 :
+                        free_area_available_for_new_partitions(context->free_areas[context->n_free_areas-1]);
+
+        /* A simple first-fit algorithm. We return true if we can fit the partitions in, otherwise false. */
         LIST_FOREACH(partitions, p, context->partitions) {
                 bool fits = false;
                 uint64_t required;
@@ -554,9 +562,6 @@ static bool context_allocate_partitions(Context *context) {
                 /* Skip partitions we already dropped or that already exist */
                 if (p->dropped || PARTITION_EXISTS(p))
                         continue;
-
-                /* Sort by size */
-                typesafe_qsort(context->free_areas, context->n_free_areas, free_area_compare);
 
                 /* How much do we need to fit? */
                 required = partition_min_size_with_padding(p);
@@ -4807,7 +4812,7 @@ done:
 
 static int determine_auto_size(Context *c) {
         uint64_t sum = round_up_size(GPT_METADATA_SIZE, 4096);
-        char buf[FORMAT_BYTES_MAX];
+        char buf1[FORMAT_BYTES_MAX], buf2[FORMAT_BYTES_MAX];
         Partition *p;
 
         assert_se(c);
@@ -4825,8 +4830,9 @@ static int determine_auto_size(Context *c) {
                 sum += m;
         }
 
-        assert_se(format_bytes(buf, sizeof(buf), sum));
-        log_info("Automatically determined minimal disk image size as %s.", buf);
+        assert_se(format_bytes(buf1, sizeof(buf1), sum));
+        assert_se(format_bytes(buf2, sizeof(buf2), c->total));
+        log_info("Automatically determined minimal disk image size as %s, current image size is %s.", buf1, buf2);
 
         arg_size = sum;
         return 0;
@@ -4996,12 +5002,16 @@ static int run(int argc, char *argv[]) {
 
         /* First try to fit new partitions in, dropping by priority until it fits */
         for (;;) {
-                if (context_allocate_partitions(context))
+                uint64_t largest_free_area;
+
+                if (context_allocate_partitions(context, &largest_free_area))
                         break; /* Success! */
 
                 if (!context_drop_one_priority(context)) {
+                        char buf[FORMAT_BYTES_MAX];
                         r = log_error_errno(SYNTHETIC_ERRNO(ENOSPC),
-                                            "Can't fit requested partitions into free space, refusing.");
+                                            "Can't fit requested partitions into available free space (%s), refusing.",
+                                            format_bytes(buf, sizeof(buf), largest_free_area));
 
                         determine_auto_size(context);
                         return r;
