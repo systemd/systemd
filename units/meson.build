@@ -248,6 +248,8 @@ in_units = [
         ['systemd-volatile-root.service',        'ENABLE_INITRD'],
         ['systemd-repart.service',               'ENABLE_REPART',
          'sysinit.target.wants/ initrd-root-fs.target.wants/'],
+        ['systemd-boot-update.service',          'ENABLE_EFI HAVE_BLKID',
+         'sysinit.target.wants/'],
         ['user-runtime-dir@.service',            ''],
         ['user@.service',                        ''],
 ]
