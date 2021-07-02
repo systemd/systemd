@@ -150,7 +150,7 @@ static int acquire_journal(sd_journal **ret, char **matches) {
         return 0;
 }
 
-static int help(void) {
+static int verb_help(int argc, char **argv, void *userdata) {
         _cleanup_free_ char *link = NULL;
         int r;
 
@@ -232,7 +232,7 @@ static int parse_argv(int argc, char *argv[]) {
         while ((c = getopt_long(argc, argv, "hA:o:F:1D:rS:U:qn:", options, NULL)) >= 0)
                 switch(c) {
                 case 'h':
-                        return help();
+                        return verb_help(0, NULL, NULL);
 
                 case ARG_VERSION:
                         return version();
@@ -1207,6 +1207,7 @@ static int coredumpctl_main(int argc, char *argv[]) {
                 { "dump",  VERB_ANY, VERB_ANY, 0,            dump_core },
                 { "debug", VERB_ANY, VERB_ANY, 0,            run_debug },
                 { "gdb",   VERB_ANY, VERB_ANY, 0,            run_debug },
+                { "help",  VERB_ANY, 1,        0,            verb_help },
                 {}
         };
 
