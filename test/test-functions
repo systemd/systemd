@@ -1117,6 +1117,15 @@ check_asan_reports() {
 }
 
 save_journal() {
+    # Default to always saving journal
+    local save="yes"
+
+    if [ "${TEST_SAVE_JOURNAL}" = "no" ]; then
+        save="no"
+    elif [ "${TEST_SAVE_JOURNAL:0:4}" = "fail" ] && [ "$2" = "0" ]; then
+        save="no"
+    fi
+
     if [ -n "${ARTIFACT_DIRECTORY}" ]; then
         dest="${ARTIFACT_DIRECTORY}/${testname:?}.journal"
     else
@@ -1124,9 +1133,9 @@ save_journal() {
     fi
 
     for j in "${1:?}"/*; do
-        "$SYSTEMD_JOURNAL_REMOTE" \
-            -o "$dest" \
-            --getter="$JOURNALCTL -o export -D $j"
+        if [ "$save" = "yes" ]; then
+            "$SYSTEMD_JOURNAL_REMOTE" -o "$dest" --getter="$JOURNALCTL -o export -D $j"
+        fi
 
         if [ -n "${TEST_SHOW_JOURNAL}" ]; then
             echo "---- $j ----"
@@ -1135,6 +1144,10 @@ save_journal() {
 
         rm -r "$j"
     done
+
+    if [ "$save" != "yes" ]; then
+        return 0
+    fi
 
     if [ -n "${SUDO_USER}" ]; then
         setfacl -m "user:${SUDO_USER:?}:r-X" "$dest"*
@@ -1173,7 +1186,7 @@ check_result_common() {
 
     check_asan_reports "$workspace" || ret=4
 
-    save_journal "$workspace/var/log/journal"
+    save_journal "$workspace/var/log/journal" $ret
 
     if [ -d "${ARTIFACT_DIRECTORY}" ] && [ -f "$workspace/strace.out" ]; then
         cp "$workspace/strace.out" "${ARTIFACT_DIRECTORY}/"
@@ -1254,7 +1267,7 @@ check_result_nspawn_unittests() {
 
     [[ -n "${TIMED_OUT:=}" ]] && ret=1
 
-    save_journal "$workspace/var/log/journal"
+    save_journal "$workspace/var/log/journal" $ret
 
     _umount_dir "${initdir:?}"
 
@@ -1286,7 +1299,7 @@ check_result_qemu_unittests() {
 
     [[ -n "${TIMED_OUT:=}" ]] && ret=1
 
-    save_journal "$initdir/var/log/journal"
+    save_journal "$initdir/var/log/journal" $ret
 
     _umount_dir "$initdir"
 
