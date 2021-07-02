@@ -1415,6 +1415,7 @@ int type_system_root_get_type_system_and_header_size(
 
         const NLTypeSystem *type_system;
         const NLType *nl_type;
+        size_t size;
         int r;
 
         assert(nl);
@@ -1438,10 +1439,14 @@ int type_system_root_get_type_system_and_header_size(
         if (r < 0)
                 return r;
 
+        r = genl_get_header_size(nl, type, &size);
+        if (r < 0)
+                return r;
+
         if (ret_type_system)
                 *ret_type_system = type_system;
         if (ret_header_size)
-                *ret_header_size = sizeof(struct genlmsghdr);
+                *ret_header_size = size;
         return 0;
 }
 

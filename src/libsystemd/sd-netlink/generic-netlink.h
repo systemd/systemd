@@ -10,3 +10,4 @@
 void genl_clear_family(sd_netlink *nl);
 
 int genl_get_type_system_by_id(sd_netlink *nl, uint16_t id, const NLTypeSystem **ret);
+int genl_get_header_size(sd_netlink *nl, uint16_t id, size_t *ret);
