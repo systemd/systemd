@@ -587,6 +587,7 @@ static void test_genl(void) {
         _cleanup_(sd_netlink_unrefp) sd_netlink *genl = NULL;
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
         const char *name;
+        uint8_t cmd;
 
         log_debug("/* %s */", __func__);
 
@@ -594,6 +595,8 @@ static void test_genl(void) {
         assert_se(sd_genl_message_new(genl, CTRL_GENL_NAME, CTRL_CMD_GETFAMILY, &m) >= 0);
         assert_se(sd_genl_message_get_family_name(genl, m, &name) >= 0);
         assert_se(streq(name, CTRL_GENL_NAME));
+        assert_se(sd_genl_message_get_command(genl, m, &cmd) >= 0);
+        assert_se(cmd == CTRL_CMD_GETFAMILY);
 
         m = sd_netlink_message_unref(m);
         assert_se(sd_genl_message_new(genl, "should-not-exist", CTRL_CMD_GETFAMILY, &m) < 0);

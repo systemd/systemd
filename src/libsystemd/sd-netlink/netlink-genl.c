@@ -60,6 +60,7 @@ static int genl_family_new(
 
         _cleanup_(genl_family_freep) GenericNetlinkFamily *f = NULL;
         const char *family_name;
+        uint8_t cmd;
         int r;
 
         assert(nl);
@@ -103,6 +104,13 @@ static int genl_family_new(
                 return r;
 
         if (!streq(family_name, CTRL_GENL_NAME))
+                return -EINVAL;
+
+        r = sd_genl_message_get_command(nl, message, &cmd);
+        if (r < 0)
+                return r;
+
+        if (cmd != CTRL_CMD_NEWFAMILY)
                 return -EINVAL;
 
         r = sd_netlink_message_read_u16(message, CTRL_ATTR_FAMILY_ID, &f->id);
@@ -332,6 +340,36 @@ int sd_genl_message_get_family_name(sd_netlink *nl, sd_netlink_message *m, const
                 return r;
 
         *ret = family->name;
+        return 0;
+}
+
+int sd_genl_message_get_command(sd_netlink *nl, sd_netlink_message *m, uint8_t *ret) {
+        struct genlmsghdr *h;
+        uint16_t nlmsg_type;
+        size_t size;
+        int r;
+
+        assert_return(nl, -EINVAL);
+        assert_return(nl->protocol == NETLINK_GENERIC, -EINVAL);
+        assert_return(m, -EINVAL);
+        assert_return(m->protocol == NETLINK_GENERIC, -EINVAL);
+        assert_return(m->hdr, -EINVAL);
+        assert_return(ret, -EINVAL);
+
+        r = sd_netlink_message_get_type(m, &nlmsg_type);
+        if (r < 0)
+                return r;
+
+        r = genl_get_type_system_and_header_size(nl, nlmsg_type, NULL, &size);
+        if (r < 0)
+                return r;
+
+        if (m->hdr->nlmsg_len < NLMSG_LENGTH(size))
+                return -EBADMSG;
+
+        h = NLMSG_DATA(m->hdr);
+
+        *ret = h->cmd;
         return 0;
 }
 
