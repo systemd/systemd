@@ -29,6 +29,7 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "format-table.h"
+#include "fs-util.h"
 #include "glob-util.h"
 #include "hashmap.h"
 #include "locale-util.h"
@@ -79,6 +80,7 @@ static enum dot {
 } arg_dot = DEP_ALL;
 static char **arg_dot_from_patterns = NULL;
 static char **arg_dot_to_patterns = NULL;
+static char *arg_alias = NULL;
 static usec_t arg_fuzz = 0;
 static PagerFlags arg_pager_flags = 0;
 static BusTransport arg_transport = BUS_TRANSPORT_LOCAL;
@@ -92,6 +94,7 @@ static usec_t arg_base_time = USEC_INFINITY;
 
 STATIC_DESTRUCTOR_REGISTER(arg_dot_from_patterns, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_dot_to_patterns, strv_freep);
+STATIC_DESTRUCTOR_REGISTER(arg_alias, unlink_and_freep);
 
 typedef struct BootTimes {
         usec_t firmware_time;
@@ -2145,7 +2148,26 @@ static int do_condition(int argc, char *argv[], void *userdata) {
 }
 
 static int do_verify(int argc, char *argv[], void *userdata) {
-        return verify_units(strv_skip(argv, 1), arg_scope, arg_man, arg_generators);
+        int r;
+
+        if (arg_alias) {
+                _cleanup_free_ char **filenames = NULL;
+                if (argc > 2)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "Only one unit can be passed with --alias");
+
+                r = strv_push(&filenames, arg_alias);
+                if (r < 0)
+                        return log_oom();
+
+                r = symlink(argv[1], arg_alias);
+                if (r < 0)
+                        return log_error_errno(errno, "Couldn't create symlink %s %s %s",
+                                               arg_alias, special_glyph(SPECIAL_GLYPH_ARROW), argv[1]);
+                return verify_units(filenames, arg_scope, arg_man, arg_generators);
+        } else
+                return verify_units(strv_skip(argv, 1), arg_scope, arg_man, arg_generators);
+
 }
 
 static int do_security(int argc, char *argv[], void *userdata) {
@@ -2216,6 +2238,7 @@ static int help(int argc, char *argv[], void *userdata) {
                "     --generators[=BOOL]   Do [not] run unit generators (requires privileges)\n"
                "     --iterations=N        Show the specified number of iterations\n"
                "     --base-time=TIMESTAMP Calculate calendar times relative to specified time\n"
+               "     --alias=PATH          Override a unit's name on disk with an alias\n"
                "\nSee the %s for details.\n",
                program_invocation_short_name,
                ansi_highlight(),
@@ -2246,6 +2269,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_GENERATORS,
                 ARG_ITERATIONS,
                 ARG_BASE_TIME,
+                ARG_ALIAS,
         };
 
         static const struct option options[] = {
@@ -2267,6 +2291,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "machine",      required_argument, NULL, 'M'                  },
                 { "iterations",   required_argument, NULL, ARG_ITERATIONS       },
                 { "base-time",    required_argument, NULL, ARG_BASE_TIME        },
+                { "alias",        required_argument, NULL, ARG_ALIAS            },
                 {}
         };
 
@@ -2363,6 +2388,31 @@ static int parse_argv(int argc, char *argv[]) {
                         r = parse_timestamp(optarg, &arg_base_time);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to parse --base-time= parameter: %s", optarg);
+
+                        break;
+
+                case ARG_ALIAS:
+                        if (!streq(strstrip(optarg), "")) {
+                                _cleanup_free_ char *tempdir = NULL;
+                                char bid[SD_ID128_STRING_MAX];
+                                sd_id128_t boot_id;
+
+                                r = sd_id128_get_boot(&boot_id);
+                                if (r < 0)
+                                        return log_error_errno(r, "Failed to obtain boot ID");
+
+                                tempdir = strjoin("/tmp/systemd-analyze-", sd_id128_to_string(boot_id, bid), "-XXXXXX");
+                                if (!tempdir)
+                                        return log_oom();
+
+                                tempdir = mkdtemp(tempdir);
+                                if (!tempdir)
+                                        return log_error_errno(errno, "Failed to create temporary directory");
+
+                                arg_alias = path_join(tempdir, optarg);
+                                if (!arg_alias)
+                                        return log_oom();
+                        }
 
                         break;
 
