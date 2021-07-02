@@ -500,12 +500,9 @@ int manager_set_default_rlimits(Manager *m, struct rlimit **default_rlimit);
 
 int manager_loop(Manager *m);
 
-int manager_open_serialization(Manager *m, FILE **_f);
-
-int manager_serialize(Manager *m, FILE *f, FDSet *fds, bool switching_root);
-int manager_deserialize(Manager *m, FILE *f, FDSet *fds);
-
 int manager_reload(Manager *m);
+Manager* manager_reloading_start(Manager *m);
+void manager_reloading_stopp(Manager **m);
 
 void manager_reset_failed(Manager *m);
 
