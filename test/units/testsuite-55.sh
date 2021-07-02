@@ -39,6 +39,8 @@ oomctl | grep "/testsuite-55-workload.slice"
 oomctl | grep "1.00%"
 oomctl | grep "Default Memory Pressure Duration: 2s"
 
+systemctl status testsuite-55-testchill.service
+
 # systemd-oomd watches for elevated pressure for 2 seconds before acting.
 # It can take time to build up pressure so either wait 2 minutes or for the service to fail.
 timeout="$(date -ud "2 minutes" +%s)"
