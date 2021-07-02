@@ -4399,33 +4399,33 @@ ManagerTimestamp manager_timestamp_initrd_mangle(ManagerTimestamp s) {
 
 static const char *const manager_state_table[_MANAGER_STATE_MAX] = {
         [MANAGER_INITIALIZING] = "initializing",
-        [MANAGER_STARTING] = "starting",
-        [MANAGER_RUNNING] = "running",
-        [MANAGER_DEGRADED] = "degraded",
-        [MANAGER_MAINTENANCE] = "maintenance",
-        [MANAGER_STOPPING] = "stopping",
+        [MANAGER_STARTING]     = "starting",
+        [MANAGER_RUNNING]      = "running",
+        [MANAGER_DEGRADED]     = "degraded",
+        [MANAGER_MAINTENANCE]  = "maintenance",
+        [MANAGER_STOPPING]     = "stopping",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(manager_state, ManagerState);
 
 static const char *const manager_timestamp_table[_MANAGER_TIMESTAMP_MAX] = {
-        [MANAGER_TIMESTAMP_FIRMWARE] = "firmware",
-        [MANAGER_TIMESTAMP_LOADER] = "loader",
-        [MANAGER_TIMESTAMP_KERNEL] = "kernel",
-        [MANAGER_TIMESTAMP_INITRD] = "initrd",
-        [MANAGER_TIMESTAMP_USERSPACE] = "userspace",
-        [MANAGER_TIMESTAMP_FINISH] = "finish",
-        [MANAGER_TIMESTAMP_SECURITY_START] = "security-start",
-        [MANAGER_TIMESTAMP_SECURITY_FINISH] = "security-finish",
-        [MANAGER_TIMESTAMP_GENERATORS_START] = "generators-start",
-        [MANAGER_TIMESTAMP_GENERATORS_FINISH] = "generators-finish",
-        [MANAGER_TIMESTAMP_UNITS_LOAD_START] = "units-load-start",
-        [MANAGER_TIMESTAMP_UNITS_LOAD_FINISH] = "units-load-finish",
-        [MANAGER_TIMESTAMP_INITRD_SECURITY_START] = "initrd-security-start",
-        [MANAGER_TIMESTAMP_INITRD_SECURITY_FINISH] = "initrd-security-finish",
-        [MANAGER_TIMESTAMP_INITRD_GENERATORS_START] = "initrd-generators-start",
+        [MANAGER_TIMESTAMP_FIRMWARE]                 = "firmware",
+        [MANAGER_TIMESTAMP_LOADER]                   = "loader",
+        [MANAGER_TIMESTAMP_KERNEL]                   = "kernel",
+        [MANAGER_TIMESTAMP_INITRD]                   = "initrd",
+        [MANAGER_TIMESTAMP_USERSPACE]                = "userspace",
+        [MANAGER_TIMESTAMP_FINISH]                   = "finish",
+        [MANAGER_TIMESTAMP_SECURITY_START]           = "security-start",
+        [MANAGER_TIMESTAMP_SECURITY_FINISH]          = "security-finish",
+        [MANAGER_TIMESTAMP_GENERATORS_START]         = "generators-start",
+        [MANAGER_TIMESTAMP_GENERATORS_FINISH]        = "generators-finish",
+        [MANAGER_TIMESTAMP_UNITS_LOAD_START]         = "units-load-start",
+        [MANAGER_TIMESTAMP_UNITS_LOAD_FINISH]        = "units-load-finish",
+        [MANAGER_TIMESTAMP_INITRD_SECURITY_START]    = "initrd-security-start",
+        [MANAGER_TIMESTAMP_INITRD_SECURITY_FINISH]   = "initrd-security-finish",
+        [MANAGER_TIMESTAMP_INITRD_GENERATORS_START]  = "initrd-generators-start",
         [MANAGER_TIMESTAMP_INITRD_GENERATORS_FINISH] = "initrd-generators-finish",
-        [MANAGER_TIMESTAMP_INITRD_UNITS_LOAD_START] = "initrd-units-load-start",
+        [MANAGER_TIMESTAMP_INITRD_UNITS_LOAD_START]  = "initrd-units-load-start",
         [MANAGER_TIMESTAMP_INITRD_UNITS_LOAD_FINISH] = "initrd-units-load-finish",
 };
 
@@ -4433,8 +4433,8 @@ DEFINE_STRING_TABLE_LOOKUP(manager_timestamp, ManagerTimestamp);
 
 static const char* const oom_policy_table[_OOM_POLICY_MAX] = {
         [OOM_CONTINUE] = "continue",
-        [OOM_STOP] = "stop",
-        [OOM_KILL] = "kill",
+        [OOM_STOP]     = "stop",
+        [OOM_KILL]     = "kill",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(oom_policy, OOMPolicy);

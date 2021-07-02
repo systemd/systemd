@@ -4440,82 +4440,82 @@ static const char *service_finished_job(Unit *u, JobType t, JobResult result) {
 }
 
 static const char* const service_restart_table[_SERVICE_RESTART_MAX] = {
-        [SERVICE_RESTART_NO] = "no",
-        [SERVICE_RESTART_ON_SUCCESS] = "on-success",
-        [SERVICE_RESTART_ON_FAILURE] = "on-failure",
+        [SERVICE_RESTART_NO]          = "no",
+        [SERVICE_RESTART_ON_SUCCESS]  = "on-success",
+        [SERVICE_RESTART_ON_FAILURE]  = "on-failure",
         [SERVICE_RESTART_ON_ABNORMAL] = "on-abnormal",
         [SERVICE_RESTART_ON_WATCHDOG] = "on-watchdog",
-        [SERVICE_RESTART_ON_ABORT] = "on-abort",
-        [SERVICE_RESTART_ALWAYS] = "always",
+        [SERVICE_RESTART_ON_ABORT]    = "on-abort",
+        [SERVICE_RESTART_ALWAYS]      = "always",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(service_restart, ServiceRestart);
 
 static const char* const service_type_table[_SERVICE_TYPE_MAX] = {
-        [SERVICE_SIMPLE] = "simple",
+        [SERVICE_SIMPLE]  = "simple",
         [SERVICE_FORKING] = "forking",
         [SERVICE_ONESHOT] = "oneshot",
-        [SERVICE_DBUS] = "dbus",
-        [SERVICE_NOTIFY] = "notify",
-        [SERVICE_IDLE] = "idle",
-        [SERVICE_EXEC] = "exec",
+        [SERVICE_DBUS]    = "dbus",
+        [SERVICE_NOTIFY]  = "notify",
+        [SERVICE_IDLE]    = "idle",
+        [SERVICE_EXEC]    = "exec",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(service_type, ServiceType);
 
 static const char* const service_exec_command_table[_SERVICE_EXEC_COMMAND_MAX] = {
-        [SERVICE_EXEC_CONDITION] = "ExecCondition",
-        [SERVICE_EXEC_START_PRE] = "ExecStartPre",
-        [SERVICE_EXEC_START] = "ExecStart",
+        [SERVICE_EXEC_CONDITION]  = "ExecCondition",
+        [SERVICE_EXEC_START_PRE]  = "ExecStartPre",
+        [SERVICE_EXEC_START]      = "ExecStart",
         [SERVICE_EXEC_START_POST] = "ExecStartPost",
-        [SERVICE_EXEC_RELOAD] = "ExecReload",
-        [SERVICE_EXEC_STOP] = "ExecStop",
-        [SERVICE_EXEC_STOP_POST] = "ExecStopPost",
+        [SERVICE_EXEC_RELOAD]     = "ExecReload",
+        [SERVICE_EXEC_STOP]       = "ExecStop",
+        [SERVICE_EXEC_STOP_POST]  = "ExecStopPost",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(service_exec_command, ServiceExecCommand);
 
 static const char* const service_exec_ex_command_table[_SERVICE_EXEC_COMMAND_MAX] = {
-        [SERVICE_EXEC_CONDITION] = "ExecConditionEx",
-        [SERVICE_EXEC_START_PRE] = "ExecStartPreEx",
-        [SERVICE_EXEC_START] = "ExecStartEx",
+        [SERVICE_EXEC_CONDITION]  = "ExecConditionEx",
+        [SERVICE_EXEC_START_PRE]  = "ExecStartPreEx",
+        [SERVICE_EXEC_START]      = "ExecStartEx",
         [SERVICE_EXEC_START_POST] = "ExecStartPostEx",
-        [SERVICE_EXEC_RELOAD] = "ExecReloadEx",
-        [SERVICE_EXEC_STOP] = "ExecStopEx",
-        [SERVICE_EXEC_STOP_POST] = "ExecStopPostEx",
+        [SERVICE_EXEC_RELOAD]     = "ExecReloadEx",
+        [SERVICE_EXEC_STOP]       = "ExecStopEx",
+        [SERVICE_EXEC_STOP_POST]  = "ExecStopPostEx",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(service_exec_ex_command, ServiceExecCommand);
 
 static const char* const notify_state_table[_NOTIFY_STATE_MAX] = {
-        [NOTIFY_UNKNOWN] = "unknown",
-        [NOTIFY_READY] = "ready",
+        [NOTIFY_UNKNOWN]   = "unknown",
+        [NOTIFY_READY]     = "ready",
         [NOTIFY_RELOADING] = "reloading",
-        [NOTIFY_STOPPING] = "stopping",
+        [NOTIFY_STOPPING]  = "stopping",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(notify_state, NotifyState);
 
 static const char* const service_result_table[_SERVICE_RESULT_MAX] = {
-        [SERVICE_SUCCESS] = "success",
-        [SERVICE_FAILURE_RESOURCES] = "resources",
-        [SERVICE_FAILURE_PROTOCOL] = "protocol",
-        [SERVICE_FAILURE_TIMEOUT] = "timeout",
-        [SERVICE_FAILURE_EXIT_CODE] = "exit-code",
-        [SERVICE_FAILURE_SIGNAL] = "signal",
-        [SERVICE_FAILURE_CORE_DUMP] = "core-dump",
-        [SERVICE_FAILURE_WATCHDOG] = "watchdog",
+        [SERVICE_SUCCESS]                 = "success",
+        [SERVICE_FAILURE_RESOURCES]       = "resources",
+        [SERVICE_FAILURE_PROTOCOL]        = "protocol",
+        [SERVICE_FAILURE_TIMEOUT]         = "timeout",
+        [SERVICE_FAILURE_EXIT_CODE]       = "exit-code",
+        [SERVICE_FAILURE_SIGNAL]          = "signal",
+        [SERVICE_FAILURE_CORE_DUMP]       = "core-dump",
+        [SERVICE_FAILURE_WATCHDOG]        = "watchdog",
         [SERVICE_FAILURE_START_LIMIT_HIT] = "start-limit-hit",
-        [SERVICE_FAILURE_OOM_KILL] = "oom-kill",
-        [SERVICE_SKIP_CONDITION] = "exec-condition",
+        [SERVICE_FAILURE_OOM_KILL]        = "oom-kill",
+        [SERVICE_SKIP_CONDITION]          = "exec-condition",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(service_result, ServiceResult);
 
 static const char* const service_timeout_failure_mode_table[_SERVICE_TIMEOUT_FAILURE_MODE_MAX] = {
         [SERVICE_TIMEOUT_TERMINATE] = "terminate",
-        [SERVICE_TIMEOUT_ABORT] = "abort",
-        [SERVICE_TIMEOUT_KILL] = "kill",
+        [SERVICE_TIMEOUT_ABORT]     = "abort",
+        [SERVICE_TIMEOUT_KILL]      = "kill",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(service_timeout_failure_mode, ServiceTimeoutFailureMode);

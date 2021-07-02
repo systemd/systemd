@@ -1589,19 +1589,19 @@ static int swap_can_clean(Unit *u, ExecCleanMask *ret) {
 }
 
 static const char* const swap_exec_command_table[_SWAP_EXEC_COMMAND_MAX] = {
-        [SWAP_EXEC_ACTIVATE] = "ExecActivate",
+        [SWAP_EXEC_ACTIVATE]   = "ExecActivate",
         [SWAP_EXEC_DEACTIVATE] = "ExecDeactivate",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(swap_exec_command, SwapExecCommand);
 
 static const char* const swap_result_table[_SWAP_RESULT_MAX] = {
-        [SWAP_SUCCESS] = "success",
-        [SWAP_FAILURE_RESOURCES] = "resources",
-        [SWAP_FAILURE_TIMEOUT] = "timeout",
-        [SWAP_FAILURE_EXIT_CODE] = "exit-code",
-        [SWAP_FAILURE_SIGNAL] = "signal",
-        [SWAP_FAILURE_CORE_DUMP] = "core-dump",
+        [SWAP_SUCCESS]                 = "success",
+        [SWAP_FAILURE_RESOURCES]       = "resources",
+        [SWAP_FAILURE_TIMEOUT]         = "timeout",
+        [SWAP_FAILURE_EXIT_CODE]       = "exit-code",
+        [SWAP_FAILURE_SIGNAL]          = "signal",
+        [SWAP_FAILURE_CORE_DUMP]       = "core-dump",
         [SWAP_FAILURE_START_LIMIT_HIT] = "start-limit-hit",
 };
 

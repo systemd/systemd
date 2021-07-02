@@ -2139,7 +2139,7 @@ static int mount_can_clean(Unit *u, ExecCleanMask *ret) {
 }
 
 static const char* const mount_exec_command_table[_MOUNT_EXEC_COMMAND_MAX] = {
-        [MOUNT_EXEC_MOUNT] = "ExecMount",
+        [MOUNT_EXEC_MOUNT]   = "ExecMount",
         [MOUNT_EXEC_UNMOUNT] = "ExecUnmount",
         [MOUNT_EXEC_REMOUNT] = "ExecRemount",
 };
@@ -2147,14 +2147,14 @@ static const char* const mount_exec_command_table[_MOUNT_EXEC_COMMAND_MAX] = {
 DEFINE_STRING_TABLE_LOOKUP(mount_exec_command, MountExecCommand);
 
 static const char* const mount_result_table[_MOUNT_RESULT_MAX] = {
-        [MOUNT_SUCCESS] = "success",
-        [MOUNT_FAILURE_RESOURCES] = "resources",
-        [MOUNT_FAILURE_TIMEOUT] = "timeout",
-        [MOUNT_FAILURE_EXIT_CODE] = "exit-code",
-        [MOUNT_FAILURE_SIGNAL] = "signal",
-        [MOUNT_FAILURE_CORE_DUMP] = "core-dump",
+        [MOUNT_SUCCESS]                 = "success",
+        [MOUNT_FAILURE_RESOURCES]       = "resources",
+        [MOUNT_FAILURE_TIMEOUT]         = "timeout",
+        [MOUNT_FAILURE_EXIT_CODE]       = "exit-code",
+        [MOUNT_FAILURE_SIGNAL]          = "signal",
+        [MOUNT_FAILURE_CORE_DUMP]       = "core-dump",
         [MOUNT_FAILURE_START_LIMIT_HIT] = "start-limit-hit",
-        [MOUNT_FAILURE_PROTOCOL] = "protocol",
+        [MOUNT_FAILURE_PROTOCOL]        = "protocol",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(mount_result, MountResult);
