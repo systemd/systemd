@@ -30,7 +30,6 @@ int sd_genl_socket_open(sd_netlink **ret) {
 static int genl_message_new(sd_netlink *nl, sd_genl_family_t family, uint16_t nlmsg_type, uint8_t cmd, sd_netlink_message **ret) {
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
         const NLType *type;
-        size_t size;
         int r;
 
         assert(nl);
@@ -41,20 +40,9 @@ static int genl_message_new(sd_netlink *nl, sd_genl_family_t family, uint16_t nl
         if (r < 0)
                 return r;
 
-        r = message_new_empty(nl, &m);
+        r = message_new_full(nl, nlmsg_type, type, type_get_size(type), &m);
         if (r < 0)
                 return r;
-
-        size = NLMSG_SPACE(sizeof(struct genlmsghdr));
-        m->hdr = malloc0(size);
-        if (!m->hdr)
-                return -ENOMEM;
-
-        m->hdr->nlmsg_flags = NLM_F_REQUEST | NLM_F_ACK;
-        m->hdr->nlmsg_len = size;
-        m->hdr->nlmsg_type = nlmsg_type;
-
-        type_get_type_system(type, &m->containers[0].type_system);
 
         *(struct genlmsghdr *) NLMSG_DATA(m->hdr) = (struct genlmsghdr) {
                 .cmd = cmd,
@@ -62,7 +50,6 @@ static int genl_message_new(sd_netlink *nl, sd_genl_family_t family, uint16_t nl
         };
 
         *ret = TAKE_PTR(m);
-
         return 0;
 }
 
