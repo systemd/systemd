@@ -129,7 +129,7 @@ bool oomd_mem_free_below(const OomdSystemContext *ctx, int threshold_permyriad) 
         assert(threshold_permyriad <= 10000);
 
         mem_threshold = ctx->mem_total * threshold_permyriad / (uint64_t) 10000;
-        return (ctx->mem_total - ctx->mem_used) < mem_threshold;
+        return LESS_BY(ctx->mem_total, ctx->mem_used) < mem_threshold;
 }
 
 bool oomd_swap_free_below(const OomdSystemContext *ctx, int threshold_permyriad) {
@@ -375,6 +375,14 @@ int oomd_system_context_acquire(const char *proc_meminfo_path, OomdSystemContext
         uint64_t mem_free, swap_free;
         int r;
 
+        enum {
+                MEM_TOTAL = 1U << 0,
+                MEM_FREE = 1U << 1,
+                SWAP_TOTAL = 1U << 2,
+                SWAP_FREE = 1U << 3,
+                ALL = MEM_TOTAL|MEM_FREE|SWAP_TOTAL|SWAP_FREE,
+        };
+
         assert(proc_meminfo_path);
         assert(ret);
 
@@ -393,16 +401,16 @@ int oomd_system_context_acquire(const char *proc_meminfo_path, OomdSystemContext
                         return -EINVAL;
 
                 if ((word = startswith(line, "MemTotal:"))) {
-                        field_filled |= 1U << 0;
+                        field_filled |= MEM_TOTAL;
                         r = convert_meminfo_value_to_uint64_bytes(word, &ctx.mem_total);
                 } else if ((word = startswith(line, "MemFree:"))) {
-                        field_filled |= 1U << 1;
+                        field_filled |= MEM_FREE;
                         r = convert_meminfo_value_to_uint64_bytes(word, &mem_free);
                 } else if ((word = startswith(line, "SwapTotal:"))) {
-                        field_filled |= 1U << 2;
+                        field_filled |= SWAP_TOTAL;
                         r = convert_meminfo_value_to_uint64_bytes(word, &ctx.swap_total);
                 } else if ((word = startswith(line, "SwapFree:"))) {
-                        field_filled |= 1U << 3;
+                        field_filled |= SWAP_FREE;
                         r = convert_meminfo_value_to_uint64_bytes(word, &swap_free);
                 } else
                         continue;
@@ -410,11 +418,11 @@ int oomd_system_context_acquire(const char *proc_meminfo_path, OomdSystemContext
                 if (r < 0)
                         return log_debug_errno(r, "Error converting '%s' from %s to uint64_t: %m", line, proc_meminfo_path);
 
-                if (field_filled == 15U)
+                if (field_filled == ALL)
                         break;
         }
 
-        if (field_filled != 15U)
+        if (field_filled != ALL)
                 return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "%s is missing expected fields", proc_meminfo_path);
 
         if (mem_free > ctx.mem_total)
