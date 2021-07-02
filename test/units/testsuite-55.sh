@@ -23,6 +23,16 @@ rm -rf /etc/systemd/system/testsuite-55-testbloat.service.d
 
 echo "DefaultMemoryPressureDurationSec=5s" >>/etc/systemd/oomd.conf
 
+mkdir -p /etc/systemd/system/systemd-oomd.service.d/
+echo -e "[Service]\nEnvironment=SYSTEMD_LOG_LEVEL=debug" >/etc/systemd/system/systemd-oomd.service.d/debug.conf
+
+systemctl daemon-reload
+
+# if oomd is already running for some reasons, then restart it to make sure the above settings to be applied
+if systemctl is-active systemd-oomd.service; then
+    systemctl restart systemd-oomd.service
+fi
+
 systemctl start testsuite-55-testchill.service
 systemctl start testsuite-55-testbloat.service
 
