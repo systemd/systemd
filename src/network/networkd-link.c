@@ -519,7 +519,8 @@ void link_check_ready(Link *link) {
                         /* When DHCP[46], NDisc, or IPv4LL is enabled, at least one protocol must be finished. */
                         return (void) log_link_debug(link, "%s(): dynamic addresses or routes are not configured.", __func__);
 
-                log_link_debug(link, "%s(): dhcp4:%s ipv4ll:%s dhcp6_addresses:%s dhcp_routes:%s dhcp_pd_addresses:%s dhcp_pd_routes:%s ndisc_addresses:%s ndisc_routes:%s",
+                log_link_debug(link, "%s(): dhcp4:%s ipv4ll:%s dhcp6_addresses:%s dhcp6_routes:%s "
+                               "dhcp6_pd_addresses:%s dhcp6_pd_routes:%s ndisc_addresses:%s ndisc_routes:%s",
                                __func__,
                                yes_no(link->dhcp4_configured),
                                yes_no(link->ipv4ll_address_configured),
