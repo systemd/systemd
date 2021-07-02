@@ -6,6 +6,7 @@
 
 #include "alloc-util.h"
 #include "fd-util.h"
+#include "generic-netlink.h"
 #include "hashmap.h"
 #include "io-util.h"
 #include "macro.h"
@@ -201,8 +202,7 @@ static sd_netlink *netlink_free(sd_netlink *rtnl) {
 
         hashmap_free(rtnl->broadcast_group_refs);
 
-        hashmap_free(rtnl->genl_family_to_nlmsg_type);
-        hashmap_free(rtnl->nlmsg_type_to_genl_family);
+        genl_clear_family(rtnl);
 
         safe_close(rtnl->fd);
         return mfree(rtnl);
