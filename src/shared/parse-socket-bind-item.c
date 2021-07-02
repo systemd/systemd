@@ -12,6 +12,7 @@ static int parse_af_token(
                 int *ip_protocol,
                 uint16_t *nr_ports,
                 uint16_t *port_min) {
+
         int af;
 
         assert(token);
@@ -31,6 +32,7 @@ static int parse_ip_protocol_token(
                 int *ip_protocol,
                 uint16_t *nr_ports,
                 uint16_t *port_min) {
+
         int proto;
 
         assert(token);
@@ -50,6 +52,7 @@ static int parse_ip_ports_token(
                 int *ip_protocol,
                 uint16_t *nr_ports,
                 uint16_t *port_min) {
+
         assert(token);
         assert(nr_ports);
         assert(port_min);
@@ -82,6 +85,7 @@ int parse_socket_bind_item(
                 int *ip_protocol,
                 uint16_t *nr_ports,
                 uint16_t *port_min) {
+
         /* Order of token parsers is important. */
         const parse_token_f parsers[] = {
                 &parse_af_token,
@@ -134,7 +138,7 @@ int parse_socket_bind_item(
         if (r < 0)
                 return r;
 
-        /* Parsers applied succesfully, but end of the string not reached. */
+        /* Parsers applied successfully, but end of the string not reached. */
         if (p)
                 return -EINVAL;
 
