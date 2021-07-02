@@ -93,6 +93,16 @@ static const NLTypeSystem error_type_system = {
         .types = error_types,
 };
 
+static const NLType basic_types[] = {
+        [NLMSG_DONE]        = { .type = NETLINK_TYPE_NESTED, .type_system = &empty_type_system },
+        [NLMSG_ERROR]       = { .type = NETLINK_TYPE_NESTED, .type_system = &error_type_system, .size = sizeof(struct nlmsgerr) },
+};
+
+const NLTypeSystem basic_type_system_root = {
+        .count = ELEMENTSOF(basic_types),
+        .types = basic_types,
+};
+
 /***************** rtnl type systems *****************/
 
 static const NLTypeSystem rtnl_link_type_system;
@@ -1052,8 +1062,6 @@ static const NLTypeSystem rtnl_mdb_type_system = {
 };
 
 static const NLType rtnl_types[] = {
-        [NLMSG_DONE]       = { .type = NETLINK_TYPE_NESTED, .type_system = &empty_type_system, .size = 0 },
-        [NLMSG_ERROR]      = { .type = NETLINK_TYPE_NESTED, .type_system = &error_type_system, .size = sizeof(struct nlmsgerr) },
         [RTM_NEWLINK]      = { .type = NETLINK_TYPE_NESTED, .type_system = &rtnl_link_type_system, .size = sizeof(struct ifinfomsg) },
         [RTM_DELLINK]      = { .type = NETLINK_TYPE_NESTED, .type_system = &rtnl_link_type_system, .size = sizeof(struct ifinfomsg) },
         [RTM_GETLINK]      = { .type = NETLINK_TYPE_NESTED, .type_system = &rtnl_link_type_system, .size = sizeof(struct ifinfomsg) },
@@ -1322,8 +1330,6 @@ static const NLTypeSystem nfnl_msg_batch_type_system = {
 };
 
 static const NLType nfnl_types[] = {
-        [NLMSG_DONE]           = { .type = NETLINK_TYPE_NESTED, .type_system = &empty_type_system, .size = 0 },
-        [NLMSG_ERROR]          = { .type = NETLINK_TYPE_NESTED, .type_system = &error_type_system, .size = sizeof(struct nlmsgerr) },
         [NFNL_MSG_BATCH_BEGIN] = { .type = NETLINK_TYPE_NESTED, .type_system = &nfnl_msg_batch_type_system, .size = sizeof(struct nfgenmsg) },
         [NFNL_MSG_BATCH_END]   = { .type = NETLINK_TYPE_NESTED, .type_system = &nfnl_msg_batch_type_system, .size = sizeof(struct nfgenmsg) },
         [NFNL_SUBSYS_NFTABLES] = { .type = NETLINK_TYPE_NESTED, .type_system = &nfnl_nft_msg_type_system, .size = sizeof(struct nfgenmsg) },
@@ -1572,8 +1578,6 @@ static const NLTypeSystem genl_wireguard_type_system = {
 };
 
 static const NLType genl_types[] = {
-        [SD_GENL_DONE]      = { .type = NETLINK_TYPE_NESTED, .type_system = &empty_type_system },
-        [SD_GENL_ERROR]     = { .type = NETLINK_TYPE_NESTED, .type_system = &error_type_system, .size = sizeof(struct nlmsgerr) },
         [SD_GENL_ID_CTRL]   = { .type = NETLINK_TYPE_NESTED, .type_system = &genl_ctrl_type_system, .size = sizeof(struct genlmsghdr) },
         [SD_GENL_WIREGUARD] = { .type = NETLINK_TYPE_NESTED, .type_system = &genl_wireguard_type_system, .size = sizeof(struct genlmsghdr) },
         [SD_GENL_FOU]       = { .type = NETLINK_TYPE_NESTED, .type_system = &genl_fou_type_system, .size = sizeof(struct genlmsghdr) },
@@ -1627,6 +1631,8 @@ int type_system_root_get_type(sd_netlink *nl, const NLType **ret, uint16_t type)
         assert(nl);
         assert(ret);
 
+        if (IN_SET(type, NLMSG_DONE, NLMSG_ERROR))
+                return type_system_get_type(&basic_type_system_root, ret, type);
         if (nl->protocol == NETLINK_ROUTE)
                 return type_system_get_type(&rtnl_type_system_root, ret, type);
         if (nl->protocol == NETLINK_NETFILTER)
