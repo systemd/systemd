@@ -4379,6 +4379,14 @@ static int service_exit_status(Unit *u) {
         return s->main_exec_status.status;
 }
 
+static const char* service_status_text(Unit *u) {
+        Service *s = SERVICE(u);
+
+        assert(s);
+
+        return s->status_text;
+}
+
 static int service_clean(Unit *u, ExecCleanMask mask) {
         _cleanup_strv_free_ char **l = NULL;
         Service *s = SERVICE(u);
@@ -4590,6 +4598,7 @@ const UnitVTable service_vtable = {
         .get_timeout = service_get_timeout,
         .needs_console = service_needs_console,
         .exit_status = service_exit_status,
+        .status_text = service_status_text,
 
         .status_message_formats = {
                 .finished_start_job = {

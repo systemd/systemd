@@ -631,6 +631,9 @@ typedef struct UnitVTable {
          * exit code of the "main" process of the service or similar. */
         int (*exit_status)(Unit *u);
 
+        /* Return a copy of the status string pointer. */
+        const char* (*status_text)(Unit *u);
+
         /* Like the enumerate() callback further down, but only enumerates the perpetual units, i.e. all units that
          * unconditionally exist and are always active. The main reason to keep both enumeration functions separate is
          * philosophical: the state of perpetual units should be put in place by coldplug(), while the state of those
@@ -742,6 +745,12 @@ bool unit_may_gc(Unit *u);
 static inline bool unit_is_extrinsic(Unit *u) {
         return u->perpetual ||
                 (UNIT_VTABLE(u)->is_extrinsic && UNIT_VTABLE(u)->is_extrinsic(u));
+}
+
+static inline const char* unit_status_text(Unit *u) {
+        if (u && UNIT_VTABLE(u)->status_text)
+                return UNIT_VTABLE(u)->status_text(u);
+        return NULL;
 }
 
 void unit_add_to_load_queue(Unit *u);
