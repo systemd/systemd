@@ -126,8 +126,14 @@ struct sd_netlink_message {
         sd_netlink_message *next; /* next in a chain of multi-part messages */
 };
 
-int message_new(sd_netlink *rtnl, sd_netlink_message **ret, uint16_t type);
-int message_new_empty(sd_netlink *rtnl, sd_netlink_message **ret);
+int message_new_empty(sd_netlink *nl, sd_netlink_message **ret);
+int message_new_full(
+                sd_netlink *nl,
+                uint16_t nlmsg_type,
+                const NLTypeSystem *type_system,
+                size_t header_size,
+                sd_netlink_message **ret);
+int message_new(sd_netlink *nl, sd_netlink_message **ret, uint16_t type);
 
 int netlink_open_family(sd_netlink **ret, int family);
 
