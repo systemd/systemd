@@ -6,6 +6,7 @@
 
 #include "missing_network.h"
 #include "netlink-util.h"
+#include "networkd-address.h"
 #include "networkd-can.h"
 #include "networkd-link.h"
 #include "networkd-manager.h"

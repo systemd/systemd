@@ -53,6 +53,7 @@ typedef struct Route {
         bool pref_set:1;
         bool gateway_from_dhcp_or_ra:1;
         bool removing:1;
+        bool marked:1; /* used when GC'ing old address by NDisc */
 
         union in_addr_union gw;
         union in_addr_union dst;

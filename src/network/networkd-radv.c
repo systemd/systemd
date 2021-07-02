@@ -11,6 +11,7 @@
 #include "networkd-manager.h"
 #include "networkd-network.h"
 #include "networkd-radv.h"
+#include "networkd-route.h"
 #include "parse-util.h"
 #include "string-util.h"
 #include "string-table.h"

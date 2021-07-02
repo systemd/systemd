@@ -20,6 +20,7 @@
 #include "networkd-manager.h"
 #include "networkd-queue.h"
 #include "networkd-radv.h"
+#include "networkd-route.h"
 #include "siphash24.h"
 #include "string-table.h"
 #include "string-util.h"
@@ -1068,7 +1069,7 @@ static void log_dhcp6_address(Link *link, const Address *address, char **ret) {
         _cleanup_free_ char *buffer = NULL;
         bool by_ndisc = false;
         Address *existing;
-        NDiscAddress *na;
+        NDiscInfo *info;
         int log_level, r;
 
         assert(link);
@@ -1101,8 +1102,8 @@ static void log_dhcp6_address(Link *link, const Address *address, char **ret) {
                 /* Currently, only conflict in prefix length is reported. */
                 goto simple_log;
 
-        SET_FOREACH(na, link->ndisc_addresses)
-                if (address_compare_func(na->address, existing)) {
+        HASHMAP_FOREACH(info, link->ndisc_info_by_router)
+                if (set_contains(info->addresses, existing)) {
                         by_ndisc = true;
                         break;
                 }

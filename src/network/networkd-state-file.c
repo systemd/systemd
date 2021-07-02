@@ -514,11 +514,13 @@ int link_save(Link *link) {
                 /* Make sure to flush out old entries before we use the NDisc data */
                 ndisc_vacuum(link);
 
-                if (link->network->ipv6_accept_ra_use_dns && link->ndisc_rdnss) {
-                        NDiscRDNSS *dd;
+                if (link->network->ipv6_accept_ra_use_dns) {
+                        NDiscInfo *info;
+                        NDiscRDNSS *rdnss;
 
-                        SET_FOREACH(dd, link->ndisc_rdnss)
-                                serialize_in6_addrs(f, &dd->address, 1, &space);
+                        HASHMAP_FOREACH(info, link->ndisc_info_by_router)
+                                SET_FOREACH(rdnss, info->rdnss)
+                                        serialize_in6_addrs(f, &rdnss->address, 1, &space);
                 }
 
                 fputc('\n', f);
@@ -566,10 +568,12 @@ int link_save(Link *link) {
                 }
 
                 if (link->network->ipv6_accept_ra_use_domains == DHCP_USE_DOMAINS_YES) {
-                        NDiscDNSSL *dd;
+                        NDiscInfo *info;
+                        NDiscDNSSL *dnssl;
 
-                        SET_FOREACH(dd, link->ndisc_dnssl)
-                                fputs_with_space(f, NDISC_DNSSL_DOMAIN(dd), NULL, &space);
+                        HASHMAP_FOREACH(info, link->ndisc_info_by_router)
+                                SET_FOREACH(dnssl, info->dnssl)
+                                        fputs_with_space(f, NDISC_DNSSL_DOMAIN(dnssl), NULL, &space);
                 }
 
                 fputc('\n', f);
@@ -591,10 +595,12 @@ int link_save(Link *link) {
                 }
 
                 if (link->network->ipv6_accept_ra_use_domains == DHCP_USE_DOMAINS_ROUTE) {
-                        NDiscDNSSL *dd;
+                        NDiscInfo *info;
+                        NDiscDNSSL *dnssl;
 
-                        SET_FOREACH(dd, link->ndisc_dnssl)
-                                fputs_with_space(f, NDISC_DNSSL_DOMAIN(dd), NULL, &space);
+                        HASHMAP_FOREACH(info, link->ndisc_info_by_router)
+                                SET_FOREACH(dnssl, info->dnssl)
+                                        fputs_with_space(f, NDISC_DNSSL_DOMAIN(dnssl), NULL, &space);
                 }
 
                 fputc('\n', f);
