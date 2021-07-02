@@ -500,7 +500,7 @@ static int version_check(int fd_from, const char *from, int fd_to, const char *t
         if (r < 0)
                 return r;
         if (r == 0)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                return log_notice_errno(SYNTHETIC_ERRNO(EREMOTE),
                                        "Source file \"%s\" does not carry version information!",
                                        from);
 
@@ -508,12 +508,15 @@ static int version_check(int fd_from, const char *from, int fd_to, const char *t
         if (r < 0)
                 return r;
         if (r == 0 || compare_product(a, b) != 0)
-                return log_notice_errno(SYNTHETIC_ERRNO(EEXIST),
+                return log_notice_errno(SYNTHETIC_ERRNO(EREMOTE),
                                         "Skipping \"%s\", since it's owned by another boot loader.",
                                         to);
 
-        if (compare_version(a, b) < 0)
-                return log_warning_errno(SYNTHETIC_ERRNO(ESTALE), "Skipping \"%s\", since a newer boot loader version exists already.", to);
+        r = compare_version(a, b);
+        if (r < 0)
+                return log_warning_errno(SYNTHETIC_ERRNO(ESTALE), "Skipping \"%s\", since newer boot loader version in place already.", to);
+        else if (r == 0)
+                return log_info_errno(SYNTHETIC_ERRNO(ESTALE), "Skipping \"%s\", since same boot loader version in place already.", to);
 
         return 0;
 }
@@ -665,6 +668,10 @@ static int install_binaries(const char *esp_path, bool force) {
                         continue;
 
                 k = copy_one_file(esp_path, de->d_name, force);
+                /* Don't propagate an error code if no update necessary, installed version already equal or
+                 * newer version, or other boot loader in place. */
+                if (arg_graceful && IN_SET(k, -ESTALE, -EREMOTE))
+                        continue;
                 if (k < 0 && r == 0)
                         r = k;
         }
