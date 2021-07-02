@@ -114,7 +114,7 @@ static int find_gpt_root(sd_device *dev, blkid_probe pr, bool test) {
 
 #if defined(GPT_ROOT_NATIVE) && ENABLE_EFI
 
-        _cleanup_free_ char *root_id = NULL;
+        _cleanup_free_ char *root_id = NULL, *root_label = NULL;
         bool found_esp = false;
         blkid_partlist pl;
         int i, nvals, r;
@@ -133,7 +133,7 @@ static int find_gpt_root(sd_device *dev, blkid_probe pr, bool test) {
         nvals = blkid_partlist_numof_partitions(pl);
         for (i = 0; i < nvals; i++) {
                 blkid_partition pp;
-                const char *stype, *sid;
+                const char *stype, *sid, *label;
                 sd_id128_t type;
 
                 pp = blkid_partlist_get_partition(pl, i);
@@ -143,6 +143,8 @@ static int find_gpt_root(sd_device *dev, blkid_probe pr, bool test) {
                 sid = blkid_partition_get_uuid(pp);
                 if (!sid)
                         continue;
+
+                label = blkid_partition_get_name(pp); /* returns NULL if empty */
 
                 stype = blkid_partition_get_type_string(pp);
                 if (!stype)
@@ -174,13 +176,17 @@ static int find_gpt_root(sd_device *dev, blkid_probe pr, bool test) {
                         if (flags & GPT_FLAG_NO_AUTO)
                                 continue;
 
-                        /* We found a suitable root partition, let's
-                         * remember the first one. */
+                        /* We found a suitable root partition, let's remember the first one, or the one with
+                         * the newest version, as determined by comparing the partition labels. */
 
-                        if (!root_id) {
-                                root_id = strdup(sid);
-                                if (!root_id)
-                                        return -ENOMEM;
+                        if (!root_id || strverscmp_improved(label, root_label) > 0) {
+                                r = free_and_strdup(&root_id, sid);
+                                if (r < 0)
+                                        return r;
+
+                                r = free_and_strdup(&root_label, label);
+                                if (r < 0)
+                                        return r;
                         }
                 }
         }
