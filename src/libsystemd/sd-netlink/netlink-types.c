@@ -1415,7 +1415,6 @@ int type_system_root_get_type_system_and_header_size(
 
         const NLTypeSystem *type_system;
         const NLType *nl_type;
-        const char *name;
         int r;
 
         assert(nl);
@@ -1435,11 +1434,7 @@ int type_system_root_get_type_system_and_header_size(
         if (nl->protocol != NETLINK_GENERIC)
                 return r;
 
-        r = genl_family_get_name(nl, type, &name);
-        if (r < 0)
-                return r;
-
-        r = genl_get_type_system_by_name(name, &type_system);
+        r = genl_get_type_system_by_id(nl, type, &type_system);
         if (r < 0)
                 return r;
 

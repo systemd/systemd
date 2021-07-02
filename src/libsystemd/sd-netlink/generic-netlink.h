@@ -3,6 +3,10 @@
 
 #include "sd-netlink.h"
 
+#include "netlink-types.h"
+
 #define CTRL_GENL_NAME "nlctrl"
 
-int genl_family_get_name(sd_netlink *nl, uint16_t id, const char **ret);
+void genl_clear_family(sd_netlink *nl);
+
+int genl_get_type_system_by_id(sd_netlink *nl, uint16_t id, const NLTypeSystem **ret);
