@@ -1761,6 +1761,9 @@ char** _hashmap_get_strv(HashmapBase *h) {
         Iterator i;
         unsigned idx, n;
 
+        if (!h)
+                return new0(char*, 1);
+
         sv = new(char*, n_entries(h)+1);
         if (!sv)
                 return NULL;
