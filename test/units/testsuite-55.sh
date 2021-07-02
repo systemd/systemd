@@ -21,7 +21,15 @@ fi
 
 rm -rf /etc/systemd/system/testsuite-55-testbloat.service.d
 
-echo "DefaultMemoryPressureDurationSec=5s" >>/etc/systemd/oomd.conf
+echo "DefaultMemoryPressureDurationSec=2s" >>/etc/systemd/oomd.conf
+echo -e "[Service]\nEnvironment=SYSTEMD_LOG_LEVEL=debug" >>/etc/systemd/system/systemd-oomd.service.d/debug.conf
+
+systemctl daemon-reload
+
+# if oomd is already running for some reasons, then restart it to make the above settings applied
+if systemctl is-active systemd-oomd.service; then
+    systemctl restart systemd-oomd.service
+fi
 
 systemctl start testsuite-55-testchill.service
 systemctl start testsuite-55-testbloat.service
@@ -29,16 +37,18 @@ systemctl start testsuite-55-testbloat.service
 # Verify systemd-oomd is monitoring the expected units
 oomctl | grep "/testsuite-55-workload.slice"
 oomctl | grep "1.00%"
-oomctl | grep "Default Memory Pressure Duration: 5s"
+oomctl | grep "Default Memory Pressure Duration: 2s"
 
-# systemd-oomd watches for elevated pressure for 5 seconds before acting.
+systemctl status testsuite-55-testchill.service
+
+# systemd-oomd watches for elevated pressure for 2 seconds before acting.
 # It can take time to build up pressure so either wait 2 minutes or for the service to fail.
 timeout="$(date -ud "2 minutes" +%s)"
 while [[ $(date -u +%s) -le $timeout ]]; do
     if ! systemctl status testsuite-55-testbloat.service; then
         break
     fi
-    sleep 5
+    sleep 2
 done
 
 # testbloat should be killed and testchill should be fine
