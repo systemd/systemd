@@ -50,6 +50,7 @@ void genl_clear_family(sd_netlink *nl) {
 static int genl_family_new(sd_netlink *nl, sd_netlink_message *message, const GenericNetlinkFamily **ret) {
         _cleanup_(genl_family_freep) GenericNetlinkFamily *f = NULL;
         const char *family_name;
+        uint8_t cmd;
         int r;
 
         assert(nl);
@@ -65,6 +66,13 @@ static int genl_family_new(sd_netlink *nl, sd_netlink_message *message, const Ge
                 return r;
 
         if (!streq(family_name, CTRL_GENL_NAME))
+                return -EINVAL;
+
+        r = sd_genl_message_get_command(nl, message, &cmd);
+        if (r < 0)
+                return r;
+
+        if (cmd != CTRL_CMD_NEWFAMILY)
                 return -EINVAL;
 
         r = sd_netlink_message_read_u16(message, CTRL_ATTR_FAMILY_ID, &f->id);
@@ -273,6 +281,30 @@ int sd_genl_message_get_family_name(sd_netlink *nl, sd_netlink_message *m, const
                 return r;
 
         return genl_family_get_name(nl, nlmsg_type, ret);
+}
+
+int sd_genl_message_get_command(sd_netlink *nl, sd_netlink_message *m, uint8_t *ret) {
+        struct genlmsghdr *h;
+        size_t size;
+        int r;
+
+        assert_return(nl, -EINVAL);
+        assert_return(nl->protocol == NETLINK_GENERIC, -EINVAL);
+        assert_return(m, -EINVAL);
+        assert_return(m->hdr, -EINVAL);
+        assert_return(ret, -EINVAL);
+
+        r = genl_family_get_header_size(nl, m->hdr->nlmsg_type, &size);
+        if (r < 0)
+                return r;
+
+        if (m->hdr->nlmsg_len < NLMSG_LENGTH(size))
+                return -EBADMSG;
+
+        h = NLMSG_DATA(m->hdr);
+
+        *ret = h->cmd;
+        return 0;
 }
 
 int sd_genl_socket_open(sd_netlink **ret) {
