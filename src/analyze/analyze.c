@@ -27,6 +27,7 @@
 #include "def.h"
 #include "exit-status.h"
 #include "fd-util.h"
+#include "fs-util.h"
 #include "fileio.h"
 #include "format-table.h"
 #include "glob-util.h"
@@ -79,6 +80,7 @@ static enum dot {
 } arg_dot = DEP_ALL;
 static char **arg_dot_from_patterns = NULL;
 static char **arg_dot_to_patterns = NULL;
+static char *arg_alias = NULL;
 static usec_t arg_fuzz = 0;
 static PagerFlags arg_pager_flags = 0;
 static BusTransport arg_transport = BUS_TRANSPORT_LOCAL;
@@ -92,6 +94,7 @@ static usec_t arg_base_time = USEC_INFINITY;
 
 STATIC_DESTRUCTOR_REGISTER(arg_dot_from_patterns, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_dot_to_patterns, strv_freep);
+STATIC_DESTRUCTOR_REGISTER(arg_alias, unlink_and_freep);
 
 typedef struct BootTimes {
         usec_t firmware_time;
@@ -2145,7 +2148,17 @@ static int do_condition(int argc, char *argv[], void *userdata) {
 }
 
 static int do_verify(int argc, char *argv[], void *userdata) {
-        return verify_units(strv_skip(argv, 1), arg_scope, arg_man, arg_generators);
+        int r;
+        char **filenames;
+        if (arg_alias) {
+                filenames = &arg_alias;
+                r = link(argv[1], arg_alias);
+                if (r < 0)
+                        return log_error_errno(r, "Couldn't create symlink %s %s %s",
+                                               arg_alias, special_glyph(SPECIAL_GLYPH_ARROW), argv[1]);
+        } else
+                filenames = strv_skip(argv, 1);
+        return verify_units(filenames, arg_scope, arg_man, arg_generators);
 }
 
 static int do_security(int argc, char *argv[], void *userdata) {
@@ -2246,6 +2259,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_GENERATORS,
                 ARG_ITERATIONS,
                 ARG_BASE_TIME,
+                ARG_ALIAS,
         };
 
         static const struct option options[] = {
@@ -2267,10 +2281,12 @@ static int parse_argv(int argc, char *argv[]) {
                 { "machine",      required_argument, NULL, 'M'                  },
                 { "iterations",   required_argument, NULL, ARG_ITERATIONS       },
                 { "base-time",    required_argument, NULL, ARG_BASE_TIME        },
+                { "alias",        required_argument, NULL, ARG_ALIAS            },
                 {}
         };
 
         int r, c;
+        char *alias_path;
 
         assert(argc >= 0);
         assert(argv);
@@ -2363,6 +2379,18 @@ static int parse_argv(int argc, char *argv[]) {
                         r = parse_timestamp(optarg, &arg_base_time);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to parse --base-time= parameter: %s", optarg);
+
+                        break;
+
+                case ARG_ALIAS: ;
+                        if (argc > 4)
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid argument count for --alias");
+                        if (!streq(strstrip(optarg), "")) {
+                                alias_path = path_join("/tmp/", optarg);
+                                arg_alias = strdup(alias_path);
+                                if (!arg_alias)
+                                        return log_oom();
+                        }
 
                         break;
 
