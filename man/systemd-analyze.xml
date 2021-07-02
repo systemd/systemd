@@ -765,6 +765,13 @@ Service b@0.service not loaded, b.socket cannot be started.
         to the specified point in time. If not specified defaults to the current time.</para></listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term><option>--alias=<replaceable>PATH</replaceable></option></term>
+
+        <listitem><para>With the <command>verify</command>, override a unit file's name on disk with PATH.
+        This cannot be used if passed alongside multiple unit files.</para></listitem>
+      </varlistentry>
+
       <xi:include href="user-system-options.xml" xpointer="host" />
       <xi:include href="user-system-options.xml" xpointer="machine" />
 

@@ -51,7 +51,7 @@ _systemd_analyze() {
     local -A OPTS=(
         [STANDALONE]='-h --help --version --system --user --global --order --require --no-pager
                              --man=no --generators=yes'
-        [ARG]='-H --host -M --machine --fuzz --from-pattern --to-pattern --root'
+        [ARG]='-H --host -M --machine --fuzz --from-pattern --to-pattern --root --alias'
     )
 
     local -A VERBS=(
@@ -125,7 +125,7 @@ _systemd_analyze() {
 
     elif __contains_word "$verb" ${VERBS[VERIFY]}; then
         if [[ $cur = -* ]]; then
-            comps='--help --version --system --user --global --man=no --generators=yes'
+            comps='--help --version --system --user --global --man=no --generators=yes --alias'
         else
             comps=$( compgen -A file -- "$cur" )
             compopt -o filenames
