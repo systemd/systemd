@@ -134,6 +134,28 @@ Kernel \r on an \m (\l)
 
 EOF
 
+if [ -n "$IMAGE_ID" ] ; then
+    mkdir -p "$DESTDIR"/usr/lib
+    sed -n \
+        -e '/^IMAGE_ID=/!p' \
+        -e '$aIMAGE_ID='$IMAGE_ID < /usr/lib/os-release > "$DESTDIR"/usr/lib/os-release
+
+    OSRELEASEFILE="$DESTDIR"/usr/lib/os-release
+else
+    OSRELEASEFILE=/usr/lib/os-release
+fi
+
+
+if [ -n "$IMAGE_VERSION" ] ; then
+    mkdir -p "$DESTDIR"/usr/lib
+    sed -n \
+        -e '/^IMAGE_VERSION=/!p' \
+        -e '$aIMAGE_VERSION='$IMAGE_VERSION < $OSRELEASEFILE > /tmp/os-release.tmp
+
+    cat /tmp/os-release.tmp > "$DESTDIR"/usr/lib/os-release
+    rm /tmp/os-release.tmp
+fi
+
 # Manually update the boot loader from the one we just built
 mkdir -p "$DESTDIR"/boot/efi/EFI/systemd "$DESTDIR"/boot/efi/EFI/BOOT
 cp "$DESTDIR"/usr/lib/systemd/boot/efi/systemd-bootx64.efi "$DESTDIR"/boot/efi/EFI/systemd/systemd-bootx64.efi
