@@ -27,9 +27,9 @@
 #include "def.h"
 #include "exit-status.h"
 #include "fd-util.h"
-#include "fs-util.h"
 #include "fileio.h"
 #include "format-table.h"
+#include "fs-util.h"
 #include "glob-util.h"
 #include "hashmap.h"
 #include "locale-util.h"
@@ -50,6 +50,7 @@
 #include "strxcpyx.h"
 #include "terminal-util.h"
 #include "time-util.h"
+#include "tmpfile-util.h"
 #include "unit-name.h"
 #include "util.h"
 #include "verbs.h"
@@ -2150,14 +2151,19 @@ static int do_condition(int argc, char *argv[], void *userdata) {
 static int do_verify(int argc, char *argv[], void *userdata) {
         int r;
         char **filenames;
+
         if (arg_alias) {
+                if (argc > 2)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "Only one unit can be passed with --alias");
                 filenames = &arg_alias;
-                r = link(argv[1], arg_alias);
+                r = symlink(argv[1], arg_alias);
                 if (r < 0)
                         return log_error_errno(r, "Couldn't create symlink %s %s %s",
                                                arg_alias, special_glyph(SPECIAL_GLYPH_ARROW), argv[1]);
         } else
                 filenames = strv_skip(argv, 1);
+
         return verify_units(filenames, arg_scope, arg_man, arg_generators);
 }
 
@@ -2286,7 +2292,6 @@ static int parse_argv(int argc, char *argv[]) {
         };
 
         int r, c;
-        char *alias_path;
 
         assert(argc >= 0);
         assert(argv);
@@ -2382,12 +2387,15 @@ static int parse_argv(int argc, char *argv[]) {
 
                         break;
 
-                case ARG_ALIAS: ;
-                        if (argc > 4)
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid argument count for --alias");
+                case ARG_ALIAS:
                         if (!streq(strstrip(optarg), "")) {
-                                alias_path = path_join("/tmp/", optarg);
-                                arg_alias = strdup(alias_path);
+                                _cleanup_free_ char *tempdir = NULL;
+
+                                r = mkdtemp_malloc("/tmp/systemd-analyze-bootid-XXXXXX", &tempdir);
+                                if (r < 0)
+                                        return log_error_errno(r, "Failed to create temporary directory");
+
+                                arg_alias = path_join(tempdir, optarg);
                                 if (!arg_alias)
                                         return log_oom();
                         }
