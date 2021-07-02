@@ -230,10 +230,8 @@ static void manager_print_jobs_in_progress(Manager *m) {
 
         m->jobs_in_progress_iteration++;
 
-        if (m->n_running_jobs > 1) {
-                if (asprintf(&job_of_n, "(%u of %u) ", counter, m->n_running_jobs) < 0)
-                        job_of_n = NULL;
-        }
+        if (m->n_running_jobs > 1)
+                (void) asprintf(&job_of_n, "(%u of %u) ", counter, m->n_running_jobs);
 
         format_timespan(time, sizeof(time), now(CLOCK_MONOTONIC) - j->begin_usec, 1*USEC_PER_SEC);
         if (job_get_timeout(j, &x) > 0)
@@ -623,9 +621,7 @@ static char** sanitize_environment(char **l) {
                         NULL);
 
         /* Let's order the environment alphabetically, just to make it pretty */
-        strv_sort(l);
-
-        return l;
+        return strv_sort(l);
 }
 
 int manager_default_environment(Manager *m) {
@@ -3145,10 +3141,8 @@ void manager_send_unit_plymouth(Manager *m, Unit *u) {
                 return;
         }
 
-        if (asprintf(&message, "U\002%c%s%n", (int) (strlen(u->id) + 1), u->id, &n) < 0) {
-                log_oom();
-                return;
-        }
+        if (asprintf(&message, "U\002%c%s%n", (int) (strlen(u->id) + 1), u->id, &n) < 0)
+                return (void) log_oom();
 
         errno = 0;
         if (write(fd, message, n + 1) != n + 1)
