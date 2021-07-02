@@ -5,20 +5,23 @@
 # Julia Dronova <juliette.tux@gmail.com>, 2013.
 # Sergey Ptashnick <0comffdiz@inbox.ru>, 2013-2018.
 # Vladimir Yerilov <openmindead@gmail.com>, 2020.
+# Alexey Rubtsov <rushills@gmail.com>, 2021.
 msgid ""
 msgstr ""
 "Project-Id-Version: systemd\n"
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2021-01-08 17:48+0100\n"
-"PO-Revision-Date: 2020-03-03 16:05+1000\n"
-"Last-Translator: Vladimir Yerilov <openmindead@gmail.com>\n"
+"PO-Revision-Date: 2021-07-02 09:04+0000\n"
+"Last-Translator: Alexey Rubtsov <rushills@gmail.com>\n"
+"Language-Team: Russian <https://translate.fedoraproject.org/projects/systemd/"
+"master/ru/>\n"
 "Language: ru\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"Plural-Forms: nplurals=3; plural=(n%10==1 && n%100!=11 ? 0 : n%10>=2 && n"
-"%10<=4 && (n%100<10 || n%100>=20) ? 1 : 2)\n"
-"X-Generator: Lokalize 19.12.2\n"
+"Plural-Forms: nplurals=3; plural=n%10==1 && n%100!=11 ? 0 : n%10>=2 && n"
+"%10<=4 && (n%100<10 || n%100>=20) ? 1 : 2;\n"
+"X-Generator: Weblate 4.7.1\n"
 
 #: src/core/org.freedesktop.systemd1.policy.in:22
 msgid "Send passphrase back to system"
@@ -178,7 +181,7 @@ msgstr "Импортировать образ виртуальной машин�
 msgid "Authentication is required to import a VM or container image"
 msgstr ""
 "Чтобы импортировать образ виртуальной машины или контейнера, необходимо "
-"пройти аутентификацию."
+"пройти аутентификацию"
 
 #: src/import/org.freedesktop.import1.policy:32
 msgid "Export a VM or container image"
@@ -188,7 +191,7 @@ msgstr "Экспортировать образ виртуальной маши�
 msgid "Authentication is required to export a VM or container image"
 msgstr ""
 "Чтобы экспортировать образ виртуальной машины или контейнера, необходимо "
-"пройти аутентификацию."
+"пройти аутентификацию"
 
 #: src/import/org.freedesktop.import1.policy:42
 msgid "Download a VM or container image"
@@ -198,7 +201,7 @@ msgstr "Загрузить образ виртуальной машины или
 msgid "Authentication is required to download a VM or container image"
 msgstr ""
 "Чтобы загрузить образ виртуальной машины или контейнера, необходимо пройти "
-"аутентификацию."
+"аутентификацию"
 
 #: src/locale/org.freedesktop.locale1.policy:22
 msgid "Set system locale"
@@ -329,24 +332,18 @@ msgstr ""
 "крышки ноутбука, необходимо пройти аутентификацию."
 
 #: src/login/org.freedesktop.login1.policy:117
-#, fuzzy
-#| msgid "Allow applications to inhibit system handling of the power key"
 msgid "Allow applications to inhibit system handling of the reboot key"
 msgstr ""
 "Разрешить приложениям устанавливать блокировку обработки нажатий на кнопку "
-"выключения"
+"перезагрузки"
 
 #: src/login/org.freedesktop.login1.policy:118
-#, fuzzy
-#| msgid ""
-#| "Authentication is required for an application to inhibit system handling "
-#| "of the power key."
 msgid ""
 "Authentication is required for an application to inhibit system handling of "
 "the reboot key."
 msgstr ""
 "Чтобы разрешить приложениям устанавливать блокировку обработки нажатий на "
-"кнопку выключения, необходимо пройти аутентификацию."
+"кнопку перезагрузки, необходимо пройти аутентификацию."
 
 #: src/login/org.freedesktop.login1.policy:128
 msgid "Allow non-logged-in user to run programs"
@@ -642,7 +639,7 @@ msgstr "Отправить сообщение на все терминалы"
 #: src/login/org.freedesktop.login1.policy:397
 msgid "Authentication is required to set a wall message"
 msgstr ""
-"Чтобы отправить сообщение на все терминалы, необходимо пройти аутентификацию."
+"Чтобы отправить сообщение на все терминалы, необходимо пройти аутентификацию"
 
 #: src/login/org.freedesktop.login1.policy:406
 msgid "Change Session"
@@ -844,14 +841,13 @@ msgstr ""
 
 #: src/network/org.freedesktop.network1.policy:143
 msgid "DHCP server sends force renew message"
-msgstr ""
+msgstr "Сервер DHCP посылает сообщение о принудительном обновлении"
 
 #: src/network/org.freedesktop.network1.policy:144
-#, fuzzy
-#| msgid "Authentication is required to set a wall message"
 msgid "Authentication is required to send force renew message."
 msgstr ""
-"Чтобы отправить сообщение на все терминалы, необходимо пройти аутентификацию."
+"Чтобы отправить сообщение о принудительном обновлении, необходимо пройти "
+"аутентификацию."
 
 #: src/network/org.freedesktop.network1.policy:154
 msgid "Renew dynamic addresses"
@@ -919,7 +915,7 @@ msgstr "Зарегистрировать службу в DNS-SD"
 #: src/resolve/org.freedesktop.resolve1.policy:23
 msgid "Authentication is required to register a DNS-SD service"
 msgstr ""
-"Чтобы зарегистрировать службу в DNS-SD, необходимо пройти аутентификацию."
+"Чтобы зарегистрировать службу в DNS-SD, необходимо пройти аутентификацию"
 
 #: src/resolve/org.freedesktop.resolve1.policy:33
 msgid "Unregister a DNS-SD service"
@@ -927,7 +923,7 @@ msgstr "Удалить службу из DNS-SD"
 
 #: src/resolve/org.freedesktop.resolve1.policy:34
 msgid "Authentication is required to unregister a DNS-SD service"
-msgstr "Чтобы удалить службу из DNS-SD, необходимо пройти аутентификацию."
+msgstr "Чтобы удалить службу из DNS-SD, необходимо пройти аутентификацию"
 
 #: src/resolve/org.freedesktop.resolve1.policy:132
 msgid "Revert name resolution settings"
@@ -1024,12 +1020,8 @@ msgstr ""
 "пройти аутентификацию."
 
 #: src/core/dbus-unit.c:757
-#, fuzzy
-#| msgid ""
-#| "Authentication is required to send a UNIX signal to the processes of "
-#| "'$(unit)'."
 msgid ""
 "Authentication is required to freeze or thaw the processes of '$(unit)' unit."
 msgstr ""
-"Чтобы отправить сигнал UNIX процессам юнита «$(unit)», необходимо пройти "
-"аутентификацию."
+"Чтобы отправить сигнал заморозки или разморозки процессам юнита «$(unit)», "
+"необходимо пройти аутентификацию."
