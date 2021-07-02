@@ -819,8 +819,10 @@ static int ndisc_router_process_autonomous_prefix(Link *link, sd_ndisc_router *r
                 r = address_get(link, address, &e);
                 if (r > 0) {
                         /* If the address is already assigned, but not valid anymore, then refuse to
-                         * update the address. */
-                        if (e->cinfo.tstamp / 100 + e->cinfo.ifa_valid < time_now / USEC_PER_SEC)
+                         * update the address, and it will be removed. */
+                        if (e->cinfo.ifa_valid != CACHE_INFO_INFINITY_LIFE_TIME &&
+                            usec_add(e->cinfo.tstamp / 100 * USEC_PER_SEC,
+                                     e->cinfo.ifa_valid * USEC_PER_SEC) < time_now)
                                 continue;
                 }
 
