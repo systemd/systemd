@@ -2612,15 +2612,15 @@ turn_off:
         return 0;
 }
 
-static void manager_start_target(Manager *m, const char *name, JobMode mode) {
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        int r;
+static void manager_start_special(Manager *m, const char *name, JobMode mode) {
+        Job *job;
 
-        log_debug("Activating special unit %s", name);
+        if (manager_add_job_by_name_and_warn(m, JOB_START, name, mode, NULL, &job) < 0)
+                return;
 
-        r = manager_add_job_by_name(m, JOB_START, name, mode, NULL, &error, NULL);
-        if (r < 0)
-                log_error("Failed to enqueue %s job: %s", name, bus_error_message(&error, r));
+        const char *s = unit_status_string(job->unit, NULL);
+
+        log_info("Activating special unit %s...", s);
 }
 
 static void manager_handle_ctrl_alt_del(Manager *m) {
@@ -2629,7 +2629,7 @@ static void manager_handle_ctrl_alt_del(Manager *m) {
          * unless it was disabled in system.conf */
 
         if (ratelimit_below(&m->ctrl_alt_del_ratelimit) || m->cad_burst_action == EMERGENCY_ACTION_NONE)
-                manager_start_target(m, SPECIAL_CTRL_ALT_DEL_TARGET, JOB_REPLACE_IRREVERSIBLY);
+                manager_start_special(m, SPECIAL_CTRL_ALT_DEL_TARGET, JOB_REPLACE_IRREVERSIBLY);
         else
                 emergency_action(m, m->cad_burst_action, EMERGENCY_ACTION_WARN, NULL, -1,
                                 "Ctrl-Alt-Del was pressed more than 7 times within 2s");
@@ -2693,21 +2693,20 @@ static int manager_dispatch_signal_fd(sd_event_source *source, int fd, uint32_t 
                 if (MANAGER_IS_SYSTEM(m))
                         manager_handle_ctrl_alt_del(m);
                 else
-                        manager_start_target(m, SPECIAL_EXIT_TARGET,
-                                             JOB_REPLACE_IRREVERSIBLY);
+                        manager_start_special(m, SPECIAL_EXIT_TARGET, JOB_REPLACE_IRREVERSIBLY);
                 break;
 
         case SIGWINCH:
                 /* This is a nop on non-init */
                 if (MANAGER_IS_SYSTEM(m))
-                        manager_start_target(m, SPECIAL_KBREQUEST_TARGET, JOB_REPLACE);
+                        manager_start_special(m, SPECIAL_KBREQUEST_TARGET, JOB_REPLACE);
 
                 break;
 
         case SIGPWR:
                 /* This is a nop on non-init */
                 if (MANAGER_IS_SYSTEM(m))
-                        manager_start_target(m, SPECIAL_SIGPWR_TARGET, JOB_REPLACE);
+                        manager_start_special(m, SPECIAL_SIGPWR_TARGET, JOB_REPLACE);
 
                 break;
 
@@ -2719,10 +2718,8 @@ static int manager_dispatch_signal_fd(sd_event_source *source, int fd, uint32_t 
 
                         if (MANAGER_IS_SYSTEM(m))
                                 (void) bus_init_system(m);
-                } else {
-                        log_info("Starting D-Bus service...");
-                        manager_start_target(m, SPECIAL_DBUS_SERVICE, JOB_REPLACE);
-                }
+                } else
+                        manager_start_special(m, SPECIAL_DBUS_SERVICE, JOB_REPLACE);
 
                 break;
 
@@ -2773,8 +2770,7 @@ static int manager_dispatch_signal_fd(sd_event_source *source, int fd, uint32_t 
                 if ((int) sfsi.ssi_signo >= SIGRTMIN+0 &&
                     (int) sfsi.ssi_signo < SIGRTMIN+(int) ELEMENTSOF(target_table)) {
                         int idx = (int) sfsi.ssi_signo - SIGRTMIN;
-                        manager_start_target(m, target_table[idx].target,
-                                             target_table[idx].mode);
+                        manager_start_special(m, target_table[idx].target, target_table[idx].mode);
                         break;
                 }
 
