@@ -145,7 +145,7 @@ static int dhcp6_pd_remove_old(Link *link, bool force) {
         assert(link);
         assert(link->manager);
 
-        if (!force && (link->dhcp6_pd_address_messages != 0 || link->dhcp6_pd_route_messages != 0))
+        if (!force && (link->dhcp6_pd_address_messages > 0 || link->dhcp6_pd_route_messages > 0))
                 return 0;
 
         if (set_isempty(link->dhcp6_pd_addresses_old) && set_isempty(link->dhcp6_pd_routes_old))
@@ -740,7 +740,7 @@ static int dhcp6_remove_old(Link *link, bool force) {
 
         assert(link);
 
-        if (!force && (!link->dhcp6_address_configured || !link->dhcp6_route_configured))
+        if (!force && (link->dhcp6_address_messages > 0 || link->dhcp6_route_messages > 0))
                 return 0;
 
         if (set_isempty(link->dhcp6_addresses_old) && set_isempty(link->dhcp6_routes_old))
