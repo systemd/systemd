@@ -128,9 +128,6 @@ static int ndisc_remove_old_one(Link *link, const struct in6_addr *router, bool 
         if (!force) {
                 bool set_callback = false;
 
-                if (!link->ndisc_addresses_configured || !link->ndisc_routes_configured)
-                        return 0;
-
                 SET_FOREACH(na, link->ndisc_addresses)
                         if (!na->marked && in6_addr_equal(&na->router, router)) {
                                 set_callback = true;
@@ -211,6 +208,10 @@ static int ndisc_remove_old(Link *link) {
         int k, r;
 
         assert(link);
+
+        if (link->ndisc_addresses_messages > 0 ||
+            link->ndisc_routes_messages > 0)
+                return 0;
 
         routers = set_new(&in6_addr_hash_ops);
         if (!routers)
