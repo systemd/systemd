@@ -1437,7 +1437,7 @@ int verify_timezone(const char *name, int log_level) {
 
         /* Magic from tzfile(5) */
         if (memcmp(buf, "TZif", 4) != 0)
-                return log_full_errno(log_level, SYNTHETIC_ERRNO(EIO),
+                return log_full_errno(log_level, SYNTHETIC_ERRNO(EBADMSG),
                                       "Timezone file '%s' has wrong magic bytes", t);
 
         return 0;
