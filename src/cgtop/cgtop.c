@@ -949,7 +949,6 @@ static int run(int argc, char *argv[]) {
         while (!quit) {
                 usec_t t;
                 char key;
-                char h[FORMAT_TIMESPAN_MAX];
 
                 t = now(CLOCK_MONOTONIC);
 
@@ -1055,7 +1054,7 @@ static int run(int argc, char *argv[]) {
                 case '+':
                         arg_delay = usec_add(arg_delay, arg_delay < USEC_PER_SEC ? USEC_PER_MSEC * 250 : USEC_PER_SEC);
 
-                        fprintf(stdout, "\nIncreased delay to %s.", format_timespan(h, sizeof(h), arg_delay, 0));
+                        fprintf(stdout, "\nIncreased delay to %s.", FORMAT_TIMESPAN(arg_delay, 0));
                         fflush(stdout);
                         sleep(1);
                         break;
@@ -1066,7 +1065,7 @@ static int run(int argc, char *argv[]) {
                         else
                                 arg_delay = usec_sub_unsigned(arg_delay, arg_delay < USEC_PER_MSEC * 1250 ? USEC_PER_MSEC * 250 : USEC_PER_SEC);
 
-                        fprintf(stdout, "\nDecreased delay to %s.", format_timespan(h, sizeof(h), arg_delay, 0));
+                        fprintf(stdout, "\nDecreased delay to %s.", FORMAT_TIMESPAN(arg_delay, 0));
                         fflush(stdout);
                         sleep(1);
                         break;

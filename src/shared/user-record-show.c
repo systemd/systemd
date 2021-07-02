@@ -43,8 +43,7 @@ void user_record_show(UserRecord *hr, bool show_full_group_info) {
         printf(" Disposition: %s\n", user_disposition_to_string(user_record_disposition(hr)));
 
         if (hr->last_change_usec != USEC_INFINITY) {
-                char buf[FORMAT_TIMESTAMP_MAX];
-                printf(" Last Change: %s\n", format_timestamp(buf, sizeof(buf), hr->last_change_usec));
+                printf(" Last Change: %s\n", FORMAT_TIMESTAMP(hr->last_change_usec));
 
                 if (hr->last_change_usec > now(CLOCK_REALTIME))
                         printf("              %sModification time lies in the future, system clock wrong?%s\n",
@@ -52,10 +51,8 @@ void user_record_show(UserRecord *hr, bool show_full_group_info) {
         }
 
         if (hr->last_password_change_usec != USEC_INFINITY &&
-            hr->last_password_change_usec != hr->last_change_usec) {
-                char buf[FORMAT_TIMESTAMP_MAX];
-                printf(" Last Passw.: %s\n", format_timestamp(buf, sizeof(buf), hr->last_password_change_usec));
-        }
+            hr->last_password_change_usec != hr->last_change_usec)
+                printf(" Last Passw.: %s\n", FORMAT_TIMESTAMP(hr->last_password_change_usec));
 
         r = user_record_test_blocked(hr);
         switch (r) {
@@ -238,15 +235,11 @@ void user_record_show(UserRecord *hr, bool show_full_group_info) {
         if (hr->locked >= 0)
                 printf("      Locked: %s\n", yes_no(hr->locked));
 
-        if (hr->not_before_usec != UINT64_MAX) {
-                char buf[FORMAT_TIMESTAMP_MAX];
-                printf("  Not Before: %s\n", format_timestamp(buf, sizeof(buf), hr->not_before_usec));
-        }
+        if (hr->not_before_usec != UINT64_MAX)
+                printf("  Not Before: %s\n", FORMAT_TIMESTAMP(hr->not_before_usec));
 
-        if (hr->not_after_usec != UINT64_MAX) {
-                char buf[FORMAT_TIMESTAMP_MAX];
-                printf("   Not After: %s\n", format_timestamp(buf, sizeof(buf), hr->not_after_usec));
-        }
+        if (hr->not_after_usec != UINT64_MAX)
+                printf("   Not After: %s\n", FORMAT_TIMESTAMP(hr->not_after_usec));
 
         if (hr->umask != MODE_INVALID)
                 printf("       UMask: 0%03o\n", hr->umask);
@@ -401,18 +394,14 @@ void user_record_show(UserRecord *hr, bool show_full_group_info) {
         if (hr->good_authentication_counter != UINT64_MAX)
                 printf("  Good Auth.: %" PRIu64 "\n", hr->good_authentication_counter);
 
-        if (hr->last_good_authentication_usec != UINT64_MAX) {
-                char buf[FORMAT_TIMESTAMP_MAX];
-                printf("   Last Good: %s\n", format_timestamp(buf, sizeof(buf), hr->last_good_authentication_usec));
-        }
+        if (hr->last_good_authentication_usec != UINT64_MAX)
+                printf("   Last Good: %s\n", FORMAT_TIMESTAMP(hr->last_good_authentication_usec));
 
         if (hr->bad_authentication_counter != UINT64_MAX)
                 printf("   Bad Auth.: %" PRIu64 "\n", hr->bad_authentication_counter);
 
-        if (hr->last_bad_authentication_usec != UINT64_MAX) {
-                char buf[FORMAT_TIMESTAMP_MAX];
-                printf("    Last Bad: %s\n", format_timestamp(buf, sizeof(buf), hr->last_bad_authentication_usec));
-        }
+        if (hr->last_bad_authentication_usec != UINT64_MAX)
+                printf("    Last Bad: %s\n", FORMAT_TIMESTAMP(hr->last_bad_authentication_usec));
 
         t = user_record_ratelimit_next_try(hr);
         if (t != USEC_INFINITY) {
@@ -519,10 +508,8 @@ void group_record_show(GroupRecord *gr, bool show_full_user_info) {
 
         printf(" Disposition: %s\n", user_disposition_to_string(group_record_disposition(gr)));
 
-        if (gr->last_change_usec != USEC_INFINITY) {
-                char buf[FORMAT_TIMESTAMP_MAX];
-                printf(" Last Change: %s\n", format_timestamp(buf, sizeof(buf), gr->last_change_usec));
-        }
+        if (gr->last_change_usec != USEC_INFINITY)
+                printf(" Last Change: %s\n", FORMAT_TIMESTAMP(gr->last_change_usec));
 
         if (gid_is_valid(gr->gid))
                 printf("         GID: " GID_FMT "\n", gr->gid);
