@@ -117,9 +117,19 @@ static int manager_run_generators(Manager *m);
 static void manager_vacuum(Manager *m);
 
 static usec_t manager_watch_jobs_next_time(Manager *m) {
-        return usec_add(now(CLOCK_MONOTONIC),
-                        show_status_on(m->show_status) ? JOBS_IN_PROGRESS_WAIT_USEC :
-                                                         JOBS_IN_PROGRESS_QUIET_WAIT_USEC);
+        usec_t timeout;
+
+        if (MANAGER_IS_USER(m))
+                /* Let the user manager without a timeout show status quickly, so the system manager can make
+                 * use of it, if it wants to. */
+                timeout = JOBS_IN_PROGRESS_WAIT_USEC * 2 / 3;
+        else if (show_status_on(m->show_status))
+                /* When status is on, just use the usual timeout. */
+                timeout = JOBS_IN_PROGRESS_WAIT_USEC;
+        else
+                timeout = JOBS_IN_PROGRESS_QUIET_WAIT_USEC;
+
+        return usec_add(now(CLOCK_MONOTONIC), timeout);
 }
 
 static void manager_watch_jobs_in_progress(Manager *m) {
@@ -199,7 +209,6 @@ static void manager_flip_auto_status(Manager *m, bool enable, const char *reason
 }
 
 static void manager_print_jobs_in_progress(Manager *m) {
-        _cleanup_free_ char *job_of_n = NULL;
         Job *j;
         unsigned counter = 0, print_nr;
         char cylon[6 + CYLON_BUFFER_EXTRA + 1];
@@ -229,25 +238,51 @@ static void manager_print_jobs_in_progress(Manager *m) {
 
         m->jobs_in_progress_iteration++;
 
+        char job_of_n[STRLEN("( of ) ") + DECIMAL_STR_MAX(unsigned)*2] = "";
         if (m->n_running_jobs > 1)
-                (void) asprintf(&job_of_n, "(%u of %u) ", counter, m->n_running_jobs);
+                xsprintf(job_of_n, "(%u of %u) ", counter, m->n_running_jobs);
 
         bool have_timeout = job_get_timeout(j, &x) > 0;
 
         /* We want to use enough information for the user to identify previous lines talking about the same
          * unit, but keep the message as short as possible. So if 'Starting foo.service' or 'Starting
-         * foo.service (Description)' were used, 'foo.service' is enough here. On the other hand, if we used
+         * foo.service - Description' were used, 'foo.service' is enough here. On the other hand, if we used
          * 'Starting Description' before, then we shall also use 'Description' here. So we pass NULL as the
          * second argument to unit_status_string(). */
         const char *ident = unit_status_string(j->unit, NULL);
 
-        manager_status_printf(m, STATUS_TYPE_EPHEMERAL, cylon,
-                              "%sA %s job is running for %s (%s / %s)",
-                              strempty(job_of_n),
-                              job_type_to_string(j->type),
-                              ident,
-                              FORMAT_TIMESPAN(now(CLOCK_MONOTONIC) - j->begin_usec, 1*USEC_PER_SEC),
-                              have_timeout ? FORMAT_TIMESPAN(x - j->begin_usec, 1*USEC_PER_SEC) : "no limit");
+        const char *time = FORMAT_TIMESPAN(now(CLOCK_MONOTONIC) - j->begin_usec, 1*USEC_PER_SEC);
+        const char *limit = have_timeout ? FORMAT_TIMESPAN(x - j->begin_usec, 1*USEC_PER_SEC) : "no limit";
+
+        if (m->status_unit_format == STATUS_UNIT_FORMAT_DESCRIPTION)
+                /* When using 'Description', we effectively don't have enough space to show the nested status
+                 * without ellipsization, so let's not even try. */
+                manager_status_printf(m, STATUS_TYPE_EPHEMERAL, cylon,
+                                      "%sA %s job is running for %s (%s / %s)",
+                                      job_of_n,
+                                      job_type_to_string(j->type),
+                                      ident,
+                                      time, limit);
+        else {
+                const char *status_text = unit_status_text(j->unit);
+
+                manager_status_printf(m, STATUS_TYPE_EPHEMERAL, cylon,
+                                      "%sJob %s/%s running (%s / %s)%s%s",
+                                      job_of_n,
+                                      ident,
+                                      job_type_to_string(j->type),
+                                      time, limit,
+                                      status_text ? ": " : "",
+                                      strempty(status_text));
+        }
+
+        sd_notifyf(false,
+                   "STATUS=%sUser job %s/%s running (%s / %s)...",
+                   job_of_n,
+                   ident,
+                   job_type_to_string(j->type),
+                   time, limit);
+        m->status_ready = false;
 }
 
 static int have_ask_password(void) {
@@ -2621,6 +2656,10 @@ static void manager_start_special(Manager *m, const char *name, JobMode mode) {
         const char *s = unit_status_string(job->unit, NULL);
 
         log_info("Activating special unit %s...", s);
+
+        sd_notifyf(false,
+                   "STATUS=Activating special unit %s...", s);
+        m->status_ready = false;
 }
 
 static void manager_handle_ctrl_alt_del(Manager *m) {
