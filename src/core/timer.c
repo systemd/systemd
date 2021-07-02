@@ -891,19 +891,19 @@ static int timer_can_clean(Unit *u, ExecCleanMask *ret) {
 }
 
 static const char* const timer_base_table[_TIMER_BASE_MAX] = {
-        [TIMER_ACTIVE] = "OnActiveSec",
-        [TIMER_BOOT] = "OnBootSec",
-        [TIMER_STARTUP] = "OnStartupSec",
-        [TIMER_UNIT_ACTIVE] = "OnUnitActiveSec",
+        [TIMER_ACTIVE]        = "OnActiveSec",
+        [TIMER_BOOT]          = "OnBootSec",
+        [TIMER_STARTUP]       = "OnStartupSec",
+        [TIMER_UNIT_ACTIVE]   = "OnUnitActiveSec",
         [TIMER_UNIT_INACTIVE] = "OnUnitInactiveSec",
-        [TIMER_CALENDAR] = "OnCalendar"
+        [TIMER_CALENDAR]      = "OnCalendar"
 };
 
 DEFINE_STRING_TABLE_LOOKUP(timer_base, TimerBase);
 
 static const char* const timer_result_table[_TIMER_RESULT_MAX] = {
-        [TIMER_SUCCESS] = "success",
-        [TIMER_FAILURE_RESOURCES] = "resources",
+        [TIMER_SUCCESS]                 = "success",
+        [TIMER_FAILURE_RESOURCES]       = "resources",
         [TIMER_FAILURE_START_LIMIT_HIT] = "start-limit-hit",
 };
 

@@ -813,19 +813,19 @@ static void path_reset_failed(Unit *u) {
 }
 
 static const char* const path_type_table[_PATH_TYPE_MAX] = {
-        [PATH_EXISTS] = "PathExists",
-        [PATH_EXISTS_GLOB] = "PathExistsGlob",
+        [PATH_EXISTS]              = "PathExists",
+        [PATH_EXISTS_GLOB]         = "PathExistsGlob",
         [PATH_DIRECTORY_NOT_EMPTY] = "DirectoryNotEmpty",
-        [PATH_CHANGED] = "PathChanged",
-        [PATH_MODIFIED] = "PathModified",
+        [PATH_CHANGED]             = "PathChanged",
+        [PATH_MODIFIED]            = "PathModified",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(path_type, PathType);
 
 static const char* const path_result_table[_PATH_RESULT_MAX] = {
-        [PATH_SUCCESS] = "success",
-        [PATH_FAILURE_RESOURCES] = "resources",
-        [PATH_FAILURE_START_LIMIT_HIT] = "start-limit-hit",
+        [PATH_SUCCESS]                      = "success",
+        [PATH_FAILURE_RESOURCES]            = "resources",
+        [PATH_FAILURE_START_LIMIT_HIT]      = "start-limit-hit",
         [PATH_FAILURE_UNIT_START_LIMIT_HIT] = "unit-start-limit-hit",
 };
 

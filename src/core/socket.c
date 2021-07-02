@@ -3425,24 +3425,24 @@ static int socket_can_clean(Unit *u, ExecCleanMask *ret) {
 }
 
 static const char* const socket_exec_command_table[_SOCKET_EXEC_COMMAND_MAX] = {
-        [SOCKET_EXEC_START_PRE] = "ExecStartPre",
+        [SOCKET_EXEC_START_PRE]   = "ExecStartPre",
         [SOCKET_EXEC_START_CHOWN] = "ExecStartChown",
-        [SOCKET_EXEC_START_POST] = "ExecStartPost",
-        [SOCKET_EXEC_STOP_PRE] = "ExecStopPre",
-        [SOCKET_EXEC_STOP_POST] = "ExecStopPost"
+        [SOCKET_EXEC_START_POST]  = "ExecStartPost",
+        [SOCKET_EXEC_STOP_PRE]    = "ExecStopPre",
+        [SOCKET_EXEC_STOP_POST]   = "ExecStopPost"
 };
 
 DEFINE_STRING_TABLE_LOOKUP(socket_exec_command, SocketExecCommand);
 
 static const char* const socket_result_table[_SOCKET_RESULT_MAX] = {
-        [SOCKET_SUCCESS] = "success",
-        [SOCKET_FAILURE_RESOURCES] = "resources",
-        [SOCKET_FAILURE_TIMEOUT] = "timeout",
-        [SOCKET_FAILURE_EXIT_CODE] = "exit-code",
-        [SOCKET_FAILURE_SIGNAL] = "signal",
-        [SOCKET_FAILURE_CORE_DUMP] = "core-dump",
-        [SOCKET_FAILURE_START_LIMIT_HIT] = "start-limit-hit",
-        [SOCKET_FAILURE_TRIGGER_LIMIT_HIT] = "trigger-limit-hit",
+        [SOCKET_SUCCESS]                         = "success",
+        [SOCKET_FAILURE_RESOURCES]               = "resources",
+        [SOCKET_FAILURE_TIMEOUT]                 = "timeout",
+        [SOCKET_FAILURE_EXIT_CODE]               = "exit-code",
+        [SOCKET_FAILURE_SIGNAL]                  = "signal",
+        [SOCKET_FAILURE_CORE_DUMP]               = "core-dump",
+        [SOCKET_FAILURE_START_LIMIT_HIT]         = "start-limit-hit",
+        [SOCKET_FAILURE_TRIGGER_LIMIT_HIT]       = "trigger-limit-hit",
         [SOCKET_FAILURE_SERVICE_START_LIMIT_HIT] = "service-start-limit-hit"
 };
 
@@ -3450,8 +3450,8 @@ DEFINE_STRING_TABLE_LOOKUP(socket_result, SocketResult);
 
 static const char* const socket_timestamping_table[_SOCKET_TIMESTAMPING_MAX] = {
         [SOCKET_TIMESTAMPING_OFF] = "off",
-        [SOCKET_TIMESTAMPING_US] = "us",
-        [SOCKET_TIMESTAMPING_NS] = "ns",
+        [SOCKET_TIMESTAMPING_US]  = "us",
+        [SOCKET_TIMESTAMPING_NS]  = "ns",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(socket_timestamping, SocketTimestamping);
