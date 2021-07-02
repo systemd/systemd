@@ -47,11 +47,6 @@ SUBSYSTEM=="usb", ATTR{idVendor}=="2230", ATTR{idProduct}=="000[13]", ENV{ID_AUT
 #     http://git.qemu.org/?p=qemu.git;a=blob;f=docs/multiseat.txt
 SUBSYSTEM=="pci", ATTR{vendor}=="0x1b36", ATTR{device}=="0x000a", TAG+="seat", ENV{ID_AUTOSEAT}="1"
 
-# Video adapter of Parallels virtualization platform
-# Seat should be synthesized for it. But there's no in-kernel driver for this
-# device so matching by vid/pid.
-SUBSYSTEM=="pci", ATTRS{vendor}=="0x1ab8", ATTRS{device}=="0x4005", TAG+="seat", TAG+="master-of-seat"
-
 # Mimo 720, with integrated USB hub, displaylink graphics, and e2i
 # touchscreen. This device carries no proper VID/PID in the USB hub,
 # but it does carry good ID data in the graphics component, hence we

@@ -27,3 +27,10 @@ fb:pci:v000018CAd00000020*
 # device instead.
 fb:pci:v00001414d00005353*
  ID_TAG_MASTER_OF_SEAT=1
+
+#########################################
+# Parallels
+#########################################
+
+fb:pci:v00001ab8d00004005*
+ ID_TAG_MASTER_OF_SEAT=1
