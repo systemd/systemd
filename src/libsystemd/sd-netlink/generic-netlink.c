@@ -14,6 +14,7 @@ typedef struct GenericNetlinkFamily {
         uint16_t id; /* a.k.a nlmsg_type */
         char *name;
         uint32_t version;
+        uint32_t additional_header_size;
 } GenericNetlinkFamily;
 
 static const GenericNetlinkFamily nlctrl_static = {
@@ -78,6 +79,10 @@ static int genl_family_new(sd_netlink *nl, sd_netlink_message *message, const Ge
         if (r < 0)
                 return r;
 
+        r = sd_netlink_message_read_u32(message, CTRL_ATTR_HDRSIZE, &f->additional_header_size);
+        if (r < 0)
+                return r;
+
         r = hashmap_ensure_put(&nl->genl_family_by_id, NULL, UINT_TO_PTR(f->id), f);
         if (r < 0)
                 return r;
@@ -113,7 +118,7 @@ static int genl_message_new(
         if (r < 0)
                 return r;
 
-        r = message_new_full(nl, family->id, type, type_get_size(type), &m);
+        r = message_new_full(nl, family->id, type, sizeof(struct genlmsghdr) + family->additional_header_size, &m);
         if (r < 0)
                 return r;
 
@@ -218,6 +223,23 @@ int genl_family_get_name(sd_netlink *nl, uint16_t id, const char **ret) {
                 return r;
 
         *ret = f->name;
+        return 0;
+}
+
+int genl_family_get_header_size(sd_netlink *nl, uint16_t id, size_t *ret) {
+        const GenericNetlinkFamily *f;
+        int r;
+
+        assert(nl);
+        assert(nl->protocol == NETLINK_GENERIC);
+
+        r = genl_family_get_by_id(nl, id, &f);
+        if (r < 0)
+                return r;
+
+        if (ret)
+                *ret = sizeof(struct genlmsghdr) + f->additional_header_size;
+
         return 0;
 }
 

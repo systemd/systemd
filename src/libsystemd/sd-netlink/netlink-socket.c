@@ -10,6 +10,7 @@
 #include "alloc-util.h"
 #include "fd-util.h"
 #include "format-util.h"
+#include "generic-netlink.h"
 #include "io-util.h"
 #include "netlink-internal.h"
 #include "netlink-types.h"
@@ -327,6 +328,7 @@ int socket_read_message(sd_netlink *rtnl) {
         for (struct nlmsghdr *new_msg = rtnl->rbuffer; NLMSG_OK(new_msg, len) && !done; new_msg = NLMSG_NEXT(new_msg, len)) {
                 _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
                 const NLType *nl_type;
+                size_t size;
 
                 if (!group && new_msg->nlmsg_pid != rtnl->sockaddr.nl.nl_pid)
                         /* not broadcast and not for us */
@@ -355,8 +357,16 @@ int socket_read_message(sd_netlink *rtnl) {
                         continue;
                 }
 
+                if (rtnl->protocol == NETLINK_GENERIC &&
+                    !IN_SET(new_msg->nlmsg_type, NLMSG_DONE, NLMSG_ERROR)) {
+                        r = genl_family_get_header_size(rtnl, new_msg->nlmsg_type, &size);
+                        if (r < 0)
+                                return r;
+                } else
+                        size = type_get_size(nl_type);
+
                 /* check that the size matches the message type */
-                if (new_msg->nlmsg_len < NLMSG_LENGTH(type_get_size(nl_type))) {
+                if (new_msg->nlmsg_len < NLMSG_LENGTH(size)) {
                         log_debug("sd-netlink: message is shorter than expected, dropping");
                         continue;
                 }

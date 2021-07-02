@@ -8,6 +8,7 @@
 
 #include "alloc-util.h"
 #include "format-util.h"
+#include "generic-netlink.h"
 #include "memory-util.h"
 #include "netlink-internal.h"
 #include "netlink-types.h"
@@ -1315,7 +1316,12 @@ int sd_netlink_message_rewind(sd_netlink_message *m, sd_netlink *nl) {
                 return r;
 
         type = type_get_type(nl_type);
-        size = type_get_size(nl_type);
+        if (message_is_generic(m)) {
+                r = genl_family_get_header_size(nl, m->hdr->nlmsg_type, &size);
+                if (r < 0)
+                        return r;
+        } else
+                size = type_get_size(nl_type);
 
         if (type == NETLINK_TYPE_NESTED) {
                 const NLTypeSystem *type_system;

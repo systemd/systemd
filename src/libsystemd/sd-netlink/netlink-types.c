@@ -1600,13 +1600,13 @@ static const struct {
         const char *name;
         const NLType type;
 } genl_types[] = {
-        { .name = CTRL_GENL_NAME,    .type = { .type = NETLINK_TYPE_NESTED, .type_system = &genl_ctrl_type_system_root,      .size = sizeof(struct genlmsghdr) } },
-        { .name = BATADV_NL_NAME,    .type = { .type = NETLINK_TYPE_NESTED, .type_system = &genl_batadv_type_system_root,    .size = sizeof(struct genlmsghdr) } },
-        { .name = FOU_GENL_NAME,     .type = { .type = NETLINK_TYPE_NESTED, .type_system = &genl_fou_type_system_root,       .size = sizeof(struct genlmsghdr) } },
-        { .name = L2TP_GENL_NAME,    .type = { .type = NETLINK_TYPE_NESTED, .type_system = &genl_l2tp_type_system_root,      .size = sizeof(struct genlmsghdr) } },
-        { .name = MACSEC_GENL_NAME,  .type = { .type = NETLINK_TYPE_NESTED, .type_system = &genl_macsec_type_system_root,    .size = sizeof(struct genlmsghdr) } },
-        { .name = NL80211_GENL_NAME, .type = { .type = NETLINK_TYPE_NESTED, .type_system = &genl_nl80211_type_system_root,   .size = sizeof(struct genlmsghdr) } },
-        { .name = WG_GENL_NAME,      .type = { .type = NETLINK_TYPE_NESTED, .type_system = &genl_wireguard_type_system_root, .size = sizeof(struct genlmsghdr) } },
+        { .name = CTRL_GENL_NAME,    .type = { .type = NETLINK_TYPE_NESTED, .type_system = &genl_ctrl_type_system_root      } },
+        { .name = BATADV_NL_NAME,    .type = { .type = NETLINK_TYPE_NESTED, .type_system = &genl_batadv_type_system_root    } },
+        { .name = FOU_GENL_NAME,     .type = { .type = NETLINK_TYPE_NESTED, .type_system = &genl_fou_type_system_root       } },
+        { .name = L2TP_GENL_NAME,    .type = { .type = NETLINK_TYPE_NESTED, .type_system = &genl_l2tp_type_system_root      } },
+        { .name = MACSEC_GENL_NAME,  .type = { .type = NETLINK_TYPE_NESTED, .type_system = &genl_macsec_type_system_root    } },
+        { .name = NL80211_GENL_NAME, .type = { .type = NETLINK_TYPE_NESTED, .type_system = &genl_nl80211_type_system_root   } },
+        { .name = WG_GENL_NAME,      .type = { .type = NETLINK_TYPE_NESTED, .type_system = &genl_wireguard_type_system_root } },
 };
 
 uint16_t type_get_type(const NLType *type) {
