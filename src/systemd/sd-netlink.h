@@ -229,7 +229,7 @@ int sd_nfnl_message_batch_end(sd_netlink *nfnl, sd_netlink_message **ret);
 int sd_nfnl_nft_message_del_table(sd_netlink *nfnl, sd_netlink_message **ret,
                                   int family, const char *table);
 int sd_nfnl_nft_message_new_table(sd_netlink *nfnl, sd_netlink_message **ret,
-                                  int family, const char *table, uint16_t nl_flags);
+                                  int family, const char *table);
 int sd_nfnl_nft_message_new_basechain(sd_netlink *nfnl, sd_netlink_message **ret,
                                       int family, const char *table, const char *chain,
                                       const char *type, uint8_t hook, int prio);
