@@ -26,6 +26,7 @@
 #include "copy.h"
 #include "def.h"
 #include "exit-status.h"
+#include "extract-word.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "format-table.h"
@@ -40,6 +41,7 @@
 #include "parse-util.h"
 #include "path-util.h"
 #include "pretty-print.h"
+#include "rm-rf.h"
 #if HAVE_SECCOMP
 #  include "seccomp-util.h"
 #endif
@@ -214,12 +216,42 @@ static int compare_unit_start(const UnitTimes *a, const UnitTimes *b) {
         return CMP(a->activating, b->activating);
 }
 
+static int setup_working_dir(char **ret) {
+        int r;
+        char *tempdir = NULL;
+        char bid[SD_ID128_STRING_MAX];
+        sd_id128_t boot_id;
+
+        r = sd_id128_get_boot(&boot_id);
+        if (r < 0)
+                return log_error_errno(r, "Failed to obtain boot ID");
+
+        tempdir = strjoin("/tmp/systemd-analyze-", sd_id128_to_string(boot_id, bid), "-XXXXXX");
+        if (!tempdir)
+                return log_oom();
+
+        tempdir = mkdtemp(tempdir);
+        if (!tempdir)
+                return log_error_errno(errno, "Failed to create temporary directory");
+
+        *ret = tempdir;
+        return 0;
+}
+
 static UnitTimes* unit_times_free_array(UnitTimes *t) {
         for (UnitTimes *p = t; p && p->has_data; p++)
                 free(p->name);
         return mfree(t);
 }
 DEFINE_TRIVIAL_CLEANUP_FUNC(UnitTimes*, unit_times_free_array);
+
+static char *rm_rf_and_free(char *p) {
+        RemoveFlags flags = REMOVE_PHYSICAL | REMOVE_ROOT;
+
+        (void) rm_rf(p, flags);
+        return mfree(p);
+}
+DEFINE_TRIVIAL_CLEANUP_FUNC(char*, rm_rf_and_free);
 
 static void subtract_timestamp(usec_t *a, usec_t b) {
         assert(a);
@@ -2145,6 +2177,49 @@ static int do_condition(int argc, char *argv[], void *userdata) {
 }
 
 static int do_verify(int argc, char *argv[], void *userdata) {
+        int r, i = 1;
+        char **filename;
+        char *orig, *base;
+        _cleanup_free_ char *alias = NULL;
+        _cleanup_(rm_rf_and_freep) char *tempdir = NULL;
+        bool use_alias = false;
+
+        STRV_FOREACH(filename, strv_skip(argv, 1))
+                if (strchr(*filename, ':')) {
+                        use_alias = true;
+                        break;
+                }
+
+        if (use_alias) {
+                r = setup_working_dir(&tempdir);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to setup working directory");
+
+                STRV_FOREACH(filename, strv_skip(argv, 1)) {
+                        use_alias = strchr(*filename, ':');
+                        if (use_alias) {
+                                extract_first_word((const char **)filename, &orig, ":", 0);
+                                base = *filename;
+                        } else { /* symlink to keep everything in one path */
+                                base = basename(*filename);
+                                orig = argv[i];
+                        }
+
+                        alias = path_join(tempdir, base);
+                        if (!alias)
+                                return log_oom();
+
+                        r = symlink(orig, alias);
+                        if (r < 0)
+                                return log_error_errno(errno, "Couldn't create symlink %s %s %s",
+                                                       alias, special_glyph(SPECIAL_GLYPH_ARROW), orig);
+
+                        argv[i++] = alias;
+                        if (use_alias)
+                                free(orig);
+                }
+        }
+
         return verify_units(strv_skip(argv, 1), arg_scope, arg_man, arg_generators);
 }
 
