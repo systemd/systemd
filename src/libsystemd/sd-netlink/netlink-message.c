@@ -8,6 +8,7 @@
 
 #include "alloc-util.h"
 #include "format-util.h"
+#include "generic-netlink.h"
 #include "memory-util.h"
 #include "netlink-internal.h"
 #include "netlink-types.h"
@@ -20,15 +21,14 @@
 #define RTA_TYPE(rta) ((rta)->rta_type & NLA_TYPE_MASK)
 #define RTA_FLAGS(rta) ((rta)->rta_type & ~NLA_TYPE_MASK)
 
-int message_new_empty(sd_netlink *rtnl, sd_netlink_message **ret) {
+int message_new_empty(sd_netlink *nl, sd_netlink_message **ret) {
         sd_netlink_message *m;
 
-        assert_return(ret, -EINVAL);
+        assert(nl);
+        assert(ret);
 
-        /* Note that 'rtnl' is currently unused, if we start using it internally
-           we must take care to avoid problems due to mutual references between
-           buses and their queued messages. See sd-bus.
-         */
+        /* Note that 'nl' is currently unused, if we start using it internally we must take care to
+         * avoid problems due to mutual references between buses and their queued messages. See sd-bus. */
 
         m = new(sd_netlink_message, 1);
         if (!m)
@@ -36,50 +36,57 @@ int message_new_empty(sd_netlink *rtnl, sd_netlink_message **ret) {
 
         *m = (sd_netlink_message) {
                 .n_ref = 1,
-                .protocol = rtnl->protocol,
+                .protocol = nl->protocol,
                 .sealed = false,
         };
 
         *ret = m;
-
         return 0;
 }
 
-int message_new(sd_netlink *rtnl, sd_netlink_message **ret, uint16_t type) {
+int message_new_full(sd_netlink *nl, uint16_t nlmsg_type, const NLType *nl_type, size_t header_size, sd_netlink_message **ret) {
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
-        const NLType *nl_type;
         size_t size;
         int r;
 
-        assert_return(rtnl, -EINVAL);
-
-        r = type_system_root_get_type(rtnl, &nl_type, type);
-        if (r < 0)
-                return r;
+        assert(nl);
+        assert(ret);
 
         if (type_get_type(nl_type) != NETLINK_TYPE_NESTED)
                 return -EINVAL;
 
-        r = message_new_empty(rtnl, &m);
+        r = message_new_empty(nl, &m);
         if (r < 0)
                 return r;
 
-        size = NLMSG_SPACE(type_get_size(nl_type));
+        type_get_type_system(nl_type, &m->containers[0].type_system);
 
+        size = NLMSG_SPACE(header_size);
         assert(size >= sizeof(struct nlmsghdr));
         m->hdr = malloc0(size);
         if (!m->hdr)
                 return -ENOMEM;
 
         m->hdr->nlmsg_flags = NLM_F_REQUEST | NLM_F_ACK;
-
-        type_get_type_system(nl_type, &m->containers[0].type_system);
         m->hdr->nlmsg_len = size;
-        m->hdr->nlmsg_type = type;
+        m->hdr->nlmsg_type = nlmsg_type;
 
         *ret = TAKE_PTR(m);
-
         return 0;
+}
+
+int message_new(sd_netlink *nl, sd_netlink_message **ret, uint16_t type) {
+        const NLType *nl_type;
+        int r;
+
+        assert_return(nl, -EINVAL);
+        assert(ret);
+
+        r = type_system_root_get_type(nl, &nl_type, type);
+        if (r < 0)
+                return r;
+
+        return message_new_full(nl, type, nl_type, type_get_size(nl_type), ret);
 }
 
 int sd_netlink_message_request_dump(sd_netlink_message *m, int dump) {
@@ -1280,14 +1287,14 @@ static int netlink_message_parse_error(sd_netlink_message *m) {
                                        NLMSG_PAYLOAD(m->hdr, hlen));
 }
 
-int sd_netlink_message_rewind(sd_netlink_message *m, sd_netlink *genl) {
+int sd_netlink_message_rewind(sd_netlink_message *m, sd_netlink *nl) {
         const NLType *nl_type;
         uint16_t type;
         size_t size;
         int r;
 
         assert_return(m, -EINVAL);
-        assert_return(genl || m->protocol != NETLINK_GENERIC, -EINVAL);
+        assert_return(nl, -EINVAL);
 
         /* don't allow appending to message once parsed */
         if (!m->sealed)
@@ -1304,12 +1311,17 @@ int sd_netlink_message_rewind(sd_netlink_message *m, sd_netlink *genl) {
 
         assert(m->hdr);
 
-        r = type_system_root_get_type(genl, &nl_type, m->hdr->nlmsg_type);
+        r = type_system_root_get_type(nl, &nl_type, m->hdr->nlmsg_type);
         if (r < 0)
                 return r;
 
         type = type_get_type(nl_type);
-        size = type_get_size(nl_type);
+        if (message_is_generic(m)) {
+                r = genl_family_get_header_size(nl, m->hdr->nlmsg_type, &size);
+                if (r < 0)
+                        return r;
+        } else
+                size = type_get_size(nl_type);
 
         if (type == NETLINK_TYPE_NESTED) {
                 const NLTypeSystem *type_system;
