@@ -17,6 +17,63 @@ External:
 
 * Fedora: add an rpmlint check that verifies that all unit files in the RPM are listed in %systemd_post macros.
 
+* dbus:
+   - natively watch for dbus-*.service symlinks (PENDING)
+   - teach dbus to activate all services it finds in /etc/systemd/services/org-*.service
+
+* kernel: add device_type = "fb", "fbcon" to class "graphics"
+
+* /usr/bin/service should actually show the new command line
+
+* fedora: suggest auto-restart on failure, but not on success and not on coredump. also, ask people to think about changing the start limit logic. Also point people to RestartPreventExitStatus=, SuccessExitStatus=
+
+* neither pkexec nor sudo initialize environ[] from the PAM environment?
+
+* fedora: update policy to declare access mode and ownership of unit files to root:root 0644, and add an rpmlint check for it
+
+* register catalog database signature as file magic
+
+* zsh shell completion:
+  - <command> <verb> -<TAB> should complete options, but currently does not
+  - systemctl add-wants,add-requires
+
+* systemctl status should know about 'systemd-analyze calendar ... --iterations='
+* If timer has just OnInactiveSec=..., it should fire after a specified time
+  after being started.
+
+* write blog stories about:
+  - hwdb: what belongs into it, lsusb
+  - enabling dbus services
+  - how to make changes to sysctl and sysfs attributes
+  - remote access
+  - how to pass throw-away units to systemd, or dynamically change properties of existing units
+  - testing with Harald's awesome test kit
+  - auto-restart
+  - how to develop against journal browsing APIs
+  - the journal HTTP iface
+  - non-cgroup resource management
+  - dynamic resource management with cgroups
+  - refreshed, longer missions statement
+  - calendar time events
+  - init=/bin/sh vs. "emergency" mode, vs. "rescue" mode, vs. "multi-user" mode, vs. "graphical" mode, and the debug shell
+  - how to create your own target
+  - instantiated apache, dovecot and so on
+  - hooking a script into various stages of shutdown/rearly booot
+
+Regularly:
+
+* look for close() vs. close_nointr() vs. close_nointr_nofail()
+
+* check for strerror(r) instead of strerror(-r)
+
+* pahole
+
+* set_put(), hashmap_put() return values check. i.e. == 0 does not free()!
+
+* use secure_getenv() instead of getenv() where appropriate
+
+* link up selected blog stories from man pages and unit files Documentation= fields
+
 Janitorial Clean-ups:
 
 * Rearrange tests so that the various test-xyz.c match a specific src/basic/xyz.c again
@@ -26,48 +83,13 @@ Janitorial Clean-ups:
 
 Features:
 
-* firstboot: allow provisioning of /etc/hosts entries, so that we can via the
-  credentials logic insert host name to resolve into containers/hosts. Usecase:
-  fork a container, and make it ping some specific address which is defined by
-  the host on invocation
-
 * in sd-id128: also parse UUIDs in RFC4122 URN syntax (i.e. chop off urn:uuid: prefix)
-
-* ability to insert trusted configuration and secrets into the boot parameters
-  of a kernel booting in a VM or on baremetal some way, via TPM
-  protection. idea:
-  1. pass via /proc/bootconfig
-  2. for secrets: put secrets in node of /proc/bootconfig, decrypt them via
-     TPM early on in PID 1, put them in $CREDENTIAL_PATH logic
-  3. for config: put signed data in node /proc/booconfig, validate via TPM
-     early on in PID 1, put data into /run/bootconfig/ as individual files
-  4. boot loader/stub should pick these up automatically from the boot loader
-     file systems
-
-* journald: support RFC3164 fully for the incoming syslog transport, see
-  https://github.com/systemd/systemd/issues/19251#issuecomment-816601955
-
-* homed: if kernel 5.12 uid mapping mounts exist, use that instead of recursive
-  chowns.
 
 * DynamicUser= + StateDirectory= → use uid mapping mounts, too, in order to
   make dirs appear under right UID.
 
-* nspawn: make --bind= work sanely with --private-users when uid mapping mounts
-  are used.
-
 * systemd-sysext: optionally, run it in initrd already, before transitioning
   into host, to open up possibility for services shipped like that.
-
-* add a new switch --auto-definitions=yes/no or so to systemd-repart. If
-  specified, synthesize a definition automatically if we can: enlarge last
-  partition on disk, but only if it is marked for growing and not read-only.
-
-* add a switch to homectl (maybe called --first-boot) where it will check if
-  any non-system users exist, and if not prompts interactively for basic user
-  info, mimicking systemd-firstboot. Then, place this in a service that runs
-  after systemd-homed, but before gdm and friends, as a simple, barebones
-  fallback logic to get a regular user created on uninitialized systems.
 
 * maybe add a tool that displays most recent journal logs as QR code to scan
   off screen and run it automatically on boot failures, emergency logs and
@@ -80,29 +102,10 @@ Features:
   maybe just pass that info along for free in an env var. We cache the result
   anyway, so it's basically free.
 
-* systemd-repart: read LUKS encryption key from $CREDENTIALS_PATH
-
 * introduce /dev/disk/root/* symlinks that allow referencing partitions on the
   disk the rootfs is on in a reasonably secure way. (or maybe: add
   /dev/gpt-auto-{home,srv,boot,…} similar in style to /dev/gpt-auto-root as we
   already have it.
-
-* systemd-repart: add a switch to factory reset the partition table without
-  immediately applying the new configuration again. i.e. --factory-reset=leave
-  or so. (this is useful to factory reset an image, then putting it into
-  another machine, ensuring that luks key is generated on new machine, not old)
-
-* systemd-repart: support setting up dm-integrity with HMAC
-
-* systemd-repart: maybe remove half-initialized image on failure. It fails
-  if the output file exists, so a repeated invocation will usually fail if
-  something goes wrong on the way.
-
-* systemd-repart: drop pager mode on normal operation?
-
-* move logind udev rules to top-level rule.d/ directory
-
-* move multiseat vid/pid matches from logind udev rule to hwdb
 
 * whenever we receive fds via SCM_RIGHTS make sure none got dropped due to the
   reception limit the kernel silently enforces.
@@ -119,41 +122,11 @@ Features:
 * Add a concept of ListenStream=anonymous to socket units: listen on a socket
   that is deleted in the fs. Usecase would be with ConnectSocket= above.
 
-* Hook up journald's FSS logic with TPM2: seal the verification disk by
-  time-based policy, so that the verification key can remain on host and ve
-  validated via TPM.
-
-* sd-boot: define a drop-in dir in the ESP that may contain X.509
-  certificates. If the firmware is detected to be in setup mode, automatically
-  enroll them as PK/KEK/db, turn off setup mode and proceed. Optionally,
-  instead of auto-enrolling them add them to the sd-boot menu, giving the user
-  the option to manually enroll them, after selecting the menu entry. This way,
-  installer images can just drop the certfiicates in the ESP, and on first boot
-  can easily enroll the keys without ever booting up.
-
-* efi stub: optionally, load initrd from disk as a separate file, HMAC check it
-  with key from TPM, bound to PCR, refusing if failing. This would then allow
-  traditional distros that generate initrds locally to secure them with TPM:
-  after generating the initrd, do the HMAC calculation, put result in initrd
-  filename, done. This would then bind the validity of the initrd to the local
-  host, and used kernel, and means people cannot change initrd or kernel
-  without booting the kernel + initrd.
-
-* importd: add ability download images for portabled + sysext
-
 * importd: support image signature verification with PKCS#7 + OpenBSD signify
   logic, as alternative to crummy gpg
 
-* sd-boot: add service that automatically runs "bootctl update" on every boot,
-  in a graceful way, so that updated /usr trees automatically propagate into
-  updated boot loaders on reboot.
-
 * sysext: optionally, if the merged trees allow it use bind mounts instead of
   overlayfs
-
-* nspawn: add support for sysext extensions, too. i.e. a new --extension=
-  switch that takes one or more arguments, and applies the extensions already
-  during startup.
 
 * add "systemd-analyze debug" + AttachDebugger= in unit files: The former
   specifies a command to execute; the latter specifies that an already running
@@ -163,6 +136,17 @@ Features:
 
 * expose MS_NOSYMFOLLOW in various places
 
+* ability to insert trusted configuration and secrets into the boot parameters
+  of a kernel booting in a VM or on baremetal some way, via TPM
+  protection. idea:
+  1. pass via /proc/bootconfig
+  2. for secrets: put secrets in node of /proc/bootconfig, decrypt them via
+     TPM early on in PID 1, put them in $CREDENTIAL_PATH logic
+  3. for config: put signed data in node /proc/booconfig, validate via TPM
+     early on in PID 1, put data into /run/bootconfig/ as individual files
+  4. boot loader/stub should pick these up automatically from the boot loader
+     file systems
+
 * tpm2: support a PIN policy, i.e. allowing windows-style short authentication
   passwords by using the TPM2 to enforce ratelimiting and such, use for
   cryptsetup and homed
@@ -171,14 +155,13 @@ Features:
   --pcrs=4:<hash> or so, i.e. select a PCR to include in the hash, and then
   override its hash
 
-* homed: store PKCS#11 + FIDO2 token info in LUKS2 header, compatible with
-  systemd-cryptsetup, so that it can unlock homed volumes
+* TPM2: auto-reenroll in cryptsetup, as fallback for hosed firmware upgrades
+  and such
+
+* introduce a new group to own TPM devices
 
 * cryptenroll: politely refuse enrolling new keys to homed volumes, since we
   we cannot update identity info
-
-* TPM2: auto-reenroll in cryptsetup, as fallback for hosed firmware upgrades
-  and such
 
 * cryptsetup: if only recovery keys are registered and no regular passphrases,
   ask user for "recovery key", not "passphrase"
@@ -194,6 +177,31 @@ Features:
 * cryptsetup: when waiting for FIDO2/PKCS#11 token, tell plymouth that, and
   allow plymouth to abort the waiting and enter pw instead
 
+* make cryptsetup lower --iter-time
+
+* cryptsetup: allow encoding key directly in /etc/crypttab, maybe with a
+  "base64:" prefix. Useful in particular for pkcs11 mode.
+
+* cryptsetup: reimplement the mkswap/mke2fs in cryptsetup-generator to use
+  systemd-makefs.service instead.
+
+* cryptsetup:
+  - cryptsetup-generator: allow specification of passwords in crypttab itself
+  - support rd.luks.allow-discards= kernel cmdline params in cryptsetup generator
+
+* credentials system:
+  - maybe add AcquireCredential= for querying a cred via ask-password
+  - maybe try to acquire creds via keyring?
+  - maybe try to pass creds via keyring?
+  - maybe optionally pass creds via memfd
+  - maybe add support for decrypting creds via TPM
+  - maybe add support for decrypting/importing creds via pkcs11
+  - make systemd-cryptsetup acquire pw via creds logic
+  - make PAMName= acquire pw via creds logic
+  - make macsec/wireguard code in networkd read key via creds logic
+  - make gatwayd/remote read key via creds logic
+  - add sd_notify() command for flushing out creds not needed anymore
+
 * when configuring loopback netif, and it fails due to EPERM, eat up error if
   it happens to be set up alright already.
 
@@ -202,9 +210,6 @@ Features:
 * userdb: add field for ambient caps, so that a user can have CAP_WAKE_ALARM
   for example. And add code that resets ambient caps for all services by
   default.
-
-* homed: try to unmount in regular intervals when home dir was busy when we
-  tried because idle.
 
 * sd-bus: when connecting to some dbus server socker, set originating AF_UNIX
   socket name in abstract namespace to include "description" string, and pick
@@ -227,13 +232,7 @@ Features:
 * special case some calls of chase_symlinks() to use openat2() internally, so
   that the kernel does what we otherwise do.
 
-* homed: keep an fd to the homedir open at all times, to keep the fs pinned
-  (autofs and such) while user is logged in.
-
 * make use of new glibc 2.32 APIs sigabbrev_np() and strerrorname_np().
-
-* when main nspawn supervisor process gets suspended due to SIGSTOP/SIGTTOU or
-  so, freeze the payload too.
 
 * add /etc/integritytab, to support dm-integrity setups. In particular those
   with HMAC as hash function, so that we can have a protected /home without
@@ -244,24 +243,6 @@ Features:
   fstype-agnostic version of btrfs' rootflags=subvol=foobar.
 
 * if /usr/bin/swapoff fails due to OOM, log a friendly explanatory message about it
-
-* build short web pages out of each catalog entry, build them along with man
-  pages, and include hyperlinks to them in the journal output
-
-* machined: add API to acquire UID range. add API to mount/dissect loopback
-  file. Both protected by PK. Then make nspawn use these APIs to run
-  unprivileged containers. i.e. push the truly privileged bits into machined,
-  so that the client side can remain entirely unprivileged, with SUID or
-  anything like that.
-
-* journald: do journal file writing out-of-process, with one writer process per
-  client UID, so that synthetic hash table collisions can slow down a specific
-  user's journal stream down but not the others.
-
-* nspawn: support time namespaces
-
-* systemd-firstboot: make sure to always use chase_symlinks() before
-  reading/writing files
 
 * Remove any support for booting without /usr pre-mounted in the initrd entirely.
   Update INITRD_INTERFACE.md accordingly.
@@ -304,48 +285,8 @@ Features:
 
 * seccomp: maybe merge all filters we install into one with that libseccomp API that allows merging.
 
-* credentials system:
-  - maybe add AcquireCredential= for querying a cred via ask-password
-  - maybe try to acquire creds via keyring?
-  - maybe try to pass creds via keyring?
-  - maybe optionally pass creds via memfd
-  - maybe add support for decrypting creds via TPM
-  - maybe add support for decrypting/importing creds via pkcs11
-  - make systemd-cryptsetup acquire pw via creds logic
-  - make PAMName= acquire pw via creds logic
-  - make macsec/wireguard code in networkd read key via creds logic
-  - make gatwayd/remote read key via creds logic
-  - add sd_notify() command for flushing out creds not needed anymore
-
-* homed: during login resize fs automatically towards size goal. Specifically,
-  resize to diskSize if possible, but leave a certain amount (configured by a
-  new value diskLeaveFreeSize) of space free on the backing fs.
-
-* homed: permit multiple user record signing keys to be used locally, and pick
-  the right one for signing records automatically depending on a pre-existing
-  signature
-
-* homed: add a way to "adopt" a home directory, i.e. strip foreign signatures
-  and insert a local signature instead.
-
-* homed: as an extension to the directory+subvolume backend: if located on
-  especially marked fs, then sync down password into LUKS header of that fs,
-  and always verify passwords against it too. Bootstrapping is a problem
-  though: if no one is logged in (or no other user even exists yet), how do you
-  unlock the volume in order to create the first user and add the first pw.
-
-* homed: support new FS_IOC_ADD_ENCRYPTION_KEY ioctl for setting up fscrypt
-
-* homed: maybe pre-create ~/.cache as subvol so that it can have separate quota
-  easily?
-
 * busctl: maybe expose a verb "ping" for pinging a dbus service to see if it
   exists and responds.
-
-* bootctl:
-  - teach it to prepare an ESP wholesale, i.e. with mkfs.vfat invocation
-  - teach it to copy in unified kernel images and maybe type #1 boot loader spec entries from host
-  - make it operate on loopback files, dissecting enough to find ESP to operate on
 
 * Maybe add a separate GPT partition type to the discoverable partition spec
   for "hibernate" partitions, that are exactly like swap partitions but only
@@ -353,12 +294,6 @@ Features:
 
 * by default, in systemd --user service bump the OOMAdjust to 100, as privs
   allow so that systemd survives
-
-* cryptsetup: allow encoding key directly in /etc/crypttab, maybe with a
-  "base64:" prefix. Useful in particular for pkcs11 mode.
-
-* cryptsetup: reimplement the mkswap/mke2fs in cryptsetup-generator to use
-  systemd-makefs.service instead.
 
 * socket units: allow creating a udev monitor socket with ListenDevices= or so,
   with matches, then activate app through that passing socket over
@@ -372,44 +307,8 @@ Features:
   - when that's done: kill khash.c
   - when that's done: kill gnutls support in resolved
 
-* when we resize disks (homed?) always round up to 4K sectors, not 512K
-
 * add growvol and makevol options for /etc/crypttab, similar to
   x-systemd.growfs and x-systemd-makefs.
-
-* systemd-repart: by default generate minimized partition tables (i.e. tables
-  that only cover the space actually used, excluding any free space at the
-  end), in order to maximize dd'ability. Requires libfdisk work, see
-  https://github.com/karelzak/util-linux/issues/907
-
-* systemd-repart: MBR partition table support. Care needs to be taken regarding
-  Type=, so that partition definitions can sanely apply to both the GPT and the
-  MBR case. Idea: accept syntax "Type=gpt:home mbr:0x83" for setting the types
-  for the two partition types explicitly. And provide an internal mapping so
-  that "Type=linux-generic" maps to the right types for both partition tables
-  automatically.
-
-* systemd-repart: allow sizing partitions as factor of available RAM, so that
-  we can reasonably size swap partitions for hibernation.
-
-* systemd-repart: allow boolean option that ensures that if existing partition
-  doesn't exist within the configured size bounds the whole command fails. This
-  is useful to implement ESP vs. XBOOTLDR schemes in installers: have one set
-  of repart files for the case where ESP is large enough and one where it isn't
-  and XBOOTLDR is added in instead.  Then apply the former first, and if it
-  fails to apply use the latter.
-
-* systemd-repart: add per-partition option to never reuse existing partition
-  and always create anew even if matching partition already exists.
-
-* systemd-repart: add per-partition option to fail if partition already exist,
-  i.e. is not added new. Similar, add option to fail if partition does not exist yet.
-
-* systemd-repart: allow disabling growing of specific partitions, or making
-  them (think ESP: we don't ever want to grow it, since we cannot resize vfat)
-
-* systemd-repart: make it a static checker during early boot for existence and
-  absence of other partitions for trusted boot environments
 
 * userdb: allow username prefix searches in varlink API, allow realname and
   realname substr searches in varlink API
@@ -466,58 +365,11 @@ Features:
   https://docs.microsoft.com/en-us/windows-hardware/design/device-experiences/modern-standby-wake-sources
   at the end).
 
-* add an explicit "vertical" mode to format-table, so that "systemctl
-  status"-like outputs (i.e. with a series of field names left and values
-  right) become genuine first class citizens, and we gain automatic, sane JSON
-  output for them.
-
 * We should probably replace /var/log/README, /etc/rc.d/README with symlinks
   that are linked to these places instead of copied. After all they are
   constant vendor data.
 
 * maybe add kernel cmdline params: to force random seed crediting
-
-* nspawn: on cgroupsv1 issue cgroup empty handler process based on host events,
-  so that we make cgroup agent logic safe
-
-* nspawn/machined: add API to invoke binary in container, then use that as
-  fallback in "machinectl shell"
-
-* logind: rework pam_logind to also do a bus call in case of invocation from
-  user@.service, which returns the XDG_RUNTIME_DIR value, and make this
-  behaviour selectable via pam module option.
-
-* homed:
-  - when user tries to log into record signed by unrecognized key, automatically add key to our chain after polkit auth
-  - rollback when resize fails mid-operation
-  - GNOME's side for forget key on suspend (requires rework so that lock screen runs outside of uid)
-  - resize on login?
-  - shrink fs on logout?
-  - update LUKS password on login if we find there's a password that unlocks the JSON record but not the LUKS device.
-  - create on activate?
-  - properties: icon url?, preferred session type?, administrator bool (which translates to 'wheel' membership)?, address?, telephone?, vcard?, samba stuff?, parental controls?
-  - communicate clearly when usb stick is safe to remove. probably involves
-    beefing up logind to make pam session close hook synchronous and wait until
-    systemd --user is shut down.
-  - logind: maybe keep a "busy fd" as long as there's a non-released session around or the user@.service
-  - maybe make automatic, read-only, time-based reflink-copies of LUKS disk
-    images (and btrfs snapshots of subvolumes) (think: time machine)
-  - distinguish destroy / remove (i.e. currently we can unregister a user, unregister+remove their home directory, but not just remove their home directory)
-  - in systemd's PAMName= logic: query passwords with ssh-askpassword, so that we can make "loginctl set-linger" mode work
-  - fingerprint authentication, pattern authentication, …
-  - make sure "classic" user records can also be managed by homed
-  - make size of $XDG_RUNTIME_DIR configurable in user record
-  - query password from kernel keyring first
-  - update even if record is "absent"
-  - add a "access mode" + "fstype" field to the "status" section of json identity records reflecting the actually used access mode and fstype, even on non-luks backends
-  - move acct mgmt stuff from pam_systemd_home to pam_systemd?
-  - when "homectl --pkcs11-token-uri=" is used, synthesize ssh-authorized-keys records for all keys we have private keys on the stick for
-  - make slice for users configurable (requires logind rework)
-  - logind: populate auto-login list bus property from PKCS#11 token
-  - when determining state of a LUKS home directory, check DM suspended sysfs file
-  - introduce API for "making room", that grows/shrinks home directory
-    according to elastic parameters, discards blocks, and removes additional snapshots. Call it
-    either from UI when disk space gets low
 
 * introduce a new per-process uuid, similar to the boot id, the machine id, the
   invocation id, that is derived from process creds, specifically a hashed
@@ -532,16 +384,8 @@ Features:
 * when killing due to service watchdog timeout maybe detect whether target
   process is under ptracing and then log loudly and continue instead.
 
-* introduce a new group to own TPM devices
-
 * make rfkill uaccess controllable by default, i.e. steal rule from
   gnome-bluetooth and friends
-
-* tweak journald context caching. In addition to caching per-process attributes
-  keyed by PID, cache per-cgroup attributes (i.e. the various xattrs we read)
-  keyed by cgroup path, and guarded by ctime changes. This should provide us
-  with a nice speed-up on services that have many processes running in the same
-  cgroup.
 
 * make MAINPID= message reception checks even stricter: if service uses User=,
   then check sending UID and ignore message if it doesn't match the user or
@@ -563,8 +407,6 @@ Features:
   keeping CAP_SYS_ADMIN, then apply seccomp, the drop cap.
 
 * when no locale is configured, default to UEFI's PlatformLang variable
-
-* bootctl,sd-boot: actually honour the "architecture" key
 
 * add a new syscall group "@esoteric" for more esoteric stuff such as bpf() and
   usefaultd() and make systemd-analyze check for it.
@@ -591,10 +433,6 @@ Features:
 * sd-boot: optionally, show boot menu when previous default boot item has
   non-zero "tries done" count
 
-* introduce an option (or replacement) for "systemctl show" that outputs all
-  properties as JSON, similar to busctl's new JSON output. In contrast to that
-  it should skip the variant type string though.
-
 * augment CODE_FILE=, CODE_LINE= with something like CODE_BASE= or so which
   contains some identifier for the project, which allows us to include
   clickable links to source files generating these log messages. The identifier
@@ -610,18 +448,8 @@ Features:
 
 * maybe extend .path units to expose fanotify() per-mount change events
 
-* Add a "systemctl list-units --by-slice" mode or so, which rearranges the
-  output of "systemctl list-units" slightly by showing the tree structure of
-  the slices, and the units attached to them.
-
-* nspawn: make nspawn suitable for shell pipelines: instead of triggering a
-  hangup when input is finished, send ^D, which synthesizes an EOF. Then wait
-  for hangup or ^D before passing on the EOF.
-
 * When reloading configuration PID 1 should reset all its properties to the
   original defaults before calling parse_config()
-
-* nspawn: greater control over selinux label?
 
 * hibernate/s2h: make this robust and safe to enable in Fedora by default.
   Specifically:
@@ -638,6 +466,8 @@ Features:
   it is OK to include them in log strings. This would be particularly useful so
   that our log messages could contain clickable links for example for unit
   files and suchlike we operate on.
+
+* importd: add ability download images for portabled + sysext
 
 * add support for "portablectl attach http://foobar.com/waaa.raw (i.e. importd integration)
 
@@ -758,15 +588,8 @@ Features:
 * In DynamicUser= mode: before selecting a UID, use disk quota APIs on relevant
   disks to see if the UID is already in use.
 
-* add "systemctl wait" or so, which does what "systemd-run --wait" does, but
-  for all units. It should be both a way to pin units into memory as well as a
-  wait to retrieve their exit data.
-
 * expose IO accounting data on the bus, show it in systemd-run --wait and log
   about it in the resource log message
-
-* show whether a service has out-of-date configuration in "systemctl status" by
-  using mtime data of ConfigurationDirectory=.
 
 * Add AddUser= setting to unit files, similar to DynamicUser=1 which however
   creates a static, persistent user rather than a dynamic, transient user. We
@@ -776,11 +599,6 @@ Features:
   that we create the dir in question when the service is started. Example:
 
   ReadWritePaths=:/var/lib/foobar
-
-* maybe add call sd_journal_set_block_timeout() or so to set SO_SNDTIMEO for
-  the sd-journal logging socket, and, if the timeout is set to 0, sets
-  O_NONBLOCK on it. That way people can control if and when to block for
-  logging.
 
 * hostnamed: populate form factor data from a new hwdb database, so that old
   yogas can be recognized as "convertible" too, even if they predate the DMI
@@ -801,19 +619,13 @@ Features:
 
 * gpt-auto logic: support encrypted swap, add kernel cmdline option to force it, and honour a gpt bit about it, plus maybe a configuration file
 
-* drop nss-myhostname in favour of nss-resolve?
-
 * add a percentage syntax for TimeoutStopSec=, e.g. TimeoutStopSec=150%, and
   then use that for the setting used in user@.service. It should be understood
   relative to the configured default value.
 
-* in networkd, when matching device types, fix up DEVTYPE rubbish the kernel passes to us
-
 * enable LockMLOCK to take a percentage value relative to physical memory
 
 * Permit masking specific netlink APIs with RestrictAddressFamily=
-
-* nspawn: support that /proc, /sys/, /dev are pre-mounted
 
 * define gpt header bits to select volatility mode
 
@@ -836,8 +648,6 @@ Features:
 
 * make sure the ratelimit object can deal with USEC_INFINITY as way to turn off things
 
-* journalctl: make sure -f ends when the container indicated by -M terminates
-
 * in nss-systemd, if we run inside of RootDirectory= with PrivateUsers= set,
   find a way to map the User=/Group= of the service to the right name. This way
   a user/group for a service only has to exist on the host for the right
@@ -855,13 +665,7 @@ Features:
 * transient units: don't bother with actually setting unit properties, we
   reload the unit file anyway
 
-* journald: sigbus API via a signal-handler safe function that people may call
-  from the SIGBUS handler
-
 * optionally, also require WATCHDOG=1 notifications during service start-up and shutdown
-
-* delay activation of logind until somebody logs in, or when /dev/tty0 pulls it
-  in or lingering is on (so that containers don't bother with it until PAM is used). also exit-on-idle
 
 * cache sd_event_now() result from before the first iteration...
 
@@ -907,11 +711,6 @@ Features:
 * Find a solution for SMACK capabilities stuff:
   http://lists.freedesktop.org/archives/systemd-devel/2014-December/026188.html
 
-* "systemctl preset-all" should probably order the unit files it
-  operates on lexicographically before starting to work, in order to
-  ensure deterministic behaviour if two unit files conflict (like DMs
-  do, for example)
-
 * synchronize console access with BSD locks:
   http://lists.freedesktop.org/archives/systemd-devel/2014-October/024582.html
 
@@ -920,19 +719,10 @@ Features:
 
 * figure out when we can use the coarse timers
 
-* add "systemctl start -v foobar.service" that shows logs of a service
-  while the start command runs. This is non-trivial to do without
-  races though, since we should flush out all journal messages before
-  returning from the "systemctl stop".
-
-* firstboot: make it useful to be run immediately after yum --installroot to set up a machine. (most specifically, make --copy-root-password work even if /etc/passwd already exists
-
 * maybe allow timer units with an empty Units= setting, so that they
   can be used for resuming the system but nothing else.
 
 * what to do about udev db binary stability for apps? (raw access is not an option)
-
-* systemctl: if some operation fails, show log output?
 
 * exponential backoff in timesyncd when we cannot reach a server
 
@@ -942,6 +732,8 @@ Features:
 
 * add systemd.abort_on_kill or some other such flag to send SIGABRT instead of SIGKILL
   (throughout the codebase, not only PID1)
+
+* drop nss-myhostname in favour of nss-resolve?
 
 * resolved:
   - mDNS/DNS-SD
@@ -956,8 +748,6 @@ Features:
   - hook up resolved with machined-based address resolution
 
 * refcounting in sd-resolve is borked
-
-* Add a new verb "systemctl top"
 
 * add new gpt type for btrfs volumes
 
@@ -1017,31 +807,85 @@ Features:
 
 * load .d/*.conf dropins for device units
 
-* sd-bus:
-  - EBADSLT handling
-  - GetAllProperties() on a non-existing object does not result in a failure currently
-  - port to sd-resolve for connecting to TCP dbus servers
-  - see if we can introduce a new sd_bus_get_owner_machine_id() call to retrieve the machine ID of the machine of the bus itself
-  - see if we can drop more message validation on the sending side
-  - add API to clone sd_bus_message objects
-  - longer term: priority inheritance
-  - dbus spec updates:
-       - NameLost/NameAcquired obsolete
-       - GVariant
-       - path escaping
-  - update systemd.special(7) to mention that dbus.socket is only about the compatibility socket now
+* There's currently no way to cancel fsck (used to be possible via C-c or c on the console)
 
-* sd-event
-  - allow multiple signal handlers per signal?
-  - document chaining of signal handler for SIGCHLD and child handlers
-  - define more intervals where we will shift wakeup intervals around in, 1h, 6h, 24h, ...
-  - maybe support iouring as backend, so that we allow hooking read and write
-    operations instead of IO ready events into event loops. See considerations
-    here:
-    http://blog.vmsplice.net/2020/07/rethinking-event-loop-integration-for.html
+* add option to sockets to avoid activation. Instead just drop packets/connections, see http://cyberelk.net/tim/2012/02/15/portreserve-systemd-solution/
 
-* dbus: when a unit failed to load (i.e. is in UNIT_ERROR state), we
-  should be able to safely try another attempt when the bus call LoadUnit() is invoked.
+* make sure systemd-ask-password-wall does not shutdown systemd-ask-password-console too early
+
+* verify that the AF_UNIX sockets of a service in the fs still exist
+  when we start a service in order to avoid confusion when a user
+  assumes starting a service is enough to make it accessible
+
+* Make it possible to set the keymap independently from the font on
+  the kernel cmdline. Right now setting one resets also the other.
+
+* and a dbus call to generate target from current state
+
+* investigate whether the gnome pty helper should be moved into systemd, to provide cgroup support.
+
+* dot output for --test showing the 'initial transaction'
+
+* be able to specify a forced restart of service A where service B depends on, in case B
+  needs to be auto-respawned?
+
+* pid1:
+  - When logging about multiple units (stopping BoundTo units, conflicts, etc.),
+    log both units as UNIT=, so that journalctl -u triggers on both.
+  - generate better errors when people try to set transient properties
+    that are not supported...
+    http://lists.freedesktop.org/archives/systemd-devel/2015-February/028076.html
+  - maybe introduce WantsMountsFor=? Usecase:
+    http://lists.freedesktop.org/archives/systemd-devel/2015-January/027729.html
+  - recreate systemd's D-Bus private socket file on SIGUSR2
+  - move PAM code into its own binary
+  - when we automatically restart a service, ensure we restart its rdeps, too.
+  - hide PAM options in fragment parser when compile time disabled
+  - Support --test based on current system state
+  - If we show an error about a unit (such as not showing up) and it has no Description string, then show a description string generated form the reverse of unit_name_mangle().
+  - after deserializing sockets in socket.c we should reapply sockopts and things
+  - drop PID 1 reloading, only do reexecing (difficult: Reload()
+    currently is properly synchronous, Reexec() is weird, because we
+    cannot delay the response properly until we are back, so instead of
+    being properly synchronous we just keep open the fd and close it
+    when done. That means clients do not get a successful method reply,
+    but much rather a disconnect on success.
+  - when breaking cycles drop sysv services first, then services from /run, then from /etc, then from /usr
+  - when a bus name of a service disappears from the bus make sure to queue further activation requests
+  - maybe introduce CoreScheduling=yes/no to optionally set a PR_SCHED_CORE cookie, so that all
+    processes in a service's cgroup share the same cookie and are guaranteed not to share SMT cores
+    with other units https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/Documentation/admin-guide/hw-vuln/core-scheduling.rst
+
+* unit files:
+  - allow port=0 in .socket units
+  - maybe introduce ExecRestartPre=
+  - add ReloadSignal= for configuring a reload signal to use
+  - implement Register= switch in .socket units to enable registration
+    in Avahi, RPC and other socket registration services.
+  - allow Type=simple with PIDFile=
+    https://bugzilla.redhat.com/show_bug.cgi?id=723942
+  - allow writing multiple conditions in unit files on one line
+  - introduce Type=pid-file
+  - add a concept of RemainAfterExit= to scope units
+  - Allow multiple ExecStart= for all Type= settings, so that we can cover rescue.service nicely
+  - add verification of [Install] section to systemd-analyze verify
+
+* timer units:
+  - timer units should get the ability to trigger when:
+    o DST changes
+  - Modulate timer frequency based on battery state
+
+* add libsystemd-password or so to query passwords during boot using the password agent logic
+
+* clean up date formatting and parsing so that all absolute/relative timestamps we format can also be parsed
+
+* on shutdown: move utmp, wall, audit logic all into PID 1 (or logind?), get rid of systemd-update-utmp-runlevel
+
+* make repeated alt-ctrl-del presses printing a dump
+
+* hostnamed: before returning information from /etc/machine-info.conf check the modification data and reread. Similar for localed, ...
+
+* currently x-systemd.timeout is lost in the initrd, since crypttab is copied into dracut, but fstab is not
 
 * add a pam module that passes the hdd passphrase into the PAM stack and then expires it, for usage by gdm auto-login.
 
@@ -1082,6 +926,75 @@ Features:
 
 * merge unit_kill_common() and unit_kill_context()
 
+* hw watchdog: optionally try to use the preset watchdog timeout instead of always overriding it
+  https://bugs.freedesktop.org/show_bug.cgi?id=54712
+
+* add a dependency on standard-conf.xml and other included files to man pages
+
+* MountFlags=shared acts as MountFlags=slave right now.
+
+* properly handle loop back mounts via fstab, especially regards to fsck/passno
+
+* initialize the hostname from the fs label of /, if /etc/hostname does not exist?
+
+* sd-bus:
+  - EBADSLT handling
+  - GetAllProperties() on a non-existing object does not result in a failure currently
+  - port to sd-resolve for connecting to TCP dbus servers
+  - see if we can introduce a new sd_bus_get_owner_machine_id() call to retrieve the machine ID of the machine of the bus itself
+  - see if we can drop more message validation on the sending side
+  - add API to clone sd_bus_message objects
+  - longer term: priority inheritance
+  - dbus spec updates:
+       - NameLost/NameAcquired obsolete
+       - GVariant
+       - path escaping
+  - update systemd.special(7) to mention that dbus.socket is only about the compatibility socket now
+
+* sd-event
+  - allow multiple signal handlers per signal?
+  - document chaining of signal handler for SIGCHLD and child handlers
+  - define more intervals where we will shift wakeup intervals around in, 1h, 6h, 24h, ...
+  - maybe support iouring as backend, so that we allow hooking read and write
+    operations instead of IO ready events into event loops. See considerations
+    here:
+    http://blog.vmsplice.net/2020/07/rethinking-event-loop-integration-for.html
+
+* dbus: when a unit failed to load (i.e. is in UNIT_ERROR state), we
+  should be able to safely try another attempt when the bus call LoadUnit() is invoked.
+
+* maybe do not install getty@tty1.service symlink in /etc but in /usr?
+
+* print a nicer explanation if people use variable/specifier expansion in ExecStart= for the first word
+
+* mount: turn dependency information from /proc/self/mountinfo into dependency information between systemd units.
+
+* firstboot: allow provisioning of /etc/hosts entries, so that we can via the
+  credentials logic insert host name to resolve into containers/hosts. Usecase:
+  fork a container, and make it ping some specific address which is defined by
+  the host on invocation
+
+* systemd-firstboot: make sure to always use chase_symlinks() before
+  reading/writing files
+
+* firstboot: make it useful to be run immediately after yum --installroot to set up a machine. (most specifically, make --copy-root-password work even if /etc/passwd already exists
+
+* sd-boot: define a drop-in dir in the ESP that may contain X.509
+  certificates. If the firmware is detected to be in setup mode, automatically
+  enroll them as PK/KEK/db, turn off setup mode and proceed. Optionally,
+  instead of auto-enrolling them add them to the sd-boot menu, giving the user
+  the option to manually enroll them, after selecting the menu entry. This way,
+  installer images can just drop the certfiicates in the ESP, and on first boot
+  can easily enroll the keys without ever booting up.
+
+* efi stub: optionally, load initrd from disk as a separate file, HMAC check it
+  with key from TPM, bound to PCR, refusing if failing. This would then allow
+  traditional distros that generate initrds locally to secure them with TPM:
+  after generating the initrd, do the HMAC calculation, put result in initrd
+  filename, done. This would then bind the validity of the initrd to the local
+  host, and used kernel, and means people cannot change initrd or kernel
+  without booting the kernel + initrd.
+
 * EFI:
   - honor language efi variables for default language selection (if there are any?)
   - honor timezone efi variables for default timezone selection (if there are any?)
@@ -1089,11 +1002,16 @@ Features:
 * bootctl
   - recognize the case when not booted on EFI
 
-* maybe do not install getty@tty1.service symlink in /etc but in /usr?
+* bootctl,sd-boot: actually honour the "architecture" key
 
-* print a nicer explanation if people use variable/specifier expansion in ExecStart= for the first word
+* sd-boot: add service that automatically runs "bootctl update" on every boot,
+  in a graceful way, so that updated /usr trees automatically propagate into
+  updated boot loaders on reboot.
 
-* mount: turn dependency information from /proc/self/mountinfo into dependency information between systemd units.
+* bootctl:
+  - teach it to prepare an ESP wholesale, i.e. with mkfs.vfat invocation
+  - teach it to copy in unified kernel images and maybe type #1 boot loader spec entries from host
+  - make it operate on loopback files, dissecting enough to find ESP to operate on
 
 * logind:
   - logind: optionally, ignore idle-hint logic for autosuspend, block suspend as long as a session is around
@@ -1120,6 +1038,17 @@ Features:
   - follow PropertiesChanged state more closely, to deal with quick logouts and
     relogins
   - (optionally?) spawn seat-manager@$SEAT.service whenever a seat shows up that as CanGraphical set
+
+* move logind udev rules to top-level rule.d/ directory
+
+* move multiseat vid/pid matches from logind udev rule to hwdb
+
+* logind: rework pam_logind to also do a bus call in case of invocation from
+  user@.service, which returns the XDG_RUNTIME_DIR value, and make this
+  behaviour selectable via pam module option.
+
+* delay activation of logind until somebody logs in, or when /dev/tty0 pulls it
+  in or lingering is on (so that containers don't bother with it until PAM is used). also exit-on-idle
 
 * journal:
   - consider introducing implicit _TTY= + _PPID= + _EUID= + _EGID= + _FSUID= + _FSGID= fields
@@ -1181,10 +1110,167 @@ Features:
   - assign MESSAGE_ID to log messages about failed services
   - check if loop in decompress_blob_xz() is necessary
 
+* journald: support RFC3164 fully for the incoming syslog transport, see
+  https://github.com/systemd/systemd/issues/19251#issuecomment-816601955
+
+* Hook up journald's FSS logic with TPM2: seal the verification disk by
+  time-based policy, so that the verification key can remain on host and ve
+  validated via TPM.
+
+* build short web pages out of each catalog entry, build them along with man
+  pages, and include hyperlinks to them in the journal output
+
+* journald: do journal file writing out-of-process, with one writer process per
+  client UID, so that synthetic hash table collisions can slow down a specific
+  user's journal stream down but not the others.
+
+* tweak journald context caching. In addition to caching per-process attributes
+  keyed by PID, cache per-cgroup attributes (i.e. the various xattrs we read)
+  keyed by cgroup path, and guarded by ctime changes. This should provide us
+  with a nice speed-up on services that have many processes running in the same
+  cgroup.
+
+* maybe add call sd_journal_set_block_timeout() or so to set SO_SNDTIMEO for
+  the sd-journal logging socket, and, if the timeout is set to 0, sets
+  O_NONBLOCK on it. That way people can control if and when to block for
+  logging.
+
+* journalctl: make sure -f ends when the container indicated by -M terminates
+
+* journald: sigbus API via a signal-handler safe function that people may call
+  from the SIGBUS handler
+
 * add a test if all entries in the catalog are properly formatted.
     (Adding dashes in a catalog entry currently results in the catalog entry
      being silently skipped. journalctl --update-catalog must warn about this,
      and we should also have a unit test to check that all our message are OK.)
+
+* homed:
+  - when user tries to log into record signed by unrecognized key, automatically add key to our chain after polkit auth
+  - rollback when resize fails mid-operation
+  - GNOME's side for forget key on suspend (requires rework so that lock screen runs outside of uid)
+  - resize on login?
+  - shrink fs on logout?
+  - update LUKS password on login if we find there's a password that unlocks the JSON record but not the LUKS device.
+  - create on activate?
+  - properties: icon url?, preferred session type?, administrator bool (which translates to 'wheel' membership)?, address?, telephone?, vcard?, samba stuff?, parental controls?
+  - communicate clearly when usb stick is safe to remove. probably involves
+    beefing up logind to make pam session close hook synchronous and wait until
+    systemd --user is shut down.
+  - logind: maybe keep a "busy fd" as long as there's a non-released session around or the user@.service
+  - maybe make automatic, read-only, time-based reflink-copies of LUKS disk
+    images (and btrfs snapshots of subvolumes) (think: time machine)
+  - distinguish destroy / remove (i.e. currently we can unregister a user, unregister+remove their home directory, but not just remove their home directory)
+  - in systemd's PAMName= logic: query passwords with ssh-askpassword, so that we can make "loginctl set-linger" mode work
+  - fingerprint authentication, pattern authentication, …
+  - make sure "classic" user records can also be managed by homed
+  - make size of $XDG_RUNTIME_DIR configurable in user record
+  - query password from kernel keyring first
+  - update even if record is "absent"
+  - add a "access mode" + "fstype" field to the "status" section of json identity records reflecting the actually used access mode and fstype, even on non-luks backends
+  - move acct mgmt stuff from pam_systemd_home to pam_systemd?
+  - when "homectl --pkcs11-token-uri=" is used, synthesize ssh-authorized-keys records for all keys we have private keys on the stick for
+  - make slice for users configurable (requires logind rework)
+  - logind: populate auto-login list bus property from PKCS#11 token
+  - when determining state of a LUKS home directory, check DM suspended sysfs file
+  - introduce API for "making room", that grows/shrinks home directory
+    according to elastic parameters, discards blocks, and removes additional snapshots. Call it
+    either from UI when disk space gets low
+
+* homed: during login resize fs automatically towards size goal. Specifically,
+  resize to diskSize if possible, but leave a certain amount (configured by a
+  new value diskLeaveFreeSize) of space free on the backing fs.
+
+* homed: permit multiple user record signing keys to be used locally, and pick
+  the right one for signing records automatically depending on a pre-existing
+  signature
+
+* homed: add a way to "adopt" a home directory, i.e. strip foreign signatures
+  and insert a local signature instead.
+
+* homed: as an extension to the directory+subvolume backend: if located on
+  especially marked fs, then sync down password into LUKS header of that fs,
+  and always verify passwords against it too. Bootstrapping is a problem
+  though: if no one is logged in (or no other user even exists yet), how do you
+  unlock the volume in order to create the first user and add the first pw.
+
+* homed: support new FS_IOC_ADD_ENCRYPTION_KEY ioctl for setting up fscrypt
+
+* homed: maybe pre-create ~/.cache as subvol so that it can have separate quota
+  easily?
+
+* homed: if kernel 5.12 uid mapping mounts exist, use that instead of recursive
+  chowns.
+
+* add a switch to homectl (maybe called --first-boot) where it will check if
+  any non-system users exist, and if not prompts interactively for basic user
+  info, mimicking systemd-firstboot. Then, place this in a service that runs
+  after systemd-homed, but before gdm and friends, as a simple, barebones
+  fallback logic to get a regular user created on uninitialized systems.
+
+* homed: store PKCS#11 + FIDO2 token info in LUKS2 header, compatible with
+  systemd-cryptsetup, so that it can unlock homed volumes
+
+* homed: try to unmount in regular intervals when home dir was busy when we
+  tried because idle.
+
+* homed: keep an fd to the homedir open at all times, to keep the fs pinned
+  (autofs and such) while user is logged in.
+
+* when we resize disks (homed?) always round up to 4K sectors, not 512K
+
+* add a new switch --auto-definitions=yes/no or so to systemd-repart. If
+  specified, synthesize a definition automatically if we can: enlarge last
+  partition on disk, but only if it is marked for growing and not read-only.
+
+* systemd-repart: read LUKS encryption key from $CREDENTIALS_PATH
+
+* systemd-repart: add a switch to factory reset the partition table without
+  immediately applying the new configuration again. i.e. --factory-reset=leave
+  or so. (this is useful to factory reset an image, then putting it into
+  another machine, ensuring that luks key is generated on new machine, not old)
+
+* systemd-repart: support setting up dm-integrity with HMAC
+
+* systemd-repart: maybe remove half-initialized image on failure. It fails
+  if the output file exists, so a repeated invocation will usually fail if
+  something goes wrong on the way.
+
+* systemd-repart: drop pager mode on normal operation?
+
+* systemd-repart: by default generate minimized partition tables (i.e. tables
+  that only cover the space actually used, excluding any free space at the
+  end), in order to maximize dd'ability. Requires libfdisk work, see
+  https://github.com/karelzak/util-linux/issues/907
+
+* systemd-repart: MBR partition table support. Care needs to be taken regarding
+  Type=, so that partition definitions can sanely apply to both the GPT and the
+  MBR case. Idea: accept syntax "Type=gpt:home mbr:0x83" for setting the types
+  for the two partition types explicitly. And provide an internal mapping so
+  that "Type=linux-generic" maps to the right types for both partition tables
+  automatically.
+
+* systemd-repart: allow sizing partitions as factor of available RAM, so that
+  we can reasonably size swap partitions for hibernation.
+
+* systemd-repart: allow boolean option that ensures that if existing partition
+  doesn't exist within the configured size bounds the whole command fails. This
+  is useful to implement ESP vs. XBOOTLDR schemes in installers: have one set
+  of repart files for the case where ESP is large enough and one where it isn't
+  and XBOOTLDR is added in instead.  Then apply the former first, and if it
+  fails to apply use the latter.
+
+* systemd-repart: add per-partition option to never reuse existing partition
+  and always create anew even if matching partition already exists.
+
+* systemd-repart: add per-partition option to fail if partition already exist,
+  i.e. is not added new. Similar, add option to fail if partition does not exist yet.
+
+* systemd-repart: allow disabling growing of specific partitions, or making
+  them (think ESP: we don't ever want to grow it, since we cannot resize vfat)
+
+* systemd-repart: make it a static checker during early boot for existence and
+  absence of other partitions for trusted boot environments
 
 * document:
   - document that deps in [Unit] sections ignore Alias= fields in
@@ -1212,26 +1298,43 @@ Features:
   - systemctl: "Journal has been rotated since unit was started." message is misleading
   - systemctl status output should include list of triggering units and their status
 
+* introduce an option (or replacement) for "systemctl show" that outputs all
+  properties as JSON, similar to busctl's new JSON output. In contrast to that
+  it should skip the variant type string though.
+
+* add an explicit "vertical" mode to format-table, so that "systemctl
+  status"-like outputs (i.e. with a series of field names left and values
+  right) become genuine first class citizens, and we gain automatic, sane JSON
+  output for them.
+
+* Add a "systemctl list-units --by-slice" mode or so, which rearranges the
+  output of "systemctl list-units" slightly by showing the tree structure of
+  the slices, and the units attached to them.
+
+* add "systemctl wait" or so, which does what "systemd-run --wait" does, but
+  for all units. It should be both a way to pin units into memory as well as a
+  wait to retrieve their exit data.
+
+* show whether a service has out-of-date configuration in "systemctl status" by
+  using mtime data of ConfigurationDirectory=.
+
+* "systemctl preset-all" should probably order the unit files it
+  operates on lexicographically before starting to work, in order to
+  ensure deterministic behaviour if two unit files conflict (like DMs
+  do, for example)
+
+* add "systemctl start -v foobar.service" that shows logs of a service
+  while the start command runs. This is non-trivial to do without
+  races though, since we should flush out all journal messages before
+  returning from the "systemctl stop".
+
+* systemctl: if some operation fails, show log output?
+
+* Add a new verb "systemctl top"
+
 * unit install:
   - "systemctl mask" should find all names by which a unit is accessible
     (i.e. by scanning for symlinks to it) and link them all to /dev/null
-
-* timer units:
-  - timer units should get the ability to trigger when:
-    o DST changes
-  - Modulate timer frequency based on battery state
-
-* add libsystemd-password or so to query passwords during boot using the password agent logic
-
-* clean up date formatting and parsing so that all absolute/relative timestamps we format can also be parsed
-
-* on shutdown: move utmp, wall, audit logic all into PID 1 (or logind?), get rid of systemd-update-utmp-runlevel
-
-* make repeated alt-ctrl-del presses printing a dump
-
-* hostnamed: before returning information from /etc/machine-info.conf check the modification data and reread. Similar for localed, ...
-
-* currently x-systemd.timeout is lost in the initrd, since crypttab is copied into dracut, but fstab is not
 
 * nspawn:
   - emulate /dev/kmsg using CUSE and turn off the syslog syscall
@@ -1251,6 +1354,38 @@ Features:
   - optionally automatically add FORWARD rules to iptables whenever nspawn is
     running, remove them when shut down.
 
+* nspawn: make --bind= work sanely with --private-users when uid mapping mounts
+  are used.
+
+* nspawn: add support for sysext extensions, too. i.e. a new --extension=
+  switch that takes one or more arguments, and applies the extensions already
+  during startup.
+
+* when main nspawn supervisor process gets suspended due to SIGSTOP/SIGTTOU or
+  so, freeze the payload too.
+
+* machined: add API to acquire UID range. add API to mount/dissect loopback
+  file. Both protected by PK. Then make nspawn use these APIs to run
+  unprivileged containers. i.e. push the truly privileged bits into machined,
+  so that the client side can remain entirely unprivileged, with SUID or
+  anything like that.
+
+* nspawn: support time namespaces
+
+* nspawn: on cgroupsv1 issue cgroup empty handler process based on host events,
+  so that we make cgroup agent logic safe
+
+* nspawn/machined: add API to invoke binary in container, then use that as
+  fallback in "machinectl shell"
+
+* nspawn: make nspawn suitable for shell pipelines: instead of triggering a
+  hangup when input is finished, send ^D, which synthesizes an EOF. Then wait
+  for hangup or ^D before passing on the EOF.
+
+* nspawn: greater control over selinux label?
+
+* nspawn: support that /proc, /sys/, /dev are pre-mounted
+
 * machined:
   - add an API so that libvirt-lxc can inform us about network interfaces being
     removed or added to an existing machine
@@ -1265,39 +1400,17 @@ Features:
   - "machinectl commit" that takes a writable snapshot of a tree, invokes a
     shell in it, and marks it read-only after use
 
-* cryptsetup:
-  - cryptsetup-generator: allow specification of passwords in crypttab itself
-  - support rd.luks.allow-discards= kernel cmdline params in cryptsetup generator
-
-* hw watchdog: optionally try to use the preset watchdog timeout instead of always overriding it
-  https://bugs.freedesktop.org/show_bug.cgi?id=54712
-
-* add a dependency on standard-conf.xml and other included files to man pages
-
-* MountFlags=shared acts as MountFlags=slave right now.
-
-* properly handle loop back mounts via fstab, especially regards to fsck/passno
-
-* initialize the hostname from the fs label of /, if /etc/hostname does not exist?
-
 * udev:
   - move to LGPL
   - kill scsi_id
   - add trigger --subsystem-match=usb/usb_device device
   - reimport udev db after MOVE events for devices without dev_t
 
-* There's currently no way to cancel fsck (used to be possible via C-c or c on the console)
-
-* add option to sockets to avoid activation. Instead just drop packets/connections, see http://cyberelk.net/tim/2012/02/15/portreserve-systemd-solution/
-
 * coredump:
   - save coredump in Windows/Mozilla minidump format
   - when truncating coredumps, also log the full size that the process had, and make a metadata field so we can report truncated coredumps
 
 * support crash reporting operation modes (https://live.gnome.org/GnomeOS/Design/Whiteboards/ProblemReporting)
-
-* be able to specify a forced restart of service A where service B depends on, in case B
-  needs to be auto-respawned?
 
 * tmpfiles:
   - apply "x" on "D" too (see patch from William Douglas)
@@ -1308,81 +1421,6 @@ Features:
   - add --test mode
   - teach tmpfiles.d q/Q logic something sensible in the context of XFS/ext4
     project quota
-
-* make sure systemd-ask-password-wall does not shutdown systemd-ask-password-console too early
-
-* verify that the AF_UNIX sockets of a service in the fs still exist
-  when we start a service in order to avoid confusion when a user
-  assumes starting a service is enough to make it accessible
-
-* Make it possible to set the keymap independently from the font on
-  the kernel cmdline. Right now setting one resets also the other.
-
-* and a dbus call to generate target from current state
-
-* write blog stories about:
-  - hwdb: what belongs into it, lsusb
-  - enabling dbus services
-  - how to make changes to sysctl and sysfs attributes
-  - remote access
-  - how to pass throw-away units to systemd, or dynamically change properties of existing units
-  - testing with Harald's awesome test kit
-  - auto-restart
-  - how to develop against journal browsing APIs
-  - the journal HTTP iface
-  - non-cgroup resource management
-  - dynamic resource management with cgroups
-  - refreshed, longer missions statement
-  - calendar time events
-  - init=/bin/sh vs. "emergency" mode, vs. "rescue" mode, vs. "multi-user" mode, vs. "graphical" mode, and the debug shell
-  - how to create your own target
-  - instantiated apache, dovecot and so on
-  - hooking a script into various stages of shutdown/rearly booot
-
-* investigate whether the gnome pty helper should be moved into systemd, to provide cgroup support.
-
-* dot output for --test showing the 'initial transaction'
-
-* pid1:
-  - When logging about multiple units (stopping BoundTo units, conflicts, etc.),
-    log both units as UNIT=, so that journalctl -u triggers on both.
-  - generate better errors when people try to set transient properties
-    that are not supported...
-    http://lists.freedesktop.org/archives/systemd-devel/2015-February/028076.html
-  - maybe introduce WantsMountsFor=? Usecase:
-    http://lists.freedesktop.org/archives/systemd-devel/2015-January/027729.html
-  - recreate systemd's D-Bus private socket file on SIGUSR2
-  - move PAM code into its own binary
-  - when we automatically restart a service, ensure we restart its rdeps, too.
-  - hide PAM options in fragment parser when compile time disabled
-  - Support --test based on current system state
-  - If we show an error about a unit (such as not showing up) and it has no Description string, then show a description string generated form the reverse of unit_name_mangle().
-  - after deserializing sockets in socket.c we should reapply sockopts and things
-  - drop PID 1 reloading, only do reexecing (difficult: Reload()
-    currently is properly synchronous, Reexec() is weird, because we
-    cannot delay the response properly until we are back, so instead of
-    being properly synchronous we just keep open the fd and close it
-    when done. That means clients do not get a successful method reply,
-    but much rather a disconnect on success.
-  - when breaking cycles drop sysv services first, then services from /run, then from /etc, then from /usr
-  - when a bus name of a service disappears from the bus make sure to queue further activation requests
-  - maybe introduce CoreScheduling=yes/no to optionally set a PR_SCHED_CORE cookie, so that all
-    processes in a service's cgroup share the same cookie and are guaranteed not to share SMT cores
-    with other units https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/Documentation/admin-guide/hw-vuln/core-scheduling.rst
-
-* unit files:
-  - allow port=0 in .socket units
-  - maybe introduce ExecRestartPre=
-  - add ReloadSignal= for configuring a reload signal to use
-  - implement Register= switch in .socket units to enable registration
-    in Avahi, RPC and other socket registration services.
-  - allow Type=simple with PIDFile=
-    https://bugzilla.redhat.com/show_bug.cgi?id=723942
-  - allow writing multiple conditions in unit files on one line
-  - introduce Type=pid-file
-  - add a concept of RemainAfterExit= to scope units
-  - Allow multiple ExecStart= for all Type= settings, so that we can cover rescue.service nicely
-  - add verification of [Install] section to systemd-analyze verify
 
 * udev-link-config:
    - Make sure ID_PATH is always exported and complete for
@@ -1413,6 +1451,8 @@ Features:
      support Name=foo*|bar*|baz ?
    - whenever uplink info changes, make DHCP server send out FORCERENEW
 
+* in networkd, when matching device types, fix up DEVTYPE rubbish the kernel passes to us
+
 * Figure out how to do unittests of networkd's state serialization
 
 * dhcp:
@@ -1431,46 +1471,3 @@ Features:
    - some servers don't do rapid commit without a filled in IA_NA, verify
      this behavior
    - RouteTable= ?
-
-External:
-
-* dbus:
-   - natively watch for dbus-*.service symlinks (PENDING)
-   - teach dbus to activate all services it finds in /etc/systemd/services/org-*.service
-
-* make cryptsetup lower --iter-time
-
-* kernel: add device_type = "fb", "fbcon" to class "graphics"
-
-* /usr/bin/service should actually show the new command line
-
-* fedora: suggest auto-restart on failure, but not on success and not on coredump. also, ask people to think about changing the start limit logic. Also point people to RestartPreventExitStatus=, SuccessExitStatus=
-
-* neither pkexec nor sudo initialize environ[] from the PAM environment?
-
-* fedora: update policy to declare access mode and ownership of unit files to root:root 0644, and add an rpmlint check for it
-
-* register catalog database signature as file magic
-
-* zsh shell completion:
-  - <command> <verb> -<TAB> should complete options, but currently does not
-  - systemctl add-wants,add-requires
-
-* systemctl status should know about 'systemd-analyze calendar ... --iterations='
-* If timer has just OnInactiveSec=..., it should fire after a specified time
-  after being started.
-
-Regularly:
-
-* look for close() vs. close_nointr() vs. close_nointr_nofail()
-
-* check for strerror(r) instead of strerror(-r)
-
-* pahole
-
-* set_put(), hashmap_put() return values check. i.e. == 0 does not free()!
-
-* use secure_getenv() instead of getenv() where appropriate
-
-* link up selected blog stories from man pages and unit files Documentation= fields
-String is not UTF-8 clean, ignoring assignment
