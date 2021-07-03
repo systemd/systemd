@@ -1305,7 +1305,7 @@ static const NLTypeSystem nfnl_nft_setelem_list_type_system = {
         .types = nfnl_nft_setelem_list_types,
 };
 
-static const NLType nfnl_nft_msg_types [] = {
+static const NLType nfnl_subsys_nft_types [] = {
         [NFT_MSG_DELTABLE]   = { .type = NETLINK_TYPE_NESTED, .type_system = &nfnl_nft_table_type_system, .size = sizeof(struct nfgenmsg) },
         [NFT_MSG_NEWTABLE]   = { .type = NETLINK_TYPE_NESTED, .type_system = &nfnl_nft_table_type_system, .size = sizeof(struct nfgenmsg) },
         [NFT_MSG_NEWCHAIN]   = { .type = NETLINK_TYPE_NESTED, .type_system = &nfnl_nft_chain_type_system, .size = sizeof(struct nfgenmsg) },
@@ -1315,9 +1315,9 @@ static const NLType nfnl_nft_msg_types [] = {
         [NFT_MSG_DELSETELEM] = { .type = NETLINK_TYPE_NESTED, .type_system = &nfnl_nft_setelem_list_type_system, .size = sizeof(struct nfgenmsg) },
 };
 
-static const NLTypeSystem nfnl_nft_msg_type_system = {
-        .count = ELEMENTSOF(nfnl_nft_msg_types),
-        .types = nfnl_nft_msg_types,
+static const NLTypeSystem nfnl_subsys_nft_type_system = {
+        .count = ELEMENTSOF(nfnl_subsys_nft_types),
+        .types = nfnl_subsys_nft_types,
 };
 
 static const NLType nfnl_msg_batch_types [] = {
@@ -1329,10 +1329,19 @@ static const NLTypeSystem nfnl_msg_batch_type_system = {
         .types = nfnl_msg_batch_types,
 };
 
-static const NLType nfnl_types[] = {
+static const NLType nfnl_subsys_none_types[] = {
         [NFNL_MSG_BATCH_BEGIN] = { .type = NETLINK_TYPE_NESTED, .type_system = &nfnl_msg_batch_type_system, .size = sizeof(struct nfgenmsg) },
         [NFNL_MSG_BATCH_END]   = { .type = NETLINK_TYPE_NESTED, .type_system = &nfnl_msg_batch_type_system, .size = sizeof(struct nfgenmsg) },
-        [NFNL_SUBSYS_NFTABLES] = { .type = NETLINK_TYPE_NESTED, .type_system = &nfnl_nft_msg_type_system, .size = sizeof(struct nfgenmsg) },
+};
+
+static const NLTypeSystem nfnl_subsys_none_type_system = {
+        .count = ELEMENTSOF(nfnl_subsys_none_types),
+        .types = nfnl_subsys_none_types,
+};
+
+static const NLType nfnl_types[] = {
+        [NFNL_SUBSYS_NONE]     = { .type = NETLINK_TYPE_NESTED, .type_system = &nfnl_subsys_none_type_system },
+        [NFNL_SUBSYS_NFTABLES] = { .type = NETLINK_TYPE_NESTED, .type_system = &nfnl_subsys_nft_type_system },
 };
 
 static const NLTypeSystem nfnl_type_system_root = {
@@ -1654,8 +1663,15 @@ int type_system_root_get_type(sd_netlink *nl, const NLType **ret, uint16_t type)
                 return type_system_get_type(&basic_type_system_root, ret, type);
         if (nl->protocol == NETLINK_ROUTE)
                 return type_system_get_type(&rtnl_type_system_root, ret, type);
-        if (nl->protocol == NETLINK_NETFILTER)
-                return type_system_get_type(&nfnl_type_system_root, ret, type);
+        if (nl->protocol == NETLINK_NETFILTER) {
+                const NLTypeSystem *subsys;
+
+                r = type_system_get_type_system(&nfnl_type_system_root, &subsys, type >> 8);
+                if (r < 0)
+                        return r;
+
+                return type_system_get_type(subsys, ret, type & ((1U << 8) - 1));
+        }
         if (nl->protocol == NETLINK_GENERIC) {
                 sd_genl_family_t family;
 
