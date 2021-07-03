@@ -164,13 +164,12 @@ int sd_nfnl_nft_message_new_table(
                 sd_netlink *nfnl,
                 sd_netlink_message **ret,
                 int family,
-                const char *table,
-                uint16_t flags) {
+                const char *table) {
 
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
         int r;
 
-        r = nft_message_new(nfnl, &m, family, NFT_MSG_NEWTABLE, NLM_F_CREATE | flags);
+        r = nft_message_new(nfnl, &m, family, NFT_MSG_NEWTABLE, NLM_F_CREATE | NLM_F_EXCL | NLM_F_ACK);
         if (r < 0)
                 return r;
 
