@@ -19,27 +19,12 @@
 
 static int nft_message_new(sd_netlink *nfnl, sd_netlink_message **ret, int family, uint16_t msg_type, uint16_t flags) {
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
-        const NLTypeSystem *subsys;
-        const NLType *nl_type;
         int r;
 
         assert_return(nfnl, -EINVAL);
         assert_return(ret, -EINVAL);
 
-        r = type_system_root_get_type(nfnl, &nl_type, NFNL_SUBSYS_NFTABLES);
-        if (r < 0)
-                return r;
-
-        if (type_get_type(nl_type) != NETLINK_TYPE_NESTED)
-                return -EINVAL;
-
-        type_get_type_system(nl_type, &subsys);
-
-        r = type_system_get_type(subsys, &nl_type, msg_type);
-        if (r < 0)
-                return r;
-
-        r = message_new_full(nfnl, NFNL_SUBSYS_NFTABLES << 8 | msg_type, nl_type, type_get_size(nl_type), &m);
+        r = message_new(nfnl, &m, NFNL_SUBSYS_NFTABLES << 8 | msg_type);
         if (r < 0)
                 return r;
 
@@ -55,11 +40,11 @@ static int nft_message_new(sd_netlink *nfnl, sd_netlink_message **ret, int famil
         return 0;
 }
 
-static int sd_nfnl_message_batch(sd_netlink *nfnl, sd_netlink_message **ret, int v) {
+static int nfnl_message_batch(sd_netlink *nfnl, sd_netlink_message **ret, uint16_t msg_type) {
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
         int r;
 
-        r = message_new(nfnl, &m, v);
+        r = message_new(nfnl, &m, NFNL_SUBSYS_NONE << 8 | msg_type);
         if (r < 0)
                 return r;
 
@@ -70,15 +55,15 @@ static int sd_nfnl_message_batch(sd_netlink *nfnl, sd_netlink_message **ret, int
         };
 
         *ret = TAKE_PTR(m);
-        return r;
+        return 0;
 }
 
 int sd_nfnl_message_batch_begin(sd_netlink *nfnl, sd_netlink_message **ret) {
-        return sd_nfnl_message_batch(nfnl, ret, NFNL_MSG_BATCH_BEGIN);
+        return nfnl_message_batch(nfnl, ret, NFNL_MSG_BATCH_BEGIN);
 }
 
 int sd_nfnl_message_batch_end(sd_netlink *nfnl, sd_netlink_message **ret) {
-        return sd_nfnl_message_batch(nfnl, ret, NFNL_MSG_BATCH_END);
+        return nfnl_message_batch(nfnl, ret, NFNL_MSG_BATCH_END);
 }
 
 int sd_nfnl_nft_message_new_basechain(
