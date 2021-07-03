@@ -649,7 +649,7 @@ static int fw_nftables_init_family(sd_netlink *nfnl, int family) {
         msgcnt++;
         assert(msgcnt < NFT_INIT_MSGS);
         /* Set F_EXCL so table add fails if the table already exists. */
-        r = sd_nfnl_nft_message_new_table(nfnl, &batch[msgcnt], family, NFT_SYSTEMD_TABLE_NAME, NLM_F_EXCL | NLM_F_ACK);
+        r = sd_nfnl_nft_message_new_table(nfnl, &batch[msgcnt], family, NFT_SYSTEMD_TABLE_NAME);
         if (r < 0)
                 goto out_unref;
 
