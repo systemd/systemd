@@ -90,11 +90,16 @@ int sd_nfnl_message_batch_end(sd_netlink *nfnl, sd_netlink_message **ret) {
         return nfnl_message_batch(nfnl, ret, NFNL_MSG_BATCH_END);
 }
 
-int sd_nfnl_nft_message_new_basechain(sd_netlink *nfnl, sd_netlink_message **ret,
-                                      int family,
-                                      const char *table, const char *chain,
-                                      const char *type,
-                                      uint8_t hook, int prio) {
+int sd_nfnl_nft_message_new_basechain(
+                sd_netlink *nfnl,
+                sd_netlink_message **ret,
+                int family,
+                const char *table,
+                const char *chain,
+                const char *type,
+                uint8_t hook,
+                int prio) {
+
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
         int r;
 
@@ -134,8 +139,12 @@ int sd_nfnl_nft_message_new_basechain(sd_netlink *nfnl, sd_netlink_message **ret
         return 0;
 }
 
-int sd_nfnl_nft_message_del_table(sd_netlink *nfnl, sd_netlink_message **ret,
-                                  int family, const char *table) {
+int sd_nfnl_nft_message_del_table(
+                sd_netlink *nfnl,
+                sd_netlink_message **ret,
+                int family,
+                const char *table) {
+
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
         int r;
 
@@ -151,8 +160,13 @@ int sd_nfnl_nft_message_del_table(sd_netlink *nfnl, sd_netlink_message **ret,
         return r;
 }
 
-int sd_nfnl_nft_message_new_table(sd_netlink *nfnl, sd_netlink_message **ret,
-                                  int family, const char *table, uint16_t flags) {
+int sd_nfnl_nft_message_new_table(
+                sd_netlink *nfnl,
+                sd_netlink_message **ret,
+                int family,
+                const char *table,
+                uint16_t flags) {
+
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
         int r;
 
@@ -168,8 +182,13 @@ int sd_nfnl_nft_message_new_table(sd_netlink *nfnl, sd_netlink_message **ret,
         return r;
 }
 
-int sd_nfnl_nft_message_new_rule(sd_netlink *nfnl, sd_netlink_message **ret,
-                                 int family, const char *table, const char *chain) {
+int sd_nfnl_nft_message_new_rule(
+                sd_netlink *nfnl,
+                sd_netlink_message **ret,
+                int family,
+                const char *table,
+                const char *chain) {
+
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
         int r;
 
@@ -189,9 +208,15 @@ int sd_nfnl_nft_message_new_rule(sd_netlink *nfnl, sd_netlink_message **ret,
         return r;
 }
 
-int sd_nfnl_nft_message_new_set(sd_netlink *nfnl, sd_netlink_message **ret,
-                                int family, const char *table, const char *set_name,
-                                uint32_t set_id, uint32_t klen) {
+int sd_nfnl_nft_message_new_set(
+                sd_netlink *nfnl,
+                sd_netlink_message **ret,
+                int family,
+                const char *table,
+                const char *set_name,
+                uint32_t set_id,
+                uint32_t klen) {
+
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
         int r;
 
@@ -214,12 +239,18 @@ int sd_nfnl_nft_message_new_set(sd_netlink *nfnl, sd_netlink_message **ret,
         r = sd_netlink_message_append_u32(m, NFTA_SET_KEY_LEN, htobe32(klen));
         if (r < 0)
                 return r;
+
         *ret = TAKE_PTR(m);
         return r;
 }
 
-int sd_nfnl_nft_message_new_setelems_begin(sd_netlink *nfnl, sd_netlink_message **ret,
-                                           int family, const char *table, const char *set_name) {
+int sd_nfnl_nft_message_new_setelems_begin(
+                sd_netlink *nfnl,
+                sd_netlink_message **ret,
+                int family,
+                const char *table,
+                const char *set_name) {
+
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
         int r;
 
@@ -243,8 +274,13 @@ int sd_nfnl_nft_message_new_setelems_begin(sd_netlink *nfnl, sd_netlink_message 
         return r;
 }
 
-int sd_nfnl_nft_message_del_setelems_begin(sd_netlink *nfnl, sd_netlink_message **ret,
-                                           int family, const char *table, const char *set_name) {
+int sd_nfnl_nft_message_del_setelems_begin(
+                sd_netlink *nfnl,
+                sd_netlink_message **ret,
+                int family,
+                const char *table,
+                const char *set_name) {
+
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
         int r;
 
@@ -269,7 +305,9 @@ int sd_nfnl_nft_message_del_setelems_begin(sd_netlink *nfnl, sd_netlink_message 
 }
 
 static int sd_nfnl_add_data(sd_netlink_message *m, uint16_t attr, const void *data, uint32_t dlen) {
-        int r = sd_netlink_message_open_container(m, attr);
+        int r;
+
+        r = sd_netlink_message_open_container(m, attr);
         if (r < 0)
                 return r;
 
@@ -280,9 +318,14 @@ static int sd_nfnl_add_data(sd_netlink_message *m, uint16_t attr, const void *da
         return sd_netlink_message_close_container(m); /* attr */
 }
 
-int sd_nfnl_nft_message_add_setelem(sd_netlink_message *m, uint32_t num,
-                                    const void *key, uint32_t klen,
-                                    const void *data, uint32_t dlen) {
+int sd_nfnl_nft_message_add_setelem(
+                sd_netlink_message *m,
+                uint32_t num,
+                const void *key,
+                uint32_t klen,
+                const void *data,
+                uint32_t dlen) {
+
         int r;
 
         r = sd_netlink_message_open_array(m, num);
@@ -299,7 +342,8 @@ int sd_nfnl_nft_message_add_setelem(sd_netlink_message *m, uint32_t num,
                         goto cancel;
         }
 
-        return r;
+        return 0;
+
 cancel:
         sd_netlink_message_cancel_array(m);
         return r;
