@@ -339,7 +339,7 @@ static int add_partition_mount(
 }
 
 static int add_swap(DissectedPartition *p) {
-        _cleanup_free_ char *name = NULL, *unit = NULL, *what = NULL;
+        _cleanup_free_ char *name = NULL, *unit = NULL, *what = NULL, *crypt_what = NULL, *crypt_name = NULL;
         _cleanup_fclose_ FILE *f = NULL;
         int r;
 
@@ -356,6 +356,14 @@ static int add_swap(DissectedPartition *p) {
         }
 
         if (streq_ptr(p->fstype, "crypto_LUKS")) {
+                r = unit_name_path_escape(what, &crypt_what);
+                if (r < 0)
+                        return r;
+
+                crypt_name = strjoin("swap-", p->uuid);
+                if (!crypt_name)
+                        return -ENOMEM;
+
                 r = add_cryptsetup("swap", p->node, true, true, &what);
                 if (r < 0)
                         return r;
