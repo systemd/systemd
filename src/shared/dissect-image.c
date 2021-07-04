@@ -1077,7 +1077,6 @@ int dissect_image(
                                         continue;
 
                                 designator = PARTITION_SWAP;
-                                fstype = "swap";
 
                         } else if (sd_id128_equal(type_id, GPT_LINUX_GENERIC)) {
 
