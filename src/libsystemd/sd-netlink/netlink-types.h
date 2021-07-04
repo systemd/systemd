@@ -56,8 +56,8 @@ int type_system_root_get_type(sd_netlink *nl, const NLType **ret, uint16_t type)
 int type_system_get_type(const NLTypeSystem *type_system, const NLType **ret, uint16_t type);
 int type_system_get_type_system(const NLTypeSystem *type_system, const NLTypeSystem **ret, uint16_t type);
 int type_system_get_type_system_union(const NLTypeSystem *type_system, const NLTypeSystemUnion **ret, uint16_t type);
-int type_system_union_get_type_system(const NLTypeSystemUnion *type_system_union, const NLTypeSystem **ret, const char *key);
-int type_system_union_protocol_get_type_system(const NLTypeSystemUnion *type_system_union, const NLTypeSystem **ret, uint16_t protocol);
+int type_system_union_get_type_system_by_string(const NLTypeSystemUnion *type_system_union, const NLTypeSystem **ret, const char *key);
+int type_system_union_get_type_system_by_protocol(const NLTypeSystemUnion *type_system_union, const NLTypeSystem **ret, uint16_t protocol);
 
 typedef enum NLUnionLinkInfoData {
         NL_UNION_LINK_INFO_DATA_BOND,
