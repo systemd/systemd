@@ -339,13 +339,11 @@ static int add_partition_mount(
 }
 
 static int add_swap(DissectedPartition *p) {
-        char *path = p.node;
-
         _cleanup_free_ char *name = NULL, *unit = NULL;
         _cleanup_fclose_ FILE *f = NULL;
         int r;
 
-        assert(path);
+        assert(p->node);
 
         /* Disable the swap auto logic if at least one swap is defined in /etc/fstab, see #6192. */
         r = fstab_has_fstype("swap");
@@ -358,7 +356,9 @@ static int add_swap(DissectedPartition *p) {
 
         if (streq_ptr(p->fstype, "crypto_LUKS")) {
                 add_cryptsetup("swap", "/dev/gpt-auto-swap-luks", true, false, NULL);
-                path = "/dev/gpt-auto-swap-luks"
+                const char *path = &"/dev/gpt-auto-swap-luks"
+        } else {
+                const char *path = p->node;
         }
 
         log_debug("Adding swap: %s", path);
