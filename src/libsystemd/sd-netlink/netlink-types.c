@@ -1164,8 +1164,6 @@ static const NLType genl_ctrl_types[] = {
         [CTRL_ATTR_OP]           = { .type = NETLINK_TYPE_U32 },
 };
 
-DEFINE_TYPE_SYSTEM(genl_ctrl);
-
 /***************** genl batadv type systems *****************/
 static const NLType genl_batadv_types[] = {
         [BATADV_ATTR_VERSION]                       = { .type = NETLINK_TYPE_STRING },
@@ -1230,8 +1228,6 @@ static const NLType genl_batadv_types[] = {
         [BATADV_ATTR_THROUGHPUT_OVERRIDE]           = { .type = NETLINK_TYPE_U32 },
 };
 
-DEFINE_TYPE_SYSTEM(genl_batadv);
-
 /***************** genl fou type systems *****************/
 static const NLType genl_fou_types[] = {
         [FOU_ATTR_PORT]              = { .type = NETLINK_TYPE_U16 },
@@ -1246,8 +1242,6 @@ static const NLType genl_fou_types[] = {
         [FOU_ATTR_PEER_PORT]         = { .type = NETLINK_TYPE_U16},
         [FOU_ATTR_IFINDEX]           = { .type = NETLINK_TYPE_U32},
 };
-
-DEFINE_TYPE_SYSTEM(genl_fou);
 
 /***************** genl l2tp type systems *****************/
 static const NLType genl_l2tp_types[] = {
@@ -1280,8 +1274,6 @@ static const NLType genl_l2tp_types[] = {
         [L2TP_ATTR_UDP_ZERO_CSUM6_RX] = { .type = NETLINK_TYPE_FLAG },
 };
 
-DEFINE_TYPE_SYSTEM(genl_l2tp);
-
 /***************** genl macsec type systems *****************/
 static const NLType genl_macsec_rxsc_types[] = {
         [MACSEC_RXSC_ATTR_SCI] = { .type = NETLINK_TYPE_U64 },
@@ -1305,8 +1297,6 @@ static const NLType genl_macsec_types[] = {
         [MACSEC_ATTR_SA_CONFIG]   = { .type = NETLINK_TYPE_NESTED, .type_system = &genl_macsec_sa_type_system },
 };
 
-DEFINE_TYPE_SYSTEM(genl_macsec);
-
 /***************** genl nl80211 type systems *****************/
 static const NLType genl_nl80211_types[] = {
         [NL80211_ATTR_IFINDEX] = { .type = NETLINK_TYPE_U32 },
@@ -1314,8 +1304,6 @@ static const NLType genl_nl80211_types[] = {
         [NL80211_ATTR_SSID]    = { .type = NETLINK_TYPE_STRING },
         [NL80211_ATTR_IFTYPE]  = { .type = NETLINK_TYPE_U32 },
 };
-
-DEFINE_TYPE_SYSTEM(genl_nl80211);
 
 /***************** genl wireguard type systems *****************/
 static const NLType genl_wireguard_allowedip_types[] = {
@@ -1347,19 +1335,21 @@ static const NLType genl_wireguard_types[] = {
         [WGDEVICE_A_PEERS]       = { .type = NETLINK_TYPE_NESTED, .type_system = &genl_wireguard_peer_type_system },
 };
 
-DEFINE_TYPE_SYSTEM(genl_wireguard);
-
-static const NLType genl_types[] = {
-        [SD_GENL_ID_CTRL]   = { .type = NETLINK_TYPE_NESTED, .type_system = &genl_ctrl_type_system, .size = sizeof(struct genlmsghdr) },
-        [SD_GENL_WIREGUARD] = { .type = NETLINK_TYPE_NESTED, .type_system = &genl_wireguard_type_system, .size = sizeof(struct genlmsghdr) },
-        [SD_GENL_FOU]       = { .type = NETLINK_TYPE_NESTED, .type_system = &genl_fou_type_system, .size = sizeof(struct genlmsghdr) },
-        [SD_GENL_L2TP]      = { .type = NETLINK_TYPE_NESTED, .type_system = &genl_l2tp_type_system, .size = sizeof(struct genlmsghdr) },
-        [SD_GENL_MACSEC]    = { .type = NETLINK_TYPE_NESTED, .type_system = &genl_macsec_type_system, .size = sizeof(struct genlmsghdr) },
-        [SD_GENL_NL80211]   = { .type = NETLINK_TYPE_NESTED, .type_system = &genl_nl80211_type_system, .size = sizeof(struct genlmsghdr) },
-        [SD_GENL_BATADV]    = { .type = NETLINK_TYPE_NESTED, .type_system = &genl_batadv_type_system, .size = sizeof(struct genlmsghdr) },
+static const NLTypeSystemUnionElement genl_type_systems[] = {
+        { .name = CTRL_GENL_NAME,    .type_system = TYPE_SYSTEM_FROM_TYPE(genl_ctrl),      },
+        { .name = BATADV_NL_NAME,    .type_system = TYPE_SYSTEM_FROM_TYPE(genl_batadv),    },
+        { .name = FOU_GENL_NAME,     .type_system = TYPE_SYSTEM_FROM_TYPE(genl_fou),       },
+        { .name = L2TP_GENL_NAME,    .type_system = TYPE_SYSTEM_FROM_TYPE(genl_l2tp),      },
+        { .name = MACSEC_GENL_NAME,  .type_system = TYPE_SYSTEM_FROM_TYPE(genl_macsec),    },
+        { .name = NL80211_GENL_NAME, .type_system = TYPE_SYSTEM_FROM_TYPE(genl_nl80211),   },
+        { .name = WG_GENL_NAME,      .type_system = TYPE_SYSTEM_FROM_TYPE(genl_wireguard), },
 };
 
-DEFINE_TYPE_SYSTEM_FULL(genl, genl_type_system_root);
+static const NLTypeSystemUnion genl_type_system_union = {
+        .count = ELEMENTSOF(genl_type_systems),
+        .elements = genl_type_systems,
+        .match_type = NL_MATCH_SIBLING,
+};
 
 uint16_t type_get_type(const NLType *type) {
         assert(type);
@@ -1409,17 +1399,55 @@ int type_system_root_get_type(sd_netlink *nl, const NLType **ret, uint16_t type)
 
                 return type_system_get_type(subsys, ret, type & ((1U << 8) - 1));
         }
-        if (nl->protocol == NETLINK_GENERIC) {
-                sd_genl_family_t family;
-
-                r = nlmsg_type_to_genl_family(nl, type, &family);
-                if (r < 0)
-                        return r;
-
-                return type_system_get_type(&genl_type_system_root, ret, family);
-        }
 
         return -EOPNOTSUPP;
+}
+
+int genl_get_type_system_by_name(const char *name, const NLTypeSystem **ret) {
+        return type_system_union_get_type_system_by_string(&genl_type_system_union, ret, name);
+}
+
+int type_system_root_get_type_system_and_header_size(
+                sd_netlink *nl,
+                uint16_t type,
+                const NLTypeSystem **ret_type_system,
+                size_t *ret_header_size) {
+
+        const NLTypeSystem *type_system;
+        const NLType *nl_type;
+        const char *name;
+        int r;
+
+        assert(nl);
+
+        r = type_system_root_get_type(nl, &nl_type, type);
+        if (r >= 0) {
+                if (type_get_type(nl_type) != NETLINK_TYPE_NESTED)
+                        return -EOPNOTSUPP;
+
+                if (ret_type_system)
+                        *ret_type_system = type_get_type_system(nl_type);
+                if (ret_header_size)
+                        *ret_header_size = type_get_size(nl_type);
+                return 0;
+        }
+
+        if (nl->protocol != NETLINK_GENERIC)
+                return r;
+
+        r = genl_family_get_name(nl, type, &name);
+        if (r < 0)
+                return r;
+
+        r = genl_get_type_system_by_name(name, &type_system);
+        if (r < 0)
+                return r;
+
+        if (ret_type_system)
+                *ret_type_system = type_system;
+        if (ret_header_size)
+                *ret_header_size = sizeof(struct genlmsghdr);
+        return 0;
 }
 
 int type_system_get_type(const NLTypeSystem *type_system, const NLType **ret, uint16_t type) {

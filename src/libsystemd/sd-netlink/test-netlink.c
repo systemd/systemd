@@ -8,6 +8,7 @@
 
 #include "alloc-util.h"
 #include "ether-addr-util.h"
+#include "generic-netlink.h"
 #include "macro.h"
 #include "netlink-util.h"
 #include "socket-util.h"
@@ -513,7 +514,7 @@ static void test_array(void) {
         log_debug("/* %s */", __func__);
 
         assert_se(sd_genl_socket_open(&genl) >= 0);
-        assert_se(sd_genl_message_new(genl, SD_GENL_ID_CTRL, CTRL_CMD_GETFAMILY, &m) >= 0);
+        assert_se(sd_genl_message_new(genl, CTRL_GENL_NAME, CTRL_CMD_GETFAMILY, &m) >= 0);
 
         assert_se(sd_netlink_message_open_container(m, CTRL_ATTR_MCAST_GROUPS) >= 0);
         for (unsigned i = 0; i < 10; i++) {
