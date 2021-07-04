@@ -72,6 +72,14 @@ struct NLTypeSystem {
         const NLType *types;
 };
 
+struct NLTypeSystemUnion {
+        int num;
+        NLMatchType match_type;
+        uint16_t match_attribute;
+        int (*lookup)(const char *);
+        const NLTypeSystem *type_systems;
+};
+
 static const NLTypeSystem rtnl_link_type_system;
 
 static const NLType empty_types[1] = {
@@ -476,7 +484,7 @@ static const NLTypeSystemUnion rtnl_link_info_data_type_system_union = {
         .lookup = nl_union_link_info_data_from_string,
         .type_systems = rtnl_link_info_data_type_systems,
         .match_type = NL_MATCH_SIBLING,
-        .match = IFLA_INFO_KIND,
+        .match_attribute = IFLA_INFO_KIND,
 };
 
 static const NLType rtnl_link_info_types[] = {
@@ -1013,7 +1021,7 @@ static const NLTypeSystemUnion rtnl_tca_option_data_type_system_union = {
         .lookup = nl_union_tca_option_data_from_string,
         .type_systems = rtnl_tca_option_data_type_systems,
         .match_type = NL_MATCH_SIBLING,
-        .match = TCA_KIND,
+        .match_attribute = TCA_KIND,
 };
 
 static const NLType rtnl_tca_types[] = {
@@ -1570,7 +1578,7 @@ static const NLTypeSystemUnion nfnl_nft_data_expr_type_system_union = {
         .lookup = nl_union_nft_expr_data_from_string,
         .type_systems = nfnl_expr_data_type_systems,
         .match_type = NL_MATCH_SIBLING,
-        .match = NFTA_EXPR_NAME,
+        .match_attribute = NFTA_EXPR_NAME,
 };
 
 static const NLType nfnl_nft_rule_expr_types[] = {
@@ -1803,6 +1811,17 @@ int type_system_get_type_system_union(const NLTypeSystem *type_system, const NLT
 
         *ret = type_get_type_system_union(nl_type);
         return 0;
+}
+
+NLMatchType type_system_union_get_match_type(const NLTypeSystemUnion *type_system_union) {
+        assert(type_system_union);
+        return type_system_union->match_type;
+}
+
+uint16_t type_system_union_get_match_attribute(const NLTypeSystemUnion *type_system_union) {
+        assert(type_system_union);
+        assert(type_system_union->match_type == NL_MATCH_SIBLING);
+        return type_system_union->match_attribute;
 }
 
 int type_system_union_get_type_system_by_string(const NLTypeSystemUnion *type_system_union, const NLTypeSystem **ret, const char *key) {
