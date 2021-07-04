@@ -16,11 +16,13 @@ typedef struct GenericNetlinkFamily {
 
         uint16_t id; /* a.k.a nlmsg_type */
         char *name;
+        uint32_t version;
 } GenericNetlinkFamily;
 
 static const GenericNetlinkFamily nlctrl_static = {
         .id = GENL_ID_CTRL,
         .name = (char*) CTRL_GENL_NAME,
+        .version = 0x01,
 };
 
 static GenericNetlinkFamily *genl_family_free(GenericNetlinkFamily *f) {
@@ -113,6 +115,10 @@ static int genl_family_new(
         if (!streq(f->name, expected_family_name))
                 return -EINVAL;
 
+        r = sd_netlink_message_read_u32(message, CTRL_ATTR_VERSION, &f->version);
+        if (r < 0)
+                return r;
+
         r = hashmap_ensure_put(&nl->genl_family_by_id, NULL, UINT_TO_PTR(f->id), f);
         if (r < 0)
                 return r;
@@ -165,7 +171,7 @@ static int genl_message_new(
 
         *(struct genlmsghdr *) NLMSG_DATA(m->hdr) = (struct genlmsghdr) {
                 .cmd = cmd,
-                .version = 1,
+                .version = family->version,
         };
 
         *ret = TAKE_PTR(m);
