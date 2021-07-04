@@ -343,6 +343,7 @@ static int add_swap(DissectedPartition *p) {
         _cleanup_fclose_ FILE *f = NULL;
         int r;
 
+        assert(p);
         assert(p->node);
 
         /* Disable the swap auto logic if at least one swap is defined in /etc/fstab, see #6192. */
