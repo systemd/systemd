@@ -338,12 +338,12 @@ static int add_partition_mount(
                         SPECIAL_LOCAL_FS_TARGET);
 }
 
-static int add_swap(const char *path) {
-        _cleanup_free_ char *name = NULL, *unit = NULL;
+static int add_swap(DissectedPartition *p) {
+        _cleanup_free_ char *name = NULL, *unit = NULL, *crypto_what = NULL;
         _cleanup_fclose_ FILE *f = NULL;
         int r;
 
-        assert(path);
+        assert(p->node);
 
         /* Disable the swap auto logic if at least one swap is defined in /etc/fstab, see #6192. */
         r = fstab_has_fstype("swap");
@@ -352,6 +352,16 @@ static int add_swap(const char *path) {
         if (r > 0) {
                 log_debug("swap specified in fstab, ignoring.");
                 return 0;
+        }
+
+        const char *path;
+        if (streq_ptr(p->fstype, "crypto_LUKS")) {
+                r = add_cryptsetup("swap", p->node, true, true, &crypto_what);
+                if (r < 0)
+                        return r;
+                path = "/dev/mapper/swap";
+        } else {
+                path = p->node;
         }
 
         log_debug("Adding swap: %s", path);
@@ -703,7 +713,7 @@ static int enumerate_partitions(dev_t devnum) {
                 return log_error_errno(r, "Failed to dissect: %m");
 
         if (m->partitions[PARTITION_SWAP].found) {
-                k = add_swap(m->partitions[PARTITION_SWAP].node);
+                k = add_swap(m->partitions + PARTITION_SWAP);
                 if (k < 0)
                         r = k;
         }
