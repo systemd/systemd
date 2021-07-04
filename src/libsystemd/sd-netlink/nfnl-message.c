@@ -43,7 +43,7 @@ static int nft_message_new(sd_netlink *nfnl, sd_netlink_message **ret, int famil
 
         m->hdr->nlmsg_flags = NLM_F_REQUEST | flags;
 
-        type_get_type_system(nl_type, &m->containers[0].type_system);
+        m->containers[0].type_system = type_get_type_system(nl_type);
 
         r = type_system_get_type_system(m->containers[0].type_system,
                                         &m->containers[0].type_system,
