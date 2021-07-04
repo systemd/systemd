@@ -339,7 +339,7 @@ static int add_partition_mount(
 }
 
 static int add_swap(DissectedPartition *p) {
-        _cleanup_free_ char *name = NULL, *unit = NULL, *crypto_what = NULL;
+        _cleanup_free_ char *name = NULL, *unit = NULL, *what = NULL;
         _cleanup_fclose_ FILE *f = NULL;
         int r;
 
@@ -354,19 +354,17 @@ static int add_swap(DissectedPartition *p) {
                 return 0;
         }
 
-        const char *path;
         if (streq_ptr(p->fstype, "crypto_LUKS")) {
-                r = add_cryptsetup("swap", p->node, true, true, &crypto_what);
+                r = add_cryptsetup("swap", p->node, true, true, &what);
                 if (r < 0)
                         return r;
-                path = "/dev/mapper/swap";
         } else {
-                path = p->node;
+                what = p->node;
         }
 
-        log_debug("Adding swap: %s", path);
+        log_debug("Adding swap: %s", what);
 
-        r = unit_name_from_path(path, ".swap", &name);
+        r = unit_name_from_path(what, ".swap", &name);
         if (r < 0)
                 return log_error_errno(r, "Failed to generate unit name: %m");
 
@@ -384,7 +382,7 @@ static int add_swap(DissectedPartition *p) {
                 "Description=Swap Partition\n"
                 "Documentation=man:systemd-gpt-auto-generator(8)\n");
 
-        r = generator_write_blockdev_dependency(f, path);
+        r = generator_write_blockdev_dependency(f, what);
         if (r < 0)
                 return r;
 
@@ -392,7 +390,7 @@ static int add_swap(DissectedPartition *p) {
                 "\n"
                 "[Swap]\n"
                 "What=%s\n",
-                path);
+                what);
 
         r = fflush_and_check(f);
         if (r < 0)
