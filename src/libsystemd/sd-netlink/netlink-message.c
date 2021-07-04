@@ -616,7 +616,7 @@ int sd_netlink_message_open_container_union(sd_netlink_message *m, unsigned shor
         if (r < 0)
                 return r;
 
-        r = sd_netlink_message_append_string(m, type_system_union->match, key);
+        r = sd_netlink_message_append_string(m, type_system_union_get_match_attribute(type_system_union), key);
         if (r < 0)
                 return r;
 
@@ -1148,12 +1148,14 @@ int sd_netlink_message_enter_container(sd_netlink_message *m, unsigned short typ
                 if (r < 0)
                         return r;
 
-                switch (type_system_union->match_type) {
-                case NL_MATCH_SIBLING:
-                {
+                switch (type_system_union_get_match_type(type_system_union)) {
+                case NL_MATCH_SIBLING: {
                         const char *key;
 
-                        r = sd_netlink_message_read_string(m, type_system_union->match, &key);
+                        r = sd_netlink_message_read_string(
+                                        m,
+                                        type_system_union_get_match_attribute(type_system_union),
+                                        &key);
                         if (r < 0)
                                 return r;
 
@@ -1166,8 +1168,7 @@ int sd_netlink_message_enter_container(sd_netlink_message *m, unsigned short typ
 
                         break;
                 }
-                case NL_MATCH_PROTOCOL:
-                {
+                case NL_MATCH_PROTOCOL: {
                         int family;
 
                         r = sd_rtnl_message_get_family(m, &family);
