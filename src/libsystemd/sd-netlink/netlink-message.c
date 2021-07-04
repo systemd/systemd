@@ -71,7 +71,7 @@ int message_new(sd_netlink *nl, sd_netlink_message **ret, uint16_t type) {
 
         m->hdr->nlmsg_flags = NLM_F_REQUEST | NLM_F_ACK;
 
-        type_get_type_system(nl_type, &m->containers[0].type_system);
+        m->containers[0].type_system = type_get_type_system(nl_type);
         m->hdr->nlmsg_len = size;
         m->hdr->nlmsg_type = type;
 
@@ -1328,11 +1328,7 @@ int sd_netlink_message_rewind(sd_netlink_message *m, sd_netlink *genl) {
         size = type_get_size(nl_type);
 
         if (type == NETLINK_TYPE_NESTED) {
-                const NLTypeSystem *type_system;
-
-                type_get_type_system(nl_type, &type_system);
-
-                m->containers[0].type_system = type_system;
+                m->containers[0].type_system = type_get_type_system(nl_type);
 
                 if (sd_netlink_message_is_error(m))
                         r = netlink_message_parse_error(m);
