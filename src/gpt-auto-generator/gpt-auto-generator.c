@@ -354,11 +354,12 @@ static int add_swap(DissectedPartition *p) {
                 return 0;
         }
 
+        const char *path;
         if (streq_ptr(p->fstype, "crypto_LUKS")) {
                 add_cryptsetup("swap", "/dev/gpt-auto-swap-luks", true, false, NULL);
-                const char *path = &"/dev/gpt-auto-swap-luks"
+                path = "/dev/gpt-auto-swap-luks";
         } else {
-                const char *path = p->node;
+                path = p->node;
         }
 
         log_debug("Adding swap: %s", path);
@@ -710,7 +711,7 @@ static int enumerate_partitions(dev_t devnum) {
                 return log_error_errno(r, "Failed to dissect: %m");
 
         if (m->partitions[PARTITION_SWAP].found) {
-                k = add_swap(m->partitions[PARTITION_SWAP]);
+                k = add_swap(m->partitions + PARTITION_SWAP);
                 if (k < 0)
                         r = k;
         }
