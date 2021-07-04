@@ -53,7 +53,7 @@ static int genl_message_new(sd_netlink *nl, sd_genl_family_t family, uint16_t nl
 
         m->hdr->nlmsg_flags = NLM_F_REQUEST | NLM_F_ACK;
 
-        type_get_type_system(genl_cmd_type, &type_system);
+        type_system = type_get_type_system(genl_cmd_type);
 
         r = type_system_get_type(type_system, &nl_type, cmd);
         if (r < 0)
@@ -62,7 +62,7 @@ static int genl_message_new(sd_netlink *nl, sd_genl_family_t family, uint16_t nl
         m->hdr->nlmsg_len = size;
         m->hdr->nlmsg_type = nlmsg_type;
 
-        type_get_type_system(nl_type, &m->containers[0].type_system);
+        m->containers[0].type_system = type_get_type_system(nl_type);
 
         *(struct genlmsghdr *) NLMSG_DATA(m->hdr) = (struct genlmsghdr) {
                 .cmd = cmd,

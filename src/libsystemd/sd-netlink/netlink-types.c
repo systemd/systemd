@@ -1700,22 +1700,18 @@ size_t type_get_size(const NLType *type) {
         return type->size;
 }
 
-void type_get_type_system(const NLType *nl_type, const NLTypeSystem **ret) {
+const NLTypeSystem *type_get_type_system(const NLType *nl_type) {
         assert(nl_type);
-        assert(ret);
         assert(nl_type->type == NETLINK_TYPE_NESTED);
         assert(nl_type->type_system);
-
-        *ret = nl_type->type_system;
+        return nl_type->type_system;
 }
 
-void type_get_type_system_union(const NLType *nl_type, const NLTypeSystemUnion **ret) {
+const NLTypeSystemUnion *type_get_type_system_union(const NLType *nl_type) {
         assert(nl_type);
-        assert(ret);
         assert(nl_type->type == NETLINK_TYPE_UNION);
         assert(nl_type->type_system_union);
-
-        *ret = nl_type->type_system_union;
+        return nl_type->type_system_union;
 }
 
 uint16_t type_system_get_count(const NLTypeSystem *type_system) {
@@ -1778,7 +1774,6 @@ int type_system_get_type(const NLTypeSystem *type_system, const NLType **ret, ui
                 return -EOPNOTSUPP;
 
         *ret = nl_type;
-
         return 0;
 }
 
@@ -1792,7 +1787,7 @@ int type_system_get_type_system(const NLTypeSystem *type_system, const NLTypeSys
         if (r < 0)
                 return r;
 
-        type_get_type_system(nl_type, ret);
+        *ret = type_get_type_system(nl_type);
         return 0;
 }
 
@@ -1806,7 +1801,7 @@ int type_system_get_type_system_union(const NLTypeSystem *type_system, const NLT
         if (r < 0)
                 return r;
 
-        type_get_type_system_union(nl_type, ret);
+        *ret = type_get_type_system_union(nl_type);
         return 0;
 }
 
@@ -1827,7 +1822,6 @@ int type_system_union_get_type_system(const NLTypeSystemUnion *type_system_union
         assert(type < type_system_union->num);
 
         *ret = &type_system_union->type_systems[type];
-
         return 0;
 }
 
@@ -1847,6 +1841,5 @@ int type_system_union_protocol_get_type_system(const NLTypeSystemUnion *type_sys
                 return -EOPNOTSUPP;
 
         *ret = type_system;
-
         return 0;
 }
