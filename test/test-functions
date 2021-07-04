@@ -39,12 +39,30 @@ TEST_REQUIRE_INSTALL_TESTS="${TEST_REQUIRE_INSTALL_TESTS:-1}"
 TEST_PARALLELIZE="${TEST_PARALLELIZE:-0}"
 LOOPDEV=
 
+# Simple wrapper to unify boolean checks.
+# Note: this function needs to say near the top of the file, so we can use it
+#       in code in the outermost scope.
+get_bool() {
+    # Make the value lowercase to make the regex matching simpler
+    local _bool="${1,,}"
+
+    # Consider empty value as "false"
+    if [[ -z "$_bool" || "$_bool" =~ ^(0|no|false)$ ]]; then
+        return 1
+    elif [[ "$_bool" =~ ^(1|yes|true)$ ]]; then
+        return 0
+    else
+        echo >&2 "Value '$_bool' is not a valid boolean value"
+        exit 1
+    fi
+}
+
 # Decide if we can (and want to) run QEMU with KVM acceleration.
 # Check if nested KVM is explicitly enabled (TEST_NESTED_KVM). If not,
 # check if it's not explicitly disabled (TEST_NO_KVM) and we're not already
 # running under KVM. If these conditions are met, enable KVM (and possibly
 # nested KVM), otherwise disable it.
-if [[ -n "${TEST_NESTED_KVM:=}" || ( -z "${TEST_NO_KVM:=}" && $(systemd-detect-virt -v) != kvm ) ]]; then
+if get_bool "${TEST_NESTED_KVM:=}" || (! get_bool "${TEST_NO_KVM:=}" && [[ "$(systemd-detect-virt -v)" != kvm ]]); then
     QEMU_KVM=yes
 else
     QEMU_KVM=no
@@ -65,7 +83,7 @@ export TEST_BASE_DIR TEST_UNITS_DIR SOURCE_DIR TOOLS_DIR
 
 # note that find-build-dir.sh will return $BUILD_DIR if provided, else it will try to find it
 if ! BUILD_DIR="$("$TOOLS_DIR"/find-build-dir.sh)"; then
-    if [ "$NO_BUILD" ]; then
+    if get_bool "${NO_BUILD:=}"; then
         BUILD_DIR="$SOURCE_DIR"
     else
         echo "ERROR: no build found, please set BUILD_DIR or use NO_BUILD" >&2
@@ -220,7 +238,7 @@ is_built_with_asan() {
 
 IS_BUILT_WITH_ASAN=$(is_built_with_asan && echo yes || echo no)
 
-if [[ "$IS_BUILT_WITH_ASAN" = "yes" ]]; then
+if get_bool "$IS_BUILT_WITH_ASAN"; then
     STRIP_BINARIES=no
     SKIP_INITRD="${SKIP_INITRD:-yes}"
     PATH_TO_INIT=$ROOTLIBDIR/systemd-under-asan
@@ -257,7 +275,7 @@ fi
 find_qemu_bin() {
     QEMU_BIN="${QEMU_BIN:-""}"
     # SUSE and Red Hat call the binary qemu-kvm. Debian and Gentoo call it kvm.
-    if [[ $QEMU_KVM == "yes" ]]; then
+    if get_bool "$QEMU_KVM"; then
         [[ -n "$QEMU_BIN" ]] || QEMU_BIN="$(command -v kvm qemu-kvm 2>/dev/null | grep '^/' -m1)"
     fi
 
@@ -323,7 +341,7 @@ run_qemu() {
     umount_loopback
 
     if [[ ! "$KERNEL_BIN" ]]; then
-        if [[ "$LOOKS_LIKE_ARCH" ]]; then
+        if get_bool "$LOOKS_LIKE_ARCH"; then
             KERNEL_BIN=/boot/vmlinuz-linux
         else
             [ "$ARCH" ] || ARCH=$(uname -m)
@@ -386,7 +404,7 @@ run_qemu() {
         exit 1
     fi
 
-    if [[ "$LOOKS_LIKE_SUSE" ]]; then
+    if get_bool "$LOOKS_LIKE_SUSE"; then
         kernel_params+=("rd.hostonly=0")
     fi
 
@@ -404,7 +422,7 @@ run_qemu() {
         "systemd.wants=testsuite-$1.service"
     )
 
-    if [[ ! "$INTERACTIVE_DEBUG" ]]; then
+    if ! get_bool "$INTERACTIVE_DEBUG"; then
         kernel_params+=("systemd.wants=end.service")
     fi
 
@@ -430,12 +448,12 @@ run_qemu() {
         kernel_params+=("${user_kernel_append[@]}")
     fi
 
-    if [[ "$INITRD" && "$SKIP_INITRD" != "yes" ]]; then
+    if [[ "$INITRD" ]] && ! get_bool "$SKIP_INITRD"; then
         qemu_options+=(-initrd "$INITRD")
     fi
 
     # Let's use KVM if possible
-    if [[ -c /dev/kvm && $QEMU_KVM == "yes" ]]; then
+    if [[ -c /dev/kvm ]] && get_bool $QEMU_KVM; then
         qemu_options+=(-machine "accel=kvm" -enable-kvm -cpu host)
     fi
 
@@ -445,8 +463,8 @@ run_qemu() {
 
     (set -x; "${qemu_cmd[@]}" "${qemu_options[@]}" -append "${kernel_params[*]}")
     rc=$?
-    if [ "$rc" = 124 ] && [ "$QEMU_TIMEOUT" != "infinity" ]; then
-        derror "test timed out after $QEMU_TIMEOUT s"
+    if [ "$rc" -eq 124 ] && [ "$QEMU_TIMEOUT" != "infinity" ]; then
+        derror "Test timed out after ${QEMU_TIMEOUT}s"
         TIMED_OUT=1
     else
         [ "$rc" != 0 ] && derror "QEMU failed with exit code $rc"
@@ -473,7 +491,7 @@ run_nspawn() {
         "systemd.wants=testsuite-$2.service"
     )
 
-    if [[ ! "$INTERACTIVE_DEBUG" ]]; then
+    if ! get_bool "$INTERACTIVE_DEBUG"; then
         kernel_params+=("systemd.wants=end.service")
     fi
 
@@ -509,8 +527,8 @@ run_nspawn() {
 
     (set -x; "${nspawn_cmd[@]}" "${nspawn_options[@]}" "${kernel_params[@]}")
     rc=$?
-    if [ "$rc" = 124 ] && [ "$NSPAWN_TIMEOUT" != "infinity" ]; then
-        derror "test timed out after $NSPAWN_TIMEOUT s"
+    if [ "$rc" -eq 124 ] && [ "$NSPAWN_TIMEOUT" != "infinity" ]; then
+        derror "Test timed out after ${NSPAWN_TIMEOUT}s"
         TIMED_OUT=1
     else
         [ "$rc" != 0 ] && derror "nspawn failed with exit code $rc"
@@ -655,10 +673,10 @@ setup_basic_environment() {
     strip_binaries
     install_depmod_files
     generate_module_dependencies
-    if [[ "$IS_BUILT_WITH_ASAN" = "yes" ]]; then
+    if get_bool "$IS_BUILT_WITH_ASAN"; then
         create_asan_wrapper
     fi
-    if [ -n "$TEST_INSTALL_VERITY_MINIMAL" ]; then
+    if get_bool "$TEST_INSTALL_VERITY_MINIMAL"; then
         install_verity_minimal
     fi
 }
@@ -666,7 +684,7 @@ setup_basic_environment() {
 setup_selinux() {
     dinfo "Setup SELinux"
     # don't forget KERNEL_APPEND='... selinux=1 ...'
-    if [[ "$SETUP_SELINUX" != "yes" ]]; then
+    if ! get_bool "$SETUP_SELINUX"; then
         dinfo "SETUP_SELINUX != yes, skipping SELinux configuration"
         return 0
     fi
@@ -867,7 +885,7 @@ install_modules() {
     instmods nls_ascii =nls
     instmods dummy
 
-    if [[ "$LOOKS_LIKE_SUSE" ]]; then
+    if get_bool "$LOOKS_LIKE_SUSE"; then
         instmods ext4
     fi
 }
@@ -875,7 +893,7 @@ install_modules() {
 install_dmevent() {
     instmods dm_crypt =crypto
     inst_binary dmeventd
-    if [[ "$LOOKS_LIKE_DEBIAN" ]]; then
+    if get_bool "$LOOKS_LIKE_DEBIAN"; then
         # dmsetup installs 55-dm and 60-persistent-storage-dm on Debian/Ubuntu
         # and since buster/bionic 95-dm-notify.rules
         # see https://gitlab.com/debian-lvm/lvm2/blob/master/debian/patches/udev.patch
@@ -883,7 +901,7 @@ install_dmevent() {
     else
         inst_rules 10-dm.rules 13-dm-disk.rules 95-dm-notify.rules
     fi
-    if [[ "$LOOKS_LIKE_SUSE" ]]; then
+    if get_bool "$LOOKS_LIKE_SUSE"; then
         inst_rules 60-persistent-storage.rules 61-persistent-storage-compat.rules 99-systemd.rules
     fi
 }
@@ -919,7 +937,7 @@ install_debian_systemd() {
 install_distro_systemd() {
     dinfo "Install distro systemd"
 
-    if [ "$LOOKS_LIKE_DEBIAN" ]; then
+    if get_bool "$LOOKS_LIKE_DEBIAN"; then
         install_debian_systemd
     else
         dfatal "NO_BUILD not supported for this distro"
@@ -929,7 +947,7 @@ install_distro_systemd() {
 
 install_systemd() {
     dinfo "Install systemd"
-    if [ "$NO_BUILD" ]; then
+    if get_bool "$NO_BUILD"; then
         install_distro_systemd
     else
         install_compiled_systemd
@@ -938,7 +956,7 @@ install_systemd() {
     # remove unneeded documentation
     rm -fr "$initdir"/usr/share/{man,doc}
 
-    [[ "$LOOKS_LIKE_SUSE" ]] && setup_suse
+    get_bool "$LOOKS_LIKE_SUSE" && setup_suse
 
     # enable debug logging in PID1
     echo LogLevel=debug >>"$initdir/etc/systemd/system.conf"
@@ -1007,7 +1025,7 @@ create_empty_image() {
     fi
 
     local size=500
-    if [ -z "$NO_BUILD" ]; then
+    if ! get_bool "$NO_BUILD"; then
         if meson configure "${BUILD_DIR:?}" | grep 'static-lib\|standalone-binaries' | awk '{ print $2 }' | grep -q 'true'; then
             size=$((size+=200))
         fi
@@ -1015,7 +1033,7 @@ create_empty_image() {
             size=$((size+=200))
         fi
     fi
-    if [[ "$STRIP_BINARIES" = "no" ]]; then
+    if ! get_bool "$STRIP_BINARIES"; then
         size=$((4 * size))
     fi
 
@@ -1061,7 +1079,7 @@ mount_initdir() {
 
 cleanup_initdir() {
     # only umount if create_empty_image_rootdir() was called to mount it
-    [[ -z $TEST_SETUP_CLEANUP_ROOTDIR ]] || _umount_dir "${initdir:?}"
+    get_bool "$TEST_SETUP_CLEANUP_ROOTDIR" && _umount_dir "${initdir:?}"
 }
 
 umount_loopback() {
@@ -1082,7 +1100,7 @@ check_asan_reports() {
     local ret=0
     local root="${1:?}"
 
-    if [[ "$IS_BUILT_WITH_ASAN" = "yes" ]]; then
+    if get_bool "$IS_BUILT_WITH_ASAN"; then
         ls -l "$root"
         if [[ -e "$root/systemd.asan.log.1" ]]; then
             cat "$root/systemd.asan.log.1"
@@ -1133,7 +1151,7 @@ save_journal() {
     fi
 
     for j in "${1:?}"/*; do
-        if [ "$save" = "yes" ]; then
+        if get_bool "$save"; then
             "$SYSTEMD_JOURNAL_REMOTE" -o "$dest" --getter="$JOURNALCTL -o export -D $j"
         fi
 
@@ -1145,7 +1163,7 @@ save_journal() {
         rm -r "$j"
     done
 
-    if [ "$save" != "yes" ]; then
+    if ! get_bool "$save"; then
         return 0
     fi
 
@@ -1176,7 +1194,7 @@ check_result_common() {
         echo "${TESTNAME:?} was skipped:"
         cat "$workspace/skipped"
         ret=0
-    elif [ -n "$TIMED_OUT" ]; then
+    elif get_bool "$TIMED_OUT"; then
         echo "(timeout)" >"${TESTDIR:?}/failed"
         ret=2
     else
@@ -1265,7 +1283,7 @@ check_result_nspawn_unittests() {
         fi
     fi
 
-    [[ -n "${TIMED_OUT:=}" ]] && ret=1
+    get_bool "${TIMED_OUT:=}" && ret=1
 
     save_journal "$workspace/var/log/journal" $ret
 
@@ -1297,7 +1315,7 @@ check_result_qemu_unittests() {
         fi
     fi
 
-    [[ -n "${TIMED_OUT:=}" ]] && ret=1
+    get_bool "${TIMED_OUT:=}" && ret=1
 
     save_journal "$initdir/var/log/journal" $ret
 
@@ -1308,7 +1326,7 @@ check_result_qemu_unittests() {
 
 strip_binaries() {
     dinfo "Strip binaries"
-    if [[ "$STRIP_BINARIES" = "no" ]]; then
+    if ! get_bool "$STRIP_BINARIES"; then
         dinfo "STRIP_BINARIES == no, keeping binaries unstripped"
         return 0
     fi
@@ -1428,7 +1446,7 @@ install_debug_tools() {
     dinfo "Install debug tools"
     dracut_install "${DEBUGTOOLS[@]}"
 
-    if [[ $INTERACTIVE_DEBUG ]]; then
+    if get_bool "$INTERACTIVE_DEBUG"; then
         # Set default TERM from vt220 to linux, so at least basic key shortcuts work
         local getty_override="${initdir:?}/etc/systemd/system/serial-getty@.service.d"
         mkdir -p "$getty_override"
@@ -1525,7 +1543,7 @@ install_pam() {
     dinfo "Install PAM"
     local paths=()
 
-    if [[ "$LOOKS_LIKE_DEBIAN" ]] && type -p dpkg-architecture &>/dev/null; then
+    if get_bool "$LOOKS_LIKE_DEBIAN" && type -p dpkg-architecture &>/dev/null; then
         paths+=("/lib/$(dpkg-architecture -qDEB_HOST_MULTIARCH)/security")
     else
         paths+=(/lib*/security)
@@ -1623,7 +1641,7 @@ setup_nspawn_root() {
 
     rm -rf "${TESTDIR:?}/unprivileged-nspawn-root"
 
-    if [[ "$RUN_IN_UNPRIVILEGED_CONTAINER" = "yes" ]]; then
+    if get_bool "$RUN_IN_UNPRIVILEGED_CONTAINER"; then
         ddebug "cp -ar $initdir $TESTDIR/unprivileged-nspawn-root"
         cp -ar "$initdir" "$TESTDIR/unprivileged-nspawn-root"
     fi
@@ -1771,7 +1789,7 @@ dlog() {
 dtrace() {
     set +x
     dlog 6 "$@"
-    if [[ "${debug:=}" ]]; then
+    if get_bool "${debug:=}"; then
         set -x
     fi
 }
@@ -1791,7 +1809,7 @@ ddebug() {
 dinfo() {
     set +x
     dlog 4 "$@"
-    if [[ "${debug:=}" ]]; then
+    if get_bool "${debug:=}"; then
         set -x
     fi
 }
@@ -1803,7 +1821,7 @@ dinfo() {
 dwarn() {
     set +x
     dlog 3 "$@"
-    if [[ "${debug:=}" ]]; then
+    if get_bool "${debug:=}"; then
         set -x
     fi
 }
@@ -1823,7 +1841,7 @@ derror() {
 dfatal() {
     set +x
     dlog 1 "$@"
-    if [[ "${debug:=}" ]]; then
+    if get_bool "${debug:=}"; then
         set -x
     fi
 }
@@ -2081,7 +2099,7 @@ inst_script() {
 
     read -r -n 80 line <"$bin"
     # If debug is set, clean unprintable chars to prevent messing up the term
-    [[ "${debug:=}" ]] && line="$(echo -n "$line" | tr -c -d '[:print:][:space:]')"
+    get_bool "${debug:=}" && line="$(echo -n "$line" | tr -c -d '[:print:][:space:]')"
     shebang_regex='(#! *)(/[^ ]+).*'
     [[ "$line" =~ $shebang_regex ]] || return 1
     inst "${BASH_REMATCH[2]}" && inst_simple "$bin" "$@"
@@ -2227,7 +2245,7 @@ dracut_install() {
 
     for prog in "$@"; do
         if ! inst "$prog" ; then
-            if [[ "$optional" = yes ]]; then
+            if get_bool "$optional"; then
                 dinfo "Skipping program $prog as it cannot be found and is" \
                     "flagged to be optional"
             else
@@ -2262,7 +2280,7 @@ install_kmod_with_fw() {
                 found=yes
             fi
         done
-        if [[ $found != yes ]]; then
+        if ! get_bool "$found"; then
             if ! grep -qe "\<${modname//-/_}\>" /proc/modules; then
                 dinfo "Possible missing firmware \"${fw}\" for kernel module" \
                     "\"${modname}.ko\""
@@ -2294,7 +2312,7 @@ for_each_kmod_dep() {
         found=1
     done < <(modprobe "$@" --ignore-install --show-depends "$kmod")
 
-    [[ $found -eq 0 ]] && return 1
+    ! get_bool "$found" && return 1
     return 0
 }
 
@@ -2437,7 +2455,7 @@ test_create_image() {
 }
 
 test_setup() {
-    if [ "${TEST_REQUIRE_INSTALL_TESTS:?}" -ne 0 ] && \
+    if get_bool "${TEST_REQUIRE_INSTALL_TESTS:?}" && \
             command -v meson >/dev/null && \
             [[ "$(meson configure "${BUILD_DIR:?}" | grep install-tests | awk '{ print $2 }')" != "true" ]]; then
         dfatal "$BUILD_DIR needs to be built with -Dinstall-tests=true"
@@ -2465,18 +2483,16 @@ test_setup() {
                 cleanup_loopdev
                 IMAGE_PUBLIC="${image_old}"
             fi
-            if [ "${IMAGE_NAME:?}" != "default" ] && [ -z "${TEST_FORCE_NEWIMAGE}" ]; then
+            if [ "${IMAGE_NAME:?}" != "default" ] && ! get_bool "${TEST_FORCE_NEWIMAGE}"; then
                 cp -v "$(realpath "${IMAGESTATEDIR}/default.img")" "$IMAGE_PUBLIC"
             fi
         fi
 
-        local hook_defined=1
-        if declare -f -F test_append_files >/dev/null; then
-            hook_defined=$?
-        fi
+        local hook_defined
+        declare -f -F test_append_files >/dev/null && hook_defined=yes || hook_defined=no
 
         echo "Reusing existing cached image $IMAGE_PUBLIC → $(realpath "$IMAGE_PUBLIC")"
-        if [ "$TEST_PARALLELIZE" -ne 0 ] || [ "$hook_defined" -eq 0 ]; then
+        if get_bool "$TEST_PARALLELIZE" || get_bool "$hook_defined"; then
             cp -v -- "$(realpath "$IMAGE_PUBLIC")" "$IMAGE_PRIVATE"
         else
             ln -sv -- "$(realpath "$IMAGE_PUBLIC")" "$IMAGE_PRIVATE"
@@ -2490,7 +2506,7 @@ test_setup() {
             mask_supporting_services
         fi
 
-        if [ "$hook_defined" -eq 0 ]; then
+        if get_bool "$hook_defined"; then
             test_append_files "${initdir:?}"
         fi
     fi
@@ -2502,14 +2518,14 @@ test_run() {
     local test_id="${1:?}"
     mount_initdir
 
-    if [ -z "${TEST_NO_QEMU:=}" ]; then
+    if ! get_bool "${TEST_NO_QEMU:=}"; then
         if run_qemu "$test_id"; then
             check_result_qemu || { echo "QEMU test failed"; return 1; }
         else
             dwarn "can't run QEMU, skipping"
         fi
     fi
-    if [ -z "${TEST_NO_NSPAWN:=}" ]; then
+    if ! get_bool "${TEST_NO_NSPAWN:=}"; then
         mount_initdir
         if run_nspawn "${initdir:?}" "$test_id"; then
             check_result_nspawn "$initdir" || { echo "nspawn-root test failed"; return 1; }
@@ -2517,7 +2533,7 @@ test_run() {
             dwarn "can't run systemd-nspawn, skipping"
         fi
 
-        if [[ "${RUN_IN_UNPRIVILEGED_CONTAINER:=}" = "yes" ]]; then
+        if get_bool "${RUN_IN_UNPRIVILEGED_CONTAINER:=}"; then
             dir="$TESTDIR/unprivileged-nspawn-root"
             if NSPAWN_ARGUMENTS="-U --private-network ${NSPAWN_ARGUMENTS:-}" run_nspawn "$dir" "$test_id"; then
                 check_result_nspawn "$dir" || { echo "unprivileged-nspawn-root test failed"; return 1; }
@@ -2535,17 +2551,17 @@ do_test() {
         exit 0
     fi
 
-    if [ -n "${TEST_NO_QEMU:=}" ] && [ -n "${TEST_NO_NSPAWN:=}" ]; then
+    if get_bool "${TEST_NO_QEMU:=}" && get_bool "${TEST_NO_NSPAWN:=}"; then
         echo "TEST: $TEST_DESCRIPTION [SKIPPED]: both QEMU and nspawn disabled" >&2
         exit 0
     fi
 
-    if [ -n "${TEST_QEMU_ONLY:=}" ] && [ -z "$TEST_NO_NSPAWN" ]; then
+    if get_bool "${TEST_QEMU_ONLY:=}" && ! get_bool "$TEST_NO_NSPAWN"; then
         echo "TEST: $TEST_DESCRIPTION [SKIPPED]: QEMU-only tests requested" >&2
         exit 0
     fi
 
-    if [ -n "${TEST_PREFER_NSPAWN:=}" ] && [ -z "$TEST_NO_NSPAWN" ]; then
+    if get_bool "${TEST_PREFER_NSPAWN:=}" && ! get_bool "$TEST_NO_NSPAWN"; then
         TEST_NO_QEMU=1
     fi
 
@@ -2581,7 +2597,8 @@ do_test() {
                 else
                     echo "${testname} RUN: $TEST_DESCRIPTION [FAILED]"
                 fi
-                exit $ret;;
+                exit $ret
+                ;;
             --setup)
                 echo "${testname} SETUP: $TEST_DESCRIPTION"
                 test_setup
@@ -2615,8 +2632,11 @@ do_test() {
                     echo "[FAILED]"
                     echo "see $TESTLOG"
                 fi
-                exit $ret;;
-            *) break ;;
+                exit $ret
+                ;;
+            *)
+                break
+                ;;
         esac
         shift
     done
