@@ -367,9 +367,8 @@ static int add_swap(DissectedPartition *p) {
                 r = add_cryptsetup(crypto_name, p->node, true, true, &what);
                 if (r < 0)
                         return r;
-        } else {
+        } else
                 what = p->node;
-        }
 
         log_debug("Adding swap: %s", what);
 
