@@ -1805,7 +1805,7 @@ int type_system_get_type_system_union(const NLTypeSystem *type_system, const NLT
         return 0;
 }
 
-int type_system_union_get_type_system(const NLTypeSystemUnion *type_system_union, const NLTypeSystem **ret, const char *key) {
+int type_system_union_get_type_system_by_string(const NLTypeSystemUnion *type_system_union, const NLTypeSystem **ret, const char *key) {
         int type;
 
         assert(type_system_union);
@@ -1825,7 +1825,7 @@ int type_system_union_get_type_system(const NLTypeSystemUnion *type_system_union
         return 0;
 }
 
-int type_system_union_protocol_get_type_system(const NLTypeSystemUnion *type_system_union, const NLTypeSystem **ret, uint16_t protocol) {
+int type_system_union_get_type_system_by_protocol(const NLTypeSystemUnion *type_system_union, const NLTypeSystem **ret, uint16_t protocol) {
         const NLTypeSystem *type_system;
 
         assert(type_system_union);
