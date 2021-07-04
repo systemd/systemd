@@ -338,7 +338,9 @@ static int add_partition_mount(
                         SPECIAL_LOCAL_FS_TARGET);
 }
 
-static int add_swap(const char *path) {
+static int add_swap(DissectedPartition *p) {
+        char *path = p.node;
+
         _cleanup_free_ char *name = NULL, *unit = NULL;
         _cleanup_fclose_ FILE *f = NULL;
         int r;
@@ -352,6 +354,11 @@ static int add_swap(const char *path) {
         if (r > 0) {
                 log_debug("swap specified in fstab, ignoring.");
                 return 0;
+        }
+
+        if (streq_ptr(p->fstype, "crypto_LUKS")) {
+                add_cryptsetup("swap", "/dev/gpt-auto-swap-luks", true, false, NULL);
+                path = "/dev/gpt-auto-swap-luks"
         }
 
         log_debug("Adding swap: %s", path);
@@ -703,7 +710,7 @@ static int enumerate_partitions(dev_t devnum) {
                 return log_error_errno(r, "Failed to dissect: %m");
 
         if (m->partitions[PARTITION_SWAP].found) {
-                k = add_swap(m->partitions[PARTITION_SWAP].node);
+                k = add_swap(m->partitions[PARTITION_SWAP]);
                 if (k < 0)
                         r = k;
         }
