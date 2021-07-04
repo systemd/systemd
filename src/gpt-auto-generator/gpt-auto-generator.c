@@ -355,12 +355,16 @@ static int add_swap(DissectedPartition *p) {
         }
 
         const char *path;
+        _cleanup_free_ char *crypto_what = NULL;
         if (streq_ptr(p->fstype, "crypto_LUKS")) {
-                add_cryptsetup("swap", p->node, true, false, NULL);
+                r = add_cryptsetup("swap", p->node, true, true, &crypto_what);
+                if (r < 0)
+                        return r;
                 path = "/dev/mapper/swap";
         } else {
                 path = p->node;
         }
+        //r = generator_write_blockdev_dependency(f, what);
 
         log_debug("Adding swap: %s", path);
 
