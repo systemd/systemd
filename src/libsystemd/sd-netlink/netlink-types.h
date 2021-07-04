@@ -35,14 +35,6 @@ typedef struct NLTypeSystemUnion NLTypeSystemUnion;
 typedef struct NLTypeSystem NLTypeSystem;
 typedef struct NLType NLType;
 
-struct NLTypeSystemUnion {
-        int num;
-        NLMatchType match_type;
-        uint16_t match;
-        int (*lookup)(const char *);
-        const NLTypeSystem *type_systems;
-};
-
 extern const NLTypeSystem genl_family_type_system_root;
 
 uint16_t type_get_type(const NLType *type);
@@ -56,6 +48,8 @@ int type_system_root_get_type(sd_netlink *nl, const NLType **ret, uint16_t type)
 int type_system_get_type(const NLTypeSystem *type_system, const NLType **ret, uint16_t type);
 int type_system_get_type_system(const NLTypeSystem *type_system, const NLTypeSystem **ret, uint16_t type);
 int type_system_get_type_system_union(const NLTypeSystem *type_system, const NLTypeSystemUnion **ret, uint16_t type);
+NLMatchType type_system_union_get_match_type(const NLTypeSystemUnion *type_system_union);
+uint16_t type_system_union_get_match_attribute(const NLTypeSystemUnion *type_system_union);
 int type_system_union_get_type_system_by_string(const NLTypeSystemUnion *type_system_union, const NLTypeSystem **ret, const char *key);
 int type_system_union_get_type_system_by_protocol(const NLTypeSystemUnion *type_system_union, const NLTypeSystem **ret, uint16_t protocol);
 
