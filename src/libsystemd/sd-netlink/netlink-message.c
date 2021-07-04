@@ -574,9 +574,10 @@ int sd_netlink_message_open_container(sd_netlink_message *m, unsigned short type
                 if (r < 0)
                         return r;
 
-                r = type_system_union_protocol_get_type_system(type_system_union,
-                                                               &m->containers[m->n_containers + 1].type_system,
-                                                               family);
+                r = type_system_union_get_type_system_by_protocol(
+                                type_system_union,
+                                &m->containers[m->n_containers + 1].type_system,
+                                family);
                 if (r < 0)
                         return r;
         } else {
@@ -608,9 +609,10 @@ int sd_netlink_message_open_container_union(sd_netlink_message *m, unsigned shor
         if (r < 0)
                 return r;
 
-        r = type_system_union_get_type_system(type_system_union,
-                                              &m->containers[m->n_containers + 1].type_system,
-                                              key);
+        r = type_system_union_get_type_system_by_string(
+                        type_system_union,
+                        &m->containers[m->n_containers + 1].type_system,
+                        key);
         if (r < 0)
                 return r;
 
@@ -1155,9 +1157,10 @@ int sd_netlink_message_enter_container(sd_netlink_message *m, unsigned short typ
                         if (r < 0)
                                 return r;
 
-                        r = type_system_union_get_type_system(type_system_union,
-                                                              &type_system,
-                                                              key);
+                        r = type_system_union_get_type_system_by_string(
+                                        type_system_union,
+                                        &type_system,
+                                        key);
                         if (r < 0)
                                 return r;
 
@@ -1171,9 +1174,10 @@ int sd_netlink_message_enter_container(sd_netlink_message *m, unsigned short typ
                         if (r < 0)
                                 return r;
 
-                        r = type_system_union_protocol_get_type_system(type_system_union,
-                                                                       &type_system,
-                                                                       family);
+                        r = type_system_union_get_type_system_by_protocol(
+                                        type_system_union,
+                                        &type_system,
+                                        family);
                         if (r < 0)
                                 return r;
 
