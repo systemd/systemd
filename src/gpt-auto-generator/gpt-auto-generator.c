@@ -356,8 +356,8 @@ static int add_swap(DissectedPartition *p) {
 
         const char *path;
         if (streq_ptr(p->fstype, "crypto_LUKS")) {
-                add_cryptsetup("swap", "/dev/gpt-auto-swap-luks", true, false, NULL);
-                path = "/dev/gpt-auto-swap-luks";
+                add_cryptsetup("swap", p->node, true, false, NULL);
+                path = "/dev/mapper/swap";
         } else {
                 path = p->node;
         }
