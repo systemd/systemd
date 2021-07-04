@@ -54,7 +54,7 @@ static int genl_message_new(sd_netlink *nl, sd_genl_family_t family, uint16_t nl
         m->hdr->nlmsg_len = size;
         m->hdr->nlmsg_type = nlmsg_type;
 
-        type_get_type_system(type, &m->containers[0].type_system);
+        m->containers[0].type_system = type_get_type_system(type);
 
         *(struct genlmsghdr *) NLMSG_DATA(m->hdr) = (struct genlmsghdr) {
                 .cmd = cmd,
