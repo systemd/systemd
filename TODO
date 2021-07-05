@@ -83,6 +83,12 @@ Janitorial Clean-ups:
 
 Features:
 
+* New udev block device symlink names:
+  /dev/disk/by-parttypelabel/<pttype>/<ptlabel>. Use case: if pt label is used
+  as partition image version string, this is a safe way to reference a specific
+  version of a specific partition type, in particular where related partitions
+  are processed (e.g. verity + rootfs both named "LennartOS_0.7").
+
 * in sd-id128: also parse UUIDs in RFC4122 URN syntax (i.e. chop off urn:uuid: prefix)
 
 * DynamicUser= + StateDirectory= → use uid mapping mounts, too, in order to
