@@ -389,10 +389,8 @@ int bus_creds_dump(sd_bus_creds *c, FILE *f, bool terse) {
                 fprintf(f, "%sFSGID=%s"GID_FMT"%s", prefix, color, c->fsgid, suffix);
 
         if (c->mask & SD_BUS_CREDS_SUPPLEMENTARY_GIDS) {
-                unsigned i;
-
                 fprintf(f, "%sSupplementaryGIDs=%s", prefix, color);
-                for (i = 0; i < c->n_supplementary_gids; i++)
+                for (unsigned i = 0; i < c->n_supplementary_gids; i++)
                         fprintf(f, "%s" GID_FMT, i > 0 ? " " : "", c->supplementary_gids[i]);
                 fprintf(f, "%s", suffix);
         }
