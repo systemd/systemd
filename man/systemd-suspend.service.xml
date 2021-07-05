@@ -103,8 +103,8 @@
       <varlistentry>
         <term><option>suspend</option></term>
         <term><option>hibernate</option></term>
-        <term><option>hybrid-sleep</option></term>
         <term><option>suspend-then-hibernate</option></term>
+        <term><option>hybrid-sleep</option></term>
 
         <listitem><para>Suspend, hibernate, suspend then hibernate, or put the
         system to hybrid sleep.</para>
