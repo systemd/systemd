@@ -25,7 +25,10 @@ struct reply_callback {
 
 struct match_callback {
         sd_netlink_message_handler_t callback;
+        uint32_t *groups;
+        size_t n_groups;
         uint16_t type;
+        uint8_t cmd; /* used by genl */
 
         LIST_FIELDS(struct match_callback, match_callbacks);
 };
@@ -95,8 +98,8 @@ struct sd_netlink {
         sd_event_source *exit_event_source;
         sd_event *event;
 
-        Hashmap *genl_family_to_nlmsg_type;
-        Hashmap *nlmsg_type_to_genl_family;
+        Hashmap *genl_family_by_name;
+        Hashmap *genl_family_by_id;
 };
 
 struct netlink_attribute {
@@ -126,8 +129,14 @@ struct sd_netlink_message {
         sd_netlink_message *next; /* next in a chain of multi-part messages */
 };
 
-int message_new(sd_netlink *rtnl, sd_netlink_message **ret, uint16_t type);
-int message_new_empty(sd_netlink *rtnl, sd_netlink_message **ret);
+int message_new_empty(sd_netlink *nl, sd_netlink_message **ret);
+int message_new_full(
+                sd_netlink *nl,
+                uint16_t nlmsg_type,
+                const NLTypeSystem *type_system,
+                size_t header_size,
+                sd_netlink_message **ret);
+int message_new(sd_netlink *nl, sd_netlink_message **ret, uint16_t type);
 
 int netlink_open_family(sd_netlink **ret, int family);
 
@@ -141,6 +150,18 @@ int socket_read_message(sd_netlink *nl);
 
 int rtnl_rqueue_make_room(sd_netlink *rtnl);
 int rtnl_rqueue_partial_make_room(sd_netlink *rtnl);
+
+int netlink_add_match_internal(
+                sd_netlink *nl,
+                sd_netlink_slot **ret_slot,
+                const uint32_t *groups,
+                size_t n_groups,
+                uint16_t type,
+                uint8_t cmd,
+                sd_netlink_message_handler_t callback,
+                sd_netlink_destroy_t destroy_callback,
+                void *userdata,
+                const char *description);
 
 /* Make sure callbacks don't destroy the rtnl connection */
 #define NETLINK_DONT_DESTROY(rtnl) \
