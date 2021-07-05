@@ -300,7 +300,6 @@ static void print_status_info(
                 UnitStatusInfo *i,
                 bool *ellipsized) {
 
-        char since2[FORMAT_TIMESTAMP_MAX];
         const char *s1, *s2, *active_on, *active_off, *on, *off, *ss, *fs;
         _cleanup_free_ char *formatted_path = NULL;
         ExecStatusInfo *p;
@@ -420,8 +419,7 @@ static void print_status_info(
                                                                             i->active_exit_timestamp;
 
         s1 = FORMAT_TIMESTAMP_RELATIVE(timestamp);
-        s2 = format_timestamp_style(since2, sizeof(since2), timestamp, arg_timestamp_style);
-
+        s2 = FORMAT_TIMESTAMP_STYLE(timestamp, arg_timestamp_style);
         if (s1)
                 printf(" since %s; %s\n", s2, s1);
         else if (s2)
@@ -442,23 +440,18 @@ static void print_status_info(
         }
 
         if (endswith(i->id, ".timer")) {
-                char tstamp2[FORMAT_TIMESTAMP_MAX];
-                const char *next_rel_time, *next_time;
-                dual_timestamp nw, next = {i->next_elapse_real,
-                                           i->next_elapse_monotonic};
+                const char *next_time;
+                dual_timestamp nw, next = {i->next_elapse_real, i->next_elapse_monotonic};
                 usec_t next_elapse;
-
-                printf("    Trigger: ");
 
                 dual_timestamp_get(&nw);
                 next_elapse = calc_next_elapse(&nw, &next);
-                next_rel_time = FORMAT_TIMESTAMP_RELATIVE(next_elapse);
-                next_time = format_timestamp_style(tstamp2, sizeof tstamp2, next_elapse, arg_timestamp_style);
+                next_time = FORMAT_TIMESTAMP_STYLE(next_elapse, arg_timestamp_style);
 
-                if (next_time && next_rel_time)
-                        printf("%s; %s\n", next_time, next_rel_time);
-                else
-                        printf("n/a\n");
+                printf("    Trigger: %s%s%s\n",
+                       strna(next_time),
+                       next_time ? "; " : "",
+                       next_time ? strna(FORMAT_TIMESTAMP_RELATIVE(next_elapse)) : "");
         }
 
         STRV_FOREACH(t, i->triggers) {
@@ -476,13 +469,13 @@ static void print_status_info(
         if (!i->condition_result && i->condition_timestamp > 0) {
                 UnitCondition *c;
                 int n = 0;
+                const char *rel;
 
-                s1 = FORMAT_TIMESTAMP_RELATIVE(i->condition_timestamp);
-                s2 = format_timestamp_style(since2, sizeof(since2), i->condition_timestamp, arg_timestamp_style);
-
+                rel = FORMAT_TIMESTAMP_RELATIVE(i->condition_timestamp);
                 printf("  Condition: start %scondition failed%s at %s%s%s\n",
                        ansi_highlight_yellow(), ansi_normal(),
-                       s2, s1 ? "; " : "", strempty(s1));
+                       FORMAT_TIMESTAMP_STYLE(i->condition_timestamp, arg_timestamp_style),
+                       rel ? "; " : "", strempty(rel));
 
                 LIST_FOREACH(conditions, c, i->conditions)
                         if (c->tristate < 0)
@@ -499,12 +492,13 @@ static void print_status_info(
         }
 
         if (!i->assert_result && i->assert_timestamp > 0) {
-                s1 = FORMAT_TIMESTAMP_RELATIVE(i->assert_timestamp);
-                s2 = format_timestamp_style(since2, sizeof(since2), i->assert_timestamp, arg_timestamp_style);
+                const char *rel;
 
+                rel = FORMAT_TIMESTAMP_RELATIVE(i->assert_timestamp);
                 printf("     Assert: start %sassertion failed%s at %s%s%s\n",
                        ansi_highlight_red(), ansi_normal(),
-                       s2, s1 ? "; " : "", strempty(s1));
+                       FORMAT_TIMESTAMP_STYLE(i->assert_timestamp, arg_timestamp_style),
+                       rel ? "; " : "", strempty(rel));
                 if (i->failed_assert_trigger)
                         printf("             none of the trigger assertions were met\n");
                 else if (i->failed_assert)
@@ -1255,13 +1249,10 @@ static int print_property(const char *name, const char *expected_value, sd_bus_m
                         if (r < 0)
                                 return bus_log_parse_error(r);
 
-                        while ((r = sd_bus_message_read(m, "(sst)", &base, &spec, &next_elapse)) > 0) {
-                                char timestamp[FORMAT_TIMESTAMP_MAX] = "n/a";
-
-                                (void) format_timestamp_style(timestamp, sizeof(timestamp), next_elapse, arg_timestamp_style);
+                        while ((r = sd_bus_message_read(m, "(sst)", &base, &spec, &next_elapse)) > 0)
                                 bus_print_property_valuef(name, expected_value, flags,
-                                                          "{ %s=%s ; next_elapse=%s }", base, spec, timestamp);
-                        }
+                                                          "{ %s=%s ; next_elapse=%s }", base, spec,
+                                                          FORMAT_TIMESTAMP_STYLE(next_elapse, arg_timestamp_style));
                         if (r < 0)
                                 return bus_log_parse_error(r);
 
@@ -1280,7 +1271,6 @@ static int print_property(const char *name, const char *expected_value, sd_bus_m
                                 return bus_log_parse_error(r);
 
                         while ((r = exec_status_info_deserialize(m, &info, is_ex_prop)) > 0) {
-                                char timestamp1[FORMAT_TIMESTAMP_MAX], timestamp2[FORMAT_TIMESTAMP_MAX];
                                 _cleanup_strv_free_ char **optv = NULL;
                                 _cleanup_free_ char *tt = NULL, *o = NULL;
 
@@ -1298,8 +1288,8 @@ static int print_property(const char *name, const char *expected_value, sd_bus_m
                                                                   strna(info.path),
                                                                   strna(tt),
                                                                   strna(o),
-                                                                  strna(format_timestamp_style(timestamp1, sizeof(timestamp1), info.start_timestamp, arg_timestamp_style)),
-                                                                  strna(format_timestamp_style(timestamp2, sizeof(timestamp2), info.exit_timestamp, arg_timestamp_style)),
+                                                                  strna(FORMAT_TIMESTAMP_STYLE(info.start_timestamp, arg_timestamp_style)),
+                                                                  strna(FORMAT_TIMESTAMP_STYLE(info.exit_timestamp, arg_timestamp_style)),
                                                                   info.pid,
                                                                   sigchld_code_to_string(info.code),
                                                                   info.status,
@@ -1311,8 +1301,8 @@ static int print_property(const char *name, const char *expected_value, sd_bus_m
                                                                   strna(info.path),
                                                                   strna(tt),
                                                                   yes_no(info.ignore),
-                                                                  strna(format_timestamp_style(timestamp1, sizeof(timestamp1), info.start_timestamp, arg_timestamp_style)),
-                                                                  strna(format_timestamp_style(timestamp2, sizeof(timestamp2), info.exit_timestamp, arg_timestamp_style)),
+                                                                  strna(FORMAT_TIMESTAMP_STYLE(info.start_timestamp, arg_timestamp_style)),
+                                                                  strna(FORMAT_TIMESTAMP_STYLE(info.exit_timestamp, arg_timestamp_style)),
                                                                   info.pid,
                                                                   sigchld_code_to_string(info.code),
                                                                   info.status,
@@ -2014,7 +2004,6 @@ static int show_all(
 }
 
 static int show_system_status(sd_bus *bus) {
-        char since2[FORMAT_TIMESTAMP_MAX];
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(machine_info_clear) struct machine_info mi = {};
         _cleanup_free_ char *hn = NULL;
@@ -2057,7 +2046,7 @@ static int show_system_status(sd_bus *bus) {
         printf("   Failed: %" PRIu32 " units\n", mi.n_failed_units);
 
         printf("    Since: %s; %s\n",
-               format_timestamp_style(since2, sizeof(since2), mi.timestamp, arg_timestamp_style),
+               FORMAT_TIMESTAMP_STYLE(mi.timestamp, arg_timestamp_style),
                FORMAT_TIMESTAMP_RELATIVE(mi.timestamp));
 
         printf("   CGroup: %s\n", mi.control_group ?: "/");

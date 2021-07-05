@@ -296,7 +296,6 @@ int logind_schedule_shutdown(void) {
 
 #if ENABLE_LOGIND
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        char date[FORMAT_TIMESTAMP_MAX];
         const char *action;
         const char *log_action;
         sd_bus *bus;
@@ -340,7 +339,9 @@ int logind_schedule_shutdown(void) {
                 return log_warning_errno(r, "Failed to call ScheduleShutdown in logind, proceeding with immediate shutdown: %s", bus_error_message(&error, r));
 
         if (!arg_quiet)
-                log_info("%s scheduled for %s, use 'shutdown -c' to cancel.", log_action, format_timestamp_style(date, sizeof(date), arg_when, arg_timestamp_style));
+                log_info("%s scheduled for %s, use 'shutdown -c' to cancel.",
+                         log_action,
+                         FORMAT_TIMESTAMP_STYLE(arg_when, arg_timestamp_style));
         return 0;
 #else
         return log_error_errno(SYNTHETIC_ERRNO(ENOSYS),

@@ -544,22 +544,20 @@ static bool needs_cleanup(
                 bool is_dir) {
 
         if (FLAGS_SET(age_by, AGE_BY_MTIME) && mtime != NSEC_INFINITY && mtime >= cutoff) {
-                char a[FORMAT_TIMESTAMP_MAX];
                 /* Follows spelling in stat(1). */
                 log_debug("%s \"%s\": modify time %s is too new.",
                           is_dir ? "Directory" : "File",
                           sub_path,
-                          format_timestamp_style(a, sizeof(a), mtime / NSEC_PER_USEC, TIMESTAMP_US));
+                          FORMAT_TIMESTAMP_STYLE(mtime / NSEC_PER_USEC, TIMESTAMP_US));
 
                 return false;
         }
 
         if (FLAGS_SET(age_by, AGE_BY_ATIME) && atime != NSEC_INFINITY && atime >= cutoff) {
-                char a[FORMAT_TIMESTAMP_MAX];
                 log_debug("%s \"%s\": access time %s is too new.",
                           is_dir ? "Directory" : "File",
                           sub_path,
-                          format_timestamp_style(a, sizeof(a), atime / NSEC_PER_USEC, TIMESTAMP_US));
+                          FORMAT_TIMESTAMP_STYLE(atime / NSEC_PER_USEC, TIMESTAMP_US));
 
                 return false;
         }
@@ -569,21 +567,19 @@ static bool needs_cleanup(
          * by default for directories, because we change it when deleting.
          */
         if (FLAGS_SET(age_by, AGE_BY_CTIME) && ctime != NSEC_INFINITY && ctime >= cutoff) {
-                char a[FORMAT_TIMESTAMP_MAX];
                 log_debug("%s \"%s\": change time %s is too new.",
                           is_dir ? "Directory" : "File",
                           sub_path,
-                          format_timestamp_style(a, sizeof(a), ctime / NSEC_PER_USEC, TIMESTAMP_US));
+                          FORMAT_TIMESTAMP_STYLE(ctime / NSEC_PER_USEC, TIMESTAMP_US));
 
                 return false;
         }
 
         if (FLAGS_SET(age_by, AGE_BY_BTIME) && btime != NSEC_INFINITY && btime >= cutoff) {
-                char a[FORMAT_TIMESTAMP_MAX];
                 log_debug("%s \"%s\": birth time %s is too new.",
                           is_dir ? "Directory" : "File",
                           sub_path,
-                          format_timestamp_style(a, sizeof(a), btime / NSEC_PER_USEC, TIMESTAMP_US));
+                          FORMAT_TIMESTAMP_STYLE(btime / NSEC_PER_USEC, TIMESTAMP_US));
 
                 return false;
         }
@@ -810,13 +806,12 @@ static int dir_cleanup(
 
 finish:
         if (deleted) {
-                char a[FORMAT_TIMESTAMP_MAX], m[FORMAT_TIMESTAMP_MAX];
                 struct timespec ts[2];
 
                 log_debug("Restoring access and modification time on \"%s\": %s, %s",
                           p,
-                          format_timestamp_style(a, sizeof(a), self_atime_nsec / NSEC_PER_USEC, TIMESTAMP_US),
-                          format_timestamp_style(m, sizeof(m), self_mtime_nsec / NSEC_PER_USEC, TIMESTAMP_US));
+                          FORMAT_TIMESTAMP_STYLE(self_atime_nsec / NSEC_PER_USEC, TIMESTAMP_US),
+                          FORMAT_TIMESTAMP_STYLE(self_mtime_nsec / NSEC_PER_USEC, TIMESTAMP_US));
 
                 timespec_store_nsec(ts + 0, self_atime_nsec);
                 timespec_store_nsec(ts + 1, self_mtime_nsec);
@@ -2503,7 +2498,6 @@ static char *age_by_to_string(AgeBy ab, bool is_dir) {
 }
 
 static int clean_item_instance(Item *i, const char* instance) {
-        char timestamp[FORMAT_TIMESTAMP_MAX];
         _cleanup_closedir_ DIR *d = NULL;
         STRUCT_STATX_DEFINE(sx);
         int mountpoint, r;
@@ -2562,7 +2556,7 @@ static int clean_item_instance(Item *i, const char* instance) {
                 log_debug("Cleanup threshold for %s \"%s\" is %s; age-by: %s%s",
                           mountpoint ? "mount point" : "directory",
                           instance,
-                          format_timestamp_style(timestamp, sizeof(timestamp), cutoff, TIMESTAMP_US),
+                          FORMAT_TIMESTAMP_STYLE(cutoff, TIMESTAMP_US),
                           ab_f, ab_d);
         }
 
