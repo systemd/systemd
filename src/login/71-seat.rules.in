@@ -18,9 +18,6 @@ SUBSYSTEM=="graphics", KERNEL=="fb[0-9]*", TAG+="seat"
 SUBSYSTEM=="leds", TAG+="seat"
 SUBSYSTEM=="backlight", TAG+="seat"
 
-# HyperV currently doesn't do DRM, hence we need to synthesize for HyperV's fb device instead
-SUBSYSTEM=="graphics", KERNEL=="fb[0-9]", DRIVERS=="hyperv_fb", TAG+="master-of-seat"
-
 # Allow efifb / uvesafb to be a master if KMS is disabled
 SUBSYSTEM=="graphics", KERNEL=="fb[0-9]", IMPORT{cmdline}="nomodeset", TAG+="master-of-seat"
 
@@ -28,6 +25,11 @@ SUBSYSTEM=="graphics", KERNEL=="fb[0-9]", IMPORT{cmdline}="nomodeset", TAG+="mas
 # is disabled and the kernel doesn't have a driver that would work with this device.
 SUBSYSTEM=="pci", ENV{ID_PCI_CLASS_FROM_DATABASE}=="Display controller", \
                   ENV{DRIVER}=="", IMPORT{cmdline}="nomodeset", TAG+="seat", TAG+="master-of-seat"
+
+# Synthesize a seat for graphic devices without DRM and that fall back to fb
+# device instead. Such HWs are listed in hwdb.
+SUBSYSTEM=="graphics", KERNEL=="fb[0-9]*", ATTRS{modalias}=="?*", IMPORT{builtin}="hwdb fb:$attr{modalias}"
+ENV{ID_TAG_MASTER_OF_SEAT}=="1", TAG+="master-of-seat"
 
 SUBSYSTEM=="drm", KERNEL=="card[0-9]*", TAG+="seat", TAG+="master-of-seat"
 
@@ -44,11 +46,6 @@ SUBSYSTEM=="usb", ATTR{idVendor}=="2230", ATTR{idProduct}=="000[13]", ENV{ID_AUT
 # devices belonging to one seat. See:
 #     http://git.qemu.org/?p=qemu.git;a=blob;f=docs/multiseat.txt
 SUBSYSTEM=="pci", ATTR{vendor}=="0x1b36", ATTR{device}=="0x000a", TAG+="seat", ENV{ID_AUTOSEAT}="1"
-
-# Video adapter of Parallels virtualization platform
-# Seat should be synthesized for it. But there's no in-kernel driver for this
-# device so matching by vid/pid.
-SUBSYSTEM=="pci", ATTRS{vendor}=="0x1ab8", ATTRS{device}=="0x4005", TAG+="seat", TAG+="master-of-seat"
 
 # Mimo 720, with integrated USB hub, displaylink graphics, and e2i
 # touchscreen. This device carries no proper VID/PID in the USB hub,
