@@ -563,7 +563,6 @@ _const_ static const char* listen_lookup(int family, int type) {
 }
 
 static void socket_dump(Unit *u, FILE *f, const char *prefix) {
-        SocketExecCommand c;
         Socket *s = SOCKET(u);
         SocketPort *p;
         const char *prefix2, *str;
@@ -797,7 +796,7 @@ static void socket_dump(Unit *u, FILE *f, const char *prefix) {
         exec_context_dump(&s->exec_context, f, prefix);
         kill_context_dump(&s->kill_context, f, prefix);
 
-        for (c = 0; c < _SOCKET_EXEC_COMMAND_MAX; c++) {
+        for (SocketExecCommand c = 0; c < _SOCKET_EXEC_COMMAND_MAX; c++) {
                 if (!s->exec_command[c])
                         continue;
 
@@ -3259,11 +3258,9 @@ int socket_collect_fds(Socket *s, int **fds) {
                 return -ENOMEM;
 
         LIST_FOREACH(port, p, s->ports) {
-                size_t i;
-
                 if (p->fd >= 0)
                         rfds[k++] = p->fd;
-                for (i = 0; i < p->n_auxiliary_fds; ++i)
+                for (size_t i = 0; i < p->n_auxiliary_fds; ++i)
                         rfds[k++] = p->auxiliary_fds[i];
         }
 
