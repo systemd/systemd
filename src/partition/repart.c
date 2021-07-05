@@ -4529,49 +4529,14 @@ static int acquire_root_devno(
         if (r < 0)
                 return log_debug_errno(r, "Failed to determine canonical path for '%s': %m", p);
 
-        /* Only if we still lock at the same block device we can reuse the fd. Otherwise return an
+        /* Only if we still look at the same block device we can reuse the fd. Otherwise return an
          * invalidated fd. */
         *ret_fd = fd_devno != MODE_INVALID && fd_devno == devno ? TAKE_FD(fd) : -1;
         return 0;
 }
 
-static int find_os_prefix(const char **ret) {
-        int r;
-
-        assert(ret);
-
-        /* Searches for the right place to look for the OS root. This is relevant in the initrd: in the
-         * initrd the host OS is typically mounted to /sysroot/ — except in setups where /usr/ is a separate
-         * partition, in which case it is mounted to /sysusr/usr/ before being moved to /sysroot/usr/. */
-
-        if (!in_initrd()) {
-                *ret = NULL; /* no prefix */
-                return 0;
-        }
-
-        r = path_is_mount_point("/sysroot", NULL, 0);
-        if (r < 0 && r != -ENOENT)
-                log_debug_errno(r, "Failed to determine whether /sysroot/ is a mount point, assuming it is not: %m");
-        else if (r > 0) {
-                log_debug("/sysroot/ is a mount point, assuming it's the prefix.");
-                *ret = "/sysroot";
-                return 0;
-        }
-
-        r = path_is_mount_point("/sysusr/usr", NULL, 0);
-        if (r < 0 && r != -ENOENT)
-                log_debug_errno(r, "Failed to determine whether /sysusr/usr is a mount point, assuming it is not: %m");
-        else if (r > 0) {
-                log_debug("/sysusr/usr/ is a mount point, assuming /sysusr/ is the prefix.");
-                *ret = "/sysusr";
-                return 0;
-        }
-
-        return -ENOENT;
-}
-
 static int find_root(char **ret, int *ret_fd) {
-        const char *t, *prefix;
+        const char *p;
         int r;
 
         assert(ret);
@@ -4612,22 +4577,7 @@ static int find_root(char **ret, int *ret_fd) {
          * latter we check for cases where / is a tmpfs and only /usr is an actual persistent block device
          * (think: volatile setups) */
 
-        r = find_os_prefix(&prefix);
-        if (r < 0)
-                return log_error_errno(r, "Failed to determine OS prefix: %m");
-
-        FOREACH_STRING(t, "/", "/usr") {
-                _cleanup_free_ char *j = NULL;
-                const char *p;
-
-                if (prefix) {
-                        j = path_join(prefix, t);
-                        if (!j)
-                                return log_oom();
-
-                        p = j;
-                } else
-                        p = t;
+        FOREACH_STRING(p, "/", "/usr") {
 
                 r = acquire_root_devno(p, arg_root, O_RDONLY|O_DIRECTORY|O_CLOEXEC, ret, ret_fd);
                 if (r < 0) {
