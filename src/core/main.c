@@ -1189,11 +1189,11 @@ static int prepare_reexecute(
 
 static void bump_file_max_and_nr_open(void) {
 
-        /* Let's bump fs.file-max and fs.nr_open to their respective maximums. On current kernels large numbers of file
-         * descriptors are no longer a performance problem and their memory is properly tracked by memcg, thus counting
-         * them and limiting them in another two layers of limits is unnecessary and just complicates things. This
-         * function hence turns off 2 of the 4 levels of limits on file descriptors, and makes RLIMIT_NOLIMIT (soft +
-         * hard) the only ones that really matter. */
+        /* Let's bump fs.file-max and fs.nr_open to their respective maximums. On current kernels large
+         * numbers of file descriptors are no longer a performance problem and their memory is properly
+         * tracked by memcg, thus counting them and limiting them in another two layers of limits is
+         * unnecessary and just complicates things. This function hence turns off 2 of the 4 levels of limits
+         * on file descriptors, and makes RLIMIT_NOLIMIT (soft + hard) the only ones that really matter. */
 
 #if BUMP_PROC_SYS_FS_FILE_MAX || BUMP_PROC_SYS_FS_NR_OPEN
         int r;
@@ -1210,12 +1210,12 @@ static void bump_file_max_and_nr_open(void) {
 #if BUMP_PROC_SYS_FS_NR_OPEN
         int v = INT_MAX;
 
-        /* Arg! The kernel enforces maximum and minimum values on the fs.nr_open, but we don't really know what they
-         * are. The expression by which the maximum is determined is dependent on the architecture, and is something we
-         * don't really want to copy to userspace, as it is dependent on implementation details of the kernel. Since
-         * the kernel doesn't expose the maximum value to us, we can only try and hope. Hence, let's start with
-         * INT_MAX, and then keep halving the value until we find one that works. Ugly? Yes, absolutely, but kernel
-         * APIs are kernel APIs, so what do can we do... 🤯 */
+        /* Argh! The kernel enforces maximum and minimum values on the fs.nr_open, but we don't really know
+         * what they are. The expression by which the maximum is determined is dependent on the architecture,
+         * and is something we don't really want to copy to userspace, as it is dependent on implementation
+         * details of the kernel. Since the kernel doesn't expose the maximum value to us, we can only try
+         * and hope. Hence, let's start with INT_MAX, and then keep halving the value until we find one that
+         * works. Ugly? Yes, absolutely, but kernel APIs are kernel APIs, so what do can we do... 🤯 */
 
         for (;;) {
                 int k;
@@ -1287,16 +1287,17 @@ static int bump_rlimit_memlock(struct rlimit *saved_rlimit) {
         uint64_t mm;
         int r;
 
-        /* BPF_MAP_TYPE_LPM_TRIE bpf maps are charged against RLIMIT_MEMLOCK, even if we have CAP_IPC_LOCK which should
-         * normally disable such checks. We need them to implement IPAddressAllow= and IPAddressDeny=, hence let's bump
-         * the value high enough for our user. */
+        /* BPF_MAP_TYPE_LPM_TRIE bpf maps are charged against RLIMIT_MEMLOCK, even if we have CAP_IPC_LOCK
+         * which should normally disable such checks. We need them to implement IPAddressAllow= and
+         * IPAddressDeny=, hence let's bump the value high enough for our user. */
 
         /* Using MAX() on resource limits only is safe if RLIM_INFINITY is > 0. POSIX declares that rlim_t
          * must be unsigned, hence this is a given, but let's make this clear here. */
         assert_cc(RLIM_INFINITY > 0);
 
-        mm = physical_memory_scale(1, 8); /* Let's scale how much we allow to be locked by the amount of physical
-                                           * RAM. We allow an eighth to be locked by us, just to pick a value. */
+        mm = physical_memory_scale(1, 8); /* Let's scale how much we allow to be locked by the amount of
+                                           * physical RAM. We allow an eighth to be locked by us, just to
+                                           * pick a value. */
 
         new_rlimit = (struct rlimit) {
                 .rlim_cur = MAX3(HIGH_RLIMIT_MEMLOCK, saved_rlimit->rlim_cur, mm),
@@ -1388,13 +1389,14 @@ static int bump_unix_max_dgram_qlen(void) {
         unsigned long v;
         int r;
 
-        /* Let's bump the net.unix.max_dgram_qlen sysctl. The kernel default of 16 is simply too low. We set the value
-         * really really early during boot, so that it is actually applied to all our sockets, including the
-         * $NOTIFY_SOCKET one. */
+        /* Let's bump the net.unix.max_dgram_qlen sysctl. The kernel default of 16 is simply too low. We set
+         * the value really really early during boot, so that it is actually applied to all our sockets,
+         * including the $NOTIFY_SOCKET one. */
 
         r = read_one_line_file("/proc/sys/net/unix/max_dgram_qlen", &qlen);
         if (r < 0)
-                return log_full_errno(r == -ENOENT ? LOG_DEBUG : LOG_WARNING, r, "Failed to read AF_UNIX datagram queue length, ignoring: %m");
+                return log_full_errno(r == -ENOENT ? LOG_DEBUG : LOG_WARNING, r,
+                                      "Failed to read AF_UNIX datagram queue length, ignoring: %m");
 
         r = safe_atolu(qlen, &v);
         if (r < 0)
@@ -1403,7 +1405,8 @@ static int bump_unix_max_dgram_qlen(void) {
         if (v >= DEFAULT_UNIX_MAX_DGRAM_QLEN)
                 return 0;
 
-        r = write_string_filef("/proc/sys/net/unix/max_dgram_qlen", WRITE_STRING_FILE_DISABLE_BUFFER, "%lu", DEFAULT_UNIX_MAX_DGRAM_QLEN);
+        r = write_string_filef("/proc/sys/net/unix/max_dgram_qlen", WRITE_STRING_FILE_DISABLE_BUFFER,
+                               "%lu", DEFAULT_UNIX_MAX_DGRAM_QLEN);
         if (r < 0)
                 return log_full_errno(IN_SET(r, -EROFS, -EPERM, -EACCES) ? LOG_DEBUG : LOG_WARNING, r,
                                       "Failed to bump AF_UNIX datagram queue length, ignoring: %m");
@@ -1424,9 +1427,9 @@ static int fixup_environment(void) {
         if (detect_container() > 0)
                 return 0;
 
-        /* When started as PID1, the kernel uses /dev/console for our stdios and uses TERM=linux whatever the backend
-         * device used by the console. We try to make a better guess here since some consoles might not have support
-         * for color mode for example.
+        /* When started as PID1, the kernel uses /dev/console for our stdios and uses TERM=linux whatever the
+         * backend device used by the console. We try to make a better guess here since some consoles might
+         * not have support for color mode for example.
          *
          * However if TERM was configured through the kernel command line then leave it alone. */
         r = proc_cmdline_get_key("TERM", 0, &term);
@@ -1569,12 +1572,11 @@ static void initialize_clock(void) {
         if (clock_is_localtime(NULL) > 0) {
                 int min;
 
-                /*
-                 * The very first call of settimeofday() also does a time warp in the kernel.
+                /* The very first call of settimeofday() also does a time warp in the kernel.
                  *
-                 * In the rtc-in-local time mode, we set the kernel's timezone, and rely on external tools to take care
-                 * of maintaining the RTC and do all adjustments.  This matches the behavior of Windows, which leaves
-                 * the RTC alone if the registry tells that the RTC runs in UTC.
+                 * In the rtc-in-local time mode, we set the kernel's timezone, and rely on external tools to
+                 * take care of maintaining the RTC and do all adjustments.  This matches the behavior of
+                 * Windows, which leaves the RTC alone if the registry tells that the RTC runs in UTC.
                  */
                 r = clock_set_timezone(&min);
                 if (r < 0)
@@ -1586,13 +1588,13 @@ static void initialize_clock(void) {
                 /*
                  * Do a dummy very first call to seal the kernel's time warp magic.
                  *
-                 * Do not call this from inside the initrd. The initrd might not carry /etc/adjtime with LOCAL, but the
-                 * real system could be set up that way. In such case, we need to delay the time-warp or the sealing
-                 * until we reach the real system.
+                 * Do not call this from inside the initrd. The initrd might not carry /etc/adjtime with
+                 * LOCAL, but the real system could be set up that way. In such case, we need to delay the
+                 * time-warp or the sealing until we reach the real system.
                  *
-                 * Do no set the kernel's timezone. The concept of local time cannot be supported reliably, the time
-                 * will jump or be incorrect at every daylight saving time change. All kernel local time concepts will
-                 * be treated as UTC that way.
+                 * Do no set the kernel's timezone. The concept of local time cannot be supported reliably,
+                 * the time will jump or be incorrect at every daylight saving time change. All kernel local
+                 * time concepts will be treated as UTC that way.
                  */
                 (void) clock_reset_timewarp();
 
@@ -1646,7 +1648,8 @@ static void cmdline_take_random_seed(void) {
         }
 
         log_notice("Successfully credited entropy passed on kernel command line.\n"
-                   "Note that the seed provided this way is accessible to unprivileged programs. This functionality should not be used outside of testing environments.");
+                   "Note that the seed provided this way is accessible to unprivileged programs. "
+                   "This functionality should not be used outside of testing environments.");
 }
 
 static void initialize_coredump(bool skip_setup) {
@@ -1654,15 +1657,14 @@ static void initialize_coredump(bool skip_setup) {
         if (getpid_cached() != 1)
                 return;
 
-        /* Don't limit the core dump size, so that coredump handlers such as systemd-coredump (which honour the limit)
-         * will process core dumps for system services by default. */
+        /* Don't limit the core dump size, so that coredump handlers such as systemd-coredump (which honour
+         * the limit) will process core dumps for system services by default. */
         if (setrlimit(RLIMIT_CORE, &RLIMIT_MAKE_CONST(RLIM_INFINITY)) < 0)
                 log_warning_errno(errno, "Failed to set RLIMIT_CORE: %m");
 
-        /* But at the same time, turn off the core_pattern logic by default, so that no
-         * coredumps are stored until the systemd-coredump tool is enabled via
-         * sysctl. However it can be changed via the kernel command line later so core
-         * dumps can still be generated during early startup and in initramfs. */
+        /* But at the same time, turn off the core_pattern logic by default, so that no coredumps are stored
+         * until the systemd-coredump tool is enabled via sysctl. However it can be changed via the kernel
+         * command line later so core dumps can still be generated during early startup and in initramfs. */
         if (!skip_setup)
                 disable_coredumps();
 #endif
@@ -1679,7 +1681,8 @@ static void initialize_core_pattern(bool skip_setup) {
 
         r = write_string_file("/proc/sys/kernel/core_pattern", arg_early_core_pattern, WRITE_STRING_FILE_DISABLE_BUFFER);
         if (r < 0)
-                log_warning_errno(r, "Failed to write '%s' to /proc/sys/kernel/core_pattern, ignoring: %m", arg_early_core_pattern);
+                log_warning_errno(r, "Failed to write '%s' to /proc/sys/kernel/core_pattern, ignoring: %m",
+                                  arg_early_core_pattern);
 }
 
 static void update_cpu_affinity(bool skip_setup) {
@@ -1736,8 +1739,8 @@ static void do_reexecute(
         assert(saved_rlimit_memlock);
         assert(ret_error_message);
 
-        /* Close and disarm the watchdog, so that the new instance can reinitialize it, but doesn't get rebooted while
-         * we do that */
+        /* Close and disarm the watchdog, so that the new instance can reinitialize it, but doesn't get
+         * rebooted while we do that */
         watchdog_close(true);
 
         /* Reset RLIMIT_NOFILE + RLIMIT_MEMLOCK back to the kernel defaults, so that the new systemd can pass
@@ -1748,8 +1751,8 @@ static void do_reexecute(
                 (void) setrlimit(RLIMIT_MEMLOCK, saved_rlimit_memlock);
 
         if (switch_root_dir) {
-                /* Kill all remaining processes from the initrd, but don't wait for them, so that we can handle the
-                 * SIGCHLD for them after deserializing. */
+                /* Kill all remaining processes from the initrd, but don't wait for them, so that we can
+                 * handle the SIGCHLD for them after deserializing. */
                 broadcast_signal(SIGTERM, false, true, arg_default_timeout_stop_usec);
 
                 /* And switch root with MS_MOVE, because we remove the old directory afterwards and detach it. */
@@ -1764,8 +1767,8 @@ static void do_reexecute(
         if (!switch_root_init) {
                 char sfd[DECIMAL_STR_MAX(int) + 1];
 
-                /* First try to spawn ourselves with the right path, and with full serialization. We do this only if
-                 * the user didn't specify an explicit init to spawn. */
+                /* First try to spawn ourselves with the right path, and with full serialization. We do this
+                 * only if the user didn't specify an explicit init to spawn. */
 
                 assert(arg_serialization);
                 assert(fds);
@@ -1784,10 +1787,10 @@ static void do_reexecute(
                 assert(i <= args_size);
 
                 /*
-                 * We want valgrind to print its memory usage summary before reexecution.  Valgrind won't do this is on
-                 * its own on exec(), but it will do it on exit().  Hence, to ensure we get a summary here, fork() off
-                 * a child, let it exit() cleanly, so that it prints the summary, and wait() for it in the parent,
-                 * before proceeding into the exec().
+                 * We want valgrind to print its memory usage summary before reexecution.  Valgrind won't do
+                 * this is on its own on exec(), but it will do it on exit().  Hence, to ensure we get a
+                 * summary here, fork() off a child, let it exit() cleanly, so that it prints the summary,
+                 * and wait() for it in the parent, before proceeding into the exec().
                  */
                 valgrind_summary_hack();
 
@@ -1795,9 +1798,9 @@ static void do_reexecute(
                 log_debug_errno(errno, "Failed to execute our own binary, trying fallback: %m");
         }
 
-        /* Try the fallback, if there is any, without any serialization. We pass the original argv[] and envp[]. (Well,
-         * modulo the ordering changes due to getopt() in argv[], and some cleanups in envp[], but let's hope that
-         * doesn't matter.) */
+        /* Try the fallback, if there is any, without any serialization. We pass the original argv[] and
+         * envp[]. (Well, modulo the ordering changes due to getopt() in argv[], and some cleanups in envp[],
+         * but let's hope that doesn't matter.) */
 
         arg_serialization = safe_fclose(arg_serialization);
         fds = fdset_free(fds);
@@ -1882,8 +1885,8 @@ static int invoke_main_loop(
 
                         log_info("Reloading.");
 
-                        /* First, save any overridden log level/target, then parse the configuration file, which might
-                         * change the log level to new settings. */
+                        /* First, save any overridden log level/target, then parse the configuration file,
+                         * which might change the log level to new settings. */
 
                         saved_log_level = m->log_level_overridden ? log_get_max_level() : -1;
                         saved_log_target = m->log_target_overridden ? log_get_target() : _LOG_TARGET_INVALID;
@@ -1903,7 +1906,8 @@ static int invoke_main_loop(
 
                         r = manager_reload(m);
                         if (r < 0)
-                                /* Reloading failed before the point of no return. Let's continue running as if nothing happened. */
+                                /* Reloading failed before the point of no return.
+                                 * Let's continue running as if nothing happened. */
                                 m->objective = MANAGER_OK;
 
                         break;
@@ -2527,8 +2531,8 @@ static void setup_console_terminal(bool skip_setup) {
         /* Become a session leader if we aren't one yet. */
         (void) setsid();
 
-        /* If we are init, we connect stdin/stdout/stderr to /dev/null and make sure we don't have a controlling
-         * tty. */
+        /* If we are init, we connect stdin/stdout/stderr to /dev/null and make sure we don't have a
+         * controlling tty. */
         (void) release_terminal();
 
         /* Reset the console, but only if this is really init and we are freshly booted */
@@ -2539,9 +2543,9 @@ static void setup_console_terminal(bool skip_setup) {
 static bool early_skip_setup_check(int argc, char *argv[]) {
         bool found_deserialize = false;
 
-        /* Determine if this is a reexecution or normal bootup. We do the full command line parsing much later, so
-         * let's just have a quick peek here. Note that if we have switched root, do all the special setup things
-         * anyway, even if in that case we also do deserialization. */
+        /* Determine if this is a reexecution or normal bootup. We do the full command line parsing much
+         * later, so let's just have a quick peek here. Note that if we have switched root, do all the
+         * special setup things anyway, even if in that case we also do deserialization. */
 
         for (int i = 1; i < argc; i++)
                 if (streq(argv[i], "--switched-root"))
@@ -2589,11 +2593,12 @@ int main(int argc, char *argv[]) {
         dual_timestamp_get(&userspace_timestamp);
 
         /* Figure out whether we need to do initialize the system, or if we already did that because we are
-         * reexecuting */
+         * reexecuting. */
         skip_setup = early_skip_setup_check(argc, argv);
 
-        /* If we get started via the /sbin/init symlink then we are called 'init'. After a subsequent reexecution we
-         * are then called 'systemd'. That is confusing, hence let's call us systemd right-away. */
+        /* If we get started via the /sbin/init symlink then we are called 'init'. After a subsequent
+         * reexecution we are then called 'systemd'. That is confusing, hence let's call us systemd
+         * right-away. */
         program_invocation_short_name = systemd;
         (void) prctl(PR_SET_NAME, systemd);
 
@@ -2618,14 +2623,14 @@ int main(int argc, char *argv[]) {
                 /* Disable the umask logic */
                 umask(0);
 
-                /* Make sure that at least initially we do not ever log to journald/syslogd, because it might not be
-                 * activated yet (even though the log socket for it exists). */
+                /* Make sure that at least initially we do not ever log to journald/syslogd, because it might
+                 * not be activated yet (even though the log socket for it exists). */
                 log_set_prohibit_ipc(true);
 
-                /* Always reopen /dev/console when running as PID 1 or one of its pre-execve() children. This is
-                 * important so that we never end up logging to any foreign stderr, for example if we have to log in a
-                 * child process right before execve()'ing the actual binary, at a point in time where socket
-                 * activation stderr/stdout area already set up. */
+                /* Always reopen /dev/console when running as PID 1 or one of its pre-execve() children. This
+                 * is important so that we never end up logging to any foreign stderr, for example if we have
+                 * to log in a child process right before execve()'ing the actual binary, at a point in time
+                 * where socket activation stderr/stdout area already set up. */
                 log_set_always_reopen_console(true);
 
                 if (detect_container() <= 0) {
@@ -2668,10 +2673,10 @@ int main(int argc, char *argv[]) {
                         if (!skip_setup)
                                 initialize_clock();
 
-                        /* Set the default for later on, but don't actually open the logs like this for now. Note that
-                         * if we are transitioning from the initrd there might still be journal fd open, and we
-                         * shouldn't attempt opening that before we parsed /proc/cmdline which might redirect output
-                         * elsewhere. */
+                        /* Set the default for later on, but don't actually open the logs like this for
+                         * now. Note that if we are transitioning from the initrd there might still be
+                         * journal fd open, and we shouldn't attempt opening that before we parsed
+                         * /proc/cmdline which might redirect output elsewhere. */
                         log_set_target(LOG_TARGET_JOURNAL_OR_KMSG);
 
                 } else {
@@ -2695,8 +2700,8 @@ int main(int argc, char *argv[]) {
                         goto finish;
                 }
 
-                /* Try to figure out if we can use colors with the console. No need to do that for user instances since
-                 * they never log into the console. */
+                /* Try to figure out if we can use colors with the console. No need to do that for user
+                 * instances since they never log into the console. */
                 log_show_color(colors_enabled());
 
                 r = make_null_stdio();
