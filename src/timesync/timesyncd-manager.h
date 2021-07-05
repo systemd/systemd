@@ -83,7 +83,6 @@ struct Manager {
 
         /* last change */
         bool jumped;
-        bool sync;
         int64_t drift_freq;
 
         /* watch for time changes */

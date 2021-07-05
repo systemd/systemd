@@ -591,7 +591,6 @@ static int manager_receive_response(sd_event_source *source, int fd, uint32_t re
                   m->poll_interval_usec / USEC_PER_SEC);
 
         if (!spike) {
-                m->sync = true;
                 r = manager_adjust_clock(m, offset, leap_sec);
                 if (r < 0)
                         log_error_errno(r, "Failed to call clock_adjtime(): %m");
