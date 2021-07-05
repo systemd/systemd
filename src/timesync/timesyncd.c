@@ -165,12 +165,10 @@ static int run(int argc, char *argv[]) {
         if (r < 0)
                 return log_error_errno(r, "Failed to run event loop: %m");
 
-        /* if we got an authoritative time, store it in the file system */
-        if (m->sync) {
-                r = touch(CLOCK_FILE);
-                if (r < 0)
-                        log_debug_errno(r, "Failed to touch %s, ignoring: %m", CLOCK_FILE);
-        }
+        /* store current time in the file system */
+        r = touch(CLOCK_FILE);
+        if (r < 0)
+                log_debug_errno(r, "Failed to touch %s, ignoring: %m", CLOCK_FILE);
 
         return 0;
 }
