@@ -338,12 +338,13 @@ static int add_partition_mount(
                         SPECIAL_LOCAL_FS_TARGET);
 }
 
-static int add_swap(const char *path) {
-        _cleanup_free_ char *name = NULL, *unit = NULL;
+static int add_swap(DissectedPartition *p) {
+        _cleanup_free_ char *name = NULL, *unit = NULL, *what = NULL;
         _cleanup_fclose_ FILE *f = NULL;
         int r;
 
-        assert(path);
+        assert(p);
+        assert(p->node);
 
         /* Disable the swap auto logic if at least one swap is defined in /etc/fstab, see #6192. */
         r = fstab_has_fstype("swap");
@@ -354,9 +355,16 @@ static int add_swap(const char *path) {
                 return 0;
         }
 
-        log_debug("Adding swap: %s", path);
+        if (streq_ptr(p->fstype, "crypto_LUKS")) {
+                r = add_cryptsetup("swap", p->node, true, true, &what);
+                if (r < 0)
+                        return r;
+        } else
+                what = p->node;
 
-        r = unit_name_from_path(path, ".swap", &name);
+        log_debug("Adding swap: %s", what);
+
+        r = unit_name_from_path(what, ".swap", &name);
         if (r < 0)
                 return log_error_errno(r, "Failed to generate unit name: %m");
 
@@ -374,7 +382,7 @@ static int add_swap(const char *path) {
                 "Description=Swap Partition\n"
                 "Documentation=man:systemd-gpt-auto-generator(8)\n");
 
-        r = generator_write_blockdev_dependency(f, path);
+        r = generator_write_blockdev_dependency(f, what);
         if (r < 0)
                 return r;
 
@@ -382,7 +390,7 @@ static int add_swap(const char *path) {
                 "\n"
                 "[Swap]\n"
                 "What=%s\n",
-                path);
+                what);
 
         r = fflush_and_check(f);
         if (r < 0)
@@ -703,7 +711,7 @@ static int enumerate_partitions(dev_t devnum) {
                 return log_error_errno(r, "Failed to dissect: %m");
 
         if (m->partitions[PARTITION_SWAP].found) {
-                k = add_swap(m->partitions[PARTITION_SWAP].node);
+                k = add_swap(m->partitions + PARTITION_SWAP);
                 if (k < 0)
                         r = k;
         }
