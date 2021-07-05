@@ -329,6 +329,9 @@ struct Manager {
         /* Have we already sent out the READY=1 notification? */
         bool ready_sent;
 
+        /* Was the last status sent "STATUS=Ready."? */
+        bool status_ready;
+
         /* Have we already printed the taint line if necessary? */
         bool taint_logged;
 

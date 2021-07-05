@@ -3440,28 +3440,32 @@ static void manager_notify_finished(Manager *m) {
 
         bus_manager_send_finished(m, firmware_usec, loader_usec, kernel_usec, initrd_usec, userspace_usec, total_usec);
 
-        sd_notifyf(false,
-                   m->ready_sent ? "STATUS=Startup finished in %s."
-                                 : "READY=1\n"
-                                   "STATUS=Startup finished in %s.",
-                   FORMAT_TIMESPAN(total_usec, USEC_PER_MSEC));
-        m->ready_sent = true;
-
         log_taint_string(m);
 }
 
-static void manager_send_ready(Manager *m) {
+static void user_manager_send_ready(Manager *m) {
         assert(m);
 
         /* We send READY=1 on reaching basic.target only when running in --user mode. */
         if (!MANAGER_IS_USER(m) || m->ready_sent)
                 return;
 
-        m->ready_sent = true;
-
         sd_notifyf(false,
                    "READY=1\n"
                    "STATUS=Reached " SPECIAL_BASIC_TARGET ".");
+        m->ready_sent = true;
+        m->status_ready = false;
+}
+
+static void manager_send_ready(Manager *m) {
+        if (m->ready_sent && m->status_ready)
+                /* Skip the notification if nothing changed. */
+                return;
+
+        sd_notifyf(false,
+                   "%sSTATUS=Ready.",
+                   m->ready_sent ? "READY=1\n" : "");
+        m->ready_sent = m->status_ready = true;
 }
 
 static void manager_check_basic_target(Manager *m) {
@@ -3478,7 +3482,7 @@ static void manager_check_basic_target(Manager *m) {
                 return;
 
         /* For user managers, send out READY=1 as soon as we reach basic.target */
-        manager_send_ready(m);
+        user_manager_send_ready(m);
 
         /* Log the taint string as soon as we reach basic.target */
         log_taint_string(m);
@@ -3509,6 +3513,11 @@ void manager_check_finished(Manager *m) {
         if (hashmap_buckets(m->jobs) > hashmap_size(m->units) / 10)
                 m->jobs = hashmap_free(m->jobs);
 
+        manager_send_ready(m);
+
+        if (MANAGER_IS_FINISHED(m))
+                return;
+
         manager_flip_auto_status(m, false, "boot finished");
 
         /* Notify Type=idle units that we are done now */
@@ -3522,9 +3531,6 @@ void manager_check_finished(Manager *m) {
 
         /* This is no longer the first boot */
         manager_set_first_boot(m, false);
-
-        if (MANAGER_IS_FINISHED(m))
-                return;
 
         dual_timestamp_get(m->timestamps + MANAGER_TIMESTAMP_FINISH);
 
