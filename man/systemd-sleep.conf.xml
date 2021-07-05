@@ -137,14 +137,17 @@
         <filename>/sys/power/disk</filename> by,
         respectively,
         <citerefentry><refentrytitle>systemd-suspend.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
-        <citerefentry><refentrytitle>systemd-hibernate.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
-        <citerefentry><refentrytitle>systemd-hybrid-sleep.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>, or
-        <citerefentry><refentrytitle>systemd-suspend-then-hibernate.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
+        <citerefentry><refentrytitle>systemd-hibernate.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>, or
+        <citerefentry><refentrytitle>systemd-hybrid-sleep.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
         More than one value can be specified by separating
         multiple values with whitespace. They will be tried
         in turn, until one is written without error. If
         neither succeeds, the operation will be aborted.
+        </para>
+        <para><citerefentry><refentrytitle>systemd-suspend-then-hibernate.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+        uses the value of <varname>SuspendMode=</varname> when suspending and the value of <varname>HibernateMode=</varname> when hibernating.
         </para></listitem>
+
       </varlistentry>
 
       <varlistentry>
@@ -156,13 +159,15 @@
         <filename>/sys/power/state</filename> by,
         respectively,
         <citerefentry><refentrytitle>systemd-suspend.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
-        <citerefentry><refentrytitle>systemd-hibernate.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
-        <citerefentry><refentrytitle>systemd-hybrid-sleep.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>, or
-        <citerefentry><refentrytitle>systemd-suspend-then-hibernate.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
+        <citerefentry><refentrytitle>systemd-hibernate.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>, or
+        <citerefentry><refentrytitle>systemd-hybrid-sleep.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
         More than one value can be specified by separating
         multiple values with whitespace. They will be tried
         in turn, until one is written without error. If
         neither succeeds, the operation will be aborted.
+        </para>
+        <para><citerefentry><refentrytitle>systemd-suspend-then-hibernate.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+        uses the value of <varname>SuspendState=</varname> when suspending and the value of <varname>HibernateState=</varname> when hibernating.
         </para></listitem>
       </varlistentry>
       <varlistentry>
