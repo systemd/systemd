@@ -230,7 +230,7 @@
         defaults to <literal>hibernate</literal>, <varname>HandlePowerKeyLongPress=</varname>
         defaults to <literal>ignore</literal>, <varname>HandleRebootKeyLongPress=</varname>
         defaults to <literal>poweroff</literal>, <varname>HandleSuspendKeyLongPress=</varname>
-        defaults to <literal>ignore</literal>, <varname>HandleHibernateKeyLongPress=</varname>
+        defaults to <literal>hibernate</literal>, <varname>HandleHibernateKeyLongPress=</varname>
         defaults to <literal>ignore</literal>.
         <varname>HandleLidSwitch=</varname> defaults to
         <literal>suspend</literal>.
