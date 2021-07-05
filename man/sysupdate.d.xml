@@ -1,0 +1,885 @@
+<?xml version='1.0'?>
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
+
+<refentry id="sysupdate.d" conditional='ENABLE_SYSUPDATE'
+          xmlns:xi="http://www.w3.org/2001/XInclude">
+
+  <refentryinfo>
+    <title>sysupdate.d</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>sysupdate.d</refentrytitle>
+    <manvolnum>5</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>sysupdate.d</refname>
+    <refpurpose>Transfer Definition Files for Automatic Updates</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <para><literallayout><filename>/etc/sysupdate.d/*.conf</filename>
+<filename>/run/sysupdate.d/*.conf</filename>
+<filename>/usr/lib/sysupdate.d/*.conf</filename>
+    </literallayout></para>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para><filename>sysupdate.d/*.conf</filename> files describe how specific resources on the local system
+    shall be updated from a remote source. Each such file defines one such transfer: typically a remote
+    HTTP/HTTPS resource as source; and a local file, directory or partition as target. This may be used as a
+    simple, automatic, atomic update mechanism for the OS itself, for containers, portable services or system
+    extension images — but in fact may be used to update any kind of file from a remote source.</para>
+
+    <para>The
+    <citerefentry><refentrytitle>systemd-sysupdate</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+    command reads these files and uses them to determine which local resources should be updated, and then
+    executes the update.</para>
+
+    <para>Both the remote HTTP/HTTPS source and the local target typically exist in multiple, concurrent
+    versions, in order to implement flexible update schemes, e.g. A/B updating (or a superset thereof,
+    e.g. A/B/C, A/B/C/D, …).</para>
+
+    <para>Each <filename>*.conf</filename> file defines one transfer, i.e. describes one resource to
+    update. Typically, multiple of these files (i.e. multiple of such transfers) are defined together, and
+    are bound together by a common version identifier in order to update multiple resources at once on each
+    update operation, for example to update a kernel, a root file system and a Verity partition in a single,
+    combined, synchronized operation, so that only a combined update of all three together constitutes a
+    complete update.</para>
+
+    <para>Each <filename>*.conf</filename> file contains three sections: [Transfer], [Source] and [Target].</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Basic Mode of Operation</title>
+
+    <para>Disk-image based OS updates typically consist of multiple different resources that need to be
+    updated together, for example a secure OS update might consist of a root file system image to drop into a
+    partition, a matching Verity integrity data partition image, and a kernel image prepared to boot into the
+    combination of the two partitions. The first two resources are files that are downloaded and placed in a
+    disk partition, the latter is a file that is downloaded and placed in a regular file in the boot file
+    system (e.g. EFI system partition). Hence, during an update of a hypothetical operating system "foobarOS"
+    to a hypothetical version 47 the following operations should take place:</para>
+
+    <orderedlist>
+      <listitem><para>A file <literal>https://download.example.com/foobarOS_47.root.xz</literal> should be
+      downloaded, decompressed and written to a previously unused partition with GPT partition type UUID
+      4f68bce3-e8cd-4db1-96e7-fbcaf984b709 for x86-64, as per <ulink
+      url="https://systemd.io/DISCOVERABLE_PARTITIONS">Discoverable Partitions
+      Specification</ulink>.</para></listitem>
+
+      <listitem><para>Similarly, a file <literal>https://download.example.com/foobarOS_47.verity.xz</literal>
+      should be downloaded, decompressed and written to a previously empty partition with GPT partition type
+      UUID of 2c7357ed-ebd2-46d9-aec1-23d437ec2bf5 (i.e the partition type for Verity integrity information
+      for x86-64 root file systems).</para></listitem>
+
+      <listitem><para>Finally, a file <literal>https://download.example.com/foobarOS_47.efi.xz</literal> (a
+      unified kernel, as per <ulink url="https://systemd.io/BOOT_LOADER_SPECIFICATION">Boot Loader
+      Specification</ulink> Type #2) should be downloaded, decompressed and written to the ESP file system,
+      i.e. to <filename>EFI/Linux/foobarOS_47.efi</filename> in the ESP.</para></listitem>
+    </orderedlist>
+
+    <para>The version-independent generalization of this would be (using the special marker
+    <literal>@v</literal> as wildcard for the version identifier):</para>
+
+    <orderedlist>
+      <listitem><para>A transfer of a file <literal>https://download.example.com/foobarOS_@v.root.xz</literal>
+      → a local, previously empty GPT partition of type 4f68bce3-e8cd-4db1-96e7-fbcaf984b709, with the label to
+      be set to <literal>foobarOS_@v</literal>.</para></listitem>
+
+      <listitem><para>A transfer of a file <literal>https://download.example.com/foobarOS_@v.verity.xz</literal>
+      → a local, previously empty GPT partition of type 2c7357ed-ebd2-46d9-aec1-23d437ec2bf5, with the label to be
+      set to <literal>foobarOS_@v_verity</literal>.</para></listitem>
+
+      <listitem><para>A transfer of a file <literal>https://download.example.com/foobarOS_@v.efi.xz</literal>
+      → a local file <filename>/efi/EFI/Linux/foobarOS_@v.efi</filename>.</para></listitem>
+    </orderedlist>
+
+    <para>An update can only complete if the relevant URLs provide their resources for the same version,
+    i.e. for the same value of <literal>@v</literal>.</para>
+
+    <para>The above may be translated into three <filename>*.conf</filename> files in
+    <filename>sysupdate.d/</filename>, one for each resource to transfer. The <filename>*.conf</filename>
+    files configure the type of download, and what place to write the download to (i.e. whether to a
+    partition or a file in the file system). Most importantly these files contain the URL, partition name and
+    filename patterns shown above that describe how these resources are called on the source and how they
+    shall be called on the target.</para>
+
+    <para>In order to enumerate available versions and figuring out candidates to update to, a mechanism is
+    necessary to list suitable files:</para>
+
+    <itemizedlist>
+      <listitem><para>For partitions: the surrounding GPT partition table contains a list of defined
+      partitions, including a partition type UUID and a partition label (in this scheme the partition label
+      plays a role for the partition similar to the filename for a regular file)</para></listitem>
+
+      <listitem><para>For regular files: the directory listing of the directory the files are contained in
+      provides a list of existing files in a straightforward way.</para></listitem>
+
+      <listitem><para>For HTTP/HTTPS sources a simple scheme is used: a manifest file
+      <filename>SHA256SUMS</filename>, following the format defined by <citerefentry
+      project='man-pages'><refentrytitle>sha256sum</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+      lists file names and their SHA256 hashes.</para></listitem>
+    </itemizedlist>
+
+    <para>Transfers are done in the alphabetical order of the <filename>.conf</filename> file names they are
+    defined in. First, the resource data is downloaded directly into a target file/directory/partition. Once
+    this is completed for all defined transfers, in a second step the files/directories/partitions are
+    renamed to their final names as defined by the target <varname>MatchPattern=</varname>, again in the
+    order the <filename>.conf</filename> transfer file names dictate. This step is not atomic, however it is
+    guaranteed to be executed strictly in order with suitable disk synchronization in place. Typically, when
+    updating an OS one of the transfers defines the entry point when booting. Thus it is generally a good idea
+    to order the resources via the transfer configuration file names so that the entry point is written
+    last, ensuring that any abnormal termination does not leave an entry point around whose backing is not
+    established yet. In the example above it would hence make sense to establish the EFI kernel image last
+    and thus give its transfer configuration file the alphabetically last name.</para>
+
+    <para>See below for an extended, more specific example based on the above.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Resource Types</title>
+
+    <para>Each transfer file defines one source resource to transfer to one target resource. The following
+    resource types are supported:</para>
+
+    <orderedlist>
+
+      <listitem><para>Resources of type <literal>url-file</literal> encapsulate a file on a web server,
+      referenced via a HTTP or HTTPS URL. When an update takes place, the file is downloaded and decompressed
+      and then written to the target file or partition. This resource type is only available for sources, not
+      for targets. The list of available versions of resources of this type is encoded in
+      <filename>SHA256SUMS</filename> manifest files, accompanied by
+      <filename>SHA256SUMS.gpg</filename> detached signatures.</para></listitem>
+
+      <listitem><para>The <literal>url-tar</literal> resource type is similar, but the file must be a
+      <filename>.tar</filename> archive. When an update takes place, the file is decompressed and unpacked
+      into a directory or btrfs subvolume. This resource type is only available for sources, not for
+      targets. Just like <literal>url-file</literal>, <literal>url-tar</literal> version enumeration makes
+      use of <filename>SHA256SUMS</filename> files, authenticated via
+      <filename>SHA256SUMS.gpg</filename>.</para></listitem>
+
+      <listitem><para>The <literal>regular-file</literal> resource type encapsulates a local regular file on
+      disk. During updates the file is uncompressed and written to the target file or partition. This
+      resource type is available both as source and as target. When updating no integrity or authentication
+      verification is done for resources of this type.</para></listitem>
+
+      <listitem><para>The <literal>partition</literal> resource type is similar to
+      <literal>regular-file</literal>, and encapsulates a GPT partition on disk. When updating, the partition
+      must exist already, and have the correct GPT partition type. A partition whose GPT partition label is
+      set to <literal>_empty</literal> is considered empty, and a candidate to place a newly downloaded
+      resource in. The GPT partition label is used to store version information, once a partition is
+      updated. This resource type is only available for target resources.</para></listitem>
+
+      <listitem><para>The <literal>tar</literal> resource type encapsulates local <filename>.tar</filename>
+      archive files. When an update takes place, the files are uncompressed and unpacked into a target
+      directory or btrfs subvolume. Behaviour of <literal>tar</literal> and <literal>url-tar</literal> is
+      generally similar, but the latter downloads from remote sources, and does integrity and authentication
+      checks while the former does not. The <literal>tar</literal> resource type is only available for source
+      resources.</para></listitem>
+
+      <listitem><para>The <literal>directory</literal> resource type encapsulates local directory trees. This
+      type is available both for source and target resources. If an update takes place on a source resource
+      of this type, a recursive copy of the directory is done.</para></listitem>
+
+      <listitem><para>The <literal>subvolume</literal> resource type is identical to
+      <literal>directory</literal>, except when used as the target, in which case the file tree is placed in
+      a btrfs subvolume instead of a plain directory, if the backing file system supports it (i.e. is
+      btrfs).</para></listitem>
+    </orderedlist>
+
+    <para>As already indicated, only a subset of source and target resource type combinations are
+    supported:</para>
+
+    <table>
+      <title>Resource Types</title>
+
+      <tgroup cols='3' align='left' colsep='1' rowsep='1'>
+        <colspec colname="name" />
+        <colspec colname="explanation" />
+
+        <thead>
+          <row>
+            <entry>Identifier</entry>
+            <entry>Description</entry>
+            <entry>Usable as Source</entry>
+            <entry>When Used as Source: Compatible Targets</entry>
+            <entry>When Used as Source: Integrity + Authentication</entry>
+            <entry>When Used as Source: Decompression</entry>
+            <entry>Usable as Target</entry>
+            <entry>When Used as Target: Compatible Sources</entry>
+          </row>
+        </thead>
+
+        <tbody>
+          <row>
+            <entry><constant>url-file</constant></entry>
+            <entry>HTTP/HTTPS files</entry>
+            <entry>yes</entry>
+            <entry><constant>regular-file</constant>, <constant>partition</constant></entry>
+            <entry>yes</entry>
+            <entry>yes</entry>
+            <entry>no</entry>
+            <entry>-</entry>
+          </row>
+
+          <row>
+            <entry><constant>url-tar</constant></entry>
+            <entry>HTTP/HTTPS <filename>.tar</filename> archives</entry>
+            <entry>yes</entry>
+            <entry><constant>directory</constant>, <constant>subvolume</constant></entry>
+            <entry>yes</entry>
+            <entry>yes</entry>
+            <entry>no</entry>
+            <entry>-</entry>
+          </row>
+
+          <row>
+            <entry><constant>regular-file</constant></entry>
+            <entry>Local files</entry>
+            <entry>yes</entry>
+            <entry><constant>regular-file</constant>, <constant>partition</constant></entry>
+            <entry>no</entry>
+            <entry>yes</entry>
+            <entry>yes</entry>
+            <entry><constant>url-file</constant>, <constant>regular-file</constant></entry>
+          </row>
+
+          <row>
+            <entry><constant>partition</constant></entry>
+            <entry>Local GPT partitions</entry>
+            <entry>no</entry>
+            <entry>-</entry>
+            <entry>-</entry>
+            <entry>-</entry>
+            <entry>yes</entry>
+            <entry><constant>url-file</constant>, <constant>regular-file</constant></entry>
+          </row>
+
+          <row>
+            <entry><constant>tar</constant></entry>
+            <entry>Local <filename>.tar</filename> archives</entry>
+            <entry>yes</entry>
+            <entry><constant>directory</constant>, <constant>subvolume</constant></entry>
+            <entry>no</entry>
+            <entry>yes</entry>
+            <entry>no</entry>
+            <entry>-</entry>
+          </row>
+
+          <row>
+            <entry><constant>directory</constant></entry>
+            <entry>Local directories</entry>
+            <entry>yes</entry>
+            <entry><constant>directory</constant>, <constant>subvolume</constant></entry>
+            <entry>no</entry>
+            <entry>no</entry>
+            <entry>yes</entry>
+            <entry><constant>url-tar</constant>, <constant>tar</constant>, <constant>directory</constant>, <constant>subvolume</constant></entry>
+          </row>
+
+          <row>
+            <entry><constant>subvolume</constant></entry>
+            <entry>Local btrfs subvolumes</entry>
+            <entry>yes</entry>
+            <entry><constant>directory</constant>, <constant>subvolume</constant></entry>
+            <entry>no</entry>
+            <entry>no</entry>
+            <entry>yes</entry>
+            <entry><constant>url-tar</constant>, <constant>tar</constant>, <constant>directory</constant>, <constant>subvolume</constant></entry>
+          </row>
+
+        </tbody>
+      </tgroup>
+    </table>
+  </refsect1>
+
+  <refsect1>
+    <title>Match Patterns</title>
+
+    <para>Both the source and target resources typically exist in multiple versions concurrently. An update
+    operation is done whenever the newest of the source versions is newer than the newest of the target
+    versions. To determine the newest version of the resources a directory listing, partition listing or
+    manifest listing is used, a subset of qualifying entries selected from that, and the version identifier
+    extracted from the file names or partition labels of these selected entries. Subset selection and
+    extraction of the version identifier (plus potentially other metadata) is done via match patterns,
+    configured in <varname>MatchPattern=</varname> in the [Source] and [Target] sections. These patterns are
+    strings that describe how files or partitions are named, with named wildcards for specific fields such as
+    the version identifier. The following wildcards are defined:</para>
+
+    <table>
+      <title>Match Pattern Wildcards</title>
+
+      <tgroup cols='2' align='left' colsep='1' rowsep='1'>
+        <colspec colname="name" />
+        <colspec colname="explanation" />
+
+        <thead>
+          <row>
+            <entry>Wildcard</entry>
+            <entry>Description</entry>
+            <entry>Format</entry>
+            <entry>Notes</entry>
+          </row>
+        </thead>
+
+        <tbody>
+          <row>
+            <entry><literal>@v</literal></entry>
+            <entry>Version identifier</entry>
+            <entry>Valid version string</entry>
+            <entry>Mandatory</entry>
+          </row>
+
+          <row>
+            <entry><literal>@u</literal></entry>
+            <entry>GPT partition UUID</entry>
+            <entry>Valid 128-Bit UUID string</entry>
+            <entry>Only relevant if target resource type chosen as <constant>partition</constant></entry>
+          </row>
+
+          <row>
+            <entry><literal>@f</literal></entry>
+            <entry>GPT partition flags</entry>
+            <entry>Formatted hexadecimal integer</entry>
+            <entry>Only relevant if target resource type chosen as <constant>partition</constant></entry>
+          </row>
+
+          <row>
+            <entry><literal>@a</literal></entry>
+            <entry>GPT partition flag NoAuto</entry>
+            <entry>Either <literal>0</literal> or <literal>1</literal></entry>
+            <entry>Controls NoAuto bit of the GPT partition flags, as per <ulink url="https://systemd.io/DISCOVERABLE_PARTITIONS">Discoverable Partitions Specification</ulink>; only relevant if target resource type chosen as <constant>partition</constant></entry>
+          </row>
+
+          <row>
+            <entry><literal>@g</literal></entry>
+            <entry>GPT partition flag GrowFileSystem</entry>
+            <entry>Either <literal>0</literal> or <literal>1</literal></entry>
+            <entry>Controls GrowFileSystem bit of the GPT partition flags, as per <ulink url="https://systemd.io/DISCOVERABLE_PARTITIONS">Discoverable Partitions Specification</ulink>; only relevant if target resource type chosen as <constant>partition</constant></entry>
+          </row>
+
+          <row>
+            <entry><literal>@r</literal></entry>
+            <entry>Read-only flag</entry>
+            <entry>Either <literal>0</literal> or <literal>1</literal></entry>
+            <entry>Controls ReadOnly bit of the GPT partition flags, as per <ulink url="https://systemd.io/DISCOVERABLE_PARTITIONS">Discoverable Partitions Specification</ulink> and other output read-only flags, see <varname>ReadOnly=</varname> below.</entry>
+          </row>
+
+          <row>
+            <entry><literal>@t</literal></entry>
+            <entry>File modification time</entry>
+            <entry>Formatted decimal integer, µs since UNIX epoch Jan 1st 1970</entry>
+            <entry>Only relevant if target resource type chosen as <constant>regular-file</constant></entry>
+          </row>
+
+          <row>
+            <entry><literal>@m</literal></entry>
+            <entry>File access mode</entry>
+            <entry>Formatted octal integer, in UNIX fashion</entry>
+            <entry>Only relevant if target resource type chosen as <constant>regular-file</constant></entry>
+          </row>
+
+          <row>
+            <entry><literal>@s</literal></entry>
+            <entry>File size after decompression</entry>
+            <entry>Formatted decimal integer</entry>
+            <entry>Useful for measuring progress and to improve partition allocation logic</entry>
+          </row>
+
+          <row>
+            <entry><literal>@d</literal></entry>
+            <entry>Tries done</entry>
+            <entry>Formatted decimal integer</entry>
+            <entry>Useful when operating with kernel image files, as per <ulink url="https://systemd.io/AUTOMATIC_BOOT_ASSESSMENT">Automatic Boot Assessment</ulink></entry>
+          </row>
+
+          <row>
+            <entry><literal>@l</literal></entry>
+            <entry>Tries left</entry>
+            <entry>Formatted decimal integer</entry>
+            <entry>Useful when operating with kernel images, as per <ulink url="https://systemd.io/AUTOMATIC_BOOT_ASSESSMENT">Automatic Boot Assessment</ulink></entry>
+          </row>
+
+          <row>
+            <entry><literal>@h</literal></entry>
+            <entry>SHA256 hash of compressed file</entry>
+            <entry>64 hexadecimal characters</entry>
+            <entry>The SHA256 hash of the compressed file; not useful for <constant>url-file</constant> or <constant>url-tar</constant> where the SHA256 hash is already included in the manifest file anyway.</entry>
+          </row>
+        </tbody>
+      </tgroup>
+    </table>
+
+    <para>Of these wildcards only <literal>@v</literal> must be present in a valid pattern, all other
+    wildcards are optional. Each wildcard may be used at most once in each pattern. A typical wildcard
+    matching a file system source image could be <literal>MatchPattern=foobar_@v.raw.xz</literal>, i.e. any file
+    whose name begins with <literal>foobar_</literal>, followed by a version ID and suffixed by
+    <literal>.raw.xz</literal>.</para>
+
+    <para>Do not confuse the <literal>@</literal> pattern matching wildcard prefix with the
+    <literal>%</literal> specifier expansion prefix. The former encapsulate a variable part of a match
+    pattern string, the latter are simple shortcuts that are expanded while the drop-in files are
+    parsed. For details about specifiers, see below.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>[Transfer] Section Options</title>
+
+    <para>This section defines general properties of this transfer.</para>
+
+    <variablelist>
+      <varlistentry>
+        <term><varname>MinVersion=</varname></term>
+
+        <listitem><para>Specifies the minimum version to require for this transfer to take place. If the
+        source or target patterns in this transfer definition match files older than this version they will
+        be considered obsolete, and never be considered for the update operation.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>ProtectVersion=</varname></term>
+
+        <listitem><para>Takes one or more version strings to mark as "protected". Protected versions are
+        never removed while making room for new, updated versions. This is useful to ensure that the
+        currently booted OS version (or auxiliary resources associated with it) is not replaced/overwritten
+        during updates, in order to avoid runtime file system corruptions.</para>
+
+        <para>Like many of the settings in these configuration files this setting supports specifier
+        expansion. It's particularly useful to set this setting to one of the <literal>%A</literal>,
+        <literal>%B</literal> or <literal>%w</literal> specifiers to automatically refer to the current OS
+        version of the running system. See below for details on supported specifiers.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>Verify=</varname></term>
+
+        <listitem><para>Takes a boolean, defaults to yes. Controls whether to cryptographically verify
+        downloaded resources (specifically: validate the GPG signatures for downloaded
+        <filename>SHA256SUMS</filename> manifest files, via their detached signature files
+        <filename>SHA256SUMS.gpg</filename> in combination with the system keyring
+        <filename>/usr/lib/systemd/import-pubring.gpg</filename> or
+        <filename>/etc/systemd/import-pubring.gpg</filename>).</para>
+
+        <para>This option is essential to provide integrity guarantees for downloaded resources and thus
+        should be left enabled, outside of test environments.</para>
+
+        <para>Note that the downloaded payload files are unconditionally checked against the SHA256 hashes
+        listed in the manifest. This option only controls whether the signatures of these manifests are
+        verified.</para>
+
+        <para>This option only has an effect if the source resource type is selected as
+        <constant>url-file</constant> or <constant>url-tar</constant>, as integrity and authentication
+        checking is only available for transfers from remote sources.</para></listitem>
+      </varlistentry>
+
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>[Source] Section Options</title>
+
+    <para>This section defines properties of the transfer source:</para>
+
+    <variablelist>
+      <varlistentry>
+        <term><varname>Type=</varname></term>
+
+        <listitem><para>Specifies the resource type of the source for the transfer. Takes one of
+        <constant>url-file</constant>, <constant>url-tar</constant>, <constant>tar</constant>,
+        <constant>regular-file</constant>, <constant>directory</constant> or
+        <constant>subvolume</constant>. For details about the resource types, see above. This option is
+        mandatory.</para>
+
+        <para>Note that only some combinations of source and target resource types are supported, see
+        above.</para></listitem>
+      </varlistentry>
+    </variablelist>
+
+    <variablelist>
+      <varlistentry>
+        <term><varname>Path=</varname></term>
+
+        <listitem><para>Specifies where to find source versions of this resource.</para>
+
+        <para>If the source type is selected as <constant>url-file</constant> or
+        <constant>url-tar</constant> this must be a HTTP/HTTPS URL. The URL is suffixed with
+        <filename>/SHA256SUMS</filename> to acquire the manifest file, with
+        <filename>/SHA256SUMS.gpg</filename> to acquire the detached signature file for it, and with the file
+        names listed in the manifest file in case an update is executed and a resource shall be
+        downloaded.</para>
+
+        <para>For all other source resource types this must be a local path in the file system, referring to
+        a local directory to find the versions of this resource in.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>MatchPattern=</varname></term>
+
+        <listitem><para>Specifies one or more file name match patterns that select the subset of files that
+        are update candidates as source for this transfer. See above for details on match patterns.</para>
+
+        <para>This option is mandatory. Any pattern listed must contain at least the <literal>@v</literal>
+        wildcard, so that a version identifier may be extracted from the filename. All other wildcards are
+        optional.</para></listitem>
+      </varlistentry>
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>[Target] Section Options</title>
+
+    <para>This section defines properties of the transfer target:</para>
+
+    <variablelist>
+      <varlistentry>
+        <term><varname>Type=</varname></term>
+
+        <listitem><para>Specifies the resource type of the target for the transfer. Takes one of
+        <constant>partition</constant>, <constant>regular-file</constant>, <constant>directory</constant> or
+        <constant>subvolume</constant>. For details about the resource types, see above. This option is
+        mandatory.</para>
+
+        <para>Note that only some combinations of source and target resource types are supported, see above.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>Path=</varname></term>
+
+        <listitem><para>Specifies a file system path where to look for already installed versions or place
+        newly downloaded versions of this configured resource. If <varname>Type=</varname> is set to
+        <constant>partition</constant>, expects a path to a (whole) block device node, or the special string
+        <literal>auto</literal> in which case the block device the root file system of the currently booted
+        system is automatically determined and used. If <varname>Type=</varname> is set to
+        <constant>regular-file</constant>, <constant>directory</constant> or <constant>subvolume</constant>,
+        must refer to a path in the local file system referencing the directory to find or place the version
+        files or directories under.</para>
+
+        <para>Note that this mechanism cannot be used to create or remove partitions, in case
+        <varname>Type=</varname> is set to <constant>partition</constant>. Partitions must exist already, and
+        a special partition label <literal>_empty</literal> is used to indicate empty partitions. To
+        automatically generate suitable partitions on first boot, use a tool such as
+        <citerefentry><refentrytitle>systemd-repart</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>MatchPattern=</varname></term>
+
+        <listitem><para>Specifies one or more file name or partition label match patterns that select the
+        subset of files or partitions that are update candidates as targets for this transfer. See above for
+        details on match patterns.</para>
+
+        <para>This option is mandatory. Any pattern listed must contain at least the <literal>@v</literal>
+        wildcard, so that a version identifier may be extracted from the filename. All other wildcards are
+        optional.</para>
+
+        <para>This pattern is both used for matching existing installed versions and for determining the name
+        of new versions to install. If multiple patterns are specified, the first specified is used for
+        naming newly installed versions.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>MatchPartitionType=</varname></term>
+
+        <listitem><para>When the target <varname>Type=</varname> is chosen as <constant>partition</constant>,
+        specifies the GPT partition type to look for. Only partitions of this type are considered, all other
+        partitions are ignored. If not specified, the GPT partition type <constant>linux-generic</constant>
+        is used. Accepts either a literal type UUID or a symbolic type identifier. For a list of supported
+        type identifiers, see the <varname>Type=</varname> setting in
+        <citerefentry><refentrytitle>repart.d</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>PartitionUUID=</varname></term>
+        <term><varname>PartitionFlags=</varname></term>
+        <term><varname>PartitionNoAuto=</varname></term>
+        <term><varname>PartitionGrowFileSystem=</varname></term>
+
+        <listitem><para>When the target <varname>Type=</varname> is picked as <constant>partition</constant>,
+        selects the GPT partition UUID and partition flags to use for the updated partition. Expects a valid
+        UUID string, a hexadecimal integer, or booleans, respectively. If not set, but the source match
+        pattern includes wildcards for these fields (i.e. <literal>@u</literal>, <literal>@f</literal>,
+        <literal>@a</literal>, or <literal>@g</literal>), the values from the patterns are used. If neither
+        configured with wildcards or these explicit settings, the values are left untouched. If both the
+        overall <varname>PartitionFlags=</varname> flags setting and the individual flag settings
+        <varname>PartitionNoAuto=</varname> and <varname>PartitionGrowFileSystem=</varname> are used (or the
+        wildcards for them), then the latter override the former, i.e. the individual flag bit overrides the
+        overall flags value. See <ulink url="https://systemd.io/DISCOVERABLE_PARTITIONS">Discoverable
+        Partitions Specification</ulink> for details about these flags.</para>
+
+        <para>Note that these settings are not used for matching, they only have effect on newly written
+        partitions in case a transfer takes place.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>ReadOnly=</varname></term>
+
+        <listitem><para>Controls whether to mark the resulting file, subvolume or partition read-only. If the
+        target type is <constant>partition</constant> this controls the ReadOnly partition flag, as per
+        <ulink url="https://systemd.io/DISCOVERABLE_PARTITIONS">Discoverable Partitions
+        Specification</ulink>, similar to the <varname>PartitionNoAuto=</varname> and
+        <varname>PartitionGrowFileSystem=</varname> flags described above. If the target type is
+        <constant>regular-file</constant>, the writable bit is removed from the access mode. If the the
+        target type is <constant>subvolume</constant>, the subvolume will be marked read-only as a
+        whole. Finally, if the target <varname>Type=</varname> is selected as <constant>directory</constant>,
+        the "immutable" file attribute is set, see <citerefentry
+        project='man-pages'><refentrytitle>chattr</refentrytitle><manvolnum>1</manvolnum></citerefentry> for
+        details.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>Mode=</varname></term>
+
+        <listitem><para>The UNIX file access mode to use for newly created files in case the target resource
+        type is picked as <constant>regular-file</constant>. Expects an octal integer, in typical UNIX
+        fashion. If not set, but the source match pattern includes a wildcard for this field
+        (i.e. <literal>@t</literal>), the value from the pattern is used.</para>
+
+        <para>Note that this setting is not used for matching, it only has an effect on newly written
+        files when a transfer takes place.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>TriesDone=</varname></term>
+        <term><varname>TriesLeft=</varname></term>
+
+        <listitem><para>These options take positive, decimal integers, and control the number of attempts
+        done and left for this file. These settings are useful for managing kernel images, following the
+        scheme defined in <ulink url="https://systemd.io/AUTOMATIC_BOOT_ASSESSMENT">Automatic Boot
+        Assessment</ulink>, and only have an effect if the target pattern includes the <literal>@d</literal>
+        or <literal>@l</literal> wildcards.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>InstancesMax=</varname></term>
+
+        <listitem><para>Takes a decimal integer equal to or greater than 2. This configures how many concurrent
+        versions of the resource to keep. Whenever a new update is initiated it is made sure that no more
+        than the number of versions specified here minus one exist in the target. Any excess versions are
+        deleted (in case the target <varname>Type=</varname> of <constant>regular-file</constant>,
+        <constant>directory</constant>, <constant>subvolume</constant> is used) or emptied (in case the
+        target <varname>Type=</varname> of <constant>partition</constant> is used; emptying in this case
+        simply means to set the partition label to the special string <literal>_empty</literal>; note that no
+        partitions are actually removed). After an update is completed the number of concurrent versions of
+        the target resources is equal to or below the number specified here.</para>
+
+        <para>Note that this setting may be set differently for each transfer. However, it generally is
+        advisable to keep this setting the same for all transfers, since otherwise incomplete combinations of
+        files or partitions will be left installed.</para>
+
+        <para>If the target <varname>Type=</varname> is selected as <constant>partition</constant>, the number
+        of concurrent versions to keep is additionally restricted by the number of partition slots of the
+        right type in the partition table. i.e. if there are only 2 partition slots for the selected
+        partition type, setting this value larger than 2 is without effect, since no more than 2 concurrent
+        versions could be stored in the image anyway.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>RemoveTemporary=</varname></term>
+
+        <listitem><para>Takes a boolean argument. If this option is enabled (which is the default) before
+        initiating an update, all left-over, incomplete updates from a previous attempt are removed from the
+        target directory. This only has an effect if the target resource <varname>Type=</varname> is selected
+        as <constant>regular-file</constant>, <constant>directory</constant> or
+        <constant>subvolume</constant>.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>CurrentSymlink=</varname></term>
+
+        <listitem><para>Takes a symlink name as argument. If this option is used, as the last step of the
+        update a symlink under the specified name is created/updated pointing to the completed update. This
+        is useful in to provide a stable name always pointing to the newest version of the resource. This is
+        only supported if the target resource <varname>Type=</varname> is selected as
+        <constant>regular-file</constant>, <constant>directory</constant> or
+        <constant>subvolume</constant>.</para></listitem>
+      </varlistentry>
+
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>Specifiers</title>
+
+    <para>Specifiers may be used in the <varname>MinVersion=</varname>, <varname>ProtectVersion=</varname>,
+    <varname>Path=</varname>, <varname>MatchPattern=</varname> and <varname>CurrentSymlink=</varname>
+    settings. The following expansions are understood:</para>
+      <table class='specifiers'>
+        <title>Specifiers available</title>
+        <tgroup cols='3' align='left' colsep='1' rowsep='1'>
+          <colspec colname="spec" />
+          <colspec colname="mean" />
+          <colspec colname="detail" />
+          <thead>
+            <row>
+              <entry>Specifier</entry>
+              <entry>Meaning</entry>
+              <entry>Details</entry>
+            </row>
+          </thead>
+          <tbody>
+            <xi:include href="standard-specifiers.xml" xpointer="a"/>
+            <xi:include href="standard-specifiers.xml" xpointer="A"/>
+            <xi:include href="standard-specifiers.xml" xpointer="b"/>
+            <xi:include href="standard-specifiers.xml" xpointer="B"/>
+            <xi:include href="standard-specifiers.xml" xpointer="H"/>
+            <xi:include href="standard-specifiers.xml" xpointer="l"/>
+            <xi:include href="standard-specifiers.xml" xpointer="m"/>
+            <xi:include href="standard-specifiers.xml" xpointer="M"/>
+            <xi:include href="standard-specifiers.xml" xpointer="o"/>
+            <xi:include href="standard-specifiers.xml" xpointer="v"/>
+            <xi:include href="standard-specifiers.xml" xpointer="w"/>
+            <xi:include href="standard-specifiers.xml" xpointer="W"/>
+            <xi:include href="standard-specifiers.xml" xpointer="T"/>
+            <xi:include href="standard-specifiers.xml" xpointer="V"/>
+            <xi:include href="standard-specifiers.xml" xpointer="percent"/>
+          </tbody>
+        </tgroup>
+      </table>
+
+    <para>Do not confuse the <literal>%</literal> specifier expansion prefix with the <literal>@</literal>
+    pattern matching wildcard prefix. The former are simple shortcuts that are expanded while the drop-in
+    files are parsed, the latter encapsulate a variable part of a match pattern string. For details about
+    pattern matching wildcards, see above.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Examples</title>
+
+    <example>
+      <title>Updates for a Verity Enabled Secure OS</title>
+
+      <para>With the following three files we define a root file system partition, a matching Verity
+      partition, and a unified kernel image to update as one. This example is an extension of the example
+      discussed earlier in this man page.</para>
+
+      <para><programlisting># /usr/lib/sysupdate.d/50-verity.conf
+[Transfer]
+ProtectVersion=%A
+
+[Source]
+Type=url-file
+Path=https://download.example.com/
+MatchPattern=foobarOS_@v_@u.verity.xz
+
+[Target]
+Type=partition
+Path=auto
+MatchPattern=foobarOS_@v_verity
+MatchPartitionType=root-verity
+PartitionFlags=0
+PartitionReadOnly=1</programlisting></para>
+
+      <para>The above defines the update mechanism for the Verity partition of the root file system. Verity
+      partition images are downloaded from
+      <literal>https://download.example.com/foobarOS_@v_@u.verity.xz</literal> and written to a suitable
+      local partition, which is marked read-only. Under the assumption this update is run from the image
+      itself the current image version (i.e. the <literal>%A</literal> specifier) is marked as protected, to
+      ensure it is not corrupted while booted. Note that the partition UUID for the target partition is
+      encoded in the source file name. Fixating the partition UUID can be useful to ensure that
+      <literal>roothash=</literal> on the kernel command line is sufficient to pinpoint both the Verity and
+      root file system partition, and also encode the Verity root level hash (under the assumption the UUID
+      in the file names match their top-level hash, the way
+      <citerefentry><refentrytitle>systemd-gpt-auto-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+      suggests).</para>
+
+      <para><programlisting># /usr/lib/sysupdate.d/60-root.conf
+[Transfer]
+ProtectVersion=%A
+
+[Source]
+Type=url-file
+Path=https://download.example.com/
+MatchPattern=foobarOS_@v_@u.root.xz
+
+[Target]
+Type=partition
+Path=auto
+MatchPattern=foobarOS_@v
+MatchPartitionType=root
+PartitionFlags=0
+PartitionReadOnly=1</programlisting></para>
+
+      <para>The above defines a matching transfer definition for the root file system.</para>
+
+      <para><programlisting># /usr/lib/sysupdate.d/70-kernel.conf
+[Transfer]
+ProtectVersion=%A
+
+[Source]
+Type=url-file
+Path=https://download.example.com/
+MatchPattern=foobarOS_@v.efi.xz
+
+[Target]
+Type=file
+Path=/efi/EFI/Linux
+MatchPattern=foobarOS_@v+@l-@d.efi \
+             foobarOS_@v+@l.efi \
+             foobarOS_@v.efi
+Mode=0444
+TriesLeft=3
+TriesDone=0
+InstancesMax=2</programlisting></para>
+
+        <para>The above installs a unified kernel image into the ESP (which is mounted to
+        <filename>/efi/</filename>), as per <ulink url="https://systemd.io/BOOT_LOADER_SPECIFICATION">Boot
+        Loader Specification</ulink> Type #2. This defines three possible patterns for the names of the
+        kernel images images, as per <ulink url="https://systemd.io/AUTOMATIC_BOOT_ASSESSMENT">Automatic Boot
+        Assessment</ulink>, and ensures when installing new kernels, they are set up with 3 tries left. No
+        more than two parallel kernels are kept.</para>
+
+        <para>With this setup the web server would serve the following files, for a hypothetical version 7 of
+        the OS:</para>
+
+        <itemizedlist>
+          <listitem><para><filename>SHA256SUMS</filename> – The manifest file, containing available files and their SHA256 hashes</para></listitem>
+          <listitem><para><filename>SHA256SUMS.gpg</filename> – The detached cryptographic signature for the manifest file</para></listitem>
+          <listitem><para><filename>foobarOS_7_8b8186b1-2b4e-4eb6-ad39-8d4d18d2a8fb.verity.xz</filename> – The Verity image for version 7</para></listitem>
+          <listitem><para><filename>foobarOS_7_f4d1234f-3ebf-47c4-b31d-4052982f9a2f.root.xz</filename> – The root file system image for version 7</para></listitem>
+          <listitem><para><filename>foobarOS_7_efi.xz</filename> – The unified kernel image for version 7</para></listitem>
+        </itemizedlist>
+
+        <para>For each new OS release a new set of the latter three files would be added, each time with an
+        updated version. The <filename>SHA256SUMS</filename> manifest should then be updated accordingly,
+        listing all files for all versions that shall be offered for download.</para>
+    </example>
+
+    <example>
+      <title>Updates for Plain Directory Container Image</title>
+
+      <para><programlisting>
+[Source]
+Type=url-tar
+Path=https://download.example.com/
+MatchPattern=myContainer_@v.tar.gz
+
+[Target]
+Type=subvolume
+Path=/var/lib/machines
+MatchPattern=myContainer_@v
+CurrentSymlink=myContainer</programlisting></para>
+
+      <para>On updates this downloads <literal>https://download.example.com/myContainer_@v.tar.gz</literal>
+      and decompresses/unpacks it to <filename>/var/lib/machines/myContainer_@v</filename>. After each update
+      a symlink <filename>/var/lib/machines/myContainer</filename> is created/updated always pointing to the
+      most recent update.</para>
+    </example>
+  </refsect1>
+
+  <refsect1>
+    <title>See Also</title>
+    <para>
+      <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>systemd-sysupdate</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>systemd-repart</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+    </para>
+  </refsect1>
+
+</refentry>
