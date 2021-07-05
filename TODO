@@ -1019,10 +1019,6 @@ Features:
 
 * bootctl,sd-boot: actually honour the "architecture" key
 
-* sd-boot: add service that automatically runs "bootctl update" on every boot,
-  in a graceful way, so that updated /usr trees automatically propagate into
-  updated boot loaders on reboot.
-
 * bootctl:
   - teach it to prepare an ESP wholesale, i.e. with mkfs.vfat invocation
   - teach it to copy in unified kernel images and maybe type #1 boot loader spec entries from host
