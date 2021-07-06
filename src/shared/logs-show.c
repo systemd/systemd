@@ -579,10 +579,9 @@ static int output_short(
                 }
         }
 
-        if (!(flags & OUTPUT_SHOW_ALL) && !utf8_is_printable(message, message_len)) {
-                char bytes[FORMAT_BYTES_MAX];
-                fprintf(f, "[%s blob data]\n", format_bytes(bytes, sizeof(bytes), message_len));
-        } else {
+        if (!(flags & OUTPUT_SHOW_ALL) && !utf8_is_printable(message, message_len))
+                fprintf(f, "[%s blob data]\n", FORMAT_BYTES(message_len));
+        else {
 
                 /* URLify config_file string in message, if the message starts with it.
                  * Skip URLification if the highlighted pattern overlaps. */
@@ -726,16 +725,13 @@ static int output_verbose(
                                         p, valuelen,
                                         NULL);
                         fputs(off, f);
-                } else {
-                        char bytes[FORMAT_BYTES_MAX];
-
+                } else
                         fprintf(f, "    %s%.*s=[%s blob data]%s\n",
                                 on,
                                 (int) (c - (const char*) data),
                                 (const char*) data,
-                                format_bytes(bytes, sizeof(bytes), length - (c - (const char *) data) - 1),
+                                FORMAT_BYTES(length - (c - (const char *) data) - 1),
                                 off);
-                }
         }
 
         if (r < 0)

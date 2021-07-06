@@ -196,7 +196,6 @@ static int write_timeout(
                 const char *variable) {
 
         _cleanup_free_ char *timeout = NULL;
-        char timespan[FORMAT_TIMESPAN_MAX];
         usec_t u;
         int r;
 
@@ -212,7 +211,7 @@ static int write_timeout(
                 return 0;
         }
 
-        fprintf(f, "%s=%s\n", variable, format_timespan(timespan, sizeof(timespan), u, 0));
+        fprintf(f, "%s=%s\n", variable, FORMAT_TIMESPAN(u, 0));
 
         return 0;
 }

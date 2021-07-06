@@ -212,12 +212,12 @@ void server_space_usage_message(Server *s, JournalStorage *storage) {
                 return;
 
         metrics = &storage->metrics;
-        format_bytes(fb1, sizeof(fb1), storage->space.vfs_used);
-        format_bytes(fb2, sizeof(fb2), metrics->max_use);
-        format_bytes(fb3, sizeof(fb3), metrics->keep_free);
-        format_bytes(fb4, sizeof(fb4), storage->space.vfs_available);
-        format_bytes(fb5, sizeof(fb5), storage->space.limit);
-        format_bytes(fb6, sizeof(fb6), storage->space.available);
+        FORMAT_BYTES(storage->space.vfs_used);
+        FORMAT_BYTES(metrics->max_use);
+        FORMAT_BYTES(metrics->keep_free);
+        FORMAT_BYTES(storage->space.vfs_available);
+        FORMAT_BYTES(storage->space.limit);
+        FORMAT_BYTES(storage->space.available);
 
         server_driver_message(s, 0,
                               "MESSAGE_ID=" SD_MESSAGE_JOURNAL_USAGE_STR,
@@ -1113,7 +1113,6 @@ void server_dispatch_message(
 }
 
 int server_flush_to_var(Server *s, bool require_flag_file) {
-        char ts[FORMAT_TIMESPAN_MAX];
         sd_journal *j = NULL;
         const char *fn;
         unsigned n = 0;
@@ -1206,7 +1205,7 @@ finish:
         server_driver_message(s, 0, NULL,
                               LOG_MESSAGE("Time spent on flushing to %s is %s for %u entries.",
                                           s->system_storage.path,
-                                          format_timespan(ts, sizeof(ts), usec_sub_unsigned(now(CLOCK_MONOTONIC), start), 0),
+                                          FORMAT_TIMESPAN(usec_sub_unsigned(now(CLOCK_MONOTONIC), start), 0),
                                           n),
                               NULL);
 

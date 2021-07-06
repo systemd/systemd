@@ -150,8 +150,6 @@ int ifname_resolvconf_mangle(const char *s) {
 }
 
 static void print_source(uint64_t flags, usec_t rtt) {
-        char rtt_str[FORMAT_TIMESTAMP_MAX];
-
         if (!arg_legend)
                 return;
 
@@ -167,11 +165,10 @@ static void print_source(uint64_t flags, usec_t rtt) {
                flags & SD_RESOLVED_MDNS_IPV4 ? " mDNS/IPv4" : "",
                flags & SD_RESOLVED_MDNS_IPV6 ? " mDNS/IPv6" : "");
 
-        assert_se(format_timespan(rtt_str, sizeof(rtt_str), rtt, 100));
-
         printf(" in %s.%s\n"
                "%s-- Data is authenticated: %s; Data was acquired via local or encrypted transport: %s%s\n",
-               rtt_str, ansi_normal(),
+               FORMAT_TIMESPAN(rtt, 100),
+               ansi_normal(),
                ansi_grey(),
                yes_no(flags & SD_RESOLVED_AUTHENTICATED),
                yes_no(flags & SD_RESOLVED_CONFIDENTIAL),

@@ -255,7 +255,6 @@ static int scope_coldplug(Unit *u) {
 
 static void scope_dump(Unit *u, FILE *f, const char *prefix) {
         Scope *s = SCOPE(u);
-        char buf_runtime[FORMAT_TIMESPAN_MAX];
 
         assert(s);
         assert(f);
@@ -266,7 +265,7 @@ static void scope_dump(Unit *u, FILE *f, const char *prefix) {
                 "%sRuntimeMaxSec: %s\n",
                 prefix, scope_state_to_string(s->state),
                 prefix, scope_result_to_string(s->result),
-                prefix, format_timespan(buf_runtime, sizeof(buf_runtime), s->runtime_max_usec, USEC_PER_SEC));
+                prefix, FORMAT_TIMESPAN(s->runtime_max_usec, USEC_PER_SEC));
 
         cgroup_context_dump(UNIT(s), f, prefix);
         kill_context_dump(&s->kill_context, f, prefix);
