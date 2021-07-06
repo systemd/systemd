@@ -622,7 +622,6 @@ int manager_has_address(Manager *manager, int family, const union in_addr_union 
 
 static void log_address_debug(const Address *address, const char *str, const Link *link) {
         _cleanup_free_ char *addr = NULL, *peer = NULL, *flags_str = NULL;
-        char valid_buf[FORMAT_TIMESPAN_MAX], preferred_buf[FORMAT_TIMESPAN_MAX];
         const char *valid_str = NULL, *preferred_str = NULL;
         bool has_peer;
 
@@ -639,14 +638,10 @@ static void log_address_debug(const Address *address, const char *str, const Lin
                 (void) in_addr_to_string(address->family, &address->in_addr_peer, &peer);
 
         if (address->cinfo.ifa_valid != CACHE_INFO_INFINITY_LIFE_TIME)
-                valid_str = format_timespan(valid_buf, FORMAT_TIMESPAN_MAX,
-                                            address->cinfo.ifa_valid * USEC_PER_SEC,
-                                            USEC_PER_SEC);
+                valid_str = FORMAT_TIMESPAN(address->cinfo.ifa_valid * USEC_PER_SEC, USEC_PER_SEC);
 
         if (address->cinfo.ifa_prefered != CACHE_INFO_INFINITY_LIFE_TIME)
-                preferred_str = format_timespan(preferred_buf, FORMAT_TIMESPAN_MAX,
-                                                address->cinfo.ifa_prefered * USEC_PER_SEC,
-                                                USEC_PER_SEC);
+                preferred_str = FORMAT_TIMESPAN(address->cinfo.ifa_prefered * USEC_PER_SEC, USEC_PER_SEC);
 
         (void) address_flags_to_string_alloc(address->flags, address->family, &flags_str);
 

@@ -100,9 +100,7 @@ static int clock_state_update(
                 ClockState *sp,
                 sd_event *event) {
 
-        char buf[MAX((size_t)FORMAT_TIMESTAMP_MAX, STRLEN("unrepresentable"))];
         struct timex tx = {};
-        const char * ts;
         usec_t t;
         int r;
 
@@ -149,10 +147,9 @@ static int clock_state_update(
         if (tx.status & STA_NANO)
                 tx.time.tv_usec /= 1000;
         t = timeval_load(&tx.time);
-        ts = format_timestamp_style(buf, sizeof(buf), t, TIMESTAMP_US_UTC);
-        if (!ts)
-                strcpy(buf, "unrepresentable");
-        log_info("adjtime state %d status %x time %s", sp->adjtime_state, tx.status, ts);
+
+        log_info("adjtime state %d status %x time %s", sp->adjtime_state, tx.status,
+                 FORMAT_TIMESTAMP_STYLE(t, TIMESTAMP_US_UTC) ?: "unrepresentable");
 
         sp->has_watchfile = access("/run/systemd/timesync/synchronized", F_OK) >= 0;
         if (sp->has_watchfile)

@@ -51,9 +51,7 @@ cleanup:
 }
 
 static void test_getcrtime(void) {
-
         _cleanup_close_ int fd = -1;
-        char ts[FORMAT_TIMESTAMP_MAX];
         const char *vt;
         usec_t usec, k;
         int r;
@@ -67,7 +65,7 @@ static void test_getcrtime(void) {
         if (r < 0)
                 log_debug_errno(r, "btime: %m");
         else
-                log_debug("btime: %s", format_timestamp(ts, sizeof(ts), usec));
+                log_debug("btime: %s", FORMAT_TIMESTAMP(usec));
 
         k = now(CLOCK_REALTIME);
 
