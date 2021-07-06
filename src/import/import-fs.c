@@ -62,11 +62,8 @@ static void progress_show(ProgressInfo *p) {
 
         if (p->size == 0)
                 log_info("Copying tree, currently at '%s'...", p->path);
-        else {
-                char buffer[FORMAT_BYTES_MAX];
-
-                log_info("Copying tree, currently at '%s' (@%s)...", p->path, format_bytes(buffer, sizeof(buffer), p->size));
-        }
+        else
+                log_info("Copying tree, currently at '%s' (@%s)...", p->path, FORMAT_BYTES(p->size));
 }
 
 static int progress_path(const char *path, const struct stat *st, void *userdata) {
