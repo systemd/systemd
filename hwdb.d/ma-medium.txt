@@ -4616,6 +4616,12 @@ C00000-CFFFFF     (base 16)		Geksacon
 				Ufa  Republic of Bashkortostan  450005
 				RU
 
+78-5E-E8   (hex)		Guangdong COROS Sports Technology Co., Ltd
+600000-6FFFFF     (base 16)		Guangdong COROS Sports Technology Co., Ltd
+				ROOM 601 ROOM 701,BLD.2,NO.2,SCIENCE AND TECHNOLOGY 9 RD,SONGSHAN LAKE HI-TECH ZONE
+				Dongguan  Guangdong  523808
+				CN
+
 4C-4B-F9   (hex)		Shenzhen dingsheng technology co., LTD
 400000-4FFFFF     (base 16)		Shenzhen dingsheng technology co., LTD
 				Floor 3, building 5, kaijeda industrial zone, no.97, huaxing road, langkou community, dalang street, longhua district
@@ -8833,6 +8839,18 @@ E00000-EFFFFF     (base 16)		University of Texas at Austin
 				#218, Sec.2, Chung Cheng Road
 				San-Hsia District, New Taipei City    23742
 				TW
+
+78-5E-E8   (hex)		RIKEN KEIKI NARA MFG. Co., Ltd.
+100000-1FFFFF     (base 16)		RIKEN KEIKI NARA MFG. Co., Ltd.
+				49-1 Abe
+				Sakurai city    633-0054
+				JP
+
+78-5E-E8   (hex)		TOPDON TECHNOLOGY Co.,Ltd.
+900000-9FFFFF     (base 16)		TOPDON TECHNOLOGY Co.,Ltd.
+				Nanshan
+				Shenzhen  Guangdong  518000
+				CN
 
 20-85-93   (hex)		UNILUMIN GROUP CO.,LTD
 300000-3FFFFF     (base 16)		UNILUMIN GROUP CO.,LTD
@@ -13343,6 +13361,18 @@ D00000-DFFFFF     (base 16)		IIYAMA CORPORATION
 				Etobicoke  Ontario  M9W 4Y6
 				CA
 
+78-5E-E8   (hex)		Lantern Engineering (Pty) Ltd
+B00000-BFFFFF     (base 16)		Lantern Engineering (Pty) Ltd
+				Unit 101 & 101A, Execujet Business Centre, Tower Road
+				Cape Town  Western Cape  7490
+				ZA
+
+78-5E-E8   (hex)		MT B?LG? TEKNOLOJ?LER? VE DI? T?C. A.?.
+700000-7FFFFF     (base 16)		MT B?LG? TEKNOLOJ?LER? VE DI? T?C. A.?.
+				Tekstilkent Ticaret Merkezi Koza Plaza B Blok K:26 At??alan? 
+				?STANBUL  ESENLER  34235
+				TR
+
 28-36-13   (hex)		Hi-p (Suzhou) Electronics Co,Ltd
 100000-1FFFFF     (base 16)		Hi-p (Suzhou) Electronics Co,Ltd
 				5th floor, building G, no. 2337 gudai road (weijing center)
@@ -13354,6 +13384,12 @@ A00000-AFFFFF     (base 16)		Yake (Tianjin) Technology Co.,Ltd.
 				No.2, Zhengtong Road, Caozili Town, Wuqing District, Tianjin
 				Tianjin  Tianjin  301727
 				CN
+
+78-5E-E8   (hex)		Youtransactor
+000000-0FFFFF     (base 16)		Youtransactor
+				32 Rue Brancion
+				Paris    75015
+				FR
 
 4C-4B-F9   (hex)		Shandong Linkotech Electronic Co., Ltd.
 600000-6FFFFF     (base 16)		Shandong Linkotech Electronic Co., Ltd.
@@ -17746,6 +17782,18 @@ D00000-DFFFFF     (base 16)		AVYCON
 				2085 Humphrey Street
 				Fort Wayne  IN  46803
 				US
+
+78-5E-E8   (hex)		Jiangxi guoxuan radio and television technology Co.,Ltd
+800000-8FFFFF     (base 16)		Jiangxi guoxuan radio and television technology Co.,Ltd
+				No.3 Jincheng First Road, Guzhang Industrial Park, Shicheng County, Ganzhou City, Jiangxi
+				Ganzhou     341000
+				CN
+
+78-5E-E8   (hex)		Vega-Absolute
+200000-2FFFFF     (base 16)		Vega-Absolute
+				Kirova 113/1
+				Novosibirsk    630008
+				RU
 
 20-85-93   (hex)		Great Lite International
 700000-7FFFFF     (base 16)		Great Lite International
@@ -22285,3 +22333,15 @@ B00000-BFFFFF     (base 16)		Qorvo, Inc.
 				500 W. Renner Road
 				Richardson  TX  75080
 				US
+
+78-5E-E8   (hex)		FINETOOLING TECHNOLOGY(HONG KONG)CO.,LIMITED
+C00000-CFFFFF     (base 16)		FINETOOLING TECHNOLOGY(HONG KONG)CO.,LIMITED
+				RM 1003 10/F TOWER 1 LIPPO CENTER 89 QUEENSWAY ADMIRALTY HK
+				HONG KONG  HONG KONG  999077
+				CN
+
+78-5E-E8   (hex)		beijing Areospace Hongda optoelectronics technology co.,ltd
+400000-4FFFFF     (base 16)		beijing Areospace Hongda optoelectronics technology co.,ltd
+				No. 24, Dongfang street, North Development Zone, Langfang, Hebei, Guan Zip code?065599
+				langfang  hebei  065599
+				CN
