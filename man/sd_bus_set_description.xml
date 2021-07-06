@@ -115,7 +115,7 @@
     <citerefentry><refentrytitle>sd_bus_open_with_description</refentrytitle><manvolnum>3</manvolnum></citerefentry>
     or similar. If not set this way, a default string like <literal>system</literal> or
     <literal>user</literal> will be returned for the system or user buses, and
-    <constant>NULL</constant> otherwise.</para>
+    <constant>-ENXIO</constant> otherwise.</para>
 
     <para><function>sd_bus_set_anonymous()</function> enables or disables "anonymous authentication",
     i.e. lack of authentication, of the bus peer. This function must be called before the bus is
@@ -222,7 +222,10 @@
           <term><constant>-ENXIO</constant></term>
 
           <listitem><para>The bus object passed to <function>sd_bus_get_tid()</function> was not a
-          default bus object and is not attached to an event loop.</para></listitem>
+          default bus object and is not attached to an event loop.</para>
+
+          <para>The bus object passed to <function>sd_bus_get_description()</function> did
+          not have a <parameter>description</parameter>.</para></listitem>
         </varlistentry>
       </variablelist>
     </refsect2>
