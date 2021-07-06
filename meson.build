@@ -3514,10 +3514,10 @@ subdir('man')
 subdir('shell-completion/bash')
 subdir('shell-completion/zsh')
 subdir('docs/sysvinit')
-subdir('docs/var-log')
 
-install_subdir('factory/etc',
-               install_dir : factorydir)
+install_subdir('factory',
+               install_dir : factorydir,
+               strip_directory : true)
 
 if install_sysconfdir
         install_data('xorg/50-systemd-user.sh',

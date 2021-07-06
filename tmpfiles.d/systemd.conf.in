@@ -45,9 +45,10 @@ a+ /run/log/journal/%m/*.journal* - - - - group:wheel:r--
 {% endif %}
 {% endif %}
 
-z /var/log/journal 2755 root systemd-journal - -
-z /var/log/journal/%m 2755 root systemd-journal - -
-z /var/log/journal/%m/system.journal 0640 root systemd-journal - -
+L+ /var/log/README     - - - -
+z  /var/log/journal 2755 root systemd-journal - -
+z  /var/log/journal/%m 2755 root systemd-journal - -
+z  /var/log/journal/%m/system.journal 0640 root systemd-journal - -
 {% if HAVE_ACL %}
 {% if ENABLE_ADM_GROUP and ENABLE_WHEEL_GROUP %}
 a+ /var/log/journal    - - - - d:group::r-x,d:group:adm:r-x,d:group:wheel:r-x,group::r-x,group:adm:r-x,group:wheel:r-x
