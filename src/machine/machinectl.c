@@ -826,8 +826,6 @@ typedef struct ImageStatusInfo {
 } ImageStatusInfo;
 
 static void print_image_status_info(sd_bus *bus, ImageStatusInfo *i) {
-        char bs[FORMAT_BYTES_MAX];
-        char bs_exclusive[FORMAT_BYTES_MAX];
         const char *s1, *s2, *s3, *s4;
 
         assert(bus);
@@ -869,15 +867,15 @@ static void print_image_status_info(sd_bus *bus, ImageStatusInfo *i) {
         else if (s2)
                 printf("\tModified: %s\n", s2);
 
-        s3 = format_bytes(bs, sizeof(bs), i->usage);
-        s4 = i->usage_exclusive != i->usage ? format_bytes(bs_exclusive, sizeof(bs_exclusive), i->usage_exclusive) : NULL;
+        s3 = FORMAT_BYTES(i->usage);
+        s4 = i->usage_exclusive != i->usage ? FORMAT_BYTES(i->usage_exclusive) : NULL;
         if (s3 && s4)
                 printf("\t   Usage: %s (exclusive: %s)\n", s3, s4);
         else if (s3)
                 printf("\t   Usage: %s\n", s3);
 
-        s3 = format_bytes(bs, sizeof(bs), i->limit);
-        s4 = i->limit_exclusive != i->limit ? format_bytes(bs_exclusive, sizeof(bs_exclusive), i->limit_exclusive) : NULL;
+        s3 = FORMAT_BYTES(i->limit);
+        s4 = i->limit_exclusive != i->limit ? FORMAT_BYTES(i->limit_exclusive) : NULL;
         if (s3 && s4)
                 printf("\t   Limit: %s (exclusive: %s)\n", s3, s4);
         else if (s3)
@@ -936,16 +934,16 @@ typedef struct PoolStatusInfo {
 } PoolStatusInfo;
 
 static void print_pool_status_info(sd_bus *bus, PoolStatusInfo *i) {
-        char bs[FORMAT_BYTES_MAX], *s;
+        char *s;
 
         if (i->path)
                 printf("\t    Path: %s\n", i->path);
 
-        s = format_bytes(bs, sizeof(bs), i->usage);
+        s = FORMAT_BYTES(i->usage);
         if (s)
                 printf("\t   Usage: %s\n", s);
 
-        s = format_bytes(bs, sizeof(bs), i->limit);
+        s = FORMAT_BYTES(i->limit);
         if (s)
                 printf("\t   Limit: %s\n", s);
 }
@@ -2405,7 +2403,6 @@ static int clean_images(int argc, char *argv[], void *userdata) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL, *reply = NULL;
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         uint64_t usage, total = 0;
-        char fb[FORMAT_BYTES_MAX];
         sd_bus *bus = userdata;
         const char *name;
         unsigned c = 0;
@@ -2436,7 +2433,7 @@ static int clean_images(int argc, char *argv[], void *userdata) {
                         total = UINT64_MAX;
                 } else {
                         log_info("Removed image '%s'. Freed exclusive disk space: %s",
-                                 name, format_bytes(fb, sizeof(fb), usage));
+                                 name, FORMAT_BYTES(usage));
                         if (total != UINT64_MAX)
                                 total += usage;
                 }
@@ -2451,7 +2448,7 @@ static int clean_images(int argc, char *argv[], void *userdata) {
                 log_info("Removed %u images in total.", c);
         else
                 log_info("Removed %u images in total. Total freed exclusive disk space: %s.",
-                         c, format_bytes(fb, sizeof(fb), total));
+                         c, FORMAT_BYTES(total));
 
         return 0;
 }

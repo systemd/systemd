@@ -131,7 +131,6 @@ int journal_directory_vacuum(
         _cleanup_closedir_ DIR *d = NULL;
         struct vacuum_info *list = NULL;
         usec_t retention_limit = 0;
-        char sbytes[FORMAT_BYTES_MAX];
         struct dirent *de;
         int r;
 
@@ -148,7 +147,6 @@ int journal_directory_vacuum(
                 return -errno;
 
         FOREACH_DIRENT_ALL(de, d, r = -errno; goto finish) {
-
                 unsigned long long seqnum = 0, realtime;
                 _cleanup_free_ char *p = NULL;
                 sd_id128_t seqnum_id;
@@ -254,7 +252,7 @@ int journal_directory_vacuum(
                         if (r >= 0) {
 
                                 log_full(verbose ? LOG_INFO : LOG_DEBUG,
-                                         "Deleted empty archived journal %s/%s (%s).", directory, p, format_bytes(sbytes, sizeof(sbytes), size));
+                                         "Deleted empty archived journal %s/%s (%s).", directory, p, FORMAT_BYTES(size));
 
                                 freed += size;
                         } else if (r != -ENOENT)
@@ -296,7 +294,8 @@ int journal_directory_vacuum(
 
                 r = unlinkat_deallocate(dirfd(d), list[i].filename, 0);
                 if (r >= 0) {
-                        log_full(verbose ? LOG_INFO : LOG_DEBUG, "Deleted archived journal %s/%s (%s).", directory, list[i].filename, format_bytes(sbytes, sizeof(sbytes), list[i].usage));
+                        log_full(verbose ? LOG_INFO : LOG_DEBUG, "Deleted archived journal %s/%s (%s).",
+                                 directory, list[i].filename, FORMAT_BYTES(list[i].usage));
                         freed += list[i].usage;
 
                         if (list[i].usage < sum)
@@ -318,7 +317,8 @@ finish:
                 free(list[i].filename);
         free(list);
 
-        log_full(verbose ? LOG_INFO : LOG_DEBUG, "Vacuuming done, freed %s of archived journals from %s.", format_bytes(sbytes, sizeof(sbytes), freed), directory);
+        log_full(verbose ? LOG_INFO : LOG_DEBUG, "Vacuuming done, freed %s of archived journals from %s.",
+                 FORMAT_BYTES(freed), directory);
 
         return r;
 }

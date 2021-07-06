@@ -1932,29 +1932,24 @@ static void context_unload_partition_table(Context *context) {
 }
 
 static int format_size_change(uint64_t from, uint64_t to, char **ret) {
-        char format_buffer1[FORMAT_BYTES_MAX], format_buffer2[FORMAT_BYTES_MAX], *buf;
-
-        if (from != UINT64_MAX)
-                format_bytes(format_buffer1, sizeof(format_buffer1), from);
-        if (to != UINT64_MAX)
-                format_bytes(format_buffer2, sizeof(format_buffer2), to);
+        char *t;
 
         if (from != UINT64_MAX) {
                 if (from == to || to == UINT64_MAX)
-                        buf = strdup(format_buffer1);
+                        t = strdup(FORMAT_BYTES(from));
                 else
-                        buf = strjoin(format_buffer1, " ", special_glyph(SPECIAL_GLYPH_ARROW), " ", format_buffer2);
+                        t = strjoin(FORMAT_BYTES(from), " ", special_glyph(SPECIAL_GLYPH_ARROW), " ", FORMAT_BYTES(to));
         } else if (to != UINT64_MAX)
-                buf = strjoin(special_glyph(SPECIAL_GLYPH_ARROW), " ", format_buffer2);
+                t = strjoin(special_glyph(SPECIAL_GLYPH_ARROW), " ", FORMAT_BYTES(to));
         else {
                 *ret = NULL;
                 return 0;
         }
 
-        if (!buf)
+        if (!t)
                 return log_oom();
 
-        *ret = TAKE_PTR(buf);
+        *ret = t;
         return 1;
 }
 
@@ -2051,11 +2046,10 @@ static int context_dump_partitions(Context *context, const char *node) {
         }
 
         if ((arg_json_format_flags & JSON_FORMAT_OFF) && (sum_padding > 0 || sum_size > 0)) {
-                char s[FORMAT_BYTES_MAX];
                 const char *a, *b;
 
-                a = strjoina(special_glyph(SPECIAL_GLYPH_SIGMA), " = ", format_bytes(s, sizeof(s), sum_size));
-                b = strjoina(special_glyph(SPECIAL_GLYPH_SIGMA), " = ", format_bytes(s, sizeof(s), sum_padding));
+                a = strjoina(special_glyph(SPECIAL_GLYPH_SIGMA), " = ", FORMAT_BYTES(sum_size));
+                b = strjoina(special_glyph(SPECIAL_GLYPH_SIGMA), " = ", FORMAT_BYTES(sum_padding));
 
                 r = table_add_many(
                                 t,
@@ -2734,7 +2728,6 @@ static int context_copy_blocks(Context *context) {
                 _cleanup_(loop_device_unrefp) LoopDevice *d = NULL;
                 _cleanup_free_ char *encrypted = NULL;
                 _cleanup_close_ int encrypted_dev_fd = -1;
-                char buf[FORMAT_BYTES_MAX];
                 int target_fd;
 
                 if (p->copy_blocks_fd < 0)
@@ -2777,7 +2770,8 @@ static int context_copy_blocks(Context *context) {
                         target_fd = whole_fd;
                 }
 
-                log_info("Copying in '%s' (%s) on block level into future partition %" PRIu64 ".", p->copy_blocks_path, format_bytes(buf, sizeof(buf), p->copy_blocks_size), p->partno);
+                log_info("Copying in '%s' (%s) on block level into future partition %" PRIu64 ".",
+                         p->copy_blocks_path, FORMAT_BYTES(p->copy_blocks_size), p->partno);
 
                 r = copy_bytes_full(p->copy_blocks_fd, target_fd, p->copy_blocks_size, 0, NULL, NULL, NULL, NULL);
                 if (r < 0)
@@ -4637,7 +4631,6 @@ static int resize_backing_fd(
                 const char *backing_file,   /* If the above refers to a loopback device, the backing regular file for that, which we can grow */
                 LoopDevice *loop_device) {
 
-        char buf1[FORMAT_BYTES_MAX], buf2[FORMAT_BYTES_MAX];
         _cleanup_close_ int writable_fd = -1;
         uint64_t current_size;
         struct stat st;
@@ -4678,11 +4671,9 @@ static int resize_backing_fd(
                 current_size = st.st_size;
         }
 
-        assert_se(format_bytes(buf1, sizeof(buf1), current_size));
-        assert_se(format_bytes(buf2, sizeof(buf2), arg_size));
-
         if (current_size >= arg_size) {
-                log_info("File '%s' already is of requested size or larger, not growing. (%s >= %s)", node, buf1, buf2);
+                log_info("File '%s' already is of requested size or larger, not growing. (%s >= %s)",
+                         node, FORMAT_BYTES(current_size), FORMAT_BYTES(arg_size));
                 return 0;
         }
 
@@ -4705,7 +4696,8 @@ static int resize_backing_fd(
 
                 if ((uint64_t) st.st_size != current_size)
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                               "Size of backing file '%s' of loopback block device '%s' don't match, refusing.", node, backing_file);
+                                               "Size of backing file '%s' of loopback block device '%s' don't match, refusing.",
+                                               node, backing_file);
         } else {
                 assert(S_ISREG(st.st_mode));
                 assert(!backing_file);
@@ -4723,15 +4715,16 @@ static int resize_backing_fd(
                 if (fallocate(writable_fd, 0, 0, arg_size) < 0) {
                         if (!ERRNO_IS_NOT_SUPPORTED(errno))
                                 return log_error_errno(errno, "Failed to grow '%s' from %s to %s by allocation: %m",
-                                                       node, buf1, buf2);
+                                                       node, FORMAT_BYTES(current_size), FORMAT_BYTES(arg_size));
 
                         /* Fallback to truncation, if fallocate() is not supported. */
                         log_debug("Backing file system does not support fallocate(), falling back to ftruncate().");
                 } else {
                         if (current_size == 0) /* Likely regular file just created by us */
-                                log_info("Allocated %s for '%s'.", buf2, node);
+                                log_info("Allocated %s for '%s'.", FORMAT_BYTES(arg_size), node);
                         else
-                                log_info("File '%s' grown from %s to %s by allocation.", node, buf1, buf2);
+                                log_info("File '%s' grown from %s to %s by allocation.",
+                                         node, FORMAT_BYTES(current_size), FORMAT_BYTES(arg_size));
 
                         goto done;
                 }
@@ -4739,12 +4732,13 @@ static int resize_backing_fd(
 
         if (ftruncate(writable_fd, arg_size) < 0)
                 return log_error_errno(errno, "Failed to grow '%s' from %s to %s by truncation: %m",
-                                       node, buf1, buf2);
+                                       node, FORMAT_BYTES(current_size), FORMAT_BYTES(arg_size));
 
         if (current_size == 0) /* Likely regular file just created by us */
-                log_info("Sized '%s' to %s.", node, buf2);
+                log_info("Sized '%s' to %s.", node, FORMAT_BYTES(arg_size));
         else
-                log_info("File '%s' grown from %s to %s by truncation.", node, buf1, buf2);
+                log_info("File '%s' grown from %s to %s by truncation.",
+                         node, FORMAT_BYTES(current_size), FORMAT_BYTES(arg_size));
 
 done:
         r = resize_pt(writable_fd);
@@ -4762,7 +4756,6 @@ done:
 
 static int determine_auto_size(Context *c) {
         uint64_t sum = round_up_size(GPT_METADATA_SIZE, 4096);
-        char buf[FORMAT_BYTES_MAX];
         Partition *p;
 
         assert_se(c);
@@ -4780,13 +4773,14 @@ static int determine_auto_size(Context *c) {
                 sum += m;
         }
 
-        assert_se(format_bytes(buf, sizeof(buf), sum));
-        if (c->total != UINT64_MAX) { /* Image already allocated? Then show its size */
-                char buf2[FORMAT_BYTES_MAX];
-                assert_se(format_bytes(buf2, sizeof(buf2), c->total));
-                log_info("Automatically determined minimal disk image size as %s, current image size is %s.", buf, buf2);
-        } else /* If the image is being created right now, then it has no previous size, suppress any comment about it hence */
-                log_info("Automatically determined minimal disk image size as %s.", buf);
+        if (c->total != UINT64_MAX)
+                /* Image already allocated? Then show its size. */
+                log_info("Automatically determined minimal disk image size as %s, current image size is %s.",
+                         FORMAT_BYTES(sum), FORMAT_BYTES(c->total));
+        else
+                /* If the image is being created right now, then it has no previous size, suppress any comment about it hence. */
+                log_info("Automatically determined minimal disk image size as %s.",
+                         FORMAT_BYTES(sum));
 
         arg_size = sum;
         return 0;
@@ -4962,11 +4956,9 @@ static int run(int argc, char *argv[]) {
                         break; /* Success! */
 
                 if (!context_drop_one_priority(context)) {
-                        char buf[FORMAT_BYTES_MAX];
                         r = log_error_errno(SYNTHETIC_ERRNO(ENOSPC),
                                             "Can't fit requested partitions into available free space (%s), refusing.",
-                                            format_bytes(buf, sizeof(buf), largest_free_area));
-
+                                            FORMAT_BYTES(largest_free_area));
                         determine_auto_size(context);
                         return r;
                 }

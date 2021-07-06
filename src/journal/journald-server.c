@@ -199,10 +199,6 @@ static int determine_space(Server *s, uint64_t *available, uint64_t *limit) {
 }
 
 void server_space_usage_message(Server *s, JournalStorage *storage) {
-        char fb1[FORMAT_BYTES_MAX], fb2[FORMAT_BYTES_MAX], fb3[FORMAT_BYTES_MAX],
-             fb4[FORMAT_BYTES_MAX], fb5[FORMAT_BYTES_MAX], fb6[FORMAT_BYTES_MAX];
-        JournalMetrics *metrics;
-
         assert(s);
 
         if (!storage)
@@ -211,32 +207,31 @@ void server_space_usage_message(Server *s, JournalStorage *storage) {
         if (cache_space_refresh(s, storage) < 0)
                 return;
 
-        metrics = &storage->metrics;
-        format_bytes(fb1, sizeof(fb1), storage->space.vfs_used);
-        format_bytes(fb2, sizeof(fb2), metrics->max_use);
-        format_bytes(fb3, sizeof(fb3), metrics->keep_free);
-        format_bytes(fb4, sizeof(fb4), storage->space.vfs_available);
-        format_bytes(fb5, sizeof(fb5), storage->space.limit);
-        format_bytes(fb6, sizeof(fb6), storage->space.available);
+        const JournalMetrics *metrics = &storage->metrics;
+
+        const char
+                *vfs_used  = FORMAT_BYTES(storage->space.vfs_used),
+                *limit     = FORMAT_BYTES(storage->space.limit),
+                *available = FORMAT_BYTES(storage->space.available);
 
         server_driver_message(s, 0,
                               "MESSAGE_ID=" SD_MESSAGE_JOURNAL_USAGE_STR,
                               LOG_MESSAGE("%s (%s) is %s, max %s, %s free.",
-                                          storage->name, storage->path, fb1, fb5, fb6),
+                                          storage->name, storage->path, vfs_used, limit, available),
                               "JOURNAL_NAME=%s", storage->name,
                               "JOURNAL_PATH=%s", storage->path,
                               "CURRENT_USE=%"PRIu64, storage->space.vfs_used,
-                              "CURRENT_USE_PRETTY=%s", fb1,
+                              "CURRENT_USE_PRETTY=%s", vfs_used,
                               "MAX_USE=%"PRIu64, metrics->max_use,
-                              "MAX_USE_PRETTY=%s", fb2,
+                              "MAX_USE_PRETTY=%s", FORMAT_BYTES(metrics->max_use),
                               "DISK_KEEP_FREE=%"PRIu64, metrics->keep_free,
-                              "DISK_KEEP_FREE_PRETTY=%s", fb3,
+                              "DISK_KEEP_FREE_PRETTY=%s", FORMAT_BYTES(metrics->keep_free),
                               "DISK_AVAILABLE=%"PRIu64, storage->space.vfs_available,
-                              "DISK_AVAILABLE_PRETTY=%s", fb4,
+                              "DISK_AVAILABLE_PRETTY=%s", FORMAT_BYTES(storage->space.vfs_available),
                               "LIMIT=%"PRIu64, storage->space.limit,
-                              "LIMIT_PRETTY=%s", fb5,
+                              "LIMIT_PRETTY=%s", limit,
                               "AVAILABLE=%"PRIu64, storage->space.available,
-                              "AVAILABLE_PRETTY=%s", fb6,
+                              "AVAILABLE_PRETTY=%s", available,
                               NULL);
 }
 

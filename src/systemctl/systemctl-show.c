@@ -644,21 +644,15 @@ static void print_status_info(
         if (i->status_errno > 0)
                 printf("      Error: %i (%s)\n", i->status_errno, strerror_safe(i->status_errno));
 
-        if (i->ip_ingress_bytes != UINT64_MAX && i->ip_egress_bytes != UINT64_MAX) {
-                char buf_in[FORMAT_BYTES_MAX], buf_out[FORMAT_BYTES_MAX];
-
+        if (i->ip_ingress_bytes != UINT64_MAX && i->ip_egress_bytes != UINT64_MAX)
                 printf("         IP: %s in, %s out\n",
-                        format_bytes(buf_in, sizeof(buf_in), i->ip_ingress_bytes),
-                        format_bytes(buf_out, sizeof(buf_out), i->ip_egress_bytes));
-        }
+                       FORMAT_BYTES(i->ip_ingress_bytes),
+                       FORMAT_BYTES(i->ip_egress_bytes));
 
-        if (i->io_read_bytes != UINT64_MAX && i->io_write_bytes != UINT64_MAX) {
-                char buf_in[FORMAT_BYTES_MAX], buf_out[FORMAT_BYTES_MAX];
-
+        if (i->io_read_bytes != UINT64_MAX && i->io_write_bytes != UINT64_MAX)
                 printf("         IO: %s read, %s written\n",
-                        format_bytes(buf_in, sizeof(buf_in), i->io_read_bytes),
-                        format_bytes(buf_out, sizeof(buf_out), i->io_write_bytes));
-        }
+                        FORMAT_BYTES(i->io_read_bytes),
+                        FORMAT_BYTES(i->io_write_bytes));
 
         if (i->tasks_current != UINT64_MAX) {
                 printf("      Tasks: %" PRIu64, i->tasks_current);
@@ -670,15 +664,14 @@ static void print_status_info(
         }
 
         if (i->memory_current != UINT64_MAX) {
-                char buf[FORMAT_BYTES_MAX];
-
-                printf("     Memory: %s", format_bytes(buf, sizeof(buf), i->memory_current));
+                printf("     Memory: %s", FORMAT_BYTES(i->memory_current));
 
                 if (i->memory_min > 0 || i->memory_low > 0 ||
                     i->memory_high != CGROUP_LIMIT_MAX || i->memory_max != CGROUP_LIMIT_MAX ||
                     i->memory_swap_max != CGROUP_LIMIT_MAX ||
                     i->memory_available != CGROUP_LIMIT_MAX ||
                     i->memory_limit != CGROUP_LIMIT_MAX) {
+                        char buf[FORMAT_BYTES_MAX];
                         const char *prefix = "";
 
                         printf(" (");
@@ -691,23 +684,23 @@ static void print_status_info(
                                 prefix = " ";
                         }
                         if (i->memory_high != CGROUP_LIMIT_MAX) {
-                                printf("%shigh: %s", prefix, format_bytes(buf, sizeof(buf), i->memory_high));
+                                printf("%shigh: %s", prefix, FORMAT_BYTES(i->memory_high));
                                 prefix = " ";
                         }
                         if (i->memory_max != CGROUP_LIMIT_MAX) {
-                                printf("%smax: %s", prefix, format_bytes(buf, sizeof(buf), i->memory_max));
+                                printf("%smax: %s", prefix, FORMAT_BYTES(i->memory_max));
                                 prefix = " ";
                         }
                         if (i->memory_swap_max != CGROUP_LIMIT_MAX) {
-                                printf("%sswap max: %s", prefix, format_bytes(buf, sizeof(buf), i->memory_swap_max));
+                                printf("%sswap max: %s", prefix, FORMAT_BYTES(i->memory_swap_max));
                                 prefix = " ";
                         }
                         if (i->memory_limit != CGROUP_LIMIT_MAX) {
-                                printf("%slimit: %s", prefix, format_bytes(buf, sizeof(buf), i->memory_limit));
+                                printf("%slimit: %s", prefix, FORMAT_BYTES(i->memory_limit));
                                 prefix = " ";
                         }
                         if (i->memory_available != CGROUP_LIMIT_MAX) {
-                                printf("%savailable: %s", prefix, format_bytes(buf, sizeof(buf), i->memory_available));
+                                printf("%savailable: %s", prefix, FORMAT_BYTES(i->memory_available));
                                 prefix = " ";
                         }
                         printf(")");
