@@ -197,7 +197,6 @@ static int run(int argc, char *argv[]) {
         _cleanup_close_ int mountfd = -1, devfd = -1;
         _cleanup_free_ char *devpath = NULL;
         uint64_t size, newsize;
-        char fb[FORMAT_BYTES_MAX];
         dev_t devno;
         int r;
 
@@ -248,11 +247,11 @@ static int run(int argc, char *argv[]) {
         if (newsize == size)
                 log_info("Successfully resized \"%s\" to %s bytes.",
                          arg_target,
-                         format_bytes(fb, sizeof fb, newsize));
+                         FORMAT_BYTES(newsize));
         else
                 log_info("Successfully resized \"%s\" to %s bytes (%"PRIu64" bytes lost due to blocksize).",
                          arg_target,
-                         format_bytes(fb, sizeof fb, newsize),
+                         FORMAT_BYTES(newsize),
                          size - newsize);
         return 0;
 }
