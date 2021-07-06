@@ -9,8 +9,8 @@
 #	The latest version can be obtained from
 #		http://www.linux-usb.org/usb.ids
 #
-# Version: 2021.06.16
-# Date:    2021-06-16 20:34:10
+# Version: 2021.07.01
+# Date:    2021-07-01 20:34:10
 #
 
 # Vendors, devices and interfaces. Please keep sorted.
@@ -23165,9 +23165,13 @@
 	0020  Integrated Rate Matching Hub
 	0024  Integrated Rate Matching Hub
 	0025  Wireless-AC 9260 Bluetooth Adapter
+	0026  AX201 Bluetooth
 	0029  AX200 Bluetooth
+	0032  AX210 Bluetooth
 	0716  Modem Flashloader
 	07da  Centrino Bluetooth Wireless Transceiver
+		8087 07da  Centrino Advanced-N 6235
+	07db  Atom C2000 Root Hub
 	07dc  Bluetooth wireless interface
 	07eb  Oaktrail tablet
 	0a2a  Bluetooth wireless interface
