@@ -19,7 +19,7 @@
                 intro;                                                  \
                 r = impl;                                               \
                 if (r < 0)                                              \
-                        (void) sd_notifyf(0, "ERRNO=%i", -r);           \
+                        sd_notifyf(0, "ERRNO=%i", -r);                  \
                 ask_password_agent_close();                             \
                 polkit_agent_close();                                   \
                 pager_close();                                          \
