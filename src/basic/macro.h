@@ -30,6 +30,7 @@
 #define _weakref_(x) __attribute__((__weakref__(#x)))
 #define _alignas_(x) __attribute__((__aligned__(__alignof(x))))
 #define _alignptr_ __attribute__((__aligned__(sizeof(void*))))
+#define _warn_unused_result_ __attribute__((__warn_unused_result__))
 #if __GNUC__ >= 7
 #define _fallthrough_ __attribute__((__fallthrough__))
 #else

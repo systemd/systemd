@@ -117,10 +117,11 @@ struct timespec* timespec_store_nsec(struct timespec *ts, nsec_t n);
 usec_t timeval_load(const struct timeval *tv) _pure_;
 struct timeval* timeval_store(struct timeval *tv, usec_t u);
 
-char* format_timestamp_style(char *buf, size_t l, usec_t t, TimestampStyle style);
-char* format_timestamp_relative(char *buf, size_t l, usec_t t);
-char* format_timespan(char *buf, size_t l, usec_t t, usec_t accuracy);
+char* format_timestamp_style(char *buf, size_t l, usec_t t, TimestampStyle style) _warn_unused_result_;
+char* format_timestamp_relative(char *buf, size_t l, usec_t t) _warn_unused_result_;
+char* format_timespan(char *buf, size_t l, usec_t t, usec_t accuracy) _warn_unused_result_;
 
+_warn_unused_result_
 static inline char* format_timestamp(char *buf, size_t l, usec_t t) {
         return format_timestamp_style(buf, l, t, TIMESTAMP_PRETTY);
 }
