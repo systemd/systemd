@@ -2121,16 +2121,14 @@ static int link_status_one(
         }
 
         if (info->has_bitrates) {
-                char tx[FORMAT_BYTES_MAX], rx[FORMAT_BYTES_MAX];
-
                 r = table_add_many(table,
                                    TABLE_EMPTY,
                                    TABLE_STRING, "Bit Rate (Tx/Rx):");
                 if (r < 0)
                         return table_log_add_error(r);
                 r = table_add_cell_stringf(table, NULL, "%sbps/%sbps",
-                                           format_bytes_full(tx, sizeof tx, info->tx_bitrate, 0),
-                                           format_bytes_full(rx, sizeof rx, info->rx_bitrate, 0));
+                                           FORMAT_BYTES_FULL(info->tx_bitrate, 0),
+                                           FORMAT_BYTES_FULL(info->rx_bitrate, 0));
                 if (r < 0)
                         return table_log_add_error(r);
         }
