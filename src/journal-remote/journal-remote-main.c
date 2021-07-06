@@ -1160,9 +1160,9 @@ static int run(int argc, char **argv) {
         }
 
         notify_message = NULL;
-        (void) sd_notifyf(false,
-                          "STOPPING=1\n"
-                          "STATUS=Shutting down after writing %" PRIu64 " entries...", s.event_count);
+        sd_notifyf(false,
+                   "STOPPING=1\n"
+                   "STATUS=Shutting down after writing %" PRIu64 " entries...", s.event_count);
 
         log_info("Finishing after writing %" PRIu64 " entries", s.event_count);
 

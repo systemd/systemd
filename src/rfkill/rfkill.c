@@ -317,7 +317,7 @@ static int run(int argc, char *argv[]) {
                         if (!ready) {
                                 /* Notify manager that we are now finished with processing whatever was
                                  * queued */
-                                (void) sd_notify(false, "READY=1");
+                                sd_notify(false, "READY=1");
                                 ready = true;
                         }
 

@@ -160,7 +160,7 @@ static int run(int argc, char *argv[]) {
 
         r = manager_run(m);
 
-        (void) sd_notify(false,
+        sd_notify(false,
                          "STOPPING=1\n"
                          "STATUS=Shutting down...");
         log_debug("systemd-portabled stopped as pid " PID_FMT, getpid_cached());
