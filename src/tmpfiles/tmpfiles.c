@@ -837,7 +837,7 @@ static int fd_set_perms(Item *i, int fd, const char *path, const struct stat *st
         int r;
 
         assert(i);
-        assert(fd);
+        assert(fd >= 0);
         assert(path);
 
         if (!i->mode_set && !i->uid_set && !i->gid_set)
@@ -1021,7 +1021,7 @@ static int fd_set_xattrs(Item *i, int fd, const char *path, const struct stat *s
         char **name, **value;
 
         assert(i);
-        assert(fd);
+        assert(fd >= 0);
         assert(path);
 
         xsprintf(procfs_path, "/proc/self/fd/%i", fd);
@@ -1124,7 +1124,7 @@ static int fd_set_acls(Item *item, int fd, const char *path, const struct stat *
         struct stat stbuf;
 
         assert(item);
-        assert(fd);
+        assert(fd >= 0);
         assert(path);
 
         if (!st) {
@@ -1278,7 +1278,7 @@ static int fd_set_attribute(Item *item, int fd, const char *path, const struct s
         int r;
 
         assert(item);
-        assert(fd);
+        assert(fd >= 0);
         assert(path);
 
         if (!item->attribute_set || item->attribute_mask == 0)
