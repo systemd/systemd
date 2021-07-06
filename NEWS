@@ -3,7 +3,8 @@ systemd System and Service Manager
 CHANGES WITH 249 in spe:
 
         * When operating on disk images via the --image= switch of various
-          tools (such as systemd-nspawn or systemd-dissect), and multiple
+          tools (such as systemd-nspawn or systemd-dissect), or when udev finds
+          no 'root=' parameter on the kernel command line, and multiple
           suitable root or /usr/ partitions exist in the image, then a simple
           comparison inspired by strverscmp() is done on the GPT partition
           label, and the newest partition is picked. This permits a simple and
@@ -478,6 +479,9 @@ CHANGES WITH 249 in spe:
           the core file uncompressed, systemd-coredump will skip to compressed
           storage directly (if enabled) and it will avoid analyzing the core file
           to print backtrace and metadata in the journal.
+
+        * coredumpctl gained a new 'help' verb to bring it in line with other
+          tools.
 
         * tmpfiles.d/ drop-ins gained a new '=' modifier to check if the type
           of a path matches the configured expectations, and remove it if not.
