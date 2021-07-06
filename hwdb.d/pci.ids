@@ -1,8 +1,8 @@
 #
 #	List of PCI ID's
 #
-#	Version: 2021.06.22
-#	Date:    2021-06-22 03:15:02
+#	Version: 2021.07.05
+#	Date:    2021-07-05 03:15:02
 #
 #	Maintained by Albert Pool, Martin Mares, and other volunteers from
 #	the PCI ID Project at https://pci-ids.ucw.cz/.
@@ -697,6 +697,18 @@
 		1000 46a0  MegaRAID 9660-24i Tri-Mode Storage Adapter
 		1000 46b0  MegaRAID 9665W-16i Tri-Mode Storage Adapter
 		1000 46c0  MegaRAID 9680W-16e Tri-Mode Storage Adapter
+		1028 2114  PERC H965 Adapter
+		1028 2115  PERC H965 Front
+		1028 2117  PERC H965 MX
+		1028 213a  PERC H965e Adapter
+		1028 213b  PERC H765 Adapter
+		1028 213c  PERC H765 Front
+		1028 213d  PERC H765N Front
+		1028 213e  PERC H765 MX
+		1028 213f  PERC H365 Adapter
+		1028 2140  PERC H365 Front
+		1028 2141  PERC H360 MX
+		1028 2142  HBA 465e Adapter
 	00ab  SAS3516 Fusion-MPT Tri-Mode RAID On Chip (ROC)
 # 8 Internal and 8 External port channel 9400 HBA
 		1000 3040  HBA 9400-8i8e
@@ -729,12 +741,18 @@
 	00c2  SAS3324 PCI-Express Fusion-MPT SAS-3
 	00c3  SAS3324 PCI-Express Fusion-MPT SAS-3
 	00c4  SAS3224 PCI-Express Fusion-MPT SAS-3
+# SAS 9305 16 internal port HBA
+		1000 3190  SAS9305-16i
+# SAS 9305 24 internal port HBA
+		1000 31a0  SAS9305-24i
 		1170 0002  SAS3224 PCI Express to 12Gb HBA MEZZ CARD
 	00c5  SAS3316 PCI-Express Fusion-MPT SAS-3
 	00c6  SAS3316 PCI-Express Fusion-MPT SAS-3
 	00c7  SAS3316 PCI-Express Fusion-MPT SAS-3
 	00c8  SAS3316 PCI-Express Fusion-MPT SAS-3
 	00c9  SAS3216 PCI-Express Fusion-MPT SAS-3
+# 9305 16 external port SAS HBA
+		1000 3180  SAS9305-16e
 	00ce  MegaRAID SAS-3 3316 [Intruder]
 		1000 9371  MegaRAID SAS 9361-16i
 		1000 9390  MegaRAID SAS 9380-8i8e
@@ -785,6 +803,7 @@
 		1028 200c  HBA355i Front
 		1028 200d  HBA355e Adapter
 		1028 200e  HBA350i MX
+		1028 2175  HBA350i Adapter
 		1d49 0205  ThinkSystem 440-16i SAS/SATA PCIe Gen4 12Gb Internal HBA
 		1d49 0206  ThinkSystem 440-16e SAS/SATA PCIe Gen4 12Gb HBA
 		1d49 0207  ThinkSystem 440-8i SAS/SATA PCIe Gen4 12Gb HBA
@@ -902,6 +921,12 @@
 		1028 1ae1  PERC H755 Front
 		1028 1ae2  PERC H755N Front
 		1028 1ae3  PERC H755 MX
+		1028 2171  PERC H750 Mini
+		1028 2172  PERC H355 Adapter
+		1028 2173  PERC H355 Front
+		1028 2174  PERC H350 Mini
+		1028 2176  PERC H750 Adapter
+		1028 2177  PERC H350 Adapter
 		1d49 060a  ThinkSystem RAID 940-8i 4GB Flash PCIe Gen4 12Gb Adapter
 		1d49 060b  ThinkSystem RAID 940-8i 8GB Flash PCIe Gen4 12Gb Adapter
 		1d49 060c  ThinkSystem RAID 940-16i 8GB Flash PCIe Gen4 12Gb Adapter
@@ -3494,6 +3519,7 @@
 		174b e308  Radeon R9 380X Nitro 4G D5
 		17af 2006  Radeon R9 380X
 	6939  Tonga PRO [Radeon R9 285/380]
+		1462 2015  Radeon R9 380 Gaming 4G
 		148c 9380  Radeon R9 380
 # Make naming scheme consistent
 		174b e308  Radeon R9 380 Nitro 4G D5
@@ -4857,12 +4883,14 @@
 	15d0  Raven/Raven2 Root Complex
 		103c 8615  Pavilion Laptop 15-cw1xxx
 		1043 876b  PRIME B450M-A Motherboard
+		ea50 ce19  mCOM10-L1900
 	15d1  Raven/Raven2 IOMMU
 		103c 8615  Pavilion Laptop 15-cw1xxx
 		1043 876b  PRIME B450M-A Motherboard
 		ea50 ce19  mCOM10-L1900
 	15d2  Raven/Raven2 PCIe Dummy Host Bridge
 	15d3  Raven/Raven2 PCIe GPP Bridge [6:0]
+		ea50 ce19  mCOM10-L1900
 	15d4  FireFlight USB 3.1
 	15d5  FireFlight USB 3.1
 	15da  Raven/Raven2 PCIe Dummy Host Bridge
@@ -4887,14 +4915,17 @@
 		ea50 ce19  mCOM10-L1900
 	15e2  Raven/Raven2/FireFlight/Renoir Audio Processor
 		17aa 5124  ThinkPad E595
+		ea50 ce19  mCOM10-L1900
 	15e3  Family 17h (Models 10h-1fh) HD Audio Controller
 		103c 8615  Pavilion Laptop 15-cw1xxx
 		1043 86c7  PRIME B450M-A Motherboard
 		17aa 5124  ThinkPad E595
 	15e4  Raven/Raven2/Renoir Sensor Fusion Hub
 	15e5  Raven2 USB 3.1
+		ea50 ce19  mCOM10-L1900
 	15e6  Raven/Raven2/Renoir Non-Sensor Fusion Hub KMDF driver
 		1022 15e4  Raven/Raven2/Renoir Sensor Fusion Hub
+		ea50 ce19  mCOM10-L1900
 	15e8  Raven/Raven2 Device 24: Function 0
 	15e9  Raven/Raven2 Device 24: Function 1
 	15ea  Raven/Raven2 Device 24: Function 2
@@ -4946,14 +4977,14 @@
 	1629  Arden PCIe GPP Bridge
 	162a  Arden Internal PCIe GPP Bridge 0 to bus X
 	162b  Arden PCIe Non-Transparent Bridge
-	1630  Renoir Root Complex
-	1631  Renoir IOMMU
+	1630  Renoir/Cezanne Root Complex
+	1631  Renoir/Cezanne IOMMU
 	1632  Renoir PCIe Dummy Host Bridge
 	1633  Renoir PCIe GPP Bridge
-	1634  Renoir PCIe GPP Bridge
+	1634  Renoir/Cezanne PCIe GPP Bridge
 	1635  Renoir Internal PCIe GPP Bridge to Bus
 	1637  Renoir HD Audio Controller
-	1639  Renoir USB 3.1
+	1639  Renoir/Cezanne USB 3.1
 	163a  VanGogh USB0
 	163b  VanGogh USB1
 	163c  VanGogh SecUSB
@@ -5857,7 +5888,7 @@
 	0325  315PRO PCI/AGP VGA Display Adapter
 	0330  330 [Xabre] PCI/AGP VGA Display Adapter
 	0406  85C501/2
-	0496  85C496
+	0496  SiS85C496 PCI & CPU Memory Controller (PCM)
 	0530  530 Host
 	0540  540 Host
 	0550  550 Host
@@ -12267,6 +12298,7 @@
 	20b0  GA100 [A100 SXM4 40GB]
 	20b1  GA100 [A100 PCIe 40GB]
 	20b2  GA100 [A100 SXM4 80GB]
+	20b5  GA100 [A100 PCIe 80GB]
 	20b6  GA100GL [PG506-232]
 	20b7  GA100GL [A30 PCIe]
 	20be  GA100 [GRID A100A]
@@ -17776,7 +17808,11 @@
 	9513  OX16PCI954 (Quad 16950 UART) function 1 (parallel port)
 	9521  OX16PCI952 (Dual 16950 UART)
 	9523  OX16PCI952 Integrated Parallel Port
-# The OXPCIe952 PCI Express Bridge to Dual Serial & Parallel Port chip is a multifunction device that encodes five reset straps and 1:0 function bits in bits 6:0 of the device ID. Hence it consumes a whole 128-entry block, which is however sparsely populated as obviously disabled functions do not appear in the configuration space.
+# Multifunction device with 3 function bits in ID
+	c000  OXPCIe840 Parallel Port
+	c004  OXPCIe840 Parallel Port
+	c006  OXPCIe840 GPIO
+# Multifunction device with 7 function bits in ID
 	c100  OXPCIe952 Parallel Port
 	c101  OXPCIe952 Legacy 950 UART
 	c104  OXPCIe952 Parallel Port
@@ -17820,7 +17856,103 @@
 		e4bf d551  DU1-MUSTANG Dual-Port RS-485 Interface
 	c15c  OXPCIe952 GPIO
 	c15d  OXPCIe952 Dual Native 950 UART
-	c308  EX-44016 16-port serial
+# Multifunction device with 4 function bits in ID
+	c204  OXPCIe954 GPIO
+	c208  OXPCIe954 Quad Native 950 UART
+	c20c  OXPCIe954 GPIO
+	c20d  OXPCIe954 Quad Native 950 UART
+# Multifunction device with 4 function bits in ID
+	c304  OXPCIe958 GPIO
+	c308  OXPCIe958 Quad Native 950 UART
+	c30c  OXPCIe958 GPIO
+	c30d  OXPCIe958 Quad Native 950 UART
+# Multifunction device with 8 function bits in ID
+	c530  OXPCIe200 Dual OHCI USB Controller (ULPI/R-ULPI)
+	c531  OXPCIe200 Dual EHCI USB Controller (ULPI/R-ULPI)
+	c534  OXPCIe200 Dual OHCI USB Controller (ULPI/R-ULPI)
+	c535  OXPCIe200 Dual EHCI USB Controller (ULPI/R-ULPI)
+	c536  OXPCIe200 GPIO
+	c538  OXPCIe200 Dual OHCI USB Controller (ULPI/R-ULPI)
+	c539  OXPCIe200 Dual EHCI USB Controller (ULPI/R-ULPI)
+	c53b  OXPCIe200 Native 950 UART
+	c53c  OXPCIe200 Dual OHCI USB Controller (ULPI/R-ULPI)
+	c53d  OXPCIe200 Dual EHCI USB Controller (ULPI/R-ULPI)
+	c53e  OXPCIe200 GPIO
+	c53f  OXPCIe200 Native 950 UART
+	c540  OXPCIe200 Dual OHCI USB Controller (R-ULPI)
+	c541  OXPCIe200 Dual EHCI USB Controller (R-ULPI)
+	c544  OXPCIe200 Dual OHCI USB Controller (R-ULPI)
+	c545  OXPCIe200 Dual EHCI USB Controller (R-ULPI)
+	c546  OXPCIe200 GPIO
+	c548  OXPCIe200 Dual OHCI USB Controller (R-ULPI)
+	c549  OXPCIe200 Dual EHCI USB Controller (R-ULPI)
+	c54b  OXPCIe200 Native 950 UART
+	c54c  OXPCIe200 Dual OHCI USB Controller (R-ULPI)
+	c54d  OXPCIe200 Dual EHCI USB Controller (R-ULPI)
+	c54e  OXPCIe200 Dual GPIO
+	c54f  OXPCIe200 Native 950 UART
+	c560  OXPCIe200 Dual OHCI USB Controller (ULPI/analog)
+	c561  OXPCIe200 EHCI USB Controller (ULPI)
+	c564  OXPCIe200 Dual OHCI USB Controller (ULPI/analog)
+	c565  OXPCIe200 EHCI USB Controller (ULPI)
+	c566  OXPCIe200 GPIO
+	c568  OXPCIe200 Dual OHCI USB Controller (ULPI/analog)
+	c569  OXPCIe200 EHCI USB Controller (ULPI)
+	c56b  OXPCIe200 Native 950 UART
+	c56c  OXPCIe200 Dual OHCI USB Controller (ULPI/analog)
+	c56d  OXPCIe200 EHCI USB Controller (ULPI)
+	c56e  OXPCIe200 GPIO
+	c56f  OXPCIe200 Native 950 UART
+	c570  OXPCIe200 Dual OHCI USB Controller (R-ULPI/analog)
+	c571  OXPCIe200 EHCI USB Controller (R-ULPI)
+	c574  OXPCIe200 Dual OHCI USB Controller (R-ULPI/analog)
+	c575  OXPCIe200 EHCI USB Controller (R-ULPI)
+	c576  OXPCIe200 GPIO
+	c578  OXPCIe200 Dual OHCI USB Controller (R-ULPI/analog)
+	c579  OXPCIe200 EHCI USB Controller (R-ULPI)
+	c57b  OXPCIe200 Native 950 UART
+	c57c  OXPCIe200 Dual OHCI USB Controller (R-ULPI/analog)
+	c57d  OXPCIe200 EHCI USB Controller (R-ULPI)
+	c57e  OXPCIe200 GPIO
+	c57f  OXPCIe200 Native 950 UART
+	c5a0  OXPCIe200 OHCI USB Controller (ULPI)
+	c5a1  OXPCIe200 EHCI USB Controller (ULPI)
+	c5a2  OXPCIe200 Programmable Memory Interface
+	c5a4  OXPCIe200 OHCI USB Controller (ULPI)
+	c5a5  OXPCIe200 EHCI USB Controller (ULPI)
+	c5a6  OXPCIe200 Programmable Memory Interface & GPIO
+	c5a8  OXPCIe200 OHCI USB Controller (ULPI)
+	c5a9  OXPCIe200 EHCI USB Controller (ULPI)
+	c5aa  OXPCIe200 Programmable Memory Interface
+	c5ab  OXPCIe200 Native 950 UART
+	c5ac  OXPCIe200 OHCI USB Controller (ULPI)
+	c5ad  OXPCIe200 EHCI USB Controller (ULPI)
+	c5ae  OXPCIe200 Programmable Memory Interface & GPIO
+	c5af  OXPCIe200 Native 950 UART
+	c5b0  OXPCIe200 OHCI USB Controller (R-ULPI)
+	c5b1  OXPCIe200 EHCI USB Controller (R-ULPI)
+	c5b2  OXPCIe200 Programmable Memory Interface
+	c5b4  OXPCIe200 OHCI USB Controller (R-ULPI)
+	c5b5  OXPCIe200 EHCI USB Controller (R-ULPI)
+	c5b6  OXPCIe200 Programmable Memory Interface & GPIO
+	c5b8  OXPCIe200 OHCI USB Controller (R-ULPI)
+	c5b9  OXPCIe200 EHCI USB Controller (R-ULPI)
+	c5ba  OXPCIe200 Programmable Memory Interface
+	c5bb  OXPCIe200 Native 950 UART
+	c5bc  OXPCIe200 OHCI USB Controller (R-ULPI)
+	c5bd  OXPCIe200 EHCI USB Controller (R-ULPI)
+	c5be  OXPCIe200 Programmable Memory Interface & GPIO
+	c5bf  OXPCIe200 Native 950 UART
+	c5c0  OXPCIe200 OHCI USB Controller (analog)
+	c5c2  OXPCIe200 Programmable Memory Interface
+	c5c4  OXPCIe200 OHCI USB Controller (analog)
+	c5c6  OXPCIe200 Programmable Memory Interface & GPIO
+	c5c8  OXPCIe200 OHCI USB Controller (analog)
+	c5ca  OXPCIe200 Programmable Memory Interface
+	c5cb  OXPCIe200 Native 950 UART
+	c5cc  OXPCIe200 OHCI USB Controller (analog)
+	c5ce  OXPCIe200 Programmable Memory Interface & GPIO
+	c5cf  OXPCIe200 Native 950 UART
 1416  Multiwave Innovation pte Ltd
 1417  Convergenet Technologies Inc
 1418  Kyushu electronics systems Inc
@@ -18583,6 +18715,14 @@
 	a808  NVMe SSD Controller SM981/PM981/PM983
 		1d49 403b  Thinksystem U.2 PM983 NVMe SSD
 	a80a  NVMe SSD Controller PM9A1/PM9A3/980PRO
+		0128 215a  DC NVMe PM9A3 RI U.2 960GB
+		0128 215b  DC NVMe PM9A3 RI U.2 1.92TB
+		0128 215c  DC NVMe PM9A3 RI U.2 3.84TB
+		0128 215d  DC NVMe PM9A3 RI U.2 7.68TB
+		0128 2166  DC NVMe PM9A3 RI 110M.2 960GB
+		0128 2167  DC NVMe PM9A3 RI 110M.2 1.92TB
+		0128 2168  DC NVMe PM9A3 RI 80M.2 480GB
+		0128 2169  DC NVMe PM9A3 RI 80M.2 960GB
 	a820  NVMe SSD Controller 171X
 		1028 1f95  Express Flash NVMe XS1715 SSD 400GB
 		1028 1f96  Express Flash NVMe XS1715 SSD 800GB
@@ -18662,6 +18802,8 @@
 		1028 2131  Ent NVMe v2 AGN RI U.2 7.68TB
 		1028 2132  Ent NVMe v2 AGN FIPS RI U.2 15.36TB
 		1028 2133  Ent NVMe v2 AGN RI U.2 15.36TB
+	a825  NVMe SSD Controller PM173Xa
+	a826  NVMe SSD Controller PM174X
 	ecec  Exynos 8895 PCIe Root Complex
 144e  OLITEC
 144f  Askey Computer Corp.
@@ -18788,7 +18930,8 @@
 14a8  FEATRON Technologies Corporation
 14a9  HIVERTEC Inc
 14aa  Advanced MOS Technology Inc
-14ab  Mentor Graphics Corp.
+# nee Mentor Graphics Corp.
+14ab  Siemens Industry Software Inc.
 14ac  Novaweb Technologies Inc
 14ad  Time Space Radio AB
 14ae  CTI, Inc
@@ -19370,6 +19513,7 @@
 		14e4 4146  NetXtreme-E Dual-port 25G SFP28 Ethernet OCP 3.0 Adapter (BCM957414N4140C)
 		1590 020e  Ethernet 25Gb 2-port 631SFP28 Adapter
 		1590 0211  Ethernet 25Gb 2-port 631FLR-SFP28 Adapter
+		1eec 0101  VSE250231S Dual-port 10Gb/25Gb Ethernet PCIe
 	16d8  BCM57416 NetXtreme-E Dual-Media 10G RDMA Ethernet Controller
 		1028 1feb  NetXtreme-E 10Gb SFP+ Adapter
 		14e4 4163  NetXtreme-E Dual-port 10GBASE-T Ethernet OCP 2.0 Adapter (BCM957416M4163C)
@@ -19428,6 +19572,7 @@
 		14e4 d124  NetXtreme-E P2100D BCM57508 2x100G QSFP PCIE
 		14e4 df24  BCM57508 NetXtreme-E NGM2100D 2x100G KR Mezz Ethernet
 	1751  BCM57504 NetXtreme-E 10Gb/25Gb/40Gb/50Gb/100Gb/200Gb Ethernet
+		1028 09d4  PowerEdge XR11/XR12 LOM
 		14e4 5045  NetXtreme-E BCM57504 4x25G OCP3.0
 		14e4 5250  NetXtreme-E BCM57504 4x25G KR Mezz
 		14e4 d142  NetXtreme-E P425D BCM57504 4x25G SFP28 PCIE
@@ -20428,15 +20573,16 @@
 	0252  Amos chiplet
 	0253  Amos GearBox Manager
 	0254  Spectrum-4, Flash recovery mode
-	0255  Spectrum-4, Secure Flash recovery mode
+	0255  Spectrum-4 RMA
 	0256  Abir GearBox
 	0257  Quantum-2 in Flash Recovery Mode
-	0258  AbirGearBox Flash Recovery
+	0258  Quantum-2 RMA
 	0262  MT27710 [ConnectX-4 Lx Programmable] EN
 	0263  MT27710 [ConnectX-4 Lx Programmable Virtual Function] EN
 	0264  Innova-2 Flex Burn image
 	0281  NPS-600 Flash Recovery
-	0358  Abir GearBox Secure Flash recovery mode
+	0357  Abir GearBox in Flash Recovery Mode
+	0358  Abir GearBox in RMA
 	1002  MT25400 Family [ConnectX-2 Virtual Function]
 	1003  MT27500 Family [ConnectX-3]
 		1014 04b5  PCIe3 40GbE RoCE Converged Host Bus Adapter for Power
@@ -21348,6 +21494,7 @@
 	7029  AP342 14-bit, 12-Channel Isolated Simultaneous Conversion Analog Input Module
 	702a  AP226 12-Bit, 8-Channel Isolated Analog Output Module
 	702b  AP236 16-Bit, 8-Channel Isolated Analog Output Module
+	702c  AP560A Module 4 Independent isolated CAN bus channels
 	7031  AP441-1: 32-Channel Isolated Digital Input Module
 	7032  AP441-2: 32-Channel Isolated Digital Input Module
 	7033  AP441-3: 32-Channel Isolated Digital Input Module
@@ -21358,6 +21505,7 @@
 	7052  APA7-502 Reconfigurable Artix-7 52,160 Cell FPGA module 24 RS485 channels
 	7053  APA7-503 Reconfigurable Artix-7 52,160 Cell FPGA module 24 TTL & 12 RS485 channels
 	7054  APA7-504 Reconfigurable Artix-7 52,160 Cell FPGA module 24 LVDS channels
+	7073  AP730 Multi-function I/O Module 16 Digital I/O 8 Differential Analog In 4 Analog Out
 16da  Advantech Co., Ltd.
 	0011  INES GPIB-PCI
 16df  PIKA Technologies Inc.
@@ -23669,6 +23817,7 @@
 	1808  RK1808 Neural Network Processor Card
 	3566  RK3568 Remote Signal Processor
 1d8f  Enyx
+1d92  Abaco Systems Inc.
 1d93  YADRO
 1d94  Chengdu Haiguang IC Design Co., Ltd.
 	1450  Root Complex
@@ -23994,6 +24143,7 @@
 1e7b  Dataland
 1e7c  Brainchip Inc
 	bca1  AKD1000 Neural Network Coprocessor [Akida]
+1e81  Ramaxel Technology(Shenzhen) Limited
 1e85  Heitec AG
 1e89  ID Quantique SA
 	0002  Quantis-PCIe-40M
@@ -24018,6 +24168,7 @@
 	0101  FG4 PCIe Frame Grabber
 1ed9  Myrtle.ai
 1ee9  SUSE LLC
+1eec  Viscore Technologies Ltd
 1efb  Flexxon Pte Ltd
 # nee Tumsan Oy
 1fc0  Ascom (Finland) Oy
@@ -24960,7 +25111,7 @@
 		8086 0034  Wireless-AC 9560 160MHz
 		8086 0070  Wi-Fi 6 AX201 160MHz
 		8086 0074  Wi-Fi 6 AX201 160MHz
-		8086 4070  Wireless-AC 9462 80MHz
+		8086 4070  Wi-Fi 6 AX201 160MHz
 	02f5  Comet Lake PCH-LP SCS3
 	02f9  Comet Lake Thermal Subsytem
 	02fc  Comet Lake Integrated Sensor Solution
@@ -27403,6 +27554,7 @@
 		1028 04aa  XPS 8300
 		1028 04b2  Vostro 3350
 		1028 04da  Vostro 3750
+		103c 2abf  HP Pavilion p6-2100 Desktop PC Series
 		1043 8418  P8P67 Deluxe Motherboard
 		1043 841b  P8H67 Series Motherboard
 		17aa 21cf  ThinkPad T520
@@ -33894,6 +34046,7 @@ edd8  ARK Logic Inc
 f043  ASUSTeK Computer Inc. (Wrong ID)
 f05b  Foxconn International, Inc. (Wrong ID)
 f15e  SiFive, Inc.
+	0000  FU740-C000 RISC-V SoC PCI Express x8 to AXI4 Bridge
 f1d0  AJA Video
 	c0fe  Xena HS/HD-R
 	c0ff  Kona/Xena 2
