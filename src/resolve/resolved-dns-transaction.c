@@ -827,7 +827,9 @@ static void dns_transaction_cache_answer(DnsTransaction *t) {
                       t->answer_dnssec_result,
                       t->answer_nsec_ttl,
                       t->received->family,
-                      &t->received->sender);
+                      &t->received->sender,
+                      t->scope->link->ifname,
+                      t->scope->protocol);
 }
 
 static bool dns_transaction_dnssec_is_live(DnsTransaction *t) {
@@ -1702,7 +1704,7 @@ static int dns_transaction_prepare(DnsTransaction *t, usec_t ts) {
                 (void) dns_scope_get_dns_server(t->scope);
 
                 /* Let's then prune all outdated entries */
-                dns_cache_prune(&t->scope->cache);
+                dns_cache_prune(&t->scope->cache, t->scope->family, t->scope->link->ifname, t->scope->protocol);
 
                 r = dns_cache_lookup(
                                 &t->scope->cache,
