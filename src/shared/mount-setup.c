@@ -499,7 +499,6 @@ int mount_setup(bool loaded_policy, bool leave_propagation) {
          * use the same label for all their files. */
         if (loaded_policy) {
                 usec_t before_relabel, after_relabel;
-                char timespan[FORMAT_TIMESPAN_MAX];
                 const char *i;
                 int n_extra;
 
@@ -516,7 +515,7 @@ int mount_setup(bool loaded_policy, bool leave_propagation) {
 
                 log_info("Relabelled /dev, /dev/shm, /run, /sys/fs/cgroup%s in %s.",
                          n_extra > 0 ? ", additional files" : "",
-                         format_timespan(timespan, sizeof(timespan), after_relabel - before_relabel, 0));
+                         FORMAT_TIMESPAN(after_relabel - before_relabel, 0));
         }
 #endif
 

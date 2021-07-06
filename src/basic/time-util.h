@@ -111,19 +111,30 @@ usec_t triple_timestamp_by_clock(triple_timestamp *ts, clockid_t clock);
 
 usec_t timespec_load(const struct timespec *ts) _pure_;
 nsec_t timespec_load_nsec(const struct timespec *ts) _pure_;
-struct timespec *timespec_store(struct timespec *ts, usec_t u);
-struct timespec *timespec_store_nsec(struct timespec *ts, nsec_t n);
+struct timespec* timespec_store(struct timespec *ts, usec_t u);
+struct timespec* timespec_store_nsec(struct timespec *ts, nsec_t n);
 
 usec_t timeval_load(const struct timeval *tv) _pure_;
-struct timeval *timeval_store(struct timeval *tv, usec_t u);
+struct timeval* timeval_store(struct timeval *tv, usec_t u);
 
-char *format_timestamp_style(char *buf, size_t l, usec_t t, TimestampStyle style);
-char *format_timestamp_relative(char *buf, size_t l, usec_t t);
-char *format_timespan(char *buf, size_t l, usec_t t, usec_t accuracy);
+char* format_timestamp_style(char *buf, size_t l, usec_t t, TimestampStyle style) _warn_unused_result_;
+char* format_timestamp_relative(char *buf, size_t l, usec_t t) _warn_unused_result_;
+char* format_timespan(char *buf, size_t l, usec_t t, usec_t accuracy) _warn_unused_result_;
 
-static inline char *format_timestamp(char *buf, size_t l, usec_t t) {
+_warn_unused_result_
+static inline char* format_timestamp(char *buf, size_t l, usec_t t) {
         return format_timestamp_style(buf, l, t, TIMESTAMP_PRETTY);
 }
+
+/* Note: the lifetime of the compound literal is the immediately surrounding block,
+ * see C11 §6.5.2.5, and
+ * https://stackoverflow.com/questions/34880638/compound-literal-lifetime-and-if-blocks */
+#define FORMAT_TIMESTAMP(t) format_timestamp((char[FORMAT_TIMESTAMP_MAX]){}, FORMAT_TIMESTAMP_MAX, t)
+#define FORMAT_TIMESTAMP_RELATIVE(t)                                    \
+        format_timestamp_relative((char[FORMAT_TIMESTAMP_RELATIVE_MAX]){}, FORMAT_TIMESTAMP_RELATIVE_MAX, t)
+#define FORMAT_TIMESPAN(t, accuracy) format_timespan((char[FORMAT_TIMESPAN_MAX]){}, FORMAT_TIMESPAN_MAX, t, accuracy)
+#define FORMAT_TIMESTAMP_STYLE(t, style) \
+        format_timestamp_style((char[FORMAT_TIMESTAMP_MAX]){}, FORMAT_TIMESTAMP_MAX, t, style)
 
 int parse_timestamp(const char *t, usec_t *usec);
 
@@ -156,9 +167,8 @@ usec_t jiffies_to_usec(uint32_t jiffies);
 bool in_utc_timezone(void);
 
 static inline usec_t usec_add(usec_t a, usec_t b) {
-
-        /* Adds two time values, and makes sure USEC_INFINITY as input results as USEC_INFINITY in output, and doesn't
-         * overflow. */
+        /* Adds two time values, and makes sure USEC_INFINITY as input results as USEC_INFINITY in output,
+         * and doesn't overflow. */
 
         if (a > USEC_INFINITY - b) /* overflow check */
                 return USEC_INFINITY;
@@ -167,7 +177,6 @@ static inline usec_t usec_add(usec_t a, usec_t b) {
 }
 
 static inline usec_t usec_sub_unsigned(usec_t timestamp, usec_t delta) {
-
         if (timestamp == USEC_INFINITY) /* Make sure infinity doesn't degrade */
                 return USEC_INFINITY;
         if (timestamp < delta)
@@ -184,14 +193,14 @@ static inline usec_t usec_sub_signed(usec_t timestamp, int64_t delta) {
 }
 
 #if SIZEOF_TIME_T == 8
-/* The last second we can format is 31. Dec 9999, 1s before midnight, because otherwise we'd enter 5 digit year
- * territory. However, since we want to stay away from this in all timezones we take one day off. */
-#define USEC_TIMESTAMP_FORMATTABLE_MAX ((usec_t) 253402214399000000)
+  /* The last second we can format is 31. Dec 9999, 1s before midnight, because otherwise we'd enter 5 digit
+   * year territory. However, since we want to stay away from this in all timezones we take one day off. */
+#  define USEC_TIMESTAMP_FORMATTABLE_MAX ((usec_t) 253402214399000000)
 #elif SIZEOF_TIME_T == 4
 /* With a 32bit time_t we can't go beyond 2038... */
-#define USEC_TIMESTAMP_FORMATTABLE_MAX ((usec_t) 2147483647000000)
+#  define USEC_TIMESTAMP_FORMATTABLE_MAX ((usec_t) 2147483647000000)
 #else
-#error "Yuck, time_t is neither 4 nor 8 bytes wide?"
+#  error "Yuck, time_t is neither 4 nor 8 bytes wide?"
 #endif
 
 int time_change_fd(void);

@@ -1324,16 +1324,14 @@ static int verify_run_space(const char *message, sd_bus_error *error) {
 
         available = (uint64_t) svfs.f_bfree * (uint64_t) svfs.f_bsize;
 
-        if (available < RELOAD_DISK_SPACE_MIN) {
-                char fb_available[FORMAT_BYTES_MAX], fb_need[FORMAT_BYTES_MAX];
+        if (available < RELOAD_DISK_SPACE_MIN)
                 return sd_bus_error_setf(error,
                                          BUS_ERROR_DISK_FULL,
                                          "%s, not enough space available on /run/systemd. "
                                          "Currently, %s are free, but a safety buffer of %s is enforced.",
                                          message,
-                                         format_bytes(fb_available, sizeof(fb_available), available),
-                                         format_bytes(fb_need, sizeof(fb_need), RELOAD_DISK_SPACE_MIN));
-        }
+                                         FORMAT_BYTES(available),
+                                         FORMAT_BYTES(RELOAD_DISK_SPACE_MIN));
 
         return 0;
 }
@@ -1530,13 +1528,11 @@ static int method_switch_root(sd_bus_message *message, void *userdata, sd_bus_er
 
         available = (uint64_t) svfs.f_bfree * (uint64_t) svfs.f_bsize;
 
-        if (available < RELOAD_DISK_SPACE_MIN) {
-                char fb_available[FORMAT_BYTES_MAX], fb_need[FORMAT_BYTES_MAX];
+        if (available < RELOAD_DISK_SPACE_MIN)
                 log_warning("Dangerously low amount of free space on /run/systemd, root switching might fail.\n"
                             "Currently, %s are free, but %s are suggested. Proceeding anyway.",
-                            format_bytes(fb_available, sizeof(fb_available), available),
-                            format_bytes(fb_need, sizeof(fb_need), RELOAD_DISK_SPACE_MIN));
-        }
+                            FORMAT_BYTES(available),
+                            FORMAT_BYTES(RELOAD_DISK_SPACE_MIN));
 
         r = mac_selinux_access_check(message, "reboot", error);
         if (r < 0)

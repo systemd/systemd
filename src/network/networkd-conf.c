@@ -29,10 +29,8 @@ int manager_parse_config_file(Manager *m) {
                 return r;
 
         if (m->use_speed_meter && m->speed_meter_interval_usec < SPEED_METER_MINIMUM_TIME_INTERVAL) {
-                char buf[FORMAT_TIMESPAN_MAX];
-
                 log_warning("SpeedMeterIntervalSec= is too small, using %s.",
-                            format_timespan(buf, sizeof buf, SPEED_METER_MINIMUM_TIME_INTERVAL, USEC_PER_SEC));
+                            FORMAT_TIMESPAN(SPEED_METER_MINIMUM_TIME_INTERVAL, USEC_PER_SEC));
                 m->speed_meter_interval_usec = SPEED_METER_MINIMUM_TIME_INTERVAL;
         }
 
