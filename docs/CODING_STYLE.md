@@ -152,25 +152,35 @@ layout: default
 ## Using C Constructs
 
 - Allocate local variables where it makes sense: at the top of the block, or at
-  the point where they can be initialized. `r` is typically used for a local
-  state variable, but should almost always be declared at the top of the
+  the point where they can be initialized. Avoid huge variable declaration
+  lists at the top of the function. In long functions that require many
+  variables, consider moving some of the declarations close to the point of
+  first use. As an exception, `r` is typically used for a local state variable,
+  but should almost always be declared as the last variable at the top of the
   function.
 
   ```c
   {
-          uint64_t a, b;
+          uint64_t a;
           int r;
 
-          a = frobnicate();
-          b = a + 5;
-
-          r = do_something();
+          r = frobnicate(&a);
           if (r < 0)
                   …
+
+          uint64_t b = a + 11, c;
+
+          r = foobarify(a, b, &c);
+          if (r < 0)
+                  …
+
+          const char *pretty = prettify(a, b, c);
+          …
   }
   ```
 
-- Do not mix function invocations with variable definitions in one line.
+- Nevertheless, do not mix multiple variable definitions with non-trivial
+  function invocations in the block at the top of the function:
 
   ```c
   {
@@ -185,7 +195,7 @@ layout: default
 
   ```c
   {
-          int a = foobar();
+          int a = some_complicated_foobar_function("With", "many", "arguments");
           uint64_t x = 7;
   }
   ```
@@ -224,7 +234,7 @@ layout: default
 - To determine the length of a constant string `"foo"`, don't bother with
   `sizeof("foo")-1`, please use `strlen()` instead (both gcc and clang optimize
   the call away for fixed strings). The only exception is when declaring an
-  array. In that case use STRLEN, which evaluates to a static constant and
+  array. In that case use `STRLEN()`, which evaluates to a static constant and
   doesn't force the compiler to create a VLA.
 
 - Please use C's downgrade-to-bool feature only for expressions that are
