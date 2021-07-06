@@ -21,9 +21,6 @@
 #include "timesyncd-manager.h"
 #include "user-util.h"
 
-#define STATE_DIR   "/var/lib/systemd/timesync"
-#define CLOCK_FILE  STATE_DIR "/clock"
-
 static int load_clock_timestamp(uid_t uid, gid_t gid) {
         _cleanup_close_ int fd = -1;
         usec_t min = TIME_EPOCH * USEC_PER_SEC;
@@ -154,6 +151,10 @@ static int run(int argc, char *argv[]) {
         notify_message = notify_start("READY=1\n"
                                       "STATUS=Daemon is running",
                                       NOTIFY_STOPPING);
+
+        r = manager_save_time_add(m);
+        if (r < 0)
+                return r;
 
         if (network_is_online()) {
                 r = manager_connect(m);
