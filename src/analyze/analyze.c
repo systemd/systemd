@@ -26,6 +26,7 @@
 #include "copy.h"
 #include "def.h"
 #include "exit-status.h"
+#include "extract-word.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "format-table.h"
@@ -40,6 +41,7 @@
 #include "parse-util.h"
 #include "path-util.h"
 #include "pretty-print.h"
+#include "rm-rf.h"
 #if HAVE_SECCOMP
 #  include "seccomp-util.h"
 #endif
@@ -214,12 +216,44 @@ static int compare_unit_start(const UnitTimes *a, const UnitTimes *b) {
         return CMP(a->activating, b->activating);
 }
 
+static int setup_working_dir(char **ret) {
+        int r;
+        char *tempdir = NULL;
+        char bid[SD_ID128_STRING_MAX];
+        sd_id128_t boot_id;
+
+        assert(ret);
+
+        r = sd_id128_get_boot(&boot_id);
+        if (r < 0)
+                return log_error_errno(r, "Failed to obtain boot ID");
+
+        tempdir = strjoin("/tmp/systemd-analyze-", sd_id128_to_string(boot_id, bid), "-XXXXXX");
+        if (!tempdir)
+                return log_oom();
+
+        tempdir = mkdtemp(tempdir);
+        if (!tempdir)
+                return log_error_errno(errno, "Failed to create temporary directory");
+
+        *ret = tempdir;
+        return 0;
+}
+
 static UnitTimes* unit_times_free_array(UnitTimes *t) {
         for (UnitTimes *p = t; p && p->has_data; p++)
                 free(p->name);
         return mfree(t);
 }
 DEFINE_TRIVIAL_CLEANUP_FUNC(UnitTimes*, unit_times_free_array);
+
+static char *rm_rf_and_free(char *p) {
+        RemoveFlags flags = REMOVE_PHYSICAL | REMOVE_ROOT;
+
+        (void) rm_rf(p, flags);
+        return mfree(p);
+}
+DEFINE_TRIVIAL_CLEANUP_FUNC(char*, rm_rf_and_free);
 
 static void subtract_timestamp(usec_t *a, usec_t b) {
         assert(a);
@@ -2145,7 +2179,56 @@ static int do_condition(int argc, char *argv[], void *userdata) {
 }
 
 static int do_verify(int argc, char *argv[], void *userdata) {
-        return verify_units(strv_skip(argv, 1), arg_scope, arg_man, arg_generators);
+        char **filename;
+        _cleanup_strv_free_ char **filenames = NULL;
+        _cleanup_(rm_rf_and_freep) char *tempdir = NULL;
+        bool setup_alias = false;
+
+        STRV_FOREACH(filename, strv_skip(argv, 1))
+                if (strchr(*filename, ':')) {
+                        setup_alias = true;
+                        break;
+                }
+
+        if (setup_alias) {
+                int r, i = 1;
+                char *dst;
+
+                r = setup_working_dir(&tempdir);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to setup working directory");
+
+                STRV_FOREACH(filename, strv_skip(argv, 1)) {
+                        if (strchr(*filename, ':')) {
+                                _cleanup_free_ char *src = NULL, *argname = NULL;
+                                struct stat statbuf;
+
+                                argname = strdup(*filename);
+                                r = extract_first_word((const char **)filename, &src, ":", 0);
+                                if (r < 0 || !*filename)
+                                        return log_error_errno(r, "Failed to parse alias %s", argname);
+
+                                dst = path_join(tempdir, basename(*filename));
+                                if (!dst)
+                                        return log_oom();
+
+                                r = stat(src, &statbuf);
+                                if (r < 0)
+                                        return log_error_errno(errno, "Couldn't stat %s", src);
+
+                                r = copy_file(src, dst, 0, statbuf.st_mode, 0, 0, COPY_REFLINK);
+                                if (r < 0)
+                                        return log_error_errno(r, "Couldn't copy %s to alias %s", src, dst);
+
+                                strv_push(&filenames, dst);
+                        } else
+                                strv_push(&filenames, strdup(argv[i]));
+                        i++;
+                }
+
+                return verify_units(filenames, arg_scope, arg_man, arg_generators);
+        } else
+                return verify_units(strv_skip(argv, 1), arg_scope, arg_man, arg_generators);
 }
 
 static int do_security(int argc, char *argv[], void *userdata) {
