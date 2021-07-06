@@ -424,13 +424,6 @@ static int monitor_memory_pressure_contexts_handler(sd_event_source *s, uint64_t
         if (r < 0)
                 log_debug_errno(r, "Failed to update monitored memory pressure cgroup contexts, ignoring: %m");
 
-        r = update_monitored_cgroup_contexts_candidates(
-                        m->monitored_mem_pressure_cgroup_contexts, &m->monitored_mem_pressure_cgroup_contexts_candidates);
-        if (r == -ENOMEM)
-                return log_oom();
-        if (r < 0)
-                log_debug_errno(r, "Failed to update monitored memory pressure candidate cgroup contexts, ignoring: %m");
-
         /* Since pressure counters are lagging, we need to wait a bit after a kill to ensure we don't read stale
          * values and go on a kill storm. */
         if (m->mem_pressure_post_action_delay_start > 0) {
