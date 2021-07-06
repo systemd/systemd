@@ -60,6 +60,8 @@ static int manager_clock_watch_setup(Manager *m);
 static int manager_listen_setup(Manager *m);
 static void manager_listen_stop(Manager *m);
 
+static int manager_save_time_and_rearm(Manager* m);
+
 static double ntp_ts_short_to_d(const struct ntp_ts_short *ts) {
         return be16toh(ts->sec) + (be16toh(ts->frac) / 65536.0);
 }
@@ -303,8 +305,11 @@ static int manager_adjust_clock(Manager *m, double offset, int leap_sec) {
         if (r < 0)
                 return -errno;
 
+        r = manager_save_time_and_rearm(m);
+        if (r < 0)
+                return r;
+
         /* If touch fails, there isn't much we can do. Maybe it'll work next time. */
-        (void) touch("/var/lib/systemd/timesync/clock");
         (void) touch("/run/systemd/timesync/synchronized");
 
         m->drift_freq = tmx.freq;
@@ -591,7 +596,6 @@ static int manager_receive_response(sd_event_source *source, int fd, uint32_t re
                   m->poll_interval_usec / USEC_PER_SEC);
 
         if (!spike) {
-                m->sync = true;
                 r = manager_adjust_clock(m, offset, leap_sec);
                 if (r < 0)
                         log_error_errno(r, "Failed to call clock_adjtime(): %m");
@@ -1104,6 +1108,8 @@ int manager_new(Manager **ret) {
 
         m->ratelimit = (RateLimit) { RATELIMIT_INTERVAL_USEC, RATELIMIT_BURST };
 
+        m->save_time_interval_usec = DEFAULT_SAVE_TIME_INTERVAL_USEC;
+
         r = sd_event_default(&m->event);
         if (r < 0)
                 return r;
@@ -1128,6 +1134,53 @@ int manager_new(Manager **ret) {
         (void) manager_network_read_link_servers(m);
 
         *ret = TAKE_PTR(m);
+
+        return 0;
+}
+
+static int manager_save_time_handler(sd_event_source *s, uint64_t usec, void *userdata) {
+        Manager *m = userdata;
+
+        assert(m);
+
+        return manager_save_time_and_rearm(m);
+}
+
+int manager_save_time_add(Manager *m) {
+        int r;
+
+        if (m->save_time_interval_usec > 0) {
+                r = sd_event_add_time_relative(
+                                m->event, &m->event_save_time,
+                                clock_boottime_or_monotonic(),
+                                m->save_time_interval_usec, 0, manager_save_time_handler, m);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to add save time event: %m");
+
+                r = sd_event_source_set_enabled(m->event_save_time, SD_EVENT_ONESHOT);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to enable save time event: %m");
+        }
+
+        return 0;
+}
+
+static int manager_save_time_and_rearm(Manager *m) {
+        int r;
+
+        r = touch(CLOCK_FILE);
+        if (r < 0)
+                log_debug_errno(r, "Failed to update %s, ignoring: %m", CLOCK_FILE);
+
+        if (m->save_time_interval_usec > 0) {
+                r = sd_event_source_set_time_relative(m->event_save_time, m->save_time_interval_usec);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to rearm save time event: %m");
+
+                r = sd_event_source_set_enabled(m->event_save_time, SD_EVENT_ONESHOT);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to enable save time event: %m");
+        }
 
         return 0;
 }

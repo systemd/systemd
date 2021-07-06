@@ -89,7 +89,7 @@
         specified, see
         <citerefentry><refentrytitle>systemd.time</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
         <varname>PollIntervalMinSec=</varname> defaults to 32 seconds and must not be smaller than
-        16 seconds. <varname>PollIntervalMaxSec=</varname> defaults to 34 min 8 s (2048 seconds) and must be
+        16 seconds. <varname>PollIntervalMaxSec=</varname> defaults to 34 min 8 s (2048 seconds) and must be
         larger than <varname>PollIntervalMinSec=</varname>.</para></listitem>
       </varlistentry>
 
@@ -101,6 +101,17 @@
         <para>Takes a time span value. The default unit is seconds, but other units may be specified, see
         <citerefentry><refentrytitle>systemd.time</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
         Defaults to 30 seconds and must not be smaller than 1 second.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>SaveIntervalSec=</varname></term>
+        <listitem><para>Interval to periodically save current time. This is especially useful for offline
+        systems with no RTC battery, as it will guarantee that time is always monotonically increasing
+        between reboots.</para>
+
+        <para>Takes a time span value. The default unit is seconds, but other units may be specified, see
+        <citerefentry><refentrytitle>systemd.time</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+        Defaults to 0 seconds, meaning disable this option.</para></listitem>
       </varlistentry>
 
     </variablelist>
