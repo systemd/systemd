@@ -60,7 +60,7 @@ static int generate_path(char **var, char **filenames) {
         int r;
 
         STRV_FOREACH(filename, filenames) {
-                char *t;
+                _cleanup_free_ char *t = NULL;
 
                 t = dirname_malloc(*filename);
                 if (!t)
@@ -218,10 +218,11 @@ static int verify_unit(Unit *u, bool check_man) {
         return r;
 }
 
-int verify_units(char **filenames, UnitFileScope scope, bool check_man, bool run_generators) {
+int verify_units(char **filenames, UnitFileScope scope, bool check_man, bool run_generators, char *root) {
         const ManagerTestRunFlags flags =
                 MANAGER_TEST_RUN_MINIMAL |
                 MANAGER_TEST_RUN_ENV_GENERATORS |
+                MANAGER_TEST_RUN_IGNORE_DEPENDENCIES |
                 run_generators * MANAGER_TEST_RUN_GENERATORS;
 
         _cleanup_(manager_freep) Manager *m = NULL;
@@ -246,7 +247,7 @@ int verify_units(char **filenames, UnitFileScope scope, bool check_man, bool run
 
         log_debug("Starting manager...");
 
-        r = manager_startup(m, NULL, NULL);
+        r = manager_startup(m, NULL, NULL, root);
         if (r < 0)
                 return r;
 

@@ -133,7 +133,8 @@ typedef enum ManagerTestRunFlags {
         MANAGER_TEST_RUN_BASIC          = 1 << 1,  /* interact with the environment */
         MANAGER_TEST_RUN_ENV_GENERATORS = 1 << 2,  /* also run env generators  */
         MANAGER_TEST_RUN_GENERATORS     = 1 << 3,  /* also run unit generators */
-        MANAGER_TEST_FULL = MANAGER_TEST_RUN_BASIC | MANAGER_TEST_RUN_ENV_GENERATORS | MANAGER_TEST_RUN_GENERATORS,
+        MANAGER_TEST_RUN_IGNORE_DEPENDENCIES = 1 << 4, /* run while ignoring the default dependencies */
+        MANAGER_TEST_FULL = MANAGER_TEST_RUN_BASIC | MANAGER_TEST_RUN_ENV_GENERATORS | MANAGER_TEST_RUN_GENERATORS | MANAGER_TEST_RUN_IGNORE_DEPENDENCIES,
 } ManagerTestRunFlags;
 
 assert_cc((MANAGER_TEST_FULL & UINT8_MAX) == MANAGER_TEST_FULL);
@@ -467,7 +468,7 @@ int manager_new(UnitFileScope scope, ManagerTestRunFlags test_run_flags, Manager
 Manager* manager_free(Manager *m);
 DEFINE_TRIVIAL_CLEANUP_FUNC(Manager*, manager_free);
 
-int manager_startup(Manager *m, FILE *serialization, FDSet *fds);
+int manager_startup(Manager *m, FILE *serialization, FDSet *fds, char *root);
 
 Job *manager_get_job(Manager *m, uint32_t id);
 Unit *manager_get_unit(Manager *m, const char *name);

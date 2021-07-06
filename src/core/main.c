@@ -2850,7 +2850,7 @@ int main(int argc, char *argv[]) {
 
         before_startup = now(CLOCK_MONOTONIC);
 
-        r = manager_startup(m, arg_serialization, fds);
+        r = manager_startup(m, arg_serialization, fds, NULL);
         if (r < 0) {
                 error_message = "Failed to start up manager";
                 goto finish;

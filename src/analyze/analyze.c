@@ -34,6 +34,7 @@
 #include "locale-util.h"
 #include "log.h"
 #include "main-func.h"
+#include "mount-util.h"
 #include "nulstr-util.h"
 #include "pager.h"
 #include "parse-argument.h"
@@ -84,14 +85,18 @@ static PagerFlags arg_pager_flags = 0;
 static BusTransport arg_transport = BUS_TRANSPORT_LOCAL;
 static const char *arg_host = NULL;
 static UnitFileScope arg_scope = UNIT_FILE_SYSTEM;
+static ManagerTestRunFlags arg_test_flag = MANAGER_TEST_RUN_IGNORE_DEPENDENCIES;
 static bool arg_man = true;
 static bool arg_generators = false;
-static const char *arg_root = NULL;
+static char *arg_root = NULL;
+static char *arg_image = NULL;
 static unsigned arg_iterations = 1;
 static usec_t arg_base_time = USEC_INFINITY;
 
 STATIC_DESTRUCTOR_REGISTER(arg_dot_from_patterns, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_dot_to_patterns, strv_freep);
+STATIC_DESTRUCTOR_REGISTER(arg_root, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_image, freep);
 
 typedef struct BootTimes {
         usec_t firmware_time;
@@ -2145,7 +2150,7 @@ static int do_condition(int argc, char *argv[], void *userdata) {
 }
 
 static int do_verify(int argc, char *argv[], void *userdata) {
-        return verify_units(strv_skip(argv, 1), arg_scope, arg_man, arg_generators);
+        return verify_units(strv_skip(argv, 1), arg_scope, arg_man, arg_generators, arg_root);
 }
 
 static int do_security(int argc, char *argv[], void *userdata) {
@@ -2199,6 +2204,7 @@ static int help(int argc, char *argv[], void *userdata) {
                "  security [UNIT...]       Analyze security of unit\n"
                "\nOptions:\n"
                "  -h --help                Show this help\n"
+               "     --ignore-dependencies Ignore the default dependencies\n"
                "     --version             Show package version\n"
                "     --no-pager            Do not pipe output into a pager\n"
                "     --system              Operate on system systemd instance\n"
@@ -2235,6 +2241,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_ORDER,
                 ARG_REQUIRE,
                 ARG_ROOT,
+                ARG_IMAGE,
                 ARG_SYSTEM,
                 ARG_USER,
                 ARG_GLOBAL,
@@ -2246,27 +2253,30 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_GENERATORS,
                 ARG_ITERATIONS,
                 ARG_BASE_TIME,
+                ARG_DEPENDENCY,
         };
 
         static const struct option options[] = {
-                { "help",         no_argument,       NULL, 'h'                  },
-                { "version",      no_argument,       NULL, ARG_VERSION          },
-                { "order",        no_argument,       NULL, ARG_ORDER            },
-                { "require",      no_argument,       NULL, ARG_REQUIRE          },
-                { "root",         required_argument, NULL, ARG_ROOT             },
-                { "system",       no_argument,       NULL, ARG_SYSTEM           },
-                { "user",         no_argument,       NULL, ARG_USER             },
-                { "global",       no_argument,       NULL, ARG_GLOBAL           },
-                { "from-pattern", required_argument, NULL, ARG_DOT_FROM_PATTERN },
-                { "to-pattern",   required_argument, NULL, ARG_DOT_TO_PATTERN   },
-                { "fuzz",         required_argument, NULL, ARG_FUZZ             },
-                { "no-pager",     no_argument,       NULL, ARG_NO_PAGER         },
-                { "man",          optional_argument, NULL, ARG_MAN              },
-                { "generators",   optional_argument, NULL, ARG_GENERATORS       },
-                { "host",         required_argument, NULL, 'H'                  },
-                { "machine",      required_argument, NULL, 'M'                  },
-                { "iterations",   required_argument, NULL, ARG_ITERATIONS       },
-                { "base-time",    required_argument, NULL, ARG_BASE_TIME        },
+                { "help",                no_argument,       NULL, 'h'                  },
+                { "ignore-dependencies", no_argument,       NULL, ARG_DEPENDENCY,      },
+                { "version",             no_argument,       NULL, ARG_VERSION          },
+                { "order",               no_argument,       NULL, ARG_ORDER            },
+                { "require",             no_argument,       NULL, ARG_REQUIRE          },
+                { "root",                required_argument, NULL, ARG_ROOT             },
+                { "image",               required_argument, NULL, ARG_IMAGE            },
+                { "system",              no_argument,       NULL, ARG_SYSTEM           },
+                { "user",                no_argument,       NULL, ARG_USER             },
+                { "global",              no_argument,       NULL, ARG_GLOBAL           },
+                { "from-pattern",        required_argument, NULL, ARG_DOT_FROM_PATTERN },
+                { "to-pattern",          required_argument, NULL, ARG_DOT_TO_PATTERN   },
+                { "fuzz",                required_argument, NULL, ARG_FUZZ             },
+                { "no-pager",            no_argument,       NULL, ARG_NO_PAGER         },
+                { "man",                 optional_argument, NULL, ARG_MAN              },
+                { "generators",          optional_argument, NULL, ARG_GENERATORS       },
+                { "host",                required_argument, NULL, 'H'                  },
+                { "machine",             required_argument, NULL, 'M'                  },
+                { "iterations",          required_argument, NULL, ARG_ITERATIONS       },
+                { "base-time",            required_argument, NULL, ARG_BASE_TIME       },
                 {}
         };
 
@@ -2281,11 +2291,23 @@ static int parse_argv(int argc, char *argv[]) {
                 case 'h':
                         return help(0, NULL, NULL);
 
+                case ARG_DEPENDENCY:
+                        arg_test_flag = MANAGER_TEST_RUN_IGNORE_DEPENDENCIES;
+                        break;
+
                 case ARG_VERSION:
                         return version();
 
                 case ARG_ROOT:
-                        arg_root = optarg;
+                        r = parse_path_argument(optarg, true, &arg_root);
+                        if (r < 0)
+                                return r;
+                        break;
+
+                case ARG_IMAGE:
+                        r = parse_path_argument(optarg, false, &arg_image);
+                        if (r < 0)
+                                return r;
                         break;
 
                 case ARG_SYSTEM:
@@ -2382,14 +2404,21 @@ static int parse_argv(int argc, char *argv[]) {
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "Option --user is not supported for cat-config right now.");
 
-        if (arg_root && !streq_ptr(argv[optind], "cat-config"))
+        if (arg_root && !streq_ptr(argv[optind], "cat-config") && !streq_ptr(argv[optind], "verify"))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "Option --root is only supported for cat-config right now.");
+                                       "Option --root is only supported for cat-config and verify right now.");
+
+        /* Having both an image and a root is not supported by the code */
+        if (arg_root && arg_image)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Please specify either --root= or --image=, the combination of both is not supported.");
 
         return 1; /* work to do */
 }
 
 static int run(int argc, char *argv[]) {
+        _cleanup_(loop_device_unrefp) LoopDevice *loop_device = NULL;
+        _cleanup_(decrypted_image_unrefp) DecryptedImage *decrypted_image = NULL;
+        _cleanup_(umount_and_rmdir_and_freep) char *unlink_dir = NULL;
 
         static const Verb verbs[] = {
                 { "help",              VERB_ANY, VERB_ANY, 0,            help                   },
@@ -2432,6 +2461,28 @@ static int run(int argc, char *argv[]) {
         r = parse_argv(argc, argv);
         if (r <= 0)
                 return r;
+
+        /* Functionality to open up and mount the image. Documentation for
+         * what the specific image flags mean can be found on the dissect
+         * header file. */
+        if (arg_image) {
+                assert(!arg_root);
+
+                r = mount_image_privately_interactively(
+                                arg_image,
+                                DISSECT_IMAGE_GENERIC_ROOT |
+                                DISSECT_IMAGE_RELAX_VAR_CHECK |
+                                DISSECT_IMAGE_READ_ONLY,
+                                &unlink_dir,
+                                &loop_device,
+                                &decrypted_image);
+                if (r < 0)
+                        return r;
+
+                arg_root = strdup(unlink_dir);
+                if (!arg_root)
+                        return log_oom();
+        }
 
         return dispatch_verb(argc, argv, verbs, NULL);
 }
