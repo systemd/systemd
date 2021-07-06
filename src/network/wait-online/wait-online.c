@@ -224,7 +224,7 @@ static int run(int argc, char *argv[]) {
 
         r = sd_event_loop(m->event);
         if (r == -ETIMEDOUT)
-                return log_error_errno(r, "Timeout occured while waiting for network connectivity.");
+                return log_error_errno(r, "Timeout occurred while waiting for network connectivity.");
         if (r < 0)
                 return log_error_errno(r, "Event loop failed: %m");
 
