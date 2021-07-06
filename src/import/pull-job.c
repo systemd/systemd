@@ -502,8 +502,7 @@ static size_t pull_job_header_callback(void *contents, size_t size, size_t nmemb
 
                 if (j->content_length != UINT64_MAX) {
                         if (j->content_length > j->compressed_max) {
-                                log_error("Content too large.");
-                                r = -EFBIG;
+                                r = log_error_errno(SYNTHETIC_ERRNO(EFBIG), "Content too large.");
                                 goto fail;
                         }
 
