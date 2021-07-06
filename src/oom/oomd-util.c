@@ -521,8 +521,6 @@ void oomd_dump_swap_cgroup_context(const OomdCGroupContext *ctx, FILE *f, const 
 }
 
 void oomd_dump_memory_pressure_cgroup_context(const OomdCGroupContext *ctx, FILE *f, const char *prefix) {
-        char mem_min[FORMAT_BYTES_MAX], mem_low[FORMAT_BYTES_MAX];
-
         assert(ctx);
         assert(f);
 
@@ -546,8 +544,8 @@ void oomd_dump_memory_pressure_cgroup_context(const OomdCGroupContext *ctx, FILE
                         "%s\tMemory Low: %s\n"
                         "%s\tPgscan: %" PRIu64 "\n"
                         "%s\tLast Pgscan: %" PRIu64 "\n",
-                        strempty(prefix), format_bytes_cgroup_protection(mem_min, sizeof(mem_min), ctx->memory_min),
-                        strempty(prefix), format_bytes_cgroup_protection(mem_low, sizeof(mem_low), ctx->memory_low),
+                        strempty(prefix), FORMAT_BYTES_CGROUP_PROTECTION(ctx->memory_min),
+                        strempty(prefix), FORMAT_BYTES_CGROUP_PROTECTION(ctx->memory_low),
                         strempty(prefix), ctx->pgscan,
                         strempty(prefix), ctx->last_pgscan);
 }
