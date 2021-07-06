@@ -84,6 +84,7 @@ static inline char *format_bytes(char *buf, size_t l, uint64_t t) {
  * see C11 §6.5.2.5, and
  * https://stackoverflow.com/questions/34880638/compound-literal-lifetime-and-if-blocks */
 #define FORMAT_BYTES(t) format_bytes((char[FORMAT_BYTES_MAX]){}, FORMAT_BYTES_MAX, t)
+#define FORMAT_BYTES_FULL(t, flag) format_bytes_full((char[FORMAT_BYTES_MAX]){}, FORMAT_BYTES_MAX, t, flag)
 
 static inline char *format_bytes_cgroup_protection(char *buf, size_t l, uint64_t t) {
         if (t == CGROUP_LIMIT_MAX) {
