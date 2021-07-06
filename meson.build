@@ -322,7 +322,6 @@ basic_disabled_warnings = [
         '-Wno-format-signedness',
         '-Wno-missing-field-initializers',
         '-Wno-unused-parameter',
-        '-Wno-unused-result',
 ]
 
 possible_common_cc_flags = [
@@ -364,6 +363,12 @@ possible_common_cc_flags = [
 if cc.get_id() == 'gcc' and (not '02'.contains(get_option('optimization')) or
                              cc.version().version_compare('<10'))
         possible_common_cc_flags += '-Wno-maybe-uninitialized'
+endif
+
+# Disable -Wno-unused-result with gcc, see
+# https://gcc.gnu.org/bugzilla/show_bug.cgi?id=66425.
+if cc.get_id() == 'gcc'
+        possible_common_cc_flags += '-Wno-unused-result'
 endif
 
 # --as-needed and --no-undefined are provided by meson by default,
