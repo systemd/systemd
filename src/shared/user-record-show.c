@@ -256,15 +256,11 @@ void user_record_show(UserRecord *hr, bool show_full_group_info) {
         if (hr->tasks_max != UINT64_MAX)
                 printf("   Tasks Max: %" PRIu64 "\n", hr->tasks_max);
 
-        if (hr->memory_high != UINT64_MAX) {
-                char buf[FORMAT_BYTES_MAX];
-                printf(" Memory High: %s\n", format_bytes(buf, sizeof(buf), hr->memory_high));
-        }
+        if (hr->memory_high != UINT64_MAX)
+                printf(" Memory High: %s\n", FORMAT_BYTES(hr->memory_high));
 
-        if (hr->memory_max != UINT64_MAX) {
-                char buf[FORMAT_BYTES_MAX];
-                printf("  Memory Max: %s\n", format_bytes(buf, sizeof(buf), hr->memory_max));
-        }
+        if (hr->memory_max != UINT64_MAX)
+                printf("  Memory Max: %s\n", FORMAT_BYTES(hr->memory_max));
 
         if (hr->cpu_weight != UINT64_MAX)
                 printf("  CPU Weight: %" PRIu64 "\n", hr->cpu_weight);
@@ -301,10 +297,9 @@ void user_record_show(UserRecord *hr, bool show_full_group_info) {
                         printf("  PBKDF Hash: %s\n", hr->luks_pbkdf_hash_algorithm);
                 if (hr->luks_pbkdf_time_cost_usec != UINT64_MAX)
                         printf("  PBKDF Time: %s\n", FORMAT_TIMESPAN(hr->luks_pbkdf_time_cost_usec, 0));
-                if (hr->luks_pbkdf_memory_cost != UINT64_MAX) {
-                        char buf[FORMAT_BYTES_MAX];
-                        printf(" PBKDF Bytes: %s\n", format_bytes(buf, sizeof(buf), hr->luks_pbkdf_memory_cost));
-                }
+                if (hr->luks_pbkdf_memory_cost != UINT64_MAX)
+                        printf(" PBKDF Bytes: %s\n", FORMAT_BYTES(hr->luks_pbkdf_memory_cost));
+
                 if (hr->luks_pbkdf_parallel_threads != UINT64_MAX)
                         printf("PBKDF Thread: %" PRIu64 "\n", hr->luks_pbkdf_parallel_threads);
 
@@ -328,28 +323,22 @@ void user_record_show(UserRecord *hr, bool show_full_group_info) {
         if (hr->skeleton_directory)
                 printf("  Skel. Dir.: %s\n", user_record_skeleton_directory(hr));
 
-        if (hr->disk_size != UINT64_MAX) {
-                char buf[FORMAT_BYTES_MAX];
-                printf("   Disk Size: %s\n", format_bytes(buf, sizeof(buf), hr->disk_size));
-        }
+        if (hr->disk_size != UINT64_MAX)
+                printf("   Disk Size: %s\n", FORMAT_BYTES(hr->disk_size));
 
         if (hr->disk_usage != UINT64_MAX) {
-                char buf[FORMAT_BYTES_MAX];
-
                 if (hr->disk_size != UINT64_MAX) {
                         unsigned permille;
 
                         permille = (unsigned) DIV_ROUND_UP(hr->disk_usage * 1000U, hr->disk_size); /* Round up! */
                         printf("  Disk Usage: %s (= %u.%01u%%)\n",
-                               format_bytes(buf, sizeof(buf), hr->disk_usage),
+                               FORMAT_BYTES(hr->disk_usage),
                                permille / 10, permille % 10);
                 } else
-                        printf("  Disk Usage: %s\n", format_bytes(buf, sizeof(buf), hr->disk_usage));
+                        printf("  Disk Usage: %s\n", FORMAT_BYTES(hr->disk_usage));
         }
 
         if (hr->disk_free != UINT64_MAX) {
-                char buf[FORMAT_BYTES_MAX];
-
                 if (hr->disk_size != UINT64_MAX) {
                         const char *color_on, *color_off;
                         unsigned permille;
@@ -372,22 +361,18 @@ void user_record_show(UserRecord *hr, bool show_full_group_info) {
 
                         printf("   Disk Free: %s%s (= %u.%01u%%)%s\n",
                                color_on,
-                               format_bytes(buf, sizeof(buf), hr->disk_free),
+                               FORMAT_BYTES(hr->disk_free),
                                permille / 10, permille % 10,
                                color_off);
                 } else
-                        printf("   Disk Free: %s\n", format_bytes(buf, sizeof(buf), hr->disk_free));
+                        printf("   Disk Free: %s\n", FORMAT_BYTES(hr->disk_free));
         }
 
-        if (hr->disk_floor != UINT64_MAX) {
-                char buf[FORMAT_BYTES_MAX];
-                printf("  Disk Floor: %s\n", format_bytes(buf, sizeof(buf), hr->disk_floor));
-        }
+        if (hr->disk_floor != UINT64_MAX)
+                printf("  Disk Floor: %s\n", FORMAT_BYTES(hr->disk_floor));
 
-        if (hr->disk_ceiling != UINT64_MAX) {
-                char buf[FORMAT_BYTES_MAX];
-                printf("Disk Ceiling: %s\n", format_bytes(buf, sizeof(buf), hr->disk_ceiling));
-        }
+        if (hr->disk_ceiling != UINT64_MAX)
+                printf("Disk Ceiling: %s\n", FORMAT_BYTES(hr->disk_ceiling));
 
         if (hr->good_authentication_counter != UINT64_MAX)
                 printf("  Good Auth.: %" PRIu64 "\n", hr->good_authentication_counter);

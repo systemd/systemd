@@ -1330,22 +1330,17 @@ static int start_transient_service(
                                 log_info("CPU time consumed: %s",
                                          FORMAT_TIMESPAN(DIV_ROUND_UP(c.cpu_usage_nsec, NSEC_PER_USEC), USEC_PER_MSEC));
 
-                        if (c.ip_ingress_bytes != UINT64_MAX) {
-                                char bytes[FORMAT_BYTES_MAX];
-                                log_info("IP traffic received: %s", format_bytes(bytes, sizeof bytes, c.ip_ingress_bytes));
-                        }
-                        if (c.ip_egress_bytes != UINT64_MAX) {
-                                char bytes[FORMAT_BYTES_MAX];
-                                log_info("IP traffic sent: %s", format_bytes(bytes, sizeof bytes, c.ip_egress_bytes));
-                        }
-                        if (c.io_read_bytes != UINT64_MAX) {
-                                char bytes[FORMAT_BYTES_MAX];
-                                log_info("IO bytes read: %s", format_bytes(bytes, sizeof bytes, c.io_read_bytes));
-                        }
-                        if (c.io_write_bytes != UINT64_MAX) {
-                                char bytes[FORMAT_BYTES_MAX];
-                                log_info("IO bytes written: %s", format_bytes(bytes, sizeof bytes, c.io_write_bytes));
-                        }
+                        if (c.ip_ingress_bytes != UINT64_MAX)
+                                log_info("IP traffic received: %s", FORMAT_BYTES(c.ip_ingress_bytes));
+
+                        if (c.ip_egress_bytes != UINT64_MAX)
+                                log_info("IP traffic sent: %s", FORMAT_BYTES(c.ip_egress_bytes));
+
+                        if (c.io_read_bytes != UINT64_MAX)
+                                log_info("IO bytes read: %s", FORMAT_BYTES(c.io_read_bytes));
+
+                        if (c.io_write_bytes != UINT64_MAX)
+                                log_info("IO bytes written: %s", FORMAT_BYTES(c.io_write_bytes));
                 }
 
                 /* Try to propagate the service's return value. But if the service defines

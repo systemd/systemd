@@ -1492,7 +1492,6 @@ static int run_fsck(const char *node, const char *fstype) {
 
 static int fs_grow(const char *node_path, const char *mount_path) {
         _cleanup_close_ int mount_fd = -1, node_fd = -1;
-        char fb[FORMAT_BYTES_MAX];
         uint64_t size, newsize;
         int r;
 
@@ -1514,14 +1513,11 @@ static int fs_grow(const char *node_path, const char *mount_path) {
 
         if (newsize == size)
                 log_debug("Successfully resized \"%s\" to %s bytes.",
-                          mount_path,
-                          format_bytes(fb, sizeof fb, newsize));
+                          mount_path, FORMAT_BYTES(newsize));
         else {
                 assert(newsize < size);
                 log_debug("Successfully resized \"%s\" to %s bytes (%"PRIu64" bytes lost due to blocksize).",
-                          mount_path,
-                          format_bytes(fb, sizeof fb, newsize),
-                          size - newsize);
+                          mount_path, FORMAT_BYTES(newsize), size - newsize);
         }
 
         return 0;

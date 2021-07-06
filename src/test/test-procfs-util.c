@@ -9,7 +9,6 @@
 #include "tests.h"
 
 int main(int argc, char *argv[]) {
-        char buf[FORMAT_BYTES_MAX];
         nsec_t nsec;
         uint64_t v;
         int r;
@@ -21,7 +20,7 @@ int main(int argc, char *argv[]) {
         log_info("Current system CPU time: %s", FORMAT_TIMESPAN(nsec/NSEC_PER_USEC, 1));
 
         assert_se(procfs_memory_get_used(&v) >= 0);
-        log_info("Current memory usage: %s", format_bytes(buf, sizeof(buf), v));
+        log_info("Current memory usage: %s", FORMAT_BYTES(v));
 
         assert_se(procfs_tasks_get_current(&v) >= 0);
         log_info("Current number of tasks: %" PRIu64, v);

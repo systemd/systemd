@@ -2295,7 +2295,6 @@ static int unit_log_resources(Unit *u) {
         }
 
         for (CGroupIOAccountingMetric k = 0; k < _CGROUP_IO_ACCOUNTING_METRIC_MAX; k++) {
-                char buf[FORMAT_BYTES_MAX] = "";
                 uint64_t value = UINT64_MAX;
 
                 assert(io_fields[k]);
@@ -2319,14 +2318,14 @@ static int unit_log_resources(Unit *u) {
                  * for the bytes counters (and not for the operations counters) */
                 if (k == CGROUP_IO_READ_BYTES) {
                         assert(!rr);
-                        rr = strjoin("read ", format_bytes(buf, sizeof(buf), value), " from disk");
+                        rr = strjoin("read ", strna(FORMAT_BYTES(value)), " from disk");
                         if (!rr) {
                                 r = log_oom();
                                 goto finish;
                         }
                 } else if (k == CGROUP_IO_WRITE_BYTES) {
                         assert(!wr);
-                        wr = strjoin("written ", format_bytes(buf, sizeof(buf), value), " to disk");
+                        wr = strjoin("written ", strna(FORMAT_BYTES(value)), " to disk");
                         if (!wr) {
                                 r = log_oom();
                                 goto finish;
@@ -2360,7 +2359,6 @@ static int unit_log_resources(Unit *u) {
         }
 
         for (CGroupIPAccountingMetric m = 0; m < _CGROUP_IP_ACCOUNTING_METRIC_MAX; m++) {
-                char buf[FORMAT_BYTES_MAX] = "";
                 uint64_t value = UINT64_MAX;
 
                 assert(ip_fields[m]);
@@ -2384,14 +2382,14 @@ static int unit_log_resources(Unit *u) {
                  * bytes counters (and not for the packets counters) */
                 if (m == CGROUP_IP_INGRESS_BYTES) {
                         assert(!igress);
-                        igress = strjoin("received ", format_bytes(buf, sizeof(buf), value), " IP traffic");
+                        igress = strjoin("received ", strna(FORMAT_BYTES(value)), " IP traffic");
                         if (!igress) {
                                 r = log_oom();
                                 goto finish;
                         }
                 } else if (m == CGROUP_IP_EGRESS_BYTES) {
                         assert(!egress);
-                        egress = strjoin("sent ", format_bytes(buf, sizeof(buf), value), " IP traffic");
+                        egress = strjoin("sent ", strna(FORMAT_BYTES(value)), " IP traffic");
                         if (!egress) {
                                 r = log_oom();
                                 goto finish;

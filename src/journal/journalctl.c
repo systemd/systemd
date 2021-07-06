@@ -2327,14 +2327,13 @@ int main(int argc, char *argv[]) {
 
         case ACTION_DISK_USAGE: {
                 uint64_t bytes = 0;
-                char sbytes[FORMAT_BYTES_MAX];
 
                 r = sd_journal_get_usage(j, &bytes);
                 if (r < 0)
                         goto finish;
 
                 printf("Archived and active journals take up %s in the file system.\n",
-                       format_bytes(sbytes, sizeof(sbytes), bytes));
+                       FORMAT_BYTES(bytes));
                 goto finish;
         }
 

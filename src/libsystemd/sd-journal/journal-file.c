@@ -3275,7 +3275,6 @@ fail:
 void journal_file_print_header(JournalFile *f) {
         char a[SD_ID128_STRING_MAX], b[SD_ID128_STRING_MAX], c[SD_ID128_STRING_MAX], d[SD_ID128_STRING_MAX];
         struct stat st;
-        char bytes[FORMAT_BYTES_MAX];
 
         assert(f);
         assert(f->header);
@@ -3356,7 +3355,7 @@ void journal_file_print_header(JournalFile *f) {
                        f->header->data_hash_chain_depth);
 
         if (fstat(f->fd, &st) >= 0)
-                printf("Disk usage: %s\n", format_bytes(bytes, sizeof(bytes), (uint64_t) st.st_blocks * 512ULL));
+                printf("Disk usage: %s\n", FORMAT_BYTES((uint64_t) st.st_blocks * 512ULL));
 }
 
 static int journal_file_warn_btrfs(JournalFile *f) {
@@ -3461,7 +3460,6 @@ int journal_file_open(
         if (DEBUG_LOGGING) {
                 static int last_seal = -1, last_compress = -1, last_keyed_hash = -1;
                 static uint64_t last_bytes = UINT64_MAX;
-                char bytes[FORMAT_BYTES_MAX];
 
                 if (last_seal != f->seal ||
                     last_keyed_hash != f->keyed_hash ||
@@ -3470,7 +3468,7 @@ int journal_file_open(
 
                         log_debug("Journal effective settings seal=%s keyed_hash=%s compress=%s compress_threshold_bytes=%s",
                                   yes_no(f->seal), yes_no(f->keyed_hash), yes_no(JOURNAL_FILE_COMPRESS(f)),
-                                  format_bytes(bytes, sizeof bytes, f->compress_threshold_bytes));
+                                  FORMAT_BYTES(f->compress_threshold_bytes));
                         last_seal = f->seal;
                         last_keyed_hash = f->keyed_hash;
                         last_compress = JOURNAL_FILE_COMPRESS(f);
@@ -3970,7 +3968,6 @@ void journal_reset_metrics(JournalMetrics *m) {
 }
 
 void journal_default_metrics(JournalMetrics *m, int fd) {
-        char a[FORMAT_BYTES_MAX], b[FORMAT_BYTES_MAX], c[FORMAT_BYTES_MAX], d[FORMAT_BYTES_MAX], e[FORMAT_BYTES_MAX];
         struct statvfs ss;
         uint64_t fs_size = 0;
 
@@ -4040,11 +4037,11 @@ void journal_default_metrics(JournalMetrics *m, int fd) {
                 m->n_max_files = DEFAULT_N_MAX_FILES;
 
         log_debug("Fixed min_use=%s max_use=%s max_size=%s min_size=%s keep_free=%s n_max_files=%" PRIu64,
-                  format_bytes(a, sizeof(a), m->min_use),
-                  format_bytes(b, sizeof(b), m->max_use),
-                  format_bytes(c, sizeof(c), m->max_size),
-                  format_bytes(d, sizeof(d), m->min_size),
-                  format_bytes(e, sizeof(e), m->keep_free),
+                  FORMAT_BYTES(m->min_use),
+                  FORMAT_BYTES(m->max_use),
+                  FORMAT_BYTES(m->max_size),
+                  FORMAT_BYTES(m->min_size),
+                  FORMAT_BYTES(m->keep_free),
                   m->n_max_files);
 }
 

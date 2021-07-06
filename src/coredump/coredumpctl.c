@@ -693,7 +693,6 @@ static int print_info(FILE *file, sd_journal *j, bool need_space) {
         if (filename) {
                 const char *state = NULL, *color = NULL;
                 uint64_t size = UINT64_MAX;
-                char buf[FORMAT_BYTES_MAX];
 
                 analyze_coredump_file(filename, &state, &color, &size);
 
@@ -708,9 +707,8 @@ static int print_info(FILE *file, sd_journal *j, bool need_space) {
                         ansi_normal());
 
                 if (size != UINT64_MAX)
-                        fprintf(file,
-                                "     Disk Size: %s\n",
-                                format_bytes(buf, sizeof(buf), size));
+                        fprintf(file, "     Disk Size: %s\n", FORMAT_BYTES(size));
+
         } else if (coredump)
                 fprintf(file, "       Storage: journal\n");
         else

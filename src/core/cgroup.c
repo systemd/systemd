@@ -514,9 +514,7 @@ void cgroup_context_dump(Unit *u, FILE* f, const char *prefix) {
                         l->path,
                         FORMAT_TIMESPAN(l->target_usec, 1));
 
-        LIST_FOREACH(device_limits, il, c->io_device_limits) {
-                char buf[FORMAT_BYTES_MAX];
-
+        LIST_FOREACH(device_limits, il, c->io_device_limits)
                 for (CGroupIOLimitType type = 0; type < _CGROUP_IO_LIMIT_TYPE_MAX; type++)
                         if (il->limits[type] != cgroup_io_limit_defaults[type])
                                 fprintf(f,
@@ -524,8 +522,7 @@ void cgroup_context_dump(Unit *u, FILE* f, const char *prefix) {
                                         prefix,
                                         cgroup_io_limit_type_to_string(type),
                                         il->path,
-                                        format_bytes(buf, sizeof(buf), il->limits[type]));
-        }
+                                        FORMAT_BYTES(il->limits[type]));
 
         LIST_FOREACH(device_weights, w, c->blockio_device_weights)
                 fprintf(f,
@@ -535,20 +532,18 @@ void cgroup_context_dump(Unit *u, FILE* f, const char *prefix) {
                         w->weight);
 
         LIST_FOREACH(device_bandwidths, b, c->blockio_device_bandwidths) {
-                char buf[FORMAT_BYTES_MAX];
-
                 if (b->rbps != CGROUP_LIMIT_MAX)
                         fprintf(f,
                                 "%sBlockIOReadBandwidth: %s %s\n",
                                 prefix,
                                 b->path,
-                                format_bytes(buf, sizeof(buf), b->rbps));
+                                FORMAT_BYTES(b->rbps));
                 if (b->wbps != CGROUP_LIMIT_MAX)
                         fprintf(f,
                                 "%sBlockIOWriteBandwidth: %s %s\n",
                                 prefix,
                                 b->path,
-                                format_bytes(buf, sizeof(buf), b->wbps));
+                                FORMAT_BYTES(b->wbps));
         }
 
         LIST_FOREACH(items, iaai, c->ip_address_allow) {
