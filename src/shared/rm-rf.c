@@ -19,6 +19,9 @@
 #include "stat-util.h"
 #include "string-util.h"
 
+/* We treat tmpfs/ramfs + cgroupfs as non-physical file sytems. cgroupfs is similar to tmpfs in a way after
+ * all: we can create arbitrary directory hierarchies in it, and hence can also use rm_rf() on it to remove
+ * those again. */
 static bool is_physical_fs(const struct statfs *sfs) {
         return !is_temporary_fs(sfs) && !is_cgroup_fs(sfs);
 }
@@ -113,133 +116,145 @@ int fstatat_harder(int dfd,
         return 0;
 }
 
-int rm_rf_children(int fd, RemoveFlags flags, struct stat *root_dev) {
+static int rm_rf_children_inner(
+                int fd,
+                const char *fname,
+                int is_dir,
+                RemoveFlags flags,
+                const struct stat *root_dev) {
+
+        struct stat st;
+        int r;
+
+        assert(fd >= 0);
+        assert(fname);
+
+        if (is_dir < 0 || (is_dir > 0 && (root_dev || (flags & REMOVE_SUBVOLUME)))) {
+
+                r = fstatat_harder(fd, fname, &st, AT_SYMLINK_NOFOLLOW, flags);
+                if (r < 0)
+                        return r;
+
+                is_dir = S_ISDIR(st.st_mode);
+        }
+
+        if (is_dir) {
+                _cleanup_close_ int subdir_fd = -1;
+                int q;
+
+                /* if root_dev is set, remove subdirectories only if device is same */
+                if (root_dev && st.st_dev != root_dev->st_dev)
+                        return 0;
+
+                /* Stop at mount points */
+                r = fd_is_mount_point(fd, fname, 0);
+                if (r < 0)
+                        return r;
+                if (r > 0)
+                        return 0;
+
+                if ((flags & REMOVE_SUBVOLUME) && btrfs_might_be_subvol(&st)) {
+
+                        /* This could be a subvolume, try to remove it */
+
+                        r = btrfs_subvol_remove_fd(fd, fname, BTRFS_REMOVE_RECURSIVE|BTRFS_REMOVE_QUOTA);
+                        if (r < 0) {
+                                if (!IN_SET(r, -ENOTTY, -EINVAL))
+                                        return r;
+
+                                /* ENOTTY, then it wasn't a btrfs subvolume, continue below. */
+                        } else
+                                /* It was a subvolume, done. */
+                                return 1;
+                }
+
+                subdir_fd = openat(fd, fname, O_RDONLY|O_NONBLOCK|O_DIRECTORY|O_CLOEXEC|O_NOFOLLOW|O_NOATIME);
+                if (subdir_fd < 0)
+                        return -errno;
+
+                /* We pass REMOVE_PHYSICAL here, to avoid doing the fstatfs() to check the file system type
+                 * again for each directory */
+                q = rm_rf_children(TAKE_FD(subdir_fd), flags | REMOVE_PHYSICAL, root_dev);
+
+                r = unlinkat_harder(fd, fname, AT_REMOVEDIR, flags);
+                if (r < 0)
+                        return r;
+                if (q < 0)
+                        return q;
+
+                return 1;
+
+        } else if (!(flags & REMOVE_ONLY_DIRECTORIES)) {
+                r = unlinkat_harder(fd, fname, 0, flags);
+                if (r < 0)
+                        return r;
+
+                return 1;
+        }
+
+        return 0;
+}
+
+int rm_rf_children(
+                int fd,
+                RemoveFlags flags,
+                const struct stat *root_dev) {
+
         _cleanup_closedir_ DIR *d = NULL;
         struct dirent *de;
         int ret = 0, r;
-        struct statfs sfs;
 
         assert(fd >= 0);
 
         /* This returns the first error we run into, but nevertheless tries to go on. This closes the passed
-         * fd, in all cases, including on failure.. */
-
-        if (!(flags & REMOVE_PHYSICAL)) {
-
-                r = fstatfs(fd, &sfs);
-                if (r < 0) {
-                        safe_close(fd);
-                        return -errno;
-                }
-
-                if (is_physical_fs(&sfs)) {
-                        /* We refuse to clean physical file systems with this call,
-                         * unless explicitly requested. This is extra paranoia just
-                         * to be sure we never ever remove non-state data. */
-                        _cleanup_free_ char *path = NULL;
-
-                        (void) fd_get_path(fd, &path);
-                        log_error("Attempted to remove disk file system under \"%s\", and we can't allow that.",
-                                  strna(path));
-
-                        safe_close(fd);
-                        return -EPERM;
-                }
-        }
+         * fd, in all cases, including on failure. */
 
         d = fdopendir(fd);
         if (!d) {
                 safe_close(fd);
-                return errno == ENOENT ? 0 : -errno;
+                return -errno;
+        }
+
+        if (!(flags & REMOVE_PHYSICAL)) {
+                struct statfs sfs;
+
+                if (fstatfs(dirfd(d), &sfs) < 0)
+                        return -errno;
+
+                if (is_physical_fs(&sfs)) {
+                        /* We refuse to clean physical file systems with this call, unless explicitly
+                         * requested. This is extra paranoia just to be sure we never ever remove non-state
+                         * data. */
+
+                        _cleanup_free_ char *path = NULL;
+
+                        (void) fd_get_path(fd, &path);
+                        return log_error_errno(SYNTHETIC_ERRNO(EPERM),
+                                               "Attempted to remove disk file system under \"%s\", and we can't allow that.",
+                                               strna(path));
+                }
         }
 
         FOREACH_DIRENT_ALL(de, d, return -errno) {
-                bool is_dir;
-                struct stat st;
+                int is_dir;
 
                 if (dot_or_dot_dot(de->d_name))
                         continue;
 
-                if (de->d_type == DT_UNKNOWN ||
-                    (de->d_type == DT_DIR && (root_dev || (flags & REMOVE_SUBVOLUME)))) {
-                        r = fstatat_harder(fd, de->d_name, &st, AT_SYMLINK_NOFOLLOW, flags);
-                        if (r < 0) {
-                                if (ret == 0 && r != -ENOENT)
-                                        ret = r;
-                                continue;
-                        }
+                is_dir =
+                        de->d_type == DT_UNKNOWN ? -1 :
+                        de->d_type == DT_DIR;
 
-                        is_dir = S_ISDIR(st.st_mode);
-                } else
-                        is_dir = de->d_type == DT_DIR;
-
-                if (is_dir) {
-                        _cleanup_close_ int subdir_fd = -1;
-
-                        /* if root_dev is set, remove subdirectories only if device is same */
-                        if (root_dev && st.st_dev != root_dev->st_dev)
-                                continue;
-
-                        subdir_fd = openat(fd, de->d_name, O_RDONLY|O_NONBLOCK|O_DIRECTORY|O_CLOEXEC|O_NOFOLLOW|O_NOATIME);
-                        if (subdir_fd < 0) {
-                                if (ret == 0 && errno != ENOENT)
-                                        ret = -errno;
-                                continue;
-                        }
-
-                        /* Stop at mount points */
-                        r = fd_is_mount_point(fd, de->d_name, 0);
-                        if (r < 0) {
-                                if (ret == 0 && r != -ENOENT)
-                                        ret = r;
-
-                                continue;
-                        }
-                        if (r > 0)
-                                continue;
-
-                        if ((flags & REMOVE_SUBVOLUME) && btrfs_might_be_subvol(&st)) {
-
-                                /* This could be a subvolume, try to remove it */
-
-                                r = btrfs_subvol_remove_fd(fd, de->d_name, BTRFS_REMOVE_RECURSIVE|BTRFS_REMOVE_QUOTA);
-                                if (r < 0) {
-                                        if (!IN_SET(r, -ENOTTY, -EINVAL)) {
-                                                if (ret == 0)
-                                                        ret = r;
-
-                                                continue;
-                                        }
-
-                                        /* ENOTTY, then it wasn't a btrfs subvolume, continue below. */
-                                } else
-                                        /* It was a subvolume, continue. */
-                                        continue;
-                        }
-
-                        /* We pass REMOVE_PHYSICAL here, to avoid doing the fstatfs() to check the file
-                         * system type again for each directory */
-                        r = rm_rf_children(TAKE_FD(subdir_fd), flags | REMOVE_PHYSICAL, root_dev);
-                        if (r < 0 && ret == 0)
-                                ret = r;
-
-                        r = unlinkat_harder(fd, de->d_name, AT_REMOVEDIR, flags);
-                        if (r < 0 && r != -ENOENT && ret == 0)
-                                ret = r;
-
-                } else if (!(flags & REMOVE_ONLY_DIRECTORIES)) {
-
-                        r = unlinkat_harder(fd, de->d_name, 0, flags);
-                        if (r < 0 && r != -ENOENT && ret == 0)
-                                ret = r;
-                }
+                r = rm_rf_children_inner(dirfd(d), de->d_name, is_dir, flags, root_dev);
+                if (r < 0 && r != -ENOENT && ret == 0)
+                        ret = r;
         }
+
         return ret;
 }
 
 int rm_rf(const char *path, RemoveFlags flags) {
         int fd, r;
-        struct statfs s;
 
         assert(path);
 
@@ -284,9 +299,10 @@ int rm_rf(const char *path, RemoveFlags flags) {
                 if (FLAGS_SET(flags, REMOVE_ROOT)) {
 
                         if (!FLAGS_SET(flags, REMOVE_PHYSICAL)) {
+                                struct statfs s;
+
                                 if (statfs(path, &s) < 0)
                                         return -errno;
-
                                 if (is_physical_fs(&s))
                                         return log_error_errno(SYNTHETIC_ERRNO(EPERM),
                                                                "Attempted to remove files from a disk file system under \"%s\", refusing.",
@@ -313,4 +329,23 @@ int rm_rf(const char *path, RemoveFlags flags) {
                 r = -errno;
 
         return r;
+}
+
+int rm_rf_child(int fd, const char *name, RemoveFlags flags) {
+
+        /* Removes one specific child of the specified directory */
+
+        if (fd < 0)
+                return -EBADF;
+
+        if (!filename_is_valid(name))
+                return -EINVAL;
+
+        if ((flags & (REMOVE_ROOT|REMOVE_MISSING_OK)) != 0) /* Doesn't really make sense here, we are not supposed to remove 'fd' anyway */
+                return -EINVAL;
+
+        if (FLAGS_SET(flags, REMOVE_ONLY_DIRECTORIES|REMOVE_SUBVOLUME))
+                return -EINVAL;
+
+        return rm_rf_children_inner(fd, name, -1, flags, NULL);
 }
