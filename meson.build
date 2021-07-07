@@ -1707,7 +1707,8 @@ install_libsystemd_static = static_library(
                         libcap,
                         libblkid,
                         libmount,
-                        libgcrypt],
+                        libgcrypt,
+                        libopenssl],
         c_args : libsystemd_c_args + (static_libsystemd_pic ? [] : ['-fno-PIC']))
 
 libudev = shared_library(
@@ -2949,6 +2950,17 @@ public_programs += executable(
         'src/notify/notify.c',
         include_directories : includes,
         link_with : [libshared],
+        install_rpath : rootlibexecdir,
+        install : true,
+        install_dir : rootbindir)
+
+public_programs += executable(
+        'systemd-creds',
+        'src/creds/creds.c',
+        include_directories : includes,
+        link_with : [libshared],
+        dependencies : [threads,
+                        libopenssl],
         install_rpath : rootlibexecdir,
         install : true,
         install_dir : rootbindir)

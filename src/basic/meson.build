@@ -29,8 +29,6 @@ basic_sources = files('''
         chattr-util.h
         conf-files.c
         conf-files.h
-        creds-util.c
-        creds-util.h
         def.h
         dirent-util.c
         dirent-util.h
