@@ -1307,8 +1307,7 @@ int sd_netlink_message_rewind(sd_netlink_message *m, sd_netlink *genl) {
         assert_return(genl || m->protocol != NETLINK_GENERIC, -EINVAL);
 
         /* don't allow appending to message once parsed */
-        if (!m->sealed)
-                message_seal(m);
+        message_seal(m);
 
         for (unsigned i = 1; i <= m->n_containers; i++)
                 m->containers[i].attributes = mfree(m->containers[i].attributes);
@@ -1351,7 +1350,6 @@ int sd_netlink_message_rewind(sd_netlink_message *m, sd_netlink *genl) {
 
 void message_seal(sd_netlink_message *m) {
         assert(m);
-        assert(!m->sealed);
 
         m->sealed = true;
 }
