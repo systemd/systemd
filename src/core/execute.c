@@ -51,6 +51,7 @@
 #include "env-file.h"
 #include "env-util.h"
 #include "errno-list.h"
+#include "escape.h"
 #include "execute.h"
 #include "exit-status.h"
 #include "fd-util.h"
@@ -3602,8 +3603,6 @@ static int compile_suggested_paths(const ExecContext *c, const ExecParameters *p
         return 0;
 }
 
-static char *exec_command_line(char **argv);
-
 static int exec_parameters_get_cgroup_path(const ExecParameters *params, char **ret) {
         bool using_subcgroup;
         char *p;
@@ -3806,7 +3805,7 @@ static int exec_child(
                 const char *vc = params->confirm_spawn;
                 _cleanup_free_ char *cmdline = NULL;
 
-                cmdline = exec_command_line(command->argv);
+                cmdline = quote_command_line(command->argv);
                 if (!cmdline) {
                         *exit_status = EXIT_MEMORY;
                         return log_oom();
@@ -4652,12 +4651,15 @@ static int exec_child(
         if (DEBUG_LOGGING) {
                 _cleanup_free_ char *line = NULL;
 
-                line = exec_command_line(final_argv);
-                if (line)
-                        log_unit_struct(unit, LOG_DEBUG,
-                                        "EXECUTABLE=%s", executable,
-                                        LOG_UNIT_MESSAGE(unit, "Executing: %s", line),
-                                        LOG_UNIT_INVOCATION_ID(unit));
+                line = quote_command_line(final_argv);
+                if (!line) {
+                        *exit_status = EXIT_MEMORY;
+                        return log_oom();
+                }
+
+                log_unit_struct(unit, LOG_DEBUG,
+                                "EXECUTABLE=%s", executable,
+                                LOG_UNIT_MESSAGE(unit, "Executing: %s", line));
         }
 
         if (exec_fd >= 0) {
@@ -4741,7 +4743,7 @@ int exec_spawn(Unit *unit,
         if (r < 0)
                 return log_unit_error_errno(unit, r, "Failed to load environment files: %m");
 
-        line = exec_command_line(command->argv);
+        line = quote_command_line(command->argv);
         if (!line)
                 return log_oom();
 
@@ -5956,46 +5958,6 @@ void exec_status_dump(const ExecStatus *s, FILE *f, const char *prefix) {
                         prefix, s->status);
 }
 
-static char *exec_command_line(char **argv) {
-        size_t k;
-        char *n, *p, **a;
-        bool first = true;
-
-        assert(argv);
-
-        k = 1;
-        STRV_FOREACH(a, argv)
-                k += strlen(*a)+3;
-
-        n = new(char, k);
-        if (!n)
-                return NULL;
-
-        p = n;
-        STRV_FOREACH(a, argv) {
-
-                if (!first)
-                        *(p++) = ' ';
-                else
-                        first = false;
-
-                if (strpbrk(*a, WHITESPACE)) {
-                        *(p++) = '\'';
-                        p = stpcpy(p, *a);
-                        *(p++) = '\'';
-                } else
-                        p = stpcpy(p, *a);
-
-        }
-
-        *p = 0;
-
-        /* FIXME: this doesn't really handle arguments that have
-         * spaces and ticks in them */
-
-        return n;
-}
-
 static void exec_command_dump(ExecCommand *c, FILE *f, const char *prefix) {
         _cleanup_free_ char *cmd = NULL;
         const char *prefix2;
@@ -6006,7 +5968,7 @@ static void exec_command_dump(ExecCommand *c, FILE *f, const char *prefix) {
         prefix = strempty(prefix);
         prefix2 = strjoina(prefix, "\t");
 
-        cmd = exec_command_line(c->argv);
+        cmd = quote_command_line(c->argv);
         fprintf(f,
                 "%sCommand Line: %s\n",
                 prefix, cmd ? cmd : strerror_safe(ENOMEM));
