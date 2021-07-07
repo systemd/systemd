@@ -12,6 +12,7 @@
 #include "bus-internal.h"
 #include "bus-message.h"
 #include "bus-socket.h"
+#include "escape.h"
 #include "fd-util.h"
 #include "format-util.h"
 #include "fs-util.h"
@@ -962,8 +963,17 @@ int bus_socket_exec(sd_bus *b) {
         assert(b->exec_path);
         assert(b->busexec_pid == 0);
 
-        log_debug("sd-bus: starting bus%s%s with %s...",
-                  b->description ? " " : "", strempty(b->description), b->exec_path);
+        if (DEBUG_LOGGING) {
+                _cleanup_free_ char *line = NULL;
+
+                if (b->exec_argv)
+                        line = quote_command_line(b->exec_argv);
+
+                log_debug("sd-bus: starting bus%s%s with %s%s",
+                          b->description ? " " : "", strempty(b->description),
+                          line ?: b->exec_path,
+                          b->exec_argv && !line ? "…" : "");
+        }
 
         r = socketpair(AF_UNIX, SOCK_STREAM|SOCK_NONBLOCK|SOCK_CLOEXEC, 0, s);
         if (r < 0)
@@ -984,10 +994,8 @@ int bus_socket_exec(sd_bus *b) {
 
                 if (b->exec_argv)
                         execvp(b->exec_path, b->exec_argv);
-                else {
-                        const char *argv[] = { b->exec_path, NULL };
-                        execvp(b->exec_path, (char**) argv);
-                }
+                else
+                        execvp(b->exec_path, STRV_MAKE(b->exec_path));
 
                 _exit(EXIT_FAILURE);
         }
