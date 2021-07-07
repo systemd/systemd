@@ -134,21 +134,17 @@ libsystemd_sources = files('''
         sd-hwdb/sd-hwdb.c
         sd-netlink/generic-netlink.c
         sd-netlink/generic-netlink.h
-        sd-netlink/genl-types.c
         sd-netlink/netlink-internal.h
         sd-netlink/netlink-message.c
         sd-netlink/netlink-slot.c
         sd-netlink/netlink-slot.h
         sd-netlink/netlink-socket.c
-        sd-netlink/netlink-types-internal.h
         sd-netlink/netlink-types.c
         sd-netlink/netlink-types.h
         sd-netlink/netlink-util.c
         sd-netlink/netlink-util.h
         sd-netlink/nfnl-message.c
-        sd-netlink/nfnl-types.c
         sd-netlink/rtnl-message.c
-        sd-netlink/rtnl-types.c
         sd-netlink/sd-netlink.c
         sd-network/network-util.c
         sd-network/network-util.h
