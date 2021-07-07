@@ -10,11 +10,11 @@
 #include "prioq.h"
 #include "time-util.h"
 
-#define RTNL_DEFAULT_TIMEOUT ((usec_t) (25 * USEC_PER_SEC))
+#define NETLINK_DEFAULT_TIMEOUT_USEC ((usec_t) (25 * USEC_PER_SEC))
 
-#define RTNL_RQUEUE_MAX 64*1024
+#define NETLINK_RQUEUE_MAX 64*1024
 
-#define RTNL_CONTAINER_DEPTH 32
+#define NETLINK_CONTAINER_DEPTH 32
 
 struct reply_callback {
         sd_netlink_message_handler_t callback;
@@ -118,7 +118,7 @@ struct sd_netlink_message {
         int protocol;
 
         struct nlmsghdr *hdr;
-        struct netlink_container containers[RTNL_CONTAINER_DEPTH];
+        struct netlink_container containers[NETLINK_CONTAINER_DEPTH];
         unsigned n_containers; /* number of containers */
         bool sealed:1;
         bool broadcast:1;
@@ -126,10 +126,16 @@ struct sd_netlink_message {
         sd_netlink_message *next; /* next in a chain of multi-part messages */
 };
 
-int message_new(sd_netlink *rtnl, sd_netlink_message **ret, uint16_t type);
-int message_new_empty(sd_netlink *rtnl, sd_netlink_message **ret);
+int message_new(sd_netlink *nl, sd_netlink_message **ret, uint16_t type);
+int message_new_empty(sd_netlink *nl, sd_netlink_message **ret);
+int message_new_synthetic_error(sd_netlink *nl, int error, uint32_t serial, sd_netlink_message **ret);
+uint32_t message_get_serial(sd_netlink_message *m);
+void message_seal(sd_netlink_message *m);
 
 int netlink_open_family(sd_netlink **ret, int family);
+bool netlink_pid_changed(sd_netlink *nl);
+int netlink_rqueue_make_room(sd_netlink *nl);
+int netlink_rqueue_partial_make_room(sd_netlink *nl);
 
 int socket_open(int family);
 int socket_bind(sd_netlink *nl);
@@ -139,9 +145,6 @@ int socket_write_message(sd_netlink *nl, sd_netlink_message *m);
 int socket_writev_message(sd_netlink *nl, sd_netlink_message **m, size_t msgcount);
 int socket_read_message(sd_netlink *nl);
 
-int rtnl_rqueue_make_room(sd_netlink *rtnl);
-int rtnl_rqueue_partial_make_room(sd_netlink *rtnl);
-
-/* Make sure callbacks don't destroy the rtnl connection */
-#define NETLINK_DONT_DESTROY(rtnl) \
-        _cleanup_(sd_netlink_unrefp) _unused_ sd_netlink *_dont_destroy_##rtnl = sd_netlink_ref(rtnl)
+/* Make sure callbacks don't destroy the netlink connection */
+#define NETLINK_DONT_DESTROY(nl) \
+        _cleanup_(sd_netlink_unrefp) _unused_ sd_netlink *_dont_destroy_##nl = sd_netlink_ref(nl)
