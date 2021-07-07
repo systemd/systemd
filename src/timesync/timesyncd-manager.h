@@ -29,8 +29,6 @@ typedef struct Manager Manager;
 
 #define DEFAULT_CONNECTION_RETRY_USEC (30*USEC_PER_SEC)
 
-#define DEFAULT_SAVE_TIME_INTERVAL_USEC USEC_INFINITY
-
 #define STATE_DIR   "/var/lib/systemd/timesync"
 #define CLOCK_FILE  STATE_DIR "/clock"
 

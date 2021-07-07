@@ -23,6 +23,7 @@
 #include "ratelimit.h"
 #include "resolve-private.h"
 #include "socket-util.h"
+#include "stat-util.h"
 #include "string-util.h"
 #include "strv.h"
 #include "time-util.h"
@@ -1109,7 +1110,9 @@ int manager_new(Manager **ret) {
 
         m->ratelimit = (RateLimit) { RATELIMIT_INTERVAL_USEC, RATELIMIT_BURST };
 
-        m->save_time_interval_usec = DEFAULT_SAVE_TIME_INTERVAL_USEC;
+        /* on systems with no RTC, default to 30s save interval */
+        m->save_time_interval_usec = dir_is_empty("/sys/class/rtc/") == true
+                        ? 30 * USEC_PER_SEC : USEC_INFINITY;
 
         r = sd_event_default(&m->event);
         if (r < 0)

@@ -112,7 +112,7 @@
 
         <para>Takes a time interval value. The default unit is seconds, but other units may be specified, see
         <citerefentry><refentrytitle>systemd.time</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
-        This option is disabled (set to "infinity") by default.</para></listitem>
+        Defaults to 30 seconds in the absence of RTC, and is disabled (set to "infinity") otherwise.</para></listitem>
       </varlistentry>
 
     </variablelist>
