@@ -55,14 +55,10 @@ _public_ int sd_bus_message_dump(sd_bus_message *m, FILE *f, uint64_t flags) {
                 f = stdout;
 
         if (flags & SD_BUS_MESSAGE_DUMP_WITH_HEADER) {
-                char buf[FORMAT_TIMESTAMP_MAX];
-                const char *p;
                 usec_t ts = m->realtime;
 
                 if (ts == 0)
                         ts = now(CLOCK_REALTIME);
-
-                p = format_timestamp_style(buf, sizeof(buf), ts, TIMESTAMP_US_UTC);
 
                 fprintf(f,
                         "%s%s%s Type=%s%s%s  Endian=%c  Flags=%u  Version=%u",
@@ -90,9 +86,7 @@ _public_ int sd_bus_message_dump(sd_bus_message *m, FILE *f, uint64_t flags) {
                 if (m->reply_cookie != 0)
                         fprintf(f, "  ReplyCookie=%" PRIu64, m->reply_cookie);
 
-                fprintf(f, "  Timestamp=\"%s\"", strna(p));
-
-                fputs("\n", f);
+                fprintf(f, "  Timestamp=\"%s\"\n", strna(FORMAT_TIMESTAMP_STYLE(ts, TIMESTAMP_US_UTC)));
 
                 if (m->sender)
                         fprintf(f, "  Sender=%s%s%s", ansi_highlight(), m->sender, ansi_normal());
@@ -395,10 +389,8 @@ int bus_creds_dump(sd_bus_creds *c, FILE *f, bool terse) {
                 fprintf(f, "%sFSGID=%s"GID_FMT"%s", prefix, color, c->fsgid, suffix);
 
         if (c->mask & SD_BUS_CREDS_SUPPLEMENTARY_GIDS) {
-                unsigned i;
-
                 fprintf(f, "%sSupplementaryGIDs=%s", prefix, color);
-                for (i = 0; i < c->n_supplementary_gids; i++)
+                for (unsigned i = 0; i < c->n_supplementary_gids; i++)
                         fprintf(f, "%s" GID_FMT, i > 0 ? " " : "", c->supplementary_gids[i]);
                 fprintf(f, "%s", suffix);
         }

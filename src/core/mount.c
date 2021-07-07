@@ -770,7 +770,6 @@ static int mount_coldplug(Unit *u) {
 }
 
 static void mount_dump(Unit *u, FILE *f, const char *prefix) {
-        char buf[FORMAT_TIMESPAN_MAX];
         Mount *m = MOUNT(u);
         MountParameters *p;
 
@@ -811,7 +810,7 @@ static void mount_dump(Unit *u, FILE *f, const char *prefix) {
                 prefix, yes_no(m->lazy_unmount),
                 prefix, yes_no(m->force_unmount),
                 prefix, yes_no(m->read_write_only),
-                prefix, format_timespan(buf, sizeof(buf), m->timeout_usec, USEC_PER_SEC));
+                prefix, FORMAT_TIMESPAN(m->timeout_usec, USEC_PER_SEC));
 
         if (m->control_pid > 0)
                 fprintf(f,

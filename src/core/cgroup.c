@@ -394,8 +394,6 @@ void cgroup_context_dump(Unit *u, FILE* f, const char *prefix) {
         CGroupSocketBindItem *bi;
         IPAddressAccessItem *iaai;
         char **path;
-        char q[FORMAT_TIMESPAN_MAX];
-        char v[FORMAT_TIMESPAN_MAX];
 
         char cda[FORMAT_CGROUP_DIFF_MAX];
         char cdb[FORMAT_CGROUP_DIFF_MAX];
@@ -460,8 +458,8 @@ void cgroup_context_dump(Unit *u, FILE* f, const char *prefix) {
                 prefix, c->startup_cpu_weight,
                 prefix, c->cpu_shares,
                 prefix, c->startup_cpu_shares,
-                prefix, format_timespan(q, sizeof(q), c->cpu_quota_per_sec_usec, 1),
-                prefix, format_timespan(v, sizeof(v), c->cpu_quota_period_usec, 1),
+                prefix, FORMAT_TIMESPAN(c->cpu_quota_per_sec_usec, 1),
+                prefix, FORMAT_TIMESPAN(c->cpu_quota_period_usec, 1),
                 prefix, strempty(cpuset_cpus),
                 prefix, strempty(cpuset_mems),
                 prefix, c->io_weight,
@@ -514,11 +512,9 @@ void cgroup_context_dump(Unit *u, FILE* f, const char *prefix) {
                         "%sIODeviceLatencyTargetSec: %s %s\n",
                         prefix,
                         l->path,
-                        format_timespan(q, sizeof(q), l->target_usec, 1));
+                        FORMAT_TIMESPAN(l->target_usec, 1));
 
-        LIST_FOREACH(device_limits, il, c->io_device_limits) {
-                char buf[FORMAT_BYTES_MAX];
-
+        LIST_FOREACH(device_limits, il, c->io_device_limits)
                 for (CGroupIOLimitType type = 0; type < _CGROUP_IO_LIMIT_TYPE_MAX; type++)
                         if (il->limits[type] != cgroup_io_limit_defaults[type])
                                 fprintf(f,
@@ -526,8 +522,7 @@ void cgroup_context_dump(Unit *u, FILE* f, const char *prefix) {
                                         prefix,
                                         cgroup_io_limit_type_to_string(type),
                                         il->path,
-                                        format_bytes(buf, sizeof(buf), il->limits[type]));
-        }
+                                        FORMAT_BYTES(il->limits[type]));
 
         LIST_FOREACH(device_weights, w, c->blockio_device_weights)
                 fprintf(f,
@@ -537,20 +532,18 @@ void cgroup_context_dump(Unit *u, FILE* f, const char *prefix) {
                         w->weight);
 
         LIST_FOREACH(device_bandwidths, b, c->blockio_device_bandwidths) {
-                char buf[FORMAT_BYTES_MAX];
-
                 if (b->rbps != CGROUP_LIMIT_MAX)
                         fprintf(f,
                                 "%sBlockIOReadBandwidth: %s %s\n",
                                 prefix,
                                 b->path,
-                                format_bytes(buf, sizeof(buf), b->rbps));
+                                FORMAT_BYTES(b->rbps));
                 if (b->wbps != CGROUP_LIMIT_MAX)
                         fprintf(f,
                                 "%sBlockIOWriteBandwidth: %s %s\n",
                                 prefix,
                                 b->path,
-                                format_bytes(buf, sizeof(buf), b->wbps));
+                                FORMAT_BYTES(b->wbps));
         }
 
         LIST_FOREACH(items, iaai, c->ip_address_allow) {
@@ -869,10 +862,9 @@ static usec_t cgroup_cpu_adjust_period_and_log(Unit *u, usec_t period, usec_t qu
         new_period = cgroup_cpu_adjust_period(period, quota, USEC_PER_MSEC, USEC_PER_SEC);
 
         if (new_period != period) {
-                char v[FORMAT_TIMESPAN_MAX];
                 log_unit_full(u, u->warned_clamping_cpu_quota_period ? LOG_DEBUG : LOG_WARNING,
                               "Clamping CPU interval for cpu.max: period is now %s",
-                              format_timespan(v, sizeof(v), new_period, 1));
+                              FORMAT_TIMESPAN(new_period, 1));
                 u->warned_clamping_cpu_quota_period = true;
         }
 
