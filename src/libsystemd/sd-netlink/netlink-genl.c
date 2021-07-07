@@ -5,7 +5,7 @@
 #include "sd-netlink.h"
 
 #include "alloc-util.h"
-#include "generic-netlink.h"
+#include "netlink-genl.h"
 #include "netlink-internal.h"
 
 typedef struct {
