@@ -26,6 +26,15 @@ case "$command" in
 
     remove-user-units)
         systemctl --global disable "$@"
+
+        [ -d /run/systemd/system ] || exit 0
+
+        users=$(systemctl list-units 'user@*' --legend=no | sed -n -r 's/.*user@([0-9]+).service.*/\1/p')
+        for user in $users; do
+            SYSTEMD_BUS_TIMEOUT={{UPDATE_HELPER_USER_TIMEOUT}} \
+                    systemctl --user -M "$user@" disable --now "$@" &
+        done
+        wait
         ;;
 
     mark-restart-system-units)
@@ -33,6 +42,17 @@ case "$command" in
 
         for unit in "$@"; do
             systemctl set-property "$unit" Markers=+needs-restart &
+        done
+        wait
+        ;;
+
+    mark-restart-user-units)
+        [ -d /run/systemd/system ] || exit 0
+
+        users=$(systemctl list-units 'user@*' --legend=no | sed -n -r 's/.*user@([0-9]+).service.*/\1/p')
+        for user in $users; do
+            SYSTEMD_BUS_TIMEOUT={{UPDATE_HELPER_USER_TIMEOUT}} \
+                    systemctl --user -M "$user@" set-property "$unit" Markers=+needs-restart &
         done
         wait
         ;;
@@ -51,6 +71,33 @@ case "$command" in
 
         if [[ "$command" =~ restart ]]; then
             systemctl reload-or-restart --marked
+        fi
+        ;;
+
+    user-reload-restart|user-reload|user-restart)
+        if [ -n "$*" ]; then
+            echo "Unexpected arguments for '$command': $*"
+            exit 2
+        fi
+
+        [ -d /run/systemd/system ] || exit 0
+
+        users=$(systemctl list-units 'user@*' --legend=no | sed -n -r 's/.*user@([0-9]+).service.*/\1/p')
+
+        if [[ "$command" =~ reload ]]; then
+            for user in $users; do
+                SYSTEMD_BUS_TIMEOUT={{UPDATE_HELPER_USER_TIMEOUT}} \
+                        systemctl --user -M "$user@" daemon-reload &
+            done
+            wait
+        fi
+
+        if [[ "$command" =~ restart ]]; then
+            for user in $users; do
+                SYSTEMD_BUS_TIMEOUT={{UPDATE_HELPER_USER_TIMEOUT}} \
+                        systemctl --user -M "$user@" reload-or-restart --marked &
+            done
+            wait
         fi
         ;;
 

@@ -16,6 +16,9 @@
 # so sometimes we will reload needlessly.
 {{SYSTEMD_UPDATE_HELPER_PATH}} system-reload-restart || :
 
+%transfiletriggerin -P 900899 -- {{USER_DATA_UNIT_DIR}} /etc/systemd/user
+{{SYSTEMD_UPDATE_HELPER_PATH}} user-reload-restart || :
+
 %transfiletriggerpostun -P 1000100 -- {{SYSTEM_DATA_UNIT_DIR}} /etc/systemd/system
 # On removal, we need to run daemon-reload after any units have been
 # removed.
@@ -24,9 +27,17 @@
 # executed.
 {{SYSTEMD_UPDATE_HELPER_PATH}} system-reload || :
 
+%transfiletriggerpostun -P 1000099 -- {{USER_DATA_UNIT_DIR}} /etc/systemd/user
+# Execute daemon-reload in user managers.
+{{SYSTEMD_UPDATE_HELPER_PATH}} user-reload || :
+
 %transfiletriggerpostun -P 10000 -- {{SYSTEM_DATA_UNIT_DIR}} /etc/systemd/system
-# We restart remaining services that should be restarted here.
+# We restart remaining system services that should be restarted here.
 {{SYSTEMD_UPDATE_HELPER_PATH}} system-restart || :
+
+%transfiletriggerpostun -P  9999 -- {{USER_DATA_UNIT_DIR}} /etc/systemd/user
+# We restart remaining user services that should be restarted here.
+{{SYSTEMD_UPDATE_HELPER_PATH}} user-restart || :
 
 %transfiletriggerin -P 1000700 -- {{SYSUSERS_DIR}}
 # This script will process files installed in {{SYSUSERS_DIR}} to create

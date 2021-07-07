@@ -93,7 +93,11 @@ fi \
 %{nil}
 
 %systemd_user_postun_with_restart() \
-%{expand:%%{?__systemd_someargs_%#:%%__systemd_someargs_%# systemd_postun_with_restart}} \
+%{expand:%%{?__systemd_someargs_%#:%%__systemd_someargs_%# systemd_user_postun_with_restart}} \
+if [ $1 -ge 1 ] && [ -x "{{SYSTEMD_UPDATE_HELPER_PATH}}" ]; then \
+    # Package upgrade, not uninstall \
+    {{SYSTEMD_UPDATE_HELPER_PATH}} mark-restart-user-units %{?*} || : \
+fi \
 %{nil}
 
 %udev_hwdb_update() %{nil}
