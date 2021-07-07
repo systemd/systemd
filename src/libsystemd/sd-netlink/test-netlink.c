@@ -9,6 +9,7 @@
 #include "alloc-util.h"
 #include "ether-addr-util.h"
 #include "macro.h"
+#include "netlink-internal.h"
 #include "netlink-util.h"
 #include "socket-util.h"
 #include "stdio-util.h"
@@ -502,7 +503,7 @@ static void test_message(sd_netlink *rtnl) {
 
         log_debug("/* %s */", __func__);
 
-        assert_se(rtnl_message_new_synthetic_error(rtnl, -ETIMEDOUT, 1, &m) >= 0);
+        assert_se(message_new_synthetic_error(rtnl, -ETIMEDOUT, 1, &m) >= 0);
         assert_se(sd_netlink_message_get_errno(m) == -ETIMEDOUT);
 }
 
@@ -528,7 +529,7 @@ static void test_array(void) {
         }
         assert_se(sd_netlink_message_close_container(m) >= 0);
 
-        rtnl_message_seal(m);
+        message_seal(m);
         assert_se(sd_netlink_message_rewind(m, genl) >= 0);
 
         assert_se(sd_netlink_message_enter_container(m, CTRL_ATTR_MCAST_GROUPS) >= 0);
@@ -569,7 +570,7 @@ static void test_strv(sd_netlink *rtnl) {
         assert_se(sd_netlink_message_append_strv(m, IFLA_ALT_IFNAME, names_in) >= 0);
         assert_se(sd_netlink_message_close_container(m) >= 0);
 
-        rtnl_message_seal(m);
+        message_seal(m);
         assert_se(sd_netlink_message_rewind(m, NULL) >= 0);
 
         assert_se(sd_netlink_message_read_strv(m, IFLA_PROP_LIST, IFLA_ALT_IFNAME, &names_out) >= 0);
