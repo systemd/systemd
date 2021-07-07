@@ -204,14 +204,14 @@ static const char* fallback_chassis(void) {
 
         r = read_one_line_file("/sys/class/dmi/id/chassis_type", &type);
         if (r < 0) {
-                log_debug_errno(v, "Failed to read DMI chassis type, ignoring: %m");
+                log_debug_errno(r, "Failed to read DMI chassis type, ignoring: %m");
                 goto try_acpi;
         }
 
         r = safe_atou(type, &t);
         free(type);
         if (r < 0) {
-                log_debug_errno(v, "Failed to parse DMI chassis type, ignoring: %m");
+                log_debug_errno(r, "Failed to parse DMI chassis type, ignoring: %m");
                 goto try_acpi;
         }
 
@@ -260,14 +260,14 @@ static const char* fallback_chassis(void) {
 try_acpi:
         r = read_one_line_file("/sys/firmware/acpi/pm_profile", &type);
         if (r < 0) {
-                log_debug_errno(v, "Failed read ACPI PM profile, ignoring: %m");
+                log_debug_errno(r, "Failed read ACPI PM profile, ignoring: %m");
                 return NULL;
         }
 
         r = safe_atou(type, &t);
         free(type);
         if (r < 0) {
-                log_debug_errno(v, "Failed parse ACPI PM profile, ignoring: %m");
+                log_debug_errno(r, "Failed parse ACPI PM profile, ignoring: %m");
                 return NULL;
         }
 
