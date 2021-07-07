@@ -691,7 +691,7 @@ static int get_mount_namespace_leader(pid_t pid, pid_t *container_pid) {
                 if (proc_mntns != parent_mntns)
                         break;
 
-                if (ppid == 1)
+                if (IN_SET(ppid, 0, 1))
                         return -ENOENT;
 
                 cpid = ppid;
