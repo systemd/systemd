@@ -16,14 +16,14 @@
 if posix.access("/run/systemd/system") then
     pid = posix.fork()
     if pid == 0 then
-        assert(posix.exec("%{_bindir}/systemctl", "daemon-reload"))
+        assert(posix.execp("systemctl", "daemon-reload"))
     elseif pid > 0 then
         posix.wait(pid)
     end
 
     pid = posix.fork()
     if pid == 0 then
-        assert(posix.exec("%{_bindir}/systemctl", "reload-or-restart", "--marked"))
+        assert(posix.execp("systemctl", "reload-or-restart", "--marked"))
     elseif pid > 0 then
         posix.wait(pid)
     end
@@ -38,7 +38,7 @@ end
 if posix.access("/run/systemd/system") then
     pid = posix.fork()
     if pid == 0 then
-        assert(posix.exec("%{_bindir}/systemctl", "daemon-reload"))
+        assert(posix.execp("systemctl", "daemon-reload"))
     elseif pid > 0 then
         posix.wait(pid)
     end
@@ -49,7 +49,7 @@ end
 if posix.access("/run/systemd/system") then
     pid = posix.fork()
     if pid == 0 then
-        assert(posix.exec("%{_bindir}/systemctl", "reload-or-restart", "--marked"))
+        assert(posix.execp("systemctl", "reload-or-restart", "--marked"))
     elseif pid > 0 then
         posix.wait(pid)
     end
@@ -62,7 +62,7 @@ end
 if posix.access("/run/systemd/system") then
     pid = posix.fork()
     if pid == 0 then
-        assert(posix.exec("%{_bindir}/systemd-sysusers"))
+        assert(posix.execp("systemd-sysusers"))
     elseif pid > 0 then
         posix.wait(pid)
     end
@@ -74,7 +74,7 @@ end
 if posix.access("/run/systemd/system") then
     pid = posix.fork()
     if pid == 0 then
-        assert(posix.exec("%{_bindir}/systemd-hwdb", "update"))
+        assert(posix.execp("systemd-hwdb", "update"))
     elseif pid > 0 then
         posix.wait(pid)
     end
@@ -86,7 +86,7 @@ end
 if posix.access("/run/systemd/system") then
     pid = posix.fork()
     if pid == 0 then
-        assert(posix.exec("%{_bindir}/journalctl", "--update-catalog"))
+        assert(posix.execp("journalctl", "--update-catalog"))
     elseif pid > 0 then
         posix.wait(pid)
     end
@@ -111,7 +111,7 @@ end
 if posix.access("/run/systemd/system") then
     pid = posix.fork()
     if pid == 0 then
-        assert(posix.exec("%{_bindir}/systemd-tmpfiles", "--create"))
+        assert(posix.execp("systemd-tmpfiles", "--create"))
     elseif pid > 0 then
         posix.wait(pid)
     end
@@ -123,7 +123,7 @@ end
 if posix.access("/run/systemd/system") then
     pid = posix.fork()
     if pid == 0 then
-        assert(posix.exec("%{_bindir}/udevadm", "control", "--reload"))
+        assert(posix.execp("udevadm", "control", "--reload"))
     elseif pid > 0 then
         posix.wait(pid)
     end

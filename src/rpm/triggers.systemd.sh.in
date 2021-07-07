@@ -15,8 +15,8 @@
 # installed, because other cases are covered by the *un scriptlets,
 # so sometimes we will reload needlessly.
 if test -d "/run/systemd/system"; then
-  %{_bindir}/systemctl daemon-reload || :
-  %{_bindir}/systemctl reload-or-restart --marked || :
+  systemctl daemon-reload || :
+  systemctl reload-or-restart --marked || :
 fi
 
 %transfiletriggerpostun -P 1000100 -- {{SYSTEM_DATA_UNIT_DIR}} /etc/systemd/system
@@ -26,13 +26,13 @@ fi
 # have been installed, but before %postun scripts in packages get
 # executed.
 if test -d "/run/systemd/system"; then
-  %{_bindir}/systemctl daemon-reload || :
+  systemctl daemon-reload || :
 fi
 
 %transfiletriggerpostun -P 10000 -- {{SYSTEM_DATA_UNIT_DIR}} /etc/systemd/system
 # We restart remaining services that should be restarted here.
 if test -d "/run/systemd/system"; then
-  %{_bindir}/systemctl reload-or-restart --marked || :
+  systemctl reload-or-restart --marked || :
 fi
 
 %transfiletriggerin -P 1000700 -- {{SYSUSERS_DIR}}
@@ -40,21 +40,21 @@ fi
 # specified users automatically. The priority is set such that it
 # will run before the tmpfiles file trigger.
 if test -d "/run/systemd/system"; then
-  %{_bindir}/systemd-sysusers || :
+  systemd-sysusers || :
 fi
 
 %transfiletriggerin -P 1000700 udev -- {{UDEV_HWDB_DIR}}
 # This script will automatically invoke hwdb update if files have been
 # installed or updated in {{UDEV_HWDB_DIR}}.
 if test -d "/run/systemd/system"; then
-  %{_bindir}/systemd-hwdb update || :
+  systemd-hwdb update || :
 fi
 
 %transfiletriggerin -P 1000700 -- {{SYSTEMD_CATALOG_DIR}}
 # This script will automatically invoke journal catalog update if files
 # have been installed or updated in {{SYSTEMD_CATALOG_DIR}}.
 if test -d "/run/systemd/system"; then
-  %{_bindir}/journalctl --update-catalog || :
+  journalctl --update-catalog || :
 fi
 
 %transfiletriggerin -P 1000700 -- {{BINFMT_DIR}}
@@ -71,14 +71,14 @@ fi
 # tmpfiles automatically. The priority is set such that it will run
 # after the sysusers file trigger, but before any other triggers.
 if test -d "/run/systemd/system"; then
-  %{_bindir}/systemd-tmpfiles --create || :
+  systemd-tmpfiles --create || :
 fi
 
 %transfiletriggerin -P 1000600 udev -- {{UDEV_RULES_DIR}}
 # This script will automatically update udev with new rules if files
 # have been installed or updated in {{UDEV_RULES_DIR}}.
 if test -e /run/udev/control; then
-  %{_bindir}/udevadm control --reload || :
+  udevadm control --reload || :
 fi
 
 %transfiletriggerin -P 1000500 -- {{SYSCTL_DIR}}
