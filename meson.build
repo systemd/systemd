@@ -3503,6 +3503,7 @@ run_target(
 
 ############################################################
 
+subdir('modprobe.d')
 subdir('sysctl.d')
 subdir('sysusers.d')
 subdir('tmpfiles.d')
@@ -3523,9 +3524,6 @@ if install_sysconfdir
         install_data('xorg/50-systemd-user.sh',
                      install_dir : xinitrcdir)
 endif
-install_data('README',
-             'modprobe.d/systemd.conf',
-             install_dir : modprobedir)
 install_data('LICENSE.GPL2',
              'LICENSE.LGPL2.1',
              'NEWS',
