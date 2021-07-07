@@ -39,6 +39,7 @@
 #include "parse-util.h"
 #include "path-util.h"
 #include "process-util.h"
+#include "stdio-util.h"
 #include "string-util.h"
 #include "strv.h"
 #include "user-util.h"
@@ -1616,7 +1617,7 @@ static int user_and_machine_valid(const char *user_and_machine) {
                 if (!user)
                         return -ENOMEM;
 
-                if (!isempty(user) && !valid_user_group_name(user, VALID_USER_RELAX))
+                if (!isempty(user) && !valid_user_group_name(user, VALID_USER_RELAX | VALID_USER_ALLOW_NUMERIC))
                         return false;
 
                 h++;
@@ -1647,17 +1648,25 @@ static int user_and_machine_equivalent(const char *user_and_machine) {
 
         /* Otherwise, if we are root, then we can also allow the ".host" syntax, as that's the user this
          * would connect to. */
-        if (geteuid() == 0 && STR_IN_SET(user_and_machine, ".host", "root@.host"))
+        uid_t uid = geteuid();
+
+        if (uid == 0 && STR_IN_SET(user_and_machine, ".host", "root@.host", "0@.host"))
                 return true;
 
-        /* Otherwise, we have to figure our user name, and compare things with that. */
-        un = getusername_malloc();
-        if (!un)
-                return -ENOMEM;
+        /* Otherwise, we have to figure out our user id and name, and compare things with that. */
+        char buf[DECIMAL_STR_MAX(uid_t)];
+        xsprintf(buf, UID_FMT, uid);
 
-        f = startswith(user_and_machine, un);
-        if (!f)
-                return false;
+        f = startswith(user_and_machine, buf);
+        if (!f) {
+                un = getusername_malloc();
+                if (!un)
+                        return -ENOMEM;
+
+                f = startswith(user_and_machine, un);
+                if (!f)
+                        return false;
+        }
 
         return STR_IN_SET(f, "@", "@.host");
 }
