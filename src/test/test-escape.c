@@ -8,12 +8,16 @@
 static void test_cescape(void) {
         _cleanup_free_ char *t;
 
+        log_info("/* %s */", __func__);
+
         assert_se(t = cescape("abc\\\"\b\f\n\r\t\v\a\003\177\234\313"));
         assert_se(streq(t, "abc\\\\\\\"\\b\\f\\n\\r\\t\\v\\a\\003\\177\\234\\313"));
 }
 
 static void test_xescape(void) {
         _cleanup_free_ char *t;
+
+        log_info("/* %s */", __func__);
 
         assert_se(t = xescape("abc\\\"\b\f\n\r\t\v\a\003\177\234\313", ""));
         assert_se(streq(t, "abc\\x5c\"\\x08\\x0c\\x0a\\x0d\\x09\\x0b\\x07\\x03\\x7f\\x9c\\xcb"));
@@ -25,6 +29,8 @@ static void test_xescape_full(bool eight_bits) {
                 "a\\x62c\\x5c\"\\x08\\x0c\\x0a\\x0d\\x09\\x0b\\x07\\x03\177\234\313";
         const unsigned full_fit = !eight_bits ? 55 : 46;
         XEscapeFlags flags = eight_bits * XESCAPE_8_BIT;
+
+        log_info("/* %s */", __func__);
 
         for (unsigned i = 0; i < 60; i++) {
                 _cleanup_free_ char *t, *q;
@@ -59,6 +65,8 @@ static void test_xescape_full(bool eight_bits) {
 
 static void test_cunescape(void) {
         _cleanup_free_ char *unescaped;
+
+        log_info("/* %s */", __func__);
 
         assert_se(cunescape("abc\\\\\\\"\\b\\f\\a\\n\\r\\t\\v\\003\\177\\234\\313\\000\\x00", 0, &unescaped) < 0);
         assert_se(cunescape("abc\\\\\\\"\\b\\f\\a\\n\\r\\t\\v\\003\\177\\234\\313\\000\\x00", UNESCAPE_RELAX, &unescaped) >= 0);
@@ -133,6 +141,8 @@ static void test_shell_escape_one(const char *s, const char *bad, const char *ex
 }
 
 static void test_shell_escape(void) {
+        log_info("/* %s */", __func__);
+
         test_shell_escape_one("", "", "");
         test_shell_escape_one("\\", "", "\\\\");
         test_shell_escape_one("foobar", "", "foobar");
@@ -150,6 +160,7 @@ static void test_shell_maybe_quote_one(const char *s, ShellEscapeFlags flags, co
 }
 
 static void test_shell_maybe_quote(void) {
+        log_info("/* %s */", __func__);
 
         test_shell_maybe_quote_one("", 0, "");
         test_shell_maybe_quote_one("", SHELL_ESCAPE_EMPTY, "\"\"");
