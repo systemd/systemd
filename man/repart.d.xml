@@ -309,8 +309,6 @@
                 <entry><constant>usr-riscv64-verity</constant></entry>
                 <entry>Verity data for the RISC-V 64-bit <filename>/usr/</filename> file system partition</entry>
               </row>
-
-
             </tbody>
           </tgroup>
         </table>
