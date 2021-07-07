@@ -69434,14 +69434,23 @@ usb:v8087p0024*
 usb:v8087p0025*
  ID_MODEL_FROM_DATABASE=Wireless-AC 9260 Bluetooth Adapter
 
+usb:v8087p0026*
+ ID_MODEL_FROM_DATABASE=AX201 Bluetooth
+
 usb:v8087p0029*
  ID_MODEL_FROM_DATABASE=AX200 Bluetooth
+
+usb:v8087p0032*
+ ID_MODEL_FROM_DATABASE=AX210 Bluetooth
 
 usb:v8087p0716*
  ID_MODEL_FROM_DATABASE=Modem Flashloader
 
 usb:v8087p07DA*
  ID_MODEL_FROM_DATABASE=Centrino Bluetooth Wireless Transceiver
+
+usb:v8087p07DB*
+ ID_MODEL_FROM_DATABASE=Atom C2000 Root Hub
 
 usb:v8087p07DC*
  ID_MODEL_FROM_DATABASE=Bluetooth wireless interface
@@ -69481,6 +69490,9 @@ usb:v8087p8008*
 
 usb:v8087p800A*
  ID_MODEL_FROM_DATABASE=Hub
+
+usb:v8087p8087*
+ ID_MODEL_FROM_DATABASE=07da  Centrino Advanced-N 6235
 
 usb:v80EE*
  ID_VENDOR_FROM_DATABASE=VirtualBox
