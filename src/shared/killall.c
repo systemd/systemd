@@ -17,6 +17,7 @@
 #include "parse-util.h"
 #include "process-util.h"
 #include "set.h"
+#include "stdio-util.h"
 #include "string-util.h"
 #include "terminal-util.h"
 #include "util.h"
@@ -83,14 +84,13 @@ static void log_children_no_yet_killed(Set *pids) {
 
         SET_FOREACH(p, pids) {
                 _cleanup_free_ char *s = NULL;
+                char fallback[DECIMAL_STR_MAX(pid_t)];
 
                 if (get_process_comm(PTR_TO_PID(p), &s) < 0)
-                        (void) asprintf(&s, PID_FMT, PTR_TO_PID(p));
+                        xsprintf(fallback, PID_FMT, PTR_TO_PID(p));
 
-                if (!strextend(&lst_child, ", ", s)) {
-                        log_oom();
-                        return;
-                }
+                if (!strextend(&lst_child, ", ", s ?: fallback))
+                        return (void) log_oom();
         }
 
         if (isempty(lst_child))
