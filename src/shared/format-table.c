@@ -11,6 +11,7 @@
 #include "fileio.h"
 #include "format-table.h"
 #include "format-util.h"
+#include "fs-util.h"
 #include "gunicode.h"
 #include "id128-util.h"
 #include "in-addr-util.h"
@@ -106,6 +107,7 @@ typedef struct TableData {
                 uid_t uid;
                 gid_t gid;
                 pid_t pid;
+                mode_t mode;
                 /* … add more here as we start supporting more cell data types … */
         };
 } TableData;
@@ -270,6 +272,7 @@ static size_t table_data_size(TableDataType type, const void *data) {
         case TABLE_SIZE:
         case TABLE_INT64:
         case TABLE_UINT64:
+        case TABLE_UINT64_HEX:
         case TABLE_BPS:
                 return sizeof(uint64_t);
 
@@ -308,6 +311,9 @@ static size_t table_data_size(TableDataType type, const void *data) {
                 return sizeof(gid_t);
         case TABLE_PID:
                 return sizeof(pid_t);
+
+        case TABLE_MODE:
+                return sizeof(mode_t);
 
         default:
                 assert_not_reached("Uh? Unexpected cell type");
@@ -815,6 +821,7 @@ int table_add_many_internal(Table *t, TableDataType first_type, ...) {
                         uid_t uid;
                         gid_t gid;
                         pid_t pid;
+                        mode_t mode;
                 } buffer;
 
                 switch (type) {
@@ -916,6 +923,7 @@ int table_add_many_internal(Table *t, TableDataType first_type, ...) {
                         break;
 
                 case TABLE_UINT64:
+                case TABLE_UINT64_HEX:
                         buffer.uint64 = va_arg(ap, uint64_t);
                         data = &buffer.uint64;
                         break;
@@ -959,6 +967,11 @@ int table_add_many_internal(Table *t, TableDataType first_type, ...) {
                 case TABLE_PID:
                         buffer.pid = va_arg(ap, pid_t);
                         data = &buffer.pid;
+                        break;
+
+                case TABLE_MODE:
+                        buffer.mode = va_arg(ap, mode_t);
+                        data = &buffer.mode;
                         break;
 
                 case TABLE_SET_MINIMUM_WIDTH: {
@@ -1149,11 +1162,11 @@ int table_set_sort_internal(Table *t, size_t first_column, ...) {
         return 0;
 }
 
-int table_hide_column_from_display(Table *t, size_t column) {
+int table_hide_column_from_display_internal(Table *t, ...) {
+        size_t cur = 0;
         int r;
 
         assert(t);
-        assert(column < t->n_columns);
 
         /* If the display map is empty, initialize it with all available columns */
         if (!t->display_map) {
@@ -1162,10 +1175,25 @@ int table_hide_column_from_display(Table *t, size_t column) {
                         return r;
         }
 
-        size_t allocated = t->n_display_map, cur = 0;
+        for (size_t i = 0; i < t->n_display_map; i++) {
+                bool listed = false;
+                va_list ap;
 
-        for (size_t i = 0; i < allocated; i++) {
-                if (t->display_map[i] == column)
+                va_start(ap, t);
+                for (;;) {
+                        size_t column;
+
+                        column = va_arg(ap, size_t);
+                        if (column == SIZE_MAX)
+                                break;
+                        if (column == t->display_map[i]) {
+                                listed = true;
+                                break;
+                        }
+                }
+                va_end(ap);
+
+                if (listed)
                         continue;
 
                 t->display_map[cur++] = t->display_map[i];
@@ -1246,6 +1274,7 @@ static int cell_data_compare(TableData *a, size_t index_a, TableData *b, size_t 
                         return CMP(a->uint32, b->uint32);
 
                 case TABLE_UINT64:
+                case TABLE_UINT64_HEX:
                         return CMP(a->uint64, b->uint64);
 
                 case TABLE_PERCENT:
@@ -1272,6 +1301,9 @@ static int cell_data_compare(TableData *a, size_t index_a, TableData *b, size_t 
 
                 case TABLE_PID:
                         return CMP(a->pid, b->pid);
+
+                case TABLE_MODE:
+                        return CMP(a->mode, b->mode);
 
                 default:
                         ;
@@ -1594,6 +1626,18 @@ static const char *table_data_format(Table *t, TableData *d, bool avoid_uppercas
                 break;
         }
 
+        case TABLE_UINT64_HEX: {
+                _cleanup_free_ char *p;
+
+                p = new(char, 16 + 1);
+                if (!p)
+                        return NULL;
+
+                sprintf(p, "%" PRIx64, d->uint64);
+                d->formatted = TAKE_PTR(p);
+                break;
+        }
+
         case TABLE_PERCENT: {
                 _cleanup_free_ char *p = NULL;
 
@@ -1714,6 +1758,21 @@ static const char *table_data_format(Table *t, TableData *d, bool avoid_uppercas
                 if (!p)
                         return NULL;
 
+                d->formatted = TAKE_PTR(p);
+                break;
+        }
+
+        case TABLE_MODE: {
+                _cleanup_free_ char *p;
+
+                if (d->mode == MODE_INVALID)
+                        return "n/a";
+
+                p = new(char, 4 + 1);
+                if (!p)
+                        return NULL;
+
+                sprintf(p, "%04o", d->mode & 07777);
                 d->formatted = TAKE_PTR(p);
                 break;
         }
@@ -2474,6 +2533,7 @@ static int table_data_to_json(TableData *d, JsonVariant **ret) {
                 return json_variant_new_unsigned(ret, d->uint32);
 
         case TABLE_UINT64:
+        case TABLE_UINT64_HEX:
                 return json_variant_new_unsigned(ret, d->uint64);
 
         case TABLE_PERCENT:
@@ -2524,6 +2584,12 @@ static int table_data_to_json(TableData *d, JsonVariant **ret) {
                         return json_variant_new_null(ret);
 
                 return json_variant_new_integer(ret, d->int_val);
+
+        case TABLE_MODE:
+                if (d->mode == MODE_INVALID)
+                        return json_variant_new_null(ret);
+
+                return json_variant_new_unsigned(ret, d->mode);
 
         default:
                 return -EINVAL;

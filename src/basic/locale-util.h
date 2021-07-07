@@ -69,6 +69,9 @@ typedef enum SpecialGlyph {
         SPECIAL_GLYPH_DEPRESSED_SMILEY,
         SPECIAL_GLYPH_LOCK_AND_KEY,
         SPECIAL_GLYPH_TOUCH,
+        SPECIAL_GLYPH_RECYCLING,
+        SPECIAL_GLYPH_DOWNLOAD,
+        SPECIAL_GLYPH_SPARKLES,
         _SPECIAL_GLYPH_MAX,
         _SPECIAL_GLYPH_INVALID = -EINVAL,
 } SpecialGlyph;
@@ -94,4 +97,8 @@ static inline void locale_variables_freep(char*(*l)[_VARIABLE_LC_MAX]) {
 
 static inline const char *special_glyph_check_mark(bool b) {
         return b ? special_glyph(SPECIAL_GLYPH_CHECK_MARK) : special_glyph(SPECIAL_GLYPH_CROSS_MARK);
+}
+
+static inline const char *special_glyph_check_mark_space(bool b) {
+        return b ? special_glyph(SPECIAL_GLYPH_CHECK_MARK) : " ";
 }
