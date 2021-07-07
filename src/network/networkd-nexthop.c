@@ -15,6 +15,7 @@
 #include "networkd-route.h"
 #include "parse-util.h"
 #include "set.h"
+#include "stdio-util.h"
 #include "string-util.h"
 
 NextHop *nexthop_free(NextHop *nexthop) {
@@ -368,7 +369,7 @@ set_manager:
 }
 
 static void log_nexthop_debug(const NextHop *nexthop, uint32_t id, const char *str, const Link *link) {
-        _cleanup_free_ char *gw = NULL, *new_id = NULL, *group = NULL;
+        _cleanup_free_ char *gw = NULL, *group = NULL;
         struct nexthop_grp *nhg;
 
         assert(nexthop);
@@ -379,8 +380,9 @@ static void log_nexthop_debug(const NextHop *nexthop, uint32_t id, const char *s
         if (!DEBUG_LOGGING)
                 return;
 
+        char new_id[STRLEN("→") + DECIMAL_STR_MAX(uint32_t)] = "";
         if (nexthop->id != id)
-                (void) asprintf(&new_id, "→%"PRIu32, id);
+                xsprintf(new_id, "→%"PRIu32, id);
 
         (void) in_addr_to_string(nexthop->family, &nexthop->gw, &gw);
 
@@ -388,7 +390,7 @@ static void log_nexthop_debug(const NextHop *nexthop, uint32_t id, const char *s
                 (void) strextendf_with_separator(&group, ",", "%"PRIu32":%"PRIu32, nhg->id, nhg->weight+1);
 
         log_link_debug(link, "%s nexthop: id: %"PRIu32"%s, gw: %s, blackhole: %s, group: %s",
-                       str, nexthop->id, strempty(new_id), strna(gw), yes_no(nexthop->blackhole), strna(group));
+                       str, nexthop->id, new_id, strna(gw), yes_no(nexthop->blackhole), strna(group));
 }
 
 static int link_nexthop_remove_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
