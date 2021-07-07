@@ -13,9 +13,7 @@
 #include "format-util.h"
 #include "netlink-internal.h"
 #include "netlink-types.h"
-#include "netlink-util.h"
 #include "socket-util.h"
-#include "util.h"
 
 static int nft_message_new(sd_netlink *nfnl, sd_netlink_message **ret, int family, uint16_t type, uint16_t flags) {
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
@@ -66,7 +64,7 @@ static int nft_message_new(sd_netlink *nfnl, sd_netlink_message **ret, int famil
         return 0;
 }
 
-static int sd_nfnl_message_batch(sd_netlink *nfnl, sd_netlink_message **ret, int v) {
+static int nfnl_message_batch(sd_netlink *nfnl, sd_netlink_message **ret, int v) {
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
         int r;
 
@@ -85,11 +83,11 @@ static int sd_nfnl_message_batch(sd_netlink *nfnl, sd_netlink_message **ret, int
 }
 
 int sd_nfnl_message_batch_begin(sd_netlink *nfnl, sd_netlink_message **ret) {
-        return sd_nfnl_message_batch(nfnl, ret, NFNL_MSG_BATCH_BEGIN);
+        return nfnl_message_batch(nfnl, ret, NFNL_MSG_BATCH_BEGIN);
 }
 
 int sd_nfnl_message_batch_end(sd_netlink *nfnl, sd_netlink_message **ret) {
-        return sd_nfnl_message_batch(nfnl, ret, NFNL_MSG_BATCH_END);
+        return nfnl_message_batch(nfnl, ret, NFNL_MSG_BATCH_END);
 }
 
 int sd_nfnl_nft_message_new_basechain(sd_netlink *nfnl, sd_netlink_message **ret,

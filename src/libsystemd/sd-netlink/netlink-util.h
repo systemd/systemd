@@ -29,10 +29,6 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(MultipathRoute*, multipath_route_free);
 
 int multipath_route_dup(const MultipathRoute *m, MultipathRoute **ret);
 
-int rtnl_message_new_synthetic_error(sd_netlink *rtnl, int error, uint32_t serial, sd_netlink_message **ret);
-uint32_t rtnl_message_get_serial(sd_netlink_message *m);
-void rtnl_message_seal(sd_netlink_message *m);
-
 static inline bool rtnl_message_type_is_neigh(uint16_t type) {
         return IN_SET(type, RTM_NEWNEIGH, RTM_GETNEIGH, RTM_DELNEIGH);
 }

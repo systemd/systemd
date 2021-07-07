@@ -271,13 +271,13 @@ int sd_rtnl_message_new_route(sd_netlink *rtnl, sd_netlink_message **ret,
 }
 
 int sd_rtnl_message_new_nexthop(sd_netlink *rtnl, sd_netlink_message **ret,
-                                uint16_t nhmsg_type, int nh_family,
+                                uint16_t nlmsg_type, int nh_family,
                                 unsigned char nh_protocol) {
         struct nhmsg *nhm;
         int r;
 
-        assert_return(rtnl_message_type_is_nexthop(nhmsg_type), -EINVAL);
-        switch(nhmsg_type) {
+        assert_return(rtnl_message_type_is_nexthop(nlmsg_type), -EINVAL);
+        switch(nlmsg_type) {
         case RTM_DELNEXTHOP:
                 assert_return(nh_family == AF_UNSPEC, -EINVAL);
                 _fallthrough_;
@@ -292,11 +292,11 @@ int sd_rtnl_message_new_nexthop(sd_netlink *rtnl, sd_netlink_message **ret,
         }
         assert_return(ret, -EINVAL);
 
-        r = message_new(rtnl, ret, nhmsg_type);
+        r = message_new(rtnl, ret, nlmsg_type);
         if (r < 0)
                 return r;
 
-        if (nhmsg_type == RTM_NEWNEXTHOP)
+        if (nlmsg_type == RTM_NEWNEXTHOP)
                 (*ret)->hdr->nlmsg_flags |= NLM_F_CREATE | NLM_F_APPEND;
 
         nhm = NLMSG_DATA((*ret)->hdr);
