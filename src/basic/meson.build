@@ -15,10 +15,6 @@ basic_sources = files('''
         async.h
         audit-util.c
         audit-util.h
-        blockdev-util.c
-        blockdev-util.h
-        btrfs-util.c
-        btrfs-util.h
         build.c
         build.h
         bus-label.c
@@ -33,15 +29,11 @@ basic_sources = files('''
         chattr-util.h
         conf-files.c
         conf-files.h
-        copy.c
-        copy.h
         creds-util.c
         creds-util.h
         def.h
         dirent-util.c
         dirent-util.h
-        dlfcn-util.c
-        dlfcn-util.h
         dns-def.h
         efivars.c
         efivars.h
@@ -85,8 +77,6 @@ basic_sources = files('''
         ioprio.h
         khash.c
         khash.h
-        label.c
-        label.h
         limits-util.c
         limits-util.h
         linux/btrfs.h
@@ -144,6 +134,7 @@ basic_sources = files('''
         missing_keyctl.h
         missing_magic.h
         missing_mman.h
+        missing_mount.h
         missing_network.h
         missing_prctl.h
         missing_random.h
@@ -156,7 +147,6 @@ basic_sources = files('''
         missing_syscall.h
         missing_timerfd.h
         missing_type.h
-        mkdir-label.c
         mkdir.c
         mkdir.h
         mountpoint-util.c
@@ -187,8 +177,6 @@ basic_sources = files('''
         procfs-util.c
         procfs-util.h
         pthread-util.h
-        quota-util.c
-        quota-util.h
         random-util.c
         random-util.h
         ratelimit.c
@@ -201,10 +189,6 @@ basic_sources = files('''
         replace-var.h
         rlimit-util.c
         rlimit-util.h
-        rm-rf.c
-        rm-rf.h
-        selinux-util.c
-        selinux-util.h
         set.h
         sigbus.c
         sigbus.h
@@ -212,9 +196,6 @@ basic_sources = files('''
         signal-util.h
         siphash24.c
         siphash24.h
-        smack-util.c
-        smack-util.h
-        socket-label.c
         socket-util.c
         socket-util.h
         sort-util.c
@@ -356,11 +337,13 @@ arch_list = [
         'mipso32',
         'powerpc',
         'powerpc64',
+        'riscv32',
         'riscv64',
         's390',
         's390x',
         'sparc',
-        'x86_64']
+        'x86_64'
+]
 
 run_target(
         'update-syscall-tables',
@@ -391,10 +374,7 @@ libbasic = static_library(
         dependencies : [versiondep,
                         threads,
                         libcap,
-                        libseccomp,
-                        libselinux,
-                        libm,
-                        libdl],
+                        libm],
         c_args : ['-fvisibility=default'],
         install : false)
 

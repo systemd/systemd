@@ -1,4 +1,4 @@
-#compdef systemd-delta                    -*- shell-script -*-
+#compdef systemd-delta
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
 (( $+functions[_systemd-delta_types] )) ||

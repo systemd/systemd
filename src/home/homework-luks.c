@@ -40,7 +40,7 @@
 
 /* Round down to the nearest 1K size. Note that Linux generally handles block devices with 512 blocks only,
  * but actually doesn't accept uneven numbers in many cases. To avoid any confusion around this we'll
- * strictly round disk sizes down to the next 1K boundary.*/
+ * strictly round disk sizes down to the next 1K boundary. */
 #define DISK_SIZE_ROUND_DOWN(x) ((x) & ~UINT64_C(1023))
 
 int run_mark_dirty(int fd, bool b) {

@@ -13,7 +13,6 @@
 #include "networkd-queue.h"
 #include "networkd-route.h"
 #include "parse-util.h"
-#include "socket-netlink.h"
 #include "string-table.h"
 #include "string-util.h"
 #include "strv.h"
@@ -708,13 +707,10 @@ int link_has_route(Link *link, const Route *route) {
                 Link *l;
 
                 if (m->ifname) {
-                        r = resolve_interface(&link->manager->rtnl, m->ifname);
-                        if (r < 0)
+                        if (link_get_by_name(link->manager, m->ifname, &l) < 0)
                                 return false;
-                        m->ifindex = r;
 
-                        if (link_get(link->manager, m->ifindex, &l) < 0)
-                                return false;
+                        m->ifindex = l->ifindex;
                 } else
                         l = link;
 
@@ -757,7 +753,7 @@ bool manager_address_is_reachable(Manager *manager, int family, const union in_a
         assert(IN_SET(family, AF_INET, AF_INET6));
         assert(address);
 
-        HASHMAP_FOREACH(link, manager->links) {
+        HASHMAP_FOREACH(link, manager->links_by_index) {
                 Route *route;
 
                 SET_FOREACH(route, link->routes)
@@ -769,6 +765,65 @@ bool manager_address_is_reachable(Manager *manager, int family, const union in_a
         }
 
         return false;
+}
+
+static Route *routes_get_default_gateway(Set *routes, int family, Route *gw) {
+        Route *route;
+
+        SET_FOREACH(route, routes) {
+                if (family != AF_UNSPEC && route->family != family)
+                        continue;
+                if (route->dst_prefixlen != 0)
+                        continue;
+                if (route->src_prefixlen != 0)
+                        continue;
+                if (route->table != RT_TABLE_MAIN)
+                        continue;
+                if (route->type != RTN_UNICAST)
+                        continue;
+                if (route->scope != RT_SCOPE_UNIVERSE)
+                        continue;
+                if (!in_addr_is_set(route->gw_family, &route->gw))
+                        continue;
+                if (gw) {
+                        if (route->gw_weight > gw->gw_weight)
+                                continue;
+                        if (route->priority >= gw->priority)
+                                continue;
+                }
+                gw = route;
+        }
+
+        return gw;
+}
+
+int manager_find_uplink(Manager *m, int family, Link *exclude, Link **ret) {
+        Route *gw = NULL;
+        Link *link;
+
+        assert(m);
+        assert(IN_SET(family, AF_UNSPEC, AF_INET, AF_INET6));
+
+        /* Looks for a suitable "uplink", via black magic: an interface that is up and where the
+         * default route with the highest priority points to. */
+
+        HASHMAP_FOREACH(link, m->links_by_index) {
+                if (link == exclude)
+                        continue;
+
+                if (link->state != LINK_STATE_CONFIGURED)
+                        continue;
+
+                gw = routes_get_default_gateway(link->routes, family, gw);
+                gw = routes_get_default_gateway(link->routes_foreign, family, gw);
+        }
+
+        if (!gw)
+                return -ENOENT;
+
+        assert(gw->link);
+        *ret = gw->link;
+        return 0;
 }
 
 static void log_route_debug(const Route *route, const char *str, const Link *link, const Manager *manager) {
@@ -908,7 +963,9 @@ static int route_set_netlink_message(const Route *route, sd_netlink_message *req
                         return log_link_error_errno(link, r, "Could not append RTA_TABLE attribute: %m");
         }
 
-        if (!route_type_is_reject(route) && route->nexthop_id == 0) {
+        if (!route_type_is_reject(route) &&
+            route->nexthop_id == 0 &&
+            ordered_set_isempty(route->multipath_routes)) {
                 assert(link); /* Those routes must be attached to a specific link */
 
                 r = sd_netlink_message_append_u32(req, RTA_OIF, link->ifindex);
@@ -1049,7 +1106,7 @@ static bool links_have_static_route(const Manager *manager, const Route *route, 
 
         assert(manager);
 
-        HASHMAP_FOREACH(link, manager->links) {
+        HASHMAP_FOREACH(link, manager->links_by_index) {
                 if (link == except)
                         continue;
 
@@ -1203,7 +1260,7 @@ static int route_add_and_setup_timer_one(Link *link, const Route *route, const M
         } else if (m && m->ifindex != 0 && m->ifindex != link->ifindex) {
                 Link *link_gw;
 
-                r = link_get(link->manager, m->ifindex, &link_gw);
+                r = link_get_by_index(link->manager, m->ifindex, &link_gw);
                 if (r < 0)
                         return log_link_error_errno(link, r, "Failed to get link with ifindex %d: %m", m->ifindex);
 
@@ -1299,7 +1356,7 @@ static int route_add_and_setup_timer(Link *link, const Route *route, unsigned *r
         return 0;
 }
 
-static int append_nexthop_one(const Route *route, const MultipathRoute *m, struct rtattr **rta, size_t offset) {
+static int append_nexthop_one(const Link *link, const Route *route, const MultipathRoute *m, struct rtattr **rta, size_t offset) {
         struct rtnexthop *rtnh;
         struct rtattr *new_rta;
         int r;
@@ -1317,7 +1374,7 @@ static int append_nexthop_one(const Route *route, const MultipathRoute *m, struc
         rtnh = (struct rtnexthop *)((uint8_t *) *rta + offset);
         *rtnh = (struct rtnexthop) {
                 .rtnh_len = sizeof(*rtnh),
-                .rtnh_ifindex = m->ifindex,
+                .rtnh_ifindex = m->ifindex > 0 ? m->ifindex : link->ifindex,
                 .rtnh_hops = m->weight,
         };
 
@@ -1344,12 +1401,16 @@ clear:
         return r;
 }
 
-static int append_nexthops(const Route *route, sd_netlink_message *req) {
+static int append_nexthops(const Link *link, const Route *route, sd_netlink_message *req) {
         _cleanup_free_ struct rtattr *rta = NULL;
         struct rtnexthop *rtnh;
         MultipathRoute *m;
         size_t offset;
         int r;
+
+        assert(link);
+        assert(route);
+        assert(req);
 
         if (ordered_set_isempty(route->multipath_routes))
                 return 0;
@@ -1365,7 +1426,7 @@ static int append_nexthops(const Route *route, sd_netlink_message *req) {
         offset = (uint8_t *) RTA_DATA(rta) - (uint8_t *) rta;
 
         ORDERED_SET_FOREACH(m, route->multipath_routes) {
-                r = append_nexthop_one(route, m, &rta, offset);
+                r = append_nexthop_one(link, route, m, &rta, offset);
                 if (r < 0)
                         return r;
 
@@ -1392,7 +1453,7 @@ int route_configure_handler_internal(sd_netlink *rtnl, sd_netlink_message *m, Li
 
         r = sd_netlink_message_get_errno(m);
         if (r < 0 && r != -EEXIST) {
-                log_link_message_warning_errno(link, m, r, "Could not set route with gateway");
+                log_link_message_warning_errno(link, m, r, "Could not set route");
                 link_enter_failed(link);
                 return 0;
         }
@@ -1502,7 +1563,7 @@ static int route_configure(
                 assert(route->nexthop_id == 0);
                 assert(!in_addr_is_set(route->gw_family, &route->gw));
 
-                r = append_nexthops(route, req);
+                r = append_nexthops(link, route, req);
                 if (r < 0)
                         return log_link_error_errno(link, r, "Could not append RTA_MULTIPATH attribute: %m");
         }
@@ -1624,7 +1685,7 @@ static int route_is_ready_to_configure(const Route *route, Link *link) {
         } else {
                 Link *l;
 
-                HASHMAP_FOREACH(l, link->manager->links) {
+                HASHMAP_FOREACH(l, link->manager->links_by_index) {
                         if (l->address_remove_messages > 0)
                                 return false;
                         if (l->nexthop_remove_messages > 0)
@@ -1659,7 +1720,7 @@ static int route_is_ready_to_configure(const Route *route, Link *link) {
 
                         m->ifindex = l->ifindex;
                 } else if (m->ifindex > 0) {
-                        if (link_get(link->manager, m->ifindex, &l) < 0)
+                        if (link_get_by_index(link->manager, m->ifindex, &l) < 0)
                                 return false;
                 }
                 if (l && !link_is_ready_to_configure(l, true))
@@ -1744,7 +1805,7 @@ static int process_route_one(Manager *manager, Link *link, uint16_t type, const 
                         return log_warning_errno(SYNTHETIC_ERRNO(EINVAL),
                                                  "rtnl: received multipath route with invalid ifindex, ignoring.");
 
-                r = link_get(manager, m->ifindex, &link);
+                r = link_get_by_index(manager, m->ifindex, &link);
                 if (r < 0) {
                         log_warning_errno(r, "rtnl: received multipath route for link (%d) we do not know, ignoring: %m", m->ifindex);
                         return 0;
@@ -1837,7 +1898,7 @@ int manager_rtnl_process_route(sd_netlink *rtnl, sd_netlink_message *message, Ma
                         return 0;
                 }
 
-                r = link_get(m, ifindex, &link);
+                r = link_get_by_index(m, ifindex, &link);
                 if (r < 0 || !link) {
                         /* when enumerating we might be out of sync, but we will
                          * get the route again, so just ignore it */

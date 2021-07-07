@@ -99,8 +99,8 @@
     <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>), receiving only
     the sockets configured through socket-activation from the host's namespace. In such a set-up communication within
     the host's network namespace is only permitted through the activation sockets passed in while all sockets allocated
-    from the service code itself will be associated with the service's own namespace, and thus possibly subject to a a
-    much more restrictive configuration.</para>
+    from the service code itself will be associated with the service's own namespace, and thus possibly subject to a
+    restrictive configuration.</para>
   </refsect1>
 
   <refsect1>
@@ -629,10 +629,12 @@
          resulting SELinux context originate from either the target
          binary that is effectively triggered by socket unit or from
          the value of the <varname>SELinuxContext=</varname> option.
-         This configuration option only affects sockets with
-         <varname>Accept=</varname> mode set to
-         <literal>yes</literal>. Also note that this option is useful
-         only when MLS/MCS SELinux policy is deployed. Defaults to
+         This configuration option applies only when activated service
+         is passed in single socket file descriptor, i.e. service
+         instances that have standard input connected to a socket or
+         services triggered by exactly one socket unit. Also note
+         that this option is useful only when MLS/MCS SELinux policy
+         is deployed. Defaults to
          <literal>false</literal>. </para></listitem>
       </varlistentry>
 

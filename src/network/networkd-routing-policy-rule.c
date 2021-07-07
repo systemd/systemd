@@ -143,7 +143,7 @@ static int routing_policy_rule_dup(const RoutingPolicyRule *src, RoutingPolicyRu
         return 0;
 }
 
-static void routing_policy_rule_hash_func(const RoutingPolicyRule *rule, struct siphash *state) {
+void routing_policy_rule_hash_func(const RoutingPolicyRule *rule, struct siphash *state) {
         assert(rule);
 
         siphash24_compress(&rule->family, sizeof(rule->family), state);
@@ -183,7 +183,7 @@ static void routing_policy_rule_hash_func(const RoutingPolicyRule *rule, struct 
         }
 }
 
-static int routing_policy_rule_compare_func(const RoutingPolicyRule *a, const RoutingPolicyRule *b) {
+int routing_policy_rule_compare_func(const RoutingPolicyRule *a, const RoutingPolicyRule *b) {
         int r;
 
         r = CMP(a->family, b->family);
@@ -338,7 +338,9 @@ static int routing_policy_rule_add(Manager *m, const RoutingPolicyRule *in, Rout
 
                 rule->manager = m;
                 existing = TAKE_PTR(rule);
-        } else if (r == 0) {
+        } else if (r < 0)
+                return r;
+        else if (r == 0) {
                 /* Take over a foreign rule. */
                 r = set_ensure_put(&m->rules, &routing_policy_rule_hash_ops, existing);
                 if (r < 0)
@@ -346,11 +348,7 @@ static int routing_policy_rule_add(Manager *m, const RoutingPolicyRule *in, Rout
                 assert(r > 0);
 
                 set_remove(m->rules_foreign, existing);
-        } else if (r == 1) {
-                /* Already exists, do nothing. */
-                ;
-        } else
-                return r;
+        } /* else r > 0: already exists, do nothing. */
 
         if (ret)
                 *ret = existing;
@@ -404,7 +402,7 @@ static int routing_policy_rule_set_netlink_message(const RoutingPolicyRule *rule
 
         /* link may be NULL. */
 
-        if (in_addr_is_set(rule->family, &rule->from)) {
+        if (rule->from_prefixlen > 0) {
                 r = netlink_message_append_in_addr_union(m, FRA_SRC, rule->family, &rule->from);
                 if (r < 0)
                         return log_link_error_errno(link, r, "Could not append FRA_SRC attribute: %m");
@@ -414,7 +412,7 @@ static int routing_policy_rule_set_netlink_message(const RoutingPolicyRule *rule
                         return log_link_error_errno(link, r, "Could not set source prefix length: %m");
         }
 
-        if (in_addr_is_set(rule->family, &rule->to)) {
+        if (rule->to_prefixlen > 0) {
                 r = netlink_message_append_in_addr_union(m, FRA_DST, rule->family, &rule->to);
                 if (r < 0)
                         return log_link_error_errno(link, r, "Could not append FRA_DST attribute: %m");
@@ -609,7 +607,7 @@ static int links_have_routing_policy_rule(const Manager *m, const RoutingPolicyR
         assert(m);
         assert(rule);
 
-        HASHMAP_FOREACH(link, m->links) {
+        HASHMAP_FOREACH(link, m->links_by_index) {
                 RoutingPolicyRule *link_rule;
 
                 if (link == except)

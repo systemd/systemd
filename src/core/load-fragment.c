@@ -20,6 +20,7 @@
 #include "alloc-util.h"
 #include "bpf-firewall.h"
 #include "bpf-program.h"
+#include "bpf-socket-bind.h"
 #include "bus-error.h"
 #include "bus-internal.h"
 #include "bus-util.h"
@@ -46,6 +47,7 @@
 #include "log.h"
 #include "mountpoint-util.h"
 #include "nulstr-util.h"
+#include "parse-socket-bind-item.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "percent-util.h"
@@ -55,7 +57,6 @@
 #endif
 #include "securebits-util.h"
 #include "signal-util.h"
-#include "socket-bind.h"
 #include "socket-netlink.h"
 #include "specifier.h"
 #include "stat-util.h"
@@ -134,7 +135,6 @@ DEFINE_CONFIG_PARSE_ENUM(config_parse_protect_home, protect_home, ProtectHome, "
 DEFINE_CONFIG_PARSE_ENUM(config_parse_protect_system, protect_system, ProtectSystem, "Failed to parse protect system value");
 DEFINE_CONFIG_PARSE_ENUM(config_parse_runtime_preserve_mode, exec_preserve_mode, ExecPreserveMode, "Failed to parse runtime directory preserve mode");
 DEFINE_CONFIG_PARSE_ENUM(config_parse_service_type, service_type, ServiceType, "Failed to parse service type");
-DEFINE_CONFIG_PARSE_ENUM(config_parse_service_exit_type, service_exit_type, ServiceExitType, "Failed to parse service exit type");
 DEFINE_CONFIG_PARSE_ENUM(config_parse_service_restart, service_restart, ServiceRestart, "Failed to parse service restart specifier");
 DEFINE_CONFIG_PARSE_ENUM(config_parse_service_timeout_failure_mode, service_timeout_failure_mode, ServiceTimeoutFailureMode, "Failed to parse timeout failure mode");
 DEFINE_CONFIG_PARSE_ENUM(config_parse_socket_bind, socket_address_bind_ipv6_only_or_bool, SocketAddressBindIPv6Only, "Failed to parse bind IPv6 only value");
@@ -2660,7 +2660,7 @@ int config_parse_environ(
                 if (u)
                         r = unit_env_printf(u, word, &resolved);
                 else
-                        r = specifier_printf(word, sc_arg_max(), system_and_tmp_specifier_table, NULL, &resolved);
+                        r = specifier_printf(word, sc_arg_max(), system_and_tmp_specifier_table, NULL, NULL, &resolved);
                 if (r < 0) {
                         log_syntax(unit, LOG_WARNING, filename, line, r,
                                    "Failed to resolve specifiers in %s, ignoring: %m", word);
@@ -3195,7 +3195,7 @@ int config_parse_syscall_filter(
                         /* Allow nothing but the ones listed */
                         c->syscall_allow_list = true;
 
-                        /* Accept default syscalls if we are on a allow_list */
+                        /* Accept default syscalls if we are on an allow_list */
                         r = seccomp_parse_syscall_filter(
                                         "@default", -1, c->syscall_filter,
                                         SECCOMP_PARSE_PERMISSIVE|SECCOMP_PARSE_ALLOW_LIST,
@@ -5633,53 +5633,22 @@ int config_parse_cgroup_socket_bind(
                 void *data,
                 void *userdata) {
         _cleanup_free_ CGroupSocketBindItem *item = NULL;
-        const char *user_port;
-        uint16_t nr_ports = 0, port_min = 0;
         CGroupSocketBindItem **head = data;
-        _cleanup_free_ char *word = NULL;
-        int af, r;
+        uint16_t nr_ports, port_min;
+        int af, ip_protocol, r;
 
         if (isempty(rvalue)) {
                 cgroup_context_remove_socket_bind(head);
                 return 0;
         }
 
-        r = extract_first_word(&rvalue, &word, ":", 0);
+        r = parse_socket_bind_item(rvalue, &af, &ip_protocol, &nr_ports, &port_min);
         if (r == -ENOMEM)
                 return log_oom();
-        if (r <= 0) {
+        if (r < 0) {
                 log_syntax(unit, LOG_WARNING, filename, line, r,
                            "Unable to parse %s= assignment, ignoring: %s", lvalue, rvalue);
                 return 0;
-        }
-
-        if (rvalue) {
-                af = af_from_ipv4_ipv6(word);
-                if (af == AF_UNSPEC) {
-                        log_syntax(unit, LOG_WARNING, filename, line, 0,
-                                   "Only \"ipv4\" and \"ipv6\" protocols are supported, ignoring.");
-                        return 0;
-                }
-
-                user_port = rvalue;
-        } else {
-                af = AF_UNSPEC;
-                user_port = word;
-        }
-
-        if (!streq(user_port, "any")) {
-                uint16_t port_max;
-
-                r = parse_ip_port_range(user_port, &port_min, &port_max);
-                if (r == -ENOMEM)
-                        return log_oom();
-                if (r < 0) {
-                        log_syntax(unit, LOG_WARNING, filename, line, r,
-                                   "Invalid port or port range, ignoring: %m");
-                        return 0;
-                }
-
-                nr_ports = 1 + port_max - port_min;
         }
 
         item = new(CGroupSocketBindItem, 1);
@@ -5687,6 +5656,7 @@ int config_parse_cgroup_socket_bind(
                 return log_oom();
         *item = (CGroupSocketBindItem) {
                 .address_family = af,
+                .ip_protocol = ip_protocol,
                 .nr_ports = nr_ports,
                 .port_min = port_min,
         };
@@ -5874,7 +5844,6 @@ void unit_dump_config_items(FILE *f) {
                 { config_parse_unit_deps,             "UNIT [...]" },
                 { config_parse_exec,                  "PATH [ARGUMENT [...]]" },
                 { config_parse_service_type,          "SERVICETYPE" },
-                { config_parse_service_exit_type,     "SERVICEEXITTYPE" },
                 { config_parse_service_restart,       "SERVICERESTART" },
                 { config_parse_service_timeout_failure_mode, "TIMEOUTMODE" },
                 { config_parse_kill_mode,             "KILLMODE" },

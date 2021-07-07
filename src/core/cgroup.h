@@ -105,6 +105,7 @@ struct CGroupBPFForeignProgram {
 struct CGroupSocketBindItem {
         LIST_FIELDS(CGroupSocketBindItem, socket_bind_items);
         int address_family;
+        int ip_protocol;
         uint16_t nr_ports;
         uint16_t port_min;
 };
@@ -282,6 +283,7 @@ int unit_watch_all_pids(Unit *u);
 int unit_synthesize_cgroup_empty_event(Unit *u);
 
 int unit_get_memory_current(Unit *u, uint64_t *ret);
+int unit_get_memory_available(Unit *u, uint64_t *ret);
 int unit_get_tasks_current(Unit *u, uint64_t *ret);
 int unit_get_cpu_usage(Unit *u, nsec_t *ret);
 int unit_get_io_accounting(Unit *u, CGroupIOAccountingMetric metric, bool allow_cache, uint64_t *ret);

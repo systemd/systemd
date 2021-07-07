@@ -220,11 +220,16 @@
           <command>systemd-networkd-wait-online</command>). When <literal>no</literal>, the network is ignored
           when determining the online state. When a minimum operational state and an optional maximum operational
           state are set, <literal>yes</literal> is implied, and this controls the minimum and maximum
-          operational state required for the network interface to be considered online.
-          Defaults to <literal>yes</literal>.</para>
+          operational state required for the network interface to be considered online.</para>
 
-          <para>The network will be brought up normally in all cases, but in
-          the event that there is no address being assigned by DHCP or the
+          <para>Defaults to <literal>yes</literal> when <varname>ActivationPolicy=</varname> is not set,
+          or set to <literal>up</literal>, <literal>always-up</literal>, or <literal>bound</literal>.
+          Defaults to <literal>no</literal> when <varname>ActivationPolicy=</varname> is set to
+          <literal>manual</literal> or <literal>down</literal>. This is forced to <literal>no</literal>
+          when <varname>ActivationPolicy=</varname> is set to <literal>always-down</literal>.</para>
+
+          <para>The network will be brought up normally (as configured by <varname>ActivationPolicy=</varname>),
+          but in the event that there is no address being assigned by DHCP or the
           cable is not plugged in, the link will simply remain offline and be
           skipped automatically by <command>systemd-networkd-wait-online</command>
           if <literal>RequiredForOnline=no</literal>.</para>
@@ -264,6 +269,11 @@
           or down, respectively, any time <command>systemd-networkd</command> detects a change in
           the administrative state. When <varname>BindCarrier=</varname> is also set, this is
           automatically set to <literal>bound</literal> and any other value is ignored.</para>
+
+          <para>When the policy is set to <literal>down</literal> or <literal>manual</literal>,
+          the default value of <varname>RequiredForOnline=</varname> is <literal>no</literal>.
+          When the policy is set to <literal>always-down</literal>, the value of
+          <varname>RequiredForOnline=</varname> forced to <literal>no</literal>.</para>
 
           <para>The administrative state is not the same as the carrier state, so using
           <literal>always-up</literal> does not mean the link will never lose carrier. The link
@@ -424,13 +434,27 @@
           <listitem>
             <para>Specifies how IPv6 link local address is generated. Takes one of
             <literal>eui64</literal>, <literal>none</literal>, <literal>stable-privacy</literal> and
-            <literal>random</literal>. When unset, the kernel's default will be used. Note that if
-            <varname>LinkLocalAddressing=</varname> is <literal>no</literal> or
-            <literal>ipv4</literal>, then <varname>IPv6LinkLocalAddressGenerationMode=</varname> will
-            be ignored. Also, even if <varname>LinkLocalAddressing=</varname> is <literal>yes</literal>
-            or <literal>ipv6</literal>, setting
-            <varname>IPv6LinkLocalAddressGenerationMode=none</varname> disables to configure an IPv6
-            link-local address.</para>
+            <literal>random</literal>. When unset, <literal>stable-privacy</literal> is used if
+            <varname>IPv6StableSecretAddress=</varname> is specified, and if not,
+            <literal>eui64</literal> is used. Note that if <varname>LinkLocalAddressing=</varname> is
+            <literal>no</literal> or <literal>ipv4</literal>, then
+            <varname>IPv6LinkLocalAddressGenerationMode=</varname> will be ignored. Also, even if
+            <varname>LinkLocalAddressing=</varname> is <literal>yes</literal> or
+            <literal>ipv6</literal>, setting <varname>IPv6LinkLocalAddressGenerationMode=none</varname>
+            disables to configure an IPv6 link-local address.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><varname>IPv6StableSecretAddress=</varname></term>
+          <listitem>
+            <para>Takes an IPv6 address. The specified address will be used as a stable secret for
+            generating IPv6 link-local address. If this setting is specified, and
+            <varname>IPv6LinkLocalAddressGenerationMode=</varname> is unset, then
+            <varname>IPv6LinkLocalAddressGenerationMode=stable-privacy</varname> is implied.
+            If this setting is not specified, and <literal>stable-privacy</literal> is set to
+            <varname>IPv6LinkLocalAddressGenerationMode=</varname>,
+            then a stable secret address will be generated from the local machine ID and the interface
+            name.</para>
           </listitem>
         </varlistentry>
         <varlistentry>
@@ -447,8 +471,17 @@
           <listitem>
             <para>Takes a boolean. If set to true, sets up the default route bound to the interface.
             Defaults to false. This is useful when creating routes on point-to-point interfaces.
-            This is equivalent to e.g. the following.
-            <programlisting>ip route add default dev veth99</programlisting></para>
+            This is equivalent to e.g. the following,
+            <programlisting>ip route add default dev veth99</programlisting>
+            or,
+            <programlisting>[Route]
+Gateway=0.0.0.0</programlisting></para>
+            <para>Currently, there are no way to specify e.g., the table for the route configured by
+            this setting. To configure the default route with such an additional property, please use
+            the following instead:
+            <programlisting>[Route]
+Gateway=0.0.0.0
+Table=1234</programlisting></para>
           </listitem>
         </varlistentry>
         <varlistentry>
@@ -888,73 +921,31 @@ IPv6Token=prefixstable:2002:da8:1::</programlisting></para>
           </para></listitem>
         </varlistentry>
         <varlistentry>
-          <term><varname>Bridge=</varname></term>
-          <listitem>
-            <para>The name of the bridge to add the link to. See
-            <citerefentry><refentrytitle>systemd.netdev</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
-            </para>
-          </listitem>
-        </varlistentry>
-        <varlistentry>
+          <term><varname>BatmanAdvanced=</varname></term>
           <term><varname>Bond=</varname></term>
-          <listitem>
-            <para>The name of the bond to add the link to. See
-            <citerefentry><refentrytitle>systemd.netdev</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
-            </para>
-          </listitem>
-        </varlistentry>
-        <varlistentry>
+          <term><varname>Bridge=</varname></term>
           <term><varname>VRF=</varname></term>
           <listitem>
-            <para>The name of the VRF to add the link to. See
+            <para>The name of the B.A.T.M.A.N. Advanced, bond, bridge, or VRF interface to add the link
+            to. See
             <citerefentry><refentrytitle>systemd.netdev</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
             </para>
-          </listitem>
-        </varlistentry>
-        <varlistentry>
-          <term><varname>VLAN=</varname></term>
-          <listitem>
-            <para>The name of a VLAN to create on the link. See
-            <citerefentry><refentrytitle>systemd.netdev</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
-            This option may be specified more than once.</para>
           </listitem>
         </varlistentry>
         <varlistentry>
           <term><varname>IPVLAN=</varname></term>
-          <listitem>
-            <para>The name of a IPVLAN to create on the link. See
-            <citerefentry><refentrytitle>systemd.netdev</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
-            This option may be specified more than once.</para>
-          </listitem>
-        </varlistentry>
-        <varlistentry>
-          <term><varname>MACVLAN=</varname></term>
-          <listitem>
-            <para>The name of a MACVLAN to create on the link. See
-            <citerefentry><refentrytitle>systemd.netdev</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
-            This option may be specified more than once.</para>
-          </listitem>
-        </varlistentry>
-        <varlistentry>
-          <term><varname>VXLAN=</varname></term>
-          <listitem>
-            <para>The name of a VXLAN to create on the link. See
-            <citerefentry><refentrytitle>systemd.netdev</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
-            This option may be specified more than once.</para>
-          </listitem>
-        </varlistentry>
-        <varlistentry>
-          <term><varname>Tunnel=</varname></term>
-          <listitem>
-            <para>The name of a Tunnel to create on the link. See
-            <citerefentry><refentrytitle>systemd.netdev</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
-            This option may be specified more than once.</para>
-          </listitem>
-        </varlistentry>
-        <varlistentry>
+          <term><varname>IPVTAP=</varname></term>
+          <term><varname>L2TP=</varname></term>
           <term><varname>MACsec=</varname></term>
+          <term><varname>MACVLAN=</varname></term>
+          <term><varname>MACVTAP=</varname></term>
+          <term><varname>Tunnel=</varname></term>
+          <term><varname>VLAN=</varname></term>
+          <term><varname>VXLAN=</varname></term>
+          <term><varname>Xfrm=</varname></term>
           <listitem>
-            <para>The name of a MACsec device to create on the link. See
+            <para>The name of an IPVLAN, IPVTAP, L2TP, MACsec, MACVLAN, MACVTAP, tunnel, VLAN, VXLAN, or
+            Xfrm to be created on the link. See
             <citerefentry><refentrytitle>systemd.netdev</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
             This option may be specified more than once.</para>
           </listitem>
@@ -1031,16 +1022,7 @@ IPv6Token=prefixstable:2002:da8:1::</programlisting></para>
           </para>
         </listitem>
       </varlistentry>
-      <varlistentry>
-          <term><varname>BatmanAdvanced=</varname></term>
-          <listitem>
-            <para>The name of the B.A.T.M.A.N. Advanced interface to add the link to. See
-            <citerefentry><refentrytitle>systemd.netdev</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
-            </para>
-          </listitem>
-        </varlistentry>
-      </variablelist>
-
+    </variablelist>
   </refsect1>
 
   <refsect1>
@@ -1126,8 +1108,8 @@ IPv6Token=prefixstable:2002:da8:1::</programlisting></para>
           <listitem>
             <para>Takes one of <literal>ipv4</literal>, <literal>ipv6</literal>,
             <literal>both</literal>, <literal>none</literal>. When <literal>ipv4</literal>,
-            performs IPv4 Duplicate Address Detection. See
-            <ulink url="https://tools.ietf.org/html/rfc5227">RFC 5224</ulink>.
+            performs IPv4 Address Conflict Detection. See
+            <ulink url="https://tools.ietf.org/html/rfc5227">RFC 5227</ulink>.
             When <literal>ipv6</literal>, performs IPv6 Duplicate Address Detection. See
             <ulink url="https://tools.ietf.org/html/rfc4862">RFC 4862</ulink>.
             Defaults to <literal>ipv6</literal>.</para>
@@ -1738,7 +1720,7 @@ IPv6Token=prefixstable:2002:da8:1::</programlisting></para>
 
             <para>This option should only be set to true when <varname>MACAddressPolicy=</varname> is
             set to <option>random</option> (see
-            <citerefentry project='man-pages'><refentrytitle>systemd.link</refentrytitle><manvolnum>5</manvolnum></citerefentry>).
+            <citerefentry><refentrytitle>systemd.link</refentrytitle><manvolnum>5</manvolnum></citerefentry>).
             </para>
 
             <para>When true, <varname>SendHostname=</varname>, <varname>ClientIdentifier=</varname>,
@@ -2403,6 +2385,16 @@ IPv6Token=prefixstable:2002:da8:1::</programlisting></para>
         and clients shall learn the new settings with shorter
         latencies. Longer lease times reduce the generated DHCP
         network traffic.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>UplinkInterface=</varname></term>
+        <listitem><para>Specifies name or index of uplink interface, or one of the special values
+        <literal>:none</literal> and <literal>:auto</literal>. When emitting DNS, NTP, or SIP servers
+        are enabled but no servers are specified, the servers configured in the uplink interface will
+        be emitted. When <literal>:auto</literal>, the link which has default gateway with higher
+        priority will be automatically selected. When <literal>:none</literal>, no uplink interface
+        will be selected. Defaults to <literal>:auto</literal>.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -3503,7 +3495,7 @@ IPv6Token=prefixstable:2002:da8:1::</programlisting></para>
       <varlistentry>
         <term><varname>VirtualQueues=</varname></term>
         <listitem>
-          <para>Specifies the number of virtual queues. Takes a integer in the range 1…16. Defaults to unset
+          <para>Specifies the number of virtual queues. Takes an integer in the range 1…16. Defaults to unset
           and kernel's default is used.</para>
         </listitem>
       </varlistentry>

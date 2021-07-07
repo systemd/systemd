@@ -323,14 +323,10 @@ static int monitor_swap_contexts_handler(sd_event_source *s, uint64_t usec, void
                         return log_error_errno(r, "Failed to acquire varlink connection: %m");
         }
 
-        /* We still try to acquire swap information for oomctl even if no units want swap monitoring */
-        r = oomd_system_context_acquire("/proc/swaps", &m->system_context);
-        /* If there are no units depending on swap actions, the only error we exit on is ENOMEM.
-         * Allow ENOENT in the event that swap is disabled on the system. */
-        if (r == -ENOENT) {
-                zero(m->system_context);
-                return 0;
-        } else if (r == -ENOMEM || (r < 0 && !hashmap_isempty(m->monitored_swap_cgroup_contexts)))
+        /* We still try to acquire system information for oomctl even if no units want swap monitoring */
+        r = oomd_system_context_acquire("/proc/meminfo", &m->system_context);
+        /* If there are no units depending on swap actions, the only error we exit on is ENOMEM. */
+        if (r == -ENOMEM || (r < 0 && !hashmap_isempty(m->monitored_swap_cgroup_contexts)))
                 return log_error_errno(r, "Failed to acquire system context: %m");
 
         /* Return early if nothing is requesting swap monitoring */
@@ -342,12 +338,16 @@ static int monitor_swap_contexts_handler(sd_event_source *s, uint64_t usec, void
          * is only used to decide which cgroups to kill (and even then only the resource usages of its descendent
          * nodes are the ones that matter). */
 
-        if (oomd_swap_free_below(&m->system_context, 10000 - m->swap_used_limit_permyriad)) {
+        /* Check amount of memory free and swap free so we don't free up swap when memory is still available. */
+        if (oomd_mem_free_below(&m->system_context, 10000 - m->swap_used_limit_permyriad) &&
+                        oomd_swap_free_below(&m->system_context, 10000 - m->swap_used_limit_permyriad)) {
                 _cleanup_hashmap_free_ Hashmap *candidates = NULL;
                 _cleanup_free_ char *selected = NULL;
                 uint64_t threshold;
 
-                log_debug("Swap used (%"PRIu64") / total (%"PRIu64") is more than " PERMYRIAD_AS_PERCENT_FORMAT_STR,
+                log_debug("Memory used (%"PRIu64") / total (%"PRIu64") and "
+                          "swap used (%"PRIu64") / total (%"PRIu64") is more than " PERMYRIAD_AS_PERCENT_FORMAT_STR,
+                          m->system_context.mem_used, m->system_context.mem_total,
                           m->system_context.swap_used, m->system_context.swap_total,
                           PERMYRIAD_AS_PERCENT_FORMAT_VAL(m->swap_used_limit_permyriad));
 
@@ -365,9 +365,12 @@ static int monitor_swap_contexts_handler(sd_event_source *s, uint64_t usec, void
                         log_notice_errno(r, "Failed to kill any cgroup(s) based on swap: %m");
                 else {
                         if (selected)
-                                log_notice("Killed %s due to swap used (%"PRIu64") / total (%"PRIu64") being more than "
+                                log_notice("Killed %s due to memory used (%"PRIu64") / total (%"PRIu64") and "
+                                           "swap used (%"PRIu64") / total (%"PRIu64") being more than "
                                            PERMYRIAD_AS_PERCENT_FORMAT_STR,
-                                           selected, m->system_context.swap_used, m->system_context.swap_total,
+                                           selected,
+                                           m->system_context.mem_used, m->system_context.mem_total,
+                                           m->system_context.swap_used, m->system_context.swap_total,
                                            PERMYRIAD_AS_PERCENT_FORMAT_VAL(m->swap_used_limit_permyriad));
                         return 0;
                 }
@@ -420,13 +423,6 @@ static int monitor_memory_pressure_contexts_handler(sd_event_source *s, uint64_t
                 return log_oom();
         if (r < 0)
                 log_debug_errno(r, "Failed to update monitored memory pressure cgroup contexts, ignoring: %m");
-
-        r = update_monitored_cgroup_contexts_candidates(
-                        m->monitored_mem_pressure_cgroup_contexts, &m->monitored_mem_pressure_cgroup_contexts_candidates);
-        if (r == -ENOMEM)
-                return log_oom();
-        if (r < 0)
-                log_debug_errno(r, "Failed to update monitored memory pressure candidate cgroup contexts, ignoring: %m");
 
         /* Since pressure counters are lagging, we need to wait a bit after a kill to ensure we don't read stale
          * values and go on a kill storm. */

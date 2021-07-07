@@ -281,7 +281,7 @@ static int make_backup(const char *target, const char *x) {
         if (rename(dst_tmp, backup) < 0)
                 return errno;
 
-        dst_tmp = mfree(dst_tmp); /* disable the unlink_and_freep() hook now that the file has been renamed*/
+        dst_tmp = mfree(dst_tmp); /* disable the unlink_and_freep() hook now that the file has been renamed */
         return 0;
 }
 
@@ -1509,7 +1509,7 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
                 name = mfree(name);
 
         if (name) {
-                r = specifier_printf(name, NAME_MAX, system_and_tmp_specifier_table, NULL, &resolved_name);
+                r = specifier_printf(name, NAME_MAX, system_and_tmp_specifier_table, arg_root, NULL, &resolved_name);
                 if (r < 0)
                         return log_error_errno(r, "[%s:%u] Failed to replace specifiers in '%s': %m", fname, line, name);
 
@@ -1524,7 +1524,7 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
                 id = mfree(id);
 
         if (id) {
-                r = specifier_printf(id, PATH_MAX-1, system_and_tmp_specifier_table, NULL, &resolved_id);
+                r = specifier_printf(id, PATH_MAX-1, system_and_tmp_specifier_table, arg_root, NULL, &resolved_id);
                 if (r < 0)
                         return log_error_errno(r, "[%s:%u] Failed to replace specifiers in '%s': %m",
                                                fname, line, name);
@@ -1535,7 +1535,7 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
                 description = mfree(description);
 
         if (description) {
-                r = specifier_printf(description, LONG_LINE_MAX, system_and_tmp_specifier_table, NULL, &resolved_description);
+                r = specifier_printf(description, LONG_LINE_MAX, system_and_tmp_specifier_table, arg_root, NULL, &resolved_description);
                 if (r < 0)
                         return log_error_errno(r, "[%s:%u] Failed to replace specifiers in '%s': %m",
                                                fname, line, description);
@@ -1551,7 +1551,7 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
                 home = mfree(home);
 
         if (home) {
-                r = specifier_printf(home, PATH_MAX-1, system_and_tmp_specifier_table, NULL, &resolved_home);
+                r = specifier_printf(home, PATH_MAX-1, system_and_tmp_specifier_table, arg_root, NULL, &resolved_home);
                 if (r < 0)
                         return log_error_errno(r, "[%s:%u] Failed to replace specifiers in '%s': %m",
                                                fname, line, home);
@@ -1567,7 +1567,7 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
                 shell = mfree(shell);
 
         if (shell) {
-                r = specifier_printf(shell, PATH_MAX-1, system_and_tmp_specifier_table, NULL, &resolved_shell);
+                r = specifier_printf(shell, PATH_MAX-1, system_and_tmp_specifier_table, arg_root, NULL, &resolved_shell);
                 if (r < 0)
                         return log_error_errno(r, "[%s:%u] Failed to replace specifiers in '%s': %m",
                                                fname, line, shell);
@@ -1588,7 +1588,7 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
 
                 if (!resolved_id)
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                               "[%s:%u] Lines of type 'r' require a ID range in the third field.",
+                                               "[%s:%u] Lines of type 'r' require an ID range in the third field.",
                                                fname, line);
 
                 if (description || home || shell)

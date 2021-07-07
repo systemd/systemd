@@ -2136,7 +2136,7 @@ int table_print(Table *t, FILE *f) {
                                                 /* Never give more than requested. If we hit a column like this, there's more
                                                  * space to allocate to other columns which means we need to restart the
                                                  * iteration. However, if we hit a column like this, let's assign it the space
-                                                 * it wanted for good early.*/
+                                                 * it wanted for good early. */
 
                                                 w = requested_width[j];
                                                 restart = true;
@@ -2694,7 +2694,7 @@ int table_print_with_pager(
 
         assert(t);
 
-        /* A all-in-one solution for showing tables, and turning on a pager first. Also optionally suppresses
+        /* An all-in-one solution for showing tables, and turning on a pager first. Also optionally suppresses
          * the table header and logs about any error. */
 
         if (json_format_flags & (JSON_FORMAT_OFF|JSON_FORMAT_PRETTY|JSON_FORMAT_PRETTY_AUTO))

@@ -12,11 +12,10 @@
 #include "hashmap.h"
 #include "net-condition.h"
 #include "netdev.h"
-#include "networkd-brvlan.h"
+#include "networkd-bridge-vlan.h"
 #include "networkd-dhcp-common.h"
 #include "networkd-dhcp4.h"
 #include "networkd-dhcp6.h"
-#include "networkd-dhcp-server.h"
 #include "networkd-lldp-rx.h"
 #include "networkd-lldp-tx.h"
 #include "networkd-ndisc.h"
@@ -103,7 +102,7 @@ struct Network {
         int allmulticast;
         int promiscuous;
         bool unmanaged;
-        bool required_for_online; /* Is this network required to be considered online? */
+        int required_for_online; /* Is this network required to be considered online? */
         LinkOperationalStateRange required_operstate_for_online;
         AddressFamily required_family_for_online;
         ActivationPolicy activation_policy;
@@ -161,7 +160,7 @@ struct Network {
         OrderedHashmap *dhcp_client_send_options;
         OrderedHashmap *dhcp_client_send_vendor_options;
 
-        /* DHCPv6 Client support*/
+        /* DHCPv6 Client support */
         bool dhcp6_use_address;
         bool dhcp6_use_dns;
         bool dhcp6_use_dns_set;
@@ -192,6 +191,8 @@ struct Network {
         bool dhcp_server_bind_to_interface;
         unsigned char dhcp_server_address_prefixlen;
         struct in_addr dhcp_server_address;
+        int dhcp_server_uplink_index;
+        char *dhcp_server_uplink_name;
         struct in_addr dhcp_server_relay_target;
         char *dhcp_server_relay_agent_circuit_id;
         char *dhcp_server_relay_agent_remote_id;
@@ -208,6 +209,7 @@ struct Network {
         /* link local addressing support */
         AddressFamily link_local;
         IPv6LinkLocalAddressGenMode ipv6ll_address_gen_mode;
+        struct in6_addr ipv6ll_stable_secret;
         bool ipv4ll_route;
 
         /* IPv6 RA support */
@@ -309,7 +311,7 @@ struct Network {
         Hashmap *routes_by_section;
         Hashmap *nexthops_by_section;
         Hashmap *bridge_fdb_entries_by_section;
-        Hashmap *mdb_entries_by_section;
+        Hashmap *bridge_mdb_entries_by_section;
         Hashmap *neighbors_by_section;
         Hashmap *address_labels_by_section;
         Hashmap *prefixes_by_section;

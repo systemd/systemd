@@ -59,8 +59,10 @@ sources = files('''
         networkd-address.h
         networkd-bridge-fdb.c
         networkd-bridge-fdb.h
-        networkd-brvlan.c
-        networkd-brvlan.h
+        networkd-bridge-mdb.c
+        networkd-bridge-mdb.h
+        networkd-bridge-vlan.c
+        networkd-bridge-vlan.h
         networkd-can.c
         networkd-can.h
         networkd-conf.c
@@ -77,6 +79,8 @@ sources = files('''
         networkd-dhcp4.h
         networkd-dhcp6.c
         networkd-dhcp6.h
+        networkd-ipv4acd.c
+        networkd-ipv4acd.h
         networkd-ipv4ll.c
         networkd-ipv4ll.h
         networkd-ipv6-proxy-ndp.c
@@ -95,8 +99,6 @@ sources = files('''
         networkd-manager-bus.h
         networkd-manager.c
         networkd-manager.h
-        networkd-mdb.c
-        networkd-mdb.h
         networkd-ndisc.c
         networkd-ndisc.h
         networkd-neighbor.c
@@ -115,6 +117,8 @@ sources = files('''
         networkd-route.h
         networkd-routing-policy-rule.c
         networkd-routing-policy-rule.h
+        networkd-setlink.c
+        networkd-setlink.h
         networkd-speed-meter.c
         networkd-speed-meter.h
         networkd-sriov.c

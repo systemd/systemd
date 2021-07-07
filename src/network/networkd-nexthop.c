@@ -104,7 +104,7 @@ static int nexthop_new_static(Network *network, const char *filename, unsigned s
         return 0;
 }
 
-static void nexthop_hash_func(const NextHop *nexthop, struct siphash *state) {
+void nexthop_hash_func(const NextHop *nexthop, struct siphash *state) {
         assert(nexthop);
 
         siphash24_compress(&nexthop->protocol, sizeof(nexthop->protocol), state);
@@ -124,7 +124,7 @@ static void nexthop_hash_func(const NextHop *nexthop, struct siphash *state) {
         }
 }
 
-static int nexthop_compare_func(const NextHop *a, const NextHop *b) {
+int nexthop_compare_func(const NextHop *a, const NextHop *b) {
         int r;
 
         r = CMP(a->protocol, b->protocol);
@@ -645,7 +645,7 @@ static bool links_have_nexthop(const Manager *manager, const NextHop *nexthop, c
 
         assert(manager);
 
-        HASHMAP_FOREACH(link, manager->links) {
+        HASHMAP_FOREACH(link, manager->links_by_index) {
                 if (link == except)
                         continue;
 
@@ -757,13 +757,15 @@ static bool nexthop_is_ready_to_configure(Link *link, const NextHop *nexthop) {
         } else {
                 Link *l;
 
-                /* TODO: fdb nexthop does not require IFF_UP. The condition below needs to be updated
+                /* TODO: fdb nexthop does not require IFF_UP. The conditions below needs to be updated
                  * when fdb nexthop support is added. See rtm_to_nh_config() in net/ipv4/nexthop.c of
                  * kernel. */
+                if (link->set_flags_messages > 0)
+                        return false;
                 if (!FLAGS_SET(link->flags, IFF_UP))
                         return false;
 
-                HASHMAP_FOREACH(l, link->manager->links) {
+                HASHMAP_FOREACH(l, link->manager->links_by_index) {
                         if (l->address_remove_messages > 0)
                                 return false;
                         if (l->nexthop_remove_messages > 0)
@@ -866,7 +868,7 @@ int manager_rtnl_process_nexthop(sd_netlink *rtnl, sd_netlink_message *message, 
                         return 0;
                 }
 
-                r = link_get(m, ifindex, &link);
+                r = link_get_by_index(m, ifindex, &link);
                 if (r < 0 || !link) {
                         if (!m->enumerating)
                                 log_warning("rtnl: received nexthop message for link (%"PRIu32") we do not know about, ignoring", ifindex);

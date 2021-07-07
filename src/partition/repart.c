@@ -169,6 +169,7 @@ struct Partition {
         EncryptMode encrypt;
 
         uint64_t gpt_flags;
+        int no_auto;
         int read_only;
         int growfs;
 
@@ -243,6 +244,7 @@ static Partition *partition_new(void) {
                 .offset = UINT64_MAX,
                 .copy_blocks_fd = -1,
                 .copy_blocks_size = UINT64_MAX,
+                .no_auto = -1,
                 .read_only = -1,
                 .growfs = -1,
         };
@@ -971,7 +973,7 @@ static int config_parse_label(
         /* Nota bene: the empty label is a totally valid one. Let's hence not follow our usual rule of
          * assigning the empty string to reset to default here, but really accept it as label to set. */
 
-        r = specifier_printf(rvalue, GPT_LABEL_MAX, system_and_tmp_specifier_table, NULL, &resolved);
+        r = specifier_printf(rvalue, GPT_LABEL_MAX, system_and_tmp_specifier_table, arg_root, NULL, &resolved);
         if (r < 0) {
                 log_syntax(unit, LOG_WARNING, filename, line, r,
                            "Failed to expand specifiers in Label=, ignoring: %s", rvalue);
@@ -1136,7 +1138,7 @@ static int config_parse_copy_files(
         if (!isempty(p))
                 return log_syntax(unit, LOG_ERR, filename, line, SYNTHETIC_ERRNO(EINVAL), "Too many arguments: %s", rvalue);
 
-        r = specifier_printf(source, PATH_MAX-1, system_and_tmp_specifier_table, NULL, &resolved_source);
+        r = specifier_printf(source, PATH_MAX-1, system_and_tmp_specifier_table, arg_root, NULL, &resolved_source);
         if (r < 0) {
                 log_syntax(unit, LOG_WARNING, filename, line, r,
                            "Failed to expand specifiers in CopyFiles= source, ignoring: %s", rvalue);
@@ -1147,7 +1149,7 @@ static int config_parse_copy_files(
         if (r < 0)
                 return 0;
 
-        r = specifier_printf(target, PATH_MAX-1, system_and_tmp_specifier_table, NULL, &resolved_target);
+        r = specifier_printf(target, PATH_MAX-1, system_and_tmp_specifier_table, arg_root, NULL, &resolved_target);
         if (r < 0) {
                 log_syntax(unit, LOG_WARNING, filename, line, r,
                            "Failed to expand specifiers in CopyFiles= target, ignoring: %s", resolved_target);
@@ -1196,7 +1198,7 @@ static int config_parse_copy_blocks(
                 return 0;
         }
 
-        r = specifier_printf(rvalue, PATH_MAX-1, system_and_tmp_specifier_table, NULL, &d);
+        r = specifier_printf(rvalue, PATH_MAX-1, system_and_tmp_specifier_table, arg_root, NULL, &d);
         if (r < 0) {
                 log_syntax(unit, LOG_WARNING, filename, line, r,
                            "Failed to expand specifiers in CopyBlocks= source path, ignoring: %s", rvalue);
@@ -1244,7 +1246,7 @@ static int config_parse_make_dirs(
                 if (r == 0)
                         return 0;
 
-                r = specifier_printf(word, PATH_MAX-1, system_and_tmp_specifier_table, NULL, &d);
+                r = specifier_printf(word, PATH_MAX-1, system_and_tmp_specifier_table, arg_root, NULL, &d);
                 if (r < 0) {
                         log_syntax(unit, LOG_WARNING, filename, line, r,
                                    "Failed to expand specifiers in MakeDirectories= parameter, ignoring: %s", word);
@@ -1312,6 +1314,7 @@ static int partition_read_definition(Partition *p, const char *path) {
                 { "Partition", "Encrypt",         config_parse_encrypt,     0, &p->encrypt          },
                 { "Partition", "Flags",           config_parse_gpt_flags,   0, &p->gpt_flags        },
                 { "Partition", "ReadOnly",        config_parse_tristate,    0, &p->read_only        },
+                { "Partition", "NoAuto",          config_parse_tristate,    0, &p->no_auto          },
                 { "Partition", "GrowFileSystem",  config_parse_tristate,    0, &p->growfs           },
                 {}
         };
@@ -1986,8 +1989,13 @@ static int context_dump_partitions(Context *context, const char *node) {
                                                     (size_t) 5, (size_t) 6, (size_t) 7, (size_t) 9, (size_t) 10, (size_t) 12);
         }
 
-        (void) table_set_align_percent(t, table_get_cell(t, 0, 4), 100);
         (void) table_set_align_percent(t, table_get_cell(t, 0, 5), 100);
+        (void) table_set_align_percent(t, table_get_cell(t, 0, 6), 100);
+        (void) table_set_align_percent(t, table_get_cell(t, 0, 7), 100);
+        (void) table_set_align_percent(t, table_get_cell(t, 0, 8), 100);
+        (void) table_set_align_percent(t, table_get_cell(t, 0, 9), 100);
+        (void) table_set_align_percent(t, table_get_cell(t, 0, 10), 100);
+        (void) table_set_align_percent(t, table_get_cell(t, 0, 11), 100);
 
         LIST_FOREACH(partitions, p, context->partitions) {
                 _cleanup_free_ char *size_change = NULL, *padding_change = NULL, *partname = NULL;
@@ -2032,7 +2040,7 @@ static int context_dump_partitions(Context *context, const char *node) {
                                 TABLE_UINT64, p->current_padding == UINT64_MAX ? 0 : p->current_padding,
                                 TABLE_UINT64, p->new_padding,
                                 TABLE_STRING, padding_change, TABLE_SET_COLOR, !p->partitions_next && sum_padding > 0 ? ansi_underline() : NULL,
-                                TABLE_STRING, activity ?: "unknown");
+                                TABLE_STRING, activity ?: "unchanged");
                 if (r < 0)
                         return table_log_add_error(r);
         }
@@ -3264,6 +3272,17 @@ static uint64_t partition_merge_flags(Partition *p) {
 
         f = p->gpt_flags;
 
+        if (p->no_auto >= 0) {
+                if (gpt_partition_type_knows_no_auto(p->type_uuid))
+                        SET_FLAG(f, GPT_FLAG_NO_AUTO, p->no_auto);
+                else {
+                        char buffer[ID128_UUID_STRING_MAX];
+                        log_warning("Configured NoAuto=%s for partition type '%s' that doesn't support it, ignoring.",
+                                    yes_no(p->no_auto),
+                                    gpt_partition_type_uuid_to_string_harder(p->type_uuid, buffer));
+                }
+        }
+
         if (p->read_only >= 0) {
                 if (gpt_partition_type_knows_read_only(p->type_uuid))
                         SET_FLAG(f, GPT_FLAG_READ_ONLY, p->read_only);
@@ -3404,7 +3423,7 @@ static int context_mangle_partitions(Context *context) {
                         if (r < 0)
                                 return log_error_errno(r, "Failed to set partition label: %m");
 
-                        /* Merge the read only + growfs setting with the literal flags, and set them for the partition */
+                        /* Merge the no auto + read only + growfs setting with the literal flags, and set them for the partition */
                         r = set_gpt_flags(q, partition_merge_flags(p));
                         if (r < 0)
                                 return log_error_errno(r, "Failed to set GPT partition flags: %m");
@@ -4414,7 +4433,7 @@ static int parse_efi_variable_factory_reset(void) {
         if (!in_initrd()) /* Never honour EFI variable factory reset request outside of the initrd */
                 return 0;
 
-        r = efi_get_variable_string(EFI_VENDOR_SYSTEMD, "FactoryReset", &value);
+        r = efi_get_variable_string(EFI_SYSTEMD_VARIABLE(FactoryReset), &value);
         if (r == -ENOENT || ERRNO_IS_NOT_SUPPORTED(r))
                 return 0;
         if (r < 0)
@@ -4434,7 +4453,7 @@ static int parse_efi_variable_factory_reset(void) {
 static int remove_efi_variable_factory_reset(void) {
         int r;
 
-        r = efi_set_variable(EFI_VENDOR_SYSTEMD, "FactoryReset", NULL, 0);
+        r = efi_set_variable(EFI_SYSTEMD_VARIABLE(FactoryReset), NULL, 0);
         if (r == -ENOENT || ERRNO_IS_NOT_SUPPORTED(r))
                 return 0;
         if (r < 0)
@@ -4867,7 +4886,7 @@ static int run(int argc, char *argv[]) {
                         if (!arg_node)
                                 return log_oom();
 
-                        /* Remember that the the device we are about to manipulate is actually the one we
+                        /* Remember that the device we are about to manipulate is actually the one we
                          * allocated here, and thus to increase its backing file we know what to do */
                         node_is_our_loop = true;
                 }
@@ -4947,7 +4966,7 @@ static int run(int argc, char *argv[]) {
         r = context_open_copy_block_paths(
                         context,
                         arg_root,
-                        loop_device ? loop_device->devno :         /* if --image= is specified, only allow partitions on the loopback device*/
+                        loop_device ? loop_device->devno :         /* if --image= is specified, only allow partitions on the loopback device */
                                       arg_root && !arg_image ? 0 : /* if --root= is specified, don't accept any block device */
                                       (dev_t) -1);                 /* if neither is specified, make no restrictions */
         if (r < 0)

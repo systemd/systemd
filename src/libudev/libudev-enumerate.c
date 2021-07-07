@@ -93,7 +93,7 @@ static struct udev_enumerate *udev_enumerate_free(struct udev_enumerate *udev_en
  * udev_enumerate_ref:
  * @udev_enumerate: context
  *
- * Take a reference of a enumeration context.
+ * Take a reference of an enumeration context.
  *
  * Returns: the passed enumeration context
  **/

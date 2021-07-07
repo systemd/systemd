@@ -128,9 +128,6 @@ static int ndisc_remove_old_one(Link *link, const struct in6_addr *router, bool 
         if (!force) {
                 bool set_callback = false;
 
-                if (!link->ndisc_addresses_configured || !link->ndisc_routes_configured)
-                        return 0;
-
                 SET_FOREACH(na, link->ndisc_addresses)
                         if (!na->marked && in6_addr_equal(&na->router, router)) {
                                 set_callback = true;
@@ -211,6 +208,10 @@ static int ndisc_remove_old(Link *link) {
         int k, r;
 
         assert(link);
+
+        if (link->ndisc_addresses_messages > 0 ||
+            link->ndisc_routes_messages > 0)
+                return 0;
 
         routers = set_new(&in6_addr_hash_ops);
         if (!routers)
@@ -395,7 +396,7 @@ static int ndisc_request_route(Route *in, Link *link, sd_ndisc_router *rt) {
 
         r = link_request_route(link, TAKE_PTR(route), true, &link->ndisc_routes_messages,
                                ndisc_route_handler, &req);
-        if (r < 0)
+        if (r <= 0)
                 return r;
 
         req->userdata = sd_ndisc_router_ref(rt);
@@ -507,7 +508,7 @@ static int ndisc_request_address(Address *in, Link *link, sd_ndisc_router *rt) {
 
         r = link_request_address(link, TAKE_PTR(address), true, &link->ndisc_addresses_messages,
                                  ndisc_address_handler, &req);
-        if (r < 0)
+        if (r <= 0)
                 return r;
 
         req->userdata = sd_ndisc_router_ref(rt);
@@ -657,9 +658,9 @@ static int make_stableprivate_address(Link *link, const struct in6_addr *prefix,
         siphash24_compress_string(link->ifname, &state);
         /* Only last 8 bytes of IB MAC are stable */
         if (link->iftype == ARPHRD_INFINIBAND)
-                siphash24_compress(&link->hw_addr.addr.infiniband[12], 8, &state);
+                siphash24_compress(&link->hw_addr.infiniband[12], 8, &state);
         else
-                siphash24_compress(link->hw_addr.addr.bytes, link->hw_addr.length, &state);
+                siphash24_compress(link->hw_addr.bytes, link->hw_addr.length, &state);
         siphash24_compress(&dad_counter, sizeof(uint8_t), &state);
 
         rid = htole64(siphash24_finalize(&state));
@@ -818,8 +819,10 @@ static int ndisc_router_process_autonomous_prefix(Link *link, sd_ndisc_router *r
                 r = address_get(link, address, &e);
                 if (r > 0) {
                         /* If the address is already assigned, but not valid anymore, then refuse to
-                         * update the address. */
-                        if (e->cinfo.tstamp / 100 + e->cinfo.ifa_valid < time_now / USEC_PER_SEC)
+                         * update the address, and it will be removed. */
+                        if (e->cinfo.ifa_valid != CACHE_INFO_INFINITY_LIFE_TIME &&
+                            usec_add(e->cinfo.tstamp / 100 * USEC_PER_SEC,
+                                     e->cinfo.ifa_valid * USEC_PER_SEC) < time_now)
                                 continue;
                 }
 
@@ -1370,7 +1373,7 @@ int ndisc_configure(Link *link) {
         if (r < 0)
                 return r;
 
-        r = sd_ndisc_set_mac(link->ndisc, &link->hw_addr.addr.ether);
+        r = sd_ndisc_set_mac(link->ndisc, &link->hw_addr.ether);
         if (r < 0)
                 return r;
 

@@ -14,7 +14,6 @@
 #include "networkd-manager-bus.h"
 #include "networkd-manager.h"
 #include "path-util.h"
-#include "socket-netlink.h"
 #include "strv.h"
 #include "user-util.h"
 
@@ -32,7 +31,7 @@ static int method_list_links(sd_bus_message *message, void *userdata, sd_bus_err
         if (r < 0)
                 return r;
 
-        HASHMAP_FOREACH(link, manager->links) {
+        HASHMAP_FOREACH(link, manager->links_by_index) {
                 _cleanup_free_ char *path = NULL;
 
                 path = link_bus_path(link);
@@ -60,19 +59,14 @@ static int method_get_link_by_name(sd_bus_message *message, void *userdata, sd_b
         _cleanup_free_ char *path = NULL;
         Manager *manager = userdata;
         const char *name;
-        int index, r;
         Link *link;
+        int r;
 
         r = sd_bus_message_read(message, "s", &name);
         if (r < 0)
                 return r;
 
-        index = resolve_ifname(&manager->rtnl, name);
-        if (index < 0)
-                return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_LINK, "Link %s cannot be resolved", name);
-
-        link = hashmap_get(manager->links, INT_TO_PTR(index));
-        if (!link)
+        if (link_get_by_name(manager, name, &link) < 0)
                 return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_LINK, "Link %s not known", name);
 
         r = sd_bus_message_new_method_return(message, &reply);
@@ -101,8 +95,8 @@ static int method_get_link_by_index(sd_bus_message *message, void *userdata, sd_
         if (r < 0)
                 return r;
 
-        link = hashmap_get(manager->links, INT_TO_PTR(ifindex));
-        if (!link)
+        r = link_get_by_index(manager, ifindex, &link);
+        if (r < 0)
                 return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_LINK, "Link %i not known", ifindex);
 
         r = sd_bus_message_new_method_return(message, &reply);
@@ -132,8 +126,8 @@ static int call_link_method(Manager *m, sd_bus_message *message, sd_bus_message_
         if (r < 0)
                 return r;
 
-        l = hashmap_get(m->links, INT_TO_PTR(ifindex));
-        if (!l)
+        r = link_get_by_index(m, ifindex, &l);
+        if (r < 0)
                 return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_LINK, "Link %i not known", ifindex);
 
         return handler(message, l, error);
@@ -221,8 +215,8 @@ static int bus_method_reload(sd_bus_message *message, void *userdata, sd_bus_err
         if (r < 0)
                 return r;
 
-        HASHMAP_FOREACH(link, manager->links) {
-                r = link_reconfigure(link, false);
+        HASHMAP_FOREACH(link, manager->links_by_index) {
+                r = link_reconfigure(link, /* force = */ false);
                 if (r < 0)
                         return r;
         }

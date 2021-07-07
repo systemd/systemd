@@ -14,10 +14,12 @@
 #include "dirent-util.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "format-util.h"
 #include "fs-util.h"
 #include "hashmap.h"
 #include "id128-util.h"
 #include "macro.h"
+#include "netlink-util.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "set.h"
@@ -243,6 +245,52 @@ _public_ int sd_device_new_from_devnum(sd_device **ret, char type, dev_t devnum)
         syspath = strjoina("/sys/dev/", (type == 'b' ? "block" : "char"), "/", id);
 
         return sd_device_new_from_syspath(ret, syspath);
+}
+
+static int device_new_from_main_ifname(sd_device **ret, const char *ifname) {
+        const char *syspath;
+
+        assert(ret);
+        assert(ifname);
+
+        syspath = strjoina("/sys/class/net/", ifname);
+        return sd_device_new_from_syspath(ret, syspath);
+}
+
+_public_ int sd_device_new_from_ifname(sd_device **ret, const char *ifname) {
+        _cleanup_free_ char *main_name = NULL;
+        int r;
+
+        assert_return(ret, -EINVAL);
+        assert_return(ifname, -EINVAL);
+
+        r = parse_ifindex(ifname);
+        if (r > 0)
+                return sd_device_new_from_ifindex(ret, r);
+
+        if (ifname_valid(ifname)) {
+                r = device_new_from_main_ifname(ret, ifname);
+                if (r >= 0)
+                        return r;
+        }
+
+        r = rtnl_resolve_link_alternative_name(NULL, ifname, &main_name);
+        if (r < 0)
+                return r;
+
+        return device_new_from_main_ifname(ret, main_name);
+}
+
+_public_ int sd_device_new_from_ifindex(sd_device **ret, int ifindex) {
+        char ifname[IF_NAMESIZE + 1];
+
+        assert_return(ret, -EINVAL);
+        assert_return(ifindex > 0, -EINVAL);
+
+        if (!format_ifname(ifindex, ifname))
+                return -ENODEV;
+
+        return device_new_from_main_ifname(ret, ifname);
 }
 
 static int device_strjoin_new(
@@ -643,37 +691,13 @@ _public_ int sd_device_new_from_device_id(sd_device **ret, const char *id) {
         }
 
         case 'n': {
-                _cleanup_(sd_device_unrefp) sd_device *device = NULL;
-                _cleanup_close_ int sk = -1;
-                struct ifreq ifr = {};
                 int ifindex;
 
-                r = ifr.ifr_ifindex = parse_ifindex(id + 1);
-                if (r < 0)
-                        return r;
+                ifindex = parse_ifindex(id + 1);
+                if (ifindex < 0)
+                        return ifindex;
 
-                sk = socket_ioctl_fd();
-                if (sk < 0)
-                        return sk;
-
-                r = ioctl(sk, SIOCGIFNAME, &ifr);
-                if (r < 0)
-                        return -errno;
-
-                r = sd_device_new_from_subsystem_sysname(&device, "net", ifr.ifr_name);
-                if (r < 0)
-                        return r;
-
-                r = sd_device_get_ifindex(device, &ifindex);
-                if (r < 0)
-                        return r;
-
-                /* this is racey, so we might end up with the wrong device */
-                if (ifr.ifr_ifindex != ifindex)
-                        return -ENODEV;
-
-                *ret = TAKE_PTR(device);
-                return 0;
+                return sd_device_new_from_ifindex(ret, ifindex);
         }
 
         case '+': {
@@ -755,23 +779,24 @@ _public_ int sd_device_get_parent(sd_device *child, sd_device **ret) {
         return 0;
 }
 
-int device_set_subsystem(sd_device *device, const char *_subsystem) {
-        _cleanup_free_ char *subsystem = NULL;
+int device_set_subsystem(sd_device *device, const char *subsystem) {
+        _cleanup_free_ char *s = NULL;
         int r;
 
         assert(device);
-        assert(_subsystem);
 
-        subsystem = strdup(_subsystem);
-        if (!subsystem)
-                return -ENOMEM;
+        if (subsystem) {
+                s = strdup(subsystem);
+                if (!s)
+                        return -ENOMEM;
+        }
 
-        r = device_add_property_internal(device, "SUBSYSTEM", subsystem);
+        r = device_add_property_internal(device, "SUBSYSTEM", s);
         if (r < 0)
                 return r;
 
         device->subsystem_set = true;
-        return free_and_replace(device->subsystem, subsystem);
+        return free_and_replace(device->subsystem, s);
 }
 
 int device_set_drivers_subsystem(sd_device *device) {
@@ -932,23 +957,24 @@ _public_ int sd_device_get_devnum(sd_device *device, dev_t *devnum) {
         return 0;
 }
 
-int device_set_driver(sd_device *device, const char *_driver) {
-        _cleanup_free_ char *driver = NULL;
+int device_set_driver(sd_device *device, const char *driver) {
+        _cleanup_free_ char *d = NULL;
         int r;
 
         assert(device);
-        assert(_driver);
 
-        driver = strdup(_driver);
-        if (!driver)
-                return -ENOMEM;
+        if (driver) {
+                d = strdup(driver);
+                if (!d)
+                        return -ENOMEM;
+        }
 
-        r = device_add_property_internal(device, "DRIVER", driver);
+        r = device_add_property_internal(device, "DRIVER", d);
         if (r < 0)
                 return r;
 
         device->driver_set = true;
-        return free_and_replace(device->driver, driver);
+        return free_and_replace(device->driver, d);
 }
 
 _public_ int sd_device_get_driver(sd_device *device, const char **ret) {
@@ -966,14 +992,14 @@ _public_ int sd_device_get_driver(sd_device *device, const char **ret) {
 
                 path = strjoina(syspath, "/driver");
                 r = readlink_value(path, &driver);
-                if (r >= 0) {
-                        r = device_set_driver(device, driver);
-                        if (r < 0)
-                                return log_device_debug_errno(device, r, "sd-device: Failed to set driver for %s: %m", device->devpath);
-                } else if (r == -ENOENT)
-                        device->driver_set = true;
-                else
-                        return log_device_debug_errno(device, r, "sd-device: Failed to set driver for %s: %m", device->devpath);
+                if (r < 0 && r != -ENOENT)
+                        return log_device_debug_errno(device, r,
+                                                      "sd-device: readlink(\"%s\") failed: %m", path);
+
+                r = device_set_driver(device, driver);
+                if (r < 0)
+                        return log_device_debug_errno(device, r,
+                                                      "sd-device: Failed to set driver \"%s\": %m", driver);
         }
 
         if (!device->driver)
@@ -1996,13 +2022,17 @@ _public_ int sd_device_get_sysattr_value(sd_device *device, const char *sysattr,
                 /* skip non-readable files */
                 return -EPERM;
         else {
-                /* read attribute value */
-                r = read_full_virtual_file(path, &value, NULL);
+                size_t size;
+
+                /* Read attribute value, Some attributes contain embedded '\0'. So, it is necessary to
+                 * also get the size of the result. See issue #20025. */
+                r = read_full_virtual_file(path, &value, &size);
                 if (r < 0)
                         return r;
 
                 /* drop trailing newlines */
-                delete_trailing_chars(value, "\n");
+                while (size > 0 && strchr(NEWLINE, value[--size]))
+                        value[size] = '\0';
         }
 
         /* Unfortunately, we need to return 'const char*' instead of 'char*'. Hence, failure in caching

@@ -145,7 +145,7 @@ static int dhcp6_pd_remove_old(Link *link, bool force) {
         assert(link);
         assert(link->manager);
 
-        if (!force && (link->dhcp6_pd_address_messages != 0 || link->dhcp6_pd_route_messages != 0))
+        if (!force && (link->dhcp6_pd_address_messages > 0 || link->dhcp6_pd_route_messages > 0))
                 return 0;
 
         if (set_isempty(link->dhcp6_pd_addresses_old) && set_isempty(link->dhcp6_pd_routes_old))
@@ -312,6 +312,8 @@ static int dhcp6_pd_request_route(Link *link, const struct in6_addr *prefix, con
                                dhcp6_pd_route_handler, &req);
         if (r < 0)
                 return log_link_error_errno(link, r, "Failed to request DHCPv6 prefix route: %m");
+        if (r == 0)
+                return 0;
 
         req->after_configure = dhcp6_pd_after_route_configure;
 
@@ -470,6 +472,8 @@ static int dhcp6_pd_request_address(
                                  dhcp6_pd_address_handler, &req);
         if (r < 0)
                 return log_link_error_errno(link, r, "Failed to request DHCPv6 delegated prefix address: %m");
+        if (r == 0)
+                return 0;
 
         req->after_configure = dhcp6_pd_after_address_configure;
 
@@ -598,7 +602,7 @@ static void dhcp6_pd_prefix_distribute(Link *dhcp6_link,
         assert(masked_pd_prefix);
         assert(pd_prefix_len <= 64);
 
-        HASHMAP_FOREACH(link, dhcp6_link->manager->links) {
+        HASHMAP_FOREACH(link, dhcp6_link->manager->links_by_index) {
                 _cleanup_free_ char *assigned_buf = NULL;
                 struct in6_addr assigned_prefix;
 
@@ -702,7 +706,7 @@ static void dhcp6_pd_prefix_lost(Link *dhcp6_link) {
         assert(dhcp6_link);
         assert(dhcp6_link->manager);
 
-        HASHMAP_FOREACH(link, dhcp6_link->manager->links) {
+        HASHMAP_FOREACH(link, dhcp6_link->manager->links_by_index) {
                 if (link == dhcp6_link)
                         continue;
 
@@ -736,7 +740,7 @@ static int dhcp6_remove_old(Link *link, bool force) {
 
         assert(link);
 
-        if (!force && (!link->dhcp6_address_configured || !link->dhcp6_route_configured))
+        if (!force && (link->dhcp6_address_messages > 0 || link->dhcp6_route_messages > 0))
                 return 0;
 
         if (set_isempty(link->dhcp6_addresses_old) && set_isempty(link->dhcp6_routes_old))
@@ -897,6 +901,8 @@ static int dhcp6_request_unreachable_route(Link *link, const struct in6_addr *ad
         if (r < 0)
                 return log_link_error_errno(link, r, "Failed to request unreachable route for DHCPv6 delegated subnet %s: %m",
                                             strna(buf));
+        if (r == 0)
+                return 0;
 
         req->after_configure = dhcp6_after_route_configure;
 
@@ -948,7 +954,7 @@ static int dhcp6_pd_prefix_acquired(Link *dhcp6_link) {
         assert(dhcp6_link);
         assert(dhcp6_link->dhcp6_lease);
 
-        HASHMAP_FOREACH(link, dhcp6_link->manager->links) {
+        HASHMAP_FOREACH(link, dhcp6_link->manager->links_by_index) {
                 if (link == dhcp6_link)
                         continue;
 
@@ -1018,7 +1024,7 @@ static int dhcp6_pd_prefix_acquired(Link *dhcp6_link) {
                                            false);
         }
 
-        HASHMAP_FOREACH(link, dhcp6_link->manager->links) {
+        HASHMAP_FOREACH(link, dhcp6_link->manager->links_by_index) {
                 if (link == dhcp6_link)
                         continue;
 
@@ -1173,6 +1179,8 @@ static int dhcp6_request_address(
                                  dhcp6_address_handler, &req);
         if (r < 0)
                 return log_link_error_errno(link, r, "Failed to request DHCPv6 address %s: %m", strna(buffer));
+        if (r == 0)
+                return 0;
 
         req->after_configure = dhcp6_after_address_configure;
 
@@ -1442,7 +1450,7 @@ int dhcp6_request_prefix_delegation(Link *link) {
 
         log_link_debug(link, "Requesting DHCPv6 prefixes to be delegated for new link");
 
-        HASHMAP_FOREACH(l, link->manager->links) {
+        HASHMAP_FOREACH(l, link->manager->links_by_index) {
                 int r, enabled;
 
                 if (l == link)
@@ -1540,7 +1548,7 @@ static bool dhcp6_enable_prefix_delegation(Link *dhcp6_link) {
         assert(dhcp6_link);
         assert(dhcp6_link->manager);
 
-        HASHMAP_FOREACH(link, dhcp6_link->manager->links) {
+        HASHMAP_FOREACH(link, dhcp6_link->manager->links_by_index) {
                 if (link == dhcp6_link)
                         continue;
 
@@ -1561,7 +1569,7 @@ static int dhcp6_set_identifier(Link *link, sd_dhcp6_client *client) {
         assert(link->network);
         assert(client);
 
-        r = sd_dhcp6_client_set_mac(client, link->hw_addr.addr.bytes, link->hw_addr.length, link->iftype);
+        r = sd_dhcp6_client_set_mac(client, link->hw_addr.bytes, link->hw_addr.length, link->iftype);
         if (r < 0)
                 return r;
 

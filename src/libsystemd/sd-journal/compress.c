@@ -550,7 +550,7 @@ int decompress_startswith(
                 return -EBADMSG;
 }
 
-int compress_stream_xz(int fdf, int fdt, uint64_t max_bytes) {
+int compress_stream_xz(int fdf, int fdt, uint64_t max_bytes, uint64_t *ret_uncompressed_size) {
 #if HAVE_XZ
         _cleanup_(lzma_end) lzma_stream s = LZMA_STREAM_INIT;
         lzma_ret ret;
@@ -611,6 +611,9 @@ int compress_stream_xz(int fdf, int fdt, uint64_t max_bytes) {
                                 return k;
 
                         if (ret == LZMA_STREAM_END) {
+                                if (ret_uncompressed_size)
+                                        *ret_uncompressed_size = s.total_in;
+
                                 log_debug("XZ compression finished (%"PRIu64" -> %"PRIu64" bytes, %.1f%%)",
                                           s.total_in, s.total_out,
                                           (double) s.total_out / s.total_in * 100);
@@ -626,14 +629,15 @@ int compress_stream_xz(int fdf, int fdt, uint64_t max_bytes) {
 
 #define LZ4_BUFSIZE (512*1024u)
 
-int compress_stream_lz4(int fdf, int fdt, uint64_t max_bytes) {
+int compress_stream_lz4(int fdf, int fdt, uint64_t max_bytes, uint64_t *ret_uncompressed_size) {
 
 #if HAVE_LZ4
         LZ4F_errorCode_t c;
         _cleanup_(LZ4F_freeCompressionContextp) LZ4F_compressionContext_t ctx = NULL;
         _cleanup_free_ void *in_buff = NULL;
         _cleanup_free_ char *out_buff = NULL;
-        size_t out_allocsize, n, total_in = 0, total_out, offset = 0, frame_size;
+        size_t out_allocsize, n, offset = 0, frame_size;
+        uint64_t total_in = 0, total_out;
         int r;
         static const LZ4F_preferences_t preferences = {
                 .frameInfo.blockSizeID = 5,
@@ -698,7 +702,10 @@ int compress_stream_lz4(int fdf, int fdt, uint64_t max_bytes) {
         if (r < 0)
                 return r;
 
-        log_debug("LZ4 compression finished (%zu -> %zu bytes, %.1f%%)",
+        if (ret_uncompressed_size)
+                *ret_uncompressed_size = total_in;
+
+        log_debug("LZ4 compression finished (%" PRIu64 " -> %" PRIu64 " bytes, %.1f%%)",
                   total_in, total_out,
                   (double) total_out / total_in * 100);
 
@@ -844,7 +851,7 @@ int decompress_stream_lz4(int in, int out, uint64_t max_bytes) {
 #endif
 }
 
-int compress_stream_zstd(int fdf, int fdt, uint64_t max_bytes) {
+int compress_stream_zstd(int fdf, int fdt, uint64_t max_bytes, uint64_t *ret_uncompressed_size) {
 #if HAVE_ZSTD
         _cleanup_(ZSTD_freeCCtxp) ZSTD_CCtx *cctx = NULL;
         _cleanup_free_ void *in_buff = NULL, *out_buff = NULL;
@@ -932,6 +939,9 @@ int compress_stream_zstd(int fdf, int fdt, uint64_t max_bytes) {
                 if (is_last_chunk)
                         break;
         }
+
+        if (ret_uncompressed_size)
+                *ret_uncompressed_size = in_bytes;
 
         if (in_bytes > 0)
                 log_debug("ZSTD compression finished (%" PRIu64 " -> %" PRIu64 " bytes, %.1f%%)",

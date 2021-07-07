@@ -629,7 +629,7 @@
         <term><option>fido2-rp=</option></term>
 
         <listitem><para>Takes a string, configuring the FIDO2 Relying Party (rp) for the FIDO2 unlock
-        operation. If not specified <literal>io.systemd.cryptsetup</literal> is used, except if the the LUKS2
+        operation. If not specified <literal>io.systemd.cryptsetup</literal> is used, except if the LUKS2
         JSON token header contains a different value. It should normally not be necessary to override
         this.</para></listitem>
       </varlistentry>

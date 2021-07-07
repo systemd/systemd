@@ -196,7 +196,7 @@ void service_close_socket_fd(Service *s) {
 static void service_stop_watchdog(Service *s) {
         assert(s);
 
-        s->watchdog_event_source = sd_event_source_unref(s->watchdog_event_source);
+        s->watchdog_event_source = sd_event_source_disable_unref(s->watchdog_event_source);
         s->watchdog_timestamp = DUAL_TIMESTAMP_NULL;
 }
 
@@ -395,8 +395,8 @@ static void service_done(Unit *u) {
 
         service_stop_watchdog(s);
 
-        s->timer_event_source = sd_event_source_unref(s->timer_event_source);
-        s->exec_fd_event_source = sd_event_source_unref(s->exec_fd_event_source);
+        s->timer_event_source = sd_event_source_disable_unref(s->timer_event_source);
+        s->exec_fd_event_source = sd_event_source_disable_unref(s->exec_fd_event_source);
 
         service_release_resources(u);
 }
@@ -668,7 +668,8 @@ static int service_setup_bus_name(Service *s) {
 
         assert(s);
 
-        if (s->type != SERVICE_DBUS)
+        /* If s->bus_name is not set, then the unit will be refused by service_verify() later. */
+        if (s->type != SERVICE_DBUS || !s->bus_name)
                 return 0;
 
         r = unit_add_dependency_by_name(UNIT(s), UNIT_REQUIRES, SPECIAL_DBUS_SOCKET, true, UNIT_DEPENDENCY_FILE);
@@ -1054,7 +1055,7 @@ static void service_set_state(Service *s, ServiceState state) {
                     SERVICE_FINAL_WATCHDOG, SERVICE_FINAL_SIGTERM, SERVICE_FINAL_SIGKILL,
                     SERVICE_AUTO_RESTART,
                     SERVICE_CLEANING))
-                s->timer_event_source = sd_event_source_unref(s->timer_event_source);
+                s->timer_event_source = sd_event_source_disable_unref(s->timer_event_source);
 
         if (!IN_SET(state,
                     SERVICE_START, SERVICE_START_POST,
@@ -1090,7 +1091,7 @@ static void service_set_state(Service *s, ServiceState state) {
                 service_close_socket_fd(s);
 
         if (state != SERVICE_START)
-                s->exec_fd_event_source = sd_event_source_unref(s->exec_fd_event_source);
+                s->exec_fd_event_source = sd_event_source_disable_unref(s->exec_fd_event_source);
 
         if (!IN_SET(state, SERVICE_START_POST, SERVICE_RUNNING, SERVICE_RELOAD))
                 service_stop_watchdog(s);
@@ -1350,7 +1351,7 @@ static int service_allocate_exec_fd_event_source(
         if (r < 0)
                 return log_unit_error_errno(UNIT(s), r, "Failed to adjust priority of exec_fd event source: %m");
 
-        (void) sd_event_source_set_description(source, "service event_fd");
+        (void) sd_event_source_set_description(source, "service exec_fd");
 
         r = sd_event_source_set_io_fd_own(source, true);
         if (r < 0)
@@ -1432,6 +1433,8 @@ static int service_spawn(
         if (r < 0)
                 return r;
 
+        assert(!s->exec_fd_event_source);
+
         if (flags & EXEC_IS_CONTROL) {
                 /* If this is a control process, mask the permissions/chroot application if this is requested. */
                 if (s->permissions_start_only)
@@ -1457,8 +1460,6 @@ static int service_spawn(
         }
 
         if (!FLAGS_SET(flags, EXEC_IS_CONTROL) && s->type == SERVICE_EXEC) {
-                assert(!s->exec_fd_event_source);
-
                 r = service_allocate_exec_fd(s, &exec_fd_source, &exec_params.exec_fd);
                 if (r < 0)
                         return r;
@@ -1620,25 +1621,18 @@ static int control_pid_good(Service *s) {
         return s->control_pid > 0;
 }
 
-static int cgroup_empty(Service *s) {
-        assert(s);
-
-        /* Returns 0 if there is no cgroup, > 0 if is empty or doesn't exist, < 0 if we can't figure it out */
-
-        if (!UNIT(s)->cgroup_path)
-                return 0;
-
-        return cg_is_empty_recursive(SYSTEMD_CGROUP_CONTROLLER, UNIT(s)->cgroup_path);
-}
-
-
 static int cgroup_good(Service *s) {
         int r;
+
+        assert(s);
 
         /* Returns 0 if the cgroup is empty or doesn't exist, > 0 if it is exists and is populated, < 0 if we can't
          * figure it out */
 
-        r = cgroup_empty(s);
+        if (!UNIT(s)->cgroup_path)
+                return 0;
+
+        r = cg_is_empty_recursive(SYSTEMD_CGROUP_CONTROLLER, UNIT(s)->cgroup_path);
         if (r < 0)
                 return r;
 
@@ -3025,7 +3019,7 @@ static int service_deserialize_item(Unit *u, const char *key, const char *value,
                 if (safe_atoi(value, &fd) < 0 || fd < 0 || !fdset_contains(fds, fd))
                         log_unit_debug(u, "Failed to parse exec-fd value: %s", value);
                 else {
-                        s->exec_fd_event_source = sd_event_source_unref(s->exec_fd_event_source);
+                        s->exec_fd_event_source = sd_event_source_disable_unref(s->exec_fd_event_source);
 
                         fd = fdset_remove(fds, fd);
                         if (service_allocate_exec_fd_event_source(s, fd, &s->exec_fd_event_source) < 0)
@@ -3222,7 +3216,7 @@ static int service_dispatch_exec_io(sd_event_source *source, int fd, uint32_t ev
                 }
                 if (n == 0) { /* EOF → the event we are waiting for */
 
-                        s->exec_fd_event_source = sd_event_source_unref(s->exec_fd_event_source);
+                        s->exec_fd_event_source = sd_event_source_disable_unref(s->exec_fd_event_source);
 
                         if (s->exec_fd_hot) { /* Did the child tell us to expect EOF now? */
                                 log_unit_debug(UNIT(s), "Got EOF on exec-fd");
@@ -3401,14 +3395,12 @@ static void service_sigchld_event(Unit *u, pid_t pid, int code, int status) {
         else
                 assert_not_reached("Unknown code");
 
-        /* Services with ExitType=cgroup ignore the main PID for purposes of exit status */
-        if (s->exit_type == SERVICE_EXIT_CGROUP && s->main_pid == pid) {
-                service_unwatch_main_pid(s);
-                s->main_pid_known = false;
-        }
+        if (s->main_pid == pid) {
+                /* Clean up the exec_fd event source. We want to do this here, not later in
+                 * service_set_state(), because service_enter_stop_post() calls service_spawn().
+                 * The source owns its end of the pipe, so this will close that too. */
+                s->exec_fd_event_source = sd_event_source_disable_unref(s->exec_fd_event_source);
 
-        if ((s->exit_type == SERVICE_EXIT_MAIN && s->main_pid == pid) ||
-            (s->exit_type == SERVICE_EXIT_CGROUP && cgroup_empty(s) && !control_pid_good(s))) {
                 /* Forking services may occasionally move to a new PID.
                  * As long as they update the PID file before exiting the old
                  * PID, they're fine. */
@@ -3441,7 +3433,7 @@ static void service_sigchld_event(Unit *u, pid_t pid, int code, int status) {
 
                 unit_log_process_exit(
                                 u,
-                                s->exit_type == SERVICE_EXIT_CGROUP ? "Last process" : "Main process",
+                                "Main process",
                                 service_exec_command_to_string(SERVICE_EXEC_START),
                                 f == SERVICE_SUCCESS,
                                 code, status);
@@ -3537,6 +3529,9 @@ static void service_sigchld_event(Unit *u, pid_t pid, int code, int status) {
                 }
 
         } else if (s->control_pid == pid) {
+                const char *kind;
+                bool success;
+
                 s->control_pid = 0;
 
                 if (s->control_command) {
@@ -3551,15 +3546,24 @@ static void service_sigchld_event(Unit *u, pid_t pid, int code, int status) {
                         if (f == SERVICE_FAILURE_EXIT_CODE && status < 255) {
                                 UNIT(s)->condition_result = false;
                                 f = SERVICE_SKIP_CONDITION;
-                        } else if (f == SERVICE_SUCCESS)
+                                success = true;
+                        } else if (f == SERVICE_SUCCESS) {
                                 UNIT(s)->condition_result = true;
+                                success = true;
+                        } else
+                                success = false;
+
+                        kind = "Condition check process";
+                } else {
+                        kind = "Control process";
+                        success = f == SERVICE_SUCCESS;
                 }
 
                 unit_log_process_exit(
                                 u,
-                                "Control process",
+                                kind,
                                 service_exec_command_to_string(s->control_command_id),
-                                f == SERVICE_SUCCESS,
+                                success,
                                 code, status);
 
                 if (s->state != SERVICE_RELOAD && s->result == SERVICE_SUCCESS)
@@ -4416,7 +4420,7 @@ static int service_clean(Unit *u, ExecCleanMask mask) {
 fail:
         log_unit_warning_errno(u, r, "Failed to initiate cleaning: %m");
         s->clean_result = SERVICE_FAILURE_RESOURCES;
-        s->timer_event_source = sd_event_source_unref(s->timer_event_source);
+        s->timer_event_source = sd_event_source_disable_unref(s->timer_event_source);
         return r;
 }
 
@@ -4429,12 +4433,10 @@ static int service_can_clean(Unit *u, ExecCleanMask *ret) {
 }
 
 static const char *service_finished_job(Unit *u, JobType t, JobResult result) {
-        if (t == JOB_START && result == JOB_DONE) {
-                Service *s = SERVICE(u);
-
-                if (s->type == SERVICE_ONESHOT)
-                        return "Finished %s.";
-        }
+        if (t == JOB_START &&
+            result == JOB_DONE &&
+            SERVICE(u)->type == SERVICE_ONESHOT)
+                return "Finished %s.";
 
         /* Fall back to generic */
         return NULL;
@@ -4463,13 +4465,6 @@ static const char* const service_type_table[_SERVICE_TYPE_MAX] = {
 };
 
 DEFINE_STRING_TABLE_LOOKUP(service_type, ServiceType);
-
-static const char* const service_exit_type_table[_SERVICE_EXIT_TYPE_MAX] = {
-        [SERVICE_EXIT_MAIN] = "main",
-        [SERVICE_EXIT_CGROUP] = "cgroup",
-};
-
-DEFINE_STRING_TABLE_LOOKUP(service_exit_type, ServiceExitType);
 
 static const char* const service_exec_command_table[_SERVICE_EXEC_COMMAND_MAX] = {
         [SERVICE_EXEC_CONDITION] = "ExecCondition",
@@ -4600,10 +4595,6 @@ const UnitVTable service_vtable = {
         .exit_status = service_exit_status,
 
         .status_message_formats = {
-                .starting_stopping = {
-                        [0] = "Starting %s...",
-                        [1] = "Stopping %s...",
-                },
                 .finished_start_job = {
                         [JOB_FAILED]     = "Failed to start %s.",
                 },

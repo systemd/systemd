@@ -161,7 +161,7 @@
       <varlistentry>
         <term><literal>passwd.shell.<replaceable>user</replaceable></literal></term>
 
-        <listitem><para>Specifies the shell binary to use for the the specified account when creating it.</para></listitem>
+        <listitem><para>Specifies the shell binary to use for the specified account when creating it.</para></listitem>
       </varlistentry>
     </variablelist>
 

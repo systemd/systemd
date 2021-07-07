@@ -46,6 +46,7 @@
 #include "cgroup-setup.h"
 #include "chown-recursive.h"
 #include "cpu-set-util.h"
+#include "data-fd-util.h"
 #include "def.h"
 #include "env-file.h"
 #include "env-util.h"
@@ -2450,7 +2451,7 @@ static int setup_exec_directory(
 
                 /* Then, change the ownership of the whole tree, if necessary. When dynamic users are used we
                  * drop the suid/sgid bits, since we really don't want SUID/SGID files for dynamic UID/GID
-                 * assignments to exist.*/
+                 * assignments to exist. */
                 r = path_chown_recursive(pp ?: p, uid, gid, context->dynamic_user ? 01777 : 07777);
                 if (r < 0)
                         goto fail;
@@ -2886,7 +2887,7 @@ static int setup_credentials(
                  * Yes it's nasty playing games with /dev/ and /dev/shm/ like this, since it does not exist
                  * for this purpose, but there are few other candidates that work equally well for us, and
                  * given that the we do this in a privately namespaced short-lived single-threaded process
-                 * that no one else sees this should be OK to do.*/
+                 * that no one else sees this should be OK to do. */
 
                 r = mount_nofollow_verbose(LOG_DEBUG, NULL, "/dev", NULL, MS_SLAVE|MS_REC, NULL); /* Turn off propagation from our namespace to host */
                 if (r < 0)
@@ -3190,7 +3191,7 @@ static int apply_mount_namespace(
                         .proc_subset = context->proc_subset,
                         .private_ipc = context->private_ipc || context->ipc_namespace_path,
                         /* If NNP is on, we can turn on MS_NOSUID, since it won't have any effect anymore. */
-                        .mount_nosuid = context->no_new_privileges,
+                        .mount_nosuid = context->no_new_privileges && !mac_selinux_use(),
                 };
         } else if (!context->dynamic_user && root_dir)
                 /*
@@ -3838,7 +3839,7 @@ static int exec_child(
                 _cleanup_strv_free_ char **suggested_paths = NULL;
 
                 /* On top of that, make sure we bypass our own NSS module nss-systemd comprehensively for any NSS
-                 * checks, if DynamicUser=1 is used, as we shouldn't create a feedback loop with ourselves here.*/
+                 * checks, if DynamicUser=1 is used, as we shouldn't create a feedback loop with ourselves here. */
                 if (putenv((char*) "SYSTEMD_NSS_DYNAMIC_BYPASS=1") != 0) {
                         *exit_status = EXIT_USER;
                         return log_unit_error_errno(unit, errno, "Failed to update environment: %m");
@@ -4344,11 +4345,22 @@ static int exec_child(
         }
 
 #if HAVE_SELINUX
-        if (needs_sandboxing && use_selinux && params->selinux_context_net && socket_fd >= 0) {
-                r = mac_selinux_get_child_mls_label(socket_fd, executable, context->selinux_context, &mac_selinux_context_net);
-                if (r < 0) {
-                        *exit_status = EXIT_SELINUX_CONTEXT;
-                        return log_unit_error_errno(unit, r, "Failed to determine SELinux context: %m");
+        if (needs_sandboxing && use_selinux && params->selinux_context_net) {
+                int fd = -1;
+
+                if (socket_fd >= 0)
+                        fd = socket_fd;
+                else if (params->n_socket_fds == 1)
+                        /* If stdin is not connected to a socket but we are triggered by exactly one socket unit then we
+                         * use context from that fd to compute the label. */
+                        fd = params->fds[0];
+
+                if (fd >= 0) {
+                        r = mac_selinux_get_child_mls_label(fd, executable, context->selinux_context, &mac_selinux_context_net);
+                        if (r < 0) {
+                                *exit_status = EXIT_SELINUX_CONTEXT;
+                                return log_unit_error_errno(unit, r, "Failed to determine SELinux context: %m");
+                        }
                 }
         }
 #endif
@@ -6250,7 +6262,7 @@ int exec_runtime_acquire(Manager *m, const ExecContext *c, const char *id, bool 
 
         rt = hashmap_get(m->exec_runtime_by_id, id);
         if (rt)
-                /* We already have a ExecRuntime object, let's increase the ref count and reuse it */
+                /* We already have an ExecRuntime object, let's increase the ref count and reuse it */
                 goto ref;
 
         if (!create) {
@@ -6371,38 +6383,24 @@ int exec_runtime_deserialize_compat(Unit *u, const char *key, const char *value,
                 return 0;
         }
 
-        r = hashmap_ensure_allocated(&u->manager->exec_runtime_by_id, &string_hash_ops);
-        if (r < 0) {
-                log_unit_debug_errno(u, r, "Failed to allocate storage for runtime parameter: %m");
-                return 0;
-        }
+        if (hashmap_ensure_allocated(&u->manager->exec_runtime_by_id, &string_hash_ops) < 0)
+                return log_oom();
 
         rt = hashmap_get(u->manager->exec_runtime_by_id, u->id);
         if (!rt) {
-                r = exec_runtime_allocate(&rt_create, u->id);
-                if (r < 0)
+                if (exec_runtime_allocate(&rt_create, u->id) < 0)
                         return log_oom();
 
                 rt = rt_create;
         }
 
         if (streq(key, "tmp-dir")) {
-                char *copy;
-
-                copy = strdup(value);
-                if (!copy)
-                        return log_oom();
-
-                free_and_replace(rt->tmp_dir, copy);
+                if (free_and_strdup_warn(&rt->tmp_dir, value) < 0)
+                        return -ENOMEM;
 
         } else if (streq(key, "var-tmp-dir")) {
-                char *copy;
-
-                copy = strdup(value);
-                if (!copy)
-                        return log_oom();
-
-                free_and_replace(rt->var_tmp_dir, copy);
+                if (free_and_strdup_warn(&rt->var_tmp_dir, value) < 0)
+                        return -ENOMEM;
 
         } else if (streq(key, "netns-socket-0")) {
                 int fd;
@@ -6426,27 +6424,6 @@ int exec_runtime_deserialize_compat(Unit *u, const char *key, const char *value,
                 safe_close(rt->netns_storage_socket[1]);
                 rt->netns_storage_socket[1] = fdset_remove(fds, fd);
 
-        } else if (streq(key, "ipcns-socket-0")) {
-                int fd;
-
-                if (safe_atoi(value, &fd) < 0 || !fdset_contains(fds, fd)) {
-                        log_unit_debug(u, "Failed to parse ipcns socket value: %s", value);
-                        return 0;
-                }
-
-                safe_close(rt->ipcns_storage_socket[0]);
-                rt->ipcns_storage_socket[0] = fdset_remove(fds, fd);
-
-        } else if (streq(key, "ipcns-socket-1")) {
-                int fd;
-
-                if (safe_atoi(value, &fd) < 0 || !fdset_contains(fds, fd)) {
-                        log_unit_debug(u, "Failed to parse ipcns socket value: %s", value);
-                        return 0;
-                }
-
-                safe_close(rt->ipcns_storage_socket[1]);
-                rt->ipcns_storage_socket[1] = fdset_remove(fds, fd);
         } else
                 return 0;
 

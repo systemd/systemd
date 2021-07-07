@@ -17,6 +17,7 @@
 #include "glob-util.h"
 #include "list.h"
 #include "mkdir.h"
+#include "netif-naming-scheme.h"
 #include "nulstr-util.h"
 #include "parse-util.h"
 #include "path-util.h"
@@ -29,6 +30,7 @@
 #include "udev-builtin.h"
 #include "udev-event.h"
 #include "udev-rules.h"
+#include "udev-util.h"
 #include "user-util.h"
 #include "virt.h"
 
@@ -244,11 +246,11 @@ struct UdevRules {
 
 #define log_token_invalid_attr_format(rules, key, attr, offset, hint)   \
         log_token_error_errno(rules, SYNTHETIC_ERRNO(EINVAL),           \
-                              "Invalid attribute \"%s\" for %s (char %zu: %s), ignoring, but please fix it.", \
+                              "Invalid attribute \"%s\" for %s (char %zu: %s), ignoring.", \
                               attr, key, offset, hint)
 #define log_token_invalid_value(rules, key, value, offset, hint)        \
         log_token_error_errno(rules, SYNTHETIC_ERRNO(EINVAL),           \
-                              "Invalid value \"%s\" for %s (char %zu: %s), ignoring, but please fix it.", \
+                              "Invalid value \"%s\" for %s (char %zu: %s), ignoring.", \
                               value, key, offset, hint)
 
 static void log_unknown_owner(sd_device *dev, UdevRules *rules, int error, const char *entity, const char *name) {
@@ -595,17 +597,17 @@ static int parse_token(UdevRules *rules, const char *key, char *attr, UdevRuleOp
                 if (op == OP_REMOVE)
                         return log_token_invalid_op(rules, key);
                 if (op == OP_ADD) {
-                        log_token_warning(rules, "%s key takes '==', '!=', '=', or ':=' operator, assuming '=', but please fix it.", key);
+                        log_token_warning(rules, "%s key takes '==', '!=', '=', or ':=' operator, assuming '='.", key);
                         op = OP_ASSIGN;
                 }
 
                 if (!is_match) {
                         if (streq(value, "%k"))
                                 return log_token_error_errno(rules, SYNTHETIC_ERRNO(EINVAL),
-                                                             "NAME=\"%%k\" is ignored, as it breaks kernel supplied names.");
+                                                             "Ignoring NAME=\"%%k\", as it will take no effect.");
                         if (isempty(value))
                                 return log_token_error_errno(rules, SYNTHETIC_ERRNO(EINVAL),
-                                                             "Ignoring NAME=\"\", as udev will not delete any device nodes.");
+                                                             "Ignoring NAME=\"\", as udev will not delete any network interfaces.");
                         check_value_format_and_warn(rules, key, value, false);
 
                         r = rule_line_add_token(rule_line, TK_A_NAME, op, value, NULL);
@@ -617,7 +619,7 @@ static int parse_token(UdevRules *rules, const char *key, char *attr, UdevRuleOp
                 if (op == OP_REMOVE)
                         return log_token_invalid_op(rules, key);
                 if (op == OP_ASSIGN_FINAL) {
-                        log_token_warning(rules, "%s key takes '==', '!=', '=', or '+=' operator, assuming '=', but please fix it.", key);
+                        log_token_warning(rules, "%s key takes '==', '!=', '=', or '+=' operator, assuming '='.", key);
                         op = OP_ASSIGN;
                 }
 
@@ -643,7 +645,7 @@ static int parse_token(UdevRules *rules, const char *key, char *attr, UdevRuleOp
                 if (attr)
                         return log_token_invalid_attr(rules, key);
                 if (op == OP_ASSIGN_FINAL) {
-                        log_token_warning(rules, "%s key takes '==', '!=', '=', or '+=' operator, assuming '=', but please fix it.", key);
+                        log_token_warning(rules, "%s key takes '==', '!=', '=', or '+=' operator, assuming '='.", key);
                         op = OP_ASSIGN;
                 }
 
@@ -660,7 +662,7 @@ static int parse_token(UdevRules *rules, const char *key, char *attr, UdevRuleOp
                         return log_token_invalid_op(rules, key);
 
                 if (STR_IN_SET(value, "bus", "class"))
-                        log_token_warning(rules, "'%s' must be specified as 'subsystem'; please fix it", value);
+                        log_token_warning(rules, "\"%s\" must be specified as \"subsystem\".", value);
 
                 r = rule_line_add_token(rule_line, TK_M_SUBSYSTEM, op, value, NULL);
         } else if (streq(key, "DRIVER")) {
@@ -677,7 +679,7 @@ static int parse_token(UdevRules *rules, const char *key, char *attr, UdevRuleOp
                 if (op == OP_REMOVE)
                         return log_token_invalid_op(rules, key);
                 if (IN_SET(op, OP_ADD, OP_ASSIGN_FINAL)) {
-                        log_token_warning(rules, "%s key takes '==', '!=', or '=' operator, assuming '=', but please fix it.", key);
+                        log_token_warning(rules, "%s key takes '==', '!=', or '=' operator, assuming '='.", key);
                         op = OP_ASSIGN;
                 }
 
@@ -693,7 +695,7 @@ static int parse_token(UdevRules *rules, const char *key, char *attr, UdevRuleOp
                 if (op == OP_REMOVE)
                         return log_token_invalid_op(rules, key);
                 if (IN_SET(op, OP_ADD, OP_ASSIGN_FINAL)) {
-                        log_token_warning(rules, "%s key takes '==', '!=', or '=' operator, assuming '=', but please fix it.", key);
+                        log_token_warning(rules, "%s key takes '==', '!=', or '=' operator, assuming '='.", key);
                         op = OP_ASSIGN;
                 }
 
@@ -731,9 +733,9 @@ static int parse_token(UdevRules *rules, const char *key, char *attr, UdevRuleOp
                         return log_token_invalid_op(rules, key);
 
                 if (startswith(attr, "device/"))
-                        log_token_warning(rules, "'device' link may not be available in future kernels; please fix it.");
+                        log_token_warning(rules, "'device' link may not be available in future kernels.");
                 if (strstr(attr, "../"))
-                        log_token_warning(rules, "Direct reference to parent sysfs directory, may break in future kernels; please fix it.");
+                        log_token_warning(rules, "Direct reference to parent sysfs directory, may break in future kernels.");
 
                 r = rule_line_add_token(rule_line, TK_M_PARENTS_ATTR, op, value, attr);
         } else if (streq(key, "TAGS")) {
@@ -861,7 +863,7 @@ static int parse_token(UdevRules *rules, const char *key, char *attr, UdevRuleOp
                 if (is_match || op == OP_REMOVE)
                         return log_token_invalid_op(rules, key);
                 if (op == OP_ADD) {
-                        log_token_warning(rules, "%s key takes '=' or ':=' operator, assuming '=', but please fix it.", key);
+                        log_token_warning(rules, "%s key takes '=' or ':=' operator, assuming '='.", key);
                         op = OP_ASSIGN;
                 }
 
@@ -889,7 +891,7 @@ static int parse_token(UdevRules *rules, const char *key, char *attr, UdevRuleOp
                 if (is_match || op == OP_REMOVE)
                         return log_token_invalid_op(rules, key);
                 if (op == OP_ADD) {
-                        log_token_warning(rules, "%s key takes '=' or ':=' operator, assuming '=', but please fix it.", key);
+                        log_token_warning(rules, "%s key takes '=' or ':=' operator, assuming '='.", key);
                         op = OP_ASSIGN;
                 }
 
@@ -906,7 +908,7 @@ static int parse_token(UdevRules *rules, const char *key, char *attr, UdevRuleOp
                         check_value_format_and_warn(rules, key, value, true);
                         r = rule_line_add_token(rule_line, TK_A_GROUP, op, value, NULL);
                 } else {
-                        log_token_debug(rules, "Resolving group name is disabled, ignoring %s=%s", key, value);
+                        log_token_debug(rules, "Resolving group name is disabled, ignoring GROUP=\"%s\"", value);
                         return 0;
                 }
         } else if (streq(key, "MODE")) {
@@ -917,7 +919,7 @@ static int parse_token(UdevRules *rules, const char *key, char *attr, UdevRuleOp
                 if (is_match || op == OP_REMOVE)
                         return log_token_invalid_op(rules, key);
                 if (op == OP_ADD) {
-                        log_token_warning(rules, "%s key takes '=' or ':=' operator, assuming '=', but please fix it.", key);
+                        log_token_warning(rules, "%s key takes '=' or ':=' operator, assuming '='.", key);
                         op = OP_ASSIGN;
                 }
 
@@ -934,7 +936,7 @@ static int parse_token(UdevRules *rules, const char *key, char *attr, UdevRuleOp
                 if (is_match || op == OP_REMOVE)
                         return log_token_invalid_op(rules, key);
                 if (op == OP_ASSIGN_FINAL) {
-                        log_token_warning(rules, "%s key takes '=' or '+=' operator, assuming '=', but please fix it.", key);
+                        log_token_warning(rules, "%s key takes '=' or '+=' operator, assuming '='.", key);
                         op = OP_ASSIGN;
                 }
 
@@ -1537,10 +1539,6 @@ static int udev_rule_apply_token_to_event(
                 Hashmap *properties_list) {
 
         UdevRuleToken *token;
-        char buf[UDEV_PATH_SIZE];
-        const char *val;
-        size_t count;
-        bool match;
         int r;
 
         assert(rules);
@@ -1564,33 +1562,45 @@ static int udev_rule_apply_token_to_event(
 
                 return token_match_string(token, device_action_to_string(a));
         }
-        case TK_M_DEVPATH:
+        case TK_M_DEVPATH: {
+                const char *val;
+
                 r = sd_device_get_devpath(dev, &val);
                 if (r < 0)
                         return log_rule_error_errno(dev, rules, r, "Failed to get devpath: %m");
 
                 return token_match_string(token, val);
+        }
         case TK_M_KERNEL:
-        case TK_M_PARENTS_KERNEL:
+        case TK_M_PARENTS_KERNEL: {
+                const char *val;
+
                 r = sd_device_get_sysname(dev, &val);
                 if (r < 0)
                         return log_rule_error_errno(dev, rules, r, "Failed to get sysname: %m");
 
                 return token_match_string(token, val);
-        case TK_M_DEVLINK:
+        }
+        case TK_M_DEVLINK: {
+                const char *val;
+
                 FOREACH_DEVICE_DEVLINK(dev, val)
                         if (token_match_string(token, strempty(startswith(val, "/dev/"))))
                                 return token->op == OP_MATCH;
                 return token->op == OP_NOMATCH;
+        }
         case TK_M_NAME:
                 return token_match_string(token, event->name);
-        case TK_M_ENV:
+        case TK_M_ENV: {
+                const char *val;
+
                 if (sd_device_get_property_value(dev, token->data, &val) < 0)
                         val = hashmap_get(properties_list, token->data);
 
                 return token_match_string(token, val);
+        }
         case TK_M_CONST: {
-                const char *k = token->data;
+                const char *val, *k = token->data;
 
                 if (streq(k, "arch"))
                         val = architecture_to_string(uname_architecture());
@@ -1601,13 +1611,18 @@ static int udev_rule_apply_token_to_event(
                 return token_match_string(token, val);
         }
         case TK_M_TAG:
-        case TK_M_PARENTS_TAG:
+        case TK_M_PARENTS_TAG: {
+                const char *val;
+
                 FOREACH_DEVICE_TAG(dev, val)
                         if (token_match_string(token, val))
                                 return token->op == OP_MATCH;
                 return token->op == OP_NOMATCH;
+        }
         case TK_M_SUBSYSTEM:
-        case TK_M_PARENTS_SUBSYSTEM:
+        case TK_M_PARENTS_SUBSYSTEM: {
+                const char *val;
+
                 r = sd_device_get_subsystem(dev, &val);
                 if (r == -ENOENT)
                         val = NULL;
@@ -1615,8 +1630,11 @@ static int udev_rule_apply_token_to_event(
                         return log_rule_error_errno(dev, rules, r, "Failed to get subsystem: %m");
 
                 return token_match_string(token, val);
+        }
         case TK_M_DRIVER:
-        case TK_M_PARENTS_DRIVER:
+        case TK_M_PARENTS_DRIVER: {
+                const char *val;
+
                 r = sd_device_get_driver(dev, &val);
                 if (r == -ENOENT)
                         val = NULL;
@@ -1624,11 +1642,13 @@ static int udev_rule_apply_token_to_event(
                         return log_rule_error_errno(dev, rules, r, "Failed to get driver: %m");
 
                 return token_match_string(token, val);
+        }
         case TK_M_ATTR:
         case TK_M_PARENTS_ATTR:
                 return token_match_attr(token, dev, event);
         case TK_M_SYSCTL: {
                 _cleanup_free_ char *value = NULL;
+                char buf[UDEV_PATH_SIZE];
 
                 (void) udev_event_apply_format(event, token->data, buf, sizeof(buf), false);
                 r = sysctl_read(sysctl_normalize(buf), &value);
@@ -1639,12 +1659,15 @@ static int udev_rule_apply_token_to_event(
         }
         case TK_M_TEST: {
                 mode_t mode = PTR_TO_MODE(token->data);
+                char buf[UDEV_PATH_SIZE];
                 struct stat statbuf;
+                bool match;
 
                 (void) udev_event_apply_format(event, token->value, buf, sizeof(buf), false);
                 if (!path_is_absolute(buf) &&
                     udev_resolve_subsys_kernel(buf, buf, sizeof(buf), false) < 0) {
                         char tmp[UDEV_PATH_SIZE];
+                        const char *val;
 
                         r = sd_device_get_syspath(dev, &val);
                         if (r < 0)
@@ -1670,7 +1693,8 @@ static int udev_rule_apply_token_to_event(
                 return token->op == (match ? OP_MATCH : OP_NOMATCH);
         }
         case TK_M_PROGRAM: {
-                char result[UDEV_LINE_SIZE];
+                char buf[UDEV_PATH_SIZE], result[UDEV_LINE_SIZE];
+                size_t count;
 
                 event->program_result = mfree(event->program_result);
                 (void) udev_event_apply_format(event, token->value, buf, sizeof(buf), false);
@@ -1696,6 +1720,7 @@ static int udev_rule_apply_token_to_event(
         }
         case TK_M_IMPORT_FILE: {
                 _cleanup_fclose_ FILE *f = NULL;
+                char buf[UDEV_PATH_SIZE];
 
                 (void) udev_event_apply_format(event, token->value, buf, sizeof(buf), false);
                 log_rule_debug(dev, rules, "Importing properties from '%s'", buf);
@@ -1742,7 +1767,7 @@ static int udev_rule_apply_token_to_event(
         }
         case TK_M_IMPORT_PROGRAM: {
                 _cleanup_strv_free_ char **lines = NULL;
-                char result[UDEV_LINE_SIZE], **line;
+                char buf[UDEV_PATH_SIZE], result[UDEV_LINE_SIZE], **line;
 
                 (void) udev_event_apply_format(event, token->value, buf, sizeof(buf), false);
                 log_rule_debug(dev, rules, "Importing properties from results of '%s'", buf);
@@ -1787,6 +1812,7 @@ static int udev_rule_apply_token_to_event(
                 UdevBuiltinCommand cmd = PTR_TO_UDEV_BUILTIN_CMD(token->data);
                 assert(cmd >= 0 && cmd < _UDEV_BUILTIN_MAX);
                 unsigned mask = 1U << (int) cmd;
+                char buf[UDEV_PATH_SIZE];
 
                 if (udev_builtin_run_once(cmd)) {
                         /* check if we ran already */
@@ -1812,6 +1838,8 @@ static int udev_rule_apply_token_to_event(
                 return token->op == (r >= 0 ? OP_MATCH : OP_NOMATCH);
         }
         case TK_M_IMPORT_DB: {
+                const char *val;
+
                 if (!event->dev_db_clone)
                         return token->op == OP_NOMATCH;
                 r = sd_device_get_property_value(event->dev_db_clone, token->value, &val);
@@ -1846,6 +1874,8 @@ static int udev_rule_apply_token_to_event(
                 return token->op == OP_MATCH;
         }
         case TK_M_IMPORT_PARENT: {
+                char buf[UDEV_PATH_SIZE];
+
                 (void) udev_event_apply_format(event, token->value, buf, sizeof(buf), false);
                 r = import_parent_into_properties(dev, buf);
                 if (r < 0)
@@ -2004,9 +2034,9 @@ static int udev_rule_apply_token_to_event(
                 break;
         }
         case TK_A_ENV: {
-                const char *name = token->data;
+                const char *val, *name = token->data;
                 char value_new[UDEV_NAME_SIZE], *p = value_new;
-                size_t l = sizeof(value_new);
+                size_t count, l = sizeof(value_new);
 
                 if (isempty(token->value)) {
                         if (token->op == OP_ADD)
@@ -2022,6 +2052,12 @@ static int udev_rule_apply_token_to_event(
                         l = strpcpyl(&p, l, val, " ", NULL);
 
                 (void) udev_event_apply_format(event, token->value, p, l, false);
+                if (event->esc == ESCAPE_REPLACE) {
+                        count = udev_replace_chars(p, NULL);
+                        if (count > 0)
+                                log_rule_debug(dev, rules, "Replaced %zu slash(es) from result of ENV{%s}%s=\"%s\"",
+                                               count, name, token->op == OP_ADD ? "+" : "", token->value);
+                }
 
                 r = device_add_property(dev, name, value_new);
                 if (r < 0)
@@ -2029,6 +2065,8 @@ static int udev_rule_apply_token_to_event(
                 break;
         }
         case TK_A_TAG: {
+                char buf[UDEV_PATH_SIZE];
+
                 (void) udev_event_apply_format(event, token->value, buf, sizeof(buf), false);
                 if (token->op == OP_ASSIGN)
                         device_cleanup_tags(dev);
@@ -2047,25 +2085,30 @@ static int udev_rule_apply_token_to_event(
                 break;
         }
         case TK_A_NAME: {
+                char buf[UDEV_PATH_SIZE];
+                size_t count;
+
                 if (event->name_final)
                         break;
                 if (token->op == OP_ASSIGN_FINAL)
                         event->name_final = true;
 
+                if (sd_device_get_ifindex(dev, NULL) < 0) {
+                        log_rule_error(dev, rules,
+                                       "Only network interfaces can be renamed, ignoring NAME=\"%s\".",
+                                       token->value);
+                        break;
+                }
+
                 (void) udev_event_apply_format(event, token->value, buf, sizeof(buf), false);
                 if (IN_SET(event->esc, ESCAPE_UNSET, ESCAPE_REPLACE)) {
-                        count = udev_replace_chars(buf, "/");
+                        if (naming_scheme_has(NAMING_REPLACE_STRICTLY))
+                                count = udev_replace_ifname(buf);
+                        else
+                                count = udev_replace_chars(buf, "/");
                         if (count > 0)
                                 log_rule_debug(dev, rules, "Replaced %zu character(s) from result of NAME=\"%s\"",
                                                count, token->value);
-                }
-                if (sd_device_get_devnum(dev, NULL) >= 0 &&
-                    (sd_device_get_devname(dev, &val) < 0 ||
-                     !streq_ptr(buf, path_startswith(val, "/dev/")))) {
-                        log_rule_error(dev, rules,
-                                       "Kernel device nodes cannot be renamed, ignoring NAME=\"%s\"; please fix it.",
-                                       token->value);
-                        break;
                 }
                 r = free_and_strdup_warn(&event->name, buf);
                 if (r < 0)
@@ -2075,7 +2118,8 @@ static int udev_rule_apply_token_to_event(
                 break;
         }
         case TK_A_DEVLINK: {
-                char *p;
+                char buf[UDEV_PATH_SIZE], *p;
+                size_t count;
 
                 if (event->devlink_final)
                         break;
@@ -2095,7 +2139,8 @@ static int udev_rule_apply_token_to_event(
                 else
                         count = 0;
                 if (count > 0)
-                        log_rule_debug(dev, rules, "Replaced %zu character(s) from result of LINK", count);
+                        log_rule_debug(dev, rules, "Replaced %zu character(s) from result of SYMLINK=\"%s\"",
+                                       count, token->value);
 
                 p = skip_leading_chars(buf, NULL);
                 while (!isempty(p)) {
@@ -2118,8 +2163,8 @@ static int udev_rule_apply_token_to_event(
                 break;
         }
         case TK_A_ATTR: {
-                const char *key_name = token->data;
-                char value[UDEV_NAME_SIZE];
+                char buf[UDEV_PATH_SIZE], value[UDEV_NAME_SIZE];
+                const char *val, *key_name = token->data;
 
                 if (udev_resolve_subsys_kernel(key_name, buf, sizeof(buf), false) < 0 &&
                     sd_device_get_syspath(dev, &val) >= 0)
@@ -2143,7 +2188,7 @@ static int udev_rule_apply_token_to_event(
                 break;
         }
         case TK_A_SYSCTL: {
-                char value[UDEV_NAME_SIZE];
+                char buf[UDEV_PATH_SIZE], value[UDEV_NAME_SIZE];
 
                 (void) udev_event_apply_format(event, token->data, buf, sizeof(buf), false);
                 (void) udev_event_apply_format(event, token->value, value, sizeof(value), false);
@@ -2157,6 +2202,7 @@ static int udev_rule_apply_token_to_event(
         case TK_A_RUN_BUILTIN:
         case TK_A_RUN_PROGRAM: {
                 _cleanup_free_ char *cmd = NULL;
+                char buf[UDEV_PATH_SIZE];
 
                 if (event->run_final)
                         break;
@@ -2261,6 +2307,9 @@ static int udev_rule_apply_line_to_event(
                 return 0;
 
         event->esc = ESCAPE_UNSET;
+
+        DEVICE_TRACE_POINT(rules_apply_line, event->dev, line->rule_file->filename, line->line_number);
+
         LIST_FOREACH_SAFE(tokens, token, next_token, line->tokens) {
                 line->current_token = token;
 

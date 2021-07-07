@@ -27,8 +27,8 @@ static void lock_down_efi_variables(void) {
          * identify the system or gain too much insight into what we might have credited to the entropy
          * pool. */
         FOREACH_STRING(p,
-                       "/sys/firmware/efi/efivars/LoaderRandomSeed-4a67b082-0a4c-41cf-b6c7-440b29bb8c4f",
-                       "/sys/firmware/efi/efivars/LoaderSystemToken-4a67b082-0a4c-41cf-b6c7-440b29bb8c4f") {
+                       EFIVAR_PATH(EFI_LOADER_VARIABLE(LoaderRandomSeed)),
+                       EFIVAR_PATH(EFI_LOADER_VARIABLE(LoaderSystemToken))) {
 
                 r = chattr_path(p, 0, FS_IMMUTABLE_FL, NULL);
                 if (r == -ENOENT)
@@ -61,7 +61,7 @@ int efi_take_random_seed(void) {
                 return 0;
         }
 
-        r = efi_get_variable(EFI_VENDOR_LOADER, "LoaderRandomSeed", NULL, &value, &size);
+        r = efi_get_variable(EFI_LOADER_VARIABLE(LoaderRandomSeed), NULL, &value, &size);
         if (r == -EOPNOTSUPP) {
                 log_debug_errno(r, "System lacks EFI support, not initializing random seed from EFI variable.");
                 return 0;

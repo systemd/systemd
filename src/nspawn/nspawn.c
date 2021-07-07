@@ -368,7 +368,7 @@ static int help(void) {
                "                            Create a macvlan network interface based on an\n"
                "                            existing network interface to the container\n"
                "     --network-ipvlan=INTERFACE\n"
-               "                            Create a ipvlan network interface based on an\n"
+               "                            Create an ipvlan network interface based on an\n"
                "                            existing network interface to the container\n"
                "  -n --network-veth         Add a virtual Ethernet connection between host\n"
                "                            and container\n"
@@ -3688,7 +3688,7 @@ static int outer_child(
                  * --volatile=) without this interfering with our ability to access files such as
                  * /etc/localtime to copy into the container. Note that we use a fixed place for this
                  * (instead of a temporary directory, since we are living in our own mount namspace here
-                 * already, and thus don't need to be afraid of colliding with anyone else's mounts).*/
+                 * already, and thus don't need to be afraid of colliding with anyone else's mounts). */
                 (void) mkdir_p("/run/systemd/nspawn-root", 0755);
 
                 r = mount_nofollow_verbose(LOG_ERR, "/", "/run/systemd/nspawn-root", NULL, MS_BIND|MS_REC, NULL);

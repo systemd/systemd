@@ -47,7 +47,7 @@ int main(int argc, char *argv[]) {
                 return EXIT_SUCCESS;
         }
 
-        if (access("/sys/firmware/efi/efivars/LoaderBootCountPath-4a67b082-0a4c-41cf-b6c7-440b29bb8c4f", F_OK) < 0) {
+        if (access(EFIVAR_PATH(EFI_LOADER_VARIABLE(LoaderBootCountPath)), F_OK) < 0) {
 
                 if (errno == ENOENT) {
                         log_debug_errno(errno, "Skipping generator, not booted with boot counting in effect.");

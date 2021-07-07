@@ -8,7 +8,6 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "fs-util.h"
-#include "label.h"
 #include "missing_stat.h"
 #include "missing_syscall.h"
 #include "mkdir.h"
@@ -509,26 +508,4 @@ int mount_propagation_flags_from_string(const char *name, unsigned long *ret) {
         else
                 return -EINVAL;
         return 0;
-}
-
-int make_mount_point_inode_from_stat(const struct stat *st, const char *dest, mode_t mode) {
-        assert(st);
-        assert(dest);
-
-        if (S_ISDIR(st->st_mode))
-                return mkdir_label(dest, mode);
-        else
-                return mknod(dest, S_IFREG|(mode & ~0111), 0);
-}
-
-int make_mount_point_inode_from_path(const char *source, const char *dest, mode_t mode) {
-        struct stat st;
-
-        assert(source);
-        assert(dest);
-
-        if (stat(source, &st) < 0)
-                return -errno;
-
-        return make_mount_point_inode_from_stat(&st, dest, mode);
 }

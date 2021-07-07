@@ -69,6 +69,14 @@ layout: default
   ```
 
 - Do not write `foo ()`, write `foo()`.
+- `else` blocks should generally start on the same line as the closing `}`:
+  ```c
+  if (foobar) {
+          find();
+          waldo();
+  } else
+          dont_find_waldo();
+  ```
 
 ## Code Organization and Semantics
 
@@ -143,18 +151,37 @@ layout: default
 
 ## Using C Constructs
 
-- Preferably allocate local variables on the top of the block:
+- Allocate local variables where it makes sense: at the top of the block, or at
+  the point where they can be initialized. `r` is typically used for a local
+  state variable, but should almost always be declared at the top of the
+  function.
 
   ```c
   {
-          int a, b;
+          uint64_t a, b;
+          int r;
 
-          a = 5;
-          b = a;
+          a = frobnicate();
+          b = a + 5;
+
+          r = do_something();
+          if (r < 0)
+                  …
   }
   ```
 
-- Do not mix function invocations with variable definitions in one line. Wrong:
+- Do not mix function invocations with variable definitions in one line.
+
+  ```c
+  {
+          uint64_t x = 7;
+          int a;
+
+          a = foobar();
+  }
+  ```
+
+  instead of:
 
   ```c
   {
@@ -163,18 +190,7 @@ layout: default
   }
   ```
 
-  Right:
-
-  ```c
-  {
-          int a;
-          uint64_t x = 7;
-
-          a = foobar();
-  }
-  ```
-
-- Use `goto` for cleaning up, and only use it for that. i.e. you may only jump
+- Use `goto` for cleaning up, and only use it for that. I.e. you may only jump
   to the end of a function, and little else. Never jump backwards!
 
 - To minimize strict aliasing violations, we prefer unions over casting.
@@ -347,8 +363,7 @@ layout: default
   `log_oom()` for then printing a short message, but not in "library" code.
 
 - Avoid fixed-size string buffers, unless you really know the maximum size and
-  that maximum size is small. They are a source of errors, since they possibly
-  result in truncated strings. It is often nicer to use dynamic memory,
+  that maximum size is small. It is often nicer to use dynamic memory,
   `alloca()` or VLAs. If you do allocate fixed-size strings on the stack, then
   it is probably only OK if you either use a maximum size such as `LINE_MAX`,
   or count in detail the maximum size a string can have. (`DECIMAL_STR_MAX` and
@@ -404,7 +419,7 @@ layout: default
   limits after which it will refuse operation. It's fine if it is hard-coded
   (at least initially), but it needs to be there. This is particularly
   important for objects that unprivileged users may allocate, but also matters
-  for everything else any user may allocated.
+  for everything else any user may allocate.
 
 ## Types
 
@@ -439,7 +454,7 @@ layout: default
 
 - Use the bool type for booleans, not integers. One exception: in public
   headers (i.e those in `src/systemd/sd-*.h`) use integers after all, as `bool`
-  is C99 and in our public APIs we try to stick to C89 (with a few extension).
+  is C99 and in our public APIs we try to stick to C89 (with a few extensions).
 
 ## Deadlocks
 
@@ -556,7 +571,7 @@ layout: default
   process, please use `_exit()` instead of `exit()`, so that the exit handlers
   are not run.
 
-- We never use the POSIX version of `basename()` (which glibc defines it in
+- We never use the POSIX version of `basename()` (which glibc defines in
   `libgen.h`), only the GNU version (which glibc defines in `string.h`).  The
   only reason to include `libgen.h` is because `dirname()` is needed. Every
   time you need that please immediately undefine `basename()`, and add a
@@ -565,7 +580,7 @@ layout: default
 - Never use `FILENAME_MAX`. Use `PATH_MAX` instead (for checking maximum size
   of paths) and `NAME_MAX` (for checking maximum size of filenames).
   `FILENAME_MAX` is not POSIX, and is a confusingly named alias for `PATH_MAX`
-  on Linux. Note the `NAME_MAX` does not include space for a trailing `NUL`,
+  on Linux. Note that `NAME_MAX` does not include space for a trailing `NUL`,
   but `PATH_MAX` does. UNIX FTW!
 
 ## Committing to git

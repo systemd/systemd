@@ -12,7 +12,6 @@
 #include <stdarg.h>
 #include <stdbool.h>
 #include <stdio.h>
-#include <stdlib.h>
 #include <sys/stat.h>
 #include <unistd.h>
 
@@ -21,6 +20,7 @@
 #include "extract-word.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "parse-util.h"
 #include "scsi_id.h"
 #include "string-util.h"
 #include "strv.h"
@@ -57,38 +57,34 @@ static char model_enc_str[256];
 static char revision_str[16];
 static char type_str[16];
 
-static void set_type(const char *from, char *to, size_t len) {
-        int type_num;
-        char *eptr;
-        const char *type = "generic";
+static void set_type(unsigned type_num, char *to, size_t len) {
+        const char *type;
 
-        type_num = strtoul(from, &eptr, 0);
-        if (eptr != from) {
-                switch (type_num) {
-                case 0:
-                        type = "disk";
-                        break;
-                case 1:
-                        type = "tape";
-                        break;
-                case 4:
-                        type = "optical";
-                        break;
-                case 5:
-                        type = "cd";
-                        break;
-                case 7:
-                        type = "optical";
-                        break;
-                case 0xe:
-                        type = "disk";
-                        break;
-                case 0xf:
-                        type = "optical";
-                        break;
-                default:
-                        break;
-                }
+        switch (type_num) {
+        case 0:
+                type = "disk";
+                break;
+        case 1:
+                type = "tape";
+                break;
+        case 4:
+                type = "optical";
+                break;
+        case 5:
+                type = "cd";
+                break;
+        case 7:
+                type = "optical";
+                break;
+        case 0xe:
+                type = "disk";
+                break;
+        case 0xf:
+                type = "optical";
+                break;
+        default:
+                type = "generic";
+                break;
         }
         strscpy(to, len, type);
 }

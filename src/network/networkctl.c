@@ -258,7 +258,6 @@ typedef struct VxLanInfo {
 
         uint8_t proxy;
         uint8_t learning;
-        uint8_t inerit;
         uint8_t rsc;
         uint8_t l2miss;
         uint8_t l3miss;
@@ -272,7 +271,7 @@ typedef struct LinkInfo {
         sd_device *sd_device;
         int ifindex;
         unsigned short iftype;
-        hw_addr_data hw_address;
+        struct hw_addr_data hw_address;
         struct ether_addr permanent_mac_address;
         uint32_t master;
         uint32_t mtu;
@@ -554,13 +553,13 @@ static int decode_link(sd_netlink_message *m, LinkInfo *info, char **patterns, b
 
         info->has_mac_address =
                 netlink_message_read_hw_addr(m, IFLA_ADDRESS, &info->hw_address) >= 0 &&
-                memcmp(&info->hw_address, &HW_ADDR_NULL, sizeof(hw_addr_data)) != 0;
+                !hw_addr_is_null(&info->hw_address);
 
         info->has_permanent_mac_address =
                 ethtool_get_permanent_macaddr(NULL, info->name, &info->permanent_mac_address) >= 0 &&
-                memcmp(&info->permanent_mac_address, &ETHER_ADDR_NULL, sizeof(struct ether_addr)) != 0 &&
+                !ether_addr_is_null(&info->permanent_mac_address) &&
                 (info->hw_address.length != sizeof(struct ether_addr) ||
-                 memcmp(&info->permanent_mac_address, info->hw_address.addr.bytes, sizeof(struct ether_addr)) != 0);
+                 memcmp(&info->permanent_mac_address, info->hw_address.bytes, sizeof(struct ether_addr)) != 0);
 
         (void) sd_netlink_message_read_u32(m, IFLA_MTU, &info->mtu);
         (void) sd_netlink_message_read_u32(m, IFLA_MIN_MTU, &info->min_mtu);
@@ -753,9 +752,7 @@ static int acquire_link_info(sd_bus *bus, sd_netlink *rtnl, char **patterns, Lin
 
                 links[c].needs_freeing = true;
 
-                char devid[2 + DECIMAL_STR_MAX(int)];
-                xsprintf(devid, "n%i", links[c].ifindex);
-                (void) sd_device_new_from_device_id(&links[c].sd_device, devid);
+                (void) sd_device_new_from_ifindex(&links[c].sd_device, links[c].ifindex);
 
                 acquire_ether_link_info(&fd, &links[c]);
                 acquire_wlan_link_info(&links[c]);
@@ -1684,7 +1681,7 @@ static int link_status_one(
                 _cleanup_free_ char *description = NULL;
 
                 if (info->hw_address.length == ETH_ALEN)
-                        (void) ieee_oui(hwdb, &info->hw_address.addr.ether, &description);
+                        (void) ieee_oui(hwdb, &info->hw_address.ether, &description);
 
                 r = table_add_many(table,
                                    TABLE_EMPTY,
@@ -1702,7 +1699,6 @@ static int link_status_one(
 
         if (info->has_permanent_mac_address) {
                 _cleanup_free_ char *description = NULL;
-                char ea[ETHER_ADDR_TO_STRING_MAX];
 
                 (void) ieee_oui(hwdb, &info->permanent_mac_address, &description);
 
@@ -1712,7 +1708,7 @@ static int link_status_one(
                 if (r < 0)
                         return table_log_add_error(r);
                 r = table_add_cell_stringf(table, NULL, "%s%s%s%s",
-                                           ether_addr_to_string(&info->permanent_mac_address, ea),
+                                           ETHER_ADDR_TO_STR(&info->permanent_mac_address),
                                            description ? " (" : "",
                                            strempty(description),
                                            description ? ")" : "");
@@ -2107,7 +2103,6 @@ static int link_status_one(
 
         if (info->has_wlan_link_info) {
                 _cleanup_free_ char *esc = NULL;
-                char buf[ETHER_ADDR_TO_STRING_MAX];
 
                 r = table_add_many(table,
                                    TABLE_EMPTY,
@@ -2120,7 +2115,7 @@ static int link_status_one(
 
                 r = table_add_cell_stringf(table, NULL, "%s (%s)",
                                            strnull(esc),
-                                           ether_addr_to_string(&info->bssid, buf));
+                                           ETHER_ADDR_TO_STR(&info->bssid));
                 if (r < 0)
                         return table_log_add_error(r);
         }
@@ -2226,6 +2221,16 @@ static int link_status_one(
                                    TABLE_EMPTY,
                                    TABLE_STRING, "Activation Policy:",
                                    TABLE_STRING, activation_policy);
+                if (r < 0)
+                        return table_log_add_error(r);
+        }
+
+        r = sd_network_link_get_required_for_online(info->ifindex);
+        if (r >= 0) {
+                r = table_add_many(table,
+                                   TABLE_EMPTY,
+                                   TABLE_STRING, "Required For Online:",
+                                   TABLE_BOOLEAN, r);
                 if (r < 0)
                         return table_log_add_error(r);
         }
@@ -2667,7 +2672,7 @@ static int link_up_down(int argc, char *argv[], void *userdata) {
                 return log_oom();
 
         for (int i = 1; i < argc; i++) {
-                index = resolve_interface_or_warn(&rtnl, argv[i]);
+                index = rtnl_resolve_interface_or_warn(&rtnl, argv[i]);
                 if (index < 0)
                         return index;
 
@@ -2705,7 +2710,7 @@ static int link_delete(int argc, char *argv[], void *userdata) {
                 return log_oom();
 
         for (int i = 1; i < argc; i++) {
-                index = resolve_interface_or_warn(&rtnl, argv[i]);
+                index = rtnl_resolve_interface_or_warn(&rtnl, argv[i]);
                 if (index < 0)
                         return index;
 
@@ -2750,7 +2755,7 @@ static int link_renew(int argc, char *argv[], void *userdata) {
                 return log_error_errno(r, "Failed to connect system bus: %m");
 
         for (int i = 1; i < argc; i++) {
-                index = resolve_interface_or_warn(&rtnl, argv[i]);
+                index = rtnl_resolve_interface_or_warn(&rtnl, argv[i]);
                 if (index < 0)
                         return index;
 
@@ -2784,7 +2789,7 @@ static int link_force_renew(int argc, char *argv[], void *userdata) {
                 return log_error_errno(r, "Failed to connect system bus: %m");
 
         for (int i = 1; i < argc; i++) {
-                int index = resolve_interface_or_warn(&rtnl, argv[i]);
+                int index = rtnl_resolve_interface_or_warn(&rtnl, argv[i]);
                 if (index < 0)
                         return index;
 
@@ -2829,7 +2834,7 @@ static int verb_reconfigure(int argc, char *argv[], void *userdata) {
                 return log_oom();
 
         for (int i = 1; i < argc; i++) {
-                index = resolve_interface_or_warn(&rtnl, argv[i]);
+                index = rtnl_resolve_interface_or_warn(&rtnl, argv[i]);
                 if (index < 0)
                         return index;
 

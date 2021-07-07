@@ -140,3 +140,4 @@ bool gpt_partition_type_is_usr_verity(sd_id128_t id);
 
 bool gpt_partition_type_knows_read_only(sd_id128_t id);
 bool gpt_partition_type_knows_growfs(sd_id128_t id);
+bool gpt_partition_type_knows_no_auto(sd_id128_t id);

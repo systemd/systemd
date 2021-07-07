@@ -240,11 +240,18 @@ static void manager_print_jobs_in_progress(Manager *m) {
         if (job_get_timeout(j, &x) > 0)
                 format_timespan(limit, sizeof(limit), x - j->begin_usec, 1*USEC_PER_SEC);
 
+        /* We want to use enough information for the user to identify previous lines talking about the same
+         * unit, but keep the message as short as possible. So if 'Starting foo.service' or 'Starting
+         * foo.service (Description)' were used, 'foo.service' is enough here. On the other hand, if we used
+         * 'Starting Description' before, then we shall also use 'Description' here. So we pass NULL as the
+         * second argument to unit_status_string(). */
+        const char *ident = unit_status_string(j->unit, NULL);
+
         manager_status_printf(m, STATUS_TYPE_EPHEMERAL, cylon,
                               "%sA %s job is running for %s (%s / %s)",
                               strempty(job_of_n),
                               job_type_to_string(j->type),
-                              unit_status_string(j->unit),
+                              ident,
                               time, limit);
 }
 
@@ -287,7 +294,7 @@ static int manager_dispatch_ask_password_fd(sd_event_source *source,
 static void manager_close_ask_password(Manager *m) {
         assert(m);
 
-        m->ask_password_event_source = sd_event_source_unref(m->ask_password_event_source);
+        m->ask_password_event_source = sd_event_source_disable_unref(m->ask_password_event_source);
         m->ask_password_inotify_fd = safe_close(m->ask_password_inotify_fd);
         m->have_ask_password = -EINVAL;
 }
@@ -356,7 +363,7 @@ static int manager_watch_idle_pipe(Manager *m) {
 static void manager_close_idle_pipe(Manager *m) {
         assert(m);
 
-        m->idle_pipe_event_source = sd_event_source_unref(m->idle_pipe_event_source);
+        m->idle_pipe_event_source = sd_event_source_disable_unref(m->idle_pipe_event_source);
 
         safe_close_pair(m->idle_pipe);
         safe_close_pair(m->idle_pipe + 2);
@@ -370,7 +377,7 @@ static int manager_setup_time_change(Manager *m) {
         if (MANAGER_IS_TEST_RUN(m))
                 return 0;
 
-        m->time_change_event_source = sd_event_source_unref(m->time_change_event_source);
+        m->time_change_event_source = sd_event_source_disable_unref(m->time_change_event_source);
         m->time_change_fd = safe_close(m->time_change_fd);
 
         m->time_change_fd = time_change_fd();
@@ -870,7 +877,7 @@ int manager_new(UnitFileScope scope, ManagerTestRunFlags test_run_flags, Manager
         if (r < 0)
                 return r;
 
-        if (test_run_flags == MANAGER_TEST_RUN_MINIMAL) {
+        if (FLAGS_SET(test_run_flags, MANAGER_TEST_RUN_MINIMAL)) {
                 m->cgroup_root = strdup("");
                 if (!m->cgroup_root)
                         return -ENOMEM;
@@ -938,7 +945,7 @@ static int manager_setup_notify(Manager *m) {
 
                 /* First free all secondary fields */
                 m->notify_socket = mfree(m->notify_socket);
-                m->notify_event_source = sd_event_source_unref(m->notify_event_source);
+                m->notify_event_source = sd_event_source_disable_unref(m->notify_event_source);
 
                 fd = socket(AF_UNIX, SOCK_DGRAM|SOCK_CLOEXEC|SOCK_NONBLOCK, 0);
                 if (fd < 0)
@@ -1026,7 +1033,7 @@ static int manager_setup_cgroups_agent(Manager *m) {
                 _cleanup_close_ int fd = -1;
 
                 /* First free all secondary fields */
-                m->cgroups_agent_event_source = sd_event_source_unref(m->cgroups_agent_event_source);
+                m->cgroups_agent_event_source = sd_event_source_disable_unref(m->cgroups_agent_event_source);
 
                 fd = socket(AF_UNIX, SOCK_DGRAM|SOCK_CLOEXEC|SOCK_NONBLOCK, 0);
                 if (fd < 0)
@@ -1091,7 +1098,7 @@ static int manager_setup_user_lookup_fd(Manager *m) {
 
                 /* Free all secondary fields */
                 safe_close_pair(m->user_lookup_fds);
-                m->user_lookup_event_source = sd_event_source_unref(m->user_lookup_event_source);
+                m->user_lookup_event_source = sd_event_source_disable_unref(m->user_lookup_event_source);
 
                 if (socketpair(AF_UNIX, SOCK_DGRAM|SOCK_CLOEXEC, 0, m->user_lookup_fds) < 0)
                         return log_error_errno(errno, "Failed to allocate user lookup socket: %m");
@@ -3321,11 +3328,7 @@ int manager_serialize(
                 if (u->id != t)
                         continue;
 
-                /* Start marker */
-                fputs(u->id, f);
-                fputc('\n', f);
-
-                r = unit_serialize(u, f, fds, !switching_root);
+                r = unit_serialize(u, f, fds, switching_root);
                 if (r < 0)
                         return r;
         }
@@ -3693,7 +3696,7 @@ int manager_deserialize(Manager *m, FILE *f, FDSet *fds) {
                         if (safe_atoi(val, &fd) < 0 || fd < 0 || !fdset_contains(fds, fd))
                                 log_notice("Failed to parse notify fd, ignoring: \"%s\"", val);
                         else {
-                                m->notify_event_source = sd_event_source_unref(m->notify_event_source);
+                                m->notify_event_source = sd_event_source_disable_unref(m->notify_event_source);
                                 safe_close(m->notify_fd);
                                 m->notify_fd = fdset_remove(fds, fd);
                         }
@@ -3709,7 +3712,7 @@ int manager_deserialize(Manager *m, FILE *f, FDSet *fds) {
                         if (safe_atoi(val, &fd) < 0 || fd < 0 || !fdset_contains(fds, fd))
                                 log_notice("Failed to parse cgroups agent fd, ignoring.: %s", val);
                         else {
-                                m->cgroups_agent_event_source = sd_event_source_unref(m->cgroups_agent_event_source);
+                                m->cgroups_agent_event_source = sd_event_source_disable_unref(m->cgroups_agent_event_source);
                                 safe_close(m->cgroups_agent_fd);
                                 m->cgroups_agent_fd = fdset_remove(fds, fd);
                         }
@@ -3720,7 +3723,7 @@ int manager_deserialize(Manager *m, FILE *f, FDSet *fds) {
                         if (sscanf(val, "%i %i", &fd0, &fd1) != 2 || fd0 < 0 || fd1 < 0 || fd0 == fd1 || !fdset_contains(fds, fd0) || !fdset_contains(fds, fd1))
                                 log_notice("Failed to parse user lookup fd, ignoring: %s", val);
                         else {
-                                m->user_lookup_event_source = sd_event_source_unref(m->user_lookup_event_source);
+                                m->user_lookup_event_source = sd_event_source_disable_unref(m->user_lookup_event_source);
                                 safe_close_pair(m->user_lookup_fds);
                                 m->user_lookup_fds[0] = fdset_remove(fds, fd0);
                                 m->user_lookup_fds[1] = fdset_remove(fds, fd1);
@@ -3795,7 +3798,7 @@ int manager_reload(Manager *m) {
 
         /* Start by flushing out all jobs and units, all generated units, all runtime environments, all dynamic users
          * and everything else that is worth flushing out. We'll get it all back from the serialization — if we need
-         * it.*/
+         * it. */
 
         manager_clear_jobs_and_units(m);
         lookup_paths_flush_generator(&m->lookup_paths);
@@ -3931,7 +3934,7 @@ static void manager_notify_finished(Manager *m) {
 
                 if (dual_timestamp_is_set(&m->timestamps[MANAGER_TIMESTAMP_INITRD])) {
 
-                        /* The initrd case on bare-metal*/
+                        /* The initrd case on bare-metal */
                         kernel_usec = m->timestamps[MANAGER_TIMESTAMP_INITRD].monotonic - m->timestamps[MANAGER_TIMESTAMP_KERNEL].monotonic;
                         initrd_usec = m->timestamps[MANAGER_TIMESTAMP_USERSPACE].monotonic - m->timestamps[MANAGER_TIMESTAMP_INITRD].monotonic;
 
@@ -3947,7 +3950,7 @@ static void manager_notify_finished(Manager *m) {
                                                format_timespan(userspace, sizeof(userspace), userspace_usec, USEC_PER_MSEC),
                                                format_timespan(sum, sizeof(sum), total_usec, USEC_PER_MSEC)));
                 } else {
-                        /* The initrd-less case on bare-metal*/
+                        /* The initrd-less case on bare-metal */
 
                         kernel_usec = m->timestamps[MANAGER_TIMESTAMP_USERSPACE].monotonic - m->timestamps[MANAGER_TIMESTAMP_KERNEL].monotonic;
                         initrd_usec = 0;
@@ -4515,16 +4518,14 @@ void manager_status_printf(Manager *m, StatusType type, const char *status, cons
         va_end(ap);
 }
 
-Set *manager_get_units_requiring_mounts_for(Manager *m, const char *path) {
-        char p[strlen(path)+1];
-
+Set* manager_get_units_requiring_mounts_for(Manager *m, const char *path) {
         assert(m);
         assert(path);
 
-        strcpy(p, path);
-        path_simplify(p);
+        if (path_equal(path, "/"))
+                path = "";
 
-        return hashmap_get(m->units_requiring_mounts_for, streq(p, "/") ? "" : p);
+        return hashmap_get(m->units_requiring_mounts_for, path);
 }
 
 int manager_update_failed_units(Manager *m, Unit *u, bool failed) {

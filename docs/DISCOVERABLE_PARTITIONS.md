@@ -221,11 +221,11 @@ We are not. `/etc/fstab` always overrides automatic discovery and is indeed
 mentioned in the specifications.  We are simply trying to make the boot and
 installation processes of Linux a bit more robust and self-descriptive.
 
-### Why did you only define the root partition for x86, x86-64, ARM, ARM64, ia64?
+### Why did you only define the root partition for x86, x86-64, ARM, ARM64, ia64, riscv32, riscv64?
 
 The automatic discovery of the root partition is defined to operate on the disk
 containing the current EFI System Partition (ESP). Since EFI only exists on
-x86, x86-64, ia64, and ARM so far, we only defined root partition UUIDs for
+x86, x86-64, ia64, ARM and RISC-V so far, we only defined root partition UUIDs for
 these architectures.  Should EFI become more common on other architectures, we
 can define additional UUIDs for them.
 

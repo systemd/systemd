@@ -16,11 +16,12 @@
 #include "networkd-address-label.h"
 #include "networkd-address.h"
 #include "networkd-bridge-fdb.h"
+#include "networkd-bridge-mdb.h"
 #include "networkd-dhcp-common.h"
 #include "networkd-dhcp-server-static-lease.h"
 #include "networkd-dhcp-server.h"
+#include "networkd-ipv6-proxy-ndp.h"
 #include "networkd-manager.h"
-#include "networkd-mdb.h"
 #include "networkd-ndisc.h"
 #include "networkd-neighbor.h"
 #include "networkd-network.h"
@@ -174,12 +175,18 @@ int network_verify(Network *network) {
         if (network->ipv6ll_address_gen_mode == IPV6_LINK_LOCAL_ADDRESSS_GEN_MODE_NONE)
                 SET_FLAG(network->link_local, ADDRESS_FAMILY_IPV6, false);
 
+        if (in6_addr_is_set(&network->ipv6ll_stable_secret) &&
+            network->ipv6ll_address_gen_mode < 0)
+                network->ipv6ll_address_gen_mode = IPV6_LINK_LOCAL_ADDRESSS_GEN_MODE_STABLE_PRIVACY;
+
         /* IPMasquerade implies IPForward */
         network->ip_forward |= network->ip_masquerade;
 
+        network_adjust_ipv6_proxy_ndp(network);
         network_adjust_ipv6_accept_ra(network);
         network_adjust_dhcp(network);
         network_adjust_radv(network);
+        network_adjust_bridge_vlan(network);
 
         if (network->mtu > 0 && network->dhcp_use_mtu) {
                 log_warning("%s: MTUBytes= in [Link] section and UseMTU= in [DHCP] section are set. "
@@ -222,6 +229,21 @@ int network_verify(Network *network) {
         if (network->ignore_carrier_loss < 0)
                 network->ignore_carrier_loss = network->configure_without_carrier;
 
+        if (IN_SET(network->activation_policy, ACTIVATION_POLICY_DOWN, ACTIVATION_POLICY_ALWAYS_DOWN, ACTIVATION_POLICY_MANUAL)) {
+                if (network->required_for_online < 0 ||
+                    (network->required_for_online == true && network->activation_policy == ACTIVATION_POLICY_ALWAYS_DOWN)) {
+                        log_debug("%s: Setting RequiredForOnline=no because ActivationPolicy=%s.", network->filename,
+                                  activation_policy_to_string(network->activation_policy));
+                        network->required_for_online = false;
+                } else if (network->required_for_online == true)
+                        log_warning("%s: RequiredForOnline=yes and ActivationPolicy=%s, "
+                                    "this may cause a delay at boot.", network->filename,
+                                    activation_policy_to_string(network->activation_policy));
+        }
+
+        if (network->required_for_online < 0)
+                network->required_for_online = true;
+
         if (network->keep_configuration < 0)
                 network->keep_configuration = KEEP_CONFIGURATION_NO;
 
@@ -234,7 +256,7 @@ int network_verify(Network *network) {
         network_drop_invalid_routes(network);
         network_drop_invalid_nexthops(network);
         network_drop_invalid_bridge_fdb_entries(network);
-        network_drop_invalid_mdb_entries(network);
+        network_drop_invalid_bridge_mdb_entries(network);
         network_drop_invalid_neighbors(network);
         network_drop_invalid_address_labels(network);
         network_drop_invalid_prefixes(network);
@@ -296,7 +318,7 @@ int network_load_one(Manager *manager, OrderedHashmap **networks, const char *fi
                 .manager = manager,
                 .n_ref = 1,
 
-                .required_for_online = true,
+                .required_for_online = -1,
                 .required_operstate_for_online = LINK_OPERSTATE_RANGE_DEFAULT,
                 .activation_policy = _ACTIVATION_POLICY_INVALID,
                 .arp = -1,
@@ -604,7 +626,7 @@ static Network *network_free(Network *network) {
         hashmap_free_with_destructor(network->routes_by_section, route_free);
         hashmap_free_with_destructor(network->nexthops_by_section, nexthop_free);
         hashmap_free_with_destructor(network->bridge_fdb_entries_by_section, bridge_fdb_free);
-        hashmap_free_with_destructor(network->mdb_entries_by_section, mdb_entry_free);
+        hashmap_free_with_destructor(network->bridge_mdb_entries_by_section, bridge_mdb_free);
         hashmap_free_with_destructor(network->neighbors_by_section, neighbor_free);
         hashmap_free_with_destructor(network->address_labels_by_section, address_label_free);
         hashmap_free_with_destructor(network->prefixes_by_section, prefix_free);
@@ -617,6 +639,7 @@ static Network *network_free(Network *network) {
         free(network->name);
 
         free(network->dhcp_server_timezone);
+        free(network->dhcp_server_uplink_name);
 
         for (sd_dhcp_lease_server_type_t t = 0; t < _SD_DHCP_LEASE_SERVER_TYPE_MAX; t++)
                 free(network->dhcp_server_emit[t].addresses);
@@ -658,7 +681,7 @@ bool network_has_static_ipv6_configurations(Network *network) {
         Address *address;
         Route *route;
         BridgeFDB *fdb;
-        MdbEntry *mdb;
+        BridgeMDB *mdb;
         Neighbor *neighbor;
 
         assert(network);
@@ -675,7 +698,7 @@ bool network_has_static_ipv6_configurations(Network *network) {
                 if (fdb->family == AF_INET6)
                         return true;
 
-        HASHMAP_FOREACH(mdb, network->mdb_entries_by_section)
+        HASHMAP_FOREACH(mdb, network->bridge_mdb_entries_by_section)
                 if (mdb->family == AF_INET6)
                         return true;
 
@@ -1100,7 +1123,7 @@ int config_parse_required_for_online(
         assert(network);
 
         if (isempty(rvalue)) {
-                network->required_for_online = true;
+                network->required_for_online = -1;
                 network->required_operstate_for_online = LINK_OPERSTATE_RANGE_DEFAULT;
                 return 0;
         }

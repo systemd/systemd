@@ -201,6 +201,49 @@ int procfs_cpu_get_usage(nsec_t *ret) {
         return 0;
 }
 
+int convert_meminfo_value_to_uint64_bytes(const char *word, uint64_t *ret) {
+        _cleanup_free_ char *w = NULL;
+        char *digits, *e;
+        uint64_t v;
+        size_t n;
+        int r;
+
+        assert(word);
+        assert(ret);
+
+        w = strdup(word);
+        if (!w)
+                return -ENOMEM;
+
+        /* Determine length of numeric value */
+        n = strspn(w, WHITESPACE);
+        digits = w + n;
+        n = strspn(digits, DIGITS);
+        if (n == 0)
+                return -EINVAL;
+        e = digits + n;
+
+        /* Ensure the line ends in " kB" */
+        n = strspn(e, WHITESPACE);
+        if (n == 0)
+                return -EINVAL;
+        if (!streq(e + n, "kB"))
+                return -EINVAL;
+
+        *e = 0;
+        r = safe_atou64(digits, &v);
+        if (r < 0)
+                return r;
+        if (v == UINT64_MAX)
+                return -EINVAL;
+
+        if (v > UINT64_MAX/1024)
+                return -EOVERFLOW;
+
+        *ret = v * 1024U;
+        return 0;
+}
+
 int procfs_memory_get(uint64_t *ret_total, uint64_t *ret_used) {
         uint64_t mem_total = UINT64_MAX, mem_free = UINT64_MAX;
         _cleanup_fclose_ FILE *f = NULL;
@@ -213,8 +256,7 @@ int procfs_memory_get(uint64_t *ret_total, uint64_t *ret_used) {
         for (;;) {
                 _cleanup_free_ char *line = NULL;
                 uint64_t *v;
-                char *p, *e;
-                size_t n;
+                char *p;
 
                 r = read_line(f, LONG_LINE_MAX, &line);
                 if (r < 0)
@@ -233,25 +275,9 @@ int procfs_memory_get(uint64_t *ret_total, uint64_t *ret_used) {
                                 continue;
                 }
 
-                /* Determine length of numeric value */
-                n = strspn(p, DIGITS);
-                if (n == 0)
-                        return -EINVAL;
-                e = p + n;
-
-                /* Ensure the line ends in " kB" */
-                n = strspn(e, WHITESPACE);
-                if (n == 0)
-                        return -EINVAL;
-                if (!streq(e + n, "kB"))
-                        return -EINVAL;
-
-                *e = 0;
-                r = safe_atou64(p, v);
+                r = convert_meminfo_value_to_uint64_bytes(p, v);
                 if (r < 0)
                         return r;
-                if (*v == UINT64_MAX)
-                        return -EINVAL;
 
                 if (mem_total != UINT64_MAX && mem_free != UINT64_MAX)
                         break;
@@ -261,8 +287,8 @@ int procfs_memory_get(uint64_t *ret_total, uint64_t *ret_used) {
                 return -EINVAL;
 
         if (ret_total)
-                *ret_total = mem_total * 1024U;
+                *ret_total = mem_total;
         if (ret_used)
-                *ret_used = (mem_total - mem_free) * 1024U;
+                *ret_used = mem_total - mem_free;
         return 0;
 }

@@ -560,7 +560,7 @@ static int worker_main(Manager *_manager, sd_device_monitor *monitor, sd_device 
         if (r < 0)
                 log_debug_errno(r, "Failed to reset OOM score, ignoring: %m");
 
-        /* Clear unnecessary data in Manager object.*/
+        /* Clear unnecessary data in Manager object. */
         manager_clear_for_worker(manager);
 
         r = sd_event_new(&manager->event);
@@ -617,6 +617,8 @@ static int worker_spawn(Manager *manager, struct event *event) {
                 return log_error_errno(r, "Failed to fork() worker: %m");
         }
         if (r == 0) {
+                DEVICE_TRACE_POINT(worker_spawned, event->dev, getpid());
+
                 /* Worker process */
                 r = worker_main(manager, worker_monitor, sd_device_ref(event->dev));
                 log_close();
@@ -1045,6 +1047,8 @@ static int on_uevent(sd_device_monitor *monitor, sd_device *dev, void *userdata)
 
         assert(manager);
 
+        DEVICE_TRACE_POINT(kernel_uevent_received, dev);
+
         device_ensure_usec_initialized(dev, NULL);
 
         r = event_queue_insert(manager, dev);
@@ -1179,6 +1183,8 @@ static int synthesize_change_one(sd_device *dev, sd_device *target) {
         r = sd_device_trigger(target, SD_DEVICE_CHANGE);
         if (r < 0)
                 return log_device_debug_errno(target, r, "Failed to trigger 'change' uevent: %m");
+
+        DEVICE_TRACE_POINT(synthetic_change_event, dev);
 
         return 0;
 }

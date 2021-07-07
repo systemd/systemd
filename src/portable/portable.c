@@ -6,6 +6,7 @@
 #include "bus-error.h"
 #include "conf-files.h"
 #include "copy.h"
+#include "data-fd-util.h"
 #include "def.h"
 #include "dirent-util.h"
 #include "discover-image.h"
@@ -153,7 +154,7 @@ static int send_item(
         assert(name);
         assert(fd >= 0);
 
-        data_fd = fd_duplicate_data_fd(fd);
+        data_fd = copy_data_fd(fd);
         if (data_fd < 0)
                 return data_fd;
 
@@ -311,7 +312,6 @@ static int extract_now(
                         if (hashmap_get(unit_files, de->d_name))
                                 continue;
 
-                        dirent_ensure_type(d, de);
                         if (!IN_SET(de->d_type, DT_LNK, DT_REG))
                                 continue;
 
@@ -1396,7 +1396,6 @@ int portable_detach(
                 if (set_contains(unit_files, de->d_name))
                         continue;
 
-                dirent_ensure_type(d, de);
                 if (!IN_SET(de->d_type, DT_LNK, DT_REG))
                         continue;
 
@@ -1569,7 +1568,6 @@ static int portable_get_state_internal(
                 if (set_contains(unit_files, de->d_name))
                         continue;
 
-                dirent_ensure_type(d, de);
                 if (!IN_SET(de->d_type, DT_LNK, DT_REG))
                         continue;
 

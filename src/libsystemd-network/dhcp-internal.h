@@ -30,6 +30,8 @@ typedef struct DHCPServerData {
 
 extern const struct hash_ops dhcp_option_hash_ops;
 
+typedef struct sd_dhcp_client sd_dhcp_client;
+
 int dhcp_network_bind_raw_socket(int ifindex, union sockaddr_union *link, uint32_t xid,
                                  const uint8_t *mac_addr, size_t mac_addr_len,
                                  const uint8_t *bcast_addr, size_t bcast_addr_len,
@@ -61,6 +63,8 @@ void dhcp_packet_append_ip_headers(DHCPPacket *packet, be32_t source_addr,
                                    uint16_t destination, uint16_t len, int ip_service_type);
 
 int dhcp_packet_verify_headers(DHCPPacket *packet, size_t len, bool checksum, uint16_t port);
+
+void dhcp_client_set_test_mode(sd_dhcp_client *client, bool test_mode);
 
 /* If we are invoking callbacks of a dhcp-client, ensure unreffing the
  * client from the callback doesn't destroy the object we are working

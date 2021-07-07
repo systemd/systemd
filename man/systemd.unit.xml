@@ -225,10 +225,12 @@
     where <replaceable>type</replaceable> may be e.g. <literal>service</literal> or <literal>socket</literal>,
     that allows altering or adding to the settings of all corresponding unit files on the system.
     The formatting and precedence of applying drop-in configurations follow what is defined above.
-    Configurations in <filename><replaceable>type</replaceable>.d/</filename> have the lowest precedence
-    compared to settings in the name specific override directories. So the contents of
-    <filename>foo-.service.d/10-override.conf</filename> would override
-    <filename>service.d/10-override.conf</filename>.</para>
+    Files in <filename><replaceable>type</replaceable>.d/</filename> have lower precedence compared
+    to files in name-specific override directories. The usual rules apply: multiple drop-in files
+    with different names are applied in lexicographic order, regardless of which of the directories
+    they reside in, so a file in <filename><replaceable>type</replaceable>.d/</filename> applies
+    to a unit only if there are no drop-ins or masks with that name in directories with higher
+    precedence. See Examples.</para>
 
     <para>Note that while systemd offers a flexible dependency system
     between units it is recommended to use this functionality only
@@ -559,20 +561,19 @@
     <variablelist class='unit-directives'>
       <varlistentry>
         <term><varname>Description=</varname></term>
-        <listitem><para>A human readable name for the unit. This is used by
-        <command>systemd</command> (and other UIs) as the label for the unit, so this string should
-        identify the unit rather than describe it, despite the name. <literal>Apache2 Web
-        Server</literal> is a good example. Bad examples are <literal>high-performance light-weight
-        HTTP server</literal> (too generic) or <literal>Apache2</literal> (too specific and
-        meaningless for people who do not know Apache). <command>systemd</command> will use this
-        string as a noun in status messages (<literal>Starting
+        <listitem><para>A short human readable title of the unit. This may be used by
+        <command>systemd</command> (and other UIs) as a user-visible label for the unit, so this string
+        should identify the unit rather than describe it, despite the name. This string also shouldn't just
+        repeat the unit name. <literal>Apache2 Web Server</literal> is a good example. Bad examples are
+        <literal>high-performance light-weight HTTP server</literal> (too generic) or
+        <literal>Apache2</literal> (meaningless for people who do not know Apache, duplicates the unit
+        name). <command>systemd</command> may use this string as a noun in status messages (<literal>Starting
         <replaceable>description</replaceable>...</literal>, <literal>Started
         <replaceable>description</replaceable>.</literal>, <literal>Reached target
         <replaceable>description</replaceable>.</literal>, <literal>Failed to start
-        <replaceable>description</replaceable>.</literal>), so it should be capitalized, and should
-        not be a full sentence or a phrase with a continuous verb. Bad examples include
-        <literal>exiting the container</literal> or <literal>updating the database once per
-        day.</literal>.</para>
+        <replaceable>description</replaceable>.</literal>), so it should be capitalized, and should not be a
+        full sentence, or a phrase with a continuous verb. Bad examples include <literal>exiting the
+        container</literal> or <literal>updating the database once per day.</literal>.</para>
         </listitem>
       </varlistentry>
 
@@ -1374,11 +1375,23 @@
 
           <para>If the <varname>systemd.condition-needs-update=</varname> option is specified on the kernel
           command line (taking a boolean), it will override the result of this condition check, taking
-          precedence over any file modification time checks. If it is used
+          precedence over any file modification time checks. If the kernel command line option is used,
           <filename>systemd-update-done.service</filename> will not have immediate effect on any following
           <varname>ConditionNeedsUpdate=</varname> checks, until the system is rebooted where the kernel
           command line option is not specified anymore.</para>
-          </listitem>
+
+          <para>Note that to make this scheme effective, the timestamp of <filename>/usr/</filename> should
+          be explicitly updated after its contents are modified. The kernel will automatically update
+          modification timestamp on a directory only when immediate children of a directory are modified; an
+          modification of nested files will not automatically result in mtime of <filename>/usr/</filename>
+          being updated.</para>
+
+          <para>Also note that if the update method includes a call to execute appropriate post-update steps
+          itself, it should not touch the timestamp of <filename>/usr/</filename>. In a typical distribution
+          packaging scheme, packages will do any required update steps as part of the installation or
+          upgrade, to make package contents immediately usable. <varname>ConditionNeedsUpdate=</varname>
+          should be used with other update mechanisms where such an immediate update does not
+          happen.</para></listitem>
         </varlistentry>
 
         <varlistentry>
@@ -1633,6 +1646,19 @@
         </varlistentry>
 
         <varlistentry>
+          <term><varname>ConditionOSRelease=</varname></term>
+
+          <listitem><para>Verify that a specific <literal>key=value</literal> pair is set in the host's
+          <citerefentry><refentrytitle>os-release</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
+
+          <para>Other than exact matching with <literal>=</literal>, and <literal>!=</literal>, relative
+          comparisons are supported for versioned parameters (e.g. <literal>VERSION_ID</literal>). The
+          comparator can be one of <literal>&lt;</literal>, <literal>&lt;=</literal>, <literal>=</literal>,
+          <literal>!=</literal>, <literal>&gt;=</literal> and <literal>&gt;</literal>.</para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
           <term><varname>AssertArchitecture=</varname></term>
           <term><varname>AssertVirtualization=</varname></term>
           <term><varname>AssertHost=</varname></term>
@@ -1659,6 +1685,7 @@
           <term><varname>AssertControlGroupController=</varname></term>
           <term><varname>AssertMemory=</varname></term>
           <term><varname>AssertCPUs=</varname></term>
+          <term><varname>AssertOSRelease=</varname></term>
 
           <listitem><para>Similar to the <varname>ConditionArchitecture=</varname>,
           <varname>ConditionVirtualization=</varname>, …, condition settings described above, these settings
@@ -2189,6 +2216,61 @@ PrivateTmp=yes</programlisting>
       to override the entire unit.</para>
 
     </example>
+
+    <example>
+      <title>Top level drop-ins with template units</title>
+
+      <para>Top level per-type drop-ins can be used to change some aspect of
+      all units of a particular type. For example by creating the
+      <filename index='false'>/etc/systemd/system/service.d/</filename>
+      directory with a drop-in file, the contents of the drop-in file can be
+      applied to all service units. We can take this further by having the
+      top-level drop-in instantiate a secondary helper unit. Consider for
+      example the following set of units and drop-in files where we install
+      an <varname>OnFailure=</varname> dependency for all service units.</para>
+
+      <para>
+      <filename index='false'>/etc/systemd/system/failure-handler@.service</filename>:</para>
+
+      <programlisting>[Unit]
+Description=My failure handler for %i
+
+[Service]
+Type=oneshot
+# Perform some special action for when %i exits unexpectedly.
+ExecStart=/usr/sbin/myfailurehandler %i
+     </programlisting>
+
+     <para>We can then add an instance of
+     <filename index='false'>failure-handler@.service</filename> as an
+     <varname>OnFailure=</varname> dependency for all service units.</para>
+
+    <para>
+    <filename index='false'>/etc/systemd/system/service.d/10-all.conf</filename>:</para>
+
+    <programlisting>[Unit]
+OnFailure=failure-handler@%N.service
+    </programlisting>
+
+    <para>Now, after running <command>systemctl daemon-reload</command> all
+    services will have acquired an <varname>OnFailure=</varname> dependency on
+    <filename index='false'>failure-handler@%N.service</filename>. The
+    template instance units will also have gained the dependency which results
+    in the creation of a recursive dependency chain. We can break the chain by
+    disabling the drop-in for the template instance units via a symlink to
+    <filename index='false'>/dev/null</filename>:</para>
+
+    <programlisting>
+<command>mkdir /etc/systemd/system/failure-handler@.service.d/</command>
+<command>ln -s /dev/null /etc/systemd/system/failure-handler@.service.d/10-all.conf</command>
+<command>systemctl daemon-reload</command>
+    </programlisting>
+
+    <para>This ensures that if a <filename index='false'>failure-handler@.service</filename> instance fails it will not trigger an instance named
+    <filename index='false'>failure-handler@failure-handler.service</filename>.</para>
+
+    </example>
+
   </refsect1>
 
   <refsect1>

@@ -2298,8 +2298,6 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly s Type = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
-      readonly s ExitType = '...';
-      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly s Restart = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly s PIDFile = '...';
@@ -2400,6 +2398,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
       readonly s ControlGroup = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly t MemoryCurrent = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly t MemoryAvailable = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly t CPUUsageNSec = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
@@ -2525,9 +2525,9 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly a(ss) BPFProgram = [...];
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
-      readonly a(iqq) SocketBindAllow = [...];
+      readonly a(iiqq) SocketBindAllow = [...];
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
-      readonly a(iqq) SocketBindDeny = [...];
+      readonly a(iiqq) SocketBindDeny = [...];
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly as Environment = ['...', ...];
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
@@ -2863,8 +2863,6 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
     <!--method AttachProcesses is not documented!-->
 
     <!--property Type is not documented!-->
-
-    <!--property ExitType is not documented!-->
 
     <!--property Restart is not documented!-->
 
@@ -3384,8 +3382,6 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
 
     <variablelist class="dbus-property" generated="True" extra-ref="Type"/>
 
-    <variablelist class="dbus-property" generated="True" extra-ref="ExitType"/>
-
     <variablelist class="dbus-property" generated="True" extra-ref="Restart"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="PIDFile"/>
@@ -3503,6 +3499,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
     <variablelist class="dbus-property" generated="True" extra-ref="ControlGroup"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="MemoryCurrent"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="MemoryAvailable"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="CPUUsageNSec"/>
 
@@ -4063,6 +4061,11 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
       <varname>MountImages</varname>
       <varname>ExtensionImages</varname>
       see systemd.exec(5) for their meaning.</para>
+
+      <para><varname>MemoryAvailable</varname> indicates how much unused memory is available to the unit before
+      the <literal>MemoryMax</literal> or <literal>MemoryHigh</literal> (whichever is lower) limit set by the cgroup
+      memory controller is reached. It will take into consideration limits on all parent slices, other than the
+      limits set on the unit itself.</para>
     </refsect2>
   </refsect1>
 
@@ -4196,6 +4199,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2esocket {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly t MemoryCurrent = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly t MemoryAvailable = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly t CPUUsageNSec = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly ay EffectiveCPUs = [...];
@@ -4320,9 +4325,9 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2esocket {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly a(ss) BPFProgram = [...];
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
-      readonly a(iqq) SocketBindAllow = [...];
+      readonly a(iiqq) SocketBindAllow = [...];
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
-      readonly a(iqq) SocketBindDeny = [...];
+      readonly a(iiqq) SocketBindDeny = [...];
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly as Environment = ['...', ...];
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
@@ -5321,6 +5326,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2esocket {
 
     <variablelist class="dbus-property" generated="True" extra-ref="MemoryCurrent"/>
 
+    <variablelist class="dbus-property" generated="True" extra-ref="MemoryAvailable"/>
+
     <variablelist class="dbus-property" generated="True" extra-ref="CPUUsageNSec"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="EffectiveCPUs"/>
@@ -5915,6 +5922,8 @@ node /org/freedesktop/systemd1/unit/home_2emount {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly t MemoryCurrent = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly t MemoryAvailable = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly t CPUUsageNSec = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly ay EffectiveCPUs = [...];
@@ -6039,9 +6048,9 @@ node /org/freedesktop/systemd1/unit/home_2emount {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly a(ss) BPFProgram = [...];
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
-      readonly a(iqq) SocketBindAllow = [...];
+      readonly a(iiqq) SocketBindAllow = [...];
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
-      readonly a(iqq) SocketBindDeny = [...];
+      readonly a(iiqq) SocketBindDeny = [...];
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly as Environment = ['...', ...];
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
@@ -6886,6 +6895,8 @@ node /org/freedesktop/systemd1/unit/home_2emount {
 
     <variablelist class="dbus-property" generated="True" extra-ref="MemoryCurrent"/>
 
+    <variablelist class="dbus-property" generated="True" extra-ref="MemoryAvailable"/>
+
     <variablelist class="dbus-property" generated="True" extra-ref="CPUUsageNSec"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="EffectiveCPUs"/>
@@ -7601,6 +7612,8 @@ node /org/freedesktop/systemd1/unit/dev_2dsda3_2eswap {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly t MemoryCurrent = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly t MemoryAvailable = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly t CPUUsageNSec = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly ay EffectiveCPUs = [...];
@@ -7725,9 +7738,9 @@ node /org/freedesktop/systemd1/unit/dev_2dsda3_2eswap {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly a(ss) BPFProgram = [...];
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
-      readonly a(iqq) SocketBindAllow = [...];
+      readonly a(iiqq) SocketBindAllow = [...];
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
-      readonly a(iqq) SocketBindDeny = [...];
+      readonly a(iiqq) SocketBindDeny = [...];
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly as Environment = ['...', ...];
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
@@ -8544,6 +8557,8 @@ node /org/freedesktop/systemd1/unit/dev_2dsda3_2eswap {
 
     <variablelist class="dbus-property" generated="True" extra-ref="MemoryCurrent"/>
 
+    <variablelist class="dbus-property" generated="True" extra-ref="MemoryAvailable"/>
+
     <variablelist class="dbus-property" generated="True" extra-ref="CPUUsageNSec"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="EffectiveCPUs"/>
@@ -9112,6 +9127,8 @@ node /org/freedesktop/systemd1/unit/system_2eslice {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly t MemoryCurrent = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly t MemoryAvailable = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly t CPUUsageNSec = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly ay EffectiveCPUs = [...];
@@ -9236,9 +9253,9 @@ node /org/freedesktop/systemd1/unit/system_2eslice {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly a(ss) BPFProgram = [...];
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
-      readonly a(iqq) SocketBindAllow = [...];
+      readonly a(iiqq) SocketBindAllow = [...];
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
-      readonly a(iqq) SocketBindDeny = [...];
+      readonly a(iiqq) SocketBindDeny = [...];
   };
   interface org.freedesktop.DBus.Peer { ... };
   interface org.freedesktop.DBus.Introspectable { ... };
@@ -9402,6 +9419,8 @@ node /org/freedesktop/systemd1/unit/system_2eslice {
     <variablelist class="dbus-property" generated="True" extra-ref="ControlGroup"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="MemoryCurrent"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="MemoryAvailable"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="CPUUsageNSec"/>
 
@@ -9571,6 +9590,8 @@ node /org/freedesktop/systemd1/unit/session_2d1_2escope {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly t MemoryCurrent = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly t MemoryAvailable = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly t CPUUsageNSec = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly ay EffectiveCPUs = [...];
@@ -9695,9 +9716,9 @@ node /org/freedesktop/systemd1/unit/session_2d1_2escope {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly a(ss) BPFProgram = [...];
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
-      readonly a(iqq) SocketBindAllow = [...];
+      readonly a(iiqq) SocketBindAllow = [...];
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
-      readonly a(iqq) SocketBindDeny = [...];
+      readonly a(iiqq) SocketBindDeny = [...];
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly s KillMode = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
@@ -9903,6 +9924,8 @@ node /org/freedesktop/systemd1/unit/session_2d1_2escope {
     <variablelist class="dbus-property" generated="True" extra-ref="ControlGroup"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="MemoryCurrent"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="MemoryAvailable"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="CPUUsageNSec"/>
 

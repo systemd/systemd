@@ -12,6 +12,7 @@
 #include "alloc-util.h"
 #include "bpf-firewall.h"
 #include "bpf-foreign.h"
+#include "bpf-socket-bind.h"
 #include "bus-common-errors.h"
 #include "bus-util.h"
 #include "cgroup-setup.h"
@@ -41,7 +42,6 @@
 #include "rm-rf.h"
 #include "set.h"
 #include "signal-util.h"
-#include "socket-bind.h"
 #include "sparse-endian.h"
 #include "special.h"
 #include "specifier.h"
@@ -114,6 +114,9 @@ Unit* unit_new(Manager *m, size_t size) {
 
         u->ip_accounting_ingress_map_fd = -1;
         u->ip_accounting_egress_map_fd = -1;
+        for (CGroupIOAccountingMetric i = 0; i < _CGROUP_IO_ACCOUNTING_METRIC_MAX; i++)
+                u->io_accounting_last[i] = UINT64_MAX;
+
         u->ipv4_allow_map_fd = -1;
         u->ipv6_allow_map_fd = -1;
         u->ipv4_deny_map_fd = -1;
@@ -123,9 +126,6 @@ Unit* unit_new(Manager *m, size_t size) {
 
         u->start_ratelimit = (RateLimit) { m->default_start_limit_interval, m->default_start_limit_burst };
         u->auto_start_stop_ratelimit = (RateLimit) { 10 * USEC_PER_SEC, 16 };
-
-        for (CGroupIOAccountingMetric i = 0; i < _CGROUP_IO_ACCOUNTING_METRIC_MAX; i++)
-                u->io_accounting_last[i] = UINT64_MAX;
 
         return u;
 }
@@ -757,23 +757,7 @@ Unit* unit_free(Unit *u) {
         if (u->in_stop_when_bound_queue)
                 LIST_REMOVE(stop_when_bound_queue, u->manager->stop_when_bound_queue, u);
 
-        safe_close(u->ip_accounting_ingress_map_fd);
-        safe_close(u->ip_accounting_egress_map_fd);
-
-        safe_close(u->ipv4_allow_map_fd);
-        safe_close(u->ipv6_allow_map_fd);
-        safe_close(u->ipv4_deny_map_fd);
-        safe_close(u->ipv6_deny_map_fd);
-
-        bpf_program_unref(u->ip_bpf_ingress);
-        bpf_program_unref(u->ip_bpf_ingress_installed);
-        bpf_program_unref(u->ip_bpf_egress);
-        bpf_program_unref(u->ip_bpf_egress_installed);
-
-        set_free(u->ip_bpf_custom_ingress);
-        set_free(u->ip_bpf_custom_egress);
-        set_free(u->ip_bpf_custom_ingress_installed);
-        set_free(u->ip_bpf_custom_egress_installed);
+        bpf_firewall_close(u);
 
         hashmap_free(u->bpf_foreign_by_key);
 
@@ -1347,7 +1331,7 @@ int unit_add_exec_dependencies(Unit *u, ExecContext *c) {
         return 0;
 }
 
-const char *unit_description(Unit *u) {
+const char* unit_description(Unit *u) {
         assert(u);
 
         if (u->description)
@@ -1356,13 +1340,38 @@ const char *unit_description(Unit *u) {
         return strna(u->id);
 }
 
-const char *unit_status_string(Unit *u) {
+const char* unit_status_string(Unit *u, char **ret_combined_buffer) {
         assert(u);
+        assert(u->id);
 
-        if (u->manager->status_unit_format == STATUS_UNIT_FORMAT_NAME && u->id)
+        /* Return u->id, u->description, or "{u->id} - {u->description}".
+         * Versions with u->description are only used if it is set.
+         * The last option is used if configured and the caller provided the 'ret_combined_buffer'
+         * pointer.
+         *
+         * Note that *ret_combined_buffer may be set to NULL. */
+
+        if (!u->description ||
+            u->manager->status_unit_format == STATUS_UNIT_FORMAT_NAME ||
+            (u->manager->status_unit_format == STATUS_UNIT_FORMAT_COMBINED && !ret_combined_buffer) ||
+            streq(u->description, u->id)) {
+
+                if (ret_combined_buffer)
+                        *ret_combined_buffer = NULL;
                 return u->id;
+        }
 
-        return unit_description(u);
+        if (ret_combined_buffer) {
+                if (u->manager->status_unit_format == STATUS_UNIT_FORMAT_COMBINED) {
+                        *ret_combined_buffer = strjoin(u->id, " - ", u->description);
+                        if (*ret_combined_buffer)
+                                return *ret_combined_buffer;
+                        log_oom(); /* Fall back to ->description */
+                } else
+                        *ret_combined_buffer = NULL;
+        }
+
+        return u->description;
 }
 
 /* Common implementation for multiple backends */
@@ -1746,15 +1755,16 @@ static bool unit_test_assert(Unit *u) {
         return u->assert_result;
 }
 
-void unit_status_printf(Unit *u, StatusType status_type, const char *status, const char *unit_status_msg_format) {
-        const char *d;
-
-        d = unit_status_string(u);
-        if (log_get_show_color())
-                d = strjoina(ANSI_HIGHLIGHT, d, ANSI_NORMAL);
+void unit_status_printf(Unit *u, StatusType status_type, const char *status, const char *format, const char *ident) {
+        if (log_get_show_color()) {
+                if (u->manager->status_unit_format == STATUS_UNIT_FORMAT_COMBINED && strchr(ident, ' '))
+                        ident = strjoina(ANSI_HIGHLIGHT, u->id, ANSI_NORMAL, " - ", u->description);
+                else
+                        ident = strjoina(ANSI_HIGHLIGHT, ident, ANSI_NORMAL);
+        }
 
         DISABLE_WARNING_FORMAT_NONLITERAL;
-        manager_status_printf(u->manager, status_type, status, unit_status_msg_format, d);
+        manager_status_printf(u->manager, status_type, status, format, ident);
         REENABLE_WARNING;
 }
 
@@ -2091,7 +2101,7 @@ bool unit_is_bound_by_inactive(Unit *u, Unit **ret_culprit) {
         assert(u);
 
         /* Checks whether this unit is bound to another unit that is inactive, i.e. whether we should stop
-         * because the other unit is down.*/
+         * because the other unit is down. */
 
         if (unit_active_state(u) != UNIT_ACTIVE || u->job) {
                 /* Don't clean up while the unit is transitioning or is even inactive. */
@@ -2944,7 +2954,7 @@ void unit_dequeue_rewatch_pids(Unit *u) {
         if (r < 0)
                 log_warning_errno(r, "Failed to disable event source for tidying watched PIDs, ignoring: %m");
 
-        u->rewatch_pids_event_source = sd_event_source_unref(u->rewatch_pids_event_source);
+        u->rewatch_pids_event_source = sd_event_source_disable_unref(u->rewatch_pids_event_source);
 }
 
 bool unit_job_is_applicable(Unit *u, JobType j) {
@@ -3502,12 +3512,6 @@ void unit_unwatch_bus_name(Unit *u, const char *name) {
         (void) hashmap_remove_value(u->manager->watch_bus, name, u);
         u->match_bus_slot = sd_bus_slot_unref(u->match_bus_slot);
         u->get_name_owner_slot = sd_bus_slot_unref(u->get_name_owner_slot);
-}
-
-bool unit_can_serialize(Unit *u) {
-        assert(u);
-
-        return UNIT_VTABLE(u)->serialize && UNIT_VTABLE(u)->deserialize_item;
 }
 
 int unit_add_node_dependency(Unit *u, const char *what, UnitDependency dep, UnitDependencyMask mask) {
@@ -4584,45 +4588,43 @@ int unit_kill_context(
 }
 
 int unit_require_mounts_for(Unit *u, const char *path, UnitDependencyMask mask) {
-        _cleanup_free_ char *p = NULL;
-        UnitDependencyInfo di;
         int r;
 
         assert(u);
         assert(path);
 
-        /* Registers a unit for requiring a certain path and all its prefixes. We keep a hashtable of these paths in
-         * the unit (from the path to the UnitDependencyInfo structure indicating how to the dependency came to
-         * be). However, we build a prefix table for all possible prefixes so that new appearing mount units can easily
-         * determine which units to make themselves a dependency of. */
+        /* Registers a unit for requiring a certain path and all its prefixes. We keep a hashtable of these
+         * paths in the unit (from the path to the UnitDependencyInfo structure indicating how to the
+         * dependency came to be). However, we build a prefix table for all possible prefixes so that new
+         * appearing mount units can easily determine which units to make themselves a dependency of. */
 
         if (!path_is_absolute(path))
                 return -EINVAL;
 
-        r = hashmap_ensure_allocated(&u->requires_mounts_for, &path_hash_ops);
-        if (r < 0)
-                return r;
+        if (hashmap_contains(u->requires_mounts_for, path)) /* Exit quickly if the path is already covered. */
+                return 0;
 
-        p = strdup(path);
+        _cleanup_free_ char *p = strdup(path);
         if (!p)
                 return -ENOMEM;
 
+        /* Use the canonical form of the path as the stored key. We call path_is_normalized()
+         * only after simplification, since path_is_normalized() rejects paths with '.'.
+         * path_is_normalized() also verifies that the path fits in PATH_MAX. */
         path = path_simplify(p);
 
         if (!path_is_normalized(path))
                 return -EPERM;
 
-        if (hashmap_contains(u->requires_mounts_for, path))
-                return 0;
-
-        di = (UnitDependencyInfo) {
+        UnitDependencyInfo di = {
                 .origin_mask = mask
         };
 
-        r = hashmap_put(u->requires_mounts_for, path, di.data);
+        r = hashmap_ensure_put(&u->requires_mounts_for, &path_hash_ops, p, di.data);
         if (r < 0)
                 return r;
-        p = NULL;
+        assert(r > 0);
+        TAKE_PTR(p); /* path remains a valid pointer to the string stored in the hashmap */
 
         char prefix[strlen(path) + 1];
         PATH_FOREACH_PREFIX_MORE(prefix, path) {
@@ -5542,7 +5544,11 @@ int unit_pid_attachable(Unit *u, pid_t pid, sd_bus_error *error) {
 void unit_log_success(Unit *u) {
         assert(u);
 
-        log_unit_struct(u, LOG_INFO,
+        /* Let's show message "Deactivated successfully" in debug mode (when manager is user) rather than in info mode.
+         * This message has low information value for regular users and it might be a bit overwhelming on a system with
+         * a lot of devices. */
+        log_unit_struct(u,
+                        MANAGER_IS_USER(u->manager) ? LOG_DEBUG : LOG_INFO,
                         "MESSAGE_ID=" SD_MESSAGE_UNIT_SUCCESS_STR,
                         LOG_UNIT_INVOCATION_ID(u),
                         LOG_UNIT_MESSAGE(u, "Deactivated successfully."));
@@ -5596,12 +5602,13 @@ void unit_log_process_exit(
 
         log_unit_struct(u, level,
                         "MESSAGE_ID=" SD_MESSAGE_UNIT_PROCESS_EXIT_STR,
-                        LOG_UNIT_MESSAGE(u, "%s exited, code=%s, status=%i/%s",
+                        LOG_UNIT_MESSAGE(u, "%s exited, code=%s, status=%i/%s%s",
                                          kind,
                                          sigchld_code_to_string(code), status,
                                          strna(code == CLD_EXITED
                                                ? exit_status_to_string(status, EXIT_STATUS_FULL)
-                                               : signal_to_string(status))),
+                                               : signal_to_string(status)),
+                                         success ? " (success)" : ""),
                         "EXIT_CODE=%s", sigchld_code_to_string(code),
                         "EXIT_STATUS=%i", status,
                         "COMMAND=%s", strna(command),

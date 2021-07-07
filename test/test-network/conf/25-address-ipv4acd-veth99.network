@@ -1,0 +1,9 @@
+[Match]
+Name=veth99
+
+[Network]
+IPv6AcceptRA=no
+
+[Address]
+Address=192.168.100.11/24
+DuplicateAddressDetection=ipv4

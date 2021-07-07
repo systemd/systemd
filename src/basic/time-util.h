@@ -134,7 +134,10 @@ int parse_time(const char *t, usec_t *usec, usec_t default_unit);
 int parse_nsec(const char *t, nsec_t *nsec);
 
 int get_timezones(char ***l);
-bool timezone_is_valid(const char *name, int log_level);
+int verify_timezone(const char *name, int log_level);
+static inline bool timezone_is_valid(const char *name, int log_level) {
+        return verify_timezone(name, log_level) >= 0;
+}
 
 bool clock_boottime_supported(void);
 bool clock_supported(clockid_t clock);

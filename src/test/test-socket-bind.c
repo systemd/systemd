@@ -1,12 +1,12 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "bpf-socket-bind.h"
 #include "load-fragment.h"
 #include "manager.h"
 #include "process-util.h"
 #include "rlimit-util.h"
 #include "rm-rf.h"
 #include "service.h"
-#include "socket-bind.h"
 #include "strv.h"
 #include "tests.h"
 #include "unit.h"
@@ -122,7 +122,7 @@ int main(int argc, char *argv[]) {
         if (!can_memlock())
                 return log_tests_skipped("Can't use mlock(), skipping.");
 
-        r = socket_bind_supported();
+        r = bpf_socket_bind_supported();
         if (r <= 0)
                 return log_tests_skipped("socket-bind is not supported, skipping.");
 
@@ -146,6 +146,11 @@ int main(int argc, char *argv[]) {
         assert_se(test_socket_bind(m, "socket_bind_test.service", netcat_path, "6666", STRV_MAKE("6667", "6668", ""), STRV_MAKE("any")) >= 0);
         assert_se(test_socket_bind(m, "socket_bind_test.service", netcat_path, "7777", STRV_MAKE_EMPTY, STRV_MAKE_EMPTY) >= 0);
         assert_se(test_socket_bind(m, "socket_bind_test.service", netcat_path, "8888", STRV_MAKE("any"), STRV_MAKE("any")) >= 0);
+        assert_se(test_socket_bind(m, "socket_bind_test.service", netcat_path, "8888", STRV_MAKE("ipv6:tcp:8888-8889"), STRV_MAKE("any")) >= 0);
+        assert_se(test_socket_bind(m, "socket_bind_test.service", netcat_path, "10000", STRV_MAKE("ipv6:udp:9999-10000"), STRV_MAKE("any")) >= 0);
+        assert_se(test_socket_bind(m, "socket_bind_test.service", netcat_path, "6666", STRV_MAKE("ipv4:tcp:6666"), STRV_MAKE("any")) >= 0);
+        assert_se(test_socket_bind(m, "socket_bind_test.service", netcat_path, "6666", STRV_MAKE("ipv4:udp:6666"), STRV_MAKE("any")) >= 0);
+        assert_se(test_socket_bind(m, "socket_bind_test.service", netcat_path, "6666", STRV_MAKE("tcp:6666"), STRV_MAKE("any")) >= 0);
 
         return 0;
 }

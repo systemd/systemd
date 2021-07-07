@@ -146,6 +146,8 @@ tests += [
 
         [['src/test/test-utf8.c']],
 
+        [['src/test/test-blockdev-util.c']],
+
         [['src/test/test-dev-setup.c']],
 
         [['src/test/test-capability.c'],
@@ -158,6 +160,8 @@ tests += [
         [['src/test/test-locale-util.c']],
 
         [['src/test/test-copy.c']],
+
+        [['src/test/test-data-fd-util.c']],
 
         [['src/test/test-static-destruct.c']],
 
@@ -224,7 +228,7 @@ tests += [
         [['src/test/test-os-util.c']],
 
         [['src/test/test-libcrypt-util.c'],
-         [], [], [], '', 'timeout=120'],
+         [], [libcrypt], [], '', 'timeout=120'],
 
         [['src/test/test-escape.c']],
 
@@ -237,6 +241,8 @@ tests += [
         [['src/test/test-extract-word.c']],
 
         [['src/test/test-parse-argument.c']],
+
+        [['src/test/test-parse-socket-bind-item.c']],
 
         [['src/test/test-parse-util.c']],
 
@@ -365,6 +371,8 @@ tests += [
         [['src/test/test-set-disable-mempool.c'],
          [],
          [threads]],
+
+        [['src/test/test-hash-funcs.c']],
 
         [['src/test/test-bitmap.c']],
 

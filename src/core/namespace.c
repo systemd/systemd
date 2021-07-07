@@ -275,7 +275,7 @@ static bool mount_entry_read_only(const MountEntry *p) {
 static bool mount_entry_noexec(const MountEntry *p) {
         assert(p);
 
-        return p->noexec || IN_SET(p->mode, NOEXEC, INACCESSIBLE);
+        return p->noexec || IN_SET(p->mode, NOEXEC, INACCESSIBLE, SYSFS, PROCFS);
 }
 
 static bool mount_entry_exec(const MountEntry *p) {
@@ -1157,6 +1157,15 @@ static int mount_image(const MountEntry *m, const char *root_directory) {
                                 host_os_release_id, host_os_release_version_id, host_os_release_sysext_level);
         if (r == -ENOENT && m->ignore)
                 return 0;
+        if (r == -ESTALE && host_os_release_id)
+                return log_error_errno(r,
+                                       "Failed to mount image %s, extension-release metadata does not match the lower layer's: ID=%s%s%s%s%s",
+                                       mount_entry_source(m),
+                                       host_os_release_id,
+                                       host_os_release_version_id ? " VERSION_ID=" : "",
+                                       strempty(host_os_release_version_id),
+                                       host_os_release_sysext_level ? " SYSEXT_LEVEL=" : "",
+                                       strempty(host_os_release_sysext_level));
         if (r < 0)
                 return log_debug_errno(r, "Failed to mount image %s on %s: %m", mount_entry_source(m), mount_entry_path(m));
 
@@ -1387,8 +1396,8 @@ static int apply_one_mount(
 
 static int make_read_only(const MountEntry *m, char **deny_list, FILE *proc_self_mountinfo) {
         unsigned long new_flags = 0, flags_mask = 0;
-        bool submounts = false;
-        int r = 0;
+        bool submounts;
+        int r;
 
         assert(m);
         assert(proc_self_mountinfo);
@@ -1432,8 +1441,8 @@ static int make_read_only(const MountEntry *m, char **deny_list, FILE *proc_self
 
 static int make_noexec(const MountEntry *m, char **deny_list, FILE *proc_self_mountinfo) {
         unsigned long new_flags = 0, flags_mask = 0;
-        bool submounts = false;
-        int r = 0;
+        bool submounts;
+        int r;
 
         assert(m);
         assert(proc_self_mountinfo);
@@ -1465,8 +1474,8 @@ static int make_noexec(const MountEntry *m, char **deny_list, FILE *proc_self_mo
 }
 
 static int make_nosuid(const MountEntry *m, FILE *proc_self_mountinfo) {
-        bool submounts = false;
-        int r = 0;
+        bool submounts;
+        int r;
 
         assert(m);
         assert(proc_self_mountinfo);

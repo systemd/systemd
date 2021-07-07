@@ -17,6 +17,7 @@
 #include "fd-util.h"
 #include "fs-util.h"
 #include "format-util.h"
+#include "netif-naming-scheme.h"
 #include "netlink-util.h"
 #include "parse-util.h"
 #include "path-util.h"
@@ -603,6 +604,8 @@ static int on_spawn_timeout(sd_event_source *s, uint64_t usec, void *userdata) {
 
         assert(spawn);
 
+        DEVICE_TRACE_POINT(spawn_timeout, spawn->device, spawn->cmd);
+
         kill_and_sigcont(spawn->pid, spawn->timeout_signal);
 
         log_device_error(spawn->device, "Spawned process '%s' ["PID_FMT"] timed out after %s, killing",
@@ -647,6 +650,8 @@ static int on_spawn_sigchld(sd_event_source *s, const siginfo_t *si, void *userd
         default:
                 log_device_error(spawn->device, "Process '%s' failed due to unknown reason.", spawn->cmd);
         }
+
+        DEVICE_TRACE_POINT(spawn_exit, spawn->device, spawn->cmd);
 
         sd_event_exit(sd_event_source_get_event(s), ret);
         return 1;
@@ -785,6 +790,8 @@ int udev_event_spawn(UdevEvent *event,
                 (void) close_all_fds(NULL, 0);
                 (void) rlimit_nofile_safe();
 
+                DEVICE_TRACE_POINT(spawn_exec, event->dev, cmd);
+
                 execve(argv[0], argv, envp);
                 _exit(EXIT_FAILURE);
         }
@@ -841,6 +848,12 @@ static int rename_netif(UdevEvent *event) {
                 return 0; /* Device is not a network interface. */
         if (r < 0)
                 return log_device_error_errno(dev, r, "Failed to get ifindex: %m");
+
+        if (naming_scheme_has(NAMING_REPLACE_STRICTLY) &&
+            !ifname_valid(event->name)) {
+                log_device_warning(dev, "Invalid network interface name, ignoring: %s", event->name);
+                return 0;
+        }
 
         /* Set ID_RENAMING boolean property here, and drop it in the corresponding move uevent later. */
         r = device_add_property(dev, "ID_RENAMING", "1");
@@ -1014,9 +1027,13 @@ int udev_event_execute_rules(
                         return r;
         }
 
+        DEVICE_TRACE_POINT(rules_start, dev);
+
         r = udev_rules_apply_to_event(rules, event, timeout_usec, timeout_signal, properties_list);
         if (r < 0)
                 return log_device_debug_errno(dev, r, "Failed to apply udev rules: %m");
+
+        DEVICE_TRACE_POINT(rules_finished, dev);
 
         r = rename_netif(event);
         if (r < 0)

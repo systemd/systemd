@@ -126,6 +126,8 @@ static void test_path_compare_one(const char *a, const char *b, int expected) {
 }
 
 static void test_path_compare(void) {
+        log_info("/* %s */", __func__);
+
         test_path_compare_one("/goo", "/goo", 0);
         test_path_compare_one("/goo", "/goo", 0);
         test_path_compare_one("//goo", "/goo", 0);
@@ -138,6 +140,12 @@ static void test_path_compare(void) {
         test_path_compare_one("/x", "x/", 1);
         test_path_compare_one("x/", "/", -1);
         test_path_compare_one("/x/./y", "x/y", 1);
+        test_path_compare_one("/x/./y", "/x/y", 0);
+        test_path_compare_one("/x/./././y", "/x/y/././.", 0);
+        test_path_compare_one("./x/./././y", "./x/y/././.", 0);
+        test_path_compare_one(".", "./.", 0);
+        test_path_compare_one(".", "././.", 0);
+        test_path_compare_one("./..", ".", 1);
         test_path_compare_one("x/.y", "x/y", -1);
         test_path_compare_one("foo", "/foo", -1);
         test_path_compare_one("/foo", "/foo/bar", -1);
@@ -913,7 +921,7 @@ static void test_filename_is_valid(void) {
 }
 
 static void test_path_is_valid_and_safe_one(const char *p, bool ret) {
-        log_debug("/* %s(\"%s\")*/", __func__, strnull(p));
+        log_debug("/* %s(\"%s\") */", __func__, strnull(p));
 
         assert_se(path_is_valid(p) == ret);
         if (ret)

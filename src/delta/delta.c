@@ -311,8 +311,6 @@ static int enumerate_dir(
         }
 
         FOREACH_DIRENT_ALL(de, d, return -errno) {
-                dirent_ensure_type(d, de);
-
                 if (dropins && de->d_type == DT_DIR && endswith(de->d_name, ".d")) {
                         if (!GREEDY_REALLOC0(dirs, n_dirs + 2))
                                 return -ENOMEM;

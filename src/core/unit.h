@@ -308,14 +308,15 @@ typedef struct Unit {
         /* IP BPF Firewalling/accounting */
         int ip_accounting_ingress_map_fd;
         int ip_accounting_egress_map_fd;
+        uint64_t ip_accounting_extra[_CGROUP_IP_ACCOUNTING_METRIC_MAX];
 
         int ipv4_allow_map_fd;
         int ipv6_allow_map_fd;
         int ipv4_deny_map_fd;
         int ipv6_deny_map_fd;
-
         BPFProgram *ip_bpf_ingress, *ip_bpf_ingress_installed;
         BPFProgram *ip_bpf_egress, *ip_bpf_egress_installed;
+
         Set *ip_bpf_custom_ingress;
         Set *ip_bpf_custom_ingress_installed;
         Set *ip_bpf_custom_egress;
@@ -333,8 +334,6 @@ typedef struct Unit {
         struct bpf_link *ipv4_socket_bind_link;
         struct bpf_link *ipv6_socket_bind_link;
 #endif
-
-        uint64_t ip_accounting_extra[_CGROUP_IP_ACCOUNTING_METRIC_MAX];
 
         /* Low-priority event source which is used to remove watched PIDs that have gone away, and subscribe to any new
          * ones which might have appeared. */
@@ -543,8 +542,8 @@ typedef struct UnitVTable {
 
         bool (*can_reload)(Unit *u);
 
-        /* Write all data that cannot be restored from other sources
-         * away using unit_serialize_item() */
+        /* Serialize state and file descriptors that should be carried over into the new
+         * instance after reexecution. */
         int (*serialize)(Unit *u, FILE *f, FDSet *fds);
 
         /* Restore one item from the serialization */
@@ -646,7 +645,7 @@ typedef struct UnitVTable {
         /* Type specific cleanups. */
         void (*shutdown)(Manager *m);
 
-        /* If this function is set and return false all jobs for units
+        /* If this function is set and returns false all jobs for units
          * of this type will immediately fail. */
         bool (*supported)(void);
 
@@ -654,25 +653,28 @@ typedef struct UnitVTable {
         UnitStatusMessageFormats status_message_formats;
 
         /* True if transient units of this type are OK */
-        bool can_transient:1;
+        bool can_transient;
 
         /* True if cgroup delegation is permissible */
-        bool can_delegate:1;
+        bool can_delegate;
 
         /* True if the unit type triggers other units, i.e. can have a UNIT_TRIGGERS dependency */
-        bool can_trigger:1;
+        bool can_trigger;
 
         /* True if the unit type knows a failure state, and thus can be source of an OnFailure= dependency */
-        bool can_fail:1;
+        bool can_fail;
 
         /* True if units of this type shall be startable only once and then never again */
-        bool once_only:1;
+        bool once_only;
+
+        /* Do not serialize this unit when preparing for root switch */
+        bool exclude_from_switch_root_serialization;
 
         /* True if queued jobs of this type should be GC'ed if no other job needs them anymore */
-        bool gc_jobs:1;
+        bool gc_jobs;
 
         /* True if systemd-oomd can monitor and act on this unit's recursive children's cgroup(s)  */
-        bool can_set_managed_oom:1;
+        bool can_set_managed_oom;
 } UnitVTable;
 
 extern const UnitVTable * const unit_vtable[_UNIT_TYPE_MAX];
@@ -763,7 +765,7 @@ int unit_set_slice(Unit *u, Unit *slice, UnitDependencyMask mask);
 int unit_set_default_slice(Unit *u);
 
 const char *unit_description(Unit *u) _pure_;
-const char *unit_status_string(Unit *u) _pure_;
+const char *unit_status_string(Unit *u, char **combined);
 
 bool unit_has_name(const Unit *u, const char *name);
 
@@ -812,15 +814,13 @@ char *unit_dbus_path_invocation_id(Unit *u);
 
 int unit_load_related_unit(Unit *u, const char *type, Unit **_found);
 
-bool unit_can_serialize(Unit *u) _pure_;
-
 int unit_add_node_dependency(Unit *u, const char *what, UnitDependency d, UnitDependencyMask mask);
 int unit_add_blockdev_dependency(Unit *u, const char *what, UnitDependencyMask mask);
 
 int unit_coldplug(Unit *u);
 void unit_catchup(Unit *u);
 
-void unit_status_printf(Unit *u, StatusType status_type, const char *status, const char *unit_status_msg_format) _printf_(4, 0);
+void unit_status_printf(Unit *u, StatusType status_type, const char *status, const char *format, const char *ident) _printf_(4, 0);
 
 bool unit_need_daemon_reload(Unit *u);
 

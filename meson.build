@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
 project('systemd', 'c',
-        version : '248',
+        version : '249',
         license : 'LGPLv2+',
         default_options: [
                 'c_std=gnu99',
@@ -13,8 +13,8 @@ project('systemd', 'c',
         meson_version : '>= 0.46',
        )
 
-libsystemd_version = '0.31.0'
-libudev_version = '1.7.1'
+libsystemd_version = '0.32.0'
+libudev_version = '1.7.2'
 
 conf = configuration_data()
 conf.set_quoted('PROJECT_URL', 'https://www.freedesktop.org/wiki/Software/systemd')
@@ -355,13 +355,6 @@ possible_common_cc_flags = [
         # negative arguments are correctly detected starting with meson 0.46.
         '-Wno-error=#warnings',  # clang
         '-Wno-string-plus-int',  # clang
-
-        '-ffast-math',
-        '-fno-common',
-        '-fdiagnostics-show-option',
-        '-fno-strict-aliasing',
-        '-fvisibility=hidden',
-        '--param=ssp-buffer-size=4',
 ]
 
 # Disable -Wmaybe-unitialized when compiling with -Os/-O1/-O3/etc. There are
@@ -388,21 +381,27 @@ if cc.get_id() == 'clang'
         ]
 endif
 
+possible_cc_flags = possible_common_cc_flags + [
+        '-Werror=missing-declarations',
+        '-Werror=missing-prototypes',
+        '-fdiagnostics-show-option',
+        '-ffast-math',
+        '-fno-common',
+        '-fno-strict-aliasing',
+        '-fstack-protector',
+        '-fstack-protector-strong',
+        '-fvisibility=hidden',
+        '--param=ssp-buffer-size=4',
+]
+
 if get_option('buildtype') != 'debug'
-        possible_common_cc_flags += [
+        possible_cc_flags += [
                 '-ffunction-sections',
                 '-fdata-sections',
         ]
 
         possible_link_flags += '-Wl,--gc-sections'
 endif
-
-possible_cc_flags = possible_common_cc_flags + [
-        '-Werror=missing-declarations',
-        '-Werror=missing-prototypes',
-        '-fstack-protector',
-        '-fstack-protector-strong',
-]
 
 add_project_arguments(cc.get_supported_arguments(basic_disabled_warnings), language : 'c')
 add_project_arguments(cc.get_supported_arguments(possible_cc_flags), language : 'c')
@@ -661,6 +660,7 @@ foreach header : ['crypt.h',
                   'valgrind/memcheck.h',
                   'valgrind/valgrind.h',
                   'linux/time_types.h',
+                  'sys/sdt.h',
                  ]
 
         conf.set10('HAVE_' + header.underscorify().to_upper(),
@@ -793,12 +793,37 @@ endif
 conf.set_quoted('NOBODY_USER_NAME', nobody_user)
 conf.set_quoted('NOBODY_GROUP_NAME', nobody_group)
 
-tty_gid = get_option('tty-gid')
-conf.set('TTY_GID', tty_gid)
+static_ugids = []
+foreach option : ['adm-gid',
+                  'audio-gid',
+                  'cdrom-gid',
+                  'dialout-gid',
+                  'disk-gid',
+                  'input-gid',
+                  'kmem-gid',
+                  'kvm-gid',
+                  'lp-gid',
+                  'render-gid',
+                  'sgx-gid',
+                  'tape-gid',
+                  'tty-gid',
+                  'users-gid',
+                  'utmp-gid',
+                  'video-gid',
+                  'wheel-gid',
+                  'systemd-journal-gid',
+                  'systemd-network-uid',
+                  'systemd-resolve-uid',
+                  'systemd-timesync-uid']
+        name = option.underscorify().to_upper()
+        val = get_option(option)
 
-# Ensure provided GID argument is numeric, otherwise fall back to default assignment
-users_gid = get_option('users-gid')
-conf.set('USERS_GID', users_gid < 0 ? '-' : users_gid)
+        # Ensure provided GID argument is numeric, otherwise fall back to default assignment
+        conf.set(name, val >= 0 ? val : '-')
+        if val >= 0
+                static_ugids += '@0@:@1@'.format(option, val)
+        endif
+endforeach
 
 conf.set10('ENABLE_ADM_GROUP', get_option('adm-group'))
 conf.set10('ENABLE_WHEEL_GROUP', get_option('wheel-group'))
@@ -1682,7 +1707,6 @@ install_libsystemd_static = static_library(
                         libcap,
                         libblkid,
                         libmount,
-                        libselinux,
                         libgcrypt],
         c_args : libsystemd_c_args + (static_libsystemd_pic ? [] : ['-fno-PIC']))
 
@@ -3479,6 +3503,7 @@ run_target(
 
 ############################################################
 
+subdir('modprobe.d')
 subdir('sysctl.d')
 subdir('sysusers.d')
 subdir('tmpfiles.d')
@@ -3499,9 +3524,6 @@ if install_sysconfdir
         install_data('xorg/50-systemd-user.sh',
                      install_dir : xinitrcdir)
 endif
-install_data('README',
-             'modprobe.d/systemd.conf',
-             install_dir : modprobedir)
 install_data('LICENSE.GPL2',
              'LICENSE.LGPL2.1',
              'NEWS',
@@ -3713,14 +3735,13 @@ status = [
         'extra start script:                @0@'.format(get_option('rc-local')),
         'debug shell:                       @0@ @ @1@'.format(get_option('debug-shell'),
                                                               get_option('debug-tty')),
-        'TTY GID:                           @0@'.format(tty_gid),
-        'users GID:                         @0@'.format(conf.get('USERS_GID')),
         'system UIDs:                       <=@0@ (alloc >=@1@)'.format(conf.get('SYSTEM_UID_MAX'),
                                                                         conf.get('SYSTEM_ALLOC_UID_MIN')),
         'system GIDs:                       <=@0@ (alloc >=@1@)'.format(conf.get('SYSTEM_GID_MAX'),
                                                                         conf.get('SYSTEM_ALLOC_GID_MIN')),
         'dynamic UIDs:                      @0@…@1@'.format(dynamic_uid_min, dynamic_uid_max),
         'container UID bases:               @0@…@1@'.format(container_uid_base_min, container_uid_base_max),
+        'static UID/GID allocations:        @0@'.format(' '.join(static_ugids)),
         '/dev/kvm access mode:              @0@'.format(get_option('dev-kvm-mode')),
         'render group access mode:          @0@'.format(get_option('group-render-mode')),
         'certificate root directory:        @0@'.format(get_option('certificate-root')),

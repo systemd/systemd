@@ -107,7 +107,7 @@ int socket_address_verify(const SocketAddress *a, bool strict) {
                                 /* If there's no embedded NUL byte, then the size needs to match the whole
                                  * structure or the structure with one extra NUL byte suffixed. (Yeah, Linux is awful,
                                  * and considers both equivalent: getsockname() even extends sockaddr_un beyond its
-                                 * size if the path is non NUL terminated.)*/
+                                 * size if the path is non NUL terminated.) */
                                 if (!IN_SET(a->size, sizeof(a->sockaddr.un.sun_path), sizeof(a->sockaddr.un.sun_path)+1))
                                         return -EINVAL;
                         }
@@ -748,6 +748,22 @@ static const char* const ip_tos_table[] = {
 
 DEFINE_STRING_TABLE_LOOKUP_WITH_FALLBACK(ip_tos, int, 0xff);
 
+bool ifname_valid_char(char a) {
+        if ((unsigned char) a >= 127U)
+                return false;
+
+        if ((unsigned char) a <= 32U)
+                return false;
+
+        if (IN_SET(a,
+                   ':',  /* colons are used by the legacy "alias" interface logic */
+                   '/',  /* slashes cannot work, since we need to use network interfaces in sysfs paths, and in paths slashes are separators */
+                   '%')) /* %d is used in the kernel's weird foo%d format string naming feature which we really really don't want to ever run into by accident */
+                return false;
+
+        return true;
+}
+
 bool ifname_valid_full(const char *p, IfnameValidFlags flags) {
         bool numeric = true;
 
@@ -781,16 +797,7 @@ bool ifname_valid_full(const char *p, IfnameValidFlags flags) {
                 return false;
 
         for (const char *t = p; *t; t++) {
-                if ((unsigned char) *t >= 127U)
-                        return false;
-
-                if ((unsigned char) *t <= 32U)
-                        return false;
-
-                if (IN_SET(*t,
-                           ':',  /* colons are used by the legacy "alias" interface logic */
-                           '/',  /* slashes cannot work, since we need to use network interfaces in sysfs paths, and in paths slashes are separators */
-                           '%')) /* %d is used in the kernel's weird foo%d format string naming feature which we really really don't want to ever run into by accident */
+                if (!ifname_valid_char(*t))
                         return false;
 
                 numeric = numeric && (*t >= '0' && *t <= '9');
@@ -1192,7 +1199,7 @@ int sockaddr_un_set_path(struct sockaddr_un *ret, const char *path) {
         /* Don't allow paths larger than the space in sockaddr_un. Note that we are a tiny bit more restrictive than
          * the kernel is: we insist on NUL termination (both for abstract namespace and regular file system socket
          * addresses!), which the kernel doesn't. We do this to reduce chance of incompatibility with other apps that
-         * do not expect non-NUL terminated file system path*/
+         * do not expect non-NUL terminated file system path. */
         if (l+1 > sizeof(ret->sun_path))
                 return -EINVAL;
 

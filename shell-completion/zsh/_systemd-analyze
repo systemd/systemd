@@ -1,4 +1,4 @@
-#compdef systemd-analyze                    -*- shell-script -*-
+#compdef systemd-analyze
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
 (( $+functions[_systemd-analyze_log-level] )) ||

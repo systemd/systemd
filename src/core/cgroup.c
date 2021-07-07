@@ -10,6 +10,7 @@
 #include "bpf-devices.h"
 #include "bpf-firewall.h"
 #include "bpf-foreign.h"
+#include "bpf-socket-bind.h"
 #include "btrfs-util.h"
 #include "bus-error.h"
 #include "cgroup-setup.h"
@@ -19,6 +20,7 @@
 #include "fileio.h"
 #include "fs-util.h"
 #include "io-util.h"
+#include "ip-protocol-list.h"
 #include "limits-util.h"
 #include "nulstr-util.h"
 #include "parse-util.h"
@@ -26,7 +28,6 @@
 #include "percent-util.h"
 #include "process-util.h"
 #include "procfs-util.h"
-#include "socket-bind.h"
 #include "special.h"
 #include "stat-util.h"
 #include "stdio-util.h"
@@ -517,9 +518,8 @@ void cgroup_context_dump(Unit *u, FILE* f, const char *prefix) {
 
         LIST_FOREACH(device_limits, il, c->io_device_limits) {
                 char buf[FORMAT_BYTES_MAX];
-                CGroupIOLimitType type;
 
-                for (type = 0; type < _CGROUP_IO_LIMIT_TYPE_MAX; type++)
+                for (CGroupIOLimitType type = 0; type < _CGROUP_IO_LIMIT_TYPE_MAX; type++)
                         if (il->limits[type] != cgroup_io_limit_defaults[type])
                                 fprintf(f,
                                         "%s%s: %s %s\n",
@@ -593,18 +593,24 @@ void cgroup_context_dump(Unit *u, FILE* f, const char *prefix) {
 }
 
 void cgroup_context_dump_socket_bind_item(const CGroupSocketBindItem *item, FILE *f) {
-        const char *family, *colon;
+        const char *family, *colon1, *protocol = "", *colon2 = "";
 
         family = strempty(af_to_ipv4_ipv6(item->address_family));
-        colon = isempty(family) ? "" : ":";
+        colon1 = isempty(family) ? "" : ":";
+
+        if (item->ip_protocol != 0) {
+                protocol = ip_protocol_to_tcp_udp(item->ip_protocol);
+                colon2 = ":";
+        }
 
         if (item->nr_ports == 0)
-                fprintf(f, " %s%sany", family, colon);
+                fprintf(f, " %s%s%s%sany", family, colon1, protocol, colon2);
         else if (item->nr_ports == 1)
-                fprintf(f, " %s%s%" PRIu16, family, colon, item->port_min);
+                fprintf(f, " %s%s%s%s%" PRIu16, family, colon1, protocol, colon2, item->port_min);
         else {
                 uint16_t port_max = item->port_min + item->nr_ports - 1;
-                fprintf(f, " %s%s%" PRIu16 "-%" PRIu16, family, colon, item->port_min, port_max);
+                fprintf(f, " %s%s%s%s%" PRIu16 "-%" PRIu16, family, colon1, protocol, colon2,
+                        item->port_min, port_max);
         }
 }
 
@@ -1096,7 +1102,7 @@ static void cgroup_apply_firewall(Unit *u) {
 static void cgroup_apply_socket_bind(Unit *u) {
         assert(u);
 
-        (void) socket_bind_install(u);
+        (void) bpf_socket_bind_install(u);
 }
 
 static int cgroup_apply_devices(Unit *u) {
@@ -1347,9 +1353,8 @@ static void cgroup_context_apply(
 
                         LIST_FOREACH(device_bandwidths, b, c->blockio_device_bandwidths) {
                                 uint64_t limits[_CGROUP_IO_LIMIT_TYPE_MAX];
-                                CGroupIOLimitType type;
 
-                                for (type = 0; type < _CGROUP_IO_LIMIT_TYPE_MAX; type++)
+                                for (CGroupIOLimitType type = 0; type < _CGROUP_IO_LIMIT_TYPE_MAX; type++)
                                         limits[type] = cgroup_io_limit_defaults[type];
 
                                 limits[CGROUP_IO_RBPS_MAX] = b->rbps;
@@ -1534,7 +1539,6 @@ static void cgroup_context_apply(
 
 static bool unit_get_needs_bpf_firewall(Unit *u) {
         CGroupContext *c;
-        Unit *p;
         assert(u);
 
         c = unit_get_cgroup_context(u);
@@ -1549,7 +1553,7 @@ static bool unit_get_needs_bpf_firewall(Unit *u) {
                 return true;
 
         /* If any parent slice has an IP access list defined, it applies too */
-        for (p = UNIT_GET_SLICE(u); p; p = UNIT_GET_SLICE(p)) {
+        for (Unit *p = UNIT_GET_SLICE(u); p; p = UNIT_GET_SLICE(p)) {
                 c = unit_get_cgroup_context(p);
                 if (!c)
                         return false;
@@ -2163,24 +2167,27 @@ int unit_attach_pids_to_cgroup(Unit *u, Set *pids, const char *suffix_path) {
         r = 0;
         SET_FOREACH(pidp, pids) {
                 pid_t pid = PTR_TO_PID(pidp);
-                CGroupController c;
 
                 /* First, attach the PID to the main cgroup hierarchy */
                 q = cg_attach(SYSTEMD_CGROUP_CONTROLLER, p, pid);
                 if (q < 0) {
-                        log_unit_debug_errno(u, q, "Couldn't move process " PID_FMT " to requested cgroup '%s': %m", pid, p);
+                        bool again = MANAGER_IS_USER(u->manager) && ERRNO_IS_PRIVILEGE(q);
 
-                        if (MANAGER_IS_USER(u->manager) && ERRNO_IS_PRIVILEGE(q)) {
+                        log_unit_full_errno(u, again ? LOG_DEBUG : LOG_INFO,  q,
+                                            "Couldn't move process "PID_FMT" to%s requested cgroup '%s': %m",
+                                            pid, again ? " directly" : "", p);
+
+                        if (again) {
                                 int z;
 
-                                /* If we are in a user instance, and we can't move the process ourselves due to
-                                 * permission problems, let's ask the system instance about it instead. Since it's more
-                                 * privileged it might be able to move the process across the leaves of a subtree who's
-                                 * top node is not owned by us. */
+                                /* If we are in a user instance, and we can't move the process ourselves due
+                                 * to permission problems, let's ask the system instance about it instead.
+                                 * Since it's more privileged it might be able to move the process across the
+                                 * leaves of a subtree whose top node is not owned by us. */
 
                                 z = unit_attach_pid_to_cgroup_via_bus(u, pid, suffix_path);
                                 if (z < 0)
-                                        log_unit_debug_errno(u, z, "Couldn't move process " PID_FMT " to requested cgroup '%s' via the system bus either: %m", pid, p);
+                                        log_unit_info_errno(u, z, "Couldn't move process "PID_FMT" to requested cgroup '%s' (directly or via the system bus): %m", pid, p);
                                 else
                                         continue; /* When the bus thing worked via the bus we are fully done for this PID. */
                         }
@@ -2200,7 +2207,7 @@ int unit_attach_pids_to_cgroup(Unit *u, Set *pids, const char *suffix_path) {
                 /* In the legacy hierarchy, attach the process to the request cgroup if possible, and if not to the
                  * innermost realized one */
 
-                for (c = 0; c < _CGROUP_CONTROLLER_MAX; c++) {
+                for (CGroupController c = 0; c < _CGROUP_CONTROLLER_MAX; c++) {
                         CGroupMask bit = CGROUP_CONTROLLER_TO_MASK(c);
                         const char *realized;
 
@@ -3126,7 +3133,7 @@ static int cg_bpf_mask_supported(CGroupMask *ret) {
                 mask |= CGROUP_MASK_BPF_FOREIGN;
 
         /* BPF-based bind{4|6} hooks */
-        r = socket_bind_supported();
+        r = bpf_socket_bind_supported();
         if (r > 0)
                 mask |= CGROUP_MASK_BPF_SOCKET_BIND;
 
@@ -3137,7 +3144,6 @@ static int cg_bpf_mask_supported(CGroupMask *ret) {
 int manager_setup_cgroup(Manager *m) {
         _cleanup_free_ char *path = NULL;
         const char *scope_path;
-        CGroupController c;
         int r, all_unified;
         CGroupMask mask;
         char *e;
@@ -3194,7 +3200,7 @@ int manager_setup_cgroup(Manager *m) {
         }
 
         /* 3. Allocate cgroup empty defer event source */
-        m->cgroup_empty_event_source = sd_event_source_unref(m->cgroup_empty_event_source);
+        m->cgroup_empty_event_source = sd_event_source_disable_unref(m->cgroup_empty_event_source);
         r = sd_event_add_defer(m->event, &m->cgroup_empty_event_source, on_cgroup_empty_event, m);
         if (r < 0)
                 return log_error_errno(r, "Failed to create cgroup empty event source: %m");
@@ -3217,7 +3223,7 @@ int manager_setup_cgroup(Manager *m) {
 
                 /* In the unified hierarchy we can get cgroup empty notifications via inotify. */
 
-                m->cgroup_inotify_event_source = sd_event_source_unref(m->cgroup_inotify_event_source);
+                m->cgroup_inotify_event_source = sd_event_source_disable_unref(m->cgroup_inotify_event_source);
                 safe_close(m->cgroup_inotify_fd);
 
                 m->cgroup_inotify_fd = inotify_init1(IN_NONBLOCK|IN_CLOEXEC);
@@ -3285,8 +3291,9 @@ int manager_setup_cgroup(Manager *m) {
         m->cgroup_supported |= mask;
 
         /* 10. Log which controllers are supported */
-        for (c = 0; c < _CGROUP_CONTROLLER_MAX; c++)
-                log_debug("Controller '%s' supported: %s", cgroup_controller_to_string(c), yes_no(m->cgroup_supported & CGROUP_CONTROLLER_TO_MASK(c)));
+        for (CGroupController c = 0; c < _CGROUP_CONTROLLER_MAX; c++)
+                log_debug("Controller '%s' supported: %s", cgroup_controller_to_string(c),
+                          yes_no(m->cgroup_supported & CGROUP_CONTROLLER_TO_MASK(c)));
 
         return 0;
 }
@@ -3296,15 +3303,15 @@ void manager_shutdown_cgroup(Manager *m, bool delete) {
 
         /* We can't really delete the group, since we are in it. But
          * let's trim it. */
-        if (delete && m->cgroup_root && m->test_run_flags != MANAGER_TEST_RUN_MINIMAL)
+        if (delete && m->cgroup_root && !FLAGS_SET(m->test_run_flags, MANAGER_TEST_RUN_MINIMAL))
                 (void) cg_trim(SYSTEMD_CGROUP_CONTROLLER, m->cgroup_root, false);
 
-        m->cgroup_empty_event_source = sd_event_source_unref(m->cgroup_empty_event_source);
+        m->cgroup_empty_event_source = sd_event_source_disable_unref(m->cgroup_empty_event_source);
 
         m->cgroup_control_inotify_wd_unit = hashmap_free(m->cgroup_control_inotify_wd_unit);
         m->cgroup_memory_inotify_wd_unit = hashmap_free(m->cgroup_memory_inotify_wd_unit);
 
-        m->cgroup_inotify_event_source = sd_event_source_unref(m->cgroup_inotify_event_source);
+        m->cgroup_inotify_event_source = sd_event_source_disable_unref(m->cgroup_inotify_event_source);
         m->cgroup_inotify_fd = safe_close(m->cgroup_inotify_fd);
 
         m->pin_cgroupfs_fd = safe_close(m->pin_cgroupfs_fd);
@@ -3400,6 +3407,77 @@ int manager_notify_cgroup_empty(Manager *m, const char *cgroup) {
 
         unit_add_to_cgroup_empty_queue(u);
         return 1;
+}
+
+int unit_get_memory_available(Unit *u, uint64_t *ret) {
+        uint64_t unit_current, available = UINT64_MAX;
+        CGroupContext *unit_context;
+        const char *memory_file;
+        int r;
+
+        assert(u);
+        assert(ret);
+
+        /* If data from cgroups can be accessed, try to find out how much more memory a unit can
+         * claim before hitting the configured cgroup limits (if any). Consider both MemoryHigh
+         * and MemoryMax, and also any slice the unit might be nested below. */
+
+        if (!UNIT_CGROUP_BOOL(u, memory_accounting))
+                return -ENODATA;
+
+        if (!u->cgroup_path)
+                return -ENODATA;
+
+        /* The root cgroup doesn't expose this information */
+        if (unit_has_host_root_cgroup(u))
+                return -ENODATA;
+
+        if ((u->cgroup_realized_mask & CGROUP_MASK_MEMORY) == 0)
+                return -ENODATA;
+
+        r = cg_all_unified();
+        if (r < 0)
+                return r;
+        memory_file = r > 0 ? "memory.current" : "memory.usage_in_bytes";
+
+        r = cg_get_attribute_as_uint64("memory", u->cgroup_path, memory_file, &unit_current);
+        if (r < 0)
+                return r;
+
+        assert_se(unit_context = unit_get_cgroup_context(u));
+
+        if (unit_context->memory_max != UINT64_MAX || unit_context->memory_high != UINT64_MAX)
+                available = LESS_BY(MIN(unit_context->memory_max, unit_context->memory_high), unit_current);
+
+        for (Unit *slice = UNIT_GET_SLICE(u); slice; slice = UNIT_GET_SLICE(slice)) {
+                uint64_t slice_current, slice_available = UINT64_MAX;
+                CGroupContext *slice_context;
+
+                /* No point in continuing if we can't go any lower */
+                if (available == 0)
+                        break;
+
+                if (!slice->cgroup_path)
+                        continue;
+
+                slice_context = unit_get_cgroup_context(slice);
+                if (!slice_context)
+                        continue;
+
+                if (slice_context->memory_max == UINT64_MAX && slice_context->memory_high == UINT64_MAX)
+                        continue;
+
+                r = cg_get_attribute_as_uint64("memory", slice->cgroup_path, memory_file, &slice_current);
+                if (r < 0)
+                        continue;
+
+                slice_available = LESS_BY(MIN(slice_context->memory_max, slice_context->memory_high), slice_current);
+                available = MIN(slice_available, available);
+        }
+
+        *ret = available;
+
+        return 0;
 }
 
 int unit_get_memory_current(Unit *u, uint64_t *ret) {
