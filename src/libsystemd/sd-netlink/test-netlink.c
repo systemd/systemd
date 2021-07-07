@@ -8,17 +8,20 @@
 
 #include "alloc-util.h"
 #include "ether-addr-util.h"
+#include "generic-netlink.h"
 #include "macro.h"
 #include "netlink-util.h"
 #include "socket-util.h"
 #include "stdio-util.h"
 #include "string-util.h"
 #include "strv.h"
-#include "util.h"
+#include "tests.h"
 
 static void test_message_link_bridge(sd_netlink *rtnl) {
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *message = NULL;
         uint32_t cost;
+
+        log_debug("/* %s */", __func__);
 
         assert_se(sd_rtnl_message_new_link(rtnl, &message, RTM_NEWLINK, 1) >= 0);
         assert_se(sd_rtnl_message_link_set_family(message, AF_BRIDGE) >= 0);
@@ -26,7 +29,7 @@ static void test_message_link_bridge(sd_netlink *rtnl) {
         assert_se(sd_netlink_message_append_u32(message, IFLA_BRPORT_COST, 10) >= 0);
         assert_se(sd_netlink_message_close_container(message) >= 0);
 
-        assert_se(sd_netlink_message_rewind(message, NULL) >= 0);
+        assert_se(sd_netlink_message_rewind(message, rtnl) >= 0);
 
         assert_se(sd_netlink_message_enter_container(message, IFLA_PROTINFO) >= 0);
         assert_se(sd_netlink_message_read_u32(message, IFLA_BRPORT_COST, &cost) >= 0);
@@ -39,6 +42,8 @@ static void test_link_configure(sd_netlink *rtnl, int ifindex) {
         uint32_t mtu_out;
         const char *name_out;
         struct ether_addr mac_out;
+
+        log_debug("/* %s */", __func__);
 
         /* we'd really like to test NEWLINK, but let's not mess with the running kernel */
         assert_se(sd_rtnl_message_new_link(rtnl, &message, RTM_GETLINK, ifindex) >= 0);
@@ -56,6 +61,8 @@ static void test_link_get(sd_netlink *rtnl, int ifindex) {
         uint8_t u8_data;
         uint32_t u32_data;
         struct ether_addr eth_data;
+
+        log_debug("/* %s */", __func__);
 
         assert_se(sd_rtnl_message_new_link(rtnl, &m, RTM_GETLINK, ifindex) >= 0);
         assert_se(m);
@@ -83,6 +90,8 @@ static void test_address_get(sd_netlink *rtnl, int ifindex) {
         struct ifa_cacheinfo cache;
         const char *label;
 
+        log_debug("/* %s */", __func__);
+
         assert_se(sd_rtnl_message_new_addr(rtnl, &m, RTM_GETADDR, ifindex, AF_INET) >= 0);
         assert_se(m);
         assert_se(sd_netlink_message_request_dump(m, true) >= 0);
@@ -99,6 +108,8 @@ static void test_route(sd_netlink *rtnl) {
         struct in_addr addr, addr_data;
         uint32_t index = 2, u32_data;
         int r;
+
+        log_debug("/* %s */", __func__);
 
         r = sd_rtnl_message_new_route(rtnl, &req, RTM_NEWROUTE, AF_INET, RTPROT_STATIC);
         if (r < 0) {
@@ -120,7 +131,7 @@ static void test_route(sd_netlink *rtnl) {
                 return;
         }
 
-        assert_se(sd_netlink_message_rewind(req, NULL) >= 0);
+        assert_se(sd_netlink_message_rewind(req, rtnl) >= 0);
 
         assert_se(sd_netlink_message_read_in_addr(req, RTA_GATEWAY, &addr_data) >= 0);
         assert_se(addr_data.s_addr == addr.s_addr);
@@ -133,6 +144,8 @@ static void test_route(sd_netlink *rtnl) {
 
 static void test_multiple(void) {
         sd_netlink *rtnl1, *rtnl2;
+
+        log_debug("/* %s */", __func__);
 
         assert_se(sd_netlink_open(&rtnl1) >= 0);
         assert_se(sd_netlink_open(&rtnl2) >= 0);
@@ -164,6 +177,8 @@ static void test_event_loop(int ifindex) {
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
         char *ifname;
 
+        log_debug("/* %s */", __func__);
+
         ifname = strdup("lo2");
         assert_se(ifname);
 
@@ -193,6 +208,8 @@ static void test_async(int ifindex) {
         sd_netlink_destroy_t destroy_callback;
         const char *description;
         char *ifname;
+
+        log_debug("/* %s */", __func__);
 
         ifname = strdup("lo");
         assert_se(ifname);
@@ -224,6 +241,8 @@ static void test_slot_set(int ifindex) {
         sd_netlink_destroy_t destroy_callback;
         const char *description;
         char *ifname;
+
+        log_debug("/* %s */", __func__);
 
         ifname = strdup("lo");
         assert_se(ifname);
@@ -303,6 +322,8 @@ static void test_async_destroy_callback(int ifindex) {
         _cleanup_(sd_netlink_slot_unrefp) sd_netlink_slot *slot = NULL;
         char *ifname;
 
+        log_debug("/* %s */", __func__);
+
         assert_se(t = new(struct test_async_object, 1));
         assert_se(ifname = strdup("lo"));
         *t = (struct test_async_object) {
@@ -371,6 +392,8 @@ static void test_pipe(int ifindex) {
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m1 = NULL, *m2 = NULL;
         int counter = 0;
 
+        log_debug("/* %s */", __func__);
+
         assert_se(sd_netlink_open(&rtnl) >= 0);
 
         assert_se(sd_rtnl_message_new_link(rtnl, &m1, RTM_GETLINK, ifindex) >= 0);
@@ -396,6 +419,8 @@ static void test_container(sd_netlink *rtnl) {
         uint32_t u32_data;
         const char *string_data;
 
+        log_debug("/* %s */", __func__);
+
         assert_se(sd_rtnl_message_new_link(rtnl, &m, RTM_NEWLINK, 0) >= 0);
 
         assert_se(sd_netlink_message_open_container(m, IFLA_LINKINFO) >= 0);
@@ -406,7 +431,7 @@ static void test_container(sd_netlink *rtnl) {
         assert_se(sd_netlink_message_close_container(m) >= 0);
         assert_se(sd_netlink_message_close_container(m) == -EINVAL);
 
-        assert_se(sd_netlink_message_rewind(m, NULL) >= 0);
+        assert_se(sd_netlink_message_rewind(m, rtnl) >= 0);
 
         assert_se(sd_netlink_message_enter_container(m, IFLA_LINKINFO) >= 0);
         assert_se(sd_netlink_message_read_string(m, IFLA_INFO_KIND, &string_data) >= 0);
@@ -429,6 +454,8 @@ static void test_match(void) {
         _cleanup_(sd_netlink_slot_unrefp) sd_netlink_slot *s1 = NULL, *s2 = NULL;
         _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
 
+        log_debug("/* %s */", __func__);
+
         assert_se(sd_netlink_open(&rtnl) >= 0);
 
         assert_se(sd_netlink_add_match(rtnl, &s1, RTM_NEWLINK, link_handler, NULL, NULL, NULL) >= 0);
@@ -444,6 +471,8 @@ static void test_match(void) {
 static void test_get_addresses(sd_netlink *rtnl) {
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL, *reply = NULL;
         sd_netlink_message *m;
+
+        log_debug("/* %s */", __func__);
 
         assert_se(sd_rtnl_message_new_addr(rtnl, &req, RTM_GETADDR, 0, AF_UNSPEC) >= 0);
         assert_se(sd_netlink_message_request_dump(req, true) >= 0);
@@ -472,6 +501,8 @@ static void test_get_addresses(sd_netlink *rtnl) {
 static void test_message(sd_netlink *rtnl) {
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
 
+        log_debug("/* %s */", __func__);
+
         assert_se(rtnl_message_new_synthetic_error(rtnl, -ETIMEDOUT, 1, &m) >= 0);
         assert_se(sd_netlink_message_get_errno(m) == -ETIMEDOUT);
 }
@@ -480,8 +511,10 @@ static void test_array(void) {
         _cleanup_(sd_netlink_unrefp) sd_netlink *genl = NULL;
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
 
+        log_debug("/* %s */", __func__);
+
         assert_se(sd_genl_socket_open(&genl) >= 0);
-        assert_se(sd_genl_message_new(genl, SD_GENL_ID_CTRL, CTRL_CMD_GETFAMILY, &m) >= 0);
+        assert_se(sd_genl_message_new(genl, CTRL_GENL_NAME, CTRL_CMD_GETFAMILY, &m) >= 0);
 
         assert_se(sd_netlink_message_open_container(m, CTRL_ATTR_MCAST_GROUPS) >= 0);
         for (unsigned i = 0; i < 10; i++) {
@@ -522,6 +555,8 @@ static void test_strv(sd_netlink *rtnl) {
         _cleanup_strv_free_ char **names_in = NULL, **names_out;
         const char *p;
 
+        log_debug("/* %s */", __func__);
+
         assert_se(sd_rtnl_message_new_link(rtnl, &m, RTM_NEWLINKPROP, 1) >= 0);
 
         for (unsigned i = 0; i < 10; i++) {
@@ -536,7 +571,7 @@ static void test_strv(sd_netlink *rtnl) {
         assert_se(sd_netlink_message_close_container(m) >= 0);
 
         rtnl_message_seal(m);
-        assert_se(sd_netlink_message_rewind(m, NULL) >= 0);
+        assert_se(sd_netlink_message_rewind(m, rtnl) >= 0);
 
         assert_se(sd_netlink_message_read_strv(m, IFLA_PROP_LIST, IFLA_ALT_IFNAME, &names_out) >= 0);
         assert_se(strv_equal(names_in, names_out));
@@ -554,6 +589,8 @@ int main(void) {
         const char *string_data;
         int if_loopback;
         uint16_t type;
+
+        test_setup_logging(LOG_DEBUG);
 
         test_match();
         test_multiple();

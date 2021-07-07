@@ -122,7 +122,7 @@ static int netdev_batadv_post_create(NetDev *netdev, Link *link, sd_netlink_mess
         b = BATADV(netdev);
         assert(b);
 
-        r = sd_genl_message_new(netdev->manager->genl, SD_GENL_BATADV, BATADV_CMD_SET_MESH, &message);
+        r = sd_genl_message_new(netdev->manager->genl, BATADV_NL_NAME, BATADV_CMD_SET_MESH, &message);
         if (r < 0)
                 return log_netdev_error_errno(netdev, r, "Failed to allocate generic netlink message: %m");
 
