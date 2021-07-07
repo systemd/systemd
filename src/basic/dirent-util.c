@@ -16,6 +16,11 @@ static int dirent_ensure_type(DIR *d, struct dirent *de) {
         if (de->d_type != DT_UNKNOWN)
                 return 0;
 
+        if (dot_or_dot_dot(de->d_name)) {
+                de->d_type = DT_DIR;
+                return 0;
+        }
+
         if (fstatat(dirfd(d), de->d_name, &st, AT_SYMLINK_NOFOLLOW) < 0)
                 return -errno;
 

@@ -137,13 +137,19 @@ static int base_cmp(char * const *a, char * const *b) {
         return strcmp(basename(*a), basename(*b));
 }
 
-static int conf_files_list_strv_internal(char ***strv, const char *suffix, const char *root, unsigned flags, char **dirs) {
+static int conf_files_list_strv_internal(
+                char ***ret,
+                const char *suffix,
+                const char *root,
+                unsigned flags,
+                char **dirs) {
+
         _cleanup_hashmap_free_ Hashmap *fh = NULL;
         _cleanup_set_free_free_ Set *masked = NULL;
         char **files, **p;
         int r;
 
-        assert(strv);
+        assert(ret);
 
         /* This alters the dirs string array */
         if (!path_strv_resolve_uniq(dirs, root))
@@ -172,7 +178,7 @@ static int conf_files_list_strv_internal(char ***strv, const char *suffix, const
                 return -ENOMEM;
 
         typesafe_qsort(files, hashmap_size(fh), base_cmp);
-        *strv = files;
+        *ret = files;
 
         return 0;
 }
@@ -248,56 +254,56 @@ int conf_files_insert(char ***strv, const char *root, char **dirs, const char *p
         return r;
 }
 
-int conf_files_list_strv(char ***strv, const char *suffix, const char *root, unsigned flags, const char* const* dirs) {
+int conf_files_list_strv(char ***ret, const char *suffix, const char *root, unsigned flags, const char* const* dirs) {
         _cleanup_strv_free_ char **copy = NULL;
 
-        assert(strv);
+        assert(ret);
 
         copy = strv_copy((char**) dirs);
         if (!copy)
                 return -ENOMEM;
 
-        return conf_files_list_strv_internal(strv, suffix, root, flags, copy);
+        return conf_files_list_strv_internal(ret, suffix, root, flags, copy);
 }
 
-int conf_files_list(char ***strv, const char *suffix, const char *root, unsigned flags, const char *dir) {
+int conf_files_list(char ***ret, const char *suffix, const char *root, unsigned flags, const char *dir) {
         _cleanup_strv_free_ char **dirs = NULL;
 
-        assert(strv);
+        assert(ret);
 
         dirs = strv_new(dir);
         if (!dirs)
                 return -ENOMEM;
 
-        return conf_files_list_strv_internal(strv, suffix, root, flags, dirs);
+        return conf_files_list_strv_internal(ret, suffix, root, flags, dirs);
 }
 
-int conf_files_list_nulstr(char ***strv, const char *suffix, const char *root, unsigned flags, const char *dirs) {
+int conf_files_list_nulstr(char ***ret, const char *suffix, const char *root, unsigned flags, const char *dirs) {
         _cleanup_strv_free_ char **d = NULL;
 
-        assert(strv);
+        assert(ret);
 
         d = strv_split_nulstr(dirs);
         if (!d)
                 return -ENOMEM;
 
-        return conf_files_list_strv_internal(strv, suffix, root, flags, d);
+        return conf_files_list_strv_internal(ret, suffix, root, flags, d);
 }
 
 int conf_files_list_with_replacement(
                 const char *root,
                 char **config_dirs,
                 const char *replacement,
-                char ***files,
-                char **replace_file) {
+                char ***ret_files,
+                char **ret_replace_file) {
 
         _cleanup_strv_free_ char **f = NULL;
         _cleanup_free_ char *p = NULL;
         int r;
 
         assert(config_dirs);
-        assert(files);
-        assert(replace_file || !replacement);
+        assert(ret_files);
+        assert(ret_replace_file || !replacement);
 
         r = conf_files_list_strv(&f, ".conf", root, 0, (const char* const*) config_dirs);
         if (r < 0)
@@ -313,8 +319,9 @@ int conf_files_list_with_replacement(
                         return log_oom();
         }
 
-        *files = TAKE_PTR(f);
-        if (replace_file)
-                *replace_file = TAKE_PTR(p);
+        *ret_files = TAKE_PTR(f);
+        if (ret_replace_file)
+                *ret_replace_file = TAKE_PTR(p);
+
         return 0;
 }
