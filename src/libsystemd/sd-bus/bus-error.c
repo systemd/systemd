@@ -252,10 +252,15 @@ int bus_error_setfv(sd_bus_error *e, const char *name, const char *format, va_li
                         return -ENOMEM;
                 }
 
-                /* If we hit OOM on formatting the pretty message, we ignore
-                 * this, since we at least managed to write the error name */
-                if (format)
-                        (void) vasprintf((char**) &e->message, format, ap);
+                if (format) {
+                        _cleanup_free_ char *mesg = NULL;
+
+                        /* If we hit OOM on formatting the pretty message, we ignore
+                         * this, since we at least managed to write the error name */
+
+                        if (vasprintf(&mesg, format, ap) >= 0)
+                                e->message = TAKE_PTR(mesg);
+                }
 
                 e->_need_free = 1;
         }
