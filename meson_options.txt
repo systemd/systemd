@@ -182,6 +182,8 @@ option('xinitrcdir', type : 'string', value : '',
        description : 'directory for xinitrc files')
 option('rpmmacrosdir', type : 'string', value : 'lib/rpm/macros.d',
        description : 'directory for rpm macros ["no" disables]')
+option('update-helper-user-timeout', type : 'string', value : '15s',
+       description : 'how long to wait for user manager operations')
 option('pamlibdir', type : 'string',
        description : 'directory for PAM modules')
 option('pamconfdir', type : 'string',
