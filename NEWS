@@ -1934,6 +1934,11 @@ CHANGES WITH 245:
           for the [RoutingPolicyRule] section of .network files to configure
           source routing based on UID ranges and prefix length, respectively.
 
+        * The Type= match property of .link files has been generalized to
+          always match the device type shown by 'networkctl status', even for
+          devices where udev does not set DEVTYPE=. This allows e.g. Type=ether
+          to be used.
+
         * sd-bus gained a new API call sd_bus_message_sensitive() that marks a
           D-Bus message object as "sensitive". Those objects are erased from
           memory when they are freed. This concept is intended to be used for
