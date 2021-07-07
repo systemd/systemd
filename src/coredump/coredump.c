@@ -668,8 +668,7 @@ static int get_process_ns(pid_t pid, const char *namespace, ino_t *ns) {
         return 0;
 }
 
-static int get_mount_namespace_leader(pid_t pid, pid_t *container_pid) {
-        pid_t cpid = pid, ppid = 0;
+static int get_mount_namespace_leader(pid_t pid, pid_t *ret) {
         ino_t proc_mntns;
         int r;
 
@@ -679,8 +678,12 @@ static int get_mount_namespace_leader(pid_t pid, pid_t *container_pid) {
 
         for (;;) {
                 ino_t parent_mntns;
+                pid_t ppid;
 
-                r = get_process_ppid(cpid, &ppid);
+                r = get_process_ppid(pid, &ppid);
+                if (r == -EADDRNOTAVAIL) /* Reached the top (i.e. typically PID 1, but could also be a process
+                                          * whose parent is not in our pidns) */
+                        return -ENOENT;
                 if (r < 0)
                         return r;
 
@@ -688,17 +691,13 @@ static int get_mount_namespace_leader(pid_t pid, pid_t *container_pid) {
                 if (r < 0)
                         return r;
 
-                if (proc_mntns != parent_mntns)
-                        break;
+                if (proc_mntns != parent_mntns) {
+                        *ret = ppid;
+                        return 0;
+                }
 
-                if (ppid == 1)
-                        return -ENOENT;
-
-                cpid = ppid;
+                pid = ppid;
         }
-
-        *container_pid = ppid;
-        return 0;
 }
 
 /* Returns 1 if the parent was found.

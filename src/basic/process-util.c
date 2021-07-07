@@ -643,19 +643,22 @@ int get_process_environ(pid_t pid, char **env) {
         return 0;
 }
 
-int get_process_ppid(pid_t pid, pid_t *_ppid) {
-        int r;
+int get_process_ppid(pid_t pid, pid_t *ret) {
         _cleanup_free_ char *line = NULL;
         long unsigned ppid;
         const char *p;
+        int r;
 
         assert(pid >= 0);
-        assert(_ppid);
 
         if (pid == 0 || pid == getpid_cached()) {
-                *_ppid = getppid();
+                if (ret)
+                        *ret = getppid();
                 return 0;
         }
+
+        if (pid == 1) /* PID 1 has no parent, shortcut this case */
+                return -EADDRNOTAVAIL;
 
         p = procfs_file_alloca(pid, "stat");
         r = read_one_line_file(p, &line);
@@ -664,9 +667,8 @@ int get_process_ppid(pid_t pid, pid_t *_ppid) {
         if (r < 0)
                 return r;
 
-        /* Let's skip the pid and comm fields. The latter is enclosed
-         * in () but does not escape any () in its value, so let's
-         * skip over it manually */
+        /* Let's skip the pid and comm fields. The latter is enclosed in () but does not escape any () in its
+         * value, so let's skip over it manually */
 
         p = strrchr(line, ')');
         if (!p)
@@ -680,10 +682,17 @@ int get_process_ppid(pid_t pid, pid_t *_ppid) {
                    &ppid) != 1)
                 return -EIO;
 
-        if ((long unsigned) (pid_t) ppid != ppid)
+        /* If ppid is zero the process has no parent. Which might be the case for PID 1 but also for
+         * processes originating in other namespaces that are inserted into a pidns. Return a recognizable
+         * error in this case. */
+        if (ppid == 0)
+                return -EADDRNOTAVAIL;
+
+        if ((pid_t) ppid < 0 || (long unsigned) (pid_t) ppid != ppid)
                 return -ERANGE;
 
-        *_ppid = (pid_t) ppid;
+        if (ret)
+                *ret = (pid_t) ppid;
 
         return 0;
 }
