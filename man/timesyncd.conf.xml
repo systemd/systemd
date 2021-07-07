@@ -103,6 +103,18 @@
         Defaults to 30 seconds and must not be smaller than 1 second.</para></listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term><varname>SaveIntervalSec=</varname></term>
+        <listitem><para>The interval at which the current time is periodically saved to disk, in the absence
+        of any recent synchronisation from an NTP server. This is especially useful for offline systems
+        with no local RTC, as it will guarantee that the system clock remains roughly monotonic across
+        reboots.</para>
+
+        <para>Takes a time interval value. The default unit is seconds, but other units may be specified, see
+        <citerefentry><refentrytitle>systemd.time</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+        Defaults to 60 seconds.</para></listitem>
+      </varlistentry>
+
     </variablelist>
   </refsect1>
 
