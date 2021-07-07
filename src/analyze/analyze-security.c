@@ -583,11 +583,12 @@ static int assess_system_call_filter(
         assert(a->parameter < _SYSCALL_FILTER_SET_MAX);
         const SyscallFilterSet *f = syscall_filter_sets + a->parameter;
 
-        char *d = NULL;
+        _cleanup_free_ char *d = NULL;
         uint64_t b;
+        int r;
 
         if (!info->system_call_filter_allow_list && set_isempty(info->system_call_filter)) {
-                d = strdup("Service does not filter system calls");
+                r = free_and_strdup(&d, "Service does not filter system calls");
                 b = 10;
         } else {
                 bool bad;
@@ -599,34 +600,33 @@ static int assess_system_call_filter(
 
                 if (info->system_call_filter_allow_list) {
                         if (bad) {
-                                (void) asprintf(&d, "System call allow list defined for service, and %s is included "
-                                                "(e.g. %s is allowed)",
-                                                f->name, offender);
+                                r = asprintf(&d, "System call allow list defined for service, and %s is included "
+                                             "(e.g. %s is allowed)",
+                                             f->name, offender);
                                 b = 9;
                         } else {
-                                (void) asprintf(&d, "System call allow list defined for service, and %s is not included",
-                                                f->name);
+                                r = asprintf(&d, "System call allow list defined for service, and %s is not included",
+                                             f->name);
                                 b = 0;
                         }
                 } else {
                         if (bad) {
-                                (void) asprintf(&d, "System call deny list defined for service, and %s is not included "
-                                                "(e.g. %s is allowed)",
-                                                f->name, offender);
+                                r = asprintf(&d, "System call deny list defined for service, and %s is not included "
+                                             "(e.g. %s is allowed)",
+                                             f->name, offender);
                                 b = 10;
                         } else {
-                                (void) asprintf(&d, "System call deny list defined for service, and %s is included",
-                                                f->name);
+                                r = asprintf(&d, "System call deny list defined for service, and %s is included",
+                                             f->name);
                                 b = 0;
                         }
                 }
         }
-
-        if (!d)
+        if (r < 0)
                 return log_oom();
 
         *ret_badness = b;
-        *ret_description = d;
+        *ret_description = TAKE_PTR(d);
 
         return 0;
 }
