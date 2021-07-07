@@ -400,25 +400,6 @@ int rtnl_get_link_info(sd_netlink **rtnl, int ifindex, unsigned short *ret_iftyp
         return 0;
 }
 
-int rtnl_message_new_synthetic_error(sd_netlink *rtnl, int error, uint32_t serial, sd_netlink_message **ret) {
-        struct nlmsgerr *err;
-        int r;
-
-        assert(error <= 0);
-
-        r = message_new(rtnl, ret, NLMSG_ERROR);
-        if (r < 0)
-                return r;
-
-        rtnl_message_seal(*ret);
-        (*ret)->hdr->nlmsg_seq = serial;
-
-        err = NLMSG_DATA((*ret)->hdr);
-        err->error = error;
-
-        return 0;
-}
-
 int rtnl_log_parse_error(int r) {
         return log_error_errno(r, "Failed to parse netlink message: %m");
 }
