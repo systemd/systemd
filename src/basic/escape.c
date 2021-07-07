@@ -8,6 +8,7 @@
 #include "escape.h"
 #include "hexdecoct.h"
 #include "macro.h"
+#include "strv.h"
 #include "utf8.h"
 
 int cescape_char(char c, char *buf) {
@@ -541,4 +542,24 @@ char* shell_maybe_quote(const char *s, ShellEscapeFlags flags) {
         *t = 0;
 
         return str_realloc(buf);
+}
+
+char* quote_command_line(char **argv) {
+        _cleanup_free_ char *result = NULL;
+
+        assert(argv);
+
+        char **a;
+        STRV_FOREACH(a, argv) {
+                _cleanup_free_ char *t = NULL;
+
+                t = shell_maybe_quote(*a, SHELL_ESCAPE_EMPTY);
+                if (!t)
+                        return NULL;
+
+                if (!strextend_with_separator(&result, " ", t))
+                        return NULL;
+        }
+
+        return TAKE_PTR(result);
 }
