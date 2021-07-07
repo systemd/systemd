@@ -503,18 +503,16 @@ static int run(int argc, char *argv[]) {
 
                 n = now(CLOCK_MONOTONIC);
                 if (n >= usec_add(start_time, RUNTIME_MAX_USEC)) {
-                        char buf[FORMAT_TIMESPAN_MAX];
                         log_debug("Exiting worker, ran for %s, that's enough.",
-                                  format_timespan(buf, sizeof(buf), usec_sub_unsigned(n, start_time), 0));
+                                  FORMAT_TIMESPAN(usec_sub_unsigned(n, start_time), 0));
                         break;
                 }
 
                 if (last_busy_usec == USEC_INFINITY)
                         last_busy_usec = n;
                 else if (listen_idle_usec != USEC_INFINITY && n >= usec_add(last_busy_usec, listen_idle_usec)) {
-                        char buf[FORMAT_TIMESPAN_MAX];
                         log_debug("Exiting worker, been idle for %s.",
-                                  format_timespan(buf, sizeof(buf), usec_sub_unsigned(n, last_busy_usec), 0));
+                                  FORMAT_TIMESPAN(usec_sub_unsigned(n, last_busy_usec), 0));
                         break;
                 }
 

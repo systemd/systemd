@@ -442,7 +442,6 @@ static int monitor_memory_pressure_contexts_handler(sd_event_source *s, uint64_t
                 OomdCGroupContext *t;
                 SET_FOREACH(t, targets) {
                         _cleanup_free_ char *selected = NULL;
-                        char ts[FORMAT_TIMESPAN_MAX];
 
                         /* Check if there was reclaim activity in the given interval. The concern is the following case:
                          * Pressure climbed, a lot of high-frequency pages were reclaimed, and we killed the offending
@@ -456,9 +455,7 @@ static int monitor_memory_pressure_contexts_handler(sd_event_source *s, uint64_t
                                   t->path,
                                   LOAD_INT(t->memory_pressure.avg10), LOAD_FRAC(t->memory_pressure.avg10),
                                   LOAD_INT(t->mem_pressure_limit), LOAD_FRAC(t->mem_pressure_limit),
-                                  format_timespan(ts, sizeof ts,
-                                                  m->default_mem_pressure_duration_usec,
-                                                  USEC_PER_SEC));
+                                  FORMAT_TIMESPAN(m->default_mem_pressure_duration_usec, USEC_PER_SEC));
 
                         r = update_monitored_cgroup_contexts_candidates(
                                         m->monitored_mem_pressure_cgroup_contexts, &m->monitored_mem_pressure_cgroup_contexts_candidates);
@@ -483,9 +480,7 @@ static int monitor_memory_pressure_contexts_handler(sd_event_source *s, uint64_t
                                                    selected, t->path,
                                                    LOAD_INT(t->memory_pressure.avg10), LOAD_FRAC(t->memory_pressure.avg10),
                                                    LOAD_INT(t->mem_pressure_limit), LOAD_FRAC(t->mem_pressure_limit),
-                                                   format_timespan(ts, sizeof ts,
-                                                                   m->default_mem_pressure_duration_usec,
-                                                                   USEC_PER_SEC));
+                                                   FORMAT_TIMESPAN(m->default_mem_pressure_duration_usec, USEC_PER_SEC));
                                 return 0;
                         }
                 }
@@ -707,7 +702,6 @@ int manager_start(
 int manager_get_dump_string(Manager *m, char **ret) {
         _cleanup_free_ char *dump = NULL;
         _cleanup_fclose_ FILE *f = NULL;
-        char buf[FORMAT_TIMESPAN_MAX];
         OomdCGroupContext *c;
         size_t size;
         char *key;
@@ -729,7 +723,7 @@ int manager_get_dump_string(Manager *m, char **ret) {
                 yes_no(m->dry_run),
                 PERMYRIAD_AS_PERCENT_FORMAT_VAL(m->swap_used_limit_permyriad),
                 LOAD_INT(m->default_mem_pressure_limit), LOAD_FRAC(m->default_mem_pressure_limit),
-                format_timespan(buf, sizeof(buf), m->default_mem_pressure_duration_usec, USEC_PER_SEC));
+                FORMAT_TIMESPAN(m->default_mem_pressure_duration_usec, USEC_PER_SEC));
         oomd_dump_system_context(&m->system_context, f, "\t");
 
         fprintf(f, "Swap Monitored CGroups:\n");

@@ -43,8 +43,7 @@ void user_record_show(UserRecord *hr, bool show_full_group_info) {
         printf(" Disposition: %s\n", user_disposition_to_string(user_record_disposition(hr)));
 
         if (hr->last_change_usec != USEC_INFINITY) {
-                char buf[FORMAT_TIMESTAMP_MAX];
-                printf(" Last Change: %s\n", format_timestamp(buf, sizeof(buf), hr->last_change_usec));
+                printf(" Last Change: %s\n", FORMAT_TIMESTAMP(hr->last_change_usec));
 
                 if (hr->last_change_usec > now(CLOCK_REALTIME))
                         printf("              %sModification time lies in the future, system clock wrong?%s\n",
@@ -52,10 +51,8 @@ void user_record_show(UserRecord *hr, bool show_full_group_info) {
         }
 
         if (hr->last_password_change_usec != USEC_INFINITY &&
-            hr->last_password_change_usec != hr->last_change_usec) {
-                char buf[FORMAT_TIMESTAMP_MAX];
-                printf(" Last Passw.: %s\n", format_timestamp(buf, sizeof(buf), hr->last_password_change_usec));
-        }
+            hr->last_password_change_usec != hr->last_change_usec)
+                printf(" Last Passw.: %s\n", FORMAT_TIMESTAMP(hr->last_password_change_usec));
 
         r = user_record_test_blocked(hr);
         switch (r) {
@@ -238,15 +235,11 @@ void user_record_show(UserRecord *hr, bool show_full_group_info) {
         if (hr->locked >= 0)
                 printf("      Locked: %s\n", yes_no(hr->locked));
 
-        if (hr->not_before_usec != UINT64_MAX) {
-                char buf[FORMAT_TIMESTAMP_MAX];
-                printf("  Not Before: %s\n", format_timestamp(buf, sizeof(buf), hr->not_before_usec));
-        }
+        if (hr->not_before_usec != UINT64_MAX)
+                printf("  Not Before: %s\n", FORMAT_TIMESTAMP(hr->not_before_usec));
 
-        if (hr->not_after_usec != UINT64_MAX) {
-                char buf[FORMAT_TIMESTAMP_MAX];
-                printf("   Not After: %s\n", format_timestamp(buf, sizeof(buf), hr->not_after_usec));
-        }
+        if (hr->not_after_usec != UINT64_MAX)
+                printf("   Not After: %s\n", FORMAT_TIMESTAMP(hr->not_after_usec));
 
         if (hr->umask != MODE_INVALID)
                 printf("       UMask: 0%03o\n", hr->umask);
@@ -263,15 +256,11 @@ void user_record_show(UserRecord *hr, bool show_full_group_info) {
         if (hr->tasks_max != UINT64_MAX)
                 printf("   Tasks Max: %" PRIu64 "\n", hr->tasks_max);
 
-        if (hr->memory_high != UINT64_MAX) {
-                char buf[FORMAT_BYTES_MAX];
-                printf(" Memory High: %s\n", format_bytes(buf, sizeof(buf), hr->memory_high));
-        }
+        if (hr->memory_high != UINT64_MAX)
+                printf(" Memory High: %s\n", FORMAT_BYTES(hr->memory_high));
 
-        if (hr->memory_max != UINT64_MAX) {
-                char buf[FORMAT_BYTES_MAX];
-                printf("  Memory Max: %s\n", format_bytes(buf, sizeof(buf), hr->memory_max));
-        }
+        if (hr->memory_max != UINT64_MAX)
+                printf("  Memory Max: %s\n", FORMAT_BYTES(hr->memory_max));
 
         if (hr->cpu_weight != UINT64_MAX)
                 printf("  CPU Weight: %" PRIu64 "\n", hr->cpu_weight);
@@ -306,14 +295,11 @@ void user_record_show(UserRecord *hr, bool show_full_group_info) {
                         printf("  PBKDF Type: %s\n", hr->luks_pbkdf_type);
                 if (hr->luks_pbkdf_hash_algorithm)
                         printf("  PBKDF Hash: %s\n", hr->luks_pbkdf_hash_algorithm);
-                if (hr->luks_pbkdf_time_cost_usec != UINT64_MAX) {
-                        char buf[FORMAT_TIMESPAN_MAX];
-                        printf("  PBKDF Time: %s\n", format_timespan(buf, sizeof(buf), hr->luks_pbkdf_time_cost_usec, 0));
-                }
-                if (hr->luks_pbkdf_memory_cost != UINT64_MAX) {
-                        char buf[FORMAT_BYTES_MAX];
-                        printf(" PBKDF Bytes: %s\n", format_bytes(buf, sizeof(buf), hr->luks_pbkdf_memory_cost));
-                }
+                if (hr->luks_pbkdf_time_cost_usec != UINT64_MAX)
+                        printf("  PBKDF Time: %s\n", FORMAT_TIMESPAN(hr->luks_pbkdf_time_cost_usec, 0));
+                if (hr->luks_pbkdf_memory_cost != UINT64_MAX)
+                        printf(" PBKDF Bytes: %s\n", FORMAT_BYTES(hr->luks_pbkdf_memory_cost));
+
                 if (hr->luks_pbkdf_parallel_threads != UINT64_MAX)
                         printf("PBKDF Thread: %" PRIu64 "\n", hr->luks_pbkdf_parallel_threads);
 
@@ -337,28 +323,22 @@ void user_record_show(UserRecord *hr, bool show_full_group_info) {
         if (hr->skeleton_directory)
                 printf("  Skel. Dir.: %s\n", user_record_skeleton_directory(hr));
 
-        if (hr->disk_size != UINT64_MAX) {
-                char buf[FORMAT_BYTES_MAX];
-                printf("   Disk Size: %s\n", format_bytes(buf, sizeof(buf), hr->disk_size));
-        }
+        if (hr->disk_size != UINT64_MAX)
+                printf("   Disk Size: %s\n", FORMAT_BYTES(hr->disk_size));
 
         if (hr->disk_usage != UINT64_MAX) {
-                char buf[FORMAT_BYTES_MAX];
-
                 if (hr->disk_size != UINT64_MAX) {
                         unsigned permille;
 
                         permille = (unsigned) DIV_ROUND_UP(hr->disk_usage * 1000U, hr->disk_size); /* Round up! */
                         printf("  Disk Usage: %s (= %u.%01u%%)\n",
-                               format_bytes(buf, sizeof(buf), hr->disk_usage),
+                               FORMAT_BYTES(hr->disk_usage),
                                permille / 10, permille % 10);
                 } else
-                        printf("  Disk Usage: %s\n", format_bytes(buf, sizeof(buf), hr->disk_usage));
+                        printf("  Disk Usage: %s\n", FORMAT_BYTES(hr->disk_usage));
         }
 
         if (hr->disk_free != UINT64_MAX) {
-                char buf[FORMAT_BYTES_MAX];
-
                 if (hr->disk_size != UINT64_MAX) {
                         const char *color_on, *color_off;
                         unsigned permille;
@@ -381,38 +361,30 @@ void user_record_show(UserRecord *hr, bool show_full_group_info) {
 
                         printf("   Disk Free: %s%s (= %u.%01u%%)%s\n",
                                color_on,
-                               format_bytes(buf, sizeof(buf), hr->disk_free),
+                               FORMAT_BYTES(hr->disk_free),
                                permille / 10, permille % 10,
                                color_off);
                 } else
-                        printf("   Disk Free: %s\n", format_bytes(buf, sizeof(buf), hr->disk_free));
+                        printf("   Disk Free: %s\n", FORMAT_BYTES(hr->disk_free));
         }
 
-        if (hr->disk_floor != UINT64_MAX) {
-                char buf[FORMAT_BYTES_MAX];
-                printf("  Disk Floor: %s\n", format_bytes(buf, sizeof(buf), hr->disk_floor));
-        }
+        if (hr->disk_floor != UINT64_MAX)
+                printf("  Disk Floor: %s\n", FORMAT_BYTES(hr->disk_floor));
 
-        if (hr->disk_ceiling != UINT64_MAX) {
-                char buf[FORMAT_BYTES_MAX];
-                printf("Disk Ceiling: %s\n", format_bytes(buf, sizeof(buf), hr->disk_ceiling));
-        }
+        if (hr->disk_ceiling != UINT64_MAX)
+                printf("Disk Ceiling: %s\n", FORMAT_BYTES(hr->disk_ceiling));
 
         if (hr->good_authentication_counter != UINT64_MAX)
                 printf("  Good Auth.: %" PRIu64 "\n", hr->good_authentication_counter);
 
-        if (hr->last_good_authentication_usec != UINT64_MAX) {
-                char buf[FORMAT_TIMESTAMP_MAX];
-                printf("   Last Good: %s\n", format_timestamp(buf, sizeof(buf), hr->last_good_authentication_usec));
-        }
+        if (hr->last_good_authentication_usec != UINT64_MAX)
+                printf("   Last Good: %s\n", FORMAT_TIMESTAMP(hr->last_good_authentication_usec));
 
         if (hr->bad_authentication_counter != UINT64_MAX)
                 printf("   Bad Auth.: %" PRIu64 "\n", hr->bad_authentication_counter);
 
-        if (hr->last_bad_authentication_usec != UINT64_MAX) {
-                char buf[FORMAT_TIMESTAMP_MAX];
-                printf("    Last Bad: %s\n", format_timestamp(buf, sizeof(buf), hr->last_bad_authentication_usec));
-        }
+        if (hr->last_bad_authentication_usec != UINT64_MAX)
+                printf("    Last Bad: %s\n", FORMAT_TIMESTAMP(hr->last_bad_authentication_usec));
 
         t = user_record_ratelimit_next_try(hr);
         if (t != USEC_INFINITY) {
@@ -420,20 +392,16 @@ void user_record_show(UserRecord *hr, bool show_full_group_info) {
 
                 if (t <= n)
                         printf("    Next Try: anytime\n");
-                else {
-                        char buf[FORMAT_TIMESPAN_MAX];
+                else
                         printf("    Next Try: %sin %s%s\n",
                                ansi_highlight_red(),
-                               format_timespan(buf, sizeof(buf), t - n, USEC_PER_SEC),
+                               FORMAT_TIMESPAN(t - n, USEC_PER_SEC),
                                ansi_normal());
-                }
         }
 
-        if (storage != USER_CLASSIC) {
-                char buf[FORMAT_TIMESPAN_MAX];
+        if (storage != USER_CLASSIC)
                 printf(" Auth. Limit: %" PRIu64 " attempts per %s\n", user_record_ratelimit_burst(hr),
-                       format_timespan(buf, sizeof(buf), user_record_ratelimit_interval_usec(hr), 0));
-        }
+                       FORMAT_TIMESPAN(user_record_ratelimit_interval_usec(hr), 0));
 
         if (hr->enforce_password_policy >= 0)
                 printf(" Passwd Pol.: %s\n", yes_no(hr->enforce_password_policy));
@@ -443,24 +411,23 @@ void user_record_show(UserRecord *hr, bool show_full_group_info) {
             hr->password_change_warn_usec != UINT64_MAX ||
             hr->password_change_inactive_usec != UINT64_MAX) {
 
-                char buf[FORMAT_TIMESPAN_MAX];
                 printf(" Passwd Chg.:");
 
                 if (hr->password_change_min_usec != UINT64_MAX) {
-                        printf(" min %s", format_timespan(buf, sizeof(buf), hr->password_change_min_usec, 0));
+                        printf(" min %s", FORMAT_TIMESPAN(hr->password_change_min_usec, 0));
 
                         if (hr->password_change_max_usec != UINT64_MAX)
                                 printf(" …");
                 }
 
                 if (hr->password_change_max_usec != UINT64_MAX)
-                        printf(" max %s", format_timespan(buf, sizeof(buf), hr->password_change_max_usec, 0));
+                        printf(" max %s", FORMAT_TIMESPAN(hr->password_change_max_usec, 0));
 
                 if (hr->password_change_warn_usec != UINT64_MAX)
-                        printf("/warn %s", format_timespan(buf, sizeof(buf), hr->password_change_warn_usec, 0));
+                        printf("/warn %s", FORMAT_TIMESPAN(hr->password_change_warn_usec, 0));
 
                 if (hr->password_change_inactive_usec != UINT64_MAX)
-                        printf("/inactive %s", format_timespan(buf, sizeof(buf), hr->password_change_inactive_usec, 0));
+                        printf("/inactive %s", FORMAT_TIMESPAN(hr->password_change_inactive_usec, 0));
 
                 printf("\n");
         }
@@ -496,10 +463,8 @@ void user_record_show(UserRecord *hr, bool show_full_group_info) {
         if (hr->signed_locally >= 0)
                 printf("  Local Sig.: %s\n", yes_no(hr->signed_locally));
 
-        if (hr->stop_delay_usec != UINT64_MAX) {
-                char buf[FORMAT_TIMESPAN_MAX];
-                printf("  Stop Delay: %s\n", format_timespan(buf, sizeof(buf), hr->stop_delay_usec, 0));
-        }
+        if (hr->stop_delay_usec != UINT64_MAX)
+                printf("  Stop Delay: %s\n", FORMAT_TIMESPAN(hr->stop_delay_usec, 0));
 
         if (hr->auto_login >= 0)
                 printf("Autom. Login: %s\n", yes_no(hr->auto_login));
@@ -519,10 +484,8 @@ void group_record_show(GroupRecord *gr, bool show_full_user_info) {
 
         printf(" Disposition: %s\n", user_disposition_to_string(group_record_disposition(gr)));
 
-        if (gr->last_change_usec != USEC_INFINITY) {
-                char buf[FORMAT_TIMESTAMP_MAX];
-                printf(" Last Change: %s\n", format_timestamp(buf, sizeof(buf), gr->last_change_usec));
-        }
+        if (gr->last_change_usec != USEC_INFINITY)
+                printf(" Last Change: %s\n", FORMAT_TIMESTAMP(gr->last_change_usec));
 
         if (gid_is_valid(gr->gid))
                 printf("         GID: " GID_FMT "\n", gr->gid);

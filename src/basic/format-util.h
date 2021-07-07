@@ -74,16 +74,17 @@ typedef enum {
 
 #define FORMAT_BYTES_MAX 16U
 
-char *format_bytes_full(char *buf, size_t l, uint64_t t, FormatBytesFlag flag);
+char *format_bytes_full(char *buf, size_t l, uint64_t t, FormatBytesFlag flag) _warn_unused_result_;
 
+_warn_unused_result_
 static inline char *format_bytes(char *buf, size_t l, uint64_t t) {
         return format_bytes_full(buf, l, t, FORMAT_BYTES_USE_IEC | FORMAT_BYTES_BELOW_POINT | FORMAT_BYTES_TRAILING_B);
 }
 
-static inline char *format_bytes_cgroup_protection(char *buf, size_t l, uint64_t t) {
-        if (t == CGROUP_LIMIT_MAX) {
-                (void) snprintf(buf, l, "%s", "infinity");
-                return buf;
-        }
-        return format_bytes(buf, l, t);
-}
+/* Note: the lifetime of the compound literal is the immediately surrounding block,
+ * see C11 §6.5.2.5, and
+ * https://stackoverflow.com/questions/34880638/compound-literal-lifetime-and-if-blocks */
+#define FORMAT_BYTES(t) format_bytes((char[FORMAT_BYTES_MAX]){}, FORMAT_BYTES_MAX, t)
+#define FORMAT_BYTES_FULL(t, flag) format_bytes_full((char[FORMAT_BYTES_MAX]){}, FORMAT_BYTES_MAX, t, flag)
+
+#define FORMAT_BYTES_CGROUP_PROTECTION(t) (t == CGROUP_LIMIT_MAX ? "infinity" : FORMAT_BYTES(t))

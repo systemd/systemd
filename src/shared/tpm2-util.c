@@ -591,10 +591,8 @@ int tpm2_seal(
         if (!hash)
                 return log_oom();
 
-        if (DEBUG_LOGGING) {
-                char buf[FORMAT_TIMESPAN_MAX];
-                log_debug("Completed TPM2 key sealing in %s.", format_timespan(buf, sizeof(buf), now(CLOCK_MONOTONIC) - start, 1));
-        }
+        if (DEBUG_LOGGING)
+                log_debug("Completed TPM2 key sealing in %s.", FORMAT_TIMESPAN(now(CLOCK_MONOTONIC) - start, 1));
 
         *ret_secret = TAKE_PTR(secret);
         *ret_secret_size = hmac_sensitive.sensitive.data.size;
@@ -726,10 +724,8 @@ int tpm2_unseal(
                 goto finish;
         }
 
-        if (DEBUG_LOGGING) {
-                char buf[FORMAT_TIMESPAN_MAX];
-                log_debug("Completed TPM2 key unsealing in %s.", format_timespan(buf, sizeof(buf), now(CLOCK_MONOTONIC) - start, 1));
-        }
+        if (DEBUG_LOGGING)
+                log_debug("Completed TPM2 key unsealing in %s.", FORMAT_TIMESPAN(now(CLOCK_MONOTONIC) - start, 1));
 
         *ret_secret = TAKE_PTR(secret);
         *ret_secret_size = unsealed->size;

@@ -867,13 +867,10 @@ void user_update_last_session_timer(User *u) {
         if (r < 0)
                 log_warning_errno(r, "Failed to enqueue user stop event source, ignoring: %m");
 
-        if (DEBUG_LOGGING) {
-                char s[FORMAT_TIMESPAN_MAX];
-
+        if (DEBUG_LOGGING)
                 log_debug("Last session of user '%s' logged out, terminating user context in %s.",
                           u->user_record->user_name,
-                          format_timespan(s, sizeof(s), user_stop_delay, USEC_PER_MSEC));
-        }
+                          FORMAT_TIMESPAN(user_stop_delay, USEC_PER_MSEC));
 }
 
 static const char* const user_state_table[_USER_STATE_MAX] = {
