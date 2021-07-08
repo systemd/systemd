@@ -3053,6 +3053,9 @@ int unit_add_dependency(
                 return 0;
         }
 
+        if (u->manager && FLAGS_SET(u->manager->test_run_flags, MANAGER_TEST_RUN_IGNORE_DEPENDENCIES))
+                return 0;
+
         /* Note that ordering a device unit after a unit is permitted since it allows to start its job
          * running timeout at a specific time. */
         if (FLAGS_SET(a, UNIT_ATOM_BEFORE) && other->type == UNIT_DEVICE) {
@@ -3176,6 +3179,9 @@ int unit_add_dependency_by_name(Unit *u, UnitDependency d, const char *name, boo
         if (r < 0)
                 return r;
 
+        if (u->manager && FLAGS_SET(u->manager->test_run_flags, MANAGER_TEST_RUN_IGNORE_DEPENDENCIES))
+                return 0;
+
         r = manager_load_unit(u->manager, name, NULL, NULL, &other);
         if (r < 0)
                 return r;
@@ -3194,6 +3200,9 @@ int unit_add_two_dependencies_by_name(Unit *u, UnitDependency d, UnitDependency 
         r = resolve_template(u, name, &buf, &name);
         if (r < 0)
                 return r;
+
+        if (u->manager && FLAGS_SET(u->manager->test_run_flags, MANAGER_TEST_RUN_IGNORE_DEPENDENCIES))
+                return 0;
 
         r = manager_load_unit(u->manager, name, NULL, NULL, &other);
         if (r < 0)
@@ -3311,6 +3320,9 @@ int unit_set_default_slice(Unit *u) {
         int r;
 
         assert(u);
+
+        if (u->manager && FLAGS_SET(u->manager->test_run_flags, MANAGER_TEST_RUN_IGNORE_DEPENDENCIES))
+                return 0;
 
         if (UNIT_GET_SLICE(u))
                 return 0;
