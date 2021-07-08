@@ -84,10 +84,22 @@ Janitorial Clean-ups:
 Features:
 
 * New udev block device symlink names:
-  /dev/disk/by-parttypelabel/<pttype>/<ptlabel>. Use case: if pt label is used
+  /dev/disk/by-parttypelabel/<pttype>-<ptlabel>. Use case: if pt label is used
   as partition image version string, this is a safe way to reference a specific
   version of a specific partition type, in particular where related partitions
   are processed (e.g. verity + rootfs both named "LennartOS_0.7").
+
+* sysupdate:
+  - support casync as download mechanism
+  - direct TPM2 PCR change handling, possible renrolling LUKS2 media if needed.
+  - "systemd-sysupdate now --all" support, that iterates through all components
+    defined on the host, plus all images installed into /var/lib/machines/,
+    /var/lib/portable/ and so on.
+  - figure out what to do about system extensions (i.e. they need to imply an
+    update component, since otherwise system extenion' sysupdate.d/ files would
+    override the host's update files.)
+  - Allow invocation with a single transfer definition, i.e. with
+    --definitions= pointing to a file rather than a dir.
 
 * in sd-id128: also parse UUIDs in RFC4122 URN syntax (i.e. chop off urn:uuid: prefix)
 
@@ -130,6 +142,9 @@ Features:
 
 * importd: support image signature verification with PKCS#7 + OpenBSD signify
   logic, as alternative to crummy gpg
+
+* importd: look for SHA512SUMS in addition to SHA256SUMS, as that's apparently
+  what Debian uses.
 
 * sysext: optionally, if the merged trees allow it use bind mounts instead of
   overlayfs

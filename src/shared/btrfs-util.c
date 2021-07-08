@@ -1613,7 +1613,7 @@ int btrfs_subvol_snapshot_fd_full(
                         return -EISDIR;
 
                 r = btrfs_subvol_make(new_path);
-                if (r == -ENOTTY && (flags & BTRFS_SNAPSHOT_FALLBACK_DIRECTORY)) {
+                if (ERRNO_IS_NOT_SUPPORTED(r) && (flags & BTRFS_SNAPSHOT_FALLBACK_DIRECTORY)) {
                         /* If the destination doesn't support subvolumes, then use a plain directory, if that's requested. */
                         if (mkdir(new_path, 0755) < 0)
                                 return -errno;
@@ -1624,8 +1624,15 @@ int btrfs_subvol_snapshot_fd_full(
 
                 r = copy_directory_fd_full(
                                 old_fd, new_path,
-                                COPY_MERGE|COPY_REFLINK|COPY_SAME_MOUNT|COPY_HARDLINKS|(FLAGS_SET(flags, BTRFS_SNAPSHOT_SIGINT) ? COPY_SIGINT : 0),
-                                progress_path, progress_bytes, userdata);
+                                COPY_MERGE_EMPTY|
+                                COPY_REFLINK|
+                                COPY_SAME_MOUNT|
+                                COPY_HARDLINKS|
+                                (FLAGS_SET(flags, BTRFS_SNAPSHOT_SIGINT) ? COPY_SIGINT : 0)|
+                                (FLAGS_SET(flags, BTRFS_SNAPSHOT_SIGTERM) ? COPY_SIGTERM : 0),
+                                progress_path,
+                                progress_bytes,
+                                userdata);
                 if (r < 0)
                         goto fallback_fail;
 

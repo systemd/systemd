@@ -16,4 +16,4 @@ RawPull* raw_pull_unref(RawPull *pull);
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(RawPull*, raw_pull_unref);
 
-int raw_pull_start(RawPull *pull, const char *url, const char *local, PullFlags flags, ImportVerify verify);
+int raw_pull_start(RawPull *pull, const char *url, const char *local, uint64_t offset, uint64_t size_max, PullFlags flags, ImportVerify verify, const char *checksum);

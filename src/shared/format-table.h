@@ -33,6 +33,7 @@ typedef enum TableDataType {
         TABLE_UINT16,
         TABLE_UINT32,
         TABLE_UINT64,
+        TABLE_UINT64_HEX,
         TABLE_PERCENT,
         TABLE_IFINDEX,
         TABLE_IN_ADDR,  /* Takes a union in_addr_union (or a struct in_addr) */
@@ -43,6 +44,7 @@ typedef enum TableDataType {
         TABLE_GID,
         TABLE_PID,
         TABLE_SIGNAL,
+        TABLE_MODE,     /* as in UNIX file mode (mode_t), in typical octal output */
         _TABLE_DATA_TYPE_MAX,
 
         /* The following are not really data types, but commands for table_add_cell_many() to make changes to
@@ -105,7 +107,8 @@ int table_set_display_internal(Table *t, size_t first_column, ...);
 int table_set_sort_internal(Table *t, size_t first_column, ...);
 #define table_set_sort(...) table_set_sort_internal(__VA_ARGS__, SIZE_MAX)
 int table_set_reverse(Table *t, size_t column, bool b);
-int table_hide_column_from_display(Table *t, size_t column);
+int table_hide_column_from_display_internal(Table *t, ...);
+#define table_hide_column_from_display(t, ...) table_hide_column_from_display_internal(t, __VA_ARGS__, (size_t) -1)
 
 int table_print(Table *t, FILE *f);
 int table_format(Table *t, char **ret);
