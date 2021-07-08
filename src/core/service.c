@@ -598,6 +598,9 @@ static int service_add_default_dependencies(Service *s) {
         if (!UNIT(s)->default_dependencies)
                 return 0;
 
+        if (UNIT(s)->manager && FLAGS_SET(UNIT(s)->manager->test_run_flags, MANAGER_TEST_RUN_IGNORE_DEPENDENCIES))
+                return 0;
+
         /* Add a number of automatic dependencies useful for the
          * majority of services. */
 
