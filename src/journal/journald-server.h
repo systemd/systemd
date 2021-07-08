@@ -90,7 +90,8 @@ struct Server {
 
         JournalFile *runtime_journal;
         JournalFile *system_journal;
-        OrderedHashmap *user_journals;
+        OrderedHashmap *runtime_user_journals;
+        OrderedHashmap *persistent_user_journals;
 
         uint64_t seqnum;
 
