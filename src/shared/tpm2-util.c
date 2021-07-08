@@ -339,6 +339,15 @@ static int tpm2_get_best_pcr_bank(
         assert(pcap->capability == TPM2_CAP_PCRS);
 
         for (size_t i = 0; i < pcap->data.assignedPCR.count; i++) {
+                bool zero = true;
+
+                for (size_t j = 0; j < pcap->data.assignedPCR.pcrSelections[i].sizeofSelect; j++)
+                        if (pcap->data.assignedPCR.pcrSelections[i].pcrSelect[j] != 0)
+                                zero = false;
+
+                if (zero) /* all zeroes? then ignore this bank */
+                        continue;
+
                 if (pcap->data.assignedPCR.pcrSelections[i].hash == TPM2_ALG_SHA256) {
                         hash = TPM2_ALG_SHA256;
                         found = true;
