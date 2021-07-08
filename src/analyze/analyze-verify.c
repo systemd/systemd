@@ -52,7 +52,7 @@ static int prepare_filename(const char *filename, char **ret) {
         return 0;
 }
 
-static int generate_path(char **var, char **filenames, char *arg_root) {
+static int generate_path(char **var, char **filenames) {
         const char *old;
         char **filename;
 
@@ -60,19 +60,13 @@ static int generate_path(char **var, char **filenames, char *arg_root) {
         int r;
 
         STRV_FOREACH(filename, filenames) {
-                _cleanup_free_ char *t = NULL;
-                char *path_temp;
+                char *t = NULL;
 
                 t = dirname_malloc(*filename);
                 if (!t)
                         return -ENOMEM;
 
-                /* this allows verification of files from discrete images and directories */
-                path_temp = path_join(arg_root, t);
-                if (!path_temp)
-                        return -ENOMEM;
-
-                r = strv_consume(&ans, path_temp);
+                r = strv_consume(&ans, t);
                 if (r < 0)
                         return r;
         }
@@ -240,7 +234,7 @@ int verify_units(char **filenames, UnitFileScope scope, bool check_man, bool run
                 return 0;
 
         /* set the path */
-        r = generate_path(&var, filenames, root);
+        r = generate_path(&var, filenames);
         if (r < 0)
                 return log_error_errno(r, "Failed to generate unit load path: %m");
 
@@ -252,7 +246,7 @@ int verify_units(char **filenames, UnitFileScope scope, bool check_man, bool run
 
         log_debug("Starting manager...");
 
-        r = manager_startup(m, NULL, NULL);
+        r = manager_startup(m, NULL, NULL, root);
         if (r < 0)
                 return r;
 

@@ -2401,7 +2401,7 @@ static int parse_argv(int argc, char *argv[]) {
                                        "Option --root is only supported for cat-config and verify right now.");
 
         /* Having both an image and a root is not supported by the code */
-        if(arg_root && arg_image)
+        if (arg_root && arg_image)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Please specify either --root= or --image=, the combination of both is not supported.");
 
         return 1; /* work to do */
