@@ -85,6 +85,7 @@ static PagerFlags arg_pager_flags = 0;
 static BusTransport arg_transport = BUS_TRANSPORT_LOCAL;
 static const char *arg_host = NULL;
 static UnitFileScope arg_scope = UNIT_FILE_SYSTEM;
+static bool arg_ignore_dependencies = false;
 static bool arg_man = true;
 static bool arg_generators = false;
 static char *arg_root = NULL;
@@ -2145,7 +2146,7 @@ static int do_condition(int argc, char *argv[], void *userdata) {
 }
 
 static int do_verify(int argc, char *argv[], void *userdata) {
-        return verify_units(strv_skip(argv, 1), arg_scope, arg_man, arg_generators, arg_root);
+        return verify_units(strv_skip(argv, 1), arg_scope, arg_man, arg_generators, arg_ignore_dependencies, arg_root);
 }
 
 static int do_security(int argc, char *argv[], void *userdata) {
@@ -2199,6 +2200,7 @@ static int help(int argc, char *argv[], void *userdata) {
                "  security [UNIT...]       Analyze security of unit\n"
                "\nOptions:\n"
                "  -h --help                Show this help\n"
+               "     --ignore-deps[=BOOL]  Do [not] run unit dependencies\n"
                "     --version             Show package version\n"
                "     --no-pager            Do not pipe output into a pager\n"
                "     --system              Operate on system systemd instance\n"
@@ -2247,10 +2249,12 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_GENERATORS,
                 ARG_ITERATIONS,
                 ARG_BASE_TIME,
+                ARG_DEPENDENCIES,
         };
 
         static const struct option options[] = {
                 { "help",         no_argument,       NULL, 'h'                  },
+                { "ignore-deps",  optional_argument, NULL, ARG_DEPENDENCIES,    },
                 { "version",      no_argument,       NULL, ARG_VERSION          },
                 { "order",        no_argument,       NULL, ARG_ORDER            },
                 { "require",      no_argument,       NULL, ARG_REQUIRE          },
@@ -2282,6 +2286,12 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case 'h':
                         return help(0, NULL, NULL);
+
+                case ARG_DEPENDENCIES:
+                        r = parse_boolean_argument("--ignore-deps", optarg, &arg_ignore_dependencies);
+                        if (r < 0)
+                                return r;
+                        break;
 
                 case ARG_VERSION:
                         return version();
