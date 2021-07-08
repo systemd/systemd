@@ -7,10 +7,19 @@
 #include <linux/fs.h>
 
 #include "chattr-util.h"
+#include "errno-util.h"
 #include "fd-util.h"
 #include "macro.h"
+#include "string-util.h"
 
-int chattr_full(const char *path, int fd, unsigned value, unsigned mask, unsigned *ret_previous, unsigned *ret_final, bool fallback) {
+int chattr_full(const char *path,
+                int fd,
+                unsigned value,
+                unsigned mask,
+                unsigned *ret_previous,
+                unsigned *ret_final,
+                ChattrApplyFlags flags) {
+
         _cleanup_close_ int fd_will_close = -1;
         unsigned old_attr, new_attr;
         struct stat st;
@@ -57,12 +66,16 @@ int chattr_full(const char *path, int fd, unsigned value, unsigned mask, unsigne
                 return 1;
         }
 
-        if (errno != EINVAL || !fallback)
+        if ((errno != EINVAL && !ERRNO_IS_NOT_SUPPORTED(errno)) ||
+            !FLAGS_SET(flags, CHATTR_FALLBACK_BITWISE))
                 return -errno;
 
         /* When -EINVAL is returned, we assume that incompatible attributes are simultaneously
          * specified. E.g., compress(c) and nocow(C) attributes cannot be set to files on btrfs.
-         * As a fallback, let's try to set attributes one by one. */
+         * As a fallback, let's try to set attributes one by one.
+         *
+         * Also, when we get EOPNOTSUPP (or a similar error code) we assume a flag might just not be
+         * supported, and we can ignore it too */
 
         unsigned current_attr = old_attr;
         for (unsigned i = 0; i < sizeof(unsigned) * 8; i++) {
@@ -76,8 +89,12 @@ int chattr_full(const char *path, int fd, unsigned value, unsigned mask, unsigne
                         continue;
 
                 if (ioctl(fd, FS_IOC_SETFLAGS, &new_one) < 0) {
-                        if (errno != EINVAL)
+                        if (errno != EINVAL && !ERRNO_IS_NOT_SUPPORTED(errno))
                                 return -errno;
+
+                        log_full_errno(FLAGS_SET(flags, CHATTR_WARN_UNSUPPORTED_FLAGS) ? LOG_WARNING : LOG_DEBUG,
+                                       errno,
+                                       "Unable to set file attribute 0x%x on %s, ignoring: %m", mask_one, strna(path));
                         continue;
                 }
 

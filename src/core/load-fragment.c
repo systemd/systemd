@@ -4469,12 +4469,15 @@ int config_parse_set_credential(
                 void *data,
                 void *userdata) {
 
-        _cleanup_free_ char *word = NULL, *k = NULL, *unescaped = NULL;
+        _cleanup_free_ char *word = NULL, *k = NULL;
+        _cleanup_free_ void *d = NULL;
         ExecContext *context = data;
         ExecSetCredential *old;
         Unit *u = userdata;
-        const char *p;
-        int r, l;
+        bool encrypted = ltype;
+        const char *p = rvalue;
+        size_t size;
+        int r;
 
         assert(filename);
         assert(lvalue);
@@ -4487,7 +4490,6 @@ int config_parse_set_credential(
                 return 0;
         }
 
-        p = rvalue;
         r = extract_first_word(&p, &word, ":", EXTRACT_DONT_COALESCE_SEPARATORS);
         if (r == -ENOMEM)
                 return log_oom();
@@ -4506,33 +4508,51 @@ int config_parse_set_credential(
                 return 0;
         }
 
-        /* We support escape codes here, so that users can insert trailing \n if they like */
-        l = cunescape(p, UNESCAPE_ACCEPT_NUL, &unescaped);
-        if (l < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, l, "Can't unescape \"%s\", ignoring: %m", p);
-                return 0;
+        if (encrypted) {
+                r = unbase64mem_full(p, SIZE_MAX, true, &d, &size);
+                if (r < 0) {
+                        log_syntax(unit, LOG_WARNING, filename, line, r, "Encrypted credential data not valid Base64 data, ignoring.");
+                        return 0;
+                }
+        } else {
+                char *unescaped = NULL;
+                int l;
+
+                /* We support escape codes here, so that users can insert trailing \n if they like */
+                l = cunescape(p, UNESCAPE_ACCEPT_NUL, &unescaped);
+                if (l < 0) {
+                        log_syntax(unit, LOG_WARNING, filename, line, l, "Can't unescape \"%s\", ignoring: %m", p);
+                        return 0;
+                }
+
+                d = unescaped;
+                size = l;
         }
 
         old = hashmap_get(context->set_credentials, k);
         if (old) {
-                free_and_replace(old->data, unescaped);
-                old->size = l;
+                free_and_replace(old->data, d);
+                old->size = size;
+                old->encrypted = encrypted;
         } else {
                 _cleanup_(exec_set_credential_freep) ExecSetCredential *sc = NULL;
 
-                sc = new0(ExecSetCredential, 1);
+                sc = new(ExecSetCredential, 1);
                 if (!sc)
                         return log_oom();
 
-                sc->id = TAKE_PTR(k);
-                sc->data = TAKE_PTR(unescaped);
-                sc->size = l;
+                *sc = (ExecSetCredential) {
+                        .id = TAKE_PTR(k),
+                        .data = TAKE_PTR(d),
+                        .size = size,
+                        .encrypted = encrypted,
+                };
 
                 r = hashmap_ensure_put(&context->set_credentials, &exec_set_credential_hash_ops, sc->id, sc);
                 if (r == -ENOMEM)
                         return log_oom();
                 if (r < 0) {
-                        log_syntax(unit, LOG_WARNING, filename, line, l,
+                        log_syntax(unit, LOG_WARNING, filename, line, r,
                                    "Duplicated credential value '%s', ignoring assignment: %s", sc->id, rvalue);
                         return 0;
                 }
@@ -4557,6 +4577,8 @@ int config_parse_load_credential(
 
         _cleanup_free_ char *word = NULL, *k = NULL, *q = NULL;
         ExecContext *context = data;
+        ExecLoadCredential *old;
+        bool encrypted = ltype;
         Unit *u = userdata;
         const char *p;
         int r;
@@ -4568,7 +4590,7 @@ int config_parse_load_credential(
 
         if (isempty(rvalue)) {
                 /* Empty assignment resets the list */
-                context->load_credentials = strv_free(context->load_credentials);
+                context->load_credentials = hashmap_free(context->load_credentials);
                 return 0;
         }
 
@@ -4604,14 +4626,39 @@ int config_parse_load_credential(
                         return 0;
                 }
                 if (path_is_absolute(q) ? !path_is_normalized(q) : !credential_name_valid(q)) {
-                        log_syntax(unit, LOG_WARNING, filename, line, r, "Credential source \"%s\" not valid, ignoring.", q);
+                        log_syntax(unit, LOG_WARNING, filename, line, 0, "Credential source \"%s\" not valid, ignoring.", q);
                         return 0;
                 }
         }
 
-        r = strv_consume_pair(&context->load_credentials, TAKE_PTR(k), TAKE_PTR(q));
-        if (r < 0)
-                return log_oom();
+        old = hashmap_get(context->load_credentials, k);
+        if (old) {
+                free_and_replace(old->path, q);
+                old->encrypted = encrypted;
+        } else {
+                _cleanup_(exec_load_credential_freep) ExecLoadCredential *lc = NULL;
+
+                lc = new(ExecLoadCredential, 1);
+                if (!lc)
+                        return log_oom();
+
+                *lc = (ExecLoadCredential) {
+                        .id = TAKE_PTR(k),
+                        .path = TAKE_PTR(q),
+                        .encrypted = encrypted,
+                };
+
+                r = hashmap_ensure_put(&context->load_credentials, &exec_load_credential_hash_ops, lc->id, lc);
+                if (r == -ENOMEM)
+                        return log_oom();
+                if (r < 0) {
+                        log_syntax(unit, LOG_WARNING, filename, line, r,
+                                   "Duplicated credential value '%s', ignoring assignment: %s", lc->id, rvalue);
+                        return 0;
+                }
+
+                TAKE_PTR(lc);
+        }
 
         return 0;
 }
