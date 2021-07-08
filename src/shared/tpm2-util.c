@@ -25,6 +25,7 @@ TSS2_RC (*sym_Esys_CreatePrimary)(ESYS_CONTEXT *esysContext, ESYS_TR primaryHand
 void (*sym_Esys_Finalize)(ESYS_CONTEXT **context) = NULL;
 TSS2_RC (*sym_Esys_FlushContext)(ESYS_CONTEXT *esysContext, ESYS_TR flushHandle) = NULL;
 void (*sym_Esys_Free)(void *ptr) = NULL;
+TSS2_RC (*sym_Esys_GetCapability)(ESYS_CONTEXT *esysContext, ESYS_TR shandle1, ESYS_TR shandle2, ESYS_TR shandle3, TPM2_CAP capability, UINT32 property, UINT32 propertyCount, TPMI_YES_NO *moreData, TPMS_CAPABILITY_DATA **capabilityData);
 TSS2_RC (*sym_Esys_GetRandom)(ESYS_CONTEXT *esysContext, ESYS_TR shandle1, ESYS_TR shandle2, ESYS_TR shandle3, UINT16 bytesRequested, TPM2B_DIGEST **randomBytes) = NULL;
 TSS2_RC (*sym_Esys_Initialize)(ESYS_CONTEXT **esys_context,  TSS2_TCTI_CONTEXT *tcti, TSS2_ABI_VERSION *abiVersion) = NULL;
 TSS2_RC (*sym_Esys_Load)(ESYS_CONTEXT *esysContext, ESYS_TR parentHandle, ESYS_TR shandle1, ESYS_TR shandle2, ESYS_TR shandle3, const TPM2B_PRIVATE *inPrivate, const TPM2B_PUBLIC *inPublic, ESYS_TR *objectHandle) = NULL;
@@ -51,6 +52,7 @@ int dlopen_tpm2(void) {
                         DLSYM_ARG(Esys_Finalize),
                         DLSYM_ARG(Esys_FlushContext),
                         DLSYM_ARG(Esys_Free),
+                        DLSYM_ARG(Esys_GetCapability),
                         DLSYM_ARG(Esys_GetRandom),
                         DLSYM_ARG(Esys_Initialize),
                         DLSYM_ARG(Esys_Load),
@@ -310,6 +312,67 @@ static int tpm2_make_primary(
         return 0;
 }
 
+static int tpm2_get_best_pcr_bank(
+                ESYS_CONTEXT *c,
+                TPMI_ALG_HASH *ret) {
+
+        _cleanup_(Esys_Freep) TPMS_CAPABILITY_DATA *pcap = NULL;
+        TPMI_ALG_HASH hash = TPM2_ALG_SHA1;
+        bool found = false;
+        TPMI_YES_NO more;
+        TSS2_RC rc;
+
+        rc = sym_Esys_GetCapability(
+                        c,
+                        ESYS_TR_NONE,
+                        ESYS_TR_NONE,
+                        ESYS_TR_NONE,
+                        TPM2_CAP_PCRS,
+                        0,
+                        1,
+                        &more,
+                        &pcap);
+        if (rc != TSS2_RC_SUCCESS)
+                return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
+                                       "Failed to determine TPM2 PCR bank capabilities: %s", sym_Tss2_RC_Decode(rc));
+
+        assert(pcap->capability == TPM2_CAP_PCRS);
+
+        for (size_t i = 0; i < pcap->data.assignedPCR.count; i++) {
+                bool zero = true;
+
+                for (size_t j = 0; j < pcap->data.assignedPCR.pcrSelections[i].sizeofSelect; j++)
+                        if (pcap->data.assignedPCR.pcrSelections[i].pcrSelect[j] != 0)
+                                zero = false;
+
+                if (zero) /* all zeroes? then ignore this bank */
+                        continue;
+
+                if (pcap->data.assignedPCR.pcrSelections[i].hash == TPM2_ALG_SHA256) {
+                        hash = TPM2_ALG_SHA256;
+                        found = true;
+                        break;
+                }
+
+                if (pcap->data.assignedPCR.pcrSelections[i].hash == TPM2_ALG_SHA1)
+                        found = true;
+        }
+
+        if (!found)
+                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
+                                       "TPM2 module supports neither SHA1 nor SHA256 PCR banks, cannot operate.");
+
+        if (hash == TPM2_ALG_SHA256)
+                log_debug("TPM2 device supports SHA256 PCR banks, yay!");
+        else {
+                assert(hash == TPM2_ALG_SHA1);
+                log_debug("TPM2 device lacks support for SHA256 PCR banks, falling back to SHA1 banks.");
+        }
+
+        *ret = hash;
+        return 0;
+}
+
 static int tpm2_make_pcr_session(
                 ESYS_CONTEXT *c,
                 uint32_t pcr_mask,
@@ -327,7 +390,7 @@ static int tpm2_make_pcr_session(
         };
         TPML_PCR_SELECTION pcr_selection = {
                 .count = 1,
-                .pcrSelections[0].hash = TPM2_ALG_SHA256,
+                .pcrSelections[0].hash = TPM2_ALG_SHA256, /* overriden below, depending on TPM2 capabilities */
                 .pcrSelections[0].sizeofSelect = 3,
                 .pcrSelections[0].pcrSelect[0] = pcr_mask & 0xFF,
                 .pcrSelections[0].pcrSelect[1] = (pcr_mask >> 8) & 0xFF,
@@ -341,6 +404,11 @@ static int tpm2_make_pcr_session(
         assert(c);
 
         log_debug("Starting authentication session.");
+
+        /* Some TPM2 devices only can do SHA1. If we detect that use that, but preferably use SHA256 */
+        r = tpm2_get_best_pcr_bank(c, &pcr_selection.pcrSelections[0].hash);
+        if (r < 0)
+                return r;
 
         rc = sym_Esys_StartAuthSession(
                         c,
