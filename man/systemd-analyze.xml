@@ -745,6 +745,15 @@ Service b@0.service not loaded, b.socket cannot be started.
       </varlistentry>
 
       <varlistentry>
+        <term><option>--ignore-dependencies</option></term>
+
+        <listitem><para>Ignore unit dependencies. When the manager object loads a unit, it recursively loads
+        the unit dependencies too, but discrete images do not have the full set of default units. We
+        should still be able to validate them without requiring recursive loading of all its
+        dependencies.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>--root=<replaceable>PATH</replaceable></option></term>
 
         <listitem><para>With <command>cat-files</command> and <command>verify</command>,
