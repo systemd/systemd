@@ -745,6 +745,15 @@ Service b@0.service not loaded, b.socket cannot be started.
       </varlistentry>
 
       <varlistentry>
+        <term><option>--ignore-deps</option></term>
+
+        <listitem><para>Ignore unit dependencies. When the 'verify' verb of systemd-analyze loads a unit,
+        it recursively loads the unit dependencies too, but for discrete images, which do not have the full set
+        of dependencies, we should still be able to validate them without requiring such recursive loading of
+        dependencies.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>--root=<replaceable>PATH</replaceable></option></term>
 
         <listitem><para>With <command>cat-files</command> and <command>verify</command>,

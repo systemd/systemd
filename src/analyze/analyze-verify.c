@@ -218,10 +218,11 @@ static int verify_unit(Unit *u, bool check_man) {
         return r;
 }
 
-int verify_units(char **filenames, UnitFileScope scope, bool check_man, bool run_generators, char *root) {
+int verify_units(char **filenames, UnitFileScope scope, bool check_man, bool run_generators, bool ignore_dependencies, char *root) {
         const ManagerTestRunFlags flags =
                 MANAGER_TEST_RUN_MINIMAL |
                 MANAGER_TEST_RUN_ENV_GENERATORS |
+                ignore_dependencies * MANAGER_TEST_RUN_IGNORE_DEPENDENCIES |
                 run_generators * MANAGER_TEST_RUN_GENERATORS;
 
         _cleanup_(manager_freep) Manager *m = NULL;
