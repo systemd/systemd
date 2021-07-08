@@ -24,6 +24,7 @@
 #include "nulstr-util.h"
 #include "rm-rf.h"
 #include "selinux-util.h"
+#include "signal-util.h"
 #include "stat-util.h"
 #include "stdio-util.h"
 #include "string-util.h"
@@ -85,22 +86,6 @@ static int fd_is_nonblock_pipe(int fd) {
                 return -errno;
 
         return FLAGS_SET(flags, O_NONBLOCK) ? FD_IS_NONBLOCKING_PIPE : FD_IS_BLOCKING_PIPE;
-}
-
-static int sigint_pending(void) {
-        sigset_t ss;
-
-        assert_se(sigemptyset(&ss) >= 0);
-        assert_se(sigaddset(&ss, SIGINT) >= 0);
-
-        if (sigtimedwait(&ss, NULL, &(struct timespec) { 0, 0 }) < 0) {
-                if (errno == EAGAIN)
-                        return false;
-
-                return -errno;
-        }
-
-        return true;
 }
 
 int copy_bytes_full(
@@ -192,7 +177,7 @@ int copy_bytes_full(
                         return 1; /* return > 0 if we hit the max_bytes limit */
 
                 if (FLAGS_SET(copy_flags, COPY_SIGINT)) {
-                        r = sigint_pending();
+                        r = pop_pending_signal(SIGINT);
                         if (r < 0)
                                 return r;
                         if (r > 0)
@@ -861,7 +846,7 @@ static int fd_copy_directory(
                         continue;
 
                 if (FLAGS_SET(copy_flags, COPY_SIGINT)) {
-                        r = sigint_pending();
+                        r = pop_pending_signal(SIGINT);
                         if (r < 0)
                                 return r;
                         if (r > 0)
