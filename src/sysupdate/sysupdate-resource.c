@@ -235,7 +235,7 @@ static int download_manifest(
         _cleanup_free_ char *buffer = NULL, *suffixed_url = NULL;
         _cleanup_(close_pairp) int pfd[2] = { -1, -1 };
         _cleanup_fclose_ FILE *manifest = NULL;
-        size_t size;
+        size_t size = 0;
         pid_t pid;
         int r;
 
@@ -320,8 +320,8 @@ static int resource_load_from_web(
                 bool verify,
                 Hashmap **web_cache) {
 
+        size_t manifest_size = 0, left = 0;
         _cleanup_free_ char *buf = NULL;
-        size_t manifest_size, left;
         const char *manifest, *p;
         size_t line_nr = 1;
         WebCacheItem *ci;
