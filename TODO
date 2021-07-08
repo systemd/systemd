@@ -378,9 +378,8 @@ Features:
   https://docs.microsoft.com/en-us/windows-hardware/design/device-experiences/modern-standby-wake-sources
   at the end).
 
-* We should probably replace /var/log/README, /etc/rc.d/README with symlinks
-  that are linked to these places instead of copied. After all they are
-  constant vendor data.
+* We should probably replace /etc/rc.d/README with a symlink to doc
+  content. After all it is constant vendor data.
 
 * maybe add kernel cmdline params: to force random seed crediting
 
