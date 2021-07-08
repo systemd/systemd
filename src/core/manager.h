@@ -133,6 +133,7 @@ typedef enum ManagerTestRunFlags {
         MANAGER_TEST_RUN_BASIC          = 1 << 1,  /* interact with the environment */
         MANAGER_TEST_RUN_ENV_GENERATORS = 1 << 2,  /* also run env generators  */
         MANAGER_TEST_RUN_GENERATORS     = 1 << 3,  /* also run unit generators */
+        MANAGER_TEST_RUN_IGNORE_DEPENDENCIES = 1 << 4,  /* run while ignoring the default dependencies */
         MANAGER_TEST_FULL = MANAGER_TEST_RUN_BASIC | MANAGER_TEST_RUN_ENV_GENERATORS | MANAGER_TEST_RUN_GENERATORS,
 } ManagerTestRunFlags;
 
