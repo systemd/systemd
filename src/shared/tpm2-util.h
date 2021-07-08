@@ -15,6 +15,7 @@ extern TSS2_RC (*sym_Esys_CreatePrimary)(ESYS_CONTEXT *esysContext, ESYS_TR prim
 extern void (*sym_Esys_Finalize)(ESYS_CONTEXT **context);
 extern TSS2_RC (*sym_Esys_FlushContext)(ESYS_CONTEXT *esysContext, ESYS_TR flushHandle);
 extern void (*sym_Esys_Free)(void *ptr);
+extern TSS2_RC (*sym_Esys_GetCapability)(ESYS_CONTEXT *esysContext, ESYS_TR shandle1, ESYS_TR shandle2, ESYS_TR shandle3, TPM2_CAP capability, UINT32 property, UINT32 propertyCount, TPMI_YES_NO *moreData, TPMS_CAPABILITY_DATA **capabilityData);
 extern TSS2_RC (*sym_Esys_GetRandom)(ESYS_CONTEXT *esysContext, ESYS_TR shandle1, ESYS_TR shandle2, ESYS_TR shandle3, UINT16 bytesRequested, TPM2B_DIGEST **randomBytes);
 extern TSS2_RC (*sym_Esys_Initialize)(ESYS_CONTEXT **esys_context,  TSS2_TCTI_CONTEXT *tcti, TSS2_ABI_VERSION *abiVersion);
 extern TSS2_RC (*sym_Esys_Load)(ESYS_CONTEXT *esysContext, ESYS_TR parentHandle, ESYS_TR shandle1, ESYS_TR shandle2, ESYS_TR shandle3, const TPM2B_PRIVATE *inPrivate, const TPM2B_PUBLIC *inPublic, ESYS_TR *objectHandle);
@@ -33,8 +34,8 @@ extern TSS2_RC (*sym_Tss2_MU_TPM2B_PUBLIC_Unmarshal)(uint8_t const buffer[], siz
 
 int dlopen_tpm2(void);
 
-int tpm2_seal(const char *device, uint32_t pcr_mask, void **ret_secret, size_t *ret_secret_size, void **ret_blob, size_t *ret_blob_size, void **ret_pcr_hash, size_t *ret_pcr_hash_size);
-int tpm2_unseal(const char *device, uint32_t pcr_mask, const void *blob, size_t blob_size, const void *pcr_hash, size_t pcr_hash_size, void **ret_secret, size_t *ret_secret_size);
+int tpm2_seal(const char *device, uint32_t pcr_mask, void **ret_secret, size_t *ret_secret_size, void **ret_blob, size_t *ret_blob_size, void **ret_pcr_hash, size_t *ret_pcr_hash_size, uint16_t *ret_pcr_bank);
+int tpm2_unseal(const char *device, uint32_t pcr_mask, uint16_t pcr_bank, const void *blob, size_t blob_size, const void *pcr_hash, size_t pcr_hash_size, void **ret_secret, size_t *ret_secret_size);
 
 #endif
 
@@ -43,12 +44,16 @@ int tpm2_find_device_auto(int log_level, char **ret);
 
 int tpm2_parse_pcrs(const char *s, uint32_t *ret);
 
-int tpm2_make_luks2_json(int keyslot, uint32_t pcr_mask, const void *blob, size_t blob_size, const void *policy_hash, size_t policy_hash_size, JsonVariant **ret);
+int tpm2_make_luks2_json(int keyslot, uint32_t pcr_mask, uint16_t pcr_bank, const void *blob, size_t blob_size, const void *policy_hash, size_t policy_hash_size, JsonVariant **ret);
 
 #define TPM2_PCRS_MAX 24
 
 /* Default to PCR 7 only */
 #define TPM2_PCR_MASK_DEFAULT (UINT32_C(1) << 7)
+
+int tpm2_pcr_bank_supported(uint16_t bank);
+const char *tpm2_pcr_bank_to_string(uint16_t bank);
+int tpm2_pcr_bank_from_string(const char *bank);
 
 typedef struct {
         uint32_t search_pcr_mask;
