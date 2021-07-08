@@ -592,8 +592,14 @@ static int service_verify(Service *s) {
 
 static int service_add_default_dependencies(Service *s) {
         int r;
+        Unit *u;
 
         assert(s);
+
+        u = &s->meta;
+
+        if (u && u->manager && FLAGS_SET(u->manager->test_run_flags, MANAGER_TEST_RUN_IGNORE_DEPENDENCIES))
+                return 0;
 
         if (!UNIT(s)->default_dependencies)
                 return 0;
