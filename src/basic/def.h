@@ -1,8 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#define DEFAULT_TIMEOUT_USEC (90*USEC_PER_SEC)
-#define DEFAULT_RESTART_USEC (100*USEC_PER_MSEC)
+#define DEFAULT_TIMEOUT_USEC (90*USEC_PER_SEC)           /* Many different things, but also system unit start/stop */
+#define DEFAULT_USER_TIMEOUT_USEC (10*USEC_PER_SEC)      /* User unit start/stop */
 #define DEFAULT_CONFIRM_USEC (30*USEC_PER_SEC)
 
 #define DEFAULT_START_LIMIT_INTERVAL (10*USEC_PER_SEC)

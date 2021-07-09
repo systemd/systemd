@@ -23,5 +23,5 @@ Slice=user-%i.slice
 KillMode=mixed
 Delegate=pids memory
 TasksMax=infinity
-TimeoutStopSec=120s
+TimeoutStopSec=25s
 KeyringMode=inherit
