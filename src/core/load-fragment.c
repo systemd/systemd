@@ -4513,7 +4513,7 @@ int config_parse_set_credential(
                         return 0;
                 }
         } else {
-                char *unescaped = NULL;
+                char *unescaped;
                 ssize_t l;
 
                 /* We support escape codes here, so that users can insert trailing \n if they like */

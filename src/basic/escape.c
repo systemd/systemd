@@ -356,6 +356,7 @@ ssize_t cunescape_length_with_prefix(const char *s, size_t length, const char *p
 
         *t = 0;
 
+        assert(t >= ans); /* Let static analyzers know that the answer is non-negative. */
         *ret = TAKE_PTR(ans);
         return t - *ret;
 }
