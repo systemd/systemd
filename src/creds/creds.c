@@ -704,30 +704,20 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_with_key = CRED_AES256_GCM_BY_TPM2_HMAC;
                         break;
 
-                case ARG_TPM2_DEVICE: {
-                        _cleanup_free_ char *device = NULL;
-
+                case ARG_TPM2_DEVICE:
                         if (streq(optarg, "list"))
                                 return tpm2_list_devices();
 
-                        if (!streq(optarg, "auto")) {
-                                device = strdup(optarg);
-                                if (!device)
-                                        return log_oom();
-                        }
-
-                        arg_tpm2_device = TAKE_PTR(device);
+                        arg_tpm2_device = streq(optarg, "auto") ? NULL : optarg;
                         break;
-                }
 
-                case ARG_TPM2_PCRS: {
-                        uint32_t mask;
-
+                case ARG_TPM2_PCRS:
                         if (isempty(optarg)) {
                                 arg_tpm2_pcr_mask = 0;
                                 break;
                         }
 
+                        uint32_t mask;
                         r = tpm2_parse_pcrs(optarg, &mask);
                         if (r < 0)
                                 return r;
@@ -738,7 +728,6 @@ static int parse_argv(int argc, char *argv[]) {
                                 arg_tpm2_pcr_mask |= mask;
 
                         break;
-                }
 
                 case ARG_NAME:
                         if (isempty(optarg)) {
