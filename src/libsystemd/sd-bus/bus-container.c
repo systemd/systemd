@@ -37,11 +37,11 @@ int bus_container_connect_socket(sd_bus *b) {
 
         r = namespace_open(b->nspid, &pidnsfd, &mntnsfd, NULL, &usernsfd, &rootfd);
         if (r < 0)
-                return r;
+                return log_debug_errno(r, "Failed to open namespace of PID "PID_FMT": %m", b->nspid);
 
         b->input_fd = socket(b->sockaddr.sa.sa_family, SOCK_STREAM|SOCK_CLOEXEC|SOCK_NONBLOCK, 0);
         if (b->input_fd < 0)
-                return -errno;
+                return log_debug_errno(errno, "Failed to create a socket: %m");
 
         b->input_fd = fd_move_above_stdio(b->input_fd);
 
@@ -50,12 +50,12 @@ int bus_container_connect_socket(sd_bus *b) {
         bus_socket_setup(b);
 
         if (socketpair(AF_UNIX, SOCK_SEQPACKET|SOCK_CLOEXEC, 0, pair) < 0)
-                return -errno;
+                return log_debug_errno(errno, "Failed to create a socket pair: %m");
 
         r = namespace_fork("(sd-buscntrns)", "(sd-buscntr)", NULL, 0, FORK_RESET_SIGNALS|FORK_DEATHSIG,
                            pidnsfd, mntnsfd, -1, usernsfd, rootfd, &child);
         if (r < 0)
-                return r;
+                return log_debug_errno(r, "Failed to create namespace for (sd-buscntr): %m");
         if (r == 0) {
                 pair[0] = safe_close(pair[0]);
 
@@ -80,20 +80,22 @@ int bus_container_connect_socket(sd_bus *b) {
 
         n = read(pair[0], &error_buf, sizeof(error_buf));
         if (n < 0)
-                return -errno;
+                return log_debug_errno(errno, "Failed to read error status from (sd-buscntr): %m");
 
         if (n > 0) {
                 if (n != sizeof(error_buf))
-                        return -EIO;
+                        return log_debug_errno(SYNTHETIC_ERRNO(EIO),
+                                               "Read error status of unexpected length %zd from (sd-buscntr): %m", n);
 
                 if (error_buf < 0)
-                        return -EIO;
+                        return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG),
+                                               "Got unexpected error status from (sd-buscntr): %m");
 
                 if (error_buf == EINPROGRESS)
                         return 1;
 
                 if (error_buf > 0)
-                        return -error_buf;
+                        return log_debug_errno(error_buf, "Got error from (sd-buscntr): %m");
         }
 
         return bus_socket_start_auth(b);
