@@ -1564,7 +1564,6 @@ static int parse_argv(int argc, char *argv[]) {
                         _cleanup_free_ char *word = NULL, *data = NULL;
                         const char *p = optarg;
                         Credential *a;
-                        size_t i;
                         ssize_t l;
 
                         r = extract_first_word(&p, &word, ":", EXTRACT_DONT_COALESCE_SEPARATORS);
@@ -1578,7 +1577,7 @@ static int parse_argv(int argc, char *argv[]) {
                         if (!credential_name_valid(word))
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Credential name is not valid: %s", word);
 
-                        for (i = 0; i < arg_n_credentials; i++)
+                        for (size_t i = 0; i < arg_n_credentials; i++)
                                 if (streq(arg_credentials[i].id, word))
                                         return log_error_errno(SYNTHETIC_ERRNO(EEXIST), "Duplicate credential '%s', refusing.", word);
 
