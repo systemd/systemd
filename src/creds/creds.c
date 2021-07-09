@@ -193,7 +193,7 @@ static int transcode(
         switch (arg_transcode) {
 
         case TRANSCODE_BASE64: {
-                char *buf = NULL;
+                char *buf;
                 ssize_t l;
 
                 l = base64mem_full(input, input_size, 79, &buf);

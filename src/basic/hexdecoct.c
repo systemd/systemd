@@ -645,6 +645,7 @@ ssize_t base64mem_full(
 
         *z = 0;
         *out = r;
+        assert(z >= r); /* Let static analyzers know that the answer is non-negative. */
         return z - r;
 }
 
