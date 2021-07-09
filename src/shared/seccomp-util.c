@@ -310,6 +310,7 @@ const SyscallFilterSet syscall_filter_sets[_SYSCALL_FILTER_SET_MAX] = {
                 "getpgrp\0"
                 "getpid\0"
                 "getppid\0"
+                "getrandom\0"
                 "getresgid\0"
                 "getresgid32\0"
                 "getresuid\0"
