@@ -309,6 +309,49 @@ static int unit_file_create_copy(
         return 0;
 }
 
+static void exec_editor(const char *editor, char **paths, size_t argc, char ***args_save) {
+        char **editor_args, **args, **original_path, **tmp_path;
+        size_t n_editor_args, i = 1;
+
+        args = *args_save;
+
+        if (isempty(editor))
+                return;
+
+        editor_args = strv_split(editor, WHITESPACE);
+        if (!editor_args) {
+                (void) log_oom();
+                _exit(EXIT_FAILURE);
+        }
+        n_editor_args = strv_length(editor_args);
+        if (n_editor_args == 0)
+                return;
+
+        argc += n_editor_args - 1;
+        args = reallocarray(args, argc + 1, sizeof(*args));
+        if (!args) {
+                (void) log_oom();
+                _exit(EXIT_FAILURE);
+        }
+        *args_save = args;
+
+        args[0] = editor_args[0];
+        for (; i < n_editor_args; i++)
+                args[i] = editor_args[i];
+
+        STRV_FOREACH_PAIR(original_path, tmp_path, paths)
+                args[i++] = *tmp_path;
+        args[i] = NULL;
+
+        execvp(args[0], (char* const*) args);
+        /* We do not fail if the editor doesn't exist because we want to try each one of them
+         * before failing. */
+        if (errno != ENOENT) {
+                log_error_errno(errno, "Failed to execute %s: %m", editor);
+                _exit(EXIT_FAILURE);
+        }
+}
+
 static int run_editor(char **paths) {
         int r;
 
@@ -318,9 +361,9 @@ static int run_editor(char **paths) {
         if (r < 0)
                 return r;
         if (r == 0) {
-                char **editor_args = NULL, **tmp_path, **original_path;
-                size_t n_editor_args = 0, i = 1, argc;
-                const char **args, *editor, *p;
+                char **args = NULL;
+                size_t argc;
+                const char *editor, *p;
 
                 argc = strv_length(paths)/2 + 1;
 
@@ -333,41 +376,11 @@ static int run_editor(char **paths) {
                 if (!editor)
                         editor = getenv("VISUAL");
 
-                if (!isempty(editor)) {
-                        editor_args = strv_split(editor, WHITESPACE);
-                        if (!editor_args) {
-                                (void) log_oom();
-                                _exit(EXIT_FAILURE);
-                        }
-                        n_editor_args = strv_length(editor_args);
-                        argc += n_editor_args - 1;
-                }
+                /* FOREACH_STRING can't handle NULL, so do this first. */
+                exec_editor(editor, paths, argc, &args);
 
-                args = newa(const char*, argc + 1);
-
-                if (n_editor_args > 0) {
-                        args[0] = editor_args[0];
-                        for (; i < n_editor_args; i++)
-                                args[i] = editor_args[i];
-                }
-
-                STRV_FOREACH_PAIR(original_path, tmp_path, paths)
-                        args[i++] = *tmp_path;
-                args[i] = NULL;
-
-                if (n_editor_args > 0)
-                        execvp(args[0], (char* const*) args);
-
-                FOREACH_STRING(p, "editor", "nano", "vim", "vi") {
-                        args[0] = p;
-                        execvp(p, (char* const*) args);
-                        /* We do not fail if the editor doesn't exist because we want to try each one of them
-                         * before failing. */
-                        if (errno != ENOENT) {
-                                log_error_errno(errno, "Failed to execute %s: %m", editor);
-                                _exit(EXIT_FAILURE);
-                        }
-                }
+                FOREACH_STRING(p, "editor", "nano", "vim", "emacs -nw", "vi")
+                        exec_editor(p, paths, argc, &args);
 
                 log_error("Cannot edit unit(s), no editor available. Please set either $SYSTEMD_EDITOR, $EDITOR or $VISUAL.");
                 _exit(EXIT_FAILURE);

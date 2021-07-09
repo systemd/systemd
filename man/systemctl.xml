@@ -2403,6 +2403,7 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
         <citerefentry project='die-net'><refentrytitle>editor</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
         <citerefentry project='die-net'><refentrytitle>nano</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
         <citerefentry project='die-net'><refentrytitle>vim</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+        <citerefentry project='die-net'><refentrytitle>emacs</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
         <citerefentry project='die-net'><refentrytitle>vi</refentrytitle><manvolnum>1</manvolnum></citerefentry>.
         </para></listitem>
       </varlistentry>
