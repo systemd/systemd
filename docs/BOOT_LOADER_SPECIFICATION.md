@@ -61,8 +61,8 @@ Everything described below is located on a placeholder file system `$BOOT`. The 
 * On disks with GPT (GUID Partition Table)
   * If the OS is installed on a disk with GPT, and an Extended Boot Loader Partition or XBOOTLDR partition for short, i.e. a partition with GPT type GUID of `bc13c2ff-59e6-4262-a352-b275fd6f7172`, already exists, it should be used as `$BOOT`.
   * Otherwise, if the OS is installed on a disk with GPT, and an EFI System Partition or ESP for short, i.e. a partition with GPT type UID of `c12a7328-f81f-11d2-ba4b-00a0c93ec93b`) already exists and is large enough (let's say 250MB) and otherwise qualifies, it should be used as `$BOOT`.
-  * Otherwise, if the OS is installed on a disk with GPT, and if the ESP partition already exists but is too small, a new suitably sized (let's say 500MB) XBOOTLDR partition shall be created and used as `$BOOT`.
-  * Otherwise, if the OS is installed on a disk with GPT, and no ESP partition exists yet, a new suitably sized (let's say 500MB) ESP should be created and used as `$BOOT`.
+  * Otherwise, if the OS is installed on a disk with GPT, and if the ESP already exists but is too small, a new suitably sized (let's say 500MB) XBOOTLDR partition shall be created and used as `$BOOT`.
+  * Otherwise, if the OS is installed on a disk with GPT, and no ESP exists yet, a new suitably sized (let's say 500MB) ESP should be created and used as `$BOOT`.
 
 This placeholder file system shall be determined during _installation time_, and an fstab entry may be created. It should be mounted to either `/boot/` or `/efi/`. Additional locations like `/boot/efi/`, with `/boot/` being a separate file system, might be supported by implementations. This is not recommended because the mounting of `$BOOT` is then dependent on and requires the mounting of the intermediate file system.
 
