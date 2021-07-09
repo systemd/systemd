@@ -9,7 +9,6 @@
 
 #include "sd-dhcp6-client.h"
 
-#include "escape.h"
 #include "hashmap.h"
 #include "hostname-setup.h"
 #include "hostname-util.h"
@@ -24,7 +23,6 @@
 #include "string-table.h"
 #include "string-util.h"
 #include "radv-internal.h"
-#include "web-util.h"
 
 bool link_dhcp6_with_address_enabled(Link *link) {
         if (!link_dhcp6_enabled(link))
@@ -1812,33 +1810,12 @@ int config_parse_dhcp6_mud_url(
                 void *data,
                 void *userdata) {
 
-        _cleanup_free_ char *unescaped = NULL;
         Network *network = data;
-        ssize_t l;
 
-        assert(filename);
-        assert(lvalue);
-        assert(rvalue);
+        assert(network);
 
-        if (isempty(rvalue)) {
-                network->dhcp6_mudurl = mfree(network->dhcp6_mudurl);
-                return 0;
-        }
-
-        l = cunescape(rvalue, 0, &unescaped);
-        if (l < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, l,
-                           "Failed to Failed to unescape MUD URL, ignoring: %s", rvalue);
-                return 0;
-        }
-
-        if (!http_url_is_valid(unescaped) || strlen(unescaped) > UINT8_MAX) {
-                log_syntax(unit, LOG_WARNING, filename, line, 0,
-                           "Failed to parse MUD URL '%s', ignoring: %m", rvalue);
-                return 0;
-        }
-
-        return free_and_replace(network->dhcp6_mudurl, unescaped);
+        return config_parse_mud_url(unit, filename, line, section, section_line, lvalue, ltype, rvalue,
+                                    &network->dhcp6_mudurl);
 }
 
 DEFINE_CONFIG_PARSE_ENUM(config_parse_dhcp6_client_start_mode, dhcp6_client_start_mode, DHCP6ClientStartMode,
