@@ -5,6 +5,7 @@ AllowedMemoryNodes=
 AmbientCapabilities=
 AppArmorProfile=
 BPFProgram=
+BinaryDirectory=
 BindPaths=
 BindReadOnlyPaths=
 BlockIOAccounting=
