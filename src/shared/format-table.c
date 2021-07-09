@@ -1763,7 +1763,7 @@ static const char *table_data_format(Table *t, TableData *d, bool avoid_uppercas
         }
 
         case TABLE_MODE: {
-                _cleanup_free_ char *p;
+                _cleanup_free_ char *p = NULL;
 
                 if (d->mode == MODE_INVALID)
                         return "n/a";

@@ -2,12 +2,13 @@
 
 #include "condition.h"
 #include "conf-parser.h"
+#include "escape.h"
 #include "networkd-link.h"
 #include "networkd-util.h"
 #include "parse-util.h"
 #include "string-table.h"
 #include "string-util.h"
-#include "util.h"
+#include "web-util.h"
 
 static const char* const address_family_table[_ADDRESS_FAMILY_MAX] = {
         [ADDRESS_FAMILY_NO]   = "no",
@@ -159,6 +160,41 @@ int config_parse_ip_masquerade(
 
         *ret = a;
         return 0;
+}
+
+int config_parse_mud_url(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                char **ret) {
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(ret);
+
+        _cleanup_free_ char *unescaped = NULL;
+        ssize_t l;
+
+        l = cunescape(rvalue, 0, &unescaped);
+        if (l < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, l,
+                           "Failed to unescape MUD URL, ignoring: %s", rvalue);
+                return 0;
+        }
+
+        if (l > UINT8_MAX || !http_url_is_valid(unescaped)) {
+                log_syntax(unit, LOG_WARNING, filename, line, 0,
+                           "Invalid MUD URL, ignoring: %s", rvalue);
+                return 0;
+        }
+
+        return free_and_replace(*ret, unescaped);
 }
 
 /* Router lifetime can be set with netlink interface since kernel >= 4.5

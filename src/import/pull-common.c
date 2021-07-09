@@ -34,10 +34,6 @@ int pull_find_old_etags(
                 const char *suffix,
                 char ***etags) {
 
-        _cleanup_free_ char *escaped_url = NULL;
-        _cleanup_closedir_ DIR *d = NULL;
-        _cleanup_strv_free_ char **l = NULL;
-        struct dirent *de;
         int r;
 
         assert(url);
@@ -46,11 +42,11 @@ int pull_find_old_etags(
         if (!image_root)
                 image_root = "/var/lib/machines";
 
-        escaped_url = xescape(url, FILENAME_ESCAPE);
+        _cleanup_free_ char *escaped_url = xescape(url, FILENAME_ESCAPE);
         if (!escaped_url)
                 return -ENOMEM;
 
-        d = opendir(image_root);
+        _cleanup_closedir_ DIR *d = opendir(image_root);
         if (!d) {
                 if (errno == ENOENT) {
                         *etags = NULL;
@@ -59,6 +55,9 @@ int pull_find_old_etags(
 
                 return -errno;
         }
+
+        _cleanup_strv_free_ char **ans = NULL;
+        struct dirent *de;
 
         FOREACH_DIRENT_ALL(de, d, return -errno) {
                 _cleanup_free_ char *u = NULL;
@@ -93,19 +92,21 @@ int pull_find_old_etags(
                 if (a >= b)
                         continue;
 
-                r = cunescape_length(a, b - a, 0, &u);
-                if (r < 0)
-                        return r;
+                ssize_t l = cunescape_length(a, b - a, 0, &u);
+                if (l < 0) {
+                        assert(l >= INT8_MIN);
+                        return l;
+                }
 
                 if (!http_etag_is_valid(u))
                         continue;
 
-                r = strv_consume(&l, TAKE_PTR(u));
+                r = strv_consume(&ans, TAKE_PTR(u));
                 if (r < 0)
                         return r;
         }
 
-        *etags = TAKE_PTR(l);
+        *etags = TAKE_PTR(ans);
 
         return 0;
 }
