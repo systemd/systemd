@@ -305,6 +305,43 @@ int config_parse_unit_path_printf(
         return config_parse_path(unit, filename, line, section, section_line, lvalue, ltype, k, data, userdata);
 }
 
+int config_parse_colon_separated_paths(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        _cleanup_strv_free_ char **l;
+        char **s = data;
+        char **p;
+        int r;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+
+        if (isempty(rvalue))
+                mfree(*s);
+
+        l = strv_split(rvalue, ":");
+        if (!l)
+                return -ENOMEM;
+
+        STRV_FOREACH(p, l) {
+                r = path_simplify_and_warn(*p, PATH_CHECK_ABSOLUTE | PATH_CHECK_FATAL, unit, filename, line, lvalue);
+                if (r < 0)
+                        return 0;
+        }
+
+        return free_and_strdup(s, rvalue);
+}
+
 int config_parse_unit_path_strv_printf(
                 const char *unit,
                 const char *filename,
@@ -5935,6 +5972,7 @@ void unit_dump_config_items(FILE *f) {
                 { config_parse_string,                "STRING" },
                 { config_parse_path,                  "PATH" },
                 { config_parse_unit_path_printf,      "PATH" },
+                { config_parse_colon_separated_paths, "PATH" },
                 { config_parse_strv,                  "STRING [...]" },
                 { config_parse_exec_nice,             "NICE" },
                 { config_parse_exec_oom_score_adjust, "OOMSCOREADJUST" },

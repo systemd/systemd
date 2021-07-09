@@ -8,6 +8,7 @@
 
 #include "capability-util.h"
 #include "cpu-set-util.h"
+#include "copy.h"
 #include "dropin.h"
 #include "errno-list.h"
 #include "fd-util.h"
@@ -28,6 +29,7 @@
 #include "static-destruct.h"
 #include "stat-util.h"
 #include "tests.h"
+#include "tmpfile-util.h"
 #include "unit.h"
 #include "user-util.h"
 #include "util.h"
@@ -271,6 +273,89 @@ static void test_exec_workingdirectory(Manager *m) {
         test(m, "exec-workingdirectory-trailing-dot.service", 0, CLD_EXITED);
 
         (void) rm_rf("/tmp/test-exec_workingdirectory", REMOVE_ROOT|REMOVE_PHYSICAL);
+}
+
+static void test_exec_execsearchpaths(Manager *m) {
+        assert_se(mkdir_p("/tmp/test-exec_execsearchpaths", 0755) >= 0);
+
+        assert_se(copy_file("/bin/ls", "/tmp/test-exec_execsearchpaths/ls_temp", 0,  0777, 0, 0, COPY_REPLACE) >= 0);
+
+        test(m, "exec-execsearchpaths.service", 0, CLD_EXITED);
+
+        assert_se(rm_rf("/tmp/test-exec_execsearchpaths", REMOVE_ROOT|REMOVE_PHYSICAL) >= 0);
+
+        test(m, "exec-execsearchpaths.service", EXIT_EXEC, CLD_EXITED);
+}
+
+static void test_exec_execsearchpaths_environment(Manager *m) {
+        test(m, "exec-execsearchpaths-environment.service", 0, CLD_EXITED);
+        test(m, "exec-execsearchpaths-environment-path-set.service", 0, CLD_EXITED);
+}
+
+static void test_exec_execsearchpaths_environment_files(Manager *m) {
+        static const char path_not_set[] =
+                "VAR1='word1 word2'\n"
+                "VAR2=word3 \n"
+                "# comment1\n"
+                "\n"
+                "; comment2\n"
+                " ; # comment3\n"
+                "line without an equal\n"
+                "VAR3='$word 5 6'\n"
+                "VAR4='new\nline'\n"
+                "VAR5=password\\with\\backslashes";
+
+        static const char path_set[] =
+                "VAR1='word1 word2'\n"
+                "VAR2=word3 \n"
+                "# comment1\n"
+                "\n"
+                "; comment2\n"
+                " ; # comment3\n"
+                "line without an equal\n"
+                "VAR3='$word 5 6'\n"
+                "VAR4='new\nline'\n"
+                "VAR5=password\\with\\backslashes\n"
+                "PATH=/usr";
+
+        int r;
+
+        r = write_string_file("/tmp/test-exec_execsearchpaths_environmentfile.conf", path_not_set, WRITE_STRING_FILE_CREATE);
+
+        assert_se(r == 0);
+
+        test(m, "exec-execsearchpaths-environmentfile.service", 0, CLD_EXITED);
+
+        (void) unlink("/tmp/test-exec_environmentfile.conf");
+
+
+        r = write_string_file("/tmp/test-exec_execsearchpaths_environmentfile-set.conf", path_set, WRITE_STRING_FILE_CREATE);
+
+        assert_se(r == 0);
+
+        test(m, "exec-execsearchpaths-environmentfile-set.service", 0, CLD_EXITED);
+
+        (void) unlink("/tmp/test-exec_environmentfile-set.conf");
+}
+
+static void test_exec_execsearchpaths_passenvironment(Manager *m) {
+        assert_se(setenv("VAR1", "word1 word2", 1) == 0);
+        assert_se(setenv("VAR2", "word3", 1) == 0);
+        assert_se(setenv("VAR3", "$word 5 6", 1) == 0);
+        assert_se(setenv("VAR4", "new\nline", 1) == 0);
+        assert_se(setenv("VAR5", "passwordwithbackslashes", 1) == 0);
+
+        test(m, "exec-execsearchpaths-passenvironment.service", 0, CLD_EXITED);
+
+        assert_se(setenv("PATH", "/usr", 1) == 0);
+        test(m, "exec-execsearchpaths-passenvironment-set.service", 0, CLD_EXITED);
+
+        assert_se(unsetenv("VAR1") == 0);
+        assert_se(unsetenv("VAR2") == 0);
+        assert_se(unsetenv("VAR3") == 0);
+        assert_se(unsetenv("VAR4") == 0);
+        assert_se(unsetenv("VAR5") == 0);
+        assert_se(unsetenv("PATH") == 0);
 }
 
 static void test_exec_personality(Manager *m) {
@@ -1089,6 +1174,10 @@ int main(int argc, char *argv[]) {
                 entry(test_exec_unsetenvironment),
                 entry(test_exec_user),
                 entry(test_exec_workingdirectory),
+                entry(test_exec_execsearchpaths),
+                entry(test_exec_execsearchpaths_environment),
+                entry(test_exec_execsearchpaths_environment_files),
+                entry(test_exec_execsearchpaths_passenvironment),
                 {},
         };
         static const test_entry system_tests[] = {

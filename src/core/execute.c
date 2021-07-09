@@ -4167,6 +4167,19 @@ static int exec_child(
                 *exit_status = EXIT_MEMORY;
                 return log_oom();
         }
+        /* The PATH variable is set to the default path in params->environment.
+         * This is why we do not check accum_env and instead check context->environment,
+         * files_env, and pass_env individually. We override PATH if the user does
+         * not specify PATH and the user has specified ExecSearchPath
+         */
+        if (!strv_env_get(context->environment, "PATH") && !strv_env_get(files_env, "PATH") && !strv_env_get(pass_env, "PATH") && context->exec_search_paths) {
+                r = strv_env_assign(&accum_env, "PATH", context->exec_search_paths);
+                if (r < 0) {
+                        *exit_status = EXIT_MEMORY;
+                        return log_oom();
+                }
+        }
+
         accum_env = strv_env_clean(accum_env);
 
         (void) umask(context->umask);
@@ -4350,7 +4363,7 @@ static int exec_child(
 
         _cleanup_free_ char *executable = NULL;
         _cleanup_close_ int executable_fd = -1;
-        r = find_executable_full(command->path, /* root= */ NULL, false, &executable, &executable_fd);
+        r = find_executable_full(command->path, /* root= */ NULL, context->exec_search_paths, false, &executable, &executable_fd);
         if (r < 0) {
                 if (r != -ENOMEM && (command->flags & EXEC_COMMAND_IGNORE_FAILURE)) {
                         log_unit_struct_errno(unit, LOG_INFO, r,
@@ -4900,6 +4913,7 @@ void exec_context_done(ExecContext *c) {
                 c->stdio_file[l] = mfree(c->stdio_file[l]);
         }
 
+        c->exec_search_paths = mfree(c->exec_search_paths);
         c->working_directory = mfree(c->working_directory);
         c->root_directory = mfree(c->root_directory);
         c->root_image = mfree(c->root_image);
@@ -5297,6 +5311,7 @@ void exec_context_dump(const ExecContext *c, FILE* f, const char *prefix) {
 
         fprintf(f,
                 "%sUMask: %04o\n"
+                "%sExecSearchPaths: %s\n"
                 "%sWorkingDirectory: %s\n"
                 "%sRootDirectory: %s\n"
                 "%sNonBlocking: %s\n"
@@ -5321,6 +5336,7 @@ void exec_context_dump(const ExecContext *c, FILE* f, const char *prefix) {
                 "%sProtectProc: %s\n"
                 "%sProcSubset: %s\n",
                 prefix, c->umask,
+                prefix, strempty(c->exec_search_paths),
                 prefix, empty_to_root(c->working_directory),
                 prefix, empty_to_root(c->root_directory),
                 prefix, yes_no(c->non_blocking),
