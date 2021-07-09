@@ -49,3 +49,8 @@ int tpm2_make_luks2_json(int keyslot, uint32_t pcr_mask, const void *blob, size_
 
 /* Default to PCR 7 only */
 #define TPM2_PCR_MASK_DEFAULT (UINT32_C(1) << 7)
+
+typedef struct {
+        uint32_t search_pcr_mask;
+        const char *device;
+} systemd_tpm2_plugin_params;
