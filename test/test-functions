@@ -35,6 +35,7 @@ QEMU_MEM="${QEMU_MEM:-512M}"
 # To force creating a new image from scratch (eg: to encrypt it), also define
 # TEST_FORCE_NEWIMAGE=1 in the test setup script.
 IMAGE_NAME=${IMAGE_NAME:-default}
+STRIP_BINARIES="${STRIP_BINARIES:-yes}"
 TEST_REQUIRE_INSTALL_TESTS="${TEST_REQUIRE_INSTALL_TESTS:-1}"
 TEST_PARALLELIZE="${TEST_PARALLELIZE:-0}"
 LOOPDEV=
