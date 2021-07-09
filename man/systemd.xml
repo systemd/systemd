@@ -74,8 +74,8 @@
     configuration files, whose syntax and basic set of options is
     described in
     <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
-    however some are created automatically from other configuration,
-    dynamically from system state or programmatically at runtime.
+    however some are created automatically from other configuration
+    files, dynamically from system state or programmatically at runtime.
     Units may be "active" (meaning started, bound, plugged in, …,
     depending on the unit type, see below), or "inactive" (meaning
     stopped, unbound, unplugged, …), as well as in the process of
