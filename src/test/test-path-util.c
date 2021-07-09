@@ -6,6 +6,7 @@
 #include "alloc-util.h"
 #include "exec-util.h"
 #include "fd-util.h"
+#include "fs-util.h"
 #include "macro.h"
 #include "path-util.h"
 #include "process-util.h"
@@ -14,6 +15,7 @@
 #include "string-util.h"
 #include "strv.h"
 #include "tests.h"
+#include "tmpfile-util.h"
 #include "util.h"
 
 static void test_print_paths(void) {
@@ -201,15 +203,18 @@ static void test_path_equal_root(void) {
 
 static void test_find_executable_full(void) {
         char *p;
+        char* test_file_name;
+        _cleanup_close_ int fd = -1;
+        char fn[] = "/tmp/test-XXXXXX";
 
         log_info("/* %s */", __func__);
 
-        assert_se(find_executable_full("sh", NULL, true, &p, NULL) == 0);
+        assert_se(find_executable_full("sh", NULL, NULL, true, &p, NULL) == 0);
         puts(p);
         assert_se(streq(basename(p), "sh"));
         free(p);
 
-        assert_se(find_executable_full("sh", NULL, false, &p, NULL) == 0);
+        assert_se(find_executable_full("sh", NULL, NULL, false, &p, NULL) == 0);
         puts(p);
         assert_se(streq(basename(p), "sh"));
         free(p);
@@ -221,18 +226,31 @@ static void test_find_executable_full(void) {
 
         assert_se(unsetenv("PATH") == 0);
 
-        assert_se(find_executable_full("sh", NULL, true, &p, NULL) == 0);
+        assert_se(find_executable_full("sh", NULL, NULL, true, &p, NULL) == 0);
         puts(p);
         assert_se(streq(basename(p), "sh"));
         free(p);
 
-        assert_se(find_executable_full("sh", NULL, false, &p, NULL) == 0);
+        assert_se(find_executable_full("sh", NULL, NULL, false, &p, NULL) == 0);
         puts(p);
         assert_se(streq(basename(p), "sh"));
         free(p);
 
         if (oldpath)
                 assert_se(setenv("PATH", oldpath, true) >= 0);
+
+        assert_se((fd = mkostemp_safe(fn)) >= 0);
+        assert_se(fchmod(fd, 0755) >= 0);
+
+        test_file_name = basename(fn);
+
+        assert_se(find_executable_full(test_file_name, NULL, STRV_MAKE("/doesnotexist", "/tmp", "/bin"), false, &p, NULL) == 0);
+        puts(p);
+        assert_se(streq(p, fn));
+        free(p);
+
+        (void) unlink(fn);
+        assert_se(find_executable_full(test_file_name, NULL, STRV_MAKE("/doesnotexist", "/tmp", "/bin"), false, &p, NULL) == -ENOENT);
 }
 
 static void test_find_executable(const char *self) {
@@ -277,7 +295,7 @@ static void test_find_executable_exec_one(const char *path) {
         pid_t pid;
         int r;
 
-        r = find_executable_full(path, NULL, false, &t, &fd);
+        r = find_executable_full(path, NULL, NULL, false, &t, &fd);
 
         log_info_errno(r, "%s: %s → %s: %d/%m", __func__, path, t ?: "-", fd);
 
