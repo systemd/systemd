@@ -682,8 +682,8 @@ static int find_executable_impl(const char *name, const char *root, char **ret_f
         return 0;
 }
 
-int find_executable_full(const char *name, const char *root, bool use_path_envvar, char **ret_filename, int *ret_fd) {
-        int last_error, r;
+int find_executable_full(const char *name, const char *root, char **exec_search_path, bool use_path_envvar, char **ret_filename, int *ret_fd) {
+        int last_error = -ENOENT, r = 0;
         const char *p = NULL;
 
         assert(name);
@@ -698,7 +698,27 @@ int find_executable_full(const char *name, const char *root, bool use_path_envva
         if (!p)
                 p = DEFAULT_PATH;
 
-        last_error = -ENOENT;
+        if (exec_search_path) {
+                char **element;
+
+                STRV_FOREACH(element, exec_search_path) {
+                        _cleanup_free_ char *full_path = NULL;
+                        if (!path_is_absolute(*element))
+                                continue;
+                        full_path = path_join(*element, name);
+                        if (!full_path)
+                                return -ENOMEM;
+
+                        r = find_executable_impl(full_path, root, ret_filename, ret_fd);
+                        if (r < 0) {
+                                if (r != -EACCES)
+                                        last_error = r;
+                                continue;
+                        }
+                        return 0;
+                }
+                return last_error;
+        }
 
         /* Resolve a single-component name to a full path */
         for (;;) {

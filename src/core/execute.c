@@ -3742,7 +3742,7 @@ static int exec_child(
                 int user_lookup_fd,
                 int *exit_status) {
 
-        _cleanup_strv_free_ char **our_env = NULL, **pass_env = NULL, **accum_env = NULL, **replaced_argv = NULL;
+        _cleanup_strv_free_ char **our_env = NULL, **pass_env = NULL, **joined_exec_search_path = NULL, **accum_env = NULL, **replaced_argv = NULL;
         int r, ngids = 0, exec_fd;
         _cleanup_free_ gid_t *supplementary_gids = NULL;
         const char *username = NULL, *groupname = NULL;
@@ -4158,8 +4158,31 @@ static int exec_child(
                 return log_oom();
         }
 
+        /* The PATH variable is set to the default path in params->environment.
+         * However, this is overridden if user specified fields have PATH set.
+         * The intention is to also override PATH if the user does
+         * not specify PATH and the user has specified ExecSearchPath
+         */
+
+        if (!strv_isempty(context->exec_search_path)) {
+                _cleanup_free_ char *joined = NULL;
+
+                joined = strv_join(context->exec_search_path, ":");
+                if (!joined) {
+                        *exit_status = EXIT_MEMORY;
+                        return log_oom();
+                }
+
+                r = strv_env_assign(&joined_exec_search_path, "PATH", joined);
+                if (r < 0) {
+                        *exit_status = EXIT_MEMORY;
+                        return log_oom();
+                }
+        }
+
         accum_env = strv_env_merge(params->environment,
                                    our_env,
+                                   joined_exec_search_path,
                                    pass_env,
                                    context->environment,
                                    files_env);
@@ -4350,7 +4373,7 @@ static int exec_child(
 
         _cleanup_free_ char *executable = NULL;
         _cleanup_close_ int executable_fd = -1;
-        r = find_executable_full(command->path, /* root= */ NULL, false, &executable, &executable_fd);
+        r = find_executable_full(command->path, /* root= */ NULL, context->exec_search_path, false, &executable, &executable_fd);
         if (r < 0) {
                 if (r != -ENOMEM && (command->flags & EXEC_COMMAND_IGNORE_FAILURE)) {
                         log_unit_struct_errno(unit, LOG_INFO, r,
@@ -4926,6 +4949,7 @@ void exec_context_done(ExecContext *c) {
         c->inaccessible_paths = strv_free(c->inaccessible_paths);
         c->exec_paths = strv_free(c->exec_paths);
         c->no_exec_paths = strv_free(c->no_exec_paths);
+        c->exec_search_path = strv_free(c->exec_search_path);
 
         bind_mount_free_many(c->bind_mounts, c->n_bind_mounts);
         c->bind_mounts = NULL;
@@ -5597,6 +5621,7 @@ void exec_context_dump(const ExecContext *c, FILE* f, const char *prefix) {
         strv_dump(f, prefix, "InaccessiblePaths", c->inaccessible_paths);
         strv_dump(f, prefix, "ExecPaths", c->exec_paths);
         strv_dump(f, prefix, "NoExecPaths", c->no_exec_paths);
+        strv_dump(f, prefix, "ExecSearchPath", c->exec_search_path);
 
         for (size_t i = 0; i < c->n_bind_mounts; i++)
                 fprintf(f, "%s%s: %s%s:%s:%s\n", prefix,

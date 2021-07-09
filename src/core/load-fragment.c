@@ -305,6 +305,64 @@ int config_parse_unit_path_printf(
         return config_parse_path(unit, filename, line, section, section_line, lvalue, ltype, k, data, userdata);
 }
 
+int config_parse_colon_separated_paths(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+        char ***sv = data;
+        const Unit *u = userdata;
+        int r;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        if (isempty(rvalue)) {
+                /* Empty assignment resets the list */
+                *sv = strv_free(*sv);
+                return 0;
+        }
+
+        for (const char *p = rvalue;;) {
+                _cleanup_free_ char *word = NULL, *k = NULL;
+
+                r = extract_first_word(&p, &word, ":", EXTRACT_DONT_COALESCE_SEPARATORS);
+                if (r == -ENOMEM)
+                        return log_oom();
+                if (r < 0) {
+                        log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to extract first word, ignoring: %s", rvalue);
+                        return 0;
+                }
+                if (r == 0)
+                        break;
+
+                r = unit_path_printf(u, word, &k);
+                if (r < 0) {
+                        log_syntax(unit, LOG_WARNING, filename, line, r,
+                                   "Failed to resolve unit specifiers in '%s', ignoring: %m", word);
+                        return 0;
+                }
+
+                r = path_simplify_and_warn(k, PATH_CHECK_ABSOLUTE, unit, filename, line, lvalue);
+                if (r < 0)
+                        return 0;
+
+                r = strv_consume(sv, TAKE_PTR(k));
+                if (r < 0)
+                        return log_oom();
+        }
+
+        return 0;
+}
+
 int config_parse_unit_path_strv_printf(
                 const char *unit,
                 const char *filename,
@@ -5915,6 +5973,7 @@ void unit_dump_config_items(FILE *f) {
                 { config_parse_string,                "STRING" },
                 { config_parse_path,                  "PATH" },
                 { config_parse_unit_path_printf,      "PATH" },
+                { config_parse_colon_separated_paths, "PATH" },
                 { config_parse_strv,                  "STRING [...]" },
                 { config_parse_exec_nice,             "NICE" },
                 { config_parse_exec_oom_score_adjust, "OOMSCOREADJUST" },

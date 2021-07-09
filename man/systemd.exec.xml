@@ -90,6 +90,20 @@
     <variablelist class='unit-directives'>
 
       <varlistentry>
+        <term><varname>ExecSearchPath=</varname></term>
+
+        <listitem><para>Takes a colon separated list of absolute paths relative to which the executable
+        used by the <varname>Exec*=</varname> (e.g. <varname>ExecStart=</varname>,
+        <varname>ExecStop=</varname>, etc.) properties can be found. <varname>ExecSearchPath=</varname>
+        overrides <varname>$PATH</varname> if <varname>$PATH</varname> is not supplied by the user through
+        <varname>Environment=</varname>, <varname>EnvironmentFile=</varname> or
+        <varname>PassEnvironment=</varname>. Assigning an empty string removes previous assignments
+        and setting <varname>ExecSearchPath=</varname> to a value multiple times will append
+        to the previous setting.
+        </para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>WorkingDirectory=</varname></term>
 
         <listitem><para>Takes a directory path relative to the service's root directory specified by

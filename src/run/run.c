@@ -1714,6 +1714,7 @@ static int run(int argc, char* argv[]) {
         if (!strv_isempty(arg_cmdline) &&
             arg_transport == BUS_TRANSPORT_LOCAL &&
             !strv_find_startswith(arg_property, "RootDirectory=") &&
+            !strv_find_startswith(arg_property, "ExecSearchPath=") &&
             !strv_find_startswith(arg_property, "RootImage=")) {
                 /* Patch in an absolute path to fail early for user convenience, but only when we can do it
                  * (i.e. we will be running from the same file system). This also uses the user's $PATH,
