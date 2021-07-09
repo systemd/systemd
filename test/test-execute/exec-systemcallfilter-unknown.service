@@ -1,0 +1,8 @@
+[Unit]
+Description=Test for unknown syscall
+
+[Service]
+ExecStart=/usr/bin/python3 -c 'import ctypes\nlibc = ctypes.CDLL(None,use_errno=True)\nlibc.syscall(99999)\nexit(ctypes.get_errno())'
+Type=oneshot
+SystemCallFilter=@known
+SystemCallErrorNumber=EACCES
