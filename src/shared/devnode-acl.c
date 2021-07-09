@@ -220,9 +220,11 @@ int devnode_acl_all(const char *seat,
         if (dir) {
                 FOREACH_DIRENT(dent, dir, return -errno) {
                         _cleanup_free_ char *unescaped_devname = NULL;
+                        ssize_t l;
 
-                        if (cunescape(dent->d_name, UNESCAPE_RELAX, &unescaped_devname) < 0)
-                                return -ENOMEM;
+                        l = cunescape(dent->d_name, UNESCAPE_RELAX, &unescaped_devname);
+                        if (l < 0)
+                                return l;
 
                         n = path_join("/dev", unescaped_devname);
                         if (!n)

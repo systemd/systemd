@@ -426,6 +426,7 @@ int bpf_program_deserialize_attachment(const char *v, FDSet *fds, BPFProgram **b
         _cleanup_free_ char *sfd = NULL, *sat = NULL, *unescaped = NULL;
         _cleanup_(bpf_program_unrefp) BPFProgram *p = NULL;
         _cleanup_close_ int fd = -1;
+        ssize_t l;
         int ifd, at, r;
 
         assert(v);
@@ -456,9 +457,9 @@ int bpf_program_deserialize_attachment(const char *v, FDSet *fds, BPFProgram **b
                 return at;
 
         /* The rest is the path */
-        r = cunescape(v, 0, &unescaped);
-        if (r < 0)
-                return r;
+        l = cunescape(v, 0, &unescaped);
+        if (l < 0)
+                return l;
 
         fd = fdset_remove(fds, ifd);
         if (fd < 0)
