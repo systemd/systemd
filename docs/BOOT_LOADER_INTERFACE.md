@@ -76,10 +76,10 @@ variables. All EFI variables use the vendor UUID
   * `1 << 6` → The boot loader supports passing a random seed to the OS.
 
 * The EFI variable `LoaderRandomSeed` contains a binary random seed if set. It
-  is set by the boot loader to pass an entropy seed read from the ESP partition
-  to the OS. The system manager then credits this seed to the kernel's entropy
-  pool. It is the responsibility of the boot loader to ensure the quality and
-  integrity of the random seed.
+  is set by the boot loader to pass an entropy seed read from the ESP to the OS.
+  The system manager then credits this seed to the kernel's entropy pool. It is
+  the responsibility of the boot loader to ensure the quality and integrity of
+  the random seed.
 
 * The EFI variable `LoaderSystemToken` contains binary random data,
   persistently set by the OS installer. Boot loaders that support passing
