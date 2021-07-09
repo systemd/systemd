@@ -1337,7 +1337,7 @@ static int verb_status(int argc, char *argv[], void *userdata) {
                 sd_id128_t bootloader_esp_uuid;
                 bool have_bootloader_esp_uuid = efi_loader_get_device_part_uuid(&bootloader_esp_uuid) >= 0;
 
-                print_yes_no_line(false, have_bootloader_esp_uuid, "Boot loader sets ESP partition information");
+                print_yes_no_line(false, have_bootloader_esp_uuid, "Boot loader sets ESP information");
                 if (have_bootloader_esp_uuid && !sd_id128_equal(esp_uuid, bootloader_esp_uuid))
                         printf("WARNING: The boot loader reports a different ESP UUID than detected!\n");
 

@@ -73,8 +73,8 @@
       <citerefentry><refentrytitle>systemctl</refentrytitle><manvolnum>1</manvolnum></citerefentry> for
       details.</para></listitem>
 
-      <listitem><para>An EFI variable set by the boot loader informs the OS about the ESP partition used
-      during boot. This is then used to automatically mount the correct ESP partition to
+      <listitem><para>An EFI variable set by the boot loader informs the OS about the EFI System Partition used
+      during boot. This is then used to automatically mount the correct EFI System Partition to
       <filename>/efi/</filename> or <filename>/boot/</filename> during OS runtime. See
       <citerefentry><refentrytitle>systemd-gpt-auto-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>
       for details.</para></listitem>

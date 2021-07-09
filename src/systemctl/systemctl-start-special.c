@@ -36,7 +36,7 @@ static int load_kexec_kernel(void) {
                 return log_error_errno(r,
                                        "No kexec kernel loaded and autodetection failed.\n%s",
                                        is_efi_boot()
-                                       ? "Cannot automatically load kernel: ESP partition mount point not found."
+                                       ? "Cannot automatically load kernel: ESP mount point not found."
                                        : "Automatic loading works only on systems booted with EFI.");
         if (r < 0)
                 return r;
