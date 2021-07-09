@@ -105,6 +105,7 @@
 {{type}}.InaccessiblePaths,                config_parse_namespace_path_strv,            0,                                  offsetof({{type}}, exec_context.inaccessible_paths)
 {{type}}.ExecPaths,                        config_parse_namespace_path_strv,            0,                                  offsetof({{type}}, exec_context.exec_paths)
 {{type}}.NoExecPaths,                      config_parse_namespace_path_strv,            0,                                  offsetof({{type}}, exec_context.no_exec_paths)
+{{type}}.ExecSearchPath,                   config_parse_colon_separated_paths,          0,                                  offsetof({{type}}, exec_context.exec_search_path)
 {{type}}.BindPaths,                        config_parse_bind_paths,                     0,                                  offsetof({{type}}, exec_context)
 {{type}}.BindReadOnlyPaths,                config_parse_bind_paths,                     0,                                  offsetof({{type}}, exec_context)
 {{type}}.TemporaryFileSystem,              config_parse_temporary_filesystems,          0,                                  offsetof({{type}}, exec_context)

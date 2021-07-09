@@ -19,6 +19,7 @@ CONFIG_PARSER_PROTOTYPE(config_parse_obsolete_unit_deps);
 CONFIG_PARSER_PROTOTYPE(config_parse_unit_string_printf);
 CONFIG_PARSER_PROTOTYPE(config_parse_unit_strv_printf);
 CONFIG_PARSER_PROTOTYPE(config_parse_unit_path_printf);
+CONFIG_PARSER_PROTOTYPE(config_parse_colon_separated_paths);
 CONFIG_PARSER_PROTOTYPE(config_parse_unit_path_strv_printf);
 CONFIG_PARSER_PROTOTYPE(config_parse_documentation);
 CONFIG_PARSER_PROTOTYPE(config_parse_socket_listen);
