@@ -639,7 +639,7 @@ static int check_x_access(const char *path, int *ret_fd) {
         return 0;
 }
 
-int find_executable_full(const char *name, const char *root, bool use_path_envvar, char **ret_filename, int *ret_fd) {
+int find_executable_full(const char *name, const char *root, char **exec_search_paths, bool use_path_envvar, char **ret_filename, int *ret_fd) {
         int last_error, r;
         const char *p = NULL;
 
@@ -689,6 +689,9 @@ int find_executable_full(const char *name, const char *root, bool use_path_envva
                 p = getenv("PATH");
         if (!p)
                 p = DEFAULT_PATH;
+
+        if (exec_search_paths)
+                p = strv_join(exec_search_paths, ":");
 
         last_error = -ENOENT;
 
