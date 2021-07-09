@@ -2890,10 +2890,11 @@ static int service_deserialize_item(Unit *u, const char *key, const char *value,
                         log_unit_error_errno(u, r, "Unable to deserialize current bus owner %s: %m", value);
         } else if (streq(key, "status-text")) {
                 char *t;
+                ssize_t l;
 
-                r = cunescape(value, 0, &t);
-                if (r < 0)
-                        log_unit_debug_errno(u, r, "Failed to unescape status text '%s': %m", value);
+                l = cunescape(value, 0, &t);
+                if (l < 0)
+                        log_unit_debug_errno(u, l, "Failed to unescape status text '%s': %m", value);
                 else
                         free_and_replace(s->status_text, t);
 

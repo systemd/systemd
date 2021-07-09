@@ -674,13 +674,14 @@ static int path_deserialize_item(Unit *u, const char *key, const char *value, FD
                         p->result = f;
 
         } else if (streq(key, "path-spec")) {
-                int previous_exists, skip = 0, r;
+                int previous_exists, skip = 0;
                 _cleanup_free_ char *type_str = NULL;
 
                 if (sscanf(value, "%ms %i %n", &type_str, &previous_exists, &skip) < 2)
                         log_unit_debug(u, "Failed to parse path-spec value: %s", value);
                 else {
                         _cleanup_free_ char *unescaped = NULL;
+                        ssize_t l;
                         PathType type;
                         PathSpec *s;
 
@@ -690,9 +691,9 @@ static int path_deserialize_item(Unit *u, const char *key, const char *value, FD
                                 return 0;
                         }
 
-                        r = cunescape(value+skip, 0, &unescaped);
-                        if (r < 0) {
-                                log_unit_warning_errno(u, r, "Failed to unescape serialize path: %m");
+                        l = cunescape(value+skip, 0, &unescaped);
+                        if (l < 0) {
+                                log_unit_warning_errno(u, l, "Failed to unescape serialize path: %m");
                                 return 0;
                         }
 

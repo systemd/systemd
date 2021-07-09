@@ -397,10 +397,11 @@ int xdg_autostart_format_exec_start(
         first_arg = true;
         for (i = n = 0; exec_split[i]; i++) {
                 _cleanup_free_ char *c = NULL, *raw = NULL, *p = NULL, *escaped = NULL, *quoted = NULL;
+                ssize_t l;
 
-                r = cunescape(exec_split[i], 0, &c);
-                if (r < 0)
-                        return log_debug_errno(r, "Failed to unescape '%s': %m", exec_split[i]);
+                l = cunescape(exec_split[i], 0, &c);
+                if (l < 0)
+                        return log_debug_errno(l, "Failed to unescape '%s': %m", exec_split[i]);
 
                 if (first_arg) {
                         _cleanup_free_ char *executable = NULL;

@@ -289,7 +289,7 @@ int cunescape_one(const char *p, size_t length, char32_t *ret, bool *eight_bit, 
         return r;
 }
 
-int cunescape_length_with_prefix(const char *s, size_t length, const char *prefix, UnescapeFlags flags, char **ret) {
+ssize_t cunescape_length_with_prefix(const char *s, size_t length, const char *prefix, UnescapeFlags flags, char **ret) {
         _cleanup_free_ char *ans = NULL;
         char *t;
         const char *f;

@@ -430,15 +430,15 @@ int config_parse_lldp_mud(
 
         _cleanup_free_ char *unescaped = NULL;
         Network *n = data;
-        int r;
+        ssize_t l;
 
         assert(filename);
         assert(lvalue);
         assert(rvalue);
 
-        r = cunescape(rvalue, 0, &unescaped);
-        if (r < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r,
+        l = cunescape(rvalue, 0, &unescaped);
+        if (l < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, l,
                            "Failed to Failed to unescape LLDP MUD URL, ignoring: %s", rvalue);
                 return 0;
         }

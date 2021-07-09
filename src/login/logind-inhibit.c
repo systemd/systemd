@@ -209,18 +209,11 @@ void inhibitor_stop(Inhibitor *i) {
 }
 
 int inhibitor_load(Inhibitor *i) {
-
-        _cleanup_free_ char
-                *what = NULL,
-                *uid = NULL,
-                *pid = NULL,
-                *who = NULL,
-                *why = NULL,
-                *mode = NULL;
-
+        _cleanup_free_ char *what = NULL, *uid = NULL, *pid = NULL, *who = NULL, *why = NULL, *mode = NULL;
         InhibitWhat w;
         InhibitMode mm;
         char *cc;
+        ssize_t l;
         int r;
 
         r = parse_env_file(NULL, i->state_file,
@@ -255,17 +248,17 @@ int inhibitor_load(Inhibitor *i) {
         }
 
         if (who) {
-                r = cunescape(who, 0, &cc);
-                if (r < 0)
-                        return log_oom();
+                l = cunescape(who, 0, &cc);
+                if (l < 0)
+                        return log_debug_errno(l, "Failed to unescape \"who\" of inhibitor: %m");
 
                 free_and_replace(i->who, cc);
         }
 
         if (why) {
-                r = cunescape(why, 0, &cc);
-                if (r < 0)
-                        return log_oom();
+                l = cunescape(why, 0, &cc);
+                if (l < 0)
+                        return log_debug_errno(l, "Failed to unescape \"why\" of inhibitor: %m");
 
                 free_and_replace(i->why, cc);
         }

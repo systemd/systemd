@@ -45,14 +45,15 @@ char* cescape(const char *s);
 char* cescape_length(const char *s, size_t n);
 int cescape_char(char c, char *buf);
 
-int cunescape_length_with_prefix(const char *s, size_t length, const char *prefix, UnescapeFlags flags, char **ret);
-static inline int cunescape_length(const char *s, size_t length, UnescapeFlags flags, char **ret) {
+int cunescape_one(const char *p, size_t length, char32_t *ret, bool *eight_bit, bool accept_nul);
+
+ssize_t cunescape_length_with_prefix(const char *s, size_t length, const char *prefix, UnescapeFlags flags, char **ret);
+static inline ssize_t cunescape_length(const char *s, size_t length, UnescapeFlags flags, char **ret) {
         return cunescape_length_with_prefix(s, length, NULL, flags, ret);
 }
-static inline int cunescape(const char *s, UnescapeFlags flags, char **ret) {
+static inline ssize_t cunescape(const char *s, UnescapeFlags flags, char **ret) {
         return cunescape_length(s, strlen(s), flags, ret);
 }
-int cunescape_one(const char *p, size_t length, char32_t *ret, bool *eight_bit, bool accept_nul);
 
 typedef enum XEscapeFlags {
         XESCAPE_8_BIT          = 1 << 0,

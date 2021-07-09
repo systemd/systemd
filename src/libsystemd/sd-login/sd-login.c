@@ -585,8 +585,8 @@ _public_ int sd_session_get_class(const char *session, char **class) {
 
 _public_ int sd_session_get_desktop(const char *session, char **desktop) {
         _cleanup_free_ char *escaped = NULL;
-        char *t;
         int r;
+        ssize_t l;
 
         assert_return(desktop, -EINVAL);
 
@@ -594,11 +594,9 @@ _public_ int sd_session_get_desktop(const char *session, char **desktop) {
         if (r < 0)
                 return r;
 
-        r = cunescape(escaped, 0, &t);
-        if (r < 0)
-                return r;
-
-        *desktop = t;
+        l = cunescape(escaped, 0, desktop);
+        if (l < 0)
+                return l;
         return 0;
 }
 

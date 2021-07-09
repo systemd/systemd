@@ -453,7 +453,6 @@ static char* disk_description(const char *path) {
         _cleanup_(sd_device_unrefp) sd_device *device = NULL;
         const char *i, *name;
         struct stat st;
-        int r;
 
         assert(path);
 
@@ -468,14 +467,15 @@ static char* disk_description(const char *path) {
 
         if (sd_device_get_property_value(device, "ID_PART_ENTRY_NAME", &name) >= 0) {
                 _cleanup_free_ char *unescaped = NULL;
+                ssize_t l;
 
                 /* ID_PART_ENTRY_NAME uses \x style escaping, using libblkid's blkid_encode_string(). Let's
                  * reverse this here to make the string more human friendly in case people embed spaces or
                  * other weird stuff. */
 
-                r = cunescape(name, UNESCAPE_RELAX, &unescaped);
-                if (r < 0) {
-                        log_debug_errno(r, "Failed to unescape ID_PART_ENTRY_NAME, skipping device: %m");
+                l = cunescape(name, UNESCAPE_RELAX, &unescaped);
+                if (l < 0) {
+                        log_debug_errno(l, "Failed to unescape ID_PART_ENTRY_NAME, skipping device: %m");
                         return NULL;
                 }
 
