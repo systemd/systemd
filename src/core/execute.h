@@ -174,7 +174,7 @@ struct ExecContext {
         char **unset_environment;
 
         struct rlimit *rlimit[_RLIMIT_MAX];
-        char *working_directory, *root_directory, *root_image, *root_verity, *root_hash_path, *root_hash_sig_path;
+        char *binary_directory, *working_directory, *root_directory, *root_image, *root_verity, *root_hash_path, *root_hash_sig_path;
         void *root_hash, *root_hash_sig;
         size_t root_hash_size, root_hash_sig_size;
         LIST_HEAD(MountOptions, root_image_options);
