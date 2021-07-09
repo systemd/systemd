@@ -16,4 +16,5 @@ Name: libudev
 Description: Library to access udev device information
 Version: {{PROJECT_VERSION}}
 Libs: -L${libdir} -ludev
+Libs.private: -lrt -pthread
 Cflags: -I${includedir}
