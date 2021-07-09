@@ -32,7 +32,7 @@ ProtectHostname=yes
 ProtectKernelLogs=yes
 ProtectKernelModules=yes
 ProtectKernelTunables=yes
-ProtectSystem=strict
+ProtectSystem=extra-strict
 ReadWritePaths=/etc
 {% if HAVE_LOCALEGEN %}
 ReadWritePaths=/usr/lib/locale
