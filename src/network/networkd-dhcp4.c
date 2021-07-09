@@ -1735,7 +1735,7 @@ int config_parse_dhcp_mud_url(
 
         _cleanup_free_ char *unescaped = NULL;
         Network *network = data;
-        int r;
+        ssize_t l;
 
         assert(filename);
         assert(lvalue);
@@ -1746,9 +1746,9 @@ int config_parse_dhcp_mud_url(
                 return 0;
         }
 
-        r = cunescape(rvalue, 0, &unescaped);
-        if (r < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r,
+        l = cunescape(rvalue, 0, &unescaped);
+        if (l < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, l,
                            "Failed to Failed to unescape MUD URL, ignoring: %s", rvalue);
                 return 0;
         }

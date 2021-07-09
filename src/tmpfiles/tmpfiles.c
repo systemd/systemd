@@ -2775,8 +2775,6 @@ static bool should_include_path(const char *path) {
 }
 
 static int specifier_expansion_from_arg(Item *i) {
-        _cleanup_free_ char *unescaped = NULL, *resolved = NULL;
-        char **xattr;
         int r;
 
         assert(i);
@@ -2789,33 +2787,37 @@ static int specifier_expansion_from_arg(Item *i) {
         case CREATE_SYMLINK:
         case CREATE_FILE:
         case TRUNCATE_FILE:
-        case WRITE_FILE:
-                r = cunescape(i->argument, 0, &unescaped);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to unescape parameter to write: %s", i->argument);
+        case WRITE_FILE: {
+                _cleanup_free_ char *unescaped = NULL, *resolved = NULL;
+                ssize_t l;
+
+                l = cunescape(i->argument, 0, &unescaped);
+                if (l < 0)
+                        return log_error_errno(l, "Failed to unescape parameter to write: %s", i->argument);
 
                 r = specifier_printf(unescaped, PATH_MAX-1, specifier_table, arg_root, NULL, &resolved);
                 if (r < 0)
                         return r;
 
-                free_and_replace(i->argument, resolved);
-                break;
-
+                return free_and_replace(i->argument, resolved);
+        }
         case SET_XATTR:
-        case RECURSIVE_SET_XATTR:
+        case RECURSIVE_SET_XATTR: {
+                char **xattr;
                 STRV_FOREACH(xattr, i->xattrs) {
+                        _cleanup_free_ char *resolved = NULL;
+
                         r = specifier_printf(*xattr, SIZE_MAX, specifier_table, arg_root, NULL, &resolved);
                         if (r < 0)
                                 return r;
 
                         free_and_replace(*xattr, resolved);
                 }
-                break;
-
-        default:
-                break;
+                return 0;
         }
-        return 0;
+        default:
+                return 0;
+        }
 }
 
 static int patch_var_run(const char *fname, unsigned line, char **path) {

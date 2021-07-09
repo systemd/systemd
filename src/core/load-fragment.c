@@ -1010,8 +1010,6 @@ int config_parse_exec_input_text(
         _cleanup_free_ char *unescaped = NULL, *resolved = NULL;
         ExecContext *c = data;
         const Unit *u = userdata;
-        size_t sz;
-        void *p;
         int r;
 
         assert(data);
@@ -1026,9 +1024,9 @@ int config_parse_exec_input_text(
                 return 0;
         }
 
-        r = cunescape(rvalue, 0, &unescaped);
-        if (r < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r,
+        ssize_t l = cunescape(rvalue, 0, &unescaped);
+        if (l < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, l,
                            "Failed to decode C escaped text '%s', ignoring: %m", rvalue);
                 return 0;
         }
@@ -1040,7 +1038,7 @@ int config_parse_exec_input_text(
                 return 0;
         }
 
-        sz = strlen(resolved);
+        size_t sz = strlen(resolved);
         if (c->stdin_data_size + sz + 1 < c->stdin_data_size || /* check for overflow */
             c->stdin_data_size + sz + 1 > EXEC_STDIN_DATA_MAX) {
                 log_syntax(unit, LOG_WARNING, filename, line, 0,
@@ -1049,7 +1047,7 @@ int config_parse_exec_input_text(
                 return 0;
         }
 
-        p = realloc(c->stdin_data, c->stdin_data_size + sz + 1);
+        void *p = realloc(c->stdin_data, c->stdin_data_size + sz + 1);
         if (!p)
                 return log_oom();
 
@@ -4516,7 +4514,7 @@ int config_parse_set_credential(
                 }
         } else {
                 char *unescaped = NULL;
-                int l;
+                ssize_t l;
 
                 /* We support escape codes here, so that users can insert trailing \n if they like */
                 l = cunescape(p, UNESCAPE_ACCEPT_NUL, &unescaped);

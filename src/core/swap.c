@@ -1202,8 +1202,9 @@ static int swap_load_proc_swaps(Manager *m, bool set_flags) {
                         continue;
                 }
 
-                if (cunescape(dev, UNESCAPE_RELAX, &d) < 0)
-                        return log_oom();
+                ssize_t l = cunescape(dev, UNESCAPE_RELAX, &d);
+                if (l < 0)
+                        return log_error_errno(l, "Failed to unescape device path: %m");
 
                 device_found_node(m, d, DEVICE_FOUND_SWAP, DEVICE_FOUND_SWAP);
 

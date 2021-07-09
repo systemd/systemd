@@ -1565,7 +1565,7 @@ static int parse_argv(int argc, char *argv[]) {
                         const char *p = optarg;
                         Credential *a;
                         size_t i;
-                        int l;
+                        ssize_t l;
 
                         r = extract_first_word(&p, &word, ":", EXTRACT_DONT_COALESCE_SEPARATORS);
                         if (r == -ENOMEM)

@@ -351,7 +351,6 @@ void log_device_uevent(sd_device *device, const char *str) {
 
 int udev_rule_parse_value(char *str, char **ret_value, char **ret_endpos) {
         char *i, *j;
-        int r;
         bool is_escaped;
 
         /* value must be double quotated */
@@ -373,6 +372,7 @@ int udev_rule_parse_value(char *str, char **ret_value, char **ret_endpos) {
                 j[0] = '\0';
         } else {
                 _cleanup_free_ char *unescaped = NULL;
+                ssize_t l;
 
                 /* find the end position of value */
                 for (i = str; *i != '"'; i++) {
@@ -383,11 +383,12 @@ int udev_rule_parse_value(char *str, char **ret_value, char **ret_endpos) {
                 }
                 i[0] = '\0';
 
-                r = cunescape_length(str, i - str, 0, &unescaped);
-                if (r < 0)
-                        return r;
-                assert(r <= i - str);
-                memcpy(str, unescaped, r + 1);
+                l = cunescape_length(str, i - str, 0, &unescaped);
+                if (l < 0)
+                        return l;
+
+                assert(l <= i - str);
+                memcpy(str, unescaped, l + 1);
         }
 
         *ret_value = str;

@@ -1096,7 +1096,7 @@ static int bus_append_execute_property(sd_bus_message *m, const char *field, con
                                 r = sd_bus_message_append_array(m, 'y', decoded, decoded_size);
                         } else {
                                 _cleanup_free_ char *unescaped = NULL;
-                                int l;
+                                ssize_t l;
 
                                 l = cunescape(p, UNESCAPE_ACCEPT_NUL, &unescaped);
                                 if (l < 0)
@@ -1233,18 +1233,19 @@ static int bus_append_execute_property(sd_bus_message *m, const char *field, con
 
         if (streq(field, "StandardInputText")) {
                 _cleanup_free_ char *unescaped = NULL;
+                ssize_t l;
 
-                r = cunescape(eq, 0, &unescaped);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to unescape text '%s': %m", eq);
+                l = cunescape(eq, 0, &unescaped);
+                if (l < 0)
+                        return log_error_errno(l, "Failed to unescape text '%s': %m", eq);
 
                 if (!strextend(&unescaped, "\n"))
                         return log_oom();
 
-                /* Note that we don't expand specifiers here, but that should be OK, as this is a programmatic
-                 * interface anyway */
+                /* Note that we don't expand specifiers here, but that should be OK, as this is a
+                 * programmatic interface anyway */
 
-                return bus_append_byte_array(m, field, unescaped, strlen(unescaped));
+                return bus_append_byte_array(m, field, unescaped, l + 1);
         }
 
         if (streq(field, "StandardInputData")) {
