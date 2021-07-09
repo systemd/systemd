@@ -1386,7 +1386,8 @@ static int bus_property_get_dns_servers_internal(
                 sd_bus_message *reply,
                 void *userdata,
                 sd_bus_error *error,
-                bool extended) {
+                bool extended,
+                bool append_link_servers) {
 
         Manager *m = userdata;
         DnsServer *s;
@@ -1406,12 +1407,13 @@ static int bus_property_get_dns_servers_internal(
                         return r;
         }
 
-        HASHMAP_FOREACH(l, m->links)
-                LIST_FOREACH(servers, s, l->dns_servers) {
-                        r = bus_dns_server_append(reply, s, true, extended);
-                        if (r < 0)
-                                return r;
-                }
+        if (append_link_servers)
+                HASHMAP_FOREACH(l, m->links)
+                        LIST_FOREACH(servers, s, l->dns_servers) {
+                                r = bus_dns_server_append(reply, s, true, extended);
+                                if (r < 0)
+                                        return r;
+                        }
 
         return sd_bus_message_close_container(reply);
 }
@@ -1424,7 +1426,7 @@ static int bus_property_get_dns_servers(
                 sd_bus_message *reply,
                 void *userdata,
                 sd_bus_error *error) {
-        return bus_property_get_dns_servers_internal(bus, path, interface, property, reply, userdata, error, false);
+        return bus_property_get_dns_servers_internal(bus, path, interface, property, reply, userdata, error, false, true);
 }
 
 static int bus_property_get_dns_servers_ex(
@@ -1435,7 +1437,18 @@ static int bus_property_get_dns_servers_ex(
                 sd_bus_message *reply,
                 void *userdata,
                 sd_bus_error *error) {
-        return bus_property_get_dns_servers_internal(bus, path, interface, property, reply, userdata, error, true);
+        return bus_property_get_dns_servers_internal(bus, path, interface, property, reply, userdata, error, true, true);
+}
+
+static int bus_property_get_global_dns_servers(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                void *userdata,
+                sd_bus_error *error) {
+        return bus_property_get_dns_servers_internal(bus, path, interface, property, reply, userdata, error, true, false);
 }
 
 static int bus_property_get_fallback_dns_servers_internal(
@@ -2061,6 +2074,7 @@ static const sd_bus_vtable resolve_vtable[] = {
         SD_BUS_PROPERTY("DNSOverTLS", "s", bus_property_get_dns_over_tls_mode, 0, 0),
         SD_BUS_PROPERTY("DNS", "a(iiay)", bus_property_get_dns_servers, 0, SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
         SD_BUS_PROPERTY("DNSEx", "a(iiayqs)", bus_property_get_dns_servers_ex, 0, SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
+        SD_BUS_PROPERTY("GlobalDNS", "a(iiayqs)", bus_property_get_global_dns_servers, 0, SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
         SD_BUS_PROPERTY("FallbackDNS", "a(iiay)", bus_property_get_fallback_dns_servers, offsetof(Manager, fallback_dns_servers), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("FallbackDNSEx", "a(iiayqs)", bus_property_get_fallback_dns_servers_ex, offsetof(Manager, fallback_dns_servers), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("CurrentDNSServer", "(iiay)", bus_property_get_current_dns_server, offsetof(Manager, current_dns_server), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
