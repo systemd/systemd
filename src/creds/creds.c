@@ -362,7 +362,7 @@ static int verb_encrypt(int argc, char **argv, void *userdata) {
 
         assert(argc == 3);
 
-        input_path = (isempty(argv[1]) || streq(argv[1], "-")) ? NULL : argv[1];
+        input_path = empty_or_dash(argv[1]) ? NULL : argv[1];
 
         if (input_path)
                 r = read_full_file_full(AT_FDCWD, input_path, UINT64_MAX, CREDENTIAL_SIZE_MAX, READ_FULL_FILE_SECURE|READ_FULL_FILE_FAIL_WHEN_LARGER, NULL, &plaintext, &plaintext_size);
@@ -373,7 +373,7 @@ static int verb_encrypt(int argc, char **argv, void *userdata) {
         if (r < 0)
                 return log_error_errno(r, "Failed to read plaintext: %m");
 
-        output_path = (isempty(argv[2]) || streq(argv[2], "-")) ? NULL : argv[2];
+        output_path = empty_or_dash(argv[2]) ? NULL : argv[2];
 
         if (arg_name_any)
                 name = NULL;
@@ -455,7 +455,7 @@ static int verb_decrypt(int argc, char **argv, void *userdata) {
 
         assert(IN_SET(argc, 2, 3));
 
-        input_path = (isempty(argv[1]) || streq(argv[1], "-")) ? NULL : argv[1];
+        input_path = empty_or_dash(argv[1]) ? NULL : argv[1];
 
         if (input_path)
                 r = read_full_file_full(AT_FDCWD, argv[1], UINT64_MAX, CREDENTIAL_ENCRYPTED_SIZE_MAX, READ_FULL_FILE_UNBASE64|READ_FULL_FILE_FAIL_WHEN_LARGER, NULL, &input, &input_size);
