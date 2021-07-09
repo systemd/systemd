@@ -461,9 +461,9 @@ static int manager_attach_fds(Manager *m) {
                 safe_close(fd);
 
                 /* Remove from fdstore as well */
-                (void) sd_notifyf(false,
-                                  "FDSTOREREMOVE=1\n"
-                                  "FDNAME=%s", fdnames[i]);
+                sd_notifyf(false,
+                           "FDSTOREREMOVE=1\n"
+                           "FDNAME=%s", fdnames[i]);
         }
 
         return 0;

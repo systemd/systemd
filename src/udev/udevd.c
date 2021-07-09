@@ -1153,9 +1153,9 @@ static int on_ctrl_msg(struct udev_ctrl *uctrl, enum udev_ctrl_msg_type type, co
                 log_debug("Received udev control message (SET_MAX_CHILDREN), setting children_max=%i", value->intval);
                 arg_children_max = value->intval;
 
-                (void) sd_notifyf(false,
-                                  "READY=1\n"
-                                  "STATUS=Processing with %u children at max", arg_children_max);
+                sd_notifyf(false,
+                           "READY=1\n"
+                           "STATUS=Processing with %u children at max", arg_children_max);
                 break;
         case UDEV_CTRL_PING:
                 log_debug("Received udev control message (PING)");
@@ -1816,9 +1816,9 @@ static int main_loop(Manager *manager) {
         if (r < 0)
                 log_error_errno(r, "Failed to apply permissions on static device nodes: %m");
 
-        (void) sd_notifyf(false,
-                          "READY=1\n"
-                          "STATUS=Processing with %u children at max", arg_children_max);
+        sd_notifyf(false,
+                   "READY=1\n"
+                   "STATUS=Processing with %u children at max", arg_children_max);
 
         r = sd_event_loop(manager->event);
         if (r < 0)
