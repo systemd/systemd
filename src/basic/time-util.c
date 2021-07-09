@@ -1334,10 +1334,10 @@ static int get_timezones_from_tzdata_zi(char ***ret) {
                         continue;
 
                 char *tz;
-                if (*type == 'Z' || *type == 'z')
+                if (IN_SET(*type, 'Z', 'z'))
                         /* Zone lines have timezone in field 1. */
                         tz = f1;
-                else if (*type == 'L' || *type == 'l')
+                else if (IN_SET(*type, 'L', 'l'))
                         /* Link lines have timezone in field 2. */
                         tz = f2;
                 else

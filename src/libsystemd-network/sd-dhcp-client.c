@@ -238,7 +238,7 @@ int sd_dhcp_client_set_callback(
 int sd_dhcp_client_set_request_broadcast(sd_dhcp_client *client, int broadcast) {
         assert_return(client, -EINVAL);
 
-        client->request_broadcast = !!broadcast;
+        client->request_broadcast = broadcast;
 
         return 0;
 }
