@@ -416,8 +416,8 @@ int xdg_autostart_format_exec_start(
                         if (!escaped)
                                 return log_oom();
 
-                        free(exec_split[n]);
-                        exec_split[n++] = TAKE_PTR(escaped);
+                        free_and_replace(exec_split[n], escaped);
+                        n++;
                         continue;
                 }
 
@@ -457,8 +457,8 @@ int xdg_autostart_format_exec_start(
                 if (!quoted)
                         return log_oom();
 
-                free(exec_split[n]);
-                exec_split[n++] = TAKE_PTR(quoted);
+                free_and_replace(exec_split[n], quoted);
+                n++;
         }
         for (; exec_split[n]; n++)
                 exec_split[n] = mfree(exec_split[n]);
