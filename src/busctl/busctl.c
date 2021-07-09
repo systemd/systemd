@@ -751,6 +751,9 @@ static void member_hash_func(const Member *m, struct siphash *state) {
         if (m->name)
                 string_hash_func(m->name, state);
 
+        if (m->signature)
+                string_hash_func(m->signature, state);
+
         if (m->interface)
                 string_hash_func(m->interface, state);
 }
@@ -771,7 +774,11 @@ static int member_compare_func(const Member *x, const Member *y) {
         if (d != 0)
                 return d;
 
-        return strcmp_ptr(x->name, y->name);
+        d = strcmp_ptr(x->name, y->name);
+        if (d != 0)
+                return d;
+
+        return strcmp_ptr(x->signature, y->signature);
 }
 
 static int member_compare_funcp(Member * const *a, Member * const *b) {
@@ -818,7 +825,7 @@ static int on_interface(const char *interface, uint64_t flags, void *userdata) {
                 return log_oom();
 
         r = set_put(members, m);
-        if (r == -EEXIST)
+        if (r == 0)
                 return log_error_errno(r,  "Invalid introspection data: duplicate interface '%s'.", interface);
         if (r < 0)
                 return log_oom();
@@ -861,7 +868,7 @@ static int on_method(const char *interface, const char *name, const char *signat
                 return log_oom();
 
         r = set_put(members, m);
-        if (r == -EEXIST)
+        if (r == 0)
                 return log_error_errno(r, "Invalid introspection data: duplicate method '%s' on interface '%s'.", name, interface);
         if (r < 0)
                 return log_oom();
@@ -900,7 +907,7 @@ static int on_signal(const char *interface, const char *name, const char *signat
                 return log_oom();
 
         r = set_put(members, m);
-        if (r == -EEXIST)
+        if (r == 0)
                 return log_error_errno(r, "Invalid introspection data: duplicate signal '%s' on interface '%s'.", name, interface);
         if (r < 0)
                 return log_oom();
@@ -940,7 +947,7 @@ static int on_property(const char *interface, const char *name, const char *sign
                 return log_oom();
 
         r = set_put(members, m);
-        if (r == -EEXIST)
+        if (r == 0)
                 return log_error_errno(r, "Invalid introspection data: duplicate property '%s' on interface '%s'.", name, interface);
         if (r < 0)
                 return log_oom();
