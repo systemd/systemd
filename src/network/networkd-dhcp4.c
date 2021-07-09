@@ -5,7 +5,6 @@
 #include <linux/if.h>
 #include <linux/if_arp.h>
 
-#include "escape.h"
 #include "alloc-util.h"
 #include "dhcp-client-internal.h"
 #include "hostname-setup.h"
@@ -26,7 +25,6 @@
 #include "string-table.h"
 #include "strv.h"
 #include "sysctl-util.h"
-#include "web-util.h"
 
 static int dhcp4_request_address_and_routes(Link *link, bool announce);
 static int dhcp4_remove_all(Link *link);
@@ -1733,34 +1731,12 @@ int config_parse_dhcp_mud_url(
                 void *data,
                 void *userdata) {
 
-        _cleanup_free_ char *unescaped = NULL;
         Network *network = data;
-        ssize_t l;
 
-        assert(filename);
-        assert(lvalue);
-        assert(rvalue);
+        assert(network);
 
-        if (isempty(rvalue)) {
-                network->dhcp_mudurl = mfree(network->dhcp_mudurl);
-                return 0;
-        }
-
-        l = cunescape(rvalue, 0, &unescaped);
-        if (l < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, l,
-                           "Failed to Failed to unescape MUD URL, ignoring: %s", rvalue);
-                return 0;
-        }
-
-        if (!http_url_is_valid(unescaped) || strlen(unescaped) > 255) {
-                log_syntax(unit, LOG_WARNING, filename, line, 0,
-                           "Failed to parse MUD URL '%s', ignoring: %m", rvalue);
-
-                return 0;
-        }
-
-        return free_and_strdup_warn(&network->dhcp_mudurl, unescaped);
+        return config_parse_mud_url(unit, filename, line, section, section_line, lvalue, ltype, rvalue,
+                                    &network->dhcp_mudurl);
 }
 
 int config_parse_dhcp_fallback_lease_lifetime(const char *unit,
