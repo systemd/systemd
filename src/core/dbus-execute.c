@@ -1090,6 +1090,7 @@ const sd_bus_vtable bus_exec_vtable[] = {
         SD_BUS_PROPERTY("LimitRTPRIOSoft", "t", bus_property_get_rlimit, offsetof(ExecContext, rlimit[RLIMIT_RTPRIO]), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("LimitRTTIME", "t", bus_property_get_rlimit, offsetof(ExecContext, rlimit[RLIMIT_RTTIME]), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("LimitRTTIMESoft", "t", bus_property_get_rlimit, offsetof(ExecContext, rlimit[RLIMIT_RTTIME]), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("BinaryDirectory", "s", NULL, offsetof(ExecContext, binary_directory), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("WorkingDirectory", "s", property_get_working_directory, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("RootDirectory", "s", NULL, offsetof(ExecContext, root_directory), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("RootImage", "s", NULL, offsetof(ExecContext, root_image), SD_BUS_VTABLE_PROPERTY_CONST),
@@ -2635,6 +2636,21 @@ int bus_exec_context_set_transient_property(
 
                 return 1;
 
+        } else if (streq(name, "BinaryDirectory")) {
+                const char *s;
+
+                r = sd_bus_message_read(message, "s", &s);
+                if (r < 0)
+                        return r;
+
+                if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
+                        r = free_and_strdup(&c->binary_directory, empty_to_null(s));
+                        if (r < 0)
+                                return r;
+                        unit_write_settingf(u, flags|UNIT_ESCAPE_SPECIFIERS, name, "BinaryDirectory=%s%s", "", s);
+                }
+
+                return 1;
         } else if (streq(name, "WorkingDirectory")) {
                 const char *s;
                 bool missing_ok;

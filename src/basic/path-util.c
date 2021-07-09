@@ -637,7 +637,7 @@ static int check_x_access(const char *path, int *ret_fd) {
         return 0;
 }
 
-int find_executable_full(const char *name, bool use_path_envvar, char **ret_filename, int *ret_fd) {
+int find_executable_full(const char *name, char *binary_directory, bool use_path_envvar, char **ret_filename, int *ret_fd) {
         int last_error, r;
         const char *p = NULL;
 
@@ -668,6 +668,10 @@ int find_executable_full(const char *name, bool use_path_envvar, char **ret_file
                 p = getenv("PATH");
         if (!p)
                 p = DEFAULT_PATH;
+
+        if (binary_directory) {
+                p = binary_directory;
+        }
 
         last_error = -ENOENT;
 

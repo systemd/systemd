@@ -4316,7 +4316,7 @@ static int exec_child(
 
         _cleanup_free_ char *executable = NULL;
         _cleanup_close_ int executable_fd = -1;
-        r = find_executable_full(command->path, false, &executable, &executable_fd);
+        r = find_executable_full(command->path, context->binary_directory, false, &executable, &executable_fd);
         if (r < 0) {
                 if (r != -ENOMEM && (command->flags & EXEC_COMMAND_IGNORE_FAILURE)) {
                         log_unit_struct_errno(unit, LOG_INFO, r,
@@ -5260,6 +5260,7 @@ void exec_context_dump(const ExecContext *c, FILE* f, const char *prefix) {
 
         fprintf(f,
                 "%sUMask: %04o\n"
+                "%sBinaryDirectory: %s\n"
                 "%sWorkingDirectory: %s\n"
                 "%sRootDirectory: %s\n"
                 "%sNonBlocking: %s\n"
@@ -5284,6 +5285,7 @@ void exec_context_dump(const ExecContext *c, FILE* f, const char *prefix) {
                 "%sProtectProc: %s\n"
                 "%sProcSubset: %s\n",
                 prefix, c->umask,
+                prefix, empty_to_root(c->binary_directory),
                 prefix, empty_to_root(c->working_directory),
                 prefix, empty_to_root(c->root_directory),
                 prefix, yes_no(c->non_blocking),
