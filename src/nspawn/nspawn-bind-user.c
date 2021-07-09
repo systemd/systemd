@@ -171,10 +171,8 @@ static int find_free_uid(const char *directory, uid_t max_uid, uid_t *current_ui
 
                 /* We want to use the UID also as GID, hence check for it in /etc/group too */
                 r = check_etc_group_collisions(directory, NULL, (gid_t) *current_uid);
-                if (r < 0)
+                if (r <= 0)
                         return r;
-                if (r == 0) /* free! yay! */
-                        return 0;
         }
 }
 

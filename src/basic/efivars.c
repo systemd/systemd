@@ -382,7 +382,7 @@ int systemd_efi_options_efivarfs_if_newer(char **line) {
                 return log_debug_errno(errno, "Failed to stat EFI variable SystemdOptions: %m");
 
         if (stat(EFIVAR_CACHE_PATH(EFI_SYSTEMD_VARIABLE(SystemdOptions)), &b) < 0) {
-                if (errno != -ENOENT)
+                if (errno != ENOENT)
                         log_debug_errno(errno, "Failed to stat "EFIVAR_CACHE_PATH(EFI_SYSTEMD_VARIABLE(SystemdOptions))": %m");
         } else if (compare_stat_mtime(&a, &b) > 0)
                 log_debug("Variable SystemdOptions in evifarfs is newer than in cache.");

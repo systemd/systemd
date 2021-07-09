@@ -86,10 +86,8 @@ static PortableMetadata *portable_metadata_new(const char *name, const char *pat
         /* In case of a layered attach, we want to remember which image the unit came from */
         if (path) {
                 m->image_path = strdup(path);
-                if (!m->image_path) {
-                        free(m);
-                        return NULL;
-                }
+                if (!m->image_path)
+                        return mfree(m);
         }
 
         strcpy(m->name, name);
