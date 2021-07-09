@@ -6,6 +6,7 @@
 
 #include "capability-util.h"
 #include "cpu-set-util.h"
+#include "copy.h"
 #include "errno-list.h"
 #include "fileio.h"
 #include "fs-util.h"
@@ -21,6 +22,7 @@
 #include "service.h"
 #include "stat-util.h"
 #include "tests.h"
+#include "tmpfile-util.h"
 #include "unit.h"
 #include "user-util.h"
 #include "util.h"
@@ -263,6 +265,16 @@ static void test_exec_workingdirectory(Manager *m) {
         test(m, "exec-workingdirectory-trailing-dot.service", 0, CLD_EXITED);
 
         (void) rm_rf("/tmp/test-exec_workingdirectory", REMOVE_ROOT|REMOVE_PHYSICAL);
+}
+
+static void test_exec_binarydirectory(Manager *m) {
+        assert_se(mkdir_p("/tmp/test-exec_binarydirectory", 0755) >= 0);
+
+        copy_file("/bin/ls", "/tmp/test-exec_binarydirectory/ls_temp", 0,  0777, 0, 0, COPY_REPLACE);
+
+        test(m, "exec-binarydirectory.service", 0, CLD_EXITED);
+
+        (void) rm_rf("/tmp/test-exec_binarydirectory", REMOVE_ROOT|REMOVE_PHYSICAL);
 }
 
 static void test_exec_personality(Manager *m) {
@@ -896,6 +908,7 @@ int main(int argc, char *argv[]) {
                 entry(test_exec_unsetenvironment),
                 entry(test_exec_user),
                 entry(test_exec_workingdirectory),
+                entry(test_exec_binarydirectory),
                 {},
         };
         static const test_entry system_tests[] = {
