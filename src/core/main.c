@@ -1616,12 +1616,9 @@ static void apply_clock_update(void) {
 
         if (clock_settime(CLOCK_REALTIME, timespec_store(&ts, arg_clock_usec)) < 0)
                 log_error_errno(errno, "Failed to set system clock to time specified on kernel command line: %m");
-        else {
-                char buf[FORMAT_TIMESTAMP_MAX];
-
+        else
                 log_info("Set system clock to %s, as specified on the kernel command line.",
-                         format_timestamp(buf, sizeof(buf), arg_clock_usec));
-        }
+                         FORMAT_TIMESTAMP(arg_clock_usec));
 }
 
 static void cmdline_take_random_seed(void) {
@@ -2578,7 +2575,6 @@ int main(int argc, char *argv[]) {
         char *switch_root_dir = NULL, *switch_root_init = NULL;
         usec_t before_startup, after_startup;
         static char systemd[] = "systemd";
-        char timespan[FORMAT_TIMESPAN_MAX];
         const char *shutdown_verb = NULL, *error_message = NULL;
         int r, retval = EXIT_FAILURE;
         Manager *m = NULL;
@@ -2870,7 +2866,7 @@ int main(int argc, char *argv[]) {
 
         log_full(arg_action == ACTION_TEST ? LOG_INFO : LOG_DEBUG,
                  "Loaded units and determined initial transaction in %s.",
-                 format_timespan(timespan, sizeof(timespan), after_startup - before_startup, 100 * USEC_PER_MSEC));
+                 FORMAT_TIMESPAN(after_startup - before_startup, 100 * USEC_PER_MSEC));
 
         if (arg_action == ACTION_TEST) {
                 manager_test_summary(m);

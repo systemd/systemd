@@ -147,13 +147,12 @@ static int timer_add_one_monotonic_spec(
                 sd_bus_error *error) {
 
         if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
-                char ts[FORMAT_TIMESPAN_MAX];
                 TimerValue *v;
 
                 unit_write_settingf(UNIT(t), flags|UNIT_ESCAPE_SPECIFIERS, name,
                                     "%s=%s",
                                     timer_base_to_string(base),
-                                    format_timespan(ts, sizeof ts, usec, USEC_PER_MSEC));
+                                    FORMAT_TIMESPAN(usec, USEC_PER_MSEC));
 
                 v = new(TimerValue, 1);
                 if (!v)

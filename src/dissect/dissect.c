@@ -385,10 +385,8 @@ static int action_dissect(DissectedImage *m, LoopDevice *d) {
 
         if (ioctl(d->fd, BLKGETSIZE64, &size) < 0)
                 log_debug_errno(errno, "Failed to query size of loopback device: %m");
-        else if (arg_json_format_flags & JSON_FORMAT_OFF) {
-                char s[FORMAT_BYTES_MAX];
-                printf("      Size: %s\n", format_bytes(s, sizeof(s), size));
-        }
+        else if (arg_json_format_flags & JSON_FORMAT_OFF)
+                printf("      Size: %s\n", FORMAT_BYTES(size));
 
         if (arg_json_format_flags & JSON_FORMAT_OFF)
                 putc('\n', stdout);

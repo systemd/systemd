@@ -205,7 +205,6 @@ static void manager_print_jobs_in_progress(Manager *m) {
         unsigned counter = 0, print_nr;
         char cylon[6 + CYLON_BUFFER_EXTRA + 1];
         unsigned cylon_pos;
-        char time[FORMAT_TIMESPAN_MAX], limit[FORMAT_TIMESPAN_MAX] = "no limit";
         uint64_t x;
 
         assert(m);
@@ -231,14 +230,11 @@ static void manager_print_jobs_in_progress(Manager *m) {
 
         m->jobs_in_progress_iteration++;
 
-        if (m->n_running_jobs > 1) {
+        if (m->n_running_jobs > 1)
                 if (asprintf(&job_of_n, "(%u of %u) ", counter, m->n_running_jobs) < 0)
                         job_of_n = NULL;
-        }
 
-        format_timespan(time, sizeof(time), now(CLOCK_MONOTONIC) - j->begin_usec, 1*USEC_PER_SEC);
-        if (job_get_timeout(j, &x) > 0)
-                format_timespan(limit, sizeof(limit), x - j->begin_usec, 1*USEC_PER_SEC);
+        bool have_timeout = job_get_timeout(j, &x) > 0;
 
         /* We want to use enough information for the user to identify previous lines talking about the same
          * unit, but keep the message as short as possible. So if 'Starting foo.service' or 'Starting
@@ -252,7 +248,8 @@ static void manager_print_jobs_in_progress(Manager *m) {
                               strempty(job_of_n),
                               job_type_to_string(j->type),
                               ident,
-                              time, limit);
+                              FORMAT_TIMESPAN(now(CLOCK_MONOTONIC) - j->begin_usec, 1*USEC_PER_SEC),
+                              have_timeout ? FORMAT_TIMESPAN(x - j->begin_usec, 1*USEC_PER_SEC) : "no limit");
 }
 
 static int have_ask_password(void) {
@@ -3905,14 +3902,12 @@ static void log_taint_string(Manager *m) {
 }
 
 static void manager_notify_finished(Manager *m) {
-        char userspace[FORMAT_TIMESPAN_MAX], initrd[FORMAT_TIMESPAN_MAX], kernel[FORMAT_TIMESPAN_MAX], sum[FORMAT_TIMESPAN_MAX];
         usec_t firmware_usec, loader_usec, kernel_usec, initrd_usec, userspace_usec, total_usec;
 
         if (MANAGER_IS_TEST_RUN(m))
                 return;
 
         if (MANAGER_IS_SYSTEM(m) && detect_container() <= 0) {
-                char ts[FORMAT_TIMESPAN_MAX];
                 char buf[FORMAT_TIMESPAN_MAX + STRLEN(" (firmware) + ") + FORMAT_TIMESPAN_MAX + STRLEN(" (loader) + ")]
                         = {};
                 char *p = buf;
@@ -3928,9 +3923,9 @@ static void manager_notify_finished(Manager *m) {
                 total_usec = m->timestamps[MANAGER_TIMESTAMP_FIRMWARE].monotonic + m->timestamps[MANAGER_TIMESTAMP_FINISH].monotonic;
 
                 if (firmware_usec > 0)
-                        size = strpcpyf(&p, size, "%s (firmware) + ", format_timespan(ts, sizeof(ts), firmware_usec, USEC_PER_MSEC));
+                        size = strpcpyf(&p, size, "%s (firmware) + ", FORMAT_TIMESPAN(firmware_usec, USEC_PER_MSEC));
                 if (loader_usec > 0)
-                        size = strpcpyf(&p, size, "%s (loader) + ", format_timespan(ts, sizeof(ts), loader_usec, USEC_PER_MSEC));
+                        size = strpcpyf(&p, size, "%s (loader) + ", FORMAT_TIMESPAN(loader_usec, USEC_PER_MSEC));
 
                 if (dual_timestamp_is_set(&m->timestamps[MANAGER_TIMESTAMP_INITRD])) {
 
@@ -3945,10 +3940,10 @@ static void manager_notify_finished(Manager *m) {
                                    "USERSPACE_USEC="USEC_FMT, userspace_usec,
                                    LOG_MESSAGE("Startup finished in %s%s (kernel) + %s (initrd) + %s (userspace) = %s.",
                                                buf,
-                                               format_timespan(kernel, sizeof(kernel), kernel_usec, USEC_PER_MSEC),
-                                               format_timespan(initrd, sizeof(initrd), initrd_usec, USEC_PER_MSEC),
-                                               format_timespan(userspace, sizeof(userspace), userspace_usec, USEC_PER_MSEC),
-                                               format_timespan(sum, sizeof(sum), total_usec, USEC_PER_MSEC)));
+                                               FORMAT_TIMESPAN(kernel_usec, USEC_PER_MSEC),
+                                               FORMAT_TIMESPAN(initrd_usec, USEC_PER_MSEC),
+                                               FORMAT_TIMESPAN(userspace_usec, USEC_PER_MSEC),
+                                               FORMAT_TIMESPAN(total_usec, USEC_PER_MSEC)));
                 } else {
                         /* The initrd-less case on bare-metal */
 
@@ -3961,9 +3956,9 @@ static void manager_notify_finished(Manager *m) {
                                    "USERSPACE_USEC="USEC_FMT, userspace_usec,
                                    LOG_MESSAGE("Startup finished in %s%s (kernel) + %s (userspace) = %s.",
                                                buf,
-                                               format_timespan(kernel, sizeof(kernel), kernel_usec, USEC_PER_MSEC),
-                                               format_timespan(userspace, sizeof(userspace), userspace_usec, USEC_PER_MSEC),
-                                               format_timespan(sum, sizeof(sum), total_usec, USEC_PER_MSEC)));
+                                               FORMAT_TIMESPAN(kernel_usec, USEC_PER_MSEC),
+                                               FORMAT_TIMESPAN(userspace_usec, USEC_PER_MSEC),
+                                               FORMAT_TIMESPAN(total_usec, USEC_PER_MSEC)));
                 }
         } else {
                 /* The container and --user case */
@@ -3974,7 +3969,7 @@ static void manager_notify_finished(Manager *m) {
                            "MESSAGE_ID=" SD_MESSAGE_USER_STARTUP_FINISHED_STR,
                            "USERSPACE_USEC="USEC_FMT, userspace_usec,
                            LOG_MESSAGE("Startup finished in %s.",
-                                       format_timespan(sum, sizeof(sum), total_usec, USEC_PER_MSEC)));
+                                       FORMAT_TIMESPAN(total_usec, USEC_PER_MSEC)));
         }
 
         bus_manager_send_finished(m, firmware_usec, loader_usec, kernel_usec, initrd_usec, userspace_usec, total_usec);
@@ -3983,7 +3978,7 @@ static void manager_notify_finished(Manager *m) {
                    m->ready_sent ? "STATUS=Startup finished in %s."
                                  : "READY=1\n"
                                    "STATUS=Startup finished in %s.",
-                   format_timespan(sum, sizeof(sum), total_usec, USEC_PER_MSEC));
+                   FORMAT_TIMESPAN(total_usec, USEC_PER_MSEC));
         m->ready_sent = true;
 
         log_taint_string(m);

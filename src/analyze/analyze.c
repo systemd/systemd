@@ -479,7 +479,6 @@ manager:
 }
 
 static int pretty_boot_time(sd_bus *bus, char **_buf) {
-        char ts[FORMAT_TIMESPAN_MAX];
         BootTimes *t;
         static char buf[4096];
         size_t size;
@@ -524,23 +523,23 @@ static int pretty_boot_time(sd_bus *bus, char **_buf) {
 
         size = strpcpyf(&ptr, size, "Startup finished in ");
         if (t->firmware_time > 0)
-                size = strpcpyf(&ptr, size, "%s (firmware) + ", format_timespan(ts, sizeof(ts), t->firmware_time - t->loader_time, USEC_PER_MSEC));
+                size = strpcpyf(&ptr, size, "%s (firmware) + ", FORMAT_TIMESPAN(t->firmware_time - t->loader_time, USEC_PER_MSEC));
         if (t->loader_time > 0)
-                size = strpcpyf(&ptr, size, "%s (loader) + ", format_timespan(ts, sizeof(ts), t->loader_time, USEC_PER_MSEC));
+                size = strpcpyf(&ptr, size, "%s (loader) + ", FORMAT_TIMESPAN(t->loader_time, USEC_PER_MSEC));
         if (t->kernel_done_time > 0)
-                size = strpcpyf(&ptr, size, "%s (kernel) + ", format_timespan(ts, sizeof(ts), t->kernel_done_time, USEC_PER_MSEC));
+                size = strpcpyf(&ptr, size, "%s (kernel) + ", FORMAT_TIMESPAN(t->kernel_done_time, USEC_PER_MSEC));
         if (t->initrd_time > 0)
-                size = strpcpyf(&ptr, size, "%s (initrd) + ", format_timespan(ts, sizeof(ts), t->userspace_time - t->initrd_time, USEC_PER_MSEC));
+                size = strpcpyf(&ptr, size, "%s (initrd) + ", FORMAT_TIMESPAN(t->userspace_time - t->initrd_time, USEC_PER_MSEC));
 
-        size = strpcpyf(&ptr, size, "%s (userspace) ", format_timespan(ts, sizeof(ts), t->finish_time - t->userspace_time, USEC_PER_MSEC));
+        size = strpcpyf(&ptr, size, "%s (userspace) ", FORMAT_TIMESPAN(t->finish_time - t->userspace_time, USEC_PER_MSEC));
         if (t->kernel_done_time > 0)
-                strpcpyf(&ptr, size, "= %s ", format_timespan(ts, sizeof(ts), t->firmware_time + t->finish_time, USEC_PER_MSEC));
+                strpcpyf(&ptr, size, "= %s ", FORMAT_TIMESPAN(t->firmware_time + t->finish_time, USEC_PER_MSEC));
 
         if (unit_id && timestamp_is_set(activated_time)) {
                 usec_t base = t->userspace_time > 0 ? t->userspace_time : t->reverse_offset;
 
                 size = strpcpyf(&ptr, size, "\n%s reached after %s in userspace", unit_id,
-                                format_timespan(ts, sizeof(ts), activated_time - base, USEC_PER_MSEC));
+                                FORMAT_TIMESPAN(activated_time - base, USEC_PER_MSEC));
         } else if (unit_id && activated_time == 0)
                 size = strpcpyf(&ptr, size, "\n%s was never reached", unit_id);
         else if (unit_id && activated_time == USEC_INFINITY)
@@ -591,7 +590,6 @@ static void svg_graph_box(double height, double begin, double end) {
 }
 
 static int plot_unit_times(UnitTimes *u, double width, int y) {
-        char ts[FORMAT_TIMESPAN_MAX];
         bool b;
 
         if (!u->name)
@@ -605,7 +603,7 @@ static int plot_unit_times(UnitTimes *u, double width, int y) {
         b = u->activating * SCALE_X < width / 2;
         if (u->time)
                 svg_text(b, u->activating, y, "%s (%s)",
-                         u->name, format_timespan(ts, sizeof(ts), u->time, USEC_PER_MSEC));
+                         u->name, FORMAT_TIMESPAN(u->time, USEC_PER_MSEC));
         else
                 svg_text(b, u->activating, y, "%s", u->name);
 
@@ -836,8 +834,6 @@ static int list_dependencies_print(
                 UnitTimes *times,
                 BootTimes *boot) {
 
-        char ts[FORMAT_TIMESPAN_MAX], ts2[FORMAT_TIMESPAN_MAX];
-
         for (unsigned i = level; i != 0; i--)
                 printf("%s", special_glyph(branches & (1 << (i-1)) ? SPECIAL_GLYPH_TREE_VERTICAL : SPECIAL_GLYPH_TREE_SPACE));
 
@@ -846,10 +842,10 @@ static int list_dependencies_print(
         if (times) {
                 if (times->time > 0)
                         printf("%s%s @%s +%s%s", ansi_highlight_red(), name,
-                               format_timespan(ts, sizeof(ts), times->activating - boot->userspace_time, USEC_PER_MSEC),
-                               format_timespan(ts2, sizeof(ts2), times->time, USEC_PER_MSEC), ansi_normal());
+                               FORMAT_TIMESPAN(times->activating - boot->userspace_time, USEC_PER_MSEC),
+                               FORMAT_TIMESPAN(times->time, USEC_PER_MSEC), ansi_normal());
                 else if (times->activated > boot->userspace_time)
-                        printf("%s @%s", name, format_timespan(ts, sizeof(ts), times->activated - boot->userspace_time, USEC_PER_MSEC));
+                        printf("%s @%s", name, FORMAT_TIMESPAN(times->activated - boot->userspace_time, USEC_PER_MSEC));
                 else
                         printf("%s", name);
         } else
@@ -964,7 +960,6 @@ static int list_dependencies_one(sd_bus *bus, const char *name, unsigned level, 
 
 static int list_dependencies(sd_bus *bus, const char *name) {
         _cleanup_strv_free_ char **units = NULL;
-        char ts[FORMAT_TIMESPAN_MAX];
         UnitTimes *times;
         int r;
         const char *id;
@@ -1004,9 +999,10 @@ static int list_dependencies(sd_bus *bus, const char *name) {
         if (times) {
                 if (times->time)
                         printf("%s%s +%s%s\n", ansi_highlight_red(), id,
-                               format_timespan(ts, sizeof(ts), times->time, USEC_PER_MSEC), ansi_normal());
+                               FORMAT_TIMESPAN(times->time, USEC_PER_MSEC), ansi_normal());
                 else if (times->activated > boot->userspace_time)
-                        printf("%s @%s\n", id, format_timespan(ts, sizeof(ts), times->activated - boot->userspace_time, USEC_PER_MSEC));
+                        printf("%s @%s\n", id,
+                               FORMAT_TIMESPAN(times->activated - boot->userspace_time, USEC_PER_MSEC));
                 else
                         printf("%s\n", id);
         }

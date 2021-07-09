@@ -321,7 +321,6 @@ static void test_raw_clone(void) {
 
 static void test_physical_memory(void) {
         uint64_t p;
-        char buf[FORMAT_BYTES_MAX];
 
         log_info("/* %s */", __func__);
 
@@ -330,7 +329,7 @@ static void test_physical_memory(void) {
         assert_se(p < UINT64_MAX);
         assert_se(p % page_size() == 0);
 
-        log_info("Memory: %s (%" PRIu64 ")", format_bytes(buf, sizeof(buf), p), p);
+        log_info("Memory: %s (%" PRIu64 ")", FORMAT_BYTES(p), p);
 }
 
 static void test_physical_memory_scale(void) {
