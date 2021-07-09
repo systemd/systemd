@@ -29,6 +29,9 @@ struct Device {
         DeviceState state, deserialized_state;
         DeviceFound found, deserialized_found, enumerated_found;
 
+        /* Indicates whether the device was at least once in the DeviceState DEVICE_PLUGGED. */
+        bool plugged_once;
+
         bool bind_mounts;
 
         /* The SYSTEMD_WANTS udev property for this device the last time we saw it */
