@@ -4091,7 +4091,7 @@ static int make_uid_map_string(
         int r;
 
         assert(n_bind_user_uid == 0 || bind_user_uid);
-        assert(offset == 0 || offset == 2); /* used to switch between UID and GID map */
+        assert(IN_SET(offset, 0, 2)); /* used to switch between UID and GID map */
         assert(ret);
 
         /* The bind_user_uid[] array is a series of 4 uid_t values, for each --bind-user= entry one
