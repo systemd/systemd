@@ -115,7 +115,7 @@ if have_gnu_efi
                             ['sbat-distro-url', 'BUG_REPORT_URL']]
                 foreach sbatvar : sbatvars
                         value = get_option(sbatvar[0])
-                        if value == '' or value == 'auto'
+                        if (value == '' and not meson.is_cross_build()) or value == 'auto'
                                 cmd = 'if [ -e /etc/os-release ]; then . /etc/os-release; else . /usr/lib/os-release; fi; echo $@0@'.format(sbatvar[1])
                                 value = run_command(sh, '-c', cmd).stdout().strip()
                                 message('@0@ (from @1@): @2@'.format(sbatvar[0], sbatvar[1], value))
