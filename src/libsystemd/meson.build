@@ -159,16 +159,20 @@ disable_mempool_c = files('disable-mempool.c')
 
 libsystemd_c_args = ['-fvisibility=default']
 
-libsystemd_static = static_library(
-        'systemd_static',
-        libsystemd_sources,
-        install : false,
-        include_directories : libsystemd_includes,
-        link_with : libbasic,
-        dependencies : [threads,
-                        librt,
-                        libopenssl],
-        c_args : libsystemd_c_args)
+if boot_only
+        libsystemd_static = disabler()
+else
+        libsystemd_static = static_library(
+                'systemd_static',
+                libsystemd_sources,
+                install : false,
+                include_directories : libsystemd_includes,
+                link_with : libbasic,
+                dependencies : [threads,
+                                librt,
+                                libopenssl],
+                c_args : libsystemd_c_args)
+endif
 
 libsystemd_sym = files('libsystemd.sym')
 libsystemd_sym_path = join_paths(meson.current_source_dir(), 'libsystemd.sym')
