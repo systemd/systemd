@@ -1,5 +1,16 @@
 # This file is part of systemd
 
+# Filter off invalid entries
+dmi:bvnTo be filled by*
+dmi:bvnTBD by*
+dmi:bvnDefault string
+dmi:bvnN/A
+dmi:bvnBoard Manufacturer
+dmi:bvnBoard Vendor Name
+dmi:bvnBoard Product Name
+    ID_VENDOR_FROM_DATABASE=
+    ID_MODEL_FROM_DATABASE=
+
 # Fix "Lenovo" capitalization in /sys/class/dmi/id/sys_vendor
 dmi:bvnLENOVO*
     ID_SYSFS_ATTRIBUTE_MODEL=product_version
