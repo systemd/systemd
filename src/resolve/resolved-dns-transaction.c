@@ -1142,22 +1142,31 @@ void dns_transaction_process_reply(DnsTransaction *t, DnsPacket *p, bool encrypt
                                 break;
                         }
 
-                        /* Reduce this feature level by one and try again. */
-                        switch (t->current_feature_level) {
-                        case DNS_SERVER_FEATURE_LEVEL_TLS_DO:
-                                t->clamp_feature_level_servfail = DNS_SERVER_FEATURE_LEVEL_TLS_PLAIN;
-                                break;
-                        case DNS_SERVER_FEATURE_LEVEL_TLS_PLAIN + 1:
-                                /* Skip plain TLS when TLS is not supported */
-                                t->clamp_feature_level_servfail = DNS_SERVER_FEATURE_LEVEL_TLS_PLAIN - 1;
-                                break;
-                        default:
-                                t->clamp_feature_level_servfail = t->current_feature_level - 1;
-                        }
+                        /* SERVFAIL can happen for many reasons and may be transient.
+                         * To avoid unnecessary downgrades retry once with the initial level. */
+                        if (DNS_PACKET_RCODE(p) == DNS_RCODE_SERVFAIL &&
+                            t->clamp_feature_level_servfail == _DNS_SERVER_FEATURE_LEVEL_INVALID) {
+                                t->clamp_feature_level_servfail = t->current_feature_level;
+                                log_debug("Server returned error %s, retrying transaction.",
+                                          dns_rcode_to_string(DNS_PACKET_RCODE(p)));
+                        } else {
+                                /* Reduce this feature level by one and try again. */
+                                switch (t->current_feature_level) {
+                                case DNS_SERVER_FEATURE_LEVEL_TLS_DO:
+                                        t->clamp_feature_level_servfail = DNS_SERVER_FEATURE_LEVEL_TLS_PLAIN;
+                                        break;
+                                case DNS_SERVER_FEATURE_LEVEL_TLS_PLAIN + 1:
+                                        /* Skip plain TLS when TLS is not supported */
+                                        t->clamp_feature_level_servfail = DNS_SERVER_FEATURE_LEVEL_TLS_PLAIN - 1;
+                                        break;
+                                default:
+                                        t->clamp_feature_level_servfail = t->current_feature_level - 1;
+                                }
 
-                        log_debug("Server returned error %s, retrying transaction with reduced feature level %s.",
-                                  dns_rcode_to_string(DNS_PACKET_RCODE(p)),
-                                  dns_server_feature_level_to_string(t->clamp_feature_level_servfail));
+                                log_debug("Server returned error %s, retrying transaction with reduced feature level %s.",
+                                          dns_rcode_to_string(DNS_PACKET_RCODE(p)),
+                                          dns_server_feature_level_to_string(t->clamp_feature_level_servfail));
+                        }
 
                         dns_transaction_retry(t, false /* use the same server */);
                         return;
