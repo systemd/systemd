@@ -444,6 +444,8 @@ option('ok-color', type : 'combo',
                   'highlight-cyan', 'highlight-white'],
        value : 'green',
        description: 'color of the "OK" status message')
+option('urlify', type : 'boolean', value : 'true',
+       description : 'enable pager Hyperlink ANSI sequence support')
 option('fexecve', type : 'boolean', value : 'false',
        description : 'use fexecve() to spawn children')
 
