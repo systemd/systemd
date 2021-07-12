@@ -4426,9 +4426,24 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
         start_dnsmasq()
         self.wait_online(['veth99:routable', 'veth-peer:routable'])
 
-        output = check_output('ip route list dev veth99 10.0.0.0/8')
+        output = check_output('ip route list dev veth99')
         print(output)
-        self.assertRegex(output, '10.0.0.0/8 via 192.168.5.1 proto dhcp')
+        self.assertRegex(output, 'default via 192.168.5.1 proto dhcp src 192.168.5.[0-9]*')
+        self.assertIn('10.0.0.0/8 via 192.168.5.1 proto dhcp', output)
+
+        with open(os.path.join(network_unit_file_path, 'dhcp-client-gateway-ipv4.network'), mode='a') as f:
+            f.write('[DHCPv4]\nUseGateway=no\n')
+
+        rc = call(*networkctl_cmd, 'reload', env=env)
+        self.assertEqual(rc, 0)
+
+        time.sleep(2)
+        self.wait_online(['veth99:routable', 'veth-peer:routable'])
+
+        output = check_output('ip route list dev veth99')
+        print(output)
+        self.assertNotRegex(output, 'default via 192.168.5.1 proto dhcp src 192.168.5.[0-9]*')
+        self.assertIn('10.0.0.0/8 via 192.168.5.1 proto dhcp', output)
 
     def test_dhcp_client_gateway_ipv6(self):
         copy_unit_to_networkd_unit_path('25-veth.netdev', 'dhcp-server-veth-peer.network',
