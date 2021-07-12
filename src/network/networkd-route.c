@@ -746,6 +746,26 @@ static bool route_address_is_reachable(const Route *route, int family, const uni
                         FAMILY_ADDRESS_SIZE(family) * 8) > 0;
 }
 
+static bool prefix_route_address_is_reachable(const Address *a, int family, const union in_addr_union *address) {
+        assert(a);
+        assert(IN_SET(family, AF_INET, AF_INET6));
+        assert(address);
+
+        if (a->family != family)
+                return false;
+        if (FLAGS_SET(a->flags, IFA_F_NOPREFIXROUTE))
+                return false;
+        if (in_addr_is_set(a->family, &a->in_addr_peer))
+                return false;
+
+        return in_addr_prefix_intersect(
+                        family,
+                        &a->in_addr,
+                        a->prefixlen,
+                        address,
+                        FAMILY_ADDRESS_SIZE(family) * 8) > 0;
+}
+
 bool manager_address_is_reachable(Manager *manager, int family, const union in_addr_union *address) {
         Link *link;
 
@@ -763,6 +783,20 @@ bool manager_address_is_reachable(Manager *manager, int family, const union in_a
                         if (route_address_is_reachable(route, family, address))
                                 return true;
         }
+
+        /* If we do not manage foreign routes, then there may exist a prefix route we do not know,
+         * which was created on configuring an address. Hence, also check the addresses. */
+        if (!manager->manage_foreign_routes)
+                HASHMAP_FOREACH(link, manager->links_by_index) {
+                        Address *a;
+
+                        SET_FOREACH(a, link->addresses)
+                                if (prefix_route_address_is_reachable(a, family, address))
+                                        return true;
+                        SET_FOREACH(a, link->addresses_foreign)
+                                if (prefix_route_address_is_reachable(a, family, address))
+                                        return true;
+                }
 
         return false;
 }
