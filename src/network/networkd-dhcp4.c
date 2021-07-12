@@ -379,9 +379,6 @@ static int dhcp4_request_static_routes(Link *link, struct in_addr *ret_default_g
         assert(link->dhcp_lease);
         assert(ret_default_gw);
 
-        if (!link->network->dhcp_use_routes)
-                return 0;
-
         n = sd_dhcp_lease_get_routes(link->dhcp_lease, &static_routes);
         if (IN_SET(n, 0, -ENODATA)) {
                 log_link_debug(link, "DHCP: No static routes received from DHCP server.");
@@ -405,6 +402,45 @@ static int dhcp4_request_static_routes(Link *link, struct in_addr *ret_default_g
          * the DHCP client MUST ignore the Static Routes option. */
         if (classless_route && static_route)
                 log_link_debug(link, "Classless static routes received from DHCP server: ignoring static-route option");
+
+        if (!link->network->dhcp_use_routes) {
+                if (!classless_route)
+                        return 0;
+
+                /* Even if UseRoutes=no, try to find default gateway to make semi-static routes and
+                 * routes to DNS or NTP servers can be configured in later steps. */
+                for (int i = 0; i < n; i++) {
+                        struct in_addr dst;
+                        uint8_t prefixlen;
+
+                        if (sd_dhcp_route_get_option(static_routes[i]) != SD_DHCP_OPTION_CLASSLESS_STATIC_ROUTE)
+                                continue;
+
+                        r = sd_dhcp_route_get_destination(static_routes[i], &dst);
+                        if (r < 0)
+                                return r;
+
+                        if (in4_addr_is_set(&dst))
+                                continue;
+
+                        r = sd_dhcp_route_get_destination_prefix_length(static_routes[i], &prefixlen);
+                        if (r < 0)
+                                return r;
+
+                        if (prefixlen != 0)
+                                continue;
+
+                        r = sd_dhcp_route_get_gateway(static_routes[i], ret_default_gw);
+                        if (r < 0)
+                                return r;
+
+                        break;
+                }
+
+                /* Do not return 1 here, to ensure the router option can override the default gateway
+                 * that was found. */
+                return 0;
+        }
 
         for (int i = 0; i < n; i++) {
                 _cleanup_(route_freep) Route *route = NULL;
@@ -454,19 +490,15 @@ static int dhcp4_request_static_routes(Link *link, struct in_addr *ret_default_g
         return classless_route;
 }
 
-static int dhcp4_request_gateway(Link *link, struct in_addr *ret_gw) {
+static int dhcp4_request_gateway(Link *link, struct in_addr *gw) {
         _cleanup_(route_freep) Route *route = NULL;
         const struct in_addr *router;
         struct in_addr address;
-        Route *rt;
         int r;
 
         assert(link);
         assert(link->dhcp_lease);
-        assert(ret_gw);
-
-        if (!link->network->dhcp_use_gateway)
-                return 0;
+        assert(gw);
 
         r = sd_dhcp_lease_get_address(link->dhcp_lease, &address);
         if (r < 0)
@@ -481,6 +513,16 @@ static int dhcp4_request_gateway(Link *link, struct in_addr *ret_gw) {
                 return r;
         if (in4_addr_is_null(&router[0])) {
                 log_link_debug(link, "DHCP: Received gateway address is null.");
+                return 0;
+        }
+
+        if (!link->network->dhcp_use_gateway) {
+                /* When no classless static route is provided, even if UseGateway=no, use the gateway
+                 * address to configure semi-static routes or routes to DNS or NTP servers. Note, if
+                 * neither UseRoutes= nor UseGateway= is disabled, use the default gateway in classless
+                 * static routes if provided (in that case, in4_addr_is_null(gw) below is true). */
+                if (in4_addr_is_null(gw))
+                        *gw = router[0];
                 return 0;
         }
 
@@ -508,18 +550,42 @@ static int dhcp4_request_gateway(Link *link, struct in_addr *ret_gw) {
         if (r < 0)
                 return r;
 
+        /* When no classless static route is provided, or UseRoutes=no, then use the router address to
+         * configure semi-static routes and routes to DNS or NTP servers in later steps. */
+        *gw = router[0];
+        return 0;
+}
+
+static int dhcp4_request_semi_static_routes(Link *link, const struct in_addr *gw) {
+        Route *rt;
+        int r;
+
+        assert(link);
+        assert(link->dhcp_lease);
+        assert(link->network);
+        assert(gw);
+
+        if (in4_addr_is_null(gw))
+                return 0;
+
         HASHMAP_FOREACH(rt, link->network->routes_by_section) {
+                _cleanup_(route_freep) Route *route = NULL;
+
                 if (!rt->gateway_from_dhcp_or_ra)
                         continue;
 
                 if (rt->gw_family != AF_INET)
                         continue;
 
+                r = dhcp4_request_route_to_gateway(link, gw);
+                if (r < 0)
+                        return r;
+
                 r = route_dup(rt, &route);
                 if (r < 0)
                         return r;
 
-                route->gw.in = router[0];
+                route->gw.in = *gw;
                 if (!route->protocol_set)
                         route->protocol = RTPROT_DHCP;
                 if (!route->priority_set)
@@ -534,7 +600,6 @@ static int dhcp4_request_gateway(Link *link, struct in_addr *ret_gw) {
                         return r;
         }
 
-        *ret_gw = router[0];
         return 0;
 }
 
@@ -652,6 +717,10 @@ static int dhcp4_request_routes(Link *link) {
                 if (r < 0)
                         return log_link_error_errno(link, r, "DHCP error: Could not request gateway: %m");
         }
+
+        r = dhcp4_request_semi_static_routes(link, &gw);
+        if (r < 0)
+                return log_link_error_errno(link, r, "DHCP error: Could not request routes with Gateway=_dhcp4 setting: %m");
 
         r = dhcp4_request_routes_to_dns(link, &gw);
         if (r < 0)
