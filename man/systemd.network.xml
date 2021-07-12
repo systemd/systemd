@@ -1986,7 +1986,7 @@ IPv6Token=prefixstable:2002:da8:1::</programlisting></para>
             DHCP server. After a new IP is received, the DHCPv4 client performs IPv4 Duplicate Address
             Detection. If duplicate use is detected, the DHCPv4 client rejects the IP by sending a
             <constant>DHCPDECLINE</constant> packet and tries to obtain an IP address again. See <ulink
-            url="https://tools.ietf.org/html/rfc5227">RFC 5224</ulink>. Defaults to
+            url="https://tools.ietf.org/html/rfc5227">RFC 5227</ulink>. Defaults to
             <literal>unset</literal>.</para>
           </listitem>
         </varlistentry>
