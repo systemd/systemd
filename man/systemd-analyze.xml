@@ -91,6 +91,12 @@
     <cmdsynopsis>
       <command>systemd-analyze</command>
       <arg choice="opt" rep="repeat">OPTIONS</arg>
+      <arg choice="plain">filesystems</arg>
+      <arg choice="opt"><replaceable>SET</replaceable>…</arg>
+    </cmdsynopsis>
+    <cmdsynopsis>
+      <command>systemd-analyze</command>
+      <arg choice="opt" rep="repeat">OPTIONS</arg>
       <arg choice="plain">calendar</arg>
       <arg choice="plain" rep="repeat"><replaceable>SPEC</replaceable></arg>
     </cmdsynopsis>
@@ -406,6 +412,14 @@ Conditions succeeded.</programlisting>
       <title><command>systemd-analyze syscall-filter <optional><replaceable>SET</replaceable>...</optional></command></title>
 
       <para>This command will list system calls contained in the specified system call set
+      <replaceable>SET</replaceable>, or all known sets if no sets are specified. Argument
+      <replaceable>SET</replaceable> must include the <literal>@</literal> prefix.</para>
+    </refsect2>
+
+    <refsect2>
+      <title><command>systemd-analyze filesystems <optional><replaceable>SET</replaceable>...</optional></command></title>
+
+      <para>This command will list filesystems in the specified filesystem set
       <replaceable>SET</replaceable>, or all known sets if no sets are specified. Argument
       <replaceable>SET</replaceable> must include the <literal>@</literal> prefix.</para>
     </refsect2>
