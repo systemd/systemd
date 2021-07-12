@@ -356,9 +356,13 @@ mouse:usb:v046dpc07e:name:Logitech Gaming Mouse G402:*
 mouse:usb:v046dpc083:name:Logitech G403 Prodigy Gaming Mouse:*
  MOUSE_DPI=400@1000 *800@1000 1600@1000 3200@1000
 
+# Logitech G403 Hero
+mouse:usb:v046dpc08f:name:Logitech G403 HERO Gaming Mouse:*
+ MOUSE_DPI=400@1000 *800@1000 1600@1000 3200@1000
+
 # Logitech G500 Mouse
 mouse:usb:v046dpc068:name:Logitech G500:*
- MOUSE_DPI=*1600@500 2600@500 3600@500
+ MOUSE_DPI=400@500 *800@500 2000@500
 
 # Logitech G502 Proteus Spectrum
 mouse:usb:v046dpc332:name:Logitech Gaming Mouse G502:*
@@ -371,14 +375,21 @@ mouse:usb:v046dpc08b:name:Logitech G502 HERO Gaming Mouse:*
 # Logitech G700 Laser Mouse (Wired)
 mouse:usb:v046dpc06b:name:Logitech G700 Laser Mouse:*
 # Logitech G700 Laser Mouse (Wireless)
+mouse:usb:v046dp1023:name:Logitech G700:*
 mouse:usb:v046dpc531:name:Logitech USB Receiver:*
- MOUSE_DPI=*1000@500 3800@500 500@1000 1500@1000 2000@1000
+ MOUSE_DPI=400@500 800@500 *1200@500 1600@500 3200@500
 
 # Logitech G703 (Wired)
 mouse:usb:v046dpc087:name:Logitech G703 Wired/Wireless Gaming Mouse:*
 # Logitech G703 (Wireless)
 mouse:usb:v046dpc539:name:Logitech USB Receiver Mouse:*
  MOUSE_DPI=400@1000 800@1000 *1600@1000 3200@1000
+
+# Logitech G Pro Wireless (Wired)
+mouse:usb:v046dpc088:name:Logitech G Pro Wireless Gaming Mouse:*
+# Logitech G Pro Wireless (Wireless)
+mouse:usb:v046dp4079:name:Logitech G Pro:*
+ MOUSE_DPI=400@1000 *800@1000 1600@1000 3200@1000 6400@1000
 
 ## M Series ##
 
@@ -406,7 +417,7 @@ mouse:usb:v046dpc52f:name:Logitech USB Receiver:*
 
 # Logitech Wireless Mouse M310
 mouse:usb:v046dp1024:name:Logitech M310:*
- MOUSE_DPI=1100@168
+ MOUSE_DPI=800@125
 
 # Logitech Wireless Mouse M325
 mouse:usb:v046dp400a:name:Logitech M325:*
@@ -496,6 +507,7 @@ mouse:usb:v046dp406f:name:Logitech MX Ergo:*
 mouse:usb:v046dpc52b:name:Logitech Unifying Device. Wireless PID:406f:*
 mouse:bluetooth:v046dpb01d:name:MX Ergo Mouse:*
  ID_INPUT_TRACKBALL=1
+ MOUSE_DPI=380@125
 
 ## Other ##
 
@@ -604,6 +616,10 @@ mouse:usb:v046dpc52b:name:Logitech Unifying Device. Wireless PID:4026:*
 mouse:usb:v046dpc404:name:Logitech Trackball:*
  MOUSE_DPI=300@125
 
+# Logitech Trackman Marble
+mouse:usb:v046dpc408:name:Logitech USB Trackball:*
+ MOUSE_DPI=300@125
+
 # Logitech Ultrathin Touch Mouse
 mouse:bluetooth:v046dpb00d:name:Ultrathin Touch Mouse:*
  MOUSE_DPI=1000@1000
@@ -665,6 +681,10 @@ mouse:bluetooth:v0000p0000:name:Surface Mouse:*
 # Microsoft Classic IntelliMouse
 mouse:usb:v045ep0823:name:Microsoft Microsoft?? Classic IntelliMouse??:*
  MOUSE_DPI=3200@1000
+
+# Microsoft Pro Intellimouse
+mouse:usb:v045ep082a:name:Microsoft Microsoft Pro Intellimouse Mouse:*
+ MOUSE_DPI=1600@1000
 
 ##########################################
 # Mionix

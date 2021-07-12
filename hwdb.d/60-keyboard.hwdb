@@ -384,7 +384,7 @@ evdev:name:Dell WMI hotkeys:dmi:bvn*:bvr*:bd*:svnDell*:pnPrecision*:*
 
 # Dell Latitude privacy microphone mute
 evdev:name:Dell Privacy Driver:dmi:bvn*:bvr*:bd*:svnDell*:pnLatitude*:*
- KEYBOARD_KEY_12001=f20                                 # Mic mute toggle, should be micmute
+ KEYBOARD_KEY_120001=f20                                # Mic mute toggle, should be micmute
 
 ###########################################################
 # Everex
@@ -623,11 +623,13 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnHewlett-Packard*:pnHPLicrice:*
 # HP EliteBook
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnHewlett-Packard*:pnHPEliteBook*:*
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnHP*:pnHPEliteBook*:*
+# HP Elite Dragonfly
+evdev:atkbd:dmi:bvn*:bvr*:bd*:svnHP*:pnHPEliteDragonfly*:*
 # HP ProBook 440 G2
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnHewlett-Packard*:pnHP440G2:*
-# several HP ProBooks 4xx
-evdev:atkbd:dmi:bvn*:bvr*:bd*:svnHewlett-Packard*:pnHP*ProBook4*:*
-evdev:atkbd:dmi:bvn*:bvr*:bd*:svnHP*:pnHP*ProBook*4*:*
+# HP ProBook
+evdev:atkbd:dmi:bvn*:bvr*:bd*:svnHewlett-Packard*:pnHP*ProBook*:*
+evdev:atkbd:dmi:bvn*:bvr*:bd*:svnHP*:pnHP*ProBook*:*
 # HP ZBook
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnHewlett-Packard*:pnHPZBook*:*
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnHP*:pnHPZBook*:*
@@ -682,6 +684,21 @@ evdev:atkbd:dmi:bvn*:bvr*:svnHP*:pnHP*ProBook*640*G2*:*
 # HP ProBook 645 G4
 evdev:atkbd:dmi:bvn*:bvr*:svnHP*:pnHP*ProBook*645*G4*:*
  KEYBOARD_KEY_73=slash                                  # Slash key
+ KEYBOARD_KEY_f8=wlan                                   # Wireless HW switch button
+
+# HP ProBook 455 G5
+evdev:atkbd:dmi:bvn*:bvr*:svnHP*:pnHP*ProBook*455*G5*:*
+ KEYBOARD_KEY_85=unknown                                # lid close; also reported via special evdev
+ KEYBOARD_KEY_f8=wlan                                   # Wireless HW switch button
+
+# HP mt44 Mobile Thin Client
+evdev:atkbd:dmi:bvn*:bvr*:svnHP*:pnHP*mt44*Mobile*Thin*Client*:*
+ KEYBOARD_KEY_64=calendar                               # Calendar icon (Fn + F12)
+ KEYBOARD_KEY_6d=displaytoggle                          # Display icon
+ KEYBOARD_KEY_66=connect                                # Pickup phone button → connect → XF86Go
+ KEYBOARD_KEY_65=cancel                                 # Hangup phone button → cancel → Cancel
+ KEYBOARD_KEY_81=f20                                    # Fn+F8; Microphone mute button, should be micmute
+ KEYBOARD_KEY_85=unknown                                # lid close; also reported via special evdev
  KEYBOARD_KEY_f8=wlan                                   # Wireless HW switch button
 
 # HP Stream 7
@@ -863,6 +880,10 @@ evdev:atkbd:dmi:bvn*:bvr*:svnLENOVO*:pn*IdeaPad*Z370*:*
  KEYBOARD_KEY_ae=!volumedown
  KEYBOARD_KEY_b0=!volumeup
 
+evdev:atkbd:dmi:*:svnLENOVO:*:pvrLenovoYoga300-11IBR:*
+ KEYBOARD_KEY_62=unknown  # Touchpad on, also emitted by "Ideapad extra buttons", ignore
+ KEYBOARD_KEY_63=unknown  # Touchpad off, also emitted by "Ideapad extra buttons", ignore
+
 # Fix for volume keys on Lenovo Yoga S940
 # For 10th gen it should be pn81Q8 instead of pn81Q7 but
 # I don't have a device to test
@@ -895,6 +916,10 @@ evdev:input:b0003v04B3p301B*
  KEYBOARD_KEY_90006=calc
  KEYBOARD_KEY_90007=mail
  KEYBOARD_KEY_90008=www
+
+# Lenovo Ideapad D330-10IGM
+evdev:name:SIPODEV Lenovo HID Device:dmi:*:svnLENOVO:*:pvrLenovoideapadD330-10IGM:*
+ KEYBOARD_KEY_70073=f21                                 # Fn+Supr (Touchpad toggle)
 
 
 ###########################################################
@@ -1236,7 +1261,7 @@ evdev:input:b0003v1532p0200*
  KEYBOARD_KEY_c01cb=down                                # zoomout
 
 ###########################################################
-# Micro Star
+# MSI (aka "Micro Star")
 ###########################################################
 
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnMICRO-STAR*:pn*:*
@@ -1275,24 +1300,19 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnMicro-Star*:pn*PR200*:*
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnMICRO-STAR*:pnU90/U100:*
  KEYBOARD_KEY_e4=reserved
 
-# MSI Prestige15 A10SC specific keycodes. Needed for microphone and screen rotation
-evdev:atkbd:dmi:bvn*:bvr*:bd*:svnMicro-Star*:pn*A10SC*:*
- KEYBOARD_KEY_f1=f20
- KEYBOARD_KEY_f2=f21
-
-# MSI Modern series
-evdev:atkbd:dmi:bvn*:bvr*:bd*:svnMicro-StarInternational*:pnModern*:*
- KEYBOARD_KEY_f1=f20                                    # Fn+F5 micmute
- KEYBOARD_KEY_76=f21                                    # Fn+F4 touchpad, becomes meta+ctrl+toggle
+# Keymaps MSI Prestige And MSI Modern FnKeys and Special keys
+evdev:atkbd:dmi:bvn*:bvr*:bd*:svnMicro-Star*:pn*Prestige*:*
+evdev:atkbd:dmi:bvn*:bvr*:bd*:svnMicro-Star*:pn*Modern*:*
+ KEYBOARD_KEY_56=backslash                              # Secondary backslash key
+ KEYBOARD_KEY_f1=f20                                    # Fn+F5 Micmute
+ KEYBOARD_KEY_76=f21                                    # Fn+F4 Toggle touchpad, sends meta+ctrl+toggle
  KEYBOARD_KEY_91=prog1                                  # Fn+F7 Creation Center, sometime F7
- KEYBOARD_KEY_f2=prog2                                  # Fn+F12 screen rotation
- KEYBOARD_KEY_97=unknown                                # lid close
- KEYBOARD_KEY_98=unknown                                # lid open
-                                                        #Fn+PrntScr sends meta+shif+s
-
-###########################################################
-# MSI
-###########################################################
+ KEYBOARD_KEY_f2=prog2                                  # Fn+F12 Screen rotation
+ KEYBOARD_KEY_8d=prog3                                  # Fn+A Change True Color selections
+ KEYBOARD_KEY_8c=prog4                                  # Fn+Z Launch True Color
+ KEYBOARD_KEY_f5=fn_esc                                 # Fn+esc Toggle the behaviour of Fn keys
+ KEYBOARD_KEY_97=unknown                                # Lid close
+ KEYBOARD_KEY_98=unknown                                # Lid open
 
 evdev:name:MSI Laptop hotkeys:dmi:bvn*:bvr*:bd*:svn*:pnM[iI][cC][rR][oO]-S[tT][aA][rR]*:*
  KEYBOARD_KEY_0213=f22
