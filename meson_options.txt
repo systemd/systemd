@@ -87,6 +87,8 @@ option('resolve', type : 'boolean',
        description : 'systemd-resolved stack')
 option('efi', type : 'boolean',
        description : 'enable systemd-boot and bootctl')
+option('boot-only', type : 'boolean', value : 'false',
+       description : 'build systemd-boot only')
 option('tpm', type : 'boolean',
        description : 'TPM should be used to log events and extend the registers')
 option('environment-d', type : 'boolean',
@@ -351,6 +353,8 @@ option('pwquality', type : 'combo', choices : ['auto', 'true', 'false'],
        description : 'libpwquality support')
 option('microhttpd', type : 'combo', choices : ['auto', 'true', 'false'],
        description : 'libµhttpd support')
+option('libcap', type : 'combo', choices : ['auto', 'true', 'false'], value : 'true',
+       description : 'enable libcap support')
 option('libcryptsetup', type : 'combo', choices : ['auto', 'true', 'false'],
        description : 'libcryptsetup support')
 option('libcurl', type : 'combo', choices : ['auto', 'true', 'false'],
@@ -363,6 +367,8 @@ option('libidn', type : 'combo', choices : ['auto', 'true', 'false'],
        description : 'libidn support')
 option('libiptc', type : 'combo', choices : ['auto', 'true', 'false'],
        description : 'libiptc support')
+option('libmount', type : 'combo', choices : ['auto', 'true', 'false'], value : 'true',
+       description : 'enable libmount support')
 option('qrencode', type : 'combo', choices : ['auto', 'true', 'false'],
        description : 'libqrencode support')
 option('gcrypt', type : 'combo', choices : ['auto', 'true', 'false'],
