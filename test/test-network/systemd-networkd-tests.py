@@ -16,6 +16,7 @@ from shutil import copytree
 
 network_unit_file_path='/run/systemd/network'
 networkd_runtime_directory='/run/systemd/netif'
+networkd_conf_dropin_path='/run/systemd/networkd.conf.d'
 networkd_ci_path='/run/networkd-ci'
 network_sysctl_ipv6_path='/proc/sys/net/ipv6/conf'
 network_sysctl_ipv4_path='/proc/sys/net/ipv4/conf'
@@ -263,6 +264,7 @@ def setUpModule():
     global running_units
 
     os.makedirs(network_unit_file_path, exist_ok=True)
+    os.makedirs(networkd_conf_dropin_path, exist_ok=True)
     os.makedirs(networkd_ci_path, exist_ok=True)
 
     shutil.rmtree(networkd_ci_path)
@@ -459,6 +461,17 @@ def remove_unit_from_networkd_path(units):
             os.remove(os.path.join(network_unit_file_path, unit))
             if (os.path.exists(os.path.join(network_unit_file_path, unit + '.d'))):
                 shutil.rmtree(os.path.join(network_unit_file_path, unit + '.d'))
+
+def copy_networkd_conf_dropin(*dropins):
+    """Copy networkd.conf dropin files into the testbed."""
+    for dropin in dropins:
+        shutil.copy(os.path.join(networkd_ci_path, dropin), networkd_conf_dropin_path)
+
+def remove_networkd_conf_dropin(dropins):
+    """Remove previously copied networkd.conf dropin files from the testbed."""
+    for dropin in dropins:
+        if (os.path.exists(os.path.join(networkd_conf_dropin_path, dropin))):
+            os.remove(os.path.join(networkd_conf_dropin_path, dropin))
 
 def start_dnsmasq(additional_options='', ipv4_range='192.168.5.10,192.168.5.200', ipv6_range='2600::10,2600::20', lease_time='1h'):
     dnsmasq_command = f'dnsmasq -8 /var/run/networkd-ci/test-dnsmasq-log-file --log-queries=extra --log-dhcp --pid-file=/var/run/networkd-ci/test-test-dnsmasq.pid --conf-file=/dev/null --interface=veth-peer --enable-ra --dhcp-range={ipv6_range},{lease_time} --dhcp-range={ipv4_range},{lease_time} -R --dhcp-leasefile=/var/run/networkd-ci/lease --dhcp-option=26,1492 --dhcp-option=option:router,192.168.5.1 --port=0 ' + additional_options
@@ -1858,6 +1871,10 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         'routing-policy-rule-reconfigure2.network',
     ]
 
+    networkd_conf_dropins = [
+        'networkd-manage-foreign-routes-no.conf',
+    ]
+
     routing_policy_rule_tables = ['7', '8', '9', '10', '1011']
     routes = [['blackhole', '202.54.1.2'], ['unreachable', '202.54.1.3'], ['prohibit', '202.54.1.4']]
 
@@ -1875,6 +1892,7 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         remove_routes(self.routes)
         remove_links(self.links)
         remove_unit_from_networkd_path(self.units)
+        remove_networkd_conf_dropin(self.networkd_conf_dropins)
         stop_networkd(show_logs=True)
         call('ip netns del ns99', stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
@@ -2253,7 +2271,10 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         self.assertRegex(output, 'lookup 7')
         self.assertRegex(output, 'uidrange 100-200')
 
-    def test_route_static(self):
+    def _test_route_static(self, manage_foreign_routes):
+        if not manage_foreign_routes:
+            copy_networkd_conf_dropin('networkd-manage-foreign-routes-no.conf')
+
         copy_unit_to_networkd_unit_path('25-route-static.network', '12-dummy.netdev')
         start_networkd()
         self.wait_online(['dummy98:routable'])
@@ -2458,6 +2479,13 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         output = check_output('ip -6 route show type prohibit')
         print(output)
         self.assertEqual(output, '')
+
+        self.tearDown()
+
+    def test_route_static(self):
+        for manage_foreign_routes in [True, False]:
+            with self.subTest(manage_foreign_routes=manage_foreign_routes):
+                self._test_route_static(manage_foreign_routes)
 
     @expectedFailureIfRTA_VIAIsNotSupported()
     def test_route_via_ipv6(self):
