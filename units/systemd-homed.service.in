@@ -21,6 +21,7 @@ DeviceAllow=/dev/loop-control rw
 DeviceAllow=/dev/mapper/control rw
 DeviceAllow=block-* rw
 ExecStart=@rootlibexecdir@/systemd-homed
+DeviceAllow=char-hidraw rw
 IPAddressDeny=any
 KillMode=mixed
 LimitNOFILE=@HIGH_RLIMIT_NOFILE@
