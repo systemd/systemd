@@ -66,7 +66,7 @@
     <ulink url="https://tools.ietf.org/html/rfc1035#section-5">RFC 1035, Section 5</ulink>. One <constant
     class='dns'>DS</constant> or <constant class='dns'>DNSKEY</constant> resource record may be listed per
     line. Empty lines and lines starting with <literal>#</literal> or <literal>;</literal> are ignored, which
-    may be used for commenting. A <consant class='dns'>DS</consant> resource record is specified like in the
+    may be used for commenting. A <constant class='dns'>DS</constant> resource record is specified like in the
     following example:</para>
 
     <programlisting>. IN DS 19036 8 2 49aac11d7b6f6446702e54a1607371607a1a41855200fd2ce1cdde32f24e8fb5</programlisting>
