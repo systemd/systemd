@@ -262,6 +262,8 @@ Features:
 
 * pid1: support new clone3() fork-into-cgroup feature
 
+* pid1: support new cgroup.kill to terminate all processes in a cgroup
+
 * pid1: also remove PID files of a service when the service starts, not just
   when it exits
 
@@ -425,6 +427,7 @@ Features:
 * paranoia: whenever we process passwords, call mlock() on the memory
   first. i.e. look for all places we use free_and_erasep() and
   augment them with mlock(). Also use MADV_DONTDUMP.
+  Alternatively (preferably?) use memfd_secret().
 
 * Move RestrictAddressFamily= to the new cgroup create socket
 
