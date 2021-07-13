@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <net/if.h>
 #include <netinet/in.h>
 #include <linux/if.h>
 #include <linux/if_arp.h>
@@ -20,6 +21,7 @@
 #include "ethtool-util.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "format-util.h"
 #include "fs-util.h"
 #include "ipvlan.h"
 #include "missing_network.h"
@@ -2160,6 +2162,7 @@ static int link_update_alternative_names(Link *link, sd_netlink_message *message
 }
 
 static int link_update_name(Link *link, sd_netlink_message *message) {
+        char ifname_from_index[IF_NAMESIZE + 1];
         const char *ifname;
         int r;
 
@@ -2175,6 +2178,16 @@ static int link_update_name(Link *link, sd_netlink_message *message) {
 
         if (streq(ifname, link->ifname))
                 return 0;
+
+        if (!format_ifname(link->ifindex, ifname_from_index))
+                return log_link_debug_errno(link, SYNTHETIC_ERRNO(ENXIO), "Could not get interface name for index %i.", link->ifindex);
+
+        if (!streq(ifname, ifname_from_index)) {
+                log_link_debug(link, "New interface name '%s' received from the kernel does not correspond "
+                               "with the name currently configured on the actual interface '%s'. Ignoring.",
+                               ifname, ifname_from_index);
+                return 0;
+        }
 
         log_link_info(link, "Interface name change detected, renamed to %s.", ifname);
 
