@@ -1504,6 +1504,10 @@ Manager* manager_free(Manager *m) {
                 m->prefix[dt] = mfree(m->prefix[dt]);
         free(m->received_credentials);
 
+#if BPF_FRAMEWORK
+        lsm_bpf_destroy(m->restrict_fs);
+#endif
+
         return mfree(m);
 }
 
