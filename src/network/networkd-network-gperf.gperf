@@ -265,7 +265,7 @@ IPv6AcceptRA.PrefixDenyList,                 config_parse_ndisc_address_filter, 
 IPv6AcceptRA.RouteAllowList,                 config_parse_ndisc_address_filter,                        0,                             offsetof(Network, ndisc_allow_listed_route_prefix)
 IPv6AcceptRA.RouteDenyList,                  config_parse_ndisc_address_filter,                        0,                             offsetof(Network, ndisc_deny_listed_route_prefix)
 DHCPServer.ServerAddress,                    config_parse_dhcp_server_address,                         0,                             0
-DHCPServer.UplinkInterface,                  config_parse_dhcp_server_uplink,                          0,                             0
+DHCPServer.UplinkInterface,                  config_parse_uplink,                                      0,                             0
 DHCPServer.RelayTarget,                      config_parse_in_addr_non_null,                            AF_INET,                       offsetof(Network, dhcp_server_relay_target)
 DHCPServer.RelayAgentCircuitId,              config_parse_dhcp_server_relay_agent_suboption,           0,                             offsetof(Network, dhcp_server_relay_agent_circuit_id)
 DHCPServer.RelayAgentRemoteId,               config_parse_dhcp_server_relay_agent_suboption,           0,                             offsetof(Network, dhcp_server_relay_agent_remote_id)
@@ -333,6 +333,7 @@ IPv6SendRA.DNS,                              config_parse_radv_dns,             
 IPv6SendRA.EmitDomains,                      config_parse_bool,                                        0,                             offsetof(Network, router_emit_domains)
 IPv6SendRA.Domains,                          config_parse_radv_search_domains,                         0,                             0
 IPv6SendRA.DNSLifetimeSec,                   config_parse_sec,                                         0,                             offsetof(Network, router_dns_lifetime_usec)
+IPv6SendRA.UplinkInterface,                  config_parse_uplink,                                      0,                             0
 IPv6Prefix.Prefix,                           config_parse_prefix,                                      0,                             0
 IPv6Prefix.OnLink,                           config_parse_prefix_flags,                                0,                             0
 IPv6Prefix.AddressAutoconfiguration,         config_parse_prefix_flags,                                0,                             0
