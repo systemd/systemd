@@ -198,8 +198,42 @@ static void dns_cache_make_space(DnsCache *c, unsigned add) {
         }
 }
 
-void dns_cache_prune(DnsCache *c) {
+static const char *get_cache_item_protocol(int family) {
+    const char *protocol_ipv4 = "IPv4";
+    const char *protocol_ipv6 = "IPv6";
+    const char *protocol_unknown = "Unknown";
+
+    if (streq_ptr(af_to_name(family), "AF_INET"))
+        return protocol_ipv4;
+    if (streq_ptr(af_to_name(family), "AF_INET6"))
+        return protocol_ipv6;
+
+    return protocol_unknown;
+}
+static const char *get_cache_item_type(const char *cache_item) {
+    const char *type_in_addr = "in-addr.arpa";
+    const char *type_ip6 = "ip6.arpa";
+    const char *type_local = "local";
+
+    if (dns_name_endswith(cache_item, type_in_addr))
+        return type_in_addr;
+    if (dns_name_endswith(cache_item, type_ip6))
+        return type_ip6;
+    if (dns_name_endswith(cache_item, type_local))
+        return type_local;
+
+    return cache_item;
+}
+
+void dns_cache_prune(DnsCache *c, int owner_family, char *ifname, DnsProtocol protocol) {
         usec_t t = 0;
+        int r;
+        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
+        r = sd_bus_default(&bus);
+        if (r < 0) {
+                log_error_errno(r, "Failed to connect to system bus: %m");
+                return;
+        }
 
         assert(c);
 
@@ -218,6 +252,22 @@ void dns_cache_prune(DnsCache *c) {
 
                 if (i->until > t)
                         break;
+
+                if (protocol == DNS_PROTOCOL_MDNS) {
+                         const char *protocol_name = get_cache_item_protocol(owner_family);
+                         const char *name = dns_resource_key_name(i->key);
+                         const char *type = get_cache_item_type(name);
+
+                         r = sd_bus_emit_signal(bus,
+                                                "/org/freedesktop/resolve1",
+                                                "org.freedesktop.resolve1.Manager",
+                                                "ItemRemove",
+                                                "sssss", ifname, protocol_name, name, type, "local");
+                         if (r < 0) {
+                                 log_error_errno(r, "Cannot emit ItemRemove signal: %m");
+                                 return;
+                         }
+                }
 
                 /* Depending whether this is an mDNS shared entry
                  * either remove only this one RR or the whole RRset */
@@ -419,7 +469,9 @@ static int dns_cache_put_positive(
                 usec_t timestamp,
                 int ifindex,
                 int owner_family,
-                const union in_addr_union *owner_address) {
+                const union in_addr_union *owner_address,
+                char *interface_name,
+                DnsProtocol protocol) {
 
         _cleanup_(dns_cache_item_freep) DnsCacheItem *i = NULL;
         char key_str[DNS_RESOURCE_KEY_STRING_MAX];
@@ -501,6 +553,25 @@ static int dns_cache_put_positive(
         r = dns_cache_link_item(c, i);
         if (r < 0)
                 return r;
+
+        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
+        r = sd_bus_default(&bus);
+        if (r < 0)
+                return log_error_errno(r, "Failed to connect to system bus: %m");
+
+        if (protocol == DNS_PROTOCOL_MDNS) {
+                const char *protocol_name = get_cache_item_protocol(owner_family);
+                const char *name = dns_resource_key_name(rr->key);
+                const char *type = get_cache_item_type(name);
+
+                r = sd_bus_emit_signal(bus,
+                                       "/org/freedesktop/resolve1",
+                                       "org.freedesktop.resolve1.Manager",
+                                       "ItemNew",
+                                       "sssss", interface_name, protocol_name, name, type, "local");
+                if (r < 0)
+                        return log_error_errno(r, "Cannot emit ItemNew signal: %m");
+        }
 
         if (DEBUG_LOGGING) {
                 _cleanup_free_ char *t = NULL;
@@ -690,7 +761,9 @@ int dns_cache_put(
                 DnssecResult dnssec_result,
                 uint32_t nsec_ttl,
                 int owner_family,
-                const union in_addr_union *owner_address) {
+                const union in_addr_union *owner_address,
+                char *ifname,
+                DnsProtocol protocol) {
 
         DnsResourceRecord *soa = NULL;
         bool weird_rcode = false;
@@ -785,7 +858,9 @@ int dns_cache_put(
                                 timestamp,
                                 item->ifindex,
                                 owner_family,
-                                owner_address);
+                                owner_address,
+                                ifname,
+                                protocol);
                 if (r < 0)
                         goto fail;
         }
@@ -1223,14 +1298,14 @@ miss:
         return 0;
 }
 
-int dns_cache_check_conflicts(DnsCache *cache, DnsResourceRecord *rr, int owner_family, const union in_addr_union *owner_address) {
+int dns_cache_check_conflicts(DnsCache *cache, DnsResourceRecord *rr, int owner_family, const union in_addr_union *owner_address, char *ifname, DnsProtocol protocol) {
         DnsCacheItem *i, *first;
         bool same_owner = true;
 
         assert(cache);
         assert(rr);
 
-        dns_cache_prune(cache);
+        dns_cache_prune(cache, owner_family, ifname, protocol);
 
         /* See if there's a cache entry for the same key. If there
          * isn't there's no conflict */
@@ -1343,6 +1418,43 @@ void dns_cache_dump(DnsCache *cache, FILE *f) {
                         }
                 }
         }
+}
+
+int dns_cache_dump_mdns(Manager *m, sd_bus_message *reply) {
+        DnsScope *scope;
+        int r;
+
+        r = sd_bus_message_open_container(reply, 'a', "(sssss)");
+        if (r < 0)
+                return r;
+
+        LIST_FOREACH(scopes, scope, m->dns_scopes) {
+                assert(scope);
+                if (scope->protocol == DNS_PROTOCOL_MDNS) {
+                        if (!dns_cache_is_empty(&scope->cache)) {
+                                DnsCacheItem *i;
+                                DnsCache *cache = &scope->cache;
+
+                                if (!cache)
+                                        return 0;
+
+                                HASHMAP_FOREACH(i, cache->by_key) {
+                                        DnsCacheItem *j;
+                                        LIST_FOREACH(by_key, j, i) {
+                                                const char *protocol_name = get_cache_item_protocol(scope->family);
+                                                const char *name = (j->rr) ? dns_resource_key_name(j->rr->key) : dns_resource_key_name(j->key);
+                                                const char *type = get_cache_item_type(name);
+
+                                                r = sd_bus_message_append(reply, "(sssss)", scope->link->ifname, protocol_name, name, type, "local");
+                                                if (r < 0)
+                                                        return r;
+                                        }
+                                }
+                        }
+                }
+        }
+
+        return sd_bus_message_close_container(reply);
 }
 
 bool dns_cache_is_empty(DnsCache *cache) {
