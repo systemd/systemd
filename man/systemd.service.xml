@@ -696,6 +696,15 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>RuntimeRandomizedExtraSec=</varname></term>
+
+        <listitem><para>This option modifies <varname>RuntimeMaxSec=</varname> by increasing the maximum runtime by an
+        evenly distributed duration between 0 and the specified value (in seconds). If <varname>RuntimeMaxSec=</varname> is
+        unspecified, then this feature will be disabled.
+        </para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>WatchdogSec=</varname></term>
         <listitem><para>Configures the watchdog timeout for a service.
         The watchdog is activated when the start-up is completed. The

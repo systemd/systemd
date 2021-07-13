@@ -111,6 +111,7 @@ struct Service {
         usec_t timeout_abort_usec;
         bool timeout_abort_set;
         usec_t runtime_max_usec;
+        usec_t runtime_rand_extra_usec;
         ServiceTimeoutFailureMode timeout_start_failure_mode;
         ServiceTimeoutFailureMode timeout_stop_failure_mode;
 

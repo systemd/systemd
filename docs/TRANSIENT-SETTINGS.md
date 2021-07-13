@@ -320,6 +320,7 @@ Most service unit settings are available for transient units.
 ✓ RestartSec=
 ✓ RootDirectoryStartOnly=
 ✓ RuntimeMaxSec=
+✓ RuntimeRandomizedExtraSec=
   Sockets=
 ✓ SuccessExitStatus=
 ✓ TimeoutAbortSec=
@@ -395,6 +396,7 @@ such).
 
 ```
 ✓ RuntimeMaxSec=
+✓ RuntimeRandomizedExtraSec=
 ✓ TimeoutStopSec=
 ```
 

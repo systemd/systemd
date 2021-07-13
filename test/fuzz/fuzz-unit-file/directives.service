@@ -290,6 +290,7 @@ RuntimeDirectory=
 RuntimeDirectoryMode=
 RuntimeDirectoryPreserve=
 RuntimeMaxSec=
+RuntimeRandomizedExtraSec=
 SELinuxContext=
 SecureBits=
 SendSIGHUP=

@@ -9,6 +9,7 @@
 #include "load-dropin.h"
 #include "log.h"
 #include "process-util.h"
+#include "random-util.h"
 #include "scope.h"
 #include "serialize.h"
 #include "special.h"
@@ -49,6 +50,21 @@ static void scope_done(Unit *u) {
         s->controller_track = sd_bus_track_unref(s->controller_track);
 
         s->timer_event_source = sd_event_source_disable_unref(s->timer_event_source);
+}
+
+static int scope_running_timeout(Scope *s) {
+        usec_t delta = 0;
+
+        assert(s);
+
+        if (s->runtime_rand_extra_usec != 0) {
+                delta = random_u64_range(s->runtime_rand_extra_usec);
+                log_unit_debug(UNIT(s), "Adding delta of %s sec to timeout", FORMAT_TIMESPAN(delta, USEC_PER_SEC));
+        }
+
+        return usec_add(usec_add(UNIT(s)->active_enter_timestamp.monotonic,
+                                 s->runtime_max_usec),
+                        delta);
 }
 
 static int scope_arm_timer(Scope *s, usec_t usec) {
@@ -209,7 +225,7 @@ static usec_t scope_coldplug_timeout(Scope *s) {
         switch (s->deserialized_state) {
 
         case SCOPE_RUNNING:
-                return usec_add(UNIT(s)->active_enter_timestamp.monotonic, s->runtime_max_usec);
+                return scope_running_timeout(s);
 
         case SCOPE_STOP_SIGKILL:
         case SCOPE_STOP_SIGTERM:
@@ -262,10 +278,12 @@ static void scope_dump(Unit *u, FILE *f, const char *prefix) {
         fprintf(f,
                 "%sScope State: %s\n"
                 "%sResult: %s\n"
-                "%sRuntimeMaxSec: %s\n",
+                "%sRuntimeMaxSec: %s\n"
+                "%sRuntimeRandomizedExtraSec: %s\n",
                 prefix, scope_state_to_string(s->state),
                 prefix, scope_result_to_string(s->result),
-                prefix, FORMAT_TIMESPAN(s->runtime_max_usec, USEC_PER_SEC));
+                prefix, FORMAT_TIMESPAN(s->runtime_max_usec, USEC_PER_SEC),
+                prefix, FORMAT_TIMESPAN(s->runtime_rand_extra_usec, USEC_PER_SEC));
 
         cgroup_context_dump(UNIT(s), f, prefix);
         kill_context_dump(&s->kill_context, f, prefix);
@@ -379,7 +397,7 @@ static int scope_start(Unit *u) {
         scope_set_state(s, SCOPE_RUNNING);
 
         /* Set the maximum runtime timeout. */
-        scope_arm_timer(s, usec_add(UNIT(s)->active_enter_timestamp.monotonic, s->runtime_max_usec));
+        scope_arm_timer(s, scope_running_timeout(s));
 
         /* On unified we use proper notifications hence we can unwatch the PIDs
          * we just attached to the scope. This can also be done on legacy as

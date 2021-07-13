@@ -202,6 +202,7 @@ const sd_bus_vtable bus_service_vtable[] = {
         SD_BUS_PROPERTY("TimeoutStartFailureMode", "s", property_get_timeout_failure_mode, offsetof(Service, timeout_start_failure_mode), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("TimeoutStopFailureMode", "s", property_get_timeout_failure_mode, offsetof(Service, timeout_stop_failure_mode), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("RuntimeMaxUSec", "t", bus_property_get_usec, offsetof(Service, runtime_max_usec), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("RuntimeRandomizedExtraUSec", "t", bus_property_get_usec, offsetof(Service, runtime_rand_extra_usec), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("WatchdogUSec", "t", property_get_watchdog_usec, 0, 0),
         BUS_PROPERTY_DUAL_TIMESTAMP("WatchdogTimestamp", offsetof(Service, watchdog_timestamp), 0),
         SD_BUS_PROPERTY("PermissionsStartOnly", "b", bus_property_get_bool, offsetof(Service, permissions_start_only), SD_BUS_VTABLE_PROPERTY_CONST|SD_BUS_VTABLE_HIDDEN), /* 😷 deprecated */
@@ -446,6 +447,9 @@ static int bus_service_set_transient_property(
 
         if (streq(name, "RuntimeMaxUSec"))
                 return bus_set_transient_usec(u, name, &s->runtime_max_usec, message, flags, error);
+
+        if (streq(name, "RuntimeRandomizedExtraUSec"))
+                return bus_set_transient_usec(u, name, &s->runtime_rand_extra_usec, message, flags, error);
 
         if (streq(name, "WatchdogUSec"))
                 return bus_set_transient_usec(u, name, &s->watchdog_usec, message, flags, error);
