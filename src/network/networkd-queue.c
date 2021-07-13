@@ -110,7 +110,7 @@ static void request_hash_func(const Request *req, struct siphash *state) {
                 trivial_hash_func(req->object, state);
                 break;
         case REQUEST_TYPE_DHCP_SERVER:
-                /* This type does not have object. */
+                /* This type does not have an object. */
                 break;
         case REQUEST_TYPE_IPV6_PROXY_NDP:
                 in6_addr_hash_func(req->ipv6_proxy_ndp, state);
