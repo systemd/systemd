@@ -108,7 +108,8 @@ REQUIREMENTS:
           CONFIG_HAVE_EBPF_JIT
           CONFIG_CGROUP_BPF
 
-        Required for SocketBind{Allow|Deny}= in resource control unit settings
+        Required for SocketBind{Allow|Deny}=, RestrictNetworkInterfaces= in
+        resource control unit settings
           CONFIG_BPF
           CONFIG_BPF_SYSCALL
           CONFIG_BPF_JIT
