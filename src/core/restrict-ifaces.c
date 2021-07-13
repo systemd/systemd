@@ -85,6 +85,9 @@ int restrict_network_interfaces_supported(void) {
                 return supported;
         }
 
+        if (dlopen_bpf() < 0)
+                return false;
+
         if (!sym_bpf_probe_prog_type(BPF_PROG_TYPE_CGROUP_SKB, /*ifindex=*/0)) {
                 log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
                                 "BPF program type cgroup_skb is not supported");
