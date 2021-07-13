@@ -14,6 +14,7 @@ typedef enum ExecutionMode {
         MODE_STATISTICS,
         MODE_RESET_STATISTICS,
         MODE_FLUSH_CACHES,
+        MODE_SHOW_CACHES,
         MODE_RESET_SERVER_FEATURES,
         MODE_STATUS,
         MODE_SET_LINK,

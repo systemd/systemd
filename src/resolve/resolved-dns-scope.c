@@ -1275,7 +1275,7 @@ void dns_scope_check_conflicts(DnsScope *scope, DnsPacket *p) {
 
                 /* Check for conflicts against the local cache. If so,
                  * send out an advisory query, to inform everybody */
-                r = dns_cache_check_conflicts(&scope->cache, rr, p->family, &p->sender);
+                r = dns_cache_check_conflicts(&scope->cache, rr, p->family, &p->sender, scope->link->ifname, scope->protocol);
                 if (r <= 0)
                         continue;
 
