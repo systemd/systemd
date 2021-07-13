@@ -1766,10 +1766,8 @@ static BOOLEAN config_entry_add_loader_auto(
 
                 /* look for systemd-boot magic string */
                 err = file_read(root_dir, loader, 0, 100*1024, &content, &len);
-                if (!EFI_ERROR(err))
-                        for (CHAR8 *start = content; start <= content + len - sizeof(magic) - 1; start++)
-                                if (start[0] == magic[0] && CompareMem(start, magic, sizeof(magic) - 1) == 0)
-                                        return FALSE;
+                if (!EFI_ERROR(err) && FindMem(content, len, magic, sizeof(magic)))
+                        return FALSE;
         }
 
         /* check existence */
@@ -1812,6 +1810,58 @@ static VOID config_entry_add_osx(Config *config) {
                                 break;
                 }
         }
+}
+
+
+static VOID config_entry_add_windows(Config *config, EFI_HANDLE *device, EFI_FILE *root_dir) {
+        EFI_STATUS err;
+        UINTN len;
+        const CHAR16 *title = NULL;
+        _cleanup_freepool_ CHAR8 *bcd = NULL;
+
+        if (!config->auto_entries)
+                return;
+
+        /* Try to find a better title. */
+        err = file_read(root_dir, L"\\EFI\\Microsoft\\Boot\\BCD", 0, 100*1024, &bcd, &len);
+        if (!EFI_ERROR(err)) {
+                const struct {
+                        const CHAR16 *title;
+                        const UINTN version_len;
+                } versions[] = {
+                        { L"Windows 11",    STRLEN(L"11")+1 },
+                        { L"Windows 10",    STRLEN(L"10")+1 },
+                        { L"Windows 8.1",   STRLEN(L"8.1")+1 },
+                        { L"Windows 8",     STRLEN(L"8")+1 },
+                        { L"Windows 7",     STRLEN(L"7")+1 },
+                        { L"Windows Vista", STRLEN(L"Vista")+1 },
+                };
+
+                CHAR8 *p = bcd;
+                while (!title) {
+                        CHAR8 *v = FindMem(p, len, versions[0].title, STRLEN(L"Windows "));
+                        if (!v)
+                                break;
+
+                        v += STRLEN(L"Windows ");
+                        len -= v - p;
+                        p = v;
+
+                        /* We found the prefix, now try all the version strings. */
+                        for (UINTN i = 0; i < ELEMENTSOF(versions); i++) {
+                                if (CompareMem(p, versions[i].title + (STRLEN(L"Windows ") / sizeof(CHAR16)), versions[i].version_len) == 0) {
+                                        title = versions[i].title;
+                                        break;
+                                }
+                        }
+                }
+        }
+
+        if (!title)
+                title = L"Windows Boot Manager";
+
+        config_entry_add_loader_auto(config, device, root_dir, NULL, L"auto-windows",
+                                     'w', title, L"\\EFI\\Microsoft\\Boot\\bootmgfw.efi");
 }
 
 static VOID config_entry_add_linux(
@@ -2350,13 +2400,12 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
         config_sort_entries(&config);
 
         /* if we find some well-known loaders, add them to the end of the list */
-        config_entry_add_loader_auto(&config, loaded_image->DeviceHandle, root_dir, NULL,
-                                     L"auto-windows", 'w', L"Windows Boot Manager", L"\\EFI\\Microsoft\\Boot\\bootmgfw.efi");
+        config_entry_add_osx(&config);
+        config_entry_add_windows(&config, loaded_image->DeviceHandle, root_dir);
         config_entry_add_loader_auto(&config, loaded_image->DeviceHandle, root_dir, NULL,
                                      L"auto-efi-shell", 's', L"EFI Shell", L"\\shell" EFI_MACHINE_TYPE_NAME ".efi");
         config_entry_add_loader_auto(&config, loaded_image->DeviceHandle, root_dir, loaded_image_path,
                                      L"auto-efi-default", '\0', L"EFI Default Loader", L"\\EFI\\Boot\\boot" EFI_MACHINE_TYPE_NAME ".efi");
-        config_entry_add_osx(&config);
 
         if (config.auto_firmware && efivar_get_uint64_le(EFI_GLOBAL_GUID, L"OsIndicationsSupported", &osind) == EFI_SUCCESS) {
                 if (osind & EFI_OS_INDICATIONS_BOOT_TO_FW_UI)

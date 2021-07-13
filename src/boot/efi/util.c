@@ -416,3 +416,11 @@ EFI_STATUS log_oom(void) {
         (void) uefi_call_wrapper(BS->Stall, 1, 3 * 1000 * 1000);
         return EFI_OUT_OF_RESOURCES;
 }
+
+VOID *FindMem(const VOID *haystack, UINTN haystack_len, const VOID *needle, UINTN needle_len) {
+        const CHAR8 *n = needle;
+        for (const CHAR8 *h = haystack; haystack_len >= needle_len; h++, haystack_len--)
+                if (*h == *n && CompareMem(h, n, needle_len) == 0)
+                        return (VOID*)h;
+        return NULL;
+}
