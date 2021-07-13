@@ -458,15 +458,11 @@ static int dhcp4_request_gateway(Link *link, struct in_addr *ret_gw) {
         _cleanup_(route_freep) Route *route = NULL;
         const struct in_addr *router;
         struct in_addr address;
-        Route *rt;
         int r;
 
         assert(link);
         assert(link->dhcp_lease);
         assert(ret_gw);
-
-        if (!link->network->dhcp_use_gateway)
-                return 0;
 
         r = sd_dhcp_lease_get_address(link->dhcp_lease, &address);
         if (r < 0)
@@ -481,6 +477,11 @@ static int dhcp4_request_gateway(Link *link, struct in_addr *ret_gw) {
                 return r;
         if (in4_addr_is_null(&router[0])) {
                 log_link_debug(link, "DHCP: Received gateway address is null.");
+                return 0;
+        }
+
+        if (!link->network->dhcp_use_gateway) {
+                *ret_gw = router[0];
                 return 0;
         }
 
@@ -508,18 +509,40 @@ static int dhcp4_request_gateway(Link *link, struct in_addr *ret_gw) {
         if (r < 0)
                 return r;
 
+        *ret_gw = router[0];
+        return 0;
+}
+
+static int dhcp4_request_semi_static_routes(Link *link, const struct in_addr *gw) {
+        Route *rt;
+        int r;
+
+        assert(link);
+        assert(link->dhcp_lease);
+        assert(link->network);
+        assert(gw);
+
+        if (in4_addr_is_null(gw))
+                return 0;
+
         HASHMAP_FOREACH(rt, link->network->routes_by_section) {
+                _cleanup_(route_freep) Route *route = NULL;
+
                 if (!rt->gateway_from_dhcp_or_ra)
                         continue;
 
                 if (rt->gw_family != AF_INET)
                         continue;
 
+                r = dhcp4_request_route_to_gateway(link, gw);
+                if (r < 0)
+                        return r;
+
                 r = route_dup(rt, &route);
                 if (r < 0)
                         return r;
 
-                route->gw.in = router[0];
+                route->gw.in = *gw;
                 if (!route->protocol_set)
                         route->protocol = RTPROT_DHCP;
                 if (!route->priority_set)
@@ -534,7 +557,6 @@ static int dhcp4_request_gateway(Link *link, struct in_addr *ret_gw) {
                         return r;
         }
 
-        *ret_gw = router[0];
         return 0;
 }
 
@@ -652,6 +674,10 @@ static int dhcp4_request_routes(Link *link) {
                 if (r < 0)
                         return log_link_error_errno(link, r, "DHCP error: Could not request gateway: %m");
         }
+
+        r = dhcp4_request_semi_static_routes(link, &gw);
+        if (r < 0)
+                return log_link_error_errno(link, r, "DHCP error: Could not request routes with Gateway=_dhcp4 setting: %m");
 
         r = dhcp4_request_routes_to_dns(link, &gw);
         if (r < 0)
