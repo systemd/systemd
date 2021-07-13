@@ -3,6 +3,9 @@
 
 #include <stdbool.h>
 
+#if HAVE_LIBBPF
+#include "bpf-lsm.h"
+#endif
 #include "cgroup-util.h"
 #include "cpu-set-util.h"
 #include "ip-address-access.h"
