@@ -52,6 +52,7 @@ NetClass=
 RestartKillSignal=
 RestrictNetworkInterfaces=
 RuntimeMaxSec=
+RuntimeRandomizedExtraSec=
 SendSIGHUP=
 SendSIGKILL=
 Slice=
