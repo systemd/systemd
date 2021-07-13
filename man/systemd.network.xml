@@ -2382,12 +2382,12 @@ IPv6Token=prefixstable:2002:da8:1::</programlisting></para>
 
       <varlistentry>
         <term><varname>UplinkInterface=</varname></term>
-        <listitem><para>Specifies name or index of uplink interface, or one of the special values
-        <literal>:none</literal> and <literal>:auto</literal>. When emitting DNS, NTP, or SIP servers
-        are enabled but no servers are specified, the servers configured in the uplink interface will
-        be emitted. When <literal>:auto</literal>, the link which has default gateway with higher
-        priority will be automatically selected. When <literal>:none</literal>, no uplink interface
-        will be selected. Defaults to <literal>:auto</literal>.</para></listitem>
+        <listitem><para>Specifies the name or the index of the uplink interface, or one of the special
+        values <literal>:none</literal> and <literal>:auto</literal>. When emitting DNS, NTP, or SIP
+        servers is enabled but no servers are specified, the servers configured in the uplink interface
+        will be emitted. When <literal>:auto</literal>, the link which has a default gateway with the
+        highest priority will be automatically selected. When <literal>:none</literal>, no uplink
+        interface will be selected. Defaults to <literal>:auto</literal>.</para></listitem>
       </varlistentry>
 
       <varlistentry>
