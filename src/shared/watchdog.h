@@ -8,6 +8,7 @@
 
 int watchdog_set_device(char *path);
 int watchdog_set_timeout(usec_t *usec);
+int watchdog_set_pretimeout(usec_t *usec);
 int watchdog_ping(void);
 void watchdog_close(bool disarm);
 usec_t watchdog_runtime_wait(void);
