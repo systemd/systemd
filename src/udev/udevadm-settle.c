@@ -176,7 +176,7 @@ int settle_main(int argc, char *argv[], void *userdata) {
 
         /* guarantee that the udev daemon isn't pre-processing */
         if (getuid() == 0) {
-                _cleanup_(udev_ctrl_unrefp) struct udev_ctrl *uctrl = NULL;
+                _cleanup_(udev_ctrl_unrefp) UdevCtrl *uctrl = NULL;
 
                 if (udev_ctrl_new(&uctrl) >= 0) {
                         r = udev_ctrl_send_ping(uctrl);
