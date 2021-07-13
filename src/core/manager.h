@@ -450,6 +450,9 @@ struct Manager {
          * we're a user manager, this object manages the client connection from the user manager to
          * systemd-oomd to report changes in ManagedOOM settings (systemd client - oomd server). */
         Varlink *managed_oom_varlink;
+
+        /* Reference to RestrictFileSystems= BPF program */
+        struct restrict_fs_bpf *restrict_fs;
 };
 
 static inline usec_t manager_default_timeout_abort_usec(Manager *m) {
