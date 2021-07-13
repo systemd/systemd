@@ -40,6 +40,7 @@ REQUIREMENTS:
         Linux kernel >= 4.17 for cgroup-bpf socket address hooks
         Linux kernel >= 5.3 for bounded-loops in BPF program
         Linux kernel >= 5.4 for signed Verity images support
+        Linux kernel >= 5.7 for BPF links
 
         Kernel Config Options:
           CONFIG_DEVTMPFS
@@ -108,7 +109,8 @@ REQUIREMENTS:
           CONFIG_HAVE_EBPF_JIT
           CONFIG_CGROUP_BPF
 
-        Required for SocketBind{Allow|Deny}= in resource control unit settings
+        Required for SocketBind{Allow|Deny}=, RestrictNetworkInterfaces= in
+        resource control unit settings
           CONFIG_BPF
           CONFIG_BPF_SYSCALL
           CONFIG_BPF_JIT
