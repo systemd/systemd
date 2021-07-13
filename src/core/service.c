@@ -29,6 +29,7 @@
 #include "parse-util.h"
 #include "path-util.h"
 #include "process-util.h"
+#include "random-util.h"
 #include "serialize.h"
 #include "service.h"
 #include "signal-util.h"
@@ -514,6 +515,21 @@ static void service_remove_fd_store(Service *s, const char *name) {
         }
 }
 
+static int service_running_timeout(Service *s) {
+        usec_t timeout, delta = 0;
+
+        assert(s);
+
+        if (s->runtime_max_delta_usec) {
+                delta = random_u64_range((uint64_t) s->runtime_max_delta_usec);
+                log_unit_debug(UNIT(s), "Adding delta of %d usec to timeout", (int) delta);
+        }
+
+        timeout = usec_add(UNIT(s)->active_enter_timestamp.monotonic, s->runtime_max_usec);
+
+        return usec_add(timeout, delta);
+}
+
 static int service_arm_timer(Service *s, usec_t usec) {
         int r;
 
@@ -586,6 +602,9 @@ static int service_verify(Service *s) {
 
         if (s->runtime_max_usec != USEC_INFINITY && s->type == SERVICE_ONESHOT)
                 log_unit_warning(UNIT(s), "RuntimeMaxSec= has no effect in combination with Type=oneshot. Ignoring.");
+
+        if (s->runtime_max_usec == USEC_INFINITY && s->runtime_max_delta_usec != 0)
+                log_unit_warning(UNIT(s), "Service has RuntimeMaxDeltaSec= setting, but no RuntimeMaxSec=. Ignoring.");
 
         return 0;
 }
@@ -855,8 +874,10 @@ static void service_dump(Unit *u, FILE *f, const char *prefix) {
 
         fprintf(f,
                 "%sRuntimeMaxSec: %s\n"
+                "%sRuntimeMaxDeltaSec: %s\n"
                 "%sWatchdogSec: %s\n",
                 prefix, FORMAT_TIMESPAN(s->runtime_max_usec, USEC_PER_SEC),
+                prefix, FORMAT_TIMESPAN(s->runtime_max_delta_usec, USEC_PER_SEC),
                 prefix, FORMAT_TIMESPAN(s->watchdog_usec, USEC_PER_SEC));
 
         kill_context_dump(&s->kill_context, f, prefix);
@@ -1120,7 +1141,7 @@ static usec_t service_coldplug_timeout(Service *s) {
                 return usec_add(UNIT(s)->state_change_timestamp.monotonic, s->timeout_start_usec);
 
         case SERVICE_RUNNING:
-                return usec_add(UNIT(s)->active_enter_timestamp.monotonic, s->runtime_max_usec);
+                return service_running_timeout(s);
 
         case SERVICE_STOP:
         case SERVICE_STOP_SIGTERM:
@@ -1991,7 +2012,7 @@ static void service_enter_running(Service *s, ServiceResult f) {
                         service_enter_stop_by_notify(s);
                 else {
                         service_set_state(s, SERVICE_RUNNING);
-                        service_arm_timer(s, usec_add(UNIT(s)->active_enter_timestamp.monotonic, s->runtime_max_usec));
+                        service_arm_timer(s, service_running_timeout(s));
                 }
 
         } else if (s->remain_after_exit)

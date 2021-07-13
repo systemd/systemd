@@ -317,6 +317,7 @@ Most service unit settings are available for transient units.
 ✓ RestartSec=
 ✓ RootDirectoryStartOnly=
 ✓ RuntimeMaxSec=
+✓ RuntimeMaxDeltaSec=
   Sockets=
 ✓ SuccessExitStatus=
 ✓ TimeoutAbortSec=
@@ -392,6 +393,7 @@ such).
 
 ```
 ✓ RuntimeMaxSec=
+✓ RuntimeMaxDeltaSec=
 ✓ TimeoutStopSec=
 ```
 
