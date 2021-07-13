@@ -2201,6 +2201,55 @@ static int link_update_name(Link *link, sd_netlink_message *message) {
         if (r < 0)
                 return log_link_debug_errno(link, r, "Failed to manage link by its new name: %m");
 
+        if (link->dhcp_client) {
+                r = sd_dhcp_client_set_ifname(link->dhcp_client, link->ifname);
+                if (r < 0)
+                        return log_link_debug_errno(link, r, "Failed to update interface name in DHCP client: %m");
+        }
+
+        if (link->dhcp6_client) {
+                r = sd_dhcp6_client_set_ifname(link->dhcp6_client, link->ifname);
+                if (r < 0)
+                        return log_link_debug_errno(link, r, "Failed to update interface name in DHCP6 client: %m");
+        }
+
+        if (link->ndisc) {
+                r = sd_ndisc_set_ifname(link->ndisc, link->ifname);
+                if (r < 0)
+                        return log_link_debug_errno(link, r, "Failed to update interface name in NDisc: %m");
+        }
+
+        if (link->dhcp_server) {
+                r = sd_dhcp_server_set_ifname(link->dhcp_server, link->ifname);
+                if (r < 0)
+                        return log_link_debug_errno(link, r, "Failed to update interface name in DHCP server: %m");
+        }
+
+        if (link->radv) {
+                r = sd_radv_set_ifname(link->radv, link->ifname);
+                if (r < 0)
+                        return log_link_debug_errno(link, r, "Failed to update interface name in Router Advertisement: %m");
+        }
+
+        if (link->lldp) {
+                r = sd_lldp_set_ifname(link->lldp, link->ifname);
+                if (r < 0)
+                        return log_link_debug_errno(link, r, "Failed to update interface name in LLDP: %m");
+        }
+
+        if (link->ipv4ll) {
+                r = sd_ipv4ll_set_ifname(link->ipv4ll, link->ifname);
+                if (r < 0)
+                        return log_link_debug_errno(link, r, "Failed to update interface name in IPv4LL client: %m");
+        }
+
+        Address *a;
+        SET_FOREACH(a, link->addresses_ipv4acd) {
+                r = sd_ipv4acd_set_ifname(a->acd, link->ifname);
+                if (r < 0)
+                        return log_link_debug_errno(link, r, "Failed to update interface name in IPv4ACD client: %m");
+        }
+
         return 0;
 }
 
