@@ -49,6 +49,7 @@ MemorySwapMax=
 NetClass=
 RestartKillSignal=
 RuntimeMaxSec=
+RuntimeMaxDeltaSec=
 SendSIGHUP=
 SendSIGKILL=
 Slice=

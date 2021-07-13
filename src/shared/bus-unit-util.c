@@ -1995,6 +1995,9 @@ static int bus_append_scope_property(sd_bus_message *m, const char *field, const
         if (streq(field, "RuntimeMaxSec"))
                 return bus_append_parse_sec_rename(m, field, eq);
 
+        if (streq(field, "RuntimeMaxDeltaSec"))
+                return bus_append_parse_sec_rename(m, field, eq);
+
         if (streq(field, "TimeoutStopSec"))
                 return bus_append_parse_sec_rename(m, field, eq);
 
@@ -2027,6 +2030,7 @@ static int bus_append_service_property(sd_bus_message *m, const char *field, con
                               "TimeoutStopSec",
                               "TimeoutAbortSec",
                               "RuntimeMaxSec",
+                              "RuntimeMaxDeltaSec",
                               "WatchdogSec"))
                 return bus_append_parse_sec_rename(m, field, eq);
 
