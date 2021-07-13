@@ -275,6 +275,7 @@ RestartPreventExitStatus=
 RestartSec=
 RestrictAddressFamilies=
 RestrictNamespaces=
+RestrictNetworkInterfaces=
 RestrictRealtime=
 RestrictSUIDSGID=
 RootDirectory=
