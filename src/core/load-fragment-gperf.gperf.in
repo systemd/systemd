@@ -382,6 +382,7 @@ Service.TimeoutAbortSec,                 config_parse_service_timeout_abort,    
 Service.TimeoutStartFailureMode,         config_parse_service_timeout_failure_mode,   0,                                  offsetof(Service, timeout_start_failure_mode)
 Service.TimeoutStopFailureMode,          config_parse_service_timeout_failure_mode,   0,                                  offsetof(Service, timeout_stop_failure_mode)
 Service.RuntimeMaxSec,                   config_parse_sec,                            0,                                  offsetof(Service, runtime_max_usec)
+Service.RuntimeRandomizedExtraSec,       config_parse_sec,                            0,                                  offsetof(Service, runtime_rand_extra_usec)
 Service.WatchdogSec,                     config_parse_sec,                            0,                                  offsetof(Service, watchdog_usec)
 {# The following five only exist for compatibility, they moved into Unit, see above #}
 Service.StartLimitInterval,              config_parse_sec,                            0,                                  offsetof(Unit, start_ratelimit.interval)
@@ -534,6 +535,7 @@ Path.DirectoryMode,                      config_parse_mode,                     
 {{ CGROUP_CONTEXT_CONFIG_ITEMS('Scope') }}
 {{ KILL_CONTEXT_CONFIG_ITEMS('Scope') }}
 Scope.RuntimeMaxSec,                     config_parse_sec,                            0,                                  offsetof(Scope, runtime_max_usec)
+Scope.RuntimeRandomizedExtraSec,         config_parse_sec,                            0,                                  offsetof(Scope, runtime_rand_extra_usec)
 Scope.TimeoutStopSec,                    config_parse_sec,                            0,                                  offsetof(Scope, timeout_stop_usec)
 {# The [Install] section is ignored here #}
 Install.Alias,                           NULL,                                        0,                                  0

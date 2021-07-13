@@ -112,6 +112,15 @@
         active for longer than the specified time it is terminated and put into a failure state. Pass
         <literal>infinity</literal> (the default) to configure no runtime limit.</para></listitem>
       </varlistentry>
+
+      <varlistentry>
+        <term><varname>RuntimeRandomizedExtraSec=</varname></term>
+
+        <listitem><para>This option modifies <varname>RuntimeMaxSec=</varname> by increasing the maximum runtime by an
+        evenly distributed duration between 0 and the specified value (in seconds). If <varname>RuntimeMaxSec=</varname> is
+        unspecified, then this feature will be disabled.
+        </para></listitem>
+      </varlistentry>
     </variablelist>
 
     <xi:include href="systemd.service.xml" xpointer="shared-unit-options" />
