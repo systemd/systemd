@@ -1814,6 +1814,56 @@ static VOID config_entry_add_osx(Config *config) {
         }
 }
 
+
+static VOID config_entry_add_windows(Config *config, EFI_HANDLE *device, EFI_FILE *root_dir) {
+        EFI_STATUS err;
+        UINTN len;
+        const CHAR16 *title = NULL;
+        _cleanup_freepool_ CHAR8 *bcd = NULL;
+
+        if (!config->auto_entries)
+                return;
+
+        /* Try to find a better title. */
+        err = file_read(root_dir, L"\\EFI\\Microsoft\\Boot\\BCD", 0, 100*1024, &bcd, &len);
+        if (!EFI_ERROR(err)) {
+                const CHAR16 prefix[] = L"Windows ";
+                const UINTN prefix_len = sizeof(prefix) - sizeof(CHAR16);
+
+                const struct {
+                        const CHAR16 *title;
+                        const UINTN version_len;
+                } versions[] = {
+                        { L"Windows 11", 6 },
+                        { L"Windows 10", 6 },
+                        { L"Windows 8.1", 8 },
+                        { L"Windows 8", 4, },
+                        { L"Windows 7", 4 },
+                        { L"Windows Vista", 12 },
+                };
+                len -= prefix_len + 12;
+
+                for (CHAR8 *start = bcd; !title && start <= bcd + len; start++) {
+                        if (start[0] != prefix[0] || CompareMem(start, prefix, prefix_len) != 0)
+                                continue;
+
+                        start += prefix_len;
+                        for (UINTN i = 0; i < ELEMENTSOF(versions); i++) {
+                                if (CompareMem(start, versions[i].title + (prefix_len / sizeof(CHAR16)), versions[i].version_len) == 0) {
+                                        title = versions[i].title;
+                                        break;
+                                }
+                        }
+                }
+        }
+
+        if (!title)
+                title = L"Windows Boot Manager";
+
+        config_entry_add_loader_auto(config, device, root_dir, NULL, L"auto-windows",
+                                     'w', title, L"\\EFI\\Microsoft\\Boot\\bootmgfw.efi");
+}
+
 static VOID config_entry_add_linux(
                 Config *config,
                 EFI_HANDLE *device,
@@ -2350,13 +2400,12 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
         config_sort_entries(&config);
 
         /* if we find some well-known loaders, add them to the end of the list */
-        config_entry_add_loader_auto(&config, loaded_image->DeviceHandle, root_dir, NULL,
-                                     L"auto-windows", 'w', L"Windows Boot Manager", L"\\EFI\\Microsoft\\Boot\\bootmgfw.efi");
+        config_entry_add_osx(&config);
+        config_entry_add_windows(&config, loaded_image->DeviceHandle, root_dir);
         config_entry_add_loader_auto(&config, loaded_image->DeviceHandle, root_dir, NULL,
                                      L"auto-efi-shell", 's', L"EFI Shell", L"\\shell" EFI_MACHINE_TYPE_NAME ".efi");
         config_entry_add_loader_auto(&config, loaded_image->DeviceHandle, root_dir, loaded_image_path,
                                      L"auto-efi-default", '\0', L"EFI Default Loader", L"\\EFI\\Boot\\boot" EFI_MACHINE_TYPE_NAME ".efi");
-        config_entry_add_osx(&config);
 
         if (config.auto_firmware && efivar_get_uint64_le(EFI_GLOBAL_GUID, L"OsIndicationsSupported", &osind) == EFI_SUCCESS) {
                 if (osind & EFI_OS_INDICATIONS_BOOT_TO_FW_UI)
