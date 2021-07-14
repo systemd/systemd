@@ -171,15 +171,22 @@ int config_parse_mud_url(
                 const char *lvalue,
                 int ltype,
                 const char *rvalue,
-                char **ret) {
+                void *data,
+                void *userdata) {
+
+        _cleanup_free_ char *unescaped = NULL;
+        char **url = data;
+        ssize_t l;
 
         assert(filename);
         assert(lvalue);
         assert(rvalue);
-        assert(ret);
+        assert(url);
 
-        _cleanup_free_ char *unescaped = NULL;
-        ssize_t l;
+        if (isempty(rvalue)) {
+                *url = mfree(*url);
+                return 0;
+        }
 
         l = cunescape(rvalue, 0, &unescaped);
         if (l < 0) {
@@ -194,7 +201,7 @@ int config_parse_mud_url(
                 return 0;
         }
 
-        return free_and_replace(*ret, unescaped);
+        return free_and_replace(*url, unescaped);
 }
 
 /* Router lifetime can be set with netlink interface since kernel >= 4.5

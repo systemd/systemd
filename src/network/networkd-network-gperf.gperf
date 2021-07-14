@@ -214,7 +214,7 @@ DHCPv4.SendHostname,                         config_parse_bool,                 
 DHCPv4.Hostname,                             config_parse_hostname,                                    0,                             offsetof(Network, dhcp_hostname)
 DHCPv4.RequestBroadcast,                     config_parse_tristate,                                    0,                             offsetof(Network, dhcp_broadcast)
 DHCPv4.VendorClassIdentifier,                config_parse_string,                                      0,                             offsetof(Network, dhcp_vendor_class_identifier)
-DHCPv4.MUDURL,                               config_parse_dhcp_mud_url,                                0,                             0
+DHCPv4.MUDURL,                               config_parse_mud_url,                                     0,                             offsetof(Network, dhcp_mudurl)
 DHCPv4.MaxAttempts,                          config_parse_dhcp_max_attempts,                           0,                             0
 DHCPv4.UserClass,                            config_parse_dhcp_user_or_vendor_class,                   AF_INET,                       offsetof(Network, dhcp_user_class)
 DHCPv4.IAID,                                 config_parse_iaid,                                        AF_INET,                       0
@@ -239,7 +239,7 @@ DHCPv6.UseHostname,                          config_parse_bool,                 
 DHCPv6.UseDomains,                           config_parse_dhcp_use_domains,                            0,                             0
 DHCPv6.UseNTP,                               config_parse_dhcp_use_ntp,                                0,                             0
 DHCPv6.RapidCommit,                          config_parse_bool,                                        0,                             offsetof(Network, dhcp6_rapid_commit)
-DHCPv6.MUDURL,                               config_parse_dhcp6_mud_url,                               0,                             0
+DHCPv6.MUDURL,                               config_parse_mud_url,                                     0,                             offsetof(Network, dhcp6_mudurl)
 DHCPv6.RequestOptions,                       config_parse_dhcp_request_options,                        AF_INET6,                      0
 DHCPv6.UserClass,                            config_parse_dhcp_user_or_vendor_class,                   AF_INET6,                      offsetof(Network, dhcp6_user_class)
 DHCPv6.VendorClass,                          config_parse_dhcp_user_or_vendor_class,                   AF_INET6,                      offsetof(Network, dhcp6_vendor_class)
@@ -342,7 +342,7 @@ IPv6Prefix.Assign,                           config_parse_prefix_assign,        
 IPv6Prefix.RouteMetric,                      config_parse_prefix_metric,                               0,                             0
 IPv6RoutePrefix.Route,                       config_parse_route_prefix,                                0,                             0
 IPv6RoutePrefix.LifetimeSec,                 config_parse_route_prefix_lifetime,                       0,                             0
-LLDP.MUDURL,                                 config_parse_lldp_mud,                                    0,                             0
+LLDP.MUDURL,                                 config_parse_mud_url,                                     0,                             offsetof(Network, lldp_mud)
 CAN.BitRate,                                 config_parse_can_bitrate,                                 0,                             offsetof(Network, can_bitrate)
 CAN.SamplePoint,                             config_parse_permille,                                    0,                             offsetof(Network, can_sample_point)
 CAN.DataBitRate,                             config_parse_can_bitrate,                                 0,                             offsetof(Network, can_data_bitrate)
