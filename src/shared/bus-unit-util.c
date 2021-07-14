@@ -23,6 +23,7 @@
 #include "libmount-util.h"
 #include "locale-util.h"
 #include "log.h"
+#include "macro.h"
 #include "missing_fs.h"
 #include "mountpoint-util.h"
 #include "nsflags.h"
@@ -970,10 +971,6 @@ static int bus_append_execute_property(sd_bus_message *m, const char *field, con
                               "ExecPaths",
                               "NoExecPaths",
                               "ExecSearchPath",
-                              "RuntimeDirectory",
-                              "StateDirectory",
-                              "CacheDirectory",
-                              "LogsDirectory",
                               "ConfigurationDirectory",
                               "SupplementaryGroups",
                               "SystemCallArchitectures"))
@@ -1922,6 +1919,125 @@ static int bus_append_execute_property(sd_bus_message *m, const char *field, con
                 r = sd_bus_message_close_container(m);
                 if (r < 0)
                         return bus_log_create_error(r);
+
+                return 1;
+        }
+
+        if (STR_IN_SET(field, "StateDirectory", "RuntimeDirectory", "CacheDirectory", "LogsDirectory")) {
+                _cleanup_strv_free_ char **symlinks = NULL, **sources = NULL;
+                const char *p = eq;
+
+                /* Adding new directories is supported from both *DirectorySymlink methods and the
+                 * older ones, so first parse the input, and if we are given a new-style src:dst
+                 * tuple use the new method, else use the old one. */
+
+                for (;;) {
+                        _cleanup_free_ char *tuple = NULL, *source = NULL, *destination = NULL;
+
+                        r = extract_first_word(&p, &tuple, NULL, EXTRACT_UNQUOTE);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse argument: %m");
+                        if (r == 0)
+                                break;
+
+                        const char *t = tuple;
+                        r = extract_many_words(&t, ":", EXTRACT_UNQUOTE|EXTRACT_DONT_COALESCE_SEPARATORS, &source, &destination, NULL);
+                        if (r <= 0)
+                                return log_error_errno(r ?: SYNTHETIC_ERRNO(EINVAL), "Failed to parse argument: %m");
+
+                        path_simplify(source);
+
+                        if (isempty(destination)) {
+                                r = strv_extend(&sources, TAKE_PTR(source));
+                                if (r < 0)
+                                        return bus_log_create_error(r);
+                        } else {
+                                path_simplify(destination);
+
+                                r = strv_consume_pair(&symlinks, TAKE_PTR(source), TAKE_PTR(destination));
+                                if (r < 0)
+                                        return log_oom();
+                        }
+                }
+
+                if (!strv_isempty(sources)) {
+                        r = sd_bus_message_open_container(m, SD_BUS_TYPE_STRUCT, "sv");
+                        if (r < 0)
+                                return bus_log_create_error(r);
+
+                        r = sd_bus_message_append_basic(m, SD_BUS_TYPE_STRING, field);
+                        if (r < 0)
+                                return bus_log_create_error(r);
+
+                        r = sd_bus_message_open_container(m, 'v', "as");
+                        if (r < 0)
+                                return bus_log_create_error(r);
+
+                        r = sd_bus_message_append_strv(m, sources);
+                        if (r < 0)
+                                return bus_log_create_error(r);
+
+                        r = sd_bus_message_close_container(m);
+                        if (r < 0)
+                                return bus_log_create_error(r);
+
+                        r = sd_bus_message_close_container(m);
+                        if (r < 0)
+                                return bus_log_create_error(r);
+                }
+
+                /* For State and Runtime directories we support an optional destination parameter, which
+                 * will be used to create a symlink to the source. But it is new so we cannot change the
+                 * old DBUS signatures, so append a new message type. */
+                if (!strv_isempty(symlinks)) {
+                        const char *symlink_field;
+
+                        r = sd_bus_message_open_container(m, SD_BUS_TYPE_STRUCT, "sv");
+                        if (r < 0)
+                                return bus_log_create_error(r);
+
+                        if (streq(field, "StateDirectory"))
+                                symlink_field = "StateDirectorySymlink";
+                        else if (streq(field, "RuntimeDirectory"))
+                                symlink_field = "RuntimeDirectorySymlink";
+                        else if (streq(field, "CacheDirectory"))
+                                symlink_field = "CacheDirectorySymlink";
+                        else if (streq(field, "LogsDirectory"))
+                                symlink_field = "LogsDirectorySymlink";
+                        else
+                                assert_not_reached();
+
+                        r = sd_bus_message_append_basic(m, SD_BUS_TYPE_STRING, symlink_field);
+                        if (r < 0)
+                                return bus_log_create_error(r);
+
+                        r = sd_bus_message_open_container(m, 'v', "a(sst)");
+                        if (r < 0)
+                                return bus_log_create_error(r);
+
+                        r = sd_bus_message_open_container(m, 'a', "(sst)");
+                        if (r < 0)
+                                return bus_log_create_error(r);
+
+                        char **source, **destination;
+                        STRV_FOREACH_PAIR(source, destination, symlinks) {
+                                r = sd_bus_message_append(m, "(sst)", *source, *destination, 0);
+                                if (r < 0)
+                                        return bus_log_create_error(r);
+                        }
+
+                        r = sd_bus_message_close_container(m);
+                        if (r < 0)
+                                return bus_log_create_error(r);
+
+                        r = sd_bus_message_close_container(m);
+                        if (r < 0)
+                                return bus_log_create_error(r);
+
+                        r = sd_bus_message_close_container(m);
+                        if (r < 0)
+                                return bus_log_create_error(r);
+                }
 
                 return 1;
         }

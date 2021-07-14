@@ -1327,6 +1327,13 @@ CapabilityBoundingSet=~CAP_B CAP_C</programlisting>
         configuration or lifetime guarantees, please consider using
         <citerefentry><refentrytitle>tmpfiles.d</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
 
+        <para><varname>RuntimeDirectory=</varname>, <varname>StateDirectory=</varname>, <varname>CacheDirectory=</varname>
+        and <varname>LogsDirectory=</varname>  optionally support a second parameter, separated by <literal>:</literal>.
+        The second parameter will be interpreted as a destination path that will be created as a symlink to the directory.
+        The symlinks will be created after any <varname>BindPaths=</varname> or <varname>TemporaryFileSystem=</varname>
+        options have been set up, to make ephemeral symlinking possible. The same source can have multiple symlinks, by
+        using the same first parameter, but a diferent second parameter.</para></listitem>
+
         <para>The directories defined by these options are always created under the standard paths used by systemd
         (<filename>/var/</filename>, <filename>/run/</filename>, <filename>/etc/</filename>, …). If the service needs
         directories in a different location, a different mechanism has to be used to create them.</para>
@@ -1355,7 +1362,13 @@ CapabilityBoundingSet=~CAP_B CAP_C</programlisting>
         <programlisting>RuntimeDirectory=foo/bar
 StateDirectory=aaa/bbb ccc</programlisting>
         then the environment variable <literal>RUNTIME_DIRECTORY</literal> is set with <literal>/run/foo/bar</literal>, and
-        <literal>STATE_DIRECTORY</literal> is set with <literal>/var/lib/aaa/bbb:/var/lib/ccc</literal>.</para></listitem>
+        <literal>STATE_DIRECTORY</literal> is set with <literal>/var/lib/aaa/bbb:/var/lib/ccc</literal>.</para>
+
+        <para>Example: if a system service unit has the following,
+        <programlisting>RuntimeDirectory=foo:bar foo:baz</programlisting>
+        the service manager creates <filename index='false'>/run/foo</filename> (if it does not exist), and
+        <filename index='false'>/run/bar</filename> plus <filename index='false'>/run/baz</filename> as symlinks to
+        <filename index='false'>/run/foo</filename>.</para>
       </varlistentry>
 
       <varlistentry>
