@@ -18,6 +18,8 @@ typedef struct RoutingPolicyRule {
         Manager *manager;
         Network *network;
         NetworkConfigSection *section;
+        NetworkConfigSource source;
+        NetworkConfigStatus status;
 
         bool invert_rule;
 
