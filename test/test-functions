@@ -417,7 +417,6 @@ run_qemu() {
         "loglevel=2"
         "init=$PATH_TO_INIT"
         "console=$CONSOLE"
-        "selinux=0"
         "SYSTEMD_UNIT_PATH=/usr/lib/systemd/tests/testdata/testsuite-$1.units:/usr/lib/systemd/tests/testdata/units:"
         "systemd.unit=testsuite.target"
         "systemd.wants=testsuite-$1.service"
