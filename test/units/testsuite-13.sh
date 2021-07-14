@@ -115,6 +115,16 @@ EOF
     return "$(systemctl show -P ExecMainStatus nspawn_machinectl_bind.service)"
 }
 
+function check_selinux {
+    if ! selinuxenabled; then
+        echo >&2 "SELinux is not enabled, skipping SELinux-related tests"
+        return 0
+    fi
+
+    # Basic test coverage to avoid issues like https://github.com/systemd/systemd/issues/19976
+    systemd-nspawn "${SUSE_OPTS[@]}" --register=no -b -D /testsuite-13.nc-container --selinux-apifs-context=system_u:object_r:container_file_t:s0:c0,c1 --selinux-context=system_u:system_r:container_t:s0:c0,c1
+}
+
 function run {
     if [[ "$1" = "yes" && "$is_v2_supported" = "no" ]]; then
         printf "Unified cgroup hierarchy is not supported. Skipping.\n" >&2
@@ -198,5 +208,7 @@ for api_vfs_writable in yes no network; do
 done
 
 check_machinectl_bind
+
+check_selinux
 
 touch /testok

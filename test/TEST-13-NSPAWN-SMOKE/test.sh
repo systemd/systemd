@@ -12,6 +12,11 @@ test_append_files() {
     (
         local workspace="${1:?}"
 
+        if selinuxenabled >/dev/null; then
+            dracut_install selinuxenabled
+            cp -ar /etc/selinux "$workspace/etc/selinux"
+        fi
+
         "$TEST_BASE_DIR/create-busybox-container" "$workspace/testsuite-13.nc-container"
         initdir="$workspace/testsuite-13.nc-container" dracut_install nc ip md5sum
     )
