@@ -57,9 +57,6 @@ int main(int argc, char *argv[]) {
         JournalFile *f;
         const char *verification_key = argv[1];
         usec_t from = 0, to = 0, total = 0;
-        char a[FORMAT_TIMESTAMP_MAX];
-        char b[FORMAT_TIMESTAMP_MAX];
-        char c[FORMAT_TIMESPAN_MAX];
         struct stat st;
         uint64_t p;
 
@@ -105,9 +102,9 @@ int main(int argc, char *argv[]) {
 
         if (verification_key && JOURNAL_HEADER_SEALED(f->header))
                 log_info("=> Validated from %s to %s, %s missing",
-                         format_timestamp(a, sizeof(a), from),
-                         format_timestamp(b, sizeof(b), to),
-                         format_timespan(c, sizeof(c), total > to ? total - to : 0, 0));
+                         FORMAT_TIMESTAMP(from),
+                         FORMAT_TIMESTAMP(to),
+                         FORMAT_TIMESPAN(total > to ? total - to : 0, 0));
 
         (void) journal_file_close(f);
 

@@ -602,7 +602,6 @@ static void print_unit_dependency_mask(FILE *f, const char *kind, UnitDependency
 void unit_dump(Unit *u, FILE *f, const char *prefix) {
         char *t, **j;
         const char *prefix2;
-        char timestamp[5][FORMAT_TIMESTAMP_MAX], timespan[FORMAT_TIMESPAN_MAX];
         Unit *following;
         _cleanup_set_free_ Set *following_set = NULL;
         CGroupMask m;
@@ -640,11 +639,11 @@ void unit_dump(Unit *u, FILE *f, const char *prefix) {
                 prefix, strna(u->instance),
                 prefix, unit_load_state_to_string(u->load_state),
                 prefix, unit_active_state_to_string(unit_active_state(u)),
-                prefix, strna(format_timestamp(timestamp[0], sizeof(timestamp[0]), u->state_change_timestamp.realtime)),
-                prefix, strna(format_timestamp(timestamp[1], sizeof(timestamp[1]), u->inactive_exit_timestamp.realtime)),
-                prefix, strna(format_timestamp(timestamp[2], sizeof(timestamp[2]), u->active_enter_timestamp.realtime)),
-                prefix, strna(format_timestamp(timestamp[3], sizeof(timestamp[3]), u->active_exit_timestamp.realtime)),
-                prefix, strna(format_timestamp(timestamp[4], sizeof(timestamp[4]), u->inactive_enter_timestamp.realtime)),
+                prefix, strna(FORMAT_TIMESTAMP(u->state_change_timestamp.realtime)),
+                prefix, strna(FORMAT_TIMESTAMP(u->inactive_exit_timestamp.realtime)),
+                prefix, strna(FORMAT_TIMESTAMP(u->active_enter_timestamp.realtime)),
+                prefix, strna(FORMAT_TIMESTAMP(u->active_exit_timestamp.realtime)),
+                prefix, strna(FORMAT_TIMESTAMP(u->inactive_enter_timestamp.realtime)),
                 prefix, yes_no(unit_may_gc(u)),
                 prefix, yes_no(unit_need_daemon_reload(u)),
                 prefix, yes_no(u->transient),
@@ -741,7 +740,7 @@ void unit_dump(Unit *u, FILE *f, const char *prefix) {
                 fprintf(f, "%s\tSuccess Action Exit Status: %i\n", prefix, u->success_action_exit_status);
 
         if (u->job_timeout != USEC_INFINITY)
-                fprintf(f, "%s\tJob Timeout: %s\n", prefix, format_timespan(timespan, sizeof(timespan), u->job_timeout, 0));
+                fprintf(f, "%s\tJob Timeout: %s\n", prefix, FORMAT_TIMESPAN(u->job_timeout, 0));
 
         if (u->job_timeout_action != EMERGENCY_ACTION_NONE)
                 fprintf(f, "%s\tJob Timeout Action: %s\n", prefix, emergency_action_to_string(u->job_timeout_action));
@@ -756,14 +755,14 @@ void unit_dump(Unit *u, FILE *f, const char *prefix) {
                 fprintf(f,
                         "%s\tCondition Timestamp: %s\n"
                         "%s\tCondition Result: %s\n",
-                        prefix, strna(format_timestamp(timestamp[0], sizeof(timestamp[0]), u->condition_timestamp.realtime)),
+                        prefix, strna(FORMAT_TIMESTAMP(u->condition_timestamp.realtime)),
                         prefix, yes_no(u->condition_result));
 
         if (dual_timestamp_is_set(&u->assert_timestamp))
                 fprintf(f,
                         "%s\tAssert Timestamp: %s\n"
                         "%s\tAssert Result: %s\n",
-                        prefix, strna(format_timestamp(timestamp[0], sizeof(timestamp[0]), u->assert_timestamp.realtime)),
+                        prefix, strna(FORMAT_TIMESTAMP(u->assert_timestamp.realtime)),
                         prefix, yes_no(u->assert_result));
 
         for (UnitDependency d = 0; d < _UNIT_DEPENDENCY_MAX; d++) {

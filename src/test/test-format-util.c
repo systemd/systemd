@@ -4,6 +4,15 @@
 #include "macro.h"
 #include "string-util.h"
 
+/* Do some basic checks on STRLEN() and DECIMAL_STR_MAX() */
+assert_cc(STRLEN("xxx") == 3);
+assert_cc(STRLEN("") == 0);
+assert_cc(DECIMAL_STR_MAX(uint8_t) == 5);
+assert_cc(DECIMAL_STR_MAX(int8_t) == 5);
+assert_cc(DECIMAL_STR_MAX(uint64_t) == 22);
+assert_cc(DECIMAL_STR_MAX(char) == 5);
+assert_cc(CONST_MAX(DECIMAL_STR_MAX(int8_t), STRLEN("xxx")) == 5);
+
 static void test_format_bytes_one(uint64_t val, bool trailing_B, const char *iec_with_p, const char *iec_without_p,
                                   const char *si_with_p, const char *si_without_p) {
         char buf[FORMAT_BYTES_MAX];

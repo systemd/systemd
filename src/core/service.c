@@ -768,8 +768,6 @@ static int service_load(Unit *u) {
 }
 
 static void service_dump(Unit *u, FILE *f, const char *prefix) {
-        char buf_restart[FORMAT_TIMESPAN_MAX], buf_start[FORMAT_TIMESPAN_MAX], buf_stop[FORMAT_TIMESPAN_MAX],
-                buf_runtime[FORMAT_TIMESPAN_MAX], buf_watchdog[FORMAT_TIMESPAN_MAX], buf_abort[FORMAT_TIMESPAN_MAX];
         ServiceExecCommand c;
         Service *s = SERVICE(u);
         const char *prefix2;
@@ -844,22 +842,22 @@ static void service_dump(Unit *u, FILE *f, const char *prefix) {
                 "%sTimeoutStopSec: %s\n"
                 "%sTimeoutStartFailureMode: %s\n"
                 "%sTimeoutStopFailureMode: %s\n",
-                prefix, format_timespan(buf_restart, sizeof(buf_restart), s->restart_usec, USEC_PER_SEC),
-                prefix, format_timespan(buf_start, sizeof(buf_start), s->timeout_start_usec, USEC_PER_SEC),
-                prefix, format_timespan(buf_stop, sizeof(buf_stop), s->timeout_stop_usec, USEC_PER_SEC),
+                prefix, FORMAT_TIMESPAN(s->restart_usec, USEC_PER_SEC),
+                prefix, FORMAT_TIMESPAN(s->timeout_start_usec, USEC_PER_SEC),
+                prefix, FORMAT_TIMESPAN(s->timeout_stop_usec, USEC_PER_SEC),
                 prefix, service_timeout_failure_mode_to_string(s->timeout_start_failure_mode),
                 prefix, service_timeout_failure_mode_to_string(s->timeout_stop_failure_mode));
 
         if (s->timeout_abort_set)
                 fprintf(f,
                         "%sTimeoutAbortSec: %s\n",
-                        prefix, format_timespan(buf_abort, sizeof(buf_abort), s->timeout_abort_usec, USEC_PER_SEC));
+                        prefix, FORMAT_TIMESPAN(s->timeout_abort_usec, USEC_PER_SEC));
 
         fprintf(f,
                 "%sRuntimeMaxSec: %s\n"
                 "%sWatchdogSec: %s\n",
-                prefix, format_timespan(buf_runtime, sizeof(buf_runtime), s->runtime_max_usec, USEC_PER_SEC),
-                prefix, format_timespan(buf_watchdog, sizeof(buf_watchdog), s->watchdog_usec, USEC_PER_SEC));
+                prefix, FORMAT_TIMESPAN(s->runtime_max_usec, USEC_PER_SEC),
+                prefix, FORMAT_TIMESPAN(s->watchdog_usec, USEC_PER_SEC));
 
         kill_context_dump(&s->kill_context, f, prefix);
         exec_context_dump(&s->exec_context, f, prefix);
@@ -3893,12 +3891,11 @@ static int service_dispatch_timer(sd_event_source *source, usec_t usec, void *us
                 break;
 
         case SERVICE_AUTO_RESTART:
-                if (s->restart_usec > 0) {
-                        char buf_restart[FORMAT_TIMESPAN_MAX];
+                if (s->restart_usec > 0)
                         log_unit_debug(UNIT(s),
                                        "Service RestartSec=%s expired, scheduling restart.",
-                                       format_timespan(buf_restart, sizeof buf_restart, s->restart_usec, USEC_PER_SEC));
-                } else
+                                       FORMAT_TIMESPAN(s->restart_usec, USEC_PER_SEC));
+                else
                         log_unit_debug(UNIT(s),
                                        "Service has no hold-off time (RestartSec=0), scheduling restart.");
 
@@ -3923,7 +3920,6 @@ static int service_dispatch_timer(sd_event_source *source, usec_t usec, void *us
 
 static int service_dispatch_watchdog(sd_event_source *source, usec_t usec, void *userdata) {
         Service *s = SERVICE(userdata);
-        char t[FORMAT_TIMESPAN_MAX];
         usec_t watchdog_usec;
 
         assert(s);
@@ -3933,12 +3929,12 @@ static int service_dispatch_watchdog(sd_event_source *source, usec_t usec, void 
 
         if (UNIT(s)->manager->service_watchdogs) {
                 log_unit_error(UNIT(s), "Watchdog timeout (limit %s)!",
-                               format_timespan(t, sizeof(t), watchdog_usec, 1));
+                               FORMAT_TIMESPAN(watchdog_usec, 1));
 
                 service_enter_signal(s, SERVICE_STOP_WATCHDOG, SERVICE_FAILURE_WATCHDOG);
         } else
                 log_unit_warning(UNIT(s), "Watchdog disabled! Ignoring watchdog timeout (limit %s)!",
-                                 format_timespan(t, sizeof(t), watchdog_usec, 1));
+                                 FORMAT_TIMESPAN(watchdog_usec, 1));
 
         return 0;
 }

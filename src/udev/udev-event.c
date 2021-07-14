@@ -600,7 +600,6 @@ reenable:
 
 static int on_spawn_timeout(sd_event_source *s, uint64_t usec, void *userdata) {
         Spawn *spawn = userdata;
-        char timeout[FORMAT_TIMESPAN_MAX];
 
         assert(spawn);
 
@@ -610,20 +609,19 @@ static int on_spawn_timeout(sd_event_source *s, uint64_t usec, void *userdata) {
 
         log_device_error(spawn->device, "Spawned process '%s' ["PID_FMT"] timed out after %s, killing",
                          spawn->cmd, spawn->pid,
-                         format_timespan(timeout, sizeof(timeout), spawn->timeout_usec, USEC_PER_SEC));
+                         FORMAT_TIMESPAN(spawn->timeout_usec, USEC_PER_SEC));
 
         return 1;
 }
 
 static int on_spawn_timeout_warning(sd_event_source *s, uint64_t usec, void *userdata) {
         Spawn *spawn = userdata;
-        char timeout[FORMAT_TIMESPAN_MAX];
 
         assert(spawn);
 
         log_device_warning(spawn->device, "Spawned process '%s' ["PID_FMT"] is taking longer than %s to complete",
                            spawn->cmd, spawn->pid,
-                           format_timespan(timeout, sizeof(timeout), spawn->timeout_warn_usec, USEC_PER_SEC));
+                           FORMAT_TIMESPAN(spawn->timeout_warn_usec, USEC_PER_SEC));
 
         return 1;
 }
@@ -1080,10 +1078,8 @@ void udev_event_execute_run(UdevEvent *event, usec_t timeout_usec, int timeout_s
                                 log_device_debug_errno(event->dev, r, "Failed to run built-in command \"%s\", ignoring: %m", command);
                 } else {
                         if (event->exec_delay_usec > 0) {
-                                char buf[FORMAT_TIMESPAN_MAX];
-
                                 log_device_debug(event->dev, "Delaying execution of \"%s\" for %s.",
-                                                 command, format_timespan(buf, sizeof(buf), event->exec_delay_usec, USEC_PER_SEC));
+                                                 command, FORMAT_TIMESPAN(event->exec_delay_usec, USEC_PER_SEC));
                                 (void) usleep(event->exec_delay_usec);
                         }
 

@@ -949,7 +949,6 @@ int home_store_header_identity_luks(
 }
 
 int run_fitrim(int root_fd) {
-        char buf[FORMAT_BYTES_MAX];
         struct fstrim_range range = {
                 .len = UINT64_MAX,
         };
@@ -968,8 +967,7 @@ int run_fitrim(int root_fd) {
                 return log_warning_errno(errno, "Failed to invoke FITRIM, ignoring: %m");
         }
 
-        log_info("Discarded unused %s.",
-                 format_bytes(buf, sizeof(buf), range.len));
+        log_info("Discarded unused %s.", FORMAT_BYTES(range.len));
         return 1;
 }
 
@@ -984,7 +982,6 @@ int run_fitrim_by_path(const char *root_path) {
 }
 
 int run_fallocate(int backing_fd, const struct stat *st) {
-        char buf[FORMAT_BYTES_MAX];
         struct stat stbuf;
 
         assert(backing_fd >= 0);
@@ -1023,7 +1020,7 @@ int run_fallocate(int backing_fd, const struct stat *st) {
         }
 
         log_info("Allocated additional %s.",
-                 format_bytes(buf, sizeof(buf), (DIV_ROUND_UP(st->st_size, 512) - st->st_blocks) * 512));
+                 FORMAT_BYTES((DIV_ROUND_UP(st->st_size, 512) - st->st_blocks) * 512));
         return 1;
 }
 
@@ -1278,15 +1275,13 @@ fail:
 }
 
 static void print_size_summary(uint64_t host_size, uint64_t encrypted_size, struct statfs *sfs) {
-        char buffer1[FORMAT_BYTES_MAX], buffer2[FORMAT_BYTES_MAX], buffer3[FORMAT_BYTES_MAX], buffer4[FORMAT_BYTES_MAX];
-
         assert(sfs);
 
         log_info("Image size is %s, file system size is %s, file system payload size is %s, file system free is %s.",
-                 format_bytes(buffer1, sizeof(buffer1), host_size),
-                 format_bytes(buffer2, sizeof(buffer2), encrypted_size),
-                 format_bytes(buffer3, sizeof(buffer3), (uint64_t) sfs->f_blocks * (uint64_t) sfs->f_frsize),
-                 format_bytes(buffer4, sizeof(buffer4), (uint64_t) sfs->f_bfree * (uint64_t) sfs->f_frsize));
+                 FORMAT_BYTES(host_size),
+                 FORMAT_BYTES(encrypted_size),
+                 FORMAT_BYTES((uint64_t) sfs->f_blocks * (uint64_t) sfs->f_frsize),
+                 FORMAT_BYTES((uint64_t) sfs->f_bfree * (uint64_t) sfs->f_frsize));
 }
 
 int home_activate_luks(
@@ -1793,7 +1788,6 @@ static int wait_for_devlink(const char *path) {
 }
 
 static int calculate_disk_size(UserRecord *h, const char *parent_dir, uint64_t *ret) {
-        char buf[FORMAT_BYTES_MAX];
         struct statfs sfs;
         uint64_t m;
 
@@ -1820,14 +1814,14 @@ static int calculate_disk_size(UserRecord *h, const char *parent_dir, uint64_t *
 
                 log_info("Sizing home to %u%% of available disk space, which is %s.",
                          USER_DISK_SIZE_DEFAULT_PERCENT,
-                         format_bytes(buf, sizeof(buf), *ret));
+                         FORMAT_BYTES(*ret));
         } else {
                 *ret = DISK_SIZE_ROUND_DOWN((uint64_t) ((double) m * (double) h->disk_size_relative / (double) UINT32_MAX));
 
                 log_info("Sizing home to %" PRIu64 ".%01" PRIu64 "%% of available disk space, which is %s.",
                          (h->disk_size_relative * 100) / UINT32_MAX,
                          ((h->disk_size_relative * 1000) / UINT32_MAX) % 10,
-                         format_bytes(buf, sizeof(buf), *ret));
+                         FORMAT_BYTES(*ret));
         }
 
         if (*ret < USER_DISK_SIZE_MIN)
@@ -2631,8 +2625,6 @@ int home_resize_luks(
                 HomeSetup *setup,
                 UserRecord **ret_home) {
 
-        char buffer1[FORMAT_BYTES_MAX], buffer2[FORMAT_BYTES_MAX], buffer3[FORMAT_BYTES_MAX],
-                buffer4[FORMAT_BYTES_MAX], buffer5[FORMAT_BYTES_MAX], buffer6[FORMAT_BYTES_MAX];
         uint64_t old_image_size, new_image_size, old_fs_size, new_fs_size, crypto_offset, new_partition_size;
         _cleanup_(user_record_unrefp) UserRecord *header_home = NULL, *embedded_home = NULL, *new_home = NULL;
         _cleanup_(fdisk_unref_tablep) struct fdisk_table *table = NULL;
@@ -2770,12 +2762,12 @@ int home_resize_luks(
                 return log_error_errno(SYNTHETIC_ERRNO(ETXTBSY), "File systems of this type can only be resized offline, but is currently online.");
 
         log_info("Ready to resize image size %s → %s, partition size %s → %s, file system size %s → %s.",
-                 format_bytes(buffer1, sizeof(buffer1), old_image_size),
-                 format_bytes(buffer2, sizeof(buffer2), new_image_size),
-                 format_bytes(buffer3, sizeof(buffer3), setup->partition_size),
-                 format_bytes(buffer4, sizeof(buffer4), new_partition_size),
-                 format_bytes(buffer5, sizeof(buffer5), old_fs_size),
-                 format_bytes(buffer6, sizeof(buffer6), new_fs_size));
+                 FORMAT_BYTES(old_image_size),
+                 FORMAT_BYTES(new_image_size),
+                 FORMAT_BYTES(setup->partition_size),
+                 FORMAT_BYTES(new_partition_size),
+                 FORMAT_BYTES(old_fs_size),
+                 FORMAT_BYTES(new_fs_size));
 
         r = prepare_resize_partition(
                         image_fd,

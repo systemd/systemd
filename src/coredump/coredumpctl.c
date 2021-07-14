@@ -645,15 +645,11 @@ static int print_info(FILE *file, sd_journal *j, bool need_space) {
                 usec_t u;
 
                 r = safe_atou64(timestamp, &u);
-                if (r >= 0) {
-                        char absolute[FORMAT_TIMESTAMP_MAX], relative[FORMAT_TIMESPAN_MAX];
+                if (r >= 0)
+                        fprintf(file, "     Timestamp: %s (%s)\n",
+                                FORMAT_TIMESTAMP(u), FORMAT_TIMESTAMP_RELATIVE(u));
 
-                        fprintf(file,
-                                "     Timestamp: %s (%s)\n",
-                                format_timestamp(absolute, sizeof(absolute), u),
-                                format_timestamp_relative(relative, sizeof(relative), u));
-
-                } else
+                else
                         fprintf(file, "     Timestamp: %s\n", timestamp);
         }
 
@@ -697,7 +693,6 @@ static int print_info(FILE *file, sd_journal *j, bool need_space) {
         if (filename) {
                 const char *state = NULL, *color = NULL;
                 uint64_t size = UINT64_MAX;
-                char buf[FORMAT_BYTES_MAX];
 
                 analyze_coredump_file(filename, &state, &color, &size);
 
@@ -712,9 +707,8 @@ static int print_info(FILE *file, sd_journal *j, bool need_space) {
                         ansi_normal());
 
                 if (size != UINT64_MAX)
-                        fprintf(file,
-                                "     Disk Size: %s\n",
-                                format_bytes(buf, sizeof(buf), size));
+                        fprintf(file, "     Disk Size: %s\n", FORMAT_BYTES(size));
+
         } else if (coredump)
                 fprintf(file, "       Storage: journal\n");
         else

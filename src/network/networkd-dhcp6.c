@@ -373,7 +373,6 @@ static int dhcp6_pd_address_handler(sd_netlink *rtnl, sd_netlink_message *m, Lin
 }
 
 static void log_dhcp6_pd_address(Link *link, const Address *address) {
-        char valid_buf[FORMAT_TIMESPAN_MAX], preferred_buf[FORMAT_TIMESPAN_MAX];
         const char *valid_str = NULL, *preferred_str = NULL;
         _cleanup_free_ char *buffer = NULL;
         int log_level;
@@ -388,13 +387,9 @@ static void log_dhcp6_pd_address(Link *link, const Address *address) {
 
         (void) in6_addr_prefix_to_string(&address->in_addr.in6, address->prefixlen, &buffer);
         if (address->cinfo.ifa_valid != CACHE_INFO_INFINITY_LIFE_TIME)
-                valid_str = format_timespan(valid_buf, FORMAT_TIMESPAN_MAX,
-                                            address->cinfo.ifa_valid * USEC_PER_SEC,
-                                            USEC_PER_SEC);
+                valid_str = FORMAT_TIMESPAN(address->cinfo.ifa_valid * USEC_PER_SEC, USEC_PER_SEC);
         if (address->cinfo.ifa_prefered != CACHE_INFO_INFINITY_LIFE_TIME)
-                preferred_str = format_timespan(preferred_buf, FORMAT_TIMESPAN_MAX,
-                                                address->cinfo.ifa_prefered * USEC_PER_SEC,
-                                                USEC_PER_SEC);
+                preferred_str = FORMAT_TIMESPAN(address->cinfo.ifa_prefered * USEC_PER_SEC, USEC_PER_SEC);
 
         log_link_full(link, log_level, "DHCPv6-PD address %s (valid %s%s, preferred %s%s)",
                       strna(buffer),
@@ -1061,8 +1056,6 @@ static int dhcp6_address_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *
 }
 
 static void log_dhcp6_address(Link *link, const Address *address, char **ret) {
-        char valid_buf[FORMAT_TIMESPAN_MAX], preferred_buf[FORMAT_TIMESPAN_MAX];
-        const char *valid_str = NULL, *preferred_str = NULL;
         _cleanup_free_ char *buffer = NULL;
         bool by_ndisc = false;
         Address *existing;
@@ -1074,14 +1067,11 @@ static void log_dhcp6_address(Link *link, const Address *address, char **ret) {
         assert(address->family == AF_INET6);
 
         (void) in6_addr_prefix_to_string(&address->in_addr.in6, address->prefixlen, &buffer);
-        if (address->cinfo.ifa_valid != CACHE_INFO_INFINITY_LIFE_TIME)
-                valid_str = format_timespan(valid_buf, FORMAT_TIMESPAN_MAX,
-                                            address->cinfo.ifa_valid * USEC_PER_SEC,
-                                            USEC_PER_SEC);
-        if (address->cinfo.ifa_prefered != CACHE_INFO_INFINITY_LIFE_TIME)
-                preferred_str = format_timespan(preferred_buf, FORMAT_TIMESPAN_MAX,
-                                                address->cinfo.ifa_prefered * USEC_PER_SEC,
-                                                USEC_PER_SEC);
+
+        const char *valid_str = address->cinfo.ifa_valid == CACHE_INFO_INFINITY_LIFE_TIME ? NULL :
+                FORMAT_TIMESPAN(address->cinfo.ifa_valid * USEC_PER_SEC, USEC_PER_SEC);
+        const char *preferred_str = address->cinfo.ifa_prefered == CACHE_INFO_INFINITY_LIFE_TIME ? NULL :
+                FORMAT_TIMESPAN(address->cinfo.ifa_prefered * USEC_PER_SEC, USEC_PER_SEC);
 
         r = address_get(link, address, &existing);
         if (r < 0) {

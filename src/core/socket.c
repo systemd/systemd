@@ -563,8 +563,6 @@ _const_ static const char* listen_lookup(int family, int type) {
 }
 
 static void socket_dump(Unit *u, FILE *f, const char *prefix) {
-        char time_string[FORMAT_TIMESPAN_MAX];
-        SocketExecCommand c;
         Socket *s = SOCKET(u);
         SocketPort *p;
         const char *prefix2, *str;
@@ -723,12 +721,12 @@ static void socket_dump(Unit *u, FILE *f, const char *prefix) {
         if (s->keep_alive_time > 0)
                 fprintf(f,
                         "%sKeepAliveTimeSec: %s\n",
-                        prefix, format_timespan(time_string, FORMAT_TIMESPAN_MAX, s->keep_alive_time, USEC_PER_SEC));
+                        prefix, FORMAT_TIMESPAN(s->keep_alive_time, USEC_PER_SEC));
 
         if (s->keep_alive_interval > 0)
                 fprintf(f,
                         "%sKeepAliveIntervalSec: %s\n",
-                        prefix, format_timespan(time_string, FORMAT_TIMESPAN_MAX, s->keep_alive_interval, USEC_PER_SEC));
+                        prefix, FORMAT_TIMESPAN(s->keep_alive_interval, USEC_PER_SEC));
 
         if (s->keep_alive_cnt > 0)
                 fprintf(f,
@@ -738,7 +736,7 @@ static void socket_dump(Unit *u, FILE *f, const char *prefix) {
         if (s->defer_accept > 0)
                 fprintf(f,
                         "%sDeferAcceptSec: %s\n",
-                        prefix, format_timespan(time_string, FORMAT_TIMESPAN_MAX, s->defer_accept, USEC_PER_SEC));
+                        prefix, FORMAT_TIMESPAN(s->defer_accept, USEC_PER_SEC));
 
         LIST_FOREACH(port, p, s->ports) {
 
@@ -774,7 +772,7 @@ static void socket_dump(Unit *u, FILE *f, const char *prefix) {
         fprintf(f,
                 "%sTriggerLimitIntervalSec: %s\n"
                 "%sTriggerLimitBurst: %u\n",
-                prefix, format_timespan(time_string, FORMAT_TIMESPAN_MAX, s->trigger_limit.interval, USEC_PER_SEC),
+                prefix, FORMAT_TIMESPAN(s->trigger_limit.interval, USEC_PER_SEC),
                 prefix, s->trigger_limit.burst);
 
         str = ip_protocol_to_name(s->socket_protocol);
@@ -793,12 +791,12 @@ static void socket_dump(Unit *u, FILE *f, const char *prefix) {
 
         fprintf(f,
                 "%sTimeoutSec: %s\n",
-                prefix, format_timespan(time_string, FORMAT_TIMESPAN_MAX, s->timeout_usec, USEC_PER_SEC));
+                prefix, FORMAT_TIMESPAN(s->timeout_usec, USEC_PER_SEC));
 
         exec_context_dump(&s->exec_context, f, prefix);
         kill_context_dump(&s->kill_context, f, prefix);
 
-        for (c = 0; c < _SOCKET_EXEC_COMMAND_MAX; c++) {
+        for (SocketExecCommand c = 0; c < _SOCKET_EXEC_COMMAND_MAX; c++) {
                 if (!s->exec_command[c])
                         continue;
 
@@ -3260,11 +3258,9 @@ int socket_collect_fds(Socket *s, int **fds) {
                 return -ENOMEM;
 
         LIST_FOREACH(port, p, s->ports) {
-                size_t i;
-
                 if (p->fd >= 0)
                         rfds[k++] = p->fd;
-                for (i = 0; i < p->n_auxiliary_fds; ++i)
+                for (size_t i = 0; i < p->n_auxiliary_fds; ++i)
                         rfds[k++] = p->auxiliary_fds[i];
         }
 

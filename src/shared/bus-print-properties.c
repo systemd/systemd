@@ -105,20 +105,14 @@ static int bus_print_property(const char *name, const char *expected_value, sd_b
                  * should it turn out to not be sufficient */
 
                 if (endswith(name, "Timestamp") ||
-                    STR_IN_SET(name, "NextElapseUSecRealtime", "LastTriggerUSec", "TimeUSec", "RTCTimeUSec")) {
-                        char timestamp[FORMAT_TIMESTAMP_MAX];
-                        const char *t;
+                    STR_IN_SET(name, "NextElapseUSecRealtime", "LastTriggerUSec", "TimeUSec", "RTCTimeUSec"))
 
-                        t = format_timestamp(timestamp, sizeof(timestamp), u);
-                        bus_print_property_value(name, expected_value, flags, t);
+                        bus_print_property_value(name, expected_value, flags, FORMAT_TIMESTAMP(u));
 
-                } else if (strstr(name, "USec")) {
-                        char timespan[FORMAT_TIMESPAN_MAX];
+                else if (strstr(name, "USec"))
+                        bus_print_property_value(name, expected_value, flags, FORMAT_TIMESPAN(u, 0));
 
-                        (void) format_timespan(timespan, sizeof(timespan), u, 0);
-                        bus_print_property_value(name, expected_value, flags, timespan);
-
-                } else if (streq(name, "CoredumpFilter"))
+                else if (streq(name, "CoredumpFilter"))
                         bus_print_property_valuef(name, expected_value, flags, "0x%"PRIx64, u);
 
                 else if (streq(name, "RestrictNamespaces")) {
