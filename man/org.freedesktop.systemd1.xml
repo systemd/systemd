@@ -2317,6 +2317,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
       readonly s TimeoutStopFailureMode = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly t RuntimeMaxUSec = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly t RuntimeMaxDeltaUSec = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly t WatchdogUSec = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
@@ -2882,6 +2884,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
 
     <!--property RuntimeMaxUSec is not documented!-->
 
+    <!--property RuntimeMaxDeltaUSec is not documented!-->
+
     <!--property WatchdogUSec is not documented!-->
 
     <!--property RootDirectoryStartOnly is not documented!-->
@@ -3409,6 +3413,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
     <variablelist class="dbus-property" generated="True" extra-ref="TimeoutStopFailureMode"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="RuntimeMaxUSec"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="RuntimeMaxDeltaUSec"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="WatchdogUSec"/>
 
@@ -9631,6 +9637,8 @@ node /org/freedesktop/systemd1/unit/session_2d1_2escope {
       readonly s Result = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly t RuntimeMaxUSec = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly t RuntimeMaxDeltaUSec = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly s Slice = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
@@ -9794,6 +9802,8 @@ node /org/freedesktop/systemd1/unit/session_2d1_2escope {
     <!--method AttachProcesses is not documented!-->
 
     <!--property RuntimeMaxUSec is not documented!-->
+
+    <!--property RuntimeMaxDeltaUSec is not documented!-->
 
     <!--property Slice is not documented!-->
 
@@ -9966,6 +9976,8 @@ node /org/freedesktop/systemd1/unit/session_2d1_2escope {
     <variablelist class="dbus-property" generated="True" extra-ref="Result"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="RuntimeMaxUSec"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="RuntimeMaxDeltaUSec"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="Slice"/>
 
