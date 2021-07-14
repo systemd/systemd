@@ -15,6 +15,8 @@
 #include "unit-name.h"
 #include "unit-serialize.h"
 
+extern int error_check;
+
 static int prepare_filename(const char *filename, char **ret) {
         int r;
         const char *name;
@@ -60,7 +62,7 @@ static int generate_path(char **var, char **filenames) {
         int r;
 
         STRV_FOREACH(filename, filenames) {
-                char *t;
+                char *t = NULL;
 
                 t = dirname_malloc(*filename);
                 if (!t)
@@ -215,13 +217,17 @@ static int verify_unit(Unit *u, bool check_man) {
         if (k < 0 && r == 0)
                 r = k;
 
+        if (error_check == true)
+                r = -EINVAL;
+
         return r;
 }
 
-int verify_units(char **filenames, UnitFileScope scope, bool check_man, bool run_generators) {
+int verify_units(char **filenames, UnitFileScope scope, bool check_man, bool run_generators, bool ignore_dependencies, char *root) {
         const ManagerTestRunFlags flags =
                 MANAGER_TEST_RUN_MINIMAL |
                 MANAGER_TEST_RUN_ENV_GENERATORS |
+                ignore_dependencies * MANAGER_TEST_RUN_IGNORE_DEPENDENCIES |
                 run_generators * MANAGER_TEST_RUN_GENERATORS;
 
         _cleanup_(manager_freep) Manager *m = NULL;
@@ -246,7 +252,7 @@ int verify_units(char **filenames, UnitFileScope scope, bool check_man, bool run
 
         log_debug("Starting manager...");
 
-        r = manager_startup(m, NULL, NULL);
+        r = manager_startup(m, NULL, NULL, root);
         if (r < 0)
                 return r;
 
