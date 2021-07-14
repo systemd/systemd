@@ -1175,6 +1175,42 @@ static int flush_caches(int argc, char **argv, void *userdata) {
         return 0;
 }
 
+static int show_caches(int argc, char **argv, void *userdata) {
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+
+        sd_bus *bus = userdata;
+        int r;
+
+        r = bus_call_method(bus, bus_resolve_mgr, "ShowCaches", &error, &reply, NULL);
+        if (r < 0)
+                return log_error_errno(r, "Failed to show caches: %s", bus_error_message(&error, r));
+
+        r = sd_bus_message_enter_container(reply, 'a', "(sssss)");
+        if (r < 0)
+                return r;
+
+        printf("\nInterface\tProtocol\tName\t\t\t\t\t\tType\t\tDomain\n");
+        while ((r = sd_bus_message_enter_container(reply, 'r', "sssss")) > 0) {
+                char *ifname, *protocol_name, *name, *type, *domain;
+                r = sd_bus_message_read(reply, "sssss", &ifname, &protocol_name, &name, &type, &domain);
+                if (r < 0)
+                        return bus_log_parse_error(r);
+
+                printf("%s\t\t%s\t\t%s\t\t\t\t%s\t\t%s\n", ifname, protocol_name, name, type, domain);
+
+                r = sd_bus_message_exit_container(reply);
+                if (r < 0)
+                        return r;
+        }
+
+        r = sd_bus_message_exit_container(reply);
+        if (r < 0)
+                return r;
+
+        return 0;
+}
+
 static int reset_server_features(int argc, char **argv, void *userdata) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         sd_bus *bus = userdata;
@@ -2635,6 +2671,7 @@ static int compat_help(void) {
                "     --reset-statistics     Reset resolver statistics\n"
                "     --status               Show link and server status\n"
                "     --flush-caches         Flush all local DNS caches\n"
+               "     --show-caches          Show all local mDNS caches\n"
                "     --reset-server-features\n"
                "                            Forget learnt DNS server feature levels\n"
                "     --set-dns=SERVER       Set per-interface DNS server address\n"
@@ -2675,6 +2712,7 @@ static int native_help(void) {
                "  statistics                   Show resolver statistics\n"
                "  reset-statistics             Reset resolver statistics\n"
                "  flush-caches                 Flush all local DNS caches\n"
+               "  show-caches                  Show all local mDNS caches\n"
                "  reset-server-features        Forget learnt DNS server feature levels\n"
                "  dns [LINK [SERVER...]]       Get/set per-interface DNS server address\n"
                "  domain [LINK [DOMAIN...]]    Get/set per-interface search domain\n"
@@ -2740,6 +2778,7 @@ static int compat_parse_argv(int argc, char *argv[]) {
                 ARG_RESET_STATISTICS,
                 ARG_STATUS,
                 ARG_FLUSH_CACHES,
+                ARG_SHOW_CACHES,
                 ARG_RESET_SERVER_FEATURES,
                 ARG_NO_PAGER,
                 ARG_SET_DNS,
@@ -2772,6 +2811,7 @@ static int compat_parse_argv(int argc, char *argv[]) {
                 { "reset-statistics",      no_argument,       NULL, ARG_RESET_STATISTICS      },
                 { "status",                no_argument,       NULL, ARG_STATUS                },
                 { "flush-caches",          no_argument,       NULL, ARG_FLUSH_CACHES          },
+                { "show-caches",           no_argument,       NULL, ARG_SHOW_CACHES           },
                 { "reset-server-features", no_argument,       NULL, ARG_RESET_SERVER_FEATURES },
                 { "no-pager",              no_argument,       NULL, ARG_NO_PAGER              },
                 { "set-dns",               required_argument, NULL, ARG_SET_DNS               },
@@ -2946,6 +2986,10 @@ static int compat_parse_argv(int argc, char *argv[]) {
 
                 case ARG_FLUSH_CACHES:
                         arg_mode = MODE_FLUSH_CACHES;
+                        break;
+
+                case ARG_SHOW_CACHES:
+                        arg_mode = MODE_SHOW_CACHES;
                         break;
 
                 case ARG_RESET_SERVER_FEATURES:
@@ -3292,6 +3336,7 @@ static int native_main(int argc, char *argv[], sd_bus *bus) {
                 { "statistics",            VERB_ANY, 1,        0,            show_statistics       },
                 { "reset-statistics",      VERB_ANY, 1,        0,            reset_statistics      },
                 { "flush-caches",          VERB_ANY, 1,        0,            flush_caches          },
+                { "show-caches",           VERB_ANY, 1,        0,            show_caches           },
                 { "reset-server-features", VERB_ANY, 1,        0,            reset_server_features },
                 { "dns",                   VERB_ANY, VERB_ANY, 0,            verb_dns              },
                 { "domain",                VERB_ANY, VERB_ANY, 0,            verb_domain           },
@@ -3354,6 +3399,9 @@ static int compat_main(int argc, char *argv[], sd_bus *bus) {
 
         case MODE_FLUSH_CACHES:
                 return translate("flush-caches", NULL, 0, NULL, bus);
+
+        case MODE_SHOW_CACHES:
+                return translate("show-caches", NULL, 0, NULL, bus);
 
         case MODE_RESET_SERVER_FEATURES:
                 return translate("reset-server-features", NULL, 0, NULL, bus);
