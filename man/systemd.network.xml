@@ -999,14 +999,6 @@ IPv6Token=prefixstable:2002:da8:1::</programlisting></para>
         </listitem>
       </varlistentry>
       <varlistentry>
-        <term><varname>Xfrm=</varname></term>
-        <listitem>
-          <para>The name of the xfrm to create on the link. See
-            <citerefentry><refentrytitle>systemd.netdev</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
-            This option may be specified more than once.</para>
-        </listitem>
-      </varlistentry>
-      <varlistentry>
         <term><varname>KeepConfiguration=</varname></term>
         <listitem>
           <para>Takes a boolean or one of <literal>static</literal>, <literal>dhcp-on-stop</literal>,
