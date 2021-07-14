@@ -5944,6 +5944,7 @@ void unit_dump_config_items(FILE *f) {
                 { config_parse_job_mode,              "MODE" },
                 { config_parse_job_mode_isolate,      "BOOLEAN" },
                 { config_parse_personality,           "PERSONALITY" },
+                { config_parse_relative_path_tuple,   "PATH:PATH" },
         };
 
         const char *prev = NULL;
@@ -6155,5 +6156,100 @@ int config_parse_swap_priority(
 
         s->parameters_fragment.priority = priority;
         s->parameters_fragment.priority_set = true;
+        return 0;
+}
+
+int config_parse_relative_path_tuple(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        const Unit *u = userdata;
+        char ***paths = data;
+        int r;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        if (isempty(rvalue)) {
+                /* Empty assignment resets the list */
+                *paths = strv_free(*paths);
+                return 0;
+        }
+
+        /* Parse src:dest tuples, and enforce they are relative paths */
+
+        for (const char *p = rvalue;;) {
+                _cleanup_free_ char *tuple = NULL, *source = NULL, *destination = NULL;
+
+                r = extract_first_word(&p, &tuple, NULL, EXTRACT_UNQUOTE);
+                if (r == -ENOMEM)
+                        return log_oom();
+                if (r < 0) {
+                        log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to parse %s, ignoring: %s", lvalue, rvalue);
+                        return 0;
+                }
+                if (r == 0)
+                        break;
+
+                const char *t = tuple;
+                r = extract_many_words(&t, ":", EXTRACT_UNQUOTE|EXTRACT_DONT_COALESCE_SEPARATORS, &source, &destination, NULL);
+                if (r == -ENOMEM)
+                        return log_oom();
+                if (r < 0) {
+                        log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to parse %s, ignoring: %s", lvalue, rvalue);
+                        return 0;
+                }
+                if (r < 2) {
+                        log_syntax(unit,
+                                   LOG_WARNING,
+                                   filename,
+                                   line,
+                                   SYNTHETIC_ERRNO(EINVAL),
+                                   "Failed to parse %s, expecting source:destination format, ignoring: %s",
+                                   lvalue,
+                                   rvalue);
+                        continue;
+                }
+
+                _cleanup_free_ char *sresolved = NULL, *dresolved = NULL;
+
+                r = unit_full_printf_full(u, source, PATH_MAX, &sresolved);
+                if (r < 0) {
+                        log_syntax(unit, LOG_WARNING, filename, line, r,
+                                   "Failed to resolve unit specifiers in \"%s\", ignoring: %m", source);
+                        continue;
+                }
+
+                r = path_simplify_and_warn(sresolved, PATH_CHECK_RELATIVE, unit, filename, line, lvalue);
+                if (r < 0)
+                        continue;
+
+                r = unit_path_printf(u, destination, &dresolved);
+                if (r < 0) {
+                        log_syntax(unit, LOG_WARNING, filename, line, r,
+                                        "Failed to resolve specifiers in \"%s\", ignoring: %m", destination);
+                        continue;
+                }
+
+                r = path_simplify_and_warn(dresolved, PATH_CHECK_RELATIVE, unit, filename, line, lvalue);
+                if (r < 0)
+                        continue;
+
+
+                r = strv_consume_pair(paths, TAKE_PTR(sresolved), TAKE_PTR(dresolved));
+                if (r < 0)
+                        return log_oom();
+        }
+
         return 0;
 }

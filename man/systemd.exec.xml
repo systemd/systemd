@@ -1340,6 +1340,19 @@ StateDirectory=aaa/bbb ccc</programlisting>
       </varlistentry>
 
       <varlistentry>
+        <term><varname>RuntimeDirectorySymlink=</varname></term>
+        <term><varname>StateDirectorySymlink=</varname></term>
+
+        <listitem><para>Create symlinks for directories specified in <varname>RuntimeDirectory=</varname>,
+        <varname>StateDirectory=</varname>.This option expects a whitespace separated list of tuples. Each
+        tuple consists of colon-separated source and destination directories. The source directory must
+        also be specified in <varname>RuntimeDirectory=</varname> or <varname>StateDirectory=</varname>,
+        otherwise it will be ignored. The symlinks will be created after any <varname>BindPaths=</varname></para>
+        or <varname>TemporaryFileSystem=</varname> options have been set up, to make ephemeral symlinking
+        possible.</listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>RuntimeDirectoryMode=</varname></term>
         <term><varname>StateDirectoryMode=</varname></term>
         <term><varname>CacheDirectoryMode=</varname></term>
