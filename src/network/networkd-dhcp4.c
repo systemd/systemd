@@ -1719,26 +1719,6 @@ int config_parse_dhcp_ip_service_type(
         return 0;
 }
 
-int config_parse_dhcp_mud_url(
-                const char *unit,
-                const char *filename,
-                unsigned line,
-                const char *section,
-                unsigned section_line,
-                const char *lvalue,
-                int ltype,
-                const char *rvalue,
-                void *data,
-                void *userdata) {
-
-        Network *network = data;
-
-        assert(network);
-
-        return config_parse_mud_url(unit, filename, line, section, section_line, lvalue, ltype, rvalue,
-                                    &network->dhcp_mudurl);
-}
-
 int config_parse_dhcp_fallback_lease_lifetime(const char *unit,
                 const char *filename,
                 unsigned line,

@@ -414,26 +414,6 @@ void link_lldp_emit_stop(Link *link) {
         link->lldp_emit_event_source = sd_event_source_unref(link->lldp_emit_event_source);
 }
 
-int config_parse_lldp_mud(
-                const char *unit,
-                const char *filename,
-                unsigned line,
-                const char *section,
-                unsigned section_line,
-                const char *lvalue,
-                int ltype,
-                const char *rvalue,
-                void *data,
-                void *userdata) {
-
-        Network *network = data;
-
-        assert(network);
-
-        return config_parse_mud_url(unit, filename, line, section, section_line, lvalue, ltype, rvalue,
-                                    &network->lldp_mud);
-}
-
 static const char * const lldp_emit_table[_LLDP_EMIT_MAX] = {
         [LLDP_EMIT_NO]              = "no",
         [LLDP_EMIT_NEAREST_BRIDGE]  = "nearest-bridge",

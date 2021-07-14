@@ -1788,26 +1788,6 @@ int config_parse_dhcp6_pd_hint(
         return 0;
 }
 
-int config_parse_dhcp6_mud_url(
-                const char *unit,
-                const char *filename,
-                unsigned line,
-                const char *section,
-                unsigned section_line,
-                const char *lvalue,
-                int ltype,
-                const char *rvalue,
-                void *data,
-                void *userdata) {
-
-        Network *network = data;
-
-        assert(network);
-
-        return config_parse_mud_url(unit, filename, line, section, section_line, lvalue, ltype, rvalue,
-                                    &network->dhcp6_mudurl);
-}
-
 DEFINE_CONFIG_PARSE_ENUM(config_parse_dhcp6_client_start_mode, dhcp6_client_start_mode, DHCP6ClientStartMode,
                          "Failed to parse WithoutRA= setting");
 
