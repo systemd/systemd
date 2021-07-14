@@ -1940,6 +1940,14 @@ static int build_environment(
                 if (!joined)
                         return -ENOMEM;
 
+                if (!strv_isempty(c->directories[t].symlinks)) {
+                        char **src, **dst;
+
+                        STRV_FOREACH_PAIR(src, dst, c->directories[t].symlinks)
+                                if (!strextend_with_separator(&joined, ":", pre, *dst, NULL))
+                                        return -ENOMEM;
+                }
+
                 x = strjoin(n, "=", joined);
                 if (!x)
                         return -ENOMEM;
@@ -2244,12 +2252,51 @@ static bool exec_directory_is_private(const ExecContext *context, ExecDirectoryT
         return true;
 }
 
+/* StateDirectorySymlinks and friends should reference only existing StateDirectory sources */
+static int prune_non_existing_exec_directories_symlinks(
+                const ExecContext *context,
+                const ExecParameters *params,
+                ExecDirectoryType type) {
+
+        assert(context);
+        assert(params);
+        assert(type >= 0 && type < _EXEC_DIRECTORY_TYPE_MAX);
+
+        if (!params->prefix[type] || !context->directories[type].symlinks)
+                return 0;
+
+        /* If a bad tuple is found, free it and relocate the next good tuple down one slot. */
+        size_t j = 0;
+        for (size_t i = 0; context->directories[type].symlinks[i]; i += 2) {
+                assert(context->directories[type].symlinks[i + 1]);
+
+                if (strv_contains(context->directories[type].paths, context->directories[type].symlinks[i])) {
+                        context->directories[type].symlinks[j++] = context->directories[type].symlinks[i];
+                        context->directories[type].symlinks[j++] = context->directories[type].symlinks[i + 1];
+                        continue;
+                }
+
+                log_warning("Source directory in %s=%s:%s tuple was not part of %s=, ignorning.",
+                            exec_directory_type_symlink_to_string(type),
+                            context->directories[type].symlinks[i],
+                            context->directories[type].symlinks[i + 1],
+                            exec_directory_type_to_string(type));
+
+                context->directories[type].symlinks[i] = mfree(context->directories[type].symlinks[i]);
+                context->directories[type].symlinks[i + 1] = mfree(context->directories[type].symlinks[i + 1]);
+        }
+        context->directories[type].symlinks[j] = NULL;
+
+        return 0;
+}
+
 static int setup_exec_directory(
                 const ExecContext *context,
                 const ExecParameters *params,
                 uid_t uid,
                 gid_t gid,
                 ExecDirectoryType type,
+                bool needs_mount_namespace,
                 int *exit_status) {
 
         static const int exit_status_table[_EXEC_DIRECTORY_TYPE_MAX] = {
@@ -2460,6 +2507,21 @@ static int setup_exec_directory(
                 if (r < 0)
                         goto fail;
         }
+
+        /* First, ensure we are not asked to created symlinks for exec dirs that do not exist. */
+        r = prune_non_existing_exec_directories_symlinks(context, params, type);
+        if (r < 0) {
+                log_error_errno(r, "Failed to normalize special execution directory symlinks in %s: %m", params->prefix[type]);
+                goto fail;
+        }
+
+        /* If we are not going to run in a namespace, set up the symlinks - otherwise
+         * they are set up later, to allow configuring empty var/run/etc. */
+        if (!needs_mount_namespace) {
+                r = create_symlinks_from_tuples(params->prefix[type], context->directories[type].symlinks, mkdir_parents_label);
+                if (r < 0)
+                        goto fail;
+      }
 
         return 0;
 
@@ -3142,7 +3204,19 @@ static int compile_symlinks(
         assert(ret_symlinks);
 
         for (ExecDirectoryType dt = 0; dt < _EXEC_DIRECTORY_TYPE_MAX; dt++) {
-                char **src;
+                char **src, **dst;
+
+                STRV_FOREACH_PAIR(src, dst, context->directories[dt].symlinks) {
+                        _cleanup_free_ char *src_abs = NULL, *dst_abs = NULL;
+
+                        src_abs = path_join(params->prefix[dt], *src);
+                        dst_abs = path_join(params->prefix[dt], *dst);
+                        if (!src_abs || !dst_abs)
+                                return -ENOMEM;
+                        r = strv_consume_pair(&symlinks, TAKE_PTR(src_abs), TAKE_PTR(dst_abs));
+                        if (r < 0)
+                                return r;
+                }
 
                 if (!exec_directory_is_private(context, dt))
                         continue;
@@ -4174,8 +4248,10 @@ static int exec_child(
                 }
         }
 
+        needs_mount_namespace = exec_needs_mount_namespace(context, params, runtime);
+
         for (ExecDirectoryType dt = 0; dt < _EXEC_DIRECTORY_TYPE_MAX; dt++) {
-                r = setup_exec_directory(context, params, uid, gid, dt, exit_status);
+                r = setup_exec_directory(context, params, uid, gid, dt, needs_mount_namespace, exit_status);
                 if (r < 0)
                         return log_unit_error_errno(unit, r, "Failed to set up special execution directory in %s: %m", params->prefix[dt]);
         }
@@ -4362,7 +4438,6 @@ static int exec_child(
                         log_unit_warning(unit, "PrivateIPC=yes is configured, but the kernel does not support IPC namespaces, ignoring.");
         }
 
-        needs_mount_namespace = exec_needs_mount_namespace(context, params, runtime);
         if (needs_mount_namespace) {
                 _cleanup_free_ char *error_path = NULL;
 
@@ -5023,8 +5098,10 @@ void exec_context_done(ExecContext *c) {
         c->syscall_archs = set_free(c->syscall_archs);
         c->address_families = set_free(c->address_families);
 
-        for (ExecDirectoryType t = 0; t < _EXEC_DIRECTORY_TYPE_MAX; t++)
+        for (ExecDirectoryType t = 0; t < _EXEC_DIRECTORY_TYPE_MAX; t++) {
                 c->directories[t].paths = strv_free(c->directories[t].paths);
+                c->directories[t].symlinks = strv_free(c->directories[t].symlinks);
+        }
 
         c->log_level_max = -1;
 
@@ -5479,6 +5556,9 @@ void exec_context_dump(const ExecContext *c, FILE* f, const char *prefix) {
 
                 STRV_FOREACH(d, c->directories[dt].paths)
                         fprintf(f, "%s%s: %s\n", prefix, exec_directory_type_to_string(dt), *d);
+
+                STRV_FOREACH_PAIR(d, e, c->directories[dt].symlinks)
+                        fprintf(f, "%s%s: %s:%s\n", prefix, exec_directory_type_symlink_to_string(dt), *d, *e);
         }
 
         fprintf(f, "%sTimeoutCleanSec: %s\n", prefix, FORMAT_TIMESPAN(c->timeout_clean_usec, USEC_PER_SEC));
@@ -5975,6 +6055,19 @@ int exec_context_get_clean_directories(
                                 if (r < 0)
                                         return r;
                         }
+                }
+
+                char **d;
+                STRV_FOREACH_PAIR(i, d, c->directories[t].symlinks) {
+                        char *j;
+
+                        j = path_join(prefix[t], *d);
+                        if (!j)
+                                return -ENOMEM;
+
+                        r = strv_consume(&l, j);
+                        if (r < 0)
+                                return r;
                 }
         }
 
@@ -6726,6 +6819,17 @@ static const char* const exec_directory_type_table[_EXEC_DIRECTORY_TYPE_MAX] = {
 };
 
 DEFINE_STRING_TABLE_LOOKUP(exec_directory_type, ExecDirectoryType);
+
+/* This table maps ExecDirectoryType to the symlink setting it is configured with in the unit */
+static const char* const exec_directory_type_symlink_table[_EXEC_DIRECTORY_TYPE_MAX] = {
+        [EXEC_DIRECTORY_RUNTIME]       = "RuntimeDirectorySymlink",
+        [EXEC_DIRECTORY_STATE]         = "StateDirectorySymlink",
+        [EXEC_DIRECTORY_CACHE]         = "CacheDirectorySymlink",
+        [EXEC_DIRECTORY_LOGS]          = "LogsDirectorySymlink",
+        [EXEC_DIRECTORY_CONFIGURATION] = "ConfigurationDirectorySymlink",
+};
+
+DEFINE_STRING_TABLE_LOOKUP(exec_directory_type_symlink, ExecDirectoryType);
 
 /* And this table maps ExecDirectoryType too, but to a generic term identifying the type of resource. This
  * one is supposed to be generic enough to be used for unit types that don't use ExecContext and per-unit
