@@ -19,10 +19,43 @@ typedef struct NetworkConfigSection {
         char filename[];
 } NetworkConfigSection;
 
+typedef enum NetworkConfigSource {
+        NETWORK_CONFIG_SOURCE_FOREIGN, /* configured by kernel */
+        NETWORK_CONFIG_SOURCE_STATIC,
+        NETWORK_CONFIG_SORUCE_IPV4LL,
+        NETWORK_CONFIG_SOURCE_DHCP4,
+        NETWORK_CONFIG_SOURCE_DHCP6,
+        NETWORK_CONFIG_SOURCE_DHCP6PD,
+        NETWORK_CONFIG_SOURCE_NDISC,
+        _NETWORK_CONFIG_SOURCE_MAX,
+        _NETWORK_CONFIG_SOURCE_INVALID = -EINVAL,
+} NetworkConfigSource;
+
+typedef enum NetworkConfigStatus {
+        NETWORK_CONFIG_STATUS_REQUESTING  = 1 << 0, /* request is queued */
+        NETWORK_CONFIG_STATUS_PROBING     = 1 << 1, /* address is probing with ipv4acd */
+        NETWORK_CONFIG_STATUS_ANNOUNCED   = 1 << 2, /* ipv4acd probe finished and announced */
+        NETWORK_CONFIG_STATUS_CONFIGURING = 1 << 3, /* e.g. address_configure() is called, but no responce is received yet */
+        NETWORK_CONFIG_STATUS_NOT_READY   = 1 << 4, /* address is assigned but in tentative state */
+        NETWORK_CONFIG_STATUS_CONFIGURED  = 1 << 5, /* everything is configured, for address, it is ready to use */
+        NETWORK_CONFIG_STATUS_MARKED      = 1 << 6, /* used GC'ing the old config */
+        NETWORK_CONFIG_STATUS_REMOVING    = 1 << 7, /* e.g. address_remove() is called, but no responce is received yet */
+        _NETWORK_CONFIG_STATUS_MAX,
+        _NETWORK_CONFIG_STATUS_INVALID = -EINVAL,
+} NetworkConfigStatus;
+
 CONFIG_PARSER_PROTOTYPE(config_parse_link_local_address_family);
 CONFIG_PARSER_PROTOTYPE(config_parse_address_family_with_kernel);
 CONFIG_PARSER_PROTOTYPE(config_parse_ip_masquerade);
 CONFIG_PARSER_PROTOTYPE(config_parse_mud_url);
+
+const char *network_config_source_to_string(NetworkConfigSource s) _const_;
+
+int network_config_status_to_string_alloc(NetworkConfigStatus s, char **ret);
+
+static inline NetworkConfigStatus network_config_status_update(NetworkConfigStatus s, NetworkConfigStatus unset, NetworkConfigStatus set) {
+        return (s & ~unset) | set;
+}
 
 const char *address_family_to_string(AddressFamily b) _const_;
 AddressFamily address_family_from_string(const char *s) _pure_;
