@@ -14,7 +14,16 @@ typedef enum ImportVerify {
 } ImportVerify;
 
 int import_url_last_component(const char *url, char **ret);
-int import_url_change_last_component(const char *url, const char *suffix, char **ret);
+
+int import_url_change_suffix(const char *url, size_t n_drop_components, const char *suffix, char **ret);
+
+static inline int import_url_change_last_component(const char *url, const char *suffix, char **ret) {
+        return import_url_change_suffix(url, 1, suffix, ret);
+}
+
+static inline int import_url_append_component(const char *url, const char *suffix, char **ret) {
+        return import_url_change_suffix(url, 0, suffix, ret);
+}
 
 const char* import_verify_to_string(ImportVerify v) _const_;
 ImportVerify import_verify_from_string(const char *s) _pure_;
