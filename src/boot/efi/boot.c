@@ -495,19 +495,19 @@ static BOOLEAN menu_run(
 
         EFI_STATUS err;
         UINTN visible_max;
-        UINTN idx_highlight;
-        UINTN idx_highlight_prev;
+        UINTN idx_highlight = config->idx_default;
+        UINTN idx_highlight_prev = 0;
         UINTN idx_first;
         UINTN idx_last;
-        BOOLEAN refresh;
-        BOOLEAN highlight;
+        BOOLEAN refresh = TRUE;
+        BOOLEAN highlight = FALSE;
         UINTN line_width;
         CHAR16 **lines;
         UINTN x_start;
         UINTN y_start;
         UINTN x_max;
         UINTN y_max;
-        CHAR16 *status;
+        CHAR16 *status = NULL;
         CHAR16 *clearline;
         INTN timeout_remain;
         INT16 idx;
@@ -544,20 +544,19 @@ static BOOLEAN menu_run(
         else
                 timeout_remain = -1;
 
-        idx_highlight = config->idx_default;
-        idx_highlight_prev = 0;
-
         visible_max = y_max - 2;
 
-        if ((UINTN)config->idx_default >= visible_max)
-                idx_first = config->idx_default-1;
-        else
+        /* Drawing entries starts at idx_first until idx_last.
+         * We want to make sure that idx_highlight is centered,
+         * but not if that means that above/below it are no entries
+         * to draw anymore. */
+        if (config->entry_count < visible_max || idx_highlight < visible_max / 2)
                 idx_first = 0;
-
+        else if (idx_highlight >= config->entry_count - (visible_max / 2))
+                idx_first = config->entry_count - visible_max;
+        else
+                idx_first = idx_highlight - (visible_max / 2);
         idx_last = idx_first + visible_max-1;
-
-        refresh = TRUE;
-        highlight = FALSE;
 
         /* length of the longest entry */
         line_width = 5;
@@ -595,7 +594,6 @@ static BOOLEAN menu_run(
                 lines[i][x_max] = '\0';
         }
 
-        status = NULL;
         clearline = AllocatePool((x_max+1) * sizeof(CHAR16));
         for (UINTN i = 0; i < x_max; i++)
                 clearline[i] = ' ';
