@@ -408,7 +408,7 @@ static int on_mdns_packet(sd_event_source *s, int fd, uint32_t revents, void *us
                                 dns_transaction_process_reply(t, p, false);
                 }
 
-                dns_cache_put(&scope->cache, scope->manager->enable_cache, NULL, DNS_PACKET_RCODE(p), p->answer, NULL, false, _DNSSEC_RESULT_INVALID, UINT32_MAX, p->family, &p->sender);
+                dns_cache_put(&scope->cache, scope->manager->enable_cache, NULL, DNS_PACKET_RCODE(p), p->answer, NULL, false, _DNSSEC_RESULT_INVALID, UINT32_MAX, p->family, &p->sender, scope->link->ifname, scope->protocol);
 
         } else if (dns_packet_validate_query(p) > 0)  {
                 log_debug("Got mDNS query packet for id %u", DNS_PACKET_ID(p));

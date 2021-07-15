@@ -814,6 +814,12 @@ static void dns_transaction_cache_answer(DnsTransaction *t) {
             in_addr_is_localhost(t->received->family, &t->received->sender) != 0)
                 return;
 
+        const char *ifname;
+        if (t->scope->link)
+                ifname = t->scope->link->ifname;
+        else
+                ifname = "*";
+
         dns_cache_put(&t->scope->cache,
                       t->scope->manager->enable_cache,
                       dns_transaction_key(t),
@@ -827,7 +833,9 @@ static void dns_transaction_cache_answer(DnsTransaction *t) {
                       t->answer_dnssec_result,
                       t->answer_nsec_ttl,
                       t->received->family,
-                      &t->received->sender);
+                      &t->received->sender,
+                      ifname,
+                      t->scope->protocol);
 }
 
 static bool dns_transaction_dnssec_is_live(DnsTransaction *t) {
@@ -1702,7 +1710,10 @@ static int dns_transaction_prepare(DnsTransaction *t, usec_t ts) {
                 (void) dns_scope_get_dns_server(t->scope);
 
                 /* Let's then prune all outdated entries */
-                dns_cache_prune(&t->scope->cache);
+                if (t->scope->link)
+                        dns_cache_prune(&t->scope->cache, t->scope->family, t->scope->link->ifname, t->scope->protocol);
+                else
+                        dns_cache_prune(&t->scope->cache, t->scope->family, "*", t->scope->protocol);
 
                 r = dns_cache_lookup(
                                 &t->scope->cache,

@@ -1818,6 +1818,39 @@ static int bus_method_flush_caches(sd_bus_message *message, void *userdata, sd_b
         return sd_bus_reply_method_return(message, NULL);
 }
 
+static int bus_method_show_caches(sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+        Manager *m = userdata;
+        int r;
+
+        assert(message);
+        assert(m);
+
+        r = sd_bus_message_new_method_return(message, &reply);
+        if (r < 0)
+                return r;
+
+        manager_show_caches(m, reply);
+
+        r = sd_bus_emit_signal(sd_bus_message_get_bus(message),
+                               "/org/freedesktop/resolve1",
+                               "org.freedesktop.resolve1.Manager",
+                               "CacheExhausted",
+                               "s", "Cache_Exhausted");
+        if (r < 0)
+                return log_error_errno(r, "Cannot emit CacheExhausted signal: %m");
+
+        r = sd_bus_emit_signal(sd_bus_message_get_bus(message),
+                               "/org/freedesktop/resolve1",
+                               "org.freedesktop.resolve1.Manager",
+                               "AllForNow",
+                               "s", "All_For_Now");
+        if (r < 0)
+                return log_error_errno(r, "Cannot emit AllForNow signal: %m");
+
+        return sd_bus_send(sd_bus_message_get_bus(message), reply, NULL);
+}
+
 static int bus_method_reset_server_features(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         Manager *m = userdata;
 
@@ -2186,12 +2219,41 @@ static const sd_bus_vtable resolve_vtable[] = {
                                 SD_BUS_NO_RESULT,
                                 bus_method_flush_caches,
                                 SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD_WITH_ARGS("ShowCaches",
+                                SD_BUS_NO_ARGS,
+                                SD_BUS_RESULT("a(sssss)", mdns_cache),
+                                bus_method_show_caches,
+                                SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD_WITH_ARGS("ResetServerFeatures",
                                 SD_BUS_NO_ARGS,
                                 SD_BUS_NO_RESULT,
                                 bus_method_reset_server_features,
                                 SD_BUS_VTABLE_UNPRIVILEGED),
 
+        SD_BUS_SIGNAL_WITH_NAMES("ItemNew",
+                                 "sssss",
+                                 SD_BUS_PARAM(interface)
+                                 SD_BUS_PARAM(protocol)
+                                 SD_BUS_PARAM(name)
+                                 SD_BUS_PARAM(type)
+                                 SD_BUS_PARAM(domain),
+                                 0),
+        SD_BUS_SIGNAL_WITH_NAMES("ItemRemove",
+                                 "sssss",
+                                 SD_BUS_PARAM(interface)
+                                 SD_BUS_PARAM(protocol)
+                                 SD_BUS_PARAM(name)
+                                 SD_BUS_PARAM(type)
+                                 SD_BUS_PARAM(domain),
+                                 0),
+        SD_BUS_SIGNAL_WITH_NAMES("AllForNow",
+                                 "s",
+                                  SD_BUS_PARAM(status),
+                                  0),
+        SD_BUS_SIGNAL_WITH_NAMES("CacheExhausted",
+                                 "s",
+                                  SD_BUS_PARAM(status),
+                                  0),
         SD_BUS_VTABLE_END,
 };
 

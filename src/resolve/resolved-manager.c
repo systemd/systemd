@@ -1511,6 +1511,14 @@ void manager_flush_caches(Manager *m, int log_level) {
         log_full(log_level, "Flushed all caches.");
 }
 
+void manager_show_caches(Manager *m, sd_bus_message *reply) {
+        assert(m);
+
+        dns_cache_dump_mdns(m, reply);
+
+        log_info("resolved-manager.c : manager_show_caches dumped all caches.");
+}
+
 void manager_reset_server_features(Manager *m) {
         Link *l;
 
