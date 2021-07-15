@@ -638,7 +638,6 @@ char *format_lifetime(char *buf, size_t l, uint32_t lifetime) {
 
 static void log_address_debug(const Address *address, const char *str, const Link *link) {
         _cleanup_free_ char *addr = NULL, *peer = NULL, *flags_str = NULL;
-        bool has_peer;
 
         assert(address);
         assert(str);
@@ -648,15 +647,13 @@ static void log_address_debug(const Address *address, const char *str, const Lin
                 return;
 
         (void) in_addr_to_string(address->family, &address->in_addr, &addr);
-        has_peer = in_addr_is_set(address->family, &address->in_addr_peer);
-        if (has_peer)
+        if (in_addr_is_set(address->family, &address->in_addr_peer))
                 (void) in_addr_to_string(address->family, &address->in_addr_peer, &peer);
 
         (void) address_flags_to_string_alloc(address->flags, address->family, &flags_str);
 
         log_link_debug(link, "%s address: %s%s%s/%u (valid %s, preferred %s), flags: %s",
-                       str, strnull(addr), has_peer ? " peer " : "",
-                       has_peer ? strnull(peer) : "", address->prefixlen,
+                       str, strnull(addr), peer ? " peer " : "", strempty(peer), address->prefixlen,
                        FORMAT_LIFETIME(address->cinfo.ifa_valid),
                        FORMAT_LIFETIME(address->cinfo.ifa_prefered),
                        strna(flags_str));
