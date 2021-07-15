@@ -523,14 +523,10 @@ static BOOLEAN menu_run(
         /* draw a single character to make ClearScreen work on some firmware */
         Print(L" ");
 
-        if (config->console_mode_change != CONSOLE_MODE_KEEP) {
-                err = console_set_mode(&config->console_mode, config->console_mode_change);
-                if (EFI_ERROR(err)) {
-                        uefi_call_wrapper(ST->ConOut->ClearScreen, 1, ST->ConOut);
-                        PrintError(L"Error switching console mode to %ld: %r.\n", (UINT64)config->console_mode, err);
-                }
-        } else
-                uefi_call_wrapper(ST->ConOut->ClearScreen, 1, ST->ConOut);
+        err = console_set_mode(config->console_mode, config->console_mode_change);
+        uefi_call_wrapper(ST->ConOut->ClearScreen, 1, ST->ConOut);
+        if (EFI_ERROR(err))
+                PrintError(L"Error switching console mode to %lu: %r.\n", config->console_mode, err);
 
         err = uefi_call_wrapper(ST->ConOut->QueryMode, 4, ST->ConOut, ST->ConOut->Mode->Mode, &x_max, &y_max);
         if (EFI_ERROR(err)) {
