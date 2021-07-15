@@ -639,7 +639,7 @@ static int check_x_access(const char *path, int *ret_fd) {
         return 0;
 }
 
-int find_executable_full(const char *name, bool use_path_envvar, char **ret_filename, int *ret_fd) {
+int find_executable_full(const char *name, const char *root, bool use_path_envvar, char **ret_filename, int *ret_fd) {
         int last_error, r;
         const char *p = NULL;
 
@@ -647,13 +647,16 @@ int find_executable_full(const char *name, bool use_path_envvar, char **ret_file
 
         if (is_path(name)) {
                 _cleanup_close_ int fd = -1;
+                _cleanup_free_ char *path_name = path_join(root, name); /* prefix root to name in case full paths are not specified */
+                if (!path_name)
+                        return -ENOMEM;
 
-                r = check_x_access(name, ret_fd ? &fd : NULL);
+                r = check_x_access(path_name, ret_fd ? &fd : NULL);
                 if (r < 0)
                         return r;
 
                 if (ret_filename) {
-                        r = path_make_absolute_cwd(name, ret_filename);
+                        r = path_make_absolute_cwd(path_name, ret_filename);
                         if (r < 0)
                                 return r;
                 }
@@ -687,10 +690,14 @@ int find_executable_full(const char *name, bool use_path_envvar, char **ret_file
                 if (!path_is_absolute(element))
                         continue;
 
-                if (!path_extend(&element, name))
+                _cleanup_free_ char *path_name = path_join(root, element);
+                if (!path_name)
                         return -ENOMEM;
 
-                r = check_x_access(element, ret_fd ? &fd : NULL);
+                if (!path_extend(&path_name, name))
+                        return -ENOMEM;
+
+                r = check_x_access(path_name, ret_fd ? &fd : NULL);
                 if (r < 0) {
                         /* PATH entries which we don't have access to are ignored, as per tradition. */
                         if (r != -EACCES)
@@ -700,7 +707,7 @@ int find_executable_full(const char *name, bool use_path_envvar, char **ret_file
 
                 /* Found it! */
                 if (ret_filename)
-                        *ret_filename = path_simplify(TAKE_PTR(element));
+                        *ret_filename = path_simplify(TAKE_PTR(path_name));
                 if (ret_fd)
                         *ret_fd = TAKE_FD(fd);
 

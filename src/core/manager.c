@@ -1507,7 +1507,7 @@ Manager* manager_free(Manager *m) {
 static void manager_enumerate_perpetual(Manager *m) {
         assert(m);
 
-        if (m->test_run_flags == MANAGER_TEST_RUN_MINIMAL)
+        if (FLAGS_SET(m->test_run_flags, MANAGER_TEST_RUN_MINIMAL))
                 return;
 
         /* Let's ask every type to load all units from disk/kernel that it might know */
@@ -1525,7 +1525,7 @@ static void manager_enumerate_perpetual(Manager *m) {
 static void manager_enumerate(Manager *m) {
         assert(m);
 
-        if (m->test_run_flags == MANAGER_TEST_RUN_MINIMAL)
+        if (FLAGS_SET(m->test_run_flags, MANAGER_TEST_RUN_MINIMAL))
                 return;
 
         /* Let's ask every type to load all units from disk/kernel that it might know */
@@ -1697,7 +1697,7 @@ static void manager_reloading_stopp(Manager **m) {
         }
 }
 
-int manager_startup(Manager *m, FILE *serialization, FDSet *fds) {
+int manager_startup(Manager *m, FILE *serialization, FDSet *fds, const char *root) {
         int r;
 
         assert(m);
@@ -1706,7 +1706,7 @@ int manager_startup(Manager *m, FILE *serialization, FDSet *fds) {
          * but we should not touch the real generator directories. */
         r = lookup_paths_init(&m->lookup_paths, m->unit_file_scope,
                               MANAGER_IS_TEST_RUN(m) ? LOOKUP_PATHS_TEMPORARY_GENERATED : 0,
-                              NULL);
+                              root);
         if (r < 0)
                 return log_error_errno(r, "Failed to initialize path lookup table: %m");
 
