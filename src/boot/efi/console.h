@@ -17,4 +17,5 @@ enum console_mode_change_type {
 };
 
 EFI_STATUS console_key_read(UINT64 *key, BOOLEAN wait);
-EFI_STATUS console_set_mode(UINTN *mode, enum console_mode_change_type how);
+EFI_STATUS console_set_mode(UINTN mode, enum console_mode_change_type how);
+EFI_STATUS console_query_mode(UINTN *x_max, UINTN *y_max);
