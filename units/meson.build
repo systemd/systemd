@@ -104,6 +104,8 @@ units = [
         ['systemd-ask-password-wall.service',   ''],
         ['systemd-boot-system-token.service',   'ENABLE_EFI',
          'sysinit.target.wants/'],
+        ['systemd-boot-update.service',         'ENABLE_EFI HAVE_BLKID',
+         'sysinit.target.wants/'],
         ['systemd-coredump.socket',             'ENABLE_COREDUMP',
          'sockets.target.wants/'],
         ['systemd-exit.service',                ''],
