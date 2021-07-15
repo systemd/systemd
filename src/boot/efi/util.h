@@ -74,4 +74,5 @@ static inline void FileHandleClosep(EFI_FILE_HANDLE *handle) {
 #define UINT64_MAX ((UINT64) -1)
 #endif
 
+VOID PrintError(const CHAR16 *format, ...);
 EFI_STATUS log_oom(void);
