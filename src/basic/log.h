@@ -9,6 +9,8 @@
 
 #include "macro.h"
 
+extern bool found_error_when_parsing_config;
+
 /* Some structures we reference but don't want to pull in headers for */
 struct iovec;
 struct signalfd_siginfo;
