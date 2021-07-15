@@ -16,6 +16,7 @@
 #include "parse-util.h"
 #include "string-util.h"
 #include "strv.h"
+#include "strxcpyx.h"
 
 #define ADDRESSES_PER_LINK_MAX 2048U
 #define STATIC_ADDRESSES_PER_NETWORK_MAX 1024U
@@ -620,9 +621,23 @@ int manager_has_address(Manager *manager, int family, const union in_addr_union 
         return false;
 }
 
+char *format_lifetime(char *buf, size_t l, uint32_t lifetime) {
+        char *p = buf;
+
+        assert(buf);
+        assert(l > 0);
+
+        if (lifetime == CACHE_INFO_INFINITY_LIFE_TIME) {
+                strscpy(buf, l, "forever");
+                return buf;
+        }
+
+        l -= strpcpy(&p, l, "for ");
+        return format_timespan(p, l, lifetime * USEC_PER_SEC, USEC_PER_SEC);
+}
+
 static void log_address_debug(const Address *address, const char *str, const Link *link) {
         _cleanup_free_ char *addr = NULL, *peer = NULL, *flags_str = NULL;
-        const char *valid_str = NULL, *preferred_str = NULL;
         bool has_peer;
 
         assert(address);
@@ -637,19 +652,13 @@ static void log_address_debug(const Address *address, const char *str, const Lin
         if (has_peer)
                 (void) in_addr_to_string(address->family, &address->in_addr_peer, &peer);
 
-        if (address->cinfo.ifa_valid != CACHE_INFO_INFINITY_LIFE_TIME)
-                valid_str = FORMAT_TIMESPAN(address->cinfo.ifa_valid * USEC_PER_SEC, USEC_PER_SEC);
-
-        if (address->cinfo.ifa_prefered != CACHE_INFO_INFINITY_LIFE_TIME)
-                preferred_str = FORMAT_TIMESPAN(address->cinfo.ifa_prefered * USEC_PER_SEC, USEC_PER_SEC);
-
         (void) address_flags_to_string_alloc(address->flags, address->family, &flags_str);
 
-        log_link_debug(link, "%s address: %s%s%s/%u (valid %s%s, preferred %s%s), flags: %s",
+        log_link_debug(link, "%s address: %s%s%s/%u (valid %s, preferred %s), flags: %s",
                        str, strnull(addr), has_peer ? " peer " : "",
                        has_peer ? strnull(peer) : "", address->prefixlen,
-                       valid_str ? "for " : "forever", strempty(valid_str),
-                       preferred_str ? "for " : "forever", strempty(preferred_str),
+                       FORMAT_LIFETIME(address->cinfo.ifa_valid),
+                       FORMAT_LIFETIME(address->cinfo.ifa_prefered),
                        strna(flags_str));
 }
 
