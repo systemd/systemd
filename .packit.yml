@@ -39,4 +39,5 @@ jobs:
     targets:
     - fedora-rawhide-aarch64
     - fedora-rawhide-i386
+    - fedora-rawhide-ppc64le
     - fedora-rawhide-x86_64
