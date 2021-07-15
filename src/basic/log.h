@@ -9,6 +9,11 @@
 
 #include "macro.h"
 
+/* The number of issues logged with log_syntax(). We use a global variable because those errors
+ * are usually ignored by the caller, and this way we can know how many issues (if any) were detected
+ * without refactoring all the callers */
+extern uint64_t log_syntax_issue_reported;
+
 /* Some structures we reference but don't want to pull in headers for */
 struct iovec;
 struct signalfd_siginfo;
