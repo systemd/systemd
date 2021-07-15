@@ -7,6 +7,8 @@
 #include "bus-message-util.h"
 #include "bus-polkit.h"
 #include "dns-domain.h"
+#include "fd-util.h"
+#include "fileio.h"
 #include "format-util.h"
 #include "memory-util.h"
 #include "missing_capability.h"
@@ -1818,6 +1820,38 @@ static int bus_method_flush_caches(sd_bus_message *message, void *userdata, sd_b
         return sd_bus_reply_method_return(message, NULL);
 }
 
+static int bus_method_dump_caches(sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        _cleanup_free_ char *dump = NULL; /* dump must be freed after f */
+        _cleanup_fclose_ FILE *f = NULL;
+        _cleanup_close_ int fd = -1;
+        Manager *m = userdata;
+        DnsScope *scope;
+        size_t size;
+        int r;
+
+        assert(message);
+        assert(m);
+
+        f = open_memstream_unlocked(&dump, &size);
+        if (!f)
+                return -errno;
+
+        LIST_FOREACH(scopes, scope, m->dns_scopes)
+                dns_cache_dump(&scope->cache, f, false);
+
+        r = fflush_and_check(f);
+        if (r < 0)
+                return r;
+
+        f = safe_fclose(f);
+
+        fd = acquire_data_fd(dump, strlen(dump), 0);
+        if (fd < 0)
+                return fd;
+
+        return sd_bus_reply_method_return(message, "h", fd);
+}
+
 static int bus_method_reset_server_features(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         Manager *m = userdata;
 
@@ -2185,6 +2219,11 @@ static const sd_bus_vtable resolve_vtable[] = {
                                 SD_BUS_NO_ARGS,
                                 SD_BUS_NO_RESULT,
                                 bus_method_flush_caches,
+                                SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD_WITH_ARGS("DumpCaches",
+                                SD_BUS_NO_ARGS,
+                                SD_BUS_RESULT("h", fd),
+                                bus_method_dump_caches,
                                 SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD_WITH_ARGS("ResetServerFeatures",
                                 SD_BUS_NO_ARGS,

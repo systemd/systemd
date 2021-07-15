@@ -192,7 +192,7 @@ bool manager_dnssec_supported(Manager *m);
 
 DnsOverTlsMode manager_get_dns_over_tls_mode(Manager *m);
 
-void manager_dnssec_verdict(Manager *m, DnssecVerdict verdict, const DnsResourceKey *key);
+void manager_dnssec_verdict(Manager *m, DnssecVerdict verdict, DnsResourceKey *key);
 
 bool manager_routable(Manager *m);
 

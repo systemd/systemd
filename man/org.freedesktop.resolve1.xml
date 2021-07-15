@@ -114,6 +114,7 @@ node /org/freedesktop/resolve1 {
       UnregisterService(in  o service_path);
       ResetStatistics();
       FlushCaches();
+      DumpCaches(out h UNNAMED);
       ResetServerFeatures();
     properties:
       readonly s LLMNRHostname = '...';
@@ -162,6 +163,8 @@ node /org/freedesktop/resolve1 {
 
     <!--method FlushCaches is not documented!-->
 
+    <!--method DumpCaches is not documented!-->
+
     <!--method ResetServerFeatures is not documented!-->
 
     <!--property DNSSECNegativeTrustAnchors is not documented!-->
@@ -209,6 +212,8 @@ node /org/freedesktop/resolve1 {
     <variablelist class="dbus-method" generated="True" extra-ref="ResetStatistics()"/>
 
     <variablelist class="dbus-method" generated="True" extra-ref="FlushCaches()"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="DumpCaches()"/>
 
     <variablelist class="dbus-method" generated="True" extra-ref="ResetServerFeatures()"/>
 
