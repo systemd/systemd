@@ -23,19 +23,12 @@
 #define _packed_ __attribute__((__packed__))
 #define _malloc_ __attribute__((__malloc__))
 #define _weak_ __attribute__((__weak__))
-#define _likely_(x) (__builtin_expect(!!(x), 1))
-#define _unlikely_(x) (__builtin_expect(!!(x), 0))
 #define _public_ __attribute__((__visibility__("default")))
 #define _hidden_ __attribute__((__visibility__("hidden")))
 #define _weakref_(x) __attribute__((__weakref__(#x)))
 #define _alignas_(x) __attribute__((__aligned__(__alignof(x))))
 #define _alignptr_ __attribute__((__aligned__(sizeof(void*))))
 #define _warn_unused_result_ __attribute__((__warn_unused_result__))
-#if __GNUC__ >= 7
-#define _fallthrough_ __attribute__((__fallthrough__))
-#else
-#define _fallthrough_
-#endif
 /* Define C11 noreturn without <stdnoreturn.h> and even on older gcc
  * compiler versions */
 #ifndef _noreturn_

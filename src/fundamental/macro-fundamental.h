@@ -14,6 +14,13 @@
 #define _used_ __attribute__((__used__))
 #define _unused_ __attribute__((__unused__))
 #define _cleanup_(x) __attribute__((__cleanup__(x)))
+#define _likely_(x) (__builtin_expect(!!(x), 1))
+#define _unlikely_(x) (__builtin_expect(!!(x), 0))
+#if __GNUC__ >= 7
+#define _fallthrough_ __attribute__((__fallthrough__))
+#else
+#define _fallthrough_
+#endif
 
 #define XSTRINGIFY(x) #x
 #define STRINGIFY(x) XSTRINGIFY(x)
