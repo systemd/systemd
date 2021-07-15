@@ -81,6 +81,7 @@
 {{type}}.RestrictAddressFamilies,          config_parse_warn_compat,                    DISABLED_CONFIGURATION,             0
 {{type}}.LockPersonality,                  config_parse_warn_compat,                    DISABLED_CONFIGURATION,             0
 {% endif %}
+{{type}}.RestrictFileSystems,              config_parse_restrict_filesystems,           0,                                  offsetof({{type}}, exec_context)
 {{type}}.LimitCPU,                         config_parse_rlimit,                         RLIMIT_CPU,                         offsetof({{type}}, exec_context.rlimit)
 {{type}}.LimitFSIZE,                       config_parse_rlimit,                         RLIMIT_FSIZE,                       offsetof({{type}}, exec_context.rlimit)
 {{type}}.LimitDATA,                        config_parse_rlimit,                         RLIMIT_DATA,                        offsetof({{type}}, exec_context.rlimit)

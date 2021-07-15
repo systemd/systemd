@@ -349,6 +349,17 @@ tests += [
          [],
          core_includes],
 
+        [['src/test/test-bpf-lsm.c'],
+         [libcore,
+          libshared],
+         [libmount,
+          threads,
+          librt,
+          libseccomp,
+          libselinux,
+          libblkid],
+         core_includes],
+
         [['src/test/test-watch-pid.c'],
          [libcore,
           libshared],
