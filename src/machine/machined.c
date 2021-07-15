@@ -352,16 +352,16 @@ static int run(int argc, char *argv[]) {
                 return log_error_errno(r, "Failed to fully start up daemon: %m");
 
         log_debug("systemd-machined running as pid "PID_FMT, getpid_cached());
-        (void) sd_notify(false,
-                         "READY=1\n"
-                         "STATUS=Processing requests...");
+        sd_notify(false,
+                  "READY=1\n"
+                  "STATUS=Processing requests...");
 
         r = manager_run(m);
 
         log_debug("systemd-machined stopped as pid "PID_FMT, getpid_cached());
-        (void) sd_notify(false,
-                         "STOPPING=1\n"
-                         "STATUS=Shutting down...");
+        sd_notify(false,
+                  "STOPPING=1\n"
+                  "STATUS=Shutting down...");
 
         return r;
 }

@@ -388,10 +388,10 @@ void session_device_free(SessionDevice *sd) {
 
         /* Make sure to remove the pushed fd. */
         if (sd->pushed_fd)
-                (void) sd_notifyf(false,
-                                  "FDSTOREREMOVE=1\n"
-                                  "FDNAME=session-%s-device-%u-%u",
-                                  sd->session->id, major(sd->dev), minor(sd->dev));
+                sd_notifyf(false,
+                           "FDSTOREREMOVE=1\n"
+                           "FDNAME=session-%s-device-%u-%u",
+                           sd->session->id, major(sd->dev), minor(sd->dev));
 
         session_device_stop(sd);
         session_device_notify(sd, SESSION_DEVICE_RELEASE);
