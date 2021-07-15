@@ -357,10 +357,12 @@ static VOID print_status(Config *config, CHAR16 *loaded_image_path) {
         UINTN timeout;
         BOOLEAN modevar;
         _cleanup_freepool_ CHAR16 *partstr = NULL, *defaultstr = NULL;
-        UINTN x, y;
+        UINTN x_max, y_max;
 
         uefi_call_wrapper(ST->ConOut->SetAttribute, 2, ST->ConOut, COLOR);
         uefi_call_wrapper(ST->ConOut->ClearScreen, 1, ST->ConOut);
+
+        console_query_mode(&x_max, &y_max);
 
         Print(L"systemd-boot version:   " GIT_VERSION "\n");
         Print(L"architecture:           " EFI_MACHINE_TYPE_NAME "\n");
@@ -368,10 +370,7 @@ static VOID print_status(Config *config, CHAR16 *loaded_image_path) {
         Print(L"UEFI specification:     %d.%02d\n", ST->Hdr.Revision >> 16, ST->Hdr.Revision & 0xffff);
         Print(L"firmware vendor:        %s\n", ST->FirmwareVendor);
         Print(L"firmware version:       %d.%02d\n", ST->FirmwareRevision >> 16, ST->FirmwareRevision & 0xffff);
-
-        if (uefi_call_wrapper(ST->ConOut->QueryMode, 4, ST->ConOut, ST->ConOut->Mode->Mode, &x, &y) == EFI_SUCCESS)
-                Print(L"console size:           %d x %d\n", x, y);
-
+        Print(L"console size:           %d x %d\n", x_max, y_max);
         Print(L"SecureBoot:             %s\n", yes_no(secure_boot_enabled()));
 
         if (efivar_get_boolean_u8(EFI_GLOBAL_GUID, L"SetupMode", &modevar) == EFI_SUCCESS)
@@ -522,20 +521,11 @@ static BOOLEAN menu_run(
         /* draw a single character to make ClearScreen work on some firmware */
         Print(L" ");
 
-        if (config->console_mode_change != CONSOLE_MODE_KEEP) {
-                err = console_set_mode(&config->console_mode, config->console_mode_change);
-                if (EFI_ERROR(err)) {
-                        uefi_call_wrapper(ST->ConOut->ClearScreen, 1, ST->ConOut);
-                        PrintErrorStall(L"Error switching console mode to %ld: %r", (UINT64)config->console_mode, err);
-                }
-        } else
-                uefi_call_wrapper(ST->ConOut->ClearScreen, 1, ST->ConOut);
-
-        err = uefi_call_wrapper(ST->ConOut->QueryMode, 4, ST->ConOut, ST->ConOut->Mode->Mode, &x_max, &y_max);
-        if (EFI_ERROR(err)) {
-                x_max = 80;
-                y_max = 25;
-        }
+        err = console_set_mode(config->console_mode, config->console_mode_change);
+        uefi_call_wrapper(ST->ConOut->ClearScreen, 1, ST->ConOut);
+        if (EFI_ERROR(err))
+                PrintErrorStall(L"Error switching console mode to %lu: %r", config->console_mode, err);
+        console_query_mode(&x_max, &y_max);
 
         /* we check 10 times per second for a keystroke */
         if (config->timeout_sec > 0)
