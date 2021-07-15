@@ -3611,6 +3611,8 @@ void unit_catchup(Unit *u) {
 
         if (UNIT_VTABLE(u)->catchup)
                 UNIT_VTABLE(u)->catchup(u);
+
+        unit_cgroup_catchup(u);
 }
 
 static bool fragment_mtime_newer(const char *path, usec_t mtime, bool path_masked) {
