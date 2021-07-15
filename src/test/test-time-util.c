@@ -384,8 +384,7 @@ static void test_FORMAT_TIMESTAMP(void) {
                 assert_se(parse_timestamp(buf, &y) >= 0);
                 assert_se(x / USEC_PER_SEC == y / USEC_PER_SEC);
 
-                char *t = FORMAT_TIMESTAMP(x);
-                assert_se(streq(t, buf));
+                assert_se(streq(FORMAT_TIMESTAMP(x), buf));
         }
 }
 

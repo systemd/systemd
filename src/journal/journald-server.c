@@ -209,19 +209,17 @@ void server_space_usage_message(Server *s, JournalStorage *storage) {
 
         const JournalMetrics *metrics = &storage->metrics;
 
-        const char
-                *vfs_used  = FORMAT_BYTES(storage->space.vfs_used),
-                *limit     = FORMAT_BYTES(storage->space.limit),
-                *available = FORMAT_BYTES(storage->space.available);
-
         server_driver_message(s, 0,
                               "MESSAGE_ID=" SD_MESSAGE_JOURNAL_USAGE_STR,
                               LOG_MESSAGE("%s (%s) is %s, max %s, %s free.",
-                                          storage->name, storage->path, vfs_used, limit, available),
+                                          storage->name, storage->path,
+                                          FORMAT_BYTES(storage->space.vfs_used),
+                                          FORMAT_BYTES(storage->space.limit),
+                                          FORMAT_BYTES(storage->space.available)),
                               "JOURNAL_NAME=%s", storage->name,
                               "JOURNAL_PATH=%s", storage->path,
                               "CURRENT_USE=%"PRIu64, storage->space.vfs_used,
-                              "CURRENT_USE_PRETTY=%s", vfs_used,
+                              "CURRENT_USE_PRETTY=%s", FORMAT_BYTES(storage->space.vfs_used),
                               "MAX_USE=%"PRIu64, metrics->max_use,
                               "MAX_USE_PRETTY=%s", FORMAT_BYTES(metrics->max_use),
                               "DISK_KEEP_FREE=%"PRIu64, metrics->keep_free,
@@ -229,9 +227,9 @@ void server_space_usage_message(Server *s, JournalStorage *storage) {
                               "DISK_AVAILABLE=%"PRIu64, storage->space.vfs_available,
                               "DISK_AVAILABLE_PRETTY=%s", FORMAT_BYTES(storage->space.vfs_available),
                               "LIMIT=%"PRIu64, storage->space.limit,
-                              "LIMIT_PRETTY=%s", limit,
+                              "LIMIT_PRETTY=%s", FORMAT_BYTES(storage->space.limit),
                               "AVAILABLE=%"PRIu64, storage->space.available,
-                              "AVAILABLE_PRETTY=%s", available,
+                              "AVAILABLE_PRETTY=%s", FORMAT_BYTES(storage->space.available),
                               NULL);
 }
 

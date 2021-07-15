@@ -507,8 +507,7 @@ static void machine_status_info_clear(MachineStatusInfo *info) {
 }
 
 static void print_machine_status_info(sd_bus *bus, MachineStatusInfo *i) {
-        _cleanup_free_ char *addresses = NULL;
-        const char *s1, *s2;
+        _cleanup_free_ char *addresses = NULL, *s1 = NULL, *s2 = NULL;
         int ifi = -1;
 
         assert(bus);
@@ -521,12 +520,12 @@ static void print_machine_status_info(sd_bus *bus, MachineStatusInfo *i) {
         else
                 putchar('\n');
 
-        s1 = FORMAT_TIMESTAMP_RELATIVE(i->timestamp.realtime);
-        s2 = FORMAT_TIMESTAMP(i->timestamp.realtime);
+        s1 = strdup(strempty(FORMAT_TIMESTAMP_RELATIVE(i->timestamp.realtime)));
+        s2 = strdup(strempty(FORMAT_TIMESTAMP(i->timestamp.realtime)));
 
-        if (s1)
-                printf("\t   Since: %s; %s\n", s2, s1);
-        else if (s2)
+        if (!isempty(s1))
+                printf("\t   Since: %s; %s\n", strna(s2), s1);
+        else if (!isempty(s2))
                 printf("\t   Since: %s\n", s2);
 
         if (i->leader > 0) {
@@ -826,8 +825,6 @@ typedef struct ImageStatusInfo {
 } ImageStatusInfo;
 
 static void print_image_status_info(sd_bus *bus, ImageStatusInfo *i) {
-        const char *s1, *s2, *s3, *s4;
-
         assert(bus);
         assert(i);
 
@@ -853,33 +850,29 @@ static void print_image_status_info(sd_bus *bus, ImageStatusInfo *i) {
                i->read_only ? "read-only" : "writable",
                i->read_only ? ansi_normal() : "");
 
-        s1 = FORMAT_TIMESTAMP_RELATIVE(i->crtime);
-        s2 = FORMAT_TIMESTAMP(i->crtime);
-        if (s1 && s2)
-                printf("\t Created: %s; %s\n", s2, s1);
-        else if (s2)
-                printf("\t Created: %s\n", s2);
+        if (i->crtime > 0 && i->crtime < USEC_INFINITY)
+                printf("\t Created: %s; %s\n",
+                       FORMAT_TIMESTAMP(i->crtime), FORMAT_TIMESTAMP_RELATIVE(i->crtime));
 
-        s1 = FORMAT_TIMESTAMP_RELATIVE(i->mtime);
-        s2 = FORMAT_TIMESTAMP(i->mtime);
-        if (s1 && s2)
-                printf("\tModified: %s; %s\n", s2, s1);
-        else if (s2)
-                printf("\tModified: %s\n", s2);
+        if (i->mtime > 0 && i->mtime < USEC_INFINITY)
+                printf("\tModified: %s; %s\n",
+                       FORMAT_TIMESTAMP(i->mtime), FORMAT_TIMESTAMP_RELATIVE(i->mtime));
 
-        s3 = FORMAT_BYTES(i->usage);
-        s4 = i->usage_exclusive != i->usage ? FORMAT_BYTES(i->usage_exclusive) : NULL;
-        if (s3 && s4)
-                printf("\t   Usage: %s (exclusive: %s)\n", s3, s4);
-        else if (s3)
-                printf("\t   Usage: %s\n", s3);
+        if (i->usage != UINT64_MAX) {
+                if (i->usage_exclusive != i->usage && i->usage_exclusive != UINT64_MAX)
+                        printf("\t   Usage: %s (exclusive: %s)\n",
+                               FORMAT_BYTES(i->usage), FORMAT_BYTES(i->usage_exclusive));
+                else
+                        printf("\t   Usage: %s\n", FORMAT_BYTES(i->usage));
+        }
 
-        s3 = FORMAT_BYTES(i->limit);
-        s4 = i->limit_exclusive != i->limit ? FORMAT_BYTES(i->limit_exclusive) : NULL;
-        if (s3 && s4)
-                printf("\t   Limit: %s (exclusive: %s)\n", s3, s4);
-        else if (s3)
-                printf("\t   Limit: %s\n", s3);
+        if (i->limit != UINT64_MAX) {
+                if (i->limit_exclusive != i->limit && i->limit_exclusive != UINT64_MAX)
+                        printf("\t   Limit: %s (exclusive: %s)\n",
+                               FORMAT_BYTES(i->limit), FORMAT_BYTES(i->limit_exclusive));
+                else
+                        printf("\t   Limit: %s\n", FORMAT_BYTES(i->limit));
+        }
 }
 
 static int show_image_info(sd_bus *bus, const char *path, bool *new_line) {
@@ -934,18 +927,14 @@ typedef struct PoolStatusInfo {
 } PoolStatusInfo;
 
 static void print_pool_status_info(sd_bus *bus, PoolStatusInfo *i) {
-        char *s;
-
         if (i->path)
                 printf("\t    Path: %s\n", i->path);
 
-        s = FORMAT_BYTES(i->usage);
-        if (s)
-                printf("\t   Usage: %s\n", s);
+        if (i->usage != UINT64_MAX)
+                printf("\t   Usage: %s\n", FORMAT_BYTES(i->usage));
 
-        s = FORMAT_BYTES(i->limit);
-        if (s)
-                printf("\t   Limit: %s\n", s);
+        if (i->limit != UINT64_MAX)
+                printf("\t   Limit: %s\n", FORMAT_BYTES(i->limit));
 }
 
 static int show_pool_info(sd_bus *bus) {
