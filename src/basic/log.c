@@ -47,6 +47,7 @@ static int console_fd = STDERR_FILENO;
 static int syslog_fd = -1;
 static int kmsg_fd = -1;
 static int journal_fd = -1;
+uint64_t log_syntax_issue_reported = 0;
 
 static bool syslog_is_stream = false;
 
@@ -1356,6 +1357,9 @@ int log_syntax_internal(
                 int line,
                 const char *func,
                 const char *format, ...) {
+
+        if (level <= LOG_WARNING)
+                log_syntax_issue_reported++;
 
         PROTECT_ERRNO;
         char buffer[LINE_MAX];
