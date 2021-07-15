@@ -300,7 +300,7 @@ static void print_status_info(
                 UnitStatusInfo *i,
                 bool *ellipsized) {
 
-        const char *s1, *s2, *active_on, *active_off, *on, *off, *ss, *fs;
+        const char *active_on, *active_off, *on, *off, *ss, *fs;
         _cleanup_free_ char *formatted_path = NULL;
         ExecStatusInfo *p;
         usec_t timestamp;
@@ -418,12 +418,10 @@ static void print_status_info(
                     STRPTR_IN_SET(i->active_state, "activating")          ? i->inactive_exit_timestamp :
                                                                             i->active_exit_timestamp;
 
-        s1 = FORMAT_TIMESTAMP_RELATIVE(timestamp);
-        s2 = FORMAT_TIMESTAMP_STYLE(timestamp, arg_timestamp_style);
-        if (s1)
-                printf(" since %s; %s\n", s2, s1);
-        else if (s2)
-                printf(" since %s\n", s2);
+        if (timestamp > 0 && timestamp < USEC_INFINITY)
+                printf(" since %s; %s\n",
+                       FORMAT_TIMESTAMP_STYLE(timestamp, arg_timestamp_style),
+                       FORMAT_TIMESTAMP_RELATIVE(timestamp));
         else
                 printf("\n");
 
@@ -440,18 +438,18 @@ static void print_status_info(
         }
 
         if (endswith(i->id, ".timer")) {
-                const char *next_time;
                 dual_timestamp nw, next = {i->next_elapse_real, i->next_elapse_monotonic};
                 usec_t next_elapse;
 
                 dual_timestamp_get(&nw);
                 next_elapse = calc_next_elapse(&nw, &next);
-                next_time = FORMAT_TIMESTAMP_STYLE(next_elapse, arg_timestamp_style);
 
-                printf("    Trigger: %s%s%s\n",
-                       strna(next_time),
-                       next_time ? "; " : "",
-                       next_time ? strna(FORMAT_TIMESTAMP_RELATIVE(next_elapse)) : "");
+                if (next_elapse > 0 && next_elapse < USEC_INFINITY)
+                        printf("    Trigger: %s; %s\n",
+                               FORMAT_TIMESTAMP_STYLE(next_elapse, arg_timestamp_style),
+                               FORMAT_TIMESTAMP_RELATIVE(next_elapse));
+                else
+                        printf("    Trigger: n/a\n");
         }
 
         STRV_FOREACH(t, i->triggers) {
@@ -469,13 +467,11 @@ static void print_status_info(
         if (!i->condition_result && i->condition_timestamp > 0) {
                 UnitCondition *c;
                 int n = 0;
-                const char *rel;
 
-                rel = FORMAT_TIMESTAMP_RELATIVE(i->condition_timestamp);
-                printf("  Condition: start %scondition failed%s at %s%s%s\n",
+                printf("  Condition: start %scondition failed%s at %s; %s\n",
                        ansi_highlight_yellow(), ansi_normal(),
                        FORMAT_TIMESTAMP_STYLE(i->condition_timestamp, arg_timestamp_style),
-                       rel ? "; " : "", strempty(rel));
+                       FORMAT_TIMESTAMP_RELATIVE(i->condition_timestamp));
 
                 LIST_FOREACH(conditions, c, i->conditions)
                         if (c->tristate < 0)
@@ -492,13 +488,10 @@ static void print_status_info(
         }
 
         if (!i->assert_result && i->assert_timestamp > 0) {
-                const char *rel;
-
-                rel = FORMAT_TIMESTAMP_RELATIVE(i->assert_timestamp);
-                printf("     Assert: start %sassertion failed%s at %s%s%s\n",
+                printf("     Assert: start %sassertion failed%s at %s; %s\n",
                        ansi_highlight_red(), ansi_normal(),
                        FORMAT_TIMESTAMP_STYLE(i->assert_timestamp, arg_timestamp_style),
-                       rel ? "; " : "", strempty(rel));
+                       FORMAT_TIMESTAMP_RELATIVE(i->assert_timestamp));
                 if (i->failed_assert_trigger)
                         printf("             none of the trigger assertions were met\n");
                 else if (i->failed_assert)
