@@ -24,6 +24,8 @@ typedef struct Neighbor {
         Network *network;
         Link *link;
         NetworkConfigSection *section;
+        NetworkConfigSource source;
+        NetworkConfigStatus status;
 
         int family;
         union in_addr_union in_addr;

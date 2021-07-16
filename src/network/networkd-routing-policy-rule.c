@@ -41,10 +41,8 @@ RoutingPolicyRule *routing_policy_rule_free(RoutingPolicyRule *rule) {
                 hashmap_remove(rule->network->rules_by_section, rule->section);
         }
 
-        if (rule->manager) {
+        if (rule->manager)
                 set_remove(rule->manager->rules, rule);
-                set_remove(rule->manager->rules_foreign, rule);
-        }
 
         network_config_section_free(rule->section);
         free(rule->iif);
@@ -101,6 +99,7 @@ static int routing_policy_rule_new_static(Network *network, const char *filename
 
         rule->network = network;
         rule->section = TAKE_PTR(n);
+        rule->source = NETWORK_CONFIG_SOURCE_STATIC;
         rule->protocol = RTPROT_STATIC;
 
         r = hashmap_ensure_put(&network->rules_by_section, &network_config_hash_ops, rule->section, rule);
@@ -299,76 +298,28 @@ static int routing_policy_rule_get(Manager *m, const RoutingPolicyRule *rule, Ro
         assert(m);
 
         existing = set_get(m->rules, rule);
-        if (existing) {
-                if (ret)
-                        *ret = existing;
-                return 1;
-        }
-
-        existing = set_get(m->rules_foreign, rule);
-        if (existing) {
-                if (ret)
-                        *ret = existing;
-                return 0;
-        }
-
-        return -ENOENT;
-}
-
-static int routing_policy_rule_add(Manager *m, const RoutingPolicyRule *in, RoutingPolicyRule **ret) {
-        _cleanup_(routing_policy_rule_freep) RoutingPolicyRule *rule = NULL;
-        RoutingPolicyRule *existing;
-        int r;
-
-        assert(m);
-        assert(in);
-        assert(IN_SET(in->family, AF_INET, AF_INET6));
-
-        r = routing_policy_rule_dup(in, &rule);
-        if (r < 0)
-                return r;
-
-        r = routing_policy_rule_get(m, rule, &existing);
-        if (r == -ENOENT) {
-                /* Rule does not exist, use a new one. */
-                r = set_ensure_put(&m->rules, &routing_policy_rule_hash_ops, rule);
-                if (r < 0)
-                        return r;
-                assert(r > 0);
-
-                rule->manager = m;
-                existing = TAKE_PTR(rule);
-        } else if (r < 0)
-                return r;
-        else if (r == 0) {
-                /* Take over a foreign rule. */
-                r = set_ensure_put(&m->rules, &routing_policy_rule_hash_ops, existing);
-                if (r < 0)
-                        return r;
-                assert(r > 0);
-
-                set_remove(m->rules_foreign, existing);
-        } /* else r > 0: already exists, do nothing. */
+        if (!existing)
+                return -ENOENT;
 
         if (ret)
                 *ret = existing;
         return 0;
 }
 
-static int routing_policy_rule_consume_foreign(Manager *m, RoutingPolicyRule *rule) {
+static int routing_policy_rule_add(Manager *m, RoutingPolicyRule *rule) {
         int r;
 
         assert(m);
         assert(rule);
-        assert(IN_SET(rule->family, AF_INET, AF_INET6));
 
-        r = set_ensure_consume(&m->rules_foreign, &routing_policy_rule_hash_ops, rule);
-        if (r <= 0)
+        r = set_ensure_put(&m->rules, &routing_policy_rule_hash_ops, rule);
+        if (r < 0)
                 return r;
+        if (r == 0)
+                return -EEXIST;
 
         rule->manager = m;
-
-        return 1;
+        return 0;
 }
 
 static void log_routing_policy_rule_debug(const RoutingPolicyRule *rule, const char *str, const Link *link, const Manager *m) {
@@ -392,6 +343,12 @@ static void log_routing_policy_rule_debug(const RoutingPolicyRule *rule, const c
                        "%s routing policy rule: priority: %"PRIu32", %s -> %s, iif: %s, oif: %s, table: %s",
                        str, rule->priority, strna(from), strna(to),
                        strna(rule->iif), strna(rule->oif), strna(table));
+}
+
+static void routing_policy_rule_update_status(RoutingPolicyRule *rule, NetworkConfigStatus unset, NetworkConfigStatus set) {
+        assert(rule);
+
+        rule->status = network_config_status_update(rule->status, unset, set);
 }
 
 static int routing_policy_rule_set_netlink_message(const RoutingPolicyRule *rule, sd_netlink_message *m, Link *link) {
@@ -518,9 +475,6 @@ static int routing_policy_rule_remove_handler(sd_netlink *rtnl, sd_netlink_messa
 
         assert(m);
         assert(manager);
-        assert(manager->routing_policy_rule_remove_messages > 0);
-
-        manager->routing_policy_rule_remove_messages--;
 
         r = sd_netlink_message_get_errno(m);
         if (r < 0)
@@ -529,7 +483,7 @@ static int routing_policy_rule_remove_handler(sd_netlink *rtnl, sd_netlink_messa
         return 1;
 }
 
-static int routing_policy_rule_remove(const RoutingPolicyRule *rule, Manager *manager) {
+static int routing_policy_rule_remove(RoutingPolicyRule *rule, Manager *manager) {
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
         int r;
 
@@ -554,16 +508,14 @@ static int routing_policy_rule_remove(const RoutingPolicyRule *rule, Manager *ma
         if (r < 0)
                 return log_error_errno(r, "Could not send rtnetlink message: %m");
 
-        manager->routing_policy_rule_remove_messages++;
-
+        routing_policy_rule_update_status(rule, 0, NETWORK_CONFIG_STATUS_REMOVING);
         return 0;
 }
 
 static int routing_policy_rule_configure(
-                const RoutingPolicyRule *rule,
+                RoutingPolicyRule *rule,
                 Link *link,
-                link_netlink_message_handler_t callback,
-                RoutingPolicyRule **ret) {
+                link_netlink_message_handler_t callback) {
 
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
         int r;
@@ -586,10 +538,6 @@ static int routing_policy_rule_configure(
         if (r < 0)
                 return r;
 
-        r = routing_policy_rule_add(link->manager, rule, ret);
-        if (r < 0)
-                return log_link_error_errno(link, r, "Could not add rule: %m");
-
         r = netlink_call_async(link->manager->rtnl, NULL, m, callback,
                                link_netlink_destroy_callback, link);
         if (r < 0)
@@ -597,7 +545,8 @@ static int routing_policy_rule_configure(
 
         link_ref(link);
 
-        return r;
+        routing_policy_rule_update_status(rule, 0, NETWORK_CONFIG_STATUS_CONFIGURING);
+        return 0;
 }
 
 static int links_have_routing_policy_rule(const Manager *m, const RoutingPolicyRule *rule, const Link *except) {
@@ -644,14 +593,20 @@ static int links_have_routing_policy_rule(const Manager *m, const RoutingPolicyR
 int manager_drop_routing_policy_rules_internal(Manager *m, bool foreign, const Link *except) {
         RoutingPolicyRule *rule;
         int k, r = 0;
-        Set *rules;
 
         assert(m);
 
-        rules = foreign ? m->rules_foreign : m->rules;
-        SET_FOREACH(rule, rules) {
+        SET_FOREACH(rule, m->rules) {
                 /* Do not touch rules managed by kernel. */
                 if (rule->protocol == RTPROT_KERNEL)
+                        continue;
+
+                /* When 'foreign' is true, do not remove rules we configured. */
+                if (foreign && rule->source != NETWORK_CONFIG_SOURCE_FOREIGN)
+                        continue;
+
+                /* Ignore rules not assigned yet. */
+                if ((rule->status & (NETWORK_CONFIG_STATUS_CONFIGURING | NETWORK_CONFIG_STATUS_CONFIGURED)) == 0)
                         continue;
 
                 /* The rule will be configured later, or already configured by a link. */
@@ -702,19 +657,47 @@ static int static_routing_policy_rule_configure_handler(sd_netlink *rtnl, sd_net
 
 static int link_request_routing_policy_rule(
                 Link *link,
-                RoutingPolicyRule *rule,
+                RoutingPolicyRule *in,
                 bool consume_object,
                 unsigned *message_counter,
                 link_netlink_message_handler_t netlink_handler,
                 Request **ret) {
 
+        RoutingPolicyRule *existing;
+        int r;
+
         assert(link);
         assert(link->manager);
-        assert(rule);
+        assert(in);
 
-        log_routing_policy_rule_debug(rule, "Requesting", link, link->manager);
-        return link_queue_request(link, REQUEST_TYPE_ROUTING_POLICY_RULE, rule, consume_object,
-                                  message_counter, netlink_handler, ret);
+        r = routing_policy_rule_get(link->manager, in, &existing);
+        if (r < 0) {
+                _cleanup_(routing_policy_rule_freep) RoutingPolicyRule *rule = NULL;
+
+                if (consume_object)
+                        rule = in;
+                else {
+                        r = routing_policy_rule_dup(in, &rule);
+                        if (r < 0)
+                                return r;
+                }
+
+                r = routing_policy_rule_add(link->manager, rule);
+                if (r < 0)
+                        return r;
+
+                existing = TAKE_PTR(rule);
+        } else if (consume_object)
+                routing_policy_rule_free(in);
+
+        log_routing_policy_rule_debug(existing, "Requesting", link, link->manager);
+        r = link_queue_request(link, REQUEST_TYPE_ROUTING_POLICY_RULE, existing, false,
+                               message_counter, netlink_handler, ret);
+        if (r <= 0)
+                return r;
+
+        routing_policy_rule_update_status(existing, 0, NETWORK_CONFIG_STATUS_REQUESTING);
+        return 0;
 }
 
 static int link_request_static_routing_policy_rule(Link *link, RoutingPolicyRule *rule) {
@@ -790,7 +773,6 @@ int link_request_static_routing_policy_rules(Link *link) {
 }
 
 int request_process_routing_policy_rule(Request *req) {
-        RoutingPolicyRule *ret = NULL;  /* avoid false maybe-uninitialized warning */
         int r;
 
         assert(req);
@@ -801,21 +783,10 @@ int request_process_routing_policy_rule(Request *req) {
         if (!link_is_ready_to_configure(req->link, false))
                 return 0;
 
-        if (req->link->manager->routing_policy_rule_remove_messages > 0)
-                return 0;
-
-        r = routing_policy_rule_configure(req->rule, req->link, req->netlink_handler, &ret);
+        routing_policy_rule_update_status(req->rule, NETWORK_CONFIG_STATUS_REQUESTING, 0);
+        r = routing_policy_rule_configure(req->rule, req->link, req->netlink_handler);
         if (r < 0)
                 return r;
-
-        /* To prevent a double decrement on failure in after_configure(). */
-        req->message_counter = NULL;
-
-        if (req->after_configure) {
-                r = req->after_configure(req, ret);
-                if (r < 0)
-                        return r;
-        }
 
         return 1;
 }
@@ -846,10 +817,7 @@ static bool routing_policy_rule_is_created_by_kernel(const RoutingPolicyRule *ru
 int manager_rtnl_process_rule(sd_netlink *rtnl, sd_netlink_message *message, Manager *m) {
         _cleanup_(routing_policy_rule_freep) RoutingPolicyRule *tmp = NULL;
         RoutingPolicyRule *rule = NULL;
-        const char *iif = NULL, *oif = NULL;
         bool adjust_protocol = false;
-        uint32_t suppress_prefixlen;
-        unsigned flags;
         uint16_t type;
         int r;
 
@@ -912,6 +880,7 @@ int manager_rtnl_process_rule(sd_netlink *rtnl, sd_netlink_message *message, Man
                 }
         }
 
+        unsigned flags;
         r = sd_rtnl_message_routing_policy_rule_get_flags(message, &flags);
         if (r < 0) {
                 log_warning_errno(r, "rtnl: received rule message without valid flag, ignoring: %m");
@@ -955,23 +924,17 @@ int manager_rtnl_process_rule(sd_netlink *rtnl, sd_netlink_message *message, Man
                 return 0;
         }
 
-        r = sd_netlink_message_read_string(message, FRA_IIFNAME, &iif);
+        r = sd_netlink_message_read_string_strdup(message, FRA_IIFNAME, &tmp->iif);
         if (r < 0 && r != -ENODATA) {
                 log_warning_errno(r, "rtnl: could not get FRA_IIFNAME attribute, ignoring: %m");
                 return 0;
         }
-        r = free_and_strdup(&tmp->iif, iif);
-        if (r < 0)
-                return log_oom();
 
-        r = sd_netlink_message_read_string(message, FRA_OIFNAME, &oif);
+        r = sd_netlink_message_read_string_strdup(message, FRA_OIFNAME, &tmp->oif);
         if (r < 0 && r != -ENODATA) {
                 log_warning_errno(r, "rtnl: could not get FRA_OIFNAME attribute, ignoring: %m");
                 return 0;
         }
-        r = free_and_strdup(&tmp->oif, oif);
-        if (r < 0)
-                return log_oom();
 
         r = sd_netlink_message_read_u8(message, FRA_IP_PROTO, &tmp->ipproto);
         if (r < 0 && r != -ENODATA) {
@@ -1014,6 +977,7 @@ int manager_rtnl_process_rule(sd_netlink *rtnl, sd_netlink_message *message, Man
                 return 0;
         }
 
+        uint32_t suppress_prefixlen;
         r = sd_netlink_message_read_u32(message, FRA_SUPPRESS_PREFIXLEN, &suppress_prefixlen);
         if (r < 0 && r != -ENODATA) {
                 log_warning_errno(r, "rtnl: could not get FRA_SUPPRESS_PREFIXLEN attribute, ignoring: %m");
@@ -1031,21 +995,29 @@ int manager_rtnl_process_rule(sd_netlink *rtnl, sd_netlink_message *message, Man
 
         switch (type) {
         case RTM_NEWRULE:
-                if (rule)
-                        log_routing_policy_rule_debug(tmp, "Received remembered", NULL, m);
-                else if (!m->manage_foreign_routes)
+                if (rule) {
+                        routing_policy_rule_update_status(rule, NETWORK_CONFIG_STATUS_CONFIGURING, NETWORK_CONFIG_STATUS_CONFIGURED);
+                        log_routing_policy_rule_debug(rule, "Received remembered", NULL, m);
+                } else if (!m->manage_foreign_routes)
                         log_routing_policy_rule_debug(tmp, "Ignoring received foreign", NULL, m);
                 else {
+                        tmp->source = NETWORK_CONFIG_SOURCE_FOREIGN;
+                        routing_policy_rule_update_status(tmp, 0, NETWORK_CONFIG_STATUS_CONFIGURED);
                         log_routing_policy_rule_debug(tmp, "Remembering foreign", NULL, m);
-                        r = routing_policy_rule_consume_foreign(m, TAKE_PTR(tmp));
+                        r = routing_policy_rule_add(m, tmp);
                         if (r < 0)
                                 log_warning_errno(r, "Could not remember foreign rule, ignoring: %m");
+                        TAKE_PTR(tmp);
                 }
                 break;
         case RTM_DELRULE:
                 if (rule) {
-                        log_routing_policy_rule_debug(tmp, "Forgetting", NULL, m);
-                        routing_policy_rule_free(rule);
+                        routing_policy_rule_update_status(rule, NETWORK_CONFIG_STATUS_CONFIGURED | NETWORK_CONFIG_STATUS_REMOVING, 0);
+                        if (rule->status == 0) {
+                                log_routing_policy_rule_debug(rule, "Forgetting", NULL, m);
+                                routing_policy_rule_free(rule);
+                        } else
+                                log_routing_policy_rule_debug(rule, "Removed", NULL, m);
                 } else
                         log_routing_policy_rule_debug(tmp, "Kernel removed unknown", NULL, m);
                 break;
