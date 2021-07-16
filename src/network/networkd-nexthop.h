@@ -21,6 +21,8 @@ typedef struct Request Request;
 typedef struct NextHop {
         Network *network;
         NetworkConfigSection *section;
+        NetworkConfigSource source;
+        NetworkConfigStatus status;
 
         Manager *manager;
         Link *link;
