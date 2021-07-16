@@ -51,6 +51,7 @@ BuildPackages=
         python3
         python3-lxml
         python3-jinja2
+        rustc
         tree
         uuid-dev
         xsltproc
