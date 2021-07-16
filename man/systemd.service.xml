@@ -696,6 +696,15 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>RuntimeMaxDeltaSec=</varname></term>
+
+        <listitem><para>This option modifies <varname>RuntimeMaxSec=</varname> by adding a random delta to the allowed
+        runtime, which will be less than or equal to the specified value. If <varname>RuntimeMaxSec=</varname> isn't
+        specified, this option will be ignored.
+        </para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>WatchdogSec=</varname></term>
         <listitem><para>Configures the watchdog timeout for a service.
         The watchdog is activated when the start-up is completed. The

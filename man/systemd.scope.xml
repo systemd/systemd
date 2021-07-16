@@ -108,6 +108,15 @@
         active for longer than the specified time it is terminated and put into a failure state. Pass
         <literal>infinity</literal> (the default) to configure no runtime limit.</para></listitem>
       </varlistentry>
+
+      <varlistentry>
+        <term><varname>RuntimeMaxDeltaSec=</varname></term>
+
+        <listitem><para>This option modifies <varname>RuntimeMaxSec=</varname> by adding a random delta to the allowed
+        runtime, which will be less than or equal to the specified value. If <varname>RuntimeMaxSec=</varname> isn't
+        specified, this option will be ignored.
+        </para></listitem>
+      </varlistentry>
     </variablelist>
   </refsect1>
 
