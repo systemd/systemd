@@ -201,6 +201,16 @@
               </row>
 
               <row>
+                <entry><constant>root-loongarch64</constant></entry>
+                <entry>Root file system partition for the LoongArch 64-bit architecture</entry>
+              </row>
+
+              <row>
+                <entry><constant>root-loongarch64-verity</constant></entry>
+                <entry>Verity data for the LoongArch 64-bit root file system partition</entry>
+              </row>
+
+              <row>
                 <entry><constant>root-riscv32</constant></entry>
                 <entry>Root file system partition for the RISC-V 32-bit architecture</entry>
               </row>
@@ -288,6 +298,16 @@
               <row>
                 <entry><constant>usr-ia64-verity</constant></entry>
                 <entry>Verity data for the ia64 <filename>/usr/</filename> file system partition</entry>
+              </row>
+
+              <row>
+                <entry><constant>usr-loongarch64</constant></entry>
+                <entry><filename>/usr/</filename> file system partition for the LoongArch 64-bit architecture</entry>
+              </row>
+
+              <row>
+                <entry><constant>usr-loongarch64-verity</constant></entry>
+                <entry>Verity data for the LoongArch 64-bit <filename>/usr/</filename> file system partition</entry>
               </row>
 
               <row>
