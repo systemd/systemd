@@ -614,28 +614,16 @@ static BOOLEAN menu_run(
                                         uefi_call_wrapper(ST->ConOut->SetAttribute, 2, ST->ConOut,
                                                           EFI_LIGHTGRAY|EFI_BACKGROUND_BLACK);
                                 uefi_call_wrapper(ST->ConOut->OutputString, 2, ST->ConOut, lines[i]);
-                                if ((INTN)i == config->idx_default_efivar) {
-                                        uefi_call_wrapper(ST->ConOut->SetCursorPosition, 3, ST->ConOut, x_start-3, y_start + i - idx_first);
-                                        uefi_call_wrapper(ST->ConOut->OutputString, 2, ST->ConOut, (CHAR16*) L"=>");
-                                }
                         }
                         refresh = FALSE;
                 } else if (highlight) {
                         uefi_call_wrapper(ST->ConOut->SetCursorPosition, 3, ST->ConOut, 0, y_start + idx_highlight_prev - idx_first);
                         uefi_call_wrapper(ST->ConOut->SetAttribute, 2, ST->ConOut, EFI_LIGHTGRAY|EFI_BACKGROUND_BLACK);
                         uefi_call_wrapper(ST->ConOut->OutputString, 2, ST->ConOut, lines[idx_highlight_prev]);
-                        if ((INTN)idx_highlight_prev == config->idx_default_efivar) {
-                                uefi_call_wrapper(ST->ConOut->SetCursorPosition, 3, ST->ConOut, x_start-3, y_start + idx_highlight_prev - idx_first);
-                                uefi_call_wrapper(ST->ConOut->OutputString, 2, ST->ConOut, (CHAR16*) L"=>");
-                        }
 
                         uefi_call_wrapper(ST->ConOut->SetCursorPosition, 3, ST->ConOut, 0, y_start + idx_highlight - idx_first);
                         uefi_call_wrapper(ST->ConOut->SetAttribute, 2, ST->ConOut, EFI_BLACK|EFI_BACKGROUND_LIGHTGRAY);
                         uefi_call_wrapper(ST->ConOut->OutputString, 2, ST->ConOut, lines[idx_highlight]);
-                        if ((INTN)idx_highlight == config->idx_default_efivar) {
-                                uefi_call_wrapper(ST->ConOut->SetCursorPosition, 3, ST->ConOut, x_start-3, y_start + idx_highlight - idx_first);
-                                uefi_call_wrapper(ST->ConOut->OutputString, 2, ST->ConOut, (CHAR16*) L"=>");
-                        }
                         highlight = FALSE;
                 }
 
