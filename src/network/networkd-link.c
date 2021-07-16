@@ -241,7 +241,6 @@ static Link *link_free(Link *link) {
         link->nexthops_foreign = set_free(link->nexthops_foreign);
 
         link->neighbors = set_free(link->neighbors);
-        link->neighbors_foreign = set_free(link->neighbors_foreign);
 
         link->addresses = set_free(link->addresses);
         link->addresses_foreign = set_free(link->addresses_foreign);
