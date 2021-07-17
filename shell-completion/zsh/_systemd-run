@@ -77,4 +77,5 @@ _arguments \
     '--version[Show package version]' \
     '--wait=[Wait until service stopped again]' \
     '--working-directory=[Run with the specified working directory]' \
-    '*::command:_command'
+    '(-):command: _command_names -e' \
+    '*::arguments:_normal'
