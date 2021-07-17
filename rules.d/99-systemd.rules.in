@@ -73,4 +73,7 @@ SUBSYSTEM=="misc", KERNEL=="rfkill", TAG+="systemd", ENV{SYSTEMD_WANTS}+="system
 SUBSYSTEM=="module", KERNEL=="fuse", TAG+="systemd", ENV{SYSTEMD_WANTS}+="sys-fs-fuse-connections.mount"
 SUBSYSTEM=="module", KERNEL=="configfs", TAG+="systemd", ENV{SYSTEMD_WANTS}+="sys-kernel-config.mount"
 
+# Provide underlying device unit for FUSE filesystems
+SUBSYSTEM=="misc", KERNEL=="fuse", TAG+="systemd"
+
 LABEL="systemd_end"
