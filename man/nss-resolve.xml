@@ -52,6 +52,12 @@
     it is still recommended (see examples below) to keep <command>nss-myhostname</command> configured in
     <filename>/etc/nsswitch.conf</filename>, to keep those names resolveable if
     <command>systemd-resolved</command> is not running.</para>
+
+    <para>Please keep in mind that <command>nss-myhostname</command> (and <command>nss-resolve</command>) also resolve
+    in the other direction — from locally attached IP adresses to
+    hostnames. If you rely on that lookup being provided by DNS, you might
+    want to order things differently.
+    </para>
   </refsect1>
 
   <refsect1>
