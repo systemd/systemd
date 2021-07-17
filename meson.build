@@ -278,6 +278,7 @@ conf.set_quoted('USER_PRESET_DIR',                            userpresetdir)
 conf.set_quoted('VENDOR_KEYRING_PATH',                        join_paths(rootlibexecdir, 'import-pubring.gpg'))
 
 conf.set('ANSI_OK_COLOR',                                     'ANSI_' + get_option('ok-color').underscorify().to_upper())
+conf.set10('ENABLE_URLIFY',                                   get_option('urlify'))
 conf.set10('ENABLE_FEXECVE',                                  get_option('fexecve'))
 conf.set10('MEMORY_ACCOUNTING_DEFAULT',                       memory_accounting_default)
 conf.set('STATUS_UNIT_FORMAT_DEFAULT',                        'STATUS_UNIT_FORMAT_' + status_unit_format_default.to_upper())

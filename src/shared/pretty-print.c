@@ -19,6 +19,7 @@
 #include "util.h"
 
 bool urlify_enabled(void) {
+#if ENABLE_URLIFY
         static int cached_urlify_enabled = -1;
 
         if (cached_urlify_enabled < 0) {
@@ -32,6 +33,9 @@ bool urlify_enabled(void) {
         }
 
         return cached_urlify_enabled;
+#else
+        return 0;
+#endif
 }
 
 int terminal_urlify(const char *url, const char *text, char **ret) {
