@@ -27,7 +27,12 @@ typedef struct Manager Manager;
 #define NTP_RETRY_INTERVAL_MIN_USEC     (15 * USEC_PER_SEC)
 #define NTP_RETRY_INTERVAL_MAX_USEC     (6 * 60 * USEC_PER_SEC) /* 6 minutes */
 
-#define DEFAULT_CONNECTION_RETRY_USEC (30*USEC_PER_SEC)
+#define DEFAULT_CONNECTION_RETRY_USEC   (30 * USEC_PER_SEC)
+
+#define DEFAULT_SAVE_TIME_INTERVAL_USEC (60 * USEC_PER_SEC)
+
+#define STATE_DIR   "/var/lib/systemd/timesync"
+#define CLOCK_FILE  STATE_DIR "/clock"
 
 struct Manager {
         sd_bus *bus;
@@ -83,7 +88,6 @@ struct Manager {
 
         /* last change */
         bool jumped;
-        bool sync;
         int64_t drift_freq;
 
         /* watch for time changes */
@@ -100,6 +104,11 @@ struct Manager {
         struct ntp_msg ntpmsg;
         struct timespec origin_time, dest_time;
         bool spike;
+
+        /* save time event */
+        sd_event_source *event_save_time;
+        usec_t save_time_interval_usec;
+        bool save_on_exit;
 };
 
 int manager_new(Manager **ret);
@@ -113,3 +122,5 @@ void manager_flush_server_names(Manager *m, ServerType t);
 
 int manager_connect(Manager *m);
 void manager_disconnect(Manager *m);
+
+int manager_setup_save_time_event(Manager *m);

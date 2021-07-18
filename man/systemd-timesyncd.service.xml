@@ -75,10 +75,11 @@
         <term><filename>/var/lib/systemd/timesync/clock</filename></term>
 
         <listitem>
-          <para>The modification time ("mtime") of this file indicates the timestamp of the last successful
-          synchronization (or at least the systemd build date, in case synchronization was not possible). It
-          is used to ensure that the system clock remains roughly monotonic across reboots, in case no local
-          RTC is available.</para>
+          <para>The modification time ("mtime") of this file is updated on each successful NTP synchronization
+          or after each <varname>SaveIntervalSec=</varname> time interval, as specified in
+          <citerefentry><refentrytitle>timesyncd.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+          At the minimum, it will be set to the systemd build date. It is used to ensure that the system clock
+          remains roughly monotonic across reboots, in case no local RTC is available.</para>
         </listitem>
       </varlistentry>
 
