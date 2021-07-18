@@ -13,6 +13,7 @@ int acquire_tpm2_key(
                 const char *volume_name,
                 const char *device,
                 uint32_t pcr_mask,
+                uint16_t pcr_bank,
                 const char *key_file,
                 size_t key_file_size,
                 uint64_t key_file_offset,
@@ -62,7 +63,7 @@ int acquire_tpm2_key(
                 blob = loaded_blob;
         }
 
-        return tpm2_unseal(device, pcr_mask, blob, blob_size, policy_hash, policy_hash_size, ret_decrypted_key, ret_decrypted_key_size);
+        return tpm2_unseal(device, pcr_mask, pcr_bank, blob, blob_size, policy_hash, policy_hash_size, ret_decrypted_key, ret_decrypted_key_size);
 }
 
 int find_tpm2_auto_data(
@@ -70,6 +71,7 @@ int find_tpm2_auto_data(
                 uint32_t search_pcr_mask,
                 int start_token,
                 uint32_t *ret_pcr_mask,
+                uint16_t *ret_pcr_bank,
                 void **ret_blob,
                 size_t *ret_blob_size,
                 void **ret_policy_hash,
@@ -81,6 +83,7 @@ int find_tpm2_auto_data(
         size_t blob_size = 0, policy_hash_size = 0;
         int r, keyslot = -1, token = -1;
         uint32_t pcr_mask = 0;
+        uint16_t pcr_bank = UINT16_MAX; /* default: pick automatically */
 
         assert(cd);
 
@@ -118,6 +121,23 @@ int find_tpm2_auto_data(
                 if (search_pcr_mask != UINT32_MAX &&
                     search_pcr_mask != pcr_mask) /* PCR mask doesn't match what is configured, ignore this entry */
                         continue;
+
+                /* The bank field is optional, since it was added in systemd 250 only. Before the bank was hardcoded to SHA256 */
+                assert(pcr_bank == UINT16_MAX);
+                w = json_variant_by_key(v, "tpm2-pcr-bank");
+                if (w) {
+                        /* The PCR bank field is optional */
+
+                        if (!json_variant_is_string(w))
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "TPM2 PCR bank is not a string.");
+
+                        r = tpm2_pcr_bank_from_string(json_variant_string(w));
+                        if (r < 0)
+                                return log_error_errno(r, "TPM2 PCR bank invalid or not supported: %s", json_variant_string(w));
+
+                        pcr_bank = r;
+                }
 
                 assert(!blob);
                 w = json_variant_by_key(v, "tpm2-blob");
@@ -163,6 +183,7 @@ int find_tpm2_auto_data(
         *ret_policy_hash_size = policy_hash_size;
         *ret_keyslot = keyslot;
         *ret_token = token;
+        *ret_pcr_bank = pcr_bank;
 
         return 0;
 }

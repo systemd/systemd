@@ -2624,9 +2624,10 @@ static int partition_encrypt(
                 _cleanup_(erase_and_freep) void *secret = NULL;
                 _cleanup_free_ void *blob = NULL, *hash = NULL;
                 size_t secret_size, blob_size, hash_size;
+                uint16_t pcr_bank;
                 int keyslot;
 
-                r = tpm2_seal(arg_tpm2_device, arg_tpm2_pcr_mask, &secret, &secret_size, &blob, &blob_size, &hash, &hash_size);
+                r = tpm2_seal(arg_tpm2_device, arg_tpm2_pcr_mask, &secret, &secret_size, &blob, &blob_size, &hash, &hash_size, &pcr_bank);
                 if (r < 0)
                         return log_error_errno(r, "Failed to seal to TPM2: %m");
 
@@ -2648,7 +2649,7 @@ static int partition_encrypt(
                 if (keyslot < 0)
                         return log_error_errno(keyslot, "Failed to add new TPM2 key to %s: %m", node);
 
-                r = tpm2_make_luks2_json(keyslot, arg_tpm2_pcr_mask, blob, blob_size, hash, hash_size, &v);
+                r = tpm2_make_luks2_json(keyslot, arg_tpm2_pcr_mask, pcr_bank, blob, blob_size, hash, hash_size, &v);
                 if (r < 0)
                         return log_error_errno(r, "Failed to prepare TPM2 JSON token object: %m");
 

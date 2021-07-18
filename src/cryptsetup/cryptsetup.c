@@ -1076,6 +1076,7 @@ static int attach_luks_or_plain_or_bitlk_by_tpm2(
                                         name,
                                         arg_tpm2_device,
                                         arg_tpm2_pcr_mask == UINT32_MAX ? TPM2_PCR_MASK_DEFAULT : arg_tpm2_pcr_mask,
+                                        UINT16_MAX,
                                         key_file, arg_keyfile_size, arg_keyfile_offset,
                                         key_data, key_data_size,
                                         NULL, 0, /* we don't know the policy hash */
@@ -1098,12 +1099,14 @@ static int attach_luks_or_plain_or_bitlk_by_tpm2(
 
                         for (;;) {
                                 uint32_t pcr_mask;
+                                uint16_t pcr_bank;
 
                                 r = find_tpm2_auto_data(
                                                 cd,
                                                 arg_tpm2_pcr_mask, /* if != UINT32_MAX we'll only look for tokens with this PCR mask */
                                                 token, /* search for the token with this index, or any later index than this */
                                                 &pcr_mask,
+                                                &pcr_bank,
                                                 &blob, &blob_size,
                                                 &policy_hash, &policy_hash_size,
                                                 &keyslot,
@@ -1125,6 +1128,7 @@ static int attach_luks_or_plain_or_bitlk_by_tpm2(
                                                 name,
                                                 arg_tpm2_device,
                                                 pcr_mask,
+                                                pcr_bank,
                                                 NULL, 0, 0, /* no key file */
                                                 blob, blob_size,
                                                 policy_hash, policy_hash_size,
