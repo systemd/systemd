@@ -76,3 +76,4 @@ static inline void FileHandleClosep(EFI_FILE_HANDLE *handle) {
 
 VOID PrintError(const CHAR16 *format, ...);
 EFI_STATUS log_oom(void);
+VOID print_at(UINTN x, UINTN y, UINTN attr, const CHAR16 *str);
