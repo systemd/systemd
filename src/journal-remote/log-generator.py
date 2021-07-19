@@ -32,10 +32,6 @@ _SOURCE_REALTIME_TIMESTAMP={source_realtime_ts}
 DATA={data}
 """
 
-m = 0x198603b12d7
-realtime_ts = 1404101101501873
-monotonic_ts = 1753961140951
-source_realtime_ts = 1404101101483516
 priority = 3
 facility = 6
 
@@ -44,7 +40,16 @@ src = open('/dev/urandom', 'rb')
 bytes = 0
 counter = 0
 
-for i in range(OPTIONS.n):
+for m, (realtime_ts, (monotonic_ts, (source_realtime_ts, _))) in enumerate(
+    enumerate(
+        enumerate(
+            enumerate(range(OPTIONS.n), start=1404101101483516),
+            start=1753961140951,
+        ),
+        start=1404101101501873,
+    ),
+    start=0x198603B12D7,
+):
     message = src.read(OPTIONS.message_size)
     message = repr(message)[2:-1]
 
@@ -63,10 +68,6 @@ for i in range(OPTIONS.n):
                             facility=facility,
                             message=message,
                             data=data)
-    m += 1
-    realtime_ts += 1
-    monotonic_ts += 1
-    source_realtime_ts += 1
 
     bytes += len(entry)
 
