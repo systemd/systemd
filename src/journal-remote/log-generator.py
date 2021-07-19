@@ -32,10 +32,6 @@ _SOURCE_REALTIME_TIMESTAMP={source_realtime_ts}
 DATA={data}
 """
 
-m = 0x198603b12d7
-realtime_ts = 1404101101501873
-monotonic_ts = 1753961140951
-source_realtime_ts = 1404101101483516
 priority = 3
 facility = 6
 
@@ -55,18 +51,14 @@ for i in range(OPTIONS.n):
         data = '{:0{}}'.format(counter, OPTIONS.data_size)
         counter += 1
 
-    entry = template.format(m=m,
-                            realtime_ts=realtime_ts,
-                            monotonic_ts=monotonic_ts,
-                            source_realtime_ts=source_realtime_ts,
+    entry = template.format(m=0x198603b12d7 + i,
+                            realtime_ts=1404101101501873 + i,
+                            monotonic_ts=1753961140951 + i,
+                            source_realtime_ts=1404101101483516 + i,
                             priority=priority,
                             facility=facility,
                             message=message,
                             data=data)
-    m += 1
-    realtime_ts += 1
-    monotonic_ts += 1
-    source_realtime_ts += 1
 
     bytes += len(entry)
 
