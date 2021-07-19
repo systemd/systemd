@@ -426,6 +426,12 @@ EFI_STATUS log_oom(void) {
         return EFI_OUT_OF_RESOURCES;
 }
 
+VOID print_at(UINTN x, UINTN y, UINTN attr, const CHAR16 *str) {
+        uefi_call_wrapper(ST->ConOut->SetCursorPosition, 3, ST->ConOut, x, y);
+        uefi_call_wrapper(ST->ConOut->SetAttribute, 2, ST->ConOut, attr);
+        uefi_call_wrapper(ST->ConOut->OutputString, 2, ST->ConOut, (CHAR16 *)str);
+}
+
 VOID *FindMem(const VOID *haystack, UINTN haystack_len, const VOID *needle, UINTN needle_len) {
         const CHAR8 *n = needle;
         for (const CHAR8 *h = haystack; haystack_len >= needle_len; h++, haystack_len--)

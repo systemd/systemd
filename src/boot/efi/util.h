@@ -77,4 +77,6 @@ static inline void FileHandleClosep(EFI_FILE_HANDLE *handle) {
 VOID PrintErrorStall(const CHAR16 *format, ...);
 EFI_STATUS log_oom(void);
 
+VOID print_at(UINTN x, UINTN y, UINTN attr, const CHAR16 *str);
+
 VOID *FindMem(const VOID *haystack, UINTN haystack_len, const VOID *needle, UINTN needle_len);
