@@ -215,6 +215,9 @@ static int verify_unit(Unit *u, bool check_man) {
         if (k < 0 && r == 0)
                 r = k;
 
+        if (found_error_when_parsing_config && r == 0)
+                r = -EINVAL;
+
         return r;
 }
 
