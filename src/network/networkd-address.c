@@ -1273,16 +1273,16 @@ int request_process_address(Request *req) {
         if (r <= 0)
                 return r;
 
-        r = address_get(link, req->address, &a);
-        if (r < 0)
-                return r;
-
-        r = address_configure(a, link, req->netlink_handler);
+        r = address_configure(req->address, link, req->netlink_handler);
         if (r < 0)
                 return r;
 
         /* To prevent a double decrement on failure in after_configure(). */
         req->message_counter = NULL;
+
+        r = address_get(link, req->address, &a);
+        if (r < 0)
+                return r;
 
         if (req->after_configure) {
                 r = req->after_configure(req, a);
