@@ -37,3 +37,5 @@ When preparing patches for systemd, please follow our [Coding Style Guidelines](
 If you are looking for support, please contact our [mailing list](https://lists.freedesktop.org/mailman/listinfo/systemd-devel) or join our [IRC channel](irc://irc.libera.chat/%23systemd).
 
 Stable branches with backported patches are available in the [stable repo](https://github.com/systemd/systemd-stable).
+
+noop
