@@ -49,7 +49,7 @@ static int kmsg_fd = -1;
 static int journal_fd = -1;
 
 static bool syslog_is_stream = false;
-bool error_check = false; /* to error out when unit verification fails */
+bool found_error_when_parsing_config = false; /* to detect when unit verification fails */
 
 static int show_color = -1; /* tristate */
 static bool show_location = false;
@@ -1358,8 +1358,8 @@ int log_syntax_internal(
                 const char *func,
                 const char *format, ...) {
 
-        if (level == 3 || level == 4)
-                error_check = true;
+        if (level == LOG_ERR || level == LOG_WARNING)
+                found_error_when_parsing_config = true;
 
         PROTECT_ERRNO;
         char buffer[LINE_MAX];

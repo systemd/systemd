@@ -15,8 +15,6 @@
 #include "unit-name.h"
 #include "unit-serialize.h"
 
-extern bool error_check;
-
 static int prepare_filename(const char *filename, char **ret) {
         int r;
         const char *name;
@@ -217,7 +215,7 @@ static int verify_unit(Unit *u, bool check_man) {
         if (k < 0 && r == 0)
                 r = k;
 
-        if (error_check == true && r == 0)
+        if (found_error_when_parsing_config && r == 0)
                 r = -EINVAL;
 
         return r;
