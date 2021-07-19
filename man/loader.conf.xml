@@ -176,6 +176,12 @@
       </varlistentry>
 
       <varlistentry>
+        <term>box</term>
+
+        <listitem><para>Draw a box around boot entries, disabled by default.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term>auto-entries</term>
 
         <listitem><para>Takes a boolean argument. Enable (the default) or disable
