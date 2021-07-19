@@ -621,19 +621,17 @@ int manager_has_address(Manager *manager, int family, const union in_addr_union 
         return false;
 }
 
-char *format_lifetime(char *buf, size_t l, uint32_t lifetime) {
-        char *p = buf;
-
+const char* format_lifetime(char *buf, size_t l, uint32_t lifetime) {
         assert(buf);
-        assert(l > 0);
+        assert(l > 4);
 
-        if (lifetime == CACHE_INFO_INFINITY_LIFE_TIME) {
-                strscpy(buf, l, "forever");
-                return buf;
-        }
+        if (lifetime == CACHE_INFO_INFINITY_LIFE_TIME)
+                return "forever";
 
-        l -= strpcpy(&p, l, "for ");
-        return format_timespan(p, l, lifetime * USEC_PER_SEC, USEC_PER_SEC);
+        sprintf(buf, "for ");
+        /* format_timespan() never fails */
+        assert_se(format_timespan(buf + 4, l - 4, lifetime * USEC_PER_SEC, USEC_PER_SEC));
+        return buf;
 }
 
 static void log_address_debug(const Address *address, const char *str, const Link *link) {
