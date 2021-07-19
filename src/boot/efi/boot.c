@@ -492,10 +492,12 @@ static BOOLEAN menu_run(
 
         EFI_STATUS err;
         UINTN visible_max;
+        UINTN visible_count;
         UINTN idx_highlight = config->idx_default;
         UINTN idx_highlight_prev = 0;
         UINTN idx_first;
         UINTN idx_last;
+        BOOLEAN redraw_box = TRUE;
         BOOLEAN refresh = TRUE;
         BOOLEAN highlight = FALSE;
         UINTN line_width = 0;
@@ -541,7 +543,8 @@ static BOOLEAN menu_run(
         else
                 timeout_remain = -1;
 
-        visible_max = y_max - 2;
+        /* account for box+status */
+        visible_max = y_max - 3;
 
         /* Drawing entries starts at idx_first until idx_last.
          * We want to make sure that idx_highlight is centered,
@@ -558,14 +561,15 @@ static BOOLEAN menu_run(
         /* length of the longest entry */
         for (UINTN i = 0; i < config->entry_count; i++)
                 line_width = MAX(line_width, StrLen(config->entries[i]->title_show));
-        line_width = MIN(line_width + 2 * entry_padding, x_max);
+        line_width = MIN(line_width + 2 * entry_padding, x_max - 2);
 
         /* offsets to center the entries on the screen */
         x_start = (x_max - (line_width)) / 2;
         if (config->entry_count < visible_max)
-                y_start = ((visible_max - config->entry_count) / 2) + 1;
+                y_start = ((visible_max - config->entry_count) / 2) + 2;
         else
-                y_start = 0;
+                y_start = 1;
+        visible_count = MIN(visible_max, config->entry_count);
 
         /* menu entries title lines */
         lines = AllocatePool(sizeof(CHAR16 *) * config->entry_count);
@@ -594,6 +598,11 @@ static BOOLEAN menu_run(
         while (!exit) {
                 UINT64 key;
 
+                if (redraw_box) {
+                        redraw_box = FALSE;
+                        draw_box(x_start - 1, y_start - 1, line_width + 1, visible_count + 1, COLOR);
+                }
+
                 if (refresh) {
                         for (UINTN i = 0; i < config->entry_count; i++) {
                                 if (i < idx_first || i > idx_last)
@@ -614,7 +623,7 @@ static BOOLEAN menu_run(
                         status = PoolPrint(L"Boot in %d sec.", (timeout_remain + 5) / 10);
                 }
 
-                /* print status at last line of screen */
+                /* print status after entry list */
                 if (status) {
                         UINTN len;
                         UINTN x;
@@ -625,7 +634,7 @@ static BOOLEAN menu_run(
                                 x = (x_max - len) / 2;
                         else
                                 x = 0;
-                        print_at(0, y_max - 1, COLOR, clearline + (x_max - x));
+                        print_at(0, y_start + visible_count + 1, COLOR, clearline + (x_max - x));
                         uefi_call_wrapper(ST->ConOut->OutputString, 2, ST->ConOut, status);
                         uefi_call_wrapper(ST->ConOut->OutputString, 2, ST->ConOut, clearline+1 + x + len);
                 }
@@ -656,7 +665,7 @@ static BOOLEAN menu_run(
                 if (status) {
                         FreePool(status);
                         status = NULL;
-                        print_at(0, y_max - 1, COLOR, clearline + 1);
+                        print_at(0, y_start + visible_count + 1, COLOR, clearline + 1);
                 }
 
                 idx_highlight_prev = idx_highlight;
@@ -787,10 +796,10 @@ static BOOLEAN menu_run(
                         /* only the options of configured entries can be edited */
                         if (!config->editor || config->entries[idx_highlight]->type == LOADER_UNDEFINED)
                                 break;
-                        print_at(0, y_max - 1, COLOR, clearline + 1);
-                        if (line_edit(config->entries[idx_highlight]->options, &config->options_edit, x_max-1, y_max-1))
+                        print_at(0, y_start + visible_count + 1, COLOR, clearline + 1);
+                        if (line_edit(config->entries[idx_highlight]->options, &config->options_edit, x_max-1, y_start + visible_count + 1))
                                 exit = TRUE;
-                        print_at(0, y_max - 1, COLOR, clearline + 1);
+                        print_at(0, y_start + visible_count + 1, COLOR, clearline + 1);
                         break;
 
                 case KEYPRESS(0, 0, 'v'):
@@ -801,7 +810,7 @@ static BOOLEAN menu_run(
 
                 case KEYPRESS(0, 0, 'P'):
                         print_status(config, loaded_image_path);
-                        refresh = TRUE;
+                        refresh = redraw_box = TRUE;
                         break;
 
                 case KEYPRESS(EFI_CONTROL_PRESSED, 0, 'l'):
