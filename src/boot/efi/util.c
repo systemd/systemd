@@ -430,3 +430,21 @@ VOID print_at(UINTN x, UINTN y, UINTN attr, const CHAR16 *str) {
         uefi_call_wrapper(ST->ConOut->SetAttribute, 2, ST->ConOut, attr);
         uefi_call_wrapper(ST->ConOut->OutputString, 2, ST->ConOut, (CHAR16 *)str);
 }
+
+VOID draw_box(UINTN x, UINTN y, UINTN w, UINTN h, UINTN color) {
+        print_at(x, y, color, L"┌");
+        print_at(x + w, y, color, L"┐");
+        print_at(x, y + h, color, L"└");
+        print_at(x + w, y + h, color, L"┘");
+
+        for (UINTN i = 1; i < w; i++) {
+                print_at(x + i, y, color, L"─");
+                print_at(x + i, y + h, color, L"─");
+        }
+
+        for (UINTN i = 1; i < h; i++) {
+                print_at(x, y + i, color, L"│");
+                print_at(x + w, y + i, color, L"│");
+        }
+
+}
