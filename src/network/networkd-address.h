@@ -50,7 +50,7 @@ typedef struct Address {
         address_ready_callback_t callback;
 } Address;
 
-char *format_lifetime(char *buf, size_t l, uint32_t lifetime) _warn_unused_result_;
+const char* format_lifetime(char *buf, size_t l, uint32_t lifetime) _warn_unused_result_;
 /* Note: the lifetime of the compound literal is the immediately surrounding block,
  * see C11 §6.5.2.5, and
  * https://stackoverflow.com/questions/34880638/compound-literal-lifetime-and-if-blocks */
@@ -58,7 +58,7 @@ char *format_lifetime(char *buf, size_t l, uint32_t lifetime) _warn_unused_resul
         format_lifetime((char[FORMAT_TIMESPAN_MAX+STRLEN("for ")]){}, FORMAT_TIMESPAN_MAX+STRLEN("for "), lifetime)
 
 int address_new(Address **ret);
-Address *address_free(Address *address);
+Address* address_free(Address *address);
 int address_get(Link *link, const Address *in, Address **ret);
 int address_configure_handler_internal(sd_netlink *rtnl, sd_netlink_message *m, Link *link, const char *error_msg);
 int address_remove(const Address *address, Link *link);
