@@ -1303,7 +1303,6 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnMICRO-STAR*:pnU90/U100:*
 # Keymaps MSI Prestige And MSI Modern FnKeys and Special keys
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnMicro-Star*:pn*Prestige*:*
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnMicro-Star*:pn*Modern*:*
- KEYBOARD_KEY_56=backslash                              # Secondary backslash key
  KEYBOARD_KEY_f1=f20                                    # Fn+F5 Micmute
  KEYBOARD_KEY_76=f21                                    # Fn+F4 Toggle touchpad, sends meta+ctrl+toggle
  KEYBOARD_KEY_91=prog1                                  # Fn+F7 Creation Center, sometime F7
