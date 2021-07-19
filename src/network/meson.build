@@ -268,6 +268,12 @@ fuzzers += [
 ]
 
 tests += [
+        [['src/network/test-networkd-address.c'],
+         [libnetworkd_core,
+          libsystemd_network],
+         [],
+         network_includes],
+
         [['src/network/test-networkd-conf.c'],
          [libnetworkd_core,
           libsystemd_network],
