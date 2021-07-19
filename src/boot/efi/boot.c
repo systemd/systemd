@@ -24,6 +24,9 @@
 /* magic string to find in the binary image */
 static const char __attribute__((used)) magic[] = "#### LoaderInfo: systemd-boot " GIT_VERSION " ####";
 
+#define COLOR EFI_LIGHTGRAY|EFI_BACKGROUND_BLACK
+#define COLOR_HIGHLIGHT EFI_BLACK|EFI_BACKGROUND_LIGHTGRAY
+
 enum loader_type {
         LOADER_UNDEFINED,
         LOADER_EFI,
@@ -130,8 +133,7 @@ static BOOLEAN line_edit(
                 }
                 print[j] = '\0';
 
-                uefi_call_wrapper(ST->ConOut->SetCursorPosition, 3, ST->ConOut, 0, y_pos);
-                uefi_call_wrapper(ST->ConOut->OutputString, 2, ST->ConOut, print);
+                print_at(0, y_pos, COLOR, print);
                 uefi_call_wrapper(ST->ConOut->SetCursorPosition, 3, ST->ConOut, cursor, y_pos);
 
                 err = console_key_read(&key, TRUE);
@@ -174,7 +176,6 @@ static BOOLEAN line_edit(
                                 cursor_right(&cursor, &first, x_max, len);
                         while (line[first + cursor] && line[first + cursor] != ' ')
                                 cursor_right(&cursor, &first, x_max, len);
-                        uefi_call_wrapper(ST->ConOut->SetCursorPosition, 3, ST->ConOut, cursor, y_pos);
                         continue;
 
                 case KEYPRESS(0, SCAN_UP, 0):
@@ -188,7 +189,6 @@ static BOOLEAN line_edit(
                         }
                         while ((first + cursor) > 0 && line[first + cursor-1] != ' ')
                                 cursor_left(&cursor, &first);
-                        uefi_call_wrapper(ST->ConOut->SetCursorPosition, 3, ST->ConOut, cursor, y_pos);
                         continue;
 
                 case KEYPRESS(0, SCAN_RIGHT, 0):
@@ -198,7 +198,6 @@ static BOOLEAN line_edit(
                         if (first + cursor == len)
                                 continue;
                         cursor_right(&cursor, &first, x_max, len);
-                        uefi_call_wrapper(ST->ConOut->SetCursorPosition, 3, ST->ConOut, cursor, y_pos);
                         continue;
 
                 case KEYPRESS(0, SCAN_LEFT, 0):
@@ -206,7 +205,6 @@ static BOOLEAN line_edit(
                 case KEYPRESS(EFI_CONTROL_PRESSED, 0, CHAR_CTRL('b')):
                         /* backward-char */
                         cursor_left(&cursor, &first);
-                        uefi_call_wrapper(ST->ConOut->SetCursorPosition, 3, ST->ConOut, cursor, y_pos);
                         continue;
 
                 case KEYPRESS(EFI_ALT_PRESSED, 0, 'd'):
@@ -242,7 +240,6 @@ static BOOLEAN line_edit(
                                 cursor_left(&cursor, &first);
                                 clear++;
                         }
-                        uefi_call_wrapper(ST->ConOut->SetCursorPosition, 3, ST->ConOut, cursor, y_pos);
 
                         for (UINTN i = first + cursor; i + clear < len; i++)
                                 line[i] = line[i + clear];
@@ -362,7 +359,7 @@ static VOID print_status(Config *config, CHAR16 *loaded_image_path) {
         _cleanup_freepool_ CHAR16 *partstr = NULL, *defaultstr = NULL;
         UINTN x, y;
 
-        uefi_call_wrapper(ST->ConOut->SetAttribute, 2, ST->ConOut, EFI_LIGHTGRAY|EFI_BACKGROUND_BLACK);
+        uefi_call_wrapper(ST->ConOut->SetAttribute, 2, ST->ConOut, COLOR);
         uefi_call_wrapper(ST->ConOut->ClearScreen, 1, ST->ConOut);
 
         Print(L"systemd-boot version:   " GIT_VERSION "\n");
@@ -518,10 +515,9 @@ static BOOLEAN menu_run(
         graphics_mode(FALSE);
         uefi_call_wrapper(ST->ConIn->Reset, 2, ST->ConIn, FALSE);
         uefi_call_wrapper(ST->ConOut->EnableCursor, 2, ST->ConOut, FALSE);
-        uefi_call_wrapper(ST->ConOut->SetAttribute, 2, ST->ConOut, EFI_LIGHTGRAY|EFI_BACKGROUND_BLACK);
 
         /* draw a single character to make ClearScreen work on some firmware */
-        uefi_call_wrapper(ST->ConOut->OutputString, 2, ST->ConOut, (CHAR16*) L" ");
+        Print(L" ");
 
         if (config->console_mode_change != CONSOLE_MODE_KEEP) {
                 err = console_set_mode(&config->console_mode, config->console_mode_change);
@@ -606,24 +602,14 @@ static BOOLEAN menu_run(
                         for (UINTN i = 0; i < config->entry_count; i++) {
                                 if (i < idx_first || i > idx_last)
                                         continue;
-                                uefi_call_wrapper(ST->ConOut->SetCursorPosition, 3, ST->ConOut, 0, y_start + i - idx_first);
-                                if (i == idx_highlight)
-                                        uefi_call_wrapper(ST->ConOut->SetAttribute, 2, ST->ConOut,
-                                                          EFI_BLACK|EFI_BACKGROUND_LIGHTGRAY);
-                                else
-                                        uefi_call_wrapper(ST->ConOut->SetAttribute, 2, ST->ConOut,
-                                                          EFI_LIGHTGRAY|EFI_BACKGROUND_BLACK);
-                                uefi_call_wrapper(ST->ConOut->OutputString, 2, ST->ConOut, lines[i]);
+                                print_at(0, y_start + i - idx_first,
+                                           (i == idx_highlight) ? COLOR_HIGHLIGHT : COLOR,
+                                           lines[i]);
                         }
                         refresh = FALSE;
                 } else if (highlight) {
-                        uefi_call_wrapper(ST->ConOut->SetCursorPosition, 3, ST->ConOut, 0, y_start + idx_highlight_prev - idx_first);
-                        uefi_call_wrapper(ST->ConOut->SetAttribute, 2, ST->ConOut, EFI_LIGHTGRAY|EFI_BACKGROUND_BLACK);
-                        uefi_call_wrapper(ST->ConOut->OutputString, 2, ST->ConOut, lines[idx_highlight_prev]);
-
-                        uefi_call_wrapper(ST->ConOut->SetCursorPosition, 3, ST->ConOut, 0, y_start + idx_highlight - idx_first);
-                        uefi_call_wrapper(ST->ConOut->SetAttribute, 2, ST->ConOut, EFI_BLACK|EFI_BACKGROUND_LIGHTGRAY);
-                        uefi_call_wrapper(ST->ConOut->OutputString, 2, ST->ConOut, lines[idx_highlight]);
+                        print_at(0, y_start + idx_highlight_prev - idx_first, COLOR, lines[idx_highlight_prev]);
+                        print_at(0, y_start + idx_highlight - idx_first, COLOR_HIGHLIGHT, lines[idx_highlight]);
                         highlight = FALSE;
                 }
 
@@ -643,9 +629,7 @@ static BOOLEAN menu_run(
                                 x = (x_max - len) / 2;
                         else
                                 x = 0;
-                        uefi_call_wrapper(ST->ConOut->SetAttribute, 2, ST->ConOut, EFI_LIGHTGRAY|EFI_BACKGROUND_BLACK);
-                        uefi_call_wrapper(ST->ConOut->SetCursorPosition, 3, ST->ConOut, 0, y_max-1);
-                        uefi_call_wrapper(ST->ConOut->OutputString, 2, ST->ConOut, clearline + (x_max - x));
+                        print_at(0, y_max - 1, COLOR, clearline + (x_max - x));
                         uefi_call_wrapper(ST->ConOut->OutputString, 2, ST->ConOut, status);
                         uefi_call_wrapper(ST->ConOut->OutputString, 2, ST->ConOut, clearline+1 + x + len);
                 }
@@ -676,9 +660,7 @@ static BOOLEAN menu_run(
                 if (status) {
                         FreePool(status);
                         status = NULL;
-                        uefi_call_wrapper(ST->ConOut->SetAttribute, 2, ST->ConOut, EFI_LIGHTGRAY|EFI_BACKGROUND_BLACK);
-                        uefi_call_wrapper(ST->ConOut->SetCursorPosition, 3, ST->ConOut, 0, y_max-1);
-                        uefi_call_wrapper(ST->ConOut->OutputString, 2, ST->ConOut, clearline+1);
+                        print_at(0, y_max - 1, COLOR, clearline + 1);
                 }
 
                 idx_highlight_prev = idx_highlight;
@@ -808,13 +790,10 @@ static BOOLEAN menu_run(
                         /* only the options of configured entries can be edited */
                         if (!config->editor || config->entries[idx_highlight]->type == LOADER_UNDEFINED)
                                 break;
-                        uefi_call_wrapper(ST->ConOut->SetAttribute, 2, ST->ConOut, EFI_LIGHTGRAY|EFI_BACKGROUND_BLACK);
-                        uefi_call_wrapper(ST->ConOut->SetCursorPosition, 3, ST->ConOut, 0, y_max-1);
-                        uefi_call_wrapper(ST->ConOut->OutputString, 2, ST->ConOut, clearline+1);
+                        print_at(0, y_max - 1, COLOR, clearline + 1);
                         if (line_edit(config->entries[idx_highlight]->options, &config->options_edit, x_max-1, y_max-1))
                                 exit = TRUE;
-                        uefi_call_wrapper(ST->ConOut->SetCursorPosition, 3, ST->ConOut, 0, y_max-1);
-                        uefi_call_wrapper(ST->ConOut->OutputString, 2, ST->ConOut, clearline+1);
+                        print_at(0, y_max - 1, COLOR, clearline + 1);
                         break;
 
                 case KEYPRESS(0, 0, 'v'):
@@ -863,7 +842,7 @@ static BOOLEAN menu_run(
         FreePool(lines);
         FreePool(clearline);
 
-        uefi_call_wrapper(ST->ConOut->SetAttribute, 2, ST->ConOut, EFI_WHITE|EFI_BACKGROUND_BLACK);
+        uefi_call_wrapper(ST->ConOut->SetAttribute, 2, ST->ConOut, COLOR);
         uefi_call_wrapper(ST->ConOut->ClearScreen, 1, ST->ConOut);
         return run;
 }
