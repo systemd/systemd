@@ -247,13 +247,13 @@ static ssize_t udev_event_subst_format(
                 r = sd_device_get_devpath(dev, &val);
                 if (r < 0)
                         return r;
-                l = strpcpy(&s, l, val);
+                strpcpy(&s, l, val);
                 break;
         case FORMAT_SUBST_KERNEL:
                 r = sd_device_get_sysname(dev, &val);
                 if (r < 0)
                         return r;
-                l = strpcpy(&s, l, val);
+                strpcpy(&s, l, val);
                 break;
         case FORMAT_SUBST_KERNEL_NUMBER:
                 r = sd_device_get_sysnum(dev, &val);
@@ -261,7 +261,7 @@ static ssize_t udev_event_subst_format(
                         goto null_terminate;
                 if (r < 0)
                         return r;
-                l = strpcpy(&s, l, val);
+                strpcpy(&s, l, val);
                 break;
         case FORMAT_SUBST_ID:
                 if (!event->dev_parent)
@@ -269,7 +269,7 @@ static ssize_t udev_event_subst_format(
                 r = sd_device_get_sysname(event->dev_parent, &val);
                 if (r < 0)
                         return r;
-                l = strpcpy(&s, l, val);
+                strpcpy(&s, l, val);
                 break;
         case FORMAT_SUBST_DRIVER:
                 if (!event->dev_parent)
@@ -279,7 +279,7 @@ static ssize_t udev_event_subst_format(
                         goto null_terminate;
                 if (r < 0)
                         return r;
-                l = strpcpy(&s, l, val);
+                strpcpy(&s, l, val);
                 break;
         case FORMAT_SUBST_MAJOR:
         case FORMAT_SUBST_MINOR: {
@@ -288,7 +288,7 @@ static ssize_t udev_event_subst_format(
                 r = sd_device_get_devnum(dev, &devnum);
                 if (r < 0 && r != -ENOENT)
                         return r;
-                l = strpcpyf(&s, l, "%u", r < 0 ? 0 : type == FORMAT_SUBST_MAJOR ? major(devnum) : minor(devnum));
+                strpcpyf(&s, l, "%u", r < 0 ? 0 : type == FORMAT_SUBST_MAJOR ? major(devnum) : minor(devnum));
                 break;
         }
         case FORMAT_SUBST_RESULT: {
@@ -307,7 +307,7 @@ static ssize_t udev_event_subst_format(
                 }
 
                 if (index == 0)
-                        l = strpcpy(&s, l, event->program_result);
+                        strpcpy(&s, l, event->program_result);
                 else {
                         const char *start, *p;
                         unsigned i;
@@ -329,11 +329,11 @@ static ssize_t udev_event_subst_format(
                         start = p;
                         /* %c{2+} copies the whole string from the second part on */
                         if (has_plus)
-                                l = strpcpy(&s, l, start);
+                                strpcpy(&s, l, start);
                         else {
                                 while (*p && !strchr(WHITESPACE, *p))
                                         p++;
-                                l = strnpcpy(&s, l, start, p - start);
+                                strnpcpy(&s, l, start, p - start);
                         }
                 }
                 break;
@@ -367,7 +367,7 @@ static ssize_t udev_event_subst_format(
                 count = udev_replace_chars(vbuf, UDEV_ALLOWED_CHARS_INPUT);
                 if (count > 0)
                         log_device_debug(dev, "%i character(s) replaced", count);
-                l = strpcpy(&s, l, vbuf);
+                strpcpy(&s, l, vbuf);
                 break;
         }
         case FORMAT_SUBST_PARENT:
@@ -381,7 +381,7 @@ static ssize_t udev_event_subst_format(
                         goto null_terminate;
                 if (r < 0)
                         return r;
-                l = strpcpy(&s, l, val + STRLEN("/dev/"));
+                strpcpy(&s, l, val + STRLEN("/dev/"));
                 break;
         case FORMAT_SUBST_DEVNODE:
                 r = sd_device_get_devname(dev, &val);
@@ -389,34 +389,34 @@ static ssize_t udev_event_subst_format(
                         goto null_terminate;
                 if (r < 0)
                         return r;
-                l = strpcpy(&s, l, val);
+                strpcpy(&s, l, val);
                 break;
         case FORMAT_SUBST_NAME:
                 if (event->name)
-                        l = strpcpy(&s, l, event->name);
+                        strpcpy(&s, l, event->name);
                 else if (sd_device_get_devname(dev, &val) >= 0)
-                        l = strpcpy(&s, l, val + STRLEN("/dev/"));
+                        strpcpy(&s, l, val + STRLEN("/dev/"));
                 else {
                         r = sd_device_get_sysname(dev, &val);
                         if (r < 0)
                                 return r;
-                        l = strpcpy(&s, l, val);
+                        strpcpy(&s, l, val);
                 }
                 break;
         case FORMAT_SUBST_LINKS:
                 FOREACH_DEVICE_DEVLINK(dev, val)
                         if (s == dest)
-                                l = strpcpy(&s, l, val + STRLEN("/dev/"));
+                                strpcpy(&s, l, val + STRLEN("/dev/"));
                         else
-                                l = strpcpyl(&s, l, " ", val + STRLEN("/dev/"), NULL);
+                                strpcpyl(&s, l, " ", val + STRLEN("/dev/"), NULL);
                 if (s == dest)
                         goto null_terminate;
                 break;
         case FORMAT_SUBST_ROOT:
-                l = strpcpy(&s, l, "/dev");
+                strpcpy(&s, l, "/dev");
                 break;
         case FORMAT_SUBST_SYS:
-                l = strpcpy(&s, l, "/sys");
+                strpcpy(&s, l, "/sys");
                 break;
         case FORMAT_SUBST_ENV:
                 if (isempty(attr))
@@ -426,7 +426,7 @@ static ssize_t udev_event_subst_format(
                         goto null_terminate;
                 if (r < 0)
                         return r;
-                l = strpcpy(&s, l, val);
+                strpcpy(&s, l, val);
                 break;
         default:
                 assert_not_reached("Unknown format substitution type");
