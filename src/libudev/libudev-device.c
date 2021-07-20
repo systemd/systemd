@@ -89,6 +89,26 @@ _public_ unsigned long long udev_device_get_seqnum(struct udev_device *udev_devi
 }
 
 /**
+ * udev_device_get_diskseq:
+ * @udev_device: udev device
+ *
+ * This is only valid if the device was received through a monitor. Devices read from
+ * sys do not have a sequence number.
+ *
+ * Returns: the kernel disk sequence number, or 0 if there is no sequence number available.
+ **/
+_public_ unsigned long long udev_device_get_diskseq(struct udev_device *udev_device) {
+        uint64_t diskseq;
+
+        assert_return_errno(udev_device, 0, EINVAL);
+
+        if (sd_device_get_diskseq(udev_device->device, &diskseq) < 0)
+                return 0;
+
+        return diskseq;
+}
+
+/**
  * udev_device_get_devnum:
  * @udev_device: udev device
  *

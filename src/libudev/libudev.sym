@@ -124,3 +124,8 @@ global:
         udev_device_has_current_tag;
         udev_device_get_current_tags_list_entry;
 } LIBUDEV_215;
+
+LIBUDEV_250 {
+global:
+        udev_device_get_diskseq;
+} LIBUDEV_247;
