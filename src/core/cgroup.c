@@ -3926,6 +3926,20 @@ int compare_job_priority(const void *a, const void *b) {
         return strcmp(x->unit->id, y->unit->id);
 }
 
+int unit_cgroup_kill(Unit *u) {
+        int r;
+
+        assert(u);
+
+        r = cg_kill_kernel(SYSTEMD_CGROUP_CONTROLLER, u->cgroup_path);
+        if (r < 0)
+                return r;
+
+        log_unit_debug(u, "Performed cgroup.kill");
+
+        return 0;
+}
+
 int unit_cgroup_freezer_action(Unit *u, FreezerAction action) {
         _cleanup_free_ char *path = NULL;
         FreezerState target, kernel = _FREEZER_STATE_INVALID;
