@@ -762,3 +762,8 @@ global:
         sd_device_new_from_ifname;
         sd_device_new_from_ifindex;
 } LIBSYSTEMD_248;
+
+LIBSYSTEMD_250 {
+global:
+        sd_device_get_diskseq;
+} LIBSYSTEMD_249;
