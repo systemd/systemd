@@ -65,6 +65,7 @@ typedef struct {
         BOOLEAN editor;
         BOOLEAN auto_entries;
         BOOLEAN auto_firmware;
+        BOOLEAN auto_enroll;
         BOOLEAN force_menu;
         UINTN console_mode;
         enum console_mode_change_type console_mode_change;
@@ -376,9 +377,7 @@ static VOID print_status(Config *config, CHAR16 *loaded_image_path) {
                 Print(L"console size:           %d x %d\n", x, y);
 
         Print(L"SecureBoot:             %s\n", yes_no(secure_boot_enabled()));
-
-        if (efivar_get_boolean_u8(EFI_GLOBAL_GUID, L"SetupMode", &modevar) == EFI_SUCCESS)
-                Print(L"SetupMode:              %s\n", modevar ? L"setup" : L"user");
+        Print(L"SetupMode:              %s\n", yes_no(setup_mode_enabled()));
 
         if (shim_loaded())
                 Print(L"Shim:                   present\n");
@@ -398,6 +397,7 @@ static VOID print_status(Config *config, CHAR16 *loaded_image_path) {
         Print(L"editor:                 %s\n", yes_no(config->editor));
         Print(L"auto-entries:           %s\n", yes_no(config->auto_entries));
         Print(L"auto-firmware:          %s\n", yes_no(config->auto_firmware));
+        Print(L"auto-enroll:            %s\n", yes_no(config->auto_enroll));
 
         switch (config->random_seed_mode) {
         case RANDOM_SEED_OFF:
@@ -1033,6 +1033,16 @@ static VOID config_defaults_load_from_file(Config *config, CHAR8 *content) {
                         continue;
                 }
 
+                if (strcmpa((CHAR8 *)"auto-enroll", key) == 0) {
+                        BOOLEAN on;
+
+                        if (EFI_ERROR(parse_boolean(value, &on)))
+                                continue;
+
+                        config->auto_enroll = on;
+                        continue;
+                }
+
                 if (strcmpa((CHAR8 *)"console-mode", key) == 0) {
                         if (strcmpa((CHAR8 *)"auto", value) == 0)
                                 config->console_mode_change = CONSOLE_MODE_AUTO;
@@ -1403,6 +1413,7 @@ static VOID config_load_defaults(Config *config, EFI_FILE *root_dir) {
                 .editor = TRUE,
                 .auto_entries = TRUE,
                 .auto_firmware = TRUE,
+                .auto_enroll = FALSE,
                 .random_seed_mode = RANDOM_SEED_WITH_SYSTEM_TOKEN,
         };
 
@@ -2279,6 +2290,13 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
                 EFI_LOADER_FEATURE_RANDOM_SEED |
                 0;
 
+        static const UINT32 sb_vars_options =
+                EFI_VARIABLE_NON_VOLATILE |
+                EFI_VARIABLE_BOOTSERVICE_ACCESS |
+                EFI_VARIABLE_RUNTIME_ACCESS |
+                EFI_VARIABLE_TIME_BASED_AUTHENTICATED_WRITE_ACCESS |
+                0;
+
         _cleanup_freepool_ CHAR16 *infostr = NULL, *typestr = NULL;
         UINT64 osind = 0;
         EFI_LOADED_IMAGE *loaded_image;
@@ -2289,6 +2307,9 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
         UINT64 init_usec;
         BOOLEAN menu = FALSE;
         CHAR16 uuid[37];
+        _cleanup_freepool_ CHAR8 *sb_db_buffer = NULL, *sb_kek_buffer = NULL, *sb_pk_buffer = NULL;
+        UINTN sb_db_size, sb_kek_size, sb_pk_size;
+        EFI_STATUS err_sb_db, err_sb_kek, err_sb_pk;
 
         InitializeLib(image, sys_table);
         init_usec = time_usec();
@@ -2336,6 +2357,46 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
         efivar_set(LOADER_GUID, L"LoaderImageIdentifier", loaded_image_path, 0);
 
         config_load_defaults(&config, root_dir);
+
+        if (setup_mode_enabled() && config.auto_enroll) {
+                Print(L"Secure Boot auto enrollement is enabled.\n");
+
+                /* Read the required files in order to perform auto-enrollement */
+                err_sb_db  = file_read(root_dir, L"\\db.auth", 0, 0, &sb_db_buffer, &sb_db_size);
+                err_sb_kek = file_read(root_dir, L"\\KEK.auth", 0, 0, &sb_kek_buffer, &sb_kek_size);
+                err_sb_pk  = file_read(root_dir, L"\\PK.auth", 0, 0, &sb_pk_buffer, &sb_pk_size);
+
+                if (!EFI_ERROR(err_sb_db) && !EFI_ERROR(err_sb_kek) && !EFI_ERROR(err_sb_pk)) {
+                        err = efivar_set_raw(EFI_SIG_DB_GUID, L"db", sb_db_buffer, sb_db_size, sb_vars_options);
+                        if (EFI_ERROR(err)) {
+                                Print(L"Failed to write db secure boot variable: %r\n", err);
+                                uefi_call_wrapper(BS->Stall, 1, 3 * 1000 * 1000);
+                                return err;
+                        }
+
+                        err = efivar_set_raw(EFI_GLOBAL_GUID, L"KEK", sb_kek_buffer, sb_kek_size, sb_vars_options);
+                        if (EFI_ERROR(err)) {
+                                Print(L"Failed to write db secure boot variable: %r\n", err);
+                                uefi_call_wrapper(BS->Stall, 1, 3 * 1000 * 1000);
+                                return err;
+                        }
+
+                        err = efivar_set_raw(EFI_GLOBAL_GUID, L"PK", sb_pk_buffer, sb_pk_size, sb_vars_options);
+                        if (EFI_ERROR(err)) {
+                                Print(L"Failed to write db secure boot variable: %r\n", err);
+                                uefi_call_wrapper(BS->Stall, 1, 3 * 1000 * 1000);
+                                return err;
+                        }
+
+                        Print(L"Finished loading secure boot variables. Rebooting.\n");
+                        uefi_call_wrapper(BS->Stall, 1, 3 * 1000 * 1000);
+
+                        err = uefi_call_wrapper(RT->ResetSystem, 4, EfiResetCold, EFI_SUCCESS, 0, NULL);
+                        Print(L"Error calling ResetSystem: %r", err);
+                        uefi_call_wrapper(BS->Stall, 1, 3 * 1000 * 1000);
+                        return err;
+                }
+        }
 
         /* scan /EFI/Linux/ directory */
         config_entry_add_linux(&config, loaded_image->DeviceHandle, root_dir);
