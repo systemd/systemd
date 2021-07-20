@@ -160,6 +160,17 @@ bool cg_freezer_supported(void) {
         return supported;
 }
 
+bool cg_kill_supported(void) {
+        static thread_local int supported = -1;
+
+        if (supported >= 0)
+                return supported;
+
+        supported = cg_all_unified() > 0 && access("/sys/fs/cgroup/init.scope/cgroup.kill", F_OK) == 0;
+
+        return supported;
+}
+
 int cg_enumerate_subgroups(const char *controller, const char *path, DIR **_d) {
         _cleanup_free_ char *fs = NULL;
         int r;
