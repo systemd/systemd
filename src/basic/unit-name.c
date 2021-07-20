@@ -378,12 +378,13 @@ int unit_name_unescape(const char *f, char **ret) {
 }
 
 int unit_name_path_escape(const char *f, char **ret) {
-        char *p, *s;
+        _cleanup_free_ char *p = NULL;
+        char *s;
 
         assert(f);
         assert(ret);
 
-        p = strdupa(f);
+        p = strdup(f);
         if (!p)
                 return -ENOMEM;
 
@@ -395,13 +396,9 @@ int unit_name_path_escape(const char *f, char **ret) {
                 if (!path_is_normalized(p))
                         return -EINVAL;
 
-                /* Truncate trailing slashes */
+                /* Truncate trailing slashes and skip leading slashes */
                 delete_trailing_chars(p, "/");
-
-                /* Truncate leading slashes */
-                p = skip_leading_chars(p, "/");
-
-                s = unit_name_escape(p);
+                s = unit_name_escape(skip_leading_chars(p, "/"));
         }
         if (!s)
                 return -ENOMEM;
@@ -531,7 +528,7 @@ int unit_name_from_path(const char *path, const char *suffix, char **ret) {
         if (strlen(s) >= UNIT_NAME_MAX) /* Return a slightly more descriptive error for this specific condition */
                 return -ENAMETOOLONG;
 
-        /* Refuse this if this got too long or for some other reason didn't result in a valid name */
+        /* Refuse if this for some other reason didn't result in a valid name */
         if (!unit_name_is_valid(s, UNIT_NAME_PLAIN))
                 return -EINVAL;
 
@@ -565,7 +562,7 @@ int unit_name_from_path_instance(const char *prefix, const char *path, const cha
         if (strlen(s) >= UNIT_NAME_MAX) /* Return a slightly more descriptive error for this specific condition */
                 return -ENAMETOOLONG;
 
-        /* Refuse this if this got too long or for some other reason didn't result in a valid name */
+        /* Refuse if this for some other reason didn't result in a valid name */
         if (!unit_name_is_valid(s, UNIT_NAME_INSTANCE))
                 return -EINVAL;
 
