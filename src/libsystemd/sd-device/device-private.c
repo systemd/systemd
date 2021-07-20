@@ -226,6 +226,28 @@ static int device_set_seqnum(sd_device *device, const char *str) {
         return 0;
 }
 
+static int device_set_diskseq(sd_device *device, const char *str) {
+        uint64_t diskseq;
+        int r;
+
+        assert(device);
+        assert(str);
+
+        r = safe_atou64(str, &diskseq);
+        if (r < 0)
+                return r;
+        if (diskseq == 0)
+                return -EINVAL;
+
+        r = device_add_property_internal(device, "DISKSEQ", str);
+        if (r < 0)
+                return r;
+
+        device->diskseq = diskseq;
+
+        return 0;
+}
+
 static int device_amend(sd_device *device, const char *key, const char *value) {
         int r;
 
@@ -292,6 +314,10 @@ static int device_amend(sd_device *device, const char *key, const char *value) {
                 r = device_set_seqnum(device, value);
                 if (r < 0)
                         return log_device_debug_errno(device, r, "sd-device: Failed to set SEQNUM to '%s': %m", value);
+        } else if (streq(key, "DISKSEQ")) {
+                r = device_set_diskseq(device, value);
+                if (r < 0)
+                        return log_device_debug_errno(device, r, "sd-device: Failed to set DISKSEQ to '%s': %m", value);
         } else if (streq(key, "DEVLINKS")) {
                 for (const char *p = value;;) {
                         _cleanup_free_ char *word = NULL;
