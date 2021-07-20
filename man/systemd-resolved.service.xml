@@ -144,7 +144,7 @@
       turn. Additionally, lookup of single-label names via unicast DNS may be enabled with the
       <varname>ResolveUnicastSingleLabel=yes</varname> setting. The details of which servers are queried and
       how the final reply is chosen are described below. Note that this means that address queries for
-      single-label names are never sent out to remote DNS servers by default, and resoulution is only
+      single-label names are never sent out to remote DNS servers by default, and resolution is only
       possible if search domains are defined.</para></listitem>
 
       <listitem><para>Multi-label names with the domain suffix <literal>.local</literal> are resolved using
