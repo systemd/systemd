@@ -19,7 +19,6 @@
 
   <refnamediv>
     <refname>systemd-environment-d-generator</refname>
-    <refname>30-systemd-environment-d-generator</refname>
     <refpurpose>Load variables specified by <filename>environment.d</filename>
     </refpurpose>
   </refnamediv>
