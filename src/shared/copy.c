@@ -1253,9 +1253,6 @@ int copy_xattr(int fdf, int fdt) {
         NULSTR_FOREACH(p, names) {
                 _cleanup_free_ char *value = NULL;
 
-                if (!startswith(p, "user."))
-                        continue;
-
                 r = fgetxattr_malloc(fdf, p, &value);
                 if (r == -ENODATA)
                         continue; /* gone by now */
