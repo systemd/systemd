@@ -393,6 +393,7 @@ static int portable_extract_by_path(
                 r = dissect_image(
                                 d->fd,
                                 NULL, NULL,
+                                d->diskseq,
                                 d->uevent_seqnum_not_before,
                                 d->timestamp_not_before,
                                 DISSECT_IMAGE_READ_ONLY |
