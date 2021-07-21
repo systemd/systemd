@@ -318,6 +318,7 @@ bool unit_cgroup_delegate(Unit *u);
 int compare_job_priority(const void *a, const void *b);
 
 int unit_get_cpuset(Unit *u, CPUSet *cpus, const char *name);
+int unit_cgroup_kill(Unit *u);
 int unit_cgroup_freezer_action(Unit *u, FreezerAction action);
 
 const char* freezer_action_to_string(FreezerAction a) _const_;
