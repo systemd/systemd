@@ -55,9 +55,18 @@
     the filesystem should actually be checked based on the time since
     last check, number of mounts, unclean unmount, etc.</para>
 
-    <para>If a file system check fails for a service without
-    <option>nofail</option>, emergency mode is activated, by isolating
-    to <filename>emergency.target</filename>.</para>
+    <para><filename>systemd-fsck-root.service</filename> will activate
+    <filename>reboot.target</filename> if <filename>/sbin/fsck</filename>
+    returns the "System should reboot" condition, or
+    <filename>emergency.target</filename> if <filename>/sbin/fsck</filename>
+    returns the "Filesystem errors left uncorrected" condition.</para>
+
+    <para><filename>systemd-fsck@.service</filename> will fail if
+    <filename>/sbin/fsck</filename> returns with either "System should reboot"
+    or "Filesystem errors left uncorrected" conditions. For filesystems
+    listed in <filename>/etc/fstab</filename> without <literal>nofail</literal>
+    or <literal>noauto</literal> options, <literal>local-fs.target</literal>
+    will then activate <filename>emergency.target</filename>.</para>
   </refsect1>
 
   <refsect1>
