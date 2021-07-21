@@ -9,6 +9,11 @@
 
 #include "macro.h"
 
+/* Detects a log syntax issue. Having the variable be global for now seems appropriate since there
+ * are more than 800 different log_syntax checks which along with the function calling the parsing
+ * function ignore the return code, so refactoring this entirely would take quite a lot of time */
+extern uint64_t log_syntax_issue_reported;
+
 /* Some structures we reference but don't want to pull in headers for */
 struct iovec;
 struct signalfd_siginfo;
