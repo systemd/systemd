@@ -46,6 +46,7 @@ Interface](https://systemd.io/BOOT_LOADER_INTERFACE).
 | `69dad710-2ce4-4e3c-b16c-21a1d49abed3` | _Root Partition (32-bit ARM)_ | ditto | ditto |
 | `b921b045-1df0-41c3-af44-4c6f280d3fae` | _Root Partition (64-bit ARM/AArch64)_ | ditto | ditto |
 | `993d8d3d-f80e-4225-855a-9daf8ed7ea97` | _Root Partition (Itanium/IA-64)_ | ditto | ditto |
+| `77055800-792c-4f94-b39a-98c91b762bb6` | _Root Partition (LoongArch 64-bit)_ | ditto | ditto |
 | `60d5a7fe-8e7d-435c-b714-3dd8162144e1` | _Root Partition (RISC-V 32-bit)_ | ditto | ditto |
 | `72ec70a6-cf74-40e6-bd49-4bda08e8f224` | _Root Partition (RISC-V 64-bit)_ | ditto | ditto |
 | `d13c5d3b-b5d1-422a-b29f-9454fdc89d76` | _Root Verity Partition (x86)_ | A dm-verity superblock followed by hash data | On systems with matching architecture, contains dm-verity integrity hash data for the matching root partition. If this feature is used the partition UUID of the root partition should be the first 128bit of the root hash of the dm-verity hash data, and the partition UUID of this dm-verity partition should be the final 128bit of it, so that the root partition and its verity partition can be discovered easily, simply by specifying the root hash. |
@@ -53,6 +54,7 @@ Interface](https://systemd.io/BOOT_LOADER_INTERFACE).
 | `7386cdf2-203c-47a9-a498-f2ecce45a2d6` | _Root Verity Partition (32-bit ARM)_ | ditto | ditto |
 | `df3300ce-d69f-4c92-978c-9bfb0f38d820` | _Root Verity Partition (64-bit ARM/AArch64)_ | ditto | ditto |
 | `86ed10d5-b607-45bb-8957-d350f23d0571` | _Root Verity Partition (Itanium/IA-64)_  | ditto | ditto |
+| `f3393b22-e9af-4613-a948-9d3bfbd0c535` | _Root Verity Partition (LoongArch 64-bit)_  | ditto | ditto |
 | `ae0253be-1167-4007-ac68-43926c14c5de` | _Root Verity Partition (RISC-V 32-bit)_  | ditto | ditto |
 | `b6ed5582-440b-4209-b8da-5ff7c419ea3d` | _Root Verity Partition (RISC-V 64-bit)_  | ditto | ditto |
 | `75250d76-8cc6-458e-bd66-bd47cc81a812` | _`/usr/` Partition (x86)_ | Any native, optionally in LUKS | Similar semantics to root partition, but just the `/usr/` partition. |
@@ -60,6 +62,7 @@ Interface](https://systemd.io/BOOT_LOADER_INTERFACE).
 | `7d0359a3-02b3-4f0a-865c-654403e70625` | _`/usr/` Partition (32-bit ARM)_ | ditto | ditto |
 | `b0e01050-ee5f-4390-949a-9101b17104e9` | _`/usr/` Partition (64-bit ARM/AArch64)_ | ditto | ditto |
 | `4301d2a6-4e3b-4b2a-bb94-9e0b2c4225ea` | _`/usr/` Partition (Itanium/IA-64)_ | ditto | ditto |
+| `e611c702-575c-4cbe-9a46-434fa0bf7e3f` | _`/usr/` Partition (LoongArch 64-bit)_ | ditto | ditto |
 | `b933fb22-5c3f-4f91-af90-e2bb0fa50702` | _`/usr/` Partition (RISC-V 32-bit)_ | ditto | ditto |
 | `beaec34b-8442-439b-a40b-984381ed097d` | _`/usr/` Partition (RISC-V 64-bit)_ | ditto | ditto |
 | `8f461b0d-14ee-4e81-9aa9-049b6fb97abd` | _`/usr/` Verity Partition (x86)_ | A dm-verity superblock followed by hash data | Similar semantics to root Verity partition, but just for the `/usr/` partition. |
@@ -67,6 +70,7 @@ Interface](https://systemd.io/BOOT_LOADER_INTERFACE).
 | `c215d751-7bcd-4649-be90-6627490a4c05` | _`/usr/` Verity Partition (32-bit ARM)_ | ditto | ditto |
 | `6e11a4e7-fbca-4ded-b9e9-e1a512bb664e` | _`/usr/` Verity Partition (64-bit ARM/AArch64)_ | ditto | ditto |
 | `6a491e03-3be7-4545-8e38-83320e0ea880` | _`/usr/` Verity Partition (Itanium/IA-64)_ | ditto | ditto |
+| `f46b2c26-59ae-48f0-9106-c50ed47f673d` | _`/usr/` Verity Partition (LoongArch 64-bit)_ | ditto | ditto |
 | `cb1ee4e3-8cd0-4136-a0a4-aa61a32e8730` | _`/usr/` Verity Partition (RISC-V 32-bit)_ | ditto | ditto |
 | `8f1056be-9b05-47c4-81d6-be53128e5b54` | _`/usr/` Verity Partition (RISC-V 64-bit)_ | ditto | ditto |
 | `933ac7e1-2eb4-4f13-b844-0e14e2aef915` | _Home Partition_ | Any native, optionally in LUKS | The first partition with this type UUID on the disk containing the root partition is automatically mounted to `/home/`.  If the partition is encrypted with LUKS, the device mapper file will be named `/dev/mapper/home`. |
@@ -221,13 +225,13 @@ We are not. `/etc/fstab` always overrides automatic discovery and is indeed
 mentioned in the specifications.  We are simply trying to make the boot and
 installation processes of Linux a bit more robust and self-descriptive.
 
-### Why did you only define the root partition for x86, x86-64, ARM, ARM64, ia64, riscv32, riscv64?
+### Why did you only define the root partition for these listed architectures?
 
 The automatic discovery of the root partition is defined to operate on the disk
 containing the current EFI System Partition (ESP). Since EFI only exists on
-x86, x86-64, ia64, ARM and RISC-V so far, we only defined root partition UUIDs for
-these architectures.  Should EFI become more common on other architectures, we
-can define additional UUIDs for them.
+x86, x86-64, ia64, ARM, LoongArch and RISC-V so far, we only defined root
+partition UUIDs for these architectures.  Should EFI become more common on
+other architectures, we can define additional UUIDs for them.
 
 ### Why define distinct root partition UUIDs for the various architectures?
 
