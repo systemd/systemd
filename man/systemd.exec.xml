@@ -90,6 +90,17 @@
     <variablelist class='unit-directives'>
 
       <varlistentry>
+        <term><varname>BinaryDirectory=</varname></term>
+
+        <listitem><para>Takes a directory path relative to which the executable used by
+        the Exec*= (e.g. ExecStart=, ExecStop=, etc.) properties can be specified.
+        The name of the executable has to be non standard.
+        At the moment BinaryDirectory= will not take precedence over the default paths set at compilation time.
+        Thus it is not recommended to use this when calling standard Linux binaries.
+        </para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>WorkingDirectory=</varname></term>
 
         <listitem><para>Takes a directory path relative to the service's root directory specified by
