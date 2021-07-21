@@ -69,7 +69,8 @@ typedef struct {
         BOOLEAN auto_entries;
         BOOLEAN auto_firmware;
         BOOLEAN force_menu;
-        UINTN console_mode;
+        INTN console_mode;
+        INTN console_mode_efivar;
         enum console_mode_change_type console_mode_change;
         RandomSeedMode random_seed_mode;
 } Config;
@@ -354,7 +355,7 @@ static UINTN entry_lookup_key(Config *config, UINTN start, CHAR16 key) {
 
 static VOID print_status(Config *config, CHAR16 *loaded_image_path) {
         UINT64 key, indvar;
-        UINTN timeout;
+        INTN timeout;
         BOOLEAN modevar;
         _cleanup_freepool_ CHAR16 *partstr = NULL, *defaultstr = NULL;
         UINTN x_max, y_max;
@@ -371,6 +372,7 @@ static VOID print_status(Config *config, CHAR16 *loaded_image_path) {
         Print(L"firmware vendor:        %s\n", ST->FirmwareVendor);
         Print(L"firmware version:       %d.%02d\n", ST->FirmwareRevision >> 16, ST->FirmwareRevision & 0xffff);
         Print(L"console size:           %d x %d\n", x_max, y_max);
+        Print(L"Console mode:           %d/%d\n", ST->ConOut->Mode->Mode, ST->ConOut->Mode->MaxMode - 1);
         Print(L"SecureBoot:             %s\n", yes_no(secure_boot_enabled()));
 
         if (efivar_get_boolean_u8(EFI_GLOBAL_GUID, L"SetupMode", &modevar) == EFI_SUCCESS)
@@ -417,8 +419,8 @@ static VOID print_status(Config *config, CHAR16 *loaded_image_path) {
                 Print(L"entry EFI var idx:      %d\n", config->idx_default_efivar);
         Print(L"\n");
 
-        if (efivar_get_uint_string(LOADER_GUID, L"LoaderConfigTimeout", &timeout) == EFI_SUCCESS)
-                Print(L"LoaderConfigTimeout:    %u\n", timeout);
+        if (efivar_get_int_string(LOADER_GUID, L"LoaderConfigTimeout", &timeout) == EFI_SUCCESS)
+                Print(L"LoaderConfigTimeout:    %d\n", timeout);
 
         if (config->entry_oneshot)
                 Print(L"LoaderEntryOneShot:     %s\n", config->entry_oneshot);
@@ -490,24 +492,25 @@ static BOOLEAN menu_run(
                 CHAR16 *loaded_image_path) {
 
         EFI_STATUS err;
-        UINTN visible_max;
-        UINTN visible_count;
+        UINTN visible_max = 0;
+        UINTN visible_count = 0;
         UINTN idx_highlight = config->idx_default;
         UINTN idx_highlight_prev = 0;
-        UINTN idx_first;
-        UINTN idx_last;
-        BOOLEAN redraw_box = TRUE;
+        UINTN idx_first = 0;
+        UINTN idx_last = 0;
+        BOOLEAN new_mode = TRUE;
+        BOOLEAN clear_screen = TRUE;
         BOOLEAN refresh = TRUE;
         BOOLEAN highlight = FALSE;
         UINTN line_width = 0;
         const UINTN entry_padding = 3;
-        CHAR16 **lines;
-        UINTN x_start;
-        UINTN y_start;
+        CHAR16 **lines = NULL;
+        UINTN x_start = 0;
+        UINTN y_start = 0;
         UINTN x_max;
         UINTN y_max;
         CHAR16 *status = NULL;
-        CHAR16 *clearline;
+        CHAR16 *clearline = NULL;
         INTN timeout_remain;
         INT16 idx;
         BOOLEAN exit = FALSE;
@@ -521,11 +524,14 @@ static BOOLEAN menu_run(
         /* draw a single character to make ClearScreen work on some firmware */
         Print(L" ");
 
-        err = console_set_mode(config->console_mode, config->console_mode_change);
-        uefi_call_wrapper(ST->ConOut->ClearScreen, 1, ST->ConOut);
-        if (EFI_ERROR(err))
-                PrintErrorStall(L"Error switching console mode to %lu: %r", config->console_mode, err);
-        console_query_mode(&x_max, &y_max);
+        if (config->console_mode_efivar >= 0)
+                err = console_set_mode(config->console_mode_efivar, CONSOLE_MODE_SET);
+        else
+                err = console_set_mode(config->console_mode, config->console_mode_change);
+        if (EFI_ERROR(err)) {
+                uefi_call_wrapper(ST->ConOut->ClearScreen, 1, ST->ConOut);
+                PrintErrorStall(L"Error switching console mode: %r", err);
+        }
 
         /* we check 10 times per second for a keystroke */
         if (config->timeout_sec > 0)
@@ -533,64 +539,84 @@ static BOOLEAN menu_run(
         else
                 timeout_remain = -1;
 
-        /* account for box+status */
-        visible_max = y_max - 3;
-
-        /* Drawing entries starts at idx_first until idx_last.
-         * We want to make sure that idx_highlight is centered,
-         * but not if that means that above/below it are no entries
-         * to draw anymore. */
-        if (config->entry_count < visible_max || idx_highlight < visible_max / 2)
-                idx_first = 0;
-        else if (idx_highlight >= config->entry_count - (visible_max / 2))
-                idx_first = config->entry_count - visible_max;
-        else
-                idx_first = idx_highlight - (visible_max / 2);
-        idx_last = idx_first + visible_max-1;
-
-        /* length of the longest entry */
-        for (UINTN i = 0; i < config->entry_count; i++)
-                line_width = MAX(line_width, StrLen(config->entries[i]->title_show));
-        line_width = MIN(line_width + 2 * entry_padding, x_max - 2);
-
-        /* offsets to center the entries on the screen */
-        x_start = (x_max - (line_width)) / 2;
-        if (config->entry_count < visible_max)
-                y_start = ((visible_max - config->entry_count) / 2) + 2;
-        else
-                y_start = 1;
-        visible_count = MIN(visible_max, config->entry_count);
-
-        /* menu entries title lines */
-        lines = AllocatePool(sizeof(CHAR16 *) * config->entry_count);
-        for (UINTN i = 0; i < config->entry_count; i++) {
-                UINTN j;
-
-                lines[i] = AllocatePool(((line_width + 1) * sizeof(CHAR16)));
-                UINTN padding = (line_width - MIN(StrLen(config->entries[i]->title_show), line_width)) / 2;
-
-                for (j = 0; j < padding; j++)
-                        lines[i][j] = ' ';
-
-                for (UINTN k = 0; config->entries[i]->title_show[k] != '\0' && j < line_width; j++, k++)
-                        lines[i][j] = config->entries[i]->title_show[k];
-
-                for (; j < line_width; j++)
-                        lines[i][j] = ' ';
-                lines[i][line_width] = '\0';
-        }
-
-        clearline = AllocatePool((x_max+1) * sizeof(CHAR16));
-        for (UINTN i = 0; i < x_max; i++)
-                clearline[i] = ' ';
-        clearline[x_max] = 0;
-
         while (!exit) {
                 UINT64 key;
 
-                if (redraw_box) {
-                        redraw_box = FALSE;
+                if (new_mode) {
+                        console_query_mode(&x_max, &y_max);
+
+                        /* account for box+status */
+                        visible_max = y_max - 3;
+
+                        /* Drawing entries starts at idx_first until idx_last.
+                        * We want to make sure that idx_highlight is centered,
+                        * but not if that means that above/below it are no entries
+                        * to draw anymore. */
+                        if (config->entry_count < visible_max || idx_highlight < visible_max / 2)
+                                idx_first = 0;
+                        else if (idx_highlight >= config->entry_count - (visible_max / 2))
+                                idx_first = config->entry_count - visible_max;
+                        else
+                                idx_first = idx_highlight - (visible_max / 2);
+                        idx_last = idx_first + visible_max-1;
+
+                        /* length of the longest entry */
+                        line_width = 0;
+                        for (UINTN i = 0; i < config->entry_count; i++)
+                                line_width = MAX(line_width, StrLen(config->entries[i]->title_show));
+                        line_width = MIN(line_width + 2 * entry_padding, x_max - 2);
+
+                        /* offsets to center the entries on the screen */
+                        x_start = (x_max - (line_width)) / 2;
+                        if (config->entry_count < visible_max)
+                                y_start = ((visible_max - config->entry_count) / 2) + 2;
+                        else
+                                y_start = 1;
+                        visible_count = MIN(visible_max, config->entry_count);
+
+                        if (lines) {
+                                for (UINTN i = 0; i < config->entry_count; i++)
+                                        FreePool(lines[i]);
+                                FreePool(lines);
+                                FreePool(clearline);
+                        }
+
+                        /* menu entries title lines */
+                        lines = AllocatePool(sizeof(CHAR16 *) * config->entry_count);
+                        for (UINTN i = 0; i < config->entry_count; i++) {
+                                UINTN j;
+
+                                lines[i] = AllocatePool(((line_width + 1) * sizeof(CHAR16)));
+                                UINTN padding = (line_width - MIN(StrLen(config->entries[i]->title_show), line_width)) / 2;
+
+                                for (j = 0; j < padding; j++)
+                                        lines[i][j] = ' ';
+
+                                for (UINTN k = 0; config->entries[i]->title_show[k] != '\0' && j < line_width; j++, k++)
+                                        lines[i][j] = config->entries[i]->title_show[k];
+
+                                for (; j < line_width; j++)
+                                        lines[i][j] = ' ';
+                                lines[i][line_width] = '\0';
+                        }
+
+                        clearline = AllocatePool((x_max+1) * sizeof(CHAR16));
+                        for (UINTN i = 0; i < x_max; i++)
+                                clearline[i] = ' ';
+                        clearline[x_max] = 0;
+
+                        new_mode = FALSE;
+                        clear_screen = TRUE;
+                }
+
+                if (clear_screen) {
+                        /* draw a single character to make ClearScreen work on some firmware */
+                        Print(L" ");
+                        uefi_call_wrapper(ST->ConOut->SetAttribute, 2, ST->ConOut, COLOR);
+                        uefi_call_wrapper(ST->ConOut->ClearScreen, 1, ST->ConOut);
                         draw_box(x_start - 1, y_start - 1, line_width + 1, visible_count + 1, COLOR);
+                        clear_screen = FALSE;
+                        refresh = TRUE;
                 }
 
                 if (refresh) {
@@ -713,7 +739,8 @@ static BOOLEAN menu_run(
                 case KEYPRESS(0, SCAN_F1, 0):
                 case KEYPRESS(0, 0, 'h'):
                 case KEYPRESS(0, 0, '?'):
-                        status = StrDuplicate(L"(d)efault, (t/T)timeout, (e)dit, (v)ersion (Q)uit (P)rint (h)elp");
+                        /* This must stay below 80 characters! */
+                        status = StrDuplicate(L"(d)efault (t/T)timeout (e)dit (v)ersion (Q)uit (r)esolution (P)rint (h)elp");
                         break;
 
                 case KEYPRESS(0, 0, 'Q'):
@@ -737,14 +764,13 @@ static BOOLEAN menu_run(
                                 config->idx_default_efivar = -1;
                                 status = StrDuplicate(L"Default boot entry cleared.");
                         }
-                        refresh = TRUE;
                         break;
 
                 case KEYPRESS(0, 0, '-'):
                 case KEYPRESS(0, 0, 'T'):
                         if (config->timeout_sec_efivar > 0) {
                                 config->timeout_sec_efivar--;
-                                efivar_set_uint_string(
+                                efivar_set_int_string(
                                         LOADER_GUID,
                                         L"LoaderConfigTimeout",
                                         config->timeout_sec_efivar,
@@ -770,7 +796,7 @@ static BOOLEAN menu_run(
                         if (config->timeout_sec_efivar == -1 && config->timeout_sec_config == 0)
                                 config->timeout_sec_efivar++;
                         config->timeout_sec_efivar++;
-                        efivar_set_uint_string(
+                        efivar_set_int_string(
                                 LOADER_GUID,
                                 L"LoaderConfigTimeout",
                                 config->timeout_sec_efivar,
@@ -800,12 +826,36 @@ static BOOLEAN menu_run(
 
                 case KEYPRESS(0, 0, 'P'):
                         print_status(config, loaded_image_path);
-                        refresh = redraw_box = TRUE;
+                        clear_screen = TRUE;
                         break;
 
                 case KEYPRESS(EFI_CONTROL_PRESSED, 0, 'l'):
                 case KEYPRESS(EFI_CONTROL_PRESSED, 0, CHAR_CTRL('l')):
-                        refresh = TRUE;
+                        clear_screen = TRUE;
+                        break;
+
+                case KEYPRESS(0, 0, 'r'):
+                case KEYPRESS(0, SCAN_F4, 0):
+                        err = console_set_mode(0, CONSOLE_MODE_NEXT);
+                        if (EFI_ERROR(err))
+                                status = PoolPrint(L"Error changing console mode: %r", err);
+                        else {
+                                config->console_mode_efivar = ST->ConOut->Mode->Mode;
+                                efivar_set_int_string(LOADER_GUID,
+                                                      L"LoaderConfigConsoleMode",
+                                                      config->console_mode_efivar,
+                                                      EFI_VARIABLE_NON_VOLATILE);
+                                status = PoolPrint(L"Console mode changed to %d.", config->console_mode_efivar);
+                        }
+                        new_mode = TRUE;
+                        break;
+
+                case KEYPRESS(0, 0, 'R'):
+                        config->console_mode_efivar = -1;
+                        efivar_set(LOADER_GUID, L"LoaderConfigConsoleMode", NULL, EFI_VARIABLE_NON_VOLATILE);
+                        console_set_mode(config->console_mode, config->console_mode_change);
+                        status = StrDuplicate(L"Console mode defined by configuration file.");
+                        new_mode = TRUE;
                         break;
 
                 default:
@@ -1354,7 +1404,7 @@ static VOID config_entry_add_from_file(
 
 static VOID config_load_defaults(Config *config, EFI_FILE *root_dir) {
         _cleanup_freepool_ CHAR8 *content = NULL;
-        UINTN sec;
+        INTN value;
         EFI_STATUS err;
 
         *config = (Config) {
@@ -1362,27 +1412,28 @@ static VOID config_load_defaults(Config *config, EFI_FILE *root_dir) {
                 .auto_entries = TRUE,
                 .auto_firmware = TRUE,
                 .random_seed_mode = RANDOM_SEED_WITH_SYSTEM_TOKEN,
+                .console_mode_efivar = -1,
+                .timeout_sec_efivar = -1
         };
 
         err = file_read(root_dir, L"\\loader\\loader.conf", 0, 0, &content, NULL);
         if (!EFI_ERROR(err))
                 config_defaults_load_from_file(config, content);
 
-        err = efivar_get_uint_string(LOADER_GUID, L"LoaderConfigTimeout", &sec);
-        if (!EFI_ERROR(err)) {
-                config->timeout_sec_efivar = sec > INTN_MAX ? INTN_MAX : sec;
-                config->timeout_sec = sec;
-        } else
-                config->timeout_sec_efivar = -1;
+        err = efivar_get_int_string(LOADER_GUID, L"LoaderConfigTimeout", &config->timeout_sec_efivar);
+        if (!EFI_ERROR(err))
+                config->timeout_sec = config->timeout_sec_efivar;
 
-        err = efivar_get_uint_string(LOADER_GUID, L"LoaderConfigTimeoutOneShot", &sec);
+        err = efivar_get_int_string(LOADER_GUID, L"LoaderConfigTimeoutOneShot", &value);
         if (!EFI_ERROR(err)) {
                 /* Unset variable now, after all it's "one shot". */
                 (void) efivar_set(LOADER_GUID, L"LoaderConfigTimeoutOneShot", NULL, EFI_VARIABLE_NON_VOLATILE);
 
-                config->timeout_sec = sec;
+                config->timeout_sec = value;
                 config->force_menu = TRUE; /* force the menu when this is set */
         }
+
+        efivar_get_int_string(LOADER_GUID, L"LoaderConfigConsoleMode", &config->console_mode_efivar);
 }
 
 static VOID config_load_entries(

@@ -84,10 +84,10 @@ EFI_STATUS efivar_set(const EFI_GUID *vendor, const CHAR16 *name, const CHAR16 *
         return efivar_set_raw(vendor, name, value, value ? (StrLen(value) + 1) * sizeof(CHAR16) : 0, flags);
 }
 
-EFI_STATUS efivar_set_uint_string(const EFI_GUID *vendor, const CHAR16 *name, UINTN i, UINT32 flags) {
+EFI_STATUS efivar_set_int_string(const EFI_GUID *vendor, const CHAR16 *name, INTN i, UINT32 flags) {
         CHAR16 str[32];
 
-        SPrint(str, 32, L"%u", i);
+        SPrint(str, 32, L"%d", i);
         return efivar_set(vendor, name, str, flags);
 }
 
@@ -152,15 +152,18 @@ EFI_STATUS efivar_get(const EFI_GUID *vendor, const CHAR16 *name, CHAR16 **value
         return EFI_SUCCESS;
 }
 
-EFI_STATUS efivar_get_uint_string(const EFI_GUID *vendor, const CHAR16 *name, UINTN *i) {
+EFI_STATUS efivar_get_int_string(const EFI_GUID *vendor, const CHAR16 *name, INTN *i) {
         _cleanup_freepool_ CHAR16 *val = NULL;
         EFI_STATUS err;
+        UINTN n;
 
         err = efivar_get(vendor, name, &val);
-        if (!EFI_ERROR(err) && i)
-                *i = Atoi(val);
+        if (EFI_ERROR(err))
+                return err;
 
-        return err;
+        n = Atoi(val);
+        *i = n > INTN_MAX ? INTN_MAX : n;
+        return EFI_SUCCESS;
 }
 
 EFI_STATUS efivar_get_uint32_le(const EFI_GUID *vendor, const CHAR16 *name, UINT32 *ret) {
