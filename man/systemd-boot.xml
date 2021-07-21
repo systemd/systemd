@@ -155,6 +155,14 @@
       </varlistentry>
 
       <varlistentry>
+        <term><keycap>r</keycap></term>
+        <term><keycap>F5</keycap></term>
+        <listitem><para>Change screen resolution, skipping any unsupported modes. The new mode
+        will have to be manually changed in <citerefentry><refentrytitle>loader.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+        to persist across boots.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><keycap>P</keycap></term>
         <listitem><para>Print status</para></listitem>
       </varlistentry>
