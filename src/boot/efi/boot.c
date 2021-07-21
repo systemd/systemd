@@ -370,6 +370,7 @@ static VOID print_status(Config *config, CHAR16 *loaded_image_path) {
         Print(L"firmware vendor:        %s\n", ST->FirmwareVendor);
         Print(L"firmware version:       %d.%02d\n", ST->FirmwareRevision >> 16, ST->FirmwareRevision & 0xffff);
 
+        Print(L"Console mode:           %d/%d\n", ST->ConOut->Mode->Mode, ST->ConOut->Mode->MaxMode - 1);
         if (uefi_call_wrapper(ST->ConOut->QueryMode, 4, ST->ConOut, ST->ConOut->Mode->Mode, &x, &y) == EFI_SUCCESS)
                 Print(L"console size:           %d x %d\n", x, y);
 
@@ -492,24 +493,26 @@ static BOOLEAN menu_run(
                 CHAR16 *loaded_image_path) {
 
         EFI_STATUS err;
-        UINTN visible_max;
-        UINTN visible_count;
+        UINTN visible_max = 0;
+        UINTN visible_count = 0;
         UINTN idx_highlight = config->idx_default;
         UINTN idx_highlight_prev = 0;
-        UINTN idx_first;
-        UINTN idx_last;
-        BOOLEAN redraw_box = TRUE;
+        UINTN idx_first = 0;
+        UINTN idx_last = 0;
+        BOOLEAN new_mode = TRUE;
+        BOOLEAN clear_screen = TRUE;
         BOOLEAN refresh = TRUE;
         BOOLEAN highlight = FALSE;
         UINTN line_width = 0;
+        UINTN entry_len_max = 0;
         const UINTN entry_padding = 3;
-        CHAR16 **lines;
-        UINTN x_start;
-        UINTN y_start;
+        CHAR16 **lines = NULL;
+        UINTN x_start = 0;
+        UINTN y_start = 0;
         UINTN x_max;
         UINTN y_max;
         CHAR16 *status = NULL;
-        CHAR16 *clearline;
+        CHAR16 *clearline = NULL;
         INTN timeout_remain;
         INT16 idx;
         BOOLEAN exit = FALSE;
@@ -524,14 +527,9 @@ static BOOLEAN menu_run(
         Print(L" ");
 
         err = console_set_mode(config->console_mode, config->console_mode_change);
-        uefi_call_wrapper(ST->ConOut->ClearScreen, 1, ST->ConOut);
-        if (EFI_ERROR(err))
-                PrintError(L"Error switching console mode to %lu: %r.\n", config->console_mode, err);
-
-        err = uefi_call_wrapper(ST->ConOut->QueryMode, 4, ST->ConOut, ST->ConOut->Mode->Mode, &x_max, &y_max);
         if (EFI_ERROR(err)) {
-                x_max = 80;
-                y_max = 25;
+                uefi_call_wrapper(ST->ConOut->ClearScreen, 1, ST->ConOut);
+                PrintError(L"Error switching console mode to %lu: %r.\n", config->console_mode, err);
         }
 
         /* we check 10 times per second for a keystroke */
@@ -540,63 +538,87 @@ static BOOLEAN menu_run(
         else
                 timeout_remain = -1;
 
-        /* account for box+status */
-        visible_max = y_max - 3;
-
-        if (config->entry_count < visible_max || idx_highlight < visible_max / 2)
-                idx_first = 0;
-        else if (idx_highlight >= config->entry_count - (visible_max / 2))
-                idx_first = config->entry_count - visible_max;
-        else
-                idx_first = idx_highlight - (visible_max / 2);
-        idx_last = idx_first + visible_max-1;
-
-        /* length of the longest entry */
         for (UINTN i = 0; i < config->entry_count; i++) {
                 UINTN entry_len = StrLen(config->entries[i]->title_show);
                 config->entries[i]->title_show_len = entry_len;
-                line_width = MAX(line_width, entry_len);
+                entry_len_max = MAX(entry_len_max, entry_len);
         }
-        line_width = MIN(line_width + 2 * entry_padding, x_max - 2);
-
-        /* offsets to center the entries on the screen */
-        x_start = (x_max - (line_width)) / 2;
-        if (config->entry_count < visible_max)
-                y_start = ((visible_max - config->entry_count) / 2) + 2;
-        else
-                y_start = 1;
-        visible_count = MIN(visible_max, config->entry_count);
-
-        /* menu entries title lines */
-        lines = AllocatePool(sizeof(CHAR16 *) * config->entry_count);
-        for (UINTN i = 0; i < config->entry_count; i++) {
-                UINTN j;
-
-                lines[i] = AllocatePool(((line_width + 1) * sizeof(CHAR16)));
-                UINTN padding = (line_width - MIN(config->entries[i]->title_show_len, line_width)) / 2;
-
-                for (j = 0; j < padding; j++)
-                        lines[i][j] = ' ';
-
-                for (UINTN k = 0; config->entries[i]->title_show[k] != '\0' && j < line_width; j++, k++)
-                        lines[i][j] = config->entries[i]->title_show[k];
-
-                for (; j < line_width; j++)
-                        lines[i][j] = ' ';
-                lines[i][line_width] = '\0';
-        }
-
-        clearline = AllocatePool((x_max+1) * sizeof(CHAR16));
-        for (UINTN i = 0; i < x_max; i++)
-                clearline[i] = ' ';
-        clearline[x_max] = 0;
 
         while (!exit) {
                 UINT64 key;
 
-                if (redraw_box) {
-                        redraw_box = FALSE;
+                if (new_mode) {
+                        err = uefi_call_wrapper(ST->ConOut->QueryMode, 4, ST->ConOut, ST->ConOut->Mode->Mode, &x_max, &y_max);
+                        if (EFI_ERROR(err)) {
+                                x_max = 80;
+                                y_max = 25;
+                        }
+
+                        /* account for box+status */
+                        visible_max = y_max - 3;
+
+                        if (config->entry_count < visible_max || idx_highlight < visible_max / 2)
+                                idx_first = 0;
+                        else if (idx_highlight >= config->entry_count - (visible_max / 2))
+                                idx_first = config->entry_count - visible_max;
+                        else
+                                idx_first = idx_highlight - (visible_max / 2);
+                        idx_last = idx_first + visible_max-1;
+
+                        /* length of the longest entry */
+                        line_width = MIN(entry_len_max + 2 * entry_padding, x_max - 2);
+
+                        /* offsets to center the entries on the screen */
+                        x_start = (x_max - (line_width)) / 2;
+                        if (config->entry_count < visible_max)
+                                y_start = ((visible_max - config->entry_count) / 2) + 2;
+                        else
+                                y_start = 1;
+                        visible_count = MIN(visible_max, config->entry_count);
+
+                        if (lines) {
+                                for (UINTN i = 0; i < config->entry_count; i++)
+                                        FreePool(lines[i]);
+                                FreePool(lines);
+                                FreePool(clearline);
+                        }
+
+                        /* menu entries title lines */
+                        lines = AllocatePool(sizeof(CHAR16 *) * config->entry_count);
+                        for (UINTN i = 0; i < config->entry_count; i++) {
+                                UINTN j;
+
+                                lines[i] = AllocatePool(((line_width + 1) * sizeof(CHAR16)));
+                                UINTN padding = (line_width - MIN(config->entries[i]->title_show_len, line_width)) / 2;
+
+                                for (j = 0; j < padding; j++)
+                                        lines[i][j] = ' ';
+
+                                for (UINTN k = 0; config->entries[i]->title_show[k] != '\0' && j < line_width; j++, k++)
+                                        lines[i][j] = config->entries[i]->title_show[k];
+
+                                for (; j < line_width; j++)
+                                        lines[i][j] = ' ';
+                                lines[i][line_width] = '\0';
+                        }
+
+                        clearline = AllocatePool((x_max+1) * sizeof(CHAR16));
+                        for (UINTN i = 0; i < x_max; i++)
+                                clearline[i] = ' ';
+                        clearline[x_max] = 0;
+
+                        new_mode = FALSE;
+                        clear_screen = TRUE;
+                }
+
+                if (clear_screen) {
+                        /* draw a single character to make ClearScreen work on some firmware */
+                        Print(L" ");
+                        uefi_call_wrapper(ST->ConOut->SetAttribute, 2, ST->ConOut, color);
+                        uefi_call_wrapper(ST->ConOut->ClearScreen, 1, ST->ConOut);
                         draw_box(x_start - 1, y_start - 1, line_width + 1, visible_count + 1, color);
+                        clear_screen = FALSE;
+                        refresh = TRUE;
                 }
 
                 if (refresh) {
@@ -719,7 +741,8 @@ static BOOLEAN menu_run(
                 case KEYPRESS(0, SCAN_F1, 0):
                 case KEYPRESS(0, 0, 'h'):
                 case KEYPRESS(0, 0, '?'):
-                        status = StrDuplicate(L"(d)efault, (t/T)timeout, (e)dit, (v)ersion (Q)uit (P)rint (h)elp");
+                        /* This must stay below 80 characters! */
+                        status = StrDuplicate(L"(d)efault (t/T)timeout (e)dit (v)ersion (Q)uit (r)esolution (P)rint (h)elp");
                         break;
 
                 case KEYPRESS(0, 0, 'Q'):
@@ -743,7 +766,6 @@ static BOOLEAN menu_run(
                                 config->idx_default_efivar = -1;
                                 status = StrDuplicate(L"Default boot entry cleared.");
                         }
-                        refresh = TRUE;
                         break;
 
                 case KEYPRESS(0, 0, '-'):
@@ -806,12 +828,22 @@ static BOOLEAN menu_run(
 
                 case KEYPRESS(0, 0, 'P'):
                         print_status(config, loaded_image_path);
-                        refresh = redraw_box = TRUE;
+                        clear_screen = TRUE;
                         break;
 
                 case KEYPRESS(EFI_CONTROL_PRESSED, 0, 'l'):
                 case KEYPRESS(EFI_CONTROL_PRESSED, 0, CHAR_CTRL('l')):
-                        refresh = TRUE;
+                        clear_screen = TRUE;
+                        break;
+
+                case KEYPRESS(0, 0, 'r'):
+                case KEYPRESS(0, SCAN_F4, 0):
+                        err = console_set_mode(0, CONSOLE_MODE_NEXT);
+                        if (EFI_ERROR(err))
+                                status = PoolPrint(L"Error changing console mode: %r", err);
+                        else
+                                status = PoolPrint(L"Console mode changed to %lu.", ST->ConOut->Mode->Mode);
+                        new_mode = TRUE;
                         break;
 
                 default:

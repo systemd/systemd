@@ -150,12 +150,25 @@ static UINTN get_auto_mode(void) {
 }
 
 EFI_STATUS console_set_mode(UINTN mode, enum console_mode_change_type how) {
+        EFI_STATUS err;
+
         switch (how) {
         case CONSOLE_MODE_KEEP:
                 return EFI_SUCCESS;
 
         case CONSOLE_MODE_AUTO:
                 return change_mode(get_auto_mode());
+
+        case CONSOLE_MODE_NEXT:
+                if (ST->ConOut->Mode->MaxMode <= 0)
+                        return EFI_UNSUPPORTED;
+
+                mode = ST->ConOut->Mode->Mode;
+                do {
+                        mode = (mode + 1) % ST->ConOut->Mode->MaxMode;
+                        err = change_mode(mode);
+                } while (EFI_ERROR(err) && mode > 0);
+                return err;
 
         case CONSOLE_MODE_MAX:
                 if (ST->ConOut->Mode->MaxMode > 0)

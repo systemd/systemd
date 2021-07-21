@@ -13,6 +13,7 @@ enum console_mode_change_type {
         CONSOLE_MODE_KEEP = 0,
         CONSOLE_MODE_SET,
         CONSOLE_MODE_AUTO,
+        CONSOLE_MODE_NEXT,
         CONSOLE_MODE_MAX,
 };
 
