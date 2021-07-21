@@ -192,6 +192,7 @@ static int verify_documentation(Unit *u, bool check_man) {
 static int verify_unit(Unit *u, bool check_man) {
         _cleanup_(sd_bus_error_free) sd_bus_error err = SD_BUS_ERROR_NULL;
         int r, k;
+        uint64_t previous_log_syntax_value = log_syntax_issue_reported;
 
         assert(u);
 
@@ -214,6 +215,11 @@ static int verify_unit(Unit *u, bool check_man) {
         k = verify_documentation(u, check_man);
         if (k < 0 && r == 0)
                 r = k;
+
+        if (log_syntax_issue_reported > previous_log_syntax_value && r == 0) {
+                r = -EINVAL;
+                previous_log_syntax_value = log_syntax_issue_reported;
+        }
 
         return r;
 }
