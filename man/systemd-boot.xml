@@ -155,6 +155,12 @@
       </varlistentry>
 
       <varlistentry>
+        <term><keycap>r</keycap></term>
+        <term><keycap>F4</keycap></term>
+        <listitem><para>Change screen resolution, skipping any unsupported modes.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><keycap>P</keycap></term>
         <listitem><para>Print status</para></listitem>
       </varlistentry>
