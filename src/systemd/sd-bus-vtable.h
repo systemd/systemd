@@ -76,6 +76,9 @@ struct sd_bus_vtable {
                         const unsigned *vtable_format_reference;
                 } start;
                 struct {
+                        size_t reserved;
+                } end;
+                struct {
                         const char *member;
                         const char *signature;
                         const char *result;
@@ -185,7 +188,11 @@ struct sd_bus_vtable {
         {                                                               \
                 .type = _SD_BUS_VTABLE_END,                             \
                 .flags = 0,                                             \
-                .x = { { 0 } },                                         \
+                .x = {                                                  \
+                    .end = {                                            \
+                        .reserved = 0,                                  \
+                    },                                                  \
+                },                                                      \
         }
 
 #define _SD_ECHO(X) X
