@@ -73,13 +73,17 @@
     <para>To activate the NSS modules, add <literal>myhostname</literal> to the line starting with
     <literal>hosts:</literal> in <filename>/etc/nsswitch.conf</filename>.</para>
 
-    <para>It is recommended to place <literal>myhostname</literal> either between <literal>resolve</literal>
-    and "traditional" modules like <literal>dns</literal>, or after them. In the first version, well-known
-    names like <literal>localhost</literal> and the machine hostname are given higher priority than the
-    external configuration. This is recommended when the external DNS servers and network are not absolutely
-    trusted. In the second version, external configuration is given higher priority and
-    <command>nss-myhostname</command> only provides a fallback mechanism. This might be suitable in closely
-    controlled networks, for example on a company LAN.</para>
+    <para>It is recommended to place <literal>myhostname</literal> after <literal>file</literal> and before <literal>dns</literal>.
+    This resolves well-known hostnames like <literal>localhost</literal>
+    and the machine hostnames locally. It is consistent with the behaviour
+    of <command>nss-resolve</command>, and still allows overriding via
+    <filename>/etc/hosts</filename>.</para>
+
+    <para>Please keep in mind that <command>nss-myhostname</command> (and <command>nss-resolve</command>) also resolve
+    in the other direction — from locally attached IP adresses to
+    hostnames. If you rely on that lookup being provided by DNS, you might
+    want to order things differently.
+    </para>
   </refsect1>
 
   <refsect1>
@@ -95,10 +99,7 @@ shadow:         compat systemd
 gshadow:        files systemd
 
 
-# Either (untrusted network, see above):
 hosts:          mymachines resolve [!UNAVAIL=return] files <command>myhostname</command> dns
-# Or (only trusted networks):
-hosts:          mymachines resolve [!UNAVAIL=return] files dns <command>myhostname</command>
 networks:       files
 
 protocols:      db files
