@@ -24,9 +24,6 @@
 /* magic string to find in the binary image */
 static const char __attribute__((used)) magic[] = "#### LoaderInfo: systemd-boot " GIT_VERSION " ####";
 
-const UINTN color = EFI_LIGHTGRAY|EFI_BACKGROUND_BLACK;
-const UINTN color_highlight = EFI_BLACK|EFI_BACKGROUND_LIGHTGRAY;
-
 enum loader_type {
         LOADER_UNDEFINED,
         LOADER_EFI,
@@ -73,6 +70,11 @@ typedef struct {
         UINTN console_mode;
         enum console_mode_change_type console_mode_change;
         RandomSeedMode random_seed_mode;
+        UINTN color;
+        UINTN entry_color;
+        UINTN highlight_color;
+        UINTN box_color;
+        UINTN edit_color;
 } Config;
 
 static VOID cursor_left(UINTN *cursor, UINTN *first) {
@@ -95,6 +97,7 @@ static VOID cursor_right(
 }
 
 static BOOLEAN line_edit(
+                Config *config,
                 const CHAR16 *line_in,
                 CHAR16 **line_out,
                 UINTN x_max,
@@ -134,8 +137,9 @@ static BOOLEAN line_edit(
                 }
                 print[j] = '\0';
 
-                print_at(0, y_pos, color, print);
-                uefi_call_wrapper(ST->ConOut->SetCursorPosition, 3, ST->ConOut, cursor, y_pos);
+                print_at(1, y_pos, config->edit_color, print);
+                /* See comment at edit_line() call site. */
+                uefi_call_wrapper(ST->ConOut->SetCursorPosition, 3, ST->ConOut, cursor + 1, y_pos);
 
                 err = console_key_read(&key, TRUE);
                 if (EFI_ERROR(err))
@@ -360,7 +364,7 @@ static VOID print_status(Config *config, CHAR16 *loaded_image_path) {
         _cleanup_freepool_ CHAR16 *partstr = NULL, *defaultstr = NULL;
         UINTN x, y;
 
-        uefi_call_wrapper(ST->ConOut->SetAttribute, 2, ST->ConOut, color);
+        uefi_call_wrapper(ST->ConOut->SetAttribute, 2, ST->ConOut, config->color);
         uefi_call_wrapper(ST->ConOut->ClearScreen, 1, ST->ConOut);
 
         Print(L"systemd-boot version:   " GIT_VERSION "\n");
@@ -429,6 +433,26 @@ static VOID print_status(Config *config, CHAR16 *loaded_image_path) {
                 Print(L"LoaderDevicePartUUID:   %s\n", partstr);
         if (efivar_get(LOADER_GUID, L"LoaderEntryDefault", &defaultstr) == EFI_SUCCESS)
                 Print(L"LoaderEntryDefault:     %s\n", defaultstr);
+
+        Print(L"\n--- press key ---\n\n");
+        console_key_read(&key, TRUE);
+
+        Print(L"              foreground   background\n");
+        for (UINTN i = 0; ; i++) {
+                const CHAR8 *color = get_color_name(i);
+                if (!color)
+                        break;
+
+                Print(L"%*a: ", 12, color);
+                uefi_call_wrapper(ST->ConOut->SetAttribute, 2, ST->ConOut, EFI_TEXT_ATTR(i, EFI_BACKGROUND_BLACK));
+                Print(L"██████████");
+                uefi_call_wrapper(ST->ConOut->SetAttribute, 2, ST->ConOut, config->color);
+                Print(L"   ");
+                uefi_call_wrapper(ST->ConOut->SetAttribute, 2, ST->ConOut, EFI_TEXT_ATTR(EFI_BLACK, i));
+                Print(L"          ");
+                uefi_call_wrapper(ST->ConOut->SetAttribute, 2, ST->ConOut, config->color);
+                Print(L"\n");
+        }
 
         Print(L"\n--- press key ---\n\n");
         console_key_read(&key, TRUE);
@@ -613,9 +637,9 @@ static VOID menu_run(
                 if (clear_screen) {
                         /* draw a single character to make ClearScreen work on some firmware */
                         Print(L" ");
-                        uefi_call_wrapper(ST->ConOut->SetAttribute, 2, ST->ConOut, color);
+                        uefi_call_wrapper(ST->ConOut->SetAttribute, 2, ST->ConOut, config->color);
                         uefi_call_wrapper(ST->ConOut->ClearScreen, 1, ST->ConOut);
-                        draw_box(x_start - 1, y_start - 1, line_width + 1, visible_count + 1, color);
+                        draw_box(x_start - 1, y_start - 1, line_width + 1, visible_count + 1, config->box_color);
                         clear_screen = FALSE;
                         refresh = TRUE;
                 }
@@ -625,13 +649,13 @@ static VOID menu_run(
                                 if (i < idx_first || i > idx_last)
                                         continue;
                                 print_at(x_start, y_start + i - idx_first,
-                                         (i == idx_highlight) ? color_highlight : color,
+                                         (i == idx_highlight) ? config->highlight_color : config->entry_color,
                                          lines[i]);
                         }
                         refresh = FALSE;
                 } else if (highlight) {
-                        print_at(x_start, y_start + idx_highlight_prev - idx_first, color, lines[idx_highlight_prev]);
-                        print_at(x_start, y_start + idx_highlight - idx_first, color_highlight, lines[idx_highlight]);
+                        print_at(x_start, y_start + idx_highlight_prev - idx_first, config->entry_color, lines[idx_highlight_prev]);
+                        print_at(x_start, y_start + idx_highlight - idx_first, config->highlight_color, lines[idx_highlight]);
                         highlight = FALSE;
                 }
 
@@ -651,7 +675,7 @@ static VOID menu_run(
                                 x = (x_max - len) / 2;
                         else
                                 x = 0;
-                        print_at(0, y_start + visible_count + 1, color, clearline + (x_max - x));
+                        print_at(0, y_start + visible_count + 1, config->color, clearline + (x_max - x));
                         uefi_call_wrapper(ST->ConOut->OutputString, 2, ST->ConOut, status);
                         uefi_call_wrapper(ST->ConOut->OutputString, 2, ST->ConOut, clearline+1 + x + len);
                 }
@@ -682,7 +706,7 @@ static VOID menu_run(
                 if (status) {
                         FreePool(status);
                         status = NULL;
-                        print_at(0, y_start + visible_count + 1, color, clearline + 1);
+                        print_at(0, y_start + visible_count + 1, config->color, clearline + 1);
                 }
 
                 idx_highlight_prev = idx_highlight;
@@ -811,10 +835,15 @@ static VOID menu_run(
                         /* only the options of configured entries can be edited */
                         if (!config->editor || config->entries[idx_highlight]->type == LOADER_UNDEFINED)
                                 break;
-                        print_at(0, y_start + visible_count + 1, color, clearline + 1);
-                        if (line_edit(config->entries[idx_highlight]->options, &config->options_edit, x_max-1, y_start + visible_count + 1))
+                        /* The edit line may end up on the last line of the screen. And even though we're
+                         * not telling the firmware to advance the line, it still does in this one case,
+                         * causing a scroll to happen that screws with our beautiful boot loader output.
+                         * Since we cannot paint the last character of the edit line, we simply start
+                         * at x-offset 1 for symmetry. */
+                        print_at(1, y_start + visible_count + 1, config->edit_color, clearline + 2);
+                        if (line_edit(config, config->entries[idx_highlight]->options, &config->options_edit, x_max-2, y_start + visible_count + 1))
                                 exit = TRUE;
-                        print_at(0, y_start + visible_count + 1, color, clearline + 1);
+                        print_at(1, y_start + visible_count + 1, config->color, clearline + 2);
                         break;
 
                 case KEYPRESS(0, 0, 'v'):
@@ -870,7 +899,7 @@ static VOID menu_run(
         FreePool(lines);
         FreePool(clearline);
 
-        uefi_call_wrapper(ST->ConOut->SetAttribute, 2, ST->ConOut, color);
+        uefi_call_wrapper(ST->ConOut->SetAttribute, 2, ST->ConOut, config->color);
         uefi_call_wrapper(ST->ConOut->ClearScreen, 1, ST->ConOut);
 }
 
@@ -1057,6 +1086,56 @@ static VOID config_defaults_load_from_file(Config *config, CHAR8 *content) {
 
                                 config->random_seed_mode = on ? RANDOM_SEED_ALWAYS : RANDOM_SEED_OFF;
                         }
+                }
+
+                if (strcmpa((CHAR8 *)"color", key) == 0) {
+                        UINTN color;
+
+                        if (EFI_ERROR(parse_color(value, &color)))
+                                continue;
+
+                        config->color = color;
+                        continue;
+                }
+
+                if (strcmpa((CHAR8 *)"entry-color", key) == 0) {
+                        UINTN color;
+
+                        if (EFI_ERROR(parse_color(value, &color)))
+                                continue;
+
+                        config->entry_color = color;
+                        continue;
+                }
+
+                if (strcmpa((CHAR8 *)"highlight-color", key) == 0) {
+                        UINTN color;
+
+                        if (EFI_ERROR(parse_color(value, &color)))
+                                continue;
+
+                        config->highlight_color = color;
+                        continue;
+                }
+
+                if (strcmpa((CHAR8 *)"box-color", key) == 0) {
+                        UINTN color;
+
+                        if (EFI_ERROR(parse_color(value, &color)))
+                                continue;
+
+                        config->box_color = color;
+                        continue;
+                }
+
+                if (strcmpa((CHAR8 *)"edit-color", key) == 0) {
+                        UINTN color;
+
+                        if (EFI_ERROR(parse_color(value, &color)))
+                                continue;
+
+                        config->edit_color = color;
+                        continue;
                 }
         }
 }
@@ -1393,6 +1472,11 @@ static VOID config_load_defaults(Config *config, EFI_FILE *root_dir) {
                 .auto_entries = TRUE,
                 .auto_firmware = TRUE,
                 .random_seed_mode = RANDOM_SEED_WITH_SYSTEM_TOKEN,
+                .color = EFI_LIGHTGRAY|EFI_BACKGROUND_BLACK,
+                .entry_color = UINTN_MAX,
+                .highlight_color = UINTN_MAX,
+                .box_color = UINTN_MAX,
+                .edit_color = UINTN_MAX,
         };
 
         err = file_read(root_dir, L"\\loader\\loader.conf", 0, 0, &content, NULL);
@@ -1414,6 +1498,15 @@ static VOID config_load_defaults(Config *config, EFI_FILE *root_dir) {
                 config->timeout_sec = sec;
                 config->force_menu = TRUE; /* force the menu when this is set */
         }
+
+        if (config->entry_color == UINTN_MAX)
+                config->entry_color = config->color;
+        if (config->box_color == UINTN_MAX)
+                config->box_color = config->color;
+        if (config->highlight_color == UINTN_MAX)
+                config->highlight_color = TEXT_ATTR_SWAP(config->entry_color);
+        if (config->edit_color == UINTN_MAX)
+                config->edit_color = config->color;
 }
 
 static VOID config_load_entries(

@@ -24,6 +24,36 @@ UINT64 ticks_read(VOID) {
 }
 #endif
 
+static const struct {
+        const UINTN color;
+        const CHAR8 *name;
+} colors[] = {
+        { EFI_BLACK, (const CHAR8 *)"black" },
+        { EFI_BLUE, (const CHAR8 *)"blue" },
+        { EFI_GREEN, (const CHAR8 *)"green" },
+        { EFI_CYAN, (const CHAR8 *)"cyan" },
+        { EFI_RED, (const CHAR8 *)"red" },
+        { EFI_MAGENTA, (const CHAR8 *)"magenta" },
+        { EFI_BROWN, (const CHAR8 *)"brown" },
+        { EFI_LIGHTGRAY, (const CHAR8 *)"lightgray" },
+        { EFI_BRIGHT, (const CHAR8 *)"bright" },
+        { EFI_DARKGRAY, (const CHAR8 *)"darkgray" },
+        { EFI_LIGHTBLUE, (const CHAR8 *)"lightblue" },
+        { EFI_LIGHTGREEN, (const CHAR8 *)"lightgreen" },
+        { EFI_LIGHTCYAN, (const CHAR8 *)"lightcyan" },
+        { EFI_LIGHTRED, (const CHAR8 *)"lightred" },
+        { EFI_LIGHTMAGENTA, (const CHAR8 *)"lightmagenta" },
+        { EFI_YELLOW, (const CHAR8 *)"yellow" },
+        { EFI_WHITE, (const CHAR8 *)"white" }
+};
+
+const CHAR8 *get_color_name(UINTN color) {
+        for (UINTN i = 0; i < ELEMENTSOF(colors); i++)
+                if (colors[i].color == color)
+                        return colors[i].name;
+        return NULL;
+}
+
 /* count TSC ticks during a millisecond delay */
 UINT64 ticks_freq(VOID) {
         UINT64 ticks_start, ticks_end;
@@ -73,6 +103,34 @@ EFI_STATUS parse_boolean(const CHAR8 *v, BOOLEAN *b) {
         }
 
         return EFI_INVALID_PARAMETER;
+}
+
+EFI_STATUS parse_color(CHAR8 *str, UINTN *ret_color) {
+        CHAR8 *str_back = str;
+        UINTN foreground = UINTN_MAX;
+        UINTN background = UINTN_MAX;
+
+        while (*str_back && *str_back != '/')
+                str_back++;
+        if (!*str_back)
+                return EFI_INVALID_PARAMETER;
+        *str_back = '\0';
+        str_back++;
+
+        for (UINTN i = 0; i < ELEMENTSOF(colors); i++) {
+                if (strcmpa(str, colors[i].name) == 0)
+                        foreground = colors[i].color;
+
+                if (strcmpa(str_back, colors[i].name) == 0)
+                        background = colors[i].color;
+        }
+
+        *(str_back - 1) = '/';
+        if (foreground == UINTN_MAX || background == UINTN_MAX)
+                return EFI_INVALID_PARAMETER;
+
+        *ret_color = EFI_TEXT_ATTR(foreground, background);
+        return EFI_SUCCESS;
 }
 
 EFI_STATUS efivar_set_raw(const EFI_GUID *vendor, const CHAR16 *name, const VOID *buf, UINTN size, UINT32 flags) {

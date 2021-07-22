@@ -209,6 +209,47 @@
         <para>See <ulink url="https://systemd.io/RANDOM_SEEDS">Random Seeds</ulink> for further
         information.</para></listitem>
       </varlistentry>
+
+      <varlistentry>
+        <term>color</term>
+
+        <listitem><para>Foreground and background color separated by a <literal>/</literal>, defaults to
+        <literal>lightgray/black</literal>.</para>
+
+        <para>Valid colors names are: <literal>black</literal>, <literal>blue</literal>, <literal>green</literal>,
+        <literal>cyan</literal>, <literal>red</literal>, <literal>magenta</literal>, <literal>brown</literal>,
+        <literal>lightgray</literal>, <literal>bright</literal>, <literal>darkgray</literal>, <literal>lightblue</literal>,
+        <literal>lightgreen</literal>, <literal>lightcyan</literal>, <literal>lightred</literal>, <literal>lightmagenta</literal>,
+        <literal>yellow</literal>, <literal>white</literal>. Note that some firmware may not support all colors
+        as background. To see all colors in action, use print status (p) at runtime.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term>entry-color</term>
+
+        <listitem><para>Boot entry color, defaults to the same value of <option>color</option>.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term>highlight-color</term>
+
+        <listitem><para>Selected boot entry color, defaults to inverse of <option>entry-color</option>.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term>box-color</term>
+
+        <listitem><para>Color of surrounding box, defaults to the same value of <option>color</option>.</para>
+
+        <para>Note that setting foreground and background color to the same background of <option>color</option>
+        effectively disables the box.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term>edit-color</term>
+
+        <listitem><para>Option edit line color, defaults to the same value of <option>color</option>.</para></listitem>
+      </varlistentry>
     </variablelist>
   </refsect1>
 
