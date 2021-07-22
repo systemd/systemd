@@ -1208,6 +1208,7 @@ int image_read_metadata(Image *i) {
                                 DISSECT_IMAGE_GENERIC_ROOT |
                                 DISSECT_IMAGE_REQUIRE_ROOT |
                                 DISSECT_IMAGE_RELAX_VAR_CHECK |
+                                DISSECT_IMAGE_READ_ONLY |
                                 DISSECT_IMAGE_USR_NO_ROOT,
                                 &m);
                 if (r < 0)
