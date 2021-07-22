@@ -32,8 +32,9 @@ case "$command" in
         [ -d /run/systemd/system ] || exit 0
 
         for unit in "$@"; do
-            systemctl set-property "$unit" Markers=+needs-restart || :
+            systemctl set-property "$unit" Markers=+needs-restart &
         done
+        wait
         ;;
 
     system-reload-restart|system-reload|system-restart)
