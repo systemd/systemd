@@ -1720,9 +1720,50 @@ static void update_numa_policy(bool skip_setup) {
                 log_warning_errno(r, "Failed to set NUMA memory policy: %m");
 }
 
+static void filter_args(const char* dst[], unsigned *pos, char **src, int argc) {
+        assert(dst);
+        assert(pos);
+
+        /* Copy some filtered arguments into the dst array from src. */
+        for (int i = 1; i < argc; i++) {
+                if (STR_IN_SET(src[i],
+                               "--switched-root",
+                               "--system",
+                               "--user"))
+                        continue;
+
+                if (startswith(src[i], "--deserialize="))
+                        continue;
+                if (streq(src[i], "--deserialize")) {
+                        i++;                            /* Skip the argument too */
+                        continue;
+                }
+
+                /* Skip target unit designators. We already acted upon this information and have queued
+                 * appropriate jobs. We don't want to redo all this after reexecution. */
+                if (startswith(src[i], "--unit="))
+                        continue;
+                if (streq(src[i], "--unit")) {
+                        i++;                            /* Skip the argument too */
+                        continue;
+                }
+
+                if (startswith(src[i],
+                               in_initrd() ? "rd.systemd.unit=" : "systemd.unit="))
+                        continue;
+
+                if (runlevel_to_target(src[i]))
+                        continue;
+
+                /* Seems we have a good old option. Let's pass it over to the new instance. */
+                dst[*pos] = src[i];
+                (*pos)++;
+        }
+}
+
 static void do_reexecute(
                 int argc,
-                char *argv[],
+                char* argv[],
                 const struct rlimit *saved_rlimit_nofile,
                 const struct rlimit *saved_rlimit_memlock,
                 FDSet *fds,
@@ -1730,7 +1771,7 @@ static void do_reexecute(
                 const char *switch_root_init,
                 const char **ret_error_message) {
 
-        unsigned i, j, args_size;
+        unsigned i, args_size;
         const char **args;
         int r;
 
@@ -1760,11 +1801,11 @@ static void do_reexecute(
                         log_error_errno(r, "Failed to switch root, trying to continue: %m");
         }
 
-        args_size = MAX(6, argc+1);
+        args_size = argc + 6;
         args = newa(const char*, args_size);
 
         if (!switch_root_init) {
-                char sfd[DECIMAL_STR_MAX(int) + 1];
+                char sfd[DECIMAL_STR_MAX(int)];
 
                 /* First try to spawn ourselves with the right path, and with full serialization. We do this only if
                  * the user didn't specify an explicit init to spawn. */
@@ -1774,8 +1815,9 @@ static void do_reexecute(
 
                 xsprintf(sfd, "%i", fileno(arg_serialization));
 
-                i = 0;
-                args[i++] = SYSTEMD_BINARY_PATH;
+                i = 1;         /* Leave args[0] empty for now. */
+                filter_args(args, &i, argv, argc);
+
                 if (switch_root_dir)
                         args[i++] = "--switched-root";
                 args[i++] = arg_system ? "--system" : "--user";
@@ -1793,8 +1835,9 @@ static void do_reexecute(
                  */
                 valgrind_summary_hack();
 
+                args[0] = SYSTEMD_BINARY_PATH;
                 (void) execv(args[0], (char* const*) args);
-                log_debug_errno(errno, "Failed to execute our own binary, trying fallback: %m");
+                log_debug_errno(errno, "Failed to execute our own binary %s, trying fallback: %m", args[0]);
         }
 
         /* Try the fallback, if there is any, without any serialization. We pass the original argv[] and envp[]. (Well,
@@ -1807,9 +1850,9 @@ static void do_reexecute(
         /* Reopen the console */
         (void) make_console_stdio();
 
-        for (j = 1, i = 1; j < (unsigned) argc; j++)
+        i = 1;         /* Leave args[0] empty for now. */
+        for (int j = 1; j <= argc; j++)
                 args[i++] = argv[j];
-        args[i++] = NULL;
         assert(i <= args_size);
 
         /* Re-enable any blocked signals, especially important if we switch from initial ramdisk to init=... */
@@ -1820,7 +1863,7 @@ static void do_reexecute(
         if (switch_root_init) {
                 args[0] = switch_root_init;
                 (void) execve(args[0], (char* const*) args, saved_env);
-                log_warning_errno(errno, "Failed to execute configured init, trying fallback: %m");
+                log_warning_errno(errno, "Failed to execute configured init %s, trying fallback: %m", args[0]);
         }
 
         args[0] = "/sbin/init";
