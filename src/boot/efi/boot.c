@@ -487,7 +487,7 @@ static VOID print_status(Config *config, CHAR16 *loaded_image_path) {
         uefi_call_wrapper(ST->ConOut->ClearScreen, 1, ST->ConOut);
 }
 
-static BOOLEAN menu_run(
+static VOID menu_run(
                 Config *config,
                 ConfigEntry **chosen_entry,
                 CHAR16 *loaded_image_path) {
@@ -516,7 +516,6 @@ static BOOLEAN menu_run(
         INTN timeout_remain;
         INT16 idx;
         BOOLEAN exit = FALSE;
-        BOOLEAN run = TRUE;
         BOOLEAN wait = FALSE;
 
         graphics_mode(FALSE);
@@ -740,17 +739,14 @@ static BOOLEAN menu_run(
 
                 case KEYPRESS(0, SCAN_F1, 0):
                 case KEYPRESS(0, 0, 'h'):
+                case KEYPRESS(0, 0, 'H'):
                 case KEYPRESS(0, 0, '?'):
                         /* This must stay below 80 characters! */
-                        status = StrDuplicate(L"(d)efault (t/T)timeout (e)dit (v)ersion (Q)uit (r)esolution (P)rint (h)elp");
-                        break;
-
-                case KEYPRESS(0, 0, 'Q'):
-                        exit = TRUE;
-                        run = FALSE;
+                        status = StrDuplicate(L"(d)efault (t/T)timeout (e)dit (r)esolution (p)rint (h)elp");
                         break;
 
                 case KEYPRESS(0, 0, 'd'):
+                case KEYPRESS(0, 0, 'D'):
                         if (config->idx_default_efivar != (INTN)idx_highlight) {
                                 /* store the selected entry in a persistent EFI variable */
                                 efivar_set(
@@ -811,6 +807,7 @@ static BOOLEAN menu_run(
                         break;
 
                 case KEYPRESS(0, 0, 'e'):
+                case KEYPRESS(0, 0, 'E'):
                         /* only the options of configured entries can be edited */
                         if (!config->editor || config->entries[idx_highlight]->type == LOADER_UNDEFINED)
                                 break;
@@ -821,11 +818,7 @@ static BOOLEAN menu_run(
                         break;
 
                 case KEYPRESS(0, 0, 'v'):
-                        status = PoolPrint(L"systemd-boot " GIT_VERSION " (" EFI_MACHINE_TYPE_NAME "), UEFI Specification %d.%02d, Vendor %s %d.%02d",
-                                           ST->Hdr.Revision >> 16, ST->Hdr.Revision & 0xffff,
-                                           ST->FirmwareVendor, ST->FirmwareRevision >> 16, ST->FirmwareRevision & 0xffff);
-                        break;
-
+                case KEYPRESS(0, 0, 'p'):
                 case KEYPRESS(0, 0, 'P'):
                         print_status(config, loaded_image_path);
                         clear_screen = TRUE;
@@ -837,6 +830,7 @@ static BOOLEAN menu_run(
                         break;
 
                 case KEYPRESS(0, 0, 'r'):
+                case KEYPRESS(0, 0, 'R'):
                 case KEYPRESS(0, SCAN_F4, 0):
                         err = console_set_mode(0, CONSOLE_MODE_NEXT);
                         if (EFI_ERROR(err))
@@ -878,7 +872,6 @@ static BOOLEAN menu_run(
 
         uefi_call_wrapper(ST->ConOut->SetAttribute, 2, ST->ConOut, color);
         uefi_call_wrapper(ST->ConOut->ClearScreen, 1, ST->ConOut);
-        return run;
 }
 
 static VOID config_add_entry(Config *config, ConfigEntry *entry) {
@@ -2450,8 +2443,7 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
                 if (menu) {
                         efivar_set_time_usec(LOADER_GUID, L"LoaderTimeMenuUSec", 0);
                         uefi_call_wrapper(BS->SetWatchdogTimer, 4, 0, 0x10000, 0, NULL);
-                        if (!menu_run(&config, &entry, loaded_image_path))
-                                break;
+                        menu_run(&config, &entry, loaded_image_path);
                 }
 
                 /* run special entry like "reboot" */
