@@ -25,7 +25,10 @@
 static const char __attribute__((used)) magic[] = "#### LoaderInfo: systemd-boot " GIT_VERSION " ####";
 
 #define COLOR EFI_LIGHTGRAY|EFI_BACKGROUND_BLACK
+#define COLOR_ENTRY EFI_LIGHTGRAY|EFI_BACKGROUND_BLACK
 #define COLOR_HIGHLIGHT EFI_BLACK|EFI_BACKGROUND_LIGHTGRAY
+#define COLOR_BOX EFI_LIGHTGRAY|EFI_BACKGROUND_BLACK
+#define COLOR_EDIT EFI_LIGHTGRAY|EFI_BACKGROUND_BLACK
 
 enum loader_type {
         LOADER_UNDEFINED,
@@ -133,8 +136,9 @@ static BOOLEAN line_edit(
                 }
                 print[j] = '\0';
 
-                print_at(0, y_pos, COLOR, print);
-                uefi_call_wrapper(ST->ConOut->SetCursorPosition, 3, ST->ConOut, cursor, y_pos);
+                print_at(1, y_pos, COLOR_EDIT, print);
+                /* See comment at edit_line() call site. */
+                uefi_call_wrapper(ST->ConOut->SetCursorPosition, 3, ST->ConOut, cursor + 1, y_pos);
 
                 err = console_key_read(&key, TRUE);
                 if (EFI_ERROR(err))
@@ -811,10 +815,15 @@ static BOOLEAN menu_run(
                         /* only the options of configured entries can be edited */
                         if (!config->editor || config->entries[idx_highlight]->type == LOADER_UNDEFINED)
                                 break;
-                        print_at(0, y_start + visible_count + 1, COLOR, clearline + 1);
-                        if (line_edit(config->entries[idx_highlight]->options, &config->options_edit, x_max-1, y_start + visible_count + 1))
+                        /* The edit line may end up on the last line of the screen. And even though we're
+                         * not telling the firmware to advance the line, it still does in this one case,
+                         * causing a scroll to happen that screws with our beautiful boot loader output.
+                         * Since we cannot paint the last character of the edit line, we simply start
+                         * at x-offset 1 for symmetry. */
+                        print_at(1, y_start + visible_count + 1, COLOR_EDIT, clearline + 2);
+                        if (line_edit(config->entries[idx_highlight]->options, &config->options_edit, x_max-2, y_start + visible_count + 1))
                                 exit = TRUE;
-                        print_at(0, y_start + visible_count + 1, COLOR, clearline + 1);
+                        print_at(1, y_start + visible_count + 1, COLOR, clearline + 2);
                         break;
 
                 case KEYPRESS(0, 0, 'v'):
