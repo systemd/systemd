@@ -713,7 +713,7 @@
       <varlistentry>
         <term><varname>Upholds=</varname></term>
 
-        <listitem><para>Configures dependencies similar to <varname>Wants=</varname>, but as long a this unit
+        <listitem><para>Configures dependencies similar to <varname>Wants=</varname>, but as long as this unit
         is up, all units listed in <varname>Upholds=</varname> are started whenever found to be inactive or
         failed, and no job is queued for them. While a <varname>Wants=</varname> dependency on another unit
         has a one-time effect when this units started, a <varname>Upholds=</varname> dependency on it has a
