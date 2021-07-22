@@ -101,6 +101,11 @@ if have_gnu_efi
         efi_conf.set_quoted('EFI_MACHINE_TYPE_NAME', EFI_MACHINE_TYPE_NAME)
         efi_conf.set10('ENABLE_TPM', get_option('tpm'))
         efi_conf.set('SD_TPM_PCR', get_option('tpm-pcrindex'))
+        efi_conf.set('COLOR', get_option('efi-color'))
+        efi_conf.set('COLOR_ENTRY', get_option('efi-color-entry'))
+        efi_conf.set('COLOR_HIGHLIGHT', get_option('efi-color-highlight'))
+        efi_conf.set('COLOR_BOX', get_option('efi-color-box'))
+        efi_conf.set('COLOR_EDIT', get_option('efi-color-edit'))
 
         if get_option('sbat-distro') != ''
                 efi_conf.set_quoted('SBAT_PROJECT', meson.project_name())
