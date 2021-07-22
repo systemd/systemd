@@ -14,10 +14,7 @@
 # upgraded. We care about the case where a package is initially
 # installed, because other cases are covered by the *un scriptlets,
 # so sometimes we will reload needlessly.
-if test -d "/run/systemd/system"; then
-  systemctl daemon-reload || :
-  systemctl reload-or-restart --marked || :
-fi
+{{SYSTEMD_UPDATE_HELPER_PATH}} system-reload-restart || :
 
 %transfiletriggerpostun -P 1000100 -- {{SYSTEM_DATA_UNIT_DIR}} /etc/systemd/system
 # On removal, we need to run daemon-reload after any units have been
@@ -25,15 +22,11 @@ fi
 # On upgrade, we need to run daemon-reload after any new unit files
 # have been installed, but before %postun scripts in packages get
 # executed.
-if test -d "/run/systemd/system"; then
-  systemctl daemon-reload || :
-fi
+{{SYSTEMD_UPDATE_HELPER_PATH}} system-reload || :
 
 %transfiletriggerpostun -P 10000 -- {{SYSTEM_DATA_UNIT_DIR}} /etc/systemd/system
 # We restart remaining services that should be restarted here.
-if test -d "/run/systemd/system"; then
-  systemctl reload-or-restart --marked || :
-fi
+{{SYSTEMD_UPDATE_HELPER_PATH}} system-restart || :
 
 %transfiletriggerin -P 1000700 -- {{SYSUSERS_DIR}}
 # This script will process files installed in {{SYSUSERS_DIR}} to create
