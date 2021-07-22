@@ -41,7 +41,7 @@ int path_is_extension_tree(const char *path, const char *extension) {
         if (laccess(path, F_OK) < 0)
                 return -errno;
 
-        /* We use /usr/lib/extension-release.d/extension-release.NAME as flag file if something is a system extension,
+        /* We use /usr/lib/extension-release.d/extension-release[.NAME] as flag file if something is a system extension,
          * and {/etc|/usr/lib}/os-release as flag file if something is an OS (in case extension == NULL) */
         r = open_extension_release(path, extension, NULL, NULL);
         if (r == -ENOENT) /* We got nothing */
@@ -59,11 +59,13 @@ int open_extension_release(const char *root, const char *extension, char **ret_p
         if (extension) {
                 const char *extension_full_path;
 
-                if (!image_name_is_valid(extension))
+                /* An empty string extension means check for the unversioned filename, as a
+                 * fallback for cases where images names are not stable and predictable. */
+                if (!isempty(extension) && !image_name_is_valid(extension))
                         return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
                                                "The extension name %s is invalid.", extension);
 
-                extension_full_path = strjoina("/usr/lib/extension-release.d/extension-release.", extension);
+                extension_full_path = strjoina("/usr/lib/extension-release.d/extension-release", !isempty(extension) ? "." : "", extension);
                 r = chase_symlinks(extension_full_path, root, CHASE_PREFIX_ROOT,
                                    ret_path ? &q : NULL,
                                    ret_fd ? &fd : NULL);
