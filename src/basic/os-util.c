@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "alloc-util.h"
+#include "dirent-util.h"
 #include "env-file.h"
 #include "env-util.h"
 #include "fd-util.h"
@@ -8,10 +9,13 @@
 #include "fs-util.h"
 #include "macro.h"
 #include "os-util.h"
+#include "parse-util.h"
 #include "path-util.h"
+#include "stat-util.h"
 #include "string-util.h"
 #include "strv.h"
 #include "utf8.h"
+#include "xattr-util.h"
 
 bool image_name_is_valid(const char *s) {
         if (!filename_is_valid(s))
@@ -41,8 +45,8 @@ int path_is_extension_tree(const char *path, const char *extension) {
         if (laccess(path, F_OK) < 0)
                 return -errno;
 
-        /* We use /usr/lib/extension-release.d/extension-release.NAME as flag file if something is a system extension,
-         * and {/etc|/usr/lib}/os-release as flag file if something is an OS (in case extension == NULL) */
+        /* We use /usr/lib/extension-release.d/extension-release[.NAME] as flag for something being a system extension,
+         * and {/etc|/usr/lib}/os-release as a flag for something being an OS (when not an extension). */
         r = open_extension_release(path, extension, NULL, NULL);
         if (r == -ENOENT) /* We got nothing */
                 return 0;
@@ -67,6 +71,91 @@ int open_extension_release(const char *root, const char *extension, char **ret_p
                 r = chase_symlinks(extension_full_path, root, CHASE_PREFIX_ROOT,
                                    ret_path ? &q : NULL,
                                    ret_fd ? &fd : NULL);
+                /* Cannot find the expected extension-release file? The image filename might have been
+                 * mangled on deployment, so fallback to checking for any file in the extension-release.d
+                 * directory, and return the first one with a user.extension-release xattr instead.
+                 * The user.extension-release.strict xattr is checked to ensure the author of the image
+                 * considers it OK if names do not match. */
+                if (r == -ENOENT) {
+                        _cleanup_free_ char *extension_release_dir_path = NULL;
+                        _cleanup_closedir_ DIR *extension_release_dir = NULL;
+
+                        r = chase_symlinks_and_opendir("/usr/lib/extension-release.d/", root, CHASE_PREFIX_ROOT,
+                                                       &extension_release_dir_path, &extension_release_dir);
+                        if (r < 0)
+                                return r;
+
+                        r = -ENOENT;
+                        struct dirent *de;
+                        FOREACH_DIRENT(de, extension_release_dir, return -errno) {
+                                int k;
+
+                                if (!IN_SET(de->d_type, DT_REG, DT_UNKNOWN))
+                                        continue;
+
+                                const char *image_name = startswith(de->d_name, "extension-release.");
+                                if (!image_name)
+                                        continue;
+
+                                if (!image_name_is_valid(image_name))
+                                        continue;
+
+                                /* We already chased the directory, and checked that
+                                 * this is a real file, so we shouldn't fail to open it. */
+                                _cleanup_close_ int extension_release_fd = openat(dirfd(extension_release_dir),
+                                                                                  de->d_name,
+                                                                                  O_PATH|O_CLOEXEC|O_NOFOLLOW);
+                                if (extension_release_fd < 0)
+                                        return log_debug_errno(errno,
+                                                               "Failed to open extension-release file %s/%s: %m",
+                                                               extension_release_dir_path,
+                                                               de->d_name);
+
+                                /* Really ensure it is a regular file after we open it. */
+                                if (fd_verify_regular(extension_release_fd) < 0)
+                                        continue;
+
+                                /* No xattr or cannot parse it? Then skip this. */
+                                _cleanup_free_ char *extension_release_xattr = NULL;
+                                k = fgetxattrat_fake_malloc(extension_release_fd, NULL, "user.extension-release.strict", AT_EMPTY_PATH, &extension_release_xattr);
+                                if (k < 0 && !ERRNO_IS_NOT_SUPPORTED(k) && k != -ENODATA)
+                                        log_debug_errno(k,
+                                                        "Failed to read 'user.extension-release.strict' extended attribute from extension-release file %s/%s: %m",
+                                                        extension_release_dir_path,
+                                                        de->d_name);
+                                if (k < 0)
+                                        continue;
+
+                                /* Explicitly set to request strict matching? Skip it. */
+                                k = parse_boolean(extension_release_xattr);
+                                if (k < 0)
+                                        log_debug_errno(k,
+                                                        "Failed to parse 'user.extension-release.strict' extended attribute value from extension-release file %s/%s: %m",
+                                                        extension_release_dir_path,
+                                                        de->d_name);
+                                if (k < 0 || k > 0)
+                                        continue;
+
+                                /* We already found what we were looking for, but there's another candidate?
+                                 * We treat this as an error, as we want to enforce that there are no ambiguities
+                                 * in case we are in the fallback path.*/
+                                if (r == 0) {
+                                        r = -ENOTUNIQ;
+                                        break;
+                                }
+
+                                r = 0; /* Found it! */
+
+                                if (ret_fd)
+                                        fd = TAKE_FD(extension_release_fd);
+
+                                if (ret_path) {
+                                        q = path_join(extension_release_dir_path, de->d_name);
+                                        if (!q)
+                                                return -ENOMEM;
+                                }
+                        }
+                }
         } else {
                 const char *p;
 
