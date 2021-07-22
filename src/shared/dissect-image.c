@@ -2538,13 +2538,13 @@ int dissected_image_acquire_metadata(DissectedImage *m) {
                 _META_MAX,
         };
 
-        static const char *paths[_META_MAX] = {
+        static const char *const paths[_META_MAX] = {
                 [META_HOSTNAME]          = "/etc/hostname\0",
                 [META_MACHINE_ID]        = "/etc/machine-id\0",
                 [META_MACHINE_INFO]      = "/etc/machine-info\0",
-                [META_OS_RELEASE]        = "/etc/os-release\0"
-                                           "/usr/lib/os-release\0",
-                [META_EXTENSION_RELEASE] = NULL,
+                [META_OS_RELEASE]        = ("/etc/os-release\0"
+                                           "/usr/lib/os-release\0"),
+                [META_EXTENSION_RELEASE] = "extension-release\0", /* Used only for logging. */
         };
 
         _cleanup_strv_free_ char **machine_info = NULL, **os_release = NULL, **extension_release = NULL;
@@ -2560,17 +2560,6 @@ int dissected_image_acquire_metadata(DissectedImage *m) {
         BLOCK_SIGNALS(SIGCHLD);
 
         assert(m);
-
-        /* As per the os-release spec, if the image is an extension it will have a file
-         * named after the image name in extension-release.d/ */
-        if (m->image_name) {
-                char *ext;
-
-                ext = strjoina("/usr/lib/extension-release.d/extension-release.", m->image_name, "0");
-                ext[strlen(ext) - 1] = '\0'; /* Extra \0 for NULSTR_FOREACH using placeholder from above */
-                paths[META_EXTENSION_RELEASE] = ext;
-        } else
-                log_debug("No image name available, will skip extension-release metadata");
 
         for (; n_meta_initialized < _META_MAX; n_meta_initialized ++) {
                 if (!paths[n_meta_initialized]) {
@@ -2625,11 +2614,25 @@ int dissected_image_acquire_metadata(DissectedImage *m) {
 
                         fds[2*k] = safe_close(fds[2*k]);
 
-                        NULSTR_FOREACH(p, paths[k]) {
-                                fd = chase_symlinks_and_open(p, t, CHASE_PREFIX_ROOT, O_RDONLY|O_CLOEXEC|O_NOCTTY, NULL);
-                                if (fd >= 0)
-                                        break;
-                        }
+                        if (k == META_EXTENSION_RELEASE) {
+                                /* As per the os-release spec, if the image is an extension it will have a file
+                                 * named after the image name in extension-release.d/ - we use the image name
+                                 * and try to resolve it with the extension-release helpers, as sometimes
+                                 * the image names are mangled on deployment and do not match anymore.
+                                 * Unlike other paths this is not fixed, and the image name
+                                 * can be mangled on deployment, so by calling into the helper
+                                 * we allow a fallback that matches on the first extension-release
+                                 * file found in the directory, if one named after the image cannot
+                                 * be found first. */
+                                r = open_extension_release(t, m->image_name, NULL, &fd);
+                                if (r < 0)
+                                        fd = r; /* Propagate the error. */
+                        } else
+                                NULSTR_FOREACH(p, paths[k]) {
+                                        fd = chase_symlinks_and_open(p, t, CHASE_PREFIX_ROOT, O_RDONLY|O_CLOEXEC|O_NOCTTY, NULL);
+                                        if (fd >= 0)
+                                                break;
+                                }
                         if (fd < 0) {
                                 log_debug_errno(fd, "Failed to read %s file of image, ignoring: %m", paths[k]);
                                 fds[2*k+1] = safe_close(fds[2*k+1]);
