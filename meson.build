@@ -10,7 +10,7 @@ project('systemd', 'c',
                 'localstatedir=/var',
                 'warning_level=2',
         ],
-        meson_version : '>= 0.46',
+        meson_version : '>= 0.47',
        )
 
 libsystemd_version = '0.32.0'
@@ -255,6 +255,7 @@ conf.set_quoted('SYSTEMD_SHUTDOWN_BINARY_PATH',               join_paths(rootlib
 conf.set_quoted('SYSTEMD_STDIO_BRIDGE_BINARY_PATH',           join_paths(bindir, 'systemd-stdio-bridge'))
 conf.set_quoted('SYSTEMD_TEST_DATA',                          join_paths(testsdir, 'testdata'))
 conf.set_quoted('SYSTEMD_TTY_ASK_PASSWORD_AGENT_BINARY_PATH', join_paths(rootbindir, 'systemd-tty-ask-password-agent'))
+conf.set_quoted('SYSTEMD_UPDATE_HELPER_PATH',                 join_paths(rootlibexecdir, 'systemd-update-helper'))
 conf.set_quoted('SYSTEMD_USERWORK_PATH',                      join_paths(rootlibexecdir, 'systemd-userwork'))
 conf.set_quoted('SYSTEMD_VERITYSETUP_PATH',                   join_paths(rootlibexecdir, 'systemd-veritysetup'))
 conf.set_quoted('SYSTEM_CONFIG_UNIT_DIR',                     join_paths(pkgsysconfdir, 'system'))

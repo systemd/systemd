@@ -1,0 +1,60 @@
+#!/bin/bash
+set -eu
+set -o pipefail
+
+command="${1:?}"
+shift
+
+command -v systemctl >/dev/null || exit 0
+
+case "$command" in
+    install-system-units)
+        systemctl --no-reload preset "$@"
+        ;;
+
+    install-user-units)
+        systemctl --no-reload preset --global "$@"
+        ;;
+
+    remove-system-units)
+        if [ -d /run/systemd/system ]; then
+            systemctl --no-reload disable --now "$@"
+        else
+            systemctl --no-reload disable "$@"
+        fi
+        ;;
+
+    remove-user-units)
+        systemctl --global disable "$@"
+        ;;
+
+    mark-restart-system-units)
+        [ -d /run/systemd/system ] || exit 0
+
+        for unit in "$@"; do
+            systemctl set-property "$unit" Markers=+needs-restart || :
+        done
+        ;;
+
+    system-reload-restart|system-reload|system-restart)
+        if [ -n "$*" ]; then
+            echo "Unexpected arguments for '$command': $*"
+            exit 2
+        fi
+
+        [ -d /run/systemd/system ] || exit 0
+
+        if [[ "$command" =~ reload ]]; then
+            systemctl daemon-reload
+        fi
+
+        if [[ "$command" =~ restart ]]; then
+            systemctl reload-or-restart --marked
+        fi
+        ;;
+
+    *)
+        echo "Unknown verb '$command'"
+        exit 3
+        ;;
+esac

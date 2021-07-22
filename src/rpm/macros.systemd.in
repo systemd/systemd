@@ -46,31 +46,33 @@ OrderWithRequires(postun): systemd \
 
 %systemd_post() \
 %{expand:%%{?__systemd_someargs_%#:%%__systemd_someargs_%# systemd_post}} \
-if [ $1 -eq 1 ] && command -v systemctl >/dev/null; then \
+if [ $1 -eq 1 ] && [ -x "{{SYSTEMD_UPDATE_HELPER_PATH}}" ]; then \
     # Initial installation \
-    systemctl --no-reload preset %{?*} || : \
+    {{SYSTEMD_UPDATE_HELPER_PATH}} install-system-units %{?*} || : \
 fi \
 %{nil}
 
-%systemd_user_post() %{expand:%systemd_post \\--global %%{?*}}
+%systemd_user_post() \
+%{expand:%%{?__systemd_someargs_%#:%%__systemd_someargs_%# systemd_user_post}} \
+if [ $1 -eq 1 ] && [ -x "{{SYSTEMD_UPDATE_HELPER_PATH}}" ]; then \
+    # Initial installation \
+    {{SYSTEMD_UPDATE_HELPER_PATH}} install-user-units %{?*} || : \
+fi \
+%{nil}
 
 %systemd_preun() \
 %{expand:%%{?__systemd_someargs_%#:%%__systemd_someargs_%# systemd_preun}} \
-if [ $1 -eq 0 ] && command -v systemctl >/dev/null; then \
+if [ $1 -eq 0 ] && [ -x "{{SYSTEMD_UPDATE_HELPER_PATH}}" ]; then \
     # Package removal, not upgrade \
-    if [ -d /run/systemd/system ]; then \
-          systemctl --no-reload disable --now %{?*} || : \
-    else \
-          systemctl --no-reload disable %{?*} || : \
-    fi \
+    {{SYSTEMD_UPDATE_HELPER_PATH}} remove-system-units %{?*} || : \
 fi \
 %{nil}
 
 %systemd_user_preun() \
 %{expand:%%{?__systemd_someargs_%#:%%__systemd_someargs_%# systemd_user_preun}} \
-if [ $1 -eq 0 ] && command -v systemctl >/dev/null; then \
+if [ $1 -eq 0 ] && [ -x "{{SYSTEMD_UPDATE_HELPER_PATH}}" ]; then \
     # Package removal, not upgrade \
-    systemctl --global disable %{?*} || : \
+    {{SYSTEMD_UPDATE_HELPER_PATH}} remove-user-units %{?*} || : \
 fi \
 %{nil}
 
@@ -84,11 +86,9 @@ fi \
 
 %systemd_postun_with_restart() \
 %{expand:%%{?__systemd_someargs_%#:%%__systemd_someargs_%# systemd_postun_with_restart}} \
-if [ $1 -ge 1 ] && command -v systemctl >/dev/null; then \
+if [ $1 -ge 1 ] && [ -x "{{SYSTEMD_UPDATE_HELPER_PATH}}" ]; then \
     # Package upgrade, not uninstall \
-    for unit in %{?*}; do \
-        systemctl set-property $unit Markers=+needs-restart || : \
-    done \
+    {{SYSTEMD_UPDATE_HELPER_PATH}} mark-restart-system-units %{?*} || : \
 fi \
 %{nil}
 
