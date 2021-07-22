@@ -1178,7 +1178,10 @@ int image_read_metadata(Image *i) {
                 if (r < 0)
                         log_debug_errno(r, "Failed to read os-release in image, ignoring: %m");
 
+                /* A plain 'extension-release' file is allowed, but prefer named ones. */
                 r = load_extension_release_pairs(i->path, i->name, &extension_release);
+                if (r == -ENOENT)
+                        r = load_extension_release_pairs(i->path, "", &extension_release);
                 if (r < 0)
                         log_debug_errno(r, "Failed to read extension-release in image, ignoring: %m");
 
