@@ -229,6 +229,7 @@ int verify_units(char **filenames, UnitFileScope scope, bool check_man, bool run
         _cleanup_free_ char *var = NULL;
         int r, k, i, count = 0;
         char **filename;
+        uint64_t previous_log_syntax_value = log_syntax_issue_reported;
 
         if (strv_isempty(filenames))
                 return 0;
@@ -282,6 +283,9 @@ int verify_units(char **filenames, UnitFileScope scope, bool check_man, bool run
                 if (k < 0 && r == 0)
                         r = k;
         }
+
+        if (log_syntax_issue_reported > previous_log_syntax_value && r == 0)
+                r = -EINVAL;
 
         return r;
 }
