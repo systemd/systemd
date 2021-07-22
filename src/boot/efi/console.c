@@ -53,6 +53,8 @@ EFI_STATUS console_key_read(UINT64 *key, BOOLEAN wait) {
                                 return 0;
                         }
                 }
+                else
+                        return err;
         }
 
         /* fallback for firmware which does not support SimpleTextInputExProtocol
