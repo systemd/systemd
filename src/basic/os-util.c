@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "alloc-util.h"
+#include "dirent-util.h"
 #include "env-file.h"
 #include "env-util.h"
 #include "fd-util.h"
@@ -41,8 +42,8 @@ int path_is_extension_tree(const char *path, const char *extension) {
         if (laccess(path, F_OK) < 0)
                 return -errno;
 
-        /* We use /usr/lib/extension-release.d/extension-release.NAME as flag file if something is a system extension,
-         * and {/etc|/usr/lib}/os-release as flag file if something is an OS (in case extension == NULL) */
+        /* We use /usr/lib/extension-release.d/extension-release[.NAME] as flag for something being a system extension,
+         * and {/etc|/usr/lib}/os-release as a flag for something being an OS (when not an extension). */
         r = open_extension_release(path, extension, NULL, NULL);
         if (r == -ENOENT) /* We got nothing */
                 return 0;
@@ -67,6 +68,51 @@ int open_extension_release(const char *root, const char *extension, char **ret_p
                 r = chase_symlinks(extension_full_path, root, CHASE_PREFIX_ROOT,
                                    ret_path ? &q : NULL,
                                    ret_fd ? &fd : NULL);
+                /* Cannot find the expected extension-release file? The image filename might have been
+                 * mangled on deployment, so fallback to checking for any file in the extension-release.d
+                 * directory, and return the first one instead. */
+                if (r == -ENOENT) {
+                        _cleanup_free_ char *extension_release_dir_path = NULL;
+                        _cleanup_closedir_ DIR *extension_release_dir = NULL;
+
+                        r = chase_symlinks_and_opendir("/usr/lib/extension-release.d/", root, CHASE_PREFIX_ROOT,
+                                                       &extension_release_dir_path, &extension_release_dir);
+                        if (r < 0)
+                                return r;
+
+                        r = -ENOENT;
+                        struct dirent *de;
+                        FOREACH_DIRENT(de, extension_release_dir, return -errno) {
+                                if (de->d_type != DT_REG)
+                                        continue;
+
+                                if (!startswith(de->d_name, "extension-release"))
+                                        continue;
+
+                                if (!image_name_is_valid(de->d_name))
+                                        continue;
+
+                                r = 0; /* Found it! */
+
+                                _cleanup_free_ char *p = NULL;
+                                p = path_join(extension_release_dir_path, de->d_name);
+                                if (!p)
+                                        return -ENOMEM;
+
+                                if (ret_fd) {
+                                        /* We already chased the directory, and checked that
+                                         * this is a real file and not a symlink, so just open it. */
+                                        fd = open(p, O_RDONLY|O_CLOEXEC|O_PATH);
+                                        if (fd < 0)
+                                                r = -errno;
+                                }
+
+                                if (ret_path)
+                                        q = TAKE_PTR(p);
+
+                                break;
+                        }
+                }
         } else {
                 const char *p;
 

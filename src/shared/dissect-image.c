@@ -2562,15 +2562,10 @@ int dissected_image_acquire_metadata(DissectedImage *m) {
         assert(m);
 
         /* As per the os-release spec, if the image is an extension it will have a file
-         * named after the image name in extension-release.d/ */
-        if (m->image_name) {
-                char *ext;
-
-                ext = strjoina("/usr/lib/extension-release.d/extension-release.", m->image_name, "0");
-                ext[strlen(ext) - 1] = '\0'; /* Extra \0 for NULSTR_FOREACH using placeholder from above */
-                paths[META_EXTENSION_RELEASE] = ext;
-        } else
-                log_debug("No image name available, will skip extension-release metadata");
+         * named after the image name in extension-release.d/ - we use the image name
+         * and try to resolve it with the extension-release helpers, as sometimes
+         * the image names are mangled on deployment and do not match anymore. */
+        paths[META_EXTENSION_RELEASE] = m->image_name;
 
         for (; n_meta_initialized < _META_MAX; n_meta_initialized ++) {
                 if (!paths[n_meta_initialized]) {
@@ -2625,13 +2620,26 @@ int dissected_image_acquire_metadata(DissectedImage *m) {
 
                         fds[2*k] = safe_close(fds[2*k]);
 
-                        NULSTR_FOREACH(p, paths[k]) {
-                                fd = chase_symlinks_and_open(p, t, CHASE_PREFIX_ROOT, O_RDONLY|O_CLOEXEC|O_NOCTTY, NULL);
-                                if (fd >= 0)
-                                        break;
-                        }
+                        if (k == META_EXTENSION_RELEASE) {
+                                _cleanup_close_ int path_fd = -1;
+
+                                /* Unlike other paths this is not fixed, and the image name
+                                 * can be mangled on deployment, so by calling into the helper
+                                 * we allow a fallback that matches on the first extension-release
+                                 * file found in the directory, if one named after the image cannot
+                                 * be found first. */
+                                r = open_extension_release(t, paths[k], NULL, &path_fd);
+                                if (r >= 0)
+                                        fd = fd_reopen(path_fd, O_RDONLY|O_CLOEXEC|O_NOCTTY);
+                        } else
+                                NULSTR_FOREACH(p, paths[k]) {
+                                        fd = chase_symlinks_and_open(p, t, CHASE_PREFIX_ROOT, O_RDONLY|O_CLOEXEC|O_NOCTTY, NULL);
+                                        if (fd >= 0)
+                                                break;
+                                }
                         if (fd < 0) {
-                                log_debug_errno(fd, "Failed to read %s file of image, ignoring: %m", paths[k]);
+                                log_debug_errno(fd, "Failed to read %s file of image, ignoring: %m",
+                                                k == META_EXTENSION_RELEASE ? "extension-release" : paths[k]);
                                 fds[2*k+1] = safe_close(fds[2*k+1]);
                                 continue;
                         }
