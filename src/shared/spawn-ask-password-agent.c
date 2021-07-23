@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 
+#include "exec-util.h"
 #include "log.h"
 #include "process-util.h"
 #include "spawn-ask-password-agent.h"
