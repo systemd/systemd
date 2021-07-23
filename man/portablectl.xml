@@ -359,7 +359,11 @@
         top of <replaceable>IMAGE</replaceable> when attaching/detaching. This argument can be specified
         multiple times, in which case the order in which images are laid down follows the rules specified in
         <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>
-        for the <varname>ExtensionImages=</varname> directive.</para>
+        for the <varname>ExtensionImages=</varname> directive. The image(s) must contain an
+        <filename>extension-release</filename> file with metadata that matches what is defined in the
+        <filename>os-release</filename> of <replaceable>IMAGE</replaceable>. See:
+        <citerefentry><refentrytitle>os-release</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+        </para>
 
         <para>Note that the same extensions have to be specified, in the same order, when attaching
         and detaching.</para></listitem>
