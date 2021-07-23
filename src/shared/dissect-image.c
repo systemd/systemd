@@ -1720,7 +1720,10 @@ int dissected_image_mount(
                         if (r < 0)
                                 return r;
                         if (r == 0) {
+                                /* A plain 'extension-release' file is allowed, but prefer named ones. */
                                 r = path_is_extension_tree(where, m->image_name);
+                                if (r == 0)
+                                        r = path_is_extension_tree(where, "");
                                 if (r < 0)
                                         return r;
                                 if (r == 0)
@@ -2552,7 +2555,7 @@ int dissected_image_acquire_metadata(DissectedImage *m) {
         _cleanup_(rmdir_and_freep) char *t = NULL;
         _cleanup_(sigkill_waitp) pid_t child = 0;
         sd_id128_t machine_id = SD_ID128_NULL;
-        _cleanup_free_ char *hostname = NULL;
+        _cleanup_free_ char *hostname = NULL, *named_extension = NULL;
         unsigned n_meta_initialized = 0;
         int fds[2 * _META_MAX], r, v;
         ssize_t n;
@@ -2564,13 +2567,20 @@ int dissected_image_acquire_metadata(DissectedImage *m) {
         /* As per the os-release spec, if the image is an extension it will have a file
          * named after the image name in extension-release.d/ */
         if (m->image_name) {
-                char *ext;
+                /* Look for a named/versioned file first, then fallback to a generic extension-release
+                 * to allow images that get renamed/mangled by deployment/orchestration systemss.
+                 * Extra \0 for NULSTR_FOREACH using placeholders from above, as asprintf would stop at \0 otherwise */
+                if (asprintf(&named_extension,
+                             "/usr/lib/extension-release.d/extension-release%s%s%c/usr/lib/extension-release.d/extension-release%c",
+                             m->image_name ? "." : "",
+                             m->image_name,
+                             '\0',
+                             '\0') < 0)
+                        return log_oom();
 
-                ext = strjoina("/usr/lib/extension-release.d/extension-release.", m->image_name, "0");
-                ext[strlen(ext) - 1] = '\0'; /* Extra \0 for NULSTR_FOREACH using placeholder from above */
-                paths[META_EXTENSION_RELEASE] = ext;
+                paths[META_EXTENSION_RELEASE] = named_extension;
         } else
-                log_debug("No image name available, will skip extension-release metadata");
+                paths[META_EXTENSION_RELEASE] = "/usr/lib/extension-release.d/extension-release\0";
 
         for (; n_meta_initialized < _META_MAX; n_meta_initialized ++) {
                 if (!paths[n_meta_initialized]) {
@@ -3011,6 +3021,8 @@ int verity_dissect_and_mount(
                 _cleanup_strv_free_ char **extension_release = NULL;
 
                 r = load_extension_release_pairs(dest, dissected_image->image_name, &extension_release);
+                if (r == -ENOENT)
+                        r = load_extension_release_pairs(dest, "", &extension_release);
                 if (r < 0)
                         return log_debug_errno(r, "Failed to parse image %s extension-release metadata: %m", dissected_image->image_name);
 
