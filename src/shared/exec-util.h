@@ -48,3 +48,5 @@ const char* exec_command_flags_to_string(ExecCommandFlags i);
 ExecCommandFlags exec_command_flags_from_string(const char *s);
 
 int fexecve_or_execve(int executable_fd, const char *executable, char *const argv[], char *const envp[]);
+
+int fork_agent(const char *name, int except[], size_t n_except, pid_t *ret_pid, const char *path, ...) _sentinel_;
