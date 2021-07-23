@@ -6,6 +6,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 
+#include "exec-util.h"
 #include "fd-util.h"
 #include "io-util.h"
 #include "log.h"
