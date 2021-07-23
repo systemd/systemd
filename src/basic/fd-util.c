@@ -208,7 +208,7 @@ static int get_max_fd(void) {
         return (int) (m - 1);
 }
 
-int close_all_fds(int except[], size_t n_except) {
+int close_all_fds_full(int except[], size_t n_except, bool allow_alloc) {
         static bool have_close_range = true; /* Assume we live in the future */
         _cleanup_closedir_ DIR *d = NULL;
         int r = 0;
@@ -274,7 +274,7 @@ int close_all_fds(int except[], size_t n_except) {
 
         /* Fallback for when close_range() is not supported */
  opendir_fallback:
-        d = opendir("/proc/self/fd");
+        d = allow_alloc ? opendir("/proc/self/fd") : NULL;
         if (d) {
                 struct dirent *de;
 
@@ -302,8 +302,8 @@ int close_all_fds(int except[], size_t n_except) {
                 return r;
         }
 
-        /* Fallback for when /proc isn't available (for example in chroots) by brute-forcing through the file
-         * descriptor table. */
+        /* Fallback for when /proc isn't available (for example in chroots) or when we cannot allocate by
+         * brute-forcing through the file descriptor table. */
 
         int max_fd = get_max_fd();
         if (max_fd < 0)
