@@ -1593,7 +1593,7 @@ int fork_agent(const char *name, int except[], size_t n_except, pid_t *ret_pid, 
 int set_oom_score_adjust(int value) {
         char t[DECIMAL_STR_MAX(int)];
 
-        sprintf(t, "%i", value);
+        xsprintf(t, "%i", value);
 
         return write_string_file("/proc/self/oom_score_adj", t,
                                  WRITE_STRING_FILE_VERIFY_ON_FAILURE|WRITE_STRING_FILE_DISABLE_BUFFER);
