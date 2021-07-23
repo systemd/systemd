@@ -586,6 +586,17 @@
       </varlistentry>
 
       <varlistentry>
+        <term><constant>SIGRTMIN+25</constant></term>
+
+        <listitem><para>Upon receiving this signal the systemd manager will reexecute itself. This
+        is mostly equivalent to <command>systemctl daemon-reexec</command> except that it will be
+        done asynchronously.</para>
+
+        <para>The systemd system manager treats this signal the same way as
+        <constant>SIGTERM</constant>.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><constant>SIGRTMIN+26</constant></term>
 
         <listitem><para>Restores the log target to its configured value. The configured value is derived from – in
