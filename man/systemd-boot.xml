@@ -294,7 +294,7 @@
     <title>EFI Variables</title>
 
     <para>The following EFI variables are defined, set and read by <command>systemd-boot</command>, under the vendor
-    UUID <literal>4a67b082-0a4c-41cf-b6c7-440b29bb8c4</literal>, for communication between the OS and the boot
+    UUID <literal>4a67b082-0a4c-41cf-b6c7-440b29bb8c4f</literal>, for communication between the OS and the boot
     loader:</para>
 
     <variablelist class='efi-variables'>
