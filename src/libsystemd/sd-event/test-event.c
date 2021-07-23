@@ -5,6 +5,7 @@
 #include "sd-event.h"
 
 #include "alloc-util.h"
+#include "exec-util.h"
 #include "fd-util.h"
 #include "fs-util.h"
 #include "log.h"
