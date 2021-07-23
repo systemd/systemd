@@ -11,6 +11,7 @@
 
 #include "alloc-util.h"
 #include "dissect-image.h"
+#include "exec-util.h"
 #include "extract-word.h"
 #include "fd-util.h"
 #include "fileio.h"
@@ -1010,11 +1011,9 @@ static int make_userns(uid_t uid_shift, uid_t uid_range) {
         r = safe_fork("(sd-mkuserns)", FORK_CLOSE_ALL_FDS|FORK_DEATHSIG|FORK_NEW_USERNS, &pid);
         if (r < 0)
                 return r;
-        if (r == 0) {
+        if (r == 0)
                 /* Child. We do nothing here, just freeze until somebody kills us. */
                 freeze();
-                _exit(EXIT_FAILURE);
-        }
 
         xsprintf(line, UID_FMT " " UID_FMT " " UID_FMT "\n", 0, uid_shift, uid_range);
 
