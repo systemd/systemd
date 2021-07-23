@@ -26,6 +26,7 @@ done
 
 # figure out if we have entered the rate limit state
 
+entered_rl=0
 exited_rl=0
 timeout="$(date -ud "2 minutes" +%s)"
 while [[ $(date -u +%s) -le ${timeout} ]]; do
