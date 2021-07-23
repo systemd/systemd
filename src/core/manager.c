@@ -545,8 +545,7 @@ static int manager_setup_signals(Manager *m) {
                         SIGRTMIN+22, /* systemd: set log level to LOG_DEBUG */
                         SIGRTMIN+23, /* systemd: set log level to LOG_INFO */
                         SIGRTMIN+24, /* systemd: Immediate exit (--user only) */
-
-                        /* .. one free signal here ... */
+                        SIGRTMIN+25, /* systemd: reexecute manager */
 
                         /* Apparently Linux on hppa had fewer RT signals until v3.18,
                          * SIGRTMAX was SIGRTMIN+25, and then SIGRTMIN was lowered,
@@ -2813,6 +2812,10 @@ static int manager_dispatch_signal_fd(sd_event_source *source, int fd, uint32_t 
                         }
 
                         /* This is a nop on init */
+                        break;
+
+                case 25:
+                        m->objective = MANAGER_REEXECUTE;
                         break;
 
                 case 26:
