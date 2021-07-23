@@ -442,6 +442,7 @@ Group=
 GroupForwardMask=
 GroupPolicyExtension=
 HairPin=
+Isolated=
 MulticastToUnicast=
 HelloTimeSec=
 HomeAddress=
