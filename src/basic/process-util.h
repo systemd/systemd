@@ -84,8 +84,6 @@ bool is_main_thread(void);
 
 _noreturn_ void freeze(void);
 
-bool oom_score_adjust_is_valid(int oa);
-
 #ifndef PERSONALITY_INVALID
 /* personality(7) documents that 0xffffffffUL is used for querying the
  * current personality, hence let's use that here as error
