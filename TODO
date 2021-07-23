@@ -1189,6 +1189,9 @@ Features:
   - introduce API for "making room", that grows/shrinks home directory
     according to elastic parameters, discards blocks, and removes additional snapshots. Call it
     either from UI when disk space gets low
+  - when homed is in use, maybe start the user session manager in a mount namespace with MS_SLAVE,
+    so that mounts propagate down but not up - eg, user A setting up a backup volume
+    doesn't mean user B sees it
 
 * homed: during login resize fs automatically towards size goal. Specifically,
   resize to diskSize if possible, but leave a certain amount (configured by a
