@@ -12,7 +12,7 @@ traditional system services, making two specific facets of container management
 available to system services more readily. Specifically:
 
 1. The bundling of applications, i.e. packing up multiple services, their
-   binaries and all their dependencies in a single image, and running them
+   binaries and all their dependencies in an image, and running them
    directly from it.
 
 2. Stricter default security policies, i.e. sand-boxing of applications.
@@ -29,12 +29,13 @@ of use-cases in a nicer way.
 ## So, what *is* a "Portable Service"?
 
 A portable service is ultimately just an OS tree, either inside of a directory
-tree, or inside a raw disk image containing a Linux file system. This tree is
-called the "image". It can be "attached" or "detached" from the system. When
-"attached" specific systemd units from the image are made available on the host
-system, then behaving pretty much exactly like locally installed system
-services. When "detached" these units are removed again from the host, leaving
-no artifacts around (except maybe messages they might have logged).
+tree, or inside a raw disk image (or a set of images that get layered, see
+[Layered Images](#layered-images)) containing a Linux file system. This tree is called the
+"image". It can be "attached" or "detached" from the system. When "attached"
+specific systemd units from the image are made available on the host system,
+then behaving pretty much exactly like locally installed system services. When
+"detached" these units are removed again from the host, leaving no artifacts
+around (except maybe messages they might have logged).
 
 The OS tree/image can be created with any tool of your choice. For example, you
 can use `dnf --installroot=` if you like, or `debootstrap`, the image format is
@@ -145,8 +146,14 @@ the drop-ins and the unit files associated with the image, and removes them
 again.
 
 Note that `portablectl attach` won't enable or start any of the units it copies
-out. This still has to take place in a second, separate step. (That said We
-might add options to do this automatically later on.).
+out by default, but `--enable` and `--now` parameter are available as shortcuts.
+The same is true for the opposite `detach` operation.
+
+A `portablectl reattach` command is made available to combine a `detach` with an
+`attach`, and it is useful in case an image gets upgraded, as it allows a to
+perform a `restart` operation on the unit(s) instead of `stop` plus `start`,
+thus providing lower downtime and avoiding losing runtime state associated with
+the unit such as the file descriptor store.
 
 ## Requirements on Images
 
@@ -242,6 +249,34 @@ Of course, to facilitate 2, 3 and 4 you need to include an init system in the
 image. To facility 3 and 4 you also need to include a boot loader in the
 image. As mentioned `mkosi -b` takes care of all of that for you, but any other
 image generator should work too.
+
+## Extension Images
+
+Portable services can be delivered as one or multiple images that extend the base
+image, and are combined with OverlayFS at runtime, when they are attached. This
+enables a workflow that splits the base 'runtime' from the daemon, so that multiple
+portable services can share the same 'runtime' image (libraries, tools) without
+having to include everything each time, with the layering happening only at runtime.
+The `--extension` parameter of `portablectl` can be used to specify as many upper
+layers as desired. On top of the requirements listed in the previous section, the
+following must be also be observed.
+
+1. The base/OS image must contain an os-release file, either in `/etc/os-release` or
+   `/usr/lib/os-release`. The file should follow the standard format.
+
+2. The upper extension(s) image(s) must contain an extension-release file in
+   `/usr/lib/extension-release.d/`, with an `ID=` and `SYSEXT_LEVEL=`/`VERSION_ID=`
+   matching the base image.
+
+3. The base/OS image does not need to have any unit files.
+
+4. The upper extension(s) image(s) must at least contain one matching unit file each,
+   with the right name prefix and suffix (see above).
+
+```
+# /usr/lib/systemd/portablectl attach --extension foobar_0.7.23.raw debian-runtime_11.1.raw foobar
+# /usr/lib/systemd/portablectl attach --extension barbaz_7.0.23.raw debian-runtime_11.1.raw barbaz
+```
 
 ## Execution Environment
 
