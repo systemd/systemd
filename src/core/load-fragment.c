@@ -3,6 +3,7 @@
   Copyright © 2012 Holger Hans Peter Freyther
 ***/
 
+#include <dirent.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <linux/fs.h>
@@ -12,6 +13,7 @@
 #endif
 #include <sched.h>
 #include <sys/resource.h>
+#include <sys/stat.h>
 
 #include "sd-messages.h"
 
@@ -31,6 +33,7 @@
 #include "core-varlink.h"
 #include "cpu-set-util.h"
 #include "creds-util.h"
+#include "dirent-util.h"
 #include "env-util.h"
 #include "errno-list.h"
 #include "escape.h"
@@ -4578,6 +4581,7 @@ int config_parse_load_credential(
         ExecLoadCredential *old;
         bool encrypted = ltype;
         Unit *u = userdata;
+        struct stat sb;
         const char *p;
         int r;
 
@@ -4612,8 +4616,7 @@ int config_parse_load_credential(
         }
 
         if (isempty(p)) {
-                /* If only one field field is specified take it as shortcut for inheriting a credential named
-                 * the same way from our parent */
+                /* If only one field is specified, inherit this credential from our parent */
                 q = strdup(k);
                 if (!q)
                         return log_oom();
@@ -4627,6 +4630,50 @@ int config_parse_load_credential(
                         log_syntax(unit, LOG_WARNING, filename, line, 0, "Credential source \"%s\" not valid, ignoring.", q);
                         return 0;
                 }
+        }
+
+        r = stat(q, &sb);
+        if (r < 0) {
+                log_unit_error_errno(u, errno, "Couldn't stat credential at %s", q);
+                return 0;
+        }
+
+        if (sb.st_mode & S_IFDIR) {
+                _cleanup_closedir_ DIR *dir = NULL;
+                struct dirent *dent;
+
+
+                dir = opendir(q);
+                if (!dir) {
+                        log_unit_error_errno(u, errno, "Couldn't open directory %s", q);
+                        return 0;
+                }
+
+                log_unit_info(u, "Loading credentials from directory %s", q);
+                FOREACH_DIRENT(dent, dir, return -errno) {
+                        _cleanup_free_ char *new_rvalue = NULL, *new_path = NULL;
+
+                        /* avoid infinite recursion */
+                        if (dent->d_type == DT_LNK) {
+                                log_unit_warning(u, "Skipping symlinked credential %s", dent->d_name);
+                                continue;
+                        }
+
+                        new_path = path_join(q, dent->d_name);
+                        if (!new_path)
+                                return log_oom();
+
+                        new_rvalue = strjoin(k, "_", dent->d_name, ":", new_path);
+                        if (!new_rvalue)
+                                return log_oom();
+
+                        r = config_parse_load_credential(unit, filename, line, section, section_line,
+                                                         lvalue, ltype, new_rvalue, data, userdata);
+                        if (r < 0)
+                                return r;
+                }
+
+                return 0;
         }
 
         old = hashmap_get(context->load_credentials, k);
