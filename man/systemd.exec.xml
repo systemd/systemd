@@ -3007,7 +3007,10 @@ StandardInputData=SWNrIHNpdHplIGRhIHVuJyBlc3NlIEtsb3BzLAp1ZmYgZWVtYWwga2xvcHAncy
         newline characters and <constant>NUL</constant> bytes. If the file system path is omitted it is
         chosen identical to the credential name, i.e. this is a terse way do declare credentials to inherit
         from the service manager into a service. This option may be used multiple times, each time defining
-        an additional credential to pass to the unit.</para>
+        an additional credential to pass to the unit. Alternatively, if the path is a directory, every file
+        in that directory will be loaded as a separate credential. The ID for each credential will be the
+        provided ID suffixed with <literal>_$FILENAME</literal> (e.g., <literal>Key_file1</literal>). When
+        loading from a directory, symlinks will be ignored.</para>
 
         <para>The <varname>LoadCredentialEncrypted=</varname> setting is identical to
         <varname>LoadCredential=</varname>, except that the credential data is decrypted before being passed
