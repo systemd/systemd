@@ -303,9 +303,6 @@ Features:
   - make gatwayd/remote read key via creds logic
   - add sd_notify() command for flushing out creds not needed anymore
 
-* teach LoadCredential= the ability to load all files from a specified dir as
-  individual creds
-
 * add tpm.target or so which is delayed until TPM2 device showed up in case
   firmware indicates there is one.
 
