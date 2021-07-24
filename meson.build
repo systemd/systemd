@@ -1629,6 +1629,7 @@ update_hwdb_sh = find_program('tools/update-hwdb.sh')
 update_hwdb_autosuspend_sh = find_program('tools/update-hwdb-autosuspend.sh')
 update_syscall_tables_sh = find_program('tools/update-syscall-tables.sh')
 xml_helper_py = find_program('tools/xml_helper.py')
+export_dbus_interfaces = find_program('tools/dbus_exporter.py')
 
 #####################################################################
 
@@ -1643,6 +1644,7 @@ add_project_arguments('-include', 'config.h', language : 'c')
 # binaries that have --help and are intended for use by humans,
 # usually, but not always, installed in /bin.
 public_programs = []
+dbus_programs = []
 
 tests = []
 fuzzers = []
@@ -1868,7 +1870,7 @@ endforeach
 
 ############################################################
 
-executable(
+systemd_exe = executable(
         'systemd',
         systemd_sources,
         include_directories : includes,
@@ -1884,6 +1886,8 @@ executable(
         install_rpath : rootlibexecdir,
         install : true,
         install_dir : rootlibexecdir)
+
+dbus_programs += systemd_exe
 
 meson.add_install_script(meson_make_symlink,
                          join_paths(rootlibexecdir, 'systemd'),
@@ -2037,7 +2041,7 @@ if conf.get('HAVE_BLKID') == 1
 endif
 
 if conf.get('ENABLE_RESOLVE') == 1
-        executable(
+        systemd_resolved_exe = executable(
                 'systemd-resolved',
                 systemd_resolved_sources,
                 include_directories : resolve_includes,
@@ -2048,6 +2052,7 @@ if conf.get('ENABLE_RESOLVE') == 1
                 install_rpath : rootlibexecdir,
                 install : true,
                 install_dir : rootlibexecdir)
+        dbus_programs += systemd_resolved_exe
 
         public_programs += executable(
                 'resolvectl',
@@ -2073,7 +2078,7 @@ if conf.get('ENABLE_RESOLVE') == 1
 endif
 
 if conf.get('ENABLE_LOGIND') == 1
-        executable(
+        systemd_logind_exe = executable(
                 'systemd-logind',
                 systemd_logind_sources,
                 include_directories : includes,
@@ -2084,6 +2089,7 @@ if conf.get('ENABLE_LOGIND') == 1
                 install_rpath : rootlibexecdir,
                 install : true,
                 install_dir : rootlibexecdir)
+        dbus_programs += systemd_logind_exe
 
         public_programs += executable(
                 'loginctl',
@@ -2219,7 +2225,7 @@ public_programs += executable(
         install_dir : rootbindir)
 
 if conf.get('ENABLE_PORTABLED') == 1
-        executable(
+        systemd_portabled_exe = executable(
                 'systemd-portabled',
                 systemd_portabled_sources,
                 include_directories : includes,
@@ -2228,6 +2234,7 @@ if conf.get('ENABLE_PORTABLED') == 1
                 install_rpath : rootlibexecdir,
                 install : true,
                 install_dir : rootlibexecdir)
+        dbus_programs += systemd_portabled_exe
 
         public_programs += executable(
                 'portablectl',
@@ -2299,7 +2306,7 @@ if conf.get('ENABLE_HOMED') == 1
                 install : true,
                 install_dir : rootlibexecdir)
 
-        executable(
+        systemd_homed_exe = executable(
                 'systemd-homed',
                 systemd_homed_sources,
                 include_directories : home_includes,
@@ -2310,6 +2317,7 @@ if conf.get('ENABLE_HOMED') == 1
                 install_rpath : rootlibexecdir,
                 install : true,
                 install_dir : rootlibexecdir)
+        dbus_programs += systemd_homed_exe
 
         public_programs += executable(
                 'homectl',
@@ -2482,7 +2490,7 @@ if conf.get('ENABLE_XDG_AUTOSTART') == 1
 endif
 
 if conf.get('ENABLE_HOSTNAMED') == 1
-        executable(
+        systemd_hostnamed_exe = executable(
                 'systemd-hostnamed',
                 'src/hostname/hostnamed.c',
                 include_directories : includes,
@@ -2490,6 +2498,7 @@ if conf.get('ENABLE_HOSTNAMED') == 1
                 install_rpath : rootlibexecdir,
                 install : true,
                 install_dir : rootlibexecdir)
+        dbus_programs += systemd_hostnamed_exe
 
         public_programs += executable(
                 'hostnamectl',
@@ -2508,7 +2517,7 @@ if conf.get('ENABLE_LOCALED') == 1
                 deps = []
         endif
 
-        executable(
+        systemd_localed_exe = executable(
                 'systemd-localed',
                 systemd_localed_sources,
                 include_directories : includes,
@@ -2517,6 +2526,7 @@ if conf.get('ENABLE_LOCALED') == 1
                 install_rpath : rootlibexecdir,
                 install : true,
                 install_dir : rootlibexecdir)
+        dbus_programs += systemd_localed_exe
 
         public_programs += executable(
                 'localectl',
@@ -2528,7 +2538,7 @@ if conf.get('ENABLE_LOCALED') == 1
 endif
 
 if conf.get('ENABLE_TIMEDATED') == 1
-        executable(
+        timedated_exe = executable(
                 'systemd-timedated',
                 'src/timedate/timedated.c',
                 include_directories : includes,
@@ -2536,6 +2546,7 @@ if conf.get('ENABLE_TIMEDATED') == 1
                 install_rpath : rootlibexecdir,
                 install : true,
                 install_dir : rootlibexecdir)
+        dbus_programs += timedated_exe
 endif
 
 if conf.get('ENABLE_TIMEDATECTL') == 1
@@ -2572,7 +2583,7 @@ if conf.get('ENABLE_TIMESYNCD') == 1
 endif
 
 if conf.get('ENABLE_MACHINED') == 1
-        executable(
+        systemd_machined_exe = executable(
                 'systemd-machined',
                 systemd_machined_sources,
                 include_directories : includes,
@@ -2581,6 +2592,7 @@ if conf.get('ENABLE_MACHINED') == 1
                 install_rpath : rootlibexecdir,
                 install : true,
                 install_dir : rootlibexecdir)
+        dbus_programs += systemd_machined_exe
 
         public_programs += executable(
                 'machinectl',
@@ -2597,7 +2609,7 @@ if conf.get('ENABLE_MACHINED') == 1
 endif
 
 if conf.get('ENABLE_IMPORTD') == 1
-        executable(
+        systemd_importd_exe = executable(
                 'systemd-importd',
                 systemd_importd_sources,
                 include_directories : includes,
@@ -2606,6 +2618,7 @@ if conf.get('ENABLE_IMPORTD') == 1
                 install_rpath : rootlibexecdir,
                 install : true,
                 install_dir : rootlibexecdir)
+        dbus_programs += systemd_importd_exe
 
         systemd_pull = executable(
                 'systemd-pull',
@@ -2758,7 +2771,7 @@ if conf.get('ENABLE_PSTORE') == 1
 endif
 
 if conf.get('ENABLE_OOMD') == 1
-        executable('systemd-oomd',
+        systemd_oomd_exe = executable('systemd-oomd',
                    systemd_oomd_sources,
                    include_directories : includes,
                    link_with : [libshared],
@@ -2766,6 +2779,7 @@ if conf.get('ENABLE_OOMD') == 1
                    install_rpath : rootlibexecdir,
                    install : true,
                    install_dir : rootlibexecdir)
+        dbus_programs += systemd_oomd_exe
 
         public_programs += executable(
                 'oomctl',
@@ -3725,6 +3739,19 @@ custom_target(
                    'python3 @0@/tools/update-man-rules.py $(find @0@ -wholename "*/man/*.xml") >t && '.format(project_source_root) +
                    'mv t @0@/man/rules/meson.build'.format(meson.current_source_dir())],
         depends : custom_entities_ent)
+
+custom_target(
+	'export-dbus-interfaces',
+	output : 'interfaces',
+        install : true,
+        install_dir : get_option('datadir') / 'dbus-1',
+	console : true,
+	command : [
+		export_dbus_interfaces,
+		'--output', '@OUTPUT@',
+                '--executables', dbus_programs,
+	]
+)
 
 ############################################################
 watchdog_opt = service_watchdog == '' ? 'disabled' : service_watchdog
