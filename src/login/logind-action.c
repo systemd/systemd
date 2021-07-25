@@ -27,6 +27,7 @@ const char* manager_target_for_action(HandleAction handle) {
                 [HANDLE_HIBERNATE] = SPECIAL_HIBERNATE_TARGET,
                 [HANDLE_HYBRID_SLEEP] = SPECIAL_HYBRID_SLEEP_TARGET,
                 [HANDLE_SUSPEND_THEN_HIBERNATE] = SPECIAL_SUSPEND_THEN_HIBERNATE_TARGET,
+                [HANDLE_FACTORY_RESET] = SPECIAL_FACTORY_RESET_TARGET,
         };
 
         assert(handle >= 0);
@@ -51,6 +52,7 @@ int manager_handle_action(
                 [HANDLE_HIBERNATE] = "Hibernating...",
                 [HANDLE_HYBRID_SLEEP] = "Hibernating and suspending...",
                 [HANDLE_SUSPEND_THEN_HIBERNATE] = "Suspending, then hibernating...",
+                [HANDLE_FACTORY_RESET] = "Performing factory reset...",
         };
 
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
@@ -179,6 +181,7 @@ static const char* const handle_action_table[_HANDLE_ACTION_MAX] = {
         [HANDLE_HIBERNATE] = "hibernate",
         [HANDLE_HYBRID_SLEEP] = "hybrid-sleep",
         [HANDLE_SUSPEND_THEN_HIBERNATE] = "suspend-then-hibernate",
+        [HANDLE_FACTORY_RESET] = "factory-reset",
         [HANDLE_LOCK] = "lock",
 };
 
