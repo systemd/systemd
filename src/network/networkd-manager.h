@@ -96,6 +96,9 @@ struct Manager {
         bool dhcp4_prefix_root_cannot_set_table;
         bool bridge_mdb_on_master_not_supported;
 
+        uint32_t mp_tcp_subflows;
+        uint32_t mp_tcp_add_addr_accepted;
+
         FirewallContext *fw_ctx;
 
         OrderedSet *request_queue;

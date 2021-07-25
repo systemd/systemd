@@ -45,6 +45,7 @@ typedef enum sd_genl_family_t {
         SD_GENL_MACSEC,
         SD_GENL_NL80211,
         SD_GENL_BATADV,
+        SD_GENL_MPTCP,
         _SD_GENL_FAMILY_MAX,
         _SD_GENL_FAMILY_INVALID = -EINVAL,
         _SD_ENUM_FORCE_S64(GENL_FAMILY)
