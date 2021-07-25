@@ -216,8 +216,9 @@
         <literal>suspend</literal>,
         <literal>hibernate</literal>,
         <literal>hybrid-sleep</literal>,
-        <literal>suspend-then-hibernate</literal>, and
-        <literal>lock</literal>.
+        <literal>suspend-then-hibernate</literal>,
+        <literal>lock</literal>, and
+        <literal>factory-reset</literal>.
         If <literal>ignore</literal>, logind will never handle these
         keys. If <literal>lock</literal>, all running sessions will be
         screen-locked; otherwise, the specified action will be taken

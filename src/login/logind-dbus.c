@@ -1491,41 +1491,59 @@ static int have_multiple_sessions(
         return false;
 }
 
-static int bus_manager_log_shutdown(
-                Manager *m,
-                const char *unit_name) {
-
-        const char *p, *q;
-
+_printf_(2, 0)
+static int log_with_wall_message(Manager *m, const char *d, const char *p, const char *q) {
         assert(m);
-        assert(unit_name);
-
-        if (streq(unit_name, SPECIAL_POWEROFF_TARGET)) {
-                p = "MESSAGE=System is powering down";
-                q = "SHUTDOWN=power-off";
-        } else if (streq(unit_name, SPECIAL_REBOOT_TARGET)) {
-                p = "MESSAGE=System is rebooting";
-                q = "SHUTDOWN=reboot";
-        } else if (streq(unit_name, SPECIAL_HALT_TARGET)) {
-                p = "MESSAGE=System is halting";
-                q = "SHUTDOWN=halt";
-        } else if (streq(unit_name, SPECIAL_KEXEC_TARGET)) {
-                p = "MESSAGE=System is rebooting with kexec";
-                q = "SHUTDOWN=kexec";
-        } else {
-                p = "MESSAGE=System is shutting down";
-                q = NULL;
-        }
 
         if (isempty(m->wall_message))
                 p = strjoina(p, ".");
         else
                 p = strjoina(p, " (", m->wall_message, ").");
 
-        return log_struct(LOG_NOTICE,
-                          "MESSAGE_ID=" SD_MESSAGE_SHUTDOWN_STR,
-                          p,
-                          q);
+        return log_struct(LOG_NOTICE, d, p, q);
+}
+
+static int bus_manager_log_shutdown(
+                Manager *m,
+                const char *unit_name) {
+
+        assert(m);
+        assert(unit_name);
+
+        if (streq(unit_name, SPECIAL_POWEROFF_TARGET))
+                return log_with_wall_message(m,
+                                             "MESSAGE_ID=" SD_MESSAGE_SHUTDOWN_STR,
+                                             "MESSAGE=System is powering down",
+                                             "SHUTDOWN=power-off");
+
+        if (streq(unit_name, SPECIAL_REBOOT_TARGET))
+                return log_with_wall_message(m,
+                                             "MESSAGE_ID=" SD_MESSAGE_SHUTDOWN_STR,
+                                             "MESSAGE=System is rebooting",
+                                             "SHUTDOWN=reboot");
+
+        if (streq(unit_name, SPECIAL_HALT_TARGET))
+                return log_with_wall_message(m,
+                                             "MESSAGE_ID=" SD_MESSAGE_SHUTDOWN_STR,
+                                             "MESSAGE=System is halting",
+                                             "SHUTDOWN=halt");
+
+        if (streq(unit_name, SPECIAL_KEXEC_TARGET))
+                return log_with_wall_message(m,
+                                             "MESSAGE_ID=" SD_MESSAGE_SHUTDOWN_STR,
+                                             "MESSAGE=System is rebooting with kexec",
+                                             "SHUTDOWN=kexec");
+
+        if (streq(unit_name, SPECIAL_FACTORY_RESET_TARGET))
+                return log_with_wall_message(m,
+                                             "MESSAGE_ID=" SD_MESSAGE_FACTORY_RESET_STR,
+                                             "MESSAGE=System is performing factory reset",
+                                             NULL);
+
+        return log_with_wall_message(m,
+                                     "MESSAGE_ID=" SD_MESSAGE_SHUTDOWN_STR,
+                                     "MESSAGE=System is shutting down",
+                                     NULL);
 }
 
 static int lid_switch_ignore_handler(sd_event_source *e, uint64_t usec, void *userdata) {

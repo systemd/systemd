@@ -20,6 +20,7 @@
 #define SPECIAL_HIBERNATE_TARGET "hibernate.target"
 #define SPECIAL_HYBRID_SLEEP_TARGET "hybrid-sleep.target"
 #define SPECIAL_SUSPEND_THEN_HIBERNATE_TARGET "suspend-then-hibernate.target"
+#define SPECIAL_FACTORY_RESET_TARGET "factory-reset.target"
 
 /* Special boot targets */
 #define SPECIAL_RESCUE_TARGET "rescue.target"

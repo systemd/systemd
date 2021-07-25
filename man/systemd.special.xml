@@ -33,6 +33,7 @@
     <filename>default.target</filename>,
     <filename>emergency.target</filename>,
     <filename>exit.target</filename>,
+    <filename>factory-reset.target</filename>,
     <filename>final.target</filename>,
     <filename>first-boot-complete.target</filename>,
     <filename>getty.target</filename>,
@@ -277,6 +278,12 @@
             <filename>shutdown.target</filename>, which in turn should be
             conflicted by all units that want to be scheduled for
             shutdown when the service manager starts to exit.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><filename>factory-reset.target</filename></term>
+          <listitem>
+            <para>A special target to trigger a factory reset.</para>
           </listitem>
         </varlistentry>
         <varlistentry>

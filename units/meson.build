@@ -19,6 +19,7 @@ units = [
          'sysinit.target.wants/'],
         ['emergency.target',                    ''],
         ['exit.target',                         ''],
+        ['factory-reset.target',                ''],
         ['final.target',                        ''],
         ['first-boot-complete.target',          ''],
         ['getty.target',                        '',
