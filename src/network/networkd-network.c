@@ -22,6 +22,7 @@
 #include "networkd-dhcp-server.h"
 #include "networkd-ipv6-proxy-ndp.h"
 #include "networkd-manager.h"
+#include "networkd-mptcp.h"
 #include "networkd-ndisc.h"
 #include "networkd-neighbor.h"
 #include "networkd-network.h"
@@ -265,6 +266,7 @@ int network_verify(Network *network) {
         network_drop_invalid_traffic_control(network);
         network_drop_invalid_sr_iov(network);
         network_drop_invalid_static_leases(network);
+        network_drop_invalid_mp_tcp(network);
 
         network_adjust_dhcp_server(network);
 
@@ -450,6 +452,7 @@ int network_load_one(Manager *manager, OrderedHashmap **networks, const char *fi
                         "IPv6Prefix\0"
                         "IPv6RoutePrefix\0"
                         "LLDP\0"
+                        "MPTCP\0"
                         "TrafficControlQueueingDiscipline\0"
                         "CAN\0"
                         "QDisc\0"

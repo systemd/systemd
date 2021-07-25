@@ -14,6 +14,7 @@
 #include "mkdir.h"
 #include "networkd-conf.h"
 #include "networkd-manager.h"
+#include "networkd-mptcp.h"
 #include "signal-util.h"
 #include "user-util.h"
 
@@ -84,6 +85,8 @@ static int run(int argc, char *argv[]) {
         r = manager_parse_config_file(m);
         if (r < 0)
                 log_warning_errno(r, "Failed to parse configuration file: %m");
+
+        (void) mp_tcp_configure_limit(m);
 
         r = manager_load_config(m);
         if (r < 0)
