@@ -279,12 +279,28 @@ static int button_dispatch(sd_event_source *s, int fd, uint32_t revents, void *u
                 }
 
         } else if (ev.type == EV_KEY && ev.value == 0) {
-                if (ev.code == KEY_RESTART) {
-                        if (b->manager->reboot_key_long_press_event_source) {
+
+                switch (ev.code) {
+
+                case KEY_POWER:
+                case KEY_POWER2:
+                        if (b->manager->power_key_long_press_event_source) {
                                 /* Long press event timer is still pending and key release
                                    event happened.  This means that key press duration was
                                    insufficient to trigger a long press event
                                 */
+                                log_struct(LOG_INFO,
+                                           LOG_MESSAGE("Power key pressed short."),
+                                           "MESSAGE_ID=" SD_MESSAGE_POWER_KEY_STR);
+
+                                b->manager->power_key_long_press_event_source = sd_event_source_unref(b->manager->power_key_long_press_event_source);
+
+                                manager_handle_action(b->manager, INHIBIT_HANDLE_POWER_KEY, b->manager->handle_power_key, b->manager->power_key_ignore_inhibited, true);
+                        }
+                        break;
+
+                case KEY_RESTART:
+                        if (b->manager->reboot_key_long_press_event_source) {
                                 log_struct(LOG_INFO,
                                            LOG_MESSAGE("Reboot key pressed short."),
                                            "MESSAGE_ID=" SD_MESSAGE_REBOOT_KEY_STR);
@@ -293,6 +309,30 @@ static int button_dispatch(sd_event_source *s, int fd, uint32_t revents, void *u
 
                                 manager_handle_action(b->manager, INHIBIT_HANDLE_REBOOT_KEY, b->manager->handle_reboot_key, b->manager->reboot_key_ignore_inhibited, true);
                         }
+                        break;
+
+                case KEY_SLEEP:
+                        if (b->manager->suspend_key_long_press_event_source) {
+                                log_struct(LOG_INFO,
+                                           LOG_MESSAGE("Suspend key pressed short."),
+                                           "MESSAGE_ID=" SD_MESSAGE_SUSPEND_KEY_STR);
+
+                                b->manager->suspend_key_long_press_event_source = sd_event_source_unref(b->manager->suspend_key_long_press_event_source);
+
+                                manager_handle_action(b->manager, INHIBIT_HANDLE_SUSPEND_KEY, b->manager->handle_suspend_key, b->manager->suspend_key_ignore_inhibited, true);
+                        }
+                        break;
+                case KEY_SUSPEND:
+                        if (b->manager->hibernate_key_long_press_event_source) {
+                                log_struct(LOG_INFO,
+                                           LOG_MESSAGE("Hibernate key pressed short."),
+                                           "MESSAGE_ID=" SD_MESSAGE_HIBERNATE_KEY_STR);
+
+                                b->manager->hibernate_key_long_press_event_source = sd_event_source_unref(b->manager->hibernate_key_long_press_event_source);
+
+                                manager_handle_action(b->manager, INHIBIT_HANDLE_HIBERNATE_KEY, b->manager->handle_hibernate_key, b->manager->hibernate_key_ignore_inhibited, true);
+                        }
+                        break;
                 }
 
         } else if (ev.type == EV_SW && ev.value > 0) {
