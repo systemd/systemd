@@ -21,6 +21,7 @@ static const genl_family genl_families[] = {
         [SD_GENL_MACSEC]    = { .name = "macsec",    .version = 1 },
         [SD_GENL_NL80211]   = { .name = "nl80211",   .version = 1 },
         [SD_GENL_BATADV]    = { .name = "batadv",    .version = 1 },
+        [SD_GENL_MPTCP]     = { .name = "mptcp_pm",  .version = 1 },
 };
 
 int sd_genl_socket_open(sd_netlink **ret) {

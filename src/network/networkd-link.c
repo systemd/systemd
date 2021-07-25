@@ -42,6 +42,7 @@
 #include "networkd-link.h"
 #include "networkd-lldp-tx.h"
 #include "networkd-manager.h"
+#include "networkd-mptcp.h"
 #include "networkd-ndisc.h"
 #include "networkd-neighbor.h"
 #include "networkd-nexthop.h"
@@ -487,6 +488,9 @@ void link_check_ready(Link *link) {
 
         if (!link->sr_iov_configured)
                 return (void) log_link_debug(link, "%s(): SR-IOV is not configured.", __func__);
+
+        if (!link->mp_tcp_configured)
+                return (void) log_link_debug(link, "%s(): MPTCP is not configured.", __func__);
 
         /* IPv6LL is assigned after the link gains its carrier. */
         if (!link->network->configure_without_carrier &&
@@ -1075,6 +1079,10 @@ static int link_configure(Link *link) {
         }
 
         r = link_configure_sr_iov(link);
+        if (r < 0)
+                return r;
+
+        r = link_configure_mp_tcp(link);
         if (r < 0)
                 return r;
 
