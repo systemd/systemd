@@ -4,6 +4,7 @@
 #include <linux/if.h>
 #include <linux/if_arp.h>
 #include <linux/if_link.h>
+#include <linux/netdevice.h>
 #include <unistd.h>
 
 #include "alloc-util.h"
