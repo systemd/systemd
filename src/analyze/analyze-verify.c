@@ -11,6 +11,7 @@
 #include "manager.h"
 #include "pager.h"
 #include "path-util.h"
+#include "string-table.h"
 #include "strv.h"
 #include "unit-name.h"
 #include "unit-serialize.h"
@@ -218,13 +219,15 @@ static int verify_unit(Unit *u, bool check_man) {
         return r;
 }
 
-int verify_units(char **filenames, UnitFileScope scope, bool check_man, bool run_generators) {
+int verify_units(char **filenames, UnitFileScope scope, bool check_man, bool run_generators, ReturnErrorOn return_error_on) {
         const ManagerTestRunFlags flags =
                 MANAGER_TEST_RUN_MINIMAL |
                 MANAGER_TEST_RUN_ENV_GENERATORS |
+                (return_error_on == RETURN_ERROR_ON_WARNING_IN_SELECTED) * MANAGER_TEST_RUN_IGNORE_DEPENDENCIES |
                 run_generators * MANAGER_TEST_RUN_GENERATORS;
 
         _cleanup_(manager_freep) Manager *m = NULL;
+        _cleanup_set_free_free_ Set *s = NULL;
         Unit *units[strv_length(filenames)];
         _cleanup_free_ char *var = NULL;
         int r, k, i, count = 0;
@@ -232,6 +235,12 @@ int verify_units(char **filenames, UnitFileScope scope, bool check_man, bool run
 
         if (strv_isempty(filenames))
                 return 0;
+
+        if (return_error_on) {
+                log_unit_ids = s = set_new(&string_hash_ops);
+                if (!log_unit_ids)
+                        return -ENOMEM;
+        }
 
         /* set the path */
         r = generate_path(&var, filenames);
@@ -283,5 +292,27 @@ int verify_units(char **filenames, UnitFileScope scope, bool check_man, bool run
                         r = k;
         }
 
+        if (!set_isempty(log_unit_ids) && r == 0) {
+                if (IN_SET(return_error_on, RETURN_ERROR_ON_ANY_WARNING, RETURN_ERROR_ON_WARNING_IN_SELECTED))
+                        r = -EINVAL;
+                else if (return_error_on == RETURN_ERROR_ON_WARNING_IN_SELECTED_AND_CHILDREN) {
+                        STRV_FOREACH(filename, filenames) {
+                                if (set_contains(log_unit_ids, basename(*filename))) {
+                                        r = -EINVAL;
+                                        break;
+                                }
+                        }
+                }
+        }
+
         return r;
 }
+
+static const char* const return_error_on_table[_RETURN_ERROR_ON_MAX] = {
+        [RETURN_ERROR_ON_NONE]                             = "none",
+        [RETURN_ERROR_ON_ANY_WARNING]                      = "any-warning",
+        [RETURN_ERROR_ON_WARNING_IN_SELECTED]              = "warning-in-selected",
+        [RETURN_ERROR_ON_WARNING_IN_SELECTED_AND_CHILDREN] = "warning-in-selected-and-children",
+};
+
+DEFINE_STRING_TABLE_LOOKUP(return_error_on, ReturnErrorOn);

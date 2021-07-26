@@ -745,6 +745,20 @@ Service b@0.service not loaded, b.socket cannot be started.
       </varlistentry>
 
       <varlistentry>
+        <term><option>--return-error-on=<replaceable>MODE</replaceable></option></term>
+
+        <listitem><para>Controls verification of units and its dependencies and whether
+        <command>systemd-analyze verify</command> exits with an error or not. There are four possible
+        modes that can be passed to this option and these are either <command>none</command>, which is
+        the default mode and never returns errors when warnings arise during verification of units,
+        <command>any-warning</command>, which is used to verify all associated units and returns errors when
+        warnings arise in any of them, <command>warning-in-selected</command>, which is used to verify only the
+        specified unit and returns errors when warnings arise in that unit, or
+        <command>warning-in-selected-and-children</command>, which is used to verify the specified unit and its
+        children (i.e. direct dependencies) and returns errors when warnings arise in any of these units.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>--root=<replaceable>PATH</replaceable></option></term>
 
         <listitem><para>With <command>cat-files</command>, show config files underneath
