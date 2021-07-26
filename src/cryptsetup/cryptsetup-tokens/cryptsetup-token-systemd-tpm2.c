@@ -134,7 +134,7 @@ _public_ void cryptsetup_token_dump(
                 const char *json /* validated 'systemd-tpm2' token if cryptsetup_token_validate is defined */) {
 
         int r;
-        uint32_t i, pcr_mask;
+        uint32_t pcr_mask;
         uint16_t pcr_bank;
         size_t decoded_blob_size;
         _cleanup_free_ char *base64_blob = NULL, *hex_policy_hash = NULL,
@@ -147,7 +147,7 @@ _public_ void cryptsetup_token_dump(
         if (r < 0)
                 return (void) crypt_log_debug_errno(cd, r, "Failed to parse " TOKEN_NAME " metadata: %m.");
 
-        for (i = 0; i < TPM2_PCRS_MAX; i++) {
+        for (uint32_t i = 0; i < TPM2_PCRS_MAX; i++) {
                 if ((pcr_mask & (UINT32_C(1) << i)) &&
                     ((r = strextendf_with_separator(&pcrs_str, ", ", "%" PRIu32, i)) < 0))
                         return (void) crypt_log_debug_errno(cd, r, "Can not dump " TOKEN_NAME " content: %m");
