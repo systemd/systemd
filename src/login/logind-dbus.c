@@ -1512,6 +1512,9 @@ static int bus_manager_log_shutdown(
         } else if (streq(unit_name, SPECIAL_KEXEC_TARGET)) {
                 p = "MESSAGE=System is rebooting with kexec";
                 q = "SHUTDOWN=kexec";
+        } else if (streq(unit_name, SPECIAL_FACTORY_RESET_TARGET)) {
+                p = "MESSAGE=System is performing factory reset";
+                q = "SHUTDOWN=factory-reset";
         } else {
                 p = "MESSAGE=System is shutting down";
                 q = NULL;
