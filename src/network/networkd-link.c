@@ -5,6 +5,7 @@
 #include <linux/if.h>
 #include <linux/if_arp.h>
 #include <linux/if_link.h>
+#include <linux/netdevice.h>
 #include <sys/socket.h>
 #include <unistd.h>
 
