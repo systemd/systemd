@@ -745,6 +745,20 @@ Service b@0.service not loaded, b.socket cannot be started.
       </varlistentry>
 
       <varlistentry>
+        <term><option>--error-on=<replaceable>MODE</replaceable></option></term>
+
+        <listitem><para>Controls verification of units and its dependencies. There are three possible modes that can be
+        passed to this option and these are either <command>all</command>, which is used to verify all associated units,
+        <command>selected</command> which is used to verify only the specified unit, or
+        <command>selected-and-children</command> which is used to verify the unit and its children dependencies.
+        When the <command>verify</command> verb of systemd-analyze loads a unit, it recursively loads the unit dependencies
+        too, but for discrete images, which do not have the full set of dependencies, we should still be able to validate
+        them without requiring such recursive loading of dependencies. For other units, we want to be able to detect the
+        errors even before verification because issues may arise while loading the unit itself. Hence, it is important to have
+        multiple modes so the user can determine whether dependencies need to be ignored or not.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>--root=<replaceable>PATH</replaceable></option></term>
 
         <listitem><para>With <command>cat-files</command>, show config files underneath
