@@ -89,6 +89,7 @@ _arguments \
     '--global[Show global user instance config]' \
     '--root=[Add support for root argument]:PATH' \
     '--image=[Add support for discrete images]:PATH' \
+    '--recursive-errors=[When verifying a unit, control dependency verification]:MODE' \
     '--no-pager[Do not pipe output into a pager]' \
     '--man=[Do (not) check for existence of man pages]:boolean:(1 0)' \
     '--order[When generating graph for dot, show only order]' \
