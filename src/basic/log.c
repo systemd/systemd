@@ -476,7 +476,7 @@ static int write_to_syslog(
                 IOVEC_MAKE_STRING(header_pid),
                 IOVEC_MAKE_STRING(buffer),
         };
-        struct msghdr msghdr = {
+        const struct msghdr msghdr = {
                 .msg_iov = iovec,
                 .msg_iovlen = ELEMENTSOF(iovec),
         };
@@ -608,23 +608,24 @@ static int write_to_journal(
                 const char *buffer) {
 
         char header[LINE_MAX];
-        struct iovec iovec[4] = {};
-        struct msghdr mh = {};
 
         if (journal_fd < 0)
                 return 0;
 
         log_do_header(header, sizeof(header), level, error, file, line, func, object_field, object, extra_field, extra);
 
-        iovec[0] = IOVEC_MAKE_STRING(header);
-        iovec[1] = IOVEC_MAKE_STRING("MESSAGE=");
-        iovec[2] = IOVEC_MAKE_STRING(buffer);
-        iovec[3] = IOVEC_MAKE_STRING("\n");
+        struct iovec iovec[4] = {
+                IOVEC_MAKE_STRING(header),
+                IOVEC_MAKE_STRING("MESSAGE="),
+                IOVEC_MAKE_STRING(buffer),
+                IOVEC_MAKE_STRING("\n"),
+        };
+        const struct msghdr msghdr = {
+                .msg_iov = iovec,
+                .msg_iovlen = ELEMENTSOF(iovec),
+        };
 
-        mh.msg_iov = iovec;
-        mh.msg_iovlen = ELEMENTSOF(iovec);
-
-        if (sendmsg(journal_fd, &mh, MSG_NOSIGNAL) < 0)
+        if (sendmsg(journal_fd, &msghdr, MSG_NOSIGNAL) < 0)
                 return -errno;
 
         return 1;
@@ -959,12 +960,9 @@ int log_struct_internal(
 
                 if (journal_fd >= 0) {
                         char header[LINE_MAX];
-                        struct iovec iovec[17] = {};
+                        struct iovec iovec[17];
                         size_t n = 0;
                         int r;
-                        struct msghdr mh = {
-                                .msg_iov = iovec,
-                        };
                         bool fallback = false;
 
                         /* If the journal is available do structured logging.
@@ -977,8 +975,12 @@ int log_struct_internal(
                         if (r < 0)
                                 fallback = true;
                         else {
-                                mh.msg_iovlen = n;
-                                (void) sendmsg(journal_fd, &mh, MSG_NOSIGNAL);
+                                const struct msghdr msghdr = {
+                                        .msg_iov = iovec,
+                                        .msg_iovlen = n,
+                                };
+
+                                (void) sendmsg(journal_fd, &msghdr, MSG_NOSIGNAL);
                         }
 
                         va_end(ap);
@@ -1052,22 +1054,22 @@ int log_struct_iovec_internal(
                                LOG_TARGET_JOURNAL) &&
             journal_fd >= 0) {
 
-                struct iovec iovec[1 + n_input_iovec*2];
                 char header[LINE_MAX];
-                struct msghdr mh = {
-                        .msg_iov = iovec,
-                        .msg_iovlen = 1 + n_input_iovec*2,
-                };
-
                 log_do_header(header, sizeof(header), level, error, file, line, func, NULL, NULL, NULL, NULL);
-                iovec[0] = IOVEC_MAKE_STRING(header);
 
+                struct iovec iovec[1 + n_input_iovec*2];
+                iovec[0] = IOVEC_MAKE_STRING(header);
                 for (i = 0; i < n_input_iovec; i++) {
                         iovec[1+i*2] = input_iovec[i];
                         iovec[1+i*2+1] = IOVEC_MAKE_STRING("\n");
                 }
 
-                if (sendmsg(journal_fd, &mh, MSG_NOSIGNAL) >= 0)
+                const struct msghdr msghdr = {
+                        .msg_iov = iovec,
+                        .msg_iovlen = 1 + n_input_iovec*2,
+                };
+
+                if (sendmsg(journal_fd, &msghdr, MSG_NOSIGNAL) >= 0)
                         return -ERRNO_VALUE(error);
         }
 
