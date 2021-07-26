@@ -84,6 +84,7 @@ static PagerFlags arg_pager_flags = 0;
 static BusTransport arg_transport = BUS_TRANSPORT_LOCAL;
 static const char *arg_host = NULL;
 static UnitFileScope arg_scope = UNIT_FILE_SYSTEM;
+static const char *arg_error_on = NULL;
 static bool arg_man = true;
 static bool arg_generators = false;
 static const char *arg_root = NULL;
@@ -2141,7 +2142,7 @@ static int do_condition(int argc, char *argv[], void *userdata) {
 }
 
 static int do_verify(int argc, char *argv[], void *userdata) {
-        return verify_units(strv_skip(argv, 1), arg_scope, arg_man, arg_generators);
+        return verify_units(strv_skip(argv, 1), arg_scope, arg_man, arg_generators, arg_error_on);
 }
 
 static int do_security(int argc, char *argv[], void *userdata) {
@@ -2195,6 +2196,7 @@ static int help(int argc, char *argv[], void *userdata) {
                "  security [UNIT...]       Analyze security of unit\n"
                "\nOptions:\n"
                "  -h --help                Show this help\n"
+               "     --error-on=[MODE]     Show verification errors based on chosen mode\n"
                "     --version             Show package version\n"
                "     --no-pager            Do not pipe output into a pager\n"
                "     --system              Operate on system systemd instance\n"
@@ -2242,10 +2244,12 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_GENERATORS,
                 ARG_ITERATIONS,
                 ARG_BASE_TIME,
+                ARG_ERROR_ON,
         };
 
         static const struct option options[] = {
                 { "help",         no_argument,       NULL, 'h'                  },
+                { "error-on",     required_argument, NULL, ARG_ERROR_ON         },
                 { "version",      no_argument,       NULL, ARG_VERSION          },
                 { "order",        no_argument,       NULL, ARG_ORDER            },
                 { "require",      no_argument,       NULL, ARG_REQUIRE          },
@@ -2276,6 +2280,10 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case 'h':
                         return help(0, NULL, NULL);
+
+                case ARG_ERROR_ON:
+                        arg_error_on = optarg;
+                        break;
 
                 case ARG_VERSION:
                         return version();
@@ -2368,6 +2376,10 @@ static int parse_argv(int argc, char *argv[]) {
                 default:
                         assert_not_reached("Unhandled option code.");
                 }
+
+        if (arg_error_on && !STR_IN_SET(arg_error_on, "selected", "all", "selected-and-children"))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Option --error-on only makes sense with modes selected, all, or selected-and-children.");
 
         if (arg_scope == UNIT_FILE_GLOBAL &&
             !STR_IN_SET(argv[optind] ?: "time", "dot", "unit-paths", "verify"))

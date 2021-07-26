@@ -9,6 +9,12 @@
 
 #include "macro.h"
 
+/* The set of units that are logged about with log_syntax(). We use a global variable because those errors
+ * are usually ignored by the caller, and this way we can know how many issues (if any) were detected
+ * without refactoring all the callers. */
+typedef struct Set Set;
+extern Set *log_unit_ids;
+
 /* Some structures we reference but don't want to pull in headers for */
 struct iovec;
 struct signalfd_siginfo;
