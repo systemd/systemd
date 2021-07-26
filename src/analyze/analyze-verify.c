@@ -218,13 +218,15 @@ static int verify_unit(Unit *u, bool check_man) {
         return r;
 }
 
-int verify_units(char **filenames, UnitFileScope scope, bool check_man, bool run_generators) {
+int verify_units(char **filenames, UnitFileScope scope, bool check_man, bool run_generators, const char *error_on, const char *root) {
         const ManagerTestRunFlags flags =
                 MANAGER_TEST_RUN_MINIMAL |
                 MANAGER_TEST_RUN_ENV_GENERATORS |
+                streq_ptr(error_on, "selected") * MANAGER_TEST_RUN_IGNORE_DEPENDENCIES |
                 run_generators * MANAGER_TEST_RUN_GENERATORS;
 
         _cleanup_(manager_freep) Manager *m = NULL;
+        _cleanup_set_free_free_ Set *s = NULL;
         Unit *units[strv_length(filenames)];
         _cleanup_free_ char *var = NULL;
         int r, k, i, count = 0;
@@ -232,6 +234,12 @@ int verify_units(char **filenames, UnitFileScope scope, bool check_man, bool run
 
         if (strv_isempty(filenames))
                 return 0;
+
+        if (error_on) {
+                log_unit_ids = s = set_new(&string_hash_ops);
+                if (!log_unit_ids)
+                        return -ENOMEM;
+        }
 
         /* set the path */
         r = generate_path(&var, filenames);
@@ -281,6 +289,19 @@ int verify_units(char **filenames, UnitFileScope scope, bool check_man, bool run
                 k = verify_unit(units[i], check_man);
                 if (k < 0 && r == 0)
                         r = k;
+        }
+
+        if (!set_isempty(log_unit_ids) && r == 0) {
+                if (STR_IN_SET(error_on, "all", "selected"))
+                        r = -EINVAL;
+                else if (streq_ptr(error_on, "selected-and-children")) {
+                        STRV_FOREACH(filename, filenames) {
+                                if (set_contains(log_unit_ids, basename(*filename))) {
+                                        r = -EINVAL;
+                                        break;
+                                }
+                        }
+                }
         }
 
         return r;
