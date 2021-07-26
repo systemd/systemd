@@ -125,7 +125,7 @@ _systemd_analyze() {
 
     elif __contains_word "$verb" ${VERBS[VERIFY]}; then
         if [[ $cur = -* ]]; then
-            comps='--help --version --system --user --global --man=no --generators=yes --root --image'
+            comps='--help --version --system --user --global --man=no --generators=yes --root --image --recursive-errors=no --recursive-errors=yes --recursive-errors=one'
         else
             comps=$( compgen -A file -- "$cur" )
             compopt -o filenames
