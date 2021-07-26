@@ -11,9 +11,22 @@
 #include "manager.h"
 #include "pager.h"
 #include "path-util.h"
+#include "string-table.h"
 #include "strv.h"
 #include "unit-name.h"
 #include "unit-serialize.h"
+
+static int log_syntax_callback(const char *unit, int level, void *userdata) {
+        Set **s = userdata;
+
+        assert(userdata);
+        assert(unit);
+
+        if (level > LOG_WARNING)
+                return 0;
+
+        return set_put_strdup(s, unit);
+}
 
 static int prepare_filename(const char *filename, char **ret) {
         int r;
@@ -218,20 +231,38 @@ static int verify_unit(Unit *u, bool check_man) {
         return r;
 }
 
-int verify_units(char **filenames, UnitFileScope scope, bool check_man, bool run_generators) {
+static void restore_log_syntax_callback(void *userdata) {
+        if (userdata)
+                set_log_syntax_callback(/* cb= */ log_syntax_callback, /* userdata= */ userdata);
+}
+
+int verify_units(char **filenames, UnitFileScope scope, bool check_man, bool run_generators, RecursiveErrors recursive_errors) {
         const ManagerTestRunFlags flags =
                 MANAGER_TEST_RUN_MINIMAL |
                 MANAGER_TEST_RUN_ENV_GENERATORS |
+                (recursive_errors == RECURSIVE_ERRORS_NO) * MANAGER_TEST_RUN_IGNORE_DEPENDENCIES |
                 run_generators * MANAGER_TEST_RUN_GENERATORS;
 
         _cleanup_(manager_freep) Manager *m = NULL;
+        _cleanup_set_free_free_ Set *s = NULL;
         Unit *units[strv_length(filenames)];
         _cleanup_free_ char *var = NULL;
         int r, k, i, count = 0;
         char **filename;
+        _cleanup_(restore_log_syntax_callback) void *temp = NULL;
 
         if (strv_isempty(filenames))
                 return 0;
+
+        /* Allow systemd-analyze to hook in a callback function so that it can get
+         * all the required log data from the function itself without having to rely
+         * on a global set variable for the same */
+        if (recursive_errors >= 0) {
+                s = set_new(&string_hash_ops);
+                if (!s)
+                        return -ENOMEM;
+                set_log_syntax_callback(log_syntax_callback, &s);
+        }
 
         /* set the path */
         r = generate_path(&var, filenames);
@@ -283,5 +314,28 @@ int verify_units(char **filenames, UnitFileScope scope, bool check_man, bool run
                         r = k;
         }
 
+        if (set_isempty(s) || r != 0)
+                return r;
+        else {
+                if (IN_SET(recursive_errors, RECURSIVE_ERRORS_YES, RECURSIVE_ERRORS_NO))
+                        r = -EINVAL;
+                else if (recursive_errors == RECURSIVE_ERRORS_ONE) {
+                        STRV_FOREACH(filename, filenames) {
+                                if (set_contains(s, basename(*filename))) {
+                                        r = -EINVAL;
+                                        break;
+                                }
+                        }
+                }
+        }
+
         return r;
 }
+
+static const char* const recursive_errors_table[_RECURSIVE_ERRORS_MAX] = {
+        [RECURSIVE_ERRORS_NO]  =  "no",
+        [RECURSIVE_ERRORS_YES] =  "yes",
+        [RECURSIVE_ERRORS_ONE] =  "one",
+};
+
+DEFINE_STRING_TABLE_LOOKUP(recursive_errors, RecursiveErrors);
