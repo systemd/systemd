@@ -389,6 +389,8 @@ int manager_new(Manager **ret) {
                 .dhcp_duid.type = DUID_TYPE_EN,
                 .dhcp6_duid.type = DUID_TYPE_EN,
                 .duid_product_uuid.type = DUID_TYPE_UUID,
+                .mp_tcp_subflows = UINT32_MAX,
+                .mp_tcp_add_addr_accepted = UINT32_MAX,
         };
 
         m->state_file = strdup("/run/systemd/netif/state");

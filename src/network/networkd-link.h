@@ -101,6 +101,7 @@ typedef struct Link {
         unsigned set_flags_messages;
         unsigned create_stacked_netdev_messages;
         unsigned create_stacked_netdev_after_configured_messages;
+        unsigned mp_tcp_messages;
 
         Set *addresses;
         Set *addresses_foreign;
@@ -138,6 +139,7 @@ typedef struct Link {
         bool static_routing_policy_rules_configured:1;
         bool tc_configured:1;
         bool sr_iov_configured:1;
+        bool mp_tcp_configured:1;
         bool activated:1;
         bool master_set:1;
         bool stacked_netdevs_created:1;
