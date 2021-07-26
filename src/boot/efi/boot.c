@@ -136,7 +136,7 @@ static BOOLEAN line_edit(
                 print_at(1, y_pos, COLOR_EDIT, print);
                 uefi_call_wrapper(ST->ConOut->SetCursorPosition, 3, ST->ConOut, cursor + 1, y_pos);
 
-                err = console_key_read(&key, TRUE);
+                err = console_key_read(&key, 0);
                 if (EFI_ERROR(err))
                         continue;
 
@@ -384,7 +384,7 @@ static VOID print_status(Config *config, CHAR16 *loaded_image_path) {
                 Print(L"OsIndicationsSupported: %d\n", indvar);
 
         Print(L"\n--- press key ---\n\n");
-        console_key_read(&key, TRUE);
+        console_key_read(&key, 0);
 
         Print(L"timeout:                %u\n", config->timeout_sec);
         if (config->timeout_sec_efivar >= 0)
@@ -430,7 +430,7 @@ static VOID print_status(Config *config, CHAR16 *loaded_image_path) {
                 Print(L"LoaderEntryDefault:     %s\n", defaultstr);
 
         Print(L"\n--- press key ---\n\n");
-        console_key_read(&key, TRUE);
+        console_key_read(&key, 0);
 
         for (UINTN i = 0; i < config->entry_count; i++) {
                 ConfigEntry *entry;
@@ -480,7 +480,7 @@ static VOID print_status(Config *config, CHAR16 *loaded_image_path) {
                               entry->path, entry->next_name);
 
                 Print(L"\n--- press key ---\n\n");
-                console_key_read(&key, TRUE);
+                console_key_read(&key, 0);
         }
 
         uefi_call_wrapper(ST->ConOut->ClearScreen, 1, ST->ConOut);
@@ -512,11 +512,10 @@ static BOOLEAN menu_run(
         UINTN y_max;
         CHAR16 *status = NULL;
         CHAR16 *clearline = NULL;
-        INTN timeout_remain;
+        INTN timeout_remain = config->timeout_sec;
         INT16 idx;
         BOOLEAN exit = FALSE;
         BOOLEAN run = TRUE;
-        BOOLEAN wait = FALSE;
 
         graphics_mode(FALSE);
         uefi_call_wrapper(ST->ConIn->Reset, 2, ST->ConIn, FALSE);
@@ -533,12 +532,6 @@ static BOOLEAN menu_run(
                 uefi_call_wrapper(ST->ConOut->ClearScreen, 1, ST->ConOut);
                 PrintErrorStall(L"Error switching console mode: %r", err);
         }
-
-        /* we check 10 times per second for a keystroke */
-        if (config->timeout_sec > 0)
-                timeout_remain = config->timeout_sec * 10;
-        else
-                timeout_remain = -1;
 
         while (!exit) {
                 UINT64 key;
@@ -646,7 +639,7 @@ static BOOLEAN menu_run(
 
                 if (timeout_remain > 0) {
                         FreePool(status);
-                        status = PoolPrint(L"Boot in %d sec.", (timeout_remain + 5) / 10);
+                        status = PoolPrint(L"Boot in %ds.", timeout_remain);
                 }
 
                 /* print status after entry list */
@@ -665,27 +658,18 @@ static BOOLEAN menu_run(
                         uefi_call_wrapper(ST->ConOut->OutputString, 2, ST->ConOut, clearline+1 + x + len);
                 }
 
-                err = console_key_read(&key, wait);
-                if (EFI_ERROR(err)) {
-                        /* timeout reached */
+                err = console_key_read(&key, timeout_remain > 0 ? 1000 * 1000 : 0);
+                if (err == EFI_TIMEOUT) {
+                        timeout_remain--;
                         if (timeout_remain == 0) {
                                 exit = TRUE;
                                 break;
                         }
 
-                        /* sleep and update status */
-                        if (timeout_remain > 0) {
-                                uefi_call_wrapper(BS->Stall, 1, 100 * 1000);
-                                timeout_remain--;
-                                continue;
-                        }
-
-                        /* timeout disabled, wait for next key */
-                        wait = TRUE;
+                        /* update status */
                         continue;
-                }
-
-                timeout_remain = -1;
+                } else
+                        timeout_remain = 0;
 
                 /* clear status after keystroke */
                 if (status) {
@@ -788,7 +772,7 @@ static BOOLEAN menu_run(
                                         config->timeout_sec_efivar,
                                         EFI_VARIABLE_NON_VOLATILE);
                                 if (config->timeout_sec_efivar > 0)
-                                        status = PoolPrint(L"Menu timeout set to %d sec.", config->timeout_sec_efivar);
+                                        status = PoolPrint(L"Menu timeout set to %ds.", config->timeout_sec_efivar);
                                 else
                                         status = StrDuplicate(L"Menu disabled. Hold down key at bootup to show menu.");
                         } else if (config->timeout_sec_efivar <= 0){
@@ -796,7 +780,7 @@ static BOOLEAN menu_run(
                                 efivar_set(
                                         LOADER_GUID, L"LoaderConfigTimeout", NULL, EFI_VARIABLE_NON_VOLATILE);
                                 if (config->timeout_sec_config > 0)
-                                        status = PoolPrint(L"Menu timeout of %d sec is defined by configuration file.",
+                                        status = PoolPrint(L"Menu timeout of %ds is defined by configuration file.",
                                                            config->timeout_sec_config);
                                 else
                                         status = StrDuplicate(L"Menu disabled. Hold down key at bootup to show menu.");
@@ -814,7 +798,7 @@ static BOOLEAN menu_run(
                                 config->timeout_sec_efivar,
                                 EFI_VARIABLE_NON_VOLATILE);
                         if (config->timeout_sec_efivar > 0)
-                                status = PoolPrint(L"Menu timeout set to %d sec.",
+                                status = PoolPrint(L"Menu timeout set to %ds.",
                                                    config->timeout_sec_efivar);
                         else
                                 status = StrDuplicate(L"Menu disabled. Hold down key at bootup to show menu.");
@@ -2468,13 +2452,7 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
         else {
                 UINT64 key;
 
-                err = console_key_read(&key, FALSE);
-
-                if (err == EFI_NOT_READY) {
-                        uefi_call_wrapper(BS->Stall, 1, 100 * 1000);
-                        err = console_key_read(&key, FALSE);
-                }
-
+                err = console_key_read(&key, 100 * 1000);
                 if (!EFI_ERROR(err)) {
                         INT16 idx;
 
