@@ -87,6 +87,9 @@ _arguments \
     '--system[Operate on system systemd instance]' \
     '--user[Operate on user systemd instance]' \
     '--global[Show global user instance config]' \
+    '--error-on=[When verifying a unit, control dependency verification]:MODE' \
+    '--image=[Add support for discrete images]:PATH' \
+    '--root=[Add support for root arguments]:PATH' \
     '--no-pager[Do not pipe output into a pager]' \
     '--man=[Do (not) check for existence of man pages]:boolean:(1 0)' \
     '--order[When generating graph for dot, show only order]' \
