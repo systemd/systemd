@@ -11,9 +11,22 @@
 #include "manager.h"
 #include "pager.h"
 #include "path-util.h"
+#include "string-table.h"
 #include "strv.h"
 #include "unit-name.h"
 #include "unit-serialize.h"
+
+static int log_syntax_callback(const char *unit, int level, void *log_syntax_callback_userdata) {
+        Set **s = log_syntax_callback_userdata;
+
+        assert(log_syntax_callback_userdata);
+        assert(unit);
+
+        if (level > LOG_WARNING)
+                return 0;
+
+        return set_put_strdup(s, unit);
+}
 
 static int prepare_filename(const char *filename, char **ret) {
         int r;
@@ -218,13 +231,15 @@ static int verify_unit(Unit *u, bool check_man) {
         return r;
 }
 
-int verify_units(char **filenames, UnitFileScope scope, bool check_man, bool run_generators) {
+int verify_units(char **filenames, UnitFileScope scope, bool check_man, bool run_generators, ReturnErrorOn return_error_on) {
         const ManagerTestRunFlags flags =
                 MANAGER_TEST_RUN_MINIMAL |
                 MANAGER_TEST_RUN_ENV_GENERATORS |
+                (return_error_on == RETURN_ERROR_ON_WARNING_IN_SELECTED) * MANAGER_TEST_RUN_IGNORE_DEPENDENCIES |
                 run_generators * MANAGER_TEST_RUN_GENERATORS;
 
         _cleanup_(manager_freep) Manager *m = NULL;
+        _cleanup_set_free_free_ Set *s = NULL;
         Unit *units[strv_length(filenames)];
         _cleanup_free_ char *var = NULL;
         int r, k, i, count = 0;
@@ -232,6 +247,16 @@ int verify_units(char **filenames, UnitFileScope scope, bool check_man, bool run
 
         if (strv_isempty(filenames))
                 return 0;
+
+        /* Allow systemd-analyze to hook in a callback function so that it can get
+         * all the required log data from the function itself without having to rely
+         * on a global set variable for the same */
+        if (return_error_on != RETURN_ERROR_ON_NONE) {
+                s = set_new(&string_hash_ops);
+                if (!s)
+                        return -ENOMEM;
+                set_log_syntax_callback(&log_syntax_callback, &s);
+        }
 
         /* set the path */
         r = generate_path(&var, filenames);
@@ -283,5 +308,27 @@ int verify_units(char **filenames, UnitFileScope scope, bool check_man, bool run
                         r = k;
         }
 
+        if (!set_isempty(s) && r == 0) {
+                if (IN_SET(return_error_on, RETURN_ERROR_ON_ANY_WARNING, RETURN_ERROR_ON_WARNING_IN_SELECTED))
+                        r = -EINVAL;
+                else if (return_error_on == RETURN_ERROR_ON_WARNING_IN_SELECTED_AND_DEPENDENCIES) {
+                        STRV_FOREACH(filename, filenames) {
+                                if (set_contains(s, basename(*filename))) {
+                                        r = -EINVAL;
+                                        break;
+                                }
+                        }
+                }
+        }
+
         return r;
 }
+
+static const char* const return_error_on_table[_RETURN_ERROR_ON_MAX] = {
+        [RETURN_ERROR_ON_NONE]                                 = "none",
+        [RETURN_ERROR_ON_ANY_WARNING]                          = "any-warning",
+        [RETURN_ERROR_ON_WARNING_IN_SELECTED]                  = "warning-in-selected",
+        [RETURN_ERROR_ON_WARNING_IN_SELECTED_AND_DEPENDENCIES] = "warning-in-selected-and-dependencies",
+};
+
+DEFINE_STRING_TABLE_LOOKUP(return_error_on, ReturnErrorOn);

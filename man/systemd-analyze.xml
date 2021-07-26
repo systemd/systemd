@@ -745,6 +745,18 @@ Service b@0.service not loaded, b.socket cannot be started.
       </varlistentry>
 
       <varlistentry>
+        <term><option>--return-error-on=<replaceable>MODE</replaceable></option></term>
+
+        <listitem><para>Control verification of units and their dependencies and whether
+        <command>systemd-analyze verify</command> exits with an error or not. With <command>any-warning</command>,
+        return an error when warnings arise during verification of either the specified unit or any of its associated
+        dependenices. This is the default. With <command>none</command>, don't return an error when warnings arise during
+        unit verification. With <command>warning-in-selected</command>, return an error when warnings arise during verification
+        of only the specified unit. With <command>warning-in-selected-and-dependencies</command>, return an error when
+        warnings arise during verification of either the specified unit or its direct dependencies. </para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>--root=<replaceable>PATH</replaceable></option></term>
 
         <listitem><para>With <command>cat-files</command>, show config files underneath
