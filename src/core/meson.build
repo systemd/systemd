@@ -189,6 +189,10 @@ foreach item : in_files
         file = item[0]
         dir = item[1]
 
+        if not install_sysconfdir_samples and dir == pkgsysconfdir
+                continue
+        endif
+
         custom_target(
                 file,
                 input : file + '.in',
