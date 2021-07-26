@@ -67,7 +67,7 @@ pam_systemd_c = files('pam_systemd.c')
 
 enable_logind = conf.get('ENABLE_LOGIND') == 1
 in_files = [
-        ['logind.conf',        pkgsysconfdir, enable_logind],
+        ['logind.conf',        pkgsysconfdir, enable_logind and install_sysconfdir_samples],
         ['70-uaccess.rules',   udevrulesdir,  enable_logind and conf.get('HAVE_ACL') == 1],
         ['71-seat.rules',      udevrulesdir,  enable_logind],
         ['73-seat-late.rules', udevrulesdir,  enable_logind],
