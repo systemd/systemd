@@ -32,6 +32,15 @@ typedef enum LogTarget{
 #define IS_SYNTHETIC_ERRNO(val)             ((val) >> 30 & 1)
 #define ERRNO_VALUE(val)                    (abs(val) & 255)
 
+/* The callback function to be invoked when syntax warnings are seen
+ * in the unit files. */
+typedef void (*log_syntax_callback_t)(const char *unit, int level, void *userdata);
+void set_log_syntax_callback(log_syntax_callback_t cb, void *userdata);
+
+static inline void clear_log_syntax_callback(dummy_t *dummy) {
+          set_log_syntax_callback(/* cb= */ NULL, /* userdata= */ NULL);
+}
+
 const char *log_target_to_string(LogTarget target) _const_;
 LogTarget log_target_from_string(const char *s) _pure_;
 void log_set_target(LogTarget target);

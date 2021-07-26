@@ -460,4 +460,10 @@ static inline size_t size_add(size_t x, size_t y) {
         return y >= SIZE_MAX - x ? SIZE_MAX : x + y;
 }
 
+typedef struct {
+        int _empty[0];
+} dummy_t;
+
+assert_cc(sizeof(dummy_t) == 0);
+
 #include "log.h"

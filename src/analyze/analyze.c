@@ -46,6 +46,7 @@
 #endif
 #include "sort-util.h"
 #include "special.h"
+#include "string-table.h"
 #include "strv.h"
 #include "strxcpyx.h"
 #include "terminal-util.h"
@@ -85,6 +86,7 @@ static PagerFlags arg_pager_flags = 0;
 static BusTransport arg_transport = BUS_TRANSPORT_LOCAL;
 static const char *arg_host = NULL;
 static UnitFileScope arg_scope = UNIT_FILE_SYSTEM;
+static RecursiveErrors arg_recursive_errors = RECURSIVE_ERRORS_YES;
 static bool arg_man = true;
 static bool arg_generators = false;
 static char *arg_root = NULL;
@@ -2145,7 +2147,7 @@ static int do_condition(int argc, char *argv[], void *userdata) {
 }
 
 static int do_verify(int argc, char *argv[], void *userdata) {
-        return verify_units(strv_skip(argv, 1), arg_scope, arg_man, arg_generators, arg_root);
+        return verify_units(strv_skip(argv, 1), arg_scope, arg_man, arg_generators, arg_recursive_errors, arg_root);
 }
 
 static int do_security(int argc, char *argv[], void *userdata) {
@@ -2179,43 +2181,52 @@ static int help(int argc, char *argv[], void *userdata) {
         printf("%s [OPTIONS...] COMMAND ...\n\n"
                "%sProfile systemd, show unit dependencies, check unit files.%s\n"
                "\nCommands:\n"
-               "  [time]                   Print time required to boot the machine\n"
-               "  blame                    Print list of running units ordered by time to init\n"
-               "  critical-chain [UNIT...] Print a tree of the time critical chain of units\n"
-               "  plot                     Output SVG graphic showing service initialization\n"
-               "  dot [UNIT...]            Output dependency graph in %s format\n"
-               "  dump                     Output state serialization of service manager\n"
-               "  cat-config               Show configuration file and drop-ins\n"
-               "  unit-files               List files and symlinks for units\n"
-               "  unit-paths               List load directories for units\n"
-               "  exit-status [STATUS...]  List exit status definitions\n"
-               "  capability [CAP...]      List capability definitions\n"
-               "  syscall-filter [NAME...] Print list of syscalls in seccomp filter\n"
-               "  condition CONDITION...   Evaluate conditions and asserts\n"
-               "  verify FILE...           Check unit files for correctness\n"
-               "  calendar SPEC...         Validate repetitive calendar time events\n"
-               "  timestamp TIMESTAMP...   Validate a timestamp\n"
-               "  timespan SPAN...         Validate a time span\n"
-               "  security [UNIT...]       Analyze security of unit\n"
+               "  [time]                     Print time required to boot the machine\n"
+               "  blame                      Print list of running units ordered by\n"
+               "                             time to init\n"
+               "  critical-chain [UNIT...]   Print a tree of the time critical chain\n"
+               "                             of units\n"
+               "  plot                       Output SVG graphic showing service\n"
+               "                             initialization\n"
+               "  dot [UNIT...]              Output dependency graph in %s format\n"
+               "  dump                       Output state serialization of service\n"
+               "                             manager\n"
+               "  cat-config                 Show configuration file and drop-ins\n"
+               "  unit-files                 List files and symlinks for units\n"
+               "  unit-paths                 List load directories for units\n"
+               "  exit-status [STATUS...]    List exit status definitions\n"
+               "  capability [CAP...]        List capability definitions\n"
+               "  syscall-filter [NAME...]   Print list of syscalls in seccomp\n"
+               "                             filter\n"
+               "  condition CONDITION...     Evaluate conditions and asserts\n"
+               "  verify FILE...             Check unit files for correctness\n"
+               "  calendar SPEC...           Validate repetitive calendar time\n"
+               "                             events\n"
+               "  timestamp TIMESTAMP...     Validate a timestamp\n"
+               "  timespan SPAN...           Validate a time span\n"
+               "  security [UNIT...]         Analyze security of unit\n"
                "\nOptions:\n"
-               "  -h --help                Show this help\n"
-               "     --version             Show package version\n"
-               "     --no-pager            Do not pipe output into a pager\n"
-               "     --system              Operate on system systemd instance\n"
-               "     --user                Operate on user systemd instance\n"
-               "     --global              Operate on global user configuration\n"
-               "  -H --host=[USER@]HOST    Operate on remote host\n"
-               "  -M --machine=CONTAINER   Operate on local container\n"
-               "     --order               Show only order in the graph\n"
-               "     --require             Show only requirement in the graph\n"
-               "     --from-pattern=GLOB   Show only origins in the graph\n"
-               "     --to-pattern=GLOB     Show only destinations in the graph\n"
-               "     --fuzz=SECONDS        Also print services which finished SECONDS earlier\n"
-               "                           than the latest in the branch\n"
-               "     --man[=BOOL]          Do [not] check for existence of man pages\n"
-               "     --generators[=BOOL]   Do [not] run unit generators (requires privileges)\n"
-               "     --iterations=N        Show the specified number of iterations\n"
-               "     --base-time=TIMESTAMP Calculate calendar times relative to specified time\n"
+               "  -h --help                  Show this help\n"
+               "     --recursive-errors=MODE Control which units are verified\n"
+               "     --version               Show package version\n"
+               "     --no-pager              Do not pipe output into a pager\n"
+               "     --system                Operate on system systemd instance\n"
+               "     --user                  Operate on user systemd instance\n"
+               "     --global                Operate on global user configuration\n"
+               "  -H --host=[USER@]HOST      Operate on remote host\n"
+               "  -M --machine=CONTAINER     Operate on local container\n"
+               "     --order                 Show only order in the graph\n"
+               "     --require               Show only requirement in the graph\n"
+               "     --from-pattern=GLOB     Show only origins in the graph\n"
+               "     --to-pattern=GLOB       Show only destinations in the graph\n"
+               "     --fuzz=SECONDS          Also print services which finished SECONDS\n"
+               "                             earlier than the latest in the branch\n"
+               "     --man[=BOOL]            Do [not] check for existence of man pages\n"
+               "     --generators[=BOOL]     Do [not] run unit generators\n"
+               "                             (requires privileges)\n"
+               "     --iterations=N          Show the specified number of iterations\n"
+               "     --base-time=TIMESTAMP   Calculate calendar times relative to\n"
+               "                             specified time\n"
                "\nSee the %s for details.\n",
                program_invocation_short_name,
                ansi_highlight(),
@@ -2247,28 +2258,30 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_GENERATORS,
                 ARG_ITERATIONS,
                 ARG_BASE_TIME,
+                ARG_RECURSIVE_ERRORS,
         };
 
         static const struct option options[] = {
-                { "help",         no_argument,       NULL, 'h'                  },
-                { "version",      no_argument,       NULL, ARG_VERSION          },
-                { "order",        no_argument,       NULL, ARG_ORDER            },
-                { "require",      no_argument,       NULL, ARG_REQUIRE          },
-                { "root",         required_argument, NULL, ARG_ROOT             },
-                { "image",        required_argument, NULL, ARG_IMAGE            },
-                { "system",       no_argument,       NULL, ARG_SYSTEM           },
-                { "user",         no_argument,       NULL, ARG_USER             },
-                { "global",       no_argument,       NULL, ARG_GLOBAL           },
-                { "from-pattern", required_argument, NULL, ARG_DOT_FROM_PATTERN },
-                { "to-pattern",   required_argument, NULL, ARG_DOT_TO_PATTERN   },
-                { "fuzz",         required_argument, NULL, ARG_FUZZ             },
-                { "no-pager",     no_argument,       NULL, ARG_NO_PAGER         },
-                { "man",          optional_argument, NULL, ARG_MAN              },
-                { "generators",   optional_argument, NULL, ARG_GENERATORS       },
-                { "host",         required_argument, NULL, 'H'                  },
-                { "machine",      required_argument, NULL, 'M'                  },
-                { "iterations",   required_argument, NULL, ARG_ITERATIONS       },
-                { "base-time",    required_argument, NULL, ARG_BASE_TIME        },
+                { "help",             no_argument,       NULL, 'h'                  },
+                { "version",          no_argument,       NULL, ARG_VERSION          },
+                { "order",            no_argument,       NULL, ARG_ORDER            },
+                { "require",          no_argument,       NULL, ARG_REQUIRE          },
+                { "root",             required_argument, NULL, ARG_ROOT             },
+                { "image",            required_argument, NULL, ARG_IMAGE            },
+                { "recursive-errors", required_argument, NULL, ARG_RECURSIVE_ERRORS },
+                { "system",           no_argument,       NULL, ARG_SYSTEM           },
+                { "user",             no_argument,       NULL, ARG_USER             },
+                { "global",           no_argument,       NULL, ARG_GLOBAL           },
+                { "from-pattern",     required_argument, NULL, ARG_DOT_FROM_PATTERN },
+                { "to-pattern",       required_argument, NULL, ARG_DOT_TO_PATTERN   },
+                { "fuzz",             required_argument, NULL, ARG_FUZZ             },
+                { "no-pager",         no_argument,       NULL, ARG_NO_PAGER         },
+                { "man",              optional_argument, NULL, ARG_MAN              },
+                { "generators",       optional_argument, NULL, ARG_GENERATORS       },
+                { "host",             required_argument, NULL, 'H'                  },
+                { "machine",          required_argument, NULL, 'M'                  },
+                { "iterations",       required_argument, NULL, ARG_ITERATIONS       },
+                { "base-time",        required_argument, NULL, ARG_BASE_TIME        },
                 {}
         };
 
@@ -2282,6 +2295,18 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case 'h':
                         return help(0, NULL, NULL);
+
+                case ARG_RECURSIVE_ERRORS:
+                        if (streq(optarg, "help")) {
+                                DUMP_STRING_TABLE(recursive_errors, RecursiveErrors, _RECURSIVE_ERRORS_MAX);
+                                return 0;
+                        }
+                        r = recursive_errors_from_string(optarg);
+                        if (r < 0)
+                                return log_error_errno(r, "Unknown mode passed to --recursive-errors='%s'.", optarg);
+
+                        arg_recursive_errors = r;
+                        break;
 
                 case ARG_VERSION:
                         return version();
