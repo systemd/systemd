@@ -28,10 +28,12 @@ static int builtin_net_setup_link(sd_device *dev, int argc, char **argv, bool te
 
         r = link_config_get(ctx, dev, &link);
         if (r < 0) {
-                if (r == -ENOENT)
-                        return log_device_debug_errno(dev, r, "No matching link configuration found.");
                 if (r == -ENODEV)
                         return log_device_debug_errno(dev, r, "Link vanished while searching for configuration for it.");
+                if (r == -ENOENT) {
+                        log_device_debug_errno(dev, r, "No matching link configuration found, ignoring device.");
+                        return 0;
+                }
 
                 return log_device_error_errno(dev, r, "Failed to get link config: %m");
         }
