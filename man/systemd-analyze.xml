@@ -745,6 +745,17 @@ Service b@0.service not loaded, b.socket cannot be started.
       </varlistentry>
 
       <varlistentry>
+        <term><option>--recursive-errors=<replaceable>MODE</replaceable></option></term>
+
+        <listitem><para>Control verification of units and their dependencies and whether
+        <command>systemd-analyze verify</command> exits with an error or not. With <command>yes</command>,
+        return an error when warnings arise during verification of either the specified unit or any of its
+        associated dependencies. This is the default. With <command>no</command>, return an error when warnings
+        arise during verification of only the specified unit. With <command>one</command>, return an error when
+        warnings arise during verification of either the specified unit or its direct dependencies. </para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>--root=<replaceable>PATH</replaceable></option></term>
 
         <listitem><para>With <command>cat-files</command>, show config files underneath
