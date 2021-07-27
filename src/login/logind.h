@@ -96,9 +96,10 @@ struct Manager {
 
         bool shutdown_dry_run;
 
+        bool idle_updating;
         sd_event_source *idle_action_event_source;
-        usec_t idle_action_usec;
-        usec_t idle_action_not_before_usec;
+        usec_t idle_delay_usec;
+        usec_t idle_last_action_usec;
         HandleAction idle_action;
 
         HandleAction handle_power_key;
@@ -163,7 +164,8 @@ int manager_spawn_autovt(Manager *m, unsigned vtnr);
 
 bool manager_shall_kill(Manager *m, const char *user);
 
-int manager_get_idle_hint(Manager *m, dual_timestamp *t);
+int manager_get_idle_hint(Manager *m, dual_timestamp *since, dual_timestamp *inactive_since);
+int manager_update_idle_hint(Manager *m);
 
 int manager_get_user_by_pid(Manager *m, pid_t pid, User **user);
 int manager_get_session_by_pid(Manager *m, pid_t pid, Session **session);

@@ -59,7 +59,7 @@ void manager_reset_config(Manager *m) {
 
         m->holdoff_timeout_usec = 30 * USEC_PER_SEC;
 
-        m->idle_action_usec = 30 * USEC_PER_MINUTE;
+        m->idle_delay_usec = 30 * USEC_PER_MINUTE;
         m->idle_action = HANDLE_IGNORE;
 
         m->runtime_dir_size = physical_memory_scale(10U, 100U); /* 10% */
@@ -396,22 +396,27 @@ int manager_get_user_by_pid(Manager *m, pid_t pid, User **ret) {
         return !!u;
 }
 
-int manager_get_idle_hint(Manager *m, dual_timestamp *t) {
+int manager_get_idle_hint(Manager *m, dual_timestamp *since, dual_timestamp *inactive_since) {
         Session *s;
         bool idle_hint;
         dual_timestamp ts = DUAL_TIMESTAMP_NULL;
+        dual_timestamp inactive_ts = DUAL_TIMESTAMP_NULL;
 
         assert(m);
 
-        idle_hint = !manager_is_inhibited(m, INHIBIT_IDLE, INHIBIT_BLOCK, t, false, false, 0, NULL);
+        idle_hint = !manager_is_inhibited(m, INHIBIT_IDLE, INHIBIT_BLOCK, &ts, false, false, 0, NULL);
 
         HASHMAP_FOREACH(s, m->sessions) {
-                dual_timestamp k;
+                dual_timestamp k, n;
                 int ih;
 
-                ih = session_get_idle_hint(s, &k);
+                ih = session_get_idle_hint(s, &k, &n);
                 if (ih < 0)
                         return ih;
+
+                if (inactive_ts.monotonic == 0 ||
+                    inactive_ts.monotonic > n.monotonic)
+                        inactive_ts = n;
 
                 if (!ih) {
                         if (!idle_hint) {
@@ -428,10 +433,82 @@ int manager_get_idle_hint(Manager *m, dual_timestamp *t) {
                 }
         }
 
-        if (t)
-                *t = ts;
+        if (since)
+                *since = ts;
+        if (inactive_since)
+                *inactive_since = inactive_ts;
 
         return idle_hint;
+}
+
+static int manager_dispatch_idle_action(sd_event_source *s, uint64_t t, void *userdata) {
+        Manager *m = userdata;
+        struct dual_timestamp since, inactive_since;
+        usec_t n, elapse;
+        int r;
+
+        assert(m);
+
+        if (m->idle_action == HANDLE_IGNORE ||
+            m->idle_updating)
+                return 0;
+
+        n = now(CLOCK_MONOTONIC);
+
+        m->idle_updating = true;
+        r = manager_get_idle_hint(m, &since, &inactive_since);
+        m->idle_updating = false;
+        if (r <= 0) {
+                /* Not idle. */
+                if (inactive_since.monotonic == 0)
+                        return 0;
+
+                /* We got inactivity information and need to poll again later. */
+                elapse = inactive_since.monotonic + m->idle_delay_usec;
+        } else {
+                /* Idle! Let's see if it's time to do something, or if
+                 * we shall sleep for longer. */
+
+                if (m->idle_last_action_usec <= 0 || n >= m->idle_last_action_usec + m->idle_delay_usec) {
+                        log_info("System idle. Doing %s operation.", handle_action_to_string(m->idle_action));
+
+                        manager_handle_action(m, 0, m->idle_action, false, false);
+                        m->idle_last_action_usec = n;
+                }
+
+                elapse = MAX(inactive_since.monotonic, m->idle_last_action_usec) + m->idle_delay_usec;
+        }
+
+        if (!m->idle_action_event_source) {
+
+                r = sd_event_add_time(
+                                m->event,
+                                &m->idle_action_event_source,
+                                CLOCK_MONOTONIC,
+                                elapse, USEC_PER_SEC*30,
+                                manager_dispatch_idle_action, m);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to add idle event source: %m");
+
+                r = sd_event_source_set_priority(m->idle_action_event_source, SD_EVENT_PRIORITY_IDLE+10);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to set idle event source priority: %m");
+        } else {
+                r = sd_event_source_set_time(m->idle_action_event_source, elapse);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to set idle event timer: %m");
+
+                r = sd_event_source_set_enabled(m->idle_action_event_source, SD_EVENT_ONESHOT);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to enable idle event timer: %m");
+        }
+
+        return 0;
+}
+
+int manager_update_idle_hint(Manager *m)
+{
+        return manager_dispatch_idle_action(NULL, 0, m);
 }
 
 bool manager_shall_kill(Manager *m, const char *user) {
