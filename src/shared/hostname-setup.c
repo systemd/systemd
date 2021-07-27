@@ -24,7 +24,7 @@ static int sethostname_idempotent_full(const char *s, bool really) {
 
         assert(s);
 
-        if (gethostname(buf, sizeof(buf) - 1) < 0)
+        if (gethostname(buf, sizeof(buf)) < 0)
                 return -errno;
 
         if (streq(buf, s))
@@ -46,7 +46,7 @@ bool get_hostname_filtered(char ret[static HOST_NAME_MAX + 1]) {
 
         /* Returns true if we got a good hostname, false otherwise. */
 
-        if (gethostname(buf, sizeof(buf) - 1) < 0)
+        if (gethostname(buf, sizeof(buf)) < 0)
                 return false;  /* This can realistically only fail with ENAMETOOLONG.
                                 * Let's treat that case the same as an invalid hostname. */
 
