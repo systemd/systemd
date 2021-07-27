@@ -172,6 +172,7 @@ typedef enum CGroupFlags {
 typedef int (*cg_kill_log_func_t)(pid_t pid, int sig, void *userdata);
 
 int cg_kill(const char *controller, const char *path, int sig, CGroupFlags flags, Set *s, cg_kill_log_func_t kill_log, void *userdata);
+int cg_kill_kernel_sigkill(const char *controller, const char *path);
 int cg_kill_recursive(const char *controller, const char *path, int sig, CGroupFlags flags, Set *s, cg_kill_log_func_t kill_log, void *userdata);
 
 int cg_split_spec(const char *spec, char **ret_controller, char **ret_path);
@@ -272,6 +273,7 @@ int cg_kernel_controllers(Set **controllers);
 
 bool cg_ns_supported(void);
 bool cg_freezer_supported(void);
+bool cg_kill_supported(void);
 
 int cg_all_unified(void);
 int cg_hybrid_unified(void);
