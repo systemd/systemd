@@ -89,7 +89,8 @@ EFI_STATUS parse_boolean(const CHAR8 *v, BOOLEAN *b) {
         if (strcmpa(v, (CHAR8 *)"1") == 0 ||
             strcmpa(v, (CHAR8 *)"yes") == 0 ||
             strcmpa(v, (CHAR8 *)"y") == 0 ||
-            strcmpa(v, (CHAR8 *)"true") == 0) {
+            strcmpa(v, (CHAR8 *)"true") == 0 ||
+            strcmpa(v, (CHAR8 *)"on") == 0) {
                 *b = TRUE;
                 return EFI_SUCCESS;
         }
@@ -97,7 +98,8 @@ EFI_STATUS parse_boolean(const CHAR8 *v, BOOLEAN *b) {
         if (strcmpa(v, (CHAR8 *)"0") == 0 ||
             strcmpa(v, (CHAR8 *)"no") == 0 ||
             strcmpa(v, (CHAR8 *)"n") == 0 ||
-            strcmpa(v, (CHAR8 *)"false") == 0) {
+            strcmpa(v, (CHAR8 *)"false") == 0 ||
+            strcmpa(v, (CHAR8 *)"off") == 0) {
                 *b = FALSE;
                 return EFI_SUCCESS;
         }
