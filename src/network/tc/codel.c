@@ -168,7 +168,7 @@ int config_parse_controlled_delay_usec(
         else if (streq(lvalue, "CEThresholdSec"))
                 p = &cd->ce_threshold_usec;
         else
-                assert_not_reached("Invalid lvalue");
+                assert_not_reached();
 
         if (isempty(rvalue)) {
                 if (streq(lvalue, "CEThresholdSec"))

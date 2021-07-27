@@ -595,7 +595,7 @@ int manager_rtnl_process_neighbor(sd_netlink *rtnl, sd_netlink_message *message,
                 break;
 
         default:
-                assert_not_reached("Received invalid RTNL message type");
+                assert_not_reached();
         }
 
         return 1;

@@ -258,7 +258,7 @@ _noreturn_ static void crash(int sig) {
                         pid = raw_getpid();
                         (void) kill(pid, sig); /* raise() would kill the parent */
 
-                        assert_not_reached("We shouldn't be here...");
+                        assert_not_reached();
                         _exit(EXIT_EXCEPTION);
                 } else {
                         siginfo_t status;
@@ -1081,7 +1081,7 @@ static int parse_argv(int argc, char *argv[]) {
                                 return 0;
 
                 default:
-                        assert_not_reached("Unhandled option code.");
+                        assert_not_reached();
                 }
 
         if (optind < argc && getpid_cached() != 1)
@@ -2047,7 +2047,7 @@ static int invoke_main_loop(
                 }
 
                 default:
-                        assert_not_reached("Unknown or unexpected manager objective.");
+                        assert_not_reached();
                 }
         }
 }

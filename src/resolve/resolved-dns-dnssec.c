@@ -1028,7 +1028,7 @@ int dnssec_verify_rrset_search(
                                 continue;
 
                         default:
-                                assert_not_reached("Unexpected DNSSEC validation result");
+                                assert_not_reached();
                         }
                 }
         }

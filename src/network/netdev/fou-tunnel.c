@@ -58,7 +58,7 @@ static int netdev_fill_fou_tunnel_message(NetDev *netdev, sd_netlink_message **r
                 encap_type = FOU_ENCAP_GUE;
                 break;
         default:
-                assert_not_reached("invalid encap type");
+                assert_not_reached();
         }
 
         r = sd_netlink_message_append_u8(m, FOU_ATTR_TYPE, encap_type);
@@ -243,7 +243,7 @@ static int netdev_fou_tunnel_verify(NetDev *netdev, const char *filename) {
                                                       filename);
                 break;
         default:
-                assert_not_reached("Invalid fou encap type");
+                assert_not_reached();
         }
 
         if (t->peer_family == AF_UNSPEC && t->peer_port > 0)

@@ -141,7 +141,7 @@ int home_create_directory_or_subvolume(UserRecord *h, UserRecord **ret_home) {
                 break;
 
         default:
-                assert_not_reached("unexpected storage");
+                assert_not_reached();
         }
 
         temporary = TAKE_PTR(d); /* Needs to be destroyed now */

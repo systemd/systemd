@@ -229,10 +229,10 @@ static ssize_t write_entry(char *buf, size_t size, Uploader *u) {
                         return pos;
 
                 default:
-                        assert_not_reached("WTF?");
+                        assert_not_reached();
                 }
         }
-        assert_not_reached("WTF?");
+        assert_not_reached();
 }
 
 static void check_update_watchdog(Uploader *u) {

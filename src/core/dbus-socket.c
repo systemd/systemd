@@ -65,7 +65,7 @@ static int property_get_listen(
                                 break;
 
                         default:
-                                assert_not_reached("Unknown socket type");
+                                assert_not_reached();
                 }
 
                 r = sd_bus_message_append(reply, "(ss)", socket_port_type_to_string(p), a);

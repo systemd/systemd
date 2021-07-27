@@ -360,7 +360,7 @@ void ipv4ll_on_acd(sd_ipv4acd *acd, int event, void *userdata) {
                 break;
 
         default:
-                assert_not_reached("Invalid IPv4ACD event.");
+                assert_not_reached();
         }
 
         return;

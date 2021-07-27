@@ -528,7 +528,7 @@ int netdev_join(NetDev *netdev, Link *link, link_netlink_message_handler_t callb
                         return r;
                 break;
         default:
-                assert_not_reached("Cannot join independent netdev");
+                assert_not_reached();
         }
 
         return 0;

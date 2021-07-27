@@ -1683,7 +1683,7 @@ static bool service_shall_restart(Service *s, const char **reason) {
                 return IN_SET(s->result, SERVICE_FAILURE_SIGNAL, SERVICE_FAILURE_CORE_DUMP);
 
         default:
-                assert_not_reached("unknown restart setting");
+                assert_not_reached();
         }
 }
 
@@ -2157,7 +2157,7 @@ static void service_enter_start(Service *s) {
                 service_set_main_pid(s, pid);
                 service_set_state(s, SERVICE_START);
         } else
-                assert_not_reached("Unknown service type");
+                assert_not_reached();
 
         return;
 
@@ -2780,7 +2780,7 @@ int service_deserialize_exec_command(
                                 return -ENOMEM;
                         break;
                 default:
-                        assert_not_reached("Logic error in exec command deserialization");
+                        assert_not_reached();
                 }
         }
 
@@ -3392,7 +3392,7 @@ static void service_sigchld_event(Unit *u, pid_t pid, int code, int status) {
         else if (code == CLD_DUMPED)
                 f = SERVICE_FAILURE_CORE_DUMP;
         else
-                assert_not_reached("Unknown code");
+                assert_not_reached();
 
         if (s->main_pid == pid) {
                 /* Clean up the exec_fd event source. We want to do this here, not later in
@@ -3523,7 +3523,7 @@ static void service_sigchld_event(Unit *u, pid_t pid, int code, int status) {
                                 break;
 
                         default:
-                                assert_not_reached("Uh, main process died at wrong time.");
+                                assert_not_reached();
                         }
                 }
 
@@ -3701,7 +3701,7 @@ static void service_sigchld_event(Unit *u, pid_t pid, int code, int status) {
                                 break;
 
                         default:
-                                assert_not_reached("Uh, control process died at wrong time.");
+                                assert_not_reached();
                         }
                 }
         } else /* Neither control nor main PID? If so, don't notify about anything */
@@ -3756,7 +3756,7 @@ static int service_dispatch_timer(sd_event_source *source, usec_t usec, void *us
                         break;
 
                 default:
-                        assert_not_reached("unknown timeout mode");
+                        assert_not_reached();
                 }
                 break;
 
@@ -3796,7 +3796,7 @@ static int service_dispatch_timer(sd_event_source *source, usec_t usec, void *us
                         break;
 
                 default:
-                        assert_not_reached("unknown timeout mode");
+                        assert_not_reached();
                 }
                 break;
 
@@ -3857,7 +3857,7 @@ static int service_dispatch_timer(sd_event_source *source, usec_t usec, void *us
                         break;
 
                 default:
-                        assert_not_reached("unknown timeout mode");
+                        assert_not_reached();
                 }
                 break;
 
@@ -3912,7 +3912,7 @@ static int service_dispatch_timer(sd_event_source *source, usec_t usec, void *us
                 break;
 
         default:
-                assert_not_reached("Timeout at wrong time.");
+                assert_not_reached();
         }
 
         return 0;

@@ -309,7 +309,7 @@ int config_parse_sr_iov_uint32(
                 else if (streq(lvalue, "QualityOfService"))
                         sr_iov->qos = 0;
                 else
-                        assert_not_reached("Invalid lvalue");
+                        assert_not_reached();
 
                 TAKE_PTR(sr_iov);
                 return 0;
@@ -337,7 +337,7 @@ int config_parse_sr_iov_uint32(
         } else if (streq(lvalue, "QualityOfService"))
                 sr_iov->qos = k;
         else
-                assert_not_reached("Invalid lvalue");
+                assert_not_reached();
 
         TAKE_PTR(sr_iov);
         return 0;
@@ -467,7 +467,7 @@ int config_parse_sr_iov_boolean(
                 else if (streq(lvalue, "Trust"))
                         sr_iov->trust = -1;
                 else
-                        assert_not_reached("Invalid lvalue");
+                        assert_not_reached();
 
                 TAKE_PTR(sr_iov);
                 return 0;
@@ -486,7 +486,7 @@ int config_parse_sr_iov_boolean(
         else if (streq(lvalue, "Trust"))
                 sr_iov->trust = r;
         else
-                assert_not_reached("Invalid lvalue");
+                assert_not_reached();
 
         TAKE_PTR(sr_iov);
         return 0;
