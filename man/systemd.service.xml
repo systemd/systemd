@@ -1134,7 +1134,7 @@
     <literal>\;</literal>.</para>
 
     <para>Each command line is unquoted using the rules described in "Quoting" section in
-    <citerefentry><refentrytitle>systemd.syntax</refentrytitle><manvolnum>5</manvolnum></citerefentry>. The
+    <citerefentry><refentrytitle>systemd.syntax</refentrytitle><manvolnum>7</manvolnum></citerefentry>. The
     first item becomes the command to execute, and the subsequent items the arguments.</para>
 
     <para>This syntax is inspired by shell syntax, but only the meta-characters and expansions

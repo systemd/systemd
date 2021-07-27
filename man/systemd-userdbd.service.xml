@@ -34,7 +34,7 @@
     JSON user/group records from classic UNIX/glibc NSS user/group records in order to provide full backwards
     compatibility. It may also pick up statically defined JSON user/group records from drop-in files in
     <filename>/etc/userdb/</filename>, <filename>/run/userdb/</filename>,
-    <filename>/run/host/userdb/</filename> and <filename>/use/lib/userdb/</filename>.</para>
+    <filename>/run/host/userdb/</filename> and <filename>/usr/lib/userdb/</filename>.</para>
 
     <para>Most of <command>systemd-userdbd</command>'s functionality is accessible through the
     <citerefentry><refentrytitle>userdbctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>

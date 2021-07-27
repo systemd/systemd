@@ -275,7 +275,7 @@ search foobar.com barbar.com
       fragility in both directions: a valid global name could be obscured by a local name, and resolution of
       a relative local name could suddenly break when a new top-level domain is created, or when a new
       subdomain of a top-level domain in registered. Resolving any given name as either relative or absolute
-      avoids this ambiguity.)</para></footnote></para></listitem>
+      avoids this ambiguity.</para></footnote></para></listitem>
 
       <listitem><para>This resolver has a notion of the special <literal>.local</literal> domain used for
       MulticastDNS, and will not route queries with that suffix to unicast DNS servers unless explicitly
