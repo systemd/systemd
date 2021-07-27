@@ -37,7 +37,7 @@ man_pages = []
 html_pages = []
 source_xml_files = []
 dbus_docs = []
-foreach tuple : xsltproc.found() ? manpages : []
+foreach tuple : manpages
         stem = tuple[0]
         section = tuple[1]
         aliases = tuple[2]
@@ -57,45 +57,46 @@ foreach tuple : xsltproc.found() ? manpages : []
         mandirn = get_option('mandir') / ('man' + section)
 
         if condition == '' or conf.get(condition) == 1
-                p1 = custom_target(
-                        man,
-                        input : xml,
-                        output : [man] + manaliases,
-                        command : xslt_cmd + [custom_man_xsl, '@INPUT@'],
-                        depends : custom_entities_ent,
-                        install : want_man,
-                        install_dir : mandirn)
-                man_pages += p1
-
-                p2 = []
-                foreach htmlalias : htmlaliases
-                        link = custom_target(
-                                htmlalias,
-                                output : htmlalias,
-                                command : [ln, '-fs', html, '@OUTPUT@'])
-                        if want_html
-                                dst = docdir / 'html' / htmlalias
-                                cmd = 'ln -fs @0@ $DESTDIR@1@'.format(html, dst)
-                                meson.add_install_script('sh', '-c', cmd)
-                                p2 += link
-                        endif
-                        html_pages += link
-                endforeach
-
-                p3 = custom_target(
-                        html,
-                        input : xml,
-                        output : html,
-                        command : xslt_cmd + [custom_html_xsl, '@INPUT@'],
-                        depends : [custom_entities_ent, p2],
-                        install : want_html,
-                        install_dir : docdir / 'html')
-                html_pages += p3
-
                 file = files(tuple[0] + '.xml')
-                source_xml_files += file
                 if tuple[0].startswith('org.freedesktop.')
                         dbus_docs += file
+                endif
+
+                if xsltproc.found()
+                        p1 = custom_target(
+                                man,
+                                input : xml,
+                                output : [man] + manaliases,
+                                command : xslt_cmd + [custom_man_xsl, '@INPUT@'],
+                                depends : custom_entities_ent,
+                                install : want_man,
+                                install_dir : mandirn)
+                        man_pages += p1
+
+                        p2 = []
+                        foreach htmlalias : htmlaliases
+                                link = custom_target(
+                                        htmlalias,
+                                        output : htmlalias,
+                                        command : [ln, '-fs', html, '@OUTPUT@'])
+                                if want_html
+                                        dst = docdir / 'html' / htmlalias
+                                        cmd = 'ln -fs @0@ $DESTDIR@1@'.format(html, dst)
+                                        meson.add_install_script('sh', '-c', cmd)
+                                        p2 += link
+                                endif
+                                html_pages += link
+                        endforeach
+
+                        p3 = custom_target(
+                                html,
+                                input : xml,
+                                output : html,
+                                command : xslt_cmd + [custom_html_xsl, '@INPUT@'],
+                                depends : [custom_entities_ent, p2],
+                                install : want_html,
+                                install_dir : docdir / 'html')
+                        html_pages += p3
                 endif
         else
                 message('Skipping @0@.@1@ because @2@ is false'.format(stem, section, condition))
@@ -213,3 +214,26 @@ configure_file(
         input : 'html.in',
         output : 'html',
         configuration : buildroot_substs)
+
+############################################################
+
+update_dbus_docs = custom_target(
+        'update-dbus-docs',
+        output : 'update-dbus-docs',
+        command : [update_dbus_docs_py, '--build-dir', project_build_root, '@INPUT@'],
+        input : dbus_docs)
+
+if conf.get('BUILD_MODE_DEVELOPER') == 1
+        test('dbus-docs-fresh',
+             update_dbus_docs_py,
+             args : ['--build-dir', project_build_root, '--test', dbus_docs])
+endif
+
+update_man_rules = custom_target(
+        'update-man-rules',
+        output : 'update-man-rules',
+        command : [sh, '-c',
+                   'cd @0@ && '.format(project_build_root) +
+                   'python3 @0@/tools/update-man-rules.py $(find @0@ -wholename "*/man/*.xml") >t && '.format(project_source_root) +
+                   'mv t @0@/rules/meson.build'.format(meson.current_source_dir())],
+        depends : custom_entities_ent)
