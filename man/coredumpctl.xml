@@ -162,7 +162,7 @@
         <term><option>-1</option></term>
 
         <listitem><para>Show information of the most recent core dump only, instead of listing all known core
-        dumps. (Equivalent to <option>--reverse -n 1</option></para></listitem>
+        dumps. Equivalent to <option>--reverse -n 1</option>.</para></listitem>
       </varlistentry>
 
       <varlistentry>
