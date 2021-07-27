@@ -1778,7 +1778,7 @@ if conf.get('HAVE_LIBCRYPTSETUP_PLUGINS') == 1
                         'cryptsetup-token-systemd-tpm2',
                         link_args : ['-shared',
                                      '-Wl,--version-script=' + cryptsetup_token_sym_path],
-                        dependencies : libshared_deps + [libcryptsetup],
+                        dependencies : libshared_deps + [libcryptsetup, versiondep],
                         link_with : [libshared],
                         link_whole : [cryptsetup_token_systemd_tpm2_static],
                         link_depends : cryptsetup_token_sym,
