@@ -859,7 +859,6 @@ const SyscallFilterSet syscall_filter_sets[_SYSCALL_FILTER_SET_MAX] = {
                 "get_mempolicy\0"
                 "getcpu\0"
                 "getpriority\0"
-                "getrandom\0"
                 "ioctl\0"
                 "ioprio_get\0"
                 "kcmp\0"
