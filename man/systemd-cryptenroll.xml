@@ -84,7 +84,7 @@
         <term><option>--pkcs11-token-uri=</option><replaceable>URI</replaceable></term>
 
         <listitem><para>Enroll a PKCS#11 security token or smartcard (e.g. a YubiKey). Expects a PKCS#11
-        smart card URI referring to the token. Alternatively the special value <literal>auto</literal> may
+        smartcard URI referring to the token. Alternatively the special value <literal>auto</literal> may
         be specified, in order to automatically determine the URI of a currently plugged in security token
         (of which there must be exactly one). The special value <literal>list</literal> may be used to
         enumerate all suitable PKCS#11 tokens currently plugged in. The security token must contain an RSA

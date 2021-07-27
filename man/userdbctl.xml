@@ -42,7 +42,7 @@
     url="https://systemd.io/USER_GROUP_API">User/Group Record Lookup API via Varlink</ulink>, and may also
     pick up drop-in JSON user and group records from <filename>/etc/userdb/</filename>,
     <filename>/run/userdb/</filename>, <filename>/run/host/userdb/</filename>,
-    <filename>/use/lib/userdb/</filename>.</para>
+    <filename>/usr/lib/userdb/</filename>.</para>
   </refsect1>
 
   <refsect1>
@@ -104,7 +104,7 @@
 
         <listitem><para>Controls whether to include user/group lookups in the output that are defined using
         drop-in files in <filename>/etc/userdb/</filename>, <filename>/run/userdb/</filename>,
-        <filename>/run/host/userdb/</filename>, <filename>/use/lib/userdb/</filename>. If
+        <filename>/run/host/userdb/</filename>, <filename>/usr/lib/userdb/</filename>. If
         <option>--with-dropin=no</option> is used these records are suppressed. If
         <option>--with-dropin=yes</option> is specified such users/groups are included in the output (which
         is the default).</para></listitem>
@@ -260,7 +260,7 @@
         <citerefentry><refentrytitle>systemd-userdbd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
         and picks up JSON user/group records from <filename>/etc/userdb/</filename>,
         <filename>/run/userdb/</filename>, <filename>/run/host/userdb/</filename>,
-        <filename>/use/lib/userdb/</filename>.</para></listitem>
+        <filename>/usr/lib/userdb/</filename>.</para></listitem>
       </varlistentry>
 
     </variablelist>

@@ -457,7 +457,7 @@
         <term><varname>MTUBytes=</varname></term>
         <listitem>
           <para>The maximum transmission unit in bytes to set for the
-          device. The usual suffixes K, M, G, are supported and are
+          device. The usual suffixes K, M, G are supported and are
           understood to the base of 1024.</para>
         </listitem>
       </varlistentry>
@@ -465,7 +465,7 @@
         <term><varname>BitsPerSecond=</varname></term>
         <listitem>
           <para>The speed to set for the device, the value is rounded
-          down to the nearest Mbps. The usual suffixes K, M, G, are
+          down to the nearest Mbps. The usual suffixes K, M, G are
           supported and are understood to the base of 1000.</para>
         </listitem>
       </varlistentry>
@@ -788,7 +788,7 @@
         <term><varname>GenericSegmentOffloadMaxBytes=</varname></term>
         <listitem>
           <para>Specifies the maximum size of a Generic Segment Offload (GSO) packet the
-          device should accept. The usual suffixes K, M, G, are supported and are
+          device should accept. The usual suffixes K, M, G are supported and are
           understood to the base of 1024. An unsigned integer in the range 1…65536.
           Defaults to unset.</para>
         </listitem>
@@ -796,8 +796,8 @@
       <varlistentry>
         <term><varname>GenericSegmentOffloadMaxSegments=</varname></term>
         <listitem>
-          <para>Specifies the maximum number of a Generic Segment Offload (GSO) segments the device should
-          accept.  An unsigned integer in the range 1…65535. Defaults to unset.</para>
+          <para>Specifies the maximum number of Generic Segment Offload (GSO) segments the device should
+          accept. An unsigned integer in the range 1…65535. Defaults to unset.</para>
         </listitem>
       </varlistentry>
 

@@ -373,7 +373,7 @@
 
           <listitem><para>A lower-case string (mostly numeric, no spaces or other characters outside of 0–9,
           a–z, ".", "_" and "-") identifying the operating system extensions support level, to indicate which
-          extension images are supported. See:
+          extension images are supported. See
           <citerefentry><refentrytitle>systemd-sysext</refentrytitle><manvolnum>8</manvolnum></citerefentry>)
           for more information.</para>
 

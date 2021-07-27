@@ -202,7 +202,7 @@
         capabilities (see
         <citerefentry project='man-pages'><refentrytitle>capabilities</refentrytitle><manvolnum>7</manvolnum></citerefentry>
         for details). The <varname>AmbientCapability=</varname> setting
-        specifies capability which will be passed to to started program
+        specifies capability which will be passed to the started program
         in the inheritable and ambient capability sets. This will grant
         these capabilities to this process. This setting correspond to
         the <option>--ambient-capability=</option> command line switch.

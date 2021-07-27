@@ -1535,7 +1535,7 @@
         <varlistentry>
           <term><varname>ConditionControlGroupController=</varname></term>
 
-          <listitem><para>Check whether given cgroup controllers (eg. <literal>cpu</literal>) are available
+          <listitem><para>Check whether given cgroup controllers (e.g. <literal>cpu</literal>) are available
           for use on the system or whether the legacy v1 cgroup or the modern v2 cgroup hierarchy is used.
           </para>
 

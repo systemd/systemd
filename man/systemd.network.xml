@@ -1423,7 +1423,7 @@ IPv6Token=prefixstable:2002:da8:1::</programlisting></para>
           <term><varname>Metric=</varname></term>
           <listitem>
             <para>The metric of the route. Takes an unsigned integer in the range 0…4294967295.
-            Defaluts to unset, and the kernel's default will be used.</para>
+            Defaults to unset, and the kernel's default will be used.</para>
           </listitem>
         </varlistentry>
         <varlistentry>
@@ -1615,9 +1615,10 @@ IPv6Token=prefixstable:2002:da8:1::</programlisting></para>
           <term><varname>SendHostname=</varname></term>
           <listitem>
             <para>When true (the default), the machine's hostname (or the value specified with
-            <varname>Hostname=</varname> below) will be sent to the DHCP server. Note that the hostname must
-            consist only of 7-bit ASCII lower-case characters and no spaces or dots, and be formatted as a
-            valid DNS domain name. Otherwise, the hostname is not sent even if this option is true.</para>
+            <varname>Hostname=</varname>, described below) will be sent to the DHCP server. Note that the
+            hostname must consist only of 7-bit ASCII lower-case characters and no spaces or dots, and be
+            formatted as a valid DNS domain name. Otherwise, the hostname is not sent even if this option is
+            true.</para>
           </listitem>
         </varlistentry>
 
@@ -1911,8 +1912,8 @@ IPv6Token=prefixstable:2002:da8:1::</programlisting></para>
           <term><varname>FallbackLeaseLifetimeSec=</varname></term>
           <listitem>
             <para>Allows to set DHCPv4 lease lifetime when DHCPv4 server does not send the lease lifetime.
-            Takes one of <literal>forever</literal> or <literal>infinity</literal> means that the address
-            never expires. Defaults to unset.</para>
+            Takes one of <literal>forever</literal> or <literal>infinity</literal>. The latter means that the
+            address never expires. Defaults to unset.</para>
           </listitem>
         </varlistentry>
 
@@ -2339,9 +2340,9 @@ IPv6Token=prefixstable:2002:da8:1::</programlisting></para>
       <varlistentry>
         <term><varname>ServerAddress=</varname></term>
         <listitem><para>Specifies server address for the DHCP server. Takes an IPv4 address with prefix
-        length, e.g., <literal>192.168.0.1/24</literal>. This setting may be useful when the link which
-        DHCP server running on has multiple static addresses. When unset, one of static addresses in
-        the link will be automatically selected. Defaults to unset.</para></listitem>
+        length, for example <literal>192.168.0.1/24</literal>. This setting may be useful when the link on
+        which the DHCP server is running has multiple static addresses. When unset, one of static addresses
+        in the link will be automatically selected. Defaults to unset.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -2521,23 +2522,22 @@ IPv6Token=prefixstable:2002:da8:1::</programlisting></para>
 
   <refsect1>
     <title>[DHCPServerStaticLease] Section Options</title>
-    <para>The <literal>[DHCPServerStaticLease]</literal> section configures a static DHCP lease to
-    assign a pre-set IPv4 address to a specific device based on its MAC address. This section can be
-    specified multiple times.</para>
+    <para>The <literal>[DHCPServerStaticLease]</literal> section configures a static DHCP lease to assign a
+    fixed IPv4 address to a specific device based on its MAC address. This section can be specified multiple
+    times.</para>
 
     <variablelist class='network-directives'>
       <varlistentry>
         <term><varname>MACAddress=</varname></term>
 
-        <listitem><para>The hardware address of a device which should be assigned IPv4 address
-        specified in <varname>Address=</varname>. This key is mandatory.</para></listitem>
+        <listitem><para>The hardware address of a device to match. This key is mandatory.</para></listitem>
       </varlistentry>
 
       <varlistentry>
         <term><varname>Address=</varname></term>
 
-        <listitem><para>IPv4 address that should be assigned to a device with a hardware address
-        specified in <varname>MACAddress=</varname>. This key is mandatory.</para></listitem>
+        <listitem><para>The IPv4 address that should be assigned to the device that was matched with
+        <varname>MACAddress=</varname>. This key is mandatory.</para></listitem>
       </varlistentry>
     </variablelist>
   </refsect1>

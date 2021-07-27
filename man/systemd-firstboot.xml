@@ -307,7 +307,7 @@
       <varlistentry>
         <term><literal>passwd.shell.root</literal></term>
 
-        <listitem><para>Specifies the shell binary to use for the specified account when creating it.
+        <listitem><para>Specifies the shell binary to use for the specified account.
         Equivalent to the credential of the same name defined for the
         <citerefentry><refentrytitle>systemd-sysusers.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
         service.</para></listitem>

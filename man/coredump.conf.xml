@@ -83,12 +83,9 @@
       <varlistentry>
         <term><varname>ProcessSizeMax=</varname></term>
 
-        <listitem><para>The maximum size in bytes of a core
-        which will be processed. Core dumps exceeding this size
-        may be stored, but the backtrace will not be generated.
-        Like other sizes in this same config file, the usual
-        suffixes to the base of 1024 are allowed (B, K, M,
-        G, T, P, and E.)</para>
+        <listitem><para>The maximum size in bytes of a core which will be processed. Core dumps exceeding
+        this size may be stored, but the backtrace will not be generated.  Like other sizes in this same
+        config file, the usual suffixes to the base of 1024 are allowed (B, K, M, G, T, P, and E).</para>
 
         <para>Setting <varname>Storage=none</varname> and <varname>ProcessSizeMax=0</varname>
         disables all coredump handling except for a log entry.</para>
@@ -99,9 +96,8 @@
         <term><varname>ExternalSizeMax=</varname></term>
         <term><varname>JournalSizeMax=</varname></term>
 
-        <listitem><para>The maximum (compressed or uncompressed) size in bytes of a
-        core to be saved. Unit suffixes are allowed just as in
-        <option>ProcessSizeMax=</option></para></listitem>.
+        <listitem><para>The maximum (compressed or uncompressed) size in bytes of a core to be saved. Unit
+        suffixes are allowed just as in <option>ProcessSizeMax=</option>.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -120,9 +116,8 @@
         by core dumps might temporarily exceed these limits while
         core dumps are processed. Note that old core dumps are also
         removed based on time via
-        <citerefentry><refentrytitle>systemd-tmpfiles</refentrytitle><manvolnum>8</manvolnum></citerefentry>. Set
-        either value to 0 to turn off size-based
-        clean-up.</para></listitem>
+        <citerefentry><refentrytitle>systemd-tmpfiles</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
+        Set either value to 0 to turn off size-based cleanup.</para></listitem>
       </varlistentry>
     </variablelist>
 

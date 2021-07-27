@@ -1375,12 +1375,12 @@ After=sys-subsystem-net-devices-ens1.device</programlisting>
         </orderedlist>
 
         <para>The combination of the three operations above ensures that it is possible to log into the
-        host's user account inside the container as if it was local to the container. The user is only mapped
-        transiently, while the container is running and the mapping itself does not result in persistent
-        changes to the container (except maybe for generated log messages at login time, and similar). Note
-        that in particular the UID/GID assignment in the container is not made persistently. If the user is
-        mapped transiently, it is best to not allow the user to make persistent changes to the container. If
-        the user leaves files or directories owned by the user, and those UIDs/GIDs are recycled during later
+        container using the same account information as on the host. The user is only mapped transiently,
+        while the container is running, and the mapping itself does not result in persistent changes to the
+        container (except maybe for log messages generated at login time, and similar). Note that in
+        particular the UID/GID assignment in the container is not made persistently. If the user is mapped
+        transiently, it is best to not allow the user to make persistent changes to the container. If the
+        user leaves files or directories owned by the user, and those UIDs/GIDs are reused during later
         container invocations (possibly with a different <option>--bind-user=</option> mapping), those files
         and directories will be accessible to the "new" user.</para>
 
@@ -1581,9 +1581,9 @@ After=sys-subsystem-net-devices-ens1.device</programlisting>
         -b</programlisting>
 
         <para>The above command line will invoke the specified image file <filename>image.raw</filename> in
-        volatile mode, i.e with an empty <filename>/etc/</filename> and <filename>/var/</filename>, so that
-        the container's payload recognizes this as first boot condition, and will invoke
-        <filename>systemd-firstboot.service</filename>, which then read the two passed credentials to
+        volatile mode, i.e. with empty <filename>/etc/</filename> and <filename>/var/</filename>.  The
+        container payload will recognize this as a first boot, and will invoke
+        <filename>systemd-firstboot.service</filename>, which then reads the two passed credentials to
         configure the system's initial locale and root password.</para>
         </listitem>
         </varlistentry>
