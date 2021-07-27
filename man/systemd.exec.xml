@@ -241,7 +241,7 @@
         <para>This option is supported only for disk images that contain a single file system, without an
         enveloping partition table. Images that contain a GPT partition table should instead include both
         root file system and matching Verity data in the same image, implementing the <ulink
-        url="https://systemd.io/DISCOVERABLE_PARTITIONS">Discoverable Partition Specification</ulink>.</para>
+        url="https://systemd.io/DISCOVERABLE_PARTITIONS">Discoverable Partitions Specification</ulink>.</para>
 
         <xi:include href="system-only.xml" xpointer="singular"/></listitem>
       </varlistentry>
