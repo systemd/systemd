@@ -241,7 +241,7 @@
         <para>This option is supported only for disk images that contain a single file system, without an
         enveloping partition table. Images that contain a GPT partition table should instead include both
         root file system and matching Verity data in the same image, implementing the <ulink
-        url="https://systemd.io/DISCOVERABLE_PARTITIONS">Discoverable Partition Specification</ulink>.</para>
+        url="https://systemd.io/DISCOVERABLE_PARTITIONS">Discoverable Partitions Specification</ulink>.</para>
 
         <xi:include href="system-only.xml" xpointer="singular"/></listitem>
       </varlistentry>
@@ -402,14 +402,15 @@
         <term><varname>ExtensionImages=</varname></term>
 
         <listitem><para>This setting is similar to <varname>MountImages=</varname> in that it mounts a file
-        system hierarchy from a block device node or loopback file, but instead of providing a destination path,
-        an overlay will be set up. This option expects a whitespace separated list of mount definitions. Each
-        definition consists of a source path, optionally followed by a colon and a list of mount options.</para>
+        system hierarchy from a block device node or loopback file, but instead of providing a destination
+        path, an overlay will be set up. This option expects a whitespace separated list of mount
+        definitions. Each definition consists of a source path, optionally followed by a colon and a list of
+        mount options.</para>
 
         <para>A read-only OverlayFS will be set up on top of <filename>/usr/</filename> and
-        <filename>/opt/</filename> hierarchies from the root. The order in which the images are listed
-        will determine the order in which the overlay is laid down: images specified first to last will result
-        in overlayfs layers bottom to top.</para>
+        <filename>/opt/</filename> hierarchies. The order in which the images are listed will determine the
+        order in which the overlay is laid down: images specified first to last will result in overlayfs
+        layers bottom to top.</para>
 
         <para>Mount options may be defined as a single comma-separated list of options, in which case they
         will be implicitly applied to the root partition on the image, or a series of colon-separated tuples
@@ -2304,7 +2305,7 @@ SystemCallErrorNumber=EPERM</programlisting>
 
         <listitem><para>Sets environment variables for executed processes. Each line is unquoted using the
         rules described in "Quoting" section in
-        <citerefentry><refentrytitle>systemd.syntax</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+        <citerefentry><refentrytitle>systemd.syntax</refentrytitle><manvolnum>7</manvolnum></citerefentry>
         and becomes a list of variable assignments. If you need to assign a value containing spaces or the
         equals sign to a variable, put quotes around the whole assignment. Variable expansion is not
         performed inside the strings and the <literal>$</literal> character has no special meaning. Specifier
