@@ -147,7 +147,7 @@ EFI_STATUS efivar_set(const EFI_GUID *vendor, const CHAR16 *name, const CHAR16 *
 EFI_STATUS efivar_set_uint_string(const EFI_GUID *vendor, const CHAR16 *name, UINTN i, UINT32 flags) {
         CHAR16 str[32];
 
-        SPrint(str, 32, L"%u", i);
+        SPrint(str, ELEMENTSOF(str), L"%u", i);
         return efivar_set(vendor, name, str, flags);
 }
 
@@ -188,7 +188,7 @@ EFI_STATUS efivar_get(const EFI_GUID *vendor, const CHAR16 *name, CHAR16 **value
                 return err;
 
         /* Make sure there are no incomplete characters in the buffer */
-        if ((size % 2) != 0)
+        if ((size % sizeof(CHAR16)) != 0)
                 return EFI_INVALID_PARAMETER;
 
         if (!value)
@@ -201,12 +201,12 @@ EFI_STATUS efivar_get(const EFI_GUID *vendor, const CHAR16 *name, CHAR16 **value
         }
 
         /* Make sure a terminating NUL is available at the end */
-        val = AllocatePool(size + 2);
+        val = AllocatePool(size + sizeof(CHAR16));
         if (!val)
                 return EFI_OUT_OF_RESOURCES;
 
         CopyMem(val, buf, size);
-        val[size/2] = 0; /* NUL terminate */
+        val[size / sizeof(CHAR16)] = 0; /* NUL terminate */
 
         *value = val;
         return EFI_SUCCESS;
@@ -301,7 +301,7 @@ VOID efivar_set_time_usec(const EFI_GUID *vendor, const CHAR16 *name, UINT64 use
         if (usec == 0)
                 return;
 
-        SPrint(str, 32, L"%ld", usec);
+        SPrint(str, ELEMENTSOF(str), L"%ld", usec);
         efivar_set(vendor, name, str, 0);
 }
 
