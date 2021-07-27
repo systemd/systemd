@@ -28,7 +28,7 @@ static const char __attribute__((used)) magic[] = "#### LoaderInfo: systemd-boot
 #define COLOR_ENTRY EFI_LIGHTGRAY|EFI_BACKGROUND_BLACK
 #define COLOR_HIGHLIGHT EFI_BLACK|EFI_BACKGROUND_LIGHTGRAY
 #define COLOR_BOX EFI_LIGHTGRAY|EFI_BACKGROUND_BLACK
-#define COLOR_EDIT EFI_LIGHTGRAY|EFI_BACKGROUND_BLACK
+#define COLOR_EDIT EFI_BLACK|EFI_BACKGROUND_LIGHTGRAY
 
 enum loader_type {
         LOADER_UNDEFINED,
@@ -114,8 +114,6 @@ static BOOLEAN line_edit(
         len = StrLen(line);
         print = AllocatePool((x_max+1) * sizeof(CHAR16));
 
-        uefi_call_wrapper(ST->ConOut->EnableCursor, 2, ST->ConOut, TRUE);
-
         first = 0;
         cursor = 0;
         clear = 0;
@@ -125,6 +123,7 @@ static BOOLEAN line_edit(
                 EFI_STATUS err;
                 UINT64 key;
                 UINTN j;
+                UINTN cursor_color = EFI_TEXT_ATTR(((COLOR_EDIT) & 0b11110000) >> 4, (COLOR_EDIT) & 0b1111);
 
                 j = len - first;
                 if (j >= x_max-1)
@@ -136,13 +135,19 @@ static BOOLEAN line_edit(
                 }
                 print[j] = '\0';
 
+                /* See comment at edit_line() call site for why we start at 1. */
                 print_at(1, y_pos, COLOR_EDIT, print);
-                /* See comment at edit_line() call site. */
-                uefi_call_wrapper(ST->ConOut->SetCursorPosition, 3, ST->ConOut, cursor + 1, y_pos);
 
-                err = console_key_read(&key, 0);
-                if (EFI_ERROR(err))
-                        continue;
+                if (!print[cursor])
+                        print[cursor] = ' ';
+                print[cursor+1] = '\0';
+                do {
+                        print_at(cursor + 1, y_pos, cursor_color, print+cursor);
+                        cursor_color = EFI_TEXT_ATTR((cursor_color & 0b11110000) >> 4, cursor_color & 0b1111);
+
+                        err = console_key_read(&key, 750 * 1000);
+                        print_at(cursor + 1, y_pos, COLOR_EDIT, print+cursor);
+                } while (EFI_ERROR(err));
 
                 switch (key) {
                 case KEYPRESS(0, SCAN_ESC, 0):
@@ -328,7 +333,6 @@ static BOOLEAN line_edit(
                 }
         }
 
-        uefi_call_wrapper(ST->ConOut->EnableCursor, 2, ST->ConOut, FALSE);
         return enter;
 }
 
