@@ -3731,33 +3731,8 @@ run_target(
         depends : [man, libsystemd, libudev],
         command : [check_api_docs_sh, libsystemd.full_path(), libudev.full_path()])
 
-############################################################
-
-if dbus_docs.length() > 0
-        custom_target(
-                'update-dbus-docs',
-                output : 'update-dbus-docs',
-                command : [update_dbus_docs_py,
-                           '--build-dir=@0@'.format(project_build_root),
-                           '@INPUT@'],
-                input : dbus_docs)
-
-        if conf.get('BUILD_MODE_DEVELOPER') == 1
-                test('dbus-docs-fresh',
-                     update_dbus_docs_py,
-                     args : ['--build-dir=@0@'.format(project_build_root),
-                             '--test'] + dbus_docs)
-        endif
-endif
-
-custom_target(
-        'update-man-rules',
-        output : 'update-man-rules',
-        command : [sh, '-c',
-                   'cd @0@ && '.format(meson.build_root()) +
-                   'python3 @0@/tools/update-man-rules.py $(find @0@ -wholename "*/man/*.xml") >t && '.format(project_source_root) +
-                   'mv t @0@/man/rules/meson.build'.format(meson.current_source_dir())],
-        depends : custom_entities_ent)
+alias_target('update-dbus-docs', update_dbus_docs)
+alias_target('update-man-rules', update_man_rules)
 
 ############################################################
 watchdog_opt = service_watchdog == '' ? 'disabled' : service_watchdog
