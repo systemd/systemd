@@ -434,8 +434,8 @@
         <para>If the special value <literal>auto</literal> is specified, the source to copy from is
         automatically picked up from the running system (or the image specified with
         <option>--image=</option> — if used). A partition that matches both the configured partition type (as
-        declared with <varname>Type=</varname> above), and the currently mounted directory appropriate for
-        that partition type is determined. For example, if the partition type is set to
+        declared with <varname>Type=</varname> described above), and the currently mounted directory
+        appropriate for that partition type is determined. For example, if the partition type is set to
         <literal>root</literal> the partition backing the root directory (<filename>/</filename>) is used as
         source to copy from — if its partition type is set to <literal>root</literal> as well. If the
         declared type is <literal>usr</literal> the partition backing <filename>/usr/</filename> is used as
@@ -511,7 +511,7 @@
       <varlistentry>
         <term><varname>MakeDirectories=</varname></term>
 
-        <listitem><para>akes one or more absolute paths, separated by whitespace, each declaring a directory
+        <listitem><para>Takes one or more absolute paths, separated by whitespace, each declaring a directory
         to create within the new file system. Behaviour is similar to <varname>CopyFiles=</varname>, but
         instead of copying in a set of files this just creates the specified directories with the default
         mode of 0755 owned by the root user and group, plus all their parent directories (with the same
@@ -546,10 +546,10 @@
         are copied in or the file system configured with <varname>Format=</varname> is created.</para>
 
         <para>The LUKS2 UUID is automatically derived from the partition UUID in a stable fashion. If
-        <literal>key-file</literal> or <literal>key-file+tpm2</literal> is used a key is added to the LUKS2
-        superblock, configurable with the <option>--key-file=</option> switch to
+        <literal>key-file</literal> or <literal>key-file+tpm2</literal> is used, a key is added to the LUKS2
+        superblock, configurable with the <option>--key-file=</option> option to
         <command>systemd-repart</command>. If <literal>tpm2</literal> or <literal>key-file+tpm2</literal> is
-        used a key is added to the LUKS2 superblock that is enrolled to the local TPM2 chip, as configured
+        used, a key is added to the LUKS2 superblock that is enrolled to the local TPM2 chip, as configured
         with the <option>--tpm2-device=</option> and <option>--tpm2-pcrs=</option> options to
         <command>systemd-repart</command>.</para>
 
@@ -605,7 +605,7 @@
         has no effect on explicit mounts, such as those done via <citerefentry
         project='man-pages'><refentrytitle>mount</refentrytitle><manvolnum>8</manvolnum></citerefentry> or
         <citerefentry
-        project='man-pages'><refentrytitle>fstab</refentrytitle><manvolnum>5</manvolnum></citerefentry></para>
+        project='man-pages'><refentrytitle>fstab</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
 
         <para>If both bit 50 and 59 are set for a partition (i.e. the partition is marked both read-only and
         marked for file system growing) the latter is typically without effect: the read-only flag takes
