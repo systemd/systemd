@@ -248,7 +248,7 @@
       <varlistentry>
         <term>edit-color</term>
 
-        <listitem><para>Option edit line color, defaults to the same value of <option>color</option>.</para></listitem>
+        <listitem><para>Option edit line color, defaults to inverse of <option>color</option>.</para></listitem>
       </varlistentry>
     </variablelist>
   </refsect1>
