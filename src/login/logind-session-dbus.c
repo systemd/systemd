@@ -110,7 +110,7 @@ static int property_get_idle_hint(
         assert(reply);
         assert(s);
 
-        return sd_bus_message_append(reply, "b", session_get_idle_hint(s, NULL) > 0);
+        return sd_bus_message_append(reply, "b", session_get_idle_hint(s, NULL, NULL) > 0);
 }
 
 static int property_get_idle_since_hint(
@@ -131,7 +131,7 @@ static int property_get_idle_since_hint(
         assert(reply);
         assert(s);
 
-        r = session_get_idle_hint(s, &t);
+        r = session_get_idle_hint(s, &t, NULL);
         if (r < 0)
                 return r;
 

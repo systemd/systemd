@@ -132,7 +132,7 @@ bool session_may_gc(Session *s, bool drop_not_started);
 void session_add_to_gc_queue(Session *s);
 int session_activate(Session *s);
 bool session_is_active(Session *s);
-int session_get_idle_hint(Session *s, dual_timestamp *t);
+int session_get_idle_hint(Session *s, dual_timestamp *since, dual_timestamp *inactive_since);
 int session_set_idle_hint(Session *s, bool b);
 int session_get_locked_hint(Session *s);
 void session_set_locked_hint(Session *s, bool b);

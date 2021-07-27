@@ -59,7 +59,7 @@ void manager_reset_config(Manager *m) {
 
         m->holdoff_timeout_usec = 30 * USEC_PER_SEC;
 
-        m->idle_action_usec = 30 * USEC_PER_MINUTE;
+        m->idle_delay_usec = 30 * USEC_PER_MINUTE;
         m->idle_action = HANDLE_IGNORE;
 
         m->runtime_dir_size = physical_memory_scale(10U, 100U); /* 10% */
@@ -396,22 +396,27 @@ int manager_get_user_by_pid(Manager *m, pid_t pid, User **ret) {
         return !!u;
 }
 
-int manager_get_idle_hint(Manager *m, dual_timestamp *t) {
+int manager_get_idle_hint(Manager *m, dual_timestamp *since, dual_timestamp *inactive_since) {
         Session *s;
         bool idle_hint;
         dual_timestamp ts = DUAL_TIMESTAMP_NULL;
+        dual_timestamp inactive_ts = DUAL_TIMESTAMP_NULL;
 
         assert(m);
 
         idle_hint = !manager_is_inhibited(m, INHIBIT_IDLE, INHIBIT_BLOCK, &ts, false, false, 0, NULL);
 
         HASHMAP_FOREACH(s, m->sessions) {
-                dual_timestamp k;
+                dual_timestamp k, n;
                 int ih;
 
-                ih = session_get_idle_hint(s, &k);
+                ih = session_get_idle_hint(s, &k, &n);
                 if (ih < 0)
                         return ih;
+
+                if (inactive_ts.monotonic == 0 ||
+                    inactive_ts.monotonic > n.monotonic)
+                        inactive_ts = n;
 
                 if (!ih) {
                         if (!idle_hint) {
@@ -428,46 +433,50 @@ int manager_get_idle_hint(Manager *m, dual_timestamp *t) {
                 }
         }
 
-        if (t)
-                *t = ts;
+        if (since)
+                *since = ts;
+        if (inactive_since)
+                *inactive_since = inactive_ts;
 
         return idle_hint;
 }
 
 static int manager_dispatch_idle_action(sd_event_source *s, uint64_t t, void *userdata) {
         Manager *m = userdata;
-        struct dual_timestamp since;
+        struct dual_timestamp since, inactive_since;
         usec_t n, elapse;
         int r;
 
         assert(m);
 
         if (m->idle_action == HANDLE_IGNORE ||
-            m->idle_action_usec <= 0 ||
             m->idle_updating)
                 return 0;
 
         n = now(CLOCK_MONOTONIC);
 
         m->idle_updating = true;
-        r = manager_get_idle_hint(m, &since);
+        r = manager_get_idle_hint(m, &since, &inactive_since);
         m->idle_updating = false;
-        if (r <= 0)
-                /* Not idle. Let's check if after a timeout it might be idle then. */
-                elapse = n + m->idle_action_usec;
-        else {
+        if (r <= 0) {
+                /* Not idle. */
+                if (inactive_since.monotonic == 0)
+                        return 0;
+
+                /* We got inactivity information and need to poll again later. */
+                elapse = inactive_since.monotonic + m->idle_delay_usec;
+        } else {
                 /* Idle! Let's see if it's time to do something, or if
                  * we shall sleep for longer. */
 
-                if (n >= since.monotonic + m->idle_action_usec &&
-                    (m->idle_action_not_before_usec <= 0 || n >= m->idle_action_not_before_usec + m->idle_action_usec)) {
+                if (m->idle_last_action_usec <= 0 || n >= m->idle_last_action_usec + m->idle_delay_usec) {
                         log_info("System idle. Doing %s operation.", handle_action_to_string(m->idle_action));
 
                         manager_handle_action(m, 0, m->idle_action, false, false);
-                        m->idle_action_not_before_usec = n;
+                        m->idle_last_action_usec = n;
                 }
 
-                elapse = MAX(since.monotonic, m->idle_action_not_before_usec) + m->idle_action_usec;
+                elapse = MAX(inactive_since.monotonic, m->idle_last_action_usec) + m->idle_delay_usec;
         }
 
         if (!m->idle_action_event_source) {
