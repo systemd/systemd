@@ -943,7 +943,7 @@ static int parse_argv(int argc, char *argv[]) {
                 case 'h':
                         return help();
                 default:
-                        assert_not_reached("Unknown option");
+                        assert_not_reached();
                 }
 
         arg_node = argv[optind];

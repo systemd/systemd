@@ -58,7 +58,7 @@ int dns_search_domain_new(
                 break;
 
         default:
-                assert_not_reached("Unknown search domain type");
+                assert_not_reached();
         }
 
         d->linked = true;
@@ -135,7 +135,7 @@ void dns_search_domain_move_back_and_unmark(DnsSearchDomain *d) {
                 break;
 
         default:
-                assert_not_reached("Unknown search domain type");
+                assert_not_reached();
         }
 }
 

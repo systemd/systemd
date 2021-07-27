@@ -82,7 +82,7 @@ static int parse_item_given(const char *key, const char *value, void *data) {
         else if (in_initrd() && !*strip && proc_cmdline_key_streq(key, "rd.zumm"))
                 assert_se(!value);
         else
-                assert_not_reached("Bad key!");
+                assert_not_reached();
 
         return 0;
 }

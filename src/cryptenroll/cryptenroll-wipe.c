@@ -367,7 +367,7 @@ int wipe_slots(struct crypt_device *cd,
 
                 break;
         default:
-                assert_not_reached("Unexpected wipe scope");
+                assert_not_reached();
         }
 
         /* Then add all slots that match a token type */

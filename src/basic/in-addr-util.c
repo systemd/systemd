@@ -794,7 +794,7 @@ int in_addr_prefix_from_string_auto_internal(
                                 k = 0;
                         break;
                 default:
-                        assert_not_reached("Invalid prefixlen mode");
+                        assert_not_reached();
                 }
 
         if (ret_family)

@@ -17,7 +17,7 @@ void traffic_control_free(TrafficControl *tc) {
                 tclass_free(TC_TO_TCLASS(tc));
                 break;
         default:
-                assert_not_reached("Invalid traffic control type");
+                assert_not_reached();
         }
 }
 
@@ -31,7 +31,7 @@ static int traffic_control_configure(Link *link, TrafficControl *tc) {
         case TC_KIND_TCLASS:
                 return tclass_configure(link, TC_TO_TCLASS(tc));
         default:
-                assert_not_reached("Invalid traffic control type");
+                assert_not_reached();
         }
 }
 
@@ -72,7 +72,7 @@ static int traffic_control_section_verify(TrafficControl *tc, bool *qdisc_has_ro
         case TC_KIND_TCLASS:
                 return tclass_section_verify(TC_TO_TCLASS(tc));
         default:
-                assert_not_reached("Invalid traffic control type");
+                assert_not_reached();
         }
 }
 

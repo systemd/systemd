@@ -421,7 +421,7 @@ static size_t pull_job_write_callback(void *contents, size_t size, size_t nmemb,
                 goto fail;
 
         default:
-                assert_not_reached("Impossible state.");
+                assert_not_reached();
         }
 
         return sz;

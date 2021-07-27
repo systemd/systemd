@@ -2447,7 +2447,7 @@ static int remove_item_instance(Item *i, const char *instance) {
                 break;
 
         default:
-                assert_not_reached("wut?");
+                assert_not_reached();
         }
 
         return 0;
@@ -3505,7 +3505,7 @@ static int parse_argv(int argc, char *argv[]) {
                         return -EINVAL;
 
                 default:
-                        assert_not_reached("Unhandled option");
+                        assert_not_reached();
                 }
 
         if (arg_operation == 0 && !arg_cat_config)
@@ -3853,7 +3853,7 @@ static int run(int argc, char *argv[]) {
                 else if (phase == PHASE_CREATE)
                         op = arg_operation & OPERATION_CREATE;
                 else
-                        assert_not_reached("unexpected phase");
+                        assert_not_reached();
 
                 if (op == 0) /* Nothing requested in this phase */
                         continue;

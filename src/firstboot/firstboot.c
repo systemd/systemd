@@ -1299,7 +1299,7 @@ static int parse_argv(int argc, char *argv[]) {
                         return -EINVAL;
 
                 default:
-                        assert_not_reached("Unhandled option");
+                        assert_not_reached();
                 }
 
         /* We check if the specified locale strings are valid down here, so that we can take --root= into

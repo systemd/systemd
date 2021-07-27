@@ -417,7 +417,7 @@ int journal_importer_process_data(JournalImporter *imp) {
 
                 return 0; /* continue */
         default:
-                assert_not_reached("wtf?");
+                assert_not_reached();
         }
 }
 

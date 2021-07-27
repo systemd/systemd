@@ -416,7 +416,7 @@ int trigger_main(int argc, char *argv[], void *userdata) {
                 case '?':
                         return -EINVAL;
                 default:
-                        assert_not_reached("Unknown option");
+                        assert_not_reached();
                 }
         }
 
@@ -482,7 +482,7 @@ int trigger_main(int argc, char *argv[], void *userdata) {
                         return log_error_errno(r, "Failed to scan devices: %m");
                 break;
         default:
-                assert_not_reached("Unknown device type");
+                assert_not_reached();
         }
 
         r = exec_list(e, action, settle_hashmap);

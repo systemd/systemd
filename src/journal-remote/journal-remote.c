@@ -58,7 +58,7 @@ static int open_output(RemoteServer *s, Writer *w, const char* host) {
         }
 
         default:
-                assert_not_reached("what?");
+                assert_not_reached();
         }
 
         r = journal_file_open_reliably(filename,
@@ -110,7 +110,7 @@ int journal_remote_get_writer(RemoteServer *s, const char *host, Writer **writer
                 break;
 
         default:
-                assert_not_reached("what split mode?");
+                assert_not_reached();
         }
 
         w = hashmap_get(s->writers, key);
@@ -323,7 +323,7 @@ int journal_remote_server_init(
         else if (split_mode == JOURNAL_WRITE_SPLIT_HOST)
                 s->output = REMOTE_JOURNAL_PATH;
         else
-                assert_not_reached("bad split mode");
+                assert_not_reached();
 
         r = sd_event_default(&s->events);
         if (r < 0)

@@ -407,7 +407,7 @@ bool job_type_is_redundant(JobType a, UnitActiveState b) {
                 return true;
 
         default:
-                assert_not_reached("Invalid job type");
+                assert_not_reached();
         }
 }
 
@@ -781,7 +781,7 @@ static int job_perform_on_unit(Job **j) {
                         break;
 
                 default:
-                        assert_not_reached("Invalid job type");
+                        assert_not_reached();
         }
 
         /* Log if the job still exists and the start/stop/reload function actually did something. Note that this means
@@ -849,7 +849,7 @@ int job_run_and_invalidate(Job *j) {
                         break;
 
                 default:
-                        assert_not_reached("Unknown job type");
+                        assert_not_reached();
         }
 
         if (j) {

@@ -90,7 +90,7 @@ UserDBIterator* userdb_iterator_free(UserDBIterator *iterator) {
                 break;
 
         default:
-                assert_not_reached("Unexpected state?");
+                assert_not_reached();
         }
 
         sd_event_unref(iterator->event);
@@ -333,7 +333,7 @@ static int userdb_on_query_reply(
         }
 
         default:
-                assert_not_reached("unexpected lookup");
+                assert_not_reached();
         }
 
 finish:

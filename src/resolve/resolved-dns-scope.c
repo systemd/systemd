@@ -757,7 +757,7 @@ DnsScopeMatch dns_scope_good_domain(
         }
 
         default:
-                assert_not_reached("Unknown scope protocol");
+                assert_not_reached();
         }
 }
 

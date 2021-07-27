@@ -92,7 +92,7 @@ void netlink_slot_disconnect(sd_netlink_slot *slot, bool unref) {
 
                 break;
         default:
-                assert_not_reached("Wut? Unknown slot type?");
+                assert_not_reached();
         }
 
         slot->type = _NETLINK_SLOT_INVALID;

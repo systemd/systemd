@@ -199,7 +199,7 @@ static bool value_node_test(
                 return false;
 
         default:
-                assert_not_reached("Invalid node type");
+                assert_not_reached();
         }
 }
 
@@ -234,7 +234,7 @@ static bool value_node_same(
                 return streq(node->value.str, value_str);
 
         default:
-                assert_not_reached("Invalid node type");
+                assert_not_reached();
         }
 }
 
@@ -375,7 +375,7 @@ int bus_match_run(
                 break;
 
         default:
-                assert_not_reached("Unknown match type.");
+                assert_not_reached();
         }
 
         if (BUS_MATCH_CAN_HASH(node->type)) {

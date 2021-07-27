@@ -1350,7 +1350,7 @@ static void ndisc_handler(sd_ndisc *nd, sd_ndisc_event_t event, sd_ndisc_router 
                 }
                 break;
         default:
-                assert_not_reached("Unknown NDisc event");
+                assert_not_reached();
         }
 }
 

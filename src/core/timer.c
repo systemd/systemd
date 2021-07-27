@@ -473,7 +473,7 @@ static void timer_enter_waiting(Timer *t, bool time_change) {
                                 break;
 
                         default:
-                                assert_not_reached("Unknown timer base");
+                                assert_not_reached();
                         }
 
                         v->next_elapse = usec_add(usec_shift_clock(base, CLOCK_MONOTONIC, TIMER_MONOTONIC_CLOCK(t)), v->value);
@@ -797,7 +797,7 @@ static void timer_trigger_notify(Unit *u, Unit *other) {
                 break;
 
         default:
-                assert_not_reached("Unknown timer state");
+                assert_not_reached();
         }
 }
 

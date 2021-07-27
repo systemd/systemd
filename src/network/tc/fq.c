@@ -145,7 +145,7 @@ int config_parse_fair_queueing_u32(
         else if (streq(lvalue, "OrphanMask"))
                 p = &fq->orphan_mask;
         else
-                assert_not_reached("Invalid lvalue");
+                assert_not_reached();
 
         if (isempty(rvalue)) {
                 *p = 0;
@@ -207,7 +207,7 @@ int config_parse_fair_queueing_size(
         else if (STR_IN_SET(lvalue, "InitialQuantumBytes", "InitialQuantum"))
                 p = &fq->initial_quantum;
         else
-                assert_not_reached("Invalid lvalue");
+                assert_not_reached();
 
         if (isempty(rvalue)) {
                 *p = 0;

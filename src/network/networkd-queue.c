@@ -53,7 +53,7 @@ static void request_free_object(RequestType type, void *object) {
         case REQUEST_TYPE_UP_DOWN:
                 break;
         default:
-                assert_not_reached("invalid request type.");
+                assert_not_reached();
         }
 }
 
@@ -134,7 +134,7 @@ static void request_hash_func(const Request *req, struct siphash *state) {
         case REQUEST_TYPE_UP_DOWN:
                 break;
         default:
-                assert_not_reached("invalid request type.");
+                assert_not_reached();
         }
 }
 
@@ -181,7 +181,7 @@ static int request_compare_func(const struct Request *a, const struct Request *b
         case REQUEST_TYPE_UP_DOWN:
                 return 0;
         default:
-                assert_not_reached("invalid request type.");
+                assert_not_reached();
         }
 }
 

@@ -35,7 +35,7 @@ int daemon_reload(int argc, char *argv[], void *userdata) {
                 break;
 
         default:
-                assert_not_reached("Unexpected action");
+                assert_not_reached();
         }
 
         r = bus_message_new_method_call(bus, &m, bus_systemd_mgr, method);

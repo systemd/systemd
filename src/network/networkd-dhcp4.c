@@ -1389,7 +1389,7 @@ static int dhcp4_set_client_identifier(Link *link) {
                 break;
         }
         default:
-                assert_not_reached("Unknown client identifier type.");
+                assert_not_reached();
         }
 
         return 0;

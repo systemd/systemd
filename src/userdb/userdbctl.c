@@ -90,7 +90,7 @@ static int show_user(UserRecord *ur, Table *table) {
                 break;
 
         default:
-                assert_not_reached("Unexpected output mode");
+                assert_not_reached();
         }
 
         return 0;
@@ -240,7 +240,7 @@ static int show_group(GroupRecord *gr, Table *table) {
                 break;
 
         default:
-                assert_not_reached("Unexpected display mode");
+                assert_not_reached();
         }
 
         return 0;
@@ -384,7 +384,7 @@ static int show_membership(const char *user, const char *group, Table *table) {
                 break;
 
         default:
-                assert_not_reached("Unexpected output mode");
+                assert_not_reached();
         }
 
         return 0;
@@ -420,7 +420,7 @@ static int display_memberships(int argc, char *argv[], void *userdata) {
                                 if (r < 0)
                                         return log_error_errno(r, "Failed to enumerate groups of user: %m");
                         } else
-                                assert_not_reached("Unexpected verb");
+                                assert_not_reached();
 
                         for (;;) {
                                 _cleanup_free_ char *user = NULL, *group = NULL;
@@ -762,7 +762,7 @@ static int parse_argv(int argc, char *argv[]) {
                         return -EINVAL;
 
                 default:
-                        assert_not_reached("Unhandled option");
+                        assert_not_reached();
                 }
         }
 

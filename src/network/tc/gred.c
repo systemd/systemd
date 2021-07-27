@@ -106,7 +106,7 @@ int config_parse_generic_random_early_detection_u32(
         else if (streq(lvalue, "DefaultVirtualQueue"))
                 p = &gred->default_virtual_queue;
         else
-                assert_not_reached("Invalid lvalue.");
+                assert_not_reached();
 
         if (isempty(rvalue)) {
                 *p = 0;

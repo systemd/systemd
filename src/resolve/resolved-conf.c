@@ -395,7 +395,7 @@ int config_parse_dnssd_txt(
                         break;
 
                 default:
-                        assert_not_reached("Unknown type of Txt config");
+                        assert_not_reached();
                 }
 
                 LIST_INSERT_AFTER(items, txt_data->txt, last, i);

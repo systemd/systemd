@@ -79,7 +79,7 @@ int server_name_new(
                 LIST_FIND_TAIL(names, m->fallback_servers, tail);
                 LIST_INSERT_AFTER(names, m->fallback_servers, tail, n);
         } else
-                assert_not_reached("Unknown server type");
+                assert_not_reached();
 
         n->manager = m;
 
@@ -110,7 +110,7 @@ ServerName *server_name_free(ServerName *n) {
                 else if (n->type == SERVER_FALLBACK)
                         LIST_REMOVE(names, n->manager->fallback_servers, n);
                 else
-                        assert_not_reached("Unknown server type");
+                        assert_not_reached();
 
                 if (n->manager->current_server_name == n)
                         manager_set_server_name(n->manager, NULL);

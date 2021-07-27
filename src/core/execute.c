@@ -544,7 +544,7 @@ static int setup_input(
         }
 
         default:
-                assert_not_reached("Unknown input type");
+                assert_not_reached();
         }
 }
 
@@ -730,7 +730,7 @@ static int setup_output(
         }
 
         default:
-                assert_not_reached("Unknown error type");
+                assert_not_reached();
         }
 }
 
@@ -923,7 +923,7 @@ static int ask_for_confirmation(const char *vc, Unit *u, const char *cmdline) {
                         r = CONFIRM_EXECUTE;
                         break;
                 default:
-                        assert_not_reached("Unhandled choice");
+                        assert_not_reached();
                 }
                 break;
         }

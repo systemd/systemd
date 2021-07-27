@@ -1012,7 +1012,7 @@ int manager_rtnl_process_nexthop(sd_netlink *rtnl, sd_netlink_message *message, 
                 break;
 
         default:
-                assert_not_reached("Received invalid RTNL message type");
+                assert_not_reached();
         }
 
         return 1;
@@ -1227,7 +1227,7 @@ int config_parse_nexthop_family(
                 n->family = AF_INET6;
                 break;
         default:
-                assert_not_reached("Invalid family.");
+                assert_not_reached();
         }
 
         TAKE_PTR(n);

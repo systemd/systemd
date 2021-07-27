@@ -168,7 +168,7 @@ static int bridge_mdb_configure(BridgeMDB *mdb, Link *link, link_netlink_message
                 break;
 
         default:
-                assert_not_reached("Invalid address family");
+                assert_not_reached();
         }
 
         /* create new RTM message */

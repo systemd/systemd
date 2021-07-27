@@ -154,7 +154,7 @@ int config_parse_token_bucket_filter_size(
                 else if (streq(lvalue, "MPUBytes"))
                         tbf->mpu = 0;
                 else
-                        assert_not_reached("unknown lvalue");
+                        assert_not_reached();
 
                 TAKE_PTR(qdisc);
                 return 0;
@@ -177,7 +177,7 @@ int config_parse_token_bucket_filter_size(
         else if (streq(lvalue, "MTUBytes"))
                 tbf->mtu = k;
         else
-                assert_not_reached("unknown lvalue");
+                assert_not_reached();
 
         TAKE_PTR(qdisc);
 
@@ -222,7 +222,7 @@ int config_parse_token_bucket_filter_rate(
         else if (streq(lvalue, "PeakRate"))
                 p = &tbf->peak_rate;
         else
-                assert_not_reached("unknown lvalue");
+                assert_not_reached();
 
         if (isempty(rvalue)) {
                 *p = 0;

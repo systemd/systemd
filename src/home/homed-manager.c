@@ -597,7 +597,7 @@ static int manager_acquire_uid(
                         break;
 
                 default:
-                        assert_not_reached("unknown phase");
+                        assert_not_reached();
                 }
 
                 other = hashmap_get(m->homes_by_uid, UID_TO_PTR(candidate));

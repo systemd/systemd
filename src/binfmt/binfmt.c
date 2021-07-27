@@ -174,7 +174,7 @@ static int parse_argv(int argc, char *argv[]) {
                         return -EINVAL;
 
                 default:
-                        assert_not_reached("Unhandled option");
+                        assert_not_reached();
                 }
 
         if ((arg_unregister || arg_cat_config) && argc > optind)

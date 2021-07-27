@@ -331,7 +331,7 @@ static int parse_argv(int argc, char *argv[]) {
                         return -EINVAL;
 
                 default:
-                        assert_not_reached("Unhandled option");
+                        assert_not_reached();
                 }
 
         if (arg_since != USEC_INFINITY && arg_until != USEC_INFINITY &&

@@ -915,7 +915,7 @@ static void source_disconnect(sd_event_source *s) {
         }
 
         default:
-                assert_not_reached("Wut? I shouldn't exist.");
+                assert_not_reached();
         }
 
         if (s->pending)
@@ -2407,7 +2407,7 @@ static int event_source_offline(
                 break;
 
         default:
-                assert_not_reached("Wut? I shouldn't exist.");
+                assert_not_reached();
         }
 
         /* Always reshuffle time prioq, as the ratelimited flag may be changed. */
@@ -2495,7 +2495,7 @@ static int event_source_online(
                 break;
 
         default:
-                assert_not_reached("Wut? I shouldn't exist.");
+                assert_not_reached();
         }
 
         s->enabled = enabled;
@@ -3569,7 +3569,7 @@ static int source_dispatch(sd_event_source *s) {
         case SOURCE_WATCHDOG:
         case _SOURCE_EVENT_SOURCE_TYPE_MAX:
         case _SOURCE_EVENT_SOURCE_TYPE_INVALID:
-                assert_not_reached("Wut? I shouldn't exist.");
+                assert_not_reached();
         }
 
         s->dispatching = false;
@@ -3929,7 +3929,7 @@ static int process_epoll(sd_event *e, usec_t timeout, int64_t threshold, int64_t
                                         break;
 
                                 default:
-                                        assert_not_reached("Unexpected event source type");
+                                        assert_not_reached();
                                 }
 
                                 break;
@@ -3953,7 +3953,7 @@ static int process_epoll(sd_event *e, usec_t timeout, int64_t threshold, int64_t
                                 break;
 
                         default:
-                                assert_not_reached("Invalid wake-up pointer");
+                                assert_not_reached();
                         }
                 }
                 if (r < 0)

@@ -2481,7 +2481,7 @@ int manager_rtnl_process_link(sd_netlink *rtnl, sd_netlink_message *message, Man
                 break;
 
         default:
-                assert_not_reached("Received link message with invalid RTNL message type.");
+                assert_not_reached();
         }
 
         return 1;

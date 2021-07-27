@@ -83,7 +83,7 @@ int main(int argc, char *argv[]) {
                 else if (streq(argv[1], "test2"))
                         test2();
                 else
-                        assert_not_reached("unknown command.");
+                        assert_not_reached();
 
                 return 0;
         }

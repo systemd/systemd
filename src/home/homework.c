@@ -791,7 +791,7 @@ static int home_activate(UserRecord *h, UserRecord **ret_home) {
                 break;
 
         default:
-                assert_not_reached("unexpected type");
+                assert_not_reached();
         }
 
         /* Note that the returned object might either be a reference to an updated version of the existing
@@ -1305,7 +1305,7 @@ static int home_remove(UserRecord *h) {
                 break;
 
         default:
-                assert_not_reached("unknown storage type");
+                assert_not_reached();
         }
 
         if (hd) {
@@ -1370,7 +1370,7 @@ static int home_validate_update(UserRecord *h, HomeSetup *setup) {
         }
 
         default:
-                assert_not_reached("unexpected storage type");
+                assert_not_reached();
         }
 
         return has_mount; /* return true if the home record is already active */

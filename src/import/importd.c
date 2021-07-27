@@ -431,7 +431,7 @@ static int transfer_start(Transfer *t) {
                         break;
 
                 default:
-                        assert_not_reached("Unexpected transfer type");
+                        assert_not_reached();
                 }
 
                 switch (t->type) {

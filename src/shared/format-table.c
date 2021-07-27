@@ -316,7 +316,7 @@ static size_t table_data_size(TableDataType type, const void *data) {
                 return sizeof(mode_t);
 
         default:
-                assert_not_reached("Uh? Unexpected cell type");
+                assert_not_reached();
         }
 }
 
@@ -1048,7 +1048,7 @@ int table_add_many_internal(Table *t, TableDataType first_type, ...) {
                         return 0;
 
                 default:
-                        assert_not_reached("Uh? Unexpected data type.");
+                        assert_not_reached();
                 }
 
                 r = table_add_cell(t, &last_cell, type, data);
@@ -1778,7 +1778,7 @@ static const char *table_data_format(Table *t, TableData *d, bool avoid_uppercas
         }
 
         default:
-                assert_not_reached("Unexpected type?");
+                assert_not_reached();
         }
 
         return d->formatted;

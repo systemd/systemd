@@ -128,7 +128,7 @@ static int netdev_gre_erspan_fill_message_create(NetDev *netdev, Link *link, sd_
                 t = GRETAP(netdev);
                 break;
         default:
-                assert_not_reached("invalid netdev kind");
+                assert_not_reached();
         }
 
         assert(t);
@@ -457,7 +457,7 @@ static int netdev_tunnel_verify(NetDev *netdev, const char *filename) {
                 t = ERSPAN(netdev);
                 break;
         default:
-                assert_not_reached("Invalid tunnel kind");
+                assert_not_reached();
         }
 
         assert(t);
@@ -722,7 +722,7 @@ static void ipip_sit_init(NetDev *n) {
                 t = SIT(n);
                 break;
         default:
-                assert_not_reached("invalid netdev kind");
+                assert_not_reached();
         }
 
         assert(t);
@@ -763,7 +763,7 @@ static void gre_erspan_init(NetDev *n) {
                 t = GRETAP(n);
                 break;
         default:
-                assert_not_reached("invalid netdev kind");
+                assert_not_reached();
         }
 
         assert(t);

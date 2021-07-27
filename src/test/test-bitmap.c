@@ -46,7 +46,7 @@ int main(int argc, const char *argv[]) {
         bitmap_unset(b, 32);
 
         BITMAP_FOREACH(n, NULL)
-                assert_not_reached("NULL bitmap");
+                assert_not_reached();
 
         assert_se(bitmap_set(b, 0) == 0);
         assert_se(bitmap_set(b, 1) == 0);

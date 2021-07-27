@@ -87,7 +87,7 @@ int bus_gvariant_get_size(const char *signature) {
                         return -EINVAL;
 
                 default:
-                        assert_not_reached("Unknown signature type");
+                        assert_not_reached();
                 }
 
                 p += n;
@@ -164,7 +164,7 @@ int bus_gvariant_get_alignment(const char *signature) {
                 }
 
                 default:
-                        assert_not_reached("Unknown signature type");
+                        assert_not_reached();
                 }
 
                 if (a < 0)
@@ -229,7 +229,7 @@ int bus_gvariant_is_fixed_size(const char *signature) {
                 }
 
                 default:
-                        assert_not_reached("Unknown signature type");
+                        assert_not_reached();
                 }
 
                 p += n;
@@ -270,7 +270,7 @@ size_t bus_gvariant_read_word_le(void *p, size_t sz) {
         else if (sz == 8)
                 return le64toh(x.u64);
 
-        assert_not_reached("unknown word width");
+        assert_not_reached();
 }
 
 void bus_gvariant_write_word_le(void *p, size_t sz, size_t value) {
@@ -293,7 +293,7 @@ void bus_gvariant_write_word_le(void *p, size_t sz, size_t value) {
         else if (sz == 8)
                 x.u64 = htole64((uint64_t) value);
         else
-                assert_not_reached("unknown word width");
+                assert_not_reached();
 
         memcpy(p, &x, sz);
 }

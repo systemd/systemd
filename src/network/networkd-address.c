@@ -1428,7 +1428,7 @@ int manager_rtnl_process_address(sd_netlink *rtnl, sd_netlink_message *message, 
                 break;
 
         default:
-                assert_not_reached("Received unsupported address family");
+                assert_not_reached();
         }
 
         r = sd_netlink_message_read_cache_info(message, IFA_CACHEINFO, &tmp->cinfo);
@@ -1469,7 +1469,7 @@ int manager_rtnl_process_address(sd_netlink *rtnl, sd_netlink_message *message, 
                 break;
 
         default:
-                assert_not_reached("Received invalid RTNL message type");
+                assert_not_reached();
         }
 
         return 1;

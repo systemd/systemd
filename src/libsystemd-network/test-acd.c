@@ -30,7 +30,7 @@ static void acd_handler(sd_ipv4acd *acd, int event, void *userdata) {
                 log_error("the client was stopped");
                 break;
         default:
-                assert_not_reached("invalid ACD event");
+                assert_not_reached();
         }
 }
 

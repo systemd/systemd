@@ -34,7 +34,7 @@ static be32_t xid;
 static sd_event_source *test_hangcheck;
 
 static int test_dhcp_hangcheck(sd_event_source *s, uint64_t usec, void *userdata) {
-        assert_not_reached("Test case should have completed in 2 seconds");
+        assert_not_reached();
 
         return 0;
 }

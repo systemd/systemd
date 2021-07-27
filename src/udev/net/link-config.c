@@ -501,7 +501,7 @@ static int link_config_generate_new_name(const LinkConfigContext *ctx, const Lin
                                 (void) sd_device_get_property_value(device, "ID_NET_NAME_MAC", &new_name);
                                 break;
                         default:
-                                assert_not_reached("invalid policy");
+                                assert_not_reached();
                         }
                         if (ifname_valid(new_name)) {
                                 log_device_debug(device, "Policy *%s* yields \"%s\".", name_policy_to_string(policy), new_name);
@@ -569,7 +569,7 @@ static int link_config_apply_alternative_names(sd_netlink **rtnl, const LinkConf
                                 (void) sd_device_get_property_value(device, "ID_NET_NAME_MAC", &n);
                                 break;
                         default:
-                                assert_not_reached("invalid policy");
+                                assert_not_reached();
                         }
                         if (!isempty(n)) {
                                 r = strv_extend(&altnames, n);

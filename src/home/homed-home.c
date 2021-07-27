@@ -957,7 +957,7 @@ static int home_on_worker_process(sd_event_source *s, const siginfo_t *si, void 
                 break;
 
         default:
-                assert_not_reached("Unexpected state after worker exited");
+                assert_not_reached();
         }
 
         return 0;

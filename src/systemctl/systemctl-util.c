@@ -930,6 +930,6 @@ int halt_now(enum action a) {
                                              (arg_dry_run ? REBOOT_DRY_RUN : 0));
 
         default:
-                assert_not_reached("Unknown action.");
+                assert_not_reached();
         }
 }

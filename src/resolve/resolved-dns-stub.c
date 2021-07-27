@@ -813,7 +813,7 @@ static void dns_stub_query_complete(DnsQuery *q) {
         case DNS_TRANSACTION_PENDING:
         case DNS_TRANSACTION_VALIDATING:
         default:
-                assert_not_reached("Impossible state");
+                assert_not_reached();
         }
 
         dns_query_free(q);

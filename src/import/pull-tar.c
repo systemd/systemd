@@ -187,7 +187,7 @@ static void tar_pull_report_progress(TarPull *i, TarProgress p) {
                 break;
 
         default:
-                assert_not_reached("Unknown progress state");
+                assert_not_reached();
         }
 
         sd_notifyf(false, "X_IMPORT_PROGRESS=%u", percent);

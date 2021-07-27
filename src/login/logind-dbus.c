@@ -2141,7 +2141,7 @@ static int manager_scheduled_shutdown_handler(
         else if (streq(m->scheduled_shutdown_type, "halt"))
                 target = SPECIAL_HALT_TARGET;
         else
-                assert_not_reached("unexpected shutdown type");
+                assert_not_reached();
 
         /* Don't allow multiple jobs being executed at the same time */
         if (m->action_what > 0) {

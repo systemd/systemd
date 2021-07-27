@@ -136,7 +136,7 @@ int uname_architecture(void) {
                 if (streq(arch_map[i].machine, u.machine))
                         return cached = arch_map[i].arch;
 
-        assert_not_reached("Couldn't identify architecture. You need to patch systemd.");
+        assert_not_reached();
         return _ARCHITECTURE_INVALID;
 }
 

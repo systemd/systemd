@@ -1163,7 +1163,7 @@ int sd_netlink_message_enter_container(sd_netlink_message *m, unsigned short typ
                         break;
                 }
                 default:
-                        assert_not_reached("sd-netlink: invalid type system union type");
+                        assert_not_reached();
                 }
         } else
                 return -EINVAL;

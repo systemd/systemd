@@ -30,7 +30,7 @@ static int fifo_fill_message(Link *link, QDisc *qdisc, sd_netlink_message *req) 
                 fifo = PFIFO_HEAD_DROP(qdisc);
                 break;
         default:
-                assert_not_reached("Invalid QDisc kind.");
+                assert_not_reached();
         }
 
         opt.limit = fifo->limit;
@@ -81,7 +81,7 @@ int config_parse_pfifo_size(
                 fifo = PFIFO_HEAD_DROP(qdisc);
                 break;
         default:
-                assert_not_reached("Invalid QDisc kind.");
+                assert_not_reached();
         }
 
         if (isempty(rvalue)) {

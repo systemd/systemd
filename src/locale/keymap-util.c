@@ -691,7 +691,7 @@ int find_language_fallback(const char *lang, char **language) {
                 }
         }
 
-        assert_not_reached("should not be here");
+        assert_not_reached();
 }
 
 int x11_convert_to_vconsole(Context *c) {

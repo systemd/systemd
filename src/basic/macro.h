@@ -282,8 +282,8 @@ static inline int __coverity_check_and_return__(int condition) {
 #define assert(expr) assert_message_se(expr, #expr)
 #endif
 
-#define assert_not_reached(t)                                           \
-        log_assert_failed_unreachable(t, PROJECT_FILE, __LINE__, __PRETTY_FUNCTION__)
+#define assert_not_reached()                                            \
+        log_assert_failed_unreachable(PROJECT_FILE, __LINE__, __PRETTY_FUNCTION__)
 
 #define assert_return(expr, r)                                          \
         do {                                                            \

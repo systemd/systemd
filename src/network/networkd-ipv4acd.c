@@ -117,7 +117,7 @@ static void on_acd(sd_ipv4acd *acd, int event, void *userdata, bool is_static) {
                 break;
 
         default:
-                assert_not_reached("Invalid IPv4ACD event.");
+                assert_not_reached();
         }
 }
 

@@ -347,7 +347,7 @@ static int acquire_config_dirs(UnitFileScope scope, char **persistent, char **ru
                 return 0;
 
         default:
-                assert_not_reached("Hmm, unexpected scope value.");
+                assert_not_reached();
         }
 
         if (!a || !b)
@@ -405,7 +405,7 @@ static int acquire_control_dirs(UnitFileScope scope, char **persistent, char **r
                 return -EOPNOTSUPP;
 
         default:
-                assert_not_reached("Hmm, unexpected scope value.");
+                assert_not_reached();
         }
 
         *persistent = TAKE_PTR(a);
@@ -657,7 +657,7 @@ int lookup_paths_init(
                         break;
 
                 default:
-                        assert_not_reached("Hmm, unexpected scope?");
+                        assert_not_reached();
                 }
 
                 if (!add)
@@ -807,7 +807,7 @@ char **generator_binary_paths(UnitFileScope scope) {
                         break;
 
                 default:
-                        assert_not_reached("Hmm, unexpected scope.");
+                        assert_not_reached();
                 }
 
                 if (!add)

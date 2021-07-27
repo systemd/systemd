@@ -202,7 +202,7 @@ static bool test_order(int k, OrderOperator p) {
                 return k > 0;
 
         default:
-                assert_not_reached("unknown order");
+                assert_not_reached();
 
         }
 }

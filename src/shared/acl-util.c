@@ -320,7 +320,7 @@ static int acl_entry_equal(acl_entry_t a, acl_entry_t b) {
                 return *gid_a == *gid_b;
         }
         default:
-                assert_not_reached("Unknown acl tag type");
+                assert_not_reached();
         }
 }
 

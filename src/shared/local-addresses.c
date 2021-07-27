@@ -422,7 +422,7 @@ int local_outbounds(
                         break;
 
                 default:
-                        assert_not_reached("Unexpected protocol");
+                        assert_not_reached();
                 }
 
                 /* So ideally we'd just use IP_UNICAST_IF here to pass the ifindex info to the kernel before
@@ -493,7 +493,7 @@ int local_outbounds(
                         break;
 
                 default:
-                        assert_not_reached("Unexpected protocol");
+                        assert_not_reached();
                 }
         }
 

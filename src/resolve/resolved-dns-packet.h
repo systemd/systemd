@@ -332,7 +332,7 @@ static inline size_t udp_header_size(int af) {
         case AF_INET6:
                 return UDP6_PACKET_HEADER_SIZE;
         default:
-                assert_not_reached("Unexpected address family");
+                assert_not_reached();
         }
 }
 
