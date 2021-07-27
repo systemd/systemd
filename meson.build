@@ -3552,10 +3552,7 @@ foreach tuple : fuzzers
         endif
 endforeach
 
-run_target(
-        'fuzzers',
-        depends : fuzzer_exes,
-        command : ['true'])
+alias_target('fuzzers', fuzzer_exes)
 
 ############################################################
 
