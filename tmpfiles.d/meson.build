@@ -37,8 +37,7 @@ foreach pair : in_files
                 # do nothing
         elif pair[1] == '' or conf.get(pair[1]) == 1
                 custom_target(
-                        # XXX: workaround for old meson. Drop when upgrading.
-                        'tmpfiles+' + pair[0],
+                        pair[0],
                         input : pair[0] + '.in',
                         output: pair[0],
                         command : [meson_render_jinja2, config_h, '@INPUT@'],
