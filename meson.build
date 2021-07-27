@@ -948,9 +948,11 @@ if want_bpf_framework == 'false'
 else
         clang = find_program('clang', required : bpf_framework_required)
         llvm_strip = find_program('llvm-strip', required : bpf_framework_required)
-        # Debian installs this in /usr/sbin/ which is not in $PATH
-        # FIXME: use the 'dirs' parameter once we bump Meson version to >= 0.53
+
+        # Debian installs this in /usr/sbin/ which is not in $PATH.
+        # We check for 'bpftool' first, honouring $PATH, and in /usr/sbin/ for Debian.
         bpftool = find_program('bpftool', '/usr/sbin/bpftool', required : bpf_framework_required)
+
         bpf_arches = ['x86_64']
         deps_found = libbpf.found() and clang.found() and llvm_strip.found() and bpftool.found()
         # Can build BPF program from source code in restricted C
