@@ -14,8 +14,8 @@ sources = '''
 
 # for sd-boot
 fundamental_source_paths = []
-foreach s : sources
-        fundamental_source_paths += join_paths(meson.current_source_dir(), s)
+foreach source : sources
+        fundamental_source_paths += meson.current_source_dir() / source
 endforeach
 
 # for libbasic

@@ -5,7 +5,7 @@ if conf.get('HAVE_LIBCRYPTSETUP_PLUGINS') == 1
 cryptsetup_token_c_args = ['-fvisibility=hidden']
 
 cryptsetup_token_sym = files('cryptsetup-token.sym')
-cryptsetup_token_sym_path = join_paths(meson.current_source_dir(), 'cryptsetup-token.sym')
+cryptsetup_token_sym_path = meson.current_source_dir() / 'cryptsetup-token.sym'
 
 if conf.get('HAVE_TPM2') == 1
         cryptsetup_token_systemd_tpm2_sources = files('''

@@ -20,8 +20,8 @@ endif
 # If you know a way that allows the same variables to be used
 # in sources list and concatenated to a string for test_env,
 # let me know.
-kbd_model_map = join_paths(meson.current_source_dir(), 'kbd-model-map')
-language_fallback_map = join_paths(meson.current_source_dir(), 'language-fallback-map')
+kbd_model_map = meson.current_source_dir() / 'kbd-model-map'
+language_fallback_map = meson.current_source_dir() / 'language-fallback-map'
 
 if conf.get('ENABLE_LOCALED') == 1
         install_data('kbd-model-map',

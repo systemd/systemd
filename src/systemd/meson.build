@@ -77,7 +77,7 @@ foreach header : _systemd_headers + _not_installed_headers + [libudev_h_path]
                              check_compilation_sh,
                              args : cc.cmd_array() + ['-c', '-x'] + opt +
                                     ['-Werror', '-include',
-                                     join_paths(meson.current_source_dir(), header)])
+                                     meson.current_source_dir() / header])
                 endif
         endforeach
 endforeach

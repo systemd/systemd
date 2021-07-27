@@ -140,7 +140,7 @@ if want_tests != 'false' and dmi_arches.contains(host_machine.cpu_family())
         endif
 
         foreach p : out.stdout().split()
-                source = join_paths(project_source_root, p)
+                source = project_source_root / p
                 name = 'dmidecode_' + p.split('/')[-1].split('.')[0]
 
                 test(name,

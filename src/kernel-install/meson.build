@@ -15,7 +15,7 @@ if want_kernel_install
 
         if install_sysconfdir
                 meson.add_install_script('sh', '-c',
-                                         mkdir_p.format(join_paths(sysconfdir, 'kernel/install.d')))
+                                         mkdir_p.format(sysconfdir / 'kernel/install.d'))
         endif
 
 endif

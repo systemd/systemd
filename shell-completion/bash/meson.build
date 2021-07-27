@@ -6,7 +6,7 @@ if bashcompletiondir == ''
         if bash_completion.found()
                 bashcompletiondir = bash_completion.get_pkgconfig_variable('completionsdir')
         else
-                bashcompletiondir = join_paths(datadir, 'bash-completion/completions')
+                bashcompletiondir = datadir / 'bash-completion/completions'
         endif
 endif
 
