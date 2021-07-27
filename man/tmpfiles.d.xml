@@ -550,6 +550,7 @@ w- /proc/sys/vm/swappiness - - - - 10</programlisting></para>
 
     <refsect2>
       <title>Age</title>
+
       <para>The date field, when set, is used to decide what files to
       delete when cleaning. If a file or directory is older than the
       current time minus the age field, it is deleted. The field
@@ -582,10 +583,9 @@ w- /proc/sys/vm/swappiness - - - - 10</programlisting></para>
       and <varname>X</varname>. If omitted or set to
       <literal>-</literal>, no automatic clean-up is done.</para>
 
-      <para>If the age field starts with a tilde character
-      <literal>~</literal>, the clean-up is only applied to files and
-      directories one level inside the directory specified, but not
-      the files and directories immediately inside it.</para>
+      <para>If the age field starts with a tilde character <literal>~</literal>, clean-up is only applied to
+      files and directories one level inside the directory specified, but not the files and directories
+      immediately inside it.</para>
 
       <para>The age of a file system entry is determined from its last
       modification timestamp (mtime), its last access timestamp (atime),
@@ -595,30 +595,25 @@ w- /proc/sys/vm/swappiness - - - - 10</programlisting></para>
       the age field. To restrict the deletion based on particular type
       of file timestamps, the age-by argument can be used.</para>
 
-      <para>The age-by argument, when (optionally) specified along
-      with age will check if the file system entry has aged by the
-      type of file timestamp(s) provided. It can be specified by
-      prefixing the age argument with a set of file timestamp types
-      followed by a colon character <literal>:</literal>, i.e.,
-      <literal><replaceable>age-by</replaceable>:<replaceable>cleanup-age</replaceable></literal>.
-      The argument can be a set of:
-      <constant>a</constant> (<constant>A</constant> for directories),
-      <constant>b</constant> (<constant>B</constant> for directories),
-      <constant>c</constant> (<constant>C</constant> for directories; ignored by default), or
-      <constant>m</constant> (<constant>M</constant> for directories),
-      indicating access, creation, last status change, and last
-      modification times of a file system entry respectively. See
-      <citerefentry project='man-pages'><refentrytitle>statx</refentrytitle><manvolnum>2</manvolnum></citerefentry>
-      file timestamp fields for more details.</para>
+      <para>The age-by argument overrides the timestamp types to be used for the age check. It can be
+      specified by prefixing the age argument with a sequence of characters to specify the timestamp types
+      and a colon (<literal>:</literal>):
+      <literal><replaceable>age-by</replaceable>...:<replaceable>cleanup-age</replaceable></literal>.  The
+      argument can consist of <constant>a</constant> (<constant>A</constant> for directories),
+      <constant>b</constant> (<constant>B</constant> for directories), <constant>c</constant>
+      (<constant>C</constant> for directories), or <constant>m</constant> (<constant>M</constant> for
+      directories). Those respectively indicate access, creation, last status change, and last modification
+      time of a file system entry. The lower-case letter signifies that the given timestamp type should be
+      considered for files, while the upper-case letter signifies that the given timestamp type should be
+      considered for directories. See <citerefentry
+      project='man-pages'><refentrytitle>statx</refentrytitle><manvolnum>2</manvolnum></citerefentry> file
+      timestamp fields for more details about timestamp types.</para>
 
-      <para>If unspecified, the age-by field defaults to
-      <constant>abcmABM</constant>,
-      i.e., by default all file timestamps are taken into consideration,
-      with the exception of the last status change timestamp (ctime) for
-      directories. This is because the aging logic itself will alter the
-      ctime whenever it deletes a file inside it. To ensure that running
-      the aging logic does not feed back into the next iteration of it,
-      ctime for directories is ignored by default.</para>
+      <para>If not specified, the age-by field defaults to <constant>abcmABM</constant>, i.e. by default all
+      file timestamps are taken into consideration, with the exception of the last status change timestamp
+      (ctime) for directories. This is because the aging logic itself will alter the ctime whenever it
+      deletes a file inside it. To ensure that running the aging logic does not feed back into the next
+      iteration of itself, ctime for directories is ignored by default.</para>
 
       <para>For example:<programlisting>
 # Files created and modified, and directories accessed more than
