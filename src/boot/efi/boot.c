@@ -989,6 +989,7 @@ static VOID config_defaults_load_from_file(Config *config, CHAR8 *content) {
         CHAR8 *line;
         UINTN pos = 0;
         CHAR8 *key, *value;
+        EFI_STATUS err;
 
         while ((line = line_get_key_value(content, (CHAR8 *)" \t", &pos, &key, &value))) {
                 if (strcmpa((CHAR8 *)"timeout", key) == 0) {
@@ -1008,32 +1009,23 @@ static VOID config_defaults_load_from_file(Config *config, CHAR8 *content) {
                 }
 
                 if (strcmpa((CHAR8 *)"editor", key) == 0) {
-                        BOOLEAN on;
-
-                        if (EFI_ERROR(parse_boolean(value, &on)))
-                                continue;
-
-                        config->editor = on;
+                        err = parse_boolean(value, &config->editor);
+                        if (EFI_ERROR(err))
+                                PrintError(L"Error parsing 'editor' config option: %r\n", err);
                         continue;
                 }
 
                 if (strcmpa((CHAR8 *)"auto-entries", key) == 0) {
-                        BOOLEAN on;
-
-                        if (EFI_ERROR(parse_boolean(value, &on)))
-                                continue;
-
-                        config->auto_entries = on;
+                        err = parse_boolean(value, &config->auto_entries);
+                        if (EFI_ERROR(err))
+                                PrintError(L"Error parsing 'auto-entries' config option: %r\n", err);
                         continue;
                 }
 
                 if (strcmpa((CHAR8 *)"auto-firmware", key) == 0) {
-                        BOOLEAN on;
-
-                        if (EFI_ERROR(parse_boolean(value, &on)))
-                                continue;
-
-                        config->auto_firmware = on;
+                        err = parse_boolean(value, &config->auto_firmware);
+                        if (EFI_ERROR(err))
+                                PrintError(L"Error parsing 'auto-firmware' config option: %r\n", err);
                         continue;
                 }
 
@@ -1064,61 +1056,47 @@ static VOID config_defaults_load_from_file(Config *config, CHAR8 *content) {
                                 config->random_seed_mode = RANDOM_SEED_ALWAYS;
                         else {
                                 BOOLEAN on;
-
-                                if (EFI_ERROR(parse_boolean(value, &on)))
+                                err = parse_boolean(value, &on);
+                                if (EFI_ERROR(err)) {
+                                        PrintError(L"Error parsing 'random-seed-mode' config option: %r\n", err);
                                         continue;
-
+                                }
                                 config->random_seed_mode = on ? RANDOM_SEED_ALWAYS : RANDOM_SEED_OFF;
                         }
                 }
 
                 if (strcmpa((CHAR8 *)"color", key) == 0) {
-                        UINTN color;
-
-                        if (EFI_ERROR(parse_color(value, &color)))
-                                continue;
-
-                        config->color = color;
+                        err = parse_color(value, &config->color);
+                        if (EFI_ERROR(err))
+                                PrintError(L"Error parsing 'color' config option: %r\n", err);
                         continue;
                 }
 
                 if (strcmpa((CHAR8 *)"entry-color", key) == 0) {
-                        UINTN color;
-
-                        if (EFI_ERROR(parse_color(value, &color)))
-                                continue;
-
-                        config->entry_color = color;
+                        err = parse_color(value, &config->entry_color);
+                        if (EFI_ERROR(err))
+                                PrintError(L"Error parsing 'entry-color' config option: %r\n", err);
                         continue;
                 }
 
                 if (strcmpa((CHAR8 *)"highlight-color", key) == 0) {
-                        UINTN color;
-
-                        if (EFI_ERROR(parse_color(value, &color)))
-                                continue;
-
-                        config->highlight_color = color;
+                        err = parse_color(value, &config->highlight_color);
+                        if (EFI_ERROR(err))
+                                PrintError(L"Error parsing 'highlight-color' config option: %r\n", err);
                         continue;
                 }
 
                 if (strcmpa((CHAR8 *)"box-color", key) == 0) {
-                        UINTN color;
-
-                        if (EFI_ERROR(parse_color(value, &color)))
-                                continue;
-
-                        config->box_color = color;
+                        err = parse_color(value, &config->box_color);
+                        if (EFI_ERROR(err))
+                                PrintError(L"Error parsing 'box-color' config option: %r\n", err);
                         continue;
                 }
 
                 if (strcmpa((CHAR8 *)"edit-color", key) == 0) {
-                        UINTN color;
-
-                        if (EFI_ERROR(parse_color(value, &color)))
-                                continue;
-
-                        config->edit_color = color;
+                        err = parse_color(value, &config->edit_color);
+                        if (EFI_ERROR(err))
+                                PrintError(L"Error parsing 'edit-color' config option: %r\n", err);
                         continue;
                 }
         }
