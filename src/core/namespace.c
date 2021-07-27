@@ -1586,11 +1586,36 @@ static void normalize_mounts(const char *root_directory, MountEntry *mounts, siz
         drop_nop(mounts, n_mounts);
 }
 
+static int create_symlinks_from_tuples(const char *root, char **strv_symlinks) {
+        char **src, **dst;
+        int r;
+
+        STRV_FOREACH_PAIR(src, dst, strv_symlinks) {
+                _cleanup_free_ char *src_abs = NULL, *dst_abs = NULL;
+
+                src_abs = path_join(root, *src);
+                dst_abs = path_join(root, *dst);
+                if (!src_abs || !dst_abs)
+                        return -ENOMEM;
+
+                r = mkdir_parents_label(dst_abs, 0755);
+                if (r < 0)
+                        return r;
+
+                r = symlink_idempotent(src_abs, dst_abs, true);
+                if (r < 0)
+                        return r;
+        }
+
+        return 0;
+}
+
 static int apply_mounts(
                 const char *root,
                 const NamespaceInfo *ns_info,
                 MountEntry *mounts,
                 size_t *n_mounts,
+                char **exec_dir_symlinks,
                 char **error_path) {
 
         _cleanup_fclose_ FILE *proc_self_mountinfo = NULL;
@@ -1656,6 +1681,14 @@ static int apply_mounts(
 
                 normalize_mounts(root, mounts, n_mounts);
         }
+
+        /* Now that all filesystems have been set up, but before the
+         * read-only switches are flipped, create the exec dirs symlinks.
+         * Note that when /var/lib is not empty/tmpfs, these symlinks will already
+         * exist, which means this will be a no-op. */
+        r = create_symlinks_from_tuples(root, exec_dir_symlinks);
+        if (r < 0)
+                return r;
 
         /* Create a deny list we can pass to bind_mount_recursive() */
         deny_list = new(char*, (*n_mounts)+1);
@@ -1820,6 +1853,7 @@ int setup_namespace(
                 char** exec_paths,
                 char** no_exec_paths,
                 char** empty_directories,
+                char** exec_dir_symlinks,
                 const BindMount *bind_mounts,
                 size_t n_bind_mounts,
                 const TemporaryFileSystem *temporary_filesystems,
@@ -2261,7 +2295,7 @@ int setup_namespace(
                 (void) base_filesystem_create(root, UID_INVALID, GID_INVALID);
 
         /* Now make the magic happen */
-        r = apply_mounts(root, ns_info, mounts, &n_mounts, error_path);
+        r = apply_mounts(root, ns_info, mounts, &n_mounts, exec_dir_symlinks, error_path);
         if (r < 0)
                 goto finish;
 
