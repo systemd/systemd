@@ -54,7 +54,7 @@ foreach tuple : xsltproc.found() ? manpages : []
                 htmlaliases += alias + '.html'
         endforeach
 
-        mandirn = join_paths(get_option('mandir'), 'man' + section)
+        mandirn = get_option('mandir') / ('man' + section)
 
         if condition == '' or conf.get(condition) == 1
                 p1 = custom_target(
@@ -74,7 +74,7 @@ foreach tuple : xsltproc.found() ? manpages : []
                                 output : htmlalias,
                                 command : [ln, '-fs', html, '@OUTPUT@'])
                         if want_html
-                                dst = join_paths(docdir, 'html', htmlalias)
+                                dst = docdir / 'html' / htmlalias
                                 cmd = 'ln -fs @0@ $DESTDIR@1@'.format(html, dst)
                                 meson.add_install_script('sh', '-c', cmd)
                                 p2 += link
@@ -89,7 +89,7 @@ foreach tuple : xsltproc.found() ? manpages : []
                         command : xslt_cmd + [custom_html_xsl, '@INPUT@'],
                         depends : [custom_entities_ent, p2],
                         install : want_html,
-                        install_dir : join_paths(docdir, 'html'))
+                        install_dir : docdir / 'html')
                 html_pages += p3
 
                 file = files(tuple[0] + '.xml')
@@ -132,7 +132,7 @@ foreach tuple : xsltproc.found() ? [['systemd.directives', '7', systemd_directiv
         html = stem + '.html'
         man = stem + '.' + section
 
-        mandirn = join_paths(get_option('mandir'), 'man' + section)
+        mandirn = get_option('mandir') / ('man' + section)
 
         p1 = custom_target(
                 man,
@@ -152,7 +152,7 @@ foreach tuple : xsltproc.found() ? [['systemd.directives', '7', systemd_directiv
                         output : htmlalias,
                         command : [ln, '-fs', html, '@OUTPUT@'])
                 if want_html
-                        dst = join_paths(docdir, 'html', htmlalias)
+                        dst = docdir / 'html' / htmlalias
                         cmd = 'ln -fs @0@ $DESTDIR@1@'.format(html, dst)
                         meson.add_install_script('sh', '-c', cmd)
                         p2 += link
@@ -167,7 +167,7 @@ foreach tuple : xsltproc.found() ? [['systemd.directives', '7', systemd_directiv
                 command : xslt_cmd + [custom_html_xsl, '@INPUT@'],
                 depends : [custom_entities_ent, p2],
                 install : want_html and have_lxml,
-                install_dir : join_paths(docdir, 'html'))
+                install_dir : docdir / 'html')
         html_pages += p3
 endforeach
 

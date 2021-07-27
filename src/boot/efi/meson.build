@@ -71,14 +71,14 @@ if conf.get('ENABLE_EFI') == 1 and get_option('gnu-efi') != 'false'
         efi_libdir = get_option('efi-libdir')
         if efi_libdir == ''
                 # New location first introduced with gnu-efi 3.0.11
-                efi_libdir = join_paths('/usr/lib/gnuefi', EFI_MACHINE_TYPE_NAME)
+                efi_libdir = '/usr/lib/gnuefi' / EFI_MACHINE_TYPE_NAME
                 cmd = run_command(test, '-e', efi_libdir)
 
                 if cmd.returncode() != 0
                         # Fall back to the old approach
                         cmd = run_command(efi_cc + ['-print-multi-os-directory'])
                         if cmd.returncode() == 0
-                                path = join_paths('/usr/lib', cmd.stdout().strip())
+                                path = '/usr/lib' / cmd.stdout().strip()
                                 cmd = run_command(env, 'realpath', '-e', path)
                                 if cmd.returncode() == 0
                                         efi_libdir = cmd.stdout().strip()
@@ -148,13 +148,13 @@ if have_gnu_efi
 
         efi_location_map = [
                 # New locations first introduced with gnu-efi 3.0.11
-                [join_paths(efi_libdir, 'efi.lds'),
-                 join_paths(efi_libdir, 'crt0.o')],
+                [efi_libdir / 'efi.lds',
+                 efi_libdir / 'crt0.o'],
                 # Older locations...
-                [join_paths(efi_libdir, 'gnuefi', 'elf_@0@_efi.lds'.format(gnu_efi_path_arch)),
-                 join_paths(efi_libdir, 'gnuefi', 'crt0-efi-@0@.o'.format(gnu_efi_path_arch))],
-                [join_paths(efi_libdir, 'elf_@0@_efi.lds'.format(gnu_efi_path_arch)),
-                 join_paths(efi_libdir, 'crt0-efi-@0@.o'.format(gnu_efi_path_arch))]]
+                [efi_libdir / 'gnuefi' / 'elf_@0@_efi.lds'.format(gnu_efi_path_arch),
+                 efi_libdir / 'gnuefi' / 'crt0-efi-@0@.o'.format(gnu_efi_path_arch)],
+                [efi_libdir / 'elf_@0@_efi.lds'.format(gnu_efi_path_arch),
+                 efi_libdir / 'crt0-efi-@0@.o'.format(gnu_efi_path_arch)]]
         efi_lds = ''
         foreach location : efi_location_map
                 if efi_lds == ''
@@ -191,7 +191,7 @@ if have_gnu_efi
                 '-nostdlib',
                 '-std=gnu99',
                 '-isystem', efi_incdir,
-                '-isystem', join_paths(efi_incdir, gnu_efi_path_arch),
+                '-isystem', efi_incdir / gnu_efi_path_arch,
                 '-I', fundamental_path,
                 '-DSD_BOOT',
                 '-include', efi_config_h,
