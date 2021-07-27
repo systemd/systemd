@@ -115,42 +115,40 @@ libudevd_core = static_library(
         link_with : udev_link_with,
         dependencies : [libblkid, libkmod])
 
-udev_id_progs = [['ata_id/ata_id.c'],
-                 ['cdrom_id/cdrom_id.c'],
-                 ['fido_id/fido_id.c',
-                  'fido_id/fido_id_desc.c',
-                  'fido_id/fido_id_desc.h'],
-                 ['scsi_id/scsi_id.c',
-                  'scsi_id/scsi_id.h',
-                  'scsi_id/scsi_serial.c',
-                  'scsi_id/scsi.h'],
-                 ['v4l_id/v4l_id.c'],
-                 ['mtd_probe/mtd_probe.c',
-                  'mtd_probe/mtd_probe.h',
-                  'mtd_probe/probe_smartmedia.c']]
+udev_progs = [['ata_id/ata_id.c'],
+              ['cdrom_id/cdrom_id.c'],
+              ['fido_id/fido_id.c',
+               'fido_id/fido_id_desc.c',
+               'fido_id/fido_id_desc.h'],
+              ['scsi_id/scsi_id.c',
+               'scsi_id/scsi_id.h',
+               'scsi_id/scsi_serial.c',
+               'scsi_id/scsi.h'],
+              ['v4l_id/v4l_id.c'],
+              ['mtd_probe/mtd_probe.c',
+               'mtd_probe/mtd_probe.h',
+               'mtd_probe/probe_smartmedia.c']]
 
 dmi_arches = ['x86', 'x86_64', 'aarch64', 'arm', 'ia64', 'mips']
 if dmi_arches.contains(host_machine.cpu_family())
-        udev_id_progs += [['dmi_memory_id/dmi_memory_id.c']]
+        udev_progs += [['dmi_memory_id/dmi_memory_id.c']]
 endif
 
-foreach prog : udev_id_progs
+udev_prog_paths = {}
+foreach prog : udev_progs
         name = prog[0].split('/')[0]
 
         exe = executable(
                 name,
                 prog,
                 include_directories : includes,
-                dependencies : [versiondep],
+                dependencies : versiondep,
                 link_with : udev_link_with,
                 install_rpath : udev_rpath,
                 install : true,
                 install_dir : udevlibexecdir)
 
-        # TODO: let's use a dictionary instead as soon as we can depend on meson >= 0.47.
-        if name == 'dmi_memory_id'
-                dmi_memory_id_path = exe.full_path()
-        endif
+        udev_prog_paths += {name : exe.full_path()}
 endforeach
 
 if install_sysconfdir_samples
