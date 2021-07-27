@@ -67,7 +67,7 @@
 
     <para>This is a simple mechanism to provide static user and group records via JSON drop-in files. Such
     user records should be defined in the format described by the <ulink
-    url="https://systemd.io/USER_RECORD">JSON User Record</ulink> specification and be placed in one of the
+    url="https://systemd.io/USER_RECORD">JSON User Records</ulink> specification and be placed in one of the
     aforementioned directories under a file name composed of the user name suffixed with
     <filename>.user</filename>, with a world-readable access mode. A symlink named after the user record's
     UID formatted in decimal and suffixed with <filename>.user</filename> pointing to the primary record file

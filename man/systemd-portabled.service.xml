@@ -35,8 +35,8 @@
     <para>Most of <command>systemd-portabled</command>'s functionality is accessible through the
     <citerefentry><refentrytitle>portablectl</refentrytitle><manvolnum>1</manvolnum></citerefentry> command.</para>
 
-    <para>See the <ulink url="https://systemd.io/PORTABLE_SERVICES">Portable
-    Services Documentation</ulink> for details about the concepts this service implements.</para>
+    <para>See <ulink url="https://systemd.io/PORTABLE_SERVICES">Portable Services</ulink> for details about
+    the concepts this service implements.</para>
   </refsect1>
 
   <refsect1>

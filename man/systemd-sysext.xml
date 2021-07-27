@@ -71,7 +71,7 @@
     <orderedlist>
       <listitem><para>Plain directories or btrfs subvolumes containing the OS tree</para></listitem>
       <listitem><para>Disk images with a GPT disk label, following the <ulink
-      url="https://systemd.io/DISCOVERABLE_PARTITIONS">Discoverable Partition Specification</ulink></para></listitem>
+      url="https://systemd.io/DISCOVERABLE_PARTITIONS">Discoverable Partitions Specification</ulink></para></listitem>
       <listitem><para>Disk images lacking a partition table, with a naked Linux file system (e.g. squashfs or ext4)</para></listitem>
     </orderedlist>
 

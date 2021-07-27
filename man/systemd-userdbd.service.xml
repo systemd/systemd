@@ -41,7 +41,7 @@
     command.</para>
 
     <para>The user and group records this service provides access to follow the <ulink
-    url="https://systemd.io/USER_RECORD">JSON User Record</ulink> and <ulink
+    url="https://systemd.io/USER_RECORD">JSON User Records</ulink> and <ulink
     url="https://systemd.io/GROUP_RECORD">JSON Group Record</ulink> definitions. This service implements the
     <ulink url="https://systemd.io/USER_GROUP_API">User/Group Record Lookup API via Varlink</ulink>, and
     multiplexes access other services implementing this API, too. It is thus both server and client of this
