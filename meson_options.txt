@@ -438,7 +438,7 @@ option('efi-color-highlight', type : 'string', value : 'EFI_BLACK|EFI_BACKGROUND
        description : 'boot loader color for selected entries')
 option('efi-color-box', type : 'string', value : 'EFI_LIGHTGRAY|EFI_BACKGROUND_BLACK',
        description : 'boot loader color for surrounding box')
-option('efi-color-edit', type : 'string', value : 'EFI_LIGHTGRAY|EFI_BACKGROUND_BLACK',
+option('efi-color-edit', type : 'string', value : 'EFI_BLACK|EFI_BACKGROUND_LIGHTGRAY',
        description : 'boot loader color for option line edit')
 
 option('bashcompletiondir', type : 'string',
