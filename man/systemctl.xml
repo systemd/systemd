@@ -552,38 +552,62 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
         </varlistentry>
 
         <varlistentry>
-          <term><command>bind</command> <replaceable>UNIT</replaceable> <replaceable>PATH</replaceable> [<replaceable>PATH</replaceable>]</term>
+          <term>
+            <command>bind</command>
+            <replaceable>UNIT</replaceable>
+            <replaceable>PATH</replaceable>
+            [<replaceable>PATH</replaceable>]
+          </term>
 
-          <listitem><para>Bind mounts a file or directory from the host into the specified unit's view. The first path
-          argument is the source file or directory on the host, the second path argument is the destination file or
-          directory in the unit's view. When the latter is omitted, the destination path in the unit's view is the same as
-          the source path on the host. When combined with the <option>--read-only</option> switch, a ready-only bind
-          mount is created. When combined with the <option>--mkdir</option> switch, the destination path is first created
-          before the mount is applied. Note that this option is currently only supported for units that run within a mount
-          namespace (e.g.: with <option>RootImage=</option>, <option>PrivateMounts=</option>, etc.). This command supports bind
-          mounting directories, regular files, device nodes, <constant>AF_UNIX</constant> socket nodes, as well as FIFOs.
-          The bind mount is ephemeral, and it is undone as soon as the current unit process exists.
-          Note that the namespace mentioned here, where the bind mount will be added to, is the one where the main service
-          process runs, as other processes run in distinct namespaces (e.g.: <option>ExecReload=</option>,
-          <option>ExecStartPre=</option>, etc.) </para></listitem>
+          <listitem><para>Bind-mounts a file or directory from the host into the specified unit's mount
+          namespace. The first path argument is the source file or directory on the host, the second path
+          argument is the destination file or directory in the unit's mount namespace. When the latter is
+          omitted, the destination path in the unit's mount namespace is the same as the source path on the
+          host. When combined with the <option>--read-only</option> switch, a ready-only bind mount is
+          created. When combined with the <option>--mkdir</option> switch, the destination path is first
+          created before the mount is applied.</para>
+
+          <para>Note that this option is currently only supported for units that run within a mount namespace
+          (e.g.: with <option>RootImage=</option>, <option>PrivateMounts=</option>, etc.). This command
+          supports bind-mounting directories, regular files, device nodes, <constant>AF_UNIX</constant>
+          socket nodes, as well as FIFOs.  The bind mount is ephemeral, and it is undone as soon as the
+          current unit process exists. Note that the namespace mentioned here, where the bind mount will be
+          added to, is the one where the main service process runs. Other processes (those exececuted by
+          <option>ExecReload=</option>, <option>ExecStartPre=</option>, etc.) run in distinct namespaces.
+          </para></listitem>
         </varlistentry>
 
         <varlistentry>
-          <term><command>mount-image</command> <replaceable>UNIT</replaceable> <replaceable>IMAGE</replaceable> [<replaceable>PATH</replaceable> [<replaceable>PARTITION_NAME</replaceable>:<replaceable>MOUNT_OPTIONS</replaceable>]]</term>
+          <term>
+            <command>mount-image</command>
+            <replaceable>UNIT</replaceable>
+            <replaceable>IMAGE</replaceable>
+            [<replaceable>PATH</replaceable>
+            [<replaceable>PARTITION_NAME</replaceable>:<replaceable>MOUNT_OPTIONS</replaceable>]]
+          </term>
 
-          <listitem><para>Mounts an image from the host into the specified unit's view. The first path argument is the source
-          image on the host, the second path argument is the destination directory in the unit's view (ie: inside
-          <option>RootImage=</option>/<option>RootDirectory=</option>). Any following argument is interpreted as a
-          colon-separated tuple of partition name and comma-separated list of mount options for that partition. The format is the
-          same as the service <option>MountImages=</option> setting. When combined with the <option>--read-only</option> switch, a
-          ready-only mount is created. When combined with the <option>--mkdir</option> switch, the destination path is first
-          created before the mount is applied. Note that this option is currently only supported for units that run within a mount
-          namespace (e.g.: with <option>RootImage=</option>, <option>PrivateMounts=</option>, etc.).
-          Note that the namespace mentioned here, where the image mount will be added to, is the one where the main service
-          process runs, as other processes run in distinct namespaces (e.g.: <option>ExecReload=</option>,
-          <option>ExecStartPre=</option>, etc.). Example:
+          <listitem><para>Mounts an image from the host into the specified unit's mount namespace. The first
+          path argument is the source image on the host, the second path argument is the destination
+          directory in the unit's mount namespace (i.e. inside
+          <option>RootImage=</option>/<option>RootDirectory=</option>). The following argument, if any, is
+          interpreted as a colon-separated tuple of partition name and comma-separated list of mount options
+          for that partition. The format is the same as the service <option>MountImages=</option>
+          setting. When combined with the <option>--read-only</option> switch, a ready-only mount is
+          created. When combined with the <option>--mkdir</option> switch, the destination path is first
+          created before the mount is applied.</para>
+
+          <para>Note that this option is currently only supported for units that run within a mount namespace
+          (i.e. with <option>RootImage=</option>, <option>PrivateMounts=</option>, etc.). Note that the
+          namespace mentioned here where the image mount will be added to, is the one where the main service
+          process runs. Note that the namespace mentioned here, where the bind mount will be
+          added to, is the one where the main service process runs. Other processes (those exececuted by
+          <option>ExecReload=</option>, <option>ExecStartPre=</option>, etc.) run in distinct namespaces.
+          </para>
+
+          <para>Example:
           <programlisting>systemctl mount-image foo.service /tmp/img.raw /var/lib/image root:ro,nosuid</programlisting>
-          <programlisting>systemctl mount-image --mkdir bar.service /tmp/img.raw /var/lib/baz/img</programlisting></para></listitem>
+          <programlisting>systemctl mount-image --mkdir bar.service /tmp/img.raw /var/lib/baz/img</programlisting>
+          </para></listitem>
         </varlistentry>
 
         <varlistentry>
@@ -2185,9 +2209,9 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
         <term><option>--lines=</option></term>
 
         <listitem>
-          <para>When used with <command>status</command>, controls the number of journal lines to show, counting from
-          the most recent ones. Takes a positive integer argument, or 0 to disable journal output. Defaults to
-          10.</para>
+          <para>When used with <command>status</command>, controls the number of journal lines to show,
+          counting from the most recent ones. Takes a positive integer argument, or 0 to disable journal
+          output. Defaults to 10.</para>
         </listitem>
       </varlistentry>
 
@@ -2208,8 +2232,9 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
         <term><option>--firmware-setup</option></term>
 
         <listitem>
-          <para>When used with the <command>reboot</command> command, indicate to the system's firmware to reboot into
-          the firmware setup interface. Note that this functionality is not available on all systems.</para>
+          <para>When used with the <command>reboot</command> command, indicate to the system's firmware to
+          reboot into the firmware setup interface. Note that this functionality is not available on all
+          systems.</para>
         </listitem>
       </varlistentry>
 
@@ -2217,10 +2242,10 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
         <term><option>--boot-loader-menu=</option></term>
 
         <listitem>
-          <para>When used with the <command>reboot</command> command, indicate to the system's boot loader to show the
-          boot loader menu on the following boot. Takes a time value as parameter — indicating the menu timeout. Pass
-          zero in order to disable the menu timeout. Note that not all boot loaders support this
-          functionality.</para>
+          <para>When used with the <command>reboot</command> command, indicate to the system's boot loader to
+          show the boot loader menu on the following boot. Takes a time value as parameter — indicating the
+          menu timeout. Pass zero in order to disable the menu timeout. Note that not all boot loaders
+          support this functionality.</para>
         </listitem>
       </varlistentry>
 
@@ -2228,10 +2253,10 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
         <term><option>--boot-loader-entry=</option></term>
 
         <listitem>
-          <para>When used with the <command>reboot</command> command, indicate to the system's boot loader to boot into
-          a specific boot loader entry on the following boot. Takes a boot loader entry identifier as argument, or
-          <literal>help</literal> in order to list available entries. Note that not all boot loaders support this
-          functionality.</para>
+          <para>When used with the <command>reboot</command> command, indicate to the system's boot loader to
+          boot into a specific boot loader entry on the following boot. Takes a boot loader entry identifier
+          as argument, or <literal>help</literal> in order to list available entries. Note that not all boot
+          loaders support this functionality.</para>
         </listitem>
       </varlistentry>
 
