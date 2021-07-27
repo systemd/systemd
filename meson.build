@@ -10,7 +10,7 @@ project('systemd', 'c',
                 'localstatedir=/var',
                 'warning_level=2',
         ],
-        meson_version : '>= 0.47',
+        meson_version : '>= 0.53.2',
        )
 
 libsystemd_version = '0.32.0'
@@ -382,7 +382,7 @@ if cc.get_id() == 'gcc'
 endif
 
 # --as-needed and --no-undefined are provided by meson by default,
-# run mesonconf to see what is enabled
+# run 'meson configure' to see what is enabled
 possible_link_flags = [
         '-Wl,-z,relro',
         '-Wl,-z,now',
@@ -591,13 +591,13 @@ git = find_program('git', required : false)
 env = find_program('env')
 perl = find_program('perl', required : false)
 rsync = find_program('rsync', required : false)
-meson_make_symlink = project_source_root + '/tools/meson-make-symlink.sh'
+meson_make_symlink = find_program('tools/meson-make-symlink.sh')
 test_efi_create_disk_sh = find_program('test/test-efi-create-disk.sh')
 
 mkdir_p = 'mkdir -p $DESTDIR/@0@'
 splash_bmp = files('test/splash.bmp')
 
-# if -Dxxx-path option is found, use that. Otherwise, check in $PATH,
+# If -Dxxx-path option is found, use that. Otherwise, check in $PATH,
 # /usr/sbin, /sbin, and fall back to the default from middle column.
 progs = [['quotaon',    '/usr/sbin/quotaon'    ],
          ['quotacheck', '/usr/sbin/quotacheck' ],
@@ -909,10 +909,6 @@ conf.set10('LOG_TRACE', get_option('log-trace'))
 default_user_path = get_option('user-path')
 if default_user_path != ''
         conf.set_quoted('DEFAULT_USER_PATH', default_user_path)
-        default_user_path_display = default_user_path
-else
-        # meson 0.49 fails when ?: is used in .format()
-        default_user_path_display = '(same as system services)'
 endif
 
 
@@ -952,9 +948,11 @@ if want_bpf_framework == 'false'
 else
         clang = find_program('clang', required : bpf_framework_required)
         llvm_strip = find_program('llvm-strip', required : bpf_framework_required)
-        # Debian installs this in /usr/sbin/ which is not in $PATH
-        # FIXME: use the 'dirs' parameter once we bump Meson version to >= 0.53
+
+        # Debian installs this in /usr/sbin/ which is not in $PATH.
+        # We check for 'bpftool' first, honouring $PATH, and in /usr/sbin/ for Debian.
         bpftool = find_program('bpftool', '/usr/sbin/bpftool', required : bpf_framework_required)
+
         bpf_arches = ['x86_64']
         deps_found = libbpf.found() and clang.found() and llvm_strip.found() and bpftool.found()
         # Can build BPF program from source code in restricted C
@@ -1891,7 +1889,7 @@ foreach tuple : [['myhostname', 'ENABLE_NSS_MYHOSTNAME'],
 
                 # We cannot use shared_module because it does not support version suffix.
                 # Unfortunately shared_library insists on creating the symlink…
-                meson.add_install_script('sh', '-c',
+                meson.add_install_script(sh, '-c',
                                          'rm $DESTDIR@0@/libnss_@1@.so'
                                          .format(rootlibdir, module))
 
@@ -2826,11 +2824,9 @@ if conf.get('ENABLE_BINFMT') == 1
                 install : true,
                 install_dir : rootlibexecdir)
 
-        meson.add_install_script('sh', '-c',
-                                 mkdir_p.format(binfmtdir))
+        meson.add_install_script(sh, '-c', mkdir_p.format(binfmtdir))
         if install_sysconfdir
-                meson.add_install_script('sh', '-c',
-                                         mkdir_p.format(join_paths(sysconfdir, 'binfmt.d')))
+                meson.add_install_script(sh, '-c', mkdir_p.format(join_paths(sysconfdir, 'binfmt.d')))
         endif
 endif
 
@@ -3305,11 +3301,9 @@ if conf.get('HAVE_KMOD') == 1
                 install : true,
                 install_dir : rootlibexecdir)
 
-        meson.add_install_script('sh', '-c',
-                                 mkdir_p.format(modulesloaddir))
+        meson.add_install_script(sh, '-c', mkdir_p.format(modulesloaddir))
         if install_sysconfdir
-                meson.add_install_script('sh', '-c',
-                                         mkdir_p.format(join_paths(sysconfdir, 'modules-load.d')))
+                meson.add_install_script(sh, '-c', mkdir_p.format(join_paths(sysconfdir, 'modules-load.d')))
         endif
 endif
 
@@ -3596,8 +3590,8 @@ install_data('LICENSE.GPL2',
              'docs/GVARIANT-SERIALIZATION.md',
              install_dir : docdir)
 
-meson.add_install_script('sh', '-c', mkdir_p.format(systemdstatedir))
-meson.add_install_script('sh', '-c', 'touch $DESTDIR@0@'.format(prefixdir))
+meson.add_install_script(sh, '-c', mkdir_p.format(systemdstatedir))
+meson.add_install_script(sh, '-c', 'touch $DESTDIR@0@'.format(prefixdir))
 
 ############################################################
 
@@ -3817,7 +3811,8 @@ status = [
         'default net.naming-scheme setting: @0@'.format(default_net_naming_scheme),
         'default KillUserProcesses setting: @0@'.format(kill_user_processes),
         'default locale:                    @0@'.format(default_locale),
-        'default user $PATH:                @0@'.format(default_user_path_display),
+        'default user $PATH:                @0@'.format(
+                default_user_path != '' ? default_user_path : '(same as system services)'),
         'systemd service watchdog:          @0@'.format(watchdog_opt)]
 
 alt_dns_servers = '\n                                            '.join(dns_servers.split(' '))
