@@ -975,6 +975,7 @@ static VOID config_defaults_load_from_file(Config *config, CHAR8 *content) {
         CHAR8 *line;
         UINTN pos = 0;
         CHAR8 *key, *value;
+        EFI_STATUS err;
 
         while ((line = line_get_key_value(content, (CHAR8 *)" \t", &pos, &key, &value))) {
                 if (strcmpa((CHAR8 *)"timeout", key) == 0) {
@@ -994,32 +995,23 @@ static VOID config_defaults_load_from_file(Config *config, CHAR8 *content) {
                 }
 
                 if (strcmpa((CHAR8 *)"editor", key) == 0) {
-                        BOOLEAN on;
-
-                        if (EFI_ERROR(parse_boolean(value, &on)))
-                                continue;
-
-                        config->editor = on;
+                        err = parse_boolean(value, &config->editor);
+                        if (EFI_ERROR(err))
+                                PrintErrorStall(L"Error parsing 'editor' config option: %r", err);
                         continue;
                 }
 
                 if (strcmpa((CHAR8 *)"auto-entries", key) == 0) {
-                        BOOLEAN on;
-
-                        if (EFI_ERROR(parse_boolean(value, &on)))
-                                continue;
-
-                        config->auto_entries = on;
+                        err = parse_boolean(value, &config->auto_entries);
+                        if (EFI_ERROR(err))
+                                PrintErrorStall(L"Error parsing 'auto-entries' config option: %r", err);
                         continue;
                 }
 
                 if (strcmpa((CHAR8 *)"auto-firmware", key) == 0) {
-                        BOOLEAN on;
-
-                        if (EFI_ERROR(parse_boolean(value, &on)))
-                                continue;
-
-                        config->auto_firmware = on;
+                        err = parse_boolean(value, &config->auto_firmware);
+                        if (EFI_ERROR(err))
+                                PrintErrorStall(L"Error parsing 'auto-firmware' config option: %r", err);
                         continue;
                 }
 
@@ -1050,10 +1042,11 @@ static VOID config_defaults_load_from_file(Config *config, CHAR8 *content) {
                                 config->random_seed_mode = RANDOM_SEED_ALWAYS;
                         else {
                                 BOOLEAN on;
-
-                                if (EFI_ERROR(parse_boolean(value, &on)))
+                                err = parse_boolean(value, &on);
+                                if (EFI_ERROR(err)) {
+                                        PrintErrorStall(L"Error parsing 'random-seed-mode' config option: %r", err);
                                         continue;
-
+                                }
                                 config->random_seed_mode = on ? RANDOM_SEED_ALWAYS : RANDOM_SEED_OFF;
                         }
                 }
