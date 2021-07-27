@@ -1004,6 +1004,8 @@ int session_set_idle_hint(Session *s, bool b) {
         s->idle_hint = b;
         dual_timestamp_get(&s->idle_hint_timestamp);
 
+        manager_update_idle_hint(s->manager);
+
         session_send_changed(s, "IdleHint", "IdleSinceHint", "IdleSinceHintMonotonic", NULL);
 
         if (s->seat)
