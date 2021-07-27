@@ -2360,7 +2360,9 @@ static int setup_exec_directory(
                                         goto fail;
                         }
 
-                        /* And link it up from the original place */
+                        /* And link it up from the original place. Note that if a mount namespace is going to be
+                         * used, then this symlink remains on the host, and a new one for the child namespace will
+                         * be created later. */
                         r = symlink_idempotent(pp, p, true);
                         if (r < 0)
                                 goto fail;
@@ -3124,6 +3126,48 @@ finish:
         return r;
 }
 
+/* ret_symlinks will contain a list of pairs src:dest that describes
+ * the symlinks to create later on. */
+static int compile_symlinks(
+                const ExecContext *context,
+                const ExecParameters *params,
+                char ***ret_symlinks) {
+
+        _cleanup_strv_free_ char **symlinks = NULL;
+        int r;
+
+        assert(context);
+        assert(params);
+        assert(ret_symlinks);
+
+        for (ExecDirectoryType dt = 0; dt < _EXEC_DIRECTORY_TYPE_MAX; dt++) {
+                char **src;
+
+                if (!exec_directory_is_private(context, dt))
+                        continue;
+
+                STRV_FOREACH(src, context->directories[dt].paths) {
+                        _cleanup_free_ char *p = NULL, *pp = NULL;
+
+                        p = path_join(params->prefix[dt], *src);
+                        if (!p)
+                                return -ENOMEM;
+
+                        pp = path_join(params->prefix[dt], "private", *src);
+                        if (!pp)
+                                return -ENOMEM;
+
+                        r = strv_consume_pair(&symlinks, TAKE_PTR(pp), TAKE_PTR(p));
+                        if (r < 0)
+                                return r;
+                }
+        }
+
+        *ret_symlinks = TAKE_PTR(symlinks);
+
+        return 0;
+}
+
 static bool insist_on_sandboxing(
                 const ExecContext *context,
                 const char *root_dir,
@@ -3170,7 +3214,7 @@ static int apply_mount_namespace(
                 const ExecRuntime *runtime,
                 char **error_path) {
 
-        _cleanup_strv_free_ char **empty_directories = NULL;
+        _cleanup_strv_free_ char **empty_directories = NULL, **symlinks = NULL;
         const char *tmp_dir = NULL, *var_tmp_dir = NULL;
         const char *root_dir = NULL, *root_image = NULL;
         _cleanup_free_ char *creds_path = NULL, *incoming_dir = NULL, *propagate_dir = NULL;
@@ -3190,6 +3234,12 @@ static int apply_mount_namespace(
         }
 
         r = compile_bind_mounts(context, params, &bind_mounts, &n_bind_mounts, &empty_directories);
+        if (r < 0)
+                return r;
+
+        /* Symlinks for exec dirs are set up after other mounts, before they are
+         * made read-only. */
+        r = compile_symlinks(context, params, &symlinks);
         if (r < 0)
                 return r;
 
@@ -3276,6 +3326,7 @@ static int apply_mount_namespace(
                             needs_sandboxing ? context->exec_paths : NULL,
                             needs_sandboxing ? context->no_exec_paths : NULL,
                             empty_directories,
+                            symlinks,
                             bind_mounts,
                             n_bind_mounts,
                             context->temporary_filesystems,
