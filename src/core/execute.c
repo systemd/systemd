@@ -2250,6 +2250,7 @@ static int setup_exec_directory(
                 uid_t uid,
                 gid_t gid,
                 ExecDirectoryType type,
+                bool needs_mount_namespace,
                 int *exit_status) {
 
         static const int exit_status_table[_EXEC_DIRECTORY_TYPE_MAX] = {
@@ -2360,10 +2361,14 @@ static int setup_exec_directory(
                                         goto fail;
                         }
 
-                        /* And link it up from the original place */
-                        r = symlink_idempotent(pp, p, true);
-                        if (r < 0)
-                                goto fail;
+                        /* And link it up from the original place, unless we are going to have a
+                         * mount namespace, in which case this happens later to allow configuring
+                         * empty var/run/etc. */
+                        if (!needs_mount_namespace) {
+                                r = symlink_idempotent(pp, p, true);
+                                if (r < 0)
+                                        goto fail;
+                        }
 
                 } else {
                         _cleanup_free_ char *target = NULL;
@@ -3124,6 +3129,46 @@ finish:
         return r;
 }
 
+static int compile_symlinks(
+                const ExecContext *context,
+                const ExecParameters *params,
+                char ***ret_symlinks) {
+
+        _cleanup_strv_free_ char **symlinks = NULL;
+        int r;
+
+        assert(context);
+        assert(params);
+        assert(ret_symlinks);
+
+        for (ExecDirectoryType dt = 0; dt < _EXEC_DIRECTORY_TYPE_MAX; dt++) {
+                char **src;
+
+                STRV_FOREACH(src, context->directories[dt].paths) {
+                        _cleanup_free_ char *p = NULL, *pp = NULL;
+
+                        if (!exec_directory_is_private(context, dt))
+                                continue;
+
+                        p = path_join(params->prefix[dt], *src);
+                        if (!p)
+                                return -ENOMEM;
+
+                        pp = path_join(params->prefix[dt], "private", *src);
+                        if (!pp)
+                                return -ENOMEM;
+
+                        r = strv_consume_pair(&symlinks, TAKE_PTR(pp), TAKE_PTR(p));
+                        if (r < 0)
+                                return r;
+                }
+        }
+
+        *ret_symlinks = TAKE_PTR(symlinks);
+
+        return r;
+}
+
 static bool insist_on_sandboxing(
                 const ExecContext *context,
                 const char *root_dir,
@@ -3170,7 +3215,7 @@ static int apply_mount_namespace(
                 const ExecRuntime *runtime,
                 char **error_path) {
 
-        _cleanup_strv_free_ char **empty_directories = NULL;
+        _cleanup_strv_free_ char **empty_directories = NULL, **symlinks = NULL;
         const char *tmp_dir = NULL, *var_tmp_dir = NULL;
         const char *root_dir = NULL, *root_image = NULL;
         _cleanup_free_ char *creds_path = NULL, *incoming_dir = NULL, *propagate_dir = NULL;
@@ -3190,6 +3235,12 @@ static int apply_mount_namespace(
         }
 
         r = compile_bind_mounts(context, params, &bind_mounts, &n_bind_mounts, &empty_directories);
+        if (r < 0)
+                return r;
+
+        /* Symlinks for exec dirs are set up after other mounts, before they are
+         * made read-only. */
+        r = compile_symlinks(context, params, &symlinks);
         if (r < 0)
                 return r;
 
@@ -3276,6 +3327,7 @@ static int apply_mount_namespace(
                             needs_sandboxing ? context->exec_paths : NULL,
                             needs_sandboxing ? context->no_exec_paths : NULL,
                             empty_directories,
+                            symlinks,
                             bind_mounts,
                             n_bind_mounts,
                             context->temporary_filesystems,
@@ -4122,8 +4174,10 @@ static int exec_child(
                 }
         }
 
+        needs_mount_namespace = exec_needs_mount_namespace(context, params, runtime);
+
         for (ExecDirectoryType dt = 0; dt < _EXEC_DIRECTORY_TYPE_MAX; dt++) {
-                r = setup_exec_directory(context, params, uid, gid, dt, exit_status);
+                r = setup_exec_directory(context, params, uid, gid, dt, needs_mount_namespace, exit_status);
                 if (r < 0)
                         return log_unit_error_errno(unit, r, "Failed to set up special execution directory in %s: %m", params->prefix[dt]);
         }
@@ -4288,7 +4342,6 @@ static int exec_child(
                         log_unit_warning(unit, "PrivateIPC=yes is configured, but the kernel does not support IPC namespaces, ignoring.");
         }
 
-        needs_mount_namespace = exec_needs_mount_namespace(context, params, runtime);
         if (needs_mount_namespace) {
                 _cleanup_free_ char *error_path = NULL;
 
