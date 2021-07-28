@@ -16,11 +16,14 @@
 #include "alloc-util.h"
 #include "audit-fd.h"
 #include "bus-util.h"
+#include "dbus-callbackdata.h"
 #include "errno-util.h"
 #include "format-util.h"
+#include "install.h"
 #include "log.h"
 #include "path-util.h"
 #include "selinux-util.h"
+#include "stat-util.h"
 #include "stdio-util.h"
 #include "strv.h"
 #include "util.h"
@@ -284,6 +287,47 @@ int mac_selinux_access_check_internal(
         return enforce ? r : 0;
 }
 
+int mac_selinux_unit_callback_check(
+        const char *unit_name,
+        const MacUnitCallbackUserdata *userdata) {
+
+        const Unit *u;
+        const char *path = NULL;
+        _cleanup_free_ char *path_lookup = NULL;
+
+        assert(unit_name);
+        assert(userdata);
+        assert(userdata->manager);
+        assert(userdata->message);
+        assert(userdata->error);
+        assert(userdata->func);
+
+        if (!mac_selinux_use())
+                return 0;
+
+        if (!userdata->selinux_permission)
+                return 0;
+
+        u = manager_get_unit(userdata->manager, unit_name);
+        if (u)
+                path = unit_label_path(u);
+
+        /* maybe the unit is not loaded, e.g. a disabled user session unit */
+        if (!path)
+                path = manager_lookup_unit_label_path(userdata->manager, unit_name);
+
+        /* try to search for a unit path and do not base the check on a masked path, e.g. /dev/null */
+        if (!path || null_or_empty_path(path) > 0)
+                (void) unit_file_label_path(userdata->manager->unit_file_scope, NULL, unit_name, &path_lookup);
+
+        return mac_selinux_access_check_internal(
+                userdata->message,
+                path_lookup ?: path,
+                userdata->selinux_permission,
+                userdata->func,
+                userdata->error);
+}
+
 #else /* HAVE_SELINUX */
 
 int mac_selinux_access_check_internal(
@@ -292,6 +336,13 @@ int mac_selinux_access_check_internal(
                 const char *permission,
                 const char *func,
                 sd_bus_error *error) {
+
+        return 0;
+}
+
+int mac_selinux_unit_callback_check(
+                const char *unit_name,
+                const MacUnitCallbackUserdata *userdata) {
 
         return 0;
 }

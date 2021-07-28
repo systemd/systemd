@@ -3559,6 +3559,66 @@ int unit_file_get_list(
         return 0;
 }
 
+int unit_file_label_path(
+        UnitFileScope scope,
+        const char *root_dir,
+        const char *name,
+        char **ret_path) {
+
+        _cleanup_(lookup_paths_free) LookupPaths paths = {};
+        char **dirname;
+        int r;
+
+        assert(scope >= 0);
+        assert(scope < _UNIT_FILE_SCOPE_MAX);
+        assert(name);
+        assert_return(unit_name_is_valid(name, UNIT_NAME_ANY), -EINVAL);
+        assert(ret_path);
+
+        r = lookup_paths_init(&paths, scope, 0, root_dir);
+        if (r < 0)
+                return r;
+
+        STRV_FOREACH(dirname, paths.search_path) {
+                _cleanup_closedir_ DIR *d = NULL;
+                const struct dirent *de;
+
+                d = opendir(*dirname);
+                if (!d) {
+                        if (errno == ENOENT)
+                                continue;
+                        if (IN_SET(errno, ENOTDIR, EACCES)) {
+                                log_debug_errno(errno, "Failed to open \"%s\": %m", *dirname);
+                                continue;
+                        }
+
+                        return -errno;
+                }
+
+                FOREACH_DIRENT(de, d, return -errno) {
+                        _cleanup_free_ char *p = NULL;
+
+                        if (!IN_SET(de->d_type, DT_LNK, DT_REG))
+                                continue;
+
+                        if (!streq(de->d_name, name))
+                                continue;
+
+                        p = path_join(*dirname, de->d_name);
+                        if (!p)
+                                return -ENOMEM;
+
+                        if (null_or_empty_path(p))
+                                continue;
+
+                        *ret_path = TAKE_PTR(p);
+                        return 0;
+                }
+        }
+
+        return -ENOENT;
+}
+
 static const char* const unit_file_state_table[_UNIT_FILE_STATE_MAX] = {
         [UNIT_FILE_ENABLED]         = "enabled",
         [UNIT_FILE_ENABLED_RUNTIME] = "enabled-runtime",
