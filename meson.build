@@ -722,6 +722,8 @@ if time_epoch == -1
 endif
 conf.set('TIME_EPOCH', time_epoch)
 
+conf.set('CLOCK_VALID_RANGE_USEC_MAX', get_option('clock-valid-range-usec-max'))
+
 foreach tuple : [['system-alloc-uid-min', 'SYS_UID_MIN', 1],  # Also see login.defs(5).
                  ['system-uid-max',       'SYS_UID_MAX', 999],
                  ['system-alloc-gid-min', 'SYS_GID_MIN', 1],
