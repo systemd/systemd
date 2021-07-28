@@ -106,23 +106,23 @@ int verb_enable(int argc, char *argv[], void *userdata) {
 
                 flags = unit_file_flags_from_args();
                 if (streq(verb, "enable")) {
-                        r = unit_file_enable(arg_scope, flags, arg_root, names, &changes, &n_changes);
+                        r = unit_file_enable(arg_scope, flags, arg_root, names, &changes, &n_changes, NULL, NULL);
                         carries_install_info = r;
                 } else if (streq(verb, "disable"))
-                        r = unit_file_disable(arg_scope, flags, arg_root, names, &changes, &n_changes);
+                        r = unit_file_disable(arg_scope, flags, arg_root, names, &changes, &n_changes, NULL, NULL);
                 else if (streq(verb, "reenable")) {
-                        r = unit_file_reenable(arg_scope, flags, arg_root, names, &changes, &n_changes);
+                        r = unit_file_reenable(arg_scope, flags, arg_root, names, &changes, &n_changes, NULL, NULL);
                         carries_install_info = r;
                 } else if (streq(verb, "link"))
-                        r = unit_file_link(arg_scope, flags, arg_root, names, &changes, &n_changes);
+                        r = unit_file_link(arg_scope, flags, arg_root, names, &changes, &n_changes, NULL, NULL);
                 else if (streq(verb, "preset"))
-                        r = unit_file_preset(arg_scope, flags, arg_root, names, arg_preset_mode, &changes, &n_changes);
+                        r = unit_file_preset(arg_scope, flags, arg_root, names, arg_preset_mode, &changes, &n_changes, NULL, NULL);
                 else if (streq(verb, "mask"))
-                        r = unit_file_mask(arg_scope, flags, arg_root, names, &changes, &n_changes);
+                        r = unit_file_mask(arg_scope, flags, arg_root, names, &changes, &n_changes, NULL, NULL);
                 else if (streq(verb, "unmask"))
-                        r = unit_file_unmask(arg_scope, flags, arg_root, names, &changes, &n_changes);
+                        r = unit_file_unmask(arg_scope, flags, arg_root, names, &changes, &n_changes, NULL, NULL);
                 else if (streq(verb, "revert"))
-                        r = unit_file_revert(arg_scope, arg_root, names, &changes, &n_changes);
+                        r = unit_file_revert(arg_scope, arg_root, names, &changes, &n_changes, NULL, NULL);
                 else
                         assert_not_reached();
 
