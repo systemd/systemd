@@ -1599,10 +1599,14 @@ static void initialize_clock(void) {
                 (void) clock_reset_timewarp();
 
         r = clock_apply_epoch();
-        if (r < 0)
-                log_error_errno(r, "Current system time is before build time, but cannot correct: %m");
-        else if (r > 0)
+        if (r == -1)
+                log_error_errno(errno, "Current system time is before build time, but cannot correct: %m");
+        else if (r == -2)
+                log_error_errno(errno, "Current system time is far ahead build time, but cannot correct: %m");
+        else if (r == 1)
                 log_info("System time before build time, advancing clock.");
+        else if (r == 2)
+                log_info("System time far ahead build time, reversing clock.");
 }
 
 static void apply_clock_update(void) {

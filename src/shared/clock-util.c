@@ -143,6 +143,9 @@ int clock_apply_epoch(void) {
         struct stat st;
         struct timespec ts;
         usec_t epoch_usec;
+        usec_t now_usec;
+        usec_t diff_usec;
+        int ret = 0;
 
         if (stat(EPOCH_FILE, &st) < 0) {
                 if (errno != ENOENT)
@@ -152,11 +155,22 @@ int clock_apply_epoch(void) {
         } else
                 epoch_usec = timespec_load(&st.st_mtim);
 
-        if (now(CLOCK_REALTIME) >= epoch_usec)
+        now_usec = now(CLOCK_REALTIME);
+        if (now_usec > epoch_usec)
+                diff_usec = usec_sub_unsigned(now_usec, epoch_usec);
+        else
+                diff_usec = usec_sub_unsigned(epoch_usec, now_usec);
+
+        if (now_usec < epoch_usec)
+                ret = 1;
+        else if (diff_usec > (usec_t) CLOCK_DIFF_THRESHOLD * USEC_PER_SEC)
+                ret = 2;
+
+        if (ret == 0)
                 return 0;
 
         if (clock_settime(CLOCK_REALTIME, timespec_store(&ts, epoch_usec)) < 0)
-                return -errno;
+                return -ret;
 
-        return 1;
+        return ret;
 }
