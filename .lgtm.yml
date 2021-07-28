@@ -10,6 +10,9 @@ extraction:
         - libp11-kit-dev
         - libssl-dev
         - python3-jinja2
+    after_prepare:
+      - pip3 install meson==0.53.2
+      - export PATH="/opt/work/.local/bin:$PATH"
   python:
     python_setup:
       version: 3
