@@ -1600,11 +1600,11 @@ static int apply_symlinks(const char *root, char **exec_dir_symlinks) {
 
                 r = mkdir_parents_label(dst_abs, 0755);
                 if (r < 0)
-                        return r;
+                        return log_error_errno(r, "DBG: mkdir %s failed: %m", dst_abs);
 
                 r = symlink_idempotent(src_abs, dst_abs, true);
                 if (r < 0)
-                        return r;
+                        return log_error_errno(r, "DBG: symlink %s %s failed: %m", src_abs, dst_abs);
         }
 
         return 0;
