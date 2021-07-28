@@ -2000,6 +2000,21 @@ Unit *manager_get_unit(Manager *m, const char *name) {
         return hashmap_get(m->units, name);
 }
 
+const char *manager_lookup_unit_label_path(Manager *m, const char *name) {
+        assert(m);
+        assert(name);
+
+        const char *path;
+
+        path = hashmap_get(m->unit_id_map, name);
+        /* Don't read the SELinux label of /dev/null, as that really makes no sense.
+         * Instead try withdrawal path */
+        if (!path || null_or_empty_path(path) > 0)
+                return hashmap_get(m->unit_withdrawal_map, name);
+
+        return path;
+}
+
 static int manager_dispatch_target_deps_queue(Manager *m) {
         Unit *u;
         int r = 0;
