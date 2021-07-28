@@ -31,6 +31,7 @@ struct audit_info {
         sd_bus_creds *creds;
         const char *path;
         const char *cmdline;
+        const char *function;
 };
 
 /*
@@ -58,10 +59,11 @@ static int audit_callback(
                 xsprintf(gid_buf, GID_FMT, gid);
 
         snprintf(msgbuf, msgbufsize,
-                 "auid=%s uid=%s gid=%s%s%s%s%s%s%s",
+                 "auid=%s uid=%s gid=%s%s%s%s%s%s%s%s%s%s",
                  login_uid_buf, uid_buf, gid_buf,
                  audit->path ? " path=\"" : "", strempty(audit->path), audit->path ? "\"" : "",
-                 audit->cmdline ? " cmdline=\"" : "", strempty(audit->cmdline), audit->cmdline ? "\"" : "");
+                 audit->cmdline ? " cmdline=\"" : "", strempty(audit->cmdline), audit->cmdline ? "\"" : "",
+                 audit->function ? " function=\"" : "", strempty(audit->function), audit->function ? "\"" : "");
 
         return 0;
 }
@@ -179,7 +181,8 @@ int mac_selinux_generic_access_check(
                 sd_bus_message *message,
                 const char *path,
                 const char *permission,
-                sd_bus_error *error) {
+                sd_bus_error *error,
+                const char *func) {
 
         _cleanup_(sd_bus_creds_unrefp) sd_bus_creds *creds = NULL;
         const char *tclass, *scon;
@@ -192,6 +195,7 @@ int mac_selinux_generic_access_check(
         assert(message);
         assert(permission);
         assert(error);
+        assert(func);
 
         r = access_init(error);
         if (r <= 0)
@@ -263,6 +267,7 @@ int mac_selinux_generic_access_check(
                 .creds = creds,
                 .path = path,
                 .cmdline = cl,
+                .function = func,
         };
 
         r = selinux_check_access(scon, fcon, tclass, permission, &audit_info);
@@ -274,8 +279,8 @@ int mac_selinux_generic_access_check(
         }
 
         log_full_errno_zerook(LOG_DEBUG, r,
-                              "SELinux access check scon=%s tcon=%s tclass=%s perm=%s state=%s path=%s cmdline=%s: %m",
-                              scon, fcon, tclass, permission, enforce ? "enforcing" : "permissive", path, cl);
+                              "SELinux access check scon=%s tcon=%s tclass=%s perm=%s state=%s func=%s path=%s cmdline=%s: %m",
+                              scon, fcon, tclass, permission, enforce ? "enforcing" : "permissive", func, path, cl);
         return enforce ? r : 0;
 }
 
@@ -285,7 +290,8 @@ int mac_selinux_generic_access_check(
                 sd_bus_message *message,
                 const char *path,
                 const char *permission,
-                sd_bus_error *error) {
+                sd_bus_error *error,
+                const char *func) {
 
         return 0;
 }
