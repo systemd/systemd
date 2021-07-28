@@ -1905,6 +1905,7 @@ int setup_namespace(
                                 loop_device->fd,
                                 &verity,
                                 root_image_options,
+                                loop_device->diskseq,
                                 loop_device->uevent_seqnum_not_before,
                                 loop_device->timestamp_not_before,
                                 dissect_image_flags,

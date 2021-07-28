@@ -532,6 +532,7 @@ static int merge_subprocess(Hashmap *images, const char *workspace) {
                                         img->path,
                                         &verity_settings,
                                         NULL,
+                                        d->diskseq,
                                         d->uevent_seqnum_not_before,
                                         d->timestamp_not_before,
                                         flags,

@@ -127,6 +127,27 @@ static int device_has_block_children(sd_device *d) {
         return 0;
 }
 
+static int loop_get_diskseq(int fd, uint64_t *ret_diskseq) {
+        uint64_t diskseq;
+
+        assert(fd >= 0);
+        assert(ret_diskseq);
+
+        if (ioctl(fd, BLKGETDISKSEQ, &diskseq) < 0) {
+                /* Note that the kernel is weird: non-existing ioctls currently return EINVAL
+                 * rather than ENOTTY on loopback block devices. They should fix that in the kernel,
+                 * but in the meantime we accept both here. */
+                if (!ERRNO_IS_NOT_SUPPORTED(errno) && errno != EINVAL)
+                        return -errno;
+
+                return -EOPNOTSUPP;
+        }
+
+        *ret_diskseq = diskseq;
+
+        return 0;
+}
+
 static int loop_configure(
                 int fd,
                 int nr,
@@ -388,12 +409,17 @@ int loop_device_make(
 
                 if (offset == 0 && IN_SET(size, 0, UINT64_MAX)) {
                         _cleanup_close_ int copy = -1;
+                        uint64_t diskseq = 0;
 
                         /* If this is already a block device, store a copy of the fd as it is */
 
                         copy = fcntl(fd, F_DUPFD_CLOEXEC, 3);
                         if (copy < 0)
                                 return -errno;
+
+                        r = loop_get_diskseq(copy, &diskseq);
+                        if (r < 0 && r != -EOPNOTSUPP)
+                                return r;
 
                         d = new(LoopDevice, 1);
                         if (!d)
@@ -404,6 +430,7 @@ int loop_device_make(
                                 .node = TAKE_PTR(loopdev),
                                 .relinquished = true, /* It's not allocated by us, don't destroy it when this object is freed */
                                 .devno = st.st_rdev,
+                                .diskseq = diskseq,
                                 .uevent_seqnum_not_before = UINT64_MAX,
                                 .timestamp_not_before = USEC_INFINITY,
                         };
@@ -482,6 +509,11 @@ int loop_device_make(
                 return -errno;
         assert(S_ISBLK(st.st_mode));
 
+        uint64_t diskseq = 0;
+        r = loop_get_diskseq(loop_with_fd, &diskseq);
+        if (r < 0 && r != -EOPNOTSUPP)
+                return r;
+
         d = new(LoopDevice, 1);
         if (!d)
                 return -ENOMEM;
@@ -490,6 +522,7 @@ int loop_device_make(
                 .node = TAKE_PTR(loopdev),
                 .nr = nr,
                 .devno = st.st_rdev,
+                .diskseq = diskseq,
                 .uevent_seqnum_not_before = seqnum,
                 .timestamp_not_before = timestamp,
         };
