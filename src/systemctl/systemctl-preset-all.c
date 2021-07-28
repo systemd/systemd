@@ -13,7 +13,7 @@ int verb_preset_all(int argc, char *argv[], void *userdata) {
         int r;
 
         if (install_client_side()) {
-                r = unit_file_preset_all(arg_scope, unit_file_flags_from_args(), arg_root, arg_preset_mode, &changes, &n_changes);
+                r = unit_file_preset_all(arg_scope, unit_file_flags_from_args(), arg_root, arg_preset_mode, &changes, &n_changes, NULL, NULL);
                 unit_file_dump_changes(r, "preset", changes, n_changes, arg_quiet);
 
                 if (r > 0)
