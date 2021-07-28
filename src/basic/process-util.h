@@ -82,6 +82,8 @@ int pid_from_same_root_fs(pid_t pid);
 
 bool is_main_thread(void);
 
+bool oom_score_adjust_is_valid(int oa);
+
 #ifndef PERSONALITY_INVALID
 /* personality(7) documents that 0xffffffffUL is used for querying the
  * current personality, hence let's use that here as error
