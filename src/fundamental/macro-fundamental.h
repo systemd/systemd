@@ -50,7 +50,12 @@
 #define CONCATENATE(x, y) XCONCATENATE(x, y)
 
 #ifdef SD_BOOT
-#define assert(expr) do {} while (false)
+        #ifdef NDEBUG
+                #define assert(expr) ({})
+        #else
+                void efi_assert(const char *expr, const char *file, unsigned line, const char *function) _noreturn_;
+                #define assert(expr) ({ if (_unlikely_(!(expr))) { efi_assert(#expr, __FILE__, __LINE__, __func__); } })
+        #endif
 #endif
 
 #if defined(static_assert)
