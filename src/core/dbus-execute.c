@@ -1,6 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <linux/oom.h>
 #include <sys/mount.h>
 #include <sys/prctl.h>
 
@@ -93,10 +92,6 @@ static int property_get_environment_files(
         }
 
         return sd_bus_message_close_container(reply);
-}
-
-static bool oom_score_adjust_is_valid(int oa) {
-        return oa >= OOM_SCORE_ADJ_MIN && oa <= OOM_SCORE_ADJ_MAX;
 }
 
 static int property_get_oom_score_adjust(
