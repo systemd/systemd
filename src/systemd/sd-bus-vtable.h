@@ -76,7 +76,10 @@ struct sd_bus_vtable {
                         const unsigned *vtable_format_reference;
                 } start;
                 struct {
-                        size_t reserved;
+                        /* This field exists only to make sure we have something to initialize in
+                         * SD_BUS_VTABLE_END in a way that is both compatible with pedantic versions of C and
+                         * C++. It's unused otherwise. */
+                        size_t _reserved;
                 } end;
                 struct {
                         const char *member;
@@ -190,7 +193,7 @@ struct sd_bus_vtable {
                 .flags = 0,                                             \
                 .x = {                                                  \
                         .end = {                                        \
-                                .reserved = 0,                          \
+                                ._reserved = 0,                         \
                         },                                              \
                 },                                                      \
         }
