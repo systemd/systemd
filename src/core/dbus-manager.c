@@ -2292,7 +2292,7 @@ static int mac_unit_callback_check(const char *unit_name, void *userdata) {
         assert(unit_name);
         assert(ud);
 
-        return 0;
+        return mac_selinux_unit_callback_check(unit_name, ud);
 }
 
 static int method_enable_unit_files_generic(
@@ -2300,13 +2300,21 @@ static int method_enable_unit_files_generic(
                 Manager *m,
                 int (*call)(LookupScope scope, UnitFileFlags flags, const char *root_dir, char *files[], UnitFileChange **changes, size_t *n_changes, mac_callback_t mac_check, void *userdata),
                 bool carries_install_info,
+                const char *mac_selinux_permission,
+                const char *function,
                 sd_bus_error *error) {
 
         _cleanup_strv_free_ char **l = NULL;
         UnitFileChange *changes = NULL;
         size_t n_changes = 0;
         UnitFileFlags flags;
-        MacUnitCallbackUserdata mcud = {};
+        MacUnitCallbackUserdata mcud = {
+                .manager = m,
+                .message = message,
+                .error = error,
+                .function = function,
+                .selinux_permission = mac_selinux_permission,
+        };
         int r;
 
         assert(message);
@@ -2348,19 +2356,19 @@ static int method_enable_unit_files_generic(
 }
 
 static int method_enable_unit_files_with_flags(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        return method_enable_unit_files_generic(message, userdata, unit_file_enable, true, error);
+        return method_enable_unit_files_generic(message, userdata, unit_file_enable, true, "enable", __func__, error);
 }
 
 static int method_enable_unit_files(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        return method_enable_unit_files_generic(message, userdata, unit_file_enable, true, error);
+        return method_enable_unit_files_generic(message, userdata, unit_file_enable, true, "enable", __func__, error);
 }
 
 static int method_reenable_unit_files(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        return method_enable_unit_files_generic(message, userdata, unit_file_reenable, true, error);
+        return method_enable_unit_files_generic(message, userdata, unit_file_reenable, true, "enable", __func__, error);
 }
 
 static int method_link_unit_files(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        return method_enable_unit_files_generic(message, userdata, unit_file_link, false, error);
+        return method_enable_unit_files_generic(message, userdata, unit_file_link, false, "enable", __func__, error);
 }
 
 static int unit_file_preset_without_mode(LookupScope scope, UnitFileFlags flags, const char *root_dir, char **files, UnitFileChange **changes, size_t *n_changes, mac_callback_t mac_check, void *userdata) {
@@ -2368,11 +2376,11 @@ static int unit_file_preset_without_mode(LookupScope scope, UnitFileFlags flags,
 }
 
 static int method_preset_unit_files(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        return method_enable_unit_files_generic(message, userdata, unit_file_preset_without_mode, true, error);
+        return method_enable_unit_files_generic(message, userdata, unit_file_preset_without_mode, true, /* TODO(SELinux): add new permission "preset" ? */ NULL, __func__, error);
 }
 
 static int method_mask_unit_files(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        return method_enable_unit_files_generic(message, userdata, unit_file_mask, false, error);
+        return method_enable_unit_files_generic(message, userdata, unit_file_mask, false, "disable", __func__, error);
 }
 
 static int method_preset_unit_files_with_mode(sd_bus_message *message, void *userdata, sd_bus_error *error) {
@@ -2385,7 +2393,13 @@ static int method_preset_unit_files_with_mode(sd_bus_message *message, void *use
         int runtime, force, r;
         UnitFileFlags flags;
         const char *mode;
-        MacUnitCallbackUserdata mcud = {};
+        MacUnitCallbackUserdata mcud = {
+                .manager = m,
+                .message = message,
+                .error = error,
+                .function = __func__,
+                .selinux_permission = NULL, // TODO(SELinux): add new permission "preset" ?
+        };
 
         assert(message);
         assert(m);
@@ -2425,12 +2439,20 @@ static int method_disable_unit_files_generic(
                 sd_bus_message *message,
                 Manager *m,
                 int (*call)(LookupScope scope, UnitFileFlags flags, const char *root_dir, char *files[], UnitFileChange **changes, size_t *n_changes, mac_callback_t mac_check, void *userdata),
+                const char *mac_selinux_permissions,
+                const char *function,
                 sd_bus_error *error) {
 
         _cleanup_strv_free_ char **l = NULL;
         UnitFileChange *changes = NULL;
         UnitFileFlags flags;
-        MacUnitCallbackUserdata mcud = {};
+        MacUnitCallbackUserdata mcud = {
+                .manager = m,
+                .message = message,
+                .error = error,
+                .function = function,
+                .selinux_permission = mac_selinux_permissions,
+        };
         size_t n_changes = 0;
         int r;
 
@@ -2474,15 +2496,15 @@ static int method_disable_unit_files_generic(
 }
 
 static int method_disable_unit_files_with_flags(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        return method_disable_unit_files_generic(message, userdata, unit_file_disable, error);
+        return method_disable_unit_files_generic(message, userdata, unit_file_disable, "disable", __func__, error);
 }
 
 static int method_disable_unit_files(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        return method_disable_unit_files_generic(message, userdata, unit_file_disable, error);
+        return method_disable_unit_files_generic(message, userdata, unit_file_disable, "disable", __func__, error);
 }
 
 static int method_unmask_unit_files(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        return method_disable_unit_files_generic(message, userdata, unit_file_unmask, error);
+        return method_disable_unit_files_generic(message, userdata, unit_file_unmask, "enable", __func__, error);
 }
 
 static int method_revert_unit_files(sd_bus_message *message, void *userdata, sd_bus_error *error) {
@@ -2490,7 +2512,13 @@ static int method_revert_unit_files(sd_bus_message *message, void *userdata, sd_
         UnitFileChange *changes = NULL;
         size_t n_changes = 0;
         Manager *m = userdata;
-        MacUnitCallbackUserdata mcud = {};
+        MacUnitCallbackUserdata mcud = {
+                .manager = m,
+                .message = message,
+                .error = error,
+                .function = __func__,
+                .selinux_permission = NULL, // TODO(SELinux): add new permission "revert" / "modify" ?
+        };
         int r;
 
         assert(message);
@@ -2551,7 +2579,13 @@ static int method_preset_all_unit_files(sd_bus_message *message, void *userdata,
         UnitFilePresetMode preset_mode;
         const char *mode;
         UnitFileFlags flags;
-        MacUnitCallbackUserdata mcud = {};
+        MacUnitCallbackUserdata mcud = {
+                .manager = m,
+                .message = message,
+                .error = error,
+                .function = __func__,
+                .selinux_permission = NULL, // TODO(SELinux): add new permission "preset" ?
+        };
         int force, runtime, r;
 
         assert(message);
@@ -2597,7 +2631,13 @@ static int method_add_dependency_unit_files(sd_bus_message *message, void *userd
         char *target, *type;
         UnitDependency dep;
         UnitFileFlags flags;
-        MacUnitCallbackUserdata mcud = {};
+        MacUnitCallbackUserdata mcud = {
+                .manager = m,
+                .message = message,
+                .error = error,
+                .function = __func__,
+                .selinux_permission = NULL, // TODO(SELinux): add new permission "modify" ?
+        };
 
         assert(message);
         assert(m);
@@ -2630,14 +2670,24 @@ static int method_add_dependency_unit_files(sd_bus_message *message, void *userd
 }
 
 static int method_get_unit_file_links(sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        Manager *m = userdata;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         UnitFileChange *changes = NULL;
         size_t n_changes = 0, i;
         UnitFileFlags flags;
-        MacUnitCallbackUserdata mcud = {};
+        MacUnitCallbackUserdata mcud = {
+                .manager = m,
+                .message = message,
+                .error = error,
+                .function = __func__,
+                .selinux_permission = "status",
+        };
         const char *name;
         char **p;
         int runtime, r;
+
+        assert(message);
+        assert(m);
 
         r = sd_bus_message_read(message, "sb", &name, &runtime);
         if (r < 0)
