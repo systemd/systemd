@@ -2,7 +2,7 @@
 
 zshcompletiondir = get_option('zshcompletiondir')
 if zshcompletiondir == ''
-        zshcompletiondir = join_paths(datadir, 'zsh/site-functions')
+        zshcompletiondir = datadir / 'zsh/site-functions'
 endif
 
 custom_target(

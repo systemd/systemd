@@ -153,7 +153,7 @@ endforeach
 
 if install_sysconfdir_samples
         install_data('udev.conf',
-                     install_dir : join_paths(sysconfdir, 'udev'))
+                     install_dir : sysconfdir / 'udev')
 endif
 
 custom_target(
@@ -167,7 +167,7 @@ custom_target(
 
 if install_sysconfdir
         meson.add_install_script('sh', '-c',
-                                 mkdir_p.format(join_paths(sysconfdir, 'udev/rules.d')))
+                                 mkdir_p.format(sysconfdir / 'udev/rules.d'))
 endif
 
 fuzzers += [
