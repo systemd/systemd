@@ -13,3 +13,4 @@ extraction:
   python:
     python_setup:
       version: 3
+      requirements: meson==0.53.2
