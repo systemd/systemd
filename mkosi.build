@@ -116,6 +116,7 @@ if [ "$WITH_TESTS" = 1 ] ; then
         done
 
         ninja test
+        cat "$BUILDDIR"/meson-logs/testlog.txt
 fi
 cd "$SRCDIR"
 
