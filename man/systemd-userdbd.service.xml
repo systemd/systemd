@@ -34,14 +34,14 @@
     JSON user/group records from classic UNIX/glibc NSS user/group records in order to provide full backwards
     compatibility. It may also pick up statically defined JSON user/group records from drop-in files in
     <filename>/etc/userdb/</filename>, <filename>/run/userdb/</filename>,
-    <filename>/run/host/userdb/</filename> and <filename>/use/lib/userdb/</filename>.</para>
+    <filename>/run/host/userdb/</filename> and <filename>/usr/lib/userdb/</filename>.</para>
 
     <para>Most of <command>systemd-userdbd</command>'s functionality is accessible through the
     <citerefentry><refentrytitle>userdbctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>
     command.</para>
 
     <para>The user and group records this service provides access to follow the <ulink
-    url="https://systemd.io/USER_RECORD">JSON User Record</ulink> and <ulink
+    url="https://systemd.io/USER_RECORD">JSON User Records</ulink> and <ulink
     url="https://systemd.io/GROUP_RECORD">JSON Group Record</ulink> definitions. This service implements the
     <ulink url="https://systemd.io/USER_GROUP_API">User/Group Record Lookup API via Varlink</ulink>, and
     multiplexes access other services implementing this API, too. It is thus both server and client of this

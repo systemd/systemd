@@ -90,7 +90,7 @@
 
       <varlistentry>
         <term><option>--image=<replaceable>path</replaceable></option></term>
-        <listitem><para>Takes a path to a device node or refular file as argument. This is similar to
+        <listitem><para>Takes a path to a device node or regular file as argument. This is similar to
         <option>--root=</option> as described above, but operates on a disk image instead of a directory
         tree.</para></listitem>
       </varlistentry>
