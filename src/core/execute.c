@@ -2250,7 +2250,7 @@ static int setup_exec_directory(
                 uid_t uid,
                 gid_t gid,
                 ExecDirectoryType type,
-                bool needs_mount_namespace,
+                // bool needs_mount_namespace,
                 int *exit_status) {
 
         static const int exit_status_table[_EXEC_DIRECTORY_TYPE_MAX] = {
@@ -2364,11 +2364,11 @@ static int setup_exec_directory(
                         /* And link it up from the original place, unless we are going to have a
                          * mount namespace, in which case this happens later to allow configuring
                          * empty var/run/etc. */
-                        if (!needs_mount_namespace) {
+                        // if (!needs_mount_namespace) {
                                 r = symlink_idempotent(pp, p, true);
                                 if (r < 0)
                                         goto fail;
-                        }
+                        // }
 
                 } else {
                         _cleanup_free_ char *target = NULL;
@@ -4174,10 +4174,10 @@ static int exec_child(
                 }
         }
 
-        needs_mount_namespace = exec_needs_mount_namespace(context, params, runtime);
+        // needs_mount_namespace = exec_needs_mount_namespace(context, params, runtime);
 
         for (ExecDirectoryType dt = 0; dt < _EXEC_DIRECTORY_TYPE_MAX; dt++) {
-                r = setup_exec_directory(context, params, uid, gid, dt, needs_mount_namespace, exit_status);
+                r = setup_exec_directory(context, params, uid, gid, dt, /*needs_mount_namespace,*/ exit_status);
                 if (r < 0)
                         return log_unit_error_errno(unit, r, "Failed to set up special execution directory in %s: %m", params->prefix[dt]);
         }
@@ -4342,6 +4342,7 @@ static int exec_child(
                         log_unit_warning(unit, "PrivateIPC=yes is configured, but the kernel does not support IPC namespaces, ignoring.");
         }
 
+        needs_mount_namespace = exec_needs_mount_namespace(context, params, runtime);
         if (needs_mount_namespace) {
                 _cleanup_free_ char *error_path = NULL;
 
