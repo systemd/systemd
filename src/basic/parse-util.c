@@ -2,7 +2,6 @@
 
 #include <errno.h>
 #include <inttypes.h>
-#include <linux/oom.h>
 #include <net/if.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -731,7 +730,7 @@ int parse_oom_score_adjust(const char *s, int *ret) {
         if (r < 0)
                 return r;
 
-        if (v < OOM_SCORE_ADJ_MIN || v > OOM_SCORE_ADJ_MAX)
+        if (!oom_score_adjust_is_valid(v))
                 return -ERANGE;
 
         *ret = v;
