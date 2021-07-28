@@ -17,6 +17,7 @@ efi_headers = files('''
 '''.split())
 
 common_sources = '''
+        assert.c
         disk.c
         graphics.c
         measure.c
@@ -219,9 +220,9 @@ if have_gnu_efi
                 compile_args += ['-Werror']
         endif
         if get_option('buildtype') == 'debug'
-                compile_args += ['-ggdb', '-O0']
+                compile_args += ['-ggdb', '-O0', '-DEFI_DEBUG']
         elif get_option('buildtype') == 'debugoptimized'
-                compile_args += ['-ggdb', '-Og']
+                compile_args += ['-ggdb', '-Og', '-DEFI_DEBUG']
         else
                 compile_args += ['-O2']
         endif
