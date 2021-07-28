@@ -2219,13 +2219,26 @@ static int install_context_mark_for_removal(
         return 0;
 }
 
+static int do_mac_check(
+                mac_callback_t mac_check,
+                const char *unit_name,
+                void *userdata) {
+
+        if (!mac_check)
+                return 0;
+
+        return mac_check(unit_name, userdata);
+}
+
 int unit_file_mask(
                 LookupScope scope,
                 UnitFileFlags flags,
                 const char *root_dir,
                 char **files,
                 UnitFileChange **changes,
-                size_t *n_changes) {
+                size_t *n_changes,
+                mac_callback_t mac_check,
+                void *userdata) {
 
         _cleanup_(lookup_paths_free) LookupPaths lp = {};
         const char *config_path;
@@ -2252,6 +2265,10 @@ int unit_file_mask(
                         continue;
                 }
 
+                q = do_mac_check(mac_check, *i, userdata);
+                if (q < 0)
+                        return q;
+
                 path = path_make_absolute(*i, config_path);
                 if (!path)
                         return -ENOMEM;
@@ -2270,7 +2287,9 @@ int unit_file_unmask(
                 const char *root_dir,
                 char **files,
                 UnitFileChange **changes,
-                size_t *n_changes) {
+                size_t *n_changes,
+                mac_callback_t mac_check,
+                void *userdata) {
 
         _cleanup_(lookup_paths_free) LookupPaths lp = {};
         _cleanup_set_free_free_ Set *remove_symlinks_to = NULL;
@@ -2297,6 +2316,10 @@ int unit_file_unmask(
 
                 if (!unit_name_is_valid(*i, UNIT_NAME_ANY))
                         return -EINVAL;
+
+                r = do_mac_check(mac_check, *i, userdata);
+                if (r < 0)
+                        return r;
 
                 path = path_make_absolute(*i, config_path);
                 if (!path)
@@ -2362,7 +2385,9 @@ int unit_file_link(
                 const char *root_dir,
                 char **files,
                 UnitFileChange **changes,
-                size_t *n_changes) {
+                size_t *n_changes,
+                mac_callback_t mac_check,
+                void *userdata) {
 
         _cleanup_(lookup_paths_free) LookupPaths lp = {};
         _cleanup_strv_free_ char **todo = NULL;
@@ -2392,6 +2417,10 @@ int unit_file_link(
                 fn = basename(*i);
                 if (!unit_name_is_valid(fn, UNIT_NAME_ANY))
                         return -EINVAL;
+
+                r = do_mac_check(mac_check, fn, userdata);
+                if (r < 0)
+                        return r;
 
                 full = path_join(lp.root_dir, *i);
                 if (!full)
@@ -2461,7 +2490,9 @@ int unit_file_revert(
                 const char *root_dir,
                 char **files,
                 UnitFileChange **changes,
-                size_t *n_changes) {
+                size_t *n_changes,
+                mac_callback_t mac_check,
+                void *userdata) {
 
         _cleanup_set_free_free_ Set *remove_symlinks_to = NULL;
         _cleanup_(lookup_paths_free) LookupPaths lp = {};
@@ -2489,6 +2520,10 @@ int unit_file_revert(
 
                 if (!unit_name_is_valid(*i, UNIT_NAME_ANY))
                         return -EINVAL;
+
+                r = do_mac_check(mac_check, *i, userdata);
+                if (r < 0)
+                        return r;
 
                 STRV_FOREACH(p, lp.search_path) {
                         _cleanup_free_ char *path = NULL, *dropin = NULL;
@@ -2615,7 +2650,9 @@ int unit_file_add_dependency(
                 const char *target,
                 UnitDependency dep,
                 UnitFileChange **changes,
-                size_t *n_changes) {
+                size_t *n_changes,
+                mac_callback_t mac_check,
+                void *userdata) {
 
         _cleanup_(lookup_paths_free) LookupPaths lp = {};
         _cleanup_(install_context_done) InstallContext ctx = { .scope = scope };
@@ -2648,6 +2685,10 @@ int unit_file_add_dependency(
 
         assert(target_info->type == UNIT_FILE_TYPE_REGULAR);
 
+        r = do_mac_check(mac_check, target_info->name, userdata);
+        if (r < 0)
+                return r;
+
         STRV_FOREACH(f, files) {
                 char ***l;
 
@@ -2657,6 +2698,10 @@ int unit_file_add_dependency(
                         return r;
 
                 assert(info->type == UNIT_FILE_TYPE_REGULAR);
+
+                r = do_mac_check(mac_check, info->name, userdata);
+                if (r < 0)
+                        return r;
 
                 /* We didn't actually load anything from the unit
                  * file, but instead just add in our new symlink to
@@ -2684,7 +2729,9 @@ static int do_unit_file_enable(
                 const char *config_path,
                 char **files,
                 UnitFileChange **changes,
-                size_t *n_changes) {
+                size_t *n_changes,
+                mac_callback_t mac_check,
+                void *userdata) {
 
         _cleanup_(install_context_done) InstallContext ctx = { .scope = scope };
         UnitFileInstallInfo *info;
@@ -2697,6 +2744,10 @@ static int do_unit_file_enable(
                         return r;
 
                 assert(info->type == UNIT_FILE_TYPE_REGULAR);
+
+                r = do_mac_check(mac_check, info->name, userdata);
+                if (r < 0)
+                        return r;
         }
 
         /* This will return the number of symlink rules that were
@@ -2714,7 +2765,9 @@ int unit_file_enable(
                 const char *root_dir,
                 char **files,
                 UnitFileChange **changes,
-                size_t *n_changes) {
+                size_t *n_changes,
+                mac_callback_t mac_check,
+                void *userdata) {
 
         _cleanup_(lookup_paths_free) LookupPaths lp = {};
         int r;
@@ -2730,7 +2783,7 @@ int unit_file_enable(
         if (!config_path)
                 return -ENXIO;
 
-        return do_unit_file_enable(&lp, scope, flags, config_path, files, changes, n_changes);
+        return do_unit_file_enable(&lp, scope, flags, config_path, files, changes, n_changes, mac_check, userdata);
 }
 
 static int do_unit_file_disable(
@@ -2740,7 +2793,9 @@ static int do_unit_file_disable(
                 const char *config_path,
                 char **files,
                 UnitFileChange **changes,
-                size_t *n_changes) {
+                size_t *n_changes,
+                mac_callback_t mac_check,
+                void *userdata) {
 
         _cleanup_(install_context_done) InstallContext ctx = { .scope = scope };
         _cleanup_set_free_free_ Set *remove_symlinks_to = NULL;
@@ -2749,6 +2804,10 @@ static int do_unit_file_disable(
         STRV_FOREACH(i, files) {
                 if (!unit_name_is_valid(*i, UNIT_NAME_ANY))
                         return -EINVAL;
+
+                r = do_mac_check(mac_check, *i, userdata);
+                if (r < 0)
+                        return r;
 
                 r = install_info_add(&ctx, *i, NULL, lp->root_dir, /* auxiliary= */ false, NULL);
                 if (r < 0)
@@ -2769,7 +2828,9 @@ int unit_file_disable(
                 const char *root_dir,
                 char **files,
                 UnitFileChange **changes,
-                size_t *n_changes) {
+                size_t *n_changes,
+                mac_callback_t mac_check,
+                void *userdata) {
 
         _cleanup_(lookup_paths_free) LookupPaths lp = {};
         int r;
@@ -2785,7 +2846,7 @@ int unit_file_disable(
         if (!config_path)
                 return -ENXIO;
 
-        return do_unit_file_disable(&lp, scope, flags, config_path, files, changes, n_changes);
+        return do_unit_file_disable(&lp, scope, flags, config_path, files, changes, n_changes, mac_check, userdata);
 }
 
 static int normalize_linked_files(
@@ -2852,7 +2913,9 @@ int unit_file_reenable(
                 const char *root_dir,
                 char **names_or_paths,
                 UnitFileChange **changes,
-                size_t *n_changes) {
+                size_t *n_changes,
+                mac_callback_t mac_check,
+                void *userdata) {
 
         _cleanup_(lookup_paths_free) LookupPaths lp = {};
         _cleanup_strv_free_ char **names = NULL, **files = NULL;
@@ -2874,12 +2937,12 @@ int unit_file_reenable(
                 return r;
 
         /* First, we invoke the disable command with only the basename... */
-        r = do_unit_file_disable(&lp, scope, flags, config_path, names, changes, n_changes);
+        r = do_unit_file_disable(&lp, scope, flags, config_path, names, changes, n_changes, mac_check, userdata);
         if (r < 0)
                 return r;
 
         /* But the enable command with the full name */
-        return do_unit_file_enable(&lp, scope, flags, config_path, files, changes, n_changes);
+        return do_unit_file_enable(&lp, scope, flags, config_path, files, changes, n_changes, mac_check, userdata);
 }
 
 int unit_file_set_default(
@@ -3391,7 +3454,9 @@ static int preset_prepare_one(
                 const char *name,
                 const UnitFilePresets *presets,
                 UnitFileChange **changes,
-                size_t *n_changes) {
+                size_t *n_changes,
+                mac_callback_t mac_check,
+                void *userdata) {
 
         _cleanup_(install_context_done) InstallContext tmp = { .scope = scope };
         _cleanup_strv_free_ char **instance_name_list = NULL;
@@ -3409,6 +3474,10 @@ static int preset_prepare_one(
                 log_debug("Skipping %s because it is an alias for %s.", name, info->name);
                 return 0;
         }
+
+        r = do_mac_check(mac_check, info->name, userdata);
+        if (r < 0)
+                return r;
 
         r = query_presets(name, presets, &instance_name_list);
         if (r < 0)
@@ -3443,7 +3512,9 @@ int unit_file_preset(
                 char **files,
                 UnitFilePresetMode mode,
                 UnitFileChange **changes,
-                size_t *n_changes) {
+                size_t *n_changes,
+                mac_callback_t mac_check,
+                void *userdata) {
 
         _cleanup_(install_context_done) InstallContext plus = {}, minus = {};
         _cleanup_(lookup_paths_free) LookupPaths lp = {};
@@ -3468,7 +3539,7 @@ int unit_file_preset(
                 return r;
 
         STRV_FOREACH(i, files) {
-                r = preset_prepare_one(scope, &plus, &minus, &lp, *i, &presets, changes, n_changes);
+                r = preset_prepare_one(scope, &plus, &minus, &lp, *i, &presets, changes, n_changes, mac_check, userdata);
                 if (r < 0)
                         return r;
         }
@@ -3482,7 +3553,9 @@ int unit_file_preset_all(
                 const char *root_dir,
                 UnitFilePresetMode mode,
                 UnitFileChange **changes,
-                size_t *n_changes) {
+                size_t *n_changes,
+                mac_callback_t mac_check,
+                void *userdata) {
 
         _cleanup_(install_context_done) InstallContext plus = {}, minus = {};
         _cleanup_(lookup_paths_free) LookupPaths lp = {};
@@ -3525,7 +3598,7 @@ int unit_file_preset_all(
                         if (!IN_SET(de->d_type, DT_LNK, DT_REG))
                                 continue;
 
-                        r = preset_prepare_one(scope, &plus, &minus, &lp, de->d_name, &presets, changes, n_changes);
+                        r = preset_prepare_one(scope, &plus, &minus, &lp, de->d_name, &presets, changes, n_changes, mac_check, userdata);
                         if (r < 0 &&
                             !IN_SET(r, -EEXIST, -ERFKILL, -EADDRNOTAVAIL, -EBADSLT, -EIDRM, -EUCLEAN, -ELOOP, -ENOENT, -EUNATCH, -EXDEV))
                                 /* Ignore generated/transient/missing/invalid units when applying preset, propagate other errors.
