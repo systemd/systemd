@@ -2429,21 +2429,25 @@ static int link_status(int argc, char *argv[], void *userdata) {
         return 0;
 }
 
-static char *lldp_capabilities_to_string(uint16_t x) {
+static char *lldp_capabilities_to_string(uint16_t x, bool fill_dots) {
         static const char characters[] = {
                 'o', 'p', 'b', 'w', 'r', 't', 'd', 'a', 'c', 's', 'm',
         };
         char *ret;
         unsigned i;
+        unsigned j;
 
         ret = new(char, ELEMENTSOF(characters) + 1);
         if (!ret)
                 return NULL;
 
-        for (i = 0; i < ELEMENTSOF(characters); i++)
-                ret[i] = (x & (1U << i)) ? characters[i] : '.';
+        for (i = 0, j = 0; i < ELEMENTSOF(characters); i++)
+                if (x & (1U << i))
+                        ret[j++] = characters[i];
+                else if (fill_dots)
+                        ret[j++] = '.';
 
-        ret[i] = 0;
+        ret[j] = 0;
         return ret;
 }
 
@@ -2479,6 +2483,102 @@ static void lldp_capabilities_legend(uint16_t x) {
         puts("");
 }
 
+static int dump_lldp_link_neighbours(JsonVariant **arr, LinkInfo *link) {
+        _cleanup_fclose_ FILE *f = NULL;
+        int r;
+
+        r = open_lldp_neighbors(link->ifindex, &f);
+        if (r == -ENOENT)
+                return r;
+        if (r < 0) {
+                log_warning_errno(r, "Failed to open LLDP data for %i, ignoring: %m", link->ifindex);
+                return r;
+        }
+
+        r = json_build(arr, JSON_BUILD_EMPTY_ARRAY);
+        if (r < 0)
+                return r;
+
+        for (;;) {
+                _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
+                _cleanup_(sd_lldp_neighbor_unrefp) sd_lldp_neighbor *n = NULL;
+                const char *chassis_id = NULL, *port_id = NULL, *system_name = NULL, *port_description = NULL;
+                uint16_t cc;
+                _cleanup_free_ char *capabilities = NULL;
+
+                r = next_lldp_neighbor(f, &n);
+                if (r < 0) {
+                        log_warning_errno(r, "Failed to read neighbor data: %m");
+                        break;
+                }
+                if (r == 0)
+                        break;
+
+                (void) sd_lldp_neighbor_get_chassis_id_as_string(n, &chassis_id);
+                (void) sd_lldp_neighbor_get_port_id_as_string(n, &port_id);
+                (void) sd_lldp_neighbor_get_system_name(n, &system_name);
+                (void) sd_lldp_neighbor_get_port_description(n, &port_description);
+
+                if (sd_lldp_neighbor_get_enabled_capabilities(n, &cc) >= 0) {
+                        capabilities = lldp_capabilities_to_string(cc, false);
+                }
+
+                r = json_build(&v, JSON_BUILD_OBJECT(
+                                        JSON_BUILD_PAIR("ChassisID", JSON_BUILD_STRING(chassis_id)),
+                                        JSON_BUILD_PAIR("SystemName", JSON_BUILD_STRING(system_name)),
+                                        JSON_BUILD_PAIR_CONDITION(capabilities, "EnabledCapabilities", JSON_BUILD_STRING(capabilities)),
+                                        JSON_BUILD_PAIR("PortId", JSON_BUILD_STRING(port_id)),
+                                        JSON_BUILD_PAIR_CONDITION(port_description, "PortDescription", JSON_BUILD_STRING(port_description))));
+                if (r < 0)
+                        return r;
+
+                r = json_variant_append_array(arr, v);
+                if (r < 0)
+                        return r;
+        }
+
+        return 0;
+}
+
+static int dump_lldp_json(LinkInfo *links, int c) {
+        _cleanup_(json_variant_unrefp) JsonVariant *array = NULL;
+        _cleanup_(json_variant_unrefp) JsonVariant *result = NULL;
+        int r;
+
+        assert(links);
+
+        r = json_build(&array, JSON_BUILD_EMPTY_ARRAY);
+        if (r < 0)
+                return r;
+
+        for (int i = 0; i < c; i++) {
+                _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
+                _cleanup_(json_variant_unrefp) JsonVariant *neighbors = NULL;
+
+                r = dump_lldp_link_neighbours(&neighbors, links + i);
+                if (r < 0 || json_variant_is_blank_array(neighbors))
+                        continue;
+
+                r = json_build(&v, JSON_BUILD_OBJECT(
+                                        JSON_BUILD_PAIR("Name", JSON_BUILD_STRING(links[i].name)),
+                                        JSON_BUILD_PAIR("Neighbors", JSON_BUILD_VARIANT(neighbors))));
+                if (r < 0)
+                        continue;
+
+                r = json_variant_append_array(&array, v);
+                if (r < 0)
+                        return r;
+        }
+
+        r = json_build(&result, JSON_BUILD_OBJECT(JSON_BUILD_PAIR("Interfaces", JSON_BUILD_VARIANT(array))));
+        if (r < 0)
+                return r;
+
+        json_variant_dump(result, arg_json_format_flags, NULL, NULL);
+
+        return 0;
+}
+
 static int link_lldp_status(int argc, char *argv[], void *userdata) {
         _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
         _cleanup_(link_info_array_freep) LinkInfo *links = NULL;
@@ -2494,6 +2594,9 @@ static int link_lldp_status(int argc, char *argv[], void *userdata) {
         c = acquire_link_info(NULL, rtnl, argc > 1 ? argv + 1 : NULL, &links);
         if (c < 0)
                 return c;
+
+        if (arg_json_format_flags != JSON_FORMAT_OFF)
+                return dump_lldp_json(links, c);
 
         (void) pager_open(arg_pager_flags);
 
@@ -2584,7 +2687,7 @@ static int link_lldp_status(int argc, char *argv[], void *userdata) {
                         }
 
                         if (sd_lldp_neighbor_get_enabled_capabilities(n, &cc) >= 0) {
-                                capabilities = lldp_capabilities_to_string(cc);
+                                capabilities = lldp_capabilities_to_string(cc, true);
                                 all |= cc;
                         }
 
