@@ -5,6 +5,9 @@
 
 #include "manager.h"
 
+/* forward declaration */
+typedef struct MacUnitCallbackUserdata MacUnitCallbackUserdata;
+
 int _mac_selinux_generic_access_check(sd_bus_message *message,
                                       const char *path,
                                       const char *permission,
@@ -16,3 +19,7 @@ int _mac_selinux_generic_access_check(sd_bus_message *message,
 
 #define mac_selinux_unit_access_check(unit, message, permission, error) \
         _mac_selinux_generic_access_check((message), unit_label_path(unit), (permission), (error), __func__)
+
+int mac_selinux_unit_callback_check(
+                const char *unit_name,
+                const MacUnitCallbackUserdata *userdata);

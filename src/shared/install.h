@@ -208,6 +208,8 @@ int unit_file_lookup_state(
 int unit_file_get_state(UnitFileScope scope, const char *root_dir, const char *filename, UnitFileState *ret);
 int unit_file_exists(UnitFileScope scope, const LookupPaths *paths, const char *name);
 
+int unit_file_label_path(UnitFileScope scope, const char *root_dir, const char *name, char **ret_path);
+
 int unit_file_get_list(UnitFileScope scope, const char *root_dir, Hashmap *h, char **states, char **patterns);
 Hashmap* unit_file_list_free(Hashmap *h);
 
