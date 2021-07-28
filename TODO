@@ -83,6 +83,8 @@ Janitorial Clean-ups:
 
 Features:
 
+* use credentials logic/TPM2 logic to store homed signing key
+
 * New udev block device symlink names:
   /dev/disk/by-parttypelabel/<pttype>/<ptlabel>. Use case: if pt label is used
   as partition image version string, this is a safe way to reference a specific
