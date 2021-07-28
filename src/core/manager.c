@@ -1994,6 +1994,13 @@ Unit *manager_get_unit(Manager *m, const char *name) {
         return hashmap_get(m->units, name);
 }
 
+const char *manager_lookup_unit_main_path(Manager *m, const char *name) {
+        assert(m);
+        assert(name);
+
+        return hashmap_get(m->unit_id_map, name);
+}
+
 static int manager_dispatch_target_deps_queue(Manager *m) {
         Unit *u;
         int r = 0;
