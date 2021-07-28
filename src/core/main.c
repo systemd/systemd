@@ -1600,9 +1600,9 @@ static void initialize_clock(void) {
 
         r = clock_apply_epoch();
         if (r < 0)
-                log_error_errno(r, "Current system time is before build time, but cannot correct: %m");
+                log_error_errno(r, "Current system time diverges from epoch time, but cannot correct: %m");
         else if (r > 0)
-                log_info("System time before build time, advancing clock.");
+                log_info("System time diverges from epoch time, adjusting clock.");
 }
 
 static void apply_clock_update(void) {

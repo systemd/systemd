@@ -138,11 +138,14 @@ int clock_reset_timewarp(void) {
 }
 
 #define EPOCH_FILE "/usr/lib/clock-epoch"
+#define DELTA_THRESHOLD (USEC_PER_YEAR*15)
 
 int clock_apply_epoch(void) {
         struct stat st;
         struct timespec ts;
         usec_t epoch_usec;
+        usec_t now_usec;
+        usec_t diff_usec;
 
         if (stat(EPOCH_FILE, &st) < 0) {
                 if (errno != ENOENT)
@@ -152,7 +155,12 @@ int clock_apply_epoch(void) {
         } else
                 epoch_usec = timespec_load(&st.st_mtim);
 
-        if (now(CLOCK_REALTIME) >= epoch_usec)
+        now_usec = now(CLOCK_REALTIME);
+        diff_usec = usec_sub_unsigned(now_usec, epoch_usec);
+        if(!diff_usec)
+                diff_usec = usec_sub_unsigned(epoch_usec, now_usec);
+
+        if (now_usec >= epoch_usec && diff_usec < DELTA_THRESHOLD)
                 return 0;
 
         if (clock_settime(CLOCK_REALTIME, timespec_store(&ts, epoch_usec)) < 0)
