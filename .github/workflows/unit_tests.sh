@@ -45,7 +45,7 @@ for phase in "${PHASES[@]}"; do
             fi
             meson --werror -Dtests=unsafe -Dslow-tests=true -Dfuzz-tests=true -Dman=true build
             ninja -C build -v
-            meson test -C build --print-errorlogs
+            meson test -C build --print-errorlogs || ( cat build/meson-logs/testlog.txt && false )
             ;;
         RUN_ASAN_UBSAN|RUN_GCC_ASAN_UBSAN|RUN_CLANG_ASAN_UBSAN)
             MESON_ARGS=(--optimization=1)
@@ -74,7 +74,7 @@ for phase in "${PHASES[@]}"; do
             # during debugging, wonderful), so let's at least keep a workaround
             # here to make the builds stable for the time being.
             (set +x; while :; do echo -ne "\n[WATCHDOG] $(date)\n"; sleep 30; done) &
-            meson test --timeout-multiplier=3 -C build --print-errorlogs
+            meson test --timeout-multiplier=3 -C build --print-errorlogs || ( cat build/meson-logs/testlog.txt && false )
             ;;
         CLEANUP)
             info "Cleanup phase"

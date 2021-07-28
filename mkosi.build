@@ -115,7 +115,7 @@ if [ "$WITH_TESTS" = 1 ] ; then
                 getent group $id > /dev/null || groupadd -g $id testgroup$id
         done
 
-        ninja test
+        ninja test || ( cat "$BUILDDIR"/meson-logs/testlog.txt && false )
 fi
 cd "$SRCDIR"
 
