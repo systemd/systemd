@@ -46,6 +46,7 @@ for phase in "${PHASES[@]}"; do
             meson --werror -Dtests=unsafe -Dslow-tests=true -Dfuzz-tests=true -Dman=true build
             ninja -C build -v
             meson test -C build --print-errorlogs
+            cat build/meson-logs/testlog.txt
             ;;
         RUN_ASAN_UBSAN|RUN_GCC_ASAN_UBSAN|RUN_CLANG_ASAN_UBSAN)
             MESON_ARGS=(--optimization=1)
@@ -75,6 +76,7 @@ for phase in "${PHASES[@]}"; do
             # here to make the builds stable for the time being.
             (set +x; while :; do echo -ne "\n[WATCHDOG] $(date)\n"; sleep 30; done) &
             meson test --timeout-multiplier=3 -C build --print-errorlogs
+            cat build/meson-logs/testlog.txt
             ;;
         CLEANUP)
             info "Cleanup phase"
