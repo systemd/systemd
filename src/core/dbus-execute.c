@@ -3589,6 +3589,74 @@ int bus_exec_context_set_transient_property(
                 extension_images = mount_image_free_many(extension_images, &n_extension_images);
 
                 return 1;
+        } else if (STR_IN_SET(name, "StateDirectorySymlink", "RuntimeDirectorySymlink")) {
+                char *source, *destination;
+                ExecDirectory *directory;
+                ExecDirectoryType i;
+                bool empty = true;
+
+                assert_se((i = exec_directory_type_symlink_from_string(name)) >= 0);
+                directory = c->directories + i;
+
+                r = sd_bus_message_enter_container(message, 'a', "(ss)");
+                if (r < 0)
+                        return r;
+
+                while ((r = sd_bus_message_read(message, "(ss)", &source, &destination)) > 0) {
+
+                        if (!utf8_is_valid(source))
+                                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Source path %s is not valid UTF8.", source);
+                        if (!path_is_valid(source))
+                                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Source path %s is not valid.", source);
+                        if (path_is_absolute(source))
+                                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Source path %s is absolute.", source);
+                        if (!path_is_normalized(source))
+                                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Source path %s is not normalized.", source);
+                        if (!utf8_is_valid(destination))
+                                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Destination path %s is not valid UTF8.", destination);
+                        if (!path_is_valid(destination))
+                                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Destination path %s is not valid.", destination);
+                        if (path_is_absolute(destination))
+                                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Destination path %s is absolute.", destination);
+                        if (!path_is_normalized(destination))
+                                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Destination path %s is not normalized.", destination);
+
+                        if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
+                                _cleanup_free_ char *s = NULL, *d = NULL;
+
+                                s = strdup(source);
+                                d = strdup(destination);
+                                if (!s || !d)
+                                        return -ENOMEM;
+
+                                r = strv_consume_pair(&directory->symlinks, TAKE_PTR(s), TAKE_PTR(d));
+                                if (r < 0)
+                                        return r;
+
+                                unit_write_settingf(
+                                                u, flags|UNIT_ESCAPE_SPECIFIERS, name,
+                                                "%s=%s:%s",
+                                                name,
+                                                source,
+                                                destination);
+                        }
+
+                        empty = false;
+                }
+                if (r < 0)
+                        return r;
+
+                r = sd_bus_message_exit_container(message);
+                if (r < 0)
+                        return r;
+
+                if (empty) {
+                        directory->symlinks = strv_free(directory->symlinks);
+                        unit_write_settingf(u, flags, name, "%s=", name);
+                }
+
+                return 1;
+
         }
 
         return 0;
