@@ -262,7 +262,7 @@
         names in status messages (e.g. <literal>systemd-journald.service</literal>), instead of the longer
         and more informative descriptions set with <varname>Description=</varname> (e.g. <literal>Journal
         Logging Service</literal>). If <option>combined</option>, the system manager will use both unit names
-        and descriptions in status messages (e.g. <literal>systemdmd-jouranld.service - Journal Logging
+        and descriptions in status messages (e.g. <literal>systemd-journald.service - Journal Logging
         Service</literal>).</para>
 
         <para>See

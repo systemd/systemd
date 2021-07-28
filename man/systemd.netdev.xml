@@ -390,7 +390,7 @@
         <term><varname>DefaultPVID=</varname></term>
         <listitem>
           <para>This specifies the default port VLAN ID of a newly attached bridge port.
-          Set this to an integer in the range 1–4094 or <literal>none</literal> to disable the PVID.</para>
+          Set this to an integer in the range 1…4094 or <literal>none</literal> to disable the PVID.</para>
         </listitem>
       </varlistentry>
       <varlistentry>
@@ -460,7 +460,7 @@
       <varlistentry>
         <term><varname>Id=</varname></term>
         <listitem>
-          <para>The VLAN ID to use. An integer in the range 0–4094.
+          <para>The VLAN ID to use. An integer in the range 0…4094.
           This setting is compulsory.</para>
         </listitem>
       </varlistentry>
@@ -654,7 +654,7 @@
         <term><varname>TTL=</varname></term>
         <listitem>
           <para>A fixed Time To Live N on Virtual eXtensible Local Area Network packets.
-          Takes <literal>inherit</literal> or a number in the range 0–255. 0 is a special
+          Takes <literal>inherit</literal> or a number in the range 0…255. 0 is a special
           value meaning inherit the inner protocol's TTL value. <literal>inherit</literal>
           means that it will inherit the outer protocol's TTL value.</para>
         </listitem>
@@ -913,7 +913,7 @@
       <varlistentry>
         <term><varname>TunnelId=</varname></term>
         <listitem>
-          <para>Specifies the tunnel identifier. Takes an number in the range 1–4294967295. The value used
+          <para>Specifies the tunnel identifier. Takes an number in the range 1…4294967295. The value used
           must match the <literal>PeerTunnelId=</literal> value being used at the peer. This setting is
           compulsory.</para>
         </listitem>
@@ -1002,7 +1002,7 @@
       <varlistentry>
         <term><varname>SessionId=</varname></term>
         <listitem>
-          <para>Specifies the session identifier. Takes an number in the range 1–4294967295. The value used
+          <para>Specifies the session identifier. Takes an number in the range 1…4294967295. The value used
           must match the <literal>SessionId=</literal> value being used at the peer. This setting is
           compulsory.</para>
         </listitem>
@@ -1010,7 +1010,7 @@
       <varlistentry>
         <term><varname>PeerSessionId=</varname></term>
         <listitem>
-          <para>Specifies the peer session identifier. Takes an number in the range 1–4294967295.
+          <para>Specifies the peer session identifier. Takes an number in the range 1…4294967295.
           The value used must match the <literal>PeerSessionId=</literal> value being used at the peer.
           This setting is compulsory.</para>
         </listitem>
@@ -1234,7 +1234,7 @@
         <term><varname>TTL=</varname></term>
         <listitem>
           <para>A fixed Time To Live N on tunneled packets. N is a
-          number in the range 1–255. 0 is a special value meaning that
+          number in the range 1…255. 0 is a special value meaning that
           packets inherit the TTL value. The default value for IPv4
           tunnels is 0 (inherit). The default value for IPv6 tunnels is
           64.</para>
@@ -1256,7 +1256,7 @@
           It is only used for IPv6 tunnels.
           A flow label of zero is used to indicate packets that have
           not been labeled.
-          It can be configured to a value in the range 0–0xFFFFF, or be
+          It can be configured to a value in the range 0…0xFFFFF, or be
           set to <literal>inherit</literal>, in which case the original flowlabel is used.</para>
         </listitem>
       </varlistentry>
@@ -1673,15 +1673,15 @@
           <para>Sets a comma-separated list of IP (v4 or v6) addresses with CIDR masks
           from which this peer is allowed to send incoming traffic and to
           which outgoing traffic for this peer is directed.</para>
+
           <para>The catch-all 0.0.0.0/0 may be specified for matching all IPv4 addresses,
           and ::/0 may be specified for matching all IPv6 addresses.</para>
-          <para>Note that this only affects "routing inside the network interface itself",
-          as in, which wireguard peer packets with a specific destination address are sent to,
-          and what source addresses are accepted from which peer.</para>
-          <para>To cause packets to be sent via wireguard in first place, a route needs
-          to be added, as well - either in the <literal>[Routes]</literal> section on the
-          <literal>.network</literal> matching the wireguard interface, or outside of networkd.
-          </para>
+
+          <para>Note that this only affects <emphasis>routing inside the network interface itself</emphasis>,
+          i.e. the packets that pass through the tunnel itself. To cause packets to be sent via the tunnel in
+          the first place, an appropriate route needs to be added as well — either in the
+          <literal>[Routes]</literal> section on the <literal>.network</literal> matching the wireguard
+          interface, or externally to <filename>systemd-networkd</filename>.</para>
         </listitem>
       </varlistentry>
       <varlistentry>
@@ -1823,7 +1823,7 @@
         <term><varname>AdUserPortKey=</varname></term>
         <listitem>
           <para>Specifies the 802.3ad user defined portion of the port key. Takes a number in the range
-          0–1023.</para>
+          0…1023.</para>
         </listitem>
       </varlistentry>
 
@@ -2036,9 +2036,9 @@
 
   <refsect1>
     <title>[BatmanAdvanced] Section Options</title>
-    <para>The [BatmanAdvanced] section only applies for
-    netdevs of kind <literal>batadv</literal> and accepts the
-    following keys:</para>
+
+    <para>The [BatmanAdvanced] section only applies for netdevs of kind <literal>batadv</literal> and accepts
+    the following keys:</para>
 
     <variablelist class='network-directives'>
       <varlistentry>

@@ -46,7 +46,7 @@
     operating system tree. When one or more system extension images are activated, their
     <filename>/usr/</filename> and <filename>/opt/</filename> hierarchies are combined via
     <literal>overlayfs</literal> with the same hierarchies of the host OS, and the host
-    <filename>/usr/</filename> and <filename>/opt</filename> overmounted with it ("merging"). When they are
+    <filename>/usr/</filename> and <filename>/opt/</filename> overmounted with it ("merging"). When they are
     deactivated, the mount point is disassembled — again revealing the unmodified original host version of
     the hierarchy ("unmerging"). Merging thus makes the extension's resources suddenly appear below the
     <filename>/usr/</filename> and <filename>/opt/</filename> hierarchies as if they were included in the
@@ -71,7 +71,7 @@
     <orderedlist>
       <listitem><para>Plain directories or btrfs subvolumes containing the OS tree</para></listitem>
       <listitem><para>Disk images with a GPT disk label, following the <ulink
-      url="https://systemd.io/DISCOVERABLE_PARTITIONS">Discoverable Partition Specification</ulink></para></listitem>
+      url="https://systemd.io/DISCOVERABLE_PARTITIONS">Discoverable Partitions Specification</ulink></para></listitem>
       <listitem><para>Disk images lacking a partition table, with a naked Linux file system (e.g. squashfs or ext4)</para></listitem>
     </orderedlist>
 
@@ -127,13 +127,15 @@
     <title>Uses</title>
 
     <para>The primary use case for system images are immutable environments where debugging and development
-    tools shall optionally be made available, but not included in the immutable base OS image itself
-    (e.g. <filename>strace</filename> and <filename>gdb</filename> shall be an optionally installable
-    addition in order to make debugging/development easier). System extension images should not be
-    misunderstood as a generic software packaging framework, as no dependency scheme is available: system
-    extensions should carry all files they need themselves, except for those already shipped in the
-    underlying host system image. Typically, system extension images are built at the same time as the base
-    OS image — within the same build system.</para>
+    tools shall optionally be made available, but not included in the immutable base OS image itself (e.g.
+    <citerefentry project='man-pages'><refentrytitle>strace</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+    and
+    <citerefentry project='man-pages'><refentrytitle>gdb</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+    shall be an optionally installable addition in order to make debugging/development easier). System
+    extension images should not be misunderstood as a generic software packaging framework, as no dependency
+    scheme is available: system extensions should carry all files they need themselves, except for those
+    already shipped in the underlying host system image. Typically, system extension images are built at the
+    same time as the base OS image — within the same build system.</para>
 
     <para>Another use case for the system extension concept is temporarily overriding OS supplied resources
     with newer ones, for example to install a locally compiled development version of some low-level
