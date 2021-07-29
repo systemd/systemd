@@ -21,7 +21,7 @@ if conf.get('HAVE_TPM2') == 1
                 'cryptsetup-token-systemd-tpm2_static',
                 cryptsetup_token_systemd_tpm2_sources,
                 include_directories : includes,
-                dependencies : libshared_deps + [libcryptsetup],
+                dependencies : libshared_deps + [libcryptsetup, versiondep],
                 c_args : cryptsetup_token_c_args)
 endif
 
