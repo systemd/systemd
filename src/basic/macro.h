@@ -214,7 +214,7 @@ static inline size_t GREEDY_ALLOC_ROUND_UP(size_t l) {
  *          Contrary to strlen(), this is a constant expression.
  * @x: a string literal.
  */
-#define STRLEN(x) ((unsigned) sizeof(""x"") - 1)
+#define STRLEN(x) (sizeof(""x"") - 1U)
 
 /*
  * container_of - cast a member of a structure out to the containing structure
@@ -345,7 +345,7 @@ static inline int __coverity_check_and_return__(int condition) {
         (2U+(sizeof(type) <= 1 ? 3U :                                   \
              sizeof(type) <= 2 ? 5U :                                   \
              sizeof(type) <= 4 ? 10U :                                  \
-             sizeof(type) <= 8 ? 20U : (unsigned) sizeof(int[-2*(sizeof(type) > 8)])))
+             sizeof(type) <= 8 ? 20U : sizeof(int[-2*(sizeof(type) > 8)])))
 
 #define DECIMAL_STR_WIDTH(x)                            \
         ({                                              \
