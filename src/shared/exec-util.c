@@ -471,7 +471,7 @@ int fexecve_or_execve(int executable_fd, const char *executable, char *const arg
         return -errno;
 }
 
-int fork_agent(const char *name, int except[], size_t n_except, pid_t *ret_pid, const char *path, ...) {
+int fork_agent(const char *name, const int except[], size_t n_except, pid_t *ret_pid, const char *path, ...) {
         bool stdout_is_tty, stderr_is_tty;
         size_t n, i;
         va_list ap;
