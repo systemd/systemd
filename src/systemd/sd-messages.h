@@ -81,6 +81,9 @@ _SD_BEGIN_DECLARATIONS;
 #define SD_MESSAGE_SHUTDOWN               SD_ID128_MAKE(98,26,88,66,d1,d5,4a,49,9c,4e,98,92,1d,93,bc,40)
 #define SD_MESSAGE_SHUTDOWN_STR           SD_ID128_MAKE_STR(98,26,88,66,d1,d5,4a,49,9c,4e,98,92,1d,93,bc,40)
 
+#define SD_MESSAGE_FACTORY_RESET          SD_ID128_MAKE(c1,4a,af,76,ec,28,4a,5f,a1,f1,05,f8,8d,fb,06,1c)
+#define SD_MESSAGE_FACTORY_RESET_STR      SD_ID128_MAKE_STR(c1,4a,af,76,ec,28,4a,5f,a1,f1,05,f8,8d,fb,06,1c)
+
 /* The messages below are actually about jobs, not really about units, the macros are misleadingly named. Moreover
  * SD_MESSAGE_UNIT_FAILED is not actually about a failing unit but about a failed start job. A job either finishes with
  * SD_MESSAGE_UNIT_STARTED or with SD_MESSAGE_UNIT_FAILED hence. */
