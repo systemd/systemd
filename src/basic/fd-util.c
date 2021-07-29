@@ -208,9 +208,10 @@ static int get_max_fd(void) {
         return (int) (m - 1);
 }
 
-int close_all_fds(int except[], size_t n_except) {
+int close_all_fds(const int except[], size_t n_except) {
         static bool have_close_range = true; /* Assume we live in the future */
         _cleanup_closedir_ DIR *d = NULL;
+        struct dirent *de;
         int r = 0;
 
         assert(n_except == 0 || except);
@@ -226,104 +227,129 @@ int close_all_fds(int except[], size_t n_except) {
                         /* Close everything. Yay! */
 
                         if (close_range(3, -1, 0) >= 0)
-                                return 0;
+                                return 1;
 
-                        if (ERRNO_IS_NOT_SUPPORTED(errno) || ERRNO_IS_PRIVILEGE(errno))
-                                have_close_range = false;
-                        else
+                        if (!ERRNO_IS_NOT_SUPPORTED(errno) && !ERRNO_IS_PRIVILEGE(errno))
                                 return -errno;
 
+                        have_close_range = false;
                 } else {
-                        typesafe_qsort(except, n_except, cmp_int);
+                        _cleanup_free_ int *sorted_malloc = NULL;
+                        size_t n_sorted;
+                        int *sorted;
 
-                        for (size_t i = 0; i < n_except; i++) {
-                                int start = i == 0 ? 2 : MAX(except[i-1], 2); /* The first three fds shall always remain open */
-                                int end = MAX(except[i], 2);
+                        assert(n_except < SIZE_MAX);
+                        n_sorted = n_except + 1;
 
-                                assert(end >= start);
+                        if (n_sorted > 64) /* Use heap for large numbers of fds, stack otherwise */
+                                sorted = sorted_malloc = new(int, n_sorted);
+                        else
+                                sorted = newa(int, n_sorted);
 
-                                if (end - start <= 1)
-                                        continue;
+                        if (sorted) {
+                                int c = 0;
 
-                                /* Close everything between the start and end fds (both of which shall stay open) */
-                                if (close_range(start + 1, end - 1, 0) < 0) {
-                                        if (ERRNO_IS_NOT_SUPPORTED(errno) || ERRNO_IS_PRIVILEGE(errno))
+                                memcpy(sorted, except, n_except * sizeof(int));
+
+                                /* Let's add fd 2 to the list of fds, to simplify the loop below, as this
+                                 * allows us to cover the head of the array the same way as the body */
+                                sorted[n_sorted-1] = 2;
+
+                                typesafe_qsort(sorted, n_sorted, cmp_int);
+
+                                for (size_t i = 0; i < n_sorted-1; i++) {
+                                        int start, end;
+
+                                        start = MAX(sorted[i], 2); /* The first three fds shall always remain open */
+                                        end = MAX(sorted[i+1], 2);
+
+                                        assert(end >= start);
+
+                                        if (end - start <= 1)
+                                                continue;
+
+                                        /* Close everything between the start and end fds (both of which shall stay open) */
+                                        if (close_range(start + 1, end - 1, 0) < 0) {
+                                                if (!ERRNO_IS_NOT_SUPPORTED(errno) && !ERRNO_IS_PRIVILEGE(errno))
+                                                        return -errno;
+
                                                 have_close_range = false;
-                                        else
+                                                break;
+                                        }
+
+                                        c += end - start - 1;
+                                }
+
+                                if (have_close_range) {
+                                        /* The loop succeeded. Let's now close everything beyond the end */
+
+                                        if (sorted[n_sorted-1] >= INT_MAX) /* Dont let the addition below overflow */
+                                                return c;
+
+                                        if (close_range(sorted[n_sorted-1] + 1, -1, 0) >= 0)
+                                                return c + 1;
+
+                                        if (!ERRNO_IS_NOT_SUPPORTED(errno) && !ERRNO_IS_PRIVILEGE(errno))
                                                 return -errno;
-                                        goto opendir_fallback;
+
+                                        have_close_range = false;
                                 }
                         }
-
-                        /* The loop succeeded. Let's now close everything beyond the end */
-
-                        if (except[n_except-1] >= INT_MAX) /* Don't let the addition below overflow */
-                                return 0;
-
-                        int start = MAX(except[n_except-1], 2);
-
-                        if (close_range(start + 1, -1, 0) >= 0)
-                                return 0;
-
-                        if (ERRNO_IS_NOT_SUPPORTED(errno) || ERRNO_IS_PRIVILEGE(errno))
-                                have_close_range = false;
-                        else
-                                return -errno;
                 }
+
+                /* Fallback on OOM or if close_range() is not supported */
         }
 
-        /* Fallback for when close_range() is not supported */
- opendir_fallback:
         d = opendir("/proc/self/fd");
-        if (d) {
-                struct dirent *de;
+        if (!d) {
+                int fd, max_fd;
 
-                FOREACH_DIRENT(de, d, return -errno) {
-                        int fd = -1, q;
+                /* When /proc isn't available (for example in chroots) the fallback is brute forcing through
+                 * the fd table */
 
-                        if (safe_atoi(de->d_name, &fd) < 0)
-                                /* Let's better ignore this, just in case */
-                                continue;
+                max_fd = get_max_fd();
+                if (max_fd < 0)
+                        return max_fd;
 
-                        if (fd < 3)
-                                continue;
+                /* Refuse to do the loop over more too many elements. It's better to fail immediately than to
+                 * spin the CPU for a long time. */
+                if (max_fd > MAX_FD_LOOP_LIMIT)
+                        return log_debug_errno(SYNTHETIC_ERRNO(EPERM),
+                                               "/proc/self/fd is inaccessible. Refusing to loop over %d potential fds.",
+                                               max_fd);
 
-                        if (fd == dirfd(d))
-                                continue;
+                for (fd = 3; fd >= 0; fd = fd < max_fd ? fd + 1 : -1) {
+                        int q;
 
                         if (fd_in_set(fd, except, n_except))
                                 continue;
 
                         q = close_nointr(fd);
-                        if (q < 0 && q != -EBADF && r >= 0) /* Valgrind has its own FD and doesn't want to have it closed */
+                        if (q < 0 && q != -EBADF && r >= 0)
                                 r = q;
                 }
 
                 return r;
         }
 
-        /* Fallback for when /proc isn't available (for example in chroots) by brute-forcing through the file
-         * descriptor table. */
+        FOREACH_DIRENT(de, d, return -errno) {
+                int fd = -1, q;
 
-        int max_fd = get_max_fd();
-        if (max_fd < 0)
-                return max_fd;
+                if (safe_atoi(de->d_name, &fd) < 0)
+                        /* Let's better ignore this, just in case */
+                        continue;
 
-        /* Refuse to do the loop over more too many elements. It's better to fail immediately than to
-         * spin the CPU for a long time. */
-        if (max_fd > MAX_FD_LOOP_LIMIT)
-                return log_debug_errno(SYNTHETIC_ERRNO(EPERM),
-                                       "/proc/self/fd is inaccessible. Refusing to loop over %d potential fds.",
-                                       max_fd);
+                if (fd < 3)
+                        continue;
 
-        for (int fd = 3; fd >= 0; fd = fd < max_fd ? fd + 1 : -1) {
-                int q;
+                if (fd == dirfd(d))
+                        continue;
 
                 if (fd_in_set(fd, except, n_except))
                         continue;
 
                 q = close_nointr(fd);
-                if (q < 0 && q != -EBADF && r >= 0)
+                if (q < 0 && q != -EBADF && r >= 0) /* Valgrind has its own FD and doesn't want to have it closed */
                         r = q;
         }
 
