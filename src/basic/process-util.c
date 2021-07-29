@@ -1246,7 +1246,7 @@ static void restore_sigsetp(sigset_t **ssp) {
 
 int safe_fork_full(
                 const char *name,
-                int except_fds[],
+                const int except_fds[],
                 size_t n_except_fds,
                 ForkFlags flags,
                 pid_t *ret_pid) {
@@ -1441,7 +1441,7 @@ int safe_fork_full(
 int namespace_fork(
                 const char *outer_name,
                 const char *inner_name,
-                int except_fds[],
+                const int except_fds[],
                 size_t n_except_fds,
                 ForkFlags flags,
                 int pidns_fd,
@@ -1457,8 +1457,7 @@ int namespace_fork(
          * process. This ensures that we are fully a member of the destination namespace, with pidns an all, so that
          * /proc/self/fd works correctly. */
 
-        r = safe_fork_full(outer_name, except_fds, n_except_fds,
-                           (flags|FORK_DEATHSIG) & ~(FORK_REOPEN_LOG|FORK_NEW_MOUNTNS|FORK_MOUNTNS_SLAVE), ret_pid);
+        r = safe_fork_full(outer_name, except_fds, n_except_fds, (flags|FORK_DEATHSIG) & ~(FORK_REOPEN_LOG|FORK_NEW_MOUNTNS|FORK_MOUNTNS_SLAVE), ret_pid);
         if (r < 0)
                 return r;
         if (r == 0) {
