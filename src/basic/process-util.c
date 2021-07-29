@@ -1622,7 +1622,7 @@ _noreturn_ void freeze(void) {
         log_close();
 
         /* Make sure nobody waits for us on a socket anymore */
-        (void) close_all_fds_full(NULL, 0, false);
+        (void) close_all_fds(NULL, 0);
 
         /* Let's not freeze right away, but keep reaping zombies. */
         for (;;) {
