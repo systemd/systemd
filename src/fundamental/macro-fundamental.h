@@ -70,12 +70,29 @@
                 UNIQ_T(A, aq) > UNIQ_T(B, bq) ? UNIQ_T(A, aq) : UNIQ_T(B, bq); \
         })
 
-/* evaluates to (void) if _A or _B are not constant or of different types */
+#define IS_UNSIGNED_INTEGER_TYPE(type) \
+        (__builtin_types_compatible_p(typeof(type), unsigned char) ||   \
+         __builtin_types_compatible_p(typeof(type), unsigned short) ||  \
+         __builtin_types_compatible_p(typeof(type), unsigned) ||        \
+         __builtin_types_compatible_p(typeof(type), unsigned long) ||   \
+         __builtin_types_compatible_p(typeof(type), unsigned long long))
+
+#define IS_SIGNED_INTEGER_TYPE(type) \
+        (__builtin_types_compatible_p(typeof(type), signed char) ||   \
+         __builtin_types_compatible_p(typeof(type), signed short) ||  \
+         __builtin_types_compatible_p(typeof(type), signed) ||        \
+         __builtin_types_compatible_p(typeof(type), signed long) ||   \
+         __builtin_types_compatible_p(typeof(type), signed long long))
+
+/* Evaluates to (void) if _A or _B are not constant or of different types (being integers of different sizes
+ * is also OK as long as the signedness matches) */
 #define CONST_MAX(_A, _B) \
         (__builtin_choose_expr(                                         \
                 __builtin_constant_p(_A) &&                             \
                 __builtin_constant_p(_B) &&                             \
-                __builtin_types_compatible_p(typeof(_A), typeof(_B)),   \
+                (__builtin_types_compatible_p(typeof(_A), typeof(_B)) || \
+                 (IS_UNSIGNED_INTEGER_TYPE(_A) && IS_UNSIGNED_INTEGER_TYPE(_B)) || \
+                 (IS_SIGNED_INTEGER_TYPE(_A) && IS_SIGNED_INTEGER_TYPE(_B))), \
                 ((_A) > (_B)) ? (_A) : (_B),                            \
                 VOID_0))
 
