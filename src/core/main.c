@@ -79,6 +79,7 @@
 #include "special.h"
 #include "stat-util.h"
 #include "stdio-util.h"
+#include "string-util-fundamental.h"
 #include "strv.h"
 #include "switch-root.h"
 #include "sysctl-util.h"
@@ -141,6 +142,8 @@ static char **arg_manager_environment;
 static struct rlimit *arg_default_rlimit[_RLIMIT_MAX];
 static uint64_t arg_capability_bounding_set;
 static bool arg_no_new_privs;
+static CGroupIOCostQos arg_io_cost_qos;
+static CGroupIOCostModel arg_io_cost_model;
 static nsec_t arg_timer_slack_nsec;
 static usec_t arg_default_timer_accuracy_usec;
 static Set* arg_syscall_archs;
@@ -658,6 +661,23 @@ static int parse_config_file(void) {
                 { "Manager", "WatchdogDevice",               config_parse_path,                  0, &arg_watchdog_device                   },
                 { "Manager", "CapabilityBoundingSet",        config_parse_capability_set,        0, &arg_capability_bounding_set           },
                 { "Manager", "NoNewPrivileges",              config_parse_bool,                  0, &arg_no_new_privs                      },
+                { "Manager", "IOCostQOSPath",                config_parse_path,                  0, &arg_io_cost_qos.path                  },
+                { "Manager", "IOCostQOSCtrl",                config_parse_io_cost_ctrl,          0, &arg_io_cost_qos.ctrl                  },
+                { "Manager", "IOCostQOSEnabled",             config_parse_bool,                  0, &arg_io_cost_qos.enabled               },
+                { "Manager", "IOCostQOSRPct",                config_parse_permyriad,             0, &arg_io_cost_qos.read_latency_percentile},
+                { "Manager", "IOCostQOSRLat",                config_parse_uint32,                0, &arg_io_cost_qos.read_latency_threshold},
+                { "Manager", "IOCostQOSWPct",                config_parse_permyriad,             0, &arg_io_cost_qos.write_latency_percentile},
+                { "Manager", "IOCostQOSWLat",                config_parse_uint32,                0, &arg_io_cost_qos.write_latency_threshold},
+                { "Manager", "IOCostQOSMin",                 config_parse_permyriad,             0, &arg_io_cost_qos.min                   },
+                { "Manager", "IOCostQOSMax",                 config_parse_permyriad,             0, &arg_io_cost_qos.max                   },
+                { "Manager", "IOCostModelPath",              config_parse_path,                  0, &arg_io_cost_model.path                },
+                { "Manager", "IOCostModelCtrl",              config_parse_io_cost_ctrl,          0, &arg_io_cost_model.ctrl                },
+                { "Manager", "IOCostModelRbps",              config_parse_uint64,                0, &arg_io_cost_model.rbps                },
+                { "Manager", "IOCostModelRSeqIops",          config_parse_uint64,                0, &arg_io_cost_model.rseqiops            },
+                { "Manager", "IOCostModelRRandIops",         config_parse_uint64,                0, &arg_io_cost_model.rrandiops           },
+                { "Manager", "IOCostModelWbps",              config_parse_uint64,                0, &arg_io_cost_model.wbps                },
+                { "Manager", "IOCostModelWSeqIops",          config_parse_uint64,                0, &arg_io_cost_model.wseqiops            },
+                { "Manager", "IOCostModelWRandIops",         config_parse_uint64,                0, &arg_io_cost_model.wrandiops           },
 #if HAVE_SECCOMP
                 { "Manager", "SystemCallArchitectures",      config_parse_syscall_archs,         0, &arg_syscall_archs                     },
 #endif
@@ -794,6 +814,80 @@ static void set_manager_settings(Manager *m) {
 
         manager_set_show_status(m, arg_show_status, "commandline");
         m->status_unit_format = arg_status_unit_format;
+}
+
+static int set_cgroup_context_root_slice(Manager *m) {
+        Unit *u = NULL;
+        CGroupContext* cgroup_context;
+        _cleanup_io_cost_qos_free_ CGroupIOCostQos* io_cost_qos = NULL;
+        _cleanup_io_cost_model_free_ CGroupIOCostModel* io_cost_model = NULL;
+        char* io_cost_qos_path, *io_cost_model_path;
+
+        assert(m);
+
+        if ((u = manager_get_unit(m, SPECIAL_ROOT_SLICE))) {
+                if (!arg_io_cost_qos.path && !arg_io_cost_model.path)
+                        return 0;
+                if (arg_io_cost_qos.ctrl != IO_COST_CTRL_USER) {
+                        log_info("ctrl is not set to user for io_cost_qos, setting all other values to 0");
+                        arg_io_cost_qos.read_latency_percentile = 0;
+                        arg_io_cost_qos.read_latency_threshold = 0;
+                        arg_io_cost_qos.write_latency_percentile= 0;
+                        arg_io_cost_qos.write_latency_threshold= 0;
+                        arg_io_cost_qos.min= 0;
+                        arg_io_cost_qos.max= 0;
+                }
+                if (arg_io_cost_model.ctrl != IO_COST_CTRL_USER) {
+                        log_info("ctrl is not set to user for io_cost_model, setting all other values to 0");
+                        arg_io_cost_model.rbps = 0;
+                        arg_io_cost_model.rseqiops = 0;
+                        arg_io_cost_model.rrandiops = 0;
+                        arg_io_cost_model.wbps = 0;
+                        arg_io_cost_model.wseqiops = 0;
+                        arg_io_cost_model.wrandiops = 0;
+                }
+                cgroup_context = unit_get_cgroup_context(u);
+                if (arg_io_cost_qos.path) {
+                        io_cost_qos = new0(CGroupIOCostQos, 1);
+                        if (!io_cost_qos) {
+                                log_oom();
+                                return -ENOMEM;
+                        }
+                        memcpy(io_cost_qos, &arg_io_cost_qos, sizeof(CGroupIOCostQos));
+
+                        io_cost_qos_path = strdup(arg_io_cost_qos.path);
+                        if (!io_cost_qos_path) {
+                                log_oom();
+                                return -ENOMEM;
+                        }
+                        io_cost_qos->path = io_cost_qos_path;
+
+                        if (!cgroup_context->io_cost_qos)
+                                cgroup_context->io_cost_qos = TAKE_PTR(io_cost_qos);
+                }
+
+                if (arg_io_cost_model.path) {
+                        io_cost_model = new0(CGroupIOCostModel, 1);
+                        if (!io_cost_model) {
+                                log_oom();
+                                return -ENOMEM;
+                        }
+                        memcpy(io_cost_model, &arg_io_cost_model, sizeof(CGroupIOCostModel));
+
+
+                        io_cost_model_path = strdup(arg_io_cost_model.path);
+                        if (!io_cost_model_path) {
+                                log_oom();
+                                return -ENOMEM;
+                        }
+
+                        io_cost_model->path = io_cost_model_path;
+
+                        if (!cgroup_context->io_cost_model)
+                                cgroup_context->io_cost_model = TAKE_PTR(io_cost_model);
+                }
+        }
+        return 0;
 }
 
 static int parse_argv(int argc, char *argv[]) {
@@ -1965,7 +2059,7 @@ static int invoke_main_loop(
                                 /* Reloading failed before the point of no return.
                                  * Let's continue running as if nothing happened. */
                                 m->objective = MANAGER_OK;
-
+                        set_cgroup_context_root_slice(m);
                         break;
                 }
 
@@ -2409,6 +2503,10 @@ static void reset_arguments(void) {
 
         arg_capability_bounding_set = CAP_ALL;
         arg_no_new_privs = false;
+
+        reset_io_cost_qos(&arg_io_cost_qos);
+        reset_io_cost_model(&arg_io_cost_model);
+
         arg_timer_slack_nsec = NSEC_INFINITY;
         arg_default_timer_accuracy_usec = 1 * USEC_PER_MINUTE;
 
@@ -2938,6 +3036,10 @@ int main(int argc, char *argv[]) {
                 retval = EXIT_SUCCESS;
                 goto finish;
         }
+
+        r = set_cgroup_context_root_slice(m);
+        if (r < 0)
+                goto finish;
 
         (void) invoke_main_loop(m,
                                 &saved_rlimit_nofile,
