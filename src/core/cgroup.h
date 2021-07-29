@@ -26,6 +26,8 @@ uint64_t tasks_max_resolve(const TasksMax *tasks_max);
 
 typedef struct CGroupContext CGroupContext;
 typedef struct CGroupDeviceAllow CGroupDeviceAllow;
+typedef struct CGroupIOCostQos CGroupIOCostQos;
+typedef struct CGroupIOCostModel CGroupIOCostModel;
 typedef struct CGroupIODeviceWeight CGroupIODeviceWeight;
 typedef struct CGroupIODeviceLimit CGroupIODeviceLimit;
 typedef struct CGroupIODeviceLatency CGroupIODeviceLatency;
@@ -63,6 +65,29 @@ struct CGroupDeviceAllow {
         bool r:1;
         bool w:1;
         bool m:1;
+};
+
+struct CGroupIOCostQos {
+        char* path;
+        IOCostCtrl ctrl;
+        bool enabled;
+        uint32_t read_latency_percentile;
+        uint32_t read_latency_threshold;
+        uint32_t write_latency_percentile;
+        uint32_t write_latency_threshold;
+        uint32_t min;
+        uint32_t max;
+};
+
+struct CGroupIOCostModel {
+        char* path;
+        IOCostCtrl ctrl;
+        uint64_t rbps;
+        uint64_t rseqiops;
+        uint64_t rrandiops;
+        uint64_t wbps;
+        uint64_t wseqiops;
+        uint64_t wrandiops;
 };
 
 struct CGroupIODeviceWeight {
@@ -139,6 +164,9 @@ struct CGroupContext {
         LIST_HEAD(CGroupIODeviceWeight, io_device_weights);
         LIST_HEAD(CGroupIODeviceLimit, io_device_limits);
         LIST_HEAD(CGroupIODeviceLatency, io_device_latencies);
+
+        CGroupIOCostQos* io_cost_qos;
+        CGroupIOCostModel* io_cost_model;
 
         uint64_t default_memory_min;
         uint64_t default_memory_low;
@@ -228,6 +256,11 @@ void cgroup_context_free_blockio_device_weight(CGroupContext *c, CGroupBlockIODe
 void cgroup_context_free_blockio_device_bandwidth(CGroupContext *c, CGroupBlockIODeviceBandwidth *b);
 void cgroup_context_remove_bpf_foreign_program(CGroupContext *c, CGroupBPFForeignProgram *p);
 void cgroup_context_remove_socket_bind(CGroupSocketBindItem **head);
+CGroupIOCostQos* cgroup_context_free_io_cost_qos(CGroupIOCostQos* q);
+CGroupIOCostModel* cgroup_context_free_io_cost_model(CGroupIOCostModel* m);
+
+void reset_io_cost_qos(CGroupIOCostQos *q);
+void reset_io_cost_model(CGroupIOCostModel *m);
 
 int cgroup_add_device_allow(CGroupContext *c, const char *dev, const char *mode);
 int cgroup_add_bpf_foreign_program(CGroupContext *c, uint32_t attach_type, const char *path);
@@ -327,3 +360,9 @@ int unit_cgroup_freezer_action(Unit *u, FreezerAction action);
 
 const char* freezer_action_to_string(FreezerAction a) _const_;
 FreezerAction freezer_action_from_string(const char *s) _pure_;
+
+DEFINE_TRIVIAL_CLEANUP_FUNC(CGroupIOCostQos*, cgroup_context_free_io_cost_qos);
+#define _cleanup_io_cost_qos_free_ _cleanup_(cgroup_context_free_io_cost_qosp)
+
+DEFINE_TRIVIAL_CLEANUP_FUNC(CGroupIOCostModel*, cgroup_context_free_io_cost_model);
+#define _cleanup_io_cost_model_free_ _cleanup_(cgroup_context_free_io_cost_modelp)
