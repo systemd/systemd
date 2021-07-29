@@ -233,9 +233,11 @@ int fputstrv(FILE *f, char * const *l, const char *separator, bool *space);
 
 #define strv_free_and_replace(a, b)             \
         ({                                      \
-                strv_free(a);                   \
-                (a) = (b);                      \
-                (b) = NULL;                     \
+                char ***_a = &(a);              \
+                char ***_b = &(b);              \
+                strv_free(*_a);                 \
+                (*_a) = (*_b);                  \
+                (*_b) = NULL;                   \
                 0;                              \
         })
 

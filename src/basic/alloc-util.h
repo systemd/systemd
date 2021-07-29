@@ -51,9 +51,11 @@ static inline void *mfree(void *memory) {
 
 #define free_and_replace(a, b)                  \
         ({                                      \
-                free(a);                        \
-                (a) = (b);                      \
-                (b) = NULL;                     \
+                typeof(a)* _a = &(a);           \
+                typeof(b)* _b = &(b);           \
+                free(*_a);                      \
+                (*_a) = (*_b);                  \
+                (*_b) = NULL;                   \
                 0;                              \
         })
 
