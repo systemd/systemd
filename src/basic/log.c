@@ -27,6 +27,7 @@
 #include "proc-cmdline.h"
 #include "process-util.h"
 #include "ratelimit.h"
+#include "set.h"
 #include "signal-util.h"
 #include "socket-util.h"
 #include "stdio-util.h"
@@ -47,6 +48,7 @@ static int console_fd = STDERR_FILENO;
 static int syslog_fd = -1;
 static int kmsg_fd = -1;
 static int journal_fd = -1;
+Set *log_unit_ids = NULL;
 
 static bool syslog_is_stream = false;
 
@@ -1356,6 +1358,14 @@ int log_syntax_internal(
                 int line,
                 const char *func,
                 const char *format, ...) {
+
+        int r;
+
+        if (level <= LOG_WARNING && log_unit_ids) {
+                r = set_put_strdup(&log_unit_ids, unit);
+                if (r < 0)
+                        return r;
+        }
 
         PROTECT_ERRNO;
         char buffer[LINE_MAX];
