@@ -451,8 +451,10 @@ ExecCommandFlags exec_command_flags_from_string(const char *s) {
 _noreturn_ void freeze(void) {
         log_close();
 
-        /* Make sure nobody waits for us on a socket anymore */
-        (void) close_all_fds(NULL, 0);
+        /* Make sure nobody waits for us (i.e. on one of our sockets) anymore. Note that we use
+         * close_all_fds_without_malloc() instead of plain close_all_fds() here, since we want this function
+         * to be compatible with being called from signal handlers. */
+        (void) close_all_fds_without_malloc(NULL, 0);
 
         sync();
 
