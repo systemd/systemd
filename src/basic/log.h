@@ -13,6 +13,13 @@
 struct iovec;
 struct signalfd_siginfo;
 
+/* The set of units that are logged about with log_syntax(). We use a global variable because those errors
+ * are usually ignored by the caller, and this way we can know how many issues (if any) were detected
+ * without refactoring all the callers. We don't want to include the set header here to avoid conflicts
+ * arising because of cross-includes */
+typedef struct Set Set;
+extern Set *log_unit_ids;
+
 typedef enum LogTarget{
         LOG_TARGET_CONSOLE,
         LOG_TARGET_CONSOLE_PREFIXED,
