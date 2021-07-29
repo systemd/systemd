@@ -33,6 +33,8 @@ EFI_STATUS console_key_read(UINT64 *key, UINT64 timeout_ms) {
         EFI_EVENT events[3] = { ST->ConIn->WaitForKey };
         UINTN event_count = 1;
 
+        assert(key);
+
         if (!checked) {
                 err = LibLocateProtocol(EFI_SIMPLE_TEXT_INPUT_EX_GUID, (VOID **)&TextInputEx);
                 if (EFI_ERROR(err))
