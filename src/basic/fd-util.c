@@ -208,8 +208,58 @@ static int get_max_fd(void) {
         return (int) (m - 1);
 }
 
+static bool have_close_range = true; /* Assume we live in the future */
+
+int close_all_fds_without_malloc(const int except[], size_t n_except) {
+        int max_fd, r = 0;
+
+        assert(n_except == 0 || except);
+
+        /* This is the inner fallback core of close_all_fds(). This never calls malloc() or opendir() or so
+         * and hence is safe to be called in signal handler context. Most users should call close_all_fds(),
+         * but when we assume we are called from signal handler context, then use this simpler call
+         * instead. */
+
+        if (have_close_range && n_except == 0) {
+                /* Try the one-stop solution first */
+                if (close_range(3, -1, 0) >= 0)
+                        return 0;
+
+                if (!ERRNO_IS_NOT_SUPPORTED(errno) && !ERRNO_IS_PRIVILEGE(errno))
+                        return -errno;
+
+                have_close_range = false;
+        }
+
+        /* When /proc isn't available (for example in chroot()s) or we shall not call malloc()/opendir() the
+         * fallback is brute forcing through the fd table */
+
+        max_fd = get_max_fd();
+        if (max_fd < 0)
+                return max_fd;
+
+        /* Refuse to do the loop over more too many elements. It's better to fail immediately than to
+         * spin the CPU for a long time. */
+        if (max_fd > MAX_FD_LOOP_LIMIT)
+                return log_debug_errno(SYNTHETIC_ERRNO(EPERM),
+                                       "Refusing to loop over %d potential fds.",
+                                       max_fd);
+
+        for (int fd = 3; fd >= 0; fd = fd < max_fd ? fd + 1 : -1) {
+                int q;
+
+                if (fd_in_set(fd, except, n_except))
+                        continue;
+
+                q = close_nointr(fd);
+                if (q < 0 && q != -EBADF && r >= 0)
+                        r = q;
+        }
+
+        return r;
+}
+
 int close_all_fds(const int except[], size_t n_except) {
-        static bool have_close_range = true; /* Assume we live in the future */
         _cleanup_closedir_ DIR *d = NULL;
         struct dirent *de;
         int r = 0;
@@ -227,12 +277,26 @@ int close_all_fds(const int except[], size_t n_except) {
                         /* Close everything. Yay! */
 
                         if (close_range(3, -1, 0) >= 0)
-                                return 1;
+                                return 0;
 
                         if (!ERRNO_IS_NOT_SUPPORTED(errno) && !ERRNO_IS_PRIVILEGE(errno))
                                 return -errno;
 
                         have_close_range = false;
+
+                } else if (n_except == 1) {
+
+                        /* Close exactly one, then we don't need no sorting. This is a pretty common case, hence let's handle it specially */
+
+                        if ((except[0] <= 3 || close_range(3, except[0]-1, 0) >= 0) &&
+                            (except[0] >= INT_MAX || close_range(MAX(3, except[0]+1), -1, 0) >= 0))
+                                return 0;
+
+                        if (!ERRNO_IS_NOT_SUPPORTED(errno) && !ERRNO_IS_PRIVILEGE(errno))
+                                return -errno;
+
+                        have_close_range = false;
+
                 } else {
                         _cleanup_free_ int *sorted_malloc = NULL;
                         size_t n_sorted;
@@ -301,39 +365,14 @@ int close_all_fds(const int except[], size_t n_except) {
         }
 
         d = opendir("/proc/self/fd");
-        if (!d) {
-                int fd, max_fd;
-
-                /* When /proc isn't available (for example in chroots) the fallback is brute forcing through
-                 * the fd table */
-
-                max_fd = get_max_fd();
-                if (max_fd < 0)
-                        return max_fd;
-
-                /* Refuse to do the loop over more too many elements. It's better to fail immediately than to
-                 * spin the CPU for a long time. */
-                if (max_fd > MAX_FD_LOOP_LIMIT)
-                        return log_debug_errno(SYNTHETIC_ERRNO(EPERM),
-                                               "/proc/self/fd is inaccessible. Refusing to loop over %d potential fds.",
-                                               max_fd);
-
-                for (fd = 3; fd >= 0; fd = fd < max_fd ? fd + 1 : -1) {
-                        int q;
-
-                        if (fd_in_set(fd, except, n_except))
-                                continue;
-
-                        q = close_nointr(fd);
-                        if (q < 0 && q != -EBADF && r >= 0)
-                                r = q;
-                }
-
-                return r;
-        }
+        if (!d)
+                return close_all_fds_without_malloc(except, n_except); /* ultimate fallback if /proc/ is not available */
 
         FOREACH_DIRENT(de, d, return -errno) {
                 int fd = -1, q;
+
+                if (!IN_SET(de->d_type, DT_LNK, DT_UNKNOWN))
+                        continue;
 
                 if (safe_atoi(de->d_name, &fd) < 0)
                         /* Let's better ignore this, just in case */
