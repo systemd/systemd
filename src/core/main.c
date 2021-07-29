@@ -1721,9 +1721,14 @@ static void update_numa_policy(bool skip_setup) {
                 log_warning_errno(r, "Failed to set NUMA memory policy: %m");
 }
 
-static void filter_args(const char* dst[], unsigned *pos, char **src, int argc) {
+static void filter_args(
+                const char* dst[],
+                size_t *dst_index,
+                char **src,
+                int argc) {
+
         assert(dst);
-        assert(pos);
+        assert(dst_index);
 
         /* Copy some filtered arguments into the dst array from src. */
         for (int i = 1; i < argc; i++) {
@@ -1757,8 +1762,7 @@ static void filter_args(const char* dst[], unsigned *pos, char **src, int argc) 
                         continue;
 
                 /* Seems we have a good old option. Let's pass it over to the new instance. */
-                dst[*pos] = src[i];
-                (*pos)++;
+                dst[(*dst_index)++] = src[i];
         }
 }
 
@@ -1772,10 +1776,11 @@ static void do_reexecute(
                 const char *switch_root_init,
                 const char **ret_error_message) {
 
-        unsigned i, args_size;
+        size_t i, args_size;
         const char **args;
         int r;
 
+        assert(argc >= 0);
         assert(saved_rlimit_nofile);
         assert(saved_rlimit_memlock);
         assert(ret_error_message);
