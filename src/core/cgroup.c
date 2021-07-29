@@ -105,7 +105,7 @@ bool unit_has_host_root_cgroup(Unit *u) {
         return unit_has_name(u, SPECIAL_ROOT_SLICE);
 }
 
-static int set_attribute_and_warn(Unit *u, const char *controller, const char *attribute, const char *value) {
+int set_attribute_and_warn(Unit *u, const char *controller, const char *attribute, const char *value) {
         int r;
 
         r = cg_set_attribute(controller, u->cgroup_path, attribute, value);
@@ -804,7 +804,7 @@ static void cgroup_xattr_apply(Unit *u) {
         cgroup_oomd_xattr_apply(u, u->cgroup_path);
 }
 
-static int lookup_block_device(const char *p, dev_t *ret) {
+int lookup_block_device(const char *p, dev_t *ret) {
         dev_t rdev, dev = 0;
         mode_t mode;
         int r;
