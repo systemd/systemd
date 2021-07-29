@@ -1827,6 +1827,52 @@ static ConfigEntry *config_entry_add_loader(
         return entry;
 }
 
+static BOOLEAN is_sd_boot(EFI_FILE *root_dir, const CHAR16 *loader, const CHAR16 *loaded_image_path) {
+        EFI_STATUS err;
+        UINTN read_size = 100 * 1024;
+        _cleanup_freepool_ CHAR8 *loader_content = NULL;
+        _cleanup_freepool_ EFI_FILE_INFO *loader_info = NULL;
+        _cleanup_freepool_ EFI_FILE_INFO *loaded_image_info = NULL;
+        _cleanup_(FileHandleClosep) EFI_FILE_HANDLE loader_handle = NULL;
+        _cleanup_(FileHandleClosep) EFI_FILE_HANDLE loaded_image_handle = NULL;
+
+        assert(root_dir);
+        assert(loader);
+        assert(loaded_image_path);
+
+        if (StriCmp(loader, loaded_image_path) == 0)
+                return TRUE;
+
+        err = uefi_call_wrapper(root_dir->Open, 5, root_dir, &loader_handle, (CHAR16*) loader, EFI_FILE_MODE_READ, 0ULL);
+        if (EFI_ERROR(err))
+                return FALSE;
+
+        err = uefi_call_wrapper(root_dir->Open, 5, root_dir, &loaded_image_handle, (CHAR16*) loaded_image_path, EFI_FILE_MODE_READ, 0ULL);
+        if (EFI_ERROR(err))
+                return FALSE;
+
+        loader_info = LibFileInfo(loader_handle);
+        if (!loader_info)
+                return FALSE;
+
+        loaded_image_info = LibFileInfo(loaded_image_handle);
+        if (!loaded_image_info)
+                return FALSE;
+
+        if (loader_info->FileSize != loaded_image_info->FileSize)
+                return FALSE;
+
+        loader_content = AllocatePool(read_size);
+        if (!loader_content)
+                return FALSE;
+
+        err = uefi_call_wrapper(root_dir->Read, 3, loader_handle, &read_size, loader_content);
+        if (EFI_ERROR(err) || read_size < sizeof(magic))
+                return FALSE;
+
+        return !!FindMem(loader_content, read_size, magic, sizeof(magic));
+}
+
 static BOOLEAN config_entry_add_loader_auto(
                 Config *config,
                 EFI_HANDLE *device,
@@ -1849,15 +1895,12 @@ static BOOLEAN config_entry_add_loader_auto(
 
         /* do not add an entry for ourselves */
         if (loaded_image_path) {
-                UINTN len;
-                _cleanup_freepool_ CHAR8 *content = NULL;
-
-                if (StriCmp(loader, loaded_image_path) == 0)
+                assert(StriCmp(L"\\EFI\\BOOT\\BOOT" EFI_MACHINE_TYPE_NAME L".EFI", loader) == 0);
+                if (is_sd_boot(root_dir, loader, loaded_image_path))
                         return FALSE;
-
-                /* look for systemd-boot magic string */
-                err = file_read(root_dir, loader, 0, 100*1024, &content, &len);
-                if (!EFI_ERROR(err) && FindMem(content, len, magic, sizeof(magic)))
+                /* If the default loader is not us, it might be shim.
+                 * It would chainload GRUBX64.EFI in that case, which might be us.*/
+                if (is_sd_boot(root_dir, L"\\EFI\\BOOT\\GRUB" EFI_MACHINE_TYPE_NAME L".EFI", loaded_image_path))
                         return FALSE;
         }
 
@@ -2511,7 +2554,7 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
         config_entry_add_loader_auto(&config, loaded_image->DeviceHandle, root_dir, NULL,
                                      L"auto-efi-shell", 's', L"EFI Shell", L"\\shell" EFI_MACHINE_TYPE_NAME ".efi");
         config_entry_add_loader_auto(&config, loaded_image->DeviceHandle, root_dir, loaded_image_path,
-                                     L"auto-efi-default", '\0', L"EFI Default Loader", L"\\EFI\\Boot\\boot" EFI_MACHINE_TYPE_NAME ".efi");
+                                     L"auto-efi-default", '\0', L"EFI Default Loader", L"\\EFI\\BOOT\\BOOT" EFI_MACHINE_TYPE_NAME ".EFI");
 
         if (config.auto_firmware && efivar_get_uint64_le(EFI_GLOBAL_GUID, L"OsIndicationsSupported", &osind) == EFI_SUCCESS) {
                 if (osind & EFI_OS_INDICATIONS_BOOT_TO_FW_UI)
