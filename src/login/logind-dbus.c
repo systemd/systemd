@@ -1496,6 +1496,7 @@ static int bus_manager_log_shutdown(
                 const char *unit_name) {
 
         const char *p, *q;
+        const char *msg = "MESSAGE_ID=" SD_MESSAGE_SHUTDOWN_STR;
 
         assert(m);
         assert(unit_name);
@@ -1512,6 +1513,10 @@ static int bus_manager_log_shutdown(
         } else if (streq(unit_name, SPECIAL_KEXEC_TARGET)) {
                 p = "MESSAGE=System is rebooting with kexec";
                 q = "SHUTDOWN=kexec";
+        } else if (streq(unit_name, SPECIAL_FACTORY_RESET_TARGET)) {
+                p = "MESSAGE=System is performing factory reset";
+                q = NULL;
+                msg = "MESSAGE_ID=" SD_MESSAGE_FACTORY_RESET_STR;
         } else {
                 p = "MESSAGE=System is shutting down";
                 q = NULL;
@@ -1522,10 +1527,7 @@ static int bus_manager_log_shutdown(
         else
                 p = strjoina(p, " (", m->wall_message, ").");
 
-        return log_struct(LOG_NOTICE,
-                          "MESSAGE_ID=" SD_MESSAGE_SHUTDOWN_STR,
-                          p,
-                          q);
+        return log_struct(LOG_NOTICE, msg, p, q);
 }
 
 static int lid_switch_ignore_handler(sd_event_source *e, uint64_t usec, void *userdata) {
