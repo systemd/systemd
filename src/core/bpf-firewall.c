@@ -895,7 +895,7 @@ int bpf_firewall_supported(void) {
                 else
                         log_debug_errno(errno, "Got unexpected error when using BPF_F_ALLOW_MULTI, assuming it's not supported: %m");
 
-                return supported = BPF_FIREWALL_SUPPORTED;
+                return supported = BPF_FIREWALL_UNSUPPORTED;
         } else {
                 log_debug("Wut? Kernel accepted our invalid BPF_PROG_ATTACH+BPF_F_ALLOW_MULTI call? Something is weird, assuming BPF firewalling is broken and hence not supported.");
                 return supported = BPF_FIREWALL_UNSUPPORTED;
