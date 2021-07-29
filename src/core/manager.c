@@ -1541,7 +1541,7 @@ Manager* manager_free(Manager *m) {
 static void manager_enumerate_perpetual(Manager *m) {
         assert(m);
 
-        if (m->test_run_flags == MANAGER_TEST_RUN_MINIMAL)
+        if (FLAGS_SET(m->test_run_flags, MANAGER_TEST_RUN_MINIMAL))
                 return;
 
         /* Let's ask every type to load all units from disk/kernel that it might know */
@@ -1559,7 +1559,7 @@ static void manager_enumerate_perpetual(Manager *m) {
 static void manager_enumerate(Manager *m) {
         assert(m);
 
-        if (m->test_run_flags == MANAGER_TEST_RUN_MINIMAL)
+        if (FLAGS_SET(m->test_run_flags, MANAGER_TEST_RUN_MINIMAL))
                 return;
 
         /* Let's ask every type to load all units from disk/kernel that it might know */
