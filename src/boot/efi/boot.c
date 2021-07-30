@@ -65,6 +65,7 @@ typedef struct {
         BOOLEAN editor;
         BOOLEAN auto_entries;
         BOOLEAN auto_firmware;
+        BOOLEAN auto_enroll;
         BOOLEAN force_menu;
         UINTN console_mode;
         enum console_mode_change_type console_mode_change;
@@ -358,7 +359,6 @@ static UINTN entry_lookup_key(Config *config, UINTN start, CHAR16 key) {
 static VOID print_status(Config *config, CHAR16 *loaded_image_path) {
         UINT64 key, indvar;
         UINTN timeout;
-        BOOLEAN modevar;
         _cleanup_freepool_ CHAR16 *partstr = NULL, *defaultstr = NULL;
         UINTN x, y;
 
@@ -376,9 +376,7 @@ static VOID print_status(Config *config, CHAR16 *loaded_image_path) {
                 Print(L"console size:           %d x %d\n", x, y);
 
         Print(L"SecureBoot:             %s\n", yes_no(secure_boot_enabled()));
-
-        if (efivar_get_boolean_u8(EFI_GLOBAL_GUID, L"SetupMode", &modevar) == EFI_SUCCESS)
-                Print(L"SetupMode:              %s\n", modevar ? L"setup" : L"user");
+        Print(L"SetupMode:              %s\n", yes_no(setup_mode_enabled()));
 
         if (shim_loaded())
                 Print(L"Shim:                   present\n");
@@ -398,6 +396,7 @@ static VOID print_status(Config *config, CHAR16 *loaded_image_path) {
         Print(L"editor:                 %s\n", yes_no(config->editor));
         Print(L"auto-entries:           %s\n", yes_no(config->auto_entries));
         Print(L"auto-firmware:          %s\n", yes_no(config->auto_firmware));
+        Print(L"auto-enroll:            %s\n", yes_no(config->auto_enroll));
 
         switch (config->random_seed_mode) {
         case RANDOM_SEED_OFF:
@@ -1033,6 +1032,16 @@ static VOID config_defaults_load_from_file(Config *config, CHAR8 *content) {
                         continue;
                 }
 
+                if (strcmpa((CHAR8 *)"auto-enroll", key) == 0) {
+                        BOOLEAN on;
+
+                        if (EFI_ERROR(parse_boolean(value, &on)))
+                                continue;
+
+                        config->auto_enroll = on;
+                        continue;
+                }
+
                 if (strcmpa((CHAR8 *)"console-mode", key) == 0) {
                         if (strcmpa((CHAR8 *)"auto", value) == 0)
                                 config->console_mode_change = CONSOLE_MODE_AUTO;
@@ -1403,6 +1412,7 @@ static VOID config_load_defaults(Config *config, EFI_FILE *root_dir) {
                 .editor = TRUE,
                 .auto_entries = TRUE,
                 .auto_firmware = TRUE,
+                .auto_enroll = FALSE,
                 .random_seed_mode = RANDOM_SEED_WITH_SYSTEM_TOKEN,
         };
 
@@ -2268,6 +2278,59 @@ static VOID config_write_entries_to_variable(Config *config) {
         (void) efivar_set_raw(LOADER_GUID, L"LoaderEntries", buffer, (UINT8 *) p - (UINT8 *) buffer, 0);
 }
 
+static EFI_STATUS secure_boot_auto_enroll(const Config *config, EFI_FILE *root_dir) {
+        EFI_STATUS err;
+
+        static const UINT32 sb_vars_options =
+                EFI_VARIABLE_NON_VOLATILE |
+                EFI_VARIABLE_BOOTSERVICE_ACCESS |
+                EFI_VARIABLE_RUNTIME_ACCESS |
+                EFI_VARIABLE_TIME_BASED_AUTHENTICATED_WRITE_ACCESS |
+                0;
+
+        _cleanup_freepool_ CHAR8 *sb_db_buffer = NULL, *sb_kek_buffer = NULL, *sb_pk_buffer = NULL;
+        UINTN sb_db_size, sb_kek_size, sb_pk_size;
+        EFI_STATUS err_sb_db, err_sb_kek, err_sb_pk;
+
+        if (setup_mode_enabled() && config->auto_enroll) {
+                Print(L"Secure Boot auto enrollement is enabled.\n");
+
+                /* Read the required files in order to perform auto-enrollement */
+                err_sb_db  = file_read(root_dir, L"\\loader\\keys\\auto\\db.auth", 0, 0, &sb_db_buffer, &sb_db_size);
+                err_sb_kek = file_read(root_dir, L"\\loader\\keys\\auto\\KEK.auth", 0, 0, &sb_kek_buffer, &sb_kek_size);
+                err_sb_pk  = file_read(root_dir, L"\\loader\\keys\\auto\\PK.auth", 0, 0, &sb_pk_buffer, &sb_pk_size);
+
+                if (!EFI_ERROR(err_sb_db) && !EFI_ERROR(err_sb_kek) && !EFI_ERROR(err_sb_pk)) {
+                        err = efivar_set_raw(EFI_IMAGE_SECURITY_DATABASE_GUID, L"db", sb_db_buffer, sb_db_size, sb_vars_options);
+                        if (EFI_ERROR(err)) {
+                                Print(L"Failed to write db secure boot variable: %r\n", err);
+                                uefi_call_wrapper(BS->Stall, 1, 3 * 1000 * 1000);
+                                return err;
+                        }
+
+                        err = efivar_set_raw(EFI_GLOBAL_GUID, L"KEK", sb_kek_buffer, sb_kek_size, sb_vars_options);
+                        if (EFI_ERROR(err)) {
+                                Print(L"Failed to write db secure boot variable: %r\n", err);
+                                uefi_call_wrapper(BS->Stall, 1, 3 * 1000 * 1000);
+                                return err;
+                        }
+
+                        err = efivar_set_raw(EFI_GLOBAL_GUID, L"PK", sb_pk_buffer, sb_pk_size, sb_vars_options);
+                        if (EFI_ERROR(err)) {
+                                Print(L"Failed to write db secure boot variable: %r\n", err);
+                                uefi_call_wrapper(BS->Stall, 1, 3 * 1000 * 1000);
+                                return err;
+                        }
+
+                        Print(L"Finished loading secure boot variables.\n");
+                        uefi_call_wrapper(BS->Stall, 1, 3 * 1000 * 1000);
+                }
+        }
+
+        err = EFI_SUCCESS;
+        return err;
+}
+
 EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
         static const UINT64 loader_features =
                 EFI_LOADER_FEATURE_CONFIG_TIMEOUT |
@@ -2336,6 +2399,8 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
         efivar_set(LOADER_GUID, L"LoaderImageIdentifier", loaded_image_path, 0);
 
         config_load_defaults(&config, root_dir);
+
+        secure_boot_auto_enroll(&config, root_dir);
 
         /* scan /EFI/Linux/ directory */
         config_entry_add_linux(&config, loaded_image->DeviceHandle, root_dir);
