@@ -265,7 +265,7 @@ int pop_pending_signal_internal(int sig, ...) {
         if (sigemptyset(&ss) < 0)
                 return -errno;
 
-        /* Add first signal (if the signal is zero, we'll silently skip it, to make it easiert to build
+        /* Add first signal (if the signal is zero, we'll silently skip it, to make it easier to build
          * parameter lists where some element are sometimes off, similar to how sigset_add_many_ap() handles
          * this.) */
         if (sig > 0 && sigaddset(&ss, sig) < 0)
