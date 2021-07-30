@@ -21,7 +21,6 @@ BOOLEAN setup_mode_enabled(void) {
         return !EFI_ERROR(err) && setup_mode;
 }
 
-
 #ifdef SBAT_DISTRO
 static const char sbat[] _used_ _section_ (".sbat") _align_ (512) =
         "sbat,1,SBAT Version,sbat,1,https://github.com/rhboot/shim/blob/main/SBAT.md\n"
