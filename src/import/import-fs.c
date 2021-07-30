@@ -12,15 +12,24 @@
 #include "hostname-util.h"
 #include "import-common.h"
 #include "import-util.h"
+#include "install-file.h"
+#include "main-func.h"
 #include "mkdir.h"
+#include "parse-argument.h"
 #include "ratelimit.h"
 #include "rm-rf.h"
+#include "signal-util.h"
 #include "string-util.h"
+#include "terminal-util.h"
 #include "tmpfile-util.h"
 #include "verbs.h"
 
 static bool arg_force = false;
 static bool arg_read_only = false;
+static bool arg_btrfs_subvol = true;
+static bool arg_btrfs_quota = true;
+static bool arg_sync = true;
+static bool arg_direct = false;
 static const char *arg_image_root = "/var/lib/machines";
 
 typedef struct ProgressInfo {
@@ -30,12 +39,6 @@ typedef struct ProgressInfo {
         bool started;
         bool logged_incomplete;
 } ProgressInfo;
-
-static volatile sig_atomic_t cancelled = false;
-
-static void sigterm_sigint(int sig) {
-        cancelled = true;
-}
 
 static void progress_info_free(ProgressInfo *p) {
         free(p->path);
@@ -56,7 +59,7 @@ static void progress_show(ProgressInfo *p) {
 
         /* Mention the list is incomplete before showing first output. */
         if (!p->logged_incomplete) {
-                log_notice("(Note, file list shown below is incomplete, and is intended as sporadic progress report only.)");
+                log_notice("(Note: file list shown below is incomplete, and is intended as sporadic progress report only.)");
                 p->logged_incomplete = true;
         }
 
@@ -71,9 +74,6 @@ static int progress_path(const char *path, const struct stat *st, void *userdata
         int r;
 
         assert(p);
-
-        if (cancelled)
-                return -EOWNERDEAD;
 
         r = free_and_strdup(&p->path, path);
         if (r < 0)
@@ -91,9 +91,6 @@ static int progress_bytes(uint64_t nbytes, void *userdata) {
         assert(p);
         assert(p->size != UINT64_MAX);
 
-        if (cancelled)
-                return -EOWNERDEAD;
-
         p->size += nbytes;
 
         progress_show(p);
@@ -103,44 +100,60 @@ static int progress_bytes(uint64_t nbytes, void *userdata) {
 static int import_fs(int argc, char *argv[], void *userdata) {
         _cleanup_(rm_rf_subvolume_and_freep) char *temp_path = NULL;
         _cleanup_(progress_info_free) ProgressInfo progress = {};
-        const char *path = NULL, *local = NULL, *final_path;
+        _cleanup_free_ char *l = NULL, *final_path = NULL;
+        const char *path = NULL, *local = NULL, *dest = NULL;
         _cleanup_close_ int open_fd = -1;
-        struct sigaction old_sigint_sa, old_sigterm_sa;
-        static const struct sigaction sa = {
-                .sa_handler = sigterm_sigint,
-                .sa_flags = SA_RESTART,
-        };
         int r, fd;
 
         if (argc >= 2)
-                path = argv[1];
-        path = empty_or_dash_to_null(path);
+                path = empty_or_dash_to_null(argv[1]);
 
         if (argc >= 3)
-                local = argv[2];
-        else if (path)
-                local = basename(path);
-        local = empty_or_dash_to_null(local);
+                local = empty_or_dash_to_null(argv[2]);
+        else if (path) {
+                r = path_extract_filename(path, &l);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to extract filename from path '%s': %m", path);
 
-        if (local) {
-                if (!hostname_is_valid(local, 0))
+                local = l;
+        }
+
+        if (arg_direct) {
+                if (!local)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "No local path specified.");
+
+                if (path_is_absolute(local))
+                        final_path = strdup(local);
+                else
+                        final_path = path_join(arg_image_root, local);
+                if (!final_path)
+                        return log_oom();
+
+                if (!path_is_valid(final_path))
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                               "Local image name '%s' is not valid.",
-                                               local);
+                                               "Local path name '%s' is not valid.", final_path);
+        } else {
+                if (local) {
+                        if (!hostname_is_valid(local, 0))
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "Local image name '%s' is not valid.", local);
+                } else
+                        local = "imported";
+
+                final_path = path_join(arg_image_root, local);
+                if (!final_path)
+                        return log_oom();
 
                 if (!arg_force) {
                         r = image_find(IMAGE_MACHINE, local, NULL, NULL);
                         if (r < 0) {
                                 if (r != -ENOENT)
                                         return log_error_errno(r, "Failed to check whether image '%s' exists: %m", local);
-                        } else {
+                        } else
                                 return log_error_errno(SYNTHETIC_ERRNO(EEXIST),
-                                                       "Image '%s' already exists.",
-                                                       local);
-                        }
+                                                       "Image '%s' already exists.", local);
                 }
-        } else
-                local = "imported";
+        }
 
         if (path) {
                 open_fd = open(path, O_DIRECTORY|O_RDONLY|O_CLOEXEC);
@@ -159,84 +172,107 @@ static int import_fs(int argc, char *argv[], void *userdata) {
                 log_info("Importing '%s', saving as '%s'.", strempty(pretty), local);
         }
 
-        final_path = prefix_roota(arg_image_root, local);
+        if (!arg_sync)
+                log_info("File system synchronization on completion is off.");
 
-        r = tempfn_random(final_path, NULL, &temp_path);
-        if (r < 0)
-                return log_oom();
+        if (arg_direct) {
+                if (arg_force)
+                        (void) rm_rf(final_path, REMOVE_ROOT|REMOVE_PHYSICAL|REMOVE_SUBVOLUME);
 
-        (void) mkdir_parents_label(temp_path, 0700);
+                dest = final_path;
+        } else {
+                r = tempfn_random(final_path, NULL, &temp_path);
+                if (r < 0)
+                        return log_oom();
+
+                (void) mkdir_parents_label(temp_path, 0700);
+                dest = temp_path;
+        }
 
         progress.limit = (RateLimit) { 200*USEC_PER_MSEC, 1 };
 
-        /* Hook into SIGINT/SIGTERM, so that we can cancel things then */
-        assert_se(sigaction(SIGINT, &sa, &old_sigint_sa) >= 0);
-        assert_se(sigaction(SIGTERM, &sa, &old_sigterm_sa) >= 0);
+        {
+                BLOCK_SIGNALS(SIGINT, SIGTERM);
 
-        r = btrfs_subvol_snapshot_fd_full(
-                        fd,
-                        temp_path,
-                        BTRFS_SNAPSHOT_FALLBACK_COPY|BTRFS_SNAPSHOT_RECURSIVE|BTRFS_SNAPSHOT_FALLBACK_DIRECTORY|BTRFS_SNAPSHOT_QUOTA,
-                        progress_path,
-                        progress_bytes,
-                        &progress);
-        if (r == -EOWNERDEAD) { /* SIGINT + SIGTERM cause this, see signal handler above */
-                log_error("Copy cancelled.");
-                goto finish;
-        }
-        if (r < 0) {
-                log_error_errno(r, "Failed to copy directory: %m");
-                goto finish;
+                if (arg_btrfs_subvol)
+                        r = btrfs_subvol_snapshot_fd_full(
+                                        fd,
+                                        dest,
+                                        BTRFS_SNAPSHOT_FALLBACK_COPY|
+                                        BTRFS_SNAPSHOT_FALLBACK_DIRECTORY|
+                                        BTRFS_SNAPSHOT_RECURSIVE|
+                                        BTRFS_SNAPSHOT_SIGINT|
+                                        BTRFS_SNAPSHOT_SIGTERM,
+                                        progress_path,
+                                        progress_bytes,
+                                        &progress);
+                else
+                        r = copy_directory_fd_full(
+                                        fd,
+                                        dest,
+                                        COPY_REFLINK|
+                                        COPY_SAME_MOUNT|
+                                        COPY_HARDLINKS|
+                                        COPY_SIGINT|
+                                        COPY_SIGTERM|
+                                        (arg_direct ? COPY_MERGE_EMPTY : 0),
+                                        progress_path,
+                                        progress_bytes,
+                                        &progress);
+                if (r == -EINTR) /* SIGINT/SIGTERM hit */
+                        return log_error_errno(r, "Copy cancelled.");
+                if (r < 0)
+                        return log_error_errno(r, "Failed to copy directory: %m");
         }
 
-        r = import_mangle_os_tree(temp_path);
+        r = import_mangle_os_tree(dest);
         if (r < 0)
-                goto finish;
+                return r;
 
-        (void) import_assign_pool_quota_and_warn(arg_image_root);
-        (void) import_assign_pool_quota_and_warn(temp_path);
-
-        if (arg_read_only) {
-                r = import_make_read_only(temp_path);
-                if (r < 0) {
-                        log_error_errno(r, "Failed to make directory read-only: %m");
-                        goto finish;
-                }
+        if (arg_btrfs_quota) {
+                if (!arg_direct)
+                        (void) import_assign_pool_quota_and_warn(arg_image_root);
+                (void) import_assign_pool_quota_and_warn(dest);
         }
 
-        if (arg_force)
-                (void) rm_rf(final_path, REMOVE_ROOT|REMOVE_PHYSICAL|REMOVE_SUBVOLUME);
-
-        r = rename_noreplace(AT_FDCWD, temp_path, AT_FDCWD, final_path);
-        if (r < 0) {
-                log_error_errno(r, "Failed to move image into place: %m");
-                goto finish;
-        }
+        r = install_file(AT_FDCWD, dest,
+                         AT_FDCWD, arg_direct ? NULL : final_path, /* pass NULL as target in case of direct
+                                                                    * mode since file is already in place */
+                         (arg_force ? INSTALL_REPLACE : 0) |
+                         (arg_read_only ? INSTALL_READ_ONLY : 0) |
+                         (arg_sync ? INSTALL_SYNCFS : 0));
+        if (r < 0)
+                return log_error_errno(r, "Failed install directory as '%s': %m", final_path);
 
         temp_path = mfree(temp_path);
 
-        log_info("Exiting.");
-
-finish:
-        /* Put old signal handlers into place */
-        assert_se(sigaction(SIGINT, &old_sigint_sa, NULL) >= 0);
-        assert_se(sigaction(SIGTERM, &old_sigterm_sa, NULL) >= 0);
-
+        log_info("Directory '%s successfully installed. Exiting.", final_path);
         return 0;
 }
 
 static int help(int argc, char *argv[], void *userdata) {
 
-        printf("%s [OPTIONS...] {COMMAND} ...\n\n"
-               "Import container images from a file system.\n\n"
+        printf("%1$s [OPTIONS...] {COMMAND} ...\n"
+               "\n%4$sImport container images from a file system directories.%5$s\n"
+               "\n%2$sCommands:%3$s\n"
+               "  run DIRECTORY [NAME]        Import a directory\n"
+               "\n%2$sOptions:%3$s\n"
                "  -h --help                   Show this help\n"
                "     --version                Show package version\n"
                "     --force                  Force creation of image\n"
                "     --image-root=PATH        Image root directory\n"
-               "     --read-only              Create a read-only image\n\n"
-               "Commands:\n"
-               "  run DIRECTORY [NAME]             Import a directory\n",
-               program_invocation_short_name);
+               "     --read-only              Create a read-only image\n"
+               "     --direct                 Import directly to specified directory\n"
+               "     --btrfs-subvol=BOOL      Controls whether to create a btrfs subvolume\n"
+               "                              instead of a directory\n"
+               "     --btrfs-quota=BOOL       Controls whether to set up quota for btrfs\n"
+               "                              subvolume\n"
+               "     --sync=BOOL              Controls whether to sync() before completing\n",
+               program_invocation_short_name,
+               ansi_underline(),
+               ansi_normal(),
+               ansi_highlight(),
+               ansi_normal());
 
         return 0;
 }
@@ -248,6 +284,10 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_FORCE,
                 ARG_IMAGE_ROOT,
                 ARG_READ_ONLY,
+                ARG_DIRECT,
+                ARG_BTRFS_SUBVOL,
+                ARG_BTRFS_QUOTA,
+                ARG_SYNC,
         };
 
         static const struct option options[] = {
@@ -256,10 +296,14 @@ static int parse_argv(int argc, char *argv[]) {
                 { "force",           no_argument,       NULL, ARG_FORCE           },
                 { "image-root",      required_argument, NULL, ARG_IMAGE_ROOT      },
                 { "read-only",       no_argument,       NULL, ARG_READ_ONLY       },
+                { "direct",          no_argument,       NULL, ARG_DIRECT          },
+                { "btrfs-subvol",    required_argument, NULL, ARG_BTRFS_SUBVOL    },
+                { "btrfs-quota",     required_argument, NULL, ARG_BTRFS_QUOTA     },
+                { "sync",            required_argument, NULL, ARG_SYNC            },
                 {}
         };
 
-        int c;
+        int c, r;
 
         assert(argc >= 0);
         assert(argv);
@@ -286,6 +330,31 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_read_only = true;
                         break;
 
+                case ARG_DIRECT:
+                        arg_direct = true;
+                        break;
+
+                case ARG_BTRFS_SUBVOL:
+                        r = parse_boolean_argument("--btrfs-subvol=", optarg, &arg_btrfs_subvol);
+                        if (r < 0)
+                                return r;
+
+                        break;
+
+                case ARG_BTRFS_QUOTA:
+                        r = parse_boolean_argument("--btrfs-quota=", optarg, &arg_btrfs_quota);
+                        if (r < 0)
+                                return r;
+
+                        break;
+
+                case ARG_SYNC:
+                        r = parse_boolean_argument("--sync=", optarg, &arg_sync);
+                        if (r < 0)
+                                return r;
+
+                        break;
+
                 case '?':
                         return -EINVAL;
 
@@ -307,7 +376,7 @@ static int import_fs_main(int argc, char *argv[]) {
         return dispatch_verb(argc, argv, verbs, NULL);
 }
 
-int main(int argc, char *argv[]) {
+static int run(int argc, char *argv[]) {
         int r;
 
         setlocale(LC_ALL, "");
@@ -316,10 +385,9 @@ int main(int argc, char *argv[]) {
 
         r = parse_argv(argc, argv);
         if (r <= 0)
-                goto finish;
+                return r;
 
-        r = import_fs_main(argc, argv);
-
-finish:
-        return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
+        return import_fs_main(argc, argv);
 }
+
+DEFINE_MAIN_FUNCTION(run);
