@@ -13,6 +13,12 @@ static inline UINTN ALIGN_TO(UINTN l, UINTN ali) {
 }
 
 EFI_STATUS parse_boolean(const CHAR8 *v, BOOLEAN *b);
+EFI_STATUS parse_color(CHAR8 *str, UINTN *ret_color);
+const CHAR8 *get_color_name(UINTN color);
+
+/* The UEFI spec says bit 0..3 are foreground and 4..6 are background,
+ * but some firmware ignores this and allows all colors. */
+#define TEXT_ATTR_SWAP(c) EFI_TEXT_ATTR(((c) & 0b11110000) >> 4, (c) & 0b1111)
 
 UINT64 ticks_read(void);
 UINT64 ticks_freq(void);
@@ -74,4 +80,7 @@ static inline void FileHandleClosep(EFI_FILE_HANDLE *handle) {
 #define UINT64_MAX ((UINT64) -1)
 #endif
 
+VOID PrintError(const CHAR16 *format, ...);
 EFI_STATUS log_oom(void);
+VOID print_at(UINTN x, UINTN y, UINTN attr, const CHAR16 *str);
+VOID draw_box(UINTN x, UINTN y, UINTN w, UINTN h, UINTN color);

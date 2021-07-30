@@ -37,15 +37,13 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
         err = uefi_call_wrapper(BS->OpenProtocol, 6, image, &LoadedImageProtocol, (VOID **)&loaded_image,
                                 image, NULL, EFI_OPEN_PROTOCOL_GET_PROTOCOL);
         if (EFI_ERROR(err)) {
-                Print(L"Error getting a LoadedImageProtocol handle: %r ", err);
-                uefi_call_wrapper(BS->Stall, 1, 3 * 1000 * 1000);
+                PrintError(L"Error getting a LoadedImageProtocol handle: %r\n", err);
                 return err;
         }
 
         err = pe_memory_locate_sections(loaded_image->ImageBase, sections, addrs, offs, szs);
         if (EFI_ERROR(err)) {
-                Print(L"Unable to locate embedded .linux section: %r ", err);
-                uefi_call_wrapper(BS->Stall, 1, 3 * 1000 * 1000);
+                PrintError(L"Unable to locate embedded .linux section: %r\n", err);
                 return err;
         }
 
@@ -73,8 +71,7 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
                                     (EFI_PHYSICAL_ADDRESS) (UINTN) loaded_image->LoadOptions,
                                     loaded_image->LoadOptionsSize, loaded_image->LoadOptions);
                 if (EFI_ERROR(err)) {
-                        Print(L"Unable to add image options measurement: %r", err);
-                        uefi_call_wrapper(BS->Stall, 1, 200 * 1000);
+                        PrintError(L"Unable to add image options measurement: %r\n", err);
                 }
 #endif
         }
@@ -126,7 +123,6 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
                          (UINTN)loaded_image->ImageBase + addrs[2], szs[2]);
 
         graphics_mode(FALSE);
-        Print(L"Execution of embedded linux image failed: %r\n", err);
-        uefi_call_wrapper(BS->Stall, 1, 3 * 1000 * 1000);
+        PrintError(L"Execution of embedded linux image failed: %r\n", err);
         return err;
 }

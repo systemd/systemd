@@ -24,6 +24,36 @@ UINT64 ticks_read(VOID) {
 }
 #endif
 
+static const struct {
+        const UINTN color;
+        const CHAR8 *name;
+} colors[] = {
+        { EFI_BLACK, (const CHAR8 *)"black" },
+        { EFI_BLUE, (const CHAR8 *)"blue" },
+        { EFI_GREEN, (const CHAR8 *)"green" },
+        { EFI_CYAN, (const CHAR8 *)"cyan" },
+        { EFI_RED, (const CHAR8 *)"red" },
+        { EFI_MAGENTA, (const CHAR8 *)"magenta" },
+        { EFI_BROWN, (const CHAR8 *)"brown" },
+        { EFI_LIGHTGRAY, (const CHAR8 *)"lightgray" },
+        { EFI_BRIGHT, (const CHAR8 *)"bright" },
+        { EFI_DARKGRAY, (const CHAR8 *)"darkgray" },
+        { EFI_LIGHTBLUE, (const CHAR8 *)"lightblue" },
+        { EFI_LIGHTGREEN, (const CHAR8 *)"lightgreen" },
+        { EFI_LIGHTCYAN, (const CHAR8 *)"lightcyan" },
+        { EFI_LIGHTRED, (const CHAR8 *)"lightred" },
+        { EFI_LIGHTMAGENTA, (const CHAR8 *)"lightmagenta" },
+        { EFI_YELLOW, (const CHAR8 *)"yellow" },
+        { EFI_WHITE, (const CHAR8 *)"white" }
+};
+
+const CHAR8 *get_color_name(UINTN color) {
+        for (UINTN i = 0; i < ELEMENTSOF(colors); i++)
+                if (colors[i].color == color)
+                        return colors[i].name;
+        return NULL;
+}
+
 /* count TSC ticks during a millisecond delay */
 UINT64 ticks_freq(VOID) {
         UINT64 ticks_start, ticks_end;
@@ -53,13 +83,16 @@ UINT64 time_usec(VOID) {
 }
 
 EFI_STATUS parse_boolean(const CHAR8 *v, BOOLEAN *b) {
+        assert(b);
+
         if (!v)
                 return EFI_INVALID_PARAMETER;
 
         if (strcmpa(v, (CHAR8 *)"1") == 0 ||
             strcmpa(v, (CHAR8 *)"yes") == 0 ||
             strcmpa(v, (CHAR8 *)"y") == 0 ||
-            strcmpa(v, (CHAR8 *)"true") == 0) {
+            strcmpa(v, (CHAR8 *)"true") == 0 ||
+            strcmpa(v, (CHAR8 *)"on") == 0) {
                 *b = TRUE;
                 return EFI_SUCCESS;
         }
@@ -67,7 +100,8 @@ EFI_STATUS parse_boolean(const CHAR8 *v, BOOLEAN *b) {
         if (strcmpa(v, (CHAR8 *)"0") == 0 ||
             strcmpa(v, (CHAR8 *)"no") == 0 ||
             strcmpa(v, (CHAR8 *)"n") == 0 ||
-            strcmpa(v, (CHAR8 *)"false") == 0) {
+            strcmpa(v, (CHAR8 *)"false") == 0 ||
+            strcmpa(v, (CHAR8 *)"off") == 0) {
                 *b = FALSE;
                 return EFI_SUCCESS;
         }
@@ -75,24 +109,68 @@ EFI_STATUS parse_boolean(const CHAR8 *v, BOOLEAN *b) {
         return EFI_INVALID_PARAMETER;
 }
 
+EFI_STATUS parse_color(CHAR8 *str, UINTN *ret_color) {
+        CHAR8 *str_back = str;
+        UINTN foreground = UINTN_MAX;
+        UINTN background = UINTN_MAX;
+
+        assert(str);
+        assert(ret_color);
+
+        while (*str_back && *str_back != '/')
+                str_back++;
+        if (!*str_back)
+                return EFI_INVALID_PARAMETER;
+        *str_back = '\0';
+        str_back++;
+
+        for (UINTN i = 0; i < ELEMENTSOF(colors); i++) {
+                if (strcmpa(str, colors[i].name) == 0)
+                        foreground = colors[i].color;
+
+                if (strcmpa(str_back, colors[i].name) == 0)
+                        background = colors[i].color;
+        }
+
+        *(str_back - 1) = '/';
+        if (foreground == UINTN_MAX || background == UINTN_MAX)
+                return EFI_INVALID_PARAMETER;
+
+        *ret_color = EFI_TEXT_ATTR(foreground, background);
+        return EFI_SUCCESS;
+}
+
 EFI_STATUS efivar_set_raw(const EFI_GUID *vendor, const CHAR16 *name, const VOID *buf, UINTN size, UINT32 flags) {
+        assert(vendor);
+        assert(name);
+        assert(buf || size == 0);
+
         flags |= EFI_VARIABLE_BOOTSERVICE_ACCESS | EFI_VARIABLE_RUNTIME_ACCESS;
         return uefi_call_wrapper(RT->SetVariable, 5, (CHAR16*) name, (EFI_GUID *)vendor, flags, size, (VOID*) buf);
 }
 
 EFI_STATUS efivar_set(const EFI_GUID *vendor, const CHAR16 *name, const CHAR16 *value, UINT32 flags) {
+        assert(vendor);
+        assert(name);
+
         return efivar_set_raw(vendor, name, value, value ? (StrLen(value) + 1) * sizeof(CHAR16) : 0, flags);
 }
 
 EFI_STATUS efivar_set_uint_string(const EFI_GUID *vendor, const CHAR16 *name, UINTN i, UINT32 flags) {
         CHAR16 str[32];
 
-        SPrint(str, 32, L"%u", i);
+        assert(vendor);
+        assert(name);
+
+        SPrint(str, ELEMENTSOF(str), L"%u", i);
         return efivar_set(vendor, name, str, flags);
 }
 
 EFI_STATUS efivar_set_uint32_le(const EFI_GUID *vendor, const CHAR16 *name, UINT32 value, UINT32 flags) {
         UINT8 buf[4];
+
+        assert(vendor);
+        assert(name);
 
         buf[0] = (UINT8)(value >> 0U & 0xFF);
         buf[1] = (UINT8)(value >> 8U & 0xFF);
@@ -104,6 +182,9 @@ EFI_STATUS efivar_set_uint32_le(const EFI_GUID *vendor, const CHAR16 *name, UINT
 
 EFI_STATUS efivar_set_uint64_le(const EFI_GUID *vendor, const CHAR16 *name, UINT64 value, UINT32 flags) {
         UINT8 buf[8];
+
+        assert(vendor);
+        assert(name);
 
         buf[0] = (UINT8)(value >> 0U & 0xFF);
         buf[1] = (UINT8)(value >> 8U & 0xFF);
@@ -123,12 +204,15 @@ EFI_STATUS efivar_get(const EFI_GUID *vendor, const CHAR16 *name, CHAR16 **value
         CHAR16 *val;
         UINTN size;
 
+        assert(vendor);
+        assert(name);
+
         err = efivar_get_raw(vendor, name, &buf, &size);
         if (EFI_ERROR(err))
                 return err;
 
         /* Make sure there are no incomplete characters in the buffer */
-        if ((size % 2) != 0)
+        if ((size % sizeof(CHAR16)) != 0)
                 return EFI_INVALID_PARAMETER;
 
         if (!value)
@@ -141,12 +225,12 @@ EFI_STATUS efivar_get(const EFI_GUID *vendor, const CHAR16 *name, CHAR16 **value
         }
 
         /* Make sure a terminating NUL is available at the end */
-        val = AllocatePool(size + 2);
+        val = AllocatePool(size + sizeof(CHAR16));
         if (!val)
                 return EFI_OUT_OF_RESOURCES;
 
         CopyMem(val, buf, size);
-        val[size/2] = 0; /* NUL terminate */
+        val[size / sizeof(CHAR16)] = 0; /* NUL terminate */
 
         *value = val;
         return EFI_SUCCESS;
@@ -155,6 +239,9 @@ EFI_STATUS efivar_get(const EFI_GUID *vendor, const CHAR16 *name, CHAR16 **value
 EFI_STATUS efivar_get_uint_string(const EFI_GUID *vendor, const CHAR16 *name, UINTN *i) {
         _cleanup_freepool_ CHAR16 *val = NULL;
         EFI_STATUS err;
+
+        assert(vendor);
+        assert(name);
 
         err = efivar_get(vendor, name, &val);
         if (!EFI_ERROR(err) && i)
@@ -167,6 +254,9 @@ EFI_STATUS efivar_get_uint32_le(const EFI_GUID *vendor, const CHAR16 *name, UINT
         _cleanup_freepool_ CHAR8 *buf = NULL;
         UINTN size;
         EFI_STATUS err;
+
+        assert(vendor);
+        assert(name);
 
         err = efivar_get_raw(vendor, name, &buf, &size);
         if (!EFI_ERROR(err) && ret) {
@@ -185,6 +275,9 @@ EFI_STATUS efivar_get_uint64_le(const EFI_GUID *vendor, const CHAR16 *name, UINT
         UINTN size;
         EFI_STATUS err;
 
+        assert(vendor);
+        assert(name);
+
         err = efivar_get_raw(vendor, name, &buf, &size);
         if (!EFI_ERROR(err) && ret) {
                 if (size != sizeof(UINT64))
@@ -202,6 +295,9 @@ EFI_STATUS efivar_get_raw(const EFI_GUID *vendor, const CHAR16 *name, CHAR8 **bu
         _cleanup_freepool_ CHAR8 *buf = NULL;
         UINTN l;
         EFI_STATUS err;
+
+        assert(vendor);
+        assert(name);
 
         l = sizeof(CHAR16 *) * EFI_MAXIMUM_VARIABLE_SIZE;
         buf = AllocatePool(l);
@@ -226,6 +322,10 @@ EFI_STATUS efivar_get_boolean_u8(const EFI_GUID *vendor, const CHAR16 *name, BOO
         UINTN size;
         EFI_STATUS err;
 
+        assert(vendor);
+        assert(name);
+        assert(ret);
+
         err = efivar_get_raw(vendor, name, &b, &size);
         if (!EFI_ERROR(err))
                 *ret = *b > 0;
@@ -236,18 +336,24 @@ EFI_STATUS efivar_get_boolean_u8(const EFI_GUID *vendor, const CHAR16 *name, BOO
 VOID efivar_set_time_usec(const EFI_GUID *vendor, const CHAR16 *name, UINT64 usec) {
         CHAR16 str[32];
 
+        assert(vendor);
+        assert(name);
+
         if (usec == 0)
                 usec = time_usec();
         if (usec == 0)
                 return;
 
-        SPrint(str, 32, L"%ld", usec);
+        SPrint(str, ELEMENTSOF(str), L"%ld", usec);
         efivar_set(vendor, name, str, 0);
 }
 
 static INTN utf8_to_16(const CHAR8 *stra, CHAR16 *c) {
         CHAR16 unichar;
         UINTN len;
+
+        assert(stra);
+        assert(c);
 
         if (!(stra[0] & 0x80))
                 len = 1;
@@ -302,6 +408,8 @@ CHAR16 *stra_to_str(const CHAR8 *stra) {
         UINTN i;
         CHAR16 *str;
 
+        assert(stra);
+
         len = strlena(stra);
         str = AllocatePool((len + 1) * sizeof(CHAR16));
 
@@ -329,6 +437,8 @@ CHAR16 *stra_to_path(const CHAR8 *stra) {
         UINTN strlen;
         UINTN len;
         UINTN i;
+
+        assert(stra);
 
         len = strlena(stra);
         str = AllocatePool((len + 2) * sizeof(CHAR16));
@@ -362,6 +472,7 @@ CHAR16 *stra_to_path(const CHAR8 *stra) {
 }
 
 CHAR8 *strchra(const CHAR8 *s, CHAR8 c) {
+        assert(s);
         do {
                 if (*s == c)
                         return (CHAR8*) s;
@@ -373,6 +484,9 @@ EFI_STATUS file_read(EFI_FILE_HANDLE dir, const CHAR16 *name, UINTN off, UINTN s
         _cleanup_(FileHandleClosep) EFI_FILE_HANDLE handle = NULL;
         _cleanup_freepool_ CHAR8 *buf = NULL;
         EFI_STATUS err;
+
+        assert(name);
+        assert(ret);
 
         err = uefi_call_wrapper(dir->Open, 5, dir, &handle, (CHAR16*) name, EFI_FILE_MODE_READ, 0ULL);
         if (EFI_ERROR(err))
@@ -411,8 +525,42 @@ EFI_STATUS file_read(EFI_FILE_HANDLE dir, const CHAR16 *name, UINTN off, UINTN s
         return err;
 }
 
+VOID PrintError(const CHAR16 *format, ...) {
+        assert(format);
+        uefi_call_wrapper(ST->ConOut->SetAttribute, 2, ST->ConOut, EFI_LIGHTRED|EFI_BACKGROUND_BLACK);
+        va_list args;
+        va_start(args, format);
+        VPrint(format, args);
+        va_end(args);
+        uefi_call_wrapper(BS->Stall, 1, 3 * 1000 * 1000);
+}
+
 EFI_STATUS log_oom(void) {
-        Print(L"Out of memory.");
-        (void) uefi_call_wrapper(BS->Stall, 1, 3 * 1000 * 1000);
+        PrintError(L"Out of memory.\n");
         return EFI_OUT_OF_RESOURCES;
+}
+
+VOID print_at(UINTN x, UINTN y, UINTN attr, const CHAR16 *str) {
+        assert(str);
+        uefi_call_wrapper(ST->ConOut->SetCursorPosition, 3, ST->ConOut, x, y);
+        uefi_call_wrapper(ST->ConOut->SetAttribute, 2, ST->ConOut, attr);
+        uefi_call_wrapper(ST->ConOut->OutputString, 2, ST->ConOut, (CHAR16 *)str);
+}
+
+VOID draw_box(UINTN x, UINTN y, UINTN w, UINTN h, UINTN color) {
+        print_at(x, y, color, L"┌");
+        print_at(x + w, y, color, L"┐");
+        print_at(x, y + h, color, L"└");
+        print_at(x + w, y + h, color, L"┘");
+
+        for (UINTN i = 1; i < w; i++) {
+                print_at(x + i, y, color, L"─");
+                print_at(x + i, y + h, color, L"─");
+        }
+
+        for (UINTN i = 1; i < h; i++) {
+                print_at(x, y + i, color, L"│");
+                print_at(x + w, y + i, color, L"│");
+        }
+
 }
