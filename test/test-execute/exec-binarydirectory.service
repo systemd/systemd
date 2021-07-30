@@ -1,0 +1,4 @@
+[Service]
+ExecStart=ls_temp
+Type=oneshot
+BinaryDirectory=/tmp/test-exec_binarydirectory
