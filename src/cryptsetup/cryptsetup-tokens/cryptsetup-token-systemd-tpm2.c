@@ -57,6 +57,7 @@ _public_ int cryptsetup_token_open(
         const char *json;
         size_t blob_size, policy_hash_size, decrypted_key_size;
         uint32_t pcr_mask;
+        uint16_t pcr_bank;
         systemd_tpm2_plugin_params params = {
                 .search_pcr_mask = UINT32_MAX
         };
@@ -77,7 +78,7 @@ _public_ int cryptsetup_token_open(
         if (usrptr)
                 params = *(systemd_tpm2_plugin_params *)usrptr;
 
-        r = parse_luks2_tpm2_data(json, params.search_pcr_mask, &pcr_mask, &base64_blob, &hex_policy_hash);
+        r = parse_luks2_tpm2_data(json, params.search_pcr_mask, &pcr_mask, &pcr_bank, &base64_blob, &hex_policy_hash);
         if (r < 0)
                 return log_debug_open_error(cd, r);
 
@@ -93,6 +94,7 @@ _public_ int cryptsetup_token_open(
 
         r = acquire_luks2_key(
                         pcr_mask,
+                        pcr_bank,
                         params.device,
                         blob,
                         blob_size,
@@ -133,6 +135,7 @@ _public_ void cryptsetup_token_dump(
 
         int r;
         uint32_t i, pcr_mask;
+        uint16_t pcr_bank;
         size_t decoded_blob_size;
         _cleanup_free_ char *base64_blob = NULL, *hex_policy_hash = NULL,
                             *pcrs_str = NULL, *blob_str = NULL, *policy_hash_str = NULL;
@@ -140,7 +143,7 @@ _public_ void cryptsetup_token_dump(
 
         assert(json);
 
-        r = parse_luks2_tpm2_data(json, UINT32_MAX, &pcr_mask, &base64_blob, &hex_policy_hash);
+        r = parse_luks2_tpm2_data(json, UINT32_MAX, &pcr_mask, &pcr_bank, &base64_blob, &hex_policy_hash);
         if (r < 0)
                 return (void) crypt_log_debug_errno(cd, r, "Failed to parse " TOKEN_NAME " metadata: %m.");
 
@@ -162,7 +165,8 @@ _public_ void cryptsetup_token_dump(
         if (r < 0)
                 return (void) crypt_log_debug_errno(cd, r, "Can not dump " TOKEN_NAME " content: %m");
 
-        crypt_log(cd, "\ttpm2-pcrs:  %s\n", pcrs_str ?: "");
+        crypt_log(cd, "\ttpm2-pcrs:  %s\n", strna(pcrs_str));
+        crypt_log(cd, "\ttpm2-bank:  %s\n", strna(tpm2_pcr_bank_to_string(pcr_bank)));
         crypt_log(cd, "\ttmp2-blob:  %s\n", blob_str);
         crypt_log(cd, "\ttmp2-policy-hash:" CRYPT_DUMP_LINE_SEP "%s\n", policy_hash_str);
 }
