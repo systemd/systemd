@@ -130,7 +130,10 @@ static int run(int argc, char *argv[]) {
         _cleanup_(crypt_freep) struct crypt_device *cd = NULL;
         int r;
 
-        if (argc <= 1)
+        if (argc <= 1 ||
+            strv_contains(strv_skip(argv, 1), "--help") ||
+            strv_contains(strv_skip(argv, 1), "-h") ||
+            streq(argv[1], "help"))
                 return help();
 
         if (argc < 3)
