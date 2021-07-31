@@ -14,6 +14,22 @@
 #define _used_ __attribute__((__used__))
 #define _unused_ __attribute__((__unused__))
 #define _cleanup_(x) __attribute__((__cleanup__(x)))
+#define _likely_(x) (__builtin_expect(!!(x), 1))
+#define _unlikely_(x) (__builtin_expect(!!(x), 0))
+#if __GNUC__ >= 7
+#define _fallthrough_ __attribute__((__fallthrough__))
+#else
+#define _fallthrough_
+#endif
+/* Define C11 noreturn without <stdnoreturn.h> and even on older gcc
+ * compiler versions */
+#ifndef _noreturn_
+#if __STDC_VERSION__ >= 201112L
+#define _noreturn_ _Noreturn
+#else
+#define _noreturn_ __attribute__((__noreturn__))
+#endif
+#endif
 
 #define XSTRINGIFY(x) #x
 #define STRINGIFY(x) XSTRINGIFY(x)
@@ -34,7 +50,12 @@
 #define CONCATENATE(x, y) XCONCATENATE(x, y)
 
 #ifdef SD_BOOT
-#define assert(expr) do {} while (false)
+        #ifdef NDEBUG
+                #define assert(expr) do {} while (false)
+        #else
+                void efi_assert(const char *expr, const char *file, unsigned line) _noreturn_;
+                #define assert(expr) if (_unlikely_(!(expr))) { efi_assert(#expr, __FILE__, __LINE__); }
+        #endif
 #endif
 
 #if defined(static_assert)
@@ -216,3 +237,10 @@
                 (ptr) = NULL;                   \
                 _ptr_;                          \
         })
+
+/*
+ * STRLEN - return the length of a string literal, minus the trailing NUL byte.
+ *          Contrary to strlen(), this is a constant expression.
+ * @x: a string literal.
+ */
+#define STRLEN(x) ((unsigned) sizeof(""x"") - (unsigned) sizeof(sd_char))

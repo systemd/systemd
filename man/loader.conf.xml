@@ -41,8 +41,8 @@
     a comment line. Empty and comment lines are ignored.</para>
 
     <para>Boolean arguments may be written as
-    <literal>yes</literal>/<literal>y</literal>/<literal>true</literal>/<literal>1</literal> or
-    <literal>no</literal>/<literal>n</literal>/<literal>false</literal>/<literal>0</literal>.
+    <literal>yes</literal>/<literal>y</literal>/<literal>true</literal>/<literal>t</literal>/<literal>on</literal>/<literal>1</literal> or
+    <literal>no</literal>/<literal>n</literal>/<literal>false</literal>/<literal>f</literal>/<literal>off</literal>/<literal>0</literal>.
     </para>
   </refsect1>
 
@@ -58,7 +58,44 @@
         <listitem><para>A glob pattern to select the default entry. The default entry
         may be changed in the boot menu itself, in which case the name of the
         selected entry will be stored as an EFI variable, overriding this option.
-        </para></listitem>
+        </para>
+
+        <table>
+          <title>Automatically detected entries will use the following names:</title>
+
+          <tgroup cols='2'>
+            <colspec colname='name' />
+            <colspec colname='expl' />
+            <thead>
+              <row>
+                <entry>Name</entry>
+                <entry>Description</entry>
+              </row>
+            </thead>
+            <tbody>
+              <row>
+                <entry>auto-efi-default</entry>
+                <entry>EFI Default Loader</entry>
+              </row>
+              <row>
+                <entry>auto-efi-shell</entry>
+                <entry>EFI Shell</entry>
+              </row>
+              <row>
+                <entry>auto-osx</entry>
+                <entry>macOS</entry>
+              </row>
+              <row>
+                <entry>auto-reboot-to-firmware-setup</entry>
+                <entry>Reboot Into Firmware Interface</entry>
+              </row>
+              <row>
+                <entry>auto-windows</entry>
+                <entry>Windows Boot Manager</entry>
+              </row>
+            </tbody>
+          </tgroup>
+        </table></listitem>
       </varlistentry>
 
       <varlistentry>

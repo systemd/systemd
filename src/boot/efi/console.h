@@ -13,8 +13,10 @@ enum console_mode_change_type {
         CONSOLE_MODE_KEEP = 0,
         CONSOLE_MODE_SET,
         CONSOLE_MODE_AUTO,
+        CONSOLE_MODE_NEXT,
         CONSOLE_MODE_MAX,
 };
 
-EFI_STATUS console_key_read(UINT64 *key, BOOLEAN wait);
-EFI_STATUS console_set_mode(UINTN *mode, enum console_mode_change_type how);
+EFI_STATUS console_key_read(UINT64 *key, UINT64 timeout_usec);
+EFI_STATUS console_set_mode(UINTN mode, enum console_mode_change_type how);
+EFI_STATUS console_query_mode(UINTN *x_max, UINTN *y_max);
