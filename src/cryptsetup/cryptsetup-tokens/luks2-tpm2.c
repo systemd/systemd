@@ -10,6 +10,7 @@
 
 int acquire_luks2_key(
                 uint32_t pcr_mask,
+                uint16_t pcr_bank,
                 const char *device,
                 const void *key_data,
                 size_t key_data_size,
@@ -34,7 +35,12 @@ int acquire_luks2_key(
                 device = auto_device;
         }
 
-        return tpm2_unseal(device, pcr_mask, key_data, key_data_size, policy_hash, policy_hash_size, ret_decrypted_key, ret_decrypted_key_size);
+        return tpm2_unseal(
+                        device,
+                        pcr_mask, pcr_bank,
+                        key_data, key_data_size,
+                        policy_hash, policy_hash_size,
+                        ret_decrypted_key, ret_decrypted_key_size);
 }
 
 /* this function expects valid "systemd-tpm2" in json */
@@ -42,19 +48,22 @@ int parse_luks2_tpm2_data(
                 const char *json,
                 uint32_t search_pcr_mask,
                 uint32_t *ret_pcr_mask,
+                uint16_t *ret_pcr_bank,
                 char **ret_base64_blob,
                 char **ret_hex_policy_hash) {
 
         int r;
         JsonVariant *w, *e;
         uint32_t pcr_mask = 0;
+        uint16_t pcr_bank = UINT16_MAX;
         _cleanup_free_ char *base64_blob = NULL, *hex_policy_hash = NULL;
         _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
 
         assert(json);
+        assert(ret_pcr_mask);
+        assert(ret_pcr_bank);
         assert(ret_base64_blob);
         assert(ret_hex_policy_hash);
-        assert(ret_pcr_mask);
 
         r = json_parse(json, 0, &v, NULL, NULL);
         if (r < 0)
@@ -81,6 +90,20 @@ int parse_luks2_tpm2_data(
             search_pcr_mask != pcr_mask)
                 return -ENXIO;
 
+        w = json_variant_by_key(v, "tpm2-pcr-bank");
+        if (w) {
+                /* The PCR bank field is optional */
+
+                if (!json_variant_is_string(w))
+                        return -EINVAL;
+
+                r = tpm2_pcr_bank_from_string(json_variant_string(w));
+                if (r < 0)
+                        return r;
+
+                pcr_bank = r;
+        }
+
         w = json_variant_by_key(v, "tpm2-blob");
         if (!w || !json_variant_is_string(w))
                 return -EINVAL;
@@ -98,6 +121,7 @@ int parse_luks2_tpm2_data(
                 return -ENOMEM;
 
         *ret_pcr_mask = pcr_mask;
+        *ret_pcr_bank = pcr_bank;
         *ret_base64_blob = TAKE_PTR(base64_blob);
         *ret_hex_policy_hash = TAKE_PTR(hex_policy_hash);
 
