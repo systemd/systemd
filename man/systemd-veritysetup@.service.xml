@@ -36,6 +36,53 @@
     <para>At early boot and when the system manager configuration is reloaded kernel command line configuration for
     integrity protected block devices is translated into <filename>systemd-veritysetup@.service</filename> units by
     <citerefentry><refentrytitle>systemd-veritysetup-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para>
+
+    <para><filename>systemd-veritysetup@.service</filename> calls <command>systemd-veritysetup</command>.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Commands</title>
+
+    <para>The following commands are understood by <command>systemd-veritysetup</command>:</para>
+
+    <variablelist>
+      <varlistentry>
+        <term>
+          <option>attach</option>
+          <replaceable>volume</replaceable>
+          <replaceable>datadevice</replaceable>
+          <replaceable>hashdevice</replaceable>
+          <replaceable>roothash</replaceable>
+          [<replaceable>option</replaceable>...]
+        </term>
+
+        <listitem><para>Create a block device <replaceable>volume</replaceable> using
+        <replaceable>datadevice</replaceable> and <replaceable>hashdevice</replaceable> as the backing
+        devices. <replaceable>roothash</replaceable> forms the root of the tree of hashes stored on
+        <replaceable>hashdevice</replaceable>. See
+        <ulink url="https://www.kernel.org/doc/html/latest/admin-guide/device-mapper/verity.html">
+          Kernel dm-verity</ulink> documentation for details.
+        </para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term>
+          <option>detach</option>
+          <replaceable>volume</replaceable>
+        </term>
+
+        <listitem><para>Detach (destroy) the block device
+        <replaceable>volume</replaceable>.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term>
+          <option>help</option>
+        </term>
+
+        <listitem><para>Print short information about command syntax.</para></listitem>
+      </varlistentry>
+    </variablelist>
   </refsect1>
 
   <refsect1>
