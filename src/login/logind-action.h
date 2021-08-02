@@ -14,6 +14,7 @@ typedef enum HandleAction {
         HANDLE_HYBRID_SLEEP,
         HANDLE_SUSPEND_THEN_HIBERNATE,
         HANDLE_LOCK,
+        HANDLE_FACTORY_RESET,
         _HANDLE_ACTION_MAX,
         _HANDLE_ACTION_INVALID = -EINVAL,
 } HandleAction;
