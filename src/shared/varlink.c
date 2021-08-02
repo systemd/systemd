@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <sys/poll.h>
+#include <poll.h>
 
 #include "alloc-util.h"
 #include "errno-util.h"
