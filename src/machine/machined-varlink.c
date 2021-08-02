@@ -297,7 +297,7 @@ static int group_lookup_name(Manager *m, const char *name, gid_t *ret_gid, char 
                 desc = mfree(desc);
 
         *ret_gid = converted_gid;
-        *ret_description = desc;
+        *ret_description = TAKE_PTR(desc);
         return 0;
 }
 
