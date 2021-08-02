@@ -1495,27 +1495,33 @@ static int bus_manager_log_shutdown(
                 Manager *m,
                 const char *unit_name) {
 
-        const char *p, *q;
+        const char *p, *q, *d;
 
         assert(m);
         assert(unit_name);
 
         if (streq(unit_name, SPECIAL_POWEROFF_TARGET)) {
+                d = "MESSAGE_ID=" SD_MESSAGE_SHUTDOWN_STR;
                 p = "MESSAGE=System is powering down";
                 q = "SHUTDOWN=power-off";
         } else if (streq(unit_name, SPECIAL_REBOOT_TARGET)) {
+                d = "MESSAGE_ID=" SD_MESSAGE_SHUTDOWN_STR;
                 p = "MESSAGE=System is rebooting";
                 q = "SHUTDOWN=reboot";
         } else if (streq(unit_name, SPECIAL_HALT_TARGET)) {
+                d = "MESSAGE_ID=" SD_MESSAGE_SHUTDOWN_STR;
                 p = "MESSAGE=System is halting";
                 q = "SHUTDOWN=halt";
         } else if (streq(unit_name, SPECIAL_KEXEC_TARGET)) {
+                d = "MESSAGE_ID=" SD_MESSAGE_SHUTDOWN_STR;
                 p = "MESSAGE=System is rebooting with kexec";
                 q = "SHUTDOWN=kexec";
         } else if (streq(unit_name, SPECIAL_FACTORY_RESET_TARGET)) {
+                d = "MESSAGE_ID=" SD_MESSAGE_FACTORY_RESET_STR;
                 p = "MESSAGE=System is performing factory reset";
                 q = NULL;
         } else {
+                d = "MESSAGE_ID=" SD_MESSAGE_SHUTDOWN_STR;
                 p = "MESSAGE=System is shutting down";
                 q = NULL;
         }
@@ -1525,10 +1531,7 @@ static int bus_manager_log_shutdown(
         else
                 p = strjoina(p, " (", m->wall_message, ").");
 
-        return log_struct(LOG_NOTICE,
-                          streq(unit_name, SPECIAL_FACTORY_RESET_TARGET) ? "MESSAGE_ID=" SD_MESSAGE_FACTORY_RESET_STR : "MESSAGE_ID=" SD_MESSAGE_SHUTDOWN_STR,
-                          p,
-                          q);
+        return log_struct(LOG_NOTICE, d, p, q);
 }
 
 static int lid_switch_ignore_handler(sd_event_source *e, uint64_t usec, void *userdata) {
