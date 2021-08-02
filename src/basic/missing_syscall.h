@@ -123,7 +123,7 @@ static inline int missing_setns(int fd, int nstype) {
 /* ======================================================================= */
 
 static inline pid_t raw_getpid(void) {
-#if defined(__alpha__)
+#if defined(__alpha__) || defined(__sw_64__)
         return (pid_t) syscall(__NR_getxpid);
 #else
         return (pid_t) syscall(__NR_getpid);
