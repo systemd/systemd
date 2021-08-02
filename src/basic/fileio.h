@@ -2,11 +2,11 @@
 #pragma once
 
 #include <dirent.h>
+#include <fcntl.h>
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdio.h>
 #include <sys/stat.h>
-#include <sys/fcntl.h>
 #include <sys/types.h>
 
 #include "macro.h"
