@@ -30,6 +30,7 @@ static const char *const vm_table[_VIRTUALIZATION_MAX] = {
         [VIRTUALIZATION_VMWARE]    = "VMwareVMware",
         /* https://docs.microsoft.com/en-us/virtualization/hyper-v-on-windows/reference/tlfs */
         [VIRTUALIZATION_MICROSOFT] = "Microsoft Hv",
+        [VIRTUALIZATION_MICROSOFT] = "Micr",
         /* https://wiki.freebsd.org/bhyve */
         [VIRTUALIZATION_BHYVE]     = "bhyve bhyve ",
         [VIRTUALIZATION_QNX]       = "QNXQVMBSQG",
