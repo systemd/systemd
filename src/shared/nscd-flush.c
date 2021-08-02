@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-#include <sys/poll.h>
+#include <poll.h>
 
 #include "fd-util.h"
 #include "io-util.h"
