@@ -1494,6 +1494,9 @@ static int have_multiple_sessions(
 _printf_(2, 0)
 static int log_with_wall_message(Manager *m, const char *d, const char *p, const char *q)
 {
+
+        assert(m);
+
         if (isempty(m->wall_message))
                 p = strjoina(p, ".");
         else
