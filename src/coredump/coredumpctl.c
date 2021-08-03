@@ -824,7 +824,7 @@ static int dump_list(int argc, char **argv, void *userdata) {
 
                 (void) table_set_empty_string(t, "-");
         } else
-                (void) pager_open(arg_pager_flags);
+                pager_open(arg_pager_flags);
 
         /* "info" without pattern implies "-1" */
         if ((arg_rows_max == 1 && arg_reverse) || (verb_is_info && argc == 1)) {

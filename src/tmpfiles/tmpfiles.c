@@ -3754,7 +3754,7 @@ static int run(int argc, char *argv[]) {
         }
 
         if (arg_cat_config) {
-                (void) pager_open(arg_pager_flags);
+                pager_open(arg_pager_flags);
 
                 return cat_config(config_dirs, argv + optind);
         }

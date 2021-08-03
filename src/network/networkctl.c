@@ -810,7 +810,7 @@ static int list_links(int argc, char *argv[], void *userdata) {
         if (c < 0)
                 return c;
 
-        (void) pager_open(arg_pager_flags);
+        pager_open(arg_pager_flags);
 
         table = table_new("idx", "link", "type", "operational", "setup");
         if (!table)
@@ -2394,7 +2394,7 @@ static int link_status(int argc, char *argv[], void *userdata) {
                         return dump_link_description(strv_skip(argv, 1));
         }
 
-        (void) pager_open(arg_pager_flags);
+        pager_open(arg_pager_flags);
 
         r = sd_bus_open_system(&bus);
         if (r < 0)
@@ -2493,7 +2493,7 @@ static int link_lldp_status(int argc, char *argv[], void *userdata) {
         if (c < 0)
                 return c;
 
-        (void) pager_open(arg_pager_flags);
+        pager_open(arg_pager_flags);
 
         table = table_new("link",
                           "chassis id",

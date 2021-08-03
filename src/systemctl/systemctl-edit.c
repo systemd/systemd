@@ -54,7 +54,7 @@ int cat(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return r;
 
-        (void) pager_open(arg_pager_flags);
+        pager_open(arg_pager_flags);
 
         STRV_FOREACH(name, names) {
                 _cleanup_free_ char *fragment_path = NULL;

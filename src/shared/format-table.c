@@ -2783,7 +2783,7 @@ int table_print_with_pager(
          * the table header and logs about any error. */
 
         if (json_format_flags & (JSON_FORMAT_OFF|JSON_FORMAT_PRETTY|JSON_FORMAT_PRETTY_AUTO))
-                (void) pager_open(pager_flags);
+                pager_open(pager_flags);
 
         saved_header = t->header;
         t->header = show_header;

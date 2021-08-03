@@ -2036,7 +2036,7 @@ static int show_all(
         if (r < 0)
                 return r;
 
-        (void) pager_open(arg_pager_flags);
+        pager_open(arg_pager_flags);
 
         c = (unsigned) r;
 
@@ -2142,7 +2142,7 @@ int show(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return r;
 
-        (void) pager_open(arg_pager_flags);
+        pager_open(arg_pager_flags);
 
         /* If no argument is specified inspect the manager itself */
         if (show_mode == SYSTEMCTL_SHOW_PROPERTIES && argc <= 1)
