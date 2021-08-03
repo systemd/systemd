@@ -1775,6 +1775,53 @@ static int verb_is_installed(int argc, char *argv[], void *userdata) {
         return EXIT_SUCCESS;
 }
 
+typedef int (verb_parser)(const char *arg1, char16_t **ret, size_t *ret_size);
+
+static int verb_set(int argc, char *argv[], const char *variable, verb_parser *parser) {
+        int r;
+
+        if (!is_efi_boot())
+                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
+                                       "Not booted with UEFI.");
+
+        if (access(EFIVAR_PATH(EFI_LOADER_VARIABLE(LoaderInfo)), F_OK) < 0) {
+                if (errno == ENOENT) {
+                        log_error_errno(errno, "Not booted with a supported boot loader.");
+                        return -EOPNOTSUPP;
+                }
+
+                return log_error_errno(errno, "Failed to detect whether boot loader supports '%s' operation: %m", argv[0]);
+        }
+
+        if (detect_container() > 0)
+                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
+                                       "'%s' operation not supported in a container.",
+                                       argv[0]);
+
+        if (!arg_touch_variables)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "'%s' operation cannot be combined with --touch-variables=no.",
+                                       argv[0]);
+
+        if (isempty(argv[1])) {
+                r = efi_set_variable(variable, NULL, 0);
+                if (r < 0 && r != -ENOENT)
+                        return log_error_errno(r, "Failed to remove EFI variable '%s': %m", variable);
+        } else {
+                _cleanup_free_ char16_t *value = NULL;
+                size_t value_size = 0;
+
+                r = parser(argv[1], &value, &value_size);
+                if (r < 0)
+                        return r;
+                r = efi_set_variable(variable, value, value_size);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to update EFI variable '%s': %m", variable);
+        }
+
+        return 0;
+}
+
 static int parse_loader_entry_target_arg(const char *arg1, char16_t **ret_target, size_t *ret_target_size) {
         int r;
         if (streq(arg1, "@current")) {
@@ -1801,51 +1848,35 @@ static int parse_loader_entry_target_arg(const char *arg1, char16_t **ret_target
 }
 
 static int verb_set_default(int argc, char *argv[], void *userdata) {
-        int r;
-
-        if (!is_efi_boot())
-                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
-                                       "Not booted with UEFI.");
-
-        if (access(EFIVAR_PATH(EFI_LOADER_VARIABLE(LoaderInfo)), F_OK) < 0) {
-                if (errno == ENOENT) {
-                        log_error_errno(errno, "Not booted with a supported boot loader.");
-                        return -EOPNOTSUPP;
-                }
-
-                return log_error_errno(errno, "Failed to detect whether boot loader supports '%s' operation: %m", argv[0]);
-        }
-
-        if (detect_container() > 0)
-                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
-                                       "'%s' operation not supported in a container.",
-                                       argv[0]);
-
-        if (!arg_touch_variables)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "'%s' operation cannot be combined with --touch-variables=no.",
-                                       argv[0]);
-
         const char *variable = streq(argv[0], "set-default") ?
                 EFI_LOADER_VARIABLE(LoaderEntryDefault) : EFI_LOADER_VARIABLE(LoaderEntryOneShot);
 
-        if (isempty(argv[1])) {
-                r = efi_set_variable(variable, NULL, 0);
-                if (r < 0 && r != -ENOENT)
-                        return log_error_errno(r, "Failed to remove EFI variable '%s': %m", variable);
-        } else {
-                _cleanup_free_ char16_t *target = NULL;
-                size_t target_size = 0;
+        return verb_set(argc, argv, variable, parse_loader_entry_target_arg);
+}
 
-                r = parse_loader_entry_target_arg(argv[1], &target, &target_size);
-                if (r < 0)
-                        return r;
-                r = efi_set_variable(variable, target, target_size);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to update EFI variable '%s': %m", variable);
+
+static int parse_loader_config_timeout_arg(const char *arg1, char16_t **ret_timeout, size_t *ret_timeout_size) {
+        int r;
+        r = safe_atou(arg1, NULL);
+        if (r < 0) {
+                return log_error_errno(r, "Failed to parse timeout, ignoring: %m");
         }
 
+        char16_t *encoded = NULL;
+        encoded = utf8_to_utf16(arg1, strlen(arg1));
+        if (!encoded)
+                return log_oom();
+        *ret_timeout = encoded;
+        *ret_timeout_size = char16_strlen(encoded) * 2 + 2;
+
         return 0;
+}
+
+static int verb_set_timeout(int argc, char *argv[], void *userdata) {
+        const char *variable = streq(argv[0], "set-timeout") ?
+                EFI_LOADER_VARIABLE(LoaderConfigTimeout) : EFI_LOADER_VARIABLE(LoaderConfigTimeoutOneShot);
+
+        return verb_set(argc, argv, variable, parse_loader_config_timeout_arg);
 }
 
 static int verb_random_seed(int argc, char *argv[], void *userdata) {
@@ -1947,6 +1978,8 @@ static int bootctl_main(int argc, char *argv[]) {
                 { "list",                VERB_ANY, 1,        0,            verb_list                },
                 { "set-default",         2,        2,        0,            verb_set_default         },
                 { "set-oneshot",         2,        2,        0,            verb_set_default         },
+                { "set-timeout",         2,        2,        0,            verb_set_timeout         },
+                { "set-timeout-oneshot", 2,        2,        0,            verb_set_timeout         },
                 { "random-seed",         VERB_ANY, 1,        0,            verb_random_seed         },
                 { "systemd-efi-options", VERB_ANY, 2,        0,            verb_systemd_efi_options },
                 { "reboot-to-firmware",  VERB_ANY, 2,        0,            verb_reboot_to_firmware  },
