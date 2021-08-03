@@ -23,6 +23,8 @@
 
 #define TEXT_ATTR_SWAP(c) EFI_TEXT_ATTR(((c) & 0b11110000) >> 4, (c) & 0b1111)
 
+#define LAST_BOOTED_FILE L"\\loader\\last-booted"
+
 /* magic string to find in the binary image */
 static const char __attribute__((used)) magic[] = "#### LoaderInfo: systemd-boot " GIT_VERSION " ####";
 
@@ -61,6 +63,7 @@ typedef struct {
         INTN timeout_sec;
         INTN timeout_sec_config;
         INTN timeout_sec_efivar;
+        BOOLEAN save_default;
         CHAR16 *entry_default_pattern;
         CHAR16 *entry_oneshot;
         CHAR16 *options_edit;
@@ -433,7 +436,9 @@ static VOID print_status(Config *config, CHAR16 *loaded_image_path) {
         console_key_read(&key, 0);
 
         line(L"timeout", L"%ld", config->timeout_sec_config);
-        line(L"default pattern", config->entry_default_pattern);
+        line(L"default pattern", config->save_default ? L"auto-last-booted" : config->entry_default_pattern);
+        if (config->save_default)
+                line(L"saved entry", config->entry_default_pattern);
         line(L"editor", yes_no(config->editor));
         line(L"box", yes_no(config->box));
         line(L"auto-entries", yes_no(config->auto_entries));
@@ -1055,8 +1060,14 @@ static VOID config_defaults_load_from_file(Config *config, CHAR8 *content) {
 
                 if (strcmpa((CHAR8 *)"default", key) == 0) {
                         FreePool(config->entry_default_pattern);
-                        config->entry_default_pattern = stra_to_str(value);
-                        StrLwr(config->entry_default_pattern);
+                        if (strcmpa((CHAR8 *)"auto-last-booted", value) == 0) {
+                                config->save_default = TRUE;
+                                config->entry_default_pattern = NULL;
+                        } else {
+                                config->save_default = FALSE;
+                                config->entry_default_pattern = stra_to_str(value);
+                                StrLwr(config->entry_default_pattern);
+                        }
                         continue;
                 }
 
@@ -1493,6 +1504,13 @@ static VOID config_load_defaults(Config *config, EFI_FILE *root_dir) {
         }
 
         efivar_get_int_string(LOADER_GUID, L"LoaderConfigConsoleMode", &config->console_mode_efivar);
+
+        if (config->save_default) {
+                CHAR8 *saved;
+                err = file_read(root_dir, LAST_BOOTED_FILE, 0, 0, &saved, NULL);
+                if (!EFI_ERROR(err))
+                        config->entry_default_pattern = (CHAR16*)saved;
+        }
 }
 
 static VOID config_load_entries(
@@ -2473,6 +2491,50 @@ static VOID config_write_entries_to_variable(Config *config) {
         (void) efivar_set_raw(LOADER_GUID, L"LoaderEntries", buffer, (UINT8 *) p - (UINT8 *) buffer, 0);
 }
 
+static VOID save_default(EFI_FILE *root_dir, Config *config, const CHAR16 *entry) {
+        _cleanup_(FileHandleClosep) EFI_FILE_HANDLE handle = NULL;
+        _cleanup_freepool_ EFI_FILE_INFO *info = NULL;
+        EFI_STATUS err;
+        UINTN size;
+
+        assert(root_dir);
+        assert(config);
+        assert(entry);
+
+        if (!config->save_default || StriCmp(config->entry_default_pattern, entry) == 0)
+                return;
+
+        err = uefi_call_wrapper(root_dir->Open, 5, root_dir, &handle, (CHAR16*)LAST_BOOTED_FILE, EFI_FILE_MODE_READ|EFI_FILE_MODE_WRITE, 0ULL);
+        if (EFI_ERROR(err)) {
+                PrintErrorStall(L"Failed to open " LAST_BOOTED_FILE ": %r", err);
+                return;
+        }
+
+        info = LibFileInfo(handle);
+        if (!info) {
+                log_oom();
+                return;
+        }
+
+        size = StrSize(entry);
+        if (info->FileSize < size) {
+                PrintErrorStall(L"Cannot write to " LAST_BOOTED_FILE ": File is too short.");
+                return;
+        }
+
+        err = uefi_call_wrapper(handle->Write, 3, handle, &size, (CHAR16*)entry);
+        if (EFI_ERROR(err)) {
+                PrintErrorStall(L"Failed to write to " LAST_BOOTED_FILE ": %r", err);
+                return;
+        }
+
+        err = uefi_call_wrapper(handle->Flush, 1, handle);
+        if (EFI_ERROR(err)) {
+                PrintErrorStall(L"Failed to flush " LAST_BOOTED_FILE ": %r", err);
+                return;
+        }
+}
+
 EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
         static const UINT64 loader_features =
                 EFI_LOADER_FEATURE_CONFIG_TIMEOUT |
@@ -2631,6 +2693,8 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
 
                 /* Optionally, read a random seed off the ESP and pass it to the OS */
                 (VOID) process_random_seed(root_dir, config.random_seed_mode);
+
+                save_default(root_dir, &config, entry->id);
 
                 uefi_call_wrapper(BS->SetWatchdogTimer, 4, 5 * 60, 0x10000, 0, NULL);
                 err = image_start(image, &config, entry);

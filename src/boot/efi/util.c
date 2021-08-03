@@ -439,6 +439,7 @@ CHAR8 *strchra(const CHAR8 *s, CHAR8 c) {
 EFI_STATUS file_read(EFI_FILE_HANDLE dir, const CHAR16 *name, UINTN off, UINTN size, CHAR8 **ret, UINTN *ret_size) {
         _cleanup_(FileHandleClosep) EFI_FILE_HANDLE handle = NULL;
         _cleanup_freepool_ CHAR8 *buf = NULL;
+        UINTN size_extra = sizeof(CHAR16);
         EFI_STATUS err;
 
         assert(name);
@@ -455,7 +456,7 @@ EFI_STATUS file_read(EFI_FILE_HANDLE dir, const CHAR16 *name, UINTN off, UINTN s
                 if (!info)
                         return EFI_OUT_OF_RESOURCES;
 
-                size = info->FileSize+1;
+                size = info->FileSize;
         }
 
         if (off > 0) {
@@ -464,7 +465,10 @@ EFI_STATUS file_read(EFI_FILE_HANDLE dir, const CHAR16 *name, UINTN off, UINTN s
                         return err;
         }
 
-        buf = AllocatePool(size + 1);
+        /* We always ensure the data is null-terminated for both CHAR8 and CHAR16 strings. */
+        size_extra += size % sizeof(CHAR16);
+
+        buf = AllocatePool(size + size_extra);
         if (!buf)
                 return EFI_OUT_OF_RESOURCES;
 
@@ -472,7 +476,7 @@ EFI_STATUS file_read(EFI_FILE_HANDLE dir, const CHAR16 *name, UINTN off, UINTN s
         if (EFI_ERROR(err))
                 return err;
 
-        buf[size] = '\0';
+        SetMem(buf + size, size_extra, '\0');
 
         *ret = TAKE_PTR(buf);
         if (ret_size)

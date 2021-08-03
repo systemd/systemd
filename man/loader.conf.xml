@@ -60,6 +60,12 @@
         selected entry will be stored as an EFI variable, overriding this option.
         </para>
 
+        <para>If set to <literal>auto-last-booted</literal> the selected boot entry will be saved
+        to <filename><replaceable>ESP</replaceable>/loader/last-booted</filename> and
+        automatically selected the next time systemd-boot starts. For this to work the file
+        must exist and be large enough. This can be done by using the following command:
+        <command>dd if=/dev/zero of=ESP/loader/last-booted bs=256 count=1</command></para>
+
         <table>
           <title>Automatically detected entries will use the following names:</title>
 
