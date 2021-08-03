@@ -30,19 +30,13 @@ if unshare -U sh -c :; then
     is_user_ns_supported=yes
 fi
 
-SUSE_OPTS=()
-ID_LIKE=$(awk -F= '$1=="ID_LIKE" { print $2 ;}' /etc/os-release)
-if [[ "$ID_LIKE" = *"suse"* ]]; then
-    SUSE_OPTS+=(--bind /lib64 --bind /usr/lib64)
-fi
-
 function check_bind_tmp_path {
     # https://github.com/systemd/systemd/issues/4789
     local _root="/var/lib/machines/testsuite-13.bind-tmp-path"
     rm -rf "$_root"
     /usr/lib/systemd/tests/testdata/create-busybox-container "$_root"
     : >/tmp/bind
-    systemd-nspawn "${SUSE_OPTS[@]}" --register=no -D "$_root" --bind=/tmp/bind /bin/sh -c 'test -e /tmp/bind'
+    systemd-nspawn --register=no -D "$_root" --bind=/tmp/bind /bin/sh -c 'test -e /tmp/bind'
 }
 
 function check_norbind {
@@ -54,15 +48,15 @@ function check_norbind {
     mount -t tmpfs tmpfs /tmp/binddir/subdir
     echo -n "inner" >/tmp/binddir/subdir/file
     /usr/lib/systemd/tests/testdata/create-busybox-container "$_root"
-    systemd-nspawn "${SUSE_OPTS[@]}" --register=no -D "$_root" --bind=/tmp/binddir:/mnt:norbind /bin/sh -c 'CONTENT=$(cat /mnt/subdir/file); if [[ $CONTENT != "outer" ]]; then echo "*** unexpected content: $CONTENT"; return 1; fi'
+    systemd-nspawn --register=no -D "$_root" --bind=/tmp/binddir:/mnt:norbind /bin/sh -c 'CONTENT=$(cat /mnt/subdir/file); if [[ $CONTENT != "outer" ]]; then echo "*** unexpected content: $CONTENT"; return 1; fi'
 }
 
 function check_notification_socket {
     # https://github.com/systemd/systemd/issues/4944
     local _cmd='echo a | $(busybox which nc) -U -u -w 1 /run/host/notify'
     # /testsuite-13.nc-container is prepared by test.sh
-    systemd-nspawn "${SUSE_OPTS[@]}" --register=no -D /testsuite-13.nc-container /bin/sh -x -c "$_cmd"
-    systemd-nspawn "${SUSE_OPTS[@]}" --register=no -D /testsuite-13.nc-container -U /bin/sh -x -c "$_cmd"
+    systemd-nspawn --register=no -D /testsuite-13.nc-container /bin/sh -x -c "$_cmd"
+    systemd-nspawn --register=no -D /testsuite-13.nc-container -U /bin/sh -x -c "$_cmd"
 }
 
 function check_os_release {
@@ -84,7 +78,7 @@ if echo test >>/run/host/os-release; then exit 1; fi
         echo MARKER=1 >>/etc/os-release
     fi
 
-    systemd-nspawn "${SUSE_OPTS[@]}" --register=no -D /testsuite-13.nc-container --bind="${_os_release_source}":/tmp/os-release /bin/sh -x -e -c "$_cmd"
+    systemd-nspawn --register=no -D /testsuite-13.nc-container --bind="${_os_release_source}":/tmp/os-release /bin/sh -x -e -c "$_cmd"
 
     if grep -q MARKER /etc/os-release; then
         rm /etc/os-release
@@ -138,16 +132,16 @@ function run {
     local _root="/var/lib/machines/testsuite-13.unified-$1-cgns-$2-api-vfs-writable-$3"
     rm -rf "$_root"
     /usr/lib/systemd/tests/testdata/create-busybox-container "$_root"
-    SYSTEMD_NSPAWN_UNIFIED_HIERARCHY="$1" SYSTEMD_NSPAWN_USE_CGNS="$2" SYSTEMD_NSPAWN_API_VFS_WRITABLE="$3" systemd-nspawn "${SUSE_OPTS[@]}" --register=no -D "$_root" -b
-    SYSTEMD_NSPAWN_UNIFIED_HIERARCHY="$1" SYSTEMD_NSPAWN_USE_CGNS="$2" SYSTEMD_NSPAWN_API_VFS_WRITABLE="$3" systemd-nspawn "${SUSE_OPTS[@]}" --register=no -D "$_root" --private-network -b
+    SYSTEMD_NSPAWN_UNIFIED_HIERARCHY="$1" SYSTEMD_NSPAWN_USE_CGNS="$2" SYSTEMD_NSPAWN_API_VFS_WRITABLE="$3" systemd-nspawn --register=no -D "$_root" -b
+    SYSTEMD_NSPAWN_UNIFIED_HIERARCHY="$1" SYSTEMD_NSPAWN_USE_CGNS="$2" SYSTEMD_NSPAWN_API_VFS_WRITABLE="$3" systemd-nspawn --register=no -D "$_root" --private-network -b
 
-    if SYSTEMD_NSPAWN_UNIFIED_HIERARCHY="$1" SYSTEMD_NSPAWN_USE_CGNS="$2" SYSTEMD_NSPAWN_API_VFS_WRITABLE="$3" systemd-nspawn "${SUSE_OPTS[@]}" --register=no -D "$_root" -U -b; then
+    if SYSTEMD_NSPAWN_UNIFIED_HIERARCHY="$1" SYSTEMD_NSPAWN_USE_CGNS="$2" SYSTEMD_NSPAWN_API_VFS_WRITABLE="$3" systemd-nspawn --register=no -D "$_root" -U -b; then
         [[ "$is_user_ns_supported" = "yes" && "$3" = "network" ]] && return 1
     else
         [[ "$is_user_ns_supported" = "no" && "$3" = "network" ]] && return 1
     fi
 
-    if SYSTEMD_NSPAWN_UNIFIED_HIERARCHY="$1" SYSTEMD_NSPAWN_USE_CGNS="$2" SYSTEMD_NSPAWN_API_VFS_WRITABLE="$3" systemd-nspawn "${SUSE_OPTS[@]}" --register=no -D "$_root" --private-network -U -b; then
+    if SYSTEMD_NSPAWN_UNIFIED_HIERARCHY="$1" SYSTEMD_NSPAWN_USE_CGNS="$2" SYSTEMD_NSPAWN_API_VFS_WRITABLE="$3" systemd-nspawn --register=no -D "$_root" --private-network -U -b; then
         [[ "$is_user_ns_supported" = "yes" && "$3" = "yes" ]] && return 1
     else
         [[ "$is_user_ns_supported" = "no" && "$3" = "yes" ]] && return 1
@@ -167,21 +161,21 @@ function run {
     # --network-namespace-path and network-related options cannot be used together
     for netopt in "${_net_opts[@]}"; do
         echo "$_netns_opt in combination with $netopt should fail"
-        if SYSTEMD_NSPAWN_UNIFIED_HIERARCHY="$1" SYSTEMD_NSPAWN_USE_CGNS="$2" SYSTEMD_NSPAWN_API_VFS_WRITABLE="$3" systemd-nspawn "${SUSE_OPTS[@]}" --register=no -D "$_root" -b "$_netns_opt" "$netopt"; then
+        if SYSTEMD_NSPAWN_UNIFIED_HIERARCHY="$1" SYSTEMD_NSPAWN_USE_CGNS="$2" SYSTEMD_NSPAWN_API_VFS_WRITABLE="$3" systemd-nspawn --register=no -D "$_root" -b "$_netns_opt" "$netopt"; then
             echo >&2 "unexpected pass"
             return 1
         fi
     done
 
     # allow combination of --network-namespace-path and --private-network
-    if ! SYSTEMD_NSPAWN_UNIFIED_HIERARCHY="$1" SYSTEMD_NSPAWN_USE_CGNS="$2" SYSTEMD_NSPAWN_API_VFS_WRITABLE="$3" systemd-nspawn "${SUSE_OPTS[@]}" --register=no -D "$_root" -b "$_netns_opt" --private-network; then
+    if ! SYSTEMD_NSPAWN_UNIFIED_HIERARCHY="$1" SYSTEMD_NSPAWN_USE_CGNS="$2" SYSTEMD_NSPAWN_API_VFS_WRITABLE="$3" systemd-nspawn --register=no -D "$_root" -b "$_netns_opt" --private-network; then
         return 1
     fi
 
     # test --network-namespace-path works with a network namespace created by "ip netns"
     ip netns add nspawn_test
     _netns_opt="--network-namespace-path=/run/netns/nspawn_test"
-    SYSTEMD_NSPAWN_UNIFIED_HIERARCHY="$1" SYSTEMD_NSPAWN_USE_CGNS="$2" SYSTEMD_NSPAWN_API_VFS_WRITABLE="$3" systemd-nspawn "${SUSE_OPTS[@]}" --register=no -D "$_root" "$_netns_opt" /bin/ip a | grep -v -E '^1: lo.*UP'
+    SYSTEMD_NSPAWN_UNIFIED_HIERARCHY="$1" SYSTEMD_NSPAWN_USE_CGNS="$2" SYSTEMD_NSPAWN_API_VFS_WRITABLE="$3" systemd-nspawn --register=no -D "$_root" "$_netns_opt" /bin/ip a | grep -v -E '^1: lo.*UP'
     local r=$?
     ip netns del nspawn_test
 
