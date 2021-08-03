@@ -299,6 +299,8 @@ int get_credential_host_secret(CredentialSecretFlags flags, void **ret, size_t *
                         if (ret) {
                                 void *copy;
 
+                                assert(sz <= sizeof(f->data)); /* Ensure we don't read past f->data bounds */
+
                                 copy = memdup(f->data, sz);
                                 if (!copy)
                                         return -ENOMEM;
