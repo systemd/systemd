@@ -313,8 +313,10 @@
         <listitem><para>The menu timeout in seconds. Read by the boot loader. <varname>LoaderConfigTimeout</varname>
         is maintained persistently, while <varname>LoaderConfigTimeoutOneShot</varname> is a one-time override which is
         read once (in which case it takes precedence over <varname>LoaderConfigTimeout</varname>) and then
-        removed. <varname>LoaderConfigTimeout</varname> may be manipulated with the
-        <keycap>t</keycap>/<keycap>T</keycap> keys, see above.</para></listitem>
+        removed. <citerefentry><refentrytitle>bootctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>'s
+        <option>set-timeout</option> and <option>set-timeout-oneshot</option> commands make use of these variables.
+        <varname>LoaderConfigTimeout</varname> may be manipulated with the <keycap>t</keycap>/<keycap>T</keycap> keys,
+        see above.</para></listitem>
       </varlistentry>
 
       <varlistentry>
