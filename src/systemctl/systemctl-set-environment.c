@@ -36,7 +36,7 @@ int show_environment(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return r;
 
-        (void) pager_open(arg_pager_flags);
+        pager_open(arg_pager_flags);
 
         r = bus_get_property(bus, bus_systemd_mgr, "Environment", &error, &reply, "as");
         if (r < 0)

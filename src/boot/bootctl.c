@@ -1274,7 +1274,7 @@ static int verb_status(int argc, char *argv[], void *userdata) {
         r = 0; /* If we couldn't determine the path, then don't consider that a problem from here on, just show what we
                 * can show */
 
-        (void) pager_open(arg_pager_flags);
+        pager_open(arg_pager_flags);
 
         if (is_efi_boot()) {
                 static const struct {
@@ -1429,7 +1429,7 @@ static int verb_list(int argc, char *argv[], void *userdata) {
         if (config.n_entries == 0)
                 log_info("No boot loader entries found.");
         else {
-                (void) pager_open(arg_pager_flags);
+                pager_open(arg_pager_flags);
 
                 printf("Boot Loader Entries:\n");
 
