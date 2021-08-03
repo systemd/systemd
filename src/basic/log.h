@@ -174,7 +174,6 @@ _noreturn_ void log_assert_failed(
                 const char *func);
 
 _noreturn_ void log_assert_failed_unreachable(
-                const char *text,
                 const char *file,
                 int line,
                 const char *func);

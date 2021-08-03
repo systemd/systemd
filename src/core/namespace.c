@@ -570,7 +570,7 @@ static int append_protect_home(MountEntry **p, ProtectHome protect_home, bool ig
                 return append_static_mounts(p, protect_home_yes_table, ELEMENTSOF(protect_home_yes_table), ignore_protect);
 
         default:
-                assert_not_reached("Unexpected ProtectHome= value");
+                assert_not_reached();
         }
 }
 
@@ -592,7 +592,7 @@ static int append_protect_system(MountEntry **p, ProtectSystem protect_system, b
                 return append_static_mounts(p, protect_system_full_table, ELEMENTSOF(protect_system_full_table), ignore_protect);
 
         default:
-                assert_not_reached("Unexpected ProtectSystem= value");
+                assert_not_reached();
         }
 }
 
@@ -1359,7 +1359,7 @@ static int apply_one_mount(
                 return mount_overlay(m);
 
         default:
-                assert_not_reached("Unknown mode");
+                assert_not_reached();
         }
 
         assert(what);

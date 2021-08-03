@@ -1881,7 +1881,7 @@ static int process_route_one(Manager *manager, Link *link, uint16_t type, const 
                 break;
 
         default:
-                assert_not_reached("Received route message with invalid RTNL message type");
+                assert_not_reached();
         }
 
         return 1;
@@ -2335,7 +2335,7 @@ int config_parse_destination(
                 buffer = &n->src;
                 prefixlen = &n->src_prefixlen;
         } else
-                assert_not_reached(lvalue);
+                assert_not_reached();
 
         if (n->family == AF_UNSPEC)
                 r = in_addr_prefix_from_string_auto(rvalue, &n->family, buffer, prefixlen);
@@ -2580,7 +2580,7 @@ int config_parse_route_boolean(
         else if (streq(lvalue, "TTLPropagate"))
                 n->ttl_propagate = r;
         else
-                assert_not_reached("Invalid lvalue");
+                assert_not_reached();
 
         TAKE_PTR(n);
         return 0;
@@ -2814,7 +2814,7 @@ int config_parse_tcp_window(
         else if (streq(lvalue, "InitialAdvertisedReceiveWindow"))
                 n->initrwnd = k;
         else
-                assert_not_reached("Invalid TCP window type.");
+                assert_not_reached();
 
         TAKE_PTR(n);
         return 0;

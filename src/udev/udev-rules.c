@@ -1374,7 +1374,7 @@ static bool token_match_string(UdevRuleToken *token, const char *str) {
                         }
                 break;
         default:
-                assert_not_reached("Invalid match type");
+                assert_not_reached();
         }
 
         return token->op == (match ? OP_MATCH : OP_NOMATCH);
@@ -1405,7 +1405,7 @@ static bool token_match_attr(UdevRuleToken *token, sd_device *dev, UdevEvent *ev
                 value = vbuf;
                 break;
         default:
-                assert_not_reached("Invalid attribute substitution type");
+                assert_not_reached();
         }
 
         /* remove trailing whitespace, if not asked to match for it */
@@ -1607,7 +1607,7 @@ static int udev_rule_apply_token_to_event(
                 else if (streq(k, "virt"))
                         val = virtualization_to_string(detect_virtualization());
                 else
-                        assert_not_reached("Invalid CONST key");
+                        assert_not_reached();
                 return token_match_string(token, val);
         }
         case TK_M_TAG:
@@ -2233,7 +2233,7 @@ static int udev_rule_apply_token_to_event(
                 /* do nothing for events. */
                 break;
         default:
-                assert_not_reached("Invalid token type");
+                assert_not_reached();
         }
 
         return true;

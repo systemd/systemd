@@ -58,7 +58,7 @@ do {                                                                    \
                         (void) va_arg(ap, long double);                 \
                         break;                                          \
                 default:                                                \
-                        assert_not_reached("Unknown format string argument."); \
+                        assert_not_reached();                           \
                 }                                                       \
         }                                                               \
 } while (false)

@@ -566,7 +566,7 @@ static int merge_subprocess(Hashmap *images, const char *workspace) {
                         break;
                 }
                 default:
-                        assert_not_reached("Unsupported image type");
+                        assert_not_reached();
                 }
 
                 r = validate_version(
@@ -957,7 +957,7 @@ static int parse_argv(int argc, char *argv[]) {
                         return -EINVAL;
 
                 default:
-                        assert_not_reached("Unhandled option");
+                        assert_not_reached();
                 }
 
         return 1;

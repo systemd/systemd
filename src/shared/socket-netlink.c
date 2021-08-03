@@ -129,7 +129,7 @@ int socket_address_parse(SocketAddress *a, const char *s) {
                                         .size = sizeof(struct sockaddr_in6),
                                 };
                         else
-                                assert_not_reached("Family quarrel");
+                                assert_not_reached();
                 }
         }
 

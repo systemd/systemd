@@ -287,7 +287,7 @@ static int parse_argv(int argc, char *argv[]) {
                         return -EINVAL;
 
                 default:
-                        assert_not_reached("Unhandled option");
+                        assert_not_reached();
                 }
 
         }
@@ -344,7 +344,7 @@ static int parse_argv(int argc, char *argv[]) {
                 break;
 
         default:
-                assert_not_reached("Unknown action.");
+                assert_not_reached();
         }
 
         return 1;
@@ -818,7 +818,7 @@ static int run(int argc, char *argv[]) {
                 break;
 
         default:
-                assert_not_reached("Unknown action.");
+                assert_not_reached();
         }
 
         return r;

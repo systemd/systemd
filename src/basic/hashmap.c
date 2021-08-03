@@ -401,7 +401,7 @@ static struct hashmap_base_entry* bucket_at_virtual(HashmapBase *h, struct swap_
         if (idx < _IDX_SWAP_END)
                 return &bucket_at_swap(swap, idx)->p.b;
 
-        assert_not_reached("Invalid index");
+        assert_not_reached();
 }
 
 static dib_raw_t* dib_raw_ptr(HashmapBase *h) {
@@ -513,7 +513,7 @@ static void* entry_value(HashmapBase *h, struct hashmap_base_entry *e) {
                 return (void*) e->key;
 
         default:
-                assert_not_reached("Unknown hashmap type");
+                assert_not_reached();
         }
 }
 
@@ -1747,7 +1747,7 @@ HashmapBase* _hashmap_copy(HashmapBase *h  HASHMAP_DEBUG_PARAMS) {
                 r = set_merge((Set*)copy, (Set*)h);
                 break;
         default:
-                assert_not_reached("Unknown hashmap type");
+                assert_not_reached();
         }
 
         if (r < 0)

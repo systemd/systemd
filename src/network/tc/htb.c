@@ -338,7 +338,7 @@ int config_parse_hierarchy_token_bucket_class_size(
                 else if (streq(lvalue, "CeilBufferBytes"))
                         htb->ceil_buffer = 0;
                 else
-                        assert_not_reached("Invalid lvalue");
+                        assert_not_reached();
 
                 tclass = NULL;
                 return 0;
@@ -369,7 +369,7 @@ int config_parse_hierarchy_token_bucket_class_size(
         else if (streq(lvalue, "CeilBufferBytes"))
                 htb->ceil_buffer = v;
         else
-                assert_not_reached("Invalid lvalue");
+                assert_not_reached();
 
         tclass = NULL;
 
@@ -414,7 +414,7 @@ int config_parse_hierarchy_token_bucket_class_rate(
         else if (streq(lvalue, "CeilRate"))
                 v = &htb->ceil_rate;
         else
-                assert_not_reached("Invalid lvalue");
+                assert_not_reached();
 
         if (isempty(rvalue)) {
                 *v = 0;

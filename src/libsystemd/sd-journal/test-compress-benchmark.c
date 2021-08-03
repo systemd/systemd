@@ -68,7 +68,7 @@ static char* make_buf(size_t count, const char *type) {
                 random_bytes(buf + 8*step, step);
                 memzero(buf + 9*step, step);
         } else
-                assert_not_reached("here");
+                assert_not_reached();
 
         return buf;
 }

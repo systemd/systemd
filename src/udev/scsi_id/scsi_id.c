@@ -306,7 +306,7 @@ static int set_options(int argc, char **argv,
                         return -1;
 
                 default:
-                        assert_not_reached("Unknown option");
+                        assert_not_reached();
                 }
 
         if (optind < argc && !dev_specified) {

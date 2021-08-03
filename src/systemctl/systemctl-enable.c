@@ -124,7 +124,7 @@ int enable_unit(int argc, char *argv[], void *userdata) {
                 else if (streq(verb, "revert"))
                         r = unit_file_revert(arg_scope, arg_root, names, &changes, &n_changes);
                 else
-                        assert_not_reached("Unknown verb");
+                        assert_not_reached();
 
                 unit_file_dump_changes(r, verb, changes, n_changes, arg_quiet);
                 if (r < 0)
@@ -191,7 +191,7 @@ int enable_unit(int argc, char *argv[], void *userdata) {
                         method = "RevertUnitFiles";
                         send_runtime = send_force = false;
                 } else
-                        assert_not_reached("Unknown verb");
+                        assert_not_reached();
 
                 r = bus_message_new_method_call(bus, &m, bus_systemd_mgr, method);
                 if (r < 0)

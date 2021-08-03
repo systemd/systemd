@@ -639,7 +639,7 @@ int device_read_uevent_file(sd_device *device) {
 
                         break;
                 default:
-                        assert_not_reached("Invalid state when parsing uevent file");
+                        assert_not_reached();
                 }
 
         if (major) {

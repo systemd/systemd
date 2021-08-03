@@ -2275,7 +2275,7 @@ _public_ int sd_bus_message_close_container(sd_bus_message *m) {
         else if (IN_SET(c->enclosing, SD_BUS_TYPE_STRUCT, SD_BUS_TYPE_DICT_ENTRY))
                 r = bus_message_close_struct(m, c, true);
         else
-                assert_not_reached("Unknown container type");
+                assert_not_reached();
 
         free(c->signature);
         free(c->offsets);
@@ -3247,7 +3247,7 @@ static int container_next_item(sd_bus_message *m, struct bus_container *c, size_
         } else if (c->enclosing == SD_BUS_TYPE_VARIANT)
                 goto end;
         else
-                assert_not_reached("Unknown container type");
+                assert_not_reached();
 
         return 0;
 
@@ -3460,7 +3460,7 @@ _public_ int sd_bus_message_read_basic(sd_bus_message *m, char type, void *p) {
                         }
 
                         default:
-                                assert_not_reached("unexpected type");
+                                assert_not_reached();
                         }
                 }
 
@@ -3575,7 +3575,7 @@ _public_ int sd_bus_message_read_basic(sd_bus_message *m, char type, void *p) {
                         }
 
                         default:
-                                assert_not_reached("Unknown basic type...");
+                                assert_not_reached();
                         }
                 }
         }

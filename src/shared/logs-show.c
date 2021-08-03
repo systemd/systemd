@@ -416,7 +416,7 @@ static int output_timestamp_realtime(FILE *f, sd_journal *j, OutputMode mode, Ou
                         break;
 
                 default:
-                        assert_not_reached("Unknown time format");
+                        assert_not_reached();
                 }
         }
 

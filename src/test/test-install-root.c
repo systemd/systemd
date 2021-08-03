@@ -284,7 +284,7 @@ static void test_linked_units(const char *root) {
                 else if (q && streq(changes[i].path, q))
                         q = NULL;
                 else
-                        assert_not_reached("wut?");
+                        assert_not_reached();
         }
         assert(!p && !q);
         unit_file_changes_free(changes, n_changes);
@@ -305,7 +305,7 @@ static void test_linked_units(const char *root) {
                 else if (q && streq(changes[i].path, q))
                         q = NULL;
                 else
-                        assert_not_reached("wut?");
+                        assert_not_reached();
         }
         assert(!p && !q);
         unit_file_changes_free(changes, n_changes);
@@ -326,7 +326,7 @@ static void test_linked_units(const char *root) {
                 else if (q && streq(changes[i].path, q))
                         q = NULL;
                 else
-                        assert_not_reached("wut?");
+                        assert_not_reached();
         }
         assert(!p && !q);
         unit_file_changes_free(changes, n_changes);

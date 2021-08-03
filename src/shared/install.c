@@ -2897,7 +2897,7 @@ int unit_file_lookup_state(
                 break;
 
         default:
-                assert_not_reached("Unexpected unit file type.");
+                assert_not_reached();
         }
 
         *ret = state;
@@ -2989,7 +2989,7 @@ static int presets_find_config(UnitFileScope scope, const char *root_dir, char *
         else if (IN_SET(scope, UNIT_FILE_GLOBAL, UNIT_FILE_USER))
                 dirs = user_dirs;
         else
-                assert_not_reached("Invalid unit file scope");
+                assert_not_reached();
 
         return conf_files_list_strv(files, ".preset", root_dir, 0, dirs);
 }
@@ -3173,7 +3173,7 @@ static int query_presets(const char *name, const UnitFilePresets *presets, char 
                 log_debug("Preset files say disable %s.", name);
                 return 0;
         default:
-                assert_not_reached("invalid preset action");
+                assert_not_reached();
         }
 }
 

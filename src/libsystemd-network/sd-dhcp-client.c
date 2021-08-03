@@ -1308,7 +1308,7 @@ static int client_timeout_resend(
                 goto error;
 
         default:
-                assert_not_reached("Unhandled choice");
+                assert_not_reached();
         }
 
         r = event_reset_time(client->event, &client->timeout_resend,
@@ -1896,7 +1896,7 @@ static int client_handle_message(sd_dhcp_client *client, DHCPMessage *message, i
                 r = -EINVAL;
                 goto error;
         default:
-                assert_not_reached("invalid state");
+                assert_not_reached();
         }
 
 error:

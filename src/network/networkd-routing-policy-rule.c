@@ -1051,7 +1051,7 @@ int manager_rtnl_process_rule(sd_netlink *rtnl, sd_netlink_message *message, Man
                 break;
 
         default:
-                assert_not_reached("Received invalid RTNL message type");
+                assert_not_reached();
         }
 
         return 1;
@@ -1636,7 +1636,7 @@ static int routing_policy_rule_section_verify(RoutingPolicyRule *rule) {
          * update routing_policy_rule_is_created_by_kernel() when a new setting which sets the flag is
          * added in the future. */
         if (rule->l3mdev > 0)
-                assert_not_reached("FRA_L3MDEV flag should not be configured.");
+                assert_not_reached();
 
         return 0;
 }
