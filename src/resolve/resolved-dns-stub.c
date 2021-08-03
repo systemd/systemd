@@ -585,7 +585,7 @@ static int dns_stub_send_reply(
                         DNS_PACKET_RD(q->request_packet),
                         !!q->request_packet->opt,
                         edns0_do,
-                        DNS_PACKET_AD(q->request_packet) && dns_query_fully_authenticated(q),
+                        (DNS_PACKET_AD(q->request_packet) || DNS_PACKET_DO(q->request_packet)) && dns_query_fully_authenticated(q),
                         DNS_PACKET_CD(q->request_packet),
                         q->stub_listener_extra ? ADVERTISE_EXTRA_DATAGRAM_SIZE_MAX : ADVERTISE_DATAGRAM_SIZE_MAX,
                         dns_packet_has_nsid_request(q->request_packet) > 0 && !q->stub_listener_extra);
@@ -627,7 +627,7 @@ static int dns_stub_send_failure(
                         DNS_PACKET_RD(p),
                         !!p->opt,
                         DNS_PACKET_DO(p),
-                        DNS_PACKET_AD(p) && authenticated,
+                        (DNS_PACKET_AD(p) || DNS_PACKET_DO(p)) && authenticated,
                         DNS_PACKET_CD(p),
                         l ? ADVERTISE_EXTRA_DATAGRAM_SIZE_MAX : ADVERTISE_DATAGRAM_SIZE_MAX,
                         dns_packet_has_nsid_request(p) > 0 && !l);
