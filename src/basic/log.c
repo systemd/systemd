@@ -867,7 +867,7 @@ _noreturn_ void log_assert_failed_unreachable(
                 int line,
                 const char *func) {
         log_assert(LOG_CRIT, "Code should not be reached", file, line, func,
-                   "%s at %s:%u, function %s(). Aborting.");
+                   "%s at %s:%u, function %s(). Aborting. 💥");
         abort();
 }
 
