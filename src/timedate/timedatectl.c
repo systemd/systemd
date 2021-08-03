@@ -315,7 +315,7 @@ static int list_timezones(int argc, char **argv, void *userdata) {
         if (r < 0)
                 return bus_log_parse_error(r);
 
-        (void) pager_open(arg_pager_flags);
+        pager_open(arg_pager_flags);
         strv_print(zones);
 
         return 0;

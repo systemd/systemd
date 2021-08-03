@@ -232,7 +232,7 @@ int list_machines(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return r;
 
-        (void) pager_open(arg_pager_flags);
+        pager_open(arg_pager_flags);
 
         typesafe_qsort(machine_infos, r, compare_machine_info);
         rc = output_machines_list(machine_infos, r);
