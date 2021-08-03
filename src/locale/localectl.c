@@ -194,7 +194,7 @@ static int list_locales(int argc, char **argv, void *userdata) {
         if (r < 0)
                 return log_error_errno(r, "Failed to read list of locales: %m");
 
-        (void) pager_open(arg_pager_flags);
+        pager_open(arg_pager_flags);
         strv_print(l);
 
         return 0;
@@ -234,7 +234,7 @@ static int list_vconsole_keymaps(int argc, char **argv, void *userdata) {
         if (r < 0)
                 return log_error_errno(r, "Failed to read list of keymaps: %m");
 
-        (void) pager_open(arg_pager_flags);
+        pager_open(arg_pager_flags);
 
         strv_print(l);
 
@@ -363,7 +363,7 @@ static int list_x11_keymaps(int argc, char **argv, void *userdata) {
         strv_sort(list);
         strv_uniq(list);
 
-        (void) pager_open(arg_pager_flags);
+        pager_open(arg_pager_flags);
 
         strv_print(list);
         return 0;

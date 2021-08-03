@@ -73,7 +73,7 @@ static int output_jobs_list(sd_bus *bus, const struct job_info* jobs, unsigned n
                 return 0;
         }
 
-        (void) pager_open(arg_pager_flags);
+        pager_open(arg_pager_flags);
 
         table = table_new("job", "unit", "type", "state");
         if (!table)
@@ -168,7 +168,7 @@ int list_jobs(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return bus_log_parse_error(r);
 
-        (void) pager_open(arg_pager_flags);
+        pager_open(arg_pager_flags);
 
         return output_jobs_list(bus, jobs, c, skipped);
 }

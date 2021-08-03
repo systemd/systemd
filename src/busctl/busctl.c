@@ -496,7 +496,7 @@ static int tree_one(sd_bus *bus, const char *service) {
                         return log_oom();
         }
 
-        (void) pager_open(arg_pager_flags);
+        pager_open(arg_pager_flags);
 
         l = set_get_strv(done);
         if (!l)
@@ -536,7 +536,7 @@ static int tree(int argc, char **argv, void *userdata) {
                 if (r < 0)
                         return log_error_errno(r, "Failed to get name list: %m");
 
-                (void) pager_open(arg_pager_flags);
+                pager_open(arg_pager_flags);
 
                 STRV_FOREACH(i, names) {
                         int q;
@@ -566,7 +566,7 @@ static int tree(int argc, char **argv, void *userdata) {
                                 printf("\n");
 
                         if (argv[2]) {
-                                (void) pager_open(arg_pager_flags);
+                                pager_open(arg_pager_flags);
                                 printf("Service %s%s%s:\n", ansi_highlight(), *i, ansi_normal());
                         }
 
@@ -989,7 +989,7 @@ static int introspect(int argc, char **argv, void *userdata) {
 
         if (arg_xml_interface) {
                 /* Just dump the received XML and finish */
-                (void) pager_open(arg_pager_flags);
+                pager_open(arg_pager_flags);
                 puts(xml);
                 return 0;
         }
@@ -1108,7 +1108,7 @@ static int introspect(int argc, char **argv, void *userdata) {
 
         typesafe_qsort(sorted, k, member_compare_funcp);
 
-        (void) pager_open(arg_pager_flags);
+        pager_open(arg_pager_flags);
 
         if (arg_legend)
                 printf("%-*s %-*s %-*s %-*s %s\n",
@@ -1368,7 +1368,7 @@ static int status(int argc, char **argv, void *userdata) {
         if (r < 0)
                 return r;
 
-        (void) pager_open(arg_pager_flags);
+        pager_open(arg_pager_flags);
 
         if (!isempty(argv[1])) {
                 r = parse_pid(argv[1], &pid);
@@ -2048,7 +2048,7 @@ static int call(int argc, char **argv, void *userdata) {
                         _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
 
                         if (arg_json_format_flags & (JSON_FORMAT_PRETTY|JSON_FORMAT_PRETTY_AUTO))
-                                (void) pager_open(arg_pager_flags);
+                                pager_open(arg_pager_flags);
 
                         r = json_transform_message(reply, &v);
                         if (r < 0)
@@ -2057,7 +2057,7 @@ static int call(int argc, char **argv, void *userdata) {
                         json_variant_dump(v, arg_json_format_flags, NULL, NULL);
 
                 } else if (arg_verbose) {
-                        (void) pager_open(arg_pager_flags);
+                        pager_open(arg_pager_flags);
 
                         r = sd_bus_message_dump(reply, stdout, 0);
                         if (r < 0)
@@ -2157,7 +2157,7 @@ static int get_property(int argc, char **argv, void *userdata) {
                         _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
 
                         if (arg_json_format_flags & (JSON_FORMAT_PRETTY|JSON_FORMAT_PRETTY_AUTO))
-                                (void) pager_open(arg_pager_flags);
+                                pager_open(arg_pager_flags);
 
                         r = json_transform_variant(reply, contents, &v);
                         if (r < 0)
@@ -2166,7 +2166,7 @@ static int get_property(int argc, char **argv, void *userdata) {
                         json_variant_dump(v, arg_json_format_flags, NULL, NULL);
 
                 } else if (arg_verbose) {
-                        (void) pager_open(arg_pager_flags);
+                        pager_open(arg_pager_flags);
 
                         r = sd_bus_message_dump(reply, stdout, SD_BUS_MESSAGE_DUMP_SUBTREE_ONLY);
                         if (r < 0)
@@ -2243,7 +2243,7 @@ static int help(void) {
         if (r < 0)
                 return log_oom();
 
-        (void) pager_open(arg_pager_flags);
+        pager_open(arg_pager_flags);
 
         printf("%s [OPTIONS...] COMMAND ...\n\n"
                "%sIntrospect the D-Bus IPC bus.%s\n"

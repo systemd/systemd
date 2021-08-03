@@ -302,7 +302,7 @@ static int help(void) {
         _cleanup_free_ char *link = NULL;
         int r;
 
-        (void) pager_open(arg_pager_flags);
+        pager_open(arg_pager_flags);
 
         r = terminal_urlify_man("systemd-nspawn", "1", &link);
         if (r < 0)
@@ -4222,11 +4222,11 @@ static int nspawn_dispatch_notify_fd(sd_event_source *source, int fd, uint32_t r
                 return log_oom();
 
         if (strv_find(tags, "READY=1"))
-                (void) sd_notifyf(false, "READY=1\n");
+                sd_notifyf(false, "READY=1\n");
 
         p = strv_find_startswith(tags, "STATUS=");
         if (p)
-                (void) sd_notifyf(false, "STATUS=Container running: %s", p);
+                sd_notifyf(false, "STATUS=Container running: %s", p);
 
         return 0;
 }
@@ -5106,11 +5106,11 @@ static int run_container(
          * will make them appear in getpwuid(), thus we can release the /etc/passwd lock. */
         etc_passwd_lock = safe_close(etc_passwd_lock);
 
-        (void) sd_notifyf(false,
-                          "STATUS=Container running.\n"
-                          "X_NSPAWN_LEADER_PID=" PID_FMT, *pid);
+        sd_notifyf(false,
+                   "STATUS=Container running.\n"
+                   "X_NSPAWN_LEADER_PID=" PID_FMT, *pid);
         if (!arg_notify_ready)
-                (void) sd_notify(false, "READY=1\n");
+                sd_notify(false, "READY=1\n");
 
         if (arg_kill_signal > 0) {
                 /* Try to kill the init system on SIGINT or SIGTERM */
@@ -5777,9 +5777,9 @@ static int run(int argc, char *argv[]) {
         }
 
 finish:
-        (void) sd_notify(false,
-                         r == 0 && ret == EXIT_FORCE_RESTART ? "STOPPING=1\nSTATUS=Restarting..." :
-                                                               "STOPPING=1\nSTATUS=Terminating...");
+        sd_notify(false,
+                  r == 0 && ret == EXIT_FORCE_RESTART ? "STOPPING=1\nSTATUS=Restarting..." :
+                                                        "STOPPING=1\nSTATUS=Terminating...");
 
         if (pid > 0)
                 (void) kill(pid, SIGKILL);
