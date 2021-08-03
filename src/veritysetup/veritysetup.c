@@ -30,7 +30,7 @@ static int help(void) {
 
         printf("%s attach VOLUME DATADEVICE HASHDEVICE ROOTHASH [OPTIONS]\n"
                "%s detach VOLUME\n\n"
-               "Attaches or detaches an integrity protected block device.\n"
+               "Attach or detach an integrity protected block device.\n"
                "\nSee the %s for details.\n",
                program_invocation_short_name,
                program_invocation_short_name,
@@ -130,7 +130,10 @@ static int run(int argc, char *argv[]) {
         _cleanup_(crypt_freep) struct crypt_device *cd = NULL;
         int r;
 
-        if (argc <= 1)
+        if (argc <= 1 ||
+            strv_contains(strv_skip(argv, 1), "--help") ||
+            strv_contains(strv_skip(argv, 1), "-h") ||
+            streq(argv[1], "help"))
                 return help();
 
         if (argc < 3)
