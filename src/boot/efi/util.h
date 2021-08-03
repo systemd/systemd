@@ -13,6 +13,7 @@ static inline UINTN ALIGN_TO(UINTN l, UINTN ali) {
 }
 
 EFI_STATUS parse_boolean(const CHAR8 *v, BOOLEAN *b);
+EFI_STATUS parse_int(const CHAR16 *v, INTN *i);
 
 UINT64 ticks_read(void);
 UINT64 ticks_freq(void);
@@ -20,14 +21,14 @@ UINT64 time_usec(void);
 
 EFI_STATUS efivar_set(const EFI_GUID *vendor, const CHAR16 *name, const CHAR16 *value, UINT32 flags);
 EFI_STATUS efivar_set_raw(const EFI_GUID *vendor, const CHAR16 *name, const VOID *buf, UINTN size, UINT32 flags);
-EFI_STATUS efivar_set_uint_string(const EFI_GUID *vendor, const CHAR16 *name, UINTN i, UINT32 flags);
+EFI_STATUS efivar_set_int_string(const EFI_GUID *vendor, const CHAR16 *name, INTN i, UINT32 flags);
 EFI_STATUS efivar_set_uint32_le(const EFI_GUID *vendor, const CHAR16 *NAME, UINT32 value, UINT32 flags);
 EFI_STATUS efivar_set_uint64_le(const EFI_GUID *vendor, const CHAR16 *name, UINT64 value, UINT32 flags);
 VOID efivar_set_time_usec(const EFI_GUID *vendor, const CHAR16 *name, UINT64 usec);
 
 EFI_STATUS efivar_get(const EFI_GUID *vendor, const CHAR16 *name, CHAR16 **value);
 EFI_STATUS efivar_get_raw(const EFI_GUID *vendor, const CHAR16 *name, CHAR8 **buffer, UINTN *size);
-EFI_STATUS efivar_get_uint_string(const EFI_GUID *vendor, const CHAR16 *name, UINTN *i);
+EFI_STATUS efivar_get_int_string(const EFI_GUID *vendor, const CHAR16 *name, INTN *i);
 EFI_STATUS efivar_get_uint32_le(const EFI_GUID *vendor, const CHAR16 *name, UINT32 *ret);
 EFI_STATUS efivar_get_uint64_le(const EFI_GUID *vendor, const CHAR16 *name, UINT64 *ret);
 EFI_STATUS efivar_get_boolean_u8(const EFI_GUID *vendor, const CHAR16 *name, BOOLEAN *ret);
@@ -74,4 +75,10 @@ static inline void FileHandleClosep(EFI_FILE_HANDLE *handle) {
 #define UINT64_MAX ((UINT64) -1)
 #endif
 
+VOID PrintErrorStall(const CHAR16 *format, ...);
 EFI_STATUS log_oom(void);
+
+VOID print_at(UINTN x, UINTN y, UINTN attr, const CHAR16 *str);
+VOID draw_box(UINTN x, UINTN y, UINTN w, UINTN h, UINTN color);
+
+VOID *FindMem(const VOID *haystack, UINTN haystack_len, const VOID *needle, UINTN needle_len);

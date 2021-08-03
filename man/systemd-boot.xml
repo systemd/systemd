@@ -129,11 +129,13 @@
 
       <varlistentry>
         <term><keycap>d</keycap></term>
+        <term><keycap>D</keycap></term>
         <listitem><para>Make selected entry the default</para></listitem>
       </varlistentry>
 
       <varlistentry>
         <term><keycap>e</keycap></term>
+        <term><keycap>E</keycap></term>
         <listitem><para>Edit the kernel command line for selected entry</para></listitem>
       </varlistentry>
 
@@ -150,22 +152,21 @@
       </varlistentry>
 
       <varlistentry>
-        <term><keycap>v</keycap></term>
-        <listitem><para>Show systemd-boot, UEFI, and firmware versions</para></listitem>
+        <term><keycap>r</keycap></term>
+        <term><keycap>R</keycap></term>
+        <term><keycap>F4</keycap></term>
+        <listitem><para>Change screen resolution, skipping any unsupported modes.</para></listitem>
       </varlistentry>
 
       <varlistentry>
+        <term><keycap>p</keycap></term>
         <term><keycap>P</keycap></term>
         <listitem><para>Print status</para></listitem>
       </varlistentry>
 
       <varlistentry>
-        <term><keycap>Q</keycap></term>
-        <listitem><para>Quit</para></listitem>
-      </varlistentry>
-
-      <varlistentry>
         <term><keycap>h</keycap></term>
+        <term><keycap>H</keycap></term>
         <term><keycap>?</keycap></term>
         <term><keycap>F1</keycap></term>
         <listitem><para>Show a help screen</para></listitem>
