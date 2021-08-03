@@ -378,7 +378,6 @@ static sd_device *handle_scsi_hyperv(sd_device *parent, char **path, size_t guid
         const char *guid_str;
         _cleanup_free_ char *lun = NULL;
         char guid[39];
-        size_t i, k;
 
         assert(parent);
         assert(path);
@@ -396,7 +395,8 @@ static sd_device *handle_scsi_hyperv(sd_device *parent, char **path, size_t guid
         if (strlen(guid_str) < guid_str_len || guid_str[0] != '{' || guid_str[guid_str_len-1] != '}')
                 return NULL;
 
-        for (i = 1, k = 0; i < guid_str_len-1; i++) {
+        size_t k = 0;
+        for (size_t i = 1; i < guid_str_len-1; i++) {
                 if (guid_str[i] == '-')
                         continue;
                 guid[k++] = guid_str[i];
@@ -681,11 +681,10 @@ static int builtin_path_id(sd_device *dev, int argc, char *argv[], bool test) {
 
         {
                 char tag[UDEV_NAME_SIZE];
-                size_t i;
-                const char *p;
+                size_t i = 0;
 
                 /* compose valid udev tag name */
-                for (p = path, i = 0; *p; p++) {
+                for (const char *p = path; *p; p++) {
                         if ((*p >= '0' && *p <= '9') ||
                             (*p >= 'A' && *p <= 'Z') ||
                             (*p >= 'a' && *p <= 'z') ||

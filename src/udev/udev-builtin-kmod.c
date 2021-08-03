@@ -21,16 +21,14 @@ _printf_(6,0) static void udev_kmod_log(void *data, int priority, const char *fi
 }
 
 static int builtin_kmod(sd_device *dev, int argc, char *argv[], bool test) {
-        int i;
-
         if (!ctx)
                 return 0;
 
         if (argc < 3 || !streq(argv[1], "load"))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "%s: expected: load <module>", argv[0]);
+                                       "%s: expected: load <module>…", argv[0]);
 
-        for (i = 2; argv[i]; i++)
+        for (int i = 2; argv[i]; i++)
                 (void) module_load_and_warn(ctx, argv[i], false);
 
         return 0;

@@ -405,10 +405,8 @@ fallback:
                 const char *usb_serial;
 
                 if (sd_device_get_sysattr_value(dev_usb, "serial", &usb_serial) >= 0) {
-                        const unsigned char *p;
-
                         /* http://msdn.microsoft.com/en-us/library/windows/hardware/gg487321.aspx */
-                        for (p = (unsigned char *) usb_serial; *p != '\0'; p++)
+                        for (const unsigned char *p = (unsigned char*) usb_serial; *p != '\0'; p++)
                                 if (*p < 0x20 || *p > 0x7f || *p == ',') {
                                         usb_serial = NULL;
                                         break;
