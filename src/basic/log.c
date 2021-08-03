@@ -919,11 +919,8 @@ int log_format_iovec(
                 VA_FORMAT_ADVANCE(format, ap);
 
                 iovec[(*n)++] = IOVEC_MAKE_STRING(m);
-
-                if (newline_separator) {
-                        iovec[*n] = IOVEC_MAKE((char *)&nl, 1);
-                        (*n)++;
-                }
+                if (newline_separator)
+                        iovec[(*n)++] = IOVEC_MAKE((char *)&nl, 1);
 
                 format = va_arg(ap, char *);
         }
@@ -1039,8 +1036,6 @@ int log_struct_iovec_internal(
                 size_t n_input_iovec) {
 
         PROTECT_ERRNO;
-        size_t i;
-        char *m;
 
         if (_likely_(LOG_PRI(level) > log_max_level) ||
             log_target == LOG_TARGET_NULL)
@@ -1059,7 +1054,7 @@ int log_struct_iovec_internal(
 
                 struct iovec iovec[1 + n_input_iovec*2];
                 iovec[0] = IOVEC_MAKE_STRING(header);
-                for (i = 0; i < n_input_iovec; i++) {
+                for (size_t i = 0; i < n_input_iovec; i++) {
                         iovec[1+i*2] = input_iovec[i];
                         iovec[1+i*2+1] = IOVEC_MAKE_STRING("\n");
                 }
@@ -1073,17 +1068,16 @@ int log_struct_iovec_internal(
                         return -ERRNO_VALUE(error);
         }
 
-        for (i = 0; i < n_input_iovec; i++)
-                if (memory_startswith(input_iovec[i].iov_base, input_iovec[i].iov_len, "MESSAGE="))
-                        break;
+        for (size_t i = 0; i < n_input_iovec; i++)
+                if (memory_startswith(input_iovec[i].iov_base, input_iovec[i].iov_len, "MESSAGE=")) {
+                        char *m = strndupa(input_iovec[i].iov_base + STRLEN("MESSAGE="),
+                                           input_iovec[i].iov_len - STRLEN("MESSAGE="));
 
-        if (_unlikely_(i >= n_input_iovec)) /* Couldn't find MESSAGE=? */
-                return -ERRNO_VALUE(error);
+                        return log_dispatch_internal(level, error, file, line, func, NULL, NULL, NULL, NULL, m);
+                }
 
-        m = strndupa(input_iovec[i].iov_base + STRLEN("MESSAGE="),
-                     input_iovec[i].iov_len - STRLEN("MESSAGE="));
-
-        return log_dispatch_internal(level, error, file, line, func, NULL, NULL, NULL, NULL, m);
+        /* Couldn't find MESSAGE=. */
+        return -ERRNO_VALUE(error);
 }
 
 int log_set_target_from_string(const char *e) {
