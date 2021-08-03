@@ -999,7 +999,7 @@ _public_ int sd_login_monitor_new(const char *category, sd_login_monitor **m) {
 
 _public_ sd_login_monitor* sd_login_monitor_unref(sd_login_monitor *m) {
         if (m)
-                close_nointr(MONITOR_TO_FD(m));
+                (void) close_nointr(MONITOR_TO_FD(m));
 
         return NULL;
 }
