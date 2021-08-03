@@ -12,17 +12,6 @@ mkdir "$root/bin"
 busybox="$(type -P busybox-static || type -P busybox)"
 cp "$busybox" "$root/bin/busybox"
 
-os_release=$(test -e /etc/os-release && echo /etc/os-release || echo /usr/lib/os-release)
-ID_LIKE=$(awk -F= '$1=="ID_LIKE" { print $2 ;}' $os_release)
-if [[ "$ID_LIKE" = *"suse"* ]]; then
-    mkdir -p "$root/lib"
-    mkdir -p "$root/lib64"
-    for lib in $(find /lib*/ld*); do
-        [[ -d $root/$(dirname $lib) ]] || mkdir -p $root/$(dirname $lib)
-        cp $lib $root/$lib
-    done
-fi
-
 mkdir -p "$root/usr/lib"
 touch "$root/usr/lib/os-release"
 
