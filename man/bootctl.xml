@@ -116,6 +116,18 @@
         </para></listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term><option>set-timeout</option> <replaceable>timeout</replaceable></term>
+        <term><option>set-timeout-oneshot</option> <replaceable>timeout</replaceable></term>
+
+        <listitem><para>Sets the timeout of boot loader. The <option>set-timeout-oneshot</option> command will set the
+        timeout only for the next boot, the <option>set-timeout</option> will set it persistently for all future boots.
+        </para></listitem>
+
+        <listitem><para> When an empty string ("") is specified as the timeout, then the corresponding EFI variable
+        will be unset.</para></listitem>
+      </varlistentry>
+
     </variablelist>
   </refsect1>
 
