@@ -80,22 +80,19 @@ static int format_lun_number(sd_device *dev, char **path) {
 }
 
 static sd_device *skip_subsystem(sd_device *dev, const char *subsys) {
-        sd_device *parent;
-
         assert(dev);
         assert(subsys);
 
-        for (parent = dev; ; ) {
+        for (;;) {
                 const char *subsystem;
 
-                if (sd_device_get_subsystem(parent, &subsystem) < 0)
+                if (sd_device_get_subsystem(dev, &subsystem) < 0)
                         break;
 
                 if (!streq(subsystem, subsys))
                         break;
 
-                dev = parent;
-                if (sd_device_get_parent(dev, &parent) < 0)
+                if (sd_device_get_parent(dev, &dev) < 0)
                         break;
         }
 

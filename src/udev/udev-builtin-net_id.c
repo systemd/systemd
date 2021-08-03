@@ -78,25 +78,23 @@ struct virtfn_info {
 
 /* skip intermediate virtio devices */
 static sd_device *skip_virtio(sd_device *dev) {
-        sd_device *parent;
-
         /* there can only ever be one virtio bus per parent device, so we can
          * safely ignore any virtio buses. see
          * http://lists.linuxfoundation.org/pipermail/virtualization/2015-August/030331.html */
-        for (parent = dev; parent; ) {
+        while (dev) {
                 const char *subsystem;
 
-                if (sd_device_get_subsystem(parent, &subsystem) < 0)
+                if (sd_device_get_subsystem(dev, &subsystem) < 0)
                         break;
 
                 if (!streq(subsystem, "virtio"))
                         break;
 
-                if (sd_device_get_parent(parent, &parent) < 0)
+                if (sd_device_get_parent(dev, &dev) < 0)
                         return NULL;
         }
 
-        return parent;
+        return dev;
 }
 
 static int get_virtfn_info(sd_device *dev, struct netnames *names, struct virtfn_info *ret) {
