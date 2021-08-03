@@ -90,6 +90,15 @@
     <variablelist class='unit-directives'>
 
       <varlistentry>
+        <term><varname>BinaryDirectory=</varname></term>
+
+        <listitem><para>Takes a directory path relative to which the executable used by
+        the Exec*= (e.g. ExecStart=, ExecStop=, etc.) properties can be found. <varname>BinaryDirectory=</varname>
+        takes precedence over PATH.
+        </para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>WorkingDirectory=</varname></term>
 
         <listitem><para>Takes a directory path relative to the service's root directory specified by
