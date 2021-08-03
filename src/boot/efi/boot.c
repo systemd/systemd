@@ -2353,7 +2353,7 @@ static EFI_STATUS secure_boot_enroll_from(EFI_FILE_HANDLE dir) {
         return err;
 }
 
-static EFI_STATUS secure_boot_auto_enroll(const Config *config, EFI_FILE *root_dir) {
+static EFI_STATUS secure_boot_auto_enroll(Config *config, EFI_FILE *root_dir) {
         EFI_STATUS err = EFI_SUCCESS;
         EFI_FILE_HANDLE keys_dir;
 
