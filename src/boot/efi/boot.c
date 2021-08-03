@@ -455,7 +455,7 @@ static VOID print_status(Config *config, CHAR16 *loaded_image_path) {
                 random_seed_mode = L"always";
                 break;
         default:
-                assert(false);
+                _unreachable_;
         }
         line(L"random-seed-mode", random_seed_mode);
 
@@ -474,7 +474,7 @@ static VOID print_status(Config *config, CHAR16 *loaded_image_path) {
                 SPrint(console_mode_value, ELEMENTSOF(console_mode_value), L"%u", config->console_mode);
                 break;
         default:
-                assert(false);
+                _unreachable_;
         }
         line(L"console-mode", console_mode);
 

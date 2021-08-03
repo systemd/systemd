@@ -68,6 +68,8 @@
         }
 #endif
 
+#define _unreachable_ ({ assert(!"Unreachable code reached!"); __builtin_unreachable(); })
+
 #define UNIQ_T(x, uniq) CONCATENATE(__unique_prefix_, CONCATENATE(x, uniq))
 #define UNIQ __COUNTER__
 
