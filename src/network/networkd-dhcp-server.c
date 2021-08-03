@@ -202,7 +202,7 @@ static int link_push_uplink_to_dhcp_server(
                 break;
 
         default:
-                assert_not_reached("Unexpected server type");
+                assert_not_reached();
         }
 
         if (use_dhcp_lease_data && link->dhcp_lease) {

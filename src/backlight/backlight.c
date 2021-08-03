@@ -495,7 +495,7 @@ static int run(int argc, char *argv[]) {
                         return log_device_error_errno(device, r, "Failed to write %s: %m", saved);
 
         } else
-                assert_not_reached("Unknown verb.");
+                assert_not_reached();
 
         return 0;
 }

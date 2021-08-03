@@ -293,7 +293,7 @@ static int ipv4acd_on_timeout(sd_event_source *s, uint64_t usec, void *userdata)
                 break;
 
         default:
-                assert_not_reached("Invalid state.");
+                assert_not_reached();
         }
 
         return 0;
@@ -409,7 +409,7 @@ static int ipv4acd_on_packet(
                 break;
 
         default:
-                assert_not_reached("Invalid state.");
+                assert_not_reached();
         }
 
         return 0;

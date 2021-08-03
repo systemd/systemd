@@ -133,7 +133,7 @@ int config_parse_fair_queueing_controlled_delay_u32(
         else if (streq(lvalue, "Flows"))
                 p = &fqcd->flows;
         else
-                assert_not_reached("Invalid lvalue.");
+                assert_not_reached();
 
         if (isempty(rvalue)) {
                 *p = 0;
@@ -196,7 +196,7 @@ int config_parse_fair_queueing_controlled_delay_usec(
         else if (streq(lvalue, "CEThresholdSec"))
                 p = &fqcd->ce_threshold_usec;
         else
-                assert_not_reached("Invalid lvalue.");
+                assert_not_reached();
 
         if (isempty(rvalue)) {
                 if (streq(lvalue, "CEThresholdSec"))
@@ -315,7 +315,7 @@ int config_parse_fair_queueing_controlled_delay_size(
         else if (STR_IN_SET(lvalue, "QuantumBytes", "Quantum"))
                 p = &fqcd->quantum;
         else
-                assert_not_reached("Invalid lvalue.");
+                assert_not_reached();
 
         if (isempty(rvalue)) {
                 if (STR_IN_SET(lvalue, "MemoryLimitBytes", "MemoryLimit"))

@@ -3009,7 +3009,7 @@ static int compat_parse_argv(int argc, char *argv[]) {
                         return -EINVAL;
 
                 default:
-                        assert_not_reached("Unhandled option");
+                        assert_not_reached();
                 }
 
         if (arg_type == 0 && arg_class != 0)
@@ -3261,7 +3261,7 @@ static int native_parse_argv(int argc, char *argv[]) {
                         return -EINVAL;
 
                 default:
-                        assert_not_reached("Unhandled option");
+                        assert_not_reached();
                 }
 
         if (arg_type == 0 && arg_class != 0)
@@ -3411,7 +3411,7 @@ static int compat_main(int argc, char *argv[], sd_bus *bus) {
                 return translate("revert", arg_ifname, 0, NULL, bus);
 
         case _MODE_INVALID:
-                assert_not_reached("invalid mode");
+                assert_not_reached();
         }
 
         return 0;

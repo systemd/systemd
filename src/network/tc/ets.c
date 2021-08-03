@@ -113,7 +113,7 @@ int config_parse_ets_u8(
         else if (streq(lvalue, "StrictBands"))
                 p = &ets->n_strict;
         else
-                assert_not_reached("Invalid lvalue.");
+                assert_not_reached();
 
         if (isempty(rvalue)) {
                 *p = 0;

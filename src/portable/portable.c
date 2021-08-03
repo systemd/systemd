@@ -481,7 +481,7 @@ static int portable_extract_by_path(
                                 assert(!os_release);
                                 os_release = TAKE_PTR(add);
                         } else
-                                assert_not_reached("Unexpected metadata item from child.");
+                                assert_not_reached();
                 }
 
                 r = wait_for_terminate_and_check("(sd-dissect)", child, 0);

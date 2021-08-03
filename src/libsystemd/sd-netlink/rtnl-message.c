@@ -288,7 +288,7 @@ int sd_rtnl_message_new_nexthop(sd_netlink *rtnl, sd_netlink_message **ret,
                 assert_return(IN_SET(nh_family, AF_UNSPEC, AF_INET, AF_INET6), -EINVAL);
                 break;
         default:
-                assert_not_reached("Invalid message type.");
+                assert_not_reached();
         }
         assert_return(ret, -EINVAL);
 

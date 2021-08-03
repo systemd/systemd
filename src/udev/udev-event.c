@@ -429,7 +429,7 @@ static ssize_t udev_event_subst_format(
                 strpcpy(&s, l, val);
                 break;
         default:
-                assert_not_reached("Unknown format substitution type");
+                assert_not_reached();
         }
 
         return s - dest;

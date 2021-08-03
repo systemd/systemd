@@ -431,7 +431,7 @@ static void test_foreach_pointer(void) {
                         break;
 
                 default:
-                        assert_not_reached("unexpected index");
+                        assert_not_reached();
                         break;
                 }
 
@@ -480,7 +480,7 @@ static void test_foreach_pointer(void) {
                         break;
 
                 default:
-                        assert_not_reached("unexpected index");
+                        assert_not_reached();
                         break;
                 }
 

@@ -560,10 +560,8 @@ static int test_advertise_option(sd_event *e) {
         return 0;
 }
 
-static int test_hangcheck(sd_event_source *s, uint64_t usec, void *userdata) {
-        assert_not_reached("Test case should have completed in 2 seconds");
-
-        return 0;
+static int test_check_completed_in_2_seconds(sd_event_source *s, uint64_t usec, void *userdata) {
+        assert_not_reached();
 }
 
 static void test_client_solicit_cb(sd_dhcp6_client *client, int event,
@@ -861,14 +859,8 @@ static int test_client_verify_information_request(DHCP6Message *information_requ
                         break;
 
                 case SD_DHCP6_OPTION_IA_NA:
-                        assert_not_reached("IA TA option must not be present");
-
-                        break;
-
                 case SD_DHCP6_OPTION_SERVERID:
-                        assert_not_reached("Server ID option must not be present");
-
-                        break;
+                        assert_not_reached();
 
                 case SD_DHCP6_OPTION_ELAPSED_TIME:
                         assert_se(!found_elapsed_time);
@@ -965,7 +957,7 @@ static int test_client_solicit(sd_event *e) {
 
         assert_se(sd_event_add_time_relative(e, &hangcheck, clock_boottime_or_monotonic(),
                                              2 * USEC_PER_SEC, 0,
-                                             test_hangcheck, NULL) >= 0);
+                                             test_check_completed_in_2_seconds, NULL) >= 0);
 
         assert_se(sd_dhcp6_client_set_local_address(client, &address) >= 0);
 

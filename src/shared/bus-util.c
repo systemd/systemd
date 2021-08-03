@@ -291,7 +291,7 @@ int bus_connect_transport(
                 break;
 
         default:
-                assert_not_reached("Hmm, unknown transport type.");
+                assert_not_reached();
         }
         if (r < 0)
                 return r;
@@ -337,7 +337,7 @@ int bus_connect_transport_systemd(BusTransport transport, const char *host, bool
                 break;
 
         default:
-                assert_not_reached("Hmm, unknown transport type.");
+                assert_not_reached();
         }
 
         return r;

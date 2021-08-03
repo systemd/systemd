@@ -328,7 +328,7 @@ static int query_device(QueryType query, sd_device* device) {
                 return print_record(device);
         }
 
-        assert_not_reached("unknown query type");
+        assert_not_reached();
         return 0;
 }
 
@@ -456,7 +456,7 @@ int info_main(int argc, char *argv[], void *userdata) {
                 case '?':
                         return -EINVAL;
                 default:
-                        assert_not_reached("Unknown option");
+                        assert_not_reached();
                 }
 
         if (action == ACTION_DEVICE_ID_FILE) {
@@ -508,7 +508,7 @@ int info_main(int argc, char *argv[], void *userdata) {
                 else if (action == ACTION_ATTRIBUTE_WALK)
                         r = print_device_chain(device);
                 else
-                        assert_not_reached("Unknown action");
+                        assert_not_reached();
                 if (r < 0)
                         return r;
         }

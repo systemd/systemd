@@ -329,7 +329,7 @@ static int parse_argv(int argc, char *argv[]) {
                         return -EINVAL;
 
                 default:
-                        assert_not_reached("Unhandled option");
+                        assert_not_reached();
                 }
 
         if (arg_user && arg_transport != BUS_TRANSPORT_LOCAL)
@@ -1530,7 +1530,7 @@ static int run(int argc, char* argv[]) {
                 break;
 
         default:
-                assert_not_reached("Unexpected action.");
+                assert_not_reached();
         }
 
         return r;

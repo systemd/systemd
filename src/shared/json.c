@@ -505,7 +505,7 @@ static void json_variant_set(JsonVariant *a, JsonVariant *b) {
                 break;
 
         default:
-                assert_not_reached("Unexpected variant type");
+                assert_not_reached();
         }
 }
 
@@ -763,7 +763,7 @@ static size_t json_variant_size(JsonVariant* v) {
                 return offsetof(JsonVariant, value);
 
         default:
-                assert_not_reached("unexpected type");
+                assert_not_reached();
         }
 }
 
@@ -1397,7 +1397,7 @@ bool json_variant_equal(JsonVariant *a, JsonVariant *b) {
         }
 
         default:
-                assert_not_reached("Unknown variant type.");
+                assert_not_reached();
         }
 }
 
@@ -1749,7 +1749,7 @@ static int json_format(FILE *f, JsonVariant *v, JsonFormatFlags flags, const cha
         }
 
         default:
-                assert_not_reached("Unexpected variant type.");
+                assert_not_reached();
         }
 
         return 0;
@@ -2787,7 +2787,7 @@ int json_tokenize(
                 return -EINVAL;
 
         default:
-                assert_not_reached("Unexpected tokenizer state");
+                assert_not_reached();
         }
 
 null_return:
@@ -3156,7 +3156,7 @@ static int json_parse_internal(
                         break;
 
                 default:
-                        assert_not_reached("Unexpected token");
+                        assert_not_reached();
                 }
 
                 if (add) {

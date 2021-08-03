@@ -253,7 +253,7 @@ static int pick_uid(char **suggested_paths, const char *name, uid_t *ret_uid) {
                         break;
 
                 default:
-                        assert_not_reached("unknown phase");
+                        assert_not_reached();
                 }
 
                 /* Make sure whatever we picked here actually is in the right range */
