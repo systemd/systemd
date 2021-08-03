@@ -58,8 +58,8 @@ typedef struct {
         UINTN entry_count;
         INTN idx_default;
         INTN idx_default_efivar;
-        UINTN timeout_sec;
-        UINTN timeout_sec_config;
+        INTN timeout_sec;
+        INTN timeout_sec_config;
         INTN timeout_sec_efivar;
         CHAR16 *entry_default_pattern;
         CHAR16 *entry_oneshot;
@@ -366,9 +366,30 @@ static UINTN entry_lookup_key(Config *config, UINTN start, CHAR16 key) {
         return -1;
 }
 
+static CHAR16 *update_timeout_efivar(Config *config) {
+        if (config->timeout_sec_efivar >= -1)
+                efivar_set_int_string(LOADER_GUID,
+                                      L"LoaderConfigTimeout",
+                                      config->timeout_sec_efivar,
+                                      EFI_VARIABLE_NON_VOLATILE);
+        else {
+                config->timeout_sec_efivar = -2;
+                efivar_set(LOADER_GUID, L"LoaderConfigTimeout", NULL, EFI_VARIABLE_NON_VOLATILE);
+        }
+
+        if (config->timeout_sec_efivar > 0)
+                return PoolPrint(L"Menu timeout set to %ds.", config->timeout_sec_efivar);
+        else if (config->timeout_sec_efivar == 0)
+                return StrDuplicate(L"Menu disabled. Hold down key at bootup to show menu.");
+        else if (config->timeout_sec_efivar == -1)
+                return StrDuplicate(L"Timeout disabled, menu will always be shown.");
+        else
+                return StrDuplicate(L"Menu timeout defined by configuration file.");
+}
+
 static VOID print_status(Config *config, CHAR16 *loaded_image_path) {
         UINT64 key, indvar;
-        UINTN value;
+        INTN value;
         BOOLEAN modevar;
         _cleanup_freepool_ CHAR16 *partstr = NULL, *defaultstr = NULL;
         UINTN x_max, y_max;
@@ -411,7 +432,7 @@ static VOID print_status(Config *config, CHAR16 *loaded_image_path) {
         Print(L"\n--- Press any key to continue. ---\n\n");
         console_key_read(&key, 0);
 
-        line(L"timeout", L"%u", config->timeout_sec_config);
+        line(L"timeout", L"%ld", config->timeout_sec_config);
         line(L"default pattern", config->entry_default_pattern);
         line(L"editor", yes_no(config->editor));
         line(L"box", yes_no(config->box));
@@ -452,10 +473,10 @@ static VOID print_status(Config *config, CHAR16 *loaded_image_path) {
         }
         line(L"console-mode", console_mode);
 
-        if (!EFI_ERROR(efivar_get_uint_string(LOADER_GUID, L"LoaderConfigTimeout", &value)))
-                line(L"LoaderConfigTimeout", L"%u", value);
-        if (!EFI_ERROR(efivar_get_uint_string(LOADER_GUID, L"LoaderConfigConsoleMode", &value)))
-                line(L"LoaderConfigConsoleMode", L"%u", value);
+        if (!EFI_ERROR(efivar_get_int_string(LOADER_GUID, L"LoaderConfigTimeout", &value)))
+                line(L"LoaderConfigTimeout", L"%ld", value);
+        if (!EFI_ERROR(efivar_get_int_string(LOADER_GUID, L"LoaderConfigConsoleMode", &value)))
+                line(L"LoaderConfigConsoleMode", L"%ld", value);
         line(L"LoaderEntryOneShot", config->entry_oneshot);
         if (!EFI_ERROR(efivar_get(LOADER_GUID, L"LoaderDevicePartUUID", &partstr)))
                 line(L"LoaderDevicePartUUID", partstr);
@@ -803,44 +824,14 @@ static BOOLEAN menu_run(
 
                 case KEYPRESS(0, 0, '-'):
                 case KEYPRESS(0, 0, 'T'):
-                        if (config->timeout_sec_efivar > 0) {
-                                config->timeout_sec_efivar--;
-                                efivar_set_uint_string(
-                                        LOADER_GUID,
-                                        L"LoaderConfigTimeout",
-                                        config->timeout_sec_efivar,
-                                        EFI_VARIABLE_NON_VOLATILE);
-                                if (config->timeout_sec_efivar > 0)
-                                        status = PoolPrint(L"Menu timeout set to %ds.", config->timeout_sec_efivar);
-                                else
-                                        status = StrDuplicate(L"Menu disabled. Hold down key at bootup to show menu.");
-                        } else if (config->timeout_sec_efivar <= 0){
-                                config->timeout_sec_efivar = -1;
-                                efivar_set(
-                                        LOADER_GUID, L"LoaderConfigTimeout", NULL, EFI_VARIABLE_NON_VOLATILE);
-                                if (config->timeout_sec_config > 0)
-                                        status = PoolPrint(L"Menu timeout of %ds is defined by configuration file.",
-                                                           config->timeout_sec_config);
-                                else
-                                        status = StrDuplicate(L"Menu disabled. Hold down key at bootup to show menu.");
-                        }
+                        config->timeout_sec_efivar--;
+                        status = update_timeout_efivar(config);
                         break;
 
                 case KEYPRESS(0, 0, '+'):
                 case KEYPRESS(0, 0, 't'):
-                        if (config->timeout_sec_efivar == -1 && config->timeout_sec_config == 0)
-                                config->timeout_sec_efivar++;
                         config->timeout_sec_efivar++;
-                        efivar_set_uint_string(
-                                LOADER_GUID,
-                                L"LoaderConfigTimeout",
-                                config->timeout_sec_efivar,
-                                EFI_VARIABLE_NON_VOLATILE);
-                        if (config->timeout_sec_efivar > 0)
-                                status = PoolPrint(L"Menu timeout set to %ds.",
-                                                   config->timeout_sec_efivar);
-                        else
-                                status = StrDuplicate(L"Menu disabled. Hold down key at bootup to show menu.");
+                        status = update_timeout_efivar(config);
                         break;
 
                 case KEYPRESS(0, 0, 'e'):
@@ -888,10 +879,10 @@ static BOOLEAN menu_run(
                                         status = PoolPrint(L"Error changing console mode: %r", err);
                                 else {
                                         config->console_mode_efivar = ST->ConOut->Mode->Mode;
-                                        efivar_set_uint_string(LOADER_GUID,
-                                                               L"LoaderConfigConsoleMode",
-                                                               config->console_mode_efivar,
-                                                               EFI_VARIABLE_NON_VOLATILE);
+                                        efivar_set_int_string(LOADER_GUID,
+                                                              L"LoaderConfigConsoleMode",
+                                                              config->console_mode_efivar,
+                                                              EFI_VARIABLE_NON_VOLATILE);
                                         status = PoolPrint(L"Console mode changed to %d.", config->console_mode_efivar);
                                 }
                                 new_mode = TRUE;
@@ -1054,8 +1045,11 @@ static VOID config_defaults_load_from_file(Config *config, CHAR8 *content) {
                         _cleanup_freepool_ CHAR16 *s = NULL;
 
                         s = stra_to_str(value);
-                        config->timeout_sec_config = Atoi(s);
-                        config->timeout_sec = config->timeout_sec_config;
+                        err = parse_int(s, &config->timeout_sec_config);
+                        if (EFI_ERROR(err))
+                                PrintErrorStall(L"Error parsing 'timeout' config option: %r", err);
+                        else
+                                config->timeout_sec = config->timeout_sec_config;
                         continue;
                 }
 
@@ -1470,7 +1464,6 @@ static VOID config_entry_add_from_file(
 
 static VOID config_load_defaults(Config *config, EFI_FILE *root_dir) {
         _cleanup_freepool_ CHAR8 *content = NULL;
-        UINTN value;
         EFI_STATUS err;
 
         assert(root_dir);
@@ -1481,31 +1474,25 @@ static VOID config_load_defaults(Config *config, EFI_FILE *root_dir) {
                 .auto_firmware = TRUE,
                 .random_seed_mode = RANDOM_SEED_WITH_SYSTEM_TOKEN,
                 .console_mode_efivar = -1,
-                .timeout_sec_efivar = -1
+                .timeout_sec_efivar = -2
         };
 
         err = file_read(root_dir, L"\\loader\\loader.conf", 0, 0, &content, NULL);
         if (!EFI_ERROR(err))
                 config_defaults_load_from_file(config, content);
 
-        err = efivar_get_uint_string(LOADER_GUID, L"LoaderConfigTimeout", &value);
-        if (!EFI_ERROR(err)) {
-                config->timeout_sec_efivar = value > INTN_MAX ? INTN_MAX : value;
-                config->timeout_sec = value;
-        }
+        err = efivar_get_int_string(LOADER_GUID, L"LoaderConfigTimeout", &config->timeout_sec_efivar);
+        if (!EFI_ERROR(err))
+                config->timeout_sec = config->timeout_sec_efivar;
 
-        err = efivar_get_uint_string(LOADER_GUID, L"LoaderConfigTimeoutOneShot", &value);
+        err = efivar_get_int_string(LOADER_GUID, L"LoaderConfigTimeoutOneShot", &config->timeout_sec);
         if (!EFI_ERROR(err)) {
                 /* Unset variable now, after all it's "one shot". */
                 (void) efivar_set(LOADER_GUID, L"LoaderConfigTimeoutOneShot", NULL, EFI_VARIABLE_NON_VOLATILE);
-
-                config->timeout_sec = value;
                 config->force_menu = TRUE; /* force the menu when this is set */
         }
 
-        err = efivar_get_uint_string(LOADER_GUID, L"LoaderConfigConsoleMode", &value);
-        if (!EFI_ERROR(err))
-                config->console_mode_efivar = value > INTN_MAX ? INTN_MAX : value;
+        efivar_get_int_string(LOADER_GUID, L"LoaderConfigConsoleMode", &config->console_mode_efivar);
 }
 
 static VOID config_load_entries(
@@ -2602,7 +2589,7 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
         }
 
         /* select entry or show menu when key is pressed or timeout is set */
-        if (config.force_menu || config.timeout_sec > 0)
+        if (config.force_menu || config.timeout_sec != 0)
                 menu = TRUE;
         else {
                 UINT64 key;

@@ -81,6 +81,20 @@ EFI_STATUS parse_boolean(const CHAR8 *v, BOOLEAN *b) {
         return EFI_INVALID_PARAMETER;
 }
 
+EFI_STATUS parse_int(const CHAR16 *v, INTN *i) {
+        assert(i);
+
+        if (!v)
+                return EFI_INVALID_PARAMETER;
+
+        if (*v == '-')
+                *i = -Atoi(v + 1);
+        else
+                *i = Atoi(v);
+
+        return EFI_SUCCESS;
+}
+
 EFI_STATUS efivar_set_raw(const EFI_GUID *vendor, const CHAR16 *name, const VOID *buf, UINTN size, UINT32 flags) {
         assert(vendor);
         assert(name);
@@ -97,13 +111,13 @@ EFI_STATUS efivar_set(const EFI_GUID *vendor, const CHAR16 *name, const CHAR16 *
         return efivar_set_raw(vendor, name, value, value ? (StrLen(value) + 1) * sizeof(CHAR16) : 0, flags);
 }
 
-EFI_STATUS efivar_set_uint_string(const EFI_GUID *vendor, const CHAR16 *name, UINTN i, UINT32 flags) {
+EFI_STATUS efivar_set_int_string(const EFI_GUID *vendor, const CHAR16 *name, INTN i, UINT32 flags) {
         CHAR16 str[32];
 
         assert(vendor);
         assert(name);
 
-        SPrint(str, ELEMENTSOF(str), L"%u", i);
+        SPrint(str, ELEMENTSOF(str), L"%ld", i);
         return efivar_set(vendor, name, str, flags);
 }
 
@@ -177,7 +191,7 @@ EFI_STATUS efivar_get(const EFI_GUID *vendor, const CHAR16 *name, CHAR16 **value
         return EFI_SUCCESS;
 }
 
-EFI_STATUS efivar_get_uint_string(const EFI_GUID *vendor, const CHAR16 *name, UINTN *i) {
+EFI_STATUS efivar_get_int_string(const EFI_GUID *vendor, const CHAR16 *name, INTN *i) {
         _cleanup_freepool_ CHAR16 *val = NULL;
         EFI_STATUS err;
 
@@ -186,10 +200,10 @@ EFI_STATUS efivar_get_uint_string(const EFI_GUID *vendor, const CHAR16 *name, UI
         assert(i);
 
         err = efivar_get(vendor, name, &val);
-        if (!EFI_ERROR(err) && i)
-                *i = Atoi(val);
+        if (EFI_ERROR(err))
+                return err;
 
-        return err;
+        return parse_int(val, i);
 }
 
 EFI_STATUS efivar_get_uint32_le(const EFI_GUID *vendor, const CHAR16 *name, UINT32 *ret) {
