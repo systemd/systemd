@@ -222,7 +222,7 @@ static void raw_pull_report_progress(RawPull *i, RawProgress p) {
                 break;
 
         default:
-                assert_not_reached("Unknown progress state");
+                assert_not_reached();
         }
 
         sd_notifyf(false, "X_IMPORT_PROGRESS=%u", percent);

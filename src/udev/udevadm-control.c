@@ -171,7 +171,7 @@ int control_main(int argc, char *argv[], void *userdata) {
                 case '?':
                         return -EINVAL;
                 default:
-                        assert_not_reached("Unknown option.");
+                        assert_not_reached();
                 }
 
         if (optind < argc)

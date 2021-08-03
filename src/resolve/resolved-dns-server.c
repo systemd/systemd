@@ -90,7 +90,7 @@ int dns_server_new(
                 break;
 
         default:
-                assert_not_reached("Unknown server type");
+                assert_not_reached();
         }
 
         s->linked = true;
@@ -158,7 +158,7 @@ void dns_server_unlink(DnsServer *s) {
                 s->manager->n_dns_servers--;
                 break;
         default:
-                assert_not_reached("Unknown server type");
+                assert_not_reached();
         }
 
         s->linked = false;
@@ -213,7 +213,7 @@ void dns_server_move_back_and_unmark(DnsServer *s) {
                 break;
 
         default:
-                assert_not_reached("Unknown server type");
+                assert_not_reached();
         }
 }
 

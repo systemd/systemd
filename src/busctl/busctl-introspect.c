@@ -147,7 +147,7 @@ static int parse_xml_annotation(Context *context, uint64_t *flags) {
                         break;
 
                 default:
-                        assert_not_reached("Bad state");
+                        assert_not_reached();
                 }
         }
 }

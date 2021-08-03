@@ -38,7 +38,7 @@ static void ll_handler(sd_ipv4ll *ll, int event, void *userdata) {
                 log_error("the client was stopped with address %s", strna(address));
                 break;
         default:
-                assert_not_reached("invalid LL event");
+                assert_not_reached();
         }
 }
 

@@ -397,7 +397,7 @@ static int handle_request(int out_fd, const Packet *packet, size_t length) {
                  return -ECONNRESET;
 
         default:
-                assert_not_reached("Unknown request");
+                assert_not_reached();
         }
 
         return 0;
@@ -661,7 +661,7 @@ static int complete_query(sd_resolve *resolve, sd_resolve_query *q) {
                 break;
 
         default:
-                assert_not_reached("Cannot complete unknown query type");
+                assert_not_reached();
         }
 
         resolve->current = NULL;

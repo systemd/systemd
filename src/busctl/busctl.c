@@ -121,7 +121,7 @@ static int acquire_bus(bool set_monitor, sd_bus **ret) {
                         break;
 
                 default:
-                        assert_not_reached("Hmm, unknown transport type.");
+                        assert_not_reached();
                 }
         }
         if (r < 0)
@@ -718,7 +718,7 @@ static int format_cmdline(sd_bus_message *m, FILE *f, bool needs_space) {
                         break;
 
                 default:
-                        assert_not_reached("Unknown basic type.");
+                        assert_not_reached();
                 }
 
                 needs_space = true;
@@ -1957,7 +1957,7 @@ static int json_transform_one(sd_bus_message *m, JsonVariant **ret) {
                 break;
 
         default:
-                assert_not_reached("Unexpected element type");
+                assert_not_reached();
         }
 
         *ret = TAKE_PTR(v);
@@ -2525,7 +2525,7 @@ static int parse_argv(int argc, char *argv[]) {
                         return -EINVAL;
 
                 default:
-                        assert_not_reached("Unhandled option");
+                        assert_not_reached();
                 }
 
         return 1;

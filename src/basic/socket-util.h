@@ -245,7 +245,7 @@ struct cmsghdr* cmsg_find(struct msghdr *mh, int level, int type, socklen_t leng
                         _len = sizeof(struct sockaddr_vm);              \
                         break;                                          \
                 default:                                                \
-                        assert_not_reached("invalid socket family");    \
+                        assert_not_reached();                           \
                 }                                                       \
                 _len;                                                   \
         })

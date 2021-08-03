@@ -460,7 +460,7 @@ static int link_configure(
                         return log_link_debug_errno(link, r, "Could not append IFLA_MTU attribute: %m");
                 break;
         default:
-                assert_not_reached("Invalid set link operation");
+                assert_not_reached();
         }
 
         r = netlink_call_async(link->manager->rtnl, NULL, req, callback,
@@ -998,7 +998,7 @@ int link_request_to_activate(Link *link) {
                 up = false;
                 break;
         default:
-                assert_not_reached("invalid activation policy");
+                assert_not_reached();
         }
 
         link->activated = false;

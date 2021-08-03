@@ -544,7 +544,7 @@ int user_record_test_image_path(UserRecord *h) {
                 return -ENOTDIR;
 
         default:
-                assert_not_reached("Unexpected record type");
+                assert_not_reached();
         }
 }
 

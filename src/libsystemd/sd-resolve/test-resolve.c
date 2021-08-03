@@ -99,7 +99,7 @@ int main(int argc, char *argv[]) {
                 }
                 if (r < 0) {
                         log_error_errno(r, "sd_resolve_wait(): %m");
-                        assert_not_reached("sd_resolve_wait() failed");
+                        assert_not_reached();
                 }
         }
 

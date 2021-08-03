@@ -503,7 +503,7 @@ static int parse_argv(int argc, char *argv[]) {
                         return -EINVAL;
 
                 default:
-                        assert_not_reached("Unhandled option");
+                        assert_not_reached();
                 }
 
         with_trigger = !!arg_path_property || !!arg_socket_property || arg_with_timer;
@@ -1155,7 +1155,7 @@ static int start_transient_service(
                         if (!pty_path)
                                 return log_oom();
                 } else
-                        assert_not_reached("Can't allocate tty via ssh");
+                        assert_not_reached();
         }
 
         /* Optionally, wait for the start job to complete. If we are supposed to read the service's stdin
@@ -1628,7 +1628,7 @@ static int start_transient_trigger(
         else if (streq(suffix, ".timer"))
                 r = transient_timer_set_properties(m);
         else
-                assert_not_reached("Invalid suffix");
+                assert_not_reached();
         if (r < 0)
                 return r;
 

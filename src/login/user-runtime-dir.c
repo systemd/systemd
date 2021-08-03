@@ -207,7 +207,7 @@ static int run(int argc, char *argv[]) {
                 return do_mount(argv[2]);
         if (streq(argv[1], "stop"))
                 return do_umount(argv[2]);
-        assert_not_reached("Unknown verb!");
+        assert_not_reached();
 }
 
 DEFINE_MAIN_FUNCTION(run);
