@@ -333,7 +333,7 @@ static int inspect_image(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return bus_log_parse_error(r);
 
-        (void) pager_open(arg_pager_flags);
+        pager_open(arg_pager_flags);
 
         if (arg_cat) {
                 printf("%s-- OS Release: --%s\n", ansi_highlight(), ansi_normal());
@@ -1093,7 +1093,7 @@ static int help(int argc, char *argv[], void *userdata) {
         _cleanup_free_ char *link = NULL;
         int r;
 
-        (void) pager_open(arg_pager_flags);
+        pager_open(arg_pager_flags);
 
         r = terminal_urlify_man("portablectl", "1", &link);
         if (r < 0)
