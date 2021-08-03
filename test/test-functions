@@ -83,13 +83,11 @@ TOOLS_DIR="$SOURCE_DIR/tools"
 export TEST_BASE_DIR TEST_UNITS_DIR SOURCE_DIR TOOLS_DIR
 
 # note that find-build-dir.sh will return $BUILD_DIR if provided, else it will try to find it
-if ! BUILD_DIR="$("$TOOLS_DIR"/find-build-dir.sh)"; then
-    if get_bool "${NO_BUILD:=}"; then
-        BUILD_DIR="$SOURCE_DIR"
-    else
-        echo "ERROR: no build found, please set BUILD_DIR or use NO_BUILD" >&2
-        exit 1
-    fi
+if get_bool "${NO_BUILD:=}"; then
+    BUILD_DIR="$SOURCE_DIR"
+elif ! BUILD_DIR="$("$TOOLS_DIR"/find-build-dir.sh)"; then
+    echo "ERROR: no build found, please set BUILD_DIR or use NO_BUILD" >&2
+    exit 1
 fi
 
 PATH_TO_INIT="$ROOTLIBDIR/systemd"
