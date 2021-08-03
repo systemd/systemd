@@ -23,6 +23,7 @@
 
 /* Written by Ulrich Drepper <drepper@redhat.com>, 2007.  */
 
+#include "macro-fundamental.h"
 #include "sha256.h"
 
 #if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
@@ -73,6 +74,8 @@ static void sha256_process_block(const void *, UINTN, struct sha256_ctx *);
 /* Initialize structure containing state of computation.
    (FIPS 180-2:5.3.2)  */
 void sha256_init_ctx(struct sha256_ctx *ctx) {
+        assert(ctx);
+
         ctx->H[0] = 0x6a09e667;
         ctx->H[1] = 0xbb67ae85;
         ctx->H[2] = 0x3c6ef372;
@@ -96,6 +99,9 @@ void *sha256_finish_ctx(struct sha256_ctx *ctx, void *resbuf) {
         UINT32 bytes = ctx->buflen;
         UINTN pad;
 
+        assert(ctx);
+        assert(resbuf);
+
         /* Now count remaining bytes.  */
         ctx->total64 += bytes;
 
@@ -118,6 +124,9 @@ void *sha256_finish_ctx(struct sha256_ctx *ctx, void *resbuf) {
 }
 
 void sha256_process_bytes(const void *buffer, UINTN len, struct sha256_ctx *ctx) {
+        assert(buffer);
+        assert(ctx);
+
         /* When we already have some bits in our internal buffer concatenate
            both inputs first.  */
 
@@ -191,6 +200,10 @@ void sha256_process_bytes(const void *buffer, UINTN len, struct sha256_ctx *ctx)
 static void sha256_process_block(const void *buffer, UINTN len, struct sha256_ctx *ctx) {
         const UINT32 *words = buffer;
         UINTN nwords = len / sizeof (UINT32);
+
+        assert(buffer);
+        assert(ctx);
+
         UINT32 a = ctx->H[0];
         UINT32 b = ctx->H[1];
         UINT32 c = ctx->H[2];

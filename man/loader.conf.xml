@@ -41,8 +41,8 @@
     a comment line. Empty and comment lines are ignored.</para>
 
     <para>Boolean arguments may be written as
-    <literal>yes</literal>/<literal>y</literal>/<literal>true</literal>/<literal>1</literal> or
-    <literal>no</literal>/<literal>n</literal>/<literal>false</literal>/<literal>0</literal>.
+    <literal>yes</literal>/<literal>y</literal>/<literal>true</literal>/<literal>t</literal>/<literal>on</literal>/<literal>1</literal> or
+    <literal>no</literal>/<literal>n</literal>/<literal>false</literal>/<literal>f</literal>/<literal>off</literal>/<literal>0</literal>.
     </para>
   </refsect1>
 
@@ -58,7 +58,50 @@
         <listitem><para>A glob pattern to select the default entry. The default entry
         may be changed in the boot menu itself, in which case the name of the
         selected entry will be stored as an EFI variable, overriding this option.
-        </para></listitem>
+        </para>
+
+        <para>If set to <literal>auto-last-booted</literal> the selected boot entry will be saved
+        to <filename><replaceable>ESP</replaceable>/loader/last-booted</filename> and
+        automatically selected the next time systemd-boot starts. For this to work the file
+        must exist and be large enough. This can be done by using the following command:
+        <command>dd if=/dev/zero of=ESP/loader/last-booted bs=256 count=1</command></para>
+
+        <table>
+          <title>Automatically detected entries will use the following names:</title>
+
+          <tgroup cols='2'>
+            <colspec colname='name' />
+            <colspec colname='expl' />
+            <thead>
+              <row>
+                <entry>Name</entry>
+                <entry>Description</entry>
+              </row>
+            </thead>
+            <tbody>
+              <row>
+                <entry>auto-efi-default</entry>
+                <entry>EFI Default Loader</entry>
+              </row>
+              <row>
+                <entry>auto-efi-shell</entry>
+                <entry>EFI Shell</entry>
+              </row>
+              <row>
+                <entry>auto-osx</entry>
+                <entry>macOS</entry>
+              </row>
+              <row>
+                <entry>auto-reboot-to-firmware-setup</entry>
+                <entry>Reboot Into Firmware Interface</entry>
+              </row>
+              <row>
+                <entry>auto-windows</entry>
+                <entry>Windows Boot Manager</entry>
+              </row>
+            </tbody>
+          </tgroup>
+        </table></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -69,9 +112,10 @@
         will be stored as an EFI variable in that case, overriding this option.
         </para>
 
-        <para>If the timeout is disabled, the default entry will be booted
-        immediately. The menu can be shown by pressing and holding a key before
-        systemd-boot is launched.</para>
+        <para>If set to <literal>0</literal> the timeout is disabled and the default
+        entry will be booted immediately. The menu can be shown by pressing and holding
+        a key before systemd-boot is launched. Setting this to <literal>-1</literal>
+        disables the timeout while always showing the menu.</para>
         </listitem>
       </varlistentry>
 
@@ -136,6 +180,12 @@
         <listitem><para>Takes a boolean argument. Enable (the default) or disable the
         editor. The editor should be disabled if the machine can be accessed by
         unauthorized persons.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term>box</term>
+
+        <listitem><para>Draw a box around boot entries, disabled by default.</para></listitem>
       </varlistentry>
 
       <varlistentry>
