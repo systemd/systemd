@@ -124,7 +124,7 @@ int verify_executable(Unit *u, const ExecCommand *exec) {
         if (exec->flags & EXEC_COMMAND_IGNORE_FAILURE)
                 return 0;
 
-        r = find_executable_full(exec->path, false, NULL, NULL);
+        r = find_executable_full(exec->path, /* root= */ NULL, false, NULL, NULL);
         if (r < 0)
                 return log_unit_error_errno(u, r, "Command %s is not executable: %m", exec->path);
 

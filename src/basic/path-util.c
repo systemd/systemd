@@ -639,7 +639,7 @@ static int check_x_access(const char *path, int *ret_fd) {
         return 0;
 }
 
-int find_executable_full(const char *name, bool use_path_envvar, char **ret_filename, int *ret_fd) {
+int find_executable_full(const char *name, const char *root, bool use_path_envvar, char **ret_filename, int *ret_fd) {
         int last_error, r;
         const char *p = NULL;
 
@@ -647,6 +647,25 @@ int find_executable_full(const char *name, bool use_path_envvar, char **ret_file
 
         if (is_path(name)) {
                 _cleanup_close_ int fd = -1;
+                _cleanup_free_ char *path_name = NULL;
+
+                /* Function chase_symlinks() is invoked only when root is not NULL,
+                 * as using it regardless of root value would alter the behavior
+                 * of existing callers for example: /bin/sleep would become
+                 * /usr/bin/sleep when find_executables is called. Hence, this function
+                 * should be invoked when needed to avoid unforeseen regression or other
+                 * complicated changes. */
+                if (root) {
+                        r = chase_symlinks(name,
+                                           root,
+                                           CHASE_PREFIX_ROOT,
+                                           &path_name,
+                                           /* ret_fd= */ NULL); /* prefix root to name in case full paths are not specified */
+                        if (r < 0)
+                                return r;
+
+                        name = path_name;
+                }
 
                 r = check_x_access(name, ret_fd ? &fd : NULL);
                 if (r < 0)
@@ -689,6 +708,23 @@ int find_executable_full(const char *name, bool use_path_envvar, char **ret_file
 
                 if (!path_extend(&element, name))
                         return -ENOMEM;
+
+                if (root) {
+                        char *path_name;
+
+                        r = chase_symlinks(element,
+                                           root,
+                                           CHASE_PREFIX_ROOT,
+                                           &path_name,
+                                           /* ret_fd= */ NULL);
+                        if (r < 0) {
+                                if (r != -EACCES)
+                                        last_error = r;
+                                continue;
+                        }
+
+                        free_and_replace(element, path_name);
+                }
 
                 r = check_x_access(element, ret_fd ? &fd : NULL);
                 if (r < 0) {
