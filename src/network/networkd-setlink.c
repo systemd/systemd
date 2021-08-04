@@ -106,7 +106,7 @@ on_error:
 static int link_set_addrgen_mode_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
         int r;
 
-        r = set_link_handler_internal(rtnl, m, link, SET_LINK_ADDRESS_GENERATION_MODE, true, NULL);
+        r = set_link_handler_internal(rtnl, m, link, SET_LINK_ADDRESS_GENERATION_MODE, /* ignore = */ true, NULL);
         if (r <= 0)
                 return r;
 
@@ -120,31 +120,31 @@ static int link_set_addrgen_mode_handler(sd_netlink *rtnl, sd_netlink_message *m
 }
 
 static int link_set_bond_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
-        return set_link_handler_internal(rtnl, m, link, SET_LINK_BOND, false, NULL);
+        return set_link_handler_internal(rtnl, m, link, SET_LINK_BOND, /* ignore = */ false, NULL);
 }
 
 static int link_set_bridge_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
-        return set_link_handler_internal(rtnl, m, link, SET_LINK_BRIDGE, false, NULL);
+        return set_link_handler_internal(rtnl, m, link, SET_LINK_BRIDGE, /* ignore = */ false, NULL);
 }
 
 static int link_set_bridge_vlan_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
-        return set_link_handler_internal(rtnl, m, link, SET_LINK_BRIDGE_VLAN, false, NULL);
+        return set_link_handler_internal(rtnl, m, link, SET_LINK_BRIDGE_VLAN, /* ignore = */ false, NULL);
 }
 
 static int link_set_can_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
-        return set_link_handler_internal(rtnl, m, link, SET_LINK_CAN, false, NULL);
+        return set_link_handler_internal(rtnl, m, link, SET_LINK_CAN, /* ignore = */ false, NULL);
 }
 
 static int link_set_flags_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
-        return set_link_handler_internal(rtnl, m, link, SET_LINK_FLAGS, false, get_link_update_flag_handler);
+        return set_link_handler_internal(rtnl, m, link, SET_LINK_FLAGS, /* ignore = */ false, get_link_update_flag_handler);
 }
 
 static int link_set_group_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
-        return set_link_handler_internal(rtnl, m, link, SET_LINK_GROUP, false, NULL);
+        return set_link_handler_internal(rtnl, m, link, SET_LINK_GROUP, /* ignore = */ false, NULL);
 }
 
 static int link_set_mac_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
-        return set_link_handler_internal(rtnl, m, link, SET_LINK_MAC, true, get_link_default_handler);
+        return set_link_handler_internal(rtnl, m, link, SET_LINK_MAC, /* ignore = */ true, get_link_default_handler);
 }
 
 static int link_set_mac_allow_retry_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
@@ -180,13 +180,13 @@ static int link_set_mac_allow_retry_handler(sd_netlink *rtnl, sd_netlink_message
 }
 
 static int link_set_master_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
-        return set_link_handler_internal(rtnl, m, link, SET_LINK_MASTER, false, get_link_master_handler);
+        return set_link_handler_internal(rtnl, m, link, SET_LINK_MASTER, /* ignore = */ false, get_link_master_handler);
 }
 
 static int link_set_mtu_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
         int r;
 
-        r = set_link_handler_internal(rtnl, m, link, SET_LINK_MTU, true, get_link_default_handler);
+        r = set_link_handler_internal(rtnl, m, link, SET_LINK_MTU, /* ignore = */ true, get_link_default_handler);
         if (r <= 0)
                 return r;
 
