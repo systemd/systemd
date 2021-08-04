@@ -1,0 +1,12 @@
+[NetDev]
+Name=bridge99
+Kind=bridge
+
+[Bridge]
+MulticastQuerier=yes
+MulticastSnooping=yes
+Priority=10
+STP=yes
+ForwardDelaySec=5
+MulticastIGMPVersion=2
+VLANFiltering=yes
