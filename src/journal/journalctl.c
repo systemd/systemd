@@ -2064,6 +2064,9 @@ static int simple_varlink_call(const char *option, const char *method) {
 }
 
 static int flush_to_var(void) {
+        if (access("/run/systemd/journal/flushed", F_OK) >= 0)
+                return 0;
+
         return simple_varlink_call("--flush", "io.systemd.Journal.FlushToVar");
 }
 
