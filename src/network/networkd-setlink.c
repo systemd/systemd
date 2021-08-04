@@ -95,9 +95,16 @@ static int set_link_handler_internal(
         return 1;
 
 on_error:
-        if (op == SET_LINK_FLAGS) {
+        switch (op) {
+        case SET_LINK_FLAGS:
                 assert(link->set_flags_messages > 0);
                 link->set_flags_messages--;
+                break;
+        case SET_LINK_MASTER:
+                link->master_set = true;
+                break;
+        default:
+                break;
         }
 
         return 0;
@@ -181,6 +188,11 @@ static int link_set_mac_allow_retry_handler(sd_netlink *rtnl, sd_netlink_message
 
 static int link_set_master_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
         return set_link_handler_internal(rtnl, m, link, SET_LINK_MASTER, /* ignore = */ false, get_link_master_handler);
+}
+
+static int link_unset_master_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
+        /* Some devices do not support setting master ifindex. Let's ignore error on unsetting master ifindex. */
+        return set_link_handler_internal(rtnl, m, link, SET_LINK_MASTER, /* ignore = */ true, get_link_master_handler);
 }
 
 static int link_set_mtu_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
@@ -745,10 +757,14 @@ int link_request_to_set_mac(Link *link, bool allow_retry) {
 
 int link_request_to_set_master(Link *link) {
         assert(link);
+        assert(link->network);
 
         link->master_set = false;
 
-        return link_request_set_link(link, SET_LINK_MASTER, link_set_master_handler, NULL);
+        if (link->network->batadv || link->network->bond || link->network->bridge || link->network->vrf)
+                return link_request_set_link(link, SET_LINK_MASTER, link_set_master_handler, NULL);
+        else
+                return link_request_set_link(link, SET_LINK_MASTER, link_unset_master_handler, NULL);
 }
 
 int link_request_to_set_mtu(Link *link, uint32_t mtu) {
