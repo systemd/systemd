@@ -6,5 +6,5 @@
 #include "execute.h"
 #include "path-lookup.h"
 
-int verify_executable(Unit *u, const ExecCommand *exec);
+int verify_executable(Unit *u, const ExecCommand *exec, const char *root);
 int verify_units(char **filenames, UnitFileScope scope, bool check_man, bool run_generators, const char *root);
