@@ -717,13 +717,13 @@ void cgroup_oomd_xattr_apply(Unit *u, const char *cgroup_path) {
 
         if (c->moom_preference != MANAGED_OOM_PREFERENCE_AVOID) {
                 r = cg_remove_xattr(SYSTEMD_CGROUP_CONTROLLER, cgroup_path, "user.oomd_avoid");
-                if (r != -ENODATA)
+                if (r < 0 && r != -ENODATA)
                         log_unit_debug_errno(u, r, "Failed to remove oomd_avoid flag on control group %s, ignoring: %m", cgroup_path);
         }
 
         if (c->moom_preference != MANAGED_OOM_PREFERENCE_OMIT) {
                 r = cg_remove_xattr(SYSTEMD_CGROUP_CONTROLLER, cgroup_path, "user.oomd_omit");
-                if (r != -ENODATA)
+                if (r < 0 && r != -ENODATA)
                         log_unit_debug_errno(u, r, "Failed to remove oomd_omit flag on control group %s, ignoring: %m", cgroup_path);
         }
 }
@@ -755,7 +755,7 @@ static void cgroup_xattr_apply(Unit *u) {
                         log_unit_debug_errno(u, r, "Failed to set delegate flag on control group %s, ignoring: %m", u->cgroup_path);
         } else {
                 r = cg_remove_xattr(SYSTEMD_CGROUP_CONTROLLER, u->cgroup_path, "trusted.delegate");
-                if (r != -ENODATA)
+                if (r < 0 && r != -ENODATA)
                         log_unit_debug_errno(u, r, "Failed to remove delegate flag on control group %s, ignoring: %m", u->cgroup_path);
         }
 
