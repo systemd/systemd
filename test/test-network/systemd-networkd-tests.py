@@ -4685,14 +4685,19 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
         self.assertRegex(output, 'inet 192.168.5.[0-9]*/24 metric 1024 brd 192.168.5.255 scope global dynamic veth99')
 
 class NetworkdIPv6PrefixTests(unittest.TestCase, Utilities):
-    links = ['veth99']
+    links = [
+        'dummy98',
+        'veth99',
+    ]
 
     units = [
+        '12-dummy.netdev',
         '25-veth.netdev',
         'ipv6ra-prefix-client-deny-list.network',
         'ipv6ra-prefix-client.network',
-        'ipv6ra-prefix.network'
-        ]
+        'ipv6ra-prefix.network',
+        'ipv6ra-uplink.network',
+    ]
 
     def setUp(self):
         remove_links(self.links)
@@ -4705,10 +4710,11 @@ class NetworkdIPv6PrefixTests(unittest.TestCase, Utilities):
         stop_networkd(show_logs=True)
 
     def test_ipv6_route_prefix(self):
-        copy_unit_to_networkd_unit_path('25-veth.netdev', 'ipv6ra-prefix-client.network', 'ipv6ra-prefix.network')
+        copy_unit_to_networkd_unit_path('25-veth.netdev', 'ipv6ra-prefix-client.network', 'ipv6ra-prefix.network',
+                                        '12-dummy.netdev', 'ipv6ra-uplink.network')
 
         start_networkd()
-        self.wait_online(['veth99:routable', 'veth-peer:routable'])
+        self.wait_online(['veth99:routable', 'veth-peer:routable', 'dummy98:routable'])
 
         output = check_output('ip address show dev veth-peer')
         print(output)
@@ -4726,12 +4732,21 @@ class NetworkdIPv6PrefixTests(unittest.TestCase, Utilities):
         print(output)
         self.assertNotIn('inet6 2001:db8:0:1:', output)
         self.assertIn('inet6 2001:db8:0:2:', output)
+
+        output = check_output(*resolvectl_cmd, 'dns', 'veth-peer', env=env)
+        print(output)
+        self.assertRegex(output, '2001:db8:1:1::2')
+
+        output = check_output(*resolvectl_cmd, 'domain', 'veth-peer', env=env)
+        print(output)
+        self.assertIn('example.com', output)
 
     def test_ipv6_route_prefix_deny_list(self):
-        copy_unit_to_networkd_unit_path('25-veth.netdev', 'ipv6ra-prefix-client-deny-list.network', 'ipv6ra-prefix.network')
+        copy_unit_to_networkd_unit_path('25-veth.netdev', 'ipv6ra-prefix-client-deny-list.network', 'ipv6ra-prefix.network',
+                                        '12-dummy.netdev', 'ipv6ra-uplink.network')
 
         start_networkd()
-        self.wait_online(['veth99:routable', 'veth-peer:routable'])
+        self.wait_online(['veth99:routable', 'veth-peer:routable', 'dummy98:routable'])
 
         output = check_output('ip address show dev veth-peer')
         print(output)
@@ -4749,6 +4764,14 @@ class NetworkdIPv6PrefixTests(unittest.TestCase, Utilities):
         print(output)
         self.assertNotIn('inet6 2001:db8:0:1:', output)
         self.assertIn('inet6 2001:db8:0:2:', output)
+
+        output = check_output(*resolvectl_cmd, 'dns', 'veth-peer', env=env)
+        print(output)
+        self.assertRegex(output, '2001:db8:1:1::2')
+
+        output = check_output(*resolvectl_cmd, 'domain', 'veth-peer', env=env)
+        print(output)
+        self.assertIn('example.com', output)
 
 class NetworkdMTUTests(unittest.TestCase, Utilities):
     links = ['dummy98']
