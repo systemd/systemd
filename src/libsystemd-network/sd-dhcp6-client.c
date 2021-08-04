@@ -1479,15 +1479,16 @@ static int client_receive_message(
                 return 0;
         }
 
-        if (client->transaction_id != (message->transaction_id &
-                                       htobe32(0x00ffffff)))
+        if (client->transaction_id != (message->transaction_id & htobe32(0x00ffffff)))
                 return 0;
 
         switch (client->state) {
         case DHCP6_STATE_INFORMATION_REQUEST:
                 r = client_receive_reply(client, message, len);
-                if (r < 0)
+                if (r < 0) {
+                        log_dhcp6_client_errno(client, r, "Failed to process received reply message, ignoring: %m");
                         return 0;
+                }
 
                 client_notify(client, SD_DHCP6_CLIENT_EVENT_INFORMATION_REQUEST);
 
@@ -1497,10 +1498,13 @@ static int client_receive_message(
 
         case DHCP6_STATE_SOLICITATION:
                 r = client_receive_advertise(client, message, len);
+                if (r < 0) {
+                        log_dhcp6_client_errno(client, r, "Failed to process received advertise message, ignoring: %m");
+                        return 0;
+                }
 
                 if (r == DHCP6_STATE_REQUEST) {
                         client_start(client, r);
-
                         break;
                 }
 
@@ -1510,11 +1514,12 @@ static int client_receive_message(
         case DHCP6_STATE_REBIND:
 
                 r = client_receive_reply(client, message, len);
-                if (r < 0)
+                if (r < 0) {
+                        log_dhcp6_client_errno(client, r, "Failed to process received reply message, ignoring: %m");
                         return 0;
+                }
 
                 if (r == DHCP6_STATE_BOUND) {
-
                         r = client_start(client, DHCP6_STATE_BOUND);
                         if (r < 0) {
                                 client_stop(client, r);
