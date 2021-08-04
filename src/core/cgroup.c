@@ -3031,6 +3031,9 @@ static int unit_check_cgroup_events(Unit *u) {
 
         assert(u);
 
+        if (!u->cgroup_path)
+                return 0;
+
         r = cg_get_keyed_attribute_graceful(SYSTEMD_CGROUP_CONTROLLER, u->cgroup_path, "cgroup.events",
                                             STRV_MAKE("populated", "frozen"), values);
         if (r < 0)
@@ -3861,6 +3864,21 @@ void unit_invalidate_cgroup_bpf(Unit *u) {
                 UNIT_FOREACH_DEPENDENCY(member, u, UNIT_ATOM_SLICE_OF)
                         unit_invalidate_cgroup_bpf(member);
         }
+}
+
+void unit_cgroup_catchup(Unit *u) {
+        assert(u);
+
+        if (!UNIT_HAS_CGROUP_CONTEXT(u))
+                return;
+
+        /* We dropped the inotify watch during reexec/reload, so we need to
+         * check these as they may have changed.
+         * Note that (currently) the kernel doesn't actually update cgroup
+         * file modification times, so we can't just serialize and then check
+         * the mtime for file(s) we are interested in. */
+        (void) unit_check_cgroup_events(u);
+        unit_add_to_cgroup_oom_queue(u);
 }
 
 bool unit_cgroup_delegate(Unit *u) {
