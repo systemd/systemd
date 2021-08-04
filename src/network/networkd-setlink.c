@@ -124,7 +124,7 @@ static int link_set_bond_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *
 }
 
 static int link_set_bridge_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
-        return set_link_handler_internal(rtnl, m, link, SET_LINK_BRIDGE, /* ignore = */ false, NULL);
+        return set_link_handler_internal(rtnl, m, link, SET_LINK_BRIDGE, /* ignore = */ true, NULL);
 }
 
 static int link_set_bridge_vlan_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
