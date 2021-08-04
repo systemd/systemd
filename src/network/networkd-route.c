@@ -276,7 +276,7 @@ Route *route_free(Route *route) {
                 set_remove(route->link->dhcp6_pd_routes, route);
                 set_remove(route->link->dhcp6_pd_routes_old, route);
                 SET_FOREACH(n, route->link->ndisc_routes)
-                        if (n->route == route)
+                        if (route_equal(n->route, route))
                                 free(set_remove(route->link->ndisc_routes, n));
         }
 
@@ -432,7 +432,7 @@ DEFINE_HASH_OPS_WITH_KEY_DESTRUCTOR(
                 route_compare_func,
                 route_free);
 
-static bool route_equal(const Route *r1, const Route *r2) {
+bool route_equal(const Route *r1, const Route *r2) {
         if (r1 == r2)
                 return true;
 
