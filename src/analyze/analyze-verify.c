@@ -115,7 +115,7 @@ static int verify_socket(Unit *u) {
         return 0;
 }
 
-int verify_executable(Unit *u, const ExecCommand *exec) {
+int verify_executable(Unit *u, const ExecCommand *exec, const char *root) {
         int r;
 
         if (!exec)
@@ -131,7 +131,7 @@ int verify_executable(Unit *u, const ExecCommand *exec) {
         return 0;
 }
 
-static int verify_executables(Unit *u) {
+static int verify_executables(Unit *u, const char *root) {
         ExecCommand *exec;
         int r = 0, k;
         unsigned i;
@@ -141,20 +141,20 @@ static int verify_executables(Unit *u) {
         exec =  u->type == UNIT_SOCKET ? SOCKET(u)->control_command :
                 u->type == UNIT_MOUNT ? MOUNT(u)->control_command :
                 u->type == UNIT_SWAP ? SWAP(u)->control_command : NULL;
-        k = verify_executable(u, exec);
+        k = verify_executable(u, exec, root);
         if (k < 0 && r == 0)
                 r = k;
 
         if (u->type == UNIT_SERVICE)
                 for (i = 0; i < ELEMENTSOF(SERVICE(u)->exec_command); i++) {
-                        k = verify_executable(u, SERVICE(u)->exec_command[i]);
+                        k = verify_executable(u, SERVICE(u)->exec_command[i], root);
                         if (k < 0 && r == 0)
                                 r = k;
                 }
 
         if (u->type == UNIT_SOCKET)
                 for (i = 0; i < ELEMENTSOF(SOCKET(u)->exec_command); i++) {
-                        k = verify_executable(u, SOCKET(u)->exec_command[i]);
+                        k = verify_executable(u, SOCKET(u)->exec_command[i], root);
                         if (k < 0 && r == 0)
                                 r = k;
                 }
@@ -189,7 +189,7 @@ static int verify_documentation(Unit *u, bool check_man) {
         return r;
 }
 
-static int verify_unit(Unit *u, bool check_man) {
+static int verify_unit(Unit *u, bool check_man, const char *root) {
         _cleanup_(sd_bus_error_free) sd_bus_error err = SD_BUS_ERROR_NULL;
         int r, k;
 
@@ -207,7 +207,7 @@ static int verify_unit(Unit *u, bool check_man) {
         if (k < 0 && r == 0)
                 r = k;
 
-        k = verify_executables(u);
+        k = verify_executables(u, root);
         if (k < 0 && r == 0)
                 r = k;
 
@@ -278,7 +278,7 @@ int verify_units(char **filenames, UnitFileScope scope, bool check_man, bool run
         }
 
         for (i = 0; i < count; i++) {
-                k = verify_unit(units[i], check_man);
+                k = verify_unit(units[i], check_man, root);
                 if (k < 0 && r == 0)
                         r = k;
         }
