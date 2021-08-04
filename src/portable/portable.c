@@ -11,8 +11,10 @@
 #include "dirent-util.h"
 #include "discover-image.h"
 #include "dissect-image.h"
+#include "env-file.h"
 #include "errno-list.h"
 #include "escape.h"
+#include "extension-release.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "fs-util.h"
@@ -230,6 +232,8 @@ DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(portable_metadata_hash_ops, char, 
 static int extract_now(
                 const char *where,
                 char **matches,
+                const char *image_name,
+                bool path_is_extension,
                 int socket_fd,
                 PortableMetadata **ret_os_release,
                 Hashmap **ret_unit_files) {
@@ -239,6 +243,7 @@ static int extract_now(
         _cleanup_(lookup_paths_free) LookupPaths paths = {};
         _cleanup_close_ int os_release_fd = -1;
         _cleanup_free_ char *os_release_path = NULL;
+        const char *os_release_id;
         char **i;
         int r;
 
@@ -253,19 +258,27 @@ static int extract_now(
 
         assert(where);
 
-        /* First, find /etc/os-release and send it upstream (or just save it). */
-        r = open_os_release(where, &os_release_path, &os_release_fd);
+        /* First, find os-release/extension-release and send it upstream (or just save it). */
+        if (path_is_extension) {
+                os_release_id = strjoina("/usr/lib/extension-release.d/extension-release.", image_name);
+                r = open_extension_release(where, image_name, &os_release_path, &os_release_fd);
+        } else {
+                os_release_id = "/etc/os-release";
+                r = open_os_release(where, &os_release_path, &os_release_fd);
+        }
         if (r < 0)
-                log_debug_errno(r, "Couldn't acquire os-release file, ignoring: %m");
+                log_debug_errno(r,
+                                "Couldn't acquire %s file, ignoring: %m",
+                                path_is_extension ? "extension-release " : "os-release");
         else {
                 if (socket_fd >= 0) {
-                        r = send_item(socket_fd, "/etc/os-release", os_release_fd);
+                        r = send_item(socket_fd, os_release_id, os_release_fd);
                         if (r < 0)
                                 return log_debug_errno(r, "Failed to send os-release file: %m");
                 }
 
                 if (ret_os_release) {
-                        os_release = portable_metadata_new("/etc/os-release", NULL, os_release_fd);
+                        os_release = portable_metadata_new(os_release_id, NULL, os_release_fd);
                         if (!os_release)
                                 return -ENOMEM;
 
@@ -351,7 +364,7 @@ static int extract_now(
 
 static int portable_extract_by_path(
                 const char *path,
-                bool extract_os_release,
+                bool path_is_extension,
                 char **matches,
                 PortableMetadata **ret_os_release,
                 Hashmap **ret_unit_files,
@@ -369,7 +382,7 @@ static int portable_extract_by_path(
                 /* We can't turn this into a loop-back block device, and this returns EISDIR? Then this is a directory
                  * tree and not a raw device. It's easy then. */
 
-                r = extract_now(path, matches, -1, &os_release, &unit_files);
+                r = extract_now(path, matches, NULL, path_is_extension, -1, &os_release, &unit_files);
                 if (r < 0)
                         return r;
 
@@ -427,7 +440,7 @@ static int portable_extract_by_path(
 
                         seq[0] = safe_close(seq[0]);
 
-                        if (!extract_os_release)
+                        if (path_is_extension)
                                 flags |= DISSECT_IMAGE_VALIDATE_OS_EXT;
                         else
                                 flags |= DISSECT_IMAGE_VALIDATE_OS;
@@ -438,7 +451,7 @@ static int portable_extract_by_path(
                                 goto child_finish;
                         }
 
-                        r = extract_now(tmpdir, matches, seq[1], NULL, NULL);
+                        r = extract_now(tmpdir, matches, m->image_name, path_is_extension, seq[1], NULL, NULL);
 
                 child_finish:
                         _exit(r < 0 ? EXIT_FAILURE : EXIT_SUCCESS);
@@ -484,7 +497,7 @@ static int portable_extract_by_path(
 
                                 add = NULL;
 
-                        } else if (PORTABLE_METADATA_IS_OS_RELEASE(add)) {
+                        } else if (PORTABLE_METADATA_IS_OS_RELEASE(add) || PORTABLE_METADATA_IS_EXTENSION_RELEASE(add)) {
 
                                 assert(!os_release);
                                 os_release = TAKE_PTR(add);
@@ -498,10 +511,12 @@ static int portable_extract_by_path(
                 child = 0;
         }
 
-        /* When the portable image is layered, the image with units will not
-         * have a full filesystem, so no os-release - it will be in the root layer */
-        if (extract_os_release && !os_release)
-                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Image '%s' lacks os-release data, refusing.", path);
+        if (!os_release)
+                return sd_bus_error_setf(error,
+                                         SD_BUS_ERROR_INVALID_ARGS,
+                                         "Image '%s' lacks %s data, refusing.",
+                                         path,
+                                         path_is_extension ? "extension-release" : "os-release");
 
         if (ret_unit_files)
                 *ret_unit_files = TAKE_PTR(unit_files);
@@ -554,14 +569,14 @@ int portable_extract(
                 }
         }
 
-        r = portable_extract_by_path(image->path, true, matches, &os_release, &unit_files, error);
+        r = portable_extract_by_path(image->path, /* path_is_extension= */ false, matches, &os_release, &unit_files, error);
         if (r < 0)
                 return r;
 
         ORDERED_HASHMAP_FOREACH(ext, extension_images) {
                 _cleanup_hashmap_free_ Hashmap *extra_unit_files = NULL;
 
-                r = portable_extract_by_path(ext->path, false, matches, NULL, &extra_unit_files, error);
+                r = portable_extract_by_path(ext->path, /* path_is_extension= */ true, matches, NULL, &extra_unit_files, error);
                 if (r < 0)
                         return r;
                 r = hashmap_move(unit_files, extra_unit_files);
@@ -1150,6 +1165,8 @@ int portable_attach(
                 size_t *n_changes,
                 sd_bus_error *error) {
 
+        _cleanup_free_ char *id = NULL, *version_id = NULL, *sysext_level = NULL;
+        _cleanup_(portable_metadata_unrefp) PortableMetadata *os_release = NULL;
         _cleanup_ordered_hashmap_free_ OrderedHashmap *extension_images = NULL;
         _cleanup_hashmap_free_ Hashmap *unit_files = NULL;
         _cleanup_(lookup_paths_free) LookupPaths paths = {};
@@ -1183,16 +1200,51 @@ int portable_attach(
                 }
         }
 
-        r = portable_extract_by_path(image->path, true, matches, NULL, &unit_files, error);
+        r = portable_extract_by_path(image->path, /* path_is_extension= */ false, matches, &os_release, &unit_files, error);
         if (r < 0)
                 return r;
 
-        ORDERED_HASHMAP_FOREACH(ext, extension_images) {
-                _cleanup_hashmap_free_ Hashmap *extra_unit_files = NULL;
+        /* If we are layering extension images on top of a runtime image, check that the os-release and extension-release metadata
+         * match, otherwise reject it immediately as invalid, or it will fail when the units are started. */
+        if (os_release) {
+                _cleanup_fclose_ FILE *f = NULL;
 
-                r = portable_extract_by_path(ext->path, false, matches, NULL, &extra_unit_files, error);
+                r = take_fdopen_unlocked(&os_release->fd, "r", &f);
                 if (r < 0)
                         return r;
+
+                r = parse_env_file(f, os_release->name,
+                                   "ID", &id,
+                                   "VERSION_ID", &version_id,
+                                   "SYSEXT_LEVEL", &sysext_level);
+                if (r < 0)
+                        return r;
+        }
+
+        ORDERED_HASHMAP_FOREACH(ext, extension_images) {
+                _cleanup_(portable_metadata_unrefp) PortableMetadata *extension_release_meta = NULL;
+                _cleanup_hashmap_free_ Hashmap *extra_unit_files = NULL;
+                _cleanup_strv_free_ char **extension_release = NULL;
+                _cleanup_fclose_ FILE *f = NULL;
+
+                r = portable_extract_by_path(ext->path, /* path_is_extension= */ true, matches, &extension_release_meta, &extra_unit_files, error);
+                if (r < 0)
+                        return r;
+
+                r = take_fdopen_unlocked(&extension_release_meta->fd, "r", &f);
+                if (r < 0)
+                        return r;
+
+                r = load_env_file_pairs(f, extension_release_meta->name, &extension_release);
+                if (r < 0)
+                        return r;
+
+                r = extension_release_validate(ext->path, id, version_id, sysext_level, extension_release);
+                if (r == 0)
+                        return sd_bus_error_set_errnof(error, SYNTHETIC_ERRNO(ESTALE), "Image %s extension-release metadata does not match the root's", ext->path);
+                if (r < 0)
+                        return sd_bus_error_set_errnof(error, r, "Failed to compare image %s extension-release metadata with the root's os-release: %m", ext->path);
+
                 r = hashmap_move(unit_files, extra_unit_files);
                 if (r < 0)
                         return r;
