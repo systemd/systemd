@@ -1410,6 +1410,10 @@ static void manager_clear_jobs_and_units(Manager *m) {
         assert(!m->cleanup_queue);
         assert(!m->gc_unit_queue);
         assert(!m->gc_job_queue);
+        assert(!m->cgroup_realize_queue);
+        assert(!m->cgroup_empty_queue);
+        assert(!m->cgroup_oom_queue);
+        assert(!m->target_deps_queue);
         assert(!m->stop_when_unneeded_queue);
         assert(!m->start_when_upheld_queue);
         assert(!m->stop_when_bound_queue);
