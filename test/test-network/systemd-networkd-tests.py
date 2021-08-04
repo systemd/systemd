@@ -854,6 +854,7 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
         'vtitun98',
         'vtitun99',
         'vxcan99',
+        'vxlan97',
         'vxlan98',
         'vxlan99',
         'wg97',
@@ -944,6 +945,7 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
         '25-vti-tunnel.netdev',
         '25-vxcan.netdev',
         '25-vxlan-independent.netdev',
+        '25-vxlan-ipv6.netdev',
         '25-vxlan.netdev',
         '25-wireguard-23-peers.netdev',
         '25-wireguard-23-peers.network',
@@ -974,6 +976,7 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
         'sit.network',
         'vti6.network',
         'vti.network',
+        'vxlan-ipv6.network',
         'vxlan-test1.network',
         'vxlan.network',
         'xfrm.network',
@@ -1635,36 +1638,43 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
 
     def test_vxlan(self):
         copy_unit_to_networkd_unit_path('25-vxlan.netdev', 'vxlan.network',
+                                        '25-vxlan-ipv6.netdev', 'vxlan-ipv6.network',
                                         '25-vxlan-independent.netdev', 'netdev-link-local-addressing-yes.network',
                                         '11-dummy.netdev', 'vxlan-test1.network')
         start_networkd()
 
-        self.wait_online(['test1:degraded', 'vxlan99:degraded', 'vxlan98:degraded'])
+        self.wait_online(['test1:degraded', 'vxlan99:degraded', 'vxlan98:degraded', 'vxlan97:degraded'])
 
         output = check_output('ip -d link show vxlan99')
         print(output)
-        self.assertRegex(output, '999')
-        self.assertRegex(output, '5555')
-        self.assertRegex(output, 'l2miss')
-        self.assertRegex(output, 'l3miss')
-        self.assertRegex(output, 'udpcsum')
-        self.assertRegex(output, 'udp6zerocsumtx')
-        self.assertRegex(output, 'udp6zerocsumrx')
-        self.assertRegex(output, 'remcsumtx')
-        self.assertRegex(output, 'remcsumrx')
-        self.assertRegex(output, 'gbp')
+        self.assertIn('999', output)
+        self.assertIn('5555', output)
+        self.assertIn('l2miss', output)
+        self.assertIn('l3miss', output)
+        self.assertIn('udpcsum', output)
+        self.assertIn('udp6zerocsumtx', output)
+        self.assertIn('udp6zerocsumrx', output)
+        self.assertIn('remcsumtx', output)
+        self.assertIn('remcsumrx', output)
+        self.assertIn('gbp', output)
 
         output = check_output('bridge fdb show dev vxlan99')
         print(output)
-        self.assertRegex(output, '00:11:22:33:44:55 dst 10.0.0.5 self permanent')
-        self.assertRegex(output, '00:11:22:33:44:66 dst 10.0.0.6 self permanent')
-        self.assertRegex(output, '00:11:22:33:44:77 dst 10.0.0.7 via test1 self permanent')
+        self.assertIn('00:11:22:33:44:55 dst 10.0.0.5 self permanent', output)
+        self.assertIn('00:11:22:33:44:66 dst 10.0.0.6 self permanent', output)
+        self.assertIn('00:11:22:33:44:77 dst 10.0.0.7 via test1 self permanent', output)
 
         output = check_output(*networkctl_cmd, '-n', '0', 'status', 'vxlan99', env=env)
         print(output)
-        self.assertRegex(output, 'VNI: 999')
-        self.assertRegex(output, 'Destination Port: 5555')
-        self.assertRegex(output, 'Underlying Device: test1')
+        self.assertIn('VNI: 999', output)
+        self.assertIn('Destination Port: 5555', output)
+        self.assertIn('Underlying Device: test1', output)
+
+        output = check_output('bridge fdb show dev vxlan97')
+        print(output)
+        self.assertIn('00:00:00:00:00:00 dst fe80::23b:d2ff:fe95:967f via test1 self permanent', output)
+        self.assertIn('00:00:00:00:00:00 dst fe80::27c:16ff:fec0:6c74 via test1 self permanent', output)
+        self.assertIn('00:00:00:00:00:00 dst fe80::2a2:e4ff:fef9:2269 via test1 self permanent', output)
 
     def test_macsec(self):
         copy_unit_to_networkd_unit_path('25-macsec.netdev', '25-macsec.network', '25-macsec.key',
