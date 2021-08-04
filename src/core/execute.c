@@ -4351,7 +4351,7 @@ static int exec_child(
 
         _cleanup_free_ char *executable = NULL;
         _cleanup_close_ int executable_fd = -1;
-        r = find_executable_full(command->path, false, &executable, &executable_fd);
+        r = find_executable_full(command->path, /* root= */ NULL, false, &executable, &executable_fd);
         if (r < 0) {
                 if (r != -ENOMEM && (command->flags & EXEC_COMMAND_IGNORE_FAILURE)) {
                         log_unit_struct_errno(unit, LOG_INFO, r,
