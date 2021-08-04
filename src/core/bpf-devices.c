@@ -9,6 +9,7 @@
 #include "fileio.h"
 #include "nulstr-util.h"
 #include "parse-util.h"
+#include "path-util.h"
 #include "stat-util.h"
 #include "stdio-util.h"
 #include "string-util.h"
@@ -260,7 +261,7 @@ int bpf_devices_apply_policy(
         r = bpf_program_cgroup_attach(prog, BPF_CGROUP_DEVICE, controller_path, BPF_F_ALLOW_MULTI);
         if (r < 0)
                 return log_error_errno(r, "Attaching device control BPF program to cgroup %s failed: %m",
-                                       cgroup_path);
+                                       empty_to_root(cgroup_path));
 
  finish:
         /* Unref the old BPF program (which will implicitly detach it) right before attaching the new program. */
