@@ -17,6 +17,12 @@ UINT64 ticks_read(VOID) {
         __asm__ volatile ("rdtsc" : "=A" (val));
         return val;
 }
+#elif defined(__aarch64__)
+UINT64 ticks_read(VOID) {
+        UINT64 val;
+        __asm__ volatile ("mrs %0, cntpct_el0" : "=r" (val));
+        return val;
+}
 #else
 UINT64 ticks_read(VOID) {
         UINT64 val = 1;
@@ -24,6 +30,13 @@ UINT64 ticks_read(VOID) {
 }
 #endif
 
+#if defined(__aarch64__)
+UINT64 ticks_freq(VOID) {
+        UINT64 freq;
+        __asm__ volatile ("mrs %0, cntfrq_el0": "=r" (freq));
+        return freq;
+}
+#else
 /* count TSC ticks during a millisecond delay */
 UINT64 ticks_freq(VOID) {
         UINT64 ticks_start, ticks_end;
@@ -34,6 +47,7 @@ UINT64 ticks_freq(VOID) {
 
         return (ticks_end - ticks_start) * 1000UL;
 }
+#endif
 
 UINT64 time_usec(VOID) {
         UINT64 ticks;
