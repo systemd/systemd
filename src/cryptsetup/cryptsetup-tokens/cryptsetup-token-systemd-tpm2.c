@@ -212,6 +212,22 @@ _public_ int cryptsetup_token_validate(
                 }
         }
 
+        /* The bank field is optional, since it was added in systemd 250 only. Before the bank was hardcoded to SHA256 */
+        w = json_variant_by_key(v, "tpm2-pcr-bank");
+        if (w) {
+                /* The PCR bank field is optional */
+
+                if (!json_variant_is_string(w)) {
+                        crypt_log_debug(cd, "TPM2 PCR bank is not a string.");
+                        return 1;
+                }
+
+                if (tpm2_pcr_bank_from_string(json_variant_string(w)) < 0) {
+                        crypt_log_debug(cd, "TPM2 PCR bank invalid or not supported: %s.", json_variant_string(w));
+                        return 1;
+                }
+        }
+
         w = json_variant_by_key(v, "tpm2-blob");
         if (!w || !json_variant_is_string(w)) {
                 crypt_log_debug(cd, "TPM2 token data lacks 'tpm2-blob' field.");
