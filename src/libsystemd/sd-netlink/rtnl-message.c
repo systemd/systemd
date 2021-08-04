@@ -443,8 +443,12 @@ int sd_rtnl_message_new_neigh(sd_netlink *rtnl, sd_netlink_message **ret, uint16
         if (r < 0)
                 return r;
 
-        if (nlmsg_type == RTM_NEWNEIGH)
-                (*ret)->hdr->nlmsg_flags |= NLM_F_CREATE | NLM_F_REPLACE;
+        if (nlmsg_type == RTM_NEWNEIGH) {
+                if (ndm_family == AF_BRIDGE)
+                        (*ret)->hdr->nlmsg_flags |= NLM_F_CREATE | NLM_F_APPEND;
+                else
+                        (*ret)->hdr->nlmsg_flags |= NLM_F_CREATE | NLM_F_REPLACE;
+        }
 
         ndm = NLMSG_DATA((*ret)->hdr);
 
