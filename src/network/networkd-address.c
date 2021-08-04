@@ -166,7 +166,7 @@ Address *address_free(Address *address) {
                 set_remove(address->link->dhcp6_pd_addresses, address);
                 set_remove(address->link->dhcp6_pd_addresses_old, address);
                 SET_FOREACH(n, address->link->ndisc_addresses)
-                        if (n->address == address)
+                        if (address_equal(n->address, address))
                                 free(set_remove(address->link->ndisc_addresses, n));
 
                 if (address->family == AF_INET6 &&
