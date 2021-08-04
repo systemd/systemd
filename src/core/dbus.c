@@ -214,17 +214,16 @@ static int mac_selinux_filter(sd_bus_message *message, void *userdata, sd_bus_er
         Manager *m = userdata;
         const char *verb, *path;
         Unit *u = NULL;
-        Job *j;
         int r;
 
         assert(message);
 
         /* Our own method calls are all protected individually with
-         * selinux checks, but the built-in interfaces need to be
+         * SELinux checks, but the built-in interfaces need to be
          * protected too. */
 
         if (sd_bus_message_is_method_call(message, "org.freedesktop.DBus.Properties", "Set"))
-                verb = "reload";
+                verb = "reload"; // TODO(SELinux): add new permission "modify" ?
         else if (sd_bus_message_is_method_call(message, "org.freedesktop.DBus.Introspectable", NULL) ||
                  sd_bus_message_is_method_call(message, "org.freedesktop.DBus.Properties", NULL) ||
                  sd_bus_message_is_method_call(message, "org.freedesktop.DBus.ObjectManager", NULL) ||
@@ -235,42 +234,37 @@ static int mac_selinux_filter(sd_bus_message *message, void *userdata, sd_bus_er
 
         path = sd_bus_message_get_path(message);
 
-        if (object_path_startswith("/org/freedesktop/systemd1", path)) {
-                r = mac_selinux_access_check(message, verb, error);
-                if (r < 0)
-                        return r;
+        if (streq_ptr(path, "/org/freedesktop/systemd1"))
+                return mac_selinux_access_check(message, verb, error);
 
-                return 0;
-        }
-
-        if (streq_ptr(path, "/org/freedesktop/systemd1/unit/self")) {
+        if (object_path_startswith(path, "/org/freedesktop/systemd1/job")) {
+                Job *j;
+                r = manager_get_job_from_dbus_path(m, path, &j);
+                if (r >= 0)
+                        u = j->unit;
+        } else if (streq_ptr(path, "/org/freedesktop/systemd1/unit/self")) {
                 _cleanup_(sd_bus_creds_unrefp) sd_bus_creds *creds = NULL;
                 pid_t pid;
 
                 r = sd_bus_query_sender_creds(message, SD_BUS_CREDS_PID, &creds);
                 if (r < 0)
-                        return 0;
+                        return r;
 
                 r = sd_bus_creds_get_pid(creds, &pid);
                 if (r < 0)
-                        return 0;
+                        return r;
 
                 u = manager_get_unit_by_pid(m, pid);
-        } else {
-                r = manager_get_job_from_dbus_path(m, path, &j);
-                if (r >= 0)
-                        u = j->unit;
-                else
-                        manager_load_unit_from_dbus_path(m, path, NULL, &u);
-        }
-        if (!u)
-                return 0;
+        } else if (object_path_startswith(path, "/org/freedesktop/systemd1/unit"))
+                (void) manager_load_unit_from_dbus_path(m, path, NULL, &u);
+        else
+                log_warning("Unexpected object path '%s' in SELinux D-Bus filter", path);
 
-        r = mac_selinux_unit_access_check(u, message, verb, error);
-        if (r < 0)
-                return r;
+        if (u)
+                return mac_selinux_unit_access_check(u, message, verb, error);
 
-        return 0;
+        /* Fall back to main instance check, e.g. if job or unit not found. */
+        return mac_selinux_access_check(message, verb, error);
 }
 #endif
 
