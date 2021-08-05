@@ -16,11 +16,14 @@
 #include "alloc-util.h"
 #include "audit-fd.h"
 #include "bus-util.h"
+#include "dbus-callbackdata.h"
 #include "errno-util.h"
 #include "format-util.h"
+#include "install.h"
 #include "log.h"
 #include "path-util.h"
 #include "selinux-util.h"
+#include "stat-util.h"
 #include "stdio-util.h"
 #include "strv.h"
 #include "util.h"
@@ -31,6 +34,7 @@ struct audit_info {
         sd_bus_creds *creds;
         const char *path;
         const char *cmdline;
+        const char *function;
 };
 
 /*
@@ -58,10 +62,11 @@ static int audit_callback(
                 xsprintf(gid_buf, GID_FMT, gid);
 
         snprintf(msgbuf, msgbufsize,
-                 "auid=%s uid=%s gid=%s%s%s%s%s%s%s",
+                 "auid=%s uid=%s gid=%s%s%s%s%s%s%s%s%s%s",
                  login_uid_buf, uid_buf, gid_buf,
                  audit->path ? " path=\"" : "", strempty(audit->path), audit->path ? "\"" : "",
-                 audit->cmdline ? " cmdline=\"" : "", strempty(audit->cmdline), audit->cmdline ? "\"" : "");
+                 audit->cmdline ? " cmdline=\"" : "", strempty(audit->cmdline), audit->cmdline ? "\"" : "",
+                 audit->function ? " function=\"" : "", strempty(audit->function), audit->function ? "\"" : "");
 
         return 0;
 }
@@ -175,11 +180,12 @@ static int access_init(sd_bus_error *error) {
    If the machine is in permissive mode it will return ok.  Audit messages will
    still be generated if the access would be denied in enforcing mode.
 */
-int mac_selinux_generic_access_check(
+int _mac_selinux_generic_access_check(
                 sd_bus_message *message,
                 const char *path,
                 const char *permission,
-                sd_bus_error *error) {
+                sd_bus_error *error,
+                const char *func) {
 
         _cleanup_(sd_bus_creds_unrefp) sd_bus_creds *creds = NULL;
         const char *tclass, *scon;
@@ -192,6 +198,7 @@ int mac_selinux_generic_access_check(
         assert(message);
         assert(permission);
         assert(error);
+        assert(func);
 
         r = access_init(error);
         if (r <= 0)
@@ -263,6 +270,7 @@ int mac_selinux_generic_access_check(
                 .creds = creds,
                 .path = path,
                 .cmdline = cl,
+                .function = func,
         };
 
         r = selinux_check_access(scon, fcon, tclass, permission, &audit_info);
@@ -274,20 +282,69 @@ int mac_selinux_generic_access_check(
         }
 
         log_full_errno_zerook(LOG_DEBUG, r,
-                              "SELinux access check scon=%s tcon=%s tclass=%s perm=%s state=%s path=%s cmdline=%s: %m",
-                              scon, fcon, tclass, permission, enforce ? "enforcing" : "permissive", path, cl);
+                              "SELinux access check scon=%s tcon=%s tclass=%s perm=%s state=%s func=%s path=%s cmdline='%s': %m",
+                              scon, fcon, tclass, permission, enforce ? "enforcing" : "permissive", func, strna(path), cl);
         return enforce ? r : 0;
+}
+
+int mac_selinux_unit_callback_check(
+        const char *unit_name,
+        const MacUnitCallbackUserdata *userdata) {
+
+        const Unit *u;
+        const char *path = NULL;
+        _cleanup_free_ char *path_lookup = NULL;
+
+        assert(unit_name);
+        assert(userdata);
+        assert(userdata->manager);
+        assert(userdata->message);
+        assert(userdata->error);
+        assert(userdata->func);
+
+        if (!mac_selinux_use())
+                return 0;
+
+        if (!userdata->selinux_permission)
+                return 0;
+
+        u = manager_get_unit(userdata->manager, unit_name);
+        if (u)
+                path = unit_label_path(u);
+
+        /* maybe the unit is not loaded, e.g. a disabled user session unit */
+        if (!path)
+                path = manager_lookup_unit_label_path(userdata->manager, unit_name);
+
+        /* try to search for a unit path and do not base the check on a masked path, e.g. /dev/null */
+        if (!path || null_or_empty_path(path) > 0)
+                (void) unit_file_label_path(userdata->manager->unit_file_scope, NULL, unit_name, &path_lookup);
+
+        return _mac_selinux_generic_access_check(
+                userdata->message,
+                path_lookup ?: path,
+                userdata->selinux_permission,
+                userdata->error,
+                userdata->func);
 }
 
 #else /* HAVE_SELINUX */
 
-int mac_selinux_generic_access_check(
+int _mac_selinux_generic_access_check(
                 sd_bus_message *message,
                 const char *path,
                 const char *permission,
-                sd_bus_error *error) {
+                sd_bus_error *error,
+                const char *func) {
 
         return 0;
 }
 
-#endif /* HAVE_SELINUX */
+int mac_selinux_unit_callback_check(
+                const char *unit_name,
+                const MacUnitCallbackUserdata *userdata) {
+
+        return 0;
+}
+
+#endif
