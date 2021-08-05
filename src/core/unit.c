@@ -733,6 +733,9 @@ Unit* unit_free(Unit *u) {
         if (u->in_dbus_queue)
                 LIST_REMOVE(dbus_queue, u->manager->dbus_unit_queue, u);
 
+        if (u->in_cleanup_queue)
+                LIST_REMOVE(cleanup_queue, u->manager->cleanup_queue, u);
+
         if (u->in_gc_queue)
                 LIST_REMOVE(gc_queue, u->manager->gc_unit_queue, u);
 
@@ -742,8 +745,8 @@ Unit* unit_free(Unit *u) {
         if (u->in_cgroup_empty_queue)
                 LIST_REMOVE(cgroup_empty_queue, u->manager->cgroup_empty_queue, u);
 
-        if (u->in_cleanup_queue)
-                LIST_REMOVE(cleanup_queue, u->manager->cleanup_queue, u);
+        if (u->in_cgroup_oom_queue)
+                LIST_REMOVE(cgroup_oom_queue, u->manager->cgroup_oom_queue, u);
 
         if (u->in_target_deps_queue)
                 LIST_REMOVE(target_deps_queue, u->manager->target_deps_queue, u);
@@ -3611,6 +3614,8 @@ void unit_catchup(Unit *u) {
 
         if (UNIT_VTABLE(u)->catchup)
                 UNIT_VTABLE(u)->catchup(u);
+
+        unit_cgroup_catchup(u);
 }
 
 static bool fragment_mtime_newer(const char *path, usec_t mtime, bool path_masked) {
