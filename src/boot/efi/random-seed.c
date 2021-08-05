@@ -245,7 +245,7 @@ EFI_STATUS process_random_seed(EFI_FILE *root_dir, RandomSeedMode mode) {
 
         err = uefi_call_wrapper(root_dir->Open, 5, root_dir, &handle, (CHAR16*) L"\\loader\\random-seed", EFI_FILE_MODE_READ|EFI_FILE_MODE_WRITE, 0ULL);
         if (EFI_ERROR(err)) {
-                if (err != EFI_NOT_FOUND)
+                if (err != EFI_NOT_FOUND && err != EFI_WRITE_PROTECTED)
                         Print(L"Failed to open random seed file: %r\n", err);
                 return err;
         }
