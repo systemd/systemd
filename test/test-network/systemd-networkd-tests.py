@@ -3425,21 +3425,29 @@ class NetworkdBridgeTests(unittest.TestCase, Utilities):
     links = [
         'bridge99',
         'dummy98',
-        'test1']
+        'test1',
+        'vlan99',
+    ]
 
     units = [
         '11-dummy.netdev',
         '12-dummy.netdev',
+        '21-vlan.netdev',
+        '21-vlan.network',
         '26-bridge.netdev',
         '26-bridge-configure-without-carrier.network',
+        '26-bridge-issue-20373.netdev',
         '26-bridge-mdb-master.network',
         '26-bridge-mdb-slave.network',
         '26-bridge-slave-interface-1.network',
         '26-bridge-slave-interface-2.network',
+        '26-bridge-vlan-master-issue-20373.network',
         '26-bridge-vlan-master.network',
+        '26-bridge-vlan-slave-issue-20373.network',
         '26-bridge-vlan-slave.network',
         'bridge99-ignore-carrier-loss.network',
-        'bridge99.network']
+        'bridge99.network'
+    ]
 
     routing_policy_rule_tables = ['100']
 
@@ -3473,6 +3481,25 @@ class NetworkdBridgeTests(unittest.TestCase, Utilities):
         for i in range(4060, 4095):
             self.assertRegex(output, f'{i}')
         self.assertNotRegex(output, '4095')
+
+    def test_bridge_vlan_issue_20373(self):
+        copy_unit_to_networkd_unit_path('11-dummy.netdev', '26-bridge-vlan-slave-issue-20373.network',
+                                        '26-bridge-issue-20373.netdev', '26-bridge-vlan-master-issue-20373.network',
+                                        '21-vlan.netdev', '21-vlan.network')
+        start_networkd()
+        self.wait_online(['test1:enslaved', 'bridge99:degraded', 'vlan99:routable'])
+
+        output = check_output('bridge vlan show dev test1')
+        print(output)
+        self.assertIn('100 PVID Egress Untagged', output)
+        self.assertIn('560', output)
+        self.assertIn('600', output)
+
+        output = check_output('bridge vlan show dev bridge99')
+        print(output)
+        self.assertIn('1 PVID Egress Untagged', output)
+        self.assertIn('100', output)
+        self.assertIn('600', output)
 
     def test_bridge_mdb(self):
         copy_unit_to_networkd_unit_path('11-dummy.netdev', '26-bridge-mdb-slave.network',
