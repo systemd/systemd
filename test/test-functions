@@ -1588,7 +1588,7 @@ install_pam() {
         paths+=(/lib*/security)
     fi
 
-    for d in /etc/pam.d /etc/security /usr/lib/pam.d; do
+    for d in /etc/pam.d /etc/security /usr/{etc,lib}/pam.d; do
         [ -d "$d" ] && paths+=("$d")
     done
 
@@ -1602,6 +1602,13 @@ install_pam() {
 
     # set empty root password for easy debugging
     sed -i 's/^root:x:/root::/' "${initdir:?}/etc/passwd"
+
+    # And make sure pam_unix will accept it by making sure that
+    # the PAM module has the nullok option.
+    for d in /etc/pam.d /usr/{etc,lib}/pam.d; do
+        [ -d "$initdir/$d" ] || continue
+        sed -i '/^auth.*pam_unix.so/s/$/ nullok/' "$initdir/$d"/*
+    done
 }
 
 install_keymaps() {
