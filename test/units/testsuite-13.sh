@@ -93,7 +93,7 @@ if echo test >>/run/host/os-release; then exit 1; fi
 }
 
 function check_machinectl_bind {
-    local _cmd='for i in $(seq 1 20); do if test -f /tmp/marker; then exit 0; fi; sleep 0.5; done; exit 1;'
+    local _cmd='for i in $(seq 1 20); do if test -f /tmp/marker; then exit 0; fi; usleep 500000; done; exit 1;'
 
     cat >/run/systemd/system/nspawn_machinectl_bind.service <<EOF
 [Service]

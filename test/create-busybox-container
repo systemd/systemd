@@ -30,6 +30,7 @@ ln -s busybox "$root/bin/ps"
 ln -s busybox "$root/bin/ip"
 ln -s busybox "$root/bin/seq"
 ln -s busybox "$root/bin/sleep"
+ln -s busybox "$root/bin/usleep"
 ln -s busybox "$root/bin/test"
 
 mkdir -p "$root/sbin"
