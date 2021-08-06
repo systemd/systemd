@@ -241,6 +241,8 @@ shared_sources = files('''
         password-quality-util.h
         pwquality-dlopen.c
         pwquality-dlopen.h
+        passwdqc-dlopen.c
+        passwdqc-dlopen.h
         qrcode-util.c
         qrcode-util.h
         quota-util.c
