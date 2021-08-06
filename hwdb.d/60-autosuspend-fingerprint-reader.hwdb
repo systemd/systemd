@@ -68,6 +68,11 @@ usb:v08FFp5731*
 usb:v5501p08FF*
  ID_AUTOSUSPEND=1
 
+# Supported by libfprint driver egis0570
+usb:v1C7Ap0570*
+usb:v1C7Ap0571*
+ ID_AUTOSUSPEND=1
+
 # Supported by libfprint driver elan
 usb:v04F3p0903*
 usb:v04F3p0907*
@@ -127,6 +132,11 @@ usb:v04F3p0C42*
 usb:v04F3p0C4D*
 usb:v04F3p0C4F*
 usb:v04F3p0C63*
+usb:v04F3p0C6E*
+ ID_AUTOSUSPEND=1
+
+# Supported by libfprint driver elanmoc
+usb:v04F3p0C7E*
  ID_AUTOSUSPEND=1
 
 # Supported by libfprint driver etes603
@@ -264,7 +274,6 @@ usb:v147Ep1002*
 usb:v1491p0088*
 usb:v16D1p1027*
 usb:v1C7Ap0300*
-usb:v1C7Ap0570*
 usb:v1C7Ap0575*
 usb:v27C6p5042*
 usb:v27C6p5110*
