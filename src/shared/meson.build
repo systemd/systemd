@@ -127,6 +127,7 @@ shared_sources = files(
         'pager.c',
         'parse-argument.c',
         'parse-helpers.c',
+        'passwdqc-dlopen.c',
         'pcre2-util.c',
         'pkcs11-util.c',
         'pretty-print.c',
