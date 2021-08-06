@@ -9,7 +9,7 @@
 #include "user-record-password-quality.h"
 #include "user-record-util.h"
 
-#if HAVE_PWQUALITY
+#if HAVE_PASSWDQC || HAVE_PWQUALITY
 
 int user_record_check_password_quality(
                 UserRecord *hr,
