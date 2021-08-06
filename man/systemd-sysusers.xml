@@ -172,7 +172,7 @@
     for the first time it is possible to configure the root user's password to be <literal>systemd</literal>
     like this:</para>
 
-    <para><programlisting># systemd-nspawn --image=… --set-credential=password.hashed-password.root:'$y$j9T$yAuRJu1o5HioZAGDYPU5d.$F64ni6J2y2nNQve90M/p0ZP0ECP/qqzipNyaY9fjGpC' …</programlisting></para>
+    <para><programlisting># systemd-nspawn --image=… --set-credential=passwd.hashed-password.root:'$y$j9T$yAuRJu1o5HioZAGDYPU5d.$F64ni6J2y2nNQve90M/p0ZP0ECP/qqzipNyaY9fjGpC' …</programlisting></para>
 
     <para>Note again that the data specified in these credentials is consulted only when creating an account
     for the first time, it may not be used for changing the password or shell of an account that already
