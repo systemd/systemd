@@ -31,7 +31,7 @@
 #include "mkdir.h"
 #include "path-util.h"
 #include "process-util.h"
-#include "pwquality-util.h"
+#include "password-quality-util.h"
 #include "quota-util.h"
 #include "resize-fs.h"
 #include "set.h"
@@ -40,7 +40,7 @@
 #include "string-table.h"
 #include "strv.h"
 #include "uid-alloc-range.h"
-#include "user-record-pwquality.h"
+#include "user-record-password-quality.h"
 #include "user-record-sign.h"
 #include "user-record-util.h"
 #include "user-record.h"
@@ -1513,7 +1513,7 @@ int home_create(Home *h, UserRecord *secret, sd_bus_error *error) {
         if (h->record->enforce_password_policy == false)
                 log_debug("Password quality check turned off for account, skipping.");
         else {
-                r = user_record_quality_check_password(h->record, secret, error);
+                r = user_record_check_password_quality(h->record, secret, error);
                 if (r < 0)
                         return r;
         }
@@ -1888,7 +1888,7 @@ int home_passwd(Home *h,
         if (c->enforce_password_policy == false)
                 log_debug("Password quality check turned off for account, skipping.");
         else {
-                r = user_record_quality_check_password(c, merged_secret, error);
+                r = user_record_check_password_quality(c, merged_secret, error);
                 if (r < 0)
                         return r;
         }
