@@ -665,6 +665,7 @@ setup_basic_environment() {
     install_fs_tools
     install_modules
     install_plymouth
+    install_haveged
     install_debug_tools
     install_ld_so_conf
     install_testuser
@@ -1425,6 +1426,16 @@ install_plymouth() {
     # else
         rm -f "${initdir:?}"/{usr/lib,lib,etc}/systemd/system/plymouth* "$initdir"/{usr/lib,lib,etc}/systemd/system/*/plymouth*
     # fi
+}
+
+install_haveged() {
+    # If haveged is installed and probably included in initrd, it needs to be
+    # installed in the image too.
+    if [ -x /usr/sbin/haveged ]; then
+        dinfo "Install haveged files"
+        inst /usr/sbin/haveged
+        inst /usr/lib/systemd/system/haveged.service
+    fi
 }
 
 install_ld_so_conf() {
