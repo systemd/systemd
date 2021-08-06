@@ -5,7 +5,7 @@
 #include "env-util.h"
 #include "escape.h"
 #include "memory-util.h"
-#include "pwquality-util.h"
+#include "password-quality-util.h"
 #include "strv.h"
 
 int load_volume_key_password(
@@ -155,7 +155,7 @@ int enroll_password(
                 }
         }
 
-        r = quality_check_password(new_password, NULL, &error);
+        r = check_password_quality(new_password, /* old */ NULL, /* user */ NULL, &error);
         if (r < 0)
                 return log_error_errno(r, "Failed to check password for quality: %m");
         if (r == 0)

@@ -12,7 +12,7 @@
 #include "main-func.h"
 #include "pcre2-util.h"
 #include "pkcs11-util.h"
-#include "pwquality-util.h"
+#include "pwquality-dlopen.h"
 #include "qrcode-util.h"
 #include "tests.h"
 #include "tpm2-util.h"

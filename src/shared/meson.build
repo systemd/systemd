@@ -131,7 +131,7 @@ shared_sources = files(
         'pkcs11-util.c',
         'pretty-print.c',
         'ptyfwd.c',
-        'pwquality-util.c',
+        'pwquality-dlopen.c',
         'qrcode-util.c',
         'quota-util.c',
         'reboot-util.c',
