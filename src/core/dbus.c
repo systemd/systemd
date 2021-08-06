@@ -223,7 +223,7 @@ static int mac_selinux_filter(sd_bus_message *message, void *userdata, sd_bus_er
          * protected too. */
 
         if (sd_bus_message_is_method_call(message, "org.freedesktop.DBus.Properties", "Set"))
-                verb = "reload";
+                verb = "reload"; // FIXME(SELinux): use "modify" ?
         else if (sd_bus_message_is_method_call(message, "org.freedesktop.DBus.Introspectable", NULL) ||
                  sd_bus_message_is_method_call(message, "org.freedesktop.DBus.Properties", NULL) ||
                  sd_bus_message_is_method_call(message, "org.freedesktop.DBus.ObjectManager", NULL) ||

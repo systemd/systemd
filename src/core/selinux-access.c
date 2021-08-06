@@ -305,7 +305,8 @@ int mac_selinux_unit_callback_check(
         if (!mac_selinux_use())
                 return 0;
 
-        if (!userdata->selinux_permission)
+        /* Skip if the operation should not be checked by SELinux */
+        if (userdata->selinux_permission == NULL)
                 return 0;
 
         u = manager_get_unit(userdata->manager, unit_name);

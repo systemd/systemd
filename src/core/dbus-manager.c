@@ -2275,7 +2275,7 @@ static int unit_file_preset_without_mode(UnitFileScope scope, UnitFileFlags flag
 }
 
 static int method_preset_unit_files(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        return method_enable_unit_files_generic(message, userdata, unit_file_preset_without_mode, true, "reload", __func__, error);
+        return method_enable_unit_files_generic(message, userdata, unit_file_preset_without_mode, true, /* FIXME(SELinux): use "preset" ? */ NULL, __func__, error);
 }
 
 static int method_mask_unit_files(sd_bus_message *message, void *userdata, sd_bus_error *error) {
@@ -2297,7 +2297,7 @@ static int method_preset_unit_files_with_mode(sd_bus_message *message, void *use
                 .message = message,
                 .error = error,
                 .func = __func__,
-                .selinux_permission = "reload",
+                .selinux_permission = NULL, // FIXME(SELinux): use "preset" ?
         };
 
         assert(message);
@@ -2417,7 +2417,7 @@ static int method_revert_unit_files(sd_bus_message *message, void *userdata, sd_
                 .message = message,
                 .error = error,
                 .func = __func__,
-                .selinux_permission = "reload",
+                .selinux_permission = NULL, // FIXME(SELinux): use "revert" / "modify" ?
         };
 
         assert(message);
@@ -2484,7 +2484,7 @@ static int method_preset_all_unit_files(sd_bus_message *message, void *userdata,
                 .message = message,
                 .error = error,
                 .func = __func__,
-                .selinux_permission = "reload",
+                .selinux_permission = NULL, // FIXME(SELinux): use "preset" ?
         };
 
         assert(message);
@@ -2535,7 +2535,7 @@ static int method_add_dependency_unit_files(sd_bus_message *message, void *userd
                 .message = message,
                 .error = error,
                 .func = __func__,
-                .selinux_permission = "reload",
+                .selinux_permission = NULL, // FIXME(SELinux): use "modify" ?
         };
 
         assert(message);
