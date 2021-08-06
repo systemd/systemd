@@ -36,10 +36,10 @@
 #include "os-util.h"
 #include "parse-argument.h"
 #include "parse-util.h"
+#include "password-quality-util.h"
 #include "path-util.h"
 #include "pretty-print.h"
 #include "proc-cmdline.h"
-#include "pwquality-util.h"
 #include "random-util.h"
 #include "smack-util.h"
 #include "string-util.h"
@@ -790,7 +790,7 @@ static int prompt_root_password(int rfd) {
                         break;
                 }
 
-                r = quality_check_password(*a, /* old */ NULL, "root", &error);
+                r = check_password_quality(*a, /* old */ NULL, "root", &error);
                 if (r < 0) {
                         if (ERRNO_IS_NOT_SUPPORTED(r))
                                 log_warning("Password quality check is not supported, proceeding anyway.");

@@ -33,7 +33,7 @@ systemd_homed_sources = files(
         'homed-operation.c',
         'homed-varlink.c',
         'homed.c',
-        'user-record-pwquality.c',
+        'user-record-password-quality.c',
         'user-record-sign.c',
         'user-record-util.c',
 )
@@ -52,7 +52,7 @@ homectl_sources = files(
         'homectl-pkcs11.c',
         'homectl-recovery-key.c',
         'homectl.c',
-        'user-record-pwquality.c',
+        'user-record-password-quality.c',
         'user-record-util.c',
 )
 

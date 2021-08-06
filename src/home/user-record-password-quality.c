@@ -4,14 +4,14 @@
 #include "errno-util.h"
 #include "home-util.h"
 #include "libcrypt-util.h"
-#include "pwquality-util.h"
+#include "password-quality-util.h"
 #include "strv.h"
-#include "user-record-pwquality.h"
+#include "user-record-password-quality.h"
 #include "user-record-util.h"
 
 #if HAVE_PWQUALITY
 
-int user_record_quality_check_password(
+int user_record_check_password_quality(
                 UserRecord *hr,
                 UserRecord *secret,
                 sd_bus_error *error) {
@@ -22,7 +22,7 @@ int user_record_quality_check_password(
         assert(hr);
         assert(secret);
 
-        /* This is a bit more complex than one might think at first. quality_check_password() would like to know the
+        /* This is a bit more complex than one might think at first. check_password_quality() would like to know the
          * old password to make security checks. We support arbitrary numbers of passwords however, hence we
          * call the function once for each combination of old and new password. */
 
@@ -48,7 +48,7 @@ int user_record_quality_check_password(
                         if (r > 0) /* This is a new password, not suitable as old password */
                                 continue;
 
-                        r = quality_check_password(*pp, *old, hr->user_name, &auxerror);
+                        r = check_password_quality(*pp, *old, hr->user_name, &auxerror);
                         if (r <= 0)
                                 goto error;
 
@@ -58,12 +58,11 @@ int user_record_quality_check_password(
                 if (called)
                         continue;
 
-                /* If there are no old passwords, let's call quality_check_password() without any. */
-                r = quality_check_password(*pp, /* old */ NULL, hr->user_name, &auxerror);
+                /* If there are no old passwords, let's call check_password_quality() without any. */
+                r = check_password_quality(*pp, /* old */ NULL, hr->user_name, &auxerror);
                 if (r <= 0)
                         goto error;
         }
-
         return 1;
 
 error:
@@ -77,7 +76,7 @@ error:
 
 #else
 
-int user_record_quality_check_password(
+int user_record_check_password_quality(
                 UserRecord *hr,
                 UserRecord *secret,
                 sd_bus_error *error) {
