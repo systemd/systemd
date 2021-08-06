@@ -355,6 +355,8 @@ option('pam', type : 'combo', choices : ['auto', 'true', 'false'],
        description : 'PAM support')
 option('pwquality', type : 'combo', choices : ['auto', 'true', 'false'],
        description : 'libpwquality support')
+option('passwdqc', type : 'combo', choices : ['auto', 'true', 'false'],
+       description : 'libpasswdqc support')
 option('microhttpd', type : 'combo', choices : ['auto', 'true', 'false'],
        description : 'libµhttpd support')
 option('libcryptsetup', type : 'combo', choices : ['auto', 'true', 'false'],

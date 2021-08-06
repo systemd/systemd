@@ -978,7 +978,12 @@ endif
 conf.set10('HAVE_LIBFDISK', have)
 
 want_pwquality = get_option('pwquality')
-if want_pwquality != 'false' and not skip_deps
+want_passwdqc = get_option('passwdqc')
+if want_pwquality == 'true' and want_passwdqc == 'true'
+        error('passwdqc and passwdqc cannot be requested simultaneously')
+endif
+
+if want_pwquality != 'false' and want_passwdqc != 'true' and not skip_deps
         libpwquality = dependency('pwquality', required : want_pwquality == 'true')
         have = libpwquality.found()
 else
@@ -986,6 +991,15 @@ else
         libpwquality = []
 endif
 conf.set10('HAVE_PWQUALITY', have)
+
+if not have and want_passwdqc != 'false' and not skip_deps
+        libpasswdqc = cc.find_library('libpasswdqc', required : want_passwdqc == 'true')
+        have = libpasswdqc.found()
+else
+        have = false
+        libpasswdqc = []
+endif
+conf.set10('HAVE_PASSWDQC', have)
 
 want_seccomp = get_option('seccomp')
 if want_seccomp != 'false' and not skip_deps
