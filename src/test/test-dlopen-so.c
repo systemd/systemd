@@ -9,7 +9,7 @@
 #include "libfido2-util.h"
 #include "macro.h"
 #include "main-func.h"
-#include "pwquality-util.h"
+#include "pwquality-dlopen.h"
 #include "qrcode-util.h"
 #include "tests.h"
 #include "tpm2-util.h"
