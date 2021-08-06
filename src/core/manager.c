@@ -1691,7 +1691,7 @@ static void manager_preset_all(Manager *m) {
                 return;
 
         /* If this is the first boot, and we are in the host system, then preset everything */
-        r = unit_file_preset_all(UNIT_FILE_SYSTEM, 0, NULL, UNIT_FILE_PRESET_ENABLE_ONLY, NULL, 0);
+        r = unit_file_preset_all(UNIT_FILE_SYSTEM, 0, NULL, UNIT_FILE_PRESET_ENABLE_ONLY, NULL, 0, NULL, NULL);
         if (r < 0)
                 log_full_errno(r == -EEXIST ? LOG_NOTICE : LOG_WARNING, r,
                                "Failed to populate /etc with preset unit settings, ignoring: %m");
@@ -1975,6 +1975,13 @@ Unit *manager_get_unit(Manager *m, const char *name) {
         assert(name);
 
         return hashmap_get(m->units, name);
+}
+
+const char *manager_lookup_unit_label_path(Manager *m, const char *name) {
+        assert(m);
+        assert(name);
+
+        return hashmap_get(m->unit_id_map, name);
 }
 
 static int manager_dispatch_target_deps_queue(Manager *m) {
