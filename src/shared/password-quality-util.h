@@ -3,7 +3,11 @@
 
 #define N_SUGGESTIONS 6
 
-#if HAVE_PWQUALITY
+#if HAVE_PASSWDQC
+
+#include "password-quality-util-passwdqc.h"
+
+#elif HAVE_PWQUALITY
 
 #include "password-quality-util-pwquality.h"
 
