@@ -5,6 +5,10 @@
 
 #include "pwquality-dlopen.h"
 
+#elif HAVE_PASSWDQC
+
+#include "passwdqc-dlopen.h"
+
 #else
 
 static inline int suggest_passwords(void) {
