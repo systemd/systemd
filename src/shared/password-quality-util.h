@@ -3,7 +3,11 @@
 
 #define N_SUGGESTIONS 6
 
-#if HAVE_PWQUALITY
+#if HAVE_PASSWDQC
+
+#include "passwdqc-dlopen.h"
+
+#elif HAVE_PWQUALITY
 
 #include "pwquality-dlopen.h"
 
