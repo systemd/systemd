@@ -322,7 +322,7 @@ ieee1394:ven00000FF2mo00010065sp0000A02Dver00010001
  IEEE1394_UNIT_FUNCTION_AUDIO=1
  IEEE1394_UNIT_FUNCTION_VIDEO=0
 
-# An extension card for Mackie d.2.
+# An extension card for Mackie d.2. Mackie d.2 Pro is preinstalled model.
 ieee1394:node:ven0x000ff2mo0x010067units0x00a02d:0x010001
 ieee1394:ven00000FF2mo00010067sp0000A02Dver00010001
  ID_VENDOR_FROM_DATABASE=Loud Technologies
