@@ -1526,7 +1526,7 @@ static int start_transient_scope(sd_bus *bus) {
                         return log_error_errno(errno, "Failed to change UID to " UID_FMT ": %m", uid);
         }
 
-        env = strv_env_merge(3, environ, user_env, arg_environment);
+        env = strv_env_merge(environ, user_env, arg_environment);
         if (!env)
                 return log_oom();
 
