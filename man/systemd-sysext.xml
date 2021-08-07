@@ -92,7 +92,7 @@
 
     <para>During boot OS extension images are activated automatically, if the
     <filename>systemd-sysext.service</filename> is enabled. Note that this service runs only after the
-    underlying file systems where system extensions are searched are mounted. This means they are not
+    underlying file systems where system extensions may be located have been mounted. This means they are not
     suitable for shipping resources that are processed by subsystems running in earliest boot. Specifically,
     OS extension images are not suitable for shipping system services or
     <citerefentry><refentrytitle>systemd-sysusers</refentrytitle><manvolnum>8</manvolnum></citerefentry>
