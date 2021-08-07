@@ -81,7 +81,7 @@ static void test_strv_env_merge(void) {
         b = strv_new("FOO=KKK", "FOO=", "PIEP=", "SCHLUMPF=SMURFF", "NANANANA=YES");
         assert_se(b);
 
-        r = strv_env_merge(2, a, b);
+        r = strv_env_merge(a, b);
         assert_se(r);
         assert_se(streq(r[0], "FOO="));
         assert_se(streq(r[1], "WALDO="));

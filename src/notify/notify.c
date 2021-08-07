@@ -232,7 +232,7 @@ static int run(int argc, char* argv[]) {
 
         our_env[i++] = NULL;
 
-        final_env = strv_env_merge(2, our_env, argv + optind);
+        final_env = strv_env_merge(our_env, argv + optind);
         if (!final_env)
                 return log_oom();
 

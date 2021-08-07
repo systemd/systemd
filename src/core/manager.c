@@ -3672,7 +3672,7 @@ int manager_transient_environment_add(Manager *m, char **plus) {
         if (strv_isempty(plus))
                 return 0;
 
-        a = strv_env_merge(2, m->transient_environment, plus);
+        a = strv_env_merge(m->transient_environment, plus);
         if (!a)
                 return log_oom();
 
@@ -3704,7 +3704,7 @@ int manager_client_environment_modify(
         }
 
         if (!strv_isempty(plus)) {
-                b = strv_env_merge(2, l, plus);
+                b = strv_env_merge(l, plus);
                 if (!b) {
                         strv_free(a);
                         return -ENOMEM;
@@ -3731,7 +3731,7 @@ int manager_get_effective_environment(Manager *m, char ***ret) {
         assert(m);
         assert(ret);
 
-        l = strv_env_merge(2, m->transient_environment, m->client_environment);
+        l = strv_env_merge(m->transient_environment, m->client_environment);
         if (!l)
                 return -ENOMEM;
 

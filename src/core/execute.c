@@ -4158,8 +4158,7 @@ static int exec_child(
                 return log_oom();
         }
 
-        accum_env = strv_env_merge(5,
-                                   params->environment,
+        accum_env = strv_env_merge(params->environment,
                                    our_env,
                                    pass_env,
                                    context->environment,
@@ -5214,7 +5213,7 @@ static int exec_context_load_environment(const Unit *unit, const ExecContext *c,
                         else {
                                 char **m;
 
-                                m = strv_env_merge(2, r, p);
+                                m = strv_env_merge(r, p);
                                 strv_free(r);
                                 strv_free(p);
                                 if (!m)
