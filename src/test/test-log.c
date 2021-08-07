@@ -66,11 +66,11 @@ static void test_log_syntax(void) {
 }
 
 int main(int argc, char* argv[]) {
-        int target;
-
         test_file();
 
-        for (target = 0; target < _LOG_TARGET_MAX; target++) {
+        assert_se(log_info_errno(SYNTHETIC_ERRNO(EUCLEAN), "foo") == -EUCLEAN);
+
+        for (int target = 0; target < _LOG_TARGET_MAX; target++) {
                 log_set_target(target);
                 log_open();
 
@@ -78,8 +78,6 @@ int main(int argc, char* argv[]) {
                 test_long_lines();
                 test_log_syntax();
         }
-
-        assert_se(log_info_errno(SYNTHETIC_ERRNO(EUCLEAN), "foo") == -EUCLEAN);
 
         return 0;
 }
