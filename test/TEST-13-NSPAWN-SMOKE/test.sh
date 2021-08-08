@@ -11,6 +11,7 @@ TEST_NO_NSPAWN=1
 test_append_files() {
     (
         local workspace="${1:?}"
+        dracut_install busybox
 
         if selinuxenabled >/dev/null; then
             dracut_install selinuxenabled

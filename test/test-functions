@@ -126,7 +126,6 @@ BASICTOOLS=(
     base64
     basename
     bash
-    busybox
     capsh
     cat
     chmod
