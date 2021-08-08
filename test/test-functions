@@ -1681,6 +1681,11 @@ inst_libs() {
 
     while read -r line; do
         [[ "$line" = 'not a dynamic executable' ]] && break
+        # Skip a harmless error when running the tests on a system with a significantly
+        # older systemd version (ldd tries to resolve the unprefixed RPATH for libsystemd.so.0,
+        # which is in this case older than the already installed libsystemd.so.0 in $initdir).
+        # The issue is triggered by installing test dependencies in install_missing_libraries().
+        [[ "$line" =~ libsystemd.so.*:\ version\ .*\ not\ found ]] && continue
 
         if [[ "$line" =~ $so_regex ]]; then
             file="${BASH_REMATCH[1]}"
