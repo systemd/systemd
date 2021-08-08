@@ -2343,7 +2343,7 @@ instmods() {
                 else
                     (
                         [[ "$mpargs" ]] && echo "$mpargs"
-                        find "$mod_dir" -path "*/${mod#=}/*" -type f -printf '%f\n'
+                        find "$mod_dir" -path "*/${mod#=}/*" -name "*.ko*" -type f -printf '%f\n'
                     ) | instmods
                 fi
                 ;;
