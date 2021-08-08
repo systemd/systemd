@@ -7,7 +7,10 @@ set -o pipefail
 root="${1:?Usage $0 container-root}"
 mkdir -p "$root"
 mkdir "$root/bin"
-cp $(type -P busybox) "$root/bin"
+
+# On openSUSE the static linked version of busybox is named "busybox-static".
+busybox="$(type -P busybox-static || type -P busybox)"
+cp "$busybox" "$root/bin/busybox"
 
 os_release=$(test -e /etc/os-release && echo /etc/os-release || echo /usr/lib/os-release)
 ID_LIKE=$(awk -F= '$1=="ID_LIKE" { print $2 ;}' $os_release)
