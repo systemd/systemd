@@ -371,7 +371,7 @@ static int raw_pull_make_local_copy(RawPull *i) {
         }
 
         (void) copy_times(i->raw_job->disk_fd, dfd, COPY_CRTIME);
-        (void) copy_xattr(i->raw_job->disk_fd, dfd);
+        (void) copy_xattr(i->raw_job->disk_fd, dfd, 0);
 
         dfd = safe_close(dfd);
 

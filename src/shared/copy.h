@@ -23,6 +23,7 @@ typedef enum CopyFlags {
         COPY_FSYNC       = 1 << 10, /* fsync() after we are done */
         COPY_FSYNC_FULL  = 1 << 11, /* fsync_full() after we are done */
         COPY_SYNCFS      = 1 << 12, /* syncfs() the *top-level* dir after we are done */
+        COPY_ALL_XATTRS  = 1 << 13, /* Preserve all xattrs when copying, not just those in the user namespace */
 } CopyFlags;
 
 typedef int (*copy_progress_bytes_t)(uint64_t n_bytes, void *userdata);
@@ -72,4 +73,4 @@ int copy_rights_with_fallback(int fdf, int fdt, const char *patht);
 static inline int copy_rights(int fdf, int fdt) {
         return copy_rights_with_fallback(fdf, fdt, NULL); /* no fallback */
 }
-int copy_xattr(int fdf, int fdt);
+int copy_xattr(int fdf, int fdt, CopyFlags copy_flags);
