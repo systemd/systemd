@@ -652,7 +652,7 @@ static int fd_copy_regular(
                 r = -errno;
 
         (void) futimens(fdt, (struct timespec[]) { st->st_atim, st->st_mtim });
-        (void) copy_xattr(fdf, fdt);
+        (void) copy_xattr(fdf, fdt, copy_flags);
 
         if (copy_flags & COPY_FSYNC) {
                 if (fsync(fdt) < 0) {
@@ -945,7 +945,7 @@ static int fd_copy_directory(
                 if (fchmod(fdt, st->st_mode & 07777) < 0)
                         r = -errno;
 
-                (void) copy_xattr(dirfd(d), fdt);
+                (void) copy_xattr(dirfd(d), fdt, copy_flags);
                 (void) futimens(fdt, (struct timespec[]) { st->st_atim, st->st_mtim });
         }
 
@@ -1139,7 +1139,7 @@ int copy_file_fd_full(
 
         if (S_ISREG(fdt)) {
                 (void) copy_times(fdf, fdt, copy_flags);
-                (void) copy_xattr(fdf, fdt);
+                (void) copy_xattr(fdf, fdt, copy_flags);
         }
 
         if (copy_flags & COPY_FSYNC_FULL) {
@@ -1211,7 +1211,7 @@ int copy_file_full(
                 goto fail;
 
         (void) copy_times(fdf, fdt, copy_flags);
-        (void) copy_xattr(fdf, fdt);
+        (void) copy_xattr(fdf, fdt, copy_flags);
 
         if (chattr_mask != 0)
                 (void) chattr_fd(fdt, chattr_flags, chattr_mask & ~CHATTR_EARLY_FL, NULL);
@@ -1399,7 +1399,7 @@ int copy_rights_with_fallback(int fdf, int fdt, const char *patht) {
         return fchmod_and_chown_with_fallback(fdt, patht, st.st_mode & 07777, st.st_uid, st.st_gid);
 }
 
-int copy_xattr(int fdf, int fdt) {
+int copy_xattr(int fdf, int fdt, CopyFlags copy_flags) {
         _cleanup_free_ char *names = NULL;
         int ret = 0, r;
         const char *p;
@@ -1411,7 +1411,7 @@ int copy_xattr(int fdf, int fdt) {
         NULSTR_FOREACH(p, names) {
                 _cleanup_free_ char *value = NULL;
 
-                if (!startswith(p, "user."))
+                if (!(copy_flags & COPY_ALL_XATTRS) && !startswith(p, "user."))
                         continue;
 
                 r = fgetxattr_malloc(fdf, p, &value);

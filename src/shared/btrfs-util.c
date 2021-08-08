@@ -1628,6 +1628,7 @@ int btrfs_subvol_snapshot_fd_full(
                                 COPY_REFLINK|
                                 COPY_SAME_MOUNT|
                                 COPY_HARDLINKS|
+                                COPY_ALL_XATTRS|
                                 (FLAGS_SET(flags, BTRFS_SNAPSHOT_SIGINT) ? COPY_SIGINT : 0)|
                                 (FLAGS_SET(flags, BTRFS_SNAPSHOT_SIGTERM) ? COPY_SIGTERM : 0),
                                 progress_path,
