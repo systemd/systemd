@@ -12,6 +12,15 @@ BOOLEAN secure_boot_enabled(void) {
         return !EFI_ERROR(err) && secure;
 }
 
+BOOLEAN setup_mode_enabled(void) {
+        BOOLEAN setup_mode;
+        EFI_STATUS err;
+
+        err = efivar_get_boolean_u8(EFI_GLOBAL_GUID, L"SetupMode", &setup_mode);
+
+        return !EFI_ERROR(err) && setup_mode;
+}
+
 #ifdef SBAT_DISTRO
 static const char sbat[] _used_ _section_ (".sbat") _align_ (512) =
         "sbat,1,SBAT Version,sbat,1,https://github.com/rhboot/shim/blob/main/SBAT.md\n"
