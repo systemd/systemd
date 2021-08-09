@@ -567,9 +567,11 @@ evdev:name:AlpsPS/2 ALPS GlidePoint:dmi:*svnLENOVO:*pvrLenovoU41-70:*
  EVDEV_ABS_35=117:3958:36
  EVDEV_ABS_36=104:1960:26
 
-# Lenovo Thinkpad T490 and T14 Gen1
+# Lenovo Thinkpad T490 and T14/P14s Gen1/2
 evdev:name:SynPS/2 Synaptics TouchPad:dmi:*:svnLENOVO:*pvrThinkPadT490:*
 evdev:name:SynPS/2 Synaptics TouchPad:dmi:*:svnLENOVO:*pvrThinkPadT14Gen1:*
+evdev:name:SynPS/2 Synaptics TouchPad:dmi:*:svnLENOVO:*pvrThinkPadP14sGen1:*
+evdev:name:SynPS/2 Synaptics TouchPad:dmi:*:svnLENOVO:*pvrThinkPadP14sGen2a:*
  EVDEV_ABS_00=::44
  EVDEV_ABS_01=::52
  EVDEV_ABS_35=::44
