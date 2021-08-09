@@ -31,6 +31,7 @@ Exec.DropCapability,          config_parse_capability,     0,                 of
 Exec.KillSignal,              config_parse_signal,         0,                 offsetof(Settings, kill_signal)
 Exec.Personality,             config_parse_personality,    0,                 offsetof(Settings, personality)
 Exec.MachineID,               config_parse_id128,          0,                 offsetof(Settings, machine_id)
+Exec.ExecSearchPath,          config_parse_path,           0,                 offsetof(Settings, exec_search_path)
 Exec.WorkingDirectory,        config_parse_path,           0,                 offsetof(Settings, working_directory)
 Exec.PivotRoot,               config_parse_pivot_root,     0,                 0
 Exec.PrivateUsers,            config_parse_private_users,  0,                 0
