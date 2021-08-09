@@ -1414,7 +1414,7 @@ static VOID config_load_defaults(Config *config, EFI_FILE *root_dir) {
                 .editor = TRUE,
                 .auto_entries = TRUE,
                 .auto_firmware = TRUE,
-                .auto_enroll = FALSE,
+                .auto_enroll = TRUE,
                 .random_seed_mode = RANDOM_SEED_WITH_SYSTEM_TOKEN,
         };
 
