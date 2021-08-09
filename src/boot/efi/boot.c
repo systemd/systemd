@@ -2307,49 +2307,46 @@ static VOID config_write_entries_to_variable(Config *config) {
 }
 
 static EFI_STATUS secure_boot_enroll_from(EFI_FILE_HANDLE dir) {
-        static const UINT32 sb_vars_options =
+        static const UINT32 sb_vars_opts =
                 EFI_VARIABLE_NON_VOLATILE |
                 EFI_VARIABLE_BOOTSERVICE_ACCESS |
                 EFI_VARIABLE_RUNTIME_ACCESS |
                 EFI_VARIABLE_TIME_BASED_AUTHENTICATED_WRITE_ACCESS |
                 0;
 
-        _cleanup_freepool_ CHAR8 *sb_db_buffer = NULL, *sb_kek_buffer = NULL, *sb_pk_buffer = NULL;
-        UINTN sb_db_size, sb_kek_size, sb_pk_size;
-        EFI_STATUS err = EFI_SUCCESS, err_sb_db, err_sb_kek, err_sb_pk;
+        static const struct {
+                const CHAR16 *name;
+                const CHAR16 *filename;
+                const EFI_GUID vendor;
+        } sb_vars[] = {
+                { L"db", L"db.auth", EFI_IMAGE_SECURITY_DATABASE_VARIABLE },
+                { L"KEK", L"KEK.auth", EFI_GLOBAL_VARIABLE },
+                { L"PK", L"PK.auth", EFI_GLOBAL_VARIABLE },
+        };
 
-        /* Read the required files in order to perform auto-enrollement */
-        err_sb_db  = file_read(dir, L"db.auth", 0, 0, &sb_db_buffer, &sb_db_size);
-        err_sb_kek = file_read(dir, L"KEK.auth", 0, 0, &sb_kek_buffer, &sb_kek_size);
-        err_sb_pk  = file_read(dir, L"PK.auth", 0, 0, &sb_pk_buffer, &sb_pk_size);
+        _cleanup_freepool_ CHAR8 *buffer = NULL;
+        UINTN size;
+        EFI_STATUS err = EFI_SUCCESS;
 
-        if (!EFI_ERROR(err_sb_db) && !EFI_ERROR(err_sb_kek) && !EFI_ERROR(err_sb_pk)) {
-                err = efivar_set_raw(EFI_IMAGE_SECURITY_DATABASE_GUID, L"db", sb_db_buffer, sb_db_size, sb_vars_options);
-                if (EFI_ERROR(err)) {
-                        Print(L"Failed to write db secure boot variable: %r\n", err);
+        for (UINTN i = 0; i < ELEMENTSOF(sb_vars); i++) {
+                file_read(dir, sb_vars[i].filename, 0, 0, &buffer, &size);
+
+                if (!EFI_ERROR(err)) {
+                        err = efivar_set_raw(&sb_vars[i].vendor, sb_vars[i].name, buffer, size, sb_vars_opts);
+                        if (EFI_ERROR(err)) {
+                                Print(L"Failed to write %s secure boot variable: %r\n", sb_vars[i].name, err);
+                                uefi_call_wrapper(BS->Stall, 1, 3 * 1000 * 1000);
+                                return err;
+                        }
+                } else {
+                        Print(L"Failed reading %s file: %r\n", sb_vars[i].filename, err);
                         uefi_call_wrapper(BS->Stall, 1, 3 * 1000 * 1000);
                         return err;
                 }
-
-                err = efivar_set_raw(EFI_GLOBAL_GUID, L"KEK", sb_kek_buffer, sb_kek_size, sb_vars_options);
-                if (EFI_ERROR(err)) {
-                        Print(L"Failed to write db secure boot variable: %r\n", err);
-                        uefi_call_wrapper(BS->Stall, 1, 3 * 1000 * 1000);
-                        return err;
-                }
-
-                err = efivar_set_raw(EFI_GLOBAL_GUID, L"PK", sb_pk_buffer, sb_pk_size, sb_vars_options);
-                if (EFI_ERROR(err)) {
-                        Print(L"Failed to write db secure boot variable: %r\n", err);
-                        uefi_call_wrapper(BS->Stall, 1, 3 * 1000 * 1000);
-                        return err;
-                }
-
-                Print(L"Finished loading secure boot variables.\n");
-                uefi_call_wrapper(BS->Stall, 1, 3 * 1000 * 1000);
-                return err;
         }
 
+        Print(L"Finished loading secure boot variables.\n");
+        uefi_call_wrapper(BS->Stall, 1, 3 * 1000 * 1000);
         return err;
 }
 
