@@ -347,12 +347,14 @@ run_qemu() {
             [ "$ARCH" ] || ARCH=$(uname -m)
             case $ARCH in
                 ppc64*)
-                KERNEL_BIN="/boot/vmlinux-$KERNEL_VER"
-                CONSOLE=hvc0
-                ;;
+                    # Ubuntu ppc64* calls the kernel binary as vmlinux-*, RHEL/CentOS
+                    # uses the "standard" vmlinuz- prefix
+                    [[ -e "/boot/vmlinux-$KERNEL_VER" ]] && KERNEL_BIN="/boot/vmlinux-$KERNEL_VER" || KERNEL_BIN="/boot/vmlinuz-$KERNEL_VER"
+                    CONSOLE=hvc0
+                    ;;
                 *)
-                KERNEL_BIN="/boot/vmlinuz-$KERNEL_VER"
-                ;;
+                    KERNEL_BIN="/boot/vmlinuz-$KERNEL_VER"
+                    ;;
             esac
         fi
     fi
