@@ -845,7 +845,7 @@ int locale_gen_enable_locale(const char *locale) {
                 r = copy_access(fileno(fr), fileno(fw));
                 if (r < 0)
                         return r;
-                r = copy_xattr(fileno(fr), fileno(fw));
+                r = copy_xattr(fileno(fr), fileno(fw), COPY_ALL_XATTRS);
                 if (r < 0)
                         return r;
         }
