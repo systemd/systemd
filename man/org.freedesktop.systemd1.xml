@@ -2603,6 +2603,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly t LimitRTTIMESoft = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly s ExecSearchPath = '...';
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly s WorkingDirectory = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly s RootDirectory = '...';
@@ -3139,6 +3141,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
     <!--property LimitRTTIME is not documented!-->
 
     <!--property LimitRTTIMESoft is not documented!-->
+
+    <!--property ExecSearchPath is not documented!-->
 
     <!--property WorkingDirectory is not documented!-->
 
@@ -3711,6 +3715,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
     <variablelist class="dbus-property" generated="True" extra-ref="LimitRTTIME"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="LimitRTTIMESoft"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="ExecSearchPath"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="WorkingDirectory"/>
 
@@ -4415,6 +4421,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2esocket {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly t LimitRTTIMESoft = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly s ExecSearchPath = '...';
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly s WorkingDirectory = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly s RootDirectory = '...';
@@ -4979,6 +4987,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2esocket {
     <!--property LimitRTTIME is not documented!-->
 
     <!--property LimitRTTIMESoft is not documented!-->
+
+    <!--property ExecSearchPath is not documented!-->
 
     <!--property WorkingDirectory is not documented!-->
 
@@ -5549,6 +5559,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2esocket {
     <variablelist class="dbus-property" generated="True" extra-ref="LimitRTTIME"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="LimitRTTIMESoft"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="ExecSearchPath"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="WorkingDirectory"/>
 
@@ -6150,6 +6162,8 @@ node /org/freedesktop/systemd1/unit/home_2emount {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly t LimitRTTIMESoft = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly s ExecSearchPath = '...';
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly s WorkingDirectory = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly s RootDirectory = '...';
@@ -6643,6 +6657,8 @@ node /org/freedesktop/systemd1/unit/home_2emount {
 
     <!--property LimitRTTIMESoft is not documented!-->
 
+    <!--property ExecSearchPath is not documented!-->
+
     <!--property WorkingDirectory is not documented!-->
 
     <!--property RootHashPath is not documented!-->
@@ -7130,6 +7146,8 @@ node /org/freedesktop/systemd1/unit/home_2emount {
     <variablelist class="dbus-property" generated="True" extra-ref="LimitRTTIME"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="LimitRTTIMESoft"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="ExecSearchPath"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="WorkingDirectory"/>
 
@@ -7852,6 +7870,8 @@ node /org/freedesktop/systemd1/unit/dev_2dsda3_2eswap {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly t LimitRTTIMESoft = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly s ExecSearchPath = '...';
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly s WorkingDirectory = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly s RootDirectory = '...';
@@ -8331,6 +8351,8 @@ node /org/freedesktop/systemd1/unit/dev_2dsda3_2eswap {
 
     <!--property LimitRTTIMESoft is not documented!-->
 
+    <!--property ExecSearchPath is not documented!-->
+
     <!--property WorkingDirectory is not documented!-->
 
     <!--property RootHashPath is not documented!-->
@@ -8804,6 +8826,8 @@ node /org/freedesktop/systemd1/unit/dev_2dsda3_2eswap {
     <variablelist class="dbus-property" generated="True" extra-ref="LimitRTTIME"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="LimitRTTIMESoft"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="ExecSearchPath"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="WorkingDirectory"/>
 
