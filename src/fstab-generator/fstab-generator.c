@@ -451,6 +451,10 @@ static int add_mount(
                 "\n"
                 "[Mount]\n");
 
+        r = write_what(f, what);
+        if (r < 0)
+                return r;
+
         if (original_where)
                 fprintf(f, "# Canonicalized from %s\n", original_where);
 
@@ -458,10 +462,6 @@ static int add_mount(
         if (!where_escaped)
                 return log_oom();
         fprintf(f, "Where=%s\n", where_escaped);
-
-        r = write_what(f, what);
-        if (r < 0)
-                return r;
 
         if (!isempty(fstype) && !streq(fstype, "auto")) {
                 _cleanup_free_ char *t = NULL;
