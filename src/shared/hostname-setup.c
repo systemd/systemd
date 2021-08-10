@@ -20,12 +20,14 @@
 #include "util.h"
 
 static int sethostname_idempotent_full(const char *s, bool really) {
-        char buf[HOST_NAME_MAX + 1];
+        char *buf;
+        int r;
 
         assert(s);
 
-        if (gethostname(buf, sizeof(buf)) < 0)
-                return -errno;
+        r = gethostname_full(GET_HOSTNAME_ALLOW_NONE | GET_HOSTNAME_ALLOW_LOCALHOST, &buf);
+        if (r < 0)
+                return r;
 
         if (streq(buf, s))
                 return 0;
@@ -42,22 +44,16 @@ int sethostname_idempotent(const char *s) {
 }
 
 bool get_hostname_filtered(char ret[static HOST_NAME_MAX + 1]) {
-        char buf[HOST_NAME_MAX + 1];
+        char *buf;
 
         /* Returns true if we got a good hostname, false otherwise. */
 
-        if (gethostname(buf, sizeof(buf)) < 0)
-                return false;  /* This can realistically only fail with ENAMETOOLONG.
-                                * Let's treat that case the same as an invalid hostname. */
-
-        if (isempty(buf))
+        if (gethostname_full(GET_HOSTNAME_ALLOW_LOCALHOST, &buf) < 0)
                 return false;
 
-        /* This is the built-in kernel default hostname */
-        if (streq(buf, "(none)"))
-                return false;
+        assert(strlen(buf) <= HOST_NAME_MAX);
 
-        memcpy(ret, buf, sizeof buf);
+        strcpy(ret, buf);
         return true;
 }
 
