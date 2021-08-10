@@ -10,6 +10,7 @@
 #include "escape.h"
 #include "fd-util.h"
 #include "io-util.h"
+#include "memory-util.h"
 #include "path-util.h"
 #include "process-util.h"
 #include "pull-common.h"
@@ -342,18 +343,18 @@ static int verify_one(PullJob *checksum_job, PullJob *job) {
 
         line = strjoina(job->checksum, " *", fn, "\n");
 
-        p = memmem(checksum_job->payload,
-                   checksum_job->payload_size,
-                   line,
-                   strlen(line));
+        p = memmem_safe(checksum_job->payload,
+                        checksum_job->payload_size,
+                        line,
+                        strlen(line));
 
         if (!p) {
                 line = strjoina(job->checksum, "  ", fn, "\n");
 
-                p = memmem(checksum_job->payload,
-                        checksum_job->payload_size,
-                        line,
-                        strlen(line));
+                p = memmem_safe(checksum_job->payload,
+                                checksum_job->payload_size,
+                                line,
+                                strlen(line));
         }
 
         if (!p || (p != (char*) checksum_job->payload && p[-1] != '\n'))
