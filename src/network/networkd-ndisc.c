@@ -38,6 +38,21 @@
 
 #define NDISC_APP_ID SD_ID128_MAKE(13,ac,81,a7,d5,3f,49,78,92,79,5d,0c,29,3a,bc,7e)
 
+typedef enum IPv6TokenAddressGeneration {
+        IPV6_TOKEN_ADDRESS_GENERATION_NONE,
+        IPV6_TOKEN_ADDRESS_GENERATION_STATIC,
+        IPV6_TOKEN_ADDRESS_GENERATION_PREFIXSTABLE,
+        _IPV6_TOKEN_ADDRESS_GENERATION_MAX,
+        _IPV6_TOKEN_ADDRESS_GENERATION_INVALID = -EINVAL,
+} IPv6TokenAddressGeneration;
+
+typedef struct IPv6Token {
+        IPv6TokenAddressGeneration address_generation_type;
+
+        uint8_t dad_counter;
+        struct in6_addr prefix;
+} IPv6Token;
+
 bool link_ipv6_accept_ra_enabled(Link *link) {
         assert(link);
 
@@ -619,7 +634,7 @@ static int ndisc_router_process_default(Link *link, sd_ndisc_router *rt) {
         return 0;
 }
 
-static bool stableprivate_address_is_valid(const struct in6_addr *addr) {
+static bool stable_private_address_is_valid(const struct in6_addr *addr) {
         assert(addr);
 
         /* According to rfc4291, generated address should not be in the following ranges. */
@@ -636,7 +651,7 @@ static bool stableprivate_address_is_valid(const struct in6_addr *addr) {
         return true;
 }
 
-static int make_stableprivate_address(Link *link, const struct in6_addr *prefix, uint8_t prefix_len, uint8_t dad_counter, struct in6_addr **ret) {
+static int make_stable_private_address(Link *link, const struct in6_addr *prefix, uint8_t prefix_len, uint8_t dad_counter, struct in6_addr **ret) {
         _cleanup_free_ struct in6_addr *addr = NULL;
         sd_id128_t secret_key;
         struct siphash state;
@@ -649,7 +664,7 @@ static int make_stableprivate_address(Link *link, const struct in6_addr *prefix,
 
         r = sd_id128_get_machine_app_specific(NDISC_APP_ID, &secret_key);
         if (r < 0)
-                return log_error_errno(r, "Failed to generate key: %m");
+                return log_link_warning_errno(link, r, "Failed to generate key for IPv6 stable private address: %m");
 
         siphash24_init(&state, secret_key.bytes);
 
@@ -672,7 +687,7 @@ static int make_stableprivate_address(Link *link, const struct in6_addr *prefix,
         memcpy(addr->s6_addr, prefix->s6_addr, l);
         memcpy(addr->s6_addr + l, &rid, 16 - l);
 
-        if (!stableprivate_address_is_valid(addr)) {
+        if (!stable_private_address_is_valid(addr)) {
                 *ret = NULL;
                 return 0;
         }
@@ -704,7 +719,7 @@ static int ndisc_router_generate_addresses(Link *link, struct in6_addr *address,
                          * only when the address generation algorithm produces an invalid address, and the loop
                          * may exit with an address which ends up being unusable due to duplication on the link. */
                         for (; j->dad_counter < DAD_CONFLICTS_IDGEN_RETRIES_RFC7217; j->dad_counter++) {
-                                r = make_stableprivate_address(link, address, prefixlen, j->dad_counter, &new_address);
+                                r = make_stable_private_address(link, address, prefixlen, j->dad_counter, &new_address);
                                 if (r < 0)
                                         return r;
                                 if (r > 0)
@@ -1030,7 +1045,7 @@ static int ndisc_router_process_rdnss(Link *link, sd_ndisc_router *rt) {
                 if (rdnss) {
                         rdnss->marked = false;
                         rdnss->router = router;
-                        rdnss->valid_until = time_now + lifetime * USEC_PER_SEC;
+                        rdnss->valid_until = usec_add(time_now, lifetime * USEC_PER_SEC);
                         continue;
                 }
 
@@ -1041,7 +1056,7 @@ static int ndisc_router_process_rdnss(Link *link, sd_ndisc_router *rt) {
                 *x = (NDiscRDNSS) {
                         .address = a[j],
                         .router = router,
-                        .valid_until = time_now + lifetime * USEC_PER_SEC,
+                        .valid_until = usec_add(time_now, lifetime * USEC_PER_SEC),
                 };
 
                 r = set_ensure_consume(&link->ndisc_rdnss, &ndisc_rdnss_hash_ops, TAKE_PTR(x));
@@ -1128,12 +1143,12 @@ static int ndisc_router_process_dnssl(Link *link, sd_ndisc_router *rt) {
                 if (dnssl) {
                         dnssl->marked = false;
                         dnssl->router = router;
-                        dnssl->valid_until = time_now + lifetime * USEC_PER_SEC;
+                        dnssl->valid_until = usec_add(time_now, lifetime * USEC_PER_SEC);
                         continue;
                 }
 
                 s->router = router;
-                s->valid_until = time_now + lifetime * USEC_PER_SEC;
+                s->valid_until = usec_add(time_now, lifetime * USEC_PER_SEC);
 
                 r = set_ensure_consume(&link->ndisc_dnssl, &ndisc_dnssl_hash_ops, TAKE_PTR(s));
                 if (r < 0)
@@ -1433,7 +1448,7 @@ void ndisc_flush(Link *link) {
         link->ndisc_dnssl = set_free(link->ndisc_dnssl);
 }
 
-int ipv6token_new(IPv6Token **ret) {
+static int ipv6token_new(IPv6Token **ret) {
         IPv6Token *p;
 
         p = new(IPv6Token, 1);
