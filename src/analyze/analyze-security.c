@@ -1430,7 +1430,8 @@ static const struct security_assessor security_assessor_table[] = {
         },
 };
 
-static int assess(const struct security_info *info, Table *overview_table, AnalyzeSecurityFlags flags) {
+/* access() is public so that it can be used from analyze-verify for security check on unit files */
+int assess(const struct security_info *info, Table *overview_table, AnalyzeSecurityFlags flags) {
         static const struct {
                 uint64_t exposure;
                 const char *name;
@@ -1625,6 +1626,10 @@ static int assess(const struct security_info *info, Table *overview_table, Analy
                 if (r < 0)
                         return table_log_add_error(r);
         }
+
+        /* Return error when overall exposure level is over MEDIUM */
+        if (exposure > 50)
+                return -EINVAL;
 
         return 0;
 }
