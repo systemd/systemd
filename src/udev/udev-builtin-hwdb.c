@@ -99,14 +99,13 @@ static int udev_builtin_hwdb_search(sd_device *dev, sd_device *srcdev,
                         last = true;
                 }
 
-                if (!modalias)
-                        goto next;
+                if (modalias) {
+                        log_device_debug(dev, "hwdb modalias key: \"%s\"", modalias);
 
-                log_device_debug(dev, "hwdb modalias key: \"%s\"", modalias);
-
-                r = udev_builtin_hwdb_lookup(dev, prefix, modalias, filter, test);
-                if (r > 0)
-                        break;
+                        r = udev_builtin_hwdb_lookup(dev, prefix, modalias, filter, test);
+                        if (r > 0)
+                                break;
+                }
 
                 if (last)
                         break;
