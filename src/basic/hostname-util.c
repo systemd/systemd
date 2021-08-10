@@ -36,67 +36,62 @@ char* get_default_hostname(void) {
         return strdup(FALLBACK_HOSTNAME);
 }
 
-char* gethostname_malloc(void) {
+int gethostname_full(GetHostnameFlags flags, char **ret) {
+        _cleanup_free_ char *buf = NULL, *fallback = NULL;
         struct utsname u;
         const char *s;
 
-        /* This call tries to return something useful, either the actual hostname
-         * or it makes something up. The only reason it might fail is OOM.
-         * It might even return "localhost" if that's set. */
+        assert(ret);
 
         assert_se(uname(&u) >= 0);
 
         s = u.nodename;
-        if (isempty(s) || streq(s, "(none)"))
-                return get_default_hostname();
+        if (isempty(s) ||
+            (!FLAGS_SET(flags, GET_HOSTNAME_ALLOW_NONE) && streq(s, "(none)")) ||
+            (!FLAGS_SET(flags, GET_HOSTNAME_ALLOW_LOCALHOST) && is_localhost(s)) ||
+            (FLAGS_SET(flags, GET_HOSTNAME_SHORT) && s[0] == '.')) {
+                if (!FLAGS_SET(flags, GET_HOSTNAME_FALLBACK_DEFAULT))
+                        return -ENXIO;
 
-        return strdup(s);
+                s = fallback = get_default_hostname();
+                if (!s)
+                        return -ENOMEM;
+
+                if (FLAGS_SET(flags, GET_HOSTNAME_SHORT) && s[0] == '.')
+                        return -ENXIO;
+        }
+
+        if (FLAGS_SET(flags, GET_HOSTNAME_SHORT))
+                buf = strndup(s, strcspn(s, "."));
+        else
+                buf = strdup(s);
+        if (!buf)
+                return -ENOMEM;
+
+        *ret = TAKE_PTR(buf);
+        return 0;
+}
+
+char* gethostname_malloc(void) {
+        char *s;
+
+        if (gethostname_full(GET_HOSTNAME_ALLOW_LOCALHOST | GET_HOSTNAME_FALLBACK_DEFAULT, &s) < 0)
+                return NULL;
+
+        return s;
 }
 
 char* gethostname_short_malloc(void) {
-        struct utsname u;
-        const char *s;
-        _cleanup_free_ char *f = NULL;
+        char *s;
 
-        /* Like above, but kills the FQDN part if present. */
+        if (gethostname_full(GET_HOSTNAME_ALLOW_LOCALHOST | GET_HOSTNAME_FALLBACK_DEFAULT | GET_HOSTNAME_SHORT, &s) < 0)
+                return NULL;
 
-        assert_se(uname(&u) >= 0);
-
-        s = u.nodename;
-        if (isempty(s) || streq(s, "(none)") || s[0] == '.') {
-                s = f = get_default_hostname();
-                if (!s)
-                        return NULL;
-
-                assert(s[0] != '.');
-        }
-
-        return strndup(s, strcspn(s, "."));
+        return s;
 }
 
 int gethostname_strict(char **ret) {
-        struct utsname u;
-        char *k;
-
-        /* This call will rather fail than make up a name. It will not return "localhost" either. */
-
-        assert_se(uname(&u) >= 0);
-
-        if (isempty(u.nodename))
-                return -ENXIO;
-
-        if (streq(u.nodename, "(none)"))
-                return -ENXIO;
-
-        if (is_localhost(u.nodename))
-                return -ENXIO;
-
-        k = strdup(u.nodename);
-        if (!k)
-                return -ENOMEM;
-
-        *ret = k;
-        return 0;
+        return gethostname_full(0, ret);
 }
 
 bool valid_ldh_char(char c) {
