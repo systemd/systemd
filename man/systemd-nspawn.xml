@@ -527,14 +527,14 @@
       </varlistentry>
 
       <varlistentry>
-        <term><option>-E <replaceable>NAME</replaceable>=<replaceable>VALUE</replaceable></option></term>
-        <term><option>--setenv=<replaceable>NAME</replaceable>=<replaceable>VALUE</replaceable></option></term>
+        <term><option>-E <replaceable>NAME</replaceable>[=<replaceable>VALUE</replaceable>]</option></term>
+        <term><option>--setenv=<replaceable>NAME</replaceable>[=<replaceable>VALUE</replaceable>]</option></term>
 
-        <listitem><para>Specifies an environment variable assignment
-        to pass to the init process in the container, in the format
-        <literal>NAME=VALUE</literal>. This may be used to override
-        the default variables or to set additional variables. This
-        parameter may be used more than once.</para></listitem>
+        <listitem><para>Specifies an environment variable to pass to the init process in the container. This
+        may be used to override the default variables or to set additional variables. It may be used more
+        than once to set multiple variables. When <literal>=</literal> and <replaceable>VALUE</replaceable>
+        are omitted, the value of the variable with the same name in the program environment will be used.
+        </para></listitem>
       </varlistentry>
 
       <varlistentry>
