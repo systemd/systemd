@@ -78,6 +78,7 @@ typedef enum {
         TK_M_TAG,                           /* strv, sd_device_get_tag_first(), sd_device_get_tag_next() */
         TK_M_SUBSYSTEM,                     /* string, sd_device_get_subsystem() */
         TK_M_DRIVER,                        /* string, sd_device_get_driver() */
+        TK_M_WAITFOR,
         TK_M_ATTR,                          /* string, takes filename through attribute, sd_device_get_sysattr_value(), udev_resolve_subsys_kernel(), etc. */
         TK_M_SYSCTL,                        /* string, takes kernel parameter through attribute */
 
@@ -413,6 +414,47 @@ static void rule_line_append_token(UdevRuleLine *rule_line, UdevRuleToken *token
                 LIST_APPEND(tokens, rule_line->tokens, token);
 
         rule_line->current_token = token;
+}
+
+#define WAIT_LOOP_PER_SECOND                50
+static int wait_for_file(sd_device *dev, const char *file, int timeout) {
+        char filepath[UDEV_PATH_SIZE];
+        char devicepath[UDEV_PATH_SIZE];
+        struct stat stats;
+        int loop = timeout * WAIT_LOOP_PER_SECOND;
+
+        /* a relative path is a device attribute */
+        devicepath[0] = '\0';
+        if (file[0] != '/') {
+                const char *val;
+                int r;
+
+                r = sd_device_get_syspath(dev, &val);
+                if (r < 0)
+                    return r;
+                strscpyl(devicepath, sizeof(devicepath), val, NULL);
+                strscpyl(filepath, sizeof(filepath), devicepath, "/", file, NULL);
+                file = filepath;
+        }
+
+        while (--loop) {
+                const struct timespec duration = { 0, 1000 * 1000 * 1000 / WAIT_LOOP_PER_SECOND };
+
+                /* lookup file */
+                if (stat(file, &stats) == 0) {
+                        log_debug("file '%s' appeared after %i loops", file, (timeout * WAIT_LOOP_PER_SECOND) - loop-1);
+                        return 0;
+                }
+                /* make sure, the device did not disappear in the meantime */
+                if (devicepath[0] != '\0' && stat(devicepath, &stats) != 0) {
+                        log_debug("device disappeared while waiting for '%s'", file);
+                        return -2;
+                }
+                log_debug("wait for '%s' for %i mseconds", file, 1000 / WAIT_LOOP_PER_SECOND);
+                nanosleep(&duration, NULL);
+        }
+        log_debug("waiting for '%s' failed", file);
+        return -1;
 }
 
 static int rule_line_add_token(UdevRuleLine *rule_line, UdevRuleTokenType type, UdevRuleOperatorType op, char *value, void *data) {
@@ -957,6 +999,12 @@ static int parse_token(UdevRules *rules, const char *key, char *attr, UdevRuleOp
                         r = rule_line_add_token(rule_line, TK_A_RUN_BUILTIN, op, value, UDEV_BUILTIN_CMD_TO_PTR(cmd));
                 } else
                         return log_token_invalid_attr(rules, key);
+        } else if (streq(key, "WAIT_FOR") || streq(key, "WAIT_FOR_SYSFS")) {
+                if (op == OP_REMOVE)
+                        return log_token_invalid_op(rules, key);
+
+                rule_line_add_token(rule_line, TK_M_WAITFOR, 0, value, NULL);
+                return 1;
         } else if (streq(key, "GOTO")) {
                 if (attr)
                         return log_token_invalid_attr(rules, key);
@@ -1642,6 +1690,14 @@ static int udev_rule_apply_token_to_event(
                         return log_rule_error_errno(dev, rules, r, "Failed to get driver: %m");
 
                 return token_match_string(token, val);
+        }
+        case TK_M_WAITFOR: {
+                char filename[UDEV_PATH_SIZE];
+                int found;
+
+                udev_event_apply_format(event, token->value, filename, sizeof(filename), false);
+                found = (wait_for_file(event->dev, filename, 10) == 0);
+                return found || (token->op == OP_NOMATCH);
         }
         case TK_M_ATTR:
         case TK_M_PARENTS_ATTR:
