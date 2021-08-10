@@ -121,7 +121,7 @@ static int open_sockets(int *epoll_fd, bool accept) {
         return count;
 }
 
-static int exec_process(const char *name, char **argv, char **env, int start_fd, size_t n_fds) {
+static int exec_process(const char *name, char **argv, int start_fd, size_t n_fds) {
         _cleanup_strv_free_ char **envp = NULL;
         _cleanup_free_ char *joined = NULL;
         size_t n_env = 0, length;
@@ -158,7 +158,7 @@ static int exec_process(const char *name, char **argv, char **env, int start_fd,
                         if (!p)
                                 return log_oom();
 
-                        n = strv_find_prefix(env, p);
+                        n = strv_find_prefix(environ, p);
                         if (!n)
                                 continue;
 
@@ -173,7 +173,7 @@ static int exec_process(const char *name, char **argv, char **env, int start_fd,
         FOREACH_STRING(tocopy, "TERM=", "PATH=", "USER=", "HOME=") {
                 const char *n;
 
-                n = strv_find_prefix(env, tocopy);
+                n = strv_find_prefix(environ, tocopy);
                 if (!n)
                         continue;
 
@@ -244,7 +244,7 @@ static int exec_process(const char *name, char **argv, char **env, int start_fd,
         return log_error_errno(errno, "Failed to execp %s (%s): %m", name, joined);
 }
 
-static int fork_and_exec_process(const char *child, char **argv, char **env, int fd) {
+static int fork_and_exec_process(const char *child, char **argv, int fd) {
         _cleanup_free_ char *joined = NULL;
         pid_t child_pid;
         int r;
@@ -260,7 +260,7 @@ static int fork_and_exec_process(const char *child, char **argv, char **env, int
                 return r;
         if (r == 0) {
                 /* In the child */
-                exec_process(child, argv, env, fd, 1);
+                exec_process(child, argv, fd, 1);
                 _exit(EXIT_FAILURE);
         }
 
@@ -268,7 +268,7 @@ static int fork_and_exec_process(const char *child, char **argv, char **env, int
         return 0;
 }
 
-static int do_accept(const char *name, char **argv, char **envp, int fd) {
+static int do_accept(const char *name, char **argv, int fd) {
         _cleanup_free_ char *local = NULL, *peer = NULL;
         _cleanup_close_ int fd_accepted = -1;
 
@@ -284,7 +284,7 @@ static int do_accept(const char *name, char **argv, char **envp, int fd) {
         (void) getpeername_pretty(fd_accepted, true, &peer);
         log_info("Connection from %s to %s", strna(peer), strna(local));
 
-        return fork_and_exec_process(name, argv, envp, fd_accepted);
+        return fork_and_exec_process(name, argv, fd_accepted);
 }
 
 /* SIGCHLD handler. */
@@ -471,7 +471,7 @@ static int parse_argv(int argc, char *argv[]) {
         return 1 /* work to do */;
 }
 
-int main(int argc, char **argv, char **envp) {
+int main(int argc, char **argv) {
         int r, n;
         int epoll_fd = -1;
 
@@ -508,14 +508,14 @@ int main(int argc, char **argv, char **envp) {
 
                 log_info("Communication attempt on fd %i.", event.data.fd);
                 if (arg_accept) {
-                        r = do_accept(argv[optind], argv + optind, envp, event.data.fd);
+                        r = do_accept(argv[optind], argv + optind, event.data.fd);
                         if (r < 0)
                                 return EXIT_FAILURE;
                 } else
                         break;
         }
 
-        exec_process(argv[optind], argv + optind, envp, SD_LISTEN_FDS_START, (size_t) n);
+        exec_process(argv[optind], argv + optind, SD_LISTEN_FDS_START, (size_t) n);
 
         return EXIT_SUCCESS;
 }
