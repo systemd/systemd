@@ -83,6 +83,15 @@ Janitorial Clean-ups:
 
 Features:
 
+* tpm2: figure out if we need to do anything for TPM2 parameter encryption? And
+  if so, what precisely?
+
+* insert pkcs7 signature for verity gpt
+
+* when mounting disk images: if IMAGE_ID/IMAGE_VERSION is set in os-release
+  data in the image, make sure the image filename actually matches this, so
+  that images cannot be misused.
+
 * use credentials logic/TPM2 logic to store homed signing key
 
 * New udev block device symlink names:
