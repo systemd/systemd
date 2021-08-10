@@ -44,10 +44,11 @@ typedef void (*free_func_t)(void *p);
 
 #define malloc0(n) (calloc(1, (n) ?: 1))
 
-static inline void *mfree(void *memory) {
-        free(memory);
-        return NULL;
-}
+#define mfree(memory)                           \
+        ({                                      \
+                free(memory);                   \
+                (typeof(memory)) NULL;          \
+        })
 
 #define free_and_replace(a, b)                  \
         ({                                      \
