@@ -492,8 +492,8 @@ int config_parse_iaid(const char *unit,
                 network->dhcp_iaid = iaid;
                 network->dhcp_iaid_set = true;
                 if (!network->dhcp6_iaid_set_explicitly) {
-                        /* Backward compatibility. Previously, IAID is shared by DHCP4 and DHCP6.
-                         * If DHCP6 IAID is not specified explicitly, then use DHCP4 IAID for DHCP6. */
+                        /* Backward compatibility. Previously, IAID is shared by DHCPv4 and DHCPv6.
+                         * If DHCPv6 IAID is not specified explicitly, then use DHCPv4 IAID for DHCPv6. */
                         network->dhcp6_iaid = iaid;
                         network->dhcp6_iaid_set = true;
                 }
@@ -985,7 +985,7 @@ int config_parse_manager_duid_type(
 
         assert(manager);
 
-        /* For backward compatibility. Setting both DHCP4 and DHCP6 DUID if they are not specified explicitly. */
+        /* For backward compatibility. Setting both DHCPv4 and DHCPv6 DUID if they are not specified explicitly. */
 
         r = config_parse_duid_type(unit, filename, line, section, section_line, lvalue, false, rvalue, &manager->dhcp_duid, manager);
         if (r < 0)
@@ -1015,7 +1015,7 @@ int config_parse_network_duid_type(
         if (r < 0)
                 return r;
 
-        /* For backward compatibility, also set DHCP6 DUID if not specified explicitly. */
+        /* For backward compatibility, also set DHCPv6 DUID if not specified explicitly. */
         return config_parse_duid_type(unit, filename, line, section, section_line, lvalue, false, rvalue, &network->dhcp6_duid, network);
 }
 
@@ -1110,7 +1110,7 @@ int config_parse_manager_duid_rawdata(
 
         assert(manager);
 
-        /* For backward compatibility. Setting both DHCP4 and DHCP6 DUID if they are not specified explicitly. */
+        /* For backward compatibility. Setting both DHCPv4 and DHCPv6 DUID if they are not specified explicitly. */
 
         r = config_parse_duid_rawdata(unit, filename, line, section, section_line, lvalue, false, rvalue, &manager->dhcp_duid, manager);
         if (r < 0)
@@ -1140,6 +1140,6 @@ int config_parse_network_duid_rawdata(
         if (r < 0)
                 return r;
 
-        /* For backward compatibility, also set DHCP6 DUID if not specified explicitly. */
+        /* For backward compatibility, also set DHCPv6 DUID if not specified explicitly. */
         return config_parse_duid_rawdata(unit, filename, line, section, section_line, lvalue, false, rvalue, &network->dhcp6_duid, network);
 }
