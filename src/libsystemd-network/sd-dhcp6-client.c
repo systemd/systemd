@@ -1218,7 +1218,7 @@ static int client_parse_message(
 
                         if (lease->ia.addresses) {
                                 lt_t1 = MIN(lt_t1, be32toh(lease->ia.ia_na.lifetime_t1));
-                                lt_t2 = MIN(lt_t2, be32toh(lease->ia.ia_na.lifetime_t1));
+                                lt_t2 = MIN(lt_t2, be32toh(lease->ia.ia_na.lifetime_t2));
                         }
 
                         break;
