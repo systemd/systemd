@@ -338,7 +338,7 @@ static int help(void) {
                "  -a --as-pid2              Maintain a stub init as PID1, invoke binary as PID2\n"
                "  -b --boot                 Boot up full system (i.e. invoke init)\n"
                "     --chdir=PATH           Set working directory in the container\n"
-               "  -E --setenv=NAME=VALUE    Pass an environment variable to PID 1\n"
+               "  -E --setenv=NAME[=VALUE]  Pass an environment variable to PID 1\n"
                "  -u --user=USER            Run the command under specified user or UID\n"
                "     --kill-signal=SIGNAL   Select signal to use for shutting down PID 1\n"
                "     --notify-ready=BOOLEAN Receive notifications from the child init process\n\n"
@@ -1121,17 +1121,13 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_settings_mask |= SETTING_CUSTOM_MOUNTS;
                         break;
 
-                case 'E': {
-                        if (!env_assignment_is_valid(optarg))
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "Environment variable assignment '%s' is not valid.", optarg);
-                        r = strv_env_replace_strdup(&arg_setenv, optarg);
+                case 'E':
+                        r = strv_env_replace_strdup_passthrough(&arg_setenv, optarg);
                         if (r < 0)
-                                return r;
+                                return log_error_errno(r, "Cannot assign environment variable %s: %m", optarg);
 
                         arg_settings_mask |= SETTING_ENVIRONMENT;
                         break;
-                }
 
                 case 'q':
                         arg_quiet = true;
