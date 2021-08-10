@@ -21,6 +21,5 @@ int shorten_overlong(const char *s, char **ret);
 int read_etc_hostname_stream(FILE *f, char **ret);
 int read_etc_hostname(const char *path, char **ret);
 
-bool get_hostname_filtered(char ret[static HOST_NAME_MAX + 1]);
 void hostname_update_source_hint(const char *hostname, HostnameSource source);
 int hostname_setup(bool really);
