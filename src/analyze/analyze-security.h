@@ -81,9 +81,10 @@ typedef struct SecurityInfo {
 } SecurityInfo;
 
 typedef enum AnalyzeSecurityFlags {
-        ANALYZE_SECURITY_SHORT             = 1 << 0,
-        ANALYZE_SECURITY_ONLY_LOADED       = 1 << 1,
-        ANALYZE_SECURITY_ONLY_LONG_RUNNING = 1 << 2,
+        ANALYZE_SECURITY_SHORT                 = 1 << 0,
+        ANALYZE_SECURITY_ONLY_LOADED           = 1 << 1,
+        ANALYZE_SECURITY_ONLY_LONG_RUNNING     = 1 << 2,
+        ANALYZE_SECURITY_EXPOSURE_ABOVE_MEDIUM = 1 << 3,
 } AnalyzeSecurityFlags;
 
-int analyze_security(sd_bus *bus, char **units, AnalyzeSecurityFlags flags);
+int analyze_security(sd_bus *bus, char **units, UnitFileScope scope, bool check_man, bool run_generators, bool offline, const char *root, AnalyzeSecurityFlags flags);
