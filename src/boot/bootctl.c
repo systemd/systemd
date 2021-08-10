@@ -163,7 +163,7 @@ static int get_file_version(int fd, char **v) {
         if (!s)
                 goto finish;
 
-        e = memmem(s, st.st_size - (s - buf), " ####", 5);
+        e = memmem_safe(s, st.st_size - (s - buf), " ####", 5);
         if (!e || e - s < 3) {
                 r = log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Malformed version string.");
                 goto finish;
