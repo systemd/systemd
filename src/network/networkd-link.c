@@ -507,7 +507,7 @@ void link_check_ready(Link *link) {
             !link->dhcp_address && set_isempty(link->dhcp6_addresses) && !has_ndisc_address &&
             !link->ipv4ll_address_configured)
                 /* When DHCP[46] or IPv4LL is enabled, at least one address is acquired by them. */
-                return (void) log_link_debug(link, "%s(): DHCP4, DHCP6 or IPv4LL is enabled but no dynamic address is assigned yet.", __func__);
+                return (void) log_link_debug(link, "%s(): DHCPv4, DHCPv6 or IPv4LL is enabled but no dynamic address is assigned yet.", __func__);
 
         /* Ignore NDisc when ConfigureWithoutCarrier= is enabled, as IPv6AcceptRA= is enabled by default. */
         if (link_dhcp4_enabled(link) || link_dhcp6_enabled(link) || link_dhcp6_pd_is_enabled(link) ||
@@ -522,8 +522,8 @@ void link_check_ready(Link *link) {
                         /* When DHCP[46], NDisc, or IPv4LL is enabled, at least one protocol must be finished. */
                         return (void) log_link_debug(link, "%s(): dynamic addresses or routes are not configured.", __func__);
 
-                log_link_debug(link, "%s(): dhcp4:%s ipv4ll:%s dhcp6_addresses:%s dhcp6_routes:%s "
-                               "dhcp6_pd_addresses:%s dhcp6_pd_routes:%s ndisc_addresses:%s ndisc_routes:%s",
+                log_link_debug(link, "%s(): DHCPv4:%s IPv4LL:%s DHCPv6_addresses:%s DHCPv6_routes:%s "
+                               "DHCPv6PD_addresses:%s DHCPv6PD_routes:%s NDisc_addresses:%s NDisc_routes:%s",
                                __func__,
                                yes_no(link->dhcp4_configured),
                                yes_no(link->ipv4ll_address_configured),
@@ -650,12 +650,14 @@ static int link_acquire_dynamic_ipv4_conf(Link *link) {
                 if (r < 0)
                         return log_link_warning_errno(link, r, "Failed to start DHCPv4 client: %m");
 
-        } else if (link->ipv4ll) {
-                log_link_debug(link, "Acquiring IPv4 link-local address");
+                log_link_debug(link, "Acquiring DHCPv4 lease.");
 
+        } else if (link->ipv4ll) {
                 r = sd_ipv4ll_start(link->ipv4ll);
                 if (r < 0)
                         return log_link_warning_errno(link, r, "Could not acquire IPv4 link-local address: %m");
+
+                log_link_debug(link, "Acquiring IPv4 link-local address.");
         }
 
         if (link->dhcp_server) {
@@ -975,8 +977,6 @@ static Link *link_drop(Link *link) {
 
         link_drop_from_master(link);
 
-        link_unref(set_remove(link->manager->links_requesting_uuid, link));
-
         (void) unlink(link->state_file);
         link_clean(link);
 
@@ -1127,11 +1127,11 @@ static int link_configure(Link *link) {
         if (r < 0)
                 return r;
 
-        r = dhcp4_configure(link);
+        r = link_request_dhcp4_client(link);
         if (r < 0)
                 return r;
 
-        r = dhcp6_configure(link);
+        r = link_request_dhcp6_client(link);
         if (r < 0)
                 return r;
 
@@ -1263,7 +1263,6 @@ static int link_reconfigure_impl(Link *link, bool force) {
         link_free_carrier_maps(link);
         link_free_engines(link);
         link->network = network_unref(link->network);
-        link_unref(set_remove(link->manager->links_requesting_uuid, link));
 
         /* Then, apply new .network file */
         link->network = network_ref(network);

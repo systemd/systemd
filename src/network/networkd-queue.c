@@ -5,6 +5,8 @@
 #include "networkd-bridge-fdb.h"
 #include "networkd-bridge-mdb.h"
 #include "networkd-dhcp-server.h"
+#include "networkd-dhcp4.h"
+#include "networkd-dhcp6.h"
 #include "networkd-ipv6-proxy-ndp.h"
 #include "networkd-manager.h"
 #include "networkd-neighbor.h"
@@ -33,6 +35,8 @@ static void request_free_object(RequestType type, void *object) {
         case REQUEST_TYPE_CREATE_STACKED_NETDEV:
                 break;
         case REQUEST_TYPE_DHCP_SERVER:
+        case REQUEST_TYPE_DHCP4_CLIENT:
+        case REQUEST_TYPE_DHCP6_CLIENT:
                 break;
         case REQUEST_TYPE_IPV6_PROXY_NDP:
                 free(object);
@@ -112,7 +116,9 @@ static void request_hash_func(const Request *req, struct siphash *state) {
                 trivial_hash_func(req->object, state);
                 break;
         case REQUEST_TYPE_DHCP_SERVER:
-                /* This type does not have an object. */
+        case REQUEST_TYPE_DHCP4_CLIENT:
+        case REQUEST_TYPE_DHCP6_CLIENT:
+                /* These types do not have an object. */
                 break;
         case REQUEST_TYPE_IPV6_PROXY_NDP:
                 in6_addr_hash_func(req->ipv6_proxy_ndp, state);
@@ -170,6 +176,8 @@ static int request_compare_func(const struct Request *a, const struct Request *b
         case REQUEST_TYPE_CREATE_STACKED_NETDEV:
                 return trivial_compare_func(a->object, b->object);
         case REQUEST_TYPE_DHCP_SERVER:
+        case REQUEST_TYPE_DHCP4_CLIENT:
+        case REQUEST_TYPE_DHCP6_CLIENT:
                 return 0;
         case REQUEST_TYPE_IPV6_PROXY_NDP:
                 return in6_addr_compare_func(a->ipv6_proxy_ndp, b->ipv6_proxy_ndp);
@@ -218,12 +226,16 @@ int link_queue_request(
         assert(IN_SET(type,
                       REQUEST_TYPE_ACTIVATE_LINK,
                       REQUEST_TYPE_DHCP_SERVER,
+                      REQUEST_TYPE_DHCP4_CLIENT,
+                      REQUEST_TYPE_DHCP6_CLIENT,
                       REQUEST_TYPE_RADV,
                       REQUEST_TYPE_SET_LINK,
                       REQUEST_TYPE_UP_DOWN) ||
                object);
         assert(IN_SET(type,
                       REQUEST_TYPE_DHCP_SERVER,
+                      REQUEST_TYPE_DHCP4_CLIENT,
+                      REQUEST_TYPE_DHCP6_CLIENT,
                       REQUEST_TYPE_RADV) ||
                netlink_handler);
 
@@ -299,6 +311,12 @@ int manager_process_requests(sd_event_source *s, void *userdata) {
                                 break;
                         case REQUEST_TYPE_DHCP_SERVER:
                                 r = request_process_dhcp_server(req);
+                                break;
+                        case REQUEST_TYPE_DHCP4_CLIENT:
+                                r = request_process_dhcp4_client(req);
+                                break;
+                        case REQUEST_TYPE_DHCP6_CLIENT:
+                                r = request_process_dhcp6_client(req);
                                 break;
                         case REQUEST_TYPE_IPV6_PROXY_NDP:
                                 r = request_process_ipv6_proxy_ndp_address(req);
