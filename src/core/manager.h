@@ -470,7 +470,7 @@ int manager_new(UnitFileScope scope, ManagerTestRunFlags test_run_flags, Manager
 Manager* manager_free(Manager *m);
 DEFINE_TRIVIAL_CLEANUP_FUNC(Manager*, manager_free);
 
-int manager_startup(Manager *m, FILE *serialization, FDSet *fds);
+int manager_startup(Manager *m, FILE *serialization, FDSet *fds, const char *root);
 
 Job *manager_get_job(Manager *m, uint32_t id);
 Unit *manager_get_unit(Manager *m, const char *name);
