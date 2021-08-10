@@ -159,10 +159,9 @@ static int get_file_version(int fd, char **v) {
         if (buf == MAP_FAILED)
                 return log_error_errno(errno, "Failed to memory map EFI binary: %m");
 
-        s = memmem(buf, st.st_size - 8, "#### LoaderInfo: ", 17);
+        s = mempmem_safe(buf, st.st_size - 8, "#### LoaderInfo: ", 17);
         if (!s)
                 goto finish;
-        s += 17;
 
         e = memmem(s, st.st_size - (s - buf), " ####", 5);
         if (!e || e - s < 3) {

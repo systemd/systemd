@@ -71,6 +71,16 @@ static inline void *memmem_safe(const void *haystack, size_t haystacklen, const 
         return memmem(haystack, haystacklen, needle, needlelen);
 }
 
+static inline void *mempmem_safe(const void *haystack, size_t haystacklen, const void *needle, size_t needlelen) {
+        const uint8_t *p;
+
+        p = memmem_safe(haystack, haystacklen, needle, needlelen);
+        if (!p)
+                return NULL;
+
+        return (uint8_t*) p + needlelen;
+}
+
 #if HAVE_EXPLICIT_BZERO
 static inline void* explicit_bzero_safe(void *p, size_t l) {
         if (l > 0)
