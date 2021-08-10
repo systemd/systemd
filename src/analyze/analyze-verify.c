@@ -2,6 +2,7 @@
 
 #include <stdlib.h>
 
+#include "af-list.h"
 #include "alloc-util.h"
 #include "all-units.h"
 #include "analyze-verify.h"
@@ -11,9 +12,11 @@
 #include "manager.h"
 #include "pager.h"
 #include "path-util.h"
+#include "seccomp-util.h"
 #include "strv.h"
 #include "unit-name.h"
 #include "unit-serialize.h"
+#include "analyze-security.h"
 
 static int prepare_filename(const char *filename, char **ret) {
         int r;
@@ -189,9 +192,123 @@ static int verify_documentation(Unit *u, bool check_man) {
         return r;
 }
 
-static int verify_unit(Unit *u, bool check_man) {
+/* Refactoring security_info so that it can make use of existing struct variables instead of reading from dbus */
+static int helper_security_info(Unit *u, ExecContext *c, CGroupContext *g, security_info **ret_info) {
+        _cleanup_free_ security_info *info = new0(security_info, 1);
+
+        if (u) {
+                info->id = u->id;
+                info->type = unit_type_to_string(u->type);
+                info->load_state = unit_load_state_to_string(u->load_state);
+                info->fragment_path = u->fragment_path;
+                info->default_dependencies = u->default_dependencies;
+                info->notify_access = u->type == UNIT_SERVICE ? notify_access_to_string(SERVICE(u)->notify_access) : NULL;
+        }
+
+        if (c) {
+                info->ambient_capabilities = c->capability_ambient_set;
+                info->capability_bounding_set = c->capability_bounding_set;
+                info->user = c->user;
+                info->supplementary_groups = c->supplementary_groups;
+                info->dynamic_user = c->dynamic_user;
+                info->keyring_mode = exec_keyring_mode_to_string(c->keyring_mode);
+                info->protect_proc = protect_proc_to_string(c->protect_proc);
+                info->proc_subset = proc_subset_to_string(c->proc_subset);
+                info->lock_personality = c->lock_personality;
+                info->memory_deny_write_execute = c->memory_deny_write_execute;
+                info->no_new_privileges = c->no_new_privileges;
+                info->protect_hostname = c->protect_hostname;
+                info->private_devices = c->private_devices;
+                info->private_mounts = c->private_mounts;
+                info->private_network = c->private_network;
+                info->private_tmp = c->private_tmp;
+                info->private_users = c->private_users;
+                info->protect_control_groups = c->protect_control_groups;
+                info->protect_kernel_modules = c->protect_kernel_modules;
+                info->protect_kernel_tunables = c->protect_kernel_tunables;
+                info->protect_kernel_logs = c->protect_kernel_logs;
+                info->protect_clock = c->protect_clock;
+                info->protect_home = protect_home_to_string(c->protect_home);
+                info->protect_system = protect_system_to_string(c->protect_system);
+                info->remove_ipc = c->remove_ipc;
+                info->restrict_address_family_inet =
+                        info->restrict_address_family_unix =
+                        info->restrict_address_family_netlink =
+                        info->restrict_address_family_packet =
+                        info->restrict_address_family_other =
+                        c->address_families_allow_list;
+
+                void *key;
+                SET_FOREACH(key, c->address_families) {
+                        const char *name;
+                        name = af_to_name(PTR_TO_INT(key));
+                        if (!name)
+                                continue;
+                        if (STR_IN_SET(name, "AF_INET", "AF_INET6"))
+                                info->restrict_address_family_inet = !c->address_families_allow_list;
+                        else if (streq(name, "AF_UNIX"))
+                                info->restrict_address_family_unix = !c->address_families_allow_list;
+                        else if (streq(name, "AF_NETLINK"))
+                                info->restrict_address_family_netlink = !c->address_families_allow_list;
+                        else if (streq(name, "AF_PACKET"))
+                                info->restrict_address_family_packet = !c->address_families_allow_list;
+                        else
+                                info->restrict_address_family_other = !c->address_families_allow_list;
+                }
+
+                info->restrict_namespaces = c->restrict_namespaces;
+                info->restrict_realtime = c->restrict_realtime;
+                info->restrict_suid_sgid = c->restrict_suid_sgid;
+                info->root_directory = c->root_directory;
+                info->root_image = c->root_image;
+                info->_umask = c->umask;
+                info->system_call_architectures = c->syscall_archs;
+                info->system_call_filter_allow_list = c->syscall_allow_list;
+                info->system_call_filter = c->syscall_filter;
+        }
+
+        if (g) {
+                info->delegate = g->delegate;
+                info->device_policy = cgroup_device_policy_to_string(g->device_policy);
+
+                IPAddressAccessItem *i;
+                bool deny_ipv4 = false, deny_ipv6 = false;
+
+                LIST_FOREACH(items, i, g->ip_address_deny) {
+                        if (i->family == AF_INET && FAMILY_ADDRESS_SIZE(i->family) && i->prefixlen == 0)
+                                deny_ipv4 = true;
+                        else if (i->family == AF_INET6 && FAMILY_ADDRESS_SIZE(i->family) == 16 && i->prefixlen == 0)
+                                deny_ipv6 = true;
+                }
+                info->ip_address_deny_all = deny_ipv4 && deny_ipv6;
+
+                info->ip_address_allow_localhost = info->ip_address_allow_other = false;
+                LIST_FOREACH(items, i, g->ip_address_allow) {
+                        if (in_addr_is_localhost(i->family, &i->address))
+                                info->ip_address_allow_localhost = true;
+                        else
+                                info->ip_address_allow_other = true;
+                }
+
+                info->ip_filters_custom_ingress = !strv_isempty(g->ip_filters_ingress);
+                info->ip_filters_custom_egress = !strv_isempty(g->ip_filters_egress);
+                info->device_allow_non_empty = !LIST_IS_EMPTY(g->device_allow);
+        }
+
+        *ret_info = TAKE_PTR(info);
+
+        if (!ret_info)
+                return -EINVAL;
+
+        return 0;
+}
+
+static int verify_unit(Unit *u, bool check_man, bool security_check) {
         _cleanup_(sd_bus_error_free) sd_bus_error err = SD_BUS_ERROR_NULL;
         int r, k;
+        Table *overview_table = NULL;
+        AnalyzeSecurityFlags flags = 0;
+        _cleanup_free_ security_info *info = NULL;
 
         assert(u);
 
@@ -215,10 +332,22 @@ static int verify_unit(Unit *u, bool check_man) {
         if (k < 0 && r == 0)
                 r = k;
 
+        if (security_check) {
+                k = helper_security_info(u,
+                                         unit_get_exec_context(u),
+                                         unit_get_cgroup_context(u), &info);
+                if (k < 0 && r == 0)
+                        r = k;
+                else
+                        k = assess(info, overview_table, flags);
+        }
+        if (k < 0 && r == 0)
+                r = k;
+
         return r;
 }
 
-int verify_units(char **filenames, UnitFileScope scope, bool check_man, bool run_generators) {
+int verify_units(char **filenames, UnitFileScope scope, bool check_man, bool run_generators, bool security_check) {
         const ManagerTestRunFlags flags =
                 MANAGER_TEST_RUN_MINIMAL |
                 MANAGER_TEST_RUN_ENV_GENERATORS |
@@ -278,7 +407,7 @@ int verify_units(char **filenames, UnitFileScope scope, bool check_man, bool run
         }
 
         for (i = 0; i < count; i++) {
-                k = verify_unit(units[i], check_man);
+                k = verify_unit(units[i], check_man, security_check);
                 if (k < 0 && r == 0)
                         r = k;
         }
