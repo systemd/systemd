@@ -215,6 +215,8 @@ tests += [
 
         [['src/test/test-fs-util.c']],
 
+        [['src/test/test-install-file.c']],
+
         [['src/test/test-umask-util.c']],
 
         [['src/test/test-proc-cmdline.c']],
