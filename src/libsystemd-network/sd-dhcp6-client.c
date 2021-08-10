@@ -1134,30 +1134,24 @@ static int client_parse_message(
 
                 switch (optcode) {
                 case SD_DHCP6_OPTION_CLIENTID:
-                        if (clientid) {
-                                log_dhcp6_client(client, "%s contains multiple clientids",
-                                                 dhcp6_message_type_to_string(message->type));
-                                return -EINVAL;
-                        }
+                        if (clientid)
+                                return log_dhcp6_client_errno(client, SYNTHETIC_ERRNO(EINVAL), "%s contains multiple clientids",
+                                                              dhcp6_message_type_to_string(message->type));
 
                         if (optlen != client->duid_len ||
-                            memcmp(&client->duid, optval, optlen) != 0) {
-                                log_dhcp6_client(client, "%s DUID does not match",
-                                                 dhcp6_message_type_to_string(message->type));
+                            memcmp(&client->duid, optval, optlen) != 0)
+                                return log_dhcp6_client_errno(client, SYNTHETIC_ERRNO(EINVAL), "%s DUID does not match",
+                                                              dhcp6_message_type_to_string(message->type));
 
-                                return -EINVAL;
-                        }
                         clientid = true;
 
                         break;
 
                 case SD_DHCP6_OPTION_SERVERID:
                         r = dhcp6_lease_get_serverid(lease, NULL, NULL);
-                        if (r >= 0) {
-                                log_dhcp6_client(client, "%s contains multiple serverids",
-                                                 dhcp6_message_type_to_string(message->type));
-                                return -EINVAL;
-                        }
+                        if (r >= 0)
+                                return log_dhcp6_client_errno(client, SYNTHETIC_ERRNO(EINVAL), "%s contains multiple serverids",
+                                                              dhcp6_message_type_to_string(message->type));
 
                         r = dhcp6_lease_set_serverid(lease, optval, optlen);
                         if (r < 0)
@@ -1180,20 +1174,16 @@ static int client_parse_message(
                         if (status < 0)
                                 return status;
 
-                        if (status > 0) {
-                                log_dhcp6_client(client, "%s Status %s",
-                                                 dhcp6_message_type_to_string(message->type),
-                                                 dhcp6_message_status_to_string(status));
-
-                                return -EINVAL;
-                        }
+                        if (status > 0)
+                                return log_dhcp6_client_errno(client, SYNTHETIC_ERRNO(EINVAL), "%s Status %s",
+                                                              dhcp6_message_type_to_string(message->type),
+                                                              dhcp6_message_status_to_string(status));
 
                         break;
 
                 case SD_DHCP6_OPTION_IA_NA:
                         if (client->state == DHCP6_STATE_INFORMATION_REQUEST) {
-                                log_dhcp6_client(client, "Information request ignoring IA NA option");
-
+                                log_dhcp6_client(client, "Ignoring IA NA option in information requesting mode.");
                                 break;
                         }
 
@@ -1210,11 +1200,9 @@ static int client_parse_message(
                         if (r < 0)
                                 return r;
 
-                        if (client->ia_na.ia_na.id != iaid_lease) {
-                                log_dhcp6_client(client, "%s has wrong IAID for IA NA",
-                                                 dhcp6_message_type_to_string(message->type));
-                                return -EINVAL;
-                        }
+                        if (client->ia_na.ia_na.id != iaid_lease)
+                                return log_dhcp6_client_errno(client, SYNTHETIC_ERRNO(EINVAL), "%s has wrong IAID for IA NA",
+                                                              dhcp6_message_type_to_string(message->type));
 
                         if (lease->ia.addresses) {
                                 lt_t1 = MIN(lt_t1, be32toh(lease->ia.ia_na.lifetime_t1));
@@ -1225,8 +1213,7 @@ static int client_parse_message(
 
                 case SD_DHCP6_OPTION_IA_PD:
                         if (client->state == DHCP6_STATE_INFORMATION_REQUEST) {
-                                log_dhcp6_client(client, "Information request ignoring IA PD option");
-
+                                log_dhcp6_client(client, "Ignoring IA PD option in information requesting mode.");
                                 break;
                         }
 
@@ -1243,11 +1230,9 @@ static int client_parse_message(
                         if (r < 0)
                                 return r;
 
-                        if (client->ia_pd.ia_pd.id != iaid_lease) {
-                                log_dhcp6_client(client, "%s has wrong IAID for IA PD",
-                                                 dhcp6_message_type_to_string(message->type));
-                                return -EINVAL;
-                        }
+                        if (client->ia_pd.ia_pd.id != iaid_lease)
+                                return log_dhcp6_client_errno(client, SYNTHETIC_ERRNO(EINVAL), "%s has wrong IAID for IA PD",
+                                                              dhcp6_message_type_to_string(message->type));
 
                         if (lease->pd.addresses) {
                                 lt_t1 = MIN(lt_t1, be32toh(lease->pd.ia_pd.lifetime_t1));
@@ -1309,24 +1294,18 @@ static int client_parse_message(
                 pos += offsetof(DHCP6Option, data) + optlen;
         }
 
-        if (ia_na_status > 0 && ia_pd_status > 0) {
-                log_dhcp6_client(client, "No IA_PD prefix or IA_NA address received. Ignoring.");
-                return -EINVAL;
-        }
+        if (ia_na_status > 0 && ia_pd_status > 0)
+                return log_dhcp6_client_errno(client, SYNTHETIC_ERRNO(EINVAL), "No IA_PD prefix or IA_NA address received. Ignoring.");
 
-        if (!clientid) {
-                log_dhcp6_client(client, "%s has incomplete options",
-                                 dhcp6_message_type_to_string(message->type));
-                return -EINVAL;
-        }
+        if (!clientid)
+                return log_dhcp6_client_errno(client, SYNTHETIC_ERRNO(EINVAL), "%s has incomplete options",
+                                              dhcp6_message_type_to_string(message->type));
 
         if (client->state != DHCP6_STATE_INFORMATION_REQUEST) {
                 r = dhcp6_lease_get_serverid(lease, NULL, NULL);
-                if (r < 0) {
-                        log_dhcp6_client(client, "%s has no server id",
-                                         dhcp6_message_type_to_string(message->type));
-                        return -EINVAL;
-                }
+                if (r < 0)
+                        return log_dhcp6_client_errno(client, r, "%s has no server id",
+                                                      dhcp6_message_type_to_string(message->type));
         }
 
         if (lease->ia.addresses) {
