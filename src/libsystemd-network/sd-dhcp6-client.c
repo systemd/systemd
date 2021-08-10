@@ -1327,17 +1327,16 @@ static int client_parse_message(
                                          dhcp6_message_type_to_string(message->type));
                         return -EINVAL;
                 }
+        }
 
-        } else {
-                if (lease->ia.addresses) {
-                        lease->ia.ia_na.lifetime_t1 = htobe32(lt_t1);
-                        lease->ia.ia_na.lifetime_t2 = htobe32(lt_t2);
-                }
+        if (lease->ia.addresses) {
+                lease->ia.ia_na.lifetime_t1 = htobe32(lt_t1);
+                lease->ia.ia_na.lifetime_t2 = htobe32(lt_t2);
+        }
 
-                if (lease->pd.addresses) {
-                        lease->pd.ia_pd.lifetime_t1 = htobe32(lt_t1);
-                        lease->pd.ia_pd.lifetime_t2 = htobe32(lt_t2);
-                }
+        if (lease->pd.addresses) {
+                lease->pd.ia_pd.lifetime_t1 = htobe32(lt_t1);
+                lease->pd.ia_pd.lifetime_t2 = htobe32(lt_t2);
         }
 
         client->information_refresh_time_usec = MAX(irt, IRT_MINIMUM);
