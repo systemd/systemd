@@ -1546,7 +1546,7 @@ static int service_spawn(
         if (r < 0)
                 return r;
 
-        final_env = strv_env_merge(2, exec_params.environment, our_env, NULL);
+        final_env = strv_env_merge(exec_params.environment, our_env);
         if (!final_env)
                 return -ENOMEM;
 
