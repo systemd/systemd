@@ -88,3 +88,4 @@ typedef enum AnalyzeSecurityFlags {
 } AnalyzeSecurityFlags;
 
 int analyze_security(sd_bus *bus, char **units, AnalyzeSecurityFlags flags);
+int assess(const security_info *info, Table *overview_table, AnalyzeSecurityFlags flags);

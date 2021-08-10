@@ -12,6 +12,8 @@ systemd_analyze_sources = files('''
 
 tests += [
         [['src/analyze/test-verify.c',
+          'src/analyze/analyze-security.c',
+          'src/analyze/analyze-security.h',
           'src/analyze/analyze-verify.c',
           'src/analyze/analyze-verify.h'],
          [libcore,

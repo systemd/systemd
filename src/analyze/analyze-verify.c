@@ -303,9 +303,12 @@ static int helper_security_info(Unit *u, ExecContext *c, CGroupContext *g, secur
         return 0;
 }
 
-static int verify_unit(Unit *u, bool check_man) {
+static int verify_unit(Unit *u, bool check_man, bool security_check) {
         _cleanup_(sd_bus_error_free) sd_bus_error err = SD_BUS_ERROR_NULL;
         int r, k;
+        Table *overview_table = NULL;
+        AnalyzeSecurityFlags flags = 0;
+        _cleanup_free_ security_info *info = NULL;
 
         assert(u);
 
@@ -329,10 +332,22 @@ static int verify_unit(Unit *u, bool check_man) {
         if (k < 0 && r == 0)
                 r = k;
 
+        if (security_check) {
+                k = helper_security_info(u,
+                                         unit_get_exec_context(u),
+                                         unit_get_cgroup_context(u), &info);
+                if (k < 0 && r == 0)
+                        r = k;
+                else
+                        k = assess(info, overview_table, flags);
+        }
+        if (k < 0 && r == 0)
+                r = k;
+
         return r;
 }
 
-int verify_units(char **filenames, UnitFileScope scope, bool check_man, bool run_generators) {
+int verify_units(char **filenames, UnitFileScope scope, bool check_man, bool run_generators, bool security_check) {
         const ManagerTestRunFlags flags =
                 MANAGER_TEST_RUN_MINIMAL |
                 MANAGER_TEST_RUN_ENV_GENERATORS |
@@ -392,7 +407,7 @@ int verify_units(char **filenames, UnitFileScope scope, bool check_man, bool run
         }
 
         for (i = 0; i < count; i++) {
-                k = verify_unit(units[i], check_man);
+                k = verify_unit(units[i], check_man, security_check);
                 if (k < 0 && r == 0)
                         r = k;
         }

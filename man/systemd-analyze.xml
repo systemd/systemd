@@ -752,6 +752,22 @@ Service b@0.service not loaded, b.socket cannot be started.
       </varlistentry>
 
       <varlistentry>
+        <term><option>--security=<replaceable>BOOL</replaceable></option></term>
+
+        <listitem><para>With <command>verify</command>, performs a review of the unit
+        file and generates a detailed analysis table, assigning "exposure level" values to various
+        security-related service settings, depending on how important a setting is. It then calculates
+        an overall exposure level for the whole unit, which is an estimation in the range 0.0 to 10.0.
+        High exposure levels indicate very little applied sandboxing. Low exposure levels indicate tight
+        sandboxing and strongest security restrictions. Note that this only analyzes the per-service security
+        features systemd itself implements. This means that any additional security mechanisms applied by the
+        service code itself are not accounted for. The exposure level determined this way should not be misunderstood:
+        a high exposure level neither means that there is no effective sandboxing applied by the service code itself,
+        nor that the service is actually vulnerable to remote or local attacks. High exposure levels do indicate however
+        that most likely the service might benefit from additional settings applied to them. </para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>--iterations=<replaceable>NUMBER</replaceable></option></term>
 
         <listitem><para>When used with the <command>calendar</command> command, show the specified number of
