@@ -1910,7 +1910,7 @@ static int property_read_ip_filters(
         if (streq(member, "IPIngressFilterPath"))
                 info->ip_filters_custom_ingress = !strv_isempty(l);
         else if (streq(member, "IPEgressFilterPath"))
-                info->ip_filters_custom_ingress = !strv_isempty(l);
+                info->ip_filters_custom_egress = !strv_isempty(l);
 
         return 0;
 }
