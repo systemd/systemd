@@ -142,11 +142,8 @@
 #define LIST_FOREACH_SAFE(name,i,n,head)                                \
         for ((i) = (head); (i) && (((n) = (i)->name##_next), 1); (i) = (n))
 
-#define LIST_FOREACH_BEFORE(name,i,p)                                   \
-        for ((i) = (p)->name##_prev; (i); (i) = (i)->name##_prev)
-
-#define LIST_FOREACH_AFTER(name,i,p)                                    \
-        for ((i) = (p)->name##_next; (i); (i) = (i)->name##_next)
+#define LIST_FOREACH_BACKWARDS(name,i,p)                                \
+        for ((i) = (p); (i); (i) = (i)->name##_prev)
 
 /* Iterate through all the members of the list p is included in, but skip over p */
 #define LIST_FOREACH_OTHERS(name,i,p)                                   \
