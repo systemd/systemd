@@ -421,6 +421,32 @@ int strv_env_replace_strdup(char ***l, const char *assignment) {
         return strv_env_replace_consume(l, p);
 }
 
+int strv_env_replace_strdup_passthrough(char ***l, const char *assignment) {
+        /* Like strv_env_replace_strdup(), but pulls the variable from the environment of
+         * the calling program, if a variable name without value is specified.
+         */
+        char *p;
+
+        if (strchr(assignment, '=')) {
+                if (!env_assignment_is_valid(assignment))
+                        return -EINVAL;
+
+                p = strdup(assignment);
+        } else {
+                if (!env_name_is_valid(assignment))
+                        return -EINVAL;
+
+                /* If we can't find the variable in our environment, we will use
+                 * the empty string. This way "passthrough" is equivalent to passing
+                 * --setenv=FOO=$FOO in the shell. */
+                p = strjoin(assignment, "=", secure_getenv(assignment));
+        }
+        if (!p)
+                return -ENOMEM;
+
+        return strv_env_replace_consume(l, p);
+}
+
 int strv_env_assign(char ***l, const char *key, const char *value) {
         if (!env_name_is_valid(key))
                 return -EINVAL;
