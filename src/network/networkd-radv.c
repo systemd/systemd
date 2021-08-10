@@ -869,9 +869,9 @@ int link_request_radv(Link *link) {
 
         r = link_queue_request(link, REQUEST_TYPE_RADV, NULL, false, NULL, NULL, NULL);
         if (r < 0)
-                return log_link_warning_errno(link, r, "Failed to request IPv6 Router Advertisement engine: %m");
+                return log_link_warning_errno(link, r, "Failed to request configuring of the IPv6 Router Advertisement engine: %m");
 
-        log_link_debug(link, "IPv6 Router Advertisement engine is requested.");
+        log_link_debug(link, "Requested configuring of the IPv6 Router Advertisement engine.");
         return 0;
 }
 
