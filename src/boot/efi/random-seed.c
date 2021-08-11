@@ -35,10 +35,8 @@ static EFI_STATUS acquire_rng(UINTN size, VOID **ret) {
                 return log_oom();
 
         err = uefi_call_wrapper(rng->GetRNG, 3, rng, NULL, size, data);
-        if (EFI_ERROR(err)) {
-                Print(L"Failed to acquire RNG data: %r\n", err);
-                return err;
-        }
+        if (EFI_ERROR(err))
+                return log_error_status_stall(err, L"Failed to acquire RNG data: %r", err);
 
         *ret = TAKE_PTR(data);
         return EFI_SUCCESS;
@@ -149,14 +147,12 @@ static EFI_STATUS acquire_system_token(VOID **ret, UINTN *ret_size) {
         err = efivar_get_raw(LOADER_GUID, L"LoaderSystemToken", &data, &size);
         if (EFI_ERROR(err)) {
                 if (err != EFI_NOT_FOUND)
-                        Print(L"Failed to read LoaderSystemToken EFI variable: %r", err);
+                        log_error_stall(L"Failed to read LoaderSystemToken EFI variable: %r", err);
                 return err;
         }
 
-        if (size <= 0) {
-                Print(L"System token too short, ignoring.");
-                return EFI_NOT_FOUND;
-        }
+        if (size <= 0)
+                return log_error_status_stall(EFI_NOT_FOUND, L"System token too short, ignoring.");
 
         *ret = TAKE_PTR(data);
         *ret_size = size;
@@ -209,8 +205,7 @@ static VOID validate_sha256(void) {
                 sha256_finish_ctx(&hash, result);
 
                 if (CompareMem(result, array[i].hash, HASH_VALUE_SIZE) != 0) {
-                        Print(L"SHA256 failed validation.\n");
-                        uefi_call_wrapper(BS->Stall, 1, 120 * 1000 * 1000);
+                        log_error_stall(L"SHA256 failed validation.");
                         return;
                 }
         }
@@ -246,7 +241,7 @@ EFI_STATUS process_random_seed(EFI_FILE *root_dir, RandomSeedMode mode) {
         err = uefi_call_wrapper(root_dir->Open, 5, root_dir, &handle, (CHAR16*) L"\\loader\\random-seed", EFI_FILE_MODE_READ|EFI_FILE_MODE_WRITE, 0ULL);
         if (EFI_ERROR(err)) {
                 if (err != EFI_NOT_FOUND && err != EFI_WRITE_PROTECTED)
-                        Print(L"Failed to open random seed file: %r\n", err);
+                        log_error_stall(L"Failed to open random seed file: %r", err);
                 return err;
         }
 
@@ -255,15 +250,11 @@ EFI_STATUS process_random_seed(EFI_FILE *root_dir, RandomSeedMode mode) {
                 return log_oom();
 
         size = info->FileSize;
-        if (size < RANDOM_MAX_SIZE_MIN) {
-                Print(L"Random seed file is too short?\n");
-                return EFI_INVALID_PARAMETER;
-        }
+        if (size < RANDOM_MAX_SIZE_MIN)
+                return log_error_status_stall(EFI_INVALID_PARAMETER, L"Random seed file is too short.");
 
-        if (size > RANDOM_MAX_SIZE_MAX) {
-                Print(L"Random seed file is too large?\n");
-                return EFI_INVALID_PARAMETER;
-        }
+        if (size > RANDOM_MAX_SIZE_MAX)
+                return log_error_status_stall(EFI_INVALID_PARAMETER, L"Random seed file is too large.");
 
         seed = AllocatePool(size);
         if (!seed)
@@ -271,20 +262,14 @@ EFI_STATUS process_random_seed(EFI_FILE *root_dir, RandomSeedMode mode) {
 
         rsize = size;
         err = uefi_call_wrapper(handle->Read, 3, handle, &rsize, seed);
-        if (EFI_ERROR(err)) {
-                Print(L"Failed to read random seed file: %r\n", err);
-                return err;
-        }
-        if (rsize != size) {
-                Print(L"Short read on random seed file\n");
-                return EFI_PROTOCOL_ERROR;
-        }
+        if (EFI_ERROR(err))
+                return log_error_status_stall(err, L"Failed to read random seed file: %r", err);
+        if (rsize != size)
+                return log_error_status_stall(EFI_PROTOCOL_ERROR, L"Short read on random seed file.");
 
         err = uefi_call_wrapper(handle->SetPosition, 2, handle, 0);
-        if (EFI_ERROR(err)) {
-                Print(L"Failed to seek to beginning of random seed file: %r\n", err);
-                return err;
-        }
+        if (EFI_ERROR(err))
+                return log_error_status_stall(err, L"Failed to seek to beginning of random seed file: %r", err);
 
         /* Request some random data from the UEFI RNG. We don't need this to work safely, but it's a good
          * idea to use it because it helps us for cases where users mistakenly include a random seed in
@@ -299,27 +284,19 @@ EFI_STATUS process_random_seed(EFI_FILE *root_dir, RandomSeedMode mode) {
         /* Update the random seed on disk before we use it */
         wsize = size;
         err = uefi_call_wrapper(handle->Write, 3, handle, &wsize, new_seed);
-        if (EFI_ERROR(err)) {
-                Print(L"Failed to write random seed file: %r\n", err);
-                return err;
-        }
-        if (wsize != size) {
-                Print(L"Short write on random seed file\n");
-                return EFI_PROTOCOL_ERROR;
-        }
+        if (EFI_ERROR(err))
+                return log_error_status_stall(err, L"Failed to write random seed file: %r", err);
+        if (wsize != size)
+                return log_error_status_stall(EFI_PROTOCOL_ERROR, L"Short write on random seed file.");
 
         err = uefi_call_wrapper(handle->Flush, 1, handle);
-        if (EFI_ERROR(err)) {
-                Print(L"Failed to flush random seed file: %r\n");
-                return err;
-        }
+        if (EFI_ERROR(err))
+                return log_error_status_stall(err, L"Failed to flush random seed file: %r", err);
 
         /* We are good to go */
         err = efivar_set_raw(LOADER_GUID, L"LoaderRandomSeed", for_kernel, size, 0);
-        if (EFI_ERROR(err)) {
-                Print(L"Failed to write random seed to EFI variable: %r\n", err);
-                return err;
-        }
+        if (EFI_ERROR(err))
+                return log_error_status_stall(err, L"Failed to write random seed to EFI variable: %r", err);
 
         return EFI_SUCCESS;
 }

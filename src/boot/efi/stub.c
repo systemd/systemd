@@ -36,18 +36,12 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
 
         err = uefi_call_wrapper(BS->OpenProtocol, 6, image, &LoadedImageProtocol, (VOID **)&loaded_image,
                                 image, NULL, EFI_OPEN_PROTOCOL_GET_PROTOCOL);
-        if (EFI_ERROR(err)) {
-                Print(L"Error getting a LoadedImageProtocol handle: %r ", err);
-                uefi_call_wrapper(BS->Stall, 1, 3 * 1000 * 1000);
-                return err;
-        }
+        if (EFI_ERROR(err))
+                return log_error_status_stall(err, L"Error getting a LoadedImageProtocol handle: %r", err);
 
         err = pe_memory_locate_sections(loaded_image->ImageBase, sections, addrs, offs, szs);
-        if (EFI_ERROR(err)) {
-                Print(L"Unable to locate embedded .linux section: %r ", err);
-                uefi_call_wrapper(BS->Stall, 1, 3 * 1000 * 1000);
-                return err;
-        }
+        if (EFI_ERROR(err))
+                return log_error_status_stall(err, L"Unable to locate embedded .linux section: %r", err);
 
         if (szs[0] > 0)
                 cmdline = (CHAR8 *)(loaded_image->ImageBase) + addrs[0];
@@ -72,10 +66,8 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
                 err = tpm_log_event(SD_TPM_PCR,
                                     (EFI_PHYSICAL_ADDRESS) (UINTN) loaded_image->LoadOptions,
                                     loaded_image->LoadOptionsSize, loaded_image->LoadOptions);
-                if (EFI_ERROR(err)) {
-                        Print(L"Unable to add image options measurement: %r", err);
-                        uefi_call_wrapper(BS->Stall, 1, 200 * 1000);
-                }
+                if (EFI_ERROR(err))
+                        log_error_stall(L"Unable to add image options measurement: %r", err);
 #endif
         }
 
@@ -126,7 +118,5 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
                          (UINTN)loaded_image->ImageBase + addrs[2], szs[2]);
 
         graphics_mode(FALSE);
-        Print(L"Execution of embedded linux image failed: %r\n", err);
-        uefi_call_wrapper(BS->Stall, 1, 3 * 1000 * 1000);
-        return err;
+        return log_error_status_stall(err, L"Execution of embedded linux image failed: %r", err);
 }

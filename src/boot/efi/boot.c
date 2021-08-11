@@ -527,7 +527,7 @@ static BOOLEAN menu_run(
                 err = console_set_mode(&config->console_mode, config->console_mode_change);
                 if (EFI_ERROR(err)) {
                         uefi_call_wrapper(ST->ConOut->ClearScreen, 1, ST->ConOut);
-                        Print(L"Error switching console mode to %ld: %r.\r", (UINT64)config->console_mode, err);
+                        log_error_stall(L"Error switching console mode to %lu: %r", (UINT64)config->console_mode, err);
                 }
         } else
                 uefi_call_wrapper(ST->ConOut->ClearScreen, 1, ST->ConOut);
@@ -1221,8 +1221,7 @@ static VOID config_entry_bump_counters(
                         break;
 
                 if (r != EFI_BUFFER_TOO_SMALL || file_info_size * 2 < file_info_size) {
-                        Print(L"\nFailed to get file info for '%s': %r\n", old_path, r);
-                        uefi_call_wrapper(BS->Stall, 1, 3 * 1000 * 1000);
+                        log_error_stall(L"Failed to get file info for '%s': %r", old_path, r);
                         return;
                 }
 
@@ -1234,8 +1233,7 @@ static VOID config_entry_bump_counters(
         StrCpy(file_info->FileName, entry->next_name);
         r = uefi_call_wrapper(handle->SetInfo, 4, handle, &EfiFileInfoGuid, file_info_size, file_info);
         if (EFI_ERROR(r)) {
-                Print(L"\nFailed to rename '%s' to '%s', ignoring: %r\n", old_path, entry->next_name, r);
-                uefi_call_wrapper(BS->Stall, 1, 3 * 1000 * 1000);
+                log_error_stall(L"Failed to rename '%s' to '%s', ignoring: %r", old_path, entry->next_name, r);
                 return;
         }
 
@@ -2165,18 +2163,12 @@ static EFI_STATUS image_start(
         EFI_STATUS err;
 
         path = FileDevicePath(entry->device, entry->loader);
-        if (!path) {
-                Print(L"Error getting device path.");
-                uefi_call_wrapper(BS->Stall, 1, 3 * 1000 * 1000);
-                return EFI_INVALID_PARAMETER;
-        }
+        if (!path)
+                return log_error_status_stall(EFI_INVALID_PARAMETER, L"Error getting device path.");
 
         err = uefi_call_wrapper(BS->LoadImage, 6, FALSE, parent_image, path, NULL, 0, &image);
-        if (EFI_ERROR(err)) {
-                Print(L"Error loading %s: %r", entry->loader, err);
-                uefi_call_wrapper(BS->Stall, 1, 3 * 1000 * 1000);
-                return err;
-        }
+        if (EFI_ERROR(err))
+                return log_error_status_stall(err, L"Error loading %s: %r", entry->loader, err);
 
         if (config->options_edit)
                 options = config->options_edit;
@@ -2190,8 +2182,7 @@ static EFI_STATUS image_start(
                 err = uefi_call_wrapper(BS->OpenProtocol, 6, image, &LoadedImageProtocol, (VOID **)&loaded_image,
                                         parent_image, NULL, EFI_OPEN_PROTOCOL_GET_PROTOCOL);
                 if (EFI_ERROR(err)) {
-                        Print(L"Error getting LoadedImageProtocol handle: %r", err);
-                        uefi_call_wrapper(BS->Stall, 1, 3 * 1000 * 1000);
+                        log_error_stall(L"Error getting LoadedImageProtocol handle: %r", err);
                         goto out_unload;
                 }
                 loaded_image->LoadOptions = options;
@@ -2202,10 +2193,8 @@ static EFI_STATUS image_start(
                 err = tpm_log_event(SD_TPM_PCR,
                                     (EFI_PHYSICAL_ADDRESS) (UINTN) loaded_image->LoadOptions,
                                     loaded_image->LoadOptionsSize, loaded_image->LoadOptions);
-                if (EFI_ERROR(err)) {
-                        Print(L"Unable to add image options measurement: %r", err);
-                        uefi_call_wrapper(BS->Stall, 1, 200 * 1000);
-                }
+                if (EFI_ERROR(err))
+                        log_error_stall(L"Unable to add image options measurement: %r", err);
 #endif
         }
 
@@ -2231,9 +2220,7 @@ static EFI_STATUS reboot_into_firmware(VOID) {
                 return err;
 
         err = uefi_call_wrapper(RT->ResetSystem, 4, EfiResetCold, EFI_SUCCESS, 0, NULL);
-        Print(L"Error calling ResetSystem: %r", err);
-        uefi_call_wrapper(BS->Stall, 1, 3 * 1000 * 1000);
-        return err;
+        return log_error_status_stall(err, L"Error calling ResetSystem: %r", err);
 }
 
 static VOID config_free(Config *config) {
@@ -2305,30 +2292,21 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
 
         err = uefi_call_wrapper(BS->OpenProtocol, 6, image, &LoadedImageProtocol, (VOID **)&loaded_image,
                                 image, NULL, EFI_OPEN_PROTOCOL_GET_PROTOCOL);
-        if (EFI_ERROR(err)) {
-                Print(L"Error getting a LoadedImageProtocol handle: %r", err);
-                uefi_call_wrapper(BS->Stall, 1, 3 * 1000 * 1000);
-                return err;
-        }
+        if (EFI_ERROR(err))
+                return log_error_status_stall(err, L"Error getting a LoadedImageProtocol handle: %r", err);
 
         /* export the device path this image is started from */
         if (disk_get_part_uuid(loaded_image->DeviceHandle, uuid) == EFI_SUCCESS)
                 efivar_set(LOADER_GUID, L"LoaderDevicePartUUID", uuid, 0);
 
         root_dir = LibOpenRoot(loaded_image->DeviceHandle);
-        if (!root_dir) {
-                Print(L"Unable to open root directory.");
-                uefi_call_wrapper(BS->Stall, 1, 3 * 1000 * 1000);
-                return EFI_LOAD_ERROR;
-        }
+        if (!root_dir)
+                return log_error_status_stall(EFI_LOAD_ERROR, L"Unable to open root directory.", EFI_LOAD_ERROR);
 
         if (secure_boot_enabled() && shim_loaded()) {
                 err = security_policy_install();
-                if (EFI_ERROR(err)) {
-                        Print(L"Error installing security policy: %r ", err);
-                        uefi_call_wrapper(BS->Stall, 1, 3 * 1000 * 1000);
-                        return err;
-                }
+                if (EFI_ERROR(err))
+                        return log_error_status_stall(err, L"Error installing security policy: %r", err);
         }
 
         /* the filesystem path to this image, to prevent adding ourselves to the menu */
@@ -2367,8 +2345,7 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
         }
 
         if (config.entry_count == 0) {
-                Print(L"No loader found. Configuration files in \\loader\\entries\\*.conf are needed.");
-                uefi_call_wrapper(BS->Stall, 1, 3 * 1000 * 1000);
+                log_error_stall(L"No loader found. Configuration files in \\loader\\entries\\*.conf are needed.");
                 goto out;
         }
 
@@ -2440,8 +2417,7 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
                 err = image_start(image, &config, entry);
                 if (EFI_ERROR(err)) {
                         graphics_mode(FALSE);
-                        Print(L"\nFailed to execute %s (%s): %r\n", entry->title, entry->loader, err);
-                        uefi_call_wrapper(BS->Stall, 1, 3 * 1000 * 1000);
+                        log_error_stall(L"Failed to execute %s (%s): %r", entry->title, entry->loader, err);
                         goto out;
                 }
 
