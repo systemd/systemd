@@ -32,6 +32,11 @@ typedef enum LogTarget{
 #define IS_SYNTHETIC_ERRNO(val)             ((val) >> 30 & 1)
 #define ERRNO_VALUE(val)                    (abs(val) & 255)
 
+/* The callback function to be invoked when syntax warnings are seen
+ * in the unit files. */
+typedef int (*log_syntax_callback_t)(const char *unit, int level, void *userdata);
+void set_log_syntax_callback(log_syntax_callback_t cb, void *userdata);
+
 const char *log_target_to_string(LogTarget target) _const_;
 LogTarget log_target_from_string(const char *s) _pure_;
 void log_set_target(LogTarget target);
@@ -343,3 +348,7 @@ int log_syntax_invalid_utf8_internal(
 #define DEBUG_LOGGING _unlikely_(log_get_max_level() >= LOG_DEBUG)
 
 void log_setup(void);
+
+static inline void clear_log_syntax_callback(void *dummyp) {
+          set_log_syntax_callback(/* cb= */ NULL, /* userdata= */ NULL);
+}
