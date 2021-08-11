@@ -425,8 +425,21 @@ EFI_STATUS file_read(EFI_FILE_HANDLE dir, const CHAR16 *name, UINTN off, UINTN s
         return err;
 }
 
+VOID log_error_stall(const CHAR16 *fmt, ...) {
+        va_list args;
+
+        uefi_call_wrapper(ST->ConOut->SetAttribute, 2, ST->ConOut, EFI_LIGHTRED|EFI_BACKGROUND_BLACK);
+
+        Print(L"\n");
+        va_start(args, fmt);
+        VPrint(fmt, args);
+        va_end(args);
+        Print(L"\n");
+
+        uefi_call_wrapper(BS->Stall, 1, 3 * 1000 * 1000);
+}
+
 EFI_STATUS log_oom(void) {
-        Print(L"Out of memory.");
-        (void) uefi_call_wrapper(BS->Stall, 1, 3 * 1000 * 1000);
+        log_error_stall(L"Out of memory.");
         return EFI_OUT_OF_RESOURCES;
 }
