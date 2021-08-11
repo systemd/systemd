@@ -1107,7 +1107,7 @@ int dhcp_server_handle_message(sd_dhcp_server *server, DHCPMessage *message, siz
 
                 if (server->bound_leases[pool_offset] == existing_lease) {
                         server->bound_leases[pool_offset] = NULL;
-                        hashmap_remove(server->leases_by_client_id, existing_lease);
+                        hashmap_remove(server->leases_by_client_id, &existing_lease->client_id);
                         dhcp_lease_free(existing_lease);
 
                         if (server->callback)
