@@ -238,8 +238,11 @@ shared_sources = files('''
         psi-util.h
         ptyfwd.c
         ptyfwd.h
-        pwquality-util.c
-        pwquality-util.h
+        password-quality-util.h
+        pwquality-dlopen.c
+        pwquality-dlopen.h
+        passwdqc-dlopen.c
+        passwdqc-dlopen.h
         qrcode-util.c
         qrcode-util.h
         quota-util.c
