@@ -109,7 +109,7 @@ bool in4_addr_is_non_local(const struct in_addr *a) {
                !in4_addr_is_localhost(a);
 }
 
-int in_addr_is_localhost(int family, const union in_addr_union *u) {
+int in_addr_is_localhost(int family, union in_addr_union *u) {
         assert(u);
 
         if (family == AF_INET)

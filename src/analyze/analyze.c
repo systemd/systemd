@@ -89,6 +89,7 @@ static bool arg_man = true;
 static bool arg_generators = false;
 static char *arg_root = NULL;
 static char *arg_image = NULL;
+static bool arg_security_check = false;
 static unsigned arg_iterations = 1;
 static usec_t arg_base_time = USEC_INFINITY;
 
@@ -2145,7 +2146,7 @@ static int do_condition(int argc, char *argv[], void *userdata) {
 }
 
 static int do_verify(int argc, char *argv[], void *userdata) {
-        return verify_units(strv_skip(argv, 1), arg_scope, arg_man, arg_generators, arg_root);
+        return verify_units(strv_skip(argv, 1), arg_scope, arg_man, arg_generators, arg_security_check, arg_root);
 }
 
 static int do_security(int argc, char *argv[], void *userdata) {
@@ -2199,6 +2200,7 @@ static int help(int argc, char *argv[], void *userdata) {
                "  security [UNIT...]       Analyze security of unit\n"
                "\nOptions:\n"
                "  -h --help                Show this help\n"
+               "     --security=BOOL       Performs a security review of unit file\n"
                "     --version             Show package version\n"
                "     --no-pager            Do not pipe output into a pager\n"
                "     --system              Operate on system systemd instance\n"
@@ -2247,6 +2249,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_GENERATORS,
                 ARG_ITERATIONS,
                 ARG_BASE_TIME,
+                ARG_SECURITY_CHECK,
         };
 
         static const struct option options[] = {
@@ -2265,6 +2268,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "no-pager",     no_argument,       NULL, ARG_NO_PAGER         },
                 { "man",          optional_argument, NULL, ARG_MAN              },
                 { "generators",   optional_argument, NULL, ARG_GENERATORS       },
+                { "security",     required_argument, NULL, ARG_SECURITY_CHECK   },
                 { "host",         required_argument, NULL, 'H'                  },
                 { "machine",      required_argument, NULL, 'M'                  },
                 { "iterations",   required_argument, NULL, ARG_ITERATIONS       },
@@ -2358,6 +2362,12 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_GENERATORS:
                         r = parse_boolean_argument("--generators", optarg, &arg_generators);
+                        if (r < 0)
+                                return r;
+                        break;
+
+                case ARG_SECURITY_CHECK:
+                        r = parse_boolean_argument("--security", optarg, &arg_security_check);
                         if (r < 0)
                                 return r;
                         break;

@@ -28,78 +28,6 @@
 #include "unit-def.h"
 #include "unit-name.h"
 
-struct security_info {
-        char *id;
-        char *type;
-        char *load_state;
-        char *fragment_path;
-        bool default_dependencies;
-
-        uint64_t ambient_capabilities;
-        uint64_t capability_bounding_set;
-
-        char *user;
-        char **supplementary_groups;
-        bool dynamic_user;
-
-        bool ip_address_deny_all;
-        bool ip_address_allow_localhost;
-        bool ip_address_allow_other;
-
-        bool ip_filters_custom_ingress;
-        bool ip_filters_custom_egress;
-
-        char *keyring_mode;
-        char *protect_proc;
-        char *proc_subset;
-        bool lock_personality;
-        bool memory_deny_write_execute;
-        bool no_new_privileges;
-        char *notify_access;
-        bool protect_hostname;
-
-        bool private_devices;
-        bool private_mounts;
-        bool private_network;
-        bool private_tmp;
-        bool private_users;
-
-        bool protect_control_groups;
-        bool protect_kernel_modules;
-        bool protect_kernel_tunables;
-        bool protect_kernel_logs;
-        bool protect_clock;
-
-        char *protect_home;
-        char *protect_system;
-
-        bool remove_ipc;
-
-        bool restrict_address_family_inet;
-        bool restrict_address_family_unix;
-        bool restrict_address_family_netlink;
-        bool restrict_address_family_packet;
-        bool restrict_address_family_other;
-
-        uint64_t restrict_namespaces;
-        bool restrict_realtime;
-        bool restrict_suid_sgid;
-
-        char *root_directory;
-        char *root_image;
-
-        bool delegate;
-        char *device_policy;
-        bool device_allow_non_empty;
-
-        char **system_call_architectures;
-
-        bool system_call_filter_allow_list;
-        Set *system_call_filter;
-
-        uint32_t _umask;
-};
-
 struct security_assessor {
         const char *id;
         const char *description_good;
@@ -119,34 +47,34 @@ struct security_assessor {
         bool default_dependencies_only;
 };
 
-static void security_info_free(struct security_info *i) {
+static void security_info_free(security_info *i) {
         if (!i)
                 return;
 
         free(i->id);
-        free(i->type);
-        free(i->load_state);
+        free((char *)i->type);
+        free((char *)i->load_state);
         free(i->fragment_path);
 
         free(i->user);
 
-        free(i->protect_home);
-        free(i->protect_system);
+        free((char *)i->protect_home);
+        free((char *)i->protect_system);
 
         free(i->root_directory);
         free(i->root_image);
 
-        free(i->keyring_mode);
-        free(i->protect_proc);
-        free(i->proc_subset);
-        free(i->notify_access);
+        free((char *)i->keyring_mode);
+        free((char *)i->protect_proc);
+        free((char *)i->proc_subset);
+        free((char *)i->notify_access);
 
-        free(i->device_policy);
+        free((char *)i->device_policy);
 
         strv_free(i->supplementary_groups);
-        strv_free(i->system_call_architectures);
+        set_free(i->system_call_architectures);
 
-        set_free(i->system_call_filter);
+        hashmap_free(i->system_call_filter);
 }
 
 static bool security_info_runs_privileged(const struct security_info *i)  {
@@ -513,10 +441,10 @@ static int assess_system_call_architectures(
         assert(ret_badness);
         assert(ret_description);
 
-        if (strv_isempty(info->system_call_architectures)) {
+        if (set_isempty(info->system_call_architectures)) {
                 b = 10;
                 d = strdup("Service may execute system calls with all ABIs");
-        } else if (strv_equal(info->system_call_architectures, STRV_MAKE("native"))) {
+        } else if (set_contains(info->system_call_architectures, "native")) {
                 b = 0;
                 d = strdup("Service may execute system calls only with native ABI");
         } else {
@@ -535,7 +463,7 @@ static int assess_system_call_architectures(
 
 #if HAVE_SECCOMP
 
-static bool syscall_names_in_filter(Set *s, bool allow_list, const SyscallFilterSet *f, const char **ret_offending_syscall) {
+static bool syscall_names_in_filter(Hashmap *s, bool allow_list, const SyscallFilterSet *f, const char **ret_offending_syscall) {
         const char *syscall;
 
         NULSTR_FOREACH(syscall, f->value) {
@@ -556,7 +484,7 @@ static bool syscall_names_in_filter(Set *s, bool allow_list, const SyscallFilter
                 if (id < 0)
                         continue;
 
-                if (set_contains(s, syscall) == allow_list) {
+                if (hashmap_contains(s, syscall) == allow_list) {
                         log_debug("Offending syscall filter item: %s", syscall);
                         if (ret_offending_syscall)
                                 *ret_offending_syscall = syscall;
@@ -587,7 +515,7 @@ static int assess_system_call_filter(
         uint64_t b;
         int r;
 
-        if (!info->system_call_filter_allow_list && set_isempty(info->system_call_filter)) {
+        if (!info->system_call_filter_allow_list && hashmap_isempty(info->system_call_filter)) {
                 r = free_and_strdup(&d, "Service does not filter system calls");
                 b = 10;
         } else {
@@ -1502,7 +1430,8 @@ static const struct security_assessor security_assessor_table[] = {
         },
 };
 
-static int assess(const struct security_info *info, Table *overview_table, AnalyzeSecurityFlags flags) {
+/* access() is public so that it can be used from analyze-verify for security check on unit files */
+int assess(const struct security_info *info, Table *overview_table, AnalyzeSecurityFlags flags) {
         static const struct {
                 uint64_t exposure;
                 const char *name;
@@ -1698,6 +1627,10 @@ static int assess(const struct security_info *info, Table *overview_table, Analy
                         return table_log_add_error(r);
         }
 
+        /* Return error when overall exposure level is over MEDIUM */
+        if (exposure > 50)
+                return -EINVAL;
+
         return 0;
 }
 
@@ -1798,7 +1731,9 @@ static int property_read_system_call_filter(
                 if (r == 0)
                         break;
 
-                r = set_put_strdup(&info->system_call_filter, name);
+                /* The actual ExecContext stores the system call id as the map value, which we don't
+                 * need. So we assign NULL to all values here. */
+                r = hashmap_put_strdup(&info->system_call_filter, name, NULL);
                 if (r < 0)
                         return r;
         }
@@ -1910,7 +1845,7 @@ static int property_read_ip_filters(
         if (streq(member, "IPIngressFilterPath"))
                 info->ip_filters_custom_ingress = !strv_isempty(l);
         else if (streq(member, "IPEgressFilterPath"))
-                info->ip_filters_custom_ingress = !strv_isempty(l);
+                info->ip_filters_custom_egress = !strv_isempty(l);
 
         return 0;
 }
