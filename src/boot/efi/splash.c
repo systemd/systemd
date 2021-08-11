@@ -44,6 +44,11 @@ static EFI_STATUS bmp_parse_header(UINT8 *bmp, UINTN size, struct bmp_dib **ret_
         struct bmp_map *map;
         UINTN row_size;
 
+        assert(bmp);
+        assert(ret_dib);
+        assert(ret_map);
+        assert(pixmap);
+
         if (size < sizeof(struct bmp_file) + sizeof(struct bmp_dib))
                 return EFI_INVALID_PARAMETER;
 
@@ -128,6 +133,8 @@ static EFI_STATUS bmp_parse_header(UINT8 *bmp, UINTN size, struct bmp_dib **ret_
 static VOID pixel_blend(UINT32 *dst, const UINT32 source) {
         UINT32 alpha, src, src_rb, src_g, dst_rb, dst_g, rb, g;
 
+        assert(dst);
+
         alpha = (source & 0xff);
 
         /* convert src from RGBA to XRGB */
@@ -151,6 +158,11 @@ static EFI_STATUS bmp_to_blt(EFI_GRAPHICS_OUTPUT_BLT_PIXEL *buf,
                       struct bmp_dib *dib, struct bmp_map *map,
                       UINT8 *pixmap) {
         UINT8 *in;
+
+        assert(buf);
+        assert(dib);
+        assert(map);
+        assert(pixmap);
 
         /* transform and copy pixels */
         in = pixmap;
@@ -246,6 +258,8 @@ EFI_STATUS graphics_splash(UINT8 *content, UINTN len, const EFI_GRAPHICS_OUTPUT_
         UINTN x_pos = 0;
         UINTN y_pos = 0;
         EFI_STATUS err;
+
+        assert(content);
 
         if (!background) {
                 if (StriCmp(L"Apple", ST->FirmwareVendor) == 0) {

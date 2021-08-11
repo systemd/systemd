@@ -72,6 +72,9 @@ typedef struct {
 } Config;
 
 static VOID cursor_left(UINTN *cursor, UINTN *first) {
+        assert(cursor);
+        assert(first);
+
         if ((*cursor) > 0)
                 (*cursor)--;
         else if ((*first) > 0)
@@ -83,6 +86,9 @@ static VOID cursor_right(
                 UINTN *first,
                 UINTN x_max,
                 UINTN len) {
+
+        assert(cursor);
+        assert(first);
 
         if ((*cursor)+1 < x_max)
                 (*cursor)++;
@@ -99,6 +105,8 @@ static BOOLEAN line_edit(
         _cleanup_freepool_ CHAR16 *line = NULL, *print = NULL;
         UINTN size, len, first, cursor, clear;
         BOOLEAN exit, enter;
+
+        assert(line_out);
 
         if (!line_in)
                 line_in = L"";
@@ -332,6 +340,8 @@ static BOOLEAN line_edit(
 }
 
 static UINTN entry_lookup_key(Config *config, UINTN start, CHAR16 key) {
+        assert(config);
+
         if (key == 0)
                 return -1;
 
@@ -361,6 +371,9 @@ static VOID print_status(Config *config, CHAR16 *loaded_image_path) {
         BOOLEAN modevar;
         _cleanup_freepool_ CHAR16 *partstr = NULL, *defaultstr = NULL;
         UINTN x, y;
+
+        assert(config);
+        assert(loaded_image_path);
 
         uefi_call_wrapper(ST->ConOut->SetAttribute, 2, ST->ConOut, EFI_LIGHTGRAY|EFI_BACKGROUND_BLACK);
         uefi_call_wrapper(ST->ConOut->ClearScreen, 1, ST->ConOut);
@@ -492,6 +505,10 @@ static BOOLEAN menu_run(
                 Config *config,
                 ConfigEntry **chosen_entry,
                 CHAR16 *loaded_image_path) {
+
+        assert(config);
+        assert(chosen_entry);
+        assert(loaded_image_path);
 
         EFI_STATUS err;
         UINTN visible_max;
@@ -884,6 +901,9 @@ static BOOLEAN menu_run(
 }
 
 static VOID config_add_entry(Config *config, ConfigEntry *entry) {
+        assert(config);
+        assert(entry);
+
         if ((config->entry_count & 15) == 0) {
                 UINTN i;
 
@@ -923,6 +943,12 @@ static CHAR8 *line_get_key_value(
 
         CHAR8 *line, *value;
         UINTN linelen;
+
+        assert(content);
+        assert(sep);
+        assert(pos);
+        assert(key_ret);
+        assert(value_ret);
 
 skip:
         line = content + *pos;
@@ -985,6 +1011,9 @@ static VOID config_defaults_load_from_file(Config *config, CHAR8 *content) {
         CHAR8 *line;
         UINTN pos = 0;
         CHAR8 *key, *value;
+
+        assert(config);
+        assert(content);
 
         while ((line = line_get_key_value(content, (CHAR8 *)" \t", &pos, &key, &value))) {
                 if (strcmpa((CHAR8 *)"timeout", key) == 0) {
@@ -1078,6 +1107,10 @@ static VOID config_entry_parse_tries(
 
         UINTN left = UINTN_MAX, done = UINTN_MAX, factor = 1, i, next_left, next_done;
         _cleanup_freepool_ CHAR16 *prefix = NULL;
+
+        assert(entry);
+        assert(path);
+        assert(file);
 
         /*
          * Parses a suffix of two counters (one going down, one going up) in the form "+LEFT-DONE" from the end of the
@@ -1196,6 +1229,9 @@ static VOID config_entry_bump_counters(
         UINTN file_info_size, a, b;
         EFI_STATUS r;
 
+        assert(entry);
+        assert(root_dir);
+
         if (entry->tries_left == UINTN_MAX)
                 return;
 
@@ -1268,6 +1304,14 @@ static VOID config_entry_add_from_file(
         EFI_STATUS err;
         EFI_FILE_HANDLE handle;
         _cleanup_freepool_ CHAR16 *initrd = NULL;
+
+        assert(config);
+        assert(device);
+        assert(root_dir);
+        assert(path);
+        assert(file);
+        assert(content);
+        assert(loaded_image_path);
 
         entry = AllocatePool(sizeof(ConfigEntry));
 
@@ -1397,6 +1441,8 @@ static VOID config_load_defaults(Config *config, EFI_FILE *root_dir) {
         UINTN sec;
         EFI_STATUS err;
 
+        assert(root_dir);
+
         *config = (Config) {
                 .editor = TRUE,
                 .auto_entries = TRUE,
@@ -1434,6 +1480,11 @@ static VOID config_load_entries(
         EFI_FILE_HANDLE entries_dir;
         EFI_STATUS err;
 
+        assert(config);
+        assert(device);
+        assert(root_dir);
+        assert(loaded_image_path);
+
         err = uefi_call_wrapper(root_dir->Open, 5, root_dir, &entries_dir, (CHAR16*) L"\\loader\\entries", EFI_FILE_MODE_READ, 0ULL);
         if (!EFI_ERROR(err)) {
                 for (;;) {
@@ -1469,6 +1520,9 @@ static VOID config_load_entries(
 static INTN config_entry_compare(ConfigEntry *a, ConfigEntry *b) {
         INTN r;
 
+        assert(a);
+        assert(b);
+
         /* Order entries that have no tries left to the beginning of the list */
         if (a->tries_left != 0 && b->tries_left == 0)
                 return 1;
@@ -1499,6 +1553,8 @@ static INTN config_entry_compare(ConfigEntry *a, ConfigEntry *b) {
 }
 
 static VOID config_sort_entries(Config *config) {
+        assert(config);
+
         for (UINTN i = 1; i < config->entry_count; i++) {
                 BOOLEAN more;
 
@@ -1520,6 +1576,9 @@ static VOID config_sort_entries(Config *config) {
 }
 
 static INTN config_entry_find(Config *config, CHAR16 *id) {
+        assert(config);
+        assert(id);
+
         for (UINTN i = 0; i < config->entry_count; i++)
                 if (StrCmp(config->entries[i]->id, id) == 0)
                         return (INTN) i;
@@ -1531,6 +1590,8 @@ static VOID config_default_entry_select(Config *config) {
         _cleanup_freepool_ CHAR16 *entry_oneshot = NULL, *entry_default = NULL;
         EFI_STATUS err;
         INTN i;
+
+        assert(config);
 
         /*
          * The EFI variable to specify a boot entry for the next, and only the
@@ -1602,6 +1663,8 @@ static VOID config_default_entry_select(Config *config) {
 static BOOLEAN find_nonunique(ConfigEntry **entries, UINTN entry_count) {
         BOOLEAN non_unique = FALSE;
 
+        assert(entries);
+
         for (UINTN i = 0; i < entry_count; i++)
                 entries[i]->non_unique = FALSE;
 
@@ -1620,6 +1683,8 @@ static BOOLEAN find_nonunique(ConfigEntry **entries, UINTN entry_count) {
 
 /* generate a unique title, avoiding non-distinguishable menu entries */
 static VOID config_title_generate(Config *config) {
+        assert(config);
+
         /* set title */
         for (UINTN i = 0; i < config->entry_count; i++) {
                 CHAR16 *title;
@@ -1692,6 +1757,11 @@ static BOOLEAN config_entry_add_call(
 
         ConfigEntry *entry;
 
+        assert(config);
+        assert(id);
+        assert(title);
+        assert(call);
+
         entry = AllocatePool(sizeof(ConfigEntry));
         *entry = (ConfigEntry) {
                 .id = StrDuplicate(id),
@@ -1717,6 +1787,12 @@ static ConfigEntry *config_entry_add_loader(
                 const CHAR16 *version) {
 
         ConfigEntry *entry;
+
+        assert(config);
+        assert(device);
+        assert(id);
+        assert(title);
+        assert(loader);
 
         entry = AllocatePool(sizeof(ConfigEntry));
         *entry = (ConfigEntry) {
@@ -1750,6 +1826,13 @@ static BOOLEAN config_entry_add_loader_auto(
         EFI_FILE_HANDLE handle;
         ConfigEntry *entry;
         EFI_STATUS err;
+
+        assert(config);
+        assert(device);
+        assert(root_dir);
+        assert(id);
+        assert(title);
+        assert(loader);
 
         if (!config->auto_entries)
                 return FALSE;
@@ -1791,6 +1874,8 @@ static VOID config_entry_add_osx(Config *config) {
         UINTN handle_count = 0;
         _cleanup_freepool_ EFI_HANDLE *handles = NULL;
 
+        assert(config);
+
         if (!config->auto_entries)
                 return;
 
@@ -1820,6 +1905,10 @@ static VOID config_entry_add_linux(
         EFI_FILE_HANDLE linux_dir;
         EFI_STATUS err;
         ConfigEntry *entry;
+
+        assert(config);
+        assert(device);
+        assert(root_dir);
 
         err = uefi_call_wrapper(root_dir->Open, 5, root_dir, &linux_dir, (CHAR16*) L"\\EFI\\Linux", EFI_FILE_MODE_READ, 0ULL);
         if (EFI_ERROR(err))
@@ -1955,6 +2044,9 @@ static EFI_DEVICE_PATH *path_parent(EFI_DEVICE_PATH *path, EFI_DEVICE_PATH *node
         EFI_DEVICE_PATH *parent;
         UINTN len;
 
+        assert(path);
+        assert(node);
+
         len = (UINT8*) NextDevicePathNode(node) - (UINT8*) path;
         parent = (EFI_DEVICE_PATH*) AllocatePool(len + sizeof(EFI_DEVICE_PATH));
         CopyMem(parent, path, len);
@@ -1975,6 +2067,9 @@ static VOID config_load_xbootldr(
         EFI_HANDLE new_device;
         EFI_FILE *root_dir;
         EFI_STATUS r;
+
+        assert(config);
+        assert(device);
 
         partition_path = DevicePathFromHandle(device);
         if (!partition_path)
@@ -2162,6 +2257,9 @@ static EFI_STATUS image_start(
         CHAR16 *options;
         EFI_STATUS err;
 
+        assert(config);
+        assert(entry);
+
         path = FileDevicePath(entry->device, entry->loader);
         if (!path)
                 return log_error_status_stall(EFI_INVALID_PARAMETER, L"Error getting device path.");
@@ -2224,6 +2322,7 @@ static EFI_STATUS reboot_into_firmware(VOID) {
 }
 
 static VOID config_free(Config *config) {
+        assert(config);
         for (UINTN i = 0; i < config->entry_count; i++)
                 config_entry_free(config->entries[i]);
         FreePool(config->entries);
@@ -2236,6 +2335,8 @@ static VOID config_write_entries_to_variable(Config *config) {
         _cleanup_freepool_ CHAR16 *buffer = NULL;
         UINTN sz = 0;
         CHAR16 *p;
+
+        assert(config);
 
         for (UINTN i = 0; i < config->entry_count; i++)
                 sz += StrLen(config->entries[i]->id) + 1;

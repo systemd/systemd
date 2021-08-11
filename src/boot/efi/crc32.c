@@ -42,6 +42,7 @@
  */
 
 #include "crc32.h"
+#include "macro-fundamental.h"
 
 static const UINT32 crc32_tab[] = {
         0x00000000L, 0x77073096L, 0xee0e612cL, 0x990951baL, 0x076dc419L,
@@ -111,6 +112,8 @@ UINT32 crc32(UINT32 seed, const VOID *buf, UINTN len) {
         const UINT8 *p = buf;
         UINT32 crc = seed;
 
+        assert(buf);
+
         while (len > 0) {
                 crc = crc32_add_char(crc, *p++);
                 len--;
@@ -128,6 +131,8 @@ UINT32 crc32_exclude_offset(
 
         const UINT8 *p = buf;
         UINT32 crc = seed;
+
+        assert(buf);
 
         for (UINTN i = 0; i < len; i++) {
                 UINT8 x = *p++;

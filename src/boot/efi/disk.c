@@ -9,6 +9,8 @@
 EFI_STATUS disk_get_part_uuid(EFI_HANDLE *handle, CHAR16 uuid[static 37]) {
         EFI_DEVICE_PATH *device_path;
 
+        assert(handle);
+
         /* export the device path this image is started from */
         device_path = DevicePathFromHandle(handle);
         if (device_path) {

@@ -111,6 +111,10 @@ static EFIAPI EFI_STATUS security2_policy_authentication (const EFI_SECURITY2_PR
                                                           VOID *file_buffer, UINTN file_size, BOOLEAN boot_policy) {
         EFI_STATUS status;
 
+        assert(this);
+        assert(device_path);
+        assert(file_buffer);
+
         /* Chain original security policy */
         status = uefi_call_wrapper(es2fa, 5, this, device_path, file_buffer, file_size, boot_policy);
 
@@ -142,6 +146,9 @@ static EFIAPI EFI_STATUS security_policy_authentication (const EFI_SECURITY_PROT
         EFI_FILE *root;
         _cleanup_freepool_ CHAR8 *file_buffer = NULL;
         UINTN file_size;
+
+        assert(this);
+        assert(device_path_const);
 
         if (!device_path_const)
                 return EFI_INVALID_PARAMETER;

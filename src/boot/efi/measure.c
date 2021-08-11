@@ -5,6 +5,7 @@
 #include <efi.h>
 #include <efilib.h>
 
+#include "macro-fundamental.h"
 #include "measure.h"
 
 #define EFI_TCG_GUID \
@@ -184,6 +185,9 @@ static EFI_STATUS tpm1_measure_to_pcr_and_event_log(const EFI_TCG *tcg, UINT32 p
         EFI_PHYSICAL_ADDRESS event_log_last;
         UINTN desc_len;
 
+        assert(tcg);
+        assert(description);
+
         desc_len = (StrLen(description) + 1) * sizeof(CHAR16);
 
         tcg_event = AllocateZeroPool(desc_len + sizeof(TCG_PCR_EVENT));
@@ -214,6 +218,9 @@ static EFI_STATUS tpm2_measure_to_pcr_and_event_log(const EFI_TCG2 *tcg, UINT32 
         EFI_STATUS status;
         EFI_TCG2_EVENT *tcg_event;
         UINTN desc_len;
+
+        assert(tcg);
+        assert(description);
 
         desc_len = StrLen(description) * sizeof(CHAR16);
 
@@ -301,6 +308,8 @@ static EFI_TCG2 * tcg2_interface_check(void) {
 EFI_STATUS tpm_log_event(UINT32 pcrindex, const EFI_PHYSICAL_ADDRESS buffer, UINTN buffer_size, const CHAR16 *description) {
         EFI_TCG *tpm1;
         EFI_TCG2 *tpm2;
+
+        assert(description);
 
         tpm2 = tcg2_interface_check();
         if (tpm2)
