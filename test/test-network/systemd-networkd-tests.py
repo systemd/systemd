@@ -3863,7 +3863,7 @@ class NetworkdDHCPServerTests(unittest.TestCase, Utilities):
 
         output = check_output(*networkctl_cmd, '-n', '0', 'status', 'veth99', env=env)
         print(output)
-        self.assertIn('10.1.1.3 (DHCP4 via 10.1.1.1)', output)
+        self.assertIn('10.1.1.200 (DHCP4 via 10.1.1.1)', output)
 
 class NetworkdDHCPServerRelayAgentTests(unittest.TestCase, Utilities):
     links = [

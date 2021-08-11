@@ -30,6 +30,8 @@ typedef struct DHCPClientId {
 } DHCPClientId;
 
 typedef struct DHCPLease {
+        sd_dhcp_server *server;
+
         DHCPClientId client_id;
 
         be32_t address;
@@ -67,10 +69,10 @@ struct sd_dhcp_server {
 
         bool emit_router;
 
-        Hashmap *leases_by_client_id;
+        Hashmap *bound_leases_by_client_id;
+        Hashmap *bound_leases_by_address;
         Hashmap *static_leases_by_client_id;
-        DHCPLease **bound_leases;
-        DHCPLease invalid_lease;
+        Hashmap *static_leases_by_address;
 
         uint32_t max_lease_time, default_lease_time;
 
@@ -95,6 +97,8 @@ typedef struct DHCPRequest {
         uint32_t lifetime;
         const uint8_t *agent_info_option;
 } DHCPRequest;
+
+extern const struct hash_ops dhcp_lease_hash_ops;
 
 int dhcp_server_handle_message(sd_dhcp_server *server, DHCPMessage *message,
                                size_t length);
