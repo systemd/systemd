@@ -22,6 +22,8 @@ static EFI_STATUS acquire_rng(UINTN size, VOID **ret) {
         EFI_RNG_PROTOCOL *rng;
         EFI_STATUS err;
 
+        assert(ret);
+
         /* Try to acquire the specified number of bytes from the UEFI RNG */
 
         err = LibLocateProtocol(EFI_RNG_GUID, (VOID**) &rng);
@@ -63,6 +65,10 @@ static VOID hash_once(
 
         struct sha256_ctx hash;
 
+        assert(old_seed);
+        assert(rng);
+        assert(system_token);
+
         sha256_init_ctx(&hash);
         sha256_process_bytes(old_seed, size, &hash);
         if (rng)
@@ -84,6 +90,11 @@ static EFI_STATUS hash_many(
                 VOID **ret) {
 
         _cleanup_freepool_ VOID *output = NULL;
+
+        assert(old_seed);
+        assert(rng);
+        assert(system_token);
+        assert(ret);
 
         /* Hashes the specified parameters in counter mode, generating n hash values, with the counter in the
          * range counter_start…counter_start+n-1. */
@@ -115,6 +126,12 @@ static EFI_STATUS mangle_random_seed(
         EFI_STATUS err;
         UINTN n;
 
+        assert(old_seed);
+        assert(rng);
+        assert(system_token);
+        assert(ret_new_seed);
+        assert(ret_for_kernel);
+
         /* This takes the old seed file contents, an (optional) random number acquired from the UEFI RNG, an
          * (optional) system 'token' installed once by the OS installer in an EFI variable, and hashes them
          * together in counter mode, generating a new seed (to replace the file on disk) and the seed for the
@@ -144,6 +161,9 @@ static EFI_STATUS acquire_system_token(VOID **ret, UINTN *ret_size) {
         EFI_STATUS err;
         UINTN size;
 
+        assert(ret);
+        assert(ret_size);
+
         err = efivar_get_raw(LOADER_GUID, L"LoaderSystemToken", &data, &size);
         if (EFI_ERROR(err)) {
                 if (err != EFI_NOT_FOUND)
@@ -162,7 +182,7 @@ static EFI_STATUS acquire_system_token(VOID **ret, UINTN *ret_size) {
 
 static VOID validate_sha256(void) {
 
-#ifndef __OPTIMIZE__
+#ifdef EFI_DEBUG
         /* Let's validate our SHA256 implementation. We stole it from glibc, and converted it to UEFI
          * style. We better check whether it does the right stuff. We use the simpler test vectors from the
          * SHA spec. Note that we strip this out in optimization builds. */
@@ -204,13 +224,9 @@ static VOID validate_sha256(void) {
                 sha256_process_bytes(array[i].string, strlena((const CHAR8*) array[i].string), &hash);
                 sha256_finish_ctx(&hash, result);
 
-                if (CompareMem(result, array[i].hash, HASH_VALUE_SIZE) != 0) {
-                        log_error_stall(L"SHA256 failed validation.");
-                        return;
-                }
+                assert(CompareMem(result, array[i].hash, HASH_VALUE_SIZE) == 0);
         }
 
-        Print(L"SHA256 validated\n");
 #endif
 }
 
@@ -220,6 +236,8 @@ EFI_STATUS process_random_seed(EFI_FILE *root_dir, RandomSeedMode mode) {
         UINTN size, rsize, wsize, system_token_size = 0;
         _cleanup_freepool_ EFI_FILE_INFO *info = NULL;
         EFI_STATUS err;
+
+        assert(root_dir);
 
         validate_sha256();
 
