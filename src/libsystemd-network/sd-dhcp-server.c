@@ -144,8 +144,13 @@ int client_id_compare_func(const DHCPClientId *a, const DHCPClientId *b) {
         return memcmp(a->data, b->data, a->length);
 }
 
-DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(dhcp_lease_hash_ops, DHCPClientId, client_id_hash_func, client_id_compare_func,
-                                              DHCPLease, dhcp_lease_free);
+DEFINE_HASH_OPS_WITH_VALUE_DESTRUCTOR(
+        dhcp_lease_hash_ops,
+        DHCPClientId,
+        client_id_hash_func,
+        client_id_compare_func,
+        DHCPLease,
+        dhcp_lease_free);
 
 static sd_dhcp_server *dhcp_server_free(sd_dhcp_server *server) {
         assert(server);
@@ -200,13 +205,6 @@ int sd_dhcp_server_new(sd_dhcp_server **ret, int ifindex) {
                 .default_lease_time = DIV_ROUND_UP(DHCP_DEFAULT_LEASE_TIME_USEC, USEC_PER_SEC),
                 .max_lease_time = DIV_ROUND_UP(DHCP_MAX_LEASE_TIME_USEC, USEC_PER_SEC),
         };
-
-        server->leases_by_client_id = hashmap_new(&dhcp_lease_hash_ops);
-        if (!server->leases_by_client_id)
-                return -ENOMEM;
-        server->static_leases_by_client_id = hashmap_new(&dhcp_lease_hash_ops);
-        if (!server->static_leases_by_client_id)
-                return -ENOMEM;
 
         *ret = TAKE_PTR(server);
 
@@ -1025,7 +1023,7 @@ int dhcp_server_handle_message(sd_dhcp_server *server, DHCPMessage *message, siz
                         server->bound_leases[pool_offset] = lease;
 
                         old_lease = hashmap_remove(server->leases_by_client_id, &lease->client_id);
-                        r = hashmap_put(server->leases_by_client_id, &lease->client_id, lease);
+                        r = hashmap_ensure_put(&server->leases_by_client_id, &dhcp_lease_hash_ops, &lease->client_id, lease);
                         if (r < 0)
                                 return log_dhcp_server_errno(server, r, "Could not save lease: %m");
                         TAKE_PTR(lease);
@@ -1066,7 +1064,7 @@ int dhcp_server_handle_message(sd_dhcp_server *server, DHCPMessage *message, siz
                         log_dhcp_server(server, "ACK (0x%x)", be32toh(req->message->xid));
 
                         server->bound_leases[pool_offset] = lease;
-                        r = hashmap_put(server->leases_by_client_id, &lease->client_id, lease);
+                        r = hashmap_ensure_put(&server->leases_by_client_id, &dhcp_lease_hash_ops, &lease->client_id, lease);
                         if (r < 0)
                                 return log_dhcp_server_errno(server, r, "Could not save lease: %m");
                         TAKE_PTR(new_lease);
