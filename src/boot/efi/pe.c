@@ -66,6 +66,9 @@ EFI_STATUS pe_memory_locate_sections(CHAR8 *base, CHAR8 **sections, UINTN *addrs
         struct PeHeader *pe;
         UINTN offset;
 
+        assert(base);
+        assert(sections);
+
         dos = (struct DosFileHeader *)base;
 
         if (CompareMem(dos->Magic, "MZ", 2) != 0)
@@ -117,6 +120,9 @@ EFI_STATUS pe_file_locate_sections(EFI_FILE *dir, CHAR16 *path, CHAR8 **sections
         UINTN headerlen;
         EFI_STATUS err;
         _cleanup_freepool_ CHAR8 *header = NULL;
+
+        assert(dir);
+        assert(path);
 
         err = uefi_call_wrapper(dir->Open, 5, dir, &handle, path, EFI_FILE_MODE_READ, 0ULL);
         if (EFI_ERROR(err))

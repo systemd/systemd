@@ -5,6 +5,7 @@
 #include <efi.h>
 #include <efilib.h>
 
+#include "macro-fundamental.h"
 #include "measure.h"
 
 #define EFI_TCG_GUID \
@@ -184,8 +185,10 @@ static EFI_STATUS tpm1_measure_to_pcr_and_event_log(const EFI_TCG *tcg, UINT32 p
         EFI_PHYSICAL_ADDRESS event_log_last;
         UINTN desc_len;
 
-        desc_len = (StrLen(description) + 1) * sizeof(CHAR16);
+        assert(tcg);
+        assert(description);
 
+        desc_len = StrSize(description);
         tcg_event = AllocateZeroPool(desc_len + sizeof(TCG_PCR_EVENT));
 
         if (!tcg_event)
@@ -215,14 +218,16 @@ static EFI_STATUS tpm2_measure_to_pcr_and_event_log(const EFI_TCG2 *tcg, UINT32 
         EFI_TCG2_EVENT *tcg_event;
         UINTN desc_len;
 
-        desc_len = StrLen(description) * sizeof(CHAR16);
+        assert(tcg);
+        assert(description);
 
-        tcg_event = AllocateZeroPool(sizeof(*tcg_event) - sizeof(tcg_event->Event) + desc_len + 1);
+        desc_len = StrSize(description);
+        tcg_event = AllocateZeroPool(sizeof(*tcg_event) - sizeof(tcg_event->Event) + desc_len);
 
         if (!tcg_event)
                 return EFI_OUT_OF_RESOURCES;
 
-        tcg_event->Size = sizeof(*tcg_event) - sizeof(tcg_event->Event) + desc_len + 1;
+        tcg_event->Size = sizeof(*tcg_event) - sizeof(tcg_event->Event) + desc_len;
         tcg_event->Header.HeaderSize = sizeof(EFI_TCG2_EVENT_HEADER);
         tcg_event->Header.HeaderVersion = EFI_TCG2_EVENT_HEADER_VERSION;
         tcg_event->Header.PCRIndex = pcrindex;
@@ -301,6 +306,8 @@ static EFI_TCG2 * tcg2_interface_check(void) {
 EFI_STATUS tpm_log_event(UINT32 pcrindex, const EFI_PHYSICAL_ADDRESS buffer, UINTN buffer_size, const CHAR16 *description) {
         EFI_TCG *tpm1;
         EFI_TCG2 *tpm2;
+
+        assert(description);
 
         tpm2 = tcg2_interface_check();
         if (tpm2)
