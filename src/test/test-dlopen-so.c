@@ -9,7 +9,8 @@
 #include "libfido2-util.h"
 #include "macro.h"
 #include "main-func.h"
-#include "pwquality-util.h"
+#include "pwquality-dlopen.h"
+#include "passwdqc-dlopen.h"
 #include "qrcode-util.h"
 #include "tests.h"
 #include "tpm2-util.h"
@@ -31,6 +32,10 @@ static int run(int argc, char **argv) {
 
 #if HAVE_PWQUALITY
         assert_se(dlopen_pwquality() >= 0);
+#endif
+
+#if HAVE_PASSWDQC
+        assert_se(dlopen_passwdqc() >= 0);
 #endif
 
 #if HAVE_QRENCODE
