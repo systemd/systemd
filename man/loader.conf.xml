@@ -41,8 +41,8 @@
     a comment line. Empty and comment lines are ignored.</para>
 
     <para>Boolean arguments may be written as
-    <literal>yes</literal>/<literal>y</literal>/<literal>true</literal>/<literal>1</literal> or
-    <literal>no</literal>/<literal>n</literal>/<literal>false</literal>/<literal>0</literal>.
+    <literal>yes</literal>/<literal>y</literal>/<literal>true</literal>/<literal>t</literal>/<literal>on</literal>/<literal>1</literal> or
+    <literal>no</literal>/<literal>n</literal>/<literal>false</literal>/<literal>f</literal>/<literal>off</literal>/<literal>0</literal>.
     </para>
   </refsect1>
 
