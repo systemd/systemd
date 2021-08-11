@@ -188,8 +188,7 @@ static EFI_STATUS tpm1_measure_to_pcr_and_event_log(const EFI_TCG *tcg, UINT32 p
         assert(tcg);
         assert(description);
 
-        desc_len = (StrLen(description) + 1) * sizeof(CHAR16);
-
+        desc_len = StrSize(description);
         tcg_event = AllocateZeroPool(desc_len + sizeof(TCG_PCR_EVENT));
 
         if (!tcg_event)
@@ -222,14 +221,13 @@ static EFI_STATUS tpm2_measure_to_pcr_and_event_log(const EFI_TCG2 *tcg, UINT32 
         assert(tcg);
         assert(description);
 
-        desc_len = StrLen(description) * sizeof(CHAR16);
-
-        tcg_event = AllocateZeroPool(sizeof(*tcg_event) - sizeof(tcg_event->Event) + desc_len + 1);
+        desc_len = StrSize(description);
+        tcg_event = AllocateZeroPool(sizeof(*tcg_event) - sizeof(tcg_event->Event) + desc_len);
 
         if (!tcg_event)
                 return EFI_OUT_OF_RESOURCES;
 
-        tcg_event->Size = sizeof(*tcg_event) - sizeof(tcg_event->Event) + desc_len + 1;
+        tcg_event->Size = sizeof(*tcg_event) - sizeof(tcg_event->Event) + desc_len;
         tcg_event->Header.HeaderSize = sizeof(EFI_TCG2_EVENT_HEADER);
         tcg_event->Header.HeaderVersion = EFI_TCG2_EVENT_HEADER_VERSION;
         tcg_event->Header.PCRIndex = pcrindex;
