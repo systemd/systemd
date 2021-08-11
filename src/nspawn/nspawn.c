@@ -338,7 +338,7 @@ static int help(void) {
                "  -a --as-pid2              Maintain a stub init as PID1, invoke binary as PID2\n"
                "  -b --boot                 Boot up full system (i.e. invoke init)\n"
                "     --chdir=PATH           Set working directory in the container\n"
-               "  -E --setenv=NAME=VALUE    Pass an environment variable to PID 1\n"
+               "  -E --setenv=NAME[=VALUE]  Pass an environment variable to PID 1\n"
                "  -u --user=USER            Run the command under specified user or UID\n"
                "     --kill-signal=SIGNAL   Select signal to use for shutting down PID 1\n"
                "     --notify-ready=BOOLEAN Receive notifications from the child init process\n\n"
@@ -1121,17 +1121,13 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_settings_mask |= SETTING_CUSTOM_MOUNTS;
                         break;
 
-                case 'E': {
-                        if (!env_assignment_is_valid(optarg))
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "Environment variable assignment '%s' is not valid.", optarg);
-                        r = strv_env_replace_strdup(&arg_setenv, optarg);
+                case 'E':
+                        r = strv_env_replace_strdup_passthrough(&arg_setenv, optarg);
                         if (r < 0)
-                                return r;
+                                return log_error_errno(r, "Cannot assign environment variable %s: %m", optarg);
 
                         arg_settings_mask |= SETTING_ENVIRONMENT;
                         break;
-                }
 
                 case 'q':
                         arg_quiet = true;
@@ -3189,8 +3185,8 @@ static int inner_child(
         _cleanup_free_ char *home = NULL;
         char as_uuid[ID128_UUID_STRING_MAX];
         size_t n_env = 1;
-        const char *envp[] = {
-                "PATH=" DEFAULT_PATH_COMPAT,
+        char *envp[] = {
+                (char*) "PATH=" DEFAULT_PATH_COMPAT,
                 NULL, /* container */
                 NULL, /* TERM */
                 NULL, /* HOME */
@@ -3426,17 +3422,17 @@ static int inner_child(
                 n_env++;
 
         if (home || !uid_is_valid(arg_uid) || arg_uid == 0)
-                if (asprintf((char**)(envp + n_env++), "HOME=%s", home ?: "/root") < 0)
+                if (asprintf(envp + n_env++, "HOME=%s", home ?: "/root") < 0)
                         return log_oom();
 
         if (arg_user || !uid_is_valid(arg_uid) || arg_uid == 0)
-                if (asprintf((char**)(envp + n_env++), "USER=%s", arg_user ?: "root") < 0 ||
-                    asprintf((char**)(envp + n_env++), "LOGNAME=%s", arg_user ? arg_user : "root") < 0)
+                if (asprintf(envp + n_env++, "USER=%s", arg_user ?: "root") < 0 ||
+                    asprintf(envp + n_env++, "LOGNAME=%s", arg_user ? arg_user : "root") < 0)
                         return log_oom();
 
         assert(!sd_id128_is_null(arg_uuid));
 
-        if (asprintf((char**)(envp + n_env++), "container_uuid=%s", id128_to_uuid_string(arg_uuid, as_uuid)) < 0)
+        if (asprintf(envp + n_env++, "container_uuid=%s", id128_to_uuid_string(arg_uuid, as_uuid)) < 0)
                 return log_oom();
 
         if (fdset_size(fds) > 0) {
@@ -3444,11 +3440,11 @@ static int inner_child(
                 if (r < 0)
                         return log_error_errno(r, "Failed to unset O_CLOEXEC for file descriptors.");
 
-                if ((asprintf((char **)(envp + n_env++), "LISTEN_FDS=%u", fdset_size(fds)) < 0) ||
-                    (asprintf((char **)(envp + n_env++), "LISTEN_PID=1") < 0))
+                if ((asprintf(envp + n_env++, "LISTEN_FDS=%u", fdset_size(fds)) < 0) ||
+                    (asprintf(envp + n_env++, "LISTEN_PID=1") < 0))
                         return log_oom();
         }
-        if (asprintf((char **)(envp + n_env++), "NOTIFY_SOCKET=%s", NSPAWN_NOTIFY_SOCKET_PATH) < 0)
+        if (asprintf(envp + n_env++, "NOTIFY_SOCKET=%s", NSPAWN_NOTIFY_SOCKET_PATH) < 0)
                 return log_oom();
 
         if (arg_n_credentials > 0) {
@@ -3458,7 +3454,7 @@ static int inner_child(
                 n_env++;
         }
 
-        env_use = strv_env_merge(3, envp, os_release_pairs, arg_setenv);
+        env_use = strv_env_merge(envp, os_release_pairs, arg_setenv);
         if (!env_use)
                 return log_oom();
 

@@ -2888,7 +2888,7 @@ int bus_exec_context_set_transient_property(
                                 if (!joined)
                                         return -ENOMEM;
 
-                                e = strv_env_merge(2, c->environment, l);
+                                e = strv_env_merge(c->environment, l);
                                 if (!e)
                                         return -ENOMEM;
 
@@ -2922,7 +2922,7 @@ int bus_exec_context_set_transient_property(
                                 if (!joined)
                                         return -ENOMEM;
 
-                                e = strv_env_merge(2, c->unset_environment, l);
+                                e = strv_env_merge(c->unset_environment, l);
                                 if (!e)
                                         return -ENOMEM;
 
