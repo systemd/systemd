@@ -48,7 +48,7 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
         memcpy(lease->chaddr, chaddr, 16);
         pool_offset = get_pool_offset(server, lease->address);
         server->bound_leases[pool_offset] = lease;
-        assert_se(hashmap_put(server->leases_by_client_id, &lease->client_id, lease) >= 0);
+        assert_se(hashmap_ensure_put(&server->leases_by_client_id, &dhcp_lease_hash_ops, &lease->client_id, lease) >= 0);
 
         (void) dhcp_server_handle_message(server, (DHCPMessage*)data, size);
 
