@@ -18,6 +18,8 @@ EFI_STATUS console_key_read(UINT64 *key, BOOLEAN wait) {
         EFI_INPUT_KEY k;
         EFI_STATUS err;
 
+        assert(key);
+
         if (!checked) {
                 err = LibLocateProtocol(EFI_SIMPLE_TEXT_INPUT_EX_GUID, (VOID **)&TextInputEx);
                 if (EFI_ERROR(err))
@@ -108,6 +110,8 @@ static EFI_STATUS mode_auto(UINTN *mode) {
         EFI_STATUS err;
         BOOLEAN keep = FALSE;
 
+        assert(mode);
+
         err = LibLocateProtocol(&GraphicsOutputProtocolGuid, (VOID **)&GraphicsOutput);
         if (!EFI_ERROR(err) && GraphicsOutput->Mode && GraphicsOutput->Mode->Info) {
                 Info = GraphicsOutput->Mode->Info;
@@ -156,6 +160,8 @@ static EFI_STATUS mode_auto(UINTN *mode) {
 }
 
 EFI_STATUS console_set_mode(UINTN *mode, enum console_mode_change_type how) {
+        assert(mode);
+
         if (how == CONSOLE_MODE_AUTO)
                 return mode_auto(mode);
 
