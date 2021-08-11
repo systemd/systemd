@@ -2284,7 +2284,7 @@ static EFI_STATUS image_start(
                         goto out_unload;
                 }
                 loaded_image->LoadOptions = options;
-                loaded_image->LoadOptionsSize = (StrLen(loaded_image->LoadOptions)+1) * sizeof(CHAR16);
+                loaded_image->LoadOptionsSize = StrSize(loaded_image->LoadOptions);
 
 #if ENABLE_TPM
                 /* Try to log any options to the TPM, especially to catch manually edited options */
@@ -2332,28 +2332,30 @@ static VOID config_free(Config *config) {
 }
 
 static VOID config_write_entries_to_variable(Config *config) {
-        _cleanup_freepool_ CHAR16 *buffer = NULL;
+        _cleanup_freepool_ CHAR8 *buffer = NULL;
         UINTN sz = 0;
-        CHAR16 *p;
+        CHAR8 *p;
 
         assert(config);
 
         for (UINTN i = 0; i < config->entry_count; i++)
-                sz += StrLen(config->entries[i]->id) + 1;
+                sz += StrSize(config->entries[i]->id);
 
-        p = buffer = AllocatePool(sz * sizeof(CHAR16));
+        p = buffer = AllocatePool(sz);
 
         for (UINTN i = 0; i < config->entry_count; i++) {
                 UINTN l;
 
-                l = StrLen(config->entries[i]->id) + 1;
-                CopyMem(p, config->entries[i]->id, l * sizeof(CHAR16));
+                l = StrSize(config->entries[i]->id);
+                CopyMem(p, config->entries[i]->id, l);
 
                 p += l;
         }
 
+        assert(p == buffer + sz);
+
         /* Store the full list of discovered entries. */
-        (void) efivar_set_raw(LOADER_GUID, L"LoaderEntries", buffer, (UINT8 *) p - (UINT8 *) buffer, 0);
+        (void) efivar_set_raw(LOADER_GUID, L"LoaderEntries", buffer, sz, 0);
 }
 
 EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
