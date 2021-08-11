@@ -7,6 +7,8 @@
 /* Do some basic checks on STRLEN() and DECIMAL_STR_MAX() */
 assert_cc(STRLEN("xxx") == 3);
 assert_cc(STRLEN("") == 0);
+assert_cc(STRLEN(L"xxx") == 3 * sizeof(wchar_t));
+assert_cc(STRLEN(L"") == 0);
 assert_cc(DECIMAL_STR_MAX(uint8_t) == 5);
 assert_cc(DECIMAL_STR_MAX(int8_t) == 5);
 assert_cc(DECIMAL_STR_MAX(uint64_t) == 22);
