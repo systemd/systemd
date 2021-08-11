@@ -215,13 +215,14 @@ int utmp_put_init_process(const char *id, pid_t pid, pid_t sid, const char *line
 }
 
 int utmp_put_dead_process(const char *id, pid_t pid, int code, int status) {
+        _cleanup_(utxent_cleanup) bool utmpx = false;
         struct utmpx lookup = {
                 .ut_type = INIT_PROCESS /* looks for DEAD_PROCESS, LOGIN_PROCESS, USER_PROCESS, too */
         }, store, store_wtmp, *found;
 
         assert(id);
 
-        setutxent();
+        utmpx = utxent_start();
 
         /* Copy the whole string if it fits, or just the suffix without the terminating NUL. */
         copy_suffix(store.ut_id, sizeof(store.ut_id), id);
@@ -339,6 +340,7 @@ int utmp_wall(
         bool (*match_tty)(const char *tty, void *userdata),
         void *userdata) {
 
+        _cleanup_(utxent_cleanup) bool utmpx = false;
         _cleanup_free_ char *text = NULL, *hn = NULL, *un = NULL, *stdin_tty = NULL;
         char date[FORMAT_TIMESTAMP_MAX];
         struct utmpx *u;
@@ -368,7 +370,7 @@ int utmp_wall(
                      message) < 0)
                 return -ENOMEM;
 
-        setutxent();
+        utmpx = utxent_start();
 
         r = 0;
 
