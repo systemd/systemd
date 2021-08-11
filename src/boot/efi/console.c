@@ -11,63 +11,107 @@
 
 #define EFI_SIMPLE_TEXT_INPUT_EX_GUID &(EFI_GUID) EFI_SIMPLE_TEXT_INPUT_EX_PROTOCOL_GUID
 
-EFI_STATUS console_key_read(UINT64 *key, BOOLEAN wait) {
+static inline void EventClosep(EFI_EVENT *event) {
+        if (!*event)
+                return;
+
+        uefi_call_wrapper(BS->CloseEvent, 1, *event);
+}
+
+/*
+ * Reading input from the console sounds like an easy task to do, but thanks to broken
+ * firmware it is actually a nightmare.
+ *
+ * There is a ConIn and TextInputEx API for this. Ideally we want to use TextInputEx,
+ * because that gives us Ctrl/Alt/Shift key state information. Unfortunately, it is not
+ * always available and sometimes just non-functional.
+ *
+ * On the other hand we have ConIn, where some firmware likes to just freeze on us
+ * if we call ReadKeyStroke on it.
+ *
+ * Therefore, we use WaitForEvent on both ConIn and TextInputEx (if available) along
+ * with a timer event. The timer ensures there is no need to call into functions
+ * that might freeze on us, while still allowing us to show a timeout counter.
+ */
+EFI_STATUS console_key_read(UINT64 *key, UINT64 timeout_usec) {
         static EFI_SIMPLE_TEXT_INPUT_EX_PROTOCOL *TextInputEx;
         static BOOLEAN checked;
         UINTN index;
         EFI_INPUT_KEY k;
         EFI_STATUS err;
+        _cleanup_(EventClosep) EFI_EVENT timer = NULL;
+        EFI_EVENT events[3] = { ST->ConIn->WaitForKey };
+        UINTN n_events = 1;
 
         assert(key);
 
         if (!checked) {
                 err = LibLocateProtocol(EFI_SIMPLE_TEXT_INPUT_EX_GUID, (VOID **)&TextInputEx);
-                if (EFI_ERROR(err))
+                if (EFI_ERROR(err) ||
+                    uefi_call_wrapper(BS->CheckEvent, 1, TextInputEx->WaitForKeyEx) == EFI_INVALID_PARAMETER)
+                        /* If WaitForKeyEx fails here, the firmware pretends it talks this
+                         * protocol, but it really doesn't. */
                         TextInputEx = NULL;
+                else
+                        events[n_events++] = TextInputEx->WaitForKeyEx;
 
                 checked = TRUE;
         }
 
-        /* wait until key is pressed */
-        if (wait)
-                uefi_call_wrapper(BS->WaitForEvent, 3, 1, &ST->ConIn->WaitForKey, &index);
+        if (timeout_usec > 0) {
+                err = uefi_call_wrapper(BS->CreateEvent, 5, EVT_TIMER, 0, NULL, NULL, &timer);
+                if (EFI_ERROR(err))
+                        return log_error_status_stall(err, L"Error creating timer event: %r", err);
 
-        if (TextInputEx) {
-                EFI_KEY_DATA keydata;
-                UINT64 keypress;
+                /* SetTimer expects 100ns units for some reason. */
+                err = uefi_call_wrapper(BS->SetTimer, 3, timer, TimerRelative, timeout_usec * 10);
+                if (EFI_ERROR(err))
+                        return log_error_status_stall(err, L"Error arming timer event: %r", err);
 
-                err = uefi_call_wrapper(TextInputEx->ReadKeyStrokeEx, 2, TextInputEx, &keydata);
-                if (!EFI_ERROR(err)) {
-                        UINT32 shift = 0;
-
-                        /* do not distinguish between left and right keys */
-                        if (keydata.KeyState.KeyShiftState & EFI_SHIFT_STATE_VALID) {
-                                if (keydata.KeyState.KeyShiftState & (EFI_RIGHT_CONTROL_PRESSED|EFI_LEFT_CONTROL_PRESSED))
-                                        shift |= EFI_CONTROL_PRESSED;
-                                if (keydata.KeyState.KeyShiftState & (EFI_RIGHT_ALT_PRESSED|EFI_LEFT_ALT_PRESSED))
-                                        shift |= EFI_ALT_PRESSED;
-                        };
-
-                        /* 32 bit modifier keys + 16 bit scan code + 16 bit unicode */
-                        keypress = KEYPRESS(shift, keydata.Key.ScanCode, keydata.Key.UnicodeChar);
-                        if (keypress > 0) {
-                                *key = keypress;
-                                return 0;
-                        }
-                }
+                events[n_events++] = timer;
         }
 
-        /* fallback for firmware which does not support SimpleTextInputExProtocol
-         *
-         * This is also called in case ReadKeyStrokeEx did not return a key, because
-         * some broken firmwares offer SimpleTextInputExProtocol, but never actually
-         * handle any key. */
+        err = uefi_call_wrapper(BS->WaitForEvent, 3, n_events, events, &index);
+        if (EFI_ERROR(err))
+                return log_error_status_stall(err, L"Error waiting for events: %r", err);
+
+        if (timeout_usec > 0 && timer == events[index])
+                return EFI_TIMEOUT;
+
+        /* TextInputEx might be ready too even if ConIn got to signal first. */
+        if (TextInputEx && !EFI_ERROR(uefi_call_wrapper(BS->CheckEvent, 1, TextInputEx->WaitForKeyEx))) {
+                EFI_KEY_DATA keydata;
+                UINT64 keypress;
+                UINT32 shift = 0;
+
+                err = uefi_call_wrapper(TextInputEx->ReadKeyStrokeEx, 2, TextInputEx, &keydata);
+                if (EFI_ERROR(err))
+                        return err;
+
+                /* do not distinguish between left and right keys */
+                if (keydata.KeyState.KeyShiftState & EFI_SHIFT_STATE_VALID) {
+                        if (keydata.KeyState.KeyShiftState & (EFI_RIGHT_CONTROL_PRESSED|EFI_LEFT_CONTROL_PRESSED))
+                                shift |= EFI_CONTROL_PRESSED;
+                        if (keydata.KeyState.KeyShiftState & (EFI_RIGHT_ALT_PRESSED|EFI_LEFT_ALT_PRESSED))
+                                shift |= EFI_ALT_PRESSED;
+                };
+
+                /* 32 bit modifier keys + 16 bit scan code + 16 bit unicode */
+                keypress = KEYPRESS(shift, keydata.Key.ScanCode, keydata.Key.UnicodeChar);
+                if (keypress > 0) {
+                        *key = keypress;
+                        return EFI_SUCCESS;
+                }
+
+                return EFI_NOT_READY;
+        }
+
         err  = uefi_call_wrapper(ST->ConIn->ReadKeyStroke, 2, ST->ConIn, &k);
         if (EFI_ERROR(err))
                 return err;
 
         *key = KEYPRESS(0, k.ScanCode, k.UnicodeChar);
-        return 0;
+        return EFI_SUCCESS;
 }
 
 static EFI_STATUS change_mode(UINTN mode) {
