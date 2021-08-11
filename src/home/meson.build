@@ -52,8 +52,8 @@ systemd_homed_sources = files('''
         homed-varlink.c
         homed-varlink.h
         homed.c
-        user-record-pwquality.c
-        user-record-pwquality.h
+        user-record-password-quality.c
+        user-record-password-quality.h
         user-record-sign.c
         user-record-sign.h
         user-record-util.c
@@ -78,8 +78,8 @@ homectl_sources = files('''
         homectl-recovery-key.c
         homectl-recovery-key.h
         homectl.c
-        user-record-pwquality.c
-        user-record-pwquality.h
+        user-record-password-quality.c
+        user-record-password-quality.h
         user-record-util.c
         user-record-util.h
 '''.split())
