@@ -1722,7 +1722,7 @@ static ConfigEntry *config_entry_add_loader(
         *entry = (ConfigEntry) {
                 .type = type,
                 .title = StrDuplicate(title),
-                .version = StrDuplicate(version),
+                .version = version ? StrDuplicate(version) : NULL,
                 .device = device,
                 .loader = StrDuplicate(loader),
                 .id = StrDuplicate(id),
