@@ -74,4 +74,11 @@ static inline void FileHandleClosep(EFI_FILE_HANDLE *handle) {
 #define UINT64_MAX ((UINT64) -1)
 #endif
 
+VOID log_error_stall(const CHAR16 *fmt, ...);
 EFI_STATUS log_oom(void);
+
+#define log_error_status_stall(err, fmt, ...) \
+        ({ \
+                log_error_stall(fmt, ##__VA_ARGS__, err); \
+                err; \
+        })
