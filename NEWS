@@ -518,6 +518,11 @@ CHANGES WITH 249:
           distribution does not install it yet, it might make sense to change
           that.
 
+        * Intel HID rfkill event is no longer masked, since it's the only
+          source of rfkill event on newer HP laptops. To have both backward and
+          forward compatibility, userspace daemon needs to debounce duplicated
+          events in a short time window.
+
         Contributions from: Aakash Singh, adrian5, Albert Brox,
         Alexander Sverdlin, Alexander Tsoy, Alexey Rubtsov, alexlzhu,
         Allen Webb, Alvin Šipraga, Alyssa Ross, Anders Wenhaug,
