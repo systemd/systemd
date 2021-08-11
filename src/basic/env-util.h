@@ -39,13 +39,15 @@ char **strv_env_clean_with_callback(char **l, void (*invalid_callback)(const cha
 bool strv_env_name_is_valid(char **l);
 bool strv_env_name_or_assignment_is_valid(char **l);
 
-char **strv_env_merge(size_t n_lists, ...);
+char** _strv_env_merge(char **first, ...);
+#define strv_env_merge(first, ...) _strv_env_merge(first, __VA_ARGS__, POINTER_MAX)
 char **strv_env_delete(char **x, size_t n_lists, ...); /* New copy */
 
 char **strv_env_unset(char **l, const char *p); /* In place ... */
 char **strv_env_unset_many(char **l, ...) _sentinel_;
 int strv_env_replace_consume(char ***l, char *p); /* In place ... */
 int strv_env_replace_strdup(char ***l, const char *assignment);
+int strv_env_replace_strdup_passthrough(char ***l, const char *assignment);
 int strv_env_assign(char ***l, const char *key, const char *value);
 
 char *strv_env_get_n(char **l, const char *name, size_t k, unsigned flags) _pure_;

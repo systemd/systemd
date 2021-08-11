@@ -288,12 +288,16 @@
       </varlistentry>
 
       <varlistentry>
-        <term><option>--setenv=</option><replaceable>VARIABLE</replaceable>=<replaceable>VALUE</replaceable></term>
+        <term><option>--setenv=</option><replaceable>VARIABLE</replaceable>[=<replaceable>VALUE</replaceable>]</term>
 
-        <listitem><para>Takes an environment variable assignment to set for all user processes. Note that a
-        number of other settings also result in environment variables to be set for the user, including
-        <option>--email=</option>, <option>--timezone=</option> and <option>--language=</option>. May be used
-        multiple times to set multiple environment variables.</para></listitem>
+        <listitem><para>Takes an environment variable assignment to set for all user processes. May be used
+        multiple times to set multiple environment variables. When <literal>=</literal> and
+        <replaceable>VALUE</replaceable> are omitted, the value of the variable with the same name in the
+        program environment will be used.</para>
+
+        <para>Note that a number of other settings also result in environment variables to be set for the
+        user, including <option>--email=</option>, <option>--timezone=</option> and
+        <option>--language=</option>.</para></listitem>
       </varlistentry>
 
       <varlistentry>

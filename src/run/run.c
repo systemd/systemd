@@ -111,7 +111,7 @@ static int help(void) {
                "     --nice=NICE                  Nice level\n"
                "     --working-directory=PATH     Set working directory\n"
                "  -d --same-dir                   Inherit working directory from caller\n"
-               "  -E --setenv=NAME=VALUE          Set environment\n"
+               "  -E --setenv=NAME[=VALUE]        Set environment variable\n"
                "  -t --pty                        Run service on pseudo TTY as STDIN/STDOUT/\n"
                "                                  STDERR\n"
                "  -P --pipe                       Pass STDIN/STDOUT/STDERR directly to service\n"
@@ -322,8 +322,9 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case 'E':
-                        if (strv_extend(&arg_environment, optarg) < 0)
-                                return log_oom();
+                        r = strv_env_replace_strdup_passthrough(&arg_environment, optarg);
+                        if (r < 0)
+                                return log_error_errno(r, "Cannot assign environment variable %s: %m", optarg);
 
                         break;
 
@@ -1526,7 +1527,7 @@ static int start_transient_scope(sd_bus *bus) {
                         return log_error_errno(errno, "Failed to change UID to " UID_FMT ": %m", uid);
         }
 
-        env = strv_env_merge(3, environ, user_env, arg_environment);
+        env = strv_env_merge(environ, user_env, arg_environment);
         if (!env)
                 return log_oom();
 
