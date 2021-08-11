@@ -28,6 +28,7 @@ enum loader_type {
         LOADER_UNDEFINED,
         LOADER_EFI,
         LOADER_LINUX,
+        LOADER_SIGNATURE_KEYS,
 };
 
 typedef struct {
@@ -49,6 +50,7 @@ typedef struct {
         CHAR16 *path;
         CHAR16 *current_name;
         CHAR16 *next_name;
+        CHAR16 *keys_dir;
 } ConfigEntry;
 
 typedef struct {
@@ -65,6 +67,7 @@ typedef struct {
         BOOLEAN editor;
         BOOLEAN auto_entries;
         BOOLEAN auto_firmware;
+        BOOLEAN auto_enroll;
         BOOLEAN force_menu;
         UINTN console_mode;
         enum console_mode_change_type console_mode_change;
@@ -358,7 +361,6 @@ static UINTN entry_lookup_key(Config *config, UINTN start, CHAR16 key) {
 static VOID print_status(Config *config, CHAR16 *loaded_image_path) {
         UINT64 key, indvar;
         UINTN timeout;
-        BOOLEAN modevar;
         _cleanup_freepool_ CHAR16 *partstr = NULL, *defaultstr = NULL;
         UINTN x, y;
 
@@ -376,9 +378,7 @@ static VOID print_status(Config *config, CHAR16 *loaded_image_path) {
                 Print(L"console size:           %d x %d\n", x, y);
 
         Print(L"SecureBoot:             %s\n", yes_no(secure_boot_enabled()));
-
-        if (efivar_get_boolean_u8(EFI_GLOBAL_GUID, L"SetupMode", &modevar) == EFI_SUCCESS)
-                Print(L"SetupMode:              %s\n", modevar ? L"setup" : L"user");
+        Print(L"SetupMode:              %s\n", yes_no(setup_mode_enabled()));
 
         if (shim_loaded())
                 Print(L"Shim:                   present\n");
@@ -398,6 +398,7 @@ static VOID print_status(Config *config, CHAR16 *loaded_image_path) {
         Print(L"editor:                 %s\n", yes_no(config->editor));
         Print(L"auto-entries:           %s\n", yes_no(config->auto_entries));
         Print(L"auto-firmware:          %s\n", yes_no(config->auto_firmware));
+        Print(L"auto-enroll:            %s\n", yes_no(config->auto_enroll));
 
         switch (config->random_seed_mode) {
         case RANDOM_SEED_OFF:
@@ -897,6 +898,31 @@ static VOID config_add_entry(Config *config, ConfigEntry *entry) {
         config->entries[config->entry_count++] = entry;
 }
 
+static VOID config_remove_by_type(Config *config, enum loader_type type) {
+        UINTN removed = 0;
+
+        for (UINTN i = 0; i < config->entry_count; i++) {
+                ConfigEntry *entry = config->entries[i];
+                if (!(entry->type == type))
+                        continue;
+                FreePool(entry);
+                config->entries[i] = NULL;
+                removed++;
+        }
+
+        for (UINTN i = 0; i < config->entry_count - removed; i++) {
+                if (config->entries[i] == NULL) {
+                        for (UINTN k = i + 1; k < config->entry_count; k++) {
+                                if (config->entries[k] == NULL)
+                                        continue;
+                                config->entries[i] = config->entries[k];
+                        }
+                }
+        }
+
+        config->entry_count -= removed;
+}
+
 static VOID config_entry_free(ConfigEntry *entry) {
         if (!entry)
                 return;
@@ -911,6 +937,7 @@ static VOID config_entry_free(ConfigEntry *entry) {
         FreePool(entry->path);
         FreePool(entry->current_name);
         FreePool(entry->next_name);
+        FreePool(entry->keys_dir);
         FreePool(entry);
 }
 
@@ -1030,6 +1057,16 @@ static VOID config_defaults_load_from_file(Config *config, CHAR8 *content) {
                                 continue;
 
                         config->auto_firmware = on;
+                        continue;
+                }
+
+                if (strcmpa((CHAR8 *)"auto-enroll", key) == 0) {
+                        BOOLEAN on;
+
+                        if (EFI_ERROR(parse_boolean(value, &on)))
+                                continue;
+
+                        config->auto_enroll = on;
                         continue;
                 }
 
@@ -1403,6 +1440,7 @@ static VOID config_load_defaults(Config *config, EFI_FILE *root_dir) {
                 .editor = TRUE,
                 .auto_entries = TRUE,
                 .auto_firmware = TRUE,
+                .auto_enroll = TRUE,
                 .random_seed_mode = RANDOM_SEED_WITH_SYSTEM_TOKEN,
         };
 
@@ -1950,6 +1988,32 @@ static VOID config_entry_add_linux(
         uefi_call_wrapper(linux_dir->Close, 1, linux_dir);
 }
 
+static BOOLEAN config_entry_add_signing_keys(
+                Config *config,
+                CHAR16 *name,
+                CHAR16 *keys_dir) {
+        ConfigEntry *entry;
+        CHAR16 *title = NULL, *id = NULL;
+
+        id = PoolPrint(L"signing-keys-%s", name);
+        title = PoolPrint(L"Enroll signing keys: %s", name);
+
+        entry = AllocatePool(sizeof(ConfigEntry));
+        *entry = (ConfigEntry) {
+                .id = id,
+                .title = title,
+                .keys_dir = StrDuplicate(keys_dir),
+                .type = LOADER_SIGNATURE_KEYS,
+                .no_autoselect = TRUE,
+                .tries_done = UINTN_MAX,
+                .tries_left = UINTN_MAX,
+        };
+
+        config_add_entry(config, entry);
+
+        return TRUE;
+}
+
 #define XBOOTLDR_GUID \
         &(const EFI_GUID) { 0xbc13c2ff, 0x59e6, 0x4262, { 0xa3, 0x52, 0xb2, 0x75, 0xfd, 0x6f, 0x71, 0x72 } }
 
@@ -2268,6 +2332,111 @@ static VOID config_write_entries_to_variable(Config *config) {
         (void) efivar_set_raw(LOADER_GUID, L"LoaderEntries", buffer, (UINT8 *) p - (UINT8 *) buffer, 0);
 }
 
+static EFI_STATUS secure_boot_enroll_from(Config *config, EFI_FILE_HANDLE root_dir, CHAR16 *keys_dir) {
+        static const UINT32 sb_vars_opts =
+                EFI_VARIABLE_NON_VOLATILE |
+                EFI_VARIABLE_BOOTSERVICE_ACCESS |
+                EFI_VARIABLE_RUNTIME_ACCESS |
+                EFI_VARIABLE_TIME_BASED_AUTHENTICATED_WRITE_ACCESS |
+                0;
+
+        static const struct {
+                const CHAR16 *name;
+                const CHAR16 *filename;
+                const EFI_GUID vendor;
+        } sb_vars[] = {
+                { L"db",  L"db.auth",  EFI_IMAGE_SECURITY_DATABASE_VARIABLE },
+                { L"KEK", L"KEK.auth", EFI_GLOBAL_VARIABLE },
+                { L"PK",  L"PK.auth",  EFI_GLOBAL_VARIABLE },
+        };
+
+        _cleanup_freepool_ CHAR8 *buffer = NULL;
+        UINTN size;
+        EFI_STATUS err = EFI_SUCCESS;
+        _cleanup_(FileHandleClosep) EFI_FILE_HANDLE dir = NULL;
+
+        err = uefi_call_wrapper(root_dir->Open, 5, root_dir, &dir, keys_dir, EFI_FILE_MODE_READ, 0ULL);
+        if (EFI_ERROR(err)) {
+                Print(L"Failed getting a handle on keys directory %s: %r\n", keys_dir, err);
+                return err;
+        }
+
+        for (UINTN i = 0; i < ELEMENTSOF(sb_vars); i++) {
+                err = file_read(dir, sb_vars[i].filename, 0, 0, &buffer, &size);
+                if (EFI_ERROR(err)) {
+                        Print(L"Failed reading %s file: %r\n", sb_vars[i].filename, err);
+                        return err;
+                }
+
+                err = efivar_set_raw(&sb_vars[i].vendor, sb_vars[i].name, buffer, size, sb_vars_opts);
+                if (EFI_ERROR(err)) {
+                        Print(L"Failed to write %s secure boot variable: %r\n", sb_vars[i].name, err);
+                        return err;
+                }
+        }
+
+        // if we loaded the signing keys successfully then we remove all the
+        // signing keys entries from  the menu as the system is now locked down.
+        config_remove_by_type(config, LOADER_SIGNATURE_KEYS);
+
+        Print(L"Finished loading signature keys from %s.\n", keys_dir);
+        uefi_call_wrapper(BS->Stall, 1, 3 * 1000 * 1000);
+        return err;
+}
+
+static EFI_STATUS secure_boot_discover_keys(Config *config, EFI_FILE *root_dir) {
+        EFI_STATUS err = EFI_SUCCESS;
+        _cleanup_(FileHandleClosep) EFI_FILE_HANDLE keys_basedir = NULL;
+
+        if (!setup_mode_enabled())
+                return EFI_SUCCESS;
+
+        // if auto enrollement is activated (this is the default), we try to
+        // load keys straight from the /loader/keys/auto location. If it fails 
+        // (e.g. there is no such directory), we still proceed to add the
+        // entries to the menu (including the auto one)
+        if (config->auto_enroll == true) {
+                err = secure_boot_enroll_from(config, root_dir, L"\\loader\\keys\\auto");
+
+                if (!EFI_ERROR(err))
+                        return EFI_SUCCESS;
+                
+                Print(L"Failed automatic enrollement.\n");
+                uefi_call_wrapper(BS->Stall, 1, 3 * 1000 * 1000);
+        }
+
+        err = uefi_call_wrapper(root_dir->Open, 5, root_dir, &keys_basedir, (CHAR16*) L"\\loader\\keys", EFI_FILE_MODE_READ, 0ULL);
+        if (EFI_ERROR(err)) {
+                Print(L"Failed opening directory \\loader\\keys.\n");
+                uefi_call_wrapper(BS->Stall, 1, 3 * 1000 * 1000);
+                return err;
+        }
+
+        for (;;) {
+                _cleanup_freepool_ CHAR16 *keys_dir = NULL;
+                CHAR16 buf[256];
+                UINTN bufsize;
+                EFI_FILE_INFO *f;
+                bufsize = sizeof(buf);
+
+                err = uefi_call_wrapper(root_dir->Read, 3, keys_basedir, &bufsize, buf);
+                if (bufsize == 0 || EFI_ERROR(err))
+                        break;
+
+                f = (EFI_FILE_INFO *) buf;
+                if (f->FileName[0] == '.')
+                        continue;
+
+                if (!(f->Attribute & EFI_FILE_DIRECTORY))
+                        continue;
+
+                keys_dir = PoolPrint(L"\\loader\\keys\\%s", f->FileName);
+                config_entry_add_signing_keys(config, f->FileName, keys_dir);
+        }
+
+        return err;
+}
+
 EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
         static const UINT64 loader_features =
                 EFI_LOADER_FEATURE_CONFIG_TIMEOUT |
@@ -2336,6 +2505,9 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
         efivar_set(LOADER_GUID, L"LoaderImageIdentifier", loaded_image_path, 0);
 
         config_load_defaults(&config, root_dir);
+
+        Print(L"Checking for secure boot auto enrollement\n");
+        secure_boot_discover_keys(&config, root_dir);
 
         /* scan /EFI/Linux/ directory */
         config_entry_add_linux(&config, loaded_image->DeviceHandle, root_dir);
@@ -2425,6 +2597,11 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
                 /* run special entry like "reboot" */
                 if (entry->call) {
                         entry->call();
+                        continue;
+                }
+
+                if (entry->type == LOADER_SIGNATURE_KEYS) {
+                        secure_boot_enroll_from(&config, root_dir, entry->keys_dir);
                         continue;
                 }
 
