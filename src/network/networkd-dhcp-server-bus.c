@@ -38,7 +38,7 @@ static int property_get_leases(
         if (r < 0)
                 return r;
 
-        HASHMAP_FOREACH(lease, s->leases_by_client_id) {
+        HASHMAP_FOREACH(lease, s->bound_leases_by_client_id) {
                 r = sd_bus_message_open_container(reply, 'r', "uayayayayt");
                 if (r < 0)
                         return r;
