@@ -14,4 +14,4 @@ DNS=9.9.9.9
 
 [DHCPServerStaticLease]
 MACAddress=12:34:56:78:9a:bc
-Address=10.1.1.3
+Address=10.1.1.200
