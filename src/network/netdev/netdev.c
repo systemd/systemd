@@ -595,12 +595,12 @@ static bool netdev_is_ready_to_create(NetDev *netdev, Link *link) {
         return true;
 }
 
-int request_process_create_stacked_netdev(Request *req) {
+int request_process_stacked_netdev(Request *req) {
         int r;
 
         assert(req);
         assert(req->link);
-        assert(req->type == REQUEST_TYPE_CREATE_STACKED_NETDEV);
+        assert(req->type == REQUEST_TYPE_STACKED_NETDEV);
         assert(req->netdev);
         assert(req->netlink_handler);
 
@@ -667,7 +667,7 @@ static int link_create_stacked_netdev_after_configured_handler(sd_netlink *rtnl,
         return 0;
 }
 
-int link_request_to_crate_stacked_netdev(Link *link, NetDev *netdev) {
+int link_request_stacked_netdev(Link *link, NetDev *netdev) {
         NetDevCreateType create_type;
         int r;
 
@@ -684,22 +684,22 @@ int link_request_to_crate_stacked_netdev(Link *link, NetDev *netdev) {
 
         if (create_type == NETDEV_CREATE_STACKED) {
                 link->stacked_netdevs_created = false;
-                r = link_queue_request(link, REQUEST_TYPE_CREATE_STACKED_NETDEV, netdev, false,
+                r = link_queue_request(link, REQUEST_TYPE_STACKED_NETDEV, netdev, false,
                                        &link->create_stacked_netdev_messages,
                                        link_create_stacked_netdev_handler,
                                        NULL);
         } else {
                 link->stacked_netdevs_after_configured_created = false;
-                r = link_queue_request(link, REQUEST_TYPE_CREATE_STACKED_NETDEV, netdev, false,
+                r = link_queue_request(link, REQUEST_TYPE_STACKED_NETDEV, netdev, false,
                                        &link->create_stacked_netdev_after_configured_messages,
                                        link_create_stacked_netdev_after_configured_handler,
                                        NULL);
         }
         if (r < 0)
-                return log_link_error_errno(link, r, "Failed to request to create stacked netdev '%s': %m",
+                return log_link_error_errno(link, r, "Failed to request stacked netdev '%s': %m",
                                             netdev->ifname);
 
-        log_link_debug(link, "Requested to create stacked netdev '%s'", netdev->ifname);
+        log_link_debug(link, "Requested stacked netdev '%s'", netdev->ifname);
         return 0;
 }
 

@@ -594,7 +594,7 @@ static int link_request_stacked_netdevs(Link *link) {
         link->stacked_netdevs_after_configured_created = false;
 
         HASHMAP_FOREACH(netdev, link->network->stacked_netdevs) {
-                r = link_request_to_crate_stacked_netdev(link, netdev);
+                r = link_request_stacked_netdev(link, netdev);
                 if (r < 0)
                         return r;
         }
