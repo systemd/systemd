@@ -6,7 +6,6 @@
  * fine given that LGPL-2.1-or-later downgrades to GPL if needed.
  */
 
-#include <linux/types.h>
 #include <linux/bpf.h>
 #include <bpf/bpf_helpers.h>
 #include <bpf/bpf_tracing.h>
