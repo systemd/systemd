@@ -203,6 +203,18 @@ static bool netdev_is_stacked_and_independent(NetDev *netdev) {
         }
 }
 
+static bool netdev_is_stacked(NetDev *netdev) {
+        assert(netdev);
+
+        if (!IN_SET(netdev_get_create_type(netdev), NETDEV_CREATE_STACKED, NETDEV_CREATE_AFTER_CONFIGURED))
+                return false;
+
+        if (netdev_is_stacked_and_independent(netdev))
+                return false;
+
+        return true;
+}
+
 static void netdev_detach_from_manager(NetDev *netdev) {
         if (netdev->ifname && netdev->manager)
                 hashmap_remove(netdev->manager->netdevs, netdev->ifname);
@@ -238,8 +250,18 @@ static NetDev *netdev_free(NetDev *netdev) {
 DEFINE_TRIVIAL_REF_UNREF_FUNC(NetDev, netdev, netdev_free);
 
 void netdev_drop(NetDev *netdev) {
-        if (!netdev || netdev->state == NETDEV_STATE_LINGER)
+        if (!netdev)
                 return;
+
+        if (netdev_is_stacked(netdev)) {
+                /* The netdev may be removed due to the underlying device removal, and the device may
+                 * be re-added later. */
+                netdev->state = NETDEV_STATE_LOADING;
+                netdev->ifindex = 0;
+
+                log_netdev_debug(netdev, "netdev removed");
+                return;
+        }
 
         netdev->state = NETDEV_STATE_LINGER;
 
@@ -668,21 +690,18 @@ static int link_create_stacked_netdev_after_configured_handler(sd_netlink *rtnl,
 }
 
 int link_request_stacked_netdev(Link *link, NetDev *netdev) {
-        NetDevCreateType create_type;
         int r;
 
         assert(link);
         assert(netdev);
 
-        create_type = netdev_get_create_type(netdev);
-        if (!IN_SET(create_type, NETDEV_CREATE_STACKED, NETDEV_CREATE_AFTER_CONFIGURED))
+        if (!netdev_is_stacked(netdev))
                 return -EINVAL;
 
-        if (netdev->state != NETDEV_STATE_LOADING || netdev->ifindex > 0)
-                /* Already created (or removed?) */
-                return 0;
+        if (!IN_SET(netdev->state, NETDEV_STATE_LOADING, NETDEV_STATE_FAILED) || netdev->ifindex > 0)
+                return 0; /* Already created. */
 
-        if (create_type == NETDEV_CREATE_STACKED) {
+        if (netdev_get_create_type(netdev) == NETDEV_CREATE_STACKED) {
                 link->stacked_netdevs_created = false;
                 r = link_queue_request(link, REQUEST_TYPE_STACKED_NETDEV, netdev, false,
                                        &link->create_stacked_netdev_messages,
