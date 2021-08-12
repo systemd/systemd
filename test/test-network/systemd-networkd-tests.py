@@ -1183,6 +1183,25 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
                 self.assertRegex(output, ' mtu 2000 ')
                 self.assertRegex(output, 'macvlan mode ' + mode + ' ')
 
+                rc = call("ip link del test1")
+                self.assertEqual(rc, 0)
+                time.sleep(1)
+
+                rc = call("ip link add test1 type dummy")
+                self.assertEqual(rc, 0)
+                time.sleep(1)
+
+                self.wait_online(['macvlan99:degraded', 'test1:degraded'])
+
+                output = check_output('ip -d link show test1')
+                print(output)
+                self.assertRegex(output, ' mtu 2000 ')
+
+                output = check_output('ip -d link show macvlan99')
+                print(output)
+                self.assertRegex(output, ' mtu 2000 ')
+                self.assertRegex(output, 'macvlan mode ' + mode + ' ')
+
     @expectedFailureIfModuleIsNotAvailable('ipvlan')
     def test_ipvlan(self):
         for mode, flag in [['L2', 'private'], ['L3', 'vepa'], ['L3S', 'bridge']]:
