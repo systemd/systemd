@@ -167,6 +167,42 @@ bool netdev_is_managed(NetDev *netdev) {
         return hashmap_get(netdev->manager->netdevs, netdev->ifname) == netdev;
 }
 
+static bool netdev_is_stacked_and_independent(NetDev *netdev) {
+        assert(netdev);
+
+        if (!IN_SET(netdev_get_create_type(netdev), NETDEV_CREATE_STACKED, NETDEV_CREATE_AFTER_CONFIGURED))
+                return false;
+
+        switch (netdev->kind) {
+        case NETDEV_KIND_ERSPAN:
+                return ERSPAN(netdev)->independent;
+        case NETDEV_KIND_GRE:
+                return GRE(netdev)->independent;
+        case NETDEV_KIND_GRETAP:
+                return GRETAP(netdev)->independent;
+        case NETDEV_KIND_IP6GRE:
+                return IP6GRE(netdev)->independent;
+        case NETDEV_KIND_IP6GRETAP:
+                return IP6GRETAP(netdev)->independent;
+        case NETDEV_KIND_IP6TNL:
+                return IP6TNL(netdev)->independent;
+        case NETDEV_KIND_IPIP:
+                return IPIP(netdev)->independent;
+        case NETDEV_KIND_SIT:
+                return SIT(netdev)->independent;
+        case NETDEV_KIND_VTI:
+                return VTI(netdev)->independent;
+        case NETDEV_KIND_VTI6:
+                return VTI6(netdev)->independent;
+        case NETDEV_KIND_VXLAN:
+                return VXLAN(netdev)->independent;
+        case NETDEV_KIND_XFRM:
+                return XFRM(netdev)->independent;
+        default:
+                return false;
+        }
+}
+
 static void netdev_detach_from_manager(NetDev *netdev) {
         if (netdev->ifname && netdev->manager)
                 hashmap_remove(netdev->manager->netdevs, netdev->ifname);
@@ -671,7 +707,6 @@ int link_request_to_crate_stacked_netdev(Link *link, NetDev *netdev) {
 int netdev_load_one(Manager *manager, const char *filename) {
         _cleanup_(netdev_unrefp) NetDev *netdev_raw = NULL, *netdev = NULL;
         const char *dropin_dirname;
-        bool independent = false;
         int r;
 
         assert(manager);
@@ -792,48 +827,7 @@ int netdev_load_one(Manager *manager, const char *filename) {
                         return r;
         }
 
-        switch (netdev->kind) {
-        case NETDEV_KIND_IPIP:
-                independent = IPIP(netdev)->independent;
-                break;
-        case NETDEV_KIND_GRE:
-                independent = GRE(netdev)->independent;
-                break;
-        case NETDEV_KIND_GRETAP:
-                independent = GRETAP(netdev)->independent;
-                break;
-        case NETDEV_KIND_IP6GRE:
-                independent = IP6GRE(netdev)->independent;
-                break;
-        case NETDEV_KIND_IP6GRETAP:
-                independent = IP6GRETAP(netdev)->independent;
-                break;
-        case NETDEV_KIND_SIT:
-                independent = SIT(netdev)->independent;
-                break;
-        case NETDEV_KIND_VTI:
-                independent = VTI(netdev)->independent;
-                break;
-        case NETDEV_KIND_VTI6:
-                independent = VTI6(netdev)->independent;
-                break;
-        case NETDEV_KIND_IP6TNL:
-                independent = IP6TNL(netdev)->independent;
-                break;
-        case NETDEV_KIND_ERSPAN:
-                independent = ERSPAN(netdev)->independent;
-                break;
-        case NETDEV_KIND_XFRM:
-                independent = XFRM(netdev)->independent;
-                break;
-        case NETDEV_KIND_VXLAN:
-                independent = VXLAN(netdev)->independent;
-                break;
-        default:
-                break;
-        }
-
-        if (independent) {
+        if (netdev_is_stacked_and_independent(netdev)) {
                 r = netdev_create(netdev, NULL, NULL);
                 if (r < 0)
                         return r;
