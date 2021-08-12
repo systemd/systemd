@@ -911,6 +911,52 @@ static VOID config_entry_free(ConfigEntry *entry) {
         FreePool(entry);
 }
 
+static VOID config_remove_by_type(Config *config, enum loader_type type) {
+        UINTN removed = 0;
+
+        /* we iterate through all the entries; effectively j is trailing behind i
+         * in order to compact the array as we free matching entries
+         *
+         *    e.g. if we marked $ items for deletion:
+         *      [ $1, 2, 3, $4, $5, 6 ] i = 0; j = 0; removed = 0
+         *        i,j
+         *      [  F, 2, 3, $4, $5, 6 ] i = 1; j = 0; removed = 1
+         *         j  i
+         *      [  2, 2, 3, $4, $5, 6 ] i = 2; j = 1; removed = 1
+         *            j  i
+         *      [  2, 3, 3,  F, $5, 6 ] i = 3; j = 2; removed = 2
+         *               j   i
+         *      [  2, 3, 3,  F,  F, 6 ] i = 4; j = 2; removed = 3
+         *               j       i
+         *      [  2, 3, 6,  F,  F, 6 ] i = 5; j = 2; removed = 3
+         *               j          i
+         *
+         *    to wrap up we set the array length according to the number of
+         *    entries removed
+         *
+         *      [ 2, 3, 6 ]
+         *
+         *    note: F = freed
+         */
+        for (UINTN i = 0, j = 0; i < config->entry_count; i++) {
+                if (config->entries[i]->type == type) {
+                        config_entry_free(config->entries[i]);
+                        removed++;
+                } else {
+                        if (config->entries[i] != config->entries[j]) {
+                                /* if we need we also shift the index of the
+                                 * default entry */
+                                if (i == config->idx_default)
+                                        config->idx_default = j;
+                                config->entries[j] = config->entries[i];
+                        }
+                        j++;
+                }
+        }
+
+        config->entry_count -= removed;
+}
+
 static CHAR8 *line_get_key_value(
                 CHAR8 *content,
                 const CHAR8 *sep,
