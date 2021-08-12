@@ -5,6 +5,11 @@ set -eux
 set -o pipefail
 
 export SYSTEMD_LOG_LEVEL=debug
+mkdir -p /run/systemd/system/systemd-portabled.service.d/
+cat <<EOF >/run/systemd/system/systemd-portabled.service.d/override.conf
+[Service]
+Environment=SYSTEMD_LOG_LEVEL=debug
+EOF
 
 portablectl attach --now --runtime /usr/share/minimal_0.raw app0
 
@@ -63,24 +68,31 @@ portablectl detach --now --enable --runtime /tmp/minimal_1 app0
 
 portablectl list | grep -q -F "No images."
 
-root="/usr/share/minimal_0.raw"
-app1="/usr/share/app1.raw"
+portablectl attach --now --runtime --extension /usr/share/app0.raw /usr/share/minimal_0.raw app0
 
-portablectl attach --now --runtime --extension ${app1} ${root} app1
+systemctl is-active app0.service
+
+portablectl reattach --now --runtime --extension /usr/share/app0.raw /usr/share/minimal_1.raw app0
+
+systemctl is-active app0.service
+
+portablectl detach --now --runtime --extension /usr/share/app0.raw /usr/share/minimal_1.raw app0
+
+portablectl attach --now --runtime --extension /usr/share/app1.raw /usr/share/minimal_0.raw app1
 
 systemctl is-active app1.service
 
-portablectl reattach --now --runtime --extension ${app1} ${root} app1
+portablectl reattach --now --runtime --extension /usr/share/app1.raw /usr/share/minimal_1.raw app1
 
 systemctl is-active app1.service
 
-portablectl detach --now --runtime --extension ${app1} ${root} app1
+portablectl detach --now --runtime --extension /usr/share/app1.raw /usr/share/minimal_1.raw app1
 
 # portablectl also works with directory paths rather than images
 
 mkdir /tmp/rootdir /tmp/app1 /tmp/overlay
-mount ${app1} /tmp/app1
-mount ${root} /tmp/rootdir
+mount /usr/share/app1.raw /tmp/app1
+mount /usr/share/minimal_0.raw /tmp/rootdir
 mount -t overlay overlay -o lowerdir=/tmp/app1:/tmp/rootdir /tmp/overlay
 
 portablectl attach --copy=symlink --now --runtime /tmp/overlay app1
