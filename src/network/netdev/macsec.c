@@ -317,7 +317,7 @@ static int macsec_receive_association_handler(sd_netlink *rtnl, sd_netlink_messa
         else if (r < 0) {
                 log_netdev_warning_errno(netdev, r,
                                          "Failed to add receive secure association: %m");
-                netdev_drop(netdev);
+                netdev_enter_failed(netdev);
 
                 return 1;
         }
@@ -375,7 +375,7 @@ static int macsec_receive_channel_handler(sd_netlink *rtnl, sd_netlink_message *
         else if (r < 0) {
                 log_netdev_warning_errno(netdev, r,
                                          "Failed to add receive secure channel: %m");
-                netdev_drop(netdev);
+                netdev_enter_failed(netdev);
 
                 return 1;
         }
@@ -387,7 +387,7 @@ static int macsec_receive_channel_handler(sd_netlink *rtnl, sd_netlink_message *
                 if (r < 0) {
                         log_netdev_warning_errno(netdev, r,
                                                  "Failed to configure receive security association: %m");
-                        netdev_drop(netdev);
+                        netdev_enter_failed(netdev);
                         return 1;
                 }
         }
@@ -441,7 +441,7 @@ static int macsec_transmit_association_handler(sd_netlink *rtnl, sd_netlink_mess
         else if (r < 0) {
                 log_netdev_warning_errno(netdev, r,
                                          "Failed to add transmit secure association: %m");
-                netdev_drop(netdev);
+                netdev_enter_failed(netdev);
 
                 return 1;
         }

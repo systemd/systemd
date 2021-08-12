@@ -268,9 +268,8 @@ int netdev_get(Manager *manager, const char *name, NetDev **ret) {
         return 0;
 }
 
-static int netdev_enter_failed(NetDev *netdev) {
+void netdev_enter_failed(NetDev *netdev) {
         netdev->state = NETDEV_STATE_FAILED;
-        return 0;
 }
 
 static int netdev_enter_ready(NetDev *netdev) {
@@ -302,7 +301,7 @@ static int netdev_create_handler(sd_netlink *rtnl, sd_netlink_message *m, NetDev
                 log_netdev_info(netdev, "netdev exists, using existing without changing its parameters");
         else if (r < 0) {
                 log_netdev_warning_errno(netdev, r, "netdev could not be created: %m");
-                netdev_drop(netdev);
+                netdev_enter_failed(netdev);
 
                 return 1;
         }

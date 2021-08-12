@@ -29,7 +29,7 @@ static int bare_udp_netdev_create_handler(sd_netlink *rtnl, sd_netlink_message *
                 log_netdev_info(netdev, "BareUDP netdev exists, using existing without changing its parameters.");
         else if (r < 0) {
                 log_netdev_warning_errno(netdev, r, "BareUDP netdev could not be created: %m");
-                netdev_drop(netdev);
+                netdev_enter_failed(netdev);
 
                 return 1;
         }
