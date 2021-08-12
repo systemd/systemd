@@ -187,7 +187,7 @@ _pure_ static bool fd_in_set(int fd, const int fdset[], size_t n_fdset) {
         return false;
 }
 
-static int get_max_fd(void) {
+int get_max_fd(void) {
         struct rlimit rl;
         rlim_t m;
 
