@@ -2644,6 +2644,7 @@ const sd_bus_vtable bus_manager_vtable[] = {
         BUS_PROPERTY_DUAL_TIMESTAMP("GeneratorsFinishTimestamp", offsetof(Manager, timestamps[MANAGER_TIMESTAMP_GENERATORS_FINISH]), SD_BUS_VTABLE_PROPERTY_CONST),
         BUS_PROPERTY_DUAL_TIMESTAMP("UnitsLoadStartTimestamp", offsetof(Manager, timestamps[MANAGER_TIMESTAMP_UNITS_LOAD_START]), SD_BUS_VTABLE_PROPERTY_CONST),
         BUS_PROPERTY_DUAL_TIMESTAMP("UnitsLoadFinishTimestamp", offsetof(Manager, timestamps[MANAGER_TIMESTAMP_UNITS_LOAD_FINISH]), SD_BUS_VTABLE_PROPERTY_CONST),
+        BUS_PROPERTY_DUAL_TIMESTAMP("UnitsReloadStartTimestamp", offsetof(Manager, timestamps[MANAGER_TIMESTAMP_UNITS_RELOAD_START]), SD_BUS_VTABLE_PROPERTY_CONST),
         BUS_PROPERTY_DUAL_TIMESTAMP("InitRDSecurityStartTimestamp", offsetof(Manager, timestamps[MANAGER_TIMESTAMP_INITRD_SECURITY_START]), SD_BUS_VTABLE_PROPERTY_CONST),
         BUS_PROPERTY_DUAL_TIMESTAMP("InitRDSecurityFinishTimestamp", offsetof(Manager, timestamps[MANAGER_TIMESTAMP_INITRD_SECURITY_FINISH]), SD_BUS_VTABLE_PROPERTY_CONST),
         BUS_PROPERTY_DUAL_TIMESTAMP("InitRDGeneratorsStartTimestamp", offsetof(Manager, timestamps[MANAGER_TIMESTAMP_INITRD_GENERATORS_START]), SD_BUS_VTABLE_PROPERTY_CONST),
