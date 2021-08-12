@@ -184,6 +184,7 @@ extern const NetDevVTable * const netdev_vtable[_NETDEV_KIND_MAX];
 int netdev_load(Manager *manager, bool reload);
 int netdev_load_one(Manager *manager, const char *filename);
 void netdev_drop(NetDev *netdev);
+void netdev_enter_failed(NetDev *netdev);
 
 NetDev *netdev_unref(NetDev *netdev);
 NetDev *netdev_ref(NetDev *netdev);
