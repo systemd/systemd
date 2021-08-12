@@ -184,6 +184,7 @@ extern const NetDevVTable * const netdev_vtable[_NETDEV_KIND_MAX];
 int netdev_load(Manager *manager, bool reload);
 int netdev_load_one(Manager *manager, const char *filename);
 void netdev_drop(NetDev *netdev);
+void netdev_enter_failed(NetDev *netdev);
 
 NetDev *netdev_unref(NetDev *netdev);
 NetDev *netdev_ref(NetDev *netdev);
@@ -196,8 +197,8 @@ int netdev_set_ifindex(NetDev *netdev, sd_netlink_message *newlink);
 int netdev_get_mac(const char *ifname, struct ether_addr **ret);
 int netdev_join(NetDev *netdev, Link *link, link_netlink_message_handler_t cb);
 
-int request_process_create_stacked_netdev(Request *req);
-int link_request_to_crate_stacked_netdev(Link *link, NetDev *netdev);
+int request_process_stacked_netdev(Request *req);
+int link_request_stacked_netdev(Link *link, NetDev *netdev);
 
 const char *netdev_kind_to_string(NetDevKind d) _const_;
 NetDevKind netdev_kind_from_string(const char *d) _pure_;
