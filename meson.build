@@ -1008,11 +1008,9 @@ else
         # We check for 'bpftool' first, honouring $PATH, and in /usr/sbin/ for Debian.
         bpftool = find_program('bpftool', '/usr/sbin/bpftool', required : bpf_framework_required)
 
-        bpf_arches = ['x86_64']
         deps_found = libbpf.found() and clang.found() and llvm_strip.found() and bpftool.found()
         # Can build BPF program from source code in restricted C
-        conf.set10('BPF_FRAMEWORK',
-                bpf_arches.contains(host_machine.cpu_family()) and deps_found)
+        conf.set10('BPF_FRAMEWORK', deps_found)
 endif
 
 libmount = dependency('mount',
@@ -1685,7 +1683,6 @@ subdir('src/boot/efi')
 
 ############################################################
 
-build_bpf_skel_py = find_program('tools/build-bpf-skel.py')
 generate_gperfs = find_program('tools/generate-gperfs.py')
 make_autosuspend_rules_py = find_program('tools/make-autosuspend-rules.py')
 make_directive_index_py = find_program('tools/make-directive-index.py')
