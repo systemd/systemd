@@ -229,8 +229,12 @@ static int link_configure(
 
         log_link_debug(link, "Setting %s", set_link_operation_to_string(op));
 
-        if (IN_SET(op, SET_LINK_BOND, SET_LINK_CAN)) {
+        if (op == SET_LINK_BOND) {
                 r = sd_rtnl_message_new_link(link->manager->rtnl, &req, RTM_NEWLINK, link->master_ifindex);
+                if (r < 0)
+                        return log_link_debug_errno(link, r, "Could not allocate RTM_NEWLINK message: %m");
+        } else if (op == SET_LINK_CAN) {
+                r = sd_rtnl_message_new_link(link->manager->rtnl, &req, RTM_NEWLINK, link->ifindex);
                 if (r < 0)
                         return log_link_debug_errno(link, r, "Could not allocate RTM_NEWLINK message: %m");
         } else {
