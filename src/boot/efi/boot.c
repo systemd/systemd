@@ -368,7 +368,6 @@ static UINTN entry_lookup_key(Config *config, UINTN start, CHAR16 key) {
 static VOID print_status(Config *config, CHAR16 *loaded_image_path) {
         UINT64 key, indvar;
         UINTN timeout;
-        BOOLEAN modevar;
         _cleanup_freepool_ CHAR16 *partstr = NULL, *defaultstr = NULL;
         UINTN x, y;
 
@@ -389,9 +388,7 @@ static VOID print_status(Config *config, CHAR16 *loaded_image_path) {
                 Print(L"console size:           %d x %d\n", x, y);
 
         Print(L"SecureBoot:             %s\n", yes_no(secure_boot_enabled()));
-
-        if (efivar_get_boolean_u8(EFI_GLOBAL_GUID, L"SetupMode", &modevar) == EFI_SUCCESS)
-                Print(L"SetupMode:              %s\n", modevar ? L"setup" : L"user");
+        Print(L"SetupMode:              %s\n", yes_no(setup_mode_enabled()));
 
         if (shim_loaded())
                 Print(L"Shim:                   present\n");

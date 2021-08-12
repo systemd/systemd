@@ -4,3 +4,4 @@
 #include <efi.h>
 
 BOOLEAN secure_boot_enabled(void);
+BOOLEAN setup_mode_enabled(void);
