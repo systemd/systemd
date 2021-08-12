@@ -911,6 +911,27 @@ static VOID config_entry_free(ConfigEntry *entry) {
         FreePool(entry);
 }
 
+static VOID config_remove_by_type(Config *config, enum loader_type type) {
+        UINTN i, j;
+
+        /* we iterate through all the entries; effectively j is trailing behind i
+         * in order to compact the array as we free matching entries */
+        for (i = j = 0; i < config->entry_count; i++) {
+                if (config->entries[i]->type == type) {
+                        config_entry_free(config->entries[i]);
+                } else {
+                        /* if we need we also shift the index of the default
+                         * entry */
+                        if ((INTN) i == config->idx_default)
+                                config->idx_default = j;
+
+                        config->entries[j++] = config->entries[i];
+                }
+        }
+
+        config->entry_count = j;
+}
+
 static CHAR8 *line_get_key_value(
                 CHAR8 *content,
                 const CHAR8 *sep,
