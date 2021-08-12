@@ -131,9 +131,25 @@ libcore_sources = '''
         unit.h
 '''.split()
 
+libcore_dependencies = [
+        versiondep,
+        threads,
+        libdl,
+        librt,
+        libseccomp,
+        libpam,
+        libaudit,
+        libkmod,
+        libapparmor,
+        libselinux,
+        libmount,
+        libacl
+]
+
 subdir('bpf/socket_bind')
 if conf.get('BPF_FRAMEWORK') == 1
         libcore_sources += [socket_bind_skel_h]
+        libcore_dependencies += [libbpf]
 endif
 
 load_fragment_gperf_gperf = custom_target(
@@ -163,18 +179,7 @@ libcore = static_library(
         load_fragment_gperf_c,
         load_fragment_gperf_nulstr_c,
         include_directories : includes,
-        dependencies : [versiondep,
-                        threads,
-                        libdl,
-                        librt,
-                        libseccomp,
-                        libpam,
-                        libaudit,
-                        libkmod,
-                        libapparmor,
-                        libselinux,
-                        libmount,
-                        libacl])
+        dependencies : libcore_dependencies)
 
 core_includes = [includes, include_directories('.')]
 
