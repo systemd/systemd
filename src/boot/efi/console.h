@@ -16,5 +16,5 @@ enum console_mode_change_type {
         CONSOLE_MODE_MAX,
 };
 
-EFI_STATUS console_key_read(UINT64 *key, BOOLEAN wait);
+EFI_STATUS console_key_read(UINT64 *key, UINT64 timeout_usec);
 EFI_STATUS console_set_mode(UINTN *mode, enum console_mode_change_type how);
