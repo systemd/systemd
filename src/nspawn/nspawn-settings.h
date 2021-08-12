@@ -127,9 +127,10 @@ typedef enum SettingsMask {
         SETTING_CONSOLE_MODE      = UINT64_C(1) << 29,
         SETTING_CREDENTIALS       = UINT64_C(1) << 30,
         SETTING_BIND_USER         = UINT64_C(1) << 31,
-        SETTING_RLIMIT_FIRST      = UINT64_C(1) << 32, /* we define one bit per resource limit here */
-        SETTING_RLIMIT_LAST       = UINT64_C(1) << (32 + _RLIMIT_MAX - 1),
-        _SETTINGS_MASK_ALL        = (UINT64_C(1) << (32 + _RLIMIT_MAX)) -1,
+        SETTING_BINARY_DIRECTORY  = UINT64_C(1) << 32,
+        SETTING_RLIMIT_FIRST      = UINT64_C(1) << 33, /* we define one bit per resource limit here */
+        SETTING_RLIMIT_LAST       = UINT64_C(1) << (33 + _RLIMIT_MAX - 1),
+        _SETTINGS_MASK_ALL        = (UINT64_C(1) << (33 + _RLIMIT_MAX)) -1,
         _SETTING_FORCE_ENUM_WIDTH = UINT64_MAX
 } SettingsMask;
 
@@ -164,6 +165,7 @@ typedef struct Settings {
         bool ephemeral;
         char **parameters;
         char **environment;
+        char **exec_search_paths;
         char *user;
         uint64_t capability;
         uint64_t drop_capability;
