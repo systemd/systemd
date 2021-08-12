@@ -227,7 +227,9 @@ tests += [
 
         [['src/test/test-proc-cmdline.c']],
 
-        [['src/test/test-fd-util.c']],
+        [['src/test/test-fd-util.c'],
+         [],
+         [libseccomp]],
 
         [['src/test/test-web-util.c']],
 
