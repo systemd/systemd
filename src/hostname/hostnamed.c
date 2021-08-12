@@ -575,8 +575,7 @@ static int property_get_default_hostname(
 }
 
 static void context_determine_hostname_source(Context *c) {
-        char hostname[HOST_NAME_MAX + 1] = {};
-        _cleanup_free_ char *fallback = NULL;
+        _cleanup_free_ char *hostname = NULL;
         int r;
 
         assert(c);
@@ -584,11 +583,13 @@ static void context_determine_hostname_source(Context *c) {
         if (c->hostname_source >= 0)
                 return;
 
-        (void) get_hostname_filtered(hostname);
+        (void) gethostname_full(GET_HOSTNAME_ALLOW_LOCALHOST, &hostname);
 
         if (streq_ptr(hostname, c->data[PROP_STATIC_HOSTNAME]))
                 c->hostname_source = HOSTNAME_STATIC;
         else {
+                _cleanup_free_ char *fallback = NULL;
+
                 /* If the hostname was not set by us, try to figure out where it came from. If we set it to
                  * the default hostname, the file will tell us. We compare the string because it is possible
                  * that the hostname was set by an older version that had a different fallback, in the
