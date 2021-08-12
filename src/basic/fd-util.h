@@ -57,6 +57,8 @@ DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(DIR*, closedir, NULL);
 int fd_nonblock(int fd, bool nonblock);
 int fd_cloexec(int fd, bool cloexec);
 
+int get_max_fd(void);
+
 int close_all_fds(const int except[], size_t n_except);
 int close_all_fds_without_malloc(const int except[], size_t n_except);
 

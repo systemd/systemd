@@ -215,18 +215,18 @@ static size_t validate_fds(
 
 static void test_close_all_fds(void) {
         _cleanup_free_ int *fds = NULL, *keep = NULL;
-        struct rlimit rl;
         size_t n_fds, n_keep;
+        int max_fd;
 
         log_info("/* %s */", __func__);
 
         rlimit_nofile_bump(-1);
 
-        assert_se(getrlimit(RLIMIT_NOFILE, &rl) >= 0);
-        assert_se(rl.rlim_cur > 10);
+        max_fd = get_max_fd();
+        assert_se(max_fd > 10);
 
         /* Try to use 5000 fds, but when we can't bump the rlimit to make that happen use the whole limit minus 10 */
-        n_fds = MIN((rl.rlim_cur & ~1U) - 10U, 5000U);
+        n_fds = MIN(((size_t) max_fd & ~1U) - 10U, 5000U);
         assert_se((n_fds & 1U) == 0U); /* make sure even number of fds */
 
         /* Allocate the determined number of fds, always two at a time */
