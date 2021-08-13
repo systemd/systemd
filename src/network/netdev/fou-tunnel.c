@@ -108,7 +108,7 @@ static int fou_tunnel_create_handler(sd_netlink *rtnl, sd_netlink_message *m, Ne
                 log_netdev_info(netdev, "netdev exists, using existing without changing its parameters");
         else if (r < 0) {
                 log_netdev_warning_errno(netdev, r, "netdev could not be created: %m");
-                netdev_drop(netdev);
+                netdev_enter_failed(netdev);
 
                 return 1;
         }

@@ -167,6 +167,54 @@ bool netdev_is_managed(NetDev *netdev) {
         return hashmap_get(netdev->manager->netdevs, netdev->ifname) == netdev;
 }
 
+static bool netdev_is_stacked_and_independent(NetDev *netdev) {
+        assert(netdev);
+
+        if (!IN_SET(netdev_get_create_type(netdev), NETDEV_CREATE_STACKED, NETDEV_CREATE_AFTER_CONFIGURED))
+                return false;
+
+        switch (netdev->kind) {
+        case NETDEV_KIND_ERSPAN:
+                return ERSPAN(netdev)->independent;
+        case NETDEV_KIND_GRE:
+                return GRE(netdev)->independent;
+        case NETDEV_KIND_GRETAP:
+                return GRETAP(netdev)->independent;
+        case NETDEV_KIND_IP6GRE:
+                return IP6GRE(netdev)->independent;
+        case NETDEV_KIND_IP6GRETAP:
+                return IP6GRETAP(netdev)->independent;
+        case NETDEV_KIND_IP6TNL:
+                return IP6TNL(netdev)->independent;
+        case NETDEV_KIND_IPIP:
+                return IPIP(netdev)->independent;
+        case NETDEV_KIND_SIT:
+                return SIT(netdev)->independent;
+        case NETDEV_KIND_VTI:
+                return VTI(netdev)->independent;
+        case NETDEV_KIND_VTI6:
+                return VTI6(netdev)->independent;
+        case NETDEV_KIND_VXLAN:
+                return VXLAN(netdev)->independent;
+        case NETDEV_KIND_XFRM:
+                return XFRM(netdev)->independent;
+        default:
+                return false;
+        }
+}
+
+static bool netdev_is_stacked(NetDev *netdev) {
+        assert(netdev);
+
+        if (!IN_SET(netdev_get_create_type(netdev), NETDEV_CREATE_STACKED, NETDEV_CREATE_AFTER_CONFIGURED))
+                return false;
+
+        if (netdev_is_stacked_and_independent(netdev))
+                return false;
+
+        return true;
+}
+
 static void netdev_detach_from_manager(NetDev *netdev) {
         if (netdev->ifname && netdev->manager)
                 hashmap_remove(netdev->manager->netdevs, netdev->ifname);
@@ -202,8 +250,18 @@ static NetDev *netdev_free(NetDev *netdev) {
 DEFINE_TRIVIAL_REF_UNREF_FUNC(NetDev, netdev, netdev_free);
 
 void netdev_drop(NetDev *netdev) {
-        if (!netdev || netdev->state == NETDEV_STATE_LINGER)
+        if (!netdev)
                 return;
+
+        if (netdev_is_stacked(netdev)) {
+                /* The netdev may be removed due to the underlying device removal, and the device may
+                 * be re-added later. */
+                netdev->state = NETDEV_STATE_LOADING;
+                netdev->ifindex = 0;
+
+                log_netdev_debug(netdev, "netdev removed");
+                return;
+        }
 
         netdev->state = NETDEV_STATE_LINGER;
 
@@ -232,9 +290,8 @@ int netdev_get(Manager *manager, const char *name, NetDev **ret) {
         return 0;
 }
 
-static int netdev_enter_failed(NetDev *netdev) {
+void netdev_enter_failed(NetDev *netdev) {
         netdev->state = NETDEV_STATE_FAILED;
-        return 0;
 }
 
 static int netdev_enter_ready(NetDev *netdev) {
@@ -266,7 +323,7 @@ static int netdev_create_handler(sd_netlink *rtnl, sd_netlink_message *m, NetDev
                 log_netdev_info(netdev, "netdev exists, using existing without changing its parameters");
         else if (r < 0) {
                 log_netdev_warning_errno(netdev, r, "netdev could not be created: %m");
-                netdev_drop(netdev);
+                netdev_enter_failed(netdev);
 
                 return 1;
         }
@@ -560,12 +617,12 @@ static bool netdev_is_ready_to_create(NetDev *netdev, Link *link) {
         return true;
 }
 
-int request_process_create_stacked_netdev(Request *req) {
+int request_process_stacked_netdev(Request *req) {
         int r;
 
         assert(req);
         assert(req->link);
-        assert(req->type == REQUEST_TYPE_CREATE_STACKED_NETDEV);
+        assert(req->type == REQUEST_TYPE_STACKED_NETDEV);
         assert(req->netdev);
         assert(req->netlink_handler);
 
@@ -632,46 +689,42 @@ static int link_create_stacked_netdev_after_configured_handler(sd_netlink *rtnl,
         return 0;
 }
 
-int link_request_to_crate_stacked_netdev(Link *link, NetDev *netdev) {
-        NetDevCreateType create_type;
+int link_request_stacked_netdev(Link *link, NetDev *netdev) {
         int r;
 
         assert(link);
         assert(netdev);
 
-        create_type = netdev_get_create_type(netdev);
-        if (!IN_SET(create_type, NETDEV_CREATE_STACKED, NETDEV_CREATE_AFTER_CONFIGURED))
+        if (!netdev_is_stacked(netdev))
                 return -EINVAL;
 
-        if (netdev->state != NETDEV_STATE_LOADING || netdev->ifindex > 0)
-                /* Already created (or removed?) */
-                return 0;
+        if (!IN_SET(netdev->state, NETDEV_STATE_LOADING, NETDEV_STATE_FAILED) || netdev->ifindex > 0)
+                return 0; /* Already created. */
 
-        if (create_type == NETDEV_CREATE_STACKED) {
+        if (netdev_get_create_type(netdev) == NETDEV_CREATE_STACKED) {
                 link->stacked_netdevs_created = false;
-                r = link_queue_request(link, REQUEST_TYPE_CREATE_STACKED_NETDEV, netdev, false,
+                r = link_queue_request(link, REQUEST_TYPE_STACKED_NETDEV, netdev, false,
                                        &link->create_stacked_netdev_messages,
                                        link_create_stacked_netdev_handler,
                                        NULL);
         } else {
                 link->stacked_netdevs_after_configured_created = false;
-                r = link_queue_request(link, REQUEST_TYPE_CREATE_STACKED_NETDEV, netdev, false,
+                r = link_queue_request(link, REQUEST_TYPE_STACKED_NETDEV, netdev, false,
                                        &link->create_stacked_netdev_after_configured_messages,
                                        link_create_stacked_netdev_after_configured_handler,
                                        NULL);
         }
         if (r < 0)
-                return log_link_error_errno(link, r, "Failed to request to create stacked netdev '%s': %m",
+                return log_link_error_errno(link, r, "Failed to request stacked netdev '%s': %m",
                                             netdev->ifname);
 
-        log_link_debug(link, "Requested to create stacked netdev '%s'", netdev->ifname);
+        log_link_debug(link, "Requested stacked netdev '%s'", netdev->ifname);
         return 0;
 }
 
 int netdev_load_one(Manager *manager, const char *filename) {
         _cleanup_(netdev_unrefp) NetDev *netdev_raw = NULL, *netdev = NULL;
         const char *dropin_dirname;
-        bool independent = false;
         int r;
 
         assert(manager);
@@ -792,48 +845,7 @@ int netdev_load_one(Manager *manager, const char *filename) {
                         return r;
         }
 
-        switch (netdev->kind) {
-        case NETDEV_KIND_IPIP:
-                independent = IPIP(netdev)->independent;
-                break;
-        case NETDEV_KIND_GRE:
-                independent = GRE(netdev)->independent;
-                break;
-        case NETDEV_KIND_GRETAP:
-                independent = GRETAP(netdev)->independent;
-                break;
-        case NETDEV_KIND_IP6GRE:
-                independent = IP6GRE(netdev)->independent;
-                break;
-        case NETDEV_KIND_IP6GRETAP:
-                independent = IP6GRETAP(netdev)->independent;
-                break;
-        case NETDEV_KIND_SIT:
-                independent = SIT(netdev)->independent;
-                break;
-        case NETDEV_KIND_VTI:
-                independent = VTI(netdev)->independent;
-                break;
-        case NETDEV_KIND_VTI6:
-                independent = VTI6(netdev)->independent;
-                break;
-        case NETDEV_KIND_IP6TNL:
-                independent = IP6TNL(netdev)->independent;
-                break;
-        case NETDEV_KIND_ERSPAN:
-                independent = ERSPAN(netdev)->independent;
-                break;
-        case NETDEV_KIND_XFRM:
-                independent = XFRM(netdev)->independent;
-                break;
-        case NETDEV_KIND_VXLAN:
-                independent = VXLAN(netdev)->independent;
-                break;
-        default:
-                break;
-        }
-
-        if (independent) {
+        if (netdev_is_stacked_and_independent(netdev)) {
                 r = netdev_create(netdev, NULL, NULL);
                 if (r < 0)
                         return r;
