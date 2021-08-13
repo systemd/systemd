@@ -17,7 +17,7 @@ static const char __attribute__((used)) magic[] = "#### LoaderInfo: systemd-stub
 
 EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
         EFI_LOADED_IMAGE *loaded_image;
-        CHAR8 *sections[] = {
+        const CHAR8 *sections[] = {
                 (CHAR8 *)".cmdline",
                 (CHAR8 *)".linux",
                 (CHAR8 *)".initrd",
@@ -25,7 +25,6 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
                 NULL
         };
         UINTN addrs[ELEMENTSOF(sections)-1] = {};
-        UINTN offs[ELEMENTSOF(sections)-1] = {};
         UINTN szs[ELEMENTSOF(sections)-1] = {};
         CHAR8 *cmdline = NULL;
         UINTN cmdline_len;
@@ -39,7 +38,7 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
         if (EFI_ERROR(err))
                 return log_error_status_stall(err, L"Error getting a LoadedImageProtocol handle: %r", err);
 
-        err = pe_memory_locate_sections(loaded_image->ImageBase, sections, addrs, offs, szs);
+        err = pe_memory_locate_sections(loaded_image->ImageBase, sections, addrs, szs);
         if (EFI_ERROR(err))
                 return log_error_status_stall(err, L"Unable to locate embedded .linux section: %r", err);
 

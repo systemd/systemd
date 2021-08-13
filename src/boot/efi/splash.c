@@ -12,7 +12,7 @@ struct bmp_file {
         UINT32 size;
         UINT16 reserved[2];
         UINT32 offset;
-} __attribute__((packed));
+} _packed_;
 
 /* we require at least BITMAPINFOHEADER, later versions are
    accepted, but their features ignored */
@@ -28,14 +28,14 @@ struct bmp_dib {
         INT32 y_pixel_meter;
         UINT32 colors_used;
         UINT32 colors_important;
-} __attribute__((packed));
+} _packed_;
 
 struct bmp_map {
         UINT8 blue;
         UINT8 green;
         UINT8 red;
         UINT8 reserved;
-} __attribute__((packed));
+} _packed_;
 
 static EFI_STATUS bmp_parse_header(UINT8 *bmp, UINTN size, struct bmp_dib **ret_dib,
                             struct bmp_map **ret_map, UINT8 **pixmap) {
