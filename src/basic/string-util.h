@@ -189,22 +189,6 @@ static inline void strncpy_exact(char *buf, const char *src, size_t buf_len) {
 }
 REENABLE_WARNING;
 
-/* Like startswith(), but operates on arbitrary memory blocks */
-static inline void *memory_startswith(const void *p, size_t sz, const char *token) {
-        assert(token);
-
-        size_t n = strlen(token);
-        if (sz < n)
-                return NULL;
-
-        assert(p);
-
-        if (memcmp(p, token, n) != 0)
-                return NULL;
-
-        return (uint8_t*) p + n;
-}
-
 /* Like startswith_no_case(), but operates on arbitrary memory blocks.
  * It works only for ASCII strings.
  */

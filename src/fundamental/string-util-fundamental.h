@@ -16,6 +16,7 @@
 #define strncmp(a, b, n) StrnCmp((a), (b), (n))
 #define strcasecmp(a, b) StriCmp((a), (b))
 #define STR_C(str)       (L ## str)
+#define memcmp(a, b, n)  CompareMem(a, b, n)
 #else
 #define STR_C(str)       (str)
 #endif
@@ -65,3 +66,19 @@ static inline const sd_char *yes_no(sd_bool b) {
 }
 
 sd_int strverscmp_improved(const sd_char *a, const sd_char *b);
+
+/* Like startswith(), but operates on arbitrary memory blocks */
+static inline void *memory_startswith(const void *p, sd_size_t sz, const sd_char *token) {
+        assert(token);
+
+        sd_size_t n = strlen(token) * sizeof(sd_char);
+        if (sz < n)
+                return NULL;
+
+        assert(p);
+
+        if (memcmp(p, token, n) != 0)
+                return NULL;
+
+        return (uint8_t*) p + n;
+}
