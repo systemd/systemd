@@ -22,7 +22,7 @@
 #endif
 
 /* magic string to find in the binary image */
-static const char __attribute__((used)) magic[] = "#### LoaderInfo: systemd-boot " GIT_VERSION " ####";
+static const char _used_ _section_(".sdmagic") magic[] = "#### LoaderInfo: systemd-boot " GIT_VERSION " ####";
 
 enum loader_type {
         LOADER_UNDEFINED,
@@ -1792,6 +1792,29 @@ static ConfigEntry *config_entry_add_loader(
         return entry;
 }
 
+static BOOLEAN is_sd_boot(EFI_FILE *root_dir, const CHAR16 *loader_path) {
+        EFI_STATUS err;
+        const CHAR8 *sections[] = {
+                (CHAR8 *)".sdmagic",
+                NULL
+        };
+        UINTN offset = 0, size = 0, read;
+        _cleanup_freepool_ CHAR8 *content = NULL;
+
+        assert(root_dir);
+        assert(loader_path);
+
+        err = pe_file_locate_sections(root_dir, loader_path, sections, NULL, &offset, &size);
+        if (EFI_ERROR(err) || size == 0 || size != sizeof(magic))
+                return FALSE;
+
+        err = file_read(root_dir, loader_path, offset, size, &content, &read);
+        if (EFI_ERROR(err) || size != read)
+                return FALSE;
+
+        return CompareMem(content, magic, sizeof(magic)) == 0;
+}
+
 static BOOLEAN config_entry_add_loader_auto(
                 Config *config,
                 EFI_HANDLE *device,
@@ -1811,25 +1834,23 @@ static BOOLEAN config_entry_add_loader_auto(
         assert(root_dir);
         assert(id);
         assert(title);
-        assert(loader);
+        assert(loader || loaded_image_path);
 
         if (!config->auto_entries)
                 return FALSE;
 
-        /* do not add an entry for ourselves */
         if (loaded_image_path) {
-                UINTN len;
-                _cleanup_freepool_ CHAR8 *content = NULL;
+                loader = L"\\EFI\\BOOT\\BOOT" EFI_MACHINE_TYPE_NAME ".efi";
 
-                if (StriCmp(loader, loaded_image_path) == 0)
+                /* We are trying to add the default EFI loader here,
+                 * but we do not want to do that if that would be us.
+                 *
+                 * If the default loader is not us, it might be shim. It would
+                 * chainload GRUBX64.EFI in that case, which might be us.*/
+                if (StriCmp(loader, loaded_image_path) == 0 ||
+                    is_sd_boot(root_dir, loader) ||
+                    is_sd_boot(root_dir, L"\\EFI\\BOOT\\GRUB" EFI_MACHINE_TYPE_NAME L".EFI"))
                         return FALSE;
-
-                /* look for systemd-boot magic string */
-                err = file_read(root_dir, loader, 0, 100*1024, &content, &len);
-                if (!EFI_ERROR(err))
-                        for (CHAR8 *start = content; start <= content + len - sizeof(magic) - 1; start++)
-                                if (start[0] == magic[0] && CompareMem(start, magic, sizeof(magic) - 1) == 0)
-                                        return FALSE;
         }
 
         /* check existence */
@@ -1876,6 +1897,59 @@ static VOID config_entry_add_osx(Config *config) {
         }
 }
 
+
+static VOID config_entry_add_windows(Config *config, EFI_HANDLE *device, EFI_FILE *root_dir) {
+        _cleanup_freepool_ CHAR8 *bcd = NULL;
+        const CHAR16 *title = NULL;
+        EFI_STATUS err;
+        UINTN len;
+
+        assert(config);
+        assert(device);
+        assert(root_dir);
+
+        if (!config->auto_entries)
+                return;
+
+        /* Try to find a better title. */
+        err = file_read(root_dir, L"\\EFI\\Microsoft\\Boot\\BCD", 0, 100*1024, &bcd, &len);
+        if (!EFI_ERROR(err)) {
+                static const CHAR16 *versions[] = {
+                        L"Windows 11",
+                        L"Windows 10",
+                        L"Windows 8.1",
+                        L"Windows 8",
+                        L"Windows 7",
+                        L"Windows Vista"
+                };
+
+                CHAR8 *p = bcd;
+                while (!title) {
+                        CHAR8 *q = mempmem_safe(p, len, versions[0], STRLEN(L"Windows "));
+                        if (!q)
+                                break;
+
+                        len -= q - p;
+                        p = q;
+                        if (len <= STRLEN(L"Vista"))
+                                break;
+
+                        /* We found the prefix, now try all the version strings. */
+                        for (UINTN i = 0; i < ELEMENTSOF(versions); i++) {
+                                const CHAR16 *ver = versions[i] + STRLEN("Windows ");
+                                if (CompareMem(p, ver, StrSize(ver)) == 0) {
+                                        title = versions[i];
+                                        break;
+                                }
+                        }
+                }
+        }
+
+        config_entry_add_loader_auto(config, device, root_dir, NULL,
+                                     L"auto-windows", 'w', title ?: L"Windows Boot Manager",
+                                     L"\\EFI\\Microsoft\\Boot\\bootmgfw.efi");
+}
+
 static VOID config_entry_add_linux(
                 Config *config,
                 EFI_HANDLE *device,
@@ -1897,14 +1971,13 @@ static VOID config_entry_add_linux(
                 CHAR16 buf[256];
                 UINTN bufsize = sizeof buf;
                 EFI_FILE_INFO *f;
-                CHAR8 *sections[] = {
+                const CHAR8 *sections[] = {
                         (CHAR8 *)".osrel",
                         (CHAR8 *)".cmdline",
                         NULL
                 };
                 UINTN offs[ELEMENTSOF(sections)-1] = {};
                 UINTN szs[ELEMENTSOF(sections)-1] = {};
-                UINTN addrs[ELEMENTSOF(sections)-1] = {};
                 CHAR8 *content = NULL;
                 CHAR8 *line;
                 UINTN pos = 0;
@@ -1931,7 +2004,7 @@ static VOID config_entry_add_linux(
                         continue;
 
                 /* look for .osrel and .cmdline sections in the .efi binary */
-                err = pe_file_locate_sections(linux_dir, f->FileName, sections, addrs, offs, szs);
+                err = pe_file_locate_sections(linux_dir, f->FileName, sections, NULL, offs, szs);
                 if (EFI_ERROR(err))
                         continue;
 
@@ -2410,13 +2483,12 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
         config_sort_entries(&config);
 
         /* if we find some well-known loaders, add them to the end of the list */
-        config_entry_add_loader_auto(&config, loaded_image->DeviceHandle, root_dir, NULL,
-                                     L"auto-windows", 'w', L"Windows Boot Manager", L"\\EFI\\Microsoft\\Boot\\bootmgfw.efi");
+        config_entry_add_osx(&config);
+        config_entry_add_windows(&config, loaded_image->DeviceHandle, root_dir);
         config_entry_add_loader_auto(&config, loaded_image->DeviceHandle, root_dir, NULL,
                                      L"auto-efi-shell", 's', L"EFI Shell", L"\\shell" EFI_MACHINE_TYPE_NAME ".efi");
         config_entry_add_loader_auto(&config, loaded_image->DeviceHandle, root_dir, loaded_image_path,
-                                     L"auto-efi-default", '\0', L"EFI Default Loader", L"\\EFI\\Boot\\boot" EFI_MACHINE_TYPE_NAME ".efi");
-        config_entry_add_osx(&config);
+                                     L"auto-efi-default", '\0', L"EFI Default Loader", NULL);
 
         if (config.auto_firmware && efivar_get_uint64_le(EFI_GLOBAL_GUID, L"OsIndicationsSupported", &osind) == EFI_SUCCESS) {
                 if (osind & EFI_OS_INDICATIONS_BOOT_TO_FW_UI)
