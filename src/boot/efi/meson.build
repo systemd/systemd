@@ -292,6 +292,7 @@ if have_gnu_efi
                                    '-j', '.text',
                                    '-j', '.sdata',
                                    '-j', '.sbat',
+                                   '-j', '.sdmagic',
                                    '-j', '.data',
                                    '-j', '.dynamic',
                                    '-j', '.dynsym',
