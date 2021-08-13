@@ -1897,14 +1897,13 @@ static VOID config_entry_add_linux(
                 CHAR16 buf[256];
                 UINTN bufsize = sizeof buf;
                 EFI_FILE_INFO *f;
-                CHAR8 *sections[] = {
+                const CHAR8 *sections[] = {
                         (CHAR8 *)".osrel",
                         (CHAR8 *)".cmdline",
                         NULL
                 };
                 UINTN offs[ELEMENTSOF(sections)-1] = {};
                 UINTN szs[ELEMENTSOF(sections)-1] = {};
-                UINTN addrs[ELEMENTSOF(sections)-1] = {};
                 CHAR8 *content = NULL;
                 CHAR8 *line;
                 UINTN pos = 0;
@@ -1931,7 +1930,7 @@ static VOID config_entry_add_linux(
                         continue;
 
                 /* look for .osrel and .cmdline sections in the .efi binary */
-                err = pe_file_locate_sections(linux_dir, f->FileName, sections, addrs, offs, szs);
+                err = pe_file_locate_sections(linux_dir, f->FileName, sections, offs, szs);
                 if (EFI_ERROR(err))
                         continue;
 
