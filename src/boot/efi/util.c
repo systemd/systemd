@@ -501,3 +501,15 @@ EFI_STATUS log_oom(void) {
         log_error_stall(L"Out of memory.");
         return EFI_OUT_OF_RESOURCES;
 }
+
+VOID *memmem_safe(const VOID *haystack, UINTN haystack_len, const VOID *needle, UINTN needle_len) {
+        assert(haystack);
+        assert(needle);
+        assert(needle_len > 0);
+
+        for (const CHAR8 *h = haystack, *n = needle; haystack_len >= needle_len; h++, haystack_len--)
+                if (*h == *n && CompareMem(h + 1, n + 1, needle_len - 1) == 0)
+                        return (VOID*)h;
+
+        return NULL;
+}
