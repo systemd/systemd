@@ -415,6 +415,13 @@ static JournalFile* find_journal(Server *s, uid_t uid) {
         if (s->runtime_journal)
                 return s->runtime_journal;
 
+        /* If we are not in persistent mode, then we need return NULL immediately rather than opening a
+         * persistent journal of any sort.
+         *
+         * Fixes https://github.com/systemd/systemd/issues/20390 */
+        if (!IN_SET(s->storage, STORAGE_AUTO, STORAGE_PERSISTENT))
+                return NULL;
+
         if (uid_for_system_journal(uid))
                 return s->system_journal;
 
