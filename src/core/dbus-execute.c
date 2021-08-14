@@ -1161,6 +1161,7 @@ const sd_bus_vtable bus_exec_vtable[] = {
         SD_BUS_PROPERTY("InaccessiblePaths", "as", NULL, offsetof(ExecContext, inaccessible_paths), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("ExecPaths", "as", NULL, offsetof(ExecContext, exec_paths), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("NoExecPaths", "as", NULL, offsetof(ExecContext, no_exec_paths), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("ExecSearchPaths", "as", NULL, offsetof(ExecContext, exec_search_paths), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("MountFlags", "t", bus_property_get_ulong, offsetof(ExecContext, mount_flags), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("PrivateTmp", "b", bus_property_get_bool, offsetof(ExecContext, private_tmp), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("PrivateDevices", "b", bus_property_get_bool, offsetof(ExecContext, private_devices), SD_BUS_VTABLE_PROPERTY_CONST),
@@ -3087,7 +3088,7 @@ int bus_exec_context_set_transient_property(
                 return 1;
 
         } else if (STR_IN_SET(name, "ReadWriteDirectories", "ReadOnlyDirectories", "InaccessibleDirectories",
-                              "ReadWritePaths", "ReadOnlyPaths", "InaccessiblePaths", "ExecPaths", "NoExecPaths")) {
+                              "ReadWritePaths", "ReadOnlyPaths", "InaccessiblePaths", "ExecPaths", "NoExecPaths", "ExecSearchPaths")) {
                 _cleanup_strv_free_ char **l = NULL;
                 char ***dirs;
                 char **p;
@@ -3117,6 +3118,8 @@ int bus_exec_context_set_transient_property(
                                 dirs = &c->exec_paths;
                         else if (streq(name, "NoExecPaths"))
                                 dirs = &c->no_exec_paths;
+                        else if (streq(name, "ExecSearchPaths"))
+                                dirs = &c->exec_search_paths;
                         else /* "InaccessiblePaths" */
                                 dirs = &c->inaccessible_paths;
 
