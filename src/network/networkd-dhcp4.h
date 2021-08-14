@@ -33,3 +33,4 @@ CONFIG_PARSER_PROTOTYPE(config_parse_dhcp_max_attempts);
 CONFIG_PARSER_PROTOTYPE(config_parse_dhcp_ip_service_type);
 CONFIG_PARSER_PROTOTYPE(config_parse_dhcp_mud_url);
 CONFIG_PARSER_PROTOTYPE(config_parse_dhcp_fallback_lease_lifetime);
+CONFIG_PARSER_PROTOTYPE(config_parse_dhcp_label);

@@ -585,6 +585,7 @@ static Network *network_free(Network *network) {
         free(network->dhcp_mudurl);
         strv_free(network->dhcp_user_class);
         free(network->dhcp_hostname);
+        free(network->dhcp_label);
         set_free(network->dhcp_deny_listed_ip);
         set_free(network->dhcp_allow_listed_ip);
         set_free(network->dhcp_request_options);

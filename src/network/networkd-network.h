@@ -129,6 +129,7 @@ struct Network {
         char *dhcp_mudurl;
         char **dhcp_user_class;
         char *dhcp_hostname;
+        char *dhcp_label;
         uint64_t dhcp_max_attempts;
         uint32_t dhcp_route_metric;
         bool dhcp_route_metric_set;

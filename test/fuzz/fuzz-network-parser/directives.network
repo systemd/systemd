@@ -107,6 +107,7 @@ VendorClassIdentifier=
 Hostname=
 DUIDType=
 UseHostname=
+Label=
 CriticalConnection=
 DUIDRawData=
 RequestBroadcast=
