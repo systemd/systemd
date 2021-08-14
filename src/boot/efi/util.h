@@ -91,3 +91,5 @@ static inline VOID *mempmem_safe(const VOID *haystack, UINTN haystack_len, const
         CHAR8 *p = memmem_safe(haystack, haystack_len, needle, needle_len);
         return p ? p + needle_len : NULL;
 }
+
+VOID print_at(UINTN x, UINTN y, UINTN attr, const CHAR16 *str);

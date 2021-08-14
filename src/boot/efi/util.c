@@ -515,3 +515,10 @@ VOID *memmem_safe(const VOID *haystack, UINTN haystack_len, const VOID *needle, 
 
         return NULL;
 }
+
+VOID print_at(UINTN x, UINTN y, UINTN attr, const CHAR16 *str) {
+        assert(str);
+        uefi_call_wrapper(ST->ConOut->SetCursorPosition, 3, ST->ConOut, x, y);
+        uefi_call_wrapper(ST->ConOut->SetAttribute, 2, ST->ConOut, attr);
+        uefi_call_wrapper(ST->ConOut->OutputString, 2, ST->ConOut, (CHAR16*)str);
+}
