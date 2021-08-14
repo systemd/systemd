@@ -1590,8 +1590,7 @@ static VOID config_default_entry_select(Config *config) {
         /*
          * The EFI variable to select the default boot entry overrides the
          * configured pattern. The variable can be set and cleared by pressing
-         * the 'd' key in the loader selection menu, the entry is marked with
-         * an '*'.
+         * the 'd' key in the loader selection menu.
          */
         err = efivar_get(LOADER_GUID, L"LoaderEntryDefault", &entry_default);
         if (!EFI_ERROR(err)) {
@@ -1615,8 +1614,6 @@ static VOID config_default_entry_select(Config *config) {
         if (config->entry_default_pattern) {
                 i = config->entry_count;
                 while (i--) {
-                        if (config->entries[i]->no_autoselect)
-                                continue;
                         if (MetaiMatch(config->entries[i]->id, config->entry_default_pattern)) {
                                 config->idx_default = i;
                                 return;
