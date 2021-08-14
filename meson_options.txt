@@ -430,6 +430,14 @@ option('sbat-distro-version', type : 'string',
        description : 'SBAT distribution package version, e.g. 248-7.fc34')
 option('sbat-distro-url', type : 'string',
        description : 'SBAT distribution URL, e.g. https://src.fedoraproject.org/rpms/systemd')
+option('efi-color-normal', type : 'string', value : 'lightgray,black',
+       description : 'general boot loader color in "foreground,background" form, see constants from eficon.h')
+option('efi-color-entry', type : 'string', value : 'lightgray,black',
+       description : 'boot loader color for entries')
+option('efi-color-highlight', type : 'string', value : 'black,lightgray',
+       description : 'boot loader color for selected entries')
+option('efi-color-edit', type : 'string', value : 'lightgray,black',
+       description : 'boot loader color for option line edit')
 
 option('bashcompletiondir', type : 'string',
        description : 'directory for bash completion scripts ["no" disables]')
