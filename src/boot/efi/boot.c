@@ -56,6 +56,7 @@ typedef struct {
         UINTN entry_count;
         INTN idx_default;
         INTN idx_default_efivar;
+        INTN idx_default_oneshot;
         UINTN timeout_sec;
         UINTN timeout_sec_config;
         INTN timeout_sec_efivar;
@@ -528,6 +529,7 @@ static BOOLEAN menu_run(
         CHAR16 *clearline;
         UINTN timeout_remain = config->timeout_sec;
         INT16 idx;
+        INT16 idx_special = -1;
         BOOLEAN exit = FALSE;
         BOOLEAN run = TRUE;
 
@@ -567,6 +569,13 @@ static BOOLEAN menu_run(
         else
                 idx_first = idx_highlight - (visible_max / 2);
         idx_last = idx_first + visible_max - 1;
+
+        /* If the timeout is low or disabled, the user might be tempted to use
+         * arrow keys to get to the menu, making the default booted option unclear.
+         * Let's highlight it in that case (and only then). */
+        if ((config->idx_default_efivar >= 0 || config->idx_default_oneshot >= 0) &&
+            (config->force_menu || config->timeout_sec <= 3))
+                idx_special = config->idx_default;
 
         /* length of the longest entry */
         line_width = 5;
@@ -624,7 +633,7 @@ static BOOLEAN menu_run(
                                         uefi_call_wrapper(ST->ConOut->SetAttribute, 2, ST->ConOut,
                                                           EFI_LIGHTGRAY|EFI_BACKGROUND_BLACK);
                                 uefi_call_wrapper(ST->ConOut->OutputString, 2, ST->ConOut, lines[i]);
-                                if ((INTN)i == config->idx_default_efivar) {
+                                if ((INTN)i == idx_special) {
                                         uefi_call_wrapper(ST->ConOut->SetCursorPosition, 3, ST->ConOut, x_start-3, y_start + i - idx_first);
                                         uefi_call_wrapper(ST->ConOut->OutputString, 2, ST->ConOut, (CHAR16*) L"=>");
                                 }
@@ -634,7 +643,7 @@ static BOOLEAN menu_run(
                         uefi_call_wrapper(ST->ConOut->SetCursorPosition, 3, ST->ConOut, 0, y_start + idx_highlight_prev - idx_first);
                         uefi_call_wrapper(ST->ConOut->SetAttribute, 2, ST->ConOut, EFI_LIGHTGRAY|EFI_BACKGROUND_BLACK);
                         uefi_call_wrapper(ST->ConOut->OutputString, 2, ST->ConOut, lines[idx_highlight_prev]);
-                        if ((INTN)idx_highlight_prev == config->idx_default_efivar) {
+                        if ((INTN)idx_highlight_prev == idx_special) {
                                 uefi_call_wrapper(ST->ConOut->SetCursorPosition, 3, ST->ConOut, x_start-3, y_start + idx_highlight_prev - idx_first);
                                 uefi_call_wrapper(ST->ConOut->OutputString, 2, ST->ConOut, (CHAR16*) L"=>");
                         }
@@ -642,7 +651,7 @@ static BOOLEAN menu_run(
                         uefi_call_wrapper(ST->ConOut->SetCursorPosition, 3, ST->ConOut, 0, y_start + idx_highlight - idx_first);
                         uefi_call_wrapper(ST->ConOut->SetAttribute, 2, ST->ConOut, EFI_BLACK|EFI_BACKGROUND_LIGHTGRAY);
                         uefi_call_wrapper(ST->ConOut->OutputString, 2, ST->ConOut, lines[idx_highlight]);
-                        if ((INTN)idx_highlight == config->idx_default_efivar) {
+                        if ((INTN)idx_highlight == idx_special) {
                                 uefi_call_wrapper(ST->ConOut->SetCursorPosition, 3, ST->ConOut, x_start-3, y_start + idx_highlight - idx_first);
                                 uefi_call_wrapper(ST->ConOut->OutputString, 2, ST->ConOut, (CHAR16*) L"=>");
                         }
@@ -766,11 +775,13 @@ static BOOLEAN menu_run(
                                         config->entries[idx_highlight]->id,
                                         EFI_VARIABLE_NON_VOLATILE);
                                 config->idx_default_efivar = idx_highlight;
+                                idx_special = idx_highlight;
                                 status = StrDuplicate(L"Default boot entry selected.");
                         } else {
                                 /* clear the default entry EFI variable */
                                 efivar_set(LOADER_GUID, L"LoaderEntryDefault", NULL, EFI_VARIABLE_NON_VOLATILE);
                                 config->idx_default_efivar = -1;
+                                idx_special = config->idx_default_oneshot;
                                 status = StrDuplicate(L"Default boot entry cleared.");
                         }
                         refresh = TRUE;
@@ -1425,6 +1436,8 @@ static VOID config_load_defaults(Config *config, EFI_FILE *root_dir) {
                 .auto_entries = TRUE,
                 .auto_firmware = TRUE,
                 .random_seed_mode = RANDOM_SEED_WITH_SYSTEM_TOKEN,
+                .idx_default_efivar = -1,
+                .idx_default_oneshot = -1,
         };
 
         err = file_read(root_dir, L"\\loader\\loader.conf", 0, 0, &content, NULL);
@@ -1564,7 +1577,7 @@ static INTN config_entry_find(Config *config, CHAR16 *id) {
 }
 
 static VOID config_default_entry_select(Config *config) {
-        _cleanup_freepool_ CHAR16 *entry_oneshot = NULL, *entry_default = NULL;
+        _cleanup_freepool_ CHAR16 *entry_default = NULL;
         EFI_STATUS err;
         INTN i;
 
@@ -1574,17 +1587,13 @@ static VOID config_default_entry_select(Config *config) {
          * The EFI variable to specify a boot entry for the next, and only the
          * next reboot. The variable is always cleared directly after it is read.
          */
-        err = efivar_get(LOADER_GUID, L"LoaderEntryOneShot", &entry_oneshot);
+        err = efivar_get(LOADER_GUID, L"LoaderEntryOneShot", &config->entry_oneshot);
         if (!EFI_ERROR(err)) {
-
-                config->entry_oneshot = StrDuplicate(entry_oneshot);
                 efivar_set(LOADER_GUID, L"LoaderEntryOneShot", NULL, EFI_VARIABLE_NON_VOLATILE);
 
-                i = config_entry_find(config, entry_oneshot);
-                if (i >= 0) {
-                        config->idx_default = i;
-                        return;
-                }
+                i = config_entry_find(config, config->entry_oneshot);
+                if (i >= 0)
+                        config->idx_default_oneshot = i;
         }
 
         /*
@@ -1594,17 +1603,17 @@ static VOID config_default_entry_select(Config *config) {
          */
         err = efivar_get(LOADER_GUID, L"LoaderEntryDefault", &entry_default);
         if (!EFI_ERROR(err)) {
-
                 i = config_entry_find(config, entry_default);
-                if (i >= 0) {
-                        config->idx_default = i;
+                if (i >= 0)
                         config->idx_default_efivar = i;
-                        return;
-                }
         }
-        config->idx_default_efivar = -1;
 
-        if (config->entry_count == 0)
+        if (config->idx_default_oneshot >= 0)
+                config->idx_default = config->idx_default_oneshot;
+        else if (config->idx_default_efivar >= 0)
+                config->idx_default = config->idx_default_efivar;
+
+        if (config->idx_default >= 0 || config->entry_count == 0)
                 return;
 
         /*
