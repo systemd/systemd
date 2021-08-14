@@ -24,9 +24,6 @@
 /* magic string to find in the binary image */
 static const char _used_ _section_(".sdmagic") magic[] = "#### LoaderInfo: systemd-boot " GIT_VERSION " ####";
 
-#define COLOR_NORMAL (EFI_LIGHTGRAY|EFI_BACKGROUND_BLACK)
-#define COLOR_HIGHLIGHT (EFI_BLACK|EFI_BACKGROUND_LIGHTGRAY)
-
 enum loader_type {
         LOADER_UNDEFINED,
         LOADER_EFI,
@@ -141,8 +138,9 @@ static BOOLEAN line_edit(
                 }
                 print[j] = '\0';
 
-                print_at(0, y_pos, COLOR_NORMAL, print);
-                uefi_call_wrapper(ST->ConOut->SetCursorPosition, 3, ST->ConOut, cursor, y_pos);
+                /* See comment at call site. */
+                print_at(1, y_pos, COLOR_EDIT, print);
+                uefi_call_wrapper(ST->ConOut->SetCursorPosition, 3, ST->ConOut, cursor + 1, y_pos);
 
                 err = console_key_read(&key, 0);
                 if (EFI_ERROR(err))
@@ -532,6 +530,7 @@ static BOOLEAN menu_run(
         graphics_mode(FALSE);
         uefi_call_wrapper(ST->ConIn->Reset, 2, ST->ConIn, FALSE);
         uefi_call_wrapper(ST->ConOut->EnableCursor, 2, ST->ConOut, FALSE);
+        uefi_call_wrapper(ST->ConOut->SetAttribute, 2, ST->ConOut, COLOR_NORMAL);
 
         /* draw a single character to make ClearScreen work on some firmware */
         Print(L" ");
@@ -609,19 +608,19 @@ static BOOLEAN menu_run(
                                 if (i < idx_first || i > idx_last)
                                         continue;
                                 print_at(x_start, y_start + i - idx_first,
-                                         (i == idx_highlight) ? COLOR_HIGHLIGHT : COLOR_NORMAL,
+                                         (i == idx_highlight) ? COLOR_HIGHLIGHT : COLOR_ENTRY,
                                          lines[i]);
                                 if ((INTN)i == config->idx_default_efivar)
                                         print_at(x_start, y_start + i - idx_first,
-                                                 (i == idx_highlight) ? COLOR_HIGHLIGHT : COLOR_NORMAL,
+                                                 (i == idx_highlight) ? COLOR_HIGHLIGHT : COLOR_ENTRY,
                                                  (CHAR16*) L"=>");
                         }
                         refresh = FALSE;
                 } else if (highlight) {
-                        print_at(x_start, y_start + idx_highlight_prev - idx_first, COLOR_NORMAL, lines[idx_highlight_prev]);
+                        print_at(x_start, y_start + idx_highlight_prev - idx_first, COLOR_ENTRY, lines[idx_highlight_prev]);
                         print_at(x_start, y_start + idx_highlight - idx_first, COLOR_HIGHLIGHT, lines[idx_highlight]);
                         if ((INTN)idx_highlight_prev == config->idx_default_efivar)
-                                print_at(x_start , y_start + idx_highlight_prev - idx_first, COLOR_NORMAL, (CHAR16*) L"=>");
+                                print_at(x_start , y_start + idx_highlight_prev - idx_first, COLOR_ENTRY, (CHAR16*) L"=>");
                         if ((INTN)idx_highlight == config->idx_default_efivar)
                                 print_at(x_start, y_start + idx_highlight - idx_first, COLOR_HIGHLIGHT, (CHAR16*) L"=>");
                         highlight = FALSE;
@@ -802,10 +801,14 @@ static BOOLEAN menu_run(
                         /* only the options of configured entries can be edited */
                         if (!config->editor || config->entries[idx_highlight]->type == LOADER_UNDEFINED)
                                 break;
-                        print_at(0, y_max - 1, COLOR_NORMAL, clearline + 1);
-                        if (line_edit(config->entries[idx_highlight]->options, &config->options_edit, x_max-1, y_max-1))
-                                exit = TRUE;
-                        print_at(0, y_max - 1, COLOR_NORMAL, clearline + 1);
+                        /* The edit line may end up on the last line of the screen. And even though we're
+                         * not telling the firmware to advance the line, it still does in this one case,
+                         * causing a scroll to happen that screws with our beautiful boot loader output.
+                         * Since we cannot paint the last character of the edit line, we simply start
+                         * at x-offset 1 for symmetry. */
+                        print_at(1, y_max - 1, COLOR_EDIT, clearline + 2);
+                        exit = line_edit(config->entries[idx_highlight]->options, &config->options_edit, x_max-2, y_max-1);
+                        print_at(1, y_max - 1, COLOR_NORMAL, clearline + 2);
                         break;
 
                 case KEYPRESS(0, 0, 'v'):
