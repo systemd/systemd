@@ -515,7 +515,8 @@ static BOOLEAN menu_run(
         UINTN idx_last;
         BOOLEAN refresh = TRUE;
         BOOLEAN highlight = FALSE;
-        UINTN line_width;
+        UINTN line_width = 0;
+        UINTN entry_padding = 3;
         CHAR16 **lines;
         UINTN x_start;
         UINTN y_start;
@@ -565,16 +566,9 @@ static BOOLEAN menu_run(
         idx_last = idx_first + visible_max - 1;
 
         /* length of the longest entry */
-        line_width = 5;
-        for (UINTN i = 0; i < config->entry_count; i++) {
-                UINTN entry_len;
-
-                entry_len = StrLen(config->entries[i]->title_show);
-                if (line_width < entry_len)
-                        line_width = entry_len;
-        }
-        if (line_width > x_max-6)
-                line_width = x_max-6;
+        for (UINTN i = 0; i < config->entry_count; i++)
+                line_width = MAX(line_width, StrLen(config->entries[i]->title_show));
+        line_width = MIN(line_width + 2 * entry_padding, x_max);
 
         /* offsets to center the entries on the screen */
         x_start = (x_max - (line_width)) / 2;
@@ -588,16 +582,18 @@ static BOOLEAN menu_run(
         for (UINTN i = 0; i < config->entry_count; i++) {
                 UINTN j;
 
-                lines[i] = AllocatePool(((x_max+1) * sizeof(CHAR16)));
-                for (j = 0; j < x_start; j++)
+                lines[i] = AllocatePool(((line_width + 1) * sizeof(CHAR16)));
+                UINTN padding = (line_width - MIN(StrLen(config->entries[i]->title_show), line_width)) / 2;
+
+                for (j = 0; j < padding; j++)
                         lines[i][j] = ' ';
 
-                for (UINTN k = 0; config->entries[i]->title_show[k] != '\0' && j < x_max; j++, k++)
+                for (UINTN k = 0; config->entries[i]->title_show[k] != '\0' && j < line_width; j++, k++)
                         lines[i][j] = config->entries[i]->title_show[k];
 
-                for (; j < x_max; j++)
+                for (; j < line_width; j++)
                         lines[i][j] = ' ';
-                lines[i][x_max] = '\0';
+                lines[i][line_width] = '\0';
         }
 
         clearline = AllocatePool((x_max+1) * sizeof(CHAR16));
@@ -612,22 +608,22 @@ static BOOLEAN menu_run(
                         for (UINTN i = 0; i < config->entry_count; i++) {
                                 if (i < idx_first || i > idx_last)
                                         continue;
-                                print_at(0, y_start + i - idx_first,
+                                print_at(x_start, y_start + i - idx_first,
                                          (i == idx_highlight) ? COLOR_HIGHLIGHT : COLOR_NORMAL,
                                          lines[i]);
                                 if ((INTN)i == config->idx_default_efivar)
-                                        print_at(x_start - 3, y_start + i - idx_first,
+                                        print_at(x_start, y_start + i - idx_first,
                                                  (i == idx_highlight) ? COLOR_HIGHLIGHT : COLOR_NORMAL,
                                                  (CHAR16*) L"=>");
                         }
                         refresh = FALSE;
                 } else if (highlight) {
-                        print_at(0, y_start + idx_highlight_prev - idx_first, COLOR_NORMAL, lines[idx_highlight_prev]);
-                        print_at(0, y_start + idx_highlight - idx_first, COLOR_HIGHLIGHT, lines[idx_highlight]);
+                        print_at(x_start, y_start + idx_highlight_prev - idx_first, COLOR_NORMAL, lines[idx_highlight_prev]);
+                        print_at(x_start, y_start + idx_highlight - idx_first, COLOR_HIGHLIGHT, lines[idx_highlight]);
                         if ((INTN)idx_highlight_prev == config->idx_default_efivar)
-                                print_at(x_start-3, y_start + idx_highlight_prev - idx_first, COLOR_NORMAL, (CHAR16*) L"=>");
+                                print_at(x_start , y_start + idx_highlight_prev - idx_first, COLOR_NORMAL, (CHAR16*) L"=>");
                         if ((INTN)idx_highlight == config->idx_default_efivar)
-                                print_at(x_start-3, y_start + idx_highlight - idx_first, COLOR_HIGHLIGHT, (CHAR16*) L"=>");
+                                print_at(x_start, y_start + idx_highlight - idx_first, COLOR_HIGHLIGHT, (CHAR16*) L"=>");
                         highlight = FALSE;
                 }
 
