@@ -992,6 +992,12 @@ static int dhcp4_request_address(Link *link, bool announce) {
         addr->route_metric = link->network->dhcp_route_metric;
         addr->duplicate_address_detection = link->network->dhcp_send_decline ? ADDRESS_FAMILY_IPV4 : ADDRESS_FAMILY_NO;
 
+        log_link_info(link, "TOTO dhcp4_request_address %s", link->network->dhcp_label);
+        if (link->network->dhcp_label) {
+                log_link_info(link, "TOTO dhcp4_request_address 2");
+                addr->label = link->network->dhcp_label;
+        }
+
         if (address_get(link, addr, NULL) < 0)
                 link->dhcp4_configured = false;
 
@@ -1874,6 +1880,36 @@ int config_parse_dhcp_fallback_lease_lifetime(const char *unit,
         network->dhcp_fallback_lease_lifetime = k;
 
         return 0;
+}
+
+int config_parse_dhcp_label(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        char **s = data;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        if (!address_label_valid(rvalue)) {
+                log_syntax(unit, LOG_WARNING, filename, line, 0,
+                           "Address label is too long or invalid, ignoring assignment: %s", rvalue);
+                return 0;
+        }
+        log_syntax(unit, LOG_WARNING, filename, line, 0,
+                   "TOTO config_parse_dhcp_label %s", rvalue);
+
+        return free_and_strdup_warn(s, empty_to_null(rvalue));
 }
 
 static const char* const dhcp_client_identifier_table[_DHCP_CLIENT_ID_MAX] = {
