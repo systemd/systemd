@@ -103,6 +103,13 @@ if have_gnu_efi
         efi_conf.set10('ENABLE_TPM', get_option('tpm'))
         efi_conf.set('SD_TPM_PCR', get_option('tpm-pcrindex'))
 
+        foreach ctype : ['color-normal', 'color-entry', 'color-highlight', 'color-edit']
+                c = get_option('efi-' + ctype).split(',')
+                fg = 'EFI_' + c[0].strip().underscorify().to_upper()
+                bg = 'EFI_BACKGROUND_' + c[1].strip().underscorify().to_upper()
+                efi_conf.set(ctype.underscorify().to_upper(), '(' + fg + '|' + bg + ')')
+        endforeach
+
         if get_option('sbat-distro') != ''
                 efi_conf.set_quoted('SBAT_PROJECT', meson.project_name())
                 efi_conf.set_quoted('PROJECT_VERSION', meson.project_version())
