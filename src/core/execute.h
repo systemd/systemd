@@ -252,8 +252,8 @@ struct ExecContext {
         char *selinux_context;
         char *apparmor_profile;
         char *smack_process_label;
-
         char **read_write_paths, **read_only_paths, **inaccessible_paths, **exec_paths, **no_exec_paths;
+        char **exec_search_paths;
         unsigned long mount_flags;
         BindMount *bind_mounts;
         size_t n_bind_mounts;
