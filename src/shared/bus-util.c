@@ -88,7 +88,7 @@ int bus_event_loop_with_idle(
         assert(name);
 
         for (;;) {
-                bool idle;
+                bool idle = true;
 
                 r = sd_event_get_state(e);
                 if (r < 0)
@@ -98,8 +98,6 @@ int bus_event_loop_with_idle(
 
                 if (check_idle)
                         idle = check_idle(userdata);
-                else
-                        idle = true;
 
                 r = sd_event_run(e, exiting || !idle ? UINT64_MAX : timeout);
                 if (r < 0)
