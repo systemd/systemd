@@ -4150,6 +4150,7 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
         self.assertRegex(output, '12:34:56:78:9a:bc')
         self.assertRegex(output, '192.168.5')
         self.assertRegex(output, '1492')
+        self.assertRegex(output, 'test-label')
 
         print('## ip route show table main dev veth99')
         output = check_output('ip route show table main dev veth99')
