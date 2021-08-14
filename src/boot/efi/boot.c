@@ -1425,6 +1425,7 @@ static VOID config_load_defaults(Config *config, EFI_FILE *root_dir) {
                 .auto_entries = TRUE,
                 .auto_firmware = TRUE,
                 .random_seed_mode = RANDOM_SEED_WITH_SYSTEM_TOKEN,
+                .idx_default_efivar = -1,
         };
 
         err = file_read(root_dir, L"\\loader\\loader.conf", 0, 0, &content, NULL);
@@ -1564,7 +1565,7 @@ static INTN config_entry_find(Config *config, CHAR16 *id) {
 }
 
 static VOID config_default_entry_select(Config *config) {
-        _cleanup_freepool_ CHAR16 *entry_oneshot = NULL, *entry_default = NULL;
+        _cleanup_freepool_ CHAR16 *entry_default = NULL;
         EFI_STATUS err;
         INTN i;
 
@@ -1574,13 +1575,11 @@ static VOID config_default_entry_select(Config *config) {
          * The EFI variable to specify a boot entry for the next, and only the
          * next reboot. The variable is always cleared directly after it is read.
          */
-        err = efivar_get(LOADER_GUID, L"LoaderEntryOneShot", &entry_oneshot);
+        err = efivar_get(LOADER_GUID, L"LoaderEntryOneShot", &config->entry_oneshot);
         if (!EFI_ERROR(err)) {
-
-                config->entry_oneshot = StrDuplicate(entry_oneshot);
                 efivar_set(LOADER_GUID, L"LoaderEntryOneShot", NULL, EFI_VARIABLE_NON_VOLATILE);
 
-                i = config_entry_find(config, entry_oneshot);
+                i = config_entry_find(config, config->entry_oneshot);
                 if (i >= 0) {
                         config->idx_default = i;
                         return;
@@ -1594,7 +1593,6 @@ static VOID config_default_entry_select(Config *config) {
          */
         err = efivar_get(LOADER_GUID, L"LoaderEntryDefault", &entry_default);
         if (!EFI_ERROR(err)) {
-
                 i = config_entry_find(config, entry_default);
                 if (i >= 0) {
                         config->idx_default = i;
@@ -1602,7 +1600,6 @@ static VOID config_default_entry_select(Config *config) {
                         return;
                 }
         }
-        config->idx_default_efivar = -1;
 
         if (config->entry_count == 0)
                 return;
