@@ -4350,7 +4350,8 @@ static int exec_child(
 
         _cleanup_free_ char *executable = NULL;
         _cleanup_close_ int executable_fd = -1;
-        r = find_executable_full(command->path, /* root= */ NULL, false, &executable, &executable_fd);
+        r = find_executable_full(
+                command->path, /* root= */ NULL, context->exec_search_paths, false, &executable, &executable_fd);
         if (r < 0) {
                 if (r != -ENOMEM && (command->flags & EXEC_COMMAND_IGNORE_FAILURE)) {
                         log_unit_struct_errno(unit, LOG_INFO, r,
@@ -5597,6 +5598,7 @@ void exec_context_dump(const ExecContext *c, FILE* f, const char *prefix) {
         strv_dump(f, prefix, "InaccessiblePaths", c->inaccessible_paths);
         strv_dump(f, prefix, "ExecPaths", c->exec_paths);
         strv_dump(f, prefix, "NoExecPaths", c->no_exec_paths);
+        strv_dump(f, prefix, "ExecSearchPaths", c->exec_search_paths);
 
         for (size_t i = 0; i < c->n_bind_mounts; i++)
                 fprintf(f, "%s%s: %s%s:%s:%s\n", prefix,
