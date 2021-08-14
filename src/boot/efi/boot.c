@@ -673,12 +673,14 @@ static BOOLEAN menu_run(
                 switch (key) {
                 case KEYPRESS(0, SCAN_UP, 0):
                 case KEYPRESS(0, 0, 'k'):
+                case KEYPRESS(0, 0, 'K'):
                         if (idx_highlight > 0)
                                 idx_highlight--;
                         break;
 
                 case KEYPRESS(0, SCAN_DOWN, 0):
                 case KEYPRESS(0, 0, 'j'):
+                case KEYPRESS(0, 0, 'J'):
                         if (idx_highlight < config->entry_count-1)
                                 idx_highlight++;
                         break;
@@ -722,8 +724,10 @@ static BOOLEAN menu_run(
 
                 case KEYPRESS(0, SCAN_F1, 0):
                 case KEYPRESS(0, 0, 'h'):
+                case KEYPRESS(0, 0, 'H'):
                 case KEYPRESS(0, 0, '?'):
-                        status = StrDuplicate(L"(d)efault, (t/T)timeout, (e)dit, (v)ersion (Q)uit (P)rint (h)elp");
+                        /* This must stay below 80 characters! Q/v/Ctrl+l deliberately not advertised. */
+                        status = StrDuplicate(L"(d)efault (t/T)timeout (e)dit (p)rint (h)elp");
                         break;
 
                 case KEYPRESS(0, 0, 'Q'):
@@ -732,6 +736,7 @@ static BOOLEAN menu_run(
                         break;
 
                 case KEYPRESS(0, 0, 'd'):
+                case KEYPRESS(0, 0, 'D'):
                         if (config->idx_default_efivar != (INTN)idx_highlight) {
                                 /* store the selected entry in a persistent EFI variable */
                                 efivar_set(
@@ -793,6 +798,7 @@ static BOOLEAN menu_run(
                         break;
 
                 case KEYPRESS(0, 0, 'e'):
+                case KEYPRESS(0, 0, 'E'):
                         /* only the options of configured entries can be edited */
                         if (!config->editor || config->entries[idx_highlight]->type == LOADER_UNDEFINED)
                                 break;
@@ -808,6 +814,7 @@ static BOOLEAN menu_run(
                                            ST->FirmwareVendor, ST->FirmwareRevision >> 16, ST->FirmwareRevision & 0xffff);
                         break;
 
+                case KEYPRESS(0, 0, 'p'):
                 case KEYPRESS(0, 0, 'P'):
                         print_status(config, loaded_image_path);
                         refresh = TRUE;
