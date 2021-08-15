@@ -522,3 +522,8 @@ VOID print_at(UINTN x, UINTN y, UINTN attr, const CHAR16 *str) {
         uefi_call_wrapper(ST->ConOut->SetAttribute, 2, ST->ConOut, attr);
         uefi_call_wrapper(ST->ConOut->OutputString, 2, ST->ConOut, (CHAR16*)str);
 }
+
+VOID clear_screen(UINTN attr) {
+        uefi_call_wrapper(ST->ConOut->SetAttribute, 2, ST->ConOut, attr);
+        uefi_call_wrapper(ST->ConOut->ClearScreen, 1, ST->ConOut);
+}
