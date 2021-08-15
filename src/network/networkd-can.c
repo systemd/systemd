@@ -10,7 +10,7 @@
 #include "parse-util.h"
 #include "string-util.h"
 
-#define CAN_TERMINATION_OHM_VALUE 120
+#define CAN_TERMINATION_DEFAULT_OHM_VALUE 120
 
 int can_set_netlink_message(Link *link, sd_netlink_message *m) {
         int r;
@@ -90,11 +90,10 @@ int can_set_netlink_message(Link *link, sd_netlink_message *m) {
                         return log_link_debug_errno(link, r, "Could not append IFLA_CAN_CTRLMODE attribute: %m");
         }
 
-        if (link->network->can_termination >= 0) {
-                log_link_debug(link, "Setting can-termination to '%s'.", yes_no(link->network->can_termination));
+        if (link->network->can_termination_set) {
+                log_link_debug(link, "Setting can-termination to '%u'.", link->network->can_termination);
 
-                r = sd_netlink_message_append_u16(m, IFLA_CAN_TERMINATION,
-                                link->network->can_termination ? CAN_TERMINATION_OHM_VALUE : 0);
+                r = sd_netlink_message_append_u16(m, IFLA_CAN_TERMINATION, link->network->can_termination);
                 if (r < 0)
                         return log_link_debug_errno(link, r, "Could not append IFLA_CAN_TERMINATION attribute: %m");
         }
@@ -225,5 +224,51 @@ int config_parse_can_control_mode(
 
         network->can_control_mode_mask |= mask;
         SET_FLAG(network->can_control_mode_flags, mask, r);
+        return 0;
+}
+
+int config_parse_can_termination(
+                const char* unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        Network *network = userdata;
+        int r;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        if (isempty(rvalue)) {
+                network->can_termination_set = false;
+                return 0;
+        }
+
+        /* Note that 0 termination ohm value means no termination resistor, and there is no conflict
+         * between parse_boolean() and safe_atou16() when Termination=0. However, Termination=1 must be
+         * treated as 1 ohm, instead of true (and then the default ohm value). So, we need to parse the
+         * string with safe_atou16() at first. */
+
+        r = safe_atou16(rvalue, &network->can_termination);
+        if (r < 0) {
+                r = parse_boolean(rvalue);
+                if (r < 0) {
+                        log_syntax(unit, LOG_WARNING, filename, line, r,
+                                   "Failed to parse CAN termination value, ignoring: %s", rvalue);
+                        return 0;
+                }
+
+                network->can_termination = r ? CAN_TERMINATION_DEFAULT_OHM_VALUE : 0;
+        }
+
+        network->can_termination_set = true;
         return 0;
 }

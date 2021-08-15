@@ -271,7 +271,8 @@ struct Network {
         usec_t can_restart_us;
         uint32_t can_control_mode_mask;
         uint32_t can_control_mode_flags;
-        int can_termination;
+        uint16_t can_termination;
+        bool can_termination_set;
 
         /* sysctl settings */
         AddressFamily ip_forward;

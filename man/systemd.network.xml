@@ -3005,8 +3005,10 @@ IPv6Token=prefixstable:2002:da8:1::</programlisting></para>
         <varlistentry>
           <term><varname>Termination=</varname></term>
           <listitem>
-            <para>Takes a boolean. When <literal>yes</literal>, the termination resistor will be selected for
-            the bias network. When unset, the kernel's default will be used.</para>
+            <para>Takes a boolean or a termination resistor value in ohm in the range 0–65535. When
+            <literal>yes</literal>, the termination resistor is set to 120 ohm. When
+            <literal>no</literal> or <literal>0</literal> is set, the termination resistor is disabled.
+            When unset, the kernel's default will be used.</para>
           </listitem>
         </varlistentry>
         <varlistentry>
