@@ -639,8 +639,58 @@ static int check_x_access(const char *path, int *ret_fd) {
         return 0;
 }
 
-int find_executable_full(const char *name, const char *root, bool use_path_envvar, char **ret_filename, int *ret_fd) {
-        int last_error, r;
+static bool find_executable_from_path(const char *name, const char *root, const char *element, int *last_error_addr, char **ret_filename, int *ret_fd, int fd) {
+        int r;
+        _cleanup_free_ char *dup_element = strdup(element);
+
+        assert(element);
+
+        if (!path_is_absolute(dup_element))
+                return false;
+
+        if (!path_extend(&dup_element, name))
+                return false;
+
+        if (root) {
+                char *path_name;
+
+                r = chase_symlinks(
+                        dup_element,
+                        root,
+                        CHASE_PREFIX_ROOT,
+                        &path_name,
+                        /* ret_fd= */ NULL);
+                if (r < 0) {
+                        if (r != -EACCES)
+                                *last_error_addr = r;
+                        return false;
+                }
+
+                free_and_replace(dup_element, path_name);
+        }
+
+        r = check_x_access(dup_element, ret_fd ? &fd : NULL);
+        if (r < 0) {
+                /* PATH entries which we don't have access to are ignored, as per tradition. */
+                if (r != -EACCES)
+                        *last_error_addr = r;
+                return false;
+        }
+
+        /* Found it! */
+        if (ret_filename) {
+                *ret_filename = path_simplify(TAKE_PTR(dup_element));
+        }
+        if (ret_fd) {
+                int dup_fd = dup(fd);
+                *ret_fd = TAKE_FD(dup_fd);
+        }
+        return true;
+}
+
+int find_executable_full(const char *name, const char *root, char **exec_search_paths, bool use_path_envvar, char **ret_filename, int *ret_fd) {
+        int last_error = -ENOENT;
+        int r;
         const char *p = NULL;
 
         assert(name);
@@ -683,14 +733,22 @@ int find_executable_full(const char *name, const char *root, bool use_path_envva
                 return 0;
         }
 
+        if (exec_search_paths) {
+                char **element;
+                _cleanup_close_ int fd = -1;
+                STRV_FOREACH(element, exec_search_paths) {
+                        if (find_executable_from_path(name, root, *element, &last_error, ret_filename, ret_fd, fd))
+                                return 0;
+                }
+                return last_error;
+        }
+
         if (use_path_envvar)
                 /* Plain getenv, not secure_getenv, because we want to actually allow the user to pick the
                  * binary. */
                 p = getenv("PATH");
         if (!p)
                 p = DEFAULT_PATH;
-
-        last_error = -ENOENT;
 
         /* Resolve a single-component name to a full path */
         for (;;) {
@@ -703,44 +761,8 @@ int find_executable_full(const char *name, const char *root, bool use_path_envva
                 if (r == 0)
                         break;
 
-                if (!path_is_absolute(element))
-                        continue;
-
-                if (!path_extend(&element, name))
-                        return -ENOMEM;
-
-                if (root) {
-                        char *path_name;
-
-                        r = chase_symlinks(element,
-                                           root,
-                                           CHASE_PREFIX_ROOT,
-                                           &path_name,
-                                           /* ret_fd= */ NULL);
-                        if (r < 0) {
-                                if (r != -EACCES)
-                                        last_error = r;
-                                continue;
-                        }
-
-                        free_and_replace(element, path_name);
-                }
-
-                r = check_x_access(element, ret_fd ? &fd : NULL);
-                if (r < 0) {
-                        /* PATH entries which we don't have access to are ignored, as per tradition. */
-                        if (r != -EACCES)
-                                last_error = r;
-                        continue;
-                }
-
-                /* Found it! */
-                if (ret_filename)
-                        *ret_filename = path_simplify(TAKE_PTR(element));
-                if (ret_fd)
-                        *ret_fd = TAKE_FD(fd);
-
-                return 0;
+                if (find_executable_from_path(name, root, element, &last_error, ret_filename, ret_fd, fd))
+                        return 0;
         }
 
         return last_error;
