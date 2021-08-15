@@ -31,7 +31,7 @@ int can_set_netlink_message(Link *link, sd_netlink_message *m) {
         if (r < 0)
                 return log_link_debug_errno(link, r, "Could not open IFLA_INFO_DATA container: %m");
 
-        if (link->network->can_bitrate > 0 || link->network->can_sample_point > 0) {
+        if (link->network->can_bitrate > 0) {
                 struct can_bittiming bt = {
                         .bitrate = link->network->can_bitrate,
                         .sample_point = link->network->can_sample_point,
@@ -48,7 +48,7 @@ int can_set_netlink_message(Link *link, sd_netlink_message *m) {
                         return log_link_debug_errno(link, r, "Could not append IFLA_CAN_BITTIMING attribute: %m");
         }
 
-        if (link->network->can_data_bitrate > 0 || link->network->can_data_sample_point > 0) {
+        if (link->network->can_data_bitrate > 0) {
                 struct can_bittiming bt = {
                         .bitrate = link->network->can_data_bitrate,
                         .sample_point = link->network->can_data_sample_point,
