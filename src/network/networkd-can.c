@@ -13,7 +13,6 @@
 #define CAN_TERMINATION_OHM_VALUE 120
 
 int can_set_netlink_message(Link *link, sd_netlink_message *m) {
-        struct can_ctrlmode cm = {};
         int r;
 
         assert(link);
@@ -80,37 +79,12 @@ int can_set_netlink_message(Link *link, sd_netlink_message *m) {
                         return log_link_debug_errno(link, r, "Could not append IFLA_CAN_RESTART_MS attribute: %m");
         }
 
-        if (link->network->can_fd_mode >= 0) {
-                cm.mask |= CAN_CTRLMODE_FD;
-                SET_FLAG(cm.flags, CAN_CTRLMODE_FD, link->network->can_fd_mode);
-                log_link_debug(link, "Setting FD mode to '%s'.", yes_no(link->network->can_fd_mode));
-        }
+        if (link->network->can_control_mode_mask != 0) {
+                struct can_ctrlmode cm = {
+                        .mask = link->network->can_control_mode_mask,
+                        .flags = link->network->can_control_mode_flags,
+                };
 
-        if (link->network->can_non_iso >= 0) {
-                cm.mask |= CAN_CTRLMODE_FD_NON_ISO;
-                SET_FLAG(cm.flags, CAN_CTRLMODE_FD_NON_ISO, link->network->can_non_iso);
-                log_link_debug(link, "Setting FD non-ISO mode to '%s'.", yes_no(link->network->can_non_iso));
-        }
-
-        if (link->network->can_triple_sampling >= 0) {
-                cm.mask |= CAN_CTRLMODE_3_SAMPLES;
-                SET_FLAG(cm.flags, CAN_CTRLMODE_3_SAMPLES, link->network->can_triple_sampling);
-                log_link_debug(link, "Setting triple-sampling to '%s'.", yes_no(link->network->can_triple_sampling));
-        }
-
-        if (link->network->can_berr_reporting >= 0) {
-                cm.mask |= CAN_CTRLMODE_BERR_REPORTING;
-                SET_FLAG(cm.flags, CAN_CTRLMODE_BERR_REPORTING, link->network->can_berr_reporting);
-                log_link_debug(link, "Setting bus error reporting to '%s'.", yes_no(link->network->can_berr_reporting));
-        }
-
-        if (link->network->can_listen_only >= 0) {
-                cm.mask |= CAN_CTRLMODE_LISTENONLY;
-                SET_FLAG(cm.flags, CAN_CTRLMODE_LISTENONLY, link->network->can_listen_only);
-                log_link_debug(link, "Setting listen-only mode to '%s'.", yes_no(link->network->can_listen_only));
-        }
-
-        if (cm.mask != 0) {
                 r = sd_netlink_message_append_data(m, IFLA_CAN_CTRLMODE, &cm, sizeof(cm));
                 if (r < 0)
                         return log_link_debug_errno(link, r, "Could not append IFLA_CAN_CTRLMODE attribute: %m");
@@ -211,5 +185,45 @@ int config_parse_can_restart_usec(
         }
 
         *restart_usec = usec;
+        return 0;
+}
+
+int config_parse_can_control_mode(
+                const char* unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        Network *network = userdata;
+        uint32_t mask = ltype;
+        int r;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(userdata);
+        assert(mask != 0);
+
+        if (isempty(rvalue)) {
+                network->can_control_mode_mask &= ~mask;
+                network->can_control_mode_flags &= ~mask;
+                return 0;
+        }
+
+        r = parse_boolean(rvalue);
+        if (r < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, r,
+                           "Failed to parse CAN control mode '%s', ignoring: %s", lvalue, rvalue);
+                return 0;
+        }
+
+        network->can_control_mode_mask |= mask;
+        SET_FLAG(network->can_control_mode_flags, mask, r);
         return 0;
 }

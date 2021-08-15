@@ -269,12 +269,9 @@ struct Network {
         uint32_t can_data_bitrate;
         unsigned can_data_sample_point;
         usec_t can_restart_us;
-        int can_triple_sampling;
-        int can_berr_reporting;
+        uint32_t can_control_mode_mask;
+        uint32_t can_control_mode_flags;
         int can_termination;
-        int can_listen_only;
-        int can_fd_mode;
-        int can_non_iso;
 
         /* sysctl settings */
         AddressFamily ip_forward;
