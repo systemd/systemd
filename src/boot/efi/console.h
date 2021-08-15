@@ -21,6 +21,7 @@ enum {
 
         /* These are our own mode values that map to concrete values at runtime. */
         CONSOLE_MODE_KEEP = CONSOLE_MODE_RANGE_MAX + 1LL,
+        CONSOLE_MODE_NEXT,
         CONSOLE_MODE_AUTO,
         CONSOLE_MODE_FIRMWARE_MAX, /* 'max' in config. */
 };
