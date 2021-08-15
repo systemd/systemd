@@ -347,8 +347,18 @@ IPv6RoutePrefix.LifetimeSec,                 config_parse_route_prefix_lifetime,
 LLDP.MUDURL,                                 config_parse_mud_url,                                     0,                             offsetof(Network, lldp_mud)
 CAN.BitRate,                                 config_parse_can_bitrate,                                 0,                             offsetof(Network, can_bitrate)
 CAN.SamplePoint,                             config_parse_permille,                                    0,                             offsetof(Network, can_sample_point)
+CAN.TimeQuantaNSec,                          config_parse_can_time_quanta,                             0,                             offsetof(Network, can_time_quanta_ns)
+CAN.PropagationSegment,                      config_parse_uint32,                                      0,                             offsetof(Network, can_propagation_segment)
+CAN.PhaseBufferSegment1,                     config_parse_uint32,                                      0,                             offsetof(Network, can_phase_buffer_segment_1)
+CAN.PhaseBufferSegment2,                     config_parse_uint32,                                      0,                             offsetof(Network, can_phase_buffer_segment_2)
+CAN.SyncJumpWidth,                           config_parse_uint32,                                      0,                             offsetof(Network, can_sync_jump_width)
 CAN.DataBitRate,                             config_parse_can_bitrate,                                 0,                             offsetof(Network, can_data_bitrate)
 CAN.DataSamplePoint,                         config_parse_permille,                                    0,                             offsetof(Network, can_data_sample_point)
+CAN.DataTimeQuantaNSec,                      config_parse_can_time_quanta,                             0,                             offsetof(Network, can_data_time_quanta_ns)
+CAN.DataPropagationSegment,                  config_parse_uint32,                                      0,                             offsetof(Network, can_data_propagation_segment)
+CAN.DataPhaseBufferSegment1,                 config_parse_uint32,                                      0,                             offsetof(Network, can_data_phase_buffer_segment_1)
+CAN.DataPhaseBufferSegment2,                 config_parse_uint32,                                      0,                             offsetof(Network, can_data_phase_buffer_segment_2)
+CAN.DataSyncJumpWidth,                       config_parse_uint32,                                      0,                             offsetof(Network, can_data_sync_jump_width)
 CAN.RestartSec,                              config_parse_can_restart_usec,                            0,                             offsetof(Network, can_restart_us)
 CAN.Loopback,                                config_parse_can_control_mode,                            CAN_CTRLMODE_LOOPBACK,         0
 CAN.ListenOnly,                              config_parse_can_control_mode,                            CAN_CTRLMODE_LISTENONLY,       0

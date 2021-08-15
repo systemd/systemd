@@ -266,8 +266,18 @@ struct Network {
         /* CAN support */
         uint32_t can_bitrate;
         unsigned can_sample_point;
+        nsec_t can_time_quanta_ns;
+        uint32_t can_propagation_segment;
+        uint32_t can_phase_buffer_segment_1;
+        uint32_t can_phase_buffer_segment_2;
+        uint32_t can_sync_jump_width;
         uint32_t can_data_bitrate;
         unsigned can_data_sample_point;
+        nsec_t can_data_time_quanta_ns;
+        uint32_t can_data_propagation_segment;
+        uint32_t can_data_phase_buffer_segment_1;
+        uint32_t can_data_phase_buffer_segment_2;
+        uint32_t can_data_sync_jump_width;
         usec_t can_restart_us;
         uint32_t can_control_mode_mask;
         uint32_t can_control_mode_flags;
