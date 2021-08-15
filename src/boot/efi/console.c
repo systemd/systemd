@@ -195,6 +195,21 @@ EFI_STATUS console_set_mode(UINT32 mode) {
                         return change_mode(0);
                 return EFI_SUCCESS;
 
+        case CONSOLE_MODE_NEXT:
+                if (ST->ConOut->Mode->MaxMode <= 0)
+                        return EFI_UNSUPPORTED;
+
+                mode = ST->ConOut->Mode->Mode;
+                do {
+                        mode = (mode + 1) % ST->ConOut->Mode->MaxMode;
+                        if (!EFI_ERROR(change_mode(mode)))
+                                break;
+                        /* If this mode is broken/unsupported, try the next.
+                         * If mode is 0, we wrapped around and should stop. */
+                } while (mode > 0);
+
+                return EFI_SUCCESS;
+
         case CONSOLE_MODE_AUTO:
                 return change_mode(get_auto_mode());
 

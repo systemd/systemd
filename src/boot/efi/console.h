@@ -12,6 +12,7 @@
 enum console_mode_special {
         /* Valid UEFI console modes are 0..INT32_MAX. */
         CONSOLE_MODE_KEEP = INT32_MAX + 1U,
+        CONSOLE_MODE_NEXT,
         CONSOLE_MODE_AUTO,
         CONSOLE_MODE_AUTO_MAX,
         /* UEFI indicates -1 if the device is not in a valid text mode. */
