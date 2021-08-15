@@ -198,6 +198,21 @@ EFI_STATUS console_set_mode(INT64 mode) {
                         return change_mode(CONSOLE_MODE_RANGE_MIN);
                 return EFI_SUCCESS;
 
+        case CONSOLE_MODE_NEXT:
+                if (ST->ConOut->Mode->MaxMode <= CONSOLE_MODE_RANGE_MIN)
+                        return EFI_UNSUPPORTED;
+
+                mode = MAX(CONSOLE_MODE_RANGE_MIN, ST->ConOut->Mode->Mode);
+                do {
+                        mode = (mode + 1) % ST->ConOut->Mode->MaxMode;
+                        if (!EFI_ERROR(change_mode(mode)))
+                                break;
+                        /* If this mode is broken/unsupported, try the next.
+                         * If mode is 0, we wrapped around and should stop. */
+                } while (mode > CONSOLE_MODE_RANGE_MIN);
+
+                return EFI_SUCCESS;
+
         case CONSOLE_MODE_AUTO:
                 return change_mode(get_auto_mode());
 
