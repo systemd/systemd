@@ -1632,6 +1632,13 @@ IPv6Token=prefixstable:2002:da8:1::</programlisting></para>
         </varlistentry>
 
         <varlistentry>
+          <term><varname>Label=</varname></term>
+          <listitem>
+            <para>An address label.</para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
           <term><varname>MUDURL=</varname></term>
           <listitem>
             <para>When configured, the specified Manufacturer Usage Description (MUD) URL will be sent to the
