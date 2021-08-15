@@ -35,6 +35,7 @@ int can_set_netlink_message(Link *link, sd_netlink_message *m) {
                 struct can_bittiming bt = {
                         .bitrate = link->network->can_bitrate,
                         .sample_point = link->network->can_sample_point,
+                        .sjw = link->network->can_sync_jump_width,
                 };
 
                 log_link_debug(link, "Setting bitrate = %d bit/s", bt.bitrate);
@@ -46,12 +47,26 @@ int can_set_netlink_message(Link *link, sd_netlink_message *m) {
                 r = sd_netlink_message_append_data(m, IFLA_CAN_BITTIMING, &bt, sizeof(bt));
                 if (r < 0)
                         return log_link_debug_errno(link, r, "Could not append IFLA_CAN_BITTIMING attribute: %m");
+        } else if (link->network->can_time_quanta_ns > 0) {
+                struct can_bittiming bt = {
+                        .tq = link->network->can_time_quanta_ns,
+                        .prop_seg = link->network->can_propagation_segment,
+                        .phase_seg1 = link->network->can_phase_buffer_segment_1,
+                        .phase_seg2 = link->network->can_phase_buffer_segment_2,
+                        .sjw = link->network->can_sync_jump_width,
+                };
+
+                log_link_debug(link, "Setting time quanta = %"PRIu32" nsec", bt.tq);
+                r = sd_netlink_message_append_data(m, IFLA_CAN_BITTIMING, &bt, sizeof(bt));
+                if (r < 0)
+                        return log_link_debug_errno(link, r, "Could not append IFLA_CAN_BITTIMING attribute: %m");
         }
 
         if (link->network->can_data_bitrate > 0) {
                 struct can_bittiming bt = {
                         .bitrate = link->network->can_data_bitrate,
                         .sample_point = link->network->can_data_sample_point,
+                        .sjw = link->network->can_data_sync_jump_width,
                 };
 
                 log_link_debug(link, "Setting data bitrate = %d bit/s", bt.bitrate);
@@ -60,6 +75,19 @@ int can_set_netlink_message(Link *link, sd_netlink_message *m) {
                 else
                         log_link_debug(link, "Using default data sample point");
 
+                r = sd_netlink_message_append_data(m, IFLA_CAN_DATA_BITTIMING, &bt, sizeof(bt));
+                if (r < 0)
+                        return log_link_debug_errno(link, r, "Could not append IFLA_CAN_DATA_BITTIMING attribute: %m");
+        } else if (link->network->can_data_time_quanta_ns > 0) {
+                struct can_bittiming bt = {
+                        .tq = link->network->can_data_time_quanta_ns,
+                        .prop_seg = link->network->can_data_propagation_segment,
+                        .phase_seg1 = link->network->can_data_phase_buffer_segment_1,
+                        .phase_seg2 = link->network->can_data_phase_buffer_segment_2,
+                        .sjw = link->network->can_data_sync_jump_width,
+                };
+
+                log_link_debug(link, "Setting data time quanta = %"PRIu32" nsec", bt.tq);
                 r = sd_netlink_message_append_data(m, IFLA_CAN_DATA_BITTIMING, &bt, sizeof(bt));
                 if (r < 0)
                         return log_link_debug_errno(link, r, "Could not append IFLA_CAN_DATA_BITTIMING attribute: %m");
@@ -146,6 +174,44 @@ int config_parse_can_bitrate(
 
         *br = (uint32_t) sz;
 
+        return 0;
+}
+
+int config_parse_can_time_quanta(
+                const char* unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        nsec_t val, *tq = data;
+        int r;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        r = parse_nsec(rvalue, &val);
+        if (r < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, r,
+                           "Failed to parse can time quanta '%s', ignoring: %m", rvalue);
+                return 0;
+        }
+
+        /* Linux uses __u32 for bitrates, so the value should not exceed that. */
+        if (val <= 0 || val > UINT32_MAX) {
+                log_syntax(unit, LOG_WARNING, filename, line, 0,
+                           "Time quanta out of permitted range 1...4294967295");
+                return 0;
+        }
+
+        *tq = val;
         return 0;
 }
 
