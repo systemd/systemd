@@ -12,6 +12,7 @@
 enum console_mode_special {
         CONSOLE_MODE_KEEP = INT32_MAX + 1U,
         CONSOLE_MODE_AUTO,
+        CONSOLE_MODE_NEXT,
         CONSOLE_MODE_MAX,
 };
 
