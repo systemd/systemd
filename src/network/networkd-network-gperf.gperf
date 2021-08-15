@@ -351,7 +351,7 @@ CAN.DataBitRate,                             config_parse_can_bitrate,          
 CAN.DataSamplePoint,                         config_parse_permille,                                    0,                             offsetof(Network, can_data_sample_point)
 CAN.FDMode,                                  config_parse_tristate,                                    0,                             offsetof(Network, can_fd_mode)
 CAN.FDNonISO,                                config_parse_tristate,                                    0,                             offsetof(Network, can_non_iso)
-CAN.RestartSec,                              config_parse_sec,                                         0,                             offsetof(Network, can_restart_us)
+CAN.RestartSec,                              config_parse_can_restart_usec,                            0,                             offsetof(Network, can_restart_us)
 CAN.TripleSampling,                          config_parse_tristate,                                    0,                             offsetof(Network, can_triple_sampling)
 CAN.BusErrorReporting,                       config_parse_tristate,                                    0,                             offsetof(Network, can_berr_reporting)
 CAN.Termination,                             config_parse_tristate,                                    0,                             offsetof(Network, can_termination)
