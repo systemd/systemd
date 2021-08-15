@@ -20,6 +20,7 @@ enum console_mode_special {
 
         /* These are our own mode values that map to concrete values at runtime. */
         CONSOLE_MODE_KEEP = CONSOLE_MODE_MAX + 1U,
+        CONSOLE_MODE_NEXT,
         CONSOLE_MODE_AUTO,
         CONSOLE_MODE_AUTO_MAX,
 };
