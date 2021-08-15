@@ -350,11 +350,15 @@ CAN.SamplePoint,                             config_parse_permille,             
 CAN.DataBitRate,                             config_parse_can_bitrate,                                 0,                             offsetof(Network, can_data_bitrate)
 CAN.DataSamplePoint,                         config_parse_permille,                                    0,                             offsetof(Network, can_data_sample_point)
 CAN.RestartSec,                              config_parse_can_restart_usec,                            0,                             offsetof(Network, can_restart_us)
+CAN.Loopback,                                config_parse_can_control_mode,                            CAN_CTRLMODE_LOOPBACK,         0
 CAN.ListenOnly,                              config_parse_can_control_mode,                            CAN_CTRLMODE_LISTENONLY,       0
 CAN.TripleSampling,                          config_parse_can_control_mode,                            CAN_CTRLMODE_3_SAMPLES,        0
+CAN.OneShot,                                 config_parse_can_control_mode,                            CAN_CTRLMODE_ONE_SHOT,         0
 CAN.BusErrorReporting,                       config_parse_can_control_mode,                            CAN_CTRLMODE_BERR_REPORTING,   0
 CAN.FDMode,                                  config_parse_can_control_mode,                            CAN_CTRLMODE_FD,               0
+CAN.PresumeACK,                              config_parse_can_control_mode,                            CAN_CTRLMODE_PRESUME_ACK,      0
 CAN.FDNonISO,                                config_parse_can_control_mode,                            CAN_CTRLMODE_FD_NON_ISO,       0
+CAN.ClassicDataLengthCode,                   config_parse_can_control_mode,                            CAN_CTRLMODE_CC_LEN8_DLC,      0
 CAN.Termination,                             config_parse_tristate,                                    0,                             offsetof(Network, can_termination)
 QDisc.Parent,                                config_parse_qdisc_parent,                                _QDISC_KIND_INVALID,           0
 QDisc.Handle,                                config_parse_qdisc_handle,                                _QDISC_KIND_INVALID,           0

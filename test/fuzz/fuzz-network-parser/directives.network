@@ -267,6 +267,10 @@ TripleSampling=
 BusErrorReporting=
 Termination=
 ListenOnly=
+Loopback=
+OneShot=
+PresumeACK=
+ClassicDataLengthCode=
 [Address]
 DuplicateAddressDetection=
 AutoJoin=

@@ -3036,6 +3036,36 @@ IPv6Token=prefixstable:2002:da8:1::</programlisting></para>
             </para>
           </listitem>
         </varlistentry>
+        <varlistentry>
+          <term><varname>Loopback=</varname></term>
+          <listitem>
+            <para>Takes a boolean. When <literal>yes</literal>, loopback mode is enabled. When the
+            loopback mode is enabled, the interface treats messages transmitted by itself as received
+            messages. The loopback mode is important to debug CAN networks. When unset, the kernel's
+            default will be used.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><varname>OneShot=</varname></term>
+          <listitem>
+            <para>Takes a boolean. When <literal>yes</literal>, one-shot mode is enabled. When unset,
+            the kernel's default will be used.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><varname>PresumeAck=</varname></term>
+          <listitem>
+            <para>Takes a boolean. When <literal>yes</literal>, the interface will ignore missing CAN
+            ACKs. When unset, the kernel's default will be used.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><varname>ClassicDataLengthCode=</varname></term>
+          <listitem>
+            <para>Takes a boolean. When <literal>yes</literal>, the interface will handle the 4bit data
+            length code (DLC). When unset, the kernel's default will be used.</para>
+          </listitem>
+        </varlistentry>
       </variablelist>
   </refsect1>
 
