@@ -69,8 +69,7 @@ typedef struct {
         BOOLEAN auto_entries;
         BOOLEAN auto_firmware;
         BOOLEAN force_menu;
-        UINTN console_mode;
-        enum console_mode_change_type console_mode_change;
+        INT64 console_mode;
         RandomSeedMode random_seed_mode;
 } Config;
 
@@ -370,7 +369,7 @@ static VOID print_status(Config *config, CHAR16 *loaded_image_path) {
         UINTN timeout;
         BOOLEAN modevar;
         _cleanup_freepool_ CHAR16 *partstr = NULL, *defaultstr = NULL;
-        UINTN x, y;
+        UINTN x_max, y_max;
 
         assert(config);
         assert(loaded_image_path);
@@ -378,16 +377,15 @@ static VOID print_status(Config *config, CHAR16 *loaded_image_path) {
         uefi_call_wrapper(ST->ConOut->SetAttribute, 2, ST->ConOut, COLOR_NORMAL);
         uefi_call_wrapper(ST->ConOut->ClearScreen, 1, ST->ConOut);
 
+        console_query_mode(&x_max, &y_max);
+
         Print(L"systemd-boot version:   " GIT_VERSION "\n");
         Print(L"architecture:           " EFI_MACHINE_TYPE_NAME "\n");
         Print(L"loaded image:           %s\n", loaded_image_path);
         Print(L"UEFI specification:     %d.%02d\n", ST->Hdr.Revision >> 16, ST->Hdr.Revision & 0xffff);
         Print(L"firmware vendor:        %s\n", ST->FirmwareVendor);
         Print(L"firmware version:       %d.%02d\n", ST->FirmwareRevision >> 16, ST->FirmwareRevision & 0xffff);
-
-        if (uefi_call_wrapper(ST->ConOut->QueryMode, 4, ST->ConOut, ST->ConOut->Mode->Mode, &x, &y) == EFI_SUCCESS)
-                Print(L"console size:           %d x %d\n", x, y);
-
+        Print(L"console size:           %d x %d\n", x_max, y_max);
         Print(L"SecureBoot:             %s\n", yes_no(secure_boot_enabled()));
 
         if (efivar_get_boolean_u8(EFI_GLOBAL_GUID, L"SetupMode", &modevar) == EFI_SUCCESS)
@@ -542,20 +540,11 @@ static BOOLEAN menu_run(
         /* draw a single character to make ClearScreen work on some firmware */
         Print(L" ");
 
-        if (config->console_mode_change != CONSOLE_MODE_KEEP) {
-                err = console_set_mode(&config->console_mode, config->console_mode_change);
-                if (EFI_ERROR(err)) {
-                        uefi_call_wrapper(ST->ConOut->ClearScreen, 1, ST->ConOut);
-                        log_error_stall(L"Error switching console mode to %lu: %r", (UINT64)config->console_mode, err);
-                }
-        } else
-                uefi_call_wrapper(ST->ConOut->ClearScreen, 1, ST->ConOut);
-
-        err = uefi_call_wrapper(ST->ConOut->QueryMode, 4, ST->ConOut, ST->ConOut->Mode->Mode, &x_max, &y_max);
-        if (EFI_ERROR(err)) {
-                x_max = 80;
-                y_max = 25;
-        }
+        err = console_set_mode(config->console_mode);
+        uefi_call_wrapper(ST->ConOut->ClearScreen, 1, ST->ConOut);
+        if (EFI_ERROR(err))
+                log_error_stall(L"Error switching console mode: %r", err);
+        console_query_mode(&x_max, &y_max);
 
         visible_max = y_max - 2;
 
@@ -1027,17 +1016,16 @@ static VOID config_defaults_load_from_file(Config *config, CHAR8 *content) {
 
                 if (strcmpa((CHAR8 *)"console-mode", key) == 0) {
                         if (strcmpa((CHAR8 *)"auto", value) == 0)
-                                config->console_mode_change = CONSOLE_MODE_AUTO;
+                                config->console_mode = CONSOLE_MODE_AUTO;
                         else if (strcmpa((CHAR8 *)"max", value) == 0)
-                                config->console_mode_change = CONSOLE_MODE_MAX;
+                                config->console_mode = CONSOLE_MODE_FIRMWARE_MAX;
                         else if (strcmpa((CHAR8 *)"keep", value)  == 0)
-                                config->console_mode_change = CONSOLE_MODE_KEEP;
+                                config->console_mode = CONSOLE_MODE_KEEP;
                         else {
                                 _cleanup_freepool_ CHAR16 *s = NULL;
 
                                 s = stra_to_str(value);
-                                config->console_mode = Atoi(s);
-                                config->console_mode_change = CONSOLE_MODE_SET;
+                                config->console_mode = MIN(Atoi(s), (UINTN)CONSOLE_MODE_RANGE_MAX);
                         }
 
                         continue;
@@ -1421,6 +1409,7 @@ static VOID config_load_defaults(Config *config, EFI_FILE *root_dir) {
                 .auto_firmware = TRUE,
                 .random_seed_mode = RANDOM_SEED_WITH_SYSTEM_TOKEN,
                 .idx_default_efivar = -1,
+                .console_mode = CONSOLE_MODE_KEEP,
         };
 
         err = file_read(root_dir, L"\\loader\\loader.conf", 0, 0, &content, NULL);
