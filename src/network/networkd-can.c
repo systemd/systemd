@@ -12,46 +12,6 @@
 
 #define CAN_TERMINATION_OHM_VALUE 120
 
-int config_parse_can_bitrate(
-                const char* unit,
-                const char *filename,
-                unsigned line,
-                const char *section,
-                unsigned section_line,
-                const char *lvalue,
-                int ltype,
-                const char *rvalue,
-                void *data,
-                void *userdata) {
-
-        uint32_t *br = data;
-        uint64_t sz;
-        int r;
-
-        assert(filename);
-        assert(lvalue);
-        assert(rvalue);
-        assert(data);
-
-        r = parse_size(rvalue, 1000, &sz);
-        if (r < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r,
-                           "Failed to parse can bitrate '%s', ignoring: %m", rvalue);
-                return 0;
-        }
-
-        /* Linux uses __u32 for bitrates, so the value should not exceed that. */
-        if (sz <= 0 || sz > UINT32_MAX) {
-                log_syntax(unit, LOG_WARNING, filename, line, 0,
-                           "Bit rate out of permitted range 1...4294967295");
-                return 0;
-        }
-
-        *br = (uint32_t) sz;
-
-        return 0;
-}
-
 int can_set_netlink_message(Link *link, sd_netlink_message *m) {
         struct can_ctrlmode cm = {};
         int r;
@@ -177,6 +137,46 @@ int can_set_netlink_message(Link *link, sd_netlink_message *m) {
         r = sd_netlink_message_close_container(m);
         if (r < 0)
                 return log_link_debug_errno(link, r, "Failed to close IFLA_LINKINFO container: %m");
+
+        return 0;
+}
+
+int config_parse_can_bitrate(
+                const char* unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        uint32_t *br = data;
+        uint64_t sz;
+        int r;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        r = parse_size(rvalue, 1000, &sz);
+        if (r < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, r,
+                           "Failed to parse can bitrate '%s', ignoring: %m", rvalue);
+                return 0;
+        }
+
+        /* Linux uses __u32 for bitrates, so the value should not exceed that. */
+        if (sz <= 0 || sz > UINT32_MAX) {
+                log_syntax(unit, LOG_WARNING, filename, line, 0,
+                           "Bit rate out of permitted range 1...4294967295");
+                return 0;
+        }
+
+        *br = (uint32_t) sz;
 
         return 0;
 }
