@@ -74,12 +74,7 @@ int can_set_netlink_message(Link *link, sd_netlink_message *m) {
                 else
                         restart_ms = DIV_ROUND_UP(link->network->can_restart_us, USEC_PER_MSEC);
 
-                if (restart_ms > UINT32_MAX)
-                        return log_link_debug_errno(link, SYNTHETIC_ERRNO(ERANGE), "restart timeout (%s) too big.",
-                                                    FORMAT_TIMESPAN(restart_ms * 1000, MSEC_PER_SEC));
-
                 log_link_debug(link, "Setting restart = %s", FORMAT_TIMESPAN(restart_ms * 1000, MSEC_PER_SEC));
-
                 r = sd_netlink_message_append_u32(m, IFLA_CAN_RESTART_MS, restart_ms);
                 if (r < 0)
                         return log_link_debug_errno(link, r, "Could not append IFLA_CAN_RESTART_MS attribute: %m");
@@ -178,5 +173,43 @@ int config_parse_can_bitrate(
 
         *br = (uint32_t) sz;
 
+        return 0;
+}
+
+int config_parse_can_restart_usec(
+                const char* unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        usec_t usec, *restart_usec = data;
+        int r;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        r = parse_sec(rvalue, &usec);
+        if (r < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, r,
+                           "Failed to parse CAN restart sec '%s', ignoring: %m", rvalue);
+                return 0;
+        }
+
+        if (usec != USEC_INFINITY &&
+            DIV_ROUND_UP(usec, USEC_PER_MSEC) > UINT32_MAX) {
+                log_syntax(unit, LOG_WARNING, filename, line, 0,
+                           "CAN RestartSec= must be in the range 0...%"PRIu32"ms, ignoring: %s", UINT32_MAX, rvalue);
+                return 0;
+        }
+
+        *restart_usec = usec;
         return 0;
 }
