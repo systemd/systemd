@@ -21,6 +21,8 @@
 #define EFI_OS_INDICATIONS_BOOT_TO_FW_UI 0x0000000000000001ULL
 #endif
 
+#define TEXT_ATTR_SWAP(c) EFI_TEXT_ATTR(((c) & 0b11110000) >> 4, (c) & 0b1111)
+
 /* magic string to find in the binary image */
 static const char _used_ _section_(".sdmagic") magic[] = "#### LoaderInfo: systemd-boot " GIT_VERSION " ####";
 
@@ -116,8 +118,6 @@ static BOOLEAN line_edit(
         len = StrLen(line);
         print = AllocatePool((x_max+1) * sizeof(CHAR16));
 
-        uefi_call_wrapper(ST->ConOut->EnableCursor, 2, ST->ConOut, TRUE);
-
         first = 0;
         cursor = 0;
         clear = 0;
@@ -127,24 +127,29 @@ static BOOLEAN line_edit(
                 EFI_STATUS err;
                 UINT64 key;
                 UINTN j;
+                UINTN cursor_color = TEXT_ATTR_SWAP(COLOR_EDIT);
 
-                j = len - first;
-                if (j >= x_max-1)
-                        j = x_max-1;
+                j = MIN(len - first, x_max);
                 CopyMem(print, line + first, j * sizeof(CHAR16));
-                while (clear > 0 && j < x_max-1) {
+                while (clear > 0 && j < x_max) {
                         clear--;
                         print[j++] = ' ';
                 }
                 print[j] = '\0';
 
-                /* See comment at call site. */
+                /* See comment at edit_line() call site for why we start at 1. */
                 print_at(1, y_pos, COLOR_EDIT, print);
-                uefi_call_wrapper(ST->ConOut->SetCursorPosition, 3, ST->ConOut, cursor + 1, y_pos);
 
-                err = console_key_read(&key, 0);
-                if (EFI_ERROR(err))
-                        continue;
+                if (!print[cursor])
+                        print[cursor] = ' ';
+                print[cursor+1] = '\0';
+                do {
+                        print_at(cursor + 1, y_pos, cursor_color, print + cursor);
+                        cursor_color = TEXT_ATTR_SWAP(cursor_color);
+
+                        err = console_key_read(&key, 750 * 1000);
+                        print_at(cursor + 1, y_pos, COLOR_EDIT, print + cursor);
+                } while (EFI_ERROR(err));
 
                 switch (key) {
                 case KEYPRESS(0, SCAN_ESC, 0):
@@ -330,7 +335,6 @@ static BOOLEAN line_edit(
                 }
         }
 
-        uefi_call_wrapper(ST->ConOut->EnableCursor, 2, ST->ConOut, FALSE);
         return enter;
 }
 
