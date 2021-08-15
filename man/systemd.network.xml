@@ -2966,7 +2966,8 @@ IPv6Token=prefixstable:2002:da8:1::</programlisting></para>
           <term><varname>SamplePoint=</varname></term>
           <listitem>
             <para>Optional sample point in percent with one decimal (e.g. <literal>75%</literal>,
-            <literal>87.5%</literal>) or permille (e.g. <literal>875‰</literal>).</para>
+            <literal>87.5%</literal>) or permille (e.g. <literal>875‰</literal>). This will be ignored when
+            <varname>BitRate=</varname> is unspecified.</para>
           </listitem>
         </varlistentry>
         <varlistentry>
