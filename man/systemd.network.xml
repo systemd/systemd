@@ -2962,6 +2962,23 @@ IPv6Token=prefixstable:2002:da8:1::</programlisting></para>
           </listitem>
         </varlistentry>
         <varlistentry>
+          <term><varname>TimeQuanta=</varname></term>
+          <term><varname>PropagationSegment=</varname></term>
+          <term><varname>PhaseBufferSegment1=</varname></term>
+          <term><varname>PhaseBufferSegment2=</varname></term>
+          <term><varname>SyncJumpWidth=</varname></term>
+          <listitem>
+            <para>Specifies the time quanta, propagation segment, phase buffer segment 1 and 2, and the
+            synchronization jump width, which allow to define the CAN bit-timing in a hardware
+            independent format as proposed by the Bosch CAN 2.0 Specification.
+            <varname>TimeQuanta=</varname> takes a timespan. <varname>PropagationSegment=</varname>,
+            <varname>PhaseBufferSegment1=</varname>, <varname>PhaseBufferSegment2=</varname>, and
+            <varname>SyncJumpWidth=</varname> takes an unsigned integer in the range 0…4294967295 in
+            the units of the time quanta. These settings except for <varname>SyncJumpWidth=</varname>
+            will be ignored when <varname>BitRate=</varname> is specified.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
           <term><varname>DataBitRate=</varname></term>
           <term><varname>DataSamplePoint=</varname></term>
           <listitem>
@@ -2970,11 +2987,24 @@ IPv6Token=prefixstable:2002:da8:1::</programlisting></para>
           </listitem>
         </varlistentry>
         <varlistentry>
+          <term><varname>DataTimeQuanta=</varname></term>
+          <term><varname>DataPropagationSegment=</varname></term>
+          <term><varname>DataPhaseBufferSegment1=</varname></term>
+          <term><varname>DataPhaseBufferSegment2=</varname></term>
+          <term><varname>DataSyncJumpWidth=</varname></term>
+          <listitem>
+            <para>Specifies the time quanta, propagation segment, phase buffer segment 1 and 2, and the
+            synchronization jump width for the data phase, if CAN-FD is used. These settings are
+            analogous to the <varname>TimeQuanta=</varname> or related settings.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
           <term><varname>FDMode=</varname></term>
           <listitem>
             <para>Takes a boolean. When <literal>yes</literal>, CAN-FD mode is enabled for the interface.
             Note, that a bitrate and optional sample point should also be set for the CAN-FD data phase using
-            the <varname>DataBitRate=</varname> and <varname>DataSamplePoint=</varname> keys.</para>
+            the <varname>DataBitRate=</varname> and <varname>DataSamplePoint=</varname> keys, or
+            <varname>DataTimeQuanta=</varname> and related settings.</para>
           </listitem>
         </varlistentry>
         <varlistentry>
