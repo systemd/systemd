@@ -3588,7 +3588,6 @@ int unit_add_blockdev_dependency(Unit *u, const char *what, UnitDependencyMask m
 int unit_coldplug(Unit *u) {
         int r = 0, q;
         char **i;
-        Job *uj;
 
         assert(u);
 
@@ -3611,9 +3610,13 @@ int unit_coldplug(Unit *u) {
                         r = q;
         }
 
-        uj = u->job ?: u->nop_job;
-        if (uj) {
-                q = job_coldplug(uj);
+        if (u->job) {
+                q = job_coldplug(u->job);
+                if (q < 0 && r >= 0)
+                        r = q;
+        }
+        if (u->nop_job) {
+                q = job_coldplug(u->nop_job);
                 if (q < 0 && r >= 0)
                         r = q;
         }
