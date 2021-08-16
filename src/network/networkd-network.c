@@ -413,12 +413,7 @@ int network_load_one(Manager *manager, OrderedHashmap **networks, const char *fi
                 .ipv6_accept_ra_route_metric = DHCP_ROUTE_METRIC,
                 .ipv6_accept_ra_start_dhcp6_client = IPV6_ACCEPT_RA_START_DHCP6_CLIENT_YES,
 
-                .can_triple_sampling = -1,
-                .can_berr_reporting = -1,
                 .can_termination = -1,
-                .can_listen_only = -1,
-                .can_fd_mode = -1,
-                .can_non_iso = -1,
         };
 
         r = config_parse_many(

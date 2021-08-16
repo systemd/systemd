@@ -2966,7 +2966,27 @@ IPv6Token=prefixstable:2002:da8:1::</programlisting></para>
           <term><varname>SamplePoint=</varname></term>
           <listitem>
             <para>Optional sample point in percent with one decimal (e.g. <literal>75%</literal>,
-            <literal>87.5%</literal>) or permille (e.g. <literal>875‰</literal>).</para>
+            <literal>87.5%</literal>) or permille (e.g. <literal>875‰</literal>). This will be ignored when
+            <varname>BitRate=</varname> is unspecified.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><varname>TimeQuantaNSec=</varname></term>
+          <term><varname>PropagationSegment=</varname></term>
+          <term><varname>PhaseBufferSegment1=</varname></term>
+          <term><varname>PhaseBufferSegment2=</varname></term>
+          <term><varname>SyncJumpWidth=</varname></term>
+          <listitem>
+            <para>Specifies the time quanta, propagation segment, phase buffer segment 1 and 2, and the
+            synchronization jump width, which allow to define the CAN bit-timing in a hardware
+            independent format as proposed by the Bosch CAN 2.0 Specification.
+            <varname>TimeQuantaNSec=</varname> takes a timespan in nanoseconds.
+            <varname>PropagationSegment=</varname>, <varname>PhaseBufferSegment1=</varname>,
+            <varname>PhaseBufferSegment2=</varname>, and <varname>SyncJumpWidth=</varname> take number
+            of time quantum specified in <varname>TimeQuantaNSec=</varname> and must be an unsigned
+            integer in the range 0…4294967295. These settings except for
+            <varname>SyncJumpWidth=</varname> will be ignored when <varname>BitRate=</varname> is
+            specified.</para>
           </listitem>
         </varlistentry>
         <varlistentry>
@@ -2978,11 +2998,24 @@ IPv6Token=prefixstable:2002:da8:1::</programlisting></para>
           </listitem>
         </varlistentry>
         <varlistentry>
+          <term><varname>DataTimeQuantaNSec=</varname></term>
+          <term><varname>DataPropagationSegment=</varname></term>
+          <term><varname>DataPhaseBufferSegment1=</varname></term>
+          <term><varname>DataPhaseBufferSegment2=</varname></term>
+          <term><varname>DataSyncJumpWidth=</varname></term>
+          <listitem>
+            <para>Specifies the time quanta, propagation segment, phase buffer segment 1 and 2, and the
+            synchronization jump width for the data phase, if CAN-FD is used. These settings are
+            analogous to the <varname>TimeQuantaNSec=</varname> or related settings.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
           <term><varname>FDMode=</varname></term>
           <listitem>
             <para>Takes a boolean. When <literal>yes</literal>, CAN-FD mode is enabled for the interface.
             Note, that a bitrate and optional sample point should also be set for the CAN-FD data phase using
-            the <varname>DataBitRate=</varname> and <varname>DataSamplePoint=</varname> keys.</para>
+            the <varname>DataBitRate=</varname> and <varname>DataSamplePoint=</varname> keys, or
+            <varname>DataTimeQuanta=</varname> and related settings.</para>
           </listitem>
         </varlistentry>
         <varlistentry>
@@ -3005,8 +3038,10 @@ IPv6Token=prefixstable:2002:da8:1::</programlisting></para>
         <varlistentry>
           <term><varname>Termination=</varname></term>
           <listitem>
-            <para>Takes a boolean. When <literal>yes</literal>, the termination resistor will be selected for
-            the bias network. When unset, the kernel's default will be used.</para>
+            <para>Takes a boolean or a termination resistor value in ohm in the range 0–65535. When
+            <literal>yes</literal>, the termination resistor is set to 120 ohm. When
+            <literal>no</literal> or <literal>0</literal> is set, the termination resistor is disabled.
+            When unset, the kernel's default will be used.</para>
           </listitem>
         </varlistentry>
         <varlistentry>
@@ -3034,6 +3069,36 @@ IPv6Token=prefixstable:2002:da8:1::</programlisting></para>
             bit. Listen-only mode is important to debug CAN networks without interfering with the
             communication or acknowledge the CAN frame. When unset, the kernel's default will be used.
             </para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><varname>Loopback=</varname></term>
+          <listitem>
+            <para>Takes a boolean. When <literal>yes</literal>, loopback mode is enabled. When the
+            loopback mode is enabled, the interface treats messages transmitted by itself as received
+            messages. The loopback mode is important to debug CAN networks. When unset, the kernel's
+            default will be used.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><varname>OneShot=</varname></term>
+          <listitem>
+            <para>Takes a boolean. When <literal>yes</literal>, one-shot mode is enabled. When unset,
+            the kernel's default will be used.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><varname>PresumeAck=</varname></term>
+          <listitem>
+            <para>Takes a boolean. When <literal>yes</literal>, the interface will ignore missing CAN
+            ACKs. When unset, the kernel's default will be used.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><varname>ClassicDataLengthCode=</varname></term>
+          <listitem>
+            <para>Takes a boolean. When <literal>yes</literal>, the interface will handle the 4bit data
+            length code (DLC). When unset, the kernel's default will be used.</para>
           </listitem>
         </varlistentry>
       </variablelist>
