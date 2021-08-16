@@ -14,3 +14,4 @@ Hostname=test-hostname
 ClientIdentifier=mac
 VendorClassIdentifier=SusantVendorTest
 RouteTable=211
+Label=test-label
