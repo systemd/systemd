@@ -694,6 +694,26 @@ int manager_drop_routing_policy_rules_internal(Manager *m, bool foreign, const L
                         continue;
                 }
 
+                if (!foreign) {
+                        _cleanup_(routing_policy_rule_freep) RoutingPolicyRule *z = NULL;
+
+                        k = routing_policy_rule_dup(rule, &z);
+                        if (k < 0) {
+                                if (r >= 0)
+                                        r = k;
+                                continue;
+                        }
+
+                        z->priority = 0;
+
+                        k = links_have_routing_policy_rule(m, z, except);
+                        if (k != 0) {
+                                if (k < 0 && r >= 0)
+                                        r = k;
+                                continue;
+                        }
+                }
+
                 k = routing_policy_rule_remove(rule, m);
                 if (k < 0 && r >= 0)
                         r = k;
