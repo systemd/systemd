@@ -371,6 +371,36 @@ static int routing_policy_rule_consume_foreign(Manager *m, RoutingPolicyRule *ru
         return 1;
 }
 
+static int routing_policy_rule_update_priority(RoutingPolicyRule *rule, uint32_t priority) {
+        int r;
+
+        assert(rule);
+        assert(rule->manager);
+
+        if (rule->priority == priority)
+                return 0; /* Nothing to do. */
+
+        if (rule->priority != 0)
+                return -EINVAL; /* Only zero priority should be updated. */
+
+        if (!set_remove(rule->manager->rules, rule))
+                return 0; /* Do not update foreign rule. */
+
+        rule->priority = priority;
+
+        r = set_put(rule->manager->rules, rule);
+        if (r <= 0) {
+                if (r == 0)
+                        r = -EEXIST;
+
+                /* Try to undo. */
+                rule->priority = 0;
+                assert_se(set_put(rule->manager->rules, rule) > 0);
+        }
+
+        return r;
+}
+
 static void log_routing_policy_rule_debug(const RoutingPolicyRule *rule, const char *str, const Link *link, const Manager *m) {
         _cleanup_free_ char *from = NULL, *to = NULL, *table = NULL;
 
@@ -1029,13 +1059,24 @@ int manager_rtnl_process_rule(sd_netlink *rtnl, sd_netlink_message *message, Man
                  * protocol of the received rule is RTPROT_KERNEL or RTPROT_STATIC. */
                 tmp->protocol = routing_policy_rule_is_created_by_kernel(tmp) ? RTPROT_KERNEL : RTPROT_STATIC;
 
-        (void) routing_policy_rule_get(m, tmp, &rule);
+        if (routing_policy_rule_get(m, tmp, &rule) < 0) {
+                uint32_t priority = tmp->priority;
+
+                /* The rule may be created without FRA_PRIORITY. Let's try to find the rule without priority. */
+
+                tmp->priority = 0;
+                (void) routing_policy_rule_get(m, tmp, &rule);
+                tmp->priority = priority;
+        }
 
         switch (type) {
         case RTM_NEWRULE:
-                if (rule)
+                if (rule) {
                         log_routing_policy_rule_debug(tmp, "Received remembered", NULL, m);
-                else if (!m->manage_foreign_routes)
+                        r = routing_policy_rule_update_priority(rule, tmp->priority);
+                        if (r < 0)
+                                log_warning_errno(r, "Failed to update priority of routing policy rule, ignoring: %m");
+                } else if (!m->manage_foreign_routes)
                         log_routing_policy_rule_debug(tmp, "Ignoring received foreign", NULL, m);
                 else {
                         log_routing_policy_rule_debug(tmp, "Remembering foreign", NULL, m);
