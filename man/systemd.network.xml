@@ -1053,7 +1053,8 @@ IPv6Token=prefixstable:2002:da8:1::</programlisting></para>
         <varlistentry>
           <term><varname>Label=</varname></term>
           <listitem>
-            <para>An address label.</para>
+            <para>Specifies the label for the IPv4 address. The label must be a 7-bit ASCII string with
+            a length of 1…15 characters. Defaults to unset.</para>
           </listitem>
         </varlistentry>
         <varlistentry>
