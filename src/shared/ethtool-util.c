@@ -505,11 +505,21 @@ int ethtool_set_features(int *ethtool_fd, const char *ifname, const int features
         _cleanup_free_ struct ethtool_gstrings *strings = NULL;
         struct ethtool_sfeatures *sfeatures;
         struct ifreq ifr = {};
-        int i, r;
+        bool have = false;
+        int r;
 
         assert(ethtool_fd);
         assert(ifname);
         assert(features);
+
+        for (size_t i = 0; i < _NET_DEV_FEAT_MAX; i++)
+                if (features[i] >= 0) {
+                        have = true;
+                        break;
+                }
+
+        if (!have)
+                return 0;
 
         r = ethtool_connect(ethtool_fd);
         if (r < 0)
@@ -525,8 +535,8 @@ int ethtool_set_features(int *ethtool_fd, const char *ifname, const int features
         sfeatures->cmd = ETHTOOL_SFEATURES;
         sfeatures->size = DIV_ROUND_UP(strings->len, 32U);
 
-        for (i = 0; i < _NET_DEV_FEAT_MAX; i++)
-                if (features[i] != -1) {
+        for (size_t i = 0; i < _NET_DEV_FEAT_MAX; i++)
+                if (features[i] >= 0) {
                         r = set_features_bit(strings, netdev_feature_table[i], features[i], sfeatures);
                         if (r < 0) {
                                 log_debug_errno(r, "ethtool: could not find feature, ignoring: %s", netdev_feature_table[i]);
