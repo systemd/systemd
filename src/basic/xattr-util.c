@@ -103,17 +103,19 @@ int fgetxattr_malloc(
         }
 }
 
-int fgetxattrat_fake(
+/* Note: ret_fn should already be allocated for the usual xsprintf and /proc/self/fd/%i pattern. */
+static int fgetxattrat_fake_internal(
                 int dirfd,
                 const char *filename,
-                const char *attribute,
-                void *value, size_t size,
                 int flags,
-                size_t *ret_size) {
+                char *ret_fn,
+                int *ret_fd) {
 
         char fn[STRLEN("/proc/self/fd/") + DECIMAL_STR_MAX(int) + 1];
         _cleanup_close_ int fd = -1;
-        ssize_t l;
+
+        assert(ret_fn);
+        assert(ret_fd);
 
         /* The kernel doesn't have a fgetxattrat() command, hence let's emulate one */
 
@@ -133,12 +135,54 @@ int fgetxattrat_fake(
                 xsprintf(fn, "/proc/self/fd/%i", fd);
         }
 
+        /* Pass the FD to the caller, since in case we do openat() the filename depends on it. */
+        *ret_fd = TAKE_FD(fd);
+        strcpy(ret_fn, fn);
+
+        return 0;
+}
+
+int fgetxattrat_fake(
+                int dirfd,
+                const char *filename,
+                const char *attribute,
+                void *value, size_t size,
+                int flags,
+                size_t *ret_size) {
+
+        char fn[STRLEN("/proc/self/fd/") + DECIMAL_STR_MAX(int) + 1];
+        _cleanup_close_ int fd = -1;
+        ssize_t l;
+        int r;
+
+        r = fgetxattrat_fake_internal(dirfd, filename, flags, fn, &fd);
+        if (r < 0)
+                return r;
+
         l = getxattr(fn, attribute, value, size);
         if (l < 0)
                 return -errno;
 
         *ret_size = l;
         return 0;
+}
+
+int fgetxattrat_fake_malloc(
+                int dirfd,
+                const char *filename,
+                const char *attribute,
+                int flags,
+                char **value) {
+
+        char fn[STRLEN("/proc/self/fd/") + DECIMAL_STR_MAX(int) + 1];
+        _cleanup_close_ int fd = -1;
+        int r;
+
+        r = fgetxattrat_fake_internal(dirfd, filename, flags, fn, &fd);
+        if (r < 0)
+                return r;
+
+        return getxattr_malloc(fn, attribute, value, false);
 }
 
 static int parse_crtime(le64_t le, usec_t *usec) {
