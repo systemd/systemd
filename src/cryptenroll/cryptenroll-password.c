@@ -2,6 +2,7 @@
 
 #include "ask-password-api.h"
 #include "cryptenroll-password.h"
+#include "env-util.h"
 #include "escape.h"
 #include "memory-util.h"
 #include "pwquality-util.h"
@@ -27,8 +28,7 @@ int enroll_password(
                 if (!new_password)
                         return log_oom();
 
-                string_erase(e);
-                assert_se(unsetenv("NEWPASSWORD") == 0);
+                assert_se(unsetenv_erase("NEWPASSWORD") >= 0);
 
         } else {
                 _cleanup_free_ char *disk_path = NULL;
