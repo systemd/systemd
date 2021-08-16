@@ -150,18 +150,8 @@
       </varlistentry>
 
       <varlistentry>
-        <term><keycap>v</keycap></term>
-        <listitem><para>Show systemd-boot, UEFI, and firmware versions</para></listitem>
-      </varlistentry>
-
-      <varlistentry>
-        <term><keycap>P</keycap></term>
+        <term><keycap>p</keycap></term>
         <listitem><para>Print status</para></listitem>
-      </varlistentry>
-
-      <varlistentry>
-        <term><keycap>Q</keycap></term>
-        <listitem><para>Quit</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -169,11 +159,6 @@
         <term><keycap>?</keycap></term>
         <term><keycap>F1</keycap></term>
         <listitem><para>Show a help screen</para></listitem>
-      </varlistentry>
-
-      <varlistentry>
-        <term><keycombo><keycap>Ctrl</keycap><keycap>l</keycap></keycombo></term>
-        <listitem><para>Reprint the screen</para></listitem>
       </varlistentry>
     </variablelist>
 
