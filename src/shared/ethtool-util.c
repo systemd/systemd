@@ -501,7 +501,7 @@ static int set_features_bit(
         return found ? 0 : -ENODATA;
 }
 
-int ethtool_set_features(int *ethtool_fd, const char *ifname, const int *features) {
+int ethtool_set_features(int *ethtool_fd, const char *ifname, const int features[static _NET_DEV_FEAT_MAX]) {
         _cleanup_free_ struct ethtool_gstrings *strings = NULL;
         struct ethtool_sfeatures *sfeatures;
         struct ifreq ifr = {};
