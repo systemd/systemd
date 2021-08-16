@@ -1838,7 +1838,8 @@ int config_parse_dhcp_ip_service_type(
         return 0;
 }
 
-int config_parse_dhcp_fallback_lease_lifetime(const char *unit,
+int config_parse_dhcp_fallback_lease_lifetime(
+                const char *unit,
                 const char *filename,
                 unsigned line,
                 const char *section,
@@ -1848,6 +1849,7 @@ int config_parse_dhcp_fallback_lease_lifetime(const char *unit,
                 const char *rvalue,
                 void *data,
                 void *userdata) {
+
         Network *network = userdata;
         uint32_t k;
 
