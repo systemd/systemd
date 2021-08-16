@@ -117,6 +117,36 @@ static void test_set_ensure_allocated(void) {
         assert_se(set_size(m) == 0);
 }
 
+static void test_set_copy(void) {
+        Set *s, *copy;
+        char *key1, *key2, *key3, *key4;
+
+        log_info("/* %s */", __func__);
+
+        key1 = strdup("key1");
+        assert_se(key1);
+        key2 = strdup("key2");
+        assert_se(key2);
+        key3 = strdup("key3");
+        assert_se(key3);
+        key4 = strdup("key4");
+        assert_se(key4);
+
+        s = set_new(&string_hash_ops);
+
+        set_put(s, key1);
+        set_put(s, key2);
+        set_put(s, key3);
+        set_put(s, key4);
+
+        copy = set_copy(s);
+
+        assert(set_equal(s, copy));
+
+        set_free_free(copy);
+        set_free(s);
+}
+
 static void test_set_ensure_put(void) {
         _cleanup_set_free_ Set *m = NULL;
 
@@ -311,6 +341,7 @@ int main(int argc, const char *argv[]) {
         test_set_ensure_consume();
         test_set_strjoin();
         test_set_equal();
+        test_set_copy();
 
         return 0;
 }
