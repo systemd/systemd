@@ -17,6 +17,12 @@ int fgetxattrat_fake(
                 void *value, size_t size,
                 int flags,
                 size_t *ret_size);
+int fgetxattrat_fake_malloc(
+                int dirfd,
+                const char *filename,
+                const char *attribute,
+                int flags,
+                char **value);
 
 int fd_setcrtime(int fd, usec_t usec);
 

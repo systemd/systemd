@@ -17,11 +17,14 @@
 
 static void test_fgetxattrat_fake(void) {
         char t[] = "/var/tmp/xattrtestXXXXXX";
+        _cleanup_free_ char *value = NULL;
         _cleanup_close_ int fd = -1;
         const char *x;
         char v[3];
         int r;
         size_t size;
+
+        log_info("/* %s */", __func__);
 
         assert_se(mkdtemp(t));
         x = strjoina(t, "/test");
@@ -45,6 +48,13 @@ static void test_fgetxattrat_fake(void) {
         r = fgetxattrat_fake(fd, "usr", "user.idontexist", v, 3, 0, &size);
         assert_se(r == -ENODATA || ERRNO_IS_NOT_SUPPORTED(r));
 
+        safe_close(fd);
+        fd = open(x, O_PATH|O_CLOEXEC);
+        assert_se(fd >= 0);
+        r = fgetxattrat_fake_malloc(fd, NULL, "user.foo", AT_EMPTY_PATH, &value);
+        assert_se(r == 3);
+        assert_se(streq(value, "bar"));
+
 cleanup:
         assert_se(unlink(x) >= 0);
         assert_se(rmdir(t) >= 0);
@@ -55,6 +65,8 @@ static void test_getcrtime(void) {
         const char *vt;
         usec_t usec, k;
         int r;
+
+        log_info("/* %s */", __func__);
 
         assert_se(tmp_dir(&vt) >= 0);
 
