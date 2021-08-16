@@ -103,6 +103,43 @@ int fgetxattr_malloc(
         }
 }
 
+/* Note: ret_fn should already be allocated for the usual xsprintf and /proc/self/fd/%i pattern. */
+static int getxattrat_fake_prepare(
+                int dirfd,
+                const char *filename,
+                int flags,
+                char ret_fn[static STRLEN("/proc/self/fd/") + DECIMAL_STR_MAX(int) + 1],
+                int *ret_fd) {
+
+        _cleanup_close_ int fd = -1;
+
+        assert(ret_fn);
+        assert(ret_fd);
+
+        /* The kernel doesn't have a fgetxattrat() command, hence let's emulate one */
+
+        if (flags & ~(AT_SYMLINK_NOFOLLOW|AT_EMPTY_PATH))
+                return -EINVAL;
+
+        if (isempty(filename)) {
+                if (!(flags & AT_EMPTY_PATH))
+                        return -EINVAL;
+
+                snprintf(ret_fn, STRLEN("/proc/self/fd/") + DECIMAL_STR_MAX(int) + 1, "/proc/self/fd/%i", dirfd);
+        } else {
+                fd = openat(dirfd, filename, O_CLOEXEC|O_PATH|(flags & AT_SYMLINK_NOFOLLOW ? O_NOFOLLOW : 0));
+                if (fd < 0)
+                        return -errno;
+
+                snprintf(ret_fn, STRLEN("/proc/self/fd/") + DECIMAL_STR_MAX(int) + 1, "/proc/self/fd/%i", fd);
+        }
+
+        /* Pass the FD to the caller, since in case we do openat() the filename depends on it. */
+        *ret_fd = TAKE_FD(fd);
+
+        return 0;
+}
+
 int fgetxattrat_fake(
                 int dirfd,
                 const char *filename,
@@ -114,24 +151,11 @@ int fgetxattrat_fake(
         char fn[STRLEN("/proc/self/fd/") + DECIMAL_STR_MAX(int) + 1];
         _cleanup_close_ int fd = -1;
         ssize_t l;
+        int r;
 
-        /* The kernel doesn't have a fgetxattrat() command, hence let's emulate one */
-
-        if (flags & ~(AT_SYMLINK_NOFOLLOW|AT_EMPTY_PATH))
-                return -EINVAL;
-
-        if (isempty(filename)) {
-                if (!(flags & AT_EMPTY_PATH))
-                        return -EINVAL;
-
-                xsprintf(fn, "/proc/self/fd/%i", dirfd);
-        } else {
-                fd = openat(dirfd, filename, O_CLOEXEC|O_PATH|(flags & AT_SYMLINK_NOFOLLOW ? O_NOFOLLOW : 0));
-                if (fd < 0)
-                        return -errno;
-
-                xsprintf(fn, "/proc/self/fd/%i", fd);
-        }
+        r = getxattrat_fake_prepare(dirfd, filename, flags, fn, &fd);
+        if (r < 0)
+                return r;
 
         l = getxattr(fn, attribute, value, size);
         if (l < 0)
@@ -139,6 +163,24 @@ int fgetxattrat_fake(
 
         *ret_size = l;
         return 0;
+}
+
+int fgetxattrat_fake_malloc(
+                int dirfd,
+                const char *filename,
+                const char *attribute,
+                int flags,
+                char **value) {
+
+        char fn[STRLEN("/proc/self/fd/") + DECIMAL_STR_MAX(int) + 1];
+        _cleanup_close_ int fd = -1;
+        int r;
+
+        r = getxattrat_fake_prepare(dirfd, filename, flags, fn, &fd);
+        if (r < 0)
+                return r;
+
+        return getxattr_malloc(fn, attribute, value, false);
 }
 
 static int parse_crtime(le64_t le, usec_t *usec) {
