@@ -84,3 +84,10 @@ EFI_STATUS log_oom(void);
                 log_error_stall(fmt, ##__VA_ARGS__); \
                 err; \
         })
+
+VOID *memmem_safe(const VOID *haystack, UINTN haystack_len, const VOID *needle, UINTN needle_len);
+
+static inline VOID *mempmem_safe(const VOID *haystack, UINTN haystack_len, const VOID *needle, UINTN needle_len) {
+        CHAR8 *p = memmem_safe(haystack, haystack_len, needle, needle_len);
+        return p ? p + needle_len : NULL;
+}

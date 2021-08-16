@@ -2,6 +2,7 @@
 #pragma once
 
 #include <efi.h>
+#include "macro-fundamental.h"
 
 #define SETUP_MAGIC             0x53726448      /* "HdrS" */
 
@@ -44,7 +45,7 @@ struct setup_header {
         UINT64 pref_address;
         UINT32 init_size;
         UINT32 handover_offset;
-} __attribute__((packed));
+} _packed_;
 
 /* adapted from linux' bootparam.h */
 struct boot_params {
@@ -81,7 +82,7 @@ struct boot_params {
         UINT8  _pad8[48];
         UINT8  eddbuf[6*82];            // was: struct edd_info eddbuf[EDDMAXNR]
         UINT8  _pad9[276];
-} __attribute__((packed));
+} _packed_;
 
 EFI_STATUS linux_exec(EFI_HANDLE *image,
                       CHAR8 *cmdline, UINTN cmdline_size,

@@ -20,7 +20,6 @@
 #define _sentinel_ __attribute__((__sentinel__))
 #define _destructor_ __attribute__((__destructor__))
 #define _deprecated_ __attribute__((__deprecated__))
-#define _packed_ __attribute__((__packed__))
 #define _malloc_ __attribute__((__malloc__))
 #define _weak_ __attribute__((__weak__))
 #define _public_ __attribute__((__visibility__("default")))
