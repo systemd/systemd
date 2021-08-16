@@ -174,16 +174,18 @@ static int netdev_vxlan_fill_message_create(NetDev *netdev, Link *link, sd_netli
         return r;
 }
 
-int config_parse_vxlan_address(const char *unit,
-                               const char *filename,
-                               unsigned line,
-                               const char *section,
-                               unsigned section_line,
-                               const char *lvalue,
-                               int ltype,
-                               const char *rvalue,
-                               void *data,
-                               void *userdata) {
+int config_parse_vxlan_address(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
         VxLan *v = userdata;
         union in_addr_union *addr = data, buffer;
         int r, f;
@@ -225,16 +227,18 @@ int config_parse_vxlan_address(const char *unit,
         return 0;
 }
 
-int config_parse_port_range(const char *unit,
-                            const char *filename,
-                            unsigned line,
-                            const char *section,
-                            unsigned section_line,
-                            const char *lvalue,
-                            int ltype,
-                            const char *rvalue,
-                            void *data,
-                            void *userdata) {
+int config_parse_port_range(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
         VxLan *v = userdata;
         uint16_t low, high;
         int r;
@@ -257,16 +261,18 @@ int config_parse_port_range(const char *unit,
         return 0;
 }
 
-int config_parse_flow_label(const char *unit,
-                            const char *filename,
-                            unsigned line,
-                            const char *section,
-                            unsigned section_line,
-                            const char *lvalue,
-                            int ltype,
-                            const char *rvalue,
-                            void *data,
-                            void *userdata) {
+int config_parse_flow_label(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
         VxLan *v = userdata;
         unsigned f;
         int r;
@@ -293,16 +299,18 @@ int config_parse_flow_label(const char *unit,
         return 0;
 }
 
-int config_parse_vxlan_ttl(const char *unit,
-                           const char *filename,
-                           unsigned line,
-                           const char *section,
-                           unsigned section_line,
-                           const char *lvalue,
-                           int ltype,
-                           const char *rvalue,
-                            void *data,
-                           void *userdata) {
+int config_parse_vxlan_ttl(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
         VxLan *v = userdata;
         unsigned f;
         int r;
