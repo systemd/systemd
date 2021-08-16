@@ -68,3 +68,5 @@ int setenv_systemd_exec_pid(bool update_only);
 /* Parses and does sanity checks on an environment variable containing
  * PATH-like colon-separated absolute paths */
 int getenv_path_list(const char *name, char ***ret_paths);
+
+int unsetenv_erase(const char *name);
