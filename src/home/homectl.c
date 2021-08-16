@@ -215,9 +215,7 @@ static int acquire_existing_password(
                 if (r < 0)
                         return log_error_errno(r, "Failed to store password: %m");
 
-                string_erase(e);
-                assert_se(unsetenv("PASSWORD") == 0);
-
+                assert_se(unsetenv_erase("PASSWORD") >= 0);
                 return 1;
         }
 
@@ -273,9 +271,7 @@ static int acquire_token_pin(
                 if (r < 0)
                         return log_error_errno(r, "Failed to store token PIN: %m");
 
-                string_erase(e);
-                assert_se(unsetenv("PIN") == 0);
-
+                assert_se(unsetenv_erase("PIN") >= 0);
                 return 1;
         }
 
@@ -1097,8 +1093,7 @@ static int acquire_new_password(
                 if (r < 0)
                         return log_error_errno(r, "Failed to store password: %m");
 
-                string_erase(e);
-                assert_se(unsetenv("NEWPASSWORD") == 0);
+                assert_se(unsetenv_erase("NEWPASSWORD") >= 0);
 
                 if (ret)
                         *ret = TAKE_PTR(copy);

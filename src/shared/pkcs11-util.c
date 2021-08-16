@@ -3,6 +3,7 @@
 #include <fcntl.h>
 
 #include "ask-password-api.h"
+#include "env-util.h"
 #include "escape.h"
 #include "fd-util.h"
 #include "format-table.h"
@@ -245,9 +246,7 @@ int pkcs11_token_login(
                         if (!passwords)
                                 return log_oom();
 
-                        string_erase(e);
-                        if (unsetenv("PIN") < 0)
-                                return log_error_errno(errno, "Failed to unset $PIN: %m");
+                        assert_se(unsetenv_erase("PIN") >= 0);
                 } else if (headless)
                         return log_error_errno(SYNTHETIC_ERRNO(ENOPKG), "PIN querying disabled via 'headless' option. Use the 'PIN' environment variable.");
                 else {
