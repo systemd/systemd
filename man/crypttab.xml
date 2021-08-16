@@ -170,6 +170,12 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>header-digest=</option></term>
+
+        <listitem><para>Verify that the SHA256 digest of the cryptsetup header matches the given value. If the header digest does not match, unlocking the device will fail.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>header=</option></term>
 
         <listitem><para>Use a detached (separated) metadata device or
