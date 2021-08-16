@@ -626,8 +626,9 @@ EOF
 
         export initdir="$TESTDIR/app1"
         mkdir -p "$initdir/usr/lib/extension-release.d" "$initdir/usr/lib/systemd/system" "$initdir/opt"
-        grep "^ID=" "$os_release" >"$initdir/usr/lib/extension-release.d/extension-release.app1"
-        echo "${version_id}" >>"$initdir/usr/lib/extension-release.d/extension-release.app1"
+        grep "^ID=" "$os_release" >"$initdir/usr/lib/extension-release.d/extension-release.app2"
+        echo "${version_id}" >>"$initdir/usr/lib/extension-release.d/extension-release.app2"
+        setfattr -n user.extension-release.strict -v false "$initdir/usr/lib/extension-release.d/extension-release.app2"
         cat >"$initdir/usr/lib/systemd/system/app1.service" <<EOF
 [Service]
 Type=oneshot
@@ -638,7 +639,7 @@ EOF
 #!/bin/bash
 set -e
 test -e /usr/lib/os-release
-cat /usr/lib/extension-release.d/extension-release.app1
+cat /usr/lib/extension-release.d/extension-release.app2
 EOF
         chmod +x "$initdir/opt/script1.sh"
         echo MARKER=1 >"$initdir/usr/lib/systemd/system/other_file"
