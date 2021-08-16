@@ -857,26 +857,26 @@ int config_parse_hostname(
                 void *data,
                 void *userdata) {
 
-        _cleanup_free_ char *hn = NULL;
         char **hostname = data;
         int r;
 
         assert(filename);
         assert(lvalue);
         assert(rvalue);
-        assert(hostname);
+        assert(data);
 
-        r = config_parse_string(unit, filename, line, section, section_line, lvalue, ltype, rvalue, &hn, userdata);
-        if (r < 0)
-                return r;
+        if (isempty(rvalue)) {
+                *hostname = mfree(*hostname);
+                return 0;
+        }
 
-        if (!hostname_is_valid(hn, 0)) {
+        if (!hostname_is_valid(rvalue, 0)) {
                 log_syntax(unit, LOG_WARNING, filename, line, 0,
                            "Hostname is not valid, ignoring assignment: %s", rvalue);
                 return 0;
         }
 
-        r = dns_name_is_valid(hn);
+        r = dns_name_is_valid(rvalue);
         if (r < 0) {
                 log_syntax(unit, LOG_WARNING, filename, line, r,
                            "Failed to check validity of hostname '%s', ignoring assignment: %m", rvalue);
@@ -888,7 +888,7 @@ int config_parse_hostname(
                 return 0;
         }
 
-        return free_and_replace(*hostname, hn);
+        return free_and_strdup_warn(hostname, rvalue);
 }
 
 int config_parse_timezone(
@@ -903,26 +903,27 @@ int config_parse_timezone(
                 void *data,
                 void *userdata) {
 
-        _cleanup_free_ char *tz = NULL;
-        char **datap = data;
+        char **tz = data;
         int r;
 
         assert(filename);
         assert(lvalue);
         assert(rvalue);
-        assert(datap);
+        assert(data);
 
-        r = config_parse_string(unit, filename, line, section, section_line, lvalue, ltype, rvalue, &tz, userdata);
-        if (r < 0)
-                return r;
+        if (isempty(rvalue)) {
+                *tz = mfree(*tz);
+                return 0;
+        }
 
-        if (!timezone_is_valid(tz, LOG_WARNING)) {
-                log_syntax(unit, LOG_WARNING, filename, line, 0,
+        r = verify_timezone(rvalue, LOG_WARNING);
+        if (r < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, r,
                            "Timezone is not valid, ignoring assignment: %s", rvalue);
                 return 0;
         }
 
-        return free_and_replace(*datap, tz);
+        return free_and_strdup_warn(tz, rvalue);
 }
 
 int config_parse_dns(
