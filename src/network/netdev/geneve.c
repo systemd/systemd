@@ -164,16 +164,18 @@ static int netdev_geneve_create(NetDev *netdev) {
         return r;
 }
 
-int config_parse_geneve_vni(const char *unit,
-                           const char *filename,
-                           unsigned line,
-                           const char *section,
-                           unsigned section_line,
-                           const char *lvalue,
-                           int ltype,
-                           const char *rvalue,
-                           void *data,
-                           void *userdata) {
+int config_parse_geneve_vni(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
         Geneve *v = userdata;
         uint32_t f;
         int r;
@@ -199,16 +201,18 @@ int config_parse_geneve_vni(const char *unit,
         return 0;
 }
 
-int config_parse_geneve_address(const char *unit,
-                                const char *filename,
-                                unsigned line,
-                                const char *section,
-                                unsigned section_line,
-                                const char *lvalue,
-                                int ltype,
-                                const char *rvalue,
-                                void *data,
-                                void *userdata) {
+int config_parse_geneve_address(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
         Geneve *v = userdata;
         union in_addr_union *addr = data, buffer;
         int r, f;
@@ -236,16 +240,18 @@ int config_parse_geneve_address(const char *unit,
         return 0;
 }
 
-int config_parse_geneve_flow_label(const char *unit,
-                                   const char *filename,
-                                   unsigned line,
-                                   const char *section,
-                                   unsigned section_line,
-                                   const char *lvalue,
-                                   int ltype,
-                                   const char *rvalue,
-                                   void *data,
-                                   void *userdata) {
+int config_parse_geneve_flow_label(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
         Geneve *v = userdata;
         uint32_t f;
         int r;
@@ -272,16 +278,18 @@ int config_parse_geneve_flow_label(const char *unit,
         return 0;
 }
 
-int config_parse_geneve_ttl(const char *unit,
-                            const char *filename,
-                            unsigned line,
-                            const char *section,
-                            unsigned section_line,
-                            const char *lvalue,
-                            int ltype,
-                            const char *rvalue,
-                            void *data,
-                            void *userdata) {
+int config_parse_geneve_ttl(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
         Geneve *v = userdata;
         unsigned f;
         int r;

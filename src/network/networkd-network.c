@@ -715,7 +715,8 @@ bool network_has_static_ipv6_configurations(Network *network) {
         return false;
 }
 
-int config_parse_stacked_netdev(const char *unit,
+int config_parse_stacked_netdev(
+                const char *unit,
                 const char *filename,
                 unsigned line,
                 const char *section,
@@ -725,6 +726,7 @@ int config_parse_stacked_netdev(const char *unit,
                 const char *rvalue,
                 void *data,
                 void *userdata) {
+
         _cleanup_free_ char *name = NULL;
         NetDevKind kind = ltype;
         Hashmap **h = data;

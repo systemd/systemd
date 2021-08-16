@@ -501,16 +501,18 @@ static int netdev_tunnel_verify(NetDev *netdev, const char *filename) {
         return 0;
 }
 
-int config_parse_tunnel_address(const char *unit,
-                                const char *filename,
-                                unsigned line,
-                                const char *section,
-                                unsigned section_line,
-                                const char *lvalue,
-                                int ltype,
-                                const char *rvalue,
-                                void *data,
-                                void *userdata) {
+int config_parse_tunnel_address(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
         Tunnel *t = userdata;
         union in_addr_union *addr = data, buffer;
         int r, f;
@@ -555,16 +557,18 @@ int config_parse_tunnel_address(const char *unit,
         return 0;
 }
 
-int config_parse_tunnel_key(const char *unit,
-                            const char *filename,
-                            unsigned line,
-                            const char *section,
-                            unsigned section_line,
-                            const char *lvalue,
-                            int ltype,
-                            const char *rvalue,
-                            void *data,
-                            void *userdata) {
+int config_parse_tunnel_key(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
         union in_addr_union buffer;
         Tunnel *t = userdata;
         uint32_t k;
@@ -596,16 +600,18 @@ int config_parse_tunnel_key(const char *unit,
         return 0;
 }
 
-int config_parse_ipv6_flowlabel(const char* unit,
-                                const char *filename,
-                                unsigned line,
-                                const char *section,
-                                unsigned section_line,
-                                const char *lvalue,
-                                int ltype,
-                                const char *rvalue,
-                                void *data,
-                                void *userdata) {
+int config_parse_ipv6_flowlabel(
+                const char* unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
         IPv6FlowLabel *ipv6_flowlabel = data;
         Tunnel *t = userdata;
         int k = 0;
@@ -635,16 +641,18 @@ int config_parse_ipv6_flowlabel(const char* unit,
         return 0;
 }
 
-int config_parse_encap_limit(const char* unit,
-                             const char *filename,
-                             unsigned line,
-                             const char *section,
-                             unsigned section_line,
-                             const char *lvalue,
-                             int ltype,
-                             const char *rvalue,
-                             void *data,
-                             void *userdata) {
+int config_parse_encap_limit(
+                const char* unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
         Tunnel *t = userdata;
         int k = 0;
         int r;
@@ -673,25 +681,26 @@ int config_parse_encap_limit(const char* unit,
         return 0;
 }
 
-int config_parse_6rd_prefix(const char* unit,
-                            const char *filename,
-                            unsigned line,
-                            const char *section,
-                            unsigned section_line,
-                            const char *lvalue,
-                            int ltype,
-                            const char *rvalue,
-                            void *data,
-                            void *userdata) {
+int config_parse_6rd_prefix(
+                const char* unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
         Tunnel *t = userdata;
+        union in_addr_union p;
+        uint8_t l;
+        int r;
 
         assert(filename);
         assert(lvalue);
         assert(rvalue);
-
-        union in_addr_union p;
-        uint8_t l;
-        int r;
 
         r = in_addr_prefix_from_string(rvalue, AF_INET6, &p, &l);
         if (r < 0) {
