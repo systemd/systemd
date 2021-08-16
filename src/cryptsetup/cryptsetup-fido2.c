@@ -2,6 +2,7 @@
 
 #include "ask-password-api.h"
 #include "cryptsetup-fido2.h"
+#include "env-util.h"
 #include "fileio.h"
 #include "hexdecoct.h"
 #include "json.h"
@@ -70,9 +71,7 @@ int acquire_fido2_key(
                 if (!pins)
                         return log_oom();
 
-                string_erase(e);
-                if (unsetenv("PIN") < 0)
-                        return log_error_errno(errno, "Failed to unset $PIN: %m");
+                assert_se(unsetenv_erase("PIN") >= 0);
         }
 
         for (;;) {
