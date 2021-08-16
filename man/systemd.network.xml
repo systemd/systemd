@@ -1771,6 +1771,15 @@ IPv6Token=prefixstable:2002:da8:1::</programlisting></para>
         <!-- How to use the DHCP lease -->
 
         <varlistentry>
+          <term><varname>Label=</varname></term>
+          <listitem>
+            <para>Specifies the label for the IPv4 address received from the DHCP server.
+            The label must consist only of 7-bit ASCII characteres and no space, it must be between 1 and 15 characteres long.
+            Defaults to unset.</para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
           <term><varname>UseDNS=</varname></term>
           <listitem>
             <para>When true (the default), the DNS servers received from the DHCP server will be used.</para>
