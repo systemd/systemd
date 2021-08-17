@@ -312,11 +312,13 @@ int config_parse_dhcp_use_dns(
         assert(rvalue);
         assert(data);
 
-        r = parse_boolean(rvalue);
-        if (r < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r,
-                           "Failed to parse UseDNS=%s, ignoring assignment: %m", rvalue);
-                return 0;
+        if (!isempty(rvalue)) {
+                r = parse_boolean(rvalue);
+                if (r < 0) {
+                        log_syntax(unit, LOG_WARNING, filename, line, r,
+                                   "Failed to parse UseDNS=%s, ignoring assignment: %m", rvalue);
+                        return 0;
+                }
         }
 
         if (streq_ptr(section, "DHCPv4")) {
@@ -398,11 +400,13 @@ int config_parse_dhcp_use_ntp(
         assert(rvalue);
         assert(data);
 
-        r = parse_boolean(rvalue);
-        if (r < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r,
-                           "Failed to parse UseNTP=%s, ignoring assignment: %m", rvalue);
-                return 0;
+        if (!isempty(rvalue)) {
+                r = parse_boolean(rvalue);
+                if (r < 0) {
+                        log_syntax(unit, LOG_WARNING, filename, line, r,
+                                   "Failed to parse UseNTP=%s, ignoring assignment: %m", rvalue);
+                        return 0;
+                }
         }
 
         if (streq_ptr(section, "DHCPv4")) {
