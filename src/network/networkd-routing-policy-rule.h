@@ -20,6 +20,7 @@ typedef struct RoutingPolicyRule {
         NetworkConfigSection *section;
 
         bool invert_rule;
+        bool priority_set;
 
         uint8_t tos;
         uint8_t type;
