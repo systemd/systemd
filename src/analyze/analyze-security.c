@@ -4,6 +4,7 @@
 
 #include "af-list.h"
 #include "analyze-security.h"
+#include "analyze-verify.h"
 #include "bus-error.h"
 #include "bus-map-properties.h"
 #include "bus-unit-util.h"
@@ -13,6 +14,7 @@
 #include "in-addr-util.h"
 #include "locale-util.h"
 #include "macro.h"
+#include "manager.h"
 #include "missing_capability.h"
 #include "missing_sched.h"
 #include "nulstr-util.h"
@@ -2388,11 +2390,99 @@ static int get_security_info(Unit *u, ExecContext *c, CGroupContext *g, Security
         return 0;
 }
 
-int analyze_security(sd_bus *bus, char **units, AnalyzeSecurityFlags flags) {
+static int offline_security_check(Unit *u) {
+        _cleanup_(table_unrefp) Table *overview_table = NULL;
+        AnalyzeSecurityFlags flags = 0;
+        _cleanup_(security_info_freep) SecurityInfo *info = NULL;
+        int r;
+
+        assert(u);
+
+        if (DEBUG_LOGGING)
+                unit_dump(u, stdout, "\t");
+
+        r = get_security_info(u, unit_get_exec_context(u), unit_get_cgroup_context(u), &info);
+        if (r < 0)
+              return r;
+
+        return assess(info, overview_table, flags);
+}
+
+static int offline_security_checks(char **filenames, UnitFileScope scope, bool check_man, bool run_generators, const char *root) {
+        const ManagerTestRunFlags flags =
+                MANAGER_TEST_RUN_MINIMAL |
+                MANAGER_TEST_RUN_ENV_GENERATORS |
+                run_generators * MANAGER_TEST_RUN_GENERATORS;
+
+        _cleanup_(manager_freep) Manager *m = NULL;
+        Unit *units[strv_length(filenames)];
+        _cleanup_free_ char *var = NULL;
+        int r, k;
+        size_t count = 0;
+        char **filename;
+
+        if (strv_isempty(filenames))
+                return 0;
+
+        /* set the path */
+        r = verify_generate_path(&var, filenames);
+        if (r < 0)
+                return log_error_errno(r, "Failed to generate unit load path: %m");
+
+        assert_se(set_unit_path(var) >= 0);
+
+        r = manager_new(scope, flags, &m);
+        if (r < 0)
+                return log_error_errno(r, "Failed to initialize manager: %m");
+
+        log_debug("Starting manager...");
+
+        r = manager_startup(m, /* serialization= */ NULL, /* fds= */ NULL, root);
+        if (r < 0)
+                return r;
+
+        log_debug("Loading remaining units from the command line...");
+
+        STRV_FOREACH(filename, filenames) {
+                _cleanup_free_ char *prepared = NULL;
+
+                log_debug("Handling %s...", *filename);
+
+                k = verify_prepare_filename(*filename, &prepared);
+                if (k < 0) {
+                        log_warning_errno(k, "Failed to prepare filename %s: %m", *filename);
+                        if (r == 0)
+                                r = k;
+                        continue;
+                }
+
+                k = manager_load_startable_unit_or_warn(m, NULL, prepared, &units[count]);
+                if (k < 0) {
+                        if (r == 0)
+                                r = k;
+                        continue;
+                }
+
+                count++;
+        }
+
+        for (size_t i = 0; i < count; i++) {
+                k = offline_security_check(units[i]);
+                if (k < 0 && r == 0)
+                        r = k;
+        }
+
+        return r;
+}
+
+int analyze_security(sd_bus *bus, char **units, UnitFileScope scope, bool check_man, bool run_generators, bool offline, const char *root, AnalyzeSecurityFlags flags) {
         _cleanup_(table_unrefp) Table *overview_table = NULL;
         int ret = 0, r;
 
         assert(bus);
+
+        if (offline)
+                return offline_security_checks(units, scope, check_man, run_generators, root);
 
         if (strv_length(units) != 1) {
                 overview_table = table_new("unit", "exposure", "predicate", "happy");
