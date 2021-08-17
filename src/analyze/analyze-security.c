@@ -1525,7 +1525,7 @@ static const struct security_assessor security_assessor_table[] = {
         },
 };
 
-static int assess(const SecurityInfo *info, Table *overview_table, AnalyzeSecurityFlags flags) {
+static int assess(const SecurityInfo *info, Table *overview_table, AnalyzeSecurityFlags flags, unsigned threshold) {
         static const struct {
                 uint64_t exposure;
                 const char *name;
@@ -1720,6 +1720,10 @@ static int assess(const SecurityInfo *info, Table *overview_table, AnalyzeSecuri
                 if (r < 0)
                         return table_log_add_error(r);
         }
+
+        /* Return error when overall exposure level is over threshold */
+        if (exposure > threshold)
+                return -EINVAL;
 
         return 0;
 }
@@ -2186,7 +2190,9 @@ static int acquire_security_info(sd_bus *bus, const char *name, SecurityInfo *in
         return 0;
 }
 
-static int analyze_security_one(sd_bus *bus, const char *name, Table *overview_table, AnalyzeSecurityFlags flags) {
+static int analyze_security_one(sd_bus *bus, const char *name, Table *overview_table,
+                                AnalyzeSecurityFlags flags, unsigned threshold) {
+
         _cleanup_(security_info_freep) SecurityInfo *info = security_info_new();
         if (!info)
                 return log_oom();
@@ -2202,7 +2208,7 @@ static int analyze_security_one(sd_bus *bus, const char *name, Table *overview_t
         if (r < 0)
                 return r;
 
-        r = assess(info, overview_table, flags);
+        r = assess(info, overview_table, flags, threshold);
         if (r < 0)
                 return r;
 
@@ -2388,7 +2394,7 @@ static int get_security_info(Unit *u, ExecContext *c, CGroupContext *g, Security
         return 0;
 }
 
-static int offline_security_check(Unit *u) {
+static int offline_security_check(Unit *u, unsigned threshold) {
         _cleanup_(table_unrefp) Table *overview_table = NULL;
         AnalyzeSecurityFlags flags = 0;
         _cleanup_(security_info_freep) SecurityInfo *info = NULL;
@@ -2403,10 +2409,10 @@ static int offline_security_check(Unit *u) {
         if (r < 0)
               return r;
 
-        return assess(info, overview_table, flags);
+        return assess(info, overview_table, flags, threshold);
 }
 
-static int offline_security_checks(char **filenames, UnitFileScope scope, bool check_man, bool run_generators, const char *root) {
+static int offline_security_checks(char **filenames, UnitFileScope scope, bool check_man, bool run_generators, unsigned threshold, const char *root) {
         const ManagerTestRunFlags flags =
                 MANAGER_TEST_RUN_MINIMAL |
                 MANAGER_TEST_RUN_ENV_GENERATORS |
@@ -2465,7 +2471,7 @@ static int offline_security_checks(char **filenames, UnitFileScope scope, bool c
         }
 
         for (size_t i = 0; i < count; i++) {
-                k = offline_security_check(units[i]);
+                k = offline_security_check(units[i], threshold);
                 if (k < 0 && r == 0)
                         r = k;
         }
@@ -2473,14 +2479,16 @@ static int offline_security_checks(char **filenames, UnitFileScope scope, bool c
         return r;
 }
 
-int analyze_security(sd_bus *bus, char **units, UnitFileScope scope, bool check_man, bool run_generators, bool offline, const char *root, AnalyzeSecurityFlags flags) {
+int analyze_security(sd_bus *bus, char **units, UnitFileScope scope, bool check_man, bool run_generators,
+                     bool offline, unsigned threshold, const char *root, AnalyzeSecurityFlags flags) {
+
         _cleanup_(table_unrefp) Table *overview_table = NULL;
         int ret = 0, r;
 
         assert(bus);
 
         if (offline)
-                return offline_security_checks(units, scope, check_man, run_generators, root);
+                return offline_security_checks(units, scope, check_man, run_generators, threshold, root);
 
         if (strv_length(units) != 1) {
                 overview_table = table_new("unit", "exposure", "predicate", "happy");
@@ -2540,7 +2548,7 @@ int analyze_security(sd_bus *bus, char **units, UnitFileScope scope, bool check_
                 flags |= ANALYZE_SECURITY_SHORT|ANALYZE_SECURITY_ONLY_LOADED|ANALYZE_SECURITY_ONLY_LONG_RUNNING;
 
                 STRV_FOREACH(i, list) {
-                        r = analyze_security_one(bus, *i, overview_table, flags);
+                        r = analyze_security_one(bus, *i, overview_table, flags, threshold);
                         if (r < 0 && ret >= 0)
                                 ret = r;
                 }
@@ -2575,7 +2583,7 @@ int analyze_security(sd_bus *bus, char **units, UnitFileScope scope, bool check_
                         } else
                                 name = mangled;
 
-                        r = analyze_security_one(bus, name, overview_table, flags);
+                        r = analyze_security_one(bus, name, overview_table, flags, threshold);
                         if (r < 0 && ret >= 0)
                                 ret = r;
                 }
