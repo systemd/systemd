@@ -84,14 +84,17 @@ _udevadm_test(){
 _udevadm_test-builtin(){
     if (( CURRENT == 2 )); then
     _arguments \
+        '--action=[The action string.]:actions:(add change remove move online offline bind unbind)' \
         '--help[Print help text]' \
         '*::builtins:(blkid btrfs hwdb input_id net_id net_setup_link kmod path_id usb_id uaccess)'
     elif  (( CURRENT == 3 )); then
         _arguments \
+            '--action=[The action string.]:actions:(add change remove move online offline bind unbind)' \
             '--help[Print help text]' \
             '*::syspath:_files -P /sys -W /sys'
     else
         _arguments \
+            '--action=[The action string.]:actions:(add change remove move online offline bind unbind)' \
             '--help[Print help text]'
     fi
 }
