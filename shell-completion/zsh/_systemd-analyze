@@ -90,6 +90,7 @@ _arguments \
     '--root=[Add support for root argument]:PATH' \
     '--image=[Add support for discrete images]:PATH' \
     '--recursive-errors=[When verifying a unit, control dependency verification]:MODE' \
+    '--offline=[Perform a security review of the specified unit file(s)]:BOOL' \
     '--no-pager[Do not pipe output into a pager]' \
     '--man=[Do (not) check for existence of man pages]:boolean:(1 0)' \
     '--order[When generating graph for dot, show only order]' \
