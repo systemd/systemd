@@ -21,11 +21,12 @@
 #include "strxcpyx.h"
 #include "udev-builtin.h"
 #include "udev-event.h"
+#include "udevadm-util.h"
 #include "udevadm.h"
 
-static const char *arg_action = "add";
+static sd_device_action_t arg_action = SD_DEVICE_ADD;
 static ResolveNameTiming arg_resolve_name_timing = RESOLVE_NAME_EARLY;
-static char arg_syspath[UDEV_PATH_SIZE] = {};
+static const char *arg_syspath = NULL;
 
 static int help(void) {
 
@@ -65,7 +66,7 @@ static int parse_argv(int argc, char *argv[]) {
                         if (a < 0)
                                 return log_error_errno(a, "Invalid action '%s'", optarg);
 
-                        arg_action = device_action_to_string(a);
+                        arg_action = a;
                         break;
                 }
                 case 'N':
@@ -84,15 +85,9 @@ static int parse_argv(int argc, char *argv[]) {
                         assert_not_reached();
                 }
 
-        if (!argv[optind])
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "syspath parameter missing.");
-
-        /* add /sys if needed */
-        if (!path_startswith(argv[optind], "/sys"))
-                strscpyl(arg_syspath, sizeof(arg_syspath), "/sys", argv[optind], NULL);
-        else
-                strscpy(arg_syspath, sizeof(arg_syspath), argv[optind]);
+        arg_syspath = argv[optind];
+        if (!arg_syspath)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "syspath parameter missing.");
 
         return 1;
 }
@@ -127,7 +122,7 @@ int test_main(int argc, char *argv[], void *userdata) {
                 goto out;
         }
 
-        r = device_new_from_synthetic_event(&dev, arg_syspath, arg_action);
+        r = find_device_with_action(arg_syspath, arg_action, &dev);
         if (r < 0) {
                 log_error_errno(r, "Failed to open device '%s': %m", arg_syspath);
                 goto out;

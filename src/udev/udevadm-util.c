@@ -93,3 +93,20 @@ int find_device(const char *id, const char *prefix, sd_device **ret) {
 
         return find_device_from_path(id, ret);
 }
+
+int find_device_with_action(const char *id, sd_device_action_t action, sd_device **ret) {
+        _cleanup_free_ char *path = NULL;
+
+        assert(id);
+        assert(ret);
+        assert(action >= 0 && action < _SD_DEVICE_ACTION_MAX);
+
+        if (!path_startswith(id, "/sys")) {
+                path = path_join("/sys", id);
+                if (!path)
+                        return -ENOMEM;
+                id = path;
+        }
+
+        return device_new_from_synthetic_event(ret, id, device_action_to_string(action));
+}
