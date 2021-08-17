@@ -1706,7 +1706,7 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly b DefaultDependencies = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
-      readonly s OnSuccesJobMode = '...';
+      readonly s OnSuccessJobMode = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly s OnFailureJobMode = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
@@ -1815,7 +1815,7 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
 
     <!--property CanFreeze is not documented!-->
 
-    <!--property OnSuccesJobMode is not documented!-->
+    <!--property OnSuccessJobMode is not documented!-->
 
     <!--property OnFailureJobMode is not documented!-->
 
@@ -2019,7 +2019,7 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
 
     <variablelist class="dbus-property" generated="True" extra-ref="DefaultDependencies"/>
 
-    <variablelist class="dbus-property" generated="True" extra-ref="OnSuccesJobMode"/>
+    <variablelist class="dbus-property" generated="True" extra-ref="OnSuccessJobMode"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="OnFailureJobMode"/>
 
