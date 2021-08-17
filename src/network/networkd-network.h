@@ -151,6 +151,7 @@ struct Network {
         bool dhcp_use_sip;
         bool dhcp_use_mtu;
         bool dhcp_use_routes;
+        int dhcp_add_prefixroute;
         int dhcp_use_gateway;
         bool dhcp_use_timezone;
         bool dhcp_use_hostname;
