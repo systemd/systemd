@@ -30,6 +30,7 @@ char *pkcs11_token_label(const CK_TOKEN_INFO *token_info);
 char *pkcs11_token_manufacturer_id(const CK_TOKEN_INFO *token_info);
 char *pkcs11_token_model(const CK_TOKEN_INFO *token_info);
 
+int pkcs11_token_login_by_pin(CK_FUNCTION_LIST *m, CK_SESSION_HANDLE session, const CK_TOKEN_INFO *token_info, const char *token_label, const void *pin, size_t pin_size);
 int pkcs11_token_login(CK_FUNCTION_LIST *m, CK_SESSION_HANDLE session, CK_SLOT_ID slotid, const CK_TOKEN_INFO *token_info, const char *friendly_name, const char *icon_name, const char *key_name, const char *credential_name, usec_t until, bool headless, char **ret_used_pin);
 
 int pkcs11_token_find_x509_certificate(CK_FUNCTION_LIST *m, CK_SESSION_HANDLE session, P11KitUri *search_uri, CK_OBJECT_HANDLE *ret_object);
@@ -49,7 +50,35 @@ int pkcs11_find_token(const char *pkcs11_uri, pkcs11_find_token_callback_t callb
 int pkcs11_acquire_certificate(const char *uri, const char *askpw_friendly_name, const char *askpw_icon_name, X509 **ret_cert, char **ret_pin_used);
 #endif
 
+typedef struct {
+        const char *friendly_name;
+        usec_t until;
+        void *encrypted_key;
+        size_t encrypted_key_size;
+        void *decrypted_key;
+        size_t decrypted_key_size;
+        bool free_encrypted_key;
+        bool headless;
+} pkcs11_crypt_device_callback_data;
+
+void pkcs11_crypt_device_callback_data_release(pkcs11_crypt_device_callback_data *data);
+
+int pkcs11_crypt_device_callback(
+                CK_FUNCTION_LIST *m,
+                CK_SESSION_HANDLE session,
+                CK_SLOT_ID slot_id,
+                const CK_SLOT_INFO *slot_info,
+                const CK_TOKEN_INFO *token_info,
+                P11KitUri *uri,
+                void *userdata);
+
 #endif
+
+typedef struct {
+        const char *friendly_name;
+        usec_t until;
+        bool headless;
+} systemd_pkcs11_plugin_params;
 
 int pkcs11_list_tokens(void);
 int pkcs11_find_token_auto(char **ret);
