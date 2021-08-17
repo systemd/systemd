@@ -41,8 +41,14 @@ void network_adjust_dhcp4(Network *network) {
         if (network->dhcp_routes_to_dns < 0)
                 network->dhcp_routes_to_dns = network->dhcp_use_routes;
 
+        if (network->dhcp_use_dns < 0)
+                network->dhcp_use_dns = network->dhcp_routes_to_dns;
+
         if (network->dhcp_routes_to_ntp < 0)
                 network->dhcp_routes_to_ntp = network->dhcp_use_routes;
+
+        if (network->dhcp_use_ntp < 0)
+                network->dhcp_use_ntp = network->dhcp_routes_to_ntp;
 
         /* RFC7844 section 3.: MAY contain the Client Identifier option
          * Section 3.5: clients MUST use client identifiers based solely on the link-layer address
