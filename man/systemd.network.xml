@@ -1239,7 +1239,9 @@ IPv6Token=prefixstable:2002:da8:1::</programlisting></para>
           <term><varname>Priority=</varname></term>
           <listitem>
             <para>Specifies the priority of this rule. <varname>Priority=</varname> is an unsigned
-            integer. Higher number means lower priority, and rules get processed in order of increasing number.</para>
+            integer in the range 0…4294967295. Higher number means lower priority, and rules get
+            processed in order of increasing number. Defaults to unset, and the kernel will pick
+            a value dynamically.</para>
           </listitem>
         </varlistentry>
         <varlistentry>
