@@ -187,6 +187,8 @@
         <listitem>
           <para>Takes a boolean. If set to true, promiscuous mode of the interface is enabled.
           Defaults to unset.</para>
+          <para>If this is set to false for the underlying link of a <literal>passthru</literal> mode MACVLAN/MACVTAP,
+          the virtual interface will be created with the <literal>nopromisc</literal> flag set.</para>
         </listitem>
       </varlistentry>
       <varlistentry>
