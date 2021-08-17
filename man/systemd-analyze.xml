@@ -783,6 +783,16 @@ Service b@0.service not loaded, b.socket cannot be started.
       </varlistentry>
 
       <varlistentry>
+        <term><option>--threshold=<replaceable>NUMBER</replaceable></option></term>
+
+        <listitem><para>With <command>security</command>, allow the user to set a custom value
+        to compare the overall exposure level with, for the specified unit file(s). If a unit's
+        overall exposure level, is greater than that set by the user, <command>security</command>
+        will return an error. <option>--threshold=</option> can be used with <option>--offline=</option>
+        as well and its default value is 100.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>--iterations=<replaceable>NUMBER</replaceable></option></term>
 
         <listitem><para>When used with the <command>calendar</command> command, show the specified number of
