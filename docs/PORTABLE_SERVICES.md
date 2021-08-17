@@ -6,21 +6,17 @@ layout: default
 
 # Portable Services Introduction
 
-This systemd version includes a preview of the "portable service"
-concept. "Portable Services" are supposed to be an incremental improvement over
-traditional system services, making two specific facets of container management
-available to system services more readily. Specifically:
+systemd (since version 239) supports a concept of "Portable Services".
+"Portable Services" are a delivery method for system services that uses
+two specific features of container management:
 
-1. The bundling of applications, i.e. packing up multiple services, their
-   binaries and all their dependencies in an image, and running them
-   directly from it.
+1. Applications are bundled. I.e. multiple services, their binaries and all
+   their dependencies are packaged in an image, and are run directly from it.
 
 2. Stricter default security policies, i.e. sand-boxing of applications.
 
-The primary tool for interfacing with "portable services" is the new
-"portablectl" program. It's currently shipped in /usr/lib/systemd/portablectl
-(i.e. not in the `$PATH`), since it's not yet considered part of the officially
-supported systemd interfaces — it's a preview still after all.
+The primary tool for interacting with Portable Services is `portablectl`,
+and they are managed by the `systemd-portabled` service.
 
 Portable services don't bring anything inherently new to the table. All they do
 is put together known concepts in a slightly nicer way to cover a specific set
