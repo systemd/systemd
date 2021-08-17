@@ -23,7 +23,7 @@ _udevadm_trigger(){
         '--dry-run[Do not actually trigger the event.]' \
         '--quiet[Suppress error logging in triggering events.]' \
         '--type=[Trigger a specific type of devices.]:types:(devices subsystems failed)' \
-        '--action=[Type of event to be triggered.]:actions:(add change remove)' \
+        '--action=[Type of event to be triggered.]:actions:(add change remove move online offline bind unbind)' \
         '--subsystem-match=[Trigger events for devices which belong to a matching subsystem.]' \
         '--subsystem-nomatch=[Do not trigger events for devices which belong to a matching subsystem.]' \
         '--attr-match=attribute=[Trigger events for devices with a matching sysfs attribute.]' \
@@ -74,7 +74,7 @@ _udevadm_monitor(){
 (( $+functions[_udevadm_test] )) ||
 _udevadm_test(){
     _arguments \
-        '--action=[The action string.]:actions:(add change remove)' \
+        '--action=[The action string.]:actions:(add change remove move online offline bind unbind)' \
         '--subsystem=[The subsystem string.]' \
         '--help[Print help text.]' \
         '*::devpath:_files -P /sys/ -W /sys'
