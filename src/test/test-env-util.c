@@ -428,6 +428,52 @@ static void test_setenv_systemd_exec_pid(void) {
         assert_se(set_unset_env("SYSTEMD_EXEC_PID", saved, 1) >= 0);
 }
 
+static void test_unsetenv_erase(void) {
+        int r;
+
+        log_info("/* %s */", __func__);
+
+        r = safe_fork("(sd-unsetenverase)", FORK_DEATHSIG|FORK_LOG|FORK_WAIT, NULL);
+        if (r == 0) {
+                _cleanup_strv_free_ char **l = NULL;
+                char **e;
+
+                /* child */
+
+                assert_se(unsetenv_erase("thisenvvardefinitelywontexist") == 0);
+
+                l = strv_new("FOO=BAR", "QUUX=PIFF", "ONE=TWO", "A=B");
+                assert_se(strv_length(l) == 4);
+
+                environ = l;
+
+                STRV_FOREACH(e, environ) {
+                        _cleanup_free_ char *n = NULL;
+                        char *eq;
+
+                        eq = strchr(*e, '=');
+                        if (!eq)
+                                continue;
+
+                        n = strndup(*e, eq - *e);
+                        assert_se(n);
+
+                        assert_se(streq_ptr(getenv(n), eq + 1));
+                        assert_se(getenv(n) == eq + 1);
+                        assert_se(unsetenv_erase(n) > 0);
+                        assert_se(isempty(eq + 1));
+                        assert_se(!getenv(n));
+                }
+
+                environ = NULL;
+                l = strv_free(l);
+
+                _exit(EXIT_SUCCESS);
+        }
+
+        assert_se(r > 0);
+}
+
 int main(int argc, char *argv[]) {
         test_setup_logging(LOG_DEBUG);
 
@@ -451,6 +497,7 @@ int main(int argc, char *argv[]) {
         test_env_assignment_is_valid();
         test_putenv_dup();
         test_setenv_systemd_exec_pid();
+        test_unsetenv_erase();
 
         return 0;
 }

@@ -12,6 +12,7 @@
 #include "cryptenroll-wipe.h"
 #include "cryptenroll.h"
 #include "cryptsetup-util.h"
+#include "env-util.h"
 #include "escape.h"
 #include "libfido2-util.h"
 #include "main-func.h"
@@ -426,8 +427,7 @@ static int prepare_luks(
                 if (!password)
                         return log_oom();
 
-                string_erase(e);
-                assert_se(unsetenv("PASSWORD") >= 0);
+                assert_se(unsetenv_erase("PASSWORD") >= 0);
 
                 r = crypt_volume_key_get(
                                 cd,
