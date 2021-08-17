@@ -113,7 +113,6 @@ STATIC_DESTRUCTOR_REGISTER(arg_tpm2_device, freep);
 static int parse_one_option(const char *option) {
         const char *val;
         int r;
-        size_t sz;
 
         assert(option);
 
@@ -232,6 +231,7 @@ static int parse_one_option(const char *option) {
 
 #if HAVE_OPENSSL
         } else if ((val = startswith(option, "header-digest="))) {
+                size_t sz;
                 r = unhexmem(val, 64, &arg_header_digest, &sz);
                 if (r < 0)
                         /* we need to fail here; skipping verification in the event of a user mistake might give the appearance that it is working */
@@ -563,7 +563,7 @@ static char *friendly_disk_name(const char *src, const char *vol) {
         return name_buffer;
 }
 
-#ifdef HAVE_OPENSSL
+#if HAVE_OPENSSL
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(EVP_MD_CTX*, EVP_MD_CTX_free, NULL);
 
 static int verify_header_digest(struct crypt_device *cd) {
@@ -1733,7 +1733,7 @@ static int run(int argc, char *argv[]) {
                 }
 #endif
 
-#ifdef HAVE_OPENSSL
+#if HAVE_OPENSSL
                 if (arg_header_digest) {
                         r = verify_header_digest(cd);
                         if (r < 0)
