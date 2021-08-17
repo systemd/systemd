@@ -50,25 +50,17 @@ static int parse_argv(int argc, char *argv[]) {
                 {}
         };
 
-        int c;
+        int r, c;
 
         while ((c = getopt_long(argc, argv, "a:N:Vh", options, NULL)) >= 0)
                 switch (c) {
-                case 'a': {
-                        sd_device_action_t a;
-
-                        if (streq(optarg, "help")) {
-                                dump_device_action_table();
+                case 'a':
+                        r = parse_device_action(optarg, &arg_action);
+                        if (r < 0)
+                                return log_error_errno(r, "Invalid action '%s'", optarg);
+                        if (r == 0)
                                 return 0;
-                        }
-
-                        a = device_action_from_string(optarg);
-                        if (a < 0)
-                                return log_error_errno(a, "Invalid action '%s'", optarg);
-
-                        arg_action = a;
                         break;
-                }
                 case 'N':
                         arg_resolve_name_timing = resolve_name_timing_from_string(optarg);
                         if (arg_resolve_name_timing < 0)
