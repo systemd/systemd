@@ -771,6 +771,18 @@ Service b@0.service not loaded, b.socket cannot be started.
       </varlistentry>
 
       <varlistentry>
+        <term><option>--offline=<replaceable>BOOL</replaceable></option></term>
+
+        <listitem><para>With <command>security</command>, perform an offline security review
+        of the specified unit file(s), i.e. does not have to rely on PID 1 to acquire security
+        information for the files like the <command>security</command> verb when used by itself does.
+        This means that <option>--offline=</option> can be used with <option>--root=</option> and
+        <option>--image=</option> as well. If a unit's overall exposure level is above that set by
+        <option>--threshold=</option> (default value is 100), <option>--offline=</option> will return
+        an error.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>--iterations=<replaceable>NUMBER</replaceable></option></term>
 
         <listitem><para>When used with the <command>calendar</command> command, show the specified number of
