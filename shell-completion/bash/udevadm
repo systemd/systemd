@@ -61,6 +61,7 @@ _udevadm() {
         [MONITOR_STANDALONE]='-k --kernel -u --udev -p --property'
         [MONITOR_ARG]='-s --subsystem-match -t --tag-match'
         [TEST]='-a --action -N --resolve-names'
+        [TEST_BUILTIN]='-a --action'
     )
 
     local verbs=(info trigger settle control monitor test-builtin test)
@@ -215,6 +216,16 @@ _udevadm() {
             ;;
 
         'test-builtin')
+            if __contains_word "$prev" ${OPTS[TEST_BUILTIN]}; then
+                case $prev in
+                    -a|--action)
+                        comps=$( udevadm test-builtin --action help )
+                        ;;
+                esac
+                COMPREPLY=( $(compgen -W '$comps' -- "$cur") )
+                return 0
+            fi
+
             for ((i=0; i < COMP_CWORD; i++)); do
                 if __contains_word "${COMP_WORDS[i]}" "${builtins[@]}"; then
                     builtin=${COMP_WORDS[i]}
@@ -225,7 +236,7 @@ _udevadm() {
             if [[ -z $builtin ]]; then
                 comps="${builtins[@]}"
             elif [[ $cur = -* ]]; then
-                comps="${OPTS[COMMON]}"
+                comps="${OPTS[COMMON]} ${OPTS[TEST_BUILTIN]}"
             else
                 comps=$( __get_all_sysdevs )
                 local IFS=$'\n'
