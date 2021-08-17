@@ -6,13 +6,6 @@
 #include "linux.h"
 #include "util.h"
 
-#ifdef __i386__
-#define __regparm0__ __attribute__((regparm(0)))
-#else
-#define __regparm0__
-#endif
-
-typedef VOID(*handover_f)(VOID *image, EFI_SYSTEM_TABLE *table, struct boot_params *params) __regparm0__;
 static VOID linux_efi_handover(EFI_HANDLE image, struct boot_params *params) {
         handover_f handover;
         UINTN start = (UINTN)params->hdr.code32_start;
