@@ -338,6 +338,7 @@ int network_load_one(Manager *manager, OrderedHashmap **networks, const char *fi
                 .dhcp_routes_to_dns = -1,
                 .dhcp_use_hostname = true,
                 .dhcp_use_routes = true,
+                .dhcp_add_prefixroute = -1,
                 .dhcp_use_gateway = -1,
                 .dhcp_send_hostname = true,
                 .dhcp_send_release = true,
