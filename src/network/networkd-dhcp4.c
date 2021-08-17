@@ -38,6 +38,24 @@ void network_adjust_dhcp4(Network *network) {
         if (network->dhcp_use_gateway < 0)
                 network->dhcp_use_gateway = network->dhcp_use_routes;
 
+        if (network->dhcp_use_dns > 0 && network->dhcp_routes_to_dns < 0)
+                network->dhcp_routes_to_dns = network->dhcp_use_dns;
+
+        if (network->dhcp_routes_to_dns < 0)
+                network->dhcp_routes_to_dns = network->dhcp_use_routes;
+
+        if (network->dhcp_use_dns < 0)
+                network->dhcp_use_dns = network->dhcp_routes_to_dns;
+
+        if (network->dhcp_use_ntp > 0 && network->dhcp_routes_to_ntp < 0)
+                network->dhcp_routes_to_ntp = network->dhcp_use_ntp;
+
+        if (network->dhcp_routes_to_ntp < 0)
+                network->dhcp_routes_to_ntp = network->dhcp_use_routes;
+
+        if (network->dhcp_use_ntp < 0)
+                network->dhcp_use_ntp = network->dhcp_routes_to_ntp;
+
         /* RFC7844 section 3.: MAY contain the Client Identifier option
          * Section 3.5: clients MUST use client identifiers based solely on the link-layer address
          * NOTE: Using MAC, as it does not reveal extra information, and some servers might not answer
@@ -226,6 +244,12 @@ static int dhcp4_request_prefix_route(Link *link) {
 
         assert(link);
         assert(link->dhcp_lease);
+
+        if (link->network->dhcp_add_prefixroute == 0)
+                return 0;
+
+        if (link->network->dhcp_add_prefixroute < 0 && !link->network->dhcp_use_routes)
+                return 0;
 
         if (link_prefixroute(link))
                 /* When true, the route will be created by kernel. See dhcp4_update_address(). */
@@ -988,7 +1012,7 @@ static int dhcp4_request_address(Link *link, bool announce) {
         addr->prefixlen = prefixlen;
         if (prefixlen <= 30)
                 addr->broadcast.s_addr = address.s_addr | ~netmask.s_addr;
-        SET_FLAG(addr->flags, IFA_F_NOPREFIXROUTE, !link_prefixroute(link));
+        SET_FLAG(addr->flags, IFA_F_NOPREFIXROUTE, !link_prefixroute(link) || link->network->dhcp_add_prefixroute == 0);
         addr->route_metric = link->network->dhcp_route_metric;
         addr->duplicate_address_detection = link->network->dhcp_send_decline ? ADDRESS_FAMILY_IPV4 : ADDRESS_FAMILY_NO;
 
