@@ -110,3 +110,22 @@ int find_device_with_action(const char *id, sd_device_action_t action, sd_device
 
         return device_new_from_synthetic_event(ret, id, device_action_to_string(action));
 }
+
+int parse_device_action(const char *str, sd_device_action_t *action) {
+        sd_device_action_t a;
+
+        assert(str);
+        assert(action);
+
+        if (streq(str, "help")) {
+                dump_device_action_table();
+                return 0;
+        }
+
+        a = device_action_from_string(str);
+        if (a < 0)
+                return a;
+
+        *action = a;
+        return 1;
+}
