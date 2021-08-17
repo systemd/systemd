@@ -142,10 +142,10 @@ struct Network {
         bool dhcp_anonymize;
         bool dhcp_send_hostname;
         int dhcp_broadcast;
-        bool dhcp_use_dns;
+        int dhcp_use_dns;
         bool dhcp_use_dns_set;
         int dhcp_routes_to_dns;
-        bool dhcp_use_ntp;
+        int dhcp_use_ntp;
         bool dhcp_use_ntp_set;
         int dhcp_routes_to_ntp;
         bool dhcp_use_sip;
