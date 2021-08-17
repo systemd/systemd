@@ -3719,7 +3719,7 @@ class NetworkdBridgeTests(unittest.TestCase, Utilities):
 
         output = check_output('ip rule list table 100')
         print(output)
-        self.assertIn('0:	from all to 8.8.8.8 lookup 100', output)
+        self.assertIn('from all to 8.8.8.8 lookup 100', output)
 
 class NetworkdLLDPTests(unittest.TestCase, Utilities):
     links = ['veth99']
