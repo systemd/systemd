@@ -1883,8 +1883,9 @@ IPv6Token=prefixstable:2002:da8:1::</programlisting></para>
         <varlistentry>
           <term><varname>RouteMetric=</varname></term>
           <listitem>
-            <para>Set the routing metric for routes specified by the DHCP server. Takes an unsigned
-            integer in the range 0…4294967295. Defaults to 1024.</para>
+            <para>Set the routing metric for routes specified by the DHCP server (including the prefix
+            route added for the specified prefix). Takes an unsigned integer in the range 0…4294967295.
+            Defaults to 1024.</para>
           </listitem>
         </varlistentry>
 
