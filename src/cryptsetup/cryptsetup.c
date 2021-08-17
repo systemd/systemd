@@ -20,6 +20,7 @@
 #include "efi-loader.h"
 #include "escape.h"
 #include "fileio.h"
+#include "fd-util.h"
 #include "fs-util.h"
 #include "fstab-util.h"
 #include "hexdecoct.h"
@@ -29,6 +30,7 @@
 #include "memory-util.h"
 #include "mount-util.h"
 #include "nulstr-util.h"
+#include "openssl-util.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "pkcs11-util.h"
@@ -44,6 +46,8 @@
 #define CRYPT_SECTOR_SIZE 512
 #define CRYPT_MAX_SECTOR_SIZE 4096
 
+#define DIGEST_BLOCK_SIZE 1024*1024
+
 static const char *arg_type = NULL; /* ANY_LUKS, CRYPT_LUKS1, CRYPT_LUKS2, CRYPT_TCRYPT, CRYPT_BITLK or CRYPT_PLAIN */
 static char *arg_cipher = NULL;
 static unsigned arg_key_size = 0;
@@ -55,6 +59,7 @@ static bool arg_keyfile_erase = false;
 static bool arg_try_empty_password = false;
 static char *arg_hash = NULL;
 static char *arg_header = NULL;
+static void *arg_header_digest = NULL;
 static unsigned arg_tries = 3;
 static bool arg_readonly = false;
 static bool arg_verify = false;
@@ -86,6 +91,7 @@ static bool arg_headless = false;
 STATIC_DESTRUCTOR_REGISTER(arg_cipher, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_hash, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_header, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_header_digest, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_tcrypt_keyfiles, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_pkcs11_uri, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_fido2_device, freep);
@@ -222,6 +228,20 @@ static int parse_one_option(const char *option) {
                 arg_header = strdup(val);
                 if (!arg_header)
                         return log_oom();
+
+#if HAVE_OPENSSL
+        } else if ((val = startswith(option, "header-digest="))) {
+                size_t sz;
+                r = unhexmem(val, 64, &arg_header_digest, &sz);
+                if (r < 0)
+                        /* we need to fail here; skipping verification in the event of a user mistake might give the appearance that it is working */
+                        return log_error_errno(r, "Failed to parse %s, refusing: %m", option);
+                if (sz != 32)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Incorrect header digest length, refusing.");
+#else
+        } else if ((val = startswith(option, "header-digest="))) {
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "systemd was compiled without openssl; header-digest not supported.");
+#endif
 
         } else if ((val = startswith(option, "tries="))) {
 
@@ -542,6 +562,64 @@ static char *friendly_disk_name(const char *src, const char *vol) {
 
         return name_buffer;
 }
+
+#if HAVE_OPENSSL
+DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(EVP_MD_CTX*, EVP_MD_CTX_free, NULL);
+
+static int verify_header_digest(struct crypt_device *cd) {
+        ssize_t r, off;
+        _cleanup_fclose_ FILE *cryptdev = NULL;
+        _cleanup_free_ void *buf = NULL;
+        _cleanup_(EVP_MD_CTX_freep) EVP_MD_CTX *hcontext = NULL;
+        if (arg_header) {
+                cryptdev = fopen(arg_header, "re");
+                if (!cryptdev)
+                        return -errno;
+                r = fseek(cryptdev, 0, SEEK_END);
+                if (r < 0)
+                        return -errno;
+                off = ftell(cryptdev);
+                if (off == -1)
+                        return -errno;
+                if (fseek(cryptdev, 0, SEEK_SET) == -1)
+                        return -errno;
+        } else {
+                cryptdev = fopen(crypt_get_device_name(cd), "re");
+                if (!cryptdev)
+                        return -errno;
+                off = crypt_get_data_offset(cd) * 512;
+        }
+
+        hcontext = EVP_MD_CTX_new();
+        if (!hcontext)
+                return -ENOMEM;
+        if (!EVP_DigestInit_ex(hcontext, EVP_sha256(), NULL))
+                return -EIO;
+
+        buf = malloc(DIGEST_BLOCK_SIZE);
+        if (!buf)
+                return -ENOMEM;
+
+        for (ssize_t rem = off; rem > 0; rem -= DIGEST_BLOCK_SIZE) {
+                r = fread(buf, 1, rem > DIGEST_BLOCK_SIZE ? DIGEST_BLOCK_SIZE : rem, cryptdev);
+                if (r != DIGEST_BLOCK_SIZE && r != rem) {
+                        if (ferror(cryptdev))
+                                return -EIO;
+                        /* block device is smaller than data offset? */
+                        return 1;
+                }
+
+                if (!EVP_DigestUpdate(hcontext, buf, r))
+                        return -EIO;
+        }
+
+        if (!EVP_DigestFinal_ex(hcontext, buf, NULL))
+                return -EIO;
+
+        r = !!memcmp(buf, arg_header_digest, 32);
+        return r;
+}
+#endif
 
 static int get_password(
                 const char *vol,
@@ -1652,6 +1730,16 @@ static int run(int argc, char *argv[]) {
                         r = crypt_load(cd, CRYPT_BITLK, NULL);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to load Bitlocker superblock on device %s: %m", crypt_get_device_name(cd));
+                }
+#endif
+
+#if HAVE_OPENSSL
+                if (arg_header_digest) {
+                        r = verify_header_digest(cd);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to verify header for %s: %m.", volume);
+                        if (r)
+                                return log_error_errno(SYNTHETIC_ERRNO(EKEYREJECTED), "Invalid header (digest mismatch) for %s.", volume);
                 }
 #endif
 

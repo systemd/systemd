@@ -2434,6 +2434,7 @@ if conf.get('HAVE_LIBCRYPTSETUP') == 1
                 include_directories : includes,
                 link_with : [libshared],
                 dependencies : [libcryptsetup,
+                                libopenssl,
                                 libp11kit],
                 install_rpath : rootlibexecdir,
                 install : true,
