@@ -187,6 +187,8 @@
         <listitem>
           <para>Takes a boolean. If set to true, promiscuous mode of the interface is enabled.
           Defaults to unset.</para>
+          <para>If this is set to false for the underlying link of a <literal>passthru</literal> mode MACVLAN/MACVTAP,
+          the virtual interface will be created with the <literal>nopromisc</literal> flag set.</para>
         </listitem>
       </varlistentry>
       <varlistentry>
@@ -1881,8 +1883,9 @@ IPv6Token=prefixstable:2002:da8:1::</programlisting></para>
         <varlistentry>
           <term><varname>RouteMetric=</varname></term>
           <listitem>
-            <para>Set the routing metric for routes specified by the DHCP server. Takes an unsigned
-            integer in the range 0…4294967295. Defaults to 1024.</para>
+            <para>Set the routing metric for routes specified by the DHCP server (including the prefix
+            route added for the specified prefix). Takes an unsigned integer in the range 0…4294967295.
+            Defaults to 1024.</para>
           </listitem>
         </varlistentry>
 
