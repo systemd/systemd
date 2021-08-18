@@ -667,13 +667,9 @@ int encrypt_credential_and_warn(
         p += tsz;
         assert(p <= output_size);
 
-        if (DEBUG_LOGGING) {
-                size_t base64_size;
-
-                base64_size = DIV_ROUND_UP(p * 4, 3); /* Include base64 size increase in debug output */
-
+        size_t base64_size = DIV_ROUND_UP(p * 4, 3); /* Include base64 size increase in debug output */
+        if (input_size > 0 && base64_size > input_size)
                 log_debug("Input of %zu bytes grew to output of %zu bytes (+%2zu%%).", input_size, base64_size, base64_size * 100 / input_size - 100);
-        }
 
         *ret = TAKE_PTR(output);
         *ret_size = p;
