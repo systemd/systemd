@@ -388,6 +388,7 @@ int unit_file_build_name_map(
 
         _cleanup_hashmap_free_ Hashmap *ids = NULL, *names = NULL;
         _cleanup_set_free_free_ Set *paths = NULL;
+        _cleanup_strv_free_ char **expanded_search_path = NULL;
         uint64_t timestamp_hash;
         int r;
 
@@ -403,6 +404,44 @@ int unit_file_build_name_map(
         if (path_cache) {
                 paths = set_new(&path_hash_ops_free);
                 if (!paths)
+                        return log_oom();
+        }
+
+        /* Go over all our search paths, chase their symlinks and store the result in the
+         * expanded_search_path list.
+         *
+         * This is important for cases where any of the unit directories itself are symlinks into other
+         * directories and would therefore cause all of the unit files to be recognized as linked units.
+         *
+         * This is important for distributions such as NixOS where most paths in /etc/ are symlinks to some
+         * other location on the filesystem (e.g.  into /nix/store/).
+         *
+         * Search paths are ordered by priority (highest first), and we need to maintain this order.
+         * If a resolved path is already in the list, we don't need to include.
+         *
+         * Note that we build a list that contains both the original paths and the resolved symlinks:
+         * we need the latter for the case where the directory is symlinked, as described above, and
+         * the former for the case where some unit file alias is a dangling symlink that points to one
+         * of the "original" directories (and can't be followed).
+         */
+        STRV_FOREACH(dir, lp->search_path) {
+                _cleanup_free_ char *resolved_dir = NULL;
+
+                r = strv_extend(&expanded_search_path, *dir);
+                if (r < 0)
+                        return log_oom();
+
+                r = chase_symlinks(*dir, NULL, 0, &resolved_dir, NULL);
+                if (r < 0) {
+                        if (r != -ENOENT)
+                                log_warning_errno(r, "Failed to resolve symlink %s, ignoring: %m", *dir);
+                        continue;
+                }
+
+                if (strv_contains(expanded_search_path, resolved_dir))
+                        continue;
+
+                if (strv_consume(&expanded_search_path, TAKE_PTR(resolved_dir)) < 0)
                         return log_oom();
         }
 
@@ -504,7 +543,7 @@ int unit_file_build_name_map(
                                 /* We don't explicitly check for alias loops here. unit_ids_map_get() which
                                  * limits the number of hops should be used to access the map. */
 
-                                r = unit_file_resolve_symlink(lp->root_dir, lp->search_path,
+                                r = unit_file_resolve_symlink(lp->root_dir, expanded_search_path,
                                                               *dir, dirfd(d), de->d_name,
                                                               /* resolve_destination_target= */ false,
                                                               &dst);
