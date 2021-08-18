@@ -353,7 +353,7 @@ static int tpm2_get_best_pcr_bank(
 
                 assert_cc(TPM2_PCRS_MAX % 8 == 0);
 
-                /* It's not enought to check how many PCRs there are, we also need to check that the 24 are
+                /* It's not enough to check how many PCRs there are, we also need to check that the 24 are
                  * enabled for this bank. Otherwise this TPM doesn't qualify. */
                 for (size_t j = 0; j < TPM2_PCRS_MAX/8; j++)
                         if (pcap->data.assignedPCR.pcrSelections[i].pcrSelect[j] != 0xFF) {
@@ -411,7 +411,7 @@ static int tpm2_make_pcr_session(
         };
         TPML_PCR_SELECTION pcr_selection = {
                 .count = 1,
-                .pcrSelections[0].hash = TPM2_ALG_SHA256, /* overriden below, depending on TPM2 capabilities */
+                .pcrSelections[0].hash = TPM2_ALG_SHA256, /* overridden below, depending on TPM2 capabilities */
                 .pcrSelections[0].sizeofSelect = 3,
                 .pcrSelections[0].pcrSelect[0] = pcr_mask & 0xFF,
                 .pcrSelections[0].pcrSelect[1] = (pcr_mask >> 8) & 0xFF,
