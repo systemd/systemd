@@ -17,8 +17,6 @@ typedef struct BPFProgram BPFProgram;
  * we attach it, but it might happen that we operate with programs that aren't loaded or aren't attached, or
  * where we don't have the code. */
 struct BPFProgram {
-        unsigned n_ref;
-
         /* The loaded BPF program, if loaded */
         int kernel_fd;
         uint32_t prog_type;
@@ -36,8 +34,7 @@ struct BPFProgram {
 
 int bpf_program_new(uint32_t prog_type, BPFProgram **ret);
 int bpf_program_new_from_bpffs_path(const char *path, BPFProgram **ret);
-BPFProgram *bpf_program_ref(BPFProgram *p);
-BPFProgram *bpf_program_unref(BPFProgram *p);
+BPFProgram *bpf_program_free(BPFProgram *p);
 
 int bpf_program_add_instructions(BPFProgram *p, const struct bpf_insn *insn, size_t count);
 int bpf_program_load_kernel(BPFProgram *p, char *log_buf, size_t log_size);
@@ -63,4 +60,4 @@ int bpf_map_lookup_element(int fd, const void *key, void *value);
 int bpf_cgroup_attach_type_from_string(const char *str) _pure_;
 const char *bpf_cgroup_attach_type_to_string(int attach_type) _const_;
 
-DEFINE_TRIVIAL_CLEANUP_FUNC(BPFProgram*, bpf_program_unref);
+DEFINE_TRIVIAL_CLEANUP_FUNC(BPFProgram*, bpf_program_free);

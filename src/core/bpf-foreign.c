@@ -49,7 +49,7 @@ static void bpf_foreign_key_hash_func(const BPFForeignKey *p, struct siphash *h)
 
 DEFINE_PRIVATE_HASH_OPS_FULL(bpf_foreign_by_key_hash_ops,
                 BPFForeignKey, bpf_foreign_key_hash_func, bpf_foreign_key_compare_func, free,
-                BPFProgram, bpf_program_unref);
+                BPFProgram, bpf_program_free);
 
 static int attach_programs(Unit *u, const char *path, Hashmap* foreign_by_key, uint32_t attach_flags) {
         const BPFForeignKey *key;
@@ -76,7 +76,7 @@ static int bpf_foreign_prepare(
                 Unit *u,
                 enum bpf_attach_type attach_type,
                 const char *bpffs_path) {
-        _cleanup_(bpf_program_unrefp) BPFProgram *prog = NULL;
+        _cleanup_(bpf_program_freep) BPFProgram *prog = NULL;
         _cleanup_free_ BPFForeignKey *key = NULL;
         uint32_t prog_id;
         int r;

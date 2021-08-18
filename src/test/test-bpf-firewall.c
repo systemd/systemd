@@ -24,7 +24,7 @@ int main(int argc, char *argv[]) {
 
         _cleanup_(rm_rf_physical_and_freep) char *runtime_dir = NULL;
         CGroupContext *cc = NULL;
-        _cleanup_(bpf_program_unrefp) BPFProgram *p = NULL;
+        _cleanup_(bpf_program_freep) BPFProgram *p = NULL;
         _cleanup_(manager_freep) Manager *m = NULL;
         Unit *u;
         char log_buf[65535];
@@ -93,7 +93,7 @@ int main(int argc, char *argv[]) {
                 }
         }
 
-        p = bpf_program_unref(p);
+        p = bpf_program_free(p);
 
         /* The simple tests succeeded. Now let's try full unit-based use-case. */
 

@@ -770,7 +770,7 @@ Unit* unit_free(Unit *u) {
 
         hashmap_free(u->bpf_foreign_by_key);
 
-        bpf_program_unref(u->bpf_device_control_installed);
+        bpf_program_free(u->bpf_device_control_installed);
 
 #if BPF_FRAMEWORK
         bpf_link_free(u->restrict_ifaces_ingress_bpf_link);
