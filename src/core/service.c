@@ -916,7 +916,6 @@ static int service_is_suitable_main_pid(Service *s, pid_t pid, int prio) {
 }
 
 static int service_load_pid_file(Service *s, bool may_warn) {
-        char procfs[STRLEN("/proc/self/fd/") + DECIMAL_STR_MAX(int)];
         bool questionable_pid_file = false;
         _cleanup_free_ char *k = NULL;
         _cleanup_close_ int fd = -1;
@@ -945,8 +944,7 @@ static int service_load_pid_file(Service *s, bool may_warn) {
 
         /* Let's read the PID file now that we chased it down. But we need to convert the O_PATH fd
          * chase_symlinks() returned us into a proper fd first. */
-        xsprintf(procfs, "/proc/self/fd/%i", fd);
-        r = read_one_line_file(procfs, &k);
+        r = read_one_line_file(FORMAT_PROC_FD_PATH(fd), &k);
         if (r < 0)
                 return log_unit_error_errno(UNIT(s), r,
                                             "Can't convert PID files %s O_PATH file descriptor to proper file descriptor: %m",

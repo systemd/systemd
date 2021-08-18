@@ -108,11 +108,10 @@ static int getxattrat_fake_prepare(
                 int dirfd,
                 const char *filename,
                 int flags,
-                char ret_fn[static STRLEN("/proc/self/fd/") + DECIMAL_STR_MAX(int) + 1],
+                char ret_fn[static PROC_FD_PATH_MAX],
                 int *ret_fd) {
 
         _cleanup_close_ int fd = -1;
-
         assert(ret_fn);
         assert(ret_fd);
 
@@ -125,13 +124,13 @@ static int getxattrat_fake_prepare(
                 if (!(flags & AT_EMPTY_PATH))
                         return -EINVAL;
 
-                snprintf(ret_fn, STRLEN("/proc/self/fd/") + DECIMAL_STR_MAX(int) + 1, "/proc/self/fd/%i", dirfd);
+                assert_se(format_proc_fd_path(ret_fn, dirfd));
         } else {
                 fd = openat(dirfd, filename, O_CLOEXEC|O_PATH|(flags & AT_SYMLINK_NOFOLLOW ? O_NOFOLLOW : 0));
                 if (fd < 0)
                         return -errno;
 
-                snprintf(ret_fn, STRLEN("/proc/self/fd/") + DECIMAL_STR_MAX(int) + 1, "/proc/self/fd/%i", fd);
+                assert_se(format_proc_fd_path(ret_fn, fd));
         }
 
         /* Pass the FD to the caller, since in case we do openat() the filename depends on it. */
@@ -148,8 +147,8 @@ int fgetxattrat_fake(
                 int flags,
                 size_t *ret_size) {
 
-        char fn[STRLEN("/proc/self/fd/") + DECIMAL_STR_MAX(int) + 1];
         _cleanup_close_ int fd = -1;
+        char fn[PROC_FD_PATH_MAX];
         ssize_t l;
         int r;
 
@@ -172,8 +171,8 @@ int fgetxattrat_fake_malloc(
                 int flags,
                 char **value) {
 
-        char fn[STRLEN("/proc/self/fd/") + DECIMAL_STR_MAX(int) + 1];
         _cleanup_close_ int fd = -1;
+        char fn[PROC_FD_PATH_MAX];
         int r;
 
         r = getxattrat_fake_prepare(dirfd, filename, flags, fn, &fd);
