@@ -43,7 +43,7 @@ static int log_debug_open_error(struct crypt_device *cd, int r) {
  *   (alternatively: name is set to null, flags contains CRYPT_ACTIVATE_ALLOW_UNBOUND_KEY
  *    and token is assigned to at least single keyslot).
  *
- * - if plugin defines validate funtion (see cryptsetup_token_validate below) it must have
+ * - if plugin defines validate function (see cryptsetup_token_validate below) it must have
  *   passed the check (aka return 0)
  */
 _public_ int cryptsetup_token_open(
@@ -110,7 +110,7 @@ _public_ int cryptsetup_token_open(
         if (r < 0)
                 return log_debug_open_error(cd, r);
 
-        /* free'd automaticaly by libcryptsetup */
+        /* free'd automatically by libcryptsetup */
         *password_len = strlen(base64_encoded);
         *password = TAKE_PTR(base64_encoded);
 

@@ -19,9 +19,9 @@
 #include "stat-util.h"
 #include "string-util.h"
 
-/* We treat tmpfs/ramfs + cgroupfs as non-physical file sytems. cgroupfs is similar to tmpfs in a way after
- * all: we can create arbitrary directory hierarchies in it, and hence can also use rm_rf() on it to remove
- * those again. */
+/* We treat tmpfs/ramfs + cgroupfs as non-physical file systems. cgroupfs is similar to tmpfs in a way
+ * after all: we can create arbitrary directory hierarchies in it, and hence can also use rm_rf() on it
+ * to remove those again. */
 static bool is_physical_fs(const struct statfs *sfs) {
         return !is_temporary_fs(sfs) && !is_cgroup_fs(sfs);
 }
