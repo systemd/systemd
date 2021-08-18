@@ -353,6 +353,10 @@ static int link_config_apply_ethtool_settings(int *ethtool_fd, const LinkConfig 
         if (r < 0)
                 log_device_warning_errno(device, r, "Could not set flow control, ignoring: %m");
 
+        r = ethtool_set_nic_coalesce_settings(ethtool_fd, name, &config->coalesce);
+        if (r < 0)
+                log_device_warning_errno(device, r, "Could not set coalesce settings, ignoring: %m");
+
         return 0;
 }
 
