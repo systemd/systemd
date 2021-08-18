@@ -710,58 +710,27 @@
       </varlistentry>
       <varlistentry>
         <term><varname>RxChannels=</varname></term>
-        <listitem>
-          <para>Sets the number of receive channels (a number between 1 and 4294967295) .</para>
-        </listitem>
-      </varlistentry>
-      <varlistentry>
         <term><varname>TxChannels=</varname></term>
-        <listitem>
-          <para>Sets the number of transmit channels (a number between 1 and 4294967295).</para>
-        </listitem>
-      </varlistentry>
-      <varlistentry>
         <term><varname>OtherChannels=</varname></term>
-        <listitem>
-          <para>Sets the number of other channels (a number between 1 and 4294967295).</para>
-        </listitem>
-      </varlistentry>
-      <varlistentry>
         <term><varname>CombinedChannels=</varname></term>
         <listitem>
-          <para>Sets the number of combined set channels (a number between 1 and 4294967295).</para>
+          <para>Specifies the number of receive, transmit, other, or combined channels, respectively.
+          Takes an unsigned integer in the range 1…4294967295 or <literal>max</literal>. If set to
+          <literal>max</literal>, the advertised maximum value of the hardware will be used. When
+          unset, the number will not be changed. Defaults to unset.</para>
         </listitem>
       </varlistentry>
       <varlistentry>
         <term><varname>RxBufferSize=</varname></term>
-        <listitem>
-          <para>Takes an integer or <literal>max</literal>. Specifies the maximum number of pending packets
-          in the NIC receive buffer. When unset, the kernel's default will be used. If set to
-          <literal>max</literal>, the hardware's advertised maximum size will be used.</para>
-        </listitem>
-      </varlistentry>
-      <varlistentry>
         <term><varname>RxMiniBufferSize=</varname></term>
-        <listitem>
-          <para>Takes an integer or <literal>max</literal>. Specifies the maximum number of pending packets
-          in the NIC mini receive buffer. When unset, the kernel's default will be used. If set to
-          <literal>max</literal>, the hardware's advertised maximum size will be used.</para>
-        </listitem>
-      </varlistentry>
-      <varlistentry>
         <term><varname>RxJumboBufferSize=</varname></term>
-        <listitem>
-          <para>Takes an integer or <literal>max</literal>. Specifies the maximum number of pending packets
-          in the NIC jumbo receive buffer. When unset, the kernel's default will be used. If set to
-          <literal>max</literal>, the hardware's advertised maximum size will be used.</para>
-        </listitem>
-      </varlistentry>
-      <varlistentry>
         <term><varname>TxBufferSize=</varname></term>
         <listitem>
-          <para>Takes an integer or <literal>max</literal>. Specifies the maximum number of pending packets
-          in the NIC transmit buffer. When unset, the kernel's default will be used. If set to
-          <literal>max</literal>, the hardware's advertised maximum size will be used.</para>
+          <para>Specifies the maximum number of pending packets in the NIC receive buffer, mini receive
+          buffer, jumbo receive buffer, or transmit buffer, respectively. Takes an unsigned integer in
+          the range 1…4294967295 or <literal>max</literal>. If set to <literal>max</literal>, the
+          advertised maximum value of the hardware will be used. When unset, the number will not be
+          changed. Defaults to unset.</para>
         </listitem>
       </varlistentry>
       <varlistentry>

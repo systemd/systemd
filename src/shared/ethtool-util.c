@@ -329,6 +329,17 @@ int ethtool_get_permanent_macaddr(int *ethtool_fd, const char *ifname, struct et
                 dest = _v;                             \
         } while(false)
 
+#define UPDATE_WITH_MAX(dest, max, val, updated)       \
+        do {                                           \
+                typeof(dest) _v = (val);               \
+                typeof(dest) _max = (max);             \
+                if (_v == 0 || _v > _max)              \
+                        _v = _max;                     \
+                if (dest != _v)                        \
+                        updated = true;                \
+                dest = _v;                             \
+        } while(false)
+
 int ethtool_set_wol(int *ethtool_fd, const char *ifname, uint32_t wolopts) {
         struct ethtool_wolinfo ecmd = {
                 .cmd = ETHTOOL_GWOL,
@@ -382,10 +393,10 @@ int ethtool_set_nic_buffer_size(int *ethtool_fd, const char *ifname, const netde
         assert(ifname);
         assert(ring);
 
-        if (!ring->rx_pending_set &&
-            !ring->rx_mini_pending_set &&
-            !ring->rx_jumbo_pending_set &&
-            !ring->tx_pending_set)
+        if (!ring->rx.set &&
+            !ring->rx_mini.set &&
+            !ring->rx_jumbo.set &&
+            !ring->tx.set)
                 return 0;
 
         r = ethtool_connect(ethtool_fd);
@@ -398,25 +409,17 @@ int ethtool_set_nic_buffer_size(int *ethtool_fd, const char *ifname, const netde
         if (r < 0)
                 return -errno;
 
-        if (ring->rx_pending_set)
-                UPDATE(ecmd.rx_pending,
-                       ring->rx_pending == 0 ? ecmd.rx_max_pending : ring->rx_pending,
-                       need_update);
+        if (ring->rx.set)
+                UPDATE_WITH_MAX(ecmd.rx_pending, ecmd.rx_max_pending, ring->rx.value, need_update);
 
-        if (ring->rx_mini_pending_set)
-                UPDATE(ecmd.rx_mini_pending,
-                       ring->rx_mini_pending == 0 ? ecmd.rx_mini_max_pending : ring->rx_mini_pending,
-                       need_update);
+        if (ring->rx_mini.set)
+                UPDATE_WITH_MAX(ecmd.rx_mini_pending, ecmd.rx_mini_max_pending, ring->rx_mini.value, need_update);
 
-        if (ring->rx_jumbo_pending_set)
-                UPDATE(ecmd.rx_jumbo_pending,
-                       ring->rx_jumbo_pending == 0 ? ecmd.rx_jumbo_max_pending : ring->rx_jumbo_pending,
-                       need_update);
+        if (ring->rx_jumbo.set)
+                UPDATE_WITH_MAX(ecmd.rx_jumbo_pending, ecmd.rx_jumbo_max_pending, ring->rx_jumbo.value, need_update);
 
-        if (ring->tx_pending_set)
-                UPDATE(ecmd.tx_pending,
-                       ring->tx_pending == 0 ? ecmd.tx_max_pending : ring->tx_pending,
-                       need_update);
+        if (ring->tx.set)
+                UPDATE_WITH_MAX(ecmd.tx_pending, ecmd.tx_max_pending, ring->tx.value, need_update);
 
         if (!need_update)
                 return 0;
@@ -842,10 +845,10 @@ int ethtool_set_channels(int *fd, const char *ifname, const netdev_channels *cha
         assert(ifname);
         assert(channels);
 
-        if (!channels->rx_count_set &&
-            !channels->tx_count_set &&
-            !channels->other_count_set &&
-            !channels->combined_count_set)
+        if (!channels->rx.set &&
+            !channels->tx.set &&
+            !channels->other.set &&
+            !channels->combined.set)
                 return 0;
 
         r = ethtool_connect(fd);
@@ -858,17 +861,17 @@ int ethtool_set_channels(int *fd, const char *ifname, const netdev_channels *cha
         if (r < 0)
                 return -errno;
 
-        if (channels->rx_count_set)
-                UPDATE(ecmd.rx_count, channels->rx_count, need_update);
+        if (channels->rx.set)
+                UPDATE_WITH_MAX(ecmd.rx_count, ecmd.max_rx, channels->rx.value, need_update);
 
-        if (channels->tx_count_set)
-                UPDATE(ecmd.tx_count, channels->tx_count, need_update);
+        if (channels->tx.set)
+                UPDATE_WITH_MAX(ecmd.tx_count, ecmd.max_tx, channels->tx.value, need_update);
 
-        if (channels->other_count_set)
-                UPDATE(ecmd.other_count, channels->other_count, need_update);
+        if (channels->other.set)
+                UPDATE_WITH_MAX(ecmd.other_count, ecmd.max_other, channels->other.value, need_update);
 
-        if (channels->combined_count_set)
-                UPDATE(ecmd.combined_count, channels->combined_count, need_update);
+        if (channels->combined.set)
+                UPDATE_WITH_MAX(ecmd.combined_count, ecmd.max_combined, channels->combined.value, need_update);
 
         if (!need_update)
                 return 0;
@@ -923,57 +926,6 @@ int ethtool_set_flow_control(int *fd, const char *ifname, int rx, int tx, int au
         r = ioctl(*fd, SIOCETHTOOL, &ifr);
         if (r < 0)
                 return -errno;
-
-        return 0;
-}
-
-int config_parse_channel(
-                const char *unit,
-                const char *filename,
-                unsigned line,
-                const char *section,
-                unsigned section_line,
-                const char *lvalue,
-                int ltype,
-                const char *rvalue,
-                void *data,
-                void *userdata) {
-
-        netdev_channels *channels = data;
-        uint32_t k;
-        int r;
-
-        assert(filename);
-        assert(section);
-        assert(lvalue);
-        assert(rvalue);
-        assert(data);
-
-        r = safe_atou32(rvalue, &k);
-        if (r < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r,
-                           "Failed to parse channel value for %s=, ignoring: %s", lvalue, rvalue);
-                return 0;
-        }
-        if (k < 1) {
-                log_syntax(unit, LOG_WARNING, filename, line, 0,
-                           "Invalid %s= value, ignoring: %s", lvalue, rvalue);
-                return 0;
-        }
-
-        if (streq(lvalue, "RxChannels")) {
-                channels->rx_count = k;
-                channels->rx_count_set = true;
-        } else if (streq(lvalue, "TxChannels")) {
-                channels->tx_count = k;
-                channels->tx_count_set = true;
-        } else if (streq(lvalue, "OtherChannels")) {
-                channels->other_count = k;
-                channels->other_count_set = true;
-        } else if (streq(lvalue, "CombinedChannels")) {
-                channels->combined_count = k;
-                channels->combined_count_set = true;
-        }
 
         return 0;
 }
@@ -1033,7 +985,7 @@ int config_parse_advertise(
         }
 }
 
-int config_parse_nic_buffer_size(
+int config_parse_ring_buffer_or_channel(
                 const char *unit,
                 const char *filename,
                 unsigned line,
@@ -1045,7 +997,7 @@ int config_parse_nic_buffer_size(
                 void *data,
                 void *userdata) {
 
-        netdev_ring_param *ring = data;
+        u32_opt *dst = data;
         uint32_t k;
         int r;
 
@@ -1055,36 +1007,32 @@ int config_parse_nic_buffer_size(
         assert(rvalue);
         assert(data);
 
-        if (streq(rvalue, "max"))
-                k = 0;
-        else {
-                r = safe_atou32(rvalue, &k);
-                if (r < 0) {
-                        log_syntax(unit, LOG_WARNING, filename, line, r,
-                                "Failed to parse interface buffer value, ignoring: %s", rvalue);
-                        return 0;
-                }
-                if (k < 1) {
-                        log_syntax(unit, LOG_WARNING, filename, line, 0,
-                                "Invalid %s= value, ignoring: %s", lvalue, rvalue);
-                        return 0;
-                }
+        if (isempty(rvalue)) {
+                dst->value = 0;
+                dst->set = false;
+                return 0;
         }
 
-        if (streq(lvalue, "RxBufferSize")) {
-                ring->rx_pending = k;
-                ring->rx_pending_set = true;
-        } else if (streq(lvalue, "RxMiniBufferSize")) {
-                ring->rx_mini_pending = k;
-                ring->rx_mini_pending_set = true;
-        } else if (streq(lvalue, "RxJumboBufferSize")) {
-                ring->rx_jumbo_pending = k;
-                ring->rx_jumbo_pending_set = true;
-        } else if (streq(lvalue, "TxBufferSize")) {
-                ring->tx_pending = k;
-                ring->tx_pending_set = true;
+        if (streq(rvalue, "max")) {
+                dst->value = 0;
+                dst->set = true;
+                return 0;
         }
 
+        r = safe_atou32(rvalue, &k);
+        if (r < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, r,
+                           "Failed to parse %s=, ignoring: %s", lvalue, rvalue);
+                return 0;
+        }
+        if (k < 1) {
+                log_syntax(unit, LOG_WARNING, filename, line, 0,
+                           "Invalid %s= value, ignoring: %s", lvalue, rvalue);
+                return 0;
+        }
+
+        dst->value = k;
+        dst->set = true;
         return 0;
 }
 
