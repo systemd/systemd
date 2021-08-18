@@ -57,30 +57,23 @@ struct ethtool_link_usettings {
         } link_modes;
 };
 
-typedef struct netdev_channels {
-        uint32_t rx_count;
-        uint32_t tx_count;
-        uint32_t other_count;
-        uint32_t combined_count;
+typedef struct u32_opt {
+        uint32_t value; /* a value of 0 indicates the hardware advertised maximum should be used.*/
+        bool set;
+} u32_opt;
 
-        bool rx_count_set;
-        bool tx_count_set;
-        bool other_count_set;
-        bool combined_count_set;
+typedef struct netdev_channels {
+        u32_opt rx;
+        u32_opt tx;
+        u32_opt other;
+        u32_opt combined;
 } netdev_channels;
 
 typedef struct netdev_ring_param {
-        /* For any of the 4 following settings, a value of 0 indicates the hardware advertised maximum should
-         * be used. */
-        uint32_t rx_pending;
-        uint32_t rx_mini_pending;
-        uint32_t rx_jumbo_pending;
-        uint32_t tx_pending;
-
-        bool rx_pending_set;
-        bool rx_mini_pending_set;
-        bool rx_jumbo_pending_set;
-        bool tx_pending_set;
+        u32_opt rx;
+        u32_opt rx_mini;
+        u32_opt rx_jumbo;
+        u32_opt tx;
 } netdev_ring_param;
 
 int ethtool_get_driver(int *ethtool_fd, const char *ifname, char **ret);
@@ -111,6 +104,5 @@ enum ethtool_link_mode_bit_indices ethtool_link_mode_bit_from_string(const char 
 CONFIG_PARSER_PROTOTYPE(config_parse_duplex);
 CONFIG_PARSER_PROTOTYPE(config_parse_wol);
 CONFIG_PARSER_PROTOTYPE(config_parse_port);
-CONFIG_PARSER_PROTOTYPE(config_parse_channel);
 CONFIG_PARSER_PROTOTYPE(config_parse_advertise);
-CONFIG_PARSER_PROTOTYPE(config_parse_nic_buffer_size);
+CONFIG_PARSER_PROTOTYPE(config_parse_ring_buffer_or_channel);
