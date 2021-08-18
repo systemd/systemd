@@ -254,6 +254,7 @@ int unit_file_build_name_map(
 
         _cleanup_hashmap_free_ Hashmap *ids = NULL, *names = NULL;
         _cleanup_set_free_free_ Set *paths = NULL;
+        _cleanup_strv_free_ char **expanded_search_paths = NULL;
         uint64_t timestamp_hash;
         char **dir;
         int r;
@@ -270,6 +271,37 @@ int unit_file_build_name_map(
         if (path_cache) {
                 paths = set_new(&path_hash_ops_free);
                 if (!paths)
+                        return log_oom();
+        }
+
+        /* Go over all our search paths, chase their symlinks and store the
+         * result in the expanded_search_paths list.
+         *
+         * This is important for cases where any of the unit directories itself
+         * are symlinks into other directories and would therefore cause all of
+         * the unit files to be recognized as linked units.
+         *
+         * This is important for distributions such as NixOS where most paths
+         * in /etc/ are symlinks to some other location on the filesystem (e.g.
+         * into /nix/store/).
+         */
+        STRV_FOREACH(dir, (char**) lp->search_path) {
+                _cleanup_free_ char *resolved_dir = NULL;
+                r = strv_extend(&expanded_search_paths, *dir);
+                if (r < 0) {
+                        log_debug("Failed to add existing path to expanded search paths: %s", *dir);
+                        return log_oom();
+                }
+
+                r = chase_symlinks(*dir, NULL, 0, &resolved_dir, NULL);
+                if (r < 0) {
+                        if (r != -ENOENT)
+                                log_warning_errno(r, "Failed to resolve symlink %s, ignoring: %m", *dir);
+
+                        continue;
+                }
+
+                if (strv_consume(&expanded_search_paths, TAKE_PTR(resolved_dir)) < 0)
                         return log_oom();
         }
 
@@ -351,11 +383,11 @@ int unit_file_build_name_map(
                                         continue;
                                 }
 
-                                /* Check if the symlink goes outside of our search path.
+                                /* Check if the symlink goes outside of our (expanded) search path.
                                  * If yes, it's a linked unit file or mask, and we don't care about the target name.
                                  * Let's just store the link source directly.
                                  * If not, let's verify that it's a good symlink. */
-                                char *tail = path_startswith_strv(simplified, lp->search_path);
+                                char *tail = path_startswith_strv(simplified, expanded_search_paths);
                                 if (!tail) {
                                         log_debug("%s: linked unit file: %s → %s",
                                                   __func__, filename, simplified);
