@@ -1715,7 +1715,9 @@ int dissected_image_mount(
                 if (r < 0)
                         return r;
 
-                if (flags & DISSECT_IMAGE_VALIDATE_OS) {
+                /* If we are fine with either and OS or an extension image, check for
+                 * both. */
+                if (flags & (DISSECT_IMAGE_VALIDATE_OS|DISSECT_IMAGE_VALIDATE_OS_EXT)) {
                         r = path_is_os_tree(where);
                         if (r < 0)
                                 return r;
@@ -1726,6 +1728,18 @@ int dissected_image_mount(
                                 if (r == 0)
                                         return -EMEDIUMTYPE;
                         }
+                } else if (flags & DISSECT_IMAGE_VALIDATE_OS) {
+                        r = path_is_os_tree(where);
+                        if (r < 0)
+                                return r;
+                        if (r == 0)
+                                return -EMEDIUMTYPE;
+                } else if (flags & DISSECT_IMAGE_VALIDATE_OS_EXT) {
+                        r = path_is_extension_tree(where, m->image_name);
+                        if (r < 0)
+                                return r;
+                        if (r == 0)
+                                return -EMEDIUMTYPE;
                 }
         }
 
@@ -2596,6 +2610,7 @@ int dissected_image_acquire_metadata(DissectedImage *m) {
                                 DISSECT_IMAGE_READ_ONLY|
                                 DISSECT_IMAGE_MOUNT_ROOT_ONLY|
                                 DISSECT_IMAGE_VALIDATE_OS|
+                                DISSECT_IMAGE_VALIDATE_OS_EXT|
                                 DISSECT_IMAGE_USR_NO_ROOT);
                 if (r < 0) {
                         /* Let parent know the error */
