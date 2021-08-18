@@ -503,9 +503,6 @@ static int portable_extract_by_path(
         if (extract_os_release && !os_release)
                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Image '%s' lacks os-release data, refusing.", path);
 
-        if (!extract_os_release && hashmap_isempty(unit_files))
-                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Couldn't find any matching unit files in image '%s', refusing.", path);
-
         if (ret_unit_files)
                 *ret_unit_files = TAKE_PTR(unit_files);
 
@@ -570,6 +567,19 @@ int portable_extract(
                 r = hashmap_move(unit_files, extra_unit_files);
                 if (r < 0)
                         return r;
+        }
+
+        if (hashmap_isempty(unit_files)) {
+                _cleanup_free_ char *extensions = strv_join(extension_image_paths, ", ");
+                if (!extensions)
+                        return -ENOMEM;
+
+                return sd_bus_error_setf(error,
+                                         SD_BUS_ERROR_INVALID_ARGS,
+                                         "Couldn't find any matching unit files in image '%s%s%s', refusing.",
+                                         image->path,
+                                         isempty(extensions) ? "" : "' or any of its extensions '",
+                                         isempty(extensions) ? "" : extensions);
         }
 
         *ret_os_release = TAKE_PTR(os_release);
@@ -1186,6 +1196,19 @@ int portable_attach(
                 r = hashmap_move(unit_files, extra_unit_files);
                 if (r < 0)
                         return r;
+        }
+
+        if (hashmap_isempty(unit_files)) {
+                _cleanup_free_ char *extensions = strv_join(extension_image_paths, ", ");
+                if (!extensions)
+                        return -ENOMEM;
+
+                return sd_bus_error_setf(error,
+                                         SD_BUS_ERROR_INVALID_ARGS,
+                                         "Couldn't find any matching unit files in image '%s%s%s', refusing.",
+                                         image->path,
+                                         isempty(extensions) ? "" : "' or any of its extensions '",
+                                         isempty(extensions) ? "" : extensions);
         }
 
         r = lookup_paths_init(&paths, UNIT_FILE_SYSTEM, LOOKUP_PATHS_SPLIT_USR, NULL);
