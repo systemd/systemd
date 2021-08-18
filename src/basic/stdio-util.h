@@ -9,8 +9,13 @@
 #include "macro.h"
 #include "memory-util.h"
 
-#define snprintf_ok(buf, len, fmt, ...) \
-        ((size_t) snprintf(buf, len, fmt, __VA_ARGS__) < (len))
+#define snprintf_ok(buf, len, fmt, ...)                                \
+        ({                                                             \
+                char *_buf = (buf);                                    \
+                size_t _len = (len);                                   \
+                int _snpf = snprintf(_buf, _len, (fmt), __VA_ARGS__);  \
+                _snpf >= 0 && (size_t) _snpf < _len ? _buf : NULL;     \
+        })
 
 #define xsprintf(buf, fmt, ...) \
         assert_message_se(snprintf_ok(buf, ELEMENTSOF(buf), fmt, __VA_ARGS__), "xsprintf: " #buf "[] must be big enough")
