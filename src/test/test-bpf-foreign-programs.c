@@ -155,7 +155,7 @@ static int pin_programs(Unit *u, CGroupContext *cc, const Test *test_suite, size
         assert_se(paths_ret);
 
         for (size_t i = 0; i < test_suite_size; i++) {
-                _cleanup_(bpf_program_unrefp) BPFProgram *prog = NULL;
+                _cleanup_(bpf_program_freep) BPFProgram *prog = NULL;
                 _cleanup_free_ char *str = NULL;
 
                 r = bpf_foreign_test_to_string(test_suite[i].attach_type, test_suite[i].bpffs_path, &str);
