@@ -712,3 +712,13 @@ int btrfs_defrag_fd(int fd) {
 
         return 0;
 }
+
+char *format_proc_fd_path(char buf[static PROC_FD_PATH_MAX], int fd) {
+        assert(buf);
+
+        if (fd < 0)
+                return NULL;
+
+        assert_se(snprintf(buf, PROC_FD_PATH_MAX, "/proc/self/fd/%i", fd) < (int) PROC_FD_PATH_MAX);
+        return buf;
+}

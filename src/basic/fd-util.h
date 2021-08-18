@@ -104,7 +104,15 @@ static inline int make_null_stdio(void) {
                 0;                              \
         })
 
-
 int fd_reopen(int fd, int flags);
 int read_nr_open(void);
 int btrfs_defrag_fd(int fd);
+
+/* The maximum length a buffer for a /proc/self/fd/<fd> path needs */
+#define PROC_FD_PATH_MAX \
+        (STRLEN("/proc/self/fd/") + DECIMAL_STR_MAX(int) + 1U)
+
+char* format_proc_fd_path(char buf[static PROC_FD_PATH_MAX], int fd);
+
+#define FORMAT_PROC_FD_PATH(fd) \
+        format_proc_fd_path((char[PROC_FD_PATH_MAX]) {}, (fd))
