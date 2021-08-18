@@ -5,7 +5,6 @@
 #include <efilib.h>
 
 #include "console.h"
-#include "crc32.h"
 #include "disk.h"
 #include "efi-loader-features.h"
 #include "graphics.h"
@@ -2136,10 +2135,10 @@ static VOID config_load_xbootldr(
                                 EFI_PARTITION_TABLE_HEADER gpt_header;
                                 uint8_t space[((sizeof(EFI_PARTITION_TABLE_HEADER) + 511) / 512) * 512];
                         } gpt_header_buffer;
-                        const EFI_PARTITION_TABLE_HEADER *h = &gpt_header_buffer.gpt_header;
+                        EFI_PARTITION_TABLE_HEADER *h = &gpt_header_buffer.gpt_header;
                         UINT64 where;
                         UINTN sz;
-                        UINT32 c;
+                        UINT32 crc32, crc32_saved;
 
                         if (nr == 0)
                                 /* Read the first copy at LBA 1 */
@@ -2158,8 +2157,7 @@ static VOID config_load_xbootldr(
                                 continue;
 
                         /* Some superficial validation of the GPT header */
-                        c = CompareMem(&h->Header.Signature, "EFI PART", sizeof(h->Header.Signature));
-                        if (c != 0)
+                        if(CompareMem(&h->Header.Signature, "EFI PART", sizeof(h->Header.Signature) != 0))
                                 continue;
 
                         if (h->Header.HeaderSize < 92 ||
@@ -2170,12 +2168,11 @@ static VOID config_load_xbootldr(
                                 continue;
 
                         /* Calculate CRC check */
-                        c = ~crc32_exclude_offset(UINT32_MAX,
-                                                  (const UINT8*) &gpt_header_buffer,
-                                                  h->Header.HeaderSize,
-                                                  OFFSETOF(EFI_PARTITION_TABLE_HEADER, Header.CRC32),
-                                                  sizeof(h->Header.CRC32));
-                        if (c != h->Header.CRC32)
+                        crc32_saved = h->Header.CRC32;
+                        h->Header.CRC32 = 0;
+                        r = BS->CalculateCrc32(&gpt_header_buffer, h->Header.HeaderSize, &crc32);
+                        h->Header.CRC32 = crc32_saved;
+                        if (EFI_ERROR(r) || crc32 != crc32_saved)
                                 continue;
 
                         if (h->MyLBA != where)
@@ -2204,8 +2201,8 @@ static VOID config_load_xbootldr(
                                 continue;
 
                         /* Calculate CRC of entries array, too */
-                        c = ~crc32(UINT32_MAX, entries, sz);
-                        if (c != h->PartitionEntryArrayCRC32)
+                        r = BS->CalculateCrc32(&entries, sz, &crc32);
+                        if (EFI_ERROR(r) || crc32 != h->PartitionEntryArrayCRC32)
                                 continue;
 
                         for (UINTN i = 0; i < h->NumberOfPartitionEntries; i++) {
