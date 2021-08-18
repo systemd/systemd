@@ -1581,12 +1581,8 @@ static int context_load_partition_table(
          * /proc/self/fd/ magic path if we have an existing fd. Open the original file otherwise. */
         if (*backing_fd < 0)
                 r = fdisk_assign_device(c, node, arg_dry_run);
-        else {
-                char procfs_path[STRLEN("/proc/self/fd/") + DECIMAL_STR_MAX(int)];
-                xsprintf(procfs_path, "/proc/self/fd/%i", *backing_fd);
-
-                r = fdisk_assign_device(c, procfs_path, arg_dry_run);
-        }
+        else
+                r = fdisk_assign_device(c, FORMAT_PROC_FD_PATH(*backing_fd), arg_dry_run);
         if (r == -EINVAL && arg_size_auto) {
                 struct stat st;
 
@@ -4593,7 +4589,6 @@ static int find_root(char **ret, int *ret_fd) {
 }
 
 static int resize_pt(int fd) {
-        char procfs_path[STRLEN("/proc/self/fd/") + DECIMAL_STR_MAX(int)];
         _cleanup_(fdisk_unref_contextp) struct fdisk_context *c = NULL;
         int r;
 
@@ -4605,14 +4600,13 @@ static int resize_pt(int fd) {
         if (!c)
                 return log_oom();
 
-        xsprintf(procfs_path, "/proc/self/fd/%i", fd);
-        r = fdisk_assign_device(c, procfs_path, 0);
+        r = fdisk_assign_device(c, FORMAT_PROC_FD_PATH(fd), 0);
         if (r < 0)
-                return log_error_errno(r, "Failed to open device '%s': %m", procfs_path);
+                return log_error_errno(r, "Failed to open device '%s': %m", FORMAT_PROC_FD_PATH(fd));
 
         r = fdisk_has_label(c);
         if (r < 0)
-                return log_error_errno(r, "Failed to determine whether disk '%s' has a disk label: %m", procfs_path);
+                return log_error_errno(r, "Failed to determine whether disk '%s' has a disk label: %m", FORMAT_PROC_FD_PATH(fd));
         if (r == 0) {
                 log_debug("Not resizing partition table, as there currently is none.");
                 return 0;

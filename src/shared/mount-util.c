@@ -42,10 +42,7 @@ int mount_fd(const char *source,
              unsigned long mountflags,
              const void *data) {
 
-        char path[STRLEN("/proc/self/fd/") + DECIMAL_STR_MAX(int)];
-
-        xsprintf(path, "/proc/self/fd/%i", target_fd);
-        if (mount(source, path, filesystemtype, mountflags, data) < 0) {
+        if (mount(source, FORMAT_PROC_FD_PATH(target_fd), filesystemtype, mountflags, data) < 0) {
                 if (errno != ENOENT)
                         return -errno;
 
@@ -733,8 +730,7 @@ static int mount_in_namespace(
 
         _cleanup_close_pair_ int errno_pipe_fd[2] = { -1, -1 };
         _cleanup_close_ int self_mntns_fd = -1, mntns_fd = -1, root_fd = -1, pidns_fd = -1, chased_src_fd = -1;
-        char mount_slave[] = "/tmp/propagate.XXXXXX", *mount_tmp, *mount_outside, *p,
-                chased_src[STRLEN("/proc/self/fd/") + DECIMAL_STR_MAX(int)];
+        char mount_slave[] = "/tmp/propagate.XXXXXX", *mount_tmp, *mount_outside, *p;
         bool mount_slave_created = false, mount_slave_mounted = false,
                 mount_tmp_created = false, mount_tmp_mounted = false,
                 mount_outside_created = false, mount_outside_mounted = false;
@@ -767,9 +763,8 @@ static int mount_in_namespace(
         if (st.st_ino == self_mntns_st.st_ino && st.st_dev == self_mntns_st.st_dev)
                 return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to activate bind mount in target, not running in a mount namespace");
 
-        /* One day, when bind mounting /proc/self/fd/n works across
-         * namespace boundaries we should rework this logic to make
-         * use of it... */
+        /* One day, when bind mounting /proc/self/fd/n works across namespace boundaries we should rework
+         * this logic to make use of it... */
 
         p = strjoina(propagate_path, "/");
         r = laccess(p, F_OK);
@@ -779,7 +774,6 @@ static int mount_in_namespace(
         r = chase_symlinks(src, NULL, CHASE_TRAIL_SLASH, NULL, &chased_src_fd);
         if (r < 0)
                 return log_debug_errno(r, "Failed to resolve source path of %s: %m", src);
-        xsprintf(chased_src, "/proc/self/fd/%i", chased_src_fd);
 
         if (fstat(chased_src_fd, &st) < 0)
                 return log_debug_errno(errno, "Failed to stat() resolved source path %s: %m", src);
@@ -824,9 +818,9 @@ static int mount_in_namespace(
         mount_tmp_created = true;
 
         if (is_image)
-                r = verity_dissect_and_mount(chased_src, mount_tmp, options, NULL, NULL, NULL);
+                r = verity_dissect_and_mount(FORMAT_PROC_FD_PATH(chased_src_fd), mount_tmp, options, NULL, NULL, NULL);
         else
-                r = mount_follow_verbose(LOG_DEBUG, chased_src, mount_tmp, NULL, MS_BIND, NULL);
+                r = mount_follow_verbose(LOG_DEBUG, FORMAT_PROC_FD_PATH(chased_src_fd), mount_tmp, NULL, MS_BIND, NULL);
         if (r < 0)
                 goto finish;
 

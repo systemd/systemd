@@ -721,8 +721,6 @@ int read_full_file_full(
                 if (dir_fd == AT_FDCWD)
                         r = sockaddr_un_set_path(&sa.un, filename);
                 else {
-                        char procfs_path[STRLEN("/proc/self/fd/") + DECIMAL_STR_MAX(int)];
-
                         /* If we shall operate relative to some directory, then let's use O_PATH first to
                          * open the socket inode, and then connect to it via /proc/self/fd/. We have to do
                          * this since there's not connectat() that takes a directory fd as first arg. */
@@ -731,8 +729,7 @@ int read_full_file_full(
                         if (dfd < 0)
                                 return -errno;
 
-                        xsprintf(procfs_path, "/proc/self/fd/%i", dfd);
-                        r = sockaddr_un_set_path(&sa.un, procfs_path);
+                        r = sockaddr_un_set_path(&sa.un, FORMAT_PROC_FD_PATH(dfd));
                 }
                 if (r < 0)
                         return r;
