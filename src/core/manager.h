@@ -384,6 +384,10 @@ struct Manager {
         /* non-zero if we are reloading or reexecuting, */
         int n_reloading;
 
+        /* Reload timestamps */
+        usec_t reloading_start_monotonic_timestamp;
+        usec_t reloaded_realtime_timestamp;
+
         unsigned n_installed_jobs;
         unsigned n_failed_jobs;
 
