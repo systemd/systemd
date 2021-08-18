@@ -423,9 +423,16 @@ static int portable_extract_by_path(
                 if (r < 0)
                         return r;
                 if (r == 0) {
+                        DissectImageFlags flags = DISSECT_IMAGE_READ_ONLY;
+
                         seq[0] = safe_close(seq[0]);
 
-                        r = dissected_image_mount(m, tmpdir, UID_INVALID, UID_INVALID, DISSECT_IMAGE_READ_ONLY);
+                        if (!extract_os_release)
+                                flags |= DISSECT_IMAGE_VALIDATE_OS_EXT;
+                        else
+                                flags |= DISSECT_IMAGE_VALIDATE_OS;
+
+                        r = dissected_image_mount(m, tmpdir, UID_INVALID, UID_INVALID, flags);
                         if (r < 0) {
                                 log_debug_errno(r, "Failed to mount dissected image: %m");
                                 goto child_finish;
