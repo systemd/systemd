@@ -50,12 +50,8 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
         else
                 log_info(r == 0 ? "Done!" : "Action!");
 
-        if (orig_stdout_fd >= 0) {
-                char path[STRLEN("/proc/self/fd/") + DECIMAL_STR_MAX(int)];
-
-                xsprintf(path, "/proc/self/fd/%d", orig_stdout_fd);
-                assert_se(freopen(path, "w", stdout));
-        }
+        if (orig_stdout_fd >= 0)
+                assert_se(freopen(FORMAT_PROC_FD_PATH(orig_stdout_fd), "w", stdout));
 
         release_busses(); /* We open the bus for communication with logind.
                            * It needs to be closed to avoid apparent leaks. */

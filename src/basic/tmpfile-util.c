@@ -300,11 +300,7 @@ int link_tmpfile(int fd, const char *path, const char *target) {
                 if (r < 0)
                         return r;
         } else {
-                char proc_fd_path[STRLEN("/proc/self/fd/") + DECIMAL_STR_MAX(fd) + 1];
-
-                xsprintf(proc_fd_path, "/proc/self/fd/%i", fd);
-
-                if (linkat(AT_FDCWD, proc_fd_path, AT_FDCWD, target, AT_SYMLINK_FOLLOW) < 0)
+                if (linkat(AT_FDCWD, FORMAT_PROC_FD_PATH(fd), AT_FDCWD, target, AT_SYMLINK_FOLLOW) < 0)
                         return -errno;
         }
 
