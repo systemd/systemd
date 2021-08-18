@@ -76,6 +76,31 @@ typedef struct netdev_ring_param {
         u32_opt tx;
 } netdev_ring_param;
 
+typedef struct netdev_coalesce_param {
+        u32_opt rx_coalesce_usecs;
+        u32_opt rx_max_coalesced_frames;
+        u32_opt rx_coalesce_usecs_irq;
+        u32_opt rx_max_coalesced_frames_irq;
+        u32_opt tx_coalesce_usecs;
+        u32_opt tx_max_coalesced_frames;
+        u32_opt tx_coalesce_usecs_irq;
+        u32_opt tx_max_coalesced_frames_irq;
+        u32_opt stats_block_coalesce_usecs;
+        int use_adaptive_rx_coalesce;
+        int use_adaptive_tx_coalesce;
+        u32_opt pkt_rate_low;
+        u32_opt rx_coalesce_usecs_low;
+        u32_opt rx_max_coalesced_frames_low;
+        u32_opt tx_coalesce_usecs_low;
+        u32_opt tx_max_coalesced_frames_low;
+        u32_opt pkt_rate_high;
+        u32_opt rx_coalesce_usecs_high;
+        u32_opt rx_max_coalesced_frames_high;
+        u32_opt tx_coalesce_usecs_high;
+        u32_opt tx_max_coalesced_frames_high;
+        u32_opt rate_sample_interval;
+} netdev_coalesce_param;
+
 int ethtool_get_driver(int *ethtool_fd, const char *ifname, char **ret);
 int ethtool_get_link_info(int *ethtool_fd, const char *ifname,
                           int *ret_autonegotiation, uint64_t *ret_speed,
@@ -89,6 +114,7 @@ int ethtool_set_glinksettings(int *ethtool_fd, const char *ifname,
                               uint64_t speed, Duplex duplex, NetDevPort port);
 int ethtool_set_channels(int *ethtool_fd, const char *ifname, const netdev_channels *channels);
 int ethtool_set_flow_control(int *fd, const char *ifname, int rx, int tx, int autoneg);
+int ethtool_set_nic_coalesce_settings(int *ethtool_fd, const char *ifname, const netdev_coalesce_param *coalesce);
 
 const char *duplex_to_string(Duplex d) _const_;
 Duplex duplex_from_string(const char *d) _pure_;
@@ -106,3 +132,6 @@ CONFIG_PARSER_PROTOTYPE(config_parse_wol);
 CONFIG_PARSER_PROTOTYPE(config_parse_port);
 CONFIG_PARSER_PROTOTYPE(config_parse_advertise);
 CONFIG_PARSER_PROTOTYPE(config_parse_ring_buffer_or_channel);
+CONFIG_PARSER_PROTOTYPE(config_parse_coalesce_u32);
+CONFIG_PARSER_PROTOTYPE(config_parse_coalesce_sec);
+CONFIG_PARSER_PROTOTYPE(config_parse_nic_coalesce_setting);

@@ -64,6 +64,7 @@ struct LinkConfig {
         int rx_flow_control;
         int tx_flow_control;
         int autoneg_flow_control;
+        netdev_coalesce_param coalesce;
 
         LIST_FIELDS(LinkConfig, links);
 };

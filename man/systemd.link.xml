@@ -773,6 +773,77 @@
           accept. An unsigned integer in the range 1…65535. Defaults to unset.</para>
         </listitem>
       </varlistentry>
+      <varlistentry>
+        <term><varname>UseAdaptiveRxCoalesce=</varname></term>
+        <term><varname>UseAdaptiveTxCoalesce=</varname></term>
+        <listitem>
+          <para>Boolean properties that, when set, enable/disable adaptive Rx/Tx coalescing if the hardware
+          supports it. When unset, the kernel's default will be used.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><varname>RxCoalesceSec=</varname></term>
+        <term><varname>RxCoalesceIrqSec=</varname></term>
+        <term><varname>RxCoalesceLowSec=</varname></term>
+        <term><varname>RxCoalesceHighSec=</varname></term>
+        <term><varname>TxCoalesceSec=</varname></term>
+        <term><varname>TxCoalesceIrqSec=</varname></term>
+        <term><varname>TxCoalesceLowSec=</varname></term>
+        <term><varname>TxCoalesceHighSec=</varname></term>
+        <listitem>
+          <para>These properties configure the delay before Rx/Tx interrupts are generated after a packet is
+          sent/received. The <literal>Irq</literal> properties come into effect when the host is servicing an
+          IRQ. The <literal>Low</literal> and <literal>High</literal> properties come into effect when the
+          packet rate drops below the low packet rate threshold or exceeds the high packet rate threshold
+          respectively if adaptive Rx/Tx coalescing is enabled. When unset, the kernel's defaults will be
+          used.</para>
+        </listitem>
+      </varlistentry>
+        <varlistentry>
+        <term><varname>RxMaxCoalescedFrames=</varname></term>
+        <term><varname>RxMaxCoalescedIrqFrames=</varname></term>
+        <term><varname>RxMaxCoalescedLowFrames=</varname></term>
+        <term><varname>RxMaxCoalescedHighFrames=</varname></term>
+        <term><varname>TxMaxCoalescedFrames=</varname></term>
+        <term><varname>TxMaxCoalescedIrqFrames=</varname></term>
+        <term><varname>TxMaxCoalescedLowFrames=</varname></term>
+        <term><varname>TxMaxCoalescedHighFrames=</varname></term>
+        <listitem>
+          <para>These properties configure the maximum number of frames that are sent/received before a Rx/Tx
+          interrupt is generated. The <literal>Irq</literal> properties come into effect when the host is
+          servicing an IRQ. The <literal>Low</literal> and <literal>High</literal> properties come into
+          effect when the packet rate drops below the low packet rate threshold or exceeds the high packet
+          rate threshold respectively if adaptive Rx/Tx coalescing is enabled. When unset, the kernel's
+          defaults will be used.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><varname>CoalescePacketRateLow=</varname></term>
+        <term><varname>CoalescePacketRateHigh=</varname></term>
+        <listitem>
+          <para>These properties configure the low and high packet rate (expressed in packets per second)
+          threshold respectively and are used to determine when the corresponding coalescing settings for low
+          and high packet rates come into effect if adaptive Rx/Tx coalescing is enabled. If unset, the
+          kernel's defaults will be used.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><varname>CoalescePacketRateSampleIntervalSec=</varname></term>
+        <listitem>
+          <para>Configures how often to sample the packet rate used for adaptive Rx/Tx coalescing. This
+          property cannot be zero. This lowest time granularity supported by this property is seconds.
+          Partial seconds will be rounded up before being passed to the kernel. If unset, the kernel's
+          default will be used.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><varname>StatisticsBlockCoalesceSec=</varname></term>
+        <listitem>
+          <para>How long to delay driver in-memory statistics block updates. If the driver does not have an
+          in-memory statistic block, this property is ignored. This property cannot be zero. If unset, the
+          kernel's default will be used.</para>
+        </listitem>
+      </varlistentry>
 
     </variablelist>
   </refsect1>
