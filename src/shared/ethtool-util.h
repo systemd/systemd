@@ -57,31 +57,50 @@ struct ethtool_link_usettings {
         } link_modes;
 };
 
-typedef struct netdev_channels {
-        uint32_t rx_count;
-        uint32_t tx_count;
-        uint32_t other_count;
-        uint32_t combined_count;
+typedef struct u32_opt {
+        uint32_t value; /* a value of 0 indicates the hardware advertised maximum should be used.*/
+        bool set;
+} u32_opt;
 
-        bool rx_count_set;
-        bool tx_count_set;
-        bool other_count_set;
-        bool combined_count_set;
+typedef struct netdev_channels {
+        u32_opt rx;
+        u32_opt tx;
+        u32_opt other;
+        u32_opt combined;
 } netdev_channels;
 
 typedef struct netdev_ring_param {
-        /* For any of the 4 following settings, a value of 0 indicates the hardware advertised maximum should
-         * be used. */
-        uint32_t rx_pending;
-        uint32_t rx_mini_pending;
-        uint32_t rx_jumbo_pending;
-        uint32_t tx_pending;
-
-        bool rx_pending_set;
-        bool rx_mini_pending_set;
-        bool rx_jumbo_pending_set;
-        bool tx_pending_set;
+        u32_opt rx;
+        u32_opt rx_mini;
+        u32_opt rx_jumbo;
+        u32_opt tx;
 } netdev_ring_param;
+
+typedef struct netdev_coalesce_param {
+        int use_adaptive_rx_coalesce;
+        int use_adaptive_tx_coalesce;
+
+        u32_opt rx_coalesce_usecs;
+        u32_opt rx_max_coalesced_frames;
+        u32_opt rx_coalesce_usecs_irq;
+        u32_opt rx_max_coalesced_frames_irq;
+        u32_opt tx_coalesce_usecs;
+        u32_opt tx_max_coalesced_frames;
+        u32_opt tx_coalesce_usecs_irq;
+        u32_opt tx_max_coalesced_frames_irq;
+        u32_opt stats_block_coalesce_usecs;
+        u32_opt pkt_rate_low;
+        u32_opt rx_coalesce_usecs_low;
+        u32_opt rx_max_coalesced_frames_low;
+        u32_opt tx_coalesce_usecs_low;
+        u32_opt tx_max_coalesced_frames_low;
+        u32_opt pkt_rate_high;
+        u32_opt rx_coalesce_usecs_high;
+        u32_opt rx_max_coalesced_frames_high;
+        u32_opt tx_coalesce_usecs_high;
+        u32_opt tx_max_coalesced_frames_high;
+        u32_opt rate_sample_interval;
+} netdev_coalesce_param;
 
 int ethtool_get_driver(int *ethtool_fd, const char *ifname, char **ret);
 int ethtool_get_link_info(int *ethtool_fd, const char *ifname,
@@ -96,6 +115,7 @@ int ethtool_set_glinksettings(int *ethtool_fd, const char *ifname,
                               uint64_t speed, Duplex duplex, NetDevPort port);
 int ethtool_set_channels(int *ethtool_fd, const char *ifname, const netdev_channels *channels);
 int ethtool_set_flow_control(int *fd, const char *ifname, int rx, int tx, int autoneg);
+int ethtool_set_nic_coalesce_settings(int *ethtool_fd, const char *ifname, const netdev_coalesce_param *coalesce);
 
 const char *duplex_to_string(Duplex d) _const_;
 Duplex duplex_from_string(const char *d) _pure_;
@@ -111,6 +131,6 @@ enum ethtool_link_mode_bit_indices ethtool_link_mode_bit_from_string(const char 
 CONFIG_PARSER_PROTOTYPE(config_parse_duplex);
 CONFIG_PARSER_PROTOTYPE(config_parse_wol);
 CONFIG_PARSER_PROTOTYPE(config_parse_port);
-CONFIG_PARSER_PROTOTYPE(config_parse_channel);
 CONFIG_PARSER_PROTOTYPE(config_parse_advertise);
-CONFIG_PARSER_PROTOTYPE(config_parse_nic_buffer_size);
+CONFIG_PARSER_PROTOTYPE(config_parse_ring_buffer_or_channel);
+CONFIG_PARSER_PROTOTYPE(config_parse_nic_coalesce_setting);
