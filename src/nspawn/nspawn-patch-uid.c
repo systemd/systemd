@@ -22,7 +22,6 @@
 #if HAVE_ACL
 
 static int get_acl(int fd, const char *name, acl_type_t type, acl_t *ret) {
-        char procfs_path[STRLEN("/proc/self/fd/") + DECIMAL_STR_MAX(int) + 1];
         acl_t acl;
 
         assert(fd >= 0);
@@ -35,14 +34,11 @@ static int get_acl(int fd, const char *name, acl_type_t type, acl_t *ret) {
                 if (child_fd < 0)
                         return -errno;
 
-                xsprintf(procfs_path, "/proc/self/fd/%i", child_fd);
-                acl = acl_get_file(procfs_path, type);
+                acl = acl_get_file(FORMAT_PROC_FD_PATH(child_fd), type);
         } else if (type == ACL_TYPE_ACCESS)
                 acl = acl_get_fd(fd);
-        else {
-                xsprintf(procfs_path, "/proc/self/fd/%i", fd);
-                acl = acl_get_file(procfs_path, type);
-        }
+        else
+                acl = acl_get_file(FORMAT_PROC_FD_PATH(fd), type);
         if (!acl)
                 return -errno;
 
@@ -51,7 +47,6 @@ static int get_acl(int fd, const char *name, acl_type_t type, acl_t *ret) {
 }
 
 static int set_acl(int fd, const char *name, acl_type_t type, acl_t acl) {
-        char procfs_path[STRLEN("/proc/self/fd/") + DECIMAL_STR_MAX(int) + 1];
         int r;
 
         assert(fd >= 0);
@@ -64,14 +59,11 @@ static int set_acl(int fd, const char *name, acl_type_t type, acl_t acl) {
                 if (child_fd < 0)
                         return -errno;
 
-                xsprintf(procfs_path, "/proc/self/fd/%i", child_fd);
-                r = acl_set_file(procfs_path, type, acl);
+                r = acl_set_file(FORMAT_PROC_FD_PATH(child_fd), type, acl);
         } else if (type == ACL_TYPE_ACCESS)
                 r = acl_set_fd(fd, acl);
-        else {
-                xsprintf(procfs_path, "/proc/self/fd/%i", fd);
-                r = acl_set_file(procfs_path, type, acl);
-        }
+        else
+                r = acl_set_file(FORMAT_PROC_FD_PATH(fd), type, acl);
         if (r < 0)
                 return -errno;
 

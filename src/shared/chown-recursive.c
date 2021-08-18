@@ -21,7 +21,6 @@ static int chown_one(
                 gid_t gid,
                 mode_t mask) {
 
-        char procfs_path[STRLEN("/proc/self/fd/") + DECIMAL_STR_MAX(int) + 1];
         const char *n;
         int r;
 
@@ -30,11 +29,10 @@ static int chown_one(
 
         /* We change ACLs through the /proc/self/fd/%i path, so that we have a stable reference that works
          * with O_PATH. */
-        xsprintf(procfs_path, "/proc/self/fd/%i", fd);
 
         /* Drop any ACL if there is one */
         FOREACH_STRING(n, "system.posix_acl_access", "system.posix_acl_default")
-                if (removexattr(procfs_path, n) < 0)
+                if (removexattr(FORMAT_PROC_FD_PATH(fd), n) < 0)
                         if (!IN_SET(errno, ENODATA, EOPNOTSUPP, ENOSYS, ENOTTY))
                                 return -errno;
 

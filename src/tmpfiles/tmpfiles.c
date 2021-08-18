@@ -1058,18 +1058,15 @@ static int parse_xattrs_from_arg(Item *i) {
 }
 
 static int fd_set_xattrs(Item *i, int fd, const char *path, const struct stat *st) {
-        char procfs_path[STRLEN("/proc/self/fd/") + DECIMAL_STR_MAX(int)];
         char **name, **value;
 
         assert(i);
         assert(fd >= 0);
         assert(path);
 
-        xsprintf(procfs_path, "/proc/self/fd/%i", fd);
-
         STRV_FOREACH_PAIR(name, value, i->xattrs) {
                 log_debug("Setting extended attribute '%s=%s' on %s.", *name, *value, path);
-                if (setxattr(procfs_path, *name, *value, strlen(*value), 0) < 0)
+                if (setxattr(FORMAT_PROC_FD_PATH(fd), *name, *value, strlen(*value), 0) < 0)
                         return log_error_errno(errno, "Setting extended attribute %s=%s on %s failed: %m",
                                                *name, *value, path);
         }
@@ -1161,7 +1158,6 @@ static int path_set_acl(const char *path, const char *pretty, acl_type_t type, a
 static int fd_set_acls(Item *item, int fd, const char *path, const struct stat *st) {
         int r = 0;
 #if HAVE_ACL
-        char procfs_path[STRLEN("/proc/self/fd/") + DECIMAL_STR_MAX(int)];
         struct stat stbuf;
 
         assert(item);
@@ -1184,14 +1180,12 @@ static int fd_set_acls(Item *item, int fd, const char *path, const struct stat *
                 return 0;
         }
 
-        xsprintf(procfs_path, "/proc/self/fd/%i", fd);
-
         if (item->acl_access)
-                r = path_set_acl(procfs_path, path, ACL_TYPE_ACCESS, item->acl_access, item->append_or_force);
+                r = path_set_acl(FORMAT_PROC_FD_PATH(fd), path, ACL_TYPE_ACCESS, item->acl_access, item->append_or_force);
 
         /* set only default acls to folders */
         if (r == 0 && item->acl_default && S_ISDIR(st->st_mode))
-                r = path_set_acl(procfs_path, path, ACL_TYPE_DEFAULT, item->acl_default, item->append_or_force);
+                r = path_set_acl(FORMAT_PROC_FD_PATH(fd), path, ACL_TYPE_DEFAULT, item->acl_default, item->append_or_force);
 
         if (ERRNO_IS_NOT_SUPPORTED(r)) {
                 log_debug_errno(r, "ACLs not supported by file system at %s", path);
@@ -1938,17 +1932,14 @@ static int item_do(Item *i, int fd, const char *path, fdaction_t action) {
         r = action(i, fd, path, &st);
 
         if (S_ISDIR(st.st_mode)) {
-                char procfs_path[STRLEN("/proc/self/fd/") + DECIMAL_STR_MAX(int)];
                 _cleanup_closedir_ DIR *d = NULL;
                 struct dirent *de;
 
-                /* The passed 'fd' was opened with O_PATH. We need to convert
-                 * it into a 'regular' fd before reading the directory content. */
-                xsprintf(procfs_path, "/proc/self/fd/%i", fd);
-
-                d = opendir(procfs_path);
+                /* The passed 'fd' was opened with O_PATH. We need to convert it into a 'regular' fd before
+                 * reading the directory content. */
+                d = opendir(FORMAT_PROC_FD_PATH(fd));
                 if (!d) {
-                        log_error_errno(errno, "Failed to opendir() '%s': %m", procfs_path);
+                        log_error_errno(errno, "Failed to opendir() '%s': %m", FORMAT_PROC_FD_PATH(fd));
                         if (r == 0)
                                 r = -errno;
                         goto finish;

@@ -89,9 +89,7 @@ int namespace_enter(int pidns_fd, int mntns_fd, int netns_fd, int userns_fd, int
                 /* Can't setns to your own userns, since then you could escalate from non-root to root in
                  * your own namespace, so check if namespaces are equal before attempting to enter. */
 
-                char userns_fd_path[STRLEN("/proc/self/fd/") + DECIMAL_STR_MAX(int)];
-                xsprintf(userns_fd_path, "/proc/self/fd/%d", userns_fd);
-                r = files_same(userns_fd_path, "/proc/self/ns/user", 0);
+                r = files_same(FORMAT_PROC_FD_PATH(userns_fd), "/proc/self/ns/user", 0);
                 if (r < 0)
                         return r;
                 if (r)

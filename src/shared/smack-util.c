@@ -121,8 +121,7 @@ int mac_smack_apply_pid(pid_t pid, const char *label) {
         return r;
 }
 
-static int smack_fix_fd(int fd , const char *abspath, LabelFixFlags flags) {
-        char procfs_path[STRLEN("/proc/self/fd/") + DECIMAL_STR_MAX(int)];
+static int smack_fix_fd(int fd, const char *abspath, LabelFixFlags flags) {
         const char *label;
         struct stat st;
         int r;
@@ -153,8 +152,7 @@ static int smack_fix_fd(int fd , const char *abspath, LabelFixFlags flags) {
         else
                 return 0;
 
-        xsprintf(procfs_path, "/proc/self/fd/%i", fd);
-        if (setxattr(procfs_path, "security.SMACK64", label, strlen(label), 0) < 0) {
+        if (setxattr(FORMAT_PROC_FD_PATH(fd), "security.SMACK64", label, strlen(label), 0) < 0) {
                 _cleanup_free_ char *old_label = NULL;
 
                 r = -errno;
@@ -168,7 +166,7 @@ static int smack_fix_fd(int fd , const char *abspath, LabelFixFlags flags) {
                         return 0;
 
                 /* If the old label is identical to the new one, suppress any kind of error */
-                if (getxattr_malloc(procfs_path, "security.SMACK64", &old_label, false) >= 0 &&
+                if (getxattr_malloc(FORMAT_PROC_FD_PATH(fd), "security.SMACK64", &old_label, false) >= 0 &&
                     streq(old_label, label))
                         return 0;
 
