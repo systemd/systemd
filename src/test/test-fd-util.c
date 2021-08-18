@@ -278,6 +278,17 @@ static void test_close_all_fds(void) {
         log_open();
 }
 
+static void test_format_proc_fd_path(void) {
+
+        assert_se(streq_ptr(FORMAT_PROC_FD_PATH(0), "/proc/self/fd/0"));
+        assert_se(streq_ptr(FORMAT_PROC_FD_PATH(1), "/proc/self/fd/1"));
+        assert_se(streq_ptr(FORMAT_PROC_FD_PATH(2), "/proc/self/fd/2"));
+        assert_se(streq_ptr(FORMAT_PROC_FD_PATH(3), "/proc/self/fd/3"));
+        assert_se(streq_ptr(FORMAT_PROC_FD_PATH(2147483647), "/proc/self/fd/2147483647"));
+        assert_se(streq_ptr(FORMAT_PROC_FD_PATH(-1), NULL));
+        assert_se(streq_ptr(FORMAT_PROC_FD_PATH(-2147483648), NULL));
+}
+
 int main(int argc, char *argv[]) {
 
         test_setup_logging(LOG_DEBUG);
@@ -290,6 +301,7 @@ int main(int argc, char *argv[]) {
         test_rearrange_stdio();
         test_read_nr_open();
         test_close_all_fds();
+        test_format_proc_fd_path();
 
         return 0;
 }

@@ -266,7 +266,6 @@ int mac_selinux_fix_container_fd(int fd, const char *path, const char *inside_pa
         assert(inside_path);
 
 #if HAVE_SELINUX
-        char procfs_path[STRLEN("/proc/self/fd/") + DECIMAL_STR_MAX(int)];
         _cleanup_freecon_ char* fcon = NULL;
         struct stat st;
         int r;
@@ -292,8 +291,7 @@ int mac_selinux_fix_container_fd(int fd, const char *path, const char *inside_pa
                 goto fail;
         }
 
-        xsprintf(procfs_path, "/proc/self/fd/%i", fd);
-        if (setfilecon_raw(procfs_path, fcon) < 0) {
+        if (setfilecon_raw(FORMAT_PROC_FD_PATH(fd), fcon) < 0) {
                 _cleanup_freecon_ char *oldcon = NULL;
 
                 /* If the FS doesn't support labels, then exit without warning */
@@ -307,7 +305,7 @@ int mac_selinux_fix_container_fd(int fd, const char *path, const char *inside_pa
                 r = -errno;
 
                 /* If the old label is identical to the new one, suppress any kind of error */
-                if (getfilecon_raw(procfs_path, &oldcon) >= 0 && streq(fcon, oldcon))
+                if (getfilecon_raw(FORMAT_PROC_FD_PATH(fd), &oldcon) >= 0 && streq(fcon, oldcon))
                         return 0;
 
                 goto fail;
