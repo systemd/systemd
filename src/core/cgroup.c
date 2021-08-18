@@ -1164,7 +1164,7 @@ static void cgroup_apply_restrict_network_interfaces(Unit *u) {
 }
 
 static int cgroup_apply_devices(Unit *u) {
-        _cleanup_(bpf_program_unrefp) BPFProgram *prog = NULL;
+        BPFProgram *prog = NULL;
         const char *path;
         CGroupContext *c;
         CGroupDeviceAllow *a;
@@ -2743,7 +2743,7 @@ void unit_prune_cgroup(Unit *u) {
         u->cgroup_realized_mask = 0;
         u->cgroup_enabled_mask = 0;
 
-        u->bpf_device_control_installed = bpf_program_unref(u->bpf_device_control_installed);
+        u->bpf_device_control_installed = bpf_program_free(u->bpf_device_control_installed);
 }
 
 int unit_search_main_pid(Unit *u, pid_t *ret) {
