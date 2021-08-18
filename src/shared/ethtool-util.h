@@ -70,6 +70,8 @@ typedef struct netdev_channels {
 } netdev_channels;
 
 typedef struct netdev_ring_param {
+        /* For any of the 4 following settings, a value of 0 indicates the hardware advertised maximum should
+         * be used. */
         uint32_t rx_pending;
         uint32_t rx_mini_pending;
         uint32_t rx_jumbo_pending;

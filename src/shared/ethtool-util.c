@@ -399,16 +399,24 @@ int ethtool_set_nic_buffer_size(int *ethtool_fd, const char *ifname, const netde
                 return -errno;
 
         if (ring->rx_pending_set)
-                UPDATE(ecmd.rx_pending, ring->rx_pending, need_update);
+                UPDATE(ecmd.rx_pending,
+                       ring->rx_pending == 0 ? ecmd.rx_max_pending : ring->rx_pending,
+                       need_update);
 
         if (ring->rx_mini_pending_set)
-                UPDATE(ecmd.rx_mini_pending, ring->rx_mini_pending, need_update);
+                UPDATE(ecmd.rx_mini_pending,
+                       ring->rx_mini_pending == 0 ? ecmd.rx_mini_max_pending : ring->rx_mini_pending,
+                       need_update);
 
         if (ring->rx_jumbo_pending_set)
-                UPDATE(ecmd.rx_jumbo_pending, ring->rx_jumbo_pending, need_update);
+                UPDATE(ecmd.rx_jumbo_pending,
+                       ring->rx_jumbo_pending == 0 ? ecmd.rx_jumbo_max_pending : ring->rx_jumbo_pending,
+                       need_update);
 
         if (ring->tx_pending_set)
-                UPDATE(ecmd.tx_pending, ring->tx_pending, need_update);
+                UPDATE(ecmd.tx_pending,
+                       ring->tx_pending == 0 ? ecmd.tx_max_pending : ring->tx_pending,
+                       need_update);
 
         if (!need_update)
                 return 0;
@@ -1047,16 +1055,20 @@ int config_parse_nic_buffer_size(
         assert(rvalue);
         assert(data);
 
-        r = safe_atou32(rvalue, &k);
-        if (r < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r,
-                           "Failed to parse interface buffer value, ignoring: %s", rvalue);
-                return 0;
-        }
-        if (k < 1) {
-                log_syntax(unit, LOG_WARNING, filename, line, 0,
-                           "Invalid %s= value, ignoring: %s", lvalue, rvalue);
-                return 0;
+        if (streq(rvalue, "max"))
+                k = 0;
+        else {
+                r = safe_atou32(rvalue, &k);
+                if (r < 0) {
+                        log_syntax(unit, LOG_WARNING, filename, line, r,
+                                "Failed to parse interface buffer value, ignoring: %s", rvalue);
+                        return 0;
+                }
+                if (k < 1) {
+                        log_syntax(unit, LOG_WARNING, filename, line, 0,
+                                "Invalid %s= value, ignoring: %s", lvalue, rvalue);
+                        return 0;
+                }
         }
 
         if (streq(lvalue, "RxBufferSize")) {

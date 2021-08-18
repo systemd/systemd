@@ -735,29 +735,33 @@
       <varlistentry>
         <term><varname>RxBufferSize=</varname></term>
         <listitem>
-          <para>Takes an integer. Specifies the maximum number of pending packets in the NIC receive buffer.
-          When unset, the kernel's default will be used.</para>
+          <para>Takes an integer or <literal>max</literal>. Specifies the maximum number of pending packets
+          in the NIC receive buffer. When unset, the kernel's default will be used. If set to
+          <literal>max</literal>, the hardware's advertised maximum size will be used.</para>
         </listitem>
       </varlistentry>
       <varlistentry>
         <term><varname>RxMiniBufferSize=</varname></term>
         <listitem>
-          <para>Takes an integer. Specifies the maximum number of pending packets in the NIC mini receive buffer.
-          When unset, the kernel's default will be used.</para>
+          <para>Takes an integer or <literal>max</literal>. Specifies the maximum number of pending packets
+          in the NIC mini receive buffer. When unset, the kernel's default will be used. If set to
+          <literal>max</literal>, the hardware's advertised maximum size will be used.</para>
         </listitem>
       </varlistentry>
       <varlistentry>
         <term><varname>RxJumboBufferSize=</varname></term>
         <listitem>
-          <para>Takes an integer. Specifies the maximum number of pending packets in the NIC jumbo receive buffer.
-          When unset, the kernel's default will be used.</para>
+          <para>Takes an integer or <literal>max</literal>. Specifies the maximum number of pending packets
+          in the NIC jumbo receive buffer. When unset, the kernel's default will be used. If set to
+          <literal>max</literal>, the hardware's advertised maximum size will be used.</para>
         </listitem>
       </varlistentry>
       <varlistentry>
         <term><varname>TxBufferSize=</varname></term>
         <listitem>
-          <para>Takes an integer. Specifies the maximum number of pending packets in the NIC transmit buffer.
-          When unset, the kernel's default will be used.</para>
+          <para>Takes an integer or <literal>max</literal>. Specifies the maximum number of pending packets
+          in the NIC transmit buffer. When unset, the kernel's default will be used. If set to
+          <literal>max</literal>, the hardware's advertised maximum size will be used.</para>
         </listitem>
       </varlistentry>
       <varlistentry>
