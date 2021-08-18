@@ -15,7 +15,7 @@
 #include "tests.h"
 
 static void test_policy_closed(const char *cgroup_path, BPFProgram **installed_prog) {
-        _cleanup_(bpf_program_unrefp) BPFProgram *prog = NULL;
+        BPFProgram *prog = NULL;
         unsigned wrong = 0;
         int r;
 
@@ -53,7 +53,7 @@ static void test_policy_closed(const char *cgroup_path, BPFProgram **installed_p
 }
 
 static void test_policy_strict(const char *cgroup_path, BPFProgram **installed_prog) {
-        _cleanup_(bpf_program_unrefp) BPFProgram *prog = NULL;
+        BPFProgram *prog = NULL;
         unsigned wrong = 0;
         int r;
 
@@ -130,7 +130,7 @@ static void test_policy_strict(const char *cgroup_path, BPFProgram **installed_p
 }
 
 static void test_policy_allow_list_major(const char *pattern, const char *cgroup_path, BPFProgram **installed_prog) {
-        _cleanup_(bpf_program_unrefp) BPFProgram *prog = NULL;
+        BPFProgram *prog = NULL;
         unsigned wrong = 0;
         int r;
 
@@ -189,7 +189,7 @@ static void test_policy_allow_list_major(const char *pattern, const char *cgroup
 }
 
 static void test_policy_allow_list_major_star(char type, const char *cgroup_path, BPFProgram **installed_prog) {
-        _cleanup_(bpf_program_unrefp) BPFProgram *prog = NULL;
+        BPFProgram *prog = NULL;
         unsigned wrong = 0;
         int r;
 
@@ -220,7 +220,7 @@ static void test_policy_allow_list_major_star(char type, const char *cgroup_path
 }
 
 static void test_policy_empty(bool add_mismatched, const char *cgroup_path, BPFProgram **installed_prog) {
-        _cleanup_(bpf_program_unrefp) BPFProgram *prog = NULL;
+        BPFProgram *prog = NULL;
         unsigned wrong = 0;
         int r;
 
@@ -282,7 +282,7 @@ int main(int argc, char *argv[]) {
         r = cg_get_path(SYSTEMD_CGROUP_CONTROLLER, cgroup, NULL, &controller_path);
         assert_se(r >= 0);
 
-        _cleanup_(bpf_program_unrefp) BPFProgram *prog = NULL;
+        _cleanup_(bpf_program_freep) BPFProgram *prog = NULL;
 
         test_policy_closed(cgroup, &prog);
         test_policy_strict(cgroup, &prog);
