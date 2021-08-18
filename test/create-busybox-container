@@ -7,18 +7,10 @@ set -o pipefail
 root="${1:?Usage $0 container-root}"
 mkdir -p "$root"
 mkdir "$root/bin"
-cp $(type -P busybox) "$root/bin"
 
-os_release=$(test -e /etc/os-release && echo /etc/os-release || echo /usr/lib/os-release)
-ID_LIKE=$(awk -F= '$1=="ID_LIKE" { print $2 ;}' $os_release)
-if [[ "$ID_LIKE" = *"suse"* ]]; then
-    mkdir -p "$root/lib"
-    mkdir -p "$root/lib64"
-    for lib in $(find /lib*/ld*); do
-        [[ -d $root/$(dirname $lib) ]] || mkdir -p $root/$(dirname $lib)
-        cp $lib $root/$lib
-    done
-fi
+# On openSUSE the static linked version of busybox is named "busybox-static".
+busybox="$(type -P busybox-static || type -P busybox)"
+cp "$busybox" "$root/bin/busybox"
 
 mkdir -p "$root/usr/lib"
 touch "$root/usr/lib/os-release"
@@ -30,6 +22,7 @@ ln -s busybox "$root/bin/ps"
 ln -s busybox "$root/bin/ip"
 ln -s busybox "$root/bin/seq"
 ln -s busybox "$root/bin/sleep"
+ln -s busybox "$root/bin/usleep"
 ln -s busybox "$root/bin/test"
 
 mkdir -p "$root/sbin"

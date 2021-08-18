@@ -83,13 +83,11 @@ TOOLS_DIR="$SOURCE_DIR/tools"
 export TEST_BASE_DIR TEST_UNITS_DIR SOURCE_DIR TOOLS_DIR
 
 # note that find-build-dir.sh will return $BUILD_DIR if provided, else it will try to find it
-if ! BUILD_DIR="$("$TOOLS_DIR"/find-build-dir.sh)"; then
-    if get_bool "${NO_BUILD:=}"; then
-        BUILD_DIR="$SOURCE_DIR"
-    else
-        echo "ERROR: no build found, please set BUILD_DIR or use NO_BUILD" >&2
-        exit 1
-    fi
+if get_bool "${NO_BUILD:=}"; then
+    BUILD_DIR="$SOURCE_DIR"
+elif ! BUILD_DIR="$("$TOOLS_DIR"/find-build-dir.sh)"; then
+    echo "ERROR: no build found, please set BUILD_DIR or use NO_BUILD" >&2
+    exit 1
 fi
 
 PATH_TO_INIT="$ROOTLIBDIR/systemd"
@@ -667,6 +665,7 @@ setup_basic_environment() {
     install_fs_tools
     install_modules
     install_plymouth
+    install_haveged
     install_debug_tools
     install_ld_so_conf
     install_testuser
@@ -936,11 +935,52 @@ install_debian_systemd() {
     done < <(grep -E '^Package:' "${SOURCE_DIR}/debian/control" | cut -d ':' -f 2)
 }
 
+install_suse_systemd() {
+    local testsdir=/usr/lib/systemd/tests
+    local pkgs
+
+    dinfo "Install SUSE systemd"
+
+    pkgs=(
+        systemd
+        systemd-container
+        systemd-coredump
+        systemd-experimental
+        systemd-journal-remote
+        systemd-portable
+        udev
+    )
+
+    for p in "${pkgs[@]}"; do
+        rpm -q "$p" &>/dev/null || continue
+
+        ddebug "Install files from package $p"
+        while read -r f; do
+            [ -e "$f" ] || continue
+            [ -d "$f" ] && continue
+            inst "$f"
+        done < <(rpm -ql "$p")
+    done
+
+    # we only need testsdata dir as well as the unit tests (for
+    # TEST-02-UNITTESTS) in the image.
+    dinfo "Install unit tests and testdata directory"
+
+    mkdir -p "$initdir/$testsdir"
+    cp "$testsdir"/test-* "$initdir/$testsdir/"
+    cp -a "$testsdir/testdata" "$initdir/$testsdir/"
+
+    # On openSUSE, these dirs are not created at package install for now on.
+    mkdir -p "$initdir/var/log/journal/remote"
+}
+
 install_distro_systemd() {
     dinfo "Install distro systemd"
 
     if get_bool "$LOOKS_LIKE_DEBIAN"; then
         install_debian_systemd
+    elif get_bool "$LOOKS_LIKE_SUSE"; then
+        install_suse_systemd
     else
         dfatal "NO_BUILD not supported for this distro"
         exit 1
@@ -957,8 +997,6 @@ install_systemd() {
 
     # remove unneeded documentation
     rm -fr "$initdir"/usr/share/{man,doc}
-
-    get_bool "$LOOKS_LIKE_SUSE" && setup_suse
 
     # enable debug logging in PID1
     echo LogLevel=debug >>"$initdir/etc/systemd/system.conf"
@@ -1390,6 +1428,16 @@ install_plymouth() {
     # fi
 }
 
+install_haveged() {
+    # If haveged is installed and probably included in initrd, it needs to be
+    # installed in the image too.
+    if [ -x /usr/sbin/haveged ]; then
+        dinfo "Install haveged files"
+        inst /usr/sbin/haveged
+        inst /usr/lib/systemd/system/haveged.service
+    fi
+}
+
 install_ld_so_conf() {
     dinfo "Install /etc/ld.so.conf*"
     cp -a /etc/ld.so.conf* "${initdir:?}/etc"
@@ -1551,7 +1599,7 @@ install_pam() {
         paths+=(/lib*/security)
     fi
 
-    for d in /etc/pam.d /etc/security /usr/lib/pam.d; do
+    for d in /etc/pam.d /etc/security /usr/{etc,lib}/pam.d; do
         [ -d "$d" ] && paths+=("$d")
     done
 
@@ -1565,6 +1613,13 @@ install_pam() {
 
     # set empty root password for easy debugging
     sed -i 's/^root:x:/root::/' "${initdir:?}/etc/passwd"
+
+    # And make sure pam_unix will accept it by making sure that
+    # the PAM module has the nullok option.
+    for d in /etc/pam.d /usr/{etc,lib}/pam.d; do
+        [ -d "$initdir/$d" ] || continue
+        sed -i '/^auth.*pam_unix.so/s/$/ nullok/' "$initdir/$d"/*
+    done
 }
 
 install_keymaps() {
@@ -2404,12 +2459,6 @@ instmods() {
     done
 
     return 0
-}
-
-setup_suse() {
-    ln -fs ../usr/bin/systemctl "${initdir:?}/bin/"
-    ln -fs ../usr/lib/systemd "$initdir/lib/"
-    inst_simple "/usr/lib/systemd/system/haveged.service"
 }
 
 _umount_dir() {
