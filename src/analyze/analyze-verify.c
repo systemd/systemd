@@ -33,7 +33,7 @@ static void log_syntax_callback(const char *unit, int level, void *userdata) {
         }
 }
 
-static int prepare_filename(const char *filename, char **ret) {
+int prepare_filename(const char *filename, char **ret) {
         int r;
         const char *name;
         _cleanup_free_ char *abspath = NULL;
@@ -70,7 +70,7 @@ static int prepare_filename(const char *filename, char **ret) {
         return 0;
 }
 
-static int generate_path(char **var, char **filenames) {
+int generate_path(char **var, char **filenames) {
         const char *old;
         char **filename;
 
