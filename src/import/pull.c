@@ -349,7 +349,7 @@ static int parse_argv(int argc, char *argv[]) {
                                 char *hh;
                                 size_t n;
 
-                                /* If this is not a vaid verification mode, maybe it's a literally specified
+                                /* If this is not a valid verification mode, maybe it's a literally specified
                                  * SHA256 hash? We can handle that too... */
 
                                 r = unhexmem(optarg, (size_t) -1, &h, &n);
