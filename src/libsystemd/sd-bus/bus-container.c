@@ -94,7 +94,7 @@ int bus_container_connect_socket(sd_bus *b) {
                         return 1;
 
                 if (error_buf > 0)
-                        return log_debug_errno(error_buf, "Got error from (sd-buscntr): %m");
+                        return log_debug_errno(error_buf, "(sd-buscntr) failed to connect to D-Bus socket: %m");
         }
 
         if (nonzero_exit_status)
