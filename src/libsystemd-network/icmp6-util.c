@@ -184,7 +184,6 @@ int icmp6_receive(int fd, void *buffer, size_t size, struct in6_addr *dst,
 
         /* namelen == 0 only happens when running the test-suite over a socketpair */
 
-        assert(!(msg.msg_flags & MSG_CTRUNC));
         assert(!(msg.msg_flags & MSG_TRUNC));
 
         CMSG_FOREACH(cmsg, &msg) {
