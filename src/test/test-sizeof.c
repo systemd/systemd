@@ -89,5 +89,7 @@ int main(void) {
         printf("big_enum2_pos → %zu\n", sizeof(big_enum2_pos));
         printf("big_enum2_neg → %zu\n", sizeof(big_enum2_neg));
 
+        printf("timeval: %zu\n", sizeof(struct timeval));
+        printf("timespec: %zu\n", sizeof(struct timespec));
         return 0;
 }
