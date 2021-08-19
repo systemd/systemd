@@ -57,6 +57,7 @@ shared_sources = files(
         'daemon-util.c',
         'data-fd-util.c',
         'dev-setup.c',
+        'devlink-util.c',
         'discover-image.c',
         'dissect-image.c',
         'dm-util.c',
