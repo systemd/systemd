@@ -25,7 +25,7 @@ static VOID linux_efi_handover(EFI_HANDLE image, struct boot_params *params) {
         handover(image, ST, params);
 }
 
-EFI_STATUS linux_exec(EFI_HANDLE *image,
+EFI_STATUS linux_exec(EFI_HANDLE image,
                       CHAR8 *cmdline, UINTN cmdline_len,
                       UINTN linux_addr,
                       UINTN initrd_addr, UINTN initrd_size) {
