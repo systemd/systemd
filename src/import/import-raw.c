@@ -322,6 +322,9 @@ static int raw_import_try_reflink(RawImport *i) {
         if (i->compress.type != IMPORT_COMPRESS_UNCOMPRESSED)
                 return 0;
 
+        if (i->offset != UINT64_MAX || i->size_max != UINT64_MAX)
+                return 0;
+
         if (!S_ISREG(i->input_stat.st_mode) || !S_ISREG(i->output_stat.st_mode))
                 return 0;
 
