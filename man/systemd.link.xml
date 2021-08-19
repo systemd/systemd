@@ -662,49 +662,49 @@
       <varlistentry>
         <term><varname>ReceiveChecksumOffload=</varname></term>
         <listitem>
-          <para>Takes a boolean. If set to true, the hardware offload for checksumming of ingress
+          <para>Takes a boolean. If set to true, hardware offload for checksumming of ingress
           network packets is enabled. When unset, the kernel's default will be used.</para>
         </listitem>
       </varlistentry>
       <varlistentry>
         <term><varname>TransmitChecksumOffload=</varname></term>
         <listitem>
-          <para>Takes a boolean. If set to true, the hardware offload for checksumming of egress
+          <para>Takes a boolean. If set to true, hardware offload for checksumming of egress
           network packets is enabled. When unset, the kernel's default will be used.</para>
         </listitem>
       </varlistentry>
       <varlistentry>
         <term><varname>TCPSegmentationOffload=</varname></term>
         <listitem>
-          <para>Takes a boolean. If set to true, the TCP Segmentation Offload (TSO) is enabled.
+          <para>Takes a boolean. If set to true, TCP Segmentation Offload (TSO) is enabled.
           When unset, the kernel's default will be used.</para>
         </listitem>
       </varlistentry>
        <varlistentry>
       <term><varname>TCP6SegmentationOffload=</varname></term>
         <listitem>
-          <para>Takes a boolean. If set to true, the TCP6 Segmentation Offload (tx-tcp6-segmentation) is enabled.
+          <para>Takes a boolean. If set to true, TCP6 Segmentation Offload (tx-tcp6-segmentation) is enabled.
           When unset, the kernel's default will be used.</para>
         </listitem>
       </varlistentry>
       <varlistentry>
         <term><varname>GenericSegmentationOffload=</varname></term>
         <listitem>
-          <para>Takes a boolean. If set to true, the Generic Segmentation Offload (GSO) is enabled.
+          <para>Takes a boolean. If set to true, Generic Segmentation Offload (GSO) is enabled.
           When unset, the kernel's default will be used.</para>
         </listitem>
       </varlistentry>
       <varlistentry>
         <term><varname>GenericReceiveOffload=</varname></term>
         <listitem>
-          <para>Takes a boolean. If set to true, the Generic Receive Offload (GRO) is enabled.
+          <para>Takes a boolean. If set to true, Generic Receive Offload (GRO) is enabled.
           When unset, the kernel's default will be used.</para>
         </listitem>
       </varlistentry>
       <varlistentry>
         <term><varname>LargeReceiveOffload=</varname></term>
         <listitem>
-          <para>Takes a boolean. If set to true, the Large Receive Offload (LRO) is enabled.
+          <para>Takes a boolean. If set to true, Large Receive Offload (LRO) is enabled.
           When unset, the kernel's default will be used.</para>
         </listitem>
       </varlistentry>
@@ -736,7 +736,7 @@
       <varlistentry>
         <term><varname>RxFlowControl=</varname></term>
         <listitem>
-          <para>Takes a boolean. When set, enables the receive flow control, also known as the ethernet
+          <para>Takes a boolean. When set, enables receive flow control, also known as the ethernet
           receive PAUSE message (generate and send ethernet PAUSE frames). When unset, the kernel's
           default will be used.</para>
         </listitem>
@@ -744,7 +744,7 @@
       <varlistentry>
         <term><varname>TxFlowControl=</varname></term>
         <listitem>
-          <para>Takes a boolean. When set, enables the transmit flow control, also known as the ethernet
+          <para>Takes a boolean. When set, enables transmit flow control, also known as the ethernet
           transmit PAUSE message (respond to received ethernet PAUSE frames). When unset, the kernel's
           default will be used.</para>
         </listitem>
@@ -752,7 +752,7 @@
       <varlistentry>
         <term><varname>AutoNegotiationFlowControl=</varname></term>
         <listitem>
-          <para>Takes a boolean. When set, the auto negotiation enables the interface to exchange state
+          <para>Takes a boolean. When set, auto negotiation enables the interface to exchange state
           advertisements with the connected peer so that the two devices can agree on the ethernet
           PAUSE configuration. When unset, the kernel's default will be used.</para>
         </listitem>
