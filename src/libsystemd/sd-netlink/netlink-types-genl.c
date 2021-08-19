@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <linux/batman_adv.h>
+#include <linux/devlink.h>
 #include <linux/fou.h>
 #include <linux/genetlink.h>
 #include <linux/if.h>
