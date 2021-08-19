@@ -23,6 +23,7 @@ typedef enum NetDevFeature {
         NET_DEV_FEAT_TX,
         NET_DEV_FEAT_GSO,
         NET_DEV_FEAT_GRO,
+        NET_DEV_FEAT_GRO_HW,
         NET_DEV_FEAT_LRO,
         NET_DEV_FEAT_TSO,
         NET_DEV_FEAT_TSO6,

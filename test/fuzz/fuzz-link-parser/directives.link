@@ -36,6 +36,7 @@ TCPSegmentationOffload=
 TCP6SegmentationOffload=
 UDPSegmentationOffload=
 GenericReceiveOffload=
+GenericReceiveOffloadHardware=
 LargeReceiveOffload=
 RxChannels=
 TxChannels=
