@@ -5,6 +5,7 @@
 #include <sys/types.h>
 
 #include "capability-util.h"
+#include "copy.h"
 #include "cpu-set-util.h"
 #include "errno-list.h"
 #include "fileio.h"
@@ -21,6 +22,7 @@
 #include "service.h"
 #include "stat-util.h"
 #include "tests.h"
+#include "tmpfile-util.h"
 #include "unit.h"
 #include "user-util.h"
 #include "util.h"
@@ -263,6 +265,16 @@ static void test_exec_workingdirectory(Manager *m) {
         test(m, "exec-workingdirectory-trailing-dot.service", 0, CLD_EXITED);
 
         (void) rm_rf("/tmp/test-exec_workingdirectory", REMOVE_ROOT|REMOVE_PHYSICAL);
+}
+
+static void test_exec_execsearchpaths(Manager *m) {
+        assert_se(mkdir_p("/tmp/test-exec_execsearchpaths", 0755) >= 0);
+
+        assert_se(copy_file("/bin/ls", "/tmp/test-exec_execsearchpaths/ls_temp", 0, 0777, 0, 0, COPY_REPLACE) == 0);
+
+        test(m, "exec-execsearchpaths.service", 0, CLD_EXITED);
+
+        assert_se(rm_rf("/tmp/test-exec_execsearchpaths", REMOVE_ROOT | REMOVE_PHYSICAL) == 0);
 }
 
 static void test_exec_personality(Manager *m) {
@@ -896,6 +908,7 @@ int main(int argc, char *argv[]) {
                 entry(test_exec_unsetenvironment),
                 entry(test_exec_user),
                 entry(test_exec_workingdirectory),
+                entry(test_exec_execsearchpaths),
                 {},
         };
         static const test_entry system_tests[] = {

@@ -90,6 +90,15 @@
     <variablelist class='unit-directives'>
 
       <varlistentry>
+        <term><varname>ExecSearchPaths=</varname></term>
+
+        <listitem><para>Takes a space-separated list of absolute paths in the file system relative to which the executable used by
+        the <varname>Exec*=</varname> (e.g. <varname>ExecStart=</varname>, <varname>ExecStop=</varname>, etc.) properties can be found. <varname>ExecSearchPaths=</varname>
+        overrides <varname>$PATH</varname>.
+        </para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>WorkingDirectory=</varname></term>
 
         <listitem><para>Takes a directory path relative to the service's root directory specified by
