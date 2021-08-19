@@ -2125,7 +2125,7 @@ static int pull_tar(int argc, char *argv[], void *userdata) {
         assert(bus);
 
         remote = argv[1];
-        if (!http_url_is_valid(remote))
+        if (!http_url_is_valid(remote) && !file_url_is_valid(remote))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "URL '%s' is not valid.", remote);
 
@@ -2181,7 +2181,7 @@ static int pull_raw(int argc, char *argv[], void *userdata) {
         assert(bus);
 
         remote = argv[1];
-        if (!http_url_is_valid(remote))
+        if (!http_url_is_valid(remote) && !file_url_is_valid(remote))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "URL '%s' is not valid.", remote);
 

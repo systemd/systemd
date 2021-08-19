@@ -110,7 +110,7 @@ static int pull_tar(int argc, char *argv[], void *userdata) {
         int r;
 
         url = argv[1];
-        if (!http_url_is_valid(url))
+        if (!http_url_is_valid(url) && !file_url_is_valid(url))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "URL '%s' is not valid.", url);
 
         if (argc >= 3)
@@ -183,7 +183,7 @@ static int pull_raw(int argc, char *argv[], void *userdata) {
         int r;
 
         url = argv[1];
-        if (!http_url_is_valid(url))
+        if (!http_url_is_valid(url) && !file_url_is_valid(url))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "URL '%s' is not valid.", url);
 
         if (argc >= 3)

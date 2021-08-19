@@ -928,7 +928,7 @@ static int method_pull_tar_or_raw(sd_bus_message *msg, void *userdata, sd_bus_er
         if (r < 0)
                 return r;
 
-        if (!http_url_is_valid(remote))
+        if (!http_url_is_valid(remote) && !file_url_is_valid(remote))
                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS,
                                          "URL %s is invalid", remote);
 

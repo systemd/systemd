@@ -835,7 +835,7 @@ int raw_pull_start(
         assert(!(flags & (PULL_SETTINGS|PULL_ROOTHASH|PULL_ROOTHASH_SIGNATURE|PULL_VERITY)) || !(flags & PULL_DIRECT));
         assert(!(flags & (PULL_SETTINGS|PULL_ROOTHASH|PULL_ROOTHASH_SIGNATURE|PULL_VERITY)) || !checksum);
 
-        if (!http_url_is_valid(url))
+        if (!http_url_is_valid(url) && !file_url_is_valid(url))
                 return -EINVAL;
 
         if (local && !pull_validate_local(local, flags))
