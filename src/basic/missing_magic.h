@@ -37,3 +37,8 @@
 #ifndef XFS_SB_MAGIC
 #define XFS_SB_MAGIC 0x58465342
 #endif
+
+/* Not exposed yet. Defined at fs/cifs/cifsglob.h */
+#ifndef CIFS_MAGIC_NUMBER
+#define CIFS_MAGIC_NUMBER 0xFF534D42
+#endif
