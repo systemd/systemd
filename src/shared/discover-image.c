@@ -305,7 +305,7 @@ static int image_make(
                 }
 
                 /* Get directory creation time (not available everywhere, but that's OK */
-                (void) fd_getcrtime(dfd, &crtime);
+                (void) fd_getcrtime(fd, &crtime);
 
                 /* If the IMMUTABLE bit is set, we consider the directory read-only. Since the ioctl is not
                  * supported everywhere we ignore failures. */
