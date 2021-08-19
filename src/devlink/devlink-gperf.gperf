@@ -1,0 +1,21 @@
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
+%{
+_Pragma("GCC diagnostic ignored \"-Wimplicit-fallthrough\"")
+#if __GNUC__ >= 15
+_Pragma("GCC diagnostic ignored \"-Wzero-as-null-pointer-constant\"")
+#endif
+#include <stddef.h>
+#include "devlink.h"
+%}
+struct ConfigPerfItem;
+%null_strings
+%language=ANSI-C
+%define slot-name section_and_lvalue
+%define hash-function-name devlink_gperf_hash
+%define lookup-function-name devlink_gperf_lookup
+%readonly-tables
+%omit-struct-type
+%struct-type
+%includes
+%%
+__Temp__,                               NULL,                 0,                             0
