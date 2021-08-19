@@ -895,6 +895,7 @@ foreach option : ['adm-gid',
                   'wheel-gid',
                   'systemd-journal-gid',
                   'systemd-network-uid',
+                  'systemd-devlinkd-uid',
                   'systemd-resolve-uid',
                   'systemd-timesync-uid']
         name = option.underscorify().to_upper()
@@ -1613,6 +1614,7 @@ foreach term : ['analyze',
                 'machined',
                 'mountfsd',
                 'networkd',
+                'devlinkd',
                 'nsresourced',
                 'nss-myhostname',
                 'nss-systemd',
@@ -2325,6 +2327,7 @@ subdir('src/mountfsd')
 subdir('src/modules-load')
 subdir('src/mount')
 subdir('src/network')
+subdir('src/devlink')
 subdir('src/notify')
 subdir('src/nspawn')
 subdir('src/nsresourced')
@@ -3049,6 +3052,7 @@ foreach tuple : [
         ['networkd'],
         ['nspawn'],
         ['nsresourced'],
+        ['devlinkd'],
         ['nss-myhostname'],
         ['nss-mymachines'],
         ['nss-resolve'],
@@ -3106,6 +3110,7 @@ foreach tuple : [
         ['link-udev-shared',       get_option('link-udev-shared')],
         ['link-systemctl-shared',  get_option('link-systemctl-shared')],
         ['link-networkd-shared',   get_option('link-networkd-shared')],
+        ['link-devlinkd-shared',   get_option('link-devlinkd-shared')],
         ['link-timesyncd-shared',  get_option('link-timesyncd-shared')],
         ['link-journalctl-shared', get_option('link-journalctl-shared')],
         ['link-boot-shared',       get_option('link-boot-shared')],
