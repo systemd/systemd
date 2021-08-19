@@ -639,8 +639,55 @@ static int check_x_access(const char *path, int *ret_fd) {
         return 0;
 }
 
-int find_executable_full(const char *name, const char *root, bool use_path_envvar, char **ret_filename, int *ret_fd) {
-        int last_error, r;
+static int find_executable_from_path(
+                    const char *name,
+                    const char *root,
+                    const char *element,
+                    char **ret_filename,
+                    int *ret_fd) {
+        _cleanup_close_ int fd = -1;
+        _cleanup_free_ char *full_path = NULL;
+        int r;
+
+        assert(element);
+
+        if (!path_is_absolute(element))
+                return -ENOENT;
+
+        full_path = path_join(element, name);
+        if (!full_path)
+                return -ENOMEM;
+
+        if (root) {
+                char *path_name;
+
+                r = chase_symlinks(
+                        full_path,
+                        root,
+                        CHASE_PREFIX_ROOT,
+                        &path_name,
+                        /* ret_fd= */ NULL);
+                if (r < 0)
+                        return r;
+
+                free_and_replace(full_path, path_name);
+        }
+
+        r = check_x_access(full_path, ret_fd ? &fd : NULL);
+        if (r < 0)
+                return r;
+
+        /* Found it! */
+        if (ret_filename)
+                *ret_filename = path_simplify(TAKE_PTR(full_path));
+        if (ret_fd)
+                *ret_fd = TAKE_FD(fd);
+
+        return 0;
+}
+
+int find_executable_full(const char *name, const char *root, char **exec_search_paths, bool use_path_envvar, char **ret_filename, int *ret_fd) {
+        int last_error = -ENOENT, r;
         const char *p = NULL;
 
         assert(name);
@@ -683,6 +730,18 @@ int find_executable_full(const char *name, const char *root, bool use_path_envva
                 return 0;
         }
 
+        if (exec_search_paths) {
+                char **element;
+                STRV_FOREACH(element, exec_search_paths) {
+                        r = find_executable_from_path(name, root, *element, ret_filename, ret_fd);
+                        if (IN_SET(r, -ENOENT, -EACCES))
+                                continue;
+                        if (r <= 0)
+                                return r;
+                }
+                return r;
+        }
+
         if (use_path_envvar)
                 /* Plain getenv, not secure_getenv, because we want to actually allow the user to pick the
                  * binary. */
@@ -690,12 +749,9 @@ int find_executable_full(const char *name, const char *root, bool use_path_envva
         if (!p)
                 p = DEFAULT_PATH;
 
-        last_error = -ENOENT;
-
         /* Resolve a single-component name to a full path */
         for (;;) {
                 _cleanup_free_ char *element = NULL;
-                _cleanup_close_ int fd = -1;
 
                 r = extract_first_word(&p, &element, ":", EXTRACT_RELAX|EXTRACT_DONT_COALESCE_SEPARATORS);
                 if (r < 0)
@@ -703,44 +759,11 @@ int find_executable_full(const char *name, const char *root, bool use_path_envva
                 if (r == 0)
                         break;
 
-                if (!path_is_absolute(element))
+                last_error = find_executable_from_path(name, root, element, ret_filename, ret_fd);
+                if (IN_SET(last_error, -ENOENT, -EACCES))
                         continue;
-
-                if (!path_extend(&element, name))
-                        return -ENOMEM;
-
-                if (root) {
-                        char *path_name;
-
-                        r = chase_symlinks(element,
-                                           root,
-                                           CHASE_PREFIX_ROOT,
-                                           &path_name,
-                                           /* ret_fd= */ NULL);
-                        if (r < 0) {
-                                if (r != -EACCES)
-                                        last_error = r;
-                                continue;
-                        }
-
-                        free_and_replace(element, path_name);
-                }
-
-                r = check_x_access(element, ret_fd ? &fd : NULL);
-                if (r < 0) {
-                        /* PATH entries which we don't have access to are ignored, as per tradition. */
-                        if (r != -EACCES)
-                                last_error = r;
-                        continue;
-                }
-
-                /* Found it! */
-                if (ret_filename)
-                        *ret_filename = path_simplify(TAKE_PTR(element));
-                if (ret_fd)
-                        *ret_fd = TAKE_FD(fd);
-
-                return 0;
+                if (last_error <= 0)
+                        return last_error;
         }
 
         return last_error;

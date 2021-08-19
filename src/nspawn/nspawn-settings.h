@@ -164,6 +164,7 @@ typedef struct Settings {
         bool ephemeral;
         char **parameters;
         char **environment;
+        char **exec_search_paths;
         char *user;
         uint64_t capability;
         uint64_t drop_capability;
