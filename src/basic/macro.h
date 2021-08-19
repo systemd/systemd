@@ -140,6 +140,15 @@ static inline size_t GREEDY_ALLOC_ROUND_UP(size_t l) {
  * prefix and trailing NUL suffix. */
 #define HEXADECIMAL_STR_MAX(type) (2 + sizeof(type) * 2 + 1)
 
+#define BUFFER_APPEND(buf, len, fmt, ...)                                 \
+        ({                                                                \
+                int _r_ = snprintf((buf), (len), (fmt), ##__VA_ARGS__);   \
+                assert(_r_ >= 0);                                         \
+                assert(_r_ < (len));                                      \
+                (buf) += _r_;                                             \
+                (len) -= _r_;                                             \
+        })
+
 /* Returns the number of chars needed to format variables of the specified type as a decimal string. Adds in
  * extra space for a negative '-' prefix for signed types. Includes space for the trailing NUL. */
 #define DECIMAL_STR_MAX(type)                                           \
