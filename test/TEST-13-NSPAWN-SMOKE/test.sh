@@ -11,7 +11,10 @@ TEST_NO_NSPAWN=1
 test_append_files() {
     (
         local workspace="${1:?}"
-        dracut_install busybox
+
+        # On openSUSE the static linked version of busybox is named "busybox-static".
+        busybox="$(type -P busybox-static || type -P busybox)"
+        inst_simple "$busybox" "$(dirname $busybox)/busybox"
 
         if selinuxenabled >/dev/null; then
             dracut_install selinuxenabled
