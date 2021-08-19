@@ -272,6 +272,8 @@ void pull_job_curl_on_finished(CurlGlue *g, CURL *curl, CURLcode result) {
                 }
         }
 
+        log_info("Acquired %s.", FORMAT_BYTES(j->written_uncompressed));
+
         r = 0;
 
 finish:
