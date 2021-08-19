@@ -368,7 +368,7 @@ static int raw_import_write(const void *p, size_t sz, void *userdata) {
         }
 
         /* Generate sparse file if we created/truncated the file */
-        if (S_ISREG(i->output_stat.st_mode)) {
+        if (S_ISREG(i->output_stat.st_mode) && i->offset == UINT64_MAX) {
                 ssize_t n;
 
                 n = sparse_write(i->output_fd, p, sz, 64);

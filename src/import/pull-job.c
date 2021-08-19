@@ -306,7 +306,7 @@ static int pull_job_write_uncompressed(const void *p, size_t sz, void *userdata)
 
         if (j->disk_fd >= 0) {
 
-                if (S_ISREG(j->disk_stat.st_mode)) {
+                if (S_ISREG(j->disk_stat.st_mode) && j->offset == UINT64_MAX) {
                         ssize_t n;
 
                         n = sparse_write(j->disk_fd, p, sz, 64);
