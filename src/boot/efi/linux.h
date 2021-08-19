@@ -84,7 +84,7 @@ struct boot_params {
         UINT8  _pad9[276];
 } _packed_;
 
-EFI_STATUS linux_exec(EFI_HANDLE *image,
+EFI_STATUS linux_exec(EFI_HANDLE image,
                       CHAR8 *cmdline, UINTN cmdline_size,
                       UINTN linux_addr,
                       UINTN initrd_addr, UINTN initrd_size);
