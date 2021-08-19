@@ -9,6 +9,7 @@
 #include "btrfs-util.h"
 #include "copy.h"
 #include "fd-util.h"
+#include "format-util.h"
 #include "fs-util.h"
 #include "hostname-util.h"
 #include "import-common.h"
@@ -247,6 +248,8 @@ static int raw_import_finish(RawImport *i) {
                 return log_error_errno(r, "Failed to move image into place: %m");
 
         i->temp_path = mfree(i->temp_path);
+
+        log_info("Wrote %s.", FORMAT_BYTES(i->written_uncompressed));
 
         return 0;
 }
