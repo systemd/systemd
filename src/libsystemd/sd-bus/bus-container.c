@@ -75,8 +75,6 @@ int bus_container_connect_socket(sd_bus *b) {
         r = wait_for_terminate_and_check("(sd-buscntrns)", child, 0);
         if (r < 0)
                 return r;
-        if (r != EXIT_SUCCESS)
-                return -EPROTO;
 
         n = read(pair[0], &error_buf, sizeof(error_buf));
         if (n < 0)
@@ -95,8 +93,11 @@ int bus_container_connect_socket(sd_bus *b) {
                         return 1;
 
                 if (error_buf > 0)
-                        return log_debug_errno(error_buf, "Got error from (sd-buscntr): %m");
+                        return log_debug_errno(error_buf, "(sd-buscntr) failed to connect to D-Bus socket: %m");
         }
+
+        if (r != EXIT_SUCCESS)
+                return -EPROTO;
 
         return bus_socket_start_auth(b);
 }
