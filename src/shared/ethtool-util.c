@@ -70,13 +70,14 @@ DEFINE_STRING_TABLE_LOOKUP(port, NetDevPort);
 DEFINE_CONFIG_PARSE_ENUM(config_parse_port, port, NetDevPort, "Failed to parse Port setting");
 
 static const char* const netdev_feature_table[_NET_DEV_FEAT_MAX] = {
-        [NET_DEV_FEAT_RX]   = "rx-checksum",
-        [NET_DEV_FEAT_TX]   = "tx-checksum-", /* The suffix "-" means any feature beginning with "tx-checksum-" */
-        [NET_DEV_FEAT_GSO]  = "tx-generic-segmentation",
-        [NET_DEV_FEAT_GRO]  = "rx-gro",
-        [NET_DEV_FEAT_LRO]  = "rx-lro",
-        [NET_DEV_FEAT_TSO]  = "tx-tcp-segmentation",
-        [NET_DEV_FEAT_TSO6] = "tx-tcp6-segmentation",
+        [NET_DEV_FEAT_RX]     = "rx-checksum",
+        [NET_DEV_FEAT_TX]     = "tx-checksum-", /* The suffix "-" means any feature beginning with "tx-checksum-" */
+        [NET_DEV_FEAT_GSO]    = "tx-generic-segmentation",
+        [NET_DEV_FEAT_GRO]    = "rx-gro",
+        [NET_DEV_FEAT_GRO_HW] = "rx-gro-hw",
+        [NET_DEV_FEAT_LRO]    = "rx-lro",
+        [NET_DEV_FEAT_TSO]    = "tx-tcp-segmentation",
+        [NET_DEV_FEAT_TSO6]   = "tx-tcp6-segmentation",
 };
 
 static const char* const ethtool_link_mode_bit_table[] = {

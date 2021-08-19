@@ -702,6 +702,13 @@
         </listitem>
       </varlistentry>
       <varlistentry>
+        <term><varname>GenericReceiveOffloadHardware=</varname></term>
+        <listitem>
+          <para>Takes a boolean. If set to true, hardware accelerated Generic Receive Offload (GRO) is
+          enabled. When unset, the kernel's default will be used.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
         <term><varname>LargeReceiveOffload=</varname></term>
         <listitem>
           <para>Takes a boolean. If set to true, Large Receive Offload (LRO) is enabled.
