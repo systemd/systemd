@@ -20,7 +20,7 @@ const char* nss_status_to_string(enum nss_status status, char *buf, size_t buf_l
         case NSS_STATUS_RETURN:
                 return "NSS_STATUS_RETURN";
         default:
-                snprintf(buf, buf_len, "%i", status);
+                (void) snprintf(buf, buf_len, "%i", status);
                 return buf;
         }
 };
