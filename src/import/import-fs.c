@@ -185,9 +185,10 @@ static int import_fs(int argc, char *argv[], void *userdata) {
                 if (r < 0)
                         return log_oom();
 
-                (void) mkdir_parents_label(temp_path, 0700);
                 dest = temp_path;
         }
+
+        (void) mkdir_parents_label(dest, 0700);
 
         progress.limit = (RateLimit) { 200*USEC_PER_MSEC, 1 };
 
