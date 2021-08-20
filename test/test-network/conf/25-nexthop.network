@@ -38,6 +38,10 @@ Id=7
 Family=ipv6
 Blackhole=yes
 
+[Route]
+Id=8
+Destination=fe80::222:4dff:ff:ff:ff:ff
+
 [NextHop]
 Gateway=192.168.5.2
 
