@@ -207,8 +207,6 @@ int lsm_bpf_setup(Manager *m) {
 
 int bpf_restrict_filesystems(Unit *u, const Set *filesystems, bool allow_list) {
         int inner_map_fd = -1, outer_map_fd = -1;
-        _cleanup_free_ char *path = NULL;
-        uint64_t cgroup_id;
         uint32_t dummy_value = 1, zero = 0;
         const char *fs;
         const statfs_f_type_t *magic;
@@ -216,14 +214,6 @@ int bpf_restrict_filesystems(Unit *u, const Set *filesystems, bool allow_list) {
 
         assert(filesystems);
         assert(u);
-
-        r = cg_get_path(SYSTEMD_CGROUP_CONTROLLER, u->cgroup_path, NULL, &path);
-        if (r < 0)
-                return log_unit_error_errno(u, r, "Failed to get systemd cgroup path: %m");
-
-        r = cg_path_get_cgroupid(path, &cgroup_id);
-        if (r < 0)
-                return log_unit_error_errno(u, r, "Failed to get cgroup ID for path '%s': %m", path);
 
         inner_map_fd = sym_bpf_create_map(
                         BPF_MAP_TYPE_HASH,
@@ -238,7 +228,7 @@ int bpf_restrict_filesystems(Unit *u, const Set *filesystems, bool allow_list) {
         if (outer_map_fd < 0)
                 return log_unit_error_errno(u, errno, "Failed to get BPF map fd: %m");
 
-        if (sym_bpf_map_update_elem(outer_map_fd, &cgroup_id, &inner_map_fd, BPF_ANY) != 0)
+        if (sym_bpf_map_update_elem(outer_map_fd, &u->cgroup_id, &inner_map_fd, BPF_ANY) != 0)
                 return log_unit_error_errno(u, errno, "Error populating LSM BPF map: %m");
 
         uint32_t allow = allow_list;
@@ -263,7 +253,7 @@ int bpf_restrict_filesystems(Unit *u, const Set *filesystems, bool allow_list) {
                         if (sym_bpf_map_update_elem(inner_map_fd, &magic[i], &dummy_value, BPF_ANY) != 0) {
                                 r = log_unit_error_errno(u, errno, "Failed to update BPF map: %m");
 
-                                if (sym_bpf_map_delete_elem(outer_map_fd, &cgroup_id) != 0)
+                                if (sym_bpf_map_delete_elem(outer_map_fd, &u->cgroup_id) != 0)
                                         log_unit_debug_errno(u, errno, "Failed to delete cgroup entry from LSM BPF map: %m");
 
                                 return r;
@@ -275,10 +265,7 @@ int bpf_restrict_filesystems(Unit *u, const Set *filesystems, bool allow_list) {
 }
 
 int cleanup_lsm_bpf(const Unit *u) {
-        _cleanup_free_ char *path = NULL;
-        uint64_t cgroup_id;
         int fd = -1;
-        int r;
 
         assert(u);
         assert(u->manager);
@@ -289,19 +276,11 @@ int cleanup_lsm_bpf(const Unit *u) {
         if (!u->manager->restrict_fs)
                 return 0;
 
-        r = cg_get_path(SYSTEMD_CGROUP_CONTROLLER, u->cgroup_path, NULL, &path);
-        if (r < 0)
-                return log_unit_error_errno(u, r, "Failed to get cgroup path: %m");
-
-        r = cg_path_get_cgroupid(path, &cgroup_id);
-        if (r < 0)
-                return log_unit_error_errno(u, r, "Failed to get cgroup ID: %m");
-
         fd = sym_bpf_map__fd(u->manager->restrict_fs->maps.cgroup_hash);
         if (fd < 0)
                 return log_unit_error_errno(u, errno, "Failed to get BPF map fd: %m");
 
-        if (sym_bpf_map_delete_elem(fd, &cgroup_id) != 0)
+        if (sym_bpf_map_delete_elem(fd, &u->cgroup_id) != 0)
                 return log_unit_debug_errno(u, errno, "Failed to delete cgroup entry from LSM BPF map: %m");
 
         return 0;
