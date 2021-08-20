@@ -15,9 +15,9 @@ char *format_ifname_full(int ifindex, char buf[static IF_NAMESIZE + 1], FormatIf
                 return NULL;
 
         if (FLAGS_SET(flag, FORMAT_IFNAME_IFINDEX_WITH_PERCENT))
-                snprintf(buf, IF_NAMESIZE + 1, "%%%d", ifindex);
+                assert(snprintf_ok(buf, IF_NAMESIZE + 1, "%%%d", ifindex));
         else
-                snprintf(buf, IF_NAMESIZE + 1, "%d", ifindex);
+                assert(snprintf_ok(buf, IF_NAMESIZE + 1, "%d", ifindex));
 
         return buf;
 }
