@@ -295,6 +295,38 @@ static void test_foreach_pointer(void) {
         assert(k == 11);
 }
 
+static void test_align_to(void) {
+        log_info("/* %s */", __func__);
+
+        assert_se(ALIGN_TO(0, 1) == 0);
+        assert_se(ALIGN_TO(1, 1) == 1);
+        assert_se(ALIGN_TO(2, 1) == 2);
+        assert_se(ALIGN_TO(3, 1) == 3);
+        assert_se(ALIGN_TO(4, 1) == 4);
+        assert_se(ALIGN_TO(SIZE_MAX-1, 1) == SIZE_MAX-1);
+        assert_se(ALIGN_TO(SIZE_MAX, 1) == SIZE_MAX);
+
+        assert_se(ALIGN_TO(0, 2) == 0);
+        assert_se(ALIGN_TO(1, 2) == 2);
+        assert_se(ALIGN_TO(2, 2) == 2);
+        assert_se(ALIGN_TO(3, 2) == 4);
+        assert_se(ALIGN_TO(4, 2) == 4);
+        assert_se(ALIGN_TO(SIZE_MAX-3, 2) == SIZE_MAX-3);
+        assert_se(ALIGN_TO(SIZE_MAX-2, 2) == SIZE_MAX-1);
+        assert_se(ALIGN_TO(SIZE_MAX-1, 2) == SIZE_MAX-1);
+        assert_se(ALIGN_TO(SIZE_MAX, 2) == SIZE_MAX); /* overflow */
+
+        assert_se(ALIGN_TO(0, 4) == 0);
+        assert_se(ALIGN_TO(1, 4) == 4);
+        assert_se(ALIGN_TO(2, 4) == 4);
+        assert_se(ALIGN_TO(3, 4) == 4);
+        assert_se(ALIGN_TO(4, 4) == 4);
+        assert_se(ALIGN_TO(SIZE_MAX-3, 4) == SIZE_MAX-3);
+        assert_se(ALIGN_TO(SIZE_MAX-2, 4) == SIZE_MAX); /* overflow */
+        assert_se(ALIGN_TO(SIZE_MAX-1, 4) == SIZE_MAX); /* overflow */
+        assert_se(ALIGN_TO(SIZE_MAX, 4) == SIZE_MAX);   /* overflow */
+}
+
 int main(int argc, char *argv[]) {
         test_setup_logging(LOG_INFO);
 
@@ -305,6 +337,7 @@ int main(int argc, char *argv[]) {
         test_in_set();
         test_foreach_pointer();
         test_ptr_to_int();
+        test_align_to();
 
         return 0;
 }
