@@ -57,11 +57,11 @@ static int audit_callback(
         if (sd_bus_creds_get_egid(audit->creds, &gid) >= 0)
                 xsprintf(gid_buf, GID_FMT, gid);
 
-        snprintf(msgbuf, msgbufsize,
-                 "auid=%s uid=%s gid=%s%s%s%s%s%s%s",
-                 login_uid_buf, uid_buf, gid_buf,
-                 audit->path ? " path=\"" : "", strempty(audit->path), audit->path ? "\"" : "",
-                 audit->cmdline ? " cmdline=\"" : "", strempty(audit->cmdline), audit->cmdline ? "\"" : "");
+        (void) snprintf(msgbuf, msgbufsize,
+                        "auid=%s uid=%s gid=%s%s%s%s%s%s%s",
+                        login_uid_buf, uid_buf, gid_buf,
+                        audit->path ? " path=\"" : "", strempty(audit->path), audit->path ? "\"" : "",
+                        audit->cmdline ? " cmdline=\"" : "", strempty(audit->cmdline), audit->cmdline ? "\"" : "");
 
         return 0;
 }

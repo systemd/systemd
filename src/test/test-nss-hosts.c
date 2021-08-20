@@ -36,7 +36,7 @@ static const char* af_to_string(int family, char *buf, size_t buf_len) {
         if (name)
                 return name;
 
-        snprintf(buf, buf_len, "%i", family);
+        (void) snprintf(buf, buf_len, "%i", family);
         return buf;
 }
 

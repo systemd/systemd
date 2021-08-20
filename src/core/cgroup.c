@@ -375,11 +375,11 @@ static char *format_cgroup_memory_limit_comparison(char *buf, size_t l, Unit *u,
         }
 
         if (r < 0) {
-                snprintf(buf, l, " (error getting kernel value: %s)", strerror_safe(r));
+                (void) snprintf(buf, l, " (error getting kernel value: %s)", strerror_safe(r));
                 return buf;
         }
 
-        snprintf(buf, l, " (different value in kernel: %" PRIu64 ")", kval);
+        (void) snprintf(buf, l, " (different value in kernel: %" PRIu64 ")", kval);
 
         return buf;
 }

@@ -95,7 +95,7 @@ static Group *group_free(Group *g) {
 
 static const char *maybe_format_timespan(char *buf, size_t l, usec_t t, usec_t accuracy) {
         if (arg_raw) {
-               snprintf(buf, l, USEC_FMT, t);
+               (void) snprintf(buf, l, USEC_FMT, t);
                return buf;
         }
         return format_timespan(buf, l, t, accuracy);
@@ -109,7 +109,7 @@ static const char *maybe_format_bytes(char *buf, size_t l, bool is_valid, uint64
         if (!is_valid)
                 return "-";
         if (arg_raw) {
-                snprintf(buf, l, "%" PRIu64, t);
+                (void) snprintf(buf, l, "%" PRIu64, t);
                 return buf;
         }
         return format_bytes(buf, l, t);
