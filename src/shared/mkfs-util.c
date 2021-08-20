@@ -65,31 +65,27 @@ int make_filesystem(
         if (r < 0)
                 return r;
         if (r == 0) {
-                char suuid[ID128_UUID_STRING_MAX];
-
                 /* Child */
-                id128_to_uuid_string(uuid, suuid);
-
                 if (streq(fstype, "ext4"))
                         (void) execlp(mkfs, mkfs,
-                               "-L", label,
-                               "-U", suuid,
-                               "-I", "256",
-                               "-O", "has_journal",
-                               "-m", "0",
-                               "-E", discard ? "lazy_itable_init=1,discard" : "lazy_itable_init=1,nodiscard",
-                               node, NULL);
+                                      "-L", label,
+                                      "-U", ID128_TO_UUID_STRING(uuid),
+                                      "-I", "256",
+                                      "-O", "has_journal",
+                                      "-m", "0",
+                                      "-E", discard ? "lazy_itable_init=1,discard" : "lazy_itable_init=1,nodiscard",
+                                      node, NULL);
 
                 else if (streq(fstype, "btrfs")) {
                         if (discard)
-                                (void) execlp(mkfs, mkfs, "-L", label, "-U", suuid, node, NULL);
+                                (void) execlp(mkfs, mkfs, "-L", label, "-U", ID128_TO_UUID_STRING(uuid), node, NULL);
                         else
-                                (void) execlp(mkfs, mkfs, "-L", label, "-U", suuid, "--nodiscard", node, NULL);
+                                (void) execlp(mkfs, mkfs, "-L", label, "-U", ID128_TO_UUID_STRING(uuid), "--nodiscard", node, NULL);
 
                 } else if (streq(fstype, "xfs")) {
                         const char *j;
 
-                        j = strjoina("uuid=", suuid);
+                        j = strjoina("uuid=", ID128_TO_UUID_STRING(uuid));
                         if (discard)
                                 (void) execlp(mkfs, mkfs, "-L", label, "-m", j, "-m", "reflink=1", node, NULL);
                         else
@@ -118,9 +114,9 @@ int make_filesystem(
                 } else if (streq(fstype, "swap")) {
 
                         (void) execlp(mkfs, mkfs,
-                               "-L", label,
-                               "-U", suuid,
-                               node, NULL);
+                                      "-L", label,
+                                      "-U", ID128_TO_UUID_STRING(uuid),
+                                      node, NULL);
 
                 } else
                         /* Generic fallback for all other file systems */

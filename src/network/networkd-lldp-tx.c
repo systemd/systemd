@@ -281,7 +281,6 @@ static int lldp_send_packet(
 }
 
 static int link_send_lldp(Link *link) {
-        char machine_id_string[SD_ID128_STRING_MAX];
         _cleanup_free_ char *hostname = NULL, *pretty_hostname = NULL;
         _cleanup_free_ void *packet = NULL;
         size_t packet_size = 0;
@@ -313,7 +312,7 @@ static int link_send_lldp(Link *link) {
 
         r = lldp_make_packet(link->network->lldp_emit,
                              &link->hw_addr.ether,
-                             sd_id128_to_string(machine_id, machine_id_string),
+                             SD_ID128_TO_STRING(machine_id),
                              link->ifname,
                              (uint16_t) ttl,
                              link->network ? link->network->description : NULL,

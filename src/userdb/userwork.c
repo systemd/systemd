@@ -37,7 +37,6 @@ typedef struct LookupParameters {
 
 static int add_nss_service(JsonVariant **v) {
         _cleanup_(json_variant_unrefp) JsonVariant *status = NULL, *z = NULL;
-        char buf[SD_ID128_STRING_MAX];
         sd_id128_t mid;
         int r;
 
@@ -54,7 +53,7 @@ static int add_nss_service(JsonVariant **v) {
                 return r;
 
         status = json_variant_ref(json_variant_by_key(*v, "status"));
-        z = json_variant_ref(json_variant_by_key(status, sd_id128_to_string(mid, buf)));
+        z = json_variant_ref(json_variant_by_key(status, SD_ID128_TO_STRING(mid)));
 
         if (json_variant_by_key(z, "service"))
                 return 0;
@@ -63,7 +62,7 @@ static int add_nss_service(JsonVariant **v) {
         if (r < 0)
                 return r;
 
-        r = json_variant_set_field(&status, buf, z);
+        r = json_variant_set_field(&status, SD_ID128_TO_STRING(mid), z);
         if (r < 0)
                 return r;
 
