@@ -342,6 +342,7 @@ Label=
 Prefix=
 [IPv6AcceptRA]
 UseDomains=
+UseMTU=
 RouteTable=
 RouteMetric=
 UseDNS=
