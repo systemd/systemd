@@ -282,11 +282,6 @@ void dns_server_packet_received(DnsServer *s, int protocol, DnsServerFeatureLeve
         if (s->packet_bad_opt && level >= DNS_SERVER_FEATURE_LEVEL_EDNS0)
                 level = DNS_SERVER_FEATURE_LEVEL_EDNS0 - 1;
 
-        /* Even if we successfully receive a reply to a request announcing support for large packets, that
-         * does not mean we can necessarily receive large packets. */
-        if (level == DNS_SERVER_FEATURE_LEVEL_LARGE)
-                level = DNS_SERVER_FEATURE_LEVEL_LARGE - 1;
-
         dns_server_verified(s, level);
 
         /* Remember the size of the largest UDP packet fragment we received from a server, we know that we
@@ -429,7 +424,7 @@ DnsServerFeatureLevel dns_server_possible_feature_level(DnsServer *s) {
          * better than EDNS0, hence don't even try. */
         if (dns_server_get_dnssec_mode(s) != DNSSEC_NO)
                 best = dns_server_get_dns_over_tls_mode(s) == DNS_OVER_TLS_NO ?
-                        DNS_SERVER_FEATURE_LEVEL_LARGE :
+                        DNS_SERVER_FEATURE_LEVEL_DO :
                         DNS_SERVER_FEATURE_LEVEL_TLS_DO;
         else
                 best = dns_server_get_dns_over_tls_mode(s) == DNS_OVER_TLS_NO ?
@@ -597,7 +592,7 @@ DnsServerFeatureLevel dns_server_possible_feature_level(DnsServer *s) {
 }
 
 int dns_server_adjust_opt(DnsServer *server, DnsPacket *packet, DnsServerFeatureLevel level) {
-        size_t packet_size;
+        size_t packet_size, udp_size;
         bool edns_do;
         int r;
 
@@ -616,40 +611,29 @@ int dns_server_adjust_opt(DnsServer *server, DnsPacket *packet, DnsServerFeature
 
         edns_do = level >= DNS_SERVER_FEATURE_LEVEL_DO;
 
-        if (level == DNS_SERVER_FEATURE_LEVEL_LARGE) {
-                size_t udp_size;
+        udp_size = udp_header_size(server->family);
 
-                /* In large mode, advertise the local MTU, in order to avoid fragmentation (for security
-                 * reasons) – except if we are talking to localhost (where the security considerations don't
-                 * matter). If we see fragmentation, lower the reported size to the largest fragment, to
-                 * avoid it. */
+        if (in_addr_is_localhost(server->family, &server->address) > 0)
+                packet_size = 65536 - udp_size; /* force linux loopback MTU if localhost address */
+        else {
+                /* Use the MTU pointing to the server, subtract the IP/UDP header size */
+                packet_size = LESS_BY(dns_server_get_mtu(server), udp_size);
 
-                udp_size = udp_header_size(server->family);
+                /* On the Internet we want to avoid fragmentation for security reasons. If we saw
+                 * fragmented packets, the above was too large, let's clamp it to the largest
+                 * fragment we saw */
+                if (server->packet_fragmented)
+                        packet_size = MIN(server->received_udp_fragment_max, packet_size);
 
-                if (in_addr_is_localhost(server->family, &server->address) > 0)
-                        packet_size = 65536 - udp_size; /* force linux loopback MTU if localhost address */
-                else {
-                        /* Use the MTU pointing to the server, subtract the IP/UDP header size */
-                        packet_size = LESS_BY(dns_server_get_mtu(server), udp_size);
+                /* Let's not pick ridiculously large sizes, i.e. not more than 4K. No one appears
+                 * to ever use such large sized on the Internet IRL, hence let's not either. */
+                packet_size = MIN(packet_size, 4096U);
+        }
 
-                        /* On the Internet we want to avoid fragmentation for security reasons. If we saw
-                         * fragmented packets, the above was too large, let's clamp it to the largest
-                         * fragment we saw */
-                        if (server->packet_fragmented)
-                                packet_size = MIN(server->received_udp_fragment_max, packet_size);
-
-                        /* Let's not pick ridiculously large sizes, i.e. not more than 4K. No one appears
-                         * to ever use such large sized on the Internet IRL, hence let's not either. */
-                        packet_size = MIN(packet_size, 4096U);
-                }
-
-                /* Strictly speaking we quite possibly can receive larger datagrams than the MTU (since the
-                 * MTU is for egress, not for ingress), but more often than not the value is symmetric, and
-                 * we want something that does the right thing in the majority of cases, and not just in the
-                 * theoretical edge case. */
-        } else
-                /* In non-large mode, let's advertise the size of the largest fragment we ever managed to accept. */
-                packet_size = server->received_udp_fragment_max;
+        /* Strictly speaking we quite possibly can receive larger datagrams than the MTU (since the
+         * MTU is for egress, not for ingress), but more often than not the value is symmetric, and
+         * we want something that does the right thing in the majority of cases, and not just in the
+         * theoretical edge case. */
 
         /* Safety clamp, never advertise less than 512 or more than 65535 */
         packet_size = CLAMP(packet_size,
@@ -1097,7 +1081,6 @@ static const char* const dns_server_feature_level_table[_DNS_SERVER_FEATURE_LEVE
         [DNS_SERVER_FEATURE_LEVEL_EDNS0]     = "UDP+EDNS0",
         [DNS_SERVER_FEATURE_LEVEL_TLS_PLAIN] = "TLS+EDNS0",
         [DNS_SERVER_FEATURE_LEVEL_DO]        = "UDP+EDNS0+DO",
-        [DNS_SERVER_FEATURE_LEVEL_LARGE]     = "UDP+EDNS0+DO+LARGE",
         [DNS_SERVER_FEATURE_LEVEL_TLS_DO]    = "TLS+EDNS0+D0",
 };
 DEFINE_STRING_TABLE_LOOKUP(dns_server_feature_level, DnsServerFeatureLevel);
