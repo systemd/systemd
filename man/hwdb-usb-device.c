@@ -3,13 +3,13 @@
 #include <sd-hwdb.h>
 
 int print_usb_properties(uint16_t vid, uint16_t pid) {
-  char match[15];
+  char match[STRLEN("usb:vp") + DECIMAL_STR_MAX(uint16_t) * 2];
   sd_hwdb *hwdb;
   const char *key, *value;
   int r;
 
   /* Match this USB vendor and product ID combination */
-  snprintf(match, sizeof match, "usb:v%04Xp%04X", vid, pid);
+  xsprintf(match, "usb:v%04Xp%04X", vid, pid);
 
   r = sd_hwdb_new(&hwdb);
   if (r < 0)
