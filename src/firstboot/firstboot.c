@@ -566,7 +566,6 @@ static int process_hostname(void) {
 
 static int process_machine_id(void) {
         const char *etc_machine_id;
-        char id[SD_ID128_STRING_MAX];
         int r;
 
         etc_machine_id = prefix_roota(arg_root, "/etc/machine-id");
@@ -576,7 +575,7 @@ static int process_machine_id(void) {
         if (sd_id128_is_null(arg_machine_id))
                 return 0;
 
-        r = write_string_file(etc_machine_id, sd_id128_to_string(arg_machine_id, id),
+        r = write_string_file(etc_machine_id, SD_ID128_TO_STRING(arg_machine_id),
                               WRITE_STRING_FILE_CREATE | WRITE_STRING_FILE_SYNC | WRITE_STRING_FILE_MKDIR_0755 |
                               (arg_force ? WRITE_STRING_FILE_ATOMIC : 0));
         if (r < 0)

@@ -738,7 +738,6 @@ void cgroup_oomd_xattr_apply(Unit *u, const char *cgroup_path) {
 }
 
 static void cgroup_xattr_apply(Unit *u) {
-        char ids[SD_ID128_STRING_MAX];
         int r;
 
         assert(u);
@@ -749,7 +748,7 @@ static void cgroup_xattr_apply(Unit *u) {
         if (!sd_id128_is_null(u->invocation_id)) {
                 r = cg_set_xattr(SYSTEMD_CGROUP_CONTROLLER, u->cgroup_path,
                                  "trusted.invocation_id",
-                                 sd_id128_to_string(u->invocation_id, ids), 32,
+                                 SD_ID128_TO_STRING(u->invocation_id), 32,
                                  0);
                 if (r < 0)
                         log_unit_debug_errno(u, r, "Failed to set invocation ID on control group %s, ignoring: %m", empty_to_root(u->cgroup_path));

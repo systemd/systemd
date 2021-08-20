@@ -3273,7 +3273,6 @@ fail:
 #define FORMAT_TIMESTAMP_SAFE(t) (FORMAT_TIMESTAMP(t) ?: " --- ")
 
 void journal_file_print_header(JournalFile *f) {
-        char a[SD_ID128_STRING_MAX], b[SD_ID128_STRING_MAX], c[SD_ID128_STRING_MAX], d[SD_ID128_STRING_MAX];
         struct stat st;
 
         assert(f);
@@ -3300,10 +3299,10 @@ void journal_file_print_header(JournalFile *f) {
                "Objects: %"PRIu64"\n"
                "Entry objects: %"PRIu64"\n",
                f->path,
-               sd_id128_to_string(f->header->file_id, a),
-               sd_id128_to_string(f->header->machine_id, b),
-               sd_id128_to_string(f->header->boot_id, c),
-               sd_id128_to_string(f->header->seqnum_id, d),
+               SD_ID128_TO_STRING(f->header->file_id),
+               SD_ID128_TO_STRING(f->header->machine_id),
+               SD_ID128_TO_STRING(f->header->boot_id),
+               SD_ID128_TO_STRING(f->header->seqnum_id),
                f->header->state == STATE_OFFLINE ? "OFFLINE" :
                f->header->state == STATE_ONLINE ? "ONLINE" :
                f->header->state == STATE_ARCHIVED ? "ARCHIVED" : "UNKNOWN",

@@ -2115,7 +2115,6 @@ static void context_bar_char_process_partition(
 
 static int partition_hint(const Partition *p, const char *node, char **ret) {
         _cleanup_free_ char *buf = NULL;
-        char ids[ID128_UUID_STRING_MAX];
         const char *label;
         sd_id128_t id;
 
@@ -2144,7 +2143,7 @@ static int partition_hint(const Partition *p, const char *node, char **ret) {
         else
                 id = p->type_uuid;
 
-        buf = strdup(id128_to_uuid_string(id, ids));
+        buf = strdup(ID128_TO_UUID_STRING(id));
 
 done:
         if (!buf)
@@ -2544,7 +2543,6 @@ static int partition_encrypt(
         _cleanup_(sym_crypt_freep) struct crypt_device *cd = NULL;
         _cleanup_(erase_and_freep) void *volume_key = NULL;
         _cleanup_free_ char *dm_name = NULL, *vol = NULL;
-        char suuid[ID128_UUID_STRING_MAX];
         size_t volume_key_size = 256 / 8;
         sd_id128_t uuid;
         int r;
@@ -2591,7 +2589,7 @@ static int partition_encrypt(
                          CRYPT_LUKS2,
                          "aes",
                          "xts-plain64",
-                         id128_to_uuid_string(uuid, suuid),
+                         ID128_TO_UUID_STRING(uuid),
                          volume_key,
                          volume_key_size,
                          &(struct crypt_params_luks2) {
@@ -3340,11 +3338,9 @@ static int context_mangle_partitions(Context *context) {
                         }
 
                         if (!sd_id128_equal(p->new_uuid, p->current_uuid)) {
-                                char buf[ID128_UUID_STRING_MAX];
-
                                 assert(!sd_id128_is_null(p->new_uuid));
 
-                                r = fdisk_partition_set_uuid(p->current_partition, id128_to_uuid_string(p->new_uuid, buf));
+                                r = fdisk_partition_set_uuid(p->current_partition, ID128_TO_UUID_STRING(p->new_uuid));
                                 if (r < 0)
                                         return log_error_errno(r, "Failed to set partition UUID: %m");
 
@@ -3371,7 +3367,6 @@ static int context_mangle_partitions(Context *context) {
                 } else {
                         _cleanup_(fdisk_unref_partitionp) struct fdisk_partition *q = NULL;
                         _cleanup_(fdisk_unref_parttypep) struct fdisk_parttype *t = NULL;
-                        char ids[ID128_UUID_STRING_MAX];
 
                         assert(!p->new_partition);
                         assert(p->offset % 512 == 0);
@@ -3383,7 +3378,7 @@ static int context_mangle_partitions(Context *context) {
                         if (!t)
                                 return log_oom();
 
-                        r = fdisk_parttype_set_typestr(t, id128_to_uuid_string(p->type_uuid, ids));
+                        r = fdisk_parttype_set_typestr(t, ID128_TO_UUID_STRING(p->type_uuid));
                         if (r < 0)
                                 return log_error_errno(r, "Failed to initialize partition type: %m");
 
@@ -3411,7 +3406,7 @@ static int context_mangle_partitions(Context *context) {
                         if (r < 0)
                                 return log_error_errno(r, "Failed to set partition number: %m");
 
-                        r = fdisk_partition_set_uuid(q, id128_to_uuid_string(p->new_uuid, ids));
+                        r = fdisk_partition_set_uuid(q, ID128_TO_UUID_STRING(p->new_uuid));
                         if (r < 0)
                                 return log_error_errno(r, "Failed to set partition UUID: %m");
 

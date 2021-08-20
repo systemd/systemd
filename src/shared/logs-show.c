@@ -752,13 +752,12 @@ static int output_export(
                 const Set *output_fields,
                 const size_t highlight[2]) {
 
-        sd_id128_t boot_id;
-        char sid[SD_ID128_STRING_MAX];
-        int r;
-        usec_t realtime, monotonic;
         _cleanup_free_ char *cursor = NULL;
+        usec_t realtime, monotonic;
+        sd_id128_t boot_id;
         const void *data;
         size_t length;
+        int r;
 
         assert(j);
 
@@ -784,7 +783,7 @@ static int output_export(
                 cursor,
                 realtime,
                 monotonic,
-                sd_id128_to_string(boot_id, sid));
+                SD_ID128_TO_STRING(boot_id));
 
         JOURNAL_FOREACH_DATA_RETVAL(j, data, length, r) {
                 size_t fieldlen;

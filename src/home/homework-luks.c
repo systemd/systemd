@@ -1487,10 +1487,10 @@ static int luks_format(
         _cleanup_(sym_crypt_freep) struct crypt_device *cd = NULL;
         _cleanup_(erase_and_freep) void *volume_key = NULL;
         struct crypt_pbkdf_type good_pbkdf, minimal_pbkdf;
-        char suuid[ID128_UUID_STRING_MAX], **pp;
         _cleanup_free_ char *text = NULL;
         size_t volume_key_size;
         int slot = 0, r;
+        char **pp;
 
         assert(node);
         assert(dm_name);
@@ -1526,19 +1526,20 @@ static int luks_format(
         build_good_pbkdf(&good_pbkdf, hr);
         build_minimal_pbkdf(&minimal_pbkdf, hr);
 
-        r = sym_crypt_format(cd,
-                         CRYPT_LUKS2,
-                         user_record_luks_cipher(hr),
-                         user_record_luks_cipher_mode(hr),
-                         id128_to_uuid_string(uuid, suuid),
-                         volume_key,
-                         volume_key_size,
-                         &(struct crypt_params_luks2) {
-                                 .label = label,
-                                 .subsystem = "systemd-home",
-                                 .sector_size = 512U,
-                                 .pbkdf = &good_pbkdf,
-                         });
+        r = sym_crypt_format(
+                        cd,
+                        CRYPT_LUKS2,
+                        user_record_luks_cipher(hr),
+                        user_record_luks_cipher_mode(hr),
+                        ID128_TO_UUID_STRING(uuid),
+                        volume_key,
+                        volume_key_size,
+                        &(struct crypt_params_luks2) {
+                                .label = label,
+                                .subsystem = "systemd-home",
+                                .sector_size = 512U,
+                                .pbkdf = &good_pbkdf,
+                        });
         if (r < 0)
                 return log_error_errno(r, "Failed to format LUKS image: %m");
 
@@ -1621,7 +1622,6 @@ static int make_partition_table(
         _cleanup_free_ char *path = NULL, *disk_uuid_as_string = NULL;
         uint64_t offset, size;
         sd_id128_t disk_uuid;
-        char uuids[ID128_UUID_STRING_MAX];
         int r;
 
         assert(fd >= 0);
@@ -1676,7 +1676,7 @@ static int make_partition_table(
         if (r < 0)
                 return log_error_errno(r, "Failed to set partition name: %m");
 
-        r = fdisk_partition_set_uuid(p, id128_to_uuid_string(uuid, uuids));
+        r = fdisk_partition_set_uuid(p, ID128_TO_UUID_STRING(uuid));
         if (r < 0)
                 return log_error_errno(r, "Failed to set partition UUID: %m");
 

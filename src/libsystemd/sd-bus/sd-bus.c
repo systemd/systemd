@@ -2873,7 +2873,6 @@ static int process_builtin(sd_bus *bus, sd_bus_message *m) {
                 r = sd_bus_message_new_method_return(m, &reply);
         else if (streq_ptr(m->member, "GetMachineId")) {
                 sd_id128_t id;
-                char sid[SD_ID128_STRING_MAX];
 
                 r = sd_id128_get_machine(&id);
                 if (r < 0)
@@ -2883,7 +2882,7 @@ static int process_builtin(sd_bus *bus, sd_bus_message *m) {
                 if (r < 0)
                         return r;
 
-                r = sd_bus_message_append(reply, "s", sd_id128_to_string(id, sid));
+                r = sd_bus_message_append(reply, "s", SD_ID128_TO_STRING(id));
         } else {
                 r = sd_bus_message_new_method_errorf(
                                 m, &reply,
