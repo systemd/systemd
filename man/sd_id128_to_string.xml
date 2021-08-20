@@ -16,7 +16,9 @@
   </refmeta>
 
   <refnamediv>
+    <refname>SD_ID128_STRING_MAX</refname>
     <refname>sd_id128_to_string</refname>
+    <refname>SD_ID128_TO_STRING</refname>
     <refname>sd_id128_from_string</refname>
     <refpurpose>Format or parse 128-bit IDs as strings</refpurpose>
   </refnamediv>
@@ -25,9 +27,13 @@
     <funcsynopsis>
       <funcsynopsisinfo>#include &lt;systemd/sd-id128.h&gt;</funcsynopsisinfo>
 
+      <funcsynopsisinfo>#define SD_ID128_STRING_MAX 33U</funcsynopsisinfo>
+
+      <funcsynopsisinfo>#define SD_ID128_TO_STRING(id) …</funcsynopsisinfo>
+
       <funcprototype>
         <funcdef>char *<function>sd_id128_to_string</function></funcdef>
-        <paramdef>sd_id128_t <parameter>id</parameter>, char <parameter>s</parameter>[33]</paramdef>
+        <paramdef>sd_id128_t <parameter>id</parameter>, char <parameter>s</parameter>[static SD_ID128_STRING_MAX]</paramdef>
       </funcprototype>
 
       <funcprototype>
@@ -41,11 +47,16 @@
   <refsect1>
     <title>Description</title>
 
-    <para><function>sd_id128_to_string()</function> formats a 128-bit
-    ID as a character string. It expects the ID and a string array
-    capable of storing 33 characters. The ID will be formatted as 32
-    lowercase hexadecimal digits and be terminated by a
-    <constant>NUL</constant> byte.</para>
+    <para><function>sd_id128_to_string()</function> formats a 128-bit ID as a character string. It expects
+    the ID and a string array capable of storing 33 characters
+    (<constant>SD_ID128_STRING_MAX</constant>). The ID will be formatted as 32 lowercase hexadecimal digits
+    and be terminated by a <constant>NUL</constant> byte.</para>
+
+    <para><function>SD_ID128_TO_STRING()</function> is a macro that wraps <function>sd_id128_to()</function>
+    and passes an appropriately sized buffer as second argument, allocated as C99 compound literal. Each use
+    will thus implicitly acquire a suitable buffer on the stack which remains valid until the end of the
+    current code block. This is usually he simplest way to acquire the string representation of a 128-bit ID in a
+    buffer that is valid in the current code block.</para>
 
     <para><function>sd_id128_from_string()</function> implements the reverse operation: it takes a 33 character string
     with 32 hexadecimal digits (either lowercase or uppercase, terminated by <constant>NUL</constant>) and parses them
