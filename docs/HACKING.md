@@ -245,3 +245,83 @@ the cached images are initialized (`mkosi -i`).
 
 Now, your editor will start clangd in the mkosi build image and all of clangd's features will work as
 expected.
+
+## Debugging systemd with mkosi + vscode
+
+To simplify debugging systemd when testing changes using mkosi, we're going to show how to attach
+[VSCode](https://code.visualstudio.com/)'s debugger to an instance of systemd running in a mkosi image
+(either using QEMU or systemd-nspawn).
+
+To allow VSCode's debugger to attach to systemd running in a mkosi image, we have to make sure it can access
+the container/virtual machine spawned by mkosi where systemd is running. mkosi makes this possible via a
+handy SSH option that makes the generated image accessible via SSH when booted. The easiest way to set the
+option is to create a file 20-local.conf in mkosi.default.d/ and add the following contents:
+
+```
+[Host]
+Ssh=yes
+```
+
+Next, make sure systemd-networkd is running on the host system so that it can configure the network interface
+connecting the host system to the container/VM spawned by mkosi. Once systemd-networkd is running, you should
+be able to connect to a running mkosi image by executing `mkosi ssh` in the systemd repo directory.
+
+Now we need to configure VSCode. First, make sure the C/C++ extension is installed. If you're already using
+a different extension for code completion and other IDE features for C in VSCode, make sure to disable the
+corresponding parts of the C/C++ extension in your VSCode user settings by adding the following entries:
+
+```json
+"C_Cpp.formatting": "Disabled",
+"C_Cpp.intelliSenseEngine": "Disabled",
+"C_Cpp.enhancedColorization": "Disabled",
+"C_Cpp.suggestSnippets": false,
+```
+
+With the extension set up, we can create the launch.json file in the .vscode/ directory to tell the VSCode
+debugger how to attach to the systemd instance running in our mkosi container/VM. Create the file and add the
+following contents:
+
+```json
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "type": "cppdbg",
+            "program": "/usr/lib/systemd/systemd",
+            "processId": "${command:pickProcess}",
+            "request": "attach",
+            "name": "systemd",
+            "pipeTransport": {
+                "pipeProgram": "mkosi",
+                "pipeArgs": [
+                    "-C",
+                    "/path/to/systemd/repo/directory/on/host/system/",
+                    "ssh"
+                ],
+                "debuggerPath": "/usr/bin/gdb"
+            },
+            "MIMode": "gdb",
+            "sourceFileMap": {
+                "/root/build/../src": {
+                    "editorPath": "${workspaceFolder}",
+                    "useForBreakpoints": false
+                },
+                "/root/build/*": {
+                    "editorPath": "${workspaceFolder}/mkosi.builddir",
+                    "useForBreakpoints": false
+                }
+            }
+        }
+    ]
+}
+```
+
+Now that the debugger knows how to connect to our process in the container/VM and we've set up the necessary
+source mappings, go to the "Run and Debug" window and run the "systemd" debug configuration. If everything
+goes well, the debugger should now be attached to the systemd instance running in the container/VM. You can
+attach breakpoints from the editor and enjoy all the other features of VSCode's debugger.
+
+To debug systemd components other than PID 1, set "program" to the full path of the component you want to
+debug and set "processId" to "${command:pickProcess}". Now, when starting the debugger, VSCode will ask you
+the PID of the process you want to debug. Run `systemctl show --property MainPID --value <component>` in the
+container to figure out the PID and enter it when asked and VSCode will attach to that process instead.
