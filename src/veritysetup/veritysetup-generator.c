@@ -194,7 +194,6 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
 static int determine_devices(void) {
         _cleanup_free_ void *m = NULL;
         sd_id128_t root_uuid, verity_uuid;
-        char ids[ID128_UUID_STRING_MAX];
         size_t l;
         int r;
 
@@ -217,7 +216,7 @@ static int determine_devices(void) {
         if (!arg_data_what) {
                 memcpy(&root_uuid, m, sizeof(root_uuid));
 
-                arg_data_what = path_join("/dev/disk/by-partuuid", id128_to_uuid_string(root_uuid, ids));
+                arg_data_what = path_join("/dev/disk/by-partuuid", ID128_TO_UUID_STRING(root_uuid));
                 if (!arg_data_what)
                         return log_oom();
         }
@@ -225,7 +224,7 @@ static int determine_devices(void) {
         if (!arg_hash_what) {
                 memcpy(&verity_uuid, (uint8_t*) m + l - sizeof(verity_uuid), sizeof(verity_uuid));
 
-                arg_hash_what = path_join("/dev/disk/by-partuuid", id128_to_uuid_string(verity_uuid, ids));
+                arg_hash_what = path_join("/dev/disk/by-partuuid", ID128_TO_UUID_STRING(verity_uuid));
                 if (!arg_hash_what)
                         return log_oom();
         }

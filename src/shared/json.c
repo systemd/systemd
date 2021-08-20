@@ -447,9 +447,7 @@ int json_variant_new_hex(JsonVariant **ret, const void *p, size_t n) {
 }
 
 int json_variant_new_id128(JsonVariant **ret, sd_id128_t id) {
-        char s[SD_ID128_STRING_MAX];
-
-        return json_variant_new_string(ret, sd_id128_to_string(id, s));
+        return json_variant_new_string(ret, SD_ID128_TO_STRING(id));
 }
 
 static void json_variant_set(JsonVariant *a, JsonVariant *b) {
