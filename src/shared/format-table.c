@@ -2551,15 +2551,11 @@ static int table_data_to_json(TableData *d, JsonVariant **ret) {
         case TABLE_IN6_ADDR:
                 return json_variant_new_array_bytes(ret, &d->address, FAMILY_ADDRESS_SIZE(AF_INET6));
 
-        case TABLE_ID128: {
-                char buf[SD_ID128_STRING_MAX];
-                return json_variant_new_string(ret, sd_id128_to_string(d->id128, buf));
-        }
+        case TABLE_ID128:
+                return json_variant_new_string(ret, SD_ID128_TO_STRING(d->id128));
 
-        case TABLE_UUID: {
-                char buf[ID128_UUID_STRING_MAX];
-                return json_variant_new_string(ret, id128_to_uuid_string(d->id128, buf));
-        }
+        case TABLE_UUID:
+                return json_variant_new_string(ret, ID128_TO_UUID_STRING(d->id128));
 
         case TABLE_UID:
                 if (!uid_is_valid(d->uid))

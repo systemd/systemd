@@ -2163,7 +2163,6 @@ int home_augment_status(
         uint64_t disk_size = UINT64_MAX, disk_usage = UINT64_MAX, disk_free = UINT64_MAX, disk_ceiling = UINT64_MAX, disk_floor = UINT64_MAX;
         _cleanup_(json_variant_unrefp) JsonVariant *j = NULL, *v = NULL, *m = NULL, *status = NULL;
         _cleanup_(user_record_unrefp) UserRecord *ur = NULL;
-        char ids[SD_ID128_STRING_MAX];
         HomeState state;
         sd_id128_t id;
         int r;
@@ -2227,7 +2226,7 @@ int home_augment_status(
 
         j = json_variant_ref(h->record->json);
         v = json_variant_ref(json_variant_by_key(j, "status"));
-        m = json_variant_ref(json_variant_by_key(v, sd_id128_to_string(id, ids)));
+        m = json_variant_ref(json_variant_by_key(v, SD_ID128_TO_STRING(id)));
 
         r = json_variant_filter(&m, STRV_MAKE("diskSize", "diskUsage", "diskFree", "diskCeiling", "diskFloor", "signedLocally"));
         if (r < 0)
@@ -2237,7 +2236,7 @@ int home_augment_status(
         if (r < 0)
                 return r;
 
-        r = json_variant_set_field(&v, ids, m);
+        r = json_variant_set_field(&v, SD_ID128_TO_STRING(id), m);
         if (r < 0)
                 return r;
 
