@@ -1227,6 +1227,9 @@ check_result_common() {
             setfacl -m "user:${SUDO_USER:?}:r-X" "${TESTDIR:?}/"failed
         fi
         ret=1
+    elif get_bool "$TIMED_OUT"; then
+        echo "(timeout)" >"${TESTDIR:?}/failed"
+        ret=2
     elif [ -e "$workspace/testok" ]; then
         # …/testok always counts (but with lower priority than …/failed)
         ret=0
@@ -1235,9 +1238,6 @@ check_result_common() {
         echo "${TESTNAME:?} was skipped:"
         cat "$workspace/skipped"
         ret=0
-    elif get_bool "$TIMED_OUT"; then
-        echo "(timeout)" >"${TESTDIR:?}/failed"
-        ret=2
     else
         echo "(failed; see logs)" >"${TESTDIR:?}/failed"
         ret=3
