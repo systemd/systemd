@@ -200,9 +200,8 @@ static void test_protect_kernel_logs(void) {
 }
 
 int main(int argc, char *argv[]) {
-        sd_id128_t bid;
-        char boot_id[SD_ID128_STRING_MAX];
         _cleanup_free_ char *x = NULL, *y = NULL, *z = NULL, *zz = NULL;
+        sd_id128_t bid;
 
         test_setup_logging(LOG_INFO);
 
@@ -214,16 +213,15 @@ int main(int argc, char *argv[]) {
         }
 
         assert_se(sd_id128_get_boot(&bid) >= 0);
-        sd_id128_to_string(bid, boot_id);
 
-        x = strjoin("/tmp/systemd-private-", boot_id, "-abcd.service-");
-        y = strjoin("/var/tmp/systemd-private-", boot_id, "-abcd.service-");
+        x = strjoin("/tmp/systemd-private-", SD_ID128_TO_STRING(bid), "-abcd.service-");
+        y = strjoin("/var/tmp/systemd-private-", SD_ID128_TO_STRING(bid), "-abcd.service-");
         assert_se(x && y);
 
         test_tmpdir("abcd.service", x, y);
 
-        z = strjoin("/tmp/systemd-private-", boot_id, "-sys-devices-pci0000:00-0000:00:1a.0-usb3-3\\x2d1-3\\x2d1:1.0-bluetooth-hci0.device-");
-        zz = strjoin("/var/tmp/systemd-private-", boot_id, "-sys-devices-pci0000:00-0000:00:1a.0-usb3-3\\x2d1-3\\x2d1:1.0-bluetooth-hci0.device-");
+        z = strjoin("/tmp/systemd-private-", SD_ID128_TO_STRING(bid), "-sys-devices-pci0000:00-0000:00:1a.0-usb3-3\\x2d1-3\\x2d1:1.0-bluetooth-hci0.device-");
+        zz = strjoin("/var/tmp/systemd-private-", SD_ID128_TO_STRING(bid), "-sys-devices-pci0000:00-0000:00:1a.0-usb3-3\\x2d1-3\\x2d1:1.0-bluetooth-hci0.device-");
 
         assert_se(z && zz);
 

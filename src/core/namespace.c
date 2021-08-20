@@ -2497,7 +2497,6 @@ static int make_tmp_prefix(const char *prefix) {
 static int setup_one_tmp_dir(const char *id, const char *prefix, char **path, char **tmp_path) {
         _cleanup_free_ char *x = NULL;
         _cleanup_free_ char *y = NULL;
-        char bid[SD_ID128_STRING_MAX];
         sd_id128_t boot_id;
         bool rw = true;
         int r;
@@ -2513,7 +2512,7 @@ static int setup_one_tmp_dir(const char *id, const char *prefix, char **path, ch
         if (r < 0)
                 return r;
 
-        x = strjoin(prefix, "/systemd-private-", sd_id128_to_string(boot_id, bid), "-", id, "-XXXXXX");
+        x = strjoin(prefix, "/systemd-private-", SD_ID128_TO_STRING(boot_id), "-", id, "-XXXXXX");
         if (!x)
                 return -ENOMEM;
 
