@@ -1227,7 +1227,7 @@ static int discover_next_boot(sd_journal *j,
                 BootId **ret) {
 
         _cleanup_free_ BootId *next_boot = NULL;
-        char match[9+32+1] = "_BOOT_ID=";
+        char match[STRLEN("_BOOT_ID=") + SD_ID128_STRING_MAX] = "_BOOT_ID=";
         sd_id128_t boot_id;
         int r;
 
@@ -1336,7 +1336,7 @@ static int get_boots(
          * If no reference is given, the journal head/tail will do,
          * they're "virtual" boots after all. */
         if (boot_id && !sd_id128_is_null(*boot_id)) {
-                char match[9+32+1] = "_BOOT_ID=";
+                char match[STRLEN("_BOOT_ID=") + SD_ID128_STRING_MAX] = "_BOOT_ID=";
 
                 sd_journal_flush_matches(j);
 
@@ -1467,7 +1467,7 @@ static int list_boots(sd_journal *j) {
 }
 
 static int add_boot(sd_journal *j) {
-        char match[9+32+1] = "_BOOT_ID=";
+        char match[STRLEN("_BOOT_ID=") + SD_ID128_STRING_MAX] = "_BOOT_ID=";
         sd_id128_t boot_id;
         int r;
 
