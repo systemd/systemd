@@ -18,6 +18,10 @@ Destination=2001:1234:5:9fff:ff:ff:ff:ff/128
 Gateway=2001:1234:5:8fff:ff:ff:ff:ff
 
 [Route]
+Destination=2001:1234:5:afff:ff:ff:ff:ff/128
+Gateway=fe80::222:4dff:ff:ff:ff:ff
+
+[Route]
 Destination=149.10.124.64
 Scope=link
 
