@@ -339,9 +339,7 @@ static int list_bus_names(int argc, char **argv, void *userdata) {
                         if (r < 0)
                                 log_debug_errno(r, "Failed to acquire credentials of service %s, ignoring: %m", k);
                         else {
-                                char m[SD_ID128_STRING_MAX];
-
-                                r = table_add_cell(table, NULL, TABLE_STRING, sd_id128_to_string(mid, m));
+                                r = table_add_cell(table, NULL, TABLE_ID128, &mid);
                                 if (r < 0)
                                         return table_log_add_error(r);
 

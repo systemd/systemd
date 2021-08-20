@@ -918,7 +918,6 @@ static int remove_subdirs(const char *root, const char *const *subdirs) {
 
 static int remove_machine_id_directory(const char *root) {
         sd_id128_t machine_id;
-        char buf[SD_ID128_STRING_MAX];
         int r;
 
         assert(root);
@@ -931,7 +930,7 @@ static int remove_machine_id_directory(const char *root) {
         if (r < 0)
                 return log_error_errno(r, "Failed to get machine id: %m");
 
-        return rmdir_one(root, sd_id128_to_string(machine_id, buf));
+        return rmdir_one(root, SD_ID128_TO_STRING(machine_id));
 }
 
 static int remove_binaries(const char *esp_path) {
@@ -1020,8 +1019,6 @@ static int install_loader_config(const char *esp_path) {
         _cleanup_(unlink_and_freep) char *t = NULL;
         _cleanup_fclose_ FILE *f = NULL;
         _cleanup_close_ int fd = -1;
-        sd_id128_t machine_id;
-        char machine_string[SD_ID128_STRING_MAX];
         const char *p;
         int r;
 
@@ -1041,12 +1038,15 @@ static int install_loader_config(const char *esp_path) {
 
         fprintf(f, "#timeout 3\n"
                    "#console-mode keep\n");
+
         if (arg_make_machine_id_directory) {
+                sd_id128_t machine_id;
+
                 r = sd_id128_get_machine(&machine_id);
                 if (r < 0)
                         return log_error_errno(r, "Failed to get machine id: %m");
 
-                fprintf(f, "default %s-*\n", sd_id128_to_string(machine_id, machine_string));
+                fprintf(f, "default %s-*\n", SD_ID128_TO_STRING(machine_id));
         }
 
         r = fflush_sync_and_check(f);
@@ -1065,7 +1065,6 @@ static int install_loader_config(const char *esp_path) {
 
 static int install_machine_id_directory(const char *root) {
         sd_id128_t machine_id;
-        char buf[SD_ID128_STRING_MAX];
         int r;
 
         assert(root);
@@ -1078,7 +1077,7 @@ static int install_machine_id_directory(const char *root) {
         if (r < 0)
                 return log_error_errno(r, "Failed to get machine id: %m");
 
-        return mkdir_one(root, sd_id128_to_string(machine_id, buf));
+        return mkdir_one(root, SD_ID128_TO_STRING(machine_id));
 }
 
 static int help(int argc, char *argv[], void *userdata) {
