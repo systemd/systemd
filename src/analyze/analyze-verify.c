@@ -33,7 +33,7 @@ static void log_syntax_callback(const char *unit, int level, void *userdata) {
         }
 }
 
-static int prepare_filename(const char *filename, char **ret) {
+int verify_prepare_filename(const char *filename, char **ret) {
         int r;
         const char *name;
         _cleanup_free_ char *abspath = NULL;
@@ -70,7 +70,7 @@ static int prepare_filename(const char *filename, char **ret) {
         return 0;
 }
 
-static int generate_path(char **var, char **filenames) {
+int verify_generate_path(char **var, char **filenames) {
         const char *old;
         char **filename;
 
@@ -266,7 +266,7 @@ int verify_units(char **filenames, UnitFileScope scope, bool check_man, bool run
         set_log_syntax_callback(log_syntax_callback, &s);
 
         /* set the path */
-        r = generate_path(&var, filenames);
+        r = verify_generate_path(&var, filenames);
         if (r < 0)
                 return log_error_errno(r, "Failed to generate unit load path: %m");
 
@@ -291,7 +291,7 @@ int verify_units(char **filenames, UnitFileScope scope, bool check_man, bool run
 
                 log_debug("Handling %s...", *filename);
 
-                k = prepare_filename(*filename, &prepared);
+                k = verify_prepare_filename(*filename, &prepared);
                 if (k < 0) {
                         log_error_errno(k, "Failed to prepare filename %s: %m", *filename);
                         if (r == 0)
