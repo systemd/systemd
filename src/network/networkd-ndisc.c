@@ -536,9 +536,9 @@ static int ndisc_request_address(Address *in, Link *link, sd_ndisc_router *rt) {
 static int ndisc_router_process_default(Link *link, sd_ndisc_router *rt) {
         _cleanup_(route_freep) Route *route = NULL;
         struct in6_addr gateway;
-        uint16_t lifetime;
+        uint32_t table, mtu = 0;
         unsigned preference;
-        uint32_t table, mtu;
+        uint16_t lifetime;
         usec_t time_now;
         int r;
 
@@ -575,11 +575,11 @@ static int ndisc_router_process_default(Link *link, sd_ndisc_router *rt) {
         if (r < 0)
                 return log_link_error_errno(link, r, "Failed to get RA timestamp: %m");
 
-        r = sd_ndisc_router_get_mtu(rt, &mtu);
-        if (r == -ENODATA)
-                mtu = 0;
-        else if (r < 0)
-                return log_link_error_errno(link, r, "Failed to get default router MTU from RA: %m");
+        if (link->network->ipv6_accept_ra_use_mtu) {
+                r = sd_ndisc_router_get_mtu(rt, &mtu);
+                if (r < 0 && r != -ENODATA)
+                        return log_link_error_errno(link, r, "Failed to get default router MTU from RA: %m");
+        }
 
         table = link_get_ipv6_accept_ra_route_table(link);
 
