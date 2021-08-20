@@ -256,6 +256,7 @@ IPv6AcceptRA.UseAutonomousPrefix,            config_parse_bool,                 
 IPv6AcceptRA.UseOnLinkPrefix,                config_parse_bool,                                        0,                             offsetof(Network, ipv6_accept_ra_use_onlink_prefix)
 IPv6AcceptRA.UseDNS,                         config_parse_bool,                                        0,                             offsetof(Network, ipv6_accept_ra_use_dns)
 IPv6AcceptRA.UseDomains,                     config_parse_ipv6_accept_ra_use_domains,                  0,                             offsetof(Network, ipv6_accept_ra_use_domains)
+IPv6AcceptRA.UseMTU,                         config_parse_bool,                                        0,                             offsetof(Network, ipv6_accept_ra_use_mtu)
 IPv6AcceptRA.DHCPv6Client,                   config_parse_ipv6_accept_ra_start_dhcp6_client,           0,                             offsetof(Network, ipv6_accept_ra_start_dhcp6_client)
 IPv6AcceptRA.RouteTable,                     config_parse_section_route_table,                         0,                             0
 IPv6AcceptRA.RouteMetric,                    config_parse_dhcp_route_metric,                           0,                             0

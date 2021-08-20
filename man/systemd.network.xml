@@ -2266,6 +2266,14 @@ IPv6Token=prefixstable:2002:da8:1::</programlisting></para>
         </varlistentry>
 
         <varlistentry>
+          <term><varname>UseMTU=</varname></term>
+          <listitem>
+            <para>Takes a boolean. When true, the MTU received in the Router Advertisement will be
+            used. Defaults to true.</para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
           <term><varname>UseAutonomousPrefix=</varname></term>
           <listitem>
             <para>When true (the default), the autonomous prefix received in the Router Advertisement will be used and take
