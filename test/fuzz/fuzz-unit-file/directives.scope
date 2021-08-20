@@ -48,6 +48,7 @@ MemoryMin=
 MemorySwapMax=
 NetClass=
 RestartKillSignal=
+RestrictNetworkInterfaces=
 RuntimeMaxSec=
 SendSIGHUP=
 SendSIGKILL=
