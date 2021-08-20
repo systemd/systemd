@@ -188,6 +188,8 @@ tests += [
 
         [['src/test/test-util.c']],
 
+        [['src/test/test-macro.c']],
+
         [['src/test/test-json.c']],
 
         [['src/test/test-modhex.c']],
