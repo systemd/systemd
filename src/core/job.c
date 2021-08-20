@@ -571,7 +571,7 @@ static void job_emit_start_message(Unit *u, uint32_t job_id, JobType t) {
         }
 }
 
-static const char* job_done_message_format(Unit *u, JobType t, JobResult result) {
+static char* job_done_message_format(Unit *u, JobType t, JobResult result) {
         static const char* const generic_finished_start_job[_JOB_RESULT_MAX] = {
                 [JOB_DONE]        = "Started %s.",
                 [JOB_TIMEOUT]     = "Timed out starting %s.",
@@ -605,36 +605,59 @@ static const char* job_done_message_format(Unit *u, JobType t, JobResult result)
         assert(t < _JOB_TYPE_MAX);
 
         /* Show condition check message if the job did not actually do anything due to failed condition. */
-        if (t == JOB_START && result == JOB_DONE && !u->condition_result)
-                return "Condition check resulted in %s being skipped.";
+        if (t == JOB_START && result == JOB_DONE && !u->condition_result) {
+                Condition *c;
+
+                LIST_FOREACH(conditions, c, u->conditions)
+                        if (c->result != CONDITION_SUCCEEDED)
+                                break;
+
+                if (!c)
+                        return strdup("%s was skipped because of a failed condition check.");
+
+                return strjoin(
+                        "%s was skipped because of a failed condition check: ",
+                        condition_type_to_string(c->type),
+                        "=",
+                        c->trigger ? "|" : "",
+                        c->negate ? "!" : "",
+                        c->parameter,
+                        ".");
+        }
 
         if (IN_SET(t, JOB_START, JOB_STOP, JOB_RESTART)) {
                 const UnitStatusMessageFormats *formats = &UNIT_VTABLE(u)->status_message_formats;
                 if (formats->finished_job) {
                         format = formats->finished_job(u, t, result);
                         if (format)
-                                return format;
+                                return strdup(format);
                 }
 
                 format = (t == JOB_START ? formats->finished_start_job : formats->finished_stop_job)[result];
                 if (format)
-                        return format;
+                        return strdup(format);
         }
 
         /* Return generic strings */
         switch (t) {
         case JOB_START:
-                return generic_finished_start_job[result];
+                format = generic_finished_start_job[result];
+                break;
         case JOB_STOP:
         case JOB_RESTART:
-                return generic_finished_stop_job[result];
+                format = generic_finished_stop_job[result];
+                break;
         case JOB_RELOAD:
-                return generic_finished_reload_job[result];
+                format = generic_finished_reload_job[result];
+                break;
         case JOB_VERIFY_ACTIVE:
-                return generic_finished_verify_active_job[result];
+                format = generic_finished_verify_active_job[result];
+                break;
         default:
                 return NULL;
         }
+
+        return format ? strdup(format) : NULL;
 }
 
 static const struct {
@@ -675,8 +698,8 @@ static const char* job_done_mid(JobType type, JobResult result) {
 }
 
 static void job_emit_done_message(Unit *u, uint32_t job_id, JobType t, JobResult result) {
-        _cleanup_free_ char *free_ident = NULL;
-        const char *ident, *format;
+        _cleanup_free_ char *free_ident = NULL, *format = NULL;
+        const char *ident;
 
         assert(u);
         assert(t >= 0);
