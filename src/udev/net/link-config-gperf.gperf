@@ -57,6 +57,7 @@ Link.TCPSegmentationOffload,              config_parse_tristate,                
 Link.TCP6SegmentationOffload,             config_parse_tristate,                 0,                             offsetof(LinkConfig, features[NET_DEV_FEAT_TSO6])
 Link.UDPSegmentationOffload,              config_parse_warn_compat,              DISABLED_LEGACY,               0
 Link.GenericReceiveOffload,               config_parse_tristate,                 0,                             offsetof(LinkConfig, features[NET_DEV_FEAT_GRO])
+Link.GenericReceiveOffloadHardware,       config_parse_tristate,                 0,                             offsetof(LinkConfig, features[NET_DEV_FEAT_GRO_HW])
 Link.LargeReceiveOffload,                 config_parse_tristate,                 0,                             offsetof(LinkConfig, features[NET_DEV_FEAT_LRO])
 Link.RxChannels,                          config_parse_ring_buffer_or_channel,   0,                             offsetof(LinkConfig, channels.rx)
 Link.TxChannels,                          config_parse_ring_buffer_or_channel,   0,                             offsetof(LinkConfig, channels.tx)
