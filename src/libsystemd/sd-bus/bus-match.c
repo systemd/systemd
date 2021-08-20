@@ -997,20 +997,16 @@ const char* bus_match_node_type_to_string(enum bus_match_node_type t, char buf[]
                 return "path_namespace";
 
         case BUS_MATCH_ARG ... BUS_MATCH_ARG_LAST:
-                snprintf(buf, l, "arg%i", t - BUS_MATCH_ARG);
-                return buf;
+                return snprintf_ok(buf, l, "arg%i", t - BUS_MATCH_ARG);
 
         case BUS_MATCH_ARG_PATH ... BUS_MATCH_ARG_PATH_LAST:
-                snprintf(buf, l, "arg%ipath", t - BUS_MATCH_ARG_PATH);
-                return buf;
+                return snprintf_ok(buf, l, "arg%ipath", t - BUS_MATCH_ARG_PATH);
 
         case BUS_MATCH_ARG_NAMESPACE ... BUS_MATCH_ARG_NAMESPACE_LAST:
-                snprintf(buf, l, "arg%inamespace", t - BUS_MATCH_ARG_NAMESPACE);
-                return buf;
+                return snprintf_ok(buf, l, "arg%inamespace", t - BUS_MATCH_ARG_NAMESPACE);
 
         case BUS_MATCH_ARG_HAS ... BUS_MATCH_ARG_HAS_LAST:
-                snprintf(buf, l, "arg%ihas", t - BUS_MATCH_ARG_HAS);
-                return buf;
+                return snprintf_ok(buf, l, "arg%ihas", t - BUS_MATCH_ARG_HAS);
 
         default:
                 return NULL;
