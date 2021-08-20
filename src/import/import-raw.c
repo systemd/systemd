@@ -9,6 +9,7 @@
 #include "btrfs-util.h"
 #include "copy.h"
 #include "fd-util.h"
+#include "format-util.h"
 #include "fs-util.h"
 #include "hostname-util.h"
 #include "import-common.h"
@@ -248,6 +249,8 @@ static int raw_import_finish(RawImport *i) {
 
         i->temp_path = mfree(i->temp_path);
 
+        log_info("Wrote %s.", FORMAT_BYTES(i->written_uncompressed));
+
         return 0;
 }
 
@@ -319,6 +322,9 @@ static int raw_import_try_reflink(RawImport *i) {
         if (i->compress.type != IMPORT_COMPRESS_UNCOMPRESSED)
                 return 0;
 
+        if (i->offset != UINT64_MAX || i->size_max != UINT64_MAX)
+                return 0;
+
         if (!S_ISREG(i->input_stat.st_mode) || !S_ISREG(i->output_stat.st_mode))
                 return 0;
 
@@ -365,7 +371,7 @@ static int raw_import_write(const void *p, size_t sz, void *userdata) {
         }
 
         /* Generate sparse file if we created/truncated the file */
-        if (S_ISREG(i->output_stat.st_mode)) {
+        if (S_ISREG(i->output_stat.st_mode) && i->offset == UINT64_MAX) {
                 ssize_t n;
 
                 n = sparse_write(i->output_fd, p, sz, 64);
