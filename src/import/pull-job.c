@@ -117,7 +117,7 @@ static int pull_job_restart(PullJob *j, const char *new_url) {
 void pull_job_curl_on_finished(CurlGlue *g, CURL *curl, CURLcode result) {
         PullJob *j = NULL;
         CURLcode code;
-        long status;
+        long protocol;
         int r;
 
         if (curl_easy_getinfo(curl, CURLINFO_PRIVATE, (char **)&j) != CURLE_OK)
@@ -131,50 +131,62 @@ void pull_job_curl_on_finished(CurlGlue *g, CURL *curl, CURLcode result) {
                 goto finish;
         }
 
-        code = curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &status);
+        code = curl_easy_getinfo(curl, CURLINFO_PROTOCOL, &protocol);
         if (code != CURLE_OK) {
                 r = log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to retrieve response code: %s", curl_easy_strerror(code));
                 goto finish;
-        } else if (status == 304) {
-                log_info("Image already downloaded. Skipping download.");
-                j->etag_exists = true;
-                r = 0;
-                goto finish;
-        } else if (status >= 300) {
+        }
 
-                if (status == 404 && j->on_not_found) {
-                        _cleanup_free_ char *new_url = NULL;
+        if (IN_SET(protocol, CURLPROTO_HTTP, CURLPROTO_HTTPS)) {
+                long status;
 
-                        /* This resource wasn't found, but the implementor wants to maybe let us know a new URL, query for it. */
-                        r = j->on_not_found(j, &new_url);
-                        if (r < 0)
-                                goto finish;
+                code = curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &status);
+                if (code != CURLE_OK) {
+                        r = log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to retrieve response code: %s", curl_easy_strerror(code));
+                        goto finish;
+                }
 
-                        if (r > 0) { /* A new url to use */
-                                assert(new_url);
+                if (status == 304) {
+                        log_info("Image already downloaded. Skipping download.");
+                        j->etag_exists = true;
+                        r = 0;
+                        goto finish;
+                } else if (status >= 300) {
 
-                                r = pull_job_restart(j, new_url);
+                        if (status == 404 && j->on_not_found) {
+                                _cleanup_free_ char *new_url = NULL;
+
+                                /* This resource wasn't found, but the implementor wants to maybe let us know a new URL, query for it. */
+                                r = j->on_not_found(j, &new_url);
                                 if (r < 0)
                                         goto finish;
 
-                                code = curl_easy_getinfo(j->curl, CURLINFO_RESPONSE_CODE, &status);
-                                if (code != CURLE_OK) {
-                                        r = log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to retrieve response code: %s", curl_easy_strerror(code));
-                                        goto finish;
+                                if (r > 0) { /* A new url to use */
+                                        assert(new_url);
+
+                                        r = pull_job_restart(j, new_url);
+                                        if (r < 0)
+                                                goto finish;
+
+                                        code = curl_easy_getinfo(j->curl, CURLINFO_RESPONSE_CODE, &status);
+                                        if (code != CURLE_OK) {
+                                                r = log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to retrieve response code: %s", curl_easy_strerror(code));
+                                                goto finish;
+                                        }
+
+                                        if (status == 0)
+                                                return;
                                 }
-
-                                if (status == 0)
-                                        return;
                         }
-                }
 
-                r = log_error_errno(
-                                status == 404 ? SYNTHETIC_ERRNO(ENOMEDIUM) : SYNTHETIC_ERRNO(EIO), /* Make the most common error recognizable */
-                                "HTTP request to %s failed with code %li.", j->url, status);
-                goto finish;
-        } else if (status < 200) {
-                r = log_error_errno(SYNTHETIC_ERRNO(EIO), "HTTP request to %s finished with unexpected code %li.", j->url, status);
-                goto finish;
+                        r = log_error_errno(
+                                        status == 404 ? SYNTHETIC_ERRNO(ENOMEDIUM) : SYNTHETIC_ERRNO(EIO), /* Make the most common error recognizable */
+                                        "HTTP request to %s failed with code %li.", j->url, status);
+                        goto finish;
+                } else if (status < 200) {
+                        r = log_error_errno(SYNTHETIC_ERRNO(EIO), "HTTP request to %s finished with unexpected code %li.", j->url, status);
+                        goto finish;
+                }
         }
 
         if (j->state != PULL_JOB_RUNNING) {
@@ -260,6 +272,8 @@ void pull_job_curl_on_finished(CurlGlue *g, CURL *curl, CURLcode result) {
                 }
         }
 
+        log_info("Acquired %s.", FORMAT_BYTES(j->written_uncompressed));
+
         r = 0;
 
 finish:
@@ -292,7 +306,7 @@ static int pull_job_write_uncompressed(const void *p, size_t sz, void *userdata)
 
         if (j->disk_fd >= 0) {
 
-                if (S_ISREG(j->disk_stat.st_mode)) {
+                if (S_ISREG(j->disk_stat.st_mode) && j->offset == UINT64_MAX) {
                         ssize_t n;
 
                         n = sparse_write(j->disk_fd, p, sz, 64);
