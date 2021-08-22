@@ -404,6 +404,16 @@ sensor:modalias:acpi:KIOX000A*:dmi:bvnAmericanMegatrendsInc.:bvr5.11:bd05/25/201
  ACCEL_LOCATION=base
 
 #########################################
+# Hometech
+########################################
+
+# Nobody bothered to use Linux on any device of this manufacturer
+# so current marks might be too general and need fixes.
+# These values are based on Wi101 model.
+sensor:modalias:acpi:BMA250E*:dmi:*:svnInsyde*:pni101c:*
+ ACCEL_MOUNT_MATRIX=0,1,0;-1,0,0;-1,0,0
+
+#########################################
 # HP
 #########################################
 
