@@ -791,12 +791,7 @@ static bool nexthop_is_ready_to_configure(Link *link, const NextHop *nexthop) {
                 }
         }
 
-        if (nexthop->onlink <= 0 &&
-            in_addr_is_set(nexthop->family, &nexthop->gw) &&
-            !manager_address_is_reachable(link->manager, nexthop->family, &nexthop->gw))
-                return false;
-
-        return true;
+        return gateway_is_ready(link, nexthop->onlink, nexthop->family, &nexthop->gw);
 }
 
 int request_process_nexthop(Request *req) {

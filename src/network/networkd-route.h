@@ -78,8 +78,8 @@ int route_configure_handler_internal(sd_netlink *rtnl, sd_netlink_message *m, Li
 int route_remove(const Route *route, Manager *manager, Link *link);
 
 int link_has_route(Link *link, const Route *route);
-bool manager_address_is_reachable(Manager *manager, int family, const union in_addr_union *address);
 int manager_find_uplink(Manager *m, int family, Link *exclude, Link **ret);
+bool gateway_is_ready(Link *link, int onlink, int family, const union in_addr_union *gw);
 
 int link_drop_routes(Link *link);
 int link_drop_foreign_routes(Link *link);
