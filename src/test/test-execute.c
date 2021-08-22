@@ -79,16 +79,15 @@ static void check_main_result(const char *file, unsigned line, const char *func,
         exec_status_dump(&service->main_exec_status, stdout, "\t");
 
         if (cld_dumped_to_killed(service->main_exec_status.code) != cld_dumped_to_killed(code_expected)) {
-                log_error("%s:%u:%s %s: exit code %d, expected %d",
-                          file, line, func,
-                          unit->id,
+                log_error("%s:%u:%s %s: can_unshare=%s: exit code %d, expected %d",
+                          file, line, func, unit->id, yes_no(can_unshare),
                           service->main_exec_status.code, code_expected);
                 abort();
         }
 
         if (service->main_exec_status.status != status_expected) {
-                log_error("%s:%u:%s: %s: exit status %d, expected %d",
-                          file, line, func, unit->id,
+                log_error("%s:%u:%s: %s: can_unshare=%s: exit status %d, expected %d",
+                          file, line, func, unit->id, yes_no(can_unshare),
                           service->main_exec_status.status, status_expected);
                 abort();
         }
@@ -106,9 +105,8 @@ static void check_service_result(const char *file, unsigned line, const char *fu
         service = SERVICE(unit);
 
         if (service->result != result_expected) {
-                log_error("%s:%u:%s: %s: service end result %s, expected %s",
-                          file, line, func,
-                          unit->id,
+                log_error("%s:%u:%s: %s: can_unshare=%s: service end result %s, expected %s",
+                          file, line, func, unit->id, yes_no(can_unshare),
                           service_result_to_string(service->result),
                           service_result_to_string(result_expected));
                 abort();
