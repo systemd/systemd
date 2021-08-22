@@ -28,7 +28,6 @@ int request_process_dhcp4_client(Request *req);
 int link_request_dhcp4_client(Link *link);
 
 CONFIG_PARSER_PROTOTYPE(config_parse_dhcp_client_identifier);
-CONFIG_PARSER_PROTOTYPE(config_parse_dhcp_acl_ip_address);
 CONFIG_PARSER_PROTOTYPE(config_parse_dhcp_max_attempts);
 CONFIG_PARSER_PROTOTYPE(config_parse_dhcp_ip_service_type);
 CONFIG_PARSER_PROTOTYPE(config_parse_dhcp_mud_url);
