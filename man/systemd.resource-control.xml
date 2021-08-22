@@ -866,7 +866,7 @@ SocketBindDeny=any
           </para>
 
           <para>This option can appear multiple times, in which case the network interface names are merged. If the
-          empty string is assigned the set is reset, all prior assigments will have not effect.
+          empty string is assigned the set is reset, all prior assignments will have not effect.
           </para>
 
           <para>If you specify both types of this option (i.e. allow-listing and deny-listing), the first encountered
