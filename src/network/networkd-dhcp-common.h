@@ -5,6 +5,8 @@
 
 #include "conf-parser.h"
 #include "dhcp-identifier.h"
+#include "in-addr-util.h"
+#include "set.h"
 #include "time-util.h"
 
 #define DHCP_ROUTE_METRIC 1024
@@ -63,6 +65,14 @@ static inline const DUID *link_get_dhcp6_duid(Link *link) {
 int dhcp_configure_duid(Link *link, const DUID *duid);
 int manager_request_product_uuid(Manager *m);
 
+bool address_is_filtered(int family, const union in_addr_union *address, uint8_t prefixlen, Set *allow_list, Set *deny_list);
+static inline bool in4_address_is_filtered(const struct in_addr *address, Set *allow_list, Set *deny_list) {
+        return address_is_filtered(AF_INET, &(union in_addr_union) { .in = *address }, 32, allow_list, deny_list);
+}
+static inline bool in6_prefix_is_filtered(const struct in6_addr *prefix, uint8_t prefixlen, Set *allow_list, Set *deny_list) {
+        return address_is_filtered(AF_INET6, &(union in_addr_union) { .in6 = *prefix }, prefixlen, allow_list, deny_list);
+}
+
 const char* dhcp_use_domains_to_string(DHCPUseDomains p) _const_;
 DHCPUseDomains dhcp_use_domains_from_string(const char *s) _pure_;
 
@@ -85,3 +95,4 @@ CONFIG_PARSER_PROTOTYPE(config_parse_network_duid_type);
 CONFIG_PARSER_PROTOTYPE(config_parse_duid_rawdata);
 CONFIG_PARSER_PROTOTYPE(config_parse_manager_duid_rawdata);
 CONFIG_PARSER_PROTOTYPE(config_parse_network_duid_rawdata);
+CONFIG_PARSER_PROTOTYPE(config_parse_address_filter);
