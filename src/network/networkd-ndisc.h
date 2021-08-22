@@ -58,7 +58,6 @@ int ndisc_start(Link *link);
 void ndisc_vacuum(Link *link);
 void ndisc_flush(Link *link);
 
-CONFIG_PARSER_PROTOTYPE(config_parse_ndisc_address_filter);
 CONFIG_PARSER_PROTOTYPE(config_parse_address_generation_type);
 CONFIG_PARSER_PROTOTYPE(config_parse_ipv6_accept_ra_start_dhcp6_client);
 CONFIG_PARSER_PROTOTYPE(config_parse_ipv6_accept_ra_use_domains);
