@@ -54,7 +54,7 @@ _public_ int cryptsetup_token_open_pin(
  *   (alternatively: name is set to null, flags contains CRYPT_ACTIVATE_ALLOW_UNBOUND_KEY
  *    and token is assigned to at least single keyslot).
  *
- * - if plugin defines validate funtion (see cryptsetup_token_validate below) it must have
+ * - if plugin defines validate function (see cryptsetup_token_validate below) it must have
  *   passed the check (aka return 0)
  */
 _public_ int cryptsetup_token_open(
