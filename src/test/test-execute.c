@@ -6,6 +6,7 @@
 
 #include "capability-util.h"
 #include "cpu-set-util.h"
+#include "env-util.h"
 #include "errno-list.h"
 #include "fileio.h"
 #include "fs-util.h"
@@ -13,6 +14,7 @@
 #include "manager.h"
 #include "missing_prctl.h"
 #include "mkdir.h"
+#include "os-util.h"
 #include "path-util.h"
 #include "rm-rf.h"
 #if HAVE_SECCOMP
@@ -404,6 +406,47 @@ static void test_exec_inaccessiblepaths(Manager *m) {
         }
 
         test(m, "exec-inaccessiblepaths-mount-propagation.service", can_unshare ? 0 : EXIT_FAILURE, CLD_EXITED);
+}
+
+static void test_exec_mount_apivfs(Manager *m) {
+        _cleanup_strv_free_ char **env = NULL;
+        const char *p;
+        int r;
+
+        FOREACH_STRING(p, "/usr/bin/touch", "/lib64/ld-linux-x86-64.so.2") {
+                r = find_executable(p, NULL);
+                if (r < 0) {
+                        log_notice_errno(r, "Skipping %s, could not find %s binary: %m", __func__, p);
+                        return;
+                }
+        }
+        if (find_executable("/lib64/libc.so.6", NULL) < 0) {
+                r = find_executable("/lib/x86_64-linux-gnu/libc.so.6", NULL);
+                if (r < 0)
+                        log_notice_errno(r, "Skipping %s, could not find both /lib64/libc.so.6 and "
+                                         "/lib/x86_64-linux-gnu/libc.so.6 binary: %m", __func__);
+                return;
+        }
+
+        r = load_os_release_pairs(NULL, &env);
+        if (r < 0) {
+                log_notice_errno(r, "Skipping %s, failed to load os-release file: %m", __func__);
+                return;
+        }
+
+        p = strv_env_pairs_get(env, "ID");
+        if (!STRPTR_IN_SET(p, "fedora", "centos", "debian", "ubuntu")) {
+                log_notice("Skipping %s, unsupported os-release ID: %s", __func__, strna(p));
+                return;
+        }
+
+        r = mkdir_p("/tmp/test-exec-mount-apivfs-no/root", 0755);
+        if (r < 0) {
+                log_notice("Skipping %s, failed to create root directory /tmp/test-exec-mount-apivfs-no/root: %m", __func__);
+                return;
+        }
+
+        test(m, "exec-mount-apivfs-no.service", can_unshare ? 0 : EXIT_NAMESPACE, CLD_EXITED);
 }
 
 static void test_exec_noexecpaths(Manager *m) {
@@ -869,6 +912,7 @@ int main(int argc, char *argv[]) {
                 entry(test_exec_ignoresigpipe),
                 entry(test_exec_inaccessiblepaths),
                 entry(test_exec_ioschedulingclass),
+                entry(test_exec_mount_apivfs),
                 entry(test_exec_noexecpaths),
                 entry(test_exec_oomscoreadjust),
                 entry(test_exec_passenvironment),
