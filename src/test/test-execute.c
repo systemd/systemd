@@ -408,6 +408,28 @@ static void test_exec_inaccessiblepaths(Manager *m) {
         test(m, "exec-inaccessiblepaths-mount-propagation.service", can_unshare ? 0 : EXIT_FAILURE, CLD_EXITED);
 }
 
+static void test_exec_mount_apivfs(Manager *m) {
+        const char *p;
+        int r;
+
+        FOREACH_STRING(p, "/usr/bin/touch", "/lib64/ld-linux-x86-64.so.2") {
+                r = find_executable(p, NULL);
+                if (r < 0) {
+                        log_notice_errno(r, "Skipping %s, could not find %s binary: %m", __func__, p);
+                        return;
+                }
+        }
+        if (find_executable("/lib64/libc.so.6", NULL) < 0) {
+                r = find_executable("/lib/x86_64-linux-gnu/libc.so.6", NULL);
+                if (r < 0)
+                        log_notice_errno(r, "Skipping %s, could not find both /lib64/libc.so.6 and "
+                                         "/lib/x86_64-linux-gnu/libc.so.6 binary: %m", __func__);
+                return;
+        }
+
+        test(m, "exec-mount-apivfs-no.service", can_unshare ? 0 : EXIT_NAMESPACE, CLD_EXITED);
+}
+
 static void test_exec_noexecpaths(Manager *m) {
 
         test(m, "exec-noexecpaths-simple.service", can_unshare ? 0 : EXIT_FAILURE, CLD_EXITED);
@@ -871,6 +893,7 @@ int main(int argc, char *argv[]) {
                 entry(test_exec_ignoresigpipe),
                 entry(test_exec_inaccessiblepaths),
                 entry(test_exec_ioschedulingclass),
+                entry(test_exec_mount_apivfs),
                 entry(test_exec_noexecpaths),
                 entry(test_exec_oomscoreadjust),
                 entry(test_exec_passenvironment),
