@@ -1965,7 +1965,8 @@ IPv6Token=prefixstable:2002:da8:1::</programlisting></para>
         <varlistentry>
           <term><varname>DenyList=</varname></term>
           <listitem>
-            <para>A whitespace-separated list of IPv4 addresses. DHCP offers from servers in the list are
+            <para>A whitespace-separated list of IPv4 addresses. Each address can optionally take a
+            prefix length after <literal>/</literal>. DHCP offers from servers in the list are
             rejected. Note that if <varname>AllowList=</varname> is configured then
             <varname>DenyList=</varname> is ignored.</para>
           </listitem>
@@ -1974,7 +1975,8 @@ IPv6Token=prefixstable:2002:da8:1::</programlisting></para>
         <varlistentry>
           <term><varname>AllowList=</varname></term>
           <listitem>
-            <para>A whitespace-separated list of IPv4 addresses. DHCP offers from servers in the list are
+            <para>A whitespace-separated list of IPv4 addresses. Each address can optionally take a
+            prefix length after <literal>/</literal>. DHCP offers from servers in the list are
             accepted.</para>
           </listitem>
         </varlistentry>
@@ -2292,50 +2294,56 @@ IPv6Token=prefixstable:2002:da8:1::</programlisting></para>
         <varlistentry>
           <term><varname>RouterDenyList=</varname></term>
           <listitem>
-            <para>A whitespace-separated list of IPv6 router addresses. Any information advertised by
-            the listed router is ignored.</para>
+            <para>A whitespace-separated list of IPv6 router addresses. Each address can optionally
+            take a prefix length after <literal>/</literal>. Any information advertised by the listed
+            router is ignored.</para>
           </listitem>
         </varlistentry>
 
         <varlistentry>
           <term><varname>RouterAllowList=</varname></term>
           <listitem>
-            <para>A whitespace-separated list of IPv6 router addresses. Only information advertised by
-            the listed router is accepted. Note that if <varname>RouterAllowList=</varname> is
-            configured then <varname>RouterDenyList=</varname> is ignored.</para>
+            <para>A whitespace-separated list of IPv6 router addresses. Each address can optionally
+            take a prefix length after <literal>/</literal>. Only information advertised by the listed
+            router is accepted. Note that if <varname>RouterAllowList=</varname> is configured then
+            <varname>RouterDenyList=</varname> is ignored.</para>
           </listitem>
         </varlistentry>
 
         <varlistentry>
           <term><varname>PrefixDenyList=</varname></term>
           <listitem>
-            <para>A whitespace-separated list of IPv6 prefixes. IPv6 prefixes supplied via router
-            advertisements in the list are ignored.</para>
+            <para>A whitespace-separated list of IPv6 prefixes. Each prefix can optionally take its
+            prefix length after <literal>/</literal>. IPv6 prefixes supplied via router advertisements
+            in the list are ignored.</para>
           </listitem>
         </varlistentry>
 
         <varlistentry>
           <term><varname>PrefixAllowList=</varname></term>
           <listitem>
-            <para>A whitespace-separated list of IPv6 prefixes. IPv6 prefixes supplied via router
-            advertisements in the list are allowed. Note that if <varname>PrefixAllowList=</varname> is
-            configured then <varname>PrefixDenyList=</varname> is ignored.</para>
+            <para>A whitespace-separated list of IPv6 prefixes. Each prefix can optionally take its
+            prefix length after <literal>/</literal>. IPv6 prefixes supplied via router advertisements
+            in the list are allowed. Note that if <varname>PrefixAllowList=</varname> is configured
+            then <varname>PrefixDenyList=</varname> is ignored.</para>
           </listitem>
         </varlistentry>
 
         <varlistentry>
           <term><varname>RouteDenyList=</varname></term>
           <listitem>
-            <para>A whitespace-separated list of IPv6 route prefixes. IPv6 route prefixes supplied via
-            router advertisements in the list are ignored.</para>
+            <para>A whitespace-separated list of IPv6 route prefixes. Each prefix can optionally take
+            its prefix length after <literal>/</literal>. IPv6 route prefixes supplied via router
+            advertisements in the list are ignored.</para>
           </listitem>
         </varlistentry>
 
         <varlistentry>
           <term><varname>RouteAllowList=</varname></term>
           <listitem>
-            <para>A whitespace-separated list of IPv6 route prefixes. IPv6 route prefixes supplied via
-            router advertisements in the list are allowed. Note that if <varname>RouteAllowList=</varname> is
+            <para>A whitespace-separated list of IPv6 route prefixes. Each prefix can optionally take
+            its prefix length after <literal>/</literal>. IPv6 route prefixes supplied via router
+            advertisements in the list are allowed. Note that if <varname>RouteAllowList=</varname> is
             configured then <varname>RouteDenyList=</varname> is ignored.</para>
           </listitem>
         </varlistentry>

@@ -917,13 +917,15 @@ static int ndisc_router_process_route(Link *link, sd_ndisc_router *rt) {
         if (r < 0)
                 return log_link_error_errno(link, r, "Failed to get route destination address: %m");
 
-        if ((!set_isempty(link->network->ndisc_allow_listed_route_prefix) &&
-             !set_contains(link->network->ndisc_allow_listed_route_prefix, &dst)) ||
-            set_contains(link->network->ndisc_deny_listed_route_prefix, &dst)) {
+        r = sd_ndisc_router_route_get_prefixlen(rt, &prefixlen);
+        if (r < 0)
+                return log_link_error_errno(link, r, "Failed to get route prefix length: %m");
+
+        if (in6_prefix_is_filtered(&dst, prefixlen, link->network->ndisc_allow_listed_route_prefix, link->network->ndisc_deny_listed_route_prefix)) {
                 if (DEBUG_LOGGING) {
                         _cleanup_free_ char *buf = NULL;
 
-                        (void) in6_addr_to_string(&dst, &buf);
+                        (void) in6_addr_prefix_to_string(&dst, prefixlen, &buf);
                         if (!set_isempty(link->network->ndisc_allow_listed_route_prefix))
                                 log_link_debug(link, "Route prefix '%s' is not in allow list, ignoring", strna(buf));
                         else
@@ -945,10 +947,6 @@ static int ndisc_router_process_route(Link *link, sd_ndisc_router *rt) {
                 }
                 return 0;
         }
-
-        r = sd_ndisc_router_route_get_prefixlen(rt, &prefixlen);
-        if (r < 0)
-                return log_link_error_errno(link, r, "Failed to get route prefix length: %m");
 
         r = sd_ndisc_router_route_get_preference(rt, &preference);
         if (r < 0)
@@ -1184,6 +1182,7 @@ static int ndisc_router_process_options(Link *link, sd_ndisc_router *rt) {
                 switch (type) {
 
                 case SD_NDISC_OPTION_PREFIX_INFORMATION: {
+                        unsigned prefixlen;
                         struct in6_addr a;
                         uint8_t flags;
 
@@ -1191,13 +1190,15 @@ static int ndisc_router_process_options(Link *link, sd_ndisc_router *rt) {
                         if (r < 0)
                                 return log_link_error_errno(link, r, "Failed to get prefix address: %m");
 
-                        if ((!set_isempty(link->network->ndisc_allow_listed_prefix) &&
-                             !set_contains(link->network->ndisc_allow_listed_prefix, &a)) ||
-                            set_contains(link->network->ndisc_deny_listed_prefix, &a)) {
+                        r = sd_ndisc_router_prefix_get_prefixlen(rt, &prefixlen);
+                        if (r < 0)
+                                return log_link_error_errno(link, r, "Failed to get prefix length: %m");
+
+                        if (in6_prefix_is_filtered(&a, prefixlen, link->network->ndisc_allow_listed_prefix, link->network->ndisc_deny_listed_prefix)) {
                                 if (DEBUG_LOGGING) {
                                         _cleanup_free_ char *b = NULL;
 
-                                        (void) in6_addr_to_string(&a, &b);
+                                        (void) in6_addr_prefix_to_string(&a, prefixlen, &b);
                                         if (!set_isempty(link->network->ndisc_allow_listed_prefix))
                                                 log_link_debug(link, "Prefix '%s' is not in allow list, ignoring", strna(b));
                                         else
@@ -1267,9 +1268,7 @@ static int ndisc_router_handler(Link *link, sd_ndisc_router *rt) {
         if (r < 0)
                 return log_link_error_errno(link, r, "Failed to get router address from RA: %m");
 
-        if ((!set_isempty(link->network->ndisc_allow_listed_router) &&
-             !set_contains(link->network->ndisc_allow_listed_router, &router)) ||
-            set_contains(link->network->ndisc_deny_listed_router, &router)) {
+        if (in6_prefix_is_filtered(&router, 128, link->network->ndisc_allow_listed_router, link->network->ndisc_deny_listed_router)) {
                 if (DEBUG_LOGGING) {
                         _cleanup_free_ char *buf = NULL;
 
@@ -1485,70 +1484,6 @@ DEFINE_HASH_OPS_WITH_KEY_DESTRUCTOR(
                 ipv6_token_hash_func,
                 ipv6_token_compare_func,
                 free);
-
-int config_parse_ndisc_address_filter(
-                const char *unit,
-                const char *filename,
-                unsigned line,
-                const char *section,
-                unsigned section_line,
-                const char *lvalue,
-                int ltype,
-                const char *rvalue,
-                void *data,
-                void *userdata) {
-
-        Set **list = data;
-        int r;
-
-        assert(filename);
-        assert(lvalue);
-        assert(rvalue);
-        assert(data);
-
-        if (isempty(rvalue)) {
-                *list = set_free_free(*list);
-                return 0;
-        }
-
-        for (const char *p = rvalue;;) {
-                _cleanup_free_ char *n = NULL;
-                _cleanup_free_ struct in6_addr *a = NULL;
-                union in_addr_union ip;
-
-                r = extract_first_word(&p, &n, NULL, 0);
-                if (r == -ENOMEM)
-                        return log_oom();
-                if (r < 0) {
-                        log_syntax(unit, LOG_WARNING, filename, line, r,
-                                   "Failed to parse NDisc %s=, ignoring assignment: %s",
-                                   lvalue, rvalue);
-                        return 0;
-                }
-                if (r == 0)
-                        return 0;
-
-                r = in_addr_from_string(AF_INET6, n, &ip);
-                if (r < 0) {
-                        log_syntax(unit, LOG_WARNING, filename, line, r,
-                                   "NDisc %s= entry is invalid, ignoring assignment: %s",
-                                   lvalue, n);
-                        continue;
-                }
-
-                a = newdup(struct in6_addr, &ip.in6, 1);
-                if (!a)
-                        return log_oom();
-
-                r = set_ensure_consume(list, &in6_addr_hash_ops, TAKE_PTR(a));
-                if (r < 0)
-                        return log_oom();
-                if (r == 0)
-                        log_syntax(unit, LOG_WARNING, filename, line, 0,
-                                   "NDisc %s= entry is duplicated, ignoring assignment: %s",
-                                   lvalue, n);
-        }
-}
 
 int config_parse_address_generation_type(
                 const char *unit,
