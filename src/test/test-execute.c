@@ -4,9 +4,13 @@
 #include <sys/prctl.h>
 #include <sys/types.h>
 
+#include "sd-event.h"
+
 #include "capability-util.h"
 #include "cpu-set-util.h"
+#include "dropin.h"
 #include "errno-list.h"
+#include "fd-util.h"
 #include "fileio.h"
 #include "fs-util.h"
 #include "macro.h"
@@ -14,11 +18,14 @@
 #include "missing_prctl.h"
 #include "mkdir.h"
 #include "path-util.h"
+#include "process-util.h"
 #include "rm-rf.h"
 #if HAVE_SECCOMP
 #include "seccomp-util.h"
 #endif
 #include "service.h"
+#include "signal-util.h"
+#include "static-destruct.h"
 #include "stat-util.h"
 #include "tests.h"
 #include "unit.h"
@@ -26,7 +33,10 @@
 #include "util.h"
 #include "virt.h"
 
+static char *user_runtime_unit_dir = NULL;
 static bool can_unshare;
+
+STATIC_DESTRUCTOR_REGISTER(user_runtime_unit_dir, freep);
 
 typedef void (*test_function_t)(Manager *m);
 
@@ -404,6 +414,190 @@ static void test_exec_inaccessiblepaths(Manager *m) {
         }
 
         test(m, "exec-inaccessiblepaths-mount-propagation.service", can_unshare ? 0 : EXIT_FAILURE, CLD_EXITED);
+}
+
+static int on_spawn_io(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
+        char **result = userdata;
+        char buf[4096];
+        ssize_t l;
+
+        assert(s);
+        assert(fd >= 0);
+
+        l = read(fd, buf, sizeof(buf) - 1);
+        if (l < 0) {
+                if (errno == EAGAIN)
+                        goto reenable;
+
+                return 0;
+        }
+        if (l == 0)
+                return 0;
+
+        buf[l] = '\0';
+        if (result)
+                assert_se(strextend(result, buf));
+        else
+                log_error("ldd: %s", buf);
+
+reenable:
+        /* Re-enable the event source if we did not encounter EOF */
+        assert_se(sd_event_source_set_enabled(s, SD_EVENT_ONESHOT) >= 0);
+        return 0;
+}
+
+static int on_spawn_timeout(sd_event_source *s, uint64_t usec, void *userdata) {
+        pid_t *pid = userdata;
+
+        assert(pid);
+
+        (void) kill(*pid, SIGKILL);
+
+        return 1;
+}
+
+static int on_spawn_sigchld(sd_event_source *s, const siginfo_t *si, void *userdata) {
+        int ret = -EIO;
+
+        assert(si);
+
+        if (si->si_code == CLD_EXITED)
+                ret = si->si_status;
+
+        sd_event_exit(sd_event_source_get_event(s), ret);
+        return 1;
+}
+
+static int find_libraries(const char *exec, char ***ret) {
+        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
+        _cleanup_(sd_event_source_unrefp) sd_event_source *sigchld_source = NULL;
+        _cleanup_(sd_event_source_unrefp) sd_event_source *stdout_source = NULL;
+        _cleanup_(sd_event_source_unrefp) sd_event_source *stderr_source = NULL;
+        _cleanup_close_pair_ int outpipe[2] = {-1, -1}, errpipe[2] = {-1, -1};
+        _cleanup_strv_free_ char **libraries = NULL;
+        _cleanup_free_ char *result = NULL;
+        pid_t pid;
+        int r;
+
+        assert(exec);
+        assert(ret);
+
+        assert_se(sigprocmask_many(SIG_BLOCK, NULL, SIGCHLD, -1) >= 0);
+
+        assert_se(pipe2(outpipe, O_NONBLOCK|O_CLOEXEC) == 0);
+        assert_se(pipe2(errpipe, O_NONBLOCK|O_CLOEXEC) == 0);
+
+        r = safe_fork("(spawn-ldd)", FORK_RESET_SIGNALS|FORK_DEATHSIG|FORK_LOG, &pid);
+        assert_se(r >= 0);
+        if (r == 0) {
+                if (rearrange_stdio(-1, outpipe[1], errpipe[1]) < 0)
+                        _exit(EXIT_FAILURE);
+
+                (void) close_all_fds(NULL, 0);
+
+                execlp("ldd", "ldd", exec, NULL);
+                _exit(EXIT_FAILURE);
+        }
+
+        outpipe[1] = safe_close(outpipe[1]);
+        errpipe[1] = safe_close(errpipe[1]);
+
+        assert_se(sd_event_new(&e) >= 0);
+
+        assert_se(sd_event_add_time_relative(e, NULL, CLOCK_MONOTONIC,
+                                             10 * USEC_PER_SEC, USEC_PER_SEC, on_spawn_timeout, &pid) >= 0);
+        assert_se(sd_event_add_io(e, &stdout_source, outpipe[0], EPOLLIN, on_spawn_io, &result) >= 0);
+        assert_se(sd_event_source_set_enabled(stdout_source, SD_EVENT_ONESHOT) >= 0);
+        assert_se(sd_event_add_io(e, &stderr_source, errpipe[0], EPOLLIN, on_spawn_io, NULL) >= 0);
+        assert_se(sd_event_source_set_enabled(stderr_source, SD_EVENT_ONESHOT) >= 0);
+        assert_se(sd_event_add_child(e, &sigchld_source, pid, WEXITED, on_spawn_sigchld, NULL) >= 0);
+        /* SIGCHLD should be processed after IO is complete */
+        assert_se(sd_event_source_set_priority(sigchld_source, SD_EVENT_PRIORITY_NORMAL + 1) >= 0);
+
+        assert_se(sd_event_loop(e) >= 0);
+
+        _cleanup_strv_free_ char **v = NULL;
+        assert_se(strv_split_newlines_full(&v, result, 0) >= 0);
+
+        char **q;
+        STRV_FOREACH(q, v) {
+                _cleanup_free_ char *word = NULL;
+                const char *p = *q;
+
+                r = extract_first_word(&p, &word, NULL, 0);
+                assert_se(r >= 0);
+                if (r == 0)
+                        continue;
+
+                if (path_is_absolute(word)) {
+                        assert_se(strv_consume(&libraries, TAKE_PTR(word)) >= 0);
+                        continue;
+                }
+
+                word = mfree(word);
+                r = extract_first_word(&p, &word, NULL, 0);
+                assert_se(r >= 0);
+                if (r == 0)
+                        continue;
+
+                if (!streq_ptr(word, "=>"))
+                        continue;
+
+                word = mfree(word);
+                r = extract_first_word(&p, &word, NULL, 0);
+                assert_se(r >= 0);
+                if (r == 0)
+                        continue;
+
+                if (path_is_absolute(word)) {
+                        assert_se(strv_consume(&libraries, TAKE_PTR(word)) >= 0);
+                        continue;
+                }
+        }
+
+        *ret = TAKE_PTR(libraries);
+        return 0;
+}
+
+static void test_exec_mount_apivfs(Manager *m) {
+        _cleanup_free_ char *fullpath_touch = NULL, *fullpath_test = NULL, *data = NULL;
+        _cleanup_strv_free_ char **libraries = NULL, **libraries_test = NULL;
+        int r;
+
+        assert(user_runtime_unit_dir);
+
+        r = find_executable("touch", &fullpath_touch);
+        if (r < 0) {
+                log_notice_errno(r, "Skipping %s, could not find 'touch' command: %m", __func__);
+                return;
+        }
+        r = find_executable("test", &fullpath_test);
+        if (r < 0) {
+                log_notice_errno(r, "Skipping %s, could not find 'test' command: %m", __func__);
+                return;
+        }
+
+        assert_se(find_libraries(fullpath_touch, &libraries) >= 0);
+        assert_se(find_libraries(fullpath_test, &libraries_test) >= 0);
+        assert_se(strv_extend_strv(&libraries, libraries_test, true) >= 0);
+
+        assert_se(strextend(&data, "[Service]\n"));
+        assert_se(strextend(&data, "ExecStart=", fullpath_touch, " /aaa\n"));
+        assert_se(strextend(&data, "ExecStart=", fullpath_test, " -f /aaa\n"));
+        assert_se(strextend(&data, "BindReadOnlyPaths=", fullpath_touch, "\n"));
+        assert_se(strextend(&data, "BindReadOnlyPaths=", fullpath_test, "\n"));
+
+        char **p;
+        STRV_FOREACH(p, libraries)
+                assert_se(strextend(&data, "BindReadOnlyPaths=", *p, "\n"));
+
+        assert_se(write_drop_in(user_runtime_unit_dir, "exec-mount-apivfs-no.service", 10, "bind-mount", data) >= 0);
+
+        assert_se(mkdir_p("/tmp/test-exec-mount-apivfs-no/root", 0755) >= 0);
+
+        test(m, "exec-mount-apivfs-no.service", can_unshare ? 0 : EXIT_NAMESPACE, CLD_EXITED);
+
+        (void) rm_rf("/tmp/test-exec-mount-apivfs-no/root", REMOVE_ROOT|REMOVE_PHYSICAL);
 }
 
 static void test_exec_noexecpaths(Manager *m) {
@@ -869,6 +1063,7 @@ int main(int argc, char *argv[]) {
                 entry(test_exec_ignoresigpipe),
                 entry(test_exec_inaccessiblepaths),
                 entry(test_exec_ioschedulingclass),
+                entry(test_exec_mount_apivfs),
                 entry(test_exec_noexecpaths),
                 entry(test_exec_oomscoreadjust),
                 entry(test_exec_passenvironment),
@@ -929,10 +1124,12 @@ int main(int argc, char *argv[]) {
         if (r == -ENOMEDIUM)
                 return log_tests_skipped("cgroupfs not available");
 
-        _cleanup_free_ char *unit_dir = NULL;
+        _cleanup_free_ char *unit_dir = NULL, *unit_paths = NULL;
         assert_se(get_testdata_dir("test-execute/", &unit_dir) >= 0);
-        assert_se(set_unit_path(unit_dir) >= 0);
         assert_se(runtime_dir = setup_fake_runtime_dir());
+        assert_se(user_runtime_unit_dir = path_join(runtime_dir, "systemd/user"));
+        assert_se(unit_paths = strjoin(unit_dir, ":", user_runtime_unit_dir));
+        assert_se(set_unit_path(unit_paths) >= 0);
 
         /* Unset VAR1, VAR2 and VAR3 which are used in the PassEnvironment test
          * cases, otherwise (and if they are present in the environment),
