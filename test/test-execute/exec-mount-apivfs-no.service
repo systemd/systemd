@@ -1,0 +1,24 @@
+[Unit]
+Description=Test for find_executable() with MountAPIVFS=no
+
+[Service]
+BindReadOnlyPaths=/usr/bin/touch
+# for Fedora
+BindReadOnlyPaths=-/lib64/libc.so.6
+# for Debian
+BindReadOnlyPaths=-/lib/x86_64-linux-gnu/libc.so.6
+BindReadOnlyPaths=/lib64/ld-linux-x86-64.so.2
+
+Type=oneshot
+ExecStart=/usr/bin/touch /aaa
+
+MountAPIVFS=false
+PrivateDevices=false
+PrivateMounts=true
+PrivateTmp=false
+PrivateUsers=false
+ProtectControlGroups=false
+ProtectKernelModules=false
+ProtectKernelTunables=false
+RootDirectory=/var/empty
+TemporaryFileSystem=/
