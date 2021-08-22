@@ -628,7 +628,11 @@ static int check_x_access(const char *path, int *ret_fd) {
                 return r;
 
         r = access_fd(fd, X_OK);
-        if (r < 0)
+        if (r == -ENOSYS) {
+                /* /proc is not mounted. Fallback to access(). */
+                if (access(path, X_OK) < 0)
+                        return -errno;
+        } else if (r < 0)
                 return r;
 
         if (ret_fd)
