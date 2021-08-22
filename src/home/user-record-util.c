@@ -24,6 +24,7 @@ int user_record_synthesize(
                 gid_t gid) {
 
         _cleanup_free_ char *hd = NULL, *un = NULL, *ip = NULL, *rr = NULL, *user_name_and_realm = NULL;
+        char smid[SD_ID128_STRING_MAX];
         sd_id128_t mid;
         int r;
 
@@ -85,7 +86,7 @@ int user_record_synthesize(
                                        JSON_BUILD_PAIR_CONDITION(!!rr, "realm", JSON_BUILD_STRING(realm)),
                                        JSON_BUILD_PAIR("disposition", JSON_BUILD_STRING("regular")),
                                        JSON_BUILD_PAIR("binding", JSON_BUILD_OBJECT(
-                                                                       JSON_BUILD_PAIR(SD_ID128_TO_STRING(mid), JSON_BUILD_OBJECT(
+                                                                       JSON_BUILD_PAIR(sd_id128_to_string(mid, smid), JSON_BUILD_OBJECT(
                                                                                                        JSON_BUILD_PAIR("imagePath", JSON_BUILD_STRING(image_path)),
                                                                                                        JSON_BUILD_PAIR("homeDirectory", JSON_BUILD_STRING(hd)),
                                                                                                        JSON_BUILD_PAIR("storage", JSON_BUILD_STRING(user_storage_to_string(storage))),
@@ -108,6 +109,7 @@ int user_record_synthesize(
 
 int group_record_synthesize(GroupRecord *g, UserRecord *h) {
         _cleanup_free_ char *un = NULL, *rr = NULL, *group_name_and_realm = NULL, *description = NULL;
+        char smid[SD_ID128_STRING_MAX];
         sd_id128_t mid;
         int r;
 
@@ -120,6 +122,7 @@ int group_record_synthesize(GroupRecord *g, UserRecord *h) {
         r = sd_id128_get_machine(&mid);
         if (r < 0)
                 return r;
+        sd_id128_to_string(mid, smid);
 
         un = strdup(h->user_name);
         if (!un)
@@ -145,11 +148,11 @@ int group_record_synthesize(GroupRecord *g, UserRecord *h) {
                                        JSON_BUILD_PAIR_CONDITION(!!rr, "realm", JSON_BUILD_STRING(rr)),
                                        JSON_BUILD_PAIR("description", JSON_BUILD_STRING(description)),
                                        JSON_BUILD_PAIR("binding", JSON_BUILD_OBJECT(
-                                                                       JSON_BUILD_PAIR(SD_ID128_TO_STRING(mid), JSON_BUILD_OBJECT(
+                                                                       JSON_BUILD_PAIR(smid, JSON_BUILD_OBJECT(
                                                                                                        JSON_BUILD_PAIR("gid", JSON_BUILD_UNSIGNED(user_record_gid(h))))))),
                                        JSON_BUILD_PAIR_CONDITION(h->disposition >= 0, "disposition", JSON_BUILD_STRING(user_disposition_to_string(user_record_disposition(h)))),
                                        JSON_BUILD_PAIR("status", JSON_BUILD_OBJECT(
-                                                                       JSON_BUILD_PAIR(SD_ID128_TO_STRING(mid), JSON_BUILD_OBJECT(
+                                                                       JSON_BUILD_PAIR(smid, JSON_BUILD_OBJECT(
                                                                                                        JSON_BUILD_PAIR("service", JSON_BUILD_STRING("io.systemd.Home"))))))));
         if (r < 0)
                 return r;
@@ -281,6 +284,7 @@ int user_record_add_binding(
                 uid_t uid,
                 gid_t gid) {
 
+        char partition_uuids[ID128_UUID_STRING_MAX], luks_uuids[ID128_UUID_STRING_MAX], fs_uuids[ID128_UUID_STRING_MAX];
         _cleanup_(json_variant_unrefp) JsonVariant *new_binding_entry = NULL, *binding = NULL;
         _cleanup_free_ char *ip = NULL, *hd = NULL, *ip_auto = NULL, *lc = NULL, *lcm = NULL, *fst = NULL;
         sd_id128_t mid;
@@ -332,9 +336,9 @@ int user_record_add_binding(
         r = json_build(&new_binding_entry,
                        JSON_BUILD_OBJECT(
                                        JSON_BUILD_PAIR_CONDITION(!!image_path, "imagePath", JSON_BUILD_STRING(image_path)),
-                                       JSON_BUILD_PAIR_CONDITION(!sd_id128_is_null(partition_uuid), "partitionUuid", JSON_BUILD_STRING(ID128_TO_UUID_STRING(partition_uuid))),
-                                       JSON_BUILD_PAIR_CONDITION(!sd_id128_is_null(luks_uuid), "luksUuid", JSON_BUILD_STRING(ID128_TO_UUID_STRING(luks_uuid))),
-                                       JSON_BUILD_PAIR_CONDITION(!sd_id128_is_null(fs_uuid), "fileSystemUuid", JSON_BUILD_STRING(ID128_TO_UUID_STRING(fs_uuid))),
+                                       JSON_BUILD_PAIR_CONDITION(!sd_id128_is_null(partition_uuid), "partitionUuid", JSON_BUILD_STRING(id128_to_uuid_string(partition_uuid, partition_uuids))),
+                                       JSON_BUILD_PAIR_CONDITION(!sd_id128_is_null(luks_uuid), "luksUuid", JSON_BUILD_STRING(id128_to_uuid_string(luks_uuid, luks_uuids))),
+                                       JSON_BUILD_PAIR_CONDITION(!sd_id128_is_null(fs_uuid), "fileSystemUuid", JSON_BUILD_STRING(id128_to_uuid_string(fs_uuid, fs_uuids))),
                                        JSON_BUILD_PAIR_CONDITION(!!luks_cipher, "luksCipher", JSON_BUILD_STRING(luks_cipher)),
                                        JSON_BUILD_PAIR_CONDITION(!!luks_cipher_mode, "luksCipherMode", JSON_BUILD_STRING(luks_cipher_mode)),
                                        JSON_BUILD_PAIR_CONDITION(luks_volume_key_size != UINT64_MAX, "luksVolumeKeySize", JSON_BUILD_UNSIGNED(luks_volume_key_size)),
