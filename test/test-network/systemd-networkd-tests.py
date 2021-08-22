@@ -2337,6 +2337,7 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         print(output)
         self.assertIn('2001:1234:5:8fff:ff:ff:ff:ff proto static', output)
         self.assertIn('2001:1234:5:8f63::1 proto kernel', output)
+        self.assertIn('2001:1234:5:afff:ff:ff:ff:ff via fe80:0:222:4dff:ff:ff:ff:ff proto static', output)
 
         print('### ip -6 route show default')
         output = check_output('ip -6 route show default')
@@ -2985,6 +2986,7 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
             self.assertIn('id 3 dev veth99', output)
             self.assertIn('id 4 dev veth99', output)
             self.assertRegex(output, 'id 5 via 192.168.10.1 dev veth99 .*onlink')
+            self.assertIn('id 8 via fe80:0:222:4dff:ff:ff:ff:ff dev veth99', output)
             self.assertRegex(output, r'id [0-9]* via 192.168.5.2 dev veth99')
 
             output = check_output('ip nexthop list dev dummy98')
