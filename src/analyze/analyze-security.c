@@ -2481,8 +2481,16 @@ static int offline_security_checks(char **filenames, UnitFileScope scope, bool c
         return r;
 }
 
-int analyze_security(sd_bus *bus, char **units, UnitFileScope scope, bool check_man, bool run_generators,
-                     bool offline, unsigned threshold, const char *root, AnalyzeSecurityFlags flags) {
+int analyze_security(sd_bus *bus,
+                     char **units,
+                     JsonVariant *policy,
+                     UnitFileScope scope,
+                     bool check_man,
+                     bool run_generators,
+                     bool offline,
+                     unsigned threshold,
+                     const char *root,
+                     AnalyzeSecurityFlags flags) {
 
         _cleanup_(table_unrefp) Table *overview_table = NULL;
         int ret = 0, r;

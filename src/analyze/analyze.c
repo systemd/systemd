@@ -91,6 +91,7 @@ static bool arg_man = true;
 static bool arg_generators = false;
 static char *arg_root = NULL;
 static char *arg_image = NULL;
+static char *arg_security_policy = NULL;
 static bool arg_offline = false;
 static unsigned arg_threshold = 100;
 static unsigned arg_iterations = 1;
@@ -100,6 +101,7 @@ STATIC_DESTRUCTOR_REGISTER(arg_dot_from_patterns, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_dot_to_patterns, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_root, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_image, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_security_policy, freep);
 
 typedef struct BootTimes {
         usec_t firmware_time;
@@ -2154,7 +2156,9 @@ static int do_verify(int argc, char *argv[], void *userdata) {
 
 static int do_security(int argc, char *argv[], void *userdata) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
+        _cleanup_(json_variant_unrefp) JsonVariant *policy = NULL;
         int r;
+        unsigned line, column;
 
         r = acquire_bus(&bus, NULL);
         if (r < 0)
@@ -2162,7 +2166,35 @@ static int do_security(int argc, char *argv[], void *userdata) {
 
         (void) pager_open(arg_pager_flags);
 
-        return analyze_security(bus, strv_skip(argv, 1), arg_scope, arg_man, arg_generators, arg_offline, arg_threshold, arg_root, 0);
+        if (arg_security_policy) {
+                r = json_parse_file(/*f=*/ NULL, arg_security_policy, /*flags=*/ 0, &policy, &line, &column);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to parse '%s' at %u:%u: %m", arg_security_policy, line, column);
+        } else {
+                _cleanup_fclose_ FILE *f = NULL;
+                _cleanup_free_ char *pp = NULL;
+
+                r = search_and_fopen_nulstr("systemd-analyze-security.policy", "re", /*root=*/ NULL, CONF_PATHS_NULSTR("systemd"), &f, &pp);
+                if (r < 0 && r != -ENOENT)
+                        return r;
+
+                if (f != NULL) {
+                        r = json_parse_file(f, pp, /*flags=*/ 0, &policy, &line, &column);
+                        if (r < 0)
+                                return log_error_errno(r, "[%s:%u:%u] Failed to parse JSON policy: %m", pp, line, column);
+                }
+        }
+
+        return analyze_security(bus,
+                                strv_skip(argv, 1),
+                                policy,
+                                arg_scope,
+                                arg_man,
+                                arg_generators,
+                                arg_offline,
+                                arg_threshold,
+                                arg_root,
+                                /*flags=*/ 0);
 }
 
 static int help(int argc, char *argv[], void *userdata) {
@@ -2214,6 +2246,8 @@ static int help(int argc, char *argv[], void *userdata) {
                "     --threshold=N           Exit with a non-zero status when overall\n"
                "                             exposure level is over threshold value\n"
                "     --version               Show package version\n"
+               "     --security-policy=PATH  Use custom JSON security policy instead\n"
+               "                             of built-in one\n"
                "     --no-pager              Do not pipe output into a pager\n"
                "     --system                Operate on system systemd instance\n"
                "     --user                  Operate on user systemd instance\n"
@@ -2266,6 +2300,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_RECURSIVE_ERRORS,
                 ARG_OFFLINE,
                 ARG_THRESHOLD,
+                ARG_SECURITY_POLICY,
         };
 
         static const struct option options[] = {
@@ -2278,6 +2313,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "recursive-errors", required_argument, NULL, ARG_RECURSIVE_ERRORS },
                 { "offline",          required_argument, NULL, ARG_OFFLINE          },
                 { "threshold",        required_argument, NULL, ARG_THRESHOLD        },
+                { "security-policy",  required_argument, NULL, ARG_SECURITY_POLICY  },
                 { "system",           no_argument,       NULL, ARG_SYSTEM           },
                 { "user",             no_argument,       NULL, ARG_USER             },
                 { "global",           no_argument,       NULL, ARG_GLOBAL           },
@@ -2409,6 +2445,12 @@ static int parse_argv(int argc, char *argv[]) {
 
                         break;
 
+                case ARG_SECURITY_POLICY:
+                        r = parse_path_argument(optarg, /* suppress_root= */ false, &arg_security_policy);
+                        if (r < 0)
+                                return r;
+                        break;
+
                 case ARG_ITERATIONS:
                         r = safe_atou(optarg, &arg_iterations);
                         if (r < 0)
@@ -2446,6 +2488,10 @@ static int parse_argv(int argc, char *argv[]) {
         if (streq_ptr(argv[optind], "cat-config") && arg_scope == UNIT_FILE_USER)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "Option --user is not supported for cat-config right now.");
+
+        if (arg_security_policy && !streq_ptr(argv[optind], "security"))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Option --security-policy= is only supported for security.");
 
         if ((arg_root || arg_image) && (!STRPTR_IN_SET(argv[optind], "cat-config", "verify")) &&
            (!(streq_ptr(argv[optind], "security") && arg_offline)))

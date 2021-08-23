@@ -793,6 +793,323 @@ Service b@0.service not loaded, b.socket cannot be started.
       </varlistentry>
 
       <varlistentry>
+        <term><option>--security-policy=<replaceable>PATH</replaceable></option></term>
+
+        <listitem><para>With <command>security</command>, allow the user to define a custom set of
+        requirements formatted as a JSON file against which to compare the specified unit file(s)
+        and determine their overall exposure level to security threats.</para>
+
+        <table>
+          <title>Accepted Assessment Test Identifiers</title>
+
+          <tgroup cols='1'>
+            <colspec colname='directive' />
+            <thead>
+              <row>
+                <entry>Assessment Test Identifier</entry>
+              </row>
+            </thead>
+            <tbody>
+              <row>
+                <entry>UserOrDynamicUser</entry>
+              </row>
+              <row>
+                <entry>SupplementaryGroups</entry>
+              </row>
+              <row>
+                <entry>PrivateMounts</entry>
+              </row>
+              <row>
+                <entry>PrivateDevices</entry>
+              </row>
+              <row>
+                <entry>PrivateTmp</entry>
+              </row>
+              <row>
+                <entry>PrivateNetwork</entry>
+              </row>
+              <row>
+                <entry>PrivateUsers</entry>
+              </row>
+              <row>
+                <entry>ProtectControlGroups</entry>
+              </row>
+              <row>
+                <entry>ProtectKernelModules</entry>
+              </row>
+              <row>
+                <entry>ProtectKernelTunables</entry>
+              </row>
+              <row>
+                <entry>ProtectKernelLogs</entry>
+              </row>
+              <row>
+                <entry>ProtectClock</entry>
+              </row>
+              <row>
+                <entry>ProtectHome</entry>
+              </row>
+              <row>
+                <entry>ProtectHostname</entry>
+              </row>
+              <row>
+                <entry>ProtectSystem</entry>
+              </row>
+              <row>
+                <entry>RootDirectoryOrRootImage</entry>
+              </row>
+              <row>
+                <entry>LockPersonality</entry>
+              </row>
+              <row>
+                <entry>MemoryDenyWriteExecute</entry>
+              </row>
+              <row>
+                <entry>NoNewPrivileges</entry>
+              </row>
+              <row>
+                <entry>CapabilityBoundingSet_CAP_SYS_ADMIN</entry>
+              </row>
+              <row>
+                <entry>CapabilityBoundingSet_CAP_SET_UID_GID_PCAP</entry>
+              </row>
+              <row>
+                <entry>CapabilityBoundingSet_CAP_SYS_PTRACE</entry>
+              </row>
+              <row>
+                <entry>CapabilityBoundingSet_CAP_SYS_TIME</entry>
+              </row>
+              <row>
+                <entry>CapabilityBoundingSet_CAP_NET_ADMIN</entry>
+              </row>
+              <row>
+                <entry>CapabilityBoundingSet_CAP_SYS_RAWIO</entry>
+              </row>
+              <row>
+                <entry>CapabilityBoundingSet_CAP_SYS_MODULE</entry>
+              </row>
+              <row>
+                <entry>CapabilityBoundingSet_CAP_AUDIT</entry>
+              </row>
+              <row>
+                <entry>CapabilityBoundingSet_CAP_SYSLOG</entry>
+              </row>
+              <row>
+                <entry>CapabilityBoundingSet_CAP_SYS_NICE_RESOURCE</entry>
+              </row>
+              <row>
+                <entry>CapabilityBoundingSet_CAP_MKNOD</entry>
+              </row>
+              <row>
+                <entry>CapabilityBoundingSet_CAP_CHOWN_FSETID_SETFCAP</entry>
+              </row>
+              <row>
+                <entry>CapabilityBoundingSet_CAP_DAC_FOWNER_IPC_OWNER</entry>
+              </row>
+              <row>
+                <entry>CapabilityBoundingSet_CAP_KILL</entry>
+              </row>
+              <row>
+                <entry>CapabilityBoundingSet_CAP_NET_BIND_SERVICE_BROADCAST_RAW</entry>
+              </row>
+              <row>
+                <entry>CapabilityBoundingSet_CAP_SYS_BOOT</entry>
+              </row>
+              <row>
+                <entry>CapabilityBoundingSet_CAP_MAC</entry>
+              </row>
+              <row>
+                <entry>CapabilityBoundingSet_CAP_LINUX_IMMUTABLE</entry>
+              </row>
+              <row>
+                <entry>CapabilityBoundingSet_CAP_IPC_LOCK</entry>
+              </row>
+              <row>
+                <entry>CapabilityBoundingSet_CAP_SYS_CHROOT</entry>
+              </row>
+              <row>
+                <entry>CapabilityBoundingSet_CAP_BLOCK_SUSPEND</entry>
+              </row>
+              <row>
+                <entry>CapabilityBoundingSet_CAP_WAKE_ALARM</entry>
+              </row>
+              <row>
+                <entry>CapabilityBoundingSet_CAP_LEASE</entry>
+              </row>
+              <row>
+                <entry>CapabilityBoundingSet_CAP_SYS_TTY_CONFIG</entry>
+              </row>
+              <row>
+                <entry>UMask</entry>
+              </row>
+              <row>
+                <entry>KeyringMode</entry>
+              </row>
+              <row>
+                <entry>ProtectProc</entry>
+              </row>
+              <row>
+                <entry>ProcSubset</entry>
+              </row>
+              <row>
+                <entry>NotifyAccess</entry>
+              </row>
+              <row>
+                <entry>RemoveIPC</entry>
+              </row>
+              <row>
+                <entry>Delegate</entry>
+              </row>
+              <row>
+                <entry>RestrictRealtime</entry>
+              </row>
+              <row>
+                <entry>RestrictSUIDSGID</entry>
+              </row>
+              <row>
+                <entry>RestrictNamespaces_CLONE_NEWUSER</entry>
+              </row>
+              <row>
+                <entry>RestrictNamespaces_CLONE_NEWNS</entry>
+              </row>
+              <row>
+                <entry>RestrictNamespaces_CLONE_NEWIPC</entry>
+              </row>
+              <row>
+                <entry>RestrictNamespaces_CLONE_NEWPID</entry>
+              </row>
+              <row>
+                <entry>RestrictNamespaces_CLONE_NEWCGROUP</entry>
+              </row>
+              <row>
+                <entry>RestrictNamespaces_CLONE_NEWUTS</entry>
+              </row>
+              <row>
+                <entry>RestrictNamespaces_CLONE_NEWNET</entry>
+              </row>
+              <row>
+                <entry>RestrictAddressFamilies_AF_INET_INET6</entry>
+              </row>
+              <row>
+                <entry>RestrictAddressFamilies_AF_UNIX</entry>
+              </row>
+              <row>
+                <entry>RestrictAddressFamilies_AF_NETLINK</entry>
+              </row>
+              <row>
+                <entry>RestrictAddressFamilies_AF_PACKET</entry>
+              </row>
+              <row>
+                <entry>RestrictAddressFamilies_OTHER</entry>
+              </row>
+              <row>
+                <entry>SystemCallArchitectures</entry>
+              </row>
+              <row>
+                <entry>SystemCallFilter_swap</entry>
+              </row>
+              <row>
+                <entry>SystemCallFilter_obsolete</entry>
+              </row>
+              <row>
+                <entry>SystemCallFilter_clock</entry>
+              </row>
+              <row>
+                <entry>SystemCallFilter_cpu_emulation</entry>
+              </row>
+              <row>
+                <entry>SystemCallFilter_debug</entry>
+              </row>
+              <row>
+                <entry>SystemCallFilter_mount</entry>
+              </row>
+              <row>
+                <entry>SystemCallFilter_module</entry>
+              </row>
+              <row>
+                <entry>SystemCallFilter_raw_io</entry>
+              </row>
+              <row>
+                <entry>SystemCallFilter_reboot</entry>
+              </row>
+              <row>
+                <entry>SystemCallFilter_privileged</entry>
+              </row>
+              <row>
+                <entry>SystemCallFilter_resources</entry>
+              </row>
+              <row>
+                <entry>IPAddressDeny</entry>
+              </row>
+              <row>
+                <entry>DeviceAllow</entry>
+              </row>
+              <row>
+                <entry>AmbientCapabilities</entry>
+              </row>
+            </tbody>
+          </tgroup>
+        </table>
+
+          <example>
+          <title>JSON Policy</title>
+          <para>The JSON file passed as a path parameter to <option>--security-policy=</option>
+          has a top-level JSON object, with keys being the assessment test identifiers mentioned
+          above. The values in the file should be JSON objects with one or more of the
+          following fields: description_na (string), description_good (string), description_bad
+          (string), weight (unsigned integer), and range (unsigned integer). If any of these fields
+          corresponding to a specific id of the unit file is missing from the JSON object, the
+          default built-in field value corresponding to that same id is used for security analysis
+          as default. The weight and range fields are used in determining the overall exposure level
+          of the unit files so by allowing users to manipulate these fields, 'security' gives them
+          the option to decide for themself which ids are more important and hence, should have a greater
+          effect on the exposure level. </para>
+
+          <programlisting>
+          {
+            "PrivateDevices":
+              {
+              "description_good": "Service has no access to hardware devices",
+              "description_bad": "Service potentially has access to hardware devices",
+              "weight": 1000,
+              "range": 1
+              },
+            "PrivateMounts":
+              {
+              "description_good": "Service cannot install system mounts",
+              "description_bad": "Service may install system mounts",
+              "weight": 1000,
+              "range": 1
+              },
+            "PrivateNetwork":
+              {
+              "description_good": "Service has no access to the host's network",
+              "description_bad": "Service has access to the host's network",
+              "weight": 2500,
+              "range": 1
+              },
+            "PrivateTmp":
+              {
+              "description_good": "Service has no access to other software's temporary files",
+              "description_bad": "Service has access to other software's temporary files",
+              "weight": 1000,
+              "range": 1
+              },
+            "PrivateUsers":
+              {
+              "description_good": "Service does not have access to other users",
+              "description_bad": "Service has access to other users",
+              "weight": 1000,
+              "range": 1
+              }
+          }
+            </programlisting>
+          </example>
+        </listitem>
+      </varlistentry>
+
+
+      <varlistentry>
         <term><option>--iterations=<replaceable>NUMBER</replaceable></option></term>
 
         <listitem><para>When used with the <command>calendar</command> command, show the specified number of

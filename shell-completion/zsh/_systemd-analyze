@@ -92,6 +92,7 @@ _arguments \
     '--recursive-errors=[When verifying a unit, control dependency verification]:MODE' \
     '--offline=[Perform a security review of the specified unit file(s)]:BOOL' \
     '--threshold=[Set a value to compare the overall security exposure level with]: NUMBER' \
+    '--security-policy=[Allow user to use customized requirements to compare unit file(s) against]: PATH' \
     '--no-pager[Do not pipe output into a pager]' \
     '--man=[Do (not) check for existence of man pages]:boolean:(1 0)' \
     '--order[When generating graph for dot, show only order]' \
