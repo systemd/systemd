@@ -96,12 +96,14 @@ static bool arg_offline = false;
 static unsigned arg_threshold = 100;
 static unsigned arg_iterations = 1;
 static usec_t arg_base_time = USEC_INFINITY;
+static char *arg_unit = NULL;
 
 STATIC_DESTRUCTOR_REGISTER(arg_dot_from_patterns, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_dot_to_patterns, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_root, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_image, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_security_policy, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_unit, freep);
 
 typedef struct BootTimes {
         usec_t firmware_time;
@@ -2147,7 +2149,7 @@ static int service_watchdogs(int argc, char *argv[], void *userdata) {
 }
 
 static int do_condition(int argc, char *argv[], void *userdata) {
-        return verify_conditions(strv_skip(argv, 1), arg_scope);
+        return verify_conditions(strv_skip(argv, 1), arg_scope, arg_unit, arg_root);
 }
 
 static int do_verify(int argc, char *argv[], void *userdata) {
@@ -2327,6 +2329,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "machine",          required_argument, NULL, 'M'                  },
                 { "iterations",       required_argument, NULL, ARG_ITERATIONS       },
                 { "base-time",        required_argument, NULL, ARG_BASE_TIME        },
+                { "unit",             required_argument, NULL, 'U'                  },
                 {}
         };
 
@@ -2335,7 +2338,7 @@ static int parse_argv(int argc, char *argv[]) {
         assert(argc >= 0);
         assert(argv);
 
-        while ((c = getopt_long(argc, argv, "hH:M:", options, NULL)) >= 0)
+        while ((c = getopt_long(argc, argv, "hH:M:U:", options, NULL)) >= 0)
                 switch (c) {
 
                 case 'h':
@@ -2465,6 +2468,16 @@ static int parse_argv(int argc, char *argv[]) {
 
                         break;
 
+                case 'U': {
+                        _cleanup_free_ char *mangled = NULL;
+
+                        r = unit_name_mangle(optarg, UNIT_NAME_MANGLE_WARN, &mangled);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to mangle unit name %s: %m", optarg);
+
+                        free_and_replace(arg_unit, mangled);
+                        break;
+                }
                 case '?':
                         return -EINVAL;
 
@@ -2493,14 +2506,23 @@ static int parse_argv(int argc, char *argv[]) {
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "Option --security-policy= is only supported for security.");
 
-        if ((arg_root || arg_image) && (!STRPTR_IN_SET(argv[optind], "cat-config", "verify")) &&
+        if ((arg_root || arg_image) && (!STRPTR_IN_SET(argv[optind], "cat-config", "verify", "condition")) &&
            (!(streq_ptr(argv[optind], "security") && arg_offline)))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "Options --root= and --image= are only supported for cat-config, verify and security when used with --offline= right now.");
+                                       "Options --root= and --image= are only supported for cat-config, verify, condition and security when used with --offline= right now.");
 
         /* Having both an image and a root is not supported by the code */
         if (arg_root && arg_image)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Please specify either --root= or --image=, the combination of both is not supported.");
+
+        if (arg_unit && !streq_ptr(argv[optind], "condition"))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Option --unit= is only supported for condition");
+
+        if (streq_ptr(argv[optind], "condition") && !arg_unit && optind >= argc - 1)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Too few arguments for condition");
+
+        if (streq_ptr(argv[optind], "condition") && arg_unit && optind < argc - 1)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "No conditions can be passed if --unit= is used.");
 
         return 1; /* work to do */
 }
@@ -2532,7 +2554,7 @@ static int run(int argc, char *argv[]) {
                 { "exit-status",       VERB_ANY, VERB_ANY, 0,            dump_exit_status       },
                 { "syscall-filter",    VERB_ANY, VERB_ANY, 0,            dump_syscall_filters   },
                 { "capability",        VERB_ANY, VERB_ANY, 0,            dump_capabilities      },
-                { "condition",         2,        VERB_ANY, 0,            do_condition           },
+                { "condition",         VERB_ANY, VERB_ANY, 0,            do_condition           },
                 { "verify",            2,        VERB_ANY, 0,            do_verify              },
                 { "calendar",          2,        VERB_ANY, 0,            test_calendar          },
                 { "timestamp",         2,        VERB_ANY, 0,            test_timestamp         },
