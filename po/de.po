@@ -5,13 +5,14 @@
 # Benjamin Steinwender <b@stbe.at>, 2014.
 # Bernd Homuth <dev@hmt.im>, 2015.
 # Fabian Affolter <mail@fabian-affolter.ch>, 2020.
+# Ettore Atalan <atalanttore@googlemail.com>, 2021.
 msgid ""
 msgstr ""
 "Project-Id-Version: systemd master\n"
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2021-01-08 17:48+0100\n"
-"PO-Revision-Date: 2020-12-13 14:36+0000\n"
-"Last-Translator: Fabian Affolter <mail@fabian-affolter.ch>\n"
+"PO-Revision-Date: 2021-08-23 18:04+0000\n"
+"Last-Translator: Ettore Atalan <atalanttore@googlemail.com>\n"
 "Language-Team: German <https://translate.fedoraproject.org/projects/systemd/"
 "master/de/>\n"
 "Language: de\n"
@@ -19,7 +20,7 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=n != 1;\n"
-"X-Generator: Weblate 4.3.2\n"
+"X-Generator: Weblate 4.8\n"
 
 #: src/core/org.freedesktop.systemd1.policy.in:22
 msgid "Send passphrase back to system"
@@ -476,10 +477,8 @@ msgstr ""
 "anforderte es zu unterbinden."
 
 #: src/login/org.freedesktop.login1.policy:235
-#, fuzzy
-#| msgid "Hibernate the system"
 msgid "Halt the system"
-msgstr "Den Ruhezustand des Systems aktivieren"
+msgstr "Das System anhalten"
 
 #: src/login/org.freedesktop.login1.policy:236
 #, fuzzy
@@ -689,7 +688,7 @@ msgstr "Legitimierung ist zum Einstellen einer Nachricht an alle notwendig"
 
 #: src/login/org.freedesktop.login1.policy:406
 msgid "Change Session"
-msgstr ""
+msgstr "Sitzung ändern"
 
 #: src/login/org.freedesktop.login1.policy:407
 #, fuzzy
@@ -778,7 +777,7 @@ msgstr ""
 
 #: src/network/org.freedesktop.network1.policy:22
 msgid "Set NTP servers"
-msgstr ""
+msgstr "NTP-Server festlegen"
 
 #: src/network/org.freedesktop.network1.policy:23
 #, fuzzy
@@ -789,7 +788,7 @@ msgstr "Legitimierung ist zum Festlegen der Systemzeit notwendig."
 #: src/network/org.freedesktop.network1.policy:33
 #: src/resolve/org.freedesktop.resolve1.policy:44
 msgid "Set DNS servers"
-msgstr ""
+msgstr "DNS-Server festlegen"
 
 #: src/network/org.freedesktop.network1.policy:34
 #: src/resolve/org.freedesktop.resolve1.policy:45
@@ -813,7 +812,7 @@ msgstr "Legitimierung ist zum Stoppen von »$(unit)« notwendig."
 #: src/network/org.freedesktop.network1.policy:55
 #: src/resolve/org.freedesktop.resolve1.policy:66
 msgid "Set default route"
-msgstr ""
+msgstr "Standardroute festlegen"
 
 #: src/network/org.freedesktop.network1.policy:56
 #: src/resolve/org.freedesktop.resolve1.policy:67
@@ -825,7 +824,7 @@ msgstr "Legitimierung ist zum Festlegen des lokalen Rechnernamens notwendig"
 #: src/network/org.freedesktop.network1.policy:66
 #: src/resolve/org.freedesktop.resolve1.policy:77
 msgid "Enable/disable LLMNR"
-msgstr ""
+msgstr "LLMNR aktivieren/deaktivieren"
 
 #: src/network/org.freedesktop.network1.policy:67
 #: src/resolve/org.freedesktop.resolve1.policy:78
@@ -838,7 +837,7 @@ msgstr ""
 #: src/network/org.freedesktop.network1.policy:77
 #: src/resolve/org.freedesktop.resolve1.policy:88
 msgid "Enable/disable multicast DNS"
-msgstr ""
+msgstr "Multicast-DNS aktivieren/deaktivieren"
 
 #: src/network/org.freedesktop.network1.policy:78
 #: src/resolve/org.freedesktop.resolve1.policy:89
@@ -850,7 +849,7 @@ msgstr "Legitimierung ist zum Anmelden am lokalen Rechner notwendig."
 #: src/network/org.freedesktop.network1.policy:88
 #: src/resolve/org.freedesktop.resolve1.policy:99
 msgid "Enable/disable DNS over TLS"
-msgstr ""
+msgstr "DNS over TLS aktivieren/deaktivieren"
 
 #: src/network/org.freedesktop.network1.policy:89
 #: src/resolve/org.freedesktop.resolve1.policy:100
@@ -862,7 +861,7 @@ msgstr "Legitimierung ist zum Festlegen des lokalen Rechnernamens notwendig"
 #: src/network/org.freedesktop.network1.policy:99
 #: src/resolve/org.freedesktop.resolve1.policy:110
 msgid "Enable/disable DNSSEC"
-msgstr ""
+msgstr "DNSSEC aktivieren/deaktivieren"
 
 #: src/network/org.freedesktop.network1.policy:100
 #: src/resolve/org.freedesktop.resolve1.policy:111
@@ -875,7 +874,7 @@ msgstr ""
 #: src/network/org.freedesktop.network1.policy:110
 #: src/resolve/org.freedesktop.resolve1.policy:121
 msgid "Set DNSSEC Negative Trust Anchors"
-msgstr ""
+msgstr "Negative Vertrauensanker für DNSSEC festlegen"
 
 #: src/network/org.freedesktop.network1.policy:111
 #: src/resolve/org.freedesktop.resolve1.policy:122
@@ -888,7 +887,7 @@ msgstr ""
 
 #: src/network/org.freedesktop.network1.policy:121
 msgid "Revert NTP settings"
-msgstr ""
+msgstr "NTP-Einstellungen zurücksetzen"
 
 #: src/network/org.freedesktop.network1.policy:122
 #, fuzzy
@@ -898,7 +897,7 @@ msgstr "Legitimierung ist zum Festlegen der Systemzeit notwendig."
 
 #: src/network/org.freedesktop.network1.policy:132
 msgid "Revert DNS settings"
-msgstr ""
+msgstr "DNS-Einstellungen zurücksetzen"
 
 #: src/network/org.freedesktop.network1.policy:133
 #, fuzzy
@@ -918,7 +917,7 @@ msgstr "Legitimierung ist zum Einstellen einer Nachricht an alle notwendig"
 
 #: src/network/org.freedesktop.network1.policy:154
 msgid "Renew dynamic addresses"
-msgstr ""
+msgstr "Dynamische Adressen erneuern"
 
 #: src/network/org.freedesktop.network1.policy:155
 #, fuzzy
@@ -928,7 +927,7 @@ msgstr "Legitimierung ist zum Einstellen einer Nachricht an alle notwendig"
 
 #: src/network/org.freedesktop.network1.policy:165
 msgid "Reload network settings"
-msgstr ""
+msgstr "Netzwerkeinstellungen neu laden"
 
 #: src/network/org.freedesktop.network1.policy:166
 #, fuzzy
@@ -938,7 +937,7 @@ msgstr "Legitimierung ist zum erneuten Laden des systemd-Zustands notwendig."
 
 #: src/network/org.freedesktop.network1.policy:176
 msgid "Reconfigure network interface"
-msgstr ""
+msgstr "Netzwerkschnittstelle neu konfigurieren"
 
 #: src/network/org.freedesktop.network1.policy:177
 #, fuzzy
@@ -987,7 +986,7 @@ msgstr ""
 
 #: src/resolve/org.freedesktop.resolve1.policy:22
 msgid "Register a DNS-SD service"
-msgstr ""
+msgstr "Einen DNS-SD-Dienst registrieren"
 
 #: src/resolve/org.freedesktop.resolve1.policy:23
 #, fuzzy
@@ -997,7 +996,7 @@ msgstr "Legitimierung ist zum Einstellen einer Nachricht an alle notwendig"
 
 #: src/resolve/org.freedesktop.resolve1.policy:33
 msgid "Unregister a DNS-SD service"
-msgstr ""
+msgstr "Einen DNS-SD-Dienst deregistrieren"
 
 #: src/resolve/org.freedesktop.resolve1.policy:34
 #, fuzzy
@@ -1007,7 +1006,7 @@ msgstr "Legitimierung ist zum Einstellen einer Nachricht an alle notwendig"
 
 #: src/resolve/org.freedesktop.resolve1.policy:132
 msgid "Revert name resolution settings"
-msgstr ""
+msgstr "Namensauflösungseinstellungen zurücksetzen"
 
 #: src/resolve/org.freedesktop.resolve1.policy:133
 #, fuzzy
