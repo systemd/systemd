@@ -52,3 +52,5 @@ Packages=
         nano
         qrencode
         strace
+        # For testing "systemd-analyze verify".
+        man-db
