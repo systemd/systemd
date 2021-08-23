@@ -52,3 +52,6 @@ Packages=
         nano
         qrencode
         strace
+        man-db
+        bash-completion
+        zsh
