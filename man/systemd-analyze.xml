@@ -793,6 +793,16 @@ Service b@0.service not loaded, b.socket cannot be started.
       </varlistentry>
 
       <varlistentry>
+        <term><option>--json-path=<replaceable>PATH</replaceable></option></term>
+
+        <listitem><para>With <command>security</command>, allow the user to define a custom set of
+        security requirements against which to compare the unit file(s) and determine their overall
+        exposure level to security threats. <option>--json-path=</option> can work with
+        <option>--offline=</option> as well, and perform an offline security review of the unit file(s)
+        using the criteria specified in the user defined .json file .</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>--iterations=<replaceable>NUMBER</replaceable></option></term>
 
         <listitem><para>When used with the <command>calendar</command> command, show the specified number of

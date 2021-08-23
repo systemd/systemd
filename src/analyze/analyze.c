@@ -91,6 +91,7 @@ static bool arg_man = true;
 static bool arg_generators = false;
 static char *arg_root = NULL;
 static char *arg_image = NULL;
+static char *arg_json_path = NULL;
 static bool arg_offline = false;
 static unsigned arg_threshold = 100;
 static unsigned arg_iterations = 1;
@@ -100,6 +101,7 @@ STATIC_DESTRUCTOR_REGISTER(arg_dot_from_patterns, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_dot_to_patterns, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_root, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_image, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_json_path, freep);
 
 typedef struct BootTimes {
         usec_t firmware_time;
@@ -2152,9 +2154,18 @@ static int do_verify(int argc, char *argv[], void *userdata) {
         return verify_units(strv_skip(argv, 1), arg_scope, arg_man, arg_generators, arg_recursive_errors, arg_root);
 }
 
+static void custom_security_check(const char *path, JsonVariant **v) {
+        if (path) {
+                int r = json_parse_file(NULL, path, 0, v, NULL, NULL);
+                if (r < 0)
+                        log_warning_errno(r, "Failed to parse '%s': %m", path);
+        }
+}
+
 static int do_security(int argc, char *argv[], void *userdata) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         int r;
+        JsonVariant *json_var = NULL;
 
         r = acquire_bus(&bus, NULL);
         if (r < 0)
@@ -2162,7 +2173,9 @@ static int do_security(int argc, char *argv[], void *userdata) {
 
         (void) pager_open(arg_pager_flags);
 
-        return analyze_security(bus, strv_skip(argv, 1), arg_scope, arg_man, arg_generators, arg_offline, arg_threshold, arg_root, 0);
+        custom_security_check(arg_json_path, &json_var);
+
+        return analyze_security(bus, strv_skip(argv, 1), json_var, arg_scope, arg_man, arg_generators, arg_offline, arg_threshold, arg_root, 0);
 }
 
 static int help(int argc, char *argv[], void *userdata) {
@@ -2214,6 +2227,8 @@ static int help(int argc, char *argv[], void *userdata) {
                "     --threshold=N           Exit with a non-zero status when overall\n"
                "                             exposure level is over threshold value\n"
                "     --version               Show package version\n"
+               "     --json-path             Obtain a set of custom security requirements\n"
+               "                             against which to compare the unit file(s)\n"
                "     --no-pager              Do not pipe output into a pager\n"
                "     --system                Operate on system systemd instance\n"
                "     --user                  Operate on user systemd instance\n"
@@ -2266,6 +2281,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_RECURSIVE_ERRORS,
                 ARG_OFFLINE,
                 ARG_THRESHOLD,
+                ARG_JSON_PATH,
         };
 
         static const struct option options[] = {
@@ -2278,6 +2294,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "recursive-errors", required_argument, NULL, ARG_RECURSIVE_ERRORS },
                 { "offline",          required_argument, NULL, ARG_OFFLINE          },
                 { "threshold",        required_argument, NULL, ARG_THRESHOLD        },
+                { "json-path",        required_argument, NULL, ARG_JSON_PATH        },
                 { "system",           no_argument,       NULL, ARG_SYSTEM           },
                 { "user",             no_argument,       NULL, ARG_USER             },
                 { "global",           no_argument,       NULL, ARG_GLOBAL           },
@@ -2409,6 +2426,12 @@ static int parse_argv(int argc, char *argv[]) {
 
                         break;
 
+                case ARG_JSON_PATH:
+                        r = parse_path_argument(optarg, /* suppress_root= */ false, &arg_json_path);
+                        if (r < 0)
+                                return r;
+                        break;
+
                 case ARG_ITERATIONS:
                         r = safe_atou(optarg, &arg_iterations);
                         if (r < 0)
@@ -2446,6 +2469,10 @@ static int parse_argv(int argc, char *argv[]) {
         if (streq_ptr(argv[optind], "cat-config") && arg_scope == UNIT_FILE_USER)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "Option --user is not supported for cat-config right now.");
+
+        if (arg_json_path && !streq_ptr(argv[optind], "security"))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Option --json-path= is only supported for security right now.");
 
         if ((arg_root || arg_image) && (!STRPTR_IN_SET(argv[optind], "cat-config", "verify")) &&
            (!(streq_ptr(argv[optind], "security") && arg_offline)))
