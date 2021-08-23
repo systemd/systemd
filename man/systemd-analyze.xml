@@ -382,7 +382,15 @@ cap_mac_override      32</programlisting>
       <varname index="false">Assert*=...</varname> assignments, and print their values, and
       the resulting value of the combined condition set. See
       <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>
-      for a list of available conditions and asserts.</para>
+      for a list of available conditions and asserts. If a unit file is passed, this command will  evaluate
+      all the <varname index="false">Condition*=...</varname> and
+      <varname index="false">Assert*=...</varname> assignments in that unit file. The full unit search
+      path is formed by combining the directories for all command line arguments, and the usual unit load
+      paths. The variable <varname>$SYSTEMD_UNIT_PATH</varname> is supported, and may be used to replace or
+      augment the compiled in set of unit load paths; see
+      <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>. All
+      units files present in the directories containing the command line arguments will be used in preference
+      to the other paths.</para>
 
       <example>
         <title>Evaluate conditions that check kernel versions</title>
