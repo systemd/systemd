@@ -15,10 +15,17 @@ Prefix=2001:db8:0:1::/64
 Prefix=2001:db8:0:2::/64
 Assign=yes
 
+[IPv6Prefix]
+Prefix=2001:db8:0:3::/64
+
 [IPv6RoutePrefix]
 Route=2001:db0:fff::/64
 LifetimeSec=1000
 
 [IPv6RoutePrefix]
 Route=2001:db1:fff::/64
+LifetimeSec=1000
+
+[IPv6RoutePrefix]
+Route=2001:db2:fff::/64
 LifetimeSec=1000

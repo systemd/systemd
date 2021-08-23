@@ -6,9 +6,8 @@ DHCP=no
 IPv6AcceptRA=yes
 
 [IPv6AcceptRA]
-# PrefixDenyList= and RouteDenyList= will be ignored.
-PrefixAllowList=2001:db8:0:1:: 2001:db8:0:1::
-PrefixDenyList=2001:db8:0:1:: 2001:db8:0:1::
-RouteAllowList=2001:db0:fff:: 2001:db0:fff::
-RouteDenyList=2001:db0:fff:: 2001:db0:fff::
+# PrefixDenyList= will be ignored.
+PrefixAllowList=2001:db8:0:1:: 2001:db8:0:1:: 2001:db8:0:1::/64
+PrefixDenyList=2001:db8:0:1::/64 2001:db8:0:1:: 2001:db8:0:3::/64
+RouteDenyList=2001:db1:fff::/64 2001:db1:fff:: 2001:db2:fff::/64
 UseDomains=yes
