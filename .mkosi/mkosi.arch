@@ -54,3 +54,4 @@ Packages=
         strace
         man-db
         bash-completion
+        zsh
