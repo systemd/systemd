@@ -382,7 +382,9 @@ cap_mac_override      32</programlisting>
       <varname index="false">Assert*=...</varname> assignments, and print their values, and
       the resulting value of the combined condition set. See
       <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>
-      for a list of available conditions and asserts.</para>
+      for a list of available conditions and asserts. If a unit file is passed, this command will  evaluate
+      all the <varname index="false">Condition*=...</varname> and
+      <varname index="false">Assert*=...</varname> assignments in that unit file.</para>
 
       <example>
         <title>Evaluate conditions that check kernel versions</title>

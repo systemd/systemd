@@ -37,6 +37,11 @@
         _sd_unit_files
     }
 
+(( $+functions[_systemd-analyze_condition] )) ||
+    _systemd-analyze_condition() {
+        _sd_unit_files
+    }
+
 (( $+functions[_systemd-analyze_commands] )) ||
     _systemd-analyze_commands(){
         local -a _systemd_analyze_cmds

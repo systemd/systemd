@@ -2145,7 +2145,7 @@ static int service_watchdogs(int argc, char *argv[], void *userdata) {
 }
 
 static int do_condition(int argc, char *argv[], void *userdata) {
-        return verify_conditions(strv_skip(argv, 1), arg_scope);
+        return verify_conditions(strv_skip(argv, 1), arg_scope, arg_root);
 }
 
 static int do_verify(int argc, char *argv[], void *userdata) {
@@ -2447,10 +2447,10 @@ static int parse_argv(int argc, char *argv[]) {
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "Option --user is not supported for cat-config right now.");
 
-        if ((arg_root || arg_image) && (!STRPTR_IN_SET(argv[optind], "cat-config", "verify")) &&
+        if ((arg_root || arg_image) && (!STRPTR_IN_SET(argv[optind], "cat-config", "verify", "condition")) &&
            (!(streq_ptr(argv[optind], "security") && arg_offline)))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "Options --root= and --image= are only supported for cat-config, verify and security when used with --offline= right now.");
+                                       "Options --root= and --image= are only supported for cat-config, verify, condition and security when used with --offline= right now.");
 
         /* Having both an image and a root is not supported by the code */
         if (arg_root && arg_image)
