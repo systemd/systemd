@@ -55,13 +55,14 @@ _systemd_analyze() {
     )
 
     local -A VERBS=(
-        [STANDALONE]='time blame plot dump unit-paths exit-status condition calendar timestamp timespan'
+        [STANDALONE]='time blame plot dump unit-paths exit-status calendar timestamp timespan'
         [CRITICAL_CHAIN]='critical-chain'
         [DOT]='dot'
         [VERIFY]='verify'
         [SECCOMP_FILTER]='syscall-filter'
         [CAT_CONFIG]='cat-config'
         [SECURITY]='security'
+        [CONDITION]='condition'
     )
 
     local CONFIGS='systemd/bootchart.conf systemd/coredump.conf systemd/journald.conf
@@ -146,6 +147,18 @@ _systemd_analyze() {
         if [[ $cur = -* ]]; then
             comps='--help --version --no-pager --system --user -H --host -M --machine --offline --threshold --security-policy'
         else
+            if __contains_word "--user" ${COMP_WORDS[*]}; then
+                mode=--user
+            else
+                mode=--system
+            fi
+            comps=$( __get_services $mode )
+        fi
+
+    elif __contains_word "$verb" ${VERBS[CONDITION]}; then
+        if [[ $cur = -* ]]; then
+            comps='--help --version --system --user --global --no-pager --root --image'
+        elif [[ $prev = "-u" ]] || [[ $prev = "--unit" ]]; then
             if __contains_word "--user" ${COMP_WORDS[*]}; then
                 mode=--user
             else

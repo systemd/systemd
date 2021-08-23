@@ -3,6 +3,7 @@
 #include <stdlib.h>
 
 #include "analyze-condition.h"
+#include "analyze-verify.h"
 #include "condition.h"
 #include "conf-parser.h"
 #include "load-fragment.h"
@@ -72,29 +73,57 @@ static int log_helper(void *userdata, int level, int error, const char *file, in
         return r;
 }
 
-int verify_conditions(char **lines, UnitFileScope scope) {
+int verify_conditions(char **lines, UnitFileScope scope, const char *unit, const char *root) {
         _cleanup_(manager_freep) Manager *m = NULL;
         Unit *u;
-        char **line;
         int r, q = 1;
+
+        if (unit) {
+                _cleanup_strv_free_ char **filenames = NULL;
+                _cleanup_free_ char *var = NULL;
+
+                filenames = strv_new(unit);
+                if (!filenames)
+                        return log_oom();
+
+                r = verify_generate_path(&var, filenames);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to generate unit load path: %m");
+
+                assert_se(set_unit_path(var) >= 0);
+        }
 
         r = manager_new(scope, MANAGER_TEST_RUN_MINIMAL, &m);
         if (r < 0)
                 return log_error_errno(r, "Failed to initialize manager: %m");
 
         log_debug("Starting manager...");
-        r = manager_startup(m, /* serialization= */ NULL, /* fds= */ NULL, /* root= */ NULL);
+        r = manager_startup(m, /* serialization= */ NULL, /* fds= */ NULL, root);
         if (r < 0)
                 return r;
 
-        r = unit_new_for_name(m, sizeof(Service), "test.service", &u);
-        if (r < 0)
-                return log_error_errno(r, "Failed to create test.service: %m");
+        if (unit) {
+                _cleanup_free_ char *prepared = NULL;
 
-        STRV_FOREACH(line, lines) {
-                r = parse_condition(u, *line);
+                r = verify_prepare_filename(unit, &prepared);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to prepare filename %s: %m", unit);
+
+                r = manager_load_startable_unit_or_warn(m, NULL, prepared, &u);
                 if (r < 0)
                         return r;
+        } else {
+                char **line;
+
+                r = unit_new_for_name(m, sizeof(Service), "test.service", &u);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to create test.service: %m");
+
+                STRV_FOREACH(line, lines) {
+                        r = parse_condition(u, *line);
+                        if (r < 0)
+                                return r;
+                }
         }
 
         r = condition_test_list(u->asserts, environ, assert_type_to_string, log_helper, u);

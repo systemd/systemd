@@ -1123,6 +1123,20 @@ Service b@0.service not loaded, b.socket cannot be started.
         to the specified point in time. If not specified defaults to the current time.</para></listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term><option>--unit=<replaceable>UNIT</replaceable></option></term>
+
+        <listitem><para>When used with the <command>condition</command> command, evaluate all the
+        <varname index="false">Condition*=...</varname> and <varname index="false">Assert*=...</varname>
+        assignments in the specified unit file. The full unit search path is formed by combining the
+        directories for the specified unit with the usual unit load paths. The variable
+        <varname>$SYSTEMD_UNIT_PATH</varname> is supported, and may be used to replace or augment the
+        compiled in set of unit load paths; see
+        <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>. All
+        units files present in the directory containing the specified unit will be used in preference to the
+        other paths.</para></listitem>
+      </varlistentry>
+
       <xi:include href="user-system-options.xml" xpointer="host" />
       <xi:include href="user-system-options.xml" xpointer="machine" />
 
