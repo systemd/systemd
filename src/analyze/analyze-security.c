@@ -751,7 +751,7 @@ static int assess_ambient_capabilities(
         return 0;
 }
 
-static const struct security_assessor security_assessor_table[] = {
+static struct security_assessor security_assessor_table[] = {
         {
                 .id = "User=/DynamicUser=",
                 .description_bad = "Service runs as root user",
@@ -1527,7 +1527,9 @@ static const struct security_assessor security_assessor_table[] = {
         },
 };
 
-static int assess(const SecurityInfo *info, Table *overview_table, AnalyzeSecurityFlags flags, unsigned threshold) {
+static int assess(const SecurityInfo *info, Table *overview_table, AnalyzeSecurityFlags flags,
+                  unsigned threshold, JsonVariant *v) {
+
         static const struct {
                 uint64_t exposure;
                 const char *name;
@@ -1545,6 +1547,8 @@ static int assess(const SecurityInfo *info, Table *overview_table, AnalyzeSecuri
 
         uint64_t badness_sum = 0, weight_sum = 0, exposure;
         _cleanup_(table_unrefp) Table *details_table = NULL;
+        size_t security_table_size = ELEMENTSOF(security_assessor_table);
+        struct security_assessor *security_table = security_assessor_table;
         size_t i;
         int r;
 
@@ -1560,8 +1564,27 @@ static int assess(const SecurityInfo *info, Table *overview_table, AnalyzeSecuri
                         (void) table_set_display(details_table, (size_t) 0, (size_t) 1, (size_t) 2, (size_t) 6);
         }
 
-        for (i = 0; i < ELEMENTSOF(security_assessor_table); i++) {
-                const struct security_assessor *a = security_assessor_table + i;
+        if (v != NULL) {
+                security_table_size = json_variant_elements(v)/2;
+                JsonVariant *val;
+
+                for (size_t key = 0; key < security_table_size; key++) {
+                        val = json_variant_by_key(v, security_table[key].id);
+                        assert_se(val && json_variant_type(val) == JSON_VARIANT_OBJECT && json_variant_elements(val) > 0);
+
+                        security_table[key].range = json_variant_unsigned(json_variant_by_key(val, "range"));
+                        security_table[key].weight = json_variant_unsigned(json_variant_by_key(val, "weight"));
+                        if (json_variant_by_key(val, "description_na"))
+                                security_table[key].description_na = json_variant_string(json_variant_by_key(val, "description_na"));
+                        if (json_variant_by_key(val, "description_bad"))
+                                security_table[key].description_bad = json_variant_string(json_variant_by_key(val, "description_bad"));
+                        if (json_variant_by_key(val, "description_good"))
+                                security_table[key].description_good = json_variant_string(json_variant_by_key(val, "description_good"));
+                }
+        }
+
+        for (i = 0; i < security_table_size; i++) {
+                const struct security_assessor *a = security_table + i;
                 _cleanup_free_ char *d = NULL;
                 uint64_t badness;
                 void *data;
@@ -2193,7 +2216,7 @@ static int acquire_security_info(sd_bus *bus, const char *name, SecurityInfo *in
 }
 
 static int analyze_security_one(sd_bus *bus, const char *name, Table *overview_table,
-                                AnalyzeSecurityFlags flags, unsigned threshold) {
+                                AnalyzeSecurityFlags flags, unsigned threshold, JsonVariant *v) {
 
         _cleanup_(security_info_freep) SecurityInfo *info = security_info_new();
         if (!info)
@@ -2210,7 +2233,7 @@ static int analyze_security_one(sd_bus *bus, const char *name, Table *overview_t
         if (r < 0)
                 return r;
 
-        r = assess(info, overview_table, flags, threshold);
+        r = assess(info, overview_table, flags, threshold, v);
         if (r < 0)
                 return r;
 
@@ -2396,7 +2419,7 @@ static int get_security_info(Unit *u, ExecContext *c, CGroupContext *g, Security
         return 0;
 }
 
-static int offline_security_check(Unit *u, unsigned threshold) {
+static int offline_security_check(Unit *u, unsigned threshold, JsonVariant *v) {
         _cleanup_(table_unrefp) Table *overview_table = NULL;
         AnalyzeSecurityFlags flags = 0;
         _cleanup_(security_info_freep) SecurityInfo *info = NULL;
@@ -2411,10 +2434,10 @@ static int offline_security_check(Unit *u, unsigned threshold) {
         if (r < 0)
               return r;
 
-        return assess(info, overview_table, flags, threshold);
+        return assess(info, overview_table, flags, threshold, v);
 }
 
-static int offline_security_checks(char **filenames, UnitFileScope scope, bool check_man, bool run_generators, unsigned threshold, const char *root) {
+static int offline_security_checks(char **filenames, JsonVariant *v, UnitFileScope scope, bool check_man, bool run_generators, unsigned threshold, const char *root) {
         const ManagerTestRunFlags flags =
                 MANAGER_TEST_RUN_MINIMAL |
                 MANAGER_TEST_RUN_ENV_GENERATORS |
@@ -2473,7 +2496,7 @@ static int offline_security_checks(char **filenames, UnitFileScope scope, bool c
         }
 
         for (size_t i = 0; i < count; i++) {
-                k = offline_security_check(units[i], threshold);
+                k = offline_security_check(units[i], threshold, v);
                 if (k < 0 && r == 0)
                         r = k;
         }
@@ -2490,7 +2513,7 @@ int analyze_security(sd_bus *bus, char **units, JsonVariant *v, UnitFileScope sc
         assert(bus);
 
         if (offline)
-                return offline_security_checks(units, scope, check_man, run_generators, threshold, root);
+                return offline_security_checks(units, v, scope, check_man, run_generators, threshold, root);
 
         if (strv_length(units) != 1) {
                 overview_table = table_new("unit", "exposure", "predicate", "happy");
@@ -2550,7 +2573,7 @@ int analyze_security(sd_bus *bus, char **units, JsonVariant *v, UnitFileScope sc
                 flags |= ANALYZE_SECURITY_SHORT|ANALYZE_SECURITY_ONLY_LOADED|ANALYZE_SECURITY_ONLY_LONG_RUNNING;
 
                 STRV_FOREACH(i, list) {
-                        r = analyze_security_one(bus, *i, overview_table, flags, threshold);
+                        r = analyze_security_one(bus, *i, overview_table, flags, threshold, v);
                         if (r < 0 && ret >= 0)
                                 ret = r;
                 }
@@ -2585,7 +2608,7 @@ int analyze_security(sd_bus *bus, char **units, JsonVariant *v, UnitFileScope sc
                         } else
                                 name = mangled;
 
-                        r = analyze_security_one(bus, name, overview_table, flags, threshold);
+                        r = analyze_security_one(bus, name, overview_table, flags, threshold, v);
                         if (r < 0 && ret >= 0)
                                 ret = r;
                 }
