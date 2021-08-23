@@ -54,3 +54,5 @@ Packages=
         strace
         # For testing "systemd-analyze verify".
         man-db
+        # For testing systemd's bash completion scripts.
+        bash-completion
