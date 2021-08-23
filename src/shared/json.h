@@ -239,26 +239,26 @@ enum {
         _JSON_BUILD_MAX,
 };
 
-#define JSON_BUILD_STRING(s) _JSON_BUILD_STRING, ({ const char *_x = s; _x; })
-#define JSON_BUILD_INTEGER(i) _JSON_BUILD_INTEGER, ({ intmax_t _x = i; _x; })
-#define JSON_BUILD_UNSIGNED(u) _JSON_BUILD_UNSIGNED, ({ uintmax_t _x = u; _x; })
-#define JSON_BUILD_REAL(d) _JSON_BUILD_REAL, ({ long double _x = d; _x; })
-#define JSON_BUILD_BOOLEAN(b) _JSON_BUILD_BOOLEAN, ({ bool _x = b; _x; })
+#define JSON_BUILD_STRING(s) _JSON_BUILD_STRING, (const char*) { s }
+#define JSON_BUILD_INTEGER(i) _JSON_BUILD_INTEGER, (intmax_t) { i }
+#define JSON_BUILD_UNSIGNED(u) _JSON_BUILD_UNSIGNED, (uintmax_t) { u }
+#define JSON_BUILD_REAL(d) _JSON_BUILD_REAL, (long double) { d }
+#define JSON_BUILD_BOOLEAN(b) _JSON_BUILD_BOOLEAN, (bool) { b }
 #define JSON_BUILD_ARRAY(...) _JSON_BUILD_ARRAY_BEGIN, __VA_ARGS__, _JSON_BUILD_ARRAY_END
 #define JSON_BUILD_EMPTY_ARRAY _JSON_BUILD_ARRAY_BEGIN, _JSON_BUILD_ARRAY_END
 #define JSON_BUILD_OBJECT(...) _JSON_BUILD_OBJECT_BEGIN, __VA_ARGS__, _JSON_BUILD_OBJECT_END
 #define JSON_BUILD_EMPTY_OBJECT _JSON_BUILD_OBJECT_BEGIN, _JSON_BUILD_OBJECT_END
-#define JSON_BUILD_PAIR(n, ...) _JSON_BUILD_PAIR, ({ const char *_x = n; _x; }), __VA_ARGS__
-#define JSON_BUILD_PAIR_CONDITION(c, n, ...) _JSON_BUILD_PAIR_CONDITION, ({ bool _x = c; _x; }), ({ const char *_x = n; _x; }), __VA_ARGS__
+#define JSON_BUILD_PAIR(n, ...) _JSON_BUILD_PAIR, (const char*) { n }, __VA_ARGS__
+#define JSON_BUILD_PAIR_CONDITION(c, n, ...) _JSON_BUILD_PAIR_CONDITION, (bool) { c }, (const char*) { n }, __VA_ARGS__
 #define JSON_BUILD_NULL _JSON_BUILD_NULL
-#define JSON_BUILD_VARIANT(v) _JSON_BUILD_VARIANT, ({ JsonVariant *_x = v; _x; })
-#define JSON_BUILD_VARIANT_ARRAY(v, n) _JSON_BUILD_VARIANT_ARRAY, ({ JsonVariant **_x = v; _x; }), ({ size_t _y = n; _y; })
-#define JSON_BUILD_LITERAL(l) _JSON_BUILD_LITERAL, ({ const char *_x = l; _x; })
-#define JSON_BUILD_STRV(l) _JSON_BUILD_STRV, ({ char **_x = l; _x; })
-#define JSON_BUILD_BASE64(p, n) _JSON_BUILD_BASE64, ({ const void *_x = p; _x; }), ({ size_t _y = n; _y; })
-#define JSON_BUILD_HEX(p, n) _JSON_BUILD_HEX, ({ const void *_x = p; _x; }), ({ size_t _y = n; _y; })
-#define JSON_BUILD_ID128(id) _JSON_BUILD_ID128, ({ sd_id128_t _x = id; _x; })
-#define JSON_BUILD_BYTE_ARRAY(v, n) _JSON_BUILD_BYTE_ARRAY, ({ const void *_x = v; _x; }), ({ size_t _y = n; _y; })
+#define JSON_BUILD_VARIANT(v) _JSON_BUILD_VARIANT, (JsonVariant*) { v }
+#define JSON_BUILD_VARIANT_ARRAY(v, n) _JSON_BUILD_VARIANT_ARRAY, (JsonVariant **) { v }, (size_t) { n }
+#define JSON_BUILD_LITERAL(l) _JSON_BUILD_LITERAL, (const char*) { l }
+#define JSON_BUILD_STRV(l) _JSON_BUILD_STRV, (char**) { l }
+#define JSON_BUILD_BASE64(p, n) _JSON_BUILD_BASE64, (const void*) { p }, (size_t) { n }
+#define JSON_BUILD_HEX(p, n) _JSON_BUILD_HEX, (const void*) { p }, (size_t) { n }
+#define JSON_BUILD_ID128(id) _JSON_BUILD_ID128, (const sd_id128_t*) { &(id) }
+#define JSON_BUILD_BYTE_ARRAY(v, n) _JSON_BUILD_BYTE_ARRAY, (const void*) { v }, (size_t) { n }
 
 int json_build(JsonVariant **ret, ...);
 int json_buildv(JsonVariant **ret, va_list ap);

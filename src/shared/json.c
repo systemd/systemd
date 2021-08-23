@@ -3648,17 +3648,17 @@ int json_buildv(JsonVariant **ret, va_list ap) {
                 }
 
                 case _JSON_BUILD_ID128: {
-                        sd_id128_t id;
+                        const sd_id128_t *id;
 
                         if (!IN_SET(current->expect, EXPECT_TOPLEVEL, EXPECT_OBJECT_VALUE, EXPECT_ARRAY_ELEMENT)) {
                                 r = -EINVAL;
                                 goto finish;
                         }
 
-                        id = va_arg(ap, sd_id128_t);
+                        assert_se(id = va_arg(ap, sd_id128_t*));
 
                         if (current->n_suppress == 0) {
-                                r = json_variant_new_id128(&add, id);
+                                r = json_variant_new_id128(&add, *id);
                                 if (r < 0)
                                         goto finish;
                         }
