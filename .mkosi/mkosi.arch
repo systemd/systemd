@@ -53,3 +53,4 @@ Packages=
         qrencode
         strace
         man-db
+        bash-completion
