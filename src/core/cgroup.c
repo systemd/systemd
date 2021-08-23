@@ -1200,12 +1200,15 @@ static int cgroup_apply_devices(Unit *u) {
         return r;
 }
 
-static void set_io_weight(Unit *u, const char *controller, uint64_t weight) {
-        char buf[8+DECIMAL_STR_MAX(uint64_t)+1];
-        const char *p;
+static void set_io_weight(Unit *u, bool is_blkio, uint64_t weight) {
+        char buf[STRLEN("default ")+DECIMAL_STR_MAX(uint64_t)+1];
+        const char *p, *controller = is_blkio ? "blkio" : "io";
 
         p = strjoina(controller, ".weight");
-        xsprintf(buf, "default %" PRIu64 "\n", weight);
+        if (is_blkio)
+                xsprintf(buf, "%" PRIu64 "\n", weight);
+        else
+                xsprintf(buf, "default %" PRIu64 "\n", weight);
         (void) set_attribute_and_warn(u, controller, p, buf);
 
         /* FIXME: drop this when distro kernels properly support BFQ through "io.weight"
@@ -1328,7 +1331,7 @@ static void cgroup_context_apply(
                 } else
                         weight = CGROUP_WEIGHT_DEFAULT;
 
-                set_io_weight(u, "io", weight);
+                set_io_weight(u, /* is_blkio = */ false, weight);
 
                 if (has_io) {
                         CGroupIODeviceLatency *latency;
@@ -1398,7 +1401,7 @@ static void cgroup_context_apply(
                         else
                                 weight = CGROUP_BLKIO_WEIGHT_DEFAULT;
 
-                        set_io_weight(u, "blkio", weight);
+                        set_io_weight(u, /* is_blkio = */ true, weight);
 
                         if (has_io) {
                                 CGroupIODeviceWeight *w;
