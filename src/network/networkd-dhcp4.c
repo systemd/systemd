@@ -1125,7 +1125,7 @@ static int dhcp_lease_ip_change(sd_dhcp_client *client, Link *link) {
         return r;
 }
 
-static int dhcp_server_is_deny_listed(Link *link, sd_dhcp_client *client) {
+static int dhcp_server_is_filtered(Link *link, sd_dhcp_client *client) {
         sd_dhcp_lease *lease;
         struct in_addr addr;
         int r;
@@ -1142,39 +1142,16 @@ static int dhcp_server_is_deny_listed(Link *link, sd_dhcp_client *client) {
         if (r < 0)
                 return log_link_debug_errno(link, r, "Failed to get DHCP server IP address: %m");
 
-        if (set_contains(link->network->dhcp_deny_listed_ip, UINT32_TO_PTR(addr.s_addr))) {
-                log_struct(LOG_DEBUG,
-                           LOG_LINK_INTERFACE(link),
-                           LOG_LINK_MESSAGE(link, "DHCPv4 server IP address "IPV4_ADDRESS_FMT_STR" found in deny-list, ignoring offer",
-                                            IPV4_ADDRESS_FMT_VAL(addr)));
-                return true;
-        }
+        if (in4_address_is_filtered(&addr, link->network->dhcp_allow_listed_ip, link->network->dhcp_deny_listed_ip)) {
+                if (DEBUG_LOGGING) {
+                        if (link->network->dhcp_allow_listed_ip)
+                                log_link_debug(link, "DHCPv4 server IP address "IPV4_ADDRESS_FMT_STR" not found in allow-list, ignoring offer.",
+                                               IPV4_ADDRESS_FMT_VAL(addr));
+                        else
+                                log_link_debug(link, "DHCPv4 server IP address "IPV4_ADDRESS_FMT_STR" found in deny-list, ignoring offer.",
+                                               IPV4_ADDRESS_FMT_VAL(addr));
+                }
 
-        return false;
-}
-
-static int dhcp_server_is_allow_listed(Link *link, sd_dhcp_client *client) {
-        sd_dhcp_lease *lease;
-        struct in_addr addr;
-        int r;
-
-        assert(link);
-        assert(link->network);
-        assert(client);
-
-        r = sd_dhcp_client_get_lease(client, &lease);
-        if (r < 0)
-                return log_link_error_errno(link, r, "Failed to get DHCP lease: %m");
-
-        r = sd_dhcp_lease_get_server_identifier(lease, &addr);
-        if (r < 0)
-                return log_link_debug_errno(link, r, "Failed to get DHCP server IP address: %m");
-
-        if (set_contains(link->network->dhcp_allow_listed_ip, UINT32_TO_PTR(addr.s_addr))) {
-                log_struct(LOG_DEBUG,
-                           LOG_LINK_INTERFACE(link),
-                           LOG_LINK_MESSAGE(link, "DHCPv4 server IP address "IPV4_ADDRESS_FMT_STR" found in allow-list, accepting offer",
-                                            IPV4_ADDRESS_FMT_VAL(addr)));
                 return true;
         }
 
@@ -1267,19 +1244,13 @@ static int dhcp4_handler(sd_dhcp_client *client, int event, void *userdata) {
                         }
                         break;
                 case SD_DHCP_CLIENT_EVENT_SELECTING:
-                        if (!set_isempty(link->network->dhcp_allow_listed_ip)) {
-                                r = dhcp_server_is_allow_listed(link, client);
-                                if (r < 0)
-                                        return r;
-                                if (r == 0)
-                                        return -ENOMSG;
-                        } else {
-                                r = dhcp_server_is_deny_listed(link, client);
-                                if (r < 0)
-                                        return r;
-                                if (r != 0)
-                                        return -ENOMSG;
+                        r = dhcp_server_is_filtered(link, client);
+                        if (r < 0) {
+                                link_enter_failed(link);
+                                return r;
                         }
+                        if (r > 0)
+                                return -ENOMSG;
                         break;
 
                 case SD_DHCP_CLIENT_EVENT_TRANSIENT_FAILURE:
@@ -1757,64 +1728,6 @@ int config_parse_dhcp_max_attempts(
         network->dhcp_max_attempts = a;
 
         return 0;
-}
-
-int config_parse_dhcp_acl_ip_address(
-                const char *unit,
-                const char *filename,
-                unsigned line,
-                const char *section,
-                unsigned section_line,
-                const char *lvalue,
-                int ltype,
-                const char *rvalue,
-                void *data,
-                void *userdata) {
-
-        Network *network = data;
-        Set **acl;
-        int r;
-
-        assert(filename);
-        assert(lvalue);
-        assert(rvalue);
-        assert(data);
-
-        acl = STR_IN_SET(lvalue, "DenyList", "BlackList") ? &network->dhcp_deny_listed_ip : &network->dhcp_allow_listed_ip;
-
-        if (isempty(rvalue)) {
-                *acl = set_free(*acl);
-                return 0;
-        }
-
-        for (const char *p = rvalue;;) {
-                _cleanup_free_ char *n = NULL;
-                union in_addr_union ip;
-
-                r = extract_first_word(&p, &n, NULL, 0);
-                if (r == -ENOMEM)
-                        return log_oom();
-                if (r < 0) {
-                        log_syntax(unit, LOG_WARNING, filename, line, r,
-                                   "Failed to parse DHCP '%s=' IP address, ignoring assignment: %s",
-                                   lvalue, rvalue);
-                        return 0;
-                }
-                if (r == 0)
-                        return 0;
-
-                r = in_addr_from_string(AF_INET, n, &ip);
-                if (r < 0) {
-                        log_syntax(unit, LOG_WARNING, filename, line, r,
-                                   "DHCP '%s=' IP address is invalid, ignoring assignment: %s", lvalue, n);
-                        continue;
-                }
-
-                r = set_ensure_put(acl, NULL, UINT32_TO_PTR(ip.in.s_addr));
-                if (r < 0)
-                        log_syntax(unit, LOG_WARNING, filename, line, r,
-                                   "Failed to store DHCP '%s=' IP address '%s', ignoring assignment: %m", lvalue, n);
-        }
 }
 
 int config_parse_dhcp_ip_service_type(
