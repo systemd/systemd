@@ -9,7 +9,7 @@ static const NLType empty_types[1] = {
         /* fake array to avoid .types==NULL, which denotes invalid type-systems */
 };
 
-const NLTypeSystem empty_type_system = {
+static const NLTypeSystem empty_type_system = {
         .count = 0,
         .types = empty_types,
 };
@@ -19,9 +19,19 @@ static const NLType error_types[] = {
         [NLMSGERR_ATTR_OFFS] = { .type = NETLINK_TYPE_U32 },
 };
 
-const NLTypeSystem error_type_system = {
+static const NLTypeSystem error_type_system = {
         .count = ELEMENTSOF(error_types),
         .types = error_types,
+};
+
+static const NLType basic_types[] = {
+        [NLMSG_DONE]  = { .type = NETLINK_TYPE_NESTED, .type_system = &empty_type_system },
+        [NLMSG_ERROR] = { .type = NETLINK_TYPE_NESTED, .type_system = &error_type_system, .size = sizeof(struct nlmsgerr) },
+};
+
+const NLTypeSystem basic_type_system = {
+        .count = ELEMENTSOF(basic_types),
+        .types = basic_types,
 };
 
 uint16_t type_get_type(const NLType *type) {
@@ -54,8 +64,8 @@ uint16_t type_system_get_count(const NLTypeSystem *type_system) {
 }
 
 int type_system_root_get_type(sd_netlink *nl, const NLType **ret, uint16_t type) {
-        if (!nl)
-                return rtnl_get_type(type, ret);
+        if (!nl || IN_SET(type, NLMSG_DONE, NLMSG_ERROR))
+                return type_system_get_type(&basic_type_system, ret, type);
 
         switch(nl->protocol) {
         case NETLINK_ROUTE:
