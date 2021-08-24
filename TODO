@@ -1240,8 +1240,6 @@ Features:
 * homed: keep an fd to the homedir open at all times, to keep the fs pinned
   (autofs and such) while user is logged in.
 
-* when we resize disks (homed?) always round up to 4K sectors, not 512K
-
 * add a new switch --auto-definitions=yes/no or so to systemd-repart. If
   specified, synthesize a definition automatically if we can: enlarge last
   partition on disk, but only if it is marked for growing and not read-only.
