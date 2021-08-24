@@ -80,4 +80,7 @@ ENV{ID_SOFTWARE_RADIO}=="?*", TAG+="uaccess"
 # 3D printers, CNC machines, laser cutters, 3D scanners, etc.
 ENV{ID_MAKER_TOOL}=="?*", TAG+="uaccess"
 
+# Protocol analysers
+ENV{ID_PROTOCOL_ANALYSER}=="?*", TAG+="uaccess"
+
 LABEL="uaccess_end"
