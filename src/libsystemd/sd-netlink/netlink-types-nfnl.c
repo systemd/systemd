@@ -209,7 +209,7 @@ static const NLTypeSystem nfnl_nft_setelem_list_type_system = {
         .types = nfnl_nft_setelem_list_types,
 };
 
-static const NLType nfnl_nft_msg_types [] = {
+static const NLType nfnl_subsys_nft_types [] = {
         [NFT_MSG_DELTABLE]   = { .type = NETLINK_TYPE_NESTED, .type_system = &nfnl_nft_table_type_system, .size = sizeof(struct nfgenmsg) },
         [NFT_MSG_NEWTABLE]   = { .type = NETLINK_TYPE_NESTED, .type_system = &nfnl_nft_table_type_system, .size = sizeof(struct nfgenmsg) },
         [NFT_MSG_NEWCHAIN]   = { .type = NETLINK_TYPE_NESTED, .type_system = &nfnl_nft_chain_type_system, .size = sizeof(struct nfgenmsg) },
@@ -219,9 +219,9 @@ static const NLType nfnl_nft_msg_types [] = {
         [NFT_MSG_DELSETELEM] = { .type = NETLINK_TYPE_NESTED, .type_system = &nfnl_nft_setelem_list_type_system, .size = sizeof(struct nfgenmsg) },
 };
 
-static const NLTypeSystem nfnl_nft_msg_type_system = {
-        .count = ELEMENTSOF(nfnl_nft_msg_types),
-        .types = nfnl_nft_msg_types,
+static const NLTypeSystem nfnl_subsys_nft_type_system = {
+        .count = ELEMENTSOF(nfnl_subsys_nft_types),
+        .types = nfnl_subsys_nft_types,
 };
 
 static const NLType nfnl_msg_batch_types [] = {
@@ -233,10 +233,19 @@ static const NLTypeSystem nfnl_msg_batch_type_system = {
         .types = nfnl_msg_batch_types,
 };
 
-static const NLType nfnl_types[] = {
+static const NLType nfnl_subsys_none_types[] = {
         [NFNL_MSG_BATCH_BEGIN] = { .type = NETLINK_TYPE_NESTED, .type_system = &nfnl_msg_batch_type_system, .size = sizeof(struct nfgenmsg) },
         [NFNL_MSG_BATCH_END]   = { .type = NETLINK_TYPE_NESTED, .type_system = &nfnl_msg_batch_type_system, .size = sizeof(struct nfgenmsg) },
-        [NFNL_SUBSYS_NFTABLES] = { .type = NETLINK_TYPE_NESTED, .type_system = &nfnl_nft_msg_type_system, .size = sizeof(struct nfgenmsg) },
+};
+
+static const NLTypeSystem nfnl_subsys_none_type_system = {
+        .count = ELEMENTSOF(nfnl_subsys_none_types),
+        .types = nfnl_subsys_none_types,
+};
+
+static const NLType nfnl_types[] = {
+        [NFNL_SUBSYS_NONE]     = { .type = NETLINK_TYPE_NESTED, .type_system = &nfnl_subsys_none_type_system },
+        [NFNL_SUBSYS_NFTABLES] = { .type = NETLINK_TYPE_NESTED, .type_system = &nfnl_subsys_nft_type_system },
 };
 
 static const NLTypeSystem nfnl_type_system = {
@@ -245,5 +254,12 @@ static const NLTypeSystem nfnl_type_system = {
 };
 
 int nfnl_get_type(uint16_t nlmsg_type, const NLType **ret) {
-        return type_system_get_type(&nfnl_type_system, ret, nlmsg_type);
+        const NLTypeSystem *subsys;
+        int r;
+
+        r = type_system_get_type_system(&nfnl_type_system, &subsys, nlmsg_type >> 8);
+        if (r < 0)
+                return r;
+
+        return type_system_get_type(subsys, ret, nlmsg_type & ((1U << 8) - 1));
 }
