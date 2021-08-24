@@ -9,30 +9,21 @@ static const NLType empty_types[1] = {
         /* fake array to avoid .types==NULL, which denotes invalid type-systems */
 };
 
-static const NLTypeSystem empty_type_system = {
-        .count = 0,
-        .types = empty_types,
-};
+DEFINE_TYPE_SYSTEM(empty);
 
 static const NLType error_types[] = {
         [NLMSGERR_ATTR_MSG]  = { .type = NETLINK_TYPE_STRING },
         [NLMSGERR_ATTR_OFFS] = { .type = NETLINK_TYPE_U32 },
 };
 
-static const NLTypeSystem error_type_system = {
-        .count = ELEMENTSOF(error_types),
-        .types = error_types,
-};
+DEFINE_TYPE_SYSTEM(error);
 
 static const NLType basic_types[] = {
         [NLMSG_DONE]  = { .type = NETLINK_TYPE_NESTED, .type_system = &empty_type_system },
         [NLMSG_ERROR] = { .type = NETLINK_TYPE_NESTED, .type_system = &error_type_system, .size = sizeof(struct nlmsgerr) },
 };
 
-const NLTypeSystem basic_type_system = {
-        .count = ELEMENTSOF(basic_types),
-        .types = basic_types,
-};
+DEFINE_TYPE_SYSTEM(basic);
 
 uint16_t type_get_type(const NLType *type) {
         assert(type);
