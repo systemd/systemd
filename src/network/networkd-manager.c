@@ -46,6 +46,7 @@
 #include "networkd-routing-policy-rule.h"
 #include "networkd-speed-meter.h"
 #include "networkd-state-file.h"
+#include "networkd-varlink.h"
 #include "networkd-wifi.h"
 #include "networkd-wiphy.h"
 #include "ordered-set.h"
@@ -672,6 +673,8 @@ Manager* manager_free(Manager *m) {
 
         m->fw_ctx = fw_ctx_free(m->fw_ctx);
 
+        manager_varlink_done(m);
+
         return mfree(m);
 }
 
@@ -680,6 +683,10 @@ int manager_start(Manager *m) {
         int r;
 
         assert(m);
+
+        r = manager_varlink_init(m);
+        if (r < 0)
+                return r;
 
         r = manager_start_speed_meter(m);
         if (r < 0)

@@ -73,6 +73,8 @@ sources = files(
         'networkd-state-file.c',
         'networkd-sysctl.c',
         'networkd-util.c',
+        'networkd-varlink.c',
+        'networkd-varlink.h',
         'networkd-wifi.c',
         'networkd-wiphy.c',
         'tc/cake.c',
