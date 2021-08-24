@@ -138,40 +138,32 @@ uint16_t type_system_union_get_match_attribute(const NLTypeSystemUnion *type_sys
 }
 
 int type_system_union_get_type_system_by_string(const NLTypeSystemUnion *type_system_union, const NLTypeSystem **ret, const char *key) {
-        int type;
-
         assert(type_system_union);
+        assert(type_system_union->elements);
         assert(type_system_union->match_type == NL_MATCH_SIBLING);
-        assert(type_system_union->lookup);
-        assert(type_system_union->type_systems);
         assert(ret);
         assert(key);
 
-        type = type_system_union->lookup(key);
-        if (type < 0)
-                return -EOPNOTSUPP;
+        for (size_t i = 0; i < type_system_union->count; i++)
+                if (streq(type_system_union->elements[i].name, key)) {
+                        *ret = &type_system_union->elements[i].type_system;
+                        return 0;
+                }
 
-        assert(type < type_system_union->num);
-
-        *ret = &type_system_union->type_systems[type];
-        return 0;
+        return -EOPNOTSUPP;
 }
 
 int type_system_union_get_type_system_by_protocol(const NLTypeSystemUnion *type_system_union, const NLTypeSystem **ret, uint16_t protocol) {
-        const NLTypeSystem *type_system;
-
         assert(type_system_union);
-        assert(type_system_union->type_systems);
+        assert(type_system_union->elements);
         assert(type_system_union->match_type == NL_MATCH_PROTOCOL);
         assert(ret);
 
-        if (protocol >= type_system_union->num)
-                return -EOPNOTSUPP;
+        for (size_t i = 0; i < type_system_union->count; i++)
+                if (type_system_union->elements[i].protocol == protocol) {
+                        *ret = &type_system_union->elements[i].type_system;
+                        return 0;
+                }
 
-        type_system = &type_system_union->type_systems[protocol];
-        if (!type_system->types)
-                return -EOPNOTSUPP;
-
-        *ret = type_system;
-        return 0;
+        return -EOPNOTSUPP;
 }
