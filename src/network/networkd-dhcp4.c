@@ -29,6 +29,13 @@
 static int dhcp4_request_address_and_routes(Link *link, bool announce);
 static int dhcp4_remove_all(Link *link);
 
+bool link_dhcp4_with_address_enabled(Link *link) {
+        if (!link_dhcp4_enabled(link))
+                return false;
+
+        return link->network->dhcp_use_address;
+}
+
 void network_adjust_dhcp4(Network *network) {
         assert(network);
 
@@ -930,6 +937,9 @@ static int dhcp4_request_address(Link *link, bool announce) {
 
         assert(link);
         assert(link->network);
+
+        if (!link->network->dhcp_use_address)
+                return 0;
 
         if (!link->dhcp_lease)
                 return 0;
