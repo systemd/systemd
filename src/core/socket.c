@@ -34,6 +34,7 @@
 #include "process-util.h"
 #include "selinux-util.h"
 #include "serialize.h"
+#include "service.h"
 #include "signal-util.h"
 #include "smack-util.h"
 #include "socket.h"
