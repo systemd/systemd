@@ -814,12 +814,6 @@ static int automount_start(Unit *u) {
         if (r < 0)
                 return r;
 
-        r = unit_test_start_limit(u);
-        if (r < 0) {
-                automount_enter_dead(a, AUTOMOUNT_FAILURE_START_LIMIT_HIT);
-                return r;
-        }
-
         r = unit_acquire_invocation_id(u);
         if (r < 0)
                 return r;
@@ -1065,6 +1059,21 @@ static bool automount_supported(void) {
         return supported;
 }
 
+static int automount_test_start_limit(Unit *u) {
+        Automount *a = AUTOMOUNT(u);
+        int r;
+
+        assert(a);
+
+        r = unit_test_start_limit(u);
+        if (r < 0) {
+                automount_enter_dead(a, AUTOMOUNT_FAILURE_START_LIMIT_HIT);
+                return r;
+        }
+
+        return 0;
+}
+
 static const char* const automount_result_table[_AUTOMOUNT_RESULT_MAX] = {
         [AUTOMOUNT_SUCCESS] = "success",
         [AUTOMOUNT_FAILURE_RESOURCES] = "resources",
@@ -1127,4 +1136,6 @@ const UnitVTable automount_vtable = {
                         [JOB_FAILED]     = "Failed to unset automount %s.",
                 },
         },
+
+        .test_start_limit = automount_test_start_limit,
 };

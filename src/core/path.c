@@ -590,12 +590,6 @@ static int path_start(Unit *u) {
         if (r < 0)
                 return r;
 
-        r = unit_test_start_limit(u);
-        if (r < 0) {
-                path_enter_dead(p, PATH_FAILURE_START_LIMIT_HIT);
-                return r;
-        }
-
         r = unit_acquire_invocation_id(u);
         if (r < 0)
                 return r;
@@ -811,6 +805,21 @@ static void path_reset_failed(Unit *u) {
         p->result = PATH_SUCCESS;
 }
 
+static int path_test_start_limit(Unit *u) {
+        Path *p = PATH(u);
+        int r;
+
+        assert(p);
+
+        r = unit_test_start_limit(u);
+        if (r < 0) {
+                path_enter_dead(p, PATH_FAILURE_START_LIMIT_HIT);
+                return r;
+        }
+
+        return 0;
+}
+
 static const char* const path_type_table[_PATH_TYPE_MAX] = {
         [PATH_EXISTS] = "PathExists",
         [PATH_EXISTS_GLOB] = "PathExistsGlob",
@@ -865,4 +874,6 @@ const UnitVTable path_vtable = {
         .reset_failed = path_reset_failed,
 
         .bus_set_property = bus_path_set_property,
+
+        .test_start_limit = path_test_start_limit,
 };
