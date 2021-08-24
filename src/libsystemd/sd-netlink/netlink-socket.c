@@ -326,7 +326,7 @@ int socket_read_message(sd_netlink *nl) {
 
         for (struct nlmsghdr *new_msg = nl->rbuffer; NLMSG_OK(new_msg, len) && !done; new_msg = NLMSG_NEXT(new_msg, len)) {
                 _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
-                const NLType *nl_type;
+                size_t size;
 
                 if (!group && new_msg->nlmsg_pid != nl->sockaddr.nl.nl_pid)
                         /* not broadcast and not for us */
@@ -346,7 +346,7 @@ int socket_read_message(sd_netlink *nl) {
                 }
 
                 /* check that we support this message type */
-                r = type_system_root_get_type(nl, &nl_type, new_msg->nlmsg_type);
+                r = type_system_root_get_type_system_and_header_size(nl, new_msg->nlmsg_type, NULL, &size);
                 if (r < 0) {
                         if (r == -EOPNOTSUPP)
                                 log_debug("sd-netlink: ignored message with unknown type: %i",
@@ -356,7 +356,7 @@ int socket_read_message(sd_netlink *nl) {
                 }
 
                 /* check that the size matches the message type */
-                if (new_msg->nlmsg_len < NLMSG_LENGTH(type_get_size(nl_type))) {
+                if (new_msg->nlmsg_len < NLMSG_LENGTH(size)) {
                         log_debug("sd-netlink: message is shorter than expected, dropping");
                         continue;
                 }

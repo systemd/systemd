@@ -95,8 +95,8 @@ struct sd_netlink {
         sd_event_source *exit_event_source;
         sd_event *event;
 
-        Hashmap *genl_family_to_nlmsg_type;
-        Hashmap *nlmsg_type_to_genl_family;
+        Hashmap *genl_family_by_name;
+        Hashmap *genl_family_by_id;
 };
 
 struct netlink_attribute {

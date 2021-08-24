@@ -80,20 +80,18 @@ int message_new_full(
 }
 
 int message_new(sd_netlink *nl, sd_netlink_message **ret, uint16_t type) {
-        const NLType *nl_type;
+        const NLTypeSystem *type_system;
+        size_t size;
         int r;
 
         assert_return(nl, -EINVAL);
         assert_return(ret, -EINVAL);
 
-        r = type_system_root_get_type(nl, &nl_type, type);
+        r = type_system_root_get_type_system_and_header_size(nl, type, &type_system, &size);
         if (r < 0)
                 return r;
 
-        if (type_get_type(nl_type) != NETLINK_TYPE_NESTED)
-                return -EINVAL;
-
-        return message_new_full(nl, type, type_get_type_system(nl_type), type_get_size(nl_type), ret);
+        return message_new_full(nl, type, type_system, size, ret);
 }
 
 int message_new_synthetic_error(sd_netlink *nl, int error, uint32_t serial, sd_netlink_message **ret) {
@@ -1319,8 +1317,6 @@ static int netlink_message_parse_error(sd_netlink_message *m) {
 }
 
 int sd_netlink_message_rewind(sd_netlink_message *m, sd_netlink *nl) {
-        const NLType *nl_type;
-        uint16_t type;
         size_t size;
         int r;
 
@@ -1341,28 +1337,18 @@ int sd_netlink_message_rewind(sd_netlink_message *m, sd_netlink *nl) {
 
         assert(m->hdr);
 
-        r = type_system_root_get_type(nl, &nl_type, m->hdr->nlmsg_type);
+        r = type_system_root_get_type_system_and_header_size(nl, m->hdr->nlmsg_type,
+                                                             &m->containers[0].type_system, &size);
         if (r < 0)
                 return r;
 
-        type = type_get_type(nl_type);
-        size = type_get_size(nl_type);
+        if (sd_netlink_message_is_error(m))
+                return netlink_message_parse_error(m);
 
-        if (type == NETLINK_TYPE_NESTED) {
-                m->containers[0].type_system = type_get_type_system(nl_type);
-
-                if (sd_netlink_message_is_error(m))
-                        r = netlink_message_parse_error(m);
-                else
-                        r = netlink_container_parse(m,
-                                                    &m->containers[m->n_containers],
-                                                    (struct rtattr*)((uint8_t*) NLMSG_DATA(m->hdr) + NLMSG_ALIGN(size)),
-                                                    NLMSG_PAYLOAD(m->hdr, size));
-                if (r < 0)
-                        return r;
-        }
-
-        return 0;
+        return netlink_container_parse(m,
+                                       &m->containers[0],
+                                       (struct rtattr*)((uint8_t*) NLMSG_DATA(m->hdr) + NLMSG_ALIGN(size)),
+                                       NLMSG_PAYLOAD(m->hdr, size));
 }
 
 void message_seal(sd_netlink_message *m) {

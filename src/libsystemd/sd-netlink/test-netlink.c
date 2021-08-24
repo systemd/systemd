@@ -9,6 +9,7 @@
 #include "alloc-util.h"
 #include "ether-addr-util.h"
 #include "macro.h"
+#include "netlink-genl.h"
 #include "netlink-internal.h"
 #include "netlink-util.h"
 #include "socket-util.h"
@@ -514,7 +515,7 @@ static void test_array(void) {
         log_debug("/* %s */", __func__);
 
         assert_se(sd_genl_socket_open(&genl) >= 0);
-        assert_se(sd_genl_message_new(genl, SD_GENL_ID_CTRL, CTRL_CMD_GETFAMILY, &m) >= 0);
+        assert_se(sd_genl_message_new(genl, CTRL_GENL_NAME, CTRL_CMD_GETFAMILY, &m) >= 0);
 
         assert_se(sd_netlink_message_open_container(m, CTRL_ATTR_MCAST_GROUPS) >= 0);
         for (unsigned i = 0; i < 10; i++) {
@@ -582,6 +583,23 @@ static void test_strv(sd_netlink *rtnl) {
         assert_se(sd_netlink_message_exit_container(m) >= 0);
 }
 
+static void test_genl(void) {
+        _cleanup_(sd_netlink_unrefp) sd_netlink *genl = NULL;
+        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
+        const char *name;
+
+        log_debug("/* %s */", __func__);
+
+        assert_se(sd_genl_socket_open(&genl) >= 0);
+        assert_se(sd_genl_message_new(genl, CTRL_GENL_NAME, CTRL_CMD_GETFAMILY, &m) >= 0);
+        assert_se(sd_genl_message_get_family_name(genl, m, &name) >= 0);
+        assert_se(streq(name, CTRL_GENL_NAME));
+
+        m = sd_netlink_message_unref(m);
+        assert_se(sd_genl_message_new(genl, "should-not-exist", CTRL_CMD_GETFAMILY, &m) < 0);
+        assert_se(sd_genl_message_new(genl, "should-not-exist", CTRL_CMD_GETFAMILY, &m) == -EOPNOTSUPP);
+}
+
 int main(void) {
         sd_netlink *rtnl;
         sd_netlink_message *m;
@@ -641,6 +659,8 @@ int main(void) {
         assert_se((m = sd_netlink_message_unref(m)) == NULL);
         assert_se((r = sd_netlink_message_unref(r)) == NULL);
         assert_se((rtnl = sd_netlink_unref(rtnl)) == NULL);
+
+        test_genl();
 
         return EXIT_SUCCESS;
 }
