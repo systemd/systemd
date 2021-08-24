@@ -2,6 +2,7 @@
 
 #include <linux/netlink.h>
 
+#include "netlink-genl.h"
 #include "netlink-internal.h"
 #include "netlink-types-internal.h"
 
@@ -54,20 +55,43 @@ uint16_t type_system_get_count(const NLTypeSystem *type_system) {
         return type_system->count;
 }
 
-int type_system_root_get_type(sd_netlink *nl, const NLType **ret, uint16_t type) {
-        if (!nl || IN_SET(type, NLMSG_DONE, NLMSG_ERROR))
-                return type_system_get_type(&basic_type_system, ret, type);
+int type_system_root_get_type_system_and_header_size(
+                sd_netlink *nl,
+                uint16_t type,
+                const NLTypeSystem **ret_type_system,
+                size_t *ret_header_size) {
 
-        switch(nl->protocol) {
-        case NETLINK_ROUTE:
-                return rtnl_get_type(type, ret);
-        case NETLINK_NETFILTER:
-                return nfnl_get_type(type, ret);
-        case NETLINK_GENERIC:
-                return genl_get_type(nl, type, ret);
-        default:
+        const NLType *nl_type;
+        int r;
+
+        assert(nl);
+
+        if (IN_SET(type, NLMSG_DONE, NLMSG_ERROR))
+                r = type_system_get_type(&basic_type_system, &nl_type, type);
+        else
+                switch(nl->protocol) {
+                case NETLINK_ROUTE:
+                        r = rtnl_get_type(type, &nl_type);
+                        break;
+                case NETLINK_NETFILTER:
+                        r = nfnl_get_type(type, &nl_type);
+                        break;
+                case NETLINK_GENERIC:
+                        return genl_get_type_system_and_header_size(nl, type, ret_type_system, ret_header_size);
+                default:
+                        return -EOPNOTSUPP;
+                }
+        if (r < 0)
+                return r;
+
+        if (type_get_type(nl_type) != NETLINK_TYPE_NESTED)
                 return -EOPNOTSUPP;
-        }
+
+        if (ret_type_system)
+                *ret_type_system = type_get_type_system(nl_type);
+        if (ret_header_size)
+                *ret_header_size = type_get_size(nl_type);
+        return 0;
 }
 
 int type_system_get_type(const NLTypeSystem *type_system, const NLType **ret, uint16_t type) {

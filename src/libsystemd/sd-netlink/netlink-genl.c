@@ -7,91 +7,196 @@
 #include "alloc-util.h"
 #include "netlink-genl.h"
 #include "netlink-internal.h"
+#include "netlink-types.h"
 
-typedef struct {
-        const char* name;
-        uint8_t version;
-} genl_family;
+typedef struct GenericNetlinkFamily {
+        sd_netlink *genl;
 
-static const genl_family genl_families[] = {
-        [SD_GENL_ID_CTRL]   = { .name = "",          .version = 1 },
-        [SD_GENL_WIREGUARD] = { .name = "wireguard", .version = 1 },
-        [SD_GENL_FOU]       = { .name = "fou",       .version = 1 },
-        [SD_GENL_L2TP]      = { .name = "l2tp",      .version = 1 },
-        [SD_GENL_MACSEC]    = { .name = "macsec",    .version = 1 },
-        [SD_GENL_NL80211]   = { .name = "nl80211",   .version = 1 },
-        [SD_GENL_BATADV]    = { .name = "batadv",    .version = 1 },
+        const NLTypeSystem *type_system;
+
+        uint16_t id; /* a.k.a nlmsg_type */
+        char *name;
+} GenericNetlinkFamily;
+
+static const GenericNetlinkFamily nlctrl_static = {
+        .id = GENL_ID_CTRL,
+        .name = (char*) CTRL_GENL_NAME,
 };
 
-int sd_genl_socket_open(sd_netlink **ret) {
-        return netlink_open_family(ret, NETLINK_GENERIC);
+static GenericNetlinkFamily *genl_family_free(GenericNetlinkFamily *f) {
+        if (!f)
+                return NULL;
+
+        if (f->genl) {
+                if (f->id > 0)
+                        hashmap_remove(f->genl->genl_family_by_id, UINT_TO_PTR(f->id));
+                if (f->name)
+                        hashmap_remove(f->genl->genl_family_by_name, f->name);
+        }
+
+        free(f->name);
+
+        return mfree(f);
 }
 
-static int genl_message_new(sd_netlink *nl, sd_genl_family_t family, uint16_t nlmsg_type, uint8_t cmd, sd_netlink_message **ret) {
-        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
-        const NLType *type;
-        size_t size;
+DEFINE_TRIVIAL_CLEANUP_FUNC(GenericNetlinkFamily*, genl_family_free);
+
+void genl_clear_family(sd_netlink *nl) {
+        assert(nl);
+
+        nl->genl_family_by_name = hashmap_free_with_destructor(nl->genl_family_by_name, genl_family_free);
+        nl->genl_family_by_id = hashmap_free_with_destructor(nl->genl_family_by_id, genl_family_free);
+}
+
+static int genl_family_new(
+                sd_netlink *nl,
+                const char *expected_family_name,
+                const NLTypeSystem *type_system,
+                sd_netlink_message *message,
+                const GenericNetlinkFamily **ret) {
+
+        _cleanup_(genl_family_freep) GenericNetlinkFamily *f = NULL;
+        const char *family_name;
         int r;
 
         assert(nl);
-        assert(nl->protocol == NETLINK_GENERIC);
+        assert(expected_family_name);
+        assert(type_system);
+        assert(message);
         assert(ret);
 
-        r = type_system_root_get_type(nl, &type, nlmsg_type);
-        if (r < 0)
-                return r;
-
-        r = message_new_empty(nl, &m);
-        if (r < 0)
-                return r;
-
-        size = NLMSG_SPACE(sizeof(struct genlmsghdr));
-        m->hdr = malloc0(size);
-        if (!m->hdr)
+        f = new(GenericNetlinkFamily, 1);
+        if (!f)
                 return -ENOMEM;
 
-        m->hdr->nlmsg_flags = NLM_F_REQUEST | NLM_F_ACK;
-        m->hdr->nlmsg_len = size;
-        m->hdr->nlmsg_type = nlmsg_type;
-
-        m->containers[0].type_system = type_get_type_system(type);
-
-        *(struct genlmsghdr *) NLMSG_DATA(m->hdr) = (struct genlmsghdr) {
-                .cmd = cmd,
-                .version = genl_families[family].version,
+        *f = (GenericNetlinkFamily) {
+                .type_system = type_system,
         };
 
-        *ret = TAKE_PTR(m);
+        if (sd_netlink_message_is_error(message)) {
+                int e;
 
+                /* Kernel does not support the genl family? To prevent from resolving the family name
+                 * again, let's store the family with zero id to indicate that. */
+
+                e = sd_netlink_message_get_errno(message);
+                if (e >= 0) /* Huh? */
+                        e = -EOPNOTSUPP;
+
+                f->name = strdup(expected_family_name);
+                if (!f->name)
+                        return e;
+
+                if (hashmap_ensure_put(&nl->genl_family_by_name, &string_hash_ops, f->name, f) < 0)
+                        return e;
+
+                f->genl = nl;
+                TAKE_PTR(f);
+                return e;
+        }
+
+        r = sd_genl_message_get_family_name(nl, message, &family_name);
+        if (r < 0)
+                return r;
+
+        if (!streq(family_name, CTRL_GENL_NAME))
+                return -EINVAL;
+
+        r = sd_netlink_message_read_u16(message, CTRL_ATTR_FAMILY_ID, &f->id);
+        if (r < 0)
+                return r;
+
+        r = sd_netlink_message_read_string_strdup(message, CTRL_ATTR_FAMILY_NAME, &f->name);
+        if (r < 0)
+                return r;
+
+        if (!streq(f->name, expected_family_name))
+                return -EINVAL;
+
+        r = hashmap_ensure_put(&nl->genl_family_by_id, NULL, UINT_TO_PTR(f->id), f);
+        if (r < 0)
+                return r;
+
+        r = hashmap_ensure_put(&nl->genl_family_by_name, &string_hash_ops, f->name, f);
+        if (r < 0) {
+                hashmap_remove(nl->genl_family_by_id, UINT_TO_PTR(f->id));
+                return r;
+        }
+
+        f->genl = nl;
+        *ret = TAKE_PTR(f);
         return 0;
 }
 
-static int lookup_nlmsg_type(sd_netlink *nl, sd_genl_family_t family, uint16_t *ret) {
-        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL, *reply = NULL;
-        uint16_t u;
-        void *v;
+static int genl_family_get_type_system(const GenericNetlinkFamily *family, const NLTypeSystem **ret) {
+        assert(family);
+        assert(ret);
+
+        if (family->type_system) {
+                *ret = family->type_system;
+                return 0;
+        }
+
+        return genl_get_type_system_by_name(family->name, ret);
+}
+
+static int genl_message_new(
+                sd_netlink *nl,
+                const GenericNetlinkFamily *family,
+                uint8_t cmd,
+                sd_netlink_message **ret) {
+
+        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
+        const NLTypeSystem *type_system;
         int r;
 
         assert(nl);
         assert(nl->protocol == NETLINK_GENERIC);
+        assert(family);
         assert(ret);
 
-        if (family == SD_GENL_ID_CTRL) {
-                *ret = GENL_ID_CTRL;
-                return 0;
-        }
-
-        v = hashmap_get(nl->genl_family_to_nlmsg_type, INT_TO_PTR(family));
-        if (v) {
-                *ret = PTR_TO_UINT(v);
-                return 0;
-        }
-
-        r = genl_message_new(nl, SD_GENL_ID_CTRL, GENL_ID_CTRL, CTRL_CMD_GETFAMILY, &req);
+        r = genl_family_get_type_system(family, &type_system);
         if (r < 0)
                 return r;
 
-        r = sd_netlink_message_append_string(req, CTRL_ATTR_FAMILY_NAME, genl_families[family].name);
+        r = message_new_full(nl, family->id, type_system, sizeof(struct genlmsghdr), &m);
+        if (r < 0)
+                return r;
+
+        *(struct genlmsghdr *) NLMSG_DATA(m->hdr) = (struct genlmsghdr) {
+                .cmd = cmd,
+                .version = 1,
+        };
+
+        *ret = TAKE_PTR(m);
+        return 0;
+}
+
+static int genl_family_get_by_name_internal(
+                sd_netlink *nl,
+                const GenericNetlinkFamily *ctrl,
+                const char *name,
+                const GenericNetlinkFamily **ret) {
+
+        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL, *reply = NULL;
+        const NLTypeSystem *type_system;
+        int r;
+
+        assert(nl);
+        assert(nl->protocol == NETLINK_GENERIC);
+        assert(ctrl);
+        assert(name);
+        assert(ret);
+
+        r = genl_get_type_system_by_name(name, &type_system);
+        if (r < 0)
+                return r;
+
+        r = genl_message_new(nl, ctrl, CTRL_CMD_GETFAMILY, &req);
+        if (r < 0)
+                return r;
+
+        r = sd_netlink_message_append_string(req, CTRL_ATTR_FAMILY_NAME, name);
         if (r < 0)
                 return r;
 
@@ -99,62 +204,105 @@ static int lookup_nlmsg_type(sd_netlink *nl, sd_genl_family_t family, uint16_t *
         if (r < 0)
                 return r;
 
-        r = sd_netlink_message_read_u16(reply, CTRL_ATTR_FAMILY_ID, &u);
-        if (r < 0)
-                return r;
-
-        r = hashmap_ensure_put(&nl->genl_family_to_nlmsg_type, NULL, INT_TO_PTR(family), UINT_TO_PTR(u));
-        if (r < 0)
-                return r;
-
-        r = hashmap_ensure_put(&nl->nlmsg_type_to_genl_family, NULL, UINT_TO_PTR(u), INT_TO_PTR(family));
-        if (r < 0)
-                return r;
-
-        *ret = u;
-        return 0;
+        return genl_family_new(nl, name, type_system, reply, ret);
 }
 
-int sd_genl_message_new(sd_netlink *nl, sd_genl_family_t family, uint8_t cmd, sd_netlink_message **ret) {
-        uint16_t nlmsg_type = 0;  /* Unnecessary initialization to appease gcc */
+static int genl_family_get_by_name(sd_netlink *nl, const char *name, const GenericNetlinkFamily **ret) {
+        const GenericNetlinkFamily *f, *ctrl;
         int r;
 
-        assert_return(nl, -EINVAL);
-        assert_return(nl->protocol == NETLINK_GENERIC, -EINVAL);
-        assert_return(ret, -EINVAL);
+        assert(nl);
+        assert(nl->protocol == NETLINK_GENERIC);
+        assert(name);
+        assert(ret);
 
-        r = lookup_nlmsg_type(nl, family, &nlmsg_type);
-        if (r < 0)
-                return r;
+        f = hashmap_get(nl->genl_family_by_name, name);
+        if (f) {
+                if (f->id == 0) /* kernel does not support the family. */
+                        return -EOPNOTSUPP;
 
-        return genl_message_new(nl, family, nlmsg_type, cmd, ret);
+                *ret = f;
+                return 0;
+        }
+
+        if (streq(name, CTRL_GENL_NAME))
+                return genl_family_get_by_name_internal(nl, &nlctrl_static, CTRL_GENL_NAME, ret);
+
+        ctrl = hashmap_get(nl->genl_family_by_name, CTRL_GENL_NAME);
+        if (!ctrl) {
+                r = genl_family_get_by_name_internal(nl, &nlctrl_static, CTRL_GENL_NAME, &ctrl);
+                if (r < 0)
+                        return r;
+        }
+
+        return genl_family_get_by_name_internal(nl, ctrl, name, ret);
 }
 
-int nlmsg_type_to_genl_family(const sd_netlink *nl, uint16_t nlmsg_type, sd_genl_family_t *ret) {
-        void *p;
+static int genl_family_get_by_id(sd_netlink *nl, uint16_t id, const GenericNetlinkFamily **ret) {
+        const GenericNetlinkFamily *f;
 
         assert(nl);
         assert(nl->protocol == NETLINK_GENERIC);
         assert(ret);
 
-        if (nlmsg_type == NLMSG_ERROR)
-                *ret = SD_GENL_ERROR;
-        else if (nlmsg_type == NLMSG_DONE)
-                *ret = SD_GENL_DONE;
-        else if (nlmsg_type == GENL_ID_CTRL)
-                *ret = SD_GENL_ID_CTRL;
-        else {
-                p = hashmap_get(nl->nlmsg_type_to_genl_family, UINT_TO_PTR(nlmsg_type));
-                if (!p)
-                        return -EOPNOTSUPP;
-
-                *ret = PTR_TO_INT(p);
+        f = hashmap_get(nl->genl_family_by_id, UINT_TO_PTR(id));
+        if (f) {
+                *ret = f;
+                return 0;
         }
 
+        if (id == GENL_ID_CTRL) {
+                *ret = &nlctrl_static;
+                return 0;
+        }
+
+        return -ENOENT;
+}
+
+int genl_get_type_system_and_header_size(
+                sd_netlink *nl,
+                uint16_t id,
+                const NLTypeSystem **ret_type_system,
+                size_t *ret_header_size) {
+
+        const GenericNetlinkFamily *f;
+        int r;
+
+        assert(nl);
+        assert(nl->protocol == NETLINK_GENERIC);
+
+        r = genl_family_get_by_id(nl, id, &f);
+        if (r < 0)
+                return r;
+
+        if (ret_type_system) {
+                r = genl_family_get_type_system(f, ret_type_system);
+                if (r < 0)
+                        return r;
+        }
+        if (ret_header_size)
+                *ret_header_size = sizeof(struct genlmsghdr);
         return 0;
 }
 
-int sd_genl_message_get_family(sd_netlink *nl, sd_netlink_message *m, sd_genl_family_t *ret) {
+int sd_genl_message_new(sd_netlink *nl, const char *family_name, uint8_t cmd, sd_netlink_message **ret) {
+        const GenericNetlinkFamily *family;
+        int r;
+
+        assert_return(nl, -EINVAL);
+        assert_return(nl->protocol == NETLINK_GENERIC, -EINVAL);
+        assert_return(family_name, -EINVAL);
+        assert_return(ret, -EINVAL);
+
+        r = genl_family_get_by_name(nl, family_name, &family);
+        if (r < 0)
+                return r;
+
+        return genl_message_new(nl, family, cmd, ret);
+}
+
+int sd_genl_message_get_family_name(sd_netlink *nl, sd_netlink_message *m, const char **ret) {
+        const GenericNetlinkFamily *family;
         uint16_t nlmsg_type;
         int r;
 
@@ -167,5 +315,14 @@ int sd_genl_message_get_family(sd_netlink *nl, sd_netlink_message *m, sd_genl_fa
         if (r < 0)
                 return r;
 
-        return nlmsg_type_to_genl_family(nl, nlmsg_type, ret);
+        r = genl_family_get_by_id(nl, nlmsg_type, &family);
+        if (r < 0)
+                return r;
+
+        *ret = family->name;
+        return 0;
+}
+
+int sd_genl_socket_open(sd_netlink **ret) {
+        return netlink_open_family(ret, NETLINK_GENERIC);
 }
