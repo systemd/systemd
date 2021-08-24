@@ -46,7 +46,6 @@ int main(int argc, char **argv) {
         assert_cc(sizeof(sd_lldp_event_t) == sizeof(int64_t));
         assert_cc(sizeof(sd_ndisc_event_t) == sizeof(int64_t));
         assert_cc(sizeof(sd_dhcp_lease_server_type_t) == sizeof(int64_t));
-        assert_cc(sizeof(sd_genl_family_t) == sizeof(int64_t));
 
         return EXIT_SUCCESS;
 }
