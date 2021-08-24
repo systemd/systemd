@@ -1717,13 +1717,20 @@ static void manager_ready(Manager *m) {
         /* Let's finally catch up with any changes that took place while we were reloading/reexecing */
         manager_catchup(m);
 
+        /* Create a file which will indicate when the manager loaded units for the last time. */
+        (void) touch_file("/run/systemd/systemd-units-load-start", false, m->units_reloading_start_timestamp == 0
+                ? now(CLOCK_REALTIME)
+                : m->units_reloading_start_timestamp, UID_INVALID, GID_INVALID, 0444);
+
         m->honor_device_enumeration = true;
 }
 
 Manager* manager_reloading_start(Manager *m) {
         m->n_reloading++;
+        m->units_reloading_start_timestamp = now(CLOCK_REALTIME);
         return m;
 }
+
 void manager_reloading_stopp(Manager **m) {
         if (*m) {
                 assert((*m)->n_reloading > 0);
