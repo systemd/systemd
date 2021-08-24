@@ -635,12 +635,6 @@ static int timer_start(Unit *u) {
         if (r < 0)
                 return r;
 
-        r = unit_test_start_limit(u);
-        if (r < 0) {
-                timer_enter_dead(t, TIMER_FAILURE_START_LIMIT_HIT);
-                return r;
-        }
-
         r = unit_acquire_invocation_id(u);
         if (r < 0)
                 return r;
@@ -901,6 +895,21 @@ static int timer_can_clean(Unit *u, ExecCleanMask *ret) {
         return 0;
 }
 
+static int timer_test_start_limit(Unit *u) {
+        Timer *t = TIMER(u);
+        int r;
+
+        assert(t);
+
+        r = unit_test_start_limit(u);
+        if (r < 0) {
+                timer_enter_dead(t, TIMER_FAILURE_START_LIMIT_HIT);
+                return r;
+        }
+
+        return 0;
+}
+
 static const char* const timer_base_table[_TIMER_BASE_MAX] = {
         [TIMER_ACTIVE] = "OnActiveSec",
         [TIMER_BOOT] = "OnBootSec",
@@ -960,4 +969,6 @@ const UnitVTable timer_vtable = {
         .timezone_change = timer_timezone_change,
 
         .bus_set_property = bus_timer_set_property,
+
+        .test_start_limit = timer_test_start_limit,
 };

@@ -933,12 +933,6 @@ static int swap_start(Unit *u) {
                 if (UNIT(other)->job && UNIT(other)->job->state == JOB_RUNNING)
                         return -EAGAIN;
 
-        r = unit_test_start_limit(u);
-        if (r < 0) {
-                swap_enter_dead(s, SWAP_FAILURE_START_LIMIT_HIT);
-                return r;
-        }
-
         r = unit_acquire_invocation_id(u);
         if (r < 0)
                 return r;
@@ -1588,6 +1582,21 @@ static int swap_can_clean(Unit *u, ExecCleanMask *ret) {
         return exec_context_get_clean_mask(&s->exec_context, ret);
 }
 
+static int swap_test_start_limit(Unit *u) {
+        Swap *s = SWAP(u);
+        int r;
+
+        assert(s);
+
+        r = unit_test_start_limit(u);
+        if (r < 0) {
+                swap_enter_dead(s, SWAP_FAILURE_START_LIMIT_HIT);
+                return r;
+        }
+
+        return 0;
+}
+
 static const char* const swap_exec_command_table[_SWAP_EXEC_COMMAND_MAX] = {
         [SWAP_EXEC_ACTIVATE] = "ExecActivate",
         [SWAP_EXEC_DEACTIVATE] = "ExecDeactivate",
@@ -1683,4 +1692,6 @@ const UnitVTable swap_vtable = {
                         [JOB_TIMEOUT]    = "Timed out deactivating swap %s.",
                 },
         },
+
+        .test_start_limit = swap_test_start_limit,
 };

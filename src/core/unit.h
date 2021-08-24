@@ -649,6 +649,10 @@ typedef struct UnitVTable {
          * of this type will immediately fail. */
         bool (*supported)(void);
 
+        /* If this function is set, it's invoked first as part of starting a unit to allow start rate
+         * limiting checks to occur before we do anything else. */
+        int (*test_start_limit)(Unit *u);
+
         /* The strings to print in status messages */
         UnitStatusMessageFormats status_message_formats;
 

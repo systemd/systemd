@@ -33,6 +33,8 @@ if install_tests
                        install_dir : testdata_dir)
         install_subdir('testsuite-52.units',
                        install_dir : testdata_dir)
+        install_subdir('testsuite-63.units',
+                       install_dir : testdata_dir)
 
         install_data(kbd_model_map,
                      install_dir : testdata_dir + '/test-keymap-util')
