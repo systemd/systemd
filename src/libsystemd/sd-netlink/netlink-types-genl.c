@@ -25,10 +25,29 @@ static const NLTypeSystem genl_ctrl_mcast_group_type_system = {
         .types = genl_ctrl_mcast_group_types,
 };
 
+static const NLType genl_ctrl_ops_types[] = {
+        [CTRL_ATTR_OP_ID]           = { .type = NETLINK_TYPE_U32 },
+        [CTRL_ATTR_OP_FLAGS]        = { .type = NETLINK_TYPE_U32 },
+};
+
+static const NLTypeSystem genl_ctrl_ops_type_system = {
+        .count = ELEMENTSOF(genl_ctrl_ops_types),
+        .types = genl_ctrl_ops_types,
+};
+
 static const NLType genl_ctrl_types[] = {
         [CTRL_ATTR_FAMILY_ID]    = { .type = NETLINK_TYPE_U16 },
         [CTRL_ATTR_FAMILY_NAME]  = { .type = NETLINK_TYPE_STRING },
+        [CTRL_ATTR_VERSION]      = { .type = NETLINK_TYPE_U32 },
+        [CTRL_ATTR_HDRSIZE]      = { .type = NETLINK_TYPE_U32 },
+        [CTRL_ATTR_MAXATTR]      = { .type = NETLINK_TYPE_U32 },
+        [CTRL_ATTR_OPS]          = { .type = NETLINK_TYPE_NESTED, .type_system = &genl_ctrl_ops_type_system },
         [CTRL_ATTR_MCAST_GROUPS] = { .type = NETLINK_TYPE_NESTED, .type_system = &genl_ctrl_mcast_group_type_system },
+        /*
+        [CTRL_ATTR_POLICY]       = { .type = NETLINK_TYPE_NESTED, },
+        [CTRL_ATTR_OP_POLICY]    = { .type = NETLINK_TYPE_NESTED, }
+        */
+        [CTRL_ATTR_OP]           = { .type = NETLINK_TYPE_U32 },
 };
 
 static const NLTypeSystem genl_ctrl_type_system = {
