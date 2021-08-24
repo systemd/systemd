@@ -35,7 +35,7 @@ typedef struct NLTypeSystemUnion NLTypeSystemUnion;
 typedef struct NLTypeSystem NLTypeSystem;
 typedef struct NLType NLType;
 
-extern const NLTypeSystem genl_family_type_system_root;
+extern const NLTypeSystem genl_family_type_system;
 
 int rtnl_get_type(uint16_t nlmsg_type, const NLType **ret);
 int nfnl_get_type(uint16_t nlmsg_type, const NLType **ret);
