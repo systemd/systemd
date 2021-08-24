@@ -128,7 +128,7 @@ int sd_netlink_message_exit_container(sd_netlink_message *m);
 int sd_netlink_message_open_array(sd_netlink_message *m, uint16_t type);
 int sd_netlink_message_cancel_array(sd_netlink_message *m);
 
-int sd_netlink_message_rewind(sd_netlink_message *m, sd_netlink *genl);
+int sd_netlink_message_rewind(sd_netlink_message *m, sd_netlink *nl);
 
 sd_netlink_message *sd_netlink_message_next(sd_netlink_message *m);
 
