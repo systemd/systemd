@@ -30,3 +30,20 @@ struct NLTypeSystemUnion {
         NLMatchType match_type;
         uint16_t match_attribute;
 };
+
+#define TYPE_SYSTEM_FROM_TYPE(name)                                     \
+        { .count = ELEMENTSOF(name##_types), .types = name##_types }
+#define DEFINE_TYPE_SYSTEM(name)                                        \
+        static const NLTypeSystem name##_type_system = TYPE_SYSTEM_FROM_TYPE(name)
+
+#define _DEFINE_TYPE_SYSTEM_UNION(name, type, attr)                     \
+        static const NLTypeSystemUnion name##_type_system_union = {     \
+                .count = ELEMENTSOF(name##_type_systems),               \
+                .elements = name##_type_systems,                        \
+                .match_type = type,                                     \
+                .match_attribute = attr,                                \
+        }
+#define DEFINE_TYPE_SYSTEM_UNION_MATCH_PROTOCOL(name)           \
+        _DEFINE_TYPE_SYSTEM_UNION(name, NL_MATCH_PROTOCOL, 0)
+#define DEFINE_TYPE_SYSTEM_UNION_MATCH_SIBLING(name, attr)      \
+        _DEFINE_TYPE_SYSTEM_UNION(name, NL_MATCH_SIBLING, attr)
