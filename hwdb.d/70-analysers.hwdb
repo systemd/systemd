@@ -1,0 +1,31 @@
+# This file is part of systemd.
+#
+# Database for protocol analysers that should be accessible to the seat owner
+#
+# Permitted keys:
+#   Specify if a device is a protocol analyser
+#   ID_PROTOCOL_ANALYSER=1|0
+
+###########################################################
+# Total Phase
+###########################################################
+# Aarvark I2C/SPI Host Adapter
+usb:v0403pe0d0d*
+ ID_PROTOCOL_ANALYSER=1
+
+# Beagle Protocol Analyzers
+usb:v1679p2001d*
+ ID_PROTOCOL_ANALYSER=1
+
+# Cheetah SPI Host Adapter
+usb:v1679p2002d*
+ ID_PROTOCOL_ANALYSER=1
+
+# Komodo CAN Duo Interface
+usb:v1679p3001d*
+ ID_PROTOCOL_ANALYSER=1
+
+# Power Delivery Analyzers
+usb:v1679p6003d*
+usb:v0483pdf11d*
+ ID_PROTOCOL_ANALYSER=1
