@@ -793,6 +793,59 @@ Service b@0.service not loaded, b.socket cannot be started.
       </varlistentry>
 
       <varlistentry>
+        <term><option>--security-policy=<replaceable>PATH</replaceable></option></term>
+
+        <listitem><para>With <command>security</command>, allow the user to define a custom set of
+        requirements formatted as a .json file against which to compare the specified unit file(s)
+        and determine their overall exposure level to security threats.</para></listitem>
+      </varlistentry>
+
+      <example>
+        <title>JSON Policy</title>
+        <para>The .json file passed as a path parameter to <option>--security-policy=</option>
+        must be formatted correctly. The keys should be strings consisting of only alphanumeric
+        characters and underscores. The values should be json objects with one or more of the
+        following fields: description_na (string), description_good (string), description_bad
+        (string), weight (unsigned integer), and range (unsigned integer). If any of these fields
+        corresponding to a specific id of the unit file is missing from the json object, the
+        hard-coded field value corresponding to that same id is used for security analysis
+        as default.</para>
+
+{
+"PrivateDevices":
+    {"description_good": "Service has no access to hardware devices",
+    "description_bad": "Service potentially has access to hardware devices",
+    "weight": 1000,
+    "range": 1
+    },
+"PrivateMounts":
+    {"description_good": "Service cannot install system mounts",
+    "description_bad": "Service may install system mounts",
+    "weight": 1000,
+    "range": 1
+    },
+"PrivateNetwork":
+    {"description_good": "Service has no access to the host's network",
+    "description_bad": "Service has access to the host's network",
+    "weight": 2500,
+    "range": 1
+    },
+"PrivateTmp":
+    {"description_good": "Service has no access to other software's temporary files",
+    "description_bad": "Service has access to other software's temporary files",
+    "weight": 1000,
+    "range": 1
+    },
+"PrivateUsers":
+    {"description_good": "Service does not have access to other users",
+    "description_bad": "Service has access to other users",
+    "weight": 1000,
+    "range": 1
+    }
+}
+      </example>
+
+      <varlistentry>
         <term><option>--iterations=<replaceable>NUMBER</replaceable></option></term>
 
         <listitem><para>When used with the <command>calendar</command> command, show the specified number of
