@@ -108,42 +108,36 @@ static const NLType nfnl_nft_expr_masq_types[] = {
         [NFTA_MASQ_REG_PROTO_MAX] = { .type = NETLINK_TYPE_U32 },
 };
 
-static const NLTypeSystem nfnl_expr_data_type_systems[] = {
-        [NL_UNION_NFT_EXPR_DATA_BITWISE]   =  { .count = ELEMENTSOF(nfnl_nft_expr_bitwise_types),
-                                                .types = nfnl_nft_expr_bitwise_types },
-        [NL_UNION_NFT_EXPR_DATA_CMP]       =  { .count = ELEMENTSOF(nfnl_nft_expr_cmp_types),
-                                                .types = nfnl_nft_expr_cmp_types },
-        [NL_UNION_NFT_EXPR_DATA_FIB]       =  { .count = ELEMENTSOF(nfnl_nft_expr_fib_types),
-                                                .types = nfnl_nft_expr_fib_types },
-        [NL_UNION_NFT_EXPR_DATA_LOOKUP]    =  { .count = ELEMENTSOF(nfnl_nft_expr_lookup_types),
-                                                .types = nfnl_nft_expr_lookup_types },
-        [NL_UNION_NFT_EXPR_DATA_MASQ]      =  { .count = ELEMENTSOF(nfnl_nft_expr_masq_types),
-                                                .types = nfnl_nft_expr_masq_types },
-        [NL_UNION_NFT_EXPR_DATA_META]      =  { .count = ELEMENTSOF(nfnl_nft_expr_meta_types),
-                                                .types = nfnl_nft_expr_meta_types },
-        [NL_UNION_NFT_EXPR_DATA_NAT]       =  { .count = ELEMENTSOF(nfnl_nft_expr_nat_types),
-                                                .types = nfnl_nft_expr_nat_types },
-        [NL_UNION_NFT_EXPR_DATA_PAYLOAD]   =  { .count = ELEMENTSOF(nfnl_nft_expr_payload_types),
-                                                .types = nfnl_nft_expr_payload_types },
+static const NLTypeSystemUnionElement nfnl_expr_data_type_systems[] = {
+        { .name = "bitwise", .type_system = {
+                        .count = ELEMENTSOF(nfnl_nft_expr_bitwise_types),
+                        .types = nfnl_nft_expr_bitwise_types } },
+        { .name = "cmp", .type_system = {
+                        .count = ELEMENTSOF(nfnl_nft_expr_cmp_types),
+                        .types = nfnl_nft_expr_cmp_types } },
+        { .name = "fib", .type_system = {
+                        .count = ELEMENTSOF(nfnl_nft_expr_fib_types),
+                        .types = nfnl_nft_expr_fib_types } },
+        { .name = "lookup", .type_system = {
+                        .count = ELEMENTSOF(nfnl_nft_expr_lookup_types),
+                        .types = nfnl_nft_expr_lookup_types } },
+        { .name = "masq", .type_system = {
+                        .count = ELEMENTSOF(nfnl_nft_expr_masq_types),
+                        .types = nfnl_nft_expr_masq_types } },
+        { .name = "meta", .type_system = {
+                        .count = ELEMENTSOF(nfnl_nft_expr_meta_types),
+                        .types = nfnl_nft_expr_meta_types } },
+        { .name = "nat", .type_system = {
+                        .count = ELEMENTSOF(nfnl_nft_expr_nat_types),
+                        .types = nfnl_nft_expr_nat_types } },
+        { .name = "payload", .type_system = {
+                        .count = ELEMENTSOF(nfnl_nft_expr_payload_types),
+                        .types = nfnl_nft_expr_payload_types } },
 };
-
-static const char* const nl_union_nft_expr_data_table[] = {
-        [NL_UNION_NFT_EXPR_DATA_BITWISE] = "bitwise",
-        [NL_UNION_NFT_EXPR_DATA_CMP]     = "cmp",
-        [NL_UNION_NFT_EXPR_DATA_LOOKUP]  = "lookup",
-        [NL_UNION_NFT_EXPR_DATA_META]    = "meta",
-        [NL_UNION_NFT_EXPR_DATA_FIB]     = "fib",
-        [NL_UNION_NFT_EXPR_DATA_MASQ]    = "masq",
-        [NL_UNION_NFT_EXPR_DATA_NAT]     = "nat",
-        [NL_UNION_NFT_EXPR_DATA_PAYLOAD] = "payload",
-};
-
-DEFINE_STRING_TABLE_LOOKUP(nl_union_nft_expr_data, NLUnionNFTExprData);
 
 static const NLTypeSystemUnion nfnl_nft_data_expr_type_system_union = {
-        .num = _NL_UNION_NFT_EXPR_DATA_MAX,
-        .lookup = nl_union_nft_expr_data_from_string,
-        .type_systems = nfnl_expr_data_type_systems,
+        .count = ELEMENTSOF(nfnl_expr_data_type_systems),
+        .elements = nfnl_expr_data_type_systems,
         .match_type = NL_MATCH_SIBLING,
         .match_attribute = NFTA_EXPR_NAME,
 };

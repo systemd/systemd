@@ -345,106 +345,99 @@ static const NLType rtnl_link_info_data_bareudp_types[] = {
         [IFLA_BAREUDP_MULTIPROTO_MODE] = { .type = NETLINK_TYPE_FLAG },
 };
 
-/* these strings must match the .kind entries in the kernel */
-static const char* const nl_union_link_info_data_table[] = {
-        [NL_UNION_LINK_INFO_DATA_BOND] = "bond",
-        [NL_UNION_LINK_INFO_DATA_BRIDGE] = "bridge",
-        [NL_UNION_LINK_INFO_DATA_VLAN] = "vlan",
-        [NL_UNION_LINK_INFO_DATA_VETH] = "veth",
-        [NL_UNION_LINK_INFO_DATA_DUMMY] = "dummy",
-        [NL_UNION_LINK_INFO_DATA_MACVLAN] = "macvlan",
-        [NL_UNION_LINK_INFO_DATA_MACVTAP] = "macvtap",
-        [NL_UNION_LINK_INFO_DATA_IPVLAN] = "ipvlan",
-        [NL_UNION_LINK_INFO_DATA_IPVTAP] = "ipvtap",
-        [NL_UNION_LINK_INFO_DATA_VXLAN] = "vxlan",
-        [NL_UNION_LINK_INFO_DATA_IPIP_TUNNEL] = "ipip",
-        [NL_UNION_LINK_INFO_DATA_IPGRE_TUNNEL] = "gre",
-        [NL_UNION_LINK_INFO_DATA_ERSPAN] = "erspan",
-        [NL_UNION_LINK_INFO_DATA_IPGRETAP_TUNNEL] = "gretap",
-        [NL_UNION_LINK_INFO_DATA_IP6GRE_TUNNEL] = "ip6gre",
-        [NL_UNION_LINK_INFO_DATA_IP6GRETAP_TUNNEL] = "ip6gretap",
-        [NL_UNION_LINK_INFO_DATA_SIT_TUNNEL] = "sit",
-        [NL_UNION_LINK_INFO_DATA_VTI_TUNNEL] = "vti",
-        [NL_UNION_LINK_INFO_DATA_VTI6_TUNNEL] = "vti6",
-        [NL_UNION_LINK_INFO_DATA_IP6TNL_TUNNEL] = "ip6tnl",
-        [NL_UNION_LINK_INFO_DATA_VRF] = "vrf",
-        [NL_UNION_LINK_INFO_DATA_VCAN] = "vcan",
-        [NL_UNION_LINK_INFO_DATA_GENEVE] = "geneve",
-        [NL_UNION_LINK_INFO_DATA_VXCAN] = "vxcan",
-        [NL_UNION_LINK_INFO_DATA_WIREGUARD] = "wireguard",
-        [NL_UNION_LINK_INFO_DATA_NETDEVSIM] = "netdevsim",
-        [NL_UNION_LINK_INFO_DATA_CAN] = "can",
-        [NL_UNION_LINK_INFO_DATA_MACSEC] = "macsec",
-        [NL_UNION_LINK_INFO_DATA_NLMON] = "nlmon",
-        [NL_UNION_LINK_INFO_DATA_XFRM] = "xfrm",
-        [NL_UNION_LINK_INFO_DATA_IFB] = "ifb",
-        [NL_UNION_LINK_INFO_DATA_BAREUDP] = "bareudp",
-        [NL_UNION_LINK_INFO_DATA_BATADV] = "batadv",
-};
-
-DEFINE_STRING_TABLE_LOOKUP(nl_union_link_info_data, NLUnionLinkInfoData);
-
-static const NLTypeSystem rtnl_link_info_data_type_systems[] = {
-        [NL_UNION_LINK_INFO_DATA_BOND] =             { .count = ELEMENTSOF(rtnl_link_info_data_bond_types),
-                                                       .types = rtnl_link_info_data_bond_types },
-        [NL_UNION_LINK_INFO_DATA_BRIDGE] =           { .count = ELEMENTSOF(rtnl_link_info_data_bridge_types),
-                                                       .types = rtnl_link_info_data_bridge_types },
-        [NL_UNION_LINK_INFO_DATA_VLAN] =             { .count = ELEMENTSOF(rtnl_link_info_data_vlan_types),
-                                                       .types = rtnl_link_info_data_vlan_types },
-        [NL_UNION_LINK_INFO_DATA_VETH] =             { .count = ELEMENTSOF(rtnl_link_info_data_veth_types),
-                                                       .types = rtnl_link_info_data_veth_types },
-        [NL_UNION_LINK_INFO_DATA_MACVLAN] =          { .count = ELEMENTSOF(rtnl_link_info_data_macvlan_types),
-                                                       .types = rtnl_link_info_data_macvlan_types },
-        [NL_UNION_LINK_INFO_DATA_MACVTAP] =          { .count = ELEMENTSOF(rtnl_link_info_data_macvlan_types),
-                                                       .types = rtnl_link_info_data_macvlan_types },
-        [NL_UNION_LINK_INFO_DATA_IPVLAN] =           { .count = ELEMENTSOF(rtnl_link_info_data_ipvlan_types),
-                                                       .types = rtnl_link_info_data_ipvlan_types },
-        [NL_UNION_LINK_INFO_DATA_IPVTAP] =           { .count = ELEMENTSOF(rtnl_link_info_data_ipvlan_types),
-                                                       .types = rtnl_link_info_data_ipvlan_types },
-        [NL_UNION_LINK_INFO_DATA_VXLAN] =            { .count = ELEMENTSOF(rtnl_link_info_data_vxlan_types),
-                                                       .types = rtnl_link_info_data_vxlan_types },
-        [NL_UNION_LINK_INFO_DATA_IPIP_TUNNEL] =      { .count = ELEMENTSOF(rtnl_link_info_data_iptun_types),
-                                                       .types = rtnl_link_info_data_iptun_types },
-        [NL_UNION_LINK_INFO_DATA_IPGRE_TUNNEL] =     { .count = ELEMENTSOF(rtnl_link_info_data_ipgre_types),
-                                                       .types = rtnl_link_info_data_ipgre_types },
-        [NL_UNION_LINK_INFO_DATA_ERSPAN] =           { .count = ELEMENTSOF(rtnl_link_info_data_ipgre_types),
-                                                       .types = rtnl_link_info_data_ipgre_types },
-        [NL_UNION_LINK_INFO_DATA_IPGRETAP_TUNNEL] =  { .count = ELEMENTSOF(rtnl_link_info_data_ipgre_types),
-                                                       .types = rtnl_link_info_data_ipgre_types },
-        [NL_UNION_LINK_INFO_DATA_IP6GRE_TUNNEL] =    { .count = ELEMENTSOF(rtnl_link_info_data_ipgre_types),
-                                                       .types = rtnl_link_info_data_ipgre_types },
-        [NL_UNION_LINK_INFO_DATA_IP6GRETAP_TUNNEL] = { .count = ELEMENTSOF(rtnl_link_info_data_ipgre_types),
-                                                       .types = rtnl_link_info_data_ipgre_types },
-        [NL_UNION_LINK_INFO_DATA_SIT_TUNNEL] =       { .count = ELEMENTSOF(rtnl_link_info_data_iptun_types),
-                                                       .types = rtnl_link_info_data_iptun_types },
-        [NL_UNION_LINK_INFO_DATA_VTI_TUNNEL] =       { .count = ELEMENTSOF(rtnl_link_info_data_ipvti_types),
-                                                       .types = rtnl_link_info_data_ipvti_types },
-        [NL_UNION_LINK_INFO_DATA_VTI6_TUNNEL] =      { .count = ELEMENTSOF(rtnl_link_info_data_ipvti_types),
-                                                       .types = rtnl_link_info_data_ipvti_types },
-        [NL_UNION_LINK_INFO_DATA_IP6TNL_TUNNEL] =    { .count = ELEMENTSOF(rtnl_link_info_data_ip6tnl_types),
-                                                       .types = rtnl_link_info_data_ip6tnl_types },
-        [NL_UNION_LINK_INFO_DATA_VRF] =              { .count = ELEMENTSOF(rtnl_link_info_data_vrf_types),
-                                                       .types = rtnl_link_info_data_vrf_types },
-        [NL_UNION_LINK_INFO_DATA_GENEVE] =           { .count = ELEMENTSOF(rtnl_link_info_data_geneve_types),
-                                                       .types = rtnl_link_info_data_geneve_types },
-        [NL_UNION_LINK_INFO_DATA_VXCAN] =            { .count = ELEMENTSOF(rtnl_link_info_data_vxcan_types),
-                                                       .types = rtnl_link_info_data_vxcan_types },
-        [NL_UNION_LINK_INFO_DATA_CAN] =              { .count = ELEMENTSOF(rtnl_link_info_data_can_types),
-                                                       .types = rtnl_link_info_data_can_types },
-        [NL_UNION_LINK_INFO_DATA_MACSEC] =           { .count = ELEMENTSOF(rtnl_link_info_data_macsec_types),
-                                                       .types = rtnl_link_info_data_macsec_types },
-        [NL_UNION_LINK_INFO_DATA_XFRM] =             { .count = ELEMENTSOF(rtnl_link_info_data_xfrm_types),
-                                                       .types = rtnl_link_info_data_xfrm_types },
-        [NL_UNION_LINK_INFO_DATA_BAREUDP] =          { .count = ELEMENTSOF(rtnl_link_info_data_bareudp_types),
-                                                       .types = rtnl_link_info_data_bareudp_types },
-        [NL_UNION_LINK_INFO_DATA_BATADV] =           { .count = ELEMENTSOF(rtnl_link_info_data_batadv_types),
-                                                       .types = rtnl_link_info_data_batadv_types },
+static const NLTypeSystemUnionElement rtnl_link_info_data_type_systems[] = {
+        { .name = "bareudp", .type_system = {
+                        .count = ELEMENTSOF(rtnl_link_info_data_bareudp_types),
+                        .types = rtnl_link_info_data_bareudp_types } },
+        { .name = "batadv", .type_system = {
+                        .count = ELEMENTSOF(rtnl_link_info_data_batadv_types),
+                        .types = rtnl_link_info_data_batadv_types } },
+        { .name = "bond", .type_system = {
+                        .count = ELEMENTSOF(rtnl_link_info_data_bond_types),
+                        .types = rtnl_link_info_data_bond_types } },
+        { .name = "bridge", .type_system = {
+                        .count = ELEMENTSOF(rtnl_link_info_data_bridge_types),
+                        .types = rtnl_link_info_data_bridge_types } },
+        { .name = "can", .type_system = {
+                        .count = ELEMENTSOF(rtnl_link_info_data_can_types),
+                        .types = rtnl_link_info_data_can_types } },
+        { .name = "dummy", },
+        { .name = "erspan", .type_system = {
+                        .count = ELEMENTSOF(rtnl_link_info_data_ipgre_types),
+                        .types = rtnl_link_info_data_ipgre_types } },
+        { .name = "geneve", .type_system = {
+                        .count = ELEMENTSOF(rtnl_link_info_data_geneve_types),
+                        .types = rtnl_link_info_data_geneve_types } },
+        { .name = "gre", .type_system = {
+                        .count = ELEMENTSOF(rtnl_link_info_data_ipgre_types),
+                        .types = rtnl_link_info_data_ipgre_types } },
+        { .name = "gretap", .type_system = {
+                        .count = ELEMENTSOF(rtnl_link_info_data_ipgre_types),
+                        .types = rtnl_link_info_data_ipgre_types } },
+        { .name = "ifb", },
+        { .name = "ip6gre", .type_system = {
+                        .count = ELEMENTSOF(rtnl_link_info_data_ipgre_types),
+                        .types = rtnl_link_info_data_ipgre_types } },
+        { .name = "ip6gretap", .type_system = {
+                        .count = ELEMENTSOF(rtnl_link_info_data_ipgre_types),
+                        .types = rtnl_link_info_data_ipgre_types } },
+        { .name = "ip6tnl", .type_system = {
+                        .count = ELEMENTSOF(rtnl_link_info_data_ip6tnl_types),
+                        .types = rtnl_link_info_data_ip6tnl_types } },
+        { .name = "ipip", .type_system = {
+                        .count = ELEMENTSOF(rtnl_link_info_data_iptun_types),
+                        .types = rtnl_link_info_data_iptun_types } },
+        { .name = "ipvlan", .type_system = {
+                        .count = ELEMENTSOF(rtnl_link_info_data_ipvlan_types),
+                        .types = rtnl_link_info_data_ipvlan_types } },
+        { .name = "ipvtap", .type_system = {
+                        .count = ELEMENTSOF(rtnl_link_info_data_ipvlan_types),
+                        .types = rtnl_link_info_data_ipvlan_types } },
+        { .name = "macsec", .type_system = {
+                        .count = ELEMENTSOF(rtnl_link_info_data_macsec_types),
+                        .types = rtnl_link_info_data_macsec_types } },
+        { .name = "macvlan", .type_system = {
+                        .count = ELEMENTSOF(rtnl_link_info_data_macvlan_types),
+                        .types = rtnl_link_info_data_macvlan_types } },
+        { .name = "macvtap", .type_system = {
+                        .count = ELEMENTSOF(rtnl_link_info_data_macvlan_types),
+                        .types = rtnl_link_info_data_macvlan_types } },
+        { .name = "netdevsim", },
+        { .name = "nlmon", },
+        { .name = "sit", .type_system = {
+                        .count = ELEMENTSOF(rtnl_link_info_data_iptun_types),
+                        .types = rtnl_link_info_data_iptun_types } },
+        { .name = "vcan", },
+        { .name = "veth", .type_system = {
+                        .count = ELEMENTSOF(rtnl_link_info_data_veth_types),
+                        .types = rtnl_link_info_data_veth_types } },
+        { .name = "vlan", .type_system = {
+                        .count = ELEMENTSOF(rtnl_link_info_data_vlan_types),
+                        .types = rtnl_link_info_data_vlan_types } },
+        { .name = "vrf", .type_system = {
+                        .count = ELEMENTSOF(rtnl_link_info_data_vrf_types),
+                        .types = rtnl_link_info_data_vrf_types } },
+        { .name = "vti", .type_system = {
+                        .count = ELEMENTSOF(rtnl_link_info_data_ipvti_types),
+                        .types = rtnl_link_info_data_ipvti_types } },
+        { .name = "vti6", .type_system = {
+                        .count = ELEMENTSOF(rtnl_link_info_data_ipvti_types),
+                        .types = rtnl_link_info_data_ipvti_types } },
+        { .name = "vxcan", .type_system = {
+                        .count = ELEMENTSOF(rtnl_link_info_data_vxcan_types),
+                        .types = rtnl_link_info_data_vxcan_types } },
+        { .name = "vxlan", .type_system = {
+                        .count = ELEMENTSOF(rtnl_link_info_data_vxlan_types),
+                        .types = rtnl_link_info_data_vxlan_types } },
+        { .name = "wireguard", },
+        { .name = "xfrm", .type_system = {
+                        .count = ELEMENTSOF(rtnl_link_info_data_xfrm_types),
+                        .types = rtnl_link_info_data_xfrm_types } },
 };
 
 static const NLTypeSystemUnion rtnl_link_info_data_type_system_union = {
-        .num = _NL_UNION_LINK_INFO_DATA_MAX,
-        .lookup = nl_union_link_info_data_from_string,
-        .type_systems = rtnl_link_info_data_type_systems,
+        .count = ELEMENTSOF(rtnl_link_info_data_type_systems),
+        .elements = rtnl_link_info_data_type_systems,
         .match_type = NL_MATCH_SIBLING,
         .match_attribute = IFLA_INFO_KIND,
 };
@@ -501,14 +494,15 @@ static const struct NLType rtnl_prot_info_bridge_port_types[] = {
         [IFLA_BRPORT_BACKUP_PORT]         = { .type = NETLINK_TYPE_U32 },
 };
 
-static const NLTypeSystem rtnl_prot_info_type_systems[] = {
-        [AF_BRIDGE] =   { .count = ELEMENTSOF(rtnl_prot_info_bridge_port_types),
-                          .types = rtnl_prot_info_bridge_port_types },
+static const NLTypeSystemUnionElement rtnl_prot_info_type_systems[] = {
+        { .protocol = AF_BRIDGE, .type_system = {
+                        .count = ELEMENTSOF(rtnl_prot_info_bridge_port_types),
+                        .types = rtnl_prot_info_bridge_port_types } },
 };
 
 static const NLTypeSystemUnion rtnl_prot_info_type_system_union = {
-        .num = AF_MAX,
-        .type_systems = rtnl_prot_info_type_systems,
+        .count = ELEMENTSOF(rtnl_prot_info_type_systems),
+        .elements = rtnl_prot_info_type_systems,
         .match_type = NL_MATCH_PROTOCOL,
 };
 
@@ -539,16 +533,18 @@ static const NLType rtnl_af_spec_bridge_types[] = {
         [IFLA_BRIDGE_VLAN_INFO] = { .size = sizeof(struct bridge_vlan_info) },
 };
 
-static const NLTypeSystem rtnl_af_spec_type_systems[] = {
-        [AF_UNSPEC] = { .count = ELEMENTSOF(rtnl_af_spec_unspec_types),
-                        .types = rtnl_af_spec_unspec_types },
-        [AF_BRIDGE] = { .count = ELEMENTSOF(rtnl_af_spec_bridge_types),
-                        .types = rtnl_af_spec_bridge_types },
+static const NLTypeSystemUnionElement rtnl_af_spec_type_systems[] = {
+        { .protocol = AF_UNSPEC, .type_system = {
+                        .count = ELEMENTSOF(rtnl_af_spec_unspec_types),
+                        .types = rtnl_af_spec_unspec_types } },
+        { .protocol = AF_BRIDGE, .type_system = {
+                        .count = ELEMENTSOF(rtnl_af_spec_bridge_types),
+                        .types = rtnl_af_spec_bridge_types } },
 };
 
 static const NLTypeSystemUnion rtnl_af_spec_type_system_union = {
-        .num = AF_MAX,
-        .type_systems = rtnl_af_spec_type_systems,
+        .count = ELEMENTSOF(rtnl_af_spec_type_systems),
+        .elements = rtnl_af_spec_type_systems,
         .match_type = NL_MATCH_PROTOCOL,
 };
 
@@ -928,60 +924,54 @@ static const NLType rtnl_tca_option_data_tbf_types[] = {
         [TCA_TBF_PBURST]  = { .type = NETLINK_TYPE_U32 },
 };
 
-static const char* const nl_union_tca_option_data_table[] = {
-        [NL_UNION_TCA_OPTION_DATA_CAKE] = "cake",
-        [NL_UNION_TCA_OPTION_DATA_CODEL] = "codel",
-        [NL_UNION_TCA_OPTION_DATA_DRR] = "drr",
-        [NL_UNION_TCA_OPTION_DATA_ETS] = "ets",
-        [NL_UNION_TCA_OPTION_DATA_FQ] = "fq",
-        [NL_UNION_TCA_OPTION_DATA_FQ_CODEL] = "fq_codel",
-        [NL_UNION_TCA_OPTION_DATA_FQ_PIE] = "fq_pie",
-        [NL_UNION_TCA_OPTION_DATA_GRED] = "gred",
-        [NL_UNION_TCA_OPTION_DATA_HHF] = "hhf",
-        [NL_UNION_TCA_OPTION_DATA_HTB] = "htb",
-        [NL_UNION_TCA_OPTION_DATA_PIE] = "pie",
-        [NL_UNION_TCA_OPTION_DATA_QFQ] = "qfq",
-        [NL_UNION_TCA_OPTION_DATA_SFB] = "sfb",
-        [NL_UNION_TCA_OPTION_DATA_TBF] = "tbf",
-};
-
-DEFINE_STRING_TABLE_LOOKUP(nl_union_tca_option_data, NLUnionTCAOptionData);
-
-static const NLTypeSystem rtnl_tca_option_data_type_systems[] = {
-        [NL_UNION_TCA_OPTION_DATA_CAKE] =        { .count = ELEMENTSOF(rtnl_tca_option_data_cake_types),
-                                                   .types = rtnl_tca_option_data_cake_types },
-        [NL_UNION_TCA_OPTION_DATA_CODEL] =       { .count = ELEMENTSOF(rtnl_tca_option_data_codel_types),
-                                                   .types = rtnl_tca_option_data_codel_types },
-        [NL_UNION_TCA_OPTION_DATA_DRR] =         { .count = ELEMENTSOF(rtnl_tca_option_data_drr_types),
-                                                   .types = rtnl_tca_option_data_drr_types },
-        [NL_UNION_TCA_OPTION_DATA_ETS] =         { .count = ELEMENTSOF(rtnl_tca_option_data_ets_types),
-                                                   .types = rtnl_tca_option_data_ets_types },
-        [NL_UNION_TCA_OPTION_DATA_FQ] =          { .count = ELEMENTSOF(rtnl_tca_option_data_fq_types),
-                                                   .types = rtnl_tca_option_data_fq_types },
-        [NL_UNION_TCA_OPTION_DATA_FQ_CODEL] =    { .count = ELEMENTSOF(rtnl_tca_option_data_fq_codel_types),
-                                                   .types = rtnl_tca_option_data_fq_codel_types },
-        [NL_UNION_TCA_OPTION_DATA_FQ_PIE] =      { .count = ELEMENTSOF(rtnl_tca_option_data_fq_pie_types),
-                                                   .types = rtnl_tca_option_data_fq_pie_types },
-        [NL_UNION_TCA_OPTION_DATA_GRED] =        { .count = ELEMENTSOF(rtnl_tca_option_data_gred_types),
-                                                   .types = rtnl_tca_option_data_gred_types },
-        [NL_UNION_TCA_OPTION_DATA_HHF] =         { .count = ELEMENTSOF(rtnl_tca_option_data_hhf_types),
-                                                   .types = rtnl_tca_option_data_hhf_types },
-        [NL_UNION_TCA_OPTION_DATA_HTB] =         { .count = ELEMENTSOF(rtnl_tca_option_data_htb_types),
-                                                   .types = rtnl_tca_option_data_htb_types },
-        [NL_UNION_TCA_OPTION_DATA_PIE] =         { .count = ELEMENTSOF(rtnl_tca_option_data_pie_types),
-                                                   .types = rtnl_tca_option_data_pie_types },
-        [NL_UNION_TCA_OPTION_DATA_QFQ] =         { .count = ELEMENTSOF(rtnl_tca_option_data_qfq_types),
-                                                   .types = rtnl_tca_option_data_qfq_types },
-        [NL_UNION_TCA_OPTION_DATA_SFB] =         { .count = ELEMENTSOF(rtnl_tca_option_data_sfb_types),
-                                                   .types = rtnl_tca_option_data_sfb_types },
-        [NL_UNION_TCA_OPTION_DATA_TBF] =         { .count = ELEMENTSOF(rtnl_tca_option_data_tbf_types),
-                                                   .types = rtnl_tca_option_data_tbf_types },
+static const NLTypeSystemUnionElement rtnl_tca_option_data_type_systems[] = {
+        { .name = "cake", .type_system = {
+                        .count = ELEMENTSOF(rtnl_tca_option_data_cake_types),
+                        .types = rtnl_tca_option_data_cake_types } },
+        { .name = "codel", .type_system = {
+                        .count = ELEMENTSOF(rtnl_tca_option_data_codel_types),
+                        .types = rtnl_tca_option_data_codel_types } },
+        { .name = "drr", .type_system = {
+                        .count = ELEMENTSOF(rtnl_tca_option_data_drr_types),
+                        .types = rtnl_tca_option_data_drr_types } },
+        { .name = "ets", .type_system = {
+                        .count = ELEMENTSOF(rtnl_tca_option_data_ets_types),
+                        .types = rtnl_tca_option_data_ets_types } },
+        { .name = "fq", .type_system = {
+                        .count = ELEMENTSOF(rtnl_tca_option_data_fq_types),
+                        .types = rtnl_tca_option_data_fq_types } },
+        { .name = "fq_codel", .type_system = {
+                        .count = ELEMENTSOF(rtnl_tca_option_data_fq_codel_types),
+                        .types = rtnl_tca_option_data_fq_codel_types } },
+        { .name = "fq_pie", .type_system = {
+                        .count = ELEMENTSOF(rtnl_tca_option_data_fq_pie_types),
+                        .types = rtnl_tca_option_data_fq_pie_types } },
+        { .name = "gred", .type_system = {
+                        .count = ELEMENTSOF(rtnl_tca_option_data_gred_types),
+                        .types = rtnl_tca_option_data_gred_types } },
+        { .name = "hhf", .type_system = {
+                        .count = ELEMENTSOF(rtnl_tca_option_data_hhf_types),
+                        .types = rtnl_tca_option_data_hhf_types } },
+        { .name = "htb", .type_system = {
+                        .count = ELEMENTSOF(rtnl_tca_option_data_htb_types),
+                        .types = rtnl_tca_option_data_htb_types } },
+        { .name = "pie", .type_system = {
+                        .count = ELEMENTSOF(rtnl_tca_option_data_pie_types),
+                        .types = rtnl_tca_option_data_pie_types } },
+        { .name = "qfq", .type_system = {
+                        .count = ELEMENTSOF(rtnl_tca_option_data_qfq_types),
+                        .types = rtnl_tca_option_data_qfq_types } },
+        { .name = "sfb", .type_system = {
+                        .count = ELEMENTSOF(rtnl_tca_option_data_sfb_types),
+                        .types = rtnl_tca_option_data_sfb_types } },
+        { .name = "tbf", .type_system = {
+                        .count = ELEMENTSOF(rtnl_tca_option_data_tbf_types),
+                        .types = rtnl_tca_option_data_tbf_types } },
 };
 
 static const NLTypeSystemUnion rtnl_tca_option_data_type_system_union = {
-        .num = _NL_UNION_TCA_OPTION_DATA_MAX,
-        .lookup = nl_union_tca_option_data_from_string,
-        .type_systems = rtnl_tca_option_data_type_systems,
+        .count = ELEMENTSOF(rtnl_tca_option_data_type_systems),
+        .elements = rtnl_tca_option_data_type_systems,
         .match_type = NL_MATCH_SIBLING,
         .match_attribute = TCA_KIND,
 };
