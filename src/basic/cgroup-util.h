@@ -135,6 +135,12 @@ static inline bool CGROUP_BLKIO_WEIGHT_IS_OK(uint64_t x) {
             (x >= CGROUP_BLKIO_WEIGHT_MIN && x <= CGROUP_BLKIO_WEIGHT_MAX);
 }
 
+/* Special values for the bfq.weight attribute */
+#define CGROUP_BFQ_WEIGHT_INVALID UINT64_MAX
+#define CGROUP_BFQ_WEIGHT_MIN UINT64_C(1)
+#define CGROUP_BFQ_WEIGHT_MAX UINT64_C(1000)
+#define CGROUP_BFQ_WEIGHT_DEFAULT UINT64_C(100)
+
 typedef enum CGroupUnified {
         CGROUP_UNIFIED_UNKNOWN = -1,
         CGROUP_UNIFIED_NONE = 0,        /* Both systemd and controllers on legacy */
