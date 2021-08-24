@@ -39,6 +39,8 @@
 #define EFIVAR_PATH(variable) "/sys/firmware/efi/efivars/" variable
 #define EFIVAR_CACHE_PATH(variable) "/run/systemd/efivars/" variable
 
+bool is_efi_boot(void);
+
 #if ENABLE_EFI
 
 int efi_get_variable(const char *variable, uint32_t *attribute, void **value, size_t *size);
@@ -46,7 +48,6 @@ int efi_get_variable_string(const char *variable, char **p);
 int efi_set_variable(const char *variable, const void *value, size_t size);
 int efi_set_variable_string(const char *variable, const char *p);
 
-bool is_efi_boot(void);
 bool is_efi_secure_boot(void);
 bool is_efi_secure_boot_setup_mode(void);
 
@@ -70,10 +71,6 @@ static inline int efi_set_variable(const char *variable, const void *value, size
 
 static inline int efi_set_variable_string(const char *variable, const char *p) {
         return -EOPNOTSUPP;
-}
-
-static inline bool is_efi_boot(void) {
-        return false;
 }
 
 static inline bool is_efi_secure_boot(void) {
