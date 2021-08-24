@@ -2513,12 +2513,6 @@ static int socket_start(Unit *u) {
 
         assert(IN_SET(s->state, SOCKET_DEAD, SOCKET_FAILED));
 
-        r = unit_test_start_limit(u);
-        if (r < 0) {
-                socket_enter_dead(s, SOCKET_FAILURE_START_LIMIT_HIT);
-                return r;
-        }
-
         r = unit_acquire_invocation_id(u);
         if (r < 0)
                 return r;
@@ -3425,6 +3419,21 @@ static int socket_can_clean(Unit *u, ExecCleanMask *ret) {
         return exec_context_get_clean_mask(&s->exec_context, ret);
 }
 
+static int socket_test_start_limit(Unit *u) {
+        Socket *s = SOCKET(u);
+        int r;
+
+        assert(s);
+
+        r = unit_test_start_limit(u);
+        if (r < 0) {
+                socket_enter_dead(s, SOCKET_FAILURE_START_LIMIT_HIT);
+                return r;
+        }
+
+        return 0;
+}
+
 static const char* const socket_exec_command_table[_SOCKET_EXEC_COMMAND_MAX] = {
         [SOCKET_EXEC_START_PRE]   = "ExecStartPre",
         [SOCKET_EXEC_START_CHOWN] = "ExecStartChown",
@@ -3551,4 +3560,6 @@ const UnitVTable socket_vtable = {
                         [JOB_TIMEOUT]    = "Timed out stopping %s.",
                 },
         },
+
+        .test_start_limit = socket_test_start_limit,
 };
