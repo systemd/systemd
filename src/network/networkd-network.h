@@ -142,6 +142,7 @@ struct Network {
         bool dhcp_anonymize;
         bool dhcp_send_hostname;
         int dhcp_broadcast;
+        bool dhcp_use_address;
         bool dhcp_use_dns;
         bool dhcp_use_dns_set;
         bool dhcp_routes_to_dns;

@@ -1785,6 +1785,13 @@ IPv6Token=prefixstable:2002:da8:1::</programlisting></para>
         </varlistentry>
 
         <varlistentry>
+          <term><varname>UseAddress=</varname></term>
+          <listitem>
+            <para>When true (the default), the IP addresses provided by the DHCP server will be assigned.</para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
           <term><varname>UseDNS=</varname></term>
           <listitem>
             <para>When true (the default), the DNS servers received from the DHCP server will be used.</para>
@@ -2088,13 +2095,6 @@ IPv6Token=prefixstable:2002:da8:1::</programlisting></para>
 
         <varlistentry>
           <term><varname>UseAddress=</varname></term>
-          <listitem>
-            <para>When true (the default), the IP addresses provided by the DHCPv6 server will be
-            assigned.</para>
-          </listitem>
-        </varlistentry>
-
-        <varlistentry>
           <term><varname>UseDNS=</varname></term>
           <term><varname>UseNTP=</varname></term>
           <term><varname>UseHostname=</varname></term>
