@@ -45,6 +45,12 @@
 
 #define CGROUP_CPU_QUOTA_DEFAULT_PERIOD_USEC ((usec_t) 100 * USEC_PER_MSEC)
 
+/* Special values for the bfq.weight attribute */
+#define CGROUP_BFQ_WEIGHT_INVALID UINT64_MAX
+#define CGROUP_BFQ_WEIGHT_MIN UINT64_C(1)
+#define CGROUP_BFQ_WEIGHT_MAX UINT64_C(1000)
+#define CGROUP_BFQ_WEIGHT_DEFAULT UINT64_C(100)
+
 /* Returns the log level to use when cgroup attribute writes fail. When an attribute is missing or we have access
  * problems we downgrade to LOG_DEBUG. This is supposed to be nice to container managers and kernels which want to mask
  * out specific attributes from us. */
@@ -1258,21 +1264,48 @@ static int cgroup_apply_devices(Unit *u) {
         return r;
 }
 
-static void set_io_weight(Unit *u, const char *controller, uint64_t weight) {
-        char buf[8+DECIMAL_STR_MAX(uint64_t)+1];
-        const char *p;
+static void set_io_weight(Unit *u, uint64_t weight) {
+        char buf[STRLEN("default \n")+DECIMAL_STR_MAX(uint64_t)];
+        uint64_t bfq_weight;
 
-        p = strjoina(controller, ".weight");
-        xsprintf(buf, "default %" PRIu64 "\n", weight);
-        (void) set_attribute_and_warn(u, controller, p, buf);
+        assert(u);
 
         /* FIXME: drop this when distro kernels properly support BFQ through "io.weight"
          * See also: https://github.com/systemd/systemd/pull/13335 and
          * https://github.com/torvalds/linux/commit/65752aef0a407e1ef17ec78a7fc31ba4e0b360f9.
-         * The range is 1..1000 apparently. */
-        p = strjoina(controller, ".bfq.weight");
-        xsprintf(buf, "%" PRIu64 "\n", (weight + 9) / 10);
-        (void) set_attribute_and_warn(u, controller, p, buf);
+         * The range is 1..1000 apparently, and the default is 100. */
+        if (weight <= CGROUP_WEIGHT_DEFAULT)
+                bfq_weight = CGROUP_BFQ_WEIGHT_DEFAULT - (CGROUP_WEIGHT_DEFAULT - weight) * (CGROUP_BFQ_WEIGHT_DEFAULT - CGROUP_BFQ_WEIGHT_MIN) / (CGROUP_WEIGHT_DEFAULT - CGROUP_WEIGHT_MIN);
+        else
+                bfq_weight = CGROUP_BFQ_WEIGHT_DEFAULT + (weight - CGROUP_WEIGHT_DEFAULT) * (CGROUP_BFQ_WEIGHT_MAX - CGROUP_BFQ_WEIGHT_DEFAULT) / (CGROUP_WEIGHT_MAX - CGROUP_WEIGHT_DEFAULT);
+
+        xsprintf(buf, "%" PRIu64 "\n", bfq_weight);
+        (void) set_attribute_and_warn(u, "io", "io.bfq.weight", buf);
+
+        xsprintf(buf, "default %" PRIu64 "\n", weight);
+        (void) set_attribute_and_warn(u, "io", "io.weight", buf);
+}
+
+static void set_blkio_weight(Unit *u, uint64_t weight) {
+        char buf[STRLEN("\n")+DECIMAL_STR_MAX(uint64_t)];
+        uint64_t bfq_weight;
+
+        assert(u);
+
+        /* FIXME: drop this when distro kernels properly support BFQ through "io.weight"
+         * See also: https://github.com/systemd/systemd/pull/13335 and
+         * https://github.com/torvalds/linux/commit/65752aef0a407e1ef17ec78a7fc31ba4e0b360f9.
+         * The range is 1..1000 apparently, and the default is 100. */
+        if (weight <= CGROUP_BLKIO_WEIGHT_DEFAULT)
+                bfq_weight = CGROUP_BFQ_WEIGHT_DEFAULT - (CGROUP_BLKIO_WEIGHT_DEFAULT - weight) * (CGROUP_BFQ_WEIGHT_DEFAULT - CGROUP_BFQ_WEIGHT_MIN) / (CGROUP_BLKIO_WEIGHT_DEFAULT - CGROUP_BLKIO_WEIGHT_MIN);
+        else
+                bfq_weight = CGROUP_BFQ_WEIGHT_DEFAULT + (weight - CGROUP_BLKIO_WEIGHT_DEFAULT) * (CGROUP_BFQ_WEIGHT_MAX - CGROUP_BFQ_WEIGHT_DEFAULT) / (CGROUP_BLKIO_WEIGHT_MAX - CGROUP_BLKIO_WEIGHT_DEFAULT);
+
+        xsprintf(buf, "%" PRIu64 "\n", bfq_weight);
+        (void) set_attribute_and_warn(u, "blkio", "blkio.bfq.weight", buf);
+
+        xsprintf(buf, "%" PRIu64 "\n", weight);
+        (void) set_attribute_and_warn(u, "blkio", "blkio.weight", buf);
 }
 
 static void cgroup_apply_bpf_foreign_program(Unit *u) {
@@ -1386,7 +1419,7 @@ static void cgroup_context_apply(
                 } else
                         weight = CGROUP_WEIGHT_DEFAULT;
 
-                set_io_weight(u, "io", weight);
+                set_io_weight(u, weight);
 
                 if (has_io) {
                         CGroupIODeviceLatency *latency;
@@ -1456,7 +1489,7 @@ static void cgroup_context_apply(
                         else
                                 weight = CGROUP_BLKIO_WEIGHT_DEFAULT;
 
-                        set_io_weight(u, "blkio", weight);
+                        set_blkio_weight(u, weight);
 
                         if (has_io) {
                                 CGroupIODeviceWeight *w;
