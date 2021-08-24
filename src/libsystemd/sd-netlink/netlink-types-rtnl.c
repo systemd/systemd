@@ -74,10 +74,7 @@ static const NLType rtnl_macvlan_macaddr_types[] = {
         [IFLA_MACVLAN_MACADDR] = { .type = NETLINK_TYPE_ETHER_ADDR },
 };
 
-static const NLTypeSystem rtnl_macvlan_macaddr_type_system = {
-        .count = ELEMENTSOF(rtnl_macvlan_macaddr_types),
-        .types = rtnl_macvlan_macaddr_types,
-};
+DEFINE_TYPE_SYSTEM(rtnl_macvlan_macaddr);
 
 static const NLType rtnl_link_info_data_macvlan_types[] = {
         [IFLA_MACVLAN_MODE]              = { .type = NETLINK_TYPE_U32 },
@@ -134,10 +131,7 @@ static const NLType rtnl_vlan_qos_map_types[] = {
         [IFLA_VLAN_QOS_MAPPING]        = { .size = sizeof(struct ifla_vlan_qos_mapping) },
 };
 
-static const NLTypeSystem rtnl_vlan_qos_map_type_system = {
-        .count = ELEMENTSOF(rtnl_vlan_qos_map_types),
-        .types = rtnl_vlan_qos_map_types,
-};
+DEFINE_TYPE_SYSTEM(rtnl_vlan_qos_map);
 
 static const NLType rtnl_link_info_data_vlan_types[] = {
         [IFLA_VLAN_ID]          = { .type = NETLINK_TYPE_U16 },
@@ -198,10 +192,7 @@ static const NLType rtnl_bond_arp_target_types[] = {
         [BOND_ARP_TARGETS_MAX]      = { .type = NETLINK_TYPE_U32 },
 };
 
-static const NLTypeSystem rtnl_bond_arp_type_system = {
-        .count = ELEMENTSOF(rtnl_bond_arp_target_types),
-        .types = rtnl_bond_arp_target_types,
-};
+DEFINE_TYPE_SYSTEM(rtnl_bond_arp_target);
 
 static const NLType rtnl_link_info_data_bond_types[] = {
         [IFLA_BOND_MODE]                = { .type = NETLINK_TYPE_U8 },
@@ -211,7 +202,7 @@ static const NLType rtnl_link_info_data_bond_types[] = {
         [IFLA_BOND_DOWNDELAY]           = { .type = NETLINK_TYPE_U32 },
         [IFLA_BOND_USE_CARRIER]         = { .type = NETLINK_TYPE_U8 },
         [IFLA_BOND_ARP_INTERVAL]        = { .type = NETLINK_TYPE_U32 },
-        [IFLA_BOND_ARP_IP_TARGET]       = { .type = NETLINK_TYPE_NESTED, .type_system = &rtnl_bond_arp_type_system },
+        [IFLA_BOND_ARP_IP_TARGET]       = { .type = NETLINK_TYPE_NESTED, .type_system = &rtnl_bond_arp_target_type_system },
         [IFLA_BOND_ARP_VALIDATE]        = { .type = NETLINK_TYPE_U32 },
         [IFLA_BOND_ARP_ALL_TARGETS]     = { .type = NETLINK_TYPE_U32 },
         [IFLA_BOND_PRIMARY]             = { .type = NETLINK_TYPE_U32 },
@@ -346,101 +337,42 @@ static const NLType rtnl_link_info_data_bareudp_types[] = {
 };
 
 static const NLTypeSystemUnionElement rtnl_link_info_data_type_systems[] = {
-        { .name = "bareudp", .type_system = {
-                        .count = ELEMENTSOF(rtnl_link_info_data_bareudp_types),
-                        .types = rtnl_link_info_data_bareudp_types } },
-        { .name = "batadv", .type_system = {
-                        .count = ELEMENTSOF(rtnl_link_info_data_batadv_types),
-                        .types = rtnl_link_info_data_batadv_types } },
-        { .name = "bond", .type_system = {
-                        .count = ELEMENTSOF(rtnl_link_info_data_bond_types),
-                        .types = rtnl_link_info_data_bond_types } },
-        { .name = "bridge", .type_system = {
-                        .count = ELEMENTSOF(rtnl_link_info_data_bridge_types),
-                        .types = rtnl_link_info_data_bridge_types } },
-        { .name = "can", .type_system = {
-                        .count = ELEMENTSOF(rtnl_link_info_data_can_types),
-                        .types = rtnl_link_info_data_can_types } },
-        { .name = "dummy", },
-        { .name = "erspan", .type_system = {
-                        .count = ELEMENTSOF(rtnl_link_info_data_ipgre_types),
-                        .types = rtnl_link_info_data_ipgre_types } },
-        { .name = "geneve", .type_system = {
-                        .count = ELEMENTSOF(rtnl_link_info_data_geneve_types),
-                        .types = rtnl_link_info_data_geneve_types } },
-        { .name = "gre", .type_system = {
-                        .count = ELEMENTSOF(rtnl_link_info_data_ipgre_types),
-                        .types = rtnl_link_info_data_ipgre_types } },
-        { .name = "gretap", .type_system = {
-                        .count = ELEMENTSOF(rtnl_link_info_data_ipgre_types),
-                        .types = rtnl_link_info_data_ipgre_types } },
-        { .name = "ifb", },
-        { .name = "ip6gre", .type_system = {
-                        .count = ELEMENTSOF(rtnl_link_info_data_ipgre_types),
-                        .types = rtnl_link_info_data_ipgre_types } },
-        { .name = "ip6gretap", .type_system = {
-                        .count = ELEMENTSOF(rtnl_link_info_data_ipgre_types),
-                        .types = rtnl_link_info_data_ipgre_types } },
-        { .name = "ip6tnl", .type_system = {
-                        .count = ELEMENTSOF(rtnl_link_info_data_ip6tnl_types),
-                        .types = rtnl_link_info_data_ip6tnl_types } },
-        { .name = "ipip", .type_system = {
-                        .count = ELEMENTSOF(rtnl_link_info_data_iptun_types),
-                        .types = rtnl_link_info_data_iptun_types } },
-        { .name = "ipvlan", .type_system = {
-                        .count = ELEMENTSOF(rtnl_link_info_data_ipvlan_types),
-                        .types = rtnl_link_info_data_ipvlan_types } },
-        { .name = "ipvtap", .type_system = {
-                        .count = ELEMENTSOF(rtnl_link_info_data_ipvlan_types),
-                        .types = rtnl_link_info_data_ipvlan_types } },
-        { .name = "macsec", .type_system = {
-                        .count = ELEMENTSOF(rtnl_link_info_data_macsec_types),
-                        .types = rtnl_link_info_data_macsec_types } },
-        { .name = "macvlan", .type_system = {
-                        .count = ELEMENTSOF(rtnl_link_info_data_macvlan_types),
-                        .types = rtnl_link_info_data_macvlan_types } },
-        { .name = "macvtap", .type_system = {
-                        .count = ELEMENTSOF(rtnl_link_info_data_macvlan_types),
-                        .types = rtnl_link_info_data_macvlan_types } },
-        { .name = "netdevsim", },
-        { .name = "nlmon", },
-        { .name = "sit", .type_system = {
-                        .count = ELEMENTSOF(rtnl_link_info_data_iptun_types),
-                        .types = rtnl_link_info_data_iptun_types } },
-        { .name = "vcan", },
-        { .name = "veth", .type_system = {
-                        .count = ELEMENTSOF(rtnl_link_info_data_veth_types),
-                        .types = rtnl_link_info_data_veth_types } },
-        { .name = "vlan", .type_system = {
-                        .count = ELEMENTSOF(rtnl_link_info_data_vlan_types),
-                        .types = rtnl_link_info_data_vlan_types } },
-        { .name = "vrf", .type_system = {
-                        .count = ELEMENTSOF(rtnl_link_info_data_vrf_types),
-                        .types = rtnl_link_info_data_vrf_types } },
-        { .name = "vti", .type_system = {
-                        .count = ELEMENTSOF(rtnl_link_info_data_ipvti_types),
-                        .types = rtnl_link_info_data_ipvti_types } },
-        { .name = "vti6", .type_system = {
-                        .count = ELEMENTSOF(rtnl_link_info_data_ipvti_types),
-                        .types = rtnl_link_info_data_ipvti_types } },
-        { .name = "vxcan", .type_system = {
-                        .count = ELEMENTSOF(rtnl_link_info_data_vxcan_types),
-                        .types = rtnl_link_info_data_vxcan_types } },
-        { .name = "vxlan", .type_system = {
-                        .count = ELEMENTSOF(rtnl_link_info_data_vxlan_types),
-                        .types = rtnl_link_info_data_vxlan_types } },
-        { .name = "wireguard", },
-        { .name = "xfrm", .type_system = {
-                        .count = ELEMENTSOF(rtnl_link_info_data_xfrm_types),
-                        .types = rtnl_link_info_data_xfrm_types } },
+        { .name = "bareudp",   .type_system = TYPE_SYSTEM_FROM_TYPE(rtnl_link_info_data_bareudp), },
+        { .name = "batadv",    .type_system = TYPE_SYSTEM_FROM_TYPE(rtnl_link_info_data_batadv),  },
+        { .name = "bond",      .type_system = TYPE_SYSTEM_FROM_TYPE(rtnl_link_info_data_bond),    },
+        { .name = "bridge",    .type_system = TYPE_SYSTEM_FROM_TYPE(rtnl_link_info_data_bridge),  },
+        { .name = "can",       .type_system = TYPE_SYSTEM_FROM_TYPE(rtnl_link_info_data_can),     },
+        { .name = "dummy",                                                                        },
+        { .name = "erspan",    .type_system = TYPE_SYSTEM_FROM_TYPE(rtnl_link_info_data_ipgre),   },
+        { .name = "geneve",    .type_system = TYPE_SYSTEM_FROM_TYPE(rtnl_link_info_data_geneve),  },
+        { .name = "gre",       .type_system = TYPE_SYSTEM_FROM_TYPE(rtnl_link_info_data_ipgre),   },
+        { .name = "gretap",    .type_system = TYPE_SYSTEM_FROM_TYPE(rtnl_link_info_data_ipgre),   },
+        { .name = "ifb",                                                                          },
+        { .name = "ip6gre",    .type_system = TYPE_SYSTEM_FROM_TYPE(rtnl_link_info_data_ipgre),   },
+        { .name = "ip6gretap", .type_system = TYPE_SYSTEM_FROM_TYPE(rtnl_link_info_data_ipgre),   },
+        { .name = "ip6tnl",    .type_system = TYPE_SYSTEM_FROM_TYPE(rtnl_link_info_data_ip6tnl),  },
+        { .name = "ipip",      .type_system = TYPE_SYSTEM_FROM_TYPE(rtnl_link_info_data_iptun),   },
+        { .name = "ipvlan",    .type_system = TYPE_SYSTEM_FROM_TYPE(rtnl_link_info_data_ipvlan),  },
+        { .name = "ipvtap",    .type_system = TYPE_SYSTEM_FROM_TYPE(rtnl_link_info_data_ipvlan),  },
+        { .name = "macsec",    .type_system = TYPE_SYSTEM_FROM_TYPE(rtnl_link_info_data_macsec),  },
+        { .name = "macvlan",   .type_system = TYPE_SYSTEM_FROM_TYPE(rtnl_link_info_data_macvlan), },
+        { .name = "macvtap",   .type_system = TYPE_SYSTEM_FROM_TYPE(rtnl_link_info_data_macvlan), },
+        { .name = "netdevsim",                                                                    },
+        { .name = "nlmon",                                                                        },
+        { .name = "sit",       .type_system = TYPE_SYSTEM_FROM_TYPE(rtnl_link_info_data_iptun),   },
+        { .name = "vcan",                                                                         },
+        { .name = "veth",      .type_system = TYPE_SYSTEM_FROM_TYPE(rtnl_link_info_data_veth),    },
+        { .name = "vlan",      .type_system = TYPE_SYSTEM_FROM_TYPE(rtnl_link_info_data_vlan),    },
+        { .name = "vrf",       .type_system = TYPE_SYSTEM_FROM_TYPE(rtnl_link_info_data_vrf),     },
+        { .name = "vti",       .type_system = TYPE_SYSTEM_FROM_TYPE(rtnl_link_info_data_ipvti),   },
+        { .name = "vti6",      .type_system = TYPE_SYSTEM_FROM_TYPE(rtnl_link_info_data_ipvti),   },
+        { .name = "vxcan",     .type_system = TYPE_SYSTEM_FROM_TYPE(rtnl_link_info_data_vxcan),   },
+        { .name = "vxlan",     .type_system = TYPE_SYSTEM_FROM_TYPE(rtnl_link_info_data_vxlan),   },
+        { .name = "wireguard",                                                                    },
+        { .name = "xfrm",      .type_system = TYPE_SYSTEM_FROM_TYPE(rtnl_link_info_data_xfrm),    },
 };
 
-static const NLTypeSystemUnion rtnl_link_info_data_type_system_union = {
-        .count = ELEMENTSOF(rtnl_link_info_data_type_systems),
-        .elements = rtnl_link_info_data_type_systems,
-        .match_type = NL_MATCH_SIBLING,
-        .match_attribute = IFLA_INFO_KIND,
-};
+DEFINE_TYPE_SYSTEM_UNION_MATCH_SIBLING(rtnl_link_info_data, IFLA_INFO_KIND);
 
 static const NLType rtnl_link_info_types[] = {
         [IFLA_INFO_KIND]        = { .type = NETLINK_TYPE_STRING },
@@ -452,10 +384,7 @@ static const NLType rtnl_link_info_types[] = {
 */
 };
 
-static const NLTypeSystem rtnl_link_info_type_system = {
-        .count = ELEMENTSOF(rtnl_link_info_types),
-        .types = rtnl_link_info_types,
-};
+DEFINE_TYPE_SYSTEM(rtnl_link_info);
 
 static const struct NLType rtnl_prot_info_bridge_port_types[] = {
         [IFLA_BRPORT_STATE]               = { .type = NETLINK_TYPE_U8 },
@@ -495,16 +424,10 @@ static const struct NLType rtnl_prot_info_bridge_port_types[] = {
 };
 
 static const NLTypeSystemUnionElement rtnl_prot_info_type_systems[] = {
-        { .protocol = AF_BRIDGE, .type_system = {
-                        .count = ELEMENTSOF(rtnl_prot_info_bridge_port_types),
-                        .types = rtnl_prot_info_bridge_port_types } },
+        { .protocol = AF_BRIDGE, .type_system = TYPE_SYSTEM_FROM_TYPE(rtnl_prot_info_bridge_port), },
 };
 
-static const NLTypeSystemUnion rtnl_prot_info_type_system_union = {
-        .count = ELEMENTSOF(rtnl_prot_info_type_systems),
-        .elements = rtnl_prot_info_type_systems,
-        .match_type = NL_MATCH_PROTOCOL,
-};
+DEFINE_TYPE_SYSTEM_UNION_MATCH_PROTOCOL(rtnl_prot_info);
 
 static const struct NLType rtnl_af_spec_inet6_types[] = {
         [IFLA_INET6_FLAGS]              = { .type = NETLINK_TYPE_U32 },
@@ -519,10 +442,7 @@ static const struct NLType rtnl_af_spec_inet6_types[] = {
         [IFLA_INET6_ADDR_GEN_MODE]      = { .type = NETLINK_TYPE_U8 },
 };
 
-static const NLTypeSystem rtnl_af_spec_inet6_type_system = {
-        .count = ELEMENTSOF(rtnl_af_spec_inet6_types),
-        .types = rtnl_af_spec_inet6_types,
-};
+DEFINE_TYPE_SYSTEM(rtnl_af_spec_inet6);
 
 static const NLType rtnl_af_spec_unspec_types[] = {
         [AF_INET6] =    { .type = NETLINK_TYPE_NESTED, .type_system = &rtnl_af_spec_inet6_type_system },
@@ -534,42 +454,28 @@ static const NLType rtnl_af_spec_bridge_types[] = {
 };
 
 static const NLTypeSystemUnionElement rtnl_af_spec_type_systems[] = {
-        { .protocol = AF_UNSPEC, .type_system = {
-                        .count = ELEMENTSOF(rtnl_af_spec_unspec_types),
-                        .types = rtnl_af_spec_unspec_types } },
-        { .protocol = AF_BRIDGE, .type_system = {
-                        .count = ELEMENTSOF(rtnl_af_spec_bridge_types),
-                        .types = rtnl_af_spec_bridge_types } },
+        { .protocol = AF_UNSPEC, .type_system = TYPE_SYSTEM_FROM_TYPE(rtnl_af_spec_unspec), },
+        { .protocol = AF_BRIDGE, .type_system = TYPE_SYSTEM_FROM_TYPE(rtnl_af_spec_bridge), },
 };
 
-static const NLTypeSystemUnion rtnl_af_spec_type_system_union = {
-        .count = ELEMENTSOF(rtnl_af_spec_type_systems),
-        .elements = rtnl_af_spec_type_systems,
-        .match_type = NL_MATCH_PROTOCOL,
-};
+DEFINE_TYPE_SYSTEM_UNION_MATCH_PROTOCOL(rtnl_af_spec);
 
 static const NLType rtnl_prop_list_types[] = {
         [IFLA_ALT_IFNAME]       = { .type = NETLINK_TYPE_STRING, .size = ALTIFNAMSIZ - 1 },
 };
 
-static const NLTypeSystem rtnl_prop_list_type_system = {
-        .count = ELEMENTSOF(rtnl_prop_list_types),
-        .types = rtnl_prop_list_types,
-};
+DEFINE_TYPE_SYSTEM(rtnl_prop_list);
 
 static const NLType rtnl_vf_vlan_list_types[] = {
         [IFLA_VF_VLAN_INFO]  = { .size = sizeof(struct ifla_vf_vlan_info) },
 };
 
-static const NLTypeSystem rtnl_vf_vlan_type_system = {
-        .count = ELEMENTSOF(rtnl_vf_vlan_list_types),
-        .types = rtnl_vf_vlan_list_types,
-};
+DEFINE_TYPE_SYSTEM(rtnl_vf_vlan_list);
 
-static const NLType rtnl_vf_vlan_info_types[] = {
+static const NLType rtnl_vf_info_types[] = {
         [IFLA_VF_MAC]           = { .size = sizeof(struct ifla_vf_mac) },
         [IFLA_VF_VLAN]          = { .size = sizeof(struct ifla_vf_vlan) },
-        [IFLA_VF_VLAN_LIST]     = { .type = NETLINK_TYPE_NESTED, .type_system = &rtnl_vf_vlan_type_system},
+        [IFLA_VF_VLAN_LIST]     = { .type = NETLINK_TYPE_NESTED, .type_system = &rtnl_vf_vlan_list_type_system},
         [IFLA_VF_TX_RATE]       = { .size = sizeof(struct ifla_vf_tx_rate) },
         [IFLA_VF_SPOOFCHK]      = { .size = sizeof(struct ifla_vf_spoofchk) },
         [IFLA_VF_RATE]          = { .size = sizeof(struct ifla_vf_rate) },
@@ -580,19 +486,13 @@ static const NLType rtnl_vf_vlan_info_types[] = {
         [IFLA_VF_IB_PORT_GUID]  = { .size = sizeof(struct ifla_vf_guid) },
 };
 
-static const NLTypeSystem rtnl_vf_vlan_info_type_system = {
-        .count = ELEMENTSOF(rtnl_vf_vlan_info_types),
-        .types = rtnl_vf_vlan_info_types,
+DEFINE_TYPE_SYSTEM(rtnl_vf_info);
+
+static const NLType rtnl_vfinfo_list_types[] = {
+        [IFLA_VF_INFO] = { .type = NETLINK_TYPE_NESTED, .type_system = &rtnl_vf_info_type_system },
 };
 
-static const NLType rtnl_link_io_srv_types[] = {
-        [IFLA_VF_INFO] = { .type = NETLINK_TYPE_NESTED, .type_system = &rtnl_vf_vlan_info_type_system },
-};
-
-static const NLTypeSystem rtnl_io_srv_type_system = {
-        .count = ELEMENTSOF(rtnl_link_io_srv_types),
-        .types = rtnl_link_io_srv_types,
-};
+DEFINE_TYPE_SYSTEM(rtnl_vfinfo_list);
 
 static const NLType rtnl_link_types[] = {
         [IFLA_ADDRESS]          = { .type = NETLINK_TYPE_ETHER_ADDR },
@@ -622,7 +522,7 @@ static const NLType rtnl_link_types[] = {
         [IFLA_NET_NS_PID]       = { .type = NETLINK_TYPE_U32 },
         [IFLA_IFALIAS]          = { .type = NETLINK_TYPE_STRING, .size = IFALIASZ - 1 },
         [IFLA_NUM_VF]           = { .type = NETLINK_TYPE_U32 },
-        [IFLA_VFINFO_LIST]      = { .type = NETLINK_TYPE_NESTED, .type_system = &rtnl_io_srv_type_system },
+        [IFLA_VFINFO_LIST]      = { .type = NETLINK_TYPE_NESTED, .type_system = &rtnl_vfinfo_list_type_system },
         [IFLA_STATS64]          = { .size = sizeof(struct rtnl_link_stats64) },
 /*
         [IFLA_VF_PORTS]         = { .type = NETLINK_TYPE_NESTED },
@@ -651,10 +551,7 @@ static const NLType rtnl_link_types[] = {
         [IFLA_ALT_IFNAME]       = { .type = NETLINK_TYPE_STRING, .size = ALTIFNAMSIZ - 1 },
 };
 
-static const NLTypeSystem rtnl_link_type_system = {
-        .count = ELEMENTSOF(rtnl_link_types),
-        .types = rtnl_link_types,
-};
+DEFINE_TYPE_SYSTEM(rtnl_link);
 
 /* IFA_FLAGS was defined in kernel 3.14, but we still support older
  * kernels where IFA_MAX is lower. */
@@ -671,10 +568,7 @@ static const NLType rtnl_address_types[] = {
         [IFA_TARGET_NETNSID]    = { .type = NETLINK_TYPE_S32 },
 };
 
-static const NLTypeSystem rtnl_address_type_system = {
-        .count = ELEMENTSOF(rtnl_address_types),
-        .types = rtnl_address_types,
-};
+DEFINE_TYPE_SYSTEM(rtnl_address);
 
 /* RTM_METRICS --- array of struct rtattr with types of RTAX_* */
 
@@ -697,10 +591,7 @@ static const NLType rtnl_route_metrics_types[] = {
         [RTAX_FASTOPEN_NO_COOKIE] = { .type = NETLINK_TYPE_U32 },
 };
 
-static const NLTypeSystem rtnl_route_metrics_type_system = {
-        .count = ELEMENTSOF(rtnl_route_metrics_types),
-        .types = rtnl_route_metrics_types,
-};
+DEFINE_TYPE_SYSTEM(rtnl_route_metrics);
 
 static const NLType rtnl_route_types[] = {
         [RTA_DST]               = { .type = NETLINK_TYPE_IN_ADDR }, /* 6? */
@@ -731,10 +622,7 @@ static const NLType rtnl_route_types[] = {
         [RTA_NH_ID]             = { .type = NETLINK_TYPE_U32 },
 };
 
-static const NLTypeSystem rtnl_route_type_system = {
-        .count = ELEMENTSOF(rtnl_route_types),
-        .types = rtnl_route_types,
-};
+DEFINE_TYPE_SYSTEM(rtnl_route);
 
 static const NLType rtnl_neigh_types[] = {
         [NDA_DST]               = { .type = NETLINK_TYPE_IN_ADDR },
@@ -747,20 +635,14 @@ static const NLType rtnl_neigh_types[] = {
         [NDA_IFINDEX]           = { .type = NETLINK_TYPE_U32 },
 };
 
-static const NLTypeSystem rtnl_neigh_type_system = {
-        .count = ELEMENTSOF(rtnl_neigh_types),
-        .types = rtnl_neigh_types,
-};
+DEFINE_TYPE_SYSTEM(rtnl_neigh);
 
 static const NLType rtnl_addrlabel_types[] = {
         [IFAL_ADDRESS]         = { .type = NETLINK_TYPE_IN_ADDR, .size = sizeof(struct in6_addr) },
         [IFAL_LABEL]           = { .type = NETLINK_TYPE_U32 },
 };
 
-static const NLTypeSystem rtnl_addrlabel_type_system = {
-        .count = ELEMENTSOF(rtnl_addrlabel_types),
-        .types = rtnl_addrlabel_types,
-};
+DEFINE_TYPE_SYSTEM(rtnl_addrlabel);
 
 static const NLType rtnl_routing_policy_rule_types[] = {
         [FRA_DST]                 = { .type = NETLINK_TYPE_IN_ADDR },
@@ -785,10 +667,7 @@ static const NLType rtnl_routing_policy_rule_types[] = {
         [FRA_DPORT_RANGE]         = { .size = sizeof(struct fib_rule_port_range) },
 };
 
-static const NLTypeSystem rtnl_routing_policy_rule_type_system = {
-        .count = ELEMENTSOF(rtnl_routing_policy_rule_types),
-        .types = rtnl_routing_policy_rule_types,
-};
+DEFINE_TYPE_SYSTEM(rtnl_routing_policy_rule);
 
 static const NLType rtnl_nexthop_types[] = {
         [NHA_ID]                  = { .type = NETLINK_TYPE_U32 },
@@ -804,10 +683,7 @@ static const NLType rtnl_nexthop_types[] = {
         [NHA_FDB]                 = { .type = NETLINK_TYPE_FLAG },
 };
 
-static const NLTypeSystem rtnl_nexthop_type_system = {
-       .count = ELEMENTSOF(rtnl_nexthop_types),
-       .types = rtnl_nexthop_types,
-};
+DEFINE_TYPE_SYSTEM(rtnl_nexthop);
 
 static const NLType rtnl_tca_option_data_cake_types[] = {
         [TCA_CAKE_BASE_RATE64] = { .type = NETLINK_TYPE_U64 },
@@ -831,19 +707,13 @@ static const NLType rtnl_tca_option_data_ets_quanta_types[] = {
         [TCA_ETS_QUANTA_BAND] = { .type = NETLINK_TYPE_U32, },
 };
 
-static const NLTypeSystem rtnl_tca_option_data_ets_quanta_type_system = {
-        .count = ELEMENTSOF(rtnl_tca_option_data_ets_quanta_types),
-        .types = rtnl_tca_option_data_ets_quanta_types,
-};
+DEFINE_TYPE_SYSTEM(rtnl_tca_option_data_ets_quanta);
 
 static const NLType rtnl_tca_option_data_ets_prio_types[] = {
         [TCA_ETS_PRIOMAP_BAND] = { .type = NETLINK_TYPE_U8, },
 };
 
-static const NLTypeSystem rtnl_tca_option_data_ets_prio_type_system = {
-        .count = ELEMENTSOF(rtnl_tca_option_data_ets_prio_types),
-        .types = rtnl_tca_option_data_ets_prio_types,
-};
+DEFINE_TYPE_SYSTEM(rtnl_tca_option_data_ets_prio);
 
 static const NLType rtnl_tca_option_data_ets_types[] = {
         [TCA_ETS_NBANDS]      = { .type = NETLINK_TYPE_U8 },
@@ -925,56 +795,23 @@ static const NLType rtnl_tca_option_data_tbf_types[] = {
 };
 
 static const NLTypeSystemUnionElement rtnl_tca_option_data_type_systems[] = {
-        { .name = "cake", .type_system = {
-                        .count = ELEMENTSOF(rtnl_tca_option_data_cake_types),
-                        .types = rtnl_tca_option_data_cake_types } },
-        { .name = "codel", .type_system = {
-                        .count = ELEMENTSOF(rtnl_tca_option_data_codel_types),
-                        .types = rtnl_tca_option_data_codel_types } },
-        { .name = "drr", .type_system = {
-                        .count = ELEMENTSOF(rtnl_tca_option_data_drr_types),
-                        .types = rtnl_tca_option_data_drr_types } },
-        { .name = "ets", .type_system = {
-                        .count = ELEMENTSOF(rtnl_tca_option_data_ets_types),
-                        .types = rtnl_tca_option_data_ets_types } },
-        { .name = "fq", .type_system = {
-                        .count = ELEMENTSOF(rtnl_tca_option_data_fq_types),
-                        .types = rtnl_tca_option_data_fq_types } },
-        { .name = "fq_codel", .type_system = {
-                        .count = ELEMENTSOF(rtnl_tca_option_data_fq_codel_types),
-                        .types = rtnl_tca_option_data_fq_codel_types } },
-        { .name = "fq_pie", .type_system = {
-                        .count = ELEMENTSOF(rtnl_tca_option_data_fq_pie_types),
-                        .types = rtnl_tca_option_data_fq_pie_types } },
-        { .name = "gred", .type_system = {
-                        .count = ELEMENTSOF(rtnl_tca_option_data_gred_types),
-                        .types = rtnl_tca_option_data_gred_types } },
-        { .name = "hhf", .type_system = {
-                        .count = ELEMENTSOF(rtnl_tca_option_data_hhf_types),
-                        .types = rtnl_tca_option_data_hhf_types } },
-        { .name = "htb", .type_system = {
-                        .count = ELEMENTSOF(rtnl_tca_option_data_htb_types),
-                        .types = rtnl_tca_option_data_htb_types } },
-        { .name = "pie", .type_system = {
-                        .count = ELEMENTSOF(rtnl_tca_option_data_pie_types),
-                        .types = rtnl_tca_option_data_pie_types } },
-        { .name = "qfq", .type_system = {
-                        .count = ELEMENTSOF(rtnl_tca_option_data_qfq_types),
-                        .types = rtnl_tca_option_data_qfq_types } },
-        { .name = "sfb", .type_system = {
-                        .count = ELEMENTSOF(rtnl_tca_option_data_sfb_types),
-                        .types = rtnl_tca_option_data_sfb_types } },
-        { .name = "tbf", .type_system = {
-                        .count = ELEMENTSOF(rtnl_tca_option_data_tbf_types),
-                        .types = rtnl_tca_option_data_tbf_types } },
+        { .name = "cake",     .type_system = TYPE_SYSTEM_FROM_TYPE(rtnl_tca_option_data_cake),     },
+        { .name = "codel",    .type_system = TYPE_SYSTEM_FROM_TYPE(rtnl_tca_option_data_codel),    },
+        { .name = "drr",      .type_system = TYPE_SYSTEM_FROM_TYPE(rtnl_tca_option_data_drr),      },
+        { .name = "ets",      .type_system = TYPE_SYSTEM_FROM_TYPE(rtnl_tca_option_data_ets),      },
+        { .name = "fq",       .type_system = TYPE_SYSTEM_FROM_TYPE(rtnl_tca_option_data_fq),       },
+        { .name = "fq_codel", .type_system = TYPE_SYSTEM_FROM_TYPE(rtnl_tca_option_data_fq_codel), },
+        { .name = "fq_pie",   .type_system = TYPE_SYSTEM_FROM_TYPE(rtnl_tca_option_data_fq_pie),   },
+        { .name = "gred",     .type_system = TYPE_SYSTEM_FROM_TYPE(rtnl_tca_option_data_gred),     },
+        { .name = "hhf",      .type_system = TYPE_SYSTEM_FROM_TYPE(rtnl_tca_option_data_hhf),      },
+        { .name = "htb",      .type_system = TYPE_SYSTEM_FROM_TYPE(rtnl_tca_option_data_htb),      },
+        { .name = "pie",      .type_system = TYPE_SYSTEM_FROM_TYPE(rtnl_tca_option_data_pie),      },
+        { .name = "qfq",      .type_system = TYPE_SYSTEM_FROM_TYPE(rtnl_tca_option_data_qfq),      },
+        { .name = "sfb",      .type_system = TYPE_SYSTEM_FROM_TYPE(rtnl_tca_option_data_sfb),      },
+        { .name = "tbf",      .type_system = TYPE_SYSTEM_FROM_TYPE(rtnl_tca_option_data_tbf),      },
 };
 
-static const NLTypeSystemUnion rtnl_tca_option_data_type_system_union = {
-        .count = ELEMENTSOF(rtnl_tca_option_data_type_systems),
-        .elements = rtnl_tca_option_data_type_systems,
-        .match_type = NL_MATCH_SIBLING,
-        .match_attribute = TCA_KIND,
-};
+DEFINE_TYPE_SYSTEM_UNION_MATCH_SIBLING(rtnl_tca_option_data, TCA_KIND);
 
 static const NLType rtnl_tca_types[] = {
         [TCA_KIND]           = { .type = NETLINK_TYPE_STRING },
@@ -983,61 +820,52 @@ static const NLType rtnl_tca_types[] = {
         [TCA_EGRESS_BLOCK]   = { .type = NETLINK_TYPE_U32 },
 };
 
-static const NLTypeSystem rtnl_tca_type_system = {
-        .count = ELEMENTSOF(rtnl_tca_types),
-        .types = rtnl_tca_types,
-};
+DEFINE_TYPE_SYSTEM(rtnl_tca);
 
-static const NLType mdb_types[] = {
+static const NLType rtnl_mdb_types[] = {
         [MDBA_SET_ENTRY]     = { .size = sizeof(struct br_port_msg) },
 };
 
-static const NLTypeSystem rtnl_mdb_type_system = {
-        .count = ELEMENTSOF(mdb_types),
-        .types = mdb_types,
-};
+DEFINE_TYPE_SYSTEM(rtnl_mdb);
 
 static const NLType rtnl_types[] = {
-        [RTM_NEWLINK]      = { .type = NETLINK_TYPE_NESTED, .type_system = &rtnl_link_type_system, .size = sizeof(struct ifinfomsg) },
-        [RTM_DELLINK]      = { .type = NETLINK_TYPE_NESTED, .type_system = &rtnl_link_type_system, .size = sizeof(struct ifinfomsg) },
-        [RTM_GETLINK]      = { .type = NETLINK_TYPE_NESTED, .type_system = &rtnl_link_type_system, .size = sizeof(struct ifinfomsg) },
-        [RTM_SETLINK]      = { .type = NETLINK_TYPE_NESTED, .type_system = &rtnl_link_type_system, .size = sizeof(struct ifinfomsg) },
-        [RTM_NEWLINKPROP]  = { .type = NETLINK_TYPE_NESTED, .type_system = &rtnl_link_type_system, .size = sizeof(struct ifinfomsg) },
-        [RTM_DELLINKPROP]  = { .type = NETLINK_TYPE_NESTED, .type_system = &rtnl_link_type_system, .size = sizeof(struct ifinfomsg) },
-        [RTM_GETLINKPROP]  = { .type = NETLINK_TYPE_NESTED, .type_system = &rtnl_link_type_system, .size = sizeof(struct ifinfomsg) },
-        [RTM_NEWADDR]      = { .type = NETLINK_TYPE_NESTED, .type_system = &rtnl_address_type_system, .size = sizeof(struct ifaddrmsg) },
-        [RTM_DELADDR]      = { .type = NETLINK_TYPE_NESTED, .type_system = &rtnl_address_type_system, .size = sizeof(struct ifaddrmsg) },
-        [RTM_GETADDR]      = { .type = NETLINK_TYPE_NESTED, .type_system = &rtnl_address_type_system, .size = sizeof(struct ifaddrmsg) },
-        [RTM_NEWROUTE]     = { .type = NETLINK_TYPE_NESTED, .type_system = &rtnl_route_type_system, .size = sizeof(struct rtmsg) },
-        [RTM_DELROUTE]     = { .type = NETLINK_TYPE_NESTED, .type_system = &rtnl_route_type_system, .size = sizeof(struct rtmsg) },
-        [RTM_GETROUTE]     = { .type = NETLINK_TYPE_NESTED, .type_system = &rtnl_route_type_system, .size = sizeof(struct rtmsg) },
-        [RTM_NEWNEIGH]     = { .type = NETLINK_TYPE_NESTED, .type_system = &rtnl_neigh_type_system, .size = sizeof(struct ndmsg) },
-        [RTM_DELNEIGH]     = { .type = NETLINK_TYPE_NESTED, .type_system = &rtnl_neigh_type_system, .size = sizeof(struct ndmsg) },
-        [RTM_GETNEIGH]     = { .type = NETLINK_TYPE_NESTED, .type_system = &rtnl_neigh_type_system, .size = sizeof(struct ndmsg) },
-        [RTM_NEWADDRLABEL] = { .type = NETLINK_TYPE_NESTED, .type_system = &rtnl_addrlabel_type_system, .size = sizeof(struct ifaddrlblmsg) },
-        [RTM_DELADDRLABEL] = { .type = NETLINK_TYPE_NESTED, .type_system = &rtnl_addrlabel_type_system, .size = sizeof(struct ifaddrlblmsg) },
-        [RTM_GETADDRLABEL] = { .type = NETLINK_TYPE_NESTED, .type_system = &rtnl_addrlabel_type_system, .size = sizeof(struct ifaddrlblmsg) },
+        [RTM_NEWLINK]      = { .type = NETLINK_TYPE_NESTED, .type_system = &rtnl_link_type_system,                .size = sizeof(struct ifinfomsg) },
+        [RTM_DELLINK]      = { .type = NETLINK_TYPE_NESTED, .type_system = &rtnl_link_type_system,                .size = sizeof(struct ifinfomsg) },
+        [RTM_GETLINK]      = { .type = NETLINK_TYPE_NESTED, .type_system = &rtnl_link_type_system,                .size = sizeof(struct ifinfomsg) },
+        [RTM_SETLINK]      = { .type = NETLINK_TYPE_NESTED, .type_system = &rtnl_link_type_system,                .size = sizeof(struct ifinfomsg) },
+        [RTM_NEWLINKPROP]  = { .type = NETLINK_TYPE_NESTED, .type_system = &rtnl_link_type_system,                .size = sizeof(struct ifinfomsg) },
+        [RTM_DELLINKPROP]  = { .type = NETLINK_TYPE_NESTED, .type_system = &rtnl_link_type_system,                .size = sizeof(struct ifinfomsg) },
+        [RTM_GETLINKPROP]  = { .type = NETLINK_TYPE_NESTED, .type_system = &rtnl_link_type_system,                .size = sizeof(struct ifinfomsg) },
+        [RTM_NEWADDR]      = { .type = NETLINK_TYPE_NESTED, .type_system = &rtnl_address_type_system,             .size = sizeof(struct ifaddrmsg) },
+        [RTM_DELADDR]      = { .type = NETLINK_TYPE_NESTED, .type_system = &rtnl_address_type_system,             .size = sizeof(struct ifaddrmsg) },
+        [RTM_GETADDR]      = { .type = NETLINK_TYPE_NESTED, .type_system = &rtnl_address_type_system,             .size = sizeof(struct ifaddrmsg) },
+        [RTM_NEWROUTE]     = { .type = NETLINK_TYPE_NESTED, .type_system = &rtnl_route_type_system,               .size = sizeof(struct rtmsg) },
+        [RTM_DELROUTE]     = { .type = NETLINK_TYPE_NESTED, .type_system = &rtnl_route_type_system,               .size = sizeof(struct rtmsg) },
+        [RTM_GETROUTE]     = { .type = NETLINK_TYPE_NESTED, .type_system = &rtnl_route_type_system,               .size = sizeof(struct rtmsg) },
+        [RTM_NEWNEIGH]     = { .type = NETLINK_TYPE_NESTED, .type_system = &rtnl_neigh_type_system,               .size = sizeof(struct ndmsg) },
+        [RTM_DELNEIGH]     = { .type = NETLINK_TYPE_NESTED, .type_system = &rtnl_neigh_type_system,               .size = sizeof(struct ndmsg) },
+        [RTM_GETNEIGH]     = { .type = NETLINK_TYPE_NESTED, .type_system = &rtnl_neigh_type_system,               .size = sizeof(struct ndmsg) },
+        [RTM_NEWADDRLABEL] = { .type = NETLINK_TYPE_NESTED, .type_system = &rtnl_addrlabel_type_system,           .size = sizeof(struct ifaddrlblmsg) },
+        [RTM_DELADDRLABEL] = { .type = NETLINK_TYPE_NESTED, .type_system = &rtnl_addrlabel_type_system,           .size = sizeof(struct ifaddrlblmsg) },
+        [RTM_GETADDRLABEL] = { .type = NETLINK_TYPE_NESTED, .type_system = &rtnl_addrlabel_type_system,           .size = sizeof(struct ifaddrlblmsg) },
         [RTM_NEWRULE]      = { .type = NETLINK_TYPE_NESTED, .type_system = &rtnl_routing_policy_rule_type_system, .size = sizeof(struct fib_rule_hdr) },
         [RTM_DELRULE]      = { .type = NETLINK_TYPE_NESTED, .type_system = &rtnl_routing_policy_rule_type_system, .size = sizeof(struct fib_rule_hdr) },
         [RTM_GETRULE]      = { .type = NETLINK_TYPE_NESTED, .type_system = &rtnl_routing_policy_rule_type_system, .size = sizeof(struct fib_rule_hdr) },
-        [RTM_NEWNEXTHOP]   = { .type = NETLINK_TYPE_NESTED, .type_system = &rtnl_nexthop_type_system, .size = sizeof(struct nhmsg) },
-        [RTM_DELNEXTHOP]   = { .type = NETLINK_TYPE_NESTED, .type_system = &rtnl_nexthop_type_system, .size = sizeof(struct nhmsg) },
-        [RTM_GETNEXTHOP]   = { .type = NETLINK_TYPE_NESTED, .type_system = &rtnl_nexthop_type_system, .size = sizeof(struct nhmsg) },
-        [RTM_NEWQDISC]     = { .type = NETLINK_TYPE_NESTED, .type_system = &rtnl_tca_type_system, .size = sizeof(struct tcmsg) },
-        [RTM_DELQDISC]     = { .type = NETLINK_TYPE_NESTED, .type_system = &rtnl_tca_type_system, .size = sizeof(struct tcmsg) },
-        [RTM_GETQDISC]     = { .type = NETLINK_TYPE_NESTED, .type_system = &rtnl_tca_type_system, .size = sizeof(struct tcmsg) },
-        [RTM_NEWTCLASS]    = { .type = NETLINK_TYPE_NESTED, .type_system = &rtnl_tca_type_system, .size = sizeof(struct tcmsg) },
-        [RTM_DELTCLASS]    = { .type = NETLINK_TYPE_NESTED, .type_system = &rtnl_tca_type_system, .size = sizeof(struct tcmsg) },
-        [RTM_GETTCLASS]    = { .type = NETLINK_TYPE_NESTED, .type_system = &rtnl_tca_type_system, .size = sizeof(struct tcmsg) },
-        [RTM_NEWMDB]       = { .type = NETLINK_TYPE_NESTED, .type_system = &rtnl_mdb_type_system, .size = sizeof(struct br_port_msg) },
-        [RTM_DELMDB]       = { .type = NETLINK_TYPE_NESTED, .type_system = &rtnl_mdb_type_system, .size = sizeof(struct br_port_msg) },
-        [RTM_GETMDB]       = { .type = NETLINK_TYPE_NESTED, .type_system = &rtnl_mdb_type_system, .size = sizeof(struct br_port_msg) },
+        [RTM_NEWNEXTHOP]   = { .type = NETLINK_TYPE_NESTED, .type_system = &rtnl_nexthop_type_system,             .size = sizeof(struct nhmsg) },
+        [RTM_DELNEXTHOP]   = { .type = NETLINK_TYPE_NESTED, .type_system = &rtnl_nexthop_type_system,             .size = sizeof(struct nhmsg) },
+        [RTM_GETNEXTHOP]   = { .type = NETLINK_TYPE_NESTED, .type_system = &rtnl_nexthop_type_system,             .size = sizeof(struct nhmsg) },
+        [RTM_NEWQDISC]     = { .type = NETLINK_TYPE_NESTED, .type_system = &rtnl_tca_type_system,                 .size = sizeof(struct tcmsg) },
+        [RTM_DELQDISC]     = { .type = NETLINK_TYPE_NESTED, .type_system = &rtnl_tca_type_system,                 .size = sizeof(struct tcmsg) },
+        [RTM_GETQDISC]     = { .type = NETLINK_TYPE_NESTED, .type_system = &rtnl_tca_type_system,                 .size = sizeof(struct tcmsg) },
+        [RTM_NEWTCLASS]    = { .type = NETLINK_TYPE_NESTED, .type_system = &rtnl_tca_type_system,                 .size = sizeof(struct tcmsg) },
+        [RTM_DELTCLASS]    = { .type = NETLINK_TYPE_NESTED, .type_system = &rtnl_tca_type_system,                 .size = sizeof(struct tcmsg) },
+        [RTM_GETTCLASS]    = { .type = NETLINK_TYPE_NESTED, .type_system = &rtnl_tca_type_system,                 .size = sizeof(struct tcmsg) },
+        [RTM_NEWMDB]       = { .type = NETLINK_TYPE_NESTED, .type_system = &rtnl_mdb_type_system,                 .size = sizeof(struct br_port_msg) },
+        [RTM_DELMDB]       = { .type = NETLINK_TYPE_NESTED, .type_system = &rtnl_mdb_type_system,                 .size = sizeof(struct br_port_msg) },
+        [RTM_GETMDB]       = { .type = NETLINK_TYPE_NESTED, .type_system = &rtnl_mdb_type_system,                 .size = sizeof(struct br_port_msg) },
 };
 
-static const NLTypeSystem rtnl_type_system = {
-        .count = ELEMENTSOF(rtnl_types),
-        .types = rtnl_types,
-};
+DEFINE_TYPE_SYSTEM(rtnl);
 
 int rtnl_get_type(uint16_t nlmsg_type, const NLType **ret) {
         return type_system_get_type(&rtnl_type_system, ret, nlmsg_type);
