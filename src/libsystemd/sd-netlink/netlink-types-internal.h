@@ -16,6 +16,11 @@ struct NLTypeSystem {
         const NLType *types;
 };
 
+#define TYPE_SYSTEM_FROM_TYPE(name)                                     \
+        { .count = ELEMENTSOF(name##_types), .types = name##_types }
+#define DEFINE_TYPE_SYSTEM(name)                                        \
+        static const NLTypeSystem name##_type_system = TYPE_SYSTEM_FROM_TYPE(name);
+
 typedef struct NLTypeSystemUnionElement {
         union {
                 int protocol;
