@@ -37,7 +37,7 @@ static int genl_message_new(sd_netlink *nl, sd_genl_family_t family, uint16_t nl
         assert(nl->protocol == NETLINK_GENERIC);
         assert(ret);
 
-        r = type_system_get_type(&genl_family_type_system, &type, family);
+        r = type_system_root_get_type(nl, &type, nlmsg_type);
         if (r < 0)
                 return r;
 
