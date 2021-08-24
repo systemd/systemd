@@ -23,7 +23,8 @@
 int message_new_empty(sd_netlink *nl, sd_netlink_message **ret) {
         sd_netlink_message *m;
 
-        assert_return(ret, -EINVAL);
+        assert(nl);
+        assert(ret);
 
         /* Note that 'nl' is currently unused, if we start using it internally we must take care to
          * avoid problems due to mutual references between buses and their queued messages. See sd-bus. */
@@ -39,17 +40,51 @@ int message_new_empty(sd_netlink *nl, sd_netlink_message **ret) {
         };
 
         *ret = m;
+        return 0;
+}
 
+int message_new_full(
+                sd_netlink *nl,
+                uint16_t nlmsg_type,
+                const NLTypeSystem *type_system,
+                size_t header_size,
+                sd_netlink_message **ret) {
+
+        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
+        size_t size;
+        int r;
+
+        assert(nl);
+        assert(type_system);
+        assert(ret);
+
+        size = NLMSG_SPACE(header_size);
+        assert(size >= sizeof(struct nlmsghdr));
+
+        r = message_new_empty(nl, &m);
+        if (r < 0)
+                return r;
+
+        m->containers[0].type_system = type_system;
+
+        m->hdr = malloc0(size);
+        if (!m->hdr)
+                return -ENOMEM;
+
+        m->hdr->nlmsg_flags = NLM_F_REQUEST | NLM_F_ACK;
+        m->hdr->nlmsg_len = size;
+        m->hdr->nlmsg_type = nlmsg_type;
+
+        *ret = TAKE_PTR(m);
         return 0;
 }
 
 int message_new(sd_netlink *nl, sd_netlink_message **ret, uint16_t type) {
-        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
         const NLType *nl_type;
-        size_t size;
         int r;
 
         assert_return(nl, -EINVAL);
+        assert_return(ret, -EINVAL);
 
         r = type_system_root_get_type(nl, &nl_type, type);
         if (r < 0)
@@ -58,26 +93,7 @@ int message_new(sd_netlink *nl, sd_netlink_message **ret, uint16_t type) {
         if (type_get_type(nl_type) != NETLINK_TYPE_NESTED)
                 return -EINVAL;
 
-        r = message_new_empty(nl, &m);
-        if (r < 0)
-                return r;
-
-        size = NLMSG_SPACE(type_get_size(nl_type));
-
-        assert(size >= sizeof(struct nlmsghdr));
-        m->hdr = malloc0(size);
-        if (!m->hdr)
-                return -ENOMEM;
-
-        m->hdr->nlmsg_flags = NLM_F_REQUEST | NLM_F_ACK;
-
-        m->containers[0].type_system = type_get_type_system(nl_type);
-        m->hdr->nlmsg_len = size;
-        m->hdr->nlmsg_type = type;
-
-        *ret = TAKE_PTR(m);
-
-        return 0;
+        return message_new_full(nl, type, type_get_type_system(nl_type), type_get_size(nl_type), ret);
 }
 
 int message_new_synthetic_error(sd_netlink *nl, int error, uint32_t serial, sd_netlink_message **ret) {
