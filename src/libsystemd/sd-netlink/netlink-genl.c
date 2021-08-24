@@ -29,8 +29,7 @@ int sd_genl_socket_open(sd_netlink **ret) {
 
 static int genl_message_new(sd_netlink *nl, sd_genl_family_t family, uint16_t nlmsg_type, uint8_t cmd, sd_netlink_message **ret) {
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
-        const NLType *genl_cmd_type, *nl_type;
-        const NLTypeSystem *type_system;
+        const NLType *type;
         size_t size;
         int r;
 
@@ -38,7 +37,7 @@ static int genl_message_new(sd_netlink *nl, sd_genl_family_t family, uint16_t nl
         assert(nl->protocol == NETLINK_GENERIC);
         assert(ret);
 
-        r = type_system_get_type(&genl_family_type_system, &genl_cmd_type, family);
+        r = type_system_get_type(&genl_family_type_system, &type, family);
         if (r < 0)
                 return r;
 
@@ -52,17 +51,10 @@ static int genl_message_new(sd_netlink *nl, sd_genl_family_t family, uint16_t nl
                 return -ENOMEM;
 
         m->hdr->nlmsg_flags = NLM_F_REQUEST | NLM_F_ACK;
-
-        type_system = type_get_type_system(genl_cmd_type);
-
-        r = type_system_get_type(type_system, &nl_type, cmd);
-        if (r < 0)
-                return r;
-
         m->hdr->nlmsg_len = size;
         m->hdr->nlmsg_type = nlmsg_type;
 
-        m->containers[0].type_system = type_get_type_system(nl_type);
+        m->containers[0].type_system = type_get_type_system(type);
 
         *(struct genlmsghdr *) NLMSG_DATA(m->hdr) = (struct genlmsghdr) {
                 .cmd = cmd,
