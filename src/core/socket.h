@@ -5,7 +5,6 @@ typedef struct Socket Socket;
 typedef struct SocketPeer SocketPeer;
 
 #include "mount.h"
-#include "service.h"
 #include "socket-util.h"
 #include "unit.h"
 
