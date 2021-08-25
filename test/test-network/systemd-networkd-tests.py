@@ -1155,7 +1155,8 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
                     f.write('[MACVTAP]\nMode=' + mode)
                 start_networkd()
 
-                self.wait_online(['macvtap99:degraded', 'test1:degraded'])
+                self.wait_online(['macvtap99:degraded',
+                                  'test1:carrier' if mode == 'passthru' else 'test1:degraded'])
 
                 output = check_output('ip -d link show macvtap99')
                 print(output)
@@ -1172,7 +1173,8 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
                     f.write('[MACVLAN]\nMode=' + mode)
                 start_networkd()
 
-                self.wait_online(['macvlan99:degraded', 'test1:degraded'])
+                self.wait_online(['macvlan99:degraded',
+                                  'test1:carrier' if mode == 'passthru' else 'test1:degraded'])
 
                 output = check_output('ip -d link show test1')
                 print(output)
@@ -1191,7 +1193,8 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
                 self.assertEqual(rc, 0)
                 time.sleep(1)
 
-                self.wait_online(['macvlan99:degraded', 'test1:degraded'])
+                self.wait_online(['macvlan99:degraded',
+                                  'test1:carrier' if mode == 'passthru' else 'test1:degraded'])
 
                 output = check_output('ip -d link show test1')
                 print(output)
