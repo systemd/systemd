@@ -709,6 +709,10 @@ evdev:name:gpio-keys:phys:gpio-keys/input0:ev:3:dmi:*:svnHewlett-Packard:pnHPStr
 evdev:name:gpio-keys:phys:gpio-keys/input0:ev:23:dmi:*:svnHewlett-Packard:pnHPStream7Tablet:*
  KEYBOARD_KEY_0=unknown
 
+# HP Omen 15
+evdev:atkbd:dmi:bvn*:bvr*:bd*:svnHP:pnOMENLaptop15*:pvr*
+ KEYBOARD_KEY_a1=!calc
+
 ##########################################################
 # Huawei
 ##########################################################
