@@ -3867,6 +3867,9 @@ CHANGES WITH 240:
 
           Consult the kernel documentation for details on this sysctl:
           https://www.kernel.org/doc/Documentation/networking/ip-sysctl.txt
+          
+        * The v239 change to turn on "net.ipv4.tcp_ecn" by default has been
+          reverted.
 
         * CPUAccounting=yes no longer enables the CPU controller when using
           kernel 4.15+ and the unified cgroup hierarchy, as required accounting
