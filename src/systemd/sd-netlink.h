@@ -31,32 +31,15 @@
 _SD_BEGIN_DECLARATIONS;
 
 typedef struct sd_netlink sd_netlink;
-typedef struct sd_genl_socket sd_genl_socket;
 typedef struct sd_netlink_message sd_netlink_message;
 typedef struct sd_netlink_slot sd_netlink_slot;
 
-typedef enum sd_genl_family_t {
-        SD_GENL_ERROR,
-        SD_GENL_DONE,
-        SD_GENL_ID_CTRL,
-        SD_GENL_WIREGUARD,
-        SD_GENL_FOU,
-        SD_GENL_L2TP,
-        SD_GENL_MACSEC,
-        SD_GENL_NL80211,
-        SD_GENL_BATADV,
-        _SD_GENL_FAMILY_MAX,
-        _SD_GENL_FAMILY_INVALID = -EINVAL,
-        _SD_ENUM_FORCE_S64(GENL_FAMILY)
-} sd_genl_family_t;
-
 /* callback */
-
 typedef int (*sd_netlink_message_handler_t)(sd_netlink *nl, sd_netlink_message *m, void *userdata);
 typedef _sd_destroy_t sd_netlink_destroy_t;
 
 /* bus */
-int sd_netlink_new_from_netlink(sd_netlink **nl, int fd);
+int sd_netlink_new_from_fd(sd_netlink **nl, int fd);
 int sd_netlink_open(sd_netlink **nl);
 int sd_netlink_open_fd(sd_netlink **nl, int fd);
 int sd_netlink_inc_rcvbuf(sd_netlink *nl, const size_t size);
@@ -86,6 +69,7 @@ int sd_netlink_add_match(sd_netlink *nl, sd_netlink_slot **ret_slot, uint16_t ma
 int sd_netlink_attach_event(sd_netlink *nl, sd_event *e, int64_t priority);
 int sd_netlink_detach_event(sd_netlink *nl);
 
+/* message */
 int sd_netlink_message_append_string(sd_netlink_message *m, unsigned short type, const char *data);
 int sd_netlink_message_append_strv(sd_netlink_message *m, unsigned short type, char * const *data);
 int sd_netlink_message_append_flag(sd_netlink_message *m, unsigned short type);
@@ -129,7 +113,7 @@ int sd_netlink_message_exit_container(sd_netlink_message *m);
 int sd_netlink_message_open_array(sd_netlink_message *m, uint16_t type);
 int sd_netlink_message_cancel_array(sd_netlink_message *m);
 
-int sd_netlink_message_rewind(sd_netlink_message *m, sd_netlink *genl);
+int sd_netlink_message_rewind(sd_netlink_message *m, sd_netlink *nl);
 
 sd_netlink_message *sd_netlink_message_next(sd_netlink_message *m);
 
@@ -182,12 +166,12 @@ int sd_rtnl_message_route_get_dst_prefixlen(sd_netlink_message *m, unsigned char
 int sd_rtnl_message_route_get_src_prefixlen(sd_netlink_message *m, unsigned char *src_len);
 int sd_rtnl_message_route_get_type(sd_netlink_message *m, unsigned char *type);
 
-int sd_rtnl_message_new_nexthop(sd_netlink *rtnl, sd_netlink_message **ret, uint16_t nhmsg_type, int nh_family, unsigned char nh_protocol);
+int sd_rtnl_message_new_nexthop(sd_netlink *rtnl, sd_netlink_message **ret, uint16_t nlmsg_type, int nh_family, unsigned char nh_protocol);
 int sd_rtnl_message_nexthop_set_flags(sd_netlink_message *m, uint8_t flags);
 int sd_rtnl_message_nexthop_get_family(sd_netlink_message *m, uint8_t *family);
 int sd_rtnl_message_nexthop_get_protocol(sd_netlink_message *m, uint8_t *protocol);
 
-int sd_rtnl_message_new_neigh(sd_netlink *nl, sd_netlink_message **ret, uint16_t msg_type, int index, int nda_family);
+int sd_rtnl_message_new_neigh(sd_netlink *nl, sd_netlink_message **ret, uint16_t nlmsg_type, int index, int nda_family);
 int sd_rtnl_message_neigh_set_flags(sd_netlink_message *m, uint8_t flags);
 int sd_rtnl_message_neigh_set_state(sd_netlink_message *m, uint16_t state);
 int sd_rtnl_message_neigh_get_family(sd_netlink_message *m, int *family);
@@ -224,13 +208,13 @@ int sd_rtnl_message_set_tclass_handle(sd_netlink_message *m, uint32_t handle);
 int sd_rtnl_message_new_mdb(sd_netlink *rtnl, sd_netlink_message **ret, uint16_t nlmsg_type, int mdb_ifindex);
 
 /* nfnl */
-int sd_nfnl_socket_open(sd_netlink **nl);
+int sd_nfnl_socket_open(sd_netlink **ret);
 int sd_nfnl_message_batch_begin(sd_netlink *nfnl, sd_netlink_message **ret);
 int sd_nfnl_message_batch_end(sd_netlink *nfnl, sd_netlink_message **ret);
 int sd_nfnl_nft_message_del_table(sd_netlink *nfnl, sd_netlink_message **ret,
                                   int family, const char *table);
 int sd_nfnl_nft_message_new_table(sd_netlink *nfnl, sd_netlink_message **ret,
-                                  int family, const char *table, uint16_t nl_flags);
+                                  int family, const char *table);
 int sd_nfnl_nft_message_new_basechain(sd_netlink *nfnl, sd_netlink_message **ret,
                                       int family, const char *table, const char *chain,
                                       const char *type, uint8_t hook, int prio);
@@ -250,13 +234,19 @@ int sd_nfnl_nft_message_add_setelem(sd_netlink_message *m,
 int sd_nfnl_nft_message_add_setelem_end(sd_netlink_message *m);
 
 /* genl */
-int sd_genl_socket_open(sd_netlink **nl);
-int sd_genl_message_new(sd_netlink *nl, sd_genl_family_t family, uint8_t cmd, sd_netlink_message **ret);
-int sd_genl_message_get_family(sd_netlink *nl, sd_netlink_message *m, sd_genl_family_t *ret);
+int sd_genl_socket_open(sd_netlink **ret);
+int sd_genl_message_new(sd_netlink *genl, const char *family_name, uint8_t cmd, sd_netlink_message **ret);
+int sd_genl_message_get_family_name(sd_netlink *genl, sd_netlink_message *m, const char **ret);
+int sd_genl_message_get_command(sd_netlink *genl, sd_netlink_message *m, uint8_t *ret);
+int sd_genl_add_match(sd_netlink *nl, sd_netlink_slot **ret_slot, const char *family_name,
+                      const char *multicast_group_name, uint8_t command,
+                      sd_netlink_message_handler_t callback,
+                      sd_netlink_destroy_t destroy_callback,
+                      void *userdata, const char *description);
 
 /* slot */
-sd_netlink_slot *sd_netlink_slot_ref(sd_netlink_slot *nl);
-sd_netlink_slot *sd_netlink_slot_unref(sd_netlink_slot *nl);
+sd_netlink_slot *sd_netlink_slot_ref(sd_netlink_slot *slot);
+sd_netlink_slot *sd_netlink_slot_unref(sd_netlink_slot *slot);
 
 sd_netlink *sd_netlink_slot_get_netlink(sd_netlink_slot *slot);
 void *sd_netlink_slot_get_userdata(sd_netlink_slot *slot);
