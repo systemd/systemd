@@ -943,10 +943,10 @@ static const NLType rtnl_route_types[] = {
         [RTA_GATEWAY]           = { .type = NETLINK_TYPE_IN_ADDR },
         [RTA_PRIORITY]          = { .type = NETLINK_TYPE_U32 },
         [RTA_PREFSRC]           = { .type = NETLINK_TYPE_IN_ADDR }, /* 6? */
-        [RTA_METRICS]           = { .type = NETLINK_TYPE_NESTED, .type_system = &rtnl_route_metrics_type_system},
-        [RTA_MULTIPATH]         = { .size = sizeof(struct rtnexthop) },
+        [RTA_METRICS]           = { .type = NETLINK_TYPE_NESTED, .type_system = &rtnl_route_metrics_type_system },
+        [RTA_MULTIPATH]         = { .type = NETLINK_TYPE_BINARY, .size = sizeof(struct rtnexthop) },
         [RTA_FLOW]              = { .type = NETLINK_TYPE_U32 }, /* 6? */
-        [RTA_CACHEINFO]         = { .size = sizeof(struct rta_cacheinfo) },
+        [RTA_CACHEINFO]         = { .type = NETLINK_TYPE_BINARY, .size = sizeof(struct rta_cacheinfo) },
         [RTA_TABLE]             = { .type = NETLINK_TYPE_U32 },
         [RTA_MARK]              = { .type = NETLINK_TYPE_U32 },
         [RTA_MFC_STATS]         = { .type = NETLINK_TYPE_U64 },
@@ -1002,11 +1002,11 @@ static const NLType rtnl_routing_policy_rule_types[] = {
         [FRA_OIFNAME]             = { .type = NETLINK_TYPE_STRING },
         [FRA_PAD]                 = { .type = NETLINK_TYPE_U32 },
         [FRA_L3MDEV]              = { .type = NETLINK_TYPE_U8 },
-        [FRA_UID_RANGE]           = { .size = sizeof(struct fib_rule_uid_range) },
+        [FRA_UID_RANGE]           = { .type = NETLINK_TYPE_BINARY, .size = sizeof(struct fib_rule_uid_range) },
         [FRA_PROTOCOL]            = { .type = NETLINK_TYPE_U8 },
         [FRA_IP_PROTO]            = { .type = NETLINK_TYPE_U8 },
-        [FRA_SPORT_RANGE]         = { .size = sizeof(struct fib_rule_port_range) },
-        [FRA_DPORT_RANGE]         = { .size = sizeof(struct fib_rule_port_range) },
+        [FRA_SPORT_RANGE]         = { .type = NETLINK_TYPE_BINARY, .size = sizeof(struct fib_rule_port_range) },
+        [FRA_DPORT_RANGE]         = { .type = NETLINK_TYPE_BINARY, .size = sizeof(struct fib_rule_port_range) },
 };
 
 DEFINE_TYPE_SYSTEM(rtnl_routing_policy_rule);
@@ -1097,7 +1097,7 @@ static const NLType rtnl_tca_option_data_fq_pie_types[] = {
 };
 
 static const NLType rtnl_tca_option_data_gred_types[] = {
-        [TCA_GRED_DPS] = { .size = sizeof(struct tc_gred_sopt) },
+        [TCA_GRED_DPS] = { .type = NETLINK_TYPE_BINARY, .size = sizeof(struct tc_gred_sopt) },
 };
 
 static const NLType rtnl_tca_option_data_hhf_types[] = {
@@ -1105,10 +1105,10 @@ static const NLType rtnl_tca_option_data_hhf_types[] = {
 };
 
 static const NLType rtnl_tca_option_data_htb_types[] = {
-        [TCA_HTB_PARMS]  = { .size = sizeof(struct tc_htb_opt) },
-        [TCA_HTB_INIT]   = { .size = sizeof(struct tc_htb_glob) },
-        [TCA_HTB_CTAB]   = { .size = TC_RTAB_SIZE },
-        [TCA_HTB_RTAB]   = { .size = TC_RTAB_SIZE },
+        [TCA_HTB_PARMS]  = { .type = NETLINK_TYPE_BINARY, .size = sizeof(struct tc_htb_opt) },
+        [TCA_HTB_INIT]   = { .type = NETLINK_TYPE_BINARY, .size = sizeof(struct tc_htb_glob) },
+        [TCA_HTB_CTAB]   = { .type = NETLINK_TYPE_BINARY, .size = TC_RTAB_SIZE },
+        [TCA_HTB_RTAB]   = { .type = NETLINK_TYPE_BINARY, .size = TC_RTAB_SIZE },
         [TCA_HTB_RATE64] = { .type = NETLINK_TYPE_U64 },
         [TCA_HTB_CEIL64] = { .type = NETLINK_TYPE_U64 },
 };
@@ -1123,13 +1123,13 @@ static const NLType rtnl_tca_option_data_qfq_types[] = {
 };
 
 static const NLType rtnl_tca_option_data_sfb_types[] = {
-        [TCA_SFB_PARMS] = { .size = sizeof(struct tc_sfb_qopt) },
+        [TCA_SFB_PARMS] = { .type = NETLINK_TYPE_BINARY, .size = sizeof(struct tc_sfb_qopt) },
 };
 
 static const NLType rtnl_tca_option_data_tbf_types[] = {
-        [TCA_TBF_PARMS]   = { .size = sizeof(struct tc_tbf_qopt) },
-        [TCA_TBF_RTAB]    = { .size = TC_RTAB_SIZE },
-        [TCA_TBF_PTAB]    = { .size = TC_RTAB_SIZE },
+        [TCA_TBF_PARMS]   = { .type = NETLINK_TYPE_BINARY, .size = sizeof(struct tc_tbf_qopt) },
+        [TCA_TBF_RTAB]    = { .type = NETLINK_TYPE_BINARY, .size = TC_RTAB_SIZE },
+        [TCA_TBF_PTAB]    = { .type = NETLINK_TYPE_BINARY, .size = TC_RTAB_SIZE },
         [TCA_TBF_RATE64]  = { .type = NETLINK_TYPE_U64 },
         [TCA_TBF_PRATE64] = { .type = NETLINK_TYPE_U64 },
         [TCA_TBF_BURST]   = { .type = NETLINK_TYPE_U32 },
@@ -1165,7 +1165,7 @@ static const NLType rtnl_tca_types[] = {
 DEFINE_TYPE_SYSTEM(rtnl_tca);
 
 static const NLType rtnl_mdb_types[] = {
-        [MDBA_SET_ENTRY]     = { .size = sizeof(struct br_port_msg) },
+        [MDBA_SET_ENTRY]     = { .type = NETLINK_TYPE_BINARY, .size = sizeof(struct br_port_msg) },
 };
 
 DEFINE_TYPE_SYSTEM(rtnl_mdb);
