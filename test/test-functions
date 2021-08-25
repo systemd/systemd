@@ -148,6 +148,7 @@ BASICTOOLS=(
     head
     ionice
     ip
+    ldd
     ln
     loadkeys
     login
