@@ -427,7 +427,8 @@
             has been unsuccessful for some time. (IPv4 link-local address autoconfiguration will usually
             happen in parallel with repeated attempts to acquire a DHCPv4 lease).</para>
 
-            <para>Defaults to <option>no</option> when <varname>Bridge=yes</varname> is set, and
+            <para>Defaults to <option>no</option> when <varname>Bridge=</varname> is set or when the specified
+            <varname>MACVLAN=</varname>/<varname>MACVTAP=</varname> has <varname>Mode=passthru</varname>, or
             <option>ipv6</option> otherwise.</para>
           </listitem>
         </varlistentry>
