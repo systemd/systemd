@@ -142,6 +142,8 @@ int link_load_one(LinkConfigContext *ctx, const char *filename) {
                 .tx_flow_control = -1,
                 .autoneg_flow_control = -1,
                 .txqueuelen = UINT32_MAX,
+                .coalesce.use_adaptive_rx_coalesce = -1,
+                .coalesce.use_adaptive_tx_coalesce = -1,
         };
 
         for (i = 0; i < ELEMENTSOF(link->features); i++)
