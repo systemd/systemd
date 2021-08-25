@@ -932,6 +932,131 @@ int ethtool_set_flow_control(int *fd, const char *ifname, int rx, int tx, int au
         return 0;
 }
 
+int ethtool_set_nic_coalesce_settings(int *ethtool_fd, const char *ifname, const netdev_coalesce_param *coalesce) {
+        struct ethtool_coalesce ecmd = {
+                .cmd = ETHTOOL_GCOALESCE,
+        };
+        struct ifreq ifr = {
+                .ifr_data = (void*) &ecmd,
+        };
+        bool need_update = false;
+        int r;
+
+        assert(ethtool_fd);
+        assert(ifname);
+        assert(coalesce);
+
+        if (coalesce->use_adaptive_rx_coalesce < 0 &&
+            coalesce->use_adaptive_tx_coalesce < 0 &&
+            !coalesce->rx_coalesce_usecs.set &&
+            !coalesce->rx_max_coalesced_frames.set &&
+            !coalesce->rx_coalesce_usecs_irq.set &&
+            !coalesce->rx_max_coalesced_frames_irq.set &&
+            !coalesce->tx_coalesce_usecs.set &&
+            !coalesce->tx_max_coalesced_frames.set &&
+            !coalesce->tx_coalesce_usecs_irq.set &&
+            !coalesce->tx_max_coalesced_frames_irq.set &&
+            !coalesce->stats_block_coalesce_usecs.set &&
+            !coalesce->pkt_rate_low.set &&
+            !coalesce->rx_coalesce_usecs_low.set &&
+            !coalesce->rx_max_coalesced_frames_low.set &&
+            !coalesce->tx_coalesce_usecs_low.set &&
+            !coalesce->tx_max_coalesced_frames_low.set &&
+            !coalesce->pkt_rate_high.set &&
+            !coalesce->rx_coalesce_usecs_high.set &&
+            !coalesce->rx_max_coalesced_frames_high.set &&
+            !coalesce->tx_coalesce_usecs_high.set &&
+            !coalesce->tx_max_coalesced_frames_high.set &&
+            !coalesce->rate_sample_interval.set)
+                return 0;
+
+        r = ethtool_connect(ethtool_fd);
+        if (r < 0)
+                return r;
+
+        strscpy(ifr.ifr_name, IFNAMSIZ, ifname);
+
+        r = ioctl(*ethtool_fd, SIOCETHTOOL, &ifr);
+        if (r < 0)
+                return -errno;
+
+        if (coalesce->use_adaptive_rx_coalesce >= 0)
+                UPDATE(ecmd.use_adaptive_rx_coalesce, (uint32_t) coalesce->use_adaptive_rx_coalesce, need_update);
+
+        if (coalesce->use_adaptive_tx_coalesce >= 0)
+                UPDATE(ecmd.use_adaptive_tx_coalesce, (uint32_t) coalesce->use_adaptive_tx_coalesce, need_update);
+
+        if (coalesce->rx_coalesce_usecs.set)
+                UPDATE(ecmd.rx_coalesce_usecs, coalesce->rx_coalesce_usecs.value, need_update);
+
+        if (coalesce->rx_max_coalesced_frames.set)
+                UPDATE(ecmd.rx_max_coalesced_frames, coalesce->rx_max_coalesced_frames.value, need_update);
+
+        if (coalesce->rx_coalesce_usecs_irq.set)
+                UPDATE(ecmd.rx_coalesce_usecs_irq, coalesce->rx_coalesce_usecs_irq.value, need_update);
+
+        if (coalesce->rx_max_coalesced_frames_irq.set)
+                UPDATE(ecmd.rx_max_coalesced_frames_irq, coalesce->rx_max_coalesced_frames_irq.value, need_update);
+
+        if (coalesce->tx_coalesce_usecs.set)
+                UPDATE(ecmd.tx_coalesce_usecs, coalesce->tx_coalesce_usecs.value, need_update);
+
+        if (coalesce->tx_max_coalesced_frames.set)
+                UPDATE(ecmd.tx_max_coalesced_frames, coalesce->tx_max_coalesced_frames.value, need_update);
+
+        if (coalesce->tx_coalesce_usecs_irq.set)
+                UPDATE(ecmd.tx_coalesce_usecs_irq, coalesce->tx_coalesce_usecs_irq.value, need_update);
+
+        if (coalesce->tx_max_coalesced_frames_irq.set)
+                UPDATE(ecmd.tx_max_coalesced_frames_irq, coalesce->tx_max_coalesced_frames_irq.value, need_update);
+
+        if (coalesce->stats_block_coalesce_usecs.set)
+                UPDATE(ecmd.stats_block_coalesce_usecs, coalesce->stats_block_coalesce_usecs.value, need_update);
+
+        if (coalesce->pkt_rate_low.set)
+                UPDATE(ecmd.pkt_rate_low, coalesce->pkt_rate_low.value, need_update);
+
+        if (coalesce->rx_coalesce_usecs_low.set)
+                UPDATE(ecmd.rx_coalesce_usecs_low, coalesce->rx_coalesce_usecs_low.value, need_update);
+
+        if (coalesce->rx_max_coalesced_frames_low.set)
+                UPDATE(ecmd.rx_max_coalesced_frames_low, coalesce->rx_max_coalesced_frames_low.value, need_update);
+
+        if (coalesce->tx_coalesce_usecs_low.set)
+                UPDATE(ecmd.tx_coalesce_usecs_low, coalesce->tx_coalesce_usecs_low.value, need_update);
+
+        if (coalesce->tx_max_coalesced_frames_low.set)
+                UPDATE(ecmd.tx_max_coalesced_frames_low, coalesce->tx_max_coalesced_frames_low.value, need_update);
+
+        if (coalesce->pkt_rate_high.set)
+                UPDATE(ecmd.pkt_rate_high, coalesce->pkt_rate_high.value, need_update);
+
+        if (coalesce->rx_coalesce_usecs_high.set)
+                UPDATE(ecmd.rx_coalesce_usecs_high, coalesce->rx_coalesce_usecs_high.value, need_update);
+
+        if (coalesce->rx_max_coalesced_frames_high.set)
+                UPDATE(ecmd.rx_max_coalesced_frames_high, coalesce->rx_max_coalesced_frames_high.value, need_update);
+
+        if (coalesce->tx_coalesce_usecs_high.set)
+                UPDATE(ecmd.tx_coalesce_usecs_high, coalesce->tx_coalesce_usecs_high.value, need_update);
+
+        if (coalesce->tx_max_coalesced_frames_high.set)
+                UPDATE(ecmd.tx_max_coalesced_frames_high, coalesce->tx_max_coalesced_frames_high.value, need_update);
+
+        if (coalesce->rate_sample_interval.set)
+                UPDATE(ecmd.rate_sample_interval, DIV_ROUND_UP(coalesce->rate_sample_interval.value, USEC_PER_SEC), need_update);
+
+        if (!need_update)
+                return 0;
+
+        ecmd.cmd = ETHTOOL_SCOALESCE;
+        r = ioctl(*ethtool_fd, SIOCETHTOOL, &ifr);
+        if (r < 0)
+                return -errno;
+
+        return 0;
+}
+
 int config_parse_advertise(
                 const char *unit,
                 const char *filename,
@@ -1179,131 +1304,6 @@ int config_parse_coalesce_sec(
 
         dst->value = (uint32_t) usec;
         dst->set = true;
-
-        return 0;
-}
-
-int ethtool_set_nic_coalesce_settings(int *ethtool_fd, const char *ifname, const netdev_coalesce_param *coalesce) {
-        struct ethtool_coalesce ecmd = {
-                .cmd = ETHTOOL_GCOALESCE,
-        };
-        struct ifreq ifr = {
-                .ifr_data = (void*) &ecmd,
-        };
-        bool need_update = false;
-        int r;
-
-        assert(ethtool_fd);
-        assert(ifname);
-        assert(coalesce);
-
-        if (coalesce->use_adaptive_rx_coalesce < 0 &&
-            coalesce->use_adaptive_tx_coalesce < 0 &&
-            !coalesce->rx_coalesce_usecs.set &&
-            !coalesce->rx_max_coalesced_frames.set &&
-            !coalesce->rx_coalesce_usecs_irq.set &&
-            !coalesce->rx_max_coalesced_frames_irq.set &&
-            !coalesce->tx_coalesce_usecs.set &&
-            !coalesce->tx_max_coalesced_frames.set &&
-            !coalesce->tx_coalesce_usecs_irq.set &&
-            !coalesce->tx_max_coalesced_frames_irq.set &&
-            !coalesce->stats_block_coalesce_usecs.set &&
-            !coalesce->pkt_rate_low.set &&
-            !coalesce->rx_coalesce_usecs_low.set &&
-            !coalesce->rx_max_coalesced_frames_low.set &&
-            !coalesce->tx_coalesce_usecs_low.set &&
-            !coalesce->tx_max_coalesced_frames_low.set &&
-            !coalesce->pkt_rate_high.set &&
-            !coalesce->rx_coalesce_usecs_high.set &&
-            !coalesce->rx_max_coalesced_frames_high.set &&
-            !coalesce->tx_coalesce_usecs_high.set &&
-            !coalesce->tx_max_coalesced_frames_high.set &&
-            !coalesce->rate_sample_interval.set)
-                return 0;
-
-        r = ethtool_connect(ethtool_fd);
-        if (r < 0)
-                return r;
-
-        strscpy(ifr.ifr_name, IFNAMSIZ, ifname);
-
-        r = ioctl(*ethtool_fd, SIOCETHTOOL, &ifr);
-        if (r < 0)
-                return -errno;
-
-        if (coalesce->use_adaptive_rx_coalesce >= 0)
-                UPDATE(ecmd.use_adaptive_rx_coalesce, (uint32_t) coalesce->use_adaptive_rx_coalesce, need_update);
-
-        if (coalesce->use_adaptive_tx_coalesce >= 0)
-                UPDATE(ecmd.use_adaptive_tx_coalesce, (uint32_t) coalesce->use_adaptive_tx_coalesce, need_update);
-
-        if (coalesce->rx_coalesce_usecs.set)
-                UPDATE(ecmd.rx_coalesce_usecs, coalesce->rx_coalesce_usecs.value, need_update);
-
-        if (coalesce->rx_max_coalesced_frames.set)
-                UPDATE(ecmd.rx_max_coalesced_frames, coalesce->rx_max_coalesced_frames.value, need_update);
-
-        if (coalesce->rx_coalesce_usecs_irq.set)
-                UPDATE(ecmd.rx_coalesce_usecs_irq, coalesce->rx_coalesce_usecs_irq.value, need_update);
-
-        if (coalesce->rx_max_coalesced_frames_irq.set)
-                UPDATE(ecmd.rx_max_coalesced_frames_irq, coalesce->rx_max_coalesced_frames_irq.value, need_update);
-
-        if (coalesce->tx_coalesce_usecs.set)
-                UPDATE(ecmd.tx_coalesce_usecs, coalesce->tx_coalesce_usecs.value, need_update);
-
-        if (coalesce->tx_max_coalesced_frames.set)
-                UPDATE(ecmd.tx_max_coalesced_frames, coalesce->tx_max_coalesced_frames.value, need_update);
-
-        if (coalesce->tx_coalesce_usecs_irq.set)
-                UPDATE(ecmd.tx_coalesce_usecs_irq, coalesce->tx_coalesce_usecs_irq.value, need_update);
-
-        if (coalesce->tx_max_coalesced_frames_irq.set)
-                UPDATE(ecmd.tx_max_coalesced_frames_irq, coalesce->tx_max_coalesced_frames_irq.value, need_update);
-
-        if (coalesce->stats_block_coalesce_usecs.set)
-                UPDATE(ecmd.stats_block_coalesce_usecs, coalesce->stats_block_coalesce_usecs.value, need_update);
-
-        if (coalesce->pkt_rate_low.set)
-                UPDATE(ecmd.pkt_rate_low, coalesce->pkt_rate_low.value, need_update);
-
-        if (coalesce->rx_coalesce_usecs_low.set)
-                UPDATE(ecmd.rx_coalesce_usecs_low, coalesce->rx_coalesce_usecs_low.value, need_update);
-
-        if (coalesce->rx_max_coalesced_frames_low.set)
-                UPDATE(ecmd.rx_max_coalesced_frames_low, coalesce->rx_max_coalesced_frames_low.value, need_update);
-
-        if (coalesce->tx_coalesce_usecs_low.set)
-                UPDATE(ecmd.tx_coalesce_usecs_low, coalesce->tx_coalesce_usecs_low.value, need_update);
-
-        if (coalesce->tx_max_coalesced_frames_low.set)
-                UPDATE(ecmd.tx_max_coalesced_frames_low, coalesce->tx_max_coalesced_frames_low.value, need_update);
-
-        if (coalesce->pkt_rate_high.set)
-                UPDATE(ecmd.pkt_rate_high, coalesce->pkt_rate_high.value, need_update);
-
-        if (coalesce->rx_coalesce_usecs_high.set)
-                UPDATE(ecmd.rx_coalesce_usecs_high, coalesce->rx_coalesce_usecs_high.value, need_update);
-
-        if (coalesce->rx_max_coalesced_frames_high.set)
-                UPDATE(ecmd.rx_max_coalesced_frames_high, coalesce->rx_max_coalesced_frames_high.value, need_update);
-
-        if (coalesce->tx_coalesce_usecs_high.set)
-                UPDATE(ecmd.tx_coalesce_usecs_high, coalesce->tx_coalesce_usecs_high.value, need_update);
-
-        if (coalesce->tx_max_coalesced_frames_high.set)
-                UPDATE(ecmd.tx_max_coalesced_frames_high, coalesce->tx_max_coalesced_frames_high.value, need_update);
-
-        if (coalesce->rate_sample_interval.set)
-                UPDATE(ecmd.rate_sample_interval, DIV_ROUND_UP(coalesce->rate_sample_interval.value, USEC_PER_SEC), need_update);
-
-        if (!need_update)
-                return 0;
-
-        ecmd.cmd = ETHTOOL_SCOALESCE;
-        r = ioctl(*ethtool_fd, SIOCETHTOOL, &ifr);
-        if (r < 0)
-                return -errno;
 
         return 0;
 }
