@@ -13,6 +13,7 @@
 #include "hostname-util.h"
 #include "in-addr-util.h"
 #include "net-condition.h"
+#include "netdev/macvlan.h"
 #include "networkd-address-label.h"
 #include "networkd-address.h"
 #include "networkd-bridge-fdb.h"
@@ -170,8 +171,33 @@ int network_verify(Network *network) {
                 network->routes_by_section = hashmap_free_with_destructor(network->routes_by_section, route_free);
         }
 
-        if (network->link_local < 0)
-                network->link_local = network->bridge ? ADDRESS_FAMILY_NO : ADDRESS_FAMILY_IPV6;
+        if (network->link_local < 0) {
+                network->link_local = ADDRESS_FAMILY_IPV6;
+
+                if (network->bridge)
+                        network->link_local = ADDRESS_FAMILY_NO;
+                else {
+                        NetDev *netdev;
+
+                        HASHMAP_FOREACH(netdev, network->stacked_netdevs) {
+                                MacVlan *m;
+
+                                if (netdev->kind == NETDEV_KIND_MACVLAN)
+                                        m = MACVLAN(netdev);
+                                else if (netdev->kind == NETDEV_KIND_MACVTAP)
+                                        m = MACVTAP(netdev);
+                                else
+                                        continue;
+
+                                if (m->mode == NETDEV_MACVLAN_MODE_PASSTHRU)
+                                        network->link_local = ADDRESS_FAMILY_NO;
+
+                                /* There won't be a passthru MACVLAN/MACVTAP if there's already one in another mode */
+                                break;
+                        }
+                }
+        }
+
         if (network->ipv6ll_address_gen_mode == IPV6_LINK_LOCAL_ADDRESSS_GEN_MODE_NONE)
                 SET_FLAG(network->link_local, ADDRESS_FAMILY_IPV6, false);
 
