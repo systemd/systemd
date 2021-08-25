@@ -515,19 +515,23 @@ static int netdev_create(NetDev *netdev, Link *link, link_netlink_message_handle
                 if (r < 0)
                         return log_netdev_error_errno(netdev, r, "Could not append IFLA_LINKINFO attribute: %m");
 
-                r = sd_netlink_message_open_container_union(m, IFLA_INFO_DATA, netdev_kind_to_string(netdev->kind));
-                if (r < 0)
-                        return log_netdev_error_errno(netdev, r, "Could not append IFLA_INFO_DATA attribute: %m");
-
                 if (NETDEV_VTABLE(netdev)->fill_message_create) {
+                        r = sd_netlink_message_open_container_union(m, IFLA_INFO_DATA, netdev_kind_to_string(netdev->kind));
+                        if (r < 0)
+                                return log_netdev_error_errno(netdev, r, "Could not append IFLA_INFO_DATA attribute: %m");
+
                         r = NETDEV_VTABLE(netdev)->fill_message_create(netdev, link, m);
                         if (r < 0)
                                 return r;
-                }
 
-                r = sd_netlink_message_close_container(m);
-                if (r < 0)
-                        return log_netdev_error_errno(netdev, r, "Could not append IFLA_INFO_DATA attribute: %m");
+                        r = sd_netlink_message_close_container(m);
+                        if (r < 0)
+                                return log_netdev_error_errno(netdev, r, "Could not append IFLA_INFO_DATA attribute: %m");
+                } else {
+                        r = sd_netlink_message_append_string(m, IFLA_INFO_KIND, netdev_kind_to_string(netdev->kind));
+                        if (r < 0)
+                                return log_netdev_error_errno(netdev, r, "Could not append IFLA_INFO_KIND attribute: %m");
+                }
 
                 r = sd_netlink_message_close_container(m);
                 if (r < 0)
