@@ -5848,6 +5848,25 @@ int unit_thaw_vtable_common(Unit *u) {
         return unit_cgroup_freezer_action(u, FREEZER_THAW);
 }
 
+Condition *unit_find_failed_condition(Unit *u) {
+        Condition *c, *failed_trigger = NULL;
+        bool has_succeeded_trigger = false;
+
+        if (u->condition_result)
+                return NULL;
+
+        LIST_FOREACH(conditions, c, u->conditions)
+                if (c->trigger) {
+                        if (c->result == CONDITION_SUCCEEDED)
+                                 has_succeeded_trigger = true;
+                        else if (!failed_trigger)
+                                 failed_trigger = c;
+                } else if (c->result != CONDITION_SUCCEEDED)
+                        return c;
+
+        return failed_trigger && !has_succeeded_trigger ? failed_trigger : NULL;
+}
+
 static const char* const collect_mode_table[_COLLECT_MODE_MAX] = {
         [COLLECT_INACTIVE] = "inactive",
         [COLLECT_INACTIVE_OR_FAILED] = "inactive-or-failed",
