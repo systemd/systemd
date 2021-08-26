@@ -96,6 +96,7 @@ static bool arg_offline = false;
 static unsigned arg_threshold = 100;
 static unsigned arg_iterations = 1;
 static usec_t arg_base_time = USEC_INFINITY;
+static JsonFormatFlags arg_json_format_flags = JSON_FORMAT_OFF;
 
 STATIC_DESTRUCTOR_REGISTER(arg_dot_from_patterns, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_dot_to_patterns, strv_freep);
@@ -2180,6 +2181,7 @@ static int do_security(int argc, char *argv[], void *userdata) {
                                 arg_offline,
                                 arg_threshold,
                                 arg_root,
+                                arg_json_format_flags,
                                 /*flags=*/ 0);
 }
 
@@ -2234,6 +2236,8 @@ static int help(int argc, char *argv[], void *userdata) {
                "     --version               Show package version\n"
                "     --security-policy=PATH  Obtain a set of custom requirements\n"
                "                             against which to compare the unit file(s)\n"
+               "     --json=pretty|short|off Generate JSON output of the security\n"
+               "                             analysis table\n"
                "     --no-pager              Do not pipe output into a pager\n"
                "     --system                Operate on system systemd instance\n"
                "     --user                  Operate on user systemd instance\n"
@@ -2287,6 +2291,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_OFFLINE,
                 ARG_THRESHOLD,
                 ARG_SECURITY_POLICY,
+                ARG_JSON,
         };
 
         static const struct option options[] = {
@@ -2313,6 +2318,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "machine",          required_argument, NULL, 'M'                  },
                 { "iterations",       required_argument, NULL, ARG_ITERATIONS       },
                 { "base-time",        required_argument, NULL, ARG_BASE_TIME        },
+                { "json",             required_argument, NULL, ARG_JSON             },
                 {}
         };
 
@@ -2437,6 +2443,12 @@ static int parse_argv(int argc, char *argv[]) {
                                 return r;
                         break;
 
+                case ARG_JSON:
+                        r = parse_json_argument(optarg, &arg_json_format_flags);
+                        if (r <= 0)
+                                return r;
+                        break;
+
                 case ARG_ITERATIONS:
                         r = safe_atou(optarg, &arg_iterations);
                         if (r < 0)
@@ -2461,6 +2473,10 @@ static int parse_argv(int argc, char *argv[]) {
         if (arg_offline && !streq_ptr(argv[optind], "security"))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "Option --offline= is only supported for security right now.");
+
+        if (arg_json_format_flags != JSON_FORMAT_OFF && !streq_ptr(argv[optind], "security"))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Option --json= is only supported for security right now.");
 
         if (arg_threshold != 100 && !streq_ptr(argv[optind], "security"))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
