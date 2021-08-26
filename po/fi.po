@@ -7,7 +7,7 @@ msgstr ""
 "Project-Id-Version: systemd\n"
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2021-01-08 17:48+0100\n"
-"PO-Revision-Date: 2021-08-23 18:04+0000\n"
+"PO-Revision-Date: 2021-08-26 18:05+0000\n"
 "Last-Translator: Jan Kuparinen <copper_fin@hotmail.com>\n"
 "Language-Team: Finnish <https://translate.fedoraproject.org/projects/systemd/"
 "master/fi/>\n"
@@ -20,46 +20,52 @@ msgstr ""
 
 #: src/core/org.freedesktop.systemd1.policy.in:22
 msgid "Send passphrase back to system"
-msgstr ""
+msgstr "Lähetä tunnuslause takaisin järjestelmään"
 
 #: src/core/org.freedesktop.systemd1.policy.in:23
 msgid ""
 "Authentication is required to send the entered passphrase back to the system."
 msgstr ""
+"Todennus vaaditaan jotta syötetty tunnuslause lähetetään takaisin "
+"järjestelmään."
 
 #: src/core/org.freedesktop.systemd1.policy.in:33
 msgid "Manage system services or other units"
-msgstr ""
+msgstr "Hallinnoi järjestelmäpalveluja tai muita yksiköitä"
 
 #: src/core/org.freedesktop.systemd1.policy.in:34
 msgid "Authentication is required to manage system services or other units."
 msgstr ""
+"Todennus vaaditaan järjestelmäpalvelujen tai muiden yksiköiden hallintaan."
 
 #: src/core/org.freedesktop.systemd1.policy.in:43
 msgid "Manage system service or unit files"
-msgstr ""
+msgstr "Hallitse järjestelmäpalvelu- tai yksikkötiedostoja"
 
 #: src/core/org.freedesktop.systemd1.policy.in:44
 msgid "Authentication is required to manage system service or unit files."
 msgstr ""
+"Todennus vaaditaan järjestelmän palvelu- tai yksikkötiedostojen hallintaan."
 
 #: src/core/org.freedesktop.systemd1.policy.in:54
 msgid "Set or unset system and service manager environment variables"
-msgstr ""
+msgstr "Aseta tai poista järjestelmän ja palvelunhallinnan ympäristömuuttujia"
 
 #: src/core/org.freedesktop.systemd1.policy.in:55
 msgid ""
 "Authentication is required to set or unset system and service manager "
 "environment variables."
 msgstr ""
+"Todennus vaaditaan järjestelmän ja palvelunhallinnan ympäristömuuttujien "
+"asettamiseen tai poistamiseen."
 
 #: src/core/org.freedesktop.systemd1.policy.in:64
 msgid "Reload the systemd state"
-msgstr ""
+msgstr "Lataa järjestelmätila uudelleen"
 
 #: src/core/org.freedesktop.systemd1.policy.in:65
 msgid "Authentication is required to reload the systemd state."
-msgstr ""
+msgstr "Todennus vaaditaan, jotta järjestelmätila voidaan ladata uudelleen."
 
 #: src/home/org.freedesktop.home1.policy:13
 msgid "Create a home area"
@@ -67,24 +73,25 @@ msgstr "Luo kotialue"
 
 #: src/home/org.freedesktop.home1.policy:14
 msgid "Authentication is required to create a user's home area."
-msgstr ""
+msgstr "Todennus vaaditaan käyttäjän kotialueen luomiseksi."
 
 #: src/home/org.freedesktop.home1.policy:23
 msgid "Remove a home area"
-msgstr ""
+msgstr "Poista kotialue"
 
 #: src/home/org.freedesktop.home1.policy:24
 msgid "Authentication is required to remove a user's home area."
-msgstr ""
+msgstr "Todennus vaaditaan käyttäjän kotialueen poistamiseksi."
 
 #: src/home/org.freedesktop.home1.policy:33
 msgid "Check credentials of a home area"
-msgstr ""
+msgstr "Tarkista kotialueen valtuudet"
 
 #: src/home/org.freedesktop.home1.policy:34
 msgid ""
 "Authentication is required to check credentials against a user's home area."
 msgstr ""
+"Todennus vaaditaan, jotta käyttäjän kotialueen valtuuksia voi tarkistaa."
 
 #: src/home/org.freedesktop.home1.policy:43
 msgid "Update a home area"
