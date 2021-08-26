@@ -1601,7 +1601,8 @@ static int assess(const SecurityInfo *info,
                   Table *overview_table,
                   AnalyzeSecurityFlags flags,
                   unsigned threshold,
-                  JsonVariant *policy) {
+                  JsonVariant *policy,
+                  JsonFormatFlags json_format_flags) {
 
         static const struct {
                 uint64_t exposure;
@@ -1624,7 +1625,7 @@ static int assess(const SecurityInfo *info,
         int r;
 
         if (!FLAGS_SET(flags, ANALYZE_SECURITY_SHORT)) {
-                details_table = table_new(" ", "name", "description", "weight", "badness", "range", "exposure");
+                details_table = table_new("set", "name", "description", "weight", "badness", "range", "exposure");
                 if (!details_table)
                         return log_oom();
 
@@ -1734,9 +1735,11 @@ static int assess(const SecurityInfo *info,
                                 return log_error_errno(r, "Failed to update cell in table: %m");
                 }
 
-                r = table_print(details_table, stdout);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to output table: %m");
+                if (json_format_flags & JSON_FORMAT_OFF) {
+                        r = table_print(details_table, stdout);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to output table: %m");
+                }
         }
 
         exposure = DIV_ROUND_UP(badness_sum * 100U, weight_sum);
@@ -1747,7 +1750,7 @@ static int assess(const SecurityInfo *info,
 
         assert(i < ELEMENTSOF(badness_table));
 
-        if (details_table) {
+        if (details_table && (json_format_flags & JSON_FORMAT_OFF)) {
                 _cleanup_free_ char *clickable = NULL;
                 const char *name;
 
@@ -1798,6 +1801,16 @@ static int assess(const SecurityInfo *info,
                                    TABLE_STRING, special_glyph(badness_table[i].smiley));
                 if (r < 0)
                         return table_log_add_error(r);
+        }
+
+        if (!(json_format_flags & JSON_FORMAT_OFF)) {
+                _cleanup_(json_variant_unrefp) JsonVariant *json_table = NULL;
+
+                r = table_to_json(details_table, &json_table);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to convert table to JSON: %m");
+
+                json_variant_dump(json_table, json_format_flags, stdout, /* prefix= */ NULL);
         }
 
         /* Return error when overall exposure level is over threshold */
@@ -2274,7 +2287,8 @@ static int analyze_security_one(sd_bus *bus,
                                 Table *overview_table,
                                 AnalyzeSecurityFlags flags,
                                 unsigned threshold,
-                                JsonVariant *policy) {
+                                JsonVariant *policy,
+                                JsonFormatFlags json_format_flags) {
 
         _cleanup_(security_info_freep) SecurityInfo *info = security_info_new();
         if (!info)
@@ -2291,7 +2305,7 @@ static int analyze_security_one(sd_bus *bus,
         if (r < 0)
                 return r;
 
-        r = assess(info, overview_table, flags, threshold, policy);
+        r = assess(info, overview_table, flags, threshold, policy, json_format_flags);
         if (r < 0)
                 return r;
 
@@ -2477,7 +2491,7 @@ static int get_security_info(Unit *u, ExecContext *c, CGroupContext *g, Security
         return 0;
 }
 
-static int offline_security_check(Unit *u, unsigned threshold, JsonVariant *policy) {
+static int offline_security_check(Unit *u, unsigned threshold, JsonVariant *policy, JsonFormatFlags json_format_flags) {
         _cleanup_(table_unrefp) Table *overview_table = NULL;
         AnalyzeSecurityFlags flags = 0;
         _cleanup_(security_info_freep) SecurityInfo *info = NULL;
@@ -2492,7 +2506,7 @@ static int offline_security_check(Unit *u, unsigned threshold, JsonVariant *poli
         if (r < 0)
               return r;
 
-        return assess(info, overview_table, flags, threshold, policy);
+        return assess(info, overview_table, flags, threshold, policy, json_format_flags);
 }
 
 static int offline_security_checks(char **filenames,
@@ -2501,7 +2515,8 @@ static int offline_security_checks(char **filenames,
                                    bool check_man,
                                    bool run_generators,
                                    unsigned threshold,
-                                   const char *root) {
+                                   const char *root,
+                                   JsonFormatFlags json_format_flags) {
 
         const ManagerTestRunFlags flags =
                 MANAGER_TEST_RUN_MINIMAL |
@@ -2561,7 +2576,7 @@ static int offline_security_checks(char **filenames,
         }
 
         for (size_t i = 0; i < count; i++) {
-                k = offline_security_check(units[i], threshold, policy);
+                k = offline_security_check(units[i], threshold, policy, json_format_flags);
                 if (k < 0 && r == 0)
                         r = k;
         }
@@ -2578,6 +2593,7 @@ int analyze_security(sd_bus *bus,
                      bool offline,
                      unsigned threshold,
                      const char *root,
+                     JsonFormatFlags json_format_flags,
                      AnalyzeSecurityFlags flags) {
 
         _cleanup_(table_unrefp) Table *overview_table = NULL;
@@ -2586,7 +2602,7 @@ int analyze_security(sd_bus *bus,
         assert(bus);
 
         if (offline)
-                return offline_security_checks(units, policy, scope, check_man, run_generators, threshold, root);
+                return offline_security_checks(units, policy, scope, check_man, run_generators, threshold, root, json_format_flags);
 
         if (strv_length(units) != 1) {
                 overview_table = table_new("unit", "exposure", "predicate", "happy");
@@ -2646,7 +2662,7 @@ int analyze_security(sd_bus *bus,
                 flags |= ANALYZE_SECURITY_SHORT|ANALYZE_SECURITY_ONLY_LOADED|ANALYZE_SECURITY_ONLY_LONG_RUNNING;
 
                 STRV_FOREACH(i, list) {
-                        r = analyze_security_one(bus, *i, overview_table, flags, threshold, policy);
+                        r = analyze_security_one(bus, *i, overview_table, flags, threshold, policy, json_format_flags);
                         if (r < 0 && ret >= 0)
                                 ret = r;
                 }
@@ -2681,7 +2697,7 @@ int analyze_security(sd_bus *bus,
                         } else
                                 name = mangled;
 
-                        r = analyze_security_one(bus, name, overview_table, flags, threshold, policy);
+                        r = analyze_security_one(bus, name, overview_table, flags, threshold, policy, json_format_flags);
                         if (r < 0 && ret >= 0)
                                 ret = r;
                 }
@@ -2693,10 +2709,11 @@ int analyze_security(sd_bus *bus,
                         fflush(stdout);
                 }
 
-                r = table_print(overview_table, stdout);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to output table: %m");
+                if (json_format_flags & JSON_FORMAT_OFF) {
+                        r = table_print(overview_table, stdout);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to output table: %m");
+                }
         }
-
         return ret;
 }
