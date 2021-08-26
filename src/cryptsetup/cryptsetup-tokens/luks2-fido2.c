@@ -20,7 +20,6 @@ int acquire_luks2_key(
         int r;
         Fido2EnrollFlags required;
         size_t cid_size, salt_size, decrypted_key_size;
-        _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
         _cleanup_free_ void *cid = NULL, *salt = NULL;
         _cleanup_free_ char *rp_id = NULL;
         _cleanup_(erase_and_freep) void *decrypted_key = NULL;
@@ -53,7 +52,7 @@ int acquire_luks2_key(
                         required,
                         &decrypted_key,
                         &decrypted_key_size);
-        if (r == -ENOLCK) /* libcryptsetup returns -ENOANO also on wrong pin */
+        if (r == -ENOLCK) /* libcryptsetup returns -ENOANO also on wrong PIN */
                 r = -ENOANO;
         if (r < 0)
                 return r;
@@ -61,7 +60,7 @@ int acquire_luks2_key(
         /* Before using this key as passphrase we base64 encode it, for compat with homed */
         r = base64mem(decrypted_key, decrypted_key_size, &base64_encoded);
         if (r < 0)
-                return crypt_log_error_errno(cd, r, "Can not base64 encode key: %m");
+                return crypt_log_error_errno(cd, r, "Failed to base64 encode key: %m");
 
         *ret_keyslot_passphrase = TAKE_PTR(base64_encoded);
         *ret_keyslot_passphrase_size = strlen(*ret_keyslot_passphrase);
