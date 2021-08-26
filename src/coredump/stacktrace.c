@@ -299,6 +299,8 @@ static int module_callback(Dwfl_Module *mod, void **userdata, const char *name, 
                                             program_header->p_offset,
                                             program_header->p_filesz,
                                             ELF_T_NHDR);
+                if (!data)
+                        continue;
 
                 Elf *memelf = elf_memory(data->d_buf, data->d_size);
                 if (!memelf)
