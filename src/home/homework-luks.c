@@ -38,10 +38,18 @@
 #include "strv.h"
 #include "tmpfile-util.h"
 
-/* Round down to the nearest 1K size. Note that Linux generally handles block devices with 512 blocks only,
- * but actually doesn't accept uneven numbers in many cases. To avoid any confusion around this we'll
- * strictly round disk sizes down to the next 1K boundary. */
-#define DISK_SIZE_ROUND_DOWN(x) ((x) & ~UINT64_C(1023))
+/* Round down to the nearest 4K size. Given that newer hardware generally prefers 4K sectors, let's align our
+ * partitions to that too. In the worst case we'll waste 3.5K per partition that way, but I think I can live
+ * with that. */
+#define DISK_SIZE_ROUND_DOWN(x) ((x) & ~UINT64_C(4095))
+
+/* Rounds up to the nearest 4K boundary. Returns UINT64_MAX on overflow */
+#define DISK_SIZE_ROUND_UP(x)                                           \
+        ({                                                              \
+                uint64_t _x = (x);                                      \
+                _x > UINT64_MAX - 4095U ? UINT64_MAX : (_x + 4095U) & ~UINT64_C(4095); \
+        })
+
 
 int run_mark_dirty(int fd, bool b) {
         char x = '1';
@@ -1620,7 +1628,7 @@ static int make_partition_table(
         _cleanup_(fdisk_unref_parttypep) struct fdisk_parttype *t = NULL;
         _cleanup_(fdisk_unref_contextp) struct fdisk_context *c = NULL;
         _cleanup_free_ char *path = NULL, *disk_uuid_as_string = NULL;
-        uint64_t offset, size;
+        uint64_t offset, size, first_lba, start, last_lba, end;
         sd_id128_t disk_uuid;
         int r;
 
@@ -1660,17 +1668,31 @@ static int make_partition_table(
         if (r < 0)
                 return log_error_errno(r, "Failed to set partition type: %m");
 
-        r = fdisk_partition_start_follow_default(p, 1);
-        if (r < 0)
-                return log_error_errno(r, "Failed to place partition at beginning of space: %m");
-
         r = fdisk_partition_partno_follow_default(p, 1);
         if (r < 0)
                 return log_error_errno(r, "Failed to place partition at first free partition index: %m");
 
-        r = fdisk_partition_end_follow_default(p, 1);
+        first_lba = fdisk_get_first_lba(c); /* Boundary where usable space starts */
+        assert(first_lba <= UINT64_MAX/512);
+        start = DISK_SIZE_ROUND_UP(first_lba * 512); /* Round up to multiple of 4K */
+
+        if (start == UINT64_MAX)
+                return log_error_errno(SYNTHETIC_ERRNO(ERANGE), "Overflow while rounding up start LBA.");
+
+        last_lba = fdisk_get_last_lba(c); /* One sector before boundary where usable space ends */
+        assert(last_lba < UINT64_MAX/512);
+        end = DISK_SIZE_ROUND_DOWN((last_lba + 1) * 512); /* Round down to multiple of 4K */
+
+        if (end <= start)
+                return log_error_errno(SYNTHETIC_ERRNO(ERANGE), "Resulting partition size zero or negative.");
+
+        r = fdisk_partition_set_start(p, start / 512);
         if (r < 0)
-                return log_error_errno(r, "Failed to make partition cover all free space: %m");
+                return log_error_errno(r, "Failed to place partition at offset %" PRIu64 ": %m", start);
+
+        r = fdisk_partition_set_size(p, (end - start) / 512);
+        if (r < 0)
+                return log_error_errno(r, "Failed to end partition at offset %" PRIu64 ": %m", end);
 
         r = fdisk_partition_set_name(p, label);
         if (r < 0)
@@ -2692,6 +2714,8 @@ int home_resize_luks(
 
                 new_image_size = old_image_size; /* we can't resize physical block devices */
         } else {
+                uint64_t new_image_size_rounded;
+
                 r = stat_verify_regular(&st);
                 if (r < 0)
                         return log_error_errno(r, "Image %s is not a block device nor regular file: %m", ip);
@@ -2702,11 +2726,16 @@ int home_resize_luks(
                  * apply onto the loopback file as a whole. When we operate on block devices we instead apply
                  * to the partition itself only. */
 
-                new_image_size = DISK_SIZE_ROUND_DOWN(h->disk_size);
-                if (new_image_size == old_image_size) {
+                new_image_size_rounded = DISK_SIZE_ROUND_DOWN(h->disk_size);
+
+                if (old_image_size == h->disk_size ||
+                    old_image_size == new_image_size_rounded) {
+                        /* If exact match, or a match after we rounded down, don't do a thing */
                         log_info("Image size already matching, skipping operation.");
                         return 0;
                 }
+
+                new_image_size = new_image_size_rounded;
         }
 
         r = home_prepare_luks(h, already_activated, whole_disk, cache, setup, &header_home);
@@ -2730,15 +2759,21 @@ int home_resize_luks(
                 if (new_image_size <= partition_table_extra)
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "New size smaller than partition table metadata.");
 
-                new_partition_size = new_image_size - partition_table_extra;
+                new_partition_size = DISK_SIZE_ROUND_DOWN(new_image_size - partition_table_extra);
         } else {
+                uint64_t new_partition_size_rounded;
+
                 assert(S_ISBLK(st.st_mode));
 
-                new_partition_size = DISK_SIZE_ROUND_DOWN(h->disk_size);
-                if (new_partition_size == setup->partition_size) {
+                new_partition_size_rounded = DISK_SIZE_ROUND_DOWN(h->disk_size);
+
+                if (h->disk_size == setup->partition_size ||
+                    new_partition_size_rounded == setup->partition_size) {
                         log_info("Partition size already matching, skipping operation.");
                         return 0;
                 }
+
+                new_partition_size = new_partition_size_rounded;
         }
 
         if ((UINT64_MAX - setup->partition_offset) < new_partition_size ||
@@ -2752,7 +2787,7 @@ int home_resize_luks(
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "New size smaller than crypto payload offset?");
 
         old_fs_size = (setup->partition_size / 512U - crypto_offset) * 512U;
-        new_fs_size = (new_partition_size / 512U - crypto_offset) * 512U;
+        new_fs_size = DISK_SIZE_ROUND_DOWN((new_partition_size / 512U - crypto_offset) * 512U);
 
         /* Before we start doing anything, let's figure out if we actually can */
         resize_type = can_resize_fs(setup->root_fd, old_fs_size, new_fs_size);
