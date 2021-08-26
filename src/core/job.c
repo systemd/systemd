@@ -705,19 +705,39 @@ static void job_emit_done_message(Unit *u, uint32_t job_id, JobType t, JobResult
 
         if (!console_only) {  /* Skip printing if output goes to the console, and job_print_status_message()
                                * will actually print something to the console. */
-
+                Condition *c;
                 const char *mid = job_done_mid(t, result);  /* mid may be NULL. log_unit_struct() will ignore it. */
-                const char *msg_fmt = strjoina("MESSAGE=", format);
 
-                DISABLE_WARNING_FORMAT_NONLITERAL;
-                log_unit_struct(u, job_done_messages[result].log_level,
-                                msg_fmt, ident,
+                if (t == JOB_START && result == JOB_DONE && !u->condition_result && (c = unit_find_failed_condition(u))) {
+                        /* Special case units that were skipped because of a failed condition check so that
+                         * we can add more information to the message. */
+                        log_unit_struct(
+                                u,
+                                job_done_messages[result].log_level,
+                                "MESSAGE=%s was skipped because of a failed condition check (%s=%s%s%s).",
+                                ident,
+                                condition_type_to_string(c->type),
+                                c->trigger ? "|" : "",
+                                c->negate ? "!" : "",
+                                c->parameter,
                                 "JOB_ID=%" PRIu32, job_id,
                                 "JOB_TYPE=%s", job_type_to_string(t),
                                 "JOB_RESULT=%s", job_result_to_string(result),
                                 LOG_UNIT_INVOCATION_ID(u),
                                 mid);
-                REENABLE_WARNING;
+                } else {
+                        const char *msg_fmt = strjoina("MESSAGE=", format);
+
+                        DISABLE_WARNING_FORMAT_NONLITERAL;
+                        log_unit_struct(u, job_done_messages[result].log_level,
+                                        msg_fmt, ident,
+                                        "JOB_ID=%" PRIu32, job_id,
+                                        "JOB_TYPE=%s", job_type_to_string(t),
+                                        "JOB_RESULT=%s", job_result_to_string(result),
+                                        LOG_UNIT_INVOCATION_ID(u),
+                                        mid);
+                        REENABLE_WARNING;
+                }
         }
 
         if (do_console) {
