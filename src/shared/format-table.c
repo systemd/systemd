@@ -267,6 +267,7 @@ static size_t table_data_size(TableDataType type, const void *data) {
         case TABLE_STRV_WRAPPED:
                 return sizeof(char **);
 
+        case TABLE_BOOLEAN_CHECKMARK:
         case TABLE_BOOLEAN:
                 return sizeof(bool);
 
@@ -848,6 +849,7 @@ int table_add_many_internal(Table *t, TableDataType first_type, ...) {
                         data = va_arg(ap, char * const *);
                         break;
 
+                case TABLE_BOOLEAN_CHECKMARK:
                 case TABLE_BOOLEAN:
                         buffer.b = va_arg(ap, int);
                         data = &buffer.b;
@@ -1442,6 +1444,9 @@ static const char *table_data_format(Table *t, TableData *d, bool avoid_uppercas
 
         case TABLE_BOOLEAN:
                 return yes_no(d->boolean);
+
+        case TABLE_BOOLEAN_CHECKMARK:
+                return special_glyph(d->boolean ? SPECIAL_GLYPH_CHECK_MARK : SPECIAL_GLYPH_CROSS_MARK);
 
         case TABLE_TIMESTAMP:
         case TABLE_TIMESTAMP_UTC:
@@ -2488,6 +2493,7 @@ static int table_data_to_json(TableData *d, JsonVariant **ret) {
         case TABLE_STRV_WRAPPED:
                 return json_variant_new_array_strv(ret, d->strv);
 
+        case TABLE_BOOLEAN_CHECKMARK:
         case TABLE_BOOLEAN:
                 return json_variant_new_boolean(ret, d->boolean);
 
