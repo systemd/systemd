@@ -43,6 +43,7 @@
 #   udevadm info /dev/input/eventXX.
 #
 # Allowed properties are:
+#   ID_INPUT_POINTINGSTICK
 #   POINTINGSTICK_CONST_ACCEL (deprecated)
 #   POINTINGSTICK_SENSITIVITY
 #
@@ -77,6 +78,12 @@
 #
 
 # Sort by brand, model
+
+##########################################
+# Generic
+##########################################
+evdev:name:*[tT]rack[pP]oint*:*
+ ID_INPUT_POINTINGSTICK=1
 
 #########################################
 # Dell
