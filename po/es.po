@@ -4,15 +4,15 @@
 # Alex Puchades <alex94puchades@gmail.com>, 2015.
 # Daniel Mustieles <daniel.mustieles@gmail.com>, 2015.
 # Álex Puchades <alex94puchades@gmail.com>, 2015.
-# Adolfo Jayme Barrientos <fitoschido@gmail.com>, 2020.
+# Adolfo Jayme Barrientos <fitoschido@gmail.com>, 2020, 2021.
 # Emilio Herrera <ehespinosa57@gmail.com>, 2021.
 msgid ""
 msgstr ""
 "Project-Id-Version: systemd master\n"
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2021-01-08 17:48+0100\n"
-"PO-Revision-Date: 2021-06-08 09:04+0000\n"
-"Last-Translator: Emilio Herrera <ehespinosa57@gmail.com>\n"
+"PO-Revision-Date: 2021-08-26 18:05+0000\n"
+"Last-Translator: Adolfo Jayme Barrientos <fitoschido@gmail.com>\n"
 "Language-Team: Spanish <https://translate.fedoraproject.org/projects/systemd/"
 "master/es/>\n"
 "Language: es\n"
@@ -20,7 +20,7 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=n != 1;\n"
-"X-Generator: Weblate 4.6.2\n"
+"X-Generator: Weblate 4.8\n"
 
 #: src/core/org.freedesktop.systemd1.policy.in:22
 msgid "Send passphrase back to system"
@@ -96,40 +96,37 @@ msgstr "Comprobar las credenciales de un área home"
 msgid ""
 "Authentication is required to check credentials against a user's home area."
 msgstr ""
-"Se requiere autenticación para comprobar las credenciales contra un área "
-"home de usuario."
+"Necesita autenticarse para comprobar las credenciales del espacio personal "
+"de un usuario."
 
 #: src/home/org.freedesktop.home1.policy:43
 msgid "Update a home area"
-msgstr "Actualizar un área home"
+msgstr "Actualizar un espacio personal"
 
 #: src/home/org.freedesktop.home1.policy:44
 msgid "Authentication is required to update a user's home area."
-msgstr "Se requiere autenticación para actualizar un área home de usuario."
+msgstr ""
+"Necesita autenticarse para actualizar el espacio personal de un usuario."
 
 #: src/home/org.freedesktop.home1.policy:53
 msgid "Resize a home area"
-msgstr ""
+msgstr "Redimensionar un espacio personal"
 
 #: src/home/org.freedesktop.home1.policy:54
-#, fuzzy
-#| msgid "Authentication is required to set a wall message"
 msgid "Authentication is required to resize a user's home area."
-msgstr "Se requiere autenticación para establecer un muro de texto"
+msgstr ""
+"Necesita autenticarse para redimensionar el espacio personal de un usuario."
 
 #: src/home/org.freedesktop.home1.policy:63
 msgid "Change password of a home area"
-msgstr ""
+msgstr "Cambiar contraseña de un espacio personal"
 
 #: src/home/org.freedesktop.home1.policy:64
-#, fuzzy
-#| msgid ""
-#| "Authentication is required to manage active sessions, users and seats."
 msgid ""
 "Authentication is required to change the password of a user's home area."
 msgstr ""
-"Se requiere autenticación para administrar las sesiones activas, usuarios y "
-"puestos de trabajo."
+"Necesita autenticarse para cambiar la contraseña del espacio personal de un "
+"usuario."
 
 #: src/hostname/org.freedesktop.hostname1.policy:20
 msgid "Set hostname"
@@ -161,13 +158,11 @@ msgstr "Necesita autenticarse para establecer la información de sistema local."
 
 #: src/hostname/org.freedesktop.hostname1.policy:51
 msgid "Get product UUID"
-msgstr ""
+msgstr "Obtener UUID del producto"
 
 #: src/hostname/org.freedesktop.hostname1.policy:52
-#, fuzzy
-#| msgid "Authentication is required to reload '$(unit)'."
 msgid "Authentication is required to get product UUID."
-msgstr "Se requiere autenticación para recargar '$(unit)'."
+msgstr "Necesita autenticarse para obtener el UUID de un producto."
 
 #: src/import/org.freedesktop.import1.policy:22
 msgid "Import a VM or container image"
@@ -582,13 +577,12 @@ msgstr "Necesita autenticarse para bloquear/desbloquear sesiones activas."
 
 #: src/login/org.freedesktop.login1.policy:352
 msgid "Set the reboot \"reason\" in the kernel"
-msgstr ""
+msgstr "Establecer la «razón» de reinicio en el núcleo"
 
 #: src/login/org.freedesktop.login1.policy:353
-#, fuzzy
-#| msgid "Authentication is required to set the system timezone."
 msgid "Authentication is required to set the reboot \"reason\" in the kernel."
-msgstr "Se requiere autenticación para establecer la zona horaria del sistema."
+msgstr ""
+"Necesita autenticarse para establecer la «razón» de reinicio en el núcleo."
 
 #: src/login/org.freedesktop.login1.policy:363
 #, fuzzy
@@ -607,35 +601,27 @@ msgstr ""
 
 #: src/login/org.freedesktop.login1.policy:374
 msgid "Indicate to the boot loader to boot to the boot loader menu"
-msgstr ""
+msgstr "Indicar al cargador de arranque que inicie el menú de selección"
 
 #: src/login/org.freedesktop.login1.policy:375
-#, fuzzy
-#| msgid ""
-#| "Authentication is required to indicate to the firmware to boot to setup "
-#| "interface."
 msgid ""
 "Authentication is required to indicate to the boot loader to boot to the "
 "boot loader menu."
 msgstr ""
-"Se requiere autenticación para indicar al firmware que arranque la interfaz "
-"de configuración."
+"Necesita autenticarse para indicar al cargador de arranque que inicie el "
+"menú de selección."
 
 #: src/login/org.freedesktop.login1.policy:385
 msgid "Indicate to the boot loader to boot a specific entry"
-msgstr ""
+msgstr "Indicar al cargador de arranque que inicie una entrada concreta"
 
 #: src/login/org.freedesktop.login1.policy:386
-#, fuzzy
-#| msgid ""
-#| "Authentication is required to indicate to the firmware to boot to setup "
-#| "interface."
 msgid ""
 "Authentication is required to indicate to the boot loader to boot into a "
 "specific boot loader entry."
 msgstr ""
-"Se requiere autenticación para indicar al firmware que arranque la interfaz "
-"de configuración."
+"Necesita autenticarse para indicar al cargador de arranque que inicie una "
+"entrada concreta."
 
 #: src/login/org.freedesktop.login1.policy:396
 msgid "Set a wall message"
@@ -647,13 +633,11 @@ msgstr "Necesita autenticarse para establecer un muro de texto"
 
 #: src/login/org.freedesktop.login1.policy:406
 msgid "Change Session"
-msgstr ""
+msgstr "Cambiar sesión"
 
 #: src/login/org.freedesktop.login1.policy:407
-#, fuzzy
-#| msgid "Authentication is required to set the local hostname."
 msgid "Authentication is required to change the virtual terminal."
-msgstr "Se requiere autenticación para establecer el nombre del equipo local."
+msgstr "Necesita autenticarse para cambiar la terminal virtual."
 
 #: src/machine/org.freedesktop.machine1.policy:22
 msgid "Log into a local container"
@@ -665,11 +649,11 @@ msgstr "Necesita autenticarse para conectarse a un contenedor local."
 
 #: src/machine/org.freedesktop.machine1.policy:32
 msgid "Log into the local host"
-msgstr "Conectarse al equipo local"
+msgstr "Acceder al anfitrión local"
 
 #: src/machine/org.freedesktop.machine1.policy:33
 msgid "Authentication is required to log into the local host."
-msgstr "Necesita autenticarse para conectarse al equipo local."
+msgstr "Necesita autenticarse para acceder al anfitrión local."
 
 #: src/machine/org.freedesktop.machine1.policy:42
 msgid "Acquire a shell in a local container"
@@ -734,173 +718,145 @@ msgstr ""
 
 #: src/network/org.freedesktop.network1.policy:22
 msgid "Set NTP servers"
-msgstr ""
+msgstr "Establecer servidores NTP"
 
 #: src/network/org.freedesktop.network1.policy:23
-#, fuzzy
-#| msgid "Authentication is required to set the system time."
 msgid "Authentication is required to set NTP servers."
-msgstr "Se requiere autenticación para establecer la fecha y hora del sistema."
+msgstr "Necesita autenticarse para establecer servidores NTP."
 
 #: src/network/org.freedesktop.network1.policy:33
 #: src/resolve/org.freedesktop.resolve1.policy:44
 msgid "Set DNS servers"
-msgstr ""
+msgstr "Establecer servidores DNS"
 
 #: src/network/org.freedesktop.network1.policy:34
 #: src/resolve/org.freedesktop.resolve1.policy:45
-#, fuzzy
-#| msgid "Authentication is required to set the system time."
 msgid "Authentication is required to set DNS servers."
-msgstr "Se requiere autenticación para establecer la fecha y hora del sistema."
+msgstr "Necesita autenticarse para establecer servidores DNS."
 
 #: src/network/org.freedesktop.network1.policy:44
 #: src/resolve/org.freedesktop.resolve1.policy:55
 msgid "Set domains"
-msgstr ""
+msgstr "Establecer dominios"
 
 #: src/network/org.freedesktop.network1.policy:45
 #: src/resolve/org.freedesktop.resolve1.policy:56
-#, fuzzy
-#| msgid "Authentication is required to stop '$(unit)'."
 msgid "Authentication is required to set domains."
-msgstr "Se requiere autenticación para detener '$(unit)'."
+msgstr "Necesita autenticarse para establecer dominios."
 
 #: src/network/org.freedesktop.network1.policy:55
 #: src/resolve/org.freedesktop.resolve1.policy:66
 msgid "Set default route"
-msgstr ""
+msgstr "Establecer ruta predeterminada"
 
 #: src/network/org.freedesktop.network1.policy:56
 #: src/resolve/org.freedesktop.resolve1.policy:67
-#, fuzzy
-#| msgid "Authentication is required to set the local hostname."
 msgid "Authentication is required to set default route."
-msgstr "Se requiere autenticación para establecer el nombre del equipo local."
+msgstr "Necesita autenticarse para establecer la ruta predeterminada."
 
 #: src/network/org.freedesktop.network1.policy:66
 #: src/resolve/org.freedesktop.resolve1.policy:77
 msgid "Enable/disable LLMNR"
-msgstr ""
+msgstr "Activar/desactivar LLMNR"
 
 #: src/network/org.freedesktop.network1.policy:67
 #: src/resolve/org.freedesktop.resolve1.policy:78
-#, fuzzy
-#| msgid "Authentication is required to hibernate the system."
 msgid "Authentication is required to enable or disable LLMNR."
-msgstr "Se requiere autenticación para hibernar el sistema."
+msgstr "Necesita autenticarse para activar o desactivar LLMNR."
 
 #: src/network/org.freedesktop.network1.policy:77
 #: src/resolve/org.freedesktop.resolve1.policy:88
 msgid "Enable/disable multicast DNS"
-msgstr ""
+msgstr "Activar/desactivar DNS multidifusión"
 
 #: src/network/org.freedesktop.network1.policy:78
 #: src/resolve/org.freedesktop.resolve1.policy:89
-#, fuzzy
-#| msgid "Authentication is required to log into the local host."
 msgid "Authentication is required to enable or disable multicast DNS."
-msgstr "Se requiere autenticación para conectarse al equipo local."
+msgstr "Necesita autenticarse para activar o desactivar DNS multidifusión."
 
 #: src/network/org.freedesktop.network1.policy:88
 #: src/resolve/org.freedesktop.resolve1.policy:99
 msgid "Enable/disable DNS over TLS"
-msgstr ""
+msgstr "Activar/desactivar DNS por TLS"
 
 #: src/network/org.freedesktop.network1.policy:89
 #: src/resolve/org.freedesktop.resolve1.policy:100
-#, fuzzy
-#| msgid "Authentication is required to set the local hostname."
 msgid "Authentication is required to enable or disable DNS over TLS."
-msgstr "Se requiere autenticación para establecer el nombre del equipo local."
+msgstr "Necesita autenticarse para activar o desactivar DNS por TLS."
 
 #: src/network/org.freedesktop.network1.policy:99
 #: src/resolve/org.freedesktop.resolve1.policy:110
 msgid "Enable/disable DNSSEC"
-msgstr ""
+msgstr "Activar/desactivar DNSSEC"
 
 #: src/network/org.freedesktop.network1.policy:100
 #: src/resolve/org.freedesktop.resolve1.policy:111
-#, fuzzy
-#| msgid "Authentication is required to hibernate the system."
 msgid "Authentication is required to enable or disable DNSSEC."
-msgstr "Se requiere autenticación para hibernar el sistema."
+msgstr "Necesita autenticarse para activar o desactivar DNSSEC."
 
 #: src/network/org.freedesktop.network1.policy:110
 #: src/resolve/org.freedesktop.resolve1.policy:121
 msgid "Set DNSSEC Negative Trust Anchors"
-msgstr ""
+msgstr "Establecer anclas de confianza negativas de DNSSEC"
 
 #: src/network/org.freedesktop.network1.policy:111
 #: src/resolve/org.freedesktop.resolve1.policy:122
-#, fuzzy
-#| msgid "Authentication is required to set the system locale."
 msgid "Authentication is required to set DNSSEC Negative Trust Anchors."
-msgstr "Se requiere autenticación para establecer la región del sistema."
+msgstr ""
+"Necesita autenticarse para establecer las anclas de confianza negativas de "
+"DNSSEC."
 
 #: src/network/org.freedesktop.network1.policy:121
 msgid "Revert NTP settings"
-msgstr ""
+msgstr "Revertir configuración de NTP"
 
 #: src/network/org.freedesktop.network1.policy:122
-#, fuzzy
-#| msgid "Authentication is required to set the system time."
 msgid "Authentication is required to reset NTP settings."
-msgstr "Se requiere autenticación para establecer la fecha y hora del sistema."
+msgstr "Necesita autenticarse para restablecer la configuración de NTP."
 
 #: src/network/org.freedesktop.network1.policy:132
 msgid "Revert DNS settings"
-msgstr ""
+msgstr "Revertir configuración de DNS"
 
 #: src/network/org.freedesktop.network1.policy:133
-#, fuzzy
-#| msgid "Authentication is required to set the system time."
 msgid "Authentication is required to reset DNS settings."
-msgstr "Se requiere autenticación para establecer la fecha y hora del sistema."
+msgstr "Necesita autenticarse para restablecer la configuración de DNS."
 
 #: src/network/org.freedesktop.network1.policy:143
 msgid "DHCP server sends force renew message"
-msgstr ""
+msgstr "El servidor DCHP envía un mensaje de renovación forzada"
 
 #: src/network/org.freedesktop.network1.policy:144
-#, fuzzy
-#| msgid "Authentication is required to set a wall message"
 msgid "Authentication is required to send force renew message."
-msgstr "Se requiere autenticación para establecer un muro de texto"
+msgstr "Necesita autenticarse para enviar el mensaje de renovación forzada."
 
 #: src/network/org.freedesktop.network1.policy:154
 msgid "Renew dynamic addresses"
-msgstr ""
+msgstr "Renovar direcciones dinámicas"
 
 #: src/network/org.freedesktop.network1.policy:155
-#, fuzzy
-#| msgid "Authentication is required to set a wall message"
 msgid "Authentication is required to renew dynamic addresses."
-msgstr "Se requiere autenticación para establecer un muro de texto"
+msgstr "Necesita autenticarse para renovar las direcciones dinámicas."
 
 #: src/network/org.freedesktop.network1.policy:165
 msgid "Reload network settings"
-msgstr ""
+msgstr "Recargar configuración de red"
 
 #: src/network/org.freedesktop.network1.policy:166
-#, fuzzy
-#| msgid "Authentication is required to reload the systemd state."
 msgid "Authentication is required to reload network settings."
-msgstr "Se requiere autenticación para recargar el estado de systemd."
+msgstr "Necesita autenticarse para recargar la configuración de red."
 
 #: src/network/org.freedesktop.network1.policy:176
 msgid "Reconfigure network interface"
-msgstr ""
+msgstr "Reconfigurar interfaz de red"
 
 #: src/network/org.freedesktop.network1.policy:177
-#, fuzzy
-#| msgid "Authentication is required to reboot the system."
 msgid "Authentication is required to reconfigure network interface."
-msgstr "Se requiere autenticación para reiniciar el sistema."
+msgstr "Necesita autenticarse para reconfigurar la interfaz de red."
 
 #: src/portable/org.freedesktop.portable1.policy:13
 msgid "Inspect a portable service image"
-msgstr ""
+msgstr "Inspeccionar una imagen de servicio portátil"
 
 #: src/portable/org.freedesktop.portable1.policy:14
 #, fuzzy
@@ -912,7 +868,7 @@ msgstr ""
 
 #: src/portable/org.freedesktop.portable1.policy:23
 msgid "Attach or detach a portable service image"
-msgstr ""
+msgstr "Adjuntar o desadjuntar una imagen de servicio portátil"
 
 #: src/portable/org.freedesktop.portable1.policy:24
 #, fuzzy
@@ -925,7 +881,7 @@ msgstr ""
 
 #: src/portable/org.freedesktop.portable1.policy:34
 msgid "Delete or modify portable service image"
-msgstr ""
+msgstr "Eliminar o modificar imagen de servicio portátil"
 
 #: src/portable/org.freedesktop.portable1.policy:35
 #, fuzzy
@@ -938,7 +894,7 @@ msgstr ""
 
 #: src/resolve/org.freedesktop.resolve1.policy:22
 msgid "Register a DNS-SD service"
-msgstr ""
+msgstr "Registrar un servicio DNS-SD"
 
 #: src/resolve/org.freedesktop.resolve1.policy:23
 #, fuzzy
@@ -948,7 +904,7 @@ msgstr "Se requiere autenticación para establecer un muro de texto"
 
 #: src/resolve/org.freedesktop.resolve1.policy:33
 msgid "Unregister a DNS-SD service"
-msgstr ""
+msgstr "Desregistrar un servicio DNS-SD"
 
 #: src/resolve/org.freedesktop.resolve1.policy:34
 #, fuzzy
@@ -958,7 +914,7 @@ msgstr "Se requiere autenticación para establecer un muro de texto"
 
 #: src/resolve/org.freedesktop.resolve1.policy:132
 msgid "Revert name resolution settings"
-msgstr ""
+msgstr "Revertir configuración de resolución de nombres"
 
 #: src/resolve/org.freedesktop.resolve1.policy:133
 #, fuzzy
