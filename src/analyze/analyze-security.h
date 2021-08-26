@@ -6,6 +6,7 @@
 #include "sd-bus.h"
 
 #include "json.h"
+#include "pager.h"
 #include "unit-file.h"
 
 typedef enum AnalyzeSecurityFlags {
@@ -23,4 +24,6 @@ int analyze_security(sd_bus *bus,
                      bool offline,
                      unsigned threshold,
                      const char *root,
+                     JsonFormatFlags json_format_flags,
+                     PagerFlags pager_flags,
                      AnalyzeSecurityFlags flags);

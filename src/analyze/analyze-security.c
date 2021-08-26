@@ -1709,7 +1709,9 @@ static int assess(const SecurityInfo *info,
                   Table *overview_table,
                   AnalyzeSecurityFlags flags,
                   unsigned threshold,
-                  JsonVariant *policy) {
+                  JsonVariant *policy,
+                  PagerFlags pager_flags,
+                  JsonFormatFlags json_format_flags) {
 
         static const struct {
                 uint64_t exposure;
@@ -1732,15 +1734,19 @@ static int assess(const SecurityInfo *info,
         int r;
 
         if (!FLAGS_SET(flags, ANALYZE_SECURITY_SHORT)) {
-                details_table = table_new(" ", "name", "description", "weight", "badness", "range", "exposure");
+                details_table = table_new(" ", "name", "json_field", "description", "weight", "badness", "range", "exposure");
                 if (!details_table)
                         return log_oom();
+
+                r = table_set_json_field_name(details_table, 0, "set");
+                if (r < 0)
+                        return log_error_errno(r, "Failed to set JSON field name of column 0: %m");
 
                 (void) table_set_sort(details_table, (size_t) 3, (size_t) 1);
                 (void) table_set_reverse(details_table, 3, true);
 
                 if (getenv_bool("SYSTEMD_ANALYZE_DEBUG") <= 0)
-                        (void) table_set_display(details_table, (size_t) 0, (size_t) 1, (size_t) 2, (size_t) 6);
+                        (void) table_set_display(details_table, (size_t) 0, (size_t) 1, (size_t) 2, (size_t) 3, (size_t) 7);
         }
 
         for (i = 0; i < ELEMENTSOF(security_assessor_table); i++) {
@@ -1774,23 +1780,23 @@ static int assess(const SecurityInfo *info,
                 }
 
                 if (details_table) {
-                        const char *checkmark, *description, *color = NULL;
-                        const char *id = a->id;
+                        const char *description, *color = NULL;
+                        int checkmark;
 
                         if (badness == UINT64_MAX) {
-                                checkmark = " ";
+                                checkmark = -1;
                                 description = access_description_na(a, policy);
                                 color = NULL;
                         } else if (badness == a->range) {
-                                checkmark = special_glyph(SPECIAL_GLYPH_CROSS_MARK);
+                                checkmark = 0;
                                 description = access_description_bad(a, policy);
                                 color = ansi_highlight_red();
                         } else if (badness == 0) {
-                                checkmark = special_glyph(SPECIAL_GLYPH_CHECK_MARK);
+                                checkmark = 1;
                                 description = access_description_good(a, policy);
                                 color = ansi_highlight_green();
                         } else {
-                                checkmark = special_glyph(SPECIAL_GLYPH_CROSS_MARK);
+                                checkmark = 0;
                                 description = NULL;
                                 color = ansi_highlight_red();
                         }
@@ -1798,16 +1804,24 @@ static int assess(const SecurityInfo *info,
                         if (d)
                                 description = d;
 
-                        if (json_variant_by_key(policy, a->json_field) != NULL)
-                                id = a->json_field;
+                        if (checkmark < 0) {
+                                r = table_add_many(details_table, TABLE_EMPTY);
+                                if (r < 0)
+                                        return table_log_add_error(r);
+                        } else {
+                                r = table_add_many(details_table,
+                                                   TABLE_BOOLEAN_CHECKMARK, checkmark > 0,
+                                                   TABLE_SET_MINIMUM_WIDTH, 1,
+                                                   TABLE_SET_MAXIMUM_WIDTH, 1,
+                                                   TABLE_SET_ELLIPSIZE_PERCENT, 0,
+                                                   TABLE_SET_COLOR, color);
+                                if (r < 0)
+                                        return table_log_add_error(r);
+                        }
 
                         r = table_add_many(details_table,
-                                           TABLE_STRING, checkmark,
-                                           TABLE_SET_MINIMUM_WIDTH, 1,
-                                           TABLE_SET_MAXIMUM_WIDTH, 1,
-                                           TABLE_SET_ELLIPSIZE_PERCENT, 0,
-                                           TABLE_SET_COLOR, color,
-                                           TABLE_STRING, id, TABLE_SET_URL, a->url,
+                                           TABLE_STRING, a->id, TABLE_SET_URL, a->url,
+                                           TABLE_STRING, a->json_field,
                                            TABLE_STRING, description,
                                            TABLE_UINT64, weight, TABLE_SET_ALIGN_PERCENT, 100,
                                            TABLE_UINT64, badness, TABLE_SET_ALIGN_PERCENT, 100,
@@ -1829,14 +1843,14 @@ static int assess(const SecurityInfo *info,
                         TableCell *cell;
                         uint64_t x;
 
-                        assert_se(weight = table_get_at(details_table, row, 3));
-                        assert_se(badness = table_get_at(details_table, row, 4));
-                        assert_se(range = table_get_at(details_table, row, 5));
+                        assert_se(weight = table_get_at(details_table, row, 4));
+                        assert_se(badness = table_get_at(details_table, row, 5));
+                        assert_se(range = table_get_at(details_table, row, 6));
 
                         if (*badness == UINT64_MAX || *badness == 0)
                                 continue;
 
-                        assert_se(cell = table_get_cell(details_table, row, 6));
+                        assert_se(cell = table_get_cell(details_table, row, 7));
 
                         x = DIV_ROUND_UP(DIV_ROUND_UP(*badness * *weight * 100U, *range), weight_sum);
                         xsprintf(buf, "%" PRIu64 ".%" PRIu64, x / 10, x % 10);
@@ -1846,7 +1860,13 @@ static int assess(const SecurityInfo *info,
                                 return log_error_errno(r, "Failed to update cell in table: %m");
                 }
 
-                r = table_print(details_table, stdout);
+                if (json_format_flags & JSON_FORMAT_OFF) {
+                        r = table_hide_column_from_display(details_table, (size_t) 2);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to set columns to display: %m");
+                }
+
+                r = table_print_with_pager(details_table, json_format_flags, pager_flags, /* show_header= */true);
                 if (r < 0)
                         return log_error_errno(r, "Failed to output table: %m");
         }
@@ -1859,7 +1879,7 @@ static int assess(const SecurityInfo *info,
 
         assert(i < ELEMENTSOF(badness_table));
 
-        if (details_table) {
+        if (details_table && (json_format_flags & JSON_FORMAT_OFF)) {
                 _cleanup_free_ char *clickable = NULL;
                 const char *name;
 
@@ -2386,7 +2406,9 @@ static int analyze_security_one(sd_bus *bus,
                                 Table *overview_table,
                                 AnalyzeSecurityFlags flags,
                                 unsigned threshold,
-                                JsonVariant *policy) {
+                                JsonVariant *policy,
+                                PagerFlags pager_flags,
+                                JsonFormatFlags json_format_flags) {
 
         _cleanup_(security_info_freep) SecurityInfo *info = security_info_new();
         if (!info)
@@ -2403,7 +2425,7 @@ static int analyze_security_one(sd_bus *bus,
         if (r < 0)
                 return r;
 
-        r = assess(info, overview_table, flags, threshold, policy);
+        r = assess(info, overview_table, flags, threshold, policy, pager_flags, json_format_flags);
         if (r < 0)
                 return r;
 
@@ -2589,7 +2611,12 @@ static int get_security_info(Unit *u, ExecContext *c, CGroupContext *g, Security
         return 0;
 }
 
-static int offline_security_check(Unit *u, unsigned threshold, JsonVariant *policy) {
+static int offline_security_check(Unit *u,
+                                  unsigned threshold,
+                                  JsonVariant *policy,
+                                  PagerFlags pager_flags,
+                                  JsonFormatFlags json_format_flags) {
+
         _cleanup_(table_unrefp) Table *overview_table = NULL;
         AnalyzeSecurityFlags flags = 0;
         _cleanup_(security_info_freep) SecurityInfo *info = NULL;
@@ -2604,7 +2631,7 @@ static int offline_security_check(Unit *u, unsigned threshold, JsonVariant *poli
         if (r < 0)
               return r;
 
-        return assess(info, overview_table, flags, threshold, policy);
+        return assess(info, overview_table, flags, threshold, policy, pager_flags, json_format_flags);
 }
 
 static int offline_security_checks(char **filenames,
@@ -2613,7 +2640,9 @@ static int offline_security_checks(char **filenames,
                                    bool check_man,
                                    bool run_generators,
                                    unsigned threshold,
-                                   const char *root) {
+                                   const char *root,
+                                   PagerFlags pager_flags,
+                                   JsonFormatFlags json_format_flags) {
 
         const ManagerTestRunFlags flags =
                 MANAGER_TEST_RUN_MINIMAL |
@@ -2673,7 +2702,7 @@ static int offline_security_checks(char **filenames,
         }
 
         for (size_t i = 0; i < count; i++) {
-                k = offline_security_check(units[i], threshold, policy);
+                k = offline_security_check(units[i], threshold, policy, pager_flags, json_format_flags);
                 if (k < 0 && r == 0)
                         r = k;
         }
@@ -2690,6 +2719,8 @@ int analyze_security(sd_bus *bus,
                      bool offline,
                      unsigned threshold,
                      const char *root,
+                     JsonFormatFlags json_format_flags,
+                     PagerFlags pager_flags,
                      AnalyzeSecurityFlags flags) {
 
         _cleanup_(table_unrefp) Table *overview_table = NULL;
@@ -2698,7 +2729,7 @@ int analyze_security(sd_bus *bus,
         assert(bus);
 
         if (offline)
-                return offline_security_checks(units, policy, scope, check_man, run_generators, threshold, root);
+                return offline_security_checks(units, policy, scope, check_man, run_generators, threshold, root, pager_flags, json_format_flags);
 
         if (strv_length(units) != 1) {
                 overview_table = table_new("unit", "exposure", "predicate", "happy");
@@ -2758,7 +2789,7 @@ int analyze_security(sd_bus *bus,
                 flags |= ANALYZE_SECURITY_SHORT|ANALYZE_SECURITY_ONLY_LOADED|ANALYZE_SECURITY_ONLY_LONG_RUNNING;
 
                 STRV_FOREACH(i, list) {
-                        r = analyze_security_one(bus, *i, overview_table, flags, threshold, policy);
+                        r = analyze_security_one(bus, *i, overview_table, flags, threshold, policy, pager_flags, json_format_flags);
                         if (r < 0 && ret >= 0)
                                 ret = r;
                 }
@@ -2793,7 +2824,7 @@ int analyze_security(sd_bus *bus,
                         } else
                                 name = mangled;
 
-                        r = analyze_security_one(bus, name, overview_table, flags, threshold, policy);
+                        r = analyze_security_one(bus, name, overview_table, flags, threshold, policy, pager_flags, json_format_flags);
                         if (r < 0 && ret >= 0)
                                 ret = r;
                 }
@@ -2805,10 +2836,9 @@ int analyze_security(sd_bus *bus,
                         fflush(stdout);
                 }
 
-                r = table_print(overview_table, stdout);
+                r = table_print_with_pager(overview_table, json_format_flags, pager_flags, /* show_header= */true);
                 if (r < 0)
                         return log_error_errno(r, "Failed to output table: %m");
         }
-
         return ret;
 }

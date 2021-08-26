@@ -145,7 +145,7 @@ _systemd_analyze() {
 
     elif __contains_word "$verb" ${VERBS[SECURITY]}; then
         if [[ $cur = -* ]]; then
-            comps='--help --version --no-pager --system --user -H --host -M --machine --offline --threshold --security-policy'
+            comps='--help --version --no-pager --system --user -H --host -M --machine --offline --threshold --security-policy --json=off --json=pretty --json=short'
         else
             if __contains_word "--user" ${COMP_WORDS[*]}; then
                 mode=--user
