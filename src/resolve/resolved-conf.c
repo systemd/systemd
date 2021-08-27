@@ -27,6 +27,7 @@ static int manager_add_dns_server_by_string(Manager *m, DnsServerType type, cons
         int family, r, ifindex = 0;
         uint16_t port;
         DnsServer *s;
+        DnsStubListenerExtra *stub;
 
         assert(m);
         assert(word);
@@ -38,6 +39,14 @@ static int manager_add_dns_server_by_string(Manager *m, DnsServerType type, cons
         /* Silently filter out 0.0.0.0 and 127.0.0.53 (our own stub DNS listener) */
         if (!dns_server_address_valid(family, &address))
                 return 0;
+
+        ORDERED_SET_FOREACH(stub, m->dns_extra_stub_listeners) {
+                if (family != stub->family)
+                        continue;
+                else if (family == AF_INET && address.in.s_addr == stub->address.in.s_addr ||
+                         family == AF_INET6 && address.in6.s6_addr == stub->address.in6.s6_addr)
+                        return 0;
+        }
 
         /* By default, the port number is determined with the transaction feature level.
          * See dns_transaction_port() and dns_server_port(). */
