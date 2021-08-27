@@ -712,7 +712,7 @@ static int netlink_message_read_internal(
         if (!m->containers[m->n_containers].attributes)
                 return -ENODATA;
 
-        if (type >= m->containers[m->n_containers].n_attributes)
+        if (type > m->containers[m->n_containers].max_attribute)
                 return -ENODATA;
 
         attribute = &m->containers[m->n_containers].attributes[type];
@@ -1093,38 +1093,38 @@ int sd_netlink_message_read_strv(sd_netlink_message *m, unsigned short container
         return 0;
 }
 
-static int netlink_container_parse(sd_netlink_message *m,
-                                   struct netlink_container *container,
-                                   struct rtattr *rta,
-                                   size_t rt_len) {
+static int netlink_container_parse(
+                sd_netlink_message *m,
+                struct netlink_container *container,
+                struct rtattr *rta,
+                size_t rt_len) {
+
         _cleanup_free_ struct netlink_attribute *attributes = NULL;
-        size_t n = 0;
+        uint16_t max_attr = 0;
 
         /* RTA_OK() macro compares with rta->rt_len, which is unsigned short, and
          * LGTM.com analysis does not like the type difference. Hence, here we
          * introduce an unsigned short variable as a workaround. */
         unsigned short len = rt_len;
         for (; RTA_OK(rta, len); rta = RTA_NEXT(rta, len)) {
-                unsigned short type;
+                uint16_t attr;
 
-                type = RTA_TYPE(rta);
+                attr = RTA_TYPE(rta);
+                max_attr = MAX(max_attr, attr);
 
-                if (!GREEDY_REALLOC0(attributes, type + 1))
+                if (!GREEDY_REALLOC0(attributes, (size_t) max_attr + 1))
                         return -ENOMEM;
 
-                if (attributes[type].offset != 0)
+                if (attributes[attr].offset != 0)
                         log_debug("sd-netlink: message parse - overwriting repeated attribute");
 
-                attributes[type].offset = (uint8_t *) rta - (uint8_t *) m->hdr;
-                attributes[type].nested = RTA_FLAGS(rta) & NLA_F_NESTED;
-                attributes[type].net_byteorder = RTA_FLAGS(rta) & NLA_F_NET_BYTEORDER;
-
-                if (type + 1U > n)
-                        n = type + 1U;
+                attributes[attr].offset = (uint8_t *) rta - (uint8_t *) m->hdr;
+                attributes[attr].nested = RTA_FLAGS(rta) & NLA_F_NESTED;
+                attributes[attr].net_byteorder = RTA_FLAGS(rta) & NLA_F_NET_BYTEORDER;
         }
 
         container->attributes = TAKE_PTR(attributes);
-        container->n_attributes = n;
+        container->max_attribute = max_attr;
 
         return 0;
 }
@@ -1259,10 +1259,20 @@ int sd_netlink_message_exit_container(sd_netlink_message *m) {
         assert_return(m->n_containers > 0, -EINVAL);
 
         m->containers[m->n_containers].attributes = mfree(m->containers[m->n_containers].attributes);
+        m->containers[m->n_containers].max_attribute = 0;
         m->containers[m->n_containers].type_system = NULL;
 
         m->n_containers--;
 
+        return 0;
+}
+
+int sd_netlink_message_get_max_attribute(sd_netlink_message *m, uint16_t *ret) {
+        assert_return(m, -EINVAL);
+        assert_return(m->sealed, -EINVAL);
+        assert_return(ret, -EINVAL);
+
+        *ret = m->containers[m->n_containers].max_attribute;
         return 0;
 }
 
