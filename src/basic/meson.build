@@ -82,6 +82,7 @@ basic_sources = files('''
         linux/can/netlink.h
         linux/can/vxcan.h
         linux/cfm_bridge.h
+        linux/devlink.h
         linux/fib_rules.h
         linux/fou.h
         linux/genetlink.h
