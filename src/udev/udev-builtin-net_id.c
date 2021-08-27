@@ -103,7 +103,6 @@ static int get_virtfn_info(sd_device *dev, struct netnames *names, struct virtfn
         _cleanup_(sd_device_unrefp) sd_device *physfn_pcidev = NULL;
         const char *physfn_link_file, *syspath;
         _cleanup_free_ char *physfn_pci_syspath = NULL;
-        _cleanup_free_ char *virtfn_pci_syspath = NULL;
         struct dirent *dent;
         _cleanup_closedir_ DIR *dir = NULL;
         char suffix[ALTIFNAMSIZ];
@@ -134,7 +133,7 @@ static int get_virtfn_info(sd_device *dev, struct netnames *names, struct virtfn
                 return -errno;
 
         FOREACH_DIRENT_ALL(dent, dir, break) {
-                _cleanup_free_ char *virtfn_link_file = NULL;
+                _cleanup_free_ char *virtfn_link_file = NULL, *virtfn_pci_syspath = NULL;
 
                 if (!startswith(dent->d_name, "virtfn"))
                         continue;
