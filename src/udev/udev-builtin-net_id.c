@@ -71,11 +71,6 @@ struct netnames {
         char netdevsim_path[ALTIFNAMSIZ];
 };
 
-struct virtfn_info {
-        sd_device *physfn_pcidev;
-        char suffix[ALTIFNAMSIZ];
-};
-
 /* skip intermediate virtio devices */
 static sd_device *skip_virtio(sd_device *dev) {
         /* there can only ever be one virtio bus per parent device, so we can
@@ -97,19 +92,18 @@ static sd_device *skip_virtio(sd_device *dev) {
         return dev;
 }
 
-static int get_virtfn_info(sd_device *dev, struct netnames *names, struct virtfn_info *ret) {
+static int get_virtfn_info(sd_device *pcidev, sd_device **ret_physfn_pcidev, char **ret_suffix) {
         _cleanup_(sd_device_unrefp) sd_device *physfn_pcidev = NULL;
         const char *physfn_syspath, *syspath;
-        struct dirent *dent;
         _cleanup_closedir_ DIR *dir = NULL;
-        char suffix[ALTIFNAMSIZ];
+        struct dirent *dent;
         int r;
 
-        assert(dev);
-        assert(names);
-        assert(ret);
+        assert(pcidev);
+        assert(ret_physfn_pcidev);
+        assert(ret_suffix);
 
-        r = sd_device_get_syspath(names->pcidev, &syspath);
+        r = sd_device_get_syspath(pcidev, &syspath);
         if (r < 0)
                 return r;
 
@@ -130,8 +124,10 @@ static int get_virtfn_info(sd_device *dev, struct netnames *names, struct virtfn
 
         FOREACH_DIRENT_ALL(dent, dir, break) {
                 _cleanup_free_ char *virtfn_link_file = NULL, *virtfn_pci_syspath = NULL;
+                const char *n;
 
-                if (!startswith(dent->d_name, "virtfn"))
+                n = startswith(dent->d_name, "virtfn");
+                if (!n)
                         continue;
 
                 virtfn_link_file = path_join(physfn_syspath, dent->d_name);
@@ -142,19 +138,19 @@ static int get_virtfn_info(sd_device *dev, struct netnames *names, struct virtfn
                         continue;
 
                 if (streq(syspath, virtfn_pci_syspath)) {
-                        if (!snprintf_ok(suffix, sizeof(suffix), "v%s", &dent->d_name[6]))
-                                return -ENOENT;
+                        char *suffix;
 
-                        break;
+                        suffix = strjoin("v", n);
+                        if (!suffix)
+                                return -ENOMEM;
+
+                        *ret_physfn_pcidev = TAKE_PTR(physfn_pcidev);
+                        *ret_suffix = suffix;
+                        return 0;
                 }
         }
-        if (isempty(suffix))
-                return -ENOENT;
 
-        ret->physfn_pcidev = TAKE_PTR(physfn_pcidev);
-        strncpy(ret->suffix, suffix, sizeof(ret->suffix));
-
-        return 0;
+        return -ENOENT;
 }
 
 static bool is_valid_onboard_index(unsigned long idx) {
@@ -556,9 +552,9 @@ static int names_platform(sd_device *dev, struct netnames *names, bool test) {
 }
 
 static int names_pci(sd_device *dev, struct netnames *names) {
+        _cleanup_(sd_device_unrefp) sd_device *physfn_pcidev = NULL;
+        _cleanup_free_ char *virtfn_suffix = NULL;
         sd_device *parent;
-        struct netnames vf_names = {};
-        struct virtfn_info vf_info = {};
         const char *subsystem;
         int r;
 
@@ -586,24 +582,26 @@ static int names_pci(sd_device *dev, struct netnames *names) {
         }
 
         if (naming_scheme_has(NAMING_SR_IOV_V) &&
-            get_virtfn_info(dev, names, &vf_info) >= 0) {
+            get_virtfn_info(names->pcidev, &physfn_pcidev, &virtfn_suffix) >= 0) {
+                struct netnames vf_names = {};
+
                 /* If this is an SR-IOV virtual device, get base name using physical device and add virtfn suffix. */
-                vf_names.pcidev = vf_info.physfn_pcidev;
+                vf_names.pcidev = physfn_pcidev;
                 dev_pci_onboard(dev, &vf_names);
                 dev_pci_slot(dev, &vf_names);
+
                 if (vf_names.pci_onboard[0])
-                        if (strlen(vf_names.pci_onboard) + strlen(vf_info.suffix) < sizeof(names->pci_onboard))
+                        if (strlen(vf_names.pci_onboard) + strlen(virtfn_suffix) < sizeof(names->pci_onboard))
                                 strscpyl(names->pci_onboard, sizeof(names->pci_onboard),
-                                         vf_names.pci_onboard, vf_info.suffix, NULL);
+                                         vf_names.pci_onboard, virtfn_suffix, NULL);
                 if (vf_names.pci_slot[0])
-                        if (strlen(vf_names.pci_slot) + strlen(vf_info.suffix) < sizeof(names->pci_slot))
+                        if (strlen(vf_names.pci_slot) + strlen(virtfn_suffix) < sizeof(names->pci_slot))
                                 strscpyl(names->pci_slot, sizeof(names->pci_slot),
-                                         vf_names.pci_slot, vf_info.suffix, NULL);
+                                         vf_names.pci_slot, virtfn_suffix, NULL);
                 if (vf_names.pci_path[0])
-                        if (strlen(vf_names.pci_path) + strlen(vf_info.suffix) < sizeof(names->pci_path))
+                        if (strlen(vf_names.pci_path) + strlen(virtfn_suffix) < sizeof(names->pci_path))
                                 strscpyl(names->pci_path, sizeof(names->pci_path),
-                                         vf_names.pci_path, vf_info.suffix, NULL);
-                sd_device_unref(vf_info.physfn_pcidev);
+                                         vf_names.pci_path, virtfn_suffix, NULL);
         } else {
                 dev_pci_onboard(dev, names);
                 dev_pci_slot(dev, names);
