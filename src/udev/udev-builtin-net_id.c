@@ -99,8 +99,7 @@ static sd_device *skip_virtio(sd_device *dev) {
 
 static int get_virtfn_info(sd_device *dev, struct netnames *names, struct virtfn_info *ret) {
         _cleanup_(sd_device_unrefp) sd_device *physfn_pcidev = NULL;
-        const char *physfn_link_file, *syspath;
-        _cleanup_free_ char *physfn_pci_syspath = NULL;
+        const char *physfn_syspath, *syspath;
         struct dirent *dent;
         _cleanup_closedir_ DIR *dir = NULL;
         char suffix[ALTIFNAMSIZ];
@@ -114,19 +113,18 @@ static int get_virtfn_info(sd_device *dev, struct netnames *names, struct virtfn
         if (r < 0)
                 return r;
 
-        /* Check if this is a virtual function. */
-        physfn_link_file = strjoina(syspath, "/physfn");
-        r = chase_symlinks(physfn_link_file, NULL, 0, &physfn_pci_syspath, NULL);
+        /* Get physical function's pci device. */
+        physfn_syspath = strjoina(syspath, "/physfn");
+        r = sd_device_new_from_syspath(&physfn_pcidev, physfn_syspath);
         if (r < 0)
                 return r;
 
-        /* Get physical function's pci device. */
-        r = sd_device_new_from_syspath(&physfn_pcidev, physfn_pci_syspath);
+        r = sd_device_get_syspath(physfn_pcidev, &physfn_syspath);
         if (r < 0)
                 return r;
 
         /* Find the virtual function number by finding the right virtfn link. */
-        dir = opendir(physfn_pci_syspath);
+        dir = opendir(physfn_syspath);
         if (!dir)
                 return -errno;
 
@@ -136,7 +134,7 @@ static int get_virtfn_info(sd_device *dev, struct netnames *names, struct virtfn
                 if (!startswith(dent->d_name, "virtfn"))
                         continue;
 
-                virtfn_link_file = path_join(physfn_pci_syspath, dent->d_name);
+                virtfn_link_file = path_join(physfn_syspath, dent->d_name);
                 if (!virtfn_link_file)
                         return -ENOMEM;
 
