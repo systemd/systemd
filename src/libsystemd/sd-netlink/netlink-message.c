@@ -20,15 +20,14 @@
 #define RTA_TYPE(rta) ((rta)->rta_type & NLA_TYPE_MASK)
 #define RTA_FLAGS(rta) ((rta)->rta_type & ~NLA_TYPE_MASK)
 
-int message_new_empty(sd_netlink *rtnl, sd_netlink_message **ret) {
+int message_new_empty(sd_netlink *nl, sd_netlink_message **ret) {
         sd_netlink_message *m;
 
-        assert_return(ret, -EINVAL);
+        assert(nl);
+        assert(ret);
 
-        /* Note that 'rtnl' is currently unused, if we start using it internally
-           we must take care to avoid problems due to mutual references between
-           buses and their queued messages. See sd-bus.
-         */
+        /* Note that 'nl' is currently unused, if we start using it internally we must take care to
+         * avoid problems due to mutual references between buses and their queued messages. See sd-bus. */
 
         m = new(sd_netlink_message, 1);
         if (!m)
@@ -36,48 +35,80 @@ int message_new_empty(sd_netlink *rtnl, sd_netlink_message **ret) {
 
         *m = (sd_netlink_message) {
                 .n_ref = 1,
-                .protocol = rtnl->protocol,
+                .protocol = nl->protocol,
                 .sealed = false,
         };
 
         *ret = m;
-
         return 0;
 }
 
-int message_new(sd_netlink *rtnl, sd_netlink_message **ret, uint16_t type) {
+int message_new_full(
+                sd_netlink *nl,
+                uint16_t nlmsg_type,
+                const NLTypeSystem *type_system,
+                size_t header_size,
+                sd_netlink_message **ret) {
+
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
-        const NLType *nl_type;
         size_t size;
         int r;
 
-        assert_return(rtnl, -EINVAL);
+        assert(nl);
+        assert(type_system);
+        assert(ret);
 
-        r = type_system_root_get_type(rtnl, &nl_type, type);
-        if (r < 0)
-                return r;
-
-        if (type_get_type(nl_type) != NETLINK_TYPE_NESTED)
-                return -EINVAL;
-
-        r = message_new_empty(rtnl, &m);
-        if (r < 0)
-                return r;
-
-        size = NLMSG_SPACE(type_get_size(nl_type));
-
+        size = NLMSG_SPACE(header_size);
         assert(size >= sizeof(struct nlmsghdr));
+
+        r = message_new_empty(nl, &m);
+        if (r < 0)
+                return r;
+
+        m->containers[0].type_system = type_system;
+
         m->hdr = malloc0(size);
         if (!m->hdr)
                 return -ENOMEM;
 
         m->hdr->nlmsg_flags = NLM_F_REQUEST | NLM_F_ACK;
-
-        type_get_type_system(nl_type, &m->containers[0].type_system);
         m->hdr->nlmsg_len = size;
-        m->hdr->nlmsg_type = type;
+        m->hdr->nlmsg_type = nlmsg_type;
 
         *ret = TAKE_PTR(m);
+        return 0;
+}
+
+int message_new(sd_netlink *nl, sd_netlink_message **ret, uint16_t type) {
+        const NLTypeSystem *type_system;
+        size_t size;
+        int r;
+
+        assert_return(nl, -EINVAL);
+        assert_return(ret, -EINVAL);
+
+        r = type_system_root_get_type_system_and_header_size(nl, type, &type_system, &size);
+        if (r < 0)
+                return r;
+
+        return message_new_full(nl, type, type_system, size, ret);
+}
+
+int message_new_synthetic_error(sd_netlink *nl, int error, uint32_t serial, sd_netlink_message **ret) {
+        struct nlmsgerr *err;
+        int r;
+
+        assert(error <= 0);
+
+        r = message_new(nl, ret, NLMSG_ERROR);
+        if (r < 0)
+                return r;
+
+        message_seal(*ret);
+        (*ret)->hdr->nlmsg_seq = serial;
+
+        err = NLMSG_DATA((*ret)->hdr);
+        err->error = error;
 
         return 0;
 }
@@ -538,7 +569,7 @@ int sd_netlink_message_open_container(sd_netlink_message *m, unsigned short type
         assert_return(m, -EINVAL);
         assert_return(!m->sealed, -EPERM);
         /* m->containers[m->n_containers + 1] is accessed both in read and write. Prevent access out of bound */
-        assert_return(m->n_containers < (RTNL_CONTAINER_DEPTH - 1), -ERANGE);
+        assert_return(m->n_containers < (NETLINK_CONTAINER_DEPTH - 1), -ERANGE);
 
         r = message_attribute_has_type(m, &size, type, NETLINK_TYPE_NESTED);
         if (r < 0) {
@@ -557,9 +588,9 @@ int sd_netlink_message_open_container(sd_netlink_message *m, unsigned short type
                 if (r < 0)
                         return r;
 
-                r = type_system_union_protocol_get_type_system(type_system_union,
-                                                               &m->containers[m->n_containers + 1].type_system,
-                                                               family);
+                r = type_system_union_get_type_system_by_protocol(type_system_union,
+                                                                  &m->containers[m->n_containers + 1].type_system,
+                                                                  family);
                 if (r < 0)
                         return r;
         } else {
@@ -585,19 +616,19 @@ int sd_netlink_message_open_container_union(sd_netlink_message *m, unsigned shor
 
         assert_return(m, -EINVAL);
         assert_return(!m->sealed, -EPERM);
-        assert_return(m->n_containers < (RTNL_CONTAINER_DEPTH - 1), -ERANGE);
+        assert_return(m->n_containers < (NETLINK_CONTAINER_DEPTH - 1), -ERANGE);
 
         r = type_system_get_type_system_union(m->containers[m->n_containers].type_system, &type_system_union, type);
         if (r < 0)
                 return r;
 
-        r = type_system_union_get_type_system(type_system_union,
-                                              &m->containers[m->n_containers + 1].type_system,
-                                              key);
+        r = type_system_union_get_type_system_by_string(type_system_union,
+                                                        &m->containers[m->n_containers + 1].type_system,
+                                                        key);
         if (r < 0)
                 return r;
 
-        r = sd_netlink_message_append_string(m, type_system_union->match, key);
+        r = sd_netlink_message_append_string(m, type_system_union_get_match_attribute(type_system_union), key);
         if (r < 0)
                 return r;
 
@@ -628,7 +659,7 @@ int sd_netlink_message_open_array(sd_netlink_message *m, uint16_t type) {
 
         assert_return(m, -EINVAL);
         assert_return(!m->sealed, -EPERM);
-        assert_return(m->n_containers < (RTNL_CONTAINER_DEPTH - 1), -ERANGE);
+        assert_return(m->n_containers < (NETLINK_CONTAINER_DEPTH - 1), -ERANGE);
 
         r = add_rtattr(m, type | NLA_F_NESTED, NULL, 0);
         if (r < 0)
@@ -673,12 +704,12 @@ static int netlink_message_read_internal(
         assert_return(m, -EINVAL);
         assert_return(m->sealed, -EPERM);
 
-        assert(m->n_containers < RTNL_CONTAINER_DEPTH);
+        assert(m->n_containers < NETLINK_CONTAINER_DEPTH);
 
         if (!m->containers[m->n_containers].attributes)
                 return -ENODATA;
 
-        if (type >= m->containers[m->n_containers].n_attributes)
+        if (type > m->containers[m->n_containers].max_attribute)
                 return -ENODATA;
 
         attribute = &m->containers[m->n_containers].attributes[type];
@@ -1008,7 +1039,7 @@ int sd_netlink_message_read_strv(sd_netlink_message *m, unsigned short container
         int r;
 
         assert_return(m, -EINVAL);
-        assert_return(m->n_containers < RTNL_CONTAINER_DEPTH, -EINVAL);
+        assert_return(m->n_containers < NETLINK_CONTAINER_DEPTH, -EINVAL);
 
         r = type_system_get_type(m->containers[m->n_containers].type_system,
                                  &nl_type,
@@ -1059,38 +1090,39 @@ int sd_netlink_message_read_strv(sd_netlink_message *m, unsigned short container
         return 0;
 }
 
-static int netlink_container_parse(sd_netlink_message *m,
-                                   struct netlink_container *container,
-                                   struct rtattr *rta,
-                                   size_t rt_len) {
+static int netlink_container_parse(
+                sd_netlink_message *m,
+                struct netlink_container *container,
+                struct rtattr *rta,
+                size_t rt_len) {
+
         _cleanup_free_ struct netlink_attribute *attributes = NULL;
-        size_t n = 0;
+        uint16_t max_attr = 0;
 
         /* RTA_OK() macro compares with rta->rt_len, which is unsigned short, and
          * LGTM.com analysis does not like the type difference. Hence, here we
          * introduce an unsigned short variable as a workaround. */
         unsigned short len = rt_len;
         for (; RTA_OK(rta, len); rta = RTA_NEXT(rta, len)) {
-                unsigned short type;
+                uint16_t attr;
 
-                type = RTA_TYPE(rta);
+                attr = RTA_TYPE(rta);
 
-                if (!GREEDY_REALLOC0(attributes, type + 1))
+                if (!GREEDY_REALLOC0(attributes, attr + 1))
                         return -ENOMEM;
 
-                if (attributes[type].offset != 0)
-                        log_debug("rtnl: message parse - overwriting repeated attribute");
+                if (attributes[attr].offset != 0)
+                        log_debug("sd-netlink: message parse - overwriting repeated attribute");
 
-                attributes[type].offset = (uint8_t *) rta - (uint8_t *) m->hdr;
-                attributes[type].nested = RTA_FLAGS(rta) & NLA_F_NESTED;
-                attributes[type].net_byteorder = RTA_FLAGS(rta) & NLA_F_NET_BYTEORDER;
+                attributes[attr].offset = (uint8_t *) rta - (uint8_t *) m->hdr;
+                attributes[attr].nested = RTA_FLAGS(rta) & NLA_F_NESTED;
+                attributes[attr].net_byteorder = RTA_FLAGS(rta) & NLA_F_NET_BYTEORDER;
 
-                if (type + 1U > n)
-                        n = type + 1U;
+                max_attr = MAX(max_attr, attr);
         }
 
         container->attributes = TAKE_PTR(attributes);
-        container->n_attributes = n;
+        container->max_attribute = max_attr;
 
         return 0;
 }
@@ -1104,7 +1136,7 @@ int sd_netlink_message_enter_container(sd_netlink_message *m, unsigned short typ
         int r;
 
         assert_return(m, -EINVAL);
-        assert_return(m->n_containers < (RTNL_CONTAINER_DEPTH - 1), -EINVAL);
+        assert_return(m->n_containers < (NETLINK_CONTAINER_DEPTH - 1), -EINVAL);
 
         r = type_system_get_type(m->containers[m->n_containers].type_system,
                                  &nl_type,
@@ -1129,34 +1161,35 @@ int sd_netlink_message_enter_container(sd_netlink_message *m, unsigned short typ
                 if (r < 0)
                         return r;
 
-                switch (type_system_union->match_type) {
-                case NL_MATCH_SIBLING:
-                {
+                switch (type_system_union_get_match_type(type_system_union)) {
+                case NL_MATCH_SIBLING: {
                         const char *key;
 
-                        r = sd_netlink_message_read_string(m, type_system_union->match, &key);
+                        r = sd_netlink_message_read_string(
+                                        m,
+                                        type_system_union_get_match_attribute(type_system_union),
+                                        &key);
                         if (r < 0)
                                 return r;
 
-                        r = type_system_union_get_type_system(type_system_union,
-                                                              &type_system,
-                                                              key);
+                        r = type_system_union_get_type_system_by_string(type_system_union,
+                                                                        &type_system,
+                                                                        key);
                         if (r < 0)
                                 return r;
 
                         break;
                 }
-                case NL_MATCH_PROTOCOL:
-                {
+                case NL_MATCH_PROTOCOL: {
                         int family;
 
                         r = sd_rtnl_message_get_family(m, &family);
                         if (r < 0)
                                 return r;
 
-                        r = type_system_union_protocol_get_type_system(type_system_union,
-                                                                       &type_system,
-                                                                       family);
+                        r = type_system_union_get_type_system_by_protocol(type_system_union,
+                                                                          &type_system,
+                                                                          family);
                         if (r < 0)
                                 return r;
 
@@ -1195,7 +1228,7 @@ int sd_netlink_message_enter_array(sd_netlink_message *m, unsigned short type_id
         int r;
 
         assert_return(m, -EINVAL);
-        assert_return(m->n_containers < (RTNL_CONTAINER_DEPTH - 1), -EINVAL);
+        assert_return(m->n_containers < (NETLINK_CONTAINER_DEPTH - 1), -EINVAL);
 
         r = netlink_message_read_internal(m, type_id, &container, NULL);
         if (r < 0)
@@ -1224,6 +1257,7 @@ int sd_netlink_message_exit_container(sd_netlink_message *m) {
         assert_return(m->n_containers > 0, -EINVAL);
 
         m->containers[m->n_containers].attributes = mfree(m->containers[m->n_containers].attributes);
+        m->containers[m->n_containers].max_attribute = 0;
         m->containers[m->n_containers].type_system = NULL;
 
         m->n_containers--;
@@ -1231,7 +1265,16 @@ int sd_netlink_message_exit_container(sd_netlink_message *m) {
         return 0;
 }
 
-uint32_t rtnl_message_get_serial(sd_netlink_message *m) {
+int sd_netlink_message_get_max_attribute(sd_netlink_message *m, uint16_t *ret) {
+        assert_return(m, -EINVAL);
+        assert_return(m->sealed, -EINVAL);
+        assert_return(ret, -EINVAL);
+
+        *ret = m->containers[m->n_containers].max_attribute;
+        return 0;
+}
+
+uint32_t message_get_serial(sd_netlink_message *m) {
         assert(m);
         assert(m->hdr);
 
@@ -1280,18 +1323,15 @@ static int netlink_message_parse_error(sd_netlink_message *m) {
                                        NLMSG_PAYLOAD(m->hdr, hlen));
 }
 
-int sd_netlink_message_rewind(sd_netlink_message *m, sd_netlink *genl) {
-        const NLType *nl_type;
-        uint16_t type;
+int sd_netlink_message_rewind(sd_netlink_message *m, sd_netlink *nl) {
         size_t size;
         int r;
 
         assert_return(m, -EINVAL);
-        assert_return(genl || m->protocol != NETLINK_GENERIC, -EINVAL);
+        assert_return(nl, -EINVAL);
 
         /* don't allow appending to message once parsed */
-        if (!m->sealed)
-                rtnl_message_seal(m);
+        message_seal(m);
 
         for (unsigned i = 1; i <= m->n_containers; i++)
                 m->containers[i].attributes = mfree(m->containers[i].attributes);
@@ -1304,37 +1344,22 @@ int sd_netlink_message_rewind(sd_netlink_message *m, sd_netlink *genl) {
 
         assert(m->hdr);
 
-        r = type_system_root_get_type(genl, &nl_type, m->hdr->nlmsg_type);
+        r = type_system_root_get_type_system_and_header_size(nl, m->hdr->nlmsg_type,
+                                                             &m->containers[0].type_system, &size);
         if (r < 0)
                 return r;
 
-        type = type_get_type(nl_type);
-        size = type_get_size(nl_type);
+        if (sd_netlink_message_is_error(m))
+                return netlink_message_parse_error(m);
 
-        if (type == NETLINK_TYPE_NESTED) {
-                const NLTypeSystem *type_system;
-
-                type_get_type_system(nl_type, &type_system);
-
-                m->containers[0].type_system = type_system;
-
-                if (sd_netlink_message_is_error(m))
-                        r = netlink_message_parse_error(m);
-                else
-                        r = netlink_container_parse(m,
-                                                    &m->containers[m->n_containers],
-                                                    (struct rtattr*)((uint8_t*) NLMSG_DATA(m->hdr) + NLMSG_ALIGN(size)),
-                                                    NLMSG_PAYLOAD(m->hdr, size));
-                if (r < 0)
-                        return r;
-        }
-
-        return 0;
+        return netlink_container_parse(m,
+                                       &m->containers[0],
+                                       (struct rtattr*)((uint8_t*) NLMSG_DATA(m->hdr) + NLMSG_ALIGN(size)),
+                                       NLMSG_PAYLOAD(m->hdr, size));
 }
 
-void rtnl_message_seal(sd_netlink_message *m) {
+void message_seal(sd_netlink_message *m) {
         assert(m);
-        assert(!m->sealed);
 
         m->sealed = true;
 }
