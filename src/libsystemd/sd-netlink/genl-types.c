@@ -3,6 +3,7 @@
 #include <netinet/in.h>
 #include <sys/socket.h>
 #include <linux/batman_adv.h>
+#include <linux/devlink.h>
 #include <linux/fou.h>
 #include <linux/genetlink.h>
 #include <linux/if.h>
@@ -106,6 +107,202 @@ static const NLType genl_batadv_types[] = {
         [BATADV_ATTR_ORIG_INTERVAL]                 = { .type = NETLINK_TYPE_U32 },
         [BATADV_ATTR_ELP_INTERVAL]                  = { .type = NETLINK_TYPE_U32 },
         [BATADV_ATTR_THROUGHPUT_OVERRIDE]           = { .type = NETLINK_TYPE_U32 },
+};
+
+/***************** genl devlink type systems *****************/
+static const NLType genl_devlink_stats_types[] = {
+        [DEVLINK_ATTR_STATS_RX_PACKETS] = { .type = NETLINK_TYPE_U64 },
+        [DEVLINK_ATTR_STATS_RX_BYTES]   = { .type = NETLINK_TYPE_U64 },
+        [DEVLINK_ATTR_STATS_RX_DROPPED] = { .type = NETLINK_TYPE_U64 },
+};
+
+DEFINE_TYPE_SYSTEM(genl_devlink_stats);
+
+static const NLType genl_devlink_trap_metadata_types[] = {
+        [DEVLINK_ATTR_TRAP_METADATA_TYPE_IN_PORT]   = { .type = NETLINK_TYPE_FLAG },
+        [DEVLINK_ATTR_TRAP_METADATA_TYPE_FA_COOKIE] = { .type = NETLINK_TYPE_FLAG },
+};
+
+DEFINE_TYPE_SYSTEM(genl_devlink_trap_metadata);
+
+static const NLType genl_devlink_port_function_types[] = {
+        [DEVLINK_PORT_FUNCTION_ATTR_HW_ADDR] = { .type = NETLINK_TYPE_ETHER_ADDR },
+        [DEVLINK_PORT_FN_ATTR_STATE]         = { .type = NETLINK_TYPE_U8 },
+        [DEVLINK_PORT_FN_ATTR_OPSTATE]       = { .type = NETLINK_TYPE_U8 },
+};
+
+DEFINE_TYPE_SYSTEM(genl_devlink_port_function);
+
+static const NLTypeSystem genl_devlink_type_system;
+static const NLType genl_devlink_types[] = {
+        [DEVLINK_ATTR_BUS_NAME]                        = { .type = NETLINK_TYPE_STRING },
+        [DEVLINK_ATTR_DEV_NAME]                        = { .type = NETLINK_TYPE_STRING },
+        [DEVLINK_ATTR_PORT_INDEX]                      = { .type = NETLINK_TYPE_U32 },
+        [DEVLINK_ATTR_PORT_TYPE]                       = { .type = NETLINK_TYPE_U16 },
+        [DEVLINK_ATTR_PORT_DESIRED_TYPE]               = { .type = NETLINK_TYPE_U16 },
+        [DEVLINK_ATTR_PORT_NETDEV_IFINDEX]             = { .type = NETLINK_TYPE_U32 },
+        [DEVLINK_ATTR_PORT_NETDEV_NAME]                = { .type = NETLINK_TYPE_STRING },
+        [DEVLINK_ATTR_PORT_IBDEV_NAME]                 = { .type = NETLINK_TYPE_STRING },
+        [DEVLINK_ATTR_PORT_SPLIT_COUNT]                = { .type = NETLINK_TYPE_U32 },
+        [DEVLINK_ATTR_PORT_SPLIT_GROUP]                = { .type = NETLINK_TYPE_U32 },
+        [DEVLINK_ATTR_SB_INDEX]                        = { .type = NETLINK_TYPE_U32 },
+        [DEVLINK_ATTR_SB_SIZE]                         = { .type = NETLINK_TYPE_U32 },
+        [DEVLINK_ATTR_SB_INGRESS_POOL_COUNT]           = { .type = NETLINK_TYPE_U16 },
+        [DEVLINK_ATTR_SB_EGRESS_POOL_COUNT]            = { .type = NETLINK_TYPE_U16 },
+        [DEVLINK_ATTR_SB_INGRESS_TC_COUNT]             = { .type = NETLINK_TYPE_U16 },
+        [DEVLINK_ATTR_SB_EGRESS_TC_COUNT]              = { .type = NETLINK_TYPE_U16 },
+        [DEVLINK_ATTR_SB_POOL_INDEX]                   = { .type = NETLINK_TYPE_U16 },
+        [DEVLINK_ATTR_SB_POOL_TYPE]                    = { .type = NETLINK_TYPE_U8 },
+        [DEVLINK_ATTR_SB_POOL_SIZE]                    = { .type = NETLINK_TYPE_U32 },
+        [DEVLINK_ATTR_SB_POOL_THRESHOLD_TYPE]          = { .type = NETLINK_TYPE_U8 },
+        [DEVLINK_ATTR_SB_THRESHOLD]                    = { .type = NETLINK_TYPE_U32 },
+        [DEVLINK_ATTR_SB_TC_INDEX]                     = { .type = NETLINK_TYPE_U16 },
+        [DEVLINK_ATTR_SB_OCC_CUR]                      = { .type = NETLINK_TYPE_U32 },
+        [DEVLINK_ATTR_SB_OCC_MAX]                      = { .type = NETLINK_TYPE_U32 },
+        [DEVLINK_ATTR_ESWITCH_MODE]                    = { .type = NETLINK_TYPE_U16 },
+        [DEVLINK_ATTR_ESWITCH_INLINE_MODE]             = { .type = NETLINK_TYPE_U8 },
+        [DEVLINK_ATTR_DPIPE_TABLES]                    = { .type = NETLINK_TYPE_NESTED, .type_system = &genl_devlink_type_system }, /* array of DEVLINK_ATTR_DPIPE_TABLE */
+        [DEVLINK_ATTR_DPIPE_TABLE]                     = { .type = NETLINK_TYPE_NESTED, .type_system = &genl_devlink_type_system }, /* takes DEVLINK_ATTR_DPIPE_TABLE_* */
+        [DEVLINK_ATTR_DPIPE_TABLE_NAME]                = { .type = NETLINK_TYPE_STRING },
+        [DEVLINK_ATTR_DPIPE_TABLE_SIZE]                = { .type = NETLINK_TYPE_U64 },
+        [DEVLINK_ATTR_DPIPE_TABLE_MATCHES]             = { .type = NETLINK_TYPE_NESTED, .type_system = &genl_devlink_type_system },
+        [DEVLINK_ATTR_DPIPE_TABLE_ACTIONS]             = { .type = NETLINK_TYPE_NESTED, .type_system = &genl_devlink_type_system },
+        [DEVLINK_ATTR_DPIPE_TABLE_COUNTERS_ENABLED]    = { .type = NETLINK_TYPE_U8 },
+        [DEVLINK_ATTR_DPIPE_ENTRIES]                   = { .type = NETLINK_TYPE_NESTED, .type_system = &genl_devlink_type_system }, /* array of DEVLINK_ATTR_DPIPE_ENTRY */
+        [DEVLINK_ATTR_DPIPE_ENTRY]                     = { .type = NETLINK_TYPE_NESTED, .type_system = &genl_devlink_type_system }, /* takes DEVLINK_ATTR_DPIPE_ENTRY_* */
+        [DEVLINK_ATTR_DPIPE_ENTRY_INDEX]               = { .type = NETLINK_TYPE_U64 },
+        [DEVLINK_ATTR_DPIPE_ENTRY_MATCH_VALUES]        = { .type = NETLINK_TYPE_NESTED, .type_system = &genl_devlink_type_system }, /* array of DEVLINK_ATTR_DPIPE_MATCH_VALUE */
+        [DEVLINK_ATTR_DPIPE_ENTRY_ACTION_VALUES]       = { .type = NETLINK_TYPE_NESTED, .type_system = &genl_devlink_type_system }, /* array of DEVLINK_ATTR_DPIPE_ACTION_VALUE */
+        [DEVLINK_ATTR_DPIPE_ENTRY_COUNTER]             = { .type = NETLINK_TYPE_U64 },
+        [DEVLINK_ATTR_DPIPE_MATCH]                     = { .type = NETLINK_TYPE_NESTED, .type_system = &genl_devlink_type_system },
+        [DEVLINK_ATTR_DPIPE_MATCH_VALUE]               = { .type = NETLINK_TYPE_NESTED, .type_system = &genl_devlink_type_system },
+        [DEVLINK_ATTR_DPIPE_MATCH_TYPE]                = { .type = NETLINK_TYPE_U32 },
+        [DEVLINK_ATTR_DPIPE_ACTION]                    = { .type = NETLINK_TYPE_NESTED, .type_system = &genl_devlink_type_system },
+        [DEVLINK_ATTR_DPIPE_ACTION_VALUE]              = { .type = NETLINK_TYPE_NESTED, .type_system = &genl_devlink_type_system },
+        [DEVLINK_ATTR_DPIPE_ACTION_TYPE]               = { .type = NETLINK_TYPE_U32 },
+        [DEVLINK_ATTR_DPIPE_VALUE]                     = { .type = NETLINK_TYPE_BINARY },
+        [DEVLINK_ATTR_DPIPE_VALUE_MASK]                = { .type = NETLINK_TYPE_BINARY },
+        [DEVLINK_ATTR_DPIPE_VALUE_MAPPING]             = { .type = NETLINK_TYPE_U32 },
+        [DEVLINK_ATTR_DPIPE_HEADERS]                   = { .type = NETLINK_TYPE_NESTED, .type_system = &genl_devlink_type_system }, /* array of DEVLINK_ATTR_DPIPE_HEADER */
+        [DEVLINK_ATTR_DPIPE_HEADER]                    = { .type = NETLINK_TYPE_NESTED, .type_system = &genl_devlink_type_system }, /* takes DEVLINK_ATTR_DPIPE_HEADER_* */
+        [DEVLINK_ATTR_DPIPE_HEADER_NAME]               = { .type = NETLINK_TYPE_STRING },
+        [DEVLINK_ATTR_DPIPE_HEADER_ID]                 = { .type = NETLINK_TYPE_U32 },
+        [DEVLINK_ATTR_DPIPE_HEADER_FIELDS]             = { .type = NETLINK_TYPE_NESTED, .type_system = &genl_devlink_type_system }, /* array of DEVLINK_ATTR_DPIPE_FIELD */
+        [DEVLINK_ATTR_DPIPE_HEADER_GLOBAL]             = { .type = NETLINK_TYPE_U8 },
+        [DEVLINK_ATTR_DPIPE_HEADER_INDEX]              = { .type = NETLINK_TYPE_U32 },
+        [DEVLINK_ATTR_DPIPE_FIELD]                     = { .type = NETLINK_TYPE_NESTED, .type_system = &genl_devlink_type_system }, /* takes DEVLINK_ATTR_DPIPE_FIELD_* */
+        [DEVLINK_ATTR_DPIPE_FIELD_NAME]                = { .type = NETLINK_TYPE_STRING },
+        [DEVLINK_ATTR_DPIPE_FIELD_ID]                  = { .type = NETLINK_TYPE_U32 },
+        [DEVLINK_ATTR_DPIPE_FIELD_BITWIDTH]            = { .type = NETLINK_TYPE_U32 },
+        [DEVLINK_ATTR_DPIPE_FIELD_MAPPING_TYPE]        = { .type = NETLINK_TYPE_U32 },
+        [DEVLINK_ATTR_ESWITCH_ENCAP_MODE]              = { .type = NETLINK_TYPE_U8 },
+        [DEVLINK_ATTR_RESOURCE_LIST]                   = { .type = NETLINK_TYPE_NESTED, .type_system = &genl_devlink_type_system }, /* array of DEVLINK_ATTR_RESOURCE */
+        [DEVLINK_ATTR_RESOURCE]                        = { .type = NETLINK_TYPE_NESTED, .type_system = &genl_devlink_type_system }, /* takes DEVLINK_ATTR_RESOURCE_* */
+        [DEVLINK_ATTR_RESOURCE_NAME]                   = { .type = NETLINK_TYPE_STRING },
+        [DEVLINK_ATTR_RESOURCE_ID]                     = { .type = NETLINK_TYPE_U64 },
+        [DEVLINK_ATTR_RESOURCE_SIZE]                   = { .type = NETLINK_TYPE_U64 },
+        [DEVLINK_ATTR_RESOURCE_SIZE_NEW]               = { .type = NETLINK_TYPE_U64 },
+        [DEVLINK_ATTR_RESOURCE_SIZE_VALID]             = { .type = NETLINK_TYPE_U8 },
+        [DEVLINK_ATTR_RESOURCE_SIZE_MIN]               = { .type = NETLINK_TYPE_U64 },
+        [DEVLINK_ATTR_RESOURCE_SIZE_MAX]               = { .type = NETLINK_TYPE_U64 },
+        [DEVLINK_ATTR_RESOURCE_SIZE_GRAN]              = { .type = NETLINK_TYPE_U64 },
+        [DEVLINK_ATTR_RESOURCE_UNIT]                   = { .type = NETLINK_TYPE_U8 },
+        [DEVLINK_ATTR_RESOURCE_OCC]                    = { .type = NETLINK_TYPE_U64 },
+        [DEVLINK_ATTR_DPIPE_TABLE_RESOURCE_ID]         = { .type = NETLINK_TYPE_U64 },
+        [DEVLINK_ATTR_DPIPE_TABLE_RESOURCE_UNITS]      = { .type = NETLINK_TYPE_U64 },
+        [DEVLINK_ATTR_PORT_FLAVOUR]                    = { .type = NETLINK_TYPE_U16 },
+        [DEVLINK_ATTR_PORT_NUMBER]                     = { .type = NETLINK_TYPE_U32 },
+        [DEVLINK_ATTR_PORT_SPLIT_SUBPORT_NUMBER]       = { .type = NETLINK_TYPE_U32 },
+        [DEVLINK_ATTR_PARAM]                           = { .type = NETLINK_TYPE_NESTED, .type_system = &genl_devlink_type_system }, /* takes DEVLINK_ATTR_PARAM_* */
+        [DEVLINK_ATTR_PARAM_NAME]                      = { .type = NETLINK_TYPE_STRING },
+        [DEVLINK_ATTR_PARAM_GENERIC]                   = { .type = NETLINK_TYPE_FLAG },
+        [DEVLINK_ATTR_PARAM_TYPE]                      = { .type = NETLINK_TYPE_U8 },
+        [DEVLINK_ATTR_PARAM_VALUES_LIST]               = { .type = NETLINK_TYPE_NESTED, .type_system = &genl_devlink_type_system }, /* array of DEVLINK_ATTR_PARAM_VALUE */
+        [DEVLINK_ATTR_PARAM_VALUE]                     = { .type = NETLINK_TYPE_NESTED, .type_system = &genl_devlink_type_system }, /* takes DEVLINK_ATTR_PARAM_VALUE_* */
+        [DEVLINK_ATTR_PARAM_VALUE_DATA]                = { .type = NETLINK_TYPE_BINARY }, /* u8, u16, u32, string, or flag */
+        [DEVLINK_ATTR_PARAM_VALUE_CMODE]               = { .type = NETLINK_TYPE_U8 },
+        [DEVLINK_ATTR_REGION_NAME]                     = { .type = NETLINK_TYPE_STRING },
+        [DEVLINK_ATTR_REGION_SIZE]                     = { .type = NETLINK_TYPE_U64 },
+        [DEVLINK_ATTR_REGION_SNAPSHOTS]                = { .type = NETLINK_TYPE_NESTED, .type_system = &genl_devlink_type_system }, /* array of DEVLINK_ATTR_REGION_SNAPSHOT */
+        [DEVLINK_ATTR_REGION_SNAPSHOT]                 = { .type = NETLINK_TYPE_NESTED, .type_system = &genl_devlink_type_system }, /* takes DEVLINK_ATTR_REGION_SNAPSHOT_* */
+        [DEVLINK_ATTR_REGION_SNAPSHOT_ID]              = { .type = NETLINK_TYPE_U32 },
+        [DEVLINK_ATTR_REGION_CHUNKS]                   = { .type = NETLINK_TYPE_NESTED, .type_system = &genl_devlink_type_system }, /* array of DEVLINK_ATTR_REGION_CHUNK */
+        [DEVLINK_ATTR_REGION_CHUNK]                    = { .type = NETLINK_TYPE_NESTED, .type_system = &genl_devlink_type_system }, /* takes DEVLINK_ATTR_REGION_CHUNK_* */
+        [DEVLINK_ATTR_REGION_CHUNK_DATA]               = { .type = NETLINK_TYPE_BINARY }, /* see devlink_nl_cmd_region_read_chunk_fill() */
+        [DEVLINK_ATTR_REGION_CHUNK_ADDR]               = { .type = NETLINK_TYPE_U64 },
+        [DEVLINK_ATTR_REGION_CHUNK_LEN]                = { .type = NETLINK_TYPE_U64 },
+        [DEVLINK_ATTR_INFO_DRIVER_NAME]                = { .type = NETLINK_TYPE_STRING },
+        [DEVLINK_ATTR_INFO_SERIAL_NUMBER]              = { .type = NETLINK_TYPE_STRING },
+        [DEVLINK_ATTR_INFO_VERSION_FIXED]              = { .type = NETLINK_TYPE_NESTED, .type_system = &genl_devlink_type_system }, /* takes DEVLINK_ATTR_INFO_VERSION_* */
+        [DEVLINK_ATTR_INFO_VERSION_RUNNING]            = { .type = NETLINK_TYPE_NESTED, .type_system = &genl_devlink_type_system }, /* takes DEVLINK_ATTR_INFO_VERSION_* */
+        [DEVLINK_ATTR_INFO_VERSION_STORED]             = { .type = NETLINK_TYPE_NESTED, .type_system = &genl_devlink_type_system }, /* takes DEVLINK_ATTR_INFO_VERSION_* */
+        [DEVLINK_ATTR_INFO_VERSION_NAME]               = { .type = NETLINK_TYPE_STRING },
+        [DEVLINK_ATTR_INFO_VERSION_VALUE]              = { .type = NETLINK_TYPE_STRING },
+        [DEVLINK_ATTR_SB_POOL_CELL_SIZE]               = { .type = NETLINK_TYPE_U32 },
+        [DEVLINK_ATTR_FMSG]                            = { .type = NETLINK_TYPE_NESTED, .type_system = &genl_devlink_type_system }, /* array of DEVLINK_ATTR_FMSG_* */
+        [DEVLINK_ATTR_FMSG_OBJ_NEST_START]             = { .type = NETLINK_TYPE_FLAG },
+        [DEVLINK_ATTR_FMSG_PAIR_NEST_START]            = { .type = NETLINK_TYPE_FLAG },
+        [DEVLINK_ATTR_FMSG_ARR_NEST_START]             = { .type = NETLINK_TYPE_FLAG },
+        [DEVLINK_ATTR_FMSG_NEST_END]                   = { .type = NETLINK_TYPE_FLAG },
+        [DEVLINK_ATTR_FMSG_OBJ_NAME]                   = { .type = NETLINK_TYPE_STRING },
+        [DEVLINK_ATTR_FMSG_OBJ_VALUE_TYPE]             = { .type = NETLINK_TYPE_U8 },
+        [DEVLINK_ATTR_FMSG_OBJ_VALUE_DATA]             = { .type = NETLINK_TYPE_BINARY }, /* see devlink_fmsg_item_fill_data() */
+        [DEVLINK_ATTR_HEALTH_REPORTER]                 = { .type = NETLINK_TYPE_NESTED, .type_system = &genl_devlink_type_system }, /* takes DEVLINK_ATTR_HEALTH_REPORTER_* */
+        [DEVLINK_ATTR_HEALTH_REPORTER_NAME]            = { .type = NETLINK_TYPE_STRING },
+        [DEVLINK_ATTR_HEALTH_REPORTER_STATE]           = { .type = NETLINK_TYPE_U8 },
+        [DEVLINK_ATTR_HEALTH_REPORTER_ERR_COUNT]       = { .type = NETLINK_TYPE_U64 },
+        [DEVLINK_ATTR_HEALTH_REPORTER_RECOVER_COUNT]   = { .type = NETLINK_TYPE_U64 },
+        [DEVLINK_ATTR_HEALTH_REPORTER_DUMP_TS]         = { .type = NETLINK_TYPE_U64 },
+        [DEVLINK_ATTR_HEALTH_REPORTER_GRACEFUL_PERIOD] = { .type = NETLINK_TYPE_U64 },
+        [DEVLINK_ATTR_HEALTH_REPORTER_AUTO_RECOVER]    = { .type = NETLINK_TYPE_U8 },
+        [DEVLINK_ATTR_FLASH_UPDATE_FILE_NAME]          = { .type = NETLINK_TYPE_STRING },
+        [DEVLINK_ATTR_FLASH_UPDATE_COMPONENT]          = { .type = NETLINK_TYPE_STRING },
+        [DEVLINK_ATTR_FLASH_UPDATE_STATUS_MSG]         = { .type = NETLINK_TYPE_STRING },
+        [DEVLINK_ATTR_FLASH_UPDATE_STATUS_DONE]        = { .type = NETLINK_TYPE_U64 },
+        [DEVLINK_ATTR_FLASH_UPDATE_STATUS_TOTAL]       = { .type = NETLINK_TYPE_U64 },
+        [DEVLINK_ATTR_PORT_PCI_PF_NUMBER]              = { .type = NETLINK_TYPE_U16 },
+        [DEVLINK_ATTR_PORT_PCI_VF_NUMBER]              = { .type = NETLINK_TYPE_U16 },
+        [DEVLINK_ATTR_STATS]                           = { .type = NETLINK_TYPE_NESTED, .type_system = &genl_devlink_stats_type_system },
+        [DEVLINK_ATTR_TRAP_NAME]                       = { .type = NETLINK_TYPE_STRING },
+        [DEVLINK_ATTR_TRAP_ACTION]                     = { .type = NETLINK_TYPE_U8 }, /* enum devlink_trap_action */
+        [DEVLINK_ATTR_TRAP_TYPE]                       = { .type = NETLINK_TYPE_U8 }, /* enum devlink_trap_type */
+        [DEVLINK_ATTR_TRAP_GENERIC]                    = { .type = NETLINK_TYPE_FLAG },
+        [DEVLINK_ATTR_TRAP_METADATA]                   = { .type = NETLINK_TYPE_NESTED, .type_system = &genl_devlink_trap_metadata_type_system },
+        [DEVLINK_ATTR_TRAP_GROUP_NAME]                 = { .type = NETLINK_TYPE_STRING },
+        [DEVLINK_ATTR_RELOAD_FAILED]                   = { .type = NETLINK_TYPE_U8 },
+        [DEVLINK_ATTR_HEALTH_REPORTER_DUMP_TS_NS]      = { .type = NETLINK_TYPE_U64 },
+        [DEVLINK_ATTR_NETNS_FD]                        = { .type = NETLINK_TYPE_U32 },
+        [DEVLINK_ATTR_NETNS_PID]                       = { .type = NETLINK_TYPE_U32 },
+        [DEVLINK_ATTR_NETNS_ID]                        = { .type = NETLINK_TYPE_U32 },
+        [DEVLINK_ATTR_HEALTH_REPORTER_AUTO_DUMP]       = { .type = NETLINK_TYPE_U8 },
+        [DEVLINK_ATTR_TRAP_POLICER_ID]                 = { .type = NETLINK_TYPE_U32 },
+        [DEVLINK_ATTR_TRAP_POLICER_RATE]               = { .type = NETLINK_TYPE_U64 },
+        [DEVLINK_ATTR_TRAP_POLICER_BURST]              = { .type = NETLINK_TYPE_U64 },
+        [DEVLINK_ATTR_PORT_FUNCTION]                   = { .type = NETLINK_TYPE_NESTED, .type_system = &genl_devlink_port_function_type_system },
+        [DEVLINK_ATTR_INFO_BOARD_SERIAL_NUMBER]        = { .type = NETLINK_TYPE_STRING },
+        [DEVLINK_ATTR_PORT_LANES]                      = { .type = NETLINK_TYPE_U32 },
+        [DEVLINK_ATTR_PORT_SPLITTABLE]                 = { .type = NETLINK_TYPE_U8 },
+        [DEVLINK_ATTR_PORT_EXTERNAL]                   = { .type = NETLINK_TYPE_U8 },
+        [DEVLINK_ATTR_PORT_CONTROLLER_NUMBER]          = { .type = NETLINK_TYPE_U32 },
+        [DEVLINK_ATTR_FLASH_UPDATE_STATUS_TIMEOUT]     = { .type = NETLINK_TYPE_U64 },
+        [DEVLINK_ATTR_FLASH_UPDATE_OVERWRITE_MASK]     = { .type = NETLINK_TYPE_U32 },
+        [DEVLINK_ATTR_RELOAD_ACTION]                   = { .type = NETLINK_TYPE_U8 },
+        [DEVLINK_ATTR_RELOAD_ACTIONS_PERFORMED]        = { .type = NETLINK_TYPE_U32 },
+        [DEVLINK_ATTR_RELOAD_LIMITS]                   = { .type = NETLINK_TYPE_U32 },
+        [DEVLINK_ATTR_DEV_STATS]                       = { .type = NETLINK_TYPE_NESTED, .type_system = &genl_devlink_type_system }, /* takes DEVLINK_ATTR_{,REMOTE_}RELOAD_STATS */
+        [DEVLINK_ATTR_RELOAD_STATS]                    = { .type = NETLINK_TYPE_NESTED, .type_system = &genl_devlink_type_system }, /* array of DEVLINK_ATTR_RELOAD_ACTION_INFO */
+        [DEVLINK_ATTR_RELOAD_STATS_ENTRY]              = { .type = NETLINK_TYPE_NESTED, .type_system = &genl_devlink_type_system }, /* takes DEVLINK_ATTR_RELOAD_STATS_LIMIT and _VALUE */
+        [DEVLINK_ATTR_RELOAD_STATS_LIMIT]              = { .type = NETLINK_TYPE_U8 },
+        [DEVLINK_ATTR_RELOAD_STATS_VALUE]              = { .type = NETLINK_TYPE_U32 },
+        [DEVLINK_ATTR_REMOTE_RELOAD_STATS]             = { .type = NETLINK_TYPE_NESTED, .type_system = &genl_devlink_type_system }, /* array of DEVLINK_ATTR_RELOAD_ACTION_INFO */
+        [DEVLINK_ATTR_RELOAD_ACTION_INFO]              = { .type = NETLINK_TYPE_NESTED, .type_system = &genl_devlink_type_system }, /* takes DEVLINK_ATTR_RELOAD_ACTION_STATS */
+        [DEVLINK_ATTR_RELOAD_ACTION_STATS]             = { .type = NETLINK_TYPE_NESTED, .type_system = &genl_devlink_type_system }, /* array of DEVLINK_ATTR_RELOAD_STATS_ENTRY */
+        [DEVLINK_ATTR_PORT_PCI_SF_NUMBER]              = { .type = NETLINK_TYPE_U32 },
+        [DEVLINK_ATTR_RATE_TYPE]                       = { .type = NETLINK_TYPE_U16 },
+        [DEVLINK_ATTR_RATE_TX_SHARE]                   = { .type = NETLINK_TYPE_U64 },
+        [DEVLINK_ATTR_RATE_TX_MAX]                     = { .type = NETLINK_TYPE_U64 },
+        [DEVLINK_ATTR_RATE_NODE_NAME]                  = { .type = NETLINK_TYPE_STRING },
+        [DEVLINK_ATTR_RATE_PARENT_NODE_NAME]           = { .type = NETLINK_TYPE_STRING },
 };
 
 /***************** genl fou type systems *****************/
@@ -219,6 +416,7 @@ static const NLType genl_wireguard_types[] = {
 static const NLTypeSystemUnionElement genl_type_systems[] = {
         { .name = CTRL_GENL_NAME,    .type_system = TYPE_SYSTEM_FROM_TYPE(genl_ctrl),      },
         { .name = BATADV_NL_NAME,    .type_system = TYPE_SYSTEM_FROM_TYPE(genl_batadv),    },
+        { .name = DEVLINK_GENL_NAME, .type_system = TYPE_SYSTEM_FROM_TYPE(genl_devlink),   },
         { .name = FOU_GENL_NAME,     .type_system = TYPE_SYSTEM_FROM_TYPE(genl_fou),       },
         { .name = L2TP_GENL_NAME,    .type_system = TYPE_SYSTEM_FROM_TYPE(genl_l2tp),      },
         { .name = MACSEC_GENL_NAME,  .type_system = TYPE_SYSTEM_FROM_TYPE(genl_macsec),    },
