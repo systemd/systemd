@@ -33,6 +33,8 @@ libudevd_core_sources = '''
         udev-builtin-hwdb.c
         udev-builtin-input_id.c
         udev-builtin-keyboard.c
+        udev-builtin-net_id-netlink.c
+        udev-builtin-net_id-netlink.h
         udev-builtin-net_id.c
         udev-builtin-net_setup_link.c
         udev-builtin-path_id.c
@@ -209,6 +211,10 @@ tests += [
           libshared],
          [threads,
           libacl]],
+
+        [['src/udev/test-udev-builtin-net_id-netlink.c',
+          'src/udev/udev-builtin-net_id-netlink.c',
+          'src/udev/udev-builtin-net_id-netlink.h']],
 
         [['src/udev/fido_id/test-fido-id-desc.c',
           'src/udev/fido_id/fido_id_desc.c']],
