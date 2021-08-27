@@ -5848,6 +5848,16 @@ int unit_thaw_vtable_common(Unit *u) {
         return unit_cgroup_freezer_action(u, FREEZER_THAW);
 }
 
+Condition *unit_find_failed_condition(Unit *u) {
+        Condition *c;
+
+        LIST_FOREACH(conditions, c, u->conditions)
+                if (c->result != CONDITION_SUCCEEDED)
+                        break;
+
+        return c;
+}
+
 static const char* const collect_mode_table[_COLLECT_MODE_MAX] = {
         [COLLECT_INACTIVE] = "inactive",
         [COLLECT_INACTIVE_OR_FAILED] = "inactive-or-failed",
