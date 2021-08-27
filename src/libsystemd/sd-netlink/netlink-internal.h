@@ -112,7 +112,7 @@ struct netlink_container {
         const struct NLTypeSystem *type_system; /* the type system of the container */
         size_t offset; /* offset from hdr to the start of the container */
         struct netlink_attribute *attributes;
-        unsigned short n_attributes; /* number of attributes in container */
+        uint16_t max_attribute; /* the maximum attribute in container */
 };
 
 struct sd_netlink_message {
