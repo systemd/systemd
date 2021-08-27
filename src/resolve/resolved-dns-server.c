@@ -894,6 +894,14 @@ DnsServer *manager_get_dns_server(Manager *m) {
         if (!m->current_dns_server)
                 manager_set_dns_server(m, m->dns_servers);
 
+        while (manager_server_is_stub(m, m->current_dns_server)) {
+                manager_next_dns_server(m, NULL);
+                if (m->current_dns_server == m->dns_servers) {
+                        manager_set_dns_server(m, NULL);
+                        break;
+                }
+        }
+
         if (!m->current_dns_server) {
                 bool found = false;
 
