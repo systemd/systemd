@@ -691,9 +691,6 @@ static int dns_transaction_emit_tcp(DnsTransaction *t) {
                 if (r < 0)
                         return r;
 
-                if (manager_server_is_stub(t->scope->manager, t->server))
-                        return -ELOOP;
-
                 if (!t->bypass) {
                         if (!dns_server_dnssec_supported(t->server) && dns_type_is_dnssec(dns_transaction_key(t)->type))
                                 return -EOPNOTSUPP;
@@ -1469,9 +1466,6 @@ static int dns_transaction_emit_udp(DnsTransaction *t) {
                 if (r < 0)
                         return r;
 
-                if (manager_server_is_stub(t->scope->manager, t->server))
-                        return -ELOOP;
-
                 if (t->current_feature_level < DNS_SERVER_FEATURE_LEVEL_UDP || DNS_SERVER_FEATURE_LEVEL_IS_TLS(t->current_feature_level))
                         return -EAGAIN; /* Sorry, can't do UDP, try TCP! */
 
@@ -2021,23 +2015,6 @@ int dns_transaction_go(DnsTransaction *t) {
                         log_debug("Sending query via TCP since UDP isn't supported or DNS-over-TLS is selected.");
                 if (IN_SET(r, -EMSGSIZE, -EAGAIN))
                         r = dns_transaction_emit_tcp(t);
-        }
-        if (r == -ELOOP) {
-                if (t->scope->protocol != DNS_PROTOCOL_DNS)
-                        return r;
-
-                /* One of our own stub listeners */
-                log_debug_errno(r, "Detected that specified DNS server is our own extra listener, switching DNS servers.");
-
-                dns_scope_next_dns_server(t->scope, t->server);
-
-                if (dns_scope_get_dns_server(t->scope) == t->server) {
-                        log_debug_errno(r, "Still pointing to extra listener after switching DNS servers, refusing operation.");
-                        dns_transaction_complete(t, DNS_TRANSACTION_STUB_LOOP);
-                        return 0;
-                }
-
-                return dns_transaction_go(t);
         }
         if (r == -ESRCH) {
                 /* No servers to send this to? */
@@ -3568,7 +3545,6 @@ static const char* const dns_transaction_state_table[_DNS_TRANSACTION_STATE_MAX]
         [DNS_TRANSACTION_NETWORK_DOWN]         = "network-down",
         [DNS_TRANSACTION_NOT_FOUND]            = "not-found",
         [DNS_TRANSACTION_NO_SOURCE]            = "no-source",
-        [DNS_TRANSACTION_STUB_LOOP]            = "stub-loop",
 };
 DEFINE_STRING_TABLE_LOOKUP(dns_transaction_state, DnsTransactionState);
 
