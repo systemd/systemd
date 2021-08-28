@@ -130,6 +130,7 @@ int home_new(Manager *m, UserRecord *hr, const char *sysfs, Home **ret) {
                 .worker_stdout_fd = -1,
                 .sysfs = TAKE_PTR(ns),
                 .signed_locally = -1,
+                .pin_fd = -1,
         };
 
         r = hashmap_put(m->homes_by_name, home->user_name, home);
@@ -202,6 +203,8 @@ Home *home_free(Home *h) {
         h->deferred_change_event_source = sd_event_source_disable_unref(h->deferred_change_event_source);
 
         h->current_operation = operation_unref(h->current_operation);
+
+        safe_close(h->pin_fd);
 
         return mfree(h);
 }
@@ -317,6 +320,48 @@ int home_unlink_record(Home *h) {
         return 0;
 }
 
+static void home_unpin(Home *h) {
+        assert(h);
+
+        if (h->pin_fd < 0)
+                return;
+
+        h->pin_fd = safe_close(h->pin_fd);
+        log_debug("Successfully closed pin fd on home for %s.", h->user_name);
+}
+
+static void home_pin(Home *h) {
+        const char *path;
+
+        assert(h);
+
+        if (h->pin_fd >= 0) /* Already pinned? */
+                return;
+
+        path = user_record_home_directory(h->record);
+        if (!path) {
+                log_warning("No home directory path to pin for %s, ignoring.", h->user_name);
+                return;
+        }
+
+        h->pin_fd = open(path, O_RDONLY|O_DIRECTORY|O_CLOEXEC);
+        if (h->pin_fd < 0) {
+                log_warning_errno(errno, "Couldn't open home directory '%s' for pinning, ignoring: %m", path);
+                return;
+        }
+
+        log_debug("Successfully pinned home directory '%s'.", path);
+}
+
+static void home_update_pin_fd(Home *h, HomeState state) {
+        assert(h);
+
+        if (state < 0)
+                state = home_get_state(h);
+
+        return HOME_STATE_IS_ACTIVE(state) ? home_pin(h) : home_unpin(h);
+}
+
 static void home_set_state(Home *h, HomeState state) {
         HomeState old_state, new_state;
 
@@ -330,6 +375,8 @@ static void home_set_state(Home *h, HomeState state) {
         log_info("%s: changing state %s → %s", h->user_name,
                  home_state_to_string(old_state),
                  home_state_to_string(new_state));
+
+        home_update_pin_fd(h, new_state);
 
         if (HOME_STATE_IS_EXECUTING_OPERATION(old_state) && !HOME_STATE_IS_EXECUTING_OPERATION(new_state)) {
                 /* If we just finished executing some operation, process the queue of pending operations. And
@@ -1253,9 +1300,14 @@ static int home_deactivate_internal(Home *h, bool force, sd_bus_error *error) {
 
         assert(h);
 
+        home_unpin(h); /* unpin so that we can deactivate */
+
         r = home_start_work(h, force ? "deactivate-force" : "deactivate", h->record, NULL);
-        if (r < 0)
+        if (r < 0) {
+                /* Operation failed before it even started, reacquire pin fd, if state still dictates so */
+                home_update_pin_fd(h, _HOME_STATE_INVALID);
                 return r;
+        }
 
         home_set_state(h, HOME_DEACTIVATING);
         return 0;
