@@ -1,0 +1,125 @@
+# This file is part of systemd.
+#
+# Database for DJ and music production controllers that should be accessible to the seat owner.
+#
+# To add local entries, copy this file to
+#   /etc/udev/hwdb.d/
+# and add your rules there. To load the new rules execute (as root):
+#   systemd-hwdb update
+#   udevadm trigger
+
+################
+# Ableton
+################
+
+# Push 2
+usb:v2982p1967d*
+ ID_DJ_AND_PRODUCTION=1
+
+################
+# Eks
+################
+
+# Otus
+usb:v1157p300d*
+ ID_DJ_AND_PRODUCTION=1
+
+#############################
+# Hercules (Guillemot Corp)
+#############################
+
+# DJ Console MP3e2
+usb:v06F8pB105d*
+ ID_DJ_AND_PRODUCTION=1
+
+# DJ Console MP3 LE / Glow
+usb:v06F8pB120d*
+ ID_DJ_AND_PRODUCTION=1
+
+# DJ Console Mk2
+usb:v06F8pB100d*
+ ID_DJ_AND_PRODUCTION=1
+
+# DJ Console Mk4
+usb:v06F8pB107d*
+ ID_DJ_AND_PRODUCTION=1
+
+#####################
+# Native Instruments
+#####################
+
+# Maschine 2
+usb:v17CCp1140d*
+ ID_DJ_AND_PRODUCTION=1
+
+# Maschine 2 Mikro
+usb:v17CCp1110d*
+ ID_DJ_AND_PRODUCTION=1
+
+# Maschine 2 Studio
+usb:v17CCp1300d*
+ ID_DJ_AND_PRODUCTION=1
+
+# Maschine Jam
+usb:v17CCp1500d*
+ ID_DJ_AND_PRODUCTION=1
+
+# Maschine 3
+usb:v17CCp1600d*
+ ID_DJ_AND_PRODUCTION=1
+
+# Traktor Kontrol D2
+usb:v17CCp1400d*
+ ID_DJ_AND_PRODUCTION=1
+
+# Traktor Kontrol F1
+usb:v17CCp1120d*
+ ID_DJ_AND_PRODUCTION=1
+
+# Traktor Kontrol S2 Mk2
+usb:v17CCp1320d*
+ ID_DJ_AND_PRODUCTION=1
+
+# Traktor Kontrol S2 Mk3
+usb:v17CCp1710d*
+ ID_DJ_AND_PRODUCTION=1
+
+# Traktor Kontrol S3
+usb:v17CCp1900d*
+ ID_DJ_AND_PRODUCTION=1
+
+# Traktor Kontrol S4 Mk2
+usb:v17CCp1310d*
+ ID_DJ_AND_PRODUCTION=1
+
+# Traktor Kontrol S4 Mk3
+usb:v17CCp1720d*
+ ID_DJ_AND_PRODUCTION=1
+
+# Traktor Kontrol S5
+usb:v17CCp1420d*
+ ID_DJ_AND_PRODUCTION=1
+
+# Traktor Kontrol S8
+usb:v17CCp1370d*
+ ID_DJ_AND_PRODUCTION=1
+
+# Traktor Kontrol X1 Mk2
+usb:v17CCp1220d*
+ ID_DJ_AND_PRODUCTION=1
+
+# Traktor Kontrol Z1
+usb:v17CCp1210d*
+ ID_DJ_AND_PRODUCTION=1
+
+# Traktor Kontrol Z2
+usb:v17CCp1130d*
+ ID_DJ_AND_PRODUCTION=1
+
+####################
+# Pioneer
+####################
+
+# CDJ 2000 NXS 2
+usb:v2B73p0005d*
+ ID_DJ_AND_PRODUCTION=1
