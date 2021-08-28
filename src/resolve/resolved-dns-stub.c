@@ -805,7 +805,6 @@ static void dns_stub_query_complete(DnsQuery *q) {
         case DNS_TRANSACTION_RR_TYPE_UNSUPPORTED:
         case DNS_TRANSACTION_NETWORK_DOWN:
         case DNS_TRANSACTION_NO_SOURCE:
-        case DNS_TRANSACTION_STUB_LOOP:
                 (void) dns_stub_send_reply(q, DNS_RCODE_SERVFAIL);
                 break;
 
