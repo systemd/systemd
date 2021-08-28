@@ -126,6 +126,9 @@ struct Home {
 
         /* Used to coalesce bus PropertiesChanged events */
         sd_event_source *deferred_change_event_source;
+
+        /* An fd to the top-level home directory we keep while logged in, to keep the dir busy */
+        int pin_fd;
 };
 
 int home_new(Manager *m, UserRecord *hr, const char *sysfs, Home **ret);
