@@ -80,4 +80,11 @@ ENV{ID_SOFTWARE_RADIO}=="?*", TAG+="uaccess"
 # 3D printers, CNC machines, laser cutters, 3D scanners, etc.
 ENV{ID_MAKER_TOOL}=="?*", TAG+="uaccess"
 
+# DJ and music production controllers
+# Most of these devices use HID for the knobs, faders, buttons, encoders, and jog wheels.
+SUBSYSTEM=="hidraw", ENV{ID_DJ_AND_PRODUCTION}=="1", TAG+="uaccess"
+# Some devices use vendor defined protocols on USB Bulk endpoints for controllers.
+# Other devices transfer graphics to screens on the device through USB Bulk endpoints.
+SUBSYSTEM=="usb", ENV{ID_DJ_AND_PRODUCTION}=="1", TAG+="uaccess"
+
 LABEL="uaccess_end"
