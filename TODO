@@ -1248,10 +1248,6 @@ Features:
     fallback logic to get a regular user created on uninitialized systems.
   - store PKCS#11 + FIDO2 token info in LUKS2 header, compatible with
     systemd-cryptsetup, so that it can unlock homed volumes
-  - try to unmount in regular intervals when home dir was busy when we
-    tried because idle.
-  - keep an fd to the homedir open at all times, to keep the fs pinned
-    (autofs and such) while user is logged in.
 
 * add a new switch --auto-definitions=yes/no or so to systemd-repart. If
   specified, synthesize a definition automatically if we can: enlarge last
