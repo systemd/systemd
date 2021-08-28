@@ -1,0 +1,133 @@
+# This file is part of systemd.
+#
+# Database for DJ and music production controllers that should be accessible to the seat owner.
+#
+# To add local entries, copy this file to
+#   /etc/udev/hwdb.d/
+# and add your rules there. To load the new rules execute (as root):
+#   systemd-hwdb update
+#   udevadm trigger
+
+################
+# Ableton
+################
+
+# Push 2
+usb:v2982p1967*
+ ID_DJ_AND_PRODUCTION=1
+
+################
+# Eks
+################
+
+# Otus
+usb:v1157p300*
+ ID_DJ_AND_PRODUCTION=1
+
+#############################
+# Hercules (Guillemot Corp)
+#############################
+
+# DJ Console MP3e2
+usb:v06f8pb105*
+ ID_DJ_AND_PRODUCTION=1
+
+# DJ Console MP3 LE / Glow
+usb:v06f8pb120*
+ ID_DJ_AND_PRODUCTION=1
+
+# DJ Console Mk2
+usb:v06f8pb100*
+ ID_DJ_AND_PRODUCTION=1
+
+# DJ Console Mk4
+usb:v06f8pb107*
+ ID_DJ_AND_PRODUCTION=1
+
+#####################
+# Native Instruments
+#####################
+
+# Maschine 2
+usb:v17ccp1140*
+ ID_DJ_AND_PRODUCTION=1
+
+# Maschine 2 Mikro
+usb:v17ccp1110*
+ ID_DJ_AND_PRODUCTION=1
+
+# Maschine 2 Studio
+usb:v17ccp1300*
+ ID_DJ_AND_PRODUCTION=1
+
+# Maschine Jam
+usb:v17ccp1500*
+ ID_DJ_AND_PRODUCTION=1
+
+# Maschine 3
+usb:v17ccp1600*
+ ID_DJ_AND_PRODUCTION=1
+
+# Traktor Kontrol D2
+usb:v17ccp1400*
+ ID_DJ_AND_PRODUCTION=1
+
+# Traktor Kontrol F1
+usb:v17ccp1120*
+ ID_DJ_AND_PRODUCTION=1
+
+# Traktor Kontrol S2 Mk2
+usb:v17ccp1320*
+ ID_DJ_AND_PRODUCTION=1
+
+# Traktor Kontrol S2 Mk3
+usb:v17ccp1710*
+ ID_DJ_AND_PRODUCTION=1
+
+# Traktor Kontrol S3
+usb:v17ccp1900*
+ ID_DJ_AND_PRODUCTION=1
+
+# Traktor Kontrol S4 Mk2
+usb:v17ccp1310*
+ ID_DJ_AND_PRODUCTION=1
+
+# Traktor Kontrol S4 Mk3
+usb:v17ccp1720*
+ ID_DJ_AND_PRODUCTION=1
+
+# Traktor Kontrol S5
+usb:v17ccp1420*
+ ID_DJ_AND_PRODUCTION=1
+
+# Traktor Kontrol S8
+usb:v17ccp1370*
+ ID_DJ_AND_PRODUCTION=1
+
+# Traktor Kontrol X1 Mk2
+usb:v17ccp1220*
+ ID_DJ_AND_PRODUCTION=1
+
+# Traktor Kontrol Z1
+usb:v17ccp1210*
+ ID_DJ_AND_PRODUCTION=1
+
+# Traktor Kontrol Z2
+usb:v17ccp1130*
+ ID_DJ_AND_PRODUCTION=1
+
+###############
+# Pioneer
+###############
+
+# CDJ 850
+usb:v834p157*
+ ID_DJ_AND_PRODUCTION=1
+
+# CDJ 900
+usb:v8e4p14b*
+ ID_DJ_AND_PRODUCTION=1
+
+# CDJ 2000 (not NXS)
+usb:v834p14a*
+ ID_DJ_AND_PRODUCTION=1
