@@ -83,6 +83,8 @@ Janitorial Clean-ups:
 
 Features:
 
+* PAM: pick auf one authentication token from credentials
+
 * tpm2: figure out if we need to do anything for TPM2 parameter encryption? And
   if so, what precisely?
 
@@ -91,8 +93,6 @@ Features:
 * when mounting disk images: if IMAGE_ID/IMAGE_VERSION is set in os-release
   data in the image, make sure the image filename actually matches this, so
   that images cannot be misused.
-
-* use credentials logic/TPM2 logic to store homed signing key
 
 * New udev block device symlink names:
   /dev/disk/by-parttypelabel/<pttype>/<ptlabel>. Use case: if pt label is used
@@ -1199,46 +1199,36 @@ Features:
   - when homed is in use, maybe start the user session manager in a mount namespace with MS_SLAVE,
     so that mounts propagate down but not up - eg, user A setting up a backup volume
     doesn't mean user B sees it
-
-* homed: during login resize fs automatically towards size goal. Specifically,
-  resize to diskSize if possible, but leave a certain amount (configured by a
-  new value diskLeaveFreeSize) of space free on the backing fs.
-
-* homed: permit multiple user record signing keys to be used locally, and pick
-  the right one for signing records automatically depending on a pre-existing
-  signature
-
-* homed: add a way to "adopt" a home directory, i.e. strip foreign signatures
-  and insert a local signature instead.
-
-* homed: as an extension to the directory+subvolume backend: if located on
-  especially marked fs, then sync down password into LUKS header of that fs,
-  and always verify passwords against it too. Bootstrapping is a problem
-  though: if no one is logged in (or no other user even exists yet), how do you
-  unlock the volume in order to create the first user and add the first pw.
-
-* homed: support new FS_IOC_ADD_ENCRYPTION_KEY ioctl for setting up fscrypt
-
-* homed: maybe pre-create ~/.cache as subvol so that it can have separate quota
-  easily?
-
-* homed: if kernel 5.12 uid mapping mounts exist, use that instead of recursive
-  chowns.
-
-* add a switch to homectl (maybe called --first-boot) where it will check if
-  any non-system users exist, and if not prompts interactively for basic user
-  info, mimicking systemd-firstboot. Then, place this in a service that runs
-  after systemd-homed, but before gdm and friends, as a simple, barebones
-  fallback logic to get a regular user created on uninitialized systems.
-
-* homed: store PKCS#11 + FIDO2 token info in LUKS2 header, compatible with
-  systemd-cryptsetup, so that it can unlock homed volumes
-
-* homed: try to unmount in regular intervals when home dir was busy when we
-  tried because idle.
-
-* homed: keep an fd to the homedir open at all times, to keep the fs pinned
-  (autofs and such) while user is logged in.
+  - use credentials logic/TPM2 logic to store homed signing key
+  - during login resize fs automatically towards size goal. Specifically,
+    resize to diskSize if possible, but leave a certain amount (configured by a
+    new value diskLeaveFreeSize) of space free on the backing fs.
+  - permit multiple user record signing keys to be used locally, and pick
+    the right one for signing records automatically depending on a pre-existing
+    signature
+  - add a way to "adopt" a home directory, i.e. strip foreign signatures
+    and insert a local signature instead.
+  - as an extension to the directory+subvolume backend: if located on
+    especially marked fs, then sync down password into LUKS header of that fs,
+    and always verify passwords against it too. Bootstrapping is a problem
+    though: if no one is logged in (or no other user even exists yet), how do you
+    unlock the volume in order to create the first user and add the first pw.
+  - support new FS_IOC_ADD_ENCRYPTION_KEY ioctl for setting up fscrypt
+  - maybe pre-create ~/.cache as subvol so that it can have separate quota
+    easily?
+  - if kernel 5.12 uid mapping mounts exist, use that instead of recursive
+    chowns.
+  - add a switch to homectl (maybe called --first-boot) where it will check if
+    any non-system users exist, and if not prompts interactively for basic user
+    info, mimicking systemd-firstboot. Then, place this in a service that runs
+    after systemd-homed, but before gdm and friends, as a simple, barebones
+    fallback logic to get a regular user created on uninitialized systems.
+  - store PKCS#11 + FIDO2 token info in LUKS2 header, compatible with
+    systemd-cryptsetup, so that it can unlock homed volumes
+  - try to unmount in regular intervals when home dir was busy when we
+    tried because idle.
+  - keep an fd to the homedir open at all times, to keep the fs pinned
+    (autofs and such) while user is logged in.
 
 * add a new switch --auto-definitions=yes/no or so to systemd-repart. If
   specified, synthesize a definition automatically if we can: enlarge last
