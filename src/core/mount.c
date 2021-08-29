@@ -1575,6 +1575,10 @@ static int mount_setup_new_unit(
         if (r < 0)
                 return r;
 
+        r = mount_add_non_exec_dependencies(MOUNT(u));
+        if (r < 0)
+                return r;
+
         /* This unit was generated because /proc/self/mountinfo reported it. Remember this, so that by the time we load
          * the unit file for it (and thus add in extra deps right after) we know what source to attributes the deps
          * to. */
