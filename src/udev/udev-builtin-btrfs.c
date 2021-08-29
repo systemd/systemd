@@ -12,7 +12,7 @@
 #include "udev-builtin.h"
 #include "util.h"
 
-static int builtin_btrfs(sd_device *dev, int argc, char *argv[], bool test) {
+static int builtin_btrfs(sd_device *dev, sd_netlink **rtnl, int argc, char *argv[], bool test) {
         struct btrfs_ioctl_vol_args args = {};
         _cleanup_close_ int fd = -1;
         int r;

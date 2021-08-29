@@ -233,7 +233,7 @@ static int probe_superblocks(blkid_probe pr) {
         return blkid_do_safeprobe(pr);
 }
 
-static int builtin_blkid(sd_device *dev, int argc, char *argv[], bool test) {
+static int builtin_blkid(sd_device *dev, sd_netlink **rtnl, int argc, char *argv[], bool test) {
         const char *devnode, *root_partition = NULL, *data, *name;
         _cleanup_(blkid_free_probep) blkid_probe pr = NULL;
         bool noraid = false, is_gpt = false;

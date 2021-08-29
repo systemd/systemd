@@ -159,7 +159,7 @@ static int set_trackpoint_sensitivity(sd_device *dev, const char *value) {
         return 0;
 }
 
-static int builtin_keyboard(sd_device *dev, int argc, char *argv[], bool test) {
+static int builtin_keyboard(sd_device *dev, sd_netlink **rtnl, int argc, char *argv[], bool test) {
         unsigned release[1024];
         unsigned release_count = 0;
         _cleanup_close_ int fd = -1;

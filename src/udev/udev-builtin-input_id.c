@@ -322,7 +322,7 @@ static bool test_key(sd_device *dev,
         return found;
 }
 
-static int builtin_input_id(sd_device *dev, int argc, char *argv[], bool test) {
+static int builtin_input_id(sd_device *dev, sd_netlink **rtnl, int argc, char *argv[], bool test) {
         sd_device *pdev;
         unsigned long bitmask_ev[NBITS(EV_MAX)];
         unsigned long bitmask_abs[NBITS(ABS_MAX)];

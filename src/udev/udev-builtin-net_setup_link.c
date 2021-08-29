@@ -10,7 +10,7 @@
 
 static LinkConfigContext *ctx = NULL;
 
-static int builtin_net_setup_link(sd_device *dev, int argc, char **argv, bool test) {
+static int builtin_net_setup_link(sd_device *dev, sd_netlink **rtnl, int argc, char **argv, bool test) {
         _cleanup_free_ char *driver = NULL;
         const char *name = NULL;
         LinkConfig *link;
