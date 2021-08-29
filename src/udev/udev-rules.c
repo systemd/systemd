@@ -1829,7 +1829,7 @@ static int udev_rule_apply_token_to_event(
                 (void) udev_event_apply_format(event, token->value, buf, sizeof(buf), false);
                 log_rule_debug(dev, rules, "Importing properties from results of builtin command '%s'", buf);
 
-                r = udev_builtin_run(dev, cmd, buf, false);
+                r = udev_builtin_run(dev, &event->rtnl, cmd, buf, false);
                 if (r < 0) {
                         /* remember failure */
                         log_rule_debug_errno(dev, rules, r, "Failed to run builtin '%s': %m", buf);
