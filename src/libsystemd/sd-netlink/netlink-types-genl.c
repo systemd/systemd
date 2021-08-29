@@ -229,6 +229,6 @@ static const NLTypeSystemUnionElement genl_type_systems[] = {
 /* This is the root type system union, so match_attribute is not necessary. */
 DEFINE_TYPE_SYSTEM_UNION_MATCH_SIBLING(genl, 0);
 
-int genl_get_type_system_by_name(const char *name, const NLTypeSystem **ret) {
-        return type_system_union_get_type_system_by_string(&genl_type_system_union, ret, name);
+const NLTypeSystem *genl_get_type_system_by_name(const char *name) {
+        return type_system_union_get_type_system_by_string(&genl_type_system_union, name);
 }

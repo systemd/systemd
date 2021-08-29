@@ -867,6 +867,6 @@ static const NLType rtnl_types[] = {
 
 DEFINE_TYPE_SYSTEM(rtnl);
 
-int rtnl_get_type(uint16_t nlmsg_type, const NLType **ret) {
-        return type_system_get_type(&rtnl_type_system, ret, nlmsg_type);
+const NLType *rtnl_get_type(uint16_t nlmsg_type) {
+        return type_system_get_type(&rtnl_type_system, nlmsg_type);
 }

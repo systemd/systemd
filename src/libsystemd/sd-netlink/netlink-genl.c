@@ -191,16 +191,13 @@ static int genl_family_new(
         return 0;
 }
 
-static int genl_family_get_type_system(const GenericNetlinkFamily *family, const NLTypeSystem **ret) {
+static const NLTypeSystem *genl_family_get_type_system(const GenericNetlinkFamily *family) {
         assert(family);
-        assert(ret);
 
-        if (family->type_system) {
-                *ret = family->type_system;
-                return 0;
-        }
+        if (family->type_system)
+                return family->type_system;
 
-        return genl_get_type_system_by_name(family->name, ret);
+        return genl_get_type_system_by_name(family->name);
 }
 
 static int genl_message_new(
@@ -218,9 +215,9 @@ static int genl_message_new(
         assert(family);
         assert(ret);
 
-        r = genl_family_get_type_system(family, &type_system);
-        if (r < 0)
-                return r;
+        type_system = genl_family_get_type_system(family);
+        if (!type_system)
+                return -EOPNOTSUPP;
 
         r = message_new_full(nl, family->id, type_system,
                              sizeof(struct genlmsghdr) + family->additional_header_size, &m);
@@ -252,9 +249,9 @@ static int genl_family_get_by_name_internal(
         assert(name);
         assert(ret);
 
-        r = genl_get_type_system_by_name(name, &type_system);
-        if (r < 0)
-                return r;
+        type_system = genl_get_type_system_by_name(name);
+        if (!type_system)
+                return -EOPNOTSUPP;
 
         r = genl_message_new(nl, ctrl, CTRL_CMD_GETFAMILY, &req);
         if (r < 0)
@@ -340,9 +337,13 @@ int genl_get_type_system_and_header_size(
                 return r;
 
         if (ret_type_system) {
-                r = genl_family_get_type_system(f, ret_type_system);
-                if (r < 0)
-                        return r;
+                const NLTypeSystem *t;
+
+                t = genl_family_get_type_system(f);
+                if (!t)
+                        return -EOPNOTSUPP;
+
+                *ret_type_system = t;
         }
         if (ret_header_size)
                 *ret_header_size = sizeof(struct genlmsghdr) + f->additional_header_size;

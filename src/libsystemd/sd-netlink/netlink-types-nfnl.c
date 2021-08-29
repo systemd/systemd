@@ -186,13 +186,12 @@ static const NLType nfnl_types[] = {
 
 DEFINE_TYPE_SYSTEM(nfnl);
 
-int nfnl_get_type(uint16_t nlmsg_type, const NLType **ret) {
+const NLType *nfnl_get_type(uint16_t nlmsg_type) {
         const NLTypeSystem *subsys;
-        int r;
 
-        r = type_system_get_type_system(&nfnl_type_system, &subsys, nlmsg_type >> 8);
-        if (r < 0)
-                return r;
+        subsys = type_system_get_type_system(&nfnl_type_system, nlmsg_type >> 8);
+        if (!subsys)
+                return NULL;
 
-        return type_system_get_type(subsys, ret, nlmsg_type & ((1U << 8) - 1));
+        return type_system_get_type(subsys, nlmsg_type & ((1U << 8) - 1));
 }
