@@ -37,7 +37,6 @@ struct LinkConfigContext {
         LIST_HEAD(LinkConfig, links);
         int ethtool_fd;
         bool enable_name_policy;
-        sd_netlink *rtnl;
         usec_t network_dirs_ts_usec;
 };
 
@@ -78,7 +77,6 @@ LinkConfigContext *link_config_ctx_free(LinkConfigContext *ctx) {
                 return NULL;
 
         safe_close(ctx->ethtool_fd);
-        sd_netlink_unref(ctx->rtnl);
         link_configs_free(ctx);
         return mfree(ctx);
 }
@@ -239,7 +237,7 @@ bool link_config_should_reload(LinkConfigContext *ctx) {
         return paths_check_timestamp(NETWORK_DIRS, &ctx->network_dirs_ts_usec, false);
 }
 
-int link_config_get(LinkConfigContext *ctx, sd_device *device, LinkConfig **ret) {
+int link_config_get(LinkConfigContext *ctx, sd_netlink **rtnl, sd_device *device, LinkConfig **ret) {
         unsigned name_assign_type = NET_NAME_UNKNOWN;
         struct ether_addr permanent_mac = {};
         unsigned short iftype;
@@ -249,6 +247,7 @@ int link_config_get(LinkConfigContext *ctx, sd_device *device, LinkConfig **ret)
         int ifindex, r;
 
         assert(ctx);
+        assert(rtnl);
         assert(device);
         assert(ret);
 
@@ -260,7 +259,7 @@ int link_config_get(LinkConfigContext *ctx, sd_device *device, LinkConfig **ret)
         if (r < 0)
                 return r;
 
-        r = rtnl_get_link_info(&ctx->rtnl, ifindex, &iftype, &flags);
+        r = rtnl_get_link_info(rtnl, ifindex, &iftype, &flags);
         if (r < 0)
                 return r;
 
@@ -606,13 +605,14 @@ static int link_config_apply_alternative_names(sd_netlink **rtnl, const LinkConf
         return 0;
 }
 
-int link_config_apply(LinkConfigContext *ctx, const LinkConfig *config, sd_device *device, const char **ret_name) {
+int link_config_apply(LinkConfigContext *ctx, const LinkConfig *config, sd_netlink **rtnl, sd_device *device, const char **ret_name) {
         const char *new_name;
         sd_device_action_t a;
         int r;
 
         assert(ctx);
         assert(config);
+        assert(rtnl);
         assert(device);
         assert(ret_name);
 
@@ -634,7 +634,7 @@ int link_config_apply(LinkConfigContext *ctx, const LinkConfig *config, sd_devic
         if (r < 0)
                 return r;
 
-        r = link_config_apply_rtnl_settings(&ctx->rtnl, config, device);
+        r = link_config_apply_rtnl_settings(rtnl, config, device);
         if (r < 0)
                 return r;
 
@@ -650,7 +650,7 @@ int link_config_apply(LinkConfigContext *ctx, const LinkConfig *config, sd_devic
                         return r;
         }
 
-        r = link_config_apply_alternative_names(&ctx->rtnl, config, device, new_name);
+        r = link_config_apply_alternative_names(rtnl, config, device, new_name);
         if (r < 0)
                 return r;
 

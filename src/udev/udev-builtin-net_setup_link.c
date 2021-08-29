@@ -26,7 +26,7 @@ static int builtin_net_setup_link(sd_device *dev, sd_netlink **rtnl, int argc, c
         else
                 udev_builtin_add_property(dev, test, "ID_NET_DRIVER", driver);
 
-        r = link_config_get(ctx, dev, &link);
+        r = link_config_get(ctx, rtnl, dev, &link);
         if (r < 0) {
                 if (r == -ENODEV)
                         return log_device_debug_errno(dev, r, "Link vanished while searching for configuration for it.");
@@ -38,7 +38,7 @@ static int builtin_net_setup_link(sd_device *dev, sd_netlink **rtnl, int argc, c
                 return log_device_error_errno(dev, r, "Failed to get link config: %m");
         }
 
-        r = link_config_apply(ctx, link, dev, &name);
+        r = link_config_apply(ctx, link, rtnl, dev, &name);
         if (r == -ENODEV)
                 log_device_debug_errno(dev, r, "Link vanished while applying configuration, ignoring.");
         else if (r < 0)
