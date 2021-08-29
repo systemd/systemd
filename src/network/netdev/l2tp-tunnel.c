@@ -104,7 +104,7 @@ static int netdev_l2tp_fill_message_tunnel(NetDev *netdev, union in_addr_union *
 
         assert(t);
 
-        r = sd_genl_message_new(netdev->manager->genl, SD_GENL_L2TP, L2TP_CMD_TUNNEL_CREATE, &m);
+        r = sd_genl_message_new(netdev->manager->genl, L2TP_GENL_NAME, L2TP_CMD_TUNNEL_CREATE, &m);
         if (r < 0)
                 return log_netdev_error_errno(netdev, r, "Failed to create generic netlink message: %m");
 
@@ -195,7 +195,7 @@ static int netdev_l2tp_fill_message_session(NetDev *netdev, L2tpSession *session
         assert(session);
         assert(session->tunnel);
 
-        r = sd_genl_message_new(netdev->manager->genl, SD_GENL_L2TP, L2TP_CMD_SESSION_CREATE, &m);
+        r = sd_genl_message_new(netdev->manager->genl, L2TP_GENL_NAME, L2TP_CMD_SESSION_CREATE, &m);
         if (r < 0)
                 return log_netdev_error_errno(netdev, r, "Failed to create generic netlink message: %m");
 
