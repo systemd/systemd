@@ -39,7 +39,7 @@
 #define ONBOARD_14BIT_INDEX_MAX ((1U << 14) - 1)
 #define ONBOARD_16BIT_INDEX_MAX ((1U << 16) - 1)
 
-enum netname_type{
+typedef enum NetNameType{
         NET_UNDEF,
         NET_PCI,
         NET_USB,
@@ -49,10 +49,10 @@ enum netname_type{
         NET_VIO,
         NET_PLATFORM,
         NET_NETDEVSIM,
-};
+} NetNameType;
 
-struct netnames {
-        enum netname_type type;
+typedef struct NetNames {
+        NetNameType type;
 
         uint8_t mac[6];
         bool mac_valid;
@@ -69,12 +69,7 @@ struct netnames {
         char vio_slot[ALTIFNAMSIZ];
         char platform_path[ALTIFNAMSIZ];
         char netdevsim_path[ALTIFNAMSIZ];
-};
-
-struct virtfn_info {
-        sd_device *physfn_pcidev;
-        char suffix[ALTIFNAMSIZ];
-};
+} NetNames;
 
 /* skip intermediate virtio devices */
 static sd_device *skip_virtio(sd_device *dev) {
@@ -97,47 +92,46 @@ static sd_device *skip_virtio(sd_device *dev) {
         return dev;
 }
 
-static int get_virtfn_info(sd_device *dev, struct netnames *names, struct virtfn_info *ret) {
+static int get_virtfn_info(sd_device *pcidev, sd_device **ret_physfn_pcidev, char **ret_suffix) {
         _cleanup_(sd_device_unrefp) sd_device *physfn_pcidev = NULL;
-        const char *physfn_link_file, *syspath;
-        _cleanup_free_ char *physfn_pci_syspath = NULL;
-        _cleanup_free_ char *virtfn_pci_syspath = NULL;
-        struct dirent *dent;
+        const char *physfn_syspath, *syspath;
+        _cleanup_free_ char *suffix = NULL;
         _cleanup_closedir_ DIR *dir = NULL;
-        char suffix[ALTIFNAMSIZ];
+        struct dirent *dent;
         int r;
 
-        assert(dev);
-        assert(names);
-        assert(ret);
+        assert(pcidev);
+        assert(ret_physfn_pcidev);
+        assert(ret_suffix);
 
-        r = sd_device_get_syspath(names->pcidev, &syspath);
-        if (r < 0)
-                return r;
-
-        /* Check if this is a virtual function. */
-        physfn_link_file = strjoina(syspath, "/physfn");
-        r = chase_symlinks(physfn_link_file, NULL, 0, &physfn_pci_syspath, NULL);
+        r = sd_device_get_syspath(pcidev, &syspath);
         if (r < 0)
                 return r;
 
         /* Get physical function's pci device. */
-        r = sd_device_new_from_syspath(&physfn_pcidev, physfn_pci_syspath);
+        physfn_syspath = strjoina(syspath, "/physfn");
+        r = sd_device_new_from_syspath(&physfn_pcidev, physfn_syspath);
+        if (r < 0)
+                return r;
+
+        r = sd_device_get_syspath(physfn_pcidev, &physfn_syspath);
         if (r < 0)
                 return r;
 
         /* Find the virtual function number by finding the right virtfn link. */
-        dir = opendir(physfn_pci_syspath);
+        dir = opendir(physfn_syspath);
         if (!dir)
                 return -errno;
 
         FOREACH_DIRENT_ALL(dent, dir, break) {
-                _cleanup_free_ char *virtfn_link_file = NULL;
+                _cleanup_free_ char *virtfn_link_file = NULL, *virtfn_pci_syspath = NULL;
+                const char *n;
 
-                if (!startswith(dent->d_name, "virtfn"))
+                n = startswith(dent->d_name, "virtfn");
+                if (!n)
                         continue;
 
-                virtfn_link_file = path_join(physfn_pci_syspath, dent->d_name);
+                virtfn_link_file = path_join(physfn_syspath, dent->d_name);
                 if (!virtfn_link_file)
                         return -ENOMEM;
 
@@ -145,19 +139,16 @@ static int get_virtfn_info(sd_device *dev, struct netnames *names, struct virtfn
                         continue;
 
                 if (streq(syspath, virtfn_pci_syspath)) {
-                        if (!snprintf_ok(suffix, sizeof(suffix), "v%s", &dent->d_name[6]))
-                                return -ENOENT;
+                        if (asprintf(&suffix, "v%s", n) < 0)
+                                return -ENOMEM;
 
-                        break;
+                        *ret_physfn_pcidev = TAKE_PTR(physfn_pcidev);
+                        *ret_suffix = TAKE_PTR(suffix);
+                        return 0;
                 }
         }
-        if (isempty(suffix))
-                return -ENOENT;
 
-        ret->physfn_pcidev = TAKE_PTR(physfn_pcidev);
-        strncpy(ret->suffix, suffix, sizeof(ret->suffix));
-
-        return 0;
+        return -ENOENT;
 }
 
 static bool is_valid_onboard_index(unsigned long idx) {
@@ -171,7 +162,7 @@ static bool is_valid_onboard_index(unsigned long idx) {
 }
 
 /* retrieve on-board index number and label from firmware */
-static int dev_pci_onboard(sd_device *dev, struct netnames *names) {
+static int dev_pci_onboard(sd_device *dev, NetNames *names) {
         unsigned long idx, dev_port = 0;
         const char *attr, *port_name = NULL;
         size_t l;
@@ -313,7 +304,7 @@ static int parse_hotplug_slot_from_function_id(sd_device *dev, const char *slots
         return 1;
 }
 
-static int dev_pci_slot(sd_device *dev, struct netnames *names) {
+static int dev_pci_slot(sd_device *dev, NetNames *names) {
         const char *sysname, *attr, *port_name = NULL, *syspath;
         _cleanup_(sd_device_unrefp) sd_device *pci = NULL;
         _cleanup_closedir_ DIR *dir = NULL;
@@ -466,7 +457,7 @@ static int dev_pci_slot(sd_device *dev, struct netnames *names) {
         return 0;
 }
 
-static int names_vio(sd_device *dev, struct netnames *names) {
+static int names_vio(sd_device *dev, NetNames *names) {
         sd_device *parent;
         unsigned busid, slotid, ethid;
         const char *syspath, *subsystem;
@@ -503,7 +494,7 @@ static int names_vio(sd_device *dev, struct netnames *names) {
 #define _PLATFORM_PATTERN4 "/sys/devices/platform/%4s%4x:%2x/net/eth%u"
 #define _PLATFORM_PATTERN3 "/sys/devices/platform/%3s%4x:%2x/net/eth%u"
 
-static int names_platform(sd_device *dev, struct netnames *names, bool test) {
+static int names_platform(sd_device *dev, NetNames *names, bool test) {
         sd_device *parent;
         char vendor[5];
         unsigned model, instance, ethid;
@@ -558,10 +549,10 @@ static int names_platform(sd_device *dev, struct netnames *names, bool test) {
         return 0;
 }
 
-static int names_pci(sd_device *dev, struct netnames *names) {
+static int names_pci(sd_device *dev, NetNames *names) {
+        _cleanup_(sd_device_unrefp) sd_device *physfn_pcidev = NULL;
+        _cleanup_free_ char *virtfn_suffix = NULL;
         sd_device *parent;
-        struct netnames vf_names = {};
-        struct virtfn_info vf_info = {};
         const char *subsystem;
         int r;
 
@@ -589,24 +580,26 @@ static int names_pci(sd_device *dev, struct netnames *names) {
         }
 
         if (naming_scheme_has(NAMING_SR_IOV_V) &&
-            get_virtfn_info(dev, names, &vf_info) >= 0) {
+            get_virtfn_info(names->pcidev, &physfn_pcidev, &virtfn_suffix) >= 0) {
+                NetNames vf_names = {};
+
                 /* If this is an SR-IOV virtual device, get base name using physical device and add virtfn suffix. */
-                vf_names.pcidev = vf_info.physfn_pcidev;
+                vf_names.pcidev = physfn_pcidev;
                 dev_pci_onboard(dev, &vf_names);
                 dev_pci_slot(dev, &vf_names);
+
                 if (vf_names.pci_onboard[0])
-                        if (strlen(vf_names.pci_onboard) + strlen(vf_info.suffix) < sizeof(names->pci_onboard))
+                        if (strlen(vf_names.pci_onboard) + strlen(virtfn_suffix) < sizeof(names->pci_onboard))
                                 strscpyl(names->pci_onboard, sizeof(names->pci_onboard),
-                                         vf_names.pci_onboard, vf_info.suffix, NULL);
+                                         vf_names.pci_onboard, virtfn_suffix, NULL);
                 if (vf_names.pci_slot[0])
-                        if (strlen(vf_names.pci_slot) + strlen(vf_info.suffix) < sizeof(names->pci_slot))
+                        if (strlen(vf_names.pci_slot) + strlen(virtfn_suffix) < sizeof(names->pci_slot))
                                 strscpyl(names->pci_slot, sizeof(names->pci_slot),
-                                         vf_names.pci_slot, vf_info.suffix, NULL);
+                                         vf_names.pci_slot, virtfn_suffix, NULL);
                 if (vf_names.pci_path[0])
-                        if (strlen(vf_names.pci_path) + strlen(vf_info.suffix) < sizeof(names->pci_path))
+                        if (strlen(vf_names.pci_path) + strlen(virtfn_suffix) < sizeof(names->pci_path))
                                 strscpyl(names->pci_path, sizeof(names->pci_path),
-                                         vf_names.pci_path, vf_info.suffix, NULL);
-                sd_device_unref(vf_info.physfn_pcidev);
+                                         vf_names.pci_path, virtfn_suffix, NULL);
         } else {
                 dev_pci_onboard(dev, names);
                 dev_pci_slot(dev, names);
@@ -615,7 +608,7 @@ static int names_pci(sd_device *dev, struct netnames *names) {
         return 0;
 }
 
-static int names_usb(sd_device *dev, struct netnames *names) {
+static int names_usb(sd_device *dev, NetNames *names) {
         sd_device *usbdev;
         char name[256], *ports, *config, *interf, *s;
         const char *sysname;
@@ -673,7 +666,7 @@ static int names_usb(sd_device *dev, struct netnames *names) {
         return 0;
 }
 
-static int names_bcma(sd_device *dev, struct netnames *names) {
+static int names_bcma(sd_device *dev, NetNames *names) {
         sd_device *bcmadev;
         unsigned core;
         const char *sysname;
@@ -701,7 +694,7 @@ static int names_bcma(sd_device *dev, struct netnames *names) {
         return 0;
 }
 
-static int names_ccw(sd_device *dev, struct netnames *names) {
+static int names_ccw(sd_device *dev, NetNames *names) {
         sd_device *cdev;
         const char *bus_id, *subsys;
         size_t bus_id_len;
@@ -759,7 +752,7 @@ static int names_ccw(sd_device *dev, struct netnames *names) {
         return 0;
 }
 
-static int names_mac(sd_device *dev, struct netnames *names) {
+static int names_mac(sd_device *dev, NetNames *names) {
         const char *s;
         unsigned long i;
         unsigned a1, a2, a3, a4, a5, a6;
@@ -815,7 +808,7 @@ static int names_mac(sd_device *dev, struct netnames *names) {
         return 0;
 }
 
-static int names_netdevsim(sd_device *dev, struct netnames *names) {
+static int names_netdevsim(sd_device *dev, NetNames *names) {
         sd_device *netdevsimdev;
         const char *sysname;
         unsigned addr;
@@ -853,7 +846,7 @@ static int names_netdevsim(sd_device *dev, struct netnames *names) {
 }
 
 /* IEEE Organizationally Unique Identifier vendor string */
-static int ieee_oui(sd_device *dev, struct netnames *names, bool test) {
+static int ieee_oui(sd_device *dev, NetNames *names, bool test) {
         char str[32];
 
         if (!names->mac_valid)
@@ -870,7 +863,7 @@ static int ieee_oui(sd_device *dev, struct netnames *names, bool test) {
 
 static int builtin_net_id(sd_device *dev, int argc, char *argv[], bool test) {
         const char *s, *p, *devtype, *prefix = "en";
-        struct netnames names = {};
+        NetNames names = {};
         unsigned long i;
         int r;
 
