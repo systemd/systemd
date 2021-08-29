@@ -277,6 +277,28 @@ static inline int getsockopt_int(int fd, int level, int optname, int *ret) {
 int socket_bind_to_ifname(int fd, const char *ifname);
 int socket_bind_to_ifindex(int fd, int ifindex);
 
+/* Define a 64bit version of timeval/timespec in any case, even on 32bit userspace. */
+struct timeval_large {
+        uint64_t tvl_sec, tvl_usec;
+};
+struct timespec_large {
+        uint64_t tvl_sec, tvl_nsec;
+};
+
+/* glibc duplicates timespec/timeval on certain 32bit archs, once in 32bit and once in 64bit.
+ * See __convert_scm_timestamps() in glibc source code. Hence, we need additional buffer space for them
+ * to prevent from recvmsg_safe() returning -EXFULL. */
+#define CMSG_SPACE_TIMEVAL                                              \
+        ((sizeof(struct timeval) == sizeof(struct timeval_large)) ?     \
+         CMSG_SPACE(sizeof(struct timeval)) :                           \
+         CMSG_SPACE(sizeof(struct timeval)) +                           \
+         CMSG_SPACE(sizeof(struct timeval_large)))
+#define CMSG_SPACE_TIMESPEC                                             \
+        ((sizeof(struct timespec) == sizeof(struct timespec_large)) ?   \
+         CMSG_SPACE(sizeof(struct timespec)) :                          \
+         CMSG_SPACE(sizeof(struct timespec)) +                          \
+         CMSG_SPACE(sizeof(struct timespec_large)))
+
 ssize_t recvmsg_safe(int sockfd, struct msghdr *msg, int flags);
 
 int socket_get_family(int fd, int *ret);
