@@ -149,7 +149,7 @@ int icmp6_receive(int fd, void *buffer, size_t size, struct in6_addr *dst,
                   triple_timestamp *timestamp) {
 
         CMSG_BUFFER_TYPE(CMSG_SPACE(sizeof(int)) + /* ttl */
-                         CMSG_SPACE(sizeof(struct timeval))) control;
+                         CMSG_SPACE_TIMEVAL) control;
         struct iovec iov = {};
         union sockaddr_union sa = {};
         struct msghdr msg = {
