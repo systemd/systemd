@@ -416,7 +416,7 @@ static int manager_receive_response(sd_event_source *source, int fd, uint32_t re
                 .iov_base = &ntpmsg,
                 .iov_len = sizeof(ntpmsg),
         };
-        CMSG_BUFFER_TYPE(CMSG_SPACE(sizeof(struct timespec))) control;
+        CMSG_BUFFER_TYPE(CMSG_SPACE_TIMESPEC) control;
         union sockaddr_union server_addr;
         struct msghdr msghdr = {
                 .msg_iov = &iov,
@@ -466,14 +466,10 @@ static int manager_receive_response(sd_event_source *source, int fd, uint32_t re
         }
 
         CMSG_FOREACH(cmsg, &msghdr) {
-                if (cmsg->cmsg_level != SOL_SOCKET)
-                        continue;
-
-                switch (cmsg->cmsg_type) {
-                case SCM_TIMESTAMPNS:
+                if (cmsg->cmsg_level == SOL_SOCKET &&
+                    cmsg->cmsg_type == SCM_TIMESTAMPNS &&
+                    cmsg->cmsg_len == CMSG_LEN(sizeof(struct timespec)))
                         recv_time = (struct timespec *) CMSG_DATA(cmsg);
-                        break;
-                }
         }
         if (!recv_time)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
