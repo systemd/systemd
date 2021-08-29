@@ -1269,7 +1269,7 @@ int server_process_datagram(
          * identical to NAME_MAX. For now we use that, but this should be updated one day when the final
          * limit is known. */
         CMSG_BUFFER_TYPE(CMSG_SPACE(sizeof(struct ucred)) +
-                         CMSG_SPACE(sizeof(struct timeval)) +
+                         CMSG_SPACE_TIMEVAL +
                          CMSG_SPACE(sizeof(int)) + /* fd */
                          CMSG_SPACE(NAME_MAX) /* selinux label */) control;
 
