@@ -83,6 +83,7 @@ basic_sources = files('''
         linux/can/vxcan.h
         linux/fib_rules.h
         linux/fou.h
+        linux/genetlink.h
         linux/hdlc/ioctl.h
         linux/if.h
         linux/if_addr.h
