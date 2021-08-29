@@ -863,7 +863,7 @@ static int ieee_oui(sd_device *dev, struct netnames *names, bool test) {
         return 0;
 }
 
-static int builtin_net_id(sd_device *dev, int argc, char *argv[], bool test) {
+static int builtin_net_id(sd_device *dev, sd_netlink **rtnl, int argc, char *argv[], bool test) {
         const char *s, *p, *devtype, *prefix = "en";
         struct netnames names = {};
         unsigned long i;
