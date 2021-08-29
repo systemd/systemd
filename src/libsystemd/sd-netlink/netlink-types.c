@@ -50,11 +50,6 @@ const NLTypeSystemUnion *type_get_type_system_union(const NLType *nl_type) {
         return nl_type->type_system_union;
 }
 
-uint16_t type_system_get_count(const NLTypeSystem *type_system) {
-        assert(type_system);
-        return type_system->count;
-}
-
 int type_system_root_get_type_system_and_header_size(
                 sd_netlink *nl,
                 uint16_t type,
@@ -62,27 +57,26 @@ int type_system_root_get_type_system_and_header_size(
                 size_t *ret_header_size) {
 
         const NLType *nl_type;
-        int r;
 
         assert(nl);
 
         if (IN_SET(type, NLMSG_DONE, NLMSG_ERROR))
-                r = type_system_get_type(&basic_type_system, &nl_type, type);
+                nl_type = type_system_get_type(&basic_type_system, type);
         else
                 switch(nl->protocol) {
                 case NETLINK_ROUTE:
-                        r = rtnl_get_type(type, &nl_type);
+                        nl_type = rtnl_get_type(type);
                         break;
                 case NETLINK_NETFILTER:
-                        r = nfnl_get_type(type, &nl_type);
+                        nl_type = nfnl_get_type(type);
                         break;
                 case NETLINK_GENERIC:
                         return genl_get_type_system_and_header_size(nl, type, ret_type_system, ret_header_size);
                 default:
                         return -EOPNOTSUPP;
                 }
-        if (r < 0)
-                return r;
+        if (!nl_type)
+                return -EOPNOTSUPP;
 
         if (type_get_type(nl_type) != NETLINK_TYPE_NESTED)
                 return -EOPNOTSUPP;
@@ -94,51 +88,41 @@ int type_system_root_get_type_system_and_header_size(
         return 0;
 }
 
-int type_system_get_type(const NLTypeSystem *type_system, const NLType **ret, uint16_t type) {
+const NLType *type_system_get_type(const NLTypeSystem *type_system, uint16_t type) {
         const NLType *nl_type;
 
-        assert(ret);
         assert(type_system);
         assert(type_system->types);
 
         if (type >= type_system->count)
-                return -EOPNOTSUPP;
+                return NULL;
 
         nl_type = &type_system->types[type];
 
         if (nl_type->type == NETLINK_TYPE_UNSPEC)
-                return -EOPNOTSUPP;
+                return NULL;
 
-        *ret = nl_type;
-        return 0;
+        return nl_type;
 }
 
-int type_system_get_type_system(const NLTypeSystem *type_system, const NLTypeSystem **ret, uint16_t type) {
+const NLTypeSystem *type_system_get_type_system(const NLTypeSystem *type_system, uint16_t type) {
         const NLType *nl_type;
-        int r;
 
-        assert(ret);
+        nl_type = type_system_get_type(type_system, type);
+        if (!nl_type)
+                return NULL;
 
-        r = type_system_get_type(type_system, &nl_type, type);
-        if (r < 0)
-                return r;
-
-        *ret = type_get_type_system(nl_type);
-        return 0;
+        return type_get_type_system(nl_type);
 }
 
-int type_system_get_type_system_union(const NLTypeSystem *type_system, const NLTypeSystemUnion **ret, uint16_t type) {
+const NLTypeSystemUnion *type_system_get_type_system_union(const NLTypeSystem *type_system, uint16_t type) {
         const NLType *nl_type;
-        int r;
 
-        assert(ret);
+        nl_type = type_system_get_type(type_system, type);
+        if (!nl_type)
+                return NULL;
 
-        r = type_system_get_type(type_system, &nl_type, type);
-        if (r < 0)
-                return r;
-
-        *ret = type_get_type_system_union(nl_type);
-        return 0;
+        return type_get_type_system_union(nl_type);
 }
 
 NLMatchType type_system_union_get_match_type(const NLTypeSystemUnion *type_system_union) {
@@ -152,33 +136,27 @@ uint16_t type_system_union_get_match_attribute(const NLTypeSystemUnion *type_sys
         return type_system_union->match_attribute;
 }
 
-int type_system_union_get_type_system_by_string(const NLTypeSystemUnion *type_system_union, const NLTypeSystem **ret, const char *key) {
+const NLTypeSystem *type_system_union_get_type_system_by_string(const NLTypeSystemUnion *type_system_union, const char *key) {
         assert(type_system_union);
         assert(type_system_union->elements);
         assert(type_system_union->match_type == NL_MATCH_SIBLING);
-        assert(ret);
         assert(key);
 
         for (size_t i = 0; i < type_system_union->count; i++)
-                if (streq(type_system_union->elements[i].name, key)) {
-                        *ret = &type_system_union->elements[i].type_system;
-                        return 0;
-                }
+                if (streq(type_system_union->elements[i].name, key))
+                        return &type_system_union->elements[i].type_system;
 
-        return -EOPNOTSUPP;
+        return NULL;
 }
 
-int type_system_union_get_type_system_by_protocol(const NLTypeSystemUnion *type_system_union, const NLTypeSystem **ret, uint16_t protocol) {
+const NLTypeSystem *type_system_union_get_type_system_by_protocol(const NLTypeSystemUnion *type_system_union, uint16_t protocol) {
         assert(type_system_union);
         assert(type_system_union->elements);
         assert(type_system_union->match_type == NL_MATCH_PROTOCOL);
-        assert(ret);
 
         for (size_t i = 0; i < type_system_union->count; i++)
-                if (type_system_union->elements[i].protocol == protocol) {
-                        *ret = &type_system_union->elements[i].type_system;
-                        return 0;
-                }
+                if (type_system_union->elements[i].protocol == protocol)
+                        return &type_system_union->elements[i].type_system;
 
-        return -EOPNOTSUPP;
+        return NULL;
 }

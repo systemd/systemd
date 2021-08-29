@@ -215,13 +215,12 @@ static int add_rtattr(sd_netlink_message *m, unsigned short type, const void *da
 
 static int message_attribute_has_type(sd_netlink_message *m, size_t *out_size, uint16_t attribute_type, uint16_t data_type) {
         const NLType *type;
-        int r;
 
         assert(m);
 
-        r = type_system_get_type(m->containers[m->n_containers].type_system, &type, attribute_type);
-        if (r < 0)
-                return r;
+        type = type_system_get_type(m->containers[m->n_containers].type_system, attribute_type);
+        if (!type)
+                return -EOPNOTSUPP;
 
         if (type_get_type(type) != data_type)
                 return -EINVAL;
@@ -584,23 +583,23 @@ int sd_netlink_message_open_container(sd_netlink_message *m, unsigned short type
                 if (r < 0)
                         return r;
 
-                r = type_system_get_type_system_union(m->containers[m->n_containers].type_system, &type_system_union, type);
-                if (r < 0)
-                        return r;
+                type_system_union = type_system_get_type_system_union(
+                                m->containers[m->n_containers].type_system,
+                                type);
+                if (!type_system_union)
+                        return -EOPNOTSUPP;
 
-                r = type_system_union_get_type_system_by_protocol(
+                m->containers[m->n_containers + 1].type_system =
+                        type_system_union_get_type_system_by_protocol(
                                 type_system_union,
-                                &m->containers[m->n_containers + 1].type_system,
                                 family);
-                if (r < 0)
-                        return r;
-        } else {
-                r = type_system_get_type_system(m->containers[m->n_containers].type_system,
-                                                &m->containers[m->n_containers + 1].type_system,
-                                                type);
-                if (r < 0)
-                        return r;
-        }
+        } else
+                m->containers[m->n_containers + 1].type_system =
+                        type_system_get_type_system(
+                                m->containers[m->n_containers].type_system,
+                                type);
+        if (!m->containers[m->n_containers + 1].type_system)
+                return -EOPNOTSUPP;
 
         r = add_rtattr(m, type | NLA_F_NESTED, NULL, size);
         if (r < 0)
@@ -619,16 +618,18 @@ int sd_netlink_message_open_container_union(sd_netlink_message *m, unsigned shor
         assert_return(!m->sealed, -EPERM);
         assert_return(m->n_containers < (NETLINK_CONTAINER_DEPTH - 1), -ERANGE);
 
-        r = type_system_get_type_system_union(m->containers[m->n_containers].type_system, &type_system_union, type);
-        if (r < 0)
-                return r;
+        type_system_union = type_system_get_type_system_union(
+                        m->containers[m->n_containers].type_system,
+                        type);
+        if (!type_system_union)
+                return -EOPNOTSUPP;
 
-        r = type_system_union_get_type_system_by_string(
+        m->containers[m->n_containers + 1].type_system =
+                type_system_union_get_type_system_by_string(
                         type_system_union,
-                        &m->containers[m->n_containers + 1].type_system,
                         key);
-        if (r < 0)
-                return r;
+        if (!m->containers[m->n_containers + 1].type_system)
+                return -EOPNOTSUPP;
 
         r = sd_netlink_message_append_string(m, type_system_union_get_match_attribute(type_system_union), key);
         if (r < 0)
@@ -1043,24 +1044,24 @@ int sd_netlink_message_read_strv(sd_netlink_message *m, unsigned short container
         assert_return(m, -EINVAL);
         assert_return(m->n_containers < NETLINK_CONTAINER_DEPTH, -EINVAL);
 
-        r = type_system_get_type(m->containers[m->n_containers].type_system,
-                                 &nl_type,
-                                 container_type);
-        if (r < 0)
-                return r;
+        nl_type = type_system_get_type(
+                        m->containers[m->n_containers].type_system,
+                        container_type);
+        if (!nl_type)
+                return -EOPNOTSUPP;
 
         if (type_get_type(nl_type) != NETLINK_TYPE_NESTED)
                 return -EINVAL;
 
-        r = type_system_get_type_system(m->containers[m->n_containers].type_system,
-                                        &type_system,
-                                        container_type);
-        if (r < 0)
-                return r;
+        type_system = type_system_get_type_system(
+                        m->containers[m->n_containers].type_system,
+                        container_type);
+        if (!type_system)
+                return -EOPNOTSUPP;
 
-        r = type_system_get_type(type_system, &nl_type, type_id);
-        if (r < 0)
-                return r;
+        nl_type = type_system_get_type(type_system, type_id);
+        if (!nl_type)
+                return -EOPNOTSUPP;
 
         if (type_get_type(nl_type) != NETLINK_TYPE_STRING)
                 return -EINVAL;
@@ -1139,28 +1140,28 @@ int sd_netlink_message_enter_container(sd_netlink_message *m, unsigned short typ
         assert_return(m, -EINVAL);
         assert_return(m->n_containers < (NETLINK_CONTAINER_DEPTH - 1), -EINVAL);
 
-        r = type_system_get_type(m->containers[m->n_containers].type_system,
-                                 &nl_type,
-                                 type_id);
-        if (r < 0)
-                return r;
+        nl_type = type_system_get_type(
+                        m->containers[m->n_containers].type_system,
+                        type_id);
+        if (!nl_type)
+                return -EOPNOTSUPP;
 
         type = type_get_type(nl_type);
 
         if (type == NETLINK_TYPE_NESTED) {
-                r = type_system_get_type_system(m->containers[m->n_containers].type_system,
-                                                &type_system,
-                                                type_id);
-                if (r < 0)
-                        return r;
+                type_system = type_system_get_type_system(
+                                m->containers[m->n_containers].type_system,
+                                type_id);
+                if (!type_system)
+                        return -EOPNOTSUPP;
         } else if (type == NETLINK_TYPE_UNION) {
                 const NLTypeSystemUnion *type_system_union;
 
-                r = type_system_get_type_system_union(m->containers[m->n_containers].type_system,
-                                                      &type_system_union,
-                                                      type_id);
-                if (r < 0)
-                        return r;
+                type_system_union = type_system_get_type_system_union(
+                                 m->containers[m->n_containers].type_system,
+                                 type_id);
+                if (!type_system_union)
+                        return -EOPNOTSUPP;
 
                 switch (type_system_union_get_match_type(type_system_union)) {
                 case NL_MATCH_SIBLING: {
@@ -1173,12 +1174,11 @@ int sd_netlink_message_enter_container(sd_netlink_message *m, unsigned short typ
                         if (r < 0)
                                 return r;
 
-                        r = type_system_union_get_type_system_by_string(
+                        type_system = type_system_union_get_type_system_by_string(
                                         type_system_union,
-                                        &type_system,
                                         key);
-                        if (r < 0)
-                                return r;
+                        if (!type_system)
+                                return -EOPNOTSUPP;
 
                         break;
                 }
@@ -1189,12 +1189,11 @@ int sd_netlink_message_enter_container(sd_netlink_message *m, unsigned short typ
                         if (r < 0)
                                 return r;
 
-                        r = type_system_union_get_type_system_by_protocol(
+                        type_system = type_system_union_get_type_system_by_protocol(
                                         type_system_union,
-                                        &type_system,
                                         family);
-                        if (r < 0)
-                                return r;
+                        if (!type_system)
+                                return -EOPNOTSUPP;
 
                         break;
                 }
