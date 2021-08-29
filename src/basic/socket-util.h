@@ -277,6 +277,15 @@ static inline int getsockopt_int(int fd, int level, int optname, int *ret) {
 int socket_bind_to_ifname(int fd, const char *ifname);
 int socket_bind_to_ifindex(int fd, int ifindex);
 
+/* glibc appends 64bit timeval or timespace when 32bit version is requested,
+ * and without this additional buffer recvmsg_safe() returns -EXFULL. */
+#define CMSG_SPACE_TIMEVAL                                              \
+        (CMSG_SPACE(sizeof(struct timeval)) +                           \
+         (sizeof(time_t) == 4) ? CMSG_SPACE(sizeof(int64_t) * 2) : 0)
+#define CMSG_SPACE_TIMESPEC                                             \
+        (CMSG_SPACE(sizeof(struct timespec)) +                          \
+         (sizeof(time_t) == 4) ? CMSG_SPACE(sizeof(int64_t) * 2) : 0)
+
 ssize_t recvmsg_safe(int sockfd, struct msghdr *msg, int flags);
 
 int socket_get_family(int fd, int *ret);
