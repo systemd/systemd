@@ -43,7 +43,7 @@ static int help(void) {
                "     --version    Show package version\n"
                "  -s --strict     When updating, return non-zero exit value on any parsing error\n"
                "     --usr        Generate in " UDEVLIBEXECDIR " instead of /etc/udev\n"
-               "  -r --root=PATH  Alternative root path in the filesystem\n\n"
+               "  -r --root=PATH  Alternative root path in the filesystem\n"
                "\nSee the %s for details.\n",
                program_invocation_short_name,
                ansi_highlight(),
