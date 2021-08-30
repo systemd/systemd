@@ -34,3 +34,13 @@
 #ifndef ETHERTYPE_LLDP
 #define ETHERTYPE_LLDP 0x88cc
 #endif
+
+/* Not exposed but defined in linux/netdevice.h */
+#ifndef MAX_PHYS_ITEM_ID_LEN
+#define MAX_PHYS_ITEM_ID_LEN 32
+#endif
+
+/* Not exposed but defined in include/net/bonding.h */
+#ifndef BOND_MAX_ARP_TARGETS
+#define BOND_MAX_ARP_TARGETS 16
+#endif

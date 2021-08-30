@@ -4,6 +4,7 @@
 #include <stdbool.h>
 
 #include "sd-device.h"
+#include "sd-netlink.h"
 
 typedef enum {
 #if HAVE_BLKID
@@ -29,7 +30,7 @@ typedef enum {
 
 typedef struct UdevBuiltin {
         const char *name;
-        int (*cmd)(sd_device *dev, int argc, char *argv[], bool test);
+        int (*cmd)(sd_device *dev, sd_netlink **rtnl, int argc, char *argv[], bool test);
         const char *help;
         int (*init)(void);
         void (*exit)(void);
@@ -73,7 +74,7 @@ void udev_builtin_exit(void);
 UdevBuiltinCommand udev_builtin_lookup(const char *command);
 const char *udev_builtin_name(UdevBuiltinCommand cmd);
 bool udev_builtin_run_once(UdevBuiltinCommand cmd);
-int udev_builtin_run(sd_device *dev, UdevBuiltinCommand cmd, const char *command, bool test);
+int udev_builtin_run(sd_device *dev, sd_netlink **rtnl, UdevBuiltinCommand cmd, const char *command, bool test);
 void udev_builtin_list(void);
 bool udev_builtin_validate(void);
 int udev_builtin_add_property(sd_device *dev, bool test, const char *key, const char *val);
