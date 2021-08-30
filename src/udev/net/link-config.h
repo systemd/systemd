@@ -2,6 +2,7 @@
 #pragma once
 
 #include "sd-device.h"
+#include "sd-netlink.h"
 
 #include "condition.h"
 #include "conf-parser.h"
@@ -77,8 +78,8 @@ int link_load_one(LinkConfigContext *ctx, const char *filename);
 int link_config_load(LinkConfigContext *ctx);
 bool link_config_should_reload(LinkConfigContext *ctx);
 
-int link_config_get(LinkConfigContext *ctx, sd_device *device, LinkConfig **ret);
-int link_config_apply(LinkConfigContext *ctx, const LinkConfig *config, sd_device *device, const char **ret_name);
+int link_config_get(LinkConfigContext *ctx, sd_netlink **rtnl, sd_device *device, LinkConfig **ret);
+int link_config_apply(LinkConfigContext *ctx, const LinkConfig *config, sd_netlink **rtnl, sd_device *device, const char **ret_name);
 int link_get_driver(LinkConfigContext *ctx, sd_device *device, char **ret);
 
 const char *name_policy_to_string(NamePolicy p) _const_;
