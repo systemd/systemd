@@ -3340,6 +3340,20 @@ int unit_set_default_slice(Unit *u) {
         if (UNIT_GET_SLICE(u))
                 return 0;
 
+        bool isdefaultslice = false;
+        char *default_unit_slice = u->manager->default_unit_slice;
+
+        if (default_unit_slice) {
+            isdefaultslice = true;
+
+            if (streq(default_unit_slice, SPECIAL_SYSTEM_SLICE))
+                isdefaultslice = false;
+            else if (!(slice_name_is_valid(default_unit_slice) && startswith(default_unit_slice, "system-"))) {
+                    log_error("DefaultUnitSlice: '%s' is not valid.", default_unit_slice);
+                    isdefaultslice = false;
+            }
+        }
+
         if (u->instance) {
                 _cleanup_free_ char *prefix = NULL, *escaped = NULL;
 
@@ -3357,9 +3371,17 @@ int unit_set_default_slice(Unit *u) {
                 if (!escaped)
                         return -ENOMEM;
 
-                if (MANAGER_IS_SYSTEM(u->manager))
-                        slice_name = strjoina("system-", escaped, ".slice");
-                else
+                if (MANAGER_IS_SYSTEM(u->manager)) {
+                        if (isdefaultslice) {
+                                _cleanup_free_ char *default_unit_slice_temp = NULL;
+                                default_unit_slice_temp = strreplace(default_unit_slice, ".slice", "-");
+                                if (!default_unit_slice_temp)
+                                        return -ENOMEM;
+
+                                slice_name = strjoina(default_unit_slice_temp, escaped, ".slice");
+                        } else
+                                slice_name = strjoina("system-", escaped, ".slice");
+                } else
                         slice_name = strjoina("app-", escaped, ".slice");
 
         } else if (unit_is_extrinsic(u))
@@ -3367,14 +3389,22 @@ int unit_set_default_slice(Unit *u) {
                  * the root slice. They don't really belong in one of the subslices. */
                 slice_name = SPECIAL_ROOT_SLICE;
 
-        else if (MANAGER_IS_SYSTEM(u->manager))
-                slice_name = SPECIAL_SYSTEM_SLICE;
-        else
+        else if (MANAGER_IS_SYSTEM(u->manager)) {
+                if (isdefaultslice)
+                        slice_name = default_unit_slice;
+                else
+                        slice_name = SPECIAL_SYSTEM_SLICE;
+        } else {
                 slice_name = SPECIAL_APP_SLICE;
+                isdefaultslice = false;
+        }
 
         r = manager_load_unit(u->manager, slice_name, NULL, NULL, &slice);
         if (r < 0)
                 return r;
+
+        if (isdefaultslice)
+                slice->default_dependencies = false;
 
         return unit_set_slice(u, slice, UNIT_DEPENDENCY_FILE);
 }
