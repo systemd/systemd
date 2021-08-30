@@ -1188,7 +1188,7 @@ static int property_get_cpuset_cpus(
         assert(reply);
         assert(u);
 
-        (void) unit_get_cpuset(u, &cpus, "cpuset.cpus.effective");
+        (void) unit_get_cpuset(u, &cpus, "cpuset.cpus");
         (void) cpu_set_to_dbus(&cpus, &array, &allocated);
         return sd_bus_message_append_array(reply, 'y', array, allocated);
 }
@@ -1211,7 +1211,7 @@ static int property_get_cpuset_mems(
         assert(reply);
         assert(u);
 
-        (void) unit_get_cpuset(u, &mems, "cpuset.mems.effective");
+        (void) unit_get_cpuset(u, &mems, "cpuset.mems");
         (void) cpu_set_to_dbus(&mems, &array, &allocated);
         return sd_bus_message_append_array(reply, 'y', array, allocated);
 }

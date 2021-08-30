@@ -126,6 +126,7 @@ void cgroup_context_init(CGroupContext *c) {
                 .memory_swap_max = CGROUP_LIMIT_MAX,
 
                 .memory_limit = CGROUP_LIMIT_MAX,
+                .memory_memsw_limit = CGROUP_LIMIT_MAX,
 
                 .io_weight = CGROUP_WEIGHT_INVALID,
                 .startup_io_weight = CGROUP_WEIGHT_INVALID,
@@ -134,6 +135,7 @@ void cgroup_context_init(CGroupContext *c) {
                 .startup_blockio_weight = CGROUP_BLKIO_WEIGHT_INVALID,
 
                 .tasks_max = TASKS_MAX_UNSET,
+                .freezer_state = NULL,
 
                 .moom_swap = MANAGED_OOM_AUTO,
                 .moom_mem_pressure = MANAGED_OOM_AUTO,
@@ -234,6 +236,9 @@ void cgroup_context_done(CGroupContext *c) {
 
         while (c->device_allow)
                 cgroup_context_free_device_allow(c, c->device_allow);
+
+        if (c->freezer_state)
+                mfree(c->freezer_state);
 
         cgroup_context_remove_socket_bind(&c->socket_bind_allow);
         cgroup_context_remove_socket_bind(&c->socket_bind_deny);
@@ -418,10 +423,12 @@ void cgroup_context_dump(Unit *u, FILE* f, const char *prefix) {
 
         fprintf(f,
                 "%sCPUAccounting: %s\n"
+                "%sCPUSetAccounting: %s\n"
                 "%sIOAccounting: %s\n"
                 "%sBlockIOAccounting: %s\n"
                 "%sMemoryAccounting: %s\n"
                 "%sTasksAccounting: %s\n"
+                "%sFreezerAccounting: %s\n"
                 "%sIPAccounting: %s\n"
                 "%sCPUWeight: %" PRIu64 "\n"
                 "%sStartupCPUWeight: %" PRIu64 "\n"
@@ -431,6 +438,8 @@ void cgroup_context_dump(Unit *u, FILE* f, const char *prefix) {
                 "%sCPUQuotaPeriodSec: %s\n"
                 "%sAllowedCPUs: %s\n"
                 "%sAllowedMemoryNodes: %s\n"
+                "%sCPUSetCloneChildren: %s\n"
+                "%sCPUSetMemMigrate: %s\n"
                 "%sIOWeight: %" PRIu64 "\n"
                 "%sStartupIOWeight: %" PRIu64 "\n"
                 "%sBlockIOWeight: %" PRIu64 "\n"
@@ -444,6 +453,8 @@ void cgroup_context_dump(Unit *u, FILE* f, const char *prefix) {
                 "%sMemorySwapMax: %" PRIu64 "%s\n"
                 "%sMemoryLimit: %" PRIu64 "\n"
                 "%sTasksMax: %" PRIu64 "\n"
+                "%sFreezerState: %s\n"
+                "%sMemoryMemswLimit: %" PRIu64 "\n"
                 "%sDevicePolicy: %s\n"
                 "%sDisableControllers: %s\n"
                 "%sDelegate: %s\n"
@@ -452,10 +463,12 @@ void cgroup_context_dump(Unit *u, FILE* f, const char *prefix) {
                 "%sManagedOOMMemoryPressureLimit: " PERMYRIAD_AS_PERCENT_FORMAT_STR "\n"
                 "%sManagedOOMPreference: %s\n",
                 prefix, yes_no(c->cpu_accounting),
+                prefix, yes_no(c->cpuset_accounting),
                 prefix, yes_no(c->io_accounting),
                 prefix, yes_no(c->blockio_accounting),
                 prefix, yes_no(c->memory_accounting),
                 prefix, yes_no(c->tasks_accounting),
+                prefix, yes_no(c->freezer_accounting),
                 prefix, yes_no(c->ip_accounting),
                 prefix, c->cpu_weight,
                 prefix, c->startup_cpu_weight,
@@ -465,6 +478,8 @@ void cgroup_context_dump(Unit *u, FILE* f, const char *prefix) {
                 prefix, FORMAT_TIMESPAN(c->cpu_quota_period_usec, 1),
                 prefix, strempty(cpuset_cpus),
                 prefix, strempty(cpuset_mems),
+                prefix, yes_no(c->cpuset_clone_children),
+                prefix, yes_no(c->cpuset_memory_migrate),
                 prefix, c->io_weight,
                 prefix, c->startup_io_weight,
                 prefix, c->blockio_weight,
@@ -477,7 +492,9 @@ void cgroup_context_dump(Unit *u, FILE* f, const char *prefix) {
                 prefix, c->memory_max, format_cgroup_memory_limit_comparison(cdd, sizeof(cdd), u, "MemoryMax"),
                 prefix, c->memory_swap_max, format_cgroup_memory_limit_comparison(cde, sizeof(cde), u, "MemorySwapMax"),
                 prefix, c->memory_limit,
+                prefix, c->memory_memsw_limit,
                 prefix, tasks_max_resolve(&c->tasks_max),
+                prefix, c->freezer_state,
                 prefix, cgroup_device_policy_to_string(c->device_policy),
                 prefix, strempty(disable_controllers_str),
                 prefix, yes_no(c->delegate),
@@ -1301,8 +1318,24 @@ static void cgroup_context_apply(
         }
 
         if ((apply_mask & CGROUP_MASK_CPUSET) && !is_local_root) {
-                cgroup_apply_unified_cpuset(u, &c->cpuset_cpus, "cpuset.cpus");
-                cgroup_apply_unified_cpuset(u, &c->cpuset_mems, "cpuset.mems");
+                if (cg_all_unified() > 0) {
+                        cgroup_apply_unified_cpuset(u, &c->cpuset_cpus, "cpuset.cpus");
+                        cgroup_apply_unified_cpuset(u, &c->cpuset_mems, "cpuset.mems");
+                } else {
+                        _cleanup_free_ char *str_cpuset_cpus = NULL;
+                        _cleanup_free_ char *str_cpuset_mems = NULL;
+                        _cleanup_free_ char *root = NULL;
+                        (void) set_attribute_and_warn(u, "cpuset", "cgroup.clone_children", one_zero(c->cpuset_clone_children));
+                        (void) set_attribute_and_warn(u, "cpuset", "cpuset.memory_migrate", one_zero(c->cpuset_memory_migrate));
+                        if (c->cpuset_cpus.set) {
+                                str_cpuset_cpus = cpu_set_to_range_string_with_comma(&c->cpuset_cpus);
+                                (void) set_attribute_and_warn(u, "cpuset", "cpuset.cpus", str_cpuset_cpus);
+                        }
+                        if (c->cpuset_mems.set) {
+                                str_cpuset_mems = cpu_set_to_range_string_with_comma(&c->cpuset_mems);
+                                (void) set_attribute_and_warn(u, "cpuset", "cpuset.mems", str_cpuset_mems);
+                        }
+                }
         }
 
         /* The 'io' controller attributes are not exported on the host's root cgroup (being a pure cgroup v2
@@ -1469,13 +1502,16 @@ static void cgroup_context_apply(
 
                 } else {
                         char buf[DECIMAL_STR_MAX(uint64_t) + 1];
-                        uint64_t val;
+                        uint64_t val, sw_val;
 
                         if (unit_has_unified_memory_config(u)) {
                                 val = c->memory_max;
+                                sw_val = CGROUP_LIMIT_MAX;
                                 log_cgroup_compat(u, "Applying MemoryMax=%" PRIi64 " as MemoryLimit=", val);
-                        } else
+                        } else {
                                 val = c->memory_limit;
+                                sw_val = c->memory_memsw_limit;
+                        }
 
                         if (val == CGROUP_LIMIT_MAX)
                                 strncpy(buf, "-1\n", sizeof(buf));
@@ -1483,6 +1519,12 @@ static void cgroup_context_apply(
                                 xsprintf(buf, "%" PRIu64 "\n", val);
 
                         (void) set_attribute_and_warn(u, "memory", "memory.limit_in_bytes", buf);
+
+                        if (sw_val = CGROUP_LIMIT_MAX)
+                                strncpy(buf, "-1\n", sizeof(buf));
+                        else
+                                xsprintf(buf, "%" PRIu64 "\n", sw_val);
+                        (void) set_attribute_and_warn(u, "memory", "memory.memsw.limit_in_bytes", buf);
                 }
         }
 
@@ -1531,6 +1573,11 @@ static void cgroup_context_apply(
                         } else
                                 (void) set_attribute_and_warn(u, "pids", "pids.max", "max\n");
                 }
+        }
+
+        if ((apply_mask & CGROUP_MASK_FREEZER) && !is_local_root) {
+                if (c->freezer_state)
+                        (void) set_attribute_and_warn(u, "freezer", "freezer.state", c->freezer_state);
         }
 
         if (apply_mask & CGROUP_MASK_BPF_FIREWALL)
@@ -1626,7 +1673,9 @@ static CGroupMask unit_get_cgroup_mask(Unit *u) {
             c->cpu_quota_per_sec_usec != USEC_INFINITY)
                 mask |= CGROUP_MASK_CPU;
 
-        if (c->cpuset_cpus.set || c->cpuset_mems.set)
+        if (c->cpuset_accounting ||
+            c->cpuset_cpus.set ||
+            c->cpuset_mems.set)
                 mask |= CGROUP_MASK_CPUSET;
 
         if (cgroup_context_has_io_config(c) || cgroup_context_has_blockio_config(c))
@@ -1634,6 +1683,7 @@ static CGroupMask unit_get_cgroup_mask(Unit *u) {
 
         if (c->memory_accounting ||
             c->memory_limit != CGROUP_LIMIT_MAX ||
+            c->memory_memsw_limit != CGROUP_LIMIT_MAX ||
             unit_has_unified_memory_config(u))
                 mask |= CGROUP_MASK_MEMORY;
 
@@ -1644,6 +1694,9 @@ static CGroupMask unit_get_cgroup_mask(Unit *u) {
         if (c->tasks_accounting ||
             tasks_max_isset(&c->tasks_max))
                 mask |= CGROUP_MASK_PIDS;
+
+        if (c->freezer_accounting || c->freezer_state)
+                mask |= CGROUP_MASK_FREEZER;
 
         return CGROUP_MASK_EXTEND_JOINED(mask);
 }
@@ -4036,11 +4089,10 @@ int unit_get_cpuset(Unit *u, CPUSet *cpus, const char *name) {
         if ((u->cgroup_realized_mask & CGROUP_MASK_CPUSET) == 0)
                 return -ENODATA;
 
-        r = cg_all_unified();
-        if (r < 0)
-                return r;
-        if (r == 0)
-                return -ENODATA;
+        if (cg_all_unified() > )
+                r = cg_get_attribute("cpuset", u->cgroup_path, strjoina(name, ".effective"), &v);
+        else
+                r = cg_get_attribute("cpuset", u->cgroup_path, name, &v);
 
         r = cg_get_attribute("cpuset", u->cgroup_path, name, &v);
         if (r == -ENOENT)

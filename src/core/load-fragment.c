@@ -3714,6 +3714,8 @@ int config_parse_memory_limit(
                 c->memory_swap_max = bytes;
         else if (streq(lvalue, "MemoryLimit"))
                 c->memory_limit = bytes;
+        else if (streq(lvalue, "MemoryMemswLimit"))
+                c->memory_memsw_limit = bytes;
         else
                 return -EINVAL;
 
@@ -3765,6 +3767,39 @@ int config_parse_tasks_max(
                 *tasks_max = (TasksMax) { v };
         }
 
+        return 0;
+}
+
+int config_parse_freezer_state(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        char **freezer_state = data;
+        char *pinstr = NULL;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+
+        if (!STR_IN_SET(rvalue, "FROZEN", "THAWED")) {
+                log_syntax(unit, LOG_ERR, filename, line, EINVAL, "Freezer state '%s' is invalid, Ignoring.", rvalue);
+                return 0;
+        }
+
+        pinstr = strdup(rvalue);
+        if (!pinstr)
+                return log_oom();
+
+        free(*freezer_state);
+        *freezer_state = pinstr;
         return 0;
 }
 

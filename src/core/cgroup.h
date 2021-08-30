@@ -112,10 +112,12 @@ struct CGroupSocketBindItem {
 
 struct CGroupContext {
         bool cpu_accounting;
+        bool cpuset_accounting;
         bool io_accounting;
         bool blockio_accounting;
         bool memory_accounting;
         bool tasks_accounting;
+        bool cpuset_accounting;
         bool ip_accounting;
 
         /* Configures the memory.oom.group attribute (on unified) */
@@ -133,6 +135,8 @@ struct CGroupContext {
 
         CPUSet cpuset_cpus;
         CPUSet cpuset_mems;
+        bool cpuset_clone_children;
+        bool cpuset_memory_migrate;
 
         uint64_t io_weight;
         uint64_t startup_io_weight;
@@ -173,6 +177,7 @@ struct CGroupContext {
         LIST_HEAD(CGroupBlockIODeviceBandwidth, blockio_device_bandwidths);
 
         uint64_t memory_limit;
+        uint64_t memory_memsw_limit;
 
         CGroupDevicePolicy device_policy;
         LIST_HEAD(CGroupDeviceAllow, device_allow);
@@ -182,6 +187,9 @@ struct CGroupContext {
 
         /* Common */
         TasksMax tasks_max;
+
+        /* Freezer */
+        char *freezer_state;
 
         /* Settings for systemd-oomd */
         ManagedOOMMode moom_swap;

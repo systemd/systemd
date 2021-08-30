@@ -146,11 +146,12 @@ static usec_t arg_default_timer_accuracy_usec;
 static Set* arg_syscall_archs;
 static FILE* arg_serialization;
 static int arg_default_cpu_accounting;
-static bool arg_default_io_accounting;
+static bool arg_default_cpuset_accounting;
 static bool arg_default_ip_accounting;
 static bool arg_default_blockio_accounting;
 static bool arg_default_memory_accounting;
 static bool arg_default_tasks_accounting;
+static bool arg_default_freezer_accounting;
 static TasksMax arg_default_tasks_max;
 static sd_id128_t arg_machine_id;
 static EmergencyAction arg_cad_burst_action;
@@ -691,11 +692,13 @@ static int parse_config_file(void) {
                 { "Manager", "DefaultLimitRTPRIO",           config_parse_rlimit,                RLIMIT_RTPRIO, arg_default_rlimit         },
                 { "Manager", "DefaultLimitRTTIME",           config_parse_rlimit,                RLIMIT_RTTIME, arg_default_rlimit         },
                 { "Manager", "DefaultCPUAccounting",         config_parse_tristate,              0, &arg_default_cpu_accounting            },
+                { "Manager", "DefaultCPUSetAccounting",      config_parse_bool,                  0, &arg_default_cpuset_accounting         },
                 { "Manager", "DefaultIOAccounting",          config_parse_bool,                  0, &arg_default_io_accounting             },
                 { "Manager", "DefaultIPAccounting",          config_parse_bool,                  0, &arg_default_ip_accounting             },
                 { "Manager", "DefaultBlockIOAccounting",     config_parse_bool,                  0, &arg_default_blockio_accounting        },
                 { "Manager", "DefaultMemoryAccounting",      config_parse_bool,                  0, &arg_default_memory_accounting         },
                 { "Manager", "DefaultTasksAccounting",       config_parse_bool,                  0, &arg_default_tasks_accounting          },
+                { "Manager", "DefaultFreezerAccounting",     config_parse_bool,                  0, &arg_default_freezer_accouting         },
                 { "Manager", "DefaultTasksMax",              config_parse_tasks_max,             0, &arg_default_tasks_max                 },
                 { "Manager", "CtrlAltDelBurstAction",        config_parse_emergency_action,      0, &arg_cad_burst_action                  },
                 { "Manager", "DefaultOOMPolicy",             config_parse_oom_policy,            0, &arg_default_oom_policy                },
@@ -762,11 +765,13 @@ static void set_manager_defaults(Manager *m) {
         else
                 m->default_cpu_accounting = cpu_accounting_is_cheap();
 
+        m->default_cpuset_accounting = arg_default_cpuset_accounting;
         m->default_io_accounting = arg_default_io_accounting;
         m->default_ip_accounting = arg_default_ip_accounting;
         m->default_blockio_accounting = arg_default_blockio_accounting;
         m->default_memory_accounting = arg_default_memory_accounting;
         m->default_tasks_accounting = arg_default_tasks_accounting;
+        m->default_freezer_accounting = arg_default_freezer_accounting;
         m->default_tasks_max = arg_default_tasks_max;
         m->default_oom_policy = arg_default_oom_policy;
 
@@ -2417,11 +2422,13 @@ static void reset_arguments(void) {
         /* arg_serialization — ignore */
 
         arg_default_cpu_accounting = -1;
+        arg_default_cpuset_accounting = false;
         arg_default_io_accounting = false;
         arg_default_ip_accounting = false;
         arg_default_blockio_accounting = false;
         arg_default_memory_accounting = MEMORY_ACCOUNTING_DEFAULT;
         arg_default_tasks_accounting = true;
+        arg_default_freezer_accounting = false;
         arg_default_tasks_max = DEFAULT_TASKS_MAX;
         arg_machine_id = (sd_id128_t) {};
         arg_cad_burst_action = EMERGENCY_ACTION_REBOOT_FORCE;

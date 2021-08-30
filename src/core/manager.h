@@ -363,6 +363,7 @@ struct Manager {
         unsigned default_start_limit_burst;
 
         bool default_cpu_accounting;
+        bool default_cpuset_accounting;
         bool default_memory_accounting;
         bool default_io_accounting;
         bool default_blockio_accounting;

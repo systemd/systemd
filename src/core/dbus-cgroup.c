@@ -456,8 +456,11 @@ const sd_bus_vtable bus_cgroup_vtable[] = {
         SD_BUS_PROPERTY("StartupCPUShares", "t", NULL, offsetof(CGroupContext, startup_cpu_shares), 0),
         SD_BUS_PROPERTY("CPUQuotaPerSecUSec", "t", bus_property_get_usec, offsetof(CGroupContext, cpu_quota_per_sec_usec), 0),
         SD_BUS_PROPERTY("CPUQuotaPeriodUSec", "t", bus_property_get_usec, offsetof(CGroupContext, cpu_quota_period_usec), 0),
+        SD_BUS_PROPERTY("CPUSetAccounting", "b", bus_property_get_bool, offsetof(CGroupContext, cpuset_accounting), 0),
         SD_BUS_PROPERTY("AllowedCPUs", "ay", property_get_cpuset, offsetof(CGroupContext, cpuset_cpus), 0),
         SD_BUS_PROPERTY("AllowedMemoryNodes", "ay", property_get_cpuset, offsetof(CGroupContext, cpuset_mems), 0),
+        SD_BUS_PROPERTY("CPUSetCloneChildren", "b", bus_property_get_bool, offsetof(CGroupContext, cpuset_clone_children), 0),
+        SD_BUS_PROPERTY("CPUSetMemMigrate", "b", bus_property_get_bool, offsetof(CGroupContext, cpuset_memory_migrate), 0),
         SD_BUS_PROPERTY("IOAccounting", "b", bus_property_get_bool, offsetof(CGroupContext, io_accounting), 0),
         SD_BUS_PROPERTY("IOWeight", "t", NULL, offsetof(CGroupContext, io_weight), 0),
         SD_BUS_PROPERTY("StartupIOWeight", "t", NULL, offsetof(CGroupContext, startup_io_weight), 0),
@@ -482,10 +485,13 @@ const sd_bus_vtable bus_cgroup_vtable[] = {
         SD_BUS_PROPERTY("MemoryMax", "t", NULL, offsetof(CGroupContext, memory_max), 0),
         SD_BUS_PROPERTY("MemorySwapMax", "t", NULL, offsetof(CGroupContext, memory_swap_max), 0),
         SD_BUS_PROPERTY("MemoryLimit", "t", NULL, offsetof(CGroupContext, memory_limit), 0),
+        SD_BUS_PROPERTY("MemoryMemswLimit", "t", NULL, offsetof(CGroupContext, memory_limit), 0),
         SD_BUS_PROPERTY("DevicePolicy", "s", property_get_cgroup_device_policy, offsetof(CGroupContext, device_policy), 0),
         SD_BUS_PROPERTY("DeviceAllow", "a(ss)", property_get_device_allow, 0, 0),
         SD_BUS_PROPERTY("TasksAccounting", "b", bus_property_get_bool, offsetof(CGroupContext, tasks_accounting), 0),
         SD_BUS_PROPERTY("TasksMax", "t", bus_property_get_tasks_max, offsetof(CGroupContext, tasks_max), 0),
+        SD_BUS_PROPERTY("FreezerAccounting", "b", bus_property_get_bool, offsetof(CGroupContext, freezer_accounting), 0),
+        SD_BUS_PROPERTY("FreezerState", "s", NULL, offsetof(CGroupContext, freezer_state), 0),
         SD_BUS_PROPERTY("IPAccounting", "b", bus_property_get_bool, offsetof(CGroupContext, ip_accounting), 0),
         SD_BUS_PROPERTY("IPAddressAllow", "a(iayu)", property_get_ip_address_access, offsetof(CGroupContext, ip_address_allow), 0),
         SD_BUS_PROPERTY("IPAddressDeny", "a(iayu)", property_get_ip_address_access, offsetof(CGroupContext, ip_address_deny), 0),
@@ -1007,6 +1013,15 @@ int bus_cgroup_set_property(
         if (streq(name, "StartupCPUShares"))
                 return bus_cgroup_set_cpu_shares(u, name, &c->startup_cpu_shares, message, flags, error);
 
+        if (streq(name, "CPUSetAccounting"))
+                return bus_cgroup_set_boolean(u, name, &c->cpuset_accounting, CGROUP_MASK_CPUSET, message, flags, error);
+
+        if (streq(name, "CPUSetCloneChildren"))
+                return bus_cgroup_set_boolean(u, name, &c->cpuset_clone_children, CGROUP_MASK_CPUSET, message, flags, error);
+
+        if (streq(name, "CPUSetMemMigrate"))
+                return bus_cgroup_set_boolean(u, name, &c->cpuset_memory_migrate, CGROUP_MASK_CPUSET, message, flags, error);
+
         if (streq(name, "IOAccounting"))
                 return bus_cgroup_set_boolean(u, name, &c->io_accounting, CGROUP_MASK_IO, message, flags, error);
 
@@ -1068,6 +1083,9 @@ int bus_cgroup_set_property(
         if (streq(name, "MemoryLimit"))
                 return bus_cgroup_set_memory(u, name, &c->memory_limit, message, flags, error);
 
+        if (streq(name, "MemoryMemswLimit"))
+                return bus_cgroup_set_memory(u, name, &c->memory_memsw_limit, message, flags, error);
+
         if (streq(name, "MemoryMinScale")) {
                 r = bus_cgroup_set_memory_protection_scale(u, name, &c->memory_min, message, flags, error);
                 if (r > 0)
@@ -1116,6 +1134,31 @@ int bus_cgroup_set_property(
 
         if (streq(name, "TasksMaxScale"))
                 return bus_cgroup_set_tasks_max_scale(u, name, &c->tasks_max, message, flags, error);
+
+        if (streq(name, "FreezerAccounting"))
+                return bus_cgroup_set_boolean(u, name, &c->freezer_accounting, CGROUP_MASK_FREEZER, message, flags, error);
+        
+        if (streq(name, "FreezerState")) {
+                const char *state = NULL;
+
+                r = sd_bus_message_read(message, "s", &state);
+                if (r < 0)
+                        return r;
+
+                if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
+                        unit_invalidate_cgroup(u, CGROUP_MASK_FREEZER);
+
+                        if (c->freezer_state)
+                                mfree(c->freezer_state);
+
+                        c->freezer_state = strdup(state);
+                        if (!c->freezer_state)
+                                return -ENOMEM;
+
+                        unit_write_settingf(u, flags, name, "FreezerState=%s", state);
+                }
+                return 1;
+        }
 
         if (streq(name, "CPUQuotaPerSecUSec")) {
                 uint64_t u64;
