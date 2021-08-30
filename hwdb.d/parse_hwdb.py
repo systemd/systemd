@@ -80,6 +80,7 @@ TYPES = {'mouse':    ('usb', 'bluetooth', 'ps2', '*'),
 GENERAL_MATCHES = {'acpi',
                    'bluetooth',
                    'usb',
+                   'usb_device',
                    'pci',
                    'sdio',
                    'vmbus',
@@ -147,6 +148,7 @@ def property_grammar():
              ('ID_INPUT_TOUCHPAD', Or((Literal('0'), Literal('1')))),
              ('ID_INPUT_TOUCHSCREEN', Or((Literal('0'), Literal('1')))),
              ('ID_INPUT_TRACKBALL', Or((Literal('0'), Literal('1')))),
+             ('ID_PROTOCOL_ANALYZER', Or((Literal('0'), Literal('1')))),
              ('POINTINGSTICK_SENSITIVITY', INTEGER),
              ('POINTINGSTICK_CONST_ACCEL', REAL),
              ('ID_INPUT_JOYSTICK_INTEGRATION', Or(('internal', 'external'))),
@@ -206,9 +208,10 @@ def check_matches(groups):
     matches = sum((group[0] for group in groups), [])
 
     # This is a partial check. The other cases could be also done, but those
-    # two are most commonly wrong.
-    grammars = { 'usb' : 'v' + upperhex_word(4) + Optional('p' + upperhex_word(4)),
-                 'pci' : 'v' + upperhex_word(8) + Optional('d' + upperhex_word(8)),
+    # three are most commonly wrong.
+    grammars = { 'usb'        : 'v' + upperhex_word(4) + Optional('p' + upperhex_word(4)),
+                 'usb_device' : 'v' + upperhex_word(4) + Optional('p' + upperhex_word(4)),
+                 'pci'        : 'v' + upperhex_word(8) + Optional('d' + upperhex_word(8)),
     }
 
     for match in matches:
