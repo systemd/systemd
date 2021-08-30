@@ -38,6 +38,9 @@
 #include "user-record.h"
 #include "user-util.h"
 
+/* Retry to deactivate home directories again and again every 15s until it works */
+#define RETRY_DEACTIVATE_USEC (15U * USEC_PER_SEC)
+
 #define HOME_USERS_MAX 500
 #define PENDING_OPERATIONS_MAX 100
 
@@ -206,6 +209,8 @@ Home *home_free(Home *h) {
 
         safe_close(h->pin_fd);
 
+        h->retry_deactivate_event_source = sd_event_source_disable_unref(h->retry_deactivate_event_source);
+
         return mfree(h);
 }
 
@@ -359,7 +364,83 @@ static void home_update_pin_fd(Home *h, HomeState state) {
         if (state < 0)
                 state = home_get_state(h);
 
-        return HOME_STATE_IS_ACTIVE(state) ? home_pin(h) : home_unpin(h);
+        return HOME_STATE_SHALL_PIN(state) ? home_pin(h) : home_unpin(h);
+}
+
+static void home_maybe_stop_retry_deactivate(Home *h, HomeState state) {
+        assert(h);
+
+        /* Free the deactivation retry event source if we won't need it anymore. Specifically, we'll free the
+         * event source whenever the home directory is already deactivated (and we thus where successful) or
+         * if we start executing an operation that indicates that the home directory is going to be used or
+         * operated on again. Also, if the home is referenced again stop the timer */
+
+        if (HOME_STATE_MAY_RETRY_DEACTIVATE(state) &&
+            !h->ref_event_source_dont_suspend &&
+            !h->ref_event_source_please_suspend)
+                return;
+
+        h->retry_deactivate_event_source = sd_event_source_disable_unref(h->retry_deactivate_event_source);
+}
+
+static int home_deactivate_internal(Home *h, bool force, sd_bus_error *error);
+static void home_start_retry_deactivate(Home *h);
+
+static int home_on_retry_deactivate(sd_event_source *s, uint64_t usec, void *userdata) {
+        Home *h = userdata;
+        HomeState state;
+
+        assert(s);
+        assert(h);
+
+        /* 15s after the last attempt to deactivate the home directory passed. Let's try it one more time. */
+
+        h->retry_deactivate_event_source = sd_event_source_disable_unref(h->retry_deactivate_event_source);
+
+        state = home_get_state(h);
+        if (!HOME_STATE_MAY_RETRY_DEACTIVATE(state))
+                return 0;
+
+        if (IN_SET(state, HOME_ACTIVE, HOME_LINGERING)) {
+                log_info("Again trying to deactivate home directory.");
+
+                /* If we are not executing any operation, let's start deactivating now. Note that this will
+                 * restart our timer again, we are gonna be called again if this doesn't work. */
+                (void) home_deactivate_internal(h, /* force= */ false, NULL);
+        } else
+                /* if we are executing an operation (specifically, area already running a deactivation
+                 * operation), then simply reque the timer, so that we retry again. */
+                home_start_retry_deactivate(h);
+
+        return 0;
+}
+
+static void home_start_retry_deactivate(Home *h) {
+        int r;
+
+        assert(h);
+        assert(h->manager);
+
+        /* Alrady allocated? */
+        if (h->retry_deactivate_event_source)
+                return;
+
+        /* If the home directory is being used now don't start the timer */
+        if (h->ref_event_source_dont_suspend || h->ref_event_source_please_suspend)
+                return;
+
+        r = sd_event_add_time_relative(
+                        h->manager->event,
+                        &h->retry_deactivate_event_source,
+                        CLOCK_MONOTONIC,
+                        RETRY_DEACTIVATE_USEC,
+                        1*USEC_PER_MINUTE,
+                        home_on_retry_deactivate,
+                        h);
+        if (r < 0)
+                return (void) log_warning_errno(r, "Failed to install retry-deactivate event source, ignoring: %m");
+
+        (void) sd_event_source_set_description(h->retry_deactivate_event_source, "retry-deactivate");
 }
 
 static void home_set_state(Home *h, HomeState state) {
@@ -377,6 +458,7 @@ static void home_set_state(Home *h, HomeState state) {
                  home_state_to_string(new_state));
 
         home_update_pin_fd(h, new_state);
+        home_maybe_stop_retry_deactivate(h, new_state);
 
         if (HOME_STATE_IS_EXECUTING_OPERATION(old_state) && !HOME_STATE_IS_EXECUTING_OPERATION(new_state)) {
                 /* If we just finished executing some operation, process the queue of pending operations. And
@@ -1196,6 +1278,7 @@ int home_fixate(Home *h, UserRecord *secret, sd_bus_error *error) {
         case HOME_INACTIVE:
         case HOME_DIRTY:
         case HOME_ACTIVE:
+        case HOME_LINGERING:
         case HOME_LOCKED:
                 return sd_bus_error_setf(error, BUS_ERROR_HOME_ALREADY_FIXATED, "Home %s is already fixated.", h->user_name);
         case HOME_UNFIXATED:
@@ -1237,6 +1320,11 @@ int home_activate(Home *h, UserRecord *secret, sd_bus_error *error) {
                 return sd_bus_error_setf(error, BUS_ERROR_HOME_ABSENT, "Home %s is currently missing or not plugged in.", h->user_name);
         case HOME_ACTIVE:
                 return sd_bus_error_setf(error, BUS_ERROR_HOME_ALREADY_ACTIVE, "Home %s is already active.", h->user_name);
+        case HOME_LINGERING:
+                /* If we are lingering, i.e. active but are supposed to be deactivated, then cancel this
+                 * timer if the user explicitly asks us to be active */
+                h->retry_deactivate_event_source = sd_event_source_disable_unref(h->retry_deactivate_event_source);
+                return 0;
         case HOME_LOCKED:
                 return sd_bus_error_setf(error, BUS_ERROR_HOME_LOCKED, "Home %s is currently locked.", h->user_name);
         case HOME_INACTIVE:
@@ -1283,6 +1371,7 @@ int home_authenticate(Home *h, UserRecord *secret, sd_bus_error *error) {
         case HOME_INACTIVE:
         case HOME_DIRTY:
         case HOME_ACTIVE:
+        case HOME_LINGERING:
                 break;
         default:
                 return sd_bus_error_setf(error, BUS_ERROR_HOME_BUSY, "An operation on home %s is currently being executed.", h->user_name);
@@ -1292,7 +1381,7 @@ int home_authenticate(Home *h, UserRecord *secret, sd_bus_error *error) {
         if (r < 0)
                 return r;
 
-        return home_authenticate_internal(h, secret, state == HOME_ACTIVE ? HOME_AUTHENTICATING_WHILE_ACTIVE : HOME_AUTHENTICATING, error);
+        return home_authenticate_internal(h, secret, HOME_STATE_IS_ACTIVE(state) ? HOME_AUTHENTICATING_WHILE_ACTIVE : HOME_AUTHENTICATING, error);
 }
 
 static int home_deactivate_internal(Home *h, bool force, sd_bus_error *error) {
@@ -1303,14 +1392,19 @@ static int home_deactivate_internal(Home *h, bool force, sd_bus_error *error) {
         home_unpin(h); /* unpin so that we can deactivate */
 
         r = home_start_work(h, force ? "deactivate-force" : "deactivate", h->record, NULL);
-        if (r < 0) {
+        if (r < 0)
                 /* Operation failed before it even started, reacquire pin fd, if state still dictates so */
                 home_update_pin_fd(h, _HOME_STATE_INVALID);
-                return r;
+        else {
+                home_set_state(h, HOME_DEACTIVATING);
+                r = 0;
         }
 
-        home_set_state(h, HOME_DEACTIVATING);
-        return 0;
+        /* Let's start a timer to retry deactivation in 15. We'll stop the timer once we manage to deactivate
+         * the home directory again, or we we start any other operation. */
+        home_start_retry_deactivate(h);
+
+        return r;
 }
 
 int home_deactivate(Home *h, bool force, sd_bus_error *error) {
@@ -1325,6 +1419,7 @@ int home_deactivate(Home *h, bool force, sd_bus_error *error) {
         case HOME_LOCKED:
                 return sd_bus_error_setf(error, BUS_ERROR_HOME_LOCKED, "Home %s is currently locked.", h->user_name);
         case HOME_ACTIVE:
+        case HOME_LINGERING:
                 break;
         default:
                 return sd_bus_error_setf(error, BUS_ERROR_HOME_BUSY, "An operation on home %s is currently being executed.", h->user_name);
@@ -1361,6 +1456,7 @@ int home_create(Home *h, UserRecord *secret, sd_bus_error *error) {
         case HOME_ABSENT:
                 break;
         case HOME_ACTIVE:
+        case HOME_LINGERING:
         case HOME_LOCKED:
         default:
                 return sd_bus_error_setf(error, BUS_ERROR_HOME_BUSY, "Home %s is currently being used, or an operation on home %s is currently being executed.", h->user_name, h->user_name);
@@ -1399,6 +1495,7 @@ int home_remove(Home *h, sd_bus_error *error) {
         case HOME_DIRTY:
                 break;
         case HOME_ACTIVE:
+        case HOME_LINGERING:
         default:
                 return sd_bus_error_setf(error, BUS_ERROR_HOME_BUSY, "Home %s is currently being used, or an operation on home %s is currently being executed.", h->user_name, h->user_name);
         }
@@ -1537,6 +1634,7 @@ int home_update(Home *h, UserRecord *hr, sd_bus_error *error) {
         case HOME_INACTIVE:
         case HOME_DIRTY:
         case HOME_ACTIVE:
+        case HOME_LINGERING:
                 break;
         default:
                 return sd_bus_error_setf(error, BUS_ERROR_HOME_BUSY, "An operation on home %s is currently being executed.", h->user_name);
@@ -1550,7 +1648,7 @@ int home_update(Home *h, UserRecord *hr, sd_bus_error *error) {
         if (r < 0)
                 return r;
 
-        home_set_state(h, state == HOME_ACTIVE ? HOME_UPDATING_WHILE_ACTIVE : HOME_UPDATING);
+        home_set_state(h, HOME_STATE_IS_ACTIVE(state) ? HOME_UPDATING_WHILE_ACTIVE : HOME_UPDATING);
         return 0;
 }
 
@@ -1572,6 +1670,7 @@ int home_resize(Home *h, uint64_t disk_size, UserRecord *secret, sd_bus_error *e
         case HOME_INACTIVE:
         case HOME_DIRTY:
         case HOME_ACTIVE:
+        case HOME_LINGERING:
                 break;
         default:
                 return sd_bus_error_setf(error, BUS_ERROR_HOME_BUSY, "An operation on home %s is currently being executed.", h->user_name);
@@ -1620,7 +1719,7 @@ int home_resize(Home *h, uint64_t disk_size, UserRecord *secret, sd_bus_error *e
         if (r < 0)
                 return r;
 
-        home_set_state(h, state == HOME_ACTIVE ? HOME_RESIZING_WHILE_ACTIVE : HOME_RESIZING);
+        home_set_state(h, HOME_STATE_IS_ACTIVE(state) ? HOME_RESIZING_WHILE_ACTIVE : HOME_RESIZING);
         return 0;
 }
 
@@ -1668,6 +1767,7 @@ int home_passwd(Home *h,
         case HOME_INACTIVE:
         case HOME_DIRTY:
         case HOME_ACTIVE:
+        case HOME_LINGERING:
                 break;
         default:
                 return sd_bus_error_setf(error, BUS_ERROR_HOME_BUSY, "An operation on home %s is currently being executed.", h->user_name);
@@ -1733,7 +1833,7 @@ int home_passwd(Home *h,
         if (r < 0)
                 return r;
 
-        home_set_state(h, state == HOME_ACTIVE ? HOME_PASSWD_WHILE_ACTIVE : HOME_PASSWD);
+        home_set_state(h, HOME_STATE_IS_ACTIVE(state) ? HOME_PASSWD_WHILE_ACTIVE : HOME_PASSWD);
         return 0;
 }
 
@@ -1752,6 +1852,7 @@ int home_unregister(Home *h, sd_bus_error *error) {
         case HOME_DIRTY:
                 break;
         case HOME_ACTIVE:
+        case HOME_LINGERING:
         default:
                 return sd_bus_error_setf(error, BUS_ERROR_HOME_BUSY, "Home %s is currently being used, or an operation on home %s is currently being executed.", h->user_name, h->user_name);
         }
@@ -1779,6 +1880,7 @@ int home_lock(Home *h, sd_bus_error *error) {
         case HOME_LOCKED:
                 return sd_bus_error_setf(error, BUS_ERROR_HOME_LOCKED, "Home %s is already locked.", h->user_name);
         case HOME_ACTIVE:
+        case HOME_LINGERING:
                 break;
         default:
                 return sd_bus_error_setf(error, BUS_ERROR_HOME_BUSY, "An operation on home %s is currently being executed.", h->user_name);
@@ -1819,6 +1921,7 @@ int home_unlock(Home *h, UserRecord *secret, sd_bus_error *error) {
         case HOME_ABSENT:
         case HOME_INACTIVE:
         case HOME_ACTIVE:
+        case HOME_LINGERING:
         case HOME_DIRTY:
                 return sd_bus_error_setf(error, BUS_ERROR_HOME_NOT_LOCKED, "Home %s is not locked.", h->user_name);
         case HOME_LOCKED:
@@ -1841,7 +1944,7 @@ HomeState home_get_state(Home *h) {
         /* Otherwise, let's see if the home directory is mounted. If so, we assume for sure the home
          * directory is active */
         if (user_record_test_home_directory(h->record) == USER_TEST_MOUNTED)
-                return HOME_ACTIVE;
+                return h->retry_deactivate_event_source ? HOME_LINGERING : HOME_ACTIVE;
 
         /* And if we see the image being gone, we report this as absent */
         r = user_record_test_image_path(h->record);
@@ -2424,6 +2527,7 @@ static int home_dispatch_acquire(Home *h, Operation *o) {
                 break;
 
         case HOME_ACTIVE:
+        case HOME_LINGERING:
                 for_state = HOME_AUTHENTICATING_FOR_ACQUIRE;
                 call = home_authenticate_internal;
                 break;
@@ -2478,6 +2582,7 @@ static int home_dispatch_release(Home *h, Operation *o) {
                         break;
 
                 case HOME_ACTIVE:
+                case HOME_LINGERING:
                         r = home_deactivate_internal(h, false, &error);
                         break;
 
@@ -2522,6 +2627,7 @@ static int home_dispatch_lock_all(Home *h, Operation *o) {
                 break;
 
         case HOME_ACTIVE:
+        case HOME_LINGERING:
                 log_info("Locking home %s.", h->user_name);
                 r = home_lock(h, &error);
                 break;
@@ -2566,6 +2672,7 @@ static int home_dispatch_deactivate_all(Home *h, Operation *o) {
                 break;
 
         case HOME_ACTIVE:
+        case HOME_LINGERING:
                 log_info("Deactivating home %s.", h->user_name);
                 r = home_deactivate_internal(h, false, &error);
                 break;
@@ -2611,6 +2718,7 @@ static int home_dispatch_pipe_eof(Home *h, Operation *o) {
                 break;
 
         case HOME_ACTIVE:
+        case HOME_LINGERING:
                 r = home_deactivate_internal(h, false, &error);
                 if (r < 0)
                         log_warning_errno(r, "Failed to deactivate %s, ignoring: %s", h->user_name, bus_error_message(&error, r));
@@ -2652,6 +2760,7 @@ static int home_dispatch_deactivate_force(Home *h, Operation *o) {
 
         case HOME_ACTIVE:
         case HOME_LOCKED:
+        case HOME_LINGERING:
                 r = home_deactivate_internal(h, true, &error);
                 if (r < 0)
                         log_warning_errno(r, "Failed to forcibly deactivate %s, ignoring: %s", h->user_name, bus_error_message(&error, r));
@@ -2872,6 +2981,7 @@ static const char* const home_state_table[_HOME_STATE_MAX] = {
         [HOME_ACTIVATING_FOR_ACQUIRE]      = "activating-for-acquire",
         [HOME_DEACTIVATING]                = "deactivating",
         [HOME_ACTIVE]                      = "active",
+        [HOME_LINGERING]                   = "lingering",
         [HOME_LOCKING]                     = "locking",
         [HOME_LOCKED]                      = "locked",
         [HOME_UNLOCKING]                   = "unlocking",
