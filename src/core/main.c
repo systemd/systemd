@@ -157,6 +157,7 @@ static EmergencyAction arg_cad_burst_action;
 static OOMPolicy arg_default_oom_policy;
 static CPUSet arg_cpu_affinity;
 static NUMAPolicy arg_numa_policy;
+static char *arg_default_unit_slice = NULL;
 static usec_t arg_clock_usec;
 static void *arg_random_seed;
 static size_t arg_random_seed_size;
@@ -699,6 +700,7 @@ static int parse_config_file(void) {
                 { "Manager", "DefaultTasksMax",              config_parse_tasks_max,             0, &arg_default_tasks_max                 },
                 { "Manager", "CtrlAltDelBurstAction",        config_parse_emergency_action,      0, &arg_cad_burst_action                  },
                 { "Manager", "DefaultOOMPolicy",             config_parse_oom_policy,            0, &arg_default_oom_policy                },
+                { "Manager", "DefaultUnitSlice",             config_parse_string,                0, &arg_default_unit_slice                },
                 {}
         };
 
@@ -774,6 +776,20 @@ static void set_manager_defaults(Manager *m) {
 
         (void) manager_default_environment(m);
         (void) manager_transient_environment_add(m, arg_default_environment);
+        if (m->default_unit_slice)
+                mfree(m->default_unit_slice);
+        if (arg_default_unit_slice) {
+                char *default_unit_slice_tmp = NULL;
+
+                default_unit_slice_tmp = strdup(arg_default_unit_slice);
+                if (!default_unit_slice_tmp)
+                        log_oom();
+
+                m->default_unit_slice = default_unit_slice_tmp;
+
+                /* free */
+                mfree(arg_default_unit_slice);
+        }
 }
 
 static void set_manager_settings(Manager *m) {
