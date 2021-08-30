@@ -3714,6 +3714,8 @@ int config_parse_memory_limit(
                 c->memory_swap_max = bytes;
         else if (streq(lvalue, "MemoryLimit"))
                 c->memory_limit = bytes;
+        else if (streq(lvalue, "MemoryMemswLimit"))
+                c->memory_memsw_limit = bytes;
         else
                 return -EINVAL;
 

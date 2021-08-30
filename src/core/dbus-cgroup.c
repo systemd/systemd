@@ -485,6 +485,7 @@ const sd_bus_vtable bus_cgroup_vtable[] = {
         SD_BUS_PROPERTY("MemoryMax", "t", NULL, offsetof(CGroupContext, memory_max), 0),
         SD_BUS_PROPERTY("MemorySwapMax", "t", NULL, offsetof(CGroupContext, memory_swap_max), 0),
         SD_BUS_PROPERTY("MemoryLimit", "t", NULL, offsetof(CGroupContext, memory_limit), 0),
+        SD_BUS_PROPERTY("MemoryMemswLimit", "t", NULL, offsetof(CGroupContext, memory_limit), 0),
         SD_BUS_PROPERTY("DevicePolicy", "s", property_get_cgroup_device_policy, offsetof(CGroupContext, device_policy), 0),
         SD_BUS_PROPERTY("DeviceAllow", "a(ss)", property_get_device_allow, 0, 0),
         SD_BUS_PROPERTY("TasksAccounting", "b", bus_property_get_bool, offsetof(CGroupContext, tasks_accounting), 0),
@@ -1081,6 +1082,9 @@ int bus_cgroup_set_property(
 
         if (streq(name, "MemoryLimit"))
                 return bus_cgroup_set_memory(u, name, &c->memory_limit, message, flags, error);
+
+        if (streq(name, "MemoryMemswLimit"))
+                return bus_cgroup_set_memory(u, name, &c->memory_memsw_limit, message, flags, error);
 
         if (streq(name, "MemoryMinScale")) {
                 r = bus_cgroup_set_memory_protection_scale(u, name, &c->memory_min, message, flags, error);

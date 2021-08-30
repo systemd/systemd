@@ -126,6 +126,7 @@ void cgroup_context_init(CGroupContext *c) {
                 .memory_swap_max = CGROUP_LIMIT_MAX,
 
                 .memory_limit = CGROUP_LIMIT_MAX,
+                .memory_memsw_limit = CGROUP_LIMIT_MAX,
 
                 .io_weight = CGROUP_WEIGHT_INVALID,
                 .startup_io_weight = CGROUP_WEIGHT_INVALID,
@@ -453,6 +454,7 @@ void cgroup_context_dump(Unit *u, FILE* f, const char *prefix) {
                 "%sMemoryLimit: %" PRIu64 "\n"
                 "%sTasksMax: %" PRIu64 "\n"
                 "%sFreezerState: %s\n"
+                "%sMemoryMemswLimit: %" PRIu64 "\n"
                 "%sDevicePolicy: %s\n"
                 "%sDisableControllers: %s\n"
                 "%sDelegate: %s\n"
@@ -490,6 +492,7 @@ void cgroup_context_dump(Unit *u, FILE* f, const char *prefix) {
                 prefix, c->memory_max, format_cgroup_memory_limit_comparison(cdd, sizeof(cdd), u, "MemoryMax"),
                 prefix, c->memory_swap_max, format_cgroup_memory_limit_comparison(cde, sizeof(cde), u, "MemorySwapMax"),
                 prefix, c->memory_limit,
+                prefix, c->memory_memsw_limit,
                 prefix, tasks_max_resolve(&c->tasks_max),
                 prefix, c->freezer_state,
                 prefix, cgroup_device_policy_to_string(c->device_policy),
@@ -1499,13 +1502,16 @@ static void cgroup_context_apply(
 
                 } else {
                         char buf[DECIMAL_STR_MAX(uint64_t) + 1];
-                        uint64_t val;
+                        uint64_t val, sw_val;
 
                         if (unit_has_unified_memory_config(u)) {
                                 val = c->memory_max;
+                                sw_val = CGROUP_LIMIT_MAX;
                                 log_cgroup_compat(u, "Applying MemoryMax=%" PRIi64 " as MemoryLimit=", val);
-                        } else
+                        } else {
                                 val = c->memory_limit;
+                                sw_val = c->memory_memsw_limit;
+                        }
 
                         if (val == CGROUP_LIMIT_MAX)
                                 strncpy(buf, "-1\n", sizeof(buf));
@@ -1513,6 +1519,12 @@ static void cgroup_context_apply(
                                 xsprintf(buf, "%" PRIu64 "\n", val);
 
                         (void) set_attribute_and_warn(u, "memory", "memory.limit_in_bytes", buf);
+
+                        if (sw_val = CGROUP_LIMIT_MAX)
+                                strncpy(buf, "-1\n", sizeof(buf));
+                        else
+                                xsprintf(buf, "%" PRIu64 "\n", sw_val);
+                        (void) set_attribute_and_warn(u, "memory", "memory.memsw.limit_in_bytes", buf);
                 }
         }
 
@@ -1671,6 +1683,7 @@ static CGroupMask unit_get_cgroup_mask(Unit *u) {
 
         if (c->memory_accounting ||
             c->memory_limit != CGROUP_LIMIT_MAX ||
+            c->memory_memsw_limit != CGROUP_LIMIT_MAX ||
             unit_has_unified_memory_config(u))
                 mask |= CGROUP_MASK_MEMORY;
 

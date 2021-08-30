@@ -521,6 +521,7 @@ static int bus_append_cgroup_property(sd_bus_message *m, const char *field, cons
                               "MemoryMax",
                               "MemorySwapMax",
                               "MemoryLimit",
+                              "MemoryMemswLimit",
                               "TasksMax")) {
 
                 if (streq(eq, "infinity")) {

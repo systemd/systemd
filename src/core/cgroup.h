@@ -177,6 +177,7 @@ struct CGroupContext {
         LIST_HEAD(CGroupBlockIODeviceBandwidth, blockio_device_bandwidths);
 
         uint64_t memory_limit;
+        uint64_t memory_memsw_limit;
 
         CGroupDevicePolicy device_policy;
         LIST_HEAD(CGroupDeviceAllow, device_allow);
