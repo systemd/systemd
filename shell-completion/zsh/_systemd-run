@@ -43,7 +43,7 @@ _arguments \
     '--path-property=[Set path unit property]:NAME=VALUE' \
     {-P,--pipe}'[Inherit standard input, output, and error]' \
     {-p+,--property=}'[Set unit property]:NAME=VALUE:(( \
-                CPUAccounting= MemoryAccounting= BlockIOAccounting= SendSIGHUP= \
+                CPUAccounting=  CPUSetAccounting= MemoryAccounting= BlockIOAccounting= SendSIGHUP= \
                 SendSIGKILL= MemoryLimit= CPUShares= BlockIOWeight= User= Group= \
                 DevicePolicy= KillMode= DeviceAllow= BlockIOReadBandwidth= \
                 BlockIOWriteBandwidth= BlockIODeviceWeight= Nice= Environment= \

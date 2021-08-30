@@ -54,6 +54,7 @@ static int test_cgroup_mask(void) {
          * verify the masks resulting of our configuration and nothing
          * else. */
         m->default_cpu_accounting =
+                m->default_cpuset_accounting = 
                 m->default_memory_accounting =
                 m->default_blockio_accounting =
                 m->default_io_accounting =

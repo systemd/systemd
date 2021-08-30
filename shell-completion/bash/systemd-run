@@ -76,7 +76,7 @@ _systemd_run() {
             return 0
             ;;
         -p|--property)
-            local comps='CPUAccounting= MemoryAccounting= BlockIOAccounting= SendSIGHUP=
+            local comps='CPUAccounting= CPUSetAccounting= MemoryAccounting= BlockIOAccounting= SendSIGHUP=
                          SendSIGKILL= MemoryLimit= CPUShares= BlockIOWeight= User= Group=
                          DevicePolicy= KillMode= DeviceAllow= BlockIOReadBandwidth=
                          BlockIOWriteBandwidth= BlockIODeviceWeight= Nice= Environment=

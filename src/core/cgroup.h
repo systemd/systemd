@@ -112,6 +112,7 @@ struct CGroupSocketBindItem {
 
 struct CGroupContext {
         bool cpu_accounting;
+        bool cpuset_accounting;
         bool io_accounting;
         bool blockio_accounting;
         bool memory_accounting;
@@ -133,6 +134,8 @@ struct CGroupContext {
 
         CPUSet cpuset_cpus;
         CPUSet cpuset_mems;
+        bool cpuset_clone_children;
+        bool cpuset_memory_migrate;
 
         uint64_t io_weight;
         uint64_t startup_io_weight;

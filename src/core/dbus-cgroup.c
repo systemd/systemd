@@ -456,8 +456,11 @@ const sd_bus_vtable bus_cgroup_vtable[] = {
         SD_BUS_PROPERTY("StartupCPUShares", "t", NULL, offsetof(CGroupContext, startup_cpu_shares), 0),
         SD_BUS_PROPERTY("CPUQuotaPerSecUSec", "t", bus_property_get_usec, offsetof(CGroupContext, cpu_quota_per_sec_usec), 0),
         SD_BUS_PROPERTY("CPUQuotaPeriodUSec", "t", bus_property_get_usec, offsetof(CGroupContext, cpu_quota_period_usec), 0),
+        SD_BUS_PROPERTY("CPUSetAccounting", "b", bus_property_get_bool, offsetof(CGroupContext, cpuset_accounting), 0),
         SD_BUS_PROPERTY("AllowedCPUs", "ay", property_get_cpuset, offsetof(CGroupContext, cpuset_cpus), 0),
         SD_BUS_PROPERTY("AllowedMemoryNodes", "ay", property_get_cpuset, offsetof(CGroupContext, cpuset_mems), 0),
+        SD_BUS_PROPERTY("CPUSetCloneChildren", "b", bus_property_get_bool, offsetof(CGroupContext, cpuset_clone_children), 0),
+        SD_BUS_PROPERTY("CPUSetMemMigrate", "b", bus_property_get_bool, offsetof(CGroupContext, cpuset_memory_migrate), 0),
         SD_BUS_PROPERTY("IOAccounting", "b", bus_property_get_bool, offsetof(CGroupContext, io_accounting), 0),
         SD_BUS_PROPERTY("IOWeight", "t", NULL, offsetof(CGroupContext, io_weight), 0),
         SD_BUS_PROPERTY("StartupIOWeight", "t", NULL, offsetof(CGroupContext, startup_io_weight), 0),
@@ -1006,6 +1009,15 @@ int bus_cgroup_set_property(
 
         if (streq(name, "StartupCPUShares"))
                 return bus_cgroup_set_cpu_shares(u, name, &c->startup_cpu_shares, message, flags, error);
+
+        if (streq(name, "CPUSetAccounting"))
+                return bus_cgroup_set_boolean(u, name, &c->cpuset_accounting, CGROUP_MASK_CPUSET, message, flags, error);
+
+        if (streq(name, "CPUSetCloneChildren"))
+                return bus_cgroup_set_boolean(u, name, &c->cpuset_clone_children, CGROUP_MASK_CPUSET, message, flags, error);
+
+        if (streq(name, "CPUSetMemMigrate"))
+                return bus_cgroup_set_boolean(u, name, &c->cpuset_memory_migrate, CGROUP_MASK_CPUSET, message, flags, error);
 
         if (streq(name, "IOAccounting"))
                 return bus_cgroup_set_boolean(u, name, &c->io_accounting, CGROUP_MASK_IO, message, flags, error);

@@ -49,6 +49,7 @@
 #DefaultStartLimitBurst=5
 #DefaultEnvironment=
 #DefaultCPUAccounting=no
+#DefaultCPUSetAccounting=no
 #DefaultIOAccounting=no
 #DefaultIPAccounting=no
 #DefaultBlockIOAccounting=no

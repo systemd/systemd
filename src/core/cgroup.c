@@ -418,6 +418,7 @@ void cgroup_context_dump(Unit *u, FILE* f, const char *prefix) {
 
         fprintf(f,
                 "%sCPUAccounting: %s\n"
+                "%sCPUSetAccounting: %s\n"
                 "%sIOAccounting: %s\n"
                 "%sBlockIOAccounting: %s\n"
                 "%sMemoryAccounting: %s\n"
@@ -431,6 +432,8 @@ void cgroup_context_dump(Unit *u, FILE* f, const char *prefix) {
                 "%sCPUQuotaPeriodSec: %s\n"
                 "%sAllowedCPUs: %s\n"
                 "%sAllowedMemoryNodes: %s\n"
+                "%sCPUSetCloneChildren: %s\n"
+                "%sCPUSetMemMigrate: %s\n"
                 "%sIOWeight: %" PRIu64 "\n"
                 "%sStartupIOWeight: %" PRIu64 "\n"
                 "%sBlockIOWeight: %" PRIu64 "\n"
@@ -452,6 +455,7 @@ void cgroup_context_dump(Unit *u, FILE* f, const char *prefix) {
                 "%sManagedOOMMemoryPressureLimit: " PERMYRIAD_AS_PERCENT_FORMAT_STR "\n"
                 "%sManagedOOMPreference: %s\n",
                 prefix, yes_no(c->cpu_accounting),
+                prefix, yes_no(c->cpuset_accounting),
                 prefix, yes_no(c->io_accounting),
                 prefix, yes_no(c->blockio_accounting),
                 prefix, yes_no(c->memory_accounting),
@@ -465,6 +469,8 @@ void cgroup_context_dump(Unit *u, FILE* f, const char *prefix) {
                 prefix, FORMAT_TIMESPAN(c->cpu_quota_period_usec, 1),
                 prefix, strempty(cpuset_cpus),
                 prefix, strempty(cpuset_mems),
+                prefix, yes_no(c->cpuset_clone_children),
+                prefix, yes_no(c->cpuset_memory_migrate),
                 prefix, c->io_weight,
                 prefix, c->startup_io_weight,
                 prefix, c->blockio_weight,
@@ -1301,8 +1307,24 @@ static void cgroup_context_apply(
         }
 
         if ((apply_mask & CGROUP_MASK_CPUSET) && !is_local_root) {
-                cgroup_apply_unified_cpuset(u, &c->cpuset_cpus, "cpuset.cpus");
-                cgroup_apply_unified_cpuset(u, &c->cpuset_mems, "cpuset.mems");
+                if (cg_all_unified() > 0) {
+                        cgroup_apply_unified_cpuset(u, &c->cpuset_cpus, "cpuset.cpus");
+                        cgroup_apply_unified_cpuset(u, &c->cpuset_mems, "cpuset.mems");
+                } else {
+                        _cleanup_free_ char *str_cpuset_cpus = NULL;
+                        _cleanup_free_ char *str_cpuset_mems = NULL;
+                        _cleanup_free_ char *root = NULL;
+                        (void) set_attribute_and_warn(u, "cpuset", "cgroup.clone_children", one_zero(c->cpuset_clone_children));
+                        (void) set_attribute_and_warn(u, "cpuset", "cpuset.memory_migrate", one_zero(c->cpuset_memory_migrate));
+                        if (c->cpuset_cpus.set) {
+                                str_cpuset_cpus = cpu_set_to_range_string_with_comma(&c->cpuset_cpus);
+                                (void) set_attribute_and_warn(u, "cpuset", "cpuset.cpus", str_cpuset_cpus);
+                        }
+                        if (c->cpuset_mems.set) {
+                                str_cpuset_mems = cpu_set_to_range_string_with_comma(&c->cpuset_mems);
+                                (void) set_attribute_and_warn(u, "cpuset", "cpuset.mems", str_cpuset_mems);
+                        }
+                }
         }
 
         /* The 'io' controller attributes are not exported on the host's root cgroup (being a pure cgroup v2
@@ -1626,7 +1648,9 @@ static CGroupMask unit_get_cgroup_mask(Unit *u) {
             c->cpu_quota_per_sec_usec != USEC_INFINITY)
                 mask |= CGROUP_MASK_CPU;
 
-        if (c->cpuset_cpus.set || c->cpuset_mems.set)
+        if (c->cpuset_accounting ||
+            c->cpuset_cpus.set ||
+            c->cpuset_mems.set)
                 mask |= CGROUP_MASK_CPUSET;
 
         if (cgroup_context_has_io_config(c) || cgroup_context_has_blockio_config(c))
@@ -4036,11 +4060,10 @@ int unit_get_cpuset(Unit *u, CPUSet *cpus, const char *name) {
         if ((u->cgroup_realized_mask & CGROUP_MASK_CPUSET) == 0)
                 return -ENODATA;
 
-        r = cg_all_unified();
-        if (r < 0)
-                return r;
-        if (r == 0)
-                return -ENODATA;
+        if (cg_all_unified() > )
+                r = cg_get_attribute("cpuset", u->cgroup_path, strjoina(name, ".effective"), &v);
+        else
+                r = cg_get_attribute("cpuset", u->cgroup_path, name, &v);
 
         r = cg_get_attribute("cpuset", u->cgroup_path, name, &v);
         if (r == -ENOENT)

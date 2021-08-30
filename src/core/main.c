@@ -146,7 +146,7 @@ static usec_t arg_default_timer_accuracy_usec;
 static Set* arg_syscall_archs;
 static FILE* arg_serialization;
 static int arg_default_cpu_accounting;
-static bool arg_default_io_accounting;
+static bool arg_default_cpuset_accounting;
 static bool arg_default_ip_accounting;
 static bool arg_default_blockio_accounting;
 static bool arg_default_memory_accounting;
@@ -691,6 +691,7 @@ static int parse_config_file(void) {
                 { "Manager", "DefaultLimitRTPRIO",           config_parse_rlimit,                RLIMIT_RTPRIO, arg_default_rlimit         },
                 { "Manager", "DefaultLimitRTTIME",           config_parse_rlimit,                RLIMIT_RTTIME, arg_default_rlimit         },
                 { "Manager", "DefaultCPUAccounting",         config_parse_tristate,              0, &arg_default_cpu_accounting            },
+                { "Manager", "DefaultCPUSetAccounting",      config_parse_bool,                  0, &arg_default_cpuset_accounting         },
                 { "Manager", "DefaultIOAccounting",          config_parse_bool,                  0, &arg_default_io_accounting             },
                 { "Manager", "DefaultIPAccounting",          config_parse_bool,                  0, &arg_default_ip_accounting             },
                 { "Manager", "DefaultBlockIOAccounting",     config_parse_bool,                  0, &arg_default_blockio_accounting        },
@@ -762,6 +763,7 @@ static void set_manager_defaults(Manager *m) {
         else
                 m->default_cpu_accounting = cpu_accounting_is_cheap();
 
+        m->default_cpuset_accounting = arg_default_cpuset_accounting;
         m->default_io_accounting = arg_default_io_accounting;
         m->default_ip_accounting = arg_default_ip_accounting;
         m->default_blockio_accounting = arg_default_blockio_accounting;
@@ -2417,6 +2419,7 @@ static void reset_arguments(void) {
         /* arg_serialization — ignore */
 
         arg_default_cpu_accounting = -1;
+        arg_default_cpuset_accounting = false;
         arg_default_io_accounting = false;
         arg_default_ip_accounting = false;
         arg_default_blockio_accounting = false;
