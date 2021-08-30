@@ -753,7 +753,7 @@ static int assess_ambient_capabilities(
 
 static const struct security_assessor security_assessor_table[] = {
         {
-                .id = "User=/DynamicUser=",
+                .id = "User_Or_DynamicUser",
                 .description_bad = "Service runs as root user",
                 .url = "https://www.freedesktop.org/software/systemd/man/systemd.exec.html#User=",
                 .weight = 2000,
@@ -761,7 +761,7 @@ static const struct security_assessor security_assessor_table[] = {
                 .assess = assess_user,
         },
         {
-                .id = "SupplementaryGroups=",
+                .id = "SupplementaryGroups",
                 .description_good = "Service has no supplementary groups",
                 .description_bad = "Service runs with supplementary groups",
                 .description_na = "Service runs as root, option does not matter",
@@ -771,7 +771,7 @@ static const struct security_assessor security_assessor_table[] = {
                 .assess = assess_supplementary_groups,
         },
         {
-                .id = "PrivateDevices=",
+                .id = "PrivateDevices",
                 .description_good = "Service has no access to hardware devices",
                 .description_bad = "Service potentially has access to hardware devices",
                 .url = "https://www.freedesktop.org/software/systemd/man/systemd.exec.html#PrivateDevices=",
@@ -781,7 +781,7 @@ static const struct security_assessor security_assessor_table[] = {
                 .offset = offsetof(SecurityInfo, private_devices),
         },
         {
-                .id = "PrivateMounts=",
+                .id = "PrivateMounts",
                 .description_good = "Service cannot install system mounts",
                 .description_bad = "Service may install system mounts",
                 .url = "https://www.freedesktop.org/software/systemd/man/systemd.exec.html#PrivateMounts=",
@@ -791,7 +791,7 @@ static const struct security_assessor security_assessor_table[] = {
                 .offset = offsetof(SecurityInfo, private_mounts),
         },
         {
-                .id = "PrivateNetwork=",
+                .id = "PrivateNetwork",
                 .description_good = "Service has no access to the host's network",
                 .description_bad = "Service has access to the host's network",
                 .url = "https://www.freedesktop.org/software/systemd/man/systemd.exec.html#PrivateNetwork=",
@@ -801,7 +801,7 @@ static const struct security_assessor security_assessor_table[] = {
                 .offset = offsetof(SecurityInfo, private_network),
         },
         {
-                .id = "PrivateTmp=",
+                .id = "PrivateTmp",
                 .description_good = "Service has no access to other software's temporary files",
                 .description_bad = "Service has access to other software's temporary files",
                 .url = "https://www.freedesktop.org/software/systemd/man/systemd.exec.html#PrivateTmp=",
@@ -812,7 +812,7 @@ static const struct security_assessor security_assessor_table[] = {
                 .default_dependencies_only = true,
         },
         {
-                .id = "PrivateUsers=",
+                .id = "PrivateUsers",
                 .description_good = "Service does not have access to other users",
                 .description_bad = "Service has access to other users",
                 .url = "https://www.freedesktop.org/software/systemd/man/systemd.exec.html#PrivateUsers=",
@@ -822,7 +822,7 @@ static const struct security_assessor security_assessor_table[] = {
                 .offset = offsetof(SecurityInfo, private_users),
         },
         {
-                .id = "ProtectControlGroups=",
+                .id = "ProtectControlGroups",
                 .description_good = "Service cannot modify the control group file system",
                 .description_bad = "Service may modify the control group file system",
                 .url = "https://www.freedesktop.org/software/systemd/man/systemd.exec.html#ProtectControlGroups=",
@@ -832,7 +832,7 @@ static const struct security_assessor security_assessor_table[] = {
                 .offset = offsetof(SecurityInfo, protect_control_groups),
         },
         {
-                .id = "ProtectKernelModules=",
+                .id = "ProtectKernelModules",
                 .description_good = "Service cannot load or read kernel modules",
                 .description_bad = "Service may load or read kernel modules",
                 .url = "https://www.freedesktop.org/software/systemd/man/systemd.exec.html#ProtectKernelModules=",
@@ -842,7 +842,7 @@ static const struct security_assessor security_assessor_table[] = {
                 .offset = offsetof(SecurityInfo, protect_kernel_modules),
         },
         {
-                .id = "ProtectKernelTunables=",
+                .id = "ProtectKernelTunables",
                 .description_good = "Service cannot alter kernel tunables (/proc/sys, …)",
                 .description_bad = "Service may alter kernel tunables",
                 .url = "https://www.freedesktop.org/software/systemd/man/systemd.exec.html#ProtectKernelTunables=",
@@ -852,7 +852,7 @@ static const struct security_assessor security_assessor_table[] = {
                 .offset = offsetof(SecurityInfo, protect_kernel_tunables),
         },
         {
-                .id = "ProtectKernelLogs=",
+                .id = "ProtectKernelLogs",
                 .description_good = "Service cannot read from or write to the kernel log ring buffer",
                 .description_bad = "Service may read from or write to the kernel log ring buffer",
                 .url = "https://www.freedesktop.org/software/systemd/man/systemd.exec.html#ProtectKernelLogs=",
@@ -862,7 +862,7 @@ static const struct security_assessor security_assessor_table[] = {
                 .offset = offsetof(SecurityInfo, protect_kernel_logs),
         },
         {
-                .id = "ProtectClock=",
+                .id = "ProtectClock",
                 .description_good = "Service cannot write to the hardware clock or system clock",
                 .description_bad = "Service may write to the hardware clock or system clock",
                 .url = "https://www.freedesktop.org/software/systemd/man/systemd.exec.html#ProtectClock=",
@@ -872,7 +872,7 @@ static const struct security_assessor security_assessor_table[] = {
                 .offset = offsetof(SecurityInfo, protect_clock),
         },
         {
-                .id = "ProtectHome=",
+                .id = "ProtectHome",
                 .url = "https://www.freedesktop.org/software/systemd/man/systemd.exec.html#ProtectHome=",
                 .weight = 1000,
                 .range = 10,
@@ -880,7 +880,7 @@ static const struct security_assessor security_assessor_table[] = {
                 .default_dependencies_only = true,
         },
         {
-                .id = "ProtectHostname=",
+                .id = "ProtectHostname",
                 .description_good = "Service cannot change system host/domainname",
                 .description_bad = "Service may change system host/domainname",
                 .url = "https://www.freedesktop.org/software/systemd/man/systemd.exec.html#ProtectHostname=",
@@ -890,7 +890,7 @@ static const struct security_assessor security_assessor_table[] = {
                 .offset = offsetof(SecurityInfo, protect_hostname),
         },
         {
-                .id = "ProtectSystem=",
+                .id = "ProtectSystem",
                 .url = "https://www.freedesktop.org/software/systemd/man/systemd.exec.html#ProtectSystem=",
                 .weight = 1000,
                 .range = 10,
@@ -898,7 +898,7 @@ static const struct security_assessor security_assessor_table[] = {
                 .default_dependencies_only = true,
         },
         {
-                .id = "RootDirectory=/RootImage=",
+                .id = "RootDirectory_Or_RootImage",
                 .description_good = "Service has its own root directory/image",
                 .description_bad = "Service runs within the host's root directory",
                 .url = "https://www.freedesktop.org/software/systemd/man/systemd.exec.html#RootDirectory=",
@@ -908,7 +908,7 @@ static const struct security_assessor security_assessor_table[] = {
                 .default_dependencies_only = true,
         },
         {
-                .id = "LockPersonality=",
+                .id = "LockPersonality",
                 .description_good = "Service cannot change ABI personality",
                 .description_bad = "Service may change ABI personality",
                 .url = "https://www.freedesktop.org/software/systemd/man/systemd.exec.html#LockPersonality=",
@@ -918,7 +918,7 @@ static const struct security_assessor security_assessor_table[] = {
                 .offset = offsetof(SecurityInfo, lock_personality),
         },
         {
-                .id = "MemoryDenyWriteExecute=",
+                .id = "MemoryDenyWriteExecute",
                 .description_good = "Service cannot create writable executable memory mappings",
                 .description_bad = "Service may create writable executable memory mappings",
                 .url = "https://www.freedesktop.org/software/systemd/man/systemd.exec.html#MemoryDenyWriteExecute=",
@@ -928,7 +928,7 @@ static const struct security_assessor security_assessor_table[] = {
                 .offset = offsetof(SecurityInfo, memory_deny_write_execute),
         },
         {
-                .id = "NoNewPrivileges=",
+                .id = "NoNewPrivileges",
                 .description_good = "Service processes cannot acquire new privileges",
                 .description_bad = "Service processes may acquire new privileges",
                 .url = "https://www.freedesktop.org/software/systemd/man/systemd.exec.html#NoNewPrivileges=",
@@ -938,7 +938,7 @@ static const struct security_assessor security_assessor_table[] = {
                 .offset = offsetof(SecurityInfo, no_new_privileges),
         },
         {
-                .id = "CapabilityBoundingSet=~CAP_SYS_ADMIN",
+                .id = "CapabilityBoundingSet_CAP_SYS_ADMIN",
                 .description_good = "Service has no administrator privileges",
                 .description_bad = "Service has administrator privileges",
                 .url = "https://www.freedesktop.org/software/systemd/man/systemd.exec.html#CapabilityBoundingSet=",
@@ -948,7 +948,7 @@ static const struct security_assessor security_assessor_table[] = {
                 .parameter = UINT64_C(1) << CAP_SYS_ADMIN,
         },
         {
-                .id = "CapabilityBoundingSet=~CAP_SET(UID|GID|PCAP)",
+                .id = "CapabilityBoundingSet_CAP_SET_UID_GID_PCAP",
                 .description_good = "Service cannot change UID/GID identities/capabilities",
                 .description_bad = "Service may change UID/GID identities/capabilities",
                 .url = "https://www.freedesktop.org/software/systemd/man/systemd.exec.html#CapabilityBoundingSet=",
@@ -960,7 +960,7 @@ static const struct security_assessor security_assessor_table[] = {
                              (UINT64_C(1) << CAP_SETPCAP),
         },
         {
-                .id = "CapabilityBoundingSet=~CAP_SYS_PTRACE",
+                .id = "CapabilityBoundingSet_CAP_SYS_PTRACE",
                 .description_good = "Service has no ptrace() debugging abilities",
                 .description_bad = "Service has ptrace() debugging abilities",
                 .url = "https://www.freedesktop.org/software/systemd/man/systemd.exec.html#CapabilityBoundingSet=",
@@ -970,7 +970,7 @@ static const struct security_assessor security_assessor_table[] = {
                 .parameter = (UINT64_C(1) << CAP_SYS_PTRACE),
         },
         {
-                .id = "CapabilityBoundingSet=~CAP_SYS_TIME",
+                .id = "CapabilityBoundingSet_CAP_SYS_TIME",
                 .description_good = "Service processes cannot change the system clock",
                 .description_bad = "Service processes may change the system clock",
                 .url = "https://www.freedesktop.org/software/systemd/man/systemd.exec.html#CapabilityBoundingSet=",
@@ -980,7 +980,7 @@ static const struct security_assessor security_assessor_table[] = {
                 .parameter = UINT64_C(1) << CAP_SYS_TIME,
         },
         {
-                .id = "CapabilityBoundingSet=~CAP_NET_ADMIN",
+                .id = "CapabilityBoundingSet_CAP_NET_ADMIN",
                 .description_good = "Service has no network configuration privileges",
                 .description_bad = "Service has network configuration privileges",
                 .url = "https://www.freedesktop.org/software/systemd/man/systemd.exec.html#CapabilityBoundingSet=",
@@ -990,7 +990,7 @@ static const struct security_assessor security_assessor_table[] = {
                 .parameter = (UINT64_C(1) << CAP_NET_ADMIN),
         },
         {
-                .id = "CapabilityBoundingSet=~CAP_SYS_RAWIO",
+                .id = "CapabilityBoundingSet_CAP_SYS_RAWIO",
                 .description_good = "Service has no raw I/O access",
                 .description_bad = "Service has raw I/O access",
                 .url = "https://www.freedesktop.org/software/systemd/man/systemd.exec.html#CapabilityBoundingSet=",
@@ -1000,7 +1000,7 @@ static const struct security_assessor security_assessor_table[] = {
                 .parameter = (UINT64_C(1) << CAP_SYS_RAWIO),
         },
         {
-                .id = "CapabilityBoundingSet=~CAP_SYS_MODULE",
+                .id = "CapabilityBoundingSet_CAP_SYS_MODULE",
                 .description_good = "Service cannot load kernel modules",
                 .description_bad = "Service may load kernel modules",
                 .url = "https://www.freedesktop.org/software/systemd/man/systemd.exec.html#CapabilityBoundingSet=",
@@ -1010,7 +1010,7 @@ static const struct security_assessor security_assessor_table[] = {
                 .parameter = (UINT64_C(1) << CAP_SYS_MODULE),
         },
         {
-                .id = "CapabilityBoundingSet=~CAP_AUDIT_*",
+                .id = "CapabilityBoundingSet_CAP_AUDIT",
                 .description_good = "Service has no audit subsystem access",
                 .description_bad = "Service has audit subsystem access",
                 .url = "https://www.freedesktop.org/software/systemd/man/systemd.exec.html#CapabilityBoundingSet=",
@@ -1022,7 +1022,7 @@ static const struct security_assessor security_assessor_table[] = {
                              (UINT64_C(1) << CAP_AUDIT_WRITE),
         },
         {
-                .id = "CapabilityBoundingSet=~CAP_SYSLOG",
+                .id = "CapabilityBoundingSet_CAP_SYSLOG",
                 .description_good = "Service has no access to kernel logging",
                 .description_bad = "Service has access to kernel logging",
                 .url = "https://www.freedesktop.org/software/systemd/man/systemd.exec.html#CapabilityBoundingSet=",
@@ -1032,7 +1032,7 @@ static const struct security_assessor security_assessor_table[] = {
                 .parameter = (UINT64_C(1) << CAP_SYSLOG),
         },
         {
-                .id = "CapabilityBoundingSet=~CAP_SYS_(NICE|RESOURCE)",
+                .id = "CapabilityBoundingSet_CAP_SYS_NICE_RESOURCE",
                 .description_good = "Service has no privileges to change resource use parameters",
                 .description_bad = "Service has privileges to change resource use parameters",
                 .url = "https://www.freedesktop.org/software/systemd/man/systemd.exec.html#CapabilityBoundingSet=",
@@ -1043,7 +1043,7 @@ static const struct security_assessor security_assessor_table[] = {
                              (UINT64_C(1) << CAP_SYS_RESOURCE),
         },
         {
-                .id = "CapabilityBoundingSet=~CAP_MKNOD",
+                .id = "CapabilityBoundingSet_CAP_MKNOD",
                 .description_good = "Service cannot create device nodes",
                 .description_bad = "Service may create device nodes",
                 .url = "https://www.freedesktop.org/software/systemd/man/systemd.exec.html#CapabilityBoundingSet=",
@@ -1053,7 +1053,7 @@ static const struct security_assessor security_assessor_table[] = {
                 .parameter = (UINT64_C(1) << CAP_MKNOD),
         },
         {
-                .id = "CapabilityBoundingSet=~CAP_(CHOWN|FSETID|SETFCAP)",
+                .id = "CapabilityBoundingSet_CAP_CHOWN_FSETID_SETFCAP",
                 .description_good = "Service cannot change file ownership/access mode/capabilities",
                 .description_bad = "Service may change file ownership/access mode/capabilities unrestricted",
                 .url = "https://www.freedesktop.org/software/systemd/man/systemd.exec.html#CapabilityBoundingSet=",
@@ -1065,7 +1065,7 @@ static const struct security_assessor security_assessor_table[] = {
                              (UINT64_C(1) << CAP_SETFCAP),
         },
         {
-                .id = "CapabilityBoundingSet=~CAP_(DAC_*|FOWNER|IPC_OWNER)",
+                .id = "CapabilityBoundingSet_CAP_DAC_FOWNER_IPC_OWNER",
                 .description_good = "Service cannot override UNIX file/IPC permission checks",
                 .description_bad = "Service may override UNIX file/IPC permission checks",
                 .url = "https://www.freedesktop.org/software/systemd/man/systemd.exec.html#CapabilityBoundingSet=",
@@ -1078,7 +1078,7 @@ static const struct security_assessor security_assessor_table[] = {
                              (UINT64_C(1) << CAP_IPC_OWNER),
         },
         {
-                .id = "CapabilityBoundingSet=~CAP_KILL",
+                .id = "CapabilityBoundingSet_CAP_KILL",
                 .description_good = "Service cannot send UNIX signals to arbitrary processes",
                 .description_bad = "Service may send UNIX signals to arbitrary processes",
                 .url = "https://www.freedesktop.org/software/systemd/man/systemd.exec.html#CapabilityBoundingSet=",
@@ -1088,7 +1088,7 @@ static const struct security_assessor security_assessor_table[] = {
                 .parameter = (UINT64_C(1) << CAP_KILL),
         },
         {
-                .id = "CapabilityBoundingSet=~CAP_NET_(BIND_SERVICE|BROADCAST|RAW)",
+                .id = "CapabilityBoundingSet_CAP_NET_BIND_SERVICE_BROADCAST_RAW)",
                 .description_good = "Service has no elevated networking privileges",
                 .description_bad = "Service has elevated networking privileges",
                 .url = "https://www.freedesktop.org/software/systemd/man/systemd.exec.html#CapabilityBoundingSet=",
@@ -1100,7 +1100,7 @@ static const struct security_assessor security_assessor_table[] = {
                              (UINT64_C(1) << CAP_NET_RAW),
         },
         {
-                .id = "CapabilityBoundingSet=~CAP_SYS_BOOT",
+                .id = "CapabilityBoundingSet_CAP_SYS_BOOT",
                 .description_good = "Service cannot issue reboot()",
                 .description_bad = "Service may issue reboot()",
                 .url = "https://www.freedesktop.org/software/systemd/man/systemd.exec.html#CapabilityBoundingSet=",
@@ -1110,7 +1110,7 @@ static const struct security_assessor security_assessor_table[] = {
                 .parameter = (UINT64_C(1) << CAP_SYS_BOOT),
         },
         {
-                .id = "CapabilityBoundingSet=~CAP_MAC_*",
+                .id = "CapabilityBoundingSet_CAP_MAC",
                 .description_good = "Service cannot adjust SMACK MAC",
                 .description_bad = "Service may adjust SMACK MAC",
                 .url = "https://www.freedesktop.org/software/systemd/man/systemd.exec.html#CapabilityBoundingSet=",
@@ -1121,7 +1121,7 @@ static const struct security_assessor security_assessor_table[] = {
                              (UINT64_C(1) << CAP_MAC_OVERRIDE),
         },
         {
-                .id = "CapabilityBoundingSet=~CAP_LINUX_IMMUTABLE",
+                .id = "CapabilityBoundingSet_CAP_LINUX_IMMUTABLE",
                 .description_good = "Service cannot mark files immutable",
                 .description_bad = "Service may mark files immutable",
                 .url = "https://www.freedesktop.org/software/systemd/man/systemd.exec.html#CapabilityBoundingSet=",
@@ -1131,7 +1131,7 @@ static const struct security_assessor security_assessor_table[] = {
                 .parameter = (UINT64_C(1) << CAP_LINUX_IMMUTABLE),
         },
         {
-                .id = "CapabilityBoundingSet=~CAP_IPC_LOCK",
+                .id = "CapabilityBoundingSet_CAP_IPC_LOCK",
                 .description_good = "Service cannot lock memory into RAM",
                 .description_bad = "Service may lock memory into RAM",
                 .url = "https://www.freedesktop.org/software/systemd/man/systemd.exec.html#CapabilityBoundingSet=",
@@ -1141,7 +1141,7 @@ static const struct security_assessor security_assessor_table[] = {
                 .parameter = (UINT64_C(1) << CAP_IPC_LOCK),
         },
         {
-                .id = "CapabilityBoundingSet=~CAP_SYS_CHROOT",
+                .id = "CapabilityBoundingSet_CAP_SYS_CHROOT",
                 .description_good = "Service cannot issue chroot()",
                 .description_bad = "Service may issue chroot()",
                 .url = "https://www.freedesktop.org/software/systemd/man/systemd.exec.html#CapabilityBoundingSet=",
@@ -1151,7 +1151,7 @@ static const struct security_assessor security_assessor_table[] = {
                 .parameter = (UINT64_C(1) << CAP_SYS_CHROOT),
         },
         {
-                .id = "CapabilityBoundingSet=~CAP_BLOCK_SUSPEND",
+                .id = "CapabilityBoundingSet_CAP_BLOCK_SUSPEND",
                 .description_good = "Service cannot establish wake locks",
                 .description_bad = "Service may establish wake locks",
                 .url = "https://www.freedesktop.org/software/systemd/man/systemd.exec.html#CapabilityBoundingSet=",
@@ -1161,7 +1161,7 @@ static const struct security_assessor security_assessor_table[] = {
                 .parameter = (UINT64_C(1) << CAP_BLOCK_SUSPEND),
         },
         {
-                .id = "CapabilityBoundingSet=~CAP_WAKE_ALARM",
+                .id = "CapabilityBoundingSet_CAP_WAKE_ALARM",
                 .description_good = "Service cannot program timers that wake up the system",
                 .description_bad = "Service may program timers that wake up the system",
                 .url = "https://www.freedesktop.org/software/systemd/man/systemd.exec.html#CapabilityBoundingSet=",
@@ -1171,7 +1171,7 @@ static const struct security_assessor security_assessor_table[] = {
                 .parameter = (UINT64_C(1) << CAP_WAKE_ALARM),
         },
         {
-                .id = "CapabilityBoundingSet=~CAP_LEASE",
+                .id = "CapabilityBoundingSet_CAP_LEASE",
                 .description_good = "Service cannot create file leases",
                 .description_bad = "Service may create file leases",
                 .url = "https://www.freedesktop.org/software/systemd/man/systemd.exec.html#CapabilityBoundingSet=",
@@ -1181,7 +1181,7 @@ static const struct security_assessor security_assessor_table[] = {
                 .parameter = (UINT64_C(1) << CAP_LEASE),
         },
         {
-                .id = "CapabilityBoundingSet=~CAP_SYS_TTY_CONFIG",
+                .id = "CapabilityBoundingSet_CAP_SYS_TTY_CONFIG",
                 .description_good = "Service cannot issue vhangup()",
                 .description_bad = "Service may issue vhangup()",
                 .url = "https://www.freedesktop.org/software/systemd/man/systemd.exec.html#CapabilityBoundingSet=",
@@ -1191,7 +1191,7 @@ static const struct security_assessor security_assessor_table[] = {
                 .parameter = (UINT64_C(1) << CAP_SYS_TTY_CONFIG),
         },
         {
-                .id = "CapabilityBoundingSet=~CAP_SYS_PACCT",
+                .id = "CapabilityBoundingSet_CAP_SYS_PACCT",
                 .description_good = "Service cannot use acct()",
                 .description_bad = "Service may use acct()",
                 .url = "https://www.freedesktop.org/software/systemd/man/systemd.exec.html#CapabilityBoundingSet=",
@@ -1201,14 +1201,14 @@ static const struct security_assessor security_assessor_table[] = {
                 .parameter = (UINT64_C(1) << CAP_SYS_PACCT),
         },
         {
-                .id = "UMask=",
+                .id = "UMask",
                 .url = "https://www.freedesktop.org/software/systemd/man/systemd.exec.html#UMask=",
                 .weight = 100,
                 .range = 10,
                 .assess = assess_umask,
         },
         {
-                .id = "KeyringMode=",
+                .id = "KeyringMode",
                 .url = "https://www.freedesktop.org/software/systemd/man/systemd.exec.html#KeyringMode=",
                 .description_good = "Service doesn't share key material with other services",
                 .description_bad = "Service shares key material with other service",
@@ -1217,7 +1217,7 @@ static const struct security_assessor security_assessor_table[] = {
                 .assess = assess_keyring_mode,
         },
         {
-                .id = "ProtectProc=",
+                .id = "ProtectProc",
                 .url = "https://www.freedesktop.org/software/systemd/man/systemd.exec.html#ProtectProc=",
                 .description_good = "Service has restricted access to process tree (/proc hidepid=)",
                 .description_bad = "Service has full access to process tree (/proc hidepid=)",
@@ -1226,7 +1226,7 @@ static const struct security_assessor security_assessor_table[] = {
                 .assess = assess_protect_proc,
         },
         {
-                .id = "ProcSubset=",
+                .id = "ProcSubset",
                 .url = "https://www.freedesktop.org/software/systemd/man/systemd.exec.html#ProcSubset=",
                 .description_good = "Service has no access to non-process /proc files (/proc subset=)",
                 .description_bad = "Service has full access to non-process /proc files (/proc subset=)",
@@ -1235,7 +1235,7 @@ static const struct security_assessor security_assessor_table[] = {
                 .assess = assess_proc_subset,
         },
         {
-                .id = "NotifyAccess=",
+                .id = "NotifyAccess",
                 .url = "https://www.freedesktop.org/software/systemd/man/systemd.exec.html#NotifyAccess=",
                 .description_good = "Service child processes cannot alter service state",
                 .description_bad = "Service child processes may alter service state",
@@ -1244,7 +1244,7 @@ static const struct security_assessor security_assessor_table[] = {
                 .assess = assess_notify_access,
         },
         {
-                .id = "RemoveIPC=",
+                .id = "RemoveIPC",
                 .url = "https://www.freedesktop.org/software/systemd/man/systemd.exec.html#RemoveIPC=",
                 .description_good = "Service user cannot leave SysV IPC objects around",
                 .description_bad = "Service user may leave SysV IPC objects around",
@@ -1255,7 +1255,7 @@ static const struct security_assessor security_assessor_table[] = {
                 .offset = offsetof(SecurityInfo, remove_ipc),
         },
         {
-                .id = "Delegate=",
+                .id = "Delegate",
                 .url = "https://www.freedesktop.org/software/systemd/man/systemd.exec.html#Delegate=",
                 .description_good = "Service does not maintain its own delegated control group subtree",
                 .description_bad = "Service maintains its own delegated control group subtree",
@@ -1266,7 +1266,7 @@ static const struct security_assessor security_assessor_table[] = {
                 .parameter = true, /* invert! */
         },
         {
-                .id = "RestrictRealtime=",
+                .id = "RestrictRealtime",
                 .url = "https://www.freedesktop.org/software/systemd/man/systemd.exec.html#RestrictRealtime=",
                 .description_good = "Service realtime scheduling access is restricted",
                 .description_bad = "Service may acquire realtime scheduling",
@@ -1276,7 +1276,7 @@ static const struct security_assessor security_assessor_table[] = {
                 .offset = offsetof(SecurityInfo, restrict_realtime),
         },
         {
-                .id = "RestrictSUIDSGID=",
+                .id = "RestrictSUIDSGID",
                 .url = "https://www.freedesktop.org/software/systemd/man/systemd.exec.html#RestrictSUIDSGID=",
                 .description_good = "SUID/SGID file creation by service is restricted",
                 .description_bad = "Service may create SUID/SGID files",
@@ -1286,7 +1286,7 @@ static const struct security_assessor security_assessor_table[] = {
                 .offset = offsetof(SecurityInfo, restrict_suid_sgid),
         },
         {
-                .id = "RestrictNamespaces=~CLONE_NEWUSER",
+                .id = "RestrictNamespaces_CLONE_NEWUSER",
                 .url = "https://www.freedesktop.org/software/systemd/man/systemd.exec.html#RestrictNamespaces=",
                 .description_good = "Service cannot create user namespaces",
                 .description_bad = "Service may create user namespaces",
@@ -1296,7 +1296,7 @@ static const struct security_assessor security_assessor_table[] = {
                 .parameter = CLONE_NEWUSER,
         },
         {
-                .id = "RestrictNamespaces=~CLONE_NEWNS",
+                .id = "RestrictNamespaces_CLONE_NEWNS",
                 .url = "https://www.freedesktop.org/software/systemd/man/systemd.exec.html#RestrictNamespaces=",
                 .description_good = "Service cannot create file system namespaces",
                 .description_bad = "Service may create file system namespaces",
@@ -1306,7 +1306,7 @@ static const struct security_assessor security_assessor_table[] = {
                 .parameter = CLONE_NEWNS,
         },
         {
-                .id = "RestrictNamespaces=~CLONE_NEWIPC",
+                .id = "RestrictNamespaces_CLONE_NEWIPC",
                 .url = "https://www.freedesktop.org/software/systemd/man/systemd.exec.html#RestrictNamespaces=",
                 .description_good = "Service cannot create IPC namespaces",
                 .description_bad = "Service may create IPC namespaces",
@@ -1316,7 +1316,7 @@ static const struct security_assessor security_assessor_table[] = {
                 .parameter = CLONE_NEWIPC,
         },
         {
-                .id = "RestrictNamespaces=~CLONE_NEWPID",
+                .id = "RestrictNamespaces_CLONE_NEWPID",
                 .url = "https://www.freedesktop.org/software/systemd/man/systemd.exec.html#RestrictNamespaces=",
                 .description_good = "Service cannot create process namespaces",
                 .description_bad = "Service may create process namespaces",
@@ -1326,7 +1326,7 @@ static const struct security_assessor security_assessor_table[] = {
                 .parameter = CLONE_NEWPID,
         },
         {
-                .id = "RestrictNamespaces=~CLONE_NEWCGROUP",
+                .id = "RestrictNamespaces_CLONE_NEWCGROUP",
                 .url = "https://www.freedesktop.org/software/systemd/man/systemd.exec.html#RestrictNamespaces=",
                 .description_good = "Service cannot create cgroup namespaces",
                 .description_bad = "Service may create cgroup namespaces",
@@ -1336,7 +1336,7 @@ static const struct security_assessor security_assessor_table[] = {
                 .parameter = CLONE_NEWCGROUP,
         },
         {
-                .id = "RestrictNamespaces=~CLONE_NEWNET",
+                .id = "RestrictNamespaces_CLONE_NEWNET",
                 .url = "https://www.freedesktop.org/software/systemd/man/systemd.exec.html#RestrictNamespaces=",
                 .description_good = "Service cannot create network namespaces",
                 .description_bad = "Service may create network namespaces",
@@ -1346,7 +1346,7 @@ static const struct security_assessor security_assessor_table[] = {
                 .parameter = CLONE_NEWNET,
         },
         {
-                .id = "RestrictNamespaces=~CLONE_NEWUTS",
+                .id = "RestrictNamespaces_CLONE_NEWUTS",
                 .url = "https://www.freedesktop.org/software/systemd/man/systemd.exec.html#RestrictNamespaces=",
                 .description_good = "Service cannot create hostname namespaces",
                 .description_bad = "Service may create hostname namespaces",
@@ -1356,7 +1356,7 @@ static const struct security_assessor security_assessor_table[] = {
                 .parameter = CLONE_NEWUTS,
         },
         {
-                .id = "RestrictAddressFamilies=~AF_(INET|INET6)",
+                .id = "RestrictAddressFamilies_AF_INET_INET6",
                 .url = "https://www.freedesktop.org/software/systemd/man/systemd.exec.html#RestrictAddressFamilies=",
                 .description_good = "Service cannot allocate Internet sockets",
                 .description_bad = "Service may allocate Internet sockets",
@@ -1366,7 +1366,7 @@ static const struct security_assessor security_assessor_table[] = {
                 .offset = offsetof(SecurityInfo, restrict_address_family_inet),
         },
         {
-                .id = "RestrictAddressFamilies=~AF_UNIX",
+                .id = "RestrictAddressFamilies_AF_UNIX",
                 .url = "https://www.freedesktop.org/software/systemd/man/systemd.exec.html#RestrictAddressFamilies=",
                 .description_good = "Service cannot allocate local sockets",
                 .description_bad = "Service may allocate local sockets",
@@ -1376,7 +1376,7 @@ static const struct security_assessor security_assessor_table[] = {
                 .offset = offsetof(SecurityInfo, restrict_address_family_unix),
         },
         {
-                .id = "RestrictAddressFamilies=~AF_NETLINK",
+                .id = "RestrictAddressFamilies_AF_NETLINK",
                 .url = "https://www.freedesktop.org/software/systemd/man/systemd.exec.html#RestrictAddressFamilies=",
                 .description_good = "Service cannot allocate netlink sockets",
                 .description_bad = "Service may allocate netlink sockets",
@@ -1386,7 +1386,7 @@ static const struct security_assessor security_assessor_table[] = {
                 .offset = offsetof(SecurityInfo, restrict_address_family_netlink),
         },
         {
-                .id = "RestrictAddressFamilies=~AF_PACKET",
+                .id = "RestrictAddressFamilies_AF_PACKET",
                 .url = "https://www.freedesktop.org/software/systemd/man/systemd.exec.html#RestrictAddressFamilies=",
                 .description_good = "Service cannot allocate packet sockets",
                 .description_bad = "Service may allocate packet sockets",
@@ -1396,7 +1396,7 @@ static const struct security_assessor security_assessor_table[] = {
                 .offset = offsetof(SecurityInfo, restrict_address_family_packet),
         },
         {
-                .id = "RestrictAddressFamilies=~…",
+                .id = "RestrictAddressFamilies_OTHER",
                 .url = "https://www.freedesktop.org/software/systemd/man/systemd.exec.html#RestrictAddressFamilies=",
                 .description_good = "Service cannot allocate exotic sockets",
                 .description_bad = "Service may allocate exotic sockets",
@@ -1406,7 +1406,7 @@ static const struct security_assessor security_assessor_table[] = {
                 .offset = offsetof(SecurityInfo, restrict_address_family_other),
         },
         {
-                .id = "SystemCallArchitectures=",
+                .id = "SystemCallArchitectures",
                 .url = "https://www.freedesktop.org/software/systemd/man/systemd.exec.html#SystemCallArchitectures=",
                 .weight = 1000,
                 .range = 10,
@@ -1414,7 +1414,7 @@ static const struct security_assessor security_assessor_table[] = {
         },
 #if HAVE_SECCOMP
         {
-                .id = "SystemCallFilter=~@swap",
+                .id = "SystemCallFilter_swap",
                 .url = "https://www.freedesktop.org/software/systemd/man/systemd.exec.html#SystemCallFilter=",
                 .weight = 1000,
                 .range = 10,
@@ -1422,7 +1422,7 @@ static const struct security_assessor security_assessor_table[] = {
                 .parameter = SYSCALL_FILTER_SET_SWAP,
         },
         {
-                .id = "SystemCallFilter=~@obsolete",
+                .id = "SystemCallFilter_obsolete",
                 .url = "https://www.freedesktop.org/software/systemd/man/systemd.exec.html#SystemCallFilter=",
                 .weight = 250,
                 .range = 10,
@@ -1430,7 +1430,7 @@ static const struct security_assessor security_assessor_table[] = {
                 .parameter = SYSCALL_FILTER_SET_OBSOLETE,
         },
         {
-                .id = "SystemCallFilter=~@clock",
+                .id = "SystemCallFilter_clock",
                 .url = "https://www.freedesktop.org/software/systemd/man/systemd.exec.html#SystemCallFilter=",
                 .weight = 1000,
                 .range = 10,
@@ -1438,7 +1438,7 @@ static const struct security_assessor security_assessor_table[] = {
                 .parameter = SYSCALL_FILTER_SET_CLOCK,
         },
         {
-                .id = "SystemCallFilter=~@cpu-emulation",
+                .id = "SystemCallFilter_cpu_emulation",
                 .url = "https://www.freedesktop.org/software/systemd/man/systemd.exec.html#SystemCallFilter=",
                 .weight = 250,
                 .range = 10,
@@ -1446,7 +1446,7 @@ static const struct security_assessor security_assessor_table[] = {
                 .parameter = SYSCALL_FILTER_SET_CPU_EMULATION,
         },
         {
-                .id = "SystemCallFilter=~@debug",
+                .id = "SystemCallFilter_debug",
                 .url = "https://www.freedesktop.org/software/systemd/man/systemd.exec.html#SystemCallFilter=",
                 .weight = 1000,
                 .range = 10,
@@ -1454,7 +1454,7 @@ static const struct security_assessor security_assessor_table[] = {
                 .parameter = SYSCALL_FILTER_SET_DEBUG,
         },
         {
-                .id = "SystemCallFilter=~@mount",
+                .id = "SystemCallFilter_mount",
                 .url = "https://www.freedesktop.org/software/systemd/man/systemd.exec.html#SystemCallFilter=",
                 .weight = 1000,
                 .range = 10,
@@ -1462,7 +1462,7 @@ static const struct security_assessor security_assessor_table[] = {
                 .parameter = SYSCALL_FILTER_SET_MOUNT,
         },
         {
-                .id = "SystemCallFilter=~@module",
+                .id = "SystemCallFilter_module",
                 .url = "https://www.freedesktop.org/software/systemd/man/systemd.exec.html#SystemCallFilter=",
                 .weight = 1000,
                 .range = 10,
@@ -1470,7 +1470,7 @@ static const struct security_assessor security_assessor_table[] = {
                 .parameter = SYSCALL_FILTER_SET_MODULE,
         },
         {
-                .id = "SystemCallFilter=~@raw-io",
+                .id = "SystemCallFilter_raw_io",
                 .url = "https://www.freedesktop.org/software/systemd/man/systemd.exec.html#SystemCallFilter=",
                 .weight = 1000,
                 .range = 10,
@@ -1478,7 +1478,7 @@ static const struct security_assessor security_assessor_table[] = {
                 .parameter = SYSCALL_FILTER_SET_RAW_IO,
         },
         {
-                .id = "SystemCallFilter=~@reboot",
+                .id = "SystemCallFilter_reboot",
                 .url = "https://www.freedesktop.org/software/systemd/man/systemd.exec.html#SystemCallFilter=",
                 .weight = 1000,
                 .range = 10,
@@ -1486,7 +1486,7 @@ static const struct security_assessor security_assessor_table[] = {
                 .parameter = SYSCALL_FILTER_SET_REBOOT,
         },
         {
-                .id = "SystemCallFilter=~@privileged",
+                .id = "SystemCallFilter_privileged",
                 .url = "https://www.freedesktop.org/software/systemd/man/systemd.exec.html#SystemCallFilter=",
                 .weight = 700,
                 .range = 10,
@@ -1494,7 +1494,7 @@ static const struct security_assessor security_assessor_table[] = {
                 .parameter = SYSCALL_FILTER_SET_PRIVILEGED,
         },
         {
-                .id = "SystemCallFilter=~@resources",
+                .id = "SystemCallFilter_resources",
                 .url = "https://www.freedesktop.org/software/systemd/man/systemd.exec.html#SystemCallFilter=",
                 .weight = 700,
                 .range = 10,
@@ -1503,21 +1503,21 @@ static const struct security_assessor security_assessor_table[] = {
         },
 #endif
         {
-                .id = "IPAddressDeny=",
+                .id = "IPAddressDeny",
                 .url = "https://www.freedesktop.org/software/systemd/man/systemd.exec.html#IPAddressDeny=",
                 .weight = 1000,
                 .range = 10,
                 .assess = assess_ip_address_allow,
         },
         {
-                .id = "DeviceAllow=",
+                .id = "DeviceAllow",
                 .url = "https://www.freedesktop.org/software/systemd/man/systemd.exec.html#DeviceAllow=",
                 .weight = 1000,
                 .range = 10,
                 .assess = assess_device_allow,
         },
         {
-                .id = "AmbientCapabilities=",
+                .id = "AmbientCapabilities",
                 .url = "https://www.freedesktop.org/software/systemd/man/systemd.exec.html#AmbientCapabilities=",
                 .description_good = "Service process does not receive ambient capabilities",
                 .description_bad = "Service process receives ambient capabilities",
@@ -1527,7 +1527,83 @@ static const struct security_assessor security_assessor_table[] = {
         },
 };
 
-static int assess(const SecurityInfo *info, Table *overview_table, AnalyzeSecurityFlags flags, unsigned threshold) {
+static uint64_t access_weight(const struct security_assessor *a, JsonVariant *policy) {
+        assert(a);
+
+        JsonVariant *val;
+
+        if (policy != NULL && json_variant_by_key(policy, a->id)) {
+                val = json_variant_by_key(policy, a->id);
+                if (json_variant_type(val) == JSON_VARIANT_OBJECT)
+                        return json_variant_unsigned(json_variant_by_key(val, "weight"));
+        }
+
+        return a->weight;
+}
+
+static uint64_t access_range(const struct security_assessor *a, JsonVariant *policy) {
+        assert(a);
+
+        JsonVariant *val;
+
+        if (policy != NULL && json_variant_by_key(policy, a->id)) {
+                val = json_variant_by_key(policy, a->id);
+                if (json_variant_type(val) == JSON_VARIANT_OBJECT)
+                        return json_variant_unsigned(json_variant_by_key(val, "range"));
+        }
+
+        return a->range;
+}
+
+static const char *access_description_na(const struct security_assessor *a, JsonVariant *policy) {
+        assert(a);
+
+        JsonVariant *val;
+
+        if (policy != NULL && json_variant_by_key(policy, a->id)) {
+                val = json_variant_by_key(policy, a->id);
+                if (json_variant_type(val) == JSON_VARIANT_OBJECT && json_variant_by_key(val, "description_na"))
+                        return json_variant_string(json_variant_by_key(val, "description_na"));
+        }
+
+        return a->description_na;
+}
+
+static const char *access_description_good(const struct security_assessor *a, JsonVariant *policy) {
+        assert(a);
+
+        JsonVariant *val;
+
+        if (policy != NULL && json_variant_by_key(policy, a->id)) {
+                val = json_variant_by_key(policy, a->id);
+                if (json_variant_type(val) == JSON_VARIANT_OBJECT && json_variant_by_key(val, "description_good"))
+                        return json_variant_string(json_variant_by_key(val, "description_good"));
+        }
+
+        return a->description_good;
+}
+
+static const char *access_description_bad(const struct security_assessor *a, JsonVariant *policy) {
+        assert(a);
+
+        JsonVariant *val;
+
+        if (policy != NULL && json_variant_by_key(policy, a->id)) {
+                val = json_variant_by_key(policy, a->id);
+                if (json_variant_type(val) == JSON_VARIANT_OBJECT && json_variant_by_key(val, "description_bad"))
+                        return json_variant_string(json_variant_by_key(val, "description_bad"));
+        }
+
+        return a->description_bad;
+}
+
+static int assess(const SecurityInfo *info,
+                  Table *overview_table,
+                  AnalyzeSecurityFlags flags,
+                  unsigned threshold,
+                  JsonVariant *policy,
+                  JsonFormatFlags json_format_flags) {
+
         static const struct {
                 uint64_t exposure;
                 const char *name;
@@ -1549,7 +1625,13 @@ static int assess(const SecurityInfo *info, Table *overview_table, AnalyzeSecuri
         int r;
 
         if (!FLAGS_SET(flags, ANALYZE_SECURITY_SHORT)) {
-                details_table = table_new(" ", "name", "description", "weight", "badness", "range", "exposure");
+                const char *first_column_name = " ";
+
+                /* The json output of the table should have a proper key name for the first field */
+                if (json_format_flags != JSON_FORMAT_OFF)
+                        first_column_name = "set";
+
+                details_table = table_new(first_column_name, "name", "description", "weight", "badness", "range", "exposure");
                 if (!details_table)
                         return log_oom();
 
@@ -1565,6 +1647,8 @@ static int assess(const SecurityInfo *info, Table *overview_table, AnalyzeSecuri
                 _cleanup_free_ char *d = NULL;
                 uint64_t badness;
                 void *data;
+                uint64_t weight = access_weight(a, policy);
+                uint64_t range = access_range(a, policy);
 
                 data = (uint8_t *) info + a->offset;
 
@@ -1579,13 +1663,13 @@ static int assess(const SecurityInfo *info, Table *overview_table, AnalyzeSecuri
                                 return r;
                 }
 
-                assert(a->range > 0);
+                assert(range > 0);
 
                 if (badness != UINT64_MAX) {
-                        assert(badness <= a->range);
+                        assert(badness <= range);
 
-                        badness_sum += DIV_ROUND_UP(badness * a->weight, a->range);
-                        weight_sum += a->weight;
+                        badness_sum += DIV_ROUND_UP(badness * weight, range);
+                        weight_sum += weight;
                 }
 
                 if (details_table) {
@@ -1593,18 +1677,18 @@ static int assess(const SecurityInfo *info, Table *overview_table, AnalyzeSecuri
 
                         if (badness == UINT64_MAX) {
                                 checkmark = " ";
-                                description = a->description_na;
+                                description = access_description_na(a, policy);
                                 color = NULL;
                         } else if (badness == a->range) {
-                                checkmark = special_glyph(SPECIAL_GLYPH_CROSS_MARK);
-                                description = a->description_bad;
+                                checkmark = ((json_format_flags == JSON_FORMAT_OFF) ? special_glyph(SPECIAL_GLYPH_CROSS_MARK) : "no");
+                                description = access_description_bad(a, policy);
                                 color = ansi_highlight_red();
                         } else if (badness == 0) {
-                                checkmark = special_glyph(SPECIAL_GLYPH_CHECK_MARK);
-                                description = a->description_good;
+                                checkmark = ((json_format_flags == JSON_FORMAT_OFF) ? special_glyph(SPECIAL_GLYPH_CROSS_MARK) : "yes");
+                                description = access_description_good(a, policy);
                                 color = ansi_highlight_green();
                         } else {
-                                checkmark = special_glyph(SPECIAL_GLYPH_CROSS_MARK);
+                                checkmark = ((json_format_flags == JSON_FORMAT_OFF) ? special_glyph(SPECIAL_GLYPH_CROSS_MARK) : "no");
                                 description = NULL;
                                 color = ansi_highlight_red();
                         }
@@ -1620,9 +1704,9 @@ static int assess(const SecurityInfo *info, Table *overview_table, AnalyzeSecuri
                                            TABLE_SET_COLOR, color,
                                            TABLE_STRING, a->id, TABLE_SET_URL, a->url,
                                            TABLE_STRING, description,
-                                           TABLE_UINT64, a->weight, TABLE_SET_ALIGN_PERCENT, 100,
+                                           TABLE_UINT64, weight, TABLE_SET_ALIGN_PERCENT, 100,
                                            TABLE_UINT64, badness, TABLE_SET_ALIGN_PERCENT, 100,
-                                           TABLE_UINT64, a->range, TABLE_SET_ALIGN_PERCENT, 100,
+                                           TABLE_UINT64, range, TABLE_SET_ALIGN_PERCENT, 100,
                                            TABLE_EMPTY, TABLE_SET_ALIGN_PERCENT, 100);
                         if (r < 0)
                                 return table_log_add_error(r);
@@ -1657,7 +1741,7 @@ static int assess(const SecurityInfo *info, Table *overview_table, AnalyzeSecuri
                                 return log_error_errno(r, "Failed to update cell in table: %m");
                 }
 
-                r = table_print(details_table, stdout);
+                r =  table_print_with_pager(details_table, json_format_flags, /* pager_flags= */ 0, /* show_header */ true);
                 if (r < 0)
                         return log_error_errno(r, "Failed to output table: %m");
         }
@@ -1670,7 +1754,7 @@ static int assess(const SecurityInfo *info, Table *overview_table, AnalyzeSecuri
 
         assert(i < ELEMENTSOF(badness_table));
 
-        if (details_table) {
+        if (details_table && (json_format_flags & JSON_FORMAT_OFF)) {
                 _cleanup_free_ char *clickable = NULL;
                 const char *name;
 
@@ -2192,8 +2276,13 @@ static int acquire_security_info(sd_bus *bus, const char *name, SecurityInfo *in
         return 0;
 }
 
-static int analyze_security_one(sd_bus *bus, const char *name, Table *overview_table,
-                                AnalyzeSecurityFlags flags, unsigned threshold) {
+static int analyze_security_one(sd_bus *bus,
+                                const char *name,
+                                Table *overview_table,
+                                AnalyzeSecurityFlags flags,
+                                unsigned threshold,
+                                JsonVariant *policy,
+                                JsonFormatFlags json_format_flags) {
 
         _cleanup_(security_info_freep) SecurityInfo *info = security_info_new();
         if (!info)
@@ -2210,7 +2299,7 @@ static int analyze_security_one(sd_bus *bus, const char *name, Table *overview_t
         if (r < 0)
                 return r;
 
-        r = assess(info, overview_table, flags, threshold);
+        r = assess(info, overview_table, flags, threshold, policy, json_format_flags);
         if (r < 0)
                 return r;
 
@@ -2396,7 +2485,7 @@ static int get_security_info(Unit *u, ExecContext *c, CGroupContext *g, Security
         return 0;
 }
 
-static int offline_security_check(Unit *u, unsigned threshold) {
+static int offline_security_check(Unit *u, unsigned threshold, JsonVariant *policy, JsonFormatFlags json_format_flags) {
         _cleanup_(table_unrefp) Table *overview_table = NULL;
         AnalyzeSecurityFlags flags = 0;
         _cleanup_(security_info_freep) SecurityInfo *info = NULL;
@@ -2411,10 +2500,18 @@ static int offline_security_check(Unit *u, unsigned threshold) {
         if (r < 0)
               return r;
 
-        return assess(info, overview_table, flags, threshold);
+        return assess(info, overview_table, flags, threshold, policy, json_format_flags);
 }
 
-static int offline_security_checks(char **filenames, UnitFileScope scope, bool check_man, bool run_generators, unsigned threshold, const char *root) {
+static int offline_security_checks(char **filenames,
+                                   JsonVariant *policy,
+                                   UnitFileScope scope,
+                                   bool check_man,
+                                   bool run_generators,
+                                   unsigned threshold,
+                                   const char *root,
+                                   JsonFormatFlags json_format_flags) {
+
         const ManagerTestRunFlags flags =
                 MANAGER_TEST_RUN_MINIMAL |
                 MANAGER_TEST_RUN_ENV_GENERATORS |
@@ -2473,7 +2570,7 @@ static int offline_security_checks(char **filenames, UnitFileScope scope, bool c
         }
 
         for (size_t i = 0; i < count; i++) {
-                k = offline_security_check(units[i], threshold);
+                k = offline_security_check(units[i], threshold, policy, json_format_flags);
                 if (k < 0 && r == 0)
                         r = k;
         }
@@ -2481,8 +2578,17 @@ static int offline_security_checks(char **filenames, UnitFileScope scope, bool c
         return r;
 }
 
-int analyze_security(sd_bus *bus, char **units, UnitFileScope scope, bool check_man, bool run_generators,
-                     bool offline, unsigned threshold, const char *root, AnalyzeSecurityFlags flags) {
+int analyze_security(sd_bus *bus,
+                     char **units,
+                     JsonVariant *policy,
+                     UnitFileScope scope,
+                     bool check_man,
+                     bool run_generators,
+                     bool offline,
+                     unsigned threshold,
+                     const char *root,
+                     JsonFormatFlags json_format_flags,
+                     AnalyzeSecurityFlags flags) {
 
         _cleanup_(table_unrefp) Table *overview_table = NULL;
         int ret = 0, r;
@@ -2490,7 +2596,7 @@ int analyze_security(sd_bus *bus, char **units, UnitFileScope scope, bool check_
         assert(bus);
 
         if (offline)
-                return offline_security_checks(units, scope, check_man, run_generators, threshold, root);
+                return offline_security_checks(units, policy, scope, check_man, run_generators, threshold, root, json_format_flags);
 
         if (strv_length(units) != 1) {
                 overview_table = table_new("unit", "exposure", "predicate", "happy");
@@ -2550,7 +2656,7 @@ int analyze_security(sd_bus *bus, char **units, UnitFileScope scope, bool check_
                 flags |= ANALYZE_SECURITY_SHORT|ANALYZE_SECURITY_ONLY_LOADED|ANALYZE_SECURITY_ONLY_LONG_RUNNING;
 
                 STRV_FOREACH(i, list) {
-                        r = analyze_security_one(bus, *i, overview_table, flags, threshold);
+                        r = analyze_security_one(bus, *i, overview_table, flags, threshold, policy, json_format_flags);
                         if (r < 0 && ret >= 0)
                                 ret = r;
                 }
@@ -2585,7 +2691,7 @@ int analyze_security(sd_bus *bus, char **units, UnitFileScope scope, bool check_
                         } else
                                 name = mangled;
 
-                        r = analyze_security_one(bus, name, overview_table, flags, threshold);
+                        r = analyze_security_one(bus, name, overview_table, flags, threshold, policy, json_format_flags);
                         if (r < 0 && ret >= 0)
                                 ret = r;
                 }
@@ -2597,10 +2703,9 @@ int analyze_security(sd_bus *bus, char **units, UnitFileScope scope, bool check_
                         fflush(stdout);
                 }
 
-                r = table_print(overview_table, stdout);
+                r = table_print_with_pager(overview_table, json_format_flags, /* pager_flags= */ 0, /* show_header= */ true);
                 if (r < 0)
                         return log_error_errno(r, "Failed to output table: %m");
         }
-
         return ret;
 }
