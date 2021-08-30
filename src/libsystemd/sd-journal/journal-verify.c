@@ -110,6 +110,32 @@ static void flush_progress(void) {
                 log_error_errno(error, OFSfmt": " _fmt, (uint64_t)_offset, ##__VA_ARGS__); \
         } while (0)
 
+static int hash_payload(JournalFile *f, Object *o, uint64_t offset, const uint8_t *src, uint64_t size, uint64_t *res_hash) {
+        int compression, r;
+
+        assert(o);
+        assert(src);
+        assert(res_hash);
+
+        compression = o->object.flags & OBJECT_COMPRESSION_MASK;
+        if (compression) {
+                _cleanup_free_ void *b = NULL;
+                size_t b_size;
+
+                r = decompress_blob(compression, src, size, &b, &b_size, 0);
+                if (r < 0) {
+                        error_errno(offset, r, "%s decompression failed: %m",
+                                    object_compressed_to_string(compression));
+                        return r;
+                }
+
+                *res_hash = journal_file_hash_data(f, b, b_size);
+        } else
+                *res_hash = journal_file_hash_data(f, src, size);
+
+        return 0;
+}
+
 static int journal_file_object_verify(JournalFile *f, uint64_t offset, Object *o) {
         uint64_t i;
 
@@ -131,7 +157,7 @@ static int journal_file_object_verify(JournalFile *f, uint64_t offset, Object *o
 
         case OBJECT_DATA: {
                 uint64_t h1, h2;
-                int compression, r;
+                int r;
 
                 if (le64toh(o->data.entry_offset) == 0)
                         warning(offset, "Unused data (entry_offset==0)");
@@ -149,25 +175,11 @@ static int journal_file_object_verify(JournalFile *f, uint64_t offset, Object *o
                 }
 
                 h1 = le64toh(o->data.hash);
-
-                compression = o->object.flags & OBJECT_COMPRESSION_MASK;
-                if (compression) {
-                        _cleanup_free_ void *b = NULL;
-                        size_t b_size;
-
-                        r = decompress_blob(compression,
-                                            o->data.payload,
-                                            le64toh(o->object.size) - offsetof(Object, data.payload),
-                                            &b, &b_size, 0);
-                        if (r < 0) {
-                                error_errno(offset, r, "%s decompression failed: %m",
-                                            object_compressed_to_string(compression));
-                                return r;
-                        }
-
-                        h2 = journal_file_hash_data(f, b, b_size);
-                } else
-                        h2 = journal_file_hash_data(f, o->data.payload, le64toh(o->object.size) - offsetof(Object, data.payload));
+                r = hash_payload(f, o, offset, o->data.payload,
+                                 le64toh(o->object.size) - offsetof(Object, data.payload),
+                                 &h2);
+                if (r < 0)
+                        return r;
 
                 if (h1 != h2) {
                         error(offset, "Invalid hash (%08" PRIx64 " vs. %08" PRIx64 ")", h1, h2);
