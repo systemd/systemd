@@ -15,10 +15,11 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <net/if.h>
-#include <net/if_arp.h>
 #include <stdarg.h>
 #include <unistd.h>
 #include <linux/if.h>
+#include <linux/if_arp.h>
+#include <linux/netdevice.h>
 #include <linux/pci_regs.h>
 
 #include "alloc-util.h"
@@ -34,6 +35,7 @@
 #include "string-util.h"
 #include "strv.h"
 #include "strxcpyx.h"
+#include "udev-builtin-net_id-netlink.h"
 #include "udev-builtin.h"
 
 #define ONBOARD_14BIT_INDEX_MAX ((1U << 14) - 1)
@@ -53,9 +55,6 @@ typedef enum NetNameType {
 
 typedef struct NetNames {
         NetNameType type;
-
-        uint8_t mac[6];
-        bool mac_valid;
 
         sd_device *pcidev;
         char pci_slot[ALTIFNAMSIZ];
@@ -164,12 +163,16 @@ static bool is_valid_onboard_index(unsigned long idx) {
 }
 
 /* retrieve on-board index number and label from firmware */
-static int dev_pci_onboard(sd_device *dev, NetNames *names) {
+static int dev_pci_onboard(sd_device *dev, const LinkInfo *info, NetNames *names) {
         unsigned long idx, dev_port = 0;
-        const char *attr, *port_name = NULL;
+        const char *attr;
         size_t l;
         char *s;
         int r;
+
+        assert(dev);
+        assert(info);
+        assert(names);
 
         /* ACPI _DSM — device specific method for naming a PCI or PCI Express device */
         if (sd_device_get_sysattr_value(names->pcidev, "acpi_index", &attr) < 0) {
@@ -195,14 +198,12 @@ static int dev_pci_onboard(sd_device *dev, NetNames *names) {
                         log_device_debug_errno(dev, r, "Failed to parse dev_port, ignoring: %m");
         }
 
-        /* kernel provided front panel port name for multiple port PCI device */
-        (void) sd_device_get_sysattr_value(dev, "phys_port_name", &port_name);
-
         s = names->pci_onboard;
         l = sizeof(names->pci_onboard);
         l = strpcpyf(&s, l, "o%lu", idx);
-        if (port_name)
-                l = strpcpyf(&s, l, "n%s", port_name);
+        if (!isempty(info->phys_port_name))
+                /* kernel provided front panel port name for multiple port PCI device */
+                l = strpcpyf(&s, l, "n%s", info->phys_port_name);
         else if (dev_port > 0)
                 l = strpcpyf(&s, l, "d%lu", dev_port);
         if (l == 0)
@@ -306,8 +307,8 @@ static int parse_hotplug_slot_from_function_id(sd_device *dev, const char *slots
         return 1;
 }
 
-static int dev_pci_slot(sd_device *dev, NetNames *names) {
-        const char *sysname, *attr, *port_name = NULL, *syspath;
+static int dev_pci_slot(sd_device *dev, const LinkInfo *info, NetNames *names) {
+        const char *sysname, *attr, *syspath;
         _cleanup_(sd_device_unrefp) sd_device *pci = NULL;
         _cleanup_closedir_ DIR *dir = NULL;
         unsigned domain, bus, slot, func;
@@ -317,6 +318,10 @@ static int dev_pci_slot(sd_device *dev, NetNames *names) {
         char slots[PATH_MAX], *s;
         size_t l;
         int r;
+
+        assert(dev);
+        assert(info);
+        assert(names);
 
         r = sd_device_get_sysname(names->pcidev, &sysname);
         if (r < 0)
@@ -356,9 +361,6 @@ static int dev_pci_slot(sd_device *dev, NetNames *names) {
                 }
         }
 
-        /* kernel provided front panel port name for multi-port PCI device */
-        (void) sd_device_get_sysattr_value(dev, "phys_port_name", &port_name);
-
         /* compose a name based on the raw kernel's PCI bus, slot numbers */
         s = names->pci_path;
         l = sizeof(names->pci_path);
@@ -367,8 +369,9 @@ static int dev_pci_slot(sd_device *dev, NetNames *names) {
         l = strpcpyf(&s, l, "p%us%u", bus, slot);
         if (func > 0 || is_pci_multifunction(names->pcidev))
                 l = strpcpyf(&s, l, "f%u", func);
-        if (port_name)
-                l = strpcpyf(&s, l, "n%s", port_name);
+        if (!isempty(info->phys_port_name))
+                /* kernel provided front panel port name for multi-port PCI device */
+                l = strpcpyf(&s, l, "n%s", info->phys_port_name);
         else if (dev_port > 0)
                 l = strpcpyf(&s, l, "d%lu", dev_port);
         if (l == 0)
@@ -448,8 +451,8 @@ static int dev_pci_slot(sd_device *dev, NetNames *names) {
                 l = strpcpyf(&s, l, "s%"PRIu32, hotplug_slot);
                 if (func > 0 || is_pci_multifunction(names->pcidev))
                         l = strpcpyf(&s, l, "f%d", func);
-                if (port_name)
-                        l = strpcpyf(&s, l, "n%s", port_name);
+                if (!isempty(info->phys_port_name))
+                        l = strpcpyf(&s, l, "n%s", info->phys_port_name);
                 else if (dev_port > 0)
                         l = strpcpyf(&s, l, "d%lu", dev_port);
                 if (l == 0)
@@ -551,7 +554,7 @@ static int names_platform(sd_device *dev, NetNames *names, bool test) {
         return 0;
 }
 
-static int names_pci(sd_device *dev, NetNames *names) {
+static int names_pci(sd_device *dev, const LinkInfo *info, NetNames *names) {
         _cleanup_(sd_device_unrefp) sd_device *physfn_pcidev = NULL;
         _cleanup_free_ char *virtfn_suffix = NULL;
         sd_device *parent;
@@ -559,6 +562,7 @@ static int names_pci(sd_device *dev, NetNames *names) {
         int r;
 
         assert(dev);
+        assert(info);
         assert(names);
 
         r = sd_device_get_parent(dev, &parent);
@@ -587,8 +591,8 @@ static int names_pci(sd_device *dev, NetNames *names) {
 
                 /* If this is an SR-IOV virtual device, get base name using physical device and add virtfn suffix. */
                 vf_names.pcidev = physfn_pcidev;
-                dev_pci_onboard(dev, &vf_names);
-                dev_pci_slot(dev, &vf_names);
+                dev_pci_onboard(dev, info, &vf_names);
+                dev_pci_slot(dev, info, &vf_names);
 
                 if (vf_names.pci_onboard[0])
                         if (strlen(vf_names.pci_onboard) + strlen(virtfn_suffix) < sizeof(names->pci_onboard))
@@ -603,8 +607,8 @@ static int names_pci(sd_device *dev, NetNames *names) {
                                 strscpyl(names->pci_path, sizeof(names->pci_path),
                                          vf_names.pci_path, virtfn_suffix, NULL);
         } else {
-                dev_pci_onboard(dev, names);
-                dev_pci_slot(dev, names);
+                dev_pci_onboard(dev, info, names);
+                dev_pci_slot(dev, info, names);
         }
 
         return 0;
@@ -754,75 +758,48 @@ static int names_ccw(sd_device *dev, NetNames *names) {
         return 0;
 }
 
-static int names_mac(sd_device *dev, NetNames *names) {
+static int names_mac(sd_device *dev, const LinkInfo *info) {
         const char *s;
-        unsigned long i;
-        unsigned a1, a2, a3, a4, a5, a6;
+        unsigned i;
         int r;
 
-        /* Some kinds of devices tend to have hardware addresses
-         * that are impossible to use in an iface name.
-         */
-        r = sd_device_get_sysattr_value(dev, "type", &s);
-        if (r < 0)
-                return r;
+        assert(dev);
+        assert(info);
 
-        r = safe_atolu_full(s, 10, &i);
-        if (r < 0)
-                return r;
-        switch (i) {
-        /* The persistent part of a hardware address of an InfiniBand NIC
-         * is 8 bytes long. We cannot fit this much in an iface name.
-         */
-        case ARPHRD_INFINIBAND:
-                return -EINVAL;
-        default:
-                break;
-        }
+        /* The persistent part of a hardware address of an InfiniBand NIC is 8 bytes long. We cannot
+         * fit this much in an iface name.
+         * TODO: but it can be used as alternative names?? */
+        if (info->iftype == ARPHRD_INFINIBAND || info->hw_addr.length != 6)
+                return -EOPNOTSUPP;
 
         /* check for NET_ADDR_PERM, skip random MAC addresses */
         r = sd_device_get_sysattr_value(dev, "addr_assign_type", &s);
         if (r < 0)
                 return r;
-        r = safe_atolu(s, &i);
+        r = safe_atou(s, &i);
         if (r < 0)
                 return r;
-        if (i != 0)
-                return 0;
-
-        r = sd_device_get_sysattr_value(dev, "address", &s);
-        if (r < 0)
-                return r;
-        if (sscanf(s, "%x:%x:%x:%x:%x:%x", &a1, &a2, &a3, &a4, &a5, &a6) != 6)
+        if (i != NET_ADDR_PERM)
                 return -EINVAL;
 
-        /* skip empty MAC addresses */
-        if (a1 + a2 + a3 + a4 + a5 + a6 == 0)
-                return -EINVAL;
-
-        names->mac[0] = a1;
-        names->mac[1] = a2;
-        names->mac[2] = a3;
-        names->mac[3] = a4;
-        names->mac[4] = a5;
-        names->mac[5] = a6;
-        names->mac_valid = true;
         return 0;
 }
 
-static int names_netdevsim(sd_device *dev, NetNames *names) {
+static int names_netdevsim(sd_device *dev, const LinkInfo *info, NetNames *names) {
         sd_device *netdevsimdev;
         const char *sysname;
         unsigned addr;
-        const char *port_name = NULL;
         int r;
-        bool ok;
 
         if (!naming_scheme_has(NAMING_NETDEVSIM))
                 return 0;
 
         assert(dev);
+        assert(info);
         assert(names);
+
+        if (isempty(info->phys_port_name))
+                return -EINVAL;
 
         r = sd_device_get_parent_with_subsystem_devtype(dev, "netdevsim", NULL, &netdevsimdev);
         if (r < 0)
@@ -834,12 +811,7 @@ static int names_netdevsim(sd_device *dev, NetNames *names) {
         if (sscanf(sysname, "netdevsim%u", &addr) != 1)
                 return -EINVAL;
 
-        r = sd_device_get_sysattr_value(dev, "phys_port_name", &port_name);
-        if (r < 0)
-                return r;
-
-        ok = snprintf_ok(names->netdevsim_path, sizeof(names->netdevsim_path), "i%un%s", addr, port_name);
-        if (!ok)
+        if (!snprintf_ok(names->netdevsim_path, sizeof(names->netdevsim_path), "i%un%s", addr, info->phys_port_name))
                 return -ENOBUFS;
 
         names->type = NET_NETDEVSIM;
@@ -848,36 +820,62 @@ static int names_netdevsim(sd_device *dev, NetNames *names) {
 }
 
 /* IEEE Organizationally Unique Identifier vendor string */
-static int ieee_oui(sd_device *dev, NetNames *names, bool test) {
+static int ieee_oui(sd_device *dev, const LinkInfo *info, bool test) {
         char str[32];
 
-        if (!names->mac_valid)
-                return -ENOENT;
+        assert(dev);
+        assert(info);
+
+        if (info->hw_addr.length != 6)
+                return -EOPNOTSUPP;
+
         /* skip commonly misused 00:00:00 (Xerox) prefix */
-        if (memcmp(names->mac, "\0\0\0", 3) == 0)
+        if (info->hw_addr.bytes[0] == 0 &&
+            info->hw_addr.bytes[1] == 0 &&
+            info->hw_addr.bytes[2] == 0)
                 return -EINVAL;
-        xsprintf(str, "OUI:%02X%02X%02X%02X%02X%02X", names->mac[0],
-                 names->mac[1], names->mac[2], names->mac[3], names->mac[4],
-                 names->mac[5]);
-        udev_builtin_hwdb_lookup(dev, NULL, str, NULL, test);
-        return 0;
+
+        xsprintf(str, "OUI:%02X%02X%02X%02X%02X%02X",
+                 info->hw_addr.bytes[0],
+                 info->hw_addr.bytes[1],
+                 info->hw_addr.bytes[2],
+                 info->hw_addr.bytes[3],
+                 info->hw_addr.bytes[4],
+                 info->hw_addr.bytes[5]);
+        return udev_builtin_hwdb_lookup(dev, NULL, str, NULL, test);
 }
 
 static int builtin_net_id(sd_device *dev, sd_netlink **rtnl, int argc, char *argv[], bool test) {
-        const char *s, *p, *devtype, *prefix = "en";
+        _cleanup_(link_info_clear) LinkInfo info = LINK_INFO_NULL;
+        const char *devtype, *prefix = "en";
         NetNames names = {};
-        unsigned long i;
-        int r;
+        int ifindex, r;
+
+        r = sd_device_get_ifindex(dev, &ifindex);
+        if (r < 0)
+                return r;
+
+        r = link_info_get(rtnl, ifindex, &info);
+        if (r < 0)
+                return r;
+
+        if (!info.support_phys_port_name) {
+                const char *s;
+
+                r = sd_device_get_sysattr_value(dev, "phys_port_name", &s);
+                if (r >= 0) {
+                        info.phys_port_name = strdup(s);
+                        if (!info.phys_port_name)
+                                return log_oom();
+                }
+        }
+
+        /* skip stacked devices, like VLANs, ... */
+        if (info.ifindex != (int) info.iflink)
+                return 0;
 
         /* handle only ARPHRD_ETHER, ARPHRD_SLIP and ARPHRD_INFINIBAND devices */
-        r = sd_device_get_sysattr_value(dev, "type", &s);
-        if (r < 0)
-                return r;
-
-        r = safe_atolu_full(s, 10, &i);
-        if (r < 0)
-                return r;
-        switch (i) {
+        switch (info.iftype) {
         case ARPHRD_ETHER:
                 prefix = "en";
                 break;
@@ -894,16 +892,6 @@ static int builtin_net_id(sd_device *dev, sd_netlink **rtnl, int argc, char *arg
                 return 0;
         }
 
-        /* skip stacked devices, like VLANs, ... */
-        r = sd_device_get_sysattr_value(dev, "ifindex", &s);
-        if (r < 0)
-                return r;
-        r = sd_device_get_sysattr_value(dev, "iflink", &p);
-        if (r < 0)
-                return r;
-        if (!streq(s, p))
-                return 0;
-
         if (sd_device_get_devtype(dev, &devtype) >= 0) {
                 if (streq("wlan", devtype))
                         prefix = "wl";
@@ -913,16 +901,13 @@ static int builtin_net_id(sd_device *dev, sd_netlink **rtnl, int argc, char *arg
 
         udev_builtin_add_property(dev, test, "ID_NET_NAMING_SCHEME", naming_scheme()->name);
 
-        r = names_mac(dev, &names);
-        if (r >= 0 && names.mac_valid) {
+        if (names_mac(dev, &info) >= 0) {
                 char str[ALTIFNAMSIZ];
 
-                xsprintf(str, "%sx%02x%02x%02x%02x%02x%02x", prefix,
-                         names.mac[0], names.mac[1], names.mac[2],
-                         names.mac[3], names.mac[4], names.mac[5]);
+                xsprintf(str, "%s%s", prefix, HW_ADDR_TO_STR(&info.hw_addr));
                 udev_builtin_add_property(dev, test, "ID_NET_NAME_MAC", str);
 
-                ieee_oui(dev, &names, test);
+                ieee_oui(dev, &info, test);
         }
 
         /* get path names for Linux on System z network devices */
@@ -953,7 +938,7 @@ static int builtin_net_id(sd_device *dev, sd_netlink **rtnl, int argc, char *arg
         }
 
         /* get netdevsim path names */
-        if (names_netdevsim(dev, &names) >= 0 && names.type == NET_NETDEVSIM) {
+        if (names_netdevsim(dev, &info, &names) >= 0 && names.type == NET_NETDEVSIM) {
                 char str[ALTIFNAMSIZ];
 
                 if (snprintf_ok(str, sizeof str, "%s%s", prefix, names.netdevsim_path))
@@ -963,7 +948,7 @@ static int builtin_net_id(sd_device *dev, sd_netlink **rtnl, int argc, char *arg
         }
 
         /* get PCI based path names, we compose only PCI based paths */
-        if (names_pci(dev, &names) < 0)
+        if (names_pci(dev, &info, &names) < 0)
                 return 0;
 
         /* plain PCI device */
