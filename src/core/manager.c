@@ -4115,7 +4115,7 @@ static void manager_unref_uid_internal(
         /* A generic implementation, covering both manager_unref_uid() and manager_unref_gid(), under the assumption
          * that uid_t and gid_t are actually defined the same way, with the same validity rules.
          *
-         * We store a hashmap where the UID/GID is they key and the value is a 32bit reference counter, whose highest
+         * We store a hashmap where the key is the UID/GID and the value is a 32bit reference counter, whose highest
          * bit is used as flag for marking UIDs/GIDs whose IPC objects to remove when the last reference to the UID/GID
          * is dropped. The flag is set to on, once at least one reference from a unit where RemoveIPC= is set is added
          * on a UID/GID. It is reset when the UID's/GID's reference counter drops to 0 again. */
