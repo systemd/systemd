@@ -80,6 +80,7 @@ TYPES = {'mouse':    ('usb', 'bluetooth', 'ps2', '*'),
 GENERAL_MATCHES = {'acpi',
                    'bluetooth',
                    'usb',
+                   'usb_device',
                    'pci',
                    'sdio',
                    'vmbus',
@@ -206,9 +207,10 @@ def check_matches(groups):
     matches = sum((group[0] for group in groups), [])
 
     # This is a partial check. The other cases could be also done, but those
-    # two are most commonly wrong.
-    grammars = { 'usb' : 'v' + upperhex_word(4) + Optional('p' + upperhex_word(4)),
-                 'pci' : 'v' + upperhex_word(8) + Optional('d' + upperhex_word(8)),
+    # three are most commonly wrong.
+    grammars = { 'usb'        : 'v' + upperhex_word(4) + Optional('p' + upperhex_word(4)),
+                 'usb_device' : 'v' + upperhex_word(4) + Optional('p' + upperhex_word(4)),
+                 'pci'        : 'v' + upperhex_word(8) + Optional('d' + upperhex_word(8)),
     }
 
     for match in matches:
