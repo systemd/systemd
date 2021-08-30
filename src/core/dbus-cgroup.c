@@ -489,6 +489,8 @@ const sd_bus_vtable bus_cgroup_vtable[] = {
         SD_BUS_PROPERTY("DeviceAllow", "a(ss)", property_get_device_allow, 0, 0),
         SD_BUS_PROPERTY("TasksAccounting", "b", bus_property_get_bool, offsetof(CGroupContext, tasks_accounting), 0),
         SD_BUS_PROPERTY("TasksMax", "t", bus_property_get_tasks_max, offsetof(CGroupContext, tasks_max), 0),
+        SD_BUS_PROPERTY("FreezerAccounting", "b", bus_property_get_bool, offsetof(CGroupContext, freezer_accounting), 0),
+        SD_BUS_PROPERTY("FreezerState", "s", NULL, offsetof(CGroupContext, freezer_state), 0),
         SD_BUS_PROPERTY("IPAccounting", "b", bus_property_get_bool, offsetof(CGroupContext, ip_accounting), 0),
         SD_BUS_PROPERTY("IPAddressAllow", "a(iayu)", property_get_ip_address_access, offsetof(CGroupContext, ip_address_allow), 0),
         SD_BUS_PROPERTY("IPAddressDeny", "a(iayu)", property_get_ip_address_access, offsetof(CGroupContext, ip_address_deny), 0),
@@ -1128,6 +1130,31 @@ int bus_cgroup_set_property(
 
         if (streq(name, "TasksMaxScale"))
                 return bus_cgroup_set_tasks_max_scale(u, name, &c->tasks_max, message, flags, error);
+
+        if (streq(name, "FreezerAccounting"))
+                return bus_cgroup_set_boolean(u, name, &c->freezer_accounting, CGROUP_MASK_FREEZER, message, flags, error);
+        
+        if (streq(name, "FreezerState")) {
+                const char *state = NULL;
+
+                r = sd_bus_message_read(message, "s", &state);
+                if (r < 0)
+                        return r;
+
+                if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
+                        unit_invalidate_cgroup(u, CGROUP_MASK_FREEZER);
+
+                        if (c->freezer_state)
+                                mfree(c->freezer_state);
+
+                        c->freezer_state = strdup(state);
+                        if (!c->freezer_state)
+                                return -ENOMEM;
+
+                        unit_write_settingf(u, flags, name, "FreezerState=%s", state);
+                }
+                return 1;
+        }
 
         if (streq(name, "CPUQuotaPerSecUSec")) {
                 uint64_t u64;

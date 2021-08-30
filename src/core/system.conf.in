@@ -55,6 +55,7 @@
 #DefaultBlockIOAccounting=no
 #DefaultMemoryAccounting={{ 'yes' if MEMORY_ACCOUNTING_DEFAULT else 'no' }}
 #DefaultTasksAccounting=yes
+#DefaultFreezerAccounting=no
 #DefaultTasksMax=15%
 #DefaultLimitCPU=
 #DefaultLimitFSIZE=

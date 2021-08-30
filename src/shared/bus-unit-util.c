@@ -461,6 +461,7 @@ static int bus_append_cgroup_property(sd_bus_message *m, const char *field, cons
                               "IOAccounting",
                               "BlockIOAccounting",
                               "TasksAccounting",
+                              "FreezerAccounting",
                               "IPAccounting",
                               "CPUSetCloneChildren",
                               "CPUSetMemMigrate"))
@@ -562,6 +563,16 @@ static int bus_append_cgroup_property(sd_bus_message *m, const char *field, cons
                         return bus_append_safe_atou64(m, field, eq);
 
                 return bus_append_parse_size(m, field, eq, 1024);
+        }
+
+        if (streq(field, "FreezerState")) {
+                if (STR_IN_SET(eq, "FROZEN", "THAWED"))
+                        r = sd_bus_message_append(m, "(sv)", field, "s", eq);
+                else
+                        r = -EINVAL;
+                if (r < 0)
+                        return bus_log_create_error(r);
+                return 1;
         }
 
         if (streq(field, "CPUQuota")) {

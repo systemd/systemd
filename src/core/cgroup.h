@@ -117,6 +117,7 @@ struct CGroupContext {
         bool blockio_accounting;
         bool memory_accounting;
         bool tasks_accounting;
+        bool cpuset_accounting;
         bool ip_accounting;
 
         /* Configures the memory.oom.group attribute (on unified) */
@@ -185,6 +186,9 @@ struct CGroupContext {
 
         /* Common */
         TasksMax tasks_max;
+
+        /* Freezer */
+        char *freezer_state;
 
         /* Settings for systemd-oomd */
         ManagedOOMMode moom_swap;

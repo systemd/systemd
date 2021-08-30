@@ -134,6 +134,7 @@ void cgroup_context_init(CGroupContext *c) {
                 .startup_blockio_weight = CGROUP_BLKIO_WEIGHT_INVALID,
 
                 .tasks_max = TASKS_MAX_UNSET,
+                .freezer_state = NULL,
 
                 .moom_swap = MANAGED_OOM_AUTO,
                 .moom_mem_pressure = MANAGED_OOM_AUTO,
@@ -234,6 +235,9 @@ void cgroup_context_done(CGroupContext *c) {
 
         while (c->device_allow)
                 cgroup_context_free_device_allow(c, c->device_allow);
+
+        if (c->freezer_state)
+                mfree(c->freezer_state);
 
         cgroup_context_remove_socket_bind(&c->socket_bind_allow);
         cgroup_context_remove_socket_bind(&c->socket_bind_deny);
@@ -423,6 +427,7 @@ void cgroup_context_dump(Unit *u, FILE* f, const char *prefix) {
                 "%sBlockIOAccounting: %s\n"
                 "%sMemoryAccounting: %s\n"
                 "%sTasksAccounting: %s\n"
+                "%sFreezerAccounting: %s\n"
                 "%sIPAccounting: %s\n"
                 "%sCPUWeight: %" PRIu64 "\n"
                 "%sStartupCPUWeight: %" PRIu64 "\n"
@@ -447,6 +452,7 @@ void cgroup_context_dump(Unit *u, FILE* f, const char *prefix) {
                 "%sMemorySwapMax: %" PRIu64 "%s\n"
                 "%sMemoryLimit: %" PRIu64 "\n"
                 "%sTasksMax: %" PRIu64 "\n"
+                "%sFreezerState: %s\n"
                 "%sDevicePolicy: %s\n"
                 "%sDisableControllers: %s\n"
                 "%sDelegate: %s\n"
@@ -460,6 +466,7 @@ void cgroup_context_dump(Unit *u, FILE* f, const char *prefix) {
                 prefix, yes_no(c->blockio_accounting),
                 prefix, yes_no(c->memory_accounting),
                 prefix, yes_no(c->tasks_accounting),
+                prefix, yes_no(c->freezer_accounting),
                 prefix, yes_no(c->ip_accounting),
                 prefix, c->cpu_weight,
                 prefix, c->startup_cpu_weight,
@@ -484,6 +491,7 @@ void cgroup_context_dump(Unit *u, FILE* f, const char *prefix) {
                 prefix, c->memory_swap_max, format_cgroup_memory_limit_comparison(cde, sizeof(cde), u, "MemorySwapMax"),
                 prefix, c->memory_limit,
                 prefix, tasks_max_resolve(&c->tasks_max),
+                prefix, c->freezer_state,
                 prefix, cgroup_device_policy_to_string(c->device_policy),
                 prefix, strempty(disable_controllers_str),
                 prefix, yes_no(c->delegate),
@@ -1555,6 +1563,11 @@ static void cgroup_context_apply(
                 }
         }
 
+        if ((apply_mask & CGROUP_MASK_FREEZER) && !is_local_root) {
+                if (c->freezer_state)
+                        (void) set_attribute_and_warn(u, "freezer", "freezer.state", c->freezer_state);
+        }
+
         if (apply_mask & CGROUP_MASK_BPF_FIREWALL)
                 cgroup_apply_firewall(u);
 
@@ -1668,6 +1681,9 @@ static CGroupMask unit_get_cgroup_mask(Unit *u) {
         if (c->tasks_accounting ||
             tasks_max_isset(&c->tasks_max))
                 mask |= CGROUP_MASK_PIDS;
+
+        if (c->freezer_accounting || c->freezer_state)
+                mask |= CGROUP_MASK_FREEZER;
 
         return CGROUP_MASK_EXTEND_JOINED(mask);
 }

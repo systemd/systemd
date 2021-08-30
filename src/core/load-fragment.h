@@ -75,6 +75,7 @@ CONFIG_PARSER_PROTOTYPE(config_parse_cg_weight);
 CONFIG_PARSER_PROTOTYPE(config_parse_cpu_shares);
 CONFIG_PARSER_PROTOTYPE(config_parse_memory_limit);
 CONFIG_PARSER_PROTOTYPE(config_parse_tasks_max);
+CONFIG_PARSER_PROTOTYPE(config_parse_freezer_state);
 CONFIG_PARSER_PROTOTYPE(config_parse_delegate);
 CONFIG_PARSER_PROTOTYPE(config_parse_managed_oom_mode);
 CONFIG_PARSER_PROTOTYPE(config_parse_managed_oom_mem_pressure_limit);
