@@ -529,21 +529,27 @@ int fork_agent(const char *name, int except[], size_t n_except, pid_t *ret_pid, 
                  * stdin around. */
                 fd = open("/dev/tty", O_WRONLY);
                 if (fd < 0) {
-                        log_error_errno(errno, "Failed to open /dev/tty: %m");
-                        _exit(EXIT_FAILURE);
-                }
+                        if (errno != -ENXIO) {
+                                log_error_errno(errno, "Failed to open /dev/tty: %m");
+                                _exit(EXIT_FAILURE);
+                        }
 
-                if (!stdout_is_tty && dup2(fd, STDOUT_FILENO) < 0) {
-                        log_error_errno(errno, "Failed to dup2 /dev/tty: %m");
-                        _exit(EXIT_FAILURE);
-                }
+                        /* If we get ENXIO here we have no controlling TTY even though stdout/stderr are
+                         * connected to a TTY. That's a weird setup, but let's handle it gracefully: let's
+                         * skip the forking of the agents, given the TTY setup is not in order. */
+                } else {
+                        if (!stdout_is_tty && dup2(fd, STDOUT_FILENO) < 0) {
+                                log_error_errno(errno, "Failed to dup2 /dev/tty: %m");
+                                _exit(EXIT_FAILURE);
+                        }
 
-                if (!stderr_is_tty && dup2(fd, STDERR_FILENO) < 0) {
-                        log_error_errno(errno, "Failed to dup2 /dev/tty: %m");
-                        _exit(EXIT_FAILURE);
-                }
+                        if (!stderr_is_tty && dup2(fd, STDERR_FILENO) < 0) {
+                                log_error_errno(errno, "Failed to dup2 /dev/tty: %m");
+                                _exit(EXIT_FAILURE);
+                        }
 
-                safe_close_above_stdio(fd);
+                        fd = safe_close_above_stdio(fd);
+                }
         }
 
         (void) rlimit_nofile_safe();
