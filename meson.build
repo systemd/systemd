@@ -1636,7 +1636,12 @@ if get_option('efi')
 else
         have = false
 endif
+
+subdir('src/fundamental')
+subdir('src/boot/efi')
+
 conf.set10('ENABLE_EFI', have)
+conf.set10('HAVE_GNU_EFI', have_gnu_efi)
 
 ############################################################
 
@@ -1690,7 +1695,6 @@ includes = [libsystemd_includes, include_directories('src/shared')]
 
 subdir('po')
 subdir('catalog')
-subdir('src/fundamental')
 subdir('src/basic')
 subdir('src/libsystemd')
 subdir('src/shared')
@@ -1827,7 +1831,6 @@ subdir('src/journal')
 subdir('src/libsystemd-network')
 
 subdir('src/analyze')
-subdir('src/boot/efi')
 subdir('src/busctl')
 subdir('src/coredump')
 subdir('src/cryptenroll')
@@ -2221,7 +2224,7 @@ if conf.get('HAVE_PAM') == 1
                 install_dir : rootlibexecdir)
 endif
 
-if conf.get('ENABLE_EFI') == 1 and conf.get('HAVE_BLKID') == 1
+if conf.get('HAVE_BLKID') == 1 and conf.get('HAVE_GNU_EFI') == 1
         public_programs += executable(
                 'bootctl',
                 'src/boot/bootctl.c',
