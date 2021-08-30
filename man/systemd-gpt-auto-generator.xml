@@ -228,6 +228,11 @@
       For more information, see <citerefentry><refentrytitle>bootup</refentrytitle><manvolnum>7</manvolnum></citerefentry>.
     </para>
 
+    <para>The root partition can be specified by symlinking <filename>/run/systemd/volatile-root</filename>
+    to <filename>/dev/block/$major:$minor</filename>. This is especially useful if the root mount has been
+    replaced by some form of volatile file system (overlayfs).
+    </para>
+
     <para>Mount and automount units for the EFI System Partition (ESP) are generated on EFI systems. The ESP
     is mounted to <filename>/boot/</filename> (except if an Extended Boot Loader partition exists, see
     below), unless a mount point directory <filename>/efi/</filename> exists, in which case it is mounted
