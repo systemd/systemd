@@ -305,6 +305,7 @@ static void manager_exit(Manager *manager) {
                   "STATUS=Starting shutdown...");
 
         /* close sources of new events and discard buffered events */
+        udev_ctrl_cleanup(manager->ctrl);
         manager->ctrl = udev_ctrl_unref(manager->ctrl);
 
         manager->inotify_event = sd_event_source_unref(manager->inotify_event);
