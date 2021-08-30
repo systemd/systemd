@@ -925,6 +925,11 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                         assert_not_reached("Unhandled option");
                 }
 
+        /* If we are in --user mode, there's no point in talking to PolicyKit or the infra to query system
+         * passwords */
+        if (arg_scope != UNIT_FILE_SYSTEM)
+                arg_ask_password = false;
+
         if (arg_transport == BUS_TRANSPORT_REMOTE && arg_scope != UNIT_FILE_SYSTEM)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "Cannot access user instance remotely.");
