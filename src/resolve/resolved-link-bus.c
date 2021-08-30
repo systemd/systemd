@@ -303,12 +303,17 @@ static int bus_link_method_set_dns_servers_internal(sd_bus_message *message, voi
 
         for (size_t i = 0; i < n; i++) {
                 DnsServer *s;
+                uint16_t port;
 
-                s = dns_server_find(l->dns_servers, dns[i]->family, &dns[i]->address, dns[i]->port, 0, dns[i]->server_name);
+                /* By default, the port number is determined with the transaction feature level.
+                 * See dns_transaction_port() and dns_server_port(). */
+                port = IN_SET(port, 53, 853) ? 0 : dns[i]->port;
+
+                s = dns_server_find(l->dns_servers, dns[i]->family, &dns[i]->address, port, 0, dns[i]->server_name);
                 if (s)
                         dns_server_move_back_and_unmark(s);
                 else {
-                        r = dns_server_new(l->manager, NULL, DNS_SERVER_LINK, l, dns[i]->family, &dns[i]->address, dns[i]->port, 0, dns[i]->server_name);
+                        r = dns_server_new(l->manager, NULL, DNS_SERVER_LINK, l, dns[i]->family, &dns[i]->address, port, 0, dns[i]->server_name);
                         if (r < 0) {
                                 dns_server_unlink_all(l->dns_servers);
                                 goto finalize;
