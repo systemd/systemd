@@ -32,6 +32,7 @@
 #include "unit-name.h"
 #include "user-util.h"
 #include "util.h"
+#include "cgroup-util.h"
 
 Machine* machine_new(Manager *manager, MachineClass class, const char *name) {
         Machine *m;
@@ -523,6 +524,40 @@ int machine_finalize(Machine *m) {
         return 0;
 }
 
+static bool machine_validate_unit(Machine *m) {
+        int r;
+        _cleanup_free_ char *unit = NULL;
+        _cleanup_free_ char *cgroup = NULL;
+
+        r = cg_pid_get_unit(m->leader, &unit);
+        if (!r && streq(m->unit, unit))
+                return true;
+
+        if (r == -ESRCH) {
+                /* the original leader may exit and be replaced with a new leader when qemu hotreplace is performed.
+                 * so we don't return true here, otherwise the vm will be added to the gc list.
+                 * */
+                log_info("Machine unit is in active, but the leader process is exited. "
+                        "machine: %s, leader: "PID_FMT", unit: %s.", m->name, m->leader, m->unit);
+        } else if (r) {
+                log_info_errno(r, "Can not get unit from cgroup. "
+                        "machine: %s, leader: "PID_FMT", unit: %s, error: %m", m->name, m->leader, m->unit);
+        } else if (unit && !streq(m->unit, unit)) {
+                log_info("Machine unit name not match. "
+                        "machine: %s, leader: "PID_FMT", machine unit: %s, real unit: %s", m->name, m->leader, m->unit, unit);
+        }
+
+        r = manager_get_unit_cgroup_path(m->manager, m->unit, &cgroup);
+        if (!r && !isempty(cgroup) && cg_is_empty_recursive(SYSTEMD_CGROUP_CONTROLLER, cgroup) > 0) {
+                log_info("Cgroup is empty in the machine unit. "
+                        "machine: %s, leader: "PID_FMT", machine unit: %s.", m->name, m->leader, m->unit);
+                /*The vm will be added to gc list only when there is no any process in the scope*/
+                return false;
+        }
+
+        return true;
+}
+
 bool machine_may_gc(Machine *m, bool drop_not_started) {
         assert(m);
 
@@ -535,7 +570,7 @@ bool machine_may_gc(Machine *m, bool drop_not_started) {
         if (m->scope_job && manager_job_is_active(m->manager, m->scope_job))
                 return false;
 
-        if (m->unit && manager_unit_is_active(m->manager, m->unit))
+        if (m->unit && manager_unit_is_active(m->manager, m->unit) && machine_validate_unit(m))
                 return false;
 
         return true;
