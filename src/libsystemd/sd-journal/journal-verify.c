@@ -201,12 +201,27 @@ static int journal_file_object_verify(JournalFile *f, uint64_t offset, Object *o
                 break;
         }
 
-        case OBJECT_FIELD:
+        case OBJECT_FIELD: {
+                uint64_t h1, h2;
+                int r;
+
                 if (le64toh(o->object.size) - offsetof(FieldObject, payload) <= 0) {
                         error(offset,
                               "Bad field size (<= %zu): %"PRIu64,
                               offsetof(FieldObject, payload),
                               le64toh(o->object.size));
+                        return -EBADMSG;
+                }
+
+                h1 = le64toh(o->field.hash);
+                r = hash_payload(f, o, offset, o->field.payload,
+                                 le64toh(o->object.size) - offsetof(Object, field.payload),
+                                 &h2);
+                if (r < 0)
+                        return r;
+
+                if (h1 != h2) {
+                        error(offset, "Invalid hash (%08" PRIx64 " vs. %08" PRIx64 ")", h1, h2);
                         return -EBADMSG;
                 }
 
@@ -219,6 +234,7 @@ static int journal_file_object_verify(JournalFile *f, uint64_t offset, Object *o
                         return -EBADMSG;
                 }
                 break;
+        }
 
         case OBJECT_ENTRY:
                 if ((le64toh(o->object.size) - offsetof(EntryObject, items)) % sizeof(EntryItem) != 0) {
