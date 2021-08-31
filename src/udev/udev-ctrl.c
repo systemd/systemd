@@ -37,7 +37,6 @@ struct UdevCtrl {
         union sockaddr_union saddr;
         socklen_t addrlen;
         bool bound;
-        bool cleanup_socket;
         bool connected;
         bool maybe_disconnected;
         sd_event *event;
@@ -82,28 +81,19 @@ int udev_ctrl_new_from_fd(UdevCtrl **ret, int fd) {
 }
 
 int udev_ctrl_enable_receiving(UdevCtrl *uctrl) {
-        int r;
-
         assert(uctrl);
 
         if (uctrl->bound)
                 return 0;
 
-        r = bind(uctrl->sock, &uctrl->saddr.sa, uctrl->addrlen);
-        if (r < 0 && errno == EADDRINUSE) {
-                (void) sockaddr_un_unlink(&uctrl->saddr.un);
-                r = bind(uctrl->sock, &uctrl->saddr.sa, uctrl->addrlen);
-        }
-
-        if (r < 0)
+        (void) sockaddr_un_unlink(&uctrl->saddr.un);
+        if (bind(uctrl->sock, &uctrl->saddr.sa, uctrl->addrlen) < 0)
                 return log_error_errno(errno, "Failed to bind udev control socket: %m");
 
         if (listen(uctrl->sock, 0) < 0)
                 return log_error_errno(errno, "Failed to listen udev control socket: %m");
 
         uctrl->bound = true;
-        uctrl->cleanup_socket = true;
-
         return 0;
 }
 
@@ -128,14 +118,6 @@ static UdevCtrl *udev_ctrl_free(UdevCtrl *uctrl) {
 }
 
 DEFINE_TRIVIAL_REF_UNREF_FUNC(UdevCtrl, udev_ctrl, udev_ctrl_free);
-
-int udev_ctrl_cleanup(UdevCtrl *uctrl) {
-        if (!uctrl)
-                return 0;
-        if (uctrl->cleanup_socket)
-                sockaddr_un_unlink(&uctrl->saddr.un);
-        return 0;
-}
 
 int udev_ctrl_attach_event(UdevCtrl *uctrl, sd_event *event) {
         int r;
