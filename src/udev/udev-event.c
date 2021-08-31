@@ -1073,7 +1073,7 @@ void udev_event_execute_run(UdevEvent *event, usec_t timeout_usec, int timeout_s
 
                 if (builtin_cmd != _UDEV_BUILTIN_INVALID) {
                         log_device_debug(event->dev, "Running built-in command \"%s\"", command);
-                        r = udev_builtin_run(event->dev, builtin_cmd, command, false);
+                        r = udev_builtin_run(event->dev, &event->rtnl, builtin_cmd, command, false);
                         if (r < 0)
                                 log_device_debug_errno(event->dev, r, "Failed to run built-in command \"%s\", ignoring: %m", command);
                 } else {
