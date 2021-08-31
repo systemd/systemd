@@ -62,13 +62,19 @@ static int create_symlink(const char *target, const char *slink) {
 static int node_symlink(sd_device *dev, const char *node, const char *slink) {
         _cleanup_free_ char *slink_dirname = NULL, *target = NULL;
         const char *id, *slink_tmp;
-        bool replace = false;
         struct stat stats;
         int r;
 
         assert(dev);
         assert(node);
         assert(slink);
+
+        if (lstat(slink, &stats) >= 0) {
+                if (!S_ISLNK(stats.st_mode))
+                        return log_device_debug_errno(dev, SYNTHETIC_ERRNO(EEXIST),
+                                                      "Conflicting inode '%s' found, link to '%s' will not be created.", slink, node);
+        } else if (errno != ENOENT)
+                return log_device_debug_errno(dev, errno, "Failed to lstat() '%s': %m", slink);
 
         r = path_extract_directory(slink, &slink_dirname);
         if (r < 0)
@@ -78,26 +84,6 @@ static int node_symlink(sd_device *dev, const char *node, const char *slink) {
         r = path_make_relative(slink_dirname, node, &target);
         if (r < 0)
                 return log_device_debug_errno(dev, r, "Failed to get relative path from '%s' to '%s': %m", slink, node);
-
-        if (lstat(slink, &stats) >= 0) {
-                _cleanup_free_ char *buf = NULL;
-
-                if (!S_ISLNK(stats.st_mode))
-                        return log_device_debug_errno(dev, SYNTHETIC_ERRNO(EEXIST),
-                                                      "Conflicting inode '%s' found, link to '%s' will not be created.", slink, node);
-
-                if (readlink_malloc(slink, &buf) >= 0 &&
-                    path_equal(target, buf)) {
-                        /* preserve link with correct target, do not replace node of other device */
-                        log_device_debug(dev, "Preserve already existing symlink '%s' to '%s'", slink, target);
-
-                        (void) label_fix(slink, LABEL_IGNORE_ENOENT);
-                        (void) utimensat(AT_FDCWD, slink, NULL, AT_SYMLINK_NOFOLLOW);
-
-                        return 0;
-                }
-        } else if (errno != ENOENT)
-                return log_device_debug_errno(dev, errno, "Failed to lstat() '%s': %m", slink);
 
         r = device_get_device_id(dev, &id);
         if (r < 0)
@@ -116,8 +102,7 @@ static int node_symlink(sd_device *dev, const char *node, const char *slink) {
                 return r;
         }
 
-        /* Tell caller that we replaced already existing symlink. */
-        return 1;
+        return 0;
 }
 
 static int link_find_prioritized(sd_device *dev, bool add, const char *stackdir, char **ret) {
@@ -327,11 +312,6 @@ static int link_update(sd_device *dev, const char *slink_in, bool add) {
                 r = node_symlink(dev, target, slink);
                 if (r < 0)
                         return r;
-                if (r == 1)
-                        /* We have replaced already existing symlink, possibly there is some other device trying
-                         * to claim the same symlink. Let's do one more iteration to give us a chance to fix
-                         * the error if other device actually claims the symlink with higher priority. */
-                        continue;
 
                 /* Skip the second stat() if the first failed, stat_inode_unmodified() would return false regardless. */
                 if ((st1.st_mode & S_IFMT) != 0) {
