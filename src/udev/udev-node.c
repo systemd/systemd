@@ -62,6 +62,7 @@ static int create_symlink(const char *target, const char *slink) {
 static int node_symlink(sd_device *dev, const char *node, const char *slink) {
         _cleanup_free_ char *slink_dirname = NULL, *target = NULL;
         const char *id, *slink_tmp;
+        bool replace = false;
         struct stat stats;
         int r;
 
@@ -95,24 +96,14 @@ static int node_symlink(sd_device *dev, const char *node, const char *slink) {
 
                         return 0;
                 }
-        } else if (errno == ENOENT) {
-                log_device_debug(dev, "Creating symlink '%s' to '%s'", slink, target);
-
-                r = create_symlink(target, slink);
-                if (r >= 0)
-                        return 0;
-
-                log_device_debug_errno(dev, r, "Failed to create symlink '%s' to '%s', trying to replace '%s': %m", slink, target, slink);
-        } else
+        } else if (errno != ENOENT)
                 return log_device_debug_errno(dev, errno, "Failed to lstat() '%s': %m", slink);
-
-        log_device_debug(dev, "Atomically replace '%s'", slink);
 
         r = device_get_device_id(dev, &id);
         if (r < 0)
                 return log_device_debug_errno(dev, r, "Failed to get device id: %m");
-        slink_tmp = strjoina(slink, ".tmp-", id);
 
+        slink_tmp = strjoina(slink, ".tmp-", id);
         (void) unlink(slink_tmp);
 
         r = create_symlink(target, slink_tmp);
