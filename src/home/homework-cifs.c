@@ -71,7 +71,7 @@ int home_prepare_cifs(
                                       h->cifs_service, "/run/systemd/user-home-mount",
                                       "-o", options, NULL);
 
-                                log_error_errno(errno, "Failed to execute fsck: %m");
+                                log_error_errno(errno, "Failed to execute mount: %m");
                                 _exit(EXIT_FAILURE);
                         }
 
