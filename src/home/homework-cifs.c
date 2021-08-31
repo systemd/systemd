@@ -58,8 +58,8 @@ int home_prepare_cifs(
 
                         f = safe_fclose(f);
 
-                        if (asprintf(&options, "credentials=%s,uid=" UID_FMT ",forceuid,gid=" UID_FMT ",forcegid,file_mode=0%3o,dir_mode=0%3o",
-                                     p, h->uid, h->uid, h->access_mode, h->access_mode) < 0)
+                        if (asprintf(&options, "credentials=%s,uid=" UID_FMT ",forceuid,gid=" GID_FMT ",forcegid,file_mode=0%3o,dir_mode=0%3o",
+                                     p, h->uid, user_record_gid(h), user_record_access_mode(h), user_record_access_mode(h)) < 0)
                                 return log_oom();
 
                         r = safe_fork("(mount)", FORK_RESET_SIGNALS|FORK_RLIMIT_NOFILE_SAFE|FORK_DEATHSIG|FORK_LOG|FORK_STDOUT_TO_STDERR, &mount_pid);
@@ -71,7 +71,7 @@ int home_prepare_cifs(
                                       h->cifs_service, "/run/systemd/user-home-mount",
                                       "-o", options, NULL);
 
-                                log_error_errno(errno, "Failed to execute fsck: %m");
+                                log_error_errno(errno, "Failed to execute mount: %m");
                                 _exit(EXIT_FAILURE);
                         }
 
@@ -86,7 +86,8 @@ int home_prepare_cifs(
                 }
 
                 if (!mounted)
-                        return log_error_errno(ENOKEY, "Failed to mount home directory with supplied password.");
+                        return log_error_errno(SYNTHETIC_ERRNO(ENOKEY),
+                                               "Failed to mount home directory with supplied password.");
 
                 setup->root_fd = open("/run/systemd/user-home-mount", O_RDONLY|O_CLOEXEC|O_DIRECTORY|O_NOFOLLOW);
         }
