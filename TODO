@@ -83,6 +83,8 @@ Janitorial Clean-ups:
 
 Features:
 
+* rework recursive read-only remount to use new mount API
+
 * PAM: pick auf one authentication token from credentials
 
 * tpm2: figure out if we need to do anything for TPM2 parameter encryption? And
