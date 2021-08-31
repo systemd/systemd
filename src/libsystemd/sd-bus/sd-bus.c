@@ -3077,7 +3077,7 @@ static int process_closing_reply_callback(sd_bus *bus, struct reply_callback *c)
         r = bus_message_new_synthetic_error(
                         bus,
                         c->cookie,
-                        &SD_BUS_ERROR_MAKE_CONST(SD_BUS_ERROR_NO_REPLY, "Connection terminated"),
+                        &SD_BUS_ERROR_MAKE_CONST(SD_BUS_ERROR_NO_REPLY, "No reply received"),
                         &m);
         if (r < 0)
                 return r;
