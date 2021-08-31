@@ -86,7 +86,8 @@ int home_prepare_cifs(
                 }
 
                 if (!mounted)
-                        return log_error_errno(ENOKEY, "Failed to mount home directory with supplied password.");
+                        return log_error_errno(SYNTHETIC_ERRNO(ENOKEY),
+                                               "Failed to mount home directory with supplied password.");
 
                 setup->root_fd = open("/run/systemd/user-home-mount", O_RDONLY|O_CLOEXEC|O_DIRECTORY|O_NOFOLLOW);
         }
