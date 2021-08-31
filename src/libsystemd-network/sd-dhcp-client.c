@@ -192,7 +192,7 @@ int sd_dhcp_client_id_to_string(const void *data, size_t len, char **ret) {
                 if (len != sizeof_field(sd_dhcp_client_id, eth))
                         return -EINVAL;
 
-                r = asprintf(&t, "%x:%x:%x:%x:%x:%x",
+                r = asprintf(&t, "%02x:%02x:%02x:%02x:%02x:%02x",
                              client_id->eth.haddr[0],
                              client_id->eth.haddr[1],
                              client_id->eth.haddr[2],
