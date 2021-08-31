@@ -7,7 +7,7 @@ msgstr ""
 "Project-Id-Version: systemd\n"
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2021-01-08 17:48+0100\n"
-"PO-Revision-Date: 2021-08-26 18:05+0000\n"
+"PO-Revision-Date: 2021-08-31 20:04+0000\n"
 "Last-Translator: Jan Kuparinen <copper_fin@hotmail.com>\n"
 "Language-Team: Finnish <https://translate.fedoraproject.org/projects/systemd/"
 "master/fi/>\n"
@@ -99,24 +99,24 @@ msgstr "Päivitä kotialue"
 
 #: src/home/org.freedesktop.home1.policy:44
 msgid "Authentication is required to update a user's home area."
-msgstr ""
+msgstr "Todennus vaaditaan käyttäjän kotialueen päivittämiseksi."
 
 #: src/home/org.freedesktop.home1.policy:53
 msgid "Resize a home area"
-msgstr ""
+msgstr "Muuta kotialueen kokoa"
 
 #: src/home/org.freedesktop.home1.policy:54
 msgid "Authentication is required to resize a user's home area."
-msgstr ""
+msgstr "Todennus vaaditaan käyttäjän kotialueen koon muuttamiseksi."
 
 #: src/home/org.freedesktop.home1.policy:63
 msgid "Change password of a home area"
-msgstr ""
+msgstr "Muuta kotialueen salasana"
 
 #: src/home/org.freedesktop.home1.policy:64
 msgid ""
 "Authentication is required to change the password of a user's home area."
-msgstr ""
+msgstr "Todennus vaaditaan käyttäjän kotialueen salasanan vaihtamiseksi."
 
 #: src/hostname/org.freedesktop.hostname1.policy:20
 msgid "Set hostname"
@@ -124,310 +124,349 @@ msgstr "Määritä isäntänimi"
 
 #: src/hostname/org.freedesktop.hostname1.policy:21
 msgid "Authentication is required to set the local hostname."
-msgstr ""
+msgstr "Todennus vaaditaan paikallisen koneennimen asettamiseksi."
 
 #: src/hostname/org.freedesktop.hostname1.policy:30
 msgid "Set static hostname"
-msgstr ""
+msgstr "Aseta staattinen koneen nimi"
 
 #: src/hostname/org.freedesktop.hostname1.policy:31
 msgid ""
 "Authentication is required to set the statically configured local hostname, "
 "as well as the pretty hostname."
 msgstr ""
+"Todennus vaaditaan staattisesti määritetyn paikallisen konenimen ja kauniin "
+"konenimen asettamiseksi."
 
 #: src/hostname/org.freedesktop.hostname1.policy:41
 msgid "Set machine information"
-msgstr ""
+msgstr "Aseta koneen tiedot"
 
 #: src/hostname/org.freedesktop.hostname1.policy:42
 msgid "Authentication is required to set local machine information."
-msgstr ""
+msgstr "Todennus vaaditaan paikallisten konetietojen asettamiseksi."
 
 #: src/hostname/org.freedesktop.hostname1.policy:51
 msgid "Get product UUID"
-msgstr ""
+msgstr "Hae tuotteen UUID"
 
 #: src/hostname/org.freedesktop.hostname1.policy:52
 msgid "Authentication is required to get product UUID."
-msgstr ""
+msgstr "Todennus vaaditaan tuotteen UUID-tunnuksen hakemiseksi."
 
 #: src/import/org.freedesktop.import1.policy:22
 msgid "Import a VM or container image"
-msgstr ""
+msgstr "Tuo virtuaalikoneen tai kontin levykuva"
 
 #: src/import/org.freedesktop.import1.policy:23
 msgid "Authentication is required to import a VM or container image"
 msgstr ""
+"Todennus vaaditaan, jos haluat tuoda virtuaalikoneen tai kontin levykuvan"
 
 #: src/import/org.freedesktop.import1.policy:32
 msgid "Export a VM or container image"
-msgstr ""
+msgstr "Vie virtuaalikoneen tai kontin levykuva"
 
 #: src/import/org.freedesktop.import1.policy:33
 msgid "Authentication is required to export a VM or container image"
 msgstr ""
+"Todennus vaaditaan, jos haluat viedä virtuaalikoneen tai kontin levykuvan"
 
 #: src/import/org.freedesktop.import1.policy:42
 msgid "Download a VM or container image"
-msgstr ""
+msgstr "Lataa virtuaalikoneen tai kontin levykuva"
 
 #: src/import/org.freedesktop.import1.policy:43
 msgid "Authentication is required to download a VM or container image"
 msgstr ""
+"Todennus vaaditaan, jos haluat ladata virtuaalikoneen tai kontin levykuvan"
 
 #: src/locale/org.freedesktop.locale1.policy:22
 msgid "Set system locale"
-msgstr ""
+msgstr "Aseta järjestelmän alue"
 
 #: src/locale/org.freedesktop.locale1.policy:23
 msgid "Authentication is required to set the system locale."
-msgstr ""
+msgstr "Todennus vaaditaan järjestelmän alueasetuksen asettamiseksi."
 
 #: src/locale/org.freedesktop.locale1.policy:33
 msgid "Set system keyboard settings"
-msgstr ""
+msgstr "Määritä järjestelmän näppäimistöasetukset"
 
 #: src/locale/org.freedesktop.locale1.policy:34
 msgid "Authentication is required to set the system keyboard settings."
-msgstr ""
+msgstr "Todennus vaaditaan järjestelmän näppäimistöasetusten määrittämiseksi."
 
 #: src/login/org.freedesktop.login1.policy:22
 msgid "Allow applications to inhibit system shutdown"
-msgstr ""
+msgstr "Salli sovellusten estää järjestelmän sammuttaminen"
 
 #: src/login/org.freedesktop.login1.policy:23
 msgid ""
 "Authentication is required for an application to inhibit system shutdown."
-msgstr ""
+msgstr "Todennus vaaditaan, jotta sovellus estää järjestelmän sammutuksen."
 
 #: src/login/org.freedesktop.login1.policy:33
 msgid "Allow applications to delay system shutdown"
-msgstr ""
+msgstr "Salli sovellusten viivyttää järjestelmän sammuttaminen"
 
 #: src/login/org.freedesktop.login1.policy:34
 msgid "Authentication is required for an application to delay system shutdown."
 msgstr ""
+"Todennus vaaditaan, jotta sovellus viivyttäisi järjestelmän sammutuksen."
 
 #: src/login/org.freedesktop.login1.policy:44
 msgid "Allow applications to inhibit system sleep"
-msgstr ""
+msgstr "Salli sovellusten estää järjestelmän unitila"
 
 #: src/login/org.freedesktop.login1.policy:45
 msgid "Authentication is required for an application to inhibit system sleep."
-msgstr ""
+msgstr "Todennus vaaditaan, jotta sovellus estää järjestelmän unitilan."
 
 #: src/login/org.freedesktop.login1.policy:55
 msgid "Allow applications to delay system sleep"
-msgstr ""
+msgstr "Salli sovellusten viivyttää järjestelmän unitilan"
 
 #: src/login/org.freedesktop.login1.policy:56
 msgid "Authentication is required for an application to delay system sleep."
-msgstr ""
+msgstr "Todennus vaaditaan, jotta sovellus viivyttäisi järjestelmän unitilan."
 
 #: src/login/org.freedesktop.login1.policy:65
 msgid "Allow applications to inhibit automatic system suspend"
-msgstr ""
+msgstr "Salli sovellusten estää järjestelmän automaattinen pysäyttäminen"
 
 #: src/login/org.freedesktop.login1.policy:66
 msgid ""
 "Authentication is required for an application to inhibit automatic system "
 "suspend."
-msgstr ""
+msgstr "Todennus vaaditaan, jotta sovellus estää järjestelmän pysäyttämisen."
 
 #: src/login/org.freedesktop.login1.policy:75
 msgid "Allow applications to inhibit system handling of the power key"
-msgstr ""
+msgstr "Salli sovellusten estää järjestelmän virtapainikkeen käyttö"
 
 #: src/login/org.freedesktop.login1.policy:76
 msgid ""
 "Authentication is required for an application to inhibit system handling of "
 "the power key."
 msgstr ""
+"Todennus vaaditaan, jotta sovellus estää järjestelmän virtapainikkeen käytön."
 
 #: src/login/org.freedesktop.login1.policy:86
 msgid "Allow applications to inhibit system handling of the suspend key"
-msgstr ""
+msgstr "Salli sovellusten estää järjestelmän pysäytyspainikkeen käyttö"
 
 #: src/login/org.freedesktop.login1.policy:87
 msgid ""
 "Authentication is required for an application to inhibit system handling of "
 "the suspend key."
 msgstr ""
+"Todennus vaaditaan, jotta sovellus estää järjestelmän pysäytyspainikkeen "
+"käytön."
 
 #: src/login/org.freedesktop.login1.policy:97
 msgid "Allow applications to inhibit system handling of the hibernate key"
-msgstr ""
+msgstr "Salli sovellusten estää järjestelmän horrostilapainikkeen käyttö"
 
 #: src/login/org.freedesktop.login1.policy:98
 msgid ""
 "Authentication is required for an application to inhibit system handling of "
 "the hibernate key."
 msgstr ""
+"Todennus vaaditaan, jotta sovellus estää järjestelmän horrostilapainikkeen "
+"käytön."
 
 #: src/login/org.freedesktop.login1.policy:107
 msgid "Allow applications to inhibit system handling of the lid switch"
-msgstr ""
+msgstr "Salli sovellusten estää järjestelmän kansikytkimen käyttö"
 
 #: src/login/org.freedesktop.login1.policy:108
 msgid ""
 "Authentication is required for an application to inhibit system handling of "
 "the lid switch."
 msgstr ""
+"Todennus vaaditaan, jotta sovellus estää järjestelmän kansikytkimen käytön."
 
 #: src/login/org.freedesktop.login1.policy:117
 msgid "Allow applications to inhibit system handling of the reboot key"
 msgstr ""
+"Salli sovellusten estää järjestelmän uudelleenkäynnistyspainikkeen käyttö"
 
 #: src/login/org.freedesktop.login1.policy:118
 msgid ""
 "Authentication is required for an application to inhibit system handling of "
 "the reboot key."
 msgstr ""
+"Todennus vaaditaan, jotta sovellus estää järjestelmän "
+"uudelleenkäynnistyspainikkeen käytön."
 
 #: src/login/org.freedesktop.login1.policy:128
 msgid "Allow non-logged-in user to run programs"
-msgstr ""
+msgstr "Salli sisäänkirjautumattomien käyttäjien suorittaa ohjelmia"
 
 #: src/login/org.freedesktop.login1.policy:129
 msgid "Explicit request is required to run programs as a non-logged-in user."
 msgstr ""
+"Ohjelmien suorittamiseen sisäänkirjautumattomana käyttäjänä tarvitaan "
+"nimenomainen pyyntö."
 
 #: src/login/org.freedesktop.login1.policy:138
 msgid "Allow non-logged-in users to run programs"
-msgstr ""
+msgstr "Salli sisäänkirjautumattomien käyttäjien suorittaa ohjelmia"
 
 #: src/login/org.freedesktop.login1.policy:139
 msgid "Authentication is required to run programs as a non-logged-in user."
 msgstr ""
+"Todennus vaaditaan ohjelmien suorittamiseen sisäänkirjautumattomana "
+"käyttäjänä."
 
 #: src/login/org.freedesktop.login1.policy:148
 msgid "Allow attaching devices to seats"
-msgstr ""
+msgstr "Salli laitteiden kiinnittäminen paikkoihin"
 
 #: src/login/org.freedesktop.login1.policy:149
 msgid "Authentication is required to attach a device to a seat."
-msgstr ""
+msgstr "Laitteiden kiinnittäminen paikkoihin edellyttää todennusta."
 
 #: src/login/org.freedesktop.login1.policy:159
 msgid "Flush device to seat attachments"
-msgstr ""
+msgstr "Poista laitteen ja paikan liitokset"
 
 #: src/login/org.freedesktop.login1.policy:160
 msgid "Authentication is required to reset how devices are attached to seats."
-msgstr ""
+msgstr "Todennus vaaditaan nollaamaan, miten laitteet on yhdistetty paikkoihin."
 
 #: src/login/org.freedesktop.login1.policy:169
 msgid "Power off the system"
-msgstr ""
+msgstr "Sammuta järjestelmä"
 
 #: src/login/org.freedesktop.login1.policy:170
 msgid "Authentication is required to power off the system."
-msgstr ""
+msgstr "Todennus vaaditaan järjestelmän sammuttamiseksi."
 
 #: src/login/org.freedesktop.login1.policy:180
 msgid "Power off the system while other users are logged in"
-msgstr ""
+msgstr "Sammuta järjestelmä, vaikka muita käyttäjiä on kirjautuneena sisään"
 
 #: src/login/org.freedesktop.login1.policy:181
 msgid ""
 "Authentication is required to power off the system while other users are "
 "logged in."
 msgstr ""
+"Todennus vaaditaan järjestelmän sammuttamiseksi, kun muita käyttäjiä on "
+"kirjautuneena sisään."
 
 #: src/login/org.freedesktop.login1.policy:191
 msgid "Power off the system while an application is inhibiting this"
-msgstr ""
+msgstr "Sammuta järjestelmä, vaikka joku sovellus estää sen"
 
 #: src/login/org.freedesktop.login1.policy:192
 msgid ""
 "Authentication is required to power off the system while an application is "
 "inhibiting this."
 msgstr ""
+"Todennus vaaditaan järjestelmän sammuttamiseksi, kun joku sovellus estää "
+"tämän."
 
 #: src/login/org.freedesktop.login1.policy:202
 msgid "Reboot the system"
-msgstr ""
+msgstr "Käynnistä järjestelmä uudelleen"
 
 #: src/login/org.freedesktop.login1.policy:203
 msgid "Authentication is required to reboot the system."
-msgstr ""
+msgstr "Todennus vaaditaan järjestelmän uudelleen käynnistämiseksi."
 
 #: src/login/org.freedesktop.login1.policy:213
 msgid "Reboot the system while other users are logged in"
 msgstr ""
+"Käynnistä järjestelmä uudelleen, vaikka muita käyttäjiä on kirjautuneena "
+"sisään"
 
 #: src/login/org.freedesktop.login1.policy:214
 msgid ""
 "Authentication is required to reboot the system while other users are logged "
 "in."
 msgstr ""
+"Todennus vaaditaan järjestelmän uudelleen käynnistämiseksi, kun muita "
+"käyttäjiä on kirjautuneena sisään."
 
 #: src/login/org.freedesktop.login1.policy:224
 msgid "Reboot the system while an application is inhibiting this"
-msgstr ""
+msgstr "Käynnistä järjestelmä uudelleen, vaikka joku sovellus estää sen"
 
 #: src/login/org.freedesktop.login1.policy:225
 msgid ""
 "Authentication is required to reboot the system while an application is "
 "inhibiting this."
 msgstr ""
+"Todennus vaaditaan järjestelmän uudelleen käynnistämisksi, kun joku sovellus "
+"estää tämän."
 
 #: src/login/org.freedesktop.login1.policy:235
 msgid "Halt the system"
-msgstr ""
+msgstr "Pysäytä järjestelmä"
 
 #: src/login/org.freedesktop.login1.policy:236
 msgid "Authentication is required to halt the system."
-msgstr ""
+msgstr "Todennus vaaditaan järjestelmän pysäyttämiseksi."
 
 #: src/login/org.freedesktop.login1.policy:246
 msgid "Halt the system while other users are logged in"
-msgstr ""
+msgstr "Pysäytä järjestelmä, vaikka muita käyttäjiä on kirjautuneena sisään"
 
 #: src/login/org.freedesktop.login1.policy:247
 msgid ""
 "Authentication is required to halt the system while other users are logged "
 "in."
 msgstr ""
+"Todennus vaaditaan järjestelmän pysäyttämiseksi, kun muita käyttäjiä on "
+"kirjautuneena sisään."
 
 #: src/login/org.freedesktop.login1.policy:257
 msgid "Halt the system while an application is inhibiting this"
-msgstr ""
+msgstr "Pysäytä järjestelmä, vaikka joku sovellus estää sen"
 
 #: src/login/org.freedesktop.login1.policy:258
 msgid ""
 "Authentication is required to halt the system while an application is "
 "inhibiting this."
 msgstr ""
+"Todennus vaaditaan järjestelmän pysäyttämiseksi, kun joku sovellus estää "
+"tämän."
 
 #: src/login/org.freedesktop.login1.policy:268
 msgid "Suspend the system"
-msgstr ""
+msgstr "Pysäytä järjestelmä väliaikaisesti"
 
 #: src/login/org.freedesktop.login1.policy:269
 msgid "Authentication is required to suspend the system."
-msgstr ""
+msgstr "Todennus vaaditaan järjestelmän pysäyttämiseksi väliaikaisesti."
 
 #: src/login/org.freedesktop.login1.policy:278
 msgid "Suspend the system while other users are logged in"
 msgstr ""
+"Pysäytä järjestelmä väliaikaisesti, vaikka muita käyttäjiä on kirjautuneena "
+"sisään"
 
 #: src/login/org.freedesktop.login1.policy:279
 msgid ""
 "Authentication is required to suspend the system while other users are "
 "logged in."
 msgstr ""
+"Todennus vaaditaan järjestelmän väliaikaiseksi pysäyttämiseksi, kun muita "
+"käyttäjiä on kirjautuneena sisään."
 
 #: src/login/org.freedesktop.login1.policy:289
 msgid "Suspend the system while an application is inhibiting this"
-msgstr ""
+msgstr "Pysäytä järjestelmä väliaikaisesti, vaikka joku sovellus estää sen"
 
 #: src/login/org.freedesktop.login1.policy:290
 msgid ""
 "Authentication is required to suspend the system while an application is "
 "inhibiting this."
 msgstr ""
+"Todennus vaaditaan järjestelmän väliaikaiseksi pysäyttämiseksi, kun joku "
+"sovellus estää tämän."
 
 #: src/login/org.freedesktop.login1.policy:300
 msgid "Hibernate the system"
