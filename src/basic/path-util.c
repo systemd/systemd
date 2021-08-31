@@ -682,7 +682,7 @@ static int find_executable_impl(const char *name, const char *root, char **ret_f
         return 0;
 }
 
-int find_executable_full(const char *name, const char *root, bool use_path_envvar, char **ret_filename, int *ret_fd) {
+int find_executable_full(const char *name, const char *root, const char *exec_search_paths, bool use_path_envvar, char **ret_filename, int *ret_fd) {
         int last_error, r;
         const char *p = NULL;
 
@@ -697,6 +697,9 @@ int find_executable_full(const char *name, const char *root, bool use_path_envva
                 p = getenv("PATH");
         if (!p)
                 p = DEFAULT_PATH;
+
+        if (exec_search_paths)
+                p = exec_search_paths;
 
         last_error = -ENOENT;
 

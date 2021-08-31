@@ -2,6 +2,7 @@
 
 {%- macro EXEC_CONTEXT_CONFIG_ITEMS(type) -%}
 {# Define the context options only once #}
+{{type}}.ExecSearchPaths,                  config_parse_colon_separated_paths,          0,                                  offsetof({{type}}, exec_context.exec_search_paths)
 {{type}}.WorkingDirectory,                 config_parse_working_directory,              0,                                  offsetof({{type}}, exec_context)
 {{type}}.RootDirectory,                    config_parse_unit_path_printf,               true,                               offsetof({{type}}, exec_context.root_directory)
 {{type}}.RootImage,                        config_parse_unit_path_printf,               true,                               offsetof({{type}}, exec_context.root_image)
