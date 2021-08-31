@@ -1431,12 +1431,14 @@ install_plymouth() {
 }
 
 install_haveged() {
-    # If haveged is installed and probably included in initrd, it needs to be
+    # If haveged is installed, it's probably included in initrd and needs to be
     # installed in the image too.
     if [ -x /usr/sbin/haveged ]; then
         dinfo "Install haveged files"
         inst /usr/sbin/haveged
-        inst /usr/lib/systemd/system/haveged.service
+        for u in /usr/lib/systemd/system/haveged*; do
+            inst $u
+        done
     fi
 }
 
