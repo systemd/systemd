@@ -62,7 +62,6 @@ static int create_symlink(const char *target, const char *slink) {
 static int node_symlink(sd_device *dev, const char *node, const char *slink) {
         _cleanup_free_ char *slink_dirname = NULL, *target = NULL;
         const char *id, *slink_tmp;
-        bool replace = false;
         struct stat stats;
         int r;
 
@@ -74,8 +73,6 @@ static int node_symlink(sd_device *dev, const char *node, const char *slink) {
                 if (!S_ISLNK(stats.st_mode))
                         return log_device_debug_errno(dev, SYNTHETIC_ERRNO(EEXIST),
                                                       "Conflicting inode '%s' found, link to '%s' will not be created.", slink, node);
-
-                replace = true;
         } else if (errno != ENOENT)
                 return log_device_debug_errno(dev, errno, "Failed to lstat() '%s': %m", slink);
 
@@ -105,8 +102,7 @@ static int node_symlink(sd_device *dev, const char *node, const char *slink) {
                 return r;
         }
 
-        /* Tell caller that we replaced already existing symlink. */
-        return replace;
+        return 0;
 }
 
 static int link_find_prioritized(sd_device *dev, bool add, const char *stackdir, char **ret) {
@@ -316,11 +312,6 @@ static int link_update(sd_device *dev, const char *slink_in, bool add) {
                 r = node_symlink(dev, target, slink);
                 if (r < 0)
                         return r;
-                if (r == 1)
-                        /* We have replaced already existing symlink, possibly there is some other device trying
-                         * to claim the same symlink. Let's do one more iteration to give us a chance to fix
-                         * the error if other device actually claims the symlink with higher priority. */
-                        continue;
 
                 /* Skip the second stat() if the first failed, stat_inode_unmodified() would return false regardless. */
                 if ((st1.st_mode & S_IFMT) != 0) {
