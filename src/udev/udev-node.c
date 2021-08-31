@@ -231,12 +231,40 @@ toolong:
         return size - 1;
 }
 
+static int link_update_impl(sd_device *dev, const char *dirname, const char *slink, bool add) {
+        _cleanup_free_ char *target = NULL;
+        int r;
+
+        assert(dev);
+        assert(dirname);
+        assert(slink);
+
+        r = link_find_prioritized(dev, add, dirname, &target);
+        if (r < 0)
+                return log_device_debug_errno(dev, r, "Failed to determine highest priority for symlink '%s': %m", slink);
+        if (r == 0) {
+                log_device_debug(dev, "No reference left for '%s', removing", slink);
+
+                if (unlink(slink) < 0 && errno != ENOENT)
+                        log_device_debug_errno(dev, errno, "Failed to remove '%s', ignoring: %m", slink);
+
+                (void) rmdir_parents(slink, "/dev");
+                return 0;
+        }
+
+        r = node_symlink(dev, target, slink);
+        if (r < 0)
+                return r;
+
+        return 1;
+}
+
 /* manage "stack of names" with possibly specified device priorities */
 static int link_update(sd_device *dev, const char *slink_in, bool add) {
         _cleanup_free_ char *slink = NULL, *filename = NULL, *dirname = NULL;
         const char *slink_name, *id;
         char name_enc[NAME_MAX+1];
-        int i, r, retries;
+        int r;
 
         assert(dev);
         assert(slink_in);
@@ -286,45 +314,33 @@ static int link_update(sd_device *dev, const char *slink_in, bool add) {
 
         /* If the database entry is not written yet we will just do one iteration and possibly wrong symlink
          * will be fixed in the second invocation. */
-        retries = sd_device_get_is_initialized(dev) > 0 ? LINK_UPDATE_MAX_RETRIES : 1;
+        if (sd_device_get_is_initialized(dev) <= 0)
+                return link_update_impl(dev, dirname, slink, add);
 
-        for (i = 0; i < retries; i++) {
-                _cleanup_free_ char *target = NULL;
-                struct stat st1 = {}, st2 = {};
+        for (unsigned i = 0; i < LINK_UPDATE_MAX_RETRIES; i++) {
+                struct stat st1 = {};
 
-                r = stat(dirname, &st1);
-                if (r < 0 && errno != ENOENT)
+                if (stat(dirname, &st1) < 0 && errno != ENOENT)
                         return log_device_debug_errno(dev, errno, "Failed to stat %s: %m", dirname);
 
-                r = link_find_prioritized(dev, add, dirname, &target);
-                if (r < 0)
-                        return log_device_debug_errno(dev, r, "Failed to determine highest priority for symlink '%s': %m", slink);
-                if (r == 0) {
-                        log_device_debug(dev, "No reference left for '%s', removing", slink);
-
-                        if (unlink(slink) < 0 && errno != ENOENT)
-                                log_device_debug_errno(dev, errno, "Failed to remove '%s', ignoring: %m", slink);
-
-                        (void) rmdir_parents(slink, "/dev");
-                        break;
-                }
-
-                r = node_symlink(dev, target, slink);
-                if (r < 0)
+                r = link_update_impl(dev, dirname, slink, add);
+                if (r <= 0)
                         return r;
 
-                /* Skip the second stat() if the first failed, stat_inode_unmodified() would return false regardless. */
+                /* Skip the second stat() if the first failed, stat_inode_unmodified() would return
+                 * false regardless. */
                 if ((st1.st_mode & S_IFMT) != 0) {
-                        r = stat(dirname, &st2);
-                        if (r < 0 && errno != ENOENT)
+                        struct stat st2 = {};
+
+                        if (stat(dirname, &st2) < 0 && errno != ENOENT)
                                 return log_device_debug_errno(dev, errno, "Failed to stat %s: %m", dirname);
 
                         if (stat_inode_unmodified(&st1, &st2))
-                                break;
+                                return 0;
                 }
         }
 
-        return i < LINK_UPDATE_MAX_RETRIES ? 0 : -ELOOP;
+        return -ELOOP;
 }
 
 int udev_node_update_old_links(sd_device *dev, sd_device *dev_old) {
