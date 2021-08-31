@@ -81,6 +81,7 @@ basic_sources = files('''
         linux/btrfs_tree.h
         linux/can/netlink.h
         linux/can/vxcan.h
+        linux/devlink.h
         linux/fib_rules.h
         linux/fou.h
         linux/genetlink.h
