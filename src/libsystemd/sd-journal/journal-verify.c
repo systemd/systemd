@@ -352,14 +352,9 @@ static int journal_file_object_verify(JournalFile *f, uint64_t offset, Object *o
         return 0;
 }
 
-static int write_uint64(int fd, uint64_t p) {
-        ssize_t k;
-
-        k = write(fd, &p, sizeof(p));
-        if (k < 0)
+static int write_uint64(FILE *fp, uint64_t p) {
+        if (fwrite(&p, sizeof(p), 1, fp) != 1)
                 return -errno;
-        if (k != sizeof(p))
-                return -EIO;
 
         return 0;
 }
@@ -816,6 +811,7 @@ int journal_file_verify(
         uint64_t n_weird = 0, n_objects = 0, n_entries = 0, n_data = 0, n_fields = 0, n_data_hash_tables = 0, n_field_hash_tables = 0, n_entry_arrays = 0, n_tags = 0;
         usec_t last_usec = 0;
         int data_fd = -1, entry_fd = -1, entry_array_fd = -1;
+        FILE *data_fp = NULL, *entry_fp = NULL, *entry_array_fp = NULL;
         MMapFileDescriptor *cache_data_fd = NULL, *cache_entry_fd = NULL, *cache_entry_array_fd = NULL;
         unsigned i;
         bool found_last = false;
@@ -881,6 +877,28 @@ int journal_file_verify(
                 r = log_oom();
                 goto fail;
         }
+
+        data_fp = fdopen(data_fd, "w+");
+        if (!data_fp) {
+                r = log_error_errno(-errno, "Failed to open data file stream: %m");
+                goto fail;
+        }
+        data_fd = -1;
+
+        entry_fp = fdopen(entry_fd, "w+");
+        if (!entry_fp) {
+                r = log_error_errno(-errno, "Failed to open entry file stream: %m");
+                goto fail;
+        }
+        entry_fd = -1;
+
+        entry_array_fp = fdopen(entry_array_fd, "w+");
+        if (!entry_array_fp) {
+                r = log_error_errno(-errno, "Failed to open entry array file stream: %m");
+                goto fail;
+        }
+        entry_array_fd = -1;
+
 
         if (le32toh(f->header->compatible_flags) & ~HEADER_COMPATIBLE_SUPPORTED) {
                 log_error("Cannot verify file with unknown extensions.");
@@ -956,7 +974,7 @@ int journal_file_verify(
                 switch (o->object.type) {
 
                 case OBJECT_DATA:
-                        r = write_uint64(data_fd, p);
+                        r = write_uint64(data_fp, p);
                         if (r < 0)
                                 goto fail;
 
@@ -974,7 +992,7 @@ int journal_file_verify(
                                 goto fail;
                         }
 
-                        r = write_uint64(entry_fd, p);
+                        r = write_uint64(entry_fp, p);
                         if (r < 0)
                                 goto fail;
 
@@ -1061,7 +1079,7 @@ int journal_file_verify(
                         break;
 
                 case OBJECT_ENTRY_ARRAY:
-                        r = write_uint64(entry_array_fd, p);
+                        r = write_uint64(entry_array_fp, p);
                         if (r < 0)
                                 goto fail;
 
@@ -1251,6 +1269,21 @@ int journal_file_verify(
                 goto fail;
         }
 
+        if (fflush(data_fp) != 0) {
+                r = log_error_errno(-errno, "Failed to flush data file stream: %m");
+                goto fail;
+        }
+
+        if (fflush(entry_fp) != 0) {
+                r = log_error_errno(-errno, "Failed to flush entry file stream: %m");
+                goto fail;
+        }
+
+        if (fflush(entry_array_fp) != 0) {
+                r = log_error_errno(-errno, "Failed to flush entry array file stream: %m");
+                goto fail;
+        }
+
         /* Second iteration: we follow all objects referenced from the
          * two entry points: the object hash table and the entry
          * array. We also check that everything referenced (directly
@@ -1315,6 +1348,15 @@ fail:
 
         if (entry_array_fd >= 0)
                 safe_close(entry_array_fd);
+
+        if (data_fp)
+                fclose(data_fp);
+
+        if (entry_fp)
+                fclose(entry_fp);
+
+        if (entry_array_fp)
+                fclose(entry_array_fp);
 
         if (cache_data_fd)
                 mmap_cache_free_fd(f->mmap, cache_data_fd);
