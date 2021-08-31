@@ -69,9 +69,10 @@ int home_move_mount(const char *user_name_and_realm, const char *target) {
         const char *d;
         int r;
 
-        assert(user_name_and_realm);
         assert(target);
 
+        /* If user_name_and_realm is set, then we'll mount a subdir of the source mount into the host. If
+         * it's NULL we'll move the mount itself */
         if (user_name_and_realm) {
                 subdir = path_join("/run/systemd/user-home-mount/", user_name_and_realm);
                 if (!subdir)
