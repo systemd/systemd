@@ -71,6 +71,13 @@ static int node_symlink(sd_device *dev, const char *node, const char *slink) {
         assert(node);
         assert(slink);
 
+        if (lstat(slink, &stats) >= 0) {
+                if (!S_ISLNK(stats.st_mode))
+                        return log_device_debug_errno(dev, SYNTHETIC_ERRNO(EEXIST),
+                                                      "Conflicting inode '%s' found, link to '%s' will not be created.", slink, node);
+        } else if (errno != ENOENT)
+                return log_device_debug_errno(dev, errno, "Failed to lstat() '%s': %m", slink);
+
         r = path_extract_directory(slink, &slink_dirname);
         if (r < 0)
                 return log_device_debug_errno(dev, r, "Failed to get parent directory of '%s': %m", slink);
@@ -80,41 +87,11 @@ static int node_symlink(sd_device *dev, const char *node, const char *slink) {
         if (r < 0)
                 return log_device_debug_errno(dev, r, "Failed to get relative path from '%s' to '%s': %m", slink, node);
 
-        if (lstat(slink, &stats) >= 0) {
-                _cleanup_free_ char *buf = NULL;
-
-                if (!S_ISLNK(stats.st_mode))
-                        return log_device_debug_errno(dev, SYNTHETIC_ERRNO(EEXIST),
-                                                      "Conflicting inode '%s' found, link to '%s' will not be created.", slink, node);
-
-                if (readlink_malloc(slink, &buf) >= 0 &&
-                    path_equal(target, buf)) {
-                        /* preserve link with correct target, do not replace node of other device */
-                        log_device_debug(dev, "Preserve already existing symlink '%s' to '%s'", slink, target);
-
-                        (void) label_fix(slink, LABEL_IGNORE_ENOENT);
-                        (void) utimensat(AT_FDCWD, slink, NULL, AT_SYMLINK_NOFOLLOW);
-
-                        return 0;
-                }
-        } else if (errno == ENOENT) {
-                log_device_debug(dev, "Creating symlink '%s' to '%s'", slink, target);
-
-                r = create_symlink(target, slink);
-                if (r >= 0)
-                        return 0;
-
-                log_device_debug_errno(dev, r, "Failed to create symlink '%s' to '%s', trying to replace '%s': %m", slink, target, slink);
-        } else
-                return log_device_debug_errno(dev, errno, "Failed to lstat() '%s': %m", slink);
-
-        log_device_debug(dev, "Atomically replace '%s'", slink);
-
         r = device_get_device_id(dev, &id);
         if (r < 0)
                 return log_device_debug_errno(dev, r, "Failed to get device id: %m");
-        slink_tmp = strjoina(slink, ".tmp-", id);
 
+        slink_tmp = strjoina(slink, ".tmp-", id);
         (void) unlink(slink_tmp);
 
         r = create_symlink(target, slink_tmp);
@@ -127,8 +104,7 @@ static int node_symlink(sd_device *dev, const char *node, const char *slink) {
                 return r;
         }
 
-        /* Tell caller that we replaced already existing symlink. */
-        return 1;
+        return 0;
 }
 
 static int link_find_prioritized(sd_device *dev, bool add, const char *stackdir, char **ret) {
