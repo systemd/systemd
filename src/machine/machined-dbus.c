@@ -1614,3 +1614,37 @@ int manager_add_machine(Manager *m, const char *name, Machine **_machine) {
 
         return 0;
 }
+
+int manager_get_unit_cgroup_path(Manager *manager, const char *unit, char **cgroup) {
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+        _cleanup_free_ char *path = NULL;
+        const char *cgroup_path = NULL;
+        int r;
+
+        assert(manager);
+        assert(unit);
+
+        path = unit_dbus_path_from_name(unit);
+        if (!path)
+                return -ENOMEM;
+
+        r = sd_bus_get_property(
+                        manager->bus,
+                        "org.freedesktop.systemd1",
+                        path,
+                        endswith(unit, ".scope") ? "org.freedesktop.systemd1.Scope" : "org.freedesktop.systemd1.Service",
+                        "ControlGroup",
+                        &error,
+                        &reply,
+                        "s");
+        if (r < 0)
+                return r;
+
+        r = sd_bus_message_read(reply, "s", &cgroup_path);
+        if (r < 0)
+                return -EINVAL;
+        *cgroup = strdup(cgroup_path);
+
+        return 0;
+}
