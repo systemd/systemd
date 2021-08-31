@@ -5692,6 +5692,7 @@ static int run(int argc, char *argv[]) {
                                 arg_image,
                                 &arg_verity_settings,
                                 NULL,
+                                loop->diskseq,
                                 loop->uevent_seqnum_not_before,
                                 loop->timestamp_not_before,
                                 dissect_image_flags,

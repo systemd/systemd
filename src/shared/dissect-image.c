@@ -284,6 +284,7 @@ struct wait_data {
         sd_device *parent_device;
         blkid_partition blkidp;
         sd_device *found;
+        uint64_t diskseq;
         uint64_t uevent_seqnum_not_before;
         usec_t timestamp_not_before;
         DissectImageFlags flags;
@@ -302,7 +303,25 @@ static int device_monitor_handler(sd_device_monitor *monitor, sd_device *device,
         if (device_for_action(device, SD_DEVICE_REMOVE))
                 return 0;
 
-        if (w->uevent_seqnum_not_before != UINT64_MAX) {
+        if (w->diskseq != 0) {
+                uint64_t diskseq;
+
+                /* If w->diskseq is non-zero, then we must have a disk seqnum */
+                r = sd_device_get_diskseq(device, &diskseq);
+                if (r < 0) {
+                        log_debug_errno(r, "Dropping event because it has no diskseq, but waiting for %" PRIu64, w->diskseq);
+                        return 0;
+                }
+                if (diskseq < w->diskseq) {
+                        log_debug("Dropping event because diskseq too old (%" PRIu64 " < %" PRIu64 ")",
+                                  diskseq, w->diskseq);
+                        return 0;
+                }
+                if (diskseq > w->diskseq) {
+                        r = -EBUSY;
+                        goto finish; /* Newer than what we were expecting, so we missed it, stop waiting */
+                }
+        } else if (w->uevent_seqnum_not_before != UINT64_MAX) {
                 uint64_t seqnum;
 
                 r = sd_device_get_seqnum(device, &seqnum);
@@ -378,6 +397,7 @@ static int wait_for_partition_device(
                 sd_device *parent,
                 blkid_partition pp,
                 usec_t deadline,
+                uint64_t diskseq,
                 uint64_t uevent_seqnum_not_before,
                 usec_t timestamp_not_before,
                 DissectImageFlags flags,
@@ -423,6 +443,7 @@ static int wait_for_partition_device(
         _cleanup_(wait_data_done) struct wait_data w = {
                 .parent_device = parent,
                 .blkidp = pp,
+                .diskseq = diskseq,
                 .uevent_seqnum_not_before = uevent_seqnum_not_before,
                 .timestamp_not_before = timestamp_not_before,
                 .flags = flags,
@@ -450,16 +471,21 @@ static int wait_for_partition_device(
                         return r;
         }
 
-        r = sd_event_add_time_relative(
-                        event, &retry_source,
-                        CLOCK_MONOTONIC, 500 * USEC_PER_MSEC, 0,
-                        retry_handler, &w);
-        if (r < 0)
-                return r;
+        /* If we don't have a disk sequence number then we cannot do exact matching,
+         * and we cannot know if we missed it or if it has not been sent yet, so set
+         * up additional retries to increase the chances of receiving the event. */
+        if (diskseq == 0) {
+                r = sd_event_add_time_relative(
+                                event, &retry_source,
+                                CLOCK_MONOTONIC, 500 * USEC_PER_MSEC, 0,
+                                retry_handler, &w);
+                if (r < 0)
+                        return r;
 
-        r = sd_event_source_set_exit_on_failure(retry_source, true);
-        if (r < 0)
-                return r;
+                r = sd_event_source_set_exit_on_failure(retry_source, true);
+                if (r < 0)
+                        return r;
+        }
 
         r = sd_event_loop(event);
         if (r < 0)
@@ -583,6 +609,7 @@ int dissect_image(
                 int fd,
                 const VeritySettings *verity,
                 const MountOptions *mount_options,
+                uint64_t diskseq,
                 uint64_t uevent_seqnum_not_before,
                 usec_t timestamp_not_before,
                 DissectImageFlags flags,
@@ -838,7 +865,7 @@ int dissect_image(
                 if (!pp)
                         return errno_or_else(EIO);
 
-                r = wait_for_partition_device(d, pp, deadline, uevent_seqnum_not_before, timestamp_not_before, flags, &q);
+                r = wait_for_partition_device(d, pp, deadline, diskseq, uevent_seqnum_not_before, timestamp_not_before, flags, &q);
                 if (r < 0)
                         return r;
 
@@ -2753,6 +2780,7 @@ int dissect_image_and_warn(
                 const char *name,
                 const VeritySettings *verity,
                 const MountOptions *mount_options,
+                uint64_t diskseq,
                 uint64_t uevent_seqnum_not_before,
                 usec_t timestamp_not_before,
                 DissectImageFlags flags,
@@ -2769,7 +2797,7 @@ int dissect_image_and_warn(
                 name = buffer;
         }
 
-        r = dissect_image(fd, verity, mount_options, uevent_seqnum_not_before, timestamp_not_before, flags, ret);
+        r = dissect_image(fd, verity, mount_options, diskseq, uevent_seqnum_not_before, timestamp_not_before, flags, ret);
         switch (r) {
 
         case -EOPNOTSUPP:
@@ -2877,7 +2905,7 @@ int mount_image_privately_interactively(
         if (r < 0)
                 return log_error_errno(r, "Failed to set up loopback device for %s: %m", image);
 
-        r = dissect_image_and_warn(d->fd, image, &verity, NULL, d->uevent_seqnum_not_before, d->timestamp_not_before, flags, &dissected_image);
+        r = dissect_image_and_warn(d->fd, image, &verity, NULL, d->diskseq, d->uevent_seqnum_not_before, d->timestamp_not_before, flags, &dissected_image);
         if (r < 0)
                 return r;
 
@@ -2968,6 +2996,7 @@ int verity_dissect_and_mount(
                         loop_device->fd,
                         &verity,
                         options,
+                        loop_device->diskseq,
                         loop_device->uevent_seqnum_not_before,
                         loop_device->timestamp_not_before,
                         dissect_image_flags,
@@ -2978,6 +3007,7 @@ int verity_dissect_and_mount(
                                 loop_device->fd,
                                 &verity,
                                 options,
+                                loop_device->diskseq,
                                 loop_device->uevent_seqnum_not_before,
                                 loop_device->timestamp_not_before,
                                 dissect_image_flags | DISSECT_IMAGE_NO_PARTITION_TABLE,

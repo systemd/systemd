@@ -75,6 +75,8 @@ struct sd_device {
         uid_t devuid;
         gid_t devgid;
 
+        uint64_t diskseq; /* Block device sequence number, monothonically incremented by the kernel on create/attach */
+
         /* only set when device is passed through netlink */
         sd_device_action_t action;
         uint64_t seqnum;
