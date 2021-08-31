@@ -20,18 +20,22 @@
 #include "mkdir.h"
 #include "parse-util.h"
 #include "path-util.h"
+#include "random-util.h"
 #include "selinux-util.h"
 #include "smack-util.h"
 #include "stat-util.h"
 #include "stdio-util.h"
 #include "string-util.h"
 #include "strxcpyx.h"
+#include "time-util.h"
 #include "udev-node.h"
 #include "user-util.h"
 
 #define CREATE_LINK_MAX_RETRIES        128
 #define LINK_UPDATE_MAX_RETRIES        128
 #define CREATE_STACK_LINK_MAX_RETRIES  128
+#define MAX_RANDOM_DELAY (500 * USEC_PER_MSEC)
+#define MIN_RANDOM_DELAY (100 * USEC_PER_MSEC)
 #define UDEV_NODE_HASH_KEY SD_ID128_MAKE(b9,6a,f1,ce,40,31,44,1a,9e,19,ec,8b,ae,f3,e3,2f)
 
 static int create_symlink(const char *target, const char *slink) {
@@ -409,6 +413,8 @@ static int link_update(sd_device *dev, const char *slink_in, bool add) {
                         if (stat_inode_unmodified(&st1, &st2))
                                 return 0;
                 }
+
+                (void) usleep(MIN_RANDOM_DELAY + random_u64_range(MAX_RANDOM_DELAY - MIN_RANDOM_DELAY));
         }
 
         return -ELOOP;
