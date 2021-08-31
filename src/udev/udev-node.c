@@ -161,12 +161,13 @@ static int link_find_prioritized(sd_device *dev, bool add, const char *stackdir,
 
         dir = opendir(stackdir);
         if (!dir) {
-                if (errno == ENOENT) {
-                        *ret = TAKE_PTR(target);
-                        return !!*ret;
-                }
+                if (add) /* The stack directory must exist. */
+                        return -errno;
+                if (errno != ENOENT)
+                        return -errno;
 
-                return -errno;
+                *ret = NULL;
+                return 0;
         }
 
         r = device_get_device_id(dev, &id);
