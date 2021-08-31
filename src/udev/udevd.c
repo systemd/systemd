@@ -227,9 +227,6 @@ static Manager* manager_free(Manager *manager) {
 
         udev_builtin_exit();
 
-        if (manager->pid == getpid_cached())
-                udev_ctrl_cleanup(manager->ctrl);
-
         manager_clear_for_worker(manager);
 
         sd_netlink_unref(manager->rtnl);
