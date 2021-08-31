@@ -20,12 +20,14 @@
 #include "mkdir.h"
 #include "parse-util.h"
 #include "path-util.h"
+#include "random-util.h"
 #include "selinux-util.h"
 #include "smack-util.h"
 #include "stat-util.h"
 #include "stdio-util.h"
 #include "string-util.h"
 #include "strxcpyx.h"
+#include "time-util.h"
 #include "udev-node.h"
 #include "user-util.h"
 
@@ -33,6 +35,8 @@
 #define LINK_UPDATE_MAX_RETRIES        128
 #define CREATE_STACK_LINK_MAX_RETRIES  128
 #define UPDATE_TIMESTAMP_MAX_RETRIES   128
+#define MAX_RANDOM_DELAY (250 * USEC_PER_MSEC)
+#define MIN_RANDOM_DELAY ( 50 * USEC_PER_MSEC)
 #define UDEV_NODE_HASH_KEY SD_ID128_MAKE(b9,6a,f1,ce,40,31,44,1a,9e,19,ec,8b,ae,f3,e3,2f)
 
 static int create_symlink(const char *target, const char *slink) {
@@ -446,6 +450,14 @@ static int link_update(sd_device *dev, const char *slink_in, bool add) {
         for (i = 0; i < retries; i++) {
                 _cleanup_free_ char *target = NULL;
                 struct stat st1 = {}, st2 = {};
+
+                if (i > 0) {
+                        usec_t delay = MIN_RANDOM_DELAY + random_u64_range(MAX_RANDOM_DELAY - MIN_RANDOM_DELAY);
+
+                        log_device_debug(dev, "Directory %s was updated, retrying to update devlink %s after %s.",
+                                         dirname, slink, FORMAT_TIMESPAN(delay, USEC_PER_MSEC));
+                        (void) usleep(delay);
+                }
 
                 if (stat(dirname, &st1) < 0 && errno != ENOENT)
                         return log_device_debug_errno(dev, errno, "Failed to stat %s: %m", dirname);
