@@ -88,3 +88,11 @@ EFI_STATUS linux_exec(EFI_HANDLE image,
                       CHAR8 *cmdline, UINTN cmdline_size,
                       UINTN linux_addr,
                       UINTN initrd_addr, UINTN initrd_size);
+
+#ifdef __i386__
+#define __regparm0__ __attribute__((regparm(0)))
+#else
+#define __regparm0__
+#endif
+
+typedef VOID(*handover_f)(VOID *image, EFI_SYSTEM_TABLE *table, struct boot_params *params) __regparm0__;

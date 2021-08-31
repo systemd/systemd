@@ -34,7 +34,6 @@ systemd_boot_sources = '''
 '''.split()
 
 stub_sources = '''
-        linux.c
         splash.c
         stub.c
 '''.split()
@@ -244,13 +243,23 @@ if have_gnu_efi
                        '--build-id=sha1',
                        '-L', efi_libdir,
                        efi_crt0]
+        efi_staticlib = []
         if ['aarch64', 'arm', 'riscv64'].contains(efi_arch)
                 # Aarch64, ARM32 and 64bit RISC-V don't have an EFI capable objcopy.
                 # Use 'binary' instead, and add required symbols manually.
                 efi_ldflags += ['--defsym=EFI_SUBSYSTEM=0xa']
                 efi_format = ['-O', 'binary']
+
+                stub_sources += 'linux-aarch64.c'
+                stub_sources += 'stdclib.c'
+
+                # libfdt needed for arm to pass initrd to kernel
+                cc.find_library('fdt')
+                efi_staticlib += ['/usr/lib/@0@-linux-gnu/libfdt.a'.format(efi_arch)]
         else
                 efi_format = ['--target=efi-app-@0@'.format(gnu_efi_arch)]
+
+                stub_sources += 'linux.c'
         endif
 
         systemd_boot_objects = []
@@ -285,7 +294,7 @@ if have_gnu_efi
                         output : tuple[0],
                         command : [efi_ld, '-o', '@OUTPUT@',
                                    efi_ldflags, tuple[2],
-                                   '-lefi', '-lgnuefi', libgcc_file_name],
+                                   '-lefi', '-lgnuefi', libgcc_file_name] + efi_staticlib,
                         install : tuple[3],
                         install_dir : bootlibdir)
 
