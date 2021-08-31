@@ -36,6 +36,7 @@ static inline int udev_ctrl_new(UdevCtrl **ret) {
 int udev_ctrl_enable_receiving(UdevCtrl *uctrl);
 UdevCtrl *udev_ctrl_ref(UdevCtrl *uctrl);
 UdevCtrl *udev_ctrl_unref(UdevCtrl *uctrl);
+UdevCtrl *udev_ctrl_unlink_and_unref(UdevCtrl *uctrl);
 int udev_ctrl_cleanup(UdevCtrl *uctrl);
 int udev_ctrl_attach_event(UdevCtrl *uctrl, sd_event *event);
 int udev_ctrl_start(UdevCtrl *uctrl, udev_ctrl_handler_t callback, void *userdata);

@@ -129,12 +129,14 @@ static UdevCtrl *udev_ctrl_free(UdevCtrl *uctrl) {
 
 DEFINE_TRIVIAL_REF_UNREF_FUNC(UdevCtrl, udev_ctrl, udev_ctrl_free);
 
-int udev_ctrl_cleanup(UdevCtrl *uctrl) {
+UdevCtrl *udev_ctrl_unlink_and_unref(UdevCtrl *uctrl) {
         if (!uctrl)
-                return 0;
+                return NULL;
+
         if (uctrl->cleanup_socket)
                 sockaddr_un_unlink(&uctrl->saddr.un);
-        return 0;
+
+        return udev_ctrl_unref(uctrl);
 }
 
 int udev_ctrl_attach_event(UdevCtrl *uctrl, sd_event *event) {
