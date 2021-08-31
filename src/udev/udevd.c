@@ -227,8 +227,12 @@ static Manager* manager_free(Manager *manager) {
 
         udev_builtin_exit();
 
-        if (manager->pid == getpid_cached())
-                udev_ctrl_cleanup(manager->ctrl);
+        /* manager_clear_for_worker() below calls udev_ctrl_unref(). So, to make the control socket
+         * unlinked, this must be called earlier and assign NULL to manager->ctrl. Note that for worker
+         * processes manager->ctrl should be already NULL at this stage and thus the control socket
+         * will not be removed, as manager_clear_for_worker() is already called at the beginning of the
+         * forked process. */
+        manager->ctrl = udev_ctrl_unlink_and_unref(manager->ctrl);
 
         manager_clear_for_worker(manager);
 
@@ -305,7 +309,7 @@ static void manager_exit(Manager *manager) {
                   "STATUS=Starting shutdown...");
 
         /* close sources of new events and discard buffered events */
-        manager->ctrl = udev_ctrl_unref(manager->ctrl);
+        manager->ctrl = udev_ctrl_unlink_and_unref(manager->ctrl);
 
         manager->inotify_event = sd_event_source_unref(manager->inotify_event);
         manager->inotify_fd = safe_close(manager->inotify_fd);
