@@ -395,7 +395,7 @@ static int link_update(sd_device *dev, const char *slink_in, bool add) {
         _cleanup_free_ char *slink = NULL, *dirname = NULL;
         const char *slink_name;
         char name_enc[NAME_MAX+1];
-        int i, r, retries;
+        int r;
 
         assert(dev);
         assert(slink_in);
@@ -422,11 +422,7 @@ static int link_update(sd_device *dev, const char *slink_in, bool add) {
         if (r < 0)
                 return r;
 
-        /* If the database entry is not written yet we will just do one iteration and possibly wrong symlink
-         * will be fixed in the second invocation. */
-        retries = sd_device_get_is_initialized(dev) > 0 ? LINK_UPDATE_MAX_RETRIES : 1;
-
-        for (i = 0; i < retries; i++) {
+        for (unsigned i = 0; i < LINK_UPDATE_MAX_RETRIES; i++) {
                 _cleanup_free_ char *target = NULL;
                 struct stat st1 = {}, st2 = {};
 
@@ -451,7 +447,7 @@ static int link_update(sd_device *dev, const char *slink_in, bool add) {
                                 log_device_debug_errno(dev, errno, "Failed to remove '%s', ignoring: %m", slink);
 
                         (void) rmdir_parents(slink, "/dev");
-                        break;
+                        return 0;
                 }
 
                 r = node_symlink(dev, target, slink);
@@ -466,7 +462,7 @@ static int link_update(sd_device *dev, const char *slink_in, bool add) {
                         return 0;
         }
 
-        return i < LINK_UPDATE_MAX_RETRIES ? 0 : -ELOOP;
+        return -ELOOP;
 }
 
 static int device_get_devpath_by_devnum(sd_device *dev, char **ret) {
