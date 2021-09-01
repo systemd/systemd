@@ -9,7 +9,8 @@
 #define SYSTEM_FONT_WIDTH 8
 #define SYSTEM_FONT_HEIGHT 19
 
-#define EFI_SIMPLE_TEXT_INPUT_EX_GUID &(EFI_GUID) EFI_SIMPLE_TEXT_INPUT_EX_PROTOCOL_GUID
+#define EFI_SIMPLE_TEXT_INPUT_EX_GUID                           \
+        &(const EFI_GUID) EFI_SIMPLE_TEXT_INPUT_EX_PROTOCOL_GUID
 
 static inline void EventClosep(EFI_EVENT *event) {
         if (!*event)
@@ -46,7 +47,7 @@ EFI_STATUS console_key_read(UINT64 *key, UINT64 timeout_usec) {
         assert(key);
 
         if (!checked) {
-                err = LibLocateProtocol(EFI_SIMPLE_TEXT_INPUT_EX_GUID, (VOID **)&TextInputEx);
+                err = LibLocateProtocol((EFI_GUID*) EFI_SIMPLE_TEXT_INPUT_EX_GUID, (VOID **)&TextInputEx);
                 if (EFI_ERROR(err) ||
                     uefi_call_wrapper(BS->CheckEvent, 1, TextInputEx->WaitForKeyEx) == EFI_INVALID_PARAMETER)
                         /* If WaitForKeyEx fails here, the firmware pretends it talks this
@@ -148,7 +149,7 @@ static EFI_STATUS mode_auto(UINTN *mode) {
         const UINT32 VERTICAL_MAX_OK = 1080;
         const UINT64 VIEWPORT_RATIO = 10;
         UINT64 screen_area, text_area;
-        EFI_GUID GraphicsOutputProtocolGuid = EFI_GRAPHICS_OUTPUT_PROTOCOL_GUID;
+        static const EFI_GUID GraphicsOutputProtocolGuid = EFI_GRAPHICS_OUTPUT_PROTOCOL_GUID;
         EFI_GRAPHICS_OUTPUT_PROTOCOL *GraphicsOutput;
         EFI_GRAPHICS_OUTPUT_MODE_INFORMATION *Info;
         EFI_STATUS err;
@@ -156,7 +157,7 @@ static EFI_STATUS mode_auto(UINTN *mode) {
 
         assert(mode);
 
-        err = LibLocateProtocol(&GraphicsOutputProtocolGuid, (VOID **)&GraphicsOutput);
+        err = LibLocateProtocol((EFI_GUID*) &GraphicsOutputProtocolGuid, (VOID **)&GraphicsOutput);
         if (!EFI_ERROR(err) && GraphicsOutput->Mode && GraphicsOutput->Mode->Info) {
                 Info = GraphicsOutput->Mode->Info;
 
