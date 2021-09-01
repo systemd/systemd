@@ -52,3 +52,10 @@ Packages=
         nano
         qrencode
         strace
+        # For testing "systemd-analyze verify".
+        man-db
+        # For testing systemd's bash completion scripts.
+        bash-completion
+        # For testing systemd's zsh completion scripts
+        # Run `autoload -Uz compinit; compinit` from a zsh shell in the booted image to enable completions.
+        zsh
