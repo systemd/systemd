@@ -356,45 +356,117 @@ static int link_update(sd_device *dev, const char *slink_in, bool add) {
         return i < LINK_UPDATE_MAX_RETRIES ? 0 : -ELOOP;
 }
 
-int udev_node_update_old_links(sd_device *dev, sd_device *dev_old) {
-        const char *name;
+static int device_get_devpath_by_devnum(sd_device *dev, char **ret) {
+        const char *subsystem;
+        dev_t devnum;
+        int r;
+
+        assert(dev);
+        assert(ret);
+
+        r = sd_device_get_subsystem(dev, &subsystem);
+        if (r < 0)
+                return r;
+
+        r = sd_device_get_devnum(dev, &devnum);
+        if (r < 0)
+                return r;
+
+        return device_path_make_major_minor(streq(subsystem, "block") ? S_IFBLK : S_IFCHR, devnum, ret);
+}
+
+int udev_node_update(sd_device *dev, sd_device *dev_old) {
+        _cleanup_free_ char *filename = NULL;
+        const char *devnode, *devlink;
         int r;
 
         assert(dev);
         assert(dev_old);
 
+        r = sd_device_get_devname(dev, &devnode);
+        if (r < 0)
+                return log_device_debug_errno(dev, r, "Failed to get devnode: %m");
+
+        if (DEBUG_LOGGING) {
+                const char *id = NULL;
+
+                (void) device_get_device_id(dev, &id);
+                log_device_debug(dev, "Handling device node '%s', devnum=%s", devnode, strna(id));
+        }
+
         /* update possible left-over symlinks */
-        FOREACH_DEVICE_DEVLINK(dev_old, name) {
-                const char *name_current;
-                bool found = false;
-
+        FOREACH_DEVICE_DEVLINK(dev_old, devlink) {
                 /* check if old link name still belongs to this device */
-                FOREACH_DEVICE_DEVLINK(dev, name_current)
-                        if (streq(name, name_current)) {
-                                found = true;
-                                break;
-                        }
-
-                if (found)
+                if (device_has_devlink(dev, devlink))
                         continue;
 
                 log_device_debug(dev,
-                                 "Updating old device symlink '%s', which is no longer belonging to this device.",
-                                 name);
+                                 "Removing/updating old device symlink '%s', which is no longer belonging to this device.",
+                                 devlink);
 
-                r = link_update(dev, name, false);
+                r = link_update(dev, devlink, /* add = */ false);
                 if (r < 0)
                         log_device_warning_errno(dev, r,
-                                                 "Failed to update device symlink '%s', ignoring: %m",
-                                                 name);
+                                                 "Failed to remove/update device symlink '%s', ignoring: %m",
+                                                 devlink);
         }
+
+        /* create/update symlinks, add symlinks to name index */
+        FOREACH_DEVICE_DEVLINK(dev, devlink) {
+                r = link_update(dev, devlink, /* add = */ true);
+                if (r < 0)
+                        log_device_warning_errno(dev, r,
+                                                 "Failed to create/update device symlink '%s', ignoring: %m",
+                                                 devlink);
+        }
+
+        r = device_get_devpath_by_devnum(dev, &filename);
+        if (r < 0)
+                return log_device_debug_errno(dev, r, "Failed to get device path: %m");
+
+        /* always add /dev/{block,char}/$major:$minor */
+        r = node_symlink(dev, devnode, filename);
+        if (r < 0)
+                return log_device_warning_errno(dev, r, "Failed to create device symlink '%s': %m", filename);
 
         return 0;
 }
 
-static int node_permissions_apply(sd_device *dev, bool apply_mac,
-                                  mode_t mode, uid_t uid, gid_t gid,
-                                  OrderedHashmap *seclabel_list) {
+int udev_node_remove(sd_device *dev) {
+        _cleanup_free_ char *filename = NULL;
+        const char *devlink;
+        int r;
+
+        assert(dev);
+
+        /* remove/update symlinks, remove symlinks from name index */
+        FOREACH_DEVICE_DEVLINK(dev, devlink) {
+                r = link_update(dev, devlink, /* add = */ false);
+                if (r < 0)
+                        log_device_warning_errno(dev, r,
+                                                 "Failed to remove/update device symlink '%s', ignoring: %m",
+                                                 devlink);
+        }
+
+        r = device_get_devpath_by_devnum(dev, &filename);
+        if (r < 0)
+                return log_device_debug_errno(dev, r, "Failed to get device path: %m");
+
+        /* remove /dev/{block,char}/$major:$minor */
+        if (unlink(filename) < 0 && errno != ENOENT)
+                return log_device_debug_errno(dev, errno, "Failed to remove '%s': %m", filename);
+
+        return 0;
+}
+
+int udev_node_apply_permissions(
+                sd_device *dev,
+                bool apply_mac,
+                mode_t mode,
+                uid_t uid,
+                gid_t gid,
+                OrderedHashmap *seclabel_list) {
+
         const char *devnode, *subsystem, *id = NULL;
         bool apply_mode, apply_uid, apply_gid;
         _cleanup_close_ int node_fd = -1;
@@ -510,96 +582,6 @@ static int node_permissions_apply(sd_device *dev, bool apply_mac,
         r = futimens_opath(node_fd, NULL);
         if (r < 0)
                 log_device_debug_errno(dev, r, "Failed to adjust timestamp of node %s: %m", devnode);
-
-        return r;
-}
-
-static int xsprintf_dev_num_path_from_sd_device(sd_device *dev, char **ret) {
-        const char *subsystem;
-        dev_t devnum;
-        int r;
-
-        assert(ret);
-
-        r = sd_device_get_subsystem(dev, &subsystem);
-        if (r < 0)
-                return r;
-
-        r = sd_device_get_devnum(dev, &devnum);
-        if (r < 0)
-                return r;
-
-        return device_path_make_major_minor(streq(subsystem, "block") ? S_IFBLK : S_IFCHR, devnum, ret);
-}
-
-int udev_node_add(sd_device *dev, bool apply,
-                  mode_t mode, uid_t uid, gid_t gid,
-                  OrderedHashmap *seclabel_list) {
-        const char *devnode, *devlink;
-        _cleanup_free_ char *filename = NULL;
-        int r;
-
-        assert(dev);
-
-        r = sd_device_get_devname(dev, &devnode);
-        if (r < 0)
-                return log_device_debug_errno(dev, r, "Failed to get devnode: %m");
-
-        if (DEBUG_LOGGING) {
-                const char *id = NULL;
-
-                (void) device_get_device_id(dev, &id);
-                log_device_debug(dev, "Handling device node '%s', devnum=%s", devnode, strna(id));
-        }
-
-        r = node_permissions_apply(dev, apply, mode, uid, gid, seclabel_list);
-        if (r < 0)
-                return r;
-
-        /* create/update symlinks, add symlinks to name index */
-        FOREACH_DEVICE_DEVLINK(dev, devlink) {
-                r = link_update(dev, devlink, true);
-                if (r < 0)
-                        log_device_warning_errno(dev, r,
-                                                 "Failed to update device symlink '%s', ignoring: %m",
-                                                 devlink);
-        }
-
-        r = xsprintf_dev_num_path_from_sd_device(dev, &filename);
-        if (r < 0)
-                return log_device_debug_errno(dev, r, "Failed to get device path: %m");
-
-        /* always add /dev/{block,char}/$major:$minor */
-        r = node_symlink(dev, devnode, filename);
-        if (r < 0)
-                return log_device_warning_errno(dev, r, "Failed to create device symlink '%s': %m", filename);
-
-        return 0;
-}
-
-int udev_node_remove(sd_device *dev) {
-        _cleanup_free_ char *filename = NULL;
-        const char *devlink;
-        int r;
-
-        assert(dev);
-
-        /* remove/update symlinks, remove symlinks from name index */
-        FOREACH_DEVICE_DEVLINK(dev, devlink) {
-                r = link_update(dev, devlink, false);
-                if (r < 0)
-                        log_device_warning_errno(dev, r,
-                                                 "Failed to update device symlink '%s', ignoring: %m",
-                                                 devlink);
-        }
-
-        r = xsprintf_dev_num_path_from_sd_device(dev, &filename);
-        if (r < 0)
-                return log_device_debug_errno(dev, r, "Failed to get device path: %m");
-
-        /* remove /dev/{block,char}/$major:$minor */
-        if (unlink(filename) < 0 && errno != ENOENT)
-                return log_device_debug_errno(dev, errno, "Failed to remove '%s': %m", filename);
 
         return 0;
 }

@@ -8,10 +8,14 @@
 
 #include "hashmap.h"
 
-int udev_node_add(sd_device *dev, bool apply,
-                  mode_t mode, uid_t uid, gid_t gid,
-                  OrderedHashmap *seclabel_list);
+int udev_node_apply_permissions(
+                sd_device *dev,
+                bool apply_mac,
+                mode_t mode,
+                uid_t uid,
+                gid_t gid,
+                OrderedHashmap *seclabel_list);
 int udev_node_remove(sd_device *dev);
-int udev_node_update_old_links(sd_device *dev, sd_device *dev_old);
+int udev_node_update(sd_device *dev, sd_device *dev_old);
 
 size_t udev_node_escape_path(const char *src, char *dest, size_t size);
