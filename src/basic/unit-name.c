@@ -797,3 +797,20 @@ bool slice_name_is_valid(const char *name) {
 
         return true;
 }
+
+bool unit_name_prefix_equal(const char *a, const char *b) {
+        const char *p, *q;
+
+        assert(a);
+        assert(b);
+
+        p = strchr(a, '@');
+        if (!p)
+                p = strrchr(a, '.');
+
+        q = strchr(b, '@');
+        if (!q)
+                q = strrchr(b, '.');
+
+        return p - a == q - b && strneq(a, b, p - a);
+}
