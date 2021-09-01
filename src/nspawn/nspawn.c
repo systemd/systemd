@@ -5354,7 +5354,7 @@ static int cant_be_in_netns(void) {
         if (fd < 0)
                 return log_error_errno(errno, "Failed to allocate udev control socket: %m");
 
-        if (connect(fd, &sa.un, SOCKADDR_UN_LEN(sa.un)) < 0) {
+        if (connect(fd, &sa.sa, SOCKADDR_UN_LEN(sa.un)) < 0) {
 
                 if (errno == ENOENT || ERRNO_IS_DISCONNECT(errno))
                         return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
