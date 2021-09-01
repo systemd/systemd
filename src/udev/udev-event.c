@@ -893,9 +893,6 @@ static int update_devnode(UdevEvent *event) {
         if (r < 0)
                 return log_device_error_errno(dev, r, "Failed to get devnum: %m");
 
-        /* remove/update possible left-over symlinks from old database entry */
-        (void) udev_node_update_old_links(dev, event->dev_db_clone);
-
         if (!uid_is_valid(event->uid)) {
                 r = device_get_devnode_uid(dev, &event->uid);
                 if (r < 0 && r != -ENOENT)
@@ -919,7 +916,11 @@ static int update_devnode(UdevEvent *event) {
 
         bool apply_mac = device_for_action(dev, SD_DEVICE_ADD);
 
-        return udev_node_add(dev, apply_mac, event->mode, event->uid, event->gid, event->seclabel_list);
+        r = udev_node_apply_permissions(dev, apply_mac, event->mode, event->uid, event->gid, event->seclabel_list);
+        if (r < 0)
+                return log_device_error_errno(dev, r, "Failed to apply devnode permissions: %m");
+
+        return udev_node_update(dev, event->dev_db_clone);
 }
 
 static int event_execute_rules_on_remove(
