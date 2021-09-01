@@ -447,13 +447,12 @@ static int link_update(sd_device *dev, const char *slink_in, bool add) {
                 _cleanup_free_ char *target = NULL;
                 struct stat st1 = {}, st2 = {};
 
-                r = stat(dirname, &st1);
-                if (r < 0 && errno != ENOENT)
+                if (stat(dirname, &st1) < 0 && errno != ENOENT)
                         return log_device_debug_errno(dev, errno, "Failed to stat %s: %m", dirname);
 
                 r = link_find_prioritized(dev, add, dirname, &target);
                 if (r < 0)
-                        return log_device_debug_errno(dev, r, "Failed to determine highest priority for symlink '%s': %m", slink);
+                        return log_device_debug_errno(dev, r, "Failed to determine device node with the highest priority for '%s': %m", slink);
                 if (r == 0) {
                         log_device_debug(dev, "No reference left for '%s', removing", slink);
 
