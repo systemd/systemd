@@ -447,11 +447,6 @@ static int link_update(sd_device *dev, const char *slink_in, bool add) {
         if (r < 0)
                 return r;
 
-        /* If the database entry is not written yet we will just do one iteration and possibly wrong symlink
-         * will be fixed in the second invocation. */
-        if (sd_device_get_is_initialized(dev) <= 0)
-                return link_update_impl(dev, dirname, slink, add);
-
         for (unsigned i = 0; i < LINK_UPDATE_MAX_RETRIES; i++) {
                 struct stat st1 = {}, st2 = {};
 
