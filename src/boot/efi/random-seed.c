@@ -12,7 +12,7 @@
 #define RANDOM_MAX_SIZE_MIN (32U)
 #define RANDOM_MAX_SIZE_MAX (32U*1024U)
 
-#define EFI_RNG_GUID &(EFI_GUID) EFI_RNG_PROTOCOL_GUID
+#define EFI_RNG_GUID &(const EFI_GUID) EFI_RNG_PROTOCOL_GUID
 
 /* SHA256 gives us 256/8=32 bytes */
 #define HASH_VALUE_SIZE 32
@@ -26,7 +26,7 @@ static EFI_STATUS acquire_rng(UINTN size, VOID **ret) {
 
         /* Try to acquire the specified number of bytes from the UEFI RNG */
 
-        err = LibLocateProtocol(EFI_RNG_GUID, (VOID**) &rng);
+        err = LibLocateProtocol((EFI_GUID*) EFI_RNG_GUID, (VOID**) &rng);
         if (EFI_ERROR(err))
                 return err;
         if (!rng)
