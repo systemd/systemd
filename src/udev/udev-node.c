@@ -491,11 +491,6 @@ static int link_update(sd_device *dev, const char *slink_in, bool add) {
                 r = node_symlink(dev, target, slink);
                 if (r < 0)
                         return r;
-                if (r == 1)
-                        /* We have replaced already existing symlink, possibly there is some other device trying
-                         * to claim the same symlink. Let's do one more iteration to give us a chance to fix
-                         * the error if other device actually claims the symlink with higher priority. */
-                        continue;
 
                 /* Skip the second stat() if the first failed, stat_inode_unmodified() would return false regardless. */
                 if ((st1.st_mode & S_IFMT) != 0) {
