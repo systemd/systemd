@@ -1185,7 +1185,7 @@ static VOID config_entry_bump_counters(
 
         _cleanup_freepool_ CHAR16* old_path = NULL, *new_path = NULL;
         _cleanup_(FileHandleClosep) EFI_FILE_HANDLE handle = NULL;
-        static EFI_GUID EfiFileInfoGuid = EFI_FILE_INFO_ID;
+        static const EFI_GUID EfiFileInfoGuid = EFI_FILE_INFO_ID;
         _cleanup_freepool_ EFI_FILE_INFO *file_info = NULL;
         UINTN file_info_size, a, b;
         EFI_STATUS r;
@@ -1213,7 +1213,7 @@ static VOID config_entry_bump_counters(
         for (;;) {
                 file_info = AllocatePool(file_info_size);
 
-                r = uefi_call_wrapper(handle->GetInfo, 4, handle, &EfiFileInfoGuid, &file_info_size, file_info);
+                r = uefi_call_wrapper(handle->GetInfo, 4, handle, (EFI_GUID*) &EfiFileInfoGuid, &file_info_size, file_info);
                 if (!EFI_ERROR(r))
                         break;
 
@@ -1228,7 +1228,7 @@ static VOID config_entry_bump_counters(
 
         /* And rename the file */
         StrCpy(file_info->FileName, entry->next_name);
-        r = uefi_call_wrapper(handle->SetInfo, 4, handle, &EfiFileInfoGuid, file_info_size, file_info);
+        r = uefi_call_wrapper(handle->SetInfo, 4, handle, (EFI_GUID*) &EfiFileInfoGuid, file_info_size, file_info);
         if (EFI_ERROR(r)) {
                 log_error_stall(L"Failed to rename '%s' to '%s', ignoring: %r", old_path, entry->next_name, r);
                 return;

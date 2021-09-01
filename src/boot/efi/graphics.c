@@ -11,7 +11,7 @@
 #include "util.h"
 
 #define EFI_CONSOLE_CONTROL_GUID \
-        &(EFI_GUID) { 0xf42f7782, 0x12e, 0x4c12, { 0x99, 0x56, 0x49, 0xf9, 0x43, 0x4, 0xf7, 0x21 } }
+        &(const EFI_GUID) { 0xf42f7782, 0x12e, 0x4c12, { 0x99, 0x56, 0x49, 0xf9, 0x43, 0x4, 0xf7, 0x21 } }
 
 EFI_STATUS graphics_mode(BOOLEAN on) {
 
@@ -53,7 +53,7 @@ EFI_STATUS graphics_mode(BOOLEAN on) {
         BOOLEAN stdin_locked;
         EFI_STATUS err;
 
-        err = LibLocateProtocol(EFI_CONSOLE_CONTROL_GUID, (VOID **)&ConsoleControl);
+        err = LibLocateProtocol((EFI_GUID*) EFI_CONSOLE_CONTROL_GUID, (VOID **)&ConsoleControl);
         if (EFI_ERROR(err))
                 /* console control protocol is nonstandard and might not exist. */
                 return err == EFI_NOT_FOUND ? EFI_SUCCESS : err;

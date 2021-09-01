@@ -9,7 +9,7 @@
 #include "measure.h"
 
 #define EFI_TCG_GUID \
-        &(EFI_GUID) { 0xf541796d, 0xa62e, 0x4954, { 0xa7, 0x75, 0x95, 0x84, 0xf6, 0x1b, 0x9c, 0xdd } }
+        &(const EFI_GUID) { 0xf541796d, 0xa62e, 0x4954, { 0xa7, 0x75, 0x95, 0x84, 0xf6, 0x1b, 0x9c, 0xdd } }
 
 typedef struct _TCG_VERSION {
         UINT8 Major;
@@ -104,7 +104,7 @@ typedef struct _EFI_TCG {
 } EFI_TCG;
 
 #define EFI_TCG2_GUID \
-        &(EFI_GUID) { 0x607f766c, 0x7455, 0x42be, { 0x93, 0x0b, 0xe4, 0xd7, 0x6d, 0xb2, 0x72, 0x0f } }
+        &(const EFI_GUID) { 0x607f766c, 0x7455, 0x42be, { 0x93, 0x0b, 0xe4, 0xd7, 0x6d, 0xb2, 0x72, 0x0f } }
 
 typedef struct tdEFI_TCG2_PROTOCOL EFI_TCG2_PROTOCOL;
 
@@ -253,7 +253,7 @@ static EFI_TCG * tcg1_interface_check(void) {
         EFI_PHYSICAL_ADDRESS event_log_location;
         EFI_PHYSICAL_ADDRESS event_log_last_entry;
 
-        status = LibLocateProtocol(EFI_TCG_GUID, (void **) &tcg);
+        status = LibLocateProtocol((EFI_GUID*) EFI_TCG_GUID, (void **) &tcg);
 
         if (EFI_ERROR(status))
                 return NULL;
@@ -278,7 +278,7 @@ static EFI_TCG2 * tcg2_interface_check(void) {
         EFI_TCG2 *tcg;
         EFI_TCG2_BOOT_SERVICE_CAPABILITY capability;
 
-        status = LibLocateProtocol(EFI_TCG2_GUID, (void **) &tcg);
+        status = LibLocateProtocol((EFI_GUID*) EFI_TCG2_GUID, (void **) &tcg);
 
         if (EFI_ERROR(status))
                 return NULL;
