@@ -32,6 +32,7 @@
 #define CREATE_LINK_MAX_RETRIES        128
 #define LINK_UPDATE_MAX_RETRIES        128
 #define CREATE_STACK_LINK_MAX_RETRIES  128
+#define UPDATE_TIMESTAMP_MAX_RETRIES   128
 #define UDEV_NODE_HASH_KEY SD_ID128_MAKE(b9,6a,f1,ce,40,31,44,1a,9e,19,ec,8b,ae,f3,e3,2f)
 
 static int create_symlink(const char *target, const char *slink) {
@@ -263,6 +264,7 @@ toolong:
 
 static int update_stack_dir(sd_device *dev, const char *dirname, bool add) {
         _cleanup_free_ char *filename = NULL, *data = NULL, *buf = NULL;
+        struct stat st1 = {}, st2 = {};
         const char *devname, *id;
         int priority, r;
 
@@ -278,10 +280,51 @@ static int update_stack_dir(sd_device *dev, const char *dirname, bool add) {
                 return log_oom_debug();
 
         if (!add) {
-                if (unlink(filename) < 0 && errno != ENOENT)
-                        log_device_debug_errno(dev, errno, "Failed to remove %s, ignoring: %m", filename);
+                bool unlink_failed = false;
 
-                (void) rmdir(dirname);
+                if (stat(dirname, &st1) < 0) {
+                        if (errno == ENOENT)
+                                return 0;
+                        log_device_debug_errno(dev, errno, "Failed to stat %s, ignoring: %m", dirname);
+                }
+
+                if (unlink(filename) < 0) {
+                        unlink_failed = true;
+                        if (errno != ENOENT)
+                                log_device_debug_errno(dev, errno, "Failed to remove %s, ignoring: %m", filename);
+                }
+
+                if (rmdir(dirname) >= 0 || errno == ENOENT)
+                        return 0;
+
+                if (unlink_failed)
+                        return 0;
+
+                if ((st1.st_mode & S_IFMT) == 0)
+                        return 0;
+
+                /* symlink was removed. Check if the timestamp of directory is changed. */
+                for (unsigned k = 0; k < UPDATE_TIMESTAMP_MAX_RETRIES; k++) {
+                        if (stat(dirname, &st2) < 0) {
+                                if (errno != ENOENT)
+                                        log_device_debug_errno(dev, errno, "Failed to stat %s, ignoring: %m", dirname);
+                                return 0;
+                        }
+
+                        if (!stat_inode_unmodified(&st1, &st2))
+                                return 0;
+
+                        log_device_debug(dev, "Symlink %s is removed, but timestamp of %s is not changed, updating timestamp after 10ms.",
+                                         filename, dirname);
+                        (void) usleep(10 * USEC_PER_MSEC);
+                        if (utimensat(AT_FDCWD, dirname, NULL, 0) < 0) {
+                                if (errno != ENOENT)
+                                        log_device_debug_errno(dev, errno, "Failed to update timestamp of %s, ignoring: %m", dirname);
+                                return 0;
+                        }
+                }
+
+                log_device_debug(dev, "Failed to update timestamp of %s, ignoring: %m", dirname);
                 return 0;
         }
 
@@ -311,15 +354,37 @@ static int update_stack_dir(sd_device *dev, const char *dirname, bool add) {
                 if (r < 0)
                         return log_device_debug_errno(dev, r, "Failed to create directory %s: %m", dirname);
 
-                if (symlink(data, filename) >= 0)
-                        return 0;
+                if (stat(dirname, &st1) < 0) {
+                        if (errno == ENOENT)
+                                continue;
+                        return log_device_debug_errno(dev, errno, "Failed to stat %s, ignoring: %m", dirname);
+                }
 
-                r = -errno;
-                if (r != -ENOENT)
-                        break;
+                if (symlink(data, filename) < 0) {
+                        if (errno == ENOENT)
+                                continue;
+                        return log_device_debug_errno(dev, errno, "Failed to create symbolic link %s: %m", filename);
+                }
+
+                /* symlink was created. Check if the timestamp of directory is changed. */
+                for (unsigned k = 0; k < UPDATE_TIMESTAMP_MAX_RETRIES; k++) {
+                        if (stat(dirname, &st2) < 0)
+                                return log_device_debug_errno(dev, errno, "Failed to stat %s, ignoring: %m", dirname);
+
+                        if (!stat_inode_unmodified(&st1, &st2))
+                                return 0;
+
+                        log_device_debug(dev, "Symlink %s is created, but timestamp of %s is not changed, updating timestamp after 10ms.",
+                                         filename, dirname);
+                        (void) usleep(10 * USEC_PER_MSEC);
+                        if (utimensat(AT_FDCWD, dirname, NULL, 0) < 0)
+                                return log_device_debug_errno(dev, errno, "Failed to update timestamp of %s, ignoring: %m", dirname);
+                }
+
+                log_device_debug(dev, "Failed to update timestamp of %s, ignoring: %m", dirname);
         }
 
-        return log_device_debug_errno(dev, errno, "Failed to create symbolic link %s: %m", filename);
+        return log_device_debug_errno(dev, SYNTHETIC_ERRNO(ELOOP), "Failed to create symbolic link %s: %m", filename);
 }
 
 static int link_update_impl(sd_device *dev, const char *dirname, const char *slink, bool add) {
