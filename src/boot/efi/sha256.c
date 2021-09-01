@@ -106,19 +106,19 @@ void *sha256_finish_ctx(struct sha256_ctx *ctx, void *resbuf) {
         ctx->total64 += bytes;
 
         pad = bytes >= 56 ? 64 + 56 - bytes : 56 - bytes;
-        CopyMem (&ctx->buffer[bytes], fillbuf, pad);
+        CopyMem(&ctx->buffer[bytes], fillbuf, pad);
 
         /* Put the 64-bit file length in *bits* at the end of the buffer.  */
-        ctx->buffer32[(bytes + pad + 4) / 4] = SWAP (ctx->total[TOTAL64_low] << 3);
-        ctx->buffer32[(bytes + pad) / 4] = SWAP ((ctx->total[TOTAL64_high] << 3)
-                                                 | (ctx->total[TOTAL64_low] >> 29));
+        ctx->buffer32[(bytes + pad + 4) / 4] = SWAP(ctx->total[TOTAL64_low] << 3);
+        ctx->buffer32[(bytes + pad) / 4] = SWAP((ctx->total[TOTAL64_high] << 3)
+                                                | (ctx->total[TOTAL64_low] >> 29));
 
         /* Process last bytes.  */
-        sha256_process_block (ctx->buffer, bytes + pad + 8, ctx);
+        sha256_process_block(ctx->buffer, bytes + pad + 8, ctx);
 
         /* Put result from CTX in first 32 bytes following RESBUF.  */
         for (UINTN i = 0; i < 8; ++i)
-                ((UINT32 *) resbuf)[i] = SWAP (ctx->H[i]);
+                ((UINT32 *) resbuf)[i] = SWAP(ctx->H[i]);
 
         return resbuf;
 }
@@ -134,15 +134,15 @@ void sha256_process_bytes(const void *buffer, UINTN len, struct sha256_ctx *ctx)
                 UINTN left_over = ctx->buflen;
                 UINTN add = 128 - left_over > len ? len : 128 - left_over;
 
-                CopyMem (&ctx->buffer[left_over], buffer, add);
+                CopyMem(&ctx->buffer[left_over], buffer, add);
                 ctx->buflen += add;
 
                 if (ctx->buflen > 64) {
-                        sha256_process_block (ctx->buffer, ctx->buflen & ~63, ctx);
+                        sha256_process_block(ctx->buffer, ctx->buflen & ~63, ctx);
 
                         ctx->buflen &= 63;
                         /* The regions in the following copy operation cannot overlap.  */
-                        CopyMem (ctx->buffer, &ctx->buffer[(left_over + add) & ~63],
+                        CopyMem(ctx->buffer, &ctx->buffer[(left_over + add) & ~63],
                                 ctx->buflen);
                 }
 
@@ -159,21 +159,21 @@ void sha256_process_bytes(const void *buffer, UINTN len, struct sha256_ctx *ctx)
 
 /* To check alignment gcc has an appropriate operator. Other compilers don't.  */
 # if __GNUC__ >= 2
-#  define UNALIGNED_P(p) (((UINTN) p) % __alignof__ (UINT32) != 0)
+#  define UNALIGNED_P(p) (((UINTN) p) % __alignof__(UINT32) != 0)
 # else
-#  define UNALIGNED_P(p) (((UINTN) p) % sizeof (UINT32) != 0)
+#  define UNALIGNED_P(p) (((UINTN) p) % sizeof(UINT32) != 0)
 # endif
-                if (UNALIGNED_P (buffer))
+                if (UNALIGNED_P(buffer))
                         while (len > 64) {
-                                CopyMem (ctx->buffer, buffer, 64);
-                                sha256_process_block (ctx->buffer, 64, ctx);
+                                CopyMem(ctx->buffer, buffer, 64);
+                                sha256_process_block(ctx->buffer, 64, ctx);
                                 buffer = (const char *) buffer + 64;
                                 len -= 64;
                         }
                 else
 #endif
                 {
-                        sha256_process_block (buffer, len & ~63, ctx);
+                        sha256_process_block(buffer, len & ~63, ctx);
                         buffer = (const char *) buffer + (len & ~63);
                         len &= 63;
                 }
@@ -183,12 +183,12 @@ void sha256_process_bytes(const void *buffer, UINTN len, struct sha256_ctx *ctx)
         if (len > 0) {
                 UINTN left_over = ctx->buflen;
 
-                CopyMem (&ctx->buffer[left_over], buffer, len);
+                CopyMem(&ctx->buffer[left_over], buffer, len);
                 left_over += len;
                 if (left_over >= 64) {
-                        sha256_process_block (ctx->buffer, 64, ctx);
+                        sha256_process_block(ctx->buffer, 64, ctx);
                         left_over -= 64;
-                        CopyMem (ctx->buffer, &ctx->buffer[64], left_over);
+                        CopyMem(ctx->buffer, &ctx->buffer[64], left_over);
                 }
                 ctx->buflen = left_over;
         }
@@ -199,7 +199,7 @@ void sha256_process_bytes(const void *buffer, UINTN len, struct sha256_ctx *ctx)
    It is assumed that LEN % 64 == 0.  */
 static void sha256_process_block(const void *buffer, UINTN len, struct sha256_ctx *ctx) {
         const UINT32 *words = buffer;
-        UINTN nwords = len / sizeof (UINT32);
+        UINTN nwords = len / sizeof(UINT32);
 
         assert(buffer);
         assert(ctx);
