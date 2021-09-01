@@ -8,6 +8,7 @@
 #include "alloc-util.h"
 #include "glob-util.h"
 #include "hexdecoct.h"
+#include "memory-util.h"
 #include "path-util.h"
 #include "special.h"
 #include "string-util.h"
@@ -796,4 +797,24 @@ bool slice_name_is_valid(const char *name) {
                 return false;
 
         return true;
+}
+
+bool unit_name_prefix_equal(const char *a, const char *b) {
+        const char *p, *q;
+
+        assert(a);
+        assert(b);
+
+        p = strchr(a, '@');
+        if (!p)
+                p = strrchr(a, '.');
+
+        q = strchr(b, '@');
+        if (!q)
+                q = strrchr(b, '.');
+
+        assert(p);
+        assert(q);
+
+        return memcmp_nn(a, p - a, b, q - b) == 0;
 }

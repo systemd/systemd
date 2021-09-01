@@ -2256,8 +2256,12 @@ OnFailure=failure-handler@%N.service
     services will have acquired an <varname>OnFailure=</varname> dependency on
     <filename index='false'>failure-handler@%N.service</filename>. The
     template instance units will also have gained the dependency which results
-    in the creation of a recursive dependency chain. We can break the chain by
-    disabling the drop-in for the template instance units via a symlink to
+    in the creation of a recursive dependency chain. systemd will try to detect
+    these recursive dependency chains where a template unit directly and
+    recursively depends on itself and will remove such dependencies
+    automatically if it finds them. If systemd doesn't detect the recursive
+    dependency chain, we can break the chain ourselves by disabling the drop-in
+    for the template instance units via a symlink to
     <filename index='false'>/dev/null</filename>:</para>
 
     <programlisting>

@@ -4,6 +4,9 @@
 #include "conf-parser.h"
 #include "unit.h"
 
+/* This function is declared in the header to make it accessible to unit tests. */
+int unit_is_recursive_template_dependency(Unit *u, const char *name, const char *format);
+
 /* Config-parsing helpers relevant only for sources under src/core/ */
 int parse_crash_chvt(const char *value, int *data);
 int parse_confirm_spawn(const char *value, char **console);
