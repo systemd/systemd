@@ -408,11 +408,7 @@ static int link_update_impl(sd_device *dev, const char *dirname, const char *sli
                 return 0;
         }
 
-        r = node_symlink(dev, target, slink);
-        if (r < 0)
-                return r;
-
-        return 1;
+        return node_symlink(dev, target, slink);
 }
 
 /* manage "stack of names" with possibly specified device priorities */
@@ -459,18 +455,15 @@ static int link_update(sd_device *dev, const char *slink_in, bool add) {
                         return log_device_debug_errno(dev, errno, "Failed to stat %s: %m", dirname);
 
                 r = link_update_impl(dev, dirname, slink, add);
-                if (r <= 0)
+                if (r < 0)
                         return r;
 
-                /* Skip the second stat() if the first failed, stat_inode_unmodified() would return
-                 * false regardless. */
-                if ((st1.st_mode & S_IFMT) != 0) {
-                        if (stat(dirname, &st2) < 0 && errno != ENOENT)
-                                return log_device_debug_errno(dev, errno, "Failed to stat %s: %m", dirname);
+                if (stat(dirname, &st2) < 0 && errno != ENOENT)
+                        return log_device_debug_errno(dev, errno, "Failed to stat %s: %m", dirname);
 
-                        if (stat_inode_unmodified(&st1, &st2))
-                                return 0;
-                }
+                if (((st1.st_mode & S_IFMT) == 0 && (st2.st_mode & S_IFMT) == 0) ||
+                    stat_inode_unmodified(&st1, &st2))
+                        return 0;
         }
 
         return -ELOOP;
