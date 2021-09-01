@@ -468,15 +468,12 @@ static int link_update(sd_device *dev, const char *slink_in, bool add) {
                 if (r < 0)
                         return r;
 
-                /* Skip the second stat() if the first failed, stat_inode_unmodified() would return false regardless. */
-                if ((st1.st_mode & S_IFMT) != 0) {
-                        r = stat(dirname, &st2);
-                        if (r < 0 && errno != ENOENT)
-                                return log_device_debug_errno(dev, errno, "Failed to stat %s: %m", dirname);
+                if (stat(dirname, &st2) < 0 && errno != ENOENT)
+                        return log_device_debug_errno(dev, errno, "Failed to stat %s: %m", dirname);
 
-                        if (stat_inode_unmodified(&st1, &st2))
-                                break;
-                }
+                if (((st1.st_mode & S_IFMT) == 0 && (st2.st_mode & S_IFMT) == 0) ||
+                    stat_inode_unmodified(&st1, &st2))
+                        return 0;
         }
 
         return i < LINK_UPDATE_MAX_RETRIES ? 0 : -ELOOP;
