@@ -4529,6 +4529,7 @@ static int acquire_root_devno(
 static int find_root(char **ret, int *ret_fd) {
         const char *p;
         int r;
+        _cleanup_free_ char *device = NULL;
 
         assert(ret);
         assert(ret_fd);
@@ -4564,20 +4565,36 @@ static int find_root(char **ret, int *ret_fd) {
 
         assert(IN_SET(arg_empty, EMPTY_REFUSE, EMPTY_ALLOW));
 
-        /* Let's search for the root device. We look for two cases here: first in /, and then in /usr. The
-         * latter we check for cases where / is a tmpfs and only /usr is an actual persistent block device
-         * (think: volatile setups) */
+        /* If the root mount has been replaced by some form of volatile file system (overlayfs), the
+         * original root block device node is symlinked in /run/systemd/volatile-root. Let's read that
+         * here. */
+        r = readlink_malloc("/run/systemd/volatile-root", &device);
+        if (r == -ENOENT) { /* volatile-root not found */
+                /* Let's search for the root device. We look for two cases here: first in /, and then in /usr. The
+                * latter we check for cases where / is a tmpfs and only /usr is an actual persistent block device
+                * (think: volatile setups) */
 
-        FOREACH_STRING(p, "/", "/usr") {
+                FOREACH_STRING(p, "/", "/usr") {
 
-                r = acquire_root_devno(p, arg_root, O_RDONLY|O_DIRECTORY|O_CLOEXEC, ret, ret_fd);
-                if (r < 0) {
-                        if (r == -EUCLEAN)
-                                return btrfs_log_dev_root(LOG_ERR, r, p);
-                        if (r != -ENODEV)
-                                return log_error_errno(r, "Failed to determine backing device of %s: %m", p);
-                } else
-                        return 0;
+                        r = acquire_root_devno(p, arg_root, O_RDONLY|O_DIRECTORY|O_CLOEXEC, ret, ret_fd);
+                        if (r < 0) {
+                                if (r == -EUCLEAN)
+                                        return btrfs_log_dev_root(LOG_ERR, r, p);
+                                if (r != -ENODEV)
+                                        return log_error_errno(r, "Failed to determine backing device of %s: %m", p);
+                        } else
+                                return 0;
+                }
+        } else if (r < 0)
+                return log_error_errno(r, "Failed to read symlink /run/systemd/volatile-root: %m");
+        else {
+                r = acquire_root_devno(device, NULL, O_RDONLY|O_CLOEXEC, ret, ret_fd);
+                if (r == -EUCLEAN)
+                        return btrfs_log_dev_root(LOG_ERR, r, device);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to open file or determine backing device of %s: %m", device);
+
+                return 0;
         }
 
         return log_error_errno(SYNTHETIC_ERRNO(ENODEV), "Failed to discover root block device.");
