@@ -1492,6 +1492,11 @@ node /org/freedesktop/systemd1 {
       boot loader or initrd implementation. In these cases the respective pairs of timestamps are both 0,
       indicating that no data is available.</para>
 
+      <para><varname>UnitsLoadTimestamp</varname> encode <constant>CLOCK_REALTIME</constant>
+      and <constant>CLOCK_MONOTONIC</constant> microseconds timestamps (as described above). The timestamps
+      are taken every time when the manager loads unit files. It could be used to notify users that
+      daemon-reload is needed.</para>
+
       <para>Similarly, the <varname>SecurityStartTimestamp</varname>,
       <varname>GeneratorsStartTimestamp</varname> and <varname>LoadUnitTimestamp</varname> (as well as their
       monotonic and stop counterparts) expose performance data for uploading the security policies to the
