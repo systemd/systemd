@@ -77,7 +77,7 @@ static int parse_argv(int argc, char *argv[]) {
                         return 0;
 
                 case ARG_VERSION:
-                        return version();
+                        return sd_version();
 
                 case ARG_PATH:
                         r = strv_extend(&arg_path, optarg);

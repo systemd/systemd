@@ -139,7 +139,7 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_VERSION:
-                        return version();
+                        return sd_version();
 
                 case 'i':
                         r = parse_interface_with_operstate_range(optarg);

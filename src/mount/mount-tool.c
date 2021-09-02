@@ -194,7 +194,7 @@ static int parse_argv(int argc, char *argv[]) {
                         return help();
 
                 case ARG_VERSION:
-                        return version();
+                        return sd_version();
 
                 case ARG_NO_BLOCK:
                         arg_no_block = true;

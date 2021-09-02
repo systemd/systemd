@@ -249,7 +249,7 @@ static int parse_argv(int argc, char *argv[]) {
                         return help();
 
                 case ARG_VERSION:
-                        return version();
+                        return sd_version();
 
                 case ARG_NO_ASK_PASSWORD:
                         arg_ask_password = false;

@@ -2794,7 +2794,7 @@ static int compat_parse_argv(int argc, char *argv[]) {
                         return compat_help();
 
                 case ARG_VERSION:
-                        return version();
+                        return sd_version();
 
                 case '4':
                         arg_family = AF_INET;
@@ -3089,7 +3089,7 @@ static int native_parse_argv(int argc, char *argv[]) {
                         return native_help();
 
                 case ARG_VERSION:
-                        return version();
+                        return sd_version();
 
                 case '4':
                         arg_family = AF_INET;

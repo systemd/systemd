@@ -142,7 +142,7 @@ int resolvconf_parse_argv(int argc, char *argv[]) {
                         return resolvconf_help();
 
                 case ARG_VERSION:
-                        return version();
+                        return sd_version();
 
                 /* -a and -d is what everybody can agree on */
                 case 'a':

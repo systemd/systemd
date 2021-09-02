@@ -1171,7 +1171,7 @@ static int parse_argv(int argc, char *argv[]) {
                         return 0;
 
                 case ARG_VERSION:
-                        return version();
+                        return sd_version();
 
                 case ARG_ESP_PATH:
                         r = free_and_strdup(&arg_esp_path, optarg);

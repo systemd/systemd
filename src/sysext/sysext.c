@@ -927,7 +927,7 @@ static int parse_argv(int argc, char *argv[]) {
                         return verb_help(argc, argv, NULL);
 
                 case ARG_VERSION:
-                        return version();
+                        return sd_version();
 
                 case ARG_NO_PAGER:
                         arg_pager_flags |= PAGER_DISABLE;
