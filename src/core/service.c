@@ -112,6 +112,7 @@ static void service_init(Unit *u) {
         s->socket_fd = -1;
         s->stdin_fd = s->stdout_fd = s->stderr_fd = -1;
         s->guess_main_pid = true;
+        s->watchdog_overtimes = 0;
 
         s->control_command_id = _SERVICE_EXEC_COMMAND_INVALID;
 
@@ -213,7 +214,7 @@ static void service_start_watchdog(Service *s) {
         }
 
         if (s->watchdog_event_source) {
-                r = sd_event_source_set_time(s->watchdog_event_source, usec_add(s->watchdog_timestamp.monotonic, watchdog_usec));
+                r = sd_event_source_set_time(s->watchdog_event_source, usec_add(s->watchdog_timestamp.monotonic, watchdog_usec/WATCHDOG_OVERTIMES_MAX));
                 if (r < 0) {
                         log_unit_warning_errno(UNIT(s), r, "Failed to reset watchdog timer: %m");
                         return;
@@ -225,7 +226,7 @@ static void service_start_watchdog(Service *s) {
                                 UNIT(s)->manager->event,
                                 &s->watchdog_event_source,
                                 CLOCK_MONOTONIC,
-                                usec_add(s->watchdog_timestamp.monotonic, watchdog_usec), 0,
+                                usec_add(s->watchdog_timestamp.monotonic, watchdog_usec/WATCHDOG_OVERTIMES_MAX), 0,
                                 service_dispatch_watchdog, s);
                 if (r < 0) {
                         log_unit_warning_errno(UNIT(s), r, "Failed to add watchdog timer: %m");
@@ -3919,6 +3920,12 @@ static int service_dispatch_watchdog(sd_event_source *source, usec_t usec, void 
         watchdog_usec = service_get_watchdog_usec(s);
 
         if (UNIT(s)->manager->service_watchdogs) {
+                if(s->watchdog_overtimes < WATCHDOG_OVERTIMES_MAX - 1){
+                        s->watchdog_overtimes++;
+                        log_unit_debug(UNIT(s),"watchdog over times %d",s->watchdog_overtimes);
+                        service_reset_watchdog(s);
+                        return 0;
+                }
                 log_unit_error(UNIT(s), "Watchdog timeout (limit %s)!",
                                FORMAT_TIMESPAN(watchdog_usec, 1));
 
@@ -4122,8 +4129,10 @@ static void service_notify_message(
         /* Interpret WATCHDOG= */
         e = strv_find_startswith(tags, "WATCHDOG=");
         if (e) {
-                if (streq(e, "1"))
+                if (streq(e, "1")){
+                        s->watchdog_overtimes = 0;
                         service_reset_watchdog(s);
+                }
                 else if (streq(e, "trigger"))
                         service_force_watchdog(s);
                 else
