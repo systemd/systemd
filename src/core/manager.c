@@ -1722,8 +1722,10 @@ static void manager_ready(Manager *m) {
 
 Manager* manager_reloading_start(Manager *m) {
         m->n_reloading++;
+        dual_timestamp_get(m->timestamps + MANAGER_TIMESTAMP_UNITS_RELOAD_START);
         return m;
 }
+
 void manager_reloading_stopp(Manager **m) {
         if (*m) {
                 assert((*m)->n_reloading > 0);
@@ -4469,6 +4471,7 @@ static const char *const manager_timestamp_table[_MANAGER_TIMESTAMP_MAX] = {
         [MANAGER_TIMESTAMP_GENERATORS_FINISH]        = "generators-finish",
         [MANAGER_TIMESTAMP_UNITS_LOAD_START]         = "units-load-start",
         [MANAGER_TIMESTAMP_UNITS_LOAD_FINISH]        = "units-load-finish",
+        [MANAGER_TIMESTAMP_UNITS_RELOAD_START]       = "units-reload-start",
         [MANAGER_TIMESTAMP_INITRD_SECURITY_START]    = "initrd-security-start",
         [MANAGER_TIMESTAMP_INITRD_SECURITY_FINISH]   = "initrd-security-finish",
         [MANAGER_TIMESTAMP_INITRD_GENERATORS_START]  = "initrd-generators-start",
