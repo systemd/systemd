@@ -20,7 +20,7 @@ fi
 # that /usr/bin/ld is a symlink that points to a non-existing file in
 # /etc/alternative/ in this mode. Let's work around this for now by manually
 # redirect "ld" to "ld.bfd", i.e. circumventing the /usr/bin/ld symlink.
-if [ ! -x /usr/bin/ld -a -x /usr/bin/ld.bfd ] ; then
+if [ ! -x /usr/bin/ld ] && [ -x /usr/bin/ld.bfd ]; then
         mkdir -p "$HOME"/bin
         ln -s /usr/bin/ld.bfd "$HOME"/bin/ld
         PATH="$HOME/bin:$PATH"
@@ -35,7 +35,7 @@ fi
 # So let's ensure we're running under UTF-8.
 #
 # If our current locale already is UTF-8, then we don't need to do anything:
-if [ "$(locale charmap 2> /dev/null)" != "UTF-8" ] ; then
+if [ "$(locale charmap 2>/dev/null)" != "UTF-8" ] ; then
         # Try using C.UTF-8 locale, if available. This locale is not shipped
         # by upstream glibc, so it's not available in all distros.
         # (In particular, it's not available in Arch Linux.)
@@ -54,9 +54,9 @@ if [ "$(locale charmap 2> /dev/null)" != "UTF-8" ] ; then
 fi
 
 if [ ! -f "$BUILDDIR"/build.ninja ] ; then
-        sysvinit_path=`realpath /etc/init.d`
+        sysvinit_path=$(realpath /etc/init.d)
 
-        init_path=`realpath /sbin/init 2>/dev/null`
+        init_path=$(realpath /sbin/init 2>/dev/null)
         if [ -z "$init_path" ] ; then
             rootprefix=""
         else
@@ -76,7 +76,7 @@ cd "$BUILDDIR"
 ninja "$@"
 if [ "$WITH_TESTS" = 1 ] ; then
         for id in 1 2 3; do
-                getent group $id > /dev/null || groupadd -g $id testgroup$id
+                getent group $id >/dev/null || groupadd -g $id testgroup$id
         done
 
         ninja test
@@ -92,7 +92,7 @@ fi
 
 mkdir -p "$DESTDIR"/etc
 
-cat > "$DESTDIR"/etc/issue <<EOF
+cat >"$DESTDIR"/etc/issue <<EOF
 \S (built from systemd tree)
 Kernel \r on an \m (\l)
 
@@ -102,7 +102,7 @@ if [ -n "$IMAGE_ID" ] ; then
     mkdir -p "$DESTDIR"/usr/lib
     sed -n \
         -e '/^IMAGE_ID=/!p' \
-        -e '$aIMAGE_ID='$IMAGE_ID < /usr/lib/os-release > "$DESTDIR"/usr/lib/os-release
+        -e "\$aIMAGE_ID=$IMAGE_ID" <"/usr/lib/os-release" >"${DESTDIR}/usr/lib/os-release"
 
     OSRELEASEFILE="$DESTDIR"/usr/lib/os-release
 else
@@ -114,7 +114,7 @@ if [ -n "$IMAGE_VERSION" ] ; then
     mkdir -p "$DESTDIR"/usr/lib
     sed -n \
         -e '/^IMAGE_VERSION=/!p' \
-        -e '$aIMAGE_VERSION='$IMAGE_VERSION < $OSRELEASEFILE > /tmp/os-release.tmp
+        -e "\$aIMAGE_VERSION=$IMAGE_VERSION" <$OSRELEASEFILE >"/tmp/os-release.tmp"
 
     cat /tmp/os-release.tmp > "$DESTDIR"/usr/lib/os-release
     rm /tmp/os-release.tmp
