@@ -64,46 +64,10 @@ if [ ! -f "$BUILDDIR"/build.ninja ] ; then
             rootprefix=/${rootprefix#/}
         fi
 
-        nobody_user=`id -u -n 65534 2> /dev/null`
-        if [ "$nobody_user" != "" ] ; then
-                # Validate that we can translate forth and back
-                if [ "`id -u $nobody_user`" != 65534 ] ; then
-                        nobody_user=""
-                fi
-        fi
-        if [ "$nobody_user" = "" ] ; then
-                if id -u nobody 2> /dev/null ; then
-                        # The "nobody" user is defined already for something else, pick the Fedora name
-                        nobody_user=nfsnobody
-                else
-                        # The "nobody" user name is free, use it
-                        nobody_user=nobody
-                fi
-        fi
-
-        nobody_group=`id -g -n 65534 2> /dev/null`
-        if [ "$nobody_group" != "" ] ; then
-                # Validate that we can translate forth and back
-                if [ "`id -g $nobody_group`" != 65534 ] ; then
-                        nobody_group=""
-                fi
-        fi
-        if [ "$nobody_group" = "" ] ; then
-                if id -u nobody 2> /dev/null ; then
-                        # The "nobody" group is defined already for something else, pick the Fedora name
-                        nobody_group=nfsnobody
-                else
-                        # The "nobody" group name is free, use it
-                        nobody_group=nobody
-                fi
-        fi
-
         meson "$BUILDDIR" \
                 -D "sysvinit-path=$sysvinit_path" \
                 -D "rootprefix=$rootprefix" \
                 -D man=false \
-                -D "nobody-user=$nobody_user" \
-                -D "nobody-group=$nobody_group" \
                 -D translations=false \
                 -D version-tag="${VERSION_TAG}"
 fi
