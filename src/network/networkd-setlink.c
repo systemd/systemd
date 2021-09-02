@@ -405,7 +405,7 @@ static int link_configure(
                 if (r < 0)
                         return log_link_debug_errno(link, r, "Could not open IFLA_AF_SPEC container: %m");
 
-                if (!link->network->bridge) {
+                if (link->master_ifindex <= 0) {
                         /* master needs BRIDGE_FLAGS_SELF flag */
                         r = sd_netlink_message_append_u16(req, IFLA_BRIDGE_FLAGS, BRIDGE_FLAGS_SELF);
                         if (r < 0)
