@@ -135,6 +135,26 @@ int network_verify(Network *network) {
                                        "%s: Conditions in the file do not match the system environment, skipping.",
                                        network->filename);
 
+        if (network->keep_master) {
+                if (network->batadv_name)
+                        log_warning("%s: BatmanAdvanced= set with KeepMaster= enabled, ignoring BatmanAdvanced=.",
+                                    network->filename);
+                if (network->bond_name)
+                        log_warning("%s: Bond= set with KeepMaster= enabled, ignoring Bond=.",
+                                    network->filename);
+                if (network->bridge_name)
+                        log_warning("%s: Bridge= set with KeepMaster= enabled, ignoring Bridge=.",
+                                    network->filename);
+                if (network->vrf_name)
+                        log_warning("%s: VRF= set with KeepMaster= enabled, ignoring VRF=.",
+                                    network->filename);
+
+                network->batadv_name = mfree(network->batadv_name);
+                network->bond_name = mfree(network->bond_name);
+                network->bridge_name = mfree(network->bridge_name);
+                network->vrf_name = mfree(network->vrf_name);
+        }
+
         (void) network_resolve_netdev_one(network, network->batadv_name, NETDEV_KIND_BATADV, &network->batadv);
         (void) network_resolve_netdev_one(network, network->bond_name, NETDEV_KIND_BOND, &network->bond);
         (void) network_resolve_netdev_one(network, network->bridge_name, NETDEV_KIND_BRIDGE, &network->bridge);
@@ -174,7 +194,7 @@ int network_verify(Network *network) {
         if (network->link_local < 0) {
                 network->link_local = ADDRESS_FAMILY_IPV6;
 
-                if (network->bridge)
+                if (network->keep_master || network->bridge)
                         network->link_local = ADDRESS_FAMILY_NO;
                 else {
                         NetDev *netdev;
