@@ -190,16 +190,6 @@ int link_request_static_bridge_mdb(Link *link) {
         if (hashmap_isempty(link->network->bridge_mdb_entries_by_section))
                 goto finish;
 
-        if (!link->network->bridge) {
-                if (!streq_ptr(link->kind, "bridge")) {
-                        log_link_warning(link, "Link is neither a bridge master nor a bridge port, ignoring [BridgeMDB] sections.");
-                        goto finish;
-                } else if (link->manager->bridge_mdb_on_master_not_supported) {
-                        log_link_debug(link, "Kernel seems not to support bridge MDB entries on bridge master, ignoring [BridgeMDB] sections.");
-                        goto finish;
-                }
-        }
-
         HASHMAP_FOREACH(mdb, link->network->bridge_mdb_entries_by_section) {
                 r = link_queue_request(link, REQUEST_TYPE_BRIDGE_MDB, mdb, false,
                                        &link->static_bridge_mdb_messages, bridge_mdb_configure_handler, NULL);
