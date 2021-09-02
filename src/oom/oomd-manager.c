@@ -12,17 +12,17 @@
 #include "path-util.h"
 #include "percent-util.h"
 
-typedef struct ManagedOOMReply {
+typedef struct ManagedOOMMessage {
         ManagedOOMMode mode;
         char *path;
         char *property;
         uint32_t limit;
-} ManagedOOMReply;
+} ManagedOOMMessage;
 
-static void managed_oom_reply_destroy(ManagedOOMReply *reply) {
-        assert(reply);
-        free(reply->path);
-        free(reply->property);
+static void managed_oom_message_destroy(ManagedOOMMessage *message) {
+        assert(message);
+        free(message->path);
+        free(message->property);
 }
 
 static int managed_oom_mode(const char *name, JsonVariant *v, JsonDispatchFlags flags, void *userdata) {
@@ -40,25 +40,88 @@ static int managed_oom_mode(const char *name, JsonVariant *v, JsonDispatchFlags 
         return 0;
 }
 
+static int process_managed_oom_message(Manager *m, JsonVariant *parameters) {
+        JsonVariant *c, *cgroups;
+        int r;
+
+        static const JsonDispatch dispatch_table[] = {
+                { "mode",     JSON_VARIANT_STRING,   managed_oom_mode,     offsetof(ManagedOOMMessage, mode),     JSON_MANDATORY },
+                { "path",     JSON_VARIANT_STRING,   json_dispatch_string, offsetof(ManagedOOMMessage, path),     JSON_MANDATORY },
+                { "property", JSON_VARIANT_STRING,   json_dispatch_string, offsetof(ManagedOOMMessage, property), JSON_MANDATORY },
+                { "limit",    JSON_VARIANT_UNSIGNED, json_dispatch_uint32, offsetof(ManagedOOMMessage, limit),    0 },
+                {},
+        };
+
+        assert(m);
+        assert(parameters);
+
+        cgroups = json_variant_by_key(parameters, "cgroups");
+        if (!cgroups)
+                return -EINVAL;
+
+        /* Skip malformed elements and keep processing in case the others are good */
+        JSON_VARIANT_ARRAY_FOREACH(c, cgroups) {
+                _cleanup_(managed_oom_message_destroy) ManagedOOMMessage message = {};
+                OomdCGroupContext *ctx;
+                Hashmap *monitor_hm;
+                loadavg_t limit;
+
+                if (!json_variant_is_object(c))
+                        continue;
+
+                r = json_dispatch(c, dispatch_table, NULL, 0, &message);
+                if (r == -ENOMEM)
+                        return r;
+                if (r < 0)
+                        continue;
+
+                monitor_hm = streq(message.property, "ManagedOOMSwap") ?
+                                m->monitored_swap_cgroup_contexts : m->monitored_mem_pressure_cgroup_contexts;
+
+                if (message.mode == MANAGED_OOM_AUTO) {
+                        (void) oomd_cgroup_context_free(hashmap_remove(monitor_hm, empty_to_root(message.path)));
+                        continue;
+                }
+
+                limit = m->default_mem_pressure_limit;
+
+                if (streq(message.property, "ManagedOOMMemoryPressure") && message.limit > 0) {
+                        int permyriad = UINT32_SCALE_TO_PERMYRIAD(message.limit);
+
+                        r = store_loadavg_fixed_point(
+                                        (unsigned long) permyriad / 100,
+                                        (unsigned long) permyriad % 100,
+                                        &limit);
+                        if (r < 0)
+                                continue;
+                }
+
+                r = oomd_insert_cgroup_context(NULL, monitor_hm, message.path);
+                if (r == -ENOMEM)
+                        return r;
+                if (r < 0 && r != -EEXIST)
+                        log_debug_errno(r, "Failed to insert message, ignoring: %m");
+
+                /* Always update the limit in case it was changed. For non-memory pressure detection the value is
+                 * ignored so always updating it here is not a problem. */
+                ctx = hashmap_get(monitor_hm, empty_to_root(message.path));
+                if (ctx)
+                        ctx->mem_pressure_limit = limit;
+        }
+
+        return 0;
+}
+
 static int process_managed_oom_reply(
                 Varlink *link,
                 JsonVariant *parameters,
                 const char *error_id,
                 VarlinkReplyFlags flags,
                 void *userdata) {
-        JsonVariant *c, *cgroups;
         Manager *m = userdata;
-        int r = 0;
+        int r;
 
         assert(m);
-
-        static const JsonDispatch dispatch_table[] = {
-                { "mode",     JSON_VARIANT_STRING,   managed_oom_mode,     offsetof(ManagedOOMReply, mode),     JSON_MANDATORY },
-                { "path",     JSON_VARIANT_STRING,   json_dispatch_string, offsetof(ManagedOOMReply, path),     JSON_MANDATORY },
-                { "property", JSON_VARIANT_STRING,   json_dispatch_string, offsetof(ManagedOOMReply, property), JSON_MANDATORY },
-                { "limit",    JSON_VARIANT_UNSIGNED, json_dispatch_uint32, offsetof(ManagedOOMReply, limit),    0 },
-                {},
-        };
 
         if (error_id) {
                 r = -EIO;
@@ -66,66 +129,7 @@ static int process_managed_oom_reply(
                 goto finish;
         }
 
-        cgroups = json_variant_by_key(parameters, "cgroups");
-        if (!cgroups) {
-                r = -EINVAL;
-                goto finish;
-        }
-
-        /* Skip malformed elements and keep processing in case the others are good */
-        JSON_VARIANT_ARRAY_FOREACH(c, cgroups) {
-                _cleanup_(managed_oom_reply_destroy) ManagedOOMReply reply = {};
-                OomdCGroupContext *ctx;
-                Hashmap *monitor_hm;
-                loadavg_t limit;
-                int ret;
-
-                if (!json_variant_is_object(c))
-                        continue;
-
-                ret = json_dispatch(c, dispatch_table, NULL, 0, &reply);
-                if (ret == -ENOMEM) {
-                        r = ret;
-                        goto finish;
-                }
-                if (ret < 0)
-                        continue;
-
-                monitor_hm = streq(reply.property, "ManagedOOMSwap") ?
-                                m->monitored_swap_cgroup_contexts : m->monitored_mem_pressure_cgroup_contexts;
-
-                if (reply.mode == MANAGED_OOM_AUTO) {
-                        (void) oomd_cgroup_context_free(hashmap_remove(monitor_hm, empty_to_root(reply.path)));
-                        continue;
-                }
-
-                limit = m->default_mem_pressure_limit;
-
-                if (streq(reply.property, "ManagedOOMMemoryPressure") && reply.limit > 0) {
-                        int permyriad = UINT32_SCALE_TO_PERMYRIAD(reply.limit);
-
-                        ret = store_loadavg_fixed_point(
-                                        (unsigned long) permyriad / 100,
-                                        (unsigned long) permyriad % 100,
-                                        &limit);
-                        if (ret < 0)
-                                continue;
-                }
-
-                ret = oomd_insert_cgroup_context(NULL, monitor_hm, reply.path);
-                if (ret == -ENOMEM) {
-                        r = ret;
-                        goto finish;
-                }
-                if (ret < 0 && ret != -EEXIST)
-                        log_debug_errno(ret, "Failed to insert reply, ignoring: %m");
-
-                /* Always update the limit in case it was changed. For non-memory pressure detection the value is
-                 * ignored so always updating it here is not a problem. */
-                ctx = hashmap_get(monitor_hm, empty_to_root(reply.path));
-                if (ctx)
-                        ctx->mem_pressure_limit = limit;
-        }
+        r = process_managed_oom_message(m, parameters);
 
 finish:
         if (!FLAGS_SET(flags, VARLINK_REPLY_CONTINUES))
