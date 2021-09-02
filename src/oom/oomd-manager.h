@@ -3,6 +3,7 @@
 
 #include "conf-parser.h"
 #include "oomd-util.h"
+#include "sd-bus.h"
 #include "sd-event.h"
 #include "varlink.h"
 
