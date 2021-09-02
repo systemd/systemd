@@ -92,7 +92,7 @@ static int bridge_mdb_configure_handler(sd_netlink *rtnl, sd_netlink_message *m,
                 return 1;
 
         r = sd_netlink_message_get_errno(m);
-        if (r == -EINVAL && streq_ptr(link->kind, "bridge") && (!link->network || !link->network->bridge)) {
+        if (r == -EINVAL && streq_ptr(link->kind, "bridge") && link->master_ifindex <= 0) {
                 /* To configure bridge MDB entries on bridge master, 1bc844ee0faa1b92e3ede00bdd948021c78d7088 (v5.4) is required. */
                 if (!link->manager->bridge_mdb_on_master_not_supported) {
                         log_link_warning_errno(link, r, "Kernel seems not to support bridge MDB entries on bridge master, ignoring: %m");
@@ -112,23 +112,11 @@ static int bridge_mdb_configure_handler(sd_netlink *rtnl, sd_netlink_message *m,
         return 1;
 }
 
-static int link_get_bridge_master_ifindex(Link *link) {
-        assert(link);
-
-        if (link->network && link->network->bridge)
-                return link->network->bridge->ifindex;
-
-        if (streq_ptr(link->kind, "bridge"))
-                return link->ifindex;
-
-        return 0;
-}
-
 /* send a request to the kernel to add an MDB entry */
 static int bridge_mdb_configure(BridgeMDB *mdb, Link *link, link_netlink_message_handler_t callback) {
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL;
         struct br_mdb_entry entry;
-        int master, r;
+        int r;
 
         assert(mdb);
         assert(link);
@@ -144,14 +132,10 @@ static int bridge_mdb_configure(BridgeMDB *mdb, Link *link, link_netlink_message
                                strna(a), mdb->vlan_id);
         }
 
-        master = link_get_bridge_master_ifindex(link);
-        if (master <= 0)
-                return log_link_error_errno(link, SYNTHETIC_ERRNO(EINVAL), "Invalid bridge master ifindex %i", master);
-
         entry = (struct br_mdb_entry) {
                 /* If MDB entry is added on bridge master, then the state must be MDB_TEMPORARY.
                  * See br_mdb_add_group() in net/bridge/br_mdb.c of kernel. */
-                .state = master == link->ifindex ? MDB_TEMPORARY : MDB_PERMANENT,
+                .state = link->master_ifindex <= 0 ? MDB_TEMPORARY : MDB_PERMANENT,
                 .ifindex = link->ifindex,
                 .vid = mdb->vlan_id,
         };
@@ -172,7 +156,8 @@ static int bridge_mdb_configure(BridgeMDB *mdb, Link *link, link_netlink_message
         }
 
         /* create new RTM message */
-        r = sd_rtnl_message_new_mdb(link->manager->rtnl, &req, RTM_NEWMDB, master);
+        r = sd_rtnl_message_new_mdb(link->manager->rtnl, &req, RTM_NEWMDB,
+                                    link->master_ifindex > 0 ? link->master_ifindex : link->ifindex);
         if (r < 0)
                 return log_link_error_errno(link, r, "Could not create RTM_NEWMDB message: %m");
 
@@ -240,16 +225,13 @@ static bool bridge_mdb_is_ready_to_configure(Link *link) {
         if (!link_is_ready_to_configure(link, false))
                 return false;
 
-        if (!link->network->bridge)
+        if (!link->master_set)
+                return false;
+
+        if (link->master_ifindex <= 0 && streq_ptr(link->kind, "bridge"))
                 return true; /* The interface is bridge master. */
 
-        if (link->master_ifindex <= 0)
-                return false;
-
-        if (link->master_ifindex != link->network->bridge->ifindex)
-                return false;
-
-        if (link_get_by_index(link->manager, link->master_ifindex, &master) < 0)
+        if (link_get_master(link, &master) < 0)
                 return false;
 
         if (!streq_ptr(master->kind, "bridge"))

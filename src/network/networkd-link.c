@@ -2015,6 +2015,9 @@ static int link_update_master(Link *link, sd_netlink_message *message) {
         if (r < 0)
                 return log_link_debug_errno(link, r, "rtnl: failed to read master ifindex: %m");
 
+        if (master_ifindex == link->ifindex)
+                master_ifindex = 0;
+
         if (master_ifindex == link->master_ifindex)
                 return 0;
 
