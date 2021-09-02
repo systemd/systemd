@@ -276,13 +276,13 @@ static int parse_boot_descriptor(const char *x, sd_id128_t *boot_id, int *offset
                 *boot_id = SD_ID128_NULL;
                 *offset = 0;
                 return 0;
-        } else if (strlen(x) >= 32) {
+        } else if (strlen(x) >= SD_ID128_STRING_MAX - 1) {
                 char *t;
 
-                t = strndupa(x, 32);
+                t = strndupa(x, SD_ID128_STRING_MAX - 1);
                 r = sd_id128_from_string(t, &id);
                 if (r >= 0)
-                        x += 32;
+                        x += SD_ID128_STRING_MAX - 1;
 
                 if (!IN_SET(*x, 0, '-', '+'))
                         return -EINVAL;
@@ -1280,7 +1280,7 @@ static int discover_next_boot(sd_journal *j,
                 return r;
 
         /* Now seek to the last occurrence of this boot ID. */
-        sd_id128_to_string(next_boot->id, match + 9);
+        sd_id128_to_string(next_boot->id, match + STRLEN("_BOOT_ID="));
         r = sd_journal_add_match(j, match, sizeof(match) - 1);
         if (r < 0)
                 return r;
@@ -1340,7 +1340,7 @@ static int get_boots(
 
                 sd_journal_flush_matches(j);
 
-                sd_id128_to_string(*boot_id, match + 9);
+                sd_id128_to_string(*boot_id, match + STRLEN("_BOOT_ID="));
                 r = sd_journal_add_match(j, match, sizeof(match) - 1);
                 if (r < 0)
                         return r;
@@ -1499,7 +1499,7 @@ static int add_boot(sd_journal *j) {
                 return r == 0 ? -ENODATA : r;
         }
 
-        sd_id128_to_string(boot_id, match + 9);
+        sd_id128_to_string(boot_id, match + STRLEN("_BOOT_ID="));
 
         r = sd_journal_add_match(j, match, sizeof(match) - 1);
         if (r < 0)
