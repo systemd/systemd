@@ -95,57 +95,65 @@ int mkdir_safe(const char *path, mode_t mode, uid_t uid, gid_t gid, MkdirFlags f
 }
 
 int mkdir_parents_internal(const char *prefix, const char *path, mode_t mode, uid_t uid, gid_t gid, MkdirFlags flags, mkdir_func_t _mkdir) {
-        const char *p, *e;
+        const char *p, *e = NULL;
         int r;
 
         assert(path);
         assert(_mkdir != mkdir);
 
-        if (prefix && !path_startswith(path, prefix))
+        if (prefix) {
+                p = path_startswith_full(path, prefix, /* accept_dot_dot= */ false);
+                if (!p)
+                        return -ENOTDIR;
+        } else
+                p = path;
+
+        if (isempty(p))
+                return 0;
+
+        if (!path_is_safe(p))
                 return -ENOTDIR;
 
         /* return immediately if directory exists */
-        e = strrchr(path, '/');
-        if (!e)
+        r = path_find_last_component(p, /* accept_dot_dot= */ false, &e, NULL);
+        if (r <= 0) /* r == 0 means path is equivalent to prefix. */
+                return r;
+        if (e == p)
                 return 0;
 
-        if (e == path)
-                return 0;
+        assert(e > p);
+        assert(*e == '/');
 
-        p = strndupa(path, e - path);
-        r = is_dir(p, true);
+        /* drop the last component */
+        path = strndupa(path, e - path);
+        r = is_dir(path, true);
         if (r > 0)
                 return 0;
         if (r == 0)
                 return -ENOTDIR;
 
         /* create every parent directory in the path, except the last component */
-        p = path + strspn(path, "/");
-        for (;;) {
-                char t[strlen(path) + 1];
+        for (p = path;;) {
+                char *s;
+                int n;
 
-                e = p + strcspn(p, "/");
-                p = e + strspn(e, "/");
+                n = path_find_first_component(&p, /* accept_dot_dot= */ false, (const char **) &s);
+                if (n <= 0)
+                        return n;
 
-                /* Is this the last component? If so, then we're done */
-                if (*p == 0)
-                        return 0;
+                assert(p);
+                assert(s >= path);
+                assert(IN_SET(s[n], '/', '\0'));
 
-                memcpy(t, path, e - path);
-                t[e-path] = 0;
+                s[n] = '\0';
 
-                if (prefix && path_startswith(prefix, t))
-                        continue;
-
-                if (!uid_is_valid(uid) && !gid_is_valid(gid) && flags == 0) {
-                        r = _mkdir(t, mode);
-                        if (r < 0 && r != -EEXIST)
-                                return r;
-                } else {
-                        r = mkdir_safe_internal(t, mode, uid, gid, flags, _mkdir);
+                if (!prefix || !path_startswith_full(prefix, path, /* accept_dot_dot= */ false)) {
+                        r = mkdir_safe_internal(path, mode, uid, gid, flags, _mkdir);
                         if (r < 0 && r != -EEXIST)
                                 return r;
                 }
+
+                s[n] = *p == '\0' ? '\0' : '/';
         }
 }
 
