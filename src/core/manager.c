@@ -1729,6 +1729,11 @@ static void manager_ready(Manager *m) {
         /* Let's finally catch up with any changes that took place while we were reloading/reexecing */
         manager_catchup(m);
 
+        /* Create a file which will indicate when the manager loaded units for the last time. */
+        (void) touch_file("/run/systemd/systemd-units-load", false, m->timestamps[MANAGER_TIMESTAMP_UNITS_LOAD].realtime == 0
+                ? now(CLOCK_REALTIME)
+                : m->timestamps[MANAGER_TIMESTAMP_UNITS_LOAD].realtime, UID_INVALID, GID_INVALID, 0444);
+
         m->honor_device_enumeration = true;
 }
 
