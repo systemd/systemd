@@ -139,7 +139,7 @@
   <refsect1>
     <title>[Link] Section Options</title>
 
-    <para> The [Link] section accepts the following keys:</para>
+    <para>The [Link] section accepts the following keys:</para>
 
     <variablelist class='network-directives'>
       <varlistentry>
