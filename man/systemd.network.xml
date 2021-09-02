@@ -924,6 +924,20 @@ IPv6Token=prefixstable:2002:da8:1::</programlisting></para>
           </para></listitem>
         </varlistentry>
         <varlistentry>
+          <term><varname>KeepMaster=</varname></term>
+          <term><varname>Bond=</varname></term>
+          <term><varname>Bridge=</varname></term>
+          <term><varname>VRF=</varname></term>
+          <listitem>
+            <para>Takes a boolean value. When enabled, the current master interface index will not be
+            changed, and <varname>BatmanAdvanced=</varname>, <varname>Bond=</varname>,
+            <varname>Bridge=</varname>, and <varname>VRF=</varname> settings are ignored. This may be
+            useful when a netdev with a master interface is created by another program, e.g.
+            <citerefentry><refentrytitle>systemd-nspawn</refentrytitle><manvolnum>1</manvolnum></citerefentry>.
+            Defaults to false.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
           <term><varname>BatmanAdvanced=</varname></term>
           <term><varname>Bond=</varname></term>
           <term><varname>Bridge=</varname></term>
