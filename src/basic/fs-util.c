@@ -412,11 +412,11 @@ int touch_file(const char *path, bool parents, usec_t stamp, uid_t uid, gid_t gi
 
                 timespec_store(&ts[0], stamp);
                 ts[1] = ts[0];
-                r = utimensat(AT_FDCWD, FORMAT_PROC_FD_PATH(fd), ts, 0);
+                r = futimens_opath(fd, ts);
         } else
-                r = utimensat(AT_FDCWD, FORMAT_PROC_FD_PATH(fd), NULL, 0);
+                r = futimens_opath(fd, NULL);
         if (r < 0 && ret >= 0)
-                return -errno;
+                return r;
 
         return ret;
 }
