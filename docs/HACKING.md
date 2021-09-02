@@ -34,13 +34,10 @@ possible, however. In order to simplify testing for cases like this we provide
 a set of `mkosi` build files directly in the source tree. `mkosi` is a tool for
 building clean OS images from an upstream distribution in combination with a
 fresh build of the project in the local working directory. To make use of this,
-please acquire `mkosi` from https://github.com/systemd/mkosi first, unless your
-distribution has packaged it already and you can get it from there. After the
-tool is installed, symlink the settings file for your distribution of choice
-from .mkosi/ to mkosi.default in the project root directory (note that the
-package manager for this distro needs to be installed on your host system).
-After doing that, it is sufficient to type `mkosi` in the systemd project
-directory to generate a disk image `image.raw` you can boot either in
+please install the `mkosi` package (if not packaged for your distro, it can be
+downloaded from https://github.com/systemd/mkosi). `mkosi` will build an image
+for the host distro by default. It is sufficient to type `mkosi` in the systemd
+project directory to generate a disk image `image.raw` you can boot either in
 `systemd-nspawn` or in an UEFI-capable VM:
 
 ```
