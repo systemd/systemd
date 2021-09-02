@@ -123,26 +123,13 @@ int manager_varlink_send_managed_oom_update(Unit *u) {
         return varlink_notify(u->manager->managed_oom_varlink_request, v);
 }
 
-static int vl_method_subscribe_managed_oom_cgroups(
-                Varlink *link,
-                JsonVariant *parameters,
-                VarlinkMethodFlags flags,
-                void *userdata) {
+static int build_managed_oom_cgroups_json(Manager *m, JsonVariant **ret) {
         static const UnitType supported_unit_types[] = { UNIT_SLICE, UNIT_SERVICE, UNIT_SCOPE };
         _cleanup_(json_variant_unrefp) JsonVariant *v = NULL, *arr = NULL;
-        Manager *m = userdata;
         int r;
 
-        assert(link);
         assert(m);
-
-        if (json_variant_elements(parameters) > 0)
-                return varlink_error_invalid_parameter(link, parameters);
-
-        /* We only take one subscriber for this method so return an error if there's already an existing one.
-         * This shouldn't happen since systemd-oomd is the only client of this method. */
-        if (FLAGS_SET(flags, VARLINK_METHOD_MORE) && m->managed_oom_varlink_request)
-                return varlink_error(link, VARLINK_ERROR_SUBSCRIPTION_TAKEN, NULL);
+        assert(ret);
 
         r = json_build(&arr, JSON_BUILD_EMPTY_ARRAY);
         if (r < 0)
@@ -182,6 +169,35 @@ static int vl_method_subscribe_managed_oom_cgroups(
         }
 
         r = json_build(&v, JSON_BUILD_OBJECT(JSON_BUILD_PAIR("cgroups", JSON_BUILD_VARIANT(arr))));
+        if (r < 0)
+                return r;
+
+        *ret = TAKE_PTR(v);
+        return 0;
+}
+
+static int vl_method_subscribe_managed_oom_cgroups(
+                Varlink *link,
+                JsonVariant *parameters,
+                VarlinkMethodFlags flags,
+                void *userdata) {
+
+        _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
+        Manager *m = userdata;
+        int r;
+
+        assert(link);
+        assert(m);
+
+        if (json_variant_elements(parameters) > 0)
+                return varlink_error_invalid_parameter(link, parameters);
+
+        /* We only take one subscriber for this method so return an error if there's already an existing one.
+         * This shouldn't happen since systemd-oomd is the only client of this method. */
+        if (FLAGS_SET(flags, VARLINK_METHOD_MORE) && m->managed_oom_varlink_request)
+                return varlink_error(link, VARLINK_ERROR_SUBSCRIPTION_TAKEN, NULL);
+
+        r = build_managed_oom_cgroups_json(m, &v);
         if (r < 0)
                 return r;
 
