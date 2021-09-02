@@ -118,6 +118,7 @@ struct Service {
         usec_t watchdog_usec;            /* the requested watchdog timeout in the unit file */
         usec_t watchdog_original_usec;   /* the watchdog timeout that was in effect when the unit was started, i.e. the timeout the forked off processes currently see */
         usec_t watchdog_override_usec;   /* the watchdog timeout requested by the service itself through sd_notify() */
+        int watchdog_overtimes;
         bool watchdog_override_enable;
         sd_event_source *watchdog_event_source;
 
@@ -244,6 +245,7 @@ ServiceTimeoutFailureMode service_timeout_failure_mode_from_string(const char *s
 DEFINE_CAST(SERVICE, Service);
 
 #define STATUS_TEXT_MAX (16U*1024U)
+#define WATCHDOG_OVERTIMES_MAX 4
 
 /* Only exported for unit tests */
 int service_deserialize_exec_command(Unit *u, const char *key, const char *value);
