@@ -255,10 +255,6 @@ int fd_getcrtime(int fd, usec_t *ret) {
         return fd_getcrtime_at(fd, NULL, ret, AT_EMPTY_PATH);
 }
 
-int path_getcrtime(const char *p, usec_t *ret) {
-        return fd_getcrtime_at(AT_FDCWD, p, ret, 0);
-}
-
 int fd_setcrtime(int fd, usec_t usec) {
         le64_t le;
 
