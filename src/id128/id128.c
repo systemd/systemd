@@ -206,7 +206,7 @@ static int parse_argv(int argc, char *argv[]) {
                         return help();
 
                 case ARG_VERSION:
-                        return version();
+                        return sd_version();
 
                 case 'p':
                         arg_mode = ID128_PRINT_PRETTY;

@@ -503,7 +503,7 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                         return systemctl_help();
 
                 case ARG_VERSION:
-                        return version();
+                        return sd_version();
 
                 case 't':
                         if (isempty(optarg))

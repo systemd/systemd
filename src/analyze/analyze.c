@@ -2357,7 +2357,7 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_VERSION:
-                        return version();
+                        return sd_version();
 
                 case ARG_ROOT:
                         r = parse_path_argument(optarg, /* suppress_root= */ true, &arg_root);

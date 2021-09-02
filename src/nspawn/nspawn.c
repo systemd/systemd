@@ -801,7 +801,7 @@ static int parse_argv(int argc, char *argv[]) {
                         return help();
 
                 case ARG_VERSION:
-                        return version();
+                        return sd_version();
 
                 case 'D':
                         r = parse_path_argument(optarg, false, &arg_directory);

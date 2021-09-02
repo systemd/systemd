@@ -64,7 +64,7 @@ int service_parse_argv(
                         return help(argv[0], service, description, bus_objects);
 
                 case ARG_VERSION:
-                        return version();
+                        return sd_version();
 
                 case ARG_BUS_INTROSPECT:
                         return bus_introspect_implementations(

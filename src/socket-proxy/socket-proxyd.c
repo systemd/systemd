@@ -632,7 +632,7 @@ static int parse_argv(int argc, char *argv[]) {
                         return help();
 
                 case ARG_VERSION:
-                        return version();
+                        return sd_version();
 
                 case 'c':
                         r = safe_atou(optarg, &arg_connections_max);

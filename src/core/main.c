@@ -2826,7 +2826,7 @@ int main(int argc, char *argv[]) {
                 retval = help() < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
                 goto finish;
         } else if (arg_action == ACTION_VERSION) {
-                retval = version();
+                retval = sd_version();
                 goto finish;
         } else if (arg_action == ACTION_DUMP_CONFIGURATION_ITEMS) {
                 unit_dump_config_items(stdout);

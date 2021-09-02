@@ -156,7 +156,7 @@ static int parse_argv(int argc, char *argv[]) {
                         return help();
 
                 case ARG_VERSION:
-                        return version();
+                        return sd_version();
 
                 case ARG_FIDO2_WITH_PIN: {
                         bool lock_with_pin;

@@ -61,7 +61,7 @@ static int parse_argv(int argc, char *argv[]) {
                         return 0;
 
                 case ARG_VERSION:
-                        return version();
+                        return sd_version();
 
                 case '?':
                         return -EINVAL;
