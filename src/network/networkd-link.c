@@ -1689,16 +1689,10 @@ bool link_has_carrier(Link *link) {
 
 static bool link_is_enslaved(Link *link) {
         if (link->flags & IFF_SLAVE)
-                /* Even if the link is not managed by networkd, honor IFF_SLAVE flag. */
                 return true;
 
-        if (!link->network)
-                return false;
-
-        if (link->master_ifindex > 0 && link->network->bridge)
+        if (link->master_ifindex > 0)
                 return true;
-
-        /* TODO: add conditions for other netdevs. */
 
         return false;
 }
