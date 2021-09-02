@@ -178,6 +178,7 @@ MultiPathRoute=
 TCPAdvertisedMaximumSegmentSize=
 NextHop=
 [Network]
+KeepMaster=
 IPv6DuplicateAddressDetection=
 IPMasquerade=
 ProxyARP=

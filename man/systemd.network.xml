@@ -427,7 +427,8 @@
             has been unsuccessful for some time. (IPv4 link-local address autoconfiguration will usually
             happen in parallel with repeated attempts to acquire a DHCPv4 lease).</para>
 
-            <para>Defaults to <option>no</option> when <varname>Bridge=</varname> is set or when the specified
+            <para>Defaults to <option>no</option> when <varname>KeepMaster=</varname> or
+            <varname>Bridge=</varname> is set or when the specified
             <varname>MACVLAN=</varname>/<varname>MACVTAP=</varname> has <varname>Mode=passthru</varname>, or
             <option>ipv6</option> otherwise.</para>
           </listitem>
@@ -922,6 +923,20 @@ IPv6Token=prefixstable:2002:da8:1::</programlisting></para>
           <listitem><para>Configures IPv6 maximum transmission unit (MTU).
           An integer greater than or equal to 1280 bytes. When unset, the kernel's default will be used.
           </para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><varname>KeepMaster=</varname></term>
+          <term><varname>Bond=</varname></term>
+          <term><varname>Bridge=</varname></term>
+          <term><varname>VRF=</varname></term>
+          <listitem>
+            <para>Takes a boolean value. When enabled, the current master interface index will not be
+            changed, and <varname>BatmanAdvanced=</varname>, <varname>Bond=</varname>,
+            <varname>Bridge=</varname>, and <varname>VRF=</varname> settings are ignored. This may be
+            useful when a netdev with a master interface is created by another program, e.g.
+            <citerefentry><refentrytitle>systemd-nspawn</refentrytitle><manvolnum>1</manvolnum></citerefentry>.
+            Defaults to false.</para>
+          </listitem>
         </varlistentry>
         <varlistentry>
           <term><varname>BatmanAdvanced=</varname></term>

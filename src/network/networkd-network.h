@@ -84,6 +84,7 @@ struct Network {
         LIST_HEAD(Condition, conditions);
 
         /* Master or stacked netdevs */
+        bool keep_master;
         NetDev *batadv;
         NetDev *bridge;
         NetDev *bond;
