@@ -1689,16 +1689,10 @@ bool link_has_carrier(Link *link) {
 
 static bool link_is_enslaved(Link *link) {
         if (link->flags & IFF_SLAVE)
-                /* Even if the link is not managed by networkd, honor IFF_SLAVE flag. */
                 return true;
 
-        if (!link->network)
-                return false;
-
-        if (link->master_ifindex > 0 && link->network->bridge)
+        if (link->master_ifindex > 0)
                 return true;
-
-        /* TODO: add conditions for other netdevs. */
 
         return false;
 }
@@ -2014,6 +2008,9 @@ static int link_update_master(Link *link, sd_netlink_message *message) {
                 return 0;
         if (r < 0)
                 return log_link_debug_errno(link, r, "rtnl: failed to read master ifindex: %m");
+
+        if (master_ifindex == link->ifindex)
+                master_ifindex = 0;
 
         if (master_ifindex == link->master_ifindex)
                 return 0;
