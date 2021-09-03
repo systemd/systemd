@@ -3388,6 +3388,7 @@ class NetworkdBondTests(unittest.TestCase, Utilities):
         '12-dummy.netdev',
         '23-active-slave.network',
         '23-bond199.network',
+        '23-keep-master.network',
         '23-primary-slave.network',
         '25-bond-active-backup-slave.netdev',
         '25-bond.netdev',
@@ -3402,6 +3403,23 @@ class NetworkdBondTests(unittest.TestCase, Utilities):
         remove_links(self.links)
         remove_unit_from_networkd_path(self.units)
         stop_networkd(show_logs=True)
+
+    def test_bond_keep_master(self):
+        check_output('ip link add bond199 type bond mode active-backup')
+        check_output('ip link add dummy98 type dummy')
+        check_output('ip link set dummy98 master bond199')
+
+        copy_unit_to_networkd_unit_path('23-keep-master.network')
+        start_networkd()
+        self.wait_online(['dummy98:enslaved'])
+
+        output = check_output('ip -d link show bond199')
+        print(output)
+        self.assertRegex(output, 'active_slave dummy98')
+
+        output = check_output('ip -d link show dummy98')
+        print(output)
+        self.assertRegex(output, 'master bond199')
 
     def test_bond_active_slave(self):
         copy_unit_to_networkd_unit_path('23-active-slave.network', '23-bond199.network', '25-bond-active-backup-slave.netdev', '12-dummy.netdev')
@@ -3479,6 +3497,7 @@ class NetworkdBridgeTests(unittest.TestCase, Utilities):
         '12-dummy.netdev',
         '21-vlan.netdev',
         '21-vlan.network',
+        '23-keep-master.network',
         '26-bridge.netdev',
         '26-bridge-configure-without-carrier.network',
         '26-bridge-issue-20373.netdev',
@@ -3561,6 +3580,38 @@ class NetworkdBridgeTests(unittest.TestCase, Utilities):
         if call('bridge mdb add dev bridge99 port bridge99 grp 224.0.1.3 temp vid 4068', stderr=subprocess.DEVNULL) == 0:
             self.assertRegex(output, 'dev bridge99 port bridge99 grp ff02:aaaa:fee5::1:4 temp *vid 4066')
             self.assertRegex(output, 'dev bridge99 port bridge99 grp 224.0.1.2 temp *vid 4067')
+
+    def test_bridge_keep_master(self):
+        check_output('ip link add bridge99 type bridge')
+        check_output('ip link set bridge99 up')
+        check_output('ip link add dummy98 type dummy')
+        check_output('ip link set dummy98 master bridge99')
+
+        copy_unit_to_networkd_unit_path('23-keep-master.network')
+        start_networkd()
+        self.wait_online(['dummy98:enslaved'])
+
+        output = check_output('ip -d link show dummy98')
+        print(output)
+        self.assertRegex(output, 'master bridge99')
+        self.assertRegex(output, 'bridge')
+
+        output = check_output('bridge -d link show dummy98')
+        print(output)
+        self.assertEqual(read_bridge_port_attr('bridge99', 'dummy98', 'path_cost'), '400')
+        self.assertEqual(read_bridge_port_attr('bridge99', 'dummy98', 'hairpin_mode'), '1')
+        self.assertEqual(read_bridge_port_attr('bridge99', 'dummy98', 'multicast_fast_leave'), '1')
+        self.assertEqual(read_bridge_port_attr('bridge99', 'dummy98', 'unicast_flood'), '1')
+        self.assertEqual(read_bridge_port_attr('bridge99', 'dummy98', 'multicast_flood'), '0')
+        # CONFIG_BRIDGE_IGMP_SNOOPING=y
+        if (os.path.exists('/sys/devices/virtual/net/bridge00/lower_dummy98/brport/multicast_to_unicast')):
+            self.assertEqual(read_bridge_port_attr('bridge99', 'dummy98', 'multicast_to_unicast'), '1')
+        if (os.path.exists('/sys/devices/virtual/net/bridge99/lower_dummy98/brport/neigh_suppress')):
+            self.assertEqual(read_bridge_port_attr('bridge99', 'dummy98', 'neigh_suppress'), '1')
+        self.assertEqual(read_bridge_port_attr('bridge99', 'dummy98', 'learning'), '0')
+        self.assertEqual(read_bridge_port_attr('bridge99', 'dummy98', 'priority'), '23')
+        self.assertEqual(read_bridge_port_attr('bridge99', 'dummy98', 'bpdu_guard'), '1')
+        self.assertEqual(read_bridge_port_attr('bridge99', 'dummy98', 'root_block'), '1')
 
     def test_bridge_property(self):
         copy_unit_to_networkd_unit_path('11-dummy.netdev', '12-dummy.netdev', '26-bridge.netdev',
