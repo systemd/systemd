@@ -405,7 +405,7 @@ static int link_configure(
                 if (r < 0)
                         return log_link_debug_errno(link, r, "Could not open IFLA_AF_SPEC container: %m");
 
-                if (!link->network->bridge) {
+                if (link->master_ifindex <= 0) {
                         /* master needs BRIDGE_FLAGS_SELF flag */
                         r = sd_netlink_message_append_u16(req, IFLA_BRIDGE_FLAGS, BRIDGE_FLAGS_SELF);
                         if (r < 0)
@@ -515,8 +515,15 @@ static bool link_is_ready_to_call_set_link(Request *req) {
         switch (op) {
         case SET_LINK_BOND:
         case SET_LINK_BRIDGE:
+                if (!link->master_set)
+                        return false;
+                if (link->network->keep_master && link->master_ifindex <= 0)
+                        return false;
+                break;
         case SET_LINK_BRIDGE_VLAN:
                 if (!link->master_set)
+                        return false;
+                if (link->network->keep_master && link->master_ifindex <= 0 && !streq_ptr(link->kind, "bridge"))
                         return false;
                 break;
         case SET_LINK_CAN:
@@ -672,8 +679,18 @@ int link_request_to_set_bond(Link *link) {
         assert(link);
         assert(link->network);
 
-        if (!link->network->bond)
-                return 0;
+        if (!link->network->bond) {
+                Link *master;
+
+                if (!link->network->keep_master)
+                        return 0;
+
+                if (link_get_master(link, &master) < 0)
+                        return 0;
+
+                if (!streq_ptr(master->kind, "bond"))
+                        return 0;
+        }
 
         return link_request_set_link(link, SET_LINK_BOND, link_set_bond_handler, NULL);
 }
@@ -682,8 +699,18 @@ int link_request_to_set_bridge(Link *link) {
         assert(link);
         assert(link->network);
 
-        if (!link->network->bridge)
-                return 0;
+        if (!link->network->bridge) {
+                Link *master;
+
+                if (!link->network->keep_master)
+                        return 0;
+
+                if (link_get_master(link, &master) < 0)
+                        return 0;
+
+                if (!streq_ptr(master->kind, "bridge"))
+                        return 0;
+        }
 
         return link_request_set_link(link, SET_LINK_BRIDGE, link_set_bridge_handler, NULL);
 }
@@ -695,8 +722,18 @@ int link_request_to_set_bridge_vlan(Link *link) {
         if (!link->network->use_br_vlan)
                 return 0;
 
-        if (!link->network->bridge && !streq_ptr(link->kind, "bridge"))
-                return 0;
+        if (!link->network->bridge && !streq_ptr(link->kind, "bridge")) {
+                Link *master;
+
+                if (!link->network->keep_master)
+                        return 0;
+
+                if (link_get_master(link, &master) < 0)
+                        return 0;
+
+                if (!streq_ptr(master->kind, "bridge"))
+                        return 0;
+        }
 
         return link_request_set_link(link, SET_LINK_BRIDGE_VLAN, link_set_bridge_vlan_handler, NULL);
 }
@@ -762,6 +799,11 @@ int link_request_to_set_mac(Link *link, bool allow_retry) {
 int link_request_to_set_master(Link *link) {
         assert(link);
         assert(link->network);
+
+        if (link->network->keep_master) {
+                link->master_set = true;
+                return 0;
+        }
 
         link->master_set = false;
 
