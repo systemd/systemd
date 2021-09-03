@@ -145,6 +145,9 @@ struct Table {
         size_t *sort_map;     /* The columns to order rows by, in order of preference. */
         size_t n_sort_map;
 
+        char **json_fields;
+        size_t n_json_fields;
+
         bool *reverse_map;
 
         char *empty_string;
@@ -240,6 +243,11 @@ Table *table_unref(Table *t) {
         free(t->sort_map);
         free(t->reverse_map);
         free(t->empty_string);
+
+        for (size_t i = 0; i < t->n_json_fields; i++)
+                free(t->json_fields[i]);
+
+        free(t->json_fields);
 
         return mfree(t);
 }
@@ -2608,6 +2616,12 @@ static char* string_to_json_field_name(const char *f) {
         return c;
 }
 
+static const char *table_get_json_field_name(Table *t, size_t column) {
+        assert(t);
+
+        return column < t->n_json_fields ? t->json_fields[column] : NULL;
+}
+
 int table_to_json(Table *t, JsonVariant **ret) {
         JsonVariant **rows = NULL, **elements = NULL;
         _cleanup_free_ size_t *sorted = NULL;
@@ -2651,26 +2665,36 @@ int table_to_json(Table *t, JsonVariant **ret) {
 
         for (size_t j = 0; j < display_columns; j++) {
                 _cleanup_free_ char *mangled = NULL;
-                const char *formatted;
-                TableData *d;
+                const char *n;
+                size_t c;
 
-                assert_se(d = t->data[t->display_map ? t->display_map[j] : j]);
+                c = t->display_map ? t->display_map[j] : j;
 
-                /* Field names must be strings, hence format whatever we got here as a string first */
-                formatted = table_data_format(t, d, true, SIZE_MAX, NULL);
-                if (!formatted) {
-                        r = -ENOMEM;
-                        goto finish;
+                /* Use explicitly set JSON field name, if we have one. Otherwise mangle the column field value. */
+                n = table_get_json_field_name(t, c);
+                if (!n) {
+                        const char *formatted;
+                        TableData *d;
+
+                        assert_se(d = t->data[c]);
+
+                        /* Field names must be strings, hence format whatever we got here as a string first */
+                        formatted = table_data_format(t, d, true, SIZE_MAX, NULL);
+                        if (!formatted) {
+                                r = -ENOMEM;
+                                goto finish;
+                        }
+
+                        /* Arbitrary strings suck as field names, try to mangle them into something more suitable hence */
+                        mangled = string_to_json_field_name(formatted);
+                        if (!mangled) {
+                                r = -ENOMEM;
+                                goto finish;
+                        }
+                        n = mangled;
                 }
 
-                /* Arbitrary strings suck as field names, try to mangle them into something more suitable hence */
-                mangled = string_to_json_field_name(formatted);
-                if (!mangled) {
-                        r = -ENOMEM;
-                        goto finish;
-                }
-
-                r = json_variant_new_string(elements + j*2, mangled);
+                r = json_variant_new_string(elements + j*2, n);
                 if (r < 0)
                         goto finish;
         }
@@ -2770,4 +2794,31 @@ int table_print_with_pager(
                 return table_log_print_error(r);
 
         return 0;
+}
+
+int table_set_json_field_name(Table *t, size_t column, const char *name) {
+        int r;
+
+        assert(t);
+
+        if (name) {
+                size_t m;
+
+                m = MAX(column + 1, t->n_json_fields);
+                if (!GREEDY_REALLOC0(t->json_fields, m))
+                        return -ENOMEM;
+
+                r = free_and_strdup(t->json_fields + column, name);
+                if (r < 0)
+                        return r;
+
+                t->n_json_fields = m;
+                return r;
+        } else {
+                if (column >= t->n_json_fields)
+                        return 0;
+
+                t->json_fields[column] = mfree(t->json_fields[column]);
+                return 1;
+        }
 }
