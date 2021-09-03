@@ -1110,6 +1110,21 @@ Service b@0.service not loaded, b.socket cannot be started.
 
 
       <varlistentry>
+        <term><option>--json=<replaceable>MODE</replaceable></option></term>
+
+        <listitem><para>With <command>security</command> command, generate a JSON formatted
+        output of the security analysis table. The format is a JSON array with objects
+        containing the following fields: set which indicates if the id has been set or not,
+        name which is what is used to refer to the id, json_field which is the JSON compatible
+        name of the id, description which is an outline of the id state, and exposure which
+        is an unsigned integer in the range 0.0..10.0, where a higher value corresponds to a
+        higher security threat. The JSON version of the table is printed on the standard output
+        file. The <replaceable>MODE</replaceable> passed to the option can be one of three:
+        off which is the default, and pretty and short which use JSON format flags to
+        output the JSON version of the security table.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>--iterations=<replaceable>NUMBER</replaceable></option></term>
 
         <listitem><para>When used with the <command>calendar</command> command, show the specified number of
