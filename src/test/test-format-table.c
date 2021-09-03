@@ -366,6 +366,41 @@ static void test_strv_wrapped(void) {
         formatted = mfree(formatted);
 }
 
+static void test_json(void) {
+        _cleanup_(json_variant_unrefp) JsonVariant *v = NULL, *w = NULL;
+        _cleanup_(table_unrefp) Table *t = NULL;
+
+        log_info("/* %s */", __func__);
+
+        assert_se(t = table_new("foo bar", "quux", "piep miau"));
+        assert_se(table_set_json_field_name(t, 2, "zzz") >= 0);
+
+        assert_se(table_add_many(t,
+                                 TABLE_STRING, "v1",
+                                 TABLE_UINT64, UINT64_C(4711),
+                                 TABLE_BOOLEAN, true) >= 0);
+
+        assert_se(table_add_many(t,
+                                 TABLE_STRV, STRV_MAKE("a", "b", "c"),
+                                 TABLE_EMPTY,
+                                 TABLE_MODE, 0755) >= 0);
+
+        assert_se(table_to_json(t, &v) >= 0);
+
+        assert_se(json_build(&w,
+                             JSON_BUILD_ARRAY(
+                                             JSON_BUILD_OBJECT(
+                                                             JSON_BUILD_PAIR("foo_bar", JSON_BUILD_STRING("v1")),
+                                                             JSON_BUILD_PAIR("quux", JSON_BUILD_UNSIGNED(4711)),
+                                                             JSON_BUILD_PAIR("zzz", JSON_BUILD_BOOLEAN(true))),
+                                             JSON_BUILD_OBJECT(
+                                                             JSON_BUILD_PAIR("foo_bar", JSON_BUILD_STRV(STRV_MAKE("a", "b", "c"))),
+                                                             JSON_BUILD_PAIR("quux", JSON_BUILD_NULL),
+                                                             JSON_BUILD_PAIR("zzz", JSON_BUILD_UNSIGNED(0755))))) >= 0);
+
+        assert_se(json_variant_equal(v, w));
+}
+
 int main(int argc, char *argv[]) {
         _cleanup_(table_unrefp) Table *t = NULL;
         _cleanup_free_ char *formatted = NULL;
@@ -509,6 +544,7 @@ int main(int argc, char *argv[]) {
         test_multiline();
         test_strv();
         test_strv_wrapped();
+        test_json();
 
         return 0;
 }
