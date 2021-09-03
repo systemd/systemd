@@ -1,0 +1,2 @@
+# Ignore any config files with "local" in the name
+/*local*.conf
