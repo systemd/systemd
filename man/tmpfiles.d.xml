@@ -46,9 +46,9 @@ w+    /file/to/append-to                       -    -    -     -           conte
 d     /directory/to/create-and-cleanup         mode user group cleanup-age -
 D     /directory/to/create-and-remove          mode user group cleanup-age -
 e     /directory/to/cleanup                    mode user group cleanup-age -
-v     /subvolume-or-directory/to/create        mode user group -           -
-q     /subvolume-or-directory/to/create        mode user group -           -
-Q     /subvolume-or-directory/to/create        mode user group -           -
+v     /subvolume-or-directory/to/create        mode user group cleanup-age -
+q     /subvolume-or-directory/to/create        mode user group cleanup-age -
+Q     /subvolume-or-directory/to/create        mode user group cleanup-age -
 p     /fifo/to/create                          mode user group -           -
 p+    /fifo/to/[re]create                      mode user group -           -
 L     /symlink/to/create                       -    -    -     -           symlink/target/path
@@ -57,9 +57,9 @@ c     /dev/char-device-to-create               mode user group -           major
 c+    /dev/char-device-to-[re]create           mode user group -           major:minor
 b     /dev/block-device-to-create              mode user group -           major:minor
 b+    /dev/block-device-to-[re]create          mode user group -           major:minor
-C     /target/to/create                        -    -    -     -           /source/to/copy
-x     /path-or-glob/to/ignore/recursively      -    -    -     -           -
-X     /path-or-glob/to/ignore                  -    -    -     -           -
+C     /target/to/create                        -    -    -     cleanup-age /source/to/copy
+x     /path-or-glob/to/ignore/recursively      -    -    -     cleanup-age -
+X     /path-or-glob/to/ignore                  -    -    -     cleanup-age -
 r     /empty/dir/to/remove                     -    -    -     -           -
 R     /dir/to/remove/recursively               -    -    -     -           -
 z     /path-or-glob/to/adjust/mode             mode user group -           -
@@ -330,7 +330,12 @@ L     /tmp/foobar -    -    -     -   /dev/null</programlisting>
           exists and is not empty. Instead, the entire copy operation is
           skipped. If the argument is omitted, files from the source directory
           <filename>/usr/share/factory/</filename> with the same name
-          are copied. Does not follow symlinks.</para></listitem>
+          are copied. Does not follow symlinks.</para>
+
+          <para>If the age argument is specified and the destination path is
+          a directory, its contents will be subject to time based cleanup.
+          Path that points to a file won't be cleaned since the cleanup function
+          operates only on directory level.</para></listitem>
         </varlistentry>
 
         <varlistentry>
@@ -340,7 +345,17 @@ L     /tmp/foobar -    -    -     -   /dev/null</programlisting>
           parameter. Note that lines of this type do not influence the
           effect of <varname>r</varname> or <varname>R</varname>
           lines. Lines of this type accept shell-style globs in place
-          of normal path names.  </para></listitem>
+          of normal path names.  </para>
+
+          <para>If the age argument is specified in this line, the path
+          will still be subject to time based cleanup, but the actual
+          behavior depends on the type of the path: Similar to <varname>C</varname>,
+          only the contents of a directory will be cleaned, while those
+          pointing to single files will be skipped. It should be noted
+          that glob expansion doesn't happen when the type of path is
+          checked during cleanup, so paths that contain glob characters
+          are free from being cleaned, since there should not be directories
+          whose name contain asterisks.</para></listitem>
         </varlistentry>
 
         <varlistentry>
@@ -353,6 +368,13 @@ L     /tmp/foobar -    -    -     -   /dev/null</programlisting>
           influence the effect of <varname>r</varname> or
           <varname>R</varname> lines. Lines of this type accept
           shell-style globs in place of normal path names.
+          </para>
+
+          <para>If the age argument is specified in this line, the path
+          will also be subject to time based cleanup, but unlike
+          <varname>x</varname>, the glob pattern will be expanded before
+          cleanup. Therefore directories directly present in the expanded
+          results will be cleaned, while files will be left intact.
           </para></listitem>
         </varlistentry>
 
