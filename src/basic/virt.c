@@ -230,13 +230,26 @@ static int detect_vm_smbios(void) {
 static int detect_vm_dmi(void) {
 #if defined(__i386__) || defined(__x86_64__) || defined(__arm__) || defined(__aarch64__)
 
-        int r;
+        int r, r1;
+        _cleanup_free_ char *s = NULL;
+        size_t readsize;
         r = detect_vm_dmi_vendor();
 
         /* The DMI vendor tables in /sys/class/dmi/id don't help us distinguish between Amazon EC2
          * virtual machines and bare-metal instances, so we need to look at SMBIOS. */
-        if (r == VIRTUALIZATION_AMAZON && detect_vm_smbios() == SMBIOS_VM_BIT_UNSET)
-                return VIRTUALIZATION_NONE;
+        if (r == VIRTUALIZATION_AMAZON) {
+                switch (detect_vm_smbios()) {
+                case SMBIOS_VM_BIT_UNKNOWN:
+                        r1 = read_full_virtual_file("/sys/class/dmi/id/product_name", &s, &readsize);
+                        if (r1 < 0 || !strstr(s, ".metal"))
+                                break;
+                        _fallthrough_;
+                case SMBIOS_VM_BIT_UNSET:
+                        return VIRTUALIZATION_NONE;
+                default:
+                        ;
+                }
+        }
 
         /* If we haven't identified a VM, but the firmware indicates that there is one, indicate as much. We
          * have no further information about what it is. */
