@@ -235,8 +235,36 @@ static int detect_vm_dmi(void) {
 
         /* The DMI vendor tables in /sys/class/dmi/id don't help us distinguish between Amazon EC2
          * virtual machines and bare-metal instances, so we need to look at SMBIOS. */
-        if (r == VIRTUALIZATION_AMAZON && detect_vm_smbios() == SMBIOS_VM_BIT_UNSET)
-                return VIRTUALIZATION_NONE;
+        if (r == VIRTUALIZATION_AMAZON) {
+                switch (detect_vm_smbios()) {
+                case SMBIOS_VM_BIT_SET:
+                        return VIRTUALIZATION_AMAZON;
+                case SMBIOS_VM_BIT_UNSET:
+                        return VIRTUALIZATION_NONE;
+                case SMBIOS_VM_BIT_UNKNOWN: {
+                        /* The DMI information we are after is only accessible to the root user,
+                         * so we fallback to using the product name which is less restricted
+                         * to distinguish metal systems from virtualized instances */
+                        _cleanup_free_ char *s = NULL;
+
+                        r = read_full_virtual_file("/sys/class/dmi/id/product_name", &s, NULL);
+                        /* In EC2, virtualized is much more common than metal, so if for some reason
+                         * we fail to read the DMI data, assume we are virtualized. */
+                        if (r < 0) {
+                                log_debug_errno(r, "Can't read /sys/class/dmi/id/product_name,"
+                                                " assuming virtualized: %m");
+                                return VIRTUALIZATION_AMAZON;
+                        }
+                        if (endswith(truncate_nl(s), ".metal")) {
+                                log_debug("DMI product name ends with '.metal', assuming no virtualization");
+                                return VIRTUALIZATION_NONE;
+                        } else
+                                return VIRTUALIZATION_AMAZON;
+                }
+                default:
+                        assert_not_reached("Bad virtualization value");
+              }
+        }
 
         /* If we haven't identified a VM, but the firmware indicates that there is one, indicate as much. We
          * have no further information about what it is. */
