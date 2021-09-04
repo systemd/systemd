@@ -1615,7 +1615,7 @@ static JsonVariant* security_assessor_find_in_policy(const struct security_asses
         if (!policy)
                 return NULL;
         if (!json_variant_is_object(policy)) {
-                log_debug("Specificied policy is not a JSON object, ignoring.");
+                log_debug("Specified policy is not a JSON object, ignoring.");
                 return NULL;
         }
 
