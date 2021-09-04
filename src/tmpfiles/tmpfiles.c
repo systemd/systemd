@@ -477,13 +477,9 @@ static int load_unix_sockets(void) {
 
                 path_simplify(s);
 
-                r = set_consume(sockets, s);
-                if (r == -EEXIST)
-                        continue;
+                r = set_consume(sockets, TAKE_PTR(s));
                 if (r < 0)
                         return log_warning_errno(r, "Failed to add AF_UNIX socket to set, ignoring: %m");
-
-                TAKE_PTR(s);
         }
 
         unix_sockets = TAKE_PTR(sockets);
