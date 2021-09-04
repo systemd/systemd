@@ -884,6 +884,11 @@ evdev:atkbd:dmi:bvn*:bvr*:svnLENOVO*:pn*IdeaPad*Z370*:*
  KEYBOARD_KEY_ae=!volumedown
  KEYBOARD_KEY_b0=!volumeup
 
+evdev:atkbd:dmi:bvn*:bvr*:svnLENOVO*:pn*IdeaPadFlex5*:*
+ KEYBOARD_KEY_a0=!mute
+ KEYBOARD_KEY_ae=!volumedown
+ KEYBOARD_KEY_b0=!volumeup
+
 evdev:atkbd:dmi:*:svnLENOVO:*:pvrLenovoYoga300-11IBR:*
  KEYBOARD_KEY_62=unknown  # Touchpad on, also emitted by "Ideapad extra buttons", ignore
  KEYBOARD_KEY_63=unknown  # Touchpad off, also emitted by "Ideapad extra buttons", ignore
