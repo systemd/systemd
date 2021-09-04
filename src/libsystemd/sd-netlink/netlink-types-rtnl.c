@@ -238,7 +238,7 @@ static  const NLType rtnl_link_info_data_gre_types[] = {
 };
 
 /* IFLA_IPTUN_ attributes are used in ipv4/ipip.c, ipv6/ip6_tunnel.c, and ipv6/sit.c. And unfortunately,
- * IFLA_IPTUN_FLAGS is used with differnt types, ugh... */
+ * IFLA_IPTUN_FLAGS is used with different types, ugh... */
 #define DEFINE_IPTUN_TYPES(name, flags_type)                                            \
         static const NLType rtnl_link_info_data_##name##_types[] = {                    \
                 [IFLA_IPTUN_LINK]                = { .type = NETLINK_TYPE_U32 },        \

@@ -55,7 +55,7 @@ EOF
 systemd-analyze verify --recursive-errors=no /tmp/testfile2.service
 
 set +e
-# Non-zero exit status since all associated dependencies are recusrively loaded when the unit file is loaded
+# Non-zero exit status since all associated dependencies are recusively loaded when the unit file is loaded
 systemd-analyze verify --recursive-errors=yes /tmp/testfile2.service \
     && { echo 'unexpected success'; exit 1; }
 set -e

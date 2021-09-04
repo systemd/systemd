@@ -67,7 +67,7 @@ BuildPackages=
 Packages=
         gdb
         nano
-        # procps-ng provides a set of useful utilies (ps, free, etc)
+        # procps-ng provides a set of useful utilities (ps, free, etc)
         procps-ng
         strace
         tpm2-tss

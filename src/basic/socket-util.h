@@ -286,7 +286,7 @@ struct timespec_large {
 };
 
 /* glibc duplicates timespec/timeval on certain 32bit archs, once in 32bit and once in 64bit.
- * See __convert_scm_timestamps() in glibc souce code. Hence, we need additional buffer space for them
+ * See __convert_scm_timestamps() in glibc source code. Hence, we need additional buffer space for them
  * to prevent from recvmsg_safe() returning -EXFULL. */
 #define CMSG_SPACE_TIMEVAL                                              \
         ((sizeof(struct timeval) == sizeof(struct timeval_large)) ?     \
