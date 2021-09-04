@@ -194,7 +194,7 @@ static Set *unix_sockets = NULL;
 
 STATIC_DESTRUCTOR_REGISTER(items, ordered_hashmap_freep);
 STATIC_DESTRUCTOR_REGISTER(globs, ordered_hashmap_freep);
-STATIC_DESTRUCTOR_REGISTER(unix_sockets, set_free_freep);
+STATIC_DESTRUCTOR_REGISTER(unix_sockets, set_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_include_prefixes, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_exclude_prefixes, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_root, freep);
@@ -421,7 +421,7 @@ static struct Item* find_glob(OrderedHashmap *h, const char *match) {
 }
 
 static int load_unix_sockets(void) {
-        _cleanup_set_free_free_ Set *sockets = NULL;
+        _cleanup_set_free_ Set *sockets = NULL;
         _cleanup_fclose_ FILE *f = NULL;
         int r;
 
@@ -429,10 +429,6 @@ static int load_unix_sockets(void) {
                 return 0;
 
         /* We maintain a cache of the sockets we found in /proc/net/unix to speed things up a little. */
-
-        sockets = set_new(&path_hash_ops);
-        if (!sockets)
-                return log_oom();
 
         f = fopen("/proc/net/unix", "re");
         if (!f)
@@ -447,7 +443,7 @@ static int load_unix_sockets(void) {
                 return log_warning_errno(SYNTHETIC_ERRNO(EIO), "Premature end of file reading /proc/net/unix.");
 
         for (;;) {
-                _cleanup_free_ char *line = NULL, *s = NULL;
+                _cleanup_free_ char *line = NULL;
                 char *p;
 
                 r = read_line(f, LONG_LINE_MAX, &line);
@@ -468,22 +464,12 @@ static int load_unix_sockets(void) {
                 p += strcspn(p, WHITESPACE); /* skip one more word */
                 p += strspn(p, WHITESPACE);
 
-                if (*p != '/')
+                if (!path_is_absolute(p))
                         continue;
 
-                s = strdup(p);
-                if (!s)
-                        return log_oom();
-
-                path_simplify(s);
-
-                r = set_consume(sockets, s);
-                if (r == -EEXIST)
-                        continue;
+                r = set_put_strdup_full(&sockets, &path_hash_ops_free, p);
                 if (r < 0)
                         return log_warning_errno(r, "Failed to add AF_UNIX socket to set, ignoring: %m");
-
-                TAKE_PTR(s);
         }
 
         unix_sockets = TAKE_PTR(sockets);
@@ -496,7 +482,7 @@ static bool unix_socket_alive(const char *fn) {
         if (load_unix_sockets() < 0)
                 return true;     /* We don't know, so assume yes */
 
-        return !!set_get(unix_sockets, (char*) fn);
+        return set_contains(unix_sockets, fn);
 }
 
 static DIR* xopendirat_nomod(int dirfd, const char *path) {
