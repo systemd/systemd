@@ -24,6 +24,8 @@ typedef struct Neighbor {
         Network *network;
         Link *link;
         NetworkConfigSection *section;
+        NetworkConfigSource source;
+        NetworkConfigState state;
 
         int family;
         union in_addr_union in_addr;
@@ -45,6 +47,8 @@ int link_request_static_neighbors(Link *link);
 int request_process_neighbor(Request *req);
 
 int manager_rtnl_process_neighbor(sd_netlink *rtnl, sd_netlink_message *message, Manager *m);
+
+DEFINE_NETWORK_CONFIG_STATE_FUNCTIONS(Neighbor, neighbor);
 
 CONFIG_PARSER_PROTOTYPE(config_parse_neighbor_address);
 CONFIG_PARSER_PROTOTYPE(config_parse_neighbor_hwaddr);
