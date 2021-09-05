@@ -2557,12 +2557,10 @@ static int clean_item(Item *i) {
         case CREATE_SUBVOLUME_INHERIT_QUOTA:
         case CREATE_SUBVOLUME_NEW_QUOTA:
         case TRUNCATE_DIRECTORY:
-        case IGNORE_PATH:
         case COPY_FILES:
                 clean_item_instance(i, i->path);
                 return 0;
         case EMPTY_DIRECTORY:
-        case IGNORE_DIRECTORY_PATH:
                 return glob_item(i, clean_item_instance);
         default:
                 return 0;
