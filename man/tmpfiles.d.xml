@@ -579,8 +579,7 @@ w- /proc/sys/vm/swappiness - - - - 10</programlisting></para>
       <para>The age field only applies to lines starting with
       <varname>d</varname>, <varname>D</varname>, <varname>e</varname>,
       <varname>v</varname>, <varname>q</varname>,
-      <varname>Q</varname>, <varname>C</varname>, <varname>x</varname>
-      and <varname>X</varname>. If omitted or set to
+      <varname>Q</varname>, and <varname>C</varname>. If omitted or set to
       <literal>-</literal>, no automatic clean-up is done.</para>
 
       <para>If the age field starts with a tilde character <literal>~</literal>, clean-up is only applied to
