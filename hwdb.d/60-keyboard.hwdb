@@ -1637,6 +1637,14 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svn[sS][aA][mM][sS][uU][nN][gG]*:pn*SX20S*:*
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svn[sS][aA][mM][sS][uU][nN][gG]*:pn*700T*:*
  KEYBOARD_KEY_ad=leftmeta
 
+# Galaxy Book (2021) NP750XDA-KD4SE
+evdev:atkbd:dmi:bvn*:bvr*:bd*:svn[sS][aA][mM][sS][uU][nN][gG]*:pn750XDA:pvr*
+ KEYBOARD_KEY_81=!esc 		
+ KEYBOARD_KEY_ce=!prog1 	# Fn+F1 launch settings
+ KEYBOARD_KEY_ae=!volumedown 	# Fn+F7 volume down
+ KEYBOARD_KEY_b0=!volumeup	# Fn+F8 volume up
+
+
 ###########################################################
 # SONY
 ###########################################################
