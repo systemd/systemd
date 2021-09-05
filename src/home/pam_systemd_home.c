@@ -281,7 +281,6 @@ static int handle_generic_user_record_error(
                 const sd_bus_error *error) {
 
         assert(user_name);
-        assert(secret);
         assert(error);
 
         int r;
@@ -300,6 +299,8 @@ static int handle_generic_user_record_error(
 
         } else if (sd_bus_error_has_name(error, BUS_ERROR_BAD_PASSWORD)) {
                 _cleanup_(erase_and_freep) char *newp = NULL;
+
+                assert(secret);
 
                 /* This didn't work? Ask for an (additional?) password */
 
@@ -326,6 +327,8 @@ static int handle_generic_user_record_error(
         } else if (sd_bus_error_has_name(error, BUS_ERROR_BAD_PASSWORD_AND_NO_TOKEN)) {
                 _cleanup_(erase_and_freep) char *newp = NULL;
 
+                assert(secret);
+
                 if (strv_isempty(secret->password)) {
                         (void) pam_prompt(handle, PAM_ERROR_MSG, NULL, "Security token of user %s not inserted.", user_name);
                         r = pam_prompt(handle, PAM_PROMPT_ECHO_OFF, &newp, "Try again with password: ");
@@ -350,6 +353,8 @@ static int handle_generic_user_record_error(
         } else if (sd_bus_error_has_name(error, BUS_ERROR_TOKEN_PIN_NEEDED)) {
                 _cleanup_(erase_and_freep) char *newp = NULL;
 
+                assert(secret);
+
                 r = pam_prompt(handle, PAM_PROMPT_ECHO_OFF, &newp, "Security token PIN: ");
                 if (r != PAM_SUCCESS)
                         return PAM_CONV_ERR; /* no logging here */
@@ -367,6 +372,8 @@ static int handle_generic_user_record_error(
 
         } else if (sd_bus_error_has_name(error, BUS_ERROR_TOKEN_PROTECTED_AUTHENTICATION_PATH_NEEDED)) {
 
+                assert(secret);
+
                 (void) pam_prompt(handle, PAM_ERROR_MSG, NULL, "Please authenticate physically on security token of user %s.", user_name);
 
                 r = user_record_set_pkcs11_protected_authentication_path_permitted(secret, true);
@@ -377,6 +384,8 @@ static int handle_generic_user_record_error(
 
         } else if (sd_bus_error_has_name(error, BUS_ERROR_TOKEN_USER_PRESENCE_NEEDED)) {
 
+                assert(secret);
+
                 (void) pam_prompt(handle, PAM_ERROR_MSG, NULL, "Please confirm presence on security token of user %s.", user_name);
 
                 r = user_record_set_fido2_user_presence_permitted(secret, true);
@@ -386,6 +395,8 @@ static int handle_generic_user_record_error(
                 }
 
         } else if (sd_bus_error_has_name(error, BUS_ERROR_TOKEN_USER_VERIFICATION_NEEDED)) {
+
+                assert(secret);
 
                 (void) pam_prompt(handle, PAM_ERROR_MSG, NULL, "Please verify user on security token of user %s.", user_name);
 
@@ -402,6 +413,8 @@ static int handle_generic_user_record_error(
 
         } else if (sd_bus_error_has_name(error, BUS_ERROR_TOKEN_BAD_PIN)) {
                 _cleanup_(erase_and_freep) char *newp = NULL;
+
+                assert(secret);
 
                 (void) pam_prompt(handle, PAM_ERROR_MSG, NULL, "Security token PIN incorrect for user %s.", user_name);
                 r = pam_prompt(handle, PAM_PROMPT_ECHO_OFF, &newp, "Sorry, retry security token PIN: ");
@@ -422,6 +435,8 @@ static int handle_generic_user_record_error(
         } else if (sd_bus_error_has_name(error, BUS_ERROR_TOKEN_BAD_PIN_FEW_TRIES_LEFT)) {
                 _cleanup_(erase_and_freep) char *newp = NULL;
 
+                assert(secret);
+
                 (void) pam_prompt(handle, PAM_ERROR_MSG, NULL, "Security token PIN of user %s incorrect (only a few tries left!)", user_name);
                 r = pam_prompt(handle, PAM_PROMPT_ECHO_OFF, &newp, "Sorry, retry security token PIN: ");
                 if (r != PAM_SUCCESS)
@@ -440,6 +455,8 @@ static int handle_generic_user_record_error(
 
         } else if (sd_bus_error_has_name(error, BUS_ERROR_TOKEN_BAD_PIN_ONE_TRY_LEFT)) {
                 _cleanup_(erase_and_freep) char *newp = NULL;
+
+                assert(secret);
 
                 (void) pam_prompt(handle, PAM_ERROR_MSG, NULL, "Security token PIN of user %s incorrect (only one try left!)", user_name);
                 r = pam_prompt(handle, PAM_PROMPT_ECHO_OFF, &newp, "Sorry, retry security token PIN: ");
