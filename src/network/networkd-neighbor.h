@@ -24,6 +24,8 @@ typedef struct Neighbor {
         Network *network;
         Link *link;
         NetworkConfigSection *section;
+        NetworkConfigSource source;
+        NetworkConfigState state;
 
         int family;
         union in_addr_union in_addr;
@@ -38,13 +40,14 @@ int neighbor_compare_func(const Neighbor *a, const Neighbor *b);
 
 void network_drop_invalid_neighbors(Network *network);
 
-int link_drop_neighbors(Link *link);
-int link_drop_foreign_neighbors(Link *link);
+int link_drop_neighbors(Link *link, bool foreign);
 
 int link_request_static_neighbors(Link *link);
 int request_process_neighbor(Request *req);
 
 int manager_rtnl_process_neighbor(sd_netlink *rtnl, sd_netlink_message *message, Manager *m);
+
+DEFINE_UPDATE_NETWORK_CONFIG_STATE(Neighbor, neighbor);
 
 CONFIG_PARSER_PROTOTYPE(config_parse_neighbor_address);
 CONFIG_PARSER_PROTOTYPE(config_parse_neighbor_hwaddr);

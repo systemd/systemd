@@ -241,7 +241,6 @@ static Link *link_free(Link *link) {
         link->nexthops_foreign = set_free(link->nexthops_foreign);
 
         link->neighbors = set_free(link->neighbors);
-        link->neighbors_foreign = set_free(link->neighbors_foreign);
 
         link->addresses = set_free(link->addresses);
         link->addresses_foreign = set_free(link->addresses_foreign);
@@ -1025,7 +1024,7 @@ static int link_drop_foreign_config(Link *link) {
         if (k < 0 && r >= 0)
                 r = k;
 
-        k = link_drop_foreign_neighbors(link);
+        k = link_drop_neighbors(link, /* foreign = */ true);
         if (k < 0 && r >= 0)
                 r = k;
 
@@ -1052,7 +1051,7 @@ static int link_drop_config(Link *link) {
         if (k < 0 && r >= 0)
                 r = k;
 
-        k = link_drop_neighbors(link);
+        k = link_drop_neighbors(link, /* foreign = */ false);
         if (k < 0 && r >= 0)
                 r = k;
 
