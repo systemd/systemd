@@ -1709,14 +1709,21 @@ static int route_is_ready_to_configure(const Route *route, Link *link) {
                 if (manager_get_nexthop_by_id(link->manager, route->nexthop_id, &nh) < 0)
                         return false;
 
-                HASHMAP_FOREACH(nhg, nh->group)
-                        if (manager_get_nexthop_by_id(link->manager, nhg->id, NULL) < 0)
+                if (!nexthop_exists(nh))
+                        return false;
+
+                HASHMAP_FOREACH(nhg, nh->group) {
+                        NextHop *g;
+
+                        if (manager_get_nexthop_by_id(link->manager, nhg->id, &g) < 0)
                                 return false;
+
+                        if (!nexthop_exists(g))
+                                return false;
+                }
         }
 
-        if (route_type_is_reject(route) || (nh && nh->blackhole)) {
-                if (nh && link->manager->nexthop_remove_messages > 0)
-                        return false;
+        if (route_type_is_reject(route)) {
                 if (link->manager->route_remove_messages > 0)
                         return false;
         } else {
@@ -1724,8 +1731,6 @@ static int route_is_ready_to_configure(const Route *route, Link *link) {
 
                 HASHMAP_FOREACH(l, link->manager->links_by_index) {
                         if (l->address_remove_messages > 0)
-                                return false;
-                        if (l->nexthop_remove_messages > 0)
                                 return false;
                         if (l->route_remove_messages > 0)
                                 return false;
