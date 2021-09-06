@@ -1341,7 +1341,7 @@ static const struct security_assessor security_assessor_table[] = {
         },
         {
                 .id = "RestrictNamespaces=~user",
-                .json_field = "RestrictNamespaces_CLONE_NEWUSER",
+                .json_field = "RestrictNamespaces_user",
                 .url = "https://www.freedesktop.org/software/systemd/man/systemd.exec.html#RestrictNamespaces=",
                 .description_good = "Service cannot create user namespaces",
                 .description_bad = "Service may create user namespaces",
@@ -1352,7 +1352,7 @@ static const struct security_assessor security_assessor_table[] = {
         },
         {
                 .id = "RestrictNamespaces=~mnt",
-                .json_field = "RestrictNamespaces_CLONE_NEWNS",
+                .json_field = "RestrictNamespaces_mnt",
                 .url = "https://www.freedesktop.org/software/systemd/man/systemd.exec.html#RestrictNamespaces=",
                 .description_good = "Service cannot create file system namespaces",
                 .description_bad = "Service may create file system namespaces",
@@ -1363,7 +1363,7 @@ static const struct security_assessor security_assessor_table[] = {
         },
         {
                 .id = "RestrictNamespaces=~ipc",
-                .json_field = "RestrictNamespaces_CLONE_NEWIPC",
+                .json_field = "RestrictNamespaces_ipc",
                 .url = "https://www.freedesktop.org/software/systemd/man/systemd.exec.html#RestrictNamespaces=",
                 .description_good = "Service cannot create IPC namespaces",
                 .description_bad = "Service may create IPC namespaces",
@@ -1374,7 +1374,7 @@ static const struct security_assessor security_assessor_table[] = {
         },
         {
                 .id = "RestrictNamespaces=~pid",
-                .json_field = "RestrictNamespaces_CLONE_NEWPID",
+                .json_field = "RestrictNamespaces_pid",
                 .url = "https://www.freedesktop.org/software/systemd/man/systemd.exec.html#RestrictNamespaces=",
                 .description_good = "Service cannot create process namespaces",
                 .description_bad = "Service may create process namespaces",
@@ -1385,7 +1385,7 @@ static const struct security_assessor security_assessor_table[] = {
         },
         {
                 .id = "RestrictNamespaces=~cgroup",
-                .json_field = "RestrictNamespaces_CLONE_NEWCGROUP",
+                .json_field = "RestrictNamespaces_cgroup",
                 .url = "https://www.freedesktop.org/software/systemd/man/systemd.exec.html#RestrictNamespaces=",
                 .description_good = "Service cannot create cgroup namespaces",
                 .description_bad = "Service may create cgroup namespaces",
@@ -1396,7 +1396,7 @@ static const struct security_assessor security_assessor_table[] = {
         },
         {
                 .id = "RestrictNamespaces=~net",
-                .json_field = "RestrictNamespaces_CLONE_NEWNET",
+                .json_field = "RestrictNamespaces_net",
                 .url = "https://www.freedesktop.org/software/systemd/man/systemd.exec.html#RestrictNamespaces=",
                 .description_good = "Service cannot create network namespaces",
                 .description_bad = "Service may create network namespaces",
@@ -1407,7 +1407,7 @@ static const struct security_assessor security_assessor_table[] = {
         },
         {
                 .id = "RestrictNamespaces=~uts",
-                .json_field = "RestrictNamespaces_CLONE_NEWUTS",
+                .json_field = "RestrictNamespaces_uts",
                 .url = "https://www.freedesktop.org/software/systemd/man/systemd.exec.html#RestrictNamespaces=",
                 .description_good = "Service cannot create hostname namespaces",
                 .description_bad = "Service may create hostname namespaces",
