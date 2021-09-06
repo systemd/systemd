@@ -285,10 +285,6 @@ static int l2tp_acquire_local_address(L2tpTunnel *t, Link *link, union in_addr_u
                 if (l2tp_acquire_local_address_one(t, a, ret) >= 0)
                         return 1;
 
-        SET_FOREACH(a, link->addresses_foreign)
-                if (l2tp_acquire_local_address_one(t, a, ret) >= 0)
-                        return 1;
-
         return -ENODATA;
 }
 
