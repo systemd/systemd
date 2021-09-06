@@ -2978,7 +2978,7 @@ int manager_loop(Manager *m) {
                 return log_error_errno(r, "Failed to enable SIGCHLD event source: %m");
 
         while (m->objective == MANAGER_OK) {
-                usec_t wait_usec, watchdog_usec;
+                usec_t watchdog_usec;
 
                 watchdog_usec = manager_get_watchdog(m, WATCHDOG_RUNTIME);
                 if (m->runtime_watchdog_running)
@@ -3020,12 +3020,7 @@ int manager_loop(Manager *m) {
                         continue;
 
                 /* Sleep for watchdog runtime wait time */
-                if (timestamp_is_set(watchdog_usec))
-                        wait_usec = watchdog_runtime_wait();
-                else
-                        wait_usec = USEC_INFINITY;
-
-                r = sd_event_run(m->event, wait_usec);
+                r = sd_event_run(m->event, watchdog_runtime_wait());
                 if (r < 0)
                         return log_error_errno(r, "Failed to run event loop: %m");
         }
