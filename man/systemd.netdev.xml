@@ -319,9 +319,10 @@
           devices, setting <varname>MACAddress=</varname> in the [NetDev] section is not
           supported. Please specify it in the [Link] section of the corresponding
           <citerefentry><refentrytitle>systemd.network</refentrytitle><manvolnum>5</manvolnum></citerefentry>
-          file. If this option is not set, <literal>vlan</literal> devices inherit the MAC address of the
-          physical interface. For other kind of netdevs, if this option is not set, then the MAC address is
-          generated based on the interface name and the
+          file. If this option is not set, <literal>bridge</literal> and <literal>vlan</literal> devices
+          inherit the MAC address of the first slave device or the physical interface, respectively. For other
+          kind of netdevs, if this option is not set, then the MAC address is generated based on the interface
+          name and the
           <citerefentry><refentrytitle>machine-id</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
           </para>
         </listitem>
