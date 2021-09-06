@@ -384,7 +384,7 @@ int main(int argc, char *argv[]) {
 
                 r = parse_time(watchdog_usec, &usec, 1);
                 if (r >= 0)
-                        r = watchdog_set_timeout(&usec);
+                        r = watchdog_set_timeout(usec);
                 if (r < 0)
                         log_warning_errno(r, "Failed to start watchdog with timeout=%s, ignoring: %m",
                                           watchdog_usec);
