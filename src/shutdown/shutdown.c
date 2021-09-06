@@ -308,9 +308,9 @@ static void bump_sysctl_printk_log_level(int min_level) {
 }
 
 int main(int argc, char *argv[]) {
-        bool need_umount, need_swapoff, need_loop_detach, need_dm_detach, need_md_detach, in_container, use_watchdog = false, can_initrd;
+        bool need_umount, need_swapoff, need_loop_detach, need_dm_detach, need_md_detach, in_container, can_initrd;
         _cleanup_free_ char *cgroup = NULL;
-        char *arguments[3], *watchdog_device;
+        char *arguments[3], *watchdog_device, *watchdog_usec;
         int cmd, r, umount_log_level = LOG_INFO;
         static const char* const dirs[] = {SYSTEM_SHUTDOWN_PATH, NULL};
 
@@ -370,13 +370,24 @@ int main(int argc, char *argv[]) {
                    LOG_TARGET_KMSG))
                 bump_sysctl_printk_log_level(LOG_WARNING);
 
-        use_watchdog = getenv("WATCHDOG_USEC");
         watchdog_device = getenv("WATCHDOG_DEVICE");
         if (watchdog_device) {
                 r = watchdog_set_device(watchdog_device);
                 if (r < 0)
                         log_warning_errno(r, "Failed to set watchdog device to %s, ignoring: %m",
                                           watchdog_device);
+        }
+
+        watchdog_usec = getenv("WATCHDOG_USEC");
+        if (watchdog_usec) {
+                usec_t usec;
+
+                r = safe_atou64(watchdog_usec, &usec);
+                if (r < 0)
+                        log_warning_errno(r, "Failed to parse watchdog timeout '%s', ignoring: %m",
+                                          watchdog_usec);
+                else
+                        (void) watchdog_set_timeout(&usec);
         }
 
         /* Lock us into memory */
@@ -409,8 +420,7 @@ int main(int argc, char *argv[]) {
         for (;;) {
                 bool changed = false;
 
-                if (use_watchdog)
-                        (void) watchdog_ping();
+                (void) watchdog_ping();
 
                 /* Let's trim the cgroup tree on each iteration so
                    that we leave an empty cgroup tree around, so that
