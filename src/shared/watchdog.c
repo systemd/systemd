@@ -40,7 +40,12 @@ static int update_timeout(void) {
                 if (ioctl(watchdog_fd, WDIOC_SETTIMEOUT, &sec) < 0)
                         return log_warning_errno(errno, "Failed to set timeout to %is: %m", sec);
 
-                log_info("Set hardware watchdog to %s.", FORMAT_TIMESPAN(sec * USEC_PER_SEC, 0));
+                /* Just in case the driver is buggy */
+                assert(sec > 0);
+
+                /* watchdog_timeout stores the actual timeout used by the HW */
+                watchdog_timeout = sec * USEC_PER_SEC;
+                log_info("Set hardware watchdog to %s.", FORMAT_TIMESPAN(watchdog_timeout, 0));
 
                 flags = WDIOS_ENABLECARD;
                 if (ioctl(watchdog_fd, WDIOC_SETOPTIONS, &flags) < 0) {
