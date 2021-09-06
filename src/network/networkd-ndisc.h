@@ -2,10 +2,10 @@
 #pragma once
 
 #include "conf-parser.h"
-#include "networkd-address.h"
-#include "networkd-link.h"
-#include "networkd-route.h"
 #include "time-util.h"
+
+typedef struct Link Link;
+typedef struct Network Network;
 
 typedef enum IPv6AcceptRAStartDHCP6Client {
         IPV6_ACCEPT_RA_START_DHCP6_CLIENT_NO,
@@ -14,20 +14,6 @@ typedef enum IPv6AcceptRAStartDHCP6Client {
         _IPV6_ACCEPT_RA_START_DHCP6_CLIENT_MAX,
         _IPV6_ACCEPT_RA_START_DHCP6_CLIENT_INVALID = -EINVAL,
 } IPv6AcceptRAStartDHCP6Client;
-
-typedef struct NDiscAddress {
-        /* Used when GC'ing old DNS servers when configuration changes. */
-        bool marked;
-        struct in6_addr router;
-        Address *address;
-} NDiscAddress;
-
-typedef struct NDiscRoute {
-        /* Used when GC'ing old DNS servers when configuration changes. */
-        bool marked;
-        struct in6_addr router;
-        Route *route;
-} NDiscRoute;
 
 typedef struct NDiscRDNSS {
         /* Used when GC'ing old DNS servers when configuration changes. */
@@ -61,6 +47,3 @@ void ndisc_flush(Link *link);
 CONFIG_PARSER_PROTOTYPE(config_parse_address_generation_type);
 CONFIG_PARSER_PROTOTYPE(config_parse_ipv6_accept_ra_start_dhcp6_client);
 CONFIG_PARSER_PROTOTYPE(config_parse_ipv6_accept_ra_use_domains);
-
-const char* ipv6_accept_ra_start_dhcp6_client_to_string(IPv6AcceptRAStartDHCP6Client i) _const_;
-IPv6AcceptRAStartDHCP6Client ipv6_accept_ra_start_dhcp6_client_from_string(const char *s) _pure_;
