@@ -387,7 +387,7 @@ int main(int argc, char *argv[]) {
                         log_warning_errno(r, "Failed to parse watchdog timeout '%s', ignoring: %m",
                                           watchdog_usec);
                 else
-                        (void) watchdog_set_timeout(&usec);
+                        (void) watchdog_set_timeout(usec);
         }
 
         /* Lock us into memory */
