@@ -1351,7 +1351,7 @@ static const struct security_assessor security_assessor_table[] = {
                 .parameter = CLONE_NEWUSER,
         },
         {
-                .id = "RestrictNamespaces=~ns",
+                .id = "RestrictNamespaces=~mnt",
                 .json_field = "RestrictNamespaces_CLONE_NEWNS",
                 .url = "https://www.freedesktop.org/software/systemd/man/systemd.exec.html#RestrictNamespaces=",
                 .description_good = "Service cannot create file system namespaces",
