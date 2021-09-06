@@ -930,7 +930,6 @@ evdev:input:b0003v04B3p301B*
 evdev:name:SIPODEV Lenovo HID Device:dmi:*:svnLENOVO:*:pvrLenovoideapadD330-10IGM:*
  KEYBOARD_KEY_70073=f21                                 # Fn+Supr (Touchpad toggle)
 
-
 ###########################################################
 # LG
 ###########################################################
@@ -940,7 +939,6 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnLGElectronics:pn1*.AAS*:*
  KEYBOARD_KEY_a0=!mute
  KEYBOARD_KEY_ae=!volumedown
  KEYBOARD_KEY_b0=!volumeup
-
 
 ###########################################################
 # Logitech
