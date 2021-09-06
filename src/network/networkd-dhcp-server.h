@@ -9,6 +9,7 @@ typedef struct Request Request;
 
 void network_adjust_dhcp_server(Network *network);
 
+int link_request_dhcp_server_address(Link *link);
 int link_request_dhcp_server(Link *link);
 int request_process_dhcp_server(Request *req);
 
