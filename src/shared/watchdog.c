@@ -136,6 +136,9 @@ int watchdog_ping(void) {
         usec_t ntime;
         int r;
 
+        if (!timestamp_is_set(watchdog_timeout))
+                return 0;
+
         ntime = now(clock_boottime_or_monotonic());
 
         /* Never ping earlier than watchdog_timeout/4 and try to ping
@@ -186,4 +189,8 @@ void watchdog_close(bool disarm) {
         }
 
         watchdog_fd = safe_close(watchdog_fd);
+
+        /* Once closed, pinging the device becomes a NOP and we request a new
+         * call to watchdog_set_timeout() to open the device again. */
+        watchdog_timeout = USEC_INFINITY;
 }
