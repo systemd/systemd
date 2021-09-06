@@ -412,43 +412,43 @@ cat <<EOF >/tmp/testfile.json
     "weight": 1000,
     "range": 1
     },
-"RestrictNamespaces_CLONE_NEWUSER":
+"RestrictNamespaces_user":
     {"description_good": "Servicecannotcreateusernamespaces",
     "description_bad": "Servicemaycreateusernamespaces",
     "weight": 1500,
     "range": 1
     },
-"RestrictNamespaces_CLONE_NEWNS":
+"RestrictNamespaces_mnt":
     {"description_good": "Service cannot create file system namespaces",
     "description_bad": "Service may create file system namespaces",
     "weight": 500,
     "range": 1
     },
-"RestrictNamespaces_CLONE_NEWIPC":
+"RestrictNamespaces_ipc":
     {"description_good": "Service cannot create IPC namespaces",
     "description_bad": "Service may create IPC namespaces",
     "weight": 500,
     "range": 1
     },
-"RestrictNamespaces_CLONE_NEWPID":
+"RestrictNamespaces_pid":
     {"description_good": "Service cannot create process namespaces",
     "description_bad": "Service may create process namespaces",
     "weight": 500,
     "range": 1
     },
-"RestrictNamespaces_CLONE_NEWCGROUP":
+"RestrictNamespaces_cgroup":
     {"description_good": "Service cannot create cgroup namespaces",
     "description_bad": "Service may create cgroup namespaces",
     "weight": 500,
     "range": 1
     },
-"RestrictNamespaces_CLONE_NEWNET":
+"RestrictNamespaces_net":
     {"description_good": "Service cannot create network namespaces",
     "description_bad": "Service may create network namespaces",
     "weight": 500,
     "range": 1
     },
-"RestrictNamespaces_CLONE_NEWUTS":
+"RestrictNamespaces_uts":
     {"description_good": "Service cannot create hostname namespaces",
     "description_bad": "Service may create hostname namespaces",
     "weight": 100,

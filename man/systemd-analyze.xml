@@ -967,25 +967,25 @@ Service b@0.service not loaded, b.socket cannot be started.
                 <entry>RestrictSUIDSGID</entry>
               </row>
               <row>
-                <entry>RestrictNamespaces_CLONE_NEWUSER</entry>
+                <entry>RestrictNamespaces_user</entry>
               </row>
               <row>
-                <entry>RestrictNamespaces_CLONE_NEWNS</entry>
+                <entry>RestrictNamespaces_mnt</entry>
               </row>
               <row>
-                <entry>RestrictNamespaces_CLONE_NEWIPC</entry>
+                <entry>RestrictNamespaces_ipc</entry>
               </row>
               <row>
-                <entry>RestrictNamespaces_CLONE_NEWPID</entry>
+                <entry>RestrictNamespaces_pid</entry>
               </row>
               <row>
-                <entry>RestrictNamespaces_CLONE_NEWCGROUP</entry>
+                <entry>RestrictNamespaces_cgroup</entry>
               </row>
               <row>
-                <entry>RestrictNamespaces_CLONE_NEWUTS</entry>
+                <entry>RestrictNamespaces_uts</entry>
               </row>
               <row>
-                <entry>RestrictNamespaces_CLONE_NEWNET</entry>
+                <entry>RestrictNamespaces_net</entry>
               </row>
               <row>
                 <entry>RestrictAddressFamilies_AF_INET_INET6</entry>
