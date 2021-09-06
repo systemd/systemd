@@ -120,20 +120,19 @@ int watchdog_set_timeout(usec_t timeout) {
 }
 
 usec_t watchdog_runtime_wait(void) {
-        usec_t rtwait, ntime;
 
         if (!timestamp_is_set(watchdog_timeout))
                 return USEC_INFINITY;
 
         /* Sleep half the watchdog timeout since the last successful ping at most */
         if (timestamp_is_set(watchdog_last_ping)) {
-                ntime = now(clock_boottime_or_monotonic());
-                assert(ntime >= watchdog_last_ping);
-                rtwait = usec_sub_unsigned(watchdog_last_ping + (watchdog_timeout / 2), ntime);
-        } else
-                rtwait = watchdog_timeout / 2;
+                usec_t ntime = now(clock_boottime_or_monotonic());
 
-        return rtwait;
+                assert(ntime >= watchdog_last_ping);
+                return usec_sub_unsigned(watchdog_last_ping + (watchdog_timeout / 2), ntime);
+        }
+
+        return watchdog_timeout / 2;
 }
 
 int watchdog_ping(void) {
