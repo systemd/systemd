@@ -96,23 +96,22 @@ int watchdog_set_device(char *path) {
         return r;
 }
 
-int watchdog_set_timeout(usec_t *usec) {
-        int r;
+int watchdog_set_timeout(usec_t timeout) {
 
-        watchdog_timeout = *usec;
+        /* Initialize the watchdog timeout with the caller value. This value is
+         * going to be updated by update_timeout() with the closest value
+         * supported by the driver */
+        watchdog_timeout = timeout;
 
-        /* If we didn't open the watchdog yet and didn't get any explicit timeout value set, don't do
-         * anything */
+        /* If we didn't open the watchdog yet and didn't get any explicit
+         * timeout value set, don't do anything */
         if (watchdog_fd < 0 && watchdog_timeout == USEC_INFINITY)
                 return 0;
 
         if (watchdog_fd < 0)
-                r = open_watchdog();
-        else
-                r = update_timeout();
+                return open_watchdog();
 
-        *usec = watchdog_timeout;
-        return r;
+        return update_timeout();
 }
 
 usec_t watchdog_runtime_wait(void) {
