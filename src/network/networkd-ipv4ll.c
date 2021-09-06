@@ -28,6 +28,7 @@ static int address_new_from_ipv4ll(Link *link, Address **ret) {
         if (r < 0)
                 return -ENOMEM;
 
+        address->source = NETWORK_CONFIG_SOURCE_IPV4LL;
         address->family = AF_INET;
         address->in_addr.in = addr;
         address->prefixlen = 16;
@@ -41,6 +42,7 @@ static int address_new_from_ipv4ll(Link *link, Address **ret) {
 
 static int ipv4ll_address_lost(Link *link) {
         _cleanup_(address_freep) Address *address = NULL;
+        Address *existing;
         int r;
 
         assert(link);
@@ -53,10 +55,19 @@ static int ipv4ll_address_lost(Link *link) {
         if (r < 0)
                 return r;
 
+        if (address_get(link, address, &existing) < 0)
+                return 0;
+
+        if (existing->source != NETWORK_CONFIG_SOURCE_IPV4LL)
+                return 0;
+
+        if (!address_exists(existing))
+                return 0;
+
         log_link_debug(link, "IPv4 link-local release "IPV4_ADDRESS_FMT_STR,
                        IPV4_ADDRESS_FMT_VAL(address->in_addr.in));
 
-        return address_remove(address, link);
+        return address_remove(existing);
 }
 
 static int ipv4ll_address_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
