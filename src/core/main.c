@@ -1534,13 +1534,11 @@ static int become_shutdown(
         else if (streq(shutdown_verb, "kexec"))
                 watchdog_timer = arg_kexec_watchdog;
 
-        if (watchdog_timer > 0 && watchdog_timer != USEC_INFINITY) {
-
+        if (timestamp_is_set(watchdog_timer)) {
                 char *e;
 
-                /* If we reboot or kexec let's set the shutdown
-                 * watchdog and tell the shutdown binary to
-                 * repeatedly ping it */
+                /* If we reboot or kexec let's set the shutdown watchdog and
+                 * tell the shutdown binary to repeatedly ping it */
                 r = watchdog_set_timeout(&watchdog_timer);
                 watchdog_close(r < 0);
 
@@ -1554,9 +1552,8 @@ static int become_shutdown(
         } else
                 watchdog_close(true);
 
-        /* Avoid the creation of new processes forked by the
-         * kernel; at this point, we will not listen to the
-         * signals anyway */
+        /* Avoid the creation of new processes forked by the kernel; at this
+         * point, we will not listen to the signals anyway */
         if (detect_container() <= 0)
                 (void) cg_uninstall_release_agent(SYSTEMD_CGROUP_CONTROLLER);
 
