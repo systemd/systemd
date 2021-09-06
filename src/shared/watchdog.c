@@ -138,10 +138,13 @@ usec_t watchdog_runtime_wait(void) {
 
 int watchdog_ping(void) {
         usec_t ntime;
-        int r;
 
         if (!timestamp_is_set(watchdog_timeout))
                 return 0;
+
+        if (watchdog_fd < 0)
+                /* open_watchdog() will automatically ping the device for us if necessary */
+                return open_watchdog();
 
         ntime = now(clock_boottime_or_monotonic());
 
@@ -151,12 +154,6 @@ int watchdog_ping(void) {
                 assert(ntime >= watchdog_last_ping);
                 if ((ntime - watchdog_last_ping) < (watchdog_timeout / 4))
                         return 0;
-        }
-
-        if (watchdog_fd < 0) {
-                r = open_watchdog();
-                if (r < 0)
-                        return r;
         }
 
         if (ioctl(watchdog_fd, WDIOC_KEEPALIVE, 0) < 0)
