@@ -7,11 +7,13 @@
 #include "alloc-util.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "filesystems.h"
 #include "fs-util.h"
 #include "missing_stat.h"
 #include "missing_syscall.h"
 #include "mkdir.h"
 #include "mountpoint-util.h"
+#include "nulstr-util.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "stat-util.h"
@@ -351,48 +353,30 @@ bool fstype_is_network(const char *fstype) {
         if (x)
                 fstype = x;
 
+        if (nulstr_contains(filesystem_sets[FILESYSTEM_SET_NETWORK].value, fstype))
+                return true;
+
+        /* Filesystems not present in the internal database */
         return STR_IN_SET(fstype,
-                          "afs",
                           "ceph",
-                          "cifs",
-                          "smb3",
-                          "smbfs",
-                          "sshfs",
-                          "ncpfs",
-                          "ncp",
-                          "nfs",
-                          "nfs4",
-                          "gfs",
-                          "gfs2",
+                          "davfs",
                           "glusterfs",
-                          "pvfs2", /* OrangeFS */
-                          "ocfs2",
                           "lustre",
-                          "davfs");
+                          "sshfs");
 }
 
 bool fstype_is_api_vfs(const char *fstype) {
+        if (nulstr_contains(filesystem_sets[FILESYSTEM_SET_BASIC_API].value, fstype) ||
+            nulstr_contains(filesystem_sets[FILESYSTEM_SET_AUXILIARY_API].value, fstype) ||
+            nulstr_contains(filesystem_sets[FILESYSTEM_SET_PRIVILEGED_API].value, fstype) ||
+            nulstr_contains(filesystem_sets[FILESYSTEM_SET_TEMPORARY].value, fstype))
+                        return true;
+
+        /* Filesystems not present in the internal database */
         return STR_IN_SET(fstype,
                           "autofs",
-                          "bpf",
-                          "cgroup",
-                          "cgroup2",
-                          "configfs",
                           "cpuset",
-                          "debugfs",
-                          "devpts",
-                          "devtmpfs",
-                          "efivarfs",
-                          "fusectl",
-                          "hugetlbfs",
-                          "mqueue",
-                          "proc",
-                          "pstore",
-                          "ramfs",
-                          "securityfs",
-                          "sysfs",
-                          "tmpfs",
-                          "tracefs");
+                          "devtmpfs");
 }
 
 bool fstype_is_blockdev_backed(const char *fstype) {

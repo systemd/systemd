@@ -1,0 +1,112 @@
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
+%{
+#include <linux/magic.h>
+
+#include "filesystems.h"
+#include "missing_magic.h"
+#include "stat-util.h"
+
+struct FilesystemMagic {
+        const char *name;
+        statfs_f_type_t magic[FILESYSTEM_MAGIC_MAX];
+};
+%}
+struct FilesystemMagic;
+%language=ANSI-C
+%define hash-function-name filesystems_gperf_hash
+%define lookup-function-name filesystems_gperf_lookup
+%define slot-name name
+%readonly-tables
+%omit-struct-type
+%struct-type
+%includes
+%%
+apparmorfs,      {AAFS_MAGIC}
+adfs,            {ADFS_SUPER_MAGIC}
+affs,            {AFFS_SUPER_MAGIC}
+afs,             {AFS_FS_MAGIC, AFS_SUPER_MAGIC}
+anon_inodefs,    {ANON_INODE_FS_MAGIC}
+autofs,          {AUTOFS_SUPER_MAGIC}
+balloon-kvm,     {BALLOON_KVM_MAGIC}
+bdev,            {BDEVFS_MAGIC}
+binder,          {BINDERFS_SUPER_MAGIC}
+binfmt_misc,     {BINFMTFS_MAGIC}
+bpf,             {BPF_FS_MAGIC}
+btrfs,           {BTRFS_SUPER_MAGIC}
+btrfs_test_fs,   {BTRFS_TEST_MAGIC}
+ceph,            {CEPH_SUPER_MAGIC}
+cgroup2,         {CGROUP2_SUPER_MAGIC}
+cgroup,          {CGROUP_SUPER_MAGIC}
+cifs,            {CIFS_MAGIC_NUMBER}
+coda,            {CODA_SUPER_MAGIC}
+configfs,        {CONFIGFS_MAGIC}
+cramfs,          {CRAMFS_MAGIC}
+dax,             {DAXFS_MAGIC}
+debugfs,         {DEBUGFS_MAGIC}
+devmem,          {DEVMEM_MAGIC}
+devpts,          {DEVPTS_SUPER_MAGIC}
+dmabuf,          {DMA_BUF_MAGIC}
+ecryptfs,        {ECRYPTFS_SUPER_MAGIC}
+efivarfs,        {EFIVARFS_MAGIC}
+efs,             {EFS_SUPER_MAGIC}
+erofs,           {EROFS_SUPER_MAGIC_V1}
+ext2,            {EXT2_SUPER_MAGIC}
+ext3,            {EXT3_SUPER_MAGIC}
+ext4,            {EXT4_SUPER_MAGIC}
+exfat,           {EXFAT_SUPER_MAGIC}
+f2fs,            {F2FS_SUPER_MAGIC}
+fuseblk,         {FUSE_SUPER_MAGIC}
+fuse,            {FUSE_SUPER_MAGIC}
+fusectl,         {FUSE_CTL_SUPER_MAGIC}
+gfs,             {GFS2_MAGIC}
+gfs2,            {GFS2_MAGIC}
+hostfs,          {HOSTFS_SUPER_MAGIC}
+hpfs,            {HPFS_SUPER_MAGIC}
+hugetlbfs,       {HUGETLBFS_MAGIC}
+iso9660,         {ISOFS_SUPER_MAGIC}
+jffs2,           {JFFS2_SUPER_MAGIC}
+minix,           {MINIX_SUPER_MAGIC, MINIX_SUPER_MAGIC2, MINIX2_SUPER_MAGIC, MINIX2_SUPER_MAGIC2, MINIX3_SUPER_MAGIC}
+mqueue,          {MQUEUE_MAGIC}
+msdos,           {MSDOS_SUPER_MAGIC}
+ncp,             {NCP_SUPER_MAGIC}
+ncpfs,           {NCP_SUPER_MAGIC}
+nfs,             {NFS_SUPER_MAGIC}
+nfs4,            {NFS_SUPER_MAGIC}
+nilfs2,          {NILFS_SUPER_MAGIC}
+nsfs,            {NSFS_MAGIC}
+ocfs2,           {OCFS2_SUPER_MAGIC}
+openpromfs,      {OPENPROM_SUPER_MAGIC}
+orangefs,        {ORANGEFS_DEVREQ_MAGIC}
+overlay,         {OVERLAYFS_SUPER_MAGIC}
+pipefs,          {PIPEFS_MAGIC}
+ppc-cmm,         {PPC_CMM_MAGIC}
+proc,            {PROC_SUPER_MAGIC}
+pstore,          {PSTOREFS_MAGIC}
+pvfs2,           {ORANGEFS_DEVREQ_MAGIC}
+qnx4,            {QNX4_SUPER_MAGIC}
+qnx6,            {QNX6_SUPER_MAGIC}
+ramfs,           {RAMFS_MAGIC}
+resctrl,         {RDTGROUP_SUPER_MAGIC}
+reiserfs,        {REISERFS_SUPER_MAGIC}
+secretmem,       {SECRETMEM_MAGIC}
+securityfs,      {SECURITYFS_MAGIC}
+selinuxfs,       {SELINUX_MAGIC}
+shiftfs,         {SHIFTFS_MAGIC}
+smackfs,         {SMACK_MAGIC}
+smb3,            {SMB_SUPER_MAGIC}
+smbfs,           {SMB_SUPER_MAGIC}
+sockfs,          {SOCKFS_MAGIC}
+squashfs,        {SQUASHFS_MAGIC}
+sysfs,           {SYSFS_MAGIC}
+tmpfs,           {TMPFS_MAGIC}
+tracefs,         {TRACEFS_MAGIC}
+udf,             {UDF_SUPER_MAGIC}
+usbdevfs,        {USBDEVICE_SUPER_MAGIC}
+vboxsf,          {VBOXSF_SUPER_MAGIC}
+vfat,            {MSDOS_SUPER_MAGIC}
+v9fs,            {V9FS_MAGIC}
+xenfs,           {XENFS_SUPER_MAGIC}
+xfs,             {XFS_SUPER_MAGIC}
+z3fold,          {Z3FOLD_MAGIC}
+zonefs,          {ZONEFS_MAGIC}
+zsmalloc,        {ZSMALLOC_MAGIC}

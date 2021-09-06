@@ -179,6 +179,7 @@ RemoveIPC=
 RemoveOnStop=
 RestartKillSignal=
 RestrictAddressFamilies=
+RestrictFileSystems=
 RestrictNamespaces=
 RestrictNetworkInterfaces=
 RestrictRealtime=
