@@ -20,10 +20,11 @@ typedef struct Request Request;
 
 typedef struct NextHop {
         Network *network;
-        NetworkConfigSection *section;
-
         Manager *manager;
         Link *link;
+        NetworkConfigSection *section;
+        NetworkConfigSource source;
+        NetworkConfigState state;
 
         uint8_t protocol;
 
@@ -50,6 +51,8 @@ int request_process_nexthop(Request *req);
 
 int manager_get_nexthop_by_id(Manager *manager, uint32_t id, NextHop **ret);
 int manager_rtnl_process_nexthop(sd_netlink *rtnl, sd_netlink_message *message, Manager *m);
+
+DEFINE_NETWORK_CONFIG_STATE_FUNCTIONS(NextHop, nexthop);
 
 CONFIG_PARSER_PROTOTYPE(config_parse_nexthop_id);
 CONFIG_PARSER_PROTOTYPE(config_parse_nexthop_gateway);
