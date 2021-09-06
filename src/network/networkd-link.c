@@ -48,6 +48,7 @@
 #include "networkd-nexthop.h"
 #include "networkd-queue.h"
 #include "networkd-radv.h"
+#include "networkd-route.h"
 #include "networkd-routing-policy-rule.h"
 #include "networkd-setlink.h"
 #include "networkd-sriov.h"
@@ -227,29 +228,12 @@ static Link *link_free(Link *link) {
         link_dns_settings_clear(link);
 
         link->routes = set_free(link->routes);
-        link->routes_foreign = set_free(link->routes_foreign);
-        link->dhcp_routes = set_free(link->dhcp_routes);
-        link->dhcp_routes_old = set_free(link->dhcp_routes_old);
-        link->dhcp6_routes = set_free(link->dhcp6_routes);
-        link->dhcp6_routes_old = set_free(link->dhcp6_routes_old);
-        link->dhcp6_pd_routes = set_free(link->dhcp6_pd_routes);
-        link->dhcp6_pd_routes_old = set_free(link->dhcp6_pd_routes_old);
-        link->ndisc_routes = set_free(link->ndisc_routes);
 
         link->nexthops = set_free(link->nexthops);
 
         link->neighbors = set_free(link->neighbors);
 
         link->addresses = set_free(link->addresses);
-        link->addresses_foreign = set_free(link->addresses_foreign);
-        link->addresses_ipv4acd = set_free(link->addresses_ipv4acd);
-        link->pool_addresses = set_free(link->pool_addresses);
-        link->static_addresses = set_free(link->static_addresses);
-        link->dhcp6_addresses = set_free(link->dhcp6_addresses);
-        link->dhcp6_addresses_old = set_free(link->dhcp6_addresses_old);
-        link->dhcp6_pd_addresses = set_free(link->dhcp6_pd_addresses);
-        link->dhcp6_pd_addresses_old = set_free(link->dhcp6_pd_addresses_old);
-        link->ndisc_addresses = set_free(link->ndisc_addresses);
 
         link->dhcp6_pd_prefixes = set_free(link->dhcp6_pd_prefixes);
 
@@ -394,7 +378,7 @@ int link_stop_engines(Link *link, bool may_keep_dhcp) {
         if (k < 0)
                 r = log_link_warning_errno(link, k, "Could not stop DHCPv6 client: %m");
 
-        k = dhcp6_pd_remove(link);
+        k = dhcp6_pd_remove(link, /* only_marked = */ false);
         if (k < 0)
                 r = log_link_warning_errno(link, k, "Could not remove DHCPv6 PD addresses and routes: %m");
 
@@ -459,7 +443,7 @@ void link_check_ready(Link *link) {
                         _cleanup_free_ char *str = NULL;
 
                         (void) in_addr_prefix_to_string(a->family, &a->in_addr, a->prefixlen, &str);
-                        return (void) log_link_debug(link, "%s(): an address %s is not ready.", __func__, strna(str));
+                        return (void) log_link_debug(link, "%s(): address %s is not ready.", __func__, strna(str));
                 }
 
         if (!link->static_address_labels_configured)
@@ -495,44 +479,42 @@ void link_check_ready(Link *link) {
             !in6_addr_is_set(&link->ipv6ll_address))
                 return (void) log_link_debug(link, "%s(): IPv6LL is not configured yet.", __func__);
 
-        bool has_ndisc_address = false;
-        NDiscAddress *n;
-        SET_FOREACH(n, link->ndisc_addresses)
-                if (!n->marked) {
-                        has_ndisc_address = true;
+        bool has_dynamic_address = false;
+        SET_FOREACH(a, link->addresses) {
+                if (address_is_marked(a))
+                        continue;
+                if (!address_exists(a))
+                        continue;
+                if (IN_SET(a->source,
+                           NETWORK_CONFIG_SOURCE_IPV4LL, NETWORK_CONFIG_SOURCE_DHCP4,
+                           NETWORK_CONFIG_SOURCE_DHCP6, NETWORK_CONFIG_SOURCE_NDISC)) {
+                        has_dynamic_address = true;
                         break;
                 }
+        }
 
-        if ((link_dhcp4_enabled(link) || link_dhcp6_with_address_enabled(link) || link_ipv4ll_enabled(link)) &&
-            !link->dhcp_address && set_isempty(link->dhcp6_addresses) && !has_ndisc_address &&
-            !link->ipv4ll_address_configured)
+        if ((link_ipv4ll_enabled(link) || link_dhcp4_enabled(link) || link_dhcp6_with_address_enabled(link) ||
+             (link_dhcp6_pd_is_enabled(link) && link->network->dhcp6_pd_assign)) && !has_dynamic_address)
                 /* When DHCP[46] or IPv4LL is enabled, at least one address is acquired by them. */
                 return (void) log_link_debug(link, "%s(): DHCPv4, DHCPv6 or IPv4LL is enabled but no dynamic address is assigned yet.", __func__);
 
         /* Ignore NDisc when ConfigureWithoutCarrier= is enabled, as IPv6AcceptRA= is enabled by default. */
-        if (link_dhcp4_enabled(link) || link_dhcp6_enabled(link) || link_dhcp6_pd_is_enabled(link) ||
-            (!link->network->configure_without_carrier && link_ipv6_accept_ra_enabled(link)) ||
-            link_ipv4ll_enabled(link)) {
+        if (link_ipv4ll_enabled(link) || link_dhcp4_enabled(link) ||
+            link_dhcp6_enabled(link) || link_dhcp6_pd_is_enabled(link) ||
+            (!link->network->configure_without_carrier && link_ipv6_accept_ra_enabled(link))) {
 
-                if (!link->dhcp4_configured &&
-                    !(link->dhcp6_address_configured && link->dhcp6_route_configured) &&
-                    !(link->dhcp6_pd_address_configured && link->dhcp6_pd_route_configured) &&
-                    !(link->ndisc_addresses_configured && link->ndisc_routes_configured) &&
-                    !link->ipv4ll_address_configured)
+                if (!link->ipv4ll_address_configured && !link->dhcp4_configured &&
+                    !link->dhcp6_configured && !link->dhcp6_pd_configured && !link->ndisc_configured)
                         /* When DHCP[46], NDisc, or IPv4LL is enabled, at least one protocol must be finished. */
                         return (void) log_link_debug(link, "%s(): dynamic addresses or routes are not configured.", __func__);
 
-                log_link_debug(link, "%s(): DHCPv4:%s IPv4LL:%s DHCPv6_addresses:%s DHCPv6_routes:%s "
-                               "DHCPv6PD_addresses:%s DHCPv6PD_routes:%s NDisc_addresses:%s NDisc_routes:%s",
+                log_link_debug(link, "%s(): IPv4LL:%s DHCPv4:%s DHCPv6:%s DHCPv6PD:%s NDisc:%s",
                                __func__,
-                               yes_no(link->dhcp4_configured),
                                yes_no(link->ipv4ll_address_configured),
-                               yes_no(link->dhcp6_address_configured),
-                               yes_no(link->dhcp6_route_configured),
-                               yes_no(link->dhcp6_pd_address_configured),
-                               yes_no(link->dhcp6_pd_route_configured),
-                               yes_no(link->ndisc_addresses_configured),
-                               yes_no(link->ndisc_routes_configured));
+                               yes_no(link->dhcp4_configured),
+                               yes_no(link->dhcp6_configured),
+                               yes_no(link->dhcp6_pd_configured),
+                               yes_no(link->ndisc_configured));
         }
 
         link_set_state(link, LINK_STATE_CONFIGURED);
@@ -1747,18 +1729,6 @@ void link_update_operstate(Link *link, bool also_update_master) {
         }
 
         SET_FOREACH(address, link->addresses) {
-                if (!address_is_ready(address))
-                        continue;
-
-                if (address->family == AF_INET)
-                        ipv4_scope = MIN(ipv4_scope, address->scope);
-
-                if (address->family == AF_INET6)
-                        ipv6_scope = MIN(ipv6_scope, address->scope);
-        }
-
-        /* for operstate we also take foreign addresses into account */
-        SET_FOREACH(address, link->addresses_foreign) {
                 if (!address_is_ready(address))
                         continue;
 

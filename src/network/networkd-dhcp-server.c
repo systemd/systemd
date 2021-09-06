@@ -16,6 +16,7 @@
 #include "networkd-manager.h"
 #include "networkd-network.h"
 #include "networkd-queue.h"
+#include "networkd-route.h"
 #include "parse-util.h"
 #include "socket-netlink.h"
 #include "string-table.h"
@@ -74,6 +75,40 @@ void network_adjust_dhcp_server(Network *network) {
         }
 }
 
+int link_request_dhcp_server_address(Link *link) {
+        _cleanup_(address_freep) Address *address = NULL;
+        Address *existing;
+        int r;
+
+        assert(link);
+        assert(link->network);
+
+        if (!link_dhcp4_server_enabled(link))
+                return 0;
+
+        if (!in4_addr_is_set(&link->network->dhcp_server_address))
+                return 0;
+
+        r = address_new(&address);
+        if (r < 0)
+                return r;
+
+        address->source = NETWORK_CONFIG_SOURCE_STATIC;
+        address->family = AF_INET;
+        address->in_addr.in = link->network->dhcp_server_address;
+        address->prefixlen = link->network->dhcp_server_address_prefixlen;
+        address_set_broadcast(address);
+
+        if (address_get(link, address, &existing) >= 0 &&
+            address_exists(existing) &&
+            existing->source == NETWORK_CONFIG_SOURCE_STATIC)
+                /* The same address seems explicitly configured in [Address] or [Network] section.
+                 * Configure the DHCP server address only when it is not. */
+                return 0;
+
+        return link_request_static_address(link, TAKE_PTR(address), true);
+}
+
 static int link_find_dhcp_server_address(Link *link, Address **ret) {
         Address *address;
 
@@ -86,13 +121,21 @@ static int link_find_dhcp_server_address(Link *link, Address **ret) {
                                              link->network->dhcp_server_address_prefixlen, ret);
 
         /* If not, then select one from static addresses. */
-        SET_FOREACH(address, link->static_addresses)
-                if (address->family == AF_INET &&
-                    !in4_addr_is_localhost(&address->in_addr.in) &&
-                    in4_addr_is_null(&address->in_addr_peer.in)) {
-                        *ret = address;
-                        return 0;
-                }
+        SET_FOREACH(address, link->addresses) {
+                if (address->source != NETWORK_CONFIG_SOURCE_STATIC)
+                        continue;
+                if (!address_exists(address))
+                        continue;
+                if (address->family != AF_INET)
+                        continue;
+                if (in4_addr_is_localhost(&address->in_addr.in))
+                        continue;
+                if (in4_addr_is_set(&address->in_addr_peer.in))
+                        continue;
+
+                *ret = address;
+                return 0;
+        }
 
         return -ENOENT;
 }
@@ -503,9 +546,6 @@ static bool dhcp_server_is_ready_to_configure(Link *link) {
                 return false;
 
         if (!link_has_carrier(link))
-                return false;
-
-        if (link->address_remove_messages > 0)
                 return false;
 
         if (!link->static_addresses_configured)

@@ -4,6 +4,7 @@
 #include "log.h"
 #include "macro.h"
 #include "net-condition.h"
+#include "networkd-address.h"
 #include "networkd-conf.h"
 #include "networkd-network.h"
 #include "strv.h"

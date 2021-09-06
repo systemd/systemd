@@ -39,7 +39,6 @@ typedef enum LinkState {
 
 typedef struct Manager Manager;
 typedef struct Network Network;
-typedef struct Address Address;
 typedef struct DUID DUID;
 
 typedef struct Link {
@@ -92,8 +91,6 @@ typedef struct Link {
         unsigned static_nexthop_messages;
         unsigned static_route_messages;
         unsigned static_routing_policy_rule_messages;
-        unsigned address_remove_messages;
-        unsigned route_remove_messages;
         unsigned tc_messages;
         unsigned sr_iov_messages;
         unsigned set_link_messages;
@@ -102,19 +99,12 @@ typedef struct Link {
         unsigned create_stacked_netdev_after_configured_messages;
 
         Set *addresses;
-        Set *addresses_foreign;
-        Set *addresses_ipv4acd;
-        Set *pool_addresses;
-        Set *static_addresses;
         Set *neighbors;
         Set *routes;
-        Set *routes_foreign;
         Set *nexthops;
 
         sd_dhcp_client *dhcp_client;
         sd_dhcp_lease *dhcp_lease;
-        Address *dhcp_address, *dhcp_address_old;
-        Set *dhcp_routes, *dhcp_routes_old;
         char *lease_file;
         unsigned dhcp4_messages;
         bool dhcp4_route_failed:1;
@@ -145,31 +135,18 @@ typedef struct Link {
         sd_ndisc *ndisc;
         Set *ndisc_rdnss;
         Set *ndisc_dnssl;
-        Set *ndisc_addresses;
-        Set *ndisc_routes;
-        unsigned ndisc_addresses_messages;
-        unsigned ndisc_routes_messages;
-        bool ndisc_addresses_configured:1;
-        bool ndisc_routes_configured:1;
+        unsigned ndisc_messages;
+        bool ndisc_configured:1;
 
         sd_radv *radv;
 
         sd_dhcp6_client *dhcp6_client;
         sd_dhcp6_lease *dhcp6_lease;
-        Set *dhcp6_addresses, *dhcp6_addresses_old;
-        Set *dhcp6_routes, *dhcp6_routes_old;
         Set *dhcp6_pd_prefixes;
-        Set *dhcp6_pd_addresses, *dhcp6_pd_addresses_old;
-        Set *dhcp6_pd_routes, *dhcp6_pd_routes_old;
-        unsigned dhcp6_address_messages;
-        unsigned dhcp6_route_messages;
-        unsigned dhcp6_pd_address_messages;
-        unsigned dhcp6_pd_route_messages;
-        bool dhcp6_address_configured:1;
-        bool dhcp6_route_configured:1;
-        bool dhcp6_pd_address_configured:1;
-        bool dhcp6_pd_route_configured:1;
-        bool dhcp6_pd_prefixes_assigned:1;
+        unsigned dhcp6_messages;
+        unsigned dhcp6_pd_messages;
+        bool dhcp6_configured:1;
+        bool dhcp6_pd_configured:1;
 
         /* This is about LLDP reception */
         sd_lldp_rx *lldp_rx;

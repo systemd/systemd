@@ -743,8 +743,6 @@ static bool nexthop_is_ready_to_configure(Link *link, const NextHop *nexthop) {
                 return false;
 
         if (nexthop_owned_by_link(nexthop)) {
-                Link *l;
-
                 /* TODO: fdb nexthop does not require IFF_UP. The conditions below needs to be updated
                  * when fdb nexthop support is added. See rtm_to_nh_config() in net/ipv4/nexthop.c of
                  * kernel. */
@@ -752,13 +750,6 @@ static bool nexthop_is_ready_to_configure(Link *link, const NextHop *nexthop) {
                         return false;
                 if (!FLAGS_SET(link->flags, IFF_UP))
                         return false;
-
-                HASHMAP_FOREACH(l, link->manager->links_by_index) {
-                        if (l->address_remove_messages > 0)
-                                return false;
-                        if (l->route_remove_messages > 0)
-                                return false;
-                }
         }
 
         /* All group members must be configured first. */
