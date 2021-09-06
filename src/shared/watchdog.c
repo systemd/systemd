@@ -140,26 +140,29 @@ int watchdog_ping(void) {
         if (!timestamp_is_set(watchdog_timeout))
                 return 0;
 
-        ntime = now(clock_boottime_or_monotonic());
-
-        /* Never ping earlier than watchdog_timeout/4 and try to ping
-         * by watchdog_timeout/2 plus scheduling latencies the latest */
-        if (timestamp_is_set(watchdog_last_ping)) {
-                assert(ntime >= watchdog_last_ping);
-                if ((ntime - watchdog_last_ping) < (watchdog_timeout / 4))
-                        return 0;
-        }
-
         if (watchdog_fd < 0) {
+                /* open_watchdog() will automatically ping the device for us if necessary */
                 r = open_watchdog();
                 if (r < 0)
                         return r;
+        } else {
+
+                ntime = now(clock_boottime_or_monotonic());
+
+                /* Never ping earlier than watchdog_timeout/4 and try to ping
+                 * by watchdog_timeout/2 plus scheduling latencies the latest */
+                if (timestamp_is_set(watchdog_last_ping)) {
+                        assert(ntime >= watchdog_last_ping);
+                        if ((ntime - watchdog_last_ping) < (watchdog_timeout / 4))
+                                return 0;
+                }
+
+                if (ioctl(watchdog_fd, WDIOC_KEEPALIVE, 0) < 0)
+                        return log_warning_errno(errno, "Failed to ping hardware watchdog: %m");
+
+                watchdog_last_ping = ntime;
         }
 
-        if (ioctl(watchdog_fd, WDIOC_KEEPALIVE, 0) < 0)
-                return log_warning_errno(errno, "Failed to ping hardware watchdog: %m");
-
-        watchdog_last_ping = ntime;
         return 0;
 }
 
