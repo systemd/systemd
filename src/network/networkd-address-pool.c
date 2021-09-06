@@ -106,24 +106,6 @@ static bool address_pool_prefix_is_taken(
                         if (in_addr_prefix_intersect(p->family, u, prefixlen, &a->in_addr, a->prefixlen))
                                 return true;
                 }
-
-                /* Don't clash with assigned foreign addresses */
-                SET_FOREACH(a, l->addresses_foreign) {
-                        if (a->family != p->family)
-                                continue;
-
-                        if (in_addr_prefix_intersect(p->family, u, prefixlen, &a->in_addr, a->prefixlen))
-                                return true;
-                }
-
-                /* Don't clash with addresses already pulled from the pool, but not assigned yet */
-                SET_FOREACH(a, l->pool_addresses) {
-                        if (a->family != p->family)
-                                continue;
-
-                        if (in_addr_prefix_intersect(p->family, u, prefixlen, &a->in_addr, a->prefixlen))
-                                return true;
-                }
         }
 
         /* And don't clash with configured but un-assigned addresses either */
