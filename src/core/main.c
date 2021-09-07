@@ -2454,6 +2454,9 @@ static int parse_configuration(const struct rlimit *saved_rlimit_nofile,
         /* Push variables into the manager environment block */
         setenv_manager_environment();
 
+        /* Parse log environment variables again to take into account any new environment variables. */
+        log_parse_environment();
+
         return 0;
 }
 
