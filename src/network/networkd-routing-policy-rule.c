@@ -977,7 +977,7 @@ int manager_rtnl_process_rule(sd_netlink *rtnl, sd_netlink_message *message, Man
         case RTM_NEWRULE:
                 if (rule)
                         log_routing_policy_rule_debug(tmp, tmp->family, "Received remembered", NULL, m);
-                else if (!m->manage_foreign_routes)
+                else if (!m->manage_foreign_rules)
                         log_routing_policy_rule_debug(tmp, tmp->family, "Ignoring received foreign", NULL, m);
                 else {
                         log_routing_policy_rule_debug(tmp, tmp->family, "Remembering foreign", NULL, m);
