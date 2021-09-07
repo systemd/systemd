@@ -86,7 +86,7 @@ If you have a portable service image, maybe in a raw disk image called
 `foobar_0.7.23.raw`, then attaching the services to the host is as easy as:
 
 ```
-# /usr/lib/systemd/portablectl attach foobar_0.7.23.raw
+# portablectl attach foobar_0.7.23.raw
 ```
 
 This command does the following:
@@ -268,7 +268,7 @@ include template units such as `foobar@.service`, so that instantiation is as
 simple as:
 
 ```
-# /usr/lib/systemd/portablectl attach foobar_0.7.23.raw
+# portablectl attach foobar_0.7.23.raw
 # systemctl enable --now foobar@instancea.service
 # systemctl enable --now foobar@instanceb.service
 …
