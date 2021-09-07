@@ -83,7 +83,7 @@ If you have a portable service image, maybe in a raw disk image called
 `foobar_0.7.23.raw`, then attaching the services to the host is as easy as:
 
 ```
-# /usr/lib/systemd/portablectl attach foobar_0.7.23.raw
+# portablectl attach foobar_0.7.23.raw
 ```
 
 This command does the following:
@@ -270,8 +270,8 @@ following must be also be observed.
    with the right name prefix and suffix (see above).
 
 ```
-# /usr/lib/systemd/portablectl attach --extension foobar_0.7.23.raw debian-runtime_11.1.raw foobar
-# /usr/lib/systemd/portablectl attach --extension barbaz_7.0.23.raw debian-runtime_11.1.raw barbaz
+# portablectl attach --extension foobar_0.7.23.raw debian-runtime_11.1.raw foobar
+# portablectl attach --extension barbaz_7.0.23.raw debian-runtime_11.1.raw barbaz
 ```
 
 ## Execution Environment
@@ -299,7 +299,7 @@ include template units such as `foobar@.service`, so that instantiation is as
 simple as:
 
 ```
-# /usr/lib/systemd/portablectl attach foobar_0.7.23.raw
+# portablectl attach foobar_0.7.23.raw
 # systemctl enable --now foobar@instancea.service
 # systemctl enable --now foobar@instanceb.service
 …
