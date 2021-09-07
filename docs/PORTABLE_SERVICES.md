@@ -19,19 +19,18 @@ The primary tool for interacting with Portable Services is `portablectl`,
 and they are managed by the `systemd-portabled` service.
 
 Portable services don't bring anything inherently new to the table. All they do
-is put together known concepts in a slightly nicer way to cover a specific set
-of use-cases in a nicer way.
+is put together known concepts to cover a specific set of use-cases in a
+sligtly nicer way.
 
 ## So, what *is* a "Portable Service"?
 
-A portable service is ultimately just an OS tree, either inside of a directory
-tree, or inside a raw disk image (or a set of images that get layered, see
-[Layered Images](#layered-images)) containing a Linux file system. This tree is called the
-"image". It can be "attached" or "detached" from the system. When "attached"
-specific systemd units from the image are made available on the host system,
-then behaving pretty much exactly like locally installed system services. When
-"detached" these units are removed again from the host, leaving no artifacts
-around (except maybe messages they might have logged).
+A portable service is ultimately just an OS tree, either inside of a directory,
+or inside a raw disk image containing a Linux file system. This tree is called
+the "image". It can be "attached" or "detached" from the system. When
+"attached", specific systemd units from the image are made available on the
+host system, then behaving pretty much exactly like locally installed system
+services. When "detached", these units are removed again from the host, leaving
+no artifacts around (except maybe messages they might have logged).
 
 The OS tree/image can be created with any tool of your choice. For example, you
 can use `dnf --installroot=` if you like, or `debootstrap`, the image format is
@@ -43,6 +42,9 @@ particularly nice tool for creating suitable images is
 [mkosi](https://github.com/systemd/mkosi), but many other existing tools will
 do too.
 
+Portable services may also be constructed from layers, similarly to container
+environments. See [Extension Images](#extension-images) below.
+
 If you so will, "Portable Services" are a nicer way to manage chroot()
 environments, with better security, tooling and behavior.
 
@@ -52,25 +54,25 @@ environments, with better security, tooling and behavior.
 systemd-nspawn/LXC-type OS containers, for Docker/rkt-like micro service
 containers, and even certain 'lightweight' VM runtimes.
 
-The "portable service" concept ultimately will not provide a fully isolated
-environment to the payload, like containers mostly intend to. Instead they are
-from the beginning more alike regular system services, can be controlled with
-the same tools, are exposed the same way in all infrastructure and so on. Their
-main difference is that they use a different root directory than the rest of the
-system. Hence, the intention is not to run code in a different, isolated world
-from the host — like most containers would do it — but to run it in the same
-world, but with stricter access controls on what the service can see and do.
+"Portable services" do not provide a fully isolated environment to the payload,
+like containers mostly intend to. Instead, they are more like regular system
+services, can be controlled with the same tools, are exposed the same way in
+all infrastructure, and so on. The main difference is that they use a different
+root directory than the rest of the system. Hence, the intent is not to run
+code in a different, isolated environment from the host — like most containers
+would — but to run it in the same environment, but with stricter access
+controls on what the service can see and do.
 
-As one point of differentiation: as programs run as "portable services" are
-pretty much regular system services, they won't run as PID 1 (like Docker would
-do it), but as normal processes. A corollary of that is that they aren't supposed
-to manage anything in their own environment (such as the network) as the
-execution environment is mostly shared with the rest of the system.
+One point of differentiation: since programs running as "portable services" are
+pretty much regular system services, they won't run as PID 1 (like they would
+under Docker), but as normal processes. A corollary of that is that they aren't
+supposed to manage anything in their own environment (such as the network) as
+the execution environment is mostly shared with the rest of the system.
 
 The primary focus use-case of "portable services" is to extend the host system
 with encapsulated extensions, but provide almost full integration with the rest
-of the system, though possibly restricted by effective security knobs. This
-focus includes system extensions otherwise sometimes called "super-privileged
+of the system, though possibly restricted by security knobs. This focus
+includes system extensions otherwise sometimes called "super-privileged
 containers".
 
 Note that portable services are only available for system services, not for
@@ -88,16 +90,15 @@ If you have a portable service image, maybe in a raw disk image called
 
 This command does the following:
 
-1. It dissects the image, checks and validates the `/etc/os-release`
-   (or `/usr/lib/os-release`, see below)  data of the image, and looks for
-   all included unit files.
+1. It dissects the image, checks and validates the `os-release` file of the
+   image, and looks for all included unit files.
 
 2. It copies out all unit files with a suffix of `.service`, `.socket`,
    `.target`, `.timer` and `.path`. whose name begins with the image's name
-   (with the .raw removed), truncated at the first underscore (if there is
-   one). This prefix name generated from the image name must be followed by a
-   ".", "-" or "@" character in the unit name. Or in other words, given the
-   image name of `foobar_0.7.23.raw` all unit files matching
+   (with `.raw` removed), truncated at the first underscore if there is one.
+   This prefix name generated from the image name must be followed by a ".",
+   "-" or "@" character in the unit name. Or in other words, given the image
+   name of `foobar_0.7.23.raw` all unit files matching
    `foobar-*.{service|socket|target|timer|path}`,
    `foobar@.{service|socket|target|timer|path}` as well as
    `foobar.*.{service|socket|target|timer|path}` and
@@ -123,33 +124,32 @@ This command does the following:
 
 4. For each such unit a "profile" drop-in is linked in. This "profile" drop-in
    generally contains security options that lock down the service. By default
-   the `default` profile is used, which provides a medium level of
-   security. There's also `trusted` which runs the service at the highest
-   privileges, i.e. host's root and everything. The `strict` profile comes with
-   the toughest security restrictions. Finally, `nonetwork` is like `default`
-   but without network access. Users may define their own profiles too (or
-   modify the existing ones)
+   the `default` profile is used, which provides a medium level of security.
+   There's also `trusted`, which runs the service with no restrictions, i.e. in
+   the host file system root and with full privileges. The `strict` profile
+   comes with the toughest security restrictions. Finally, `nonetwork` is like
+   `default` but without network access. Users may define their own profiles
+   too (or modify the existing ones).
 
 And that's already it.
 
 Note that the images need to stay around (and in the same location) as long as the
 portable service is attached. If an image is moved, the `RootImage=` line
-written to the unit drop-in would point to an non-existing place, and break the
-logic.
+written to the unit drop-in would point to an non-existent path, and break
+access to the image.
 
 The `portablectl detach` command executes the reverse operation: it looks for
-the drop-ins and the unit files associated with the image, and removes them
-again.
+the drop-ins and the unit files associated with the image, and removes them.
 
 Note that `portablectl attach` won't enable or start any of the units it copies
 out by default, but `--enable` and `--now` parameter are available as shortcuts.
 The same is true for the opposite `detach` operation.
 
-A `portablectl reattach` command is made available to combine a `detach` with an
-`attach`, and it is useful in case an image gets upgraded, as it allows a to
-perform a `restart` operation on the unit(s) instead of `stop` plus `start`,
-thus providing lower downtime and avoiding losing runtime state associated with
-the unit such as the file descriptor store.
+The `portablectl reattach` command combines a `detach` with an `attach`. It is
+useful in case an image gets upgraded, as it allows performing a `restart`
+operation on the units instead of `stop` plus `start`, thus providing lower
+downtime and avoiding losing runtime state associated with the unit such as the
+file descriptor store.
 
 ## Requirements on Images
 
@@ -159,8 +159,8 @@ requirements are made for an image that can be attached/detached with
 `portablectl`.
 
 1. It must contain an executable that shall be invoked, along with all its
-   dependencies. If binary code, the code needs to be compiled for an
-   architecture compatible with the host.
+   dependencies. Any binary code needs to be compiled for an architecture
+   compatible with the host.
 
 2. The image must either be a plain sub-directory (or btrfs subvolume)
    containing the binaries and its dependencies in a classic Linux OS tree, or
@@ -195,9 +195,9 @@ requirements are made for an image that can be attached/detached with
    distribution's documentation.
 
 Note that images created by tools such as `debootstrap`, `dnf --installroot=`
-or `mkosi` generally qualify for all of the above in one way or another. If you
-wonder what the most minimal image would be that complies with the requirements
-above, it could consist of this:
+or `mkosi` generally satisfy all of the above. If you wonder what the most
+minimal image would be that complies with the requirements above, it could
+consist of this:
 
 ```
 /usr/bin/minimald                            # a statically compiled binary
@@ -221,9 +221,9 @@ but they generally don't have to, and it might make sense to avoid any, to keep
 images minimal.
 
 If the image is writable, and some of the files or directories that are
-overmounted from the host do not exist yet they are automatically created. On
-read-only, immutable images (e.g. squashfs images) all files and directories to
-over-mount must exist already.
+overmounted from the host do not exist yet they will be automatically created.
+On read-only, immutable images (e.g. squashfs images) all files and directories
+to over-mount must exist already.
 
 Note that as no new image format or metadata is defined, it's very
 straightforward to define images than can be made use of in a number of
@@ -242,9 +242,9 @@ single, unified image that:
 4. Can be booted directly on bare-metal systems.
 
 Of course, to facilitate 2, 3 and 4 you need to include an init system in the
-image. To facility 3 and 4 you also need to include a boot loader in the
-image. As mentioned `mkosi -b` takes care of all of that for you, but any other
-image generator should work too.
+image. To facilitate 3 and 4 you also need to include a boot loader in the
+image. As mentioned, `mkosi -b` takes care of all of that for you, but any
+other image generator should work too.
 
 ## Extension Images
 
@@ -255,10 +255,10 @@ portable services can share the same 'runtime' image (libraries, tools) without
 having to include everything each time, with the layering happening only at runtime.
 The `--extension` parameter of `portablectl` can be used to specify as many upper
 layers as desired. On top of the requirements listed in the previous section, the
-following must be also be observed.
+following must be also be observed:
 
-1. The base/OS image must contain an os-release file, either in `/etc/os-release` or
-   `/usr/lib/os-release`. The file should follow the standard format.
+1. The base/OS image must contain an `os-release file`, either in `/etc/os-release`
+   or `/usr/lib/os-release`, in the standard format.
 
 2. The upper extension(s) image(s) must contain an extension-release file in
    `/usr/lib/extension-release.d/`, with an `ID=` and `SYSEXT_LEVEL=`/`VERSION_ID=`
@@ -277,7 +277,7 @@ following must be also be observed.
 ## Execution Environment
 
 Note that the code in portable service images is run exactly like regular
-services. Hence there's no new execution environment to consider. Oh, unlike
+services. Hence there's no new execution environment to consider. And, unlike
 Docker would do it, as these are regular system services they aren't run as PID
 1 either, but with regular PID values.
 
@@ -294,7 +294,7 @@ subsystem are available to the service.
 
 Sometimes it makes sense to instantiate the same set of services multiple
 times. The portable service concept does not introduce a new logic for this. It
-is recommended to use the regular unit templating of systemd for this, i.e. to
+is recommended to use the regular systemd unit templating for this, i.e. to
 include template units such as `foobar@.service`, so that instantiation is as
 simple as:
 
