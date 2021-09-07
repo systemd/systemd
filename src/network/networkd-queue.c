@@ -70,9 +70,6 @@ static Request *request_free(Request *req) {
                 /* To prevent from triggering assertions in hash functions, remove this request before
                  * freeing object below. */
                 ordered_set_remove(req->link->manager->request_queue, req);
-        if (req->on_free)
-                /* on_free() may use object. So, let's call this earlier. */
-                req->on_free(req);
         if (req->consume_object)
                 request_free_object(req->type, req->object);
         link_unref(req->link);

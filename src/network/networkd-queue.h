@@ -15,11 +15,6 @@ typedef struct NextHop NextHop;
 typedef struct Route Route;
 typedef struct RoutingPolicyRule RoutingPolicyRule;
 
-typedef struct Request Request;
-
-typedef int (*request_after_configure_handler_t)(Request*, void*);
-typedef void (*request_on_free_handler_t)(Request*);
-
 typedef enum RequestType {
         REQUEST_TYPE_ACTIVATE_LINK,
         REQUEST_TYPE_ADDRESS,
@@ -63,8 +58,6 @@ typedef struct Request {
         void *userdata;
         unsigned *message_counter;
         link_netlink_message_handler_t netlink_handler;
-        request_after_configure_handler_t after_configure;
-        request_on_free_handler_t on_free;
 } Request;
 
 void request_drop(Request *req);
