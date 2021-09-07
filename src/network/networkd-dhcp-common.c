@@ -272,7 +272,7 @@ int config_parse_dhcp(
         return 0;
 }
 
-int config_parse_dhcp_route_metric(
+int config_parse_dhcp_or_ra_route_metric(
                 const char* unit,
                 const char *filename,
                 unsigned line,
@@ -290,6 +290,7 @@ int config_parse_dhcp_route_metric(
 
         assert(filename);
         assert(lvalue);
+        assert(IN_SET(ltype, AF_UNSPEC, AF_INET, AF_INET6));
         assert(rvalue);
         assert(data);
 
@@ -300,17 +301,24 @@ int config_parse_dhcp_route_metric(
                 return 0;
         }
 
-        if (streq_ptr(section, "DHCPv4")) {
+        switch(ltype) {
+        case AF_INET:
                 network->dhcp_route_metric = metric;
                 network->dhcp_route_metric_set = true;
-        } else if (STRPTR_IN_SET(section, "DHCPv6", "IPv6AcceptRA")) {
+                break;
+        case AF_INET6:
                 network->ipv6_accept_ra_route_metric = metric;
                 network->ipv6_accept_ra_route_metric_set = true;
-        } else { /* [DHCP] section */
+                break;
+        case AF_UNSPEC:
+                /* For backward compatibility. */
                 if (!network->dhcp_route_metric_set)
                         network->dhcp_route_metric = metric;
                 if (!network->ipv6_accept_ra_route_metric_set)
                         network->ipv6_accept_ra_route_metric = metric;
+                break;
+        default:
+                assert_not_reached();
         }
 
         return 0;
@@ -333,6 +341,7 @@ int config_parse_dhcp_use_dns(
 
         assert(filename);
         assert(lvalue);
+        assert(IN_SET(ltype, AF_UNSPEC, AF_INET, AF_INET6));
         assert(rvalue);
         assert(data);
 
@@ -343,17 +352,24 @@ int config_parse_dhcp_use_dns(
                 return 0;
         }
 
-        if (streq_ptr(section, "DHCPv4")) {
+        switch(ltype) {
+        case AF_INET:
                 network->dhcp_use_dns = r;
                 network->dhcp_use_dns_set = true;
-        } else if (streq_ptr(section, "DHCPv6")) {
+                break;
+        case AF_INET6:
                 network->dhcp6_use_dns = r;
                 network->dhcp6_use_dns_set = true;
-        } else { /* [DHCP] section */
+                break;
+        case AF_UNSPEC:
+                /* For backward compatibility. */
                 if (!network->dhcp_use_dns_set)
                         network->dhcp_use_dns = r;
                 if (!network->dhcp6_use_dns_set)
                         network->dhcp6_use_dns = r;
+                break;
+        default:
+                assert_not_reached();
         }
 
         return 0;
@@ -376,6 +392,7 @@ int config_parse_dhcp_use_domains(
 
         assert(filename);
         assert(lvalue);
+        assert(IN_SET(ltype, AF_UNSPEC, AF_INET, AF_INET6));
         assert(rvalue);
         assert(data);
 
@@ -386,17 +403,24 @@ int config_parse_dhcp_use_domains(
                 return 0;
         }
 
-        if (streq_ptr(section, "DHCPv4")) {
+        switch(ltype) {
+        case AF_INET:
                 network->dhcp_use_domains = d;
                 network->dhcp_use_domains_set = true;
-        } else if (streq_ptr(section, "DHCPv6")) {
+                break;
+        case AF_INET6:
                 network->dhcp6_use_domains = d;
                 network->dhcp6_use_domains_set = true;
-        } else { /* [DHCP] section */
+                break;
+        case AF_UNSPEC:
+                /* For backward compatibility. */
                 if (!network->dhcp_use_domains_set)
                         network->dhcp_use_domains = d;
                 if (!network->dhcp6_use_domains_set)
                         network->dhcp6_use_domains = d;
+                break;
+        default:
+                assert_not_reached();
         }
 
         return 0;
@@ -419,6 +443,7 @@ int config_parse_dhcp_use_ntp(
 
         assert(filename);
         assert(lvalue);
+        assert(IN_SET(ltype, AF_UNSPEC, AF_INET, AF_INET6));
         assert(rvalue);
         assert(data);
 
@@ -429,17 +454,24 @@ int config_parse_dhcp_use_ntp(
                 return 0;
         }
 
-        if (streq_ptr(section, "DHCPv4")) {
+        switch(ltype) {
+        case AF_INET:
                 network->dhcp_use_ntp = r;
                 network->dhcp_use_ntp_set = true;
-        } else if (streq_ptr(section, "DHCPv6")) {
+                break;
+        case AF_INET6:
                 network->dhcp6_use_ntp = r;
                 network->dhcp6_use_ntp_set = true;
-        } else { /* [DHCP] section */
+                break;
+        case AF_UNSPEC:
+                /* For backward compatibility. */
                 if (!network->dhcp_use_ntp_set)
                         network->dhcp_use_ntp = r;
                 if (!network->dhcp6_use_ntp_set)
                         network->dhcp6_use_ntp = r;
+                break;
+        default:
+                assert_not_reached();
         }
 
         return 0;
