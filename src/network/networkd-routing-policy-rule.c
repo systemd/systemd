@@ -1115,7 +1115,7 @@ int manager_rtnl_process_rule(sd_netlink *rtnl, sd_netlink_message *message, Man
                         r = routing_policy_rule_update_priority(rule, tmp->priority);
                         if (r < 0)
                                 log_warning_errno(r, "Failed to update priority of remembered routing policy rule, ignoring: %m");
-                } else if (!m->manage_foreign_routes)
+                } else if (!m->manage_foreign_rules)
                         log_routing_policy_rule_debug(tmp, "Ignoring received foreign", NULL, m);
                 else {
                         log_routing_policy_rule_debug(tmp, "Remembering foreign", NULL, m);
