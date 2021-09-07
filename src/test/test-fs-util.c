@@ -865,6 +865,60 @@ static void test_conservative_rename(void) {
         assert_se(access(q, F_OK) < 0 && errno == ENOENT);
 }
 
+static void test_rmdir_parents_one(
+                const char *prefix,
+                const char *path,
+                const char *stop,
+                int expected,
+                const char *test_exist,
+                const char *test_nonexist_subdir) {
+
+        const char *p, *s;
+
+        log_debug("/* %s(%s, %s) */", __func__, path, stop);
+
+        p = strjoina(prefix, path);
+        s = strjoina(prefix, stop);
+
+        if (expected >= 0)
+                assert_se(mkdir_parents(p, 0700) >= 0);
+
+        assert_se(rmdir_parents(p, s) == expected);
+
+        if (expected >= 0) {
+                const char *e, *f;
+
+                e = strjoina(prefix, test_exist);
+                f = strjoina(e, test_nonexist_subdir);
+
+                assert_se(access(e, F_OK) >= 0);
+                assert_se(access(f, F_OK) < 0);
+        }
+}
+
+static void test_rmdir_parents(void) {
+        char *temp;
+
+        log_info("/* %s */", __func__);
+
+        temp = strjoina(arg_test_dir ?: "/tmp", "/test-rmdir.XXXXXX");
+        assert_se(mkdtemp(temp));
+
+        test_rmdir_parents_one(temp, "/aaa/../hoge/foo", "/hoge/foo", -EINVAL, NULL, NULL);
+        test_rmdir_parents_one(temp, "/aaa/bbb/ccc", "/hoge/../aaa", -EINVAL, NULL, NULL);
+
+        test_rmdir_parents_one(temp, "/aaa/bbb/ccc/ddd/eee", "/aaa/bbb/ccc/ddd", 0, "/aaa/bbb/ccc/ddd", "/eee");
+        test_rmdir_parents_one(temp, "/aaa/bbb/ccc/ddd/eee", "/aaa/bbb/ccc", 0, "/aaa/bbb/ccc", "/ddd");
+        test_rmdir_parents_one(temp, "/aaa/bbb/ccc/ddd/eee", "/aaa/bbb", 0, "/aaa/bbb", "/ccc");
+        test_rmdir_parents_one(temp, "/aaa/bbb/ccc/ddd/eee", "/aaa", 0, "/aaa", "/bbb");
+        test_rmdir_parents_one(temp, "/aaa/bbb/ccc/ddd/eee", "/", 0, "/", "/aaa");
+
+        test_rmdir_parents_one(temp, "/aaa/bbb/ccc/ddd/eee", "/aaa/hoge/foo", 0, "/aaa", "/bbb");
+        test_rmdir_parents_one(temp, "/aaa////bbb/.//ccc//ddd/eee///./.", "///././aaa/.", 0, "/aaa", "/bbb");
+
+        assert_se(rm_rf(temp, REMOVE_ROOT|REMOVE_PHYSICAL) >= 0);
+}
+
 int main(int argc, char *argv[]) {
         test_setup_logging(LOG_INFO);
 
@@ -883,6 +937,7 @@ int main(int argc, char *argv[]) {
         test_rename_noreplace();
         test_chmod_and_chown();
         test_conservative_rename();
+        test_rmdir_parents();
 
         return 0;
 }
