@@ -80,7 +80,7 @@ const char *dhcp_option_data_type_to_string(DHCPOptionDataType d) _const_;
 DHCPOptionDataType dhcp_option_data_type_from_string(const char *d) _pure_;
 
 CONFIG_PARSER_PROTOTYPE(config_parse_dhcp);
-CONFIG_PARSER_PROTOTYPE(config_parse_dhcp_route_metric);
+CONFIG_PARSER_PROTOTYPE(config_parse_dhcp_or_ra_route_metric);
 CONFIG_PARSER_PROTOTYPE(config_parse_dhcp_use_dns);
 CONFIG_PARSER_PROTOTYPE(config_parse_dhcp_use_domains);
 CONFIG_PARSER_PROTOTYPE(config_parse_dhcp_use_ntp);
