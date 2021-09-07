@@ -26,6 +26,7 @@
 #include "netlink-util.h"
 #include "network-internal.h"
 #include "networkd-address-pool.h"
+#include "networkd-address.h"
 #include "networkd-dhcp-server-bus.h"
 #include "networkd-dhcp6.h"
 #include "networkd-link-bus.h"
@@ -35,6 +36,7 @@
 #include "networkd-network-bus.h"
 #include "networkd-nexthop.h"
 #include "networkd-queue.h"
+#include "networkd-route.h"
 #include "networkd-routing-policy-rule.h"
 #include "networkd-speed-meter.h"
 #include "networkd-state-file.h"
@@ -456,9 +458,6 @@ Manager* manager_free(Manager *m) {
 
         m->request_queue = ordered_set_free(m->request_queue);
 
-        m->dhcp6_prefixes = hashmap_free_with_destructor(m->dhcp6_prefixes, dhcp6_pd_free);
-        m->dhcp6_pd_prefixes = set_free_with_destructor(m->dhcp6_pd_prefixes, dhcp6_pd_free);
-
         m->dirty_links = set_free_with_destructor(m->dirty_links, link_unref);
         m->links_by_name = hashmap_free(m->links_by_name);
         m->links_by_hw_addr = hashmap_free(m->links_by_hw_addr);
@@ -473,10 +472,7 @@ Manager* manager_free(Manager *m) {
         hashmap_free(m->route_table_names_by_number);
         hashmap_free(m->route_table_numbers_by_name);
 
-        /* routing_policy_rule_free() access m->rules and m->rules_foreign.
-         * So, it is necessary to set NULL after the sets are freed. */
-        m->rules = set_free(m->rules);
-        m->rules_foreign = set_free(m->rules_foreign);
+        set_free(m->rules);
 
         sd_netlink_unref(m->rtnl);
         sd_netlink_unref(m->genl);
@@ -490,7 +486,6 @@ Manager* manager_free(Manager *m) {
         m->routes_foreign = set_free(m->routes_foreign);
 
         m->nexthops = set_free(m->nexthops);
-        m->nexthops_foreign = set_free(m->nexthops_foreign);
         m->nexthops_by_id = hashmap_free(m->nexthops_by_id);
 
         sd_event_source_unref(m->speed_meter_event_source);
