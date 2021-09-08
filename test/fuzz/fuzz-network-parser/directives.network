@@ -148,6 +148,7 @@ RouteMetric=
 IAID=
 DUIDType=
 DUIDRawData=
+RouteTable=
 [DHCPv6PrefixDelegation]
 SubnetId=
 Announce=

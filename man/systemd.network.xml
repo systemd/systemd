@@ -2111,6 +2111,7 @@ IPv6Token=prefixstable:2002:da8:1::</programlisting></para>
         </varlistentry>
 
         <varlistentry>
+          <term><varname>RouteMetric=</varname></term>
           <term><varname>UseDNS=</varname></term>
           <term><varname>UseNTP=</varname></term>
           <term><varname>UseHostname=</varname></term>

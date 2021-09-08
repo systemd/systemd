@@ -44,6 +44,10 @@ typedef struct DUID {
         bool set;
 } DUID;
 
+uint32_t link_get_dhcp4_route_table(Link *link);
+uint32_t link_get_dhcp6_route_table(Link *link);
+uint32_t link_get_ipv6_accept_ra_route_table(Link *link);
+
 bool link_dhcp_enabled(Link *link, int family);
 static inline bool link_dhcp4_enabled(Link *link) {
         return link_dhcp_enabled(link, AF_INET);
@@ -85,7 +89,7 @@ CONFIG_PARSER_PROTOTYPE(config_parse_dhcp_use_dns);
 CONFIG_PARSER_PROTOTYPE(config_parse_dhcp_use_domains);
 CONFIG_PARSER_PROTOTYPE(config_parse_dhcp_use_ntp);
 CONFIG_PARSER_PROTOTYPE(config_parse_iaid);
-CONFIG_PARSER_PROTOTYPE(config_parse_section_route_table);
+CONFIG_PARSER_PROTOTYPE(config_parse_dhcp_or_ra_route_table);
 CONFIG_PARSER_PROTOTYPE(config_parse_dhcp_user_or_vendor_class);
 CONFIG_PARSER_PROTOTYPE(config_parse_dhcp_send_option);
 CONFIG_PARSER_PROTOTYPE(config_parse_dhcp_request_options);

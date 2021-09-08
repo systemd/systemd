@@ -211,7 +211,7 @@ static int dhcp4_request_route(Route *in, Link *link) {
         if (!route->priority_set)
                 route->priority = link->network->dhcp_route_metric;
         if (!route->table_set)
-                route->table = link_get_dhcp_route_table(link);
+                route->table = link_get_dhcp4_route_table(link);
         if (route->mtu == 0)
                 route->mtu = link->network->dhcp_route_mtu;
 
