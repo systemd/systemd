@@ -20,10 +20,7 @@ fi
 
 test_append_files() {
     (
-        instmods "=block"
-        instmods "=md"
-        instmods "=scsi"
-        instmods "=nvme"
+        instmods "=block" "=md" "=nvme" "=scsi"
         install_dmevent
         generate_module_dependencies
         inst_binary lsblk
