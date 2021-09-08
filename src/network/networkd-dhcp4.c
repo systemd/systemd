@@ -984,11 +984,9 @@ static int dhcp4_request_address(Link *link, bool announce) {
         addr->route_metric = link->network->dhcp_route_metric;
         addr->duplicate_address_detection = link->network->dhcp_send_decline ? ADDRESS_FAMILY_IPV4 : ADDRESS_FAMILY_NO;
 
-        if (link->network->dhcp_label) {
-                addr->label = strdup(link->network->dhcp_label);
-                if (!addr->label)
-                        return log_oom();
-        }
+        r = free_and_strdup_warn(&addr->label, link->network->dhcp_label);
+        if (r < 0)
+                return r;
 
         if (address_get(link, addr, NULL) < 0)
                 link->dhcp4_configured = false;
