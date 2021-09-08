@@ -249,7 +249,7 @@ static int dhcp4_request_prefix_route(Link *link) {
         route->prefsrc.in = address;
         route->scope = RT_SCOPE_LINK;
         route->protocol = RTPROT_DHCP;
-        route->table = link_get_dhcp_route_table(link);
+        route->table = link_get_dhcp4_route_table(link);
         route->mtu = link->network->dhcp_route_mtu;
 
         return dhcp4_request_route(TAKE_PTR(route), link);
@@ -279,7 +279,7 @@ static int dhcp4_request_route_to_gateway(Link *link, const struct in_addr *gw) 
         route->scope = RT_SCOPE_LINK;
         route->protocol = RTPROT_DHCP;
         route->priority = link->network->dhcp_route_metric;
-        route->table = link_get_dhcp_route_table(link);
+        route->table = link_get_dhcp4_route_table(link);
         route->mtu = link->network->dhcp_route_mtu;
 
         return dhcp4_request_route(TAKE_PTR(route), link);
@@ -458,7 +458,7 @@ static int dhcp4_request_static_routes(Link *link, struct in_addr *ret_default_g
                 route->gw_family = AF_INET;
                 route->protocol = RTPROT_DHCP;
                 route->priority = link->network->dhcp_route_metric;
-                route->table = link_get_dhcp_route_table(link);
+                route->table = link_get_dhcp4_route_table(link);
                 route->mtu = link->network->dhcp_route_mtu;
 
                 r = sd_dhcp_route_get_gateway(static_routes[i], &gw);
@@ -543,7 +543,7 @@ static int dhcp4_request_gateway(Link *link, struct in_addr *gw) {
         route->prefsrc.in = address;
         route->protocol = RTPROT_DHCP;
         route->priority = link->network->dhcp_route_metric;
-        route->table = link_get_dhcp_route_table(link);
+        route->table = link_get_dhcp4_route_table(link);
         route->mtu = link->network->dhcp_route_mtu;
 
         r = dhcp4_request_route(TAKE_PTR(route), link);
@@ -591,7 +591,7 @@ static int dhcp4_request_semi_static_routes(Link *link, const struct in_addr *gw
                 if (!route->priority_set)
                         route->priority = link->network->dhcp_route_metric;
                 if (!route->table_set)
-                        route->table = link_get_dhcp_route_table(link);
+                        route->table = link_get_dhcp4_route_table(link);
                 if (route->mtu == 0)
                         route->mtu = link->network->dhcp_route_mtu;
 
@@ -632,7 +632,7 @@ static int dhcp4_request_routes_to_servers(
                 route->dst_prefixlen = 32;
                 route->protocol = RTPROT_DHCP;
                 route->priority = link->network->dhcp_route_metric;
-                route->table = link_get_dhcp_route_table(link);
+                route->table = link_get_dhcp4_route_table(link);
                 route->mtu = link->network->dhcp_route_mtu;
 
                 r = dhcp4_request_route_auto(TAKE_PTR(route), link, gw);
