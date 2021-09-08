@@ -437,7 +437,6 @@ static int address_add(Link *link, const Address *in, Address **ret) {
 
 static int address_update(Address *address, const Address *src) {
         Link *link;
-        bool ready;
         int r;
 
         assert(address);
@@ -445,7 +444,6 @@ static int address_update(Address *address, const Address *src) {
         assert(src);
 
         link = address->link;
-        ready = address_is_ready(address);
 
         address->flags = src->flags;
         address->scope = src->scope;
@@ -470,17 +468,14 @@ static int address_update(Address *address, const Address *src) {
         if (r < 0)
                 return log_link_warning_errno(link, r, "Could not enable IP masquerading: %m");
 
-        link_update_operstate(link, true);
-        link_check_ready(link);
-
-        if (!ready && address_is_ready(address)) {
-                if (address->callback) {
-                        r = address->callback(address);
-                        if (r < 0)
-                                return r;
-                }
+        if (address_is_ready(address) && address->callback) {
+                r = address->callback(address);
+                if (r < 0)
+                        return r;
         }
 
+        link_update_operstate(link, true);
+        link_check_ready(link);
         return 0;
 }
 
