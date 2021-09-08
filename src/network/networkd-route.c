@@ -1187,6 +1187,24 @@ static int manager_drop_routes(Manager *manager, const Link *except) {
         return manager_drop_routes_internal(manager, false, except);
 }
 
+static bool route_by_kernel(const Route *route) {
+        assert(route);
+
+        if (route->protocol == RTPROT_KERNEL)
+                return true;
+
+        /* Do not touch multicast route added by kernel. See issue #6088.
+         * TODO: Why the kernel adds this route with protocol RTPROT_BOOT?
+         * https://tools.ietf.org/html/rfc4862#section-5.4 may explain why. */
+        if (route->protocol == RTPROT_BOOT &&
+            route->family == AF_INET6 &&
+            route->dst_prefixlen == 8 &&
+            in6_addr_equal(&route->dst.in6, & (struct in6_addr) {{{ 0xff,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0 }}}))
+                return true;
+
+        return false;
+}
+
 int link_drop_foreign_routes(Link *link) {
         Route *route;
         int k, r = 0;
@@ -1196,16 +1214,7 @@ int link_drop_foreign_routes(Link *link) {
 
         SET_FOREACH(route, link->routes_foreign) {
                 /* do not touch routes managed by the kernel */
-                if (route->protocol == RTPROT_KERNEL)
-                        continue;
-
-                /* do not touch multicast route added by kernel */
-                /* FIXME: Why the kernel adds this route with protocol RTPROT_BOOT??? We need to investigate that.
-                 * https://tools.ietf.org/html/rfc4862#section-5.4 may explain why. */
-                if (route->protocol == RTPROT_BOOT &&
-                    route->family == AF_INET6 &&
-                    route->dst_prefixlen == 8 &&
-                    in_addr_equal(AF_INET6, &route->dst, &(union in_addr_union) { .in6 = {{{ 0xff,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0 }}} }))
+                if (route_by_kernel(route))
                         continue;
 
                 if (route->protocol == RTPROT_STATIC && link->network &&
