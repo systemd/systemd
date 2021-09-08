@@ -4154,7 +4154,7 @@ _public_ int sd_event_loop(sd_event *e) {
         assert_return(!event_pid_changed(e), -ECHILD);
         assert_return(e->state == SD_EVENT_INITIAL, -EBUSY);
 
-        _unused_ _cleanup_(sd_event_unrefp) sd_event *ref = NULL;
+        _unused_ _cleanup_(sd_event_unrefp) sd_event *ref = sd_event_ref(e);
 
         while (e->state != SD_EVENT_FINISHED) {
                 r = sd_event_run(e, UINT64_MAX);
