@@ -816,7 +816,7 @@ int dissect_image(
 
                         m->partitions[PARTITION_ROOT] = (DissectedPartition) {
                                 .found = true,
-                                .rw = !m->verity_ready,
+                                .rw = !m->verity_ready && !fstype_is_ro(fstype),
                                 .partno = -1,
                                 .architecture = _ARCHITECTURE_INVALID,
                                 .fstype = TAKE_PTR(t),
