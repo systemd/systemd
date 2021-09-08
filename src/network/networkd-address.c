@@ -454,6 +454,10 @@ static int address_update(Address *address, const Address *src) {
         if (IN_SET(link->state, LINK_STATE_FAILED, LINK_STATE_LINGER))
                 return 0;
 
+        r = address_set_masquerade(address, true);
+        if (r < 0)
+                return log_link_warning_errno(link, r, "Could not enable IP masquerading: %m");
+
         link_update_operstate(link, true);
         link_check_ready(link);
 
@@ -1289,10 +1293,6 @@ int request_process_address(Request *req) {
                 if (r < 0)
                         return r;
         }
-
-        r = address_set_masquerade(a, true);
-        if (r < 0)
-                log_link_warning_errno(link, r, "Could not enable IP masquerading, ignoring: %m");
 
         return 1;
 }
