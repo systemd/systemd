@@ -148,6 +148,28 @@ int write_string_stream_ts(
                         return -EBADF;
         }
 
+        if (flags & WRITE_STRING_VIRTUALFILE_SUPRESS_IF_POSSIBLE) {
+                _cleanup_free_ char *ret = NULL;
+
+                if (fd < 0) {
+                        fd = fileno(f);
+                        if (fd < 0)
+                                return -EBADF;
+                }
+
+                r = read_virtual_stream(fd, SIZE_MAX, &ret, NULL);
+                if (r > 0) {
+                        ret = delete_trailing_chars(ret, NEWLINE);
+                        if (strneq(ret, line, strlen(ret))) {
+                                log_debug("No change in value '%s', supressing write", line);
+                                return 0;
+                        }
+                }
+
+                if (lseek(fd, 0, SEEK_SET) < 0)
+                        return -errno;
+        }
+
         needs_nl = !(flags & WRITE_STRING_FILE_AVOID_NEWLINE) && !endswith(line, "\n");
 
         if (needs_nl && (flags & WRITE_STRING_FILE_DISABLE_BUFFER)) {
@@ -263,10 +285,11 @@ int write_string_file_ts(
                 assert(!ts);
 
         /* We manually build our own version of fopen(..., "we") that works without O_CREAT and with O_NOFOLLOW if needed. */
-        fd = open(fn, O_WRONLY|O_CLOEXEC|O_NOCTTY |
+        fd = open(fn, O_CLOEXEC|O_NOCTTY |
                   (FLAGS_SET(flags, WRITE_STRING_FILE_NOFOLLOW) ? O_NOFOLLOW : 0) |
                   (FLAGS_SET(flags, WRITE_STRING_FILE_CREATE) ? O_CREAT : 0) |
-                  (FLAGS_SET(flags, WRITE_STRING_FILE_TRUNCATE) ? O_TRUNC : 0),
+                  (FLAGS_SET(flags, WRITE_STRING_FILE_TRUNCATE) ? O_TRUNC : 0) |
+                  (FLAGS_SET(flags, WRITE_STRING_VIRTUALFILE_SUPRESS_IF_POSSIBLE) ? O_RDWR : O_WRONLY),
                   (FLAGS_SET(flags, WRITE_STRING_FILE_MODE_0600) ? 0600 : 0666));
         if (fd < 0) {
                 r = -errno;
@@ -375,9 +398,8 @@ int verify_file(const char *fn, const char *blob, bool accept_extra_nl) {
         return 1;
 }
 
-int read_virtual_file(const char *filename, size_t max_size, char **ret_contents, size_t *ret_size) {
+int read_virtual_stream(int fd, size_t max_size, char **ret_contents, size_t *ret_size) {
         _cleanup_free_ char *buf = NULL;
-        _cleanup_close_ int fd = -1;
         size_t n, size;
         int n_retries;
         bool truncated = false;
@@ -395,9 +417,6 @@ int read_virtual_file(const char *filename, size_t max_size, char **ret_contents
          * contents* may be returned. (Though the read is still done using one syscall.) Returns 0 on
          * partial success, 1 if untruncated contents were read. */
 
-        fd = open(filename, O_RDONLY|O_NOCTTY|O_CLOEXEC);
-        if (fd < 0)
-                return -errno;
 
         assert(max_size <= READ_VIRTUAL_BYTES_MAX || max_size == SIZE_MAX);
 
@@ -434,8 +453,8 @@ int read_virtual_file(const char *filename, size_t max_size, char **ret_contents
 
                         n_retries--;
                 } else if (n_retries > 1) {
-                        /* Files in /proc are generally smaller than the page size so let's start with a page size
-                         * buffer from malloc and only use the max buffer on the final try. */
+                        /* Files in /proc are generally smaller than the page size so let's start with a page
+                         * size buffer from malloc and only use the max buffer on the final try. */
                         size = MIN3(page_size() - 1, READ_VIRTUAL_BYTES_MAX, max_size);
                         n_retries = 1;
                 } else {
@@ -522,6 +541,16 @@ int read_virtual_file(const char *filename, size_t max_size, char **ret_contents
                 *ret_size = n;
 
         return !truncated;
+}
+
+int read_virtual_file(const char *filename, size_t max_size, char **ret_contents, size_t *ret_size) {
+        _cleanup_close_ int fd = -1;
+
+        fd = open(filename, O_RDONLY | O_NOCTTY | O_CLOEXEC);
+        if (fd < 0)
+                return -errno;
+
+        return read_virtual_stream(fd, max_size, ret_contents, ret_size);
 }
 
 int read_full_stream_full(
