@@ -118,8 +118,8 @@ typedef enum DissectImageFlags {
 
 struct DissectedImage {
         bool encrypted:1;
-        bool verity:1;     /* verity available and usable */
-        bool can_verity:1; /* verity available, but not necessarily used */
+        bool has_verity:1;         /* verity available in image, but not necessarily used */
+        bool verity_ready:1;       /* verity available, fully specified and usable */
         bool single_file_system:1; /* MBR/GPT or single file system */
 
         DissectedPartition partitions[_PARTITION_DESIGNATOR_MAX];

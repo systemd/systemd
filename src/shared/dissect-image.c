@@ -797,8 +797,12 @@ int dissect_image(
                                 return -ENOMEM;
 
                         m->single_file_system = true;
-                        m->verity = verity && verity->root_hash && verity->data_path && (verity->designator < 0 || verity->designator == PARTITION_ROOT);
-                        m->can_verity = verity && verity->data_path;
+                        m->encrypted = streq_ptr(fstype, "crypto_LUKS");
+
+                        m->has_verity = verity && verity->data_path;
+                        m->verity_ready = m->has_verity &&
+                                verity->root_hash &&
+                                (verity->designator < 0 || verity->designator == PARTITION_ROOT);
 
                         options = mount_options_from_designator(mount_options, PARTITION_ROOT);
                         if (options) {
@@ -809,15 +813,13 @@ int dissect_image(
 
                         m->partitions[PARTITION_ROOT] = (DissectedPartition) {
                                 .found = true,
-                                .rw = !m->verity,
+                                .rw = !m->verity_ready,
                                 .partno = -1,
                                 .architecture = _ARCHITECTURE_INVALID,
                                 .fstype = TAKE_PTR(t),
                                 .node = TAKE_PTR(n),
                                 .mount_options = TAKE_PTR(o),
                         };
-
-                        m->encrypted = streq_ptr(fstype, "crypto_LUKS");
 
                         *ret = TAKE_PTR(m);
                         return 0;
@@ -971,7 +973,7 @@ int dissect_image(
                                 if (pflags & GPT_FLAG_NO_AUTO)
                                         continue;
 
-                                m->can_verity = true;
+                                m->has_verity = true;
 
                                 /* Ignore verity unless a root hash is specified */
                                 if (sd_id128_is_null(root_verity_uuid) || !sd_id128_equal(root_verity_uuid, id))
@@ -1007,7 +1009,7 @@ int dissect_image(
                                 if (pflags & GPT_FLAG_NO_AUTO)
                                         continue;
 
-                                m->can_verity = true;
+                                m->has_verity = true;
 
                                 /* Ignore verity unless root has is specified */
                                 if (sd_id128_is_null(root_verity_uuid) || !sd_id128_equal(root_verity_uuid, id))
@@ -1043,7 +1045,7 @@ int dissect_image(
                                 if (pflags & GPT_FLAG_NO_AUTO)
                                         continue;
 
-                                m->can_verity = true;
+                                m->has_verity = true;
 
                                 /* Ignore verity unless a usr hash is specified */
                                 if (sd_id128_is_null(usr_verity_uuid) || !sd_id128_equal(usr_verity_uuid, id))
@@ -1079,7 +1081,7 @@ int dissect_image(
                                 if (pflags & GPT_FLAG_NO_AUTO)
                                         continue;
 
-                                m->can_verity = true;
+                                m->has_verity = true;
 
                                 /* Ignore verity unless usr has is specified */
                                 if (sd_id128_is_null(usr_verity_uuid) || !sd_id128_equal(usr_verity_uuid, id))
@@ -1386,7 +1388,7 @@ int dissect_image(
 
                         /* If we found a verity setup, then the root partition is necessarily read-only. */
                         m->partitions[PARTITION_ROOT].rw = false;
-                        m->verity = true;
+                        m->verity_ready = true;
                 }
 
                 if (verity->designator == PARTITION_USR) {
@@ -1394,7 +1396,7 @@ int dissect_image(
                                 return -EADDRNOTAVAIL;
 
                         m->partitions[PARTITION_USR].rw = false;
-                        m->verity = true;
+                        m->verity_ready = true;
                 }
         }
 
@@ -2253,7 +2255,7 @@ int dissected_image_decrypt(
         if (verity && verity->root_hash && verity->root_hash_size < sizeof(sd_id128_t))
                 return -EINVAL;
 
-        if (!m->encrypted && !m->verity) {
+        if (!m->encrypted && !m->verity_ready) {
                 *ret = NULL;
                 return 0;
         }
@@ -2840,7 +2842,7 @@ int dissect_image_and_warn(
 
 bool dissected_image_can_do_verity(const DissectedImage *image, PartitionDesignator partition_designator) {
         if (image->single_file_system)
-                return partition_designator == PARTITION_ROOT && image->can_verity;
+                return partition_designator == PARTITION_ROOT && image->has_verity;
 
         return PARTITION_VERITY_OF(partition_designator) >= 0;
 }
@@ -2849,7 +2851,7 @@ bool dissected_image_has_verity(const DissectedImage *image, PartitionDesignator
         int k;
 
         if (image->single_file_system)
-                return partition_designator == PARTITION_ROOT && image->verity;
+                return partition_designator == PARTITION_ROOT && image->verity_ready;
 
         k = PARTITION_VERITY_OF(partition_designator);
         return k >= 0 && image->partitions[k].found;
