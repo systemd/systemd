@@ -882,7 +882,7 @@ int link_drop_foreign_addresses(Link *link) {
 
         SET_FOREACH(address, link->addresses_foreign) {
                 /* We consider IPv6LL addresses to be managed by the kernel, or dropped in link_drop_ipv6ll_addresses() */
-                if (address->family == AF_INET6 && in6_addr_is_link_local(&address->in_addr.in6) == 1)
+                if (address->family == AF_INET6 && in6_addr_is_link_local(&address->in_addr.in6))
                         continue;
 
                 if (link_address_is_dynamic(link, address)) {
@@ -915,8 +915,8 @@ int link_drop_addresses(Link *link) {
         assert(link);
 
         SET_FOREACH(address, link->addresses) {
-                /* we consider IPv6LL addresses to be managed by the kernel */
-                if (address->family == AF_INET6 && in6_addr_is_link_local(&address->in_addr.in6) == 1 && link_ipv6ll_enabled(link))
+                /* We consider IPv6LL addresses to be managed by the kernel, or dropped in link_drop_ipv6ll_addresses() */
+                if (address->family == AF_INET6 && in6_addr_is_link_local(&address->in_addr.in6))
                         continue;
 
                 k = address_remove(address, link);
