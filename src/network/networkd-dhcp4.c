@@ -909,7 +909,7 @@ static int dhcp4_address_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *
 static int dhcp4_request_address(Link *link, bool announce) {
         _cleanup_(address_freep) Address *addr = NULL;
         uint32_t lifetime = CACHE_INFO_INFINITY_LIFE_TIME;
-        struct in_addr address, netmask;
+        struct in_addr address, netmask, server;
         unsigned prefixlen;
         Request *req;
         int r;
@@ -927,6 +927,10 @@ static int dhcp4_request_address(Link *link, bool announce) {
         r = sd_dhcp_lease_get_netmask(link->dhcp_lease, &netmask);
         if (r < 0)
                 return log_link_warning_errno(link, r, "DHCP error: no netmask: %m");
+
+        r = sd_dhcp_lease_get_server_identifier(link->dhcp_lease, &server);
+        if (r < 0)
+                return log_link_debug_errno(link, r, "DHCP error: failed to get DHCP server IP address: %m");
 
         if (!FLAGS_SET(link->network->keep_configuration, KEEP_CONFIGURATION_DHCP)) {
                 r = sd_dhcp_lease_get_lifetime(link->dhcp_lease, &lifetime);
@@ -946,19 +950,21 @@ static int dhcp4_request_address(Link *link, bool announce) {
                 if (r > 0 && in4_addr_is_set(&router[0]))
                         log_struct(LOG_INFO,
                                    LOG_LINK_INTERFACE(link),
-                                   LOG_LINK_MESSAGE(link, "DHCPv4 address "IPV4_ADDRESS_FMT_STR"/%u via "IPV4_ADDRESS_FMT_STR,
+                                   LOG_LINK_MESSAGE(link, "DHCPv4 address "IPV4_ADDRESS_FMT_STR"/%u, gateway "IPV4_ADDRESS_FMT_STR" acquired from "IPV4_ADDRESS_FMT_STR,
                                                     IPV4_ADDRESS_FMT_VAL(address),
                                                     prefixlen,
-                                                    IPV4_ADDRESS_FMT_VAL(router[0])),
+                                                    IPV4_ADDRESS_FMT_VAL(router[0]),
+                                                    IPV4_ADDRESS_FMT_VAL(server)),
                                    "ADDRESS="IPV4_ADDRESS_FMT_STR, IPV4_ADDRESS_FMT_VAL(address),
                                    "PREFIXLEN=%u", prefixlen,
                                    "GATEWAY="IPV4_ADDRESS_FMT_STR, IPV4_ADDRESS_FMT_VAL(router[0]));
                 else
                         log_struct(LOG_INFO,
                                    LOG_LINK_INTERFACE(link),
-                                   LOG_LINK_MESSAGE(link, "DHCPv4 address "IPV4_ADDRESS_FMT_STR"/%u",
+                                   LOG_LINK_MESSAGE(link, "DHCPv4 address "IPV4_ADDRESS_FMT_STR"/%u acquired from "IPV4_ADDRESS_FMT_STR,
                                                     IPV4_ADDRESS_FMT_VAL(address),
-                                                    prefixlen),
+                                                    prefixlen,
+                                                    IPV4_ADDRESS_FMT_VAL(server)),
                                    "ADDRESS="IPV4_ADDRESS_FMT_STR, IPV4_ADDRESS_FMT_VAL(address),
                                    "PREFIXLEN=%u", prefixlen);
         }
