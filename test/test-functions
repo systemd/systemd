@@ -707,9 +707,9 @@ setup_selinux() {
     mkdir -p "$initdir/usr/lib/systemd/tests/testdata/units/basic.target.wants"
     ln -sf ../autorelabel.service "$initdir/usr/lib/systemd/tests/testdata/units/basic.target.wants/"
 
-    dracut_install "${fixfiles_tools[@]}"
-    dracut_install fixfiles
-    dracut_install sestatus
+    image_install "${fixfiles_tools[@]}"
+    image_install fixfiles
+    image_install sestatus
 }
 
 install_valgrind() {
@@ -721,16 +721,16 @@ install_valgrind() {
     local valgrind_bins valgrind_libs valgrind_dbg_and_supp
 
     valgrind_bins="$(strace -e execve valgrind /bin/true 2>&1 >/dev/null | perl -lne 'print $1 if /^execve\("([^"]+)"/')"
-    dracut_install "$valgrind_bins"
+    image_install "$valgrind_bins"
 
     valgrind_libs="$(LD_DEBUG=files valgrind /bin/true 2>&1 >/dev/null | perl -lne 'print $1 if m{calling init: (/.*vgpreload_.*)}')"
-    dracut_install "$valgrind_libs"
+    image_install "$valgrind_libs"
 
     valgrind_dbg_and_supp="$(
         strace -e open valgrind /bin/true 2>&1 >/dev/null |
         perl -lne 'if (my ($fname) = /^open\("([^"]+).*= (?!-)\d+/) { print $fname if $fname =~ /debug|\.supp$/ }'
     )"
-    dracut_install "$valgrind_dbg_and_supp"
+    image_install "$valgrind_dbg_and_supp"
 }
 
 create_valgrind_wrapper() {
@@ -753,7 +753,7 @@ create_asan_wrapper() {
 
     # clang: install llvm-symbolizer to generate useful reports
     # See: https://clang.llvm.org/docs/AddressSanitizer.html#symbolizing-the-reports
-    [[ "$ASAN_COMPILER" == "clang" ]] && dracut_install "llvm-symbolizer"
+    [[ "$ASAN_COMPILER" == "clang" ]] && image_install "llvm-symbolizer"
 
     cat >"$asan_wrapper" <<EOF
 #!/usr/bin/env bash
@@ -869,15 +869,15 @@ EOF
 
 install_fs_tools() {
     dinfo "Install fsck"
-    dracut_install /sbin/fsck*
-    dracut_install -o /bin/fsck*
+    image_install /sbin/fsck*
+    image_install -o /bin/fsck*
 
     # fskc.reiserfs calls reiserfsck. so, install it
-    dracut_install -o reiserfsck
+    image_install -o reiserfsck
 
     # we use mkfs in system-repart tests
-    dracut_install /sbin/mkfs.ext4
-    dracut_install /sbin/mkfs.vfat
+    image_install /sbin/mkfs.ext4
+    image_install /sbin/mkfs.vfat
 }
 
 install_modules() {
@@ -1424,7 +1424,7 @@ install_plymouth() {
     # if [ -x /usr/libexec/plymouth/plymouth-populate-initrd ]; then
     #     PLYMOUTH_POPULATE_SOURCE_FUNCTIONS="$TEST_BASE_DIR/test-functions" \
     #         /usr/libexec/plymouth/plymouth-populate-initrd -t $initdir
-    #         dracut_install plymouth plymouthd
+    #         image_install plymouth plymouthd
     # else
         rm -f "${initdir:?}"/{usr/lib,lib,etc}/systemd/system/plymouth* "$initdir"/{usr/lib,lib,etc}/systemd/system/*/plymouth*
     # fi
@@ -1490,15 +1490,15 @@ install_config_files() {
 
 install_basic_tools() {
     dinfo "Install basic tools"
-    dracut_install "${BASICTOOLS[@]}"
-    dracut_install -o sushell
+    image_install "${BASICTOOLS[@]}"
+    image_install -o sushell
     # in Debian ldconfig is just a shell script wrapper around ldconfig.real
-    dracut_install -o ldconfig.real
+    image_install -o ldconfig.real
 }
 
 install_debug_tools() {
     dinfo "Install debug tools"
-    dracut_install "${DEBUGTOOLS[@]}"
+    image_install "${DEBUGTOOLS[@]}"
 
     if get_bool "$INTERACTIVE_DEBUG"; then
         # Set default TERM from vt220 to linux, so at least basic key shortcuts work
@@ -1521,7 +1521,7 @@ install_libnss() {
     # install libnss_files for login
     local NSS_LIBS
     mapfile -t NSS_LIBS < <(LD_DEBUG=files getent passwd 2>&1 >/dev/null | sed -n '/calling init: .*libnss_/ {s!^.* /!/!; p}')
-    dracut_install "${NSS_LIBS[@]}"
+    image_install "${NSS_LIBS[@]}"
 }
 
 install_dbus() {
@@ -1613,7 +1613,7 @@ install_pam() {
 
     # pam_unix depends on unix_chkpwd.
     # see http://www.linux-pam.org/Linux-PAM-html/sag-pam_unix.html
-    dracut_install -o unix_chkpwd
+    image_install -o unix_chkpwd
 
     # set empty root password for easy debugging
     sed -i 's/^root:x:/root::/' "${initdir:?}/etc/passwd"
@@ -1682,7 +1682,7 @@ install_terminfo() {
     for terminfodir in /lib/terminfo /etc/terminfo /usr/share/terminfo; do
         [ -f "${terminfodir}/l/linux" ] && break
     done
-    dracut_install -o "${terminfodir}/l/linux"
+    image_install -o "${terminfodir}/l/linux"
 }
 
 has_user_dbus_socket() {
@@ -1759,7 +1759,7 @@ inst_libs() {
             dfatal "Missing a shared library required by $bin."
             dfatal "Run \"ldd $bin\" to find out what it is."
             dfatal "$line"
-            dfatal "dracut cannot create an initrd."
+            dfatal "Cannot create a test image."
             exit 1
         fi
     done < <(LC_ALL=C ldd "$bin" 2>/dev/null)
@@ -2149,7 +2149,7 @@ inst_binary() {
             dfatal "Missing a shared library required by $bin."
             dfatal "Run \"ldd $bin\" to find out what it is."
             dfatal "$line"
-            dfatal "dracut cannot create an initrd."
+            dfatal "Cannot create a test image."
             exit 1
         fi
     done < <(LC_ALL=C ldd "$bin" 2>/dev/null)
@@ -2209,7 +2209,7 @@ inst_rule_programs() {
         fi
 
         #dinfo "Installing $_bin due to it's use in the udev rule $(basename $1)"
-        dracut_install "$bin"
+        image_install "$bin"
     done
 }
 
@@ -2297,10 +2297,10 @@ inst_any() {
     return 1
 }
 
-# dracut_install [-o ] <file> [<file> ... ]
-# Install <file> to the initramfs image
+# image_install [-o ] <file> [<file> ... ]
+# Install <file> to the test image
 # -o optionally install the <file> and don't fail, if it is not there
-dracut_install() {
+image_install() {
     local optional=no
     local prog="${1:?}"
 
