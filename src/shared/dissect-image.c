@@ -839,6 +839,10 @@ int dissect_image(
         if (!is_gpt && ((flags & DISSECT_IMAGE_GPT_ONLY) || !is_mbr))
                 return -ENOPKG;
 
+        /* We support external verity data partitions only if the image has no partition table */
+        if (verity && verity->data_path)
+                return -EBADR;
+
         /* Safety check: refuse block devices that carry a partition table but for which the kernel doesn't
          * do partition scanning. */
         r = blockdev_partscan_enabled(fd);
