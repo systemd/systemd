@@ -117,6 +117,24 @@ static int sysctl_write_or_warn(const char *key, const char *value, bool ignore_
         return 0;
 }
 
+static int sysctl_write_if_changed_or_warn(const char *key, const char *value, bool ignore_failure) {
+        int r;
+        _cleanup_free_ char *v = NULL;
+
+        r = sysctl_read(key, &v);
+        if (r <= 0)
+                log_info_errno(r, "Failed to read sysctl '%s', continue to write the requested value: %m", key);
+
+        // TODO: Need to harden this check and normalize for spaces to tabs (this seems to be what procfs is doing??)
+        // and for stripping newline characters at end
+        else if (strneq(v, value, strlen(value))) {
+                log_debug("No change in sysctl value for '%s', ignoring", key);
+                return 0;
+        }
+
+        return sysctl_write_or_warn(key, value, ignore_failure);
+}
+
 static int apply_all(OrderedHashmap *sysctl_options) {
         Option *option;
         int r = 0;
@@ -165,13 +183,13 @@ static int apply_all(OrderedHashmap *sysctl_options) {
                                         continue;
                                 }
 
-                                k = sysctl_write_or_warn(key, option->value, option->ignore_failure);
+                                k = sysctl_write_if_changed_or_warn(key, option->value, option->ignore_failure);
                                 if (r == 0)
                                         r = k;
                         }
 
                 } else {
-                        k = sysctl_write_or_warn(option->key, option->value, option->ignore_failure);
+                        k = sysctl_write_if_changed_or_warn(option->key, option->value, option->ignore_failure);
                         if (r == 0)
                                 r = k;
                 }
