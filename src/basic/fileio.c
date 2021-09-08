@@ -22,6 +22,7 @@
 #include "mkdir.h"
 #include "parse-util.h"
 #include "path-util.h"
+#include "smack-util.h"
 #include "socket-util.h"
 #include "stdio-util.h"
 #include "string-util.h"
