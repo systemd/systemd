@@ -288,3 +288,18 @@ int ipv4acd_stop(Link *link) {
 
         return r;
 }
+
+int ipv4acd_set_ifname(Link *link) {
+        Address *address;
+        int r;
+
+        assert(link);
+
+        SET_FOREACH(address, link->addresses_ipv4acd) {
+                r = sd_ipv4acd_set_ifname(address->acd, link->ifname);
+                if (r < 0)
+                        return r;
+        }
+
+        return 0;
+}
