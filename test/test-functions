@@ -909,6 +909,19 @@ install_dmevent() {
     fi
 }
 
+install_multipath() {
+    instmods "=md" multipath
+    image_install kpartx lsmod mpathconf mpathpersist multipath multipathd
+    image_install "${ROOTLIBDIR:?}"/system/multipathd.{service,socket}
+    inst_rules 11-dm-mpath.rules 11-dm-parts.rules 62-multipath.rules 66-kpartx.rules 68-del-part-nodes.rules
+    mkdir -p "${initdir:?}/etc/multipath"
+
+    local file
+    while read -r file; do
+        inst "$file"
+    done < <(find /lib64/multipath -type f)
+}
+
 install_compiled_systemd() {
     dinfo "Install compiled systemd"
 
