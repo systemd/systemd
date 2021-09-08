@@ -514,8 +514,8 @@ static int action_dissect(DissectedImage *m, LoopDevice *d) {
 
                 if (arg_verity_settings.data_path)
                         r = table_add_cell(t, NULL, TABLE_STRING, "external");
-                else if (dissected_image_can_do_verity(m, i))
-                        r = table_add_cell(t, NULL, TABLE_STRING, yes_no(dissected_image_has_verity(m, i)));
+                else if (dissected_image_verity_candidate(m, i))
+                        r = table_add_cell(t, NULL, TABLE_STRING, yes_no(dissected_image_verity_ready(m, i)));
                 else
                         r = table_add_cell(t, NULL, TABLE_EMPTY, NULL);
                 if (r < 0)
