@@ -638,7 +638,10 @@ int dissect_image(
 
         assert(fd >= 0);
         assert(ret);
+        assert(!verity || verity->designator < 0 || IN_SET(verity->designator, PARTITION_ROOT, PARTITION_USR));
         assert(!verity || verity->root_hash || verity->root_hash_size == 0);
+        assert(!verity || verity->root_hash_sig || verity->root_hash_sig_size == 0);
+        assert(!verity || (verity->root_hash || !verity->root_hash_sig));
         assert(!((flags & DISSECT_IMAGE_GPT_ONLY) && (flags & DISSECT_IMAGE_NO_PARTITION_TABLE)));
 
         /* Probes a disk image, and returns information about what it found in *ret.
