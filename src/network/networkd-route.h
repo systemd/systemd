@@ -84,9 +84,6 @@ bool gateway_is_ready(Link *link, int onlink, int family, const union in_addr_un
 int link_drop_routes(Link *link);
 int link_drop_foreign_routes(Link *link);
 
-uint32_t link_get_dhcp_route_table(const Link *link);
-uint32_t link_get_ipv6_accept_ra_route_table(const Link *link);
-
 int link_request_route(
                 Link *link,
                 Route *route,
