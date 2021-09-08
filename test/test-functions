@@ -909,6 +909,32 @@ install_dmevent() {
     fi
 }
 
+install_multipath() {
+    instmods "=md" multipath
+    image_install kpartx /lib/udev/kpartx_id lsmod mpathpersist multipath multipathd partx
+    image_install "${ROOTLIBDIR:?}"/system/multipathd.{service,socket}
+    if get_bool "$LOOKS_LIKE_DEBIAN"; then
+        inst_rules 56-dm-parts.rules 56-dm-mpath.rules 60-multipath.rules 68-del-part-nodes.rules 95-kpartx.rules
+    else
+        inst_rules 11-dm-mpath.rules 11-dm-parts.rules 62-multipath.rules 66-kpartx.rules 68-del-part-nodes.rules
+    fi
+    mkdir -p "${initdir:?}/etc/multipath"
+
+    local file
+    while read -r file; do
+        # Install libraries required by the given library
+        inst_libs "$file"
+        # Install the library itself and create necessary symlinks
+        inst_library "$file"
+    done < <(find /lib*/multipath -type f)
+
+    if get_bool "$LOOKS_LIKE_ARCH"; then
+        # On Arch the multipath libraries are not linked against libgcc_s.so.1,
+        # but it's still required at runtime
+        inst_library "/lib64/libgcc_s.so.1"
+    fi
+}
+
 install_compiled_systemd() {
     dinfo "Install compiled systemd"
 
