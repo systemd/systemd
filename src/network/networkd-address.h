@@ -14,12 +14,13 @@
 
 #define CACHE_INFO_INFINITY_LIFE_TIME 0xFFFFFFFFU
 
+typedef struct Address Address;
 typedef struct Manager Manager;
 typedef struct Network Network;
 typedef struct Request Request;
 typedef int (*address_ready_callback_t)(Address *address);
 
-typedef struct Address {
+struct Address {
         Network *network;
         NetworkConfigSection *section;
 
@@ -48,7 +49,7 @@ typedef struct Address {
 
         /* Called when address become ready */
         address_ready_callback_t callback;
-} Address;
+};
 
 const char* format_lifetime(char *buf, size_t l, uint32_t lifetime) _warn_unused_result_;
 /* Note: the lifetime of the compound literal is the immediately surrounding block,
