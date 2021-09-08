@@ -436,6 +436,7 @@ static int address_add(Link *link, const Address *in, Address **ret) {
 }
 
 static int address_update(Address *address, const Address *src) {
+        Link *link;
         bool ready;
         int r;
 
@@ -443,17 +444,18 @@ static int address_update(Address *address, const Address *src) {
         assert(address->link);
         assert(src);
 
+        link = address->link;
         ready = address_is_ready(address);
 
         address->flags = src->flags;
         address->scope = src->scope;
         address->cinfo = src->cinfo;
 
-        if (IN_SET(address->link->state, LINK_STATE_FAILED, LINK_STATE_LINGER))
+        if (IN_SET(link->state, LINK_STATE_FAILED, LINK_STATE_LINGER))
                 return 0;
 
-        link_update_operstate(address->link, true);
-        link_check_ready(address->link);
+        link_update_operstate(link, true);
+        link_check_ready(link);
 
         if (!ready && address_is_ready(address)) {
                 if (address->callback) {
@@ -463,10 +465,10 @@ static int address_update(Address *address, const Address *src) {
                 }
 
                 if (address->family == AF_INET6 &&
-                    in6_addr_is_link_local(&address->in_addr.in6) > 0 &&
-                    in6_addr_is_null(&address->link->ipv6ll_address)) {
+                    in6_addr_is_link_local(&address->in_addr.in6) &&
+                    in6_addr_is_null(&link->ipv6ll_address)) {
 
-                        r = link_ipv6ll_gained(address->link, &address->in_addr.in6);
+                        r = link_ipv6ll_gained(link, &address->in_addr.in6);
                         if (r < 0)
                                 return r;
                 }
