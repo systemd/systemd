@@ -451,6 +451,18 @@ static int address_update(Address *address, const Address *src) {
         address->scope = src->scope;
         address->cinfo = src->cinfo;
 
+        if (address_is_ready(address) &&
+            address->family == AF_INET6 &&
+            in6_addr_is_link_local(&address->in_addr.in6) &&
+            in6_addr_is_null(&link->ipv6ll_address)) {
+
+                link->ipv6ll_address = address->in_addr.in6;
+
+                r = link_ipv6ll_gained(link);
+                if (r < 0)
+                        return r;
+        }
+
         if (IN_SET(link->state, LINK_STATE_FAILED, LINK_STATE_LINGER))
                 return 0;
 
@@ -464,15 +476,6 @@ static int address_update(Address *address, const Address *src) {
         if (!ready && address_is_ready(address)) {
                 if (address->callback) {
                         r = address->callback(address);
-                        if (r < 0)
-                                return r;
-                }
-
-                if (address->family == AF_INET6 &&
-                    in6_addr_is_link_local(&address->in_addr.in6) &&
-                    in6_addr_is_null(&link->ipv6ll_address)) {
-
-                        r = link_ipv6ll_gained(link, &address->in_addr.in6);
                         if (r < 0)
                                 return r;
                 }
