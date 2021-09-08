@@ -1609,11 +1609,7 @@ static int link_carrier_lost(Link *link) {
                 return r;
         }
 
-        r = link_drop_config(link);
-        if (r < 0)
-                return r;
-
-        return link_drop_foreign_config(link);
+        return link_drop_config(link);
 }
 
 static int link_admin_state_up(Link *link) {
