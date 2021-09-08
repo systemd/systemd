@@ -2840,18 +2840,35 @@ int dissect_image_and_warn(
         }
 }
 
-bool dissected_image_can_do_verity(const DissectedImage *image, PartitionDesignator partition_designator) {
+bool dissected_image_verity_candidate(const DissectedImage *image, PartitionDesignator partition_designator) {
+        assert(image);
+
+        /* Checks if this partition could theoretically do Verity. For non-partitioned images this only works
+         * if there's an external verity file supplied, for which we can consult .has_verity. For partitioned
+         * images we only check the partition type.
+         *
+         * This call is used to decide whether to suppress or show a verity column in tabular output of the
+         * image. */
+
         if (image->single_file_system)
                 return partition_designator == PARTITION_ROOT && image->has_verity;
 
         return PARTITION_VERITY_OF(partition_designator) >= 0;
 }
 
-bool dissected_image_has_verity(const DissectedImage *image, PartitionDesignator partition_designator) {
-        int k;
+bool dissected_image_verity_ready(const DissectedImage *image, PartitionDesignator partition_designator) {
+        PartitionDesignator k;
+
+        assert(image);
+
+        /* Checks if this partition has verity data available that we can activate. For non-partitioned this
+         * works for the root partition, for others only if the associated verity partition was found. */
+
+        if (!image->verity_ready)
+                return false;
 
         if (image->single_file_system)
-                return partition_designator == PARTITION_ROOT && image->verity_ready;
+                return partition_designator == PARTITION_ROOT;
 
         k = PARTITION_VERITY_OF(partition_designator);
         return k >= 0 && image->partitions[k].found;
