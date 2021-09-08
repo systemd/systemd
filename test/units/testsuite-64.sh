@@ -19,6 +19,25 @@ testcase_virtio_scsi_identically_named_partitions() {
     [[ "$(lsblk --noheadings -a -o NAME,PARTLABEL | grep -c "Hello world")" -eq $((16 * 8)) ]]
 }
 
+testcase_multipath_basic() {
+    local i wwid
+
+    # Configure multipath
+    mpathconf --enable --user_friendly_names n --with_multipathd y --with_module y --find_multipaths y --property_blacklist n
+    systemctl status multipathd.service
+    multipath -ll
+    ls -l /dev/mapper
+
+    for i in {0..63}; do
+        wwid="3deaddeadbeef$(printf "%.4d" "$i")"
+        lsblk "/dev/mapper/$wwid"
+        multipath -C "$(readlink -f "/dev/mapper/$wwid")"
+        # We should have 4 paths for each multipath device
+        # Note: multipath -C sends all its output to stderr, hence |&
+        [[ "$(multipath -C "$(readlink -f "/dev/mapper/$wwid")" |& grep -c "$wwid")" -eq 4 ]]
+    done
+}
+
 : >/failed
 
 udevadm settle
