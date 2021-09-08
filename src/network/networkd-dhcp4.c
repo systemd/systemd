@@ -135,6 +135,26 @@ static int dhcp4_after_route_configure(Request *req, void *object) {
         return 0;
 }
 
+static int dhcp4_retry(Link *link) {
+        int r;
+
+        assert(link);
+
+        r = dhcp4_remove_all(link);
+        if (r < 0)
+                return r;
+
+        r = link_request_static_nexthops(link, true);
+        if (r < 0)
+                return r;
+
+        r = link_request_static_routes(link, true);
+        if (r < 0)
+                return r;
+
+        return dhcp4_request_address_and_routes(link, false);
+}
+
 static int dhcp4_route_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
         int r;
 
@@ -165,19 +185,7 @@ static int dhcp4_route_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *li
                 link->dhcp4_route_failed = false;
                 link->dhcp4_route_retrying = true;
 
-                r = dhcp4_remove_all(link);
-                if (r < 0)
-                        link_enter_failed(link);
-
-                r = link_request_static_nexthops(link, true);
-                if (r < 0)
-                        link_enter_failed(link);
-
-                r = link_request_static_routes(link, true);
-                if (r < 0)
-                        link_enter_failed(link);
-
-                r = dhcp4_request_address_and_routes(link, false);
+                r = dhcp4_retry(link);
                 if (r < 0)
                         link_enter_failed(link);
 
