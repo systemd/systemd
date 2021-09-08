@@ -63,7 +63,6 @@ Address* address_free(Address *address);
 int address_get(Link *link, const Address *in, Address **ret);
 int address_configure_handler_internal(sd_netlink *rtnl, sd_netlink_message *m, Link *link, const char *error_msg);
 int address_remove(Address *address);
-bool address_equal(const Address *a1, const Address *a2);
 int address_dup(const Address *src, Address **ret);
 bool address_is_ready(const Address *a);
 void address_set_broadcast(Address *a);
