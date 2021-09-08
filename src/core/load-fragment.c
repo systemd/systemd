@@ -802,6 +802,7 @@ int config_parse_exec(
 
                         if (!GREEDY_REALLOC(n, nlen + 2))
                                 return log_oom();
+                        n[nlen] = NULL;
 
                         w = strdup(path);
                         if (!w)
@@ -834,6 +835,7 @@ int config_parse_exec(
 
                                 if (!GREEDY_REALLOC(n, nlen + 2))
                                         return log_oom();
+                                n[nlen] = NULL;
 
                                 w = strdup(";");
                                 if (!w)
