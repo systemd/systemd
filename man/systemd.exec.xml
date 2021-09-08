@@ -1512,33 +1512,40 @@ BindReadOnlyPaths=/var/lib/systemd</programlisting>
       <varlistentry>
         <term><varname>PrivateDevices=</varname></term>
 
-        <listitem><para>Takes a boolean argument. If true, sets up a new <filename>/dev/</filename> mount for the
-        executed processes and only adds API pseudo devices such as <filename>/dev/null</filename>,
-        <filename>/dev/zero</filename> or <filename>/dev/random</filename> (as well as the pseudo TTY subsystem) to it,
-        but no physical devices such as <filename>/dev/sda</filename>, system memory <filename>/dev/mem</filename>,
-        system ports <filename>/dev/port</filename> and others. This is useful to securely turn off physical device
-        access by the executed process. Defaults to false. Enabling this option will install a system call filter to
-        block low-level I/O system calls that are grouped in the <varname>@raw-io</varname> set, will also remove
-        <constant>CAP_MKNOD</constant> and <constant>CAP_SYS_RAWIO</constant> from the capability bounding set for the
-        unit (see above), and set <varname>DevicePolicy=closed</varname> (see
+        <listitem><para>Takes a boolean argument. If true, sets up a new <filename>/dev/</filename> mount for
+        the executed processes and only adds API pseudo devices such as <filename>/dev/null</filename>,
+        <filename>/dev/zero</filename> or <filename>/dev/random</filename> (as well as the pseudo TTY
+        subsystem) to it, but no physical devices such as <filename>/dev/sda</filename>, system memory
+        <filename>/dev/mem</filename>, system ports <filename>/dev/port</filename> and others. This is useful
+        to turn off physical device access by the executed process. Defaults to false.</para>
+
+        <para>Enabling this option will install a system call filter to block low-level I/O system calls that
+        are grouped in the <varname>@raw-io</varname> set, remove <constant>CAP_MKNOD</constant> and
+        <constant>CAP_SYS_RAWIO</constant> from the capability bounding set for the unit, and set
+        <varname>DevicePolicy=closed</varname> (see
         <citerefentry><refentrytitle>systemd.resource-control</refentrytitle><manvolnum>5</manvolnum></citerefentry>
-        for details). Note that using this setting will disconnect propagation of mounts from the service to the host
-        (propagation in the opposite direction continues to work). This means that this setting may not be used for
-        services which shall be able to install mount points in the main mount namespace. The new
-        <filename>/dev/</filename> will be mounted read-only and 'noexec'. The latter may break old programs which try
-        to set up executable memory by using
+        for details). Note that using this setting will disconnect propagation of mounts from the service to
+        the host (propagation in the opposite direction continues to work). This means that this setting may
+        not be used for services which shall be able to install mount points in the main mount namespace. The
+        new <filename>/dev/</filename> will be mounted read-only and 'noexec'. The latter may break old
+        programs which try to set up executable memory by using
         <citerefentry><refentrytitle>mmap</refentrytitle><manvolnum>2</manvolnum></citerefentry> of
-        <filename>/dev/zero</filename> instead of using <constant>MAP_ANON</constant>. For this setting the same
-        restrictions regarding mount propagation and privileges apply as for <varname>ReadOnlyPaths=</varname> and
-        related calls, see above. If turned on and if running in user mode, or in system mode, but without the
-        <constant>CAP_SYS_ADMIN</constant> capability (e.g. setting <varname>User=</varname>),
-        <varname>NoNewPrivileges=yes</varname> is implied.</para>
+        <filename>/dev/zero</filename> instead of using <constant>MAP_ANON</constant>. For this setting the
+        same restrictions regarding mount propagation and privileges apply as for
+        <varname>ReadOnlyPaths=</varname> and related calls, see above. If turned on and if running in user
+        mode, or in system mode, but without the <constant>CAP_SYS_ADMIN</constant> capability (e.g. setting
+        <varname>User=</varname>), <varname>NoNewPrivileges=yes</varname> is implied.</para>
 
-        <para>Note that the implementation of this setting might be impossible (for example if mount namespaces are not
-        available), and the unit should be written in a way that does not solely rely on this setting for
-        security.</para>
+        <para>Note that the implementation of this setting might be impossible (for example if mount
+        namespaces are not available), and the unit should be written in a way that does not solely rely on
+        this setting for security.</para>
 
-        <xi:include href="system-only.xml" xpointer="singular"/></listitem>
+        <xi:include href="system-only.xml" xpointer="singular"/>
+
+        <para>When access to some but not all devices must be possible, the <varname>DeviceAllow=</varname>
+        setting might be used instead. See
+        <citerefentry><refentrytitle>systemd.resource-control</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+        </para></listitem>
       </varlistentry>
 
       <varlistentry>
