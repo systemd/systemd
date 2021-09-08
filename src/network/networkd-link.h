@@ -236,7 +236,7 @@ bool link_has_carrier(Link *link);
 
 bool link_ipv6_enabled(Link *link);
 bool link_ipv6ll_enabled(Link *link);
-int link_ipv6ll_gained(Link *link, const struct in6_addr *address);
+int link_ipv6ll_gained(Link *link);
 
 bool link_ipv4ll_enabled(Link *link);
 

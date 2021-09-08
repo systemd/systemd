@@ -701,24 +701,21 @@ static int link_acquire_dynamic_conf(Link *link) {
         return 0;
 }
 
-int link_ipv6ll_gained(Link *link, const struct in6_addr *address) {
+int link_ipv6ll_gained(Link *link) {
         int r;
 
         assert(link);
 
         log_link_info(link, "Gained IPv6LL");
 
-        link->ipv6ll_address = *address;
+        if (!IN_SET(link->state, LINK_STATE_CONFIGURING, LINK_STATE_CONFIGURED))
+                return 0;
+
+        r = link_acquire_dynamic_ipv6_conf(link);
+        if (r < 0)
+                return r;
+
         link_check_ready(link);
-
-        if (IN_SET(link->state, LINK_STATE_CONFIGURING, LINK_STATE_CONFIGURED)) {
-                r = link_acquire_dynamic_ipv6_conf(link);
-                if (r < 0) {
-                        link_enter_failed(link);
-                        return r;
-                }
-        }
-
         return 0;
 }
 
