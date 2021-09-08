@@ -58,6 +58,7 @@ bool (*sym_fido_dev_is_fido2)(const fido_dev_t *) = NULL;
 int (*sym_fido_dev_make_cred)(fido_dev_t *, fido_cred_t *, const char *) = NULL;
 fido_dev_t* (*sym_fido_dev_new)(void) = NULL;
 int (*sym_fido_dev_open)(fido_dev_t *, const char *) = NULL;
+int (*sym_fido_dev_close)(fido_dev_t *) = NULL;
 const char* (*sym_fido_strerr)(int) = NULL;
 
 int dlopen_libfido2(void) {
@@ -106,6 +107,7 @@ int dlopen_libfido2(void) {
                         DLSYM_ARG(fido_dev_make_cred),
                         DLSYM_ARG(fido_dev_new),
                         DLSYM_ARG(fido_dev_open),
+                        DLSYM_ARG(fido_dev_close),
                         DLSYM_ARG(fido_strerr));
 }
 
