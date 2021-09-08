@@ -19,6 +19,84 @@ testcase_virtio_scsi_identically_named_partitions() {
     [[ "$(lsblk --noheadings -a -o NAME,PARTLABEL | grep -c "Hello world")" -eq $((16 * 8)) ]]
 }
 
+testcase_multipath_basic_failover() {
+    local dmpath i path wwid
+
+    # Configure multipath
+    cat >/etc/multipath.conf <<\EOF
+defaults {
+    # Use /dev/mapper/$WWN paths instead of /dev/mapper/mpathX
+    user_friendly_names no
+    find_multipaths yes
+    enable_foreign "^$"
+}
+
+blacklist_exceptions {
+    property "(SCSI_IDENT_|ID_WWN)"
+}
+
+blacklist {
+}
+EOF
+    modprobe -v dm_multipath
+    systemctl start multipathd.service
+    systemctl status multipathd.service
+    multipath -ll
+    ls -l /dev/disk/by-id/
+
+    for i in {0..63}; do
+        wwid="deaddeadbeef$(printf "%.4d" "$i")"
+        path="/dev/disk/by-id/wwn-0x$wwid"
+        dmpath="$(readlink -f "$path")"
+
+        lsblk "$path"
+        multipath -C "$dmpath"
+        # We should have 4 active paths for each multipath device
+        [[ "$(multipath -l "$path" | grep -c running)" -eq 4 ]]
+    done
+
+    # Test failover (with the first multipath device that has a partitioned disk)
+    echo "${FUNCNAME[0]}: test failover"
+    local expected device mpoint
+    local -a devices
+    mpoint="$(mktemp -d /mnt/mpathXXX)"
+    wwid="deaddeadbeef0000"
+    path="/dev/disk/by-id/wwn-0x$wwid"
+
+    # Get all devices attached to a specific multipath device (in H:C:T:L format)
+    # and sort them in a random order, so we cut off different paths each time
+    mapfile -t devices < <(multipath -l "$path" | grep -Eo '[0-9]+:[0-9]+:[0-9]+:[0-9]+' | sort -R)
+    if [[ "${#devices[@]}" -ne 4 ]]; then
+        echo "Expected 4 devices attached to WWID=$wwid, got ${#devices[@]} instead"
+        return 1
+    fi
+    # Drop the last path from the array, since we want to leave at least one path active
+    unset "devices[3]"
+    # Mount the first multipath partition, write some data we can check later,
+    # and then disconnect the remaining paths one by one while checking if we
+    # can still read/write from the mount
+    mount -t ext4 "${path}-part1" "$mpoint"
+    expected=0
+    echo -n "$expected" >"$mpoint/test"
+    # Sanity check we actually wrote what we wanted
+    [[ "$(<"$mpoint/test")" == "$expected" ]]
+
+    for device in "${devices[@]}"; do
+        echo offline >"/sys/class/scsi_device/$device/device/state"
+        [[ "$(<"$mpoint/test")" == "$expected" ]]
+        expected="$((expected + 1))"
+        echo -n "$expected" >"$mpoint/test"
+    done
+
+    multipath -l "$path"
+    # Three paths should be now marked as 'offline' and one as 'running'
+    [[ "$(multipath -l "$path" | grep -c offline)" -eq 3 ]]
+    [[ "$(multipath -l "$path" | grep -c running)" -eq 1 ]]
+
+    umount "$mpoint"
+    rm -fr "$mpoint"
+}
+
 : >/failed
 
 udevadm settle
