@@ -316,16 +316,6 @@ int address_compare_func(const Address *a1, const Address *a2) {
 
 DEFINE_HASH_OPS_WITH_KEY_DESTRUCTOR(address_hash_ops, Address, address_hash_func, address_compare_func, address_free);
 
-bool address_equal(const Address *a1, const Address *a2) {
-        if (a1 == a2)
-                return true;
-
-        if (!a1 || !a2)
-                return false;
-
-        return address_compare_func(a1, a2) == 0;
-}
-
 int address_dup(const Address *src, Address **ret) {
         _cleanup_(address_freep) Address *dest = NULL;
         int r;
