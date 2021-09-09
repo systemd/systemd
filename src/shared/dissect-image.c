@@ -1317,7 +1317,7 @@ int dissect_image(
         } else if (m->partitions[PARTITION_ROOT_SECONDARY_VERITY].found)
                 return -EADDRNOTAVAIL; /* as above */
 
-        else if (m->partitions[PARTITION_USR].found) {
+        if (m->partitions[PARTITION_USR].found) {
 
                 /* Invalidate secondary arch /usr/ if we found the primary arch */
                 m->partitions[PARTITION_USR_SECONDARY].found = false;
@@ -1337,8 +1337,10 @@ int dissect_image(
         } else if (m->partitions[PARTITION_USR_SECONDARY_VERITY].found)
                 return -EADDRNOTAVAIL; /* as above */
 
-        else if ((flags & DISSECT_IMAGE_GENERIC_ROOT) &&
-                 (!verity || !verity->root_hash)) {
+        if (!m->partitions[PARTITION_ROOT].found &&
+            !m->partitions[PARTITION_USR].found &&
+            (flags & DISSECT_IMAGE_GENERIC_ROOT) &&
+            (!verity || !verity->root_hash)) {
 
                 /* OK, we found nothing usable, then check if there's a single generic one distro, and use
                  * that. If the root hash was set however, then we won't fall back to a generic node, because
