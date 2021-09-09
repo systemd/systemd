@@ -1404,16 +1404,20 @@ static int link_initialized(Link *link, sd_device *device) {
         assert(link);
         assert(device);
 
-        if (link->state != LINK_STATE_PENDING)
-                return 0;
+        /* Always replace with the new sd_device object. As the sysname (and possibly other properties
+         * or sysattrs) may be outdated. */
+        sd_device_ref(device);
+        sd_device_unref(link->sd_device);
+        link->sd_device = device;
 
-        if (link->sd_device)
+        /* Do not ignore unamanaged state case here. If an interface is renamed after being once
+         * configured, and the corresponding .network file has Name= in [Match] section, then the
+         * interface may be already in unmanaged state. See #20657. */
+        if (!IN_SET(link->state, LINK_STATE_PENDING, LINK_STATE_UNMANAGED))
                 return 0;
 
         log_link_debug(link, "udev initialized link");
         link_set_state(link, LINK_STATE_INITIALIZED);
-
-        link->sd_device = sd_device_ref(device);
 
         /* udev has initialized the link, but we don't know if we have yet
          * processed the NEWLINK messages with the latest state. Do a GETLINK,
