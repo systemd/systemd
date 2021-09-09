@@ -5710,8 +5710,9 @@ static int run(int argc, char *argv[]) {
                 if (r < 0)
                         goto finish;
 
-                if (!arg_verity_settings.root_hash && dissected_image->has_verity)
-                        log_notice("Note: image %s contains verity information, but no root hash specified! Proceeding without integrity checking.", arg_image);
+                if (dissected_image->has_verity && !arg_verity_settings.root_hash && !dissected_image->has_verity_sig)
+                        log_notice("Note: image %s contains verity information, but no root hash specified and no embedded "
+                                   "root hash signature found! Proceeding without integrity checking.", arg_image);
 
                 r = dissected_image_decrypt_interactively(
                                 dissected_image,
