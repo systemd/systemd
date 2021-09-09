@@ -7,7 +7,7 @@ msgstr ""
 "Project-Id-Version: systemd\n"
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2021-01-08 17:48+0100\n"
-"PO-Revision-Date: 2021-08-31 20:04+0000\n"
+"PO-Revision-Date: 2021-09-09 03:04+0000\n"
 "Last-Translator: Jan Kuparinen <copper_fin@hotmail.com>\n"
 "Language-Team: Finnish <https://translate.fedoraproject.org/projects/systemd/"
 "master/fi/>\n"
@@ -470,133 +470,149 @@ msgstr ""
 
 #: src/login/org.freedesktop.login1.policy:300
 msgid "Hibernate the system"
-msgstr ""
+msgstr "Horrosta järjestelmä"
 
 #: src/login/org.freedesktop.login1.policy:301
 msgid "Authentication is required to hibernate the system."
-msgstr ""
+msgstr "Todennus vaaditaan järjestelmän horrostamiseksi."
 
 #: src/login/org.freedesktop.login1.policy:310
 msgid "Hibernate the system while other users are logged in"
-msgstr ""
+msgstr "Horrosta järjestelmä, vaikka muita käyttäjiä on kirjautuneena sisään"
 
 #: src/login/org.freedesktop.login1.policy:311
 msgid ""
 "Authentication is required to hibernate the system while other users are "
 "logged in."
 msgstr ""
+"Todennus vaaditaan järjestelmän horrostamiseksi, kun muita käyttäjiä on "
+"kirjautuneena sisään."
 
 #: src/login/org.freedesktop.login1.policy:321
 msgid "Hibernate the system while an application is inhibiting this"
-msgstr ""
+msgstr "Horrosta järjestelmä, vaikka joku sovellus estää sen"
 
 #: src/login/org.freedesktop.login1.policy:322
 msgid ""
 "Authentication is required to hibernate the system while an application is "
 "inhibiting this."
 msgstr ""
+"Todennus vaaditaan järjestelmän horrostamiseksi, kun joku sovellus estää "
+"tämän."
 
 #: src/login/org.freedesktop.login1.policy:332
 msgid "Manage active sessions, users and seats"
-msgstr ""
+msgstr "Hallinnoi aktiivisia istuntoja, käyttäjiä ja paikkoja"
 
 #: src/login/org.freedesktop.login1.policy:333
 msgid "Authentication is required to manage active sessions, users and seats."
 msgstr ""
+"Todennus vaaditaan aktiivisten istuntojen, käyttäjien ja paikkojen "
+"hallintaan."
 
 #: src/login/org.freedesktop.login1.policy:342
 msgid "Lock or unlock active sessions"
-msgstr ""
+msgstr "Lukitse tai avaa aktiiviset istunnot"
 
 #: src/login/org.freedesktop.login1.policy:343
 msgid "Authentication is required to lock or unlock active sessions."
 msgstr ""
+"Todennus vaaditaan aktiivisten istuntojen lukitsemiseksi tai avaamiseksi."
 
 #: src/login/org.freedesktop.login1.policy:352
 msgid "Set the reboot \"reason\" in the kernel"
-msgstr ""
+msgstr "Aseta uudelleenkäynnistyksen \"syy\" ytimeen"
 
 #: src/login/org.freedesktop.login1.policy:353
 msgid "Authentication is required to set the reboot \"reason\" in the kernel."
 msgstr ""
+"Todennus vaaditaan, jotta ytimen uudelleenkäynnistyksen \"syy\" voidaan "
+"asettaa."
 
 #: src/login/org.freedesktop.login1.policy:363
 msgid "Indicate to the firmware to boot to setup interface"
-msgstr ""
+msgstr "Ilmoita laiteohjelmistolle, että käynnistyy asennusliittymään"
 
 #: src/login/org.freedesktop.login1.policy:364
 msgid ""
 "Authentication is required to indicate to the firmware to boot to setup "
 "interface."
 msgstr ""
+"Todennus vaaditaan ilmoittamaan laiteohjelmistolle, että se käynnistyy "
+"asennusliittymään."
 
 #: src/login/org.freedesktop.login1.policy:374
 msgid "Indicate to the boot loader to boot to the boot loader menu"
 msgstr ""
+"Ilmoita käynnistyslataimelle, että se käynnistyy käynnistyslatausvalikkoon"
 
 #: src/login/org.freedesktop.login1.policy:375
 msgid ""
 "Authentication is required to indicate to the boot loader to boot to the "
 "boot loader menu."
 msgstr ""
+"Todennus vaaditaan ilmoittamaan käynnistyslataajalle, että se käynnistyy "
+"käynnistyslatausvalikkoon."
 
 #: src/login/org.freedesktop.login1.policy:385
 msgid "Indicate to the boot loader to boot a specific entry"
-msgstr ""
+msgstr "Ilmoita käynnistyslataimelle, että käynnistää tietyn vaihtoehdon"
 
 #: src/login/org.freedesktop.login1.policy:386
 msgid ""
 "Authentication is required to indicate to the boot loader to boot into a "
 "specific boot loader entry."
 msgstr ""
+"Todennus vaaditaan ilmoittamaan käynnistyslataajalle, että käynnistää tietyn "
+"vaihtoehdon."
 
 #: src/login/org.freedesktop.login1.policy:396
 msgid "Set a wall message"
-msgstr ""
+msgstr "Aseta seinäviesti"
 
 #: src/login/org.freedesktop.login1.policy:397
 msgid "Authentication is required to set a wall message"
-msgstr ""
+msgstr "Seinäviestin asettaminen edellyttää todennusta"
 
 #: src/login/org.freedesktop.login1.policy:406
 msgid "Change Session"
-msgstr ""
+msgstr "Vaihda istunto"
 
 #: src/login/org.freedesktop.login1.policy:407
 msgid "Authentication is required to change the virtual terminal."
-msgstr ""
+msgstr "Todennus vaaditaan virtuaalipäätteen vaihtamiseksi."
 
 #: src/machine/org.freedesktop.machine1.policy:22
 msgid "Log into a local container"
-msgstr ""
+msgstr "Kirjaudu paikalliseen konttiin"
 
 #: src/machine/org.freedesktop.machine1.policy:23
 msgid "Authentication is required to log into a local container."
-msgstr ""
+msgstr "Paikalliseen konttiin kirjautumiseen vaaditaan todennus."
 
 #: src/machine/org.freedesktop.machine1.policy:32
 msgid "Log into the local host"
-msgstr ""
+msgstr "Kirjaudu sisään paikalliseen koneeseen"
 
 #: src/machine/org.freedesktop.machine1.policy:33
 msgid "Authentication is required to log into the local host."
-msgstr ""
+msgstr "Paikalliseen koneeseen kirjautumiseen vaaditaan todennus."
 
 #: src/machine/org.freedesktop.machine1.policy:42
 msgid "Acquire a shell in a local container"
-msgstr ""
+msgstr "Hanki komentotulkki paikallisesta kontista"
 
 #: src/machine/org.freedesktop.machine1.policy:43
 msgid "Authentication is required to acquire a shell in a local container."
-msgstr ""
+msgstr "Paikallisen kontin komentotulkin saaminen vaatii todentamisen."
 
 #: src/machine/org.freedesktop.machine1.policy:53
 msgid "Acquire a shell on the local host"
-msgstr ""
+msgstr "Hanki komentotulkki paikallisesta koneesta"
 
 #: src/machine/org.freedesktop.machine1.policy:54
 msgid "Authentication is required to acquire a shell on the local host."
-msgstr ""
+msgstr "Paikalliseen koneen komentotulkin saamiseen vaaditaan todennus."
 
 #: src/machine/org.freedesktop.machine1.policy:64
 msgid "Acquire a pseudo TTY in a local container"
