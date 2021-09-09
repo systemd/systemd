@@ -1390,9 +1390,16 @@ int dissect_image(
             !(m->partitions[PARTITION_ROOT].found || (m->partitions[PARTITION_USR].found && FLAGS_SET(flags, DISSECT_IMAGE_USR_NO_ROOT))))
                 return -ENXIO;
 
-        /* Combinations of verity /usr with verity-less root is OK, but the reverse is not */
-        if (m->partitions[PARTITION_ROOT_VERITY].found && m->partitions[PARTITION_USR].found && !m->partitions[PARTITION_USR_VERITY].found)
-                return -EADDRNOTAVAIL;
+        if (m->partitions[PARTITION_ROOT_VERITY].found) {
+                /* We only support one verity partition per image, i.e. can't do for both /usr and root fs */
+                if (m->partitions[PARTITION_USR_VERITY].found)
+                        return -ENOTUNIQ;
+
+                /* We don't support verity enabled root with a split out /usr. Neither with nor without
+                 * verity there. (Note that we do support verity-less root with verity-full /usr, though.) */
+                if (m->partitions[PARTITION_USR].found)
+                        return -EADDRNOTAVAIL;
+        }
 
         if (verity && verity->root_hash) {
                 if (verity->designator < 0 || verity->designator == PARTITION_ROOT) {
