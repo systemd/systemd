@@ -27,6 +27,7 @@
 #include "dissect-image.h"
 #include "dm-util.h"
 #include "env-file.h"
+#include "env-util.h"
 #include "extension-release.h"
 #include "fd-util.h"
 #include "fileio.h"
@@ -826,6 +827,8 @@ int dissect_image(
                                 .fstype = TAKE_PTR(t),
                                 .node = TAKE_PTR(n),
                                 .mount_options = TAKE_PTR(o),
+                                .offset = 0,
+                                .size = UINT64_MAX,
                         };
 
                         *ret = TAKE_PTR(m);
@@ -869,6 +872,7 @@ int dissect_image(
         for (int i = 0; i < n_partitions; i++) {
                 _cleanup_(sd_device_unrefp) sd_device *q = NULL;
                 unsigned long long pflags;
+                blkid_loff_t start, size;
                 blkid_partition pp;
                 const char *node;
                 int nr;
@@ -892,6 +896,20 @@ int dissect_image(
                 nr = blkid_partition_get_partno(pp);
                 if (nr < 0)
                         return errno_or_else(EIO);
+
+                errno = 0;
+                start = blkid_partition_get_start(pp);
+                if (start < 0)
+                        return errno_or_else(EIO);
+
+                assert((uint64_t) start < UINT64_MAX/512);
+
+                errno = 0;
+                size = blkid_partition_get_size(pp);
+                if (size < 0)
+                        return errno_or_else(EIO);
+
+                assert((uint64_t) size < UINT64_MAX/512);
 
                 if (is_gpt) {
                         PartitionDesignator designator = _PARTITION_DESIGNATOR_INVALID;
@@ -1337,6 +1355,8 @@ int dissect_image(
                                         .label = TAKE_PTR(l),
                                         .uuid = id,
                                         .mount_options = TAKE_PTR(o),
+                                        .offset = (uint64_t) start * 512,
+                                        .size = (uint64_t) size * 512,
                                 };
                         }
 
@@ -1395,6 +1415,8 @@ int dissect_image(
                                         .node = TAKE_PTR(n),
                                         .uuid = id,
                                         .mount_options = TAKE_PTR(o),
+                                        .offset = (uint64_t) start * 512,
+                                        .size = (uint64_t) size * 512,
                                 };
 
                                 break;
@@ -1515,6 +1537,8 @@ int dissect_image(
                                 .node = TAKE_PTR(generic_node),
                                 .uuid = generic_uuid,
                                 .mount_options = TAKE_PTR(o),
+                                .offset = UINT64_MAX,
+                                .size = UINT64_MAX,
                         };
                 }
         }
@@ -2741,6 +2765,109 @@ int verity_settings_load(
         return 1;
 }
 
+int dissected_image_load_verity_sig_partition(
+                DissectedImage *m,
+                int fd,
+                VeritySettings *verity) {
+
+        _cleanup_free_ void *root_hash = NULL, *root_hash_sig = NULL;
+        _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
+        size_t root_hash_size, root_hash_sig_size;
+        _cleanup_free_ char *buf = NULL;
+        PartitionDesignator d;
+        DissectedPartition *p;
+        JsonVariant *rh, *sig;
+        ssize_t n;
+        char *e;
+        int r;
+
+        assert(m);
+        assert(fd >= 0);
+        assert(verity);
+
+        if (verity->root_hash && verity->root_hash_sig) /* Already loaded? */
+                return 0;
+
+        r = getenv_bool_secure("SYSTEMD_DISSECT_VERITY_EMBEDDED");
+        if (r < 0 && r != -ENXIO)
+                log_debug_errno(r, "Failed to parse $SYSTEMD_DISSECT_VERITY_EMBEDDED, ignoring: %m");
+        if (r == 0)
+                return 0;
+
+        d = PARTITION_VERITY_SIG_OF(verity->designator < 0 ? PARTITION_ROOT : verity->designator);
+        assert(d >= 0);
+
+        p = m->partitions + d;
+        if (!p->found)
+                return 0;
+        if (p->offset == UINT64_MAX || p->size == UINT64_MAX)
+                return -EINVAL;
+
+        if (p->size > 4*1024*1024) /* Signature data cannot possible be larger than 4M, refuse that */
+                return -EFBIG;
+
+        buf = new(char, p->size+1);
+        if (!buf)
+                return -ENOMEM;
+
+        n = pread(fd, buf, p->size, p->offset);
+        if (n < 0)
+                return -ENOMEM;
+        if ((uint64_t) n != p->size)
+                return -EIO;
+
+        e = memchr(buf, 0, p->size);
+        if (e) {
+                /* If we found a NUL byte then the rest of the data must be NUL too */
+                if (!memeqzero(e, p->size - (e - buf)))
+                        return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Signature data contains embedded NUL byte.");
+        } else
+                buf[p->size] = 0;
+
+        r = json_parse(buf, 0, &v, NULL, NULL);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to parse signature JSON data: %m");
+
+        rh = json_variant_by_key(v, "rootHash");
+        if (!rh)
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Signature JSON object lacks 'rootHash' field.");
+        if (!json_variant_is_string(rh))
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "'rootHash' field of signature JSON object is not a string.");
+
+        r = unhexmem(json_variant_string(rh), SIZE_MAX, &root_hash, &root_hash_size);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to parse root hash field: %m");
+
+        /* Check if specified root hash matches if it is specified */
+        if (verity->root_hash &&
+            memcmp_nn(verity->root_hash, verity->root_hash_size, root_hash, root_hash_size) != 0) {
+                _cleanup_free_ char *a = NULL, *b = NULL;
+
+                a = hexmem(root_hash, root_hash_size);
+                b = hexmem(verity->root_hash, verity->root_hash_size);
+
+                return log_debug_errno(r, "Root hash in signature JSON data (%s) doesn't match configured hash (%s).", strna(a), strna(b));
+        }
+
+        sig = json_variant_by_key(v, "signature");
+        if (!sig)
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Signature JSON object lacks 'signature' field.");
+        if (!json_variant_is_string(sig))
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "'signature' field of signature JSON object is not a string.");
+
+        r = unbase64mem(json_variant_string(sig), SIZE_MAX, &root_hash_sig, &root_hash_sig_size);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to parse signature field: %m");
+
+        free_and_replace(verity->root_hash, root_hash);
+        verity->root_hash_size = root_hash_size;
+
+        free_and_replace(verity->root_hash_sig, root_hash_sig);
+        verity->root_hash_sig_size = root_hash_sig_size;
+
+        return 1;
+}
+
 int dissected_image_acquire_metadata(DissectedImage *m) {
 
         enum {
@@ -3131,6 +3258,10 @@ int mount_image_privately_interactively(
         if (r < 0)
                 return r;
 
+        r = dissected_image_load_verity_sig_partition(dissected_image, d->fd, &verity);
+        if (r < 0)
+                return r;
+
         r = dissected_image_decrypt_interactively(dissected_image, NULL, &verity, flags, &decrypted_image);
         if (r < 0)
                 return r;
@@ -3240,6 +3371,10 @@ int verity_dissect_and_mount(
                                 &dissected_image);
         if (r < 0)
                 return log_debug_errno(r, "Failed to dissect image: %m");
+
+        r = dissected_image_load_verity_sig_partition(dissected_image, loop_device->fd, &verity);
+        if (r < 0)
+                return r;
 
         r = dissected_image_decrypt(
                         dissected_image,

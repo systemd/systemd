@@ -540,6 +540,13 @@ static int merge_subprocess(Hashmap *images, const char *workspace) {
                         if (r < 0)
                                 return r;
 
+                        r = dissected_image_load_verity_sig_partition(
+                                        m,
+                                        d->fd,
+                                        &verity_settings);
+                        if (r < 0)
+                                return r;
+
                         r = dissected_image_decrypt_interactively(
                                         m, NULL,
                                         &verity_settings,

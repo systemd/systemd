@@ -1913,6 +1913,13 @@ int setup_namespace(
                 if (r < 0)
                         return log_debug_errno(r, "Failed to dissect image: %m");
 
+                r = dissected_image_load_verity_sig_partition(
+                                dissected_image,
+                                loop_device->fd,
+                                &verity);
+                if (r < 0)
+                        return r;
+
                 r = dissected_image_decrypt(
                                 dissected_image,
                                 NULL,
