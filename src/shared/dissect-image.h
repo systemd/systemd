@@ -28,6 +28,8 @@ struct DissectedPartition {
         char *decrypted_node;
         char *decrypted_fstype;
         char *mount_options;
+        uint64_t size;
+        uint64_t offset;
 };
 
 typedef enum PartitionDesignator {
@@ -216,6 +218,8 @@ PartitionDesignator partition_designator_from_string(const char *name) _pure_;
 
 int verity_settings_load(VeritySettings *verity, const char *image, const char *root_hash_path, const char *root_hash_sig_path);
 void verity_settings_done(VeritySettings *verity);
+
+int dissected_image_load_verity_sig_partition(DissectedImage *m, int fd, VeritySettings *verity);
 
 bool dissected_image_verity_candidate(const DissectedImage *image, PartitionDesignator d);
 bool dissected_image_verity_ready(const DissectedImage *image, PartitionDesignator d);
