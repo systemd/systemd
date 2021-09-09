@@ -84,6 +84,32 @@ if setfattr -n user.xattr_test -v 1 /sys/fs/cgroup/; then
     if ! systemctl status testsuite-55-testchill.service; then exit 24; fi
 fi
 
+# Make sure we also work correctly on user units.
+
+systemctl start --user testsuite-55-testchill.service
+systemctl start --user testsuite-55-testbloat.service
+
+# Verify systemd-oomd is monitoring the expected units
+oomctl | grep -E "/user.slice.*/testsuite-55-workload.slice"
+oomctl | grep "1.00%"
+oomctl | grep "Default Memory Pressure Duration: 2s"
+
+systemctl --user status testsuite-55-testchill.service
+
+# systemd-oomd watches for elevated pressure for 2 seconds before acting.
+# It can take time to build up pressure so either wait 2 minutes or for the service to fail.
+timeout="$(date -ud "2 minutes" +%s)"
+while [[ $(date -u +%s) -le $timeout ]]; do
+    if ! systemctl --user status testsuite-55-testbloat.service; then
+        break
+    fi
+    sleep 2
+done
+
+# testbloat should be killed and testchill should be fine
+if systemctl --user status testsuite-55-testbloat.service; then exit 42; fi
+if ! systemctl --user status testsuite-55-testchill.service; then exit 24; fi
+
 systemd-analyze log-level info
 
 echo OK >/testok
