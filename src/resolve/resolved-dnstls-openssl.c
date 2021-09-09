@@ -9,12 +9,10 @@
 #include <openssl/x509v3.h>
 
 #include "io-util.h"
+#include "openssl-util.h"
 #include "resolved-dns-stream.h"
 #include "resolved-dnstls.h"
 #include "resolved-manager.h"
-
-DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(SSL*, SSL_free, NULL);
-DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(BIO*, BIO_free, NULL);
 
 static int dnstls_flush_write_buffer(DnsStream *stream) {
         ssize_t ss;
