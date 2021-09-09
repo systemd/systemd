@@ -83,6 +83,19 @@ Janitorial Clean-ups:
 
 Features:
 
+* add high-level lockdown level for GPT dissection logic: e.g. an enum that can
+  be ANY (to mount anything), TRUSTED (to require that /usr is on signed
+  verity, but rest doesn't matter), LOCKEDDOWN (to require that everything is
+  on signed verity, except for ESP), SUPERLOCKDOWN (like LOCKEDDOWN but ESP not
+  allowed). And then maybe some flavours of that that declare what is expected
+  from home/srv/var… Then, add a new cmdline flag to all tools that parse such
+  images, to configure this. Also, add a kernel cmdline option for this, to be
+  honoured by the gpt auto generator.
+
+* nspawn: maybe optionally insert .nspawn file as GPT partition into images, so
+  that such container images are entirely stand-alone and can be updated as
+  one.
+
 * we probably should extend the root verity hash of the root fs into some PCR
   on boot. (i.e. maybe add a crypttab option tpm2-measure=8 or so to measure it
   into PCR 8)
@@ -101,8 +114,6 @@ Features:
 
 * tpm2: figure out if we need to do anything for TPM2 parameter encryption? And
   if so, what precisely?
-
-* insert pkcs7 signature for verity gpt
 
 * when mounting disk images: if IMAGE_ID/IMAGE_VERSION is set in os-release
   data in the image, make sure the image filename actually matches this, so
