@@ -807,6 +807,10 @@ int dissect_image(
                                 verity->root_hash &&
                                 (verity->designator < 0 || verity->designator == PARTITION_ROOT);
 
+                        m->has_verity_sig = false; /* signature not embedded, must be specified */
+                        m->verity_sig_ready = m->verity_ready &&
+                                verity->root_hash_sig;
+
                         options = mount_options_from_designator(mount_options, PARTITION_ROOT);
                         if (options) {
                                 o = strdup(options);
@@ -982,12 +986,40 @@ int dissect_image(
 
                                 m->has_verity = true;
 
-                                /* Ignore verity unless a root hash is specified */
-                                if (sd_id128_is_null(root_verity_uuid) || !sd_id128_equal(root_verity_uuid, id))
+                                /* If no verity configuration is specified, then don't do verity */
+                                if (!verity)
+                                        continue;
+                                if (verity->designator >= 0 && verity->designator != PARTITION_ROOT)
+                                        continue;
+
+                                /* If root hash is specified, then ignore everything but the root id */
+                                if (!sd_id128_is_null(root_verity_uuid) && !sd_id128_equal(root_verity_uuid, id))
                                         continue;
 
                                 designator = PARTITION_ROOT_VERITY;
                                 fstype = "DM_verity_hash";
+                                architecture = native_architecture();
+                                rw = false;
+
+                        } else if (sd_id128_equal(type_id, GPT_ROOT_NATIVE_VERITY_SIG)) {
+
+                                check_partition_flags(node, pflags, GPT_FLAG_NO_AUTO|GPT_FLAG_READ_ONLY);
+
+                                if (pflags & GPT_FLAG_NO_AUTO)
+                                        continue;
+
+                                m->has_verity_sig = true;
+
+                                /* If root hash is specified explicitly, then ignore any embedded signature */
+                                if (!verity)
+                                        continue;
+                                if (verity->designator >= 0 && verity->designator != PARTITION_ROOT)
+                                        continue;
+                                if (verity->root_hash)
+                                        continue;
+
+                                designator = PARTITION_ROOT_VERITY_SIG;
+                                fstype = "verity_hash_signature";
                                 architecture = native_architecture();
                                 rw = false;
                         }
@@ -1018,13 +1050,41 @@ int dissect_image(
 
                                 m->has_verity = true;
 
-                                /* Ignore verity unless root has is specified */
-                                if (sd_id128_is_null(root_verity_uuid) || !sd_id128_equal(root_verity_uuid, id))
+                                /* Don't do verity if no verity config is passed in */
+                                if (!verity)
+                                        continue;
+                                if (verity->designator >= 0 && verity->designator != PARTITION_ROOT)
+                                        continue;
+
+                                /* If root hash is specified, then ignore everything but the root id */
+                                if (!sd_id128_is_null(root_verity_uuid) && !sd_id128_equal(root_verity_uuid, id))
                                         continue;
 
                                 designator = PARTITION_ROOT_SECONDARY_VERITY;
                                 fstype = "DM_verity_hash";
                                 architecture = SECONDARY_ARCHITECTURE;
+                                rw = false;
+
+                        } else if (sd_id128_equal(type_id, GPT_ROOT_SECONDARY_VERITY_SIG)) {
+
+                                check_partition_flags(node, pflags, GPT_FLAG_NO_AUTO|GPT_FLAG_READ_ONLY);
+
+                                if (pflags & GPT_FLAG_NO_AUTO)
+                                        continue;
+
+                                m->has_verity_sig = true;
+
+                                /* If root hash is specified explicitly, then ignore any embedded signature */
+                                if (!verity)
+                                        continue;
+                                if (verity->designator >= 0 && verity->designator != PARTITION_ROOT)
+                                        continue;
+                                if (verity->root_hash)
+                                        continue;
+
+                                designator = PARTITION_ROOT_SECONDARY_VERITY_SIG;
+                                fstype = "verity_hash_signature";
+                                architecture = native_architecture();
                                 rw = false;
                         }
 #endif
@@ -1054,12 +1114,39 @@ int dissect_image(
 
                                 m->has_verity = true;
 
-                                /* Ignore verity unless a usr hash is specified */
-                                if (sd_id128_is_null(usr_verity_uuid) || !sd_id128_equal(usr_verity_uuid, id))
+                                if (!verity)
+                                        continue;
+                                if (verity->designator >= 0 && verity->designator != PARTITION_USR)
+                                        continue;
+
+                                /* If usr hash is specified, then ignore everything but the usr id */
+                                if (!sd_id128_is_null(usr_verity_uuid) && !sd_id128_equal(usr_verity_uuid, id))
                                         continue;
 
                                 designator = PARTITION_USR_VERITY;
                                 fstype = "DM_verity_hash";
+                                architecture = native_architecture();
+                                rw = false;
+
+                        } else if (sd_id128_equal(type_id, GPT_USR_NATIVE_VERITY_SIG)) {
+
+                                check_partition_flags(node, pflags, GPT_FLAG_NO_AUTO|GPT_FLAG_READ_ONLY);
+
+                                if (pflags & GPT_FLAG_NO_AUTO)
+                                        continue;
+
+                                m->has_verity_sig = true;
+
+                                /* If usr hash is specified explicitly, then ignore any embedded signature */
+                                if (!verity)
+                                        continue;
+                                if (verity->designator >= 0 && verity->designator != PARTITION_USR)
+                                        continue;
+                                if (verity->root_hash)
+                                        continue;
+
+                                designator = PARTITION_USR_VERITY_SIG;
+                                fstype = "verity_hash_signature";
                                 architecture = native_architecture();
                                 rw = false;
                         }
@@ -1090,13 +1177,40 @@ int dissect_image(
 
                                 m->has_verity = true;
 
-                                /* Ignore verity unless usr has is specified */
-                                if (sd_id128_is_null(usr_verity_uuid) || !sd_id128_equal(usr_verity_uuid, id))
+                                if (!verity)
+                                        continue;
+                                if (verity->designator >= 0 && verity->designator != PARTITION_USR)
+                                        continue;
+
+                                /* If usr hash is specified, then ignore everything but the root id */
+                                if (!sd_id128_is_null(usr_verity_uuid) && !sd_id128_equal(usr_verity_uuid, id))
                                         continue;
 
                                 designator = PARTITION_USR_SECONDARY_VERITY;
                                 fstype = "DM_verity_hash";
                                 architecture = SECONDARY_ARCHITECTURE;
+                                rw = false;
+
+                        } else if (sd_id128_equal(type_id, GPT_USR_SECONDARY_VERITY_SIG)) {
+
+                                check_partition_flags(node, pflags, GPT_FLAG_NO_AUTO|GPT_FLAG_READ_ONLY);
+
+                                if (pflags & GPT_FLAG_NO_AUTO)
+                                        continue;
+
+                                m->has_verity_sig = true;
+
+                                /* If usr hash is specified explicitly, then ignore any embedded signature */
+                                if (!verity)
+                                        continue;
+                                if (verity->designator >= 0 && verity->designator != PARTITION_USR)
+                                        continue;
+                                if (verity->root_hash)
+                                        continue;
+
+                                designator = PARTITION_USR_SECONDARY_VERITY_SIG;
+                                fstype = "verity_hash_signature";
+                                architecture = native_architecture();
                                 rw = false;
                         }
 #endif
@@ -1293,10 +1407,13 @@ int dissect_image(
                  * since we never want to mount the secondary arch in this case. */
                 m->partitions[PARTITION_ROOT_SECONDARY].found = false;
                 m->partitions[PARTITION_ROOT_SECONDARY_VERITY].found = false;
+                m->partitions[PARTITION_ROOT_SECONDARY_VERITY_SIG].found = false;
                 m->partitions[PARTITION_USR_SECONDARY].found = false;
                 m->partitions[PARTITION_USR_SECONDARY_VERITY].found = false;
+                m->partitions[PARTITION_USR_SECONDARY_VERITY_SIG].found = false;
 
-        } else if (m->partitions[PARTITION_ROOT_VERITY].found)
+        } else if (m->partitions[PARTITION_ROOT_VERITY].found ||
+                   m->partitions[PARTITION_ROOT_VERITY_SIG].found)
                 return -EADDRNOTAVAIL; /* Verity found but no matching rootfs? Something is off, refuse. */
 
         else if (m->partitions[PARTITION_ROOT_SECONDARY].found) {
@@ -1308,22 +1425,32 @@ int dissect_image(
                 zero(m->partitions[PARTITION_ROOT_SECONDARY]);
                 m->partitions[PARTITION_ROOT_VERITY] = m->partitions[PARTITION_ROOT_SECONDARY_VERITY];
                 zero(m->partitions[PARTITION_ROOT_SECONDARY_VERITY]);
+                m->partitions[PARTITION_ROOT_VERITY_SIG] = m->partitions[PARTITION_ROOT_SECONDARY_VERITY_SIG];
+                zero(m->partitions[PARTITION_ROOT_SECONDARY_VERITY_SIG]);
 
                 m->partitions[PARTITION_USR] = m->partitions[PARTITION_USR_SECONDARY];
                 zero(m->partitions[PARTITION_USR_SECONDARY]);
                 m->partitions[PARTITION_USR_VERITY] = m->partitions[PARTITION_USR_SECONDARY_VERITY];
                 zero(m->partitions[PARTITION_USR_SECONDARY_VERITY]);
+                m->partitions[PARTITION_USR_VERITY_SIG] = m->partitions[PARTITION_USR_SECONDARY_VERITY_SIG];
+                zero(m->partitions[PARTITION_USR_SECONDARY_VERITY_SIG]);
 
-        } else if (m->partitions[PARTITION_ROOT_SECONDARY_VERITY].found)
+        } else if (m->partitions[PARTITION_ROOT_SECONDARY_VERITY].found ||
+                   m->partitions[PARTITION_ROOT_SECONDARY_VERITY_SIG].found)
                 return -EADDRNOTAVAIL; /* as above */
 
-        if (m->partitions[PARTITION_USR].found) {
+        /* Hmm, we found a signature partition but no Verity data? Something is off. */
+        if (m->partitions[PARTITION_ROOT_VERITY_SIG].found && !m->partitions[PARTITION_ROOT_VERITY].found)
+                return -EADDRNOTAVAIL;
 
+        if (m->partitions[PARTITION_USR].found) {
                 /* Invalidate secondary arch /usr/ if we found the primary arch */
                 m->partitions[PARTITION_USR_SECONDARY].found = false;
                 m->partitions[PARTITION_USR_SECONDARY_VERITY].found = false;
+                m->partitions[PARTITION_USR_SECONDARY_VERITY_SIG].found = false;
 
-        } else if (m->partitions[PARTITION_USR_VERITY].found)
+        } else if (m->partitions[PARTITION_USR_VERITY].found ||
+                   m->partitions[PARTITION_USR_VERITY_SIG].found)
                 return -EADDRNOTAVAIL; /* as above */
 
         else if (m->partitions[PARTITION_USR_SECONDARY].found) {
@@ -1333,9 +1460,16 @@ int dissect_image(
                 zero(m->partitions[PARTITION_USR_SECONDARY]);
                 m->partitions[PARTITION_USR_VERITY] = m->partitions[PARTITION_USR_SECONDARY_VERITY];
                 zero(m->partitions[PARTITION_USR_SECONDARY_VERITY]);
+                m->partitions[PARTITION_USR_VERITY_SIG] = m->partitions[PARTITION_USR_SECONDARY_VERITY_SIG];
+                zero(m->partitions[PARTITION_USR_SECONDARY_VERITY_SIG]);
 
-        } else if (m->partitions[PARTITION_USR_SECONDARY_VERITY].found)
+        } else if (m->partitions[PARTITION_USR_SECONDARY_VERITY].found ||
+                   m->partitions[PARTITION_USR_SECONDARY_VERITY_SIG].found)
                 return -EADDRNOTAVAIL; /* as above */
+
+        /* Hmm, we found a signature partition but no Verity data? Something is off. */
+        if (m->partitions[PARTITION_USR_VERITY_SIG].found && !m->partitions[PARTITION_USR_VERITY].found)
+                return -EADDRNOTAVAIL;
 
         /* If root and /usr are combined then insist that the architecture matches */
         if (m->partitions[PARTITION_ROOT].found &&
@@ -1407,6 +1541,9 @@ int dissect_image(
                         return -EADDRNOTAVAIL;
 
                 if (verity->root_hash) {
+                        /* If we have an explicit root hash and found the partitions for it, then we are ready to use
+                         * Verity, set things up for it */
+
                         if (verity->designator < 0 || verity->designator == PARTITION_ROOT) {
                                 if (!m->partitions[PARTITION_ROOT_VERITY].found || !m->partitions[PARTITION_ROOT].found)
                                         return -EADDRNOTAVAIL;
@@ -1424,6 +1561,16 @@ int dissect_image(
                                 m->partitions[PARTITION_USR].rw = false;
                                 m->verity_ready = true;
                         }
+
+                        if (m->verity_ready)
+                                m->verity_sig_ready = !!verity->root_hash_sig;
+
+                } else if (m->partitions[verity->designator == PARTITION_USR ? PARTITION_USR_VERITY_SIG : PARTITION_ROOT_VERITY_SIG].found) {
+
+                        /* If we found an embedded signature partition, we are ready, too. */
+
+                        m->verity_ready = m->verity_sig_ready = true;
+                        m->partitions[verity->designator == PARTITION_USR ? PARTITION_USR : PARTITION_ROOT].rw = false;
                 }
         }
 
@@ -2901,6 +3048,23 @@ bool dissected_image_verity_ready(const DissectedImage *image, PartitionDesignat
         return k >= 0 && image->partitions[k].found;
 }
 
+bool dissected_image_verity_sig_ready(const DissectedImage *image, PartitionDesignator partition_designator) {
+        PartitionDesignator k;
+
+        assert(image);
+
+        /* Checks if this partition has verity signature data available that we can use. */
+
+        if (!image->verity_sig_ready)
+                return false;
+
+        if (image->single_file_system)
+                return partition_designator == PARTITION_ROOT;
+
+        k = PARTITION_VERITY_SIG_OF(partition_designator);
+        return k >= 0 && image->partitions[k].found;
+}
+
 MountOptions* mount_options_free_all(MountOptions *options) {
         MountOptions *m;
 
@@ -3014,6 +3178,10 @@ static const char *const partition_designator_table[] = {
         [PARTITION_ROOT_SECONDARY_VERITY] = "root-secondary-verity",
         [PARTITION_USR_VERITY] = "usr-verity",
         [PARTITION_USR_SECONDARY_VERITY] = "usr-secondary-verity",
+        [PARTITION_ROOT_VERITY_SIG] = "root-verity-sig",
+        [PARTITION_ROOT_SECONDARY_VERITY_SIG] = "root-secondary-verity-sig",
+        [PARTITION_USR_VERITY_SIG] = "usr-verity-sig",
+        [PARTITION_USR_SECONDARY_VERITY_SIG] = "usr-secondary-verity-sig",
         [PARTITION_TMP] = "tmp",
         [PARTITION_VAR] = "var",
 };
