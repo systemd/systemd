@@ -53,7 +53,12 @@ struct Manager {
         sd_event_source *swap_context_event_source;
         sd_event_source *mem_pressure_context_event_source;
 
-        Varlink *varlink;
+        /* This varlink object is used to manage the subscription from systemd-oomd to PID1 which it uses to
+         * listen for changes in ManagedOOM settings (oomd client - systemd server). */
+        Varlink *varlink_client;
+        /* This varlink server object is used to manage systemd-oomd's varlink server which is used by user
+         * managers to report changes in ManagedOOM settings (oomd server - systemd client). */
+        VarlinkServer *varlink_server;
 };
 
 Manager* manager_free(Manager *m);
@@ -61,7 +66,7 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(Manager*, manager_free);
 
 int manager_new(Manager **ret);
 
-int manager_start(Manager *m, bool dry_run, int swap_used_limit_permyriad, int mem_pressure_limit_permyriad, usec_t mem_pressure_usec);
+int manager_start(Manager *m, bool dry_run, int swap_used_limit_permyriad, int mem_pressure_limit_permyriad, usec_t mem_pressure_usec, int fd);
 
 int manager_get_dump_string(Manager *m, char **ret);
 

@@ -1053,6 +1053,9 @@ install_systemd() {
     echo LogLevel=debug >>"$initdir/etc/systemd/system.conf"
     # store coredumps in journal
     echo Storage=journal >>"$initdir/etc/systemd/coredump.conf"
+    # Propagate SYSTEMD_UNIT_PATH to user systemd managers
+    mkdir "$initdir/etc/systemd/system/user@.service.d/"
+    echo -e "[Service]\nPassEnvironment=SYSTEMD_UNIT_PATH\n" >"$initdir/etc/systemd/system/user@.service.d/override.conf"
 }
 
 get_ldpath() {

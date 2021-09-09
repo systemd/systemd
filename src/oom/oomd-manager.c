@@ -1,11 +1,14 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "sd-daemon.h"
+
 #include "bus-log-control-api.h"
 #include "bus-util.h"
 #include "bus-polkit.h"
 #include "cgroup-util.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "format-util.h"
 #include "memory-util.h"
 #include "oomd-manager-bus.h"
 #include "oomd-manager.h"
@@ -40,7 +43,7 @@ static int managed_oom_mode(const char *name, JsonVariant *v, JsonDispatchFlags 
         return 0;
 }
 
-static int process_managed_oom_message(Manager *m, JsonVariant *parameters) {
+static int process_managed_oom_message(Manager *m, uid_t uid, JsonVariant *parameters) {
         JsonVariant *c, *cgroups;
         int r;
 
@@ -74,6 +77,23 @@ static int process_managed_oom_message(Manager *m, JsonVariant *parameters) {
                         return r;
                 if (r < 0)
                         continue;
+
+                if (uid != 0) {
+                        uid_t cg_uid;
+
+                        r = cg_path_get_owner_uid(message.path, &cg_uid);
+                        if (r < 0) {
+                                log_debug("Failed to get cgroup %s owner uid: %m", message.path);
+                                continue;
+                        }
+
+                        /* Let's not be lenient for permission errors and skip processing if we receive an
+                        * update for a cgroup that doesn't belong to the user. */
+                        if (uid != cg_uid)
+                                return log_error_errno(SYNTHETIC_ERRNO(EPERM),
+                                                       "cgroup path owner UID does not match sender uid "
+                                                       "(" UID_FMT " != " UID_FMT ")", uid, cg_uid);
+                }
 
                 monitor_hm = streq(message.property, "ManagedOOMSwap") ?
                                 m->monitored_swap_cgroup_contexts : m->monitored_mem_pressure_cgroup_contexts;
@@ -112,6 +132,24 @@ static int process_managed_oom_message(Manager *m, JsonVariant *parameters) {
         return 0;
 }
 
+static int process_managed_oom_request(
+                Varlink *link,
+                JsonVariant *parameters,
+                VarlinkMethodFlags flags,
+                void *userdata) {
+        Manager *m = userdata;
+        uid_t uid;
+        int r;
+
+        assert(m);
+
+        r = varlink_get_peer_uid(link, &uid);
+        if (r < 0)
+                return log_error_errno(r, "Failed to get varlink peer uid: %m");
+
+        return process_managed_oom_message(m, uid, parameters);
+}
+
 static int process_managed_oom_reply(
                 Varlink *link,
                 JsonVariant *parameters,
@@ -119,6 +157,7 @@ static int process_managed_oom_reply(
                 VarlinkReplyFlags flags,
                 void *userdata) {
         Manager *m = userdata;
+        uid_t uid;
         int r;
 
         assert(m);
@@ -129,11 +168,17 @@ static int process_managed_oom_reply(
                 goto finish;
         }
 
-        r = process_managed_oom_message(m, parameters);
+        r = varlink_get_peer_uid(link, &uid);
+        if (r < 0) {
+                log_error_errno(r, "Failed to get varlink peer uid: %m");
+                goto finish;
+        }
+
+        r = process_managed_oom_message(m, uid, parameters);
 
 finish:
         if (!FLAGS_SET(flags, VARLINK_REPLY_CONTINUES))
-                m->varlink = varlink_close_unref(link);
+                m->varlink_client = varlink_close_unref(link);
 
         return r;
 }
@@ -279,9 +324,9 @@ static int acquire_managed_oom_connect(Manager *m) {
         assert(m);
         assert(m->event);
 
-        r = varlink_connect_address(&link, VARLINK_ADDR_PATH_MANAGED_OOM);
+        r = varlink_connect_address(&link, VARLINK_ADDR_PATH_MANAGED_OOM_SYSTEM);
         if (r < 0)
-                return log_error_errno(r, "Failed to connect to %s: %m", VARLINK_ADDR_PATH_MANAGED_OOM);
+                return log_error_errno(r, "Failed to connect to " VARLINK_ADDR_PATH_MANAGED_OOM_SYSTEM ": %m");
 
         (void) varlink_set_userdata(link, m);
         (void) varlink_set_description(link, "oomd");
@@ -299,7 +344,7 @@ static int acquire_managed_oom_connect(Manager *m) {
         if (r < 0)
                 return log_error_errno(r, "Failed to observe varlink call: %m");
 
-        m->varlink = TAKE_PTR(link);
+        m->varlink_client = TAKE_PTR(link);
         return 0;
 }
 
@@ -321,7 +366,7 @@ static int monitor_swap_contexts_handler(sd_event_source *s, uint64_t usec, void
                 return log_error_errno(r, "Failed to set relative time for timer: %m");
 
         /* Reconnect if our connection dropped */
-        if (!m->varlink) {
+        if (!m->varlink_client) {
                 r = acquire_managed_oom_connect(m);
                 if (r < 0)
                         return log_error_errno(r, "Failed to acquire varlink connection: %m");
@@ -411,7 +456,7 @@ static int monitor_memory_pressure_contexts_handler(sd_event_source *s, uint64_t
                 return log_error_errno(r, "Failed to set relative time for timer: %m");
 
         /* Reconnect if our connection dropped */
-        if (!m->varlink) {
+        if (!m->varlink_client) {
                 r = acquire_managed_oom_connect(m);
                 if (r < 0)
                         return log_error_errno(r, "Failed to acquire varlink connection: %m");
@@ -568,7 +613,8 @@ static int monitor_memory_pressure_contexts(Manager *m) {
 Manager* manager_free(Manager *m) {
         assert(m);
 
-        varlink_close_unref(m->varlink);
+        varlink_server_unref(m->varlink_server);
+        varlink_close_unref(m->varlink_client);
         sd_event_source_unref(m->swap_context_event_source);
         sd_event_source_unref(m->mem_pressure_context_event_source);
         sd_event_unref(m->event);
@@ -652,12 +698,47 @@ static int manager_connect_bus(Manager *m) {
         return 0;
 }
 
+static int manager_varlink_init(Manager *m, int fd) {
+        _cleanup_(varlink_server_unrefp) VarlinkServer *s = NULL;
+        int r;
+
+        assert(m);
+        assert(!m->varlink_server);
+
+        r = varlink_server_new(&s, VARLINK_SERVER_ACCOUNT_UID|VARLINK_SERVER_INHERIT_USERDATA);
+        if (r < 0)
+                return log_error_errno(r, "Failed to allocate varlink server object: %m");
+
+        varlink_server_set_userdata(s, m);
+
+        r = varlink_server_bind_method(s, "io.systemd.oom.ReportManagedOOMCGroups", process_managed_oom_request);
+        if (r < 0)
+                return log_error_errno(r, "Failed to register varlink method: %m");
+
+        if (fd < 0)
+                r = varlink_server_listen_address(s, VARLINK_ADDR_PATH_MANAGED_OOM_USER, 0666);
+        else
+                r = varlink_server_listen_fd(s, fd);
+        if (r < 0)
+                return log_error_errno(r, "Failed to bind to varlink socket: %m");
+
+        r = varlink_server_attach_event(s, m->event, SD_EVENT_PRIORITY_NORMAL);
+        if (r < 0)
+                return log_error_errno(r, "Failed to attach varlink connection to event loop: %m");
+
+        log_debug("Initialized systemd-oomd varlink server");
+
+        m->varlink_server = TAKE_PTR(s);
+        return 0;
+}
+
 int manager_start(
                 Manager *m,
                 bool dry_run,
                 int swap_used_limit_permyriad,
                 int mem_pressure_limit_permyriad,
-                usec_t mem_pressure_usec) {
+                usec_t mem_pressure_usec,
+                int fd) {
 
         unsigned long l, f;
         int r;
@@ -689,6 +770,10 @@ int manager_start(
                 return r;
 
         r = acquire_managed_oom_connect(m);
+        if (r < 0)
+                return r;
+
+        r = manager_varlink_init(m, fd);
         if (r < 0)
                 return r;
 
