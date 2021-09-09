@@ -1337,6 +1337,14 @@ int dissect_image(
         } else if (m->partitions[PARTITION_USR_SECONDARY_VERITY].found)
                 return -EADDRNOTAVAIL; /* as above */
 
+        /* If root and /usr are combined then insist that the architecture matches */
+        if (m->partitions[PARTITION_ROOT].found &&
+            m->partitions[PARTITION_USR].found &&
+            (m->partitions[PARTITION_ROOT].architecture >= 0 &&
+             m->partitions[PARTITION_USR].architecture >= 0 &&
+             m->partitions[PARTITION_ROOT].architecture != m->partitions[PARTITION_USR].architecture))
+                return -EADDRNOTAVAIL;
+
         if (!m->partitions[PARTITION_ROOT].found &&
             !m->partitions[PARTITION_USR].found &&
             (flags & DISSECT_IMAGE_GENERIC_ROOT) &&
