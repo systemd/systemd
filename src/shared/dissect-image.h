@@ -44,6 +44,10 @@ typedef enum PartitionDesignator {
         PARTITION_ROOT_SECONDARY_VERITY, /* verity data for the PARTITION_ROOT_SECONDARY partition */
         PARTITION_USR_VERITY,
         PARTITION_USR_SECONDARY_VERITY,
+        PARTITION_ROOT_VERITY_SIG, /* PKCS#7 signature for root hash for the PARTITION_ROOT partition */
+        PARTITION_ROOT_SECONDARY_VERITY_SIG, /* ditto for the PARTITION_ROOT_SECONDARY partition */
+        PARTITION_USR_VERITY_SIG,
+        PARTITION_USR_SECONDARY_VERITY_SIG,
         PARTITION_TMP,
         PARTITION_VAR,
         _PARTITION_DESIGNATOR_MAX,
@@ -64,7 +68,11 @@ static inline bool PARTITION_DESIGNATOR_VERSIONED(PartitionDesignator d) {
                       PARTITION_ROOT_VERITY,
                       PARTITION_ROOT_SECONDARY_VERITY,
                       PARTITION_USR_VERITY,
-                      PARTITION_USR_SECONDARY_VERITY);
+                      PARTITION_USR_SECONDARY_VERITY,
+                      PARTITION_ROOT_VERITY_SIG,
+                      PARTITION_ROOT_SECONDARY_VERITY_SIG,
+                      PARTITION_USR_VERITY_SIG,
+                      PARTITION_USR_SECONDARY_VERITY_SIG);
 }
 
 static inline PartitionDesignator PARTITION_VERITY_OF(PartitionDesignator p) {
@@ -81,6 +89,26 @@ static inline PartitionDesignator PARTITION_VERITY_OF(PartitionDesignator p) {
 
         case PARTITION_USR_SECONDARY:
                 return PARTITION_USR_SECONDARY_VERITY;
+
+        default:
+                return _PARTITION_DESIGNATOR_INVALID;
+        }
+}
+
+static inline PartitionDesignator PARTITION_VERITY_SIG_OF(PartitionDesignator p) {
+        switch (p) {
+
+        case PARTITION_ROOT:
+                return PARTITION_ROOT_VERITY_SIG;
+
+        case PARTITION_ROOT_SECONDARY:
+                return PARTITION_ROOT_SECONDARY_VERITY_SIG;
+
+        case PARTITION_USR:
+                return PARTITION_USR_VERITY_SIG;
+
+        case PARTITION_USR_SECONDARY:
+                return PARTITION_USR_SECONDARY_VERITY_SIG;
 
         default:
                 return _PARTITION_DESIGNATOR_INVALID;
@@ -119,11 +147,14 @@ typedef enum DissectImageFlags {
 struct DissectedImage {
         bool encrypted:1;
         bool has_verity:1;         /* verity available in image, but not necessarily used */
+        bool has_verity_sig:1;     /* pkcs#7 signature embedded in image */
         bool verity_ready:1;       /* verity available, fully specified and usable */
+        bool verity_sig_ready:1;   /* verity signature logic, fully specified and usable */
         bool single_file_system:1; /* MBR/GPT or single file system */
 
         DissectedPartition partitions[_PARTITION_DESIGNATOR_MAX];
 
+        /* Meta information extracted from /etc/os-release and similar */
         char *image_name;
         char *hostname;
         sd_id128_t machine_id;
@@ -188,6 +219,7 @@ void verity_settings_done(VeritySettings *verity);
 
 bool dissected_image_verity_candidate(const DissectedImage *image, PartitionDesignator d);
 bool dissected_image_verity_ready(const DissectedImage *image, PartitionDesignator d);
+bool dissected_image_verity_sig_ready(const DissectedImage *image, PartitionDesignator d);
 
 int mount_image_privately_interactively(const char *path, DissectImageFlags flags, char **ret_directory, LoopDevice **ret_loop_device, DecryptedImage **ret_decrypted_image);
 
