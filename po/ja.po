@@ -2,18 +2,22 @@
 #
 # Japanese translation for systemd.
 #
+# Takuro Onoue <kusanaginoturugi@gmail.com>, 2021.
 msgid ""
 msgstr ""
 "Project-Id-Version: systemd\n"
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2021-01-08 17:48+0100\n"
-"PO-Revision-Date: 2018-10-27 07:41+0900\n"
-"Last-Translator: Yu Watanabe <watanabe.yu+github@gmail.com>\n"
-"Language-Team: \n"
+"PO-Revision-Date: 2021-09-09 03:04+0000\n"
+"Last-Translator: Takuro Onoue <kusanaginoturugi@gmail.com>\n"
+"Language-Team: Japanese <https://translate.fedoraproject.org/projects/"
+"systemd/master/ja/>\n"
 "Language: ja\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
+"X-Generator: Weblate 4.8\n"
 
 #: src/core/org.freedesktop.systemd1.policy.in:22
 msgid "Send passphrase back to system"
@@ -150,7 +154,7 @@ msgstr "仮想マシンもしくはコンテナイメージの読込"
 
 #: src/import/org.freedesktop.import1.policy:23
 msgid "Authentication is required to import a VM or container image"
-msgstr "仮想マシンもしくはコンテナイメージを読込むには認証が必要です。"
+msgstr "仮想マシンもしくはコンテナイメージを読込むには認証が必要です"
 
 #: src/import/org.freedesktop.import1.policy:32
 msgid "Export a VM or container image"
@@ -158,7 +162,7 @@ msgstr "仮想マシンもしくはコンテナイメージの書出し"
 
 #: src/import/org.freedesktop.import1.policy:33
 msgid "Authentication is required to export a VM or container image"
-msgstr "仮想マシンもしくはコンテナイメージを書出すには認証が必要です。"
+msgstr "仮想マシンもしくはコンテナイメージを書出すには認証が必要です"
 
 #: src/import/org.freedesktop.import1.policy:42
 msgid "Download a VM or container image"
@@ -166,8 +170,7 @@ msgstr "仮想マシンもしくはコンテナイメージのダウンロード
 
 #: src/import/org.freedesktop.import1.policy:43
 msgid "Authentication is required to download a VM or container image"
-msgstr ""
-"仮想マシンもしくはコンテナイメージをダウンロードするには認証が必要です。"
+msgstr "仮想マシンもしくはコンテナイメージをダウンロードするには認証が必要です"
 
 #: src/locale/org.freedesktop.locale1.policy:22
 msgid "Set system locale"
@@ -511,7 +514,7 @@ msgstr ""
 
 #: src/login/org.freedesktop.login1.policy:374
 msgid "Indicate to the boot loader to boot to the boot loader menu"
-msgstr "ブートローダにブートローダメニューを起動するための項目を表示させる。"
+msgstr "ブートローダにブートローダメニューを起動するための項目を表示させる"
 
 #: src/login/org.freedesktop.login1.policy:375
 msgid ""
@@ -537,7 +540,7 @@ msgstr "全ユーザへのメッセージの設定"
 
 #: src/login/org.freedesktop.login1.policy:397
 msgid "Authentication is required to set a wall message"
-msgstr "全ユーザへのメッセージを設定するには認証が必要です。"
+msgstr "全ユーザへのメッセージを設定するには認証が必要です"
 
 #: src/login/org.freedesktop.login1.policy:406
 msgid "Change Session"
@@ -783,7 +786,7 @@ msgstr "DNS-SDサービスを登録"
 
 #: src/resolve/org.freedesktop.resolve1.policy:23
 msgid "Authentication is required to register a DNS-SD service"
-msgstr "DNS-SDサービスを登録するには認証が必要です。"
+msgstr "DNS-SDサービスを登録するには認証が必要です"
 
 #: src/resolve/org.freedesktop.resolve1.policy:33
 msgid "Unregister a DNS-SD service"
@@ -791,7 +794,7 @@ msgstr "DNS-SDサービスへの登録を解除"
 
 #: src/resolve/org.freedesktop.resolve1.policy:34
 msgid "Authentication is required to unregister a DNS-SD service"
-msgstr "DNS-SDサービスへの登録を解除するには認証が必要です。"
+msgstr "DNS-SDサービスへの登録を解除するには認証が必要です"
 
 #: src/resolve/org.freedesktop.resolve1.policy:132
 msgid "Revert name resolution settings"
