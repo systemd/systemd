@@ -5710,7 +5710,14 @@ static int run(int argc, char *argv[]) {
                 if (r < 0)
                         goto finish;
 
-                if (!arg_verity_settings.root_hash && dissected_image->can_verity)
+                r = dissected_image_load_verity_sig_partition(
+                                dissected_image,
+                                loop->fd,
+                                &arg_verity_settings);
+                if (r < 0)
+                        goto finish;
+
+                if (!arg_verity_settings.root_hash && dissected_image->has_verity && !dissected_image->has_verity_sig)
                         log_notice("Note: image %s contains verity information, but no root hash specified! Proceeding without integrity checking.", arg_image);
 
                 r = dissected_image_decrypt_interactively(
