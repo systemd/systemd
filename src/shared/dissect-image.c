@@ -1390,10 +1390,6 @@ int dissect_image(
             !(m->partitions[PARTITION_ROOT].found || (m->partitions[PARTITION_USR].found && FLAGS_SET(flags, DISSECT_IMAGE_USR_NO_ROOT))))
                 return -ENXIO;
 
-        /* Refuse if we found a verity partition for /usr but no matching file system partition */
-        if (!m->partitions[PARTITION_USR].found && m->partitions[PARTITION_USR_VERITY].found)
-                return -EADDRNOTAVAIL;
-
         /* Combinations of verity /usr with verity-less root is OK, but the reverse is not */
         if (m->partitions[PARTITION_ROOT_VERITY].found && m->partitions[PARTITION_USR].found && !m->partitions[PARTITION_USR_VERITY].found)
                 return -EADDRNOTAVAIL;
