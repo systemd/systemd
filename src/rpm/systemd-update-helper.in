@@ -30,7 +30,8 @@ case "$command" in
         [ -d /run/systemd/system ] || exit 0
 
         users=$(systemctl list-units 'user@*' --legend=no | sed -n -r 's/.*user@([0-9]+).service.*/\1/p')
-        for user in $users; do
+        for id in $users; do
+            user=$(id -nu "$id")
             SYSTEMD_BUS_TIMEOUT={{UPDATE_HELPER_USER_TIMEOUT}} \
                     systemctl --user -M "$user@" disable --now "$@" &
         done
@@ -50,7 +51,8 @@ case "$command" in
         [ -d /run/systemd/system ] || exit 0
 
         users=$(systemctl list-units 'user@*' --legend=no | sed -n -r 's/.*user@([0-9]+).service.*/\1/p')
-        for user in $users; do
+        for id in $users; do
+            user=$(id -nu "$id")
             SYSTEMD_BUS_TIMEOUT={{UPDATE_HELPER_USER_TIMEOUT}} \
                     systemctl --user -M "$user@" set-property "$unit" Markers=+needs-restart &
         done
@@ -85,7 +87,8 @@ case "$command" in
         users=$(systemctl list-units 'user@*' --legend=no | sed -n -r 's/.*user@([0-9]+).service.*/\1/p')
 
         if [[ "$command" =~ reexec ]]; then
-            for user in $users; do
+            for id in $users; do
+                user=$(id -nu "$id")
                 SYSTEMD_BUS_TIMEOUT={{UPDATE_HELPER_USER_TIMEOUT}} \
                         systemctl --user -M "$user@" daemon-reexec &
             done
@@ -93,7 +96,8 @@ case "$command" in
         fi
 
         if [[ "$command" =~ reload ]]; then
-            for user in $users; do
+            for id in $users; do
+                user=$(id -nu "$id")
                 SYSTEMD_BUS_TIMEOUT={{UPDATE_HELPER_USER_TIMEOUT}} \
                         systemctl --user -M "$user@" daemon-reload &
             done
@@ -101,7 +105,8 @@ case "$command" in
         fi
 
         if [[ "$command" =~ restart ]]; then
-            for user in $users; do
+            for id in $users; do
+                user=$(id -nu "$id")
                 SYSTEMD_BUS_TIMEOUT={{UPDATE_HELPER_USER_TIMEOUT}} \
                         systemctl --user -M "$user@" reload-or-restart --marked &
             done
