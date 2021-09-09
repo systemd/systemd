@@ -805,6 +805,13 @@ static int run(int argc, char *argv[]) {
         if (r < 0)
                 return r;
 
+        r = dissected_image_load_verity_sig_partition(
+                        m,
+                        d->fd,
+                        &arg_verity_settings);
+        if (r < 0)
+                return r;
+
         switch (arg_action) {
 
         case ACTION_DISSECT:
