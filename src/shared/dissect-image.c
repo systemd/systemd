@@ -2609,6 +2609,12 @@ int verity_settings_load(
         if (is_device_path(image))
                 return 0;
 
+        r = getenv_bool_secure("SYSTEMD_DISSECT_VERITY_SIDECAR");
+        if (r < 0 && r != -ENXIO)
+                log_debug_errno(r, "Failed to parse $SYSTEMD_DISSECT_VERITY_SIDECAR, ignoring: %m");
+        if (r == 0)
+                return 0;
+
         designator = verity->designator;
 
         /* We only fill in what isn't already filled in */
