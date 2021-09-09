@@ -2,6 +2,7 @@
 
 #include <nss.h>
 #include <pthread.h>
+#include <string.h>
 
 #include "env-util.h"
 #include "errno-util.h"
@@ -139,6 +140,155 @@ NSS_GRENT_PROTOTYPES(systemd);
 NSS_SGENT_PROTOTYPES(systemd);
 NSS_INITGROUPS_PROTOTYPE(systemd);
 
+/* Since our NSS functions implement reentrant glibc APIs, we have to guarantee
+ * all the string pointers we return point into the buffer provided by the
+ * caller, not into our own static memory. */
+
+static enum nss_status copy_synthesized_passwd(
+                struct passwd *dest,
+                const struct passwd *src,
+                char *buffer, size_t buflen,
+                int *errnop) {
+
+        size_t required;
+
+        assert(dest);
+        assert(src);
+        assert(src->pw_name);
+        assert(src->pw_passwd);
+        assert(src->pw_gecos);
+        assert(src->pw_dir);
+        assert(src->pw_shell);
+
+        required = strlen(src->pw_name) + 1;
+        required += strlen(src->pw_passwd) + 1;
+        required += strlen(src->pw_gecos) + 1;
+        required += strlen(src->pw_dir) + 1;
+        required += strlen(src->pw_shell) + 1;
+
+        if (buflen < required) {
+                *errnop = ERANGE;
+                return NSS_STATUS_TRYAGAIN;
+        }
+
+        assert(buffer);
+
+        *dest = *src;
+
+        /* String fields point into the user-provided buffer */
+        dest->pw_name = buffer;
+        dest->pw_passwd = stpcpy(dest->pw_name, src->pw_name) + 1;
+        dest->pw_gecos = stpcpy(dest->pw_passwd, src->pw_passwd) + 1;
+        dest->pw_dir = stpcpy(dest->pw_gecos, src->pw_gecos) + 1;
+        dest->pw_shell = stpcpy(dest->pw_dir, src->pw_dir) + 1;
+        strcpy(dest->pw_shell, src->pw_shell);
+
+        return NSS_STATUS_SUCCESS;
+}
+
+static enum nss_status copy_synthesized_spwd(
+                struct spwd *dest,
+                const struct spwd *src,
+                char *buffer, size_t buflen,
+                int *errnop) {
+
+        size_t required;
+
+        assert(dest);
+        assert(src);
+        assert(src->sp_namp);
+        assert(src->sp_pwdp);
+
+        required = strlen(src->sp_namp) + 1;
+        required += strlen(src->sp_pwdp) + 1;
+
+        if (buflen < required) {
+                *errnop = ERANGE;
+                return NSS_STATUS_TRYAGAIN;
+        }
+
+        assert(buffer);
+
+        *dest = *src;
+
+        /* String fields point into the user-provided buffer */
+        dest->sp_namp = buffer;
+        dest->sp_pwdp = stpcpy(dest->sp_namp, src->sp_namp) + 1;
+        strcpy(dest->sp_pwdp, src->sp_pwdp);
+
+        return NSS_STATUS_SUCCESS;
+}
+
+static enum nss_status copy_synthesized_group(
+                struct group *dest,
+                const struct group *src,
+                char *buffer, size_t buflen,
+                int *errnop) {
+
+        size_t required;
+
+        assert(dest);
+        assert(src);
+        assert(src->gr_name);
+        assert(src->gr_passwd);
+        assert(src->gr_mem);
+        assert(!*src->gr_mem); /* Our synthesized records' gr_mem is always just NULL... */
+
+        required = strlen(src->gr_name) + 1;
+        required += strlen(src->gr_passwd) + 1;
+        required += 1; /* ...but that NULL still needs to be stored into the buffer! */
+
+        if (buflen < required) {
+                *errnop = ERANGE;
+                return NSS_STATUS_TRYAGAIN;
+        }
+
+        assert(buffer);
+
+        *dest = *src;
+
+        /* String fields point into the user-provided buffer */
+        dest->gr_name = buffer;
+        dest->gr_passwd = stpcpy(dest->gr_name, src->gr_name) + 1;
+        dest->gr_mem = (char **) strcpy(dest->gr_passwd, src->gr_passwd) + 1;
+        *dest->gr_mem = NULL;
+
+        return NSS_STATUS_SUCCESS;
+}
+
+static enum nss_status copy_synthesized_sgrp(
+                struct sgrp *dest,
+                const struct sgrp *src,
+                char *buffer, size_t buflen,
+                int *errnop) {
+
+        size_t required;
+
+        assert(dest);
+        assert(src);
+        assert(src->sg_namp);
+        assert(src->sg_passwd);
+
+        required = strlen(src->sg_namp) + 1;
+        required += strlen(src->sg_passwd) + 1;
+
+        if (buflen < required) {
+                *errnop = ERANGE;
+                return NSS_STATUS_TRYAGAIN;
+        }
+
+        assert(buffer);
+
+        *dest = *src;
+
+        /* String fields point into the user-provided buffer */
+        dest->sg_namp = buffer;
+        dest->sg_passwd = stpcpy(dest->sg_namp, src->sg_namp) + 1;
+        strcpy(dest->sg_passwd, src->sg_passwd);
+
+        return NSS_STATUS_SUCCESS;
+}
+
 enum nss_status _nss_systemd_getpwnam_r(
                 const char *name,
                 struct passwd *pwd,
@@ -164,17 +314,14 @@ enum nss_status _nss_systemd_getpwnam_r(
         /* Synthesize entries for the root and nobody users, in case they are missing in /etc/passwd */
         if (getenv_bool_secure("SYSTEMD_NSS_BYPASS_SYNTHETIC") <= 0) {
 
-                if (streq(name, root_passwd.pw_name)) {
-                        *pwd = root_passwd;
-                        return NSS_STATUS_SUCCESS;
-                }
+                if (streq(name, root_passwd.pw_name))
+                        return copy_synthesized_passwd(pwd, &root_passwd, buffer, buflen, errnop);
 
                 if (streq(name, nobody_passwd.pw_name)) {
                         if (!synthesize_nobody())
                                 return NSS_STATUS_NOTFOUND;
 
-                        *pwd = nobody_passwd;
-                        return NSS_STATUS_SUCCESS;
+                        return copy_synthesized_passwd(pwd, &nobody_passwd, buffer, buflen, errnop);
                 }
 
         } else if (STR_IN_SET(name, root_passwd.pw_name, nobody_passwd.pw_name))
@@ -211,17 +358,14 @@ enum nss_status _nss_systemd_getpwuid_r(
         /* Synthesize data for the root user and for nobody in case they are missing from /etc/passwd */
         if (getenv_bool_secure("SYSTEMD_NSS_BYPASS_SYNTHETIC") <= 0) {
 
-                if (uid == root_passwd.pw_uid) {
-                        *pwd = root_passwd;
-                        return NSS_STATUS_SUCCESS;
-                }
+                if (uid == root_passwd.pw_uid)
+                        return copy_synthesized_passwd(pwd, &root_passwd, buffer, buflen, errnop);
 
                 if (uid == nobody_passwd.pw_uid) {
                         if (!synthesize_nobody())
                                 return NSS_STATUS_NOTFOUND;
 
-                        *pwd = nobody_passwd;
-                        return NSS_STATUS_SUCCESS;
+                        return copy_synthesized_passwd(pwd, &nobody_passwd, buffer, buflen, errnop);
                 }
 
         } else if (uid == root_passwd.pw_uid || uid == nobody_passwd.pw_uid)
@@ -259,17 +403,14 @@ enum nss_status _nss_systemd_getspnam_r(
         /* Synthesize entries for the root and nobody users, in case they are missing in /etc/passwd */
         if (getenv_bool_secure("SYSTEMD_NSS_BYPASS_SYNTHETIC") <= 0) {
 
-                if (streq(name, root_spwd.sp_namp)) {
-                        *spwd = root_spwd;
-                        return NSS_STATUS_SUCCESS;
-                }
+                if (streq(name, root_spwd.sp_namp))
+                        return copy_synthesized_spwd(spwd, &root_spwd, buffer, buflen, errnop);
 
                 if (streq(name, nobody_spwd.sp_namp)) {
                         if (!synthesize_nobody())
                                 return NSS_STATUS_NOTFOUND;
 
-                        *spwd = nobody_spwd;
-                        return NSS_STATUS_SUCCESS;
+                        return copy_synthesized_spwd(spwd, &nobody_spwd, buffer, buflen, errnop);
                 }
 
         } else if (STR_IN_SET(name, root_spwd.sp_namp, nobody_spwd.sp_namp))
@@ -309,17 +450,14 @@ enum nss_status _nss_systemd_getgrnam_r(
         /* Synthesize records for root and nobody, in case they are missing from /etc/group */
         if (getenv_bool_secure("SYSTEMD_NSS_BYPASS_SYNTHETIC") <= 0) {
 
-                if (streq(name, root_group.gr_name)) {
-                        *gr = root_group;
-                        return NSS_STATUS_SUCCESS;
-                }
+                if (streq(name, root_group.gr_name))
+                        return copy_synthesized_group(gr, &root_group, buffer, buflen, errnop);
 
                 if (streq(name, nobody_group.gr_name)) {
                         if (!synthesize_nobody())
                                 return NSS_STATUS_NOTFOUND;
 
-                        *gr = nobody_group;
-                        return NSS_STATUS_SUCCESS;
+                        return copy_synthesized_group(gr, &nobody_group, buffer, buflen, errnop);
                 }
 
         } else if (STR_IN_SET(name, root_group.gr_name, nobody_group.gr_name))
@@ -356,17 +494,14 @@ enum nss_status _nss_systemd_getgrgid_r(
         /* Synthesize records for root and nobody, in case they are missing from /etc/group */
         if (getenv_bool_secure("SYSTEMD_NSS_BYPASS_SYNTHETIC") <= 0) {
 
-                if (gid == root_group.gr_gid) {
-                        *gr = root_group;
-                        return NSS_STATUS_SUCCESS;
-                }
+                if (gid == root_group.gr_gid)
+                        return copy_synthesized_group(gr, &root_group, buffer, buflen, errnop);
 
                 if (gid == nobody_group.gr_gid) {
                         if (!synthesize_nobody())
                                 return NSS_STATUS_NOTFOUND;
 
-                        *gr = nobody_group;
-                        return NSS_STATUS_SUCCESS;
+                        return copy_synthesized_group(gr, &nobody_group, buffer, buflen, errnop);
                 }
 
         } else if (gid == root_group.gr_gid || gid == nobody_group.gr_gid)
@@ -404,17 +539,14 @@ enum nss_status _nss_systemd_getsgnam_r(
         /* Synthesize records for root and nobody, in case they are missing from /etc/group */
         if (getenv_bool_secure("SYSTEMD_NSS_BYPASS_SYNTHETIC") <= 0) {
 
-                if (streq(name, root_sgrp.sg_namp)) {
-                        *sgrp = root_sgrp;
-                        return NSS_STATUS_SUCCESS;
-                }
+                if (streq(name, root_sgrp.sg_namp))
+                        return copy_synthesized_sgrp(sgrp, &root_sgrp, buffer, buflen, errnop);
 
                 if (streq(name, nobody_sgrp.sg_namp)) {
                         if (!synthesize_nobody())
                                 return NSS_STATUS_NOTFOUND;
 
-                        *sgrp = nobody_sgrp;
-                        return NSS_STATUS_SUCCESS;
+                        return copy_synthesized_sgrp(sgrp, &nobody_sgrp, buffer, buflen, errnop);
                 }
 
         } else if (STR_IN_SET(name, root_sgrp.sg_namp, nobody_sgrp.sg_namp))
