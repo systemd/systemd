@@ -20,17 +20,19 @@ fi
 
 test_append_files() {
     (
-        instmods "=block"
-        instmods "=md"
-        instmods "=scsi"
-        instmods "=nvme"
+        instmods "=block" "=md" "=nvme" "=scsi"
         install_dmevent
         generate_module_dependencies
-        inst_binary lsblk
-        inst_binary wc
+        image_install lsblk wc
+
+        # Configure multipath
+        if command -v multipath && command -v multipathd; then
+            install_multipath
+        fi
 
         for i in {0..127}; do
             dd if=/dev/zero of="${TESTDIR:?}/disk$i.img" bs=1M count=1
+            echo "device$i" >"${TESTDIR:?}/disk$i.img"
         done
     )
 }
@@ -183,6 +185,49 @@ EOF
     # Limit the number of VCPUs and set a timeout to make sure we trigger the issue
     QEMU_OPTIONS="${qemu_opts[*]} ${USER_QEMU_OPTIONS:-}"
     QEMU_SMP=1 QEMU_TIMEOUT=60 test_run_one "${1:?}"
+}
+
+testcase_multipath_basic_failover() {
+    if ! command -v multipath || ! command -v multipathd; then
+        echo "Missing multipath tools, skipping the test..."
+        return 77
+    fi
+
+    local qemu_opts=("-device virtio-scsi-pci,id=scsi")
+    local partdisk="${TESTDIR:?}/multipathpartitioned.img"
+    local image lodev nback ndisk wwn
+
+    if [[ ! -e "$partdisk" ]]; then
+        dd if=/dev/zero of="$partdisk" bs=1M count=16
+        lodev="$(losetup --show -f -P "$partdisk")"
+        sfdisk "${lodev:?}" <<EOF
+label: gpt
+
+name="Failover test", size=5M
+name="Second part", size=5M
+EOF
+        udevadm settle
+        mkfs -t ext4 "${lodev}p1"
+        losetup -d "$lodev"
+    fi
+
+    # Add 64 multipath devices, each backed by 4 paths
+    for ndisk in {0..63}; do
+        wwn="0xDEADDEADBEEF$(printf "%.4d" "$ndisk")"
+        # Use a partitioned disk for the first device to test failover
+        [[ $ndisk -eq 0 ]] && image="$partdisk" || image="${TESTDIR:?}/disk$ndisk.img"
+
+        for nback in {0..3}; do
+            qemu_opts+=(
+                "-device scsi-hd,drive=drive${ndisk}x${nback},serial=MPIO$ndisk,wwn=$wwn"
+                "-drive format=raw,cache=unsafe,file=$image,file.locking=off,if=none,id=drive${ndisk}x${nback}"
+            )
+        done
+    done
+
+    KERNEL_APPEND="systemd.setenv=TEST_FUNCTION_NAME=${FUNCNAME[0]} ${USER_KERNEL_APPEND:-}"
+    QEMU_OPTIONS="${qemu_opts[*]} ${USER_QEMU_OPTIONS:-}"
+    test_run_one "${1:?}"
 }
 
 # Allow overriding which tests should be run from the "outside", useful for manual
