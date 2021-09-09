@@ -1440,6 +1440,37 @@ int varlink_observeb(Varlink *v, const char *method, ...) {
         return varlink_observe(v, method, parameters);
 }
 
+int varlink_observe_complete(Varlink *v) {
+        int r;
+
+        while (v->state == VARLINK_AWAITING_REPLY_MORE) {
+                r = varlink_process(v);
+                if (r < 0)
+                        return r;
+                if (r > 0)
+                        continue;
+
+                r = varlink_wait(v, USEC_INFINITY);
+                if (r < 0)
+                        return r;
+        }
+
+        switch (v->state) {
+        case VARLINK_IDLE_CLIENT:
+                return 1;
+
+        case VARLINK_PENDING_DISCONNECT:
+        case VARLINK_DISCONNECTED:
+                return varlink_log_errno(v, SYNTHETIC_ERRNO(ECONNRESET), "Connection was closed.");
+
+        case VARLINK_PENDING_TIMEOUT:
+                return varlink_log_errno(v, SYNTHETIC_ERRNO(ETIME), "Connection timed out.");
+
+        default:
+                assert_not_reached();
+        }
+}
+
 int varlink_call(
                 Varlink *v,
                 const char *method,
