@@ -53,6 +53,7 @@
 #include "time-util.h"
 #include "unit-name.h"
 #include "util.h"
+#include "verb-log-control.h"
 #include "verbs.h"
 #include "version.h"
 
@@ -1405,86 +1406,17 @@ static int cat_config(int argc, char *argv[], void *userdata) {
         return 0;
 }
 
-static int set_log_level(int argc, char *argv[], void *userdata) {
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+static int verb_log_control(int argc, char *argv[], void *userdata) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         int r;
 
-        assert(argc == 2);
-        assert(argv);
+        assert(argc == 1 || argc == 2);
 
         r = acquire_bus(&bus, NULL);
         if (r < 0)
                 return bus_log_connect_error(r);
 
-        r = bus_set_property(bus, bus_systemd_mgr, "LogLevel", &error, "s", argv[1]);
-        if (r < 0)
-                return log_error_errno(r, "Failed to issue method call: %s", bus_error_message(&error, r));
-
-        return 0;
-}
-
-static int get_log_level(int argc, char *argv[], void *userdata) {
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
-        _cleanup_free_ char *level = NULL;
-        int r;
-
-        r = acquire_bus(&bus, NULL);
-        if (r < 0)
-                return bus_log_connect_error(r);
-
-        r = bus_get_property_string(bus, bus_systemd_mgr, "LogLevel", &error, &level);
-        if (r < 0)
-                return log_error_errno(r, "Failed to get log level: %s", bus_error_message(&error, r));
-
-        puts(level);
-        return 0;
-}
-
-static int get_or_set_log_level(int argc, char *argv[], void *userdata) {
-        return (argc == 1) ? get_log_level(argc, argv, userdata) : set_log_level(argc, argv, userdata);
-}
-
-static int set_log_target(int argc, char *argv[], void *userdata) {
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
-        int r;
-
-        assert(argc == 2);
-        assert(argv);
-
-        r = acquire_bus(&bus, NULL);
-        if (r < 0)
-                return bus_log_connect_error(r);
-
-        r = bus_set_property(bus, bus_systemd_mgr, "LogTarget", &error, "s", argv[1]);
-        if (r < 0)
-                return log_error_errno(r, "Failed to issue method call: %s", bus_error_message(&error, r));
-
-        return 0;
-}
-
-static int get_log_target(int argc, char *argv[], void *userdata) {
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
-        _cleanup_free_ char *target = NULL;
-        int r;
-
-        r = acquire_bus(&bus, NULL);
-        if (r < 0)
-                return bus_log_connect_error(r);
-
-        r = bus_get_property_string(bus, bus_systemd_mgr, "LogTarget", &error, &target);
-        if (r < 0)
-                return log_error_errno(r, "Failed to get log target: %s", bus_error_message(&error, r));
-
-        puts(target);
-        return 0;
-}
-
-static int get_or_set_log_target(int argc, char *argv[], void *userdata) {
-        return (argc == 1) ? get_log_target(argc, argv, userdata) : set_log_target(argc, argv, userdata);
+        return verb_log_control_common(bus, "org.freedesktop.systemd1", argv[0], argc == 2 ? argv[1] : NULL);
 }
 
 static bool strv_fnmatch_strv_or_empty(char* const* patterns, char **strv, int flags) {
@@ -2557,12 +2489,12 @@ static int run(int argc, char *argv[]) {
                 { "plot",              VERB_ANY, 1,        0,            analyze_plot           },
                 { "dot",               VERB_ANY, VERB_ANY, 0,            dot                    },
                 /* The following seven verbs are deprecated */
-                { "log-level",         VERB_ANY, 2,        0,            get_or_set_log_level   },
-                { "log-target",        VERB_ANY, 2,        0,            get_or_set_log_target  },
-                { "set-log-level",     2,        2,        0,            set_log_level          },
-                { "get-log-level",     VERB_ANY, 1,        0,            get_log_level          },
-                { "set-log-target",    2,        2,        0,            set_log_target         },
-                { "get-log-target",    VERB_ANY, 1,        0,            get_log_target         },
+                { "log-level",         VERB_ANY, 2,        0,            verb_log_control       },
+                { "log-target",        VERB_ANY, 2,        0,            verb_log_control       },
+                { "set-log-level",     2,        2,        0,            verb_log_control       },
+                { "get-log-level",     VERB_ANY, 1,        0,            verb_log_control       },
+                { "set-log-target",    2,        2,        0,            verb_log_control       },
+                { "get-log-target",    VERB_ANY, 1,        0,            verb_log_control       },
                 { "service-watchdogs", VERB_ANY, 2,        0,            service_watchdogs      },
                 { "dump",              VERB_ANY, 1,        0,            dump                   },
                 { "cat-config",        2,        VERB_ANY, 0,            cat_config             },
