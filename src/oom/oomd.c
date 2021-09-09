@@ -136,6 +136,9 @@ static int run(int argc, char *argv[]) {
         /* Do some basic requirement checks for running systemd-oomd. It's not exhaustive as some of the other
          * requirements do not have a reliable means to check for in code. */
 
+        if (sd_listen_fds(0) != 1)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "No or too many file descriptors received");
+
         /* SwapTotal is always available in /proc/meminfo and defaults to 0, even on swap-disabled kernels. */
         r = get_proc_field("/proc/meminfo", "SwapTotal", WHITESPACE, &swap);
         if (r < 0)
