@@ -1348,7 +1348,7 @@ int dissect_image(
         if (!m->partitions[PARTITION_ROOT].found &&
             !m->partitions[PARTITION_USR].found &&
             (flags & DISSECT_IMAGE_GENERIC_ROOT) &&
-            (!verity || !verity->root_hash)) {
+            (!verity || !verity->root_hash || verity->designator != PARTITION_USR)) {
 
                 /* OK, we found nothing usable, then check if there's a single generic one distro, and use
                  * that. If the root hash was set however, then we won't fall back to a generic node, because
