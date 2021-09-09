@@ -10,3 +10,4 @@ void manager_varlink_done(Manager *m);
  * - The value of ManagedOOM*= properties change
  * - A unit with ManagedOOM*= properties changes unit active state */
 int manager_varlink_send_managed_oom_update(Unit *u);
+int manager_varlink_send_managed_oom_initial(Manager *m);
