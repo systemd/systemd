@@ -35,6 +35,8 @@ int nss_pack_user_record(
         assert(hr->user_name);
         required = strlen(hr->user_name) + 1;
 
+        required += 2; /* strlen(PASSWORD_SEE_SHADOW) + 1 */
+
         assert_se(rn = user_record_real_name(hr));
         required += strlen(rn) + 1;
 
@@ -51,12 +53,12 @@ int nss_pack_user_record(
                 .pw_name = buffer,
                 .pw_uid = hr->uid,
                 .pw_gid = user_record_gid(hr),
-                .pw_passwd = (char*) PASSWORD_SEE_SHADOW,
         };
 
         assert(buffer);
 
-        pwd->pw_gecos = stpcpy(pwd->pw_name, hr->user_name) + 1;
+        pwd->pw_passwd = stpcpy(pwd->pw_name, hr->user_name) + 1;
+        pwd->pw_gecos = stpcpy(pwd->pw_passwd, PASSWORD_SEE_SHADOW) + 1;
         pwd->pw_dir = stpcpy(pwd->pw_gecos, rn) + 1;
         pwd->pw_shell = stpcpy(pwd->pw_dir, hd) + 1;
         strcpy(pwd->pw_shell, shell);
