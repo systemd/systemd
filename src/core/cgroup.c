@@ -214,6 +214,34 @@ void cgroup_context_remove_socket_bind(CGroupSocketBindItem **head) {
         }
 }
 
+CGroupIOCostQos* cgroup_context_free_io_cost_qos(CGroupIOCostQos* q) {
+        if (!q)
+                return NULL;
+
+        free(q->path);
+        return mfree(q);
+}
+
+CGroupIOCostModel* cgroup_context_free_io_cost_model(CGroupIOCostModel* m) {
+        if (!m)
+                return NULL;
+
+        free(m->path);
+        return mfree(m);
+}
+
+void reset_io_cost_qos(CGroupIOCostQos *q) {
+        assert(q);
+        free(q->path);
+        zero(*q);
+}
+
+void reset_io_cost_model(CGroupIOCostModel *m) {
+        assert(m);
+        free(m->path);
+        zero(*m);
+}
+
 void cgroup_context_done(CGroupContext *c) {
         assert(c);
 
@@ -222,6 +250,9 @@ void cgroup_context_done(CGroupContext *c) {
 
         while (c->io_device_latencies)
                 cgroup_context_free_io_device_latency(c, c->io_device_latencies);
+
+        cgroup_context_free_io_cost_qos(c->io_cost_qos);
+        cgroup_context_free_io_cost_model(c->io_cost_model);
 
         while (c->io_device_limits)
                 cgroup_context_free_io_device_limit(c, c->io_device_limits);
@@ -879,6 +910,79 @@ static usec_t cgroup_cpu_adjust_period_and_log(Unit *u, usec_t period, usec_t qu
         return new_period;
 }
 
+static void cgroup_apply_unified_io_cost_qos(Unit *u) {
+        CGroupContext* cgroup_context;
+        CGroupIOCostQos* io_cost_qos;
+
+        char buf[DECIMAL_STR_MAX(dev_t)*2+9+(6+DECIMAL_STR_MAX(uint64_t)+1)*12];
+        dev_t dev;
+        int r;
+
+        assert(u);
+
+        cgroup_context = unit_get_cgroup_context(u);
+        if (!cgroup_context)
+                return;
+        io_cost_qos = cgroup_context->io_cost_qos;
+        if (!io_cost_qos || !io_cost_qos->path)
+                return;
+        r = lookup_block_device(io_cost_qos->path, &dev);
+        if (r < 0)
+                return;
+
+        xsprintf(buf, "%u:%u enable=%d ctrl=%.4s rpct=%u.%02u rlat=%u wpct=%u.%02u wlat=%u min=%u.%02u max=%u.%02u\n",
+                 major(dev),
+                 minor(dev),
+                 io_cost_qos->enabled,
+                 io_cost_ctrl_to_string(io_cost_qos->ctrl),
+                 io_cost_qos->read_latency_percentile / 100,
+                 io_cost_qos->read_latency_percentile % 100,
+                 io_cost_qos->read_latency_threshold,
+                 io_cost_qos->write_latency_percentile / 100,
+                 io_cost_qos->write_latency_percentile % 100,
+                 io_cost_qos->write_latency_threshold,
+                 io_cost_qos->min / 100,
+                 io_cost_qos->min % 100,
+                 io_cost_qos->max / 100,
+                 io_cost_qos->max % 100);
+
+        (void) set_attribute_and_warn(u, "io", "io.cost.qos", buf);
+}
+
+static void cgroup_apply_unified_io_cost_model(Unit *u) {
+        CGroupContext* cgroup_context;
+        CGroupIOCostModel* io_cost_model;
+
+        char buf[DECIMAL_STR_MAX(dev_t)*2+9+12+(9+DECIMAL_STR_MAX(uint64_t)+1)*6];
+        dev_t dev;
+        int r;
+
+        assert(u);
+
+        cgroup_context = unit_get_cgroup_context(u);
+        if (!cgroup_context)
+                return;
+        io_cost_model = cgroup_context->io_cost_model;
+        if (!io_cost_model || !io_cost_model->path)
+                return;
+        r = lookup_block_device(io_cost_model->path, &dev);
+        if (r < 0)
+                return;
+
+        xsprintf(buf, "%u:%u ctrl=%.4s model=linear rbps=%" PRIu64 " rseqiops=%" PRIu64 " rrandiops=%" PRIu64 " wbps=%" PRIu64 " wseqiops=%" PRIu64 " wrandiops=%" PRIu64 "\n",
+                 major(dev),
+                 minor(dev),
+                 io_cost_ctrl_to_string(io_cost_model->ctrl),
+                 io_cost_model->rbps,
+                 io_cost_model->rseqiops,
+                 io_cost_model->rrandiops,
+                 io_cost_model->wbps,
+                 io_cost_model->wseqiops,
+                 io_cost_model->wrandiops);
+
+        (void) set_attribute_and_warn(u, "io", "io.cost.model", buf);
+}
+
 static void cgroup_apply_unified_cpu_weight(Unit *u, uint64_t weight) {
         char buf[DECIMAL_STR_MAX(uint64_t) + 2];
 
@@ -948,7 +1052,9 @@ static bool cgroup_context_has_io_config(CGroupContext *c) {
                 c->startup_io_weight != CGROUP_WEIGHT_INVALID ||
                 c->io_device_weights ||
                 c->io_device_latencies ||
-                c->io_device_limits;
+                c->io_device_limits ||
+                c->io_cost_qos ||
+                c->io_cost_model;
 }
 
 static bool cgroup_context_has_blockio_config(CGroupContext *c) {
@@ -1308,6 +1414,12 @@ static void cgroup_context_apply(
         /* The 'io' controller attributes are not exported on the host's root cgroup (being a pure cgroup v2
          * controller), and in case of containers we want to leave control of these attributes to the container manager
          * (and we couldn't access that stuff anyway, even if we tried if proper delegation is used). */
+
+        if ((apply_mask & CGROUP_MASK_IO) && is_host_root) {
+                cgroup_apply_unified_io_cost_qos(u);
+                cgroup_apply_unified_io_cost_model(u);
+        }
+
         if ((apply_mask & CGROUP_MASK_IO) && !is_local_root) {
                 bool has_io, has_blockio;
                 uint64_t weight;
