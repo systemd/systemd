@@ -22,6 +22,7 @@
 #define OVERLOAD_CONNECTIONS 333
 
 static int n_done = 0;
+static int n_observe = 0;
 static int block_write_fd = -EBADF;
 
 static int method_something(Varlink *link, JsonVariant *parameters, VarlinkMethodFlags flags, void *userdata) {
@@ -47,6 +48,29 @@ static int method_something(Varlink *link, JsonVariant *parameters, VarlinkMetho
                 return r;
 
         return varlink_reply(link, ret);
+}
+
+static int method_notify(Varlink *link, JsonVariant *parameters, VarlinkMethodFlags flags, void *userdata) {
+        int r, i;
+        _cleanup_(json_variant_unrefp) JsonVariant *last = NULL;
+
+        for (i = 0; i < 5; i++) {
+                _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
+
+                r = json_build(&v, JSON_BUILD_OBJECT(JSON_BUILD_PAIR("i", JSON_BUILD_INTEGER(i))));
+                if (r < 0)
+                        return r;
+
+                r = varlink_notify(link, v);
+                if (r < 0)
+                        return r;
+        }
+
+        r = json_build(&last, JSON_BUILD_OBJECT(JSON_BUILD_PAIR("i", JSON_BUILD_INTEGER(i))));
+        if (r < 0)
+                return r;
+
+        return varlink_reply(link, last);
 }
 
 static void test_fd(int fd, const void *buf, size_t n) {
@@ -123,6 +147,18 @@ static int reply(Varlink *link, JsonVariant *parameters, const char *error_id, V
         return 0;
 }
 
+static int reply_notify(Varlink *link, JsonVariant *parameters, const char *error_id, VarlinkReplyFlags flags, void *userdata) {
+        JsonVariant *v;
+        int val;
+
+        v = json_variant_by_key(parameters, "i");
+        val = json_variant_integer(v);
+
+        assert_se(n_observe++ == val);
+
+        return 0;
+}
+
 static int on_connect(VarlinkServer *s, Varlink *link, void *userdata) {
         uid_t uid = UID_INVALID;
 
@@ -147,6 +183,20 @@ static int overload_reply(Varlink *link, JsonVariant *parameters, const char *er
         sd_event_exit(varlink_get_event(link), 0);
 
         return 0;
+}
+
+static void observe_sync_test(const char *address) {
+        _cleanup_(varlink_flush_close_unrefp) Varlink *c = NULL;
+
+        log_debug("observe synchronously");
+
+        assert_se(varlink_connect_address(&c, address) >= 0);
+        assert_se(varlink_set_description(c, "observe-client") >= 0);
+        assert_se(varlink_bind_reply(c, reply_notify) >= 0);
+
+        assert_se(varlink_observe(c, "io.test.Notify", NULL) >= 0);
+        assert_se(varlink_observe_complete(c) >= 0);
+        assert_se(n_observe == 6);
 }
 
 static void flood_test(const char *address) {
@@ -241,6 +291,7 @@ static void *thread(void *arg) {
         assert_se(streq_ptr(json_variant_string(json_variant_by_key(o, "method")), "io.test.IDontExist"));
         assert_se(streq(e, VARLINK_ERROR_METHOD_NOT_FOUND));
 
+        observe_sync_test(arg);
         flood_test(arg);
 
         assert_se(varlink_send(c, "io.test.Done", NULL) >= 0);
@@ -292,6 +343,7 @@ int main(int argc, char *argv[]) {
         assert_se(varlink_server_new(&s, VARLINK_SERVER_ACCOUNT_UID) >= 0);
         assert_se(varlink_server_set_description(s, "our-server") >= 0);
 
+        assert_se(varlink_server_bind_method(s, "io.test.Notify", method_notify) >= 0);
         assert_se(varlink_server_bind_method(s, "io.test.PassFD", method_passfd) >= 0);
         assert_se(varlink_server_bind_method(s, "io.test.DoSomething", method_something) >= 0);
         assert_se(varlink_server_bind_method(s, "io.test.Done", method_done) >= 0);
