@@ -1401,22 +1401,28 @@ int dissect_image(
                         return -EADDRNOTAVAIL;
         }
 
-        if (verity && verity->root_hash) {
-                if (verity->designator < 0 || verity->designator == PARTITION_ROOT) {
-                        if (!m->partitions[PARTITION_ROOT_VERITY].found || !m->partitions[PARTITION_ROOT].found)
-                                return -EADDRNOTAVAIL;
+        if (verity) {
+                /* If a verity designator is specified, then insist that the matching partition exists */
+                if (verity->designator >= 0 && !m->partitions[verity->designator].found)
+                        return -EADDRNOTAVAIL;
 
-                        /* If we found a verity setup, then the root partition is necessarily read-only. */
-                        m->partitions[PARTITION_ROOT].rw = false;
-                        m->verity_ready = true;
-                }
+                if (verity->root_hash) {
+                        if (verity->designator < 0 || verity->designator == PARTITION_ROOT) {
+                                if (!m->partitions[PARTITION_ROOT_VERITY].found || !m->partitions[PARTITION_ROOT].found)
+                                        return -EADDRNOTAVAIL;
 
-                if (verity->designator == PARTITION_USR) {
-                        if (!m->partitions[PARTITION_USR_VERITY].found || !m->partitions[PARTITION_USR].found)
-                                return -EADDRNOTAVAIL;
+                                /* If we found a verity setup, then the root partition is necessarily read-only. */
+                                m->partitions[PARTITION_ROOT].rw = false;
+                                m->verity_ready = true;
+                        }
 
-                        m->partitions[PARTITION_USR].rw = false;
-                        m->verity_ready = true;
+                        if (verity->designator == PARTITION_USR) {
+                                if (!m->partitions[PARTITION_USR_VERITY].found || !m->partitions[PARTITION_USR].found)
+                                        return -EADDRNOTAVAIL;
+
+                                m->partitions[PARTITION_USR].rw = false;
+                                m->verity_ready = true;
+                        }
                 }
         }
 
