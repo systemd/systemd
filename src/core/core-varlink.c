@@ -93,8 +93,21 @@ int manager_varlink_send_managed_oom_update(Unit *u) {
 
         assert(u);
 
-        if (!UNIT_VTABLE(u)->can_set_managed_oom || !u->manager || !u->manager->managed_oom_varlink_request || !u->cgroup_path)
+        if (!UNIT_VTABLE(u)->can_set_managed_oom || !u->manager || !u->cgroup_path)
                 return 0;
+
+        if (MANAGER_IS_SYSTEM(u->manager)) {
+                /* In system mode we can't send any notifications unless oomd connected back to us. In this
+                 * mode oomd must initiate communication, not us. */
+                if (!u->manager->managed_oom_varlink)
+                        return 0;
+        } else {
+                /* If we are in user mode, let's connect to oomd if we aren't connected yet. In this mode we
+                 * must initiate communication to oomd, not the other way round. */
+                r = manager_varlink_init(u->manager);
+                if (r <= 0)
+                        return r;
+        }
 
         c = unit_get_cgroup_context(u);
         if (!c)
@@ -120,7 +133,16 @@ int manager_varlink_send_managed_oom_update(Unit *u) {
         if (r < 0)
                 return r;
 
-        return varlink_notify(u->manager->managed_oom_varlink_request, v);
+        if (MANAGER_IS_SYSTEM(u->manager))
+                /* in system mode, oomd is our client, thus send out notifications as replies to the
+                 * initiating method call from them. */
+                r = varlink_notify(u->manager->managed_oom_varlink, v);
+        else
+                /* in user mode, we are oomd's client, thus send out notifications as method calls that do
+                 * not expect a reply. */
+                r = varlink_send(u->manager->managed_oom_varlink, "io.systemd.oom.ReportManagedOOMCGroups", v);
+
+        return r;
 }
 
 static int build_managed_oom_cgroups_json(Manager *m, JsonVariant **ret) {
@@ -194,7 +216,7 @@ static int vl_method_subscribe_managed_oom_cgroups(
 
         /* We only take one subscriber for this method so return an error if there's already an existing one.
          * This shouldn't happen since systemd-oomd is the only client of this method. */
-        if (FLAGS_SET(flags, VARLINK_METHOD_MORE) && m->managed_oom_varlink_request)
+        if (FLAGS_SET(flags, VARLINK_METHOD_MORE) && m->managed_oom_varlink)
                 return varlink_error(link, VARLINK_ERROR_SUBSCRIPTION_TAKEN, NULL);
 
         r = build_managed_oom_cgroups_json(m, &v);
@@ -204,9 +226,27 @@ static int vl_method_subscribe_managed_oom_cgroups(
         if (!FLAGS_SET(flags, VARLINK_METHOD_MORE))
                 return varlink_reply(link, v);
 
-        assert(!m->managed_oom_varlink_request);
-        m->managed_oom_varlink_request = varlink_ref(link);
-        return varlink_notify(m->managed_oom_varlink_request, v);
+        assert(!m->managed_oom_varlink);
+        m->managed_oom_varlink = varlink_ref(link);
+        return varlink_notify(m->managed_oom_varlink, v);
+}
+
+static int manager_varlink_send_managed_oom_initial(Manager *m) {
+        _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
+        int r;
+
+        assert(m);
+
+        if (MANAGER_IS_SYSTEM(m))
+                return 0;
+
+        assert(m->managed_oom_varlink);
+
+        r = build_managed_oom_cgroups_json(m, &v);
+        if (r < 0)
+                return r;
+
+        return varlink_send(m->managed_oom_varlink, "io.systemd.oom.ReportManagedOOMCGroups", v);
 }
 
 static int vl_method_get_user_record(Varlink *link, JsonVariant *parameters, VarlinkMethodFlags flags, void *userdata) {
@@ -433,18 +473,18 @@ static void vl_disconnect(VarlinkServer *s, Varlink *link, void *userdata) {
         assert(s);
         assert(link);
 
-        if (link == m->managed_oom_varlink_request)
-                m->managed_oom_varlink_request = varlink_unref(link);
+        if (link == m->managed_oom_varlink)
+                m->managed_oom_varlink = varlink_unref(link);
 }
 
-int manager_varlink_init(Manager *m) {
+static int manager_varlink_init_system(Manager *m) {
         _cleanup_(varlink_server_unrefp) VarlinkServer *s = NULL;
         int r;
 
         assert(m);
 
         if (m->varlink_server)
-                return 0;
+                return 1;
 
         if (!MANAGER_IS_SYSTEM(m))
                 return 0;
@@ -475,7 +515,7 @@ int manager_varlink_init(Manager *m) {
                 if (r < 0)
                         return log_error_errno(r, "Failed to bind to varlink socket: %m");
 
-                r = varlink_server_listen_address(s, VARLINK_ADDR_PATH_MANAGED_OOM, 0666);
+                r = varlink_server_listen_address(s, VARLINK_ADDR_PATH_MANAGED_OOM_SYSTEM, 0666);
                 if (r < 0)
                         return log_error_errno(r, "Failed to bind to varlink socket: %m");
         }
@@ -485,7 +525,71 @@ int manager_varlink_init(Manager *m) {
                 return log_error_errno(r, "Failed to attach varlink connection to event loop: %m");
 
         m->varlink_server = TAKE_PTR(s);
+        return 1;
+}
+
+static int vl_reply(Varlink *link, JsonVariant *parameters, const char *error_id, VarlinkReplyFlags flags, void *userdata) {
+        Manager *m = userdata;
+        int r;
+
+        assert(m);
+
+        if (error_id)
+                log_debug("varlink systemd-oomd client error: %s", error_id);
+
+        if (FLAGS_SET(flags, VARLINK_REPLY_ERROR) && FLAGS_SET(flags, VARLINK_REPLY_LOCAL)) {
+                /* Varlink connection was closed, likely because of systemd-oomd restart. Let's try to
+                 * reconnect and send the initial ManagedOOM update again. */
+
+                m->managed_oom_varlink = varlink_unref(link);
+
+                log_debug("Reconnecting to %s", VARLINK_ADDR_PATH_MANAGED_OOM_USER);
+
+                r = manager_varlink_init(m);
+                if (r <= 0)
+                        return r;
+        }
+
         return 0;
+}
+
+static int manager_varlink_init_user(Manager *m) {
+        _cleanup_(varlink_close_unrefp) Varlink *link = NULL;
+        int r;
+
+        assert(m);
+
+        if (m->managed_oom_varlink)
+                return 1;
+
+        r = varlink_connect_address(&link, VARLINK_ADDR_PATH_MANAGED_OOM_USER);
+        if (r == -ENOENT || ERRNO_IS_DISCONNECT(r)) {
+                log_debug("systemd-oomd varlink unix socket not found, skipping user manager varlink setup");
+                return 0;
+        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to connect to %s: %m", VARLINK_ADDR_PATH_MANAGED_OOM_USER);
+
+        varlink_set_userdata(link, m);
+
+        r = varlink_bind_reply(link, vl_reply);
+        if (r < 0)
+                return r;
+
+        r = varlink_attach_event(link, m->event, SD_EVENT_PRIORITY_NORMAL);
+        if (r < 0)
+                return log_error_errno(r, "Failed to attach varlink connection to event loop: %m");
+
+        m->managed_oom_varlink = TAKE_PTR(link);
+
+        /* Queue the initial ManagedOOM update. */
+        (void) manager_varlink_send_managed_oom_initial(m);
+
+        return 1;
+}
+
+int manager_varlink_init(Manager *m) {
+        return MANAGER_IS_SYSTEM(m) ? manager_varlink_init_system(m) : manager_varlink_init_user(m);
 }
 
 void manager_varlink_done(Manager *m) {
@@ -495,7 +599,8 @@ void manager_varlink_done(Manager *m) {
          * the manager, and only then disconnect it — in two steps – so that we don't end up accidentally
          * unreffing it twice. After all, closing the connection might cause the disconnect handler we
          * installed (vl_disconnect() above) to be called, where we will unref it too. */
-        varlink_close_unref(TAKE_PTR(m->managed_oom_varlink_request));
+        varlink_close_unref(TAKE_PTR(m->managed_oom_varlink));
 
         m->varlink_server = varlink_server_unref(m->varlink_server);
+        m->managed_oom_varlink = varlink_close_unref(m->managed_oom_varlink);
 }
