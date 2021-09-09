@@ -172,6 +172,126 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>IOCostQOSPath=</varname></term>
+        <listitem><para> Configure the absolute path to device to be configured
+        in io.cost.qos file of the root cgroup.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>IOCostQOSCtrl=</varname></term>
+        <listitem><para>Configure whether the io.cost.qos parameters are
+        controlled by the kernel or by the user. Allowed values are 'auto' and 'user'.
+        <varname>IOCostQOSRPct</varname>, <varname>IOCostQOSRLat</varname>, <varname>IOCostQOSWPct</varname>,
+        <varname>IOCostQOSRLat</varname>, <varname>IOCostQOSWPct</varname>, <varname>IOCostQOSWLat</varname>
+        <varname>IOCostQOSMin</varname>, and <varname>IOCostQOSMax</varname> are all ignored if value is set to 'auto'. </para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>IOCostQOSEnabled=</varname></term>
+        <listitem><para>Configure whether the io.cost.qos parameters are enabled.
+        Values are 'yes' and 'no' and set to 'no' by default. All other IOCostQOS fields
+        are ignored if this is set to 'no'.
+        </para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>IOCostQOSRPct=</varname></term>
+        <listitem><para>Configure io.cost.qos read latency percentile.
+        Value between 0.00 and 100.00 inclusive accurate to two decimal places.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>IOCostQOSRLat=</varname></term>
+        <listitem><para>Configure io.cost.qos read latency threshold in milliseconds.
+        Value between 0 and 4294967295 inclusive (max value of unsigned 32 bit int).
+        The device is considered saturated if the 95th percentile of read completion
+        latencies is above this threshold.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>IOCostQOSWPct=</varname></term>
+        <listitem><para>Configure io.cost.qos write latency percentile.
+        Value between 0.00 and 100.00 accurate to two decimal places.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>IOCostQOSWLat=</varname></term>
+        <listitem><para>Configure io.cost.qos write latency threshold in milliseconds.
+        Value between 0 and 4294967295 inclusive (max value of unsigned 32 bit int). The device is
+        considered saturated if the 95th percentile of write completion latencies
+        is above this threshold. </para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>IOCostQOSMin=</varname></term>
+        <listitem><para>Configure io.cost.qos min percentile. Value between 1.00 and 100.00
+        inclusive accurate to two decimal places and must be less than or equal to max.
+        Controller will adjust the overall IO rate between min and max percentiles
+        based on internal device saturation state.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>IOCostQOSMax=</varname></term>
+        <listitem><para>Configure io.cost.qos max percentile.
+        Value between 1.00 and 100.00 accurate to two decimal places
+        and must be greater than or equal to min.
+        Controller will adjust the overall IO rate between min and max percentiles
+        based on internal device saturation state.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>IOCostModelPath=</varname></term>
+        <listitem><para>Configure the absolute path to device to be configured
+        in io.cost.model file of the root cgroup.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>IOCostModelCtrl=</varname></term>
+        <listitem><para>Configure whether the io.cost.model parameters are
+        controlled by the kernel or by the user.
+        Allowed values are 'auto' and 'user'. <varname>IOCostModelRbps</varname>,<varname>IOCostModelRSeqIops</varname>,
+        <varname>IOCostModelRRandIops</varname>, <varname>IOCostModelWbps</varname>,
+        <varname>IOCostModelWSeqIops</varname>, and <varname>IOCostModelWRandIops</varname>
+        are all ignored if value is set to 'auto'. </para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>IOCostModelRbps=</varname></term>
+        <listitem><para> Maximum sequential read IO throughput.
+        </para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>IOCostModelRSeqIops=</varname></term>
+        <listitem><para> Maximum sequential read IOs per second.
+        </para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>IOCostModelRRandIops=</varname></term>
+        <listitem><para> Maximum random read IOs per second.
+        </para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>IOCostModelWbps=</varname></term>
+        <listitem><para> Maximum sequential write IO throughput.
+        </para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>IOCostModelWSeqIops=</varname></term>
+        <listitem><para> Maximum sequential write IOs per second.
+        </para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>IOCostModelWRandIops=</varname></term>
+        <listitem><para> Maximum random write IOs per second.
+        </para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>CapabilityBoundingSet=</varname></term>
 
         <listitem><para>Controls which capabilities to include in the
