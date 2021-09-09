@@ -1414,9 +1414,10 @@ int dissect_image(
                                 /* If we found a verity setup, then the root partition is necessarily read-only. */
                                 m->partitions[PARTITION_ROOT].rw = false;
                                 m->verity_ready = true;
-                        }
 
-                        if (verity->designator == PARTITION_USR) {
+                        } else {
+                                assert(verity->designator == PARTITION_USR);
+
                                 if (!m->partitions[PARTITION_USR_VERITY].found || !m->partitions[PARTITION_USR].found)
                                         return -EADDRNOTAVAIL;
 
