@@ -40,6 +40,7 @@
 #include "strv.h"
 #include "terminal-util.h"
 #include "utf8.h"
+#include "verb-log-control.h"
 #include "verbs.h"
 
 static int arg_family = AF_UNSPEC;
@@ -2533,45 +2534,12 @@ static int verb_revert_link(int argc, char **argv, void *userdata) {
 }
 
 static int verb_log_level(int argc, char *argv[], void *userdata) {
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         sd_bus *bus = userdata;
-        int r;
 
         assert(bus);
+        assert(argc == 1 || argc == 2);
 
-        if (argc == 1) {
-                _cleanup_free_ char *level = NULL;
-
-                r = sd_bus_get_property_string(
-                                bus,
-                                "org.freedesktop.resolve1",
-                                "/org/freedesktop/LogControl1",
-                                "org.freedesktop.LogControl1",
-                                "LogLevel",
-                                &error,
-                                &level);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to get log level: %s", bus_error_message(&error, r));
-
-                puts(level);
-
-        } else {
-                assert(argc == 2);
-
-                r = sd_bus_set_property(
-                                bus,
-                                "org.freedesktop.resolve1",
-                                "/org/freedesktop/LogControl1",
-                                "org.freedesktop.LogControl1",
-                                "LogLevel",
-                                &error,
-                                "s",
-                                argv[1]);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to set log level: %s", bus_error_message(&error, r));
-        }
-
-        return 0;
+        return verb_log_control_common(bus, "org.freedesktop.resolve1", argv[0], argc == 2 ? argv[1] : NULL);
 }
 
 static void help_protocol_types(void) {
