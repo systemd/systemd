@@ -53,6 +53,7 @@ struct Manager {
         sd_event_source *mem_pressure_context_event_source;
 
         Varlink *varlink;
+        VarlinkServer *varlink_server;
 };
 
 Manager* manager_free(Manager *m);
