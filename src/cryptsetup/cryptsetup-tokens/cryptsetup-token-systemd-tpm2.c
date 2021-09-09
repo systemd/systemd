@@ -167,8 +167,8 @@ _public_ void cryptsetup_token_dump(
 
         crypt_log(cd, "\ttpm2-pcrs:  %s\n", strna(pcrs_str));
         crypt_log(cd, "\ttpm2-bank:  %s\n", strna(tpm2_pcr_bank_to_string(pcr_bank)));
-        crypt_log(cd, "\ttmp2-blob:  %s\n", blob_str);
-        crypt_log(cd, "\ttmp2-policy-hash:" CRYPT_DUMP_LINE_SEP "%s\n", policy_hash_str);
+        crypt_log(cd, "\ttpm2-blob:  %s\n", blob_str);
+        crypt_log(cd, "\ttpm2-policy-hash:" CRYPT_DUMP_LINE_SEP "%s\n", policy_hash_str);
 }
 
 /*
