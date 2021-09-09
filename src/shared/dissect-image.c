@@ -11,6 +11,12 @@
 #include <sys/wait.h>
 #include <sysexits.h>
 
+#if HAVE_OPENSSL
+#include <openssl/err.h>
+#include <openssl/pem.h>
+#include <openssl/x509.h>
+#endif
+
 #include "sd-device.h"
 #include "sd-id128.h"
 
@@ -18,6 +24,7 @@
 #include "ask-password-api.h"
 #include "blkid-util.h"
 #include "blockdev-util.h"
+#include "conf-files.h"
 #include "copy.h"
 #include "cryptsetup-util.h"
 #include "def.h"
@@ -43,6 +50,7 @@
 #include "mountpoint-util.h"
 #include "namespace-util.h"
 #include "nulstr-util.h"
+#include "openssl-util.h"
 #include "os-util.h"
 #include "path-util.h"
 #include "process-util.h"
@@ -2259,6 +2267,146 @@ static inline char* dm_deferred_remove_clean(char *name) {
 }
 DEFINE_TRIVIAL_CLEANUP_FUNC(char *, dm_deferred_remove_clean);
 
+static int validate_signature_userspace(const VeritySettings *verity) {
+#if HAVE_OPENSSL
+        _cleanup_(sk_X509_free_allp) STACK_OF(X509) *sk = NULL;
+        _cleanup_strv_free_ char **certs = NULL;
+        _cleanup_(PKCS7_freep) PKCS7 *p7 = NULL;
+        _cleanup_free_ char *s = NULL;
+        _cleanup_(BIO_freep) BIO *bio = NULL; /* 'bio' must be freed first, 's' second, hence keep this order
+                                               * of declaration in place, please */
+        const unsigned char *d;
+        char **i;
+        int r;
+
+        assert(verity);
+        assert(verity->root_hash);
+        assert(verity->root_hash_sig);
+
+        /* Because installing a signature certificate into the kernel chain is so messy, let's optionally do
+         * userspace validation. */
+
+        r = conf_files_list_nulstr(&certs, ".crt", NULL, CONF_FILES_REGULAR|CONF_FILES_FILTER_MASKED, CONF_PATHS_NULSTR("verity.d"));
+        if (r < 0)
+                return log_debug_errno(r, "Failed to enumerate certificates: %m");
+        if (strv_isempty(certs)) {
+                log_debug("No userspace dm-verity certificates found.");
+                return 0;
+        }
+
+        d = verity->root_hash_sig;
+        p7 = d2i_PKCS7(NULL, &d, (long) verity->root_hash_sig_size);
+        if (!p7)
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to parse PKCS7 DER signature data.");
+
+        s = hexmem(verity->root_hash, verity->root_hash_size);
+        if (!s)
+                return log_oom_debug();
+
+        bio = BIO_new_mem_buf(s, strlen(s));
+        if (!bio)
+                return log_oom_debug();
+
+        sk = sk_X509_new_null();
+        if (!sk)
+                return log_oom_debug();
+
+        STRV_FOREACH(i, certs) {
+                _cleanup_(X509_freep) X509 *c = NULL;
+                _cleanup_fclose_ FILE *f = NULL;
+
+                f = fopen(*i, "re");
+                if (!f) {
+                        log_debug_errno(errno, "Failed to open '%s', ignoring: %m", *i);
+                        continue;
+                }
+
+                c = PEM_read_X509(f, NULL, NULL, NULL);
+                if (!c) {
+                        log_debug("Failed to load X509 certificate '%s', ignoring.", *i);
+                        continue;
+                }
+
+                if (sk_X509_push(sk, c) == 0)
+                        return log_oom_debug();
+
+                TAKE_PTR(c);
+        }
+
+        r = PKCS7_verify(p7, sk, NULL, bio, NULL, PKCS7_NOINTERN|PKCS7_NOVERIFY);
+        if (r)
+                log_debug("Userspace PKCS#7 validation succeeded.");
+        else
+                log_debug("Userspace PKCS#7 validation failed: %s", ERR_error_string(ERR_get_error(), NULL));
+
+        return r;
+#else
+        log_debug("Not doing client-side validation of dm-verity root hash signatures, OpenSSL support disabled.");
+        return 0;
+#endif
+}
+
+static int do_crypt_activate_verity(
+                struct crypt_device *cd,
+                const char *name,
+                const VeritySettings *verity) {
+
+        bool check_signature;
+        int r;
+
+        assert(cd);
+        assert(name);
+        assert(verity);
+
+        if (verity->root_hash_sig) {
+                r = getenv_bool_secure("SYSTEMD_DISSECT_VERITY_SIGNATURE");
+                if (r < 0 && r != -ENXIO)
+                        log_debug_errno(r, "Failed to parse $SYSTEMD_DISSECT_VERITY_SIGNATURE");
+
+                check_signature = r != 0;
+        } else
+                check_signature = false;
+
+        if (check_signature) {
+
+#if HAVE_CRYPT_ACTIVATE_BY_SIGNED_KEY
+                /* First, if we have support for signed keys in the kernel, then try that first. */
+                r = sym_crypt_activate_by_signed_key(
+                                cd,
+                                name,
+                                verity->root_hash,
+                                verity->root_hash_size,
+                                verity->root_hash_sig,
+                                verity->root_hash_sig_size,
+                                CRYPT_ACTIVATE_READONLY);
+                if (r >= 0)
+                        return r;
+
+                log_debug("Validation of dm-verity signature failed via the kernel, trying userspace validation instead.");
+#else
+                log_debug("Activation of verity device with signature requested, but not supported via the kernel by %s due to missing crypt_activate_by_signed_key(), trying userspace validation instead.",
+                          program_invocation_short_name);
+#endif
+
+                /* So this didn't work via the kernel, then let's try userspace validation instead. If that
+                 * works we'll try to activate without telling the kernel the signature. */
+
+                r = validate_signature_userspace(verity);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        return log_debug_errno(SYNTHETIC_ERRNO(ENOKEY),
+                                               "Activation of signed Verity volume worked neither via the kernel nor in userspace, can't activate.");
+        }
+
+        return sym_crypt_activate_by_volume_key(
+                        cd,
+                        name,
+                        verity->root_hash,
+                        verity->root_hash_size,
+                        CRYPT_ACTIVATE_READONLY);
+}
+
 static int verity_partition(
                 PartitionDesignator designator,
                 DissectedPartition *m,
@@ -2330,27 +2478,8 @@ static int verity_partition(
          * In case of ENODEV/ENOENT, which can happen if another process is activating at the exact same time,
          * retry a few times before giving up. */
         for (unsigned i = 0; i < N_DEVICE_NODE_LIST_ATTEMPTS; i++) {
-                if (verity->root_hash_sig) {
-#if HAVE_CRYPT_ACTIVATE_BY_SIGNED_KEY
-                        r = sym_crypt_activate_by_signed_key(
-                                        cd,
-                                        name,
-                                        verity->root_hash,
-                                        verity->root_hash_size,
-                                        verity->root_hash_sig,
-                                        verity->root_hash_sig_size,
-                                        CRYPT_ACTIVATE_READONLY);
-#else
-                        r = log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
-                                            "Activation of verity device with signature requested, but not supported by %s due to missing crypt_activate_by_signed_key().", program_invocation_short_name);
-#endif
-                } else
-                        r = sym_crypt_activate_by_volume_key(
-                                        cd,
-                                        name,
-                                        verity->root_hash,
-                                        verity->root_hash_size,
-                                        CRYPT_ACTIVATE_READONLY);
+
+                r = do_crypt_activate_verity(cd, name, verity);
                 /* libdevmapper can return EINVAL when the device is already in the activation stage.
                  * There's no way to distinguish this situation from a genuine error due to invalid
                  * parameters, so immediately fall back to activating the device with a unique name.
