@@ -5,6 +5,7 @@ _Pragma("GCC diagnostic ignored \"-Wimplicit-fallthrough\"")
 #endif
 #include <stddef.h>
 #include "conf-parser.h"
+#include "in-addr-prefix-util.h"
 #include "netem.h"
 #include "net-condition.h"
 #include "networkd-address-label.h"
@@ -228,8 +229,8 @@ DHCPv4.UseTimezone,                          config_parse_bool,                 
 DHCPv4.ListenPort,                           config_parse_uint16,                                      0,                             offsetof(Network, dhcp_client_port)
 DHCPv4.SendRelease,                          config_parse_bool,                                        0,                             offsetof(Network, dhcp_send_release)
 DHCPv4.SendDecline,                          config_parse_bool,                                        0,                             offsetof(Network, dhcp_send_decline)
-DHCPv4.DenyList,                             config_parse_address_filter,                              AF_INET,                       offsetof(Network, dhcp_deny_listed_ip)
-DHCPv4.AllowList,                            config_parse_address_filter,                              AF_INET,                       offsetof(Network, dhcp_allow_listed_ip)
+DHCPv4.DenyList,                             config_parse_in_addr_prefixes,                            AF_INET,                       offsetof(Network, dhcp_deny_listed_ip)
+DHCPv4.AllowList,                            config_parse_in_addr_prefixes,                            AF_INET,                       offsetof(Network, dhcp_allow_listed_ip)
 DHCPv4.IPServiceType,                        config_parse_dhcp_ip_service_type,                        0,                             offsetof(Network, dhcp_ip_service_type)
 DHCPv4.SendOption,                           config_parse_dhcp_send_option,                            AF_INET,                       offsetof(Network, dhcp_client_send_options)
 DHCPv4.SendVendorOption,                     config_parse_dhcp_send_option,                            0,                             offsetof(Network, dhcp_client_send_vendor_options)
@@ -262,12 +263,12 @@ IPv6AcceptRA.UseMTU,                         config_parse_bool,                 
 IPv6AcceptRA.DHCPv6Client,                   config_parse_ipv6_accept_ra_start_dhcp6_client,           0,                             offsetof(Network, ipv6_accept_ra_start_dhcp6_client)
 IPv6AcceptRA.RouteTable,                     config_parse_dhcp_or_ra_route_table,                      (RTPROT_RA<<16) | AF_INET6,    0
 IPv6AcceptRA.RouteMetric,                    config_parse_dhcp_or_ra_route_metric,                     AF_INET6,                      0
-IPv6AcceptRA.RouterAllowList,                config_parse_address_filter,                              AF_INET6,                      offsetof(Network, ndisc_allow_listed_router)
-IPv6AcceptRA.RouterDenyList,                 config_parse_address_filter,                              AF_INET6,                      offsetof(Network, ndisc_deny_listed_router)
-IPv6AcceptRA.PrefixAllowList,                config_parse_address_filter,                              AF_INET6,                      offsetof(Network, ndisc_allow_listed_prefix)
-IPv6AcceptRA.PrefixDenyList,                 config_parse_address_filter,                              AF_INET6,                      offsetof(Network, ndisc_deny_listed_prefix)
-IPv6AcceptRA.RouteAllowList,                 config_parse_address_filter,                              AF_INET6,                      offsetof(Network, ndisc_allow_listed_route_prefix)
-IPv6AcceptRA.RouteDenyList,                  config_parse_address_filter,                              AF_INET6,                      offsetof(Network, ndisc_deny_listed_route_prefix)
+IPv6AcceptRA.RouterAllowList,                config_parse_in_addr_prefixes,                            AF_INET6,                      offsetof(Network, ndisc_allow_listed_router)
+IPv6AcceptRA.RouterDenyList,                 config_parse_in_addr_prefixes,                            AF_INET6,                      offsetof(Network, ndisc_deny_listed_router)
+IPv6AcceptRA.PrefixAllowList,                config_parse_in_addr_prefixes,                            AF_INET6,                      offsetof(Network, ndisc_allow_listed_prefix)
+IPv6AcceptRA.PrefixDenyList,                 config_parse_in_addr_prefixes,                            AF_INET6,                      offsetof(Network, ndisc_deny_listed_prefix)
+IPv6AcceptRA.RouteAllowList,                 config_parse_in_addr_prefixes,                            AF_INET6,                      offsetof(Network, ndisc_allow_listed_route_prefix)
+IPv6AcceptRA.RouteDenyList,                  config_parse_in_addr_prefixes,                            AF_INET6,                      offsetof(Network, ndisc_deny_listed_route_prefix)
 DHCPServer.ServerAddress,                    config_parse_dhcp_server_address,                         0,                             0
 DHCPServer.UplinkInterface,                  config_parse_uplink,                                      0,                             0
 DHCPServer.RelayTarget,                      config_parse_in_addr_non_null,                            AF_INET,                       offsetof(Network, dhcp_server_relay_target)
@@ -500,7 +501,7 @@ IPv6PrefixDelegation.DNS,                    config_parse_radv_dns,             
 IPv6PrefixDelegation.EmitDomains,            config_parse_bool,                                        0,                             offsetof(Network, router_emit_domains)
 IPv6PrefixDelegation.Domains,                config_parse_radv_search_domains,                         0,                             0
 IPv6PrefixDelegation.DNSLifetimeSec,         config_parse_sec,                                         0,                             offsetof(Network, router_dns_lifetime_usec)
-DHCPv4.BlackList,                            config_parse_address_filter,                              AF_INET,                       offsetof(Network, dhcp_deny_listed_ip)
+DHCPv4.BlackList,                            config_parse_in_addr_prefixes,                            AF_INET,                       offsetof(Network, dhcp_deny_listed_ip)
 DHCP.ClientIdentifier,                       config_parse_dhcp_client_identifier,                      0,                             offsetof(Network, dhcp_client_identifier)
 DHCP.UseDNS,                                 config_parse_dhcp_use_dns,                                AF_UNSPEC,                     0
 DHCP.UseNTP,                                 config_parse_dhcp_use_ntp,                                AF_UNSPEC,                     0
@@ -528,8 +529,8 @@ DHCP.ForceDHCPv6PDOtherInformation,          config_parse_bool,                 
 DHCPv4.UseDomainName,                        config_parse_dhcp_use_domains,                            AF_INET,                       0
 DHCPv4.CriticalConnection,                   config_parse_tristate,                                    0,                             offsetof(Network, dhcp_critical)
 DHCPv6.RouteMetric,                          config_parse_dhcp_or_ra_route_metric,                     AF_INET6,                      0
-IPv6AcceptRA.DenyList,                       config_parse_address_filter,                              AF_INET6,                      offsetof(Network, ndisc_deny_listed_prefix)
-IPv6AcceptRA.BlackList,                      config_parse_address_filter,                              AF_INET6,                      offsetof(Network, ndisc_deny_listed_prefix)
+IPv6AcceptRA.DenyList,                       config_parse_in_addr_prefixes,                            AF_INET6,                      offsetof(Network, ndisc_deny_listed_prefix)
+IPv6AcceptRA.BlackList,                      config_parse_in_addr_prefixes,                            AF_INET6,                      offsetof(Network, ndisc_deny_listed_prefix)
 TrafficControlQueueingDiscipline.Parent,                        config_parse_qdisc_parent,             _QDISC_KIND_INVALID,           0
 TrafficControlQueueingDiscipline.NetworkEmulatorDelaySec,       config_parse_network_emulator_delay,   0,                             0
 TrafficControlQueueingDiscipline.NetworkEmulatorDelayJitterSec, config_parse_network_emulator_delay,   0,                             0
