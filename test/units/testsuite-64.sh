@@ -140,6 +140,43 @@ EOF
     rm -fr "$mpoint"
 }
 
+testcase_simultaneous_events() {
+    local blockdev part partscript
+
+    blockdev="$(readlink -f /dev/disk/by-id/scsi-*_deadbeeftest)"
+    partscript="$(mktemp)"
+
+    if [[ ! -b "$blockdev" ]]; then
+        echo "ERROR: failed to find the test SCSI block device"
+        return 1
+    fi
+
+    cat >"$partscript" <<EOF
+$(printf 'name="test%d", size=2M\n' {1..50})
+EOF
+
+    # Initial partition table
+    sfdisk -q -X gpt "$blockdev" <"$partscript"
+
+    # Delete the partitions, immediatelly recreate them, wait for udev to settle
+    # down, and then check if we have any dangling symlinks in /dev/disk/. Rinse
+    # and repeat.
+    #
+    # On unpatched udev versions the delete-recreate cycle may trigger a race
+    # leading to dead symlinks in /dev/disk/
+    for i in {1..100}; do
+        sfdisk -q --delete "$blockdev"
+        sfdisk -q -X gpt "$blockdev" <"$partscript"
+
+        if ((i % 10 == 0)); then
+            udevadm settle
+            helper_check_device_symlinks
+        fi
+    done
+
+    rm -f "$partscript"
+}
+
 : >/failed
 
 udevadm settle
