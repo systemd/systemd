@@ -15,6 +15,7 @@
 #include "errno-util.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "in-addr-prefix-util.h"
 #include "ip-protocol-list.h"
 #include "limits-util.h"
 #include "parse-util.h"
@@ -318,14 +319,17 @@ static int property_get_ip_address_access(
                 void *userdata,
                 sd_bus_error *error) {
 
-        IPAddressAccessItem** items = userdata, *i;
+        Set **prefixes = userdata;
+        struct in_addr_prefix *i;
         int r;
+
+        assert(prefixes);
 
         r = sd_bus_message_open_container(reply, 'a', "(iayu)");
         if (r < 0)
                 return r;
 
-        LIST_FOREACH(items, i, *items) {
+        SET_FOREACH(i, *prefixes) {
 
                 r = sd_bus_message_open_container(reply, 'r', "iayu");
                 if (r < 0)
@@ -1745,10 +1749,8 @@ int bus_cgroup_set_property(
                 return 1;
 
         } else if (STR_IN_SET(name, "IPAddressAllow", "IPAddressDeny")) {
-                IPAddressAccessItem **list;
+                _cleanup_set_free_ Set *new_prefixes = NULL;
                 size_t n = 0;
-
-                list = streq(name, "IPAddressAllow") ? &c->ip_address_allow : &c->ip_address_deny;
 
                 r = sd_bus_message_enter_container(message, 'a', "(iayu)");
                 if (r < 0)
@@ -1789,17 +1791,16 @@ int bus_cgroup_set_property(
                                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Prefix length %" PRIu32 " too large for address family %s.", prefixlen, af_to_name(family));
 
                         if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
-                                IPAddressAccessItem *item;
+                                struct in_addr_prefix prefix = {
+                                        .family = family,
+                                        .prefixlen = prefixlen,
+                                };
 
-                                item = new0(IPAddressAccessItem, 1);
-                                if (!item)
-                                        return -ENOMEM;
+                                memcpy(&prefix.address, ap, an);
 
-                                item->family = family;
-                                item->prefixlen = prefixlen;
-                                memcpy(&item->address, ap, an);
-
-                                LIST_PREPEND(items, *list, item);
+                                r = in_addr_prefix_add(&new_prefixes, &prefix);
+                                if (r < 0)
+                                        return r;
                         }
 
                         r = sd_bus_message_exit_container(message);
@@ -1813,33 +1814,46 @@ int bus_cgroup_set_property(
                 if (r < 0)
                         return r;
 
-                *list = ip_address_access_reduce(*list);
-
                 if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
                         _cleanup_free_ char *buf = NULL;
                         _cleanup_fclose_ FILE *f = NULL;
-                        IPAddressAccessItem *item;
                         size_t size = 0;
-
-                        if (n == 0)
-                                *list = ip_address_access_free_all(*list);
+                        Set **prefixes;
+                        bool *reduced;
 
                         unit_invalidate_cgroup_bpf(u);
                         f = open_memstream_unlocked(&buf, &size);
                         if (!f)
                                 return -ENOMEM;
 
-                        fputs(name, f);
-                        fputs("=\n", f);
+                        prefixes = streq(name, "IPAddressAllow") ? &c->ip_address_allow : &c->ip_address_deny;
+                        reduced = streq(name, "IPAddressAllow") ? &c->ip_address_allow_reduced : &c->ip_address_deny_reduced;
 
-                        LIST_FOREACH(items, item, *list) {
-                                char buffer[CONST_MAX(INET_ADDRSTRLEN, INET6_ADDRSTRLEN)];
+                        if (n == 0) {
+                                *reduced = true;
+                                *prefixes = set_free(*prefixes);
+                                fputs(name, f);
+                                fputs("=\n", f);
+                        } else {
+                                struct in_addr_prefix *p;
 
-                                errno = 0;
-                                if (!inet_ntop(item->family, &item->address, buffer, sizeof(buffer)))
-                                        return errno_or_else(EINVAL);
+                                *reduced = false;
 
-                                fprintf(f, "%s=%s/%u\n", name, buffer, item->prefixlen);
+                                r = in_addr_prefixes_merge(prefixes, new_prefixes);
+                                if (r < 0)
+                                        return r;
+
+                                SET_FOREACH(p, new_prefixes) {
+                                        _cleanup_free_ char *buffer = NULL;
+
+                                        r = in_addr_prefix_to_string(p->family, &p->address, p->prefixlen, &buffer);
+                                        if (r == -ENOMEM)
+                                                return r;
+                                        if (r < 0)
+                                                continue;
+
+                                        fprintf(f, "%s=%s\n", name, buffer);
+                                }
                         }
 
                         r = fflush_and_check(f);
