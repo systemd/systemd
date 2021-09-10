@@ -638,7 +638,10 @@ int dissect_image(
 
         assert(fd >= 0);
         assert(ret);
+        assert(!verity || verity->designator < 0 || IN_SET(verity->designator, PARTITION_ROOT, PARTITION_USR));
         assert(!verity || verity->root_hash || verity->root_hash_size == 0);
+        assert(!verity || verity->root_hash_sig || verity->root_hash_sig_size == 0);
+        assert(!verity || (verity->root_hash || !verity->root_hash_sig));
         assert(!((flags & DISSECT_IMAGE_GPT_ONLY) && (flags & DISSECT_IMAGE_NO_PARTITION_TABLE)));
 
         /* Probes a disk image, and returns information about what it found in *ret.
@@ -797,8 +800,12 @@ int dissect_image(
                                 return -ENOMEM;
 
                         m->single_file_system = true;
-                        m->verity = verity && verity->root_hash && verity->data_path && (verity->designator < 0 || verity->designator == PARTITION_ROOT);
-                        m->can_verity = verity && verity->data_path;
+                        m->encrypted = streq_ptr(fstype, "crypto_LUKS");
+
+                        m->has_verity = verity && verity->data_path;
+                        m->verity_ready = m->has_verity &&
+                                verity->root_hash &&
+                                (verity->designator < 0 || verity->designator == PARTITION_ROOT);
 
                         options = mount_options_from_designator(mount_options, PARTITION_ROOT);
                         if (options) {
@@ -809,15 +816,13 @@ int dissect_image(
 
                         m->partitions[PARTITION_ROOT] = (DissectedPartition) {
                                 .found = true,
-                                .rw = !m->verity,
+                                .rw = !m->verity_ready && !fstype_is_ro(fstype),
                                 .partno = -1,
                                 .architecture = _ARCHITECTURE_INVALID,
                                 .fstype = TAKE_PTR(t),
                                 .node = TAKE_PTR(n),
                                 .mount_options = TAKE_PTR(o),
                         };
-
-                        m->encrypted = streq_ptr(fstype, "crypto_LUKS");
 
                         *ret = TAKE_PTR(m);
                         return 0;
@@ -833,6 +838,10 @@ int dissect_image(
 
         if (!is_gpt && ((flags & DISSECT_IMAGE_GPT_ONLY) || !is_mbr))
                 return -ENOPKG;
+
+        /* We support external verity data partitions only if the image has no partition table */
+        if (verity && verity->data_path)
+                return -EBADR;
 
         /* Safety check: refuse block devices that carry a partition table but for which the kernel doesn't
          * do partition scanning. */
@@ -971,7 +980,7 @@ int dissect_image(
                                 if (pflags & GPT_FLAG_NO_AUTO)
                                         continue;
 
-                                m->can_verity = true;
+                                m->has_verity = true;
 
                                 /* Ignore verity unless a root hash is specified */
                                 if (sd_id128_is_null(root_verity_uuid) || !sd_id128_equal(root_verity_uuid, id))
@@ -1007,7 +1016,7 @@ int dissect_image(
                                 if (pflags & GPT_FLAG_NO_AUTO)
                                         continue;
 
-                                m->can_verity = true;
+                                m->has_verity = true;
 
                                 /* Ignore verity unless root has is specified */
                                 if (sd_id128_is_null(root_verity_uuid) || !sd_id128_equal(root_verity_uuid, id))
@@ -1043,7 +1052,7 @@ int dissect_image(
                                 if (pflags & GPT_FLAG_NO_AUTO)
                                         continue;
 
-                                m->can_verity = true;
+                                m->has_verity = true;
 
                                 /* Ignore verity unless a usr hash is specified */
                                 if (sd_id128_is_null(usr_verity_uuid) || !sd_id128_equal(usr_verity_uuid, id))
@@ -1079,7 +1088,7 @@ int dissect_image(
                                 if (pflags & GPT_FLAG_NO_AUTO)
                                         continue;
 
-                                m->can_verity = true;
+                                m->has_verity = true;
 
                                 /* Ignore verity unless usr has is specified */
                                 if (sd_id128_is_null(usr_verity_uuid) || !sd_id128_equal(usr_verity_uuid, id))
@@ -1308,7 +1317,7 @@ int dissect_image(
         } else if (m->partitions[PARTITION_ROOT_SECONDARY_VERITY].found)
                 return -EADDRNOTAVAIL; /* as above */
 
-        else if (m->partitions[PARTITION_USR].found) {
+        if (m->partitions[PARTITION_USR].found) {
 
                 /* Invalidate secondary arch /usr/ if we found the primary arch */
                 m->partitions[PARTITION_USR_SECONDARY].found = false;
@@ -1328,8 +1337,18 @@ int dissect_image(
         } else if (m->partitions[PARTITION_USR_SECONDARY_VERITY].found)
                 return -EADDRNOTAVAIL; /* as above */
 
-        else if ((flags & DISSECT_IMAGE_GENERIC_ROOT) &&
-                 (!verity || !verity->root_hash)) {
+        /* If root and /usr are combined then insist that the architecture matches */
+        if (m->partitions[PARTITION_ROOT].found &&
+            m->partitions[PARTITION_USR].found &&
+            (m->partitions[PARTITION_ROOT].architecture >= 0 &&
+             m->partitions[PARTITION_USR].architecture >= 0 &&
+             m->partitions[PARTITION_ROOT].architecture != m->partitions[PARTITION_USR].architecture))
+                return -EADDRNOTAVAIL;
+
+        if (!m->partitions[PARTITION_ROOT].found &&
+            !m->partitions[PARTITION_USR].found &&
+            (flags & DISSECT_IMAGE_GENERIC_ROOT) &&
+            (!verity || !verity->root_hash || verity->designator != PARTITION_USR)) {
 
                 /* OK, we found nothing usable, then check if there's a single generic one distro, and use
                  * that. If the root hash was set however, then we won't fall back to a generic node, because
@@ -1371,30 +1390,40 @@ int dissect_image(
             !(m->partitions[PARTITION_ROOT].found || (m->partitions[PARTITION_USR].found && FLAGS_SET(flags, DISSECT_IMAGE_USR_NO_ROOT))))
                 return -ENXIO;
 
-        /* Refuse if we found a verity partition for /usr but no matching file system partition */
-        if (!m->partitions[PARTITION_USR].found && m->partitions[PARTITION_USR_VERITY].found)
-                return -EADDRNOTAVAIL;
+        if (m->partitions[PARTITION_ROOT_VERITY].found) {
+                /* We only support one verity partition per image, i.e. can't do for both /usr and root fs */
+                if (m->partitions[PARTITION_USR_VERITY].found)
+                        return -ENOTUNIQ;
 
-        /* Combinations of verity /usr with verity-less root is OK, but the reverse is not */
-        if (m->partitions[PARTITION_ROOT_VERITY].found && m->partitions[PARTITION_USR].found && !m->partitions[PARTITION_USR_VERITY].found)
-                return -EADDRNOTAVAIL;
+                /* We don't support verity enabled root with a split out /usr. Neither with nor without
+                 * verity there. (Note that we do support verity-less root with verity-full /usr, though.) */
+                if (m->partitions[PARTITION_USR].found)
+                        return -EADDRNOTAVAIL;
+        }
 
-        if (verity && verity->root_hash) {
-                if (verity->designator < 0 || verity->designator == PARTITION_ROOT) {
-                        if (!m->partitions[PARTITION_ROOT_VERITY].found || !m->partitions[PARTITION_ROOT].found)
-                                return -EADDRNOTAVAIL;
+        if (verity) {
+                /* If a verity designator is specified, then insist that the matching partition exists */
+                if (verity->designator >= 0 && !m->partitions[verity->designator].found)
+                        return -EADDRNOTAVAIL;
 
-                        /* If we found a verity setup, then the root partition is necessarily read-only. */
-                        m->partitions[PARTITION_ROOT].rw = false;
-                        m->verity = true;
-                }
+                if (verity->root_hash) {
+                        if (verity->designator < 0 || verity->designator == PARTITION_ROOT) {
+                                if (!m->partitions[PARTITION_ROOT_VERITY].found || !m->partitions[PARTITION_ROOT].found)
+                                        return -EADDRNOTAVAIL;
 
-                if (verity->designator == PARTITION_USR) {
-                        if (!m->partitions[PARTITION_USR_VERITY].found || !m->partitions[PARTITION_USR].found)
-                                return -EADDRNOTAVAIL;
+                                /* If we found a verity setup, then the root partition is necessarily read-only. */
+                                m->partitions[PARTITION_ROOT].rw = false;
+                                m->verity_ready = true;
 
-                        m->partitions[PARTITION_USR].rw = false;
-                        m->verity = true;
+                        } else {
+                                assert(verity->designator == PARTITION_USR);
+
+                                if (!m->partitions[PARTITION_USR_VERITY].found || !m->partitions[PARTITION_USR].found)
+                                        return -EADDRNOTAVAIL;
+
+                                m->partitions[PARTITION_USR].rw = false;
+                                m->verity_ready = true;
+                        }
                 }
         }
 
@@ -2253,7 +2282,7 @@ int dissected_image_decrypt(
         if (verity && verity->root_hash && verity->root_hash_size < sizeof(sd_id128_t))
                 return -EINVAL;
 
-        if (!m->encrypted && !m->verity) {
+        if (!m->encrypted && !m->verity_ready) {
                 *ret = NULL;
                 return 0;
         }
@@ -2838,18 +2867,35 @@ int dissect_image_and_warn(
         }
 }
 
-bool dissected_image_can_do_verity(const DissectedImage *image, PartitionDesignator partition_designator) {
+bool dissected_image_verity_candidate(const DissectedImage *image, PartitionDesignator partition_designator) {
+        assert(image);
+
+        /* Checks if this partition could theoretically do Verity. For non-partitioned images this only works
+         * if there's an external verity file supplied, for which we can consult .has_verity. For partitioned
+         * images we only check the partition type.
+         *
+         * This call is used to decide whether to suppress or show a verity column in tabular output of the
+         * image. */
+
         if (image->single_file_system)
-                return partition_designator == PARTITION_ROOT && image->can_verity;
+                return partition_designator == PARTITION_ROOT && image->has_verity;
 
         return PARTITION_VERITY_OF(partition_designator) >= 0;
 }
 
-bool dissected_image_has_verity(const DissectedImage *image, PartitionDesignator partition_designator) {
-        int k;
+bool dissected_image_verity_ready(const DissectedImage *image, PartitionDesignator partition_designator) {
+        PartitionDesignator k;
+
+        assert(image);
+
+        /* Checks if this partition has verity data available that we can activate. For non-partitioned this
+         * works for the root partition, for others only if the associated verity partition was found. */
+
+        if (!image->verity_ready)
+                return false;
 
         if (image->single_file_system)
-                return partition_designator == PARTITION_ROOT && image->verity;
+                return partition_designator == PARTITION_ROOT;
 
         k = PARTITION_VERITY_OF(partition_designator);
         return k >= 0 && image->partitions[k].found;
