@@ -92,6 +92,7 @@ static void test_oomd_cgroup_context_acquire_and_insert(void) {
         OomdCGroupContext *c1, *c2;
         bool test_xattrs;
         int root_xattrs, r;
+        uint64_t m;
 
         if (geteuid() != 0)
                 return (void) log_tests_skipped("not root");
@@ -103,6 +104,12 @@ static void test_oomd_cgroup_context_acquire_and_insert(void) {
                 return (void) log_tests_skipped("cgroups are not running in unified mode");
 
         assert_se(cg_pid_get_path(NULL, 0, &cgroup) >= 0);
+
+        r = cg_get_attribute_as_uint64(SYSTEMD_CGROUP_CONTROLLER, cgroup, "memory.current", &m);
+        if (r == -ENODATA)
+                return (void) log_tests_skipped("memory.current does not exist (maybe a unified container on a hybrid host?)");
+        assert_se(r >= 0);
+        assert_se(m > 0);
 
         /* If we don't have permissions to set xattrs we're likely in a userns or missing capabilities
          * so skip the xattr portions of the test. */
