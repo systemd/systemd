@@ -4,6 +4,28 @@
 set -eux
 set -o pipefail
 
+# Check if all symlinks under /dev/disk/ are valid
+helper_check_device_symlinks() {
+    local dev link target
+
+    while read -r link; do
+        target="$(readlink -f "$link")"
+        # Both checks should do virtually the same thing, but check both to be
+        # on the safe side
+        if [[ ! -e "$link" || ! -e "$target" ]]; then
+            echo >&2 "ERROR: symlink '$link' points to '$target' which doesn't exist"
+            return 1
+        fi
+
+        # Check if the symlink points to the correct device in /dev
+        dev="/dev/$(udevadm info -q name "$link")"
+        if [[ "$target" != "$dev" ]]; then
+            echo >&2 "ERROR: symlink '$link' points to '$target' but '$dev' was expected"
+            return 1
+        fi
+    done < <(find /dev/disk -type l)
+}
+
 testcase_megasas2_basic() {
     lsblk -S
     [[ "$(lsblk --scsi --noheadings | wc -l)" -ge 128 ]]
@@ -121,8 +143,10 @@ EOF
 : >/failed
 
 udevadm settle
-
 lsblk -a
+
+echo "Check if all symlinks under /dev/disk/ are valid (pre-test)"
+helper_check_device_symlinks
 
 # TEST_FUNCTION_NAME is passed on the kernel command line via systemd.setenv=
 # in the respective test.sh file
@@ -133,6 +157,9 @@ fi
 
 echo "TEST_FUNCTION_NAME=$TEST_FUNCTION_NAME"
 "$TEST_FUNCTION_NAME"
+
+echo "Check if all symlinks under /dev/disk/ are valid (post-test)"
+helper_check_device_symlinks
 
 systemctl status systemd-udevd
 
