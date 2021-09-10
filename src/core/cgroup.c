@@ -19,6 +19,7 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "fs-util.h"
+#include "in-addr-prefix-util.h"
 #include "io-util.h"
 #include "ip-protocol-list.h"
 #include "limits-util.h"
@@ -238,8 +239,8 @@ void cgroup_context_done(CGroupContext *c) {
         cgroup_context_remove_socket_bind(&c->socket_bind_allow);
         cgroup_context_remove_socket_bind(&c->socket_bind_deny);
 
-        c->ip_address_allow = ip_address_access_free_all(c->ip_address_allow);
-        c->ip_address_deny = ip_address_access_free_all(c->ip_address_deny);
+        c->ip_address_allow = set_free(c->ip_address_allow);
+        c->ip_address_deny = set_free(c->ip_address_deny);
 
         c->ip_filters_ingress = strv_free(c->ip_filters_ingress);
         c->ip_filters_egress = strv_free(c->ip_filters_egress);
@@ -395,7 +396,7 @@ void cgroup_context_dump(Unit *u, FILE* f, const char *prefix) {
         CGroupDeviceAllow *a;
         CGroupContext *c;
         CGroupSocketBindItem *bi;
-        IPAddressAccessItem *iaai;
+        struct in_addr_prefix *iaai;
         char **path;
 
         char cda[FORMAT_CGROUP_DIFF_MAX];
@@ -549,18 +550,18 @@ void cgroup_context_dump(Unit *u, FILE* f, const char *prefix) {
                                 FORMAT_BYTES(b->wbps));
         }
 
-        LIST_FOREACH(items, iaai, c->ip_address_allow) {
+        SET_FOREACH(iaai, c->ip_address_allow) {
                 _cleanup_free_ char *k = NULL;
 
-                (void) in_addr_to_string(iaai->family, &iaai->address, &k);
-                fprintf(f, "%sIPAddressAllow: %s/%u\n", prefix, strnull(k), iaai->prefixlen);
+                (void) in_addr_prefix_to_string(iaai->family, &iaai->address, iaai->prefixlen, &k);
+                fprintf(f, "%sIPAddressAllow: %s\n", prefix, strnull(k));
         }
 
-        LIST_FOREACH(items, iaai, c->ip_address_deny) {
+        SET_FOREACH(iaai, c->ip_address_deny) {
                 _cleanup_free_ char *k = NULL;
 
-                (void) in_addr_to_string(iaai->family, &iaai->address, &k);
-                fprintf(f, "%sIPAddressDeny: %s/%u\n", prefix, strnull(k), iaai->prefixlen);
+                (void) in_addr_prefix_to_string(iaai->family, &iaai->address, iaai->prefixlen, &k);
+                fprintf(f, "%sIPAddressDeny: %s\n", prefix, strnull(k));
         }
 
         STRV_FOREACH(path, c->ip_filters_ingress)
@@ -1555,8 +1556,8 @@ static bool unit_get_needs_bpf_firewall(Unit *u) {
                 return false;
 
         if (c->ip_accounting ||
-            c->ip_address_allow ||
-            c->ip_address_deny ||
+            !set_isempty(c->ip_address_allow) ||
+            !set_isempty(c->ip_address_deny) ||
             c->ip_filters_ingress ||
             c->ip_filters_egress)
                 return true;
@@ -1567,8 +1568,8 @@ static bool unit_get_needs_bpf_firewall(Unit *u) {
                 if (!c)
                         return false;
 
-                if (c->ip_address_allow ||
-                    c->ip_address_deny)
+                if (!set_isempty(c->ip_address_allow) ||
+                    !set_isempty(c->ip_address_deny))
                         return true;
         }
 

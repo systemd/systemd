@@ -71,8 +71,6 @@ libcore_sources = '''
         generator-setup.h
         ima-setup.c
         ima-setup.h
-        ip-address-access.c
-        ip-address-access.h
         job.c
         job.h
         kill.c
