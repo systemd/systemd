@@ -2280,12 +2280,9 @@ static int link_update_name(Link *link, sd_netlink_message *message) {
                         return log_link_debug_errno(link, r, "Failed to update interface name in IPv4LL client: %m");
         }
 
-        Address *a;
-        SET_FOREACH(a, link->addresses_ipv4acd) {
-                r = sd_ipv4acd_set_ifname(a->acd, link->ifname);
-                if (r < 0)
-                        return log_link_debug_errno(link, r, "Failed to update interface name in IPv4ACD client: %m");
-        }
+        r = ipv4acd_set_ifname(link);
+        if (r < 0)
+                return log_link_debug_errno(link, r, "Failed to update interface name in IPv4ACD client: %m");
 
         return 0;
 }
