@@ -118,8 +118,8 @@ typedef enum DissectImageFlags {
 
 struct DissectedImage {
         bool encrypted:1;
-        bool verity:1;     /* verity available and usable */
-        bool can_verity:1; /* verity available, but not necessarily used */
+        bool has_verity:1;         /* verity available in image, but not necessarily used */
+        bool verity_ready:1;       /* verity available, fully specified and usable */
         bool single_file_system:1; /* MBR/GPT or single file system */
 
         DissectedPartition partitions[_PARTITION_DESIGNATOR_MAX];
@@ -186,8 +186,8 @@ PartitionDesignator partition_designator_from_string(const char *name) _pure_;
 int verity_settings_load(VeritySettings *verity, const char *image, const char *root_hash_path, const char *root_hash_sig_path);
 void verity_settings_done(VeritySettings *verity);
 
-bool dissected_image_can_do_verity(const DissectedImage *image, PartitionDesignator d);
-bool dissected_image_has_verity(const DissectedImage *image, PartitionDesignator d);
+bool dissected_image_verity_candidate(const DissectedImage *image, PartitionDesignator d);
+bool dissected_image_verity_ready(const DissectedImage *image, PartitionDesignator d);
 
 int mount_image_privately_interactively(const char *path, DissectImageFlags flags, char **ret_directory, LoopDevice **ret_loop_device, DecryptedImage **ret_decrypted_image);
 
