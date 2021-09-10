@@ -11,7 +11,7 @@
 #include "bus-util.h"
 #include "env-util.h"
 #include "format-table.h"
-#include "in-addr-util.h"
+#include "in-addr-prefix-util.h"
 #include "locale-util.h"
 #include "macro.h"
 #include "manager.h"
@@ -2582,10 +2582,10 @@ static int get_security_info(Unit *u, ExecContext *c, CGroupContext *g, Security
                                 return log_oom();
                 }
 
-                IPAddressAccessItem *i;
+                struct in_addr_prefix *i;
                 bool deny_ipv4 = false, deny_ipv6 = false;
 
-                LIST_FOREACH(items, i, g->ip_address_deny) {
+                SET_FOREACH(i, g->ip_address_deny) {
                         if (i->family == AF_INET && i->prefixlen == 0)
                                 deny_ipv4 = true;
                         else if (i->family == AF_INET6 && i->prefixlen == 0)
@@ -2594,7 +2594,7 @@ static int get_security_info(Unit *u, ExecContext *c, CGroupContext *g, Security
                 info->ip_address_deny_all = deny_ipv4 && deny_ipv6;
 
                 info->ip_address_allow_localhost = info->ip_address_allow_other = false;
-                LIST_FOREACH(items, i, g->ip_address_allow) {
+                SET_FOREACH(i, g->ip_address_allow) {
                         if (in_addr_is_localhost(i->family, &i->address))
                                 info->ip_address_allow_localhost = true;
                         else
