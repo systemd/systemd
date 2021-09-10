@@ -403,6 +403,13 @@ static int ndisc_request_route(Route *in, Link *link, sd_ndisc_router *rt) {
         assert(link);
         assert(rt);
 
+        if (!route->table_set)
+                route->table = link_get_ipv6_accept_ra_route_table(link);
+        if (!route->priority_set)
+                route->priority = link->network->ipv6_accept_ra_route_metric;
+        if (!route->protocol_set)
+                route->protocol = RTPROT_RA;
+
         r = link_has_route(link, route);
         if (r < 0)
                 return r;
@@ -536,7 +543,7 @@ static int ndisc_request_address(Address *in, Link *link, sd_ndisc_router *rt) {
 static int ndisc_router_process_default(Link *link, sd_ndisc_router *rt) {
         _cleanup_(route_freep) Route *route = NULL;
         struct in6_addr gateway;
-        uint32_t table, mtu = 0;
+        uint32_t mtu = 0;
         unsigned preference;
         uint16_t lifetime;
         usec_t time_now;
@@ -581,16 +588,11 @@ static int ndisc_router_process_default(Link *link, sd_ndisc_router *rt) {
                         return log_link_error_errno(link, r, "Failed to get default router MTU from RA: %m");
         }
 
-        table = link_get_ipv6_accept_ra_route_table(link);
-
         r = route_new(&route);
         if (r < 0)
                 return log_oom();
 
         route->family = AF_INET6;
-        route->table = table;
-        route->priority = link->network->ipv6_accept_ra_route_metric;
-        route->protocol = RTPROT_RA;
         route->pref = preference;
         route->gw_family = AF_INET6;
         route->gw.in6 = gateway;
@@ -614,12 +616,6 @@ static int ndisc_router_process_default(Link *link, sd_ndisc_router *rt) {
                         return r;
 
                 route->gw.in6 = gateway;
-                if (!route->table_set)
-                        route->table = table;
-                if (!route->priority_set)
-                        route->priority = link->network->ipv6_accept_ra_route_metric;
-                if (!route->protocol_set)
-                        route->protocol = RTPROT_RA;
                 if (!route->pref_set)
                         route->pref = preference;
                 route->lifetime = usec_add(time_now, lifetime * USEC_PER_SEC);
@@ -878,9 +874,6 @@ static int ndisc_router_process_onlink_prefix(Link *link, sd_ndisc_router *rt) {
                 return log_oom();
 
         route->family = AF_INET6;
-        route->table = link_get_ipv6_accept_ra_route_table(link);
-        route->priority = link->network->ipv6_accept_ra_route_metric;
-        route->protocol = RTPROT_RA;
         route->flags = RTM_F_PREFIX;
         route->dst_prefixlen = prefixlen;
         route->lifetime = usec_add(time_now, lifetime * USEC_PER_SEC);
@@ -961,9 +954,6 @@ static int ndisc_router_process_route(Link *link, sd_ndisc_router *rt) {
                 return log_oom();
 
         route->family = AF_INET6;
-        route->table = link_get_ipv6_accept_ra_route_table(link);
-        route->priority = link->network->ipv6_accept_ra_route_metric;
-        route->protocol = RTPROT_RA;
         route->pref = preference;
         route->gw.in6 = gateway;
         route->gw_family = AF_INET6;
