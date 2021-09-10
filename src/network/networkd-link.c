@@ -1621,7 +1621,10 @@ static int link_carrier_lost(Link *link) {
                 /* let's shortcut things for CAN which doesn't need most of what's done below. */
                 return 0;
 
-        if (link->network && link->network->ignore_carrier_loss)
+        if (!link->network)
+                return 0;
+
+        if (link->network->ignore_carrier_loss)
                 return 0;
 
         r = link_stop_engines(link, false);
