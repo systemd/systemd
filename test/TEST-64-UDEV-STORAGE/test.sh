@@ -230,6 +230,22 @@ EOF
     test_run_one "${1:?}"
 }
 
+# Test case for issue https://github.com/systemd/systemd/issues/19946
+testcase_simultaneous_events() {
+    local qemu_opts=("-device virtio-scsi-pci,id=scsi")
+    local partdisk="${TESTDIR:?}/simultaneousevents.img"
+
+    dd if=/dev/zero of="$partdisk" bs=1M count=110
+    qemu_opts+=(
+        "-device scsi-hd,drive=drive1,serial=deadbeeftest"
+        "-drive format=raw,cache=unsafe,file=$partdisk,if=none,id=drive1"
+    )
+
+    KERNEL_APPEND="systemd.setenv=TEST_FUNCTION_NAME=${FUNCNAME[0]} ${USER_KERNEL_APPEND:-}"
+    QEMU_OPTIONS="${qemu_opts[*]} ${USER_QEMU_OPTIONS:-}"
+    test_run_one "${1:?}"
+}
+
 # Allow overriding which tests should be run from the "outside", useful for manual
 # testing (make -C test/... TESTCASES="testcase1 testcase2")
 if [[ -v "TESTCASES" && -n "$TESTCASES" ]]; then
