@@ -2027,7 +2027,7 @@ int cg_kernel_controllers_all(Set **ret, bool only_enabled, bool only_cgroup1) {
         (void) read_line(f, SIZE_MAX, NULL);
 
         for (;;) {
-                char *controller;
+                _cleanup_free_ char *controller = NULL;
                 int hierarchy = 0, enabled = 0;
 
                 errno = 0;
@@ -2043,21 +2043,19 @@ int cg_kernel_controllers_all(Set **ret, bool only_enabled, bool only_cgroup1) {
                 }
 
                 if (!enabled && only_enabled)
-                        free(controller);
                         continue;
-                }
 
+                /* If the hierarchy field is non-zero, that means this
+                 * controller is currently in use by cgroup1; if zero,
+                 * the controller may either be unused or in use by
+                 * cgroup2, depending on the value of num_cgroups. */
                 if (!hierarchy && only_cgroup1)
-                        free(controller);
                         continue;
-                }
 
-                if (!cg_controller_is_valid(controller)) {
-                        free(controller);
+                if (!cg_controller_is_valid(controller))
                         return -EBADMSG;
-                }
 
-                r = set_consume(controllers, controller);
+                r = set_consume(controllers, TAKE_PTR(controller));
                 if (r < 0)
                         return r;
         }
