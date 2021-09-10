@@ -2000,7 +2000,7 @@ int cg_mask_supported(CGroupMask *ret) {
         return cg_mask_supported_subtree(root, ret);
 }
 
-int cg_kernel_controllers(Set **ret) {
+int cg_kernel_controllers_all(Set **ret, bool only_enabled, bool only_cgroup1) {
         _cleanup_set_free_free_ Set *controllers = NULL;
         _cleanup_fclose_ FILE *f = NULL;
         int r;
@@ -2028,10 +2028,10 @@ int cg_kernel_controllers(Set **ret) {
 
         for (;;) {
                 char *controller;
-                int enabled = 0;
+                int hierarchy = 0, enabled = 0;
 
                 errno = 0;
-                if (fscanf(f, "%ms %*i %*i %i", &controller, &enabled) != 2) {
+                if (fscanf(f, "%ms %i %*i %i", &controller, &hierarchy, &enabled) != 3) {
 
                         if (feof(f))
                                 break;
@@ -2042,7 +2042,12 @@ int cg_kernel_controllers(Set **ret) {
                         return -EBADMSG;
                 }
 
-                if (!enabled) {
+                if (!enabled && only_enabled)
+                        free(controller);
+                        continue;
+                }
+
+                if (!hierarchy && only_cgroup1)
                         free(controller);
                         continue;
                 }
