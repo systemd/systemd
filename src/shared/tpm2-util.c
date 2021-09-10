@@ -182,7 +182,7 @@ static int tpm2_init(const char *device, struct tpm2_context *ret) {
                 if (!tcti)
                         return log_oom();
 
-                rc = info->init(tcti, &sz, device);
+                rc = info->init(tcti, &sz, param);
                 if (rc != TPM2_RC_SUCCESS)
                         return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
                                                "Failed to initialize TCTI context: %s", sym_Tss2_RC_Decode(rc));
