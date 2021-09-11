@@ -14,16 +14,19 @@
 
 #define CACHE_INFO_INFINITY_LIFE_TIME 0xFFFFFFFFU
 
+typedef struct Address Address;
 typedef struct Manager Manager;
 typedef struct Network Network;
 typedef struct Request Request;
 typedef int (*address_ready_callback_t)(Address *address);
 
-typedef struct Address {
+struct Address {
+        Link *link;
         Network *network;
         NetworkConfigSection *section;
-
-        Link *link;
+        NetworkConfigSource source;
+        NetworkConfigState state;
+        union in_addr_union provider; /* DHCP server or router address */
 
         int family;
         unsigned char prefixlen;
@@ -41,14 +44,12 @@ typedef struct Address {
 
         bool scope_set:1;
         bool ip_masquerade_done:1;
-        bool is_static:1; /* currently only used by IPv4ACD */
-        bool acd_announced:1;
         AddressFamily duplicate_address_detection;
         sd_ipv4acd *acd;
 
         /* Called when address become ready */
         address_ready_callback_t callback;
-} Address;
+};
 
 const char* format_lifetime(char *buf, size_t l, uint32_t lifetime) _warn_unused_result_;
 /* Note: the lifetime of the compound literal is the immediately surrounding block,
@@ -61,8 +62,7 @@ int address_new(Address **ret);
 Address* address_free(Address *address);
 int address_get(Link *link, const Address *in, Address **ret);
 int address_configure_handler_internal(sd_netlink *rtnl, sd_netlink_message *m, Link *link, const char *error_msg);
-int address_remove(const Address *address, Link *link);
-bool address_equal(const Address *a1, const Address *a2);
+int address_remove(Address *address);
 int address_dup(const Address *src, Address **ret);
 bool address_is_ready(const Address *a);
 void address_set_broadcast(Address *a);
@@ -79,6 +79,7 @@ int link_get_ipv6_address(Link *link, const struct in6_addr *address, Address **
 int link_get_ipv4_address(Link *link, const struct in_addr *address, unsigned char prefixlen, Address **ret);
 int manager_has_address(Manager *manager, int family, const union in_addr_union *address, bool check_ready);
 
+void address_cancel_request(Address *address);
 int link_request_address(
                 Link *link,
                 Address *address,
@@ -97,6 +98,9 @@ void network_drop_invalid_addresses(Network *network);
 void address_hash_func(const Address *a, struct siphash *state);
 int address_compare_func(const Address *a1, const Address *a2);
 extern const struct hash_ops address_hash_ops;
+
+DEFINE_NETWORK_CONFIG_STATE_FUNCTIONS(Address, address);
+void link_mark_addresses(Link *link, NetworkConfigSource source, const struct in6_addr *router);
 
 CONFIG_PARSER_PROTOTYPE(config_parse_address);
 CONFIG_PARSER_PROTOTYPE(config_parse_broadcast);
