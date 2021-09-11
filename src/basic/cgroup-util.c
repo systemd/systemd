@@ -2000,7 +2000,7 @@ int cg_mask_supported(CGroupMask *ret) {
         return cg_mask_supported_subtree(root, ret);
 }
 
-int cg_kernel_controllers(Set **ret) {
+int cg_kernel_controllers_all(Set **ret, bool only_enabled, bool only_cgroup1) {
         _cleanup_set_free_free_ Set *controllers = NULL;
         _cleanup_fclose_ FILE *f = NULL;
         int r;
@@ -2027,11 +2027,11 @@ int cg_kernel_controllers(Set **ret) {
         (void) read_line(f, SIZE_MAX, NULL);
 
         for (;;) {
-                char *controller;
-                int enabled = 0;
+                _cleanup_free_ char *controller = NULL;
+                int hierarchy = 0, enabled = 0;
 
                 errno = 0;
-                if (fscanf(f, "%ms %*i %*i %i", &controller, &enabled) != 2) {
+                if (fscanf(f, "%ms %i %*i %i", &controller, &hierarchy, &enabled) != 3) {
 
                         if (feof(f))
                                 break;
@@ -2042,17 +2042,20 @@ int cg_kernel_controllers(Set **ret) {
                         return -EBADMSG;
                 }
 
-                if (!enabled) {
-                        free(controller);
+                if (!enabled && only_enabled)
                         continue;
-                }
 
-                if (!cg_controller_is_valid(controller)) {
-                        free(controller);
+                /* If the hierarchy field is non-zero, that means this
+                 * controller is currently in use by cgroup1; if zero,
+                 * the controller may either be unused or in use by
+                 * cgroup2, depending on the value of num_cgroups. */
+                if (!hierarchy && only_cgroup1)
+                        continue;
+
+                if (!cg_controller_is_valid(controller))
                         return -EBADMSG;
-                }
 
-                r = set_consume(controllers, controller);
+                r = set_consume(controllers, TAKE_PTR(controller));
                 if (r < 0)
                         return r;
         }

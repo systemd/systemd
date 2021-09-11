@@ -18,6 +18,32 @@
 #include "user-util.h"
 #include "fd-util.h"
 
+static bool cg_is_unified_possible(void) {
+        _cleanup_set_free_free_ Set *controllers = NULL;
+        int r;
+
+        /* If we are running in a container, we need to check if the host
+         * is using cgroup1 (or hybrid), in which case it's not possible
+         * for us to use cgroup2. We don't actually check if we're running
+         * in a container here, as detect_container() might rely on cgroups
+         * being mounted, and we may be called before that happens.
+         *
+         * An alternate way to check this might be to read /proc/self/cgroup
+         * to see if there is more than 1 (index 0) entry, since if cgroup1
+         * is in use our process cgroup file will list all the controllers
+         * in use by cgroup1, in addition to the default/root controller.
+         *
+         * Here, we just check /proc/cgroups for any controllers that are
+         * in use by cgroup1 currently. */
+        r = cg_kernel_controllers_all(&controllers, true, true);
+        if (r < 0) {
+                log_error_errno(r, "Could not check if cgroup1 is in use, ignoring.");
+                return true;
+        }
+
+        return set_isempty(controllers);
+}
+
 bool cg_is_unified_wanted(void) {
         static thread_local int wanted = -1;
         bool b;
@@ -33,6 +59,9 @@ bool cg_is_unified_wanted(void) {
         r = cg_unified_cached(true);
         if (r >= 0)
                 return (wanted = r >= CGROUP_UNIFIED_ALL);
+
+        if (!cg_is_unified_possible())
+                return (wanted = false);
 
         /* If we were explicitly passed systemd.unified_cgroup_hierarchy, respect that. */
         r = proc_cmdline_get_bool("systemd.unified_cgroup_hierarchy", &b);
