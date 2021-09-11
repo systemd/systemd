@@ -112,14 +112,13 @@ static EFIAPI EFI_STATUS security2_policy_authentication (const EFI_SECURITY2_PR
         EFI_STATUS status;
 
         assert(this);
-        assert(device_path);
-        assert(file_buffer);
+        /* device_path and file_buffer may be NULL */
 
         /* Chain original security policy */
         status = uefi_call_wrapper(es2fa, 5, this, device_path, file_buffer, file_size, boot_policy);
 
         /* if OK, don't bother with MOK check */
-        if (status == EFI_SUCCESS)
+        if (!EFI_ERROR(status))
                 return status;
 
         if (shim_validate(file_buffer, file_size))
