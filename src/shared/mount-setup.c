@@ -292,7 +292,7 @@ static int symlink_controller(const char *target, const char *alias) {
 }
 
 int mount_cgroup_controllers(void) {
-        _cleanup_set_free_free_ Set *controllers = NULL;
+        _cleanup_set_free_ Set *controllers = NULL;
         int r;
 
         if (!cg_is_legacy_wanted())
