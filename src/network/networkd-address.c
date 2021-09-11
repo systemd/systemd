@@ -436,42 +436,46 @@ static int address_add(Link *link, const Address *in, Address **ret) {
 }
 
 static int address_update(Address *address, const Address *src) {
-        bool ready;
+        Link *link;
         int r;
 
         assert(address);
         assert(address->link);
         assert(src);
 
-        ready = address_is_ready(address);
+        link = address->link;
 
         address->flags = src->flags;
         address->scope = src->scope;
         address->cinfo = src->cinfo;
 
-        if (IN_SET(address->link->state, LINK_STATE_FAILED, LINK_STATE_LINGER))
-                return 0;
+        if (address_is_ready(address) &&
+            address->family == AF_INET6 &&
+            in6_addr_is_link_local(&address->in_addr.in6) &&
+            in6_addr_is_null(&link->ipv6ll_address)) {
 
-        link_update_operstate(address->link, true);
-        link_check_ready(address->link);
+                link->ipv6ll_address = address->in_addr.in6;
 
-        if (!ready && address_is_ready(address)) {
-                if (address->callback) {
-                        r = address->callback(address);
-                        if (r < 0)
-                                return r;
-                }
-
-                if (address->family == AF_INET6 &&
-                    in6_addr_is_link_local(&address->in_addr.in6) > 0 &&
-                    in6_addr_is_null(&address->link->ipv6ll_address)) {
-
-                        r = link_ipv6ll_gained(address->link, &address->in_addr.in6);
-                        if (r < 0)
-                                return r;
-                }
+                r = link_ipv6ll_gained(link);
+                if (r < 0)
+                        return r;
         }
 
+        if (IN_SET(link->state, LINK_STATE_FAILED, LINK_STATE_LINGER))
+                return 0;
+
+        r = address_set_masquerade(address, true);
+        if (r < 0)
+                return log_link_warning_errno(link, r, "Could not enable IP masquerading: %m");
+
+        if (address_is_ready(address) && address->callback) {
+                r = address->callback(address);
+                if (r < 0)
+                        return r;
+        }
+
+        link_update_operstate(link, true);
+        link_check_ready(link);
         return 0;
 }
 
@@ -878,7 +882,7 @@ int link_drop_foreign_addresses(Link *link) {
 
         SET_FOREACH(address, link->addresses_foreign) {
                 /* We consider IPv6LL addresses to be managed by the kernel, or dropped in link_drop_ipv6ll_addresses() */
-                if (address->family == AF_INET6 && in6_addr_is_link_local(&address->in_addr.in6) == 1)
+                if (address->family == AF_INET6 && in6_addr_is_link_local(&address->in_addr.in6))
                         continue;
 
                 if (link_address_is_dynamic(link, address)) {
@@ -911,8 +915,8 @@ int link_drop_addresses(Link *link) {
         assert(link);
 
         SET_FOREACH(address, link->addresses) {
-                /* we consider IPv6LL addresses to be managed by the kernel */
-                if (address->family == AF_INET6 && in6_addr_is_link_local(&address->in_addr.in6) == 1 && link_ipv6ll_enabled(link))
+                /* We consider IPv6LL addresses to be managed by the kernel, or dropped in link_drop_ipv6ll_addresses() */
+                if (address->family == AF_INET6 && in6_addr_is_link_local(&address->in_addr.in6))
                         continue;
 
                 k = address_remove(address, link);
@@ -1287,10 +1291,6 @@ int request_process_address(Request *req) {
                 if (r < 0)
                         return r;
         }
-
-        r = address_set_masquerade(a, true);
-        if (r < 0)
-                log_link_warning_errno(link, r, "Could not enable IP masquerading, ignoring: %m");
 
         return 1;
 }
