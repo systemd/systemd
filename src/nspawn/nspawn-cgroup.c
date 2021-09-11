@@ -406,7 +406,7 @@ static int mount_legacy_cgns_unsupported(
                 uid_t uid_range,
                 const char *selinux_apifs_context) {
 
-        _cleanup_set_free_free_ Set *controllers = NULL;
+        _cleanup_set_free_ Set *controllers = NULL;
         const char *cgroup_root;
         int r;
 
