@@ -87,6 +87,7 @@ static void test_oomd_cgroup_kill(void) {
 static void test_oomd_cgroup_context_acquire_and_insert(void) {
         _cleanup_hashmap_free_ Hashmap *h1 = NULL, *h2 = NULL;
         _cleanup_(oomd_cgroup_context_freep) OomdCGroupContext *ctx = NULL;
+        _cleanup_set_free_ Set *controllers = NULL;
         _cleanup_free_ char *cgroup = NULL;
         ManagedOOMPreference root_pref;
         OomdCGroupContext *c1, *c2;
@@ -101,6 +102,11 @@ static void test_oomd_cgroup_context_acquire_and_insert(void) {
 
         if (cg_all_unified() <= 0)
                 return (void) log_tests_skipped("cgroups are not running in unified mode");
+
+        assert_se(cg_kernel_controllers(&controllers) >= 0);
+
+        if (!set_contains(controllers, "memory"))
+                return (void) log_tests_skipped("cgroup memory controller is not available");
 
         assert_se(cg_pid_get_path(NULL, 0, &cgroup) >= 0);
 
