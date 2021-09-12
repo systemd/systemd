@@ -120,6 +120,7 @@ static int run(int argc, char *argv[]) {
         _cleanup_(manager_freep) Manager *m = NULL;
         _cleanup_free_ char *swap = NULL;
         unsigned long long s = 0;
+        CGroupMask mask;
         int r;
 
         log_setup();
@@ -152,6 +153,13 @@ static int run(int argc, char *argv[]) {
                 return log_error_errno(r, "Failed to determine whether the unified cgroups hierarchy is used: %m");
         if (r == 0)
                 return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Requires the unified cgroups hierarchy");
+
+        r = cg_mask_supported(&mask);
+        if (r < 0)
+                return log_error_errno(r, "Failed to get supported cgroup controllers: %m");
+
+        if (!FLAGS_SET(mask, CGROUP_MASK_MEMORY))
+                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Requires the cgroup memory controller.");
 
         assert_se(sigprocmask_many(SIG_BLOCK, NULL, SIGTERM, SIGINT, -1) >= 0);
 
