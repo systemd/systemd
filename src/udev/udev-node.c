@@ -334,25 +334,30 @@ static int update_stack_directory(sd_device *dev, const char *dirname, bool add)
                 return log_oom_debug();
 
         if (!add) {
-                bool unlink_failed = false;
+                int unlink_error = 0, stat_error = 0;
 
                 if (stat(dirname, &st) < 0) {
                         if (errno == ENOENT)
                                 return 0; /* The stack directory is already removed. That's OK. */
-                        log_device_debug_errno(dev, errno, "Failed to stat %s, ignoring: %m", dirname);
+                        stat_error = -errno;
                 }
 
-                if (unlink(filename) < 0) {
-                        unlink_failed = true;
-                        if (errno != ENOENT)
-                                log_device_debug_errno(dev, errno, "Failed to remove %s, ignoring: %m", filename);
-                }
+                if (unlink(filename) < 0)
+                        unlink_error = -errno;
 
                 if (rmdir(dirname) >= 0 || errno == ENOENT)
                         return 0;
 
-                if (unlink_failed)
-                        return 0; /* If we failed to remove the symlink, there is almost nothing we can do. */
+                if (unlink_error < 0) {
+                        if (unlink_error == -ENOENT)
+                                return 0;
+
+                        /* If we failed to remove the symlink, then there is almost nothing we can do. */
+                        return log_device_debug_errno(dev, unlink_error, "Failed to remove %s: %m", filename);
+                }
+
+                if (stat_error < 0)
+                        return log_device_debug_errno(dev, stat_error, "Failed to stat %s: %m", dirname);
 
                 /* The symlink was removed. Check if the timestamp of directory is changed. */
                 r = update_timestamp(dev, dirname, &st);
