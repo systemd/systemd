@@ -272,14 +272,14 @@ static int update_timestamp(sd_device *dev, const char *path, struct stat *prev)
 
         /* Even if a symlink in the stack directory is created/removed, the mtime of the directory may
          * not be changed. Why? Let's consider the following situation. For simplicity, let's assume
-         * there exist three udev workers (A, B, and C) and all of them calls link_update() for the
-         * same devlink simultaneously.
+         * there exist two udev workers (A and B) and all of them calls link_update() for the same
+         * devlink simultaneously.
          *
-         * 1. B creates/removes a symlink in the stack directory.
+         * 1. A creates/removes a symlink in the stack directory.
          * 2. A calls the first stat() in the loop of link_update().
          * 3. A calls link_find_prioritized().
-         * 4. C creates/removes another symlink in the stack directory, so the result of the step 3 is outdated.
-         * 5. B and C finish link_update().
+         * 4. B creates/removes another symlink in the stack directory, so the result of the step 3 is outdated.
+         * 5. B finishes link_update().
          * 6. A creates/removes devlink according to the outdated result in the step 3.
          * 7. A calls the second stat() in the loop of link_update().
          *
