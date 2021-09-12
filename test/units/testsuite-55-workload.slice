@@ -7,4 +7,4 @@ MemoryAccounting=true
 IOAccounting=true
 TasksAccounting=true
 ManagedOOMMemoryPressure=kill
-ManagedOOMMemoryPressureLimit=1%
+ManagedOOMMemoryPressureLimit=20%

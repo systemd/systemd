@@ -38,7 +38,7 @@ systemctl start testsuite-55-testbloat.service
 
 # Verify systemd-oomd is monitoring the expected units
 oomctl | grep "/testsuite-55-workload.slice"
-oomctl | grep "1.00%"
+oomctl | grep "20.00%"
 oomctl | grep "Default Memory Pressure Duration: 2s"
 
 systemctl status testsuite-55-testchill.service
@@ -75,7 +75,7 @@ if setfattr -n user.xattr_test -v 1 /sys/fs/cgroup/; then
         if ! systemctl status testsuite-55-testmunch.service; then
             break
         fi
-        sleep 5
+        sleep 2
     done
 
     # testmunch should be killed since testbloat had the avoid xattr on it
