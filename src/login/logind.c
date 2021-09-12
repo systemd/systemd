@@ -102,16 +102,16 @@ static Manager* manager_unref(Manager *m) {
                 return NULL;
 
         while ((session = hashmap_first(m->sessions)))
-                session_free(session);
+                session_free(session, false);
 
         while ((u = hashmap_first(m->users)))
-                user_free(u);
+                user_free(u, false);
 
         while ((d = hashmap_first(m->devices)))
-                device_free(d);
+                device_free(d, false);
 
         while ((s = hashmap_first(m->seats)))
-                seat_free(s);
+                seat_free(s, false);
 
         while ((i = hashmap_first(m->inhibitors)))
                 inhibitor_free(i);
@@ -153,7 +153,7 @@ static Manager* manager_unref(Manager *m) {
         sd_device_monitor_unref(m->device_vcsa_monitor);
         sd_device_monitor_unref(m->device_button_monitor);
 
-        if (m->unlink_nologin)
+        if (m->unlink_nologin) // FIXME: should /run/nologin be left behind like other state?
                 (void) unlink_or_warn("/run/nologin");
 
         bus_verify_polkit_async_registry_free(m->polkit_registry);
@@ -915,7 +915,7 @@ static void manager_gc(Manager *m, bool drop_not_started) {
 
                 if (seat_may_gc(seat, drop_not_started)) {
                         seat_stop(seat, /* force = */ false);
-                        seat_free(seat);
+                        seat_free(seat, /* drop_resources = */ true);
                 }
         }
 
@@ -932,7 +932,7 @@ static void manager_gc(Manager *m, bool drop_not_started) {
                  * of it immediately. */
                 if (session_may_gc(session, drop_not_started)) {
                         (void) session_finalize(session);
-                        session_free(session);
+                        session_free(session, true);
                 }
         }
 
@@ -947,7 +947,7 @@ static void manager_gc(Manager *m, bool drop_not_started) {
                 /* Second step: finalize user */
                 if (user_may_gc(user, drop_not_started)) {
                         (void) user_finalize(user);
-                        user_free(user);
+                        user_free(user, true);
                 }
         }
 }
@@ -1179,7 +1179,7 @@ static int run(int argc, char *argv[]) {
 
         /* Always create the directories people can create inotify watches in. Note that some applications
          * might check for the existence of /run/systemd/seats/ to determine whether logind is available, so
-         * please always make sure these directories are created early on and unconditionally. */
+         * create those directories early on and unconditionally. */
         (void) mkdir_label("/run/systemd/seats", 0755);
         (void) mkdir_label("/run/systemd/users", 0755);
         (void) mkdir_label("/run/systemd/sessions", 0755);

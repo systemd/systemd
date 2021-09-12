@@ -383,26 +383,33 @@ error:
         return r;
 }
 
-void session_device_free(SessionDevice *sd) {
-        assert(sd);
+SessionDevice* session_device_free(SessionDevice *sd, bool drop_resources) {
+        if (!sd)
+                return NULL;
 
-        /* Make sure to remove the pushed fd. */
-        if (sd->pushed_fd)
-                (void) sd_notifyf(false,
-                                  "FDSTOREREMOVE=1\n"
-                                  "FDNAME=session-%s-device-%u-%u",
-                                  sd->session->id, major(sd->dev), minor(sd->dev));
+        if (drop_resources) {
+                if (sd->pushed_fd)
+                        (void) sd_notifyf(false,
+                                          "FDSTOREREMOVE=1\n"
+                                          "FDNAME=session-%s-device-%u-%u",
+                                          sd->session->id, major(sd->dev), minor(sd->dev));
 
-        session_device_stop(sd);
-        session_device_notify(sd, SESSION_DEVICE_RELEASE);
-        safe_close(sd->fd);
+                session_device_stop(sd);
+                session_device_notify(sd, SESSION_DEVICE_RELEASE);
+
+        } else if (sd->pushed_fd)
+                log_info("Leaving fd in store (%d, session-%s-device-%u-%u)",
+                         sd->fd,
+                         sd->session->id, major(sd->dev), minor(sd->dev));
+
+        sd->fd = safe_close(sd->fd);
 
         LIST_REMOVE(sd_by_device, sd->device->session_devices, sd);
 
         hashmap_remove(sd->session->devices, &sd->dev);
 
         free(sd->node);
-        free(sd);
+        return mfree(sd);
 }
 
 void session_device_complete_pause(SessionDevice *sd) {

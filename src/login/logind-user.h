@@ -51,9 +51,9 @@ struct User {
 };
 
 int user_new(User **out, Manager *m, UserRecord *ur);
-User *user_free(User *u);
+User *user_free(User *u, bool drop_resources);
 
-DEFINE_TRIVIAL_CLEANUP_FUNC(User *, user_free);
+DEFINE_TRIVIAL_CLEANUP_FUNC2(User *, user_free, /* drop_resources = */ false);
 
 bool user_may_gc(User *u, bool drop_not_started);
 void user_add_to_gc_queue(User *u);
