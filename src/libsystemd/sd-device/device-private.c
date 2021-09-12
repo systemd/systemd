@@ -680,7 +680,7 @@ int device_set_watch_handle(sd_device *device, int wd) {
 
         assert(device);
 
-        if (wd >= 0 && wd == device->watch_handle)
+        if (wd >= 0 && wd == device_get_watch_handle(device))
                 return 0;
 
         device_remove_watch_handle(device);
