@@ -83,6 +83,10 @@ Janitorial Clean-ups:
 
 Features:
 
+* in uefi stub: query firmware regarding which PCRs are being used, store that
+  in EFI var. then use this when enrolling TPM2 in cryptsetup to verify that
+  the selected PCRs actually are used by firmware.
+
 * rework recursive read-only remount to use new mount API
 
 * PAM: pick auf one authentication token from credentials
