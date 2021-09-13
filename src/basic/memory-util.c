@@ -18,26 +18,25 @@ size_t page_size(void) {
         return pgsz;
 }
 
-bool memeqzero(const void *data, size_t length) {
-        /* Does the buffer consist entirely of NULs?
+bool memeqbyte(uint8_t byte, const void *data, size_t length) {
+        /* Does the buffer consist entirely of the same specific byte value?
          * Copied from https://github.com/systemd/casync/, copied in turn from
          * https://github.com/rustyrussell/ccan/blob/master/ccan/mem/mem.c#L92,
          * which is licensed CC-0.
          */
 
         const uint8_t *p = data;
-        size_t i;
 
         /* Check first 16 bytes manually */
-        for (i = 0; i < 16; i++, length--) {
+        for (size_t i = 0; i < 16; i++, length--) {
                 if (length == 0)
                         return true;
-                if (p[i])
+                if (p[i] != byte)
                         return false;
         }
 
-        /* Now we know first 16 bytes are NUL, memcmp with self.  */
-        return memcmp(data, p + i, length) == 0;
+        /* Now we know first 16 bytes match, memcmp() with self.  */
+        return memcmp(data, p + 16, length) == 0;
 }
 
 #if !HAVE_EXPLICIT_BZERO
