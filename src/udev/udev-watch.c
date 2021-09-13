@@ -12,7 +12,12 @@
 #include "dirent-util.h"
 #include "fs-util.h"
 #include "parse-util.h"
+#include "random-util.h"
 #include "udev-watch.h"
+
+#define SAVE_WATCH_HANDLE_MAX_RETRIES  128
+#define MAX_RANDOM_DELAY (100 * USEC_PER_MSEC)
+#define MIN_RANDOM_DELAY ( 10 * USEC_PER_MSEC)
 
 int udev_watch_restore(int inotify_fd) {
         struct dirent *ent;
@@ -93,11 +98,43 @@ int udev_watch_begin(int inotify_fd, sd_device *dev) {
                 return ignore ? 0 : r;
         }
 
-        r = device_set_watch_handle(dev, wd);
-        if (r < 0)
-                return log_device_warning_errno(dev, r, "Failed to save watch handle in /run/udev/watch: %m");
+        for (unsigned i = 0; i < SAVE_WATCH_HANDLE_MAX_RETRIES; i++) {
+                if (i > 0) {
+                        usec_t delay = MIN_RANDOM_DELAY + random_u64_range(MAX_RANDOM_DELAY - MIN_RANDOM_DELAY);
 
-        return 0;
+                        /* When the same handle is reused for different device node, we may fail to
+                         * save the watch handle with -EEXIST. Let's consider the case of two workers A
+                         * and B do the following:
+                         *
+                         * 1. A calls inotify_rm_watch()
+                         * 2. B calls inotify_add_watch()
+                         * 3. B calls device_set_watch_handle()
+                         * 4. A calls device_set_watch_handle(-1)
+                         *
+                         * At step 3, the old symlinks to save the watch handle still exist. So,
+                         * device_set_watch_handle() fails with -EEXIST. */
+
+                        log_device_debug_errno(dev, r,
+                                               "Failed to save watch handle '%i' for %s in "
+                                               "/run/udev/watch, retrying in after %s: %m",
+                                               wd, devnode, FORMAT_TIMESPAN(delay, USEC_PER_MSEC));
+                        (void) usleep(delay);
+                }
+
+                r = device_set_watch_handle(dev, wd);
+                if (r >= 0)
+                        return 0;
+                if (r != -EEXIST)
+                        break;
+        }
+
+        log_device_warning_errno(dev, r,
+                                 "Failed to save watch handle '%i' for %s in /run/udev/watch: %m",
+                                 wd, devnode);
+
+        (void) inotify_rm_watch(inotify_fd, wd);
+
+        return r;
 }
 
 int udev_watch_end(int inotify_fd, sd_device *dev) {
