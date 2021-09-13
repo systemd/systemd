@@ -896,6 +896,7 @@ install_modules() {
 install_dmevent() {
     instmods dm_crypt =crypto
     inst_binary dmeventd
+    image_install "${ROOTLIBDIR:?}"/system/dm-event.{service,socket}
     if get_bool "$LOOKS_LIKE_DEBIAN"; then
         # dmsetup installs 55-dm and 60-persistent-storage-dm on Debian/Ubuntu
         # and since buster/bionic 95-dm-notify.rules
