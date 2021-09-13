@@ -30,6 +30,11 @@ test_append_files() {
             install_multipath
         fi
 
+        # Configure LVM
+        if command -v lvm; then
+            install_lvm
+        fi
+
         for i in {0..127}; do
             dd if=/dev/zero of="${TESTDIR:?}/disk$i.img" bs=1M count=1
             echo "device$i" >"${TESTDIR:?}/disk$i.img"
@@ -240,6 +245,32 @@ testcase_simultaneous_events() {
         "-device scsi-hd,drive=drive1,serial=deadbeeftest"
         "-drive format=raw,cache=unsafe,file=$partdisk,if=none,id=drive1"
     )
+
+    KERNEL_APPEND="systemd.setenv=TEST_FUNCTION_NAME=${FUNCNAME[0]} ${USER_KERNEL_APPEND:-}"
+    QEMU_OPTIONS="${qemu_opts[*]} ${USER_QEMU_OPTIONS:-}"
+    test_run_one "${1:?}"
+}
+
+testcase_lvm_basic() {
+    if ! command -v lvm; then
+        echo "Missing lvm tools, skipping the test..."
+        return 77
+    fi
+
+    local qemu_opts=("-device ahci,id=ahci0")
+    local diskpath_base="${TESTDIR:?}/lvmbasic"
+    local diskpath
+
+    # Attach 4 SATA disks to the VM (and set their model and serial fields
+    # to something predictable, so we can refer to them later)
+    for i in {0..3}; do
+        diskpath="${diskpath_base}${i}.img"
+        dd if=/dev/zero of="$diskpath" bs=1M count=16
+        qemu_opts+=(
+            "-device ide-hd,bus=ahci0.$i,drive=drive$i,model=foobar,serial=deadbeeflvm$i"
+            "-drive format=raw,cache=unsafe,file=$diskpath,if=none,id=drive$i"
+        )
+    done
 
     KERNEL_APPEND="systemd.setenv=TEST_FUNCTION_NAME=${FUNCNAME[0]} ${USER_KERNEL_APPEND:-}"
     QEMU_OPTIONS="${qemu_opts[*]} ${USER_QEMU_OPTIONS:-}"
