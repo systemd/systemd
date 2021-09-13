@@ -410,7 +410,7 @@ run_qemu() {
     fi
 
     kernel_params+=(
-        "root=/dev/sda1"
+        "root=LABEL=systemd_boot"
         "rw"
         "raid=noautodetect"
         "rd.luks=0"
@@ -1120,9 +1120,9 @@ EOF
 
     udevadm settle
 
-    local label=(-L systemd)
+    local label=(-L systemd_boot)
     # mkfs.reiserfs doesn't know -L. so, use --label instead
-    [[ "$FSTYPE" == "reiserfs" ]] && label=(--label systemd)
+    [[ "$FSTYPE" == "reiserfs" ]] && label=(--label systemd_boot)
     if ! mkfs -t "${FSTYPE}" "${label[@]}" "${LOOPDEV}p1" -q; then
         dfatal "Failed to mkfs -t ${FSTYPE}"
         exit 1
