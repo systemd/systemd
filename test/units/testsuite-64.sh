@@ -193,6 +193,58 @@ EOF
     rm -f "$partscript"
 }
 
+testcase_lvm_basic() {
+    local vgroup="MyTestGroup$RANDOM"
+    local devices=(
+        /dev/disk/by-id/ata-foobar_deadbeeflvm{0..3}
+    )
+
+    # Make sure all the necessary soon-to-be-LVM devices exist
+    ls -l "${devices[@]}"
+
+    # Add all test devices into a volume group, create two logical volumes,
+    # and check if necessary symlinks exist (and are valid)
+    lvm pvcreate -y "${devices[@]}"
+    lvm pvs
+    lvm vgcreate "$vgroup" -y "${devices[@]}"
+    lvm vgs
+    lvm vgchange -ay "$vgroup"
+    lvm lvcreate -y -L 16M "$vgroup" -n mypart1
+    lvm lvcreate -y -L 24M "$vgroup" -n mypart2
+    lvm lvs
+    udevadm settle
+    test -e "/dev/$vgroup/mypart1"
+    test -e "/dev/$vgroup/mypart2"
+    mkfs.ext4 -L mylvpart1 "/dev/$vgroup/mypart1"
+    udevadm settle
+    test -e "/dev/disk/by-label/mylvpart1"
+    helper_check_device_symlinks "/dev/disk" "/dev/$vgroup"
+
+    # Disable the VG and check symlinks...
+    lvm vgchange -an "$vgroup"
+    udevadm settle
+    test ! -e "/dev/$vgroup"
+    test ! -e "/dev/disk/by-label/mylvpart1"
+    helper_check_device_symlinks "/dev/disk"
+
+    # reenable the VG and check the symlinks again if all LVs are properly activated
+    lvm vgchange -ay "$vgroup"
+    udevadm settle
+    test -e "/dev/$vgroup/mypart1"
+    test -e "/dev/$vgroup/mypart2"
+    test -e "/dev/disk/by-label/mylvpart1"
+    helper_check_device_symlinks "/dev/disk" "/dev/$vgroup"
+
+    # Remove the first LV
+    lvm lvremove -y "$vgroup/mypart1"
+    udevadm settle
+    test ! -e "/dev/$vgroup/mypart1"
+    test -e "/dev/$vgroup/mypart2"
+    helper_check_device_symlinks "/dev/disk" "/dev/$vgroup"
+
+    # TODO
+}
+
 : >/failed
 
 udevadm settle
