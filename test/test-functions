@@ -936,6 +936,20 @@ install_multipath() {
     fi
 }
 
+install_lvm() {
+    image_install lvm
+    image_install "${ROOTLIBDIR:?}"/system/lvm2-lvmpolld.{service,socket}
+    image_install "${ROOTLIBDIR:?}"/system/{blk-availability,lvm2-monitor,lvm2-pvscan@}.service
+    image_install "${ROOTLIBDIR:?}"/system-generators/lvm2-activation-generator
+    image_install -o "/lib/tmpfiles.d/lvm2.conf"
+    if get_bool "$LOOKS_LIKE_DEBIAN"; then
+        inst_rules 56-lvm.rules 69-lvm-metad.rules
+    else
+        inst_rules 11-dm-lvm.rules 69-dm-lvm-metad.rules
+    fi
+    mkdir -p "${initdir:?}/etc/lvm"
+}
+
 install_compiled_systemd() {
     dinfo "Install compiled systemd"
 
