@@ -1,5 +1,13 @@
 #!/usr/bin/env bash
 # vi: ts=4 sw=4 tw=0 et:
+#
+# TODO:
+#   * iSCSI
+#   * LVM over iSCSI (?)
+#   * SW raid (mdadm)
+#   * LUKS -> MD (mdadm) -> LVM
+#   * BTRFS
+#   * MD BTRFS
 set -e
 
 TEST_DESCRIPTION="systemd-udev storage tests"
@@ -28,6 +36,11 @@ test_append_files() {
         # Configure multipath
         if command -v multipath && command -v multipathd; then
             install_multipath
+        fi
+
+        # Configure LVM
+        if command -v lvm; then
+            install_lvm
         fi
 
         for i in {0..127}; do
@@ -240,6 +253,31 @@ testcase_simultaneous_events() {
         "-device scsi-hd,drive=drive1,serial=deadbeeftest"
         "-drive format=raw,cache=unsafe,file=$partdisk,if=none,id=drive1"
     )
+
+    KERNEL_APPEND="systemd.setenv=TEST_FUNCTION_NAME=${FUNCNAME[0]} ${USER_KERNEL_APPEND:-}"
+    QEMU_OPTIONS="${qemu_opts[*]} ${USER_QEMU_OPTIONS:-}"
+    test_run_one "${1:?}"
+}
+
+testcase_lvm_basic() {
+    if ! command -v lvm; then
+        echo "Missing lvm tools, skipping the test..."
+        return 77
+    fi
+
+    local qemu_opts=("-device ahci,id=ahci0")
+    local diskpath
+
+    # Attach 4 SATA disks to the VM (and set their model and serial fields
+    # to something predictable, so we can refer to them later)
+    for i in {0..3}; do
+        diskpath="${TESTDIR:?}/lvmbasic${i}.img"
+        dd if=/dev/zero of="$diskpath" bs=1M count=32
+        qemu_opts+=(
+            "-device ide-hd,bus=ahci0.$i,drive=drive$i,model=foobar,serial=deadbeeflvm$i"
+            "-drive format=raw,cache=unsafe,file=$diskpath,if=none,id=drive$i"
+        )
+    done
 
     KERNEL_APPEND="systemd.setenv=TEST_FUNCTION_NAME=${FUNCNAME[0]} ${USER_KERNEL_APPEND:-}"
     QEMU_OPTIONS="${qemu_opts[*]} ${USER_QEMU_OPTIONS:-}"
