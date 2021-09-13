@@ -5,8 +5,11 @@ set -eux
 set -o pipefail
 
 # Check if all symlinks under /dev/disk/ are valid
+# shellcheck disable=SC2120
 helper_check_device_symlinks() {
-    local dev link target
+    local dev link paths target
+
+    [[ $# -gt 0 ]] && paths=("$@") || paths=("/dev/disk")
 
     while read -r link; do
         target="$(readlink -f "$link")"
@@ -23,7 +26,7 @@ helper_check_device_symlinks() {
             echo >&2 "ERROR: symlink '$link' points to '$target' but '$dev' was expected"
             return 1
         fi
-    done < <(find /dev/disk -type l)
+    done < <(find "${paths[@]}" -type l)
 }
 
 testcase_megasas2_basic() {
@@ -175,6 +178,37 @@ EOF
     done
 
     rm -f "$partscript"
+}
+
+testcase_lvm_basic() {
+    local devices=(
+        /dev/disk/by-id/ata-foobar_deadbeeflvm{0..3}
+    )
+
+    # Make sure all the necessary soon-to-be-LVM devices exist
+    ls -l "${devices[@]}"
+
+    # Add all test devices into a volume group, create two logical volumes,
+    # and check if necessary symlinks exist (and are valid)
+    lvm pvcreate -y "${devices[@]}"
+    lvm pvs
+    lvm vgcreate MyTestGroup -y "${devices[@]}"
+    lvm vgs
+    lvm vgchange -ay MyTestGroup
+    lvm lvcreate -y -L 16M MyTestGroup -n mypart1
+    lvm lvcreate -y -L 24M MyTestGroup -n mypart2
+    lvm lvs
+    udevadm settle
+    test -e /dev/MyTestGroup/mypart1
+    test -e /dev/MyTestGroup/mypart2
+    helper_check_device_symlinks "/dev/disk" "/dev/MyTestGroup"
+    # Remove the first LV
+    lvm lvremove -y MyTestGroup/mypart1
+    udevadm settle
+    test ! -e /dev/MyTestGroup/mypart1
+    test -e /dev/MyTestGroup/mypart2
+    helper_check_device_symlinks "/dev/disk" "/dev/MyTestGroup"
+    # TODO
 }
 
 : >/failed
