@@ -57,7 +57,7 @@ _public_ int cryptsetup_token_open(
         const char *json;
         size_t blob_size, policy_hash_size, decrypted_key_size;
         uint32_t pcr_mask;
-        uint16_t pcr_bank;
+        uint16_t pcr_bank, primary_alg;
         systemd_tpm2_plugin_params params = {
                 .search_pcr_mask = UINT32_MAX
         };
@@ -78,7 +78,7 @@ _public_ int cryptsetup_token_open(
         if (usrptr)
                 params = *(systemd_tpm2_plugin_params *)usrptr;
 
-        r = parse_luks2_tpm2_data(json, params.search_pcr_mask, &pcr_mask, &pcr_bank, &base64_blob, &hex_policy_hash);
+        r = parse_luks2_tpm2_data(json, params.search_pcr_mask, &pcr_mask, &pcr_bank, &primary_alg, &base64_blob, &hex_policy_hash);
         if (r < 0)
                 return log_debug_open_error(cd, r);
 
@@ -95,6 +95,7 @@ _public_ int cryptsetup_token_open(
         r = acquire_luks2_key(
                         pcr_mask,
                         pcr_bank,
+                        primary_alg,
                         params.device,
                         blob,
                         blob_size,
@@ -135,7 +136,7 @@ _public_ void cryptsetup_token_dump(
 
         int r;
         uint32_t pcr_mask;
-        uint16_t pcr_bank;
+        uint16_t pcr_bank, primary_alg;
         size_t decoded_blob_size;
         _cleanup_free_ char *base64_blob = NULL, *hex_policy_hash = NULL,
                             *pcrs_str = NULL, *blob_str = NULL, *policy_hash_str = NULL;
@@ -143,7 +144,7 @@ _public_ void cryptsetup_token_dump(
 
         assert(json);
 
-        r = parse_luks2_tpm2_data(json, UINT32_MAX, &pcr_mask, &pcr_bank, &base64_blob, &hex_policy_hash);
+        r = parse_luks2_tpm2_data(json, UINT32_MAX, &pcr_mask, &pcr_bank, &primary_alg, &base64_blob, &hex_policy_hash);
         if (r < 0)
                 return (void) crypt_log_debug_errno(cd, r, "Failed to parse " TOKEN_NAME " metadata: %m.");
 
@@ -167,6 +168,7 @@ _public_ void cryptsetup_token_dump(
 
         crypt_log(cd, "\ttpm2-pcrs:  %s\n", strna(pcrs_str));
         crypt_log(cd, "\ttpm2-bank:  %s\n", strna(tpm2_pcr_bank_to_string(pcr_bank)));
+        crypt_log(cd, "\ttpm2-primary-alg:  %s\n", strna(tpm2_primary_alg_to_string(primary_alg)));
         crypt_log(cd, "\ttpm2-blob:  %s\n", blob_str);
         crypt_log(cd, "\ttpm2-policy-hash:" CRYPT_DUMP_LINE_SEP "%s\n", policy_hash_str);
 }
@@ -212,7 +214,8 @@ _public_ int cryptsetup_token_validate(
                 }
         }
 
-        /* The bank field is optional, since it was added in systemd 250 only. Before the bank was hardcoded to SHA256 */
+        /* The bank field is optional, since it was added in systemd 250 only. Before the bank was hardcoded
+         * to SHA256. */
         w = json_variant_by_key(v, "tpm2-pcr-bank");
         if (w) {
                 /* The PCR bank field is optional */
@@ -224,6 +227,23 @@ _public_ int cryptsetup_token_validate(
 
                 if (tpm2_pcr_bank_from_string(json_variant_string(w)) < 0) {
                         crypt_log_debug(cd, "TPM2 PCR bank invalid or not supported: %s.", json_variant_string(w));
+                        return 1;
+                }
+        }
+
+        /* The primary key algorithm field is optional, since it was also added in systemd 250 only. Before
+         * the algorithm was hardcoded to ECC. */
+        w = json_variant_by_key(v, "tpm2-primary-alg");
+        if (w) {
+                /* The primary key algorithm is optional */
+
+                if (!json_variant_is_string(w)) {
+                        crypt_log_debug(cd, "TPM2 primary key algorithm is not a string.");
+                        return 1;
+                }
+
+                if (tpm2_primary_alg_from_string(json_variant_string(w)) < 0) {
+                        crypt_log_debug(cd, "TPM2 primary key algorithm invalid or not supported: %s", json_variant_string(w));
                         return 1;
                 }
         }

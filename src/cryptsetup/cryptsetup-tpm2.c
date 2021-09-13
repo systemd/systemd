@@ -14,6 +14,7 @@ int acquire_tpm2_key(
                 const char *device,
                 uint32_t pcr_mask,
                 uint16_t pcr_bank,
+                uint16_t primary_alg,
                 const char *key_file,
                 size_t key_file_size,
                 uint64_t key_file_offset,
@@ -63,7 +64,7 @@ int acquire_tpm2_key(
                 blob = loaded_blob;
         }
 
-        return tpm2_unseal(device, pcr_mask, pcr_bank, blob, blob_size, policy_hash, policy_hash_size, ret_decrypted_key, ret_decrypted_key_size);
+        return tpm2_unseal(device, pcr_mask, pcr_bank, primary_alg, blob, blob_size, policy_hash, policy_hash_size, ret_decrypted_key, ret_decrypted_key_size);
 }
 
 int find_tpm2_auto_data(
@@ -72,6 +73,7 @@ int find_tpm2_auto_data(
                 int start_token,
                 uint32_t *ret_pcr_mask,
                 uint16_t *ret_pcr_bank,
+                uint16_t *ret_primary_alg,
                 void **ret_blob,
                 size_t *ret_blob_size,
                 void **ret_policy_hash,
@@ -84,6 +86,7 @@ int find_tpm2_auto_data(
         int r, keyslot = -1, token = -1;
         uint32_t pcr_mask = 0;
         uint16_t pcr_bank = UINT16_MAX; /* default: pick automatically */
+        uint16_t primary_alg = TPM2_ALG_ECC; /* ECC was the only supported algorithm in systemd < 250, use that as implied default, for compatibility */
 
         assert(cd);
 
@@ -122,8 +125,11 @@ int find_tpm2_auto_data(
                     search_pcr_mask != pcr_mask) /* PCR mask doesn't match what is configured, ignore this entry */
                         continue;
 
-                /* The bank field is optional, since it was added in systemd 250 only. Before the bank was hardcoded to SHA256 */
                 assert(pcr_bank == UINT16_MAX);
+                assert(primary_alg == TPM2_ALG_ECC);
+
+                /* The bank field is optional, since it was added in systemd 250 only. Before the bank was
+                 * hardcoded to SHA256. */
                 w = json_variant_by_key(v, "tpm2-pcr-bank");
                 if (w) {
                         /* The PCR bank field is optional */
@@ -137,6 +143,23 @@ int find_tpm2_auto_data(
                                 return log_error_errno(r, "TPM2 PCR bank invalid or not supported: %s", json_variant_string(w));
 
                         pcr_bank = r;
+                }
+
+                /* The primary key algorithm field is optional, since it was also added in systemd 250
+                 * only. Before the algorithm was hardcoded to ECC. */
+                w = json_variant_by_key(v, "tpm2-primary-alg");
+                if (w) {
+                        /* The primary key algorithm is optional */
+
+                        if (!json_variant_is_string(w))
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "TPM2 primary key algorithm is not a string.");
+
+                        r = tpm2_primary_alg_from_string(json_variant_string(w));
+                        if (r < 0)
+                                return log_error_errno(r, "TPM2 primary key algorithm invalid or not supported: %s", json_variant_string(w));
+
+                        primary_alg = r;
                 }
 
                 assert(!blob);
@@ -184,6 +207,7 @@ int find_tpm2_auto_data(
         *ret_keyslot = keyslot;
         *ret_token = token;
         *ret_pcr_bank = pcr_bank;
+        *ret_primary_alg = primary_alg;
 
         return 0;
 }

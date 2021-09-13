@@ -257,10 +257,12 @@ static int tpm2_credit_random(ESYS_CONTEXT *c) {
 
 static int tpm2_make_primary(
                 ESYS_CONTEXT *c,
-                ESYS_TR *ret_primary) {
+                ESYS_TR *ret_primary,
+                TPMI_ALG_PUBLIC alg,
+                TPMI_ALG_PUBLIC *ret_alg) {
 
         static const TPM2B_SENSITIVE_CREATE primary_sensitive = {};
-        static const TPM2B_PUBLIC primary_template = {
+        static const TPM2B_PUBLIC primary_template_ecc = {
                 .size = sizeof(TPMT_PUBLIC),
                 .publicArea = {
                         .type = TPM2_ALG_ECC,
@@ -280,35 +282,102 @@ static int tpm2_make_primary(
                         },
                 },
         };
+        static const TPM2B_PUBLIC primary_template_rsa = {
+                .size = sizeof(TPMT_PUBLIC),
+                .publicArea = {
+                        .type = TPM2_ALG_RSA,
+                        .nameAlg = TPM2_ALG_SHA256,
+                        .objectAttributes = TPMA_OBJECT_RESTRICTED|TPMA_OBJECT_DECRYPT|TPMA_OBJECT_FIXEDTPM|TPMA_OBJECT_FIXEDPARENT|TPMA_OBJECT_SENSITIVEDATAORIGIN|TPMA_OBJECT_USERWITHAUTH,
+                        .parameters = {
+                                .rsaDetail = {
+                                        .symmetric = {
+                                                .algorithm = TPM2_ALG_AES,
+                                                .keyBits.aes = 128,
+                                                .mode.aes = TPM2_ALG_CFB,
+                                        },
+                                        .scheme.scheme = TPM2_ALG_NULL,
+                                        .keyBits = 2048,
+                                },
+                        },
+                },
+        };
+
         static const TPML_PCR_SELECTION creation_pcr = {};
         ESYS_TR primary = ESYS_TR_NONE;
         TSS2_RC rc;
+        usec_t ts;
 
         log_debug("Creating primary key on TPM.");
 
-        rc = sym_Esys_CreatePrimary(
-                        c,
-                        ESYS_TR_RH_OWNER,
-                        ESYS_TR_PASSWORD,
-                        ESYS_TR_NONE,
-                        ESYS_TR_NONE,
-                        &primary_sensitive,
-                        &primary_template,
-                        NULL,
-                        &creation_pcr,
-                        &primary,
-                        NULL,
-                        NULL,
-                        NULL,
-                        NULL);
+        /* So apparently not all TPM2 devices support ECC. ECC is generally preferably, because it's so much
+         * faster, noticeably so (~10s vs. ~240ms on my system). Hence, unless explicitly configured let's
+         * try to use ECC first, and if that does not work, let's fall back to RSA. */
 
-        if (rc != TSS2_RC_SUCCESS)
-                return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
-                                       "Failed to generate primary key in TPM: %s", sym_Tss2_RC_Decode(rc));
+        ts = now(CLOCK_MONOTONIC);
 
-        log_debug("Successfully created primary key on TPM.");
+        if (IN_SET(alg, 0, TPM2_ALG_ECC)) {
+                rc = sym_Esys_CreatePrimary(
+                                c,
+                                ESYS_TR_RH_OWNER,
+                                ESYS_TR_PASSWORD,
+                                ESYS_TR_NONE,
+                                ESYS_TR_NONE,
+                                &primary_sensitive,
+                                &primary_template_ecc,
+                                NULL,
+                                &creation_pcr,
+                                &primary,
+                                NULL,
+                                NULL,
+                                NULL,
+                                NULL);
+
+                if (rc != TSS2_RC_SUCCESS) {
+                        if (alg != 0)
+                                return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
+                                                       "Failed to generate ECC primary key in TPM: %s", sym_Tss2_RC_Decode(rc));
+
+                        log_debug("Failed to generate ECC primary key in TPM, trying RSA: %s", sym_Tss2_RC_Decode(rc));
+                } else {
+                        log_debug("Successfully created ECC primary key on TPM.");
+                        alg = TPM2_ALG_ECC;
+                }
+        }
+
+        if (IN_SET(alg, 0, TPM2_ALG_RSA)) {
+                rc = sym_Esys_CreatePrimary(
+                                c,
+                                ESYS_TR_RH_OWNER,
+                                ESYS_TR_PASSWORD,
+                                ESYS_TR_NONE,
+                                ESYS_TR_NONE,
+                                &primary_sensitive,
+                                &primary_template_rsa,
+                                NULL,
+                                &creation_pcr,
+                                &primary,
+                                NULL,
+                                NULL,
+                                NULL,
+                                NULL);
+                if (rc != TSS2_RC_SUCCESS)
+                        return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
+                                               "Failed to generate RSA primary key in TPM: %s", sym_Tss2_RC_Decode(rc));
+                else if (alg == 0) {
+                        log_notice("TPM2 chip apparently does not support ECC primary keys, falling back to RSA. "
+                                   "This likely means TPM2 operations will be relatively slow, please be patient.");
+                        alg = TPM2_ALG_RSA;
+                }
+
+                log_debug("Successfully created RSA primary key on TPM.");
+        }
+
+        log_debug("Generating primary key on TPM2 took %s.", FORMAT_TIMESPAN(now(CLOCK_MONOTONIC) - ts, USEC_PER_MSEC));
 
         *ret_primary = primary;
+        if (ret_alg)
+                *ret_alg = alg;
+
         return 0;
 }
 
@@ -525,7 +594,8 @@ int tpm2_seal(
                 size_t *ret_blob_size,
                 void **ret_pcr_hash,
                 size_t *ret_pcr_hash_size,
-                uint16_t *ret_pcr_bank) {
+                uint16_t *ret_pcr_bank,
+                uint16_t *ret_primary_alg) {
 
         _cleanup_(tpm2_context_destroy) struct tpm2_context c = {};
         _cleanup_(Esys_Freep) TPM2B_DIGEST *policy_digest = NULL;
@@ -536,6 +606,7 @@ int tpm2_seal(
         _cleanup_free_ void *blob = NULL, *hash = NULL;
         TPM2B_SENSITIVE_CREATE hmac_sensitive;
         ESYS_TR primary = ESYS_TR_NONE;
+        TPMI_ALG_PUBLIC primary_alg;
         TPM2B_PUBLIC hmac_template;
         TPMI_ALG_HASH pcr_bank;
         size_t k, blob_size;
@@ -555,13 +626,14 @@ int tpm2_seal(
 
         /* So here's what we do here: we connect to the TPM2 chip. It persistently contains a "seed" key that
          * is randomized when the TPM2 is first initialized or reset and remains stable across boots. We
-         * generate a "primary" key pair derived from that (RSA). Given the seed remains fixed this will
-         * result in the same key pair whenever we specify the exact same parameters for it. We then create a
-         * PCR-bound policy session, which calculates a hash on the current PCR values of the indexes we
-         * specify. We then generate a randomized key on the host (which is the key we actually enroll in the
-         * LUKS2 keyslots), which we upload into the TPM2, where it is encrypted with the "primary" key,
-         * taking the PCR policy session into account. We then download the encrypted key from the TPM2
-         * ("sealing") and marshall it into binary form, which is ultimately placed in the LUKS2 JSON header.
+         * generate a "primary" key pair derived from that (ECC if possible, RSA as fallback). Given the seed
+         * remains fixed this will result in the same key pair whenever we specify the exact same parameters
+         * for it. We then create a PCR-bound policy session, which calculates a hash on the current PCR
+         * values of the indexes we specify. We then generate a randomized key on the host (which is the key
+         * we actually enroll in the LUKS2 keyslots), which we upload into the TPM2, where it is encrypted
+         * with the "primary" key, taking the PCR policy session into account. We then download the encrypted
+         * key from the TPM2 ("sealing") and marshall it into binary form, which is ultimately placed in the
+         * LUKS2 JSON header.
          *
          * The TPM2 "seed" key and "primary" keys never leave the TPM2 chip (and cannot be extracted at
          * all). The random key we enroll in LUKS2 we generate on the host using the Linux random device. It
@@ -574,7 +646,7 @@ int tpm2_seal(
         if (r < 0)
                 return r;
 
-        r = tpm2_make_primary(c.esys_context, &primary);
+        r = tpm2_make_primary(c.esys_context, &primary, 0, &primary_alg);
         if (r < 0)
                 return r;
 
@@ -701,6 +773,7 @@ int tpm2_seal(
         *ret_pcr_hash = TAKE_PTR(hash);
         *ret_pcr_hash_size = policy_digest->size;
         *ret_pcr_bank = pcr_bank;
+        *ret_primary_alg = primary_alg;
 
         r = 0;
 
@@ -713,6 +786,7 @@ int tpm2_unseal(
                 const char *device,
                 uint32_t pcr_mask,
                 uint16_t pcr_bank,
+                uint16_t primary_alg,
                 const void *blob,
                 size_t blob_size,
                 const void *known_policy_hash,
@@ -783,7 +857,7 @@ int tpm2_unseal(
                 return log_error_errno(SYNTHETIC_ERRNO(EPERM),
                                        "Current policy digest does not match stored policy digest, cancelling TPM2 authentication attempt.");
 
-        r = tpm2_make_primary(c.esys_context, &primary);
+        r = tpm2_make_primary(c.esys_context, &primary, primary_alg, NULL);
         if (r < 0)
                 return r;
 
@@ -1012,6 +1086,7 @@ int tpm2_make_luks2_json(
                 int keyslot,
                 uint32_t pcr_mask,
                 uint16_t pcr_bank,
+                uint16_t primary_alg,
                 const void *blob,
                 size_t blob_size,
                 const void *policy_hash,
@@ -1055,6 +1130,7 @@ int tpm2_make_luks2_json(
                                        JSON_BUILD_PAIR("tpm2-blob", JSON_BUILD_BASE64(blob, blob_size)),
                                        JSON_BUILD_PAIR("tpm2-pcrs", JSON_BUILD_VARIANT(a)),
                                        JSON_BUILD_PAIR_CONDITION(!!tpm2_pcr_bank_to_string(pcr_bank), "tpm2-pcr-bank", JSON_BUILD_STRING(tpm2_pcr_bank_to_string(pcr_bank))),
+                                       JSON_BUILD_PAIR_CONDITION(!!tpm2_primary_alg_to_string(primary_alg), "tpm2-primary-alg", JSON_BUILD_STRING(tpm2_primary_alg_to_string(primary_alg))),
                                        JSON_BUILD_PAIR("tpm2-policy-hash", JSON_BUILD_HEX(policy_hash, policy_hash_size))));
         if (r < 0)
                 return r;
@@ -1065,24 +1141,9 @@ int tpm2_make_luks2_json(
         return keyslot;
 }
 
-/* We want the helpers below to work also if TPM2 libs are not available, hence define these two defines if
- * they are missing. */
-#ifndef TPM2_ALG_SHA256
-#define TPM2_ALG_SHA256 0xB
-#endif
-
-#ifndef TPM2_ALG_SHA1
-#define TPM2_ALG_SHA1 0x4
-#endif
-
-int tpm2_pcr_bank_supported(uint16_t bank) {
+const char *tpm2_pcr_bank_to_string(uint16_t bank) {
         /* For now, let's officially only support these two. We can extend this later on, should the need
          * arise. */
-        return IN_SET(bank, TPM2_ALG_SHA256, TPM2_ALG_SHA1);
-}
-
-const char *tpm2_pcr_bank_to_string(uint16_t bank) {
-        /* Similar here, only support the two for now, we can always extend this later.  */
         if (bank == TPM2_ALG_SHA256)
                 return "sha256";
         if (bank == TPM2_ALG_SHA1)
@@ -1095,5 +1156,21 @@ int tpm2_pcr_bank_from_string(const char *bank) {
                 return TPM2_ALG_SHA256;
         if (streq_ptr(bank, "sha1"))
                 return TPM2_ALG_SHA1;
+        return -EINVAL;
+}
+
+const char *tpm2_primary_alg_to_string(uint16_t alg) {
+        if (alg == TPM2_ALG_ECC)
+                return "ecc";
+        if (alg == TPM2_ALG_RSA)
+                return "rsa";
+        return NULL;
+}
+
+int tpm2_primary_alg_from_string(const char *alg) {
+        if (streq_ptr(alg, "ecc"))
+                return TPM2_ALG_ECC;
+        if (streq_ptr(alg, "rsa"))
+                return TPM2_ALG_RSA;
         return -EINVAL;
 }

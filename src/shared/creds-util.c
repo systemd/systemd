@@ -371,10 +371,10 @@ struct _packed_ encrypted_credential_header {
 };
 
 struct _packed_ tpm2_credential_header {
-        le64_t pcr_mask; /* Note that the spec for PC Clients only mandates 24 PCRs, and that's what systems
-                          * generally have. But keep the door open for more. */
-        le16_t pcr_bank; /* For now, either TPM2_ALG_SHA256 or TPM2_ALG_SHA1 */
-        le16_t _zero;    /* Filler to maintain 32bit alignment */
+        le64_t pcr_mask;    /* Note that the spec for PC Clients only mandates 24 PCRs, and that's what systems
+                             * generally have. But keep the door open for more. */
+        le16_t pcr_bank;    /* For now, either TPM2_ALG_SHA256 or TPM2_ALG_SHA1 */
+        le16_t primary_alg; /* Primary key algorithm (either TPM2_ALG_RSA or TPM2_ALG_ECC for now) */
         le32_t blob_size;
         le32_t policy_hash_size;
         uint8_t policy_hash_and_blob[];
@@ -441,10 +441,10 @@ int encrypt_credential_and_warn(
         size_t host_key_size = 0, tpm2_key_size = 0, tpm2_blob_size = 0, tpm2_policy_hash_size = 0, output_size, p, ml;
         _cleanup_free_ void *tpm2_blob = NULL, *tpm2_policy_hash = NULL, *iv = NULL, *output = NULL;
         _cleanup_free_ struct metadata_credential_header *m = NULL;
+        uint16_t tpm2_pcr_bank = 0, tpm2_primary_alg = 0;
         struct encrypted_credential_header *h;
         int ksz, bsz, ivsz, tsz, added, r;
         uint8_t md[SHA256_DIGEST_LENGTH];
-        uint16_t tpm2_pcr_bank = 0;
         const EVP_CIPHER *cc;
 #if HAVE_TPM2
         bool try_tpm2 = false;
@@ -512,7 +512,8 @@ int encrypt_credential_and_warn(
                               &tpm2_blob_size,
                               &tpm2_policy_hash,
                               &tpm2_policy_hash_size,
-                              &tpm2_pcr_bank);
+                              &tpm2_pcr_bank,
+                              &tpm2_primary_alg);
                 if (r < 0) {
                         if (!sd_id128_is_null(with_key))
                                 return r;
@@ -606,6 +607,7 @@ int encrypt_credential_and_warn(
                 t = (struct tpm2_credential_header*) ((uint8_t*) output + p);
                 t->pcr_mask = htole64(tpm2_pcr_mask);
                 t->pcr_bank = htole16(tpm2_pcr_bank);
+                t->primary_alg = htole16(tpm2_primary_alg);
                 t->blob_size = htole32(tpm2_blob_size);
                 t->policy_hash_size = htole32(tpm2_policy_hash_size);
                 memcpy(t->policy_hash_and_blob, tpm2_blob, tpm2_blob_size);
@@ -747,10 +749,10 @@ int decrypt_credential_and_warn(
 
                 if (le64toh(t->pcr_mask) >= (UINT64_C(1) << TPM2_PCRS_MAX))
                         return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "TPM2 PCR mask out of range.");
-                if (!tpm2_pcr_bank_supported(le16toh(t->pcr_bank)))
+                if (!tpm2_pcr_bank_to_string(le16toh(t->pcr_bank)))
                         return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "TPM2 PCR bank invalid or not supported");
-                if (le16toh(t->_zero) != 0)
-                        return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "TPM2 padding space not zero.");
+                if (!tpm2_primary_alg_to_string(le16toh(t->primary_alg)))
+                        return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "TPM2 primary key algorithm invalid or not supported.");
                 if (le32toh(t->blob_size) > CREDENTIAL_FIELD_SIZE_MAX)
                         return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "Unexpected TPM2 blob size.");
                 if (le32toh(t->policy_hash_size) > CREDENTIAL_FIELD_SIZE_MAX)
@@ -768,6 +770,7 @@ int decrypt_credential_and_warn(
                 r = tpm2_unseal(tpm2_device,
                                 le64toh(t->pcr_mask),
                                 le16toh(t->pcr_bank),
+                                le16toh(t->primary_alg),
                                 t->policy_hash_and_blob,
                                 le32toh(t->blob_size),
                                 t->policy_hash_and_blob + le32toh(t->blob_size),
