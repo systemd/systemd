@@ -617,9 +617,15 @@ static int tpm2_make_pcr_session(
 
         log_debug("Starting authentication session.");
 
-        if (pcr_bank != UINT16_MAX)
+        if (pcr_bank != UINT16_MAX) {
+                r = tpm2_pcr_mask_good(c, pcr_bank, pcr_mask);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        log_notice("Selected TPM2 PCRs are not initialized on this system, most likely due to a firmware issue. PCR policy is effectively not enforced. Proceeding anyway.");
+
                 tpm2_pcr_mask_to_selecion(pcr_mask, pcr_bank, &pcr_selection);
-        else {
+        } else {
                 TPMI_ALG_HASH h;
 
                 /* No bank configured, pick automatically. Some TPM2 devices only can do SHA1. If we detect
