@@ -71,18 +71,20 @@ in_files = [
         ['70-uaccess.rules',   udevrulesdir,  enable_logind and conf.get('HAVE_ACL') == 1],
         ['71-seat.rules',      udevrulesdir,  enable_logind],
         ['73-seat-late.rules', udevrulesdir,  enable_logind],
-        ['systemd-user',       pamconfdir,    enable_logind and pamconfdir != 'no']]
+        ['systemd-user',       pamconfdir,    enable_logind]]
 
 foreach tuple : in_files
         file = tuple[0]
+        dir = tuple[1]
+        install = (dir == pkgsysconfdir) ? install_sysconfdir_samples : (dir != 'no')
         custom_target(
                 file,
                 input : file + '.in',
                 output: file,
                 command : [meson_render_jinja2, config_h, '@INPUT@'],
                 capture : true,
-                install : tuple[2],
-                install_dir : tuple[1])
+                install : tuple[2] and install,
+                install_dir : dir)
 endforeach
 
 if enable_logind
