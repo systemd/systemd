@@ -47,7 +47,9 @@ static inline int memcmp_nn(const void *s1, size_t n1, const void *s2, size_t n2
 
 #define zero(x) (memzero(&(x), sizeof(x)))
 
-bool memeqzero(const void *data, size_t length);
+bool memeqbyte(uint8_t byte, const void *data, size_t length);
+
+#define memeqzero(data, length) memeqbyte(0x00, data, length)
 
 #define eqzero(x) memeqzero(x, sizeof(x))
 
