@@ -11,6 +11,7 @@
 int acquire_luks2_key(
                 uint32_t pcr_mask,
                 uint16_t pcr_bank,
+                uint16_t primary_alg,
                 const char *device,
                 const void *key_data,
                 size_t key_data_size,
@@ -38,6 +39,7 @@ int acquire_luks2_key(
         return tpm2_unseal(
                         device,
                         pcr_mask, pcr_bank,
+                        primary_alg,
                         key_data, key_data_size,
                         policy_hash, policy_hash_size,
                         ret_decrypted_key, ret_decrypted_key_size);
@@ -49,19 +51,21 @@ int parse_luks2_tpm2_data(
                 uint32_t search_pcr_mask,
                 uint32_t *ret_pcr_mask,
                 uint16_t *ret_pcr_bank,
+                uint16_t *ret_primary_alg,
                 char **ret_base64_blob,
                 char **ret_hex_policy_hash) {
 
         int r;
         JsonVariant *w, *e;
         uint32_t pcr_mask = 0;
-        uint16_t pcr_bank = UINT16_MAX;
+        uint16_t pcr_bank = UINT16_MAX, primary_alg = TPM2_ALG_ECC;
         _cleanup_free_ char *base64_blob = NULL, *hex_policy_hash = NULL;
         _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
 
         assert(json);
         assert(ret_pcr_mask);
         assert(ret_pcr_bank);
+        assert(ret_primary_alg);
         assert(ret_base64_blob);
         assert(ret_hex_policy_hash);
 
@@ -104,6 +108,20 @@ int parse_luks2_tpm2_data(
                 pcr_bank = r;
         }
 
+        w = json_variant_by_key(v, "tpm2-primary-alg");
+        if (w) {
+                /* The primary key algorithm is optional */
+
+                if (!json_variant_is_string(w))
+                        return -EINVAL;
+
+                r = tpm2_primary_alg_from_string(json_variant_string(w));
+                if (r < 0)
+                        return r;
+
+                primary_alg = r;
+        }
+
         w = json_variant_by_key(v, "tpm2-blob");
         if (!w || !json_variant_is_string(w))
                 return -EINVAL;
@@ -122,6 +140,7 @@ int parse_luks2_tpm2_data(
 
         *ret_pcr_mask = pcr_mask;
         *ret_pcr_bank = pcr_bank;
+        *ret_primary_alg = primary_alg;
         *ret_base64_blob = TAKE_PTR(base64_blob);
         *ret_hex_policy_hash = TAKE_PTR(hex_policy_hash);
 

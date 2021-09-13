@@ -7,6 +7,7 @@ struct crypt_device;
 int acquire_luks2_key(
                 uint32_t pcr_mask,
                 uint16_t pcr_bank,
+                uint16_t primary_alg,
                 const char *device,
                 const void *key_data,
                 size_t key_data_size,
@@ -20,5 +21,6 @@ int parse_luks2_tpm2_data(
                 uint32_t search_pcr_mask,
                 uint32_t *ret_pcr_mask,
                 uint16_t *ret_pcr_bank,
+                uint16_t *ret_primary_alg,
                 char **ret_base64_blob,
                 char **ret_hex_policy_hash);
