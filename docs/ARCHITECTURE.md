@@ -50,6 +50,28 @@ service manager.
 
 BPF helpers written in C and used by PID 1 can be found under `src/core/bpf/`.
 
+### Implementing Unit Settings
+
+The system and session manager supports a large number of unit settings. These can generally
+be configured in three ways:
+
+1. Via textual, INI-style configuration files called *unit* *files*
+2. Via D-Bus messages to the manager
+3. Via the `systemd-run` and `systemctl set-property` commands
+
+From a user's perspective, the third is a wrapper for the second. To implement a new unit
+setting, it is necessary to support all three input methods:
+
+1. *unit* *files* are parsed in `src/core/load-fragment.c`, with many simple and fixed-type
+unit settings being parsed by common helpers, with the definition in the generator file
+`src/core/load-fragment-gperf.gperf.in`
+2. D-Bus messages are defined and parsed in `src/core/dbus-*.c`
+3. `systemd-run` and `systemctl set-property` do client-side parsing and translating into
+D-Bus messages in `src/shared/bus-unit-util.c`
+
+So that they are exercised by the fuzzing CI, new unit settings should also be listed in the
+text files under `test/fuzz/fuzz-unit-file/`.
+
 ## UDEV
 
 Sources for the udev daemon and command-line tool (single binary) can be found under
