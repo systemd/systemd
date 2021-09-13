@@ -180,6 +180,35 @@ EOF
     rm -f "$partscript"
 }
 
+testcase_lvm_basic() {
+    local devices=(
+        /dev/disk/by-id/ata-foobar_deadbeeflvm{0..3}
+    )
+
+    # Make sure all the necessary soon-to-be-LVM devices exist
+    ls -l "${devices[@]}"
+
+    # Add all test devices into a volume group, create two logical volumes,
+    # and check if necessary symlinks exist (and are valid)
+    lvm pvcreate -y "${devices[@]}"
+    lvm pvs
+    lvm vgcreate MyTestGroup -y "${devices[@]}"
+    lvm vgs
+    lvm vgchange -ay MyTestGroup
+    lvm lvcreate -L 16M MyTestGroup -n mypart1
+    lvm lvcreate -L 24M MyTestGroup -n mypart2
+    lvm lvs
+    test -e /dev/MyTestGroup/mypart1
+    test -e /dev/MyTestGroup/mypart2
+    helper_check_device_symlinks "/dev/disk" "/dev/MyTestGroup"
+    # Remove the first LV
+    lvm lvremove MyTestGroup/mypart1
+    test ! -e /dev/MyTestGroup/mypart1
+    test -e /dev/MyTestGroup/mypart2
+    helper_check_device_symlinks "/dev/disk" "/dev/MyTestGroup"
+    # TODO
+}
+
 : >/failed
 
 udevadm settle
