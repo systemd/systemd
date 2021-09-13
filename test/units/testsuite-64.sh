@@ -5,8 +5,11 @@ set -eux
 set -o pipefail
 
 # Check if all symlinks under /dev/disk/ are valid
+# shellcheck disable=SC2120
 helper_check_device_symlinks() {
-    local dev link target
+    local dev link paths target
+
+    [[ $# -gt 0 ]] && paths=("$@") || paths=("/dev/disk")
 
     while read -r link; do
         target="$(readlink -f "$link")"
@@ -23,7 +26,7 @@ helper_check_device_symlinks() {
             echo >&2 "ERROR: symlink '$link' points to '$target' but '$dev' was expected"
             return 1
         fi
-    done < <(find /dev/disk -type l)
+    done < <(find "${paths[@]}" -type l)
 }
 
 testcase_megasas2_basic() {
