@@ -142,6 +142,7 @@ int main(int argc, char* argv[]) {
         test_one("daily", "*-*-* 00:00:00");
         test_one("monthly", "*-*-01 00:00:00");
         test_one("weekly", "Mon *-*-* 00:00:00");
+        test_one("fortnightly", "Mon/14 *-*-* 00:00:00");
         test_one("minutely", "*-*-* *:*:00");
         test_one("quarterly", "*-01,04,07,10-01 00:00:00");
         test_one("semi-annually", "*-01,07-01 00:00:00");
@@ -163,6 +164,8 @@ int main(int argc, char* argv[]) {
         test_one("*-*~* 00:00:00", "*-*-* 00:00:00");
         test_one("Monday", "Mon *-*-* 00:00:00");
         test_one("Monday *-*-*", "Mon *-*-* 00:00:00");
+        test_one("Monday/7", "Mon *-*-* 00:00:00");
+        test_one("Monday/14", "Mon/14 *-*-* 00:00:00");
         test_one("*-*-*", "*-*-* 00:00:00");
         test_one("*:*:*", "*-*-* *:*:*");
         test_one("*:*", "*-*-* *:*:00");
@@ -198,6 +201,7 @@ int main(int argc, char* argv[]) {
         test_next("2016-02~01 UTC", "", 12345, 1456704000000000);
         test_next("Mon 2017-05~01..07 UTC", "", 12345, 1496016000000000);
         test_next("Mon 2017-05~07/1 UTC", "", 12345, 1496016000000000);
+        test_next("Mon/14 2017-05~21/1 UTC", "", 12345, 1495411200000000);
         test_next("2017-08-06 9,11,13,15,17:00 UTC", "", 1502029800000000, 1502031600000000);
         test_next("2017-08-06 9..17/2:00 UTC", "", 1502029800000000, 1502031600000000);
         test_next("2016-12-* 3..21/6:00 UTC", "", 1482613200000001, 1482634800000000);
@@ -229,6 +233,7 @@ int main(int argc, char* argv[]) {
         assert_se(calendar_spec_from_string("*-*~5/5", &c) < 0);
         assert_se(calendar_spec_from_string("Monday.. 12:00", &c) < 0);
         assert_se(calendar_spec_from_string("Monday..", &c) < 0);
+        assert_se(calendar_spec_from_string("Monday/15", &c) < 0);
         assert_se(calendar_spec_from_string("-00:+00/-5", &c) < 0);
         assert_se(calendar_spec_from_string("00:+00/-5", &c) < 0);
         assert_se(calendar_spec_from_string("2016- 11- 24 12: 30: 00", &c) < 0);
