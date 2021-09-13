@@ -311,3 +311,12 @@ typedef enum ManagedOOMPreference {
 
 const char* managed_oom_preference_to_string(ManagedOOMPreference a) _const_;
 ManagedOOMPreference managed_oom_preference_from_string(const char *s) _pure_;
+
+typedef enum IOCostCtrl {
+        IO_COST_CTRL_AUTO,
+        IO_COST_CTRL_USER,
+        _IO_COST_CTRL_ACTION_MAX,
+} IOCostCtrl;
+
+const char* io_cost_ctrl_to_string(IOCostCtrl i) _const_;
+IOCostCtrl io_cost_ctrl_from_string(const char *s) _pure_;

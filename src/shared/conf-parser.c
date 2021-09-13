@@ -10,6 +10,7 @@
 #include "alloc-util.h"
 #include "conf-files.h"
 #include "conf-parser.h"
+#include "cgroup-util.h"
 #include "def.h"
 #include "ether-addr-util.h"
 #include "extract-word.h"
@@ -722,6 +723,36 @@ int config_parse_tristate(
         }
 
         *t = k;
+        return 0;
+}
+
+int config_parse_io_cost_ctrl(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+        IOCostCtrl *ctrl = data;
+        IOCostCtrl io_cost_ctrl;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        io_cost_ctrl = io_cost_ctrl_from_string(rvalue);
+        if (!io_cost_ctrl) {
+                log_syntax(unit, LOG_DEBUG, filename, line, 0,
+                           "Failed to parse io cost ctrl value %s", rvalue);
+
+                return 0;
+        }
+        *ctrl = io_cost_ctrl;
         return 0;
 }
 
