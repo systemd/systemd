@@ -50,6 +50,27 @@ service manager.
 
 BPF helpers written in C and used by PID 1 can be found under `src/core/bpf/`.
 
+### Implementing Directives
+
+The system and session manager supports a large number of directives. These can generally
+be configured in three ways:
+
+1) Via textual, INI-style configuration files called `units`
+2) Via DBUS messages to the manager
+3) Via the `systemd-run` and `systemctl set-property` commands
+
+To implement a new directive, it is therefore necessary to support all three input methods:
+
+1) `units` are parsed in `src/core/load-fragment.c`, with many simple and fixed-type
+directives being parsed by common helper, with the definition in the template file
+`src/core/load-fragment-gperf.gperf.in`
+2) DBUS messages are defined and parsed in `src/core/dbus-execute.c`
+3) `systemd-run` and `systemctl set-property` do client-side parsing and translating into
+DBUS messages in `src/shared/bus-unit-util.c`
+
+So that they are exercised by the fuzzing CI, new directives should also be listed in the
+text files under `test/fuzz/fuzz-unit-file/`.
+
 ## UDEV
 
 Sources for the udev daemon and command-line tool (single binary) can be found under
