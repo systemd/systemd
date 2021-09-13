@@ -336,6 +336,9 @@ int config_parse_dhcp_use_dns(
         assert(rvalue);
         assert(data);
 
+        if (isempty(rvalue))
+                return 0;
+
         r = parse_boolean(rvalue);
         if (r < 0) {
                 log_syntax(unit, LOG_WARNING, filename, line, r,
@@ -421,6 +424,9 @@ int config_parse_dhcp_use_ntp(
         assert(lvalue);
         assert(rvalue);
         assert(data);
+
+        if (isempty(rvalue))
+                return 0;
 
         r = parse_boolean(rvalue);
         if (r < 0) {
