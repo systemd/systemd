@@ -12,6 +12,7 @@
 #include "hashmap.h"
 #include "hostname-setup.h"
 #include "hostname-util.h"
+#include "in-addr-prefix-util.h"
 #include "missing_network.h"
 #include "networkd-address.h"
 #include "networkd-dhcp6.h"

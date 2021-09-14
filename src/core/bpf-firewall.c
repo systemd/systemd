@@ -18,7 +18,7 @@
 #include "bpf-firewall.h"
 #include "bpf-program.h"
 #include "fd-util.h"
-#include "ip-address-access.h"
+#include "in-addr-prefix-util.h"
 #include "memory-util.h"
 #include "missing_syscall.h"
 #include "unit.h"
@@ -335,13 +335,13 @@ static int bpf_firewall_compile_bpf(
         return 0;
 }
 
-static int bpf_firewall_count_access_items(IPAddressAccessItem *list, size_t *n_ipv4, size_t *n_ipv6) {
-        IPAddressAccessItem *a;
+static int bpf_firewall_count_access_items(Set *prefixes, size_t *n_ipv4, size_t *n_ipv6) {
+        struct in_addr_prefix *a;
 
         assert(n_ipv4);
         assert(n_ipv6);
 
-        LIST_FOREACH(items, a, list) {
+        SET_FOREACH(a, prefixes)
                 switch (a->family) {
 
                 case AF_INET:
@@ -355,26 +355,25 @@ static int bpf_firewall_count_access_items(IPAddressAccessItem *list, size_t *n_
                 default:
                         return -EAFNOSUPPORT;
                 }
-        }
 
         return 0;
 }
 
 static int bpf_firewall_add_access_items(
-                IPAddressAccessItem *list,
+                Set *prefixes,
                 int ipv4_map_fd,
                 int ipv6_map_fd,
                 int verdict) {
 
         struct bpf_lpm_trie_key *key_ipv4, *key_ipv6;
+        struct in_addr_prefix *a;
         uint64_t value = verdict;
-        IPAddressAccessItem *a;
         int r;
 
         key_ipv4 = alloca0(offsetof(struct bpf_lpm_trie_key, data) + sizeof(uint32_t));
         key_ipv6 = alloca0(offsetof(struct bpf_lpm_trie_key, data) + sizeof(uint32_t) * 4);
 
-        LIST_FOREACH(items, a, list) {
+        SET_FOREACH(a, prefixes)
                 switch (a->family) {
 
                 case AF_INET:
@@ -400,7 +399,6 @@ static int bpf_firewall_add_access_items(
                 default:
                         return -EAFNOSUPPORT;
                 }
-        }
 
         return 0;
 }
@@ -414,7 +412,6 @@ static int bpf_firewall_prepare_access_maps(
 
         _cleanup_close_ int ipv4_map_fd = -1, ipv6_map_fd = -1;
         size_t n_ipv4 = 0, n_ipv6 = 0;
-        IPAddressAccessItem *list;
         Unit *p;
         int r;
 
@@ -424,18 +421,29 @@ static int bpf_firewall_prepare_access_maps(
 
         for (p = u; p; p = UNIT_GET_SLICE(p)) {
                 CGroupContext *cc;
+                Set *prefixes;
+                bool *reduced;
 
                 cc = unit_get_cgroup_context(p);
                 if (!cc)
                         continue;
 
-                list = verdict == ACCESS_ALLOWED ? cc->ip_address_allow : cc->ip_address_deny;
+                prefixes = verdict == ACCESS_ALLOWED ? cc->ip_address_allow : cc->ip_address_deny;
+                reduced = verdict == ACCESS_ALLOWED ? &cc->ip_address_allow_reduced : &cc->ip_address_deny_reduced;
 
-                bpf_firewall_count_access_items(list, &n_ipv4, &n_ipv6);
+                if (!*reduced) {
+                        r = in_addr_prefixes_reduce(prefixes);
+                        if (r < 0)
+                                return r;
+
+                        *reduced = true;
+                }
+
+                bpf_firewall_count_access_items(prefixes, &n_ipv4, &n_ipv6);
 
                 /* Skip making the LPM trie map in cases where we are using "any" in order to hack around
                  * needing CAP_SYS_ADMIN for allocating LPM trie map. */
-                if (ip_address_access_item_is_any(list)) {
+                if (in_addr_prefixes_is_any(prefixes)) {
                         *ret_has_any = true;
                         return 0;
                 }

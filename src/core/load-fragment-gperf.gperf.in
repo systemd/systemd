@@ -221,8 +221,8 @@
 {{type}}.Delegate,                         config_parse_delegate,                       0,                                  offsetof({{type}}, cgroup_context)
 {{type}}.DisableControllers,               config_parse_disable_controllers,            0,                                  offsetof({{type}}, cgroup_context)
 {{type}}.IPAccounting,                     config_parse_bool,                           0,                                  offsetof({{type}}, cgroup_context.ip_accounting)
-{{type}}.IPAddressAllow,                   config_parse_ip_address_access,              0,                                  offsetof({{type}}, cgroup_context.ip_address_allow)
-{{type}}.IPAddressDeny,                    config_parse_ip_address_access,              0,                                  offsetof({{type}}, cgroup_context.ip_address_deny)
+{{type}}.IPAddressAllow,                   config_parse_in_addr_prefixes,               AF_UNSPEC,                          offsetof({{type}}, cgroup_context.ip_address_allow)
+{{type}}.IPAddressDeny,                    config_parse_in_addr_prefixes,               AF_UNSPEC,                          offsetof({{type}}, cgroup_context.ip_address_deny)
 {{type}}.IPIngressFilterPath,              config_parse_ip_filter_bpf_progs,            0,                                  offsetof({{type}}, cgroup_context.ip_filters_ingress)
 {{type}}.IPEgressFilterPath,               config_parse_ip_filter_bpf_progs,            0,                                  offsetof({{type}}, cgroup_context.ip_filters_egress)
 {{type}}.ManagedOOMSwap,                   config_parse_managed_oom_mode,               0,                                  offsetof({{type}}, cgroup_context.moom_swap)
@@ -243,6 +243,7 @@ _Pragma("GCC diagnostic ignored \"-Wimplicit-fallthrough\"")
 #include <stddef.h>
 #include "all-units.h"
 #include "conf-parser.h"
+#include "in-addr-prefix-util.h"
 #include "load-fragment.h"
 %}
 struct ConfigPerfItem;
