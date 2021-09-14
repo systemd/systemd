@@ -395,7 +395,7 @@ int read_virtual_file(const char *filename, size_t max_size, char **ret_contents
          * contents* may be returned. (Though the read is still done using one syscall.) Returns 0 on
          * partial success, 1 if untruncated contents were read. */
 
-        fd = open(filename, O_RDONLY|O_CLOEXEC);
+        fd = open(filename, O_RDONLY|O_NOCTTY|O_CLOEXEC);
         if (fd < 0)
                 return -errno;
 
