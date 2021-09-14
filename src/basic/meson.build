@@ -72,7 +72,6 @@ basic_sources = files('''
         in-addr-util.h
         io-util.c
         io-util.h
-        ioprio.h
         khash.c
         khash.h
         limits-util.c
@@ -131,6 +130,7 @@ basic_sources = files('''
         missing_fcntl.h
         missing_fs.h
         missing_input.h
+        missing_ioprio.h
         missing_keyctl.h
         missing_magic.h
         missing_mman.h

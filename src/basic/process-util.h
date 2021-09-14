@@ -13,8 +13,8 @@
 
 #include "alloc-util.h"
 #include "format-util.h"
-#include "ioprio.h"
 #include "macro.h"
+#include "missing_ioprio.h"
 #include "time-util.h"
 
 #define procfs_file_alloca(pid, field)                                  \

@@ -24,8 +24,8 @@
 #include "fileio.h"
 #include "hexdecoct.h"
 #include "io-util.h"
-#include "ioprio.h"
 #include "journal-file.h"
+#include "missing_ioprio.h"
 #include "mountpoint-util.h"
 #include "namespace.h"
 #include "parse-util.h"
@@ -55,8 +55,8 @@ static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_protect_system, protect_system,
 static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_personality, personality, unsigned long);
 static BUS_DEFINE_PROPERTY_GET(property_get_ioprio, "i", ExecContext, exec_context_get_effective_ioprio);
 static BUS_DEFINE_PROPERTY_GET(property_get_mount_apivfs, "b", ExecContext, exec_context_get_effective_mount_apivfs);
-static BUS_DEFINE_PROPERTY_GET2(property_get_ioprio_class, "i", ExecContext, exec_context_get_effective_ioprio, IOPRIO_PRIO_CLASS);
-static BUS_DEFINE_PROPERTY_GET2(property_get_ioprio_priority, "i", ExecContext, exec_context_get_effective_ioprio, IOPRIO_PRIO_DATA);
+static BUS_DEFINE_PROPERTY_GET2(property_get_ioprio_class, "i", ExecContext, exec_context_get_effective_ioprio, ioprio_prio_class);
+static BUS_DEFINE_PROPERTY_GET2(property_get_ioprio_priority, "i", ExecContext, exec_context_get_effective_ioprio, ioprio_prio_data);
 static BUS_DEFINE_PROPERTY_GET_GLOBAL(property_get_empty_string, "s", NULL);
 static BUS_DEFINE_PROPERTY_GET_REF(property_get_syslog_level, "i", int, LOG_PRI);
 static BUS_DEFINE_PROPERTY_GET_REF(property_get_syslog_facility, "i", int, LOG_FAC);
@@ -2637,7 +2637,7 @@ int bus_exec_context_set_transient_property(
                         if (r < 0)
                                 return r;
 
-                        c->ioprio = IOPRIO_PRIO_VALUE(q, IOPRIO_PRIO_DATA(c->ioprio));
+                        c->ioprio = ioprio_prio_value(q, ioprio_prio_data(c->ioprio));
                         c->ioprio_set = true;
 
                         unit_write_settingf(u, flags, name, "IOSchedulingClass=%s", s);
@@ -2656,7 +2656,7 @@ int bus_exec_context_set_transient_property(
                         return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid IO scheduling priority: %i", p);
 
                 if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
-                        c->ioprio = IOPRIO_PRIO_VALUE(IOPRIO_PRIO_CLASS(c->ioprio), p);
+                        c->ioprio = ioprio_prio_value(ioprio_prio_class(c->ioprio), p);
                         c->ioprio_set = true;
 
                         unit_write_settingf(u, flags, name, "IOSchedulingPriority=%i", p);
