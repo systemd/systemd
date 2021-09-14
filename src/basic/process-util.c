@@ -27,7 +27,6 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "fs-util.h"
-#include "ioprio.h"
 #include "locale-util.h"
 #include "log.h"
 #include "macro.h"

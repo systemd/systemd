@@ -62,7 +62,6 @@
 #include "glob-util.h"
 #include "hexdecoct.h"
 #include "io-util.h"
-#include "ioprio.h"
 #include "label.h"
 #include "log.h"
 #include "macro.h"
@@ -70,6 +69,7 @@
 #include "manager-dump.h"
 #include "memory-util.h"
 #include "missing_fs.h"
+#include "missing_ioprio.h"
 #include "mkdir.h"
 #include "mount-util.h"
 #include "mountpoint-util.h"
@@ -4865,7 +4865,7 @@ void exec_context_init(ExecContext *c) {
         assert(c);
 
         c->umask = 0022;
-        c->ioprio = IOPRIO_PRIO_VALUE(IOPRIO_CLASS_BE, 0);
+        c->ioprio = ioprio_prio_value(IOPRIO_CLASS_BE, 0);
         c->cpu_sched_policy = SCHED_OTHER;
         c->syslog_priority = LOG_DAEMON|LOG_INFO;
         c->syslog_level_prefix = true;
@@ -5427,11 +5427,11 @@ void exec_context_dump(const ExecContext *c, FILE* f, const char *prefix) {
         if (c->ioprio_set) {
                 _cleanup_free_ char *class_str = NULL;
 
-                r = ioprio_class_to_string_alloc(IOPRIO_PRIO_CLASS(c->ioprio), &class_str);
+                r = ioprio_class_to_string_alloc(ioprio_prio_class(c->ioprio), &class_str);
                 if (r >= 0)
                         fprintf(f, "%sIOSchedulingClass: %s\n", prefix, class_str);
 
-                fprintf(f, "%sIOPriority: %lu\n", prefix, IOPRIO_PRIO_DATA(c->ioprio));
+                fprintf(f, "%sIOPriority: %d\n", prefix, ioprio_prio_data(c->ioprio));
         }
 
         if (c->cpu_sched_set) {
@@ -5784,7 +5784,7 @@ int exec_context_get_effective_ioprio(const ExecContext *c) {
 
         p = ioprio_get(IOPRIO_WHO_PROCESS, 0);
         if (p < 0)
-                return IOPRIO_PRIO_VALUE(IOPRIO_CLASS_BE, 4);
+                return ioprio_prio_value(IOPRIO_CLASS_BE, 4);
 
         return p;
 }
