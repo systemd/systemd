@@ -185,10 +185,15 @@
         numeric PCR indexes in the range 0…23. If not used, defaults to PCR 7 only. If an empty string is
         specified, binds the enrollment to no PCRs at all. PCRs allow binding the enrollment to specific
         software versions and system state, so that the enrolled unlocking key is only accessible (may be
-        "unsealed") if specific trusted software and/or configuration is used.</para></listitem>
+        "unsealed") if specific trusted software and/or configuration is used.</para>
 
         <table>
           <title>Well-known PCR Definitions</title>
+
+          <!-- See: https://trustedcomputinggroup.org/resource/pc-client-specific-platform-firmware-profile-specification/ -->
+          <!-- See: https://github.com/rhboot/shim/blob/main/README.tpm -->
+          <!-- See: https://www.gnu.org/software/grub/manual/grub/html_node/Measured-Boot.html -->
+          <!-- See: https://sourceforge.net/p/linux-ima/wiki/Home/ -->
 
           <tgroup cols='2' align='left' colsep='1' rowsep='1'>
             <colspec colname="pcr" />
@@ -224,7 +229,7 @@
 
               <row>
                 <entry>4</entry>
-                <entry>Boot loader; changes on boot loader updates</entry>
+                <entry>Boot loader; changes on boot loader updates. The shim project will measure the PE binary it chain loads into this PCR.</entry>
               </row>
 
               <row>
@@ -239,17 +244,39 @@
 
               <row>
                 <entry>7</entry>
-                <entry>Secure boot state; changes when UEFI SecureBoot mode is enabled/disabled</entry>
+                <entry>Secure boot state; changes when UEFI SecureBoot mode is enabled/disabled, or firmware certificates (PK, KEK, db, dbx, …) changes. The shim project will measure most of its (non-MOK) certificates and SBAT data into this PCR.</entry>
               </row>
 
               <row>
                 <entry>8</entry>
-                <entry><citerefentry><refentrytitle>sd-boot</refentrytitle><manvolnum>7</manvolnum></citerefentry> measures the kernel command line in this PCR.</entry>
+                <entry><citerefentry><refentrytitle>sd-boot</refentrytitle><manvolnum>7</manvolnum></citerefentry> measures the kernel command line into this PCR.</entry>
+                <!-- Grub measures all its commands and the kernel command line into PCR 8 too… -->
+              </row>
+
+              <!-- Grub measures all files it reads (including kernel image, initrd, …) into PCR 9… -->
+
+              <row>
+                <entry>10</entry>
+                <entry>The IMA project measures its runtime state into this PCR.</entry>
+              </row>
+
+              <row>
+                <entry>14</entry>
+                <entry>The shim project measures its "MOK" certificates and hashes into this PCR.</entry>
               </row>
             </tbody>
           </tgroup>
         </table>
 
+        <para>For most applications it should be sufficient to bind against PCR 7 (and possibly PCR 14, if
+        shim/MOK is desired), as this includes measurements of the trusted certificates (and possibly hashes)
+        that are used to validate all components of the boot process up to and including the OS kernel. In
+        order to simplify firmware and OS version updates it's typically not advisable to include PCRs such
+        as 0 and 2 in the binding of the enrollment, since the program code they cover should already be
+        protected indirectly through the certificates measured into PCR 7. Validation through these
+        certificates is typically preferable over validation through direct measurements as it is less
+        brittle in context of OS/firmware updates: the measurements will change on every update, but code
+        signatures likely will validate against pre-existing certificates.</para></listitem>
       </varlistentry>
 
       <varlistentry>
