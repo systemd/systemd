@@ -59,7 +59,7 @@ struct LinkConfig {
         uint32_t advertise[N_ADVERTISE];
         uint32_t wol;
         NetDevPort port;
-        int features[_NET_DEV_FEAT_MAX];
+        int features[_NET_DEV_FEAT_MAX_ALL];
         netdev_channels channels;
         netdev_ring_param ring;
         int rx_flow_control;
