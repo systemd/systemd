@@ -11,9 +11,17 @@ helper_check_device_symlinks() {
     # when leaving the function)
     set +x; trap "trap - RETURN; set -x" RETURN
 
-    local dev link paths target
+    local dev link path paths target
 
     [[ $# -gt 0 ]] && paths=("$@") || paths=("/dev/disk")
+
+    # Check if all given paths are valid
+    for path in "${paths[@]}"; do
+        if ! test -e "$path"; then
+            echo >&2 "Path '$path' doesn't exist"
+            return 1
+        fi
+    done
 
     while read -r link; do
         target="$(readlink -f "$link")"
