@@ -20,7 +20,6 @@ typedef enum Duplex {
 
 typedef enum NetDevFeature {
         NET_DEV_FEAT_RX,
-        NET_DEV_FEAT_TX,
         NET_DEV_FEAT_GSO,
         NET_DEV_FEAT_GRO,
         NET_DEV_FEAT_GRO_HW,
@@ -28,6 +27,9 @@ typedef enum NetDevFeature {
         NET_DEV_FEAT_TSO,
         NET_DEV_FEAT_TSO6,
         _NET_DEV_FEAT_MAX,
+
+        NET_DEV_FEAT_TX = _NET_DEV_FEAT_MAX,
+        _NET_DEV_FEAT_MAX_ALL,
         _NET_DEV_FEAT_INVALID = -EINVAL,
 } NetDevFeature;
 
@@ -109,7 +111,7 @@ int ethtool_get_link_info(int *ethtool_fd, const char *ifname,
 int ethtool_get_permanent_macaddr(int *ethtool_fd, const char *ifname, struct ether_addr *ret);
 int ethtool_set_wol(int *ethtool_fd, const char *ifname, uint32_t wolopts);
 int ethtool_set_nic_buffer_size(int *ethtool_fd, const char *ifname, const netdev_ring_param *ring);
-int ethtool_set_features(int *ethtool_fd, const char *ifname, const int features[static _NET_DEV_FEAT_MAX]);
+int ethtool_set_features(int *ethtool_fd, const char *ifname, const int features[static _NET_DEV_FEAT_MAX_ALL]);
 int ethtool_set_glinksettings(int *ethtool_fd, const char *ifname,
                               int autonegotiation, const uint32_t advertise[static N_ADVERTISE],
                               uint64_t speed, Duplex duplex, NetDevPort port);

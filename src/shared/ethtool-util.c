@@ -69,15 +69,16 @@ static const char* const port_table[] = {
 DEFINE_STRING_TABLE_LOOKUP(port, NetDevPort);
 DEFINE_CONFIG_PARSE_ENUM(config_parse_port, port, NetDevPort, "Failed to parse Port setting");
 
-static const char* const netdev_feature_table[_NET_DEV_FEAT_MAX] = {
+static const char* const netdev_feature_table[_NET_DEV_FEAT_MAX_ALL] = {
         [NET_DEV_FEAT_RX]     = "rx-checksum",
-        [NET_DEV_FEAT_TX]     = "tx-checksum-", /* The suffix "-" means any feature beginning with "tx-checksum-" */
         [NET_DEV_FEAT_GSO]    = "tx-generic-segmentation",
         [NET_DEV_FEAT_GRO]    = "rx-gro",
         [NET_DEV_FEAT_GRO_HW] = "rx-gro-hw",
         [NET_DEV_FEAT_LRO]    = "rx-lro",
         [NET_DEV_FEAT_TSO]    = "tx-tcp-segmentation",
         [NET_DEV_FEAT_TSO6]   = "tx-tcp6-segmentation",
+
+        [NET_DEV_FEAT_TX]     = "tx-checksum-", /* The suffix "-" means any feature beginning with "tx-checksum-" */
 };
 
 static const char* const ethtool_link_mode_bit_table[] = {
@@ -434,32 +435,33 @@ int ethtool_set_nic_buffer_size(int *ethtool_fd, const char *ifname, const netde
         return 0;
 }
 
-static int get_stringset(int ethtool_fd, struct ifreq *ifr, int stringset_id, struct ethtool_gstrings **ret) {
+static int get_stringset(int ethtool_fd, const char *ifname, enum ethtool_stringset stringset_id, struct ethtool_gstrings **ret) {
         _cleanup_free_ struct ethtool_gstrings *strings = NULL;
         struct {
                 struct ethtool_sset_info info;
                 uint32_t space;
         } buffer = {
-                .info = {
-                        .cmd = ETHTOOL_GSSET_INFO,
-                        .sset_mask = UINT64_C(1) << stringset_id,
-                },
+                .info.cmd = ETHTOOL_GSSET_INFO,
+                .info.sset_mask = UINT64_C(1) << stringset_id,
         };
-        unsigned len;
+        struct ifreq ifr = {
+                .ifr_data = (void*) &buffer,
+        };
+        uint32_t len;
         int r;
 
         assert(ethtool_fd >= 0);
-        assert(ifr);
+        assert(ifname);
         assert(ret);
 
-        ifr->ifr_data = (void *) &buffer.info;
+        strscpy(ifr.ifr_name, IFNAMSIZ, ifname);
 
-        r = ioctl(ethtool_fd, SIOCETHTOOL, ifr);
+        r = ioctl(ethtool_fd, SIOCETHTOOL, &ifr);
         if (r < 0)
                 return -errno;
 
-        if (!buffer.info.sset_mask)
-                return -EINVAL;
+        if (buffer.info.sset_mask == 0)
+                return -EOPNOTSUPP;
 
 #pragma GCC diagnostic push
 #if HAVE_ZERO_LENGTH_BOUNDS
@@ -467,6 +469,8 @@ static int get_stringset(int ethtool_fd, struct ifreq *ifr, int stringset_id, st
 #endif
         len = buffer.info.data[0];
 #pragma GCC diagnostic pop
+        if (len == 0)
+                return -EOPNOTSUPP;
 
         strings = malloc0(sizeof(struct ethtool_gstrings) + len * ETH_GSTRING_LEN);
         if (!strings)
@@ -476,48 +480,134 @@ static int get_stringset(int ethtool_fd, struct ifreq *ifr, int stringset_id, st
         strings->string_set = stringset_id;
         strings->len = len;
 
-        ifr->ifr_data = (void *) strings;
+        ifr.ifr_data = (void*) strings;
 
-        r = ioctl(ethtool_fd, SIOCETHTOOL, ifr);
+        r = ioctl(ethtool_fd, SIOCETHTOOL, &ifr);
         if (r < 0)
                 return -errno;
 
         *ret = TAKE_PTR(strings);
+        return 0;
+}
 
+static int get_features(int ethtool_fd, const char *ifname, uint32_t n_features, struct ethtool_gfeatures **ret) {
+        _cleanup_free_ struct ethtool_gfeatures *gfeatures = NULL;
+        struct ifreq ifr;
+        int r;
+
+        assert(ethtool_fd >= 0);
+        assert(ifname);
+        assert(ret);
+        assert(n_features > 0);
+
+        gfeatures = malloc0(sizeof(struct ethtool_gfeatures) + DIV_ROUND_UP(n_features, 32U) * sizeof(gfeatures->features[0]));
+        if (!gfeatures)
+                return -ENOMEM;
+
+        gfeatures->cmd = ETHTOOL_GFEATURES;
+        gfeatures->size = DIV_ROUND_UP(n_features, 32U);
+
+        ifr = (struct ifreq) {
+                .ifr_data = (void*) gfeatures,
+        };
+        strscpy(ifr.ifr_name, IFNAMSIZ, ifname);
+
+        r = ioctl(ethtool_fd, SIOCETHTOOL, &ifr);
+        if (r < 0)
+                return -errno;
+
+        *ret = TAKE_PTR(gfeatures);
         return 0;
 }
 
 static int set_features_bit(
                 const struct ethtool_gstrings *strings,
+                const struct ethtool_gfeatures *gfeatures,
+                struct ethtool_sfeatures *sfeatures,
                 const char *feature,
-                bool flag,
-                struct ethtool_sfeatures *sfeatures) {
-        bool found = false;
+                int flag) {
 
         assert(strings);
-        assert(feature);
+        assert(gfeatures);
         assert(sfeatures);
+        assert(feature);
 
-        for (size_t i = 0; i < strings->len; i++)
-                if (streq((char *) &strings->data[i * ETH_GSTRING_LEN], feature) ||
-                    (endswith(feature, "-") && startswith((char *) &strings->data[i * ETH_GSTRING_LEN], feature))) {
-                        size_t block, bit;
+        if (flag < 0)
+                return 0;
 
-                        block = i / 32;
-                        bit = i % 32;
+        for (uint32_t i = 0; i < strings->len; i++) {
+                uint32_t block, mask;
 
-                        sfeatures->features[block].valid |= 1 << bit;
-                        SET_FLAG(sfeatures->features[block].requested, 1 << bit, flag);
-                        found = true;
-                }
+                if (!strneq((const char*) &strings->data[i * ETH_GSTRING_LEN], feature, ETH_GSTRING_LEN))
+                        continue;
 
-        return found ? 0 : -ENODATA;
+                block = i / 32;
+                mask = UINT32_C(1) << (i % 32);
+
+                if (!FLAGS_SET(gfeatures->features[block].available, mask) ||
+                    FLAGS_SET(gfeatures->features[block].never_changed, mask))
+                        return -EOPNOTSUPP;
+
+                sfeatures->features[block].valid |= mask;
+                SET_FLAG(sfeatures->features[block].requested, mask, flag);
+
+                return 0;
+        }
+
+        return -ENODATA;
 }
 
-int ethtool_set_features(int *ethtool_fd, const char *ifname, const int features[static _NET_DEV_FEAT_MAX]) {
+static int set_features_multiple_bit(
+                const struct ethtool_gstrings *strings,
+                const struct ethtool_gfeatures *gfeatures,
+                struct ethtool_sfeatures *sfeatures,
+                const char *feature,
+                int flag) {
+
+        bool found = false;
+        int r = -ENODATA;
+
+        assert(strings);
+        assert(gfeatures);
+        assert(sfeatures);
+        assert(feature);
+
+        if (flag < 0)
+                return 0;
+
+        for (uint32_t i = 0; i < strings->len; i++) {
+                uint32_t block, mask;
+
+                if (!startswith((const char*) &strings->data[i * ETH_GSTRING_LEN], feature))
+                        continue;
+
+                block = i / 32;
+                mask = UINT32_C(1) << (i % 32);
+
+                if (!FLAGS_SET(gfeatures->features[block].available, mask) ||
+                    FLAGS_SET(gfeatures->features[block].never_changed, mask)) {
+                        r = -EOPNOTSUPP;
+                        continue;
+                }
+
+                /* The flags is explicitly set by set_features_bit() */
+                if (FLAGS_SET(sfeatures->features[block].valid, mask))
+                        continue;
+
+                sfeatures->features[block].valid |= mask;
+                SET_FLAG(sfeatures->features[block].requested, mask, flag);
+
+                found = true;
+        }
+
+        return found ? 0 : r;
+}
+
+int ethtool_set_features(int *ethtool_fd, const char *ifname, const int features[static _NET_DEV_FEAT_MAX_ALL]) {
         _cleanup_free_ struct ethtool_gstrings *strings = NULL;
-        struct ethtool_sfeatures *sfeatures;
-        struct ifreq ifr = {};
+        _cleanup_free_ struct ethtool_gfeatures *gfeatures = NULL;
+        _cleanup_free_ struct ethtool_sfeatures *sfeatures = NULL;
+        struct ifreq ifr;
         bool have = false;
         int r;
 
@@ -538,26 +628,41 @@ int ethtool_set_features(int *ethtool_fd, const char *ifname, const int features
         if (r < 0)
                 return r;
 
-        strscpy(ifr.ifr_name, IFNAMSIZ, ifname);
-
-        r = get_stringset(*ethtool_fd, &ifr, ETH_SS_FEATURES, &strings);
+        r = get_stringset(*ethtool_fd, ifname, ETH_SS_FEATURES, &strings);
         if (r < 0)
-                return log_debug_errno(r, "ethtool: could not get ethtool features for %s", ifname);
+                return log_debug_errno(r, "ethtool: could not get ethtool feature strings: %m");
 
-        sfeatures = alloca0(sizeof(struct ethtool_sfeatures) + DIV_ROUND_UP(strings->len, 32U) * sizeof(sfeatures->features[0]));
+        r = get_features(*ethtool_fd, ifname, strings->len, &gfeatures);
+        if (r < 0)
+                return log_debug_errno(r, "ethtool: could not get ethtool features for %s: %m", ifname);
+
+        sfeatures = malloc0(sizeof(struct ethtool_sfeatures) + DIV_ROUND_UP(strings->len, 32U) * sizeof(sfeatures->features[0]));
+        if (!sfeatures)
+                return log_oom_debug();
+
         sfeatures->cmd = ETHTOOL_SFEATURES;
         sfeatures->size = DIV_ROUND_UP(strings->len, 32U);
 
-        for (size_t i = 0; i < _NET_DEV_FEAT_MAX; i++)
-                if (features[i] >= 0) {
-                        r = set_features_bit(strings, netdev_feature_table[i], features[i], sfeatures);
-                        if (r < 0) {
-                                log_debug_errno(r, "ethtool: could not find feature, ignoring: %s", netdev_feature_table[i]);
-                                continue;
-                        }
+        for (size_t i = 0; i < _NET_DEV_FEAT_MAX; i++) {
+                r = set_features_bit(strings, gfeatures, sfeatures, netdev_feature_table[i], features[i]);
+                if (r < 0) {
+                        log_debug_errno(r, "ethtool: could not set feature %s for %s, ignoring: %m", netdev_feature_table[i], ifname);
+                        continue;
                 }
+        }
 
-        ifr.ifr_data = (void *) sfeatures;
+        for (size_t i = _NET_DEV_FEAT_MAX; i < _NET_DEV_FEAT_MAX_ALL; i++) {
+                r = set_features_multiple_bit(strings, gfeatures, sfeatures, netdev_feature_table[i], features[i]);
+                if (r < 0) {
+                        log_debug_errno(r, "ethtool: could not set feature %s for %s, ignoring: %m", netdev_feature_table[i], ifname);
+                        continue;
+                }
+        }
+
+        ifr = (struct ifreq) {
+                .ifr_data = (void*) sfeatures,
+        };
+        strscpy(ifr.ifr_name, IFNAMSIZ, ifname);
 
         r = ioctl(*ethtool_fd, SIOCETHTOOL, &ifr);
         if (r < 0)
