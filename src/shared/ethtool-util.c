@@ -71,13 +71,14 @@ DEFINE_CONFIG_PARSE_ENUM(config_parse_port, port, NetDevPort, "Failed to parse P
 
 static const char* const netdev_feature_table[_NET_DEV_FEAT_MAX] = {
         [NET_DEV_FEAT_RX]     = "rx-checksum",
-        [NET_DEV_FEAT_TX]     = "tx-checksum-", /* The suffix "-" means any feature beginning with "tx-checksum-" */
         [NET_DEV_FEAT_GSO]    = "tx-generic-segmentation",
         [NET_DEV_FEAT_GRO]    = "rx-gro",
         [NET_DEV_FEAT_GRO_HW] = "rx-gro-hw",
         [NET_DEV_FEAT_LRO]    = "rx-lro",
         [NET_DEV_FEAT_TSO]    = "tx-tcp-segmentation",
         [NET_DEV_FEAT_TSO6]   = "tx-tcp6-segmentation",
+
+        [NET_DEV_FEAT_TX]     = "tx-checksum-", /* The suffix "-" means any feature beginning with "tx-checksum-" */
 };
 
 static const char* const ethtool_link_mode_bit_table[] = {
@@ -515,6 +516,43 @@ static int set_features_bit(
                 const char *feature,
                 int flag) {
 
+        assert(strings);
+        assert(gfeatures);
+        assert(sfeatures);
+        assert(feature);
+
+        if (flag < 0)
+                return 0;
+
+        for (uint32_t i = 0; i < strings->len; i++) {
+                uint32_t block, mask;
+
+                if (!strneq((const char*) &strings->data[i * ETH_GSTRING_LEN], feature, ETH_GSTRING_LEN))
+                        continue;
+
+                block = i / 32;
+                mask = UINT32_C(1) << (i % 32);
+
+                if (!FLAGS_SET(gfeatures->features[block].available, mask) ||
+                    FLAGS_SET(gfeatures->features[block].never_changed, mask))
+                        return -EOPNOTSUPP;
+
+                sfeatures->features[block].valid |= mask;
+                SET_FLAG(sfeatures->features[block].requested, mask, flag);
+
+                return 0;
+        }
+
+        return -ENODATA;
+}
+
+static int set_features_multiple_bit(
+                const struct ethtool_gstrings *strings,
+                const struct ethtool_gfeatures *gfeatures,
+                struct ethtool_sfeatures *sfeatures,
+                const char *feature,
+                int flag) {
+
         bool found = false;
         int r = -ENODATA;
 
@@ -529,8 +567,7 @@ static int set_features_bit(
         for (uint32_t i = 0; i < strings->len; i++) {
                 uint32_t block, mask;
 
-                if (!strneq((const char*) &strings->data[i * ETH_GSTRING_LEN], feature, ETH_GSTRING_LEN) &&
-                    !(endswith(feature, "-") && startswith((const char*) &strings->data[i * ETH_GSTRING_LEN], feature)))
+                if (!startswith((const char*) &strings->data[i * ETH_GSTRING_LEN], feature))
                         continue;
 
                 block = i / 32;
@@ -541,6 +578,10 @@ static int set_features_bit(
                         r = -EOPNOTSUPP;
                         continue;
                 }
+
+                /* The flags is explicitly set by set_features_bit() */
+                if (FLAGS_SET(sfeatures->features[block].valid, mask))
+                        continue;
 
                 sfeatures->features[block].valid |= mask;
                 SET_FLAG(sfeatures->features[block].requested, mask, flag);
@@ -592,8 +633,14 @@ int ethtool_set_features(int *ethtool_fd, const char *ifname, const int features
         sfeatures->cmd = ETHTOOL_SFEATURES;
         sfeatures->size = DIV_ROUND_UP(strings->len, 32U);
 
-        for (size_t i = 0; i < _NET_DEV_FEAT_MAX; i++) {
+        for (size_t i = 0; i < _NET_DEV_FEAT_SIMPLE_MAX; i++) {
                 r = set_features_bit(strings, gfeatures, sfeatures, netdev_feature_table[i], features[i]);
+                if (r < 0)
+                        log_debug_errno(r, "ethtool: could not set feature %s for %s, ignoring: %m", netdev_feature_table[i], ifname);
+        }
+
+        for (size_t i = _NET_DEV_FEAT_SIMPLE_MAX; i < _NET_DEV_FEAT_MAX; i++) {
+                r = set_features_multiple_bit(strings, gfeatures, sfeatures, netdev_feature_table[i], features[i]);
                 if (r < 0)
                         log_debug_errno(r, "ethtool: could not set feature %s for %s, ignoring: %m", netdev_feature_table[i], ifname);
         }

@@ -20,13 +20,15 @@ typedef enum Duplex {
 
 typedef enum NetDevFeature {
         NET_DEV_FEAT_RX,
-        NET_DEV_FEAT_TX,
         NET_DEV_FEAT_GSO,
         NET_DEV_FEAT_GRO,
         NET_DEV_FEAT_GRO_HW,
         NET_DEV_FEAT_LRO,
         NET_DEV_FEAT_TSO,
         NET_DEV_FEAT_TSO6,
+        _NET_DEV_FEAT_SIMPLE_MAX,
+
+        NET_DEV_FEAT_TX = _NET_DEV_FEAT_SIMPLE_MAX,
         _NET_DEV_FEAT_MAX,
         _NET_DEV_FEAT_INVALID = -EINVAL,
 } NetDevFeature;
