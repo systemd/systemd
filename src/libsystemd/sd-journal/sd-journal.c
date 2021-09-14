@@ -3154,7 +3154,7 @@ _public_ int sd_journal_enumerate_fields(sd_journal *j, const char **field) {
                         if (JOURNAL_HEADER_CONTAINS(of->header, n_fields) && le64toh(of->header->n_fields) <= 0)
                                 continue;
 
-                        r = journal_file_find_field_object_with_hash(of, o->field.payload, sz, le64toh(o->field.hash), NULL, NULL);
+                        r = journal_file_find_field_object(of, o->field.payload, sz, NULL, NULL);
                         if (r < 0)
                                 return r;
                         if (r > 0) {
