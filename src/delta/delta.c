@@ -409,7 +409,7 @@ static int process_suffix(const char *suffix, const char *onlyprefix) {
         assert(!startswith(suffix, "/"));
         assert(!strstr(suffix, "//"));
 
-        dropins = nulstr_contains(have_dropins, suffix);
+        dropins = !!nulstr_contains(have_dropins, suffix);
 
         top = ordered_hashmap_new(&string_hash_ops);
         bottom = ordered_hashmap_new(&string_hash_ops);
