@@ -9,7 +9,7 @@
 #include "dhcp6-internal.h"
 #include "escape.h"
 #include "hexdecoct.h"
-#include "in-addr-util.h"
+#include "in-addr-prefix-util.h"
 #include "networkd-dhcp-common.h"
 #include "networkd-link.h"
 #include "networkd-manager.h"
