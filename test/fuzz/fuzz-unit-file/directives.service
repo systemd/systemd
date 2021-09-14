@@ -115,7 +115,9 @@ RequiredBy=
 WantedBy=
 [Service]
 AllowedCPUs=
+StartupAllowedCPUs=
 AllowedMemoryNodes=
+StartupAllowedMemoryNodes=
 AmbientCapabilities=
 AppArmorProfile=
 BindPaths=

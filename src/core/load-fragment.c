@@ -3630,7 +3630,10 @@ int config_parse_allowed_cpus(
 
         CGroupContext *c = data;
 
-        (void) parse_cpu_set_extend(rvalue, &c->cpuset_cpus, true, unit, filename, line, lvalue);
+        if (streq(lvalue, "AllowedCPUs"))
+                (void) parse_cpu_set_extend(rvalue, &c->cpuset_cpus, true, unit, filename, line, lvalue);
+        else if (streq(lvalue, "StartupAllowedCPUs"))
+                (void) parse_cpu_set_extend(rvalue, &c->startup_cpuset_cpus, true, unit, filename, line, lvalue);
 
         return 0;
 }
@@ -3649,7 +3652,10 @@ int config_parse_allowed_mems(
 
         CGroupContext *c = data;
 
-        (void) parse_cpu_set_extend(rvalue, &c->cpuset_mems, true, unit, filename, line, lvalue);
+        if (streq(lvalue, "AllowedMemoryNodes"))
+                (void) parse_cpu_set_extend(rvalue, &c->cpuset_mems, true, unit, filename, line, lvalue);
+        else if (streq(lvalue, "StartupAllowedMemoryNodes"))
+                (void) parse_cpu_set_extend(rvalue, &c->startup_cpuset_mems, true, unit, filename, line, lvalue);
 
         return 0;
 }
