@@ -2569,8 +2569,7 @@ endif
 
 if conf.get('ENABLE_LOCALED') == 1
         if conf.get('HAVE_XKBCOMMON') == 1
-                # logind will load libxkbcommon.so dynamically on its own
-                deps = [libdl]
+                deps = [libxkbcommon, libdl]
         else
                 deps = []
         endif
