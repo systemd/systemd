@@ -216,8 +216,7 @@ int ethtool_get_driver(int *ethtool_fd, const char *ifname, char **ret) {
 
         strscpy(ifr.ifr_name, sizeof(ifr.ifr_name), ifname);
 
-        r = ioctl(*ethtool_fd, SIOCETHTOOL, &ifr);
-        if (r < 0)
+        if (ioctl(*ethtool_fd, SIOCETHTOOL, &ifr) < 0)
                 return -errno;
 
         if (isempty(ecmd.driver))
@@ -256,8 +255,7 @@ int ethtool_get_link_info(
 
         strscpy(ifr.ifr_name, sizeof(ifr.ifr_name), ifname);
 
-        r = ioctl(*ethtool_fd, SIOCETHTOOL, &ifr);
-        if (r < 0)
+        if (ioctl(*ethtool_fd, SIOCETHTOOL, &ifr) < 0)
                 return -errno;
 
         if (ret_autonegotiation)
@@ -305,8 +303,7 @@ int ethtool_get_permanent_macaddr(int *ethtool_fd, const char *ifname, struct et
 
         strscpy(ifr.ifr_name, sizeof(ifr.ifr_name), ifname);
 
-        r = ioctl(*ethtool_fd, SIOCETHTOOL, &ifr);
-        if (r < 0)
+        if (ioctl(*ethtool_fd, SIOCETHTOOL, &ifr) < 0)
                 return -errno;
 
         if (epaddr.addr.size != 6)
@@ -364,8 +361,7 @@ int ethtool_set_wol(int *ethtool_fd, const char *ifname, uint32_t wolopts) {
 
         strscpy(ifr.ifr_name, sizeof(ifr.ifr_name), ifname);
 
-        r = ioctl(*ethtool_fd, SIOCETHTOOL, &ifr);
-        if (r < 0)
+        if (ioctl(*ethtool_fd, SIOCETHTOOL, &ifr) < 0)
                 return -errno;
 
         UPDATE(ecmd.wolopts, wolopts, need_update);
@@ -374,8 +370,7 @@ int ethtool_set_wol(int *ethtool_fd, const char *ifname, uint32_t wolopts) {
                 return 0;
 
         ecmd.cmd = ETHTOOL_SWOL;
-        r = ioctl(*ethtool_fd, SIOCETHTOOL, &ifr);
-        if (r < 0)
+        if (ioctl(*ethtool_fd, SIOCETHTOOL, &ifr) < 0)
                 return -errno;
 
         return 0;
@@ -407,8 +402,7 @@ int ethtool_set_nic_buffer_size(int *ethtool_fd, const char *ifname, const netde
 
         strscpy(ifr.ifr_name, sizeof(ifr.ifr_name), ifname);
 
-        r = ioctl(*ethtool_fd, SIOCETHTOOL, &ifr);
-        if (r < 0)
+        if (ioctl(*ethtool_fd, SIOCETHTOOL, &ifr) < 0)
                 return -errno;
 
         if (ring->rx.set)
@@ -427,8 +421,7 @@ int ethtool_set_nic_buffer_size(int *ethtool_fd, const char *ifname, const netde
                 return 0;
 
         ecmd.cmd = ETHTOOL_SRINGPARAM;
-        r = ioctl(*ethtool_fd, SIOCETHTOOL, &ifr);
-        if (r < 0)
+        if (ioctl(*ethtool_fd, SIOCETHTOOL, &ifr) < 0)
                 return -errno;
 
         return 0;
@@ -446,7 +439,6 @@ static int get_stringset(int ethtool_fd, struct ifreq *ifr, int stringset_id, st
                 },
         };
         unsigned len;
-        int r;
 
         assert(ethtool_fd >= 0);
         assert(ifr);
@@ -454,8 +446,7 @@ static int get_stringset(int ethtool_fd, struct ifreq *ifr, int stringset_id, st
 
         ifr->ifr_data = (void *) &buffer.info;
 
-        r = ioctl(ethtool_fd, SIOCETHTOOL, ifr);
-        if (r < 0)
+        if (ioctl(ethtool_fd, SIOCETHTOOL, ifr) < 0)
                 return -errno;
 
         if (!buffer.info.sset_mask)
@@ -478,8 +469,7 @@ static int get_stringset(int ethtool_fd, struct ifreq *ifr, int stringset_id, st
 
         ifr->ifr_data = (void *) strings;
 
-        r = ioctl(ethtool_fd, SIOCETHTOOL, ifr);
-        if (r < 0)
+        if (ioctl(ethtool_fd, SIOCETHTOOL, ifr) < 0)
                 return -errno;
 
         *ret = TAKE_PTR(strings);
@@ -559,9 +549,8 @@ int ethtool_set_features(int *ethtool_fd, const char *ifname, const int features
 
         ifr.ifr_data = (void *) sfeatures;
 
-        r = ioctl(*ethtool_fd, SIOCETHTOOL, &ifr);
-        if (r < 0)
-                return log_debug_errno(r, "ethtool: could not set ethtool features for %s", ifname);
+        if (ioctl(*ethtool_fd, SIOCETHTOOL, &ifr) < 0)
+                return log_debug_errno(errno, "ethtool: could not set ethtool features for %s", ifname);
 
         return 0;
 }
@@ -575,7 +564,6 @@ static int get_glinksettings(int fd, struct ifreq *ifr, struct ethtool_link_uset
         };
         struct ethtool_link_usettings *u;
         unsigned offset;
-        int r;
 
         assert(fd >= 0);
         assert(ifr);
@@ -591,8 +579,7 @@ static int get_glinksettings(int fd, struct ifreq *ifr, struct ethtool_link_uset
 
         ifr->ifr_data = (void *) &ecmd;
 
-        r = ioctl(fd, SIOCETHTOOL, ifr);
-        if (r < 0)
+        if (ioctl(fd, SIOCETHTOOL, ifr) < 0)
                 return -errno;
 
         if (ecmd.req.link_mode_masks_nwords >= 0 || ecmd.req.cmd != ETHTOOL_GLINKSETTINGS)
@@ -602,8 +589,7 @@ static int get_glinksettings(int fd, struct ifreq *ifr, struct ethtool_link_uset
 
         ifr->ifr_data = (void *) &ecmd;
 
-        r = ioctl(fd, SIOCETHTOOL, ifr);
-        if (r < 0)
+        if (ioctl(fd, SIOCETHTOOL, ifr) < 0)
                 return -errno;
 
         if (ecmd.req.link_mode_masks_nwords <= 0 || ecmd.req.cmd != ETHTOOL_GLINKSETTINGS)
@@ -636,7 +622,6 @@ static int get_gset(int fd, struct ifreq *ifr, struct ethtool_link_usettings **r
         struct ethtool_cmd ecmd = {
                 .cmd = ETHTOOL_GSET,
         };
-        int r;
 
         assert(fd >= 0);
         assert(ifr);
@@ -644,8 +629,7 @@ static int get_gset(int fd, struct ifreq *ifr, struct ethtool_link_usettings **r
 
         ifr->ifr_data = (void *) &ecmd;
 
-        r = ioctl(fd, SIOCETHTOOL, ifr);
-        if (r < 0)
+        if (ioctl(fd, SIOCETHTOOL, ifr) < 0)
                 return -errno;
 
         e = new(struct ethtool_link_usettings, 1);
@@ -678,7 +662,6 @@ static int set_slinksettings(int fd, struct ifreq *ifr, const struct ethtool_lin
                 __u32 link_mode_data[3 * ETHTOOL_LINK_MODE_MASK_MAX_KERNEL_NU32];
         } ecmd = {};
         unsigned offset;
-        int r;
 
         assert(fd >= 0);
         assert(ifr);
@@ -700,8 +683,7 @@ static int set_slinksettings(int fd, struct ifreq *ifr, const struct ethtool_lin
 
         ifr->ifr_data = (void *) &ecmd;
 
-        r = ioctl(fd, SIOCETHTOOL, ifr);
-        if (r < 0)
+        if (ioctl(fd, SIOCETHTOOL, ifr) < 0)
                 return -errno;
 
         return 0;
@@ -711,7 +693,6 @@ static int set_sset(int fd, struct ifreq *ifr, const struct ethtool_link_usettin
         struct ethtool_cmd ecmd = {
                 .cmd = ETHTOOL_SSET,
         };
-        int r;
 
         assert(fd >= 0);
         assert(ifr);
@@ -736,8 +717,7 @@ static int set_sset(int fd, struct ifreq *ifr, const struct ethtool_link_usettin
 
         ifr->ifr_data = (void *) &ecmd;
 
-        r = ioctl(fd, SIOCETHTOOL, ifr);
-        if (r < 0)
+        if (ioctl(fd, SIOCETHTOOL, ifr) < 0)
                 return -errno;
 
         return 0;
@@ -859,8 +839,7 @@ int ethtool_set_channels(int *fd, const char *ifname, const netdev_channels *cha
 
         strscpy(ifr.ifr_name, sizeof(ifr.ifr_name), ifname);
 
-        r = ioctl(*fd, SIOCETHTOOL, &ifr);
-        if (r < 0)
+        if (ioctl(*fd, SIOCETHTOOL, &ifr) < 0)
                 return -errno;
 
         if (channels->rx.set)
@@ -879,8 +858,7 @@ int ethtool_set_channels(int *fd, const char *ifname, const netdev_channels *cha
                 return 0;
 
         ecmd.cmd = ETHTOOL_SCHANNELS;
-        r = ioctl(*fd, SIOCETHTOOL, &ifr);
-        if (r < 0)
+        if (ioctl(*fd, SIOCETHTOOL, &ifr) < 0)
                 return -errno;
 
         return 0;
@@ -908,8 +886,7 @@ int ethtool_set_flow_control(int *fd, const char *ifname, int rx, int tx, int au
 
         strscpy(ifr.ifr_name, sizeof(ifr.ifr_name), ifname);
 
-        r = ioctl(*fd, SIOCETHTOOL, &ifr);
-        if (r < 0)
+        if (ioctl(*fd, SIOCETHTOOL, &ifr) < 0)
                 return -errno;
 
         if (rx >= 0)
@@ -925,8 +902,7 @@ int ethtool_set_flow_control(int *fd, const char *ifname, int rx, int tx, int au
                 return 0;
 
         ecmd.cmd = ETHTOOL_SPAUSEPARAM;
-        r = ioctl(*fd, SIOCETHTOOL, &ifr);
-        if (r < 0)
+        if (ioctl(*fd, SIOCETHTOOL, &ifr) < 0)
                 return -errno;
 
         return 0;
@@ -976,8 +952,7 @@ int ethtool_set_nic_coalesce_settings(int *ethtool_fd, const char *ifname, const
 
         strscpy(ifr.ifr_name, sizeof(ifr.ifr_name), ifname);
 
-        r = ioctl(*ethtool_fd, SIOCETHTOOL, &ifr);
-        if (r < 0)
+        if (ioctl(*ethtool_fd, SIOCETHTOOL, &ifr) < 0)
                 return -errno;
 
         if (coalesce->use_adaptive_rx_coalesce >= 0)
@@ -1050,8 +1025,7 @@ int ethtool_set_nic_coalesce_settings(int *ethtool_fd, const char *ifname, const
                 return 0;
 
         ecmd.cmd = ETHTOOL_SCOALESCE;
-        r = ioctl(*ethtool_fd, SIOCETHTOOL, &ifr);
-        if (r < 0)
+        if (ioctl(*ethtool_fd, SIOCETHTOOL, &ifr) < 0)
                 return -errno;
 
         return 0;
