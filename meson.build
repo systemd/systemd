@@ -501,6 +501,8 @@ foreach ident : [
                                  #include <unistd.h>'''],
         ['pivot_root',        '''#include <stdlib.h>
                                  #include <unistd.h>'''],     # no known header declares pivot_root
+        ['ioprio_get',        '''#include <sched.h>'''],      # no known header declares ioprio_get
+        ['ioprio_set',        '''#include <sched.h>'''],      # no known header declares ioprio_set
         ['name_to_handle_at', '''#include <sys/types.h>
                                  #include <sys/stat.h>
                                  #include <fcntl.h>'''],
