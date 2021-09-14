@@ -7,12 +7,17 @@ set -o pipefail
 # Check if all symlinks under /dev/disk/ are valid
 # shellcheck disable=SC2120
 helper_check_device_symlinks() {
+    # Disable verbose logging only for this function (and reset the signal handler
+    # when leaving the function)
+    set +x; trap "trap - RETURN; set -x" RETURN
+
     local dev link paths target
 
     [[ $# -gt 0 ]] && paths=("$@") || paths=("/dev/disk")
 
     while read -r link; do
         target="$(readlink -f "$link")"
+        echo "$link -> $target"
         # Both checks should do virtually the same thing, but check both to be
         # on the safe side
         if [[ ! -e "$link" || ! -e "$target" ]]; then
