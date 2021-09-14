@@ -148,10 +148,10 @@ struct CGroupContext {
         uint64_t memory_max;
         uint64_t memory_swap_max;
 
-        bool default_memory_min_set;
-        bool default_memory_low_set;
-        bool memory_min_set;
-        bool memory_low_set;
+        bool default_memory_min_set:1;
+        bool default_memory_low_set:1;
+        bool memory_min_set:1;
+        bool memory_low_set:1;
 
         LIST_HEAD(IPAddressAccessItem, ip_address_allow);
         LIST_HEAD(IPAddressAccessItem, ip_address_deny);
