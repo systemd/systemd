@@ -461,7 +461,9 @@ const sd_bus_vtable bus_cgroup_vtable[] = {
         SD_BUS_PROPERTY("CPUQuotaPerSecUSec", "t", bus_property_get_usec, offsetof(CGroupContext, cpu_quota_per_sec_usec), 0),
         SD_BUS_PROPERTY("CPUQuotaPeriodUSec", "t", bus_property_get_usec, offsetof(CGroupContext, cpu_quota_period_usec), 0),
         SD_BUS_PROPERTY("AllowedCPUs", "ay", property_get_cpuset, offsetof(CGroupContext, cpuset_cpus), 0),
+        SD_BUS_PROPERTY("StartupAllowedCPUs", "ay", property_get_cpuset, offsetof(CGroupContext, startup_cpuset_cpus), 0),
         SD_BUS_PROPERTY("AllowedMemoryNodes", "ay", property_get_cpuset, offsetof(CGroupContext, cpuset_mems), 0),
+        SD_BUS_PROPERTY("StartupAllowedMemoryNodes", "ay", property_get_cpuset, offsetof(CGroupContext, startup_cpuset_mems), 0),
         SD_BUS_PROPERTY("IOAccounting", "b", bus_property_get_bool, offsetof(CGroupContext, io_accounting), 0),
         SD_BUS_PROPERTY("IOWeight", "t", NULL, offsetof(CGroupContext, io_weight), 0),
         SD_BUS_PROPERTY("StartupIOWeight", "t", NULL, offsetof(CGroupContext, startup_io_weight), 0),
@@ -1169,7 +1171,7 @@ int bus_cgroup_set_property(
 
                 return 1;
 
-        } else if (STR_IN_SET(name, "AllowedCPUs", "AllowedMemoryNodes")) {
+        } else if (STR_IN_SET(name, "AllowedCPUs", "StartupAllowedCPUs", "AllowedMemoryNodes", "StartupAllowedMemoryNodes")) {
                 const void *a;
                 size_t n;
                 _cleanup_(cpu_set_reset) CPUSet new_set = {};
@@ -1184,7 +1186,7 @@ int bus_cgroup_set_property(
 
                 if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
                         _cleanup_free_ char *setstr = NULL;
-                        CPUSet *set;
+                        CPUSet *set = NULL;
 
                         setstr = cpu_set_to_range_string(&new_set);
                         if (!setstr)
@@ -1192,8 +1194,14 @@ int bus_cgroup_set_property(
 
                         if (streq(name, "AllowedCPUs"))
                                 set = &c->cpuset_cpus;
-                        else
+                        else if (streq(name, "StartupAllowedCPUs"))
+                                set = &c->startup_cpuset_cpus;
+                        else if (streq(name, "AllowedMemoryNodes"))
                                 set = &c->cpuset_mems;
+                        else if (streq(name, "StartupAllowedMemoryNodes"))
+                                set = &c->startup_cpuset_mems;
+
+                        assert(set);
 
                         cpu_set_reset(set);
                         *set = new_set;

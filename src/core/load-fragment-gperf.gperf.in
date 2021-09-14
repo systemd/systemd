@@ -181,8 +181,10 @@
 
 {%- macro CGROUP_CONTEXT_CONFIG_ITEMS(type) -%}
 {{type}}.Slice,                            config_parse_unit_slice,                     0,                                  0
-{{type}}.AllowedCPUs,                      config_parse_allowed_cpus,                   0,                                  offsetof({{type}}, cgroup_context)
-{{type}}.AllowedMemoryNodes,               config_parse_allowed_mems,                   0,                                  offsetof({{type}}, cgroup_context)
+{{type}}.AllowedCPUs,                      config_parse_allowed_cpuset,                 0,                                  offsetof({{type}}, cgroup_context.cpuset_cpus)
+{{type}}.StartupAllowedCPUs,               config_parse_allowed_cpuset,                 0,                                  offsetof({{type}}, cgroup_context.startup_cpuset_cpus)
+{{type}}.AllowedMemoryNodes,               config_parse_allowed_cpuset,                 0,                                  offsetof({{type}}, cgroup_context.cpuset_mems)
+{{type}}.StartupAllowedMemoryNodes,        config_parse_allowed_cpuset,                 0,                                  offsetof({{type}}, cgroup_context.startup_cpuset_mems)
 {{type}}.CPUAccounting,                    config_parse_bool,                           0,                                  offsetof({{type}}, cgroup_context.cpu_accounting)
 {{type}}.CPUWeight,                        config_parse_cg_weight,                      0,                                  offsetof({{type}}, cgroup_context.cpu_weight)
 {{type}}.StartupCPUWeight,                 config_parse_cg_weight,                      0,                                  offsetof({{type}}, cgroup_context.startup_cpu_weight)
