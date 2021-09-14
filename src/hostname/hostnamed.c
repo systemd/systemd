@@ -189,7 +189,7 @@ static bool valid_deployment(const char *deployment) {
         return in_charset(deployment, VALID_DEPLOYMENT_CHARS);
 }
 
-static const char* fallback_chassis(void) {
+static char* fallback_chassis(void) {
         char *type;
         unsigned t;
         int v, r;
@@ -198,9 +198,9 @@ static const char* fallback_chassis(void) {
         if (v < 0)
                 log_debug_errno(v, "Failed to detect virtualization, ignoring: %m");
         else if (VIRTUALIZATION_IS_VM(v))
-                return "vm";
+                return strdup("vm");
         else if (VIRTUALIZATION_IS_CONTAINER(v))
-                return "container";
+                return strdup("container");
 
         r = read_one_line_file("/sys/class/dmi/id/chassis_type", &type);
         if (r < 0) {
@@ -230,28 +230,28 @@ static const char* fallback_chassis(void) {
         case 0x6: /* Mini Tower */
         case 0x7: /* Tower */
         case 0xD: /* All in one (i.e. PC built into monitor) */
-                return "desktop";
+                return strdup("desktop");
 
         case 0x8: /* Portable */
         case 0x9: /* Laptop */
         case 0xA: /* Notebook */
         case 0xE: /* Sub Notebook */
-                return "laptop";
+                return strdup("laptop");
 
         case 0xB: /* Hand Held */
-                return "handset";
+                return strdup("handset");
 
         case 0x11: /* Main Server Chassis */
         case 0x1C: /* Blade */
         case 0x1D: /* Blade Enclosure */
-                return "server";
+                return strdup("server");
 
         case 0x1E: /* Tablet */
-                return "tablet";
+                return strdup("tablet");
 
         case 0x1F: /* Convertible */
         case 0x20: /* Detachable */
-                return "convertible";
+                return strdup("convertible");
 
         default:
                 log_debug("Unhandled DMI chassis type 0x%02x, ignoring.", t);
@@ -261,14 +261,14 @@ try_acpi:
         r = read_one_line_file("/sys/firmware/acpi/pm_profile", &type);
         if (r < 0) {
                 log_debug_errno(r, "Failed read ACPI PM profile, ignoring: %m");
-                return NULL;
+                goto try_devicetree;
         }
 
         r = safe_atou(type, &t);
         free(type);
         if (r < 0) {
                 log_debug_errno(r, "Failed parse ACPI PM profile, ignoring: %m");
-                return NULL;
+                goto try_devicetree;
         }
 
         /* We only list the really obvious cases here as the ACPI data is not really super reliable.
@@ -283,28 +283,42 @@ try_acpi:
         case 1: /* Desktop */
         case 3: /* Workstation */
         case 6: /* Appliance PC */
-                return "desktop";
+                return strdup("desktop");
 
         case 2: /* Mobile */
-                return "laptop";
+                return strdup("laptop");
 
         case 4: /* Enterprise Server */
         case 5: /* SOHO Server */
         case 7: /* Performance Server */
-                return "server";
+                return strdup("server");
 
         case 8: /* Tablet */
-                return "tablet";
+                return strdup("tablet");
 
         default:
                 log_debug("Unhandled ACPI PM profile 0x%02x, ignoring.", t);
+        }
+
+try_devicetree:
+        r = read_one_line_file("/sys/firmware/devicetree/base/chassis-type", &type);
+        if (r < 0) {
+                log_debug_errno(r, "Failed read device-tree chassis type, ignoring: %m");
+                return NULL;
+        }
+
+        if (valid_chassis(type)) {
+                return type;
+        } else {
+                log_debug("Invalid device-tree chassis type '%s', ignoring.", type);
+                free(type);
         }
 
         return NULL;
 }
 
 static char* context_fallback_icon_name(Context *c) {
-        const char *chassis;
+        _cleanup_free_ char *chassis = NULL;
 
         assert(c);
 
@@ -709,13 +723,14 @@ static int property_get_chassis(
                 void *userdata,
                 sd_bus_error *error) {
 
+        _cleanup_free_ char *n = NULL;
         Context *c = userdata;
         const char *name;
 
         context_read_machine_info(c);
 
         if (isempty(c->data[PROP_CHASSIS]))
-                name = fallback_chassis();
+                name = n = fallback_chassis();
         else
                 name = c->data[PROP_CHASSIS];
 
