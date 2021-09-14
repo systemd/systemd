@@ -44,25 +44,19 @@ char *sysctl_normalize(char *s) {
 
 int sysctl_write(const char *property, const char *value) {
         char *p;
-        _cleanup_close_ int fd = -1;
 
         assert(property);
         assert(value);
 
-        log_debug("Setting '%s' to '%.*s'.", property, (int) strcspn(value, NEWLINE), value);
-
         p = strjoina("/proc/sys/", property);
-        fd = open(p, O_WRONLY|O_CLOEXEC);
-        if (fd < 0)
-                return -errno;
 
-        if (!endswith(value, "\n"))
-                value = strjoina(value, "\n");
+        path_simplify(p);
+        if (!path_is_normalized(p))
+                return -EINVAL;
 
-        if (write(fd, value, strlen(value)) < 0)
-                return -errno;
+        log_debug("Setting '%s' to '%s'", p, value);
 
-        return 0;
+        return write_string_file(p, value, WRITE_STRING_FILE_VERIFY_ON_FAILURE | WRITE_STRING_FILE_DISABLE_BUFFER);
 }
 
 int sysctl_writef(const char *property, const char *format, ...) {
