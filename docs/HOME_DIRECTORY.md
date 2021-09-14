@@ -2,6 +2,7 @@
 title: Home Directories
 category: Users, Groups and Home Directories
 layout: default
+SPDX-License-Identifier: LGPL-2.1-or-later
 ---
 
 # Home Directories
