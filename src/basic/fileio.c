@@ -431,6 +431,12 @@ int read_virtual_file(const char *filename, size_t max_size, char **ret_contents
                         }
 
                         n_retries--;
+                } else if (n_retries > 1) {
+                        /* Files in /proc are generally smaller than the page size so let's start with a page size
+                         * buffer from malloc (if it's smaller than the max) and only use the max buffer on the
+                         * final try. */
+                        size = MIN3(page_size() - 1, READ_VIRTUAL_BYTES_MAX, max_size);
+                        n_retries = size < page_size() - 1 ? 0 : 1;
                 } else {
                         size = MIN(READ_VIRTUAL_BYTES_MAX, max_size);
                         n_retries = 0;
