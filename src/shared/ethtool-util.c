@@ -214,7 +214,7 @@ int ethtool_get_driver(int *ethtool_fd, const char *ifname, char **ret) {
         if (r < 0)
                 return r;
 
-        strscpy(ifr.ifr_name, IFNAMSIZ, ifname);
+        strscpy(ifr.ifr_name, sizeof(ifr.ifr_name), ifname);
 
         r = ioctl(*ethtool_fd, SIOCETHTOOL, &ifr);
         if (r < 0)
@@ -254,7 +254,7 @@ int ethtool_get_link_info(
         if (r < 0)
                 return r;
 
-        strscpy(ifr.ifr_name, IFNAMSIZ, ifname);
+        strscpy(ifr.ifr_name, sizeof(ifr.ifr_name), ifname);
 
         r = ioctl(*ethtool_fd, SIOCETHTOOL, &ifr);
         if (r < 0)
@@ -303,7 +303,7 @@ int ethtool_get_permanent_macaddr(int *ethtool_fd, const char *ifname, struct et
         if (r < 0)
                 return r;
 
-        strscpy(ifr.ifr_name, IFNAMSIZ, ifname);
+        strscpy(ifr.ifr_name, sizeof(ifr.ifr_name), ifname);
 
         r = ioctl(*ethtool_fd, SIOCETHTOOL, &ifr);
         if (r < 0)
@@ -362,7 +362,7 @@ int ethtool_set_wol(int *ethtool_fd, const char *ifname, uint32_t wolopts) {
         if (r < 0)
                 return r;
 
-        strscpy(ifr.ifr_name, IFNAMSIZ, ifname);
+        strscpy(ifr.ifr_name, sizeof(ifr.ifr_name), ifname);
 
         r = ioctl(*ethtool_fd, SIOCETHTOOL, &ifr);
         if (r < 0)
@@ -405,7 +405,7 @@ int ethtool_set_nic_buffer_size(int *ethtool_fd, const char *ifname, const netde
         if (r < 0)
                 return r;
 
-        strscpy(ifr.ifr_name, IFNAMSIZ, ifname);
+        strscpy(ifr.ifr_name, sizeof(ifr.ifr_name), ifname);
 
         r = ioctl(*ethtool_fd, SIOCETHTOOL, &ifr);
         if (r < 0)
@@ -538,7 +538,7 @@ int ethtool_set_features(int *ethtool_fd, const char *ifname, const int features
         if (r < 0)
                 return r;
 
-        strscpy(ifr.ifr_name, IFNAMSIZ, ifname);
+        strscpy(ifr.ifr_name, sizeof(ifr.ifr_name), ifname);
 
         r = get_stringset(*ethtool_fd, &ifr, ETH_SS_FEATURES, &strings);
         if (r < 0)
@@ -787,7 +787,7 @@ int ethtool_set_glinksettings(
         if (r < 0)
                 return r;
 
-        strscpy(ifr.ifr_name, IFNAMSIZ, ifname);
+        strscpy(ifr.ifr_name, sizeof(ifr.ifr_name), ifname);
 
         r = get_glinksettings(*fd, &ifr, &u);
         if (r < 0) {
@@ -857,7 +857,7 @@ int ethtool_set_channels(int *fd, const char *ifname, const netdev_channels *cha
         if (r < 0)
                 return r;
 
-        strscpy(ifr.ifr_name, IFNAMSIZ, ifname);
+        strscpy(ifr.ifr_name, sizeof(ifr.ifr_name), ifname);
 
         r = ioctl(*fd, SIOCETHTOOL, &ifr);
         if (r < 0)
@@ -906,7 +906,7 @@ int ethtool_set_flow_control(int *fd, const char *ifname, int rx, int tx, int au
         if (r < 0)
                 return r;
 
-        strscpy(ifr.ifr_name, IFNAMSIZ, ifname);
+        strscpy(ifr.ifr_name, sizeof(ifr.ifr_name), ifname);
 
         r = ioctl(*fd, SIOCETHTOOL, &ifr);
         if (r < 0)
@@ -974,7 +974,7 @@ int ethtool_set_nic_coalesce_settings(int *ethtool_fd, const char *ifname, const
         if (r < 0)
                 return r;
 
-        strscpy(ifr.ifr_name, IFNAMSIZ, ifname);
+        strscpy(ifr.ifr_name, sizeof(ifr.ifr_name), ifname);
 
         r = ioctl(*ethtool_fd, SIOCETHTOOL, &ifr);
         if (r < 0)
