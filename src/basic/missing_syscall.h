@@ -41,6 +41,26 @@ static inline int missing_pivot_root(const char *new_root, const char *put_old) 
 
 /* ======================================================================= */
 
+#if !HAVE_PIVOT_ROOT
+static inline int missing_ioprio_get(int which, int who) {
+        return syscall(__NR_ioprio_get, which, who);
+}
+
+#  define ioprio_get missing_ioprio_get
+#endif
+
+/* ======================================================================= */
+
+#if !HAVE_PIVOT_ROOT
+static inline int missing_ioprio_set(int which, int who, int ioprio) {
+        return syscall(__NR_ioprio_get, which, who, ioprio);
+}
+
+#  define ioprio_set missing_ioprio_set
+#endif
+
+/* ======================================================================= */
+
 #if !HAVE_MEMFD_CREATE
 static inline int missing_memfd_create(const char *name, unsigned int flags) {
 #  ifdef __NR_memfd_create
