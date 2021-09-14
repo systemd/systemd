@@ -1,7 +1,9 @@
 slice
 [Slice]
 AllowedCPUs=
+StartupAllowedCPUs=
 AllowedMemoryNodes=
+StartupAllowedMemoryNodes=
 BPFProgram=
 BlockIOAccounting=
 BlockIODeviceWeight=
