@@ -39,12 +39,12 @@
 #include "fs-util.h"
 #include "hexdecoct.h"
 #include "io-util.h"
-#include "ioprio.h"
 #include "ip-protocol-list.h"
 #include "journal-file.h"
 #include "limits-util.h"
 #include "load-fragment.h"
 #include "log.h"
+#include "missing_ioprio.h"
 #include "mountpoint-util.h"
 #include "nulstr-util.h"
 #include "parse-socket-bind-item.h"
@@ -1266,7 +1266,7 @@ int config_parse_exec_io_class(const char *unit,
 
         if (isempty(rvalue)) {
                 c->ioprio_set = false;
-                c->ioprio = IOPRIO_PRIO_VALUE(IOPRIO_CLASS_BE, 0);
+                c->ioprio = ioprio_prio_value(IOPRIO_CLASS_BE, 0);
                 return 0;
         }
 
@@ -1276,7 +1276,7 @@ int config_parse_exec_io_class(const char *unit,
                 return 0;
         }
 
-        c->ioprio = IOPRIO_PRIO_VALUE(x, IOPRIO_PRIO_DATA(c->ioprio));
+        c->ioprio = ioprio_prio_value(x, ioprio_prio_data(c->ioprio));
         c->ioprio_set = true;
 
         return 0;
@@ -1303,7 +1303,7 @@ int config_parse_exec_io_priority(const char *unit,
 
         if (isempty(rvalue)) {
                 c->ioprio_set = false;
-                c->ioprio = IOPRIO_PRIO_VALUE(IOPRIO_CLASS_BE, 0);
+                c->ioprio = ioprio_prio_value(IOPRIO_CLASS_BE, 0);
                 return 0;
         }
 
@@ -1313,7 +1313,7 @@ int config_parse_exec_io_priority(const char *unit,
                 return 0;
         }
 
-        c->ioprio = IOPRIO_PRIO_VALUE(IOPRIO_PRIO_CLASS(c->ioprio), i);
+        c->ioprio = ioprio_prio_value(ioprio_prio_class(c->ioprio), i);
         c->ioprio_set = true;
 
         return 0;
