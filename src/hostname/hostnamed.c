@@ -166,10 +166,10 @@ static void context_read_os_release(Context *c) {
         c->etc_os_release_stat = current_stat;
 }
 
-static bool valid_chassis(const char *chassis) {
+static const char* valid_chassis(const char *chassis) {
         assert(chassis);
 
-        return nulstr_contains(
+        return nulstr_get(
                         "vm\0"
                         "container\0"
                         "desktop\0"
@@ -190,6 +190,7 @@ static bool valid_deployment(const char *deployment) {
 }
 
 static const char* fallback_chassis(void) {
+        const char *chassis;
         char *type;
         unsigned t;
         int v, r;
@@ -261,14 +262,14 @@ try_acpi:
         r = read_one_line_file("/sys/firmware/acpi/pm_profile", &type);
         if (r < 0) {
                 log_debug_errno(r, "Failed read ACPI PM profile, ignoring: %m");
-                return NULL;
+                goto try_devicetree;
         }
 
         r = safe_atou(type, &t);
         free(type);
         if (r < 0) {
                 log_debug_errno(r, "Failed parse ACPI PM profile, ignoring: %m");
-                return NULL;
+                goto try_devicetree;
         }
 
         /* We only list the really obvious cases here as the ACPI data is not really super reliable.
@@ -300,7 +301,24 @@ try_acpi:
                 log_debug("Unhandled ACPI PM profile 0x%02x, ignoring.", t);
         }
 
-        return NULL;
+try_devicetree:
+        r = read_one_line_file("/sys/firmware/devicetree/base/chassis-type", &type);
+        if (r < 0) {
+                log_debug_errno(r, "Failed to read device-tree chassis type, ignoring: %m");
+                return NULL;
+        }
+
+        /* Note that the Devicetree specification uses the very same vocabulary
+         * of chassis types as we do, hence we do not need to translate these types:
+         *
+         * https://github.com/devicetree-org/devicetree-specification/blob/master/source/chapter3-devicenodes.rst */
+        chassis = valid_chassis(type);
+        if (!chassis)
+                log_debug("Invalid device-tree chassis type '%s', ignoring.", type);
+
+        free(type);
+
+        return chassis;
 }
 
 static char* context_fallback_icon_name(Context *c) {
