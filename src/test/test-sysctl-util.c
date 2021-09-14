@@ -4,7 +4,7 @@
 #include "sysctl-util.h"
 #include "tests.h"
 
-static const char* cases[] = {
+static const char* const cases[] = {
         "a.b.c", "a/b/c",
         "a/b/c", "a/b/c",
         "a/b.c/d", "a/b.c/d",
@@ -24,7 +24,7 @@ static void test_sysctl_normalize(void) {
         log_info("/* %s */", __func__);
 
         const char **s, **expected;
-        STRV_FOREACH_PAIR(s, expected, cases) {
+        STRV_FOREACH_PAIR(s, expected, (const char**) cases) {
                 _cleanup_free_ char *t;
 
                 assert_se(t = strdup(*s));
