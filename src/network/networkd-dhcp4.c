@@ -135,6 +135,26 @@ static int dhcp4_after_route_configure(Request *req, void *object) {
         return 0;
 }
 
+static int dhcp4_retry(Link *link) {
+        int r;
+
+        assert(link);
+
+        r = dhcp4_remove_all(link);
+        if (r < 0)
+                return r;
+
+        r = link_request_static_nexthops(link, true);
+        if (r < 0)
+                return r;
+
+        r = link_request_static_routes(link, true);
+        if (r < 0)
+                return r;
+
+        return dhcp4_request_address_and_routes(link, false);
+}
+
 static int dhcp4_route_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
         int r;
 
@@ -165,19 +185,7 @@ static int dhcp4_route_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *li
                 link->dhcp4_route_failed = false;
                 link->dhcp4_route_retrying = true;
 
-                r = dhcp4_remove_all(link);
-                if (r < 0)
-                        link_enter_failed(link);
-
-                r = link_request_static_nexthops(link, true);
-                if (r < 0)
-                        link_enter_failed(link);
-
-                r = link_request_static_routes(link, true);
-                if (r < 0)
-                        link_enter_failed(link);
-
-                r = dhcp4_request_address_and_routes(link, false);
+                r = dhcp4_retry(link);
                 if (r < 0)
                         link_enter_failed(link);
 
@@ -196,6 +204,16 @@ static int dhcp4_request_route(Route *in, Link *link) {
 
         assert(route);
         assert(link);
+
+        route->family = AF_INET;
+        if (!route->protocol_set)
+                route->protocol = RTPROT_DHCP;
+        if (!route->priority_set)
+                route->priority = link->network->dhcp_route_metric;
+        if (!route->table_set)
+                route->table = link_get_dhcp4_route_table(link);
+        if (route->mtu == 0)
+                route->mtu = link->network->dhcp_route_mtu;
 
         r = link_has_route(link, route);
         if (r < 0)
@@ -243,14 +261,10 @@ static int dhcp4_request_prefix_route(Link *link) {
         if (r < 0)
                 return r;
 
-        route->family = AF_INET;
         route->dst.in.s_addr = address.s_addr & netmask.s_addr;
         route->dst_prefixlen = in4_addr_netmask_to_prefixlen(&netmask);
         route->prefsrc.in = address;
         route->scope = RT_SCOPE_LINK;
-        route->protocol = RTPROT_DHCP;
-        route->table = link_get_dhcp_route_table(link);
-        route->mtu = link->network->dhcp_route_mtu;
 
         return dhcp4_request_route(TAKE_PTR(route), link);
 }
@@ -272,15 +286,10 @@ static int dhcp4_request_route_to_gateway(Link *link, const struct in_addr *gw) 
         if (r < 0)
                 return r;
 
-        route->family = AF_INET;
         route->dst.in = *gw;
         route->dst_prefixlen = 32;
         route->prefsrc.in = address;
         route->scope = RT_SCOPE_LINK;
-        route->protocol = RTPROT_DHCP;
-        route->priority = link->network->dhcp_route_metric;
-        route->table = link_get_dhcp_route_table(link);
-        route->mtu = link->network->dhcp_route_mtu;
 
         return dhcp4_request_route(TAKE_PTR(route), link);
 }
@@ -454,12 +463,7 @@ static int dhcp4_request_static_routes(Link *link, struct in_addr *ret_default_g
                 if (r < 0)
                         return r;
 
-                route->family = AF_INET;
                 route->gw_family = AF_INET;
-                route->protocol = RTPROT_DHCP;
-                route->priority = link->network->dhcp_route_metric;
-                route->table = link_get_dhcp_route_table(link);
-                route->mtu = link->network->dhcp_route_mtu;
 
                 r = sd_dhcp_route_get_gateway(static_routes[i], &gw);
                 if (r < 0)
@@ -537,14 +541,9 @@ static int dhcp4_request_gateway(Link *link, struct in_addr *gw) {
                 return r;
 
         /* Next, add a default gateway. */
-        route->family = AF_INET;
         route->gw_family = AF_INET;
         route->gw.in = router[0];
         route->prefsrc.in = address;
-        route->protocol = RTPROT_DHCP;
-        route->priority = link->network->dhcp_route_metric;
-        route->table = link_get_dhcp_route_table(link);
-        route->mtu = link->network->dhcp_route_mtu;
 
         r = dhcp4_request_route(TAKE_PTR(route), link);
         if (r < 0)
@@ -586,14 +585,6 @@ static int dhcp4_request_semi_static_routes(Link *link, const struct in_addr *gw
                         return r;
 
                 route->gw.in = *gw;
-                if (!route->protocol_set)
-                        route->protocol = RTPROT_DHCP;
-                if (!route->priority_set)
-                        route->priority = link->network->dhcp_route_metric;
-                if (!route->table_set)
-                        route->table = link_get_dhcp_route_table(link);
-                if (route->mtu == 0)
-                        route->mtu = link->network->dhcp_route_mtu;
 
                 r = dhcp4_request_route(TAKE_PTR(route), link);
                 if (r < 0)
@@ -627,13 +618,8 @@ static int dhcp4_request_routes_to_servers(
                 if (r < 0)
                         return r;
 
-                route->family = AF_INET;
                 route->dst.in = servers[i];
                 route->dst_prefixlen = 32;
-                route->protocol = RTPROT_DHCP;
-                route->priority = link->network->dhcp_route_metric;
-                route->table = link_get_dhcp_route_table(link);
-                route->mtu = link->network->dhcp_route_mtu;
 
                 r = dhcp4_request_route_auto(TAKE_PTR(route), link, gw);
                 if (r < 0)
@@ -923,7 +909,7 @@ static int dhcp4_address_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *
 static int dhcp4_request_address(Link *link, bool announce) {
         _cleanup_(address_freep) Address *addr = NULL;
         uint32_t lifetime = CACHE_INFO_INFINITY_LIFE_TIME;
-        struct in_addr address, netmask;
+        struct in_addr address, netmask, server;
         unsigned prefixlen;
         Request *req;
         int r;
@@ -941,6 +927,10 @@ static int dhcp4_request_address(Link *link, bool announce) {
         r = sd_dhcp_lease_get_netmask(link->dhcp_lease, &netmask);
         if (r < 0)
                 return log_link_warning_errno(link, r, "DHCP error: no netmask: %m");
+
+        r = sd_dhcp_lease_get_server_identifier(link->dhcp_lease, &server);
+        if (r < 0)
+                return log_link_debug_errno(link, r, "DHCP error: failed to get DHCP server IP address: %m");
 
         if (!FLAGS_SET(link->network->keep_configuration, KEEP_CONFIGURATION_DHCP)) {
                 r = sd_dhcp_lease_get_lifetime(link->dhcp_lease, &lifetime);
@@ -960,19 +950,21 @@ static int dhcp4_request_address(Link *link, bool announce) {
                 if (r > 0 && in4_addr_is_set(&router[0]))
                         log_struct(LOG_INFO,
                                    LOG_LINK_INTERFACE(link),
-                                   LOG_LINK_MESSAGE(link, "DHCPv4 address "IPV4_ADDRESS_FMT_STR"/%u via "IPV4_ADDRESS_FMT_STR,
+                                   LOG_LINK_MESSAGE(link, "DHCPv4 address "IPV4_ADDRESS_FMT_STR"/%u, gateway "IPV4_ADDRESS_FMT_STR" acquired from "IPV4_ADDRESS_FMT_STR,
                                                     IPV4_ADDRESS_FMT_VAL(address),
                                                     prefixlen,
-                                                    IPV4_ADDRESS_FMT_VAL(router[0])),
+                                                    IPV4_ADDRESS_FMT_VAL(router[0]),
+                                                    IPV4_ADDRESS_FMT_VAL(server)),
                                    "ADDRESS="IPV4_ADDRESS_FMT_STR, IPV4_ADDRESS_FMT_VAL(address),
                                    "PREFIXLEN=%u", prefixlen,
                                    "GATEWAY="IPV4_ADDRESS_FMT_STR, IPV4_ADDRESS_FMT_VAL(router[0]));
                 else
                         log_struct(LOG_INFO,
                                    LOG_LINK_INTERFACE(link),
-                                   LOG_LINK_MESSAGE(link, "DHCPv4 address "IPV4_ADDRESS_FMT_STR"/%u",
+                                   LOG_LINK_MESSAGE(link, "DHCPv4 address "IPV4_ADDRESS_FMT_STR"/%u acquired from "IPV4_ADDRESS_FMT_STR,
                                                     IPV4_ADDRESS_FMT_VAL(address),
-                                                    prefixlen),
+                                                    prefixlen,
+                                                    IPV4_ADDRESS_FMT_VAL(server)),
                                    "ADDRESS="IPV4_ADDRESS_FMT_STR, IPV4_ADDRESS_FMT_VAL(address),
                                    "PREFIXLEN=%u", prefixlen);
         }
@@ -992,11 +984,9 @@ static int dhcp4_request_address(Link *link, bool announce) {
         addr->route_metric = link->network->dhcp_route_metric;
         addr->duplicate_address_detection = link->network->dhcp_send_decline ? ADDRESS_FAMILY_IPV4 : ADDRESS_FAMILY_NO;
 
-        if (link->network->dhcp_label) {
-                addr->label = strdup(link->network->dhcp_label);
-                if (!addr->label)
-                        return log_oom();
-        }
+        r = free_and_strdup_warn(&addr->label, link->network->dhcp_label);
+        if (r < 0)
+                return r;
 
         if (address_get(link, addr, NULL) < 0)
                 link->dhcp4_configured = false;
