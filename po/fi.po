@@ -7,7 +7,7 @@ msgstr ""
 "Project-Id-Version: systemd\n"
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2021-01-08 17:48+0100\n"
-"PO-Revision-Date: 2021-09-09 03:04+0000\n"
+"PO-Revision-Date: 2021-09-14 19:04+0000\n"
 "Last-Translator: Jan Kuparinen <copper_fin@hotmail.com>\n"
 "Language-Team: Finnish <https://translate.fedoraproject.org/projects/systemd/"
 "master/fi/>\n"
@@ -616,299 +616,322 @@ msgstr "Paikalliseen koneen komentotulkin saamiseen vaaditaan todennus."
 
 #: src/machine/org.freedesktop.machine1.policy:64
 msgid "Acquire a pseudo TTY in a local container"
-msgstr ""
+msgstr "Hanki pseudo TTY paikallisesta kontista"
 
 #: src/machine/org.freedesktop.machine1.policy:65
 msgid ""
 "Authentication is required to acquire a pseudo TTY in a local container."
-msgstr ""
+msgstr "Paikallisen kontin pseudo TTY:n saaminen vaatii todentamisen."
 
 #: src/machine/org.freedesktop.machine1.policy:74
 msgid "Acquire a pseudo TTY on the local host"
-msgstr ""
+msgstr "Hanki pseudo TTY paikallisesta koneesta"
 
 #: src/machine/org.freedesktop.machine1.policy:75
 msgid "Authentication is required to acquire a pseudo TTY on the local host."
-msgstr ""
+msgstr "Paikalliseen koneen pseudo TTY:n saamiseen vaaditaan todennus."
 
 #: src/machine/org.freedesktop.machine1.policy:84
 msgid "Manage local virtual machines and containers"
-msgstr ""
+msgstr "Hallitse paikallisia virtuaalikoneita ja kontteja"
 
 #: src/machine/org.freedesktop.machine1.policy:85
 msgid ""
 "Authentication is required to manage local virtual machines and containers."
 msgstr ""
+"Todennus vaaditaan paikallisten virtuaalikoneiden ja konttien hallintaan."
 
 #: src/machine/org.freedesktop.machine1.policy:95
 msgid "Manage local virtual machine and container images"
-msgstr ""
+msgstr "Hallitse paikallisia virtuaalikoneita ja konttilevykuvia"
 
 #: src/machine/org.freedesktop.machine1.policy:96
 msgid ""
 "Authentication is required to manage local virtual machine and container "
 "images."
 msgstr ""
+"Todennus vaaditaan paikallisten virtuaalikoneiden ja konttilevykuvien "
+"hallintaan."
 
 #: src/network/org.freedesktop.network1.policy:22
 msgid "Set NTP servers"
-msgstr ""
+msgstr "Aseta NTP-palvelimet"
 
 #: src/network/org.freedesktop.network1.policy:23
 msgid "Authentication is required to set NTP servers."
-msgstr ""
+msgstr "Todennus vaaditaan NTP-palvelimien asettamiseen."
 
 #: src/network/org.freedesktop.network1.policy:33
 #: src/resolve/org.freedesktop.resolve1.policy:44
 msgid "Set DNS servers"
-msgstr ""
+msgstr "Aseta DNS-palvelimet"
 
 #: src/network/org.freedesktop.network1.policy:34
 #: src/resolve/org.freedesktop.resolve1.policy:45
 msgid "Authentication is required to set DNS servers."
-msgstr ""
+msgstr "Todennus vaaditaan DNS-palvelimien asettamiseen."
 
 #: src/network/org.freedesktop.network1.policy:44
 #: src/resolve/org.freedesktop.resolve1.policy:55
 msgid "Set domains"
-msgstr ""
+msgstr "Aseta toimialueet"
 
 #: src/network/org.freedesktop.network1.policy:45
 #: src/resolve/org.freedesktop.resolve1.policy:56
 msgid "Authentication is required to set domains."
-msgstr ""
+msgstr "Todennus vaaditaan toimialueiden asettamiseen."
 
 #: src/network/org.freedesktop.network1.policy:55
 #: src/resolve/org.freedesktop.resolve1.policy:66
 msgid "Set default route"
-msgstr ""
+msgstr "Aseta oletusreitti"
 
 #: src/network/org.freedesktop.network1.policy:56
 #: src/resolve/org.freedesktop.resolve1.policy:67
 msgid "Authentication is required to set default route."
-msgstr ""
+msgstr "Todennus vaaditaan oletusreitin asettamiseksi."
 
 #: src/network/org.freedesktop.network1.policy:66
 #: src/resolve/org.freedesktop.resolve1.policy:77
 msgid "Enable/disable LLMNR"
-msgstr ""
+msgstr "Ota LLMNR käyttöön tai poista se käytöstä"
 
 #: src/network/org.freedesktop.network1.policy:67
 #: src/resolve/org.freedesktop.resolve1.policy:78
 msgid "Authentication is required to enable or disable LLMNR."
 msgstr ""
+"Todennus vaaditaan LLMNR:n ottamiseksi käyttöön tai poistamiseksi käytöstä."
 
 #: src/network/org.freedesktop.network1.policy:77
 #: src/resolve/org.freedesktop.resolve1.policy:88
 msgid "Enable/disable multicast DNS"
-msgstr ""
+msgstr "Ota monilähetyksen DNS käyttöön tai poista se käytöstä"
 
 #: src/network/org.freedesktop.network1.policy:78
 #: src/resolve/org.freedesktop.resolve1.policy:89
 msgid "Authentication is required to enable or disable multicast DNS."
 msgstr ""
+"Todennus vaaditaan, jotta monilähetys-DNS voidaan ottaa käyttöön tai poistaa "
+"käytöstä."
 
 #: src/network/org.freedesktop.network1.policy:88
 #: src/resolve/org.freedesktop.resolve1.policy:99
 msgid "Enable/disable DNS over TLS"
-msgstr ""
+msgstr "Ota käyttöön/poista käytöstä DNS TLS:n kautta"
 
 #: src/network/org.freedesktop.network1.policy:89
 #: src/resolve/org.freedesktop.resolve1.policy:100
 msgid "Authentication is required to enable or disable DNS over TLS."
 msgstr ""
+"Todennus vaaditaan DNS:n käyttöön ottamiseksi tai poistamiseksi käytöstä TLS:"
+"n kautta."
 
 #: src/network/org.freedesktop.network1.policy:99
 #: src/resolve/org.freedesktop.resolve1.policy:110
 msgid "Enable/disable DNSSEC"
-msgstr ""
+msgstr "Ota DNSSEC käyttöön tai poista se käytöstä"
 
 #: src/network/org.freedesktop.network1.policy:100
 #: src/resolve/org.freedesktop.resolve1.policy:111
 msgid "Authentication is required to enable or disable DNSSEC."
 msgstr ""
+"Todennus vaaditaan, jotta DNSSEC voidaan ottaa käyttöön tai poistaa käytöstä."
 
 #: src/network/org.freedesktop.network1.policy:110
 #: src/resolve/org.freedesktop.resolve1.policy:121
 msgid "Set DNSSEC Negative Trust Anchors"
-msgstr ""
+msgstr "Aseta DNSSEC-negatiiviset luottamusankkurit"
 
 #: src/network/org.freedesktop.network1.policy:111
 #: src/resolve/org.freedesktop.resolve1.policy:122
 msgid "Authentication is required to set DNSSEC Negative Trust Anchors."
 msgstr ""
+"Todennus vaaditaan DNSSEC-negatiivisten luottamusankkureiden asettamiseksi."
 
 #: src/network/org.freedesktop.network1.policy:121
 msgid "Revert NTP settings"
-msgstr ""
+msgstr "Palauta aiemmat NTP-asetukset"
 
 #: src/network/org.freedesktop.network1.policy:122
 msgid "Authentication is required to reset NTP settings."
-msgstr ""
+msgstr "Todennus vaaditaan aiempien NTP-asetusten palauttamiseksi."
 
 #: src/network/org.freedesktop.network1.policy:132
 msgid "Revert DNS settings"
-msgstr ""
+msgstr "Palauta aiemmat DNS-asetukset"
 
 #: src/network/org.freedesktop.network1.policy:133
 msgid "Authentication is required to reset DNS settings."
-msgstr ""
+msgstr "Todennus vaaditaan aiempien DNS-asetusten palauttamiseksi."
 
 #: src/network/org.freedesktop.network1.policy:143
 msgid "DHCP server sends force renew message"
-msgstr ""
+msgstr "DHCP-palvelin lähettää pakota uusiminen-viestin"
 
 #: src/network/org.freedesktop.network1.policy:144
 msgid "Authentication is required to send force renew message."
-msgstr ""
+msgstr "Todennus vaaditaan pakota uusiminen-viestin lähettämiseksi."
 
 #: src/network/org.freedesktop.network1.policy:154
 msgid "Renew dynamic addresses"
-msgstr ""
+msgstr "Uusi dynaamiset osoitteet"
 
 #: src/network/org.freedesktop.network1.policy:155
 msgid "Authentication is required to renew dynamic addresses."
-msgstr ""
+msgstr "Todennus vaaditaan dynaamisten osoitteiden uusimiseksi."
 
 #: src/network/org.freedesktop.network1.policy:165
 msgid "Reload network settings"
-msgstr ""
+msgstr "Lataa verkkoasetukset uudelleen"
 
 #: src/network/org.freedesktop.network1.policy:166
 msgid "Authentication is required to reload network settings."
-msgstr ""
+msgstr "Todennus vaaditaan verkkoasetusten lataamiseksi uudelleen."
 
 #: src/network/org.freedesktop.network1.policy:176
 msgid "Reconfigure network interface"
-msgstr ""
+msgstr "Määritä verkkokäyttöliittymä uudelleen"
 
 #: src/network/org.freedesktop.network1.policy:177
 msgid "Authentication is required to reconfigure network interface."
-msgstr ""
+msgstr "Todennus vaaditaan verkkokäyttöliittymän määrittämiseksi uudelleen."
 
 #: src/portable/org.freedesktop.portable1.policy:13
 msgid "Inspect a portable service image"
-msgstr ""
+msgstr "Tarkista kannettava palvelulevykuva"
 
 #: src/portable/org.freedesktop.portable1.policy:14
 msgid "Authentication is required to inspect a portable service image."
-msgstr ""
+msgstr "Todennus vaaditaan kannettavan palvelulevykuvan tarkistamiseksi."
 
 #: src/portable/org.freedesktop.portable1.policy:23
 msgid "Attach or detach a portable service image"
-msgstr ""
+msgstr "Liitä tai irrota kannettava palvelulevykuva"
 
 #: src/portable/org.freedesktop.portable1.policy:24
 msgid ""
 "Authentication is required to attach or detach a portable service image."
 msgstr ""
+"Todennus vaaditaan kannettavan palvelulevykuvan liittämiseen tai "
+"irrottamiseen."
 
 #: src/portable/org.freedesktop.portable1.policy:34
 msgid "Delete or modify portable service image"
-msgstr ""
+msgstr "Poista tai muokkaa kannettavaa palvelulevykuvaa"
 
 #: src/portable/org.freedesktop.portable1.policy:35
 msgid ""
 "Authentication is required to delete or modify a portable service image."
 msgstr ""
+"Todennus vaaditaan, jos haluat poistaa tai muokata kannettavaa "
+"palvelulevykuvaa."
 
 #: src/resolve/org.freedesktop.resolve1.policy:22
 msgid "Register a DNS-SD service"
-msgstr ""
+msgstr "Rekisteröi DNS-SD-palvelu"
 
 #: src/resolve/org.freedesktop.resolve1.policy:23
 msgid "Authentication is required to register a DNS-SD service"
-msgstr ""
+msgstr "Todennus vaaditaan DNS-SD-palvelun rekisteröimiseksi"
 
 #: src/resolve/org.freedesktop.resolve1.policy:33
 msgid "Unregister a DNS-SD service"
-msgstr ""
+msgstr "Poista DNS-SD-palvelun rekisteröinti"
 
 #: src/resolve/org.freedesktop.resolve1.policy:34
 msgid "Authentication is required to unregister a DNS-SD service"
-msgstr ""
+msgstr "Todennus vaaditaan DNS-SD-palvelun rekisteröinnin poistamiseksi"
 
 #: src/resolve/org.freedesktop.resolve1.policy:132
 msgid "Revert name resolution settings"
-msgstr ""
+msgstr "Palauta aiemmat nimipalveluasetukset"
 
 #: src/resolve/org.freedesktop.resolve1.policy:133
 msgid "Authentication is required to reset name resolution settings."
-msgstr ""
+msgstr "Todennus vaaditaan aiempien nimipalveluasetusten palauttamiseksi."
 
 #: src/timedate/org.freedesktop.timedate1.policy:22
 msgid "Set system time"
-msgstr ""
+msgstr "Aseta järjestelmän aika"
 
 #: src/timedate/org.freedesktop.timedate1.policy:23
 msgid "Authentication is required to set the system time."
-msgstr ""
+msgstr "Todennus vaaditaan järjestelmän ajan asettamiseksi."
 
 #: src/timedate/org.freedesktop.timedate1.policy:33
 msgid "Set system timezone"
-msgstr ""
+msgstr "Aseta järjestelmän aikavyöhyke"
 
 #: src/timedate/org.freedesktop.timedate1.policy:34
 msgid "Authentication is required to set the system timezone."
-msgstr ""
+msgstr "Todennus vaaditaan järjestelmän aikavyöhykkeen asettamiseksi."
 
 #: src/timedate/org.freedesktop.timedate1.policy:43
 msgid "Set RTC to local timezone or UTC"
 msgstr ""
+"Aseta RTC(reaaliaikainen kello) paikalliseksi aikavyöhykkeeksi tai UTC:ksi"
 
 #: src/timedate/org.freedesktop.timedate1.policy:44
 msgid ""
 "Authentication is required to control whether the RTC stores the local or "
 "UTC time."
 msgstr ""
+"Todennus vaaditaan sen säätämiseksi, tallentaako RTC paikallisen vai UTC-"
+"ajan."
 
 #: src/timedate/org.freedesktop.timedate1.policy:53
 msgid "Turn network time synchronization on or off"
-msgstr ""
+msgstr "Ota verkon ajan synkronointi käyttöön tai poista se käytöstä"
 
 #: src/timedate/org.freedesktop.timedate1.policy:54
 msgid ""
 "Authentication is required to control whether network time synchronization "
 "shall be enabled."
 msgstr ""
+"Todennus vaaditaan sen hallitsemiseksi, onko verkkoajan synkronointi "
+"käytössä."
 
 #: src/core/dbus-unit.c:359
 msgid "Authentication is required to start '$(unit)'."
-msgstr ""
+msgstr "Todennus vaaditaan $(unit):n aloittamiseksi."
 
 #: src/core/dbus-unit.c:360
 msgid "Authentication is required to stop '$(unit)'."
-msgstr ""
+msgstr "Todennus vaaditaan $(unit):n lopettamiseksi."
 
 #: src/core/dbus-unit.c:361
 msgid "Authentication is required to reload '$(unit)'."
-msgstr ""
+msgstr "Todennus vaaditaan $(unit):n uudelleen lataamiseksi."
 
 #: src/core/dbus-unit.c:362 src/core/dbus-unit.c:363
 msgid "Authentication is required to restart '$(unit)'."
-msgstr ""
+msgstr "Todennus vaaditaan $(unit):n uudelleen käynnistämiseksi."
 
 #: src/core/dbus-unit.c:535
 msgid ""
 "Authentication is required to send a UNIX signal to the processes of "
 "'$(unit)'."
-msgstr ""
+msgstr "Todennus vaaditaan UNIX-signaalin lähettämiseen '$(unit)'-prosesseihin."
 
 #: src/core/dbus-unit.c:566
 msgid "Authentication is required to reset the \"failed\" state of '$(unit)'."
-msgstr ""
+msgstr "Todennus vaaditaan \"epäonnistuneen\" tilan \"$(unit)\" nollaamiseksi."
 
 #: src/core/dbus-unit.c:599
 msgid "Authentication is required to set properties on '$(unit)'."
-msgstr ""
+msgstr "Todennus vaaditaan, jotta ominaisuudet asetetaan arvoon '$(unit)'."
 
 #: src/core/dbus-unit.c:708
 msgid ""
 "Authentication is required to delete files and directories associated with "
 "'$(unit)'."
 msgstr ""
+"Todennus vaaditaan tiedostojen ja hakemistojen poistamiseen, jotka liittyvät "
+"'$(unit)':iin."
 
 #: src/core/dbus-unit.c:757
 msgid ""
 "Authentication is required to freeze or thaw the processes of '$(unit)' unit."
 msgstr ""
+"Todennus vaaditaan '$(unit)'-yksikön prosessien jäädyttämiseksi tai "
+"sulattamiseksi."
