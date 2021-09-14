@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <unistd.h>
+
 #include "id128-util.h"
 #include "mkfs-util.h"
 #include "path-util.h"
