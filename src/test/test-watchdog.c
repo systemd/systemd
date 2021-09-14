@@ -20,7 +20,7 @@ int main(int argc, char *argv[]) {
         t = slow ? 10 * USEC_PER_SEC : 1 * USEC_PER_SEC;
         count = slow ? 5 : 3;
 
-        r = watchdog_set_timeout(t);
+        r = watchdog_setup(t);
         if (r < 0)
                 log_warning_errno(r, "Failed to open watchdog: %m");
         if (r == -EPERM)

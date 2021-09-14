@@ -101,7 +101,7 @@ int watchdog_set_device(char *path) {
         return r;
 }
 
-int watchdog_set_timeout(usec_t timeout) {
+int watchdog_setup(usec_t timeout) {
 
         /* Initialize the watchdog timeout with the caller value. This value is
          * going to be updated by update_timeout() with the closest value
@@ -191,6 +191,6 @@ void watchdog_close(bool disarm) {
         watchdog_fd = safe_close(watchdog_fd);
 
         /* Once closed, pinging the device becomes a NOP and we request a new
-         * call to watchdog_set_timeout() to open the device again. */
+         * call to watchdog_setup() to open the device again. */
         watchdog_timeout = USEC_INFINITY;
 }
