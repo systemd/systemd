@@ -12,7 +12,6 @@
 #include "cgroup.h"
 #include "fdset.h"
 #include "hashmap.h"
-#include "ip-address-access.h"
 #include "list.h"
 #include "prioq.h"
 #include "ratelimit.h"

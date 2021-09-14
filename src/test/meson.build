@@ -285,6 +285,8 @@ tests += [
 
         [['src/test/test-in-addr-util.c']],
 
+        [['src/test/test-in-addr-prefix-util.c']],
+
         [['src/test/test-barrier.c']],
 
         [['src/test/test-tmpfiles.c']],
