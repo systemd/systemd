@@ -1539,7 +1539,7 @@ static int become_shutdown(
 
                 /* If we reboot or kexec let's set the shutdown watchdog and
                  * tell the shutdown binary to repeatedly ping it */
-                r = watchdog_set_timeout(watchdog_timer);
+                r = watchdog_setup(watchdog_timer);
                 watchdog_close(r < 0);
 
                 /* Tell the binary how often to ping, ignore failure */

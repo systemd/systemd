@@ -98,7 +98,7 @@ int watchdog_set_device(char *path) {
         return r;
 }
 
-int watchdog_set_timeout(usec_t timeout) {
+int watchdog_setup(usec_t timeout) {
 
         /* Initialize the watchdog timeout with the caller value. This value is
          * going to be updated by update_timeout() with the closest value
