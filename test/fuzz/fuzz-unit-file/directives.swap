@@ -1,7 +1,9 @@
 swap
 [Swap]
 AllowedCPUs=
+StartupAllowedCPUs=
 AllowedMemoryNodes=
+StartupAllowedMemoryNodes=
 AmbientCapabilities=
 AppArmorProfile=
 BPFProgram=
