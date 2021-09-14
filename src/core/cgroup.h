@@ -131,7 +131,9 @@ struct CGroupContext {
         usec_t cpu_quota_period_usec;
 
         CPUSet cpuset_cpus;
+        CPUSet startup_cpuset_cpus;
         CPUSet cpuset_mems;
+        CPUSet startup_cpuset_mems;
 
         uint64_t io_weight;
         uint64_t startup_io_weight;
