@@ -30,14 +30,16 @@
 /* The maximum size of the file we'll read in one go in read_full_file() (64M). */
 #define READ_FULL_BYTES_MAX (64U*1024U*1024U - 1U)
 
-/* The maximum size of virtual files we'll read in one go in read_virtual_file() (4M). Note that this limit
- * is different (and much lower) than the READ_FULL_BYTES_MAX limit. This reflects the fact that we use
- * different strategies for reading virtual and regular files: virtual files are generally size constrained:
- * there we allocate the full buffer size in advance. Regular files OTOH can be much larger, and here we grow
- * the allocations exponentially in a loop. In glibc large allocations are immediately backed by mmap()
- * making them relatively slow (measurably so). Thus, when allocating the full buffer in advance the large
- * limit is a problem. When allocating piecemeal it's not. Hence pick two distinct limits. */
-#define READ_VIRTUAL_BYTES_MAX (4U*1024U*1024U - 1U)
+/* The maximum size of virtual files (i.e. procfs, sysfs, and other virtual "API" files) we'll read in one go
+ * in read_virtual_file(). Note that this limit is different (and much lower) than the READ_FULL_BYTES_MAX
+ * limit. This reflects the fact that we use different strategies for reading virtual and regular files:
+ * virtual files we generally have to read in a single read() syscall since the kernel doesn't support
+ * continuation read()s for them. Thankfully they are somewhat size constrained. Thus we can allocate the
+ * full potential buffer in advance. Regular files OTOH can be much larger, and there we grow the allocations
+ * exponentially in a loop. We use a size limit of 4M-2 because 4M-1 is the maximum buffer that /proc/sys/
+ * allows us to read() (larger reads will fail with ENOMEM), and we want to read one extra byte so that we
+ * can detect EOFs. */
+#define READ_VIRTUAL_BYTES_MAX (4U*1024U*1024U - 2U)
 
 int fopen_unlocked(const char *path, const char *options, FILE **ret) {
         assert(ret);
