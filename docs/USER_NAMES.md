@@ -2,6 +2,7 @@
 title: User/Group Name Syntax
 category: Users, Groups and Home Directories
 layout: default
+SPDX-License-Identifier: LGPL-2.1-or-later
 ---
 
 # User/Group Name Syntax

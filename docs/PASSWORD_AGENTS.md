@@ -2,6 +2,7 @@
 title: Password Agents
 category: Interfaces
 layout: default
+SPDX-License-Identifier: LGPL-2.1-or-later
 ---
 
 # Password Agents

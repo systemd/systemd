@@ -2,6 +2,7 @@
 title: Hacking on systemd
 category: Contributing
 layout: default
+SPDX-License-Identifier: LGPL-2.1-or-later
 ---
 
 # Hacking on systemd

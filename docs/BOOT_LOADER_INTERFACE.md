@@ -2,6 +2,7 @@
 title: Boot Loader Interface
 category: Booting
 layout: default
+SPDX-License-Identifier: LGPL-2.1-or-later
 ---
 
 # The Boot Loader Interface

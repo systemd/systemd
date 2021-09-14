@@ -2,6 +2,7 @@
 title: Steps to a Successful Release
 category: Contributing
 layout: default
+SPDX-License-Identifier: LGPL-2.1-or-later
 ---
 
 # Steps to a Successful Release

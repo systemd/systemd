@@ -2,6 +2,7 @@
 title: Control Group APIs and Delegation
 category: Interfaces
 layout: default
+SPDX-License-Identifier: LGPL-2.1-or-later
 ---
 
 # Control Group APIs and Delegation

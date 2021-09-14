@@ -2,6 +2,7 @@
 title: Package Metadata for Core Files
 category: Interfaces
 layout: default
+SPDX-License-Identifier: LGPL-2.1-or-later
 ---
 
 # Package Metadata for Core Files

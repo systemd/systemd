@@ -2,6 +2,7 @@
 title: Porting systemd To New Distributions
 category: Concepts
 layout: default
+SPDX-License-Identifier: LGPL-2.1-or-later
 ---
 
 # Porting systemd To New Distributions

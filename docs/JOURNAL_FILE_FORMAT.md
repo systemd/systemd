@@ -2,6 +2,7 @@
 title: Journal File Format
 category: Interfaces
 layout: default
+SPDX-License-Identifier: LGPL-2.1-or-later
 ---
 
 # Journal File Format

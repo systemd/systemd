@@ -2,6 +2,7 @@
 title: Boot Loader Specification
 category: Booting
 layout: default
+SPDX-License-Identifier: LGPL-2.1-or-later
 ---
 
 # The Boot Loader Specification

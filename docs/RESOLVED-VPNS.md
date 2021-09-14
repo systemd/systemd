@@ -2,6 +2,7 @@
 title: systemd-resolved and VPNs
 category: Networking
 layout: default
+SPDX-License-Identifier: LGPL-2.1-or-later
 ---
 
 # `systemd-resolved.service` and VPNs

@@ -2,6 +2,7 @@
 title: Reporting of Security Vulnerabilities
 category: Contributing
 layout: default
+SPDX-License-Identifier: LGPL-2.1-or-later
 ---
 
 # Reporting of Security Vulnerabilities

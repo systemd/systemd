@@ -2,6 +2,7 @@
 title: User/Group Record Lookup API via Varlink
 category: Users, Groups and Home Directories
 layout: default
+SPDX-License-Identifier: LGPL-2.1-or-later
 ---
 
 # User/Group Record Lookup API via Varlink

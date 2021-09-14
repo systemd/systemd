@@ -2,6 +2,7 @@
 title: Using /tmp/ and /var/tmp/ Safely
 category: Interfaces
 layout: default
+SPDX-License-Identifier: LGPL-2.1-or-later
 ---
 
 # Using `/tmp/` and `/var/tmp/` Safely
