@@ -286,7 +286,7 @@ static int enumerate_dir(
                 OrderedHashmap *top,
                 OrderedHashmap *bottom,
                 OrderedHashmap *drops,
-                const char *path, bool dropins) {
+                const char *path, const char *dropins) {
 
         _cleanup_closedir_ DIR *d = NULL;
         struct dirent *de;
@@ -399,11 +399,11 @@ static int should_skip_path(const char *prefix, const char *suffix) {
 }
 
 static int process_suffix(const char *suffix, const char *onlyprefix) {
+        const char *dropins;
         const char *p;
         char *f, *key;
         OrderedHashmap *top, *bottom, *drops, *h;
         int r = 0, k, n_found = 0;
-        bool dropins;
 
         assert(suffix);
         assert(!startswith(suffix, "/"));
