@@ -100,6 +100,9 @@ struct sd_journal {
         uint64_t fields_hash_table_index;
         char *fields_buffer;
 
+        JournalFile *objects_file;
+        uint64_t objects_offset;
+
         int flags;
 
         bool on_network:1;
@@ -112,6 +115,7 @@ struct sd_journal {
         bool fields_file_lost:1;
         bool has_runtime_files:1;
         bool has_persistent_files:1;
+        bool objects_file_lost:1;
 
         size_t data_threshold;
 

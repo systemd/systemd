@@ -1475,6 +1475,13 @@ static void remove_file_real(sd_journal *j, JournalFile *f) {
                         j->fields_file_lost = true;
         }
 
+        if (j->objects_file == f) {
+                j->objects_file = ordered_hashmap_next(j->files, j->objects_file->path);
+                j->objects_offset = 0;
+                if (!j->objects_file)
+                        j->objects_file_lost = true;
+        }
+
         (void) journal_file_close(f);
 
         j->current_invalidate_counter++;

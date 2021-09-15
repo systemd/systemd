@@ -13,6 +13,7 @@
 
 #include "alloc-util.h"
 #include "analyze-condition.h"
+#include "analyze-journal.h"
 #include "analyze-security.h"
 #include "analyze-verify.h"
 #include "bus-error.h"
@@ -2428,6 +2429,10 @@ static int do_security(int argc, char *argv[], void *userdata) {
                                 /*flags=*/ 0);
 }
 
+static int do_journal(int argc, char *argv[], void *userdata) {
+        return analyze_journal();
+}
+
 static int help(int argc, char *argv[], void *userdata) {
         _cleanup_free_ char *link = NULL, *dot_link = NULL;
         int r;
@@ -2810,6 +2815,7 @@ static int run(int argc, char *argv[]) {
                 { "timestamp",         2,        VERB_ANY, 0,            test_timestamp         },
                 { "timespan",          2,        VERB_ANY, 0,            dump_timespan          },
                 { "security",          VERB_ANY, VERB_ANY, 0,            do_security            },
+                { "journal",           VERB_ANY, VERB_ANY, 0,            do_journal             },
                 {}
         };
 
