@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
+#include "sd-device.h"
 #include "sd-netlink.h"
 
 #include "ether-addr-util.h"
@@ -21,3 +22,9 @@ typedef struct LinkInfo {
 
 void link_info_clear(LinkInfo *info);
 int link_info_get(sd_netlink **rtnl, int ifindex, LinkInfo *ret);
+int device_cache_sysattr_from_link_info(sd_device *device, LinkInfo *info);
+int device_get_sysattr_value_maybe_from_netlink(
+                sd_device *device,
+                sd_netlink **rtnl,
+                const char *sysattr,
+                const char **ret_value);
