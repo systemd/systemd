@@ -6,7 +6,7 @@
 #include "ether-addr-util.h"
 #include "parse-util.h"
 #include "tests.h"
-#include "udev-builtin-net_id-netlink.h"
+#include "udev-netlink.h"
 
 static void test_link_info_one(sd_netlink *rtnl, int ifindex) {
         _cleanup_(link_info_clear) LinkInfo info = LINK_INFO_NULL;

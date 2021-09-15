@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "netlink-util.h"
-#include "udev-builtin-net_id-netlink.h"
+#include "udev-netlink.h"
 
 void link_info_clear(LinkInfo *info) {
         if (!info)

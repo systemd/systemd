@@ -35,8 +35,8 @@
 #include "string-util.h"
 #include "strv.h"
 #include "strxcpyx.h"
-#include "udev-builtin-net_id-netlink.h"
 #include "udev-builtin.h"
+#include "udev-netlink.h"
 
 #define ONBOARD_14BIT_INDEX_MAX ((1U << 14) - 1)
 #define ONBOARD_16BIT_INDEX_MAX ((1U << 16) - 1)
