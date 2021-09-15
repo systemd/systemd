@@ -98,12 +98,23 @@ int sysctl_write_ip_property(int af, const char *ifname, const char *property, c
 
 int sysctl_read(const char *property, char **ret) {
         char *p;
+        int r;
 
         assert(property);
-        assert(ret);
 
         p = strjoina("/proc/sys/", property);
-        return read_full_virtual_file(p, ret, NULL);
+
+        path_simplify(p);
+        if (!path_is_normalized(p)) /* Filter out attempts to write to /proc/sys/../../…, just in case */
+                return -EINVAL;
+
+        r = read_full_virtual_file(p, ret, NULL);
+        if (r < 0)
+                return r;
+        if (ret)
+                delete_trailing_chars(*ret, NEWLINE);
+
+        return r;
 }
 
 int sysctl_read_ip_property(int af, const char *ifname, const char *property, char **ret) {
