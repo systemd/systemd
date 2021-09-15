@@ -38,7 +38,7 @@ char *sysctl_normalize(char *s) {
         path_simplify(s);
 
         /* Kill the leading slash, but keep the first character of the string in the same place. */
-        if (*s == '/' && *(s+1))
+        if (s[0] == '/' && s[1] != 0)
                 memmove(s, s+1, strlen(s));
 
         return s;
