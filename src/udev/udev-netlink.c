@@ -1,6 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "device-private.h"
 #include "netlink-util.h"
+#include "strv.h"
 #include "udev-netlink.h"
 
 void link_info_clear(LinkInfo *info) {
@@ -84,4 +86,117 @@ int link_info_get(sd_netlink **rtnl, int ifindex, LinkInfo *ret) {
         *ret = info;
         info = LINK_INFO_NULL;
         return 0;
+}
+
+int device_cache_sysattr_from_link_info(sd_device *device, LinkInfo *info) {
+        int ifindex, r;
+
+        assert(device);
+        assert(info);
+
+        r = sd_device_get_ifindex(device, &ifindex);
+        if (r < 0)
+                return r;
+
+        if (ifindex != info->ifindex)
+                return -EINVAL;
+
+        if (device_get_cached_sysattr_value(device, "type", NULL) == -ENODATA) {
+                _cleanup_free_ char *str = NULL;
+
+                if (asprintf(&str, "%"PRIu16, info->iftype) < 0)
+                        return -ENOMEM;
+
+                r = device_cache_sysattr_value(device, "type", str);
+                if (r < 0)
+                        return r;
+
+                TAKE_PTR(str);
+        }
+
+        if (device_get_cached_sysattr_value(device, "address", NULL) == -ENODATA) {
+                _cleanup_free_ char *str = NULL;
+
+                if (!hw_addr_is_null(&info->hw_addr)) {
+                        str = new(char, HW_ADDR_TO_STRING_MAX);
+                        if (!str)
+                                return -ENOMEM;
+
+                        hw_addr_to_string(&info->hw_addr, str);
+                }
+
+                r = device_cache_sysattr_value(device, "address", str);
+                if (r < 0)
+                        return r;
+
+                TAKE_PTR(str);
+        }
+
+        if (device_get_cached_sysattr_value(device, "iflink", NULL) == -ENODATA) {
+                _cleanup_free_ char *str = NULL;
+
+                if (asprintf(&str, "%"PRIu32, info->iflink) < 0)
+                        return -ENOMEM;
+
+                r = device_cache_sysattr_value(device, "iflink", str);
+                if (r < 0)
+                        return r;
+
+                TAKE_PTR(str);
+        }
+
+        if (info->support_phys_port_name &&
+            device_get_cached_sysattr_value(device, "phys_port_name", NULL) == -ENODATA) {
+                _cleanup_free_ char *str = NULL;
+
+                if (info->phys_port_name) {
+                        str = strdup(info->phys_port_name);
+                        if (!str)
+                                return -ENOMEM;
+                }
+
+                r = device_cache_sysattr_value(device, "phys_port_name", str);
+                if (r < 0)
+                        return r;
+
+                TAKE_PTR(str);
+        }
+
+        return 0;
+}
+
+int device_get_sysattr_value_maybe_from_netlink(
+                sd_device *device,
+                sd_netlink **rtnl,
+                const char *sysattr,
+                const char **ret_value) {
+
+        _cleanup_(link_info_clear) LinkInfo info = LINK_INFO_NULL;
+        int ifindex, r;
+
+        assert(device);
+        assert(rtnl);
+        assert(sysattr);
+
+        if (sd_device_get_ifindex(device, &ifindex) < 0)
+                return sd_device_get_sysattr_value(device, sysattr, ret_value);
+
+        if (!STR_IN_SET(sysattr, "type", "address", "iflink", "phys_port_name"))
+                return sd_device_get_sysattr_value(device, sysattr, ret_value);
+
+        r = device_get_cached_sysattr_value(device, sysattr, ret_value);
+        if (r != -ENODATA)
+                return r;
+
+        r = link_info_get(rtnl, ifindex, &info);
+        if (r < 0)
+                return r;
+
+        r = device_cache_sysattr_from_link_info(device, &info);
+        if (r < 0)
+                return r;
+
+        /* Do not use device_get_cached_sysattr_value() here, as kernel may not support
+         * IFLA_PHYS_PORT_NAME, and in that case we need to read the value from sysfs. */
+        return sd_device_get_sysattr_value(device, sysattr, ret_value);
 }
