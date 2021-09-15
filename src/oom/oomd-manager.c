@@ -387,7 +387,7 @@ static void clear_candidate_hashmapp(Manager **m) {
 static int monitor_memory_pressure_contexts_handler(sd_event_source *s, uint64_t usec, void *userdata) {
         /* Don't want to use stale candidate data. Setting this will clear the candidate hashmap on return unless we
          * update the candidate data (in which case clear_candidates will be NULL). */
-        _cleanup_(clear_candidate_hashmapp) Manager *clear_candidates = userdata;
+        _unused_ _cleanup_(clear_candidate_hashmapp) Manager *clear_candidates = userdata;
         _cleanup_set_free_ Set *targets = NULL;
         bool in_post_action_delay = false;
         Manager *m = userdata;

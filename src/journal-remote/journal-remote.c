@@ -272,7 +272,7 @@ int journal_remote_add_source(RemoteServer *s, int fd, char* name, bool own_name
 
 int journal_remote_add_raw_socket(RemoteServer *s, int fd) {
         int r;
-        _cleanup_close_ int fd_ = fd;
+        _unused_ _cleanup_close_ int fd_ = fd;
         char name[STRLEN("raw-socket-") + DECIMAL_STR_MAX(int) + 1];
 
         assert(fd >= 0);

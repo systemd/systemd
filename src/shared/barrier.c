@@ -90,7 +90,7 @@
  * Returns: 0 on success, negative error code on failure.
  */
 int barrier_create(Barrier *b) {
-        _cleanup_(barrier_destroyp) Barrier *staging = b;
+        _unused_ _cleanup_(barrier_destroyp) Barrier *staging = b;
         int r;
 
         assert(b);

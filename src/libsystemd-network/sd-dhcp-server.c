@@ -1004,7 +1004,8 @@ int dhcp_server_handle_message(sd_dhcp_server *server, DHCPMessage *message, siz
                 /* verify that the requested address is from the pool, and either
                    owned by the current client or free */
                 if (pool_offset >= 0 && static_lease) {
-                        _cleanup_(dhcp_lease_freep) DHCPLease *lease = NULL, *old_lease = NULL;
+                        _unused_ _cleanup_(dhcp_lease_freep) DHCPLease *old_lease = NULL;
+                        _cleanup_(dhcp_lease_freep) DHCPLease *lease = NULL;
                         usec_t time_now, expiration;
 
                         r = sd_event_now(server->event, clock_boottime_or_monotonic(), &time_now);
@@ -1482,7 +1483,8 @@ int sd_dhcp_server_set_static_lease(
                 uint8_t *client_id,
                 size_t client_id_size) {
 
-        _cleanup_(dhcp_lease_freep) DHCPLease *lease = NULL, *old = NULL;
+        _unused_ _cleanup_(dhcp_lease_freep) DHCPLease *old = NULL;
+        _cleanup_(dhcp_lease_freep) DHCPLease *lease = NULL;
         DHCPClientId c;
         int r;
 
