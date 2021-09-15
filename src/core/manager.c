@@ -1758,7 +1758,7 @@ int manager_startup(Manager *m, FILE *serialization, FDSet *fds, const char *roo
 
         {
                 /* This block is (optionally) done with the reloading counter bumped */
-                _cleanup_(manager_reloading_stopp) Manager *reloading = NULL;
+                _unused_ _cleanup_(manager_reloading_stopp) Manager *reloading = NULL;
 
                 /* If we will deserialize make sure that during enumeration this is already known, so we increase the
                  * counter here already */
@@ -3237,7 +3237,7 @@ int manager_override_watchdog(Manager *m, WatchdogType t, usec_t timeout) {
 }
 
 int manager_reload(Manager *m) {
-        _cleanup_(manager_reloading_stopp) Manager *reloading = NULL;
+        _unused_ _cleanup_(manager_reloading_stopp) Manager *reloading = NULL;
         _cleanup_fdset_free_ FDSet *fds = NULL;
         _cleanup_fclose_ FILE *f = NULL;
         int r;

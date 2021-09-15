@@ -2196,7 +2196,7 @@ static int copy_devnodes(const char *dest) {
                 "tty\0"
                 "net/tun\0";
 
-        _cleanup_umask_ mode_t u;
+        _unused_ _cleanup_umask_ mode_t u;
         const char *d;
         int r = 0;
 
@@ -2279,7 +2279,7 @@ static int copy_devnodes(const char *dest) {
 }
 
 static int make_extra_nodes(const char *dest) {
-        _cleanup_umask_ mode_t u;
+        _unused_ _cleanup_umask_ mode_t u;
         size_t i;
         int r;
 
@@ -2480,7 +2480,7 @@ static int setup_kmsg(int kmsg_socket) {
         _cleanup_(unlink_and_freep) char *from = NULL;
         _cleanup_free_ char *fifo = NULL;
         _cleanup_close_ int fd = -1;
-        _cleanup_umask_ mode_t u;
+        _unused_ _cleanup_umask_ mode_t u;
         int r;
 
         assert(kmsg_socket >= 0);

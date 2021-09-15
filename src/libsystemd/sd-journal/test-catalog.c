@@ -53,7 +53,7 @@ static void test_catalog_import_invalid(void) {
 }
 
 static void test_catalog_import_badid(void) {
-        _cleanup_ordered_hashmap_free_free_free_ OrderedHashmap *h = NULL;
+        _unused_ _cleanup_ordered_hashmap_free_free_free_ OrderedHashmap *h = NULL;
         const char *input =
 "-- 0027229ca0644181a76c4e92458afaff dededededededededededededededede\n" \
 "Subject: message\n" \

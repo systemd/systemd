@@ -116,7 +116,7 @@ static int parse_argv(int argc, char *argv[]) {
 }
 
 static int run(int argc, char *argv[]) {
-        _cleanup_(notify_on_cleanup) const char *notify_msg = NULL;
+        _unused_ _cleanup_(notify_on_cleanup) const char *notify_msg = NULL;
         _cleanup_(manager_freep) Manager *m = NULL;
         _cleanup_free_ char *swap = NULL;
         unsigned long long s = 0;

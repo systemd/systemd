@@ -94,7 +94,8 @@ int device_add_property_aux(sd_device *device, const char *key, const char *valu
                 properties = &device->properties;
 
         if (value) {
-                _cleanup_free_ char *new_key = NULL, *new_value = NULL, *old_key = NULL, *old_value = NULL;
+                _unused_ _cleanup_free_ char *old_value = NULL;
+                _cleanup_free_ char *new_key = NULL, *new_value = NULL, *old_key = NULL;
                 int r;
 
                 r = ordered_hashmap_ensure_allocated(properties, &string_hash_ops_free_free);
@@ -119,7 +120,8 @@ int device_add_property_aux(sd_device *device, const char *key, const char *valu
                 TAKE_PTR(new_key);
                 TAKE_PTR(new_value);
         } else {
-                _cleanup_free_ char *old_key = NULL, *old_value = NULL;
+                _unused_ _cleanup_free_ char *old_value = NULL;
+                _cleanup_free_ char *old_key = NULL;
 
                 old_value = ordered_hashmap_remove2(*properties, key, (void**) &old_key);
         }
@@ -1939,7 +1941,8 @@ _public_ int sd_device_get_trigger_uuid(sd_device *device, sd_id128_t *ret) {
 }
 
 static int device_cache_sysattr_value(sd_device *device, const char *key, char *value) {
-        _cleanup_free_ char *new_key = NULL, *old_value = NULL;
+        _unused_ _cleanup_free_ char *old_value = NULL;
+        _cleanup_free_ char *new_key = NULL;
         int r;
 
         assert(device);

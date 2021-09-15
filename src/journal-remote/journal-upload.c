@@ -820,7 +820,7 @@ static int open_journal(sd_journal **j) {
 
 static int run(int argc, char **argv) {
         _cleanup_(destroy_uploader) Uploader u = {};
-        _cleanup_(notify_on_cleanup) const char *notify_message = NULL;
+        _unused_ _cleanup_(notify_on_cleanup) const char *notify_message = NULL;
         bool use_journal;
         int r;
 

@@ -903,7 +903,7 @@ static void dispatch_message_real(
                 pid_t object_pid) {
 
         char source_time[sizeof("_SOURCE_REALTIME_TIMESTAMP=") + DECIMAL_STR_MAX(usec_t)];
-        _cleanup_free_ char *cmdline1 = NULL, *cmdline2 = NULL;
+        _unused_ _cleanup_free_ char *cmdline1 = NULL, *cmdline2 = NULL;
         uid_t journal_uid;
         ClientContext *o;
 
