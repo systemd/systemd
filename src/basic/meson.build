@@ -88,7 +88,6 @@ basic_sources = files('''
         linux/hdlc/ioctl.h
         linux/if.h
         linux/if_addr.h
-        linux/if_arp.h
         linux/if_bonding.h
         linux/if_bridge.h
         linux/if_ether.h
