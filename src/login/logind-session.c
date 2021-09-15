@@ -1323,7 +1323,7 @@ bool session_is_controller(Session *s, const char *sender) {
 }
 
 static void session_release_controller(Session *s, bool notify) {
-        _cleanup_free_ char *name = NULL;
+        _unused_ _cleanup_free_ char *name = NULL;
         SessionDevice *sd;
 
         if (!s->controller)

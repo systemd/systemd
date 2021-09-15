@@ -81,7 +81,7 @@ int make_inaccessible_nodes(
                 { "inaccessible/blk",  S_IFBLK  | 0000 },
         };
 
-        _cleanup_umask_ mode_t u;
+        _unused_ _cleanup_umask_ mode_t u;
         int r;
 
         if (!parent_dir)
