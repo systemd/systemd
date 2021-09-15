@@ -52,15 +52,41 @@ static void test_link_info_one(sd_netlink *rtnl, int ifindex) {
         assert_se(safe_atou(s, &iflink) >= 0);
         assert_se(iflink == info.iflink);
 
+        /* check phys_port_id */
+        log_debug("phys_port_id: %s (%s)",
+                  strna(info.phys_port_id),
+                  info.phys_port_id_supported ? "supported" : "unsupported");
+        s = t = NULL;
+        (void) sd_device_get_sysattr_value(dev, "phys_port_id", &s);
+        (void) device_get_sysattr_value_maybe_from_netlink(dev_with_netlink, &rtnl, "phys_port_id", &t);
+        assert_se(streq_ptr(s, t));
+        if (info.phys_port_id_supported) {
+                assert_se(streq_ptr(s, info.phys_port_id));
+                assert_se(streq_ptr(t, info.phys_port_id));
+        }
+
+        /* check phys_switch_id */
+        log_debug("phys_switch_id: %s (%s)",
+                  strna(info.phys_switch_id),
+                  info.phys_switch_id_supported ? "supported" : "unsupported");
+        s = t = NULL;
+        (void) sd_device_get_sysattr_value(dev, "phys_switch_id", &s);
+        (void) device_get_sysattr_value_maybe_from_netlink(dev_with_netlink, &rtnl, "phys_switch_id", &t);
+        assert_se(streq_ptr(s, t));
+        if (info.phys_switch_id_supported) {
+                assert_se(streq_ptr(s, info.phys_switch_id));
+                assert_se(streq_ptr(t, info.phys_switch_id));
+        }
+
         /* check phys_port_name */
         log_debug("phys_port_name: %s (%s)",
                   strna(info.phys_port_name),
-                  info.support_phys_port_name ? "supported" : "unsupported");
+                  info.phys_port_name_supported ? "supported" : "unsupported");
         s = t = NULL;
         (void) sd_device_get_sysattr_value(dev, "phys_port_name", &s);
         (void) device_get_sysattr_value_maybe_from_netlink(dev_with_netlink, &rtnl, "phys_port_name", &t);
         assert_se(streq_ptr(s, t));
-        if (info.support_phys_port_name) {
+        if (info.phys_port_name_supported) {
                 assert_se(streq_ptr(s, info.phys_port_name));
                 assert_se(streq_ptr(t, info.phys_port_name));
         }
