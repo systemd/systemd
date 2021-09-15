@@ -10,18 +10,22 @@
 
 static void test_link_info_one(sd_netlink *rtnl, int ifindex) {
         _cleanup_(link_info_clear) LinkInfo info = LINK_INFO_NULL;
-        _cleanup_(sd_device_unrefp) sd_device *dev = NULL;
+        _cleanup_(sd_device_unrefp) sd_device *dev = NULL, *dev_with_netlink = NULL;
         unsigned iftype, iflink;
-        const char *s;
+        const char *s, *t;
 
         log_debug("/* %s(ifindex=%i) */", __func__, ifindex);
 
         assert_se(link_info_get(&rtnl, ifindex, &info) >= 0);
         assert_se(sd_device_new_from_ifindex(&dev, ifindex) >= 0);
+        assert_se(sd_device_new_from_ifindex(&dev_with_netlink, ifindex) >= 0);
 
         /* check iftype */
         log_debug("iftype: %"PRIu16" (%s)", info.iftype, strna(arphrd_to_name(info.iftype)));
         assert_se(sd_device_get_sysattr_value(dev, "type", &s) >= 0);
+        assert_se(safe_atou(s, &iftype) >= 0);
+        assert_se(iftype == info.iftype);
+        assert_se(device_get_sysattr_value_maybe_from_netlink(dev_with_netlink, &rtnl, "type", &s) >= 0);
         assert_se(safe_atou(s, &iftype) >= 0);
         assert_se(iftype == info.iftype);
 
@@ -29,10 +33,14 @@ static void test_link_info_one(sd_netlink *rtnl, int ifindex) {
         log_debug("hardware address: %s", HW_ADDR_TO_STR(&info.hw_addr));
         assert_se(sd_device_get_sysattr_value(dev, "address", &s) >= 0);
         assert_se(streq(s, HW_ADDR_TO_STR(&info.hw_addr)));
+        assert_se(device_get_sysattr_value_maybe_from_netlink(dev_with_netlink, &rtnl, "address", &s) >= 0);
+        assert_se(streq(s, HW_ADDR_TO_STR(&info.hw_addr)));
 
         /* check ifname */
         log_debug("ifname: %s", info.ifname);
         assert_se(sd_device_get_sysname(dev, &s) >= 0);
+        assert_se(streq(s, info.ifname));
+        assert_se(sd_device_get_sysname(dev_with_netlink, &s) >= 0);
         assert_se(streq(s, info.ifname));
 
         /* check iflink */
@@ -40,15 +48,21 @@ static void test_link_info_one(sd_netlink *rtnl, int ifindex) {
         assert_se(sd_device_get_sysattr_value(dev, "iflink", &s) >= 0);
         assert_se(safe_atou(s, &iflink) >= 0);
         assert_se(iflink == info.iflink);
+        assert_se(device_get_sysattr_value_maybe_from_netlink(dev_with_netlink, &rtnl, "iflink", &s) >= 0);
+        assert_se(safe_atou(s, &iflink) >= 0);
+        assert_se(iflink == info.iflink);
 
         /* check phys_port_name */
         log_debug("phys_port_name: %s (%s)",
                   strna(info.phys_port_name),
                   info.support_phys_port_name ? "supported" : "unsupported");
+        s = t = NULL;
+        (void) sd_device_get_sysattr_value(dev, "phys_port_name", &s);
+        (void) device_get_sysattr_value_maybe_from_netlink(dev_with_netlink, &rtnl, "phys_port_name", &t);
+        assert_se(streq_ptr(s, t));
         if (info.support_phys_port_name) {
-                s = NULL;
-                (void) sd_device_get_sysattr_value(dev, "phys_port_name", &s);
                 assert_se(streq_ptr(s, info.phys_port_name));
+                assert_se(streq_ptr(t, info.phys_port_name));
         }
 }
 
