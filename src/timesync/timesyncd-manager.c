@@ -416,7 +416,8 @@ static int manager_receive_response(sd_event_source *source, int fd, uint32_t re
                 .iov_base = &ntpmsg,
                 .iov_len = sizeof(ntpmsg),
         };
-        CMSG_BUFFER_TYPE(CMSG_SPACE_TIMESPEC) control;
+        /* This needs to be initialized with zero. See #20741. */
+        CMSG_BUFFER_TYPE(CMSG_SPACE_TIMESPEC) control = {};
         union sockaddr_union server_addr;
         struct msghdr msghdr = {
                 .msg_iov = &iov,

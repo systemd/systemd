@@ -1267,11 +1267,14 @@ int server_process_datagram(
         /* We use NAME_MAX space for the SELinux label here. The kernel currently enforces no limit, but
          * according to suggestions from the SELinux people this will change and it will probably be
          * identical to NAME_MAX. For now we use that, but this should be updated one day when the final
-         * limit is known. */
+         * limit is known.
+         *
+         * Here, we need to explicitly initialize the buffer with zero, as glibc has a bug in
+         * __convert_scm_timestamps(), which assumes the buffer is initialized. See #20741. */
         CMSG_BUFFER_TYPE(CMSG_SPACE(sizeof(struct ucred)) +
                          CMSG_SPACE_TIMEVAL +
                          CMSG_SPACE(sizeof(int)) + /* fd */
-                         CMSG_SPACE(NAME_MAX) /* selinux label */) control;
+                         CMSG_SPACE(NAME_MAX) /* selinux label */) control = {};
 
         union sockaddr_union sa = {};
 

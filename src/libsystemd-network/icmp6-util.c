@@ -148,8 +148,9 @@ int icmp6_send_router_solicitation(int s, const struct ether_addr *ether_addr) {
 int icmp6_receive(int fd, void *buffer, size_t size, struct in6_addr *ret_dst,
                   triple_timestamp *ret_timestamp) {
 
+        /* This needs to be initialized with zero. See #20741. */
         CMSG_BUFFER_TYPE(CMSG_SPACE(sizeof(int)) + /* ttl */
-                         CMSG_SPACE_TIMEVAL) control;
+                         CMSG_SPACE_TIMEVAL) control = {};
         struct iovec iov = {};
         union sockaddr_union sa = {};
         struct msghdr msg = {
