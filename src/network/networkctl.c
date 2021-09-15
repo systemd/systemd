@@ -2424,21 +2424,24 @@ static int link_status(int argc, char *argv[], void *userdata) {
         return 0;
 }
 
-static char *lldp_capabilities_to_string(uint16_t x) {
+static char *lldp_capabilities_to_string(uint16_t x, bool dots) {
         static const char characters[] = {
                 'o', 'p', 'b', 'w', 'r', 't', 'd', 'a', 'c', 's', 'm',
         };
         char *ret;
-        unsigned i;
+        unsigned i, j;
 
         ret = new(char, ELEMENTSOF(characters) + 1);
         if (!ret)
                 return NULL;
 
-        for (i = 0; i < ELEMENTSOF(characters); i++)
-                ret[i] = (x & (1U << i)) ? characters[i] : '.';
+        for (i = 0, j = 0; i < ELEMENTSOF(characters); i++)
+                if (x & (1U << i))
+                        ret[j++] = characters[i];
+                else if (dots)
+                        ret[j++] = '.';
 
-        ret[i] = 0;
+        ret[j] = 0;
         return ret;
 }
 
@@ -2530,7 +2533,7 @@ static int lldp_neighbors_varlink_reply(Varlink *link, JsonVariant *parameters, 
                 return r;
 
         if (udata->table) {
-                capabilities = lldp_capabilities_to_string(entry.capabilities);
+                capabilities = lldp_capabilities_to_string(entry.capabilities, true);
 
                 r = table_add_many(udata->table,
                                 TABLE_STRING, udata->link_name,
