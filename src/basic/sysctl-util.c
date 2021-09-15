@@ -118,24 +118,20 @@ int sysctl_read(const char *property, char **ret) {
 }
 
 int sysctl_read_ip_property(int af, const char *ifname, const char *property, char **ret) {
-        _cleanup_free_ char *value = NULL;
         const char *p;
-        int r;
 
-        assert(IN_SET(af, AF_INET, AF_INET6));
         assert(property);
 
-        p = strjoina("/proc/sys/net/ipv", af == AF_INET ? "4" : "6",
-                     ifname ? "/conf/" : "", strempty(ifname),
-                     property[0] == '/' ? "" : "/", property);
+        if (!IN_SET(af, AF_INET, AF_INET6))
+                return -EAFNOSUPPORT;
 
-        r = read_full_virtual_file(p, &value, NULL);
-        if (r < 0)
-                return r;
+        if (ifname) {
+                if (!ifname_valid_full(ifname, IFNAME_VALID_SPECIAL))
+                        return -EINVAL;
 
-        truncate_nl(value);
-        if (ret)
-                *ret = TAKE_PTR(value);
+                p = strjoina("net/", af_to_ipv4_ipv6(af), "/conf/", ifname, "/", property);
+        } else
+                p = strjoina("net/", af_to_ipv4_ipv6(af), "/", property);
 
-        return r;
+        return sysctl_read(p, ret);
 }
