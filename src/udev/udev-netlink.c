@@ -10,13 +10,15 @@ void link_info_clear(LinkInfo *info) {
                 return;
 
         info->ifname = mfree(info->ifname);
+        info->phys_port_id = mfree(info->phys_port_id);
+        info->phys_switch_id = mfree(info->phys_switch_id);
         info->phys_port_name = mfree(info->phys_port_name);
 }
 
 int link_info_get(sd_netlink **rtnl, int ifindex, LinkInfo *ret) {
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *message = NULL, *reply = NULL;
         _cleanup_(link_info_clear) LinkInfo info = LINK_INFO_NULL;
-        uint16_t nlmsg_type;
+        uint16_t nlmsg_type, max_attr;
         int r;
 
         assert(rtnl);
@@ -69,19 +71,25 @@ int link_info_get(sd_netlink **rtnl, int ifindex, LinkInfo *ret) {
         else if (r < 0)
                 return r;
 
-        r = sd_netlink_message_read_string_strdup(reply, IFLA_PHYS_PORT_NAME, &info.phys_port_name);
-        if (r == -ENODATA) {
-                uint16_t max_attr;
-
-                r = sd_netlink_message_get_max_attribute(reply, &max_attr);
-                if (r < 0)
-                        return r;
-
-                info.support_phys_port_name = max_attr >= IFLA_PHYS_PORT_NAME;
-        } else if (r >= 0)
-                info.support_phys_port_name = true;
-        else
+        r = sd_netlink_message_read_data_suffix0(reply, IFLA_PHYS_PORT_ID, &info.phys_port_id);
+        if (r < 0 && r != -ENODATA)
                 return r;
+
+        r = sd_netlink_message_read_data_suffix0(reply, IFLA_PHYS_SWITCH_ID, &info.phys_switch_id);
+        if (r < 0 && r != -ENODATA)
+                return r;
+
+        r = sd_netlink_message_read_string_strdup(reply, IFLA_PHYS_PORT_NAME, &info.phys_port_name);
+        if (r < 0 && r != -ENODATA)
+                return r;
+
+        r = sd_netlink_message_get_max_attribute(reply, &max_attr);
+        if (r < 0)
+                return r;
+
+        info.phys_port_id_supported = max_attr >= IFLA_PHYS_PORT_ID;
+        info.phys_switch_id_supported = max_attr >= IFLA_PHYS_SWITCH_ID;
+        info.phys_port_name_supported = max_attr >= IFLA_PHYS_PORT_NAME;
 
         *ret = info;
         info = LINK_INFO_NULL;
@@ -141,7 +149,41 @@ int device_cache_sysattr_from_link_info(sd_device *device, LinkInfo *info) {
                 TAKE_PTR(str);
         }
 
-        if (info->support_phys_port_name &&
+        if (info->phys_port_id_supported &&
+            device_get_cached_sysattr_value(device, "phys_port_id", NULL) == -ENODATA) {
+                _cleanup_free_ char *str = NULL;
+
+                if (info->phys_port_id) {
+                        str = strdup(info->phys_port_id);
+                        if (!str)
+                                return -ENOMEM;
+                }
+
+                r = device_cache_sysattr_value(device, "phys_port_id", str);
+                if (r < 0)
+                        return r;
+
+                TAKE_PTR(str);
+        }
+
+        if (info->phys_switch_id_supported &&
+            device_get_cached_sysattr_value(device, "phys_switch_id", NULL) == -ENODATA) {
+                _cleanup_free_ char *str = NULL;
+
+                if (info->phys_switch_id) {
+                        str = strdup(info->phys_switch_id);
+                        if (!str)
+                                return -ENOMEM;
+                }
+
+                r = device_cache_sysattr_value(device, "phys_switch_id", str);
+                if (r < 0)
+                        return r;
+
+                TAKE_PTR(str);
+        }
+
+        if (info->phys_port_name_supported &&
             device_get_cached_sysattr_value(device, "phys_port_name", NULL) == -ENODATA) {
                 _cleanup_free_ char *str = NULL;
 
@@ -177,7 +219,7 @@ int device_get_sysattr_value_maybe_from_netlink(
         if (sd_device_get_ifindex(device, &ifindex) < 0)
                 return sd_device_get_sysattr_value(device, sysattr, ret_value);
 
-        if (!STR_IN_SET(sysattr, "type", "address", "iflink", "phys_port_name"))
+        if (!STR_IN_SET(sysattr, "type", "address", "iflink", "phys_port_id", "phys_switch_id", "phys_port_name"))
                 return sd_device_get_sysattr_value(device, sysattr, ret_value);
 
         r = device_get_cached_sysattr_value(device, sysattr, ret_value);
