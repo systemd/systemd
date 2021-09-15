@@ -237,13 +237,20 @@
 
       <varlistentry>
         <term><varname>AllowedCPUs=</varname></term>
+        <term><varname>StartupAllowedCPUs=</varname></term>
 
         <listitem>
           <para>Restrict processes to be executed on specific CPUs. Takes a list of CPU indices or ranges separated by either
           whitespace or commas. CPU ranges are specified by the lower and upper CPU indices separated by a dash.</para>
 
-          <para>Setting <varname>AllowedCPUs=</varname> doesn't guarantee that all of the CPUs will be used by the processes
-          as it may be limited by parent units. The effective configuration is reported as <varname>EffectiveCPUs=</varname>.</para>
+          <para>Setting <varname>AllowedCPUs=</varname> or <varname>StartupAllowedCPUs=</varname> doesn't guarantee that all
+          of the CPUs will be used by the processes as it may be limited by parent units. The effective configuration is
+          reported as <varname>EffectiveCPUs=</varname>.</para>
+
+          <para>While <varname>StartupAllowedCPUs=</varname> only applies to the startup phase of the system,
+          <varname>AllowedCPUs=</varname> applies to normal runtime of the system, and if the former is not set also to
+          the startup phase. Using <varname>StartupAllowedCPUs=</varname> allows prioritizing specific services at
+          boot-up differently than during normal runtime.</para>
 
           <para>This setting is supported only with the unified control group hierarchy.</para>
         </listitem>
@@ -251,15 +258,21 @@
 
       <varlistentry>
         <term><varname>AllowedMemoryNodes=</varname></term>
+        <term><varname>StartupAllowedMemoryNodes=</varname></term>
 
         <listitem>
           <para>Restrict processes to be executed on specific memory NUMA nodes. Takes a list of memory NUMA nodes indices
           or ranges separated by either whitespace or commas. Memory NUMA nodes ranges are specified by the lower and upper
           NUMA nodes indices separated by a dash.</para>
 
-          <para>Setting <varname>AllowedMemoryNodes=</varname> doesn't guarantee that all of the memory NUMA nodes will
-          be used by the processes as it may be limited by parent units. The effective configuration is reported as
-          <varname>EffectiveMemoryNodes=</varname>.</para>
+          <para>Setting <varname>AllowedMemoryNodes=</varname> or <varname>StartupAllowedMemoryNodes=</varname> doesn't
+          guarantee that all of the memory NUMA nodes will be used by the processes as it may be limited by parent units.
+          The effective configuration is reported as <varname>EffectiveMemoryNodes=</varname>.</para>
+
+          <para>While <varname>StartupAllowedMemoryNodes=</varname> only applies to the startup phase of the system,
+          <varname>AllowedMemoryNodes=</varname> applies to normal runtime of the system, and if the former is not set also to
+          the startup phase. Using <varname>StartupAllowedMemoryNodes=</varname> allows prioritizing specific services at
+          boot-up differently than during normal runtime.</para>
 
           <para>This setting is supported only with the unified control group hierarchy.</para>
         </listitem>

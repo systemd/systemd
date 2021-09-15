@@ -1,7 +1,9 @@
 mount
 [Mount]
 AllowedCPUs=
+StartupAllowedCPUs=
 AllowedMemoryNodes=
+StartupAllowedMemoryNodes=
 AmbientCapabilities=
 AppArmorProfile=
 BPFProgram=

@@ -1,7 +1,9 @@
 scope
 [Scope]
 AllowedCPUs=
+StartupAllowedCPUs=
 AllowedMemoryNodes=
+StartupAllowedMemoryNodes=
 BPFProgram=
 BlockIOAccounting=
 BlockIODeviceWeight=

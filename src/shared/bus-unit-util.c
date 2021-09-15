@@ -474,7 +474,9 @@ static int bus_append_cgroup_property(sd_bus_message *m, const char *field, cons
                 return bus_append_cg_cpu_shares_parse(m, field, eq);
 
         if (STR_IN_SET(field, "AllowedCPUs",
-                              "AllowedMemoryNodes")) {
+                              "StartupAllowedCPUs",
+                              "AllowedMemoryNodes",
+                              "StartupAllowedMemoryNodes")) {
                 _cleanup_(cpu_set_reset) CPUSet cpuset = {};
                 _cleanup_free_ uint8_t *array = NULL;
                 size_t allocated;
