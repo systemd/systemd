@@ -3174,7 +3174,7 @@ _public_ int sd_journal_enumerate_fields(sd_journal *j, const char **field) {
                 if (memchr(o->field.payload, 0, sz))
                         return -EBADMSG;
 
-                if (sz > j->data_threshold)
+                if (j->data_threshold > 0 && sz > j->data_threshold)
                         sz = j->data_threshold;
 
                 if (!GREEDY_REALLOC(j->fields_buffer, sz + 1))
