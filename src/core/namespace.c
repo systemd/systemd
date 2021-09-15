@@ -853,7 +853,7 @@ static int mount_private_dev(MountEntry *m) {
         char temporary_mount[] = "/tmp/namespace-dev-XXXXXX";
         const char *d, *dev = NULL, *devpts = NULL, *devshm = NULL, *devhugepages = NULL, *devmqueue = NULL, *devlog = NULL, *devptmx = NULL;
         bool can_mknod = true;
-        _cleanup_umask_ mode_t u;
+        _unused_ _cleanup_umask_ mode_t u;
         int r;
 
         assert(m);

@@ -1674,7 +1674,7 @@ static int run(int argc, char *argv[]) {
         verb = argv[1];
 
         if (streq(verb, "attach")) {
-                _cleanup_(remove_and_erasep) const char *destroy_key_file = NULL;
+                _unused_ _cleanup_(remove_and_erasep) const char *destroy_key_file = NULL;
                 _cleanup_(erase_and_freep) void *key_data = NULL;
                 const char *volume, *source, *key_file, *options;
                 crypt_status_info status;
