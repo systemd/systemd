@@ -189,3 +189,58 @@ bool journal_shall_try_append_again(JournalFile *f, int r) {
                 return false;
         }
 }
+
+int journal_enumerate_objects(sd_journal *j, Object **object, uint64_t *offset) {
+        int r;
+
+        assert(j);
+        assert(object);
+
+        if (!j->objects_file) {
+                if (j->objects_file_lost)
+                        return 0;
+
+                j->objects_file = ordered_hashmap_first(j->files);
+                if (!j->objects_file)
+                        return 0;
+
+                j->objects_offset = 0;
+        }
+
+        for (;;) {
+                Object *o;
+
+                if (j->objects_offset == 0)
+                        j->objects_offset = le64toh(READ_NOW(j->objects_file->header->header_size));
+                else if (j->objects_offset == le64toh(j->objects_file->header->tail_object_offset)) {
+                        /* Proceed with next file */
+                        j->objects_file = ordered_hashmap_next(j->files, j->objects_file->path);
+                        if (!j->objects_file) {
+                                *object = NULL;
+                                return 0;
+                        }
+
+                        j->objects_offset = 0;
+                        continue;
+                }
+
+                r = journal_file_move_to_object(j->objects_file, OBJECT_UNUSED, j->objects_offset, &o);
+                if (r < 0)
+                        return r;
+
+                *object = o;
+                *offset = j->objects_offset;
+
+                j->objects_offset += ALIGN64(le64toh(o->object.size));
+
+                return 1;
+        }
+}
+
+void journal_restart_objects(sd_journal *j) {
+        if (!j)
+                return;
+
+        j->objects_file = NULL;
+        j->objects_offset = 0;
+}

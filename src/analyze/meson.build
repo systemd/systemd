@@ -25,6 +25,8 @@ systemd_analyze_sources = files(
         'analyze-filesystems.h',
         'analyze-inspect-elf.c',
         'analyze-inspect-elf.h',
+        'analyze-journal.c',
+        'analyze-journal.h',
         'analyze-log-control.c',
         'analyze-log-control.h',
         'analyze-plot.c',
