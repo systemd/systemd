@@ -18,12 +18,14 @@ static inline int device_new_from_watch_handle(sd_device **ret, int wd) {
 }
 
 int device_get_device_id(sd_device *device, const char **ret);
-
 int device_get_devlink_priority(sd_device *device, int *priority);
 int device_get_watch_handle(sd_device *device);
 int device_get_devnode_mode(sd_device *device, mode_t *mode);
 int device_get_devnode_uid(sd_device *device, uid_t *uid);
 int device_get_devnode_gid(sd_device *device, gid_t *gid);
+
+int device_cache_sysattr_value(sd_device *device, const char *key, char *value);
+int device_get_cached_sysattr_value(sd_device *device, const char *key, const char **ret_value);
 
 void device_seal(sd_device *device);
 void device_set_is_initialized(sd_device *device);
