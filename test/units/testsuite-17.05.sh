@@ -10,15 +10,13 @@ ACTION=="add", SUBSYSTEM=="mem", KERNEL=="null", IMPORT{program}="/bin/echo -e H
 EOF
 
 udevadm control --reload
-udevadm trigger -c add /dev/null
+udevadm trigger --settle --action add /dev/null
 
-while : ; do
-    test -f /run/udev/data/c1:3 &&
-        udevadm info /dev/null | grep -q 'E: HOGE=aa\\x20\\x20\\x20bb' &&
-        udevadm info /dev/null | grep -q 'E: FOO=\\x20aaa\\x20' &&
-        break
+test -f /run/udev/data/c1:3
+udevadm info /dev/null | grep -q 'E: HOGE=aa\\x20\\x20\\x20bb'
+udevadm info /dev/null | grep -q 'E: FOO=\\x20aaa\\x20'
 
-    sleep .5
-done
+rm /run/udev/rules.d/50-testsuite.rules
+udevadm control --reload
 
 exit 0
