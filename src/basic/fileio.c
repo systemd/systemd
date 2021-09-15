@@ -433,7 +433,14 @@ int read_virtual_file(const char *filename, size_t max_size, char **ret_contents
                         n_retries--;
                 } else {
                         size = MIN(READ_VIRTUAL_BYTES_MAX, max_size);
-                        n_retries = 0;
+
+                        if (n_retries > 1 && size > 4095) {
+                                /* Files in /proc are generally smaller than 4K so let's start with a 4K buffer from
+                                 * malloc and only use the max buffer on the final try. */
+                                size = 4095;
+                                n_retries = 1;
+                        } else
+                                n_retries = 0;
                 }
 
                 buf = malloc(size + 1);
