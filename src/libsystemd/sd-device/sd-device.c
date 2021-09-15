@@ -1938,7 +1938,7 @@ _public_ int sd_device_get_trigger_uuid(sd_device *device, sd_id128_t *ret) {
         return 0;
 }
 
-static int device_cache_sysattr_value(sd_device *device, const char *key, char *value) {
+int device_cache_sysattr_value(sd_device *device, const char *key, char *value) {
         _cleanup_free_ char *new_key = NULL, *old_value = NULL;
         int r;
 
@@ -1965,7 +1965,7 @@ static int device_cache_sysattr_value(sd_device *device, const char *key, char *
         return 0;
 }
 
-static int device_get_cached_sysattr_value(sd_device *device, const char *key, const char **ret_value) {
+int device_get_cached_sysattr_value(sd_device *device, const char *key, const char **ret_value) {
         const char *k = NULL, *value;
 
         assert(device);
