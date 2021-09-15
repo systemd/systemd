@@ -206,7 +206,12 @@ static const char *encrypt_mode_table[_ENCRYPT_MODE_MAX] = {
         [ENCRYPT_KEY_FILE_TPM2] = "key-file+tpm2",
 };
 
+#if HAVE_LIBCRYPTSETUP
 DEFINE_PRIVATE_STRING_TABLE_LOOKUP_WITH_BOOLEAN(encrypt_mode, EncryptMode, ENCRYPT_KEY_FILE);
+#else
+DEFINE_PRIVATE_STRING_TABLE_LOOKUP_FROM_STRING_WITH_BOOLEAN(encrypt_mode, EncryptMode, ENCRYPT_KEY_FILE);
+#endif
+
 
 static uint64_t round_down_size(uint64_t v, uint64_t p) {
         return (v / p) * p;
