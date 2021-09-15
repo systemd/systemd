@@ -904,7 +904,8 @@ static void context_place_partitions(Context *context) {
 
         for (size_t i = 0; i < context->n_free_areas; i++) {
                 FreeArea *a = context->free_areas[i];
-                uint64_t start, left;
+                _unused_ uint64_t left;
+                uint64_t start;
 
                 if (a->after) {
                         assert(a->after->offset != UINT64_MAX);
