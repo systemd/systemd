@@ -473,10 +473,7 @@ Manager* manager_free(Manager *m) {
         hashmap_free(m->route_table_names_by_number);
         hashmap_free(m->route_table_numbers_by_name);
 
-        /* routing_policy_rule_free() access m->rules and m->rules_foreign.
-         * So, it is necessary to set NULL after the sets are freed. */
-        m->rules = set_free(m->rules);
-        m->rules_foreign = set_free(m->rules_foreign);
+        set_free(m->rules);
 
         sd_netlink_unref(m->rtnl);
         sd_netlink_unref(m->genl);
@@ -490,7 +487,6 @@ Manager* manager_free(Manager *m) {
         m->routes_foreign = set_free(m->routes_foreign);
 
         m->nexthops = set_free(m->nexthops);
-        m->nexthops_foreign = set_free(m->nexthops_foreign);
         m->nexthops_by_id = hashmap_free(m->nexthops_by_id);
 
         sd_event_source_unref(m->speed_meter_event_source);
