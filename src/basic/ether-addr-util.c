@@ -21,6 +21,7 @@ char* hw_addr_to_string(const struct hw_addr_data *addr, char buffer[HW_ADDR_TO_
                         buffer[3*i + 2] = ':';
         }
 
+        buffer[3 * addr->length - 1] = '\0';
         return buffer;
 }
 
