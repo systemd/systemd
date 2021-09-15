@@ -92,8 +92,6 @@ typedef struct Link {
         unsigned static_route_messages;
         unsigned static_routing_policy_rule_messages;
         unsigned address_remove_messages;
-        unsigned neighbor_remove_messages;
-        unsigned nexthop_remove_messages;
         unsigned route_remove_messages;
         unsigned tc_messages;
         unsigned sr_iov_messages;
@@ -108,11 +106,9 @@ typedef struct Link {
         Set *pool_addresses;
         Set *static_addresses;
         Set *neighbors;
-        Set *neighbors_foreign;
         Set *routes;
         Set *routes_foreign;
         Set *nexthops;
-        Set *nexthops_foreign;
 
         sd_dhcp_client *dhcp_client;
         sd_dhcp_lease *dhcp_lease;
