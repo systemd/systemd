@@ -24,6 +24,9 @@
 #
 # Allowed properties are:
 #    ID_AUTOSUSPEND=1
+#    ID_PERSIST=0
+#
+# ID_PERSIST=0 allows disabling the kernels USB "persist" feature.
 
 # Sort by brand, model
 
