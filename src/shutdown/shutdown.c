@@ -307,10 +307,31 @@ static void bump_sysctl_printk_log_level(int min_level) {
                 log_debug_errno(r, "Failed to bump kernel.printk to %i: %m", min_level + 1);
 }
 
+static void init_watchdog(const char *dev, const char *timeout) {
+        int r;
+
+        if (dev) {
+                r = watchdog_set_device(dev);
+                if (r < 0)
+                        log_warning_errno(r, "Failed to set watchdog device to %s, ignoring: %m", dev);
+        }
+
+        if (timeout) {
+                usec_t usec;
+
+                r = parse_time(timeout, &usec, 1);
+                if (r >= 0)
+                        r = watchdog_setup(usec);
+                if (r < 0)
+                        log_warning_errno(r, "Failed to setup watchdog with timeout=%s, ignoring: %m",
+                                          timeout);
+        }
+}
+
 int main(int argc, char *argv[]) {
         bool need_umount, need_swapoff, need_loop_detach, need_dm_detach, need_md_detach, in_container, can_initrd;
         _cleanup_free_ char *cgroup = NULL;
-        char *arguments[3], *watchdog_device, *watchdog_usec;
+        char *arguments[3];
         int cmd, r, umount_log_level = LOG_INFO;
         static const char* const dirs[] = {SYSTEM_SHUTDOWN_PATH, NULL};
 
@@ -370,25 +391,8 @@ int main(int argc, char *argv[]) {
                    LOG_TARGET_KMSG))
                 bump_sysctl_printk_log_level(LOG_WARNING);
 
-        watchdog_device = getenv("WATCHDOG_DEVICE");
-        if (watchdog_device) {
-                r = watchdog_set_device(watchdog_device);
-                if (r < 0)
-                        log_warning_errno(r, "Failed to set watchdog device to %s, ignoring: %m",
-                                          watchdog_device);
-        }
+        init_watchdog(getenv("WATCHDOG_DEVICE"), getenv("WATCHDOG_USEC"));
 
-        watchdog_usec = getenv("WATCHDOG_USEC");
-        if (watchdog_usec) {
-                usec_t usec;
-
-                r = parse_time(watchdog_usec, &usec, 1);
-                if (r >= 0)
-                        r = watchdog_setup(usec);
-                if (r < 0)
-                        log_warning_errno(r, "Failed to start watchdog with timeout=%s, ignoring: %m",
-                                          watchdog_usec);
-        }
 
         /* Lock us into memory */
         (void) mlockall(MCL_CURRENT|MCL_FUTURE);
