@@ -165,7 +165,7 @@ static int dns_query_candidate_add_transaction(
 }
 
 static int dns_query_candidate_go(DnsQueryCandidate *c) {
-        _cleanup_(dns_query_candidate_unrefp) DnsQueryCandidate *keep_c = NULL;
+        _unused_ _cleanup_(dns_query_candidate_unrefp) DnsQueryCandidate *keep_c = NULL;
         DnsTransaction *t;
         int r;
         unsigned n = 0;

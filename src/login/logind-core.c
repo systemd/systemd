@@ -703,7 +703,7 @@ bool manager_all_buttons_ignored(Manager *m) {
 int manager_read_utmp(Manager *m) {
 #if ENABLE_UTMP
         int r;
-        _cleanup_(utxent_cleanup) bool utmpx = false;
+        _unused_ _cleanup_(utxent_cleanup) bool utmpx = false;
 
         assert(m);
 

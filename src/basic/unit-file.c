@@ -286,7 +286,8 @@ int unit_file_build_name_map(
 
                 FOREACH_DIRENT(de, d, log_warning_errno(errno, "Failed to read \"%s\", ignoring: %m", *dir)) {
                         char *filename;
-                        _cleanup_free_ char *_filename_free = NULL, *simplified = NULL;
+                        _unused_ _cleanup_free_ char *_filename_free = NULL;
+                        _cleanup_free_ char *simplified = NULL;
                         const char *suffix, *dst = NULL;
                         bool valid_unit_name;
 
