@@ -2507,6 +2507,7 @@ typedef struct LLDPUserdata {
         Table *table;
         int *neighbors_count;
         uint16_t *capabilities_all;
+        JsonVariant **json_list;
 } LLDPUserdata;
 
 static int lldp_neighbours_varlink_reply(Varlink *link, JsonVariant *parameters, const char *error_id, VarlinkReplyFlags flags, void *userdata) {
@@ -2583,6 +2584,25 @@ static int lldp_neighbours_varlink_reply(Varlink *link, JsonVariant *parameters,
         if (udata->capabilities_all)
                 *(udata->capabilities_all) |= entry.capabilities;
 
+        if (udata->json_list) {
+                _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
+
+                capabilities = lldp_capabilities_to_string(entry.capabilities, false);
+
+                r = json_build(&v, JSON_BUILD_OBJECT(
+                                        JSON_BUILD_PAIR_CONDITION(entry.chassis_id, "ChassisId", JSON_BUILD_STRING(entry.chassis_id)),
+                                        JSON_BUILD_PAIR_CONDITION(entry.port_id, "PortId", JSON_BUILD_STRING(entry.port_id)),
+                                        JSON_BUILD_PAIR_CONDITION(entry.system_name, "SystemName", JSON_BUILD_STRING(entry.system_name)),
+                                        JSON_BUILD_PAIR_CONDITION(entry.port_description, "PortDescription", JSON_BUILD_STRING(entry.port_description)),
+                                        JSON_BUILD_PAIR_CONDITION(entry.capabilities, "EnabledCapabilities", JSON_BUILD_STRING(capabilities))));
+                if (r < 0)
+                        return r;
+
+                r = json_variant_append_array(udata->json_list, v);
+                if (r < 0)
+                        return r;
+        }
+
         return 0;
 }
 
@@ -2595,10 +2615,10 @@ static int link_lldp_status(int argc, char *argv[], void *userdata) {
         _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
         _cleanup_(link_info_array_freep) LinkInfo *links = NULL;
         _cleanup_(table_unrefp) Table *table = NULL;
+        _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
         int neighbors_count = 0;
         uint16_t capabilities_all = 0;
         LLDPUserdata udata = {0};
-        TableCell *cell;
 
         r = varlink_connect_address(&link, address);
         if (r < 0)
@@ -2619,49 +2639,62 @@ static int link_lldp_status(int argc, char *argv[], void *userdata) {
         if (c < 0)
                 return c;
 
-        (void) pager_open(arg_pager_flags);
+        if (arg_json_format_flags == JSON_FORMAT_OFF) {
+                TableCell *cell;
 
-        table = table_new("link",
-                          "chassis id",
-                          "system name",
-                          "caps",
-                          "port id",
-                          "port description");
-        if (!table)
-                return log_oom();
+                (void) pager_open(arg_pager_flags);
 
-        if (arg_full)
-                table_set_width(table, 0);
+                table = table_new("link",
+                                  "chassis id",
+                                  "system name",
+                                  "caps",
+                                  "port id",
+                                  "port description");
+                if (!table)
+                        return log_oom();
 
-        table_set_header(table, arg_legend);
+                if (arg_full)
+                        table_set_width(table, 0);
 
-        assert_se(cell = table_get_cell(table, 0, 0));
-        table_set_minimum_width(table, cell, 16);
+                table_set_header(table, arg_legend);
 
-        assert_se(cell = table_get_cell(table, 0, 1));
-        table_set_minimum_width(table, cell, 17);
+                assert_se(cell = table_get_cell(table, 0, 0));
+                table_set_minimum_width(table, cell, 16);
 
-        assert_se(cell = table_get_cell(table, 0, 2));
-        table_set_minimum_width(table, cell, 16);
+                assert_se(cell = table_get_cell(table, 0, 1));
+                table_set_minimum_width(table, cell, 17);
 
-        assert_se(cell = table_get_cell(table, 0, 3));
-        table_set_minimum_width(table, cell, 11);
+                assert_se(cell = table_get_cell(table, 0, 2));
+                table_set_minimum_width(table, cell, 16);
 
-        assert_se(cell = table_get_cell(table, 0, 4));
-        table_set_minimum_width(table, cell, 17);
+                assert_se(cell = table_get_cell(table, 0, 3));
+                table_set_minimum_width(table, cell, 11);
 
-        assert_se(cell = table_get_cell(table, 0, 5));
-        table_set_minimum_width(table, cell, 16);
+                assert_se(cell = table_get_cell(table, 0, 4));
+                table_set_minimum_width(table, cell, 17);
+
+                assert_se(cell = table_get_cell(table, 0, 5));
+                table_set_minimum_width(table, cell, 16);
+
+                udata.table = table;
+        } else {
+                r = json_build(&v, JSON_BUILD_EMPTY_OBJECT);
+                if (r < 0)
+                        return r;
+        }
 
         udata.neighbors_count = &neighbors_count;
         udata.capabilities_all = &capabilities_all;
-        udata.table = table;
         varlink_set_userdata(link, &udata);
 
         for (int i = 0; i < c; i++) {
-                _cleanup_(json_variant_unrefp) JsonVariant *cparams = NULL;
+                _cleanup_(json_variant_unrefp) JsonVariant *cparams = NULL, *neighbors = NULL;
 
                 udata.link_name = links[i].name;
+
+                if (arg_json_format_flags != JSON_FORMAT_OFF) {
+                        udata.json_list = &neighbors;
+                }
 
                 r = json_build(&cparams, JSON_BUILD_OBJECT(
                                         JSON_BUILD_PAIR("ifindex", JSON_BUILD_UNSIGNED(links[i].ifindex))));
@@ -2675,15 +2708,23 @@ static int link_lldp_status(int argc, char *argv[], void *userdata) {
                 r = varlink_observe_loop(link);
                 if (r < 0)
                         return r;
+
+                if (!json_variant_is_blank_array(neighbors)) {
+                        json_variant_set_field(&v, links[i].name, neighbors);
+                }
         }
 
-        r = table_print(table, NULL);
-        if (r < 0)
-                return table_log_print_error(r);
+        if (arg_json_format_flags == JSON_FORMAT_OFF) {
+                r = table_print(table, NULL);
+                if (r < 0)
+                        return table_log_print_error(r);
 
-        if (arg_legend) {
-                lldp_capabilities_legend(capabilities_all);
-                printf("\n%i neighbors listed.\n", neighbors_count);
+                if (arg_legend) {
+                        lldp_capabilities_legend(capabilities_all);
+                        printf("\n%i neighbors listed.\n", neighbors_count);
+                }
+        } else {
+                json_variant_dump(v, arg_json_format_flags, NULL, NULL);
         }
 
         return 0;
