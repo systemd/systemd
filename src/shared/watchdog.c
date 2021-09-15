@@ -88,7 +88,7 @@ static int open_watchdog(void) {
         return update_timeout();
 }
 
-int watchdog_set_device(char *path) {
+int watchdog_set_device(const char *path) {
         int r;
 
         r = free_and_strdup(&watchdog_device, path);
