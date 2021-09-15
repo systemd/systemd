@@ -2978,13 +2978,8 @@ int manager_loop(Manager *m) {
                 return log_error_errno(r, "Failed to enable SIGCHLD event source: %m");
 
         while (m->objective == MANAGER_OK) {
-                usec_t wait_usec, watchdog_usec;
 
-                watchdog_usec = manager_get_watchdog(m, WATCHDOG_RUNTIME);
-                if (m->runtime_watchdog_running)
-                        (void) watchdog_ping();
-                else if (timestamp_is_set(watchdog_usec))
-                        manager_retry_runtime_watchdog(m);
+                (void) watchdog_ping();
 
                 if (!ratelimit_below(&rl)) {
                         /* Yay, something is going seriously wrong, pause a little */
@@ -3020,12 +3015,7 @@ int manager_loop(Manager *m) {
                         continue;
 
                 /* Sleep for watchdog runtime wait time */
-                if (timestamp_is_set(watchdog_usec))
-                        wait_usec = watchdog_runtime_wait();
-                else
-                        wait_usec = USEC_INFINITY;
-
-                r = sd_event_run(m->event, wait_usec);
+                r = sd_event_run(m->event, watchdog_runtime_wait());
                 if (r < 0)
                         return log_error_errno(r, "Failed to run event loop: %m");
         }
@@ -3203,7 +3193,6 @@ usec_t manager_get_watchdog(Manager *m, WatchdogType t) {
 }
 
 void manager_set_watchdog(Manager *m, WatchdogType t, usec_t timeout) {
-        int r = 0;
 
         assert(m);
 
@@ -3215,22 +3204,16 @@ void manager_set_watchdog(Manager *m, WatchdogType t, usec_t timeout) {
 
         if (t == WATCHDOG_RUNTIME)
                 if (!timestamp_is_set(m->watchdog_overridden[WATCHDOG_RUNTIME])) {
-                        if (timestamp_is_set(timeout)) {
-                                r = watchdog_set_timeout(&timeout);
-
-                                if (r >= 0)
-                                        m->runtime_watchdog_running = true;
-                        } else {
+                        if (timestamp_is_set(timeout))
+                                (void) watchdog_setup(timeout);
+                        else
                                 watchdog_close(true);
-                                m->runtime_watchdog_running = false;
-                        }
                 }
 
         m->watchdog[t] = timeout;
 }
 
 int manager_override_watchdog(Manager *m, WatchdogType t, usec_t timeout) {
-        int r = 0;
 
         assert(m);
 
@@ -3241,37 +3224,16 @@ int manager_override_watchdog(Manager *m, WatchdogType t, usec_t timeout) {
                 return 0;
 
         if (t == WATCHDOG_RUNTIME) {
-                usec_t *p;
+                usec_t usec = timestamp_is_set(timeout) ? timeout : m->watchdog[t];
 
-                p = timestamp_is_set(timeout) ? &timeout : &m->watchdog[t];
-                if (timestamp_is_set(*p)) {
-                        r = watchdog_set_timeout(p);
-
-                        if (r >= 0)
-                                m->runtime_watchdog_running = true;
-                } else {
+                if (timestamp_is_set(usec))
+                        (void) watchdog_setup(usec);
+                else
                         watchdog_close(true);
-                        m->runtime_watchdog_running = false;
-                }
         }
 
         m->watchdog_overridden[t] = timeout;
-
         return 0;
-}
-
-void manager_retry_runtime_watchdog(Manager *m) {
-        int r = 0;
-
-        assert(m);
-
-        if (timestamp_is_set(m->watchdog_overridden[WATCHDOG_RUNTIME]))
-                r = watchdog_set_timeout(&m->watchdog_overridden[WATCHDOG_RUNTIME]);
-        else
-                r = watchdog_set_timeout(&m->watchdog[WATCHDOG_RUNTIME]);
-
-        if (r >= 0)
-                m->runtime_watchdog_running = true;
 }
 
 int manager_reload(Manager *m) {
