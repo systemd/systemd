@@ -5,11 +5,13 @@
 #include <stdio.h>
 #include <unistd.h>
 
+#include "af-list.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "log.h"
 #include "macro.h"
 #include "path-util.h"
+#include "socket-util.h"
 #include "string-util.h"
 #include "sysctl-util.h"
 
@@ -77,17 +79,21 @@ int sysctl_writef(const char *property, const char *format, ...) {
 int sysctl_write_ip_property(int af, const char *ifname, const char *property, const char *value) {
         const char *p;
 
-        assert(IN_SET(af, AF_INET, AF_INET6));
         assert(property);
         assert(value);
 
-        p = strjoina("/proc/sys/net/ipv", af == AF_INET ? "4" : "6",
-                     ifname ? "/conf/" : "", strempty(ifname),
-                     property[0] == '/' ? "" : "/", property);
+        if (!IN_SET(af, AF_INET, AF_INET6))
+                return -EAFNOSUPPORT;
 
-        log_debug("Setting '%s' to '%s'", p, value);
+        if (ifname) {
+                if (!ifname_valid_full(ifname, IFNAME_VALID_SPECIAL))
+                        return -EINVAL;
 
-        return write_string_file(p, value, WRITE_STRING_FILE_VERIFY_ON_FAILURE | WRITE_STRING_FILE_DISABLE_BUFFER);
+                p = strjoina("net/", af_to_ipv4_ipv6(af), "/conf/", ifname, "/", property);
+        } else
+                p = strjoina("net/", af_to_ipv4_ipv6(af), "/", property);
+
+        return sysctl_write(p, value);
 }
 
 int sysctl_read(const char *property, char **ret) {

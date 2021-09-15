@@ -793,7 +793,7 @@ bool ifname_valid_full(const char *p, IfnameValidFlags flags) {
 
         /* Let's refuse "all" and "default" as interface name, to avoid collisions with the special sysctl
          * directories /proc/sys/net/{ipv4,ipv6}/conf/{all,default} */
-        if (STR_IN_SET(p, "all", "default"))
+        if (!FLAGS_SET(flags, IFNAME_VALID_SPECIAL) && STR_IN_SET(p, "all", "default"))
                 return false;
 
         for (const char *t = p; *t; t++) {
