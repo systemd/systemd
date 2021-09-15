@@ -35,8 +35,8 @@
 #include "string-util.h"
 #include "strv.h"
 #include "strxcpyx.h"
-#include "udev-builtin-net_id-netlink.h"
 #include "udev-builtin.h"
+#include "udev-netlink.h"
 
 #define ONBOARD_14BIT_INDEX_MAX ((1U << 14) - 1)
 #define ONBOARD_16BIT_INDEX_MAX ((1U << 16) - 1)
@@ -342,22 +342,16 @@ static int dev_pci_slot(sd_device *dev, const LinkInfo *info, NetNames *names) {
                 r = safe_atolu_full(attr, 10, &dev_port);
                 if (r < 0)
                         log_device_debug_errno(dev, r, "Failed to parse attribute dev_port, ignoring: %m");
+
                 /* With older kernels IP-over-InfiniBand network interfaces sometimes erroneously
                  * provide the port number in the 'dev_id' sysfs attribute instead of 'dev_port',
                  * which thus stays initialized as 0. */
                 if (dev_port == 0 &&
-                    sd_device_get_sysattr_value(dev, "type", &attr) >= 0) {
-                        unsigned long type;
-
-                        r = safe_atolu_full(attr, 10, &type);
+                    info->iftype == ARPHRD_INFINIBAND &&
+                    sd_device_get_sysattr_value(dev, "dev_id", &attr) >= 0) {
+                        r = safe_atolu_full(attr, 10, &dev_port);
                         if (r < 0)
-                                log_device_debug_errno(dev, r, "Failed to parse attribute type, ignoring: %m");
-                        else if (type == ARPHRD_INFINIBAND &&
-                                 sd_device_get_sysattr_value(dev, "dev_id", &attr) >= 0) {
-                                r = safe_atolu_full(attr, 10, &dev_port);
-                                if (r < 0)
-                                        log_device_debug_errno(dev, r, "Failed to parse attribute dev_id, ignoring: %m");
-                        }
+                                log_device_debug_errno(dev, r, "Failed to parse attribute dev_id, ignoring: %m");
                 }
         }
 
@@ -869,6 +863,10 @@ static int builtin_net_id(sd_device *dev, sd_netlink **rtnl, int argc, char *arg
                                 return log_oom();
                 }
         }
+
+        r = device_cache_sysattr_from_link_info(dev, &info);
+        if (r < 0)
+                return r;
 
         /* skip stacked devices, like VLANs, ... */
         if (info.ifindex != (int) info.iflink)
