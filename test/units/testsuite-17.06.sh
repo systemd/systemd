@@ -21,20 +21,15 @@ function check() {
         systemctl restart systemd-udevd.service
         udevadm control --ping
         udevadm settle
-        sleep 1
         check_validity
 
         for ((j=0;j<2;j++)); do
             udevadm trigger -w --action add --subsystem-match=block
-            udevadm settle
-            sleep 1
             check_validity
         done
 
         for ((j=0;j<2;j++)); do
             udevadm trigger -w --action change --subsystem-match=block
-            udevadm settle
-            sleep 1
             check_validity
         done
     done
@@ -70,6 +65,5 @@ rm /run/udev/rules.d/00-debug.rules
 rm /run/udev/rules.d/50-testsuite.rules
 
 udevadm control --reload
-udevadm trigger -w --action add --subsystem-match=block
 
 exit 0
