@@ -3,15 +3,15 @@
 #include "nulstr-util.h"
 #include "string-util.h"
 
-bool nulstr_contains(const char *nulstr, const char *needle) {
+const char* nulstr_get(const char *nulstr, const char *needle) {
         const char *i;
 
         if (!nulstr)
-                return false;
+                return NULL;
 
         NULSTR_FOREACH(i, nulstr)
                 if (streq(i, needle))
-                        return true;
+                        return i;
 
-        return false;
+        return NULL;
 }
