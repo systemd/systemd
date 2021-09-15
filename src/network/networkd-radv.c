@@ -7,11 +7,13 @@
 #include <arpa/inet.h>
 
 #include "dns-domain.h"
+#include "networkd-address.h"
 #include "networkd-link.h"
 #include "networkd-manager.h"
 #include "networkd-network.h"
 #include "networkd-queue.h"
 #include "networkd-radv.h"
+#include "networkd-route.h"
 #include "parse-util.h"
 #include "string-util.h"
 #include "string-table.h"
@@ -200,6 +202,54 @@ void network_adjust_radv(Network *network) {
                 network->prefixes_by_section = hashmap_free_with_destructor(network->prefixes_by_section, prefix_free);
                 network->route_prefixes_by_section = hashmap_free_with_destructor(network->route_prefixes_by_section, route_prefix_free);
         }
+}
+
+static bool link_radv_enabled(Link *link) {
+        assert(link);
+
+        if (!link_ipv6ll_enabled(link))
+                return false;
+
+        return link->network->router_prefix_delegation;
+}
+
+int link_request_radv_addresses(Link *link) {
+        Prefix *p;
+        int r;
+
+        assert(link);
+
+        if (!link_radv_enabled(link))
+                return 0;
+
+        HASHMAP_FOREACH(p, link->network->prefixes_by_section) {
+                _cleanup_(address_freep) Address *address = NULL;
+
+                if (!p->assign)
+                        continue;
+
+                r = address_new(&address);
+                if (r < 0)
+                        return log_oom();
+
+                r = sd_radv_prefix_get_prefix(p->radv_prefix, &address->in_addr.in6, &address->prefixlen);
+                if (r < 0)
+                        return r;
+
+                r = generate_ipv6_eui_64_address(link, &address->in_addr.in6);
+                if (r < 0)
+                        return r;
+
+                address->source = NETWORK_CONFIG_SOURCE_STATIC;
+                address->family = AF_INET6;
+                address->route_metric = p->route_metric;
+
+                r = link_request_static_address(link, TAKE_PTR(address), true);
+                if (r < 0)
+                        return r;
+        }
+
+        return 0;
 }
 
 int config_parse_prefix(
@@ -658,15 +708,6 @@ static int radv_find_uplink(Link *link, Link **ret) {
 
         *ret = NULL;
         return 0;
-}
-
-static bool link_radv_enabled(Link *link) {
-        assert(link);
-
-        if (!link_ipv6ll_enabled(link))
-                return false;
-
-        return link->network->router_prefix_delegation;
 }
 
 static int radv_configure(Link *link) {
