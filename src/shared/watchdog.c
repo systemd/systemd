@@ -47,8 +47,8 @@ static int update_timeout(void) {
                 flags = WDIOS_ENABLECARD;
                 if (ioctl(watchdog_fd, WDIOC_SETOPTIONS, &flags) < 0) {
                         /* ENOTTY means the watchdog is always enabled so we're fine */
-                        log_full(ERRNO_IS_NOT_SUPPORTED(errno) ? LOG_DEBUG : LOG_WARNING,
-                                 "Failed to enable hardware watchdog: %m");
+                        log_full_errno(ERRNO_IS_NOT_SUPPORTED(errno) ? LOG_DEBUG : LOG_WARNING, errno,
+                                       "Failed to enable hardware watchdog, ignoring: %m");
                         if (!ERRNO_IS_NOT_SUPPORTED(errno))
                                 return -errno;
                 }
