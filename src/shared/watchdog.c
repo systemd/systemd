@@ -30,7 +30,7 @@ static int update_timeout(void) {
 
                 flags = WDIOS_DISABLECARD;
                 if (ioctl(watchdog_fd, WDIOC_SETOPTIONS, &flags) < 0)
-                        return log_warning_errno(errno, "Failed to disable hardware watchdog: %m");
+                        return log_warning_errno(errno, "Failed to disable hardware watchdog, ignoring: %m");
         } else {
                 int sec, flags;
                 usec_t t;
@@ -38,7 +38,7 @@ static int update_timeout(void) {
                 t = DIV_ROUND_UP(watchdog_timeout, USEC_PER_SEC);
                 sec = MIN(t, (usec_t) INT_MAX); /* Saturate */
                 if (ioctl(watchdog_fd, WDIOC_SETTIMEOUT, &sec) < 0)
-                        return log_warning_errno(errno, "Failed to set timeout to %is: %m", sec);
+                        return log_warning_errno(errno, "Failed to set timeout to %is, ignoring: %m", sec);
 
                 /* Just in case the driver is buggy */
                 assert(sec > 0);
@@ -57,7 +57,7 @@ static int update_timeout(void) {
                 }
 
                 if (ioctl(watchdog_fd, WDIOC_KEEPALIVE, 0) < 0)
-                        return log_warning_errno(errno, "Failed to ping hardware watchdog: %m");
+                        return log_warning_errno(errno, "Failed to ping hardware watchdog, ignoring: %m");
 
                 watchdog_last_ping = now(clock_boottime_or_monotonic());
         }
@@ -75,10 +75,10 @@ static int open_watchdog(void) {
         fn = watchdog_device ?: "/dev/watchdog";
         watchdog_fd = open(fn, O_WRONLY|O_CLOEXEC);
         if (watchdog_fd < 0)
-                return log_debug_errno(errno, "Failed to open watchdog device %s: %m", fn);
+                return log_debug_errno(errno, "Failed to open watchdog device %s, ignoring: %m", fn);
 
         if (ioctl(watchdog_fd, WDIOC_GETSUPPORT, &ident) < 0)
-                log_debug_errno(errno, "Hardware watchdog %s does not support WDIOC_GETSUPPORT ioctl: %m", fn);
+                log_debug_errno(errno, "Hardware watchdog %s does not support WDIOC_GETSUPPORT ioctl, ignoring: %m", fn);
         else
                 log_info("Using hardware watchdog '%s', version %x, device %s",
                          ident.identity,
@@ -156,7 +156,7 @@ int watchdog_ping(void) {
         }
 
         if (ioctl(watchdog_fd, WDIOC_KEEPALIVE, 0) < 0)
-                return log_warning_errno(errno, "Failed to ping hardware watchdog: %m");
+                return log_warning_errno(errno, "Failed to ping hardware watchdog, ignoring: %m");
 
         watchdog_last_ping = ntime;
         return 0;
@@ -172,7 +172,7 @@ void watchdog_close(bool disarm) {
                 /* Explicitly disarm it */
                 flags = WDIOS_DISABLECARD;
                 if (ioctl(watchdog_fd, WDIOC_SETOPTIONS, &flags) < 0)
-                        log_warning_errno(errno, "Failed to disable hardware watchdog: %m");
+                        log_warning_errno(errno, "Failed to disable hardware watchdog, ignoring: %m");
 
                 /* To be sure, use magic close logic, too */
                 for (;;) {
@@ -182,7 +182,7 @@ void watchdog_close(bool disarm) {
                                 break;
 
                         if (errno != EINTR) {
-                                log_error_errno(errno, "Failed to disarm watchdog timer: %m");
+                                log_warning_errno(errno, "Failed to disarm watchdog timer, ignoring: %m");
                                 break;
                         }
                 }
