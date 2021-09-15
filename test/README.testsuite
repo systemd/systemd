@@ -148,3 +148,18 @@ The cloud-side infrastructure, that is hooked into the Github interface, is
 located at:
 
 https://git.launchpad.net/autopkgtest-cloud/
+
+In case of infrastructure issues with this CI, things might go wrong in two
+places:
+
+- starting a job: this is done via a Github webhook, so check if the HTTP POST
+  are failing on https://github.com/systemd/systemd/settings/hooks
+- running a job: all currently running jobs are listed at
+  https://autopkgtest.ubuntu.com/running#pkg-systemd-upstream in case the PR
+  does not show the status for some reason
+- reporting the job result: this is done on Canonical's cloud infrastructure,
+  if jobs are started and running but no status is visible on the PR, then it is
+  likely that reporting back is not working
+
+For infrastructure help, reaching out to Canonical via the #ubuntu-devel channel
+on libera.chat is an effective way to receive support in general.
