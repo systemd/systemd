@@ -853,7 +853,7 @@ static int builtin_net_id(sd_device *dev, sd_netlink **rtnl, int argc, char *arg
         if (r < 0)
                 return r;
 
-        if (!info.support_phys_port_name) {
+        if (!info.phys_port_name_supported) {
                 const char *s;
 
                 r = sd_device_get_sysattr_value(dev, "phys_port_name", &s);
