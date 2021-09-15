@@ -774,6 +774,27 @@ int sd_netlink_message_read_data(sd_netlink_message *m, unsigned short type, siz
         return r;
 }
 
+int sd_netlink_message_read_data_suffix0(sd_netlink_message *m, unsigned short type, char **ret) {
+        void *attr_data, *data;
+        int r;
+
+        assert_return(m, -EINVAL);
+
+        r = netlink_message_read_internal(m, type, &attr_data, NULL);
+        if (r < 0)
+                return r;
+
+        if (ret) {
+                data = memdup_suffix0(attr_data, r);
+                if (!data)
+                        return -ENOMEM;
+
+                *ret = data;
+        }
+
+        return r;
+}
+
 int sd_netlink_message_read_string_strdup(sd_netlink_message *m, unsigned short type, char **data) {
         void *attr_data;
         char *str;
