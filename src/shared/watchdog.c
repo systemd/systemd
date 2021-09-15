@@ -36,7 +36,7 @@ static int update_timeout(void) {
                 usec_t t;
 
                 t = DIV_ROUND_UP(watchdog_timeout, USEC_PER_SEC);
-                sec = (int) t >= INT_MAX ? INT_MAX : t; /* Saturate */
+                sec = MIN(t, (usec_t) INT_MAX); /* Saturate */
                 if (ioctl(watchdog_fd, WDIOC_SETTIMEOUT, &sec) < 0)
                         return log_warning_errno(errno, "Failed to set timeout to %is: %m", sec);
 
