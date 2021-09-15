@@ -870,6 +870,10 @@ static int builtin_net_id(sd_device *dev, sd_netlink **rtnl, int argc, char *arg
                 }
         }
 
+        r = device_cache_sysattr_from_link_info(dev, &info);
+        if (r < 0)
+                return r;
+
         /* skip stacked devices, like VLANs, ... */
         if (info.ifindex != (int) info.iflink)
                 return 0;
