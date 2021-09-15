@@ -70,14 +70,70 @@ DEFINE_STRING_TABLE_LOOKUP(port, NetDevPort);
 DEFINE_CONFIG_PARSE_ENUM(config_parse_port, port, NetDevPort, "Failed to parse Port setting");
 
 static const char* const netdev_feature_table[_NET_DEV_FEAT_MAX] = {
-        [NET_DEV_FEAT_RX]     = "rx-checksum",
-        [NET_DEV_FEAT_TX]     = "tx-checksum-", /* The suffix "-" means any feature beginning with "tx-checksum-" */
-        [NET_DEV_FEAT_GSO]    = "tx-generic-segmentation",
-        [NET_DEV_FEAT_GRO]    = "rx-gro",
-        [NET_DEV_FEAT_GRO_HW] = "rx-gro-hw",
-        [NET_DEV_FEAT_LRO]    = "rx-lro",
-        [NET_DEV_FEAT_TSO]    = "tx-tcp-segmentation",
-        [NET_DEV_FEAT_TSO6]   = "tx-tcp6-segmentation",
+        [NET_DEV_FEAT_SG]                  = "tx-scatter-gather",
+        [NET_DEV_FEAT_IP_CSUM]             = "tx-checksum-ipv4",
+        [NET_DEV_FEAT_HW_CSUM]             = "tx-checksum-ip-generic",
+        [NET_DEV_FEAT_IPV6_CSUM]           = "tx-checksum-ipv6",
+        [NET_DEV_FEAT_HIGHDMA]             = "highdma",
+        [NET_DEV_FEAT_FRAGLIST]            = "tx-scatter-gather-fraglist",
+        [NET_DEV_FEAT_HW_VLAN_CTAG_TX]     = "tx-vlan-hw-insert",
+        [NET_DEV_FEAT_HW_VLAN_CTAG_RX]     = "rx-vlan-hw-parse",
+        [NET_DEV_FEAT_HW_VLAN_CTAG_FILTER] = "rx-vlan-filter",
+        [NET_DEV_FEAT_HW_VLAN_STAG_TX]     = "tx-vlan-stag-hw-insert",
+        [NET_DEV_FEAT_HW_VLAN_STAG_RX]     = "rx-vlan-stag-hw-parse",
+        [NET_DEV_FEAT_HW_VLAN_STAG_FILTER] = "rx-vlan-stag-filter",
+        [NET_DEV_FEAT_VLAN_CHALLENGED]     = "vlan-challenged",
+        [NET_DEV_FEAT_GSO]                 = "tx-generic-segmentation",
+        [NET_DEV_FEAT_LLTX]                = "tx-lockless",
+        [NET_DEV_FEAT_NETNS_LOCAL]         = "netns-local",
+        [NET_DEV_FEAT_GRO]                 = "rx-gro",
+        [NET_DEV_FEAT_GRO_HW]              = "rx-gro-hw",
+        [NET_DEV_FEAT_LRO]                 = "rx-lro",
+        [NET_DEV_FEAT_TSO]                 = "tx-tcp-segmentation",
+        [NET_DEV_FEAT_GSO_ROBUST]          = "tx-gso-robust",
+        [NET_DEV_FEAT_TSO_ECN]             = "tx-tcp-ecn-segmentation",
+        [NET_DEV_FEAT_TSO_MANGLEID]        = "tx-tcp-mangleid-segmentation",
+        [NET_DEV_FEAT_TSO6]                = "tx-tcp6-segmentation",
+        [NET_DEV_FEAT_FSO]                 = "tx-fcoe-segmentation",
+        [NET_DEV_FEAT_GSO_GRE]             = "tx-gre-segmentation",
+        [NET_DEV_FEAT_GSO_GRE_CSUM]        = "tx-gre-csum-segmentation",
+        [NET_DEV_FEAT_GSO_IPXIP4]          = "tx-ipxip4-segmentation",
+        [NET_DEV_FEAT_GSO_IPXIP6]          = "tx-ipxip6-segmentation",
+        [NET_DEV_FEAT_GSO_UDP_TUNNEL]      = "tx-udp_tnl-segmentation",
+        [NET_DEV_FEAT_GSO_UDP_TUNNEL_CSUM] = "tx-udp_tnl-csum-segmentation",
+        [NET_DEV_FEAT_GSO_PARTIAL]         = "tx-gso-partial",
+        [NET_DEV_FEAT_GSO_TUNNEL_REMCSUM]  = "tx-tunnel-remcsum-segmentation",
+        [NET_DEV_FEAT_GSO_SCTP]            = "tx-sctp-segmentation",
+        [NET_DEV_FEAT_GSO_ESP]             = "tx-esp-segmentation",
+        [NET_DEV_FEAT_GSO_UDP_L4]          = "tx-udp-segmentation",
+        [NET_DEV_FEAT_GSO_FRAGLIST]        = "tx-gso-list",
+        [NET_DEV_FEAT_FCOE_CRC]            = "tx-checksum-fcoe-crc",
+        [NET_DEV_FEAT_SCTP_CRC]            = "tx-checksum-sctp",
+        [NET_DEV_FEAT_FCOE_MTU]            = "fcoe-mtu",
+        [NET_DEV_FEAT_NTUPLE]              = "rx-ntuple-filter",
+        [NET_DEV_FEAT_RXHASH]              = "rx-hashing",
+        [NET_DEV_FEAT_RXCSUM]              = "rx-checksum",
+        [NET_DEV_FEAT_NOCACHE_COPY]        = "tx-nocache-copy",
+        [NET_DEV_FEAT_LOOPBACK]            = "loopback",
+        [NET_DEV_FEAT_RXFCS]               = "rx-fcs",
+        [NET_DEV_FEAT_RXALL]               = "rx-all",
+        [NET_DEV_FEAT_HW_L2FW_DOFFLOAD]    = "l2-fwd-offload",
+        [NET_DEV_FEAT_HW_TC]               = "hw-tc-offload",
+        [NET_DEV_FEAT_HW_ESP]              = "esp-hw-offload",
+        [NET_DEV_FEAT_HW_ESP_TX_CSUM]      = "esp-tx-csum-hw-offload",
+        [NET_DEV_FEAT_RX_UDP_TUNNEL_PORT]  = "rx-udp_tunnel-port-offload",
+        [NET_DEV_FEAT_HW_TLS_RECORD]       = "tls-hw-record",
+        [NET_DEV_FEAT_HW_TLS_TX]           = "tls-hw-tx-offload",
+        [NET_DEV_FEAT_HW_TLS_RX]           = "tls-hw-rx-offload",
+        [NET_DEV_FEAT_GRO_FRAGLIST]        = "rx-gro-list",
+        [NET_DEV_FEAT_HW_MACSEC]           = "macsec-hw-offload",
+        [NET_DEV_FEAT_GRO_UDP_FWD]         = "rx-udp-gro-forwarding",
+        [NET_DEV_FEAT_HW_HSR_TAG_INS]      = "hsr-tag-ins-offload",
+        [NET_DEV_FEAT_HW_HSR_TAG_RM]       = "hsr-tag-rm-offload",
+        [NET_DEV_FEAT_HW_HSR_FWD]          = "hsr-fwd-offload",
+        [NET_DEV_FEAT_HW_HSR_DUP]          = "hsr-dup-offload",
+
+        [NET_DEV_FEAT_TXCSUM]              = "tx-checksum-", /* The suffix "-" means any feature beginning with "tx-checksum-" */
 };
 
 static const char* const ethtool_link_mode_bit_table[] = {
@@ -214,10 +270,9 @@ int ethtool_get_driver(int *ethtool_fd, const char *ifname, char **ret) {
         if (r < 0)
                 return r;
 
-        strscpy(ifr.ifr_name, IFNAMSIZ, ifname);
+        strscpy(ifr.ifr_name, sizeof(ifr.ifr_name), ifname);
 
-        r = ioctl(*ethtool_fd, SIOCETHTOOL, &ifr);
-        if (r < 0)
+        if (ioctl(*ethtool_fd, SIOCETHTOOL, &ifr) < 0)
                 return -errno;
 
         if (isempty(ecmd.driver))
@@ -254,10 +309,9 @@ int ethtool_get_link_info(
         if (r < 0)
                 return r;
 
-        strscpy(ifr.ifr_name, IFNAMSIZ, ifname);
+        strscpy(ifr.ifr_name, sizeof(ifr.ifr_name), ifname);
 
-        r = ioctl(*ethtool_fd, SIOCETHTOOL, &ifr);
-        if (r < 0)
+        if (ioctl(*ethtool_fd, SIOCETHTOOL, &ifr) < 0)
                 return -errno;
 
         if (ret_autonegotiation)
@@ -303,10 +357,9 @@ int ethtool_get_permanent_macaddr(int *ethtool_fd, const char *ifname, struct et
         if (r < 0)
                 return r;
 
-        strscpy(ifr.ifr_name, IFNAMSIZ, ifname);
+        strscpy(ifr.ifr_name, sizeof(ifr.ifr_name), ifname);
 
-        r = ioctl(*ethtool_fd, SIOCETHTOOL, &ifr);
-        if (r < 0)
+        if (ioctl(*ethtool_fd, SIOCETHTOOL, &ifr) < 0)
                 return -errno;
 
         if (epaddr.addr.size != 6)
@@ -362,10 +415,9 @@ int ethtool_set_wol(int *ethtool_fd, const char *ifname, uint32_t wolopts) {
         if (r < 0)
                 return r;
 
-        strscpy(ifr.ifr_name, IFNAMSIZ, ifname);
+        strscpy(ifr.ifr_name, sizeof(ifr.ifr_name), ifname);
 
-        r = ioctl(*ethtool_fd, SIOCETHTOOL, &ifr);
-        if (r < 0)
+        if (ioctl(*ethtool_fd, SIOCETHTOOL, &ifr) < 0)
                 return -errno;
 
         UPDATE(ecmd.wolopts, wolopts, need_update);
@@ -374,8 +426,7 @@ int ethtool_set_wol(int *ethtool_fd, const char *ifname, uint32_t wolopts) {
                 return 0;
 
         ecmd.cmd = ETHTOOL_SWOL;
-        r = ioctl(*ethtool_fd, SIOCETHTOOL, &ifr);
-        if (r < 0)
+        if (ioctl(*ethtool_fd, SIOCETHTOOL, &ifr) < 0)
                 return -errno;
 
         return 0;
@@ -405,10 +456,9 @@ int ethtool_set_nic_buffer_size(int *ethtool_fd, const char *ifname, const netde
         if (r < 0)
                 return r;
 
-        strscpy(ifr.ifr_name, IFNAMSIZ, ifname);
+        strscpy(ifr.ifr_name, sizeof(ifr.ifr_name), ifname);
 
-        r = ioctl(*ethtool_fd, SIOCETHTOOL, &ifr);
-        if (r < 0)
+        if (ioctl(*ethtool_fd, SIOCETHTOOL, &ifr) < 0)
                 return -errno;
 
         if (ring->rx.set)
@@ -427,39 +477,37 @@ int ethtool_set_nic_buffer_size(int *ethtool_fd, const char *ifname, const netde
                 return 0;
 
         ecmd.cmd = ETHTOOL_SRINGPARAM;
-        r = ioctl(*ethtool_fd, SIOCETHTOOL, &ifr);
-        if (r < 0)
+        if (ioctl(*ethtool_fd, SIOCETHTOOL, &ifr) < 0)
                 return -errno;
 
         return 0;
 }
 
-static int get_stringset(int ethtool_fd, struct ifreq *ifr, int stringset_id, struct ethtool_gstrings **ret) {
+static int get_stringset(int ethtool_fd, const char *ifname, enum ethtool_stringset stringset_id, struct ethtool_gstrings **ret) {
         _cleanup_free_ struct ethtool_gstrings *strings = NULL;
         struct {
                 struct ethtool_sset_info info;
                 uint32_t space;
         } buffer = {
-                .info = {
-                        .cmd = ETHTOOL_GSSET_INFO,
-                        .sset_mask = UINT64_C(1) << stringset_id,
-                },
+                .info.cmd = ETHTOOL_GSSET_INFO,
+                .info.sset_mask = UINT64_C(1) << stringset_id,
         };
-        unsigned len;
-        int r;
+        struct ifreq ifr = {
+                .ifr_data = (void*) &buffer,
+        };
+        uint32_t len;
 
         assert(ethtool_fd >= 0);
-        assert(ifr);
+        assert(ifname);
         assert(ret);
 
-        ifr->ifr_data = (void *) &buffer.info;
+        strscpy(ifr.ifr_name, sizeof(ifr.ifr_name), ifname);
 
-        r = ioctl(ethtool_fd, SIOCETHTOOL, ifr);
-        if (r < 0)
+        if (ioctl(ethtool_fd, SIOCETHTOOL, &ifr) < 0)
                 return -errno;
 
-        if (!buffer.info.sset_mask)
-                return -EINVAL;
+        if (buffer.info.sset_mask == 0)
+                return -EOPNOTSUPP;
 
 #pragma GCC diagnostic push
 #if HAVE_ZERO_LENGTH_BOUNDS
@@ -467,8 +515,10 @@ static int get_stringset(int ethtool_fd, struct ifreq *ifr, int stringset_id, st
 #endif
         len = buffer.info.data[0];
 #pragma GCC diagnostic pop
+        if (len == 0)
+                return -EOPNOTSUPP;
 
-        strings = malloc0(sizeof(struct ethtool_gstrings) + len * ETH_GSTRING_LEN);
+        strings = malloc0(offsetof(struct ethtool_gstrings, data) + len * ETH_GSTRING_LEN);
         if (!strings)
                 return -ENOMEM;
 
@@ -476,48 +526,132 @@ static int get_stringset(int ethtool_fd, struct ifreq *ifr, int stringset_id, st
         strings->string_set = stringset_id;
         strings->len = len;
 
-        ifr->ifr_data = (void *) strings;
+        ifr.ifr_data = (void*) strings;
 
-        r = ioctl(ethtool_fd, SIOCETHTOOL, ifr);
-        if (r < 0)
+        if (ioctl(ethtool_fd, SIOCETHTOOL, &ifr) < 0)
                 return -errno;
 
         *ret = TAKE_PTR(strings);
+        return 0;
+}
 
+static int get_features(int ethtool_fd, const char *ifname, uint32_t n_features, struct ethtool_gfeatures **ret) {
+        _cleanup_free_ struct ethtool_gfeatures *gfeatures = NULL;
+        struct ifreq ifr;
+
+        assert(ethtool_fd >= 0);
+        assert(ifname);
+        assert(ret);
+        assert(n_features > 0);
+
+        gfeatures = malloc0(offsetof(struct ethtool_gfeatures, features) +
+                            DIV_ROUND_UP(n_features, 32U) * sizeof(gfeatures->features[0]));
+        if (!gfeatures)
+                return -ENOMEM;
+
+        gfeatures->cmd = ETHTOOL_GFEATURES;
+        gfeatures->size = DIV_ROUND_UP(n_features, 32U);
+
+        ifr = (struct ifreq) {
+                .ifr_data = (void*) gfeatures,
+        };
+        strscpy(ifr.ifr_name, sizeof(ifr.ifr_name), ifname);
+
+        if (ioctl(ethtool_fd, SIOCETHTOOL, &ifr) < 0)
+                return -errno;
+
+        *ret = TAKE_PTR(gfeatures);
         return 0;
 }
 
 static int set_features_bit(
                 const struct ethtool_gstrings *strings,
+                const struct ethtool_gfeatures *gfeatures,
+                struct ethtool_sfeatures *sfeatures,
                 const char *feature,
-                bool flag,
-                struct ethtool_sfeatures *sfeatures) {
-        bool found = false;
+                int flag) {
 
         assert(strings);
-        assert(feature);
+        assert(gfeatures);
         assert(sfeatures);
+        assert(feature);
 
-        for (size_t i = 0; i < strings->len; i++)
-                if (streq((char *) &strings->data[i * ETH_GSTRING_LEN], feature) ||
-                    (endswith(feature, "-") && startswith((char *) &strings->data[i * ETH_GSTRING_LEN], feature))) {
-                        size_t block, bit;
+        if (flag < 0)
+                return 0;
 
-                        block = i / 32;
-                        bit = i % 32;
+        for (uint32_t i = 0; i < strings->len; i++) {
+                uint32_t block, mask;
 
-                        sfeatures->features[block].valid |= 1 << bit;
-                        SET_FLAG(sfeatures->features[block].requested, 1 << bit, flag);
-                        found = true;
+                if (!strneq((const char*) &strings->data[i * ETH_GSTRING_LEN], feature, ETH_GSTRING_LEN))
+                        continue;
+
+                block = i / 32;
+                mask = UINT32_C(1) << (i % 32);
+
+                if (!FLAGS_SET(gfeatures->features[block].available, mask) ||
+                    FLAGS_SET(gfeatures->features[block].never_changed, mask))
+                        return -EOPNOTSUPP;
+
+                sfeatures->features[block].valid |= mask;
+                SET_FLAG(sfeatures->features[block].requested, mask, flag);
+
+                return 0;
+        }
+
+        return -ENODATA;
+}
+
+static int set_features_multiple_bit(
+                const struct ethtool_gstrings *strings,
+                const struct ethtool_gfeatures *gfeatures,
+                struct ethtool_sfeatures *sfeatures,
+                const char *feature,
+                int flag) {
+
+        bool found = false;
+        int r = -ENODATA;
+
+        assert(strings);
+        assert(gfeatures);
+        assert(sfeatures);
+        assert(feature);
+
+        if (flag < 0)
+                return 0;
+
+        for (uint32_t i = 0; i < strings->len; i++) {
+                uint32_t block, mask;
+
+                if (!startswith((const char*) &strings->data[i * ETH_GSTRING_LEN], feature))
+                        continue;
+
+                block = i / 32;
+                mask = UINT32_C(1) << (i % 32);
+
+                if (!FLAGS_SET(gfeatures->features[block].available, mask) ||
+                    FLAGS_SET(gfeatures->features[block].never_changed, mask)) {
+                        r = -EOPNOTSUPP;
+                        continue;
                 }
 
-        return found ? 0 : -ENODATA;
+                /* The flags is explicitly set by set_features_bit() */
+                if (FLAGS_SET(sfeatures->features[block].valid, mask))
+                        continue;
+
+                sfeatures->features[block].valid |= mask;
+                SET_FLAG(sfeatures->features[block].requested, mask, flag);
+
+                found = true;
+        }
+
+        return found ? 0 : r;
 }
 
 int ethtool_set_features(int *ethtool_fd, const char *ifname, const int features[static _NET_DEV_FEAT_MAX]) {
         _cleanup_free_ struct ethtool_gstrings *strings = NULL;
-        struct ethtool_sfeatures *sfeatures;
-        struct ifreq ifr = {};
+        _cleanup_free_ struct ethtool_gfeatures *gfeatures = NULL;
+        _cleanup_free_ struct ethtool_sfeatures *sfeatures = NULL;
+        struct ifreq ifr;
         bool have = false;
         int r;
 
@@ -538,30 +672,41 @@ int ethtool_set_features(int *ethtool_fd, const char *ifname, const int features
         if (r < 0)
                 return r;
 
-        strscpy(ifr.ifr_name, IFNAMSIZ, ifname);
-
-        r = get_stringset(*ethtool_fd, &ifr, ETH_SS_FEATURES, &strings);
+        r = get_stringset(*ethtool_fd, ifname, ETH_SS_FEATURES, &strings);
         if (r < 0)
-                return log_debug_errno(r, "ethtool: could not get ethtool features for %s", ifname);
+                return log_debug_errno(r, "ethtool: could not get ethtool feature strings: %m");
 
-        sfeatures = alloca0(sizeof(struct ethtool_sfeatures) + DIV_ROUND_UP(strings->len, 32U) * sizeof(sfeatures->features[0]));
+        r = get_features(*ethtool_fd, ifname, strings->len, &gfeatures);
+        if (r < 0)
+                return log_debug_errno(r, "ethtool: could not get ethtool features for %s: %m", ifname);
+
+        sfeatures = malloc0(offsetof(struct ethtool_sfeatures, features) +
+                            DIV_ROUND_UP(strings->len, 32U) * sizeof(sfeatures->features[0]));
+        if (!sfeatures)
+                return log_oom_debug();
+
         sfeatures->cmd = ETHTOOL_SFEATURES;
         sfeatures->size = DIV_ROUND_UP(strings->len, 32U);
 
-        for (size_t i = 0; i < _NET_DEV_FEAT_MAX; i++)
-                if (features[i] >= 0) {
-                        r = set_features_bit(strings, netdev_feature_table[i], features[i], sfeatures);
-                        if (r < 0) {
-                                log_debug_errno(r, "ethtool: could not find feature, ignoring: %s", netdev_feature_table[i]);
-                                continue;
-                        }
-                }
+        for (size_t i = 0; i < _NET_DEV_FEAT_SIMPLE_MAX; i++) {
+                r = set_features_bit(strings, gfeatures, sfeatures, netdev_feature_table[i], features[i]);
+                if (r < 0)
+                        log_debug_errno(r, "ethtool: could not set feature %s for %s, ignoring: %m", netdev_feature_table[i], ifname);
+        }
 
-        ifr.ifr_data = (void *) sfeatures;
+        for (size_t i = _NET_DEV_FEAT_SIMPLE_MAX; i < _NET_DEV_FEAT_MAX; i++) {
+                r = set_features_multiple_bit(strings, gfeatures, sfeatures, netdev_feature_table[i], features[i]);
+                if (r < 0)
+                        log_debug_errno(r, "ethtool: could not set feature %s for %s, ignoring: %m", netdev_feature_table[i], ifname);
+        }
 
-        r = ioctl(*ethtool_fd, SIOCETHTOOL, &ifr);
-        if (r < 0)
-                return log_debug_errno(r, "ethtool: could not set ethtool features for %s", ifname);
+        ifr = (struct ifreq) {
+                .ifr_data = (void*) sfeatures,
+        };
+        strscpy(ifr.ifr_name, sizeof(ifr.ifr_name), ifname);
+
+        if (ioctl(*ethtool_fd, SIOCETHTOOL, &ifr) < 0)
+                return log_debug_errno(errno, "ethtool: could not set ethtool features for %s", ifname);
 
         return 0;
 }
@@ -575,7 +720,6 @@ static int get_glinksettings(int fd, struct ifreq *ifr, struct ethtool_link_uset
         };
         struct ethtool_link_usettings *u;
         unsigned offset;
-        int r;
 
         assert(fd >= 0);
         assert(ifr);
@@ -591,8 +735,7 @@ static int get_glinksettings(int fd, struct ifreq *ifr, struct ethtool_link_uset
 
         ifr->ifr_data = (void *) &ecmd;
 
-        r = ioctl(fd, SIOCETHTOOL, ifr);
-        if (r < 0)
+        if (ioctl(fd, SIOCETHTOOL, ifr) < 0)
                 return -errno;
 
         if (ecmd.req.link_mode_masks_nwords >= 0 || ecmd.req.cmd != ETHTOOL_GLINKSETTINGS)
@@ -602,8 +745,7 @@ static int get_glinksettings(int fd, struct ifreq *ifr, struct ethtool_link_uset
 
         ifr->ifr_data = (void *) &ecmd;
 
-        r = ioctl(fd, SIOCETHTOOL, ifr);
-        if (r < 0)
+        if (ioctl(fd, SIOCETHTOOL, ifr) < 0)
                 return -errno;
 
         if (ecmd.req.link_mode_masks_nwords <= 0 || ecmd.req.cmd != ETHTOOL_GLINKSETTINGS)
@@ -636,7 +778,6 @@ static int get_gset(int fd, struct ifreq *ifr, struct ethtool_link_usettings **r
         struct ethtool_cmd ecmd = {
                 .cmd = ETHTOOL_GSET,
         };
-        int r;
 
         assert(fd >= 0);
         assert(ifr);
@@ -644,8 +785,7 @@ static int get_gset(int fd, struct ifreq *ifr, struct ethtool_link_usettings **r
 
         ifr->ifr_data = (void *) &ecmd;
 
-        r = ioctl(fd, SIOCETHTOOL, ifr);
-        if (r < 0)
+        if (ioctl(fd, SIOCETHTOOL, ifr) < 0)
                 return -errno;
 
         e = new(struct ethtool_link_usettings, 1);
@@ -678,7 +818,6 @@ static int set_slinksettings(int fd, struct ifreq *ifr, const struct ethtool_lin
                 __u32 link_mode_data[3 * ETHTOOL_LINK_MODE_MASK_MAX_KERNEL_NU32];
         } ecmd = {};
         unsigned offset;
-        int r;
 
         assert(fd >= 0);
         assert(ifr);
@@ -700,8 +839,7 @@ static int set_slinksettings(int fd, struct ifreq *ifr, const struct ethtool_lin
 
         ifr->ifr_data = (void *) &ecmd;
 
-        r = ioctl(fd, SIOCETHTOOL, ifr);
-        if (r < 0)
+        if (ioctl(fd, SIOCETHTOOL, ifr) < 0)
                 return -errno;
 
         return 0;
@@ -711,7 +849,6 @@ static int set_sset(int fd, struct ifreq *ifr, const struct ethtool_link_usettin
         struct ethtool_cmd ecmd = {
                 .cmd = ETHTOOL_SSET,
         };
-        int r;
 
         assert(fd >= 0);
         assert(ifr);
@@ -736,8 +873,7 @@ static int set_sset(int fd, struct ifreq *ifr, const struct ethtool_link_usettin
 
         ifr->ifr_data = (void *) &ecmd;
 
-        r = ioctl(fd, SIOCETHTOOL, ifr);
-        if (r < 0)
+        if (ioctl(fd, SIOCETHTOOL, ifr) < 0)
                 return -errno;
 
         return 0;
@@ -787,7 +923,7 @@ int ethtool_set_glinksettings(
         if (r < 0)
                 return r;
 
-        strscpy(ifr.ifr_name, IFNAMSIZ, ifname);
+        strscpy(ifr.ifr_name, sizeof(ifr.ifr_name), ifname);
 
         r = get_glinksettings(*fd, &ifr, &u);
         if (r < 0) {
@@ -857,10 +993,9 @@ int ethtool_set_channels(int *fd, const char *ifname, const netdev_channels *cha
         if (r < 0)
                 return r;
 
-        strscpy(ifr.ifr_name, IFNAMSIZ, ifname);
+        strscpy(ifr.ifr_name, sizeof(ifr.ifr_name), ifname);
 
-        r = ioctl(*fd, SIOCETHTOOL, &ifr);
-        if (r < 0)
+        if (ioctl(*fd, SIOCETHTOOL, &ifr) < 0)
                 return -errno;
 
         if (channels->rx.set)
@@ -879,8 +1014,7 @@ int ethtool_set_channels(int *fd, const char *ifname, const netdev_channels *cha
                 return 0;
 
         ecmd.cmd = ETHTOOL_SCHANNELS;
-        r = ioctl(*fd, SIOCETHTOOL, &ifr);
-        if (r < 0)
+        if (ioctl(*fd, SIOCETHTOOL, &ifr) < 0)
                 return -errno;
 
         return 0;
@@ -906,10 +1040,9 @@ int ethtool_set_flow_control(int *fd, const char *ifname, int rx, int tx, int au
         if (r < 0)
                 return r;
 
-        strscpy(ifr.ifr_name, IFNAMSIZ, ifname);
+        strscpy(ifr.ifr_name, sizeof(ifr.ifr_name), ifname);
 
-        r = ioctl(*fd, SIOCETHTOOL, &ifr);
-        if (r < 0)
+        if (ioctl(*fd, SIOCETHTOOL, &ifr) < 0)
                 return -errno;
 
         if (rx >= 0)
@@ -925,8 +1058,7 @@ int ethtool_set_flow_control(int *fd, const char *ifname, int rx, int tx, int au
                 return 0;
 
         ecmd.cmd = ETHTOOL_SPAUSEPARAM;
-        r = ioctl(*fd, SIOCETHTOOL, &ifr);
-        if (r < 0)
+        if (ioctl(*fd, SIOCETHTOOL, &ifr) < 0)
                 return -errno;
 
         return 0;
@@ -974,10 +1106,9 @@ int ethtool_set_nic_coalesce_settings(int *ethtool_fd, const char *ifname, const
         if (r < 0)
                 return r;
 
-        strscpy(ifr.ifr_name, IFNAMSIZ, ifname);
+        strscpy(ifr.ifr_name, sizeof(ifr.ifr_name), ifname);
 
-        r = ioctl(*ethtool_fd, SIOCETHTOOL, &ifr);
-        if (r < 0)
+        if (ioctl(*ethtool_fd, SIOCETHTOOL, &ifr) < 0)
                 return -errno;
 
         if (coalesce->use_adaptive_rx_coalesce >= 0)
@@ -1050,8 +1181,7 @@ int ethtool_set_nic_coalesce_settings(int *ethtool_fd, const char *ifname, const
                 return 0;
 
         ecmd.cmd = ETHTOOL_SCOALESCE;
-        r = ioctl(*ethtool_fd, SIOCETHTOOL, &ifr);
-        if (r < 0)
+        if (ioctl(*ethtool_fd, SIOCETHTOOL, &ifr) < 0)
                 return -errno;
 
         return 0;
