@@ -17,17 +17,26 @@ static const char __attribute__((used)) magic[] = "#### LoaderInfo: systemd-stub
 
 EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
         EFI_LOADED_IMAGE *loaded_image;
-        const CHAR8 *sections[] = {
-                (CHAR8 *)".cmdline",
-                (CHAR8 *)".linux",
-                (CHAR8 *)".initrd",
-                (CHAR8 *)".splash",
-                NULL
+
+        enum {
+                SECTION_CMDLINE,
+                SECTION_LINUX,
+                SECTION_INITRD,
+                SECTION_SPLASH,
+                _SECTION_MAX,
         };
-        UINTN addrs[ELEMENTSOF(sections)-1] = {};
-        UINTN szs[ELEMENTSOF(sections)-1] = {};
+
+        const CHAR8* const sections[] = {
+                [SECTION_CMDLINE] = (const CHAR8*) ".cmdline",
+                [SECTION_LINUX]   = (const CHAR8*) ".linux",
+                [SECTION_INITRD]  = (const CHAR8*) ".initrd",
+                [SECTION_SPLASH]  = (const CHAR8*) ".splash",
+                NULL,
+        };
+        UINTN addrs[_SECTION_MAX] = {};
+        UINTN szs[_SECTION_MAX] = {};
         CHAR8 *cmdline = NULL;
-        UINTN cmdline_len;
+        UINTN cmdline_len = 0;
         CHAR16 uuid[37];
         EFI_STATUS err;
 
@@ -38,14 +47,14 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
         if (EFI_ERROR(err))
                 return log_error_status_stall(err, L"Error getting a LoadedImageProtocol handle: %r", err);
 
-        err = pe_memory_locate_sections(loaded_image->ImageBase, sections, addrs, szs);
+        err = pe_memory_locate_sections(loaded_image->ImageBase, (const CHAR8**) sections, addrs, szs);
         if (EFI_ERROR(err))
                 return log_error_status_stall(err, L"Unable to locate embedded .linux section: %r", err);
 
-        if (szs[0] > 0)
-                cmdline = (CHAR8 *)(loaded_image->ImageBase) + addrs[0];
-
-        cmdline_len = szs[0];
+        if (szs[SECTION_CMDLINE] > 0) {
+                cmdline = (CHAR8 *)(loaded_image->ImageBase) + addrs[SECTION_CMDLINE];
+                cmdline_len = szs[SECTION_CMDLINE];
+        }
 
         /* if we are not in secure boot mode, or none was provided, accept a custom command line and replace the built-in one */
         if ((!secure_boot_enabled() || cmdline_len == 0) && loaded_image->LoadOptionsSize > 0 &&
@@ -109,12 +118,12 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
         if (efivar_get_raw(LOADER_GUID, L"StubInfo", NULL, NULL) != EFI_SUCCESS)
                 efivar_set(LOADER_GUID, L"StubInfo", L"systemd-stub " GIT_VERSION, 0);
 
-        if (szs[3] > 0)
-                graphics_splash((UINT8 *)((UINTN)loaded_image->ImageBase + addrs[3]), szs[3], NULL);
+        if (szs[SECTION_SPLASH] > 0)
+                graphics_splash((UINT8 *)((UINTN)loaded_image->ImageBase + addrs[SECTION_SPLASH]), szs[SECTION_SPLASH], NULL);
 
         err = linux_exec(image, cmdline, cmdline_len,
-                         (UINTN)loaded_image->ImageBase + addrs[1],
-                         (UINTN)loaded_image->ImageBase + addrs[2], szs[2]);
+                         (UINTN)loaded_image->ImageBase + addrs[SECTION_LINUX],
+                         (UINTN)loaded_image->ImageBase + addrs[SECTION_INITRD], szs[SECTION_INITRD]);
 
         graphics_mode(FALSE);
         return log_error_status_stall(err, L"Execution of embedded linux image failed: %r", err);
