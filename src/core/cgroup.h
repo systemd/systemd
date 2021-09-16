@@ -132,8 +132,10 @@ struct CGroupContext {
 
         CPUSet cpuset_cpus;
         CPUSet startup_cpuset_cpus;
+        CPUSet shutdown_cpuset_cpus;
         CPUSet cpuset_mems;
         CPUSet startup_cpuset_mems;
+        CPUSet shutdown_cpuset_mems;
 
         uint64_t io_weight;
         uint64_t startup_io_weight;
