@@ -2,9 +2,7 @@ socket
 [Socket]
 Accept=
 AllowedCPUs=
-StartupAllowedCPUs=
 AllowedMemoryNodes=
-StartupAllowedMemoryNodes=
 AmbientCapabilities=
 AppArmorProfile=
 BPFProgram=
@@ -204,6 +202,8 @@ SendSIGKILL=
 Service=
 SetCredential=
 SetCredentialEncrypted=
+ShutdownAllowedCPUs=
+ShutdownAllowedMemoryNodes=
 Slice=
 SmackLabel=
 SmackLabelIPIn=
@@ -220,6 +220,8 @@ StandardInput=
 StandardInputData=
 StandardInputText=
 StandardOutput=
+StartupAllowedCPUs=
+StartupAllowedMemoryNodes=
 StartupBlockIOWeight=
 StartupCPUShares=
 StartupCPUWeight=

@@ -252,8 +252,10 @@ void cgroup_context_done(CGroupContext *c) {
 
         cpu_set_reset(&c->cpuset_cpus);
         cpu_set_reset(&c->startup_cpuset_cpus);
+        cpu_set_reset(&c->shutdown_cpuset_cpus);
         cpu_set_reset(&c->cpuset_mems);
         cpu_set_reset(&c->startup_cpuset_mems);
+        cpu_set_reset(&c->shutdown_cpuset_mems);
 }
 
 static int unit_get_kernel_memory_limit(Unit *u, const char *file, uint64_t *ret) {
@@ -389,6 +391,7 @@ static char *format_cgroup_memory_limit_comparison(char *buf, size_t l, Unit *u,
 
 void cgroup_context_dump(Unit *u, FILE* f, const char *prefix) {
         _cleanup_free_ char *disable_controllers_str = NULL, *cpuset_cpus = NULL, *cpuset_mems = NULL, *startup_cpuset_cpus = NULL, *startup_cpuset_mems = NULL;
+        _cleanup_free_ char *shutdown_cpuset_cpus = NULL, *shutdown_cpuset_mems = NULL;
         CGroupIODeviceLimit *il;
         CGroupIODeviceWeight *iw;
         CGroupIODeviceLatency *l;
@@ -418,8 +421,10 @@ void cgroup_context_dump(Unit *u, FILE* f, const char *prefix) {
 
         cpuset_cpus = cpu_set_to_range_string(&c->cpuset_cpus);
         startup_cpuset_cpus = cpu_set_to_range_string(&c->startup_cpuset_cpus);
+        shutdown_cpuset_cpus = cpu_set_to_range_string(&c->shutdown_cpuset_cpus);
         cpuset_mems = cpu_set_to_range_string(&c->cpuset_mems);
         startup_cpuset_mems = cpu_set_to_range_string(&c->startup_cpuset_mems);
+        shutdown_cpuset_mems = cpu_set_to_range_string(&c->shutdown_cpuset_mems);
 
         fprintf(f,
                 "%sCPUAccounting: %s\n"
@@ -436,8 +441,10 @@ void cgroup_context_dump(Unit *u, FILE* f, const char *prefix) {
                 "%sCPUQuotaPeriodSec: %s\n"
                 "%sAllowedCPUs: %s\n"
                 "%sStartupAllowedCPUs: %s\n"
+                "%sShutdownAllowedCPUs: %s\n"
                 "%sAllowedMemoryNodes: %s\n"
                 "%sStartupAllowedMemoryNodes: %s\n"
+                "%sShutdownAllowedMemoryNodes: %s\n"
                 "%sIOWeight: %" PRIu64 "\n"
                 "%sStartupIOWeight: %" PRIu64 "\n"
                 "%sBlockIOWeight: %" PRIu64 "\n"
@@ -472,8 +479,10 @@ void cgroup_context_dump(Unit *u, FILE* f, const char *prefix) {
                 prefix, FORMAT_TIMESPAN(c->cpu_quota_period_usec, 1),
                 prefix, strempty(cpuset_cpus),
                 prefix, strempty(startup_cpuset_cpus),
+                prefix, strempty(shutdown_cpuset_cpus),
                 prefix, strempty(cpuset_mems),
                 prefix, strempty(startup_cpuset_mems),
+                prefix, strempty(shutdown_cpuset_mems),
                 prefix, c->io_weight,
                 prefix, c->startup_io_weight,
                 prefix, c->blockio_weight,
@@ -836,11 +845,11 @@ static bool cgroup_context_has_cpu_shares(CGroupContext *c) {
 }
 
 static bool cgroup_context_has_allowed_cpus(CGroupContext *c) {
-        return c->cpuset_cpus.set || c->startup_cpuset_cpus.set;
+        return c->cpuset_cpus.set || c->startup_cpuset_cpus.set || c->shutdown_cpuset_cpus.set;
 }
 
 static bool cgroup_context_has_allowed_mems(CGroupContext *c) {
-        return c->cpuset_mems.set || c->startup_cpuset_mems.set;
+        return c->cpuset_mems.set || c->startup_cpuset_mems.set || c->shutdown_cpuset_mems.set;
 }
 
 static uint64_t cgroup_context_cpu_weight(CGroupContext *c, ManagerState state) {
@@ -867,6 +876,9 @@ static CPUSet *cgroup_context_allowed_cpus(CGroupContext *c, ManagerState state)
         if (IN_SET(state, MANAGER_STARTING, MANAGER_INITIALIZING) &&
             c->startup_cpuset_cpus.set)
                 return &c->startup_cpuset_cpus;
+        else if (state == MANAGER_STOPPING &&
+                 c->shutdown_cpuset_cpus.set)
+                return &c->shutdown_cpuset_cpus;
         else
                 return &c->cpuset_cpus;
 }
@@ -875,6 +887,9 @@ static CPUSet *cgroup_context_allowed_mems(CGroupContext *c, ManagerState state)
         if (IN_SET(state, MANAGER_STARTING, MANAGER_INITIALIZING) &&
             c->startup_cpuset_mems.set)
                 return &c->startup_cpuset_mems;
+        else if (state == MANAGER_STOPPING &&
+                 c->shutdown_cpuset_mems.set)
+                return &c->shutdown_cpuset_mems;
         else
                 return &c->cpuset_mems;
 }
