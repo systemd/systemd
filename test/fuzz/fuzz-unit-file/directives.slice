@@ -1,11 +1,7 @@
 slice
 [Slice]
 AllowedCPUs=
-StartupAllowedCPUs=
-ShutdownAllowedCPUs=
 AllowedMemoryNodes=
-StartupAllowedMemoryNodes=
-ShutdownAllowedMemoryNodes=
 BPFProgram=
 BlockIOAccounting=
 BlockIODeviceWeight=
@@ -49,9 +45,13 @@ MemoryMin=
 MemorySwapMax=
 NetClass=
 RestrictNetworkInterfaces=
+ShutdownAllowedCPUs=
+ShutdownAllowedMemoryNodes=
 Slice=
 SocketBindAllow=
 SocketBindDeny=
+StartupAllowedCPUs=
+StartupAllowedMemoryNodes=
 StartupBlockIOWeight=
 StartupCPUShares=
 StartupCPUWeight=
