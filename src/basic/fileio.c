@@ -470,9 +470,14 @@ int read_virtual_file(const char *filename, size_t max_size, char **ret_contents
                 if (n <= size)
                         break;
 
-                /* If a maximum size is specified and we already read as much, no need to try again */
-                if (max_size != SIZE_MAX && n >= max_size) {
-                        n = max_size;
+                /* If a maximum size is specified and we already read more we know the file is larger, and
+                 * can handle this as truncation case. Note that if the size of what we read equals the
+                 * maximum size then this doesn't mean truncation, the file might or might not end on that
+                 * byte. We need to rerun the loop in that case, with a larger buffer size, so that we read
+                 * at least one more byte to be able to distinguish EOF from truncation. */
+                if (max_size != SIZE_MAX && n > max_size) {
+                        n = size; /* Make sure we never use more than what we sized the buffer for (so that
+                                   * we have one free byte in it for the trailing NUL we add below).*/
                         truncated = true;
                         break;
                 }
