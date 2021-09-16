@@ -1028,7 +1028,11 @@ static void test_read_virtual_file(size_t max_size) {
         FOREACH_STRING(filename,
                        "/proc/1/cmdline",
                        "/etc/nsswitch.conf",
-                       "/sys/kernel/uevent_seqnum") {
+                       "/sys/kernel/uevent_seqnum",
+                       "/proc/kcore",
+                       "/proc/kallsyms",
+                       "/proc/self/exe",
+                       "/proc/self/pagemap") {
 
                 _cleanup_free_ char *buf = NULL;
                 size_t size = 0;
@@ -1036,7 +1040,11 @@ static void test_read_virtual_file(size_t max_size) {
                 r = read_virtual_file(filename, max_size, &buf, &size);
                 if (r < 0) {
                         log_info_errno(r, "read_virtual_file(\"%s\", %zu): %m", filename, max_size);
-                        assert_se(ERRNO_IS_PRIVILEGE(r) || r == -ENOENT);
+                        assert_se(ERRNO_IS_PRIVILEGE(r) || /* /proc/kcore is not accessible to unpriv */
+                                  IN_SET(r,
+                                         -ENOENT,  /* Some of the files might be absent */
+                                         -EINVAL,  /* too small reads from /proc/self/pagemap trigger EINVAL */
+                                         -EFBIG)); /* /proc/kcore and /proc/self/pagemap should be too large */
                 } else
                         log_info("read_virtual_file(\"%s\", %zu): %s (%zu bytes)", filename, max_size, r ? "non-truncated" : "truncated", size);
         }
