@@ -28,6 +28,7 @@
 #include "path-lookup.h"
 #include "portable.h"
 #include "process-util.h"
+#include "selinux-util.h"
 #include "set.h"
 #include "signal-util.h"
 #include "socket-util.h"
@@ -43,6 +44,9 @@ static const char profile_dirs[] = CONF_PATHS_NULSTR("systemd/portable/profile")
  * dropped there by the portable service logic and b) for which image it was dropped there. */
 #define PORTABLE_DROPIN_MARKER_BEGIN "# Drop-in created for image '"
 #define PORTABLE_DROPIN_MARKER_END "', do not edit."
+
+/* Maximum length of an extended attribute is 64KB */
+#define XATTR_MAX 64U * 1024U
 
 static bool prefix_match(const char *unit, const char *prefix) {
         const char *p;
@@ -78,7 +82,7 @@ static bool unit_match(const char *unit, char **matches) {
         return false;
 }
 
-static PortableMetadata *portable_metadata_new(const char *name, const char *path, int fd) {
+static PortableMetadata *portable_metadata_new(const char *name, const char *path, const char *selinux_file_con, int fd) {
         PortableMetadata *m;
 
         m = malloc0(offsetof(PortableMetadata, name) + strlen(name) + 1);
@@ -90,6 +94,13 @@ static PortableMetadata *portable_metadata_new(const char *name, const char *pat
                 m->image_path = strdup(path);
                 if (!m->image_path)
                         return mfree(m);
+        }
+
+        /* The metadata file might have SELinux labels, we need to carry them and reapply them */
+        if (!isempty(selinux_file_con)) {
+                m->selinux_file_con = strdup(selinux_file_con);
+                if (!m->selinux_file_con)
+                        return portable_metadata_unref(m);
         }
 
         strcpy(m->name, name);
@@ -105,6 +116,7 @@ PortableMetadata *portable_metadata_unref(PortableMetadata *i) {
         safe_close(i->fd);
         free(i->source);
         free(i->image_path);
+        free(i->selinux_file_con);
 
         return mfree(i);
 }
@@ -183,6 +195,7 @@ static int extract_now(
                         _cleanup_close_ int data_fd = -1;
                         struct iovec iov[] = {
                                 IOVEC_MAKE_STRING(os_release_id),
+                                IOVEC_MAKE_STRING("\n"),
                         };
 
                         data_fd = copy_data_fd(os_release_fd);
@@ -195,7 +208,7 @@ static int extract_now(
                 }
 
                 if (ret_os_release) {
-                        os_release = portable_metadata_new(os_release_id, NULL, os_release_fd);
+                        os_release = portable_metadata_new(os_release_id, NULL, NULL, os_release_fd);
                         if (!os_release)
                                 return -ENOMEM;
 
@@ -250,9 +263,19 @@ static int extract_now(
                         }
 
                         if (socket_fd >= 0) {
+                                _cleanup_freecon_ char *con = NULL;
                                 _cleanup_close_ int data_fd = -1;
+#if HAVE_SELINUX
+                                /* The units will be copied on the host's filesystem, so if they had a SELinux label
+                                 * we have to preserve it. Copy it out so that it can be applied later. */
+                                r = fgetfilecon(fd, &con);
+                                if (r < 0 && errno != ENODATA)
+                                        return log_debug_errno(errno, "Failed to get SELinux file context from '%s': %m", de->d_name);
+#endif
                                 struct iovec iov[] = {
                                         IOVEC_MAKE_STRING(de->d_name),
+                                        IOVEC_MAKE_STRING("\n"),
+                                        IOVEC_MAKE_STRING(strempty(con)),
                                 };
 
                                 data_fd = copy_data_fd(fd);
@@ -264,7 +287,7 @@ static int extract_now(
                                         return log_debug_errno(r, "Failed to send unit metadata to parent: %m");
                         }
 
-                        m = portable_metadata_new(de->d_name, NULL, fd);
+                        m = portable_metadata_new(de->d_name, NULL, NULL, fd);
                         if (!m)
                                 return -ENOMEM;
                         fd = -1;
@@ -392,7 +415,7 @@ static int portable_extract_by_path(
                 for (;;) {
                         _cleanup_(portable_metadata_unrefp) PortableMetadata *add = NULL;
                         _cleanup_close_ int fd = -1;
-                        char iov_buffer[PATH_MAX + 2];
+                        char iov_buffer[PATH_MAX + XATTR_MAX + 2];
                         struct iovec iov = IOVEC_INIT(iov_buffer, sizeof(iov_buffer));
 
                         ssize_t n = receive_one_fd_iov(seq[0], &iov, 1, 0, &fd);
@@ -411,7 +434,15 @@ static int portable_extract_by_path(
                                 return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
                                                        "Invalid item sent from child.");
 
-                        add = portable_metadata_new(iov_buffer, path, fd);
+                        /* Given recvmsg cannot be used with multiple io vectors if you don't know the size in advance,
+                         * use a marker to separate the name and the optional SELinux context. */
+                        char *file_con = strchr(iov_buffer, '\n');
+                        assert(file_con);
+                        *(file_con++) = 0;
+                        if (n <= file_con - iov_buffer)
+                                file_con = NULL;
+
+                        add = portable_metadata_new(iov_buffer, path, file_con, fd);
                         if (!add)
                                 return -ENOMEM;
                         fd = -1;
@@ -1059,6 +1090,12 @@ static int attach_unit_file(
                 fd = open_tmpfile_linkable(path, O_WRONLY|O_CLOEXEC, &tmp);
                 if (fd < 0)
                         return log_debug_errno(fd, "Failed to create unit file '%s': %m", path);
+
+                if (!isempty(m->selinux_file_con)) {
+                        r = mac_selinux_apply_fd(fd, path, m->selinux_file_con);
+                        if (r < 0)
+                                return r;
+                }
 
                 r = copy_bytes(m->fd, fd, UINT64_MAX, COPY_REFLINK);
                 if (r < 0)
