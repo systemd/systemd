@@ -3,8 +3,10 @@ socket
 Accept=
 AllowedCPUs=
 StartupAllowedCPUs=
+ShutdownAllowedCPUs=
 AllowedMemoryNodes=
 StartupAllowedMemoryNodes=
+ShutdownAllowedMemoryNodes=
 AmbientCapabilities=
 AppArmorProfile=
 BPFProgram=
