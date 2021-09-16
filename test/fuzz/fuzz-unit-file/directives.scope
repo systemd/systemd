@@ -1,11 +1,7 @@
 scope
 [Scope]
 AllowedCPUs=
-StartupAllowedCPUs=
-ShutdownAllowedCPUs=
 AllowedMemoryNodes=
-StartupAllowedMemoryNodes=
-ShutdownAllowedMemoryNodes=
 BPFProgram=
 BlockIOAccounting=
 BlockIODeviceWeight=
@@ -56,9 +52,13 @@ RestrictNetworkInterfaces=
 RuntimeMaxSec=
 SendSIGHUP=
 SendSIGKILL=
+ShutdownAllowedCPUs=
+ShutdownAllowedMemoryNodes=
 Slice=
 SocketBindAllow=
 SocketBindDeny=
+StartupAllowedCPUs=
+StartupAllowedMemoryNodes=
 StartupBlockIOWeight=
 StartupCPUShares=
 StartupCPUWeight=
