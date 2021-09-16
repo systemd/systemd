@@ -1,9 +1,7 @@
 mount
 [Mount]
 AllowedCPUs=
-StartupAllowedCPUs=
 AllowedMemoryNodes=
-StartupAllowedMemoryNodes=
 AmbientCapabilities=
 AppArmorProfile=
 BPFProgram=
@@ -174,6 +172,8 @@ StandardInput=
 StandardInputData=
 StandardInputText=
 StandardOutput=
+StartupAllowedCPUs=
+StartupAllowedMemoryNodes=
 StartupBlockIOWeight=
 StartupCPUShares=
 StartupCPUWeight=
