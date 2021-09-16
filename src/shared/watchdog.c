@@ -48,8 +48,9 @@ static int disable_watchdog(void) {
 }
 
 static int settimeout_watchdog(void) {
+        bool op_not_supported = false;
         usec_t t;
-        int sec;
+        int sec, r;
 
         assert(watchdog_fd > 0);
         assert(timestamp_is_set(watchdog_timeout));
@@ -57,16 +58,32 @@ static int settimeout_watchdog(void) {
         t = DIV_ROUND_UP(watchdog_timeout, USEC_PER_SEC);
         sec = MIN(t, (usec_t) INT_MAX); /* Saturate */
 
-        if (ioctl(watchdog_fd, WDIOC_SETTIMEOUT, &sec) < 0)
-                return log_warning_errno(errno, "Failed to set timeout to %is: %m", sec);
+        r = ioctl(watchdog_fd, WDIOC_SETTIMEOUT, &sec);
+        if (r < 0) {
+                /* Setting the timeout might not be supported by the HW. In
+                 * that case we'll reuse the effective timeout. */
+                if (!ERRNO_IS_NOT_SUPPORTED(errno))
+                        return log_warning_errno(errno, "Failed to set timeout to %is: %m", sec);
 
-        /* Just in case the driver is buggy */
-        assert(sec > 0);
+                if (ioctl(watchdog_fd, WDIOC_GETTIMEOUT, &sec) < 0)
+                        return log_warning_errno(errno, "Failed to request watchdog HW timeout: %m");
 
-        /* watchdog_timeout stores the timeout used by the HW */
-        watchdog_timeout = sec * USEC_PER_SEC;
+                op_not_supported = true;
+        }
 
-        log_info("Set hardware watchdog to %s.", FORMAT_TIMESPAN(watchdog_timeout, 0));
+        assert(sec > 0);/*  buggy driver ? */
+
+        if (watchdog_timeout != sec * USEC_PER_SEC) {
+                /* watchdog_timeout stores the timeout used by the HW */
+                watchdog_timeout = sec * USEC_PER_SEC;
+
+                if (op_not_supported) {
+                        log_warning("Modifying the watchdog timeout is not supported by the HW");
+                        log_warning("Reusing the hardware watchdog timeout: %is", sec);
+                }
+        } else
+                log_info("Set hardware watchdog to %s.", FORMAT_TIMESPAN(watchdog_timeout, 0));
+
         return 0;
 }
 
