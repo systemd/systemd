@@ -1136,7 +1136,8 @@ static int on_ctrl_msg(UdevCtrl *uctrl, UdevCtrlMessageType type, const UdevCtrl
                 manager_reload(manager);
                 break;
         case UDEV_CTRL_SET_ENV: {
-                _cleanup_free_ char *key = NULL, *val = NULL, *old_key = NULL, *old_val = NULL;
+                _unused_ _cleanup_free_ char *old_val = NULL;
+                _cleanup_free_ char *key = NULL, *val = NULL, *old_key = NULL;
                 const char *eq;
 
                 eq = strchr(value->buf, '=');
