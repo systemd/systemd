@@ -46,6 +46,20 @@ static int watchdog_disable(void) {
         return 0;
 }
 
+static int watchdog_gettimeout(usec_t *ret_usec) {
+        int sec = 0;
+
+        assert(watchdog_fd > 0);
+
+        if (ioctl(watchdog_fd, WDIOC_GETTIMEOUT, &sec) < 0)
+                return -errno;
+
+        assert(sec > 0);
+        *ret_usec = sec * USEC_PER_SEC;
+
+        return 0;
+}
+
 static int watchdog_settimeout(void) {
         usec_t t;
         int sec;
@@ -57,15 +71,11 @@ static int watchdog_settimeout(void) {
         sec = MIN(t, (usec_t) INT_MAX); /* Saturate */
 
         if (ioctl(watchdog_fd, WDIOC_SETTIMEOUT, &sec) < 0)
-                return log_warning_errno(errno, "Failed to set timeout to %is, ignoring: %m", sec);
+                return -errno;
 
-        /* Just in case the driver is buggy */
-        assert(sec > 0);
-
-        /* watchdog_timeout stores the timeout used by the HW */
+        assert(sec > 0);/*  buggy driver ? */
         watchdog_timeout = sec * USEC_PER_SEC;
 
-        log_info("Set hardware watchdog to %s.", FORMAT_TIMESPAN(watchdog_timeout, 0));
         return 0;
 }
 
@@ -92,12 +102,23 @@ static int update_timeout(void) {
                 return watchdog_disable();
 
         r = watchdog_settimeout();
-        if (r < 0)
-                return r;
+        if (r < 0) {
+                if (!ERRNO_IS_NOT_SUPPORTED(r))
+                        return log_warning_errno(r, "Failed to set timeout to %s, ignoring: %m",
+                                                 FORMAT_TIMESPAN(watchdog_timeout, 0));
+
+                log_info("Modifying watchdog timeout is not supported, reusing the programmed timeout");
+
+                r = watchdog_gettimeout(&watchdog_timeout);
+                if (r < 0)
+                        return log_warning_errno(errno, "Failed to request watchdog HW timeout: %m");
+        }
 
         r = watchdog_enable();
         if (r < 0)
                 return r;
+
+        log_info("Set hardware watchdog to %s.", FORMAT_TIMESPAN(watchdog_timeout, 0));
 
         return ping_watchdog();
 }
