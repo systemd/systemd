@@ -1,9 +1,7 @@
 scope
 [Scope]
 AllowedCPUs=
-StartupAllowedCPUs=
 AllowedMemoryNodes=
-StartupAllowedMemoryNodes=
 BPFProgram=
 BlockIOAccounting=
 BlockIODeviceWeight=
@@ -57,6 +55,8 @@ SendSIGKILL=
 Slice=
 SocketBindAllow=
 SocketBindDeny=
+StartupAllowedCPUs=
+StartupAllowedMemoryNodes=
 StartupBlockIOWeight=
 StartupCPUShares=
 StartupCPUWeight=
