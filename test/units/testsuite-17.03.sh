@@ -8,10 +8,10 @@ setup() {
     mkdir -p "${test_rule%/*}"
     cp -f /etc/udev/udev.conf /etc/udev/udev.conf.bckp
     cat >"${test_rule}" <<EOF
-SUBSYSTEM=="net", KERNEL=="lo", OPTIONS="log_level=debug"
-SUBSYSTEM=="net", KERNEL=="lo", PROGRAM=="/bin/sleep 60"
+ACTION=="add", SUBSYSTEM=="mem", KERNEL=="null", OPTIONS="log_level=debug"
+ACTION=="add", SUBSYSTEM=="mem", KERNEL=="null", PROGRAM=="/bin/sleep 60"
 EOF
-    echo "event_timeout=30" >>/etc/udev/udev.conf
+    echo "event_timeout=10" >>/etc/udev/udev.conf
     echo "timeout_signal=SIGABRT" >>/etc/udev/udev.conf
 
     systemctl restart systemd-udevd.service
@@ -28,13 +28,13 @@ teardown() {
 run_test() {
     since="$(date +%T)"
 
-    echo add >/sys/class/net/lo/uevent
+    udevadm trigger -w --action add /dev/null
 
     for _ in {1..20}; do
-        sleep 5
         if coredumpctl --since "$since" --no-legend --no-pager | grep /bin/udevadm ; then
             return 0
         fi
+        sleep .5
     done
 
     return 1
