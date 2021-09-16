@@ -24,3 +24,21 @@ int fopen_temporary_label(
 
         return r;
 }
+
+int open_tmpfile_linkable_label(
+                const char *target,
+                int flags,
+                char **ret_path) {
+
+        int r;
+
+        r = mac_selinux_create_file_prepare(target, S_IFREG);
+        if (r < 0)
+                return r;
+
+        r = open_tmpfile_linkable(target, flags, ret_path);
+
+        mac_selinux_create_file_clear();
+
+        return r;
+}
