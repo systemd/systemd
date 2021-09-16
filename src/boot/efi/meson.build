@@ -103,7 +103,7 @@ if have_gnu_efi
         efi_conf.set10('ENABLE_TPM', get_option('tpm'))
         efi_conf.set('SD_TPM_PCR', get_option('tpm-pcrindex'))
 
-        foreach ctype : ['color-normal', 'color-entry', 'color-highlight', 'color-edit']
+        foreach ctype : ['color-normal', 'color-entry', 'color-highlight', 'color-edit', 'color-box']
                 c = get_option('efi-' + ctype).split(',')
                 fg = 'EFI_' + c[0].strip().underscorify().to_upper()
                 bg = 'EFI_BACKGROUND_' + c[1].strip().underscorify().to_upper()

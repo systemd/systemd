@@ -94,3 +94,5 @@ static inline VOID *mempmem_safe(const VOID *haystack, UINTN haystack_len, const
 
 VOID print_at(UINTN x, UINTN y, UINTN attr, const CHAR16 *str);
 VOID clear_screen(UINTN attr);
+VOID draw_box(UINTN x, UINTN y, UINTN w, UINTN h, UINTN color);
+BOOLEAN boxdraw_supported(VOID);

@@ -509,7 +509,7 @@ static BOOLEAN menu_run(
         assert(loaded_image_path);
 
         EFI_STATUS err;
-        UINTN visible_max = 0;
+        UINTN visible_max = 0, line_width = 0;
         UINTN idx_highlight = config->idx_default;
         UINTN idx_highlight_prev = 0;
         UINTN idx_first = 0, idx_last = 0;
@@ -541,12 +541,12 @@ static BOOLEAN menu_run(
                 UINT64 key;
 
                 if (new_mode) {
-                        UINTN line_width = 0, entry_padding = 3;
+                        UINTN entry_padding = 3;
 
                         console_query_mode(&x_max, &y_max);
 
-                        /* account for padding+status */
-                        visible_max = y_max - 2;
+                        /* account for box+status */
+                        visible_max = y_max - 3;
 
                         /* Drawing entries starts at idx_first until idx_last. We want to make
                         * sure that idx_highlight is centered, but not if we are close to the
@@ -561,19 +561,22 @@ static BOOLEAN menu_run(
                         idx_last = idx_first + visible_max - 1;
 
                         /* length of the longest entry */
+                        line_width = 0;
                         for (UINTN i = 0; i < config->entry_count; i++)
                                 line_width = MAX(line_width, StrLen(config->entries[i]->title_show));
-                        line_width = MIN(line_width + 2 * entry_padding, x_max);
+                        line_width = MIN(line_width + 2 * entry_padding, x_max - 2);
 
                         /* offsets to center the entries on the screen */
                         x_start = (x_max - (line_width)) / 2;
                         if (config->entry_count < visible_max)
-                                y_start = ((visible_max - config->entry_count) / 2) + 1;
+                                y_start = ((visible_max - config->entry_count) / 2) + 2;
                         else
-                                y_start = 0;
+                                y_start = 1;
 
-                        /* Put status line after the entry list, but give it some breathing room. */
-                        y_status = MIN(y_start + MIN(visible_max, config->entry_count) + 4, y_max - 1);
+                        /* Put status line after the box. Otherwise give it some breathing room. */
+                        y_status = y_start + MIN(visible_max, config->entry_count) + 1;
+                        if (!boxdraw_supported())
+                                y_status = MIN(y_status + 3, y_max - 1);
 
                         if (lines) {
                                 for (UINTN i = 0; i < config->entry_count; i++)
@@ -612,6 +615,8 @@ static BOOLEAN menu_run(
 
                 if (clear) {
                         clear_screen(COLOR_NORMAL);
+                        if (boxdraw_supported())
+                                draw_box(x_start - 1, y_start - 1, line_width + 1, MIN(visible_max, config->entry_count) + 1, COLOR_BOX);
                         clear = FALSE;
                         refresh = TRUE;
                 }
@@ -624,16 +629,16 @@ static BOOLEAN menu_run(
                                 if ((INTN)i == config->idx_default_efivar)
                                         print_at(x_start, y_start + i - idx_first,
                                                  (i == idx_highlight) ? COLOR_HIGHLIGHT : COLOR_ENTRY,
-                                                 (CHAR16*) L"=>");
+                                                 (CHAR16*)(boxdraw_supported() ? L"►" : L"=>"));
                         }
                         refresh = FALSE;
                 } else if (highlight) {
                         print_at(x_start, y_start + idx_highlight_prev - idx_first, COLOR_ENTRY, lines[idx_highlight_prev]);
                         print_at(x_start, y_start + idx_highlight - idx_first, COLOR_HIGHLIGHT, lines[idx_highlight]);
                         if ((INTN)idx_highlight_prev == config->idx_default_efivar)
-                                print_at(x_start , y_start + idx_highlight_prev - idx_first, COLOR_ENTRY, (CHAR16*) L"=>");
+                                print_at(x_start , y_start + idx_highlight_prev - idx_first, COLOR_ENTRY, (CHAR16*)(boxdraw_supported() ? L"►" : L"=>"));
                         if ((INTN)idx_highlight == config->idx_default_efivar)
-                                print_at(x_start, y_start + idx_highlight - idx_first, COLOR_HIGHLIGHT, (CHAR16*) L"=>");
+                                print_at(x_start, y_start + idx_highlight - idx_first, COLOR_HIGHLIGHT, (CHAR16*)(boxdraw_supported() ? L"►" : L"=>"));
                         highlight = FALSE;
                 }
 
