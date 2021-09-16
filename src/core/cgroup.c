@@ -68,6 +68,25 @@ bool manager_owns_host_root_cgroup(Manager *m) {
         return empty_or_root(m->cgroup_root);
 }
 
+bool unit_has_startup_cgroup_constraints(Unit *u) {
+        assert(u);
+
+        /* Returns true if this unit has any directives which apply during
+         * startup/shutdown phases. */
+
+        CGroupContext *c;
+
+        c = unit_get_cgroup_context(u);
+        if (!c)
+                return false;
+
+        return c->startup_cpu_shares != CGROUP_CPU_SHARES_INVALID ||
+               c->startup_io_weight != CGROUP_WEIGHT_INVALID ||
+               c->startup_blockio_weight != CGROUP_BLKIO_WEIGHT_INVALID ||
+               c->startup_cpuset_cpus.set ||
+               c->startup_cpuset_mems.set;
+}
+
 bool unit_has_host_root_cgroup(Unit *u) {
         assert(u);
 
@@ -864,7 +883,7 @@ static uint64_t cgroup_context_cpu_shares(CGroupContext *c, ManagerState state) 
 }
 
 static CPUSet *cgroup_context_allowed_cpus(CGroupContext *c, ManagerState state) {
-        if (IN_SET(state, MANAGER_STARTING, MANAGER_INITIALIZING) &&
+        if (IN_SET(state, MANAGER_STARTING, MANAGER_INITIALIZING, MANAGER_STOPPING) &&
             c->startup_cpuset_cpus.set)
                 return &c->startup_cpuset_cpus;
         else
@@ -872,7 +891,7 @@ static CPUSet *cgroup_context_allowed_cpus(CGroupContext *c, ManagerState state)
 }
 
 static CPUSet *cgroup_context_allowed_mems(CGroupContext *c, ManagerState state) {
-        if (IN_SET(state, MANAGER_STARTING, MANAGER_INITIALIZING) &&
+        if (IN_SET(state, MANAGER_STARTING, MANAGER_INITIALIZING, MANAGER_STOPPING) &&
             c->startup_cpuset_mems.set)
                 return &c->startup_cpuset_mems;
         else
@@ -2543,6 +2562,12 @@ unsigned manager_dispatch_cgroup_realize_queue(Manager *m) {
         assert(m);
 
         state = manager_state(m);
+        if (state == MANAGER_STOPPING && !m->shutdown_units_refreshed) {
+                /* Units which are refreshed after startup are also refreshed
+                 * at shutdown time. */
+                manager_invalidate_startup_units(m);
+                m->shutdown_units_refreshed = true;
+        }
 
         while ((i = m->cgroup_realize_queue)) {
                 assert(i->in_cgroup_realize_queue);
@@ -3971,7 +3996,7 @@ void manager_invalidate_startup_units(Manager *m) {
         assert(m);
 
         SET_FOREACH(u, m->startup_units)
-                unit_invalidate_cgroup(u, CGROUP_MASK_CPU|CGROUP_MASK_IO|CGROUP_MASK_BLKIO);
+                unit_invalidate_cgroup(u, CGROUP_MASK_CPU|CGROUP_MASK_IO|CGROUP_MASK_BLKIO|CGROUP_MASK_CPUSET);
 }
 
 static int unit_get_nice(Unit *u) {
