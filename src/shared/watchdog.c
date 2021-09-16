@@ -81,7 +81,7 @@ static int ping_watchdog(void) {
 }
 
 
-static int update_timeout(void) {
+static int update_timeout(bool enable) {
         int r;
 
         if (watchdog_fd < 0)
@@ -96,9 +96,11 @@ static int update_timeout(void) {
         if (r < 0)
                 return r;
 
-        r = enable_watchdog();
-        if (r < 0)
-                return r;
+        if (enable) {
+                r = enable_watchdog();
+                if (r < 0)
+                        return r;
+        }
 
         return ping_watchdog();
 }
@@ -123,7 +125,7 @@ static int open_watchdog(void) {
                          ident.firmware_version,
                          fn);
 
-        return update_timeout();
+        return update_timeout(false);
 }
 
 int watchdog_set_device(const char *path) {
@@ -154,7 +156,7 @@ int watchdog_setup(usec_t timeout) {
         if (watchdog_fd < 0)
                 return open_watchdog();
 
-        return update_timeout();
+        return update_timeout(true);
 }
 
 usec_t watchdog_runtime_wait(void) {
