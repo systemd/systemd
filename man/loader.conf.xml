@@ -106,9 +106,10 @@
         will be stored as an EFI variable in that case, overriding this option.
         </para>
 
-        <para>If the timeout is disabled, the default entry will be booted
-        immediately. The menu can be shown by pressing and holding a key before
-        systemd-boot is launched.</para>
+        <para>If set to <literal>menu-hidden</literal> or <literal>0</literal> no menu
+        is shown and the default entry will be booted immediately. The menu can be shown
+        by pressing and holding a key before systemd-boot is launched. Setting this to
+        <literal>menu-force</literal> disables the timeout while always showing the menu.</para>
         </listitem>
       </varlistentry>
 
