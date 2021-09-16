@@ -527,3 +527,43 @@ VOID clear_screen(UINTN attr) {
         uefi_call_wrapper(ST->ConOut->SetAttribute, 2, ST->ConOut, attr);
         uefi_call_wrapper(ST->ConOut->ClearScreen, 1, ST->ConOut);
 }
+
+VOID draw_box(UINTN x, UINTN y, UINTN w, UINTN h, UINTN color) {
+        print_at(x, y, color, L"┌");
+        print_at(x + w, y, color, L"┐");
+        print_at(x, y + h, color, L"└");
+        print_at(x + w, y + h, color, L"┘");
+
+        for (UINTN i = 1; i < w; i++) {
+                print_at(x + i, y, color, L"─");
+                print_at(x + i, y + h, color, L"─");
+        }
+
+        for (UINTN i = 1; i < h; i++) {
+                print_at(x, y + i, color, L"│");
+                print_at(x + w, y + i, color, L"│");
+        }
+}
+
+BOOLEAN boxdraw_supported(VOID) {
+        EFI_STATUS err;
+        EFI_SERIAL_IO_PROTOCOL *ser = NULL;
+        static BOOLEAN checked = FALSE, supported = FALSE;
+
+        if (checked)
+                return supported;
+
+        checked = true;
+
+        /* The UEFI spec mandates support for boxdraw characters, but let's make sure. */
+        err = uefi_call_wrapper(ST->ConOut->TestString, 2, ST->ConOut, (CHAR16*)L"┌");
+        if (EFI_ERROR(err))
+                return supported;
+
+        /* Serial consoles don't do unicode boxdraw characters. :(
+         * Note for QEMU users: You need to use "-serial none" if you want boxes. */
+        err = LibLocateProtocol(&SerialIoProtocol, (VOID**)&ser);
+        supported = EFI_ERROR(err) || !ser;
+
+        return supported;
+}
