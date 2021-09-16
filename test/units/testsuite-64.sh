@@ -5,11 +5,27 @@ set -eux
 set -o pipefail
 
 # Check if all symlinks under /dev/disk/ are valid
+# shellcheck disable=SC2120
 helper_check_device_symlinks() {
-    local dev link target
+    # Disable verbose logging only for this function (and reset the signal handler
+    # when leaving the function)
+    set +x; trap "trap - RETURN; set -x" RETURN
+
+    local dev link path paths target
+
+    [[ $# -gt 0 ]] && paths=("$@") || paths=("/dev/disk")
+
+    # Check if all given paths are valid
+    for path in "${paths[@]}"; do
+        if ! test -e "$path"; then
+            echo >&2 "Path '$path' doesn't exist"
+            return 1
+        fi
+    done
 
     while read -r link; do
         target="$(readlink -f "$link")"
+        echo "$link -> $target"
         # Both checks should do virtually the same thing, but check both to be
         # on the safe side
         if [[ ! -e "$link" || ! -e "$target" ]]; then
@@ -23,7 +39,7 @@ helper_check_device_symlinks() {
             echo >&2 "ERROR: symlink '$link' points to '$target' but '$dev' was expected"
             return 1
         fi
-    done < <(find /dev/disk -type l)
+    done < <(find "${paths[@]}" -type l)
 }
 
 testcase_megasas2_basic() {
@@ -175,6 +191,92 @@ EOF
     done
 
     rm -f "$partscript"
+}
+
+testcase_lvm_basic() {
+    local i part
+    local vgroup="MyTestGroup$RANDOM"
+    local devices=(
+        /dev/disk/by-id/ata-foobar_deadbeeflvm{0..3}
+    )
+
+    # Make sure all the necessary soon-to-be-LVM devices exist
+    ls -l "${devices[@]}"
+
+    # Add all test devices into a volume group, create two logical volumes,
+    # and check if necessary symlinks exist (and are valid)
+    lvm pvcreate -y "${devices[@]}"
+    lvm pvs
+    lvm vgcreate "$vgroup" -y "${devices[@]}"
+    lvm vgs
+    lvm vgchange -ay "$vgroup"
+    lvm lvcreate -y -L 4M "$vgroup" -n mypart1
+    lvm lvcreate -y -L 8M "$vgroup" -n mypart2
+    lvm lvs
+    udevadm settle
+    test -e "/dev/$vgroup/mypart1"
+    test -e "/dev/$vgroup/mypart2"
+    mkfs.ext4 -L mylvpart1 "/dev/$vgroup/mypart1"
+    udevadm settle
+    test -e "/dev/disk/by-label/mylvpart1"
+    helper_check_device_symlinks "/dev/disk" "/dev/$vgroup"
+
+    # Disable the VG and check symlinks...
+    lvm vgchange -an "$vgroup"
+    udevadm settle
+    test ! -e "/dev/$vgroup"
+    test ! -e "/dev/disk/by-label/mylvpart1"
+    helper_check_device_symlinks "/dev/disk"
+
+    # reenable the VG and check the symlinks again if all LVs are properly activated
+    lvm vgchange -ay "$vgroup"
+    udevadm settle
+    test -e "/dev/$vgroup/mypart1"
+    test -e "/dev/$vgroup/mypart2"
+    test -e "/dev/disk/by-label/mylvpart1"
+    helper_check_device_symlinks "/dev/disk" "/dev/$vgroup"
+
+    # Same as above, but now with more "stress"
+    for i in {1..100}; do
+        lvm vgchange -an "$vgroup"
+        lvm vgchange -ay "$vgroup"
+
+        if ((i % 10 == 0)); then
+            udevadm settle
+            test -e "/dev/$vgroup/mypart1"
+            test -e "/dev/$vgroup/mypart2"
+            test -e "/dev/disk/by-label/mylvpart1"
+            helper_check_device_symlinks "/dev/disk" "/dev/$vgroup"
+        fi
+    done
+
+    # Remove the first LV
+    lvm lvremove -y "$vgroup/mypart1"
+    udevadm settle
+    test ! -e "/dev/$vgroup/mypart1"
+    test -e "/dev/$vgroup/mypart2"
+    helper_check_device_symlinks "/dev/disk" "/dev/$vgroup"
+
+    # Create & remove LVs in a loop, i.e. with more "stress"
+    for i in {1..50}; do
+        # 1) Create 16 logical volumes
+        for part in {0..15}; do
+            lvm lvcreate -y -L 4M "$vgroup" -n "looppart$part"
+        done
+
+        # 2) Immediately remove them
+        lvm lvremove -y "$vgroup"/looppart{0..15}
+
+        # 3) On every 10th iteration settle udev and check if all partitions are
+        #    indeed gone, and if all symlinks are still valid
+        if ((i % 10 == 0)); then
+            udevadm settle
+            for part in {0..15}; do
+                test ! -e "/dev/$vgroup/looppart$part"
+            done
+            helper_check_device_symlinks "/dev/disk" "/dev/$vgroup"
+        fi
+    done
 }
 
 : >/failed
