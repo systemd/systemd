@@ -1557,15 +1557,7 @@ static int unit_add_oomd_dependencies(Unit *u) {
 }
 
 static int unit_add_startup_units(Unit *u) {
-        CGroupContext *c;
-
-        c = unit_get_cgroup_context(u);
-        if (!c)
-                return 0;
-
-        if (c->startup_cpu_shares == CGROUP_CPU_SHARES_INVALID &&
-            c->startup_io_weight == CGROUP_WEIGHT_INVALID &&
-            c->startup_blockio_weight == CGROUP_BLKIO_WEIGHT_INVALID)
+        if (!unit_has_startup_cgroup_constraints(u))
                 return 0;
 
         return set_ensure_put(&u->manager->startup_units, NULL, u);

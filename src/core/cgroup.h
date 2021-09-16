@@ -311,6 +311,8 @@ int unit_reset_accounting(Unit *u);
 bool manager_owns_host_root_cgroup(Manager *m);
 bool unit_has_host_root_cgroup(Unit *u);
 
+bool unit_has_startup_cgroup_constraints(Unit *u);
+
 int manager_notify_cgroup_empty(Manager *m, const char *group);
 
 void unit_invalidate_cgroup(Unit *u, CGroupMask m);
