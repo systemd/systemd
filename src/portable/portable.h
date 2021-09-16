@@ -12,6 +12,7 @@ typedef struct PortableMetadata {
         int fd;
         char *source;
         char *image_path;
+        char *selinux_file_con;
         char name[];
 } PortableMetadata;
 
