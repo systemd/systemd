@@ -1,9 +1,7 @@
 swap
 [Swap]
 AllowedCPUs=
-StartupAllowedCPUs=
 AllowedMemoryNodes=
-StartupAllowedMemoryNodes=
 AmbientCapabilities=
 AppArmorProfile=
 BPFProgram=
@@ -161,6 +159,8 @@ SendSIGHUP=
 SendSIGKILL=
 SetCredential=
 SetCredentialEncrypted=
+ShutdownAllowedCPUs=
+ShutdownAllowedMemoryNodes=
 Slice=
 SmackProcessLabel=
 SocketBindAllow=
@@ -170,6 +170,8 @@ StandardInput=
 StandardInputData=
 StandardInputText=
 StandardOutput=
+StartupAllowedCPUs=
+StartupAllowedMemoryNodes=
 StartupBlockIOWeight=
 StartupCPUShares=
 StartupCPUWeight=
