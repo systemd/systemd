@@ -1501,35 +1501,37 @@ static VOID config_load_entries(
         assert(loaded_image_path);
 
         err = uefi_call_wrapper(root_dir->Open, 5, root_dir, &entries_dir, (CHAR16*) L"\\loader\\entries", EFI_FILE_MODE_READ, 0ULL);
-        if (!EFI_ERROR(err)) {
-                for (;;) {
-                        CHAR16 buf[256];
-                        UINTN bufsize;
-                        EFI_FILE_INFO *f;
-                        _cleanup_freepool_ CHAR8 *content = NULL;
+        if (EFI_ERROR(err))
+                return;
 
-                        bufsize = sizeof(buf);
-                        err = uefi_call_wrapper(entries_dir->Read, 3, entries_dir, &bufsize, buf);
-                        if (bufsize == 0 || EFI_ERROR(err))
-                                break;
+        for (;;) {
+                CHAR16 buf[256];
+                UINTN bufsize;
+                EFI_FILE_INFO *f;
+                _cleanup_freepool_ CHAR8 *content = NULL;
 
-                        f = (EFI_FILE_INFO *) buf;
-                        if (f->FileName[0] == '.')
-                                continue;
-                        if (f->Attribute & EFI_FILE_DIRECTORY)
-                                continue;
+                bufsize = sizeof(buf);
+                err = uefi_call_wrapper(entries_dir->Read, 3, entries_dir, &bufsize, buf);
+                if (bufsize == 0 || EFI_ERROR(err))
+                        break;
 
-                        if (!endswith_no_case(f->FileName, L".conf"))
-                                continue;
-                        if (startswith(f->FileName, L"auto-"))
-                                continue;
+                f = (EFI_FILE_INFO *) buf;
+                if (f->FileName[0] == '.')
+                        continue;
+                if (f->Attribute & EFI_FILE_DIRECTORY)
+                        continue;
 
-                        err = file_read(entries_dir, f->FileName, 0, 0, &content, NULL);
-                        if (!EFI_ERROR(err))
-                                config_entry_add_from_file(config, device, root_dir, L"\\loader\\entries", f->FileName, content, loaded_image_path);
-                }
-                uefi_call_wrapper(entries_dir->Close, 1, entries_dir);
+                if (!endswith_no_case(f->FileName, L".conf"))
+                        continue;
+                if (startswith(f->FileName, L"auto-"))
+                        continue;
+
+                err = file_read(entries_dir, f->FileName, 0, 0, &content, NULL);
+                if (!EFI_ERROR(err))
+                        config_entry_add_from_file(config, device, root_dir, L"\\loader\\entries", f->FileName, content, loaded_image_path);
         }
+
+        uefi_call_wrapper(entries_dir->Close, 1, entries_dir);
 }
 
 static INTN config_entry_compare(ConfigEntry *a, ConfigEntry *b) {
