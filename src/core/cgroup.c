@@ -864,7 +864,7 @@ static uint64_t cgroup_context_cpu_shares(CGroupContext *c, ManagerState state) 
 }
 
 static CPUSet *cgroup_context_allowed_cpus(CGroupContext *c, ManagerState state) {
-        if (IN_SET(state, MANAGER_STARTING, MANAGER_INITIALIZING) &&
+        if (IN_SET(state, MANAGER_STARTING, MANAGER_INITIALIZING, MANAGER_STOPPING) &&
             c->startup_cpuset_cpus.set)
                 return &c->startup_cpuset_cpus;
         else
@@ -872,7 +872,7 @@ static CPUSet *cgroup_context_allowed_cpus(CGroupContext *c, ManagerState state)
 }
 
 static CPUSet *cgroup_context_allowed_mems(CGroupContext *c, ManagerState state) {
-        if (IN_SET(state, MANAGER_STARTING, MANAGER_INITIALIZING) &&
+        if (IN_SET(state, MANAGER_STARTING, MANAGER_INITIALIZING, MANAGER_STOPPING) &&
             c->startup_cpuset_mems.set)
                 return &c->startup_cpuset_mems;
         else
