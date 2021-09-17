@@ -15,9 +15,9 @@
 #include "watchdog.h"
 
 static int watchdog_fd = -1;
-static char *watchdog_device = NULL;
-static usec_t watchdog_timeout = USEC_INFINITY;
-static usec_t watchdog_last_ping = USEC_INFINITY;
+static char *watchdog_device;
+static usec_t watchdog_timeout;
+static usec_t watchdog_last_ping;
 
 
 static int enable_watchdog(void) {
@@ -47,8 +47,21 @@ static int disable_watchdog(void) {
         return 0;
 }
 
+static int gettimeout_watchdog(usec_t *usec) {
+        int sec = 0;
+
+        assert(watchdog_fd > 0);
+
+        if (ioctl(watchdog_fd, WDIOC_GETTIMEOUT, &sec) < 0)
+                return log_warning_errno(errno, "Failed to request watchdog HW timeout: %m");
+
+        assert(sec > 0);
+        *usec = sec * USEC_PER_SEC;
+
+        return 0;
+}
+
 static int settimeout_watchdog(void) {
-        bool op_not_supported = false;
         usec_t t;
         int sec, r;
 
@@ -59,31 +72,13 @@ static int settimeout_watchdog(void) {
         sec = MIN(t, (usec_t) INT_MAX); /* Saturate */
 
         r = ioctl(watchdog_fd, WDIOC_SETTIMEOUT, &sec);
-        if (r < 0) {
-                /* Setting the timeout might not be supported by the HW. In
-                 * that case we'll reuse the effective timeout. */
-                if (!ERRNO_IS_NOT_SUPPORTED(errno))
-                        return log_warning_errno(errno, "Failed to set timeout to %is: %m", sec);
-
-                if (ioctl(watchdog_fd, WDIOC_GETTIMEOUT, &sec) < 0)
-                        return log_warning_errno(errno, "Failed to request watchdog HW timeout: %m");
-
-                op_not_supported = true;
-        }
+        if (r < 0)
+                return log_warning_errno(errno, "Failed to set timeout to %is: %m", sec);
 
         assert(sec > 0);/*  buggy driver ? */
+        watchdog_timeout = sec * USEC_PER_SEC;
 
-        if (watchdog_timeout != sec * USEC_PER_SEC) {
-                /* watchdog_timeout stores the timeout used by the HW */
-                watchdog_timeout = sec * USEC_PER_SEC;
-
-                if (op_not_supported) {
-                        log_warning("Modifying the watchdog timeout is not supported by the HW");
-                        log_warning("Reusing the hardware watchdog timeout: %is", sec);
-                }
-        } else
-                log_info("Set hardware watchdog to %s.", FORMAT_TIMESPAN(watchdog_timeout, 0));
-
+        log_info("Set hardware watchdog to %s.", FORMAT_TIMESPAN(watchdog_timeout, 0));
         return 0;
 }
 
@@ -103,15 +98,29 @@ static int update_timeout(bool enable) {
 
         if (watchdog_fd < 0)
                 return 0;
-        if (watchdog_timeout == USEC_INFINITY)
-                return 0;
 
         if (watchdog_timeout == 0)
                 return disable_watchdog();
 
-        r = settimeout_watchdog();
-        if (r < 0)
-                return r;
+        if (watchdog_timeout != USEC_INFINITY) {
+                r = settimeout_watchdog();
+                if (r < 0) {
+                        if (!ERRNO_IS_NOT_SUPPORTED(errno))
+                                return r;
+
+                        log_warning("Modifying the watchdog timeout is not supported by the HW");
+                        watchdog_timeout = USEC_INFINITY;
+                }
+        }
+
+        if (watchdog_timeout == USEC_INFINITY) {
+                r = gettimeout_watchdog(&watchdog_timeout);
+                if (r < 0)
+                        return r;
+
+                log_info("Calculating next watchdog pings based on the programmed timeout %s",
+                         FORMAT_TIMESPAN(watchdog_timeout, 0));
+        }
 
         if (enable) {
                 r = enable_watchdog();
@@ -169,11 +178,6 @@ int watchdog_setup(usec_t timeout) {
          * supported by the driver */
         watchdog_timeout = timeout;
 
-        /* If we didn't open the watchdog yet and didn't get any explicit
-         * timeout value set, don't do anything */
-        if (watchdog_fd < 0 && watchdog_timeout == USEC_INFINITY)
-                return 0;
-
         if (watchdog_fd < 0)
                 return open_watchdog();
 
@@ -199,7 +203,7 @@ usec_t watchdog_runtime_wait(void) {
 int watchdog_ping(void) {
         usec_t ntime;
 
-        if (!timestamp_is_set(watchdog_timeout))
+        if (watchdog_timeout == 0)
                 return 0;
 
         if (watchdog_fd < 0)
@@ -244,5 +248,5 @@ void watchdog_close(bool disarm) {
 
         /* Once closed, pinging the device becomes a NOP and we request a new
          * call to watchdog_setup() to open the device again. */
-        watchdog_timeout = USEC_INFINITY;
+        watchdog_timeout = 0;
 }
