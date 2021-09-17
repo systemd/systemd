@@ -247,6 +247,7 @@ PreferredLifetimeSec=
 AddressAutoconfiguration=
 ValidLifetimeSec=
 Assign=
+Token=
 RouteMetric=
 [IPv6RoutePrefix]
 Route=
@@ -359,6 +360,7 @@ RouteAllowList=
 RouteDenyList=
 DenyList=
 BlackList=
+Token=
 [DHCPServer]
 EmitNTP=
 PoolSize=
