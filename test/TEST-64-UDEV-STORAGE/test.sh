@@ -47,20 +47,25 @@ _host_has_feature() {
 
 test_append_files() {
     (
+        local feature
+        # An associative array of requested (but optional) features and their
+        # respective "handlers" from test/test-functions
+        local -A features=(
+            [multipath]=install_multipath
+            [lvm]=install_lvm
+        )
+
         instmods "=block" "=md" "=nvme" "=scsi"
         install_dmevent
         generate_module_dependencies
         image_install lsblk wc
 
-        # Configure multipath
-        if _host_has_feature "multipath"; then
-            install_multipath
-        fi
-
-        # Configure LVM
-        if _host_has_feature "lvm"; then
-            install_lvm
-        fi
+        # Install the optional features if the host has the respective tooling
+        for feature in "${!features[@]}"; do
+            if _host_has_feature "$feature"; then
+                "${features[$feature]}"
+            fi
+        done
 
         for i in {0..127}; do
             dd if=/dev/zero of="${TESTDIR:?}/disk$i.img" bs=1M count=1
