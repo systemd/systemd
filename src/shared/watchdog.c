@@ -134,6 +134,10 @@ int watchdog_set_device(const char *path) {
 
 int watchdog_setup(usec_t timeout) {
 
+        /* Let's shortcut duplicated requests */
+        if (watchdog_fd >= 0 && watchdog_timeout == timeout)
+                return 0;
+
         /* Initialize the watchdog timeout with the caller value. This value is
          * going to be updated by update_timeout() with the closest value
          * supported by the driver */
