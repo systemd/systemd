@@ -16,7 +16,7 @@
 
 static int watchdog_fd = -1;
 static char *watchdog_device;
-static usec_t watchdog_timeout; /* USEC_INFINITY → don't change timeout */
+static usec_t watchdog_timeout; /* 0 → close device and USEC_INFINITY → don't change timeout */
 static usec_t watchdog_last_ping = USEC_INFINITY;
 
 static int watchdog_set_enable(bool enable) {
@@ -87,11 +87,10 @@ static int watchdog_ping_now(void) {
 static int update_timeout(void) {
         int r;
 
+        assert(watchdog_timeout > 0);
+
         if (watchdog_fd < 0)
                 return 0;
-
-        if (watchdog_timeout == 0)
-                return watchdog_set_enable(false);
 
         if (watchdog_timeout != USEC_INFINITY) {
                 r = watchdog_set_timeout();
@@ -158,8 +157,19 @@ int watchdog_set_device(const char *path) {
 
 int watchdog_setup(usec_t timeout) {
 
+        /* timeout=0 closes the device whereas passing timeout=USEC_INFINITY
+         * opens it (if needed) without configuring any particular timeout and
+         * thus reuses the programmed value (therefore it's a nop if the device
+         * is already opened).
+         */
+
+        if (timeout == 0) {
+                watchdog_close(true);
+                return 0;
+        }
+
         /* Let's shortcut duplicated requests */
-        if (watchdog_fd >= 0 && watchdog_timeout == timeout)
+        if (watchdog_fd >= 0 && (timeout == watchdog_timeout || timeout == USEC_INFINITY))
                 return 0;
 
         /* Initialize the watchdog timeout with the caller value. This value is
@@ -213,6 +223,11 @@ int watchdog_ping(void) {
 }
 
 void watchdog_close(bool disarm) {
+
+        /* Once closed, pinging the device becomes a NOP and we request a new
+         * call to watchdog_setup() to open the device again. */
+        watchdog_timeout = 0;
+
         if (watchdog_fd < 0)
                 return;
 
@@ -234,8 +249,4 @@ void watchdog_close(bool disarm) {
         }
 
         watchdog_fd = safe_close(watchdog_fd);
-
-        /* Once closed, pinging the device becomes a NOP and we request a new
-         * call to watchdog_setup() to open the device again. */
-        watchdog_timeout = 0;
 }
