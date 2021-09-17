@@ -1171,7 +1171,8 @@ int bus_cgroup_set_property(
 
                 return 1;
 
-        } else if (STR_IN_SET(name, "AllowedCPUs", "StartupAllowedCPUs", "AllowedMemoryNodes", "StartupAllowedMemoryNodes")) {
+        } else if (STR_IN_SET(name, "AllowedCPUs", "StartupAllowedCPUs",
+                                    "AllowedMemoryNodes", "StartupAllowedMemoryNodes")) {
                 const void *a;
                 size_t n;
                 _cleanup_(cpu_set_reset) CPUSet new_set = {};
