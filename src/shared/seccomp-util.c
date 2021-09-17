@@ -1789,6 +1789,10 @@ int seccomp_restrict_archs(Set *archs) {
         for (unsigned i = 0; seccomp_local_archs[i] != SECCOMP_LOCAL_ARCH_END; ++i) {
                 uint32_t arch = seccomp_local_archs[i];
 
+                /* See above comment, our "native" architecture is never blocked. */
+                if (arch == seccomp_arch_native())
+                        continue;
+
                 /* That architecture might have already been blocked by a previous call to seccomp_restrict_archs. */
                 if (arch == SECCOMP_LOCAL_ARCH_BLOCKED)
                         continue;
