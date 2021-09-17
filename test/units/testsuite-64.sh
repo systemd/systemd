@@ -277,6 +277,126 @@ testcase_lvm_basic() {
     done
 }
 
+testcase_btrfs_basic() {
+    local dev_stub i label mpoint uuid
+    local devices=(
+        /dev/disk/by-id/ata-foobar_deadbeefbtrfs{0..3}
+    )
+
+    ls -l "${devices[@]}"
+
+    echo "Single device: default settings"
+    uuid="deadbeef-dead-dead-beef-000000000000"
+    label="btrfs_root"
+    mkfs.btrfs -L "$label" -U "$uuid" "${devices[0]}"
+    udevadm settle
+    btrfs filesystem show
+    test -e "/dev/disk/by-uuid/$uuid"
+    test -e "/dev/disk/by-label/$label"
+    helper_check_device_symlinks
+
+    echo "Multiple devices: using partitions, data: single, metadata: raid1"
+    uuid="deadbeef-dead-dead-beef-000000000001"
+    label="btrfs_mpart"
+    sfdisk --wipe=always "${devices[0]}" <<EOF
+label: gpt
+
+name="diskpart1", size=85M
+name="diskpart2", size=85M
+name="diskpart3", size=85M
+name="diskpart4", size=85M
+EOF
+    udevadm settle
+    mkfs.btrfs -d single -m raid1 -L "$label" -U "$uuid" /dev/disk/by-partlabel/diskpart{1..4}
+    udevadm settle
+    btrfs filesystem show
+    test -e "/dev/disk/by-uuid/$uuid"
+    test -e "/dev/disk/by-label/$label"
+    helper_check_device_symlinks
+    wipefs -a -f "${devices[0]}"
+
+    echo "Multiple devices: using disks, data: raid10, metadata: raid10, mixed mode"
+    uuid="deadbeef-dead-dead-beef-000000000002"
+    label="btrfs_mdisk"
+    mkfs.btrfs -M -d raid10 -m raid10 -L "$label" -U "$uuid" "${devices[@]}"
+    udevadm settle
+    btrfs filesystem show
+    test -e "/dev/disk/by-uuid/$uuid"
+    test -e "/dev/disk/by-label/$label"
+    helper_check_device_symlinks
+
+    echo "Multiple devices: using LUKS encrypted disks, data: raid1, metadata: raid1, mixed mode"
+    uuid="deadbeef-dead-dead-beef-000000000003"
+    label="btrfs_mencdisk"
+    mpoint="/btrfs_enc$RANDOM"
+    mkdir "$mpoint"
+    # Create a key-file
+    dd if=/dev/urandom of=/etc/btrfs_keyfile bs=64 count=1 iflag=fullblock
+    chmod 0600 /etc/btrfs_keyfile
+    # Encrypt each device and add it to /etc/crypttab, so it can be mounted
+    # automagically later
+    : >/etc/crypttab
+    for ((i = 0; i < ${#devices[@]}; i++)); do
+        # Intentionally use weaker cipher-related settings, since we don't care
+        # about security here as it's a throwaway LUKS partition
+        cryptsetup luksFormat -q \
+            --use-urandom --pbkdf pbkdf2 --pbkdf-force-iterations 1000 \
+            --uuid "deadbeef-dead-dead-beef-11111111111$i" --label "encdisk$i" "${devices[$i]}" /etc/btrfs_keyfile
+        udevadm settle
+        test -e "/dev/disk/by-uuid/deadbeef-dead-dead-beef-11111111111$i"
+        test -e "/dev/disk/by-label/encdisk$i"
+        # Add the device into /etc/crypttab, reload systemd, and then activate
+        # the device so we can create a filesystem on it later
+        echo "encbtrfs$i UUID=deadbeef-dead-dead-beef-11111111111$i /etc/btrfs_keyfile luks,noearly" >>/etc/crypttab
+        systemctl daemon-reload
+        systemctl start "systemd-cryptsetup@encbtrfs$i"
+    done
+    helper_check_device_symlinks
+    # Check if we have all necessary DM devices
+    ls -l /dev/mapper/encbtrfs{0..3}
+    # Create a multi-device btrfs filesystem on the LUKS devices
+    mkfs.btrfs -M -d raid1 -m raid1 -L "$label" -U "$uuid" /dev/mapper/encbtrfs{0..3}
+    udevadm settle
+    btrfs filesystem show
+    test -e "/dev/disk/by-uuid/$uuid"
+    test -e "/dev/disk/by-label/$label"
+    helper_check_device_symlinks
+    # Mount it and write some data to it we can compare later
+    mount -t btrfs /dev/mapper/encbtrfs0 "$mpoint"
+    echo "hello there" >"$mpoint/test"
+    # "Deconstruct" the btrfs device and check if we're in a sane state (symlink-wise)
+    umount "$mpoint"
+    systemctl stop systemd-cryptsetup@encbtrfs{0..3}
+    test ! -e "/dev/disk/by-uuid/$uuid"
+    helper_check_device_symlinks
+    # Add the mount point to /etc/fstab and check if the device can be put together
+    # automagically. The source device is the DM name of the first LUKS device
+    # (from /etc/crypttab). We have to specify all LUKS devices manually, as
+    # registering the necessary devices is usually initrd's job (via btrfs device scan)
+    dev_stub="/dev/mapper/encbtrfs"
+    echo "/dev/mapper/encbtrfs0 $mpoint btrfs device=${dev_stub}0,device=${dev_stub}1,device=${dev_stub}2,device=${dev_stub}3 0 2" >>/etc/fstab
+    # Tell systemd about the new mount
+    systemctl daemon-reload
+    # Restart cryptsetup.target to trigger autounlock of partitions in /etc/crypttab
+    systemctl restart cryptsetup.target
+    # Start the corresponding mount unit and check if the btrfs device was reconstructed
+    # correctly
+    systemctl start "${mpoint##*/}.mount"
+    btrfs filesystem show
+    test -e "/dev/disk/by-uuid/$uuid"
+    test -e "/dev/disk/by-label/$label"
+    helper_check_device_symlinks
+    grep "hello there" "$mpoint/test"
+    # Cleanup
+    systemctl stop "${mpoint##*/}.mount"
+    systemctl stop systemd-cryptsetup@encbtrfs{0..3}
+    sed -i "/${mpoint##*/}/d" /etc/fstab
+    : >/etc/crypttab
+    rm -fr "$mpoint"
+    systemctl daemon-reload
+    udevadm settle
+}
+
 : >/failed
 
 udevadm settle
