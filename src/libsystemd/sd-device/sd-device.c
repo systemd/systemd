@@ -1940,7 +1940,7 @@ _public_ int sd_device_get_trigger_uuid(sd_device *device, sd_id128_t *ret) {
         return 0;
 }
 
-static int device_cache_sysattr_value(sd_device *device, const char *key, char *value) {
+int device_cache_sysattr_value(sd_device *device, const char *key, char *value) {
         _unused_ _cleanup_free_ char *old_value = NULL;
         _cleanup_free_ char *new_key = NULL;
         int r;
@@ -1968,18 +1968,19 @@ static int device_cache_sysattr_value(sd_device *device, const char *key, char *
         return 0;
 }
 
-static int device_get_cached_sysattr_value(sd_device *device, const char *_key, const char **_value) {
-        const char *key = NULL, *value;
+int device_get_cached_sysattr_value(sd_device *device, const char *key, const char **ret_value) {
+        const char *k = NULL, *value;
 
         assert(device);
-        assert(_key);
+        assert(key);
 
-        value = hashmap_get2(device->sysattr_values, _key, (void **) &key);
-        if (!key)
-                return -ENOENT;
-
-        if (_value)
-                *_value = value;
+        value = hashmap_get2(device->sysattr_values, key, (void **) &k);
+        if (!k)
+                return -ENODATA; /* We have not read the attribute. */
+        if (!value)
+                return -ENOENT; /* We have looked up the attribute before and it did not exist. */
+        if (ret_value)
+                *ret_value = value;
         return 0;
 }
 
@@ -1987,7 +1988,7 @@ static int device_get_cached_sysattr_value(sd_device *device, const char *_key, 
  * with a NULL value in the cache, otherwise the returned string is stored */
 _public_ int sd_device_get_sysattr_value(sd_device *device, const char *sysattr, const char **ret_value) {
         _cleanup_free_ char *value = NULL;
-        const char *path, *syspath, *cached_value = NULL;
+        const char *path, *syspath;
         struct stat statbuf;
         int r;
 
@@ -1995,20 +1996,9 @@ _public_ int sd_device_get_sysattr_value(sd_device *device, const char *sysattr,
         assert_return(sysattr, -EINVAL);
 
         /* look for possibly already cached result */
-        r = device_get_cached_sysattr_value(device, sysattr, &cached_value);
-        if (r != -ENOENT) {
-                if (r < 0)
-                        return r;
-
-                if (!cached_value)
-                        /* we looked up the sysattr before and it did not exist */
-                        return -ENOENT;
-
-                if (ret_value)
-                        *ret_value = cached_value;
-
-                return 0;
-        }
+        r = device_get_cached_sysattr_value(device, sysattr, ret_value);
+        if (r != -ENODATA)
+                return r;
 
         r = sd_device_get_syspath(device, &syspath);
         if (r < 0)
