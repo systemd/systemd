@@ -20,6 +20,7 @@
 #include "fs-util.h"
 #include "install.h"
 #include "io-util.h"
+#include "label.h"
 #include "locale-util.h"
 #include "loop-util.h"
 #include "mkdir.h"
@@ -35,6 +36,7 @@
 #include "string-table.h"
 #include "strv.h"
 #include "tmpfile-util.h"
+#include "tmpfile-util-label.h"
 #include "user-util.h"
 
 static const char profile_dirs[] = CONF_PATHS_NULSTR("systemd/portable/profile");
@@ -1085,8 +1087,8 @@ static int attach_unit_file(
 
         where = attached_path(paths, flags);
 
-        (void) mkdir_parents(where, 0755);
-        if (mkdir(where, 0755) < 0) {
+        (void) mkdir_parents_label(where, 0755);
+        if (mkdir_label(where, 0755) < 0) {
                 if (errno != EEXIST)
                         return -errno;
         } else
@@ -1097,7 +1099,7 @@ static int attach_unit_file(
         if (!dropin_dir)
                 return -ENOMEM;
 
-        if (mkdir(dropin_dir, 0755) < 0) {
+        if (mkdir_label(dropin_dir, 0755) < 0) {
                 if (errno != EEXIST)
                         return -errno;
         } else
@@ -1117,7 +1119,7 @@ static int attach_unit_file(
 
         if ((flags & PORTABLE_PREFER_SYMLINK) && m->source) {
 
-                if (symlink(m->source, path) < 0)
+                if (symlink_label(m->source, path) < 0)
                         return log_debug_errno(errno, "Failed to symlink unit file '%s': %m", path);
 
                 (void) portable_changes_add(changes, n_changes, PORTABLE_SYMLINK, path, m->source);
@@ -1126,7 +1128,7 @@ static int attach_unit_file(
                 _cleanup_(unlink_and_freep) char *tmp = NULL;
                 _cleanup_close_ int fd = -1;
 
-                fd = open_tmpfile_linkable(path, O_WRONLY|O_CLOEXEC, &tmp);
+                fd = open_tmpfile_linkable_label(path, O_WRONLY|O_CLOEXEC, &tmp);
                 if (fd < 0)
                         return log_debug_errno(fd, "Failed to create unit file '%s': %m", path);
 

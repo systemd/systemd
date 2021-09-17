@@ -8,3 +8,4 @@
  * not for all */
 
 int fopen_temporary_label(const char *target, const char *path, FILE **f, char **temp_path);
+int open_tmpfile_linkable_label(const char *target, int flags, char **ret_path);
