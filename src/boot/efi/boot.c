@@ -1492,7 +1492,7 @@ static VOID config_load_entries(
                 EFI_FILE *root_dir,
                 CHAR16 *loaded_image_path) {
 
-        EFI_FILE_HANDLE entries_dir;
+        _cleanup_(FileHandleClosep) EFI_FILE_HANDLE entries_dir = NULL;
         EFI_STATUS err;
 
         assert(config);
@@ -1530,8 +1530,6 @@ static VOID config_load_entries(
                 if (!EFI_ERROR(err))
                         config_entry_add_from_file(config, device, root_dir, L"\\loader\\entries", f->FileName, content, loaded_image_path);
         }
-
-        uefi_call_wrapper(entries_dir->Close, 1, entries_dir);
 }
 
 static INTN config_entry_compare(ConfigEntry *a, ConfigEntry *b) {
@@ -1982,7 +1980,7 @@ static VOID config_entry_add_linux(
                 EFI_HANDLE *device,
                 EFI_FILE *root_dir) {
 
-        EFI_FILE_HANDLE linux_dir;
+        _cleanup_(FileHandleClosep) EFI_FILE_HANDLE linux_dir = NULL;
         EFI_STATUS err;
         ConfigEntry *entry;
 
@@ -2112,8 +2110,6 @@ static VOID config_entry_add_linux(
                 FreePool(os_build_id);
                 FreePool(content);
         }
-
-        uefi_call_wrapper(linux_dir->Close, 1, linux_dir);
 }
 
 #define XBOOTLDR_GUID \
