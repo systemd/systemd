@@ -1483,6 +1483,7 @@ static int become_shutdown(
         };
 
         _cleanup_strv_free_ char **env_block = NULL;
+        char *e;
         size_t pos = 7;
         int r;
         usec_t watchdog_timer = 0;
@@ -1534,23 +1535,18 @@ static int become_shutdown(
         else if (streq(shutdown_verb, "kexec"))
                 watchdog_timer = arg_kexec_watchdog;
 
-        if (timestamp_is_set(watchdog_timer)) {
-                char *e;
+        /* If we reboot or kexec let's set the shutdown watchdog and
+         * tell the shutdown binary to repeatedly ping it */
+        r = watchdog_setup(watchdog_timer);
+        watchdog_close(r < 0);
 
-                /* If we reboot or kexec let's set the shutdown watchdog and
-                 * tell the shutdown binary to repeatedly ping it */
-                r = watchdog_setup(watchdog_timer);
-                watchdog_close(r < 0);
+        /* Tell the binary how often to ping, ignore failure */
+        if (asprintf(&e, "WATCHDOG_USEC="USEC_FMT, watchdog_timer) > 0)
+                (void) strv_consume(&env_block, e);
 
-                /* Tell the binary how often to ping, ignore failure */
-                if (asprintf(&e, "WATCHDOG_USEC="USEC_FMT, watchdog_timer) > 0)
-                        (void) strv_consume(&env_block, e);
-
-                if (arg_watchdog_device &&
-                    asprintf(&e, "WATCHDOG_DEVICE=%s", arg_watchdog_device) > 0)
-                        (void) strv_consume(&env_block, e);
-        } else
-                watchdog_close(true);
+        if (arg_watchdog_device &&
+            asprintf(&e, "WATCHDOG_DEVICE=%s", arg_watchdog_device) > 0)
+                (void) strv_consume(&env_block, e);
 
         /* Avoid the creation of new processes forked by the kernel; at this
          * point, we will not listen to the signals anyway */
