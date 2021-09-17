@@ -28,6 +28,7 @@
 #include "path-lookup.h"
 #include "portable.h"
 #include "process-util.h"
+#include "selinux-util.h"
 #include "set.h"
 #include "signal-util.h"
 #include "socket-util.h"
@@ -78,7 +79,7 @@ static bool unit_match(const char *unit, char **matches) {
         return false;
 }
 
-static PortableMetadata *portable_metadata_new(const char *name, const char *path, int fd) {
+static PortableMetadata *portable_metadata_new(const char *name, const char *path, const char *selinux_label, int fd) {
         PortableMetadata *m;
 
         m = malloc0(offsetof(PortableMetadata, name) + strlen(name) + 1);
@@ -90,6 +91,13 @@ static PortableMetadata *portable_metadata_new(const char *name, const char *pat
                 m->image_path = strdup(path);
                 if (!m->image_path)
                         return mfree(m);
+        }
+
+        /* The metadata file might have SELinux labels, we need to carry them and reapply them */
+        if (!isempty(selinux_label)) {
+                m->selinux_label = strdup(selinux_label);
+                if (!m->selinux_label)
+                        return portable_metadata_unref(m);
         }
 
         strcpy(m->name, name);
@@ -105,6 +113,7 @@ PortableMetadata *portable_metadata_unref(PortableMetadata *i) {
         safe_close(i->fd);
         free(i->source);
         free(i->image_path);
+        free(i->selinux_label);
 
         return mfree(i);
 }
@@ -134,96 +143,23 @@ int portable_metadata_hashmap_to_sorted_array(Hashmap *unit_files, PortableMetad
         return 0;
 }
 
-static int send_item(
+static int send_one_fd_iov_with_data_fd(
                 int socket_fd,
-                const char *name,
+                struct iovec *iov,
+                size_t iovlen,
                 int fd) {
 
-        CMSG_BUFFER_TYPE(CMSG_SPACE(sizeof(int))) control = {};
-        struct iovec iovec;
-        struct msghdr mh = {
-                .msg_control = &control,
-                .msg_controllen = sizeof(control),
-                .msg_iov = &iovec,
-                .msg_iovlen = 1,
-        };
-        struct cmsghdr *cmsg;
         _cleanup_close_ int data_fd = -1;
 
+        assert(iov || iovlen == 0);
         assert(socket_fd >= 0);
-        assert(name);
         assert(fd >= 0);
 
         data_fd = copy_data_fd(fd);
         if (data_fd < 0)
                 return data_fd;
 
-        cmsg = CMSG_FIRSTHDR(&mh);
-        cmsg->cmsg_level = SOL_SOCKET;
-        cmsg->cmsg_type = SCM_RIGHTS;
-        cmsg->cmsg_len = CMSG_LEN(sizeof(int));
-        memcpy(CMSG_DATA(cmsg), &data_fd, sizeof(int));
-
-        iovec = IOVEC_MAKE_STRING(name);
-
-        if (sendmsg(socket_fd, &mh, MSG_NOSIGNAL) < 0)
-                return -errno;
-
-        return 0;
-}
-
-static int recv_item(
-                int socket_fd,
-                char **ret_name,
-                int *ret_fd) {
-
-        CMSG_BUFFER_TYPE(CMSG_SPACE(sizeof(int))) control;
-        char buffer[PATH_MAX+2];
-        struct iovec iov = IOVEC_INIT(buffer, sizeof(buffer)-1);
-        struct msghdr mh = {
-                .msg_control = &control,
-                .msg_controllen = sizeof(control),
-                .msg_iov = &iov,
-                .msg_iovlen = 1,
-        };
-        struct cmsghdr *cmsg;
-        _cleanup_close_ int found_fd = -1;
-        char *copy;
-        ssize_t n;
-
-        assert(socket_fd >= 0);
-        assert(ret_name);
-        assert(ret_fd);
-
-        n = recvmsg_safe(socket_fd, &mh, MSG_CMSG_CLOEXEC);
-        if (n < 0)
-                return (int) n;
-
-        CMSG_FOREACH(cmsg, &mh) {
-                if (cmsg->cmsg_level == SOL_SOCKET &&
-                    cmsg->cmsg_type == SCM_RIGHTS) {
-
-                        if (cmsg->cmsg_len == CMSG_LEN(sizeof(int))) {
-                                assert(found_fd < 0);
-                                found_fd = *(int*) CMSG_DATA(cmsg);
-                                break;
-                        }
-
-                        cmsg_close_all(&mh);
-                        return -EIO;
-                }
-        }
-
-        buffer[n] = 0;
-
-        copy = strdup(buffer);
-        if (!copy)
-                return -ENOMEM;
-
-        *ret_name = copy;
-        *ret_fd = TAKE_FD(found_fd);
-
-        return 0;
+        return send_one_fd_iov(socket_fd, data_fd, iov, iovlen, 0);
 }
 
 DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(portable_metadata_hash_ops, char, string_hash_func, string_compare_func,
@@ -272,13 +208,18 @@ static int extract_now(
                                 path_is_extension ? "extension-release " : "os-release");
         else {
                 if (socket_fd >= 0) {
-                        r = send_item(socket_fd, os_release_id, os_release_fd);
+                        struct iovec iov[] = {
+                                IOVEC_MAKE_STRING(os_release_id),
+                                IOVEC_MAKE((char *)"\0", sizeof(char)),
+                        };
+
+                        r = send_one_fd_iov_with_data_fd(socket_fd, iov, ELEMENTSOF(iov), os_release_fd);
                         if (r < 0)
                                 return log_debug_errno(r, "Failed to send os-release file: %m");
                 }
 
                 if (ret_os_release) {
-                        os_release = portable_metadata_new(os_release_id, NULL, os_release_fd);
+                        os_release = portable_metadata_new(os_release_id, NULL, NULL, os_release_fd);
                         if (!os_release)
                                 return -ENOMEM;
 
@@ -333,12 +274,29 @@ static int extract_now(
                         }
 
                         if (socket_fd >= 0) {
-                                r = send_item(socket_fd, de->d_name, fd);
+#if HAVE_SELINUX
+                                /* The units will be copied on the host's filesystem, so if they had a SELinux label
+                                 * we have to preserve it. Copy it out so that it can be applied later. */
+                                _cleanup_freecon_ char *con = NULL;
+
+                                r = fgetfilecon(fd, &con);
+                                if (r < 0 && errno != ENODATA)
+                                        log_debug_errno(errno, "Failed to get SELinux file context from '%s', ignoring: %m", de->d_name);
+#endif
+                                struct iovec iov[] = {
+                                        IOVEC_MAKE_STRING(de->d_name),
+                                        IOVEC_MAKE((char *)"\0", sizeof(char)),
+#if HAVE_SELINUX
+                                        IOVEC_MAKE_STRING(strempty(con)),
+#endif
+                                };
+
+                                r = send_one_fd_iov_with_data_fd(socket_fd, iov, ELEMENTSOF(iov), fd);
                                 if (r < 0)
                                         return log_debug_errno(r, "Failed to send unit metadata to parent: %m");
                         }
 
-                        m = portable_metadata_new(de->d_name, NULL, fd);
+                        m = portable_metadata_new(de->d_name, NULL, NULL, fd);
                         if (!m)
                                 return -ENOMEM;
                         fd = -1;
@@ -465,23 +423,40 @@ static int portable_extract_by_path(
 
                 for (;;) {
                         _cleanup_(portable_metadata_unrefp) PortableMetadata *add = NULL;
-                        _cleanup_free_ char *name = NULL;
                         _cleanup_close_ int fd = -1;
+                        /* We use NAME_MAX space for the SELinux label here. The kernel currently enforces no limit, but
+                         * according to suggestions from the SELinux people this will change and it will probably be
+                         * identical to NAME_MAX. For now we use that, but this should be updated one day when the final
+                         * limit is known. */
+                        char iov_buffer[PATH_MAX + NAME_MAX + 2];
+                        struct iovec iov = IOVEC_INIT(iov_buffer, sizeof(iov_buffer));
 
-                        r = recv_item(seq[0], &name, &fd);
-                        if (r < 0)
-                                return log_debug_errno(r, "Failed to receive item: %m");
+                        ssize_t n = receive_one_fd_iov(seq[0], &iov, 1, 0, &fd);
+                        if (n == -EIO)
+                                break;
+                        if (n < 0)
+                                return log_debug_errno(n, "Failed to receive item: %m");
+                        iov_buffer[n] = 0;
 
                         /* We can't really distinguish a zero-length datagram without any fds from EOF (both are signalled the
                          * same way by recvmsg()). Hence, accept either as end notification. */
-                        if (isempty(name) && fd < 0)
+                        if (isempty(iov_buffer) && fd < 0)
                                 break;
 
-                        if (isempty(name) || fd < 0)
+                        if (isempty(iov_buffer) || fd < 0)
                                 return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
                                                        "Invalid item sent from child.");
 
-                        add = portable_metadata_new(name, path, fd);
+                        /* Given recvmsg cannot be used with multiple io vectors if you don't know the size in advance,
+                         * use a marker to separate the name and the optional SELinux context. */
+                        char *selinux_label = strchr(iov_buffer, '\0');
+                        assert(selinux_label);
+                        if (n > selinux_label - iov_buffer + 1)
+                                ++selinux_label;
+                        else
+                                selinux_label = NULL;
+
+                        add = portable_metadata_new(iov_buffer, path, selinux_label, fd);
                         if (!add)
                                 return -ENOMEM;
                         fd = -1;
@@ -1129,6 +1104,12 @@ static int attach_unit_file(
                 fd = open_tmpfile_linkable(path, O_WRONLY|O_CLOEXEC, &tmp);
                 if (fd < 0)
                         return log_debug_errno(fd, "Failed to create unit file '%s': %m", path);
+
+                if (!isempty(m->selinux_label)) {
+                        r = mac_selinux_apply_fd(fd, path, m->selinux_label);
+                        if (r < 0)
+                                log_debug_errno(errno, "Failed to apply SELinux label '%s' to '%s', ignoring: %m", m->selinux_label, path);
+                }
 
                 r = copy_bytes(m->fd, fd, UINT64_MAX, COPY_REFLINK);
                 if (r < 0)
