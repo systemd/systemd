@@ -537,6 +537,17 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
 
                 (void) parse_path_argument(value, false, &arg_watchdog_device);
 
+        } else if (proc_cmdline_key_streq(key, "systemd.watchdog_sec")) {
+
+                if (proc_cmdline_value_missing(key, value))
+                        return 0;
+
+                r = parse_sec(value, &arg_runtime_watchdog);
+                if (r < 0)
+                        log_warning_errno(r, "Failed to parse systemd.watchdog_sec= argument '%s', ignoring: %m", value);
+                else
+                        arg_kexec_watchdog = arg_reboot_watchdog = arg_runtime_watchdog;
+
         } else if (proc_cmdline_key_streq(key, "systemd.clock_usec")) {
 
                 if (proc_cmdline_value_missing(key, value))
