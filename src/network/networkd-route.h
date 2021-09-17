@@ -16,11 +16,13 @@ typedef struct Network Network;
 typedef struct Request Request;
 
 typedef struct Route {
-        Network *network;
-        NetworkConfigSection *section;
-
         Link *link;
         Manager *manager;
+        Network *network;
+        NetworkConfigSection *section;
+        NetworkConfigSource source;
+        NetworkConfigState state;
+        union in_addr_union provider; /* DHCP server or router address */
 
         int family;
         int gw_family;
@@ -52,7 +54,6 @@ typedef struct Route {
         bool protocol_set:1;
         bool pref_set:1;
         bool gateway_from_dhcp_or_ra:1;
-        bool removing:1;
 
         union in_addr_union gw;
         union in_addr_union dst;
@@ -66,7 +67,6 @@ typedef struct Route {
 
 void route_hash_func(const Route *route, struct siphash *state);
 int route_compare_func(const Route *a, const Route *b);
-bool route_equal(const Route *r1, const Route *r2);
 extern const struct hash_ops route_hash_ops;
 
 int route_new(Route **ret);
@@ -75,15 +75,16 @@ DEFINE_NETWORK_SECTION_FUNCTIONS(Route, route_free);
 int route_dup(const Route *src, Route **ret);
 
 int route_configure_handler_internal(sd_netlink *rtnl, sd_netlink_message *m, Link *link, const char *error_msg);
-int route_remove(const Route *route, Manager *manager, Link *link);
+int route_remove(Route *route);
 
-int link_has_route(Link *link, const Route *route);
+int route_get(Manager *manager, Link *link, const Route *in, Route **ret);
 int manager_find_uplink(Manager *m, int family, Link *exclude, Link **ret);
 bool gateway_is_ready(Link *link, int onlink, int family, const union in_addr_union *gw);
 
 int link_drop_routes(Link *link);
 int link_drop_foreign_routes(Link *link);
 
+void route_cancel_request(Route *route);
 int link_request_route(
                 Link *link,
                 Route *route,
@@ -102,6 +103,9 @@ void network_drop_invalid_routes(Network *network);
 
 int manager_get_route_table_from_string(const Manager *m, const char *table, uint32_t *ret);
 int manager_get_route_table_to_string(const Manager *m, uint32_t table, char **ret);
+
+DEFINE_NETWORK_CONFIG_STATE_FUNCTIONS(Route, route);
+void link_mark_routes(Link *link, NetworkConfigSource source, const struct in6_addr *router);
 
 CONFIG_PARSER_PROTOTYPE(config_parse_gateway);
 CONFIG_PARSER_PROTOTYPE(config_parse_preferred_src);
