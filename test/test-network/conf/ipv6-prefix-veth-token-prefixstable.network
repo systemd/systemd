@@ -3,4 +3,6 @@ Name=veth99
 
 [Network]
 IPv6AcceptRA=true
-IPv6Token=prefixstable:2002:da8:1::
+
+[IPv6AcceptRA]
+Token=prefixstable:2002:da8:1::
