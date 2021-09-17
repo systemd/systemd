@@ -14,6 +14,7 @@
 #include "hostname-util.h"
 #include "in-addr-prefix-util.h"
 #include "missing_network.h"
+#include "networkd-address-generation.h"
 #include "networkd-address.h"
 #include "networkd-dhcp6.h"
 #include "networkd-link.h"
@@ -362,7 +363,8 @@ static int dhcp6_pd_request_address(
                 uint32_t lifetime_valid) {
 
         _cleanup_(address_freep) Address *address = NULL;
-        Address *existing;
+        _cleanup_set_free_ Set *addresses = NULL;
+        struct in6_addr *a;
         int r;
 
         assert(link);
@@ -378,13 +380,9 @@ static int dhcp6_pd_request_address(
 
         address->in_addr.in6 = *prefix;
 
-        if (in6_addr_is_set(&link->network->dhcp6_pd_token))
-                memcpy(address->in_addr.in6.s6_addr + 8, link->network->dhcp6_pd_token.s6_addr + 8, 8);
-        else {
-                r = generate_ipv6_eui_64_address(link, &address->in_addr.in6);
-                if (r < 0)
-                        return log_link_warning_errno(link, r, "Failed to generate EUI64 address for acquired DHCPv6 delegated prefix: %m");
-        }
+        r = dhcp6_pd_generate_addresses(link, prefix, &addresses);
+        if (r < 0)
+                return log_link_warning_errno(link, r, "Failed to generate addresses for acquired DHCPv6 delegated prefix: %m");
 
         address->source = NETWORK_CONFIG_SOURCE_DHCP6PD;
         address->prefixlen = 64;
@@ -394,17 +392,23 @@ static int dhcp6_pd_request_address(
         SET_FLAG(address->flags, IFA_F_MANAGETEMPADDR, link->network->dhcp6_pd_manage_temporary_address);
         address->route_metric = link->network->dhcp6_pd_route_metric;
 
-        log_dhcp6_pd_address(link, address);
+        SET_FOREACH(a, addresses) {
+                Address *existing;
 
-        if (address_get(link, address, &existing) < 0)
-                link->dhcp6_pd_configured = false;
-        else
-                address_unmark(existing);
+                address->in_addr.in6 = *a;
 
-        r = link_request_address(link, TAKE_PTR(address), true, &link->dhcp6_pd_messages,
-                                 dhcp6_pd_address_handler, NULL);
-        if (r < 0)
-                return log_link_error_errno(link, r, "Failed to request DHCPv6 delegated prefix address: %m");
+                log_dhcp6_pd_address(link, address);
+
+                if (address_get(link, address, &existing) < 0)
+                        link->dhcp6_pd_configured = false;
+                else
+                        address_unmark(existing);
+
+                r = link_request_address(link, address, false, &link->dhcp6_pd_messages,
+                                         dhcp6_pd_address_handler, NULL);
+                if (r < 0)
+                        return log_link_error_errno(link, r, "Failed to request DHCPv6 delegated prefix address: %m");
+        }
 
         return 0;
 }
