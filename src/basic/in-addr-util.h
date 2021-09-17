@@ -119,6 +119,7 @@ int in6_addr_compare_func(const struct in6_addr *a, const struct in6_addr *b);
 
 extern const struct hash_ops in_addr_data_hash_ops;
 extern const struct hash_ops in6_addr_hash_ops;
+extern const struct hash_ops in6_addr_hash_ops_free;
 
 #define IPV4_ADDRESS_FMT_STR     "%u.%u.%u.%u"
 #define IPV4_ADDRESS_FMT_VAL(address)              \
