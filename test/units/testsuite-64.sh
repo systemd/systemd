@@ -6,10 +6,8 @@ set -o pipefail
 
 # Check if all symlinks under /dev/disk/ are valid
 # shellcheck disable=SC2120
-helper_check_device_symlinks() {
-    # Disable verbose logging only for this function (and reset the signal handler
-    # when leaving the function)
-    set +x; trap "trap - RETURN; set -x" RETURN
+helper_check_device_symlinks() {(
+    set +x
 
     local dev link path paths target
 
@@ -40,7 +38,7 @@ helper_check_device_symlinks() {
             return 1
         fi
     done < <(find "${paths[@]}" -type l)
-}
+)}
 
 testcase_megasas2_basic() {
     lsblk -S
@@ -277,6 +275,60 @@ testcase_lvm_basic() {
             helper_check_device_symlinks "/dev/disk" "/dev/$vgroup"
         fi
     done
+}
+
+testcase_btrfs_basic() {
+    local label uuid
+    local devices=(
+        /dev/disk/by-id/ata-foobar_deadbeefbtrfs{0..3}
+    )
+
+    ls -l "${devices[@]}"
+
+    echo "Single device: default settings"
+    uuid="deadbeef-dead-dead-beef-000000000000"
+    label="btrfs_root"
+    mkfs.btrfs -L "$label" -U "$uuid" "${devices[0]}"
+    udevadm settle
+    btrfs filesystem show
+    test -e "/dev/disk/by-uuid/$uuid"
+    test -e "/dev/disk/by-label/$label"
+    helper_check_device_symlinks
+    echo "============================="
+
+    echo "Multiple devices: using partitions, data: single, metadata: raid1"
+    uuid="deadbeef-dead-dead-beef-000000000001"
+    label="btrfs_mpart"
+    sfdisk --wipe=always "${devices[0]}" <<EOF
+label: gpt
+
+name="diskpart1", size=85M
+name="diskpart2", size=85M
+name="diskpart3", size=85M
+name="diskpart4", size=85M
+EOF
+    udevadm settle
+    mkfs.btrfs -d single -m raid1 -L "$label" -U "$uuid" /dev/disk/by-partlabel/diskpart{1..4}
+    udevadm settle
+    btrfs filesystem show
+    test -e "/dev/disk/by-uuid/$uuid"
+    test -e "/dev/disk/by-label/$label"
+    helper_check_device_symlinks
+    wipefs -a -f "${devices[0]}"
+    echo "============================="
+
+    echo "Multiple devices: using disks, data: raid10, metadata: raid10, mixed mode"
+    uuid="deadbeef-dead-dead-beef-000000000002"
+    label="btrfs_mdisk"
+    mkfs.btrfs -M -d raid10 -m raid10 -L "$label" -U "$uuid" "${devices[@]}"
+    udevadm settle
+    btrfs filesystem show
+    test -e "/dev/disk/by-uuid/$uuid"
+    test -e "/dev/disk/by-label/$label"
+    helper_check_device_symlinks
+    echo "============================="
+
+    # TODO
 }
 
 : >/failed
