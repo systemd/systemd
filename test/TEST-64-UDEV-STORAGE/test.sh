@@ -26,6 +26,25 @@ if ! get_bool "$QEMU_KVM"; then
     exit 0
 fi
 
+_host_has_feature() {
+    case "${1:?}" in
+        multipath)
+            command -v multipath && command -v multipathd
+            ;;
+        lvm)
+            command -v lvm
+            ;;
+        btrfs)
+            modprobe -nv btrfs && command -v mkfs.btrfs
+            ;;
+        *)
+            echo >&2 "ERROR: Unknown feature '$1'"
+            # Make this a hard error to distinguish an invalid feature from
+            # a missing feature
+            exit 1
+    esac
+}
+
 test_append_files() {
     (
         instmods "=block" "=md" "=nvme" "=scsi"
@@ -34,12 +53,12 @@ test_append_files() {
         image_install lsblk wc
 
         # Configure multipath
-        if command -v multipath && command -v multipathd; then
+        if _host_has_feature "multipath"; then
             install_multipath
         fi
 
         # Configure LVM
-        if command -v lvm; then
+        if _host_has_feature "lvm"; then
             install_lvm
         fi
 
@@ -201,7 +220,7 @@ EOF
 }
 
 testcase_multipath_basic_failover() {
-    if ! command -v multipath || ! command -v multipathd; then
+    if ! _host_has_feature "multipath"; then
         echo "Missing multipath tools, skipping the test..."
         return 77
     fi
@@ -260,7 +279,7 @@ testcase_simultaneous_events() {
 }
 
 testcase_lvm_basic() {
-    if ! command -v lvm; then
+    if ! _host_has_feature "lvm"; then
         echo "Missing lvm tools, skipping the test..."
         return 77
     fi
