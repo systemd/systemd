@@ -30,8 +30,8 @@ jobs:
     - name: Install
       run: sudo apt-get update && sudo apt-get install --no-install-recommends python3-pexpect python3-jinja2
 
-    - name: Symlink
-      run: ln -s .mkosi/mkosi.${{ matrix.distro }} mkosi.default
+    - name: Configure
+      run: echo -e "[Distribution]\nDistribution=${{ matrix.distro }}\n" > mkosi.default
 
     # Ubuntu's systemd-nspawn doesn't support faccessat2() syscall, which is
     # required, since current Arch's glibc implements faccessat() via faccessat2().
@@ -47,13 +47,13 @@ jobs:
         systemd-nspawn --version
 
     - name: Build ${{ matrix.distro }}
-      run: sudo python3 -m mkosi --password= --network-veth=no --qemu-headless build
+      run: sudo python3 -m mkosi build
 
     - name: Show ${{ matrix.distro }} image summary
-      run: sudo python3 -m mkosi --password= --qemu-headless summary
+      run: sudo python3 -m mkosi summary
 
     - name: Boot ${{ matrix.distro }} systemd-nspawn
-      run: sudo ./.github/workflows/test_mkosi_boot.py python3 -m mkosi --password= --network-veth=no --qemu-headless boot
+      run: sudo ./.github/workflows/test_mkosi_boot.py python3 -m mkosi boot
 
     - name: Boot ${{ matrix.distro }} QEMU
-      run: sudo ./.github/workflows/test_mkosi_boot.py python3 -m mkosi --password= --network-veth=no --qemu-headless qemu
+      run: sudo ./.github/workflows/test_mkosi_boot.py python3 -m mkosi qemu
