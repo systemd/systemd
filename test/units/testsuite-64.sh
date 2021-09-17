@@ -6,10 +6,8 @@ set -o pipefail
 
 # Check if all symlinks under /dev/disk/ are valid
 # shellcheck disable=SC2120
-helper_check_device_symlinks() {
-    # Disable verbose logging only for this function (and reset the signal handler
-    # when leaving the function)
-    set +x; trap "trap - RETURN; set -x" RETURN
+helper_check_device_symlinks() {(
+    set +x
 
     local dev link path paths target
 
@@ -40,7 +38,7 @@ helper_check_device_symlinks() {
             return 1
         fi
     done < <(find "${paths[@]}" -type l)
-}
+)}
 
 testcase_megasas2_basic() {
     lsblk -S
