@@ -20,22 +20,6 @@ static usec_t watchdog_timeout;
 static usec_t watchdog_last_ping;
 
 
-static int enable_watchdog(void) {
-        int flags = WDIOS_ENABLECARD;
-
-        assert(watchdog_fd > 0);
-
-        if (ioctl(watchdog_fd, WDIOC_SETOPTIONS, &flags) < 0) {
-                /* ENOTTY means the watchdog is always enabled so we're fine */
-                log_full_errno(ERRNO_IS_NOT_SUPPORTED(errno) ? LOG_DEBUG : LOG_WARNING, errno,
-                                       "Failed to enable hardware watchdog: %m");
-                if (!ERRNO_IS_NOT_SUPPORTED(errno))
-                        return -errno;
-        }
-
-        return 0;
-}
-
 static int disable_watchdog(void) {
         int flags = WDIOS_DISABLECARD;
 
@@ -93,14 +77,13 @@ static int ping_watchdog(void) {
 }
 
 
-static int update_timeout(bool enable) {
+static int update_timeout(void) {
         int r;
+
+        assert(watchdog_timeout > 0);
 
         if (watchdog_fd < 0)
                 return 0;
-
-        if (watchdog_timeout == 0)
-                return disable_watchdog();
 
         if (watchdog_timeout != USEC_INFINITY) {
                 r = settimeout_watchdog();
@@ -120,12 +103,6 @@ static int update_timeout(bool enable) {
 
                 log_info("Calculating next watchdog pings based on the programmed timeout %s",
                          FORMAT_TIMESPAN(watchdog_timeout, 0));
-        }
-
-        if (enable) {
-                r = enable_watchdog();
-                if (r < 0)
-                        return r;
         }
 
         return ping_watchdog();
@@ -151,7 +128,7 @@ static int open_watchdog(void) {
                          ident.firmware_version,
                          fn);
 
-        return update_timeout(false);
+        return update_timeout();
 }
 
 int watchdog_set_device(const char *path) {
@@ -173,6 +150,11 @@ int watchdog_setup(usec_t timeout) {
         if (watchdog_fd >= 0 && watchdog_timeout == timeout)
                 return 0;
 
+        if (timeout == 0) {
+                watchdog_close(true);
+                return 0;
+        }
+
         /* Initialize the watchdog timeout with the caller value. This value is
          * going to be updated by update_timeout() with the closest value
          * supported by the driver */
@@ -181,7 +163,7 @@ int watchdog_setup(usec_t timeout) {
         if (watchdog_fd < 0)
                 return open_watchdog();
 
-        return update_timeout(true);
+        return update_timeout();
 }
 
 usec_t watchdog_runtime_wait(void) {
@@ -224,6 +206,11 @@ int watchdog_ping(void) {
 }
 
 void watchdog_close(bool disarm) {
+
+        /* Once closed, pinging the device becomes a NOP and we request a new
+         * call to watchdog_setup() to open the device again. */
+        watchdog_timeout = 0;
+
         if (watchdog_fd < 0)
                 return;
 
@@ -245,8 +232,4 @@ void watchdog_close(bool disarm) {
         }
 
         watchdog_fd = safe_close(watchdog_fd);
-
-        /* Once closed, pinging the device becomes a NOP and we request a new
-         * call to watchdog_setup() to open the device again. */
-        watchdog_timeout = 0;
 }
