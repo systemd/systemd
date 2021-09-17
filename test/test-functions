@@ -950,6 +950,14 @@ install_lvm() {
     mkdir -p "${initdir:?}/etc/lvm"
 }
 
+install_btrfs() {
+    instmods btrfs
+    # Not all utilities provided by btrfs-progs are listed here; extend the list
+    # if necessary
+    image_install btrfs btrfstune mkfs.btrfs
+    inst_rules 64-btrfs-dm.rules
+}
+
 install_compiled_systemd() {
     dinfo "Install compiled systemd"
 
