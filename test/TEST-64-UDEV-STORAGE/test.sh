@@ -26,7 +26,9 @@ if ! get_bool "$QEMU_KVM"; then
     exit 0
 fi
 
-_host_has_feature() {
+_host_has_feature() {(
+    set -e
+
     case "${1:?}" in
         multipath)
             command -v multipath && command -v multipathd
@@ -43,36 +45,34 @@ _host_has_feature() {
             # a missing feature
             exit 1
     esac
-}
+)}
 
-test_append_files() {
-    (
-        local feature
-        # An associative array of requested (but optional) features and their
-        # respective "handlers" from test/test-functions
-        local -A features=(
-            [multipath]=install_multipath
-            [lvm]=install_lvm
-        )
-
-        instmods "=block" "=md" "=nvme" "=scsi"
-        install_dmevent
-        generate_module_dependencies
-        image_install lsblk wc
-
-        # Install the optional features if the host has the respective tooling
-        for feature in "${!features[@]}"; do
-            if _host_has_feature "$feature"; then
-                "${features[$feature]}"
-            fi
-        done
-
-        for i in {0..127}; do
-            dd if=/dev/zero of="${TESTDIR:?}/disk$i.img" bs=1M count=1
-            echo "device$i" >"${TESTDIR:?}/disk$i.img"
-        done
+test_append_files() {(
+    local feature
+    # An associative array of requested (but optional) features and their
+    # respective "handlers" from test/test-functions
+    local -A features=(
+        [multipath]=install_multipath
+        [lvm]=install_lvm
     )
-}
+
+    instmods "=block" "=md" "=nvme" "=scsi"
+    install_dmevent
+    generate_module_dependencies
+    image_install lsblk wc
+
+    # Install the optional features if the host has the respective tooling
+    for feature in "${!features[@]}"; do
+        if _host_has_feature "$feature"; then
+            "${features[$feature]}"
+        fi
+    done
+
+    for i in {0..127}; do
+        dd if=/dev/zero of="${TESTDIR:?}/disk$i.img" bs=1M count=1
+        echo "device$i" >"${TESTDIR:?}/disk$i.img"
+    done
+)}
 
 test_run_one() {
     local test_id="${1:?}"
