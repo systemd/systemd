@@ -15,6 +15,11 @@ char* hw_addr_to_string(const struct hw_addr_data *addr, char buffer[HW_ADDR_TO_
         assert(buffer);
         assert(addr->length <= HW_ADDR_MAX_SIZE);
 
+        if (addr->length == 0) {
+                buffer[0] = '\0';
+                return buffer;
+        }
+
         for (size_t i = 0; i < addr->length; i++) {
                 sprintf(&buffer[3*i], "%02"PRIx8, addr->bytes[i]);
                 if (i < addr->length - 1)
