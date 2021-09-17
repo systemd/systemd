@@ -890,6 +890,66 @@ static void test_load_syscall_filter_set_raw(void) {
         assert_se(wait_for_terminate_and_check("syscallrawseccomp", pid, WAIT_LOG) == EXIT_SUCCESS);
 }
 
+static void test_native_syscalls_filtered(void) {
+        pid_t pid;
+
+        log_info("/* %s */", __func__);
+
+        if (!is_seccomp_available()) {
+                log_notice("Seccomp not available, skipping %s", __func__);
+                return;
+        }
+        if (!have_seccomp_privs()) {
+                log_notice("Not privileged, skipping %s", __func__);
+                return;
+        }
+
+        pid = fork();
+        assert_se(pid >= 0);
+
+        if (pid == 0) {
+                _cleanup_set_free_ Set *arch_s = NULL;
+                _cleanup_hashmap_free_ Hashmap *s = NULL;
+
+                /* Passing "native" or an empty set is equivalent, just do both here. */
+                assert_se(arch_s = set_new(NULL));
+                assert_se(seccomp_restrict_archs(arch_s) >= 0);
+                assert_se(set_put(arch_s, SCMP_ARCH_NATIVE) >= 0);
+                assert_se(seccomp_restrict_archs(arch_s) >= 0);
+
+                assert_se(access("/", F_OK) >= 0);
+                assert_se(poll(NULL, 0, 0) == 0);
+
+                assert_se(seccomp_load_syscall_filter_set_raw(SCMP_ACT_ALLOW, NULL, scmp_act_kill_process(), true) >= 0);
+                assert_se(access("/", F_OK) >= 0);
+                assert_se(poll(NULL, 0, 0) == 0);
+
+                assert_se(s = hashmap_new(NULL));
+#if defined __NR_access && __NR_access >= 0
+                assert_se(hashmap_put(s, UINT32_TO_PTR(__NR_access + 1), INT_TO_PTR(-1)) >= 0);
+                log_debug("has access()");
+#endif
+#if defined __NR_faccessat && __NR_faccessat >= 0
+                assert_se(hashmap_put(s, UINT32_TO_PTR(__NR_faccessat + 1), INT_TO_PTR(-1)) >= 0);
+                log_debug("has faccessat()");
+#endif
+#if defined __NR_faccessat2 && __NR_faccessat2 >= 0
+                assert_se(hashmap_put(s, UINT32_TO_PTR(__NR_faccessat2 + 1), INT_TO_PTR(-1)) >= 0);
+                log_debug("has faccessat2()");
+#endif
+
+                assert_se(!hashmap_isempty(s));
+                assert_se(seccomp_load_syscall_filter_set_raw(SCMP_ACT_ALLOW, s, SCMP_ACT_ERRNO(EUCLEAN), true) >= 0);
+
+                assert_se(access("/", F_OK) < 0);
+                assert_se(errno == EUCLEAN);
+
+                _exit(EXIT_SUCCESS);
+        }
+
+        assert_se(wait_for_terminate_and_check("nativeseccomp", pid, WAIT_LOG) == EXIT_SUCCESS);
+}
+
 static void test_lock_personality(void) {
         unsigned long current;
         pid_t pid;
@@ -1171,6 +1231,7 @@ int main(int argc, char *argv[]) {
         test_memory_deny_write_execute_shmat();
         test_restrict_archs();
         test_load_syscall_filter_set_raw();
+        test_native_syscalls_filtered();
         test_lock_personality();
         test_restrict_suid_sgid();
 
