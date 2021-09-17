@@ -89,6 +89,8 @@ unsigned char in4_addr_netmask_to_prefixlen(const struct in_addr *addr);
 struct in_addr* in4_addr_prefixlen_to_netmask(struct in_addr *addr, unsigned char prefixlen);
 int in4_addr_default_prefixlen(const struct in_addr *addr, unsigned char *prefixlen);
 int in4_addr_default_subnet_mask(const struct in_addr *addr, struct in_addr *mask);
+int in4_addr_mask(struct in_addr *addr, unsigned char prefixlen);
+int in6_addr_mask(struct in6_addr *addr, unsigned char prefixlen);
 int in_addr_mask(int family, union in_addr_union *addr, unsigned char prefixlen);
 int in_addr_prefix_covers(int family, const union in_addr_union *prefix, unsigned char prefixlen, const union in_addr_union *address);
 int in_addr_parse_prefixlen(int family, const char *p, unsigned char *ret);
