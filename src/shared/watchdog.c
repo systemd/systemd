@@ -15,8 +15,8 @@
 #include "watchdog.h"
 
 static int watchdog_fd = -1;
-static char *watchdog_device = NULL;
-static usec_t watchdog_timeout = USEC_INFINITY;
+static char *watchdog_device;
+static usec_t watchdog_timeout; /* USEC_INFINITY → don't change timeout */
 static usec_t watchdog_last_ping = USEC_INFINITY;
 
 static int watchdog_set_enable(bool enable) {
@@ -89,20 +89,23 @@ static int update_timeout(void) {
 
         if (watchdog_fd < 0)
                 return 0;
-        if (watchdog_timeout == USEC_INFINITY)
-                return 0;
 
         if (watchdog_timeout == 0)
                 return watchdog_set_enable(false);
 
-        r = watchdog_set_timeout();
-        if (r < 0) {
-                if (!ERRNO_IS_NOT_SUPPORTED(r))
-                        return log_warning_errno(r, "Failed to set timeout to %s, ignoring: %m",
-                                                 FORMAT_TIMESPAN(watchdog_timeout, 0));
+        if (watchdog_timeout != USEC_INFINITY) {
+                r = watchdog_set_timeout();
+                if (r < 0) {
+                        if (!ERRNO_IS_NOT_SUPPORTED(r))
+                                return log_warning_errno(r, "Failed to set timeout to %s, ignoring: %m",
+                                                         FORMAT_TIMESPAN(watchdog_timeout, 0));
 
-                log_info("Modifying watchdog timeout is not supported, reusing the programmed timeout.");
+                        log_info("Modifying watchdog timeout is not supported, reusing the programmed timeout.");
+                        watchdog_timeout = USEC_INFINITY;
+                }
+        }
 
+        if (watchdog_timeout == USEC_INFINITY) {
                 r = watchdog_get_timeout();
                 if (r < 0)
                         return log_warning_errno(errno, "Failed to query watchdog HW timeout, ignoring: %m");
@@ -164,11 +167,6 @@ int watchdog_setup(usec_t timeout) {
          * supported by the driver */
         watchdog_timeout = timeout;
 
-        /* If we didn't open the watchdog yet and didn't get any explicit
-         * timeout value set, don't do anything */
-        if (watchdog_fd < 0 && watchdog_timeout == USEC_INFINITY)
-                return 0;
-
         if (watchdog_fd < 0)
                 return open_watchdog();
 
@@ -194,7 +192,7 @@ usec_t watchdog_runtime_wait(void) {
 int watchdog_ping(void) {
         usec_t ntime;
 
-        if (!timestamp_is_set(watchdog_timeout))
+        if (watchdog_timeout == 0)
                 return 0;
 
         if (watchdog_fd < 0)
@@ -239,5 +237,5 @@ void watchdog_close(bool disarm) {
 
         /* Once closed, pinging the device becomes a NOP and we request a new
          * call to watchdog_setup() to open the device again. */
-        watchdog_timeout = USEC_INFINITY;
+        watchdog_timeout = 0;
 }
