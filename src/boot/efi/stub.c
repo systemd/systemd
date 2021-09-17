@@ -33,10 +33,12 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
                 [SECTION_SPLASH]  = (const CHAR8*) ".splash",
                 NULL,
         };
+
+        EFI_PHYSICAL_ADDRESS linux_base, initrd_base;
+        UINTN cmdline_len = 0, initrd_size;
         UINTN addrs[_SECTION_MAX] = {};
         UINTN szs[_SECTION_MAX] = {};
         CHAR8 *cmdline = NULL;
-        UINTN cmdline_len = 0;
         CHAR16 uuid[37];
         EFI_STATUS err;
 
@@ -52,7 +54,7 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
                 return log_error_status_stall(err, L"Unable to locate embedded .linux section: %r", err);
 
         if (szs[SECTION_CMDLINE] > 0) {
-                cmdline = (CHAR8 *)(loaded_image->ImageBase) + addrs[SECTION_CMDLINE];
+                cmdline = (CHAR8*) loaded_image->ImageBase + addrs[SECTION_CMDLINE];
                 cmdline_len = szs[SECTION_CMDLINE];
         }
 
@@ -119,11 +121,14 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
                 efivar_set(LOADER_GUID, L"StubInfo", L"systemd-stub " GIT_VERSION, 0);
 
         if (szs[SECTION_SPLASH] > 0)
-                graphics_splash((UINT8 *)((UINTN)loaded_image->ImageBase + addrs[SECTION_SPLASH]), szs[SECTION_SPLASH], NULL);
+                graphics_splash((UINT8*) (UINTN) loaded_image->ImageBase + addrs[SECTION_SPLASH], szs[SECTION_SPLASH], NULL);
 
-        err = linux_exec(image, cmdline, cmdline_len,
-                         (UINTN)loaded_image->ImageBase + addrs[SECTION_LINUX],
-                         (UINTN)loaded_image->ImageBase + addrs[SECTION_INITRD], szs[SECTION_INITRD]);
+        linux_base = (EFI_PHYSICAL_ADDRESS) (UINTN) loaded_image->ImageBase + addrs[SECTION_LINUX];
+
+        initrd_size = szs[SECTION_INITRD];
+        initrd_base = initrd_size != 0 ? (EFI_PHYSICAL_ADDRESS) (UINTN) loaded_image->ImageBase + addrs[SECTION_INITRD] : 0;
+
+        err = linux_exec(image, cmdline, cmdline_len, linux_base, initrd_base, initrd_size);
 
         graphics_mode(FALSE);
         return log_error_status_stall(err, L"Execution of embedded linux image failed: %r", err);
