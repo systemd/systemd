@@ -35,6 +35,7 @@ typedef struct Prefix {
 
         bool assign;
         uint32_t route_metric;
+        Set *tokens;
 } Prefix;
 
 typedef struct RoutePrefix {
@@ -50,6 +51,8 @@ RoutePrefix *route_prefix_free(RoutePrefix *prefix);
 void network_drop_invalid_prefixes(Network *network);
 void network_drop_invalid_route_prefixes(Network *network);
 void network_adjust_radv(Network *network);
+
+int link_request_radv_addresses(Link *link);
 
 int radv_update_mac(Link *link);
 int radv_add_prefix(Link *link, const struct in6_addr *prefix, uint8_t prefix_len,
@@ -68,6 +71,7 @@ CONFIG_PARSER_PROTOTYPE(config_parse_prefix_flags);
 CONFIG_PARSER_PROTOTYPE(config_parse_prefix_lifetime);
 CONFIG_PARSER_PROTOTYPE(config_parse_prefix_assign);
 CONFIG_PARSER_PROTOTYPE(config_parse_prefix_metric);
+CONFIG_PARSER_PROTOTYPE(config_parse_prefix_token);
 CONFIG_PARSER_PROTOTYPE(config_parse_radv_dns);
 CONFIG_PARSER_PROTOTYPE(config_parse_radv_search_domains);
 CONFIG_PARSER_PROTOTYPE(config_parse_route_prefix);
