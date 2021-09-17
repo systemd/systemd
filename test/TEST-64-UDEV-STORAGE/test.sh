@@ -5,9 +5,7 @@
 #   * iSCSI
 #   * LVM over iSCSI (?)
 #   * SW raid (mdadm)
-#   * LUKS -> MD (mdadm) -> LVM
-#   * BTRFS
-#   * MD BTRFS
+#   * MD (mdadm) -> DM-CRYPT -> LVM
 set -e
 
 TEST_DESCRIPTION="systemd-udev storage tests"
@@ -37,7 +35,7 @@ _host_has_feature() {(
             command -v lvm
             ;;
         btrfs)
-            modprobe -nv btrfs && command -v mkfs.btrfs
+            modprobe -nv btrfs && command -v mkfs.btrfs && command -v btrfs
             ;;
         *)
             echo >&2 "ERROR: Unknown feature '$1'"
@@ -51,15 +49,19 @@ test_append_files() {(
     local feature
     # An associative array of requested (but optional) features and their
     # respective "handlers" from test/test-functions
+    #
+    # Note: we install cryptsetup unconditionally, hence it's not explicitly
+    # checked for here
     local -A features=(
-        [multipath]=install_multipath
+        [btrfs]=install_btrfs
         [lvm]=install_lvm
+        [multipath]=install_multipath
     )
 
     instmods "=block" "=md" "=nvme" "=scsi"
     install_dmevent
     generate_module_dependencies
-    image_install lsblk wc
+    image_install lsblk wc wipefs
 
     # Install the optional features if the host has the respective tooling
     for feature in "${!features[@]}"; do
@@ -73,6 +75,13 @@ test_append_files() {(
         echo "device$i" >"${TESTDIR:?}/disk$i.img"
     done
 )}
+
+_image_cleanup() {
+    mount_initdir
+    # Clean up certain "problematic" files which may be left over by failing tests
+    : >"${initdir:?}/etc/fstab"
+    : >"${initdir:?}/etc/crypttab"
+}
 
 test_run_one() {
     local test_id="${1:?}"
@@ -100,6 +109,7 @@ test_run() {
 
     # Execute each currently defined function starting with "testcase_"
     for testcase in "${TESTCASES[@]}"; do
+        _image_cleanup
         echo "------ $testcase: BEGIN ------"
         { "$testcase" "$test_id"; ec=$?; } || :
         case $ec in
@@ -309,6 +319,34 @@ testcase_lvm_basic() {
     test_run_one "${1:?}"
 
     rm -f "${TESTDIR:?}"/lvmbasic*.img
+}
+
+testcase_btrfs_basic() {
+    if ! _host_has_feature "btrfs"; then
+        echo "Missing btrfs tools/modules, skipping the test..."
+        return 77
+    fi
+
+    local qemu_opts=("-device ahci,id=ahci0")
+    local diskpath i size
+
+    for i in {0..3}; do
+        diskpath="${TESTDIR:?}/btrfsbasic${i}.img"
+        # Make the first disk larger for multi-partition tests
+        [[ $i -eq 0 ]] && size=350 || size=128
+
+        dd if=/dev/zero of="$diskpath" bs=1M count="$size"
+        qemu_opts+=(
+            "-device ide-hd,bus=ahci0.$i,drive=drive$i,model=foobar,serial=deadbeefbtrfs$i"
+            "-drive format=raw,cache=unsafe,file=$diskpath,if=none,id=drive$i"
+        )
+    done
+
+    KERNEL_APPEND="systemd.setenv=TEST_FUNCTION_NAME=${FUNCNAME[0]} ${USER_KERNEL_APPEND:-}"
+    QEMU_OPTIONS="${qemu_opts[*]} ${USER_QEMU_OPTIONS:-}"
+    test_run_one "${1:?}"
+
+    rm -f "${TESTDIR:?}"/btrfsbasic*.img
 }
 
 # Allow overriding which tests should be run from the "outside", useful for manual
