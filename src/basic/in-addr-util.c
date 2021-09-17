@@ -846,3 +846,9 @@ int in6_addr_compare_func(const struct in6_addr *a, const struct in6_addr *b) {
 }
 
 DEFINE_HASH_OPS(in6_addr_hash_ops, struct in6_addr, in6_addr_hash_func, in6_addr_compare_func);
+DEFINE_HASH_OPS_WITH_KEY_DESTRUCTOR(
+        in6_addr_hash_ops_free,
+        struct in6_addr,
+        in6_addr_hash_func,
+        in6_addr_compare_func,
+        free);
