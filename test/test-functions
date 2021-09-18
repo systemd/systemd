@@ -2617,6 +2617,9 @@ test_setup() {
 
         if get_bool "$hook_defined"; then
             test_append_files "${initdir:?}"
+            # Regenerate module dependencies in case we added new modules
+            # in the test_append_files() hook
+            generate_module_dependencies
         fi
     fi
 
