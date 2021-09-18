@@ -237,11 +237,11 @@ testcase_lvm_basic() {
     helper_check_device_symlinks "/dev/disk" "/dev/$vgroup"
 
     # Same as above, but now with more "stress"
-    for i in {1..100}; do
+    for i in {1..50}; do
         lvm vgchange -an "$vgroup"
         lvm vgchange -ay "$vgroup"
 
-        if ((i % 10 == 0)); then
+        if ((i % 5 == 0)); then
             udevadm settle
             test -e "/dev/$vgroup/mypart1"
             test -e "/dev/$vgroup/mypart2"
@@ -258,7 +258,7 @@ testcase_lvm_basic() {
     helper_check_device_symlinks "/dev/disk" "/dev/$vgroup"
 
     # Create & remove LVs in a loop, i.e. with more "stress"
-    for i in {1..50}; do
+    for i in {1..16}; do
         # 1) Create 16 logical volumes
         for part in {0..15}; do
             lvm lvcreate -y -L 4M "$vgroup" -n "looppart$part"
@@ -267,9 +267,9 @@ testcase_lvm_basic() {
         # 2) Immediately remove them
         lvm lvremove -y "$vgroup"/looppart{0..15}
 
-        # 3) On every 10th iteration settle udev and check if all partitions are
+        # 3) On every 4th iteration settle udev and check if all partitions are
         #    indeed gone, and if all symlinks are still valid
-        if ((i % 10 == 0)); then
+        if ((i % 4 == 0)); then
             udevadm settle
             for part in {0..15}; do
                 test ! -e "/dev/$vgroup/looppart$part"
