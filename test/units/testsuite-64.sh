@@ -11,7 +11,7 @@ helper_check_device_symlinks() {(
 
     local dev link path paths target
 
-    [[ $# -gt 0 ]] && paths=("$@") || paths=("/dev/disk")
+    [[ $# -gt 0 ]] && paths=("$@") || paths=("/dev/disk" "/dev/mapper")
 
     # Check if all given paths are valid
     for path in "${paths[@]}"; do
