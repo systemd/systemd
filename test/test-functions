@@ -950,6 +950,14 @@ install_lvm() {
     mkdir -p "${initdir:?}/etc/lvm"
 }
 
+install_btrfs() {
+    instmods btrfs
+    # Not all utilities provided by btrfs-progs are listed here; extend the list
+    # if necessary
+    image_install btrfs btrfstune mkfs.btrfs
+    inst_rules 64-btrfs-dm.rules
+}
+
 install_compiled_systemd() {
     dinfo "Install compiled systemd"
 
@@ -2609,6 +2617,9 @@ test_setup() {
 
         if get_bool "$hook_defined"; then
             test_append_files "${initdir:?}"
+            # Regenerate module dependencies in case we added new modules
+            # in the test_append_files() hook
+            generate_module_dependencies
         fi
     fi
 
