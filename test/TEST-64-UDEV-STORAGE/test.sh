@@ -60,7 +60,6 @@ test_append_files() {(
 
     instmods "=block" "=md" "=nvme" "=scsi"
     install_dmevent
-    generate_module_dependencies
     image_install lsblk wc wipefs
 
     # Install the optional features if the host has the respective tooling
@@ -69,6 +68,8 @@ test_append_files() {(
             "${features[$feature]}"
         fi
     done
+
+    generate_module_dependencies
 
     for i in {0..127}; do
         dd if=/dev/zero of="${TESTDIR:?}/disk$i.img" bs=1M count=1
