@@ -29,13 +29,13 @@ _host_has_feature() {(
 
     case "${1:?}" in
         multipath)
-            command -v multipath && command -v multipathd
+            command -v multipath && command -v multipathd || return $?
             ;;
         lvm)
-            command -v lvm
+            command -v lvm || return $?
             ;;
         btrfs)
-            modprobe -nv btrfs && command -v mkfs.btrfs && command -v btrfs
+            modprobe -nv btrfs && command -v mkfs.btrfs && command -v btrfs || return $?
             ;;
         *)
             echo >&2 "ERROR: Unknown feature '$1'"
@@ -111,7 +111,17 @@ test_run() {
     for testcase in "${TESTCASES[@]}"; do
         _image_cleanup
         echo "------ $testcase: BEGIN ------"
-        { "$testcase" "$test_id"; ec=$?; } || :
+        # Note for my future frustrated self: `fun && xxx` (as wel as ||, if, while,
+        # until, etc.) _DISABLES_ the `set -e` behavior in _ALL_ nested function
+        # calls made from `fun()`, i.e. the function _CONTINUES_ even when a called
+        # command returned non-zero EC. That may unexpectedly hide failing commands
+        # if not handled properly. See: bash(1) man page, `set -e` section.
+        #
+        # So, be careful when adding clean up snippets in the testcase_*() functions -
+        # if the `test_run_one()` function isn't the last command, you have propagate
+        # the exit code correctly (e.g. `test_run_one() || return $?`, see below).
+        ec=0
+        "$testcase" "$test_id" || ec=$?
         case $ec in
             0)
                 passed+=("$testcase")
@@ -228,7 +238,7 @@ EOF
     KERNEL_APPEND="systemd.setenv=TEST_FUNCTION_NAME=${FUNCNAME[0]} ${USER_KERNEL_APPEND:-}"
     # Limit the number of VCPUs and set a timeout to make sure we trigger the issue
     QEMU_OPTIONS="${qemu_opts[*]} ${USER_QEMU_OPTIONS:-}"
-    QEMU_SMP=1 QEMU_TIMEOUT=60 test_run_one "${1:?}"
+    QEMU_SMP=1 QEMU_TIMEOUT=60 test_run_one "${1:?}" || return $?
 
     rm -f "${TESTDIR:?}"/namedpart*.img
 }
@@ -271,7 +281,7 @@ EOF
 
     KERNEL_APPEND="systemd.setenv=TEST_FUNCTION_NAME=${FUNCNAME[0]} ${USER_KERNEL_APPEND:-}"
     QEMU_OPTIONS="${qemu_opts[*]} ${USER_QEMU_OPTIONS:-}"
-    test_run_one "${1:?}"
+    test_run_one "${1:?}" || return $?
 
     rm -f "$partdisk"
 }
@@ -289,7 +299,7 @@ testcase_simultaneous_events() {
 
     KERNEL_APPEND="systemd.setenv=TEST_FUNCTION_NAME=${FUNCNAME[0]} ${USER_KERNEL_APPEND:-}"
     QEMU_OPTIONS="${qemu_opts[*]} ${USER_QEMU_OPTIONS:-}"
-    test_run_one "${1:?}"
+    test_run_one "${1:?}" || return $?
 
     rm -f "$partdisk"
 }
@@ -316,7 +326,7 @@ testcase_lvm_basic() {
 
     KERNEL_APPEND="systemd.setenv=TEST_FUNCTION_NAME=${FUNCNAME[0]} ${USER_KERNEL_APPEND:-}"
     QEMU_OPTIONS="${qemu_opts[*]} ${USER_QEMU_OPTIONS:-}"
-    test_run_one "${1:?}"
+    test_run_one "${1:?}" || return $?
 
     rm -f "${TESTDIR:?}"/lvmbasic*.img
 }
@@ -344,7 +354,7 @@ testcase_btrfs_basic() {
 
     KERNEL_APPEND="systemd.setenv=TEST_FUNCTION_NAME=${FUNCNAME[0]} ${USER_KERNEL_APPEND:-}"
     QEMU_OPTIONS="${qemu_opts[*]} ${USER_QEMU_OPTIONS:-}"
-    test_run_one "${1:?}"
+    test_run_one "${1:?}" || return $?
 
     rm -f "${TESTDIR:?}"/btrfsbasic*.img
 }
