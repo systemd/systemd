@@ -3545,6 +3545,9 @@ void manager_check_finished(Manager *m) {
         manager_notify_finished(m);
 
         manager_invalidate_startup_units(m);
+
+        /* We want to refresh shutdown units when the manager stops. */
+        m->shutdown_units_refreshed = false;
 }
 
 static bool generator_path_any(const char* const* paths) {

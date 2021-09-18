@@ -206,6 +206,7 @@ struct Manager {
 
         /* A set contains all units which cgroup should be refreshed after startup */
         Set *startup_units;
+        bool shutdown_units_refreshed;
 
         /* A set which contains all currently failed units */
         Set *failed_units;
