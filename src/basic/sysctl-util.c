@@ -46,6 +46,7 @@ char *sysctl_normalize(char *s) {
 
 int sysctl_write(const char *property, const char *value) {
         char *p;
+        _cleanup_close_ int fd = -1;
 
         assert(property);
         assert(value);
@@ -58,7 +59,19 @@ int sysctl_write(const char *property, const char *value) {
 
         log_debug("Setting '%s' to '%s'", p, value);
 
-        return write_string_file(p, value, WRITE_STRING_FILE_VERIFY_ON_FAILURE | WRITE_STRING_FILE_DISABLE_BUFFER);
+        fd = open(p, O_WRONLY|O_CLOEXEC);
+        if (fd < 0)
+                return -errno;
+
+        if (!endswith(value, "\n"))
+                value = strjoina(value, "\n");
+
+        /* Call write directly to ensure we get correct errno values from the kernel. */
+        /* https://github.com/systemd/systemd/issues/7744 */
+        if (write(fd, value, strlen(value)) < 0)
+                return -errno;
+
+        return 0;
 }
 
 int sysctl_writef(const char *property, const char *format, ...) {
