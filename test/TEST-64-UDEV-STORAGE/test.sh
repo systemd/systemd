@@ -5,9 +5,7 @@
 #   * iSCSI
 #   * LVM over iSCSI (?)
 #   * SW raid (mdadm)
-#   * LUKS -> MD (mdadm) -> LVM
-#   * BTRFS
-#   * MD BTRFS
+#   * MD (mdadm) -> DM-CRYPT -> LVM
 set -e
 
 TEST_DESCRIPTION="systemd-udev storage tests"
@@ -26,28 +24,64 @@ if ! get_bool "$QEMU_KVM"; then
     exit 0
 fi
 
-test_append_files() {
-    (
-        instmods "=block" "=md" "=nvme" "=scsi"
-        install_dmevent
-        generate_module_dependencies
-        image_install lsblk wc
+_host_has_feature() {(
+    set -e
 
-        # Configure multipath
-        if command -v multipath && command -v multipathd; then
-            install_multipath
-        fi
+    case "${1:?}" in
+        multipath)
+            command -v multipath && command -v multipathd || return $?
+            ;;
+        lvm)
+            command -v lvm || return $?
+            ;;
+        btrfs)
+            modprobe -nv btrfs && command -v mkfs.btrfs && command -v btrfs || return $?
+            ;;
+        *)
+            echo >&2 "ERROR: Unknown feature '$1'"
+            # Make this a hard error to distinguish an invalid feature from
+            # a missing feature
+            exit 1
+    esac
+)}
 
-        # Configure LVM
-        if command -v lvm; then
-            install_lvm
-        fi
-
-        for i in {0..127}; do
-            dd if=/dev/zero of="${TESTDIR:?}/disk$i.img" bs=1M count=1
-            echo "device$i" >"${TESTDIR:?}/disk$i.img"
-        done
+test_append_files() {(
+    local feature
+    # An associative array of requested (but optional) features and their
+    # respective "handlers" from test/test-functions
+    #
+    # Note: we install cryptsetup unconditionally, hence it's not explicitly
+    # checked for here
+    local -A features=(
+        [btrfs]=install_btrfs
+        [lvm]=install_lvm
+        [multipath]=install_multipath
     )
+
+    instmods "=block" "=md" "=nvme" "=scsi"
+    install_dmevent
+    image_install lsblk wc wipefs
+
+    # Install the optional features if the host has the respective tooling
+    for feature in "${!features[@]}"; do
+        if _host_has_feature "$feature"; then
+            "${features[$feature]}"
+        fi
+    done
+
+    generate_module_dependencies
+
+    for i in {0..127}; do
+        dd if=/dev/zero of="${TESTDIR:?}/disk$i.img" bs=1M count=1
+        echo "device$i" >"${TESTDIR:?}/disk$i.img"
+    done
+)}
+
+_image_cleanup() {
+    mount_initdir
+    # Clean up certain "problematic" files which may be left over by failing tests
+    : >"${initdir:?}/etc/fstab"
+    : >"${initdir:?}/etc/crypttab"
 }
 
 test_run_one() {
@@ -76,8 +110,19 @@ test_run() {
 
     # Execute each currently defined function starting with "testcase_"
     for testcase in "${TESTCASES[@]}"; do
+        _image_cleanup
         echo "------ $testcase: BEGIN ------"
-        { "$testcase" "$test_id"; ec=$?; } || :
+        # Note for my future frustrated self: `fun && xxx` (as wel as ||, if, while,
+        # until, etc.) _DISABLES_ the `set -e` behavior in _ALL_ nested function
+        # calls made from `fun()`, i.e. the function _CONTINUES_ even when a called
+        # command returned non-zero EC. That may unexpectedly hide failing commands
+        # if not handled properly. See: bash(1) man page, `set -e` section.
+        #
+        # So, be careful when adding clean up snippets in the testcase_*() functions -
+        # if the `test_run_one()` function isn't the last command, you have propagate
+        # the exit code correctly (e.g. `test_run_one() || return $?`, see below).
+        ec=0
+        "$testcase" "$test_id" || ec=$?
         case $ec in
             0)
                 passed+=("$testcase")
@@ -163,11 +208,9 @@ testcase_virtio_scsi_identically_named_partitions() {
     local diskpath="${TESTDIR:?}/namedpart0.img"
     local lodev
 
-    # Save some time (and storage life) during local testing
-    if [[ ! -e "$diskpath" ]]; then
-        dd if=/dev/zero of="$diskpath" bs=1M count=18
-        lodev="$(losetup --show -f -P "$diskpath")"
-        sfdisk "${lodev:?}" <<EOF
+    dd if=/dev/zero of="$diskpath" bs=1M count=18
+    lodev="$(losetup --show -f -P "$diskpath")"
+    sfdisk "${lodev:?}" <<EOF
 label: gpt
 
 name="Hello world", size=2M
@@ -179,8 +222,7 @@ name="Hello world", size=2M
 name="Hello world", size=2M
 name="Hello world", size=2M
 EOF
-        losetup -d "$lodev"
-    fi
+    losetup -d "$lodev"
 
     for i in {0..15}; do
         diskpath="${TESTDIR:?}/namedpart$i.img"
@@ -197,11 +239,13 @@ EOF
     KERNEL_APPEND="systemd.setenv=TEST_FUNCTION_NAME=${FUNCNAME[0]} ${USER_KERNEL_APPEND:-}"
     # Limit the number of VCPUs and set a timeout to make sure we trigger the issue
     QEMU_OPTIONS="${qemu_opts[*]} ${USER_QEMU_OPTIONS:-}"
-    QEMU_SMP=1 QEMU_TIMEOUT=60 test_run_one "${1:?}"
+    QEMU_SMP=1 QEMU_TIMEOUT=60 test_run_one "${1:?}" || return $?
+
+    rm -f "${TESTDIR:?}"/namedpart*.img
 }
 
 testcase_multipath_basic_failover() {
-    if ! command -v multipath || ! command -v multipathd; then
+    if ! _host_has_feature "multipath"; then
         echo "Missing multipath tools, skipping the test..."
         return 77
     fi
@@ -210,19 +254,17 @@ testcase_multipath_basic_failover() {
     local partdisk="${TESTDIR:?}/multipathpartitioned.img"
     local image lodev nback ndisk wwn
 
-    if [[ ! -e "$partdisk" ]]; then
-        dd if=/dev/zero of="$partdisk" bs=1M count=16
-        lodev="$(losetup --show -f -P "$partdisk")"
-        sfdisk "${lodev:?}" <<EOF
+    dd if=/dev/zero of="$partdisk" bs=1M count=16
+    lodev="$(losetup --show -f -P "$partdisk")"
+    sfdisk "${lodev:?}" <<EOF
 label: gpt
 
 name="first_partition", size=5M
 uuid="deadbeef-dead-dead-beef-000000000000", name="failover_part", size=5M
 EOF
-        udevadm settle
-        mkfs.ext4 -U "deadbeef-dead-dead-beef-111111111111" -L "failover_vol" "${lodev}p2"
-        losetup -d "$lodev"
-    fi
+    udevadm settle
+    mkfs.ext4 -U "deadbeef-dead-dead-beef-111111111111" -L "failover_vol" "${lodev}p2"
+    losetup -d "$lodev"
 
     # Add 64 multipath devices, each backed by 4 paths
     for ndisk in {0..63}; do
@@ -240,7 +282,9 @@ EOF
 
     KERNEL_APPEND="systemd.setenv=TEST_FUNCTION_NAME=${FUNCNAME[0]} ${USER_KERNEL_APPEND:-}"
     QEMU_OPTIONS="${qemu_opts[*]} ${USER_QEMU_OPTIONS:-}"
-    test_run_one "${1:?}"
+    test_run_one "${1:?}" || return $?
+
+    rm -f "$partdisk"
 }
 
 # Test case for issue https://github.com/systemd/systemd/issues/19946
@@ -256,11 +300,13 @@ testcase_simultaneous_events() {
 
     KERNEL_APPEND="systemd.setenv=TEST_FUNCTION_NAME=${FUNCNAME[0]} ${USER_KERNEL_APPEND:-}"
     QEMU_OPTIONS="${qemu_opts[*]} ${USER_QEMU_OPTIONS:-}"
-    test_run_one "${1:?}"
+    test_run_one "${1:?}" || return $?
+
+    rm -f "$partdisk"
 }
 
 testcase_lvm_basic() {
-    if ! command -v lvm; then
+    if ! _host_has_feature "lvm"; then
         echo "Missing lvm tools, skipping the test..."
         return 77
     fi
@@ -281,7 +327,37 @@ testcase_lvm_basic() {
 
     KERNEL_APPEND="systemd.setenv=TEST_FUNCTION_NAME=${FUNCNAME[0]} ${USER_KERNEL_APPEND:-}"
     QEMU_OPTIONS="${qemu_opts[*]} ${USER_QEMU_OPTIONS:-}"
-    test_run_one "${1:?}"
+    test_run_one "${1:?}" || return $?
+
+    rm -f "${TESTDIR:?}"/lvmbasic*.img
+}
+
+testcase_btrfs_basic() {
+    if ! _host_has_feature "btrfs"; then
+        echo "Missing btrfs tools/modules, skipping the test..."
+        return 77
+    fi
+
+    local qemu_opts=("-device ahci,id=ahci0")
+    local diskpath i size
+
+    for i in {0..3}; do
+        diskpath="${TESTDIR:?}/btrfsbasic${i}.img"
+        # Make the first disk larger for multi-partition tests
+        [[ $i -eq 0 ]] && size=350 || size=128
+
+        dd if=/dev/zero of="$diskpath" bs=1M count="$size"
+        qemu_opts+=(
+            "-device ide-hd,bus=ahci0.$i,drive=drive$i,model=foobar,serial=deadbeefbtrfs$i"
+            "-drive format=raw,cache=unsafe,file=$diskpath,if=none,id=drive$i"
+        )
+    done
+
+    KERNEL_APPEND="systemd.setenv=TEST_FUNCTION_NAME=${FUNCNAME[0]} ${USER_KERNEL_APPEND:-}"
+    QEMU_OPTIONS="${qemu_opts[*]} ${USER_QEMU_OPTIONS:-}"
+    test_run_one "${1:?}" || return $?
+
+    rm -f "${TESTDIR:?}"/btrfsbasic*.img
 }
 
 # Allow overriding which tests should be run from the "outside", useful for manual
