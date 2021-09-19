@@ -5,3 +5,5 @@ Description=TEST-64-UDEV
 ExecStartPre=rm -f /failed /testok
 ExecStart=/usr/lib/systemd/tests/testdata/units/%N.sh
 Type=oneshot
+StandardOutput=journal+console
+StandardError=journal+console
