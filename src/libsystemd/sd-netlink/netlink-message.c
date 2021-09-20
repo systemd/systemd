@@ -116,8 +116,8 @@ int message_new_synthetic_error(sd_netlink *nl, int error, uint32_t serial, sd_n
 int sd_netlink_message_request_dump(sd_netlink_message *m, int dump) {
         assert_return(m, -EINVAL);
         assert_return(m->hdr, -EINVAL);
-
-        assert_return(IN_SET(m->hdr->nlmsg_type,
+        assert_return(m->protocol != NETLINK_ROUTE ||
+                      IN_SET(m->hdr->nlmsg_type,
                              RTM_GETLINK, RTM_GETLINKPROP, RTM_GETADDR, RTM_GETROUTE, RTM_GETNEIGH,
                              RTM_GETRULE, RTM_GETADDRLABEL, RTM_GETNEXTHOP), -EINVAL);
 
