@@ -13,6 +13,8 @@
 
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(char*, freecon, NULL);
 #define _cleanup_freecon_ _cleanup_(freeconp)
+#else
+#define _cleanup_freecon_
 #endif
 
 bool mac_selinux_use(void);
