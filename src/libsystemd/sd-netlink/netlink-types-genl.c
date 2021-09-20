@@ -180,10 +180,15 @@ static const NLType genl_macsec_types[] = {
 
 /***************** genl nl80211 type systems *****************/
 static const NLType genl_nl80211_types[] = {
-        [NL80211_ATTR_IFINDEX] = { .type = NETLINK_TYPE_U32 },
-        [NL80211_ATTR_MAC]     = { .type = NETLINK_TYPE_ETHER_ADDR },
-        [NL80211_ATTR_SSID]    = { .type = NETLINK_TYPE_BINARY, .size = IEEE80211_MAX_SSID_LEN },
-        [NL80211_ATTR_IFTYPE]  = { .type = NETLINK_TYPE_U32 },
+        [NL80211_ATTR_WIPHY]       = { .type = NETLINK_TYPE_U32 },
+        [NL80211_ATTR_WIPHY_NAME]  = { .type = NETLINK_TYPE_STRING },
+        [NL80211_ATTR_IFINDEX]     = { .type = NETLINK_TYPE_U32 },
+        [NL80211_ATTR_IFNAME]      = { .type = NETLINK_TYPE_STRING, .size = IFNAMSIZ-1 },
+        [NL80211_ATTR_IFTYPE]      = { .type = NETLINK_TYPE_U32 },
+        [NL80211_ATTR_MAC]         = { .type = NETLINK_TYPE_ETHER_ADDR, .size = ETH_ALEN },
+        [NL80211_ATTR_SSID]        = { .type = NETLINK_TYPE_BINARY, .size = IEEE80211_MAX_SSID_LEN },
+        [NL80211_ATTR_STATUS_CODE] = { .type = NETLINK_TYPE_U16 },
+        [NL80211_ATTR_4ADDR]       = { .type = NETLINK_TYPE_U8 },
 };
 
 /***************** genl wireguard type systems *****************/
