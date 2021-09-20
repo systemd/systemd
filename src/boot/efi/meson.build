@@ -2,6 +2,7 @@
 
 efi_headers = files('''
         console.h
+        cpio.h
         devicetree.h
         disk.h
         graphics.h
@@ -39,6 +40,7 @@ stub_sources = '''
         linux.c
         splash.c
         stub.c
+        cpio.c
 '''.split()
 
 if conf.get('ENABLE_EFI') == 1 and get_option('gnu-efi') != 'false'
