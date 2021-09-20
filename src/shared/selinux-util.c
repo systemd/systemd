@@ -562,6 +562,21 @@ int mac_selinux_create_file_prepare(const char *path, mode_t mode) {
 #endif
 }
 
+int mac_selinux_create_file_prepare_label(const char *path, const char *label) {
+#if HAVE_SELINUX
+
+        if (!label)
+                return 0;
+
+        if (!mac_selinux_use())
+                return 0;
+
+        if (setfscreatecon_raw(label) < 0)
+                return log_enforcing_errno(errno, "Failed to set specified SELinux security context '%s' for '%s': %m", label, strna(path));
+#endif
+        return 0;
+}
+
 void mac_selinux_create_file_clear(void) {
 
 #if HAVE_SELINUX

@@ -921,7 +921,7 @@ int getpeergroups(int fd, gid_t **ret) {
 ssize_t send_one_fd_iov_sa(
                 int transport_fd,
                 int fd,
-                struct iovec *iov, size_t iovlen,
+                const struct iovec *iov, size_t iovlen,
                 const struct sockaddr *sa, socklen_t len,
                 int flags) {
 
@@ -929,7 +929,7 @@ ssize_t send_one_fd_iov_sa(
         struct msghdr mh = {
                 .msg_name = (struct sockaddr*) sa,
                 .msg_namelen = len,
-                .msg_iov = iov,
+                .msg_iov = (struct iovec *)iov,
                 .msg_iovlen = iovlen,
         };
         ssize_t k;
