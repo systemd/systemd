@@ -23,7 +23,7 @@ void net_match_clear(NetMatch *match) {
         match->iftype = strv_free(match->iftype);
         match->ifname = strv_free(match->ifname);
         match->property = strv_free(match->property);
-        match->wifi_iftype = strv_free(match->wifi_iftype);
+        match->wlan_iftype = strv_free(match->wlan_iftype);
         match->ssid = strv_free(match->ssid);
         match->bssid = set_free_free(match->bssid);
 }
@@ -39,7 +39,7 @@ bool net_match_is_empty(const NetMatch *match) {
                 strv_isempty(match->iftype) &&
                 strv_isempty(match->ifname) &&
                 strv_isempty(match->property) &&
-                strv_isempty(match->wifi_iftype) &&
+                strv_isempty(match->wlan_iftype) &&
                 strv_isempty(match->ssid) &&
                 set_isempty(match->bssid);
 }
@@ -127,7 +127,7 @@ int net_match_config(
                 unsigned short iftype,
                 const char *ifname,
                 char * const *alternative_names,
-                enum nl80211_iftype wifi_iftype,
+                enum nl80211_iftype wlan_iftype,
                 const char *ssid,
                 const struct ether_addr *bssid) {
 
@@ -178,7 +178,7 @@ int net_match_config(
         if (!net_condition_test_property(match->property, device))
                 return false;
 
-        if (!net_condition_test_strv(match->wifi_iftype, nl80211_iftype_to_string(wifi_iftype)))
+        if (!net_condition_test_strv(match->wlan_iftype, nl80211_iftype_to_string(wlan_iftype)))
                 return false;
 
         if (!net_condition_test_strv(match->ssid, ssid))
