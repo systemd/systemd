@@ -6,6 +6,13 @@
 
 #include "string-util-fundamental.h"
 
+/* This TPM PCR is where most Linux infrastructure extends the kernel command line into, and so do we. We also extend
+ * any passed credentials here. */
+#define TPM_PCR_INDEX_KERNEL_PARAMETERS 8
+
+/* This TPM PCR is where most Linux infrastructure extends the initrd binary images into, and so do we. */
+#define TPM_PCR_INDEX_INITRD 4
+
 #define OFFSETOF(x,y) __builtin_offsetof(x,y)
 
 #define UINTN_MAX (~(UINTN)0)

@@ -3,6 +3,7 @@
 #include <efi.h>
 #include <efilib.h>
 
+#include "cpio.h"
 #include "disk.h"
 #include "graphics.h"
 #include "linux.h"
@@ -15,8 +16,80 @@
 /* magic string to find in the binary image */
 static const char __attribute__((used)) magic[] = "#### LoaderInfo: systemd-stub " GIT_VERSION " ####";
 
+static EFI_STATUS combine_initrd(
+                EFI_PHYSICAL_ADDRESS initrd_base, UINTN initrd_size,
+                const VOID *credential_initrd, UINTN credential_initrd_size,
+                const VOID *sysext_initrd, UINTN sysext_initrd_size,
+                EFI_PHYSICAL_ADDRESS *ret_initrd_base, UINTN *ret_initrd_size) {
+
+        EFI_PHYSICAL_ADDRESS base = UINT32_MAX; /* allocate an area below the 32bit boundary for this */
+        EFI_STATUS err;
+        UINT8 *p;
+        UINTN n;
+
+        assert(ret_initrd_base);
+        assert(ret_initrd_size);
+
+        /* Combines three initrds into one, by simple concatenation in memory */
+
+        n = ALIGN_TO(initrd_size, 4); /* main initrd might not be padded yet */
+        if (credential_initrd) {
+                if (n > UINTN_MAX - credential_initrd_size)
+                        return EFI_OUT_OF_RESOURCES;
+
+                n += credential_initrd_size;
+        }
+        if (sysext_initrd) {
+                if (n > UINTN_MAX - sysext_initrd_size)
+                        return EFI_OUT_OF_RESOURCES;
+
+                n += sysext_initrd_size;
+        }
+
+        err = uefi_call_wrapper(
+                        BS->AllocatePages, 4,
+                        AllocateMaxAddress,
+                        EfiLoaderData,
+                        EFI_SIZE_TO_PAGES(n),
+                        &base);
+        if (EFI_ERROR(err))
+                return log_error_status_stall(err, L"Failed to allocate space for combined initrd: %r", err);
+
+        p = (UINT8*) (UINTN) base;
+        if (initrd_base != 0) {
+                UINTN pad;
+
+                /* Order matters, the real initrd must come first, since it might include microcode updates
+                 * which the kernel only looks for in the first cpio archive */
+                CopyMem(p, (VOID*) (UINTN) initrd_base, initrd_size);
+                p += initrd_size;
+
+                pad = ALIGN_TO(initrd_size, 4) - initrd_size;
+                if (pad > 0)  {
+                        ZeroMem(p, pad);
+                        p += pad;
+                }
+        }
+
+        if (credential_initrd) {
+                CopyMem(p, credential_initrd, credential_initrd_size);
+                p += credential_initrd_size;
+        }
+
+        if (sysext_initrd) {
+                CopyMem(p, sysext_initrd, sysext_initrd_size);
+                p += sysext_initrd_size;
+        }
+
+        assert((UINT8*) (UINTN) base + n == p);
+
+        *ret_initrd_base = base;
+        *ret_initrd_size = n;
+
+        return EFI_SUCCESS;
+}
+
 EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
-        EFI_LOADED_IMAGE *loaded_image;
 
         enum {
                 SECTION_CMDLINE,
@@ -34,8 +107,10 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
                 NULL,
         };
 
+        UINTN cmdline_len = 0, initrd_size, credential_initrd_size = 0, sysext_initrd_size = 0;
+        _cleanup_freepool_ VOID *credential_initrd = NULL, *sysext_initrd = NULL;
         EFI_PHYSICAL_ADDRESS linux_base, initrd_base;
-        UINTN cmdline_len = 0, initrd_size;
+        EFI_LOADED_IMAGE *loaded_image;
         UINTN addrs[_SECTION_MAX] = {};
         UINTN szs[_SECTION_MAX] = {};
         CHAR8 *cmdline = NULL;
@@ -123,13 +198,54 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
         if (szs[SECTION_SPLASH] > 0)
                 graphics_splash((UINT8*) (UINTN) loaded_image->ImageBase + addrs[SECTION_SPLASH], szs[SECTION_SPLASH], NULL);
 
+        (VOID) pack_cpio(loaded_image,
+                         L".cred",
+                         (const CHAR8*) ".extra/credentials",
+                         /* dir_mode= */ 0500,
+                         /* access_mode= */ 0400,
+                         /* tpm_pcr= */ TPM_PCR_INDEX_KERNEL_PARAMETERS,
+                         L"Credentials initrd",
+                         &credential_initrd,
+                         &credential_initrd_size);
+
+        (VOID) pack_cpio(loaded_image,
+                         L".raw",
+                         (const CHAR8*) ".extra/sysext",
+                         /* dir_mode= */ 0555,
+                         /* access_mode= */ 0444,
+                         /* tpm_pcr= */ TPM_PCR_INDEX_INITRD,
+                         L"System extension initrd",
+                         &sysext_initrd,
+                         &sysext_initrd_size);
+
         linux_base = (EFI_PHYSICAL_ADDRESS) (UINTN) loaded_image->ImageBase + addrs[SECTION_LINUX];
 
         initrd_size = szs[SECTION_INITRD];
         initrd_base = initrd_size != 0 ? (EFI_PHYSICAL_ADDRESS) (UINTN) loaded_image->ImageBase + addrs[SECTION_INITRD] : 0;
 
-        err = linux_exec(image, cmdline, cmdline_len, linux_base, initrd_base, initrd_size);
+        if (credential_initrd || sysext_initrd) {
+                /* If we have generated initrds dynamically, let's combine them with the built-in initrd. */
+                err = combine_initrd(
+                                initrd_base, initrd_size,
+                                credential_initrd, credential_initrd_size,
+                                sysext_initrd, sysext_initrd_size,
+                                &initrd_base, &initrd_size);
+                if (EFI_ERROR(err))
+                        return err;
 
+                /* Given these might be large let's free them explicitly, quickly. */
+                if (credential_initrd) {
+                        FreePool(credential_initrd);
+                        credential_initrd = NULL;
+                }
+
+                if (sysext_initrd) {
+                        FreePool(sysext_initrd);
+                        sysext_initrd = NULL;
+                }
+        }
+
+        err = linux_exec(image, cmdline, cmdline_len, linux_base, initrd_base, initrd_size);
         graphics_mode(FALSE);
         return log_error_status_stall(err, L"Execution of embedded linux image failed: %r", err);
 }
