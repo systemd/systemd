@@ -97,3 +97,20 @@ static inline VOID *mempmem_safe(const VOID *haystack, UINTN haystack_len, const
 
 VOID print_at(UINTN x, UINTN y, UINTN attr, const CHAR16 *str);
 VOID clear_screen(UINTN attr);
+
+EFI_STATUS get_file_info_harder(EFI_FILE_HANDLE handle, EFI_FILE_INFO **ret, UINTN *ret_size);
+
+EFI_STATUS readdir_harder(EFI_FILE_HANDLE handle, EFI_FILE_INFO **buffer, UINTN *buffer_size);
+
+UINTN strnlena(const CHAR8 *p, UINTN maxlen);
+CHAR8 *strndup8(const CHAR8 *p, UINTN sz);
+
+BOOLEAN is_ascii(const CHAR16 *f);
+
+CHAR16 **strv_free(CHAR16 **l);
+
+static inline void strv_freep(CHAR16 ***p) {
+        strv_free(*p);
+}
+
+EFI_STATUS open_directory(EFI_FILE_HANDLE root_dir, const CHAR16 *path, EFI_FILE_HANDLE *ret);

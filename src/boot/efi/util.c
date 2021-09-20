@@ -428,11 +428,14 @@ CHAR16 *stra_to_path(const CHAR8 *stra) {
 }
 
 CHAR8 *strchra(const CHAR8 *s, CHAR8 c) {
-        assert(s);
+        if (!s)
+                return NULL;
+
         do {
                 if (*s == c)
                         return (CHAR8*) s;
         } while (*s++);
+
         return NULL;
 }
 
@@ -451,9 +454,9 @@ EFI_STATUS file_read(EFI_FILE_HANDLE dir, const CHAR16 *name, UINTN off, UINTN s
         if (size == 0) {
                 _cleanup_freepool_ EFI_FILE_INFO *info = NULL;
 
-                info = LibFileInfo(handle);
-                if (!info)
-                        return EFI_OUT_OF_RESOURCES;
+                err = get_file_info_harder(handle, &info, NULL);
+                if (EFI_ERROR(err))
+                        return err;
 
                 size = info->FileSize+1;
         }
@@ -526,4 +529,187 @@ VOID print_at(UINTN x, UINTN y, UINTN attr, const CHAR16 *str) {
 VOID clear_screen(UINTN attr) {
         uefi_call_wrapper(ST->ConOut->SetAttribute, 2, ST->ConOut, attr);
         uefi_call_wrapper(ST->ConOut->ClearScreen, 1, ST->ConOut);
+}
+
+EFI_STATUS get_file_info_harder(
+                EFI_FILE_HANDLE handle,
+                EFI_FILE_INFO **ret,
+                UINTN *ret_size) {
+
+        static const EFI_GUID EfiFileInfoGuid = EFI_FILE_INFO_ID;
+        UINTN size = OFFSETOF(EFI_FILE_INFO, FileName) + 256;
+        _cleanup_freepool_ EFI_FILE_INFO *fi = NULL;
+        EFI_STATUS err;
+
+        assert(handle);
+        assert(ret);
+
+        /* A lot like LibFileInfo() but with useful error propagation */
+
+        fi = AllocatePool(size);
+        if (!fi)
+                return EFI_OUT_OF_RESOURCES;
+
+        err = uefi_call_wrapper(handle->GetInfo, 4, handle, (EFI_GUID*) &EfiFileInfoGuid, &size, fi);
+        if (err == EFI_BUFFER_TOO_SMALL) {
+                FreePool(fi);
+                fi = AllocatePool(size);  /* GetInfo tells us the required size, let's use that now */
+                if (!fi)
+                        return EFI_OUT_OF_RESOURCES;
+
+                err = uefi_call_wrapper(handle->GetInfo, 4, handle, (EFI_GUID*) &EfiFileInfoGuid, &size, fi);
+        }
+
+        if (EFI_ERROR(err))
+                return err;
+
+        *ret = TAKE_PTR(fi);
+
+        if (ret_size)
+                *ret_size = size;
+
+        return EFI_SUCCESS;
+}
+
+EFI_STATUS readdir_harder(
+                EFI_FILE_HANDLE handle,
+                EFI_FILE_INFO **buffer,
+                UINTN *buffer_size) {
+
+        EFI_STATUS err;
+        UINTN sz;
+
+        assert(handle);
+        assert(buffer);
+        assert(buffer_size);
+
+        /* buffer/buffer_size are both in and output parameters. Should be zero-initialized initially, and
+         * the specified buffer needs to be freed by caller, after final use. */
+
+        if (!*buffer) {
+                sz = OFFSETOF(EFI_FILE_INFO, FileName) /* + 256 */;
+
+                *buffer = AllocatePool(sz);
+                if (!*buffer)
+                        return EFI_OUT_OF_RESOURCES;
+
+                *buffer_size = sz;
+        } else
+                sz = *buffer_size;
+
+        err = uefi_call_wrapper(handle->Read, 3, handle, &sz, *buffer);
+        if (err == EFI_BUFFER_TOO_SMALL) {
+                FreePool(*buffer);
+
+                *buffer = AllocatePool(sz);
+                if (!*buffer) {
+                        *buffer_size = 0;
+                        return EFI_OUT_OF_RESOURCES;
+                }
+
+                *buffer_size = sz;
+
+                err = uefi_call_wrapper(handle->Read, 3, handle, &sz, *buffer);
+        }
+        if (EFI_ERROR(err))
+                return err;
+
+        if (sz == 0) {
+                /* End of directory */
+                FreePool(*buffer);
+                *buffer = NULL;
+                *buffer_size = 0;
+        }
+
+        return EFI_SUCCESS;
+}
+
+UINTN strnlena(const CHAR8 *p, UINTN maxlen) {
+        UINTN c;
+
+        if (!p)
+                return 0;
+
+        for (c = 0; c < maxlen; c++)
+                if (p[c] == 0)
+                        break;
+
+        return c;
+}
+
+CHAR8 *strndup8(const CHAR8 *p, UINTN sz) {
+        CHAR8 *n;
+
+        /* Following efilib's naming scheme this function would be called strndupa(), but we already have a
+         * function named like this in userspace, and it does something different there, hence to minimize
+         * confusion, let's pick a different name here */
+
+        assert(p || sz == 0);
+
+        sz = strnlena(p, sz);
+
+        n = AllocatePool(sz + 1);
+        if (!n)
+                return NULL;
+
+        if (sz > 0)
+                CopyMem(n, p, sz);
+        n[sz] = 0;
+
+        return n;
+}
+
+BOOLEAN is_ascii(const CHAR16 *f) {
+        if (!f)
+                return FALSE;
+
+        for (; *f != 0; f++)
+                if (*f > 127)
+                        return FALSE;
+
+        return TRUE;
+}
+
+CHAR16 **strv_free(CHAR16 **v) {
+        if (!v)
+                return NULL;
+
+        for (CHAR16 **i = v; *i; i++)
+                FreePool(*i);
+
+        FreePool(v);
+        return NULL;
+}
+
+EFI_STATUS open_directory(
+                EFI_FILE_HANDLE root,
+                const CHAR16 *path,
+                EFI_FILE_HANDLE *ret) {
+
+        _cleanup_(FileHandleClosep) EFI_FILE_HANDLE dir = NULL;
+        _cleanup_freepool_ EFI_FILE_INFO *file_info = NULL;
+        EFI_STATUS err;
+
+        assert(root);
+
+        /* Opens a file, and then verifies it is actually a directory */
+
+        err = uefi_call_wrapper(
+                        root->Open, 5,
+                        root,
+                        &dir,
+                        (CHAR16*) path,
+                        EFI_FILE_MODE_READ,
+                        0ULL);
+        if (EFI_ERROR(err))
+                return err;
+
+        err = get_file_info_harder(dir, &file_info, NULL);
+        if (EFI_ERROR(err))
+                return err;
+        if (!(file_info->Attribute & EFI_FILE_DIRECTORY))
+                return EFI_LOAD_ERROR;
+
+        *ret = TAKE_PTR(dir);
+        return EFI_SUCCESS;
 }
