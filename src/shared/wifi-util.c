@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "log.h"
+#include "string-table.h"
 #include "string-util.h"
 #include "wifi-util.h"
 
@@ -136,3 +137,20 @@ nodata:
         *ret_bssid = ETHER_ADDR_NULL;
         return 0;
 }
+
+static const char * const nl80211_iftype_table[NUM_NL80211_IFTYPES] = {
+        [NL80211_IFTYPE_ADHOC]      = "ad-hoc",
+        [NL80211_IFTYPE_STATION]    = "station",
+        [NL80211_IFTYPE_AP]         = "ap",
+        [NL80211_IFTYPE_AP_VLAN]    = "ap-vlan",
+        [NL80211_IFTYPE_WDS]        = "wds",
+        [NL80211_IFTYPE_MONITOR]    = "monitor",
+        [NL80211_IFTYPE_MESH_POINT] = "mesh-point",
+        [NL80211_IFTYPE_P2P_CLIENT] = "p2p-client",
+        [NL80211_IFTYPE_P2P_GO]     = "p2p-go",
+        [NL80211_IFTYPE_P2P_DEVICE] = "p2p-device",
+        [NL80211_IFTYPE_OCB]        = "ocb",
+        [NL80211_IFTYPE_NAN]        = "nan",
+};
+
+DEFINE_STRING_TABLE_LOOKUP_TO_STRING(nl80211_iftype, enum nl80211_iftype);
