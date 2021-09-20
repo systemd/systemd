@@ -567,15 +567,16 @@ bool manager_should_reload(Manager *m) {
 
 static int manager_enumerate_internal(
                 Manager *m,
+                sd_netlink *nl,
                 sd_netlink_message *req,
                 int (*process)(sd_netlink *, sd_netlink_message *, Manager *),
                 const char *name) {
 
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *reply = NULL;
-        int r;
+        int k, r;
 
         assert(m);
-        assert(m->rtnl);
+        assert(nl);
         assert(req);
         assert(process);
 
@@ -583,10 +584,10 @@ static int manager_enumerate_internal(
         if (r < 0)
                 return r;
 
-        r = sd_netlink_call(m->rtnl, req, 0, &reply);
+        r = sd_netlink_call(nl, req, 0, &reply);
         if (r < 0) {
                 if (name && (r == -EOPNOTSUPP || (r == -EINVAL && mac_selinux_enforcing()))) {
-                        log_debug_errno(r, "%s are not supported by the kernel. Ignoring.", name);
+                        log_debug_errno(r, "%s is not supported by the kernel. Ignoring.", name);
                         return 0;
                 }
 
@@ -594,11 +595,9 @@ static int manager_enumerate_internal(
         }
 
         for (sd_netlink_message *reply_one = reply; reply_one; reply_one = sd_netlink_message_next(reply_one)) {
-                int k;
-
                 m->enumerating = true;
 
-                k = process(m->rtnl, reply_one, m);
+                k = process(nl, reply_one, m);
                 if (k < 0 && r >= 0)
                         r = k;
 
@@ -619,7 +618,7 @@ static int manager_enumerate_links(Manager *m) {
         if (r < 0)
                 return r;
 
-        return manager_enumerate_internal(m, req, manager_rtnl_process_link, NULL);
+        return manager_enumerate_internal(m, m->rtnl, req, manager_rtnl_process_link, NULL);
 }
 
 static int manager_enumerate_addresses(Manager *m) {
@@ -633,7 +632,7 @@ static int manager_enumerate_addresses(Manager *m) {
         if (r < 0)
                 return r;
 
-        return manager_enumerate_internal(m, req, manager_rtnl_process_address, NULL);
+        return manager_enumerate_internal(m, m->rtnl, req, manager_rtnl_process_address, NULL);
 }
 
 static int manager_enumerate_neighbors(Manager *m) {
@@ -647,7 +646,7 @@ static int manager_enumerate_neighbors(Manager *m) {
         if (r < 0)
                 return r;
 
-        return manager_enumerate_internal(m, req, manager_rtnl_process_neighbor, NULL);
+        return manager_enumerate_internal(m, m->rtnl, req, manager_rtnl_process_neighbor, NULL);
 }
 
 static int manager_enumerate_routes(Manager *m) {
@@ -664,7 +663,7 @@ static int manager_enumerate_routes(Manager *m) {
         if (r < 0)
                 return r;
 
-        return manager_enumerate_internal(m, req, manager_rtnl_process_route, NULL);
+        return manager_enumerate_internal(m, m->rtnl, req, manager_rtnl_process_route, NULL);
 }
 
 static int manager_enumerate_rules(Manager *m) {
@@ -681,7 +680,7 @@ static int manager_enumerate_rules(Manager *m) {
         if (r < 0)
                 return r;
 
-        return manager_enumerate_internal(m, req, manager_rtnl_process_rule, "Routing policy rules");
+        return manager_enumerate_internal(m, m->rtnl, req, manager_rtnl_process_rule, "Routing policy rule");
 }
 
 static int manager_enumerate_nexthop(Manager *m) {
@@ -695,7 +694,7 @@ static int manager_enumerate_nexthop(Manager *m) {
         if (r < 0)
                 return r;
 
-        return manager_enumerate_internal(m, req, manager_rtnl_process_nexthop, "Nexthop rules");
+        return manager_enumerate_internal(m, m->rtnl, req, manager_rtnl_process_nexthop, "Next hop");
 }
 
 int manager_enumerate(Manager *m) {
