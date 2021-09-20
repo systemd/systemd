@@ -148,7 +148,7 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
 
 #if ENABLE_TPM
                 /* Try to log any options to the TPM, especially manually edited options */
-                err = tpm_log_event(SD_TPM_PCR,
+                err = tpm_log_event(TPM_PCR_INDEX_KERNEL_PARAMETERS,
                                     (EFI_PHYSICAL_ADDRESS) (UINTN) loaded_image->LoadOptions,
                                     loaded_image->LoadOptionsSize, loaded_image->LoadOptions);
                 if (EFI_ERROR(err))
