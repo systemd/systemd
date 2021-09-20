@@ -239,6 +239,9 @@ Job* job_install(Job *j) {
                        "Installed new job %s/%s as %u",
                        j->unit->id, job_type_to_string(j->type), (unsigned) j->id);
 
+        if (j->unit == manager_get_unit(j->manager, SPECIAL_SHUTDOWN_TARGET))
+                manager_invalidate_startup_units(j->manager);
+
         job_add_to_gc_queue(j);
 
         job_add_to_dbus_queue(j); /* announce this job to clients */
