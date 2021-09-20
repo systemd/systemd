@@ -164,6 +164,9 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
         if (EFI_ERROR(err))
                 return log_error_status_stall(err, L"Unable to locate embedded .linux section: %r", err);
 
+        /* Show splash screen as early as possible */
+        graphics_splash((UINT8*) (UINTN) loaded_image->ImageBase + addrs[SECTION_SPLASH], szs[SECTION_SPLASH], NULL);
+
         if (szs[SECTION_CMDLINE] > 0) {
                 cmdline = (CHAR8*) loaded_image->ImageBase + addrs[SECTION_CMDLINE];
                 cmdline_len = szs[SECTION_CMDLINE];
@@ -212,9 +215,6 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
                          &sysext_initrd_size);
 
         export_variables(loaded_image);
-
-        if (szs[SECTION_SPLASH] > 0)
-                graphics_splash((UINT8*) (UINTN) loaded_image->ImageBase + addrs[SECTION_SPLASH], szs[SECTION_SPLASH], NULL);
 
         linux_base = (EFI_PHYSICAL_ADDRESS) (UINTN) loaded_image->ImageBase + addrs[SECTION_LINUX];
 

@@ -267,6 +267,9 @@ EFI_STATUS graphics_splash(const UINT8 *content, UINTN len, const EFI_GRAPHICS_O
         UINTN y_pos = 0;
         EFI_STATUS err;
 
+        if (len == 0)
+                return EFI_SUCCESS;
+
         assert(content);
 
         if (!background) {
