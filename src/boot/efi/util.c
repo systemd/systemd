@@ -428,11 +428,14 @@ CHAR16 *stra_to_path(const CHAR8 *stra) {
 }
 
 CHAR8 *strchra(const CHAR8 *s, CHAR8 c) {
-        assert(s);
+        if (!s)
+                return NULL;
+
         do {
                 if (*s == c)
                         return (CHAR8*) s;
         } while (*s++);
+
         return NULL;
 }
 
@@ -451,9 +454,9 @@ EFI_STATUS file_read(EFI_FILE_HANDLE dir, const CHAR16 *name, UINTN off, UINTN s
         if (size == 0) {
                 _cleanup_freepool_ EFI_FILE_INFO *info = NULL;
 
-                info = LibFileInfo(handle);
-                if (!info)
-                        return EFI_OUT_OF_RESOURCES;
+                err = get_file_info_harder(handle, &info);
+                if (EFI_ERROR(err))
+                        return err;
 
                 size = info->FileSize+1;
         }
@@ -526,4 +529,180 @@ VOID print_at(UINTN x, UINTN y, UINTN attr, const CHAR16 *str) {
 VOID clear_screen(UINTN attr) {
         uefi_call_wrapper(ST->ConOut->SetAttribute, 2, ST->ConOut, attr);
         uefi_call_wrapper(ST->ConOut->ClearScreen, 1, ST->ConOut);
+}
+
+void sort_pointer_array(
+                VOID **array,
+                UINTN n_members,
+                compare_pointer_func_t compare) {
+
+        assert(array || n_members == 0);
+        assert(compare);
+
+        if (n_members <= 1)
+                return;
+
+        for (UINTN i = 1; i < n_members; i++) {
+                BOOLEAN more = FALSE;
+
+                for (UINTN k = 0; k < n_members - i; k++) {
+                        void *entry;
+
+                        if (compare(array[k], array[k+1]) <= 0)
+                                continue;
+
+                        entry = array[k];
+                        array[k] = array[k+1];
+                        array[k+1] = entry;
+                        more = TRUE;
+                }
+                if (!more)
+                        break;
+        }
+}
+
+EFI_STATUS get_file_info_harder(
+                EFI_FILE_HANDLE handle,
+                EFI_FILE_INFO **ret) {
+
+         static const EFI_GUID EfiFileInfoGuid = EFI_FILE_INFO_ID;
+        UINTN size = OFFSETOF(EFI_FILE_INFO, FileName) + 256;
+        _cleanup_freepool_ EFI_FILE_INFO *fi = NULL;
+        EFI_STATUS err;
+
+        assert(handle);
+        assert(ret);
+
+        /* A lot like LibFileInfo() but with useful error propagation */
+
+        fi = AllocatePool(size);
+        if (!fi)
+                return EFI_OUT_OF_RESOURCES;
+
+        err = uefi_call_wrapper(handle->GetInfo, 4, handle, (EFI_GUID*) &EfiFileInfoGuid, &size, fi);
+        if (err == EFI_BUFFER_TOO_SMALL) {
+                FreePool(fi);
+                fi = AllocatePool(size);  /* GetInfo tells us the required size, let's use that now */
+                if (!fi)
+                        return EFI_OUT_OF_RESOURCES;
+
+                err = uefi_call_wrapper(handle->GetInfo, 4, handle, (EFI_GUID*) &EfiFileInfoGuid, &size, fi);
+        }
+
+        if (EFI_ERROR(err))
+                return err;
+
+        *ret = TAKE_PTR(fi);
+        return EFI_SUCCESS;
+}
+
+EFI_STATUS readdir_harder(
+                EFI_FILE_HANDLE handle,
+                EFI_FILE_INFO **buffer,
+                UINTN *buffer_size) {
+
+        EFI_STATUS err;
+        UINTN sz;
+
+        assert(handle);
+        assert(buffer);
+        assert(buffer_size);
+
+        /* buffer/buffer_size are both in and output parameters. Should be zero-initialized initially, and
+         * the specified buffer needs to be freed by caller, after final use. */
+
+        if (!*buffer) {
+                sz = OFFSETOF(EFI_FILE_INFO, FileName) /* + 256 */;
+
+                *buffer = AllocatePool(sz);
+                if (!*buffer)
+                        return EFI_OUT_OF_RESOURCES;
+
+                *buffer_size = sz;
+        } else
+                sz = *buffer_size;
+
+        err = uefi_call_wrapper(handle->Read, 3, handle, &sz, *buffer);
+        if (err == EFI_BUFFER_TOO_SMALL) {
+                FreePool(*buffer);
+
+                *buffer = AllocatePool(sz);
+                if (!*buffer) {
+                        *buffer_size = 0;
+                        return EFI_OUT_OF_RESOURCES;
+                }
+
+                *buffer_size = sz;
+
+                err = uefi_call_wrapper(handle->Read, 3, handle, &sz, *buffer);
+        }
+        if (EFI_ERROR(err))
+                return err;
+
+        if (sz == 0) {
+                /* End of directory */
+                FreePool(*buffer);
+                *buffer = NULL;
+                *buffer_size = 0;
+        }
+
+        return EFI_SUCCESS;
+}
+
+UINTN strnlena(const CHAR8 *p, UINTN maxlen) {
+        UINTN c = 0;
+
+        if (!p)
+                return 0;
+
+        for (; *p; p++) {
+                if (c >= maxlen)
+                        return maxlen;
+
+                c++;
+        }
+
+        return c;
+}
+
+CHAR8 *strndup8(const CHAR8 *p, UINTN sz) {
+        CHAR8 *n;
+
+        assert(p || sz == 0);
+
+        sz = strnlena(p, sz);
+
+        n = AllocatePool(sz + 1);
+        if (!n)
+                return NULL;
+
+        if (sz > 0)
+                CopyMem(n, p, sz);
+        n[sz] = 0;
+
+        return n;
+}
+
+BOOLEAN is_ascii(const CHAR16 *f) {
+
+        if (!f)
+                return FALSE;
+
+        for (; *f != 0; f++)
+                if (*f > 127)
+                        return FALSE;
+
+        return TRUE;
+}
+
+UINT16** strv_free(UINT16** l) {
+        if (!l)
+                return NULL;
+
+        for (UINT16 **i = l; *i; i++)
+                if (*i)
+                        FreePool(*i);
+
+        FreePool(l);
+        return NULL;
 }

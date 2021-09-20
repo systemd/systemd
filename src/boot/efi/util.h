@@ -6,10 +6,29 @@
 
 #include "string-util-fundamental.h"
 
+/* This TPM PCR is where most Linux infrastructure extends the kernel command line into, and so do we. We also extend
+ * any passed credentials here. */
+#define TPM_PCR_INDEX_KERNEL_PARAMETERS 8
+
+/* This TPM PCR is where most Linux infrastructure extends the initrd binary images into, and so do we. */
+#define TPM_PCR_INDEX_INITRD 4
+
 #define OFFSETOF(x,y) __builtin_offsetof(x,y)
 
+#define UINTN_MAX (~(UINTN)0)
+#define INTN_MAX ((INTN)(UINTN_MAX>>1))
+#ifndef UINT32_MAX
+#define UINT32_MAX ((UINT32) -1)
+#endif
+#ifndef UINT64_MAX
+#define UINT64_MAX ((UINT64) -1)
+#endif
+
 static inline UINTN ALIGN_TO(UINTN l, UINTN ali) {
-        return ((l + ali - 1) & ~(ali - 1));
+        if (l > UINTN_MAX - (ali - 1)) /* Overflow? */
+                return UINTN_MAX;
+
+        return ((l + (ali - 1)) & ~(ali - 1));
 }
 
 EFI_STATUS parse_boolean(const CHAR8 *v, BOOLEAN *b);
@@ -65,15 +84,6 @@ static inline void FileHandleClosep(EFI_FILE_HANDLE *handle) {
         &(const EFI_GUID) { 0x4a67b082, 0x0a4c, 0x41cf, { 0xb6, 0xc7, 0x44, 0x0b, 0x29, 0xbb, 0x8c, 0x4f } }
 #define EFI_GLOBAL_GUID &(const EFI_GUID) EFI_GLOBAL_VARIABLE
 
-#define UINTN_MAX (~(UINTN)0)
-#define INTN_MAX ((INTN)(UINTN_MAX>>1))
-#ifndef UINT32_MAX
-#define UINT32_MAX ((UINT32) -1)
-#endif
-#ifndef UINT64_MAX
-#define UINT64_MAX ((UINT64) -1)
-#endif
-
 VOID log_error_stall(const CHAR16 *fmt, ...);
 EFI_STATUS log_oom(void);
 
@@ -94,3 +104,21 @@ static inline VOID *mempmem_safe(const VOID *haystack, UINTN haystack_len, const
 
 VOID print_at(UINTN x, UINTN y, UINTN attr, const CHAR16 *str);
 VOID clear_screen(UINTN attr);
+
+typedef INTN (*compare_pointer_func_t)(const VOID *a, const VOID *b);
+void sort_pointer_array(VOID **array, UINTN n_members, compare_pointer_func_t compare);
+
+EFI_STATUS get_file_info_harder(EFI_FILE_HANDLE handle, EFI_FILE_INFO **ret);
+
+EFI_STATUS readdir_harder(EFI_FILE_HANDLE handle, EFI_FILE_INFO **buffer, UINTN *buffer_size);
+
+UINTN strnlena(const CHAR8 *p, UINTN maxlen);
+CHAR8 *strndup8(const CHAR8 *p, UINTN sz);
+
+BOOLEAN is_ascii(const CHAR16 *f);
+
+CHAR16** strv_free(CHAR16** l);
+
+static inline void strv_freep(CHAR16 ***p) {
+        strv_free(*p);
+}
