@@ -53,7 +53,6 @@
 #include "networkd-sriov.h"
 #include "networkd-state-file.h"
 #include "networkd-sysctl.h"
-#include "networkd-wifi.h"
 #include "set.h"
 #include "socket-util.h"
 #include "stat-util.h"
@@ -1286,27 +1285,14 @@ static int link_reconfigure_impl(Link *link, bool force) {
         return 1;
 }
 
-static int link_reconfigure_handler_internal(sd_netlink *rtnl, sd_netlink_message *m, Link *link, bool force, bool update_wifi) {
-        bool link_was_lower_up;
+static int link_reconfigure_handler_internal(sd_netlink *rtnl, sd_netlink_message *m, Link *link, bool force) {
         int r;
 
         assert(link);
 
-        link_was_lower_up = link->flags & IFF_LOWER_UP;
-
         r = link_getlink_handler_internal(rtnl, m, link, "Failed to update link state");
         if (r <= 0)
                 return r;
-
-        if (update_wifi && link_was_lower_up && link->flags & IFF_LOWER_UP) {
-                /* If the interface's L1 was not up, then wifi_get_info() is already called in
-                 * link_update_flags(). So, it is not necessary to re-call here. */
-                r = wifi_get_info(link);
-                if (r < 0) {
-                        link_enter_failed(link);
-                        return 0;
-                }
-        }
 
         r = link_reconfigure_impl(link, force);
         if (r < 0) {
@@ -1318,11 +1304,11 @@ static int link_reconfigure_handler_internal(sd_netlink *rtnl, sd_netlink_messag
 }
 
 static int link_reconfigure_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
-        return link_reconfigure_handler_internal(rtnl, m, link, /* force = */ false, /* update_wifi = */ false);
+        return link_reconfigure_handler_internal(rtnl, m, link, /* force = */ false);
 }
 
 static int link_force_reconfigure_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
-        return link_reconfigure_handler_internal(rtnl, m, link, /* force = */ true, /* update_wifi = */ false);
+        return link_reconfigure_handler_internal(rtnl, m, link, /* force = */ true);
 }
 
 static int link_reconfigure_after_sleep_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
@@ -1330,7 +1316,7 @@ static int link_reconfigure_after_sleep_handler(sd_netlink *rtnl, sd_netlink_mes
 
         assert(link);
 
-        r = link_reconfigure_handler_internal(rtnl, m, link, /* force = */ false, /* update_wifi = */ true);
+        r = link_reconfigure_handler_internal(rtnl, m, link, /* force = */ false);
         if (r != 0)
                 return r;
 
@@ -1412,10 +1398,6 @@ static int link_initialized_and_synced(Link *link) {
                 return r;
 
         if (!link->network) {
-                r = wifi_get_info(link);
-                if (r < 0)
-                        return r;
-
                 r = link_get_network(link, &network);
                 if (r == -ENOENT) {
                         link_set_state(link, LINK_STATE_UNMANAGED);
@@ -1884,7 +1866,7 @@ void link_update_operstate(Link *link, bool also_update_master) {
          : "")
 
 static int link_update_flags(Link *link, sd_netlink_message *message) {
-        bool link_was_lower_up, link_was_admin_up, had_carrier;
+        bool link_was_admin_up, had_carrier;
         uint8_t operstate;
         unsigned flags;
         int r;
@@ -1946,7 +1928,6 @@ static int link_update_flags(Link *link, sd_netlink_message *message) {
                         log_link_debug(link, "Unknown link flags lost, ignoring: %#.5x", unknown_flags_removed);
         }
 
-        link_was_lower_up = link->flags & IFF_LOWER_UP;
         link_was_admin_up = link->flags & IFF_UP;
         had_carrier = link_has_carrier(link);
 
@@ -1954,19 +1935,6 @@ static int link_update_flags(Link *link, sd_netlink_message *message) {
         link->kernel_operstate = operstate;
 
         link_update_operstate(link, true);
-
-        if (!link_was_lower_up && (link->flags & IFF_LOWER_UP)) {
-                r = wifi_get_info(link);
-                if (r < 0)
-                        return r;
-                if (r > 0) {
-                        /* All link information is up-to-date. So, it is not necessary to call
-                         * RTM_GETLINK netlink method again. */
-                        r = link_reconfigure_impl(link, /* force = */ false);
-                        if (r < 0)
-                                return r;
-                }
-        }
 
         if (!link_was_admin_up && (link->flags & IFF_UP)) {
                 log_link_info(link, "Link UP");
@@ -1984,6 +1952,15 @@ static int link_update_flags(Link *link, sd_netlink_message *message) {
 
         if (!had_carrier && link_has_carrier(link)) {
                 log_link_info(link, "Gained carrier");
+
+                if (IN_SET(link->state, LINK_STATE_CONFIGURING, LINK_STATE_CONFIGURED)) {
+                        /* At this stage, both wlan and link information should be up-to-date. Hence,
+                         * it is not necessary to call RTM_GETLINK, NL80211_CMD_GET_INTERFACE, or
+                         * NL80211_CMD_GET_STATION commands, and simply call link_reconfigure_impl(). */
+                        r = link_reconfigure_impl(link, /* force = */ false);
+                        if (r < 0)
+                                return r;
+                }
 
                 r = link_carrier_gained(link);
                 if (r < 0)
