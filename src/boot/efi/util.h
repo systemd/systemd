@@ -98,6 +98,9 @@ static inline VOID *mempmem_safe(const VOID *haystack, UINTN haystack_len, const
 VOID print_at(UINTN x, UINTN y, UINTN attr, const CHAR16 *str);
 VOID clear_screen(UINTN attr);
 
+typedef INTN (*compare_pointer_func_t)(const VOID *a, const VOID *b);
+void sort_pointer_array(VOID **array, UINTN n_members, compare_pointer_func_t compare);
+
 EFI_STATUS get_file_info_harder(EFI_FILE_HANDLE handle, EFI_FILE_INFO **ret, UINTN *ret_size);
 
 EFI_STATUS readdir_harder(EFI_FILE_HANDLE handle, EFI_FILE_INFO **buffer, UINTN *buffer_size);
