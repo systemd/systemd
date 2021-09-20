@@ -18,7 +18,7 @@ typedef struct NetMatch {
         char **iftype;
         char **ifname;
         char **property;
-        char **wifi_iftype;
+        char **wlan_iftype;
         char **ssid;
         Set *bssid;
 } NetMatch;
@@ -35,7 +35,7 @@ int net_match_config(
                 unsigned short iftype,
                 const char *ifname,
                 char * const *alternative_names,
-                enum nl80211_iftype wifi_iftype,
+                enum nl80211_iftype wlan_iftype,
                 const char *ssid,
                 const struct ether_addr *bssid);
 

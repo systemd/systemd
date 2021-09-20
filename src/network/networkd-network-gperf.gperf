@@ -49,7 +49,7 @@ Match.PermanentMACAddress,                   config_parse_hwaddrs,              
 Match.Path,                                  config_parse_match_strv,                                  0,                             offsetof(Network, match.path)
 Match.Driver,                                config_parse_match_strv,                                  0,                             offsetof(Network, match.driver)
 Match.Type,                                  config_parse_match_strv,                                  0,                             offsetof(Network, match.iftype)
-Match.WLANInterfaceType,                     config_parse_match_strv,                                  0,                             offsetof(Network, match.wifi_iftype)
+Match.WLANInterfaceType,                     config_parse_match_strv,                                  0,                             offsetof(Network, match.wlan_iftype)
 Match.SSID,                                  config_parse_match_strv,                                  0,                             offsetof(Network, match.ssid)
 Match.BSSID,                                 config_parse_hwaddrs,                                     0,                             offsetof(Network, match.bssid)
 Match.Name,                                  config_parse_match_ifnames,                               IFNAME_VALID_ALTERNATIVE,      offsetof(Network, match.ifname)
