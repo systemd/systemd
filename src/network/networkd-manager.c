@@ -6,6 +6,7 @@
 #include <linux/if.h>
 #include <linux/fib_rules.h>
 #include <linux/nexthop.h>
+#include <linux/nl80211.h>
 
 #include "sd-daemon.h"
 #include "sd-netlink.h"
@@ -38,6 +39,7 @@
 #include "networkd-routing-policy-rule.h"
 #include "networkd-speed-meter.h"
 #include "networkd-state-file.h"
+#include "networkd-wifi.h"
 #include "ordered-set.h"
 #include "path-lookup.h"
 #include "path-util.h"
@@ -244,6 +246,16 @@ static int manager_connect_genl(Manager *m) {
 
         r = sd_netlink_attach_event(m->genl, m->event, 0);
         if (r < 0)
+                return r;
+
+        r = genl_add_match(m->genl, NULL, NL80211_GENL_NAME, NL80211_MULTICAST_GROUP_CONFIG, 0,
+                           &manager_genl_process_nl80211_config, NULL, m, "network-genl_process_nl80211_config");
+        if (r < 0 && r != -EOPNOTSUPP)
+                return r;
+
+        r = genl_add_match(m->genl, NULL, NL80211_GENL_NAME, NL80211_MULTICAST_GROUP_MLME, 0,
+                           &manager_genl_process_nl80211_mlme, NULL, m, "network-genl_process_nl80211_mlme");
+        if (r < 0 && r != -EOPNOTSUPP)
                 return r;
 
         return 0;
@@ -690,6 +702,49 @@ static int manager_enumerate_nexthop(Manager *m) {
         return manager_enumerate_internal(m, m->rtnl, req, manager_rtnl_process_nexthop);
 }
 
+static int manager_enumerate_nl80211_config(Manager *m) {
+        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL;
+        int r;
+
+        assert(m);
+        assert(m->genl);
+
+        r = sd_genl_message_new(m->genl, NL80211_GENL_NAME, NL80211_CMD_GET_INTERFACE, &req);
+        if (r < 0)
+                return r;
+
+        return manager_enumerate_internal(m, m->genl, req, manager_genl_process_nl80211_config);
+}
+
+static int manager_enumerate_nl80211_mlme(Manager *m) {
+        Link *link;
+        int r;
+
+        assert(m);
+        assert(m->genl);
+
+        HASHMAP_FOREACH(link, m->links_by_index) {
+                _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL;
+
+                if (link->wlan_iftype != NL80211_IFTYPE_STATION)
+                        continue;
+
+                r = sd_genl_message_new(m->genl, NL80211_GENL_NAME, NL80211_CMD_GET_STATION, &req);
+                if (r < 0)
+                        return r;
+
+                r = sd_netlink_message_append_u32(req, NL80211_ATTR_IFINDEX, link->ifindex);
+                if (r < 0)
+                        return r;
+
+                r = manager_enumerate_internal(m, m->genl, req, manager_genl_process_nl80211_mlme);
+                if (r < 0)
+                        return r;
+        }
+
+        return 0;
+}
+
 int manager_enumerate(Manager *m) {
         int r;
 
@@ -723,6 +778,18 @@ int manager_enumerate(Manager *m) {
                 log_debug_errno(r, "Could not enumerate routing policy rules, ignoring: %m");
         else if (r < 0)
                 return log_error_errno(r, "Could not enumerate routing policy rules: %m");
+
+        r = manager_enumerate_nl80211_config(m);
+        if (r == -EOPNOTSUPP)
+                log_debug_errno(r, "Could not enumerate wireless LAN interfaces, ignoring: %m");
+        else if (r < 0)
+                return log_error_errno(r, "Could not enumerate wireless LAN interfaces: %m");
+
+        r = manager_enumerate_nl80211_mlme(m);
+        if (r == -EOPNOTSUPP)
+                log_debug_errno(r, "Could not enumerate wireless LAN stations, ignoring: %m");
+        else if (r < 0)
+                return log_error_errno(r, "Could not enumerate wireless LAN stations: %m");
 
         return 0;
 }
