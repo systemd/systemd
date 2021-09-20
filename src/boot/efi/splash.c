@@ -37,8 +37,13 @@ struct bmp_map {
         UINT8 reserved;
 } _packed_;
 
-static EFI_STATUS bmp_parse_header(UINT8 *bmp, UINTN size, struct bmp_dib **ret_dib,
-                            struct bmp_map **ret_map, UINT8 **pixmap) {
+static EFI_STATUS bmp_parse_header(
+                const UINT8 *bmp,
+                UINTN size,
+                struct bmp_dib **ret_dib,
+                struct bmp_map **ret_map,
+                const UINT8 **pixmap) {
+
         struct bmp_file *file;
         struct bmp_dib *dib;
         struct bmp_map *map;
@@ -154,10 +159,13 @@ static VOID pixel_blend(UINT32 *dst, const UINT32 source) {
         *dst = (rb | g);
 }
 
-static EFI_STATUS bmp_to_blt(EFI_GRAPHICS_OUTPUT_BLT_PIXEL *buf,
-                      struct bmp_dib *dib, struct bmp_map *map,
-                      UINT8 *pixmap) {
-        UINT8 *in;
+static EFI_STATUS bmp_to_blt(
+                EFI_GRAPHICS_OUTPUT_BLT_PIXEL *buf,
+                struct bmp_dib *dib,
+                struct bmp_map *map,
+                const UINT8 *pixmap) {
+
+        const UINT8 *in;
 
         assert(buf);
         assert(dib);
@@ -246,13 +254,13 @@ static EFI_STATUS bmp_to_blt(EFI_GRAPHICS_OUTPUT_BLT_PIXEL *buf,
         return EFI_SUCCESS;
 }
 
-EFI_STATUS graphics_splash(UINT8 *content, UINTN len, const EFI_GRAPHICS_OUTPUT_BLT_PIXEL *background) {
+EFI_STATUS graphics_splash(const UINT8 *content, UINTN len, const EFI_GRAPHICS_OUTPUT_BLT_PIXEL *background) {
         EFI_GRAPHICS_OUTPUT_BLT_PIXEL pixel = {};
         static const EFI_GUID GraphicsOutputProtocolGuid = EFI_GRAPHICS_OUTPUT_PROTOCOL_GUID;
         EFI_GRAPHICS_OUTPUT_PROTOCOL *GraphicsOutput = NULL;
         struct bmp_dib *dib;
         struct bmp_map *map;
-        UINT8 *pixmap;
+        const UINT8 *pixmap;
         UINT64 blt_size;
         _cleanup_freepool_ VOID *blt = NULL;
         UINTN x_pos = 0;
