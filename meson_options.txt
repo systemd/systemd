@@ -416,8 +416,6 @@ option('efi-libdir', type : 'string',
        description : 'path to the EFI lib directory')
 option('efi-includedir', type : 'string', value : '/usr/include/efi',
        description : 'path to the EFI header directory')
-option('tpm-pcrindex', type : 'integer', value : 8,
-       description : 'TPM PCR register number to use')
 option('sbat-distro', type : 'string',
        description : 'SBAT distribution ID, e.g. fedora, or auto for autodetection')
 option('sbat-distro-generation', type : 'integer', value : 1,

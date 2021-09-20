@@ -1636,8 +1636,6 @@ if get_option('efi')
 
         have = true
         conf.set_quoted('EFI_MACHINE_TYPE_NAME', EFI_MACHINE_TYPE_NAME)
-
-        conf.set('SD_TPM_PCR', get_option('tpm-pcrindex'))
 else
         have = false
 endif
