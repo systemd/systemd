@@ -531,6 +531,36 @@ VOID clear_screen(UINTN attr) {
         uefi_call_wrapper(ST->ConOut->ClearScreen, 1, ST->ConOut);
 }
 
+void sort_pointer_array(
+                VOID **array,
+                UINTN n_members,
+                compare_pointer_func_t compare) {
+
+        assert(array || n_members == 0);
+        assert(compare);
+
+        if (n_members <= 1)
+                return;
+
+        for (UINTN i = 1; i < n_members; i++) {
+                BOOLEAN more = FALSE;
+
+                for (UINTN k = 0; k < n_members - i; k++) {
+                        void *entry;
+
+                        if (compare(array[k], array[k+1]) <= 0)
+                                continue;
+
+                        entry = array[k];
+                        array[k] = array[k+1];
+                        array[k+1] = entry;
+                        more = TRUE;
+                }
+                if (!more)
+                        break;
+        }
+}
+
 EFI_STATUS get_file_info_harder(
                 EFI_FILE_HANDLE handle,
                 EFI_FILE_INFO **ret,

@@ -1529,7 +1529,7 @@ static VOID config_load_entries(
         }
 }
 
-static INTN config_entry_compare(ConfigEntry *a, ConfigEntry *b) {
+static INTN config_entry_compare(const ConfigEntry *a, const ConfigEntry *b) {
         INTN r;
 
         assert(a);
@@ -1567,24 +1567,7 @@ static INTN config_entry_compare(ConfigEntry *a, ConfigEntry *b) {
 static VOID config_sort_entries(Config *config) {
         assert(config);
 
-        for (UINTN i = 1; i < config->entry_count; i++) {
-                BOOLEAN more;
-
-                more = FALSE;
-                for (UINTN k = 0; k < config->entry_count - i; k++) {
-                        ConfigEntry *entry;
-
-                        if (config_entry_compare(config->entries[k], config->entries[k+1]) <= 0)
-                                continue;
-
-                        entry = config->entries[k];
-                        config->entries[k] = config->entries[k+1];
-                        config->entries[k+1] = entry;
-                        more = TRUE;
-                }
-                if (!more)
-                        break;
-        }
+        sort_pointer_array((void**) config->entries, config->entry_count, (compare_pointer_func_t) config_entry_compare);
 }
 
 static INTN config_entry_find(Config *config, CHAR16 *id) {
