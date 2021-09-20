@@ -912,14 +912,11 @@ static VOID config_add_entry(Config *config, ConfigEntry *entry) {
         assert(entry);
 
         if ((config->entry_count & 15) == 0) {
-                UINTN i;
-
-                i = config->entry_count + 16;
-                if (config->entry_count == 0)
-                        config->entries = AllocatePool(sizeof(VOID *) * i);
-                else
-                        config->entries = ReallocatePool(config->entries,
-                                                         sizeof(VOID *) * config->entry_count, sizeof(VOID *) * i);
+                UINTN i = config->entry_count + 16;
+                config->entries = ReallocatePool(
+                                config->entries,
+                                sizeof(VOID *) * config->entry_count,
+                                sizeof(VOID *) * i);
         }
         config->entries[config->entry_count++] = entry;
 }
