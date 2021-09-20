@@ -116,6 +116,16 @@ int rtnl_log_create_error(int r);
                                      userdata, description);            \
         })
 
+#define genl_add_match(nl, ret_slot, family, group, cmd, callback, destroy_callback, userdata, description) \
+        ({                                                              \
+                int (*_callback_)(sd_netlink *, sd_netlink_message *, typeof(userdata)) = callback; \
+                void (*_destroy_)(typeof(userdata)) = destroy_callback; \
+                sd_genl_add_match(nl, ret_slot, family, group, cmd,     \
+                                  (sd_netlink_message_handler_t) _callback_, \
+                                  (sd_netlink_destroy_t) _destroy_,     \
+                                  userdata, description);               \
+        })
+
 int netlink_message_append_hw_addr(sd_netlink_message *m, unsigned short type, const struct hw_addr_data *data);
 int netlink_message_append_in_addr_union(sd_netlink_message *m, unsigned short type, int family, const union in_addr_union *data);
 int netlink_message_append_sockaddr_union(sd_netlink_message *m, unsigned short type, const union sockaddr_union *data);
