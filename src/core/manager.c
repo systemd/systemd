@@ -1810,7 +1810,7 @@ int manager_startup(Manager *m, FILE *serialization, FDSet *fds, const char *roo
 
                 r = manager_varlink_init(m);
                 if (r < 0)
-                        log_warning_errno(r, "Failed to set up Varlink server, ignoring: %m");
+                        log_warning_errno(r, "Failed to set up Varlink, ignoring: %m");
 
                 /* Third, fire things up! */
                 manager_coldplug(m);
