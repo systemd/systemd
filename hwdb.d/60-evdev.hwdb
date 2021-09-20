@@ -189,6 +189,13 @@ evdev:name:Elan Touchpad:dmi:*:svnASUSTeKCOMPUTERINC.:pnUX305UA:*
  EVDEV_ABS_35=0:3097:32
  EVDEV_ABS_36=0:2119:33
 
+# Asus UX362FA
+evdev:name:ELAN1401:00 04F3:30DC Touchpad:dmi:*:svnASUSTeKCOMPUTERINC.:pnZenBookUX362FA_UX362FA:*
+ EVDEV_ABS_00=:::16
+ EVDEV_ABS_01=:::16
+ EVDEV_ABS_35=:::16
+ EVDEV_ABS_36=:::16
+
 #########################################
 # Bangho
 #########################################
