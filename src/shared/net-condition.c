@@ -10,6 +10,7 @@
 #include "socket-util.h"
 #include "string-table.h"
 #include "strv.h"
+#include "wifi-util.h"
 
 void net_match_clear(NetMatch *match) {
         if (!match)
@@ -117,23 +118,6 @@ static int net_condition_test_property(char * const *match_property, sd_device *
         return true;
 }
 
-static const char *const wifi_iftype_table[NL80211_IFTYPE_MAX+1] = {
-        [NL80211_IFTYPE_ADHOC] = "ad-hoc",
-        [NL80211_IFTYPE_STATION] = "station",
-        [NL80211_IFTYPE_AP] = "ap",
-        [NL80211_IFTYPE_AP_VLAN] = "ap-vlan",
-        [NL80211_IFTYPE_WDS] = "wds",
-        [NL80211_IFTYPE_MONITOR] = "monitor",
-        [NL80211_IFTYPE_MESH_POINT] = "mesh-point",
-        [NL80211_IFTYPE_P2P_CLIENT] = "p2p-client",
-        [NL80211_IFTYPE_P2P_GO] = "p2p-go",
-        [NL80211_IFTYPE_P2P_DEVICE] = "p2p-device",
-        [NL80211_IFTYPE_OCB] = "ocb",
-        [NL80211_IFTYPE_NAN] = "nan",
-};
-
-DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(wifi_iftype, enum nl80211_iftype);
-
 int net_match_config(
                 const NetMatch *match,
                 sd_device *device,
@@ -194,7 +178,7 @@ int net_match_config(
         if (!net_condition_test_property(match->property, device))
                 return false;
 
-        if (!net_condition_test_strv(match->wifi_iftype, wifi_iftype_to_string(wifi_iftype)))
+        if (!net_condition_test_strv(match->wifi_iftype, nl80211_iftype_to_string(wifi_iftype)))
                 return false;
 
         if (!net_condition_test_strv(match->ssid, ssid))
