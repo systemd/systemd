@@ -1487,7 +1487,7 @@ static VOID config_load_entries(
                 Config *config,
                 EFI_HANDLE *device,
                 EFI_FILE *root_dir,
-                CHAR16 *loaded_image_path) {
+                const CHAR16 *loaded_image_path) {
 
         _cleanup_(FileHandleClosep) EFI_FILE_HANDLE entries_dir = NULL;
         EFI_STATUS err;
@@ -2455,9 +2455,52 @@ static VOID export_variables(
                 efivar_set(LOADER_GUID, L"LoaderDevicePartUUID", uuid, 0);
 }
 
+static VOID config_load_all_entries(
+                Config *config,
+                EFI_LOADED_IMAGE *loaded_image,
+                const CHAR16 *loaded_image_path,
+                EFI_FILE *root_dir) {
+
+        UINT64 osind = 0;
+
+        assert(config);
+        assert(loaded_image);
+        assert(loaded_image_path);
+        assert(root_dir);
+
+        config_load_defaults(config, root_dir);
+
+        /* scan /EFI/Linux/ directory */
+        config_entry_add_linux(config, loaded_image->DeviceHandle, root_dir);
+
+        /* scan /loader/entries/\*.conf files */
+        config_load_entries(config, loaded_image->DeviceHandle, root_dir, loaded_image_path);
+
+        /* Similar, but on any XBOOTLDR partition */
+        config_load_xbootldr(config, loaded_image->DeviceHandle);
+
+        /* sort entries after version number */
+        config_sort_entries(config);
+
+        /* if we find some well-known loaders, add them to the end of the list */
+        config_entry_add_osx(config);
+        config_entry_add_windows(config, loaded_image->DeviceHandle, root_dir);
+        config_entry_add_loader_auto(config, loaded_image->DeviceHandle, root_dir, NULL,
+                                     L"auto-efi-shell", 's', L"EFI Shell", L"\\shell" EFI_MACHINE_TYPE_NAME ".efi");
+        config_entry_add_loader_auto(config, loaded_image->DeviceHandle, root_dir, loaded_image_path,
+                                     L"auto-efi-default", '\0', L"EFI Default Loader", NULL);
+
+        if (config->auto_firmware && efivar_get_uint64_le(EFI_GLOBAL_GUID, L"OsIndicationsSupported", &osind) == EFI_SUCCESS) {
+                if (osind & EFI_OS_INDICATIONS_BOOT_TO_FW_UI)
+                        config_entry_add_call(config,
+                                              L"auto-reboot-to-firmware-setup",
+                                              L"Reboot Into Firmware Interface",
+                                              reboot_into_firmware);
+        }
+}
+
 EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
         _cleanup_freepool_ EFI_LOADED_IMAGE *loaded_image = NULL;
-        UINT64 osind = 0;
         _cleanup_(FileHandleClosep) EFI_FILE *root_dir = NULL;
         CHAR16 *loaded_image_path;
         EFI_STATUS err;
@@ -2495,35 +2538,7 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
                         return log_error_status_stall(err, L"Error installing security policy: %r", err);
         }
 
-        config_load_defaults(&config, root_dir);
-
-        /* scan /EFI/Linux/ directory */
-        config_entry_add_linux(&config, loaded_image->DeviceHandle, root_dir);
-
-        /* scan /loader/entries/\*.conf files */
-        config_load_entries(&config, loaded_image->DeviceHandle, root_dir, loaded_image_path);
-
-        /* Similar, but on any XBOOTLDR partition */
-        config_load_xbootldr(&config, loaded_image->DeviceHandle);
-
-        /* sort entries after version number */
-        config_sort_entries(&config);
-
-        /* if we find some well-known loaders, add them to the end of the list */
-        config_entry_add_osx(&config);
-        config_entry_add_windows(&config, loaded_image->DeviceHandle, root_dir);
-        config_entry_add_loader_auto(&config, loaded_image->DeviceHandle, root_dir, NULL,
-                                     L"auto-efi-shell", 's', L"EFI Shell", L"\\shell" EFI_MACHINE_TYPE_NAME ".efi");
-        config_entry_add_loader_auto(&config, loaded_image->DeviceHandle, root_dir, loaded_image_path,
-                                     L"auto-efi-default", '\0', L"EFI Default Loader", NULL);
-
-        if (config.auto_firmware && efivar_get_uint64_le(EFI_GLOBAL_GUID, L"OsIndicationsSupported", &osind) == EFI_SUCCESS) {
-                if (osind & EFI_OS_INDICATIONS_BOOT_TO_FW_UI)
-                        config_entry_add_call(&config,
-                                              L"auto-reboot-to-firmware-setup",
-                                              L"Reboot Into Firmware Interface",
-                                              reboot_into_firmware);
-        }
+        config_load_all_entries(&config, loaded_image, loaded_image_path, root_dir);
 
         if (config.entry_count == 0) {
                 log_error_stall(L"No loader found. Configuration files in \\loader\\entries\\*.conf are needed.");
