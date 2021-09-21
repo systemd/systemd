@@ -4,9 +4,11 @@
 #include "string-util.h"
 #include "wifi-util.h"
 
-int wifi_get_interface(sd_netlink *genl, int ifindex, enum nl80211_iftype *iftype, char **ssid) {
+int wifi_get_interface(sd_netlink *genl, int ifindex, enum nl80211_iftype *ret_iftype, char **ret_ssid) {
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL, *reply = NULL;
+        _cleanup_free_ char *ssid = NULL;
         const char *family;
+        uint32_t iftype;
         int r;
 
         assert(genl);
@@ -47,41 +49,38 @@ int wifi_get_interface(sd_netlink *genl, int ifindex, enum nl80211_iftype *iftyp
                 goto nodata;
         }
 
-        if (iftype) {
-                uint32_t t;
+        r = sd_netlink_message_read_u32(reply, NL80211_ATTR_IFTYPE, &iftype);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to get NL80211_ATTR_IFTYPE attribute: %m");
 
-                r = sd_netlink_message_read_u32(reply, NL80211_ATTR_IFTYPE, &t);
-                if (r < 0)
-                        return log_debug_errno(r, "Failed to get NL80211_ATTR_IFTYPE attribute: %m");
-                *iftype = t;
-        }
+        r = sd_netlink_message_read_string_strdup(reply, NL80211_ATTR_SSID, &ssid);
+        if (r < 0 && r != -ENODATA)
+                return log_debug_errno(r, "Failed to get NL80211_ATTR_SSID attribute: %m");
 
-        if (ssid) {
-                r = sd_netlink_message_read_string_strdup(reply, NL80211_ATTR_SSID, ssid);
-                if (r == -ENODATA)
-                        *ssid = NULL;
-                else if (r < 0)
-                        return log_debug_errno(r, "Failed to get NL80211_ATTR_SSID attribute: %m");
-        }
+        if (ret_iftype)
+                *ret_iftype = iftype;
+
+        if (ret_ssid)
+                *ret_ssid = TAKE_PTR(ssid);
 
         return 1;
 
 nodata:
-        if (iftype)
-                *iftype = 0;
-        if (ssid)
-                *ssid = NULL;
+        if (ret_iftype)
+                *ret_iftype = 0;
+        if (ret_ssid)
+                *ret_ssid = NULL;
         return 0;
 }
 
-int wifi_get_station(sd_netlink *genl, int ifindex, struct ether_addr *bssid) {
+int wifi_get_station(sd_netlink *genl, int ifindex, struct ether_addr *ret_bssid) {
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL, *reply = NULL;
         const char *family;
         int r;
 
         assert(genl);
         assert(ifindex > 0);
-        assert(bssid);
+        assert(ret_bssid);
 
         r = sd_genl_message_new(genl, NL80211_GENL_NAME, NL80211_CMD_GET_STATION, &m);
         if (r < 0)
@@ -115,7 +114,7 @@ int wifi_get_station(sd_netlink *genl, int ifindex, struct ether_addr *bssid) {
                 goto nodata;
         }
 
-        r = sd_netlink_message_read_ether_addr(reply, NL80211_ATTR_MAC, bssid);
+        r = sd_netlink_message_read_ether_addr(reply, NL80211_ATTR_MAC, ret_bssid);
         if (r == -ENODATA)
                 goto nodata;
         if (r < 0)
@@ -124,6 +123,6 @@ int wifi_get_station(sd_netlink *genl, int ifindex, struct ether_addr *bssid) {
         return 1;
 
 nodata:
-        *bssid = (struct ether_addr) {};
+        *ret_bssid = ETHER_ADDR_NULL;
         return 0;
 }
