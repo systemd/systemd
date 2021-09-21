@@ -95,6 +95,7 @@ int sd_netlink_message_close_container(sd_netlink_message *m);
 
 int sd_netlink_message_read(sd_netlink_message *m, unsigned short type, size_t size, void *data);
 int sd_netlink_message_read_data(sd_netlink_message *m, unsigned short type, size_t *ret_size, void **ret_data);
+int sd_netlink_message_read_data_suffix0(sd_netlink_message *m, unsigned short type, size_t *ret_size, void **ret_data);
 int sd_netlink_message_read_string_strdup(sd_netlink_message *m, unsigned short type, char **data);
 int sd_netlink_message_read_string(sd_netlink_message *m, unsigned short type, const char **data);
 int sd_netlink_message_read_strv(sd_netlink_message *m, unsigned short container_type, unsigned short type_id, char ***ret);
