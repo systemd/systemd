@@ -124,5 +124,3 @@ static inline int read_nul_string(FILE *f, size_t limit, char **ret) {
 int safe_fgetc(FILE *f, char *ret);
 
 int warn_file_is_world_accessible(const char *filename, struct stat *st, const char *unit, unsigned line);
-
-int rename_and_apply_smack_floor_label(const char *temp_path, const char *dest_path);
