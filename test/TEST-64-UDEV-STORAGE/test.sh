@@ -28,14 +28,14 @@ _host_has_feature() {(
     set -e
 
     case "${1:?}" in
-        multipath)
-            command -v multipath && command -v multipathd || return $?
+        btrfs)
+            modprobe -nv btrfs && command -v mkfs.btrfs && command -v btrfs || return $?
             ;;
         lvm)
             command -v lvm || return $?
             ;;
-        btrfs)
-            modprobe -nv btrfs && command -v mkfs.btrfs && command -v btrfs || return $?
+        multipath)
+            command -v multipath && command -v multipathd || return $?
             ;;
         *)
             echo >&2 "ERROR: Unknown feature '$1'"
