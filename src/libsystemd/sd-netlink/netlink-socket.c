@@ -81,13 +81,11 @@ int socket_bind(sd_netlink *nl) {
 
         addrlen = sizeof(nl->sockaddr);
 
-        r = bind(nl->fd, &nl->sockaddr.sa, addrlen);
         /* ignore EINVAL to allow binding an already bound socket */
-        if (r < 0 && errno != EINVAL)
+        if (bind(nl->fd, &nl->sockaddr.sa, addrlen) < 0 && errno != EINVAL)
                 return -errno;
 
-        r = getsockname(nl->fd, &nl->sockaddr.sa, &addrlen);
-        if (r < 0)
+        if (getsockname(nl->fd, &nl->sockaddr.sa, &addrlen) < 0)
                 return -errno;
 
         return broadcast_groups_get(nl);
@@ -328,7 +326,7 @@ int socket_read_message(sd_netlink *nl) {
                 _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
                 size_t size;
 
-                if (!group && new_msg->nlmsg_pid != nl->sockaddr.nl.nl_pid)
+                if (group == 0 && new_msg->nlmsg_pid != nl->sockaddr.nl.nl_pid)
                         /* not broadcast and not for us */
                         continue;
 
@@ -365,7 +363,7 @@ int socket_read_message(sd_netlink *nl) {
                 if (r < 0)
                         return r;
 
-                m->broadcast = !!group;
+                m->broadcast = group != 0;
 
                 m->hdr = memdup(new_msg, new_msg->nlmsg_len);
                 if (!m->hdr)
