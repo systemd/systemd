@@ -9,6 +9,7 @@ int wifi_get_interface(sd_netlink *genl, int ifindex, enum nl80211_iftype *ret_i
         _cleanup_free_ char *ssid = NULL;
         const char *family;
         uint32_t iftype;
+        size_t len;
         int r;
 
         assert(genl);
@@ -53,9 +54,18 @@ int wifi_get_interface(sd_netlink *genl, int ifindex, enum nl80211_iftype *ret_i
         if (r < 0)
                 return log_debug_errno(r, "Failed to get NL80211_ATTR_IFTYPE attribute: %m");
 
-        r = sd_netlink_message_read_string_strdup(reply, NL80211_ATTR_SSID, &ssid);
+        r = sd_netlink_message_read_data_suffix0(reply, NL80211_ATTR_SSID, &len, (void**) &ssid);
         if (r < 0 && r != -ENODATA)
                 return log_debug_errno(r, "Failed to get NL80211_ATTR_SSID attribute: %m");
+        if (r >= 0) {
+                if (len == 0) {
+                        log_debug("SSID has zero length, ignoring the received SSID.");
+                        ssid = mfree(ssid);
+                } else if (strlen_ptr(ssid) != len) {
+                        log_debug("SSID contains NUL character(s), ignoring the received SSID.");
+                        ssid = mfree(ssid);
+                }
+        }
 
         if (ret_iftype)
                 *ret_iftype = iftype;

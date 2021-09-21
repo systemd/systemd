@@ -11,6 +11,7 @@
 #include <linux/nl80211.h>
 #include <linux/wireguard.h>
 
+#include "missing_network.h"
 #include "netlink-genl.h"
 #include "netlink-types-internal.h"
 
@@ -181,7 +182,7 @@ static const NLType genl_macsec_types[] = {
 static const NLType genl_nl80211_types[] = {
         [NL80211_ATTR_IFINDEX] = { .type = NETLINK_TYPE_U32 },
         [NL80211_ATTR_MAC]     = { .type = NETLINK_TYPE_ETHER_ADDR },
-        [NL80211_ATTR_SSID]    = { .type = NETLINK_TYPE_STRING },
+        [NL80211_ATTR_SSID]    = { .type = NETLINK_TYPE_BINARY, .size = IEEE80211_MAX_SSID_LEN },
         [NL80211_ATTR_IFTYPE]  = { .type = NETLINK_TYPE_U32 },
 };
 
