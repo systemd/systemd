@@ -278,7 +278,7 @@ static int symlink_controller(const char *target, const char *alias) {
         if (r < 0)
                 return log_error_errno(r, "Failed to create symlink %s: %m", a);
 
-#ifdef SMACK_RUN_LABEL
+#if HAVE_SMACK_RUN_LABEL
         const char *p;
 
         p = strjoina("/sys/fs/cgroup/", target);
