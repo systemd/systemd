@@ -569,8 +569,7 @@ static int manager_enumerate_internal(
                 Manager *m,
                 sd_netlink *nl,
                 sd_netlink_message *req,
-                int (*process)(sd_netlink *, sd_netlink_message *, Manager *),
-                const char *name) {
+                int (*process)(sd_netlink *, sd_netlink_message *, Manager *)) {
 
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *reply = NULL;
         int k, r;
@@ -585,14 +584,8 @@ static int manager_enumerate_internal(
                 return r;
 
         r = sd_netlink_call(nl, req, 0, &reply);
-        if (r < 0) {
-                if (name && (r == -EOPNOTSUPP || (r == -EINVAL && mac_selinux_enforcing()))) {
-                        log_debug_errno(r, "%s is not supported by the kernel. Ignoring.", name);
-                        return 0;
-                }
-
+        if (r < 0)
                 return r;
-        }
 
         for (sd_netlink_message *reply_one = reply; reply_one; reply_one = sd_netlink_message_next(reply_one)) {
                 m->enumerating = true;
@@ -618,7 +611,7 @@ static int manager_enumerate_links(Manager *m) {
         if (r < 0)
                 return r;
 
-        return manager_enumerate_internal(m, m->rtnl, req, manager_rtnl_process_link, NULL);
+        return manager_enumerate_internal(m, m->rtnl, req, manager_rtnl_process_link);
 }
 
 static int manager_enumerate_addresses(Manager *m) {
@@ -632,7 +625,7 @@ static int manager_enumerate_addresses(Manager *m) {
         if (r < 0)
                 return r;
 
-        return manager_enumerate_internal(m, m->rtnl, req, manager_rtnl_process_address, NULL);
+        return manager_enumerate_internal(m, m->rtnl, req, manager_rtnl_process_address);
 }
 
 static int manager_enumerate_neighbors(Manager *m) {
@@ -646,7 +639,7 @@ static int manager_enumerate_neighbors(Manager *m) {
         if (r < 0)
                 return r;
 
-        return manager_enumerate_internal(m, m->rtnl, req, manager_rtnl_process_neighbor, NULL);
+        return manager_enumerate_internal(m, m->rtnl, req, manager_rtnl_process_neighbor);
 }
 
 static int manager_enumerate_routes(Manager *m) {
@@ -663,7 +656,7 @@ static int manager_enumerate_routes(Manager *m) {
         if (r < 0)
                 return r;
 
-        return manager_enumerate_internal(m, m->rtnl, req, manager_rtnl_process_route, NULL);
+        return manager_enumerate_internal(m, m->rtnl, req, manager_rtnl_process_route);
 }
 
 static int manager_enumerate_rules(Manager *m) {
@@ -680,7 +673,7 @@ static int manager_enumerate_rules(Manager *m) {
         if (r < 0)
                 return r;
 
-        return manager_enumerate_internal(m, m->rtnl, req, manager_rtnl_process_rule, "Routing policy rule");
+        return manager_enumerate_internal(m, m->rtnl, req, manager_rtnl_process_rule);
 }
 
 static int manager_enumerate_nexthop(Manager *m) {
@@ -694,7 +687,7 @@ static int manager_enumerate_nexthop(Manager *m) {
         if (r < 0)
                 return r;
 
-        return manager_enumerate_internal(m, m->rtnl, req, manager_rtnl_process_nexthop, "Next hop");
+        return manager_enumerate_internal(m, m->rtnl, req, manager_rtnl_process_nexthop);
 }
 
 int manager_enumerate(Manager *m) {
@@ -712,16 +705,23 @@ int manager_enumerate(Manager *m) {
         if (r < 0)
                 return log_error_errno(r, "Could not enumerate neighbors: %m");
 
+        /* NextHop support is added in kernel v5.3 (65ee00a9409f751188a8cdc0988167858eb4a536),
+         * and older kernels return -EOPNOTSUPP, or -EINVAL if SELinux is enabled. */
         r = manager_enumerate_nexthop(m);
-        if (r < 0)
-                return log_error_errno(r, "Could not enumerate nexthop rules: %m");
+        if (r == -EOPNOTSUPP || (r == -EINVAL && mac_selinux_enforcing()))
+                log_debug_errno(r, "Could not enumerate nexthops, ignoring: %m");
+        else if (r < 0)
+                return log_error_errno(r, "Could not enumerate nexthops: %m");
 
         r = manager_enumerate_routes(m);
         if (r < 0)
                 return log_error_errno(r, "Could not enumerate routes: %m");
 
+        /* If kernel is built with CONFIG_FIB_RULES=n, it returns -EOPNOTSUPP. */
         r = manager_enumerate_rules(m);
-        if (r < 0)
+        if (r == -EOPNOTSUPP)
+                log_debug_errno(r, "Could not enumerate routing policy rules, ignoring: %m");
+        else if (r < 0)
                 return log_error_errno(r, "Could not enumerate routing policy rules: %m");
 
         return 0;
