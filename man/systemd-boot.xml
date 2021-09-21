@@ -280,17 +280,29 @@
     usually mounted to <filename>/efi/</filename>, <filename>/boot/</filename> or
     <filename>/boot/efi/</filename> during OS runtime. It also processes files on the Extended Boot Loader
     partition which is typically mounted to <filename>/boot/</filename>, if it
-    exists. <command>systemd-boot</command> reads runtime configuration such as the boot timeout and default
+    exists.</para>
+
+    <para><command>systemd-boot</command> reads runtime configuration such as the boot timeout and default
     entry from <filename>/loader/loader.conf</filename> on the ESP (in combination with data read from EFI
     variables). See
-    <citerefentry><refentrytitle>loader.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>. Boot
-    entry description files following the <ulink url="https://systemd.io/BOOT_LOADER_SPECIFICATION">Boot
-    Loader Specification</ulink> are read from <filename>/loader/entries/</filename> on the ESP and the
-    Extended Boot Loader partition. Unified kernel boot entries following the <ulink
+    <citerefentry><refentrytitle>loader.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
+
+    <para>Boot entry description files following the <ulink
     url="https://systemd.io/BOOT_LOADER_SPECIFICATION">Boot Loader Specification</ulink> are read from
-    <filename>/EFI/Linux/</filename> on the ESP and the Extended Boot Loader partition. Optionally, a random
-    seed for early boot entropy pool provisioning is stored in <filename>/loader/random-seed</filename> in
-    the ESP.</para>
+    <filename>/loader/entries/</filename> on the ESP and the Extended Boot Loader partition.</para>
+
+    <para>Unified kernel boot entries following the <ulink
+    url="https://systemd.io/BOOT_LOADER_SPECIFICATION">Boot Loader Specification</ulink> are read from
+    <filename>/EFI/Linux/</filename> on the ESP and the Extended Boot Loader partition.</para>
+
+    <para>Optionally, a random seed for early boot entropy pool provisioning is stored in
+    <filename>/loader/random-seed</filename> in the ESP.</para>
+
+    <para>During initialization, <command>sd-boot</command> automatically loads all driver files placed in
+    the <filename>/EFI/systemd/drivers/</filename> directory of the ESP. The files placed there must have an
+    extension of the EFI architecture ID followed by <filename>.efi</filename> (e.g. for x86-64 this means a
+    suffix of <filename>x64.efi</filename>). This may be used to automatically load file system drivers and
+    similar, to extend the native firmware support.</para>
   </refsect1>
 
   <refsect1>
