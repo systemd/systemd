@@ -261,6 +261,9 @@ EFI_STATUS graphics_splash(UINT8 *content, UINTN len, const EFI_GRAPHICS_OUTPUT_
 
         assert(content);
 
+        if (len == 0)
+                return EFI_SUCCESS;
+
         if (!background) {
                 if (StriCmp(L"Apple", ST->FirmwareVendor) == 0) {
                         pixel.Red = 0xc0;
