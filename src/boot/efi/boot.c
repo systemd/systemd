@@ -1498,7 +1498,7 @@ static VOID config_load_entries(
         assert(root_dir);
         assert(loaded_image_path);
 
-        err = uefi_call_wrapper(root_dir->Open, 5, root_dir, &entries_dir, (CHAR16*) L"\\loader\\entries", EFI_FILE_MODE_READ, 0ULL);
+        err = open_directory(root_dir, L"\\loader\\entries", &entries_dir);
         if (EFI_ERROR(err))
                 return;
 
@@ -1969,7 +1969,7 @@ static VOID config_entry_add_linux(
         assert(device);
         assert(root_dir);
 
-        err = uefi_call_wrapper(root_dir->Open, 5, root_dir, &linux_dir, (CHAR16*) L"\\EFI\\Linux", EFI_FILE_MODE_READ, 0ULL);
+        err = open_directory(root_dir, L"\\EFI\\Linux", &linux_dir);
         if (EFI_ERROR(err))
                 return;
 
