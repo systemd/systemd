@@ -32,6 +32,7 @@
 #include "proc-cmdline.h"
 #include "pwquality-util.h"
 #include "random-util.h"
+#include "smack-util.h"
 #include "string-util.h"
 #include "strv.h"
 #include "terminal-util.h"
