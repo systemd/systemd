@@ -1491,6 +1491,8 @@ static VOID config_load_entries(
                 const CHAR16 *loaded_image_path) {
 
         _cleanup_(FileHandleClosep) EFI_FILE_HANDLE entries_dir = NULL;
+        _cleanup_freepool_ EFI_FILE_INFO *f = NULL;
+        UINTN f_size = 0;
         EFI_STATUS err;
 
         assert(config);
@@ -1503,17 +1505,12 @@ static VOID config_load_entries(
                 return;
 
         for (;;) {
-                CHAR16 buf[256];
-                UINTN bufsize;
-                EFI_FILE_INFO *f;
                 _cleanup_freepool_ CHAR8 *content = NULL;
 
-                bufsize = sizeof(buf);
-                err = uefi_call_wrapper(entries_dir->Read, 3, entries_dir, &bufsize, buf);
-                if (bufsize == 0 || EFI_ERROR(err))
+                err = readdir_harder(entries_dir, &f, &f_size);
+                if (f_size == 0 || EFI_ERROR(err))
                         break;
 
-                f = (EFI_FILE_INFO *) buf;
                 if (f->FileName[0] == '.')
                         continue;
                 if (f->Attribute & EFI_FILE_DIRECTORY)
@@ -1962,8 +1959,10 @@ static VOID config_entry_add_linux(
                 EFI_FILE *root_dir) {
 
         _cleanup_(FileHandleClosep) EFI_FILE_HANDLE linux_dir = NULL;
-        EFI_STATUS err;
+        _cleanup_freepool_ EFI_FILE_INFO *f = NULL;
         ConfigEntry *entry;
+        UINTN f_size = 0;
+        EFI_STATUS err;
 
         assert(config);
         assert(device);
@@ -1977,9 +1976,6 @@ static VOID config_entry_add_linux(
                 _cleanup_freepool_ CHAR16 *os_name_pretty = NULL, *os_name = NULL, *os_id = NULL,
                         *os_version = NULL, *os_version_id = NULL, *os_build_id = NULL;
                 _cleanup_freepool_ CHAR8 *content = NULL;
-                CHAR16 buf[256];
-                UINTN bufsize = sizeof buf;
-                EFI_FILE_INFO *f;
                 const CHAR8 *sections[] = {
                         (CHAR8 *)".osrel",
                         (CHAR8 *)".cmdline",
@@ -1991,11 +1987,10 @@ static VOID config_entry_add_linux(
                 UINTN pos = 0;
                 CHAR8 *key, *value;
 
-                err = uefi_call_wrapper(linux_dir->Read, 3, linux_dir, &bufsize, buf);
-                if (bufsize == 0 || EFI_ERROR(err))
+                err = readdir_harder(linux_dir, &f, &f_size);
+                if (f_size == 0 || EFI_ERROR(err))
                         break;
 
-                f = (EFI_FILE_INFO *) buf;
                 if (f->FileName[0] == '.')
                         continue;
                 if (f->Attribute & EFI_FILE_DIRECTORY)
