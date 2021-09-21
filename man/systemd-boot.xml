@@ -102,6 +102,12 @@
     may be used to copy kernel images onto the ESP or the Extended Boot Loader Partition and to generate
     description files compliant with the Boot Loader
     Specification.</para>
+
+    <para><citerefentry><refentrytitle>systemd-stub</refentrytitle><manvolnum>7</manvolnum></citerefentry>
+    may be used as UEFI boot stub for executed kernels, which is useful to show graphical boot splashes
+    before transitioning into the Linux world. It is also capable of automatically picking up auxiliary
+    credential files (for boot parameterization) and system extension images, as companion files to the
+    booted kernel images.</para>
   </refsect1>
 
   <refsect1>
@@ -493,6 +499,7 @@
       <citerefentry><refentrytitle>systemd-bless-boot.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>systemd-boot-system-token.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>kernel-install</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>systemd-stub</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
       <ulink url="https://systemd.io/BOOT_LOADER_SPECIFICATION">Boot Loader Specification</ulink>,
       <ulink url="https://systemd.io/BOOT_LOADER_INTERFACE">Boot Loader Interface</ulink>
     </para>
