@@ -58,6 +58,7 @@ foreach tuple : manpages
 
         if condition == '' or conf.get(condition) == 1
                 file = files(tuple[0] + '.xml')
+                source_xml_files += file
                 if tuple[0].startswith('org.freedesktop.')
                         dbus_docs += file
                 endif
