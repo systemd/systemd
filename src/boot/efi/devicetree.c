@@ -28,12 +28,6 @@ static UINTN devicetree_allocated(const struct devicetree_state *state) {
         return state->pages * EFI_PAGE_SIZE;
 }
 
-static VOID *devicetree_ptr(const struct devicetree_state *state) {
-        assert(state);
-        assert(state->addr <= UINTN_MAX);
-        return (VOID *)(UINTN)state->addr;
-}
-
 static EFI_STATUS devicetree_fixup(struct devicetree_state *state, UINTN len) {
         EFI_DT_FIXUP_PROTOCOL *fixup;
         UINTN size;
@@ -47,24 +41,24 @@ static EFI_STATUS devicetree_fixup(struct devicetree_state *state, UINTN len) {
                                               L"Could not locate device tree fixup protocol, skipping.");
 
         size = devicetree_allocated(state);
-        err = uefi_call_wrapper(fixup->Fixup, 4, fixup, devicetree_ptr(state), &size,
+        err = uefi_call_wrapper(fixup->Fixup, 4, fixup, PHYSICAL_ADDRESS_TO_POINTER(state->addr), &size,
                                 EFI_DT_APPLY_FIXUPS | EFI_DT_RESERVE_MEMORY);
         if (err == EFI_BUFFER_TOO_SMALL) {
                 EFI_PHYSICAL_ADDRESS oldaddr = state->addr;
                 UINTN oldpages = state->pages;
-                VOID *oldptr = devicetree_ptr(state);
+                VOID *oldptr = PHYSICAL_ADDRESS_TO_POINTER(state->addr);
 
                 err = devicetree_allocate(state, size);
                 if (EFI_ERROR(err))
                         return err;
 
-                CopyMem(devicetree_ptr(state), oldptr, len);
+                CopyMem(PHYSICAL_ADDRESS_TO_POINTER(state->addr), oldptr, len);
                 err = uefi_call_wrapper(BS->FreePages, 2, oldaddr, oldpages);
                 if (EFI_ERROR(err))
                         return err;
 
                 size = devicetree_allocated(state);
-                err = uefi_call_wrapper(fixup->Fixup, 4, fixup, devicetree_ptr(state), &size,
+                err = uefi_call_wrapper(fixup->Fixup, 4, fixup, PHYSICAL_ADDRESS_TO_POINTER(state->addr), &size,
                                         EFI_DT_APPLY_FIXUPS | EFI_DT_RESERVE_MEMORY);
         }
 
@@ -104,7 +98,7 @@ EFI_STATUS devicetree_install(struct devicetree_state *state,
         if (EFI_ERROR(err))
                 return err;
 
-        err = uefi_call_wrapper(handle->Read, 3, handle, &len, devicetree_ptr(state));
+        err = uefi_call_wrapper(handle->Read, 3, handle, &len, PHYSICAL_ADDRESS_TO_POINTER(state->addr));
         if (EFI_ERROR(err))
                 return err;
 
@@ -112,7 +106,7 @@ EFI_STATUS devicetree_install(struct devicetree_state *state,
         if (EFI_ERROR(err))
                 return err;
 
-        return uefi_call_wrapper(BS->InstallConfigurationTable, 2, &EfiDtbTableGuid, devicetree_ptr(state));
+        return uefi_call_wrapper(BS->InstallConfigurationTable, 2, &EfiDtbTableGuid, PHYSICAL_ADDRESS_TO_POINTER(state->addr));
 }
 
 void devicetree_cleanup(struct devicetree_state *state) {
