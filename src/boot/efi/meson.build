@@ -2,8 +2,10 @@
 
 efi_headers = files('''
         console.h
+        cpio.h
         devicetree.h
         disk.h
+        drivers.h
         graphics.h
         linux.h
         measure.h
@@ -30,6 +32,7 @@ systemd_boot_sources = '''
         boot.c
         console.c
         devicetree.c
+        drivers.c
         random-seed.c
         sha256.c
         shim.c
@@ -39,6 +42,7 @@ stub_sources = '''
         linux.c
         splash.c
         stub.c
+        cpio.c
 '''.split()
 
 if conf.get('ENABLE_EFI') == 1 and get_option('gnu-efi') != 'false'
@@ -101,7 +105,6 @@ if have_gnu_efi
         efi_conf = configuration_data()
         efi_conf.set_quoted('EFI_MACHINE_TYPE_NAME', EFI_MACHINE_TYPE_NAME)
         efi_conf.set10('ENABLE_TPM', get_option('tpm'))
-        efi_conf.set('SD_TPM_PCR', get_option('tpm-pcrindex'))
 
         foreach ctype : ['color-normal', 'color-entry', 'color-highlight', 'color-edit']
                 c = get_option('efi-' + ctype).split(',')
