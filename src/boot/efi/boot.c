@@ -518,7 +518,8 @@ static BOOLEAN menu_run(
         BOOLEAN refresh = TRUE, highlight = FALSE;
         UINTN x_start = 0, y_start = 0, y_status = 0;
         UINTN x_max, y_max;
-        CHAR16 **lines = NULL, *status = NULL, *clearline = NULL;
+        CHAR16 **lines = NULL;
+        _cleanup_freepool_ CHAR16 *clearline = NULL, *status = NULL;
         UINTN timeout_remain = config->timeout_sec;
         INT16 idx;
         BOOLEAN exit = FALSE, run = TRUE;
@@ -902,7 +903,6 @@ static BOOLEAN menu_run(
         for (UINTN i = 0; i < config->entry_count; i++)
                 FreePool(lines[i]);
         FreePool(lines);
-        FreePool(clearline);
 
         clear_screen(COLOR_NORMAL);
         return run;
@@ -1974,6 +1974,9 @@ static VOID config_entry_add_linux(
                 return;
 
         for (;;) {
+                _cleanup_freepool_ CHAR16 *os_name_pretty = NULL, *os_name = NULL, *os_id = NULL,
+                        *os_version = NULL, *os_version_id = NULL, *os_build_id = NULL;
+                _cleanup_freepool_ CHAR8 *content = NULL;
                 CHAR16 buf[256];
                 UINTN bufsize = sizeof buf;
                 EFI_FILE_INFO *f;
@@ -1984,16 +1987,9 @@ static VOID config_entry_add_linux(
                 };
                 UINTN offs[ELEMENTSOF(sections)-1] = {};
                 UINTN szs[ELEMENTSOF(sections)-1] = {};
-                CHAR8 *content = NULL;
                 CHAR8 *line;
                 UINTN pos = 0;
                 CHAR8 *key, *value;
-                CHAR16 *os_name_pretty = NULL;
-                CHAR16 *os_name = NULL;
-                CHAR16 *os_id = NULL;
-                CHAR16 *os_version = NULL;
-                CHAR16 *os_version_id = NULL;
-                CHAR16 *os_build_id = NULL;
 
                 err = uefi_call_wrapper(linux_dir->Read, 3, linux_dir, &bufsize, buf);
                 if (bufsize == 0 || EFI_ERROR(err))
@@ -2082,14 +2078,6 @@ static VOID config_entry_add_linux(
 
                         config_entry_parse_tries(entry, L"\\EFI\\Linux", f->FileName, L".efi");
                 }
-
-                FreePool(os_name_pretty);
-                FreePool(os_name);
-                FreePool(os_id);
-                FreePool(os_version);
-                FreePool(os_version_id);
-                FreePool(os_build_id);
-                FreePool(content);
         }
 }
 
