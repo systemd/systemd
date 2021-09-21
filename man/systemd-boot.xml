@@ -25,7 +25,7 @@
     <title>Description</title>
 
     <para><command>systemd-boot</command> (short: <command>sd-boot</command>) is a simple UEFI boot
-    manager. It provides a graphical menu to select the entry to boot and an editor for the kernel command
+    manager. It provides a textual menu to select the entry to boot and an editor for the kernel command
     line. <command>systemd-boot</command> supports systems with UEFI firmware only.</para>
 
     <para><command>systemd-boot</command> loads boot entry information from the EFI system partition (ESP),
@@ -296,9 +296,9 @@
   <refsect1>
     <title>EFI Variables</title>
 
-    <para>The following EFI variables are defined, set and read by <command>systemd-boot</command>, under the vendor
-    UUID <literal>4a67b082-0a4c-41cf-b6c7-440b29bb8c4f</literal>, for communication between the OS and the boot
-    loader:</para>
+    <para>The following EFI variables are defined, set and read by <command>systemd-boot</command>, under the
+    vendor UUID <literal>4a67b082-0a4c-41cf-b6c7-440b29bb8c4f</literal>, for communication between the boot
+    loader and the OS:</para>
 
     <variablelist class='efi-variables'>
       <varlistentry>
