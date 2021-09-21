@@ -4,3 +4,5 @@
 #include <efi.h>
 
 EFI_STATUS tpm_log_event(UINT32 pcrindex, const EFI_PHYSICAL_ADDRESS buffer, UINTN buffer_size, const CHAR16 *description);
+
+EFI_STATUS tpm_log_load_options(const CHAR16 *cmdline);
