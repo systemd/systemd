@@ -363,8 +363,7 @@ int socket_read_message(sd_netlink *nl) {
                 if (r < 0)
                         return r;
 
-                m->broadcast = group != 0;
-
+                m->multicast_group = group;
                 m->hdr = memdup(new_msg, new_msg->nlmsg_len);
                 if (!m->hdr)
                         return -ENOMEM;
