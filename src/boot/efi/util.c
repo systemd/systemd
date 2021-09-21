@@ -743,3 +743,17 @@ EFI_STATUS open_directory(
         *ret = TAKE_PTR(dir);
         return EFI_SUCCESS;
 }
+
+UINT64 get_os_indications_supported(VOID) {
+        UINT64 osind;
+        EFI_STATUS err;
+
+        /* Returns the supported OS indications. If we can't acquire it, returns a zeroed out mask, i.e. no
+         * supported features. */
+
+        err = efivar_get_uint64_le(EFI_GLOBAL_GUID, L"OsIndicationsSupported", &osind);
+        if (EFI_ERROR(err))
+                return 0;
+
+        return osind;
+}

@@ -144,3 +144,5 @@ static inline void *PHYSICAL_ADDRESS_TO_POINTER(EFI_PHYSICAL_ADDRESS addr) {
 
         return (void*) (UINTN) addr;
 }
+
+UINT64 get_os_indications_supported(VOID);
