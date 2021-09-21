@@ -2415,7 +2415,11 @@ static VOID config_write_entries_to_variable(Config *config) {
         (void) efivar_set_raw(LOADER_GUID, L"LoaderEntries", buffer, sz, 0);
 }
 
-EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
+static VOID export_variables(
+                EFI_LOADED_IMAGE *loaded_image,
+                const CHAR16 *loaded_image_path,
+                UINT64 init_usec) {
+
         static const UINT64 loader_features =
                 EFI_LOADER_FEATURE_CONFIG_TIMEOUT |
                 EFI_LOADER_FEATURE_CONFIG_TIMEOUT_ONE_SHOT |
@@ -2427,18 +2431,11 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
                 0;
 
         _cleanup_freepool_ CHAR16 *infostr = NULL, *typestr = NULL;
-        UINT64 osind = 0;
-        EFI_LOADED_IMAGE *loaded_image;
-        EFI_FILE *root_dir;
-        CHAR16 *loaded_image_path;
-        EFI_STATUS err;
-        Config config;
-        UINT64 init_usec;
-        BOOLEAN menu = FALSE;
         CHAR16 uuid[37];
 
-        InitializeLib(image, sys_table);
-        init_usec = time_usec();
+        assert(loaded_image);
+        assert(loaded_image_path);
+
         efivar_set_time_usec(LOADER_GUID, L"LoaderTimeInitUSec", init_usec);
         efivar_set(LOADER_GUID, L"LoaderInfo", L"systemd-boot " GIT_VERSION, 0);
 
@@ -2450,14 +2447,43 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
 
         (void) efivar_set_uint64_le(LOADER_GUID, L"LoaderFeatures", loader_features, 0);
 
-        err = uefi_call_wrapper(BS->OpenProtocol, 6, image, &LoadedImageProtocol, (VOID **)&loaded_image,
-                                image, NULL, EFI_OPEN_PROTOCOL_GET_PROTOCOL);
-        if (EFI_ERROR(err))
-                return log_error_status_stall(err, L"Error getting a LoadedImageProtocol handle: %r", err);
+        /* the filesystem path to this image, to prevent adding ourselves to the menu */
+        efivar_set(LOADER_GUID, L"LoaderImageIdentifier", loaded_image_path, 0);
 
         /* export the device path this image is started from */
         if (disk_get_part_uuid(loaded_image->DeviceHandle, uuid) == EFI_SUCCESS)
                 efivar_set(LOADER_GUID, L"LoaderDevicePartUUID", uuid, 0);
+}
+
+EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
+        _cleanup_freepool_ EFI_LOADED_IMAGE *loaded_image = NULL;
+        UINT64 osind = 0;
+        _cleanup_(FileHandleClosep) EFI_FILE *root_dir = NULL;
+        CHAR16 *loaded_image_path;
+        EFI_STATUS err;
+        Config config;
+        UINT64 init_usec;
+        BOOLEAN menu = FALSE;
+
+        InitializeLib(image, sys_table);
+        init_usec = time_usec();
+
+        err = uefi_call_wrapper(
+                        BS->OpenProtocol, 6,
+                        image,
+                        &LoadedImageProtocol,
+                        (VOID **)&loaded_image,
+                        image,
+                        NULL,
+                        EFI_OPEN_PROTOCOL_GET_PROTOCOL);
+        if (EFI_ERROR(err))
+                return log_error_status_stall(err, L"Error getting a LoadedImageProtocol handle: %r", err);
+
+        loaded_image_path = DevicePathToStr(loaded_image->FilePath);
+        if (!loaded_image_path)
+                return log_oom();
+
+        export_variables(loaded_image, loaded_image_path, init_usec);
 
         root_dir = LibOpenRoot(loaded_image->DeviceHandle);
         if (!root_dir)
@@ -2468,10 +2494,6 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
                 if (EFI_ERROR(err))
                         return log_error_status_stall(err, L"Error installing security policy: %r", err);
         }
-
-        /* the filesystem path to this image, to prevent adding ourselves to the menu */
-        loaded_image_path = DevicePathToStr(loaded_image->FilePath);
-        efivar_set(LOADER_GUID, L"LoaderImageIdentifier", loaded_image_path, 0);
 
         config_load_defaults(&config, root_dir);
 
@@ -2580,9 +2602,7 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
         }
         err = EFI_SUCCESS;
 out:
-        FreePool(loaded_image_path);
         config_free(&config);
-        uefi_call_wrapper(root_dir->Close, 1, root_dir);
         uefi_call_wrapper(BS->CloseProtocol, 4, image, &LoadedImageProtocol, image, NULL);
         return err;
 }
