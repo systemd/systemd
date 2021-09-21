@@ -7,6 +7,7 @@
 #include "console.h"
 #include "devicetree.h"
 #include "disk.h"
+#include "drivers.h"
 #include "efi-loader-features.h"
 #include "graphics.h"
 #include "linux.h"
@@ -2428,6 +2429,7 @@ static VOID export_variables(
                 EFI_LOADER_FEATURE_BOOT_COUNTING |
                 EFI_LOADER_FEATURE_XBOOTLDR |
                 EFI_LOADER_FEATURE_RANDOM_SEED |
+                EFI_LOADER_FEATURE_LOAD_DRIVER |
                 0;
 
         _cleanup_freepool_ CHAR16 *infostr = NULL, *typestr = NULL;
@@ -2537,6 +2539,8 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
                 if (EFI_ERROR(err))
                         return log_error_status_stall(err, L"Error installing security policy: %r", err);
         }
+
+        (VOID) load_drivers(image, loaded_image, root_dir);
 
         config_load_all_entries(&config, loaded_image, loaded_image_path, root_dir);
 
