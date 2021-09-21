@@ -89,6 +89,51 @@ static EFI_STATUS combine_initrd(
         return EFI_SUCCESS;
 }
 
+static VOID export_variables(EFI_LOADED_IMAGE *loaded_image) {
+        CHAR16 uuid[37];
+
+        assert(loaded_image);
+
+        /* Export the device path this image is started from, if it's not set yet */
+        if (efivar_get_raw(LOADER_GUID, L"LoaderDevicePartUUID", NULL, NULL) != EFI_SUCCESS)
+                if (disk_get_part_uuid(loaded_image->DeviceHandle, uuid) == EFI_SUCCESS)
+                        efivar_set(LOADER_GUID, L"LoaderDevicePartUUID", uuid, 0);
+
+        /* If LoaderImageIdentifier is not set, assume the image with this stub was loaded directly from the
+         * UEFI firmware without any boot loader, and hence set the LoaderImageIdentifier ourselves. Note
+         * that some boot chain loaders neither set LoaderImageIdentifier nor make FilePath available to us,
+         * in which case there's simple nothing to set for us. (The UEFI spec doesn't really say who's wrong
+         * here, i.e. whether FilePath may be NULL or not, hence handle this gracefully and check if FilePath
+         * is non-NULL explicitly.) */
+        if (efivar_get_raw(LOADER_GUID, L"LoaderImageIdentifier", NULL, NULL) != EFI_SUCCESS &&
+            loaded_image->FilePath) {
+                _cleanup_freepool_ CHAR16 *s = NULL;
+
+                s = DevicePathToStr(loaded_image->FilePath);
+                efivar_set(LOADER_GUID, L"LoaderImageIdentifier", s, 0);
+        }
+
+        /* if LoaderFirmwareInfo is not set, let's set it */
+        if (efivar_get_raw(LOADER_GUID, L"LoaderFirmwareInfo", NULL, NULL) != EFI_SUCCESS) {
+                _cleanup_freepool_ CHAR16 *s = NULL;
+
+                s = PoolPrint(L"%s %d.%02d", ST->FirmwareVendor, ST->FirmwareRevision >> 16, ST->FirmwareRevision & 0xffff);
+                efivar_set(LOADER_GUID, L"LoaderFirmwareInfo", s, 0);
+        }
+
+        /* ditto for LoaderFirmwareType */
+        if (efivar_get_raw(LOADER_GUID, L"LoaderFirmwareType", NULL, NULL) != EFI_SUCCESS) {
+                _cleanup_freepool_ CHAR16 *s = NULL;
+
+                s = PoolPrint(L"UEFI %d.%02d", ST->Hdr.Revision >> 16, ST->Hdr.Revision & 0xffff);
+                efivar_set(LOADER_GUID, L"LoaderFirmwareType", s, 0);
+        }
+
+        /* add StubInfo */
+        if (efivar_get_raw(LOADER_GUID, L"StubInfo", NULL, NULL) != EFI_SUCCESS)
+                efivar_set(LOADER_GUID, L"StubInfo", L"systemd-stub " GIT_VERSION, 0);
+}
+
 EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
 
         enum {
@@ -114,7 +159,6 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
         UINTN addrs[_SECTION_MAX] = {};
         UINTN szs[_SECTION_MAX] = {};
         CHAR8 *cmdline = NULL;
-        CHAR16 uuid[37];
         EFI_STATUS err;
 
         InitializeLib(image, sys_table);
@@ -155,44 +199,7 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
 #endif
         }
 
-        /* Export the device path this image is started from, if it's not set yet */
-        if (efivar_get_raw(LOADER_GUID, L"LoaderDevicePartUUID", NULL, NULL) != EFI_SUCCESS)
-                if (disk_get_part_uuid(loaded_image->DeviceHandle, uuid) == EFI_SUCCESS)
-                        efivar_set(LOADER_GUID, L"LoaderDevicePartUUID", uuid, 0);
-
-        /* If LoaderImageIdentifier is not set, assume the image with this stub was loaded directly from the
-         * UEFI firmware without any boot loader, and hence set the LoaderImageIdentifier ourselves. Note
-         * that some boot chain loaders neither set LoaderImageIdentifier nor make FilePath available to us,
-         * in which case there's simple nothing to set for us. (The UEFI spec doesn't really say who's wrong
-         * here, i.e. whether FilePath may be NULL or not, hence handle this gracefully and check if FilePath
-         * is non-NULL explicitly.) */
-        if (efivar_get_raw(LOADER_GUID, L"LoaderImageIdentifier", NULL, NULL) != EFI_SUCCESS &&
-            loaded_image->FilePath) {
-                _cleanup_freepool_ CHAR16 *s = NULL;
-
-                s = DevicePathToStr(loaded_image->FilePath);
-                efivar_set(LOADER_GUID, L"LoaderImageIdentifier", s, 0);
-        }
-
-        /* if LoaderFirmwareInfo is not set, let's set it */
-        if (efivar_get_raw(LOADER_GUID, L"LoaderFirmwareInfo", NULL, NULL) != EFI_SUCCESS) {
-                _cleanup_freepool_ CHAR16 *s = NULL;
-
-                s = PoolPrint(L"%s %d.%02d", ST->FirmwareVendor, ST->FirmwareRevision >> 16, ST->FirmwareRevision & 0xffff);
-                efivar_set(LOADER_GUID, L"LoaderFirmwareInfo", s, 0);
-        }
-
-        /* ditto for LoaderFirmwareType */
-        if (efivar_get_raw(LOADER_GUID, L"LoaderFirmwareType", NULL, NULL) != EFI_SUCCESS) {
-                _cleanup_freepool_ CHAR16 *s = NULL;
-
-                s = PoolPrint(L"UEFI %d.%02d", ST->Hdr.Revision >> 16, ST->Hdr.Revision & 0xffff);
-                efivar_set(LOADER_GUID, L"LoaderFirmwareType", s, 0);
-        }
-
-        /* add StubInfo */
-        if (efivar_get_raw(LOADER_GUID, L"StubInfo", NULL, NULL) != EFI_SUCCESS)
-                efivar_set(LOADER_GUID, L"StubInfo", L"systemd-stub " GIT_VERSION, 0);
+        export_variables(loaded_image);
 
         if (szs[SECTION_SPLASH] > 0)
                 graphics_splash((UINT8*) (UINTN) loaded_image->ImageBase + addrs[SECTION_SPLASH], szs[SECTION_SPLASH], NULL);
