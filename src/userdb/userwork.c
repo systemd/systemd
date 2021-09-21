@@ -119,7 +119,7 @@ static int userdb_flags_from_service(Varlink *link, const char *service, UserDBF
 
         if (streq_ptr(service, "io.systemd.NameServiceSwitch"))
                 *ret = USERDB_NSS_ONLY|USERDB_AVOID_MULTIPLEXER;
-        if (streq_ptr(service, "io.systemd.DropIn"))
+        else if (streq_ptr(service, "io.systemd.DropIn"))
                 *ret = USERDB_DROPIN_ONLY|USERDB_AVOID_MULTIPLEXER;
         else if (streq_ptr(service, "io.systemd.Multiplexer"))
                 *ret = USERDB_AVOID_MULTIPLEXER;
