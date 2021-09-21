@@ -445,10 +445,20 @@ static int process_match(sd_netlink *nl, sd_netlink_message *m) {
 
         LIST_FOREACH(match_callbacks, c, nl->match_callbacks) {
                 sd_netlink_slot *slot;
+                bool found = false;
 
                 if (c->type != type)
                         continue;
                 if (c->cmd != 0 && c->cmd != cmd)
+                        continue;
+
+                for (size_t i = 0; i < c->n_groups; i++)
+                        if (c->groups[i] == m->multicast_group) {
+                                found = true;
+                                break;
+                        }
+
+                if (!found)
                         continue;
 
                 slot = container_of(c, sd_netlink_slot, match_callback);

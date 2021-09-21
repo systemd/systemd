@@ -123,8 +123,8 @@ struct sd_netlink_message {
         struct nlmsghdr *hdr;
         struct netlink_container containers[NETLINK_CONTAINER_DEPTH];
         unsigned n_containers; /* number of containers */
+        uint32_t multicast_group;
         bool sealed:1;
-        bool broadcast:1;
 
         sd_netlink_message *next; /* next in a chain of multi-part messages */
 };

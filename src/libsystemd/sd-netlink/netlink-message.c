@@ -166,7 +166,7 @@ int sd_netlink_message_set_flags(sd_netlink_message *m, uint16_t flags) {
 int sd_netlink_message_is_broadcast(sd_netlink_message *m) {
         assert_return(m, -EINVAL);
 
-        return m->broadcast;
+        return m->multicast_group != 0;
 }
 
 /* If successful the updated message will be correctly aligned, if
