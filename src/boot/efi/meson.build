@@ -5,6 +5,7 @@ efi_headers = files('''
         cpio.h
         devicetree.h
         disk.h
+        drivers.h
         graphics.h
         linux.h
         measure.h
@@ -31,6 +32,7 @@ systemd_boot_sources = '''
         boot.c
         console.c
         devicetree.c
+        drivers.c
         random-seed.c
         sha256.c
         shim.c
