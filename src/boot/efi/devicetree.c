@@ -31,7 +31,7 @@ static UINTN devicetree_allocated(const struct devicetree_state *state) {
 static VOID *devicetree_ptr(const struct devicetree_state *state) {
         assert(state);
         assert(state->addr <= UINTN_MAX);
-        return (VOID *)(UINTN)state->addr;
+        return PHYSICAL_ADDRESS_TO_POINTER(state->addr);
 }
 
 static EFI_STATUS devicetree_fixup(struct devicetree_state *state, UINTN len) {
