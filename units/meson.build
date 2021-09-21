@@ -164,6 +164,7 @@ units = [
         ['user.slice',                          ''],
         ['var-lib-machines.mount',              'ENABLE_MACHINED',
          'remote-fs.target.wants/ machines.target.wants/'],
+        ['systemd-oomd.socket',                 'ENABLE_OOMD'],
 ]
 
 in_units = [

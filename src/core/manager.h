@@ -443,8 +443,11 @@ struct Manager {
         bool honor_device_enumeration;
 
         VarlinkServer *varlink_server;
-        /* Only systemd-oomd should be using this to subscribe to changes in ManagedOOM settings */
-        Varlink *managed_oom_varlink_request;
+        /* When we're a system manager, this object manages the subscription from systemd-oomd to PID1 that's
+         * used to report changes in ManagedOOM settings (systemd server - oomd client). When
+         * we're a user manager, this object manages the client connection from the user manager to
+         * systemd-oomd to report changes in ManagedOOM settings (systemd client - oomd server). */
+        Varlink *managed_oom_varlink;
 };
 
 static inline usec_t manager_default_timeout_abort_usec(Manager *m) {
