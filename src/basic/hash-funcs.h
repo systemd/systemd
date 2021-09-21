@@ -79,6 +79,11 @@ extern const struct hash_ops string_hash_ops;
 extern const struct hash_ops string_hash_ops_free;
 extern const struct hash_ops string_hash_ops_free_free;
 
+void iovec_hash_func(const struct iovec *iovec, struct siphash *state);
+int iovec_compare_func(const struct iovec *a, const struct iovec *b);
+extern const struct hash_ops iovec_hash_ops;
+extern const struct hash_ops iovec_hash_ops_free;
+
 void path_hash_func(const char *p, struct siphash *state);
 extern const struct hash_ops path_hash_ops;
 extern const struct hash_ops path_hash_ops_free;
