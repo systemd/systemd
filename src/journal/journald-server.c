@@ -894,6 +894,33 @@ static void write_to_journal(Server *s, uid_t uid, struct iovec *iovec, size_t n
                 iovec[n++] = IOVEC_MAKE_STRING(k);                      \
         }                                                               \
 
+static size_t filter_trusted_fields(struct iovec *dst, struct iovec *src, size_t n, Set *allowed) {
+        size_t sz = 0;
+
+        assert(src);
+        assert(dst);
+        assert(n);
+
+        for (size_t i = 0; i < n; i++) {
+                char *base = (char *) src[i].iov_base;
+                size_t len = src[i].iov_len;
+
+                assert(base);
+
+                if (allowed && *base == '_') {
+                        char *eq = memchr(base, '=', len);
+                        assert(eq);
+
+                        if (!set_contains(allowed, &(struct iovec) { base, eq - base }))
+                                continue;
+                }
+
+                dst[sz++] = src[i];
+        }
+
+        return sz;
+}
+
 static void dispatch_message_real(
                 Server *s,
                 struct iovec *iovec, size_t n, size_t m,
@@ -1003,6 +1030,14 @@ static void dispatch_message_real(
 
         assert(n <= m);
 
+        /* We can't remove trusted fields from the original array as it contains allocated strings that have
+         * to remain in the array so they can be freed later. Instead, we copy the fields we want to log to
+         * a new array. */
+        struct iovec *filtered = newa(struct iovec, n);
+        size_t sz = filter_trusted_fields(filtered, iovec, n, s->trusted_field_allow_list);
+
+        assert (sz <= n);
+
         if (s->split_mode == SPLIT_UID && c && uid_is_valid(c->uid))
                 /* Split up strictly by (non-root) UID */
                 journal_uid = c->uid;
@@ -1016,7 +1051,7 @@ static void dispatch_message_real(
         else
                 journal_uid = 0;
 
-        write_to_journal(s, journal_uid, iovec, n, priority);
+        write_to_journal(s, journal_uid, filtered, sz, priority);
 }
 
 void server_driver_message(Server *s, pid_t object_pid, const char *message_id, const char *format, ...) {
@@ -2502,6 +2537,8 @@ void server_done(Server *s) {
         free(s->runtime_storage.path);
         free(s->system_storage.path);
         free(s->runtime_directory);
+
+        set_free_free(s->trusted_field_allow_list);
 
         mmap_cache_unref(s->mmap);
 }

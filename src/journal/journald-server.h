@@ -162,6 +162,8 @@ struct Server {
 
         size_t line_max;
 
+        Set *trusted_field_allow_list;
+
         /* Caching of client metadata */
         Hashmap *client_contexts;
         Prioq *client_contexts_lru;
