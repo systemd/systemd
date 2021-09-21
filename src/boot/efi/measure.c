@@ -162,4 +162,18 @@ EFI_STATUS tpm_log_event(UINT32 pcrindex, const EFI_PHYSICAL_ADDRESS buffer, UIN
         return EFI_SUCCESS;
 }
 
+EFI_STATUS tpm_log_load_options(const CHAR16 *load_options) {
+        EFI_STATUS err;
+
+        /* Measures a load options string into the TPM2, i.e. the kernel command line */
+
+        err = tpm_log_event(TPM_PCR_INDEX_KERNEL_PARAMETERS,
+                            (EFI_PHYSICAL_ADDRESS) (UINTN) load_options,
+                            StrSize(load_options), load_options);
+        if (EFI_ERROR(err))
+                return log_error_status_stall(err, L"Unable to add load options (i.e. kernel command) line measurement: %r", err);
+
+        return EFI_SUCCESS;
+}
+
 #endif
