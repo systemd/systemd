@@ -1024,7 +1024,7 @@ else
 endif
 conf.set10('HAVE_APPARMOR', have)
 
-conf.set10('HAVE_SMACK_RUN_LABEL', get_option('smack-run-label') != '')
+conf.set10('HAVE_SMACK_RUN_LABEL', get_option('smack-run-label') != '' && get_option('smack'))
 conf.set_quoted('SMACK_RUN_LABEL', get_option('smack-run-label'))
 
 want_polkit = get_option('polkit')
