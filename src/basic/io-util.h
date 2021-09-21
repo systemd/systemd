@@ -83,6 +83,9 @@ static inline bool FILE_SIZE_VALID_OR_INFINITY(uint64_t l) {
 #define IOVEC_MAKE_STRING(string) (struct iovec) IOVEC_INIT_STRING(string)
 
 static inline struct iovec *iovec_free(struct iovec *iovec) {
+        if (!iovec)
+                return NULL;
+
         free(iovec->iov_base);
         free(iovec);
         return NULL;
