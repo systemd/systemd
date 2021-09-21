@@ -12,3 +12,4 @@ int wifi_get_interface(sd_netlink *genl, int ifindex, enum nl80211_iftype *ret_i
 int wifi_get_station(sd_netlink *genl, int ifindex, struct ether_addr *ret_bssid);
 
 const char *nl80211_iftype_to_string(enum nl80211_iftype iftype) _const_;
+const char *nl80211_cmd_to_string(int cmd) _const_;
