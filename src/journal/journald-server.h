@@ -162,6 +162,8 @@ struct Server {
 
         size_t line_max;
 
+        Set *trusted_field_allow_list;
+
         /* Caching of client metadata */
         Hashmap *client_contexts;
         Prioq *client_contexts_lru;
@@ -200,6 +202,7 @@ const struct ConfigPerfItem* journald_gperf_lookup(const char *key, GPERF_LEN_TY
 CONFIG_PARSER_PROTOTYPE(config_parse_storage);
 CONFIG_PARSER_PROTOTYPE(config_parse_line_max);
 CONFIG_PARSER_PROTOTYPE(config_parse_compress);
+CONFIG_PARSER_PROTOTYPE(config_parse_trusted_field_allow_list);
 
 const char *storage_to_string(Storage s) _const_;
 Storage storage_from_string(const char *s) _pure_;
