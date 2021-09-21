@@ -2314,10 +2314,8 @@ static EFI_STATUS image_start(
                 loaded_image->LoadOptions = options;
                 loaded_image->LoadOptionsSize = StrSize(loaded_image->LoadOptions);
 
-#if ENABLE_TPM
                 /* Try to log any options to the TPM, especially to catch manually edited options */
                 (VOID) tpm_log_load_options(options);
-#endif
         }
 
         efivar_set_time_usec(LOADER_GUID, L"LoaderTimeExecUSec", 0);
