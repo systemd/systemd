@@ -81,8 +81,7 @@ int sd_netlink_new_from_fd(sd_netlink **ret, int fd) {
 
         addrlen = sizeof(nl->sockaddr);
 
-        r = getsockname(fd, &nl->sockaddr.sa, &addrlen);
-        if (r < 0)
+        if (getsockname(fd, &nl->sockaddr.sa, &addrlen) < 0)
                 return -errno;
 
         if (nl->sockaddr.nl.nl_family != AF_NETLINK)
@@ -483,15 +482,12 @@ static int process_running(sd_netlink *nl, sd_netlink_message **ret) {
         if (!m)
                 goto null_message;
 
-        if (sd_netlink_message_is_broadcast(m)) {
+        if (sd_netlink_message_is_broadcast(m))
                 r = process_match(nl, m);
-                if (r != 0)
-                        goto null_message;
-        } else {
+        else
                 r = process_reply(nl, m);
-                if (r != 0)
-                        goto null_message;
-        }
+        if (r != 0)
+                goto null_message;
 
         if (ret) {
                 *ret = TAKE_PTR(m);
