@@ -1226,7 +1226,7 @@ static VOID config_entry_bump_counters(
         _cleanup_(FileHandleClosep) EFI_FILE_HANDLE handle = NULL;
         static const EFI_GUID EfiFileInfoGuid = EFI_FILE_INFO_ID;
         _cleanup_freepool_ EFI_FILE_INFO *file_info = NULL;
-        UINTN file_info_size, a, b;
+        UINTN file_info_size;
         EFI_STATUS r;
 
         assert(entry);
@@ -1244,26 +1244,9 @@ static VOID config_entry_bump_counters(
         if (EFI_ERROR(r))
                 return;
 
-        a = StrLen(entry->current_name);
-        b = StrLen(entry->next_name);
-
-        file_info_size = OFFSETOF(EFI_FILE_INFO, FileName) + (a > b ? a : b) + 1;
-
-        for (;;) {
-                file_info = AllocatePool(file_info_size);
-
-                r = uefi_call_wrapper(handle->GetInfo, 4, handle, (EFI_GUID*) &EfiFileInfoGuid, &file_info_size, file_info);
-                if (!EFI_ERROR(r))
-                        break;
-
-                if (r != EFI_BUFFER_TOO_SMALL || file_info_size * 2 < file_info_size) {
-                        log_error_stall(L"Failed to get file info for '%s': %r", old_path, r);
-                        return;
-                }
-
-                file_info_size *= 2;
-                FreePool(file_info);
-        }
+        r = get_file_info_harder(handle, &file_info, &file_info_size);
+        if (EFI_ERROR(r))
+                return;
 
         /* And rename the file */
         StrCpy(file_info->FileName, entry->next_name);

@@ -91,9 +91,9 @@ EFI_STATUS devicetree_install(struct devicetree_state *state,
         if (EFI_ERROR(err))
                 return err;
 
-        info = LibFileInfo(handle);
-        if (!info)
-                return EFI_OUT_OF_RESOURCES;
+        err = get_file_info_harder(handle, &info, NULL);
+        if (EFI_ERROR(err))
+                return err;
         if (info->FileSize < FDT_V1_SIZE || info->FileSize > 32 * 1024 * 1024)
                 /* 32MB device tree blob doesn't seem right */
                 return EFI_INVALID_PARAMETER;
