@@ -1298,6 +1298,7 @@ static int verb_status(int argc, char *argv[], void *userdata) {
                         { EFI_LOADER_FEATURE_ENTRY_ONESHOT,           "One-shot entry control"                },
                         { EFI_LOADER_FEATURE_XBOOTLDR,                "Support for XBOOTLDR partition"        },
                         { EFI_LOADER_FEATURE_RANDOM_SEED,             "Support for passing random seed to OS" },
+                        { EFI_LOADER_FEATURE_LOAD_DRIVER,             "Load drop-in drivers"                  },
                 };
 
                 _cleanup_free_ char *fw_type = NULL, *fw_info = NULL, *loader = NULL, *loader_path = NULL, *stub = NULL;
