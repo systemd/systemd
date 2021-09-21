@@ -6,6 +6,7 @@
 #include <unistd.h>
 
 #include "io-util.h"
+#include "set.h"
 #include "string-util.h"
 #include "time-util.h"
 
@@ -275,6 +276,37 @@ char* set_iovec_string_field_free(struct iovec *iovec, size_t *n_iovec, const ch
         x = set_iovec_string_field(iovec, n_iovec, field, value);
         free(value);
         return x;
+}
+
+int iovec_set_ensure_put_string(Set **set, const struct hash_ops *hash_ops, const char *s) {
+        _cleanup_(iovec_freep) struct iovec *iovec = NULL;
+        int r;
+
+        assert(set);
+        assert(hash_ops);
+        assert(s);
+
+        iovec = new(struct iovec, 1);
+        if (!iovec)
+                return -ENOMEM;
+
+        size_t len = strlen(s);
+
+        *iovec = (struct iovec) {
+                .iov_base = memdup(s, len),
+                .iov_len = len,
+        };
+
+        if (!iovec->iov_base)
+                return -ENOMEM;
+
+        r = set_ensure_put(set, hash_ops, iovec);
+        if (r < 0)
+                return r;
+
+        TAKE_PTR(iovec);
+
+        return r;
 }
 
 struct iovec_wrapper *iovw_new(void) {
