@@ -109,13 +109,11 @@ static int on_connected(sd_bus_message *message, void *userdata, sd_bus_error *r
         return 0;
 }
 
-int manager_connect_bus(Manager *m) {
+static int manager_connect_bus(Manager *m) {
         int r;
 
         assert(m);
-
-        if (m->bus)
-                return 0;
+        assert(!m->bus);
 
         r = bus_open_system_watch_bind_with_description(&m->bus, "bus-api-network");
         if (r < 0)
@@ -372,28 +370,10 @@ static int signal_restart_callback(sd_event_source *s, const struct signalfd_sig
         return sd_event_exit(sd_event_source_get_event(s), 0);
 }
 
-int manager_new(Manager **ret) {
-        _cleanup_(manager_freep) Manager *m = NULL;
+int manager_setup(Manager *m, bool test_mode) {
         int r;
 
-        m = new(Manager, 1);
-        if (!m)
-                return -ENOMEM;
-
-        *m = (Manager) {
-                .speed_meter_interval_usec = SPEED_METER_DEFAULT_TIME_INTERVAL,
-                .online_state = _LINK_ONLINE_STATE_INVALID,
-                .manage_foreign_routes = true,
-                .manage_foreign_rules = true,
-                .ethtool_fd = -1,
-                .dhcp_duid.type = DUID_TYPE_EN,
-                .dhcp6_duid.type = DUID_TYPE_EN,
-                .duid_product_uuid.type = DUID_TYPE_UUID,
-        };
-
-        m->state_file = strdup("/run/systemd/netif/state");
-        if (!m->state_file)
-                return -ENOMEM;
+        assert(m);
 
         r = sd_event_default(&m->event);
         if (r < 0)
@@ -422,6 +402,13 @@ int manager_new(Manager **ret) {
         if (r < 0)
                 return r;
 
+        if (test_mode)
+                return 0;
+
+        r = manager_connect_bus(m);
+        if (r < 0)
+                return r;
+
         r = manager_connect_udev(m);
         if (r < 0)
                 return r;
@@ -438,8 +425,32 @@ int manager_new(Manager **ret) {
         if (r < 0)
                 return r;
 
-        *ret = TAKE_PTR(m);
+        m->state_file = strdup("/run/systemd/netif/state");
+        if (!m->state_file)
+                return -ENOMEM;
 
+        return 0;
+}
+
+int manager_new(Manager **ret) {
+        _cleanup_(manager_freep) Manager *m = NULL;
+
+        m = new(Manager, 1);
+        if (!m)
+                return -ENOMEM;
+
+        *m = (Manager) {
+                .speed_meter_interval_usec = SPEED_METER_DEFAULT_TIME_INTERVAL,
+                .online_state = _LINK_ONLINE_STATE_INVALID,
+                .manage_foreign_routes = true,
+                .manage_foreign_rules = true,
+                .ethtool_fd = -1,
+                .dhcp_duid.type = DUID_TYPE_EN,
+                .dhcp6_duid.type = DUID_TYPE_EN,
+                .duid_product_uuid.type = DUID_TYPE_UUID,
+        };
+
+        *ret = TAKE_PTR(m);
         return 0;
 }
 
