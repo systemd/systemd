@@ -452,7 +452,7 @@ EFI_STATUS pack_cpio(
 #if ENABLE_TPM
         err = tpm_log_event(
                         tpm_pcr,
-                        (EFI_PHYSICAL_ADDRESS) (UINTN) buffer,
+                        POINTER_TO_PHYSICAL_ADDRESS(buffer),
                         buffer_size,
                         tpm_description);
         if (EFI_ERROR(err))

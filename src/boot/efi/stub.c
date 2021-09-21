@@ -55,13 +55,13 @@ static EFI_STATUS combine_initrd(
         if (EFI_ERROR(err))
                 return log_error_status_stall(err, L"Failed to allocate space for combined initrd: %r", err);
 
-        p = (UINT8*) (UINTN) base;
+        p = PHYSICAL_ADDRESS_TO_POINTER(base);
         if (initrd_base != 0) {
                 UINTN pad;
 
                 /* Order matters, the real initrd must come first, since it might include microcode updates
                  * which the kernel only looks for in the first cpio archive */
-                CopyMem(p, (VOID*) (UINTN) initrd_base, initrd_size);
+                CopyMem(p, PHYSICAL_ADDRESS_TO_POINTER(initrd_base), initrd_size);
                 p += initrd_size;
 
                 pad = ALIGN_TO(initrd_size, 4) - initrd_size;
@@ -81,7 +81,7 @@ static EFI_STATUS combine_initrd(
                 p += sysext_initrd_size;
         }
 
-        assert((UINT8*) (UINTN) base + n == p);
+        assert((UINT8*) PHYSICAL_ADDRESS_TO_POINTER(base) + n == p);
 
         *ret_initrd_base = base;
         *ret_initrd_size = n;
@@ -222,10 +222,10 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
                          &sysext_initrd,
                          &sysext_initrd_size);
 
-        linux_base = (EFI_PHYSICAL_ADDRESS) (UINTN) loaded_image->ImageBase + addrs[SECTION_LINUX];
+        linux_base = POINTER_TO_PHYSICAL_ADDRESS(loaded_image->ImageBase) + addrs[SECTION_LINUX];
 
         initrd_size = szs[SECTION_INITRD];
-        initrd_base = initrd_size != 0 ? (EFI_PHYSICAL_ADDRESS) (UINTN) loaded_image->ImageBase + addrs[SECTION_INITRD] : 0;
+        initrd_base = initrd_size != 0 ? POINTER_TO_PHYSICAL_ADDRESS(loaded_image->ImageBase) + addrs[SECTION_INITRD] : 0;
 
         if (credential_initrd || sysext_initrd) {
                 /* If we have generated initrds dynamically, let's combine them with the built-in initrd. */

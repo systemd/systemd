@@ -66,9 +66,10 @@ EFI_STATUS linux_exec(EFI_HANDLE image,
                                         EFI_SIZE_TO_PAGES(cmdline_len + 1), &addr);
                 if (EFI_ERROR(err))
                         return err;
-                CopyMem((VOID *)(UINTN)addr, cmdline, cmdline_len);
-                ((CHAR8 *)(UINTN)addr)[cmdline_len] = 0;
-                boot_params->hdr.cmd_line_ptr = (UINT32)addr;
+
+                CopyMem(PHYSICAL_ADDRESS_TO_POINTER(addr), cmdline, cmdline_len);
+                ((CHAR8 *) PHYSICAL_ADDRESS_TO_POINTER(addr))[cmdline_len] = 0;
+                boot_params->hdr.cmd_line_ptr = (UINT32) addr;
         }
 
         boot_params->hdr.ramdisk_image = (UINT32)initrd_addr;
