@@ -367,7 +367,7 @@ static UINTN entry_lookup_key(Config *config, UINTN start, CHAR16 key) {
 }
 
 static VOID print_status(Config *config, CHAR16 *loaded_image_path) {
-        UINT64 key, indvar;
+        UINT64 key;
         UINTN timeout;
         BOOLEAN modevar;
         _cleanup_freepool_ CHAR16 *partstr = NULL, *defaultstr = NULL;
@@ -395,8 +395,7 @@ static VOID print_status(Config *config, CHAR16 *loaded_image_path) {
         if (shim_loaded())
                 Print(L"Shim:                   present\n");
 
-        if (efivar_get_uint64_le(EFI_GLOBAL_GUID, L"OsIndicationsSupported", &indvar) == EFI_SUCCESS)
-                Print(L"OsIndicationsSupported: %d\n", indvar);
+        Print(L"OsIndicationsSupported: %d\n", get_os_indications_supported());
 
         Print(L"\n--- press key ---\n\n");
         console_key_read(&key, 0);
@@ -2427,8 +2426,6 @@ static VOID config_load_all_entries(
                 const CHAR16 *loaded_image_path,
                 EFI_FILE *root_dir) {
 
-        UINT64 osind = 0;
-
         assert(config);
         assert(loaded_image);
         assert(loaded_image_path);
@@ -2456,13 +2453,11 @@ static VOID config_load_all_entries(
         config_entry_add_loader_auto(config, loaded_image->DeviceHandle, root_dir, loaded_image_path,
                                      L"auto-efi-default", '\0', L"EFI Default Loader", NULL);
 
-        if (config->auto_firmware && efivar_get_uint64_le(EFI_GLOBAL_GUID, L"OsIndicationsSupported", &osind) == EFI_SUCCESS) {
-                if (osind & EFI_OS_INDICATIONS_BOOT_TO_FW_UI)
-                        config_entry_add_call(config,
-                                              L"auto-reboot-to-firmware-setup",
-                                              L"Reboot Into Firmware Interface",
-                                              reboot_into_firmware);
-        }
+        if (config->auto_firmware && (get_os_indications_supported() & EFI_OS_INDICATIONS_BOOT_TO_FW_UI))
+                config_entry_add_call(config,
+                                      L"auto-reboot-to-firmware-setup",
+                                      L"Reboot Into Firmware Interface",
+                                      reboot_into_firmware);
 }
 
 EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
