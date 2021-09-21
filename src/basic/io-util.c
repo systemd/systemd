@@ -301,7 +301,7 @@ int iovec_set_ensure_put_string(Set **set, const struct hash_ops *hash_ops, cons
                 return -ENOMEM;
 
         r = set_ensure_put(set, hash_ops, iovec);
-        if (r < 0)
+        if (r <= 0)
                 return r;
 
         TAKE_PTR(iovec);
