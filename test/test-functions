@@ -959,6 +959,45 @@ install_btrfs() {
     inst_rules 64-btrfs-dm.rules
 }
 
+install_iscsi() {
+    # Install both client and server side stuff by default
+    local inst="${1:-}"
+    local file
+
+    # Install client-side stuff ("initiator" in iSCSI jargon) - Open-iSCSI in this case
+    # (open-iscsi on Debian, iscsi-initiator-utils on Fedora, etc.)
+    if [[ -z "$inst" || "$inst" =~ (client|initiator) ]]; then
+        image_install iscsi-iname iscsiadm iscsid iscsistart
+        image_install -o "${ROOTLIBDIR:?}"/system/iscsi-{init,onboot,shutdown}.service
+        image_install "${ROOTLIBDIR:?}"/system/iscsid.{service,socket}
+        image_install "${ROOTLIBDIR:?}"/system/iscsi.service
+        mkdir -p "${initdir:?}"/var/lib/iscsi/{ifaces,isns,nodes,send_targets,slp,static}
+        mkdir -p "${initdir:?}/etc/iscsi"
+        echo "iscsid.startup = /bin/systemctl start iscsid.socket" >"${initdir:?}/etc/iscsi/iscsid.conf"
+        inst_simple "/etc/iscsi/initiatorname.iscsi"
+    fi
+
+    # Install server-side stuff ("target" in iSCSI jargon) - TGT in this case
+    # (tgt on Debian, scsi-target-utils on Fedora, etc.)
+    if [[ -z "$inst" || "$inst" =~ (server|target) ]]; then
+        image_install tgt-admin tgt-setup-lun tgtadm tgtd tgtimg
+        image_install -o /etc/sysconfig/tgtd
+        image_install "${ROOTLIBDIR:?}"/system/tgtd.service
+        mkdir -p "${initdir:?}/etc/tgt"
+        touch "${initdir:?}"/etc/tgt/{tgtd,targets}.conf
+        # Install perl modules required by tgt-admin
+        #
+        # Forgive me father for I have sinned. The monstrosity below appends
+        # a perl snippet to the `tgt-admin` perl script on the fly, which
+        # dumps a list of files (perl modules) required by `tgt-admin` at
+        # the runtime plus any DSOs loaded via DynaLoader. This list is then
+        # passed to `inst_simple` which installs the necessary files into the image
+        while read -r file; do
+            inst_simple "$file"
+        done < <(perl -- <(cat $(command -v tgt-admin) <(echo -e 'use DynaLoader; print map { "$_\n" } values %INC; print join("\n", @DynaLoader::dl_shared_objects)')) -p | awk '/^\// { print $1 }')
+    fi
+}
+
 install_compiled_systemd() {
     dinfo "Install compiled systemd"
 
