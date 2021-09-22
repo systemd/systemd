@@ -694,9 +694,15 @@ int sd_netlink_read(
                                 sizeof(sd_netlink_message*) * (nl->rqueue_size - i - 1));
                         nl->rqueue_size--;
 
-                        r = sd_netlink_message_get_errno(incoming);
-                        if (r < 0)
-                                return r;
+                        if (sd_netlink_message_is_error(incoming)) {
+                                r = sd_netlink_message_get_errno(incoming);
+                                if (r < 0)
+                                        return r;
+
+                                /* Assume NLMSG_ERROR message with non-negative error code as success. */
+                                *ret = NULL;
+                                return 0;
+                        }
 
                         r = sd_netlink_message_get_type(incoming, &type);
                         if (r < 0)
