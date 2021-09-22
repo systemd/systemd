@@ -11,6 +11,9 @@
 #include "macro.h"
 #include "time-util.h"
 
+typedef struct Set Set;
+struct hash_ops;
+
 int flush_fd(int fd);
 
 ssize_t loop_read(int fd, void *buf, size_t nbytes, bool do_poll);
@@ -78,6 +81,18 @@ static inline bool FILE_SIZE_VALID_OR_INFINITY(uint64_t l) {
 #define IOVEC_MAKE(base, len) (struct iovec) IOVEC_INIT(base, len)
 #define IOVEC_INIT_STRING(string) IOVEC_INIT((char*) string, strlen(string))
 #define IOVEC_MAKE_STRING(string) (struct iovec) IOVEC_INIT_STRING(string)
+
+static inline struct iovec *iovec_free(struct iovec *iovec) {
+        if (!iovec)
+                return NULL;
+
+        free(iovec->iov_base);
+        free(iovec);
+        return NULL;
+}
+DEFINE_TRIVIAL_CLEANUP_FUNC(struct iovec *, iovec_free);
+
+int iovec_set_ensure_put_string(Set **set, const struct hash_ops *hash_ops, const char *s);
 
 char* set_iovec_string_field(struct iovec *iovec, size_t *n_iovec, const char *field, const char *value);
 char* set_iovec_string_field_free(struct iovec *iovec, size_t *n_iovec, const char *field, char *value);
