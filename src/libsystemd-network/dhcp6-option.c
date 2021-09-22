@@ -515,7 +515,12 @@ static int dhcp6_option_parse_pdprefix(DHCP6Option *option, DHCP6IA *ia, uint32_
         return 0;
 }
 
-int dhcp6_option_parse_ia(DHCP6Option *iaoption, DHCP6IA *ia, uint16_t *ret_status_code) {
+int dhcp6_option_parse_ia(
+                DHCP6Option *iaoption,
+                be32_t iaid,
+                DHCP6IA *ia,
+                uint16_t *ret_status_code) {
+
         uint32_t lt_t1, lt_t2, lt_valid = 0, lt_min = UINT32_MAX;
         uint16_t iatype, optlen;
         size_t iaaddr_offset;
@@ -535,6 +540,14 @@ int dhcp6_option_parse_ia(DHCP6Option *iaoption, DHCP6IA *ia, uint16_t *ret_stat
                 if (len < DHCP6_OPTION_IA_NA_LEN)
                         return -ENOBUFS;
 
+                /* According to RFC8415, IAs which do not match the client's IAID should be ignored,
+                 * but not necessary to ignore or refuse the whole message. */
+                if (((const struct ia_na*) iaoption->data)->id != iaid)
+                        /* ENOANO indicates the option should be ignored. */
+                        return log_dhcp6_client_errno(client, SYNTHETIC_ERRNO(ENOANO),
+                                                      "Received an IA_NA option with a different IAID "
+                                                      "from the one chosen by the client, ignoring.");
+
                 iaaddr_offset = DHCP6_OPTION_IA_NA_LEN;
                 memcpy(&ia->ia_na, iaoption->data, sizeof(ia->ia_na));
 
@@ -553,6 +566,14 @@ int dhcp6_option_parse_ia(DHCP6Option *iaoption, DHCP6IA *ia, uint16_t *ret_stat
                 if (len < sizeof(ia->ia_pd))
                         return -ENOBUFS;
 
+                /* According to RFC8415, IAs which do not match the client's IAID should be ignored,
+                 * but not necessary to ignore or refuse the whole message. */
+                if (((const struct ia_pd*) iaoption->data)->id != iaid)
+                        /* ENOANO indicates the option should be ignored. */
+                        return log_dhcp6_client_errno(client, SYNTHETIC_ERRNO(ENOANO),
+                                                      "Received an IA_PD option with a different IAID "
+                                                      "from the one chosen by the client, ignoring.");
+
                 iaaddr_offset = sizeof(ia->ia_pd);
                 memcpy(&ia->ia_pd, iaoption->data, sizeof(ia->ia_pd));
 
@@ -570,13 +591,21 @@ int dhcp6_option_parse_ia(DHCP6Option *iaoption, DHCP6IA *ia, uint16_t *ret_stat
                 if (len < DHCP6_OPTION_IA_TA_LEN)
                         return -ENOBUFS;
 
+                /* According to RFC8415, IAs which do not match the client's IAID should be ignored,
+                 * but not necessary to ignore or refuse the whole message. */
+                if (((const struct ia_ta*) iaoption->data)->id != iaid)
+                        /* ENOANO indicates the option should be ignored. */
+                        return log_dhcp6_client_errno(client, SYNTHETIC_ERRNO(ENOANO),
+                                                      "Received an IA_TA option with a different IAID "
+                                                      "from the one chosen by the client, ignoring.");
+
                 iaaddr_offset = DHCP6_OPTION_IA_TA_LEN;
-                memcpy(&ia->ia_ta.id, iaoption->data, sizeof(ia->ia_ta));
+                memcpy(&ia->ia_ta, iaoption->data, sizeof(ia->ia_ta));
 
                 break;
 
         default:
-                return -ENOMSG;
+                return -EINVAL;
         }
 
         ia->type = iatype;

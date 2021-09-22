@@ -1102,7 +1102,6 @@ static int client_parse_message(
         while (pos < len) {
                 DHCP6Option *option = (DHCP6Option *) &message->options[pos];
                 uint16_t optcode, optlen;
-                be32_t iaid_lease;
                 int  status;
                 uint8_t *optval;
 
@@ -1181,23 +1180,13 @@ static int client_parse_message(
                                 break;
                         }
 
-                        r = dhcp6_option_parse_ia(option, &lease->ia, &ia_na_status);
-                        if (r < 0 && r != -ENOMSG)
+                        r = dhcp6_option_parse_ia(option, client->ia_pd.ia_na.id, &lease->ia, &ia_na_status);
+                        if (r < 0 && r != -ENOANO)
                                 return r;
 
                         if (ia_na_status == DHCP6_STATUS_NO_ADDRS_AVAIL) {
                                 pos += offsetof(DHCP6Option, data) + optlen;
                                 continue;
-                        }
-
-                        r = dhcp6_lease_get_iaid(lease, &iaid_lease);
-                        if (r < 0)
-                                return r;
-
-                        if (client->ia_na.ia_na.id != iaid_lease) {
-                                log_dhcp6_client(client, "%s has wrong IAID for IA NA",
-                                                 dhcp6_message_type_to_string(message->type));
-                                return -EINVAL;
                         }
 
                         if (lease->ia.addresses) {
@@ -1214,23 +1203,13 @@ static int client_parse_message(
                                 break;
                         }
 
-                        r = dhcp6_option_parse_ia(option, &lease->pd, &ia_pd_status);
-                        if (r < 0 && r != -ENOMSG)
+                        r = dhcp6_option_parse_ia(option, client->ia_pd.ia_pd.id, &lease->pd, &ia_pd_status);
+                        if (r < 0 && r != -ENOANO)
                                 return r;
 
                         if (ia_pd_status == DHCP6_STATUS_NO_PREFIX_AVAIL) {
                                 pos += offsetof(DHCP6Option, data) + optlen;
                                 continue;
-                        }
-
-                        r = dhcp6_lease_get_pd_iaid(lease, &iaid_lease);
-                        if (r < 0)
-                                return r;
-
-                        if (client->ia_pd.ia_pd.id != iaid_lease) {
-                                log_dhcp6_client(client, "%s has wrong IAID for IA PD",
-                                                 dhcp6_message_type_to_string(message->type));
-                                return -EINVAL;
                         }
 
                         if (lease->pd.addresses) {
