@@ -2358,6 +2358,8 @@ inst() {
     for fun in inst_symlink inst_script inst_binary inst_simple; do
         "$fun" "$@" && return 0
     done
+
+    dwarn "Failed to install '$1'"
     return 1
 }
 
