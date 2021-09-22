@@ -16,8 +16,14 @@ jobs:
         run_phase: [GCC, GCC_ASAN_UBSAN, CLANG, CLANG_ASAN_UBSAN]
     steps:
       - name: Repository checkout
-        uses: actions/checkout@v1
+        uses: actions/checkout@v2
       - name: Install build dependencies
         run: sudo -E .github/workflows/unit_tests.sh SETUP
       - name: Build & test (${{ matrix.run_phase }})
         run: sudo -E .github/workflows/unit_tests.sh RUN_${{ matrix.run_phase }}
+      - name: Coveralls
+        if: matrix.run_phase == 'GCC' && github.repository == 'systemd/systemd'
+        uses: coverallsapp/github-action@master
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          path-to-lcov: ./build/meson-logs/coverage.info

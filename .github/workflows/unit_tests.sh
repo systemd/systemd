@@ -8,6 +8,7 @@ ADDITIONAL_DEPS=(
     fdisk
     iproute2
     jekyll
+    lcov
     libfdisk-dev
     libfido2-dev
     libp11-kit-dev
@@ -45,10 +46,18 @@ for phase in "${PHASES[@]}"; do
                 export CC=clang
                 export CXX=clang++
             fi
-            meson --werror -Dtests=unsafe -Dslow-tests=true -Dfuzz-tests=true -Dman=true build
+            if [[ "$phase" = "RUN_GCC" ]]; then
+                MESON_ARGS+=(-Db_coverage=true)
+                # See FIXME below
+                (set +x; while :; do echo -ne "\n[WATCHDOG] $(date)\n"; sleep 30; done) &
+            fi
+            meson --werror -Dtests=unsafe -Dslow-tests=true -Dfuzz-tests=true -Dman=true "${MESON_ARGS[@]}" build
             ninja -C build -v
             # Some of the unsafe tests irreparably break the host's network connectivity, so run them in a namespace
             unshare -n bash -c 'ip link set dev lo up; meson test -C build --print-errorlogs'
+            if [[ "$phase" = "RUN_GCC" ]]; then
+                ninja -C build coverage
+            fi
             ;;
         RUN_ASAN_UBSAN|RUN_GCC_ASAN_UBSAN|RUN_CLANG_ASAN_UBSAN)
             MESON_ARGS=(--optimization=1)
