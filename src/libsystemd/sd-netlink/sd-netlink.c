@@ -81,8 +81,7 @@ int sd_netlink_new_from_fd(sd_netlink **ret, int fd) {
 
         addrlen = sizeof(nl->sockaddr);
 
-        r = getsockname(fd, &nl->sockaddr.sa, &addrlen);
-        if (r < 0)
+        if (getsockname(fd, &nl->sockaddr.sa, &addrlen) < 0)
                 return -errno;
 
         if (nl->sockaddr.nl.nl_family != AF_NETLINK)
@@ -446,11 +445,22 @@ static int process_match(sd_netlink *nl, sd_netlink_message *m) {
 
         LIST_FOREACH(match_callbacks, c, nl->match_callbacks) {
                 sd_netlink_slot *slot;
+                bool found = false;
 
                 if (c->type != type)
                         continue;
                 if (c->cmd != 0 && c->cmd != cmd)
                         continue;
+
+                for (size_t i = 0; i < c->n_groups; i++)
+                        if (c->groups[i] == m->multicast_group) {
+                                found = true;
+                                break;
+                        }
+
+                if (!found)
+                        continue;
+
 
                 slot = container_of(c, sd_netlink_slot, match_callback);
 
@@ -483,15 +493,12 @@ static int process_running(sd_netlink *nl, sd_netlink_message **ret) {
         if (!m)
                 goto null_message;
 
-        if (sd_netlink_message_is_broadcast(m)) {
+        if (sd_netlink_message_is_broadcast(m))
                 r = process_match(nl, m);
-                if (r != 0)
-                        goto null_message;
-        } else {
+        else
                 r = process_reply(nl, m);
-                if (r != 0)
-                        goto null_message;
-        }
+        if (r != 0)
+                goto null_message;
 
         if (ret) {
                 *ret = TAKE_PTR(m);
@@ -687,9 +694,13 @@ int sd_netlink_read(
                                 sizeof(sd_netlink_message*) * (nl->rqueue_size - i - 1));
                         nl->rqueue_size--;
 
-                        r = sd_netlink_message_get_errno(incoming);
-                        if (r < 0)
-                                return r;
+                        if (sd_netlink_message_is_error(incoming)) {
+                                r = sd_netlink_message_get_errno(incoming);
+                                if (r < 0)
+                                        return r;
+
+                                return -EIO;
+                        }
 
                         r = sd_netlink_message_get_type(incoming, &type);
                         if (r < 0)
