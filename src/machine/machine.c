@@ -32,6 +32,7 @@
 #include "unit-name.h"
 #include "user-util.h"
 #include "util.h"
+#include "cgroup-util.h"
 
 Machine* machine_new(Manager *manager, MachineClass class, const char *name) {
         Machine *m;
@@ -523,6 +524,40 @@ int machine_finalize(Machine *m) {
         return 0;
 }
 
+static bool machine_leader_pid_valid(Machine *m) {
+        _cleanup_free_ char *unit = NULL, *cgroup = NULL;
+        int r;
+
+        r = cg_pid_get_unit(m->leader, &unit);
+
+        if (r < 0) {
+                if (r == -ESRCH)
+                        log_info("Machine unit %s is active, but the leader process "PID_FMT" has exited.",
+                                  m->name, m->leader);
+                else
+                        log_info_errno(r, "Failed to get unit by leader process "PID_FMT" from cgroup: %m"
+                                           m->leader);
+                return false;
+        }
+
+        if (streq(m->unit, unit))
+                return true;
+        else {
+                log_info("Machine unit %s is active, but the leader process "PID_FMT" belongs to a different unit %s",
+                          m->name, m->leader, unit);
+                return false;
+        }
+
+        r = manager_get_unit_cgroup_path(m->manager, m->unit, &cgroup);
+        if (r == 0 && !isempty(cgroup) && cg_is_empty_recursive(SYSTEMD_CGROUP_CONTROLLER, cgroup) > 0) {
+                log_info("Cgroup is empty in the machine unit %s.", m->unit);
+                /*The vm will be added to gc list only when there is no any process in the scope*/
+                return false;
+        }
+
+        return true;
+}
+
 bool machine_may_gc(Machine *m, bool drop_not_started) {
         assert(m);
 
@@ -535,7 +570,7 @@ bool machine_may_gc(Machine *m, bool drop_not_started) {
         if (m->scope_job && manager_job_is_active(m->manager, m->scope_job))
                 return false;
 
-        if (m->unit && manager_unit_is_active(m->manager, m->unit))
+        if (m->unit && manager_unit_is_active(m->manager, m->unit) && machine_leader_pid_valid(m))
                 return false;
 
         return true;
