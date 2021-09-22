@@ -523,6 +523,10 @@ mouse:usb:v046dpc016:name:Logitech Optical USB Mouse:*
 mouse:usb:v046dpc01b:name:Logitech USB-PS/2 Optical Mouse:*
  MOUSE_DPI=400@125
 
+# Logitech USB-PS/2 M-BT96A
+mouse:usb:v046dpc03d:name:Logitech USB-PS/2 Optical Mouse:*
+ MOUSE_DPI=400@125
+
 # Logitech USB-PS/2 M-BT58
 mouse:usb:v046dpc03e:name:Logitech USB-PS/2 Optical Mouse:*
  MOUSE_DPI=400@125
