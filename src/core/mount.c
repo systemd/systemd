@@ -1020,7 +1020,9 @@ static void mount_enter_mounting(Mount *m) {
         if (r < 0)
                 goto fail;
 
-        (void) mkdir_p_label(m->where, m->directory_mode);
+        r = mkdir_p_label(m->where, m->directory_mode);
+        if (r < 0 && r != -EEXIST)
+                log_unit_warning_errno(UNIT(m), r, "Failed to create mount point '%s': %m", m->where);
 
         unit_warn_if_dir_nonempty(UNIT(m), m->where);
         unit_warn_leftover_processes(UNIT(m), unit_log_leftover_process_start);
