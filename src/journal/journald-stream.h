@@ -2,9 +2,9 @@
 #pragma once
 
 typedef struct StdoutStream StdoutStream;
+typedef struct Server Server;
 
 #include "fdset.h"
-#include "journald-server.h"
 
 int server_open_stdout_socket(Server *s, const char *stdout_socket);
 int server_restore_streams(Server *s, FDSet *fds);
