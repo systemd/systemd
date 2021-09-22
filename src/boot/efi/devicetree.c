@@ -31,7 +31,7 @@ static UINTN devicetree_allocated(const struct devicetree_state *state) {
 static VOID *devicetree_ptr(const struct devicetree_state *state) {
         assert(state);
         assert(state->addr <= UINTN_MAX);
-        return (VOID *)(UINTN)state->addr;
+        return PHYSICAL_ADDRESS_TO_POINTER(state->addr);
 }
 
 static EFI_STATUS devicetree_fixup(struct devicetree_state *state, UINTN len) {
@@ -91,9 +91,9 @@ EFI_STATUS devicetree_install(struct devicetree_state *state,
         if (EFI_ERROR(err))
                 return err;
 
-        info = LibFileInfo(handle);
-        if (!info)
-                return EFI_OUT_OF_RESOURCES;
+        err = get_file_info_harder(handle, &info, NULL);
+        if (EFI_ERROR(err))
+                return err;
         if (info->FileSize < FDT_V1_SIZE || info->FileSize > 32 * 1024 * 1024)
                 /* 32MB device tree blob doesn't seem right */
                 return EFI_INVALID_PARAMETER;
