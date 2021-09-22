@@ -6,12 +6,54 @@
 #include "sd-messages.h"
 
 #include "format-util.h"
+#include "io-util.h"
 #include "journal-authenticate.h"
 #include "journald-kmsg.h"
 #include "journald-server.h"
 #include "journald-syslog.h"
 #include "process-util.h"
 #include "sigbus.h"
+
+#define ENV_ALLOW_LIST "JOURNALD_TRUSTED_FIELD_ALLOW_LIST"
+
+static int parse_trusted_field_allow_list(Set **ret) {
+        _cleanup_set_free_free_ Set *s = NULL;
+        const char *e;
+        int r;
+
+        assert(ret);
+
+        e = getenv(ENV_ALLOW_LIST);
+        if (!e)
+                return 0;
+
+        for (const char *p = e;;) {
+                char *word = NULL;
+
+                r = extract_first_word(&p, &word, NULL, EXTRACT_UNQUOTE|EXTRACT_RETAIN_ESCAPE);
+                if (r == 0)
+                        break;
+                if (r == -ENOMEM)
+                        return log_oom();
+                if (r < 0) {
+                        log_warning("Invalid syntax for $" ENV_ALLOW_LIST ", ignoring: %s", e);
+                        break;
+                }
+
+                if (word[0] != '_') {
+                        log_warning("Field in $" ENV_ALLOW_LIST " is not a trusted field, ignoring: %s", word);
+                        continue;
+                }
+
+                r = iovec_set_ensure_put_string(&s, &iovec_hash_ops_free, word);
+                if (r < 0)
+                        return r;
+        }
+
+        *ret = TAKE_PTR(s);
+
+        return 0;
+}
 
 int main(int argc, char *argv[]) {
         const char *namespace;
@@ -49,6 +91,10 @@ int main(int argc, char *argv[]) {
         sigbus_install();
 
         r = server_init(&server, namespace);
+        if (r < 0)
+                goto finish;
+
+        r = parse_trusted_field_allow_list(&server.trusted_field_allow_list);
         if (r < 0)
                 goto finish;
 

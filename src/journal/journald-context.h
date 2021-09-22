@@ -10,8 +10,7 @@
 #include "time-util.h"
 
 typedef struct ClientContext ClientContext;
-
-#include "journald-server.h"
+typedef struct Server Server;
 
 struct ClientContext {
         unsigned n_ref;
