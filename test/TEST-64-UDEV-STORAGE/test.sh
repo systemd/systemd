@@ -33,6 +33,12 @@ _host_has_feature() {(
         btrfs)
             modprobe -nv btrfs && command -v mkfs.btrfs && command -v btrfs || return $?
             ;;
+        iscsi)
+            # Client/initiator (Open-iSCSI)
+            command -v iscsiadm && command -v iscsid || return $?
+            # Server/target (TGT)
+            command -v tgtadm && command -v tgtd || return $?
+            ;;
         lvm)
             command -v lvm || return $?
             ;;
@@ -56,6 +62,7 @@ test_append_files() {(
     # checked for here
     local -A features=(
         [btrfs]=install_btrfs
+        [iscsi]=install_iscsi
         [lvm]=install_lvm
         [multipath]=install_multipath
     )
@@ -362,6 +369,35 @@ testcase_btrfs_basic() {
     rm -f "${TESTDIR:?}"/btrfsbasic*.img
 }
 
+testcase_iscsi_lvm() {
+    if ! _host_has_feature "iscsi" || ! _host_has_feature "lvm"; then
+        echo "Missing iSCSI client/server tools (Open-iSCSI/TGT) or LVM utilities, skipping the test..."
+        return 77
+    fi
+
+    local qemu_opts=("-device ahci,id=ahci0")
+    local diskpath i size
+
+    for i in {0..3}; do
+        diskpath="${TESTDIR:?}/iscsibasic${i}.img"
+        # Make the first disk larger for multi-partition tests
+        [[ $i -eq 0 ]] && size=150 || size=64
+        # Make the first disk larger for multi-partition tests
+
+        dd if=/dev/zero of="$diskpath" bs=1M count="$size"
+        qemu_opts+=(
+            "-device ide-hd,bus=ahci0.$i,drive=drive$i,model=foobar,serial=deadbeefiscsi$i"
+            "-drive format=raw,cache=unsafe,file=$diskpath,if=none,id=drive$i"
+        )
+    done
+
+
+    KERNEL_APPEND="systemd.setenv=TEST_FUNCTION_NAME=${FUNCNAME[0]} ${USER_KERNEL_APPEND:-}"
+    QEMU_OPTIONS="${qemu_opts[*]} ${USER_QEMU_OPTIONS:-}"
+    test_run_one "${1:?}" || return $?
+
+    rm -f "${TESTDIR:?}"/iscsibasic*.img
+}
 # Allow overriding which tests should be run from the "outside", useful for manual
 # testing (make -C test/... TESTCASES="testcase1 testcase2")
 if [[ -v "TESTCASES" && -n "$TESTCASES" ]]; then
