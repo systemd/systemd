@@ -53,6 +53,42 @@ void genl_clear_family(sd_netlink *nl) {
         nl->genl_family_by_id = hashmap_free_with_destructor(nl->genl_family_by_id, genl_family_free);
 }
 
+static int genl_family_new_unsupported(
+                sd_netlink *nl,
+                const char *family_name,
+                const NLTypeSystem *type_system) {
+
+        _cleanup_(genl_family_freep) GenericNetlinkFamily *f = NULL;
+        int r;
+
+        assert(nl);
+        assert(family_name);
+        assert(type_system);
+
+        /* Kernel does not support the genl family? To prevent from resolving the family name again,
+         * let's store the family with zero id to indicate that. */
+
+        f = new(GenericNetlinkFamily, 1);
+        if (!f)
+                return -ENOMEM;
+
+        *f = (GenericNetlinkFamily) {
+                .type_system = type_system,
+        };
+
+        f->name = strdup(family_name);
+        if (!f->name)
+                return -ENOMEM;
+
+        r = hashmap_ensure_put(&nl->genl_family_by_name, &string_hash_ops, f->name, f);
+        if (r < 0)
+                return r;
+
+        f->genl = nl;
+        TAKE_PTR(f);
+        return 0;
+}
+
 static int genl_family_new(
                 sd_netlink *nl,
                 const char *expected_family_name,
@@ -78,28 +114,6 @@ static int genl_family_new(
         *f = (GenericNetlinkFamily) {
                 .type_system = type_system,
         };
-
-        if (sd_netlink_message_is_error(message)) {
-                int e;
-
-                /* Kernel does not support the genl family? To prevent from resolving the family name
-                 * again, let's store the family with zero id to indicate that. */
-
-                e = sd_netlink_message_get_errno(message);
-                if (e >= 0) /* Huh? */
-                        e = -EOPNOTSUPP;
-
-                f->name = strdup(expected_family_name);
-                if (!f->name)
-                        return e;
-
-                if (hashmap_ensure_put(&nl->genl_family_by_name, &string_hash_ops, f->name, f) < 0)
-                        return e;
-
-                f->genl = nl;
-                TAKE_PTR(f);
-                return e;
-        }
 
         r = sd_genl_message_get_family_name(nl, message, &family_name);
         if (r < 0)
@@ -261,9 +275,10 @@ static int genl_family_get_by_name_internal(
         if (r < 0)
                 return r;
 
-        r = sd_netlink_call(nl, req, 0, &reply);
-        if (r < 0)
-                return r;
+        if (sd_netlink_call(nl, req, 0, &reply) < 0) {
+                (void) genl_family_new_unsupported(nl, name, type_system);
+                return -EOPNOTSUPP;
+        }
 
         return genl_family_new(nl, name, type_system, reply, ret);
 }
