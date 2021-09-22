@@ -10,6 +10,7 @@
 #include "mkdir.h"
 #include "selinux-util.h"
 #include "smack-util.h"
+#include "string-util.h"
 #include "user-util.h"
 
 int mkdir_label(const char *path, mode_t mode) {
@@ -56,4 +57,12 @@ int mkdir_parents_label(const char *path, mode_t mode) {
 
 int mkdir_p_label(const char *path, mode_t mode) {
         return mkdir_p_internal(NULL, path, mode, UID_INVALID, UID_INVALID, 0, mkdir_label);
+}
+
+void mkdir_p_label_and_warn(const char *path, mode_t mode, const char *logsrc) {
+        int r;
+
+        r = mkdir_p_label(path, mode);
+        if (r < 0 && r != -EEXIST)
+                log_warning_errno(r, "%s%sFailed to create dir '%s', ignoring: %m", strempty(logsrc), isempty(logsrc) ? "" : ": ", path);
 }

@@ -746,7 +746,7 @@ int ask_password_agent(
         assert_se(sigset_add_many(&mask, SIGINT, SIGTERM, -1) >= 0);
         assert_se(sigprocmask(SIG_BLOCK, &mask, &oldmask) >= 0);
 
-        (void) mkdir_p_label("/run/systemd/ask-password", 0755);
+        mkdir_p_label_and_warn("/run/systemd/ask-password", 0755, NULL);
 
         if (FLAGS_SET(flags, ASK_PASSWORD_ACCEPT_CACHED) && keyname) {
                 r = ask_password_keyring(keyname, flags, ret);

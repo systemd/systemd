@@ -1263,7 +1263,7 @@ static int method_set_user_linger(sd_bus_message *message, void *userdata, sd_bu
         if (r == 0)
                 return 1; /* No authorization for now, but the async polkit stuff will call us again when it has it */
 
-        (void) mkdir_p_label("/var/lib/systemd", 0755);
+        mkdir_p_label_and_warn("/var/lib/systemd", 0755, NULL);
         r = mkdir_safe_label("/var/lib/systemd/linger", 0755, 0, 0, MKDIR_WARN_MODE);
         if (r < 0)
                 return r;
@@ -1353,7 +1353,7 @@ static int attach_device(Manager *m, const char *seat, const char *sysfs) {
         if (asprintf(&rule, "TAG==\"seat\", ENV{ID_FOR_SEAT}==\"%s\", ENV{ID_SEAT}=\"%s\"", id_for_seat, seat) < 0)
                 return -ENOMEM;
 
-        (void) mkdir_p_label("/etc/udev/rules.d", 0755);
+        mkdir_p_label_and_warn("/etc/udev/rules.d", 0755, NULL);
         r = write_string_file_atomic_label(file, rule);
         if (r < 0)
                 return r;

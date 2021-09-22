@@ -574,7 +574,7 @@ static void automount_enter_waiting(Automount *a) {
         if (r < 0)
                 goto fail;
 
-        (void) mkdir_p_label(a->where, a->directory_mode);
+        mkdir_p_label_and_warn(a->where, a->directory_mode, UNIT(a)->id);
 
         unit_warn_if_dir_nonempty(UNIT(a), a->where);
 
@@ -764,7 +764,7 @@ static void automount_enter_running(Automount *a) {
                 return;
         }
 
-        (void) mkdir_p_label(a->where, a->directory_mode);
+        mkdir_p_label_and_warn(a->where, a->directory_mode, UNIT(a)->id);
 
         /* Before we do anything, let's see if somebody is playing games with us? */
         if (lstat(a->where, &st) < 0) {
