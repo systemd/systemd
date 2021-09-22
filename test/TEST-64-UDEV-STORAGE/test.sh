@@ -11,6 +11,8 @@ set -e
 TEST_DESCRIPTION="systemd-udev storage tests"
 IMAGE_NAME="default"
 TEST_NO_NSPAWN=1
+# Save only journals of failing test cases by default (to conserve space)
+TEST_SAVE_JOURNAL="${TEST_SAVE_JOURNAL:-fail}"
 QEMU_TIMEOUT="${QEMU_TIMEOUT:-600}"
 
 # shellcheck source=test/test-functions
