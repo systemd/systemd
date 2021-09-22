@@ -4356,7 +4356,7 @@ int unit_write_setting(Unit *u, UnitWriteFlags flags, const char *name, const ch
         if (r < 0)
                 return r;
 
-        (void) mkdir_p_label(p, 0755);
+        mkdir_p_label_and_warn(p, 0755, u->id);
 
         /* Make sure the drop-in dir is registered in our path cache. This way we don't need to stupidly
          * recreate the cache after every drop-in we write. */
@@ -4413,7 +4413,7 @@ int unit_make_transient(Unit *u) {
         if (!UNIT_VTABLE(u)->can_transient)
                 return -EOPNOTSUPP;
 
-        (void) mkdir_p_label(u->manager->lookup_paths.transient, 0755);
+        mkdir_p_label_and_warn(u->manager->lookup_paths.transient, 0755, u->id);
 
         path = path_join(u->manager->lookup_paths.transient, u->id);
         if (!path)

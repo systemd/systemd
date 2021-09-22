@@ -1020,7 +1020,7 @@ static void mount_enter_mounting(Mount *m) {
         if (r < 0)
                 goto fail;
 
-        (void) mkdir_p_label(m->where, m->directory_mode);
+        mkdir_p_label_and_warn(m->where, m->directory_mode, UNIT(m)->id);
 
         unit_warn_if_dir_nonempty(UNIT(m), m->where);
         unit_warn_leftover_processes(UNIT(m), unit_log_leftover_process_start);

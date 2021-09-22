@@ -826,7 +826,7 @@ static int mount_overlay(const char *dest, CustomMount *m) {
                         return log_error_errno(r, "Creating mount point for overlay %s failed: %m", where);
         }
 
-        (void) mkdir_p_label(m->source, 0755);
+        mkdir_p_label_and_warn(m->source, 0755, NULL);
 
         lower = joined_and_escaped_lower_dirs(m->lower);
         if (!lower)
