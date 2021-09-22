@@ -154,7 +154,7 @@ int getpeergroups(int fd, gid_t **ret);
 ssize_t send_one_fd_iov_sa(
                 int transport_fd,
                 int fd,
-                struct iovec *iov, size_t iovlen,
+                const struct iovec *iov, size_t iovlen,
                 const struct sockaddr *sa, socklen_t len,
                 int flags);
 int send_one_fd_sa(int transport_fd,

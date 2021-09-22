@@ -2296,7 +2296,7 @@ if conf.get('ENABLE_PORTABLED') == 1
                 systemd_portabled_sources,
                 include_directories : includes,
                 link_with : [libshared],
-                dependencies : [threads],
+                dependencies : [threads, libselinux],
                 install_rpath : rootlibexecdir,
                 install : true,
                 install_dir : rootlibexecdir)
