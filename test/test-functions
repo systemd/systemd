@@ -1550,7 +1550,7 @@ install_basic_tools() {
 
 install_debug_tools() {
     dinfo "Install debug tools"
-    image_install "${DEBUGTOOLS[@]}"
+    image_install -o "${DEBUGTOOLS[@]}"
 
     if get_bool "$INTERACTIVE_DEBUG"; then
         # Set default TERM from vt220 to linux, so at least basic key shortcuts work
