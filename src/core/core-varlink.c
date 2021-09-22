@@ -509,7 +509,7 @@ static int manager_varlink_init_system(Manager *m) {
                 return log_error_errno(r, "Failed to register varlink disconnect handler: %m");
 
         if (!MANAGER_IS_TEST_RUN(m)) {
-                (void) mkdir_p_label("/run/systemd/userdb", 0755);
+                (void) mkdir_p_label_and_warn("/run/systemd/userdb", 0755, NULL);
 
                 r = varlink_server_listen_address(s, "/run/systemd/userdb/io.systemd.DynamicUser", 0666);
                 if (r < 0)

@@ -346,7 +346,7 @@ static int process_and_watch_password_files(bool watch) {
 
         tty_block_fd = wall_tty_block();
 
-        (void) mkdir_p_label("/run/systemd/ask-password", 0755);
+        (void) mkdir_p_label_and_warn("/run/systemd/ask-password", 0755, NULL);
 
         assert_se(sigemptyset(&mask) >= 0);
         assert_se(sigset_add_many(&mask, SIGTERM, -1) >= 0);

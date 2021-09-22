@@ -934,7 +934,7 @@ static int mount_private_dev(MountEntry *m) {
          * missing when the service is started with RootDirectory. This is
          * consistent with mount units creating the mount points when missing.
          */
-        (void) mkdir_p_label(mount_entry_path(m), 0755);
+        (void) mkdir_p_label_and_warn(mount_entry_path(m), 0755, NULL);
 
         /* Unmount everything in old /dev */
         r = umount_recursive(mount_entry_path(m), 0);
@@ -978,7 +978,7 @@ static int mount_bind_dev(const MountEntry *m) {
         /* Implements the little brother of mount_private_dev(): simply bind mounts the host's /dev into the service's
          * /dev. This is only used when RootDirectory= is set. */
 
-        (void) mkdir_p_label(mount_entry_path(m), 0755);
+        (void) mkdir_p_label_and_warn(mount_entry_path(m), 0755, NULL);
 
         r = path_is_mount_point(mount_entry_path(m), NULL, 0);
         if (r < 0)
@@ -998,7 +998,7 @@ static int mount_sysfs(const MountEntry *m) {
 
         assert(m);
 
-        (void) mkdir_p_label(mount_entry_path(m), 0755);
+        (void) mkdir_p_label_and_warn(mount_entry_path(m), 0755, NULL);
 
         r = path_is_mount_point(mount_entry_path(m), NULL, 0);
         if (r < 0)
@@ -1040,7 +1040,7 @@ static int mount_procfs(const MountEntry *m, const NamespaceInfo *ns_info) {
         }
 
         entry_path = mount_entry_path(m);
-        (void) mkdir_p_label(entry_path, 0755);
+        (void) mkdir_p_label_and_warn(entry_path, 0755, NULL);
 
         /* Mount a new instance, so that we get the one that matches our user namespace, if we are running in
          * one. i.e we don't reuse existing mounts here under any condition, we want a new instance owned by
@@ -1087,7 +1087,7 @@ static int mount_tmpfs(const MountEntry *m) {
 
         /* First, get rid of everything that is below if there is anything. Then, overmount with our new tmpfs */
 
-        (void) mkdir_p_label(entry_path, 0755);
+        (void) mkdir_p_label_and_warn(entry_path, 0755, NULL);
         (void) umount_recursive(entry_path, 0);
 
         r = mount_nofollow_verbose(LOG_DEBUG, "tmpfs", entry_path, "tmpfs", m->flags, mount_entry_options(m));
@@ -1123,7 +1123,7 @@ static int mount_mqueuefs(const MountEntry *m) {
 
         entry_path = mount_entry_path(m);
 
-        (void) mkdir_p_label(entry_path, 0755);
+        (void) mkdir_p_label_and_warn(entry_path, 0755, NULL);
         (void) umount_recursive(entry_path, 0);
 
         r = mount_nofollow_verbose(LOG_DEBUG, "mqueue", entry_path, "mqueue", m->flags, mount_entry_options(m));
@@ -1180,7 +1180,7 @@ static int mount_overlay(const MountEntry *m) {
 
         options = strjoina("lowerdir=", mount_entry_options(m));
 
-        (void) mkdir_p_label(mount_entry_path(m), 0755);
+        (void) mkdir_p_label_and_warn(mount_entry_path(m), 0755, NULL);
 
         r = mount_nofollow_verbose(LOG_DEBUG, "overlay", mount_entry_path(m), "overlay", MS_RDONLY, options);
         if (r == -ENOENT && m->ignore)
@@ -1929,7 +1929,7 @@ int setup_namespace(
                 /* /run/systemd should have been created by PID 1 early on already, but in some cases, like
                  * when running tests (test-execute), it might not have been created yet so let's make sure
                  * we create it if it doesn't already exist. */
-                (void) mkdir_p_label("/run/systemd", 0755);
+                (void) mkdir_p_label_and_warn("/run/systemd", 0755, NULL);
 
                 /* Always create the mount namespace in a temporary directory, instead of operating
                  * directly in the root. The temporary directory prevents any mounts from being

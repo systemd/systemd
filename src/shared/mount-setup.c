@@ -178,7 +178,7 @@ static int mount_one(const MountPoint *p, bool relabel) {
         /* The access mode here doesn't really matter too much, since
          * the mounted file system will take precedence anyway. */
         if (relabel)
-                (void) mkdir_p_label(p->where, 0755);
+                (void) mkdir_p_label_and_warn(p->where, 0755, NULL);
         else
                 (void) mkdir_p(p->where, 0755);
 
