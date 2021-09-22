@@ -270,6 +270,7 @@ int main(void) {
         test_dhcp_hostname_shorten_overlong();
 
         assert_se(manager_new(&manager) >= 0);
+        assert_se(manager_setup(manager, /* test_mode = */ true) >= 0);
 
         test_route_tables(manager);
 
