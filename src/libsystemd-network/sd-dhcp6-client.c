@@ -1188,7 +1188,7 @@ static int client_parse_message(
                                 break;
                         }
 
-                        r = dhcp6_option_parse_ia(client, option, client->ia_pd.ia_na.id, &lease->ia, &ia_na_status);
+                        r = dhcp6_option_parse_ia(client, client->ia_pd.ia_na.id, optcode, optlen, optval, &lease->ia, &ia_na_status);
                         if (r < 0 && r != -ENOANO)
                                 return r;
 
@@ -1210,7 +1210,7 @@ static int client_parse_message(
                                 break;
                         }
 
-                        r = dhcp6_option_parse_ia(client, option, client->ia_pd.ia_pd.id, &lease->pd, &ia_pd_status);
+                        r = dhcp6_option_parse_ia(client, client->ia_pd.ia_pd.id, optcode, optlen, optval, &lease->pd, &ia_pd_status);
                         if (r < 0 && r != -ENOANO)
                                 return r;
 
