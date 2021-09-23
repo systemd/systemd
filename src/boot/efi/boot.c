@@ -7,6 +7,7 @@
 #include "console.h"
 #include "devicetree.h"
 #include "disk.h"
+#include "drivers.h"
 #include "efi-loader-features.h"
 #include "graphics.h"
 #include "linux.h"
@@ -366,7 +367,7 @@ static UINTN entry_lookup_key(Config *config, UINTN start, CHAR16 key) {
 }
 
 static VOID print_status(Config *config, CHAR16 *loaded_image_path) {
-        UINT64 key, indvar;
+        UINT64 key;
         UINTN timeout;
         BOOLEAN modevar;
         _cleanup_freepool_ CHAR16 *partstr = NULL, *defaultstr = NULL;
@@ -394,8 +395,7 @@ static VOID print_status(Config *config, CHAR16 *loaded_image_path) {
         if (shim_loaded())
                 Print(L"Shim:                   present\n");
 
-        if (efivar_get_uint64_le(EFI_GLOBAL_GUID, L"OsIndicationsSupported", &indvar) == EFI_SUCCESS)
-                Print(L"OsIndicationsSupported: %d\n", indvar);
+        Print(L"OsIndicationsSupported: %d\n", get_os_indications_supported());
 
         Print(L"\n--- press key ---\n\n");
         console_key_read(&key, 0);
@@ -517,7 +517,8 @@ static BOOLEAN menu_run(
         BOOLEAN refresh = TRUE, highlight = FALSE;
         UINTN x_start = 0, y_start = 0, y_status = 0;
         UINTN x_max, y_max;
-        CHAR16 **lines = NULL, *status = NULL, *clearline = NULL;
+        CHAR16 **lines = NULL;
+        _cleanup_freepool_ CHAR16 *clearline = NULL, *status = NULL;
         UINTN timeout_remain = config->timeout_sec;
         INT16 idx;
         BOOLEAN exit = FALSE, run = TRUE;
@@ -901,7 +902,6 @@ static BOOLEAN menu_run(
         for (UINTN i = 0; i < config->entry_count; i++)
                 FreePool(lines[i]);
         FreePool(lines);
-        FreePool(clearline);
 
         clear_screen(COLOR_NORMAL);
         return run;
@@ -1225,7 +1225,7 @@ static VOID config_entry_bump_counters(
         _cleanup_(FileHandleClosep) EFI_FILE_HANDLE handle = NULL;
         static const EFI_GUID EfiFileInfoGuid = EFI_FILE_INFO_ID;
         _cleanup_freepool_ EFI_FILE_INFO *file_info = NULL;
-        UINTN file_info_size, a, b;
+        UINTN file_info_size;
         EFI_STATUS r;
 
         assert(entry);
@@ -1243,26 +1243,9 @@ static VOID config_entry_bump_counters(
         if (EFI_ERROR(r))
                 return;
 
-        a = StrLen(entry->current_name);
-        b = StrLen(entry->next_name);
-
-        file_info_size = OFFSETOF(EFI_FILE_INFO, FileName) + (a > b ? a : b) + 1;
-
-        for (;;) {
-                file_info = AllocatePool(file_info_size);
-
-                r = uefi_call_wrapper(handle->GetInfo, 4, handle, (EFI_GUID*) &EfiFileInfoGuid, &file_info_size, file_info);
-                if (!EFI_ERROR(r))
-                        break;
-
-                if (r != EFI_BUFFER_TOO_SMALL || file_info_size * 2 < file_info_size) {
-                        log_error_stall(L"Failed to get file info for '%s': %r", old_path, r);
-                        return;
-                }
-
-                file_info_size *= 2;
-                FreePool(file_info);
-        }
+        r = get_file_info_harder(handle, &file_info, &file_info_size);
+        if (EFI_ERROR(r))
+                return;
 
         /* And rename the file */
         StrCpy(file_info->FileName, entry->next_name);
@@ -1487,9 +1470,11 @@ static VOID config_load_entries(
                 Config *config,
                 EFI_HANDLE *device,
                 EFI_FILE *root_dir,
-                CHAR16 *loaded_image_path) {
+                const CHAR16 *loaded_image_path) {
 
         _cleanup_(FileHandleClosep) EFI_FILE_HANDLE entries_dir = NULL;
+        _cleanup_freepool_ EFI_FILE_INFO *f = NULL;
+        UINTN f_size = 0;
         EFI_STATUS err;
 
         assert(config);
@@ -1497,22 +1482,17 @@ static VOID config_load_entries(
         assert(root_dir);
         assert(loaded_image_path);
 
-        err = uefi_call_wrapper(root_dir->Open, 5, root_dir, &entries_dir, (CHAR16*) L"\\loader\\entries", EFI_FILE_MODE_READ, 0ULL);
+        err = open_directory(root_dir, L"\\loader\\entries", &entries_dir);
         if (EFI_ERROR(err))
                 return;
 
         for (;;) {
-                CHAR16 buf[256];
-                UINTN bufsize;
-                EFI_FILE_INFO *f;
                 _cleanup_freepool_ CHAR8 *content = NULL;
 
-                bufsize = sizeof(buf);
-                err = uefi_call_wrapper(entries_dir->Read, 3, entries_dir, &bufsize, buf);
-                if (bufsize == 0 || EFI_ERROR(err))
+                err = readdir_harder(entries_dir, &f, &f_size);
+                if (f_size == 0 || EFI_ERROR(err))
                         break;
 
-                f = (EFI_FILE_INFO *) buf;
                 if (f->FileName[0] == '.')
                         continue;
                 if (f->Attribute & EFI_FILE_DIRECTORY)
@@ -1529,7 +1509,7 @@ static VOID config_load_entries(
         }
 }
 
-static INTN config_entry_compare(ConfigEntry *a, ConfigEntry *b) {
+static INTN config_entry_compare(const ConfigEntry *a, const ConfigEntry *b) {
         INTN r;
 
         assert(a);
@@ -1567,24 +1547,7 @@ static INTN config_entry_compare(ConfigEntry *a, ConfigEntry *b) {
 static VOID config_sort_entries(Config *config) {
         assert(config);
 
-        for (UINTN i = 1; i < config->entry_count; i++) {
-                BOOLEAN more;
-
-                more = FALSE;
-                for (UINTN k = 0; k < config->entry_count - i; k++) {
-                        ConfigEntry *entry;
-
-                        if (config_entry_compare(config->entries[k], config->entries[k+1]) <= 0)
-                                continue;
-
-                        entry = config->entries[k];
-                        config->entries[k] = config->entries[k+1];
-                        config->entries[k+1] = entry;
-                        more = TRUE;
-                }
-                if (!more)
-                        break;
-        }
+        sort_pointer_array((void**) config->entries, config->entry_count, (compare_pointer_func_t) config_entry_compare);
 }
 
 static INTN config_entry_find(Config *config, CHAR16 *id) {
@@ -1978,21 +1941,23 @@ static VOID config_entry_add_linux(
                 EFI_FILE *root_dir) {
 
         _cleanup_(FileHandleClosep) EFI_FILE_HANDLE linux_dir = NULL;
-        EFI_STATUS err;
+        _cleanup_freepool_ EFI_FILE_INFO *f = NULL;
         ConfigEntry *entry;
+        UINTN f_size = 0;
+        EFI_STATUS err;
 
         assert(config);
         assert(device);
         assert(root_dir);
 
-        err = uefi_call_wrapper(root_dir->Open, 5, root_dir, &linux_dir, (CHAR16*) L"\\EFI\\Linux", EFI_FILE_MODE_READ, 0ULL);
+        err = open_directory(root_dir, L"\\EFI\\Linux", &linux_dir);
         if (EFI_ERROR(err))
                 return;
 
         for (;;) {
-                CHAR16 buf[256];
-                UINTN bufsize = sizeof buf;
-                EFI_FILE_INFO *f;
+                _cleanup_freepool_ CHAR16 *os_name_pretty = NULL, *os_name = NULL, *os_id = NULL,
+                        *os_version = NULL, *os_version_id = NULL, *os_build_id = NULL, *os_image_version = NULL;
+                _cleanup_freepool_ CHAR8 *content = NULL;
                 const CHAR8 *sections[] = {
                         (CHAR8 *)".osrel",
                         (CHAR8 *)".cmdline",
@@ -2000,22 +1965,14 @@ static VOID config_entry_add_linux(
                 };
                 UINTN offs[ELEMENTSOF(sections)-1] = {};
                 UINTN szs[ELEMENTSOF(sections)-1] = {};
-                CHAR8 *content = NULL;
                 CHAR8 *line;
                 UINTN pos = 0;
                 CHAR8 *key, *value;
-                CHAR16 *os_name_pretty = NULL;
-                CHAR16 *os_name = NULL;
-                CHAR16 *os_id = NULL;
-                CHAR16 *os_version = NULL;
-                CHAR16 *os_version_id = NULL;
-                CHAR16 *os_build_id = NULL;
 
-                err = uefi_call_wrapper(linux_dir->Read, 3, linux_dir, &bufsize, buf);
-                if (bufsize == 0 || EFI_ERROR(err))
+                err = readdir_harder(linux_dir, &f, &f_size);
+                if (f_size == 0 || EFI_ERROR(err))
                         break;
 
-                f = (EFI_FILE_INFO *) buf;
                 if (f->FileName[0] == '.')
                         continue;
                 if (f->Attribute & EFI_FILE_DIRECTORY)
@@ -2071,16 +2028,28 @@ static VOID config_entry_add_linux(
                                 os_build_id = stra_to_str(value);
                                 continue;
                         }
+
+                        if (strcmpa((const CHAR8*) "IMAGE_VERSION", key) == 0) {
+                                FreePool(os_image_version);
+                                os_image_version = stra_to_str(value);
+                                continue;
+                        }
                 }
 
-                if ((os_name_pretty || os_name) && os_id && (os_version || os_version_id || os_build_id)) {
+                if ((os_name_pretty || os_name) && os_id && (os_image_version || os_version || os_version_id || os_build_id)) {
                         _cleanup_freepool_ CHAR16 *path = NULL;
 
                         path = PoolPrint(L"\\EFI\\Linux\\%s", f->FileName);
 
-                        entry = config_entry_add_loader(config, device, LOADER_LINUX, f->FileName, 'l',
-                                                        os_name_pretty ?: os_name, path,
-                                                        os_version ?: (os_version_id ? : os_build_id));
+                        entry = config_entry_add_loader(
+                                        config,
+                                        device,
+                                        LOADER_LINUX,
+                                        f->FileName,
+                                        /* key= */ 'l',
+                                        os_name_pretty ?: os_name,
+                                        path,
+                                        os_image_version ?: (os_version ?: (os_version_id ? : os_build_id)));
 
                         FreePool(content);
                         content = NULL;
@@ -2098,14 +2067,6 @@ static VOID config_entry_add_linux(
 
                         config_entry_parse_tries(entry, L"\\EFI\\Linux", f->FileName, L".efi");
                 }
-
-                FreePool(os_name_pretty);
-                FreePool(os_name);
-                FreePool(os_id);
-                FreePool(os_version);
-                FreePool(os_version_id);
-                FreePool(os_build_id);
-                FreePool(content);
         }
 }
 
@@ -2364,14 +2325,8 @@ static EFI_STATUS image_start(
                 loaded_image->LoadOptions = options;
                 loaded_image->LoadOptionsSize = StrSize(loaded_image->LoadOptions);
 
-#if ENABLE_TPM
                 /* Try to log any options to the TPM, especially to catch manually edited options */
-                err = tpm_log_event(SD_TPM_PCR,
-                                    (EFI_PHYSICAL_ADDRESS) (UINTN) loaded_image->LoadOptions,
-                                    loaded_image->LoadOptionsSize, loaded_image->LoadOptions);
-                if (EFI_ERROR(err))
-                        log_error_stall(L"Unable to add image options measurement: %r", err);
-#endif
+                (VOID) tpm_log_load_options(options);
         }
 
         efivar_set_time_usec(LOADER_GUID, L"LoaderTimeExecUSec", 0);
@@ -2436,7 +2391,11 @@ static VOID config_write_entries_to_variable(Config *config) {
         (void) efivar_set_raw(LOADER_GUID, L"LoaderEntries", buffer, sz, 0);
 }
 
-EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
+static VOID export_variables(
+                EFI_LOADED_IMAGE *loaded_image,
+                const CHAR16 *loaded_image_path,
+                UINT64 init_usec) {
+
         static const UINT64 loader_features =
                 EFI_LOADER_FEATURE_CONFIG_TIMEOUT |
                 EFI_LOADER_FEATURE_CONFIG_TIMEOUT_ONE_SHOT |
@@ -2445,21 +2404,15 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
                 EFI_LOADER_FEATURE_BOOT_COUNTING |
                 EFI_LOADER_FEATURE_XBOOTLDR |
                 EFI_LOADER_FEATURE_RANDOM_SEED |
+                EFI_LOADER_FEATURE_LOAD_DRIVER |
                 0;
 
         _cleanup_freepool_ CHAR16 *infostr = NULL, *typestr = NULL;
-        UINT64 osind = 0;
-        EFI_LOADED_IMAGE *loaded_image;
-        EFI_FILE *root_dir;
-        CHAR16 *loaded_image_path;
-        EFI_STATUS err;
-        Config config;
-        UINT64 init_usec;
-        BOOLEAN menu = FALSE;
         CHAR16 uuid[37];
 
-        InitializeLib(image, sys_table);
-        init_usec = time_usec();
+        assert(loaded_image);
+        assert(loaded_image_path);
+
         efivar_set_time_usec(LOADER_GUID, L"LoaderTimeInitUSec", init_usec);
         efivar_set(LOADER_GUID, L"LoaderInfo", L"systemd-boot " GIT_VERSION, 0);
 
@@ -2471,14 +2424,82 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
 
         (void) efivar_set_uint64_le(LOADER_GUID, L"LoaderFeatures", loader_features, 0);
 
-        err = uefi_call_wrapper(BS->OpenProtocol, 6, image, &LoadedImageProtocol, (VOID **)&loaded_image,
-                                image, NULL, EFI_OPEN_PROTOCOL_GET_PROTOCOL);
-        if (EFI_ERROR(err))
-                return log_error_status_stall(err, L"Error getting a LoadedImageProtocol handle: %r", err);
+        /* the filesystem path to this image, to prevent adding ourselves to the menu */
+        efivar_set(LOADER_GUID, L"LoaderImageIdentifier", loaded_image_path, 0);
 
         /* export the device path this image is started from */
         if (disk_get_part_uuid(loaded_image->DeviceHandle, uuid) == EFI_SUCCESS)
                 efivar_set(LOADER_GUID, L"LoaderDevicePartUUID", uuid, 0);
+}
+
+static VOID config_load_all_entries(
+                Config *config,
+                EFI_LOADED_IMAGE *loaded_image,
+                const CHAR16 *loaded_image_path,
+                EFI_FILE *root_dir) {
+
+        assert(config);
+        assert(loaded_image);
+        assert(loaded_image_path);
+        assert(root_dir);
+
+        config_load_defaults(config, root_dir);
+
+        /* scan /EFI/Linux/ directory */
+        config_entry_add_linux(config, loaded_image->DeviceHandle, root_dir);
+
+        /* scan /loader/entries/\*.conf files */
+        config_load_entries(config, loaded_image->DeviceHandle, root_dir, loaded_image_path);
+
+        /* Similar, but on any XBOOTLDR partition */
+        config_load_xbootldr(config, loaded_image->DeviceHandle);
+
+        /* sort entries after version number */
+        config_sort_entries(config);
+
+        /* if we find some well-known loaders, add them to the end of the list */
+        config_entry_add_osx(config);
+        config_entry_add_windows(config, loaded_image->DeviceHandle, root_dir);
+        config_entry_add_loader_auto(config, loaded_image->DeviceHandle, root_dir, NULL,
+                                     L"auto-efi-shell", 's', L"EFI Shell", L"\\shell" EFI_MACHINE_TYPE_NAME ".efi");
+        config_entry_add_loader_auto(config, loaded_image->DeviceHandle, root_dir, loaded_image_path,
+                                     L"auto-efi-default", '\0', L"EFI Default Loader", NULL);
+
+        if (config->auto_firmware && (get_os_indications_supported() & EFI_OS_INDICATIONS_BOOT_TO_FW_UI))
+                config_entry_add_call(config,
+                                      L"auto-reboot-to-firmware-setup",
+                                      L"Reboot Into Firmware Interface",
+                                      reboot_into_firmware);
+}
+
+EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
+        _cleanup_freepool_ EFI_LOADED_IMAGE *loaded_image = NULL;
+        _cleanup_(FileHandleClosep) EFI_FILE *root_dir = NULL;
+        CHAR16 *loaded_image_path;
+        EFI_STATUS err;
+        Config config;
+        UINT64 init_usec;
+        BOOLEAN menu = FALSE;
+
+        InitializeLib(image, sys_table);
+        init_usec = time_usec();
+
+        err = uefi_call_wrapper(
+                        BS->OpenProtocol, 6,
+                        image,
+                        &LoadedImageProtocol,
+                        (VOID **)&loaded_image,
+                        image,
+                        NULL,
+                        EFI_OPEN_PROTOCOL_GET_PROTOCOL);
+        if (EFI_ERROR(err))
+                return log_error_status_stall(err, L"Error getting a LoadedImageProtocol handle: %r", err);
+
+        loaded_image_path = DevicePathToStr(loaded_image->FilePath);
+        if (!loaded_image_path)
+                return log_oom();
+
+        export_variables(loaded_image, loaded_image_path, init_usec);
 
         root_dir = LibOpenRoot(loaded_image->DeviceHandle);
         if (!root_dir)
@@ -2490,39 +2511,9 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
                         return log_error_status_stall(err, L"Error installing security policy: %r", err);
         }
 
-        /* the filesystem path to this image, to prevent adding ourselves to the menu */
-        loaded_image_path = DevicePathToStr(loaded_image->FilePath);
-        efivar_set(LOADER_GUID, L"LoaderImageIdentifier", loaded_image_path, 0);
+        (VOID) load_drivers(image, loaded_image, root_dir);
 
-        config_load_defaults(&config, root_dir);
-
-        /* scan /EFI/Linux/ directory */
-        config_entry_add_linux(&config, loaded_image->DeviceHandle, root_dir);
-
-        /* scan /loader/entries/\*.conf files */
-        config_load_entries(&config, loaded_image->DeviceHandle, root_dir, loaded_image_path);
-
-        /* Similar, but on any XBOOTLDR partition */
-        config_load_xbootldr(&config, loaded_image->DeviceHandle);
-
-        /* sort entries after version number */
-        config_sort_entries(&config);
-
-        /* if we find some well-known loaders, add them to the end of the list */
-        config_entry_add_osx(&config);
-        config_entry_add_windows(&config, loaded_image->DeviceHandle, root_dir);
-        config_entry_add_loader_auto(&config, loaded_image->DeviceHandle, root_dir, NULL,
-                                     L"auto-efi-shell", 's', L"EFI Shell", L"\\shell" EFI_MACHINE_TYPE_NAME ".efi");
-        config_entry_add_loader_auto(&config, loaded_image->DeviceHandle, root_dir, loaded_image_path,
-                                     L"auto-efi-default", '\0', L"EFI Default Loader", NULL);
-
-        if (config.auto_firmware && efivar_get_uint64_le(EFI_GLOBAL_GUID, L"OsIndicationsSupported", &osind) == EFI_SUCCESS) {
-                if (osind & EFI_OS_INDICATIONS_BOOT_TO_FW_UI)
-                        config_entry_add_call(&config,
-                                              L"auto-reboot-to-firmware-setup",
-                                              L"Reboot Into Firmware Interface",
-                                              reboot_into_firmware);
-        }
+        config_load_all_entries(&config, loaded_image, loaded_image_path, root_dir);
 
         if (config.entry_count == 0) {
                 log_error_stall(L"No loader found. Configuration files in \\loader\\entries\\*.conf are needed.");
@@ -2601,9 +2592,7 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
         }
         err = EFI_SUCCESS;
 out:
-        FreePool(loaded_image_path);
         config_free(&config);
-        uefi_call_wrapper(root_dir->Close, 1, root_dir);
         uefi_call_wrapper(BS->CloseProtocol, 4, image, &LoadedImageProtocol, image, NULL);
         return err;
 }
