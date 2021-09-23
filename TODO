@@ -83,6 +83,14 @@ Janitorial Clean-ups:
 
 Features:
 
+* we probably should extend the root verity hash of the root fs into some PCR
+  on boot. (i.e. maybe add a crypttab option tpm2-measure=8 or so to measure it
+  into PCR 8)
+
+* add a "policy" to the dissection logic. i.e. a bit mask what is OK to mount,
+  what must be read-only, what requires encryption, and what requires
+  authentication.
+
 * in uefi stub: query firmware regarding which PCRs are being used, store that
   in EFI var. then use this when enrolling TPM2 in cryptsetup to verify that
   the selected PCRs actually are used by firmware.
