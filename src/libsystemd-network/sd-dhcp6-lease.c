@@ -259,9 +259,6 @@ int sd_dhcp6_lease_get_domains(sd_dhcp6_lease *lease, char ***domains) {
 
 int dhcp6_lease_set_ntp(sd_dhcp6_lease *lease, uint8_t *optval, size_t optlen) {
         int r;
-        uint16_t subopt;
-        size_t sublen;
-        uint8_t *subval;
 
         assert_return(lease, -EINVAL);
         assert_return(optval, -EINVAL);
@@ -269,10 +266,14 @@ int dhcp6_lease_set_ntp(sd_dhcp6_lease *lease, uint8_t *optval, size_t optlen) {
         lease->ntp = mfree(lease->ntp);
         lease->ntp_count = 0;
 
-        while ((r = dhcp6_option_parse(&optval, &optlen, &subopt, &sublen,
-                                       &subval)) >= 0) {
-                int s;
-                char **servers;
+        for (size_t offset = 0; offset < optlen;) {
+                const uint8_t *subval;
+                size_t sublen;
+                uint16_t subopt;
+
+                r = dhcp6_option_parse(optval, optlen, &offset, &subopt, &sublen, &subval);
+                if (r < 0)
+                        return r;
 
                 switch(subopt) {
                 case DHCP6_NTP_SUBOPTION_SRV_ADDR:
@@ -280,19 +281,18 @@ int dhcp6_lease_set_ntp(sd_dhcp6_lease *lease, uint8_t *optval, size_t optlen) {
                         if (sublen != 16)
                                 return 0;
 
-                        s = dhcp6_option_parse_ip6addrs(subval, sublen,
-                                                        &lease->ntp,
-                                                        lease->ntp_count);
-                        if (s < 0)
-                                return s;
+                        r = dhcp6_option_parse_ip6addrs(subval, sublen, &lease->ntp, lease->ntp_count);
+                        if (r < 0)
+                                return r;
 
-                        lease->ntp_count = s;
+                        lease->ntp_count = r;
 
                         break;
 
-                case DHCP6_NTP_SUBOPTION_SRV_FQDN:
-                        r = dhcp6_option_parse_domainname_list(subval, sublen,
-                                                               &servers);
+                case DHCP6_NTP_SUBOPTION_SRV_FQDN: {
+                        char **servers;
+
+                        r = dhcp6_option_parse_domainname_list(subval, sublen, &servers);
                         if (r < 0)
                                 return 0;
 
@@ -300,11 +300,8 @@ int dhcp6_lease_set_ntp(sd_dhcp6_lease *lease, uint8_t *optval, size_t optlen) {
                         lease->ntp_fqdn_count = r;
 
                         break;
-                }
+                }}
         }
-
-        if (r != -ENOMSG)
-                return r;
 
         return 0;
 }
