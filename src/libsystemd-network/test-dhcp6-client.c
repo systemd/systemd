@@ -249,7 +249,7 @@ static int test_option_status(sd_event *e) {
                 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08,
                 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f, 0x10,
                 0x01, 0x02, 0x03, 0x04, 0x0a, 0x0b, 0x0c, 0x0d,
-                /* status option */
+                /* IA address status option */
                 0x00, 0x0d, 0x00, 0x02, 0x00, 0x01,
         };
         static const uint8_t option3[] = {
@@ -261,7 +261,7 @@ static int test_option_status(sd_event *e) {
                 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08,
                 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f, 0x10,
                 0x01, 0x02, 0x03, 0x04, 0x0a, 0x0b, 0x0c, 0x0d,
-                /* status option */
+                /* IA address status option */
                 0x00, 0x0d, 0x00, 0x08, 0x00, 0x00, 'f',  'o',
                 'o',  'b',  'a',  'r',
         };
@@ -275,7 +275,7 @@ static int test_option_status(sd_event *e) {
                 0x80, 0x20, 0x01, 0x0d, 0xb8, 0xde, 0xad, 0xbe,
                 0xef, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
                 0x00,
-                /* status option */
+                /* PD prefix status option */
                 0x00, 0x0d, 0x00, 0x02, 0x00, 0x00,
         };
         static const uint8_t option5[] = {
@@ -288,7 +288,7 @@ static int test_option_status(sd_event *e) {
                 0x80, 0x20, 0x01, 0x0d, 0xb8, 0xde, 0xad, 0xbe,
                 0xef, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
                 0x00,
-                /* status option */
+                /* PD prefix status option */
                 0x00, 0x0d, 0x00, 0x02, 0x00, 0x00,
                 /* IA PD Prefix #2 */
                 0x00, 0x1a, 0x00, 0x1f,
@@ -296,11 +296,13 @@ static int test_option_status(sd_event *e) {
                 0x80, 0x20, 0x01, 0x0d, 0xb8, 0xc0, 0x0l, 0xd0,
                 0x0d, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
                 0x00,
+                /* PD prefix status option */
                 0x00, 0x0d, 0x00, 0x02, 0x00, 0x00,
         };
         DHCP6Option *option;
         DHCP6IA ia, pd;
         be32_t iaid;
+        uint16_t status;
         int r = 0;
 
         log_debug("/* %s */", __func__);
@@ -308,62 +310,67 @@ static int test_option_status(sd_event *e) {
         memcpy(&iaid, option1 + 4, sizeof(iaid));
 
         zero(ia);
-        option = (DHCP6Option *)option1;
+        option = (DHCP6Option*) option1;
         assert_se(sizeof(option1) == sizeof(DHCP6Option) + be16toh(option->len));
 
         r = dhcp6_option_parse_ia(NULL, option, 0, &ia, NULL);
         assert_se(r == -ENOANO);
 
-        r = dhcp6_option_parse_ia(NULL, option, iaid, &ia, NULL);
+        r = dhcp6_option_parse_ia(NULL, option, iaid, &ia, &status);
         assert_se(r == 0);
-        assert_se(ia.addresses == NULL);
+        assert_se(status == 1);
+        assert_se(!ia.addresses);
 
         option->len = htobe16(17);
-        r = dhcp6_option_parse_ia(NULL, option, iaid, &ia, NULL);
+        r = dhcp6_option_parse_ia(NULL, option, iaid, &ia, &status);
         assert_se(r == -ENOBUFS);
-        assert_se(ia.addresses == NULL);
+        assert_se(!ia.addresses);
 
         option->len = htobe16(sizeof(DHCP6Option));
-        r = dhcp6_option_parse_ia(NULL, option, iaid, &ia, NULL);
+        r = dhcp6_option_parse_ia(NULL, option, iaid, &ia, &status);
         assert_se(r == -ENOBUFS);
-        assert_se(ia.addresses == NULL);
+        assert_se(!ia.addresses);
 
         zero(ia);
-        option = (DHCP6Option *)option2;
+        option = (DHCP6Option*) option2;
         assert_se(sizeof(option2) == sizeof(DHCP6Option) + be16toh(option->len));
 
-        r = dhcp6_option_parse_ia(NULL, option, iaid, &ia, NULL);
-        assert_se(r >= 0);
-        assert_se(ia.addresses == NULL);
+        r = dhcp6_option_parse_ia(NULL, option, iaid, &ia, &status);
+        assert_se(r > 0);
+        assert_se(status == 0);
+        assert_se(!ia.addresses);
 
         zero(ia);
-        option = (DHCP6Option *)option3;
+        option = (DHCP6Option*) option3;
         assert_se(sizeof(option3) == sizeof(DHCP6Option) + be16toh(option->len));
 
-        r = dhcp6_option_parse_ia(NULL, option, iaid, &ia, NULL);
-        assert_se(r >= 0);
-        assert_se(ia.addresses != NULL);
+        r = dhcp6_option_parse_ia(NULL, option, iaid, &ia, &status);
+        assert_se(r > 0);
+        assert_se(status == 0);
+        assert_se(ia.addresses);
         dhcp6_lease_free_ia(&ia);
 
         zero(pd);
-        option = (DHCP6Option *)option4;
+        option = (DHCP6Option*) option4;
         assert_se(sizeof(option4) == sizeof(DHCP6Option) + be16toh(option->len));
 
-        r = dhcp6_option_parse_ia(NULL, option, iaid, &pd, NULL);
-        assert_se(r >= 0);
-        assert_se(pd.addresses != NULL);
+        r = dhcp6_option_parse_ia(NULL, option, iaid, &pd, &status);
+        assert_se(r > 0);
+        assert_se(status == 0);
+        assert_se(pd.addresses);
         assert_se(memcmp(&pd.ia_pd.id, &option4[4], 4) == 0);
         assert_se(memcmp(&pd.ia_pd.lifetime_t1, &option4[8], 4) == 0);
         assert_se(memcmp(&pd.ia_pd.lifetime_t2, &option4[12], 4) == 0);
         dhcp6_lease_free_ia(&pd);
 
         zero(pd);
-        option = (DHCP6Option *)option5;
+        option = (DHCP6Option*) option5;
         assert_se(sizeof(option5) == sizeof(DHCP6Option) + be16toh(option->len));
 
-        r = dhcp6_option_parse_ia(NULL, option, iaid, &pd, NULL);
-        assert_se(r >= 0);
-        assert_se(pd.addresses != NULL);
+        r = dhcp6_option_parse_ia(NULL, option, iaid, &pd, &status);
+        assert_se(r > 0);
+        assert_se(status == 0);
+        assert_se(pd.addresses);
         dhcp6_lease_free_ia(&pd);
 
         return 0;

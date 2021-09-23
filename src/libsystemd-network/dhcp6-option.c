@@ -14,16 +14,11 @@
 #include "dhcp6-lease-internal.h"
 #include "dhcp6-protocol.h"
 #include "dns-domain.h"
+#include "escape.h"
 #include "memory-util.h"
 #include "sparse-endian.h"
 #include "strv.h"
 #include "unaligned.h"
-
-typedef struct DHCP6StatusOption {
-        struct DHCP6Option option;
-        be16_t status;
-        char msg[];
-} _packed_ DHCP6StatusOption;
 
 typedef struct DHCP6AddressOption {
         struct DHCP6Option option;
@@ -407,14 +402,65 @@ int dhcp6_option_parse(
         return 0;
 }
 
-int dhcp6_option_parse_status(DHCP6Option *option, size_t len) {
-        DHCP6StatusOption *statusopt = (DHCP6StatusOption *)option;
+int dhcp6_option_parse_status(const uint8_t *data, size_t data_len, char **ret_status_message) {
+        assert(data);
 
-        if (len < sizeof(DHCP6StatusOption) ||
-            be16toh(option->len) + offsetof(DHCP6Option, data) < sizeof(DHCP6StatusOption))
-                return -ENOBUFS;
+        if (data_len < sizeof(uint16_t))
+                return -EBADMSG;
 
-        return be16toh(statusopt->status);
+        if (ret_status_message) {
+                char *msg;
+
+                /* The status message MUST NOT be null-terminated. See section 21.13 of RFC8415.
+                 * Let's escape unsafe characters for safety. */
+                msg = cescape_length((const char*) (data + sizeof(uint16_t)), data_len - sizeof(uint16_t));
+                if (!msg)
+                        return -ENOMEM;
+
+                *ret_status_message = msg;
+        }
+
+        return unaligned_read_be16(data);
+}
+
+static int dhcp6_option_parse_ia_options(sd_dhcp6_client *client, const uint8_t *buf, size_t buflen) {
+        int r;
+
+        assert(buf);
+
+        for(size_t offset = 0; offset < buflen;) {
+                const uint8_t *data;
+                size_t data_len;
+                uint16_t code;
+
+                r = dhcp6_option_parse(buf, buflen, &offset, &code, &data_len, &data);
+                if (r < 0)
+                        return r;
+
+                switch(code) {
+                case SD_DHCP6_OPTION_STATUS_CODE: {
+                        _cleanup_free_ char *msg = NULL;
+
+                        r = dhcp6_option_parse_status(data, data_len, &msg);
+                        if (r == -ENOMEM)
+                                return r;
+                        if (r < 0)
+                                /* Let's log but ignore the invalid status option. */
+                                log_dhcp6_client_errno(client, r,
+                                                       "Received an IA address or PD prefix option with an invalid status sub option, ignoring: %m");
+                        else if (r > 0)
+                                return log_dhcp6_client_errno(client, SYNTHETIC_ERRNO(EINVAL),
+                                                              "Received an IA address or PD prefix option with non-zero status: %s%s%s",
+                                                              strempty(msg), isempty(msg) ? "" : ": ",
+                                                              dhcp6_message_status_to_string(r));
+                        break;
+                }
+                default:
+                        log_dhcp6_client(client, "Received an unknown sub option %u in IA address or PD prefix, ignoring.", code);
+                }
+        }
+
+        return 0;
 }
 
 static int dhcp6_option_parse_address(sd_dhcp6_client *client, DHCP6Option *option, DHCP6IA *ia, uint32_t *ret_lifetime_valid) {
@@ -435,14 +481,10 @@ static int dhcp6_option_parse_address(sd_dhcp6_client *client, DHCP6Option *opti
                                               "preferred lifetime %"PRIu32" > valid lifetime %"PRIu32,
                                               lt_pref, lt_valid);
 
-        if (be16toh(option->len) + offsetof(DHCP6Option, data) > sizeof(*addr_option)) {
-                r = dhcp6_option_parse_status((DHCP6Option *)addr_option->options, be16toh(option->len) + offsetof(DHCP6Option, data) - sizeof(*addr_option));
+        if (be16toh(option->len) + offsetof(DHCP6Option, data) > offsetof(DHCP6AddressOption, options)) {
+                r = dhcp6_option_parse_ia_options(client, option->data + sizeof(struct iaaddr), be16toh(option->len) - sizeof(struct iaaddr));
                 if (r < 0)
                         return r;
-                if (r > 0)
-                        return log_dhcp6_client_errno(client, SYNTHETIC_ERRNO(EINVAL),
-                                                      "Non-zero status code '%s' for address is received",
-                                                      dhcp6_message_status_to_string(r));
         }
 
         addr = new0(DHCP6Address, 1);
@@ -477,14 +519,10 @@ static int dhcp6_option_parse_pdprefix(sd_dhcp6_client *client, DHCP6Option *opt
                                               "preferred lifetime %"PRIu32" > valid lifetime %"PRIu32,
                                               lt_pref, lt_valid);
 
-        if (be16toh(option->len) + offsetof(DHCP6Option, data) > sizeof(*pdprefix_option)) {
-                r = dhcp6_option_parse_status((DHCP6Option *)pdprefix_option->options, be16toh(option->len) + offsetof(DHCP6Option, data) - sizeof(*pdprefix_option));
+        if (be16toh(option->len) + offsetof(DHCP6Option, data) > offsetof(DHCP6PDPrefixOption, options)) {
+                r = dhcp6_option_parse_ia_options(client, option->data + sizeof(struct iapdprefix), be16toh(option->len) - sizeof(struct iapdprefix));
                 if (r < 0)
                         return r;
-                if (r > 0)
-                        return log_dhcp6_client_errno(client, SYNTHETIC_ERRNO(EINVAL),
-                                                      "Non-zero status code '%s' for PD prefix is received",
-                                                      dhcp6_message_status_to_string(r));
         }
 
         prefix = new0(DHCP6Address, 1);
@@ -511,9 +549,9 @@ int dhcp6_option_parse_ia(
         uint32_t lt_t1, lt_t2, lt_valid = 0, lt_min = UINT32_MAX;
         uint16_t iatype, optlen;
         size_t iaaddr_offset;
-        int r = 0, status;
         size_t i, len;
         uint16_t opt;
+        int r;
 
         assert_return(ia, -EINVAL);
         assert_return(!ia->addresses, -EINVAL);
@@ -636,24 +674,25 @@ int dhcp6_option_parse_ia(
 
                         break;
 
-                case SD_DHCP6_OPTION_STATUS_CODE:
+                case SD_DHCP6_OPTION_STATUS_CODE: {
+                        _cleanup_free_ char *msg = NULL;
 
-                        status = dhcp6_option_parse_status(option, optlen + offsetof(DHCP6Option, data));
-                        if (status < 0)
-                                return status;
-
-                        if (status > 0) {
+                        r = dhcp6_option_parse_status(option->data, optlen, &msg);
+                        if (r < 0)
+                                return r;
+                        if (r > 0) {
                                 if (ret_status_code)
-                                        *ret_status_code = status;
+                                        *ret_status_code = r;
 
-                                log_dhcp6_client(client, "IA status %s",
-                                                 dhcp6_message_status_to_string(status));
+                                log_dhcp6_client(client,
+                                                 "Received an IA option with non-zero status: %s%s%s",
+                                                 strempty(msg), isempty(msg) ? "" : ": ",
+                                                 dhcp6_message_status_to_string(r));
 
                                 return 0;
                         }
-
                         break;
-
+                }
                 default:
                         log_dhcp6_client(client, "Unknown IA option %d", opt);
                         break;
