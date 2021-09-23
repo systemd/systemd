@@ -101,8 +101,14 @@ int dhcp6_option_append_fqdn(uint8_t **buf, size_t *buflen, const char *fqdn);
 int dhcp6_option_append_user_class(uint8_t **buf, size_t *buflen, char * const *user_class);
 int dhcp6_option_append_vendor_class(uint8_t **buf, size_t *buflen, char * const *user_class);
 int dhcp6_option_append_vendor_option(uint8_t **buf, size_t *buflen, OrderedHashmap *vendor_options);
-int dhcp6_option_parse(uint8_t **buf, size_t *buflen, uint16_t *optcode,
-                       size_t *optlen, uint8_t **optvalue);
+
+int dhcp6_option_parse(
+                const uint8_t *buf,
+                size_t buflen,
+                size_t *offset,
+                uint16_t *ret_option_code,
+                size_t *ret_option_data_len,
+                const uint8_t **ret_option_data);
 int dhcp6_option_parse_status(DHCP6Option *option, size_t len);
 int dhcp6_option_parse_ia(sd_dhcp6_client *client, DHCP6Option *iaoption, be32_t iaid, DHCP6IA *ia, uint16_t *ret_status_code);
 int dhcp6_option_parse_ip6addrs(const uint8_t *optval, uint16_t optlen,
