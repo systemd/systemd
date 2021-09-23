@@ -223,12 +223,12 @@ int dhcp6_lease_set_domains(sd_dhcp6_lease *lease, uint8_t *optval,
         assert_return(lease, -EINVAL);
         assert_return(optval, -EINVAL);
 
-        if (!optlen)
+        if (optlen == 0)
                 return 0;
 
         r = dhcp6_option_parse_domainname_list(optval, optlen, &domains);
         if (r < 0)
-                return 0;
+                return r;
 
         strv_free_and_replace(lease->domains, domains);
         lease->domains_count = r;
@@ -283,7 +283,7 @@ int dhcp6_lease_set_ntp(sd_dhcp6_lease *lease, uint8_t *optval, size_t optlen) {
 
                         r = dhcp6_option_parse_domainname_list(subval, sublen, &servers);
                         if (r < 0)
-                                return 0;
+                                return r;
 
                         strv_free_and_replace(lease->ntp_fqdn, servers);
                         lease->ntp_fqdn_count = r;
