@@ -109,7 +109,7 @@ int dhcp6_option_parse(
                 uint16_t *ret_option_code,
                 size_t *ret_option_data_len,
                 const uint8_t **ret_option_data);
-int dhcp6_option_parse_status(DHCP6Option *option, size_t len);
+int dhcp6_option_parse_status(const uint8_t *data, size_t data_len, char **ret_status_message);
 int dhcp6_option_parse_ia(sd_dhcp6_client *client, DHCP6Option *iaoption, be32_t iaid, DHCP6IA *ia, uint16_t *ret_status_code);
 int dhcp6_option_parse_ip6addrs(const uint8_t *optval, uint16_t optlen,
                                 struct in6_addr **addrs, size_t count);
