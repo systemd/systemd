@@ -707,7 +707,7 @@ int dhcp6_option_parse_ia(
         return 1;
 }
 
-int dhcp6_option_parse_ip6addrs(uint8_t *optval, uint16_t optlen,
+int dhcp6_option_parse_ip6addrs(const uint8_t *optval, uint16_t optlen,
                                 struct in6_addr **addrs, size_t count) {
 
         if (optlen == 0 || optlen % sizeof(struct in6_addr) != 0)
