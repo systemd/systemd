@@ -309,10 +309,12 @@ You basically have three options:
 
 3. 🙁 The *i-like-continents* option. In this option you'd leave your manager
    daemon where it is, and would not turn on delegation on its unit. However,
-   as first thing you register a new scope unit with systemd, and that scope
-   unit would have `Delegate=` turned on, and then you place all your
-   containers underneath it. From systemd's PoV there'd be two units: your
-   manager service and the big scope that contains all your containers in one.
+   as you start your first managed process (a container, for example) you would
+   register a new scope unit with systemd, and that scope unit would have
+   `Delegate=` turned on, and it would contain the PID of this process; all
+   your managed processes subsequently created should also be moved into this
+   scope. From systemd's PoV there'd be two units: your manager service and the
+   big scope that contains all your managed processes in one.
 
 BTW: if for whatever reason you say "I hate D-Bus, I'll never call any D-Bus
 API, kthxbye", then options #1 and #3 are not available, as they generally
