@@ -3114,6 +3114,20 @@ int unit_add_dependency(
                         noop = false;
         }
 
+        if (FLAGS_SET(a, UNIT_ATOM_BACK_REFERENCE_IMPLIED)) {
+                r = unit_add_dependency_hashmap(&other->dependencies, UNIT_REFERENCES, u, 0, mask);
+                if (r < 0)
+                        return r;
+                if (r)
+                        noop = false;
+
+                r = unit_add_dependency_hashmap(&u->dependencies, UNIT_REFERENCED_BY, other, 0, mask);
+                if (r < 0)
+                        return r;
+                if (r)
+                        noop = false;
+        }
+
         if (add_reference) {
                 r = unit_add_dependency_hashmap(&u->dependencies, UNIT_REFERENCES, other, mask, 0);
                 if (r < 0)
