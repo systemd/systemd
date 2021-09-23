@@ -3112,6 +3112,23 @@ int unit_add_dependency(
                         return r;
                 if (r)
                         noop = false;
+
+                /* If the inverse dependency includes the REFERENCES atom then
+                 * add a REFERENCES/REFEENCED_BY dependencies to keep the
+                 * REFERENCED dependency pinned. */
+                if (FLAGS_SET(unit_dependency_to_atom(inverse_table[d]), UNIT_ATOM_REFERENCES)) {
+                        r = unit_add_dependency_hashmap(&other->dependencies, UNIT_REFERENCES, u, 0, mask);
+                        if (r < 0)
+                                return r;
+                        if (r)
+                                noop = false;
+
+                        r = unit_add_dependency_hashmap(&u->dependencies, UNIT_REFERENCED_BY, other, 0, mask);
+                        if (r < 0)
+                                return r;
+                        if (r)
+                                noop = false;
+                }
         }
 
         if (add_reference) {
