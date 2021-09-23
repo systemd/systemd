@@ -194,22 +194,13 @@ void sd_dhcp6_lease_reset_pd_prefix_iter(sd_dhcp6_lease *lease) {
 }
 
 int dhcp6_lease_set_dns(sd_dhcp6_lease *lease, uint8_t *optval, size_t optlen) {
-        int r;
-
         assert_return(lease, -EINVAL);
         assert_return(optval, -EINVAL);
 
-        if (!optlen)
+        if (optlen == 0)
                 return 0;
 
-        r = dhcp6_option_parse_ip6addrs(optval, optlen, &lease->dns,
-                                        lease->dns_count);
-        if (r < 0)
-                return r;
-
-        lease->dns_count = r;
-
-        return 0;
+        return dhcp6_option_parse_addresses(optval, optlen, &lease->dns, &lease->dns_count);
 }
 
 int sd_dhcp6_lease_get_dns(sd_dhcp6_lease *lease, const struct in6_addr **addrs) {
@@ -281,11 +272,9 @@ int dhcp6_lease_set_ntp(sd_dhcp6_lease *lease, uint8_t *optval, size_t optlen) {
                         if (sublen != 16)
                                 return 0;
 
-                        r = dhcp6_option_parse_ip6addrs(subval, sublen, &lease->ntp, lease->ntp_count);
+                        r = dhcp6_option_parse_addresses(subval, sublen, &lease->ntp, &lease->ntp_count);
                         if (r < 0)
                                 return r;
-
-                        lease->ntp_count = r;
 
                         break;
 
@@ -307,12 +296,10 @@ int dhcp6_lease_set_ntp(sd_dhcp6_lease *lease, uint8_t *optval, size_t optlen) {
 }
 
 int dhcp6_lease_set_sntp(sd_dhcp6_lease *lease, uint8_t *optval, size_t optlen) {
-        int r;
-
         assert_return(lease, -EINVAL);
         assert_return(optval, -EINVAL);
 
-        if (!optlen)
+        if (optlen == 0)
                 return 0;
 
         if (lease->ntp || lease->ntp_fqdn)
@@ -320,14 +307,7 @@ int dhcp6_lease_set_sntp(sd_dhcp6_lease *lease, uint8_t *optval, size_t optlen) 
 
         /* Using deprecated SNTP information */
 
-        r = dhcp6_option_parse_ip6addrs(optval, optlen, &lease->ntp,
-                                        lease->ntp_count);
-        if (r < 0)
-                return r;
-
-        lease->ntp_count = r;
-
-        return 0;
+        return dhcp6_option_parse_addresses(optval, optlen, &lease->ntp, &lease->ntp_count);
 }
 
 int sd_dhcp6_lease_get_ntp_addrs(sd_dhcp6_lease *lease,
