@@ -133,6 +133,7 @@ typedef struct Unit {
         UnitType type;
         UnitLoadState load_state;
         Unit *merged_into;
+        Unit *triggered_by;
 
         char *id;   /* The one special name that we use for identification */
         char *instance;
