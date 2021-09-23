@@ -1126,7 +1126,6 @@ static int client_parse_message(
         while (pos < len) {
                 DHCP6Option *option = (DHCP6Option *) &message->options[pos];
                 uint16_t optcode, optlen;
-                int  status;
                 uint8_t *optval;
 
                 if (len < pos + offsetof(DHCP6Option, data))
@@ -1176,18 +1175,21 @@ static int client_parse_message(
 
                         break;
 
-                case SD_DHCP6_OPTION_STATUS_CODE:
-                        status = dhcp6_option_parse_status(option, optlen + sizeof(DHCP6Option));
-                        if (status < 0)
-                                return status;
+                case SD_DHCP6_OPTION_STATUS_CODE: {
+                        _cleanup_free_ char *msg = NULL;
 
-                        if (status > 0)
-                                return log_dhcp6_client_errno(client, SYNTHETIC_ERRNO(EINVAL), "%s Status %s",
+                        r = dhcp6_option_parse_status(optval, optlen, &msg);
+                        if (r < 0)
+                                return r;
+
+                        if (r > 0)
+                                return log_dhcp6_client_errno(client, SYNTHETIC_ERRNO(EINVAL),
+                                                              "Received %s message with non-zero status: %s%s%s",
                                                               dhcp6_message_type_to_string(message->type),
-                                                              dhcp6_message_status_to_string(status));
-
+                                                              strempty(msg), isempty(msg) ? "" : ": ",
+                                                              dhcp6_message_status_to_string(r));
                         break;
-
+                }
                 case SD_DHCP6_OPTION_IA_NA:
                         if (client->state == DHCP6_STATE_INFORMATION_REQUEST) {
                                 log_dhcp6_client(client, "Ignoring IA NA option in information requesting mode.");
