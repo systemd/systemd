@@ -721,20 +721,26 @@ int dhcp6_option_parse_ia(
         return 0;
 }
 
-int dhcp6_option_parse_ip6addrs(const uint8_t *optval, uint16_t optlen,
-                                struct in6_addr **addrs, size_t count) {
+int dhcp6_option_parse_addresses(
+                const uint8_t *optval,
+                size_t optlen,
+                struct in6_addr **addrs,
+                size_t *count) {
+
+        assert(optval);
+        assert(addrs);
+        assert(count);
 
         if (optlen == 0 || optlen % sizeof(struct in6_addr) != 0)
-                return -EINVAL;
+                return -EBADMSG;
 
-        if (!GREEDY_REALLOC(*addrs, count * sizeof(struct in6_addr) + optlen))
+        if (!GREEDY_REALLOC(*addrs, *count + optlen / sizeof(struct in6_addr)))
                 return -ENOMEM;
 
-        memcpy(*addrs + count, optval, optlen);
+        memcpy(*addrs + *count, optval, optlen);
+        *count += optlen / sizeof(struct in6_addr);
 
-        count += optlen / sizeof(struct in6_addr);
-
-        return count;
+        return 0;
 }
 
 static int parse_domain(const uint8_t **data, uint16_t *len, char **out_domain) {
