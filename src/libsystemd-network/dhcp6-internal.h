@@ -117,8 +117,11 @@ int dhcp6_option_parse_ia(
                 size_t option_data_len,
                 const uint8_t *option_data,
                 DHCP6IA *ret);
-int dhcp6_option_parse_ip6addrs(const uint8_t *optval, uint16_t optlen,
-                                struct in6_addr **addrs, size_t count);
+int dhcp6_option_parse_addresses(
+                const uint8_t *optval,
+                size_t optlen,
+                struct in6_addr **addrs,
+                size_t *count);
 int dhcp6_option_parse_domainname_list(const uint8_t *optval, uint16_t optlen,
                                        char ***str_arr);
 int dhcp6_option_parse_domainname(const uint8_t *optval, uint16_t optlen, char **str);
