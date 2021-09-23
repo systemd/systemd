@@ -1401,6 +1401,31 @@ static bool service_exec_needs_notify_socket(Service *s, ExecFlags flags) {
         return s->notify_access != NOTIFY_NONE;
 }
 
+static Service *service_get_on_failure_of_dep(Service *s) {
+        assert(s);
+
+        /* If this service had a single reverse OnFailure= dependency of type
+         * UNIT_SERVICE which has failed, return that dependency. */
+
+        Unit *u = UNIT(s);
+        Unit *trigger;
+        Hashmap *deps;
+        void *v;
+
+        deps = unit_get_dependencies(u, UNIT_ON_FAILURE_OF);
+        if (deps && hashmap_size(deps) == 1) {
+                HASHMAP_FOREACH_KEY(v, trigger, deps) {
+                        if (trigger->type == UNIT_SERVICE) {
+                                Service *trigger_service = SERVICE(trigger);
+                                if (!IN_SET(trigger_service->result, SERVICE_SUCCESS, SERVICE_SKIP_CONDITION))
+                                        return trigger_service;
+                        }
+                }
+        }
+
+        return NULL;
+}
+
 static int service_spawn(
                 Service *s,
                 ExecCommand *c,
@@ -1465,7 +1490,7 @@ static int service_spawn(
         if (r < 0)
                 return r;
 
-        our_env = new0(char*, 10);
+        our_env = new0(char*, 12);
         if (!our_env)
                 return -ENOMEM;
 
@@ -1522,21 +1547,48 @@ static int service_spawn(
                 }
         }
 
-        if (flags & EXEC_SETENV_RESULT) {
-                if (asprintf(our_env + n_env++, "SERVICE_RESULT=%s", service_result_to_string(s->result)) < 0)
-                        return -ENOMEM;
+        if (flags & (EXEC_SETENV_RESULT | EXEC_SETENV_MONITOR_RESULT)) {
+                Service *env_source;
 
-                if (s->main_exec_status.pid > 0 &&
-                    dual_timestamp_is_set(&s->main_exec_status.exit_timestamp)) {
-                        if (asprintf(our_env + n_env++, "EXIT_CODE=%s", sigchld_code_to_string(s->main_exec_status.code)) < 0)
+                if (flags & EXEC_SETENV_MONITOR_RESULT)
+                        env_source = service_get_on_failure_of_dep(s);
+                else
+                        env_source = s;
+
+                if (env_source) {
+                        if (asprintf(our_env + n_env++, "%sSERVICE_RESULT=%s",
+                                     flags & EXEC_SETENV_MONITOR_RESULT ? "MONITOR_" : "",
+                                     service_result_to_string(env_source->result)) < 0)
                                 return -ENOMEM;
 
-                        if (s->main_exec_status.code == CLD_EXITED)
-                                r = asprintf(our_env + n_env++, "EXIT_STATUS=%i", s->main_exec_status.status);
-                        else
-                                r = asprintf(our_env + n_env++, "EXIT_STATUS=%s", signal_to_string(s->main_exec_status.status));
-                        if (r < 0)
-                                return -ENOMEM;
+                        if (env_source->main_exec_status.pid > 0 &&
+                            dual_timestamp_is_set(&env_source->main_exec_status.exit_timestamp)) {
+                                if (asprintf(our_env + n_env++, "%sEXIT_CODE=%s",
+                                             flags & EXEC_SETENV_MONITOR_RESULT ? "MONITOR_" : "",
+                                             sigchld_code_to_string(env_source->main_exec_status.code)) < 0)
+                                        return -ENOMEM;
+
+                                if (env_source->main_exec_status.code == CLD_EXITED)
+                                        r = asprintf(our_env + n_env++, "%sEXIT_STATUS=%i",
+                                                     flags & EXEC_SETENV_MONITOR_RESULT ? "MONITOR_" : "",
+                                                     env_source->main_exec_status.status);
+                                else
+                                        r = asprintf(our_env + n_env++, "%sEXIT_STATUS=%s",
+                                                     flags & EXEC_SETENV_MONITOR_RESULT ? "MONITOR_" : "",
+                                                     signal_to_string(env_source->main_exec_status.status));
+                                if (r < 0)
+                                        return -ENOMEM;
+                        }
+
+                        if (flags & EXEC_SETENV_MONITOR_RESULT) {
+                                if (!sd_id128_is_null(UNIT(env_source)->invocation_id)) {
+                                        if (asprintf(our_env + n_env++, "MONITOR_INVOCATION_ID=" SD_ID128_FORMAT_STR, SD_ID128_FORMAT_VAL(UNIT(env_source)->invocation_id)) < 0)
+                                                return -ENOMEM;
+                                }
+
+                                if (asprintf(our_env + n_env++, "MONITOR_UNIT=%s", UNIT(env_source)->id) < 0)
+                                        return -ENOMEM;
+                        }
                 }
         }
 
@@ -2125,7 +2177,7 @@ static void service_enter_start(Service *s) {
         r = service_spawn(s,
                           c,
                           timeout,
-                          EXEC_PASS_FDS|EXEC_APPLY_SANDBOXING|EXEC_APPLY_CHROOT|EXEC_APPLY_TTY_STDIN|EXEC_SET_WATCHDOG|EXEC_WRITE_CREDENTIALS,
+                          EXEC_PASS_FDS|EXEC_APPLY_SANDBOXING|EXEC_APPLY_CHROOT|EXEC_APPLY_TTY_STDIN|EXEC_SET_WATCHDOG|EXEC_WRITE_CREDENTIALS|EXEC_SETENV_MONITOR_RESULT,
                           &pid);
         if (r < 0)
                 goto fail;
