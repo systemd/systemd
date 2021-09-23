@@ -66,20 +66,30 @@ typedef enum UnitDependencyAtom {
         /* Recheck default target deps on other units (which are target units) */
         UNIT_ATOM_DEFAULT_TARGET_DEPENDENCIES         = UINT64_C(1) << 21,
 
-        /* The remaining atoms map 1:1 to the equally named high-level deps */
-        UNIT_ATOM_BEFORE                              = UINT64_C(1) << 22,
-        UNIT_ATOM_AFTER                               = UINT64_C(1) << 23,
+        /* Pass exit status to a triggered OnFailure=/OnSuccess= dependency */
+        UNIT_ATOM_PROPAGATE_EXIT_STATUS               = UINT64_C(1) << 22,
+
+        /* Dependencies which include this atom automatically get a reverse
+         * REFERENCES/REFERENCED_BY dependency. */
+        UNIT_ATOM_BACK_REFERENCE_IMPLIED              = UINT64_C(1) << 23,
+
+        /* Trigger a dependency on successful service exit. */
         UNIT_ATOM_ON_SUCCESS                          = UINT64_C(1) << 24,
+        /* Trigger a dependency on unsuccessful service exit. */
         UNIT_ATOM_ON_FAILURE                          = UINT64_C(1) << 25,
-        UNIT_ATOM_TRIGGERS                            = UINT64_C(1) << 26,
-        UNIT_ATOM_TRIGGERED_BY                        = UINT64_C(1) << 27,
-        UNIT_ATOM_PROPAGATES_RELOAD_TO                = UINT64_C(1) << 28,
-        UNIT_ATOM_JOINS_NAMESPACE_OF                  = UINT64_C(1) << 29,
-        UNIT_ATOM_REFERENCES                          = UINT64_C(1) << 30,
-        UNIT_ATOM_REFERENCED_BY                       = UINT64_C(1) << 31,
-        UNIT_ATOM_IN_SLICE                            = UINT64_C(1) << 32,
-        UNIT_ATOM_SLICE_OF                            = UINT64_C(1) << 33,
-        _UNIT_DEPENDENCY_ATOM_MAX                     = (UINT64_C(1) << 34) - 1,
+
+        /* The remaining atoms map 1:1 to the equally named high-level deps */
+        UNIT_ATOM_BEFORE                              = UINT64_C(1) << 26,
+        UNIT_ATOM_AFTER                               = UINT64_C(1) << 27,
+        UNIT_ATOM_TRIGGERS                            = UINT64_C(1) << 28,
+        UNIT_ATOM_TRIGGERED_BY                        = UINT64_C(1) << 29,
+        UNIT_ATOM_PROPAGATES_RELOAD_TO                = UINT64_C(1) << 30,
+        UNIT_ATOM_JOINS_NAMESPACE_OF                  = UINT64_C(1) << 31,
+        UNIT_ATOM_REFERENCES                          = UINT64_C(1) << 32,
+        UNIT_ATOM_REFERENCED_BY                       = UINT64_C(1) << 33,
+        UNIT_ATOM_IN_SLICE                            = UINT64_C(1) << 34,
+        UNIT_ATOM_SLICE_OF                            = UINT64_C(1) << 35,
+        _UNIT_DEPENDENCY_ATOM_MAX                     = (UINT64_C(1) << 36) - 1,
         _UNIT_DEPENDENCY_ATOM_INVALID                 = -EINVAL,
 } UnitDependencyAtom;
 
