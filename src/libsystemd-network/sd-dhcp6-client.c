@@ -1109,8 +1109,7 @@ static int client_parse_message(
                 size_t len,
                 sd_dhcp6_lease *lease) {
 
-        uint16_t ia_na_status = 0, ia_pd_status = 0;
-        uint32_t lt_t1 = ~0, lt_t2 = ~0;
+        uint32_t lt_t1 = UINT32_MAX, lt_t2 = UINT32_MAX;
         usec_t irt = IRT_DEFAULT;
         bool clientid = false;
         size_t pos = 0;
@@ -1137,6 +1136,8 @@ static int client_parse_message(
 
                 if (len < pos + offsetof(DHCP6Option, data) + optlen)
                         return -ENOBUFS;
+
+                pos += offsetof(DHCP6Option, data) + optlen;
 
                 switch (optcode) {
                 case SD_DHCP6_OPTION_CLIENTID:
@@ -1190,50 +1191,60 @@ static int client_parse_message(
                                                               dhcp6_message_status_to_string(r));
                         break;
                 }
-                case SD_DHCP6_OPTION_IA_NA:
+                case SD_DHCP6_OPTION_IA_NA: {
+                        _cleanup_(dhcp6_lease_free_ia) DHCP6IA ia = {};
+
                         if (client->state == DHCP6_STATE_INFORMATION_REQUEST) {
                                 log_dhcp6_client(client, "Ignoring IA NA option in information requesting mode.");
                                 break;
                         }
 
-                        r = dhcp6_option_parse_ia(client, option, client->ia_pd.ia_na.id, &lease->ia, &ia_na_status);
-                        if (r < 0 && r != -ENOANO)
+                        r = dhcp6_option_parse_ia(client, client->ia_pd.ia_na.id, optcode, optlen, optval, &ia);
+                        if (r == -ENOMEM)
                                 return r;
+                        if (r < 0)
+                                continue;
 
-                        if (ia_na_status == DHCP6_STATUS_NO_ADDRS_AVAIL) {
-                                pos += offsetof(DHCP6Option, data) + optlen;
+                        if (lease->ia.addresses) {
+                                log_dhcp6_client(client, "Received duplicate matching IA_NA option, ignoring.");
                                 continue;
                         }
 
-                        if (lease->ia.addresses) {
-                                lt_t1 = MIN(lt_t1, be32toh(lease->ia.ia_na.lifetime_t1));
-                                lt_t2 = MIN(lt_t2, be32toh(lease->ia.ia_na.lifetime_t2));
-                        }
+                        lease->ia = ia;
+                        ia = (DHCP6IA) {};
+
+                        lt_t1 = MIN(lt_t1, be32toh(lease->ia.ia_na.lifetime_t1));
+                        lt_t2 = MIN(lt_t2, be32toh(lease->ia.ia_na.lifetime_t2));
 
                         break;
+                }
+                case SD_DHCP6_OPTION_IA_PD: {
+                        _cleanup_(dhcp6_lease_free_ia) DHCP6IA ia = {};
 
-                case SD_DHCP6_OPTION_IA_PD:
                         if (client->state == DHCP6_STATE_INFORMATION_REQUEST) {
                                 log_dhcp6_client(client, "Ignoring IA PD option in information requesting mode.");
                                 break;
                         }
 
-                        r = dhcp6_option_parse_ia(client, option, client->ia_pd.ia_pd.id, &lease->pd, &ia_pd_status);
-                        if (r < 0 && r != -ENOANO)
+                        r = dhcp6_option_parse_ia(client, client->ia_pd.ia_pd.id, optcode, optlen, optval, &ia);
+                        if (r == -ENOMEM)
                                 return r;
+                        if (r < 0)
+                                continue;
 
-                        if (ia_pd_status == DHCP6_STATUS_NO_PREFIX_AVAIL) {
-                                pos += offsetof(DHCP6Option, data) + optlen;
+                        if (lease->pd.addresses) {
+                                log_dhcp6_client(client, "Received duplicate matching IA_PD option, ignoring.");
                                 continue;
                         }
 
-                        if (lease->pd.addresses) {
-                                lt_t1 = MIN(lt_t1, be32toh(lease->pd.ia_pd.lifetime_t1));
-                                lt_t2 = MIN(lt_t2, be32toh(lease->pd.ia_pd.lifetime_t2));
-                        }
+                        lease->pd = ia;
+                        ia = (DHCP6IA) {};
+
+                        lt_t1 = MIN(lt_t1, be32toh(lease->pd.ia_pd.lifetime_t1));
+                        lt_t2 = MIN(lt_t2, be32toh(lease->pd.ia_pd.lifetime_t2));
 
                         break;
-
+                }
                 case SD_DHCP6_OPTION_RAPID_COMMIT:
                         r = dhcp6_lease_set_rapid_commit(lease);
                         if (r < 0)
@@ -1283,12 +1294,7 @@ static int client_parse_message(
                         irt = unaligned_read_be32((be32_t *) optval) * USEC_PER_SEC;
                         break;
                 }
-
-                pos += offsetof(DHCP6Option, data) + optlen;
         }
-
-        if (ia_na_status > 0 && ia_pd_status > 0)
-                return log_dhcp6_client_errno(client, SYNTHETIC_ERRNO(EINVAL), "No IA_PD prefix or IA_NA address received. Ignoring.");
 
         if (!clientid)
                 return log_dhcp6_client_errno(client, SYNTHETIC_ERRNO(EINVAL), "%s has incomplete options",
@@ -1299,16 +1305,19 @@ static int client_parse_message(
                 if (r < 0)
                         return log_dhcp6_client_errno(client, r, "%s has no server id",
                                                       dhcp6_message_type_to_string(message->type));
-        }
 
-        if (lease->ia.addresses) {
-                lease->ia.ia_na.lifetime_t1 = htobe32(lt_t1);
-                lease->ia.ia_na.lifetime_t2 = htobe32(lt_t2);
-        }
+                if (!lease->ia.addresses && !lease->pd.addresses)
+                        return log_dhcp6_client_errno(client, SYNTHETIC_ERRNO(EINVAL), "No IA_PD prefix or IA_NA address received. Ignoring.");
 
-        if (lease->pd.addresses) {
-                lease->pd.ia_pd.lifetime_t1 = htobe32(lt_t1);
-                lease->pd.ia_pd.lifetime_t2 = htobe32(lt_t2);
+                if (lease->ia.addresses) {
+                        lease->ia.ia_na.lifetime_t1 = htobe32(lt_t1);
+                        lease->ia.ia_na.lifetime_t2 = htobe32(lt_t2);
+                }
+
+                if (lease->pd.addresses) {
+                        lease->pd.ia_pd.lifetime_t1 = htobe32(lt_t1);
+                        lease->pd.ia_pd.lifetime_t2 = htobe32(lt_t2);
+                }
         }
 
         client->information_refresh_time_usec = MAX(irt, IRT_MINIMUM);
