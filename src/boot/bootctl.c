@@ -711,7 +711,7 @@ static int find_slot(sd_id128_t uuid, const char *path, uint16_t *id) {
         for (i = 0; i < n; i++)
                 if (i != options[i]) {
                         *id = i;
-                        return 1;
+                        return 0;
                 }
 
         /* use the next one */
