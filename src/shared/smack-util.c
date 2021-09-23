@@ -286,14 +286,13 @@ int mac_smack_copy(const char *dest, const char *src) {
 #endif
 
 int rename_and_apply_smack_floor_label(const char *from, const char *to) {
-        int r = 0;
+
         if (rename(from, to) < 0)
                 return -errno;
 
 #if HAVE_SMACK_RUN_LABEL
-        r = mac_smack_apply(to, SMACK_ATTR_ACCESS, SMACK_FLOOR_LABEL);
-        if (r < 0)
-                return r;
+        return mac_smack_apply(to, SMACK_ATTR_ACCESS, SMACK_FLOOR_LABEL);
+#else
+        return 0;
 #endif
-        return r;
 }
