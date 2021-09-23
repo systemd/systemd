@@ -1956,7 +1956,7 @@ static VOID config_entry_add_linux(
 
         for (;;) {
                 _cleanup_freepool_ CHAR16 *os_name_pretty = NULL, *os_name = NULL, *os_id = NULL,
-                        *os_version = NULL, *os_version_id = NULL, *os_build_id = NULL;
+                        *os_version = NULL, *os_version_id = NULL, *os_build_id = NULL, *os_image_version = NULL;
                 _cleanup_freepool_ CHAR8 *content = NULL;
                 const CHAR8 *sections[] = {
                         (CHAR8 *)".osrel",
@@ -2028,16 +2028,28 @@ static VOID config_entry_add_linux(
                                 os_build_id = stra_to_str(value);
                                 continue;
                         }
+
+                        if (strcmpa((const CHAR8*) "IMAGE_VERSION", key) == 0) {
+                                FreePool(os_image_version);
+                                os_image_version = stra_to_str(value);
+                                continue;
+                        }
                 }
 
-                if ((os_name_pretty || os_name) && os_id && (os_version || os_version_id || os_build_id)) {
+                if ((os_name_pretty || os_name) && os_id && (os_image_version || os_version || os_version_id || os_build_id)) {
                         _cleanup_freepool_ CHAR16 *path = NULL;
 
                         path = PoolPrint(L"\\EFI\\Linux\\%s", f->FileName);
 
-                        entry = config_entry_add_loader(config, device, LOADER_LINUX, f->FileName, 'l',
-                                                        os_name_pretty ?: os_name, path,
-                                                        os_version ?: (os_version_id ? : os_build_id));
+                        entry = config_entry_add_loader(
+                                        config,
+                                        device,
+                                        LOADER_LINUX,
+                                        f->FileName,
+                                        /* key= */ 'l',
+                                        os_name_pretty ?: os_name,
+                                        path,
+                                        os_image_version ?: (os_version ?: (os_version_id ? : os_build_id)));
 
                         FreePool(content);
                         content = NULL;
