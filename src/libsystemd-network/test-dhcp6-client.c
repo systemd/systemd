@@ -170,47 +170,47 @@ static int test_option(sd_event *e) {
                 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
                 'B', 'A', 'R',
         };
+        size_t offset, pos, optlen, outlen = sizeof(result);
+        const uint8_t *optval;
         uint16_t optcode;
-        size_t optlen;
-        uint8_t *optval, *buf, *out;
-        size_t zero = 0, pos = 3;
-        size_t buflen = sizeof(packet), outlen = sizeof(result);
+        uint8_t *out;
 
         log_debug("/* %s */", __func__);
 
-        assert_se(buflen == outlen);
+        assert_se(sizeof(packet) == sizeof(result));
 
-        assert_se(dhcp6_option_parse(&buf, &zero, &optcode, &optlen,
-                                     &optval) == -ENOMSG);
+        offset = 0;
+        assert_se(dhcp6_option_parse(packet, 0, &offset, &optcode, &optlen, &optval) == -EBADMSG);
 
-        buflen -= 3;
-        buf = &packet[3];
+        offset = 3;
+        assert_se(dhcp6_option_parse(packet, 0, &offset, &optcode, &optlen, &optval) == -EBADMSG);
+
+        offset = 3;
+        assert_se(dhcp6_option_parse(packet, sizeof(packet), &offset, &optcode, &optlen, &optval) >= 0);
+
+        assert_se(optcode == SD_DHCP6_OPTION_ORO);
+        assert_se(optlen == 7);
+        assert_se(optval == packet + 7);
+
+        pos = 3;
         outlen -= 3;
         out = &result[3];
 
-        assert_se(dhcp6_option_parse(&buf, &buflen, &optcode, &optlen,
-                                     &optval) >= 0);
-        pos += 4 + optlen;
-        assert_se(buf == &packet[pos]);
-        assert_se(optcode == SD_DHCP6_OPTION_ORO);
-        assert_se(optlen == 7);
-        assert_se(buflen + pos == sizeof(packet));
+        assert_se(dhcp6_option_append(&out, &outlen, optcode, optlen, optval) >= 0);
 
-        assert_se(dhcp6_option_append(&out, &outlen, optcode, optlen,
-                                      optval) >= 0);
+        pos += 4 + optlen;
         assert_se(out == &result[pos]);
         assert_se(*out == 0x00);
 
-        assert_se(dhcp6_option_parse(&buf, &buflen, &optcode, &optlen,
-                                     &optval) >= 0);
-        pos += 4 + optlen;
-        assert_se(buf == &packet[pos]);
+        assert_se(dhcp6_option_parse(packet, sizeof(packet), &offset, &optcode, &optlen, &optval) >= 0);
+
         assert_se(optcode == SD_DHCP6_OPTION_VENDOR_CLASS);
         assert_se(optlen == 9);
-        assert_se(buflen + pos == sizeof(packet));
+        assert_se(optval == packet + 18);
 
-        assert_se(dhcp6_option_append(&out, &outlen, optcode, optlen,
-                                      optval) >= 0);
+        assert_se(dhcp6_option_append(&out, &outlen, optcode, optlen, optval) >= 0);
+
+        pos += 4 + optlen;
         assert_se(out == &result[pos]);
         assert_se(*out == 'B');
 

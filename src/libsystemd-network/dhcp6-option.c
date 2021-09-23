@@ -370,47 +370,39 @@ int dhcp6_option_append_vendor_class(uint8_t **buf, size_t *buflen, char * const
         return dhcp6_option_append(buf, buflen, SD_DHCP6_OPTION_VENDOR_CLASS, total, p);
 }
 
-static int option_parse_hdr(uint8_t **buf, size_t *buflen, uint16_t *optcode, size_t *optlen) {
-        DHCP6Option *option = (DHCP6Option*) *buf;
-        uint16_t len;
+int dhcp6_option_parse(
+                const uint8_t *buf,
+                size_t buflen,
+                size_t *offset,
+                uint16_t *ret_option_code,
+                size_t *ret_option_data_len,
+                const uint8_t **ret_option_data) {
 
-        assert_return(buf, -EINVAL);
-        assert_return(optcode, -EINVAL);
-        assert_return(optlen, -EINVAL);
+        const DHCP6Option *option;
+        size_t len;
 
-        if (*buflen < offsetof(DHCP6Option, data))
-                return -ENOMSG;
+        assert(buf);
+        assert(offset);
+        assert(ret_option_code);
+        assert(ret_option_data_len);
+        assert(ret_option_data);
 
+        if (buflen < offsetof(DHCP6Option, data))
+                return -EBADMSG;
+
+        if (*offset >= buflen - offsetof(DHCP6Option, data))
+                return -EBADMSG;
+
+        option = (const DHCP6Option*) (buf + *offset);
         len = be16toh(option->len);
 
-        if (len > *buflen)
-                return -ENOMSG;
+        if (len > buflen - offsetof(DHCP6Option, data) - *offset)
+                return -EBADMSG;
 
-        *optcode = be16toh(option->code);
-        *optlen = len;
-
-        *buf += 4;
-        *buflen -= 4;
-
-        return 0;
-}
-
-int dhcp6_option_parse(uint8_t **buf, size_t *buflen, uint16_t *optcode,
-                       size_t *optlen, uint8_t **optvalue) {
-        int r;
-
-        assert_return(buf && buflen && optcode && optlen && optvalue, -EINVAL);
-
-        r = option_parse_hdr(buf, buflen, optcode, optlen);
-        if (r < 0)
-                return r;
-
-        if (*optlen > *buflen)
-                return -ENOBUFS;
-
-        *optvalue = *buf;
-        *buflen -= *optlen;
-        *buf += *optlen;
+        *offset += offsetof(DHCP6Option, data) + len;
+        *ret_option_code = be16toh(option->code);
+        *ret_option_data_len = len;
+        *ret_option_data = option->data;
 
         return 0;
 }
