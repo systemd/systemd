@@ -99,12 +99,26 @@ Job* job_free(Job *j) {
         assert(!j->subject_list);
         assert(!j->object_list);
 
+        do {
+                Unit *tu = NULL;
+
+                LIST_FOREACH(triggered_by, tu, j->triggered_by)
+                        LIST_REMOVE(triggered_by, j->triggered_by, tu);
+        } while (!LIST_IS_EMPTY(j->triggered_by));
+
         job_unlink(j);
 
         sd_bus_track_unref(j->bus_track);
         strv_free(j->deserialized_clients);
 
         return mfree(j);
+}
+
+void job_add_triggering_unit(Job *j, Unit *u) {
+        assert(j);
+        assert(u);
+
+        LIST_APPEND(triggered_by, j->triggered_by, u);
 }
 
 static void job_set_state(Job *j, JobState state) {
@@ -187,6 +201,8 @@ static void job_merge_into_installed(Job *j, Job *other) {
 
         j->irreversible = j->irreversible || other->irreversible;
         j->ignore_order = j->ignore_order || other->ignore_order;
+        if (other->triggered_by)
+                LIST_JOIN(triggered_by, j->triggered_by, other->triggered_by);
 }
 
 Job* job_install(Job *j) {
