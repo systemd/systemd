@@ -263,9 +263,9 @@ EFI_STATUS process_random_seed(EFI_FILE *root_dir, RandomSeedMode mode) {
                 return err;
         }
 
-        info = LibFileInfo(handle);
-        if (!info)
-                return log_oom();
+        err = get_file_info_harder(handle, &info, NULL);
+        if (EFI_ERROR(err))
+                return log_error_status_stall(err, L"Failed to get file info for random seed: %r");
 
         size = info->FileSize;
         if (size < RANDOM_MAX_SIZE_MIN)
