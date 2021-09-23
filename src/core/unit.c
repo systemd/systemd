@@ -3180,6 +3180,54 @@ static int resolve_template(Unit *u, const char *name, char **buf, const char **
         return 0;
 }
 
+static int unit_is_recursive_template_dependency(Unit *u, const char *name) {
+        _cleanup_free_ char *instance = NULL;
+        const char *fragment_path;
+        _cleanup_set_free_ Set *names = NULL;
+        int r;
+
+        assert(u);
+        assert(name);
+
+        /* If a template unit has a direct dependency on itself that contains the unit name as part of the
+         * template instance, this will almost certainly lead to infinite recursion as systemd will keep
+         * instantiating new instances of the template unit. https://github.com/systemd/systemd/issues/17602
+         * shows a good example of how this can happen in practice. To guard against this, we check for
+         * templates that depend on themselves and have the instantiated unit name as part of the template
+         * instance of the dependency.
+         */
+
+        if (!unit_name_prefix_equal(u->id, name))
+                return 0;
+
+        if (u->type != unit_name_to_type(name))
+                return 0;
+
+        r = unit_file_find_fragment(u->manager->unit_id_map, u->manager->unit_name_map, name, &fragment_path, &names);
+        if (r < 0)
+                return r;
+
+        if (!u->fragment_path || !fragment_path)
+                return 0;
+
+        /* Fragment paths should also be equal as a custom fragment for a specific template instance
+         * wouldn't necessarily lead to infinite recursion. */
+        if (!streq(u->fragment_path, fragment_path))
+                return 0;
+
+        r = unit_name_to_instance(name, &instance);
+        if (r < 0)
+                return r;
+
+        if (!u->instance || !instance)
+                return 0;
+
+        if (!strstr(instance, u->instance))
+                return 0;
+
+        return 1;
+}
+
 int unit_add_dependency_by_name(Unit *u, UnitDependency d, const char *name, bool add_reference, UnitDependencyMask mask) {
         _cleanup_free_ char *buf = NULL;
         Unit *other;
@@ -3194,6 +3242,14 @@ int unit_add_dependency_by_name(Unit *u, UnitDependency d, const char *name, boo
 
         if (u->manager && FLAGS_SET(u->manager->test_run_flags, MANAGER_TEST_RUN_IGNORE_DEPENDENCIES))
                 return 0;
+
+        r = unit_is_recursive_template_dependency(u, name);
+        if (r < 0)
+                return r;
+        if (r == 1) {
+                log_unit_warning(u, "Dropping dependency %s that could lead to infinite recursion", name);
+                return 0;
+        }
 
         r = manager_load_unit(u->manager, name, NULL, NULL, &other);
         if (r < 0)
@@ -3216,6 +3272,14 @@ int unit_add_two_dependencies_by_name(Unit *u, UnitDependency d, UnitDependency 
 
         if (u->manager && FLAGS_SET(u->manager->test_run_flags, MANAGER_TEST_RUN_IGNORE_DEPENDENCIES))
                 return 0;
+
+        r = unit_is_recursive_template_dependency(u, name);
+        if (r < 0)
+                return r;
+        if (r == 1) {
+                log_unit_warning(u, "Dropping dependency %s that would lead to infinite recursion", name);
+                return 0;
+        }
 
         r = manager_load_unit(u->manager, name, NULL, NULL, &other);
         if (r < 0)
