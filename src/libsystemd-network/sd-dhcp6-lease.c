@@ -297,23 +297,26 @@ int dhcp6_lease_set_sntp(sd_dhcp6_lease *lease, const uint8_t *optval, size_t op
         if (optlen == 0)
                 return 0;
 
-        if (lease->ntp || lease->ntp_fqdn)
-                return -EEXIST;
-
-        /* Using deprecated SNTP information */
-
-        return dhcp6_option_parse_addresses(optval, optlen, &lease->ntp, &lease->ntp_count);
+        /* SNTP option is defined in RFC4075, and deprecated by RFC5908. */
+        return dhcp6_option_parse_addresses(optval, optlen, &lease->sntp, &lease->sntp_count);
 }
 
 int sd_dhcp6_lease_get_ntp_addrs(sd_dhcp6_lease *lease, const struct in6_addr **ret) {
         assert_return(lease, -EINVAL);
         assert_return(ret, -EINVAL);
 
-        if (!lease->ntp)
-                return -ENOENT;
+        if (lease->ntp) {
+                *ret = lease->ntp;
+                return lease->ntp_count;
+        }
 
-        *ret = lease->ntp;
-        return lease->ntp_count;
+        if (lease->sntp && !lease->ntp_fqdn) {
+                /* Fallback to the deprecated SNTP option. */
+                *ret = lease->sntp;
+                return lease->sntp_count;
+        }
+
+        return -ENOENT;
 }
 
 int sd_dhcp6_lease_get_ntp_fqdn(sd_dhcp6_lease *lease, char ***ret) {
