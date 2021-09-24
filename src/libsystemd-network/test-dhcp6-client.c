@@ -521,8 +521,7 @@ static int test_advertise_option(sd_event *e) {
 
                 case SD_DHCP6_OPTION_SNTP_SERVERS:
                         assert_se(optlen == 16);
-                        assert_se(dhcp6_lease_set_sntp(lease, optval,
-                                                       optlen) >= 0);
+                        assert_se(dhcp6_lease_add_sntp(lease, optval, optlen) >= 0);
                         break;
 
                 default:
