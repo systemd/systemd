@@ -3,8 +3,10 @@ Name=veth99
 
 [Network]
 IPv6AcceptRA=true
-IPv6Token=::1a:2b:3c:4d
-IPv6Token=static:::fa:de:ca:fe
-IPv6Token=::1a:2b:3c:4d
-IPv6Token=static:::1a:2b:3c:4d
-IPv6Token=::fa:de:ca:fe
+
+[IPv6AcceptRA]
+Token=::1a:2b:3c:4d
+Token=static:::fa:de:ca:fe
+Token=::1a:2b:3c:4d
+Token=static:::1a:2b:3c:4d
+Token=::fa:de:ca:fe
