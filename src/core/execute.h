@@ -365,6 +365,7 @@ typedef enum ExecFlags {
         EXEC_PASS_FDS          = 1 << 10,
         EXEC_SETENV_RESULT     = 1 << 11,
         EXEC_SET_WATCHDOG      = 1 << 12,
+        EXEC_SETENV_MONITOR_RESULT = 1 << 13, /* Pass exit status to OnFailure= dependencies. */
 } ExecFlags;
 
 /* Parameters for a specific invocation of a command. This structure is put together right before a command is
