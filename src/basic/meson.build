@@ -99,7 +99,6 @@ basic_sources = files('''
         linux/ipv6_route.h
         linux/l2tp.h
         linux/libc-compat.h
-        linux/loadavg.h
         linux/mrp_bridge.h
         linux/netdevice.h
         linux/netfilter/nf_tables.h
