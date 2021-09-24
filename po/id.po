@@ -7,7 +7,7 @@ msgstr ""
 "Project-Id-Version: systemd master\n"
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2021-01-08 17:48+0100\n"
-"PO-Revision-Date: 2021-09-09 03:04+0000\n"
+"PO-Revision-Date: 2021-09-24 11:05+0000\n"
 "Last-Translator: Andika Triwidada <andika@gmail.com>\n"
 "Language-Team: Indonesian <https://translate.fedoraproject.org/projects/"
 "systemd/master/id/>\n"
@@ -68,67 +68,57 @@ msgstr "Otentikasi diperlukan untuk memuat ulang keadaan systemd."
 
 #: src/home/org.freedesktop.home1.policy:13
 msgid "Create a home area"
-msgstr ""
+msgstr "Menciptakan suatu area rumah"
 
 #: src/home/org.freedesktop.home1.policy:14
-#, fuzzy
-#| msgid "Authentication is required to reload the systemd state."
 msgid "Authentication is required to create a user's home area."
-msgstr "Otentikasi diperlukan untuk memuat ulang keadaan systemd."
+msgstr "Otentikasi diperlukan untuk mencipta suatu area rumah pengguna."
 
 #: src/home/org.freedesktop.home1.policy:23
 msgid "Remove a home area"
-msgstr ""
+msgstr "Hapus suatu area rumah"
 
 #: src/home/org.freedesktop.home1.policy:24
-#, fuzzy
-#| msgid "Authentication is required to reload the systemd state."
 msgid "Authentication is required to remove a user's home area."
-msgstr "Otentikasi diperlukan untuk memuat ulang keadaan systemd."
+msgstr "Otentikasi diperlukan untuk menghapus area rumah pengguna."
 
 #: src/home/org.freedesktop.home1.policy:33
 msgid "Check credentials of a home area"
-msgstr ""
+msgstr "Memeriksa kredensial dari suatu area rumah"
 
 #: src/home/org.freedesktop.home1.policy:34
-#, fuzzy
-#| msgid ""
-#| "Authentication is required to manage active sessions, users and seats."
 msgid ""
 "Authentication is required to check credentials against a user's home area."
-msgstr "Otentikasi diperlukan untuk mengelola seat, pengguna, dan sesi aktif."
+msgstr ""
+"Otentikasi diperlukan untuk memeriksa kredensial atas suatu area rumah "
+"pengguna."
 
 #: src/home/org.freedesktop.home1.policy:43
 msgid "Update a home area"
-msgstr ""
+msgstr "Memperbarui suatu area rumah"
 
 #: src/home/org.freedesktop.home1.policy:44
-#, fuzzy
-#| msgid "Authentication is required to attach a device to a seat."
 msgid "Authentication is required to update a user's home area."
-msgstr "Otentikasi diperlukan untuk mencantol suatu perangkat ke sebuah seat."
+msgstr "Otentikasi diperlukan untuk memperbarui suatu area rumah pengguna."
 
 #: src/home/org.freedesktop.home1.policy:53
 msgid "Resize a home area"
-msgstr ""
+msgstr "Mengubah ukuran area rumah"
 
 #: src/home/org.freedesktop.home1.policy:54
-#, fuzzy
-#| msgid "Authentication is required to set a wall message"
 msgid "Authentication is required to resize a user's home area."
-msgstr "Otentikasi diperlukan untuk menyetel pesan wall"
+msgstr "Otentikasi diperlukan untuk mengubah ukuran area rumah pengguna."
 
 #: src/home/org.freedesktop.home1.policy:63
 msgid "Change password of a home area"
-msgstr ""
+msgstr "Ubah kata sandi dari suatu area rumah"
 
 #: src/home/org.freedesktop.home1.policy:64
-#, fuzzy
-#| msgid ""
-#| "Authentication is required to manage active sessions, users and seats."
 msgid ""
 "Authentication is required to change the password of a user's home area."
-msgstr "Otentikasi diperlukan untuk mengelola seat, pengguna, dan sesi aktif."
+msgstr ""
+"Otentikasi diperlukan untuk mengubah kata sandi dari suatu area rumah "
+"pengguna."
 
 #: src/hostname/org.freedesktop.hostname1.policy:20
 msgid "Set hostname"
@@ -801,21 +791,17 @@ msgstr "Otentikasi diperlukan untuk mengonfigurasi ulang antar muka jaringan."
 
 #: src/portable/org.freedesktop.portable1.policy:13
 msgid "Inspect a portable service image"
-msgstr ""
+msgstr "Memeriksa suatu image layanan portabel"
 
 #: src/portable/org.freedesktop.portable1.policy:14
-#, fuzzy
-#| msgid "Authentication is required to import a VM or container image"
 msgid "Authentication is required to inspect a portable service image."
-msgstr "Otentikasi diperlukan untuk mengimpor suatu image kontainer atau VM"
+msgstr "Otentikasi diperlukan untuk memeriksa suatu image layanan portabel."
 
 #: src/portable/org.freedesktop.portable1.policy:23
 msgid "Attach or detach a portable service image"
-msgstr ""
+msgstr "Cantol atau lepaskan suatu image layanan portabel"
 
 #: src/portable/org.freedesktop.portable1.policy:24
-#, fuzzy
-#| msgid "Authentication is required to attach a device to a seat."
 msgid ""
 "Authentication is required to attach or detach a portable service image."
 msgstr ""
@@ -824,14 +810,14 @@ msgstr ""
 
 #: src/portable/org.freedesktop.portable1.policy:34
 msgid "Delete or modify portable service image"
-msgstr ""
+msgstr "Hapus atau ubah image layanan portabel"
 
 #: src/portable/org.freedesktop.portable1.policy:35
-#, fuzzy
-#| msgid "Authentication is required to download a VM or container image"
 msgid ""
 "Authentication is required to delete or modify a portable service image."
-msgstr "Otentikasi diperlukan untuk mengunduh suatu image kontainer atau VM"
+msgstr ""
+"Otentikasi diperlukan untuk menghapus atau mengubah suatu image layanan "
+"portabel."
 
 #: src/resolve/org.freedesktop.resolve1.policy:22
 msgid "Register a DNS-SD service"
