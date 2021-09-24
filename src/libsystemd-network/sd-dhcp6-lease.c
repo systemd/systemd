@@ -242,14 +242,11 @@ int sd_dhcp6_lease_get_domains(sd_dhcp6_lease *lease, char ***ret) {
         return strv_length(lease->domains);
 }
 
-int dhcp6_lease_set_ntp(sd_dhcp6_lease *lease, const uint8_t *optval, size_t optlen) {
+int dhcp6_lease_add_ntp(sd_dhcp6_lease *lease, const uint8_t *optval, size_t optlen) {
         int r;
 
         assert_return(lease, -EINVAL);
         assert_return(optval, -EINVAL);
-
-        lease->ntp = mfree(lease->ntp);
-        lease->ntp_count = 0;
 
         for (size_t offset = 0; offset < optlen;) {
                 const uint8_t *subval;
@@ -273,13 +270,18 @@ int dhcp6_lease_set_ntp(sd_dhcp6_lease *lease, const uint8_t *optval, size_t opt
                         break;
 
                 case DHCP6_NTP_SUBOPTION_SRV_FQDN: {
-                        char **servers;
+                        _cleanup_free_ char *server = NULL;
 
-                        r = dhcp6_option_parse_domainname_list(subval, sublen, &servers);
+                        r = dhcp6_option_parse_domainname(subval, sublen, &server);
                         if (r < 0)
                                 return r;
 
-                        strv_free_and_replace(lease->ntp_fqdn, servers);
+                        if (strv_contains(lease->ntp_fqdn, server))
+                                continue;
+
+                        r = strv_consume(&lease->ntp_fqdn, TAKE_PTR(server));
+                        if (r < 0)
+                                return r;
 
                         break;
                 }}
