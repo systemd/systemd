@@ -358,20 +358,18 @@ int sd_dhcp6_lease_get_fqdn(sd_dhcp6_lease *lease, const char **ret) {
 }
 
 static sd_dhcp6_lease *dhcp6_lease_free(sd_dhcp6_lease *lease) {
-        assert(lease);
+        if (!lease)
+                return NULL;
 
         free(lease->serverid);
         dhcp6_lease_free_ia(&lease->ia);
         dhcp6_lease_free_ia(&lease->pd);
-
         free(lease->dns);
         free(lease->fqdn);
-
-        lease->domains = strv_free(lease->domains);
-
+        strv_free(lease->domains);
         free(lease->ntp);
+        strv_free(lease->ntp_fqdn);
 
-        lease->ntp_fqdn = strv_free(lease->ntp_fqdn);
         return mfree(lease);
 }
 
