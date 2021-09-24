@@ -726,7 +726,7 @@ static int client_notify(sd_dhcp_client *client, int event) {
 static int client_initialize(sd_dhcp_client *client) {
         assert_return(client, -EINVAL);
 
-        client->receive_message = sd_event_source_unref(client->receive_message);
+        client->receive_message = sd_event_source_disable_unref(client->receive_message);
 
         client->fd = safe_close(client->fd);
 
@@ -1492,7 +1492,7 @@ static int client_timeout_t2(sd_event_source *s, uint64_t usec, void *userdata) 
 
         assert(client);
 
-        client->receive_message = sd_event_source_unref(client->receive_message);
+        client->receive_message = sd_event_source_disable_unref(client->receive_message);
         client->fd = safe_close(client->fd);
 
         client->state = DHCP_STATE_REBINDING;
@@ -1844,7 +1844,7 @@ static int client_handle_message(sd_dhcp_client *client, DHCPMessage *message, i
 
                 client->start_delay = 0;
                 (void) event_source_disable(client->timeout_resend);
-                client->receive_message = sd_event_source_unref(client->receive_message);
+                client->receive_message = sd_event_source_disable_unref(client->receive_message);
                 client->fd = safe_close(client->fd);
 
                 client->state = DHCP_STATE_BOUND;
@@ -2226,16 +2226,14 @@ static sd_dhcp_client *dhcp_client_free(sd_dhcp_client *client) {
 
         log_dhcp_client(client, "FREE");
 
+        client_initialize(client);
+
         client->timeout_resend = sd_event_source_unref(client->timeout_resend);
         client->timeout_t1 = sd_event_source_unref(client->timeout_t1);
         client->timeout_t2 = sd_event_source_unref(client->timeout_t2);
         client->timeout_expire = sd_event_source_unref(client->timeout_expire);
 
-        client_initialize(client);
-
         sd_dhcp_client_detach_event(client);
-
-        sd_dhcp_lease_unref(client->lease);
 
         set_free(client->req_opts);
         free(client->hostname);

@@ -89,8 +89,7 @@ static void radv_reset(sd_radv *ra) {
 
         (void) event_source_disable(ra->timeout_event_source);
 
-        ra->recv_event_source =
-                sd_event_source_unref(ra->recv_event_source);
+        ra->recv_event_source = sd_event_source_disable_unref(ra->recv_event_source);
 
         ra->ra_sent = 0;
 }
@@ -116,10 +115,9 @@ static sd_radv *radv_free(sd_radv *ra) {
         free(ra->rdnss);
         free(ra->dnssl);
 
-        ra->timeout_event_source = sd_event_source_unref(ra->timeout_event_source);
-
         radv_reset(ra);
 
+        sd_event_source_unref(ra->timeout_event_source);
         sd_radv_detach_event(ra);
 
         ra->fd = safe_close(ra->fd);

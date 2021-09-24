@@ -239,7 +239,7 @@ static void lldp_reset(sd_lldp *lldp) {
         assert(lldp);
 
         (void) event_source_disable(lldp->timer_event_source);
-        lldp->io_event_source = sd_event_source_unref(lldp->io_event_source);
+        lldp->io_event_source = sd_event_source_disable_unref(lldp->io_event_source);
         lldp->fd = safe_close(lldp->fd);
 }
 
@@ -365,10 +365,11 @@ const char *sd_lldp_get_ifname(sd_lldp *lldp) {
 static sd_lldp* lldp_free(sd_lldp *lldp) {
         assert(lldp);
 
-        lldp->timer_event_source = sd_event_source_unref(lldp->timer_event_source);
-
         lldp_reset(lldp);
+
+        sd_event_source_unref(lldp->timer_event_source);
         sd_lldp_detach_event(lldp);
+
         lldp_flush_neighbors(lldp);
 
         hashmap_free(lldp->neighbor_by_id);
