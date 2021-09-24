@@ -2193,8 +2193,11 @@ Table=1234</programlisting></para>
           <term><varname>Token=</varname></term>
           <listitem>
             <para>Specifies an optional address generation mode for the Stateless Address
-            Autoconfiguration (SLAAC). Supported modes are <literal>static</literal> and
-            <literal>prefixstable</literal>.</para>
+            Autoconfiguration (SLAAC). Supported modes are <literal>eui64</literal>,
+            <literal>static</literal>, and <literal>prefixstable</literal>.</para>
+
+            <para>When the mode is set to <literal>eui64</literal>, then the EUI-64 algorithm will be
+            used to generate an address for that prefix.</para>
 
             <para>When the mode is set to <literal>static</literal>, an IPv6 address must be
             specified after a colon (<literal>:</literal>), and the lower bits of the supplied
@@ -2229,7 +2232,8 @@ Table=1234</programlisting></para>
             the all previous assignments are cleared.</para>
 
             <para>Examples:
-            <programlisting>Token=::1a:2b:3c:4d
+            <programlisting>Token=eui64
+Token=::1a:2b:3c:4d
 Token=static:::1a:2b:3c:4d
 Token=prefixstable
 Token=prefixstable:2002:da8:1::</programlisting></para>

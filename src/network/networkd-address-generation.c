@@ -23,6 +23,7 @@
 #define NDISC_APP_ID   SD_ID128_MAKE(13,ac,81,a7,d5,3f,49,78,92,79,5d,0c,29,3a,bc,7e)
 
 typedef enum AddressGenerationType {
+        ADDRESS_GENERATION_EUI64,
         ADDRESS_GENERATION_STATIC,
         ADDRESS_GENERATION_PREFIXSTABLE,
         _ADDRESS_GENERATION_TYPE_MAX,
@@ -176,6 +177,10 @@ static int generate_addresses(
                 struct in6_addr addr, *copy;
 
                 switch (j->type) {
+                case ADDRESS_GENERATION_EUI64:
+                        generate_eui64_address(link, &masked, &addr);
+                        break;
+
                 case ADDRESS_GENERATION_STATIC:
                         memcpy(addr.s6_addr, masked.s6_addr, 8);
                         memcpy(addr.s6_addr + 8, j->address.s6_addr + 8, 8);
@@ -309,6 +314,9 @@ int config_parse_address_generation_type(
                         return 0;
                 }
 
+        } else if (streq(rvalue, "eui64")) {
+                type = ADDRESS_GENERATION_EUI64;
+                p = NULL;
         } else {
                 type = ADDRESS_GENERATION_STATIC;
 
@@ -328,6 +336,10 @@ int config_parse_address_generation_type(
         }
 
         switch (type) {
+        case ADDRESS_GENERATION_EUI64:
+                assert(in6_addr_is_null(&buffer.in6));
+                break;
+
         case ADDRESS_GENERATION_STATIC:
                 /* Only last 64 bits are used. */
                 memzero(buffer.in6.s6_addr, 8);
