@@ -290,7 +290,7 @@ Route *route_free(Route *route) {
 
         ordered_set_free_with_destructor(route->multipath_routes, multipath_route_free);
 
-        sd_event_source_unref(route->expire);
+        sd_event_source_disable_unref(route->expire);
 
         return mfree(route);
 }
@@ -1273,7 +1273,7 @@ static int route_expire_handler(sd_event_source *s, uint64_t usec, void *userdat
 }
 
 static int route_add_and_setup_timer_one(Link *link, const Route *route, const MultipathRoute *m, const NextHop *nh, uint8_t nh_weight, Route **ret) {
-        _cleanup_(sd_event_source_unrefp) sd_event_source *expire = NULL;
+        _cleanup_(sd_event_source_disable_unrefp) sd_event_source *expire = NULL;
         Route *nr;
         int r;
 
@@ -1311,7 +1311,7 @@ static int route_add_and_setup_timer_one(Link *link, const Route *route, const M
                         return log_link_error_errno(link, r, "Could not arm expiration timer: %m");
         }
 
-        sd_event_source_unref(nr->expire);
+        sd_event_source_disable_unref(nr->expire);
         nr->expire = TAKE_PTR(expire);
 
         *ret = nr;

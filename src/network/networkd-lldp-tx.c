@@ -413,7 +413,7 @@ int link_lldp_emit_start(Link *link) {
 void link_lldp_emit_stop(Link *link) {
         assert(link);
 
-        link->lldp_emit_event_source = sd_event_source_unref(link->lldp_emit_event_source);
+        link->lldp_emit_event_source = sd_event_source_disable_unref(link->lldp_emit_event_source);
 }
 
 int config_parse_lldp_mud(
