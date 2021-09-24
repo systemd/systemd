@@ -120,7 +120,7 @@ static void ipv4acd_reset(sd_ipv4acd *acd) {
         assert(acd);
 
         (void) event_source_disable(acd->timer_event_source);
-        acd->receive_message_event_source = sd_event_source_unref(acd->receive_message_event_source);
+        acd->receive_message_event_source = sd_event_source_disable_unref(acd->receive_message_event_source);
 
         acd->fd = safe_close(acd->fd);
 
@@ -130,9 +130,8 @@ static void ipv4acd_reset(sd_ipv4acd *acd) {
 static sd_ipv4acd *ipv4acd_free(sd_ipv4acd *acd) {
         assert(acd);
 
-        acd->timer_event_source = sd_event_source_unref(acd->timer_event_source);
-
         ipv4acd_reset(acd);
+        sd_event_source_unref(acd->timer_event_source);
         sd_ipv4acd_detach_event(acd);
         free(acd->ifname);
         return mfree(acd);

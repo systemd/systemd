@@ -267,8 +267,8 @@ int sd_dhcp_server_stop(sd_dhcp_server *server) {
         if (!server)
                 return 0;
 
-        server->receive_message = sd_event_source_unref(server->receive_message);
-        server->receive_broadcast = sd_event_source_unref(server->receive_broadcast);
+        server->receive_message = sd_event_source_disable_unref(server->receive_message);
+        server->receive_broadcast = sd_event_source_disable_unref(server->receive_broadcast);
 
         server->fd_raw = safe_close(server->fd_raw);
         server->fd = safe_close(server->fd);
