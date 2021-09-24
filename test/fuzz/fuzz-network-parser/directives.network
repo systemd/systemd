@@ -359,6 +359,7 @@ RouteAllowList=
 RouteDenyList=
 DenyList=
 BlackList=
+Token=
 [DHCPServer]
 EmitNTP=
 PoolSize=
