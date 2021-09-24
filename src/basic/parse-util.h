@@ -3,7 +3,6 @@
 
 #include <inttypes.h>
 #include <limits.h>
-#include <linux/loadavg.h>
 #include <stddef.h>
 #include <stdint.h>
 #include <sys/types.h>
@@ -135,6 +134,14 @@ int parse_ip_port_range(const char *s, uint16_t *low, uint16_t *high);
 int parse_ip_prefix_length(const char *s, int *ret);
 
 int parse_oom_score_adjust(const char *s, int *ret);
+
+/* Implement floating point using fixed integers, to improve performance when
+ * calculating load averages. These macros can be used to extract the integer
+ * and decimal parts of a value. */
+#define PRECISION_BITS  11
+#define FIXED_POINT_1_0 (1 << PRECISION_BITS)
+#define INT_SIDE(x)     ((x) >> PRECISION_BITS)
+#define DECIMAL_SIDE(x) INT_SIDE(((x) & (FIXED_POINT_1_0 - 1)) * 100)
 
 /* Given a Linux load average (e.g. decimal number 34.89 where 34 is passed as i and 89 is passed as f), convert it
  * to a loadavg_t. */
