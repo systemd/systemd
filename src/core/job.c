@@ -1338,6 +1338,8 @@ void job_shutdown_magic(Job *j) {
         if (detect_container() > 0)
                 return;
 
+        manager_invalidate_startup_units(j->unit->manager);
+
         (void) asynchronous_sync(NULL);
 }
 
