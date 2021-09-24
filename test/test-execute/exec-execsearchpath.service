@@ -1,0 +1,4 @@
+[Service]
+ExecStart=ls_temp
+Type=oneshot
+ExecSearchPath=/tmp/test-exec_execsearchpath

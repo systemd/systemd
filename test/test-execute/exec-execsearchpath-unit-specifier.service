@@ -1,0 +1,8 @@
+[Unit]
+Description=Test for specifiers with exec search path
+
+[Service]
+Type=oneshot
+ExecStart=test %V = /var/tmp
+ExecSearchPath=/tmp:/bin:%V
+ExecStart=/bin/sh -x -c 'test "$$PATH" = "/tmp:/bin:/var/tmp"'
