@@ -193,7 +193,7 @@ void sd_dhcp6_lease_reset_pd_prefix_iter(sd_dhcp6_lease *lease) {
                 lease->prefix_iter = lease->pd.addresses;
 }
 
-int dhcp6_lease_set_dns(sd_dhcp6_lease *lease, uint8_t *optval, size_t optlen) {
+int dhcp6_lease_set_dns(sd_dhcp6_lease *lease, const uint8_t *optval, size_t optlen) {
         assert_return(lease, -EINVAL);
         assert_return(optval, -EINVAL);
 
@@ -215,8 +215,7 @@ int sd_dhcp6_lease_get_dns(sd_dhcp6_lease *lease, const struct in6_addr **addrs)
         return -ENOENT;
 }
 
-int dhcp6_lease_set_domains(sd_dhcp6_lease *lease, uint8_t *optval,
-                            size_t optlen) {
+int dhcp6_lease_set_domains(sd_dhcp6_lease *lease, const uint8_t *optval, size_t optlen) {
         int r;
         char **domains;
 
@@ -248,7 +247,7 @@ int sd_dhcp6_lease_get_domains(sd_dhcp6_lease *lease, char ***domains) {
         return -ENOENT;
 }
 
-int dhcp6_lease_set_ntp(sd_dhcp6_lease *lease, uint8_t *optval, size_t optlen) {
+int dhcp6_lease_set_ntp(sd_dhcp6_lease *lease, const uint8_t *optval, size_t optlen) {
         int r;
 
         assert_return(lease, -EINVAL);
@@ -295,7 +294,7 @@ int dhcp6_lease_set_ntp(sd_dhcp6_lease *lease, uint8_t *optval, size_t optlen) {
         return 0;
 }
 
-int dhcp6_lease_set_sntp(sd_dhcp6_lease *lease, uint8_t *optval, size_t optlen) {
+int dhcp6_lease_set_sntp(sd_dhcp6_lease *lease, const uint8_t *optval, size_t optlen) {
         assert_return(lease, -EINVAL);
         assert_return(optval, -EINVAL);
 
@@ -335,8 +334,7 @@ int sd_dhcp6_lease_get_ntp_fqdn(sd_dhcp6_lease *lease, char ***ntp_fqdn) {
         return -ENOENT;
 }
 
-int dhcp6_lease_set_fqdn(sd_dhcp6_lease *lease, const uint8_t *optval,
-                         size_t optlen) {
+int dhcp6_lease_set_fqdn(sd_dhcp6_lease *lease, const uint8_t *optval, size_t optlen) {
         int r;
         char *fqdn;
 
