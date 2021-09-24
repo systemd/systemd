@@ -1535,20 +1535,16 @@ static int become_shutdown(
                 watchdog_timer = arg_kexec_watchdog;
 
         if (timestamp_is_set(watchdog_timer)) {
-                char *e;
-
-                /* If we reboot or kexec let's set the shutdown watchdog and
-                 * tell the shutdown binary to repeatedly ping it */
+                /* If we reboot or kexec let's set the shutdown watchdog and tell the shutdown binary to
+                 * repeatedly ping it */
                 r = watchdog_setup(watchdog_timer);
                 watchdog_close(r < 0);
 
                 /* Tell the binary how often to ping, ignore failure */
-                if (asprintf(&e, "WATCHDOG_USEC="USEC_FMT, watchdog_timer) > 0)
-                        (void) strv_consume(&env_block, e);
+                (void) strv_extendf(&env_block, "WATCHDOG_USEC="USEC_FMT, watchdog_timer);
 
-                if (arg_watchdog_device &&
-                    asprintf(&e, "WATCHDOG_DEVICE=%s", arg_watchdog_device) > 0)
-                        (void) strv_consume(&env_block, e);
+                if (arg_watchdog_device)
+                        (void) strv_extendf(&env_block, "WATCHDOG_DEVICE=%s", arg_watchdog_device);
         } else
                 watchdog_close(true);
 
