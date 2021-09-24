@@ -29,19 +29,21 @@
   <refsect1>
     <title>Description</title>
 
-    <para><command>systemd-cryptenroll</command> is a tool for enrolling hardware security tokens and devices into a
-    LUKS2 encrypted volume, which may then be used to unlock the volume during boot. Specifically, it supports
-    tokens and credentials of the following kind to be enrolled:</para>
+    <para><command>systemd-cryptenroll</command> is a tool for enrolling hardware security tokens and devices
+    into a LUKS2 encrypted volume, which may then be used to unlock the volume during boot. Specifically, it
+    supports tokens and credentials of the following kind to be enrolled:</para>
 
     <orderedlist>
-      <listitem><para>PKCS#11 security tokens and smartcards that may carry an RSA key pair (e.g. various YubiKeys)</para></listitem>
+      <listitem><para>PKCS#11 security tokens and smartcards that may carry an RSA key pair (e.g. various
+      YubiKeys)</para></listitem>
 
-      <listitem><para>FIDO2 security tokens that implement the <literal>hmac-secret</literal> extension (most FIDO2 keys, including YubiKeys)</para></listitem>
+      <listitem><para>FIDO2 security tokens that implement the <literal>hmac-secret</literal> extension (most
+      FIDO2 keys, including YubiKeys)</para></listitem>
 
       <listitem><para>TPM2 security devices</para></listitem>
 
       <listitem><para>Recovery keys. These are similar to regular passphrases, however are randomly generated
-      on the computer and thus generally have higher entropy than user chosen passphrases. Their character
+      on the computer and thus generally have higher entropy than user-chosen passphrases. Their character
       set has been designed to ensure they are easy to type in, while having high entropy. They may also be
       scanned off screen using QR codes. Recovery keys may be used for unlocking LUKS2 volumes wherever
       passphrases are accepted. They are intended to be used in combination with an enrolled hardware
@@ -75,9 +77,10 @@
       <varlistentry>
         <term><option>--recovery-key</option></term>
 
-        <listitem><para>Enroll a recovery key. Recovery keys are most identical to passphrases, but are
-        computer generated instead of human chosen, and thus have a guaranteed high entropy. The key uses a
-        character set that is easy to type in, and may be scanned off screen via a QR code.</para></listitem>
+        <listitem><para>Enroll a recovery key. Recovery keys are mostly identical to passphrases, but are
+        computer-generated instead of being chosen by a human, and thus have a guaranteed high entropy. The
+        key uses a character set that is easy to type in, and may be scanned off screen via a QR code.
+        </para></listitem>
       </varlistentry>
 
       <varlistentry>
