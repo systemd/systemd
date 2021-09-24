@@ -9,6 +9,7 @@ AmbientCapabilities=
 AppArmorProfile=
 BPFProgram=
 Backlog=
+ExecSearchPath=
 BindIPv6Only=
 BindPaths=
 BindReadOnlyPaths=
