@@ -1105,7 +1105,6 @@ static int client_parse_message(
         uint32_t lt_t1 = ~0, lt_t2 = ~0;
         usec_t irt = IRT_DEFAULT;
         bool clientid = false;
-        size_t pos = 0;
         int r;
 
         assert(client);
@@ -1114,21 +1113,14 @@ static int client_parse_message(
         assert(lease);
 
         len -= sizeof(DHCP6Message);
+        for (size_t offset = 0; offset < len;) {
+                uint16_t optcode;
+                size_t optlen;
+                const uint8_t *optval;
 
-        while (pos < len) {
-                DHCP6Option *option = (DHCP6Option *) &message->options[pos];
-                uint16_t optcode, optlen;
-                uint8_t *optval;
-
-                if (len < pos + offsetof(DHCP6Option, data))
-                        return -ENOBUFS;
-
-                optcode = be16toh(option->code);
-                optlen = be16toh(option->len);
-                optval = option->data;
-
-                if (len < pos + offsetof(DHCP6Option, data) + optlen)
-                        return -ENOBUFS;
+                r = dhcp6_option_parse(message->options, len, &offset, &optcode, &optlen, &optval);
+                if (r < 0)
+                        return r;
 
                 switch (optcode) {
                 case SD_DHCP6_OPTION_CLIENTID:
@@ -1192,11 +1184,6 @@ static int client_parse_message(
                         if (r < 0 && r != -ENOANO)
                                 return r;
 
-                        if (ia_na_status == DHCP6_STATUS_NO_ADDRS_AVAIL) {
-                                pos += offsetof(DHCP6Option, data) + optlen;
-                                continue;
-                        }
-
                         if (lease->ia.addresses) {
                                 lt_t1 = MIN(lt_t1, be32toh(lease->ia.ia_na.lifetime_t1));
                                 lt_t2 = MIN(lt_t2, be32toh(lease->ia.ia_na.lifetime_t2));
@@ -1213,11 +1200,6 @@ static int client_parse_message(
                         r = dhcp6_option_parse_ia(client, client->ia_pd.ia_pd.id, optcode, optlen, optval, &lease->pd, &ia_pd_status);
                         if (r < 0 && r != -ENOANO)
                                 return r;
-
-                        if (ia_pd_status == DHCP6_STATUS_NO_PREFIX_AVAIL) {
-                                pos += offsetof(DHCP6Option, data) + optlen;
-                                continue;
-                        }
 
                         if (lease->pd.addresses) {
                                 lt_t1 = MIN(lt_t1, be32toh(lease->pd.ia_pd.lifetime_t1));
@@ -1275,8 +1257,6 @@ static int client_parse_message(
                         irt = unaligned_read_be32((be32_t *) optval) * USEC_PER_SEC;
                         break;
                 }
-
-                pos += offsetof(DHCP6Option, data) + optlen;
         }
 
         if (ia_na_status > 0 && ia_pd_status > 0)
