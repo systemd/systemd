@@ -49,7 +49,7 @@ int dhcp6_lease_get_iaid(sd_dhcp6_lease *lease, be32_t *iaid);
 int dhcp6_lease_get_pd_iaid(sd_dhcp6_lease *lease, be32_t *iaid);
 
 int dhcp6_lease_set_dns(sd_dhcp6_lease *lease, const uint8_t *optval, size_t optlen);
-int dhcp6_lease_set_domains(sd_dhcp6_lease *lease, const uint8_t *optval, size_t optlen);
+int dhcp6_lease_add_domains(sd_dhcp6_lease *lease, const uint8_t *optval, size_t optlen);
 int dhcp6_lease_set_ntp(sd_dhcp6_lease *lease, const uint8_t *optval, size_t optlen);
 int dhcp6_lease_set_sntp(sd_dhcp6_lease *lease, const uint8_t *optval, size_t optlen) ;
 int dhcp6_lease_set_fqdn(sd_dhcp6_lease *lease, const uint8_t *optval, size_t optlen);
