@@ -1250,7 +1250,7 @@ static int client_parse_message(
                         break;
 
                 case SD_DHCP6_OPTION_DOMAIN_LIST:
-                        r = dhcp6_lease_set_domains(lease, optval, optlen);
+                        r = dhcp6_lease_add_domains(lease, optval, optlen);
                         if (r < 0)
                                 return r;
 
