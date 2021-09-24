@@ -22,6 +22,7 @@
 #define RESERVED_SUBNET_ANYCAST_ADDRESSES_RFC4291           ((struct in6_addr) { .s6_addr = { 0xFD, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF } })
 #define RESERVED_SUBNET_ANYCAST_PREFIXLEN                   7
 
+#define DHCP6PD_APP_ID SD_ID128_MAKE(fb,b9,37,ca,4a,ed,4a,4d,b0,70,7f,aa,71,c0,c9,85)
 #define NDISC_APP_ID   SD_ID128_MAKE(13,ac,81,a7,d5,3f,49,78,92,79,5d,0c,29,3a,bc,7e)
 
 typedef enum AddressGenerationType {
@@ -239,6 +240,10 @@ static int generate_addresses(
 
         *ret = TAKE_PTR(addresses);
         return 0;
+}
+
+int dhcp6_pd_generate_addresses(Link *link, const struct in6_addr *prefix, Set **ret) {
+        return generate_addresses(link, link->network->dhcp6_pd_tokens, &DHCP6PD_APP_ID, prefix, 64, ret);
 }
 
 int ndisc_generate_addresses(Link *link, const struct in6_addr *prefix, uint8_t prefixlen, Set **ret) {
