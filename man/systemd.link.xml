@@ -716,6 +716,41 @@
         </listitem>
       </varlistentry>
       <varlistentry>
+        <term><varname>ReceiveVLANCTAGHardwareAcceleration=</varname></term>
+        <listitem>
+          <para>Takes a boolean. If set to true, receive VLAN CTAG hardware acceleration is enabled.
+          When unset, the kernel's default will be used.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><varname>TransmitVLANCTAGHardwareAcceleration=</varname></term>
+        <listitem>
+          <para>Takes a boolean. If set to true, transmit VLAN CTAG hardware acceleration is enabled.
+          When unset, the kernel's default will be used.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><varname>ReceiveVLANCTAGFilter=</varname></term>
+        <listitem>
+          <para>Takes a boolean. If set to true, receive filtering on VLAN CTAGs is enabled.
+          When unset, the kernel's default will be used.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><varname>TransmitVLANSTAGHardwareAcceleration=</varname></term>
+        <listitem>
+          <para>Takes a boolean. If set to true, transmit VLAN STAG HW acceleration is enabled.
+          When unset, the kernel's default will be used.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><varname>NTupleFilter=</varname></term>
+        <listitem>
+          <para>Takes a boolean. If set to true, receive N-tuple filters and actions are enabled.
+          When unset, the kernel's default will be used.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
         <term><varname>RxChannels=</varname></term>
         <term><varname>TxChannels=</varname></term>
         <term><varname>OtherChannels=</varname></term>
