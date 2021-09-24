@@ -2730,6 +2730,16 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
       </varlistentry>
 
       <varlistentry>
+        <term><varname>Token=</varname></term>
+        <listitem>
+          <para>Specifies an optional address generation mode for assigning an address in each
+          prefix. This accepts the same syntax as <varname>Token=</varname> in the [IPv6AcceptRA]
+          section. If <varname>Assign=</varname> is set to false, then this setting will be ignored.
+          Defaults to unset, which means the EUI-64 algorithm will be used.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>RouteMetric=</varname></term>
         <listitem>
           <para>The metric of the prefix route. Takes an unsigned integer in the range 0…4294967295.

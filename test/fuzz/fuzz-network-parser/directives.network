@@ -247,6 +247,7 @@ PreferredLifetimeSec=
 AddressAutoconfiguration=
 ValidLifetimeSec=
 Assign=
+Token=
 RouteMetric=
 [IPv6RoutePrefix]
 Route=

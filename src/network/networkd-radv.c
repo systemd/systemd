@@ -69,6 +69,7 @@ Prefix *prefix_free(Prefix *prefix) {
 
         network_config_section_free(prefix->section);
         sd_radv_prefix_unref(prefix->radv_prefix);
+        set_free(prefix->tokens);
 
         return mfree(prefix);
 }
@@ -204,8 +205,8 @@ int link_request_radv_addresses(Link *link) {
                 return 0;
 
         HASHMAP_FOREACH(p, link->network->prefixes_by_section) {
-                _cleanup_(address_freep) Address *address = NULL;
-                struct in6_addr prefix;
+                _cleanup_set_free_ Set *addresses = NULL;
+                struct in6_addr prefix, *a;
                 uint8_t prefixlen;
 
                 if (!p->assign)
@@ -215,7 +216,7 @@ int link_request_radv_addresses(Link *link) {
                 if (r < 0)
                         return r;
 
-                /* generate_eui64_address() below requires the prefix length <= 64. */
+                /* radv_generate_addresses() below requires the prefix length <= 64. */
                 if (prefixlen > 64) {
                         _cleanup_free_ char *str = NULL;
 
@@ -226,20 +227,27 @@ int link_request_radv_addresses(Link *link) {
                         continue;
                 }
 
-                r = address_new(&address);
-                if (r < 0)
-                        return log_oom();
-
-                generate_eui64_address(link, &prefix, &address->in_addr.in6);
-
-                address->source = NETWORK_CONFIG_SOURCE_STATIC;
-                address->family = AF_INET6;
-                address->prefixlen = prefixlen;
-                address->route_metric = p->route_metric;
-
-                r = link_request_static_address(link, TAKE_PTR(address), true);
+                r = radv_generate_addresses(link, p->tokens, &prefix, prefixlen, &addresses);
                 if (r < 0)
                         return r;
+
+                SET_FOREACH(a, addresses) {
+                        _cleanup_(address_freep) Address *address = NULL;
+
+                        r = address_new(&address);
+                        if (r < 0)
+                                return -ENOMEM;
+
+                        address->source = NETWORK_CONFIG_SOURCE_STATIC;
+                        address->family = AF_INET6;
+                        address->in_addr.in6 = *a;
+                        address->prefixlen = prefixlen;
+                        address->route_metric = p->route_metric;
+
+                        r = link_request_static_address(link, TAKE_PTR(address), true);
+                        if (r < 0)
+                                return r;
+                }
         }
 
         return 0;
@@ -872,6 +880,41 @@ int config_parse_prefix_metric(
 
         TAKE_PTR(p);
 
+        return 0;
+}
+
+int config_parse_prefix_token(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        _cleanup_(prefix_free_or_set_invalidp) Prefix *p = NULL;
+        Network *network = userdata;
+        int r;
+
+        assert(filename);
+        assert(section);
+        assert(lvalue);
+        assert(rvalue);
+        assert(userdata);
+
+        r = prefix_new_static(network, filename, section_line, &p);
+        if (r < 0)
+                return log_oom();
+
+        r = config_parse_address_generation_type(unit, filename, line, section, section_line,
+                                                 lvalue, ltype, rvalue, &p->tokens, userdata);
+        if (r < 0)
+                return r;
+
+        TAKE_PTR(p);
         return 0;
 }
 
