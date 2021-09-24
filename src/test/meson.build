@@ -371,7 +371,7 @@ tests += [
         [['src/test/test-hashmap.c',
           'src/test/test-hashmap-plain.c',
           test_hashmap_ordered_c],
-         [], [], [], '', 'timeout=90'],
+         [], [], [], '', 'timeout=180'],
 
         [['src/test/test-set.c'],
          [libbasic]],
