@@ -193,7 +193,7 @@ void sd_dhcp6_lease_reset_pd_prefix_iter(sd_dhcp6_lease *lease) {
                 lease->prefix_iter = lease->pd.addresses;
 }
 
-int dhcp6_lease_set_dns(sd_dhcp6_lease *lease, const uint8_t *optval, size_t optlen) {
+int dhcp6_lease_add_dns(sd_dhcp6_lease *lease, const uint8_t *optval, size_t optlen) {
         assert_return(lease, -EINVAL);
         assert_return(optval, -EINVAL);
 
