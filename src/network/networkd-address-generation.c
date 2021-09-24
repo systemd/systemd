@@ -37,7 +37,7 @@ typedef struct IPv6Token {
         struct in6_addr address;
 } IPv6Token;
 
-void generate_eui64_address(const Link *link, const struct in6_addr *prefix, struct in6_addr *ret) {
+static void generate_eui64_address(const Link *link, const struct in6_addr *prefix, struct in6_addr *ret) {
         assert(link);
         assert(prefix);
         assert(ret);
