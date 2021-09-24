@@ -1112,7 +1112,6 @@ static int client_parse_message(
         uint32_t lt_t1 = UINT32_MAX, lt_t2 = UINT32_MAX;
         usec_t irt = IRT_DEFAULT;
         bool clientid = false;
-        size_t pos = 0;
         int r;
 
         assert(client);
@@ -1121,23 +1120,14 @@ static int client_parse_message(
         assert(lease);
 
         len -= sizeof(DHCP6Message);
+        for (size_t offset = 0; offset < len;) {
+                uint16_t optcode;
+                size_t optlen;
+                const uint8_t *optval;
 
-        while (pos < len) {
-                DHCP6Option *option = (DHCP6Option *) &message->options[pos];
-                uint16_t optcode, optlen;
-                uint8_t *optval;
-
-                if (len < pos + offsetof(DHCP6Option, data))
-                        return -ENOBUFS;
-
-                optcode = be16toh(option->code);
-                optlen = be16toh(option->len);
-                optval = option->data;
-
-                if (len < pos + offsetof(DHCP6Option, data) + optlen)
-                        return -ENOBUFS;
-
-                pos += offsetof(DHCP6Option, data) + optlen;
+                r = dhcp6_option_parse(message->options, len, &offset, &optcode, &optlen, &optval);
+                if (r < 0)
+                        return r;
 
                 switch (optcode) {
                 case SD_DHCP6_OPTION_CLIENTID:
