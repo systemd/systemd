@@ -348,6 +348,7 @@ IPv6Prefix.ValidLifetimeSec,                 config_parse_prefix_lifetime,      
 IPv6Prefix.PreferredLifetimeSec,             config_parse_prefix_lifetime,                             0,                             0
 IPv6Prefix.Assign,                           config_parse_prefix_assign,                               0,                             0
 IPv6Prefix.RouteMetric,                      config_parse_prefix_metric,                               0,                             0
+IPv6Prefix.Token,                            config_parse_prefix_token,                                0,                             0
 IPv6RoutePrefix.Route,                       config_parse_route_prefix,                                0,                             0
 IPv6RoutePrefix.LifetimeSec,                 config_parse_route_prefix_lifetime,                       0,                             0
 LLDP.MUDURL,                                 config_parse_mud_url,                                     0,                             offsetof(Network, lldp_mudurl)

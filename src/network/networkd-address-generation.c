@@ -22,6 +22,7 @@
 
 #define DHCP6PD_APP_ID SD_ID128_MAKE(fb,b9,37,ca,4a,ed,4a,4d,b0,70,7f,aa,71,c0,c9,85)
 #define NDISC_APP_ID   SD_ID128_MAKE(13,ac,81,a7,d5,3f,49,78,92,79,5d,0c,29,3a,bc,7e)
+#define RADV_APP_ID    SD_ID128_MAKE(1f,1e,90,c8,5c,78,4f,dc,8e,61,2d,59,0d,53,c1,25)
 
 typedef enum AddressGenerationType {
         ADDRESS_GENERATION_EUI64,
@@ -234,6 +235,10 @@ int dhcp6_pd_generate_addresses(Link *link, const struct in6_addr *prefix, Set *
 
 int ndisc_generate_addresses(Link *link, const struct in6_addr *prefix, uint8_t prefixlen, Set **ret) {
         return generate_addresses(link, link->network->ndisc_tokens, &NDISC_APP_ID, prefix, prefixlen, ret);
+}
+
+int radv_generate_addresses(Link *link, Set *tokens, const struct in6_addr *prefix, uint8_t prefixlen, Set **ret) {
+        return generate_addresses(link, tokens, &RADV_APP_ID, prefix, prefixlen, ret);
 }
 
 static void ipv6_token_hash_func(const IPv6Token *p, struct siphash *state) {
