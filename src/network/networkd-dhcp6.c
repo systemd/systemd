@@ -362,8 +362,8 @@ static int dhcp6_pd_request_address(
                 uint32_t lifetime_preferred,
                 uint32_t lifetime_valid) {
 
-        _cleanup_(address_freep) Address *address = NULL;
-        Address *existing;
+        _cleanup_set_free_ Set *addresses = NULL;
+        struct in6_addr *a;
         int r;
 
         assert(link);
@@ -373,35 +373,39 @@ static int dhcp6_pd_request_address(
         if (!link->network->dhcp6_pd_assign)
                 return 0;
 
-        r = address_new(&address);
+        r = dhcp6_pd_generate_addresses(link, prefix, &addresses);
         if (r < 0)
-                return log_link_error_errno(link, r, "Failed to allocate address for DHCPv6 delegated prefix: %m");
+                return log_link_warning_errno(link, r, "Failed to generate addresses for acquired DHCPv6 delegated prefix: %m");
 
-        if (in6_addr_is_set(&link->network->dhcp6_pd_token)) {
-                memcpy(address->in_addr.in6.s6_addr, prefix->s6_addr, 8);
-                memcpy(address->in_addr.in6.s6_addr + 8, link->network->dhcp6_pd_token.s6_addr + 8, 8);
-        } else
-                generate_eui64_address(link, prefix, &address->in_addr.in6);
+        SET_FOREACH(a, addresses) {
+                _cleanup_(address_freep) Address *address = NULL;
+                Address *existing;
 
-        address->source = NETWORK_CONFIG_SOURCE_DHCP6PD;
-        address->prefixlen = 64;
-        address->family = AF_INET6;
-        address->cinfo.ifa_prefered = lifetime_preferred;
-        address->cinfo.ifa_valid = lifetime_valid;
-        SET_FLAG(address->flags, IFA_F_MANAGETEMPADDR, link->network->dhcp6_pd_manage_temporary_address);
-        address->route_metric = link->network->dhcp6_pd_route_metric;
+                r = address_new(&address);
+                if (r < 0)
+                        return log_link_error_errno(link, r, "Failed to allocate address for DHCPv6 delegated prefix: %m");
 
-        log_dhcp6_pd_address(link, address);
+                address->source = NETWORK_CONFIG_SOURCE_DHCP6PD;
+                address->family = AF_INET6;
+                address->in_addr.in6 = *a;
+                address->prefixlen = 64;
+                address->cinfo.ifa_prefered = lifetime_preferred;
+                address->cinfo.ifa_valid = lifetime_valid;
+                SET_FLAG(address->flags, IFA_F_MANAGETEMPADDR, link->network->dhcp6_pd_manage_temporary_address);
+                address->route_metric = link->network->dhcp6_pd_route_metric;
 
-        if (address_get(link, address, &existing) < 0)
-                link->dhcp6_pd_configured = false;
-        else
-                address_unmark(existing);
+                log_dhcp6_pd_address(link, address);
 
-        r = link_request_address(link, TAKE_PTR(address), true, &link->dhcp6_pd_messages,
-                                 dhcp6_pd_address_handler, NULL);
-        if (r < 0)
-                return log_link_error_errno(link, r, "Failed to request DHCPv6 delegated prefix address: %m");
+                if (address_get(link, address, &existing) < 0)
+                        link->dhcp6_pd_configured = false;
+                else
+                        address_unmark(existing);
+
+                r = link_request_address(link, TAKE_PTR(address), true, &link->dhcp6_pd_messages,
+                                         dhcp6_pd_address_handler, NULL);
+                if (r < 0)
+                        return log_link_error_errno(link, r, "Failed to request DHCPv6 delegated prefix address: %m");
+        }
 
         return 0;
 }
