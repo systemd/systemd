@@ -7,6 +7,7 @@ StartupAllowedMemoryNodes=
 AmbientCapabilities=
 AppArmorProfile=
 BPFProgram=
+ExecSearchPath=
 BindPaths=
 BindReadOnlyPaths=
 BlockIOAccounting=
