@@ -329,7 +329,7 @@ DHCPv6PrefixDelegation.SubnetId,             config_parse_dhcp6_pd_subnet_id,   
 DHCPv6PrefixDelegation.Announce,             config_parse_bool,                                        0,                             offsetof(Network, dhcp6_pd_announce)
 DHCPv6PrefixDelegation.Assign,               config_parse_bool,                                        0,                             offsetof(Network, dhcp6_pd_assign)
 DHCPv6PrefixDelegation.ManageTemporaryAddress, config_parse_bool,                                      0,                             offsetof(Network, dhcp6_pd_manage_temporary_address)
-DHCPv6PrefixDelegation.Token,                config_parse_in_addr_non_null,                            AF_INET6,                      offsetof(Network, dhcp6_pd_token)
+DHCPv6PrefixDelegation.Token,                config_parse_address_generation_type,                     0,                             offsetof(Network, dhcp6_pd_tokens)
 DHCPv6PrefixDelegation.RouteMetric,          config_parse_uint32,                                      0,                             offsetof(Network, dhcp6_pd_route_metric)
 IPv6SendRA.RouterLifetimeSec,                config_parse_sec,                                         0,                             offsetof(Network, router_lifetime_usec)
 IPv6SendRA.Managed,                          config_parse_bool,                                        0,                             offsetof(Network, router_managed)

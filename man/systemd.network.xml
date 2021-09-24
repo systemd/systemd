@@ -2158,11 +2158,9 @@ Table=1234</programlisting></para>
         <term><varname>Token=</varname></term>
         <listitem>
           <para>Specifies an optional address generation mode for assigning an address in each
-          delegated prefix. Takes an IPv6 address. When set, the lower bits of the supplied address is
-          combined with the upper bits of each delegatad prefix received from the WAN interface by the
-          DHCPv6 Prefix Delegation to form a complete address. When <varname>Assign=</varname> is
-          disabled, this setting is ignored. When unset, the EUI-64 algorithm will be used to form
-          addresses. Defaults to unset.</para>
+          delegated prefix. This accepts the same syntax as <varname>Token=</varname> in the
+          [IPv6AcceptRA] section. If <varname>Assign=</varname> is set to false, then this setting will
+          be ignored. Defaults to unset, which means the EUI-64 algorithm will be used.</para>
         </listitem>
       </varlistentry>
 
