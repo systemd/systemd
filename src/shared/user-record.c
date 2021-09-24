@@ -1893,7 +1893,7 @@ uint64_t user_record_luks_volume_key_size(UserRecord *h) {
 const char* user_record_luks_pbkdf_type(UserRecord *h) {
         assert(h);
 
-        return h->luks_pbkdf_type ?: "argon2i";
+        return h->luks_pbkdf_type ?: "argon2id";
 }
 
 uint64_t user_record_luks_pbkdf_time_cost_usec(UserRecord *h) {
