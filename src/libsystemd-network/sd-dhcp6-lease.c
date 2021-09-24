@@ -273,13 +273,15 @@ int dhcp6_lease_set_ntp(sd_dhcp6_lease *lease, const uint8_t *optval, size_t opt
                         break;
 
                 case DHCP6_NTP_SUBOPTION_SRV_FQDN: {
-                        char **servers;
+                        char *server;
 
-                        r = dhcp6_option_parse_domainname_list(subval, sublen, &servers);
+                        r = dhcp6_option_parse_domainname(subval, sublen, &server);
                         if (r < 0)
                                 return r;
 
-                        strv_free_and_replace(lease->ntp_fqdn, servers);
+                        r = strv_consume(&lease->ntp_fqdn, server);
+                        if (r < 0)
+                                return r;
 
                         break;
                 }}
