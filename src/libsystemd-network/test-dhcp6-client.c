@@ -137,7 +137,7 @@ static int test_parse_domain(sd_event *e) {
         data = (uint8_t []) { 7, 'e', 'x', 'a', 'm', 'p', 'l', 'e', 3, 'c', 'o', 'm', 0,
                               6, 'f', 'o', 'o', 'b', 'a', 'r', 0 };
         r = dhcp6_option_parse_domainname_list(data, 21, &list);
-        assert_se(r == 2);
+        assert_se(r == 0);
         assert_se(list);
         assert_se(streq(list[0], "example.com"));
         assert_se(streq(list[1], "foobar"));

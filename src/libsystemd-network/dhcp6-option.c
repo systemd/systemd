@@ -832,7 +832,7 @@ int dhcp6_option_parse_domainname(const uint8_t *optval, size_t optlen, char **r
 
 int dhcp6_option_parse_domainname_list(const uint8_t *optval, size_t optlen, char ***ret) {
         _cleanup_strv_free_ char **names = NULL;
-        int r, count = 0;
+        int r;
 
         assert(optval);
         assert(ret);
@@ -854,12 +854,10 @@ int dhcp6_option_parse_domainname_list(const uint8_t *optval, size_t optlen, cha
                 r = strv_consume(&names, TAKE_PTR(name));
                 if (r < 0)
                         return r;
-
-                count++;
         }
 
         *ret = TAKE_PTR(names);
-        return count;
+        return 0;
 }
 
 static sd_dhcp6_option* dhcp6_option_free(sd_dhcp6_option *i) {
