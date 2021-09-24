@@ -516,8 +516,7 @@ static int test_advertise_option(sd_event *e) {
 
                 case SD_DHCP6_OPTION_DOMAIN_LIST:
                         assert_se(optlen == 11);
-                        assert_se(dhcp6_lease_set_domains(lease, optval,
-                                                          optlen) >= 0);
+                        assert_se(dhcp6_lease_add_domains(lease, optval, optlen) >= 0);
                         break;
 
                 case SD_DHCP6_OPTION_SNTP_SERVERS:

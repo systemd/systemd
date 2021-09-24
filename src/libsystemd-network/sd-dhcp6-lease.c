@@ -214,9 +214,9 @@ int sd_dhcp6_lease_get_dns(sd_dhcp6_lease *lease, const struct in6_addr **ret) {
         return lease->dns_count;
 }
 
-int dhcp6_lease_set_domains(sd_dhcp6_lease *lease, const uint8_t *optval, size_t optlen) {
+int dhcp6_lease_add_domains(sd_dhcp6_lease *lease, const uint8_t *optval, size_t optlen) {
+        _cleanup_strv_free_ char **domains = NULL;
         int r;
-        char **domains;
 
         assert_return(lease, -EINVAL);
         assert_return(optval, -EINVAL);
@@ -228,9 +228,7 @@ int dhcp6_lease_set_domains(sd_dhcp6_lease *lease, const uint8_t *optval, size_t
         if (r < 0)
                 return r;
 
-        strv_free_and_replace(lease->domains, domains);
-
-        return 0;
+        return strv_extend_strv(&lease->domains, domains, true);
 }
 
 int sd_dhcp6_lease_get_domains(sd_dhcp6_lease *lease, char ***ret) {
