@@ -530,11 +530,11 @@ void oomd_dump_memory_pressure_cgroup_context(const OomdCGroupContext *ctx, FILE
                 "%s\tPressure: Avg10: %lu.%02lu Avg60: %lu.%02lu Avg300: %lu.%02lu Total: %s\n"
                 "%s\tCurrent Memory Usage: %s\n",
                 strempty(prefix), ctx->path,
-                strempty(prefix), LOAD_INT(ctx->mem_pressure_limit), LOAD_FRAC(ctx->mem_pressure_limit),
+                strempty(prefix), INT_SIDE(ctx->mem_pressure_limit), DECIMAL_SIDE(ctx->mem_pressure_limit),
                 strempty(prefix),
-                LOAD_INT(ctx->memory_pressure.avg10), LOAD_FRAC(ctx->memory_pressure.avg10),
-                LOAD_INT(ctx->memory_pressure.avg60), LOAD_FRAC(ctx->memory_pressure.avg60),
-                LOAD_INT(ctx->memory_pressure.avg300), LOAD_FRAC(ctx->memory_pressure.avg300),
+                INT_SIDE(ctx->memory_pressure.avg10), DECIMAL_SIDE(ctx->memory_pressure.avg10),
+                INT_SIDE(ctx->memory_pressure.avg60), DECIMAL_SIDE(ctx->memory_pressure.avg60),
+                INT_SIDE(ctx->memory_pressure.avg300), DECIMAL_SIDE(ctx->memory_pressure.avg300),
                 FORMAT_TIMESPAN(ctx->memory_pressure.total, USEC_PER_SEC),
                 strempty(prefix), FORMAT_BYTES(ctx->current_memory_usage));
 

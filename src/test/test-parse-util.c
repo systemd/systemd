@@ -1,7 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <errno.h>
-#include <linux/loadavg.h>
 #include <locale.h>
 #include <math.h>
 #include <sys/socket.h>
@@ -805,24 +804,24 @@ static void test_parse_loadavg_fixed_point(void) {
         loadavg_t fp;
 
         assert_se(parse_loadavg_fixed_point("1.23", &fp) == 0);
-        assert_se(LOAD_INT(fp) == 1);
-        assert_se(LOAD_FRAC(fp) == 23);
+        assert_se(INT_SIDE(fp) == 1);
+        assert_se(DECIMAL_SIDE(fp) == 23);
 
         assert_se(parse_loadavg_fixed_point("1.80", &fp) == 0);
-        assert_se(LOAD_INT(fp) == 1);
-        assert_se(LOAD_FRAC(fp) == 80);
+        assert_se(INT_SIDE(fp) == 1);
+        assert_se(DECIMAL_SIDE(fp) == 80);
 
         assert_se(parse_loadavg_fixed_point("0.07", &fp) == 0);
-        assert_se(LOAD_INT(fp) == 0);
-        assert_se(LOAD_FRAC(fp) == 7);
+        assert_se(INT_SIDE(fp) == 0);
+        assert_se(DECIMAL_SIDE(fp) == 7);
 
         assert_se(parse_loadavg_fixed_point("0.00", &fp) == 0);
-        assert_se(LOAD_INT(fp) == 0);
-        assert_se(LOAD_FRAC(fp) == 0);
+        assert_se(INT_SIDE(fp) == 0);
+        assert_se(DECIMAL_SIDE(fp) == 0);
 
         assert_se(parse_loadavg_fixed_point("4096.57", &fp) == 0);
-        assert_se(LOAD_INT(fp) == 4096);
-        assert_se(LOAD_FRAC(fp) == 57);
+        assert_se(INT_SIDE(fp) == 4096);
+        assert_se(DECIMAL_SIDE(fp) == 57);
 
         /* Caps out at 2 digit fracs */
         assert_se(parse_loadavg_fixed_point("1.100", &fp) == -ERANGE);
