@@ -28,11 +28,9 @@ struct sd_dhcp6_lease {
         struct in6_addr *dns;
         size_t dns_count;
         char **domains;
-        size_t domains_count;
         struct in6_addr *ntp;
         size_t ntp_count;
         char **ntp_fqdn;
-        size_t ntp_fqdn_count;
         char *fqdn;
 };
 
