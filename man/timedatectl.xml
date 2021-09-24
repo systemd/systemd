@@ -126,8 +126,9 @@
         <listitem><para>Takes a boolean argument. Controls whether network time synchronization is active and
         enabled (if available). If the argument is true, this enables and starts the first existing network
         synchronization service. If the argument is false, then this disables and stops the known network
-        synchronization services. The way that the list of services is built is described below.</para>
-        </listitem>
+        synchronization services. The way that the list of services is built is described in
+        <citerefentry><refentrytitle>systemd-timedated.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
+        </para></listitem>
       </varlistentry>
 
     </variablelist>
