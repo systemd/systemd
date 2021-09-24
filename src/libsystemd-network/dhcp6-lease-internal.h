@@ -31,6 +31,8 @@ struct sd_dhcp6_lease {
         struct in6_addr *ntp;
         size_t ntp_count;
         char **ntp_fqdn;
+        struct in6_addr *sntp;
+        size_t sntp_count;
         char *fqdn;
 };
 
