@@ -510,8 +510,7 @@ static int test_advertise_option(sd_event *e) {
 
                 case SD_DHCP6_OPTION_DNS_SERVERS:
                         assert_se(optlen == 16);
-                        assert_se(dhcp6_lease_set_dns(lease, optval,
-                                                      optlen) >= 0);
+                        assert_se(dhcp6_lease_add_dns(lease, optval, optlen) >= 0);
                         break;
 
                 case SD_DHCP6_OPTION_DOMAIN_LIST:
