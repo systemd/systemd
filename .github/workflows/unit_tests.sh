@@ -7,6 +7,7 @@ ADDITIONAL_DEPS=(
     expect
     fdisk
     jekyll
+    lcov
     libfdisk-dev
     libfido2-dev
     libp11-kit-dev
@@ -18,6 +19,7 @@ ADDITIONAL_DEPS=(
     perl
     python3-libevdev
     python3-pyparsing
+    util-linux
     zstd
 )
 
@@ -43,9 +45,18 @@ for phase in "${PHASES[@]}"; do
                 export CC=clang
                 export CXX=clang++
             fi
-            meson --werror -Dtests=unsafe -Dslow-tests=true -Dfuzz-tests=true -Dman=true build
+            if [[ "$phase" = "RUN_GCC" ]]; then
+                # See FIXME below
+                MESON_ARGS+=(-Db_coverage=true)
+                (set +x; while :; do echo -ne "\n[WATCHDOG] $(date)\n"; sleep 30; done) &
+            fi
+            meson --werror -Dtests=unsafe -Dslow-tests=true -Dfuzz-tests=true -Dman=true "${MESON_ARGS[@]}" build
             ninja -C build -v
-            meson test -C build --print-errorlogs
+            # Some of the unsafe tests irreparably break the host's network connectivity, so run them in a namespace
+            unshare -n meson test -C build --print-errorlogs
+            if [[ "$phase" = "RUN_GCC" ]]; then
+                ninja -C build coverage
+            fi
             ;;
         RUN_ASAN_UBSAN|RUN_GCC_ASAN_UBSAN|RUN_CLANG_ASAN_UBSAN)
             MESON_ARGS=(--optimization=1)
@@ -74,7 +85,7 @@ for phase in "${PHASES[@]}"; do
             # during debugging, wonderful), so let's at least keep a workaround
             # here to make the builds stable for the time being.
             (set +x; while :; do echo -ne "\n[WATCHDOG] $(date)\n"; sleep 30; done) &
-            meson test --timeout-multiplier=3 -C build --print-errorlogs
+            unshare -n meson test --timeout-multiplier=3 -C build --print-errorlogs
             ;;
         CLEANUP)
             info "Cleanup phase"
