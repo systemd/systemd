@@ -3262,7 +3262,7 @@ if conf.get('ENABLE_HWDB') == 1
                 test('hwdb-test',
                      hwdb_test_sh,
                      args : [systemd_hwdb.full_path()],
-                     timeout : 90)
+                     timeout : 180)
         endif
 endif
 
