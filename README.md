@@ -14,6 +14,7 @@ System and Service Manager
 [![CentOS CI - Arch](https://jenkins-systemd.apps.ocp.ci.centos.org/buildStatus/icon?subject=CentOS%20CI%20-%20Arch&job=upstream-vagrant-archlinux)](https://jenkins-systemd.apps.ocp.ci.centos.org/job/upstream-vagrant-archlinux/)<br/>
 [![CentOS CI - Arch (sanitizers)](https://jenkins-systemd.apps.ocp.ci.centos.org/buildStatus/icon?subject=CentOS%20CI%20-%20Arch%20(sanitizers)&job=upstream-vagrant-archlinux-sanitizers)](https://jenkins-systemd.apps.ocp.ci.centos.org/job/upstream-vagrant-archlinux-sanitizers/)<br/>
 [![Fossies codespell report](https://fossies.org/linux/test/systemd-main.tar.gz/codespell.svg)](https://fossies.org/linux/test/systemd-main.tar.gz/codespell.html)</br>
+[![Coverage Status](https://coveralls.io/repos/github/systemd/systemd/badge.svg?branch=main)](https://coveralls.io/github/systemd/systemd?branch=main)</br>
 [![Packaging status](https://repology.org/badge/tiny-repos/systemd.svg)](https://repology.org/project/systemd/versions)
 
 ## Details
