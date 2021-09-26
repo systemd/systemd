@@ -12,6 +12,7 @@
 #include "sd-ipv4acd.h"
 #include "sd-ipv4ll.h"
 #include "sd-lldp-rx.h"
+#include "sd-lldp-tx.h"
 #include "sd-ndisc.h"
 #include "sd-radv.h"
 #include "sd-netlink.h"
@@ -175,8 +176,7 @@ typedef struct Link {
         char *lldp_file;
 
         /* This is about LLDP transmission */
-        unsigned lldp_tx_fast; /* The LLDP txFast counter (See 802.1ab-2009, section 9.2.5.18) */
-        sd_event_source *lldp_emit_event_source;
+        sd_lldp_tx *lldp_tx;
 
         Hashmap *bound_by_links;
         Hashmap *bound_to_links;
