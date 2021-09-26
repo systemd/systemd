@@ -4,15 +4,15 @@
 #include <linux/sockios.h>
 #include <sys/ioctl.h>
 
-#include "sd-lldp.h"
+#include "sd-lldp-rx.h"
 
 #include "alloc-util.h"
 #include "ether-addr-util.h"
 #include "event-util.h"
 #include "fd-util.h"
-#include "lldp-internal.h"
 #include "lldp-neighbor.h"
 #include "lldp-network.h"
+#include "lldp-rx-internal.h"
 #include "memory-util.h"
 #include "network-common.h"
 #include "socket-util.h"

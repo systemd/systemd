@@ -5,7 +5,6 @@
 #include "ether-addr-util.h"
 #include "hexdecoct.h"
 #include "in-addr-util.h"
-#include "lldp-internal.h"
 #include "lldp-neighbor.h"
 #include "memory-util.h"
 #include "missing_network.h"

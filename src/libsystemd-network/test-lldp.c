@@ -7,7 +7,7 @@
 #include <unistd.h>
 
 #include "sd-event.h"
-#include "sd-lldp.h"
+#include "sd-lldp-rx.h"
 
 #include "alloc-util.h"
 #include "fd-util.h"

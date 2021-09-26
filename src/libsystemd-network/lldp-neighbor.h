@@ -5,10 +5,10 @@
 #include <stdbool.h>
 #include <sys/types.h>
 
-#include "sd-lldp.h"
+#include "sd-lldp-rx.h"
 
 #include "hash-funcs.h"
-#include "lldp-internal.h"
+#include "lldp-rx-internal.h"
 #include "time-util.h"
 
 typedef struct LLDPNeighborID {

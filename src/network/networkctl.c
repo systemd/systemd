@@ -15,7 +15,7 @@
 #include "sd-device.h"
 #include "sd-dhcp-client.h"
 #include "sd-hwdb.h"
-#include "sd-lldp.h"
+#include "sd-lldp-rx.h"
 #include "sd-netlink.h"
 #include "sd-network.h"
 
