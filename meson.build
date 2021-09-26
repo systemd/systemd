@@ -252,6 +252,7 @@ conf.set_quoted('SYSTEMD_GROWFS_PATH',                        rootlibexecdir / '
 conf.set_quoted('SYSTEMD_HOMEWORK_PATH',                      rootlibexecdir / 'systemd-homework')
 conf.set_quoted('SYSTEMD_IMPORT_FS_PATH',                     rootlibexecdir / 'systemd-import-fs')
 conf.set_quoted('SYSTEMD_IMPORT_PATH',                        rootlibexecdir / 'systemd-import')
+conf.set_quoted('SYSTEMD_INTEGRITYSETUP_PATH',                rootlibexecdir / 'systemd-integritysetup')
 conf.set_quoted('SYSTEMD_KBD_MODEL_MAP',                      pkgdatadir / 'kbd-model-map')
 conf.set_quoted('SYSTEMD_LANGUAGE_FALLBACK_MAP',              pkgdatadir / 'language-fallback-map')
 conf.set_quoted('SYSTEMD_MAKEFS_PATH',                        rootlibexecdir / 'systemd-makefs')
@@ -2535,6 +2536,25 @@ if conf.get('HAVE_LIBCRYPTSETUP') == 1
                                 libp11kit],
                 install_rpath : rootlibexecdir,
                 install : true)
+
+        executable(
+                'systemd-integritysetup',
+                ['src/integritysetup/integritysetup.c', 'src/integritysetup/integrity-util.c'],
+                include_directories : includes,
+                link_with : [libshared],
+                dependencies : [libcryptsetup],
+                install_rpath : rootlibexecdir,
+                install : true,
+                install_dir : rootlibexecdir)
+
+        executable(
+                'systemd-integritysetup-generator',
+                ['src/integritysetup/integritysetup-generator.c', 'src/integritysetup/integrity-util.c'],
+                include_directories : includes,
+                link_with : [libshared],
+                install_rpath : rootlibexecdir,
+                install : true,
+                install_dir : systemgeneratordir)
 endif
 
 if conf.get('HAVE_SYSV_COMPAT') == 1
