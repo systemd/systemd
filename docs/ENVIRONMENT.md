@@ -50,6 +50,10 @@ All tools:
   useful for debugging. Currently only supported by
   `systemd-cryptsetup-generator`.
 
+* `$SYSTEMD_INTEGRITYTAB` — if set, use this path instead of
+  `/etc/integritytab`. Only useful for debugging. Currently only supported by
+  `systemd-integritysetup-generator`.
+
 * `$SYSTEMD_VERITYTAB` — if set, use this path instead of
   `/etc/veritytab`. Only useful for debugging. Currently only supported by
   `systemd-veritysetup-generator`.
