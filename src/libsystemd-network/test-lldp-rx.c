@@ -21,7 +21,7 @@
 #define TEST_LLDP_TYPE_SYSTEM_DESC "systemd-lldp-desc"
 
 static int test_fd[2] = { -1, -1 };
-static int lldp_handler_calls;
+static int lldp_rx_handler_calls;
 
 int lldp_network_bind_raw_socket(int ifindex) {
         if (socketpair(AF_UNIX, SOCK_DGRAM | SOCK_CLOEXEC | SOCK_NONBLOCK, 0, test_fd) < 0)
@@ -30,48 +30,48 @@ int lldp_network_bind_raw_socket(int ifindex) {
         return test_fd[0];
 }
 
-static void lldp_handler(sd_lldp *lldp, sd_lldp_event_t event, sd_lldp_neighbor *n, void *userdata) {
-        lldp_handler_calls++;
+static void lldp_rx_handler(sd_lldp_rx *lldp_rx, sd_lldp_rx_event_t event, sd_lldp_neighbor *n, void *userdata) {
+        lldp_rx_handler_calls++;
 }
 
-static int start_lldp(sd_lldp **lldp, sd_event *e, sd_lldp_callback_t cb, void *cb_data) {
+static int start_lldp_rx(sd_lldp_rx **lldp_rx, sd_event *e, sd_lldp_rx_callback_t cb, void *cb_data) {
         int r;
 
-        r = sd_lldp_new(lldp);
+        r = sd_lldp_rx_new(lldp_rx);
         if (r < 0)
                 return r;
 
-        r = sd_lldp_set_ifindex(*lldp, 42);
+        r = sd_lldp_rx_set_ifindex(*lldp_rx, 42);
         if (r < 0)
                 return r;
 
-        r = sd_lldp_set_callback(*lldp, cb, cb_data);
+        r = sd_lldp_rx_set_callback(*lldp_rx, cb, cb_data);
         if (r < 0)
                 return r;
 
-        r = sd_lldp_attach_event(*lldp, e, 0);
+        r = sd_lldp_rx_attach_event(*lldp_rx, e, 0);
         if (r < 0)
                 return r;
 
-        r = sd_lldp_start(*lldp);
+        r = sd_lldp_rx_start(*lldp_rx);
         if (r < 0)
                 return r;
 
         return 0;
 }
 
-static int stop_lldp(sd_lldp *lldp) {
+static int stop_lldp_rx(sd_lldp_rx *lldp_rx) {
         int r;
 
-        r = sd_lldp_stop(lldp);
+        r = sd_lldp_rx_stop(lldp_rx);
         if (r < 0)
                 return r;
 
-        r = sd_lldp_detach_event(lldp);
+        r = sd_lldp_rx_detach_event(lldp_rx);
         if (r < 0)
                 return r;
 
-        sd_lldp_unref(lldp);
+        sd_lldp_rx_unref(lldp_rx);
         safe_close(test_fd[1]);
 
         return 0;
@@ -96,7 +96,7 @@ static void test_receive_basic_packet(sd_event *e) {
                 0x00, 0x00                              /* End Of LLDPDU */
         };
 
-        sd_lldp *lldp;
+        sd_lldp_rx *lldp_rx;
         sd_lldp_neighbor **neighbors;
         uint8_t type;
         const void *data;
@@ -104,13 +104,13 @@ static void test_receive_basic_packet(sd_event *e) {
         size_t length;
         const char *str;
 
-        lldp_handler_calls = 0;
-        assert_se(start_lldp(&lldp, e, lldp_handler, NULL) == 0);
+        lldp_rx_handler_calls = 0;
+        assert_se(start_lldp_rx(&lldp_rx, e, lldp_rx_handler, NULL) == 0);
 
         assert_se(write(test_fd[1], frame, sizeof(frame)) == sizeof(frame));
         sd_event_run(e, 0);
-        assert_se(lldp_handler_calls == 1);
-        assert_se(sd_lldp_get_neighbors(lldp, &neighbors) == 1);
+        assert_se(lldp_rx_handler_calls == 1);
+        assert_se(sd_lldp_rx_get_neighbors(lldp_rx, &neighbors) == 1);
 
         assert_se(sd_lldp_neighbor_get_chassis_id(neighbors[0], &type, &data, &length) == 0);
         assert_se(type == SD_LLDP_CHASSIS_SUBTYPE_MAC_ADDRESS);
@@ -137,11 +137,11 @@ static void test_receive_basic_packet(sd_event *e) {
         sd_lldp_neighbor_unref(neighbors[0]);
         free(neighbors);
 
-        assert_se(stop_lldp(lldp) == 0);
+        assert_se(stop_lldp_rx(lldp_rx) == 0);
 }
 
 static void test_receive_incomplete_packet(sd_event *e) {
-        sd_lldp *lldp;
+        sd_lldp_rx *lldp_rx;
         sd_lldp_neighbor **neighbors;
         uint8_t frame[] = {
                 /* Ethernet header */
@@ -156,19 +156,19 @@ static void test_receive_incomplete_packet(sd_event *e) {
                 0x00, 0x00                              /* End Of LLDPDU */
         };
 
-        lldp_handler_calls = 0;
-        assert_se(start_lldp(&lldp, e, lldp_handler, NULL) == 0);
+        lldp_rx_handler_calls = 0;
+        assert_se(start_lldp_rx(&lldp_rx, e, lldp_rx_handler, NULL) == 0);
 
         assert_se(write(test_fd[1], frame, sizeof(frame)) == sizeof(frame));
         sd_event_run(e, 0);
-        assert_se(lldp_handler_calls == 0);
-        assert_se(sd_lldp_get_neighbors(lldp, &neighbors) == 0);
+        assert_se(lldp_rx_handler_calls == 0);
+        assert_se(sd_lldp_rx_get_neighbors(lldp_rx, &neighbors) == 0);
 
-        assert_se(stop_lldp(lldp) == 0);
+        assert_se(stop_lldp_rx(lldp_rx) == 0);
 }
 
 static void test_receive_oui_packet(sd_event *e) {
-        sd_lldp *lldp;
+        sd_lldp_rx *lldp_rx;
         sd_lldp_neighbor **neighbors;
         uint8_t frame[] = {
                 /* Ethernet header */
@@ -197,13 +197,13 @@ static void test_receive_oui_packet(sd_event *e) {
                 0x00, 0x00                              /* End of LLDPDU */
         };
 
-        lldp_handler_calls = 0;
-        assert_se(start_lldp(&lldp, e, lldp_handler, NULL) == 0);
+        lldp_rx_handler_calls = 0;
+        assert_se(start_lldp_rx(&lldp_rx, e, lldp_rx_handler, NULL) == 0);
 
         assert_se(write(test_fd[1], frame, sizeof(frame)) == sizeof(frame));
         sd_event_run(e, 0);
-        assert_se(lldp_handler_calls == 1);
-        assert_se(sd_lldp_get_neighbors(lldp, &neighbors) == 1);
+        assert_se(lldp_rx_handler_calls == 1);
+        assert_se(sd_lldp_rx_get_neighbors(lldp_rx, &neighbors) == 1);
 
         assert_se(sd_lldp_neighbor_tlv_rewind(neighbors[0]) >= 0);
         assert_se(sd_lldp_neighbor_tlv_is_type(neighbors[0], SD_LLDP_TYPE_CHASSIS_ID) > 0);
@@ -230,7 +230,7 @@ static void test_receive_oui_packet(sd_event *e) {
         sd_lldp_neighbor_unref(neighbors[0]);
         free(neighbors);
 
-        assert_se(stop_lldp(lldp) == 0);
+        assert_se(stop_lldp_rx(lldp_rx) == 0);
 }
 
 static void test_multiple_neighbors_sorted(sd_event *e) {
@@ -311,7 +311,7 @@ static void test_multiple_neighbors_sorted(sd_event *e) {
                 "2/19", "1/0",
         };
 
-        sd_lldp *lldp;
+        sd_lldp_rx *lldp_rx;
         sd_lldp_neighbor **neighbors;
         int i;
         uint8_t type;
@@ -319,8 +319,8 @@ static void test_multiple_neighbors_sorted(sd_event *e) {
         size_t length, expected_length;
         uint16_t ttl;
 
-        lldp_handler_calls = 0;
-        assert_se(start_lldp(&lldp, e, lldp_handler, NULL) == 0);
+        lldp_rx_handler_calls = 0;
+        assert_se(start_lldp_rx(&lldp_rx, e, lldp_rx_handler, NULL) == 0);
 
         assert_se(write(test_fd[1], frame1, sizeof(frame1)) == sizeof(frame1));
         sd_event_run(e, 0);
@@ -334,9 +334,9 @@ static void test_multiple_neighbors_sorted(sd_event *e) {
         sd_event_run(e, 0);
         assert_se(write(test_fd[1], frame6, sizeof(frame6)) == sizeof(frame6));
         sd_event_run(e, 0);
-        assert_se(lldp_handler_calls == 6);
+        assert_se(lldp_rx_handler_calls == 6);
 
-        assert_se(sd_lldp_get_neighbors(lldp, &neighbors) == 6);
+        assert_se(sd_lldp_rx_get_neighbors(lldp_rx, &neighbors) == 6);
 
         for (i = 0; i < 6; i++) {
                 assert_se(sd_lldp_neighbor_get_chassis_id(neighbors[i], &type, &data, &length) == 0);
@@ -359,7 +359,7 @@ static void test_multiple_neighbors_sorted(sd_event *e) {
                 sd_lldp_neighbor_unref(neighbors[i]);
         free(neighbors);
 
-        assert_se(stop_lldp(lldp) == 0);
+        assert_se(stop_lldp_rx(lldp_rx) == 0);
 }
 
 int main(int argc, char *argv[]) {

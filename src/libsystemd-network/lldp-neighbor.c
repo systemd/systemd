@@ -35,7 +35,7 @@ _public_ sd_lldp_neighbor *sd_lldp_neighbor_ref(sd_lldp_neighbor *n) {
         if (!n)
                 return NULL;
 
-        assert(n->n_ref > 0 || n->lldp);
+        assert(n->n_ref > 0 || n->lldp_rx);
         n->n_ref++;
 
         return n;
@@ -66,7 +66,7 @@ _public_ sd_lldp_neighbor *sd_lldp_neighbor_unref(sd_lldp_neighbor *n) {
         assert(n->n_ref > 0);
         n->n_ref--;
 
-        if (n->n_ref <= 0 && !n->lldp)
+        if (n->n_ref <= 0 && !n->lldp_rx)
                 lldp_neighbor_free(n);
 
         return NULL;
@@ -79,18 +79,18 @@ sd_lldp_neighbor *lldp_neighbor_unlink(sd_lldp_neighbor *n) {
         if (!n)
                 return NULL;
 
-        if (!n->lldp)
+        if (!n->lldp_rx)
                 return NULL;
 
         /* Only remove the neighbor object from the hash table if it's in there, don't complain if it isn't. This is
          * because we are used as destructor call for hashmap_clear() and thus sometimes are called to de-register
          * ourselves from the hashtable and sometimes are called after we already are de-registered. */
 
-        (void) hashmap_remove_value(n->lldp->neighbor_by_id, &n->id, n);
+        (void) hashmap_remove_value(n->lldp_rx->neighbor_by_id, &n->id, n);
 
-        assert_se(prioq_remove(n->lldp->neighbor_by_expiry, n, &n->prioq_idx) >= 0);
+        assert_se(prioq_remove(n->lldp_rx->neighbor_by_expiry, n, &n->prioq_idx) >= 0);
 
-        n->lldp = NULL;
+        n->lldp_rx = NULL;
 
         if (n->n_ref <= 0)
                 lldp_neighbor_free(n);
@@ -111,7 +111,7 @@ sd_lldp_neighbor *lldp_neighbor_new(size_t raw_size) {
         return n;
 }
 
-static int parse_string(sd_lldp *lldp, char **s, const void *q, size_t n) {
+static int parse_string(sd_lldp_rx *lldp_rx, char **s, const void *q, size_t n) {
         const char *p = q;
         char *k;
 
@@ -119,7 +119,7 @@ static int parse_string(sd_lldp *lldp, char **s, const void *q, size_t n) {
         assert(p || n == 0);
 
         if (*s) {
-                log_lldp(lldp, "Found duplicate string, ignoring field.");
+                log_lldp_rx(lldp_rx, "Found duplicate string, ignoring field.");
                 return 0;
         }
 
@@ -132,7 +132,7 @@ static int parse_string(sd_lldp *lldp, char **s, const void *q, size_t n) {
 
         /* Look for inner NULs */
         if (memchr(p, 0, n)) {
-                log_lldp(lldp, "Found inner NUL in string, ignoring field.");
+                log_lldp_rx(lldp_rx, "Found inner NUL in string, ignoring field.");
                 return 0;
         }
 
@@ -156,14 +156,14 @@ int lldp_neighbor_parse(sd_lldp_neighbor *n) {
         assert(n);
 
         if (n->raw_size < sizeof(struct ether_header))
-                return log_lldp_errno(n->lldp, SYNTHETIC_ERRNO(EBADMSG),
-                                      "Received truncated packet, ignoring.");
+                return log_lldp_rx_errno(n->lldp_rx, SYNTHETIC_ERRNO(EBADMSG),
+                                         "Received truncated packet, ignoring.");
 
         memcpy(&h, LLDP_NEIGHBOR_RAW(n), sizeof(h));
 
         if (h.ether_type != htobe16(ETHERTYPE_LLDP))
-                return log_lldp_errno(n->lldp, SYNTHETIC_ERRNO(EBADMSG),
-                                      "Received packet with wrong type, ignoring.");
+                return log_lldp_rx_errno(n->lldp_rx, SYNTHETIC_ERRNO(EBADMSG),
+                                         "Received packet with wrong type, ignoring.");
 
         if (h.ether_dhost[0] != 0x01 ||
             h.ether_dhost[1] != 0x80 ||
@@ -171,8 +171,8 @@ int lldp_neighbor_parse(sd_lldp_neighbor *n) {
             h.ether_dhost[3] != 0x00 ||
             h.ether_dhost[4] != 0x00 ||
             !IN_SET(h.ether_dhost[5], 0x00, 0x03, 0x0e))
-                return log_lldp_errno(n->lldp, SYNTHETIC_ERRNO(EBADMSG),
-                                      "Received packet with wrong destination address, ignoring.");
+                return log_lldp_rx_errno(n->lldp_rx, SYNTHETIC_ERRNO(EBADMSG),
+                                         "Received packet with wrong destination address, ignoring.");
 
         memcpy(&n->source_address, h.ether_shost, sizeof(struct ether_addr));
         memcpy(&n->destination_address, h.ether_dhost, sizeof(struct ether_addr));
@@ -185,7 +185,7 @@ int lldp_neighbor_parse(sd_lldp_neighbor *n) {
                 uint16_t length;
 
                 if (left < 2)
-                        return log_lldp_errno(n->lldp, SYNTHETIC_ERRNO(EBADMSG),
+                        return log_lldp_rx_errno(n->lldp_rx, SYNTHETIC_ERRNO(EBADMSG),
                                               "TLV lacks header, ignoring.");
 
                 type = p[0] >> 1;
@@ -193,15 +193,15 @@ int lldp_neighbor_parse(sd_lldp_neighbor *n) {
                 p += 2, left -= 2;
 
                 if (left < length)
-                        return log_lldp_errno(n->lldp, SYNTHETIC_ERRNO(EBADMSG),
-                                              "TLV truncated, ignoring datagram.");
+                        return log_lldp_rx_errno(n->lldp_rx, SYNTHETIC_ERRNO(EBADMSG),
+                                                 "TLV truncated, ignoring datagram.");
 
                 switch (type) {
 
                 case SD_LLDP_TYPE_END:
                         if (length != 0)
-                                return log_lldp_errno(n->lldp, SYNTHETIC_ERRNO(EBADMSG),
-                                                      "End marker TLV not zero-sized, ignoring datagram.");
+                                return log_lldp_rx_errno(n->lldp_rx, SYNTHETIC_ERRNO(EBADMSG),
+                                                         "End marker TLV not zero-sized, ignoring datagram.");
 
                         /* Note that after processing the SD_LLDP_TYPE_END left could still be > 0
                          * as the message may contain padding (see IEEE 802.1AB-2016, sec. 8.5.12) */
@@ -211,12 +211,12 @@ int lldp_neighbor_parse(sd_lldp_neighbor *n) {
                 case SD_LLDP_TYPE_CHASSIS_ID:
                         if (length < 2 || length > 256)
                                 /* includes the chassis subtype, hence one extra byte */
-                                return log_lldp_errno(n->lldp, SYNTHETIC_ERRNO(EBADMSG),
-                                                      "Chassis ID field size out of range, ignoring datagram.");
+                                return log_lldp_rx_errno(n->lldp_rx, SYNTHETIC_ERRNO(EBADMSG),
+                                                         "Chassis ID field size out of range, ignoring datagram.");
 
                         if (n->id.chassis_id)
-                                return log_lldp_errno(n->lldp, SYNTHETIC_ERRNO(EBADMSG),
-                                                      "Duplicate chassis ID field, ignoring datagram.");
+                                return log_lldp_rx_errno(n->lldp_rx, SYNTHETIC_ERRNO(EBADMSG),
+                                                         "Duplicate chassis ID field, ignoring datagram.");
 
                         n->id.chassis_id = memdup(p, length);
                         if (!n->id.chassis_id)
@@ -228,12 +228,12 @@ int lldp_neighbor_parse(sd_lldp_neighbor *n) {
                 case SD_LLDP_TYPE_PORT_ID:
                         if (length < 2 || length > 256)
                                 /* includes the port subtype, hence one extra byte */
-                                return log_lldp_errno(n->lldp, SYNTHETIC_ERRNO(EBADMSG),
-                                                      "Port ID field size out of range, ignoring datagram.");
+                                return log_lldp_rx_errno(n->lldp_rx, SYNTHETIC_ERRNO(EBADMSG),
+                                                         "Port ID field size out of range, ignoring datagram.");
 
                         if (n->id.port_id)
-                                return log_lldp_errno(n->lldp, SYNTHETIC_ERRNO(EBADMSG),
-                                                      "Duplicate port ID field, ignoring datagram.");
+                                return log_lldp_rx_errno(n->lldp_rx, SYNTHETIC_ERRNO(EBADMSG),
+                                                         "Duplicate port ID field, ignoring datagram.");
 
                         n->id.port_id = memdup(p, length);
                         if (!n->id.port_id)
@@ -244,39 +244,39 @@ int lldp_neighbor_parse(sd_lldp_neighbor *n) {
 
                 case SD_LLDP_TYPE_TTL:
                         if (length != 2)
-                                return log_lldp_errno(n->lldp, SYNTHETIC_ERRNO(EBADMSG),
-                                                      "TTL field has wrong size, ignoring datagram.");
+                                return log_lldp_rx_errno(n->lldp_rx, SYNTHETIC_ERRNO(EBADMSG),
+                                                         "TTL field has wrong size, ignoring datagram.");
 
                         if (n->has_ttl)
-                                return log_lldp_errno(n->lldp, SYNTHETIC_ERRNO(EBADMSG),
-                                                      "Duplicate TTL field, ignoring datagram.");
+                                return log_lldp_rx_errno(n->lldp_rx, SYNTHETIC_ERRNO(EBADMSG),
+                                                         "Duplicate TTL field, ignoring datagram.");
 
                         n->ttl = unaligned_read_be16(p);
                         n->has_ttl = true;
                         break;
 
                 case SD_LLDP_TYPE_PORT_DESCRIPTION:
-                        r = parse_string(n->lldp, &n->port_description, p, length);
+                        r = parse_string(n->lldp_rx, &n->port_description, p, length);
                         if (r < 0)
                                 return r;
                         break;
 
                 case SD_LLDP_TYPE_SYSTEM_NAME:
-                        r = parse_string(n->lldp, &n->system_name, p, length);
+                        r = parse_string(n->lldp_rx, &n->system_name, p, length);
                         if (r < 0)
                                 return r;
                         break;
 
                 case SD_LLDP_TYPE_SYSTEM_DESCRIPTION:
-                        r = parse_string(n->lldp, &n->system_description, p, length);
+                        r = parse_string(n->lldp_rx, &n->system_description, p, length);
                         if (r < 0)
                                 return r;
                         break;
 
                 case SD_LLDP_TYPE_SYSTEM_CAPABILITIES:
                         if (length != 4)
-                                return log_lldp_errno(n->lldp, SYNTHETIC_ERRNO(EBADMSG),
-                                                      "System capabilities field has wrong size.");
+                                return log_lldp_rx_errno(n->lldp_rx, SYNTHETIC_ERRNO(EBADMSG),
+                                                         "System capabilities field has wrong size.");
 
                         n->system_capabilities = unaligned_read_be16(p);
                         n->enabled_capabilities = unaligned_read_be16(p + 2);
@@ -285,13 +285,13 @@ int lldp_neighbor_parse(sd_lldp_neighbor *n) {
 
                 case SD_LLDP_TYPE_PRIVATE:
                         if (length < 4)
-                                return log_lldp_errno(n->lldp, SYNTHETIC_ERRNO(EBADMSG),
-                                                      "Found private TLV that is too short, ignoring.");
+                                return log_lldp_rx_errno(n->lldp_rx, SYNTHETIC_ERRNO(EBADMSG),
+                                                         "Found private TLV that is too short, ignoring.");
 
                         /* RFC 8520: MUD URL */
                         if (memcmp(p, SD_LLDP_OUI_MUD, sizeof(SD_LLDP_OUI_MUD)) == 0 &&
                             p[sizeof(SD_LLDP_OUI_MUD)] == SD_LLDP_OUI_SUBTYPE_MUD_USAGE_DESCRIPTION) {
-                                r = parse_string(n->lldp, &n->mud_url, p + sizeof(SD_LLDP_OUI_MUD) + 1,
+                                r = parse_string(n->lldp_rx, &n->mud_url, p + sizeof(SD_LLDP_OUI_MUD) + 1,
                                                  length - 1 - sizeof(SD_LLDP_OUI_MUD));
                                 if (r < 0)
                                         return r;
@@ -304,8 +304,8 @@ int lldp_neighbor_parse(sd_lldp_neighbor *n) {
 
 end_marker:
         if (!n->id.chassis_id || !n->id.port_id || !n->has_ttl)
-                return log_lldp_errno(n->lldp, SYNTHETIC_ERRNO(EBADMSG),
-                                      "One or more mandatory TLV missing in datagram. Ignoring.");
+                return log_lldp_rx_errno(n->lldp_rx, SYNTHETIC_ERRNO(EBADMSG),
+                                         "One or more mandatory TLV missing in datagram. Ignoring.");
 
         n->rindex = sizeof(struct ether_header);
 
@@ -327,8 +327,8 @@ void lldp_neighbor_start_ttl(sd_lldp_neighbor *n) {
         } else
                 n->until = 0;
 
-        if (n->lldp)
-                prioq_reshuffle(n->lldp->neighbor_by_expiry, n, &n->prioq_idx);
+        if (n->lldp_rx)
+                prioq_reshuffle(n->lldp_rx->neighbor_by_expiry, n, &n->prioq_idx);
 }
 
 bool lldp_neighbor_equal(const sd_lldp_neighbor *a, const sd_lldp_neighbor *b) {

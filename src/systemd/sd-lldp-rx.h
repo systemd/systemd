@@ -119,43 +119,43 @@ enum {
         SD_LLDP_OUI_802_3_SUBTYPE_MAXIMUM_FRAME_SIZE    = 4,
 };
 
-typedef struct sd_lldp sd_lldp;
+typedef struct sd_lldp_rx sd_lldp_rx;
 typedef struct sd_lldp_neighbor sd_lldp_neighbor;
 
-typedef enum sd_lldp_event_t {
-        SD_LLDP_EVENT_ADDED,
-        SD_LLDP_EVENT_REMOVED,
-        SD_LLDP_EVENT_UPDATED,
-        SD_LLDP_EVENT_REFRESHED,
-        _SD_LLDP_EVENT_MAX,
-        _SD_LLDP_EVENT_INVALID = -EINVAL,
-        _SD_ENUM_FORCE_S64(LLDP_EVENT),
-} sd_lldp_event_t;
+typedef enum sd_lldp_rx_event_t {
+        SD_LLDP_RX_EVENT_ADDED,
+        SD_LLDP_RX_EVENT_REMOVED,
+        SD_LLDP_RX_EVENT_UPDATED,
+        SD_LLDP_RX_EVENT_REFRESHED,
+        _SD_LLDP_RX_EVENT_MAX,
+        _SD_LLDP_RX_EVENT_INVALID = -EINVAL,
+        _SD_ENUM_FORCE_S64(LLDP_RX_EVENT),
+} sd_lldp_rx_event_t;
 
-typedef void (*sd_lldp_callback_t)(sd_lldp *lldp, sd_lldp_event_t event, sd_lldp_neighbor *n, void *userdata);
+typedef void (*sd_lldp_rx_callback_t)(sd_lldp_rx *lldp_rx, sd_lldp_rx_event_t event, sd_lldp_neighbor *n, void *userdata);
 
-int sd_lldp_new(sd_lldp **ret);
-sd_lldp* sd_lldp_ref(sd_lldp *lldp);
-sd_lldp* sd_lldp_unref(sd_lldp *lldp);
+int sd_lldp_rx_new(sd_lldp_rx **ret);
+sd_lldp_rx *sd_lldp_rx_ref(sd_lldp_rx *lldp_rx);
+sd_lldp_rx *sd_lldp_rx_unref(sd_lldp_rx *lldp_rx);
 
-int sd_lldp_start(sd_lldp *lldp);
-int sd_lldp_stop(sd_lldp *lldp);
+int sd_lldp_rx_start(sd_lldp_rx *lldp_rx);
+int sd_lldp_rx_stop(sd_lldp_rx *lldp_rx);
 
-int sd_lldp_attach_event(sd_lldp *lldp, sd_event *event, int64_t priority);
-int sd_lldp_detach_event(sd_lldp *lldp);
-sd_event *sd_lldp_get_event(sd_lldp *lldp);
+int sd_lldp_rx_attach_event(sd_lldp_rx *lldp_rx, sd_event *event, int64_t priority);
+int sd_lldp_rx_detach_event(sd_lldp_rx *lldp_rx);
+sd_event *sd_lldp_rx_get_event(sd_lldp_rx *lldp_rx);
 
-int sd_lldp_set_callback(sd_lldp *lldp, sd_lldp_callback_t cb, void *userdata);
-int sd_lldp_set_ifindex(sd_lldp *lldp, int ifindex);
-int sd_lldp_set_ifname(sd_lldp *lldp, const char *ifname);
-const char *sd_lldp_get_ifname(sd_lldp *lldp);
+int sd_lldp_rx_set_callback(sd_lldp_rx *lldp_rx, sd_lldp_rx_callback_t cb, void *userdata);
+int sd_lldp_rx_set_ifindex(sd_lldp_rx *lldp_rx, int ifindex);
+int sd_lldp_rx_set_ifname(sd_lldp_rx *lldp_rx, const char *ifname);
+const char *sd_lldp_rx_get_ifname(sd_lldp_rx *lldp_rx);
 
 /* Controls how much and what to store in the neighbors database */
-int sd_lldp_set_neighbors_max(sd_lldp *lldp, uint64_t n);
-int sd_lldp_match_capabilities(sd_lldp *lldp, uint16_t mask);
-int sd_lldp_set_filter_address(sd_lldp *lldp, const struct ether_addr *address);
+int sd_lldp_rx_set_neighbors_max(sd_lldp_rx *lldp_rx, uint64_t n);
+int sd_lldp_rx_match_capabilities(sd_lldp_rx *lldp_rx, uint16_t mask);
+int sd_lldp_rx_set_filter_address(sd_lldp_rx *lldp_rx, const struct ether_addr *address);
 
-int sd_lldp_get_neighbors(sd_lldp *lldp, sd_lldp_neighbor ***neighbors);
+int sd_lldp_rx_get_neighbors(sd_lldp_rx *lldp_rx, sd_lldp_neighbor ***neighbors);
 
 int sd_lldp_neighbor_from_raw(sd_lldp_neighbor **ret, const void *raw, size_t raw_size);
 sd_lldp_neighbor *sd_lldp_neighbor_ref(sd_lldp_neighbor *n);
@@ -190,7 +190,7 @@ int sd_lldp_neighbor_tlv_get_oui(sd_lldp_neighbor *n, uint8_t oui[_SD_ARRAY_STAT
 int sd_lldp_neighbor_tlv_is_oui(sd_lldp_neighbor *n, const uint8_t oui[_SD_ARRAY_STATIC 3], uint8_t subtype);
 int sd_lldp_neighbor_tlv_get_raw(sd_lldp_neighbor *n, const void **ret, size_t *size);
 
-_SD_DEFINE_POINTER_CLEANUP_FUNC(sd_lldp, sd_lldp_unref);
+_SD_DEFINE_POINTER_CLEANUP_FUNC(sd_lldp_rx, sd_lldp_rx_unref);
 _SD_DEFINE_POINTER_CLEANUP_FUNC(sd_lldp_neighbor, sd_lldp_neighbor_unref);
 
 _SD_END_DECLARATIONS;

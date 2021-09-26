@@ -8,7 +8,7 @@
 #include "log-link.h"
 #include "prioq.h"
 
-struct sd_lldp {
+struct sd_lldp_rx {
         unsigned n_ref;
 
         int ifindex;
@@ -25,7 +25,7 @@ struct sd_lldp {
 
         uint64_t neighbors_max;
 
-        sd_lldp_callback_t callback;
+        sd_lldp_rx_callback_t callback;
         void *userdata;
 
         uint16_t capability_mask;
@@ -33,16 +33,16 @@ struct sd_lldp {
         struct ether_addr filter_address;
 };
 
-const char* lldp_event_to_string(sd_lldp_event_t e) _const_;
-sd_lldp_event_t lldp_event_from_string(const char *s) _pure_;
+const char* lldp_rx_event_to_string(sd_lldp_rx_event_t e) _const_;
+sd_lldp_rx_event_t lldp_rx_event_from_string(const char *s) _pure_;
 
-#define log_lldp_errno(lldp, error, fmt, ...)           \
+#define log_lldp_rx_errno(lldp_rx, error, fmt, ...)     \
         log_interface_prefix_full_errno(                \
-                "LLDP: ",                               \
-                sd_lldp_get_ifname(lldp),               \
+                "LLDP Rx: ",                            \
+                sd_lldp_rx_get_ifname(lldp_rx),         \
                 error, fmt, ##__VA_ARGS__)
-#define log_lldp(lldp, fmt, ...)                        \
+#define log_lldp_rx(lldp_rx, fmt, ...)                  \
         log_interface_prefix_full_errno_zerook(         \
-                "LLDP: ",                               \
-                sd_lldp_get_ifname(lldp),               \
+                "LLDP Rx: ",                            \
+                sd_lldp_rx_get_ifname(lldp_rx),         \
                 0, fmt, ##__VA_ARGS__)
