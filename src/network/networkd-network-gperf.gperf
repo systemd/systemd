@@ -20,6 +20,7 @@ _Pragma("GCC diagnostic ignored \"-Wimplicit-fallthrough\"")
 #include "networkd-dhcp6.h"
 #include "networkd-ipv4ll.h"
 #include "networkd-ipv6-proxy-ndp.h"
+#include "networkd-lldp-tx.h"
 #include "networkd-ndisc.h"
 #include "networkd-network.h"
 #include "networkd-neighbor.h"
@@ -104,7 +105,7 @@ Network.IPv4LLRoute,                         config_parse_bool,                 
 Network.DefaultRouteOnDevice,                config_parse_bool,                                        0,                             offsetof(Network, default_route_on_device)
 Network.IPv6Token,                           config_parse_address_generation_type,                     0,                             0
 Network.LLDP,                                config_parse_lldp_mode,                                   0,                             offsetof(Network, lldp_mode)
-Network.EmitLLDP,                            config_parse_lldp_emit,                                   0,                             offsetof(Network, lldp_emit)
+Network.EmitLLDP,                            config_parse_lldp_multicast_mode,                         0,                             offsetof(Network, lldp_multicast_mode)
 Network.Address,                             config_parse_address,                                     0,                             0
 Network.Gateway,                             config_parse_gateway,                                     0,                             0
 Network.Domains,                             config_parse_domains,                                     0,                             0
@@ -348,7 +349,7 @@ IPv6Prefix.Assign,                           config_parse_prefix_assign,        
 IPv6Prefix.RouteMetric,                      config_parse_prefix_metric,                               0,                             0
 IPv6RoutePrefix.Route,                       config_parse_route_prefix,                                0,                             0
 IPv6RoutePrefix.LifetimeSec,                 config_parse_route_prefix_lifetime,                       0,                             0
-LLDP.MUDURL,                                 config_parse_mud_url,                                     0,                             offsetof(Network, lldp_mud)
+LLDP.MUDURL,                                 config_parse_mud_url,                                     0,                             offsetof(Network, lldp_mudurl)
 CAN.BitRate,                                 config_parse_can_bitrate,                                 0,                             offsetof(Network, can_bitrate)
 CAN.SamplePoint,                             config_parse_permille,                                    0,                             offsetof(Network, can_sample_point)
 CAN.TimeQuantaNSec,                          config_parse_can_time_quanta,                             0,                             offsetof(Network, can_time_quanta_ns)
