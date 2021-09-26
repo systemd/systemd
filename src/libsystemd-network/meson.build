@@ -1,48 +1,48 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
 sources = files('''
-        sd-dhcp-client.c
-        sd-dhcp-server.c
+        arp-util.c
+        arp-util.h
         dhcp-client-internal.h
+        dhcp-identifier.c
+        dhcp-identifier.h
+        dhcp-internal.h
+        dhcp-lease-internal.h
         dhcp-network.c
         dhcp-option.c
         dhcp-packet.c
-        dhcp-internal.h
-        dhcp-server-internal.h
         dhcp-protocol.h
-        dhcp-lease-internal.h
-        sd-dhcp-lease.c
-        sd-ipv4ll.c
-        sd-ipv4acd.c
-        arp-util.h
-        arp-util.c
+        dhcp-server-internal.h
+        dhcp6-internal.h
+        dhcp6-lease-internal.h
+        dhcp6-network.c
+        dhcp6-option.c
+        dhcp6-protocol.h
+        icmp6-util.c
+        icmp6-util.h
+        lldp-internal.h
+        lldp-neighbor.c
+        lldp-neighbor.h
+        lldp-network.c
+        lldp-network.h
+        ndisc-internal.h
+        ndisc-router.c
+        ndisc-router.h
         network-common.c
         network-common.h
         network-internal.c
         network-internal.h
-        sd-ndisc.c
-        ndisc-internal.h
-        ndisc-router.h
-        ndisc-router.c
-        sd-radv.c
         radv-internal.h
-        icmp6-util.h
-        icmp6-util.c
+        sd-dhcp-client.c
+        sd-dhcp-lease.c
+        sd-dhcp-server.c
         sd-dhcp6-client.c
-        dhcp6-internal.h
-        dhcp6-protocol.h
-        dhcp6-network.c
-        dhcp6-option.c
-        dhcp6-lease-internal.h
         sd-dhcp6-lease.c
-        dhcp-identifier.h
-        dhcp-identifier.c
-        lldp-internal.h
-        lldp-network.h
-        lldp-network.c
-        lldp-neighbor.h
-        lldp-neighbor.c
+        sd-ipv4acd.c
+        sd-ipv4ll.c
         sd-lldp.c
+        sd-ndisc.c
+        sd-radv.c
 '''.split())
 
 libsystemd_network = static_library(
