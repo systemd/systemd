@@ -97,7 +97,7 @@ tests += [
          [libshared,
           libsystemd_network]],
 
-        [['src/libsystemd-network/test-lldp.c'],
+        [['src/libsystemd-network/test-lldp-rx.c'],
          [libshared,
           libsystemd_network]],
 ]
@@ -111,7 +111,7 @@ fuzzers += [
          [libsystemd_network,
           libshared]],
 
-        [['src/libsystemd-network/fuzz-lldp.c'],
+        [['src/libsystemd-network/fuzz-lldp-rx.c'],
          [libshared,
           libsystemd_network]],
 
