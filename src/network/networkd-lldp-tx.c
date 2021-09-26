@@ -146,7 +146,7 @@ static int lldp_make_packet(
 
         /* MUD URL */
         if (mud)
-                l += 2 + sizeof(SD_LLDP_OUI_MUD) + 1 + mud_length;
+                l += 2 + sizeof(SD_LLDP_OUI_IANA_MUD) + mud_length;
 
         packet = malloc(l);
         if (!packet)
@@ -199,7 +199,6 @@ static int lldp_make_packet(
         }
 
         if (mud) {
-                uint8_t oui_mud[sizeof(SD_LLDP_OUI_MUD)] = {0x00, 0x00, 0x5E};
                 /*
                  * +--------+--------+----------+---------+--------------
                  * |TLV Type|  len   |   OUI    |subtype  | MUDString
@@ -215,12 +214,11 @@ static int lldp_make_packet(
                  * o  MUDstring = the length MUST NOT exceed 255 octets
                  */
 
-                r = lldp_write_tlv_header(&p, SD_LLDP_TYPE_PRIVATE, sizeof(SD_LLDP_OUI_MUD) + 1 + mud_length);
+                r = lldp_write_tlv_header(&p, SD_LLDP_TYPE_PRIVATE, sizeof(SD_LLDP_OUI_IANA_MUD) + mud_length);
                 if (r < 0)
                         return r;
 
-                p = mempcpy(p, &oui_mud, sizeof(SD_LLDP_OUI_MUD));
-                *(p++) = SD_LLDP_OUI_SUBTYPE_MUD_USAGE_DESCRIPTION;
+                p = mempcpy(p, SD_LLDP_OUI_IANA_MUD, sizeof(SD_LLDP_OUI_IANA_MUD));
                 p = mempcpy(p, mud, mud_length);
         }
 
