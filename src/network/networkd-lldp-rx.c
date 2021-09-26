@@ -56,12 +56,13 @@ static void lldp_rx_handler(sd_lldp_rx *lldp_rx, sd_lldp_rx_event_t event, sd_ll
 
         (void) link_lldp_save(link);
 
-        if (link_lldp_emit_enabled(link) && event == SD_LLDP_RX_EVENT_ADDED) {
+        if (link->lldp_tx && event == SD_LLDP_RX_EVENT_ADDED) {
                 /* If we received information about a new neighbor, restart the LLDP "fast" logic */
 
                 log_link_debug(link, "Received LLDP datagram from previously unknown neighbor, restarting 'fast' LLDP transmission.");
 
-                r = link_lldp_emit_start(link);
+                (void) sd_lldp_tx_stop(link->lldp_tx);
+                r = sd_lldp_tx_start(link->lldp_tx);
                 if (r < 0)
                         log_link_warning_errno(link, r, "Failed to restart LLDP transmission: %m");
         }

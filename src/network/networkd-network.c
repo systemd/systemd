@@ -432,6 +432,7 @@ int network_load_one(Manager *manager, OrderedHashmap **networks, const char *fi
                 .multicast_router = _MULTICAST_ROUTER_INVALID,
 
                 .lldp_mode = LLDP_MODE_ROUTERS_ONLY,
+                .lldp_multicast_mode = _SD_LLDP_MULTICAST_MODE_INVALID,
 
                 .dns_default_route = -1,
                 .llmnr = RESOLVE_SUPPORT_YES,
@@ -690,7 +691,7 @@ static Network *network_free(Network *network) {
 
         set_free_free(network->dnssec_negative_trust_anchors);
 
-        free(network->lldp_mud);
+        free(network->lldp_mudurl);
 
         ordered_hashmap_free(network->dhcp_client_send_options);
         ordered_hashmap_free(network->dhcp_client_send_vendor_options);

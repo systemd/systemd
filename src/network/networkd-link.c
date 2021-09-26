@@ -210,7 +210,7 @@ static void link_free_engines(Link *link) {
         link->dhcp_lease = sd_dhcp_lease_unref(link->dhcp_lease);
 
         link->lldp_rx = sd_lldp_rx_unref(link->lldp_rx);
-        link_lldp_emit_stop(link);
+        link->lldp_tx = sd_lldp_tx_unref(link->lldp_tx);
 
         ndisc_flush(link);
 
@@ -377,7 +377,11 @@ int link_stop_engines(Link *link, bool may_keep_dhcp) {
 
         k = sd_lldp_rx_stop(link->lldp_rx);
         if (k < 0)
-                r = log_link_warning_errno(link, k, "Could not stop LLDP: %m");
+                r = log_link_warning_errno(link, k, "Could not stop LLDP Rx: %m");
+
+        k = sd_lldp_tx_stop(link->lldp_tx);
+        if (k < 0)
+                r = log_link_warning_errno(link, k, "Could not stop LLDP Tx: %m");
 
         k = sd_ipv4ll_stop(link->ipv4ll);
         if (k < 0)
@@ -403,7 +407,6 @@ int link_stop_engines(Link *link, bool may_keep_dhcp) {
         if (k < 0)
                 r = log_link_warning_errno(link, k, "Could not stop IPv6 Router Advertisement: %m");
 
-        link_lldp_emit_stop(link);
         return r;
 }
 
@@ -686,9 +689,11 @@ static int link_acquire_dynamic_conf(Link *link) {
                         return r;
         }
 
-        r = link_lldp_emit_start(link);
-        if (r < 0)
-                return log_link_warning_errno(link, r, "Failed to start LLDP transmission: %m");
+        if (link->lldp_tx) {
+                r = sd_lldp_tx_start(link->lldp_tx);
+                if (r < 0)
+                        return log_link_warning_errno(link, r, "Failed to start LLDP transmission: %m");
+        }
 
         if (link->lldp_rx) {
                 r = sd_lldp_rx_start(link->lldp_rx);
@@ -1159,6 +1164,10 @@ static int link_configure(Link *link) {
                 return r;
 
         r = link_lldp_rx_configure(link);
+        if (r < 0)
+                return r;
+
+        r = link_lldp_tx_configure(link);
         if (r < 0)
                 return r;
 
@@ -2105,7 +2114,13 @@ static int link_update_hardware_address(Link *link, sd_netlink_message *message)
         if (link->lldp_rx) {
                 r = sd_lldp_rx_set_filter_address(link->lldp_rx, &link->hw_addr.ether);
                 if (r < 0)
-                        return log_link_debug_errno(link, r, "Could not update MAC address for LLDP: %m");
+                        return log_link_debug_errno(link, r, "Could not update MAC address for LLDP Rx: %m");
+        }
+
+        if (link->lldp_tx) {
+                r = sd_lldp_tx_set_hwaddr(link->lldp_tx, &link->hw_addr.ether);
+                if (r < 0)
+                        return log_link_debug_errno(link, r, "Could not update MAC address for LLDP Tx: %m");
         }
 
         return 0;
@@ -2269,7 +2284,13 @@ static int link_update_name(Link *link, sd_netlink_message *message) {
         if (link->lldp_rx) {
                 r = sd_lldp_rx_set_ifname(link->lldp_rx, link->ifname);
                 if (r < 0)
-                        return log_link_debug_errno(link, r, "Failed to update interface name in LLDP: %m");
+                        return log_link_debug_errno(link, r, "Failed to update interface name in LLDP Rx: %m");
+        }
+
+        if (link->lldp_tx) {
+                r = sd_lldp_tx_set_ifname(link->lldp_tx, link->ifname);
+                if (r < 0)
+                        return log_link_debug_errno(link, r, "Failed to update interface name in LLDP Tx: %m");
         }
 
         if (link->ipv4ll) {
