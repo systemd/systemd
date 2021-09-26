@@ -41,6 +41,7 @@ sources = files('''
         sd-ipv4acd.c
         sd-ipv4ll.c
         sd-lldp-rx.c
+        sd-lldp-tx.c
         sd-ndisc.c
         sd-radv.c
 '''.split())
