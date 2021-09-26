@@ -92,8 +92,12 @@ enum {
 #define SD_LLDP_OUI_802_1 (const uint8_t[]) { 0x00, 0x80, 0xc2 }
 #define SD_LLDP_OUI_802_3 (const uint8_t[]) { 0x00, 0x12, 0x0f }
 
-#define SD_LLDP_OUI_MUD   (const uint8_t[]) { 0x00, 0x00, 0x5E }
-#define SD_LLDP_OUI_SUBTYPE_MUD_USAGE_DESCRIPTION  0x01
+#define _SD_LLDP_OUI_IANA 0x00, 0x00, 0x5E
+#define SD_LLDP_OUI_IANA  (const uint8_t[]) { _SD_LLDP_OUI_IANA }
+
+#define SD_LLDP_OUI_IANA_SUBTYPE_MUD  0x01
+#define SD_LLDP_OUI_IANA_MUD                                            \
+        (const uint8_t[]) { _SD_LLDP_OUI_IANA, SD_LLDP_OUI_IANA_SUBTYPE_MUD }
 
 /* IEEE 802.1AB-2009 Annex E */
 enum {
