@@ -13,6 +13,8 @@ units = [
         ['veritysetup-pre.target',              'HAVE_LIBCRYPTSETUP'],
         ['veritysetup.target',                  'HAVE_LIBCRYPTSETUP',
          'sysinit.target.wants/'],
+        ['integritysetup.target',               '',
+         'sysinit.target.wants/'],
         ['dev-hugepages.mount',                 '',
          'sysinit.target.wants/'],
         ['dev-mqueue.mount',                    '',
