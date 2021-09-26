@@ -847,6 +847,7 @@ static int ieee_oui(sd_device *dev, const LinkInfo *info, bool test) {
 
 static int builtin_net_id(sd_device *dev, sd_netlink **rtnl, int argc, char *argv[], bool test) {
         _cleanup_(link_info_clear) LinkInfo info = LINK_INFO_NULL;
+        _cleanup_free_ char *flags = NULL;
         const char *devtype, *prefix = "en";
         NetNames names = {};
         int ifindex, r;
@@ -900,6 +901,10 @@ static int builtin_net_id(sd_device *dev, sd_netlink **rtnl, int argc, char *arg
         }
 
         udev_builtin_add_property(dev, test, "ID_NET_NAMING_SCHEME", naming_scheme()->name);
+
+        flags = naming_scheme_flags_string();
+        if (flags)
+                udev_builtin_add_property(dev, test, "ID_NET_NAMING_SCHEME_FLAGS", flags);
 
         if (names_mac(dev, &info) >= 0) {
                 char str[ALTIFNAMSIZ];

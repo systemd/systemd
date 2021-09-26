@@ -55,6 +55,7 @@ typedef struct NamingScheme {
 } NamingScheme;
 
 const NamingScheme* naming_scheme(void);
+char *naming_scheme_flags_string(void);
 
 static inline bool naming_scheme_has(NamingSchemeFlags flags) {
         return FLAGS_SET(naming_scheme()->flags, flags);
