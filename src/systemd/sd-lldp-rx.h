@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
-#ifndef foosdlldphfoo
-#define foosdlldphfoo
+#ifndef foosdlldprxhfoo
+#define foosdlldprxhfoo
 
 /***
   systemd is free software; you can redistribute it and/or modify it

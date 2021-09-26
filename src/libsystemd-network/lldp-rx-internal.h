@@ -2,7 +2,7 @@
 #pragma once
 
 #include "sd-event.h"
-#include "sd-lldp.h"
+#include "sd-lldp-rx.h"
 
 #include "hashmap.h"
 #include "log-link.h"

@@ -20,11 +20,11 @@ sources = files('''
         dhcp6-protocol.h
         icmp6-util.c
         icmp6-util.h
-        lldp-internal.h
         lldp-neighbor.c
         lldp-neighbor.h
         lldp-network.c
         lldp-network.h
+        lldp-rx-internal.h
         ndisc-internal.h
         ndisc-router.c
         ndisc-router.h
@@ -40,7 +40,7 @@ sources = files('''
         sd-dhcp6-lease.c
         sd-ipv4acd.c
         sd-ipv4ll.c
-        sd-lldp.c
+        sd-lldp-rx.c
         sd-ndisc.c
         sd-radv.c
 '''.split())

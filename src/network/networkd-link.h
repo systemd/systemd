@@ -11,7 +11,7 @@
 #include "sd-dhcp6-client.h"
 #include "sd-ipv4acd.h"
 #include "sd-ipv4ll.h"
-#include "sd-lldp.h"
+#include "sd-lldp-rx.h"
 #include "sd-ndisc.h"
 #include "sd-radv.h"
 #include "sd-netlink.h"
