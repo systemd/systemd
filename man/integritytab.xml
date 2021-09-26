@@ -1,0 +1,88 @@
+<?xml version="1.0"?>
+<!--*-nxml-*-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+<!--
+  SPDX-License-Identifier: LGPL-2.1-or-later
+
+This is based on crypttab(5).
+
+-->
+<refentry id="integritytab" xmlns:xi="http://www.w3.org/2001/XInclude">
+
+  <refentryinfo>
+    <title>integritytab</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>integritytab</refentrytitle>
+    <manvolnum>5</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>integritytab</refname>
+    <refpurpose>Configuration for integrity block devices</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <para><filename>/etc/integritytab</filename></para>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para>The <filename>/etc/integritytab</filename> file describes
+    integrity protected block devices that are set up during
+    system boot.</para>
+
+    <para>Empty lines and lines starting with the <literal>#</literal>
+    character are ignored. Each of the remaining lines describes one
+    verity integrity protected block device. Fields are delimited by
+    white space.</para>
+
+    <para>Each line is in the form<programlisting><replaceable>volume-name</replaceable> <replaceable>data-device</replaceable> <replaceable>options</replaceable></programlisting>
+    The first two fields are mandatory, the remaining one is optional.</para>
+
+    <para>The first field contains the name of the resulting integrity volume; its block device is set up
+    below <filename>/dev/mapper/</filename>.</para>
+
+    <para>The second field contains a path to the underlying block data device, or a specification of a block device via
+    <literal>UUID=</literal> followed by the UUID,
+    <literal>PARTUUID=</literal> followed by the partition UUID,
+    <literal>LABEL=</literal> followed by the label,
+    <literal>PARTLABEL=</literal> followed by the partition label,
+    </para>
+
+    <para>The third field, if present, is a comma-delimited list of integritysetup options.  Please refer to section  <literal>open</literal> for
+    <citerefentry project='die-net'><refentrytitle>integritysetup</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+    </para>
+
+    <para>At early boot and when the system manager configuration is
+    reloaded, this file is translated into native systemd units by
+    <citerefentry><refentrytitle>systemd-integritysetup-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Examples</title>
+    <example>
+      <title>/etc/integritytab example</title>
+      <para>Set up two integrity protected block devices. </para>
+
+      <programlisting>home PARTUUID=4973d0b8-1b15-c449-96ec-94bab7f6a7b8 journal-commit-time=10,allow-discards
+data PARTUUID=5d4b1808-be76-774d-88af-03c4c3a41761 allow-discards
+</programlisting>
+    </example>
+  </refsect1>
+
+  <refsect1>
+    <title>See Also</title>
+    <para>
+      <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>systemd-integritysetup@.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>systemd-integritysetup-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+      <citerefentry project='die-net'><refentrytitle>integritysetup</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+    </para>
+  </refsect1>
+
+</refentry>
