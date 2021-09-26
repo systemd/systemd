@@ -29,6 +29,7 @@ _not_installed_headers = '''
         sd-ipv4acd.h
         sd-ipv4ll.h
         sd-lldp-rx.h
+        sd-lldp-tx.h
         sd-lldp.h
         sd-ndisc.h
         sd-netlink.h
