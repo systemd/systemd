@@ -21,22 +21,22 @@ int lldp_network_bind_raw_socket(int ifindex) {
 
 int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
         _cleanup_(sd_event_unrefp) sd_event *e = NULL;
-        _cleanup_(sd_lldp_unrefp) sd_lldp *lldp = NULL;
+        _cleanup_(sd_lldp_rx_unrefp) sd_lldp_rx *lldp_rx = NULL;
 
         if (size > 2048)
                 return 0;
 
         assert_se(sd_event_new(&e) == 0);
-        assert_se(sd_lldp_new(&lldp) >= 0);
-        assert_se(sd_lldp_set_ifindex(lldp, 42) >= 0);
-        assert_se(sd_lldp_attach_event(lldp, e, 0) >= 0);
-        assert_se(sd_lldp_start(lldp) >= 0);
+        assert_se(sd_lldp_rx_new(&lldp_rx) >= 0);
+        assert_se(sd_lldp_rx_set_ifindex(lldp_rx, 42) >= 0);
+        assert_se(sd_lldp_rx_attach_event(lldp_rx, e, 0) >= 0);
+        assert_se(sd_lldp_rx_start(lldp_rx) >= 0);
 
         assert_se(write(test_fd[1], data, size) == (ssize_t) size);
         assert_se(sd_event_run(e, 0) >= 0);
 
-        assert_se(sd_lldp_stop(lldp) >= 0);
-        assert_se(sd_lldp_detach_event(lldp) >= 0);
+        assert_se(sd_lldp_rx_stop(lldp_rx) >= 0);
+        assert_se(sd_lldp_rx_detach_event(lldp_rx) >= 0);
         test_fd[1] = safe_close(test_fd[1]);
 
         return 0;

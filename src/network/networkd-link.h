@@ -171,7 +171,7 @@ typedef struct Link {
         bool dhcp6_pd_prefixes_assigned:1;
 
         /* This is about LLDP reception */
-        sd_lldp *lldp;
+        sd_lldp_rx *lldp_rx;
         char *lldp_file;
 
         /* This is about LLDP transmission */

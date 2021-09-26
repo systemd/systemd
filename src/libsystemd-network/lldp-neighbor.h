@@ -21,8 +21,8 @@ typedef struct LLDPNeighborID {
 } LLDPNeighborID;
 
 struct sd_lldp_neighbor {
-        /* Neighbor objects stay around as long as they are linked into an "sd_lldp" object or n_ref > 0. */
-        sd_lldp *lldp;
+        /* Neighbor objects stay around as long as they are linked into an "sd_lldp_rx" object or n_ref > 0. */
+        sd_lldp_rx *lldp_rx;
         unsigned n_ref;
 
         triple_timestamp timestamp;
