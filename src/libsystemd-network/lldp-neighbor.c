@@ -289,10 +289,9 @@ int lldp_neighbor_parse(sd_lldp_neighbor *n) {
                                                          "Found private TLV that is too short, ignoring.");
 
                         /* RFC 8520: MUD URL */
-                        if (memcmp(p, SD_LLDP_OUI_MUD, sizeof(SD_LLDP_OUI_MUD)) == 0 &&
-                            p[sizeof(SD_LLDP_OUI_MUD)] == SD_LLDP_OUI_SUBTYPE_MUD_USAGE_DESCRIPTION) {
-                                r = parse_string(n->lldp_rx, &n->mud_url, p + sizeof(SD_LLDP_OUI_MUD) + 1,
-                                                 length - 1 - sizeof(SD_LLDP_OUI_MUD));
+                        if (memcmp(p, SD_LLDP_OUI_IANA_MUD, sizeof(SD_LLDP_OUI_IANA_MUD)) == 0) {
+                                r = parse_string(n->lldp_rx, &n->mud_url, p + sizeof(SD_LLDP_OUI_IANA_MUD),
+                                                 length - sizeof(SD_LLDP_OUI_IANA_MUD));
                                 if (r < 0)
                                         return r;
                         }
