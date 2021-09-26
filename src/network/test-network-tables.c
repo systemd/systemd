@@ -5,7 +5,7 @@
 #include "dhcp6-protocol.h"
 #include "ethtool-util.h"
 #include "ipvlan.h"
-#include "lldp-internal.h"
+#include "lldp-rx-internal.h"
 #include "macvlan.h"
 #include "ndisc-internal.h"
 #include "networkd-link.h"
