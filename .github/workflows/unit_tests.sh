@@ -45,13 +45,15 @@ for phase in "${PHASES[@]}"; do
             if [[ "$phase" = "RUN_CLANG" ]]; then
                 export CC=clang
                 export CXX=clang++
+                # The docs build is slow and is not affected by compiler/flags, so do it just once
+                MESON_ARGS+=(-Dman=true)
             fi
             if [[ "$phase" = "RUN_GCC" ]]; then
                 MESON_ARGS+=(-Db_coverage=true)
                 # See FIXME below
                 (set +x; while :; do echo -ne "\n[WATCHDOG] $(date)\n"; sleep 30; done) &
             fi
-            meson --werror -Dtests=unsafe -Dslow-tests=true -Dfuzz-tests=true -Dman=true "${MESON_ARGS[@]}" build
+            meson --werror -Dtests=unsafe -Dslow-tests=true -Dfuzz-tests=true "${MESON_ARGS[@]}" build
             ninja -C build -v
             # Some of the unsafe tests irreparably break the host's network connectivity, so run them in a namespace
             unshare -n bash -c 'ip link set dev lo up; meson test -C build --print-errorlogs'
