@@ -156,7 +156,7 @@ static int test_parse_domain(sd_event *e) {
 
 static int test_option(sd_event *e) {
         uint8_t packet[] = {
-                'F', 'O', 'O',
+                'F', 'O', 'O', 'H', 'O', 'G', 'E',
                 0x00, SD_DHCP6_OPTION_ORO, 0x00, 0x07,
                 'A', 'B', 'C', 'D', 'E', 'F', 'G',
                 0x00, SD_DHCP6_OPTION_VENDOR_CLASS, 0x00, 0x09,
@@ -164,12 +164,13 @@ static int test_option(sd_event *e) {
                 'B', 'A', 'R',
         };
         uint8_t result[] = {
-                'F', 'O', 'O',
+                'F', 'O', 'O', 'H', 'O', 'G', 'E',
                 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
                 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
                 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
                 'B', 'A', 'R',
         };
+        _cleanup_free_ uint8_t *buf = NULL;
         size_t offset, pos, optlen, outlen = sizeof(result);
         const uint8_t *optval;
         uint16_t optcode;
@@ -185,16 +186,28 @@ static int test_option(sd_event *e) {
         offset = 3;
         assert_se(dhcp6_option_parse(packet, 0, &offset, &optcode, &optlen, &optval) == -EBADMSG);
 
-        offset = 3;
+        /* Tests for reading unaligned data. */
+        assert_se(buf = new(uint8_t, sizeof(packet)));
+        for (size_t i = 0; i <= 7; i++) {
+                memcpy(buf, packet + i, sizeof(packet) - i);
+                offset = 7 - i;
+                assert_se(dhcp6_option_parse(buf, sizeof(packet), &offset, &optcode, &optlen, &optval) >= 0);
+
+                assert_se(optcode == SD_DHCP6_OPTION_ORO);
+                assert_se(optlen == 7);
+                assert_se(optval == buf + 11 - i);
+        }
+
+        offset = 7;
         assert_se(dhcp6_option_parse(packet, sizeof(packet), &offset, &optcode, &optlen, &optval) >= 0);
 
         assert_se(optcode == SD_DHCP6_OPTION_ORO);
         assert_se(optlen == 7);
-        assert_se(optval == packet + 7);
+        assert_se(optval == packet + 11);
 
-        pos = 3;
-        outlen -= 3;
-        out = &result[3];
+        pos = 7;
+        outlen -= 7;
+        out = &result[pos];
 
         assert_se(dhcp6_option_append(&out, &outlen, optcode, optlen, optval) >= 0);
 
@@ -206,7 +219,7 @@ static int test_option(sd_event *e) {
 
         assert_se(optcode == SD_DHCP6_OPTION_VENDOR_CLASS);
         assert_se(optlen == 9);
-        assert_se(optval == packet + 18);
+        assert_se(optval == packet + 22);
 
         assert_se(dhcp6_option_append(&out, &outlen, optcode, optlen, optval) >= 0);
 
