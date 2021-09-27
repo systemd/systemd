@@ -449,7 +449,6 @@ EFI_STATUS pack_cpio(
         if (EFI_ERROR(err))
                 return log_error_status_stall(err, L"Failed to pack cpio trailer: %r");
 
-#if ENABLE_TPM
         err = tpm_log_event(
                         tpm_pcr,
                         POINTER_TO_PHYSICAL_ADDRESS(buffer),
@@ -457,7 +456,6 @@ EFI_STATUS pack_cpio(
                         tpm_description);
         if (EFI_ERROR(err))
                 log_error_stall(L"Unable to add initrd TPM measurement for PCR %u (%s), ignoring: %r", tpm_pcr, tpm_description, err);
-#endif
 
         *ret_buffer = TAKE_PTR(buffer);
         *ret_buffer_size = buffer_size;
