@@ -148,8 +148,10 @@ int write_string_stream_ts(
                         return -EBADF;
         }
 
-        if (flags & WRITE_STRING_VIRTUALFILE_SUPRESS_IF_POSSIBLE) {
-                _cleanup_free_ char *ret = NULL;
+        if (flags & WRITE_STRING_FILE_SUPPRESS_REDUNDANT_VIRTUAL) {
+                /* If value to be written is same as that of the existing value, then suppress the write
+                */
+                _cleanup_free_ char *t = NULL;
 
                 if (fd < 0) {
                         fd = fileno(f);
@@ -157,10 +159,12 @@ int write_string_stream_ts(
                                 return -EBADF;
                 }
 
-                r = read_virtual_stream(fd, SIZE_MAX, &ret, NULL);
+                /* Read an additional byte to detect cases where the prefix matches but the rest doesn't
+                   Also, r value of 0 means the read was truncated and we consider those as not equal
+                */
+                r = read_virtual_file_fd(fd, strlen(line)+1, &t, NULL);
                 if (r > 0) {
-                        ret = delete_trailing_chars(ret, NEWLINE);
-                        if (strneq(ret, line, strlen(ret))) {
+                        if (streq_skip_trailing_chars(line, t, NEWLINE)) {
                                 log_debug("No change in value '%s', supressing write", line);
                                 return 0;
                         }
@@ -289,7 +293,7 @@ int write_string_file_ts(
                   (FLAGS_SET(flags, WRITE_STRING_FILE_NOFOLLOW) ? O_NOFOLLOW : 0) |
                   (FLAGS_SET(flags, WRITE_STRING_FILE_CREATE) ? O_CREAT : 0) |
                   (FLAGS_SET(flags, WRITE_STRING_FILE_TRUNCATE) ? O_TRUNC : 0) |
-                  (FLAGS_SET(flags, WRITE_STRING_VIRTUALFILE_SUPRESS_IF_POSSIBLE) ? O_RDWR : O_WRONLY),
+                  (FLAGS_SET(flags, WRITE_STRING_FILE_SUPPRESS_REDUNDANT_VIRTUAL) ? O_RDWR : O_WRONLY),
                   (FLAGS_SET(flags, WRITE_STRING_FILE_MODE_0600) ? 0600 : 0666));
         if (fd < 0) {
                 r = -errno;
@@ -398,7 +402,7 @@ int verify_file(const char *fn, const char *blob, bool accept_extra_nl) {
         return 1;
 }
 
-int read_virtual_stream(int fd, size_t max_size, char **ret_contents, size_t *ret_size) {
+int read_virtual_file_fd(int fd, size_t max_size, char **ret_contents, size_t *ret_size) {
         _cleanup_free_ char *buf = NULL;
         size_t n, size;
         int n_retries;
@@ -550,7 +554,7 @@ int read_virtual_file(const char *filename, size_t max_size, char **ret_contents
         if (fd < 0)
                 return -errno;
 
-        return read_virtual_stream(fd, max_size, ret_contents, ret_size);
+        return read_virtual_file_fd(fd, max_size, ret_contents, ret_size);
 }
 
 int read_full_stream_full(
