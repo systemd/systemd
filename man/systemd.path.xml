@@ -3,7 +3,7 @@
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
 <!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
 
-<refentry id="systemd.path">
+<refentry id="systemd.path" xmlns:xi="http://www.w3.org/2001/XInclude">
   <refentryinfo>
     <title>systemd.path</title>
     <productname>systemd</productname>
@@ -103,9 +103,12 @@
   <refsect1>
     <title>Options</title>
 
-    <para>Path files must include a [Path] section, which carries
-    information about the path(s) it monitors. The options specific to
-    the [Path] section of path units are the following:</para>
+    <para>Path unit files may include [Unit] and [Install] sections, which are described in
+    <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+    </para>
+
+    <para>Path unit files must include a [Path] section, which carries information about the path or paths it
+    monitors. The options specific to the [Path] section of path units are the following:</para>
 
     <variablelist class='unit-directives'>
       <varlistentry>
@@ -184,6 +187,8 @@
         to <option>0755</option>.</para></listitem>
       </varlistentry>
     </variablelist>
+
+    <xi:include href="systemd.service.xml" xpointer="shared-unit-options" />
   </refsect1>
 
   <refsect1>

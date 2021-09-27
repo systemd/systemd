@@ -3,7 +3,7 @@
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
 <!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
 
-<refentry id="systemd.automount">
+<refentry id="systemd.automount" xmlns:xi="http://www.w3.org/2001/XInclude">
   <refentryinfo>
     <title>systemd.automount</title>
     <productname>systemd</productname>
@@ -124,7 +124,11 @@
   <refsect1>
     <title>Options</title>
 
-    <para>Automount files must include an [Automount] section, which
+    <para>Automount unit files may include [Unit] and [Install] sections, which are described in
+    <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+    </para>
+
+    <para>Automount unit files must include an [Automount] section, which
     carries information about the file system automount points it
     supervises. The options specific to the [Automount] section of
     automount units are the following:</para>
@@ -157,6 +161,8 @@
         default.</para></listitem>
       </varlistentry>
     </variablelist>
+
+    <xi:include href="systemd.service.xml" xpointer="shared-unit-options" />
   </refsect1>
 
   <refsect1>
