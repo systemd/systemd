@@ -952,7 +952,7 @@ int config_parse_route_prefix(
                 return 0;
         }
 
-        r = sd_radv_prefix_set_route_prefix(p->radv_route_prefix, &in6addr.in6, prefixlen);
+        r = sd_radv_route_prefix_set_prefix(p->radv_route_prefix, &in6addr.in6, prefixlen);
         if (r < 0) {
                 log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to set route prefix, ignoring assignment: %m");
                 return 0;

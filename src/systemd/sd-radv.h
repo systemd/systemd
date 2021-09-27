@@ -91,7 +91,7 @@ int sd_radv_route_prefix_new(sd_radv_route_prefix **ret);
 sd_radv_route_prefix *sd_radv_route_prefix_ref(sd_radv_route_prefix *ra);
 sd_radv_route_prefix *sd_radv_route_prefix_unref(sd_radv_route_prefix *ra);
 
-int sd_radv_prefix_set_route_prefix(sd_radv_route_prefix *p, const struct in6_addr *in6_addr, unsigned char prefixlen);
+int sd_radv_route_prefix_set_prefix(sd_radv_route_prefix *p, const struct in6_addr *in6_addr, unsigned char prefixlen);
 int sd_radv_route_prefix_set_lifetime(sd_radv_route_prefix *p, uint32_t valid_lifetime);
 
 _SD_DEFINE_POINTER_CLEANUP_FUNC(sd_radv, sd_radv_unref);
