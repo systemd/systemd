@@ -3,7 +3,7 @@
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
 <!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
 
-<refentry id="systemd.timer">
+<refentry id="systemd.timer" xmlns:xi="http://www.w3.org/2001/XInclude">
   <refentryinfo>
     <title>systemd.timer</title>
     <productname>systemd</productname>
@@ -94,7 +94,11 @@
   <refsect1>
     <title>Options</title>
 
-    <para>Timer files must include a [Timer] section, which carries
+    <para>Timer unit files may include [Unit] and [Install] sections, which are described in
+    <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+    </para>
+
+    <para>Timer unit files must include a [Timer] section, which carries
     information about the timer it defines. The options specific to
     the [Timer] section of timer units are the following:</para>
 
@@ -178,7 +182,6 @@
         precise time configured with these settings, as they are
         subject to the <varname>AccuracySec=</varname> setting
         below.</para></listitem>
-
       </varlistentry>
 
       <varlistentry>
@@ -357,6 +360,8 @@
         <option>true</option>.</para></listitem>
       </varlistentry>
     </variablelist>
+
+    <xi:include href="systemd.service.xml" xpointer="shared-unit-options" />
   </refsect1>
 
   <refsect1>
