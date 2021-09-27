@@ -142,7 +142,7 @@ EFI_STATUS xbootldr_open(EFI_HANDLE *device, EFI_HANDLE *ret_device, EFI_FILE **
                                 continue;
 
                         /* Calculate CRC of entries array, too */
-                        r = BS->CalculateCrc32(&entries, sz, &crc32);
+                        r = BS->CalculateCrc32(entries, sz, &crc32);
                         if (EFI_ERROR(r) || crc32 != h->PartitionEntryArrayCRC32)
                                 continue;
 
