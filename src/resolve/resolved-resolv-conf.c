@@ -216,6 +216,13 @@ static void write_resolv_conf_server(DnsServer *s, FILE *f, unsigned *count) {
                 return;
         }
 
+        /* resolv.conf simply doesn't support any other ports than 53, hence there's nothing much we can
+         * do — we have to suppress these entries */
+        if (dns_server_port(s) != 53) {
+                log_debug("DNS server %s with non-standard UDP port number, suppressing from generated resolv.conf.", dns_server_string(s));
+                return;
+        }
+
         /* Check if the scope this DNS server belongs to is suitable as 'default' route for lookups; resolv.conf does
          * not have a syntax to express that, so it must not appear as a global name server to avoid routing unrelated
          * domains to it (which is a privacy violation, will most probably fail anyway, and adds unnecessary load) */
