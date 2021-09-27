@@ -50,15 +50,11 @@
     which configure resource control settings for the processes of the
     service.</para>
 
-    <para>If a service is requested under a certain name but no unit
-    configuration file is found, systemd looks for a SysV init script
-    by the same name (with the <filename>.service</filename> suffix
-    removed) and dynamically creates a service unit from that script.
-    This is useful for compatibility with SysV. Note that this
-    compatibility is quite comprehensive but not 100%. For details
-    about the incompatibilities, see the <ulink
-    url="https://www.freedesktop.org/wiki/Software/systemd/Incompatibilities">Incompatibilities
-    with SysV</ulink> document.</para>
+    <para>If SysV init compat is enabled, systemd automatically creates service units that wrap SysV init
+    scripts (the service name is the same as the name of the script, with a <literal>.service</literal>
+    suffix added); see
+    <citerefentry><refentrytitle>systemd-sysv-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
+    </para>
 
     <para>The <citerefentry><refentrytitle>systemd-run</refentrytitle><manvolnum>1</manvolnum></citerefentry>
     command allows creating <filename>.service</filename> and <filename>.scope</filename> units dynamically
