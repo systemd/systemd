@@ -2,6 +2,7 @@
 title: systemd-homed and JSON User/Group Record Support in Desktop Environments
 category: Users, Groups and Home Directories
 layout: default
+SPDX-License-Identifier: LGPL-2.1-or-later
 ---
 
 # `systemd-homed` and JSON User/Group Record Support in Desktop Environments

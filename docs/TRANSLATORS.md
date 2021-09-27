@@ -2,6 +2,7 @@
 title: Notes for Translators
 category: Contributing
 layout: default
+SPDX-License-Identifier: LGPL-2.1-or-later
 ---
 
 # Notes for Translators

@@ -2,6 +2,7 @@
 title: What Settings Are Currently Available For Transient Units?
 category: Interfaces
 layout: default
+SPDX-License-Identifier: LGPL-2.1-or-later
 ---
 
 # What Settings Are Currently Available For Transient Units?
