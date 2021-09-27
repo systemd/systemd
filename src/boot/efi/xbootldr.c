@@ -76,6 +76,7 @@ static BOOLEAN verify_gpt(union GptHeaderBuffer *gpt_header_buffer, EFI_LBA lba_
 static EFI_STATUS try_gpt(
                 EFI_BLOCK_IO *block_io,
                 EFI_LBA lba,
+                EFI_LBA *ret_backup_lba, /* May be changed even on error! */
                 UINT32 *ret_part_number,
                 UINT64 *ret_part_start,
                 UINT64 *ret_part_size,
@@ -102,6 +103,10 @@ static EFI_STATUS try_gpt(
                         sizeof(gpt), &gpt);
         if (EFI_ERROR(err))
                 return err;
+
+        /* Indicate the location of backup LBA even if the rest of the header is corrupt. */
+        if (ret_backup_lba)
+                *ret_backup_lba = gpt.gpt_header.AlternateLBA;
 
         if (!verify_gpt(&gpt, lba))
                 return EFI_NOT_FOUND;
@@ -210,14 +215,26 @@ static EFI_STATUS find_device(
                     block_io->Media->LastBlock <= 1)
                         continue;
 
-                /* Try both copies of the GPT header, in case one is corrupted */
-                for (UINTN nr = 0; nr < 2; nr++) {
-                        /* Read the first copy at LBA 1 and then try backup GPT header at the very last
-                         * LBA of this block device if it was corrupted. */
-                        EFI_LBA lba = nr == 0 ? 1 : block_io->Media->LastBlock;
+                /* Try several copies of the GPT header, in case one is corrupted */
+                EFI_LBA backup_lba = 0;
+                for (UINTN nr = 0; nr < 3; nr++) {
+                        EFI_LBA lba;
+
+                        /* Read the first copy at LBA 1 and then try the backup GPT header pointed
+                         * to by the first header if that one was corrupted. As a last resort,
+                         * try the very last LBA of this block device. */
+                        if (nr == 0)
+                                lba = 1;
+                        else if (nr == 1 && backup_lba != 0)
+                                lba = backup_lba;
+                        else if (nr == 2 && backup_lba != block_io->Media->LastBlock)
+                                lba = block_io->Media->LastBlock;
+                        else
+                                continue;
 
                         err = try_gpt(
                                 block_io, lba,
+                                nr == 0 ? &backup_lba : NULL, /* Only get backup LBA location from first GPT header. */
                                 ret_part_number,
                                 ret_part_start,
                                 ret_part_size,
