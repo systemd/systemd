@@ -563,7 +563,7 @@ static BOOLEAN menu_run(
         BOOLEAN refresh = TRUE, highlight = FALSE;
         UINTN x_start = 0, y_start = 0, y_status = 0;
         UINTN x_max, y_max;
-        CHAR16 **lines = NULL;
+        _cleanup_(strv_freep) CHAR16 **lines = NULL;
         _cleanup_freepool_ CHAR16 *clearline = NULL, *status = NULL;
         UINT32 timeout_efivar_saved = config->timeout_sec_efivar;
         UINT32 timeout_remain = config->timeout_sec == TIMEOUT_MENU_FORCE ? 0 : config->timeout_sec;
@@ -623,15 +623,11 @@ static BOOLEAN menu_run(
                         /* Put status line after the entry list, but give it some breathing room. */
                         y_status = MIN(y_start + MIN(visible_max, config->entry_count) + 4, y_max - 1);
 
-                        if (lines) {
-                                for (UINTN i = 0; i < config->entry_count; i++)
-                                        FreePool(lines[i]);
-                                FreePool(lines);
-                                FreePool(clearline);
-                        }
+                        strv_free(lines);
+                        FreePool(clearline);
 
                         /* menu entries title lines */
-                        lines = AllocatePool(sizeof(CHAR16 *) * config->entry_count);
+                        lines = AllocatePool((config->entry_count + 1) * sizeof(CHAR16 *));
                         for (UINTN i = 0; i < config->entry_count; i++) {
                                 UINTN j, padding;
 
@@ -648,6 +644,7 @@ static BOOLEAN menu_run(
                                         lines[i][j] = ' ';
                                 lines[i][line_width] = '\0';
                         }
+                        lines[config->entry_count] = NULL;
 
                         clearline = AllocatePool((x_max+1) * sizeof(CHAR16));
                         for (UINTN i = 0; i < x_max; i++)
@@ -921,10 +918,6 @@ static BOOLEAN menu_run(
                                                config->timeout_sec_efivar, EFI_VARIABLE_NON_VOLATILE);
         }
 
-        for (UINTN i = 0; i < config->entry_count; i++)
-                FreePool(lines[i]);
-        FreePool(lines);
-
         clear_screen(COLOR_NORMAL);
         return run;
 }
@@ -959,6 +952,10 @@ static VOID config_entry_free(ConfigEntry *entry) {
         FreePool(entry->current_name);
         FreePool(entry->next_name);
         FreePool(entry);
+}
+
+static inline VOID config_entry_freep(ConfigEntry **entry) {
+        config_entry_free(*entry);
 }
 
 static CHAR8 *line_get_key_value(
@@ -1307,7 +1304,7 @@ static VOID config_entry_add_from_file(
                 CHAR8 *content,
                 const CHAR16 *loaded_image_path) {
 
-        ConfigEntry *entry;
+        _cleanup_(config_entry_freep) ConfigEntry *entry = NULL;
         CHAR8 *line;
         UINTN pos = 0;
         CHAR8 *key, *value;
@@ -1417,17 +1414,13 @@ static VOID config_entry_add_from_file(
                 }
         }
 
-        if (entry->type == LOADER_UNDEFINED) {
-                config_entry_free(entry);
+        if (entry->type == LOADER_UNDEFINED)
                 return;
-        }
 
         /* check existence */
         err = uefi_call_wrapper(root_dir->Open, 5, root_dir, &handle, entry->loader, EFI_FILE_MODE_READ, 0ULL);
-        if (EFI_ERROR(err)) {
-                config_entry_free(entry);
+        if (EFI_ERROR(err))
                 return;
-        }
         uefi_call_wrapper(handle->Close, 1, handle);
 
         /* add initrd= to options */
@@ -1449,6 +1442,7 @@ static VOID config_entry_add_from_file(
         config_add_entry(config, entry);
 
         config_entry_parse_tries(entry, path, file, L".conf");
+        TAKE_PTR(entry);
 }
 
 static VOID config_load_defaults(Config *config, EFI_FILE *root_dir) {
@@ -2313,9 +2307,9 @@ static VOID config_load_all_entries(
 EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
         _cleanup_freepool_ EFI_LOADED_IMAGE *loaded_image = NULL;
         _cleanup_(FileHandleClosep) EFI_FILE *root_dir = NULL;
+        _cleanup_(config_free) Config config = {};
         CHAR16 *loaded_image_path;
         EFI_STATUS err;
-        Config config;
         UINT64 init_usec;
         BOOLEAN menu = FALSE;
 
@@ -2430,7 +2424,6 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
         }
         err = EFI_SUCCESS;
 out:
-        config_free(&config);
         uefi_call_wrapper(BS->CloseProtocol, 4, image, &LoadedImageProtocol, image, NULL);
         return err;
 }
