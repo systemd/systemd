@@ -668,24 +668,84 @@ int radv_add_prefix(
         return 0;
 }
 
+static int prefix_section_verify(Prefix *p) {
+        assert(p);
+
+        if (section_is_invalid(p->section))
+                return -EINVAL;
+
+        if (in6_addr_is_null(&p->prefix))
+                return log_warning_errno(SYNTHETIC_ERRNO(EINVAL),
+                                         "%s: [IPv6Prefix] section without Prefix= field configured, "
+                                         "or specified prefix is the null address. "
+                                         "Ignoring [IPv6Prefix] section from line %u.",
+                                         p->section->filename, p->section->line);
+
+        if (p->prefixlen < 3 || p->prefixlen > 128)
+                return log_warning_errno(SYNTHETIC_ERRNO(EINVAL),
+                                         "%s: Invalid prefix length %u is specified in [IPv6Prefix] section. "
+                                         "Valid range is 3…128. Ignoring [IPv6Prefix] section from line %u.",
+                                         p->section->filename, p->prefixlen, p->section->line);
+
+        if (p->prefixlen > 64)
+                log_info("%s: Unusual prefix length %u (> 64) is specified in [IPv6Prefix] section from line %u.",
+                         p->section->filename, p->prefixlen, p->section->line);
+
+        if (p->valid_lifetime == 0)
+                return log_warning_errno(SYNTHETIC_ERRNO(EINVAL),
+                                         "%s: The valid lifetime of prefix cannot be zero. "
+                                         "Ignoring [IPv6Prefix] section from line %u.",
+                                         p->section->filename, p->section->line);
+
+        if (p->preferred_lifetime > p->valid_lifetime)
+                return log_warning_errno(SYNTHETIC_ERRNO(EINVAL),
+                                         "%s: The preferred lifetime %s is longer than the valid lifetime %s. "
+                                         "Ignoring [IPv6Prefix] section from line %u.",
+                                         p->section->filename,
+                                         FORMAT_TIMESPAN(p->preferred_lifetime, USEC_PER_SEC),
+                                         FORMAT_TIMESPAN(p->valid_lifetime, USEC_PER_SEC),
+                                         p->section->line);
+
+        return 0;
+}
+
 void network_drop_invalid_prefixes(Network *network) {
-        Prefix *prefix;
+        Prefix *p;
 
         assert(network);
 
-        HASHMAP_FOREACH(prefix, network->prefixes_by_section)
-                if (section_is_invalid(prefix->section))
-                        prefix_free(prefix);
+        HASHMAP_FOREACH(p, network->prefixes_by_section)
+                if (prefix_section_verify(p) < 0)
+                        prefix_free(p);
+}
+
+static int route_prefix_section_verify(RoutePrefix *p) {
+        if (section_is_invalid(p->section))
+                return -EINVAL;
+
+        if (p->prefixlen > 128)
+                return log_warning_errno(SYNTHETIC_ERRNO(EINVAL),
+                                         "%s: Invalid prefix length %u is specified in [IPv6RoutePrefix] section. "
+                                         "Valid range is 0…128. Ignoring [IPv6RoutePrefix] section from line %u.",
+                                         p->section->filename, p->prefixlen, p->section->line);
+
+        if (p->lifetime == 0)
+                return log_warning_errno(SYNTHETIC_ERRNO(EINVAL),
+                                         "%s: The lifetime of route cannot be zero. "
+                                         "Ignoring [IPv6RoutePrefix] section from line %u.",
+                                         p->section->filename, p->section->line);
+
+        return 0;
 }
 
 void network_drop_invalid_route_prefixes(Network *network) {
-        RoutePrefix *prefix;
+        RoutePrefix *p;
 
         assert(network);
 
-        HASHMAP_FOREACH(prefix, network->route_prefixes_by_section)
-                if (section_is_invalid(prefix->section))
-                        route_prefix_free(prefix);
+        HASHMAP_FOREACH(p, network->route_prefixes_by_section)
+                if (route_prefix_section_verify(p))
+                        route_prefix_free(p);
 }
 
 int config_parse_prefix(
