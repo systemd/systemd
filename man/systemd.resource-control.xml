@@ -189,10 +189,10 @@
           Scheduler</ulink>.  The available CPU time is split up among all units within one slice relative to
           their CPU time weight. A higher weight means more CPU time, a lower weight means less.</para>
 
-          <para>While <varname>StartupCPUWeight=</varname> only applies to the startup phase of the system,
+          <para>While <varname>StartupCPUWeight=</varname> applies to the startup and shutdown phases of the system,
           <varname>CPUWeight=</varname> applies to normal runtime of the system, and if the former is not set also to
-          the startup phase. Using <varname>StartupCPUWeight=</varname> allows prioritizing specific services at
-          boot-up differently than during normal runtime.</para>
+          the startup and shutdown phases. Using <varname>StartupCPUWeight=</varname> allows prioritizing specific services at
+          boot-up and shutdown differently than during normal runtime.</para>
 
           <para>These settings replace <varname>CPUShares=</varname> and <varname>StartupCPUShares=</varname>.</para>
         </listitem>
@@ -247,10 +247,10 @@
           of the CPUs will be used by the processes as it may be limited by parent units. The effective configuration is
           reported as <varname>EffectiveCPUs=</varname>.</para>
 
-          <para>While <varname>StartupAllowedCPUs=</varname> only applies to the startup phase of the system,
+          <para>While <varname>StartupAllowedCPUs=</varname> applies to the startup and shutdown phases of the system,
           <varname>AllowedCPUs=</varname> applies to normal runtime of the system, and if the former is not set also to
-          the startup phase. Using <varname>StartupAllowedCPUs=</varname> allows prioritizing specific services at
-          boot-up differently than during normal runtime.</para>
+          the startup and shutdown phases. Using <varname>StartupAllowedCPUs=</varname> allows prioritizing specific services at
+          boot-up and shutdown differently than during normal runtime.</para>
 
           <para>This setting is supported only with the unified control group hierarchy.</para>
         </listitem>
@@ -269,10 +269,10 @@
           guarantee that all of the memory NUMA nodes will be used by the processes as it may be limited by parent units.
           The effective configuration is reported as <varname>EffectiveMemoryNodes=</varname>.</para>
 
-          <para>While <varname>StartupAllowedMemoryNodes=</varname> only applies to the startup phase of the system,
+          <para>While <varname>StartupAllowedMemoryNodes=</varname> applies to the startup and shutdown phases of the system,
           <varname>AllowedMemoryNodes=</varname> applies to normal runtime of the system, and if the former is not set also to
-          the startup phase. Using <varname>StartupAllowedMemoryNodes=</varname> allows prioritizing specific services at
-          boot-up differently than during normal runtime.</para>
+          the startup and shutdown phases. Using <varname>StartupAllowedMemoryNodes=</varname> allows prioritizing specific services at
+          boot-up and shutdown differently than during normal runtime.</para>
 
           <para>This setting is supported only with the unified control group hierarchy.</para>
         </listitem>
@@ -458,12 +458,12 @@
           relative to their block I/O weight. A higher weight means more I/O bandwidth, a lower weight means
           less.</para>
 
-          <para>While <varname>StartupIOWeight=</varname> only applies
-          to the startup phase of the system,
+          <para>While <varname>StartupIOWeight=</varname> applies
+          to the startup and shutdown phases of the system,
           <varname>IOWeight=</varname> applies to the later runtime of
           the system, and if the former is not set also to the startup
-          phase. This allows prioritizing specific services at boot-up
-          differently than during runtime.</para>
+          and shutdown phases. This allows prioritizing specific services at boot-up
+          and shutdown differently than during runtime.</para>
 
           <para>These settings replace <varname>BlockIOWeight=</varname> and <varname>StartupBlockIOWeight=</varname>
           and disable settings prefixed with <varname>BlockIO</varname> or <varname>StartupBlockIO</varname>.</para>
@@ -1194,10 +1194,10 @@ DeviceAllow=/dev/loop-control
           The available CPU time is split up among all units within one slice relative to their CPU time share
           weight.</para>
 
-          <para>While <varname>StartupCPUShares=</varname> only applies to the startup phase of the system,
+          <para>While <varname>StartupCPUShares=</varname> applies to the startup and shutdown phases of the system,
           <varname>CPUShares=</varname> applies to normal runtime of the system, and if the former is not set also to
-          the startup phase. Using <varname>StartupCPUShares=</varname> allows prioritizing specific services at
-          boot-up differently than during normal runtime.</para>
+          the startup and shutdown phases. Using <varname>StartupCPUShares=</varname> allows prioritizing specific services at
+          boot-up and shutdown differently than during normal runtime.</para>
 
           <para>Implies <literal>CPUAccounting=yes</literal>.</para>
 
@@ -1254,11 +1254,11 @@ DeviceAllow=/dev/loop-control
         weight.</para>
 
         <para>While <varname>StartupBlockIOWeight=</varname> only
-        applies to the startup phase of the system,
+        applies to the startup and shutdown phases of the system,
         <varname>BlockIOWeight=</varname> applies to the later runtime
         of the system, and if the former is not set also to the
-        startup phase. This allows prioritizing specific services at
-        boot-up differently than during runtime.</para>
+        startup and shutdown phases. This allows prioritizing specific services at
+        boot-up and shutdown differently than during runtime.</para>
 
         <para>Implies
         <literal>BlockIOAccounting=yes</literal>.</para>
