@@ -8,6 +8,7 @@ _Pragma("GCC diagnostic ignored \"-Wimplicit-fallthrough\"")
 #include "in-addr-prefix-util.h"
 #include "netem.h"
 #include "net-condition.h"
+#include "networkd-address-generation.h"
 #include "networkd-address-label.h"
 #include "networkd-address.h"
 #include "networkd-bridge-fdb.h"
@@ -102,7 +103,6 @@ Network.IPv6LinkLocalAddressGenerationMode,  config_parse_ipv6_link_local_addres
 Network.IPv6StableSecretAddress,             config_parse_in_addr_non_null,                            AF_INET6,                      offsetof(Network, ipv6ll_stable_secret)
 Network.IPv4LLRoute,                         config_parse_bool,                                        0,                             offsetof(Network, ipv4ll_route)
 Network.DefaultRouteOnDevice,                config_parse_bool,                                        0,                             offsetof(Network, default_route_on_device)
-Network.IPv6Token,                           config_parse_address_generation_type,                     0,                             0
 Network.LLDP,                                config_parse_lldp_mode,                                   0,                             offsetof(Network, lldp_mode)
 Network.EmitLLDP,                            config_parse_lldp_emit,                                   0,                             offsetof(Network, lldp_emit)
 Network.Address,                             config_parse_address,                                     0,                             0
@@ -269,6 +269,7 @@ IPv6AcceptRA.PrefixAllowList,                config_parse_in_addr_prefixes,     
 IPv6AcceptRA.PrefixDenyList,                 config_parse_in_addr_prefixes,                            AF_INET6,                      offsetof(Network, ndisc_deny_listed_prefix)
 IPv6AcceptRA.RouteAllowList,                 config_parse_in_addr_prefixes,                            AF_INET6,                      offsetof(Network, ndisc_allow_listed_route_prefix)
 IPv6AcceptRA.RouteDenyList,                  config_parse_in_addr_prefixes,                            AF_INET6,                      offsetof(Network, ndisc_deny_listed_route_prefix)
+IPv6AcceptRA.Token,                          config_parse_address_generation_type,                     0,                             offsetof(Network, ndisc_tokens)
 DHCPServer.ServerAddress,                    config_parse_dhcp_server_address,                         0,                             0
 DHCPServer.UplinkInterface,                  config_parse_uplink,                                      0,                             0
 DHCPServer.RelayTarget,                      config_parse_in_addr_non_null,                            AF_INET,                       offsetof(Network, dhcp_server_relay_target)
@@ -327,7 +328,7 @@ DHCPv6PrefixDelegation.SubnetId,             config_parse_dhcp6_pd_subnet_id,   
 DHCPv6PrefixDelegation.Announce,             config_parse_bool,                                        0,                             offsetof(Network, dhcp6_pd_announce)
 DHCPv6PrefixDelegation.Assign,               config_parse_bool,                                        0,                             offsetof(Network, dhcp6_pd_assign)
 DHCPv6PrefixDelegation.ManageTemporaryAddress, config_parse_bool,                                      0,                             offsetof(Network, dhcp6_pd_manage_temporary_address)
-DHCPv6PrefixDelegation.Token,                config_parse_in_addr_non_null,                            AF_INET6,                      offsetof(Network, dhcp6_pd_token)
+DHCPv6PrefixDelegation.Token,                config_parse_address_generation_type,                     0,                             offsetof(Network, dhcp6_pd_tokens)
 DHCPv6PrefixDelegation.RouteMetric,          config_parse_uint32,                                      0,                             offsetof(Network, dhcp6_pd_route_metric)
 IPv6SendRA.RouterLifetimeSec,                config_parse_sec,                                         0,                             offsetof(Network, router_lifetime_usec)
 IPv6SendRA.Managed,                          config_parse_bool,                                        0,                             offsetof(Network, router_managed)
@@ -340,12 +341,13 @@ IPv6SendRA.Domains,                          config_parse_radv_search_domains,  
 IPv6SendRA.DNSLifetimeSec,                   config_parse_sec,                                         0,                             offsetof(Network, router_dns_lifetime_usec)
 IPv6SendRA.UplinkInterface,                  config_parse_uplink,                                      0,                             0
 IPv6Prefix.Prefix,                           config_parse_prefix,                                      0,                             0
-IPv6Prefix.OnLink,                           config_parse_prefix_flags,                                0,                             0
-IPv6Prefix.AddressAutoconfiguration,         config_parse_prefix_flags,                                0,                             0
+IPv6Prefix.OnLink,                           config_parse_prefix_boolean,                              0,                             0
+IPv6Prefix.AddressAutoconfiguration,         config_parse_prefix_boolean,                              0,                             0
 IPv6Prefix.ValidLifetimeSec,                 config_parse_prefix_lifetime,                             0,                             0
 IPv6Prefix.PreferredLifetimeSec,             config_parse_prefix_lifetime,                             0,                             0
-IPv6Prefix.Assign,                           config_parse_prefix_assign,                               0,                             0
+IPv6Prefix.Assign,                           config_parse_prefix_boolean,                              0,                             0
 IPv6Prefix.RouteMetric,                      config_parse_prefix_metric,                               0,                             0
+IPv6Prefix.Token,                            config_parse_prefix_token,                                0,                             0
 IPv6RoutePrefix.Route,                       config_parse_route_prefix,                                0,                             0
 IPv6RoutePrefix.LifetimeSec,                 config_parse_route_prefix_lifetime,                       0,                             0
 LLDP.MUDURL,                                 config_parse_mud_url,                                     0,                             offsetof(Network, lldp_mud)
@@ -491,6 +493,7 @@ TrivialLinkEqualizer.Handle,                 config_parse_qdisc_handle,         
 TrivialLinkEqualizer.Id,                     config_parse_trivial_link_equalizer_id,                   QDISC_KIND_TEQL,               0
 /* backwards compatibility: do not add new entries to this section */
 Network.IPv4LL,                              config_parse_ipv4ll,                                      0,                             offsetof(Network, link_local)
+Network.IPv6Token,                           config_parse_address_generation_type,                     0,                             offsetof(Network, ndisc_tokens)
 Network.IPv6PrefixDelegation,                config_parse_router_prefix_delegation,                    0,                             offsetof(Network, router_prefix_delegation)
 IPv6PrefixDelegation.RouterLifetimeSec,      config_parse_sec,                                         0,                             offsetof(Network, router_lifetime_usec)
 IPv6PrefixDelegation.Managed,                config_parse_bool,                                        0,                             offsetof(Network, router_managed)
