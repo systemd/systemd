@@ -342,11 +342,11 @@ IPv6SendRA.Domains,                          config_parse_radv_search_domains,  
 IPv6SendRA.DNSLifetimeSec,                   config_parse_sec,                                         0,                             offsetof(Network, router_dns_lifetime_usec)
 IPv6SendRA.UplinkInterface,                  config_parse_uplink,                                      0,                             0
 IPv6Prefix.Prefix,                           config_parse_prefix,                                      0,                             0
-IPv6Prefix.OnLink,                           config_parse_prefix_flags,                                0,                             0
-IPv6Prefix.AddressAutoconfiguration,         config_parse_prefix_flags,                                0,                             0
+IPv6Prefix.OnLink,                           config_parse_prefix_boolean,                              0,                             0
+IPv6Prefix.AddressAutoconfiguration,         config_parse_prefix_boolean,                              0,                             0
 IPv6Prefix.ValidLifetimeSec,                 config_parse_prefix_lifetime,                             0,                             0
 IPv6Prefix.PreferredLifetimeSec,             config_parse_prefix_lifetime,                             0,                             0
-IPv6Prefix.Assign,                           config_parse_prefix_assign,                               0,                             0
+IPv6Prefix.Assign,                           config_parse_prefix_boolean,                              0,                             0
 IPv6Prefix.RouteMetric,                      config_parse_prefix_metric,                               0,                             0
 IPv6Prefix.Token,                            config_parse_prefix_token,                                0,                             0
 IPv6RoutePrefix.Route,                       config_parse_route_prefix,                                0,                             0
