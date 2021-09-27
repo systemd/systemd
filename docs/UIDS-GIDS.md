@@ -2,6 +2,7 @@
 title: Users, Groups, UIDs and GIDs on systemd Systems
 category: Users, Groups and Home Directories
 layout: default
+SPDX-License-Identifier: LGPL-2.1-or-later
 ---
 
 # Users, Groups, UIDs and GIDs on systemd Systems

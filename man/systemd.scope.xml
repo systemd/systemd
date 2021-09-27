@@ -3,7 +3,7 @@
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
 <!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
 
-<refentry id="systemd.scope">
+<refentry id="systemd.scope" xmlns:xi="http://www.w3.org/2001/XInclude">
   <refentryinfo>
     <title>systemd.scope</title>
     <productname>systemd</productname>
@@ -89,6 +89,10 @@
   <refsect1>
     <title>Options</title>
 
+    <para>Socket files may include a [Unit] section, which is described in
+    <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+    </para>
+
     <para>Scope files may include a [Scope]
     section, which carries information about the scope and the
     units it contains. A number of options that may be used in
@@ -109,6 +113,8 @@
         <literal>infinity</literal> (the default) to configure no runtime limit.</para></listitem>
       </varlistentry>
     </variablelist>
+
+    <xi:include href="systemd.service.xml" xpointer="shared-unit-options" />
   </refsect1>
 
   <refsect1>

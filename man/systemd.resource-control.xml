@@ -928,6 +928,11 @@ RestrictNetworkInterfaces=~eth1</programlisting>
           url="https://www.kernel.org/doc/html/latest/admin-guide/cgroup-v1/devices.html">Device Whitelist Controller</ulink>.
           In the unified cgroup hierarchy this functionality is implemented using eBPF filtering.</para>
 
+          <para>When access to <emphasis>all</emphasis> physical devices should be disallowed,
+          <varname>PrivateDevices=</varname> may be used instead. See
+          <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+          </para>
+
           <para>The device node specifier is either a path to a device node in the file system, starting with
           <filename>/dev/</filename>, or a string starting with either <literal>char-</literal> or
           <literal>block-</literal> followed by a device group name, as listed in

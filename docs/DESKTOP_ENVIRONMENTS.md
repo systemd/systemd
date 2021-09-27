@@ -2,6 +2,7 @@
 title: Desktop Environment Integration
 category: Concepts
 layout: default
+SPDX-License-Identifier: LGPL-2.1-or-later
 ---
 
 # Desktop Environments
