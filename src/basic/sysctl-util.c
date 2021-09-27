@@ -44,6 +44,43 @@ char *sysctl_normalize(char *s) {
         return s;
 }
 
+char *sysctl_value_normalize(char *s) {
+        /* Convert all whitespaces to single tabs.
+         *
+         * This is helpful to compare sysctl property values as procfs(/proc/sys/*)
+         * separate multivalued properties with a tab.
+         * Eg:
+         * cat /proc/sys/kernel/printk | hexdump
+         * cat /proc/sys/net/ipv4/tcp_rmem | hexdump
+        */
+
+        if (!s)
+                return NULL;
+
+        s += strspn(s, WHITESPACE);
+
+        char *r = s;
+        bool tabbed = false;
+
+        for (char *p = r; *p; p++){
+                if (strchr(WHITESPACE, *p)) {
+                        if (!tabbed) {
+                                *r++ = '\t';
+                                tabbed = true;
+                        }
+                } else {
+                        *r++ = *p;
+                        tabbed = false;
+                }
+        }
+        if (tabbed)
+                *--r = 0;
+        else
+                *r = 0;
+
+        return s;
+}
+
 int sysctl_write(const char *property, const char *value) {
         char *p;
 
@@ -58,7 +95,7 @@ int sysctl_write(const char *property, const char *value) {
 
         log_debug("Setting '%s' to '%s'", p, value);
 
-        return write_string_file(p, value, WRITE_STRING_FILE_VERIFY_ON_FAILURE | WRITE_STRING_FILE_DISABLE_BUFFER);
+        return write_string_file(p, value, WRITE_STRING_FILE_VERIFY_ON_FAILURE | WRITE_STRING_FILE_DISABLE_BUFFER | WRITE_STRING_FILE_SUPPRESS_REDUNDANT_VIRTUAL);
 }
 
 int sysctl_writef(const char *property, const char *format, ...) {
