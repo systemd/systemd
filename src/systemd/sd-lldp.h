@@ -89,10 +89,10 @@ enum {
           SD_LLDP_SYSTEM_CAPABILITIES_SVLAN |                           \
           SD_LLDP_SYSTEM_CAPABILITIES_TPMR))
 
-#define SD_LLDP_OUI_802_1 (uint8_t[]) { 0x00, 0x80, 0xc2 }
-#define SD_LLDP_OUI_802_3 (uint8_t[]) { 0x00, 0x12, 0x0f }
+#define SD_LLDP_OUI_802_1 (const uint8_t[]) { 0x00, 0x80, 0xc2 }
+#define SD_LLDP_OUI_802_3 (const uint8_t[]) { 0x00, 0x12, 0x0f }
 
-#define SD_LLDP_OUI_MUD   (uint8_t[]) { 0x00, 0x00, 0x5E }
+#define SD_LLDP_OUI_MUD   (const uint8_t[]) { 0x00, 0x00, 0x5E }
 #define SD_LLDP_OUI_SUBTYPE_MUD_USAGE_DESCRIPTION  0x01
 
 /* IEEE 802.1AB-2009 Annex E */
