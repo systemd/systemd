@@ -804,24 +804,24 @@ static void test_parse_loadavg_fixed_point(void) {
         loadavg_t fp;
 
         assert_se(parse_loadavg_fixed_point("1.23", &fp) == 0);
-        assert_se(INT_SIDE(fp) == 1);
-        assert_se(DECIMAL_SIDE(fp) == 23);
+        assert_se(LOADAVG_INT_SIDE(fp) == 1);
+        assert_se(LOADAVG_DECIMAL_SIDE(fp) == 23);
 
         assert_se(parse_loadavg_fixed_point("1.80", &fp) == 0);
-        assert_se(INT_SIDE(fp) == 1);
-        assert_se(DECIMAL_SIDE(fp) == 80);
+        assert_se(LOADAVG_INT_SIDE(fp) == 1);
+        assert_se(LOADAVG_DECIMAL_SIDE(fp) == 80);
 
         assert_se(parse_loadavg_fixed_point("0.07", &fp) == 0);
-        assert_se(INT_SIDE(fp) == 0);
-        assert_se(DECIMAL_SIDE(fp) == 7);
+        assert_se(LOADAVG_INT_SIDE(fp) == 0);
+        assert_se(LOADAVG_DECIMAL_SIDE(fp) == 7);
 
         assert_se(parse_loadavg_fixed_point("0.00", &fp) == 0);
-        assert_se(INT_SIDE(fp) == 0);
-        assert_se(DECIMAL_SIDE(fp) == 0);
+        assert_se(LOADAVG_INT_SIDE(fp) == 0);
+        assert_se(LOADAVG_DECIMAL_SIDE(fp) == 0);
 
         assert_se(parse_loadavg_fixed_point("4096.57", &fp) == 0);
-        assert_se(INT_SIDE(fp) == 4096);
-        assert_se(DECIMAL_SIDE(fp) == 57);
+        assert_se(LOADAVG_INT_SIDE(fp) == 4096);
+        assert_se(LOADAVG_DECIMAL_SIDE(fp) == 57);
 
         /* Caps out at 2 digit fracs */
         assert_se(parse_loadavg_fixed_point("1.100", &fp) == -ERANGE);
