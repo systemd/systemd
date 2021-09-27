@@ -16,6 +16,7 @@ efi_headers = files('''
         shim.h
         splash.h
         util.h
+        xbootldr.h
 '''.split())
 
 common_sources = '''
@@ -36,6 +37,7 @@ systemd_boot_sources = '''
         random-seed.c
         sha256.c
         shim.c
+        xbootldr.c
 '''.split()
 
 stub_sources = '''
