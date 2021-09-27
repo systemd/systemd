@@ -133,33 +133,46 @@
         <term><varname>RebootWatchdogSec=</varname></term>
         <term><varname>KExecWatchdogSec=</varname></term>
 
-        <listitem><para>Configure the hardware watchdog at runtime and at reboot. Takes a timeout value in seconds (or
-        in other time units if suffixed with <literal>ms</literal>, <literal>min</literal>, <literal>h</literal>,
-        <literal>d</literal>, <literal>w</literal>). If <varname>RuntimeWatchdogSec=</varname> is set to a non-zero
-        value, the watchdog hardware (<filename>/dev/watchdog</filename> or the path specified with
-        <varname>WatchdogDevice=</varname> or the kernel option <varname>systemd.watchdog-device=</varname>) will be
-        programmed to automatically reboot the system if it is not contacted within the specified timeout interval. The
-        system manager will ensure to contact it at least once in half the specified timeout interval. This feature
-        requires a hardware watchdog device to be present, as it is commonly the case in embedded and server
-        systems. Not all hardware watchdogs allow configuration of all possible reboot timeout values, in which case
-        the closest available timeout is picked. <varname>RebootWatchdogSec=</varname> may be used to configure the
-        hardware watchdog when the system is asked to reboot. It works as a safety net to ensure that the reboot takes
-        place even if a clean reboot attempt times out. Note that the <varname>RebootWatchdogSec=</varname> timeout
-        applies only to the second phase of the reboot, i.e. after all regular services are already terminated, and
-        after the system and service manager process (PID 1) got replaced by the <filename>systemd-shutdown</filename>
-        binary, see system <citerefentry><refentrytitle>bootup</refentrytitle><manvolnum>7</manvolnum></citerefentry>
-        for details. During the first phase of the shutdown operation the system and service manager remains running
-        and hence <varname>RuntimeWatchdogSec=</varname> is still honoured. In order to define a timeout on this first
-        phase of system shutdown, configure <varname>JobTimeoutSec=</varname> and <varname>JobTimeoutAction=</varname>
-        in the [Unit] section of the <filename>shutdown.target</filename> unit. By default
-        <varname>RuntimeWatchdogSec=</varname> defaults to 0 (off), and <varname>RebootWatchdogSec=</varname> to
-        10min. <varname>KExecWatchdogSec=</varname> may be used to additionally enable the watchdog when kexec
-        is being executed rather than when rebooting. Note that if the kernel does not reset the watchdog on kexec (depending
-        on the specific hardware and/or driver), in this case the watchdog might not get disabled after kexec succeeds
-        and thus the system might get rebooted, unless <varname>RuntimeWatchdogSec=</varname> is also enabled at the same time.
-        For this reason it is recommended to enable <varname>KExecWatchdogSec=</varname> only if
-        <varname>RuntimeWatchdogSec=</varname> is also enabled.
-        These settings have no effect if a hardware watchdog is not available.</para></listitem>
+        <listitem><para>Configure the hardware watchdog at runtime and at reboot. Takes a timeout value in
+        seconds (or in other time units if suffixed with <literal>ms</literal>, <literal>min</literal>,
+        <literal>h</literal>, <literal>d</literal>, <literal>w</literal>). If set to zero the watchdog logic
+        is disabled: no watchdog device is opened, configured, or pinged. If set to the special string
+        <literal>infinity</literal> the watchdog is opened and pinged in regular intervals, but the timeout
+        is not changed from the default. If set to any other time value the watchdog timeout is configured to
+        the specified value (or a value close to it, depending on hardware capabilities).</para>
+
+        <para>If <varname>RuntimeWatchdogSec=</varname> is set to a non-zero value, the watchdog hardware
+        (<filename>/dev/watchdog</filename> or the path specified with <varname>WatchdogDevice=</varname> or
+        the kernel option <varname>systemd.watchdog-device=</varname>) will be programmed to automatically
+        reboot the system if it is not contacted within the specified timeout interval. The system manager
+        will ensure to contact it at least once in half the specified timeout interval. This feature requires
+        a hardware watchdog device to be present, as it is commonly the case in embedded and server
+        systems. Not all hardware watchdogs allow configuration of all possible reboot timeout values, in
+        which case the closest available timeout is picked.</para>
+
+        <para><varname>RebootWatchdogSec=</varname> may be used to configure the hardware watchdog when the
+        system is asked to reboot. It works as a safety net to ensure that the reboot takes place even if a
+        clean reboot attempt times out. Note that the <varname>RebootWatchdogSec=</varname> timeout applies
+        only to the second phase of the reboot, i.e. after all regular services are already terminated, and
+        after the system and service manager process (PID 1) got replaced by the
+        <filename>systemd-shutdown</filename> binary, see system
+        <citerefentry><refentrytitle>bootup</refentrytitle><manvolnum>7</manvolnum></citerefentry> for
+        details. During the first phase of the shutdown operation the system and service manager remains
+        running and hence <varname>RuntimeWatchdogSec=</varname> is still honoured. In order to define a
+        timeout on this first phase of system shutdown, configure <varname>JobTimeoutSec=</varname> and
+        <varname>JobTimeoutAction=</varname> in the [Unit] section of the
+        <filename>shutdown.target</filename> unit. By default <varname>RuntimeWatchdogSec=</varname> defaults
+        to 0 (off), and <varname>RebootWatchdogSec=</varname> to 10min.</para>
+
+        <para><varname>KExecWatchdogSec=</varname> may be used to additionally enable the watchdog when kexec
+        is being executed rather than when rebooting. Note that if the kernel does not reset the watchdog on
+        kexec (depending on the specific hardware and/or driver), in this case the watchdog might not get
+        disabled after kexec succeeds and thus the system might get rebooted, unless
+        <varname>RuntimeWatchdogSec=</varname> is also enabled at the same time.  For this reason it is
+        recommended to enable <varname>KExecWatchdogSec=</varname> only if
+        <varname>RuntimeWatchdogSec=</varname> is also enabled.</para>
+
+        <para>These settings have no effect if a hardware watchdog is not available.</para></listitem>
       </varlistentry>
 
       <varlistentry>
