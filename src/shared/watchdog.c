@@ -108,6 +108,7 @@ static int update_timeout(void) {
 static int open_watchdog(void) {
         struct watchdog_info ident;
         const char *fn;
+        int r;
 
         if (watchdog_fd >= 0)
                 return 0;
@@ -125,7 +126,11 @@ static int open_watchdog(void) {
                          ident.firmware_version,
                          fn);
 
-        return update_timeout();
+        r = update_timeout();
+        if (r < 0)
+                watchdog_close();
+
+        return r;
 }
 
 int watchdog_set_device(const char *path) {
