@@ -721,6 +721,8 @@ int config_parse_prefix(
                            "Prefix is invalid, ignoring assignment: %s", rvalue);
                 return 0;
         }
+
+        (void) in_addr_mask(AF_INET6, &a, p->prefixlen);
         p->prefix = a.in6;
 
         TAKE_PTR(p);
@@ -930,6 +932,8 @@ int config_parse_route_prefix(
                            "Route prefix is invalid, ignoring assignment: %s", rvalue);
                 return 0;
         }
+
+        (void) in_addr_mask(AF_INET6, &a, p->prefixlen);
         p->prefix = a.in6;
 
         TAKE_PTR(p);
