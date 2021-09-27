@@ -502,8 +502,8 @@ static int monitor_memory_pressure_contexts_handler(sd_event_source *s, uint64_t
 
                         log_debug("Memory pressure for %s is %lu.%02lu%% > %lu.%02lu%% for > %s with reclaim activity",
                                   t->path,
-                                  INT_SIDE(t->memory_pressure.avg10), DECIMAL_SIDE(t->memory_pressure.avg10),
-                                  INT_SIDE(t->mem_pressure_limit), DECIMAL_SIDE(t->mem_pressure_limit),
+                                  LOADAVG_INT_SIDE(t->memory_pressure.avg10), LOADAVG_DECIMAL_SIDE(t->memory_pressure.avg10),
+                                  LOADAVG_INT_SIDE(t->mem_pressure_limit), LOADAVG_DECIMAL_SIDE(t->mem_pressure_limit),
                                   FORMAT_TIMESPAN(m->default_mem_pressure_duration_usec, USEC_PER_SEC));
 
                         r = update_monitored_cgroup_contexts_candidates(
@@ -527,8 +527,8 @@ static int monitor_memory_pressure_contexts_handler(sd_event_source *s, uint64_t
                                         log_notice("Killed %s due to memory pressure for %s being %lu.%02lu%% > %lu.%02lu%%"
                                                    " for > %s with reclaim activity",
                                                    selected, t->path,
-                                                   INT_SIDE(t->memory_pressure.avg10), DECIMAL_SIDE(t->memory_pressure.avg10),
-                                                   INT_SIDE(t->mem_pressure_limit), DECIMAL_SIDE(t->mem_pressure_limit),
+                                                   LOADAVG_INT_SIDE(t->memory_pressure.avg10), LOADAVG_DECIMAL_SIDE(t->memory_pressure.avg10),
+                                                   LOADAVG_INT_SIDE(t->mem_pressure_limit), LOADAVG_DECIMAL_SIDE(t->mem_pressure_limit),
                                                    FORMAT_TIMESPAN(m->default_mem_pressure_duration_usec, USEC_PER_SEC));
                                 return 0;
                         }
@@ -811,7 +811,7 @@ int manager_get_dump_string(Manager *m, char **ret) {
                 "System Context:\n",
                 yes_no(m->dry_run),
                 PERMYRIAD_AS_PERCENT_FORMAT_VAL(m->swap_used_limit_permyriad),
-                INT_SIDE(m->default_mem_pressure_limit), DECIMAL_SIDE(m->default_mem_pressure_limit),
+                LOADAVG_INT_SIDE(m->default_mem_pressure_limit), LOADAVG_DECIMAL_SIDE(m->default_mem_pressure_limit),
                 FORMAT_TIMESPAN(m->default_mem_pressure_duration_usec, USEC_PER_SEC));
         oomd_dump_system_context(&m->system_context, f, "\t");
 
