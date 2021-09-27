@@ -184,7 +184,7 @@ int bpf_devices_cgroup_init(
                             offsetof(struct bpf_cgroup_dev_ctx, minor)),
         };
 
-        _cleanup_(bpf_program_unrefp) BPFProgram *prog = NULL;
+        _cleanup_(bpf_program_freep) BPFProgram *prog = NULL;
         int r;
 
         assert(ret);
@@ -266,8 +266,8 @@ int bpf_devices_apply_policy(
  finish:
         /* Unref the old BPF program (which will implicitly detach it) right before attaching the new program. */
         if (prog_installed) {
-                bpf_program_unref(*prog_installed);
-                *prog_installed = bpf_program_ref(prog);
+                bpf_program_free(*prog_installed);
+                *prog_installed = prog;
         }
         return 0;
 }
@@ -278,7 +278,7 @@ int bpf_devices_supported(void) {
                 BPF_EXIT_INSN()
         };
 
-        _cleanup_(bpf_program_unrefp) BPFProgram *program = NULL;
+        _cleanup_(bpf_program_freep) BPFProgram *program = NULL;
         static int supported = -1;
         int r;
 
