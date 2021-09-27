@@ -1294,7 +1294,6 @@ static VOID config_entry_add_from_file(
         assert(path);
         assert(file);
         assert(content);
-        assert(loaded_image_path);
 
         entry = AllocatePool(sizeof(ConfigEntry));
 
@@ -1481,7 +1480,6 @@ static VOID config_load_entries(
         assert(config);
         assert(device);
         assert(root_dir);
-        assert(loaded_image_path);
 
         err = open_directory(root_dir, L"\\loader\\entries", &entries_dir);
         if (EFI_ERROR(err))
