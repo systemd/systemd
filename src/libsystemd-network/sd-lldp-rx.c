@@ -319,6 +319,8 @@ _public_ int sd_lldp_rx_detach_event(sd_lldp_rx *lldp_rx) {
         assert_return(lldp_rx, -EINVAL);
         assert_return(!sd_lldp_rx_is_running(lldp_rx), -EBUSY);
 
+        lldp_rx->io_event_source = sd_event_source_disable_unref(lldp_rx->io_event_source);
+        lldp_rx->timer_event_source = sd_event_source_disable_unref(lldp_rx->timer_event_source);
         lldp_rx->event = sd_event_unref(lldp_rx->event);
         return 0;
 }
@@ -369,7 +371,6 @@ static sd_lldp_rx *lldp_rx_free(sd_lldp_rx *lldp_rx) {
 
         lldp_rx_reset(lldp_rx);
 
-        sd_event_source_unref(lldp_rx->timer_event_source);
         sd_lldp_rx_detach_event(lldp_rx);
 
         lldp_rx_flush_neighbors(lldp_rx);
