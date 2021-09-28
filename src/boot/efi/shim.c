@@ -111,12 +111,13 @@ static EFIAPI EFI_STATUS security_policy_authentication (const EFI_SECURITY_PROT
         UINTN file_size;
 
         assert(this);
-        assert(device_path_const);
 
         if (!device_path_const)
                 return EFI_INVALID_PARAMETER;
 
         dev_path = DuplicateDevicePath((EFI_DEVICE_PATH*) device_path_const);
+        if (!dev_path)
+                return EFI_OUT_OF_RESOURCES;
 
         status = uefi_call_wrapper(BS->LocateDevicePath, 3, (EFI_GUID*) SIMPLE_FS_GUID, &dev_path, &h);
         if (status != EFI_SUCCESS)
@@ -125,6 +126,8 @@ static EFIAPI EFI_STATUS security_policy_authentication (const EFI_SECURITY_PROT
         /* No need to check return value, this already happened in efi_main() */
         root = LibOpenRoot(h);
         dev_path_str = DevicePathToStr(dev_path);
+        if (!dev_path_str)
+                return EFI_OUT_OF_RESOURCES;
 
         status = file_read(root, dev_path_str, 0, 0, &file_buffer, &file_size);
         if (EFI_ERROR(status))
