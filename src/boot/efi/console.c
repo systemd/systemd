@@ -73,9 +73,17 @@ EFI_STATUS console_key_read(UINT64 *key, UINT64 timeout_usec) {
                         return log_error_status_stall(err, L"Error arming timer event: %r", err);
 
                 events[n_events++] = timer;
-        }
+        } else
+                /* We do not want the watchdog to reset us if we are waiting for
+                 * user input indefinitely. */
+                uefi_call_wrapper(BS->SetWatchdogTimer, 4, 0, 0x10000, 0, NULL);
 
         err = uefi_call_wrapper(BS->WaitForEvent, 3, n_events, events, &index);
+
+        /* We always rearm it here because the user could potentially
+         * have a much higher menu timeout than the watchdog timer. */
+        uefi_call_wrapper(BS->SetWatchdogTimer, 4, 5 * 60, 0x10000, 0, NULL);
+
         if (EFI_ERROR(err))
                 return log_error_status_stall(err, L"Error waiting for events: %r", err);
 
