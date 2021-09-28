@@ -99,6 +99,24 @@
         </varlistentry>
 
         <varlistentry>
+          <term><option>--property=<replaceable>NAME</replaceable></option></term>
+          <listitem>
+            <para>When showing device properties using the <option>--query=property</option>
+            option, limit display to properties specified in the argument. The argument should
+            be a comma-separated list of property names. If not specified, all known properties
+            are shown.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--value</option></term>
+          <listitem>
+            <para>When showing device properties using the <option>--query=property</option>
+            option, print only their values, and skip the property name and <literal>=</literal>.</para>
+            <para>Cannot be used together with <option>-x/--export</option> or
+            <option>-P/--export-prefix</option>.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
           <term><option>-p</option></term>
           <term><option>--path=<replaceable>DEVPATH</replaceable></option></term>
           <listitem>

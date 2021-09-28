@@ -49,8 +49,8 @@ _udevadm() {
         [COMMON]='-h --help -V --version'
         [DEBUG]='-d --debug'
         [INFO_STANDALONE]='-r --root -a --attribute-walk -x --export -e --export-db -c --cleanup-db
-                           -w --wait-for-initialization'
-        [INFO_ARG]='-q --query -p --path -n --name -P --export-prefix -d --device-id-of-file'
+                           -w --wait-for-initialization --value'
+        [INFO_ARG]='-q --query -p --path -n --name -P --export-prefix -d --device-id-of-file --property'
         [TRIGGER_STANDALONE]='-v --verbose -n --dry-run -q --quiet -w --settle --wait-daemon --uuid'
         [TRIGGER_ARG]='-t --type -c --action -s --subsystem-match -S --subsystem-nomatch
                        -a --attr-match -A --attr-nomatch -p --property-match
