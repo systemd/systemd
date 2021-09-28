@@ -366,19 +366,19 @@ int info_main(int argc, char *argv[], void *userdata) {
         int c, r;
 
         static const struct option options[] = {
+                { "attribute-walk",          no_argument,       NULL, 'a' },
+                { "cleanup-db",              no_argument,       NULL, 'c' },
+                { "device-id-of-file",       required_argument, NULL, 'd' },
+                { "export",                  no_argument,       NULL, 'x' },
+                { "export-db",               no_argument,       NULL, 'e' },
+                { "export-prefix",           required_argument, NULL, 'P' },
+                { "help",                    no_argument,       NULL, 'h' },
                 { "name",                    required_argument, NULL, 'n' },
                 { "path",                    required_argument, NULL, 'p' },
                 { "query",                   required_argument, NULL, 'q' },
-                { "attribute-walk",          no_argument,       NULL, 'a' },
-                { "cleanup-db",              no_argument,       NULL, 'c' },
-                { "export-db",               no_argument,       NULL, 'e' },
                 { "root",                    no_argument,       NULL, 'r' },
-                { "device-id-of-file",       required_argument, NULL, 'd' },
-                { "export",                  no_argument,       NULL, 'x' },
-                { "export-prefix",           required_argument, NULL, 'P' },
-                { "wait-for-initialization", optional_argument, NULL, 'w' },
                 { "version",                 no_argument,       NULL, 'V' },
-                { "help",                    no_argument,       NULL, 'h' },
+                { "wait-for-initialization", optional_argument, NULL, 'w' },
                 {}
         };
 
