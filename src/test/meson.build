@@ -429,6 +429,8 @@ tests += [
 
         [['src/test/test-firewall-util.c']],
 
+        [['src/test/test-net-naming-scheme.c']],
+
         [['src/test/test-netlink-manual.c'],
          [],
          [libkmod],
