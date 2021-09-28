@@ -5,6 +5,7 @@
 
 #include "sd-bus.h"
 #include "sd-device.h"
+#include "sd-lldp-tx.h"
 
 #include "bridge.h"
 #include "condition.h"
@@ -17,7 +18,6 @@
 #include "networkd-dhcp4.h"
 #include "networkd-dhcp6.h"
 #include "networkd-lldp-rx.h"
-#include "networkd-lldp-tx.h"
 #include "networkd-ndisc.h"
 #include "networkd-radv.h"
 #include "networkd-sysctl.h"
@@ -325,8 +325,8 @@ struct Network {
 
         /* LLDP support */
         LLDPMode lldp_mode; /* LLDP reception */
-        LLDPEmit lldp_emit; /* LLDP transmission */
-        char *lldp_mud;    /* LLDP MUD URL */
+        sd_lldp_multicast_mode_t lldp_multicast_mode; /* LLDP transmission */
+        char *lldp_mudurl;  /* LLDP MUD URL */
 
         OrderedHashmap *addresses_by_section;
         Hashmap *routes_by_section;
