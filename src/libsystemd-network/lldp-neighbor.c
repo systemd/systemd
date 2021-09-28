@@ -55,8 +55,9 @@ _public_ sd_lldp_neighbor *sd_lldp_neighbor_ref(sd_lldp_neighbor *n) {
         return n;
 }
 
-static void lldp_neighbor_free(sd_lldp_neighbor *n) {
-        assert(n);
+static sd_lldp_neighbor *lldp_neighbor_free(sd_lldp_neighbor *n) {
+        if (!n)
+                return NULL;
 
         free(n->id.port_id);
         free(n->id.chassis_id);
@@ -66,7 +67,7 @@ static void lldp_neighbor_free(sd_lldp_neighbor *n) {
         free(n->mud_url);
         free(n->chassis_id_as_string);
         free(n->port_id_as_string);
-        free(n);
+        return mfree(n);
 }
 
 _public_ sd_lldp_neighbor *sd_lldp_neighbor_unref(sd_lldp_neighbor *n) {
