@@ -28,8 +28,13 @@ int lldp_neighbor_id_compare_func(const LLDPNeighborID *x, const LLDPNeighborID 
             ?: memcmp_nn(x->port_id, x->port_id_size, y->port_id, y->port_id_size);
 }
 
-DEFINE_HASH_OPS_WITH_VALUE_DESTRUCTOR(lldp_neighbor_hash_ops, LLDPNeighborID, lldp_neighbor_id_hash_func, lldp_neighbor_id_compare_func,
-                                      sd_lldp_neighbor, lldp_neighbor_unlink);
+DEFINE_HASH_OPS_WITH_VALUE_DESTRUCTOR(
+        lldp_neighbor_hash_ops,
+        LLDPNeighborID,
+        lldp_neighbor_id_hash_func,
+        lldp_neighbor_id_compare_func,
+        sd_lldp_neighbor,
+        lldp_neighbor_unlink);
 
 int lldp_neighbor_prioq_compare_func(const void *a, const void *b) {
         const sd_lldp_neighbor *x = a, *y = b;
