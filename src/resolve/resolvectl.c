@@ -188,12 +188,14 @@ static void print_source(uint64_t flags, usec_t rtt) {
 
 static void print_ifindex_comment(int printed_so_far, int ifindex) {
         char ifname[IF_NAMESIZE + 1];
+        int r;
 
         if (ifindex <= 0)
                 return;
 
-        if (!format_ifname(ifindex, ifname))
-                log_warning_errno(errno, "Failed to resolve interface name for index %i, ignoring: %m", ifindex);
+        r = format_ifname_with_negative_errno(ifindex, ifname);
+        if (r < 0)
+                log_warning_errno(r, "Failed to resolve interface name for index %i, ignoring: %m", ifindex);
         else
                 printf("%*s%s-- link: %s%s",
                        60 > printed_so_far ? 60 - printed_so_far : 0, " ", /* Align comment to the 60th column */
@@ -1562,8 +1564,9 @@ static int status_ifindex(sd_bus *bus, int ifindex, const char *name, StatusMode
         assert(ifindex > 0);
 
         if (!name) {
-                if (!format_ifname(ifindex, ifname))
-                        return log_error_errno(errno, "Failed to resolve interface name for %i: %m", ifindex);
+                r = format_ifname_with_negative_errno(ifindex, ifname);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to resolve interface name for %i: %m", ifindex);
 
                 name = ifname;
         }

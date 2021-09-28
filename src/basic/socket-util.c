@@ -1251,8 +1251,9 @@ int socket_bind_to_ifindex(int fd, int ifindex) {
                 return r;
 
         /* Fall back to SO_BINDTODEVICE on kernels < 5.0 which didn't have SO_BINDTOIFINDEX */
-        if (!format_ifname(ifindex, ifname))
-                return -errno;
+        r = format_ifname_with_negative_errno(ifindex, ifname);
+        if (r < 0)
+                return r;
 
         return socket_bind_to_ifname(fd, ifname);
 }

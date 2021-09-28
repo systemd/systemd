@@ -41,12 +41,11 @@ static const char* af_to_string(int family, char *buf, size_t buf_len) {
 }
 
 static int print_gaih_addrtuples(const struct gaih_addrtuple *tuples) {
-        int n = 0;
+        int r, n = 0;
 
         for (const struct gaih_addrtuple *it = tuples; it; it = it->next) {
                 _cleanup_free_ char *a = NULL;
                 union in_addr_union u;
-                int r;
                 char family_name[DECIMAL_STR_MAX(int)];
                 char ifname[IF_NAMESIZE + 1];
 
@@ -59,8 +58,9 @@ static int print_gaih_addrtuples(const struct gaih_addrtuple *tuples) {
                 if (it->scopeid == 0)
                         goto numerical_index;
 
-                if (!format_ifname(it->scopeid, ifname)) {
-                        log_warning_errno(errno, "if_indextoname(%d) failed: %m", it->scopeid);
+                r = format_ifname_with_negative_errno(it->scopeid, ifname);
+                if (r < 0) {
+                        log_warning_errno(r, "if_indextoname(%d) failed: %m", it->scopeid);
                 numerical_index:
                         xsprintf(ifname, "%i", it->scopeid);
                 };
@@ -70,7 +70,8 @@ static int print_gaih_addrtuples(const struct gaih_addrtuple *tuples) {
                          af_to_string(it->family, family_name, sizeof family_name),
                          a,
                          ifname);
-                n ++;
+
+                n++;
         }
         return n;
 }
