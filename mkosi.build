@@ -4,16 +4,6 @@ set -e
 # This is a build script for OS image generation using mkosi (https://github.com/systemd/mkosi).
 # Simply invoke "mkosi" in the project directory to build an OS image.
 
-# Reset the permissions of the tree. Since Meson keeps the permissions
-# all the way to the installed files, reset them to one of 0644 or 0755
-# so the files keep those permissions, otherwise details of what umask
-# was set at the time the git tree was cloned will leak all the way
-# through. Also set umask explicitly during the build.
-if ! mountpoint -q "$SRCDIR"; then
-        chmod -R u+w,go-w,a+rX .
-        umask 022
-fi
-
 # On Fedora "ld" is (unfortunately — if you ask me) managed via
 # "alternatives". Since we'd like to support building images in environments
 # with only /usr/ around (e.g. mkosi's UsrOnly=1 option), we have the problem
