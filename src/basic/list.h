@@ -181,3 +181,12 @@
                 }                                                       \
                 (b) = NULL;                                             \
         } while (false)
+
+#define LIST_POP(name, a)                                               \
+        ({                                                              \
+                typeof(a)* _a = &(a);                                   \
+                typeof(a) _p = *_a;                                     \
+                if (_p)                                                 \
+                        LIST_REMOVE(name, *_a, _p);                     \
+                _p;                                                     \
+        })
