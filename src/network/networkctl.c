@@ -1044,7 +1044,6 @@ static int dump_gateways(
 
         for (int i = 0; i < n; i++) {
                 _cleanup_free_ char *gateway = NULL, *description = NULL;
-                char name[IF_NAMESIZE+1];
 
                 r = in_addr_to_string(local[i].family, &local[i].address, &gateway);
                 if (r < 0)
@@ -1063,7 +1062,7 @@ static int dump_gateways(
                 r = strv_extendf(&buf, "%s%s%s",
                                  gateway,
                                  ifindex <= 0 ? " on " : "",
-                                 ifindex <= 0 ? format_ifname_full(local[i].ifindex, name, FORMAT_IFNAME_IFINDEX_WITH_PERCENT) : "");
+                                 ifindex <= 0 ? FORMAT_IFNAME_FULL(local[i].ifindex, FORMAT_IFNAME_IFINDEX_WITH_PERCENT) : "");
                 if (r < 0)
                         return log_oom();
         }
@@ -1094,7 +1093,6 @@ static int dump_addresses(
 
         for (int i = 0; i < n; i++) {
                 _cleanup_free_ char *pretty = NULL;
-                char name[IF_NAMESIZE+1];
 
                 r = in_addr_to_string(local[i].family, &local[i].address, &pretty);
                 if (r < 0)
@@ -1118,7 +1116,7 @@ static int dump_addresses(
                 r = strv_extendf(&buf, "%s%s%s",
                                  pretty,
                                  ifindex <= 0 ? " on " : "",
-                                 ifindex <= 0 ? format_ifname_full(local[i].ifindex, name, FORMAT_IFNAME_IFINDEX_WITH_PERCENT) : "");
+                                 ifindex <= 0 ? FORMAT_IFNAME_FULL(local[i].ifindex, FORMAT_IFNAME_IFINDEX_WITH_PERCENT) : "");
                 if (r < 0)
                         return log_oom();
         }
@@ -2682,12 +2680,9 @@ static int link_up_down(int argc, char *argv[], void *userdata) {
         SET_FOREACH(p, indexes) {
                 index = PTR_TO_INT(p);
                 r = link_up_down_send_message(rtnl, argv[0], index);
-                if (r < 0) {
-                        char ifname[IF_NAMESIZE + 1];
-
+                if (r < 0)
                         return log_error_errno(r, "Failed to bring %s interface %s: %m",
-                                               argv[0], format_ifname_full(index, ifname, FORMAT_IFNAME_IFINDEX));
-                }
+                                               argv[0], FORMAT_IFNAME_FULL(index, FORMAT_IFNAME_IFINDEX));
         }
 
         return r;
@@ -2720,12 +2715,9 @@ static int link_delete(int argc, char *argv[], void *userdata) {
         SET_FOREACH(p, indexes) {
                 index = PTR_TO_INT(p);
                 r = link_delete_send_message(rtnl, index);
-                if (r < 0) {
-                        char ifname[IF_NAMESIZE + 1];
-
+                if (r < 0)
                         return log_error_errno(r, "Failed to delete interface %s: %m",
-                                               format_ifname_full(index, ifname, FORMAT_IFNAME_IFINDEX));
-                }
+                                               FORMAT_IFNAME_FULL(index, FORMAT_IFNAME_IFINDEX));
         }
 
         return r;
@@ -2844,12 +2836,9 @@ static int verb_reconfigure(int argc, char *argv[], void *userdata) {
         SET_FOREACH(p, indexes) {
                 index = PTR_TO_INT(p);
                 r = bus_call_method(bus, bus_network_mgr, "ReconfigureLink", &error, NULL, "i", index);
-                if (r < 0) {
-                        char ifname[IF_NAMESIZE + 1];
-
+                if (r < 0)
                         return log_error_errno(r, "Failed to reconfigure network interface %s: %m",
-                                               format_ifname_full(index, ifname, FORMAT_IFNAME_IFINDEX));
-                }
+                                               FORMAT_IFNAME_FULL(index, FORMAT_IFNAME_IFINDEX));
         }
 
         return 0;

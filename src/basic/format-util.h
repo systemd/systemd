@@ -74,6 +74,9 @@ static inline char *format_ifname(int ifindex, char buf[static IF_NAMESIZE + 1])
         return format_ifname_full(ifindex, buf, 0);
 }
 
+#define FORMAT_IFNAME(index) format_ifname(index, (char[IF_NAMESIZE + 1]){})
+#define FORMAT_IFNAME_FULL(index, flag) format_ifname_full(index, (char[IF_NAMESIZE + 1]){}, flag)
+
 typedef enum {
         FORMAT_BYTES_USE_IEC     = 1 << 0,
         FORMAT_BYTES_BELOW_POINT = 1 << 1,
