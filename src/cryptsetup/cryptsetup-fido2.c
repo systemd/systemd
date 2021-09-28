@@ -133,6 +133,7 @@ int find_fido2_auto_data(
         for (int token = 0; token < sym_crypt_token_max(CRYPT_LUKS2); token ++) {
                 _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
                 JsonVariant *w;
+                int ks;
 
                 r = cryptsetup_get_token_as_json(cd, token, "systemd-fido2", &v);
                 if (IN_SET(r, -ENOENT, -EINVAL, -EMEDIUMTYPE))
@@ -140,9 +141,20 @@ int find_fido2_auto_data(
                 if (r < 0)
                         return log_error_errno(r, "Failed to read JSON token data off disk: %m");
 
+                ks = cryptsetup_get_keyslot_from_token(v);
+                if (ks < 0) {
+                        /* Handle parsing errors of the keyslots field gracefully, since it's not 'owned' by
+                         * us, but by the LUKS2 spec */
+                        log_warning_errno(ks, "Failed to extract keyslot index from FIDO2 JSON data token %i, skipping: %m", token);
+                        continue;
+                }
+
                 if (cid)
                         return log_error_errno(SYNTHETIC_ERRNO(ENOTUNIQ),
                                                "Multiple FIDO2 tokens enrolled, cannot automatically determine token.");
+
+                assert(keyslot < 0);
+                keyslot = ks;
 
                 w = json_variant_by_key(v, "fido2-credential");
                 if (!w || !json_variant_is_string(w))
@@ -164,11 +176,6 @@ int find_fido2_auto_data(
                 r = unbase64mem(json_variant_string(w), SIZE_MAX, &salt, &salt_size);
                 if (r < 0)
                         return log_error_errno(r, "Failed to decode base64 encoded salt.");
-
-                assert(keyslot < 0);
-                keyslot = cryptsetup_get_keyslot_from_token(v);
-                if (keyslot < 0)
-                        return log_error_errno(keyslot, "Failed to extract keyslot index from FIDO2 JSON data: %m");
 
                 w = json_variant_by_key(v, "fido2-rp");
                 if (w) {
