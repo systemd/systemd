@@ -455,23 +455,19 @@ int sockaddr_pretty(
                         if (r < 0)
                                 return -ENOMEM;
                 } else {
-                        char a[INET6_ADDRSTRLEN], ifname[IF_NAMESIZE + 1];
+                        char a[INET6_ADDRSTRLEN];
 
                         inet_ntop(AF_INET6, &sa->in6.sin6_addr, a, sizeof(a));
-                        if (sa->in6.sin6_scope_id != 0)
-                                format_ifname_full(sa->in6.sin6_scope_id, ifname, FORMAT_IFNAME_IFINDEX);
 
                         if (include_port) {
-                                r = asprintf(&p,
-                                             "[%s]:%u%s%s",
+                                if (asprintf(&p,
+                                             "[%s]:%u%s",
                                              a,
                                              be16toh(sa->in6.sin6_port),
-                                             sa->in6.sin6_scope_id != 0 ? "%" : "",
-                                             sa->in6.sin6_scope_id != 0 ? ifname : "");
-                                if (r < 0)
+                                             FORMAT_IFNAME_FULL(sa->in6.sin6_scope_id, FORMAT_IFNAME_IFINDEX_WITH_PERCENT)) < 0)
                                         return -ENOMEM;
                         } else {
-                                p = sa->in6.sin6_scope_id != 0 ? strjoin(a, "%", ifname) : strdup(a);
+                                p = strjoin(a, FORMAT_IFNAME_FULL(sa->in6.sin6_scope_id, FORMAT_IFNAME_IFINDEX_WITH_PERCENT));
                                 if (!p)
                                         return -ENOMEM;
                         }
@@ -1251,8 +1247,9 @@ int socket_bind_to_ifindex(int fd, int ifindex) {
                 return r;
 
         /* Fall back to SO_BINDTODEVICE on kernels < 5.0 which didn't have SO_BINDTOIFINDEX */
-        if (!format_ifname(ifindex, ifname))
-                return -errno;
+        r = format_ifname(ifindex, ifname);
+        if (r < 0)
+                return r;
 
         return socket_bind_to_ifname(fd, ifname);
 }
