@@ -4,21 +4,25 @@
 #include "network-common.h"
 #include "string-util.h"
 
-const char *get_ifname(int ifindex, char **ifname) {
-        char buf[IF_NAMESIZE + 1];
+int get_ifname(int ifindex, char **ifname) {
+        char buf[IF_NAMESIZE + 1], *copy;
+        int r;
 
         assert(ifname);
 
         /* This sets ifname only when it is not set yet. */
 
         if (*ifname)
-                return *ifname;
+                return 0;
 
-        if (ifindex <= 0)
-                return NULL;
+        r = format_ifname_with_negative_errno(ifindex, buf);
+        if (r < 0)
+                return r;
 
-        if (!format_ifname(ifindex, buf))
-                return NULL;
+        copy = strdup(buf);
+        if (!copy)
+                return -ENOMEM;
 
-        return *ifname = strdup(buf);
+        *ifname = copy;
+        return 1;
 }

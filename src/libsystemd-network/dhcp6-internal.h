@@ -123,12 +123,22 @@ int dhcp6_message_status_from_string(const char *s) _pure_;
 void dhcp6_client_set_test_mode(sd_dhcp6_client *client, bool test_mode);
 
 #define log_dhcp6_client_errno(client, error, fmt, ...)         \
-        log_interface_prefix_full_errno(                        \
-                "DHCPv6 client: ",                              \
-                sd_dhcp6_client_get_ifname(client),             \
-                error, fmt, ##__VA_ARGS__)
+        ({                                                      \
+                sd_dhcp6_client *_c = (client);                 \
+                const char *_n = NULL;                          \
+                                                                \
+                (void) sd_dhcp6_client_get_ifname(_c, &_n);     \
+                log_interface_prefix_full_errno(                \
+                        "DHCPv6 client: ",                      \
+                        _n, error, fmt, ##__VA_ARGS__);         \
+        })
 #define log_dhcp6_client(client, fmt, ...)                      \
-        log_interface_prefix_full_errno_zerook(                 \
-                "DHCPv6 client: ",                              \
-                sd_dhcp6_client_get_ifname(client),             \
-                0, fmt, ##__VA_ARGS__)
+        ({                                                      \
+                sd_dhcp6_client *_c = (client);                 \
+                const char *_n = NULL;                          \
+                                                                \
+                (void) sd_dhcp6_client_get_ifname(_c, &_n);     \
+                log_interface_prefix_full_errno_zerook(         \
+                        "DHCPv6 client: ",                      \
+                        _n, 0, fmt, ##__VA_ARGS__);             \
+        })
