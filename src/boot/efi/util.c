@@ -368,6 +368,8 @@ CHAR16 *stra_to_str(const CHAR8 *stra) {
 
         len = strlena(stra);
         str = AllocatePool((len + 1) * sizeof(CHAR16));
+        if (!str)
+                return NULL;
 
         strlen = 0;
         i = 0;
@@ -398,6 +400,8 @@ CHAR16 *stra_to_path(const CHAR8 *stra) {
 
         len = strlena(stra);
         str = AllocatePool((len + 2) * sizeof(CHAR16));
+        if (!str)
+                return NULL;
 
         str[0] = '\\';
         strlen = 1;
