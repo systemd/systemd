@@ -18,6 +18,7 @@
 #include "dirent-util.h"
 #include "fd-util.h"
 #include "sort-util.h"
+#include "static-destruct.h"
 #include "string-table.h"
 #include "string-util.h"
 #include "udev-util.h"
@@ -38,8 +39,10 @@ typedef enum QueryType {
         QUERY_ALL,
 } QueryType;
 
+char **arg_properties = NULL;
 static bool arg_root = false;
 static bool arg_export = false;
+static bool arg_value = false;
 static const char *arg_export_prefix = NULL;
 static usec_t arg_wait_for_initialization_timeout = 0;
 
@@ -59,6 +62,8 @@ typedef struct SysAttr {
         const char *name;
         const char *value;
 } SysAttr;
+
+STATIC_DESTRUCTOR_REGISTER(arg_properties, strv_freep);
 
 static int sysattr_compare(const SysAttr *a, const SysAttr *b) {
         return strcmp(a->name, b->name);
@@ -316,11 +321,19 @@ static int query_device(QueryType query, sd_device* device) {
         case QUERY_PROPERTY: {
                 const char *key, *value;
 
-                FOREACH_DEVICE_PROPERTY(device, key, value)
+                FOREACH_DEVICE_PROPERTY(device, key, value) {
+                        if (arg_properties && !strv_contains(arg_properties, key))
+                                continue;
                         if (arg_export)
                                 printf("%s%s='%s'\n", strempty(arg_export_prefix), key, value);
-                        else
-                                printf("%s=%s\n", key, value);
+                        else {
+                                if (arg_value)
+                                        printf("%s\n", value);
+                                else
+                                        printf("%s=%s\n", key, value);
+                        }
+                }
+
                 return 0;
         }
 
@@ -343,6 +356,8 @@ static int help(void) {
                "       path                     sysfs device path\n"
                "       property                 The device properties\n"
                "       all                      All values\n"
+               "  --property=NAME             Show only properties by this name\n"
+               "  --value                     When showing properties, print only their values\n"
                "  -p --path=SYSPATH           sysfs device path used for query or attribute walk\n"
                "  -n --name=NAME              Node or symlink name used for query or attribute walk\n"
                "  -r --root                   Prepend dev directory to path names\n"
@@ -365,6 +380,11 @@ int info_main(int argc, char *argv[], void *userdata) {
         _cleanup_free_ char *name = NULL;
         int c, r;
 
+        enum {
+                ARG_PROPERTY = 0x100,
+                ARG_VALUE,
+        };
+
         static const struct option options[] = {
                 { "attribute-walk",          no_argument,       NULL, 'a' },
                 { "cleanup-db",              no_argument,       NULL, 'c' },
@@ -375,8 +395,10 @@ int info_main(int argc, char *argv[], void *userdata) {
                 { "help",                    no_argument,       NULL, 'h' },
                 { "name",                    required_argument, NULL, 'n' },
                 { "path",                    required_argument, NULL, 'p' },
+                { "property",                required_argument, NULL, ARG_PROPERTY },
                 { "query",                   required_argument, NULL, 'q' },
                 { "root",                    no_argument,       NULL, 'r' },
+                { "value",                   no_argument,       NULL, ARG_VALUE },
                 { "version",                 no_argument,       NULL, 'V' },
                 { "wait-for-initialization", optional_argument, NULL, 'w' },
                 {}
@@ -387,6 +409,31 @@ int info_main(int argc, char *argv[], void *userdata) {
 
         while ((c = getopt_long(argc, argv, "aced:n:p:q:rxP:w::Vh", options, NULL)) >= 0)
                 switch (c) {
+                case ARG_PROPERTY:
+                        /* Make sure that if the empty property list was specified, we won't show any
+                           properties. */
+                        if (isempty(optarg) && !arg_properties) {
+                                arg_properties = new0(char*, 1);
+                                if (!arg_properties)
+                                        return log_oom();
+                        } else {
+                                for (const char *p = optarg;;) {
+                                        _cleanup_free_ char *prop = NULL;
+
+                                        r = extract_first_word(&p, &prop, ",", 0);
+                                        if (r < 0)
+                                                return log_error_errno(r, "Failed to parse property: %s", optarg);
+                                        if (r == 0)
+                                                break;
+
+                                        if (strv_consume(&arg_properties, TAKE_PTR(prop)) < 0)
+                                                return log_oom();
+                                }
+                        }
+                        break;
+                case ARG_VALUE:
+                        arg_value = true;
+                        break;
                 case 'n':
                 case 'p': {
                         const char *prefix = c == 'n' ? "/dev/" : "/sys/";
@@ -477,6 +524,9 @@ int info_main(int argc, char *argv[], void *userdata) {
         if (action == ACTION_ATTRIBUTE_WALK && strv_length(devices) > 1)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "Only one device may be specified with -a/--attribute-walk");
+
+        if (arg_export && arg_value)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "--export cannot be used with --value");
 
         char **p;
         STRV_FOREACH(p, devices) {
