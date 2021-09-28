@@ -23,17 +23,17 @@ All tools:
 * `$SYSTEMD_OFFLINE=[0|1]` — if set to `1`, then `systemctl` will refrain from
   talking to PID 1; this has the same effect as the historical detection of
   `chroot()`. Setting this variable to `0` instead has a similar effect as
-  `SYSTEMD_IGNORE_CHROOT=1`; i.e. tools will try to communicate with PID 1 even
-  if a `chroot()` environment is detected. You almost certainly want to set
-  this to `1` if you maintain a package build system or similar and are trying
-  to use a modern container system and not plain `chroot()`.
+  `$SYSTEMD_IGNORE_CHROOT=1`; i.e. tools will try to communicate with PID 1
+  even if a `chroot()` environment is detected. You almost certainly want to
+  set this to `1` if you maintain a package build system or similar and are
+  trying to use a modern container system and not plain `chroot()`.
 
 * `$SYSTEMD_IGNORE_CHROOT=1` — if set, don't check whether being invoked in a
   `chroot()` environment. This is particularly relevant for systemctl, as it
   will not alter its behaviour for `chroot()` environments if set. Normally it
   refrains from talking to PID 1 in such a case; turning most operations such
   as `start` into no-ops.  If that's what's explicitly desired, you might
-  consider setting `SYSTEMD_OFFLINE=1`.
+  consider setting `$SYSTEMD_OFFLINE=1`.
 
 * `$SD_EVENT_PROFILE_DELAYS=1` — if set, the sd-event event loop implementation
   will print latency information at runtime.
@@ -96,7 +96,7 @@ All tools:
 * `$SYSTEMD_RDRAND=0` — if set, the RDRAND instruction will never be used,
   even if the CPU supports it.
 
-* `$SYSTEMD_SECCOMP=0` – if set, seccomp filters will not be enforced, even if
+* `$SYSTEMD_SECCOMP=0` — if set, seccomp filters will not be enforced, even if
   support for it is compiled in and available in the kernel.
 
 * `$SYSTEMD_LOG_SECCOMP=1` — if set, system calls blocked by seccomp filtering,
@@ -189,7 +189,7 @@ All tools:
 
 `systemd-udevd`:
 
-* `$NET_NAMING_SCHEME=` – if set, takes a network naming scheme (i.e. one of
+* `$NET_NAMING_SCHEME=` — if set, takes a network naming scheme (i.e. one of
   "v238", "v239", "v240"…, or the special value "latest") as parameter. If
   specified udev's `net_id` builtin will follow the specified naming scheme
   when determining stable network interface names. This may be used to revert
@@ -267,13 +267,13 @@ All tools:
 
 `systemd-firstboot` and `localectl`:
 
-* `SYSTEMD_LIST_NON_UTF8_LOCALES=1` – if set, non-UTF-8 locales are listed among
+* `$SYSTEMD_LIST_NON_UTF8_LOCALES=1` — if set, non-UTF-8 locales are listed among
   the installed ones. By default non-UTF-8 locales are suppressed from the
   selection, since we are living in the 21st century.
 
 `systemd-sysext`:
 
-* `SYSTEMD_SYSEXT_HIERARCHIES` – this variable may be used to override which
+* `$SYSTEMD_SYSEXT_HIERARCHIES` — this variable may be used to override which
   hierarchies are managed by `systemd-sysext`. By default only `/usr/` and
   `/opt/` are managed, and directories may be added or removed to that list by
   setting this environment variable to a colon-separated list of absolute
@@ -284,7 +284,7 @@ All tools:
 
 `systemd-tmpfiles`:
 
-* `SYSTEMD_TMPFILES_FORCE_SUBVOL` — if unset, `v`/`q`/`Q` lines will create
+* `$SYSTEMD_TMPFILES_FORCE_SUBVOL` — if unset, `v`/`q`/`Q` lines will create
   subvolumes only if the OS itself is installed into a subvolume. If set to `1`
   (or another value interpreted as true), these lines will always create
   subvolumes if the backing filesystem supports them. If set to `0`, these
@@ -318,21 +318,49 @@ fuzzers:
 Note that is may be also useful to set `$SYSTEMD_LOG_LEVEL`, since all logging
 is suppressed by default.
 
-systemd-importd:
+`systemd-importd`:
 
-* `SYSTEMD_IMPORT_BTRFS_SUBVOL` – takes a boolean, which controls whether to
+* `$SYSTEMD_IMPORT_BTRFS_SUBVOL` — takes a boolean, which controls whether to
   prefer creating btrfs subvolumes over plain directories for machine
   images. Has no effect on non-btrfs file systems where subvolumes are not
   available anyway. If not set, defaults to true.
 
-* `SYSTEMD_IMPORT_BTRFS_QUOTA` – takes a boolean, which controls whether to set
+* `$SYSTEMD_IMPORT_BTRFS_QUOTA` — takes a boolean, which controls whether to set
   up quota automatically for created btrfs subvolumes for machine images. If
   not set, defaults to true. Has no effect if machines are placed in regular
   directories, because btrfs subvolumes are not supported or disabled. If
   enabled, the quota group of the subvolume is automatically added to a
   combined quota group for all such machine subvolumes.
 
-* `SYSTEMD_IMPORT_SYNC` – takes a boolean, which controls whether to
+* `$SYSTEMD_IMPORT_SYNC` — takes a boolean, which controls whether to
   synchronize images to disk after installing them, before completing the
   operation. If not set, defaults to true. If disabled installation of images
   will be quicker, but not as safe.
+
+`systemd-dissect`, `systemd-nspawn` and all other tools that may operate on
+disk images with `--image=` or similar:
+
+* `$SYSTEMD_DISSECT_VERITY_SIDECAR` — takes a boolean, which controls whether to
+  load "sidecar" Verity metadata files. If enabled (which is the default),
+  whenever a disk image is used, a set of files with the `.roothash`,
+  `.usrhash`, `.roothash.p7s`, `.usrhash.p7s`, `.verity` suffixes are searched
+  adjacent to disk image file, containing the Verity root hashes, their
+  signatures or the Verity data itself. If disabled this automatic discovery of
+  Verity metadata files is turned off.
+
+* `$SYSTEMD_DISSECT_VERITY_EMBEDDED` — takes a boolean, which controls whether
+  to load the embedded Verity signature data. If enabled (which is the
+  default), Verity root hash information and a suitable signature is
+  automatically acquired from a signature partition, following the
+  [Discoverable Partitions
+  Specification](https://systemd.io/DISCOVERABLE_PARTITIONS). If disabled any
+  such partition is ignored. Note that this only disables discovery of the root
+  hash and its signature, the Verity data partition itself is still searched in
+  the GPT image.
+
+* `$SYSTEMD_DISSECT_VERITY_SIGNATURE` — takes a boolean, which controls whether
+  to validate the signature of the Verity root hash if available. If enabled
+  (which is the default), the signature of suitable disk images is validated
+  against any of the certificates in `/etc/verity.d/*.crt` (and similar
+  directores in `/usr/lib/`, `/run`, …) or passed to the kernel for validation
+  against its built-in certificates.
