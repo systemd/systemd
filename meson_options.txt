@@ -200,8 +200,7 @@ option('fallback-hostname', type : 'string', value : 'localhost',
 option('default-hierarchy', type : 'combo',
        choices : ['legacy', 'hybrid', 'unified'], value : 'unified',
        description : 'default cgroup hierarchy')
-option('default-net-naming-scheme', type : 'combo',
-       choices : ['latest', 'v238', 'v239', 'v240', 'v241', 'v243', 'v245', 'v247', 'v249'],
+option('default-net-naming-scheme', type : 'string', value : 'latest',
        description : 'default net.naming-scheme= value')
 option('status-unit-format-default', type : 'combo',
        choices : ['description', 'name', 'combined'],
