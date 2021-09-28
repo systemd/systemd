@@ -147,11 +147,11 @@ static int lldp_rx_add_neighbor(sd_lldp_rx *lldp_rx, sd_lldp_neighbor *n) {
         /* Then, make room for at least one new neighbor */
         lldp_rx_make_space(lldp_rx, 1);
 
-        r = hashmap_put(lldp_rx->neighbor_by_id, &n->id, n);
+        r = hashmap_ensure_put(&lldp_rx->neighbor_by_id, &lldp_neighbor_hash_ops, &n->id, n);
         if (r < 0)
                 goto finish;
 
-        r = prioq_put(lldp_rx->neighbor_by_expiry, n, &n->prioq_idx);
+        r = prioq_ensure_put(&lldp_rx->neighbor_by_expiry, lldp_neighbor_prioq_compare_func, n, &n->prioq_idx);
         if (r < 0) {
                 assert_se(hashmap_remove(lldp_rx->neighbor_by_id, &n->id) == n);
                 goto finish;
@@ -385,7 +385,6 @@ DEFINE_PUBLIC_TRIVIAL_REF_UNREF_FUNC(sd_lldp_rx, sd_lldp_rx, lldp_rx_free);
 
 _public_ int sd_lldp_rx_new(sd_lldp_rx **ret) {
         _cleanup_(sd_lldp_rx_unrefp) sd_lldp_rx *lldp_rx = NULL;
-        int r;
 
         assert_return(ret, -EINVAL);
 
@@ -400,16 +399,7 @@ _public_ int sd_lldp_rx_new(sd_lldp_rx **ret) {
                 .capability_mask = UINT16_MAX,
         };
 
-        lldp_rx->neighbor_by_id = hashmap_new(&lldp_neighbor_hash_ops);
-        if (!lldp_rx->neighbor_by_id)
-                return -ENOMEM;
-
-        r = prioq_ensure_allocated(&lldp_rx->neighbor_by_expiry, lldp_neighbor_prioq_compare_func);
-        if (r < 0)
-                return r;
-
         *ret = TAKE_PTR(lldp_rx);
-
         return 0;
 }
 
