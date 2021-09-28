@@ -292,6 +292,8 @@ conf.set10('ENABLE_FEXECVE',                                  get_option('fexecv
 conf.set10('MEMORY_ACCOUNTING_DEFAULT',                       memory_accounting_default)
 conf.set('STATUS_UNIT_FORMAT_DEFAULT',                        'STATUS_UNIT_FORMAT_' + status_unit_format_default.to_upper())
 conf.set_quoted('STATUS_UNIT_FORMAT_DEFAULT_STR',             status_unit_format_default)
+conf.set_quoted('HOST_BOOTID_PATH',                           'run/systemd/journal/host_boot_id')
+conf.set('HOSTONLY_JOURNALD',                                 1)
 
 #####################################################################
 
