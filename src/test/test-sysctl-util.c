@@ -39,34 +39,6 @@ static void test_sysctl_normalize(void) {
         }
 }
 
-static void test_sysctl_value_normalize(void) {
-        log_info("/* %s */", __func__);
-
-        const char* const expectations[] = {
-                "42", "42",
-                "42\t42", "42\t42",
-                "42 42", "42\t42",
-                "    42     42 ", "42\t42",
-                "\t42\t42\t", "42\t42",
-
-                "", "",
-                "\t", "",
-                "   ", "",
-                NULL,
-        };
-
-        const char **s, **expected;
-        STRV_FOREACH_PAIR(s, expected, (const char**) expectations) {
-                _cleanup_free_ char *t;
-
-                assert_se(t = strdup(*s));
-                const char *tt = sysctl_value_normalize(t);
-
-                log_info("\"%s\" → \"%s\", expected \"%s\"", *s, tt, *expected);
-                assert_se(streq(tt, *expected));
-        };
-}
-
 static void test_sysctl_read(void) {
         _cleanup_free_ char *s = NULL, *h = NULL;
         sd_id128_t a, b;
@@ -104,7 +76,6 @@ int main(int argc, char *argv[]) {
         test_setup_logging(LOG_INFO);
 
         test_sysctl_normalize();
-        test_sysctl_value_normalize();
         test_sysctl_read();
 
         return 0;

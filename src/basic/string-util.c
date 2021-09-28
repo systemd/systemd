@@ -1169,14 +1169,6 @@ sd_bool streq_skip_trailing_chars(const char *s1, const char *s2, const char *ok
                 if (prefix_mismatch)
                         return false;
         }
-        while (*s1) {
-                if (!strchr(ok, *s1++))
-                        return false;
-        }
-        while (*s2) {
-                if (!strchr(ok, *s2++))
-                        return false;
-        }
 
-        return true;
+        return in_charset(s1, ok) && in_charset(s2, ok);
 }
