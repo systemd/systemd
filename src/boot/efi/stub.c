@@ -111,7 +111,10 @@ static VOID export_variables(EFI_LOADED_IMAGE *loaded_image) {
                 _cleanup_freepool_ CHAR16 *s = NULL;
 
                 s = DevicePathToStr(loaded_image->FilePath);
-                efivar_set(LOADER_GUID, L"LoaderImageIdentifier", s, 0);
+                if (s)
+                        efivar_set(LOADER_GUID, L"LoaderImageIdentifier", s, 0);
+                else
+                        log_oom();
         }
 
         /* if LoaderFirmwareInfo is not set, let's set it */
@@ -119,7 +122,10 @@ static VOID export_variables(EFI_LOADED_IMAGE *loaded_image) {
                 _cleanup_freepool_ CHAR16 *s = NULL;
 
                 s = PoolPrint(L"%s %d.%02d", ST->FirmwareVendor, ST->FirmwareRevision >> 16, ST->FirmwareRevision & 0xffff);
-                efivar_set(LOADER_GUID, L"LoaderFirmwareInfo", s, 0);
+                if (s)
+                        efivar_set(LOADER_GUID, L"LoaderFirmwareInfo", s, 0);
+                else
+                        log_oom();
         }
 
         /* ditto for LoaderFirmwareType */
@@ -127,7 +133,10 @@ static VOID export_variables(EFI_LOADED_IMAGE *loaded_image) {
                 _cleanup_freepool_ CHAR16 *s = NULL;
 
                 s = PoolPrint(L"UEFI %d.%02d", ST->Hdr.Revision >> 16, ST->Hdr.Revision & 0xffff);
-                efivar_set(LOADER_GUID, L"LoaderFirmwareType", s, 0);
+                if (s)
+                        efivar_set(LOADER_GUID, L"LoaderFirmwareType", s, 0);
+                else
+                        log_oom();
         }
 
         /* add StubInfo */
@@ -194,6 +203,9 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
                 options = (CHAR16 *)loaded_image->LoadOptions;
                 cmdline_len = (loaded_image->LoadOptionsSize / sizeof(CHAR16)) * sizeof(CHAR8);
                 line = AllocatePool(cmdline_len);
+                if (!line)
+                        return log_oom();
+
                 for (UINTN i = 0; i < cmdline_len; i++)
                         line[i] = options[i];
                 cmdline = line;
