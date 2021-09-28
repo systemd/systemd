@@ -367,7 +367,8 @@ const char *sd_lldp_rx_get_ifname(sd_lldp_rx *lldp_rx) {
 }
 
 static sd_lldp_rx *lldp_rx_free(sd_lldp_rx *lldp_rx) {
-        assert(lldp_rx);
+        if (!lldp_rx)
+                return NULL;
 
         lldp_rx_reset(lldp_rx);
 
