@@ -127,11 +127,17 @@ static BOOLEAN line_edit(
 
         if (!line_in)
                 line_in = L"";
+
         size = StrLen(line_in) + 1024;
         line = AllocatePool(size * sizeof(CHAR16));
+        if (!line)
+                return FALSE;
+
         StrCpy(line, line_in);
         len = StrLen(line);
         print = AllocatePool((x_max+1) * sizeof(CHAR16));
+        if (!print)
+                return FALSE;
 
         first = 0;
         cursor = 0;
@@ -623,15 +629,25 @@ static BOOLEAN menu_run(
                         /* Put status line after the entry list, but give it some breathing room. */
                         y_status = MIN(y_start + MIN(visible_max, config->entry_count) + 4, y_max - 1);
 
-                        strv_free(lines);
-                        FreePool(clearline);
+                        lines = strv_free(lines);
+                        clearline = mfree(clearline);
 
                         /* menu entries title lines */
                         lines = AllocatePool((config->entry_count + 1) * sizeof(CHAR16 *));
+                        if (!lines) {
+                                log_oom();
+                                return FALSE;
+                        }
+
                         for (UINTN i = 0; i < config->entry_count; i++) {
                                 UINTN j, padding;
 
                                 lines[i] = AllocatePool(((line_width + 1) * sizeof(CHAR16)));
+                                if (!lines[i]) {
+                                        log_oom();
+                                        return FALSE;
+                                }
+
                                 padding = (line_width - MIN(StrLen(config->entries[i]->title_show), line_width)) / 2;
 
                                 for (j = 0; j < padding; j++)
@@ -647,6 +663,11 @@ static BOOLEAN menu_run(
                         lines[config->entry_count] = NULL;
 
                         clearline = AllocatePool((x_max+1) * sizeof(CHAR16));
+                        if (!clearline) {
+                                log_oom();
+                                return FALSE;
+                        }
+
                         for (UINTN i = 0; i < x_max; i++)
                                 clearline[i] = ' ';
                         clearline[x_max] = 0;
