@@ -178,16 +178,12 @@ static int lldp_rx_handle_datagram(sd_lldp_rx *lldp_rx, sd_lldp_neighbor *n) {
         assert(n);
 
         r = lldp_neighbor_parse(n);
-        if (r == -EBADMSG) /* Ignore bad messages */
-                return 0;
         if (r < 0)
                 return r;
 
         r = lldp_rx_add_neighbor(lldp_rx, n);
-        if (r < 0) {
-                log_lldp_rx_errno(lldp_rx, r, "Failed to add datagram. Ignoring.");
-                return 0;
-        }
+        if (r < 0)
+                return log_lldp_rx_errno(lldp_rx, r, "Failed to add datagram. Ignoring.");
 
         log_lldp_rx(lldp_rx, "Successfully processed LLDP datagram.");
         return 0;
@@ -209,8 +205,10 @@ static int lldp_rx_receive_datagram(sd_event_source *s, int fd, uint32_t revents
         }
 
         n = lldp_neighbor_new(space);
-        if (!n)
-                return -ENOMEM;
+        if (!n) {
+                log_oom_debug();
+                return 0;
+        }
 
         length = recv(fd, LLDP_NEIGHBOR_RAW(n), n->raw_size, MSG_DONTWAIT);
         if (length < 0) {
@@ -232,7 +230,8 @@ static int lldp_rx_receive_datagram(sd_event_source *s, int fd, uint32_t revents
         else
                 triple_timestamp_get(&n->timestamp);
 
-        return lldp_rx_handle_datagram(lldp_rx, n);
+        (void) lldp_rx_handle_datagram(lldp_rx, n);
+        return 0;
 }
 
 static void lldp_rx_reset(sd_lldp_rx *lldp_rx) {
