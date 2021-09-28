@@ -456,7 +456,7 @@ static inline int neighbor_compare_func(sd_lldp_neighbor * const *a, sd_lldp_nei
 _public_ int sd_lldp_rx_get_neighbors(sd_lldp_rx *lldp_rx, sd_lldp_neighbor ***ret) {
         _cleanup_free_ sd_lldp_neighbor **l = NULL;
         sd_lldp_neighbor *n;
-        int k = 0, r;
+        int k = 0;
 
         assert_return(lldp_rx, -EINVAL);
         assert_return(ret, -EINVAL);
@@ -469,10 +469,6 @@ _public_ int sd_lldp_rx_get_neighbors(sd_lldp_rx *lldp_rx, sd_lldp_neighbor ***r
         l = new0(sd_lldp_neighbor*, hashmap_size(lldp_rx->neighbor_by_id));
         if (!l)
                 return -ENOMEM;
-
-        r = lldp_rx_start_timer(lldp_rx, NULL);
-        if (r < 0)
-                return r;
 
         HASHMAP_FOREACH(n, lldp_rx->neighbor_by_id)
                 l[k++] = sd_lldp_neighbor_ref(n);
