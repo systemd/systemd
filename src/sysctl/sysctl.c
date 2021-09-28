@@ -165,13 +165,13 @@ static int apply_all(OrderedHashmap *sysctl_options) {
                                         continue;
                                 }
 
-                                k = sysctl_write_or_warn(key, sysctl_value_normalize(option->value), option->ignore_failure);
+                                k = sysctl_write_or_warn(key, option->value, option->ignore_failure);
                                 if (r == 0)
                                         r = k;
                         }
 
                 } else {
-                        k = sysctl_write_or_warn(option->key, sysctl_value_normalize(option->value), option->ignore_failure);
+                        k = sysctl_write_or_warn(option->key, option->value, option->ignore_failure);
                         if (r == 0)
                                 r = k;
                 }

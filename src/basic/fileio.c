@@ -159,8 +159,8 @@ int write_string_stream_ts(
                                 return -EBADF;
                 }
 
-                /* Read an additional byte to detect cases where the prefix matches but the rest doesn't
-                   Also, r value of 0 means the read was truncated and we consider those as not equal
+                /* Read an additional byte to detect cases where the prefix matches but the rest doesn't.
+                   Also, r value of 0 means the read was truncated and it won't be equal to the new value
                 */
                 r = read_virtual_file_fd(fd, strlen(line)+1, &t, NULL);
                 if (r > 0) {
