@@ -74,22 +74,27 @@ machine="$(uname -m)"
 if [ "${machine}" = "x86_64" ]; then
     root_guid=4f68bce3-e8cd-4db1-96e7-fbcaf984b709
     verity_guid=2c7357ed-ebd2-46d9-aec1-23d437ec2bf5
+    signature_guid=41092b05-9fc8-4523-994f-2def0408b176
     architecture="x86-64"
 elif [ "${machine}" = "i386" ] || [ "${machine}" = "i686" ] || [ "${machine}" = "x86" ]; then
     root_guid=44479540-f297-41b2-9af7-d131d5f0458a
     verity_guid=d13c5d3b-b5d1-422a-b29f-9454fdc89d76
+    signature_guid=5996fc05-109c-48de-808b-23fa0830b676
     architecture="x86"
 elif [ "${machine}" = "aarch64" ] || [ "${machine}" = "aarch64_be" ] || [ "${machine}" = "armv8b" ] || [ "${machine}" = "armv8l" ]; then
     root_guid=b921b045-1df0-41c3-af44-4c6f280d3fae
     verity_guid=df3300ce-d69f-4c92-978c-9bfb0f38d820
+    signature_guid=6db69de6-29f4-4758-a7a5-962190f00ce3
     architecture="arm64"
 elif [ "${machine}" = "arm" ]; then
     root_guid=69dad710-2ce4-4e3c-b16c-21a1d49abed3
     verity_guid=7386cdf2-203c-47a9-a498-f2ecce45a2d6
+    signature_guid=42b0455f-eb11-491d-98d3-56145ba9d037
     architecture="arm"
 elif [ "${machine}" = "ia64" ]; then
     root_guid=993d8d3d-f80e-4225-855a-9daf8ed7ea97
     verity_guid=86ed10d5-b607-45bb-8957-d350f23d0571
+    signature_guid=e98b36ee-32ba-4882-9b12-0ce14655f46a
     architecture="ia64"
 elif [ "${machine}" = "ppc64le" ]; then
     # There's no support of PPC in the discoverable partitions specification yet, so skip the rest for now
@@ -102,8 +107,9 @@ fi
 # du rounds up to block size, which is more helpful for partitioning
 root_size="$(du -k "${image}.raw" | cut -f1)"
 verity_size="$(du -k "${image}.verity" | cut -f1)"
+signature_size=4
 # 4MB seems to be the minimum size blkid will accept, below that probing fails
-dd if=/dev/zero of="${image}.gpt" bs=512 count=$((8192+root_size*2+verity_size*2))
+dd if=/dev/zero of="${image}.gpt" bs=512 count=$((8192+root_size*2+verity_size*2+signature_size*2))
 # sfdisk seems unhappy if the size overflows into the next unit, eg: 1580KiB will be interpreted as 1MiB
 # so do some basic rounding up if the minimal image is more than 1 MB
 if [ "${root_size}" -ge 1024 ]; then
@@ -112,6 +118,36 @@ else
     root_size="${root_size}KiB"
 fi
 verity_size="$((verity_size * 2))KiB"
+signature_size="$((signature_size * 2))KiB"
+
+# Unfortunately OpenSSL insists on reading some config file, hence provide one with mostly placeholder contents
+cat >> "${image}.openssl.cnf" <<EOF
+[ req ]
+prompt = no
+distinguished_name = req_distinguished_name
+
+[ req_distinguished_name ]
+C = DE
+ST = Test State
+L = Test Locality
+O = Org Name
+OU = Org Unit Name
+CN = Common Name
+emailAddress = test@email.com
+EOF
+
+# Create key pair
+openssl req -config "${image}.openssl.cnf" -new -x509 -newkey rsa:1024 -keyout "${image}.key" -out "${image}.crt" -days 365 -nodes
+# Sign Verity root hash with it
+openssl smime -sign -nocerts -noattr -binary -in "${image}.roothash" -inkey "${image}.key" -signer "${image}.crt" -outform der -out "${image}.roothash.p7s"
+# Generate signature partition JSON data
+echo '{"rootHash":"'"${roothash}"'","signature":"'"$(base64 -w 0 < "${image}.roothash.p7s")"'"}' > "${image}.verity-sig"
+# Pad it
+truncate -s "${signature_size}" "${image}.verity-sig"
+# Register certificate in the (userspace) verity key ring
+mkdir -p /run/verity.d
+ln -s "${image}.crt" /run/verity.d/ok.crt
+
 # Construct a UUID from hash
 # input:  11111111222233334444555566667777
 # output: 11111111-2222-3333-4444-555566667777
@@ -119,11 +155,14 @@ uuid="$(head -c 32 "${image}.roothash" | sed -r 's/(.{8})(.{4})(.{4})(.{4})(.+)/
 echo -e "label: gpt\nsize=${root_size}, type=${root_guid}, uuid=${uuid}" | sfdisk "${image}.gpt"
 uuid="$(tail -c 32 "${image}.roothash" | sed -r 's/(.{8})(.{4})(.{4})(.{4})(.+)/\1-\2-\3-\4-\5/')"
 echo -e "size=${verity_size}, type=${verity_guid}, uuid=${uuid}" | sfdisk "${image}.gpt" --append
+echo -e "size=${signature_size}, type=${signature_guid}" | sfdisk "${image}.gpt" --append
 sfdisk --part-label "${image}.gpt" 1 "Root Partition"
 sfdisk --part-label "${image}.gpt" 2 "Verity Partition"
+sfdisk --part-label "${image}.gpt" 3 "Signature Partition"
 loop="$(losetup --show -P -f "${image}.gpt")"
 dd if="${image}.raw" of="${loop}p1"
 dd if="${image}.verity" of="${loop}p2"
+dd if="${image}.verity-sig" of="${loop}p3"
 losetup -d "${loop}"
 
 # Derive partition UUIDs from root hash, in UUID syntax
