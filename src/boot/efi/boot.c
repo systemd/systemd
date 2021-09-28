@@ -449,7 +449,7 @@ static VOID print_status(Config *config, CHAR16 *loaded_image_path) {
         Print(L"OsIndicationsSupported: %d\n", get_os_indications_supported());
 
         Print(L"\n--- press key ---\n\n");
-        console_key_read(&key, 0);
+        console_key_read(&key, UINT64_MAX);
 
         Print(L"timeout:                %u s\n", config->timeout_sec);
         if (config->timeout_sec_efivar != TIMEOUT_UNSET)
@@ -495,7 +495,7 @@ static VOID print_status(Config *config, CHAR16 *loaded_image_path) {
                 Print(L"LoaderEntryDefault:     %s\n", defaultstr);
 
         Print(L"\n--- press key ---\n\n");
-        console_key_read(&key, 0);
+        console_key_read(&key, UINT64_MAX);
 
         for (UINTN i = 0; i < config->entry_count; i++) {
                 ConfigEntry *entry;
@@ -547,7 +547,7 @@ static VOID print_status(Config *config, CHAR16 *loaded_image_path) {
                               entry->path, entry->next_name);
 
                 Print(L"\n--- press key ---\n\n");
-                console_key_read(&key, 0);
+                console_key_read(&key, UINT64_MAX);
         }
 }
 
@@ -724,7 +724,7 @@ static BOOLEAN menu_run(
                         uefi_call_wrapper(ST->ConOut->OutputString, 2, ST->ConOut, clearline+1 + x + len);
                 }
 
-                err = console_key_read(&key, timeout_remain > 0 ? 1000 * 1000 : 0);
+                err = console_key_read(&key, timeout_remain > 0 ? 1000 * 1000 : UINT64_MAX);
                 if (err == EFI_TIMEOUT) {
                         timeout_remain--;
                         if (timeout_remain == 0) {
@@ -2413,7 +2413,6 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
                 entry = config.entries[config.idx_default];
                 if (menu) {
                         efivar_set_time_usec(LOADER_GUID, L"LoaderTimeMenuUSec", 0);
-                        uefi_call_wrapper(BS->SetWatchdogTimer, 4, 0, 0x10000, 0, NULL);
                         if (!menu_run(&config, &entry, loaded_image_path))
                                 break;
                 }
@@ -2432,7 +2431,6 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
                 /* Optionally, read a random seed off the ESP and pass it to the OS */
                 (VOID) process_random_seed(root_dir, config.random_seed_mode);
 
-                uefi_call_wrapper(BS->SetWatchdogTimer, 4, 5 * 60, 0x10000, 0, NULL);
                 err = image_start(root_dir, image, &config, entry);
                 if (EFI_ERROR(err)) {
                         graphics_mode(FALSE);
