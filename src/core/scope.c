@@ -52,7 +52,7 @@ static void scope_done(Unit *u) {
         s->timer_event_source = sd_event_source_disable_unref(s->timer_event_source);
 }
 
-static int scope_running_timeout(Scope *s) {
+static usec_t scope_running_timeout(Scope *s) {
         usec_t delta = 0;
 
         assert(s);
