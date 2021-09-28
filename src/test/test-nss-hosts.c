@@ -41,14 +41,12 @@ static const char* af_to_string(int family, char *buf, size_t buf_len) {
 }
 
 static int print_gaih_addrtuples(const struct gaih_addrtuple *tuples) {
-        int n = 0;
+        int r, n = 0;
 
         for (const struct gaih_addrtuple *it = tuples; it; it = it->next) {
                 _cleanup_free_ char *a = NULL;
                 union in_addr_union u;
-                int r;
                 char family_name[DECIMAL_STR_MAX(int)];
-                char ifname[IF_NAMESIZE + 1];
 
                 memcpy(&u, it->addr, 16);
                 r = in_addr_to_string(it->family, &u, &a);
@@ -56,21 +54,13 @@ static int print_gaih_addrtuples(const struct gaih_addrtuple *tuples) {
                 if (r == -EAFNOSUPPORT)
                         assert_se(a = hexmem(it->addr, 16));
 
-                if (it->scopeid == 0)
-                        goto numerical_index;
-
-                if (!format_ifname(it->scopeid, ifname)) {
-                        log_warning_errno(errno, "if_indextoname(%d) failed: %m", it->scopeid);
-                numerical_index:
-                        xsprintf(ifname, "%i", it->scopeid);
-                };
-
-                log_info("        \"%s\" %s %s %%%s",
+                log_info("        \"%s\" %s %s %s",
                          it->name,
                          af_to_string(it->family, family_name, sizeof family_name),
                          a,
-                         ifname);
-                n ++;
+                         FORMAT_IFNAME_FULL(it->scopeid, FORMAT_IFNAME_IFINDEX_WITH_PERCENT));
+
+                n++;
         }
         return n;
 }

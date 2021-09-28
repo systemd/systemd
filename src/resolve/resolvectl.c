@@ -187,17 +187,19 @@ static void print_source(uint64_t flags, usec_t rtt) {
 }
 
 static void print_ifindex_comment(int printed_so_far, int ifindex) {
-        char ifname[IF_NAMESIZE + 1];
+        char ifname[IF_NAMESIZE];
+        int r;
 
         if (ifindex <= 0)
                 return;
 
-        if (!format_ifname(ifindex, ifname))
-                log_warning_errno(errno, "Failed to resolve interface name for index %i, ignoring: %m", ifindex);
-        else
-                printf("%*s%s-- link: %s%s",
-                       60 > printed_so_far ? 60 - printed_so_far : 0, " ", /* Align comment to the 60th column */
-                       ansi_grey(), ifname, ansi_normal());
+        r = format_ifname(ifindex, ifname);
+        if (r < 0)
+                return (void) log_warning_errno(r, "Failed to resolve interface name for index %i, ignoring: %m", ifindex);
+
+        printf("%*s%s-- link: %s%s",
+               60 > printed_so_far ? 60 - printed_so_far : 0, " ", /* Align comment to the 60th column */
+               ansi_grey(), ifname, ansi_normal());
 }
 
 static int resolve_host(sd_bus *bus, const char *name) {
@@ -1555,15 +1557,16 @@ static int status_ifindex(sd_bus *bus, int ifindex, const char *name, StatusMode
         _cleanup_(link_info_clear) LinkInfo link_info = {};
         _cleanup_(table_unrefp) Table *table = NULL;
         _cleanup_free_ char *p = NULL;
-        char ifi[DECIMAL_STR_MAX(int)], ifname[IF_NAMESIZE + 1] = "";
+        char ifi[DECIMAL_STR_MAX(int)], ifname[IF_NAMESIZE];
         int r;
 
         assert(bus);
         assert(ifindex > 0);
 
         if (!name) {
-                if (!format_ifname(ifindex, ifname))
-                        return log_error_errno(errno, "Failed to resolve interface name for %i: %m", ifindex);
+                r = format_ifname(ifindex, ifname);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to resolve interface name for %i: %m", ifindex);
 
                 name = ifname;
         }
