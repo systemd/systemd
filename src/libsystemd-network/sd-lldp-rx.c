@@ -454,7 +454,8 @@ static inline int neighbor_compare_func(sd_lldp_neighbor * const *a, sd_lldp_nei
 }
 
 _public_ int sd_lldp_rx_get_neighbors(sd_lldp_rx *lldp_rx, sd_lldp_neighbor ***ret) {
-        sd_lldp_neighbor **l = NULL, *n;
+        _cleanup_free_ sd_lldp_neighbor **l = NULL;
+        sd_lldp_neighbor *n;
         int k = 0, r;
 
         assert_return(lldp_rx, -EINVAL);
@@ -470,10 +471,8 @@ _public_ int sd_lldp_rx_get_neighbors(sd_lldp_rx *lldp_rx, sd_lldp_neighbor ***r
                 return -ENOMEM;
 
         r = lldp_rx_start_timer(lldp_rx, NULL);
-        if (r < 0) {
-                free(l);
+        if (r < 0)
                 return r;
-        }
 
         HASHMAP_FOREACH(n, lldp_rx->neighbor_by_id)
                 l[k++] = sd_lldp_neighbor_ref(n);
@@ -482,7 +481,7 @@ _public_ int sd_lldp_rx_get_neighbors(sd_lldp_rx *lldp_rx, sd_lldp_neighbor ***r
 
         /* Return things in a stable order */
         typesafe_qsort(l, k, neighbor_compare_func);
-        *ret = l;
+        *ret = TAKE_PTR(l);
 
         return k;
 }
