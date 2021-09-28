@@ -56,15 +56,18 @@ int lldp_network_bind_raw_socket(int ifindex) {
         if (r < 0)
                 return -errno;
 
+        /* customer bridge */
         r = setsockopt(fd, SOL_PACKET, PACKET_ADD_MEMBERSHIP, &mreq, sizeof(mreq));
         if (r < 0)
                 return -errno;
 
+        /* non TPMR bridge */
         mreq.mr_address[ETH_ALEN - 1] = 0x03;
         r = setsockopt(fd, SOL_PACKET, PACKET_ADD_MEMBERSHIP, &mreq, sizeof(mreq));
         if (r < 0)
                 return -errno;
 
+        /* nearest bridge */
         mreq.mr_address[ETH_ALEN - 1] = 0x0E;
         r = setsockopt(fd, SOL_PACKET, PACKET_ADD_MEMBERSHIP, &mreq, sizeof(mreq));
         if (r < 0)
