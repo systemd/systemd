@@ -46,6 +46,8 @@ typedef enum NamingSchemeFlags {
         NAMING_V247 = NAMING_V245 | NAMING_BRIDGE_NO_SLOT,
         NAMING_V249 = NAMING_V247 | NAMING_SLOT_FUNCTION_ID | NAMING_16BIT_INDEX | NAMING_REPLACE_STRICTLY,
 
+        EXTRA_NET_NAMING_SCHEMES
+
         _NAMING_SCHEME_FLAGS_INVALID = -EINVAL,
 } NamingSchemeFlags;
 
@@ -54,6 +56,7 @@ typedef struct NamingScheme {
         NamingSchemeFlags flags;
 } NamingScheme;
 
+const NamingScheme* naming_scheme_from_name(const char *name);
 const NamingScheme* naming_scheme(void);
 
 static inline bool naming_scheme_has(NamingSchemeFlags flags) {
