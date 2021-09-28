@@ -2676,9 +2676,9 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
       <varlistentry>
         <term><varname>DNSLifetimeSec=</varname></term>
 
-        <listitem><para>Lifetime in seconds for the DNS server addresses listed
-        in <varname>DNS=</varname> and search domains listed in
-        <varname>Domains=</varname>.</para></listitem>
+        <listitem><para>Lifetime in seconds for the DNS server addresses listed in
+        <varname>DNS=</varname> and search domains listed in <varname>Domains=</varname>. Defaults to
+        604800 seconds (one week).</para></listitem>
       </varlistentry>
 
     </variablelist>
