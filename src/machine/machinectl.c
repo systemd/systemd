@@ -559,7 +559,7 @@ static void print_machine_status_info(sd_bus *bus, MachineStatusInfo *i) {
                 for (size_t c = 0; c < i->n_netif; c++) {
                         char name[IF_NAMESIZE+1];
 
-                        if (format_ifname(i->netif[c], name)) {
+                        if (format_ifname(i->netif[c], name) >= 0) {
                                 fputc(' ', stdout);
                                 fputs(name, stdout);
 
