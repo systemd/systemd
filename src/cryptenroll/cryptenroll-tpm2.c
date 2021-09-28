@@ -34,8 +34,12 @@ static int search_policy_hash(
                         return log_error_errno(r, "Failed to read JSON token data off disk: %m");
 
                 keyslot = cryptsetup_get_keyslot_from_token(v);
-                if (keyslot < 0)
-                        return log_error_errno(keyslot, "Failed to determine keyslot of JSON token: %m");
+                if (keyslot < 0) {
+                        /* Handle parsing errors of the keyslots field gracefully, since it's not 'owned' by
+                         * us, but by the LUKS2 spec */
+                        log_warning_errno(keyslot, "Failed to determine keyslot of JSON token %i, skipping: %m", token);
+                        continue;
+                }
 
                 w = json_variant_by_key(v, "tpm2-policy-hash");
                 if (!w || !json_variant_is_string(w))
