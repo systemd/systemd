@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "memory-util.h"
 #include "sysupdate-cache.h"
 
 #define WEB_CACHE_ENTRIES_MAX 64U
@@ -36,10 +37,10 @@ int web_cache_add_item(
                 return -E2BIG;
 
         item = web_cache_get_item(*web_cache, url, verified);
-        if (item && item->size == size && memcmp(item->data, data, size) == 0)
+        if (item && memcmp_nn(item->data, item->size, data, size) == 0)
                 return 0;
 
-        if (hashmap_size(*web_cache) >= (size_t) (WEB_CACHE_ENTRIES_MAX + !!item))
+        if (hashmap_size(*web_cache) >= (size_t) (WEB_CACHE_ENTRIES_MAX + !!hashmap_get(*web_cache, url)))
                 return -ENOSPC;
 
         r = hashmap_ensure_allocated(web_cache, &web_cache_hash_ops);
@@ -63,7 +64,9 @@ int web_cache_add_item(
         /* Just to be extra paranoid, let's NUL terminate the downloaded buffer */
         *(uint8_t*) mempcpy(item->data, data, size) = 0;
 
-        r = hashmap_replace(*web_cache, item->url, item);
+        web_cache_item_free(hashmap_remove(*web_cache, url));
+
+        r = hashmap_put(*web_cache, item->url, item);
         if (r < 0)
                 return r;
 

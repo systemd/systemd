@@ -213,8 +213,7 @@ int pattern_match(const char *pattern, const char *s, InstanceMetadata *ret) {
 
                 if (e->elements_next) {
                         /* The next element must be literal, as we use it to determine where to split */
-                        if (e->elements_next->type != PATTERN_LITERAL)
-                                goto nope;
+                        assert(e->elements_next->type == PATTERN_LITERAL);
 
                         n = strstr(p, e->elements_next->literal);
                         if (!n)
