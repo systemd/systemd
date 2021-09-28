@@ -7,7 +7,7 @@
 
 #include "sd-ndisc.h"
 
-#include "log-link.h"
+#include "network-common.h"
 #include "time-util.h"
 
 #define NDISC_ROUTER_SOLICITATION_INTERVAL (4U * USEC_PER_SEC)
@@ -44,10 +44,10 @@ sd_ndisc_event_t ndisc_event_from_string(const char *s) _pure_;
 #define log_ndisc_errno(ndisc, error, fmt, ...)         \
         log_interface_prefix_full_errno(                \
                 "NDISC: ",                              \
-                sd_ndisc_get_ifname(ndisc),             \
+                sd_ndisc, ndisc,                        \
                 error, fmt, ##__VA_ARGS__)
 #define log_ndisc(ndisc, fmt, ...)                      \
         log_interface_prefix_full_errno_zerook(         \
                 "NDISC: ",                              \
-                sd_ndisc_get_ifname(ndisc),             \
+                sd_ndisc, ndisc,                        \
                 0, fmt, ##__VA_ARGS__)

@@ -5,7 +5,7 @@
 #include "sd-lldp-rx.h"
 
 #include "hashmap.h"
-#include "log-link.h"
+#include "network-common.h"
 #include "prioq.h"
 
 struct sd_lldp_rx {
@@ -39,10 +39,10 @@ sd_lldp_rx_event_t lldp_rx_event_from_string(const char *s) _pure_;
 #define log_lldp_rx_errno(lldp_rx, error, fmt, ...)     \
         log_interface_prefix_full_errno(                \
                 "LLDP Rx: ",                            \
-                sd_lldp_rx_get_ifname(lldp_rx),         \
+                sd_lldp_rx, lldp_rx,                    \
                 error, fmt, ##__VA_ARGS__)
 #define log_lldp_rx(lldp_rx, fmt, ...)                  \
         log_interface_prefix_full_errno_zerook(         \
                 "LLDP Rx: ",                            \
-                sd_lldp_rx_get_ifname(lldp_rx),         \
+                sd_lldp_rx, lldp_rx,                    \
                 0, fmt, ##__VA_ARGS__)
