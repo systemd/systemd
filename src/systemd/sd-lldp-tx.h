@@ -54,7 +54,7 @@ sd_event *sd_lldp_tx_get_event(sd_lldp_tx *lldp_tx);
 
 int sd_lldp_tx_set_ifindex(sd_lldp_tx *lldp_tx, int ifindex);
 int sd_lldp_tx_set_ifname(sd_lldp_tx *lldp_tx, const char *ifname);
-const char *sd_lldp_tx_get_ifname(sd_lldp_tx *lldp_tx);
+int sd_lldp_tx_get_ifname(sd_lldp_tx *lldp_tx, const char **ret);
 
 int sd_lldp_tx_set_multicast_mode(sd_lldp_tx *lldp_tx, sd_lldp_multicast_mode_t mode);
 int sd_lldp_tx_set_hwaddr(sd_lldp_tx *lldp_tx, const struct ether_addr *hwaddr);

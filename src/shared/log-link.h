@@ -17,24 +17,6 @@
                 log_interface_full_errno_zerook(ifname, level, _error, __VA_ARGS__); \
         })
 
-#define log_interface_prefix_full_errno_zerook(prefix, ifname_expr, error, fmt, ...) \
-        ({                                                              \
-                int _e = (error);                                       \
-                if (DEBUG_LOGGING)                                      \
-                        log_interface_full_errno_zerook(                \
-                                ifname_expr,                            \
-                                LOG_DEBUG, _e, prefix fmt,              \
-                                ##__VA_ARGS__);                         \
-                -ERRNO_VALUE(_e);                                       \
-        })
-
-#define log_interface_prefix_full_errno(prefix, ifname_expr, error, fmt, ...) \
-        ({                                                              \
-                int _error = (error);                                   \
-                ASSERT_NON_ZERO(_error);                                \
-                log_interface_prefix_full_errno_zerook(prefix, ifname_expr, _error, fmt, ##__VA_ARGS__); \
-        })
-
 /*
  * The following macros append INTERFACE= to the message.
  * The macros require a struct named 'Link' which contains 'char *ifname':
