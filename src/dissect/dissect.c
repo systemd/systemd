@@ -515,7 +515,9 @@ static int action_dissect(DissectedImage *m, LoopDevice *d) {
                 if (arg_verity_settings.data_path)
                         r = table_add_cell(t, NULL, TABLE_STRING, "external");
                 else if (dissected_image_verity_candidate(m, i))
-                        r = table_add_cell(t, NULL, TABLE_STRING, yes_no(dissected_image_verity_ready(m, i)));
+                        r = table_add_cell(t, NULL, TABLE_STRING,
+                                           dissected_image_verity_sig_ready(m, i) ? "signed" :
+                                           yes_no(dissected_image_verity_ready(m, i)));
                 else
                         r = table_add_cell(t, NULL, TABLE_EMPTY, NULL);
                 if (r < 0)
@@ -800,6 +802,13 @@ static int run(int argc, char *argv[]) {
                         d->timestamp_not_before,
                         arg_flags,
                         &m);
+        if (r < 0)
+                return r;
+
+        r = dissected_image_load_verity_sig_partition(
+                        m,
+                        d->fd,
+                        &arg_verity_settings);
         if (r < 0)
                 return r;
 
