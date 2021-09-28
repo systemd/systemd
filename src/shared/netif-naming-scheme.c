@@ -19,12 +19,10 @@ static const NamingScheme naming_schemes[] = {
 };
 
 static const NamingScheme* naming_scheme_from_name(const char *name) {
-        size_t i;
-
         if (streq(name, "latest"))
                 return naming_schemes + ELEMENTSOF(naming_schemes) - 1;
 
-        for (i = 0; i < ELEMENTSOF(naming_schemes); i++)
+        for (size_t i = 0; i < ELEMENTSOF(naming_schemes); i++)
                 if (streq(naming_schemes[i].name, name))
                         return naming_schemes + i;
 
