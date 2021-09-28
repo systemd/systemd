@@ -1,5 +1,5 @@
 #!/bin/sh
-set -e
+set -ex
 
 # This is a build script for OS image generation using mkosi (https://github.com/systemd/mkosi).
 # Simply invoke "mkosi" in the project directory to build an OS image.
