@@ -504,7 +504,6 @@ static int dns_cache_put_positive(
 
         if (DEBUG_LOGGING) {
                 _cleanup_free_ char *t = NULL;
-                char ifname[IF_NAMESIZE + 1];
 
                 (void) in_addr_to_string(i->owner_family, &i->owner_address, &t);
 
@@ -514,7 +513,7 @@ static int dns_cache_put_positive(
                           i->shared_owner ? " shared" : "",
                           dns_resource_key_to_string(i->key, key_str, sizeof key_str),
                           (i->until - timestamp) / USEC_PER_SEC,
-                          i->ifindex == 0 ? "*" : strna(format_ifname(i->ifindex, ifname)),
+                          i->ifindex == 0 ? "*" : FORMAT_IFNAME(i->ifindex),
                           af_to_name_short(i->owner_family),
                           strna(t));
         }

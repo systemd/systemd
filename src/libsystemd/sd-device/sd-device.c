@@ -289,7 +289,7 @@ _public_ int sd_device_new_from_ifindex(sd_device **ret, int ifindex) {
         assert_return(ret, -EINVAL);
         assert_return(ifindex > 0, -EINVAL);
 
-        if (!format_ifname(ifindex, ifname))
+        if (format_ifname(ifindex, ifname) < 0)
                 return -ENODEV;
 
         return device_new_from_main_ifname(ret, ifname);
