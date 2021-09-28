@@ -515,7 +515,7 @@ static void service_remove_fd_store(Service *s, const char *name) {
         }
 }
 
-static int service_running_timeout(Service *s) {
+static usec_t service_running_timeout(Service *s) {
         usec_t delta = 0;
 
         assert(s);
