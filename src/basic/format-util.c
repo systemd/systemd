@@ -8,6 +8,10 @@ assert_cc(DECIMAL_STR_MAX(int) + 1 <= IF_NAMESIZE + 1);
 char *format_ifname_full(int ifindex, char buf[static IF_NAMESIZE + 1], FormatIfnameFlag flag) {
         /* Buffer is always cleared */
         memzero(buf, IF_NAMESIZE + 1);
+
+        if (ifindex <= 0)
+                return NULL;
+
         if (if_indextoname(ifindex, buf))
                 return buf;
 
