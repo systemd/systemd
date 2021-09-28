@@ -242,6 +242,13 @@ static void lldp_rx_reset(sd_lldp_rx *lldp_rx) {
         lldp_rx->fd = safe_close(lldp_rx->fd);
 }
 
+int sd_lldp_rx_is_running(sd_lldp_rx *lldp_rx) {
+        if (!lldp_rx)
+                return false;
+
+        return lldp_rx->fd >= 0;
+}
+
 _public_ int sd_lldp_rx_start(sd_lldp_rx *lldp_rx) {
         int r;
 
@@ -249,7 +256,7 @@ _public_ int sd_lldp_rx_start(sd_lldp_rx *lldp_rx) {
         assert_return(lldp_rx->event, -EINVAL);
         assert_return(lldp_rx->ifindex > 0, -EINVAL);
 
-        if (lldp_rx->fd >= 0)
+        if (sd_lldp_rx_is_running(lldp_rx))
                 return 0;
 
         assert(!lldp_rx->io_event_source);
@@ -277,10 +284,7 @@ fail:
 }
 
 _public_ int sd_lldp_rx_stop(sd_lldp_rx *lldp_rx) {
-        if (!lldp_rx)
-                return 0;
-
-        if (lldp_rx->fd < 0)
+        if (!sd_lldp_rx_is_running(lldp_rx))
                 return 0;
 
         log_lldp_rx(lldp_rx, "Stopping LLDP client");
@@ -295,7 +299,7 @@ _public_ int sd_lldp_rx_attach_event(sd_lldp_rx *lldp_rx, sd_event *event, int64
         int r;
 
         assert_return(lldp_rx, -EINVAL);
-        assert_return(lldp_rx->fd < 0, -EBUSY);
+        assert_return(!sd_lldp_rx_is_running(lldp_rx), -EBUSY);
         assert_return(!lldp_rx->event, -EBUSY);
 
         if (event)
@@ -312,9 +316,8 @@ _public_ int sd_lldp_rx_attach_event(sd_lldp_rx *lldp_rx, sd_event *event, int64
 }
 
 _public_ int sd_lldp_rx_detach_event(sd_lldp_rx *lldp_rx) {
-
         assert_return(lldp_rx, -EINVAL);
-        assert_return(lldp_rx->fd < 0, -EBUSY);
+        assert_return(!sd_lldp_rx_is_running(lldp_rx), -EBUSY);
 
         lldp_rx->event = sd_event_unref(lldp_rx->event);
         return 0;
@@ -338,7 +341,7 @@ _public_ int sd_lldp_rx_set_callback(sd_lldp_rx *lldp_rx, sd_lldp_rx_callback_t 
 _public_ int sd_lldp_rx_set_ifindex(sd_lldp_rx *lldp_rx, int ifindex) {
         assert_return(lldp_rx, -EINVAL);
         assert_return(ifindex > 0, -EINVAL);
-        assert_return(lldp_rx->fd < 0, -EBUSY);
+        assert_return(!sd_lldp_rx_is_running(lldp_rx), -EBUSY);
 
         lldp_rx->ifindex = ifindex;
         return 0;
