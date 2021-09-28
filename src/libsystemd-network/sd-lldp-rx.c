@@ -403,10 +403,6 @@ _public_ int sd_lldp_rx_new(sd_lldp_rx **ret) {
         return 0;
 }
 
-static int neighbor_compare_func(sd_lldp_neighbor * const *a, sd_lldp_neighbor * const *b) {
-        return lldp_neighbor_id_compare_func(&(*a)->id, &(*b)->id);
-}
-
 static int on_timer_event(sd_event_source *s, uint64_t usec, void *userdata) {
         sd_lldp_rx *lldp_rx = userdata;
         int r;
@@ -446,6 +442,15 @@ static int lldp_rx_start_timer(sd_lldp_rx *lldp_rx, sd_lldp_neighbor *neighbor) 
                                 n->until, 0,
                                 on_timer_event, lldp_rx,
                                 lldp_rx->event_priority, "lldp-rx-timer", true);
+}
+
+static inline int neighbor_compare_func(sd_lldp_neighbor * const *a, sd_lldp_neighbor * const *b) {
+        assert(a);
+        assert(b);
+        assert(*a);
+        assert(*b);
+
+        return lldp_neighbor_id_compare_func(&(*a)->id, &(*b)->id);
 }
 
 _public_ int sd_lldp_rx_get_neighbors(sd_lldp_rx *lldp_rx, sd_lldp_neighbor ***ret) {
