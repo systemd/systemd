@@ -9,8 +9,8 @@
 #include "sd-event.h"
 
 #include "dhcp-internal.h"
+#include "network-common.h"
 #include "ordered-set.h"
-#include "log-link.h"
 #include "time-util.h"
 
 typedef enum DHCPRawOption {
@@ -112,10 +112,10 @@ int client_id_compare_func(const DHCPClientId *a, const DHCPClientId *b);
 #define log_dhcp_server_errno(server, error, fmt, ...)          \
         log_interface_prefix_full_errno(                        \
                 "DHCPv4 server: ",                              \
-                sd_dhcp_server_get_ifname(server),              \
+                sd_dhcp_server, server,                         \
                 error, fmt, ##__VA_ARGS__)
 #define log_dhcp_server(server, fmt, ...)                       \
         log_interface_prefix_full_errno_zerook(                 \
                 "DHCPv4 server: ",                              \
-                sd_dhcp_server_get_ifname(server),              \
+                sd_dhcp_server, server,                         \
                 0, fmt, ##__VA_ARGS__)

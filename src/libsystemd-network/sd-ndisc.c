@@ -74,11 +74,19 @@ int sd_ndisc_set_ifname(sd_ndisc *nd, const char *ifname) {
         return free_and_strdup(&nd->ifname, ifname);
 }
 
-const char *sd_ndisc_get_ifname(sd_ndisc *nd) {
-        if (!nd)
-                return NULL;
+int sd_ndisc_get_ifname(sd_ndisc *nd, const char **ret) {
+        int r;
 
-        return get_ifname(nd->ifindex, &nd->ifname);
+        assert_return(nd, -EINVAL);
+
+        r = get_ifname(nd->ifindex, &nd->ifname);
+        if (r < 0)
+                return r;
+
+        if (ret)
+                *ret = nd->ifname;
+
+        return 0;
 }
 
 _public_ int sd_ndisc_set_mac(sd_ndisc *nd, const struct ether_addr *mac_addr) {

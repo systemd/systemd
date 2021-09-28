@@ -297,11 +297,19 @@ int sd_dhcp_client_set_ifname(sd_dhcp_client *client, const char *ifname) {
         return free_and_strdup(&client->ifname, ifname);
 }
 
-const char *sd_dhcp_client_get_ifname(sd_dhcp_client *client) {
-        if (!client)
-                return NULL;
+int sd_dhcp_client_get_ifname(sd_dhcp_client *client, const char **ret) {
+        int r;
 
-        return get_ifname(client->ifindex, &client->ifname);
+        assert_return(client, -EINVAL);
+
+        r = get_ifname(client->ifindex, &client->ifname);
+        if (r < 0)
+                return r;
+
+        if (ret)
+                *ret = client->ifname;
+
+        return 0;
 }
 
 int sd_dhcp_client_set_mac(

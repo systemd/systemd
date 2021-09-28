@@ -59,7 +59,7 @@ sd_event *sd_lldp_rx_get_event(sd_lldp_rx *lldp_rx);
 int sd_lldp_rx_set_callback(sd_lldp_rx *lldp_rx, sd_lldp_rx_callback_t cb, void *userdata);
 int sd_lldp_rx_set_ifindex(sd_lldp_rx *lldp_rx, int ifindex);
 int sd_lldp_rx_set_ifname(sd_lldp_rx *lldp_rx, const char *ifname);
-const char *sd_lldp_rx_get_ifname(sd_lldp_rx *lldp_rx);
+int sd_lldp_rx_get_ifname(sd_lldp_rx *lldp_rx, const char **ret);
 
 /* Controls how much and what to store in the neighbors database */
 int sd_lldp_rx_set_neighbors_max(sd_lldp_rx *lldp_rx, uint64_t n);

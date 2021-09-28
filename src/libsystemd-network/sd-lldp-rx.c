@@ -359,11 +359,19 @@ int sd_lldp_rx_set_ifname(sd_lldp_rx *lldp_rx, const char *ifname) {
         return free_and_strdup(&lldp_rx->ifname, ifname);
 }
 
-const char *sd_lldp_rx_get_ifname(sd_lldp_rx *lldp_rx) {
-        if (!lldp_rx)
-                return NULL;
+int sd_lldp_rx_get_ifname(sd_lldp_rx *lldp_rx, const char **ret) {
+        int r;
 
-        return get_ifname(lldp_rx->ifindex, &lldp_rx->ifname);
+        assert_return(lldp_rx, -EINVAL);
+
+        r = get_ifname(lldp_rx->ifindex, &lldp_rx->ifname);
+        if (r < 0)
+                return r;
+
+        if (ret)
+                *ret = lldp_rx->ifname;
+
+        return 0;
 }
 
 static sd_lldp_rx *lldp_rx_free(sd_lldp_rx *lldp_rx) {

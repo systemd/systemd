@@ -3,16 +3,13 @@
 #include "format-util.h"
 #include "network-common.h"
 
-const char *get_ifname(int ifindex, char **ifname) {
+int get_ifname(int ifindex, char **ifname) {
         assert(ifname);
 
         /* This sets ifname only when it is not set yet. */
 
         if (*ifname)
-                return *ifname;
+                return 0;
 
-        if (format_ifname_alloc(ifindex, ifname) < 0)
-                return NULL;
-
-        return *ifname;
+        return format_ifname_alloc(ifindex, ifname);
 }

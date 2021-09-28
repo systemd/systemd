@@ -13,8 +13,8 @@
 
 #include "hashmap.h"
 #include "list.h"
-#include "log-link.h"
 #include "macro.h"
+#include "network-common.h"
 #include "sparse-endian.h"
 
 typedef struct sd_dhcp6_option {
@@ -125,10 +125,10 @@ void dhcp6_client_set_test_mode(sd_dhcp6_client *client, bool test_mode);
 #define log_dhcp6_client_errno(client, error, fmt, ...)         \
         log_interface_prefix_full_errno(                        \
                 "DHCPv6 client: ",                              \
-                sd_dhcp6_client_get_ifname(client),             \
+                sd_dhcp6_client, client,                        \
                 error, fmt, ##__VA_ARGS__)
 #define log_dhcp6_client(client, fmt, ...)                      \
         log_interface_prefix_full_errno_zerook(                 \
                 "DHCPv6 client: ",                              \
-                sd_dhcp6_client_get_ifname(client),             \
+                sd_dhcp6_client, client,                        \
                 0, fmt, ##__VA_ARGS__)

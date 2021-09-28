@@ -38,7 +38,7 @@ enum {
 int sd_dhcp_server_new(sd_dhcp_server **ret, int ifindex);
 
 int sd_dhcp_server_set_ifname(sd_dhcp_server *server, const char *ifname);
-const char *sd_dhcp_server_get_ifname(sd_dhcp_server *server);
+int sd_dhcp_server_get_ifname(sd_dhcp_server *server, const char **ret);
 
 sd_dhcp_server *sd_dhcp_server_ref(sd_dhcp_server *server);
 sd_dhcp_server *sd_dhcp_server_unref(sd_dhcp_server *server);

@@ -12,7 +12,6 @@
 #include "ether-addr-util.h"
 #include "fd-util.h"
 #include "hostname-util.h"
-#include "log-link.h"
 #include "network-common.h"
 #include "random-util.h"
 #include "socket-util.h"
@@ -70,12 +69,12 @@ struct sd_lldp_tx {
 #define log_lldp_tx_errno(lldp_tx, error, fmt, ...)     \
         log_interface_prefix_full_errno(                \
                 "LLDP Tx: ",                            \
-                sd_lldp_tx_get_ifname(lldp_tx),         \
+                sd_lldp_tx, lldp_tx,                    \
                 error, fmt, ##__VA_ARGS__)
 #define log_lldp_tx(lldp_tx, fmt, ...)                  \
         log_interface_prefix_full_errno_zerook(         \
                 "LLDP Tx: ",                            \
-                sd_lldp_tx_get_ifname(lldp_tx),         \
+                sd_lldp_tx, lldp_tx,                    \
                 0, fmt, ##__VA_ARGS__)
 
 static sd_lldp_tx *lldp_tx_free(sd_lldp_tx *lldp_tx) {
@@ -131,11 +130,19 @@ int sd_lldp_tx_set_ifname(sd_lldp_tx *lldp_tx, const char *ifname) {
         return free_and_strdup(&lldp_tx->ifname, ifname);
 }
 
-const char *sd_lldp_tx_get_ifname(sd_lldp_tx *lldp_tx) {
-        if (!lldp_tx)
-                return NULL;
+int sd_lldp_tx_get_ifname(sd_lldp_tx *lldp_tx, const char **ret) {
+        int r;
 
-        return get_ifname(lldp_tx->ifindex, &lldp_tx->ifname);
+        assert_return(lldp_tx, -EINVAL);
+
+        r = get_ifname(lldp_tx->ifindex, &lldp_tx->ifname);
+        if (r < 0)
+                return r;
+
+        if (ret)
+                *ret = lldp_tx->ifname;
+
+        return 0;
 }
 
 int sd_lldp_tx_set_multicast_mode(sd_lldp_tx *lldp_tx, sd_lldp_multicast_mode_t mode) {
@@ -222,7 +229,7 @@ static size_t lldp_tx_calculate_maximum_packet_size(sd_lldp_tx *lldp_tx, const c
                 /* Chassis ID */
                 2 + 1 + (SD_ID128_STRING_MAX - 1) +
                 /* Port ID */
-                2 + 1 + strlen_ptr(sd_lldp_tx_get_ifname(lldp_tx)) +
+                2 + 1 + strlen_ptr(lldp_tx->ifname) +
                 /* Port description */
                 2 + strlen_ptr(lldp_tx->port_description) +
                 /* System name */
@@ -334,6 +341,11 @@ static int lldp_tx_create_packet(sd_lldp_tx *lldp_tx, size_t *ret_packet_size, u
         assert(ret_packet_size);
         assert(ret_packet);
 
+        /* If ifname is not set yet, set ifname from ifindex. */
+        r = sd_lldp_tx_get_ifname(lldp_tx, NULL);
+        if (r < 0)
+                return r;
+
         r = sd_id128_get_machine(&machine_id);
         if (r < 0)
                 return r;
@@ -365,7 +377,7 @@ static int lldp_tx_create_packet(sd_lldp_tx *lldp_tx, size_t *ret_packet_size, u
 
         r = packet_append_prefixed_string(packet, packet_size, &offset, SD_LLDP_TYPE_PORT_ID,
                                           1, (const uint8_t[]) { SD_LLDP_PORT_SUBTYPE_INTERFACE_NAME },
-                                          sd_lldp_tx_get_ifname(lldp_tx));
+                                          lldp_tx->ifname);
         if (r < 0)
                 return r;
 

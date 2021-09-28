@@ -230,11 +230,19 @@ int sd_dhcp_server_set_ifname(sd_dhcp_server *server, const char *ifname) {
         return free_and_strdup(&server->ifname, ifname);
 }
 
-const char *sd_dhcp_server_get_ifname(sd_dhcp_server *server) {
-        if (!server)
-                return NULL;
+int sd_dhcp_server_get_ifname(sd_dhcp_server *server, const char **ret) {
+        int r;
 
-        return get_ifname(server->ifindex, &server->ifname);
+        assert_return(server, -EINVAL);
+
+        r = get_ifname(server->ifindex, &server->ifname);
+        if (r < 0)
+                return r;
+
+        if (ret)
+                *ret = server->ifname;
+
+        return 0;
 }
 
 int sd_dhcp_server_attach_event(sd_dhcp_server *server, sd_event *event, int64_t priority) {

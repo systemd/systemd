@@ -12,7 +12,7 @@
 #include "sd-dhcp-client.h"
 
 #include "dhcp-protocol.h"
-#include "log-link.h"
+#include "network-common.h"
 #include "socket-util.h"
 
 typedef struct sd_dhcp_option {
@@ -75,10 +75,10 @@ void dhcp_client_set_test_mode(sd_dhcp_client *client, bool test_mode);
 #define log_dhcp_client_errno(client, error, fmt, ...)          \
         log_interface_prefix_full_errno(                        \
                 "DHCPv4 client: ",                              \
-                sd_dhcp_client_get_ifname(client),              \
+                sd_dhcp_client, client,                         \
                 error, fmt, ##__VA_ARGS__)
 #define log_dhcp_client(client, fmt, ...)                       \
         log_interface_prefix_full_errno_zerook(                 \
                 "DHCPv4 client: ",                              \
-                sd_dhcp_client_get_ifname(client),              \
+                sd_dhcp_client, client,                         \
                 0, fmt, ##__VA_ARGS__)
