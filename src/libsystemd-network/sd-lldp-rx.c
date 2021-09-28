@@ -426,6 +426,7 @@ static int lldp_rx_start_timer(sd_lldp_rx *lldp_rx, sd_lldp_neighbor *neighbor) 
         sd_lldp_neighbor *n;
 
         assert(lldp_rx);
+        assert(lldp_rx->event);
 
         if (neighbor)
                 lldp_neighbor_start_ttl(neighbor);
@@ -433,9 +434,6 @@ static int lldp_rx_start_timer(sd_lldp_rx *lldp_rx, sd_lldp_neighbor *neighbor) 
         n = prioq_peek(lldp_rx->neighbor_by_expiry);
         if (!n)
                 return event_source_disable(lldp_rx->timer_event_source);
-
-        if (!lldp_rx->event)
-                return 0;
 
         return event_reset_time(lldp_rx->event, &lldp_rx->timer_event_source,
                                 clock_boottime_or_monotonic(),
