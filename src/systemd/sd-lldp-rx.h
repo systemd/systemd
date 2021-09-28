@@ -50,6 +50,7 @@ sd_lldp_rx *sd_lldp_rx_unref(sd_lldp_rx *lldp_rx);
 
 int sd_lldp_rx_start(sd_lldp_rx *lldp_rx);
 int sd_lldp_rx_stop(sd_lldp_rx *lldp_rx);
+int sd_lldp_rx_is_running(sd_lldp_rx *lldp_rx);
 
 int sd_lldp_rx_attach_event(sd_lldp_rx *lldp_rx, sd_event *event, int64_t priority);
 int sd_lldp_rx_detach_event(sd_lldp_rx *lldp_rx);

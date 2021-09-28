@@ -147,11 +147,11 @@ static int lldp_rx_add_neighbor(sd_lldp_rx *lldp_rx, sd_lldp_neighbor *n) {
         /* Then, make room for at least one new neighbor */
         lldp_rx_make_space(lldp_rx, 1);
 
-        r = hashmap_put(lldp_rx->neighbor_by_id, &n->id, n);
+        r = hashmap_ensure_put(&lldp_rx->neighbor_by_id, &lldp_neighbor_hash_ops, &n->id, n);
         if (r < 0)
                 goto finish;
 
-        r = prioq_put(lldp_rx->neighbor_by_expiry, n, &n->prioq_idx);
+        r = prioq_ensure_put(&lldp_rx->neighbor_by_expiry, &lldp_neighbor_prioq_compare_func, n, &n->prioq_idx);
         if (r < 0) {
                 assert_se(hashmap_remove(lldp_rx->neighbor_by_id, &n->id) == n);
                 goto finish;
@@ -178,16 +178,12 @@ static int lldp_rx_handle_datagram(sd_lldp_rx *lldp_rx, sd_lldp_neighbor *n) {
         assert(n);
 
         r = lldp_neighbor_parse(n);
-        if (r == -EBADMSG) /* Ignore bad messages */
-                return 0;
         if (r < 0)
                 return r;
 
         r = lldp_rx_add_neighbor(lldp_rx, n);
-        if (r < 0) {
-                log_lldp_rx_errno(lldp_rx, r, "Failed to add datagram. Ignoring.");
-                return 0;
-        }
+        if (r < 0)
+                return log_lldp_rx_errno(lldp_rx, r, "Failed to add datagram. Ignoring.");
 
         log_lldp_rx(lldp_rx, "Successfully processed LLDP datagram.");
         return 0;
@@ -209,8 +205,10 @@ static int lldp_rx_receive_datagram(sd_event_source *s, int fd, uint32_t revents
         }
 
         n = lldp_neighbor_new(space);
-        if (!n)
-                return -ENOMEM;
+        if (!n) {
+                log_oom_debug();
+                return 0;
+        }
 
         length = recv(fd, LLDP_NEIGHBOR_RAW(n), n->raw_size, MSG_DONTWAIT);
         if (length < 0) {
@@ -232,7 +230,8 @@ static int lldp_rx_receive_datagram(sd_event_source *s, int fd, uint32_t revents
         else
                 triple_timestamp_get(&n->timestamp);
 
-        return lldp_rx_handle_datagram(lldp_rx, n);
+        (void) lldp_rx_handle_datagram(lldp_rx, n);
+        return 0;
 }
 
 static void lldp_rx_reset(sd_lldp_rx *lldp_rx) {
@@ -243,6 +242,13 @@ static void lldp_rx_reset(sd_lldp_rx *lldp_rx) {
         lldp_rx->fd = safe_close(lldp_rx->fd);
 }
 
+int sd_lldp_rx_is_running(sd_lldp_rx *lldp_rx) {
+        if (!lldp_rx)
+                return false;
+
+        return lldp_rx->fd >= 0;
+}
+
 _public_ int sd_lldp_rx_start(sd_lldp_rx *lldp_rx) {
         int r;
 
@@ -250,7 +256,7 @@ _public_ int sd_lldp_rx_start(sd_lldp_rx *lldp_rx) {
         assert_return(lldp_rx->event, -EINVAL);
         assert_return(lldp_rx->ifindex > 0, -EINVAL);
 
-        if (lldp_rx->fd >= 0)
+        if (sd_lldp_rx_is_running(lldp_rx))
                 return 0;
 
         assert(!lldp_rx->io_event_source);
@@ -278,10 +284,7 @@ fail:
 }
 
 _public_ int sd_lldp_rx_stop(sd_lldp_rx *lldp_rx) {
-        if (!lldp_rx)
-                return 0;
-
-        if (lldp_rx->fd < 0)
+        if (!sd_lldp_rx_is_running(lldp_rx))
                 return 0;
 
         log_lldp_rx(lldp_rx, "Stopping LLDP client");
@@ -296,7 +299,7 @@ _public_ int sd_lldp_rx_attach_event(sd_lldp_rx *lldp_rx, sd_event *event, int64
         int r;
 
         assert_return(lldp_rx, -EINVAL);
-        assert_return(lldp_rx->fd < 0, -EBUSY);
+        assert_return(!sd_lldp_rx_is_running(lldp_rx), -EBUSY);
         assert_return(!lldp_rx->event, -EBUSY);
 
         if (event)
@@ -313,10 +316,11 @@ _public_ int sd_lldp_rx_attach_event(sd_lldp_rx *lldp_rx, sd_event *event, int64
 }
 
 _public_ int sd_lldp_rx_detach_event(sd_lldp_rx *lldp_rx) {
-
         assert_return(lldp_rx, -EINVAL);
-        assert_return(lldp_rx->fd < 0, -EBUSY);
+        assert_return(!sd_lldp_rx_is_running(lldp_rx), -EBUSY);
 
+        lldp_rx->io_event_source = sd_event_source_disable_unref(lldp_rx->io_event_source);
+        lldp_rx->timer_event_source = sd_event_source_disable_unref(lldp_rx->timer_event_source);
         lldp_rx->event = sd_event_unref(lldp_rx->event);
         return 0;
 }
@@ -339,7 +343,7 @@ _public_ int sd_lldp_rx_set_callback(sd_lldp_rx *lldp_rx, sd_lldp_rx_callback_t 
 _public_ int sd_lldp_rx_set_ifindex(sd_lldp_rx *lldp_rx, int ifindex) {
         assert_return(lldp_rx, -EINVAL);
         assert_return(ifindex > 0, -EINVAL);
-        assert_return(lldp_rx->fd < 0, -EBUSY);
+        assert_return(!sd_lldp_rx_is_running(lldp_rx), -EBUSY);
 
         lldp_rx->ifindex = ifindex;
         return 0;
@@ -363,11 +367,11 @@ const char *sd_lldp_rx_get_ifname(sd_lldp_rx *lldp_rx) {
 }
 
 static sd_lldp_rx *lldp_rx_free(sd_lldp_rx *lldp_rx) {
-        assert(lldp_rx);
+        if (!lldp_rx)
+                return NULL;
 
         lldp_rx_reset(lldp_rx);
 
-        sd_event_source_unref(lldp_rx->timer_event_source);
         sd_lldp_rx_detach_event(lldp_rx);
 
         lldp_rx_flush_neighbors(lldp_rx);
@@ -382,7 +386,6 @@ DEFINE_PUBLIC_TRIVIAL_REF_UNREF_FUNC(sd_lldp_rx, sd_lldp_rx, lldp_rx_free);
 
 _public_ int sd_lldp_rx_new(sd_lldp_rx **ret) {
         _cleanup_(sd_lldp_rx_unrefp) sd_lldp_rx *lldp_rx = NULL;
-        int r;
 
         assert_return(ret, -EINVAL);
 
@@ -397,21 +400,8 @@ _public_ int sd_lldp_rx_new(sd_lldp_rx **ret) {
                 .capability_mask = UINT16_MAX,
         };
 
-        lldp_rx->neighbor_by_id = hashmap_new(&lldp_neighbor_hash_ops);
-        if (!lldp_rx->neighbor_by_id)
-                return -ENOMEM;
-
-        r = prioq_ensure_allocated(&lldp_rx->neighbor_by_expiry, lldp_neighbor_prioq_compare_func);
-        if (r < 0)
-                return r;
-
         *ret = TAKE_PTR(lldp_rx);
-
         return 0;
-}
-
-static int neighbor_compare_func(sd_lldp_neighbor * const *a, sd_lldp_neighbor * const *b) {
-        return lldp_neighbor_id_compare_func(&(*a)->id, &(*b)->id);
 }
 
 static int on_timer_event(sd_event_source *s, uint64_t usec, void *userdata) {
@@ -437,6 +427,7 @@ static int lldp_rx_start_timer(sd_lldp_rx *lldp_rx, sd_lldp_neighbor *neighbor) 
         sd_lldp_neighbor *n;
 
         assert(lldp_rx);
+        assert(lldp_rx->event);
 
         if (neighbor)
                 lldp_neighbor_start_ttl(neighbor);
@@ -445,9 +436,6 @@ static int lldp_rx_start_timer(sd_lldp_rx *lldp_rx, sd_lldp_neighbor *neighbor) 
         if (!n)
                 return event_source_disable(lldp_rx->timer_event_source);
 
-        if (!lldp_rx->event)
-                return 0;
-
         return event_reset_time(lldp_rx->event, &lldp_rx->timer_event_source,
                                 clock_boottime_or_monotonic(),
                                 n->until, 0,
@@ -455,9 +443,19 @@ static int lldp_rx_start_timer(sd_lldp_rx *lldp_rx, sd_lldp_neighbor *neighbor) 
                                 lldp_rx->event_priority, "lldp-rx-timer", true);
 }
 
+static inline int neighbor_compare_func(sd_lldp_neighbor * const *a, sd_lldp_neighbor * const *b) {
+        assert(a);
+        assert(b);
+        assert(*a);
+        assert(*b);
+
+        return lldp_neighbor_id_compare_func(&(*a)->id, &(*b)->id);
+}
+
 _public_ int sd_lldp_rx_get_neighbors(sd_lldp_rx *lldp_rx, sd_lldp_neighbor ***ret) {
-        sd_lldp_neighbor **l = NULL, *n;
-        int k = 0, r;
+        _cleanup_free_ sd_lldp_neighbor **l = NULL;
+        sd_lldp_neighbor *n;
+        int k = 0;
 
         assert_return(lldp_rx, -EINVAL);
         assert_return(ret, -EINVAL);
@@ -471,12 +469,6 @@ _public_ int sd_lldp_rx_get_neighbors(sd_lldp_rx *lldp_rx, sd_lldp_neighbor ***r
         if (!l)
                 return -ENOMEM;
 
-        r = lldp_rx_start_timer(lldp_rx, NULL);
-        if (r < 0) {
-                free(l);
-                return r;
-        }
-
         HASHMAP_FOREACH(n, lldp_rx->neighbor_by_id)
                 l[k++] = sd_lldp_neighbor_ref(n);
 
@@ -484,7 +476,7 @@ _public_ int sd_lldp_rx_get_neighbors(sd_lldp_rx *lldp_rx, sd_lldp_neighbor ***r
 
         /* Return things in a stable order */
         typesafe_qsort(l, k, neighbor_compare_func);
-        *ret = l;
+        *ret = TAKE_PTR(l);
 
         return k;
 }
