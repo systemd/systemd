@@ -13,6 +13,7 @@
 
 #include "alloc-util.h"
 #include "errno-util.h"
+#include "mkdir.h"
 #include "time-util.h"
 
 #define MODE_INVALID ((mode_t) -1)
@@ -153,3 +154,8 @@ static inline int conservative_rename(const char *oldpath, const char *newpath) 
 }
 
 int posix_fallocate_loop(int fd, uint64_t offset, uint64_t size);
+
+/* Given an optional root directory and a list of src:dst pairs,
+ * create the leading destination directories and a symlink if it
+ * does not exist already. */
+int create_symlinks_from_tuples(const char *root, char **strv_symlinks, mkdir_func_t _mkdir);
