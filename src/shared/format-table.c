@@ -1665,16 +1665,9 @@ static const char *table_data_format(Table *t, TableData *d, bool avoid_uppercas
 
         case TABLE_IFINDEX: {
                 _cleanup_free_ char *p = NULL;
-                char name[IF_NAMESIZE + 1];
 
-                if (format_ifname(d->ifindex, name)) {
-                        p = strdup(name);
-                        if (!p)
-                                return NULL;
-                } else {
-                        if (asprintf(&p, "%i" , d->ifindex) < 0)
-                                return NULL;
-                }
+                if (format_ifname_full_alloc(d->ifindex, FORMAT_IFNAME_IFINDEX, &p) < 0)
+                        return NULL;
 
                 d->formatted = TAKE_PTR(p);
                 break;

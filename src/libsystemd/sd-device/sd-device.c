@@ -284,12 +284,12 @@ _public_ int sd_device_new_from_ifname(sd_device **ret, const char *ifname) {
 }
 
 _public_ int sd_device_new_from_ifindex(sd_device **ret, int ifindex) {
-        char ifname[IF_NAMESIZE + 1];
+        char ifname[IF_NAMESIZE];
 
         assert_return(ret, -EINVAL);
         assert_return(ifindex > 0, -EINVAL);
 
-        if (!format_ifname(ifindex, ifname))
+        if (format_ifname(ifindex, ifname) < 0)
                 return -ENODEV;
 
         return device_new_from_main_ifname(ret, ifname);
