@@ -2365,9 +2365,16 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
 
                 entry = config.entries[config.idx_default];
                 if (menu) {
+                        BOOLEAN exit;
+
                         efivar_set_time_usec(LOADER_GUID, L"LoaderTimeMenuUSec", 0);
+
+                        /* Disable watchdog for the menu and rearm it right after. */
                         uefi_call_wrapper(BS->SetWatchdogTimer, 4, 0, 0x10000, 0, NULL);
-                        if (!menu_run(&config, &entry, loaded_image_path))
+                        exit = !menu_run(&config, &entry, loaded_image_path);
+                        uefi_call_wrapper(BS->SetWatchdogTimer, 4, 5 * 60, 0x10000, 0, NULL);
+
+                        if (exit)
                                 break;
                 }
 
@@ -2385,7 +2392,6 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
                 /* Optionally, read a random seed off the ESP and pass it to the OS */
                 (VOID) process_random_seed(root_dir, config.random_seed_mode);
 
-                uefi_call_wrapper(BS->SetWatchdogTimer, 4, 5 * 60, 0x10000, 0, NULL);
                 err = image_start(root_dir, image, &config, entry);
                 if (EFI_ERROR(err)) {
                         graphics_mode(FALSE);
