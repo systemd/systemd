@@ -709,6 +709,10 @@ endif
 
 default_net_naming_scheme = get_option('default-net-naming-scheme')
 conf.set_quoted('DEFAULT_NET_NAMING_SCHEME', default_net_naming_scheme)
+if default_net_naming_scheme != 'latest'
+        conf.set('_DEFAULT_NET_NAMING_SCHEME_TEST',
+                 'NAMING_' + default_net_naming_scheme.underscorify().to_upper())
+endif
 
 time_epoch = get_option('time-epoch')
 if time_epoch == -1

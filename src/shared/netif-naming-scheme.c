@@ -5,6 +5,13 @@
 #include "proc-cmdline.h"
 #include "string-util.h"
 
+#ifdef _DEFAULT_NET_NAMING_SCHEME_TEST
+/* The primary purpose of this check is to verify that _DEFAULT_NET_NAMING_SCHEME_TEST
+ * is a valid identifier. If an invalid name is given during configuration, this will
+ * fail with a name error. */
+assert_cc(_DEFAULT_NET_NAMING_SCHEME_TEST >= 0);
+#endif
+
 static const NamingScheme naming_schemes[] = {
         { "v238", NAMING_V238 },
         { "v239", NAMING_V239 },
@@ -15,10 +22,9 @@ static const NamingScheme naming_schemes[] = {
         { "v247", NAMING_V247 },
         { "v249", NAMING_V249 },
         /* … add more schemes here, as the logic to name devices is updated … */
-        /* also remember to update the list of options in meson_options.txt */
 };
 
-static const NamingScheme* naming_scheme_from_name(const char *name) {
+const NamingScheme* naming_scheme_from_name(const char *name) {
         if (streq(name, "latest"))
                 return naming_schemes + ELEMENTSOF(naming_schemes) - 1;
 
