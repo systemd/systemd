@@ -7,8 +7,8 @@
 
 #include "sd-radv.h"
 
-#include "log-link.h"
 #include "list.h"
+#include "network-common.h"
 #include "sparse-endian.h"
 
 assert_cc(SD_RADV_DEFAULT_MIN_TIMEOUT_USEC <= SD_RADV_DEFAULT_MAX_TIMEOUT_USEC);
@@ -128,10 +128,10 @@ struct sd_radv_route_prefix {
 #define log_radv_errno(radv, error, fmt, ...)           \
         log_interface_prefix_full_errno(                \
                 "RADV: ",                               \
-                sd_radv_get_ifname(radv),               \
+                sd_radv, radv,                          \
                 error, fmt, ##__VA_ARGS__)
 #define log_radv(radv, fmt, ...)                        \
         log_interface_prefix_full_errno_zerook(         \
                 "RADV: ",                               \
-                sd_radv_get_ifname(radv),               \
+                sd_radv, radv,                          \
                 0, fmt, ##__VA_ARGS__)
