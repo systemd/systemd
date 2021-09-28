@@ -438,11 +438,19 @@ int sd_radv_set_ifname(sd_radv *ra, const char *ifname) {
         return free_and_strdup(&ra->ifname, ifname);
 }
 
-const char *sd_radv_get_ifname(sd_radv *ra) {
-        if (!ra)
-                return NULL;
+int sd_radv_get_ifname(sd_radv *ra, const char **ret) {
+        int r;
 
-        return get_ifname(ra->ifindex, &ra->ifname);
+        assert_return(ra, -EINVAL);
+
+        r = get_ifname(ra->ifindex, &ra->ifname);
+        if (r < 0)
+                return r;
+
+        if (ret)
+                *ret = ra->ifname;
+
+        return 0;
 }
 
 _public_ int sd_radv_set_mac(sd_radv *ra, const struct ether_addr *mac_addr) {

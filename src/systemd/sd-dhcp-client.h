@@ -135,7 +135,7 @@ int sd_dhcp_client_set_ifindex(
 int sd_dhcp_client_set_ifname(
                 sd_dhcp_client *client,
                 const char *interface_name);
-const char *sd_dhcp_client_get_ifname(sd_dhcp_client *client);
+int sd_dhcp_client_get_ifname(sd_dhcp_client *client, const char **ret);
 int sd_dhcp_client_set_mac(
                 sd_dhcp_client *client,
                 const uint8_t *addr,
