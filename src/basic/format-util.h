@@ -61,10 +61,21 @@ typedef enum {
         FORMAT_IFNAME_IFINDEX_WITH_PERCENT = (1 << 1) | FORMAT_IFNAME_IFINDEX,
 } FormatIfnameFlag;
 
-char *format_ifname_full(int ifindex, char buf[static IF_NAMESIZE + 1], FormatIfnameFlag flag);
+int format_ifname_full_with_negative_errno(int ifindex, char buf[static IF_NAMESIZE + 1], FormatIfnameFlag flag);
+static inline int format_ifname_with_negative_errno(int ifindex, char buf[static IF_NAMESIZE + 1]) {
+        return format_ifname_full_with_negative_errno(ifindex, buf, 0);
+}
+static inline char *format_ifname_full(int ifindex, char buf[static IF_NAMESIZE + 1], FormatIfnameFlag flag) {
+        if (format_ifname_full_with_negative_errno(ifindex, buf, flag) < 0)
+                return NULL;
+        return buf;
+}
 static inline char *format_ifname(int ifindex, char buf[static IF_NAMESIZE + 1]) {
         return format_ifname_full(ifindex, buf, 0);
 }
+
+#define FORMAT_IFNAME(index) format_ifname(index, (char[IF_NAMESIZE + 1]){})
+#define FORMAT_IFNAME_FULL(index, flag) format_ifname_full(index, (char[IF_NAMESIZE + 1]){}, flag)
 
 typedef enum {
         FORMAT_BYTES_USE_IEC     = 1 << 0,

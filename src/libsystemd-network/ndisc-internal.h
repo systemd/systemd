@@ -42,12 +42,22 @@ const char* ndisc_event_to_string(sd_ndisc_event_t e) _const_;
 sd_ndisc_event_t ndisc_event_from_string(const char *s) _pure_;
 
 #define log_ndisc_errno(ndisc, error, fmt, ...)         \
-        log_interface_prefix_full_errno(                \
-                "NDISC: ",                              \
-                sd_ndisc_get_ifname(ndisc),             \
-                error, fmt, ##__VA_ARGS__)
+        ({                                              \
+                sd_ndisc *_c = (ndisc);                 \
+                const char *_n = NULL;                  \
+                                                        \
+                (void) sd_ndisc_get_ifname(_c, &_n);    \
+                log_interface_prefix_full_errno(        \
+                        "NDISC: ",                      \
+                        _n, error, fmt, ##__VA_ARGS__); \
+        })
 #define log_ndisc(ndisc, fmt, ...)                      \
-        log_interface_prefix_full_errno_zerook(         \
-                "NDISC: ",                              \
-                sd_ndisc_get_ifname(ndisc),             \
-                0, fmt, ##__VA_ARGS__)
+        ({                                              \
+                sd_ndisc *_c = (ndisc);                 \
+                const char *_n = NULL;                  \
+                                                        \
+                (void) sd_ndisc_get_ifname(_c, &_n);    \
+                log_interface_prefix_full_errno_zerook( \
+                        "NDISC: ",                      \
+                        _n, 0, fmt, ##__VA_ARGS__);     \
+        })

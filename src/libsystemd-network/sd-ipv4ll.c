@@ -53,15 +53,25 @@ struct sd_ipv4ll {
 };
 
 #define log_ipv4ll_errno(ll, error, fmt, ...)           \
-        log_interface_prefix_full_errno(                \
-                "IPv4LL: ",                             \
-                sd_ipv4ll_get_ifname(ll),               \
-                error, fmt, ##__VA_ARGS__)
+        ({                                              \
+                sd_ipv4ll *_l = (ll);                   \
+                const char *_n = NULL;                  \
+                                                        \
+                (void) sd_ipv4ll_get_ifname(_l, &_n);   \
+                log_interface_prefix_full_errno(        \
+                        "IPv4LL: ",                     \
+                        _n, error, fmt, ##__VA_ARGS__); \
+        })
 #define log_ipv4ll(ll, fmt, ...)                        \
-        log_interface_prefix_full_errno_zerook(         \
-                "IPv4LL: ",                             \
-                sd_ipv4ll_get_ifname(ll),               \
-                0, fmt, ##__VA_ARGS__)
+        ({                                              \
+                sd_ipv4ll *_l = (ll);                   \
+                const char *_n = NULL;                  \
+                                                        \
+                (void) sd_ipv4ll_get_ifname(_l, &_n);   \
+                log_interface_prefix_full_errno_zerook( \
+                        "IPv4LL: ",                     \
+                        _n, 0, fmt, ##__VA_ARGS__);     \
+        })
 
 static void ipv4ll_on_acd(sd_ipv4acd *acd, int event, void *userdata);
 static int ipv4ll_check_mac(sd_ipv4acd *acd, const struct ether_addr *mac, void *userdata);
@@ -133,11 +143,10 @@ int sd_ipv4ll_set_ifname(sd_ipv4ll *ll, const char *ifname) {
         return sd_ipv4acd_set_ifname(ll->acd, ifname);
 }
 
-const char *sd_ipv4ll_get_ifname(sd_ipv4ll *ll) {
-        if (!ll)
-                return NULL;
+int sd_ipv4ll_get_ifname(sd_ipv4ll *ll, const char **ret) {
+        assert_return(ll, -EINVAL);
 
-        return sd_ipv4acd_get_ifname(ll->acd);
+        return sd_ipv4acd_get_ifname(ll->acd, ret);
 }
 
 int sd_ipv4ll_set_mac(sd_ipv4ll *ll, const struct ether_addr *addr) {

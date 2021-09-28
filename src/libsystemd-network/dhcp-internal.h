@@ -73,12 +73,22 @@ void dhcp_client_set_test_mode(sd_dhcp_client *client, bool test_mode);
         _cleanup_(sd_dhcp_client_unrefp) _unused_ sd_dhcp_client *_dont_destroy_##client = sd_dhcp_client_ref(client)
 
 #define log_dhcp_client_errno(client, error, fmt, ...)          \
-        log_interface_prefix_full_errno(                        \
-                "DHCPv4 client: ",                              \
-                sd_dhcp_client_get_ifname(client),              \
-                error, fmt, ##__VA_ARGS__)
+        ({                                                      \
+                sd_dhcp_client *_c = (client);                  \
+                const char *_n = NULL;                          \
+                                                                \
+                (void) sd_dhcp_client_get_ifname(_c, &_n);      \
+                log_interface_prefix_full_errno(                \
+                        "DHCPv4 client: ",                      \
+                        _n, error, fmt, ##__VA_ARGS__);         \
+        })
 #define log_dhcp_client(client, fmt, ...)                       \
-        log_interface_prefix_full_errno_zerook(                 \
-                "DHCPv4 client: ",                              \
-                sd_dhcp_client_get_ifname(client),              \
-                0, fmt, ##__VA_ARGS__)
+        ({                                                      \
+                sd_dhcp_client *_c = (client);                  \
+                const char *_n = NULL;                          \
+                                                                \
+                (void) sd_dhcp_client_get_ifname(_c, &_n);      \
+                log_interface_prefix_full_errno_zerook(         \
+                        "DHCPv4 client: ",                      \
+                        _n, 0, fmt, ##__VA_ARGS__);             \
+        })

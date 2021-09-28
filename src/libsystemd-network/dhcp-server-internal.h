@@ -110,12 +110,22 @@ void client_id_hash_func(const DHCPClientId *p, struct siphash *state);
 int client_id_compare_func(const DHCPClientId *a, const DHCPClientId *b);
 
 #define log_dhcp_server_errno(server, error, fmt, ...)          \
-        log_interface_prefix_full_errno(                        \
-                "DHCPv4 server: ",                              \
-                sd_dhcp_server_get_ifname(server),              \
-                error, fmt, ##__VA_ARGS__)
+        ({                                                      \
+                sd_dhcp_server *_s = (server);                  \
+                const char *_n = NULL;                          \
+                                                                \
+                (void) sd_dhcp_server_get_ifname(_s, &_n);      \
+                log_interface_prefix_full_errno(                \
+                        "DHCPv4 server: ",                      \
+                        _n, error, fmt, ##__VA_ARGS__);         \
+        })
 #define log_dhcp_server(server, fmt, ...)                       \
-        log_interface_prefix_full_errno_zerook(                 \
-                "DHCPv4 server: ",                              \
-                sd_dhcp_server_get_ifname(server),              \
-                0, fmt, ##__VA_ARGS__)
+        ({                                                      \
+                sd_dhcp_server *_s = (server);                  \
+                const char *_n = NULL;                          \
+                                                                \
+                (void) sd_dhcp_server_get_ifname(_s, &_n);      \
+                log_interface_prefix_full_errno_zerook(         \
+                        "DHCPv4 server: ",                      \
+                        _n, 0, fmt, ##__VA_ARGS__);             \
+        })
