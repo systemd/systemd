@@ -22,15 +22,21 @@ static const NamingScheme naming_schemes[] = {
         { "v247", NAMING_V247 },
         { "v249", NAMING_V249 },
         /* … add more schemes here, as the logic to name devices is updated … */
+
+        EXTRA_NET_NAMING_MAP
 };
 
 const NamingScheme* naming_scheme_from_name(const char *name) {
-        if (streq(name, "latest"))
-                return naming_schemes + ELEMENTSOF(naming_schemes) - 1;
+        /* "latest" may either be defined explicitly by the extra map, in which case we we will find it in
+         * the table like any other name. After iterating through the table, we check for "latest" again,
+         * which means that if not mapped explicitly, it maps to the last defined entry, whatever that is. */
 
         for (size_t i = 0; i < ELEMENTSOF(naming_schemes); i++)
                 if (streq(naming_schemes[i].name, name))
                         return naming_schemes + i;
+
+        if (streq(name, "latest"))
+                return naming_schemes + ELEMENTSOF(naming_schemes) - 1;
 
         return NULL;
 }

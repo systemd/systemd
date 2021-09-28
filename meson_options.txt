@@ -200,6 +200,8 @@ option('fallback-hostname', type : 'string', value : 'localhost',
 option('default-hierarchy', type : 'combo',
        choices : ['legacy', 'hybrid', 'unified'], value : 'unified',
        description : 'default cgroup hierarchy')
+option('extra-net-naming-schemes', type : 'string',
+       description : 'comma-separated list of extra net.naming-scheme= definitions')
 option('default-net-naming-scheme', type : 'string', value : 'latest',
        description : 'default net.naming-scheme= value')
 option('status-unit-format-default', type : 'combo',
