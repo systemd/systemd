@@ -13,7 +13,9 @@ _udevadm_info(){
         '--export-prefix=[Add a prefix to the key name of exported values.]:prefix' \
         '--device-id-of-file=[Print major/minor numbers of the underlying device, where the file lives on.]:files:_udevadm_mounts' \
         '--export-db[Export the content of the udev database.]' \
-        '--cleanup-db[Cleanup the udev database.]'
+        '--cleanup-db[Cleanup the udev database.]' \
+        '--value[When showing properties, print only their values.]' \
+        '--property=[Show only properties by this name.]'
 }
 
 (( $+functions[_udevadm_trigger] )) ||
