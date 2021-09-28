@@ -707,6 +707,24 @@ else
         conf.set('DEFAULT_HIERARCHY', 'CGROUP_UNIFIED_ALL')
 endif
 
+extra_net_naming_schemes = []
+extra_net_naming_map = []
+foreach scheme: get_option('extra-net-naming-schemes').split(',')
+        if scheme != ''
+                name = scheme.split('=')[0]
+                value = scheme.split('=')[1]
+                NAME = name.underscorify().to_upper()
+                VALUE = []
+                foreach field: value.split('+')
+                        VALUE += 'NAMING_' + field.underscorify().to_upper()
+                endforeach
+                extra_net_naming_schemes += 'NAMING_@0@ = @1@,'.format(NAME, '|'.join(VALUE))
+                extra_net_naming_map += '{ "@0@", NAMING_@1@ },'.format(name, NAME)
+        endif
+endforeach
+conf.set('EXTRA_NET_NAMING_SCHEMES', ' '.join(extra_net_naming_schemes))
+conf.set('EXTRA_NET_NAMING_MAP', ' '.join(extra_net_naming_map))
+
 default_net_naming_scheme = get_option('default-net-naming-scheme')
 conf.set_quoted('DEFAULT_NET_NAMING_SCHEME', default_net_naming_scheme)
 if default_net_naming_scheme != 'latest'
