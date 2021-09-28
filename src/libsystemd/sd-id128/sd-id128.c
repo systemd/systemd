@@ -114,9 +114,16 @@ _public_ int sd_id128_get_boot(sd_id128_t *ret) {
         assert_return(ret, -EINVAL);
 
         if (sd_id128_is_null(saved_boot_id)) {
-                r = id128_read("/proc/sys/kernel/random/boot_id", ID128_UUID, &saved_boot_id);
-                if (r < 0)
-                        return r;
+#ifdef HOSTONLY_JOURNALD
+                r = id128_read(HOST_BOOTID_PATH, ID128_UUID, &saved_boot_id);
+                if (r < 0) {
+#endif
+                        r = id128_read("/proc/sys/kernel/random/boot_id", ID128_UUID, &saved_boot_id);
+                        if (r < 0)
+                                return r;
+#ifdef HOSTONLY_JOURNALD
+                }
+#endif
         }
 
         *ret = saved_boot_id;
