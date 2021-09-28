@@ -28,6 +28,7 @@
 #include "networkd-network.h"
 #include "networkd-nexthop.h"
 #include "networkd-radv.h"
+#include "networkd-route.h"
 #include "networkd-routing-policy-rule.h"
 #include "networkd-sriov.h"
 #include "parse-util.h"
@@ -414,6 +415,7 @@ int network_load_one(Manager *manager, OrderedHashmap **networks, const char *fi
                 .dhcp_server_emit_timezone = true,
 
                 .router_lifetime_usec = 30 * USEC_PER_MINUTE,
+                .router_dns_lifetime_usec = 7 * USEC_PER_DAY,
                 .router_emit_dns = true,
                 .router_emit_domains = true,
 
@@ -697,9 +699,10 @@ static Network *network_free(Network *network) {
         ordered_hashmap_free(network->dhcp_client_send_vendor_options);
         ordered_hashmap_free(network->dhcp_server_send_options);
         ordered_hashmap_free(network->dhcp_server_send_vendor_options);
-        ordered_set_free(network->ipv6_tokens);
         ordered_hashmap_free(network->dhcp6_client_send_options);
         ordered_hashmap_free(network->dhcp6_client_send_vendor_options);
+        set_free(network->dhcp6_pd_tokens);
+        set_free(network->ndisc_tokens);
 
         return mfree(network);
 }
