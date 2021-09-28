@@ -11,6 +11,9 @@
 #include "unaligned.h"
 
 static void lldp_neighbor_id_hash_func(const LLDPNeighborID *id, struct siphash *state) {
+        assert(id);
+        assert(state);
+
         siphash24_compress(id->chassis_id, id->chassis_id_size, state);
         siphash24_compress(&id->chassis_id_size, sizeof(id->chassis_id_size), state);
         siphash24_compress(id->port_id, id->port_id_size, state);
@@ -18,15 +21,26 @@ static void lldp_neighbor_id_hash_func(const LLDPNeighborID *id, struct siphash 
 }
 
 int lldp_neighbor_id_compare_func(const LLDPNeighborID *x, const LLDPNeighborID *y) {
+        assert(x);
+        assert(y);
+
         return memcmp_nn(x->chassis_id, x->chassis_id_size, y->chassis_id, y->chassis_id_size)
             ?: memcmp_nn(x->port_id, x->port_id_size, y->port_id, y->port_id_size);
 }
 
-DEFINE_HASH_OPS_WITH_VALUE_DESTRUCTOR(lldp_neighbor_hash_ops, LLDPNeighborID, lldp_neighbor_id_hash_func, lldp_neighbor_id_compare_func,
-                                      sd_lldp_neighbor, lldp_neighbor_unlink);
+DEFINE_HASH_OPS_WITH_VALUE_DESTRUCTOR(
+        lldp_neighbor_hash_ops,
+        LLDPNeighborID,
+        lldp_neighbor_id_hash_func,
+        lldp_neighbor_id_compare_func,
+        sd_lldp_neighbor,
+        lldp_neighbor_unlink);
 
 int lldp_neighbor_prioq_compare_func(const void *a, const void *b) {
         const sd_lldp_neighbor *x = a, *y = b;
+
+        assert(x);
+        assert(y);
 
         return CMP(x->until, y->until);
 }
@@ -41,8 +55,9 @@ _public_ sd_lldp_neighbor *sd_lldp_neighbor_ref(sd_lldp_neighbor *n) {
         return n;
 }
 
-static void lldp_neighbor_free(sd_lldp_neighbor *n) {
-        assert(n);
+static sd_lldp_neighbor *lldp_neighbor_free(sd_lldp_neighbor *n) {
+        if (!n)
+                return NULL;
 
         free(n->id.port_id);
         free(n->id.chassis_id);
@@ -52,7 +67,7 @@ static void lldp_neighbor_free(sd_lldp_neighbor *n) {
         free(n->mud_url);
         free(n->chassis_id_as_string);
         free(n->port_id_as_string);
-        free(n);
+        return mfree(n);
 }
 
 _public_ sd_lldp_neighbor *sd_lldp_neighbor_unref(sd_lldp_neighbor *n) {
