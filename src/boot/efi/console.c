@@ -62,25 +62,51 @@ EFI_STATUS console_key_read(UINT64 *key, UINT64 timeout_usec) {
                 checked = TRUE;
         }
 
-        if (timeout_usec > 0) {
-                err = uefi_call_wrapper(BS->CreateEvent, 5, EVT_TIMER, 0, NULL, NULL, &timer);
-                if (EFI_ERROR(err))
-                        return log_error_status_stall(err, L"Error creating timer event: %r", err);
+        err = uefi_call_wrapper(BS->CreateEvent, 5, EVT_TIMER, 0, NULL, NULL, &timer);
+        if (EFI_ERROR(err))
+                return log_error_status_stall(err, L"Error creating timer event: %r", err);
+        events[n_events++] = timer;
 
+        UINTN watchdog_timeout_sec = 5 * 60, watchdog_ping_usec = 3 * 60 * 1000 * 1000;
+
+        /* The following loop expects the timeout to be lower than the watchdog.
+         * This allows us to only have to rely on one EFI timer. So far all our
+         * callers want a timeout <= 1 s anyway (with 0 == infinity). */
+        assert(timeout_usec < watchdog_ping_usec);
+
+        /* The user may never provide us with input or some broken firmware may just
+         * never return from WaitForEvent. Instead of just disabling it for this brief
+         * moment, we rearm for safety's sake inside this loop. */
+        for (;;) {
                 /* SetTimer expects 100ns units for some reason. */
-                err = uefi_call_wrapper(BS->SetTimer, 3, timer, TimerRelative, timeout_usec * 10);
+                err = uefi_call_wrapper(
+                                BS->SetTimer, 3,
+                                timer,
+                                TimerRelative,
+                                (timeout_usec > 0 ? timeout_usec : watchdog_ping_usec) * 10);
                 if (EFI_ERROR(err))
                         return log_error_status_stall(err, L"Error arming timer event: %r", err);
 
-                events[n_events++] = timer;
-        }
+                (void) uefi_call_wrapper(BS->SetWatchdogTimer, 4, watchdog_timeout_sec, 0x10000, 0, NULL);
+                err = uefi_call_wrapper(BS->WaitForEvent, 3, n_events, events, &index);
+                (void) uefi_call_wrapper(BS->SetWatchdogTimer, 4, watchdog_timeout_sec, 0x10000, 0, NULL);
 
-        err = uefi_call_wrapper(BS->WaitForEvent, 3, n_events, events, &index);
-        if (EFI_ERROR(err))
-                return log_error_status_stall(err, L"Error waiting for events: %r", err);
+                if (EFI_ERROR(err))
+                        return log_error_status_stall(err, L"Error waiting for events: %r", err);
 
-        if (timeout_usec > 0 && timer == events[index])
+                /* We have keyboard input, process it after this loop. */
+                if (timer != events[index])
+                        break;
+
+                /* The EFI timer fired instead.
+                 * If the caller requested an infinite timeout, we need to loop again to rearm the
+                 * watchdog and wait for user input again. */
+                if (timeout_usec == 0)
+                        continue;
+
+                /* The caller requested a timeout? They shall have one! */
                 return EFI_TIMEOUT;
+        }
 
         /* TextInputEx might be ready too even if ConIn got to signal first. */
         if (TextInputEx && !EFI_ERROR(uefi_call_wrapper(BS->CheckEvent, 1, TextInputEx->WaitForKeyEx))) {
