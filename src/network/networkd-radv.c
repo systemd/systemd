@@ -324,7 +324,6 @@ static int network_get_ipv6_dns(Network *network, struct in6_addr **ret_addresse
 
 static int radv_set_dns(Link *link, Link *uplink) {
         _cleanup_free_ struct in6_addr *dns = NULL;
-        usec_t lifetime_usec;
         size_t n_dns;
         int r;
 
@@ -347,12 +346,9 @@ static int radv_set_dns(Link *link, Link *uplink) {
                                 *(p++) = link->network->router_dns[i];
 
                 n_dns = p - dns;
-                lifetime_usec = link->network->router_dns_lifetime_usec;
 
                 goto set_dns;
         }
-
-        lifetime_usec = SD_RADV_DEFAULT_DNS_LIFETIME_USEC;
 
         r = network_get_ipv6_dns(link->network, &dns, &n_dns);
         if (r > 0)
@@ -370,25 +366,21 @@ static int radv_set_dns(Link *link, Link *uplink) {
 
 set_dns:
         return sd_radv_set_rdnss(link->radv,
-                                 DIV_ROUND_UP(lifetime_usec, USEC_PER_SEC),
+                                 usec_to_lifetime(link->network->router_dns_lifetime_usec),
                                  dns, n_dns);
 }
 
 static int radv_set_domains(Link *link, Link *uplink) {
-        OrderedSet *search_domains;
-        usec_t lifetime_usec;
         _cleanup_free_ char **s = NULL; /* just free() because the strings are owned by the set */
+        OrderedSet *search_domains;
 
         if (!link->network->router_emit_domains)
                 return 0;
 
         search_domains = link->network->router_search_domains;
-        lifetime_usec = link->network->router_dns_lifetime_usec;
 
         if (search_domains)
                 goto set_domains;
-
-        lifetime_usec = SD_RADV_DEFAULT_DNS_LIFETIME_USEC;
 
         search_domains = link->network->search_domains;
         if (search_domains)
@@ -410,7 +402,7 @@ set_domains:
                 return log_oom();
 
         return sd_radv_set_dnssl(link->radv,
-                                 DIV_ROUND_UP(lifetime_usec, USEC_PER_SEC),
+                                 usec_to_lifetime(link->network->router_dns_lifetime_usec),
                                  s);
 
 }
