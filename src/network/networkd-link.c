@@ -2212,7 +2212,7 @@ static int link_update_alternative_names(Link *link, sd_netlink_message *message
 }
 
 static int link_update_name(Link *link, sd_netlink_message *message) {
-        char ifname_from_index[IF_NAMESIZE + 1];
+        char ifname_from_index[IF_NAMESIZE];
         const char *ifname;
         int r;
 
@@ -2229,8 +2229,9 @@ static int link_update_name(Link *link, sd_netlink_message *message) {
         if (streq(ifname, link->ifname))
                 return 0;
 
-        if (!format_ifname(link->ifindex, ifname_from_index))
-                return log_link_debug_errno(link, SYNTHETIC_ERRNO(ENXIO), "Could not get interface name for index %i.", link->ifindex);
+        r = format_ifname(link->ifindex, ifname_from_index);
+        if (r < 0)
+                return log_link_debug_errno(link, r, "Could not get interface name for index %i.", link->ifindex);
 
         if (!streq(ifname, ifname_from_index)) {
                 log_link_debug(link, "New interface name '%s' received from the kernel does not correspond "

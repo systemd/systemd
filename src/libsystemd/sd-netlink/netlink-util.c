@@ -12,7 +12,7 @@
 int rtnl_set_link_name(sd_netlink **rtnl, int ifindex, const char *name) {
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *message = NULL;
         _cleanup_strv_free_ char **alternative_names = NULL;
-        char old_name[IF_NAMESIZE + 1] = {};
+        char old_name[IF_NAMESIZE] = {};
         int r;
 
         assert(rtnl);
@@ -33,7 +33,9 @@ int rtnl_set_link_name(sd_netlink **rtnl, int ifindex, const char *name) {
                         return log_debug_errno(r, "Failed to remove '%s' from alternative names on network interface %i: %m",
                                                name, ifindex);
 
-                format_ifname(ifindex, old_name);
+                r = format_ifname(ifindex, old_name);
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to get current name of network interface %i: %m", ifindex);
         }
 
         r = sd_rtnl_message_new_link(*rtnl, &message, RTM_SETLINK, ifindex);

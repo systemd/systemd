@@ -3,23 +3,43 @@
 #include "format-util.h"
 #include "memory-util.h"
 #include "stdio-util.h"
+#include "strxcpyx.h"
 
-assert_cc(DECIMAL_STR_MAX(int) + 1 <= IF_NAMESIZE + 1);
-char *format_ifname_full(int ifindex, char buf[static IF_NAMESIZE + 1], FormatIfnameFlag flag) {
-        /* Buffer is always cleared */
-        memzero(buf, IF_NAMESIZE + 1);
+assert_cc(STRLEN("%") + DECIMAL_STR_MAX(int) <= IF_NAMESIZE);
+int format_ifname_full(int ifindex, FormatIfnameFlag flag, char buf[static IF_NAMESIZE]) {
+        if (ifindex <= 0)
+                return -EINVAL;
+
         if (if_indextoname(ifindex, buf))
-                return buf;
+                return 0;
 
         if (!FLAGS_SET(flag, FORMAT_IFNAME_IFINDEX))
-                return NULL;
+                return -errno;
 
         if (FLAGS_SET(flag, FORMAT_IFNAME_IFINDEX_WITH_PERCENT))
-                assert(snprintf_ok(buf, IF_NAMESIZE + 1, "%%%d", ifindex));
+                assert(snprintf_ok(buf, IF_NAMESIZE, "%%%d", ifindex));
         else
-                assert(snprintf_ok(buf, IF_NAMESIZE + 1, "%d", ifindex));
+                assert(snprintf_ok(buf, IF_NAMESIZE, "%d", ifindex));
 
-        return buf;
+        return 0;
+}
+
+int format_ifname_full_alloc(int ifindex, FormatIfnameFlag flag, char **ret) {
+        char buf[IF_NAMESIZE], *copy;
+        int r;
+
+        assert(ret);
+
+        r = format_ifname_full(ifindex, flag, buf);
+        if (r < 0)
+                return r;
+
+        copy = strdup(buf);
+        if (!copy)
+                return -ENOMEM;
+
+        *ret = copy;
+        return 0;
 }
 
 char *format_bytes_full(char *buf, size_t l, uint64_t t, FormatBytesFlag flag) {
