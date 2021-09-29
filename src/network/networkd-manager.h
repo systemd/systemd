@@ -28,6 +28,7 @@ struct Manager {
         Hashmap *polkit_registry;
         int ethtool_fd;
 
+        bool test_mode;
         bool enumerating;
         bool dirty;
         bool restarting;
@@ -96,10 +97,10 @@ struct Manager {
         OrderedSet *request_queue;
 };
 
-int manager_new(Manager **ret);
+int manager_new(Manager **ret, bool test_mode);
 Manager* manager_free(Manager *m);
 
-int manager_setup(Manager *m, bool test_mode);
+int manager_setup(Manager *m);
 int manager_start(Manager *m);
 
 int manager_load_config(Manager *m);
