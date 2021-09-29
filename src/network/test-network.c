@@ -10,7 +10,9 @@
 #include "ether-addr-util.h"
 #include "hostname-setup.h"
 #include "network-internal.h"
+#include "networkd-address.h"
 #include "networkd-manager.h"
+#include "networkd-route.h"
 #include "string-util.h"
 #include "strv.h"
 #include "tests.h"
@@ -166,6 +168,16 @@ static int test_load_config(Manager *manager) {
         assert_se(manager_should_reload(manager) == false);
 
         return 0;
+}
+
+static bool address_equal(const Address *a1, const Address *a2) {
+        if (a1 == a2)
+                return true;
+
+        if (!a1 || !a2)
+                return false;
+
+        return address_compare_func(a1, a2) == 0;
 }
 
 static void test_address_equality(void) {

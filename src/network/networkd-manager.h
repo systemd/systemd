@@ -50,8 +50,6 @@ struct Manager {
         Hashmap *links_by_hw_addr;
         Hashmap *netdevs;
         OrderedHashmap *networks;
-        Hashmap *dhcp6_prefixes;
-        Set *dhcp6_pd_prefixes;
         OrderedSet *address_pools;
 
         usec_t network_dirs_ts_usec;
