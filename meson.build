@@ -3652,6 +3652,9 @@ install_data('LICENSE.GPL2',
              'docs/GVARIANT-SERIALIZATION.md',
              install_dir : docdir)
 
+install_subdir('LICENSES',
+               install_dir : docdir)
+
 meson.add_install_script('sh', '-c', mkdir_p.format(systemdstatedir))
 meson.add_install_script('sh', '-c', 'touch $DESTDIR@0@'.format(prefixdir))
 
