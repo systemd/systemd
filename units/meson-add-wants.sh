@@ -1,5 +1,6 @@
 #!/bin/sh
 # SPDX-License-Identifier: LGPL-2.1-or-later
+# shellcheck disable=SC2154,SC2174
 set -eu
 
 i=1
