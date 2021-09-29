@@ -401,7 +401,8 @@ static int sha256_hash_host_and_tpm2_key(
                 size_t tpm2_key_size,
                 uint8_t ret[static SHA256_DIGEST_LENGTH]) {
 
-        SHA256_CTX sha256_context;
+        _cleanup_(EVP_MD_CTX_freep) EVP_MD_CTX *md = NULL;
+        unsigned l;
 
         assert(host_key_size == 0 || host_key);
         assert(tpm2_key_size == 0 || tpm2_key);
@@ -409,18 +410,25 @@ static int sha256_hash_host_and_tpm2_key(
 
         /* Combines the host key and the TPM2 HMAC hash into a SHA256 hash value we'll use as symmetric encryption key. */
 
-        if (SHA256_Init(&sha256_context) != 1)
+        md = EVP_MD_CTX_new();
+        if (!md)
+                return log_oom();
+
+        if (EVP_DigestInit_ex(md, EVP_sha256(), NULL) != 1)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to initial SHA256 context.");
 
-        if (host_key && SHA256_Update(&sha256_context, host_key, host_key_size) != 1)
+        if (host_key && EVP_DigestUpdate(md, host_key, host_key_size) != 1)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to hash host key.");
 
-        if (tpm2_key && SHA256_Update(&sha256_context, tpm2_key, tpm2_key_size) != 1)
+        if (tpm2_key && EVP_DigestUpdate(md, tpm2_key, tpm2_key_size) != 1)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to hash TPM2 key.");
 
-        if (SHA256_Final(ret, &sha256_context) != 1)
+        assert(EVP_MD_CTX_size(md) == SHA256_DIGEST_LENGTH);
+
+        if (EVP_DigestFinal_ex(md, ret, &l) != 1)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to finalize SHA256 hash.");
 
+        assert(l == SHA256_DIGEST_LENGTH);
         return 0;
 }
 
