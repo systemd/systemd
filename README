@@ -25,12 +25,7 @@ AUTHOR:
         ...and many others
 
 LICENSE:
-        LGPLv2.1+ for all code
-        - except src/basic/MurmurHash2.c which is Public Domain
-        - except src/basic/siphash24.c which is CC0 Public Domain
-        - except src/journal/lookup3.c which is Public Domain
-        - except src/udev/* which is (currently still) GPLv2, GPLv2+
-        - except tools/chromiumos/* which is BSD-style
+        LGPL-2.1-or-later for all code, exceptions noted in LICENSES/README.md
 
 REQUIREMENTS:
         Linux kernel >= 3.13
