@@ -76,6 +76,14 @@ systemd-analyze verify /tmp/.testfile.service
 
 rm /tmp/.testfile.service
 
+# Alias a unit file's name on disk (see #20061)
+cp /tmp/testfile.service /tmp/testsrvc
+
+systemd-analyze verify /tmp/testsrvc \
+    && { echo 'unexpected success'; exit 1; }
+
+systemd-analyze verify /tmp/testsrvc:alias.service
+
 # Zero exit status since the value used for comparison determine exposure to security threats is by default 100
 systemd-analyze security --offline=true /tmp/testfile.service
 
