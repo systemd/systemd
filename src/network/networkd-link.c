@@ -1392,6 +1392,12 @@ static int link_initialized_and_synced(Link *link) {
         assert(link->ifname);
         assert(link->manager);
 
+        if (link->manager->test_mode) {
+                log_link_debug(link, "Running in test mode, refusing to enter initialized state.");
+                link_set_state(link, LINK_STATE_UNMANAGED);
+                return 0;
+        }
+
         /* We may get called either from the asynchronous netlink callback,
          * or directly from link_check_initialized() if running in a container. */
         if (!IN_SET(link->state, LINK_STATE_PENDING, LINK_STATE_INITIALIZED))
