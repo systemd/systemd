@@ -68,6 +68,12 @@ cat <<EOF >/tmp/testfile.service
 ExecStart = echo hello
 EOF
 
+# Prevent regression from #13380 and #20859 where we can't verify hidden files
+cp /tmp/testfile.service /tmp/.testfile.service
+
+systemd-analyze verify /tmp/.testfile.service
+
+rm /tmp/.testfile.service
 
 # Zero exit status since the value used for comparison determine exposure to security threats is by default 100
 systemd-analyze security --offline=true /tmp/testfile.service
