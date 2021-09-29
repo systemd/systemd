@@ -795,8 +795,8 @@
         <term><varname>Independent=</varname></term>
         <listitem>
           <para>Takes a boolean. When true, the vxlan interface is created without any underlying network
-	  interface. Defaults to false, which means that a .network file that requests this VXLAN interface
-	  using <varname>VXLAN=</varname> is required for the tunnel to be created.</para>
+          interface. Defaults to false, which means that a .network file that requests this VXLAN interface
+          using <varname>VXLAN=</varname> is required for the tunnel to be created.</para>
         </listitem>
       </varlistentry>
     </variablelist>
