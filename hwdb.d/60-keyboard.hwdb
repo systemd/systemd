@@ -494,9 +494,6 @@ evdev:input:b0003v0458p0708*
 # Hewlett Packard
 ###########################################################
 
-evdev:name:Intel HID events:dmi:bvn*:bvr*:bd*:svnHP*:pn*:*
- KEYBOARD_KEY_8=unknown                                 # Use hp-wireless instead
-
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnHewlett-Packard*:pn*:*
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnHP*:pn*:*
  KEYBOARD_KEY_81=fn_esc
@@ -559,9 +556,6 @@ evdev:atkbd:dmi:bvn*:bvr*:svnHP*:pnHPElitex21013G3:*
  KEYBOARD_KEY_ee=switchvideomode                       # Switch display outputs
  KEYBOARD_KEY_92=brightnessdown
  KEYBOARD_KEY_97=brightnessup
-
-evdev:name:Intel HID events:dmi:bvn*:bvr*:svnHP*:pnHPElitex21013G3:*
- KEYBOARD_KEY_08=unknown                               # rfkill is also reported by HP Wireless hotkeys
 
 # Elitebook
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnHewlett-Packard*:pn*Compaq*:*
