@@ -41,7 +41,7 @@
 
     <para>systemd will dynamically create device units for all kernel devices that are marked with the
     <literal>systemd</literal> udev tag (by default all block and network devices, and a few others). Note
-    that <emphasis>if <filename>systemd-udev.service</filename> is not running, no device units will be
+    that <emphasis>if <filename>systemd-udevd.service</filename> is not running, no device units will be
     available (for example in a typical container)</emphasis>.</para>
 
     <para>Device units are named after the <filename>/sys/</filename>
