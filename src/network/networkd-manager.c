@@ -382,7 +382,7 @@ static int signal_restart_callback(sd_event_source *s, const struct signalfd_sig
         return sd_event_exit(sd_event_source_get_event(s), 0);
 }
 
-int manager_setup(Manager *m, bool test_mode) {
+int manager_setup(Manager *m) {
         int r;
 
         assert(m);
@@ -414,7 +414,7 @@ int manager_setup(Manager *m, bool test_mode) {
         if (r < 0)
                 return r;
 
-        if (test_mode)
+        if (m->test_mode)
                 return 0;
 
         r = manager_connect_bus(m);
@@ -444,7 +444,7 @@ int manager_setup(Manager *m, bool test_mode) {
         return 0;
 }
 
-int manager_new(Manager **ret) {
+int manager_new(Manager **ret, bool test_mode) {
         _cleanup_(manager_freep) Manager *m = NULL;
 
         m = new(Manager, 1);
@@ -452,6 +452,7 @@ int manager_new(Manager **ret) {
                 return -ENOMEM;
 
         *m = (Manager) {
+                .test_mode = test_mode,
                 .speed_meter_interval_usec = SPEED_METER_DEFAULT_TIME_INTERVAL,
                 .online_state = _LINK_ONLINE_STATE_INVALID,
                 .manage_foreign_routes = true,
