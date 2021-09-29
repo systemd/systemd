@@ -40,6 +40,57 @@ helper_check_device_symlinks() {(
     done < <(find "${paths[@]}" -type l)
 )}
 
+# Wait for a specific device link to appear
+# Arguments:
+#   $1 - device path
+#   $2 - number of retries (default: 10)
+helper_wait_for_dev() {
+    local dev="${1:?}"
+    local ntries="${2:-10}"
+    local i
+
+    for ((i = 0; i < ntries; i++)); do
+        test ! -e "$dev" || return 0
+        sleep .2
+    done
+
+    return 1
+}
+
+# Wait for the lvm2-pvscan@.service of a specific device to finish
+# Arguments:
+#   $1 - device path
+#   $2 - number of retries (default: 10)
+helper_wait_for_pvscan() {
+    local dev="${1:?}"
+    local ntries="${2:-10}"
+    local MAJOR MINOR pvscan_svc real_dev
+
+    # Sanity check we got a valid block device (or a symlink to it)
+    real_dev="$(readlink -f "$dev")"
+    if [[ ! -b "$real_dev" ]]; then
+        echo >&2 "ERROR: '$dev ($real_dev) is not a valid block device'"
+        return 1
+    fi
+
+    # Get major and minor numbers from the udev database
+    # (udevadm returns MAJOR= and MINOR= expressions, so let's pull them into
+    # the current environment via `source` for easier parsing)
+    source <(udevadm info -q property "$real_dev" | grep -E "(MAJOR|MINOR)=")
+    # Sanity check if we got correct major and minor numbers
+    test -e "/sys/dev/block/$MAJOR:$MINOR/"
+
+    # Wait n_tries*0.5 seconds until the respective lvm2-pvscan service becomes
+    # active (i.e. it got executed and finished)
+    pvscan_svc="lvm2-pvscan@$MAJOR:$MINOR.service"
+    for ((i = 0; i < ntries; i++)); do
+        ! systemctl -q is-active "$pvscan_svc" || return 0
+        sleep .5
+    done
+
+    return 1
+}
+
 testcase_megasas2_basic() {
     lsblk -S
     [[ "$(lsblk --scsi --noheadings | wc -l)" -ge 128 ]]
@@ -397,6 +448,144 @@ EOF
     udevadm settle
 }
 
+testcase_iscsi_lvm() {
+    local dev i label link lun_id mpoint target_name uuid
+    local target_ip="127.0.0.1"
+    local target_port="3260"
+    local vgroup="iscsi_lvm$RANDOM"
+    local expected_symlinks=()
+    local devices=(
+        /dev/disk/by-id/ata-foobar_deadbeefiscsi{0..3}
+    )
+
+    ls -l "${devices[@]}"
+
+    # Start the target daemon
+    systemctl start tgtd
+    systemctl status tgtd
+
+    echo "iSCSI LUNs backed by devices"
+    # See RFC3721 and RFC7143
+    target_name="iqn.2021-09.com.example:iscsi.test"
+    # Initialize a new iSCSI target <$target_name> consisting of 4 LUNs, each
+    # backed by a device
+    tgtadm --lld iscsi --op new --mode target --tid=1 --targetname "$target_name"
+    for ((i = 0; i < ${#devices[@]}; i++)); do
+        # lun-0 is reserved by iSCSI
+        lun_id="$((i + 1))"
+        tgtadm --lld iscsi --op new --mode logicalunit --tid 1 --lun "$lun_id" -b "${devices[$i]}"
+        tgtadm --lld iscsi --op update --mode logicalunit --tid 1 --lun "$lun_id"
+        expected_symlinks+=(
+            "/dev/disk/by-path/ip-$target_ip:$target_port-iscsi-$target_name-lun-$lun_id"
+        )
+    done
+    tgtadm --lld iscsi --op bind --mode target --tid 1 -I ALL
+    # Configure the iSCSI initiator
+    iscsiadm --mode discoverydb --type sendtargets --portal "$target_ip" --discover
+    iscsiadm --mode node --targetname "$target_name" --portal "$target_ip:$target_port" --login
+    udevadm settle
+    # Check if all device symlinks are valid and if all expected device symlinks exist
+    for link in "${expected_symlinks[@]}"; do
+        # We need to do some active waiting anyway, as it may take kernel a bit
+        # to attach the newly connected SCSI devices
+        helper_wait_for_dev "$link"
+        test -e "$link"
+    done
+    udevadm settle
+    helper_check_device_symlinks
+    # Cleanup
+    iscsiadm --mode node --targetname "$target_name" --portal "$target_ip:$target_port" --logout
+    tgtadm --lld iscsi --op delete --mode target --tid=1
+
+    echo "iSCSI LUNs backed by files + LVM"
+    # Note: we use files here to "trick" LVM the disks are indeed on a different
+    #       host, so it doesn't automagically detect another path to the backing
+    #       device once we disconnect the iSCSI devices
+    target_name="iqn.2021-09.com.example:iscsi.lvm.test"
+    mpoint="$(mktemp -d /iscsi_storeXXX)"
+    expected_symlinks=()
+    # Use the first device as it's configured with larger capacity
+    mkfs.ext4 -L iscsi_store "${devices[0]}"
+    udevadm settle
+    mount "${devices[0]}" "$mpoint"
+    for i in {1..4}; do
+        dd if=/dev/zero of="$mpoint/lun$i.img" bs=1M count=32
+    done
+    # Initialize a new iSCSI target <$target_name> consisting of 4 LUNs, each
+    # backed by a file
+    tgtadm --lld iscsi --op new --mode target --tid=2 --targetname "$target_name"
+    # lun-0 is reserved by iSCSI
+    for i in {1..4}; do
+        tgtadm --lld iscsi --op new --mode logicalunit --tid 2 --lun "$i" -b "$mpoint/lun$i.img"
+        tgtadm --lld iscsi --op update --mode logicalunit --tid 2 --lun "$i"
+        expected_symlinks+=(
+            "/dev/disk/by-path/ip-$target_ip:$target_port-iscsi-$target_name-lun-$i"
+        )
+    done
+    tgtadm --lld iscsi --op bind --mode target --tid 2 -I ALL
+    # Configure the iSCSI initiator
+    iscsiadm --mode discoverydb --type sendtargets --portal "$target_ip" --discover
+    iscsiadm --mode node --targetname "$target_name" --portal "$target_ip:$target_port" --login
+    udevadm settle
+    # Check if all device symlinks are valid and if all expected device symlinks exist
+    for link in "${expected_symlinks[@]}"; do
+        # We need to do some active waiting anyway, as it may take kernel a bit
+        # to attach the newly connected SCSI devices
+        helper_wait_for_dev "$link"
+        test -e "$link"
+    done
+    udevadm settle
+    helper_check_device_symlinks
+    # Add all iSCSI devices into a LVM volume group, create two logical volumes,
+    # and check if necessary symlinks exist (and are valid)
+    lvm pvcreate -y "${expected_symlinks[@]}"
+    lvm pvs
+    lvm vgcreate "$vgroup" -y "${expected_symlinks[@]}"
+    lvm vgs
+    lvm vgchange -ay "$vgroup"
+    lvm lvcreate -y -L 4M "$vgroup" -n mypart1
+    lvm lvcreate -y -L 8M "$vgroup" -n mypart2
+    lvm lvs
+    udevadm settle
+    test -e "/dev/$vgroup/mypart1"
+    test -e "/dev/$vgroup/mypart2"
+    mkfs.ext4 -L mylvpart1 "/dev/$vgroup/mypart1"
+    udevadm settle
+    test -e "/dev/disk/by-label/mylvpart1"
+    helper_check_device_symlinks "/dev/disk" "/dev/$vgroup"
+    # Disconnect the iSCSI devices and check all the symlinks
+    iscsiadm --mode node --targetname "$target_name" --portal "$target_ip:$target_port" --logout
+    # "Reset" the DM state, since we yanked the backing storage from under the LVM,
+    # so the currently active VGs/LVs are invalid
+    dmsetup remove_all --deferred
+    udevadm settle
+    # The LVM and iSCSI related symlinks should be gone
+    test ! -e "/dev/$vgroup"
+    test ! -e "/dev/disk/by-label/mylvpart1"
+    for link in "${expected_symlinks[@]}"; do
+        test ! -e "$link"
+    done
+    helper_check_device_symlinks "/dev/disk"
+    # Reconnect the iSCSI devices and check if everything get detected correctly
+    iscsiadm --mode discoverydb --type sendtargets --portal "$target_ip" --discover
+    iscsiadm --mode node --targetname "$target_name" --portal "$target_ip:$target_port" --login
+    udevadm settle
+    for link in "${expected_symlinks[@]}"; do
+        helper_wait_for_dev "$link"
+        helper_wait_for_pvscan "$link"
+        test -e "$link"
+    done
+    udevadm settle
+    test -e "/dev/$vgroup/mypart1"
+    test -e "/dev/$vgroup/mypart2"
+    test -e "/dev/disk/by-label/mylvpart1"
+    helper_check_device_symlinks "/dev/disk" "/dev/$vgroup"
+    # Cleanup
+    iscsiadm --mode node --targetname "$target_name" --portal "$target_ip:$target_port" --logout
+    tgtadm --lld iscsi --op delete --mode target --tid=2
+    umount "$mpoint"
+    rm -rf "$mpoint"
+}
 : >/failed
 
 udevadm settle
