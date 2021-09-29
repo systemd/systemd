@@ -15,17 +15,18 @@
 #define LONG_LINE_MAX (1U*1024U*1024U)
 
 typedef enum {
-        WRITE_STRING_FILE_CREATE                = 1 << 0,
-        WRITE_STRING_FILE_TRUNCATE              = 1 << 1,
-        WRITE_STRING_FILE_ATOMIC                = 1 << 2,
-        WRITE_STRING_FILE_AVOID_NEWLINE         = 1 << 3,
-        WRITE_STRING_FILE_VERIFY_ON_FAILURE     = 1 << 4,
-        WRITE_STRING_FILE_VERIFY_IGNORE_NEWLINE = 1 << 5,
-        WRITE_STRING_FILE_SYNC                  = 1 << 6,
-        WRITE_STRING_FILE_DISABLE_BUFFER        = 1 << 7,
-        WRITE_STRING_FILE_NOFOLLOW              = 1 << 8,
-        WRITE_STRING_FILE_MKDIR_0755            = 1 << 9,
-        WRITE_STRING_FILE_MODE_0600             = 1 << 10,
+        WRITE_STRING_FILE_CREATE                     = 1 << 0,
+        WRITE_STRING_FILE_TRUNCATE                   = 1 << 1,
+        WRITE_STRING_FILE_ATOMIC                     = 1 << 2,
+        WRITE_STRING_FILE_AVOID_NEWLINE              = 1 << 3,
+        WRITE_STRING_FILE_VERIFY_ON_FAILURE          = 1 << 4,
+        WRITE_STRING_FILE_VERIFY_IGNORE_NEWLINE      = 1 << 5,
+        WRITE_STRING_FILE_SYNC                       = 1 << 6,
+        WRITE_STRING_FILE_DISABLE_BUFFER             = 1 << 7,
+        WRITE_STRING_FILE_NOFOLLOW                   = 1 << 8,
+        WRITE_STRING_FILE_MKDIR_0755                 = 1 << 9,
+        WRITE_STRING_FILE_MODE_0600                  = 1 << 10,
+        WRITE_STRING_FILE_SUPPRESS_REDUNDANT_VIRTUAL = 1 << 11,
 
         /* And before you wonder, why write_string_file_atomic_label_ts() is a separate function instead of just one
            more flag here: it's about linking: we don't want to pull -lselinux into all users of write_string_file()
