@@ -1000,6 +1000,33 @@ static void test_strextendf(void) {
         assert_se(streq(p, "<77>,<99>,<                                                                              88>,<00001234>"));
 }
 
+static void test_streq_skip_trailing_chars(void) {
+        log_info("/* %s */", __func__);
+
+        /* NULL is WHITESPACE by default*/
+        assert_se(streq_skip_trailing_chars("foo bar", "foo bar", NULL));
+        assert_se(streq_skip_trailing_chars("foo", "foo", NULL));
+        assert_se(streq_skip_trailing_chars("foo bar      ", "foo bar", NULL));
+        assert_se(streq_skip_trailing_chars("foo bar", "foo bar\t\t", NULL));
+        assert_se(streq_skip_trailing_chars("foo bar  ", "foo bar\t\t", NULL));
+        assert_se(streq_skip_trailing_chars("foo\nbar", "foo\nbar", NULL));
+        assert_se(streq_skip_trailing_chars("\t\tfoo bar", "\t\tfoo bar", NULL));
+        assert_se(streq_skip_trailing_chars(" foo bar\t", " foo bar\n", NULL));
+
+        assert_se(!streq_skip_trailing_chars("foobar", "foo bar", NULL));
+        assert_se(!streq_skip_trailing_chars("foo\nbar", "foo\tbar", NULL));
+        assert_se(!streq_skip_trailing_chars("\t\nfoo bar", "\t foo bar", NULL));
+
+        assert_se(streq_skip_trailing_chars("foo bar      ", "foo bar", WHITESPACE));
+        assert_se(!streq_skip_trailing_chars("foo bar      ", "foo bar", NEWLINE));
+
+        assert_se(streq_skip_trailing_chars(NULL, NULL, NULL));
+        assert_se(streq_skip_trailing_chars("", "", NULL));
+        assert_se(!streq_skip_trailing_chars(NULL, "foo bar", NULL));
+        assert_se(!streq_skip_trailing_chars("foo", NULL, NULL));
+        assert_se(!streq_skip_trailing_chars("", "f", NULL));
+}
+
 int main(int argc, char *argv[]) {
         test_setup_logging(LOG_DEBUG);
 
@@ -1039,6 +1066,7 @@ int main(int argc, char *argv[]) {
         test_string_contains_word();
         test_strverscmp_improved();
         test_strextendf();
+        test_streq_skip_trailing_chars();
 
         return 0;
 }
