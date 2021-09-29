@@ -375,9 +375,8 @@ int verify_file(const char *fn, const char *blob, bool accept_extra_nl) {
         return 1;
 }
 
-int read_virtual_file(const char *filename, size_t max_size, char **ret_contents, size_t *ret_size) {
+int read_virtual_file_fd(int fd, size_t max_size, char **ret_contents, size_t *ret_size) {
         _cleanup_free_ char *buf = NULL;
-        _cleanup_close_ int fd = -1;
         size_t n, size;
         int n_retries;
         bool truncated = false;
@@ -395,10 +394,7 @@ int read_virtual_file(const char *filename, size_t max_size, char **ret_contents
          * contents* may be returned. (Though the read is still done using one syscall.) Returns 0 on
          * partial success, 1 if untruncated contents were read. */
 
-        fd = open(filename, O_RDONLY|O_NOCTTY|O_CLOEXEC);
-        if (fd < 0)
-                return -errno;
-
+        assert(fd >= 0);
         assert(max_size <= READ_VIRTUAL_BYTES_MAX || max_size == SIZE_MAX);
 
         /* Limit the number of attempts to read the number of bytes returned by fstat(). */
@@ -434,8 +430,8 @@ int read_virtual_file(const char *filename, size_t max_size, char **ret_contents
 
                         n_retries--;
                 } else if (n_retries > 1) {
-                        /* Files in /proc are generally smaller than the page size so let's start with a page size
-                         * buffer from malloc and only use the max buffer on the final try. */
+                        /* Files in /proc are generally smaller than the page size so let's start with
+                         * a page size buffer from malloc and only use the max buffer on the final try. */
                         size = MIN3(page_size() - 1, READ_VIRTUAL_BYTES_MAX, max_size);
                         n_retries = 1;
                 } else {
@@ -522,6 +518,18 @@ int read_virtual_file(const char *filename, size_t max_size, char **ret_contents
                 *ret_size = n;
 
         return !truncated;
+}
+
+int read_virtual_file(const char *filename, size_t max_size, char **ret_contents, size_t *ret_size) {
+        _cleanup_close_ int fd = -1;
+
+        assert(filename);
+
+        fd = open(filename, O_RDONLY | O_NOCTTY | O_CLOEXEC);
+        if (fd < 0)
+                return -errno;
+
+        return read_virtual_file_fd(fd, max_size, ret_contents, ret_size);
 }
 
 int read_full_stream_full(
