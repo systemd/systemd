@@ -83,6 +83,9 @@ static inline char **strv_split(const char *s, const char *separators) {
         return ret;
 }
 
+int strv_split_and_extend_full(char ***t, const char *s, const char *separators, ExtractFlags flags);
+#define strv_split_and_extend(t, s, sep) strv_split_and_extend_full(t, s, sep, 0)
+
 int strv_split_newlines_full(char ***ret, const char *s, ExtractFlags flags);
 static inline char **strv_split_newlines(const char *s) {
         char **ret;
