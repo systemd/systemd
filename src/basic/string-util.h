@@ -226,3 +226,5 @@ int string_contains_word_strv(const char *string, const char *separators, char *
 static inline int string_contains_word(const char *string, const char *separators, const char *word) {
         return string_contains_word_strv(string, separators, STRV_MAKE(word), NULL);
 }
+
+bool streq_skip_trailing_chars(const char *s1, const char *s2, const char *ok);
