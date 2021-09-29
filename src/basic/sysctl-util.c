@@ -58,7 +58,7 @@ int sysctl_write(const char *property, const char *value) {
 
         log_debug("Setting '%s' to '%s'", p, value);
 
-        return write_string_file(p, value, WRITE_STRING_FILE_VERIFY_ON_FAILURE | WRITE_STRING_FILE_DISABLE_BUFFER);
+        return write_string_file(p, value, WRITE_STRING_FILE_VERIFY_ON_FAILURE | WRITE_STRING_FILE_DISABLE_BUFFER | WRITE_STRING_FILE_SUPPRESS_REDUNDANT_VIRTUAL);
 }
 
 int sysctl_writef(const char *property, const char *format, ...) {
