@@ -119,7 +119,9 @@ int manager_save(Manager *m) {
         int r;
 
         assert(m);
-        assert(m->state_file);
+
+        if (isempty(m->state_file))
+                return 0; /* Do not update state file when running in test mode. */
 
         HASHMAP_FOREACH(link, m->links_by_index) {
                 const struct in_addr *addresses;
@@ -423,9 +425,10 @@ int link_save(Link *link) {
         int r;
 
         assert(link);
-        assert(link->state_file);
-        assert(link->lease_file);
         assert(link->manager);
+
+        if (isempty(link->state_file))
+                return 0; /* Do not update state files when running in test mode. */
 
         if (link->state == LINK_STATE_LINGER)
                 return 0;

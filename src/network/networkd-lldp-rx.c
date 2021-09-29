@@ -114,7 +114,9 @@ int link_lldp_save(Link *link) {
         int n = 0, r, i;
 
         assert(link);
-        assert(link->lldp_file);
+
+        if (isempty(link->lldp_file))
+                return 0; /* Do not update state file when running in test mode. */
 
         if (!link->lldp_rx) {
                 (void) unlink(link->lldp_file);
