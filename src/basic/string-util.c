@@ -1146,3 +1146,19 @@ int string_contains_word_strv(const char *string, const char *separators, char *
                 *ret_word = found;
         return !!found;
 }
+
+bool streq_skip_trailing_chars(const char *s1, const char *s2, const char *ok) {
+        if (!s1 && !s2)
+                return true;
+        if (!s1 || !s2)
+                return false;
+
+        if (!ok)
+                ok = WHITESPACE;
+
+        for (; *s1 && *s2; s1++, s2++)
+                if (*s1 != *s2)
+                        break;
+
+        return in_charset(s1, ok) && in_charset(s2, ok);
+}
