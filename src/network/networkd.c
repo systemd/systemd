@@ -73,11 +73,11 @@ static int run(int argc, char *argv[]) {
 
         assert_se(sigprocmask_many(SIG_BLOCK, NULL, SIGTERM, SIGINT, -1) >= 0);
 
-        r = manager_new(&m);
+        r = manager_new(&m, /* test_mode = */ false);
         if (r < 0)
                 return log_error_errno(r, "Could not create manager: %m");
 
-        r = manager_setup(m, /* test_mode = */ false);
+        r = manager_setup(m);
         if (r < 0)
                 return log_error_errno(r, "Could not setup manager: %m");
 
