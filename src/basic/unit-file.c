@@ -284,7 +284,7 @@ int unit_file_build_name_map(
                         continue;
                 }
 
-                FOREACH_DIRENT(de, d, log_warning_errno(errno, "Failed to read \"%s\", ignoring: %m", *dir)) {
+                FOREACH_DIRENT_ALL(de, d, log_warning_errno(errno, "Failed to read \"%s\", ignoring: %m", *dir)) {
                         char *filename;
                         _cleanup_free_ char *_filename_free = NULL, *simplified = NULL;
                         const char *suffix, *dst = NULL;
