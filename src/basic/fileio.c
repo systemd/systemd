@@ -148,6 +148,30 @@ int write_string_stream_ts(
                         return -EBADF;
         }
 
+        if (flags & WRITE_STRING_FILE_SUPPRESS_REDUNDANT_VIRTUAL) {
+                _cleanup_free_ char *t = NULL;
+
+                /* If value to be written is same as that of the existing value, then suppress the write. */
+
+                if (fd < 0) {
+                        fd = fileno(f);
+                        if (fd < 0)
+                                return -EBADF;
+                }
+
+                /* Read an additional byte to detect cases where the prefix matches but the rest
+                 * doesn't. Also, 0 returned by read_virtual_file_fd() means the read was truncated and
+                 * it won't be equal to the new value. */
+                if (read_virtual_file_fd(fd, strlen(line)+1, &t, NULL) > 0 &&
+                    streq_skip_trailing_chars(line, t, NEWLINE)) {
+                        log_debug("No change in value '%s', supressing write", line);
+                        return 0;
+                }
+
+                if (lseek(fd, 0, SEEK_SET) < 0)
+                        return -errno;
+        }
+
         needs_nl = !(flags & WRITE_STRING_FILE_AVOID_NEWLINE) && !endswith(line, "\n");
 
         if (needs_nl && (flags & WRITE_STRING_FILE_DISABLE_BUFFER)) {
@@ -263,10 +287,11 @@ int write_string_file_ts(
                 assert(!ts);
 
         /* We manually build our own version of fopen(..., "we") that works without O_CREAT and with O_NOFOLLOW if needed. */
-        fd = open(fn, O_WRONLY|O_CLOEXEC|O_NOCTTY |
+        fd = open(fn, O_CLOEXEC|O_NOCTTY |
                   (FLAGS_SET(flags, WRITE_STRING_FILE_NOFOLLOW) ? O_NOFOLLOW : 0) |
                   (FLAGS_SET(flags, WRITE_STRING_FILE_CREATE) ? O_CREAT : 0) |
-                  (FLAGS_SET(flags, WRITE_STRING_FILE_TRUNCATE) ? O_TRUNC : 0),
+                  (FLAGS_SET(flags, WRITE_STRING_FILE_TRUNCATE) ? O_TRUNC : 0) |
+                  (FLAGS_SET(flags, WRITE_STRING_FILE_SUPPRESS_REDUNDANT_VIRTUAL) ? O_RDWR : O_WRONLY),
                   (FLAGS_SET(flags, WRITE_STRING_FILE_MODE_0600) ? 0600 : 0666));
         if (fd < 0) {
                 r = -errno;
