@@ -791,6 +791,14 @@
           default will be used.</para>
         </listitem>
       </varlistentry>
+      <varlistentry>
+        <term><varname>Independent=</varname></term>
+        <listitem>
+          <para>Takes a boolean. When true, the vxlan interface is created without any underlying network
+          interface. Defaults to false, which means that a .network file that requests this VXLAN interface
+          using <varname>VXLAN=</varname> is required for the VXLAN to be created.</para>
+        </listitem>
+      </varlistentry>
     </variablelist>
   </refsect1>
 
@@ -865,14 +873,6 @@
         <term><varname>IPDoNotFragment=</varname></term>
         <listitem>
           <para>Accepts the same key as in [VXLAN] section.</para>
-        </listitem>
-      </varlistentry>
-      <varlistentry>
-        <term><varname>Independent=</varname></term>
-        <listitem>
-          <para>Takes a boolean. When true, the vxlan interface is created without any underlying network
-          interface. Defaults to false, which means that a .network file that requests this tunnel using
-          <varname>Tunnel=</varname> is required for the tunnel to be created.</para>
         </listitem>
       </varlistentry>
     </variablelist>
