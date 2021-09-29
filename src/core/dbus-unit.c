@@ -909,7 +909,7 @@ const sd_bus_vtable bus_unit_vtable[] = {
         SD_BUS_PROPERTY("OnSuccessJobMode", "s", property_get_job_mode, offsetof(Unit, on_success_job_mode), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("OnFailureJobMode", "s", property_get_job_mode, offsetof(Unit, on_failure_job_mode), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("IgnoreOnIsolate", "b", bus_property_get_bool, offsetof(Unit, ignore_on_isolate), SD_BUS_VTABLE_PROPERTY_CONST),
-        SD_BUS_PROPERTY("NeedDaemonReload", "b", property_get_need_daemon_reload, 0, SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("NeedDaemonReload", "b", property_get_need_daemon_reload, 0, 0),
         SD_BUS_PROPERTY("Markers", "as", property_get_markers, offsetof(Unit, markers), 0),
         SD_BUS_PROPERTY("JobTimeoutUSec", "t", bus_property_get_usec, offsetof(Unit, job_timeout), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("JobRunningTimeoutUSec", "t", bus_property_get_usec, offsetof(Unit, job_running_timeout), SD_BUS_VTABLE_PROPERTY_CONST),

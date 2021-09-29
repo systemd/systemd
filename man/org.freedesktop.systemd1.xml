@@ -1711,7 +1711,7 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
       readonly s OnFailureJobMode = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly b IgnoreOnIsolate = ...;
-      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly b NeedDaemonReload = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly as Markers = ['...', ...];
