@@ -6,7 +6,6 @@ ADDITIONAL_DEPS=(
     clang
     expect
     fdisk
-    iproute2
     jekyll
     lcov
     libfdisk-dev
@@ -20,7 +19,6 @@ ADDITIONAL_DEPS=(
     perl
     python3-libevdev
     python3-pyparsing
-    util-linux
     zstd
 )
 
@@ -55,8 +53,7 @@ for phase in "${PHASES[@]}"; do
             fi
             meson --werror -Dtests=unsafe -Dslow-tests=true -Dfuzz-tests=true "${MESON_ARGS[@]}" build
             ninja -C build -v
-            # Some of the unsafe tests irreparably break the host's network connectivity, so run them in a namespace
-            unshare -n bash -c 'ip link set dev lo up; meson test -C build --print-errorlogs'
+            meson test -C build --print-errorlogs
             if [[ "$phase" = "RUN_GCC" ]]; then
                 ninja -C build coverage
             fi
@@ -88,7 +85,7 @@ for phase in "${PHASES[@]}"; do
             # during debugging, wonderful), so let's at least keep a workaround
             # here to make the builds stable for the time being.
             (set +x; while :; do echo -ne "\n[WATCHDOG] $(date)\n"; sleep 30; done) &
-            unshare -n bash -c 'ip link set dev lo up; meson test --timeout-multiplier=3 -C build --print-errorlogs'
+            meson test --timeout-multiplier=3 -C build --print-errorlogs
             ;;
         CLEANUP)
             info "Cleanup phase"
