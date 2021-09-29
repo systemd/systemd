@@ -19,7 +19,7 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
                 assert_se(fwrite(data, size, 1, f) == 1);
 
         fflush(f);
-        assert_se(manager_new(&manager) >= 0);
+        assert_se(manager_new(&manager, /* test_mode = */ true) >= 0);
         (void) netdev_load_one(manager, netdev_config);
         return 0;
 }

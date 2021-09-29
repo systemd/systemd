@@ -982,7 +982,9 @@ static Link *link_drop(Link *link) {
 
         link_drop_from_master(link);
 
-        (void) unlink(link->state_file);
+        if (link->state_file)
+                (void) unlink(link->state_file);
+
         link_clean(link);
 
         STRV_FOREACH(n, link->alternative_names)
@@ -2358,14 +2360,17 @@ static int link_new(Manager *manager, sd_netlink_message *message, Link **ret) {
                         return log_debug_errno(r, "rtnl: failed to exit IFLA_LINKINFO container: %m");
         }
 
-        if (asprintf(&state_file, "/run/systemd/netif/links/%d", ifindex) < 0)
-                return log_oom_debug();
+        if (!manager->test_mode) {
+                /* Do not update state files when running in test mode. */
+                if (asprintf(&state_file, "/run/systemd/netif/links/%d", ifindex) < 0)
+                        return log_oom_debug();
 
-        if (asprintf(&lease_file, "/run/systemd/netif/leases/%d", ifindex) < 0)
-                return log_oom_debug();
+                if (asprintf(&lease_file, "/run/systemd/netif/leases/%d", ifindex) < 0)
+                        return log_oom_debug();
 
-        if (asprintf(&lldp_file, "/run/systemd/netif/lldp/%d", ifindex) < 0)
-                return log_oom_debug();
+                if (asprintf(&lldp_file, "/run/systemd/netif/lldp/%d", ifindex) < 0)
+                        return log_oom_debug();
+        }
 
         link = new(Link, 1);
         if (!link)
