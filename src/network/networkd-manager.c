@@ -6,6 +6,7 @@
 #include <linux/if.h>
 #include <linux/fib_rules.h>
 #include <linux/nexthop.h>
+#include <linux/nl80211.h>
 
 #include "sd-daemon.h"
 #include "sd-netlink.h"
@@ -38,6 +39,7 @@
 #include "networkd-routing-policy-rule.h"
 #include "networkd-speed-meter.h"
 #include "networkd-state-file.h"
+#include "networkd-wifi.h"
 #include "ordered-set.h"
 #include "path-lookup.h"
 #include "path-util.h"
@@ -109,13 +111,11 @@ static int on_connected(sd_bus_message *message, void *userdata, sd_bus_error *r
         return 0;
 }
 
-int manager_connect_bus(Manager *m) {
+static int manager_connect_bus(Manager *m) {
         int r;
 
         assert(m);
-
-        if (m->bus)
-                return 0;
+        assert(!m->bus);
 
         r = bus_open_system_watch_bind_with_description(&m->bus, "bus-api-network");
         if (r < 0)
@@ -248,6 +248,16 @@ static int manager_connect_genl(Manager *m) {
         if (r < 0)
                 return r;
 
+        r = genl_add_match(m->genl, NULL, NL80211_GENL_NAME, NL80211_MULTICAST_GROUP_CONFIG, 0,
+                           &manager_genl_process_nl80211_config, NULL, m, "network-genl_process_nl80211_config");
+        if (r < 0 && r != -EOPNOTSUPP)
+                return r;
+
+        r = genl_add_match(m->genl, NULL, NL80211_GENL_NAME, NL80211_MULTICAST_GROUP_MLME, 0,
+                           &manager_genl_process_nl80211_mlme, NULL, m, "network-genl_process_nl80211_mlme");
+        if (r < 0 && r != -EOPNOTSUPP)
+                return r;
+
         return 0;
 }
 
@@ -372,28 +382,10 @@ static int signal_restart_callback(sd_event_source *s, const struct signalfd_sig
         return sd_event_exit(sd_event_source_get_event(s), 0);
 }
 
-int manager_new(Manager **ret) {
-        _cleanup_(manager_freep) Manager *m = NULL;
+int manager_setup(Manager *m) {
         int r;
 
-        m = new(Manager, 1);
-        if (!m)
-                return -ENOMEM;
-
-        *m = (Manager) {
-                .speed_meter_interval_usec = SPEED_METER_DEFAULT_TIME_INTERVAL,
-                .online_state = _LINK_ONLINE_STATE_INVALID,
-                .manage_foreign_routes = true,
-                .manage_foreign_rules = true,
-                .ethtool_fd = -1,
-                .dhcp_duid.type = DUID_TYPE_EN,
-                .dhcp6_duid.type = DUID_TYPE_EN,
-                .duid_product_uuid.type = DUID_TYPE_UUID,
-        };
-
-        m->state_file = strdup("/run/systemd/netif/state");
-        if (!m->state_file)
-                return -ENOMEM;
+        assert(m);
 
         r = sd_event_default(&m->event);
         if (r < 0)
@@ -422,6 +414,13 @@ int manager_new(Manager **ret) {
         if (r < 0)
                 return r;
 
+        if (m->test_mode)
+                return 0;
+
+        r = manager_connect_bus(m);
+        if (r < 0)
+                return r;
+
         r = manager_connect_udev(m);
         if (r < 0)
                 return r;
@@ -438,8 +437,33 @@ int manager_new(Manager **ret) {
         if (r < 0)
                 return r;
 
-        *ret = TAKE_PTR(m);
+        m->state_file = strdup("/run/systemd/netif/state");
+        if (!m->state_file)
+                return -ENOMEM;
 
+        return 0;
+}
+
+int manager_new(Manager **ret, bool test_mode) {
+        _cleanup_(manager_freep) Manager *m = NULL;
+
+        m = new(Manager, 1);
+        if (!m)
+                return -ENOMEM;
+
+        *m = (Manager) {
+                .test_mode = test_mode,
+                .speed_meter_interval_usec = SPEED_METER_DEFAULT_TIME_INTERVAL,
+                .online_state = _LINK_ONLINE_STATE_INVALID,
+                .manage_foreign_routes = true,
+                .manage_foreign_rules = true,
+                .ethtool_fd = -1,
+                .dhcp_duid.type = DUID_TYPE_EN,
+                .dhcp6_duid.type = DUID_TYPE_EN,
+                .duid_product_uuid.type = DUID_TYPE_UUID,
+        };
+
+        *ret = TAKE_PTR(m);
         return 0;
 }
 
@@ -556,15 +580,15 @@ bool manager_should_reload(Manager *m) {
 
 static int manager_enumerate_internal(
                 Manager *m,
+                sd_netlink *nl,
                 sd_netlink_message *req,
-                int (*process)(sd_netlink *, sd_netlink_message *, Manager *),
-                const char *name) {
+                int (*process)(sd_netlink *, sd_netlink_message *, Manager *)) {
 
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *reply = NULL;
-        int r;
+        int k, r;
 
         assert(m);
-        assert(m->rtnl);
+        assert(nl);
         assert(req);
         assert(process);
 
@@ -572,22 +596,14 @@ static int manager_enumerate_internal(
         if (r < 0)
                 return r;
 
-        r = sd_netlink_call(m->rtnl, req, 0, &reply);
-        if (r < 0) {
-                if (name && (r == -EOPNOTSUPP || (r == -EINVAL && mac_selinux_enforcing()))) {
-                        log_debug_errno(r, "%s are not supported by the kernel. Ignoring.", name);
-                        return 0;
-                }
-
+        r = sd_netlink_call(nl, req, 0, &reply);
+        if (r < 0)
                 return r;
-        }
 
         for (sd_netlink_message *reply_one = reply; reply_one; reply_one = sd_netlink_message_next(reply_one)) {
-                int k;
-
                 m->enumerating = true;
 
-                k = process(m->rtnl, reply_one, m);
+                k = process(nl, reply_one, m);
                 if (k < 0 && r >= 0)
                         r = k;
 
@@ -608,7 +624,7 @@ static int manager_enumerate_links(Manager *m) {
         if (r < 0)
                 return r;
 
-        return manager_enumerate_internal(m, req, manager_rtnl_process_link, NULL);
+        return manager_enumerate_internal(m, m->rtnl, req, manager_rtnl_process_link);
 }
 
 static int manager_enumerate_addresses(Manager *m) {
@@ -622,7 +638,7 @@ static int manager_enumerate_addresses(Manager *m) {
         if (r < 0)
                 return r;
 
-        return manager_enumerate_internal(m, req, manager_rtnl_process_address, NULL);
+        return manager_enumerate_internal(m, m->rtnl, req, manager_rtnl_process_address);
 }
 
 static int manager_enumerate_neighbors(Manager *m) {
@@ -636,7 +652,7 @@ static int manager_enumerate_neighbors(Manager *m) {
         if (r < 0)
                 return r;
 
-        return manager_enumerate_internal(m, req, manager_rtnl_process_neighbor, NULL);
+        return manager_enumerate_internal(m, m->rtnl, req, manager_rtnl_process_neighbor);
 }
 
 static int manager_enumerate_routes(Manager *m) {
@@ -653,7 +669,7 @@ static int manager_enumerate_routes(Manager *m) {
         if (r < 0)
                 return r;
 
-        return manager_enumerate_internal(m, req, manager_rtnl_process_route, NULL);
+        return manager_enumerate_internal(m, m->rtnl, req, manager_rtnl_process_route);
 }
 
 static int manager_enumerate_rules(Manager *m) {
@@ -670,7 +686,7 @@ static int manager_enumerate_rules(Manager *m) {
         if (r < 0)
                 return r;
 
-        return manager_enumerate_internal(m, req, manager_rtnl_process_rule, "Routing policy rules");
+        return manager_enumerate_internal(m, m->rtnl, req, manager_rtnl_process_rule);
 }
 
 static int manager_enumerate_nexthop(Manager *m) {
@@ -684,7 +700,50 @@ static int manager_enumerate_nexthop(Manager *m) {
         if (r < 0)
                 return r;
 
-        return manager_enumerate_internal(m, req, manager_rtnl_process_nexthop, "Nexthop rules");
+        return manager_enumerate_internal(m, m->rtnl, req, manager_rtnl_process_nexthop);
+}
+
+static int manager_enumerate_nl80211_config(Manager *m) {
+        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL;
+        int r;
+
+        assert(m);
+        assert(m->genl);
+
+        r = sd_genl_message_new(m->genl, NL80211_GENL_NAME, NL80211_CMD_GET_INTERFACE, &req);
+        if (r < 0)
+                return r;
+
+        return manager_enumerate_internal(m, m->genl, req, manager_genl_process_nl80211_config);
+}
+
+static int manager_enumerate_nl80211_mlme(Manager *m) {
+        Link *link;
+        int r;
+
+        assert(m);
+        assert(m->genl);
+
+        HASHMAP_FOREACH(link, m->links_by_index) {
+                _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL;
+
+                if (link->wlan_iftype != NL80211_IFTYPE_STATION)
+                        continue;
+
+                r = sd_genl_message_new(m->genl, NL80211_GENL_NAME, NL80211_CMD_GET_STATION, &req);
+                if (r < 0)
+                        return r;
+
+                r = sd_netlink_message_append_u32(req, NL80211_ATTR_IFINDEX, link->ifindex);
+                if (r < 0)
+                        return r;
+
+                r = manager_enumerate_internal(m, m->genl, req, manager_genl_process_nl80211_mlme);
+                if (r < 0)
+                        return r;
+        }
+
+        return 0;
 }
 
 int manager_enumerate(Manager *m) {
@@ -702,17 +761,36 @@ int manager_enumerate(Manager *m) {
         if (r < 0)
                 return log_error_errno(r, "Could not enumerate neighbors: %m");
 
+        /* NextHop support is added in kernel v5.3 (65ee00a9409f751188a8cdc0988167858eb4a536),
+         * and older kernels return -EOPNOTSUPP, or -EINVAL if SELinux is enabled. */
         r = manager_enumerate_nexthop(m);
-        if (r < 0)
-                return log_error_errno(r, "Could not enumerate nexthop rules: %m");
+        if (r == -EOPNOTSUPP || (r == -EINVAL && mac_selinux_enforcing()))
+                log_debug_errno(r, "Could not enumerate nexthops, ignoring: %m");
+        else if (r < 0)
+                return log_error_errno(r, "Could not enumerate nexthops: %m");
 
         r = manager_enumerate_routes(m);
         if (r < 0)
                 return log_error_errno(r, "Could not enumerate routes: %m");
 
+        /* If kernel is built with CONFIG_FIB_RULES=n, it returns -EOPNOTSUPP. */
         r = manager_enumerate_rules(m);
-        if (r < 0)
+        if (r == -EOPNOTSUPP)
+                log_debug_errno(r, "Could not enumerate routing policy rules, ignoring: %m");
+        else if (r < 0)
                 return log_error_errno(r, "Could not enumerate routing policy rules: %m");
+
+        r = manager_enumerate_nl80211_config(m);
+        if (r == -EOPNOTSUPP)
+                log_debug_errno(r, "Could not enumerate wireless LAN interfaces, ignoring: %m");
+        else if (r < 0)
+                return log_error_errno(r, "Could not enumerate wireless LAN interfaces: %m");
+
+        r = manager_enumerate_nl80211_mlme(m);
+        if (r == -EOPNOTSUPP)
+                log_debug_errno(r, "Could not enumerate wireless LAN stations, ignoring: %m");
+        else if (r < 0)
+                return log_error_errno(r, "Could not enumerate wireless LAN stations: %m");
 
         return 0;
 }

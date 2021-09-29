@@ -119,6 +119,10 @@ int manager_save(Manager *m) {
         int r;
 
         assert(m);
+
+        if (m->test_mode)
+                return 0; /* Do not update state file when running in test mode. */
+
         assert(m->state_file);
 
         HASHMAP_FOREACH(link, m->links_by_index) {
@@ -426,6 +430,9 @@ int link_save(Link *link) {
         assert(link->state_file);
         assert(link->lease_file);
         assert(link->manager);
+
+        if (link->manager->test_mode)
+                return 0; /* Do not update state file when running in test mode. */
 
         if (link->state == LINK_STATE_LINGER)
                 return 0;
