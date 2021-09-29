@@ -14,7 +14,7 @@ test_append_files() {
 
         # On openSUSE the static linked version of busybox is named "busybox-static".
         busybox="$(type -P busybox-static || type -P busybox)"
-        inst_simple "$busybox" "$(dirname $busybox)/busybox"
+        inst_simple "$busybox" "$(dirname "$busybox")/busybox"
 
         if selinuxenabled >/dev/null; then
             image_install selinuxenabled

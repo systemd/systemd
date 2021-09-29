@@ -76,6 +76,8 @@ helper_wait_for_pvscan() {
     # Get major and minor numbers from the udev database
     # (udevadm returns MAJOR= and MINOR= expressions, so let's pull them into
     # the current environment via `source` for easier parsing)
+    #
+    # shellcheck source=/dev/null
     source <(udevadm info -q property "$real_dev" | grep -E "(MAJOR|MINOR)=")
     # Sanity check if we got correct major and minor numbers
     test -e "/sys/dev/block/$MAJOR:$MINOR/"

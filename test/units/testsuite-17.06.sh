@@ -8,9 +8,9 @@ function check_validity() {
     local f ID_OR_HANDLE
 
     for f in /run/udev/watch/*; do
-        ID_OR_HANDLE=$(readlink $f)
-        test -L /run/udev/watch/${ID_OR_HANDLE}
-        test $(readlink /run/udev/watch/${ID_OR_HANDLE}) = $(basename $f)
+        ID_OR_HANDLE="$(readlink "$f")"
+        test -L "/run/udev/watch/${ID_OR_HANDLE}"
+        test "$(readlink "/run/udev/watch/${ID_OR_HANDLE}")" = "$(basename "$f")"
     done
 }
 
@@ -49,7 +49,7 @@ check
 
 MAJOR=$(udevadm info /dev/sda | grep -e '^E: MAJOR=' | sed -e 's/^E: MAJOR=//')
 MINOR=$(udevadm info /dev/sda | grep -e '^E: MINOR=' | sed -e 's/^E: MINOR=//')
-test -L /run/udev/watch/b${MAJOR}:${MINOR}
+test -L "/run/udev/watch/b${MAJOR}:${MINOR}"
 
 cat >/run/udev/rules.d/50-testsuite.rules <<EOF
 ACTION=="change", SUBSYSTEM=="block", KERNEL=="sda", OPTIONS:="nowatch"
@@ -59,7 +59,7 @@ check
 
 MAJOR=$(udevadm info /dev/sda | grep -e '^E: MAJOR=' | sed -e 's/^E: MAJOR=//')
 MINOR=$(udevadm info /dev/sda | grep -e '^E: MINOR=' | sed -e 's/^E: MINOR=//')
-test ! -e /run/udev/watch/b${MAJOR}:${MINOR}
+test ! -e "/run/udev/watch/b${MAJOR}:${MINOR}"
 
 rm /run/udev/rules.d/00-debug.rules
 rm /run/udev/rules.d/50-testsuite.rules
