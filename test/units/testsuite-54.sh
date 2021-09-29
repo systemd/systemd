@@ -43,7 +43,7 @@ if systemctl --version | grep -q -- +OPENSSL ; then
     systemd-creds encrypt --name=test-54 /tmp/test-54-plaintext /tmp/test-54-ciphertext
     systemd-creds decrypt --name=test-54 /tmp/test-54-ciphertext | cmp /tmp/test-54-plaintext
 
-    systemd-run -p SetCredentialEncrypted=test-54:"`cat /tmp/test-54-ciphertext`" \
+    systemd-run -p SetCredentialEncrypted=test-54:"$(cat /tmp/test-54-ciphertext)" \
                 --wait \
                 --pipe \
                 cat '${CREDENTIALS_DIRECTORY}/test-54' | cmp /tmp/test-54-plaintext

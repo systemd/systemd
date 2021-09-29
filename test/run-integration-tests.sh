@@ -3,7 +3,7 @@ set -e
 
 if [ "$NO_BUILD" ]; then
     BUILD_DIR=""
-elif BUILD_DIR="$($(dirname "$0")/../tools/find-build-dir.sh)"; then
+elif BUILD_DIR="$("$(dirname "$0")/../tools/find-build-dir.sh")"; then
     ninja -C "$BUILD_DIR"
 else
     echo "No build found, please set BUILD_DIR or NO_BUILD" >&2
@@ -73,35 +73,36 @@ fi
 # Run actual tests (if requested)
 if [[ $args =~ [a-z] ]]; then
     for TEST in $SELECTED_TESTS; do
-        COUNT=$(($COUNT+1))
+        COUNT=$((COUNT+1))
 
-        pass_deny_list $TEST || continue
+        pass_deny_list "$TEST" || continue
         start=$(date +%s)
 
         echo -e "\n--x-- Running $TEST --x--"
         set +e
+        # shellcheck disable=SC2086
         ( set -x ; make -C "$TEST" $args )
         RESULT=$?
         set -e
         echo "--x-- Result of $TEST: $RESULT --x--"
 
         results["$TEST"]="$RESULT"
-        times["$TEST"]=$(( $(date +%s) - $start ))
+        times["$TEST"]=$(( $(date +%s) - start ))
 
-        [ "$RESULT" -ne "0" ] && FAILURES=$(($FAILURES+1))
+        [ "$RESULT" -ne "0" ] && FAILURES=$((FAILURES+1))
     done
 fi
 
 # Run clean-again, if requested, and if no tests failed
-if [ $FAILURES -eq 0 -a $CLEANAGAIN = 1 ]; then
-    for TEST in ${!results[@]}; do
+if [[ $FAILURES -eq 0 && $CLEANAGAIN -eq 1 ]]; then
+    for TEST in "${!results[@]}"; do
         ( set -x ; make -C "$TEST" clean-again )
     done
 fi
 
 echo ""
 
-for TEST in ${!results[@]}; do
+for TEST in "${!results[@]}"; do
     RESULT="${results[$TEST]}"
     time="${times[$TEST]}"
     string=$([ "$RESULT" = "0" ] && echo "SUCCESS" || echo "FAIL")
