@@ -300,6 +300,27 @@ int strv_split_full(char ***t, const char *s, const char *separators, ExtractFla
         return (int) n;
 }
 
+int strv_split_and_extend_full(char ***t, const char *s, const char *separators, ExtractFlags flags) {
+        _cleanup_strv_free_ char **l = NULL;
+        char * const *x = NULL;
+        int r;
+
+        assert(t);
+        assert(s);
+
+        r = strv_split_full(&l, s, separators, flags);
+        if (r < 0)
+                return r;
+
+        STRV_FOREACH(x, l) {
+                r = strv_extend(t, *x);
+                if (r < 0)
+                        return r;
+        }
+
+        return (int) strv_length(*t);
+}
+
 int strv_split_colon_pairs(char ***t, const char *s) {
         _cleanup_strv_free_ char **l = NULL;
         size_t n = 0;
