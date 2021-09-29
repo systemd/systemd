@@ -21,11 +21,11 @@ export LDFLAGS=${LDFLAGS:--L${clang_lib}}
 
 export WORK=${WORK:-$(pwd)}
 export OUT=${OUT:-$(pwd)/out}
-mkdir -p $OUT
+mkdir -p "$OUT"
 
-build=$WORK/build
-rm -rf $build
-mkdir -p $build
+build="$WORK/build"
+rm -rf "$build"
+mkdir -p "$build"
 
 if [ -z "$FUZZING_ENGINE" ]; then
     fuzzflag="llvm-fuzz=true"
@@ -38,28 +38,28 @@ else
     fi
 fi
 
-if ! meson $build -D$fuzzflag -Db_lundef=false; then
-    cat $build/meson-logs/meson-log.txt
+if ! meson "$build" "-D$fuzzflag" -Db_lundef=false; then
+    cat "$build/meson-logs/meson-log.txt"
     exit 1
 fi
 
-ninja -v -C $build fuzzers
+ninja -v -C "$build" fuzzers
 
 # The seed corpus is a separate flat archive for each fuzzer,
 # with a fixed name ${fuzzer}_seed_corpus.zip.
 for d in "$(dirname "$0")/../test/fuzz/fuzz-"*; do
-    zip -jqr $OUT/$(basename "$d")_seed_corpus.zip "$d"
+    zip -jqr "$OUT/$(basename "$d")_seed_corpus.zip" "$d"
 done
 
 # get fuzz-dns-packet corpus
-df=$build/dns-fuzzing
-git clone --depth 1 https://github.com/CZ-NIC/dns-fuzzing $df
-zip -jqr $OUT/fuzz-dns-packet_seed_corpus.zip $df/packet
+df="$build/dns-fuzzing"
+git clone --depth 1 https://github.com/CZ-NIC/dns-fuzzing "$df"
+zip -jqr "$OUT/fuzz-dns-packet_seed_corpus.zip" "$df/packet"
 
-install -Dt $OUT/src/shared/ $build/src/shared/libsystemd-shared-*.so
+install -Dt "$OUT/src/shared/" "$build"/src/shared/libsystemd-shared-*.so
 
-wget -O $OUT/fuzz-json.dict https://raw.githubusercontent.com/rc0r/afl-fuzz/master/dictionaries/json.dict
+wget -O "$OUT/fuzz-json.dict" https://raw.githubusercontent.com/rc0r/afl-fuzz/master/dictionaries/json.dict
 
-find $build -maxdepth 1 -type f -executable -name "fuzz-*" -exec mv {} $OUT \;
-find src -type f -name "fuzz-*.dict" -exec cp {} $OUT \;
-cp src/fuzz/*.options $OUT
+find "$build" -maxdepth 1 -type f -executable -name "fuzz-*" -exec mv {} "$OUT" \;
+find src -type f -name "fuzz-*.dict" -exec cp {} "$OUT" \;
+cp src/fuzz/*.options "$OUT"
