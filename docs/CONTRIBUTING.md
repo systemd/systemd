@@ -37,6 +37,7 @@ See [reporting of security vulnerabilities](SECURITY.md).
 * Make sure to run the test suite locally, before posting your PR. We use a CI system, meaning we don't even look at your PR, if the build and tests don't pass.
 * If you need to update the code in an existing PR, force-push into the same branch, overriding old commits with new versions.
 * After you have pushed a new version, add a comment about the new version (no notification is sent just for the commits, so it's easy to miss the update without an explicit comment). If you are a member of the systemd project on GitHub, remove the `reviewed/needs-rework` label.
+* If you are copying existing code from another source (eg: a compat header), please make sure the license is compatible with GPL-2.0-or-later.
 
 ## Final Words
 
