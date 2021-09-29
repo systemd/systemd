@@ -274,8 +274,8 @@ int unit_file_build_name_map(
         }
 
         STRV_FOREACH(dir, (char**) lp->search_path) {
-                struct dirent *de;
                 _cleanup_closedir_ DIR *d = NULL;
+                struct dirent *de;
 
                 d = opendir(*dir);
                 if (!d) {
@@ -285,19 +285,49 @@ int unit_file_build_name_map(
                 }
 
                 FOREACH_DIRENT_ALL(de, d, log_warning_errno(errno, "Failed to read \"%s\", ignoring: %m", *dir)) {
-                        char *filename;
                         _unused_ _cleanup_free_ char *_filename_free = NULL;
                         _cleanup_free_ char *simplified = NULL;
-                        const char *suffix, *dst = NULL;
-                        bool valid_unit_name;
-
-                        valid_unit_name = unit_name_is_valid(de->d_name, UNIT_NAME_ANY);
+                        const char *dst = NULL;
+                        char *filename;
 
                         /* We only care about valid units and dirs with certain suffixes, let's ignore the
                          * rest. */
-                        if (!valid_unit_name &&
-                            !ENDSWITH_SET(de->d_name, ".wants", ".requires", ".d"))
-                                continue;
+
+                        if (unit_name_is_valid(de->d_name, UNIT_NAME_ANY)) {
+
+                                /* Accept a regular file or symlink whose name is a valid unit file name. */
+                                if (!IN_SET(de->d_type, DT_REG, DT_LNK))
+                                        continue;
+                        } else {
+                                bool valid_dir_name = false;
+                                const char *suffix;
+
+                                /* Also accept a directory whose name is a valid unit file name ending in
+                                 * .wants/, .requires/ or .d/ */
+                                if (de->d_type != DT_DIR)
+                                        continue;
+
+                                FOREACH_STRING(suffix, ".wants", ".requires", ".d") {
+                                        _cleanup_free_ char *chopped = NULL;
+                                        const char *e;
+
+                                        e = endswith(de->d_name, suffix);
+                                        if (!e)
+                                                continue;
+
+                                        chopped = strndup(de->d_name, e - de->d_name);
+                                        if (!chopped)
+                                                return log_oom();
+
+                                        if (unit_name_is_valid(chopped, UNIT_NAME_ANY)) {
+                                                valid_dir_name = true;
+                                                break;
+                                        }
+                                }
+
+                                if (!valid_dir_name)
+                                        continue;
+                        }
 
                         filename = path_join(*dir, de->d_name);
                         if (!filename)
@@ -312,9 +342,8 @@ int unit_file_build_name_map(
                         } else
                                 _filename_free = filename; /* Make sure we free the filename. */
 
-                        if (!valid_unit_name)
+                        if (!IN_SET(de->d_type, DT_REG, DT_LNK))
                                 continue;
-                        assert_se(suffix = strrchr(de->d_name, '.'));
 
                         /* search_path is ordered by priority (highest first). If the name is already mapped
                          * to something (incl. itself), it means that we have already seen it, and we should
