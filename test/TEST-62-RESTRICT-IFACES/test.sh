@@ -1,9 +1,10 @@
 #!/usr/bin/env bash
+set -e
 
+TEST_DESCRIPTION="test RestrictNetworkInterfaces="
 TEST_NO_NSPAWN=1
 
-set -e
-TEST_DESCRIPTION="test RestrictNetworkInterfaces="
-. $TEST_BASE_DIR/test-functions
+# shellcheck source=test/test-functions
+. "$TEST_BASE_DIR/test-functions"
 
-do_test "$@" 62
+do_test "$@"
