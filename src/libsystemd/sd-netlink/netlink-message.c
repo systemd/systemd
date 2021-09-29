@@ -116,8 +116,8 @@ int message_new_synthetic_error(sd_netlink *nl, int error, uint32_t serial, sd_n
 int sd_netlink_message_request_dump(sd_netlink_message *m, int dump) {
         assert_return(m, -EINVAL);
         assert_return(m->hdr, -EINVAL);
-
-        assert_return(IN_SET(m->hdr->nlmsg_type,
+        assert_return(m->protocol != NETLINK_ROUTE ||
+                      IN_SET(m->hdr->nlmsg_type,
                              RTM_GETLINK, RTM_GETLINKPROP, RTM_GETADDR, RTM_GETROUTE, RTM_GETNEIGH,
                              RTM_GETRULE, RTM_GETADDRLABEL, RTM_GETNEXTHOP), -EINVAL);
 
@@ -166,7 +166,7 @@ int sd_netlink_message_set_flags(sd_netlink_message *m, uint16_t flags) {
 int sd_netlink_message_is_broadcast(sd_netlink_message *m) {
         assert_return(m, -EINVAL);
 
-        return m->broadcast;
+        return m->multicast_group != 0;
 }
 
 /* If successful the updated message will be correctly aligned, if
@@ -751,7 +751,7 @@ int sd_netlink_message_read(sd_netlink_message *m, unsigned short type, size_t s
 }
 
 int sd_netlink_message_read_data(sd_netlink_message *m, unsigned short type, size_t *ret_size, void **ret_data) {
-        void *attr_data, *data;
+        void *attr_data;
         int r;
 
         assert_return(m, -EINVAL);
@@ -761,7 +761,35 @@ int sd_netlink_message_read_data(sd_netlink_message *m, unsigned short type, siz
                 return r;
 
         if (ret_data) {
+                void *data;
+
                 data = memdup(attr_data, r);
+                if (!data)
+                        return -ENOMEM;
+
+                *ret_data = data;
+        }
+
+        if (ret_size)
+                *ret_size = r;
+
+        return r;
+}
+
+int sd_netlink_message_read_data_suffix0(sd_netlink_message *m, unsigned short type, size_t *ret_size, void **ret_data) {
+        void *attr_data;
+        int r;
+
+        assert_return(m, -EINVAL);
+
+        r = netlink_message_read_internal(m, type, &attr_data, NULL);
+        if (r < 0)
+                return r;
+
+        if (ret_data) {
+                void *data;
+
+                data = memdup_suffix0(attr_data, r);
                 if (!data)
                         return -ENOMEM;
 
@@ -776,7 +804,6 @@ int sd_netlink_message_read_data(sd_netlink_message *m, unsigned short type, siz
 
 int sd_netlink_message_read_string_strdup(sd_netlink_message *m, unsigned short type, char **data) {
         void *attr_data;
-        char *str;
         int r;
 
         assert_return(m, -EINVAL);
@@ -790,6 +817,8 @@ int sd_netlink_message_read_string_strdup(sd_netlink_message *m, unsigned short 
                 return r;
 
         if (data) {
+                char *str;
+
                 str = strndup(attr_data, r);
                 if (!str)
                         return -ENOMEM;
@@ -801,8 +830,8 @@ int sd_netlink_message_read_string_strdup(sd_netlink_message *m, unsigned short 
 }
 
 int sd_netlink_message_read_string(sd_netlink_message *m, unsigned short type, const char **data) {
-        int r;
         void *attr_data;
+        int r;
 
         assert_return(m, -EINVAL);
 
@@ -813,7 +842,8 @@ int sd_netlink_message_read_string(sd_netlink_message *m, unsigned short type, c
         r = netlink_message_read_internal(m, type, &attr_data, NULL);
         if (r < 0)
                 return r;
-        else if (strnlen(attr_data, r) >= (size_t) r)
+
+        if (strnlen(attr_data, r) >= (size_t) r)
                 return -EIO;
 
         if (data)
@@ -823,8 +853,8 @@ int sd_netlink_message_read_string(sd_netlink_message *m, unsigned short type, c
 }
 
 int sd_netlink_message_read_u8(sd_netlink_message *m, unsigned short type, uint8_t *data) {
-        int r;
         void *attr_data;
+        int r;
 
         assert_return(m, -EINVAL);
 
@@ -835,7 +865,8 @@ int sd_netlink_message_read_u8(sd_netlink_message *m, unsigned short type, uint8
         r = netlink_message_read_internal(m, type, &attr_data, NULL);
         if (r < 0)
                 return r;
-        else if ((size_t) r < sizeof(uint8_t))
+
+        if ((size_t) r < sizeof(uint8_t))
                 return -EIO;
 
         if (data)
@@ -858,7 +889,8 @@ int sd_netlink_message_read_u16(sd_netlink_message *m, unsigned short type, uint
         r = netlink_message_read_internal(m, type, &attr_data, &net_byteorder);
         if (r < 0)
                 return r;
-        else if ((size_t) r < sizeof(uint16_t))
+
+        if ((size_t) r < sizeof(uint16_t))
                 return -EIO;
 
         if (data) {
@@ -885,7 +917,8 @@ int sd_netlink_message_read_u32(sd_netlink_message *m, unsigned short type, uint
         r = netlink_message_read_internal(m, type, &attr_data, &net_byteorder);
         if (r < 0)
                 return r;
-        else if ((size_t) r < sizeof(uint32_t))
+
+        if ((size_t) r < sizeof(uint32_t))
                 return -EIO;
 
         if (data) {
@@ -899,8 +932,8 @@ int sd_netlink_message_read_u32(sd_netlink_message *m, unsigned short type, uint
 }
 
 int sd_netlink_message_read_ether_addr(sd_netlink_message *m, unsigned short type, struct ether_addr *data) {
-        int r;
         void *attr_data;
+        int r;
 
         assert_return(m, -EINVAL);
 
@@ -911,7 +944,8 @@ int sd_netlink_message_read_ether_addr(sd_netlink_message *m, unsigned short typ
         r = netlink_message_read_internal(m, type, &attr_data, NULL);
         if (r < 0)
                 return r;
-        else if ((size_t) r < sizeof(struct ether_addr))
+
+        if ((size_t) r < sizeof(struct ether_addr))
                 return -EIO;
 
         if (data)
@@ -921,8 +955,8 @@ int sd_netlink_message_read_ether_addr(sd_netlink_message *m, unsigned short typ
 }
 
 int netlink_message_read_hw_addr(sd_netlink_message *m, unsigned short type, struct hw_addr_data *data) {
-        int r;
         void *attr_data;
+        int r;
 
         assert_return(m, -EINVAL);
 
@@ -933,7 +967,8 @@ int netlink_message_read_hw_addr(sd_netlink_message *m, unsigned short type, str
         r = netlink_message_read_internal(m, type, &attr_data, NULL);
         if (r < 0)
                 return r;
-        else if (r > HW_ADDR_MAX_SIZE)
+
+        if (r > HW_ADDR_MAX_SIZE)
                 return -EIO;
 
         if (data) {
@@ -945,8 +980,8 @@ int netlink_message_read_hw_addr(sd_netlink_message *m, unsigned short type, str
 }
 
 int sd_netlink_message_read_cache_info(sd_netlink_message *m, unsigned short type, struct ifa_cacheinfo *info) {
-        int r;
         void *attr_data;
+        int r;
 
         assert_return(m, -EINVAL);
 
@@ -957,7 +992,8 @@ int sd_netlink_message_read_cache_info(sd_netlink_message *m, unsigned short typ
         r = netlink_message_read_internal(m, type, &attr_data, NULL);
         if (r < 0)
                 return r;
-        else if ((size_t) r < sizeof(struct ifa_cacheinfo))
+
+        if ((size_t) r < sizeof(struct ifa_cacheinfo))
                 return -EIO;
 
         if (info)
@@ -980,7 +1016,8 @@ int netlink_message_read_in_addr_union(sd_netlink_message *m, unsigned short typ
         r = netlink_message_read_internal(m, type, &attr_data, NULL);
         if (r < 0)
                 return r;
-        else if ((size_t) r < FAMILY_ADDRESS_SIZE(family))
+
+        if ((size_t) r < FAMILY_ADDRESS_SIZE(family))
                 return -EIO;
 
         if (data)
