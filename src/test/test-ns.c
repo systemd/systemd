@@ -83,6 +83,7 @@ int main(int argc, char *argv[]) {
                             (char **) writable,
                             (char **) readonly,
                             (char **) inaccessible,
+                            NULL,
                             (char **) exec,
                             (char **) no_exec,
                             NULL,
