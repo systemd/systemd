@@ -1,0 +1,38 @@
+---
+# https://github.com/marketplace/actions/super-linter
+
+name: Lint Code Base
+
+on:
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  build:
+    name: Lint Code Base
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Repo checkout
+        uses: actions/checkout@v2
+        with:
+          # We need a full repo clone
+          fetch-depth: 0
+
+      - name: Lint Code Base
+        uses: github/super-linter@v3
+        env:
+          DEFAULT_BRANCH: main
+          # Excludes:
+          #   - man/.* - all snippets in man pages (false positives due to
+          #              missing shebangs)
+          #   - kernel-install/.* - false-positives for dropins (and I'm afraid
+          #                         to touch kernel-install)
+          #   - .*\.(in|SKELETON) - all template/skeleton files
+          #   - tools/coverity\.sh - external file (with some modifications)
+          FILTER_REGEX_EXCLUDE: .*/(man/.*|src/kernel-install/.*|.*\.(in|SKELETON)|tools/coverity\.sh)$
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          MULTI_STATUS: true
+          VALIDATE_ALL_CODEBASE: false
+          VALIDATE_BASH: true
