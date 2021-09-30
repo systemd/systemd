@@ -1993,8 +1993,28 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         self.assertIn('inet6 2001:db8:1:f101::1/64 scope global deprecated', output)
         self.assertRegex(output, r'inet6 fd[0-9a-f:]*1/64 scope global')
 
+        # Tests for #20891.
+        # 1. set preferred lifetime forever to drop the deprecated flag for testing #20891.
+        self.assertEqual(call('ip address change 10.7.8.9/16 dev dummy98 preferred_lft forever'), 0)
+        self.assertEqual(call('ip address change 2001:db8:1:f101::1/64 dev dummy98 preferred_lft forever'), 0)
+        output = check_output('ip -4 address show dev dummy98')
+        print(output)
+        self.assertNotIn('deprecated', output)
+        output = check_output('ip -6 address show dev dummy98')
+        print(output)
+        self.assertNotIn('deprecated', output)
+
+        # 2. restart networkd to reconfigure the interface.
         restart_networkd()
         self.wait_online(['dummy98:routable'])
+
+        # 3. check the deprecated flag is set for the address configured with PreferredLifetime=0
+        output = check_output('ip -4 address show dev dummy98')
+        print(output)
+        self.assertIn('inet 10.7.8.9/16 brd 10.7.255.255 scope link deprecated dummy98', output)
+        output = check_output('ip -6 address show dev dummy98')
+        print(output)
+        self.assertIn('inet6 2001:db8:1:f101::1/64 scope global deprecated', output)
 
         # test for ENOBUFS issue #17012
         output = check_output('ip -4 address show dev dummy98')
