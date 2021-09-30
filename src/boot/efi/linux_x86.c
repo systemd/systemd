@@ -104,9 +104,9 @@ struct boot_params {
 #define __regparm0__
 #endif
 
-typedef VOID(*handover_f)(VOID *image, EFI_SYSTEM_TABLE *table, struct boot_params *params) __regparm0__;
+typedef void(*handover_f)(void *image, EFI_SYSTEM_TABLE *table, struct boot_params *params) __regparm0__;
 
-static VOID linux_efi_handover(EFI_HANDLE image, struct boot_params *params) {
+static void linux_efi_handover(EFI_HANDLE image, struct boot_params *params) {
         handover_f handover;
         UINTN start = (UINTN)params->hdr.code32_start;
 
@@ -123,8 +123,8 @@ static VOID linux_efi_handover(EFI_HANDLE image, struct boot_params *params) {
 EFI_STATUS linux_exec(
                 EFI_HANDLE image,
                 const CHAR8 *cmdline, UINTN cmdline_len,
-                const VOID *linux_buffer, UINTN linux_length,
-                const VOID *initrd_buffer, UINTN initrd_length) {
+                const void *linux_buffer, UINTN linux_length,
+                const void *initrd_buffer, UINTN initrd_length) {
 
         const struct boot_params *image_params;
         struct boot_params *boot_params;

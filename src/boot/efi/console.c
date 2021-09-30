@@ -50,7 +50,7 @@ EFI_STATUS console_key_read(UINT64 *key, UINT64 timeout_usec) {
         assert(key);
 
         if (!checked) {
-                err = LibLocateProtocol((EFI_GUID*) EFI_SIMPLE_TEXT_INPUT_EX_GUID, (VOID **)&TextInputEx);
+                err = LibLocateProtocol((EFI_GUID*) EFI_SIMPLE_TEXT_INPUT_EX_GUID, (void **)&TextInputEx);
                 if (EFI_ERROR(err) ||
                     uefi_call_wrapper(BS->CheckEvent, 1, TextInputEx->WaitForKeyEx) == EFI_INVALID_PARAMETER)
                         /* If WaitForKeyEx fails here, the firmware pretends it talks this
@@ -167,7 +167,7 @@ static INT64 get_auto_mode(void) {
         EFI_GRAPHICS_OUTPUT_PROTOCOL *GraphicsOutput;
         EFI_STATUS err;
 
-        err = LibLocateProtocol(&GraphicsOutputProtocol, (VOID **)&GraphicsOutput);
+        err = LibLocateProtocol(&GraphicsOutputProtocol, (void **)&GraphicsOutput);
         if (!EFI_ERROR(err) && GraphicsOutput->Mode && GraphicsOutput->Mode->Info) {
                 EFI_GRAPHICS_OUTPUT_MODE_INFORMATION *Info = GraphicsOutput->Mode->Info;
                 BOOLEAN keep = FALSE;

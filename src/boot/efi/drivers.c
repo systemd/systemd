@@ -6,9 +6,9 @@
 #include "drivers.h"
 #include "util.h"
 
-static VOID efi_unload_image(EFI_HANDLE *h) {
+static void efi_unload_image(EFI_HANDLE *h) {
         if (*h)
-                (VOID) uefi_call_wrapper(BS->UnloadImage, 1, *h);
+                (void) uefi_call_wrapper(BS->UnloadImage, 1, *h);
 }
 
 static EFI_STATUS load_one_driver(
@@ -47,7 +47,7 @@ static EFI_STATUS load_one_driver(
                         BS->HandleProtocol, 3,
                         image,
                         &LoadedImageProtocol,
-                        (VOID **)&loaded_image);
+                        (void **)&loaded_image);
         if (EFI_ERROR(err))
                 return log_error_status_stall(err, L"Failed to find protocol in driver image s: %r", fname, err);
 
@@ -67,7 +67,7 @@ static EFI_STATUS load_one_driver(
         return EFI_SUCCESS;
 }
 
-static EFI_STATUS reconnect(VOID) {
+static EFI_STATUS reconnect(void) {
           _cleanup_freepool_ EFI_HANDLE *handles = NULL;
           UINTN n_handles = 0;
           EFI_STATUS err;
@@ -144,7 +144,7 @@ EFI_STATUS load_drivers(
         }
 
         if (n_succeeded > 0)
-                (VOID) reconnect();
+                (void) reconnect();
 
         return EFI_SUCCESS;
 }
