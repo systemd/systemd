@@ -3638,9 +3638,7 @@ if install_sysconfdir
         install_data('xorg/50-systemd-user.sh',
                      install_dir : xinitrcdir)
 endif
-install_data('LICENSE.GPL2',
-             'LICENSE.LGPL2.1',
-             'NEWS',
+install_data('NEWS',
              'README',
              'docs/CODING_STYLE.md',
              'docs/DISTRO_PORTING.md',
@@ -3651,6 +3649,8 @@ install_data('LICENSE.GPL2',
              'docs/UIDS-GIDS.md',
              'docs/GVARIANT-SERIALIZATION.md',
              install_dir : docdir)
+install_subdir('LICENSES',
+               install_dir : docdir)
 
 meson.add_install_script('sh', '-c', mkdir_p.format(systemdstatedir))
 meson.add_install_script('sh', '-c', 'touch $DESTDIR@0@'.format(prefixdir))
