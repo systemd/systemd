@@ -11,6 +11,7 @@
 #include <efi.h>
 #include <efilib.h>
 
+#include "missing_efi.h"
 #include "util.h"
 #include "shim.h"
 
@@ -31,10 +32,6 @@ struct ShimLock {
 };
 
 #define SIMPLE_FS_GUID &(const EFI_GUID) SIMPLE_FILE_SYSTEM_PROTOCOL
-#define SECURITY_PROTOCOL_GUID \
-        &(const EFI_GUID) { 0xa46423e3, 0x4617, 0x49f1, { 0xb9, 0xff, 0xd1, 0xbf, 0xa9, 0x11, 0x58, 0x39 } }
-#define SECURITY_PROTOCOL2_GUID \
-        &(const EFI_GUID) { 0x94ab2f58, 0x1438, 0x4ef1, { 0x91, 0x52, 0x18, 0x94, 0x1a, 0x3a, 0x0e, 0x68 } }
 #define SHIM_LOCK_GUID \
         &(const EFI_GUID) { 0x605dab50, 0xe046, 0x4300, { 0xab, 0xb6, 0x3d, 0xd8, 0x10, 0xdd, 0x8b, 0x23 } }
 
@@ -58,39 +55,6 @@ static BOOLEAN shim_validate(VOID *data, UINT32 size) {
 
         return shim_lock->shim_verify(data, size) == EFI_SUCCESS;
 }
-
-/*
- * See the UEFI Platform Initialization manual (Vol2: DXE) for this
- */
-struct _EFI_SECURITY2_PROTOCOL;
-struct _EFI_SECURITY_PROTOCOL;
-struct _EFI_DEVICE_PATH_PROTOCOL;
-
-typedef struct _EFI_SECURITY2_PROTOCOL EFI_SECURITY2_PROTOCOL;
-typedef struct _EFI_SECURITY_PROTOCOL EFI_SECURITY_PROTOCOL;
-typedef struct _EFI_DEVICE_PATH_PROTOCOL EFI_DEVICE_PATH_PROTOCOL;
-
-typedef EFI_STATUS (EFIAPI *EFI_SECURITY_FILE_AUTHENTICATION_STATE) (
-        const EFI_SECURITY_PROTOCOL *This,
-        UINT32 AuthenticationStatus,
-        const EFI_DEVICE_PATH_PROTOCOL *File
-);
-
-typedef EFI_STATUS (EFIAPI *EFI_SECURITY2_FILE_AUTHENTICATION) (
-        const EFI_SECURITY2_PROTOCOL *This,
-        const EFI_DEVICE_PATH_PROTOCOL *DevicePath,
-        VOID *FileBuffer,
-        UINTN FileSize,
-        BOOLEAN  BootPolicy
-);
-
-struct _EFI_SECURITY2_PROTOCOL {
-        EFI_SECURITY2_FILE_AUTHENTICATION FileAuthentication;
-};
-
-struct _EFI_SECURITY_PROTOCOL {
-        EFI_SECURITY_FILE_AUTHENTICATION_STATE  FileAuthenticationState;
-};
 
 /* Handle to the original authenticator for security1 protocol */
 static EFI_SECURITY_FILE_AUTHENTICATION_STATE esfas = NULL;
