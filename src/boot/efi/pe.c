@@ -94,7 +94,7 @@ static inline UINTN section_table_offset(const struct DosFileHeader *dos, const 
         return dos->ExeHeader + sizeof(struct PeFileHeader) + pe->FileHeader.SizeOfOptionalHeader;
 }
 
-static VOID locate_sections(
+static void locate_sections(
                 const struct PeSectionHeader section_table[],
                 UINTN n_table,
                 const CHAR8 **sections,

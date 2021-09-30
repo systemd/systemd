@@ -53,12 +53,12 @@ static CHAR8* pad4(CHAR8 *p, const CHAR8* start) {
 
 static EFI_STATUS pack_cpio_one(
                 const CHAR16 *fname,
-                const VOID *contents,
+                const void *contents,
                 UINTN contents_size,
                 const CHAR8 *target_dir_prefix,
                 UINT32 access_mode,
                 UINT32 *inode_counter,
-                VOID **cpio_buffer,
+                void **cpio_buffer,
                 UINTN *cpio_buffer_size) {
 
         UINTN l, target_dir_prefix_size, fname_size, q;
@@ -167,7 +167,7 @@ static EFI_STATUS pack_cpio_dir(
                 const CHAR8 *path,
                 UINT32 access_mode,
                 UINT32 *inode_counter,
-                VOID **cpio_buffer,
+                void **cpio_buffer,
                 UINTN *cpio_buffer_size) {
 
         UINTN l, path_size;
@@ -238,7 +238,7 @@ static EFI_STATUS pack_cpio_prefix(
                 const CHAR8 *path,
                 UINT32 dir_mode,
                 UINT32 *inode_counter,
-                VOID **cpio_buffer,
+                void **cpio_buffer,
                 UINTN *cpio_buffer_size) {
 
         EFI_STATUS err;
@@ -278,7 +278,7 @@ static EFI_STATUS pack_cpio_prefix(
 }
 
 static EFI_STATUS pack_cpio_trailer(
-                VOID **cpio_buffer,
+                void **cpio_buffer,
                 UINTN *cpio_buffer_size) {
 
         static const char trailer[] =
@@ -298,7 +298,7 @@ static EFI_STATUS pack_cpio_trailer(
                 "00000000"
                 "TRAILER!!!\0\0\0"; /* There's a fourth NUL byte appended here, because this is a string */
 
-        VOID *a;
+        void *a;
 
         /* Generates the cpio trailer record that indicates the end of our initrd cpio archive */
 
@@ -325,7 +325,7 @@ EFI_STATUS pack_cpio(
                 UINT32 access_mode,
                 UINTN tpm_pcr,
                 const CHAR16 *tpm_description,
-                VOID **ret_buffer,
+                void **ret_buffer,
                 UINTN *ret_buffer_size) {
 
         _cleanup_(FileHandleClosep) EFI_FILE_HANDLE root = NULL, extra_dir = NULL;
@@ -333,7 +333,7 @@ EFI_STATUS pack_cpio(
         _cleanup_freepool_ CHAR16 *loaded_image_path = NULL, *j = NULL;
         _cleanup_freepool_ EFI_FILE_INFO *dirent = NULL;
         _cleanup_(strv_freep) CHAR16 **items = NULL;
-        _cleanup_freepool_ VOID *buffer = NULL;
+        _cleanup_freepool_ void *buffer = NULL;
         UINT32 inode = 1; /* inode counter, so that each item gets a new inode */
         EFI_STATUS err;
 
@@ -416,7 +416,7 @@ EFI_STATUS pack_cpio(
 
         /* Now, sort the files we found, to make this uniform and stable (and to ensure the TPM measurements
          * are not dependent on read order) */
-        sort_pointer_array((VOID**) items, n_items, (compare_pointer_func_t) StrCmp);
+        sort_pointer_array((void**) items, n_items, (compare_pointer_func_t) StrCmp);
 
         /* Generate the leading directory inodes right before adding the first files, to the
          * archive. Otherwise the cpio archive cannot be unpacked, since the leading dirs won't exist. */
