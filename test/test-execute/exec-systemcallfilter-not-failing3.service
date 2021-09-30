@@ -1,0 +1,8 @@
+[Unit]
+Description=Test for SystemCallFilter
+
+[Service]
+ExecStart=/bin/sh -c 'echo "Foo bar"'
+Type=oneshot
+SystemCallArchitectures=native
+SystemCallFilter=
