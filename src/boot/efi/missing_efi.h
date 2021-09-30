@@ -161,6 +161,10 @@ struct _EFI_DT_FIXUP_PROTOCOL {
         EFI_DT_FIXUP   Fixup;
 };
 
+#endif
+
+#ifndef EFI_TCG_GUID
+
 #define EFI_TCG_GUID \
         &(const EFI_GUID) { 0xf541796d, 0xa62e, 0x4954, { 0xa7, 0x75, 0x95, 0x84, 0xf6, 0x1b, 0x9c, 0xdd } }
 
@@ -256,6 +260,10 @@ typedef struct _EFI_TCG {
         EFI_TCG_HASH_LOG_EXTEND_EVENT HashLogExtendEvent;
 } EFI_TCG;
 
+#endif
+
+#ifndef EFI_TCG2_GUID
+
 #define EFI_TCG2_GUID \
         &(const EFI_GUID) { 0x607f766c, 0x7455, 0x42be, { 0x93, 0x0b, 0xe4, 0xd7, 0x6d, 0xb2, 0x72, 0x0f } }
 
@@ -340,3 +348,81 @@ typedef struct tdEFI_TCG2_PROTOCOL {
 
 #define LINUX_INITRD_MEDIA_GUID \
         {0x5568e427, 0x68fc, 0x4f3d, {0xac, 0x74, 0xca, 0x55, 0x52, 0x31, 0xcc, 0x68} }
+
+/* UEFI Platform Initialization (Vol2: DXE) */
+#ifndef SECURITY_PROTOCOL_GUID
+
+#define SECURITY_PROTOCOL_GUID \
+        &(const EFI_GUID) { 0xa46423e3, 0x4617, 0x49f1, { 0xb9, 0xff, 0xd1, 0xbf, 0xa9, 0x11, 0x58, 0x39 } }
+#define SECURITY_PROTOCOL2_GUID \
+        &(const EFI_GUID) { 0x94ab2f58, 0x1438, 0x4ef1, { 0x91, 0x52, 0x18, 0x94, 0x1a, 0x3a, 0x0e, 0x68 } }
+
+struct _EFI_SECURITY2_PROTOCOL;
+struct _EFI_SECURITY_PROTOCOL;
+struct _EFI_DEVICE_PATH_PROTOCOL;
+
+typedef struct _EFI_SECURITY2_PROTOCOL EFI_SECURITY2_PROTOCOL;
+typedef struct _EFI_SECURITY_PROTOCOL EFI_SECURITY_PROTOCOL;
+typedef struct _EFI_DEVICE_PATH_PROTOCOL EFI_DEVICE_PATH_PROTOCOL;
+
+typedef EFI_STATUS (EFIAPI *EFI_SECURITY_FILE_AUTHENTICATION_STATE) (
+        const EFI_SECURITY_PROTOCOL *This,
+        UINT32 AuthenticationStatus,
+        const EFI_DEVICE_PATH_PROTOCOL *File
+);
+
+typedef EFI_STATUS (EFIAPI *EFI_SECURITY2_FILE_AUTHENTICATION) (
+        const EFI_SECURITY2_PROTOCOL *This,
+        const EFI_DEVICE_PATH_PROTOCOL *DevicePath,
+        VOID *FileBuffer,
+        UINTN FileSize,
+        BOOLEAN  BootPolicy
+);
+
+struct _EFI_SECURITY2_PROTOCOL {
+        EFI_SECURITY2_FILE_AUTHENTICATION FileAuthentication;
+};
+
+struct _EFI_SECURITY_PROTOCOL {
+        EFI_SECURITY_FILE_AUTHENTICATION_STATE  FileAuthenticationState;
+};
+
+#endif
+
+#ifndef EFI_CONSOLE_CONTROL_GUID
+
+#define EFI_CONSOLE_CONTROL_GUID \
+        &(const EFI_GUID) { 0xf42f7782, 0x12e, 0x4c12, { 0x99, 0x56, 0x49, 0xf9, 0x43, 0x4, 0xf7, 0x21 } }
+
+struct _EFI_CONSOLE_CONTROL_PROTOCOL;
+
+typedef enum {
+        EfiConsoleControlScreenText,
+        EfiConsoleControlScreenGraphics,
+        EfiConsoleControlScreenMaxValue,
+} EFI_CONSOLE_CONTROL_SCREEN_MODE;
+
+typedef EFI_STATUS (EFIAPI *EFI_CONSOLE_CONTROL_PROTOCOL_GET_MODE)(
+        struct _EFI_CONSOLE_CONTROL_PROTOCOL *This,
+        EFI_CONSOLE_CONTROL_SCREEN_MODE *Mode,
+        BOOLEAN *UgaExists,
+        BOOLEAN *StdInLocked
+);
+
+typedef EFI_STATUS (EFIAPI *EFI_CONSOLE_CONTROL_PROTOCOL_SET_MODE)(
+        struct _EFI_CONSOLE_CONTROL_PROTOCOL *This,
+        EFI_CONSOLE_CONTROL_SCREEN_MODE Mode
+);
+
+typedef EFI_STATUS (EFIAPI *EFI_CONSOLE_CONTROL_PROTOCOL_LOCK_STD_IN)(
+        struct _EFI_CONSOLE_CONTROL_PROTOCOL *This,
+        CHAR16 *Password
+);
+
+typedef struct _EFI_CONSOLE_CONTROL_PROTOCOL {
+        EFI_CONSOLE_CONTROL_PROTOCOL_GET_MODE GetMode;
+        EFI_CONSOLE_CONTROL_PROTOCOL_SET_MODE SetMode;
+        EFI_CONSOLE_CONTROL_PROTOCOL_LOCK_STD_IN LockStdIn;
+} EFI_CONSOLE_CONTROL_PROTOCOL;
+
+#endif
