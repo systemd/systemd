@@ -18,6 +18,7 @@ charset = utf-8
 [*.{c,h}]
 indent_style = space
 indent_size = 8
+max_line_length = 109
 
 [*.sh]
 indent_style = space
