@@ -72,7 +72,7 @@ static inline void FileHandleClosep(EFI_FILE_HANDLE *handle) {
         if (!*handle)
                 return;
 
-        uefi_call_wrapper((*handle)->Close, 1, *handle);
+        (*handle)->Close(*handle);
 }
 
 /*
