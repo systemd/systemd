@@ -635,7 +635,7 @@ Name={}
 [Network]
 DHCP=ipv4
 IPv6AcceptRA=False
-DNSSECNegativeTrustAnchors=megasearch.net
+DNSSECNegativeTrustAnchors=search.example.com
 '''.format(self.iface))
 
         # create second device/dnsmasq for a .company/.lab VPN interface
@@ -681,8 +681,8 @@ DNSSECNegativeTrustAnchors=company lab
         self.assertIn(b'kettle.cantina.company: 10.241.4.4', out)
 
         # test general domains
-        out = subprocess.check_output(['resolvectl', 'query', 'megasearch.net'])
-        self.assertIn(b'megasearch.net: 192.168.42.1', out)
+        out = subprocess.check_output(['resolvectl', 'query', 'search.example.com'])
+        self.assertIn(b'search.example.com: 192.168.42.1', out)
 
         with open(self.dnsmasq_log) as f:
             general_log = f.read()
@@ -696,8 +696,8 @@ DNSSECNegativeTrustAnchors=company lab
         self.assertNotIn('.company', general_log)
 
         # general domains should not be sent to the VPN DNS
-        self.assertRegex(general_log, 'query.*megasearch.net')
-        self.assertNotIn('megasearch.net', vpn_log)
+        self.assertRegex(general_log, 'query.*search.example.com')
+        self.assertNotIn('search.example.com', vpn_log)
 
     def test_resolved_etc_hosts(self):
         '''resolved queries to /etc/hosts'''
