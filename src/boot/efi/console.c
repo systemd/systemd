@@ -19,7 +19,7 @@ static inline void EventClosep(EFI_EVENT *event) {
         if (!*event)
                 return;
 
-        uefi_call_wrapper(BS->CloseEvent, 1, *event);
+        BS->CloseEvent(*event);
 }
 
 /*
@@ -51,8 +51,7 @@ EFI_STATUS console_key_read(UINT64 *key, UINT64 timeout_usec) {
 
         if (!checked) {
                 err = LibLocateProtocol((EFI_GUID*) EFI_SIMPLE_TEXT_INPUT_EX_GUID, (void **)&TextInputEx);
-                if (EFI_ERROR(err) ||
-                    uefi_call_wrapper(BS->CheckEvent, 1, TextInputEx->WaitForKeyEx) == EFI_INVALID_PARAMETER)
+                if (EFI_ERROR(err) || BS->CheckEvent(TextInputEx->WaitForKeyEx) == EFI_INVALID_PARAMETER)
                         /* If WaitForKeyEx fails here, the firmware pretends it talks this
                          * protocol, but it really doesn't. */
                         TextInputEx = NULL;
@@ -63,12 +62,12 @@ EFI_STATUS console_key_read(UINT64 *key, UINT64 timeout_usec) {
         }
 
         if (timeout_usec > 0) {
-                err = uefi_call_wrapper(BS->CreateEvent, 5, EVT_TIMER, 0, NULL, NULL, &timer);
+                err = BS->CreateEvent(EVT_TIMER, 0, NULL, NULL, &timer);
                 if (EFI_ERROR(err))
                         return log_error_status_stall(err, L"Error creating timer event: %r", err);
 
                 /* SetTimer expects 100ns units for some reason. */
-                err = uefi_call_wrapper(BS->SetTimer, 3, timer, TimerRelative, timeout_usec * 10);
+                err = BS->SetTimer(timer, TimerRelative, timeout_usec * 10);
                 if (EFI_ERROR(err))
                         return log_error_status_stall(err, L"Error arming timer event: %r", err);
 
@@ -76,13 +75,13 @@ EFI_STATUS console_key_read(UINT64 *key, UINT64 timeout_usec) {
         } else
                 /* We do not want the watchdog to reset us if we are waiting for
                  * user input indefinitely. */
-                uefi_call_wrapper(BS->SetWatchdogTimer, 4, 0, 0x10000, 0, NULL);
+                BS->SetWatchdogTimer(0, 0x10000, 0, NULL);
 
-        err = uefi_call_wrapper(BS->WaitForEvent, 3, n_events, events, &index);
+        err = BS->WaitForEvent(n_events, events, &index);
 
         /* We always rearm it here because the user could potentially
          * have a much higher menu timeout than the watchdog timer. */
-        uefi_call_wrapper(BS->SetWatchdogTimer, 4, 5 * 60, 0x10000, 0, NULL);
+        BS->SetWatchdogTimer(5 * 60, 0x10000, 0, NULL);
 
         if (EFI_ERROR(err))
                 return log_error_status_stall(err, L"Error waiting for events: %r", err);
@@ -91,12 +90,12 @@ EFI_STATUS console_key_read(UINT64 *key, UINT64 timeout_usec) {
                 return EFI_TIMEOUT;
 
         /* TextInputEx might be ready too even if ConIn got to signal first. */
-        if (TextInputEx && !EFI_ERROR(uefi_call_wrapper(BS->CheckEvent, 1, TextInputEx->WaitForKeyEx))) {
+        if (TextInputEx && !EFI_ERROR(BS->CheckEvent(TextInputEx->WaitForKeyEx))) {
                 EFI_KEY_DATA keydata;
                 UINT64 keypress;
                 UINT32 shift = 0;
 
-                err = uefi_call_wrapper(TextInputEx->ReadKeyStrokeEx, 2, TextInputEx, &keydata);
+                err = TextInputEx->ReadKeyStrokeEx(TextInputEx, &keydata);
                 if (EFI_ERROR(err))
                         return err;
 
@@ -118,7 +117,7 @@ EFI_STATUS console_key_read(UINT64 *key, UINT64 timeout_usec) {
                 return EFI_NOT_READY;
         }
 
-        err  = uefi_call_wrapper(ST->ConIn->ReadKeyStroke, 2, ST->ConIn, &k);
+        err  = ST->ConIn->ReadKeyStroke(ST->ConIn, &k);
         if (EFI_ERROR(err))
                 return err;
 
@@ -134,17 +133,17 @@ static EFI_STATUS change_mode(INT64 mode) {
         mode = CLAMP(mode, CONSOLE_MODE_RANGE_MIN, CONSOLE_MODE_RANGE_MAX);
         old_mode = MAX(CONSOLE_MODE_RANGE_MIN, ST->ConOut->Mode->Mode);
 
-        err = uefi_call_wrapper(ST->ConOut->SetMode, 2, ST->ConOut, mode);
+        err = ST->ConOut->SetMode(ST->ConOut, mode);
         if (!EFI_ERROR(err))
                 return EFI_SUCCESS;
 
         /* Something went wrong. Output is probably borked, so try to revert to previous mode. */
-        if (!EFI_ERROR(uefi_call_wrapper(ST->ConOut->SetMode, 2, ST->ConOut, old_mode)))
+        if (!EFI_ERROR(ST->ConOut->SetMode(ST->ConOut, old_mode)))
                 return err;
 
         /* Maybe the device is on fire? */
-        uefi_call_wrapper(ST->ConOut->Reset, 2, ST->ConOut, TRUE);
-        uefi_call_wrapper(ST->ConOut->SetMode, 2, ST->ConOut, CONSOLE_MODE_RANGE_MIN);
+        ST->ConOut->Reset(ST->ConOut, TRUE);
+        ST->ConOut->SetMode(ST->ConOut, CONSOLE_MODE_RANGE_MIN);
         return err;
 }
 
@@ -239,7 +238,7 @@ EFI_STATUS console_query_mode(UINTN *x_max, UINTN *y_max) {
         assert(x_max);
         assert(y_max);
 
-        err = uefi_call_wrapper(ST->ConOut->QueryMode, 4, ST->ConOut, ST->ConOut->Mode->Mode, x_max, y_max);
+        err = ST->ConOut->QueryMode(ST->ConOut, ST->ConOut->Mode->Mode, x_max, y_max);
         if (EFI_ERROR(err)) {
                 /* Fallback values mandated by UEFI spec. */
                 switch (ST->ConOut->Mode->Mode) {
