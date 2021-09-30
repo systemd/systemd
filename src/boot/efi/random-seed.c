@@ -17,8 +17,8 @@
 /* SHA256 gives us 256/8=32 bytes */
 #define HASH_VALUE_SIZE 32
 
-static EFI_STATUS acquire_rng(UINTN size, VOID **ret) {
-        _cleanup_freepool_ VOID *data = NULL;
+static EFI_STATUS acquire_rng(UINTN size, void **ret) {
+        _cleanup_freepool_ void *data = NULL;
         EFI_RNG_PROTOCOL *rng;
         EFI_STATUS err;
 
@@ -26,7 +26,7 @@ static EFI_STATUS acquire_rng(UINTN size, VOID **ret) {
 
         /* Try to acquire the specified number of bytes from the UEFI RNG */
 
-        err = LibLocateProtocol((EFI_GUID*) EFI_RNG_GUID, (VOID**) &rng);
+        err = LibLocateProtocol((EFI_GUID*) EFI_RNG_GUID, (void**) &rng);
         if (EFI_ERROR(err))
                 return err;
         if (!rng)
@@ -44,11 +44,11 @@ static EFI_STATUS acquire_rng(UINTN size, VOID **ret) {
         return EFI_SUCCESS;
 }
 
-static VOID hash_once(
-                const VOID *old_seed,
-                const VOID *rng,
+static void hash_once(
+                const void *old_seed,
+                const void *rng,
                 UINTN size,
-                const VOID *system_token,
+                const void *system_token,
                 UINTN system_token_size,
                 UINTN counter,
                 UINT8 ret[static HASH_VALUE_SIZE]) {
@@ -80,16 +80,16 @@ static VOID hash_once(
 }
 
 static EFI_STATUS hash_many(
-                const VOID *old_seed,
-                const VOID *rng,
+                const void *old_seed,
+                const void *rng,
                 UINTN size,
-                const VOID *system_token,
+                const void *system_token,
                 UINTN system_token_size,
                 UINTN counter_start,
                 UINTN n,
-                VOID **ret) {
+                void **ret) {
 
-        _cleanup_freepool_ VOID *output = NULL;
+        _cleanup_freepool_ void *output = NULL;
 
         assert(old_seed);
         assert(rng);
@@ -114,15 +114,15 @@ static EFI_STATUS hash_many(
 }
 
 static EFI_STATUS mangle_random_seed(
-                const VOID *old_seed,
-                const VOID *rng,
+                const void *old_seed,
+                const void *rng,
                 UINTN size,
-                const VOID *system_token,
+                const void *system_token,
                 UINTN system_token_size,
-                VOID **ret_new_seed,
-                VOID **ret_for_kernel) {
+                void **ret_new_seed,
+                void **ret_for_kernel) {
 
-        _cleanup_freepool_ VOID *new_seed = NULL, *for_kernel = NULL;
+        _cleanup_freepool_ void *new_seed = NULL, *for_kernel = NULL;
         EFI_STATUS err;
         UINTN n;
 
@@ -156,7 +156,7 @@ static EFI_STATUS mangle_random_seed(
         return EFI_SUCCESS;
 }
 
-static EFI_STATUS acquire_system_token(VOID **ret, UINTN *ret_size) {
+static EFI_STATUS acquire_system_token(void **ret, UINTN *ret_size) {
         _cleanup_freepool_ CHAR8 *data = NULL;
         EFI_STATUS err;
         UINTN size;
@@ -180,7 +180,7 @@ static EFI_STATUS acquire_system_token(VOID **ret, UINTN *ret_size) {
         return EFI_SUCCESS;
 }
 
-static VOID validate_sha256(void) {
+static void validate_sha256(void) {
 
 #ifdef EFI_DEBUG
         /* Let's validate our SHA256 implementation. We stole it from glibc, and converted it to UEFI
@@ -231,7 +231,7 @@ static VOID validate_sha256(void) {
 }
 
 EFI_STATUS process_random_seed(EFI_FILE *root_dir, RandomSeedMode mode) {
-        _cleanup_freepool_ VOID *seed = NULL, *new_seed = NULL, *rng = NULL, *for_kernel = NULL, *system_token = NULL;
+        _cleanup_freepool_ void *seed = NULL, *new_seed = NULL, *rng = NULL, *for_kernel = NULL, *system_token = NULL;
         _cleanup_(FileHandleClosep) EFI_FILE_HANDLE handle = NULL;
         UINTN size, rsize, wsize, system_token_size = 0;
         _cleanup_freepool_ EFI_FILE_INFO *info = NULL;
@@ -292,7 +292,7 @@ EFI_STATUS process_random_seed(EFI_FILE *root_dir, RandomSeedMode mode) {
         /* Request some random data from the UEFI RNG. We don't need this to work safely, but it's a good
          * idea to use it because it helps us for cases where users mistakenly include a random seed in
          * golden master images that are replicated many times. */
-        (VOID) acquire_rng(size, &rng); /* It's fine if this fails */
+        (void) acquire_rng(size, &rng); /* It's fine if this fails */
 
         /* Calculate new random seed for the disk and what to pass to the kernel */
         err = mangle_random_seed(seed, rng, size, system_token, system_token_size, &new_seed, &for_kernel);
