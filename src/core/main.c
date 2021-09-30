@@ -3,6 +3,7 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <getopt.h>
+#include <linux/oom.h>
 #include <sys/mount.h>
 #include <sys/prctl.h>
 #include <sys/reboot.h>
@@ -160,6 +161,8 @@ static NUMAPolicy arg_numa_policy;
 static usec_t arg_clock_usec;
 static void *arg_random_seed;
 static size_t arg_random_seed_size;
+static int arg_default_oom_score_adjust;
+static bool arg_default_oom_score_adjust_set;
 
 /* A copy of the original environment block */
 static char **saved_env = NULL;
@@ -633,6 +636,37 @@ static int config_parse_default_timeout_abort(
         return 0;
 }
 
+static int config_parse_oom_score_adjust(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        int oa, r;
+
+        if (isempty(rvalue)) {
+                arg_default_oom_score_adjust_set = false;
+                return 0;
+        }
+
+        r = parse_oom_score_adjust(rvalue, &oa);
+        if (r < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to parse the OOM score adjust value '%s', ignoring: %m", rvalue);
+                return 0;
+        }
+
+        arg_default_oom_score_adjust = oa;
+        arg_default_oom_score_adjust_set = true;
+
+        return 0;
+}
+
 static int parse_config_file(void) {
         const ConfigTableItem items[] = {
                 { "Manager", "LogLevel",                     config_parse_level2,                0, NULL                                   },
@@ -667,7 +701,7 @@ static int parse_config_file(void) {
                 { "Manager", "DefaultStandardError",         config_parse_output_restricted,     0, &arg_default_std_error                 },
                 { "Manager", "DefaultTimeoutStartSec",       config_parse_sec,                   0, &arg_default_timeout_start_usec        },
                 { "Manager", "DefaultTimeoutStopSec",        config_parse_sec,                   0, &arg_default_timeout_stop_usec         },
-                { "Manager", "DefaultTimeoutAbortSec",       config_parse_default_timeout_abort, 0, NULL         },
+                { "Manager", "DefaultTimeoutAbortSec",       config_parse_default_timeout_abort, 0, NULL                                   },
                 { "Manager", "DefaultRestartSec",            config_parse_sec,                   0, &arg_default_restart_usec              },
                 { "Manager", "DefaultStartLimitInterval",    config_parse_sec,                   0, &arg_default_start_limit_interval      }, /* obsolete alias */
                 { "Manager", "DefaultStartLimitIntervalSec", config_parse_sec,                   0, &arg_default_start_limit_interval      },
@@ -699,6 +733,7 @@ static int parse_config_file(void) {
                 { "Manager", "DefaultTasksMax",              config_parse_tasks_max,             0, &arg_default_tasks_max                 },
                 { "Manager", "CtrlAltDelBurstAction",        config_parse_emergency_action,      0, &arg_cad_burst_action                  },
                 { "Manager", "DefaultOOMPolicy",             config_parse_oom_policy,            0, &arg_default_oom_policy                },
+                { "Manager", "DefaultOOMScoreAdjust",        config_parse_oom_score_adjust,      0, NULL                                   },
                 {}
         };
 
@@ -769,6 +804,8 @@ static void set_manager_defaults(Manager *m) {
         m->default_tasks_accounting = arg_default_tasks_accounting;
         m->default_tasks_max = arg_default_tasks_max;
         m->default_oom_policy = arg_default_oom_policy;
+        m->default_oom_score_adjust_set = arg_default_oom_score_adjust_set;
+        m->default_oom_score_adjust = arg_default_oom_score_adjust;
 
         (void) manager_set_default_rlimits(m, arg_default_rlimit);
 
@@ -2426,6 +2463,35 @@ static void reset_arguments(void) {
         arg_random_seed = mfree(arg_random_seed);
         arg_random_seed_size = 0;
         arg_clock_usec = 0;
+
+        arg_default_oom_score_adjust_set = false;
+}
+
+static void determine_default_oom_score_adjust(void) {
+        int r, a, b;
+
+        /* Run our services at slightly higher OOM score than ourselves. But let's be conservative here, and
+         * do this only if we don't run as root (i.e. only if we are run in user mode, for an unprivileged
+         * user). */
+
+        if (arg_default_oom_score_adjust_set)
+                return;
+
+        if (getuid() == 0)
+                return;
+
+        r = get_oom_score_adjust(&a);
+        if (r < 0)
+                return (void) log_warning_errno(r, "Failed to determine current OOM score adjustment value, ignoring: %m");
+
+        assert_cc(100 <= OOM_SCORE_ADJ_MAX);
+        b = a >= OOM_SCORE_ADJ_MAX - 100 ? OOM_SCORE_ADJ_MAX : a + 100;
+
+        if (a == b)
+                return;
+
+        arg_default_oom_score_adjust = b;
+        arg_default_oom_score_adjust_set = true;
 }
 
 static int parse_configuration(const struct rlimit *saved_rlimit_nofile,
@@ -2458,6 +2524,9 @@ static int parse_configuration(const struct rlimit *saved_rlimit_nofile,
         /* Initialize the show status setting if it hasn't been set explicitly yet */
         if (arg_show_status == _SHOW_STATUS_INVALID)
                 arg_show_status = SHOW_STATUS_YES;
+
+        /* Slightly raise the OOM score for our services if we are running for unprivileged users. */
+        determine_default_oom_score_adjust();
 
         /* Push variables into the manager environment block */
         setenv_manager_environment();
