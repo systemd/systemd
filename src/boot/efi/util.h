@@ -38,11 +38,11 @@ UINT64 ticks_freq(void);
 UINT64 time_usec(void);
 
 EFI_STATUS efivar_set(const EFI_GUID *vendor, const CHAR16 *name, const CHAR16 *value, UINT32 flags);
-EFI_STATUS efivar_set_raw(const EFI_GUID *vendor, const CHAR16 *name, const VOID *buf, UINTN size, UINT32 flags);
+EFI_STATUS efivar_set_raw(const EFI_GUID *vendor, const CHAR16 *name, const void *buf, UINTN size, UINT32 flags);
 EFI_STATUS efivar_set_uint_string(const EFI_GUID *vendor, const CHAR16 *name, UINTN i, UINT32 flags);
 EFI_STATUS efivar_set_uint32_le(const EFI_GUID *vendor, const CHAR16 *NAME, UINT32 value, UINT32 flags);
 EFI_STATUS efivar_set_uint64_le(const EFI_GUID *vendor, const CHAR16 *name, UINT64 value, UINT32 flags);
-VOID efivar_set_time_usec(const EFI_GUID *vendor, const CHAR16 *name, UINT64 usec);
+void efivar_set_time_usec(const EFI_GUID *vendor, const CHAR16 *name, UINT64 usec);
 
 EFI_STATUS efivar_get(const EFI_GUID *vendor, const CHAR16 *name, CHAR16 **value);
 EFI_STATUS efivar_get_raw(const EFI_GUID *vendor, const CHAR16 *name, CHAR8 **buffer, UINTN *size);
@@ -84,7 +84,7 @@ static inline void FileHandleClosep(EFI_FILE_HANDLE *handle) {
         &(const EFI_GUID) { 0x4a67b082, 0x0a4c, 0x41cf, { 0xb6, 0xc7, 0x44, 0x0b, 0x29, 0xbb, 0x8c, 0x4f } }
 #define EFI_GLOBAL_GUID &(const EFI_GUID) EFI_GLOBAL_VARIABLE
 
-VOID log_error_stall(const CHAR16 *fmt, ...);
+void log_error_stall(const CHAR16 *fmt, ...);
 EFI_STATUS log_oom(void);
 
 /* This works just like log_error_errno() from userspace, but requires you
@@ -95,18 +95,18 @@ EFI_STATUS log_oom(void);
                 err; \
         })
 
-VOID *memmem_safe(const VOID *haystack, UINTN haystack_len, const VOID *needle, UINTN needle_len);
+void *memmem_safe(const void *haystack, UINTN haystack_len, const void *needle, UINTN needle_len);
 
-static inline VOID *mempmem_safe(const VOID *haystack, UINTN haystack_len, const VOID *needle, UINTN needle_len) {
+static inline void *mempmem_safe(const void *haystack, UINTN haystack_len, const void *needle, UINTN needle_len) {
         CHAR8 *p = memmem_safe(haystack, haystack_len, needle, needle_len);
         return p ? p + needle_len : NULL;
 }
 
-VOID print_at(UINTN x, UINTN y, UINTN attr, const CHAR16 *str);
-VOID clear_screen(UINTN attr);
+void print_at(UINTN x, UINTN y, UINTN attr, const CHAR16 *str);
+void clear_screen(UINTN attr);
 
-typedef INTN (*compare_pointer_func_t)(const VOID *a, const VOID *b);
-void sort_pointer_array(VOID **array, UINTN n_members, compare_pointer_func_t compare);
+typedef INTN (*compare_pointer_func_t)(const void *a, const void *b);
+void sort_pointer_array(void **array, UINTN n_members, compare_pointer_func_t compare);
 
 EFI_STATUS get_file_info_harder(EFI_FILE_HANDLE handle, EFI_FILE_INFO **ret, UINTN *ret_size);
 
@@ -145,4 +145,4 @@ static inline void *PHYSICAL_ADDRESS_TO_POINTER(EFI_PHYSICAL_ADDRESS addr) {
         return (void*) (UINTN) addr;
 }
 
-UINT64 get_os_indications_supported(VOID);
+UINT64 get_os_indications_supported(void);
