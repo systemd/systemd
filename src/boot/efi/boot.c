@@ -19,10 +19,6 @@
 #include "util.h"
 #include "xbootldr.h"
 
-#ifndef EFI_OS_INDICATIONS_BOOT_TO_FW_UI
-#define EFI_OS_INDICATIONS_BOOT_TO_FW_UI 0x0000000000000001ULL
-#endif
-
 #define TEXT_ATTR_SWAP(c) EFI_TEXT_ATTR(((c) & 0b11110000) >> 4, (c) & 0b1111)
 
 /* magic string to find in the binary image */
@@ -1203,7 +1199,6 @@ static void config_entry_bump_counters(
 
         _cleanup_freepool_ CHAR16* old_path = NULL, *new_path = NULL;
         _cleanup_(FileHandleClosep) EFI_FILE_HANDLE handle = NULL;
-        static const EFI_GUID EfiFileInfoGuid = EFI_FILE_INFO_ID;
         _cleanup_freepool_ EFI_FILE_INFO *file_info = NULL;
         UINTN file_info_size;
         EFI_STATUS err;
@@ -1229,7 +1224,7 @@ static void config_entry_bump_counters(
 
         /* And rename the file */
         StrCpy(file_info->FileName, entry->next_name);
-        err = handle->SetInfo(handle, (EFI_GUID*) &EfiFileInfoGuid, file_info_size, file_info);
+        err = handle->SetInfo(handle, &GenericFileInfo, file_info_size, file_info);
         if (EFI_ERROR(err)) {
                 log_error_stall(L"Failed to rename '%s' to '%s', ignoring: %r", old_path, entry->next_name, err);
                 return;
