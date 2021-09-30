@@ -51,8 +51,7 @@ EFI_STATUS linux_exec(EFI_HANDLE image,
                 return EFI_LOAD_ERROR;
 
         addr = UINT32_MAX; /* Below the 32bit boundary */
-        err = uefi_call_wrapper(
-                        BS->AllocatePages, 4,
+        err = BS->AllocatePages(
                         AllocateMaxAddress,
                         EfiLoaderData,
                         EFI_SIZE_TO_PAGES(0x4000),
@@ -70,8 +69,7 @@ EFI_STATUS linux_exec(EFI_HANDLE image,
         if (cmdline) {
                 addr = 0xA0000;
 
-                err = uefi_call_wrapper(
-                                BS->AllocatePages, 4,
+                err = BS->AllocatePages(
                                 AllocateMaxAddress,
                                 EfiLoaderData,
                                 EFI_SIZE_TO_PAGES(cmdline_len + 1),

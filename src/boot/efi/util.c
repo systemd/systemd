@@ -42,7 +42,7 @@ UINT64 ticks_freq(void) {
         UINT64 ticks_start, ticks_end;
 
         ticks_start = ticks_read();
-        uefi_call_wrapper(BS->Stall, 1, 1000);
+        BS->Stall(1000);
         ticks_end = ticks_read();
 
         return (ticks_end - ticks_start) * 1000UL;
@@ -101,7 +101,7 @@ EFI_STATUS efivar_set_raw(const EFI_GUID *vendor, const CHAR16 *name, const void
         assert(buf || size == 0);
 
         flags |= EFI_VARIABLE_BOOTSERVICE_ACCESS | EFI_VARIABLE_RUNTIME_ACCESS;
-        return uefi_call_wrapper(RT->SetVariable, 5, (CHAR16*) name, (EFI_GUID *) vendor, flags, size, (void*) buf);
+        return RT->SetVariable((CHAR16 *) name, (EFI_GUID *) vendor, flags, size, (void *) buf);
 }
 
 EFI_STATUS efivar_set(const EFI_GUID *vendor, const CHAR16 *name, const CHAR16 *value, UINT32 flags) {
@@ -260,7 +260,7 @@ EFI_STATUS efivar_get_raw(const EFI_GUID *vendor, const CHAR16 *name, CHAR8 **bu
         if (!buf)
                 return EFI_OUT_OF_RESOURCES;
 
-        err = uefi_call_wrapper(RT->GetVariable, 5, (CHAR16*) name, (EFI_GUID *)vendor, NULL, &l, buf);
+        err = RT->GetVariable((CHAR16 *) name, (EFI_GUID *) vendor, NULL, &l, buf);
         if (!EFI_ERROR(err)) {
 
                 if (buffer)
@@ -451,7 +451,7 @@ EFI_STATUS file_read(EFI_FILE_HANDLE dir, const CHAR16 *name, UINTN off, UINTN s
         assert(name);
         assert(ret);
 
-        err = uefi_call_wrapper(dir->Open, 5, dir, &handle, (CHAR16*) name, EFI_FILE_MODE_READ, 0ULL);
+        err = dir->Open(dir, &handle, (CHAR16*) name, EFI_FILE_MODE_READ, 0ULL);
         if (EFI_ERROR(err))
                 return err;
 
@@ -466,7 +466,7 @@ EFI_STATUS file_read(EFI_FILE_HANDLE dir, const CHAR16 *name, UINTN off, UINTN s
         }
 
         if (off > 0) {
-                err = uefi_call_wrapper(handle->SetPosition, 2, handle, off);
+                err = handle->SetPosition(handle, off);
                 if (EFI_ERROR(err))
                         return err;
         }
@@ -475,7 +475,7 @@ EFI_STATUS file_read(EFI_FILE_HANDLE dir, const CHAR16 *name, UINTN off, UINTN s
         if (!buf)
                 return EFI_OUT_OF_RESOURCES;
 
-        err = uefi_call_wrapper(handle->Read, 3, handle, &size, buf);
+        err = handle->Read(handle, &size, buf);
         if (EFI_ERROR(err))
                 return err;
 
@@ -493,7 +493,7 @@ void log_error_stall(const CHAR16 *fmt, ...) {
 
         assert(fmt);
 
-        uefi_call_wrapper(ST->ConOut->SetAttribute, 2, ST->ConOut, EFI_LIGHTRED|EFI_BACKGROUND_BLACK);
+        ST->ConOut->SetAttribute(ST->ConOut, EFI_LIGHTRED|EFI_BACKGROUND_BLACK);
 
         Print(L"\n");
         va_start(args, fmt);
@@ -501,7 +501,7 @@ void log_error_stall(const CHAR16 *fmt, ...) {
         va_end(args);
         Print(L"\n");
 
-        uefi_call_wrapper(BS->Stall, 1, 3 * 1000 * 1000);
+        BS->Stall(3 * 1000 * 1000);
 }
 
 EFI_STATUS log_oom(void) {
@@ -525,14 +525,14 @@ void *memmem_safe(const void *haystack, UINTN haystack_len, const void *needle, 
 
 void print_at(UINTN x, UINTN y, UINTN attr, const CHAR16 *str) {
         assert(str);
-        uefi_call_wrapper(ST->ConOut->SetCursorPosition, 3, ST->ConOut, x, y);
-        uefi_call_wrapper(ST->ConOut->SetAttribute, 2, ST->ConOut, attr);
-        uefi_call_wrapper(ST->ConOut->OutputString, 2, ST->ConOut, (CHAR16*)str);
+        ST->ConOut->SetCursorPosition(ST->ConOut, x, y);
+        ST->ConOut->SetAttribute(ST->ConOut, attr);
+        ST->ConOut->OutputString(ST->ConOut, (CHAR16*)str);
 }
 
 void clear_screen(UINTN attr) {
-        uefi_call_wrapper(ST->ConOut->SetAttribute, 2, ST->ConOut, attr);
-        uefi_call_wrapper(ST->ConOut->ClearScreen, 1, ST->ConOut);
+        ST->ConOut->SetAttribute(ST->ConOut, attr);
+        ST->ConOut->ClearScreen(ST->ConOut);
 }
 
 void sort_pointer_array(
@@ -584,14 +584,14 @@ EFI_STATUS get_file_info_harder(
         if (!fi)
                 return EFI_OUT_OF_RESOURCES;
 
-        err = uefi_call_wrapper(handle->GetInfo, 4, handle, (EFI_GUID*) &EfiFileInfoGuid, &size, fi);
+        err = handle->GetInfo(handle, (EFI_GUID*) &EfiFileInfoGuid, &size, fi);
         if (err == EFI_BUFFER_TOO_SMALL) {
                 FreePool(fi);
                 fi = AllocatePool(size);  /* GetInfo tells us the required size, let's use that now */
                 if (!fi)
                         return EFI_OUT_OF_RESOURCES;
 
-                err = uefi_call_wrapper(handle->GetInfo, 4, handle, (EFI_GUID*) &EfiFileInfoGuid, &size, fi);
+                err = handle->GetInfo(handle, (EFI_GUID*) &EfiFileInfoGuid, &size, fi);
         }
 
         if (EFI_ERROR(err))
@@ -631,7 +631,7 @@ EFI_STATUS readdir_harder(
         } else
                 sz = *buffer_size;
 
-        err = uefi_call_wrapper(handle->Read, 3, handle, &sz, *buffer);
+        err = handle->Read(handle, &sz, *buffer);
         if (err == EFI_BUFFER_TOO_SMALL) {
                 FreePool(*buffer);
 
@@ -643,7 +643,7 @@ EFI_STATUS readdir_harder(
 
                 *buffer_size = sz;
 
-                err = uefi_call_wrapper(handle->Read, 3, handle, &sz, *buffer);
+                err = handle->Read(handle, &sz, *buffer);
         }
         if (EFI_ERROR(err))
                 return err;
@@ -728,13 +728,7 @@ EFI_STATUS open_directory(
 
         /* Opens a file, and then verifies it is actually a directory */
 
-        err = uefi_call_wrapper(
-                        root->Open, 5,
-                        root,
-                        &dir,
-                        (CHAR16*) path,
-                        EFI_FILE_MODE_READ,
-                        0ULL);
+        err = root->Open(root, &dir, (CHAR16*) path, EFI_FILE_MODE_READ, 0ULL);
         if (EFI_ERROR(err))
                 return err;
 
