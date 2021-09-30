@@ -31,3 +31,4 @@ indent_size = 8
 [man/*.xml]
 indent_size = 2
 indent_style = space
+max_line_length = 109
