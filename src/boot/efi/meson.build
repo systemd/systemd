@@ -205,6 +205,7 @@ if have_gnu_efi
                 '-isystem', efi_incdir / gnu_efi_path_arch,
                 '-I', fundamental_path,
                 '-DSD_BOOT',
+                '-DGNU_EFI_USE_MS_ABI',
                 '-include', efi_config_h,
                 '-include', version_h,
         ]
@@ -216,9 +217,7 @@ if have_gnu_efi
         if efi_arch == 'x86_64'
                 compile_args += ['-mno-red-zone',
                                  '-mno-sse',
-                                 '-mno-mmx',
-                                 '-DEFI_FUNCTION_WRAPPER',
-                                 '-DGNU_EFI_USE_MS_ABI']
+                                 '-mno-mmx']
         elif efi_arch == 'ia32'
                 compile_args += ['-mno-sse',
                                  '-mno-mmx']
