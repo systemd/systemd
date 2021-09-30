@@ -8,7 +8,7 @@
 
 static void efi_unload_image(EFI_HANDLE *h) {
         if (*h)
-                (void) uefi_call_wrapper(BS->UnloadImage, 1, *h);
+                (void) BS->UnloadImage(*h);
 }
 
 static EFI_STATUS load_one_driver(
@@ -33,21 +33,11 @@ static EFI_STATUS load_one_driver(
         if (!path)
                 return log_oom();
 
-        err = uefi_call_wrapper(
-                        BS->LoadImage, 6,
-                        FALSE,
-                        parent_image,
-                        path,
-                        NULL, 0,
-                        &image);
+        err = BS->LoadImage(FALSE, parent_image, path, NULL, 0, &image);
         if (EFI_ERROR(err))
                 return log_error_status_stall(err, L"Failed to load image %s: %r", fname, err);
 
-        err = uefi_call_wrapper(
-                        BS->HandleProtocol, 3,
-                        image,
-                        &LoadedImageProtocol,
-                        (void **)&loaded_image);
+        err = BS->HandleProtocol(image, &LoadedImageProtocol, (void **)&loaded_image);
         if (EFI_ERROR(err))
                 return log_error_status_stall(err, L"Failed to find protocol in driver image s: %r", fname, err);
 
@@ -55,11 +45,7 @@ static EFI_STATUS load_one_driver(
             loaded_image->ImageCodeType != EfiRuntimeServicesCode)
                 return log_error_status_stall(EFI_INVALID_PARAMETER, L"Image %s is not a driver, refusing: %r", fname);
 
-        err = uefi_call_wrapper(
-                        BS->StartImage, 3,
-                        image,
-                        NULL,
-                        NULL);
+        err = BS->StartImage(image, NULL, NULL);
         if (EFI_ERROR(err))
                 return log_error_status_stall(err, L"Failed to start image %s: %r", fname, err);
 
@@ -74,23 +60,12 @@ static EFI_STATUS reconnect(void) {
 
           /* Reconnects all handles, so that any loaded drivers can take effect. */
 
-          err = uefi_call_wrapper(
-                          BS->LocateHandleBuffer, 5,
-                          AllHandles,
-                          NULL,
-                          NULL,
-                          &n_handles,
-                          &handles);
+          err = BS->LocateHandleBuffer(AllHandles, NULL, NULL, &n_handles, &handles);
           if (EFI_ERROR(err))
                   return log_error_status_stall(err, L"Failed to get list of handles: %r", err);
 
           for (UINTN i = 0; i < n_handles; i++) {
-                  err = uefi_call_wrapper(
-                                  BS->ConnectController, 4,
-                                  handles[i],
-                                  NULL,
-                                  NULL,
-                                  TRUE);
+                  err = BS->ConnectController(handles[i], NULL, NULL, TRUE);
                   if (err == EFI_NOT_FOUND) /* No drivers for this handle */
                           continue;
                   if (EFI_ERROR(err))
