@@ -12,9 +12,6 @@
 #define VERTICAL_MAX_OK 1080
 #define VIEWPORT_RATIO 10
 
-#define EFI_SIMPLE_TEXT_INPUT_EX_GUID                           \
-        &(const EFI_GUID) EFI_SIMPLE_TEXT_INPUT_EX_PROTOCOL_GUID
-
 static inline void EventClosep(EFI_EVENT *event) {
         if (!*event)
                 return;
@@ -50,7 +47,7 @@ EFI_STATUS console_key_read(UINT64 *key, UINT64 timeout_usec) {
         assert(key);
 
         if (!checked) {
-                err = LibLocateProtocol((EFI_GUID*) EFI_SIMPLE_TEXT_INPUT_EX_GUID, (void **)&TextInputEx);
+                err = LibLocateProtocol(&SimpleTextInputExProtocol, (void **)&TextInputEx);
                 if (EFI_ERROR(err) || BS->CheckEvent(TextInputEx->WaitForKeyEx) == EFI_INVALID_PARAMETER)
                         /* If WaitForKeyEx fails here, the firmware pretends it talks this
                          * protocol, but it really doesn't. */
