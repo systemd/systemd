@@ -202,7 +202,7 @@ static EFI_DEVICE_PATH *find_device(
                 if (EFI_ERROR(err))
                         continue;
 
-                err = uefi_call_wrapper(BS->HandleProtocol, 3, disk_handle, &BlockIoProtocol, (VOID **)&block_io);
+                err = uefi_call_wrapper(BS->HandleProtocol, 3, disk_handle, &BlockIoProtocol, (void **)&block_io);
                 if (EFI_ERROR(err))
                         continue;
 
@@ -247,7 +247,7 @@ static EFI_DEVICE_PATH *find_device(
         return NULL;
 }
 
-VOID xbootldr_open(EFI_HANDLE *device, EFI_HANDLE *ret_device, EFI_FILE **ret_root_dir) {
+void xbootldr_open(EFI_HANDLE *device, EFI_HANDLE *ret_device, EFI_FILE **ret_root_dir) {
         _cleanup_freepool_ EFI_DEVICE_PATH *partition_path = NULL;
         UINT32 part_number;
         UINT64 part_start, part_size;

@@ -135,7 +135,7 @@ static EFI_STATUS bmp_parse_header(
         return EFI_SUCCESS;
 }
 
-static VOID pixel_blend(UINT32 *dst, const UINT32 source) {
+static void pixel_blend(UINT32 *dst, const UINT32 source) {
         UINT32 alpha, src, src_rb, src_g, dst_rb, dst_g, rb, g;
 
         assert(dst);
@@ -262,7 +262,7 @@ EFI_STATUS graphics_splash(const UINT8 *content, UINTN len, const EFI_GRAPHICS_O
         struct bmp_map *map;
         const UINT8 *pixmap;
         UINT64 blt_size;
-        _cleanup_freepool_ VOID *blt = NULL;
+        _cleanup_freepool_ void *blt = NULL;
         UINTN x_pos = 0;
         UINTN y_pos = 0;
         EFI_STATUS err;
@@ -281,7 +281,7 @@ EFI_STATUS graphics_splash(const UINT8 *content, UINTN len, const EFI_GRAPHICS_O
                 background = &pixel;
         }
 
-        err = LibLocateProtocol((EFI_GUID*) &GraphicsOutputProtocolGuid, (VOID **)&GraphicsOutput);
+        err = LibLocateProtocol((EFI_GUID*) &GraphicsOutputProtocolGuid, (void **)&GraphicsOutput);
         if (EFI_ERROR(err))
                 return err;
 
