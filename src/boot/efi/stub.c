@@ -47,8 +47,7 @@ static EFI_STATUS combine_initrd(
                 n += sysext_initrd_size;
         }
 
-        err = uefi_call_wrapper(
-                        BS->AllocatePages, 4,
+        err = BS->AllocatePages(
                         AllocateMaxAddress,
                         EfiLoaderData,
                         EFI_SIZE_TO_PAGES(n),
@@ -177,8 +176,13 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
 
         InitializeLib(image, sys_table);
 
-        err = uefi_call_wrapper(BS->OpenProtocol, 6, image, &LoadedImageProtocol, (void **)&loaded_image,
-                                image, NULL, EFI_OPEN_PROTOCOL_GET_PROTOCOL);
+        err = BS->OpenProtocol(
+                        image,
+                        &LoadedImageProtocol,
+                        (void **)&loaded_image,
+                        image,
+                        NULL,
+                        EFI_OPEN_PROTOCOL_GET_PROTOCOL);
         if (EFI_ERROR(err))
                 return log_error_status_stall(err, L"Error getting a LoadedImageProtocol handle: %r", err);
 

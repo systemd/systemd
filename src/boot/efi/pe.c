@@ -241,23 +241,23 @@ EFI_STATUS pe_file_locate_sections(
         assert(offsets);
         assert(sizes);
 
-        err = uefi_call_wrapper(dir->Open, 5, dir, &handle, (CHAR16*)path, EFI_FILE_MODE_READ, 0ULL);
+        err = dir->Open(dir, &handle, (CHAR16*)path, EFI_FILE_MODE_READ, 0ULL);
         if (EFI_ERROR(err))
                 return err;
 
         len = sizeof(dos);
-        err = uefi_call_wrapper(handle->Read, 3, handle, &len, &dos);
+        err = handle->Read(handle, &len, &dos);
         if (EFI_ERROR(err))
                 return err;
         if (len != sizeof(dos) || !verify_dos(&dos))
                 return EFI_LOAD_ERROR;
 
-        err = uefi_call_wrapper(handle->SetPosition, 2, handle, dos.ExeHeader);
+        err = handle->SetPosition(handle, dos.ExeHeader);
         if (EFI_ERROR(err))
                 return err;
 
         len = sizeof(pe);
-        err = uefi_call_wrapper(handle->Read, 3, handle, &len, &pe);
+        err = handle->Read(handle, &len, &pe);
         if (EFI_ERROR(err))
                 return err;
         if (len != sizeof(pe) || !verify_pe(&pe))
@@ -268,12 +268,12 @@ EFI_STATUS pe_file_locate_sections(
         if (!section_table)
                 return EFI_OUT_OF_RESOURCES;
 
-        err = uefi_call_wrapper(handle->SetPosition, 2, handle, section_table_offset(&dos, &pe));
+        err = handle->SetPosition(handle, section_table_offset(&dos, &pe));
         if (EFI_ERROR(err))
                 return err;
 
         len = section_table_len;
-        err = uefi_call_wrapper(handle->Read, 3, handle, &len, section_table);
+        err = handle->Read(handle, &len, section_table);
         if (EFI_ERROR(err))
                 return err;
         if (len != section_table_len)
