@@ -149,6 +149,7 @@ Address *address_free(Address *address) {
 
         if (address->network) {
                 assert(address->section);
+                set_remove(address->network->network_addresses, address);
                 ordered_hashmap_remove(address->network->addresses_by_section, address->section);
         }
 
@@ -1400,6 +1401,28 @@ int manager_rtnl_process_address(sd_netlink *rtnl, sd_netlink_message *message, 
         return 1;
 }
 
+static int maybe_warn_address_already_configured(
+                Network *network,
+                const Address *address,
+                const char *unit,
+                const char *filename,
+                unsigned int line) {
+        Address *a;
+        _cleanup_free_ char *addr = NULL;
+
+        a = set_get(network->network_addresses, address);
+        if (!a)
+                return set_ensure_put(&network->network_addresses, &address_hash_ops, address);
+
+        (void) in_addr_to_string(address->family, &address->in_addr, &addr);
+
+        log_syntax(unit, LOG_NOTICE, filename, line, 0,
+                   "Address %s was previously configured at %s:%u. This section will override the previous section.",
+                   addr, a->section->filename, a->section->line);
+
+        return 0;
+}
+
 int config_parse_broadcast(
                 const char *unit,
                 const char *filename,
@@ -1503,9 +1526,9 @@ int config_parse_address(
 
         if (streq(section, "Network"))
                 /* we are not in an Address section, so use line number instead. */
-                r = address_new_static(network, filename, line, &n);
-        else
-                r = address_new_static(network, filename, section_line, &n);
+                section_line = line;
+
+        r = address_new_static(network, filename, section_line, &n);
         if (r == -ENOMEM)
                 return log_oom();
         if (r < 0) {
@@ -1550,9 +1573,13 @@ int config_parse_address(
         n->family = f;
         n->prefixlen = prefixlen;
 
-        if (streq(lvalue, "Address"))
+        if (streq(lvalue, "Address")) {
                 n->in_addr = buffer;
-        else
+
+                r = maybe_warn_address_already_configured(network, n, unit, filename, section_line);
+                if (r < 0)
+                        return r;
+        } else
                 n->in_addr_peer = buffer;
 
         TAKE_PTR(n);

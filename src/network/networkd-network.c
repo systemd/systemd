@@ -668,6 +668,7 @@ static Network *network_free(Network *network) {
 
         set_free_free(network->ipv6_proxy_ndp_addresses);
         ordered_hashmap_free_with_destructor(network->addresses_by_section, address_free);
+        set_free(network->network_addresses);
         hashmap_free_with_destructor(network->routes_by_section, route_free);
         hashmap_free_with_destructor(network->nexthops_by_section, nexthop_free);
         hashmap_free_with_destructor(network->bridge_fdb_entries_by_section, bridge_fdb_free);

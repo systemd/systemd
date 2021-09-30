@@ -329,6 +329,7 @@ struct Network {
         char *lldp_mudurl;  /* LLDP MUD URL */
 
         OrderedHashmap *addresses_by_section;
+        Set *network_addresses;
         Hashmap *routes_by_section;
         Hashmap *nexthops_by_section;
         Hashmap *bridge_fdb_entries_by_section;
