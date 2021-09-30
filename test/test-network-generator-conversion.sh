@@ -18,11 +18,13 @@ for f in "$src"/test-*.input; do
 
     (
         out=$(mktemp --tmpdir --directory "test-network-generator-conversion.XXXXXXXXXX")
+        # shellcheck disable=SC2064
         trap "rm -rf '$out'" EXIT INT QUIT PIPE
 
-        $generator --root "$out" -- $(cat $f)
+        # shellcheck disable=SC2046
+        $generator --root "$out" -- $(cat "$f")
 
-        if ! diff -u "$out"/run/systemd/network ${f%.input}.expected; then
+        if ! diff -u "$out/run/systemd/network" "${f%.input}.expected"; then
             echo "**** Unexpected output for $f"
             exit 1
         fi

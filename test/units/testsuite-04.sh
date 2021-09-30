@@ -7,7 +7,7 @@ trap "journalctl --rotate --vacuum-size=16M" EXIT
 
 # Rotation/flush test, see https://github.com/systemd/systemd/issues/19895
 journalctl --relinquish-var
-for i in {0..50}; do
+for _ in {0..50}; do
     dd if=/dev/urandom bs=1M count=1 | base64 | systemd-cat
 done
 journalctl --rotate
@@ -116,7 +116,7 @@ cmp /expected /output
 # test that LogLevelMax can also suppress logging about services, not only by services
 systemctl start silent-success
 journalctl --sync
-[[ -z `journalctl -b -q -u silent-success.service` ]]
+[[ -z "$(journalctl -b -q -u silent-success.service)" ]]
 
 # Add new tests before here, the journald restarts below
 # may make tests flappy.
