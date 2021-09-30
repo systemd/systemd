@@ -337,7 +337,7 @@ static int manager_check_ask_password(Manager *m) {
         if (!m->ask_password_event_source) {
                 assert(m->ask_password_inotify_fd < 0);
 
-                (void) mkdir_p_label("/run/systemd/ask-password", 0755);
+                (void) mkdir_p_label_and_warn("/run/systemd/ask-password", 0755, NULL);
 
                 m->ask_password_inotify_fd = inotify_init1(IN_NONBLOCK|IN_CLOEXEC);
                 if (m->ask_password_inotify_fd < 0)
