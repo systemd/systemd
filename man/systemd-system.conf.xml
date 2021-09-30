@@ -450,6 +450,20 @@
         for details. Note that this default is not used for services that have <varname>Delegate=</varname>
         turned on.</para></listitem>
       </varlistentry>
+
+      <varlistentry>
+        <term><varname>DefaultOOMScoreAdjust=</varname></term>
+
+        <listitem><para>Configures the default OOM score adjustments of processes run by the service
+        manager. This defaults to unset (meaning the forked off processes inherit the service manager's OOM
+        score adjustment value), except if the service manager is run for an unprivileged user, in which case
+        this defaults to the service manager's OOM adjustment value plus 100 (this makes service processes
+        slightly more likely to be killed under memory pressure than the manager itself). This may be used to
+        pick a global default for the per-unit <varname>OOMScoreAdjust=</varname> setting. See
+        <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry> for
+        details. Note that this setting has no effect on the OOM score adjustment value of the service
+        manager process itself, it retains the original value set during its invocation.</para></listitem>
+      </varlistentry>
     </variablelist>
   </refsect1>
 
