@@ -294,11 +294,13 @@ EFI_STATUS graphics_splash(const UINT8 *content, UINTN len, const EFI_GRAPHICS_O
         if (dib->y < GraphicsOutput->Mode->Info->VerticalResolution)
                 y_pos = (GraphicsOutput->Mode->Info->VerticalResolution - dib->y) / 2;
 
-        uefi_call_wrapper(GraphicsOutput->Blt, 10, GraphicsOutput,
-                          (EFI_GRAPHICS_OUTPUT_BLT_PIXEL *)background,
-                          EfiBltVideoFill, 0, 0, 0, 0,
-                          GraphicsOutput->Mode->Info->HorizontalResolution,
-                          GraphicsOutput->Mode->Info->VerticalResolution, 0);
+        err = GraphicsOutput->Blt(
+                        GraphicsOutput, (EFI_GRAPHICS_OUTPUT_BLT_PIXEL *)background,
+                        EfiBltVideoFill, 0, 0, 0, 0,
+                        GraphicsOutput->Mode->Info->HorizontalResolution,
+                        GraphicsOutput->Mode->Info->VerticalResolution, 0);
+        if (EFI_ERROR(err))
+                return err;
 
         /* EFI buffer */
         blt_size = sizeof(EFI_GRAPHICS_OUTPUT_BLT_PIXEL) * dib->x * dib->y;
@@ -306,9 +308,10 @@ EFI_STATUS graphics_splash(const UINT8 *content, UINTN len, const EFI_GRAPHICS_O
         if (!blt)
                 return EFI_OUT_OF_RESOURCES;
 
-        err = uefi_call_wrapper(GraphicsOutput->Blt, 10, GraphicsOutput,
-                                blt, EfiBltVideoToBltBuffer, x_pos, y_pos, 0, 0,
-                                dib->x, dib->y, 0);
+        err = GraphicsOutput->Blt(
+                        GraphicsOutput, blt,
+                        EfiBltVideoToBltBuffer, x_pos, y_pos, 0, 0,
+                        dib->x, dib->y, 0);
         if (EFI_ERROR(err))
                 return err;
 
@@ -320,7 +323,8 @@ EFI_STATUS graphics_splash(const UINT8 *content, UINTN len, const EFI_GRAPHICS_O
         if (EFI_ERROR(err))
                 return err;
 
-        return uefi_call_wrapper(GraphicsOutput->Blt, 10, GraphicsOutput,
-                                 blt, EfiBltBufferToVideo, 0, 0, x_pos, y_pos,
-                                 dib->x, dib->y, 0);
+        return GraphicsOutput->Blt(
+                        GraphicsOutput, blt,
+                        EfiBltBufferToVideo, 0, 0, x_pos, y_pos,
+                        dib->x, dib->y, 0);
 }

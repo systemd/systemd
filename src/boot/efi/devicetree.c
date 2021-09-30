@@ -14,8 +14,7 @@ static EFI_STATUS devicetree_allocate(struct devicetree_state *state, UINTN size
 
         assert(state);
 
-        err = uefi_call_wrapper(BS->AllocatePages, 4, AllocateAnyPages, EfiACPIReclaimMemory, pages,
-                                &state->addr);
+        err = BS->AllocatePages(AllocateAnyPages, EfiACPIReclaimMemory, pages, &state->addr);
         if (EFI_ERROR(err))
                 return err;
 
@@ -41,8 +40,8 @@ static EFI_STATUS devicetree_fixup(struct devicetree_state *state, UINTN len) {
                                               L"Could not locate device tree fixup protocol, skipping.");
 
         size = devicetree_allocated(state);
-        err = uefi_call_wrapper(fixup->Fixup, 4, fixup, PHYSICAL_ADDRESS_TO_POINTER(state->addr), &size,
-                                EFI_DT_APPLY_FIXUPS | EFI_DT_RESERVE_MEMORY);
+        err = fixup->Fixup(fixup, PHYSICAL_ADDRESS_TO_POINTER(state->addr), &size,
+                           EFI_DT_APPLY_FIXUPS | EFI_DT_RESERVE_MEMORY);
         if (err == EFI_BUFFER_TOO_SMALL) {
                 EFI_PHYSICAL_ADDRESS oldaddr = state->addr;
                 UINTN oldpages = state->pages;
@@ -53,13 +52,13 @@ static EFI_STATUS devicetree_fixup(struct devicetree_state *state, UINTN len) {
                         return err;
 
                 CopyMem(PHYSICAL_ADDRESS_TO_POINTER(state->addr), oldptr, len);
-                err = uefi_call_wrapper(BS->FreePages, 2, oldaddr, oldpages);
+                err = BS->FreePages(oldaddr, oldpages);
                 if (EFI_ERROR(err))
                         return err;
 
                 size = devicetree_allocated(state);
-                err = uefi_call_wrapper(fixup->Fixup, 4, fixup, PHYSICAL_ADDRESS_TO_POINTER(state->addr), &size,
-                                        EFI_DT_APPLY_FIXUPS | EFI_DT_RESERVE_MEMORY);
+                err = fixup->Fixup(fixup, PHYSICAL_ADDRESS_TO_POINTER(state->addr), &size,
+                                   EFI_DT_APPLY_FIXUPS | EFI_DT_RESERVE_MEMORY);
         }
 
         return err;
@@ -80,8 +79,7 @@ EFI_STATUS devicetree_install(struct devicetree_state *state,
         if (EFI_ERROR(err))
                 return EFI_UNSUPPORTED;
 
-        err = uefi_call_wrapper(root_dir->Open, 5, root_dir, &handle, name, EFI_FILE_MODE_READ,
-                                EFI_FILE_READ_ONLY);
+        err = root_dir->Open(root_dir, &handle, name, EFI_FILE_MODE_READ, EFI_FILE_READ_ONLY);
         if (EFI_ERROR(err))
                 return err;
 
@@ -98,7 +96,7 @@ EFI_STATUS devicetree_install(struct devicetree_state *state,
         if (EFI_ERROR(err))
                 return err;
 
-        err = uefi_call_wrapper(handle->Read, 3, handle, &len, PHYSICAL_ADDRESS_TO_POINTER(state->addr));
+        err = handle->Read(handle, &len, PHYSICAL_ADDRESS_TO_POINTER(state->addr));
         if (EFI_ERROR(err))
                 return err;
 
@@ -106,7 +104,7 @@ EFI_STATUS devicetree_install(struct devicetree_state *state,
         if (EFI_ERROR(err))
                 return err;
 
-        return uefi_call_wrapper(BS->InstallConfigurationTable, 2, &EfiDtbTableGuid, PHYSICAL_ADDRESS_TO_POINTER(state->addr));
+        return BS->InstallConfigurationTable(&EfiDtbTableGuid, PHYSICAL_ADDRESS_TO_POINTER(state->addr));
 }
 
 EFI_STATUS devicetree_install_from_memory(struct devicetree_state *state,
@@ -131,7 +129,7 @@ EFI_STATUS devicetree_install_from_memory(struct devicetree_state *state,
         if (EFI_ERROR(err))
                 return err;
 
-        return uefi_call_wrapper(BS->InstallConfigurationTable, 2, &EfiDtbTableGuid, PHYSICAL_ADDRESS_TO_POINTER(state->addr));
+        return BS->InstallConfigurationTable(&EfiDtbTableGuid, PHYSICAL_ADDRESS_TO_POINTER(state->addr));
 }
 
 void devicetree_cleanup(struct devicetree_state *state) {
@@ -140,11 +138,11 @@ void devicetree_cleanup(struct devicetree_state *state) {
         if (!state->pages)
                 return;
 
-        err = uefi_call_wrapper(BS->InstallConfigurationTable, 2, &EfiDtbTableGuid, state->orig);
+        err = BS->InstallConfigurationTable(&EfiDtbTableGuid, state->orig);
         /* don't free the current device tree if we can't reinstate the old one */
         if (EFI_ERROR(err))
                 return;
 
-        uefi_call_wrapper(BS->FreePages, 2, state->addr, state->pages);
+        BS->FreePages(state->addr, state->pages);
         state->pages = 0;
 }

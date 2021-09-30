@@ -37,8 +37,7 @@ static EFI_STATUS tpm1_measure_to_pcr_and_event_log(
         };
         CopyMem(tcg_event->Event, description, desc_len);
 
-        return uefi_call_wrapper(
-                        tcg->HashLogExtendEvent, 7,
+        return tcg->HashLogExtendEvent(
                         (EFI_TCG *) tcg,
                         buffer, buffer_size,
                         TCG_ALG_SHA,
@@ -75,8 +74,7 @@ static EFI_STATUS tpm2_measure_to_pcr_and_event_log(
 
         CopyMem(tcg_event->Event, description, desc_len);
 
-        return uefi_call_wrapper(
-                        tcg->HashLogExtendEvent, 5,
+        return tcg->HashLogExtendEvent(
                         tcg,
                         0,
                         buffer, buffer_size,
@@ -96,8 +94,7 @@ static EFI_TCG *tcg1_interface_check(void) {
         if (EFI_ERROR(status))
                 return NULL;
 
-        status = uefi_call_wrapper(
-                        tcg->StatusCheck, 5,
+        status = tcg->StatusCheck(
                         tcg,
                         &capability,
                         &features,
@@ -126,7 +123,7 @@ static EFI_TCG2 * tcg2_interface_check(void) {
         if (EFI_ERROR(status))
                 return NULL;
 
-        status = uefi_call_wrapper(tcg->GetCapability, 2, tcg, &capability);
+        status = tcg->GetCapability(tcg, &capability);
         if (EFI_ERROR(status))
                 return NULL;
 

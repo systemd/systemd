@@ -36,7 +36,7 @@ static EFI_STATUS acquire_rng(UINTN size, void **ret) {
         if (!data)
                 return log_oom();
 
-        err = uefi_call_wrapper(rng->GetRNG, 3, rng, NULL, size, data);
+        err = rng->GetRNG(rng, NULL, size, data);
         if (EFI_ERROR(err))
                 return log_error_status_stall(err, L"Failed to acquire RNG data: %r", err);
 
@@ -256,7 +256,7 @@ EFI_STATUS process_random_seed(EFI_FILE *root_dir, RandomSeedMode mode) {
         if (mode != RANDOM_SEED_ALWAYS && EFI_ERROR(err))
                 return err;
 
-        err = uefi_call_wrapper(root_dir->Open, 5, root_dir, &handle, (CHAR16*) L"\\loader\\random-seed", EFI_FILE_MODE_READ|EFI_FILE_MODE_WRITE, 0ULL);
+        err = root_dir->Open(root_dir, &handle, (CHAR16*) L"\\loader\\random-seed", EFI_FILE_MODE_READ|EFI_FILE_MODE_WRITE, 0ULL);
         if (EFI_ERROR(err)) {
                 if (err != EFI_NOT_FOUND && err != EFI_WRITE_PROTECTED)
                         log_error_stall(L"Failed to open random seed file: %r", err);
@@ -279,13 +279,13 @@ EFI_STATUS process_random_seed(EFI_FILE *root_dir, RandomSeedMode mode) {
                 return log_oom();
 
         rsize = size;
-        err = uefi_call_wrapper(handle->Read, 3, handle, &rsize, seed);
+        err = handle->Read(handle, &rsize, seed);
         if (EFI_ERROR(err))
                 return log_error_status_stall(err, L"Failed to read random seed file: %r", err);
         if (rsize != size)
                 return log_error_status_stall(EFI_PROTOCOL_ERROR, L"Short read on random seed file.");
 
-        err = uefi_call_wrapper(handle->SetPosition, 2, handle, 0);
+        err = handle->SetPosition(handle, 0);
         if (EFI_ERROR(err))
                 return log_error_status_stall(err, L"Failed to seek to beginning of random seed file: %r", err);
 
@@ -301,13 +301,13 @@ EFI_STATUS process_random_seed(EFI_FILE *root_dir, RandomSeedMode mode) {
 
         /* Update the random seed on disk before we use it */
         wsize = size;
-        err = uefi_call_wrapper(handle->Write, 3, handle, &wsize, new_seed);
+        err = handle->Write(handle, &wsize, new_seed);
         if (EFI_ERROR(err))
                 return log_error_status_stall(err, L"Failed to write random seed file: %r", err);
         if (wsize != size)
                 return log_error_status_stall(EFI_PROTOCOL_ERROR, L"Short write on random seed file.");
 
-        err = uefi_call_wrapper(handle->Flush, 1, handle);
+        err = handle->Flush(handle);
         if (EFI_ERROR(err))
                 return log_error_status_stall(err, L"Failed to flush random seed file: %r", err);
 

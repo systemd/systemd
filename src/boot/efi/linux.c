@@ -57,7 +57,7 @@ static EFI_STATUS loaded_image_register(
         }
 
         /* install a new LoadedImage protocol. ret_handle is a new image handle */
-        err = uefi_call_wrapper(BS->InstallMultipleProtocolInterfaces, 4,
+        err = BS->InstallMultipleProtocolInterfaces(
                         ret_image,
                         &LoadedImageProtocol, loaded_image,
                         NULL);
@@ -75,18 +75,15 @@ static EFI_STATUS loaded_image_unregister(EFI_HANDLE loaded_image_handle) {
                 return EFI_SUCCESS;
 
         /* get the LoadedImage protocol that we allocated earlier */
-        err = uefi_call_wrapper(
-                        BS->OpenProtocol, 6,
+        err = BS->OpenProtocol(
                         loaded_image_handle, &LoadedImageProtocol, (void **) &loaded_image,
                         NULL, NULL, EFI_OPEN_PROTOCOL_GET_PROTOCOL);
         if (EFI_ERROR(err))
                 return err;
 
         /* close the handle */
-        (void) uefi_call_wrapper(
-                        BS->CloseProtocol, 4,
-                        loaded_image_handle, &LoadedImageProtocol, NULL, NULL);
-        err = uefi_call_wrapper(BS->UninstallMultipleProtocolInterfaces, 4,
+        (void) BS->CloseProtocol(loaded_image_handle, &LoadedImageProtocol, NULL, NULL);
+        err = BS->UninstallMultipleProtocolInterfaces(
                         loaded_image_handle,
                         &LoadedImageProtocol, loaded_image,
                         NULL);
@@ -117,7 +114,7 @@ struct pages {
 static inline void cleanup_pages(struct pages *p) {
         if (p->addr == 0)
                 return;
-        (void) uefi_call_wrapper(BS->FreePages, 2, p->addr, p->num);
+        (void) BS->FreePages(p->addr, p->num);
 }
 
 EFI_STATUS linux_exec(
@@ -157,10 +154,7 @@ EFI_STATUS linux_exec(
         */
         /* allocate SizeOfImage + SectionAlignment because the new_buffer can move up to Alignment-1 bytes */
         kernel.num = EFI_SIZE_TO_PAGES(ALIGN_TO(kernel_size_of_image, kernel_alignment) + kernel_alignment);
-        err = uefi_call_wrapper(
-                BS->AllocatePages, 4,
-                AllocateAnyPages, EfiLoaderData,
-                kernel.num, &kernel.addr);
+        err = BS->AllocatePages(AllocateAnyPages, EfiLoaderData, kernel.num, &kernel.addr);
         if (EFI_ERROR(err))
                 return EFI_OUT_OF_RESOURCES;
         new_buffer = PHYSICAL_ADDRESS_TO_POINTER(ALIGN_TO(kernel.addr, kernel_alignment));
@@ -182,5 +176,5 @@ EFI_STATUS linux_exec(
                 return err;
 
         /* call the kernel */
-        return uefi_call_wrapper(kernel_entry, 2, loaded_image_handle, ST);
+        return kernel_entry(loaded_image_handle, ST);
 }

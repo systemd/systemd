@@ -84,7 +84,7 @@ EFI_STATUS initrd_register(
            LocateDevicePath checks for the "closest DevicePath" and returns its handle,
            where as InstallMultipleProtocolInterfaces only maches identical DevicePaths.
          */
-        err = uefi_call_wrapper(BS->LocateDevicePath, 3, &EfiLoadFile2Protocol, &dp, &handle);
+        err = BS->LocateDevicePath(&EfiLoadFile2Protocol, &dp, &handle);
         if (err != EFI_NOT_FOUND) /* InitrdMedia is already registered */
                 return EFI_ALREADY_STARTED;
 
@@ -99,8 +99,7 @@ EFI_STATUS initrd_register(
         };
 
         /* create a new handle and register the LoadFile2 protocol with the InitrdMediaPath on it */
-        err = uefi_call_wrapper(
-                        BS->InstallMultipleProtocolInterfaces, 8,
+        err = BS->InstallMultipleProtocolInterfaces(
                         ret_initrd_handle,
                         &DevicePathProtocol, &efi_initrd_device_path,
                         &EfiLoadFile2Protocol, loader,
@@ -119,21 +118,17 @@ EFI_STATUS initrd_unregister(EFI_HANDLE initrd_handle) {
                 return EFI_SUCCESS;
 
         /* get the LoadFile2 protocol that we allocated earlier */
-        err = uefi_call_wrapper(
-                        BS->OpenProtocol, 6,
+        err = BS->OpenProtocol(
                         initrd_handle, &EfiLoadFile2Protocol, (void **) &loader,
                         NULL, NULL, EFI_OPEN_PROTOCOL_GET_PROTOCOL);
         if (EFI_ERROR(err))
                 return err;
 
         /* close the handle */
-        (void) uefi_call_wrapper(
-                        BS->CloseProtocol, 4,
-                        initrd_handle, &EfiLoadFile2Protocol, NULL, NULL);
+        (void) BS->CloseProtocol(initrd_handle, &EfiLoadFile2Protocol, NULL, NULL);
 
         /* uninstall all protocols thus destroying the handle */
-        err = uefi_call_wrapper(
-                        BS->UninstallMultipleProtocolInterfaces, 6,
+        err = BS->UninstallMultipleProtocolInterfaces(
                         initrd_handle,
                         &DevicePathProtocol, &efi_initrd_device_path,
                         &EfiLoadFile2Protocol, loader,

@@ -19,6 +19,13 @@
 #include "util.h"
 #include "xbootldr.h"
 
+#ifndef GNU_EFI_USE_MS_ABI
+        /* We do not use uefi_call_wrapper() in systemd-boot. As such, we rely on the
+         * compiler to do the calling convention conversion for us. This is check is
+         * to make sure the -DGNU_EFI_USE_MS_ABI was passed to the comiler. */
+        #error systemd-boot requires compilation with GNU_EFI_USE_MS_ABI defined.
+#endif
+
 #ifndef EFI_OS_INDICATIONS_BOOT_TO_FW_UI
 #define EFI_OS_INDICATIONS_BOOT_TO_FW_UI 0x0000000000000001ULL
 #endif
@@ -568,8 +575,8 @@ static BOOLEAN menu_run(
         INT64 console_mode_initial = ST->ConOut->Mode->Mode, console_mode_efivar_saved = config->console_mode_efivar;
 
         graphics_mode(FALSE);
-        uefi_call_wrapper(ST->ConIn->Reset, 2, ST->ConIn, FALSE);
-        uefi_call_wrapper(ST->ConOut->EnableCursor, 2, ST->ConOut, FALSE);
+        ST->ConIn->Reset(ST->ConIn, FALSE);
+        ST->ConOut->EnableCursor(ST->ConOut, FALSE);
 
         /* draw a single character to make ClearScreen work on some firmware */
         Print(L" ");
@@ -710,8 +717,8 @@ static BOOLEAN menu_run(
                         else
                                 x = 0;
                         print_at(0, y_status, COLOR_NORMAL, clearline + (x_max - x));
-                        uefi_call_wrapper(ST->ConOut->OutputString, 2, ST->ConOut, status);
-                        uefi_call_wrapper(ST->ConOut->OutputString, 2, ST->ConOut, clearline+1 + x + len);
+                        ST->ConOut->OutputString(ST->ConOut, status);
+                        ST->ConOut->OutputString(ST->ConOut, clearline + 1 + x + len);
                 }
 
                 err = console_key_read(&key, timeout_remain > 0 ? 1000 * 1000 : UINT64_MAX);
@@ -1262,7 +1269,7 @@ static void config_entry_bump_counters(
         static const EFI_GUID EfiFileInfoGuid = EFI_FILE_INFO_ID;
         _cleanup_freepool_ EFI_FILE_INFO *file_info = NULL;
         UINTN file_info_size;
-        EFI_STATUS r;
+        EFI_STATUS err;
 
         assert(entry);
         assert(root_dir);
@@ -1275,24 +1282,24 @@ static void config_entry_bump_counters(
 
         old_path = PoolPrint(L"%s\\%s", entry->path, entry->current_name);
 
-        r = uefi_call_wrapper(root_dir->Open, 5, root_dir, &handle, old_path, EFI_FILE_MODE_READ|EFI_FILE_MODE_WRITE, 0ULL);
-        if (EFI_ERROR(r))
+        err = root_dir->Open(root_dir, &handle, old_path, EFI_FILE_MODE_READ|EFI_FILE_MODE_WRITE, 0ULL);
+        if (EFI_ERROR(err))
                 return;
 
-        r = get_file_info_harder(handle, &file_info, &file_info_size);
-        if (EFI_ERROR(r))
+        err = get_file_info_harder(handle, &file_info, &file_info_size);
+        if (EFI_ERROR(err))
                 return;
 
         /* And rename the file */
         StrCpy(file_info->FileName, entry->next_name);
-        r = uefi_call_wrapper(handle->SetInfo, 4, handle, (EFI_GUID*) &EfiFileInfoGuid, file_info_size, file_info);
-        if (EFI_ERROR(r)) {
-                log_error_stall(L"Failed to rename '%s' to '%s', ignoring: %r", old_path, entry->next_name, r);
+        err = handle->SetInfo(handle, (EFI_GUID*) &EfiFileInfoGuid, file_info_size, file_info);
+        if (EFI_ERROR(err)) {
+                log_error_stall(L"Failed to rename '%s' to '%s', ignoring: %r", old_path, entry->next_name, err);
                 return;
         }
 
         /* Flush everything to disk, just in case… */
-        (void) uefi_call_wrapper(handle->Flush, 1, handle);
+        (void) handle->Flush(handle);
 
         /* Let's tell the OS that we renamed this file, so that it knows what to rename to the counter-less name on
          * success */
@@ -1429,10 +1436,10 @@ static void config_entry_add_from_file(
                 return;
 
         /* check existence */
-        err = uefi_call_wrapper(root_dir->Open, 5, root_dir, &handle, entry->loader, EFI_FILE_MODE_READ, 0ULL);
+        err = root_dir->Open(root_dir, &handle, entry->loader, EFI_FILE_MODE_READ, 0ULL);
         if (EFI_ERROR(err))
                 return;
-        uefi_call_wrapper(handle->Close, 1, handle);
+        handle->Close(handle);
 
         /* add initrd= to options */
         if (entry->type == LOADER_LINUX && initrd) {
@@ -1875,10 +1882,10 @@ static BOOLEAN config_entry_add_loader_auto(
         }
 
         /* check existence */
-        err = uefi_call_wrapper(root_dir->Open, 5, root_dir, &handle, (CHAR16*) loader, EFI_FILE_MODE_READ, 0ULL);
+        err = root_dir->Open(root_dir, &handle, (CHAR16*) loader, EFI_FILE_MODE_READ, 0ULL);
         if (EFI_ERROR(err))
                 return FALSE;
-        uefi_call_wrapper(handle->Close, 1, handle);
+        handle->Close(handle);
 
         entry = config_entry_add_loader(config, device, LOADER_UNDEFINED, id, key, title, loader, NULL);
         if (!entry)
@@ -1911,7 +1918,7 @@ static void config_entry_add_osx(Config *config) {
                                 continue;
                         found = config_entry_add_loader_auto(config, handles[i], root, NULL, L"auto-osx", 'a', L"macOS",
                                                              L"\\System\\Library\\CoreServices\\boot.efi");
-                        uefi_call_wrapper(root->Close, 1, root);
+                        root->Close(root);
                         if (found)
                                 break;
                 }
@@ -2140,7 +2147,7 @@ static EFI_STATUS image_start(
         if (!path)
                 return log_error_status_stall(EFI_INVALID_PARAMETER, L"Error getting device path.");
 
-        err = uefi_call_wrapper(BS->LoadImage, 6, FALSE, parent_image, path, NULL, 0, &image);
+        err = BS->LoadImage(FALSE, parent_image, path, NULL, 0, &image);
         if (EFI_ERROR(err))
                 return log_error_status_stall(err, L"Error loading %s: %r", entry->loader, err);
 
@@ -2159,8 +2166,8 @@ static EFI_STATUS image_start(
         if (options) {
                 EFI_LOADED_IMAGE *loaded_image;
 
-                err = uefi_call_wrapper(BS->OpenProtocol, 6, image, &LoadedImageProtocol, (void **)&loaded_image,
-                                        parent_image, NULL, EFI_OPEN_PROTOCOL_GET_PROTOCOL);
+                err = BS->OpenProtocol(image, &LoadedImageProtocol, (void **)&loaded_image,
+                                       parent_image, NULL, EFI_OPEN_PROTOCOL_GET_PROTOCOL);
                 if (EFI_ERROR(err)) {
                         log_error_stall(L"Error getting LoadedImageProtocol handle: %r", err);
                         goto out_unload;
@@ -2173,9 +2180,9 @@ static EFI_STATUS image_start(
         }
 
         efivar_set_time_usec(LOADER_GUID, L"LoaderTimeExecUSec", 0);
-        err = uefi_call_wrapper(BS->StartImage, 3, image, NULL, NULL);
+        err = BS->StartImage(image, NULL, NULL);
 out_unload:
-        uefi_call_wrapper(BS->UnloadImage, 1, image);
+        BS->UnloadImage(image);
         return err;
 }
 
@@ -2193,7 +2200,7 @@ static EFI_STATUS reboot_into_firmware(void) {
         if (EFI_ERROR(err))
                 return err;
 
-        err = uefi_call_wrapper(RT->ResetSystem, 4, EfiResetCold, EFI_SUCCESS, 0, NULL);
+        err = RT->ResetSystem(EfiResetCold, EFI_SUCCESS, 0, NULL);
         return log_error_status_stall(err, L"Error calling ResetSystem: %r", err);
 }
 
@@ -2327,9 +2334,7 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
         InitializeLib(image, sys_table);
         init_usec = time_usec();
 
-        err = uefi_call_wrapper(
-                        BS->OpenProtocol, 6,
-                        image,
+        err = BS->OpenProtocol(image,
                         &LoadedImageProtocol,
                         (void **)&loaded_image,
                         image,
@@ -2433,6 +2438,6 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
         }
         err = EFI_SUCCESS;
 out:
-        uefi_call_wrapper(BS->CloseProtocol, 4, image, &LoadedImageProtocol, image, NULL);
+        BS->CloseProtocol(image, &LoadedImageProtocol, image, NULL);
         return err;
 }
