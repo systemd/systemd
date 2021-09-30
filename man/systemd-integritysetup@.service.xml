@@ -1,0 +1,49 @@
+<?xml version="1.0"?>
+<!--*-nxml-*-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
+<refentry id="systemd-integritysetup@.service" >
+
+  <refentryinfo>
+    <title>systemd-integritysetup@.service</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>systemd-integritysetup@.service</refentrytitle>
+    <manvolnum>8</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>systemd-integritysetup@.service</refname>
+    <refname>systemd-integritysetup</refname>
+    <refpurpose>Disk integrity protection logic</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <para><filename>systemd-integritysetup@.service</filename></para>
+    <para><filename>/usr/lib/systemd/systemd-integritysetup</filename></para>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para><filename>systemd-integritysetup@.service</filename> is a service responsible for setting up integrity
+    protection (non-verity) block devices. It should be instantiated for each device that requires integrity
+    protection.</para>
+
+    <para>At early boot and when the system manager configuration is reloaded /etc/integritytab is translated into <filename>systemd-integritysetup@.service</filename> units by
+    <citerefentry><refentrytitle>systemd-integritysetup-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>See Also</title>
+    <para>
+      <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>systemd-integritysetup-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+      <citerefentry project='die-net'><refentrytitle>integritysetup</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+     </para>
+  </refsect1>
+
+</refentry>
