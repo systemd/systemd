@@ -31,7 +31,6 @@ struct ShimLock {
         EFI_STATUS __sysv_abi__ (*read_header) (void *data, UINT32 datasize, void *context);
 };
 
-#define SIMPLE_FS_GUID &(const EFI_GUID) SIMPLE_FILE_SYSTEM_PROTOCOL
 #define SHIM_LOCK_GUID \
         &(const EFI_GUID) { 0x605dab50, 0xe046, 0x4300, { 0xab, 0xb6, 0x3d, 0xd8, 0x10, 0xdd, 0x8b, 0x23 } }
 
@@ -119,7 +118,7 @@ static EFIAPI EFI_STATUS security_policy_authentication (const EFI_SECURITY_PROT
         if (!dev_path)
                 return EFI_OUT_OF_RESOURCES;
 
-        status = BS->LocateDevicePath((EFI_GUID*) SIMPLE_FS_GUID, &dev_path, &h);
+        status = BS->LocateDevicePath(&FileSystemProtocol, &dev_path, &h);
         if (EFI_ERROR(status))
                 return status;
 
