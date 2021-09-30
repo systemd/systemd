@@ -12,9 +12,9 @@
 #define __regparm0__
 #endif
 
-typedef VOID(*handover_f)(VOID *image, EFI_SYSTEM_TABLE *table, struct boot_params *params) __regparm0__;
+typedef void(*handover_f)(void *image, EFI_SYSTEM_TABLE *table, struct boot_params *params) __regparm0__;
 
-static VOID linux_efi_handover(EFI_HANDLE image, struct boot_params *params) {
+static void linux_efi_handover(EFI_HANDLE image, struct boot_params *params) {
         handover_f handover;
         UINTN start = (UINTN)params->hdr.code32_start;
 
