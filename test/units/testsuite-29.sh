@@ -4,9 +4,16 @@
 set -eux
 set -o pipefail
 
+ARGS=()
+if [[ -v ASAN_OPTIONS || -v UBSAN_OPTIONS ]]; then
+    # If we're running under sanitizers, we need to use a less restrictive
+    # profile, otherwise LSan syscall would get blocked by seccomp
+    ARGS+=(--profile=trusted)
+fi
+
 export SYSTEMD_LOG_LEVEL=debug
 
-portablectl attach --now --runtime /usr/share/minimal_0.raw app0
+portablectl "${ARGS[@]}" attach --now --runtime /usr/share/minimal_0.raw app0
 
 systemctl is-active app0.service
 systemctl is-active app0-foo.service
@@ -16,7 +23,7 @@ systemctl is-active app0-bar.service && exit 1
 set -e
 set -o pipefail
 
-portablectl reattach --now --runtime /usr/share/minimal_1.raw app0
+portablectl "${ARGS[@]}" reattach --now --runtime /usr/share/minimal_1.raw app0
 
 systemctl is-active app0.service
 systemctl is-active app0-bar.service
@@ -37,7 +44,7 @@ portablectl list | grep -q -F "No images."
 unsquashfs -dest /tmp/minimal_0 /usr/share/minimal_0.raw
 unsquashfs -dest /tmp/minimal_1 /usr/share/minimal_1.raw
 
-portablectl attach --copy=symlink --now --runtime /tmp/minimal_0 app0
+portablectl "${ARGS[@]}" attach --copy=symlink --now --runtime /tmp/minimal_0 app0
 
 systemctl is-active app0.service
 systemctl is-active app0-foo.service
@@ -47,7 +54,7 @@ systemctl is-active app0-bar.service && exit 1
 set -e
 set -o pipefail
 
-portablectl reattach --now --enable --runtime /tmp/minimal_1 app0
+portablectl "${ARGS[@]}" reattach --now --enable --runtime /tmp/minimal_1 app0
 
 systemctl is-active app0.service
 systemctl is-active app0-bar.service
@@ -66,11 +73,11 @@ portablectl list | grep -q -F "No images."
 root="/usr/share/minimal_0.raw"
 app1="/usr/share/app1.raw"
 
-portablectl attach --now --runtime --extension ${app1} ${root} app1
+portablectl "${ARGS[@]}"  attach --now --runtime --extension ${app1} ${root} app1
 
 systemctl is-active app1.service
 
-portablectl reattach --now --runtime --extension ${app1} ${root} app1
+portablectl "${ARGS[@]}"  reattach --now --runtime --extension ${app1} ${root} app1
 
 systemctl is-active app1.service
 
@@ -83,7 +90,7 @@ mount ${app1} /tmp/app1
 mount ${root} /tmp/rootdir
 mount -t overlay overlay -o lowerdir=/tmp/app1:/tmp/rootdir /tmp/overlay
 
-portablectl attach --copy=symlink --now --runtime /tmp/overlay app1
+portablectl "${ARGS[@]}" attach --copy=symlink --now --runtime /tmp/overlay app1
 
 systemctl is-active app1.service
 
