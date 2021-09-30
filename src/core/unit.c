@@ -187,6 +187,11 @@ static void unit_init(Unit *u) {
         if (ec) {
                 exec_context_init(ec);
 
+                if (u->manager->default_oom_score_adjust_set) {
+                        ec->oom_score_adjust = u->manager->default_oom_score_adjust;
+                        ec->oom_score_adjust_set = true;
+                }
+
                 if (MANAGER_IS_SYSTEM(u->manager))
                         ec->keyring_mode = EXEC_KEYRING_SHARED;
                 else {
