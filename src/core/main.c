@@ -2162,7 +2162,7 @@ static int initialize_runtime(
                         return log_emergency_errno(r, "Failed to determine $XDG_RUNTIME_DIR path: %m");
                 }
 
-                (void) mkdir_p_label(p, 0755);
+                mkdir_p_label_and_warn(p, 0755, NULL);
                 (void) make_inaccessible_nodes(p, UID_INVALID, GID_INVALID);
         }
 
