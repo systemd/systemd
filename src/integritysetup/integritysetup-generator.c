@@ -1,0 +1,224 @@
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
+
+#include <errno.h>
+#include <stdbool.h>
+#include <stdlib.h>
+#include <sys/stat.h>
+#include <unistd.h>
+
+#include "alloc-util.h"
+#include "fd-util.h"
+#include "fileio.h"
+#include "fstab-util.h"
+#include "generator.h"
+#include "hexdecoct.h"
+#include "id128-util.h"
+#include "main-func.h"
+#include "mkdir.h"
+#include "parse-util.h"
+#include "path-util.h"
+#include "proc-cmdline.h"
+#include "specifier.h"
+#include "string-util.h"
+#include "unit-name.h"
+
+static const char *arg_dest = NULL;
+static const char *arg_integritytab = NULL;
+static const char *arg_integritysetupbin = NULL;
+static char *arg_options = NULL;
+STATIC_DESTRUCTOR_REGISTER(arg_options, freep);
+
+static void option(
+                FILE *o,
+                char *token) {
+
+        char *save_ptr = NULL;
+        char *match = strtok_r(token, "=", &save_ptr);
+        if (match) {
+                if (strlen(match) > 1)
+                        fprintf(o, "-");
+
+                fprintf(o, "-%s ", match);
+                match = strtok_r(NULL, "=", &save_ptr);
+                if (match)
+                        fprintf(o, "%s ", match);
+        }
+}
+
+static int options_string(
+                char *options,
+                char **options_formatted) {
+
+        if (options && options_formatted  && *options_formatted == NULL && strlen(options) > 0) {
+                char *buff = NULL, *save_ptr = NULL, *token = NULL;
+                size_t len = 0;
+                int r = 0;
+
+                FILE *out = open_memstream(&buff, &len);
+                if (!out)
+                        return log_oom();
+
+                token = strtok_r(options, ",", &save_ptr);
+                while (token != NULL) {
+                        option(out, token);
+                        token = strtok_r(NULL, ",", &save_ptr);
+                }
+
+                r = fclose(out);
+                if (r != 0)
+                        return log_error_errno(r, "fclose failure on opened memstream: %m");
+
+                if (len > 0) {
+                        *options_formatted = buff;
+                }
+                return 0;
+        }
+        return -EINVAL;
+}
+
+static int create_disk(
+                const char *name,
+                const char *device,
+                char *options) {
+
+        _cleanup_free_ char *n = NULL, *dd = NULL, *hd = NULL, *e = NULL, *to = NULL, *dev_require = NULL,
+                            *d_escaped = NULL, *hu_escaped = NULL, *name_escaped = NULL, *options_convert = NULL;
+        _cleanup_fclose_ FILE *f = NULL;
+        int r;
+        char *dmname = NULL;
+
+        assert(name);
+        assert(device);
+
+        name_escaped = specifier_escape(name);
+        if (!name_escaped)
+                return log_oom();
+
+        e = unit_name_escape(name);
+        if (!e)
+                return log_oom();
+
+        r = unit_name_build("systemd-integritysetup", e, ".service", &n);
+        if (r < 0)
+                return log_error_errno(r, "Failed to generate unit name: %m");
+
+        r = unit_name_from_path(device, ".device", &dd);
+        if (r < 0)
+                return log_error_errno(r, "Failed to generate unit name: %m");
+
+        r = generator_open_unit_file(arg_dest, NULL, n, &f);
+        if (r < 0)
+                return r;
+
+        if (options) {
+                r = options_string(options, &options_convert);
+                if (r < 0)
+                        return r;
+        }
+
+        fprintf(f,
+                "[Unit]\n"
+                "Description=Integrity Setup for %%I\n"
+                "Documentation=man:integritytab(5) man:systemd-integritysetup-generator(8) man:systemd-integritysetup@.service(8)\n"
+                "SourcePath=%s\n"
+                "DefaultDependencies=no\n"
+                "IgnoreOnIsolate=true\n"
+                "After=systemd-udevd-kernel.socket\n"
+                "Before=blockdev@dev-mapper-%%i.target\n"
+                "Wants=blockdev@dev-mapper-%%i.target\n"
+                "Conflicts=umount.target\n"
+                "Before=integritysetup.target\n"
+                "BindsTo=%s\n"
+                "After=%s\n"
+                "Before=umount.target\n",
+                arg_integritytab,
+                dd, dd);
+
+        fprintf(f,
+                "\n"
+                "[Service]\n"
+                "Type=oneshot\n"
+                "RemainAfterExit=yes\n"
+                "TimeoutSec=0\n"
+                "ExecStart=%s open '%s' '%s' %s\n"
+                "ExecStop=%s close '%s'\n",
+                arg_integritysetupbin, device, name_escaped, (options_convert) ? options_convert: "",
+                arg_integritysetupbin, name_escaped);
+
+        r = fflush_and_check(f);
+        if (r < 0)
+                return log_error_errno(r, "Failed to write unit file %s: %m", n);
+
+        r =  generator_add_symlink(arg_dest, "integritysetup.target", "requires", n);
+        if (r < 0)
+                return r;
+
+        dmname = strjoina("dev-mapper-", e, ".device");
+        r = generator_add_symlink(arg_dest, dmname, "requires", n);
+        if (r < 0)
+                return r;
+        return 0;
+}
+
+static int add_integritytab_devices(void) {
+        _cleanup_fclose_ FILE *f = NULL;
+        unsigned integritytab_line = 0;
+        int r;
+
+        r = fopen_unlocked(arg_integritytab, "re", &f);
+        if (r < 0) {
+                if (errno != ENOENT)
+                        log_error_errno(errno, "Failed to open %s: %m", arg_integritytab);
+                return 0;
+        }
+
+        for (;;) {
+                _cleanup_free_ char *line = NULL, *name = NULL, *device_id = NULL, *device_path = NULL, *options = NULL;
+                char *l;
+
+                r = read_line(f, LONG_LINE_MAX, &line);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to read %s: %m", arg_integritytab);
+                if (r == 0)
+                        break;
+
+                integritytab_line++;
+
+                l = strstrip(line);
+                if (!l)
+                        continue;
+
+                if (IN_SET(l[0], 0, '#'))
+                        continue;
+
+                // Options are optional
+                r = sscanf(l, "%ms %ms %ms", &name, &device_id, &options);
+                if (!IN_SET(r, 2, 3)) {
+                        log_error("Failed to parse %s:%u, ignoring.", l, integritytab_line);
+                        continue;
+                }
+
+                device_path = fstab_node_to_udev_node(device_id);
+                if (!device_path) {
+                        log_error("Failed to find device %s:%u, ignoring.", device_id, integritytab_line);
+                        continue;
+                }
+
+                r = create_disk(name, device_path, options);
+                if (r < 0)
+                        return r;
+        }
+
+        return 0;
+}
+
+static int run(const char *dest, const char *dest_early, const char *dest_late) {
+        assert_se(arg_dest = dest);
+
+        arg_integritytab = getenv("SYSTEMD_INTEGRITYTAB") ?: "/etc/integritytab";
+        arg_integritysetupbin = getenv("SYSTEMD_INTEGRITYSETUPBIN") ?: "/usr/sbin/integritysetup";
+
+        return add_integritytab_devices();
+}
+
+DEFINE_MAIN_GENERATOR_FUNCTION(run);
