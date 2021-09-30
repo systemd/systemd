@@ -95,8 +95,7 @@ static EFI_STATUS try_gpt(
         assert(ret_part_uuid);
 
         /* Read the GPT header */
-        err = uefi_call_wrapper(
-                        block_io->ReadBlocks, 5,
+        err = block_io->ReadBlocks(
                         block_io,
                         block_io->Media->MediaId,
                         lba,
@@ -117,8 +116,7 @@ static EFI_STATUS try_gpt(
         if (!entries)
                 return EFI_OUT_OF_RESOURCES;
 
-        err = uefi_call_wrapper(
-                        block_io->ReadBlocks, 5,
+        err = block_io->ReadBlocks(
                         block_io,
                         block_io->Media->MediaId,
                         gpt.gpt_header.PartitionEntryLBA,
@@ -198,11 +196,11 @@ static EFI_DEVICE_PATH *find_device(
                 if (!disk_path)
                         continue;
 
-                err = uefi_call_wrapper(BS->LocateDevicePath, 3, &BlockIoProtocol, &p, &disk_handle);
+                err = BS->LocateDevicePath(&BlockIoProtocol, &p, &disk_handle);
                 if (EFI_ERROR(err))
                         continue;
 
-                err = uefi_call_wrapper(BS->HandleProtocol, 3, disk_handle, &BlockIoProtocol, (void **)&block_io);
+                err = BS->HandleProtocol(disk_handle, &BlockIoProtocol, (void **)&block_io);
                 if (EFI_ERROR(err))
                         continue;
 
@@ -281,7 +279,7 @@ void xbootldr_open(EFI_HANDLE *device, EFI_HANDLE *ret_device, EFI_FILE **ret_ro
                 hd->SignatureType = SIGNATURE_TYPE_GUID;
         }
 
-        err = uefi_call_wrapper(BS->LocateDevicePath, 3, &BlockIoProtocol, &partition_path, ret_device);
+        err = BS->LocateDevicePath(&BlockIoProtocol, &partition_path, ret_device);
         if (EFI_ERROR(err))
                 return;
 
