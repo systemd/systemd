@@ -19,8 +19,8 @@ _used_ _section_(".sdmagic") static const char magic[] = "#### LoaderInfo: syste
 
 static EFI_STATUS combine_initrd(
                 EFI_PHYSICAL_ADDRESS initrd_base, UINTN initrd_size,
-                const VOID *credential_initrd, UINTN credential_initrd_size,
-                const VOID *sysext_initrd, UINTN sysext_initrd_size,
+                const void *credential_initrd, UINTN credential_initrd_size,
+                const void *sysext_initrd, UINTN sysext_initrd_size,
                 EFI_PHYSICAL_ADDRESS *ret_initrd_base, UINTN *ret_initrd_size) {
 
         EFI_PHYSICAL_ADDRESS base = UINT32_MAX; /* allocate an area below the 32bit boundary for this */
@@ -90,7 +90,7 @@ static EFI_STATUS combine_initrd(
         return EFI_SUCCESS;
 }
 
-static VOID export_variables(EFI_LOADED_IMAGE *loaded_image) {
+static void export_variables(EFI_LOADED_IMAGE *loaded_image) {
         CHAR16 uuid[37];
 
         assert(loaded_image);
@@ -166,7 +166,7 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
 
         UINTN cmdline_len = 0, linux_size, initrd_size, dt_size;
         UINTN credential_initrd_size = 0, sysext_initrd_size = 0;
-        _cleanup_freepool_ VOID *credential_initrd = NULL, *sysext_initrd = NULL;
+        _cleanup_freepool_ void *credential_initrd = NULL, *sysext_initrd = NULL;
         EFI_PHYSICAL_ADDRESS linux_base, initrd_base, dt_base;
         _cleanup_(devicetree_cleanup) struct devicetree_state dt_state = {};
         EFI_LOADED_IMAGE *loaded_image;
@@ -177,7 +177,7 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
 
         InitializeLib(image, sys_table);
 
-        err = uefi_call_wrapper(BS->OpenProtocol, 6, image, &LoadedImageProtocol, (VOID **)&loaded_image,
+        err = uefi_call_wrapper(BS->OpenProtocol, 6, image, &LoadedImageProtocol, (void **)&loaded_image,
                                 image, NULL, EFI_OPEN_PROTOCOL_GET_PROTOCOL);
         if (EFI_ERROR(err))
                 return log_error_status_stall(err, L"Error getting a LoadedImageProtocol handle: %r", err);
@@ -214,12 +214,12 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
                  * duplicates what we already did in the boot menu, if that was already used. However, since
                  * we want the boot menu to support an EFI binary, and want to this stub to be usable from
                  * any boot menu, let's measure things anyway. */
-                (VOID) tpm_log_load_options(loaded_image->LoadOptions);
+                (void) tpm_log_load_options(loaded_image->LoadOptions);
         }
 
         export_variables(loaded_image);
 
-        (VOID) pack_cpio(loaded_image,
+        (void) pack_cpio(loaded_image,
                          L".cred",
                          (const CHAR8*) ".extra/credentials",
                          /* dir_mode= */ 0500,
@@ -229,7 +229,7 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
                          &credential_initrd,
                          &credential_initrd_size);
 
-        (VOID) pack_cpio(loaded_image,
+        (void) pack_cpio(loaded_image,
                          L".raw",
                          (const CHAR8*) ".extra/sysext",
                          /* dir_mode= */ 0555,

@@ -46,7 +46,7 @@ typedef struct {
         CHAR16 *devicetree;
         CHAR16 *options;
         CHAR16 key;
-        EFI_STATUS (*call)(VOID);
+        EFI_STATUS (*call)(void);
         BOOLEAN no_autoselect;
         BOOLEAN non_unique;
         UINTN tries_done;
@@ -88,7 +88,7 @@ enum {
         TIMEOUT_TYPE_MAX    = UINT32_MAX,
 };
 
-static VOID cursor_left(UINTN *cursor, UINTN *first) {
+static void cursor_left(UINTN *cursor, UINTN *first) {
         assert(cursor);
         assert(first);
 
@@ -98,7 +98,7 @@ static VOID cursor_left(UINTN *cursor, UINTN *first) {
                 (*first)--;
 }
 
-static VOID cursor_right(
+static void cursor_right(
                 UINTN *cursor,
                 UINTN *first,
                 UINTN x_max,
@@ -428,7 +428,7 @@ static void ps_bool(const CHAR16 *fmt, BOOLEAN value) {
         Print(fmt, yes_no(value));
 }
 
-static VOID print_status(Config *config, CHAR16 *loaded_image_path) {
+static void print_status(Config *config, CHAR16 *loaded_image_path) {
         UINT64 key;
         UINTN x_max, y_max;
         BOOLEAN setup_mode = FALSE;
@@ -440,9 +440,9 @@ static VOID print_status(Config *config, CHAR16 *loaded_image_path) {
         clear_screen(COLOR_NORMAL);
         console_query_mode(&x_max, &y_max);
 
-        (VOID) efivar_get(LOADER_GUID, L"LoaderDevicePartUUID", &device_part_uuid);
-        (VOID) efivar_get(LOADER_GUID, L"LoaderEntryDefault", &default_efivar);
-        (VOID) efivar_get_boolean_u8(EFI_GLOBAL_GUID, L"SetupMode", &setup_mode);
+        (void) efivar_get(LOADER_GUID, L"LoaderDevicePartUUID", &device_part_uuid);
+        (void) efivar_get(LOADER_GUID, L"LoaderEntryDefault", &default_efivar);
+        (void) efivar_get_boolean_u8(EFI_GLOBAL_GUID, L"SetupMode", &setup_mode);
 
         /* We employ some unusual indentation here for readability. */
 
@@ -933,7 +933,7 @@ static BOOLEAN menu_run(
         return run;
 }
 
-static VOID config_add_entry(Config *config, ConfigEntry *entry) {
+static void config_add_entry(Config *config, ConfigEntry *entry) {
         assert(config);
         assert(entry);
 
@@ -941,13 +941,13 @@ static VOID config_add_entry(Config *config, ConfigEntry *entry) {
                 UINTN i = config->entry_count + 16;
                 config->entries = ReallocatePool(
                                 config->entries,
-                                sizeof(VOID *) * config->entry_count,
-                                sizeof(VOID *) * i);
+                                sizeof(void *) * config->entry_count,
+                                sizeof(void *) * i);
         }
         config->entries[config->entry_count++] = entry;
 }
 
-static VOID config_entry_free(ConfigEntry *entry) {
+static void config_entry_free(ConfigEntry *entry) {
         if (!entry)
                 return;
 
@@ -965,7 +965,7 @@ static VOID config_entry_free(ConfigEntry *entry) {
         FreePool(entry);
 }
 
-static inline VOID config_entry_freep(ConfigEntry **entry) {
+static inline void config_entry_freep(ConfigEntry **entry) {
         config_entry_free(*entry);
 }
 
@@ -1042,7 +1042,7 @@ skip:
         return line;
 }
 
-static VOID config_defaults_load_from_file(Config *config, CHAR8 *content) {
+static void config_defaults_load_from_file(Config *config, CHAR8 *content) {
         CHAR8 *line;
         UINTN pos = 0;
         CHAR8 *key, *value;
@@ -1134,7 +1134,7 @@ static VOID config_defaults_load_from_file(Config *config, CHAR8 *content) {
         }
 }
 
-static VOID config_entry_parse_tries(
+static void config_entry_parse_tries(
                 ConfigEntry *entry,
                 const CHAR16 *path,
                 const CHAR16 *file,
@@ -1253,7 +1253,7 @@ good:
         entry->next_name = PoolPrint(L"%s+%u-%u%s", prefix, next_left, next_done, suffix ?: L"");
 }
 
-static VOID config_entry_bump_counters(
+static void config_entry_bump_counters(
                 ConfigEntry *entry,
                 EFI_FILE_HANDLE root_dir) {
 
@@ -1306,7 +1306,7 @@ static VOID config_entry_bump_counters(
         }
 }
 
-static VOID config_entry_add_from_file(
+static void config_entry_add_from_file(
                 Config *config,
                 EFI_HANDLE *device,
                 EFI_FILE *root_dir,
@@ -1456,7 +1456,7 @@ static VOID config_entry_add_from_file(
         TAKE_PTR(entry);
 }
 
-static VOID config_load_defaults(Config *config, EFI_FILE *root_dir) {
+static void config_load_defaults(Config *config, EFI_FILE *root_dir) {
         _cleanup_freepool_ CHAR8 *content = NULL;
         UINTN value;
         EFI_STATUS err;
@@ -1499,7 +1499,7 @@ static VOID config_load_defaults(Config *config, EFI_FILE *root_dir) {
                 config->console_mode_efivar = value;
 }
 
-static VOID config_load_entries(
+static void config_load_entries(
                 Config *config,
                 EFI_HANDLE *device,
                 EFI_FILE *root_dir,
@@ -1576,7 +1576,7 @@ static INTN config_entry_compare(const ConfigEntry *a, const ConfigEntry *b) {
         return 0;
 }
 
-static VOID config_sort_entries(Config *config) {
+static void config_sort_entries(Config *config) {
         assert(config);
 
         sort_pointer_array((void**) config->entries, config->entry_count, (compare_pointer_func_t) config_entry_compare);
@@ -1593,7 +1593,7 @@ static INTN config_entry_find(Config *config, CHAR16 *id) {
         return -1;
 }
 
-static VOID config_default_entry_select(Config *config) {
+static void config_default_entry_select(Config *config) {
         _cleanup_freepool_ CHAR16 *entry_default = NULL;
         EFI_STATUS err;
         INTN i;
@@ -1682,7 +1682,7 @@ static BOOLEAN find_nonunique(ConfigEntry **entries, UINTN entry_count) {
 }
 
 /* generate a unique title, avoiding non-distinguishable menu entries */
-static VOID config_title_generate(Config *config) {
+static void config_title_generate(Config *config) {
         assert(config);
 
         /* set title */
@@ -1753,7 +1753,7 @@ static BOOLEAN config_entry_add_call(
                 Config *config,
                 const CHAR16 *id,
                 const CHAR16 *title,
-                EFI_STATUS (*call)(VOID)) {
+                EFI_STATUS (*call)(void)) {
 
         ConfigEntry *entry;
 
@@ -1890,7 +1890,7 @@ static BOOLEAN config_entry_add_loader_auto(
         return TRUE;
 }
 
-static VOID config_entry_add_osx(Config *config) {
+static void config_entry_add_osx(Config *config) {
         EFI_STATUS err;
         UINTN handle_count = 0;
         _cleanup_freepool_ EFI_HANDLE *handles = NULL;
@@ -1918,7 +1918,7 @@ static VOID config_entry_add_osx(Config *config) {
         }
 }
 
-static VOID config_entry_add_windows(Config *config, EFI_HANDLE *device, EFI_FILE *root_dir) {
+static void config_entry_add_windows(Config *config, EFI_HANDLE *device, EFI_FILE *root_dir) {
         _cleanup_freepool_ CHAR8 *bcd = NULL;
         const CHAR16 *title = NULL;
         EFI_STATUS err;
@@ -1967,7 +1967,7 @@ static VOID config_entry_add_windows(Config *config, EFI_HANDLE *device, EFI_FIL
                                      L"\\EFI\\Microsoft\\Boot\\bootmgfw.efi");
 }
 
-static VOID config_entry_add_linux(
+static void config_entry_add_linux(
                 Config *config,
                 EFI_HANDLE *device,
                 EFI_FILE *root_dir) {
@@ -2102,7 +2102,7 @@ static VOID config_entry_add_linux(
         }
 }
 
-static VOID config_load_xbootldr(
+static void config_load_xbootldr(
                 Config *config,
                 EFI_HANDLE *device) {
 
@@ -2159,7 +2159,7 @@ static EFI_STATUS image_start(
         if (options) {
                 EFI_LOADED_IMAGE *loaded_image;
 
-                err = uefi_call_wrapper(BS->OpenProtocol, 6, image, &LoadedImageProtocol, (VOID **)&loaded_image,
+                err = uefi_call_wrapper(BS->OpenProtocol, 6, image, &LoadedImageProtocol, (void **)&loaded_image,
                                         parent_image, NULL, EFI_OPEN_PROTOCOL_GET_PROTOCOL);
                 if (EFI_ERROR(err)) {
                         log_error_stall(L"Error getting LoadedImageProtocol handle: %r", err);
@@ -2169,7 +2169,7 @@ static EFI_STATUS image_start(
                 loaded_image->LoadOptionsSize = StrSize(loaded_image->LoadOptions);
 
                 /* Try to log any options to the TPM, especially to catch manually edited options */
-                (VOID) tpm_log_load_options(options);
+                (void) tpm_log_load_options(options);
         }
 
         efivar_set_time_usec(LOADER_GUID, L"LoaderTimeExecUSec", 0);
@@ -2179,7 +2179,7 @@ out_unload:
         return err;
 }
 
-static EFI_STATUS reboot_into_firmware(VOID) {
+static EFI_STATUS reboot_into_firmware(void) {
         UINT64 old, new;
         EFI_STATUS err;
 
@@ -2197,7 +2197,7 @@ static EFI_STATUS reboot_into_firmware(VOID) {
         return log_error_status_stall(err, L"Error calling ResetSystem: %r", err);
 }
 
-static VOID config_free(Config *config) {
+static void config_free(Config *config) {
         assert(config);
         for (UINTN i = 0; i < config->entry_count; i++)
                 config_entry_free(config->entries[i]);
@@ -2207,7 +2207,7 @@ static VOID config_free(Config *config) {
         FreePool(config->entry_oneshot);
 }
 
-static VOID config_write_entries_to_variable(Config *config) {
+static void config_write_entries_to_variable(Config *config) {
         _cleanup_freepool_ CHAR8 *buffer = NULL;
         UINTN sz = 0;
         CHAR8 *p;
@@ -2234,7 +2234,7 @@ static VOID config_write_entries_to_variable(Config *config) {
         (void) efivar_set_raw(LOADER_GUID, L"LoaderEntries", buffer, sz, 0);
 }
 
-static VOID export_variables(
+static void export_variables(
                 EFI_LOADED_IMAGE *loaded_image,
                 const CHAR16 *loaded_image_path,
                 UINT64 init_usec) {
@@ -2275,7 +2275,7 @@ static VOID export_variables(
                 efivar_set(LOADER_GUID, L"LoaderDevicePartUUID", uuid, 0);
 }
 
-static VOID config_load_all_entries(
+static void config_load_all_entries(
                 Config *config,
                 EFI_LOADED_IMAGE *loaded_image,
                 const CHAR16 *loaded_image_path,
@@ -2331,7 +2331,7 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
                         BS->OpenProtocol, 6,
                         image,
                         &LoadedImageProtocol,
-                        (VOID **)&loaded_image,
+                        (void **)&loaded_image,
                         image,
                         NULL,
                         EFI_OPEN_PROTOCOL_GET_PROTOCOL);
@@ -2354,7 +2354,7 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
                         return log_error_status_stall(err, L"Error installing security policy: %r", err);
         }
 
-        (VOID) load_drivers(image, loaded_image, root_dir);
+        (void) load_drivers(image, loaded_image, root_dir);
 
         config_load_all_entries(&config, loaded_image, loaded_image_path, root_dir);
 
@@ -2416,10 +2416,10 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
                 config_entry_bump_counters(entry, root_dir);
 
                 /* Export the selected boot entry to the system */
-                (VOID) efivar_set(LOADER_GUID, L"LoaderEntrySelected", entry->id, 0);
+                (void) efivar_set(LOADER_GUID, L"LoaderEntrySelected", entry->id, 0);
 
                 /* Optionally, read a random seed off the ESP and pass it to the OS */
-                (VOID) process_random_seed(root_dir, config.random_seed_mode);
+                (void) process_random_seed(root_dir, config.random_seed_mode);
 
                 err = image_start(root_dir, image, &config, entry);
                 if (EFI_ERROR(err)) {

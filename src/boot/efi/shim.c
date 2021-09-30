@@ -22,13 +22,13 @@
 #endif
 
 struct ShimLock {
-        EFI_STATUS __sysv_abi__ (*shim_verify) (VOID *buffer, UINT32 size);
+        EFI_STATUS __sysv_abi__ (*shim_verify) (void *buffer, UINT32 size);
 
         /* context is actually a struct for the PE header, but it isn't needed so void is sufficient just do define the interface
          * see shim.c/shim.h and PeHeader.h in the github shim repo */
-        EFI_STATUS __sysv_abi__ (*generate_hash) (VOID *data, UINT32 datasize, VOID *context, UINT8 *sha256hash, UINT8 *sha1hash);
+        EFI_STATUS __sysv_abi__ (*generate_hash) (void *data, UINT32 datasize, void *context, UINT8 *sha256hash, UINT8 *sha1hash);
 
-        EFI_STATUS __sysv_abi__ (*read_header) (VOID *data, UINT32 datasize, VOID *context);
+        EFI_STATUS __sysv_abi__ (*read_header) (void *data, UINT32 datasize, void *context);
 };
 
 #define SIMPLE_FS_GUID &(const EFI_GUID) SIMPLE_FILE_SYSTEM_PROTOCOL
@@ -38,16 +38,16 @@ struct ShimLock {
 BOOLEAN shim_loaded(void) {
         struct ShimLock *shim_lock;
 
-        return uefi_call_wrapper(BS->LocateProtocol, 3, (EFI_GUID*) SHIM_LOCK_GUID, NULL, (VOID**) &shim_lock) == EFI_SUCCESS;
+        return uefi_call_wrapper(BS->LocateProtocol, 3, (EFI_GUID*) SHIM_LOCK_GUID, NULL, (void**) &shim_lock) == EFI_SUCCESS;
 }
 
-static BOOLEAN shim_validate(VOID *data, UINT32 size) {
+static BOOLEAN shim_validate(void *data, UINT32 size) {
         struct ShimLock *shim_lock;
 
         if (!data)
                 return FALSE;
 
-        if (uefi_call_wrapper(BS->LocateProtocol, 3, (EFI_GUID*) SHIM_LOCK_GUID, NULL, (VOID**) &shim_lock) != EFI_SUCCESS)
+        if (uefi_call_wrapper(BS->LocateProtocol, 3, (EFI_GUID*) SHIM_LOCK_GUID, NULL, (void**) &shim_lock) != EFI_SUCCESS)
                 return FALSE;
 
         if (!shim_lock)
@@ -72,7 +72,7 @@ static EFI_SECURITY2_FILE_AUTHENTICATION es2fa = NULL;
  */
 static EFIAPI EFI_STATUS security2_policy_authentication (const EFI_SECURITY2_PROTOCOL *this,
                                                           const EFI_DEVICE_PATH_PROTOCOL *device_path,
-                                                          VOID *file_buffer, UINTN file_size, BOOLEAN boot_policy) {
+                                                          void *file_buffer, UINTN file_size, BOOLEAN boot_policy) {
         EFI_STATUS status;
 
         assert(this);
@@ -155,9 +155,9 @@ EFI_STATUS security_policy_install(void) {
          * to fail, since SECURITY2 was introduced in PI 1.2.1.
          * Use security2_protocol == NULL as indicator.
          */
-        uefi_call_wrapper(BS->LocateProtocol, 3, (EFI_GUID*) SECURITY_PROTOCOL2_GUID, NULL, (VOID**) &security2_protocol);
+        uefi_call_wrapper(BS->LocateProtocol, 3, (EFI_GUID*) SECURITY_PROTOCOL2_GUID, NULL, (void**) &security2_protocol);
 
-        status = uefi_call_wrapper(BS->LocateProtocol, 3, (EFI_GUID*) SECURITY_PROTOCOL_GUID, NULL, (VOID**) &security_protocol);
+        status = uefi_call_wrapper(BS->LocateProtocol, 3, (EFI_GUID*) SECURITY_PROTOCOL_GUID, NULL, (void**) &security_protocol);
          /* This one is mandatory, so there's a serious problem */
         if (status != EFI_SUCCESS)
                 return status;

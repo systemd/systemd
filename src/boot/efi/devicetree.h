@@ -4,7 +4,7 @@
 struct devicetree_state {
         EFI_PHYSICAL_ADDRESS addr;
         UINTN pages;
-        VOID *orig;
+        void *orig;
 };
 
 EFI_STATUS devicetree_install(struct devicetree_state *state, EFI_FILE_HANDLE root_dir, CHAR16 *name);

@@ -6,5 +6,5 @@
 EFI_STATUS linux_exec(
                 EFI_HANDLE image,
                 const CHAR8 *cmdline, UINTN cmdline_len,
-                const VOID *linux_buffer, UINTN linux_length,
-                const VOID *initrd_buffer, UINTN initrd_length);
+                const void *linux_buffer, UINTN linux_length,
+                const void *initrd_buffer, UINTN initrd_length);

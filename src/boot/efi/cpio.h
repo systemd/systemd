@@ -11,5 +11,5 @@ EFI_STATUS pack_cpio(
                 UINT32 access_mode,
                 UINTN pcr,
                 const CHAR16 *tpm_description,
-                VOID **ret_buffer,
+                void **ret_buffer,
                 UINTN *ret_buffer_size);

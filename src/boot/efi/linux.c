@@ -25,7 +25,7 @@ static EFI_LOADED_IMAGE * loaded_image_free(EFI_LOADED_IMAGE *img) {
 
 static EFI_STATUS loaded_image_register(
                 const CHAR8 *cmdline, UINTN cmdline_len,
-                const VOID *linux_buffer, UINTN linux_length,
+                const void *linux_buffer, UINTN linux_length,
                 EFI_HANDLE *ret_image) {
 
         EFI_LOADED_IMAGE *loaded_image = NULL;
@@ -42,7 +42,7 @@ static EFI_STATUS loaded_image_register(
 
         /* provide the image base address and size */
         *loaded_image = (EFI_LOADED_IMAGE) {
-                .ImageBase = (VOID *) linux_buffer,
+                .ImageBase = (void *) linux_buffer,
                 .ImageSize = linux_length
         };
 
@@ -77,7 +77,7 @@ static EFI_STATUS loaded_image_unregister(EFI_HANDLE loaded_image_handle) {
         /* get the LoadedImage protocol that we allocated earlier */
         err = uefi_call_wrapper(
                         BS->OpenProtocol, 6,
-                        loaded_image_handle, &LoadedImageProtocol, (VOID **) &loaded_image,
+                        loaded_image_handle, &LoadedImageProtocol, (void **) &loaded_image,
                         NULL, NULL, EFI_OPEN_PROTOCOL_GET_PROTOCOL);
         if (EFI_ERROR(err))
                 return err;
@@ -123,15 +123,15 @@ static inline void cleanup_pages(struct pages *p) {
 EFI_STATUS linux_exec(
                 EFI_HANDLE image,
                 const CHAR8 *cmdline, UINTN cmdline_len,
-                const VOID *linux_buffer, UINTN linux_length,
-                const VOID *initrd_buffer, UINTN initrd_length) {
+                const void *linux_buffer, UINTN linux_length,
+                const void *initrd_buffer, UINTN initrd_length) {
 
         _cleanup_(cleanup_initrd) EFI_HANDLE initrd_handle = NULL;
         _cleanup_(cleanup_loaded_image) EFI_HANDLE loaded_image_handle = NULL;
         UINT32 kernel_alignment, kernel_size_of_image, kernel_entry_address;
         EFI_IMAGE_ENTRY_POINT kernel_entry;
         _cleanup_(cleanup_pages) struct pages kernel = {};
-        VOID *new_buffer;
+        void *new_buffer;
         EFI_STATUS err;
 
         assert(image);

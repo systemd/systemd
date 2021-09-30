@@ -203,7 +203,7 @@ static EFI_STATUS find_device(
                 if (EFI_ERROR(err))
                         continue;
 
-                err = uefi_call_wrapper(BS->HandleProtocol, 3, disk_handle, &BlockIoProtocol, (VOID **)&block_io);
+                err = uefi_call_wrapper(BS->HandleProtocol, 3, disk_handle, &BlockIoProtocol, (void **)&block_io);
                 if (EFI_ERROR(err))
                         continue;
 

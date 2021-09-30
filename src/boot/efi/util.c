@@ -6,39 +6,39 @@
 #include "util.h"
 
 #ifdef __x86_64__
-UINT64 ticks_read(VOID) {
+UINT64 ticks_read(void) {
         UINT64 a, d;
         __asm__ volatile ("rdtsc" : "=a" (a), "=d" (d));
         return (d << 32) | a;
 }
 #elif defined(__i386__)
-UINT64 ticks_read(VOID) {
+UINT64 ticks_read(void) {
         UINT64 val;
         __asm__ volatile ("rdtsc" : "=A" (val));
         return val;
 }
 #elif defined(__aarch64__)
-UINT64 ticks_read(VOID) {
+UINT64 ticks_read(void) {
         UINT64 val;
         __asm__ volatile ("mrs %0, cntpct_el0" : "=r" (val));
         return val;
 }
 #else
-UINT64 ticks_read(VOID) {
+UINT64 ticks_read(void) {
         UINT64 val = 1;
         return val;
 }
 #endif
 
 #if defined(__aarch64__)
-UINT64 ticks_freq(VOID) {
+UINT64 ticks_freq(void) {
         UINT64 freq;
         __asm__ volatile ("mrs %0, cntfrq_el0": "=r" (freq));
         return freq;
 }
 #else
 /* count TSC ticks during a millisecond delay */
-UINT64 ticks_freq(VOID) {
+UINT64 ticks_freq(void) {
         UINT64 ticks_start, ticks_end;
 
         ticks_start = ticks_read();
@@ -49,7 +49,7 @@ UINT64 ticks_freq(VOID) {
 }
 #endif
 
-UINT64 time_usec(VOID) {
+UINT64 time_usec(void) {
         UINT64 ticks;
         static UINT64 freq;
 
@@ -95,13 +95,13 @@ EFI_STATUS parse_boolean(const CHAR8 *v, BOOLEAN *b) {
         return EFI_INVALID_PARAMETER;
 }
 
-EFI_STATUS efivar_set_raw(const EFI_GUID *vendor, const CHAR16 *name, const VOID *buf, UINTN size, UINT32 flags) {
+EFI_STATUS efivar_set_raw(const EFI_GUID *vendor, const CHAR16 *name, const void *buf, UINTN size, UINT32 flags) {
         assert(vendor);
         assert(name);
         assert(buf || size == 0);
 
         flags |= EFI_VARIABLE_BOOTSERVICE_ACCESS | EFI_VARIABLE_RUNTIME_ACCESS;
-        return uefi_call_wrapper(RT->SetVariable, 5, (CHAR16*) name, (EFI_GUID *) vendor, flags, size, (VOID*) buf);
+        return uefi_call_wrapper(RT->SetVariable, 5, (CHAR16*) name, (EFI_GUID *) vendor, flags, size, (void*) buf);
 }
 
 EFI_STATUS efivar_set(const EFI_GUID *vendor, const CHAR16 *name, const CHAR16 *value, UINT32 flags) {
@@ -289,7 +289,7 @@ EFI_STATUS efivar_get_boolean_u8(const EFI_GUID *vendor, const CHAR16 *name, BOO
         return err;
 }
 
-VOID efivar_set_time_usec(const EFI_GUID *vendor, const CHAR16 *name, UINT64 usec) {
+void efivar_set_time_usec(const EFI_GUID *vendor, const CHAR16 *name, UINT64 usec) {
         CHAR16 str[32];
 
         assert(vendor);
@@ -488,7 +488,7 @@ EFI_STATUS file_read(EFI_FILE_HANDLE dir, const CHAR16 *name, UINTN off, UINTN s
         return err;
 }
 
-VOID log_error_stall(const CHAR16 *fmt, ...) {
+void log_error_stall(const CHAR16 *fmt, ...) {
         va_list args;
 
         assert(fmt);
@@ -509,34 +509,34 @@ EFI_STATUS log_oom(void) {
         return EFI_OUT_OF_RESOURCES;
 }
 
-VOID *memmem_safe(const VOID *haystack, UINTN haystack_len, const VOID *needle, UINTN needle_len) {
+void *memmem_safe(const void *haystack, UINTN haystack_len, const void *needle, UINTN needle_len) {
         assert(haystack || haystack_len == 0);
         assert(needle || needle_len == 0);
 
         if (needle_len == 0)
-                return (VOID*)haystack;
+                return (void*)haystack;
 
         for (const CHAR8 *h = haystack, *n = needle; haystack_len >= needle_len; h++, haystack_len--)
                 if (*h == *n && CompareMem(h + 1, n + 1, needle_len - 1) == 0)
-                        return (VOID*)h;
+                        return (void*)h;
 
         return NULL;
 }
 
-VOID print_at(UINTN x, UINTN y, UINTN attr, const CHAR16 *str) {
+void print_at(UINTN x, UINTN y, UINTN attr, const CHAR16 *str) {
         assert(str);
         uefi_call_wrapper(ST->ConOut->SetCursorPosition, 3, ST->ConOut, x, y);
         uefi_call_wrapper(ST->ConOut->SetAttribute, 2, ST->ConOut, attr);
         uefi_call_wrapper(ST->ConOut->OutputString, 2, ST->ConOut, (CHAR16*)str);
 }
 
-VOID clear_screen(UINTN attr) {
+void clear_screen(UINTN attr) {
         uefi_call_wrapper(ST->ConOut->SetAttribute, 2, ST->ConOut, attr);
         uefi_call_wrapper(ST->ConOut->ClearScreen, 1, ST->ConOut);
 }
 
 void sort_pointer_array(
-                VOID **array,
+                void **array,
                 UINTN n_members,
                 compare_pointer_func_t compare) {
 
@@ -748,7 +748,7 @@ EFI_STATUS open_directory(
         return EFI_SUCCESS;
 }
 
-UINT64 get_os_indications_supported(VOID) {
+UINT64 get_os_indications_supported(void) {
         UINT64 osind;
         EFI_STATUS err;
 

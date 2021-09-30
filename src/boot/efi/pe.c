@@ -130,7 +130,7 @@ static inline UINTN section_table_offset(const struct DosFileHeader *dos, const 
         return dos->ExeHeader + OFFSETOF(struct PeFileHeader, OptionalHeader) + pe->FileHeader.SizeOfOptionalHeader;
 }
 
-static VOID locate_sections(
+static void locate_sections(
                 const struct PeSectionHeader section_table[],
                 UINTN n_table,
                 const CHAR8 **sections,
@@ -159,7 +159,7 @@ static VOID locate_sections(
 }
 
 EFI_STATUS pe_alignment_info(
-                const VOID *base,
+                const void *base,
                 UINT32 *ret_entry_point_address,
                 UINT32 *ret_size_of_image,
                 UINT32 *ret_section_alignment) {
