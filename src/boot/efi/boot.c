@@ -417,12 +417,22 @@ static CHAR16 *update_timeout_efivar(UINT32 *t, BOOLEAN inc) {
         }
 }
 
+static void ps_string(const CHAR16 *fmt, const void *value) {
+        assert(fmt);
+        if (value)
+                Print(fmt, value);
+}
+
+static void ps_bool(const CHAR16 *fmt, BOOLEAN value) {
+        assert(fmt);
+        Print(fmt, yes_no(value));
+}
+
 static VOID print_status(Config *config, CHAR16 *loaded_image_path) {
         UINT64 key;
-        UINTN timeout;
-        BOOLEAN modevar;
-        _cleanup_freepool_ CHAR16 *partstr = NULL, *defaultstr = NULL;
         UINTN x_max, y_max;
+        BOOLEAN setup_mode = FALSE;
+        _cleanup_freepool_ CHAR16 *device_part_uuid = NULL, *default_efivar = NULL;
 
         assert(config);
         assert(loaded_image_path);
@@ -430,124 +440,104 @@ static VOID print_status(Config *config, CHAR16 *loaded_image_path) {
         clear_screen(COLOR_NORMAL);
         console_query_mode(&x_max, &y_max);
 
-        Print(L"systemd-boot version:   " GIT_VERSION "\n");
-        Print(L"architecture:           " EFI_MACHINE_TYPE_NAME "\n");
-        Print(L"loaded image:           %s\n", loaded_image_path);
-        Print(L"UEFI specification:     %d.%02d\n", ST->Hdr.Revision >> 16, ST->Hdr.Revision & 0xffff);
-        Print(L"firmware vendor:        %s\n", ST->FirmwareVendor);
-        Print(L"firmware version:       %d.%02d\n", ST->FirmwareRevision >> 16, ST->FirmwareRevision & 0xffff);
-        Print(L"console mode:           %d/%ld\n", ST->ConOut->Mode->Mode, ST->ConOut->Mode->MaxMode - 1LL);
-        Print(L"console size:           %d x %d\n", x_max, y_max);
-        Print(L"SecureBoot:             %s\n", yes_no(secure_boot_enabled()));
+        (VOID) efivar_get(LOADER_GUID, L"LoaderDevicePartUUID", &device_part_uuid);
+        (VOID) efivar_get(LOADER_GUID, L"LoaderEntryDefault", &default_efivar);
+        (VOID) efivar_get_boolean_u8(EFI_GLOBAL_GUID, L"SetupMode", &setup_mode);
 
-        if (efivar_get_boolean_u8(EFI_GLOBAL_GUID, L"SetupMode", &modevar) == EFI_SUCCESS)
-                Print(L"SetupMode:              %s\n", modevar ? L"setup" : L"user");
+        /* We employ some unusual indentation here for readability. */
 
-        if (shim_loaded())
-                Print(L"Shim:                   present\n");
+        ps_string(L"  systemd-boot version: %a\n",      GIT_VERSION);
+        ps_string(L"          loaded image: %s\n",      loaded_image_path);
+        ps_string(L" loader partition UUID: %s\n",      device_part_uuid);
+        ps_string(L"          architecture: %a\n",      EFI_MACHINE_TYPE_NAME);
+            Print(L"    UEFI specification: %u.%02u\n", ST->Hdr.Revision >> 16, ST->Hdr.Revision & 0xffff);
+        ps_string(L"       firmware vendor: %s\n",      ST->FirmwareVendor);
+            Print(L"      firmware version: %u.%02u\n", ST->FirmwareRevision >> 16, ST->FirmwareRevision & 0xffff);
+            Print(L"        OS indications: %lu\n",     get_os_indications_supported());
+          ps_bool(L"           secure boot: %s\n",      secure_boot_enabled());
+          ps_bool(L"            setup mode: %s\n",      setup_mode);
+          ps_bool(L"                  shim: %s\n",      shim_loaded());
+            Print(L"          console mode: %d/%d (%lu x %lu)\n", ST->ConOut->Mode->Mode, ST->ConOut->Mode->MaxMode - 1LL, x_max, y_max);
 
-        Print(L"OsIndicationsSupported: %d\n", get_os_indications_supported());
-
-        Print(L"\n--- press key ---\n\n");
+        Print(L"\n--- Press any key to continue. ---\n\n");
         console_key_read(&key, UINT64_MAX);
 
-        Print(L"timeout:                %u s\n", config->timeout_sec);
-        if (config->timeout_sec_efivar != TIMEOUT_UNSET)
-                Print(L"timeout (EFI var):      %u s\n", config->timeout_sec_efivar);
-        if (config->timeout_sec_config != TIMEOUT_UNSET)
-                Print(L"timeout (config):       %u s\n", config->timeout_sec_config);
-        if (config->entry_default_pattern)
-                Print(L"default pattern:        '%s'\n", config->entry_default_pattern);
-        Print(L"editor:                 %s\n", yes_no(config->editor));
-        Print(L"auto-entries:           %s\n", yes_no(config->auto_entries));
-        Print(L"auto-firmware:          %s\n", yes_no(config->auto_firmware));
-
-        switch (config->random_seed_mode) {
-        case RANDOM_SEED_OFF:
-                Print(L"random-seed-mode:       off\n");
-                break;
-        case RANDOM_SEED_WITH_SYSTEM_TOKEN:
-                Print(L"random-seed-mode:       with-system-token\n");
-                break;
-        case RANDOM_SEED_ALWAYS:
-                Print(L"random-seed-mode:       always\n");
-                break;
+        switch (config->timeout_sec_config) {
+        case TIMEOUT_UNSET:
+            break;
+        case TIMEOUT_MENU_FORCE:
+            Print(L"               timeout: menu-force\n"); break;
+        case TIMEOUT_MENU_HIDDEN:
+            Print(L"               timeout: menu-hidden\n"); break;
         default:
-                ;
+            Print(L"               timeout: %lu s\n", config->timeout_sec_config);
         }
 
-        Print(L"\n");
+        switch (config->timeout_sec_efivar) {
+        case TIMEOUT_UNSET:
+            break;
+        case TIMEOUT_MENU_FORCE:
+            Print(L"     timeout (EFI var): menu-force\n"); break;
+        case TIMEOUT_MENU_HIDDEN:
+            Print(L"     timeout (EFI var): menu-hidden\n"); break;
+        default:
+            Print(L"     timeout (EFI var): %lu s\n", config->timeout_sec_efivar);
+        }
 
-        Print(L"config entry count:     %d\n", config->entry_count);
-        Print(L"entry selected idx:     %d\n", config->idx_default);
-        if (config->idx_default_efivar >= 0)
-                Print(L"entry EFI var idx:      %d\n", config->idx_default_efivar);
-        Print(L"\n");
+        ps_string(L"               default: %s\n", config->entry_default_pattern);
+        ps_string(L"    default (one-shot): %s\n", config->entry_oneshot);
+        ps_string(L"     default (EFI var): %s\n", default_efivar);
+          ps_bool(L"                editor: %s\n", config->editor);
+          ps_bool(L"          auto-entries: %s\n", config->auto_entries);
+          ps_bool(L"         auto-firmware: %s\n", config->auto_firmware);
+        ps_string(L"      random-seed-mode: %s\n", random_seed_modes_table[config->random_seed_mode]);
 
-        if (efivar_get_uint_string(LOADER_GUID, L"LoaderConfigTimeout", &timeout) == EFI_SUCCESS)
-                Print(L"LoaderConfigTimeout:    %u\n", timeout);
+        switch (config->console_mode) {
+        case CONSOLE_MODE_AUTO:
+            Print(L"          console-mode: %s\n", L"auto"); break;
+        case CONSOLE_MODE_KEEP:
+            Print(L"          console-mode: %s\n", L"keep"); break;
+        case CONSOLE_MODE_FIRMWARE_MAX:
+            Print(L"          console-mode: %s\n", L"max"); break;
+        default:
+            Print(L"          console-mode: %ld\n", config->console_mode); break;
+        }
 
-        if (config->entry_oneshot)
-                Print(L"LoaderEntryOneShot:     %s\n", config->entry_oneshot);
-        if (efivar_get(LOADER_GUID, L"LoaderDevicePartUUID", &partstr) == EFI_SUCCESS)
-                Print(L"LoaderDevicePartUUID:   %s\n", partstr);
-        if (efivar_get(LOADER_GUID, L"LoaderEntryDefault", &defaultstr) == EFI_SUCCESS)
-                Print(L"LoaderEntryDefault:     %s\n", defaultstr);
+        /* EFI var console mode is always a concrete value or unset. */
+        if (config->console_mode_efivar != CONSOLE_MODE_KEEP)
+            Print(L"console-mode (EFI var): %ld\n", config->console_mode_efivar);
 
-        Print(L"\n--- press key ---\n\n");
+        Print(L"\n--- Press any key to continue. ---\n\n");
         console_key_read(&key, UINT64_MAX);
 
         for (UINTN i = 0; i < config->entry_count; i++) {
-                ConfigEntry *entry;
+                ConfigEntry *entry = config->entries[i];
 
-                if (key == KEYPRESS(0, SCAN_ESC, 0) || key == KEYPRESS(0, 0, 'q'))
-                        break;
+                    Print(L"  config entry: %lu/%lu\n", i + 1, config->entry_count);
+                ps_string(L"            id: %s\n", entry->id);
+                ps_string(L"         title: %s\n", entry->title);
+                ps_string(L"    title show: %s\n", streq_ptr(entry->title, entry->title_show) ? NULL : entry->title_show);
+                ps_string(L"       version: %s\n", entry->version);
+                ps_string(L"    machine-id: %s\n", entry->machine_id);
+                if (entry->device)
+                    Print(L"        device: %D\n", DevicePathFromHandle(entry->device));
+                ps_string(L"        loader: %s\n", entry->loader);
+                ps_string(L"    devicetree: %s\n", entry->devicetree);
+                ps_string(L"       options: %s\n", entry->options);
+                  ps_bool(L"   auto-select: %s\n", !entry->no_autoselect);
+                  ps_bool(L" internal call: %s\n", !!entry->call);
 
-                entry = config->entries[i];
-                Print(L"config entry:           %d/%d\n", i+1, config->entry_count);
-                if (entry->id)
-                        Print(L"id                      '%s'\n", entry->id);
-                Print(L"title show              '%s'\n", entry->title_show);
-                if (entry->title)
-                        Print(L"title                   '%s'\n", entry->title);
-                if (entry->version)
-                        Print(L"version                 '%s'\n", entry->version);
-                if (entry->machine_id)
-                        Print(L"machine-id              '%s'\n", entry->machine_id);
-                if (entry->device) {
-                        EFI_DEVICE_PATH *device_path;
-
-                        device_path = DevicePathFromHandle(entry->device);
-                        if (device_path) {
-                                _cleanup_freepool_ CHAR16 *str = NULL;
-
-                                str = DevicePathToStr(device_path);
-                                Print(L"device handle           '%s'\n", str);
-                        }
+                  ps_bool(L"counting boots: %s\n", entry->tries_left != UINTN_MAX);
+                if (entry->tries_left != UINTN_MAX) {
+                    Print(L"         tries: %lu done, %lu left\n", entry->tries_done, entry->tries_left);
+                    Print(L"  current path: %s\\%s\n",  entry->path, entry->current_name);
+                    Print(L"     next path: %s\\%s\n",  entry->path, entry->next_name);
                 }
-                if (entry->loader)
-                        Print(L"loader                  '%s'\n", entry->loader);
-                if (entry->devicetree)
-                        Print(L"devicetree              '%s'\n", entry->devicetree);
-                if (entry->options)
-                        Print(L"options                 '%s'\n", entry->options);
-                Print(L"auto-select             %s\n", yes_no(!entry->no_autoselect));
-                if (entry->call)
-                        Print(L"internal call           yes\n");
 
-                if (entry->tries_left != UINTN_MAX)
-                        Print(L"counting boots          yes\n"
-                               "tries done              %u\n"
-                               "tries left              %u\n"
-                               "current path            %s\\%s\n"
-                               "next path               %s\\%s\n",
-                              entry->tries_done,
-                              entry->tries_left,
-                              entry->path, entry->current_name,
-                              entry->path, entry->next_name);
-
-                Print(L"\n--- press key ---\n\n");
+                Print(L"\n--- Press any key to continue, ESC or q to quit. ---\n\n");
                 console_key_read(&key, UINT64_MAX);
+                if (key == KEYPRESS(0, SCAN_ESC, 0) || key == KEYPRESS(0, 0, 'q') || key == KEYPRESS(0, 0, 'Q'))
+                        break;
         }
 }
 
