@@ -256,7 +256,6 @@ static EFI_STATUS bmp_to_blt(
 
 EFI_STATUS graphics_splash(const UINT8 *content, UINTN len, const EFI_GRAPHICS_OUTPUT_BLT_PIXEL *background) {
         EFI_GRAPHICS_OUTPUT_BLT_PIXEL pixel = {};
-        static const EFI_GUID GraphicsOutputProtocolGuid = EFI_GRAPHICS_OUTPUT_PROTOCOL_GUID;
         EFI_GRAPHICS_OUTPUT_PROTOCOL *GraphicsOutput = NULL;
         struct bmp_dib *dib;
         struct bmp_map *map;
@@ -281,7 +280,7 @@ EFI_STATUS graphics_splash(const UINT8 *content, UINTN len, const EFI_GRAPHICS_O
                 background = &pixel;
         }
 
-        err = LibLocateProtocol((EFI_GUID*) &GraphicsOutputProtocolGuid, (void **)&GraphicsOutput);
+        err = LibLocateProtocol(&GraphicsOutputProtocol, (void **)&GraphicsOutput);
         if (EFI_ERROR(err))
                 return err;
 

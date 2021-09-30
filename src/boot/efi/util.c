@@ -570,7 +570,6 @@ EFI_STATUS get_file_info_harder(
                 EFI_FILE_INFO **ret,
                 UINTN *ret_size) {
 
-        static const EFI_GUID EfiFileInfoGuid = EFI_FILE_INFO_ID;
         UINTN size = OFFSETOF(EFI_FILE_INFO, FileName) + 256;
         _cleanup_freepool_ EFI_FILE_INFO *fi = NULL;
         EFI_STATUS err;
@@ -584,14 +583,14 @@ EFI_STATUS get_file_info_harder(
         if (!fi)
                 return EFI_OUT_OF_RESOURCES;
 
-        err = handle->GetInfo(handle, (EFI_GUID*) &EfiFileInfoGuid, &size, fi);
+        err = handle->GetInfo(handle, &GenericFileInfo, &size, fi);
         if (err == EFI_BUFFER_TOO_SMALL) {
                 FreePool(fi);
                 fi = AllocatePool(size);  /* GetInfo tells us the required size, let's use that now */
                 if (!fi)
                         return EFI_OUT_OF_RESOURCES;
 
-                err = handle->GetInfo(handle, (EFI_GUID*) &EfiFileInfoGuid, &size, fi);
+                err = handle->GetInfo(handle, &GenericFileInfo, &size, fi);
         }
 
         if (EFI_ERROR(err))
