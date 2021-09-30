@@ -35,7 +35,7 @@ static EFI_STATUS devicetree_fixup(struct devicetree_state *state, UINTN len) {
 
         assert(state);
 
-        err = LibLocateProtocol(&EfiDtFixupProtocol, (VOID **)&fixup);
+        err = LibLocateProtocol(&EfiDtFixupProtocol, (void **)&fixup);
         if (EFI_ERROR(err))
                 return log_error_status_stall(EFI_SUCCESS,
                                               L"Could not locate device tree fixup protocol, skipping.");
@@ -46,7 +46,7 @@ static EFI_STATUS devicetree_fixup(struct devicetree_state *state, UINTN len) {
         if (err == EFI_BUFFER_TOO_SMALL) {
                 EFI_PHYSICAL_ADDRESS oldaddr = state->addr;
                 UINTN oldpages = state->pages;
-                VOID *oldptr = PHYSICAL_ADDRESS_TO_POINTER(state->addr);
+                void *oldptr = PHYSICAL_ADDRESS_TO_POINTER(state->addr);
 
                 err = devicetree_allocate(state, size);
                 if (EFI_ERROR(err))
@@ -110,7 +110,7 @@ EFI_STATUS devicetree_install(struct devicetree_state *state,
 }
 
 EFI_STATUS devicetree_install_from_memory(struct devicetree_state *state,
-                const VOID *dtb_buffer, UINTN dtb_length) {
+                const void *dtb_buffer, UINTN dtb_length) {
 
         EFI_STATUS err;
 

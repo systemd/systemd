@@ -10,7 +10,7 @@
 /* extend LoadFileProtocol */
 struct initrd_loader {
         EFI_LOAD_FILE_PROTOCOL load_file;
-        const VOID *address;
+        const void *address;
         UINTN length;
 };
 
@@ -41,7 +41,7 @@ EFIAPI EFI_STATUS initrd_load_file(
                 EFI_DEVICE_PATH *file_path,
                 BOOLEAN boot_policy,
                 UINTN *buffer_size,
-                VOID *buffer) {
+                void *buffer) {
 
         struct initrd_loader *loader;
 
@@ -66,7 +66,7 @@ EFIAPI EFI_STATUS initrd_load_file(
 }
 
 EFI_STATUS initrd_register(
-                const VOID *initrd_address,
+                const void *initrd_address,
                 UINTN initrd_length,
                 EFI_HANDLE *ret_initrd_handle) {
 
@@ -121,7 +121,7 @@ EFI_STATUS initrd_unregister(EFI_HANDLE initrd_handle) {
         /* get the LoadFile2 protocol that we allocated earlier */
         err = uefi_call_wrapper(
                         BS->OpenProtocol, 6,
-                        initrd_handle, &EfiLoadFile2Protocol, (VOID **) &loader,
+                        initrd_handle, &EfiLoadFile2Protocol, (void **) &loader,
                         NULL, NULL, EFI_OPEN_PROTOCOL_GET_PROTOCOL);
         if (EFI_ERROR(err))
                 return err;
