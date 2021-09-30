@@ -940,6 +940,29 @@ static void test_create_symlinks_from_tuples(void) {
         assert_se(rm_rf(temp, REMOVE_ROOT|REMOVE_PHYSICAL) >= 0);
 }
 
+static void test_create_many_symlinks(void) {
+        _cleanup_free_ char *result = NULL;
+
+        log_info("/* %s */", __func__);
+
+        char *temp = strjoina(arg_test_dir ?: "/tmp", "/test-symlinks-tuples.XXXXXX");
+        assert_se(mkdtemp(temp));
+        assert_se(touch_file(strjoina(temp, "/foo/bar"), true, USEC_INFINITY, UID_INVALID, GID_INVALID, 0644) >= 0);
+
+        assert_se(create_many_symlinks(temp, "/foo/bar", STRV_MAKE("/foo/baz", "foobar", "foobaz"), mkdir_parents) == 0);
+
+        assert_se(chase_symlinks(strjoina(temp, "/foo/baz"), temp, 0, &result, NULL) > 0);
+        assert_se(path_equal(result, strjoina(temp, "/foo/bar")));
+        result = mfree(result);
+        assert_se(chase_symlinks(strjoina(temp, "/foobar"), temp, 0, &result, NULL) > 0);
+        assert_se(path_equal(result, strjoina(temp, "/foo/bar")));
+        result = mfree(result);
+        assert_se(chase_symlinks(strjoina(temp, "/foobaz"), temp, 0, &result, NULL) > 0);
+        assert_se(path_equal(result, strjoina(temp, "/foo/bar")));
+
+        assert_se(rm_rf(temp, REMOVE_ROOT|REMOVE_PHYSICAL) >= 0);
+}
+
 int main(int argc, char *argv[]) {
         test_setup_logging(LOG_INFO);
 
@@ -960,6 +983,7 @@ int main(int argc, char *argv[]) {
         test_conservative_rename();
         test_rmdir_parents();
         test_create_symlinks_from_tuples();
+        test_create_many_symlinks();
 
         return 0;
 }
