@@ -18,8 +18,8 @@ static const char __attribute__((used)) magic[] = "#### LoaderInfo: systemd-stub
 
 static EFI_STATUS combine_initrd(
                 EFI_PHYSICAL_ADDRESS initrd_base, UINTN initrd_size,
-                const VOID *credential_initrd, UINTN credential_initrd_size,
-                const VOID *sysext_initrd, UINTN sysext_initrd_size,
+                const void *credential_initrd, UINTN credential_initrd_size,
+                const void *sysext_initrd, UINTN sysext_initrd_size,
                 EFI_PHYSICAL_ADDRESS *ret_initrd_base, UINTN *ret_initrd_size) {
 
         EFI_PHYSICAL_ADDRESS base = UINT32_MAX; /* allocate an area below the 32bit boundary for this */
@@ -46,8 +46,7 @@ static EFI_STATUS combine_initrd(
                 n += sysext_initrd_size;
         }
 
-        err = uefi_call_wrapper(
-                        BS->AllocatePages, 4,
+        err = BS->AllocatePages(
                         AllocateMaxAddress,
                         EfiLoaderData,
                         EFI_SIZE_TO_PAGES(n),
@@ -89,7 +88,7 @@ static EFI_STATUS combine_initrd(
         return EFI_SUCCESS;
 }
 
-static VOID export_variables(EFI_LOADED_IMAGE *loaded_image) {
+static void export_variables(EFI_LOADED_IMAGE *loaded_image) {
         CHAR16 uuid[37];
 
         assert(loaded_image);
@@ -110,7 +109,8 @@ static VOID export_variables(EFI_LOADED_IMAGE *loaded_image) {
                 _cleanup_freepool_ CHAR16 *s = NULL;
 
                 s = DevicePathToStr(loaded_image->FilePath);
-                efivar_set(LOADER_GUID, L"LoaderImageIdentifier", s, 0);
+                if (s)
+                        efivar_set(LOADER_GUID, L"LoaderImageIdentifier", s, 0);
         }
 
         /* if LoaderFirmwareInfo is not set, let's set it */
@@ -118,7 +118,8 @@ static VOID export_variables(EFI_LOADED_IMAGE *loaded_image) {
                 _cleanup_freepool_ CHAR16 *s = NULL;
 
                 s = PoolPrint(L"%s %d.%02d", ST->FirmwareVendor, ST->FirmwareRevision >> 16, ST->FirmwareRevision & 0xffff);
-                efivar_set(LOADER_GUID, L"LoaderFirmwareInfo", s, 0);
+                if (s)
+                        efivar_set(LOADER_GUID, L"LoaderFirmwareInfo", s, 0);
         }
 
         /* ditto for LoaderFirmwareType */
@@ -126,7 +127,8 @@ static VOID export_variables(EFI_LOADED_IMAGE *loaded_image) {
                 _cleanup_freepool_ CHAR16 *s = NULL;
 
                 s = PoolPrint(L"UEFI %d.%02d", ST->Hdr.Revision >> 16, ST->Hdr.Revision & 0xffff);
-                efivar_set(LOADER_GUID, L"LoaderFirmwareType", s, 0);
+                if (s)
+                        efivar_set(LOADER_GUID, L"LoaderFirmwareType", s, 0);
         }
 
         /* add StubInfo */
@@ -153,7 +155,7 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
         };
 
         UINTN cmdline_len = 0, initrd_size, credential_initrd_size = 0, sysext_initrd_size = 0;
-        _cleanup_freepool_ VOID *credential_initrd = NULL, *sysext_initrd = NULL;
+        _cleanup_freepool_ void *credential_initrd = NULL, *sysext_initrd = NULL;
         EFI_PHYSICAL_ADDRESS linux_base, initrd_base;
         EFI_LOADED_IMAGE *loaded_image;
         UINTN addrs[_SECTION_MAX] = {};
@@ -163,8 +165,13 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
 
         InitializeLib(image, sys_table);
 
-        err = uefi_call_wrapper(BS->OpenProtocol, 6, image, &LoadedImageProtocol, (VOID **)&loaded_image,
-                                image, NULL, EFI_OPEN_PROTOCOL_GET_PROTOCOL);
+        err = BS->OpenProtocol(
+                        image,
+                        &LoadedImageProtocol,
+                        (void **)&loaded_image,
+                        image,
+                        NULL,
+                        EFI_OPEN_PROTOCOL_GET_PROTOCOL);
         if (EFI_ERROR(err))
                 return log_error_status_stall(err, L"Error getting a LoadedImageProtocol handle: %r", err);
 
@@ -189,6 +196,9 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
                 options = (CHAR16 *)loaded_image->LoadOptions;
                 cmdline_len = (loaded_image->LoadOptionsSize / sizeof(CHAR16)) * sizeof(CHAR8);
                 line = AllocatePool(cmdline_len);
+                if (!line)
+                        return log_oom();
+
                 for (UINTN i = 0; i < cmdline_len; i++)
                         line[i] = options[i];
                 cmdline = line;
@@ -197,12 +207,12 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
                  * duplicates what we already did in the boot menu, if that was already used. However, since
                  * we want the boot menu to support an EFI binary, and want to this stub to be usable from
                  * any boot menu, let's measure things anyway. */
-                (VOID) tpm_log_load_options(loaded_image->LoadOptions);
+                (void) tpm_log_load_options(loaded_image->LoadOptions);
         }
 
         export_variables(loaded_image);
 
-        (VOID) pack_cpio(loaded_image,
+        (void) pack_cpio(loaded_image,
                          L".cred",
                          (const CHAR8*) ".extra/credentials",
                          /* dir_mode= */ 0500,
@@ -212,7 +222,7 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
                          &credential_initrd,
                          &credential_initrd_size);
 
-        (VOID) pack_cpio(loaded_image,
+        (void) pack_cpio(loaded_image,
                          L".raw",
                          (const CHAR8*) ".extra/sysext",
                          /* dir_mode= */ 0555,
