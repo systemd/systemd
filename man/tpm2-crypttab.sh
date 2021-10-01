@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: CC0-1.0
+
 # Enroll the TPM2 security chip in the LUKS2 volume, and bind it to PCR 7
 # only. Replace /dev/sdXn by the partition to use (e.g. /dev/sda1).
 sudo systemd-cryptenroll --tpm2-device=auto --tpm2-pcrs=7 /dev/sdXn
