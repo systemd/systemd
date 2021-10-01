@@ -121,6 +121,8 @@ static int network_resolve_stacked_netdevs(Network *network) {
 }
 
 int network_verify(Network *network) {
+        int r;
+
         assert(network);
         assert(network->filename);
 
@@ -299,7 +301,9 @@ int network_verify(Network *network) {
                 network->ipv6_proxy_ndp_addresses = set_free_free(network->ipv6_proxy_ndp_addresses);
         }
 
-        network_drop_invalid_addresses(network);
+        r = network_drop_invalid_addresses(network);
+        if (r < 0)
+                return r;
         network_drop_invalid_routes(network);
         network_drop_invalid_nexthops(network);
         network_drop_invalid_bridge_fdb_entries(network);

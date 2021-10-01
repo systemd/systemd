@@ -314,6 +314,12 @@ int address_compare_func(const Address *a1, const Address *a2) {
         }
 }
 
+DEFINE_PRIVATE_HASH_OPS(
+        address_hash_ops,
+        Address,
+        address_hash_func,
+        address_compare_func);
+
 DEFINE_PRIVATE_HASH_OPS_WITH_KEY_DESTRUCTOR(
         address_hash_ops_free,
         Address,
@@ -1910,12 +1916,43 @@ static int address_section_verify(Address *address) {
         return 0;
 }
 
-void network_drop_invalid_addresses(Network *network) {
+int network_drop_invalid_addresses(Network *network) {
+        _cleanup_set_free_ Set *addresses = NULL;
         Address *address;
+        int r;
 
         assert(network);
 
-        ORDERED_HASHMAP_FOREACH(address, network->addresses_by_section)
-                if (address_section_verify(address) < 0)
+        ORDERED_HASHMAP_FOREACH(address, network->addresses_by_section) {
+                Address *dup;
+
+                if (address_section_verify(address) < 0) {
+                        /* Drop invalid [Address] sections or Address= settings in [Network].
+                         * Note that address_free() will drop the address from addresses_by_section. */
                         address_free(address);
+                        continue;
+                }
+
+                /* Always use the setting specified later. So, remove the previously assigned setting. */
+                dup = set_remove(addresses, address);
+                if (dup) {
+                        _cleanup_free_ char *buf = NULL;
+
+                        (void) in_addr_prefix_to_string(address->family, &address->in_addr, address->prefixlen, &buf);
+                        log_warning("%s: Duplicated address %s is specified at line %u and %u, "
+                                    "dropping the address setting specified at line %u.",
+                                    dup->section->filename, strna(buf), address->section->line,
+                                    dup->section->line, dup->section->line);
+                        /* address_free() will drop the address from addresses_by_section. */
+                        address_free(dup);
+                }
+
+                /* Do not use address_hash_ops_free here. Otherwise, all address settings will be freed. */
+                r = set_ensure_put(&addresses, &address_hash_ops, address);
+                if (r < 0)
+                        return log_oom();
+                assert(r > 0);
+        }
+
+        return 0;
 }
