@@ -588,6 +588,26 @@ testcase_iscsi_lvm() {
     umount "$mpoint"
     rm -rf "$mpoint"
 }
+
+testcase_long_sysfs_path() {
+    local link
+    local expected_symlinks=(
+        "/dev/disk/by-label/data_vol"
+        "/dev/disk/by-partlabel/first_part"
+        "/dev/disk/by-partlabel/second_part"
+        "/dev/disk/by-partuuid/deadbeef-dead-dead-beef-000000000000"
+        "/dev/disk/by-uuid/deadbeef-dead-dead-beef-111111111111"
+    )
+
+    stat /sys/block/vda
+    readlink -f /sys/block/vda/dev
+    journalctl -b --no-pager -o short-monotonic --grep "Device path.*vda' too long to fit into unit name"
+
+    for link in "${expected_symlinks[@]}"; do
+        test -e "$link"
+    done
+}
+
 : >/failed
 
 udevadm settle
