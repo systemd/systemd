@@ -79,12 +79,11 @@ static bool stable_private_address_is_valid(const struct in6_addr *addr) {
         return true;
 }
 
-static int make_stable_private_address(Link *link, const struct in6_addr *prefix, uint8_t prefix_len, uint8_t dad_counter, struct in6_addr **ret) {
+static int make_stable_private_address(Link *link, const struct in6_addr *prefix, uint8_t dad_counter, struct in6_addr **ret) {
         _cleanup_free_ struct in6_addr *addr = NULL;
         sd_id128_t secret_key;
         struct siphash state;
         uint64_t rid;
-        size_t l;
         int r;
 
         /* According to rfc7217 section 5.1
@@ -96,8 +95,7 @@ static int make_stable_private_address(Link *link, const struct in6_addr *prefix
 
         siphash24_init(&state, secret_key.bytes);
 
-        l = MAX(DIV_ROUND_UP(prefix_len, 8), 8);
-        siphash24_compress(prefix, l, &state);
+        siphash24_compress(prefix, 8, &state);
         siphash24_compress_string(link->ifname, &state);
         /* Only last 8 bytes of IB MAC are stable */
         if (link->iftype == ARPHRD_INFINIBAND)
@@ -112,8 +110,8 @@ static int make_stable_private_address(Link *link, const struct in6_addr *prefix
         if (!addr)
                 return log_oom();
 
-        memcpy(addr->s6_addr, prefix->s6_addr, l);
-        memcpy(addr->s6_addr + l, &rid, 16 - l);
+        memcpy(addr->s6_addr, prefix->s6_addr, 8);
+        memcpy(addr->s6_addr + 8, &rid, 8);
 
         if (!stable_private_address_is_valid(addr)) {
                 *ret = NULL;
@@ -147,7 +145,7 @@ int ndisc_router_generate_addresses(Link *link, struct in6_addr *address, uint8_
                          * only when the address generation algorithm produces an invalid address, and the loop
                          * may exit with an address which ends up being unusable due to duplication on the link. */
                         for (; j->dad_counter < DAD_CONFLICTS_IDGEN_RETRIES_RFC7217; j->dad_counter++) {
-                                r = make_stable_private_address(link, address, prefixlen, j->dad_counter, &new_address);
+                                r = make_stable_private_address(link, address, j->dad_counter, &new_address);
                                 if (r < 0)
                                         return r;
                                 if (r > 0)
