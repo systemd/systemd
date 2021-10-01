@@ -536,6 +536,9 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
                 if (proc_cmdline_value_missing(key, value))
                         return 0;
 
+                if (streq(value, "default"))
+                        value = "infinity";
+
                 r = parse_sec(value, &arg_runtime_watchdog);
                 if (r < 0)
                         log_warning_errno(r, "Failed to parse systemd.watchdog_sec= argument '%s', ignoring: %m", value);
@@ -662,10 +665,10 @@ static int parse_config_file(void) {
                 { "Manager", "NUMAPolicy",                   config_parse_numa_policy,           0, &arg_numa_policy.type                  },
                 { "Manager", "NUMAMask",                     config_parse_numa_mask,             0, &arg_numa_policy                       },
                 { "Manager", "JoinControllers",              config_parse_warn_compat,           DISABLED_CONFIGURATION, NULL              },
-                { "Manager", "RuntimeWatchdogSec",           config_parse_sec,                   0, &arg_runtime_watchdog                  },
-                { "Manager", "RebootWatchdogSec",            config_parse_sec,                   0, &arg_reboot_watchdog                   },
-                { "Manager", "ShutdownWatchdogSec",          config_parse_sec,                   0, &arg_reboot_watchdog                   }, /* obsolete alias */
-                { "Manager", "KExecWatchdogSec",             config_parse_sec,                   0, &arg_kexec_watchdog                    },
+                { "Manager", "RuntimeWatchdogSec",           config_parse_watchdog_sec,          0, &arg_runtime_watchdog                  },
+                { "Manager", "RebootWatchdogSec",            config_parse_watchdog_sec,          0, &arg_reboot_watchdog                   },
+                { "Manager", "ShutdownWatchdogSec",          config_parse_watchdog_sec,          0, &arg_reboot_watchdog                   }, /* obsolete alias */
+                { "Manager", "KExecWatchdogSec",             config_parse_watchdog_sec,          0, &arg_kexec_watchdog                    },
                 { "Manager", "WatchdogDevice",               config_parse_path,                  0, &arg_watchdog_device                   },
                 { "Manager", "CapabilityBoundingSet",        config_parse_capability_set,        0, &arg_capability_bounding_set           },
                 { "Manager", "NoNewPrivileges",              config_parse_bool,                  0, &arg_no_new_privs                      },
