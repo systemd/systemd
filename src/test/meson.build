@@ -148,6 +148,8 @@ tests += [
 
         [['src/test/test-utf8.c']],
 
+        [['src/test/test-kbd-util.c']],
+
         [['src/test/test-blockdev-util.c']],
 
         [['src/test/test-dev-setup.c']],
