@@ -55,7 +55,7 @@ int switch_root(const char *new_root,
         if (r < 0)
                 return log_error_errno(r, "Failed to resolve %s/%s: %m", new_root, old_root_after);
         if (r == 0) /* Doesn't exist yet. Let's create it */
-                (void) mkdir_p_label(resolved_old_root_after, 0755);
+                mkdir_p_label_and_warn(resolved_old_root_after, 0755, NULL);
 
         /* Work-around for kernel design: the kernel refuses MS_MOVE if any file systems are mounted MS_SHARED. Hence
          * remount them MS_PRIVATE here as a work-around.
@@ -79,7 +79,7 @@ int switch_root(const char *new_root,
                                 continue;
                 } else
                          /* Doesn't exist yet? */
-                        (void) mkdir_p_label(chased, 0755);
+                        mkdir_p_label_and_warn(chased, 0755, NULL);
 
                 if (mount(i, chased, NULL, mount_flags, NULL) < 0)
                         return log_error_errno(errno, "Failed to mount %s to %s: %m", i, chased);
