@@ -321,7 +321,7 @@ struct Network {
         Set *ndisc_allow_listed_prefix;
         Set *ndisc_deny_listed_route_prefix;
         Set *ndisc_allow_listed_route_prefix;
-        OrderedSet *ipv6_tokens;
+        Set *ndisc_tokens;
 
         /* LLDP support */
         LLDPMode lldp_mode; /* LLDP reception */

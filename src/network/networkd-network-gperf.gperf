@@ -104,7 +104,7 @@ Network.IPv6LinkLocalAddressGenerationMode,  config_parse_ipv6_link_local_addres
 Network.IPv6StableSecretAddress,             config_parse_in_addr_non_null,                            AF_INET6,                      offsetof(Network, ipv6ll_stable_secret)
 Network.IPv4LLRoute,                         config_parse_bool,                                        0,                             offsetof(Network, ipv4ll_route)
 Network.DefaultRouteOnDevice,                config_parse_bool,                                        0,                             offsetof(Network, default_route_on_device)
-Network.IPv6Token,                           config_parse_address_generation_type,                     0,                             0
+Network.IPv6Token,                           config_parse_address_generation_type,                     0,                             offsetof(Network, ndisc_tokens)
 Network.LLDP,                                config_parse_lldp_mode,                                   0,                             offsetof(Network, lldp_mode)
 Network.EmitLLDP,                            config_parse_lldp_multicast_mode,                         0,                             offsetof(Network, lldp_multicast_mode)
 Network.Address,                             config_parse_address,                                     0,                             0
