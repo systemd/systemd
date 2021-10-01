@@ -37,30 +37,29 @@ typedef struct IPv6Token {
         struct in6_addr prefix;
 } IPv6Token;
 
-int generate_ipv6_eui_64_address(const Link *link, struct in6_addr *ret) {
+void generate_eui64_address(const Link *link, const struct in6_addr *prefix, struct in6_addr *ret) {
         assert(link);
+        assert(prefix);
         assert(ret);
 
-        if (link->iftype == ARPHRD_INFINIBAND) {
-                /* see RFC4391 section 8 */
-                memcpy(&ret->s6_addr[8], &link->hw_addr.infiniband[12], 8);
-                ret->s6_addr[8] ^= 1 << 1;
+        memcpy(ret->s6_addr, prefix, 8);
 
-                return 0;
+        if (link->iftype == ARPHRD_INFINIBAND)
+                /* Use last 8 byte. See RFC4391 section 8 */
+                memcpy(&ret->s6_addr[8], &link->hw_addr.infiniband[INFINIBAND_ALEN - 8], 8);
+        else {
+                /* see RFC4291 section 2.5.1 */
+                ret->s6_addr[8]  = link->hw_addr.ether.ether_addr_octet[0];
+                ret->s6_addr[9]  = link->hw_addr.ether.ether_addr_octet[1];
+                ret->s6_addr[10] = link->hw_addr.ether.ether_addr_octet[2];
+                ret->s6_addr[11] = 0xff;
+                ret->s6_addr[12] = 0xfe;
+                ret->s6_addr[13] = link->hw_addr.ether.ether_addr_octet[3];
+                ret->s6_addr[14] = link->hw_addr.ether.ether_addr_octet[4];
+                ret->s6_addr[15] = link->hw_addr.ether.ether_addr_octet[5];
         }
 
-        /* see RFC4291 section 2.5.1 */
-        ret->s6_addr[8]  = link->hw_addr.ether.ether_addr_octet[0];
         ret->s6_addr[8] ^= 1 << 1;
-        ret->s6_addr[9]  = link->hw_addr.ether.ether_addr_octet[1];
-        ret->s6_addr[10] = link->hw_addr.ether.ether_addr_octet[2];
-        ret->s6_addr[11] = 0xff;
-        ret->s6_addr[12] = 0xfe;
-        ret->s6_addr[13] = link->hw_addr.ether.ether_addr_octet[3];
-        ret->s6_addr[14] = link->hw_addr.ether.ether_addr_octet[4];
-        ret->s6_addr[15] = link->hw_addr.ether.ether_addr_octet[5];
-
-        return 0;
 }
 
 static bool stable_private_address_is_valid(const struct in6_addr *addr) {
@@ -176,21 +175,17 @@ int ndisc_router_generate_addresses(Link *link, struct in6_addr *address, uint8_
 
         /* fall back to EUI-64 if no tokens provided addresses */
         if (set_isempty(addresses)) {
-                _cleanup_free_ struct in6_addr *new_address = NULL;
+                struct in6_addr *addr;
 
-                new_address = newdup(struct in6_addr, address, 1);
-                if (!new_address)
+                addr = new(struct in6_addr, 1);
+                if (!addr)
                         return log_oom();
 
-                r = generate_ipv6_eui_64_address(link, new_address);
-                if (r < 0)
-                        return log_link_error_errno(link, r, "Failed to generate EUI64 address: %m");
+                generate_eui64_address(link, address, addr);
 
-                r = set_put(addresses, new_address);
+                r = set_consume(addresses, addr);
                 if (r < 0)
                         return log_link_error_errno(link, r, "Failed to store SLAAC address: %m");
-
-                TAKE_PTR(new_address);
         }
 
         *ret = TAKE_PTR(addresses);
