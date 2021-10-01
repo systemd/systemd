@@ -215,6 +215,9 @@ int link_request_radv_addresses(Link *link) {
                 if (r < 0)
                         return r;
 
+                if (prefixlen > 64)
+                        continue;
+
                 r = address_new(&address);
                 if (r < 0)
                         return log_oom();
