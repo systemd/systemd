@@ -382,7 +382,7 @@ static int ndisc_router_process_default(Link *link, sd_ndisc_router *rt) {
 static int ndisc_router_process_autonomous_prefix(Link *link, sd_ndisc_router *rt) {
         uint32_t lifetime_valid, lifetime_preferred;
         _cleanup_set_free_free_ Set *addresses = NULL;
-        struct in6_addr addr, *a;
+        struct in6_addr prefix, *a;
         unsigned prefixlen;
         usec_t time_now;
         int r;
@@ -396,9 +396,22 @@ static int ndisc_router_process_autonomous_prefix(Link *link, sd_ndisc_router *r
         if (r < 0)
                 return log_link_error_errno(link, r, "Failed to get RA timestamp: %m");
 
+        r = sd_ndisc_router_prefix_get_address(rt, &prefix);
+        if (r < 0)
+                return log_link_error_errno(link, r, "Failed to get prefix address: %m");
+
         r = sd_ndisc_router_prefix_get_prefixlen(rt, &prefixlen);
         if (r < 0)
                 return log_link_error_errno(link, r, "Failed to get prefix length: %m");
+
+        /* ndisc_router_generate_addresses() below requires the prefix length <= 64. */
+        if (prefixlen > 64) {
+                _cleanup_free_ char *buf = NULL;
+
+                (void) in6_addr_prefix_to_string(&prefix, prefixlen, &buf);
+                log_link_debug(link, "Prefix is longer than 64, ignoring autonomous prefix %s.", strna(buf));
+                return 0;
+        }
 
         r = sd_ndisc_router_prefix_get_valid_lifetime(rt, &lifetime_valid);
         if (r < 0)
@@ -417,11 +430,7 @@ static int ndisc_router_process_autonomous_prefix(Link *link, sd_ndisc_router *r
         if (lifetime_preferred > lifetime_valid)
                 return 0;
 
-        r = sd_ndisc_router_prefix_get_address(rt, &addr);
-        if (r < 0)
-                return log_link_error_errno(link, r, "Failed to get prefix address: %m");
-
-        r = ndisc_router_generate_addresses(link, &addr, prefixlen, &addresses);
+        r = ndisc_router_generate_addresses(link, &prefix, prefixlen, &addresses);
         if (r < 0)
                 return r;
 
