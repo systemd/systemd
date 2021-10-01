@@ -22,17 +22,16 @@
 
 #define NDISC_APP_ID   SD_ID128_MAKE(13,ac,81,a7,d5,3f,49,78,92,79,5d,0c,29,3a,bc,7e)
 
-typedef enum IPv6TokenAddressGeneration {
-        IPV6_TOKEN_ADDRESS_GENERATION_NONE,
-        IPV6_TOKEN_ADDRESS_GENERATION_STATIC,
-        IPV6_TOKEN_ADDRESS_GENERATION_PREFIXSTABLE,
-        _IPV6_TOKEN_ADDRESS_GENERATION_MAX,
-        _IPV6_TOKEN_ADDRESS_GENERATION_INVALID = -EINVAL,
-} IPv6TokenAddressGeneration;
+typedef enum AddressGenerationType {
+        ADDRESS_GENERATION_STATIC,
+        ADDRESS_GENERATION_PREFIXSTABLE,
+        _ADDRESS_GENERATION_TYPE_MAX,
+        _ADDRESS_GENERATION_TYPE_INVALID = -EINVAL,
+} AddressGenerationType;
 
 typedef struct IPv6Token {
-        IPv6TokenAddressGeneration address_generation_type;
-        struct in6_addr prefix;
+        AddressGenerationType type;
+        struct in6_addr address;
 } IPv6Token;
 
 void generate_eui64_address(const Link *link, const struct in6_addr *prefix, struct in6_addr *ret) {
@@ -169,11 +168,11 @@ int ndisc_router_generate_addresses(Link *link, struct in6_addr *prefix, uint8_t
         if (!addresses)
                 return log_oom();
 
-        ORDERED_SET_FOREACH(j, link->network->ipv6_tokens) {
+        SET_FOREACH(j, link->network->ndisc_tokens) {
                 _cleanup_free_ struct in6_addr *new_address = NULL;
 
-                if (j->address_generation_type == IPV6_TOKEN_ADDRESS_GENERATION_PREFIXSTABLE
-                    && (in6_addr_is_null(&j->prefix) || in6_addr_equal(&j->prefix, &masked))) {
+                if (j->type == ADDRESS_GENERATION_PREFIXSTABLE
+                    && (in6_addr_is_null(&j->address) || in6_addr_equal(&j->address, &masked))) {
                         struct in6_addr addr;
 
                         if (generate_stable_private_address(link, &NDISC_APP_ID, &masked, &addr) < 0)
@@ -183,13 +182,13 @@ int ndisc_router_generate_addresses(Link *link, struct in6_addr *prefix, uint8_t
                         if (!new_address)
                                 return log_oom();
 
-                } else if (j->address_generation_type == IPV6_TOKEN_ADDRESS_GENERATION_STATIC) {
+                } else if (j->type == ADDRESS_GENERATION_STATIC) {
                         new_address = new(struct in6_addr, 1);
                         if (!new_address)
                                 return log_oom();
 
                         memcpy(new_address->s6_addr, masked.s6_addr, 8);
-                        memcpy(new_address->s6_addr + 8, j->prefix.s6_addr + 8, 8);
+                        memcpy(new_address->s6_addr + 8, j->address.s6_addr + 8, 8);
                 }
 
                 if (new_address) {
@@ -223,35 +222,19 @@ int ndisc_router_generate_addresses(Link *link, struct in6_addr *prefix, uint8_t
         return 0;
 }
 
-static int ipv6token_new(IPv6Token **ret) {
-        IPv6Token *p;
-
-        p = new(IPv6Token, 1);
-        if (!p)
-                return -ENOMEM;
-
-        *p = (IPv6Token) {
-                 .address_generation_type = IPV6_TOKEN_ADDRESS_GENERATION_NONE,
-        };
-
-        *ret = TAKE_PTR(p);
-
-        return 0;
-}
-
 static void ipv6_token_hash_func(const IPv6Token *p, struct siphash *state) {
-        siphash24_compress(&p->address_generation_type, sizeof(p->address_generation_type), state);
-        siphash24_compress(&p->prefix, sizeof(p->prefix), state);
+        siphash24_compress(&p->type, sizeof(p->type), state);
+        siphash24_compress(&p->address, sizeof(p->address), state);
 }
 
 static int ipv6_token_compare_func(const IPv6Token *a, const IPv6Token *b) {
         int r;
 
-        r = CMP(a->address_generation_type, b->address_generation_type);
+        r = CMP(a->type, b->type);
         if (r != 0)
                 return r;
 
-        return memcmp(&a->prefix, &b->prefix, sizeof(struct in6_addr));
+        return memcmp(&a->address, &b->address, sizeof(struct in6_addr));
 }
 
 DEFINE_PRIVATE_HASH_OPS_WITH_KEY_DESTRUCTOR(
@@ -260,6 +243,25 @@ DEFINE_PRIVATE_HASH_OPS_WITH_KEY_DESTRUCTOR(
                 ipv6_token_hash_func,
                 ipv6_token_compare_func,
                 free);
+
+static int ipv6_token_add(Set **tokens, AddressGenerationType type, const struct in6_addr *addr) {
+        IPv6Token *p;
+
+        assert(tokens);
+        assert(type >= 0 && type < _ADDRESS_GENERATION_TYPE_MAX);
+        assert(addr);
+
+        p = new(IPv6Token, 1);
+        if (!p)
+                return -ENOMEM;
+
+        *p = (IPv6Token) {
+                 .type = type,
+                 .address = *addr,
+        };
+
+        return set_ensure_consume(tokens, &ipv6_token_hash_ops, p);
+}
 
 int config_parse_address_generation_type(
                 const char *unit,
@@ -273,9 +275,9 @@ int config_parse_address_generation_type(
                 void *data,
                 void *userdata) {
 
-        _cleanup_free_ IPv6Token *token = NULL;
-        union in_addr_union buffer;
-        Network *network = data;
+        union in_addr_union buffer = {};
+        AddressGenerationType type;
+        Set **tokens = data;
         const char *p;
         int r;
 
@@ -285,16 +287,13 @@ int config_parse_address_generation_type(
         assert(data);
 
         if (isempty(rvalue)) {
-                network->ipv6_tokens = ordered_set_free(network->ipv6_tokens);
+                *tokens = set_free(*tokens);
                 return 0;
         }
 
-        r = ipv6token_new(&token);
-        if (r < 0)
-                return log_oom();
-
         if ((p = startswith(rvalue, "prefixstable"))) {
-                token->address_generation_type = IPV6_TOKEN_ADDRESS_GENERATION_PREFIXSTABLE;
+                type = ADDRESS_GENERATION_PREFIXSTABLE;
+
                 if (*p == ':')
                         p++;
                 else if (*p == '\0')
@@ -305,8 +304,10 @@ int config_parse_address_generation_type(
                                    lvalue, rvalue);
                         return 0;
                 }
+
         } else {
-                token->address_generation_type = IPV6_TOKEN_ADDRESS_GENERATION_STATIC;
+                type = ADDRESS_GENERATION_STATIC;
+
                 p = startswith(rvalue, "static:");
                 if (!p)
                         p = rvalue;
@@ -320,27 +321,33 @@ int config_parse_address_generation_type(
                                    lvalue, rvalue);
                         return 0;
                 }
-                if (token->address_generation_type == IPV6_TOKEN_ADDRESS_GENERATION_STATIC &&
-                    in_addr_is_null(AF_INET6, &buffer)) {
+        }
+
+        switch (type) {
+        case ADDRESS_GENERATION_STATIC:
+                /* Only last 64 bits are used. */
+                memzero(buffer.in6.s6_addr, 8);
+
+                if (in6_addr_is_null(&buffer.in6)) {
                         log_syntax(unit, LOG_WARNING, filename, line, 0,
                                    "IPv6 address in %s= cannot be the ANY address, ignoring assignment: %s",
                                    lvalue, rvalue);
                         return 0;
                 }
-                token->prefix = buffer.in6;
+                break;
+
+        case ADDRESS_GENERATION_PREFIXSTABLE:
+                /* At most, the initial 64 bits are used. */
+                (void) in6_addr_mask(&buffer.in6, 64);
+                break;
+
+        default:
+                assert_not_reached();
         }
 
-        r = ordered_set_ensure_put(&network->ipv6_tokens, &ipv6_token_hash_ops, token);
-        if (r == -ENOMEM)
+        r = ipv6_token_add(tokens, type, &buffer.in6);
+        if (r < 0)
                 return log_oom();
-        if (r == -EEXIST)
-                log_syntax(unit, LOG_DEBUG, filename, line, r,
-                           "IPv6 token '%s' is duplicated, ignoring: %m", rvalue);
-        else if (r < 0)
-                log_syntax(unit, LOG_WARNING, filename, line, r,
-                           "Failed to store IPv6 token '%s', ignoring: %m", rvalue);
-        else
-                TAKE_PTR(token);
 
         return 0;
 }
