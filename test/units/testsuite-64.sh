@@ -588,6 +588,32 @@ testcase_iscsi_lvm() {
     umount "$mpoint"
     rm -rf "$mpoint"
 }
+
+testcase_long_sysfs_path() {
+    local link
+    local expected_symlinks=(
+        "/dev/disk/by-label/data_vol"
+        "/dev/disk/by-label/swap_vol"
+        "/dev/disk/by-partlabel/test_swap"
+        "/dev/disk/by-partlabel/test_part"
+        "/dev/disk/by-partuuid/deadbeef-dead-dead-beef-000000000000"
+        "/dev/disk/by-uuid/deadbeef-dead-dead-beef-111111111111"
+        "/dev/disk/by-uuid/deadbeef-dead-dead-beef-222222222222"
+    )
+
+    stat /sys/block/vda
+    readlink -f /sys/block/vda/dev
+
+    journalctl -b -q --no-pager -o short-monotonic -p info --grep "Device path.*vda.?' too long to fit into unit name"
+
+    for link in "${expected_symlinks[@]}"; do
+        test -e "$link"
+    done
+
+    swapon -v -L swap_vol
+    swapoff -v -L swap_vol
+}
+
 : >/failed
 
 udevadm settle
@@ -605,6 +631,7 @@ fi
 
 echo "TEST_FUNCTION_NAME=$TEST_FUNCTION_NAME"
 "$TEST_FUNCTION_NAME"
+udevadm settle
 
 echo "Check if all symlinks under /dev/disk/ are valid (post-test)"
 helper_check_device_symlinks
