@@ -1,6 +1,10 @@
 #!/usr/bin/env bash
 set -eux
-set -o pipefail
+# Note: don't use `set -o pipefail` here, since it causes issues with
+# `journalctl ... | head -nX` and similar statements (`journalctl` receives
+# SIGPIPE, since `head` stops reading from the stream after the first line).
+# We do check all the results afterwards anyway, so it shouldn't have any
+# impact on the coverage.
 
 # Limit the maximum journal size
 trap "journalctl --rotate --vacuum-size=16M" EXIT
