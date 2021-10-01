@@ -149,7 +149,7 @@ int nexthop_compare_func(const NextHop *a, const NextHop *b) {
         return 0;
 }
 
-DEFINE_HASH_OPS_WITH_KEY_DESTRUCTOR(
+DEFINE_PRIVATE_HASH_OPS_WITH_KEY_DESTRUCTOR(
                 nexthop_hash_ops,
                 NextHop,
                 nexthop_hash_func,
