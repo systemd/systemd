@@ -928,6 +928,9 @@ DIR *xopendirat(int fd, const char *name, int flags) {
 
         assert(!(flags & O_CREAT));
 
+        if (fd == AT_FDCWD && flags == 0)
+                return opendir(name);
+
         nfd = openat(fd, name, O_RDONLY|O_NONBLOCK|O_DIRECTORY|O_CLOEXEC|flags, 0);
         if (nfd < 0)
                 return NULL;
