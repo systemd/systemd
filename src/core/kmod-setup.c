@@ -1,6 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <ftw.h>
 #include <unistd.h>
 
 #include "alloc-util.h"
@@ -9,6 +8,7 @@
 #include "fileio.h"
 #include "kmod-setup.h"
 #include "macro.h"
+#include "recurse-dir.h"
 #include "string-util.h"
 
 #if HAVE_KMOD
@@ -28,39 +28,57 @@ static void systemd_kmod_log(
         REENABLE_WARNING;
 }
 
-static int has_virtio_rng_nftw_cb(
-                const char *fpath,
-                const struct stat *sb,
-                int tflag,
-                struct FTW *ftwbuf) {
+static int has_virtio_rng_recurse_dir_cb(
+                RecurseDirEvent event,
+                const char *path,
+                int dir_fd,
+                int inode_fd,
+                const struct dirent *de,
+                const struct statx *sx,
+                void *userdata) {
 
         _cleanup_free_ char *alias = NULL;
         int r;
 
-        if ((FTW_D == tflag) && (ftwbuf->level > 2))
-                return FTW_SKIP_SUBTREE;
+        if (event != RECURSE_DIR_ENTRY)
+                return RECURSE_DIR_CONTINUE;
 
-        if (FTW_F != tflag)
-                return FTW_CONTINUE;
+        if (de->d_type != DT_REG)
+                return RECURSE_DIR_CONTINUE;
 
-        if (!endswith(fpath, "/modalias"))
-                return FTW_CONTINUE;
+        if (!streq(de->d_name, "modalias"))
+                return RECURSE_DIR_CONTINUE;
 
-        r = read_one_line_file(fpath, &alias);
-        if (r < 0)
-                return FTW_SKIP_SIBLINGS;
+        r = read_one_line_file(path, &alias);
+        if (r < 0) {
+                log_debug_errno(r, "Failed to read %s, ignoring: %m", path);
+                return RECURSE_DIR_LEAVE_DIRECTORY;
+        }
 
         if (startswith(alias, "pci:v00001AF4d00001005"))
-                return FTW_STOP;
+                return 1;
 
         if (startswith(alias, "pci:v00001AF4d00001044"))
-                return FTW_STOP;
+                return 1;
 
-        return FTW_SKIP_SIBLINGS;
+        return RECURSE_DIR_LEAVE_DIRECTORY;
 }
 
 static bool has_virtio_rng(void) {
-        return (nftw("/sys/devices/pci0000:00", has_virtio_rng_nftw_cb, 64, FTW_MOUNT|FTW_PHYS|FTW_ACTIONRETVAL) == FTW_STOP);
+        int r;
+
+        r = recurse_dir_at(
+                        AT_FDCWD,
+                        "/sys/devices/pci0000:00",
+                        /* statx_mask= */ 0,
+                        /* n_depth_max= */ 2,
+                        RECURSE_DIR_ENSURE_TYPE,
+                        has_virtio_rng_recurse_dir_cb,
+                        NULL);
+        if (r < 0)
+                log_debug_errno(r, "Failed to determine whether host has virtio-rng device, ignoring: %m");
+
+        return r > 0;
 }
 #endif
 
