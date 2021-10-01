@@ -1,86 +1,105 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <ftw.h>
-
 #include "errno-util.h"
 #include "kbd-util.h"
 #include "log.h"
 #include "nulstr-util.h"
 #include "path-util.h"
+#include "recurse-dir.h"
 #include "set.h"
 #include "string-util.h"
 #include "strv.h"
 #include "utf8.h"
 
-static thread_local const char *keymap_name = NULL;
-static thread_local Set *keymaps = NULL;
+struct recurse_dir_userdata {
+        const char *keymap_name;
+        Set *keymaps;
+};
 
-static int nftw_cb(
-                const char *fpath,
-                const struct stat *sb,
-                int tflag,
-                struct FTW *ftwbuf) {
+static int keymap_recurse_dir_callback(
+                RecurseDirEvent event,
+                const char *path,
+                int dir_fd,
+                int inode_fd,
+                const struct dirent *de,
+                const struct statx *sx,
+                void *userdata) {
 
+        struct recurse_dir_userdata *data = userdata;
         _cleanup_free_ char *p = NULL;
         int r;
 
-        /* If keymap_name is non-null, return true if keymap keymap_name is found.
-         * Otherwise, add all keymaps to keymaps. */
+        assert(de);
 
-        if (tflag != FTW_F)
-                return 0;
+        /* If 'keymap_name' is non-NULL, return true if keymap 'keymap_name' is found.  Otherwise, add all
+         * keymaps to 'keymaps'. */
 
-        fpath = basename(fpath);
+        if (event != RECURSE_DIR_ENTRY)
+                return RECURSE_DIR_CONTINUE;
 
-        const char *e = endswith(fpath, ".map") ?: endswith(fpath, ".map.gz");
+        if (!IN_SET(de->d_type, DT_REG, DT_LNK))
+                return RECURSE_DIR_CONTINUE;
+
+        const char *e = endswith(de->d_name, ".map") ?: endswith(de->d_name, ".map.gz");
         if (!e)
-                return 0;
+                return RECURSE_DIR_CONTINUE;
 
-        p = strndup(fpath, e - fpath);
-        if (!p) {
-                errno = ENOMEM;
-                return -1;
-        }
+        p = strndup(de->d_name, e - de->d_name);
+        if (!p)
+                return -ENOMEM;
 
-        if (keymap_name)
-                return streq(p, keymap_name);
+        if (data->keymap_name)
+                return streq(p, data->keymap_name) ? 1 : RECURSE_DIR_CONTINUE;
+
+        assert(data->keymaps);
 
         if (!keymap_is_valid(p))
                 return 0;
 
-        r = set_consume(keymaps, TAKE_PTR(p));
-        if (r < 0 && r != -EEXIST) {
-                errno = -r;
-                return -1;
-        }
+        r = set_consume(data->keymaps, TAKE_PTR(p));
+        if (r < 0)
+                return r;
 
-        return 0;
+        return RECURSE_DIR_CONTINUE;
 }
 
 int get_keymaps(char ***ret) {
+        _cleanup_(set_free_freep) Set *keymaps = NULL;
+        int r;
+
         keymaps = set_new(&string_hash_ops);
         if (!keymaps)
                 return -ENOMEM;
 
         const char *dir;
-        NULSTR_FOREACH(dir, KBD_KEYMAP_DIRS)
-                if (nftw(dir, nftw_cb, 20, FTW_PHYS) < 0) {
-                        if (errno == ENOENT)
+        NULSTR_FOREACH(dir, KBD_KEYMAP_DIRS) {
+                r = recurse_dir_at(
+                                AT_FDCWD,
+                                dir,
+                                /* statx_mask= */ 0,
+                                /* n_depth_max= */ UINT_MAX,
+                                RECURSE_DIR_IGNORE_DOT|RECURSE_DIR_ENSURE_TYPE,
+                                keymap_recurse_dir_callback,
+                                &(struct recurse_dir_userdata) {
+                                        .keymaps = keymaps,
+                                });
+                if (r < 0) {
+                        if (r == -ENOENT)
                                 continue;
-                        if (ERRNO_IS_RESOURCE(errno)) {
-                                keymaps = set_free_free(keymaps);
-                                return log_warning_errno(errno, "Failed to read keymap list from %s: %m", dir);
-                        }
-                        log_debug_errno(errno, "Failed to read keymap list from %s, ignoring: %m", dir);
-                }
+                        if (ERRNO_IS_RESOURCE(r))
+                                return log_warning_errno(r, "Failed to read keymap list from %s: %m", dir);
 
-        _cleanup_strv_free_ char **l = set_get_strv(keymaps);
-        if (!l) {
-                keymaps = set_free_free(keymaps);
-                return -ENOMEM;
+                        log_debug_errno(r, "Failed to read keymap list from %s, ignoring: %m", dir);
+                }
         }
 
-        keymaps = set_free(keymaps);
+        _cleanup_strv_free_ char **l = set_get_strv(keymaps);
+        if (!l)
+                return -ENOMEM;
+
+        keymaps = set_free(keymaps); /* If we got the strv above, then do a set_free() rather than
+                                      * set_free_free() since the entries of the set are now owned by the
+                                      * strv */
 
         if (strv_isempty(l))
                 return -ENOENT;
@@ -88,7 +107,6 @@ int get_keymaps(char ***ret) {
         strv_sort(l);
 
         *ret = TAKE_PTR(l);
-
         return 0;
 }
 
@@ -117,18 +135,29 @@ int keymap_exists(const char *name) {
         if (!keymap_is_valid(name))
                 return -EINVAL;
 
-        keymap_name = name;
-
         const char *dir;
         NULSTR_FOREACH(dir, KBD_KEYMAP_DIRS) {
-                r = nftw(dir, nftw_cb, 20, FTW_PHYS);
+                r = recurse_dir_at(
+                                AT_FDCWD,
+                                dir,
+                                /* statx_mask= */ 0,
+                                /* n_depth_max= */ UINT_MAX,
+                                RECURSE_DIR_IGNORE_DOT|RECURSE_DIR_ENSURE_TYPE,
+                                keymap_recurse_dir_callback,
+                                &(struct recurse_dir_userdata) {
+                                        .keymap_name = name,
+                                });
+                if (r == -ENOENT)
+                        continue;
+                if (ERRNO_IS_RESOURCE(r))
+                        return r;
+                if (r < 0) {
+                        log_debug_errno(r, "Failed to read keymap list from %s, ignoring: %m", dir);
+                        continue;
+                }
                 if (r > 0)
                         break;
-                if (r < 0 && errno != ENOENT)
-                        log_debug_errno(errno, "Failed to read keymap list from %s, ignoring: %m", dir);
         }
-
-        keymap_name = NULL;
 
         return r > 0;
 }
