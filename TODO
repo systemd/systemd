@@ -7,8 +7,6 @@ Bugfixes:
 * userdbctl: "Password OK: yes" is shown even when there are no passwords
   or the password is locked.
 
-* Get rid of nftw(). We should refuse to use such useless APIs on principle.
-
 * Jun 01 09:43:02 krowka systemd[1]: Unit user@1000.service has alias user@.service.
   Jun 01 09:43:02 krowka systemd[1]: Unit user@6.service has alias user@.service.
   Jun 01 09:43:02 krowka systemd[1]: Unit user-runtime-dir@6.service has alias user-runtime-dir@.service.
