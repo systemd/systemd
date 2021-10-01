@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 @@
 /* Disable this transformation in cases where it doesn't make sense or
  * where it makes the resulting expression more confusing

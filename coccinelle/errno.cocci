@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 @@
 identifier log_LEVEL_errno =~ "^log_(debug|info|notice|warning|error|emergency)_errno$";
 local idexpression r;
