@@ -1,6 +1,6 @@
 ---
+# vi: ts=2 sw=2 et:
 # https://github.com/marketplace/actions/super-linter
-
 name: Lint Code Base
 
 on:
