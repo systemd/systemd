@@ -428,7 +428,7 @@ static int ndisc_router_process_autonomous_prefix(Link *link, sd_ndisc_router *r
         if (lifetime_preferred > lifetime_valid)
                 return 0;
 
-        r = ndisc_router_generate_addresses(link, &prefix, prefixlen, &addresses);
+        r = ndisc_generate_addresses(link, &prefix, prefixlen, &addresses);
         if (r < 0)
                 return log_link_error_errno(link, r, "Failed to generate SLAAC addresses: %m");
 
