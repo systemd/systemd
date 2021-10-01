@@ -1,4 +1,5 @@
 #!/bin/bash
+# SPDX-License-Identifier: CC0-1.0
 
 # set the default value
 XDG_DATA_DIRS="${XDG_DATA_DIRS:-/usr/local/share/:/usr/share}"

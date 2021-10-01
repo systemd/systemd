@@ -1,3 +1,5 @@
+/* SPDX-License-Identifier: CC0-1.0 */
+
 #include <systemd/sd-bus.h>
 #define _cleanup_(f) __attribute__((cleanup(f)))
 
