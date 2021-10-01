@@ -398,7 +398,7 @@ static int address_add(Link *link, Address *address) {
         return 0;
 }
 
-static int address_update(Address *address, const Address *src) {
+static int address_update(Address *address) {
         Link *link;
         int r;
 
@@ -406,11 +406,6 @@ static int address_update(Address *address, const Address *src) {
         assert(address->link);
 
         link = address->link;
-        if (src) {
-                address->flags = src->flags;
-                address->scope = src->scope;
-                address->cinfo = src->cinfo;
-        }
 
         if (address_is_ready(address) &&
             address->family == AF_INET6 &&
@@ -1357,8 +1352,12 @@ int manager_rtnl_process_address(sd_netlink *rtnl, sd_netlink_message *message, 
         switch (type) {
         case RTM_NEWADDR:
                 if (address) {
+                        /* update flags and etc. */
+                        address->flags = tmp->flags;
+                        address->scope = tmp->scope;
+                        address->cinfo = tmp->cinfo;
                         address_enter_configured(address);
-                        log_address_debug(address, "Remembering updated", link);
+                        log_address_debug(address, "Received updated", link);
                 } else {
                         address_enter_configured(tmp);
                         log_address_debug(tmp, "Received new", link);
@@ -1377,7 +1376,7 @@ int manager_rtnl_process_address(sd_netlink *rtnl, sd_netlink_message *message, 
                 }
 
                 /* address_update() logs internally, so we don't need to here. */
-                r = address_update(address, tmp);
+                r = address_update(address);
                 if (r < 0)
                         link_enter_failed(link);
 
