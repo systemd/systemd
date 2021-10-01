@@ -1,4 +1,6 @@
 #!/bin/sh
+# SPDX-License-Identifier: MIT
+
 set -e
 
 if [ -z "$1" ]; then

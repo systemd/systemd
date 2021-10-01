@@ -1,4 +1,5 @@
 #!/usr/bin/python
+# SPDX-License-Identifier: MIT
 
 import ast
 import re
