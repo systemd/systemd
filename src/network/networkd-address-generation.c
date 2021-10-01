@@ -32,8 +32,6 @@ typedef enum IPv6TokenAddressGeneration {
 
 typedef struct IPv6Token {
         IPv6TokenAddressGeneration address_generation_type;
-
-        uint8_t dad_counter;
         struct in6_addr prefix;
 } IPv6Token;
 
@@ -79,47 +77,78 @@ static bool stable_private_address_is_valid(const struct in6_addr *addr) {
         return true;
 }
 
-static int make_stable_private_address(Link *link, const struct in6_addr *prefix, uint8_t dad_counter, struct in6_addr **ret) {
-        _cleanup_free_ struct in6_addr *addr = NULL;
-        sd_id128_t secret_key;
+static void generate_stable_private_address_one(
+                Link *link,
+                const sd_id128_t *secret_key,
+                const struct in6_addr *prefix,
+                uint8_t dad_counter,
+                struct in6_addr *ret) {
+
         struct siphash state;
         uint64_t rid;
-        int r;
 
-        /* According to rfc7217 section 5.1
+        assert(link);
+        assert(secret_key);
+        assert(prefix);
+        assert(ret);
+
+        /* According to RFC7217 section 5.1
          * RID = F(Prefix, Net_Iface, Network_ID, DAD_Counter, secret_key) */
 
-        r = sd_id128_get_machine_app_specific(NDISC_APP_ID, &secret_key);
-        if (r < 0)
-                return log_link_warning_errno(link, r, "Failed to generate key for IPv6 stable private address: %m");
-
-        siphash24_init(&state, secret_key.bytes);
+        siphash24_init(&state, secret_key->bytes);
 
         siphash24_compress(prefix, 8, &state);
         siphash24_compress_string(link->ifname, &state);
-        /* Only last 8 bytes of IB MAC are stable */
         if (link->iftype == ARPHRD_INFINIBAND)
-                siphash24_compress(&link->hw_addr.infiniband[12], 8, &state);
+                /* Only last 8 bytes of IB MAC are stable */
+                siphash24_compress(&link->hw_addr.infiniband[INFINIBAND_ALEN - 8], 8, &state);
         else
                 siphash24_compress(link->hw_addr.bytes, link->hw_addr.length, &state);
         siphash24_compress(&dad_counter, sizeof(uint8_t), &state);
 
         rid = htole64(siphash24_finalize(&state));
 
-        addr = new(struct in6_addr, 1);
-        if (!addr)
-                return log_oom();
+        memcpy(ret->s6_addr, prefix->s6_addr, 8);
+        memcpy(ret->s6_addr + 8, &rid, 8);
+}
 
-        memcpy(addr->s6_addr, prefix->s6_addr, 8);
-        memcpy(addr->s6_addr + 8, &rid, 8);
+static int generate_stable_private_address(
+                Link *link,
+                const sd_id128_t *app_id,
+                const struct in6_addr *prefix,
+                struct in6_addr *ret) {
 
-        if (!stable_private_address_is_valid(addr)) {
-                *ret = NULL;
-                return 0;
+        struct in6_addr addr;
+        sd_id128_t secret_key;
+        uint8_t i;
+        int r;
+
+        assert(link);
+        assert(app_id);
+        assert(prefix);
+        assert(ret);
+
+        r = sd_id128_get_machine_app_specific(*app_id, &secret_key);
+        if (r < 0)
+               return log_link_debug_errno(link, r, "Failed to generate secret key for IPv6 stable private address: %m");
+
+        /* While this loop uses dad_counter and a retry limit as specified in RFC 7217, the loop does
+         * not actually attempt Duplicate Address Detection; the counter will be incremented only when
+         * the address generation algorithm produces an invalid address, and the loop may exit with an
+         * address which ends up being unusable due to duplication on the link. */
+        for (i = 0; i < DAD_CONFLICTS_IDGEN_RETRIES_RFC7217; i++) {
+                generate_stable_private_address_one(link, &secret_key, prefix, i, &addr);
+
+                if (stable_private_address_is_valid(&addr))
+                        break;
         }
+        if (i >= DAD_CONFLICTS_IDGEN_RETRIES_RFC7217)
+                /* propagate recognizable errors. */
+                return log_link_debug_errno(link, SYNTHETIC_ERRNO(ENOANO),
+                                            "Failed to generate stable private address.");
 
-        *ret = TAKE_PTR(addr);
-        return 1;
+        *ret = addr;
+        return 0;
 }
 
 int ndisc_router_generate_addresses(Link *link, struct in6_addr *address, uint8_t prefixlen, Set **ret) {
@@ -140,17 +169,15 @@ int ndisc_router_generate_addresses(Link *link, struct in6_addr *address, uint8_
 
                 if (j->address_generation_type == IPV6_TOKEN_ADDRESS_GENERATION_PREFIXSTABLE
                     && (in6_addr_is_null(&j->prefix) || in6_addr_equal(&j->prefix, address))) {
-                        /* While this loop uses dad_counter and a retry limit as specified in RFC 7217, the loop
-                         * does not actually attempt Duplicate Address Detection; the counter will be incremented
-                         * only when the address generation algorithm produces an invalid address, and the loop
-                         * may exit with an address which ends up being unusable due to duplication on the link. */
-                        for (; j->dad_counter < DAD_CONFLICTS_IDGEN_RETRIES_RFC7217; j->dad_counter++) {
-                                r = make_stable_private_address(link, address, j->dad_counter, &new_address);
-                                if (r < 0)
-                                        return r;
-                                if (r > 0)
-                                        break;
-                        }
+                        struct in6_addr addr;
+
+                        if (generate_stable_private_address(link, &NDISC_APP_ID, address, &addr) < 0)
+                                continue;
+
+                        new_address = newdup(struct in6_addr, &addr, 1);
+                        if (!new_address)
+                                return log_oom();
+
                 } else if (j->address_generation_type == IPV6_TOKEN_ADDRESS_GENERATION_STATIC) {
                         new_address = new(struct in6_addr, 1);
                         if (!new_address)
