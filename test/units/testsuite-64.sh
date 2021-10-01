@@ -588,6 +588,53 @@ testcase_iscsi_lvm() {
     umount "$mpoint"
     rm -rf "$mpoint"
 }
+
+testcase_long_sysfs_path() {
+    local link logfile mpoint
+    local expected_symlinks=(
+        "/dev/disk/by-label/data_vol"
+        "/dev/disk/by-label/swap_vol"
+        "/dev/disk/by-partlabel/test_swap"
+        "/dev/disk/by-partlabel/test_part"
+        "/dev/disk/by-partuuid/deadbeef-dead-dead-beef-000000000000"
+        "/dev/disk/by-uuid/deadbeef-dead-dead-beef-111111111111"
+        "/dev/disk/by-uuid/deadbeef-dead-dead-beef-222222222222"
+    )
+
+    # Make sure the test device is connected and show its "wonderful" path
+    stat /sys/block/vda
+    readlink -f /sys/block/vda/dev
+
+    for link in "${expected_symlinks[@]}"; do
+        test -e "$link"
+    done
+
+    # Try to mount the data partition manually (using its label)
+    mpoint="$(mktemp -d /logsysfsXXX)"
+    mount LABEL=data_vol "$mpoint"
+    touch "$mpoint/test"
+    umount "$mpoint"
+    # Do the same, but with UUID and using fstab
+    echo "UUID=deadbeef-dead-dead-beef-222222222222 $mpoint ext4 defaults 0 0" >>/etc/fstab
+    systemctl daemon-reload
+    mount "$mpoint"
+    test -e "$mpoint/test"
+    umount "$mpoint"
+
+    # Test out the swap partition
+    swapon -v -L swap_vol
+    swapoff -v -L swap_vol
+
+    logfile="$(mktemp)"
+    journalctl -b -q --no-pager -o short-monotonic -p info --grep "Device path.*vda.?' too long to fit into unit name"
+    # Make sure we don't unnecessarily spam the log
+    journalctl -b -q --no-pager -o short-monotonic -p info --grep "/sys/devices/.+/vda[0-9]?" _PID=1 + UNIT=systemd-udevd.service | tee "$logfile"
+    [[ "$(wc -l <"$logfile")" -lt 10 ]]
+
+    : >/etc/fstab
+    rm -fr "${logfile:?}" "${mpoint:?}"
+}
+
 : >/failed
 
 udevadm settle
@@ -605,6 +652,7 @@ fi
 
 echo "TEST_FUNCTION_NAME=$TEST_FUNCTION_NAME"
 "$TEST_FUNCTION_NAME"
+udevadm settle
 
 echo "Check if all symlinks under /dev/disk/ are valid (post-test)"
 helper_check_device_symlinks
