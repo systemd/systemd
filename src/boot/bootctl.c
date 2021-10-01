@@ -2,7 +2,6 @@
 
 #include <ctype.h>
 #include <errno.h>
-#include <ftw.h>
 #include <getopt.h>
 #include <limits.h>
 #include <linux/magic.h>
