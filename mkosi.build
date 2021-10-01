@@ -1,4 +1,5 @@
 #!/bin/sh
+# SPDX-License-Identifier: LGPL-2.1-or-later
 set -e
 
 # This is a build script for OS image generation using mkosi (https://github.com/systemd/mkosi).

@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
-# shellcheck disable=SC2030,SC2031
 # -*- mode: shell-script; indent-tabs-mode: nil; sh-basic-offset: 4; -*-
+# SPDX-License-Identifier: LGPL-2.1-or-later
+#
+# shellcheck disable=SC2030,SC2031
 # ex: ts=8 sw=4 sts=4 et filetype=sh tw=180
 # Note: the shellcheck line above disables warning for variables which were
 #       modified in a subshell. In our case this behavior is expected, but
