@@ -67,8 +67,6 @@ int address_dup(const Address *src, Address **ret);
 bool address_is_ready(const Address *a);
 void address_set_broadcast(Address *a);
 
-int generate_ipv6_eui_64_address(const Link *link, struct in6_addr *ret);
-
 DEFINE_NETWORK_SECTION_FUNCTIONS(Address, address_free);
 
 int link_drop_addresses(Link *link);
