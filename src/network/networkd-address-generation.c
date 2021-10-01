@@ -150,13 +150,21 @@ static int generate_stable_private_address(
         return 0;
 }
 
-int ndisc_router_generate_addresses(Link *link, struct in6_addr *prefix, uint8_t prefixlen, Set **ret) {
+static int generate_addresses(
+                Link *link,
+                Set *tokens,
+                const sd_id128_t *app_id,
+                const struct in6_addr *prefix,
+                uint8_t prefixlen,
+                Set **ret) {
+
         _cleanup_set_free_ Set *addresses = NULL;
         struct in6_addr masked;
         IPv6Token *j;
         int r;
 
         assert(link);
+        assert(app_id);
         assert(prefix);
         assert(prefixlen > 0 && prefixlen <= 64);
         assert(ret);
@@ -164,7 +172,7 @@ int ndisc_router_generate_addresses(Link *link, struct in6_addr *prefix, uint8_t
         masked = *prefix;
         in6_addr_mask(&masked, prefixlen);
 
-        SET_FOREACH(j, link->network->ndisc_tokens) {
+        SET_FOREACH(j, tokens) {
                 struct in6_addr addr, *copy;
 
                 switch (j->type) {
@@ -177,7 +185,7 @@ int ndisc_router_generate_addresses(Link *link, struct in6_addr *prefix, uint8_t
                         if (in6_addr_is_set(&j->address) && !in6_addr_equal(&j->address, &masked))
                                 continue;
 
-                        if (generate_stable_private_address(link, &NDISC_APP_ID, &masked, &addr) < 0)
+                        if (generate_stable_private_address(link, app_id, &masked, &addr) < 0)
                                 continue;
 
                         break;
@@ -212,6 +220,10 @@ int ndisc_router_generate_addresses(Link *link, struct in6_addr *prefix, uint8_t
 
         *ret = TAKE_PTR(addresses);
         return 0;
+}
+
+int ndisc_generate_addresses(Link *link, const struct in6_addr *prefix, uint8_t prefixlen, Set **ret) {
+        return generate_addresses(link, link->network->ndisc_tokens, &NDISC_APP_ID, prefix, prefixlen, ret);
 }
 
 static void ipv6_token_hash_func(const IPv6Token *p, struct siphash *state) {
