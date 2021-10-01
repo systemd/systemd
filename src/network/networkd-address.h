@@ -97,7 +97,6 @@ void network_drop_invalid_addresses(Network *network);
 
 void address_hash_func(const Address *a, struct siphash *state);
 int address_compare_func(const Address *a1, const Address *a2);
-extern const struct hash_ops address_hash_ops;
 
 DEFINE_NETWORK_CONFIG_STATE_FUNCTIONS(Address, address);
 static inline void address_enter_probing(Address *address) {
