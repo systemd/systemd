@@ -1,4 +1,5 @@
 #!/bin/bash -e
+# SPDX-License-Identifier: LGPL-2.1-or-later
 
 # Exclude following paths from the Coccinelle transformations
 EXCLUDED_PATHS=(

@@ -1,4 +1,5 @@
 #!/bin/bash
+# SPDX-License-Identifier: LGPL-2.1-or-later
 
 # shellcheck disable=SC2206
 PHASES=(${@:-SETUP RUN RUN_ASAN_UBSAN CLEANUP})
