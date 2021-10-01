@@ -2,10 +2,9 @@
 # vi: ts=4 sw=4 tw=0 et:
 #
 # TODO:
-#   * iSCSI
-#   * LVM over iSCSI (?)
 #   * SW raid (mdadm)
-#   * MD (mdadm) -> DM-CRYPT -> LVM
+#   * MD (mdadm) -> dm-crypt -> LVM
+#   * iSCSI -> dm-crypt -> LVM
 set -e
 
 TEST_DESCRIPTION="systemd-udev storage tests"
@@ -391,13 +390,35 @@ testcase_iscsi_lvm() {
         )
     done
 
-
     KERNEL_APPEND="systemd.setenv=TEST_FUNCTION_NAME=${FUNCNAME[0]} ${USER_KERNEL_APPEND:-}"
     QEMU_OPTIONS="${qemu_opts[*]} ${USER_QEMU_OPTIONS:-}"
     test_run_one "${1:?}" || return $?
 
     rm -f "${TESTDIR:?}"/iscsibasic*.img
 }
+
+testcase_long_sysfs_path() {
+    local brid
+    local qemu_opts=(
+        "-drive if=none,id=drive0,format=raw,cache=unsafe,file=${TESTDIR:?}/disk0.img"
+        "-device pci-bridge,id=pci_bridge0,bus=pci.0,chassis_nr=64"
+    )
+
+    # Create 25 additional PCI bridges, each one connected to the previous one
+    # (basically a really long extension cable), and attach a virtio drive to
+    # the last one. This should force udev into attempting to create a device
+    # unit with a _really_ long name.
+    for brid in {1..25}; do
+        qemu_opts+=("-device pci-bridge,id=pci_bridge$brid,bus=pci_bridge$((brid-1)),chassis_nr=$((64+$brid))")
+    done
+
+    qemu_opts+=("-device virtio-blk-pci,drive=drive0,scsi=off,bus=pci_bridge$brid")
+
+    KERNEL_APPEND="systemd.setenv=TEST_FUNCTION_NAME=${FUNCNAME[0]} ${USER_KERNEL_APPEND:-}"
+    QEMU_OPTIONS="${qemu_opts[*]} ${USER_QEMU_OPTIONS:-}"
+    test_run_one "${1:?}"
+}
+
 # Allow overriding which tests should be run from the "outside", useful for manual
 # testing (make -C test/... TESTCASES="testcase1 testcase2")
 if [[ -v "TESTCASES" && -n "$TESTCASES" ]]; then

@@ -588,6 +588,13 @@ testcase_iscsi_lvm() {
     umount "$mpoint"
     rm -rf "$mpoint"
 }
+
+testcase_long_sysfs_path() {
+    stat /sys/block/vda
+    readlink -f /sys/block/vda/dev
+    journalctl -b --no-pager -o short-monotonic --grep "Device path.*vda' too long to fit into unit name"
+}
+
 : >/failed
 
 udevadm settle
