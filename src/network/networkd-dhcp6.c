@@ -14,6 +14,7 @@
 #include "hostname-util.h"
 #include "in-addr-prefix-util.h"
 #include "missing_network.h"
+#include "networkd-address-generation.h"
 #include "networkd-address.h"
 #include "networkd-dhcp6.h"
 #include "networkd-link.h"

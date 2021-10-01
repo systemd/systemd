@@ -57,32 +57,6 @@ static int address_flags_to_string_alloc(uint32_t flags, int family, char **ret)
         return 0;
 }
 
-int generate_ipv6_eui_64_address(const Link *link, struct in6_addr *ret) {
-        assert(link);
-        assert(ret);
-
-        if (link->iftype == ARPHRD_INFINIBAND) {
-                /* see RFC4391 section 8 */
-                memcpy(&ret->s6_addr[8], &link->hw_addr.infiniband[12], 8);
-                ret->s6_addr[8] ^= 1 << 1;
-
-                return 0;
-        }
-
-        /* see RFC4291 section 2.5.1 */
-        ret->s6_addr[8]  = link->hw_addr.ether.ether_addr_octet[0];
-        ret->s6_addr[8] ^= 1 << 1;
-        ret->s6_addr[9]  = link->hw_addr.ether.ether_addr_octet[1];
-        ret->s6_addr[10] = link->hw_addr.ether.ether_addr_octet[2];
-        ret->s6_addr[11] = 0xff;
-        ret->s6_addr[12] = 0xfe;
-        ret->s6_addr[13] = link->hw_addr.ether.ether_addr_octet[3];
-        ret->s6_addr[14] = link->hw_addr.ether.ether_addr_octet[4];
-        ret->s6_addr[15] = link->hw_addr.ether.ether_addr_octet[5];
-
-        return 0;
-}
-
 int address_new(Address **ret) {
         _cleanup_(address_freep) Address *address = NULL;
 
