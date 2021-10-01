@@ -12,15 +12,13 @@
 
 #define DAD_CONFLICTS_IDGEN_RETRIES_RFC7217 3
 
-/* https://tools.ietf.org/html/rfc5453 */
 /* https://www.iana.org/assignments/ipv6-interface-ids/ipv6-interface-ids.xml */
-
-#define SUBNET_ROUTER_ANYCAST_ADDRESS_RFC4291               ((struct in6_addr) { .s6_addr = { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 } })
-#define SUBNET_ROUTER_ANYCAST_PREFIXLEN                     8
-#define RESERVED_IPV6_INTERFACE_IDENTIFIERS_ADDRESS_RFC4291 ((struct in6_addr) { .s6_addr = { 0x02, 0x00, 0x5E, 0xFF, 0xFE } })
-#define RESERVED_IPV6_INTERFACE_IDENTIFIERS_PREFIXLEN       5
-#define RESERVED_SUBNET_ANYCAST_ADDRESSES_RFC4291           ((struct in6_addr) { .s6_addr = { 0xFD, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF } })
-#define RESERVED_SUBNET_ANYCAST_PREFIXLEN                   7
+#define SUBNET_ROUTER_ANYCAST_ADDRESS            ((const struct in6_addr) { .s6_addr = { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 } })
+#define SUBNET_ROUTER_ANYCAST_PREFIXLEN          64
+#define RESERVED_INTERFACE_IDENTIFIERS_ADDRESS   ((const struct in6_addr) { .s6_addr = { 0x02, 0x00, 0x5E, 0xFF, 0xFE } })
+#define RESERVED_INTERFACE_IDENTIFIERS_PREFIXLEN 40
+#define RESERVED_SUBNET_ANYCAST_ADDRESSES        ((const struct in6_addr) { .s6_addr = { 0xFD, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0x80 } })
+#define RESERVED_SUBNET_ANYCAST_PREFIXLEN        57
 
 #define NDISC_APP_ID   SD_ID128_MAKE(13,ac,81,a7,d5,3f,49,78,92,79,5d,0c,29,3a,bc,7e)
 
@@ -70,13 +68,13 @@ static bool stable_private_address_is_valid(const struct in6_addr *addr) {
 
         /* According to rfc4291, generated address should not be in the following ranges. */
 
-        if (memcmp(addr, &SUBNET_ROUTER_ANYCAST_ADDRESS_RFC4291, SUBNET_ROUTER_ANYCAST_PREFIXLEN) == 0)
+        if (in6_addr_prefix_covers(&SUBNET_ROUTER_ANYCAST_ADDRESS, SUBNET_ROUTER_ANYCAST_PREFIXLEN, addr))
                 return false;
 
-        if (memcmp(addr, &RESERVED_IPV6_INTERFACE_IDENTIFIERS_ADDRESS_RFC4291, RESERVED_IPV6_INTERFACE_IDENTIFIERS_PREFIXLEN) == 0)
+        if (in6_addr_prefix_covers(&RESERVED_INTERFACE_IDENTIFIERS_ADDRESS, RESERVED_INTERFACE_IDENTIFIERS_PREFIXLEN, addr))
                 return false;
 
-        if (memcmp(addr, &RESERVED_SUBNET_ANYCAST_ADDRESSES_RFC4291, RESERVED_SUBNET_ANYCAST_PREFIXLEN) == 0)
+        if (in6_addr_prefix_covers(&RESERVED_SUBNET_ANYCAST_ADDRESSES, RESERVED_SUBNET_ANYCAST_PREFIXLEN, addr))
                 return false;
 
         return true;
