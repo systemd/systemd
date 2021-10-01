@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 @@
 /* Avoid running this transformation on the strempty function itself and
  * on the "make_expression" macro in src/libsystemd/sd-bus/bus-convenience.c.
