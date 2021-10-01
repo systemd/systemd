@@ -315,7 +315,7 @@ int address_compare_func(const Address *a1, const Address *a2) {
 }
 
 DEFINE_PRIVATE_HASH_OPS_WITH_KEY_DESTRUCTOR(
-        address_hash_ops,
+        address_hash_ops_free,
         Address,
         address_hash_func,
         address_compare_func,
@@ -393,7 +393,7 @@ static int address_add(Link *link, Address *address) {
         assert(link);
         assert(address);
 
-        r = set_ensure_put(&link->addresses, &address_hash_ops, address);
+        r = set_ensure_put(&link->addresses, &address_hash_ops_free, address);
         if (r < 0)
                 return r;
         if (r == 0)
