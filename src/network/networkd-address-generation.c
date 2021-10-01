@@ -151,14 +151,19 @@ static int generate_stable_private_address(
         return 0;
 }
 
-int ndisc_router_generate_addresses(Link *link, struct in6_addr *address, uint8_t prefixlen, Set **ret) {
+int ndisc_router_generate_addresses(Link *link, struct in6_addr *prefix, uint8_t prefixlen, Set **ret) {
         _cleanup_set_free_free_ Set *addresses = NULL;
+        struct in6_addr masked;
         IPv6Token *j;
         int r;
 
         assert(link);
-        assert(address);
+        assert(prefix);
+        assert(prefixlen > 0 && prefixlen <= 64);
         assert(ret);
+
+        masked = *prefix;
+        in6_addr_mask(&masked, prefixlen);
 
         addresses = set_new(&in6_addr_hash_ops);
         if (!addresses)
@@ -168,10 +173,10 @@ int ndisc_router_generate_addresses(Link *link, struct in6_addr *address, uint8_
                 _cleanup_free_ struct in6_addr *new_address = NULL;
 
                 if (j->address_generation_type == IPV6_TOKEN_ADDRESS_GENERATION_PREFIXSTABLE
-                    && (in6_addr_is_null(&j->prefix) || in6_addr_equal(&j->prefix, address))) {
+                    && (in6_addr_is_null(&j->prefix) || in6_addr_equal(&j->prefix, &masked))) {
                         struct in6_addr addr;
 
-                        if (generate_stable_private_address(link, &NDISC_APP_ID, address, &addr) < 0)
+                        if (generate_stable_private_address(link, &NDISC_APP_ID, &masked, &addr) < 0)
                                 continue;
 
                         new_address = newdup(struct in6_addr, &addr, 1);
@@ -183,7 +188,7 @@ int ndisc_router_generate_addresses(Link *link, struct in6_addr *address, uint8_
                         if (!new_address)
                                 return log_oom();
 
-                        memcpy(new_address->s6_addr, address->s6_addr, 8);
+                        memcpy(new_address->s6_addr, masked.s6_addr, 8);
                         memcpy(new_address->s6_addr + 8, j->prefix.s6_addr + 8, 8);
                 }
 
@@ -206,7 +211,7 @@ int ndisc_router_generate_addresses(Link *link, struct in6_addr *address, uint8_
                 if (!addr)
                         return log_oom();
 
-                generate_eui64_address(link, address, addr);
+                generate_eui64_address(link, &masked, addr);
 
                 r = set_consume(addresses, addr);
                 if (r < 0)
