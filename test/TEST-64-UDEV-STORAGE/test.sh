@@ -2,10 +2,9 @@
 # vi: ts=4 sw=4 tw=0 et:
 #
 # TODO:
-#   * iSCSI
-#   * LVM over iSCSI (?)
 #   * SW raid (mdadm)
-#   * MD (mdadm) -> DM-CRYPT -> LVM
+#   * MD (mdadm) -> dm-crypt -> LVM
+#   * iSCSI -> dm-crypt -> LVM
 set -e
 
 TEST_DESCRIPTION="systemd-udev storage tests"
@@ -69,7 +68,7 @@ test_append_files() {(
 
     instmods "=block" "=md" "=nvme" "=scsi"
     install_dmevent
-    image_install lsblk wc wipefs
+    image_install lsblk swapoff swapon wc wipefs
 
     # Install the optional features if the host has the respective tooling
     for feature in "${!features[@]}"; do
@@ -391,13 +390,51 @@ testcase_iscsi_lvm() {
         )
     done
 
-
     KERNEL_APPEND="systemd.setenv=TEST_FUNCTION_NAME=${FUNCNAME[0]} ${USER_KERNEL_APPEND:-}"
     QEMU_OPTIONS="${qemu_opts[*]} ${USER_QEMU_OPTIONS:-}"
     test_run_one "${1:?}" || return $?
 
     rm -f "${TESTDIR:?}"/iscsibasic*.img
 }
+
+testcase_long_sysfs_path() {
+    local brid
+    local testdisk="${TESTDIR:?}/longsysfspath.img"
+    local qemu_opts=(
+        "-drive if=none,id=drive0,format=raw,cache=unsafe,file=$testdisk"
+        "-device pci-bridge,id=pci_bridge0,bus=pci.0,chassis_nr=64"
+    )
+
+    dd if=/dev/zero of="$testdisk" bs=1M count=64
+    lodev="$(losetup --show -f -P "$testdisk")"
+    sfdisk "${lodev:?}" <<EOF
+label: gpt
+
+name="test_swap", size=32M
+uuid="deadbeef-dead-dead-beef-000000000000", name="test_part", size=5M
+EOF
+    udevadm settle
+    mkswap -U "deadbeef-dead-dead-beef-111111111111" -L "swap_vol" "${lodev}p1"
+    mkfs.ext4 -U "deadbeef-dead-dead-beef-222222222222" -L "data_vol" "${lodev}p2"
+    losetup -d "$lodev"
+
+    # Create 25 additional PCI bridges, each one connected to the previous one
+    # (basically a really long extension cable), and attach a virtio drive to
+    # the last one. This should force udev into attempting to create a device
+    # unit with a _really_ long name.
+    for brid in {1..25}; do
+        qemu_opts+=("-device pci-bridge,id=pci_bridge$brid,bus=pci_bridge$((brid-1)),chassis_nr=$((64+brid))")
+    done
+
+    qemu_opts+=("-device virtio-blk-pci,drive=drive0,scsi=off,bus=pci_bridge$brid")
+
+    KERNEL_APPEND="systemd.setenv=TEST_FUNCTION_NAME=${FUNCNAME[0]} ${USER_KERNEL_APPEND:-}"
+    QEMU_OPTIONS="${qemu_opts[*]} ${USER_QEMU_OPTIONS:-}"
+    test_run_one "${1:?}" || return $?
+
+    rm -f "${testdisk:?}"
+}
+
 # Allow overriding which tests should be run from the "outside", useful for manual
 # testing (make -C test/... TESTCASES="testcase1 testcase2")
 if [[ -v "TESTCASES" && -n "$TESTCASES" ]]; then
