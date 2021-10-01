@@ -381,7 +381,7 @@ static int ndisc_router_process_default(Link *link, sd_ndisc_router *rt) {
 
 static int ndisc_router_process_autonomous_prefix(Link *link, sd_ndisc_router *rt) {
         uint32_t lifetime_valid, lifetime_preferred;
-        _cleanup_set_free_free_ Set *addresses = NULL;
+        _cleanup_set_free_ Set *addresses = NULL;
         struct in6_addr prefix, *a;
         unsigned prefixlen;
         usec_t time_now;
@@ -432,7 +432,7 @@ static int ndisc_router_process_autonomous_prefix(Link *link, sd_ndisc_router *r
 
         r = ndisc_router_generate_addresses(link, &prefix, prefixlen, &addresses);
         if (r < 0)
-                return r;
+                return log_link_error_errno(link, r, "Failed to generate SLAAC addresses: %m");
 
         SET_FOREACH(a, addresses) {
                 _cleanup_(address_freep) Address *address = NULL;
