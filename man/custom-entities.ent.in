@@ -1,4 +1,5 @@
 <?xml version="1.0" encoding="utf-8" ?>
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
 <!ENTITY MOUNT_PATH "{{MOUNT_PATH}}">
 <!ENTITY UMOUNT_PATH "{{UMOUNT_PATH}}">
 <!ENTITY SYSTEM_GENERATOR_DIR "{{SYSTEM_GENERATOR_DIR}}">
