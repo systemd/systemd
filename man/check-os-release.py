@@ -1,4 +1,5 @@
 #!/usr/bin/python
+# SPDX-License-Identifier: CC0-1.0
 
 import ast
 import re
