@@ -1,3 +1,4 @@
+; SPDX-License-Identifier: MIT
 ; special .c mode with reduced indentation for man pages
 ((c-mode . ((fill-column . 80)
             (c-basic-offset . 2)
