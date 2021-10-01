@@ -205,24 +205,25 @@ int link_request_radv_addresses(Link *link) {
 
         HASHMAP_FOREACH(p, link->network->prefixes_by_section) {
                 _cleanup_(address_freep) Address *address = NULL;
+                struct in6_addr prefix;
+                uint8_t prefixlen;
 
                 if (!p->assign)
                         continue;
+
+                r = sd_radv_prefix_get_prefix(p->radv_prefix, &prefix, &prefixlen);
+                if (r < 0)
+                        return r;
 
                 r = address_new(&address);
                 if (r < 0)
                         return log_oom();
 
-                r = sd_radv_prefix_get_prefix(p->radv_prefix, &address->in_addr.in6, &address->prefixlen);
-                if (r < 0)
-                        return r;
-
-                r = generate_ipv6_eui_64_address(link, &address->in_addr.in6);
-                if (r < 0)
-                        return r;
+                generate_eui64_address(link, &prefix, &address->in_addr.in6);
 
                 address->source = NETWORK_CONFIG_SOURCE_STATIC;
                 address->family = AF_INET6;
+                address->prefixlen = prefixlen;
                 address->route_metric = p->route_metric;
 
                 r = link_request_static_address(link, TAKE_PTR(address), true);

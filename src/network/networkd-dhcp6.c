@@ -377,15 +377,11 @@ static int dhcp6_pd_request_address(
         if (r < 0)
                 return log_link_error_errno(link, r, "Failed to allocate address for DHCPv6 delegated prefix: %m");
 
-        address->in_addr.in6 = *prefix;
-
-        if (in6_addr_is_set(&link->network->dhcp6_pd_token))
+        if (in6_addr_is_set(&link->network->dhcp6_pd_token)) {
+                memcpy(address->in_addr.in6.s6_addr, prefix->s6_addr, 8);
                 memcpy(address->in_addr.in6.s6_addr + 8, link->network->dhcp6_pd_token.s6_addr + 8, 8);
-        else {
-                r = generate_ipv6_eui_64_address(link, &address->in_addr.in6);
-                if (r < 0)
-                        return log_link_warning_errno(link, r, "Failed to generate EUI64 address for acquired DHCPv6 delegated prefix: %m");
-        }
+        } else
+                generate_eui64_address(link, prefix, &address->in_addr.in6);
 
         address->source = NETWORK_CONFIG_SOURCE_DHCP6PD;
         address->prefixlen = 64;
