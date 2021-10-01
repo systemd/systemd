@@ -1648,3 +1648,64 @@ int posix_fallocate_loop(int fd, uint64_t offset, uint64_t size) {
 
         return -EINTR;
 }
+
+/* Allow calling with mkdir_parents_label without linking src/basic into libselinux by
+ * taking a function pointer. */
+int create_symlinks_from_tuples(const char *root, char **strv_symlinks, mkdir_func_t _mkdir) {
+        char **src, **dst;
+        int r;
+
+        assert(_mkdir);
+
+        STRV_FOREACH_PAIR(src, dst, strv_symlinks) {
+                _cleanup_free_ char *src_abs = NULL, *dst_abs = NULL;
+
+                src_abs = path_join(root, *src);
+                dst_abs = path_join(root, *dst);
+                if (!src_abs || !dst_abs)
+                        return -ENOMEM;
+
+                r = _mkdir(dst_abs, 0755);
+                if (r < 0)
+                        return r;
+
+                r = symlink_idempotent(src_abs, dst_abs, true);
+                if (r < 0)
+                        return r;
+        }
+
+        return 0;
+}
+
+/* Allow calling with mkdir_parents_label without linking src/basic into libselinux by
+ * taking a function pointer. */
+int create_many_symlinks(const char *root, const char *source, char **symlinks, mkdir_func_t _mkdir) {
+        _cleanup_free_ char *src_abs = NULL;
+        char **dst;
+        int r;
+
+        assert(source);
+        assert(_mkdir);
+
+        src_abs = path_join(root, source);
+        if (!src_abs)
+                return -ENOMEM;
+
+        STRV_FOREACH(dst, symlinks) {
+                _cleanup_free_ char *dst_abs = NULL;
+
+                dst_abs = path_join(root, *dst);
+                if (!dst_abs)
+                        return -ENOMEM;
+
+                r = _mkdir(dst_abs, 0755);
+                if (r < 0)
+                        return r;
+
+                r = symlink_idempotent(src_abs, dst_abs, true);
+                if (r < 0)
+                        return r;
+        }
+
+        return 0;
+}
