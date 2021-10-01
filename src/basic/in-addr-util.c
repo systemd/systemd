@@ -669,28 +669,71 @@ int in_addr_mask(int family, union in_addr_union *addr, unsigned char prefixlen)
         }
 }
 
-int in_addr_prefix_covers(int family,
-                          const union in_addr_union *prefix,
-                          unsigned char prefixlen,
-                          const union in_addr_union *address) {
+int in4_addr_prefix_covers(
+                const struct in_addr *prefix,
+                unsigned char prefixlen,
+                const struct in_addr *address) {
 
-        union in_addr_union masked_prefix, masked_address;
+        struct in_addr masked_prefix, masked_address;
         int r;
 
         assert(prefix);
         assert(address);
 
         masked_prefix = *prefix;
-        r = in_addr_mask(family, &masked_prefix, prefixlen);
+        r = in4_addr_mask(&masked_prefix, prefixlen);
         if (r < 0)
                 return r;
 
         masked_address = *address;
-        r = in_addr_mask(family, &masked_address, prefixlen);
+        r = in4_addr_mask(&masked_address, prefixlen);
         if (r < 0)
                 return r;
 
-        return in_addr_equal(family, &masked_prefix, &masked_address);
+        return in4_addr_equal(&masked_prefix, &masked_address);
+}
+
+int in6_addr_prefix_covers(
+                const struct in6_addr *prefix,
+                unsigned char prefixlen,
+                const struct in6_addr *address) {
+
+        struct in6_addr masked_prefix, masked_address;
+        int r;
+
+        assert(prefix);
+        assert(address);
+
+        masked_prefix = *prefix;
+        r = in6_addr_mask(&masked_prefix, prefixlen);
+        if (r < 0)
+                return r;
+
+        masked_address = *address;
+        r = in6_addr_mask(&masked_address, prefixlen);
+        if (r < 0)
+                return r;
+
+        return in6_addr_equal(&masked_prefix, &masked_address);
+}
+
+int in_addr_prefix_covers(
+                int family,
+                const union in_addr_union *prefix,
+                unsigned char prefixlen,
+                const union in_addr_union *address) {
+
+        assert(prefix);
+        assert(address);
+
+        switch (family) {
+        case AF_INET:
+                return in4_addr_prefix_covers(&prefix->in, prefixlen, &address->in);
+        case AF_INET6:
+                return in6_addr_prefix_covers(&prefix->in6, prefixlen, &address->in6);
+        default:
+                return -EAFNOSUPPORT;
+        }
 }
 
 int in_addr_parse_prefixlen(int family, const char *p, unsigned char *ret) {
