@@ -314,6 +314,12 @@ int address_compare_func(const Address *a1, const Address *a2) {
         }
 }
 
+DEFINE_PRIVATE_HASH_OPS(
+        address_hash_ops,
+        Address,
+        address_hash_func,
+        address_compare_func);
+
 DEFINE_PRIVATE_HASH_OPS_WITH_KEY_DESTRUCTOR(
         address_hash_ops_free,
         Address,
@@ -1911,11 +1917,33 @@ static int address_section_verify(Address *address) {
 }
 
 void network_drop_invalid_addresses(Network *network) {
+        _cleanup_set_free_ Set *addresses = NULL;
         Address *address;
+        int r;
 
         assert(network);
 
-        ORDERED_HASHMAP_FOREACH(address, network->addresses_by_section)
-                if (address_section_verify(address) < 0)
+        ORDERED_HASHMAP_FOREACH(address, network->addresses_by_section) {
+                Address *dup;
+
+                if (address_section_verify(address) < 0) {
                         address_free(address);
+                        continue;
+                }
+
+                /* Always use the setting specified later. */
+                dup = set_remove(addresses, address);
+                if (dup) {
+                        log_warning("%s: Duplicated address is specified, dropping address specified at line %u.",
+                                    dup->section->filename, dup->section->line);
+                        address_free(dup);
+                }
+
+                r = set_ensure_put(&addresses, &address_hash_ops, address);
+                if (r < 0)
+                        /* This is just for deduplicating configured addresses. Let's ignore the error here. */
+                        log_oom_debug();
+                else
+                        assert(r > 0);
+        }
 }
