@@ -54,7 +54,9 @@ msgstr "시스템 및 서비스 관리자 환경 변수 설정 또는 설정 해
 msgid ""
 "Authentication is required to set or unset system and service manager "
 "environment variables."
-msgstr "시스템 및 서비스 관리자 환경 변수를 설정하거나 설정 또는 해제하려면 인증이 필요합니다."
+msgstr ""
+"시스템 및 서비스 관리자 환경 변수를 설정하거나 설정 또는 해제하려면 인증이 필"
+"요합니다."
 
 #: src/core/org.freedesktop.systemd1.policy.in:64
 msgid "Reload the systemd state"
@@ -130,7 +132,9 @@ msgstr "정적 호스트 이름 설정"
 msgid ""
 "Authentication is required to set the statically configured local hostname, "
 "as well as the pretty hostname."
-msgstr "로컬 호스트 이름을 지정 호스트 이름처럼 정적으로 설정하려면 인증이 필요합니다."
+msgstr ""
+"로컬 호스트 이름을 지정 호스트 이름처럼 정적으로 설정하려면 인증이 필요합니"
+"다."
 
 #: src/hostname/org.freedesktop.hostname1.policy:41
 msgid "Set machine information"

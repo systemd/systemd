@@ -240,7 +240,8 @@ msgstr "Umožnenie aplikáciám odložiť spánok systému"
 
 #: src/login/org.freedesktop.login1.policy:45
 msgid "Authentication is required for an application to inhibit system sleep."
-msgstr "Vyžaduje sa overenie totožnosti na odloženie spánku systému aplikáciou."
+msgstr ""
+"Vyžaduje sa overenie totožnosti na odloženie spánku systému aplikáciou."
 
 #: src/login/org.freedesktop.login1.policy:55
 msgid "Allow applications to delay system sleep"

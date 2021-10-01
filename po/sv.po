@@ -119,7 +119,8 @@ msgstr "Ändra lösenord för en hemarea"
 #: src/home/org.freedesktop.home1.policy:64
 msgid ""
 "Authentication is required to change the password of a user's home area."
-msgstr "Autentisering krävs för att ändra lösenorded för en användares hemarea."
+msgstr ""
+"Autentisering krävs för att ändra lösenorded för en användares hemarea."
 
 #: src/hostname/org.freedesktop.hostname1.policy:20
 msgid "Set hostname"
