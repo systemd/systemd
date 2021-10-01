@@ -642,9 +642,12 @@ int in6_addr_mask(struct in6_addr *addr, unsigned char prefixlen) {
                 if (prefixlen >= 8) {
                         mask = 0xFF;
                         prefixlen -= 8;
-                } else {
+                } else if (prefixlen > 0) {
                         mask = 0xFF << (8 - prefixlen);
                         prefixlen = 0;
+                } else {
+                        assert(prefixlen == 0);
+                        mask = 0;
                 }
 
                 addr->s6_addr[i] &= mask;
