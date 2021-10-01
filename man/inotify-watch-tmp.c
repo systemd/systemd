@@ -1,3 +1,5 @@
+/* SPDX-License-Identifier: CC0-1.0 */
+
 #include <stdio.h>
 #include <string.h>
 #include <sys/inotify.h>
