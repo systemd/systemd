@@ -151,7 +151,7 @@ static int generate_stable_private_address(
 }
 
 int ndisc_router_generate_addresses(Link *link, struct in6_addr *prefix, uint8_t prefixlen, Set **ret) {
-        _cleanup_set_free_free_ Set *addresses = NULL;
+        _cleanup_set_free_ Set *addresses = NULL;
         struct in6_addr masked;
         IPv6Token *j;
         int r;
@@ -164,61 +164,53 @@ int ndisc_router_generate_addresses(Link *link, struct in6_addr *prefix, uint8_t
         masked = *prefix;
         in6_addr_mask(&masked, prefixlen);
 
-        addresses = set_new(&in6_addr_hash_ops);
-        if (!addresses)
-                return log_oom();
-
         SET_FOREACH(j, link->network->ndisc_tokens) {
-                _cleanup_free_ struct in6_addr *new_address = NULL;
+                struct in6_addr addr, *copy;
 
-                if (j->type == ADDRESS_GENERATION_PREFIXSTABLE
-                    && (in6_addr_is_null(&j->address) || in6_addr_equal(&j->address, &masked))) {
-                        struct in6_addr addr;
+                switch (j->type) {
+                case ADDRESS_GENERATION_STATIC:
+                        memcpy(addr.s6_addr, masked.s6_addr, 8);
+                        memcpy(addr.s6_addr + 8, j->address.s6_addr + 8, 8);
+                        break;
+
+                case ADDRESS_GENERATION_PREFIXSTABLE:
+                        if (in6_addr_is_set(&j->address) && !in6_addr_equal(&j->address, &masked))
+                                continue;
 
                         if (generate_stable_private_address(link, &NDISC_APP_ID, &masked, &addr) < 0)
                                 continue;
 
-                        new_address = newdup(struct in6_addr, &addr, 1);
-                        if (!new_address)
-                                return log_oom();
+                        break;
 
-                } else if (j->type == ADDRESS_GENERATION_STATIC) {
-                        new_address = new(struct in6_addr, 1);
-                        if (!new_address)
-                                return log_oom();
-
-                        memcpy(new_address->s6_addr, masked.s6_addr, 8);
-                        memcpy(new_address->s6_addr + 8, j->address.s6_addr + 8, 8);
+                default:
+                        assert_not_reached();
                 }
 
-                if (new_address) {
-                        r = set_put(addresses, new_address);
-                        if (r < 0)
-                                return log_link_error_errno(link, r, "Failed to store SLAAC address: %m");
-                        else if (r == 0)
-                                log_link_debug_errno(link, r, "Generated SLAAC address is duplicated, ignoring.");
-                        else
-                                TAKE_PTR(new_address);
-                }
+                copy = newdup(struct in6_addr, &addr, 1);
+                if (!copy)
+                        return -ENOMEM;
+
+                r = set_ensure_consume(&addresses, &in6_addr_hash_ops_free, copy);
+                if (r < 0)
+                        return r;
         }
 
-        /* fall back to EUI-64 if no tokens provided addresses */
+        /* fall back to EUI-64 if no token is provided */
         if (set_isempty(addresses)) {
                 struct in6_addr *addr;
 
                 addr = new(struct in6_addr, 1);
                 if (!addr)
-                        return log_oom();
+                        return -ENOMEM;
 
                 generate_eui64_address(link, &masked, addr);
 
-                r = set_consume(addresses, addr);
+                r = set_ensure_consume(&addresses, &in6_addr_hash_ops_free, addr);
                 if (r < 0)
-                        return log_link_error_errno(link, r, "Failed to store SLAAC address: %m");
+                        return r;
         }
 
         *ret = TAKE_PTR(addresses);
-
         return 0;
 }
 
