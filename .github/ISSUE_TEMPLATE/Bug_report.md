@@ -1,7 +1,7 @@
 ---
 name: Bug report
 about: A report of an error in a recent systemd version
-
+SPDX-License-Identifier: LGPL-2.1-or-later
 ---
 
 **systemd version the issue has been seen with**

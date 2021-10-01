@@ -1,7 +1,7 @@
 ---
 name: Feature request
 about: Suggest an improvement
-
+SPDX-License-Identifier: LGPL-2.1-or-later
 ---
 
 **Is your feature request related to a problem? Please describe.**

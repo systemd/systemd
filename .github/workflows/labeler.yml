@@ -1,4 +1,9 @@
+---
+# vi: ts=2 sw=2 et:
+# SPDX-License-Identifier: LGPL-2.1-or-later
+#
 name: "Pull Request Labeler"
+
 on:
 - pull_request_target
 

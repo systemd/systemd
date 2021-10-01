@@ -1,4 +1,5 @@
 #compdef systemd-path
+# SPDX-License-Identifier: LGPL-2.1-or-later
 
 typeset -A sdpath=( ${$(systemd-path)/:/} )
 _arguments -S \
