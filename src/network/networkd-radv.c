@@ -215,6 +215,17 @@ int link_request_radv_addresses(Link *link) {
                 if (r < 0)
                         return r;
 
+                /* generate_eui64_address() below requires the prefix length <= 64. */
+                if (prefixlen > 64) {
+                        _cleanup_free_ char *str = NULL;
+
+                        (void) in6_addr_prefix_to_string(&prefix, prefixlen, &str);
+                        log_link_debug(link,
+                                       "Prefix is longer than 64, refusing to assign an address in %s.",
+                                       strna(str));
+                        continue;
+                }
+
                 r = address_new(&address);
                 if (r < 0)
                         return log_oom();
