@@ -5,61 +5,12 @@
 
 #include "macro-fundamental.h"
 
-#ifndef EFI_RNG_PROTOCOL_GUID
-
-#define EFI_RNG_PROTOCOL_GUID                                           \
-          { 0x3152bca5, 0xeade, 0x433d, {0x86, 0x2e, 0xc0, 0x1c, 0xdc, 0x29, 0x1f, 0x44} }
-
-typedef EFI_GUID EFI_RNG_ALGORITHM;
-
-#define EFI_RNG_ALGORITHM_SP800_90_HASH_256_GUID       \
-     {0xa7af67cb, 0x603b, 0x4d42, {0xba, 0x21, 0x70, 0xbf, 0xb6, 0x29, 0x3f, 0x96} }
-
-#define EFI_RNG_ALGORITHM_SP800_90_HMAC_256_GUID       \
-     {0xc5149b43, 0xae85, 0x4f53, {0x99, 0x82, 0xb9, 0x43, 0x35, 0xd3, 0xa9, 0xe7} }
-
-#define EFI_RNG_ALGORITHM_SP800_90_CTR_256_GUID        \
-     {0x44f0de6e, 0x4d8c, 0x4045, {0xa8, 0xc7, 0x4d, 0xd1, 0x68, 0x85, 0x6b, 0x9e} }
-
-#define EFI_RNG_ALGORITHM_X9_31_3DES_GUID              \
-     {0x63c4785a, 0xca34, 0x4012, {0xa3, 0xc8, 0x0b, 0x6a, 0x32, 0x4f, 0x55, 0x46} }
-
-#define EFI_RNG_ALGORITHM_X9_31_AES_GUID               \
-     {0xacd03321, 0x777e, 0x4d3d, {0xb1, 0xc8, 0x20, 0xcf, 0xd8, 0x88, 0x20, 0xc9} }
-
-#define EFI_RNG_ALGORITHM_RAW                          \
-     {0xe43176d7, 0xb6e8, 0x4827, {0xb7, 0x84, 0x7f, 0xfd, 0xc4, 0xb6, 0x85, 0x61} }
-
-INTERFACE_DECL(_EFI_RNG_PROTOCOL);
-
-typedef
-EFI_STATUS
-(EFIAPI *EFI_RNG_GET_INFO) (
-  IN      struct _EFI_RNG_PROTOCOL   *This,
-  IN OUT  UINTN                      *RNGAlgorithmListSize,
-  OUT     EFI_RNG_ALGORITHM          *RNGAlgorithmList
-);
-
-typedef
-EFI_STATUS
-(EFIAPI *EFI_RNG_GET_RNG) (
-  IN      struct _EFI_RNG_PROTOCOL   *This,
-  IN      EFI_RNG_ALGORITHM          *RNGAlgorithm,           OPTIONAL
-  IN      UINTN                      RNGValueLength,
-  OUT     UINT8                      *RNGValue
-);
-
-typedef struct _EFI_RNG_PROTOCOL {
-          EFI_RNG_GET_INFO           GetInfo;
-          EFI_RNG_GET_RNG            GetRNG;
-} EFI_RNG_PROTOCOL;
-
-#endif
-
+/* gnu-efi 3.0.13 */
 #ifndef EFI_SIMPLE_TEXT_INPUT_EX_PROTOCOL_GUID
 
 #define EFI_SIMPLE_TEXT_INPUT_EX_PROTOCOL_GUID \
     { 0xdd9e7534, 0x7762, 0x4698, {0x8c, 0x14, 0xf5, 0x85, 0x17, 0xa6, 0x25, 0xaa} }
+#define SimpleTextInputExProtocol ((EFI_GUID)EFI_SIMPLE_TEXT_INPUT_EX_PROTOCOL_GUID)
 
 #define EFI_SHIFT_STATE_VALID           0x80000000
 #define EFI_RIGHT_CONTROL_PRESSED       0x00000004
@@ -123,10 +74,12 @@ typedef struct _EFI_SIMPLE_TEXT_INPUT_EX_PROTOCOL {
 
 #endif
 
+/* gnu-efi 3.0.14 */
 #ifndef EFI_IMAGE_MACHINE_RISCV64
         #define EFI_IMAGE_MACHINE_RISCV64 0x5064
 #endif
 
+/* gnu-efi 3.0.14 */
 #ifndef EFI_DTB_TABLE_GUID
 #define EFI_DTB_TABLE_GUID \
         { 0xb1b621d5, 0xf19c, 0x41a5, {0x83, 0x0b, 0xd9, 0x15, 0x2c, 0x69, 0xaa, 0xe0} }
@@ -160,6 +113,11 @@ struct _EFI_DT_FIXUP_PROTOCOL {
         UINT64         Revision;
         EFI_DT_FIXUP   Fixup;
 };
+
+#endif
+
+/* TCG EFI Protocol Specification */
+#ifndef EFI_TCG_GUID
 
 #define EFI_TCG_GUID \
         &(const EFI_GUID) { 0xf541796d, 0xa62e, 0x4954, { 0xa7, 0x75, 0x95, 0x84, 0xf6, 0x1b, 0x9c, 0xdd } }
@@ -256,6 +214,11 @@ typedef struct _EFI_TCG {
         EFI_TCG_HASH_LOG_EXTEND_EVENT HashLogExtendEvent;
 } EFI_TCG;
 
+#endif
+
+/* TCG EFI Protocol Specification */
+#ifndef EFI_TCG2_GUID
+
 #define EFI_TCG2_GUID \
         &(const EFI_GUID) { 0x607f766c, 0x7455, 0x42be, { 0x93, 0x0b, 0xe4, 0xd7, 0x6d, 0xb2, 0x72, 0x0f } }
 
@@ -329,5 +292,83 @@ typedef struct tdEFI_TCG2_PROTOCOL {
         EFI_TCG2_SET_ACTIVE_PCR_BANKS SetActivePcrBanks;
         EFI_TCG2_GET_RESULT_OF_SET_ACTIVE_PCR_BANKS GetResultOfSetActivePcrBanks;
 } EFI_TCG2;
+
+#endif
+
+/* UEFI Platform Initialization (Vol2: DXE) */
+#ifndef SECURITY_PROTOCOL_GUID
+
+#define SECURITY_PROTOCOL_GUID \
+        &(const EFI_GUID) { 0xa46423e3, 0x4617, 0x49f1, { 0xb9, 0xff, 0xd1, 0xbf, 0xa9, 0x11, 0x58, 0x39 } }
+#define SECURITY_PROTOCOL2_GUID \
+        &(const EFI_GUID) { 0x94ab2f58, 0x1438, 0x4ef1, { 0x91, 0x52, 0x18, 0x94, 0x1a, 0x3a, 0x0e, 0x68 } }
+
+struct _EFI_SECURITY2_PROTOCOL;
+struct _EFI_SECURITY_PROTOCOL;
+struct _EFI_DEVICE_PATH_PROTOCOL;
+
+typedef struct _EFI_SECURITY2_PROTOCOL EFI_SECURITY2_PROTOCOL;
+typedef struct _EFI_SECURITY_PROTOCOL EFI_SECURITY_PROTOCOL;
+typedef struct _EFI_DEVICE_PATH_PROTOCOL EFI_DEVICE_PATH_PROTOCOL;
+
+typedef EFI_STATUS (EFIAPI *EFI_SECURITY_FILE_AUTHENTICATION_STATE) (
+        const EFI_SECURITY_PROTOCOL *This,
+        UINT32 AuthenticationStatus,
+        const EFI_DEVICE_PATH_PROTOCOL *File
+);
+
+typedef EFI_STATUS (EFIAPI *EFI_SECURITY2_FILE_AUTHENTICATION) (
+        const EFI_SECURITY2_PROTOCOL *This,
+        const EFI_DEVICE_PATH_PROTOCOL *DevicePath,
+        VOID *FileBuffer,
+        UINTN FileSize,
+        BOOLEAN  BootPolicy
+);
+
+struct _EFI_SECURITY2_PROTOCOL {
+        EFI_SECURITY2_FILE_AUTHENTICATION FileAuthentication;
+};
+
+struct _EFI_SECURITY_PROTOCOL {
+        EFI_SECURITY_FILE_AUTHENTICATION_STATE  FileAuthenticationState;
+};
+
+#endif
+
+#ifndef EFI_CONSOLE_CONTROL_GUID
+
+#define EFI_CONSOLE_CONTROL_GUID \
+        &(const EFI_GUID) { 0xf42f7782, 0x12e, 0x4c12, { 0x99, 0x56, 0x49, 0xf9, 0x43, 0x4, 0xf7, 0x21 } }
+
+struct _EFI_CONSOLE_CONTROL_PROTOCOL;
+
+typedef enum {
+        EfiConsoleControlScreenText,
+        EfiConsoleControlScreenGraphics,
+        EfiConsoleControlScreenMaxValue,
+} EFI_CONSOLE_CONTROL_SCREEN_MODE;
+
+typedef EFI_STATUS (EFIAPI *EFI_CONSOLE_CONTROL_PROTOCOL_GET_MODE)(
+        struct _EFI_CONSOLE_CONTROL_PROTOCOL *This,
+        EFI_CONSOLE_CONTROL_SCREEN_MODE *Mode,
+        BOOLEAN *UgaExists,
+        BOOLEAN *StdInLocked
+);
+
+typedef EFI_STATUS (EFIAPI *EFI_CONSOLE_CONTROL_PROTOCOL_SET_MODE)(
+        struct _EFI_CONSOLE_CONTROL_PROTOCOL *This,
+        EFI_CONSOLE_CONTROL_SCREEN_MODE Mode
+);
+
+typedef EFI_STATUS (EFIAPI *EFI_CONSOLE_CONTROL_PROTOCOL_LOCK_STD_IN)(
+        struct _EFI_CONSOLE_CONTROL_PROTOCOL *This,
+        CHAR16 *Password
+);
+
+typedef struct _EFI_CONSOLE_CONTROL_PROTOCOL {
+        EFI_CONSOLE_CONTROL_PROTOCOL_GET_MODE GetMode;
+        EFI_CONSOLE_CONTROL_PROTOCOL_SET_MODE SetMode;
+        EFI_CONSOLE_CONTROL_PROTOCOL_LOCK_STD_IN LockStdIn;
+} EFI_CONSOLE_CONTROL_PROTOCOL;
 
 #endif
