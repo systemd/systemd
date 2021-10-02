@@ -39,7 +39,6 @@ The following exceptions apply:
  * the following sources are licensed under the **MIT** license (in case of our
    scripts, to facilitate copying and reuse of those helpers to other projects):
    - hwdb.d/parse_hwdb.py
-   - man/glib-event-glue.c
    - src/basic/linux/batman_adv.h
    - src/basic/sparse-endian.h
    - tools/catalog-report.py
