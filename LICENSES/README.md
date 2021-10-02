@@ -59,3 +59,11 @@ The following exceptions apply:
    **BSD-3-Clause** license.
  * any files under test/ without an explicit license we assume non-copyrightable
    (eg: computer-generated fuzzer data)
+
+## OpenSSL and libsystemd.so/libudev.so
+
+While the systemd project can be built using OpenSSL to enable various features,
+thus causing some executables to be linked dynamically against libssl/libcrypto,
+the public shared libraries that external projects might link against,
+libsystemd.so and libudev.so, will never be linked against libssl/libcrypto,
+regardless of which build options are chosen.
