@@ -2086,6 +2086,8 @@ if conf.get('ENABLE_ENVIRONMENT_D') == 1
                 install : true,
                 install_dir : userenvgeneratordir)
 
+        install_data('shell',rootlibexecdir)
+
         meson.add_install_script(meson_make_symlink,
                                  sysconfdir / 'environment',
                                  environmentdir / '99-environment.conf')
