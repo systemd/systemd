@@ -4,11 +4,6 @@
 #include <fcntl.h>
 #include <unistd.h>
 
-#if HAVE_OPENSSL
-#include <openssl/hmac.h>
-#include <openssl/sha.h>
-#endif
-
 #include "sd-id128.h"
 
 #include "alloc-util.h"
@@ -16,9 +11,7 @@
 #include "hexdecoct.h"
 #include "id128-util.h"
 #include "io-util.h"
-#if !HAVE_OPENSSL
 #include "khash.h"
-#endif
 #include "macro.h"
 #include "missing_syscall.h"
 #include "random-util.h"
@@ -282,20 +275,6 @@ static int get_app_specific(sd_id128_t base, sd_id128_t app_id, sd_id128_t *ret)
 
         assert(ret);
 
-#if HAVE_OPENSSL
-        /* We prefer doing this in-process, since we this means we are not dependent on kernel configuration,
-         * and this also works in locked down container environments. But some distros don't like OpenSSL's
-         * license and its (in-) compatibility with GPL2, hence also support khash */
-        uint8_t md[256/8];
-        if (!HMAC(EVP_sha256(),
-                  &base, sizeof(base),
-                  (const unsigned char*) &app_id, sizeof(app_id),
-                  md, NULL))
-                return -ENOTRECOVERABLE;
-
-        /* Take only the first half. */
-        memcpy(&result, md, MIN(sizeof(md), sizeof(result)));
-#else
         _cleanup_(khash_unrefp) khash *h = NULL;
         const void *p;
         int r;
@@ -314,7 +293,6 @@ static int get_app_specific(sd_id128_t base, sd_id128_t app_id, sd_id128_t *ret)
 
         /* We chop off the trailing 16 bytes */
         memcpy(&result, p, MIN(khash_get_size(h), sizeof(result)));
-#endif
 
         *ret = id128_make_v4_uuid(result);
         return 0;
