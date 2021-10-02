@@ -57,6 +57,9 @@
     and before starting any units. Environment generators can override the environment that the
     manager exports to services and other processes.</para>
 
+    <para>A shell script located at <filename>/usr/lib/systemd/shell-environment.sh</filename> does the same behaviour for bourne shell. It is
+    recommended to source this at the start of <filename>/etc/profile</filename> in order to set the environment in shell.</para>
+
     <para>Generators are loaded from a set of paths determined during compilation, as listed
     above. System and user environment generators are loaded from directories with names ending in
     <filename>system-environment-generators/</filename> and
