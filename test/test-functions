@@ -1012,6 +1012,13 @@ install_compiled_systemd() {
         exit 1
     fi
     (set -x; DESTDIR="$initdir" "$ninja_bin" -C "$BUILD_DIR" install)
+
+    # If we are doing coverage runs, copy over the binary notes files, as lcov expects to
+    # find them in the same directory as the runtime data counts
+    if meson configure "${BUILD_DIR:?}" | grep 'b_coverage' | awk '{ print $2 }' | grep -q 'true'; then
+        mkdir -p "${initdir}/${BUILD_DIR:?}/"
+        rsync -am --include='*/' --include='*.gcno' --exclude='*' "${BUILD_DIR:?}/" "${initdir}/${BUILD_DIR:?}/"
+    fi
 }
 
 install_debian_systemd() {
@@ -1170,6 +1177,9 @@ create_empty_image() {
         if meson configure "${BUILD_DIR:?}" | grep 'link-.*-shared' | awk '{ print $2 }' | grep -q 'false'; then
             size=$((size+=200))
         fi
+        if meson configure "${BUILD_DIR:?}" | grep 'b_coverage' | awk '{ print $2 }' | grep -q 'true'; then
+            size=$((size+=250))
+        fi
     fi
     if ! get_bool "$STRIP_BINARIES"; then
         size=$((4 * size))
@@ -1272,6 +1282,30 @@ check_asan_reports() {
     return $ret
 }
 
+check_coverage_reports() {
+    local root="${1:?}"
+
+    if get_bool "$NO_BUILD"; then
+        return 0
+    fi
+    if meson configure "${BUILD_DIR:?}" | grep 'b_coverage' | awk '{ print $2 }' | grep -q 'false'; then
+        return 0
+    fi
+
+    if [ -n "${ARTIFACT_DIRECTORY}" ]; then
+        dest="${ARTIFACT_DIRECTORY}/${testname:?}.coverage-info"
+    else
+        dest="${TESTDIR:?}/coverage-info"
+    fi
+
+    # Create a coverage report that will later be uploaded. Remove info about
+    # system libraries/headers, as we don't really care about them.
+    lcov --directory "${root}/${BUILD_DIR:?}" --capture --output-file "${dest}"
+    lcov --remove "${dest}" -o "${dest}" '/usr/include/*' '/usr/lib/*'
+
+    return 0
+}
+
 save_journal() {
     # Default to always saving journal
     local save="yes"
@@ -1341,6 +1375,8 @@ check_result_common() {
     fi
 
     check_asan_reports "$workspace" || ret=4
+
+    check_coverage_reports "$workspace" || ret=5
 
     save_journal "$workspace/var/log/journal" $ret
 
