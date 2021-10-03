@@ -7,7 +7,7 @@ msgstr ""
 "Project-Id-Version: systemd\n"
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2021-01-08 17:48+0100\n"
-"PO-Revision-Date: 2021-02-26 19:40+0000\n"
+"PO-Revision-Date: 2021-10-03 16:04+0000\n"
 "Last-Translator: Slimane Selyan Amiri <selyan.kab@gmail.com>\n"
 "Language-Team: Kabyle <https://translate.fedoraproject.org/projects/systemd/"
 "master/kab/>\n"
@@ -16,11 +16,11 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=n > 1;\n"
-"X-Generator: Weblate 4.4.2\n"
+"X-Generator: Weblate 4.8\n"
 
 #: src/core/org.freedesktop.systemd1.policy.in:22
 msgid "Send passphrase back to system"
-msgstr ""
+msgstr "Azen awal uɛeddi ɣer unagraw"
 
 #: src/core/org.freedesktop.systemd1.policy.in:23
 msgid ""
