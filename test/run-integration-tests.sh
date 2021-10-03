@@ -116,4 +116,17 @@ else
     echo -e "\nTOTAL FAILURES: $FAILURES OF $COUNT"
 fi
 
+# If we have coverage files, merge them into a single report for upload
+if [ -n "${ARTIFACT_DIRECTORY}" ]; then
+    lcov_args=()
+
+    while read -r info_file; do
+        lcov_args+=(--add-tracefile "${info_file}")
+    done < <(find "${ARTIFACT_DIRECTORY}" -maxdepth 1 -name "*.coverage-info")
+
+    if [ ${#lcov_args[@]} -gt 1 ]; then
+        lcov "${lcov_args[@]}" --output-file "${ARTIFACT_DIRECTORY}/merged.coverage-info"
+    fi
+fi
+
 exit "$FAILURES"
