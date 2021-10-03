@@ -392,15 +392,17 @@ int find_hibernate_location(HibernateLocation **ret_hibernate_location) {
                 }
 
                 /* prefer resume device or highest priority swap with most remaining space */
-                if (hibernate_location && swap->priority < hibernate_location->swap->priority) {
-                        log_debug("%s: ignoring device with lower priority", swap->device);
-                        continue;
-                }
-                if (hibernate_location &&
-                    (swap->priority == hibernate_location->swap->priority
-                     && swap->size - swap->used < hibernate_location->swap->size - hibernate_location->swap->used)) {
-                        log_debug("%s: ignoring device with lower usable space", swap->device);
-                        continue;
+                if (sys_resume == 0) {
+                        if (hibernate_location && swap->priority < hibernate_location->swap->priority) {
+                                log_debug("%s: ignoring device with lower priority", swap->device);
+                                continue;
+                        }
+                        if (hibernate_location &&
+                            (swap->priority == hibernate_location->swap->priority
+                             && swap->size - swap->used < hibernate_location->swap->size - hibernate_location->swap->used)) {
+                                log_debug("%s: ignoring device with lower usable space", swap->device);
+                                continue;
+                        }
                 }
 
                 dev_t swap_device;
