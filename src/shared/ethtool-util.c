@@ -400,7 +400,12 @@ int ethtool_get_permanent_macaddr(int *ethtool_fd, const char *ifname, struct et
                 dest = _v;                             \
         } while(false)
 
-int ethtool_set_wol(int *ethtool_fd, const char *ifname, uint32_t wolopts) {
+int ethtool_set_wol(
+                int *ethtool_fd,
+                const char *ifname,
+                uint32_t wolopts,
+                const uint8_t *password) {
+
         struct ethtool_wolinfo ecmd = {
                 .cmd = ETHTOOL_GWOL,
         };
@@ -413,7 +418,8 @@ int ethtool_set_wol(int *ethtool_fd, const char *ifname, uint32_t wolopts) {
         assert(ethtool_fd);
         assert(ifname);
 
-        if (wolopts == UINT32_MAX)
+        if (wolopts == UINT32_MAX && !password)
+                /* Nothing requested. Return earlier. */
                 return 0;
 
         r = ethtool_connect(ethtool_fd);
@@ -425,16 +431,37 @@ int ethtool_set_wol(int *ethtool_fd, const char *ifname, uint32_t wolopts) {
         if (ioctl(*ethtool_fd, SIOCETHTOOL, &ifr) < 0)
                 return -errno;
 
+        if (wolopts == UINT32_MAX) {
+                /* When password is specified without valid WoL options specified, then enable
+                 * WAKE_MAGICSECURE flag. */
+                wolopts = ecmd.wolopts;
+                if (password)
+                        wolopts |= WAKE_MAGICSECURE;
+        }
+
+        if (!FLAGS_SET(wolopts, WAKE_MAGICSECURE))
+                /* When WAKE_MAGICSECURE flag is not set, then ignore password. */
+                password = NULL;
+
         UPDATE(ecmd.wolopts, wolopts, need_update);
+        if (password &&
+            memcmp(ecmd.sopass, password, sizeof(ecmd.sopass)) != 0) {
+                memcpy(ecmd.sopass, password, sizeof(ecmd.sopass));
+                need_update = true;
+        }
 
-        if (!need_update)
+        if (!need_update) {
+                zero(ecmd);
                 return 0;
+        }
 
+        r = 0;
         ecmd.cmd = ETHTOOL_SWOL;
         if (ioctl(*ethtool_fd, SIOCETHTOOL, &ifr) < 0)
-                return -errno;
+                r = -errno;
 
-        return 0;
+        zero(ecmd);
+        return r;
 }
 
 int ethtool_set_nic_buffer_size(int *ethtool_fd, const char *ifname, const netdev_ring_param *ring) {
