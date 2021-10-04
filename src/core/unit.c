@@ -1856,8 +1856,8 @@ int unit_start(Unit *u) {
         assert(u);
 
         /* Check start rate limiting early so that failure conditions don't cause us to enter a busy loop. */
-        if (UNIT_VTABLE(u)->test_start_limit) {
-                int r = UNIT_VTABLE(u)->test_start_limit(u);
+        if (UNIT_VTABLE(u)->test_start_inhibitors) {
+                int r = UNIT_VTABLE(u)->test_start_inhibitors(u);
                 if (r < 0)
                         return r;
         }

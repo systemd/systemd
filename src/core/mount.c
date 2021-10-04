@@ -2136,7 +2136,7 @@ static int mount_can_clean(Unit *u, ExecCleanMask *ret) {
         return exec_context_get_clean_mask(&m->exec_context, ret);
 }
 
-static int mount_test_start_limit(Unit *u) {
+static int mount_test_start_inhibitors(Unit *u) {
         Mount *m = MOUNT(u);
         int r;
 
@@ -2249,5 +2249,5 @@ const UnitVTable mount_vtable = {
                 },
         },
 
-        .test_start_limit = mount_test_start_limit,
+        .test_start_inhibitors = mount_test_start_inhibitors,
 };

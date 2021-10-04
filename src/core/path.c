@@ -806,7 +806,7 @@ static void path_reset_failed(Unit *u) {
         p->result = PATH_SUCCESS;
 }
 
-static int path_test_start_limit(Unit *u) {
+static int path_test_start_inhibitors(Unit *u) {
         Path *p = PATH(u);
         int r;
 
@@ -876,5 +876,5 @@ const UnitVTable path_vtable = {
 
         .bus_set_property = bus_path_set_property,
 
-        .test_start_limit = path_test_start_limit,
+        .test_start_inhibitors = path_test_start_inhibitors,
 };
