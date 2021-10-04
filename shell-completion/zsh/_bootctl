@@ -46,6 +46,8 @@ _bootctl_reboot-to-firmware() {
         "list:List boot loader entries"
         "set-default:Set the default boot loader entry"
         "set-oneshot:Set the default boot loader entry only for the next boot"
+        "set-timeout:Set the menu timeout"
+        "set-timeout-oneshot:Set the menu timeout for the next boot only"
     )
     if (( CURRENT == 1 )); then
         _describe -t commands 'bootctl command' _bootctl_cmds || compadd "$@"

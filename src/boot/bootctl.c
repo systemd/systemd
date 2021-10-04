@@ -1099,6 +1099,9 @@ static int help(int argc, char *argv[], void *userdata) {
                "  list                List boot loader entries\n"
                "  set-default ID      Set default boot loader entry\n"
                "  set-oneshot ID      Set default boot loader entry, for next boot only\n"
+               "  set-timeout SECONDS Set the menu timeout\n"
+               "  set-timeout-oneshot SECONDS\n"
+               "                      Set the menu timeout for the next boot only\n"
                "\n%3$ssystemd-boot Commands:%4$s\n"
                "  install             Install systemd-boot to the ESP and EFI variables\n"
                "  update              Update systemd-boot in the ESP and EFI variables\n"
@@ -1773,6 +1776,37 @@ static int verb_is_installed(int argc, char *argv[], void *userdata) {
         return EXIT_SUCCESS;
 }
 
+static int parse_timeout(const char *arg1, char16_t **ret_timeout, size_t *ret_timeout_size) {
+        char utf8[DECIMAL_STR_MAX(usec_t)];
+        char16_t *encoded;
+        usec_t timeout;
+        int r;
+
+        assert(arg1);
+        assert(ret_timeout);
+        assert(ret_timeout_size);
+
+        if (streq(arg1, "menu-force"))
+                timeout = USEC_INFINITY;
+        else if (streq(arg1, "menu-hidden"))
+                timeout = 0;
+        else {
+                r = parse_time(arg1, &timeout, USEC_PER_SEC);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to parse timeout '%s': %m", arg1);
+                if (timeout != USEC_INFINITY && timeout > UINT32_MAX * USEC_PER_SEC)
+                        log_warning("Timeout is too long and will be treated as 'menu-force' instead.");
+        }
+
+        xsprintf(utf8, USEC_FMT, MIN(timeout / USEC_PER_SEC, UINT32_MAX));
+        encoded = utf8_to_utf16(utf8, strlen(utf8));
+        if (!encoded)
+                return log_oom();
+        *ret_timeout = encoded;
+        *ret_timeout_size = char16_strlen(encoded) * 2 + 2;
+        return 0;
+}
+
 static int parse_loader_entry_target_arg(const char *arg1, char16_t **ret_target, size_t *ret_target_size) {
         int r;
         if (streq(arg1, "@current")) {
@@ -1798,7 +1832,7 @@ static int parse_loader_entry_target_arg(const char *arg1, char16_t **ret_target
         return 0;
 }
 
-static int verb_set_default(int argc, char *argv[], void *userdata) {
+static int verb_set_efivar(int argc, char *argv[], void *userdata) {
         int r;
 
         if (!is_efi_boot())
@@ -1821,24 +1855,39 @@ static int verb_set_default(int argc, char *argv[], void *userdata) {
 
         if (!arg_touch_variables)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "'%s' operation cannot be combined with --touch-variables=no.",
+                                       "'%s' operation cannot be combined with --no-variables.",
                                        argv[0]);
 
-        const char *variable = streq(argv[0], "set-default") ?
-                EFI_LOADER_VARIABLE(LoaderEntryDefault) : EFI_LOADER_VARIABLE(LoaderEntryOneShot);
+        const char *variable;
+        int (* arg_parser)(const char *, char16_t **, size_t *);
+
+        if (streq(argv[0], "set-default")) {
+                variable = EFI_LOADER_VARIABLE(LoaderEntryDefault);
+                arg_parser = parse_loader_entry_target_arg;
+        } else if (streq(argv[0], "set-oneshot")) {
+                variable = EFI_LOADER_VARIABLE(LoaderEntryOneShot);
+                arg_parser = parse_loader_entry_target_arg;
+        } else if (streq(argv[0], "set-timeout")) {
+                variable = EFI_LOADER_VARIABLE(LoaderConfigTimeout);
+                arg_parser = parse_timeout;
+        } else if (streq(argv[0], "set-timeout-oneshot")) {
+                variable = EFI_LOADER_VARIABLE(LoaderConfigTimeoutOneShot);
+                arg_parser = parse_timeout;
+        } else
+                assert_not_reached();
 
         if (isempty(argv[1])) {
                 r = efi_set_variable(variable, NULL, 0);
                 if (r < 0 && r != -ENOENT)
                         return log_error_errno(r, "Failed to remove EFI variable '%s': %m", variable);
         } else {
-                _cleanup_free_ char16_t *target = NULL;
-                size_t target_size = 0;
+                _cleanup_free_ char16_t *value = NULL;
+                size_t value_size = 0;
 
-                r = parse_loader_entry_target_arg(argv[1], &target, &target_size);
+                r = arg_parser(argv[1], &value, &value_size);
                 if (r < 0)
                         return r;
-                r = efi_set_variable(variable, target, target_size);
+                r = efi_set_variable(variable, value, value_size);
                 if (r < 0)
                         return log_error_errno(r, "Failed to update EFI variable '%s': %m", variable);
         }
@@ -1943,8 +1992,10 @@ static int bootctl_main(int argc, char *argv[]) {
                 { "remove",              VERB_ANY, 1,        0,            verb_remove              },
                 { "is-installed",        VERB_ANY, 1,        0,            verb_is_installed        },
                 { "list",                VERB_ANY, 1,        0,            verb_list                },
-                { "set-default",         2,        2,        0,            verb_set_default         },
-                { "set-oneshot",         2,        2,        0,            verb_set_default         },
+                { "set-default",         2,        2,        0,            verb_set_efivar          },
+                { "set-oneshot",         2,        2,        0,            verb_set_efivar          },
+                { "set-timeout",         2,        2,        0,            verb_set_efivar          },
+                { "set-timeout-oneshot", 2,        2,        0,            verb_set_efivar          },
                 { "random-seed",         VERB_ANY, 1,        0,            verb_random_seed         },
                 { "systemd-efi-options", VERB_ANY, 2,        0,            verb_systemd_efi_options },
                 { "reboot-to-firmware",  VERB_ANY, 2,        0,            verb_reboot_to_firmware  },
