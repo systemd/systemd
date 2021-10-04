@@ -2141,6 +2141,9 @@ static int mount_can_start(Unit *u) {
 
         assert(m);
 
+        if (sd_event_source_is_ratelimited(u->manager->mount_event_source))
+                return -EAGAIN;
+
         r = unit_test_start_limit(u);
         if (r < 0) {
                 mount_enter_dead(m, MOUNT_FAILURE_START_LIMIT_HIT);
