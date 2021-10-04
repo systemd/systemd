@@ -535,14 +535,17 @@ int network_load_one(Manager *manager, OrderedHashmap **networks, const char *fi
 
         r = network_add_ipv4ll_route(network);
         if (r < 0)
-                log_warning_errno(r, "%s: Failed to add IPv4LL route, ignoring: %m", network->filename);
+                return log_warning_errno(r, "%s: Failed to add IPv4LL route: %m", network->filename);
 
         r = network_add_default_route_on_device(network);
         if (r < 0)
-                log_warning_errno(r, "%s: Failed to add default route on device, ignoring: %m",
-                                  network->filename);
+                return log_warning_errno(r, "%s: Failed to add default route on device: %m",
+                                         network->filename);
 
-        if (network_verify(network) < 0)
+        r = network_verify(network);
+        if (r == -ENOMEM)
+                return r;
+        if (r < 0)
                 /* Ignore .network files that do not match the conditions. */
                 return 0;
 
@@ -570,7 +573,7 @@ int network_load(Manager *manager, OrderedHashmap **networks) {
         STRV_FOREACH(f, files) {
                 r = network_load_one(manager, networks, *f);
                 if (r < 0)
-                        log_error_errno(r, "Failed to load %s, ignoring: %m", *f);
+                        return log_error_errno(r, "Failed to load %s: %m", *f);
         }
 
         return 0;
