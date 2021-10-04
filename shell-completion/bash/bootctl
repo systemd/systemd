@@ -57,7 +57,7 @@ _bootctl() {
 
     local -A VERBS=(
         # systemd-efi-options takes an argument, but it is free-form, so we cannot complete it
-        [STANDALONE]='help status install update remove is-installed random-seed systemd-efi-options list'
+        [STANDALONE]='help status install update remove is-installed random-seed systemd-efi-options list set-timeout set-timeout-oneshot'
         [BOOTENTRY]='set-default set-oneshot'
         [BOOLEAN]='reboot-to-firmware'
     )
