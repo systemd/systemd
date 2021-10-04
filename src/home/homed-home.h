@@ -107,7 +107,7 @@ struct Home {
 
         /* The reading side of a FIFO stored in /run/systemd/home/, the writing side being used for reference
          * counting. The references dropped to zero as soon as we see EOF. This concept exists twice: once
-         * for clients that are fine if we suspend the home directory on system suspend, and once for cliets
+         * for clients that are fine if we suspend the home directory on system suspend, and once for clients
          * that are not ok with that. This allows us to determine for each home whether there are any clients
          * that support unsuspend. */
         sd_event_source *ref_event_source_please_suspend;
