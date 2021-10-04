@@ -4,89 +4,62 @@
 #include <efilib.h>
 
 #include "linux.h"
+#include "initrd.h"
 #include "util.h"
 
-#ifdef __i386__
-#define __regparm0__ __attribute__((regparm(0)))
-#else
-#define __regparm0__
-#endif
-
-typedef VOID(*handover_f)(VOID *image, EFI_SYSTEM_TABLE *table, struct boot_params *params) __regparm0__;
-
-static VOID linux_efi_handover(EFI_HANDLE image, struct boot_params *params) {
-        handover_f handover;
-        UINTN start = (UINTN)params->hdr.code32_start;
-
-        assert(params);
-
-#ifdef __x86_64__
-        asm volatile ("cli");
-        start += 512;
-#endif
-        handover = (handover_f)(start + params->hdr.handover_offset);
-        handover(image, ST, params);
+static void cleanup_initrd_handle(EFI_HANDLE *handle) {
+        if (handle)
+                initrd_deregister(*handle);
 }
 
-EFI_STATUS linux_exec(EFI_HANDLE image,
-                      CHAR8 *cmdline, UINTN cmdline_len,
-                      UINTN linux_addr,
-                      UINTN initrd_addr, UINTN initrd_size) {
+static void cleanup_loaded_image(EFI_HANDLE *handle) {
+        if (handle)
+                uefi_call_wrapper(BS->UnloadImage, 1, handle);
+}
 
-        const struct boot_params *image_params;
-        struct boot_params *boot_params;
-        EFI_PHYSICAL_ADDRESS addr;
-        UINT8 setup_sectors;
+EFI_STATUS linux_exec(
+                EFI_HANDLE image,
+                CHAR8 *cmdline, UINTN cmdline_len,
+                VOID *linux_buffer, UINTN linux_length,
+                VOID *initrd_buffer, UINTN initrd_size) {
+
         EFI_STATUS err;
+        _cleanup_(cleanup_loaded_image) EFI_HANDLE handle = NULL;
+        _cleanup_(cleanup_initrd_handle) EFI_HANDLE initrd_handle = NULL;
+        EFI_LOADED_IMAGE *loaded_image;
 
         assert(image);
-        assert(cmdline);
+        assert(cmdline || cmdline_len == 0);
+        assert(linux_buffer && linux_length > 0);
+        assert(initrd_buffer || initrd_size == 0);
 
-        image_params = (const struct boot_params *) linux_addr;
-
-        if (image_params->hdr.boot_flag != 0xAA55 ||
-            image_params->hdr.header != SETUP_MAGIC ||
-            image_params->hdr.version < 0x20b ||
-            !image_params->hdr.relocatable_kernel)
+        err = uefi_call_wrapper(BS->OpenProtocol, 6,
+                                image, &LoadedImageProtocol, (VOID **) &loaded_image,
+                                image, NULL, EFI_OPEN_PROTOCOL_GET_PROTOCOL);
+        if (EFI_ERROR(err))
                 return EFI_LOAD_ERROR;
 
-        addr = UINT32_MAX; /* Below the 32bit boundary */
-        err = uefi_call_wrapper(
-                        BS->AllocatePages, 4,
-                        AllocateMaxAddress,
-                        EfiLoaderData,
-                        EFI_SIZE_TO_PAGES(0x4000),
-                        &addr);
+        err = uefi_call_wrapper(BS->LoadImage, 6,
+                                false, image, (EFI_DEVICE_PATH *) loaded_image->FilePath,
+                                linux_buffer, linux_length, &handle);
         if (EFI_ERROR(err))
-                return err;
+                return EFI_LOAD_ERROR;
 
-        boot_params = (struct boot_params *) PHYSICAL_ADDRESS_TO_POINTER(addr);
-        ZeroMem(boot_params, 0x4000);
-        boot_params->hdr = image_params->hdr;
-        boot_params->hdr.type_of_loader = 0xff;
-        setup_sectors = image_params->hdr.setup_sects > 0 ? image_params->hdr.setup_sects : 4;
-        boot_params->hdr.code32_start = (UINT32)linux_addr + (setup_sectors + 1) * 512;
+        err = uefi_call_wrapper(BS->OpenProtocol, 6,
+                                handle, &LoadedImageProtocol, (VOID **) &loaded_image,
+                                image, NULL, EFI_OPEN_PROTOCOL_GET_PROTOCOL);
 
-        if (cmdline) {
-                addr = 0xA0000;
+        if (EFI_ERROR(err))
+                return EFI_LOAD_ERROR;
 
-                err = uefi_call_wrapper(
-                                BS->AllocatePages, 4,
-                                AllocateMaxAddress,
-                                EfiLoaderData,
-                                EFI_SIZE_TO_PAGES(cmdline_len + 1),
-                                &addr);
-                if (EFI_ERROR(err))
-                        return err;
-
-                CopyMem(PHYSICAL_ADDRESS_TO_POINTER(addr), cmdline, cmdline_len);
-                ((CHAR8 *) PHYSICAL_ADDRESS_TO_POINTER(addr))[cmdline_len] = 0;
-                boot_params->hdr.cmd_line_ptr = (UINT32) addr;
+        if (cmdline_len > 0) {
+                loaded_image->LoadOptions = stra_to_str(cmdline);
+                loaded_image->LoadOptionsSize = cmdline_len * 2;
         }
 
-        boot_params->hdr.ramdisk_image = (UINT32) initrd_addr;
-        boot_params->hdr.ramdisk_size = (UINT32) initrd_size;
+        err = initrd_register(initrd_buffer, initrd_size, &initrd_handle);
+        if (EFI_ERROR(err))
+                return EFI_LOAD_ERROR;
 
-        linux_efi_handover(image, boot_params);
-        return EFI_LOAD_ERROR;
+        return uefi_call_wrapper(BS->StartImage, 3, handle, NULL, NULL);
 }
