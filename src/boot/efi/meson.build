@@ -40,6 +40,7 @@ systemd_boot_sources = '''
 
 stub_sources = '''
         linux.c
+        initrd.c
         splash.c
         stub.c
         cpio.c
