@@ -2873,6 +2873,13 @@ static int event_source_leave_ratelimit(sd_event_source *s) {
         ratelimit_reset(&s->rate_limit);
 
         log_debug("Event source %p (%s) left rate limit state.", s, strna(s->description));
+
+        if (s->ratelimit_expire_callback) {
+                r = s->ratelimit_expire_callback(s, s->userdata);
+                if (r < 0)
+                        log_error("Rate limit expiration callback of event source (%s) failed: %m, ignoring.", strna(s->description));
+        }
+
         return 0;
 
 fail:
@@ -4416,6 +4423,13 @@ _public_ int sd_event_source_set_ratelimit(sd_event_source *s, uint64_t interval
                 return r;
 
         s->rate_limit = (RateLimit) { interval, burst };
+        return 0;
+}
+
+_public_ int sd_event_source_set_ratelimit_expire_callback(sd_event_source *s, sd_event_handler_t callback) {
+        assert_return(s, -EINVAL);
+
+        s->ratelimit_expire_callback = callback;
         return 0;
 }
 
