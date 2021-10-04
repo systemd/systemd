@@ -7,9 +7,11 @@
 #include <linux/sockios.h>
 
 #include "conf-parser.h"
+#include "ether-addr-util.h"
 #include "ethtool-util.h"
 #include "extract-word.h"
 #include "fd-util.h"
+#include "fileio.h"
 #include "log.h"
 #include "memory-util.h"
 #include "socket-util.h"
@@ -395,7 +397,12 @@ int ethtool_get_permanent_macaddr(int *ethtool_fd, const char *ifname, struct et
                 dest = _v;                             \
         } while(false)
 
-int ethtool_set_wol(int *ethtool_fd, const char *ifname, uint32_t wolopts) {
+int ethtool_set_wol(
+                int *ethtool_fd,
+                const char *ifname,
+                uint32_t wolopts,
+                const struct ether_addr *secure_on_password) {
+
         struct ethtool_wolinfo ecmd = {
                 .cmd = ETHTOOL_GWOL,
         };
@@ -408,7 +415,7 @@ int ethtool_set_wol(int *ethtool_fd, const char *ifname, uint32_t wolopts) {
         assert(ethtool_fd);
         assert(ifname);
 
-        if (wolopts == UINT32_MAX)
+        if (wolopts == UINT32_MAX && !secure_on_password)
                 return 0;
 
         r = ethtool_connect(ethtool_fd);
@@ -420,7 +427,15 @@ int ethtool_set_wol(int *ethtool_fd, const char *ifname, uint32_t wolopts) {
         if (ioctl(*ethtool_fd, SIOCETHTOOL, &ifr) < 0)
                 return -errno;
 
-        UPDATE(ecmd.wolopts, wolopts, need_update);
+        if (wolopts != UINT32_MAX)
+                UPDATE(ecmd.wolopts, wolopts, need_update);
+
+        if (secure_on_password &&
+            FLAGS_SET(ecmd.wolopts, WAKE_MAGICSECURE) &&
+            memcmp(ecmd.sopass, secure_on_password, sizeof(struct ether_addr)) != 0) {
+                memcpy(ecmd.sopass, secure_on_password, sizeof(struct ether_addr));
+                need_update = true;
+        }
 
         if (!need_update)
                 return 0;
@@ -1356,6 +1371,48 @@ int config_parse_wol(
         else
                 *opts |= new_opts;
 
+        return 0;
+}
+
+int config_parse_wol_secure_on_password(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        _cleanup_(erase_and_freep) struct ether_addr *p = NULL;
+        struct ether_addr **password = data;
+        int r;
+
+        assert(filename);
+        assert(rvalue);
+
+        if (isempty(rvalue)) {
+                *password = erase_and_free(*password);
+                return 0;
+        }
+
+        warn_file_is_world_accessible(filename, NULL, unit, line);
+
+        p = new(struct ether_addr, 1);
+        if (!p)
+                return log_oom();
+
+        r = ether_addr_from_string(rvalue, p);
+        if (r < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, r,
+                           "Failed to parse %s=, ignoring assignment: %s.", lvalue, rvalue);
+                return 0;
+        }
+
+        erase_and_free(*password);
+        *password = TAKE_PTR(p);
         return 0;
 }
 

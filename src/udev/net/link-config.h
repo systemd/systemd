@@ -58,6 +58,7 @@ struct LinkConfig {
         int autonegotiation;
         uint32_t advertise[N_ADVERTISE];
         uint32_t wol;
+        struct ether_addr *wol_secure_on_password;
         NetDevPort port;
         int features[_NET_DEV_FEAT_MAX];
         netdev_channels channels;

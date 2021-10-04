@@ -164,7 +164,7 @@ int ethtool_get_link_info(int *ethtool_fd, const char *ifname,
                           int *ret_autonegotiation, uint64_t *ret_speed,
                           Duplex *ret_duplex, NetDevPort *ret_port);
 int ethtool_get_permanent_macaddr(int *ethtool_fd, const char *ifname, struct ether_addr *ret);
-int ethtool_set_wol(int *ethtool_fd, const char *ifname, uint32_t wolopts);
+int ethtool_set_wol(int *ethtool_fd, const char *ifname, uint32_t wolopts, const struct ether_addr *secure_on_password);
 int ethtool_set_nic_buffer_size(int *ethtool_fd, const char *ifname, const netdev_ring_param *ring);
 int ethtool_set_features(int *ethtool_fd, const char *ifname, const int features[static _NET_DEV_FEAT_MAX]);
 int ethtool_set_glinksettings(int *ethtool_fd, const char *ifname,
@@ -187,6 +187,7 @@ enum ethtool_link_mode_bit_indices ethtool_link_mode_bit_from_string(const char 
 
 CONFIG_PARSER_PROTOTYPE(config_parse_duplex);
 CONFIG_PARSER_PROTOTYPE(config_parse_wol);
+CONFIG_PARSER_PROTOTYPE(config_parse_wol_secure_on_password);
 CONFIG_PARSER_PROTOTYPE(config_parse_port);
 CONFIG_PARSER_PROTOTYPE(config_parse_advertise);
 CONFIG_PARSER_PROTOTYPE(config_parse_ring_buffer_or_channel);

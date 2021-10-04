@@ -537,7 +537,7 @@
             <varlistentry>
               <term><option>secureon</option></term>
               <listitem>
-                <para>Enable secureon(tm) password for MagicPacket(tm).
+                <para>Enable SecureOn(tm) password for MagicPacket(tm).
                 </para>
               </listitem>
             </varlistentry>
@@ -546,6 +546,15 @@
           <para>Defaults to unset, and the device's default will be used. This setting can be specified
           multiple times. If an empty string is assigned, then the all previous assignments are
           cleared.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><varname>WakeOnLanSecureOnPassword=</varname></term>
+        <listitem>
+          <para>Specifies the SecureOn(tm) password for MagicPacket(tm). Takes 6 bytes in Ethernet MAC
+          hex format (<literal>aa:bb:cc:dd:ee:ff</literal>). This will be ignored when
+          <varname>WakeOnLan=</varname> is specified without <literal>secureon</literal>. Defaults to
+          unset, and the current value will not be changed.</para>
         </listitem>
       </varlistentry>
       <varlistentry>

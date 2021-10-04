@@ -56,6 +56,7 @@ static LinkConfig* link_config_free(LinkConfig *link) {
         strv_free(link->alternative_names);
         free(link->alternative_names_policy);
         free(link->alias);
+        erase_and_free(link->wol_secure_on_password);
 
         return mfree(link);
 }
@@ -329,7 +330,7 @@ static int link_config_apply_ethtool_settings(int *ethtool_fd, const LinkConfig 
                                                  port_to_string(config->port));
         }
 
-        r = ethtool_set_wol(ethtool_fd, name, config->wol);
+        r = ethtool_set_wol(ethtool_fd, name, config->wol, config->wol_secure_on_password);
         if (r < 0) {
                 _cleanup_free_ char *str = NULL;
 
