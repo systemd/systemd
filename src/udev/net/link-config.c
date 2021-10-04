@@ -15,6 +15,7 @@
 #include "device-util.h"
 #include "ethtool-util.h"
 #include "fd-util.h"
+#include "fileio.h"
 #include "link-config.h"
 #include "log.h"
 #include "memory-util.h"
@@ -56,6 +57,7 @@ static LinkConfig* link_config_free(LinkConfig *link) {
         strv_free(link->alternative_names);
         free(link->alternative_names_policy);
         free(link->alias);
+        erase_and_free(link->wol_password);
 
         return mfree(link);
 }
@@ -98,6 +100,29 @@ int link_config_ctx_new(LinkConfigContext **ret) {
 
         *ret = TAKE_PTR(ctx);
 
+        return 0;
+}
+
+static int link_parse_wol_password(LinkConfig *link, const char *str) {
+        _cleanup_(erase_and_freep) uint8_t *p = NULL;
+        int r;
+
+        assert(link);
+        assert(str);
+
+        assert_cc(sizeof(struct ether_addr) == SOPASS_MAX);
+
+        p = new(uint8_t, SOPASS_MAX);
+        if (!p)
+                return -ENOMEM;
+
+        /* Reuse ether_addr_from_string(), as their formats are equivalent. */
+        r = ether_addr_from_string(str, (struct ether_addr*) p);
+        if (r < 0)
+                return r;
+
+        erase_and_free(link->wol_password);
+        link->wol_password = TAKE_PTR(p);
         return 0;
 }
 
@@ -176,6 +201,12 @@ int link_load_one(LinkConfigContext *ctx, const char *filename) {
                             filename);
                 link->mac = mfree(link->mac);
         }
+
+        if (link->wol != UINT32_MAX && !eqzero(link->wol_password))
+                /* Enable WAKE_MAGICSECURE flag when WakeOnLanPassword=. Note that when
+                 * WakeOnLanPassword= is set without WakeOnLan=, then ethtool_set_wol() enables
+                 * WAKE_MAGICSECURE flag and other flags are not changed. */
+                link->wol |= WAKE_MAGICSECURE;
 
         log_debug("Parsed configuration file %s", filename);
 
@@ -329,7 +360,7 @@ static int link_config_apply_ethtool_settings(int *ethtool_fd, const LinkConfig 
                                                  port_to_string(config->port));
         }
 
-        r = ethtool_set_wol(ethtool_fd, name, config->wol);
+        r = ethtool_set_wol(ethtool_fd, name, config->wol, config->wol_password);
         if (r < 0) {
                 _cleanup_free_ char *str = NULL;
 
@@ -779,6 +810,45 @@ int config_parse_txqueuelen(
         }
 
         *v = k;
+        return 0;
+}
+
+int config_parse_wol_password(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        LinkConfig *link = userdata;
+        int r;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(userdata);
+
+        if (isempty(rvalue)) {
+                link->wol_password = erase_and_free(link->wol_password);
+                return 0;
+        }
+
+        warn_file_is_world_accessible(filename, NULL, unit, line);
+
+        r = link_parse_wol_password(link, rvalue);
+        if (r == -ENOMEM)
+                return log_oom();
+        if (r < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, r,
+                           "Failed to parse %s=, ignoring assignment: %s.", lvalue, rvalue);
+                return 0;
+        }
+
         return 0;
 }
 
