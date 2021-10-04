@@ -623,6 +623,11 @@ static int ratelimit_time_handler(sd_event_source *s, uint64_t usec, void *userd
         return 0;
 }
 
+static int expired = -1;
+static int ratelimit_expired(sd_event_source *s, void *userdata) {
+        return ++expired;
+}
+
 static void test_ratelimit(void) {
         _cleanup_close_pair_ int p[2] = {-1, -1};
         _cleanup_(sd_event_unrefp) sd_event *e = NULL;
@@ -686,12 +691,19 @@ static void test_ratelimit(void) {
 
         assert_se(sd_event_source_set_ratelimit(s, 1 * USEC_PER_SEC, 10) >= 0);
 
+        /* Set callback that will be invoked when we leave rate limited state. */
+        assert_se(sd_event_source_set_ratelimit_expire_callback(s, ratelimit_expired) >= 0);
+
         do {
                 assert_se(sd_event_run(e, UINT64_MAX) >= 0);
         } while (!sd_event_source_is_ratelimited(s));
 
         log_info("ratelimit_time_handler: called 10 more times, event source got ratelimited");
         assert_se(count == 20);
+
+        /* Dispatch the event loop once more and check that ratelimit expiration callback got called */
+        assert_se(sd_event_run(e, UINT64_MAX) >= 0);
+        assert_se(expired == 0);
 }
 
 static void test_simple_timeout(void) {
