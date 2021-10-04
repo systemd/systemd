@@ -2136,7 +2136,7 @@ static int mount_can_clean(Unit *u, ExecCleanMask *ret) {
         return exec_context_get_clean_mask(&m->exec_context, ret);
 }
 
-static int mount_test_start_limit(Unit *u) {
+static int mount_can_start(Unit *u) {
         Mount *m = MOUNT(u);
         int r;
 
@@ -2148,7 +2148,7 @@ static int mount_test_start_limit(Unit *u) {
                 return r;
         }
 
-        return 0;
+        return 1;
 }
 
 static const char* const mount_exec_command_table[_MOUNT_EXEC_COMMAND_MAX] = {
@@ -2249,5 +2249,5 @@ const UnitVTable mount_vtable = {
                 },
         },
 
-        .test_start_limit = mount_test_start_limit,
+        .can_start = mount_can_start,
 };

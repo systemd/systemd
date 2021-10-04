@@ -4475,7 +4475,7 @@ static const char *service_finished_job(Unit *u, JobType t, JobResult result) {
         return NULL;
 }
 
-static int service_test_start_limit(Unit *u) {
+static int service_can_start(Unit *u) {
         Service *s = SERVICE(u);
         int r;
 
@@ -4488,7 +4488,7 @@ static int service_test_start_limit(Unit *u) {
                 return r;
         }
 
-        return 0;
+        return 1;
 }
 
 static const char* const service_restart_table[_SERVICE_RESTART_MAX] = {
@@ -4655,5 +4655,5 @@ const UnitVTable service_vtable = {
                 .finished_job = service_finished_job,
         },
 
-        .test_start_limit = service_test_start_limit,
+        .can_start = service_can_start,
 };
