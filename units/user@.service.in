@@ -25,3 +25,4 @@ Delegate=pids memory
 TasksMax=infinity
 TimeoutStopSec=120s
 KeyringMode=inherit
+OOMScoreAdjust=100

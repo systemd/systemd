@@ -493,6 +493,8 @@ node /org/freedesktop/systemd1 {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly s DefaultOOMPolicy = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly i DefaultOOMScoreAdjust = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly s CtrlAltDelBurstAction = '...';
   };
   interface org.freedesktop.DBus.Peer { ... };
@@ -734,6 +736,8 @@ node /org/freedesktop/systemd1 {
     <!--property TimerSlackNSec is not documented!-->
 
     <!--property DefaultOOMPolicy is not documented!-->
+
+    <!--property DefaultOOMScoreAdjust is not documented!-->
 
     <!--property CtrlAltDelBurstAction is not documented!-->
 
@@ -1130,6 +1134,8 @@ node /org/freedesktop/systemd1 {
     <variablelist class="dbus-property" generated="True" extra-ref="TimerSlackNSec"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="DefaultOOMPolicy"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="DefaultOOMScoreAdjust"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="CtrlAltDelBurstAction"/>
 
