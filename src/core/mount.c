@@ -2148,6 +2148,9 @@ static int mount_test_start_inhibitors(Unit *u) {
                 return r;
         }
 
+        if (sd_event_source_is_ratelimited(u->manager->mount_event_source))
+                return -EAGAIN;
+
         return 0;
 }
 
