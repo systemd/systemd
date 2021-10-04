@@ -45,7 +45,7 @@
 /* Let's assume that anything above this number is a user misconfiguration. */
 #define MAX_NTP_SERVERS 128
 
-static int network_resolve_netdev_one(Network *network, const char *name, NetDevKind kind, NetDev **ret_netdev) {
+static int network_resolve_netdev_one(Network *network, const char *name, NetDevKind kind, NetDev **ret) {
         const char *kind_string;
         NetDev *netdev;
         int r;
@@ -57,22 +57,22 @@ static int network_resolve_netdev_one(Network *network, const char *name, NetDev
         assert(network);
         assert(network->manager);
         assert(network->filename);
-        assert(ret_netdev);
+        assert(ret);
 
         if (kind == _NETDEV_KIND_TUNNEL)
                 kind_string = "tunnel";
         else {
                 kind_string = netdev_kind_to_string(kind);
                 if (!kind_string)
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                               "%s: Invalid NetDev kind of %s, ignoring assignment.",
-                                               network->filename, name);
+                        return log_warning_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                 "%s: Invalid NetDev kind of %s, ignoring assignment.",
+                                                 network->filename, name);
         }
 
         r = netdev_get(network->manager, name, &netdev);
         if (r < 0)
-                return log_error_errno(r, "%s: %s NetDev could not be found, ignoring assignment.",
-                                       network->filename, name);
+                return log_warning_errno(r, "%s: %s NetDev could not be found, ignoring assignment.",
+                                         network->filename, name);
 
         if (netdev->kind != kind && !(kind == _NETDEV_KIND_TUNNEL &&
                                       IN_SET(netdev->kind,
@@ -86,11 +86,11 @@ static int network_resolve_netdev_one(Network *network, const char *name, NetDev
                                              NETDEV_KIND_VTI6,
                                              NETDEV_KIND_IP6TNL,
                                              NETDEV_KIND_ERSPAN)))
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "%s: NetDev %s is not a %s, ignoring assignment",
-                                       network->filename, name, kind_string);
+                return log_warning_errno(SYNTHETIC_ERRNO(EINVAL),
+                                         "%s: NetDev %s is not a %s, ignoring assignment",
+                                         network->filename, name, kind_string);
 
-        *ret_netdev = netdev_ref(netdev);
+        *ret = netdev_ref(netdev);
         return 1;
 }
 
@@ -103,16 +103,15 @@ static int network_resolve_stacked_netdevs(Network *network) {
         HASHMAP_FOREACH_KEY(kind, name, network->stacked_netdev_names) {
                 _cleanup_(netdev_unrefp) NetDev *netdev = NULL;
 
-                r = network_resolve_netdev_one(network, name, PTR_TO_INT(kind), &netdev);
-                if (r <= 0)
+                if (network_resolve_netdev_one(network, name, PTR_TO_INT(kind), &netdev) <= 0)
                         continue;
 
                 r = hashmap_ensure_put(&network->stacked_netdevs, &string_hash_ops, netdev->ifname, netdev);
                 if (r == -ENOMEM)
                         return log_oom();
                 if (r < 0)
-                        return log_error_errno(r, "%s: Failed to add NetDev '%s' to network: %m",
-                                               network->filename, (const char *) name);
+                        log_warning_errno(r, "%s: Failed to add NetDev '%s' to network, ignoring: %m",
+                                          network->filename, (const char *) name);
 
                 netdev = NULL;
         }
@@ -162,7 +161,9 @@ int network_verify(Network *network) {
         (void) network_resolve_netdev_one(network, network->bond_name, NETDEV_KIND_BOND, &network->bond);
         (void) network_resolve_netdev_one(network, network->bridge_name, NETDEV_KIND_BRIDGE, &network->bridge);
         (void) network_resolve_netdev_one(network, network->vrf_name, NETDEV_KIND_VRF, &network->vrf);
-        (void) network_resolve_stacked_netdevs(network);
+        r = network_resolve_stacked_netdevs(network);
+        if (r < 0)
+                return r;
 
         /* Free unnecessary entries. */
         network->batadv_name = mfree(network->batadv_name);
