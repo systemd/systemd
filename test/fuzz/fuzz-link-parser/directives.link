@@ -28,6 +28,7 @@ BitsPerSecond=
 Duplex=
 AutoNegotiation=
 WakeOnLan=
+WakeOnLanSecureOnPassword=
 Port=
 ReceiveChecksumOffload=
 TransmitChecksumOffload=
