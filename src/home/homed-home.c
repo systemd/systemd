@@ -134,6 +134,7 @@ int home_new(Manager *m, UserRecord *hr, const char *sysfs, Home **ret) {
                 .sysfs = TAKE_PTR(ns),
                 .signed_locally = -1,
                 .pin_fd = -1,
+                .luks_lock_fd = -1,
         };
 
         r = hashmap_put(m->homes_by_name, home->user_name, home);
@@ -208,6 +209,7 @@ Home *home_free(Home *h) {
         h->current_operation = operation_unref(h->current_operation);
 
         safe_close(h->pin_fd);
+        safe_close(h->luks_lock_fd);
 
         h->retry_deactivate_event_source = sd_event_source_disable_unref(h->retry_deactivate_event_source);
 
@@ -367,6 +369,23 @@ static void home_update_pin_fd(Home *h, HomeState state) {
         return HOME_STATE_SHALL_PIN(state) ? home_pin(h) : home_unpin(h);
 }
 
+static void home_maybe_close_luks_lock_fd(Home *h, HomeState state) {
+        assert(h);
+
+        if (h->luks_lock_fd < 0)
+                return;
+
+        if (state < 0)
+                state = home_get_state(h);
+
+        /* Keep the lock as long as the home dir is active or has some operation going */
+        if (HOME_STATE_IS_EXECUTING_OPERATION(state) || HOME_STATE_IS_ACTIVE(state) || state == HOME_LOCKED)
+                return;
+
+        h->luks_lock_fd = safe_close(h->luks_lock_fd);
+        log_debug("Successfully closed LUKS backing file lock for %s.", h->user_name);
+}
+
 static void home_maybe_stop_retry_deactivate(Home *h, HomeState state) {
         assert(h);
 
@@ -458,6 +477,7 @@ static void home_set_state(Home *h, HomeState state) {
                  home_state_to_string(new_state));
 
         home_update_pin_fd(h, new_state);
+        home_maybe_close_luks_lock_fd(h, new_state);
         home_maybe_stop_retry_deactivate(h, new_state);
 
         if (HOME_STATE_IS_EXECUTING_OPERATION(old_state) && !HOME_STATE_IS_EXECUTING_OPERATION(new_state)) {
@@ -612,6 +632,8 @@ static int convert_worker_errno(Home *h, int e, sd_bus_error *error) {
                 return sd_bus_error_setf(error, BUS_ERROR_NO_DISK_SPACE, "Not enough disk space for home %s", h->user_name);
         case -EKEYREVOKED:
                 return sd_bus_error_setf(error, BUS_ERROR_HOME_CANT_AUTHENTICATE, "Home %s has no password or other authentication mechanism defined.", h->user_name);
+        case -EADDRINUSE:
+                return sd_bus_error_setf(error, BUS_ERROR_HOME_IN_USE, "Home %s is currently being used elsewhere.", h->user_name);
         }
 
         return 0;
@@ -1155,6 +1177,12 @@ static int home_start_work(Home *h, const char *verb, UserRecord *hr, UserRecord
 
                 if (setenv("NOTIFY_SOCKET", unix_path, 1) < 0) {
                         log_error_errno(errno, "Failed to set $NOTIFY_SOCKET: %m");
+                        _exit(EXIT_FAILURE);
+                }
+
+                /* If we haven't locked the device yet, ask for a lock to be taken and be passed back to us via sd_notify(). */
+                if (setenv("SYSTEMD_LUKS_LOCK", one_zero(h->luks_lock_fd < 0), 1) < 0) {
+                        log_error_errno(errno, "Failed to set $SYSTEMD_LUKS_LOCK: %m");
                         _exit(EXIT_FAILURE);
                 }
 
@@ -1957,28 +1985,49 @@ HomeState home_get_state(Home *h) {
         return HOME_INACTIVE;
 }
 
-void home_process_notify(Home *h, char **l) {
+void home_process_notify(Home *h, char **l, int fd) {
+        _cleanup_close_ int taken_fd = TAKE_FD(fd);
         const char *e;
         int error;
         int r;
 
         assert(h);
 
-        e = strv_env_get(l, "ERRNO");
-        if (!e) {
-                log_debug("Got notify message lacking ERRNO= field, ignoring.");
+        e = strv_env_get(l, "SYSTEMD_LUKS_LOCK_FD");
+        if (e) {
+                r = parse_boolean(e);
+                if (r < 0)
+                        return (void) log_debug_errno(r, "Failed to parse SYSTEMD_LUKS_LOCK_FD value: %m");
+                if (r > 0) {
+                        if (taken_fd < 0)
+                                return (void) log_debug("Got notify message with SYSTEMD_LUKS_LOCK_FD=1 but no fd passed, ignoring: %m");
+
+                        safe_close(h->luks_lock_fd);
+                        h->luks_lock_fd = TAKE_FD(taken_fd);
+
+                        log_debug("Successfully acquired LUKS lock fd from worker.");
+
+                        /* Immediately check if we actually want to keep it */
+                        home_maybe_close_luks_lock_fd(h, _HOME_STATE_INVALID);
+                } else {
+                        if (taken_fd >= 0)
+                                return (void) log_debug("Got notify message with SYSTEMD_LUKS_LOCK_FD=0 but fd passed, ignoring: %m");
+
+                        h->luks_lock_fd = safe_close(h->luks_lock_fd);
+                }
+
                 return;
         }
 
+        e = strv_env_get(l, "ERRNO");
+        if (!e)
+                return (void) log_debug("Got notify message lacking both ERRNO= and SYSTEMD_LUKS_LOCK_FD= field, ignoring.");
+
         r = safe_atoi(e, &error);
-        if (r < 0) {
-                log_debug_errno(r, "Failed to parse received error number, ignoring: %s", e);
-                return;
-        }
-        if (error <= 0) {
-                log_debug("Error number is out of range: %i", error);
-                return;
-        }
+        if (r < 0)
+                return (void) log_debug_errno(r, "Failed to parse received error number, ignoring: %s", e);
+        if (error <= 0)
+                return (void) log_debug("Error number is out of range: %i", error);
 
         h->worker_error_code = error;
 }
