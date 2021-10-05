@@ -1245,7 +1245,7 @@ static int ipv6_token_compare_func(const IPv6Token *a, const IPv6Token *b) {
         return memcmp(&a->prefix, &b->prefix, sizeof(struct in6_addr));
 }
 
-DEFINE_HASH_OPS_WITH_KEY_DESTRUCTOR(
+DEFINE_PRIVATE_HASH_OPS_WITH_KEY_DESTRUCTOR(
                 ipv6_token_hash_ops,
                 IPv6Token,
                 ipv6_token_hash_func,

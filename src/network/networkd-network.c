@@ -45,7 +45,7 @@
 /* Let's assume that anything above this number is a user misconfiguration. */
 #define MAX_NTP_SERVERS 128
 
-static int network_resolve_netdev_one(Network *network, const char *name, NetDevKind kind, NetDev **ret_netdev) {
+static int network_resolve_netdev_one(Network *network, const char *name, NetDevKind kind, NetDev **ret) {
         const char *kind_string;
         NetDev *netdev;
         int r;
@@ -57,22 +57,22 @@ static int network_resolve_netdev_one(Network *network, const char *name, NetDev
         assert(network);
         assert(network->manager);
         assert(network->filename);
-        assert(ret_netdev);
+        assert(ret);
 
         if (kind == _NETDEV_KIND_TUNNEL)
                 kind_string = "tunnel";
         else {
                 kind_string = netdev_kind_to_string(kind);
                 if (!kind_string)
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                               "%s: Invalid NetDev kind of %s, ignoring assignment.",
-                                               network->filename, name);
+                        return log_warning_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                 "%s: Invalid NetDev kind of %s, ignoring assignment.",
+                                                 network->filename, name);
         }
 
         r = netdev_get(network->manager, name, &netdev);
         if (r < 0)
-                return log_error_errno(r, "%s: %s NetDev could not be found, ignoring assignment.",
-                                       network->filename, name);
+                return log_warning_errno(r, "%s: %s NetDev could not be found, ignoring assignment.",
+                                         network->filename, name);
 
         if (netdev->kind != kind && !(kind == _NETDEV_KIND_TUNNEL &&
                                       IN_SET(netdev->kind,
@@ -86,11 +86,11 @@ static int network_resolve_netdev_one(Network *network, const char *name, NetDev
                                              NETDEV_KIND_VTI6,
                                              NETDEV_KIND_IP6TNL,
                                              NETDEV_KIND_ERSPAN)))
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "%s: NetDev %s is not a %s, ignoring assignment",
-                                       network->filename, name, kind_string);
+                return log_warning_errno(SYNTHETIC_ERRNO(EINVAL),
+                                         "%s: NetDev %s is not a %s, ignoring assignment",
+                                         network->filename, name, kind_string);
 
-        *ret_netdev = netdev_ref(netdev);
+        *ret = netdev_ref(netdev);
         return 1;
 }
 
@@ -103,16 +103,15 @@ static int network_resolve_stacked_netdevs(Network *network) {
         HASHMAP_FOREACH_KEY(kind, name, network->stacked_netdev_names) {
                 _cleanup_(netdev_unrefp) NetDev *netdev = NULL;
 
-                r = network_resolve_netdev_one(network, name, PTR_TO_INT(kind), &netdev);
-                if (r <= 0)
+                if (network_resolve_netdev_one(network, name, PTR_TO_INT(kind), &netdev) <= 0)
                         continue;
 
                 r = hashmap_ensure_put(&network->stacked_netdevs, &string_hash_ops, netdev->ifname, netdev);
                 if (r == -ENOMEM)
                         return log_oom();
                 if (r < 0)
-                        return log_error_errno(r, "%s: Failed to add NetDev '%s' to network: %m",
-                                               network->filename, (const char *) name);
+                        log_warning_errno(r, "%s: Failed to add NetDev '%s' to network, ignoring: %m",
+                                          network->filename, (const char *) name);
 
                 netdev = NULL;
         }
@@ -121,6 +120,8 @@ static int network_resolve_stacked_netdevs(Network *network) {
 }
 
 int network_verify(Network *network) {
+        int r;
+
         assert(network);
         assert(network->filename);
 
@@ -160,7 +161,9 @@ int network_verify(Network *network) {
         (void) network_resolve_netdev_one(network, network->bond_name, NETDEV_KIND_BOND, &network->bond);
         (void) network_resolve_netdev_one(network, network->bridge_name, NETDEV_KIND_BRIDGE, &network->bridge);
         (void) network_resolve_netdev_one(network, network->vrf_name, NETDEV_KIND_VRF, &network->vrf);
-        (void) network_resolve_stacked_netdevs(network);
+        r = network_resolve_stacked_netdevs(network);
+        if (r < 0)
+                return r;
 
         /* Free unnecessary entries. */
         network->batadv_name = mfree(network->batadv_name);
@@ -299,7 +302,9 @@ int network_verify(Network *network) {
                 network->ipv6_proxy_ndp_addresses = set_free_free(network->ipv6_proxy_ndp_addresses);
         }
 
-        network_drop_invalid_addresses(network);
+        r = network_drop_invalid_addresses(network);
+        if (r < 0)
+                return r;
         network_drop_invalid_routes(network);
         network_drop_invalid_nexthops(network);
         network_drop_invalid_bridge_fdb_entries(network);
@@ -530,14 +535,17 @@ int network_load_one(Manager *manager, OrderedHashmap **networks, const char *fi
 
         r = network_add_ipv4ll_route(network);
         if (r < 0)
-                log_warning_errno(r, "%s: Failed to add IPv4LL route, ignoring: %m", network->filename);
+                return log_warning_errno(r, "%s: Failed to add IPv4LL route: %m", network->filename);
 
         r = network_add_default_route_on_device(network);
         if (r < 0)
-                log_warning_errno(r, "%s: Failed to add default route on device, ignoring: %m",
-                                  network->filename);
+                return log_warning_errno(r, "%s: Failed to add default route on device: %m",
+                                         network->filename);
 
-        if (network_verify(network) < 0)
+        r = network_verify(network);
+        if (r == -ENOMEM)
+                return r;
+        if (r < 0)
                 /* Ignore .network files that do not match the conditions. */
                 return 0;
 
@@ -565,7 +573,7 @@ int network_load(Manager *manager, OrderedHashmap **networks) {
         STRV_FOREACH(f, files) {
                 r = network_load_one(manager, networks, *f);
                 if (r < 0)
-                        log_error_errno(r, "Failed to load %s, ignoring: %m", *f);
+                        return log_error_errno(r, "Failed to load %s: %m", *f);
         }
 
         return 0;

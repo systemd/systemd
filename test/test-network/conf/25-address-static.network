@@ -52,10 +52,18 @@ Peer=2001:db8:0:f103::10/128
 [Address]
 Address=::/64
 
+[Network]
+# this will later deduped by the following section
+Address=10.7.8.9/16
+
 [Address]
 Address=10.7.8.9/16
 PreferredLifetime=0
 Scope=link
+
+[Address]
+# this will also deduped
+Address=2001:0db8:1:f101::1/64
 
 [Address]
 Address=2001:0db8:1:f101::1/64
