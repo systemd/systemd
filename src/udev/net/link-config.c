@@ -334,8 +334,8 @@ static int link_config_apply_ethtool_settings(int *ethtool_fd, const LinkConfig 
                 _cleanup_free_ char *str = NULL;
 
                 (void) wol_options_to_string_alloc(config->wol, &str);
-                log_device_warning_errno(device, r, "Could not set WakeOnLan to %s, ignoring: %m",
-                                         strna(str));
+                log_device_warning_errno(device, r, "Could not set WakeOnLan%s%s, ignoring: %m",
+                                         isempty(str) ? "" : " to ", strempty(str));
         }
 
         r = ethtool_set_features(ethtool_fd, name, config->features);
