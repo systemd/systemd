@@ -275,6 +275,7 @@ RestartKillSignal=
 RestartPreventExitStatus=
 RestartSec=
 RestrictAddressFamilies=
+RestrictFileSystems=
 RestrictNamespaces=
 RestrictNetworkInterfaces=
 RestrictRealtime=
