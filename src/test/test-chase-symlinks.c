@@ -1,8 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #include <getopt.h>
 
+#include "chase-symlinks.h"
 #include "fd-util.h"
-#include "fs-util.h"
 #include "log.h"
 #include "main-func.h"
 

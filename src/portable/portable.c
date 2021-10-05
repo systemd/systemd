@@ -4,6 +4,7 @@
 
 #include "bus-common-errors.h"
 #include "bus-error.h"
+#include "chase-symlinks.h"
 #include "conf-files.h"
 #include "copy.h"
 #include "data-fd-util.h"

@@ -4,6 +4,7 @@
 #include <unistd.h>
 
 #include "alloc-util.h"
+#include "chase-symlinks.h"
 #include "copy.h"
 #include "fd-util.h"
 #include "fileio.h"

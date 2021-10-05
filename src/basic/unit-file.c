@@ -2,6 +2,7 @@
 
 #include "sd-id128.h"
 
+#include "chase-symlinks.h"
 #include "dirent-util.h"
 #include "fd-util.h"
 #include "fs-util.h"

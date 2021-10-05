@@ -10,6 +10,7 @@
 #include <unistd.h>
 
 #include "alloc-util.h"
+#include "chase-symlinks.h"
 #include "conf-files.h"
 #include "conf-parser.h"
 #include "def.h"

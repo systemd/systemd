@@ -10,6 +10,7 @@
 #include "bus-locator.h"
 #include "bus-map-properties.h"
 #include "bus-unit-util.h"
+#include "chase-symlinks.h"
 #include "dropin.h"
 #include "env-util.h"
 #include "exit-status.h"

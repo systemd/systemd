@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "alloc-util.h"
+#include "chase-symlinks.h"
 #include "dirent-util.h"
 #include "env-file.h"
 #include "env-util.h"

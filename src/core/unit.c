@@ -17,6 +17,7 @@
 #include "bus-util.h"
 #include "cgroup-setup.h"
 #include "cgroup-util.h"
+#include "chase-symlinks.h"
 #include "core-varlink.h"
 #include "dbus-unit.h"
 #include "dbus.h"

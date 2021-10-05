@@ -14,6 +14,7 @@
 
 #include "alloc-util.h"
 #include "btrfs-util.h"
+#include "chase-symlinks.h"
 #include "chattr-util.h"
 #include "copy.h"
 #include "dirent-util.h"

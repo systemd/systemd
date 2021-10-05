@@ -24,6 +24,7 @@
 #include "ask-password-api.h"
 #include "blkid-util.h"
 #include "blockdev-util.h"
+#include "chase-symlinks.h"
 #include "conf-files.h"
 #include "copy.h"
 #include "cryptsetup-util.h"

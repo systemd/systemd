@@ -3,6 +3,7 @@
 #include <sys/mount.h>
 
 #include "cgroup-util.h"
+#include "chase-symlinks.h"
 #include "dns-domain.h"
 #include "env-util.h"
 #include "fd-util.h"

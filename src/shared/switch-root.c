@@ -9,8 +9,8 @@
 #include <unistd.h>
 
 #include "base-filesystem.h"
+#include "chase-symlinks.h"
 #include "fd-util.h"
-#include "fs-util.h"
 #include "log.h"
 #include "missing_syscall.h"
 #include "mkdir.h"

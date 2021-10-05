@@ -23,11 +23,11 @@
 #include <linux/pci_regs.h>
 
 #include "alloc-util.h"
+#include "chase-symlinks.h"
 #include "device-util.h"
 #include "dirent-util.h"
 #include "fd-util.h"
 #include "fileio.h"
-#include "fs-util.h"
 #include "netif-naming-scheme.h"
 #include "parse-util.h"
 #include "proc-cmdline.h"

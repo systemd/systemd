@@ -25,6 +25,8 @@ basic_sources = files('''
         capability-util.h
         cgroup-util.c
         cgroup-util.h
+        chase-symlinks.c
+        chase-symlinks.h
         chattr-util.c
         chattr-util.h
         conf-files.c

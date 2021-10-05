@@ -8,6 +8,7 @@
 #include "sd-device.h"
 
 #include "alloc-util.h"
+#include "chase-symlinks.h"
 #include "device-internal.h"
 #include "device-private.h"
 #include "device-util.h"

@@ -9,6 +9,7 @@
 
 #include "alloc-util.h"
 #include "ask-password-api.h"
+#include "chase-symlinks.h"
 #include "copy.h"
 #include "creds-util.h"
 #include "dissect-image.h"

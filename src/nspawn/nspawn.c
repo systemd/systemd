@@ -33,6 +33,7 @@
 #include "cap-list.h"
 #include "capability-util.h"
 #include "cgroup-util.h"
+#include "chase-symlinks.h"
 #include "copy.h"
 #include "cpu-set-util.h"
 #include "creds-util.h"
