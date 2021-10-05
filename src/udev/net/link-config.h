@@ -59,6 +59,7 @@ struct LinkConfig {
         uint32_t advertise[N_ADVERTISE];
         uint32_t wol;
         bool wol_password_from_cred;
+        char *wol_password_file;
         uint8_t *wol_password;
         NetDevPort port;
         int features[_NET_DEV_FEAT_MAX];
