@@ -13,6 +13,8 @@ libcore_sources = '''
         bpf-firewall.h
         bpf-foreign.c
         bpf-foreign.h
+        bpf-lsm.c
+        bpf-lsm.h
         bpf-socket-bind.c
         bpf-socket-bind.h
         cgroup.c
@@ -134,6 +136,8 @@ libcore_sources = '''
 subdir('bpf/socket_bind')
 if conf.get('BPF_FRAMEWORK') == 1
         libcore_sources += [socket_bind_skel_h]
+        subdir('bpf/restrict_fs')
+        libcore_sources += [restrict_fs_skel_h]
 endif
 
 subdir('bpf/restrict_ifaces')

@@ -314,6 +314,9 @@ struct ExecContext {
 
         unsigned long restrict_namespaces; /* The CLONE_NEWxyz flags permitted to the unit's processes */
 
+        Set *restrict_filesystems;
+        bool restrict_filesystems_allow_list:1;
+
         Hashmap *syscall_filter;
         Set *syscall_archs;
         int syscall_errno;
@@ -340,6 +343,13 @@ static inline bool exec_context_restrict_namespaces_set(const ExecContext *c) {
         assert(c);
 
         return (c->restrict_namespaces & NAMESPACE_FLAGS_ALL) != NAMESPACE_FLAGS_ALL;
+}
+
+static inline bool exec_context_restrict_filesystems_set(const ExecContext *c) {
+        assert(c);
+
+        return c->restrict_filesystems_allow_list ||
+          !set_isempty(c->restrict_filesystems);
 }
 
 static inline bool exec_context_with_rootfs(const ExecContext *c) {
