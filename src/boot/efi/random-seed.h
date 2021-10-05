@@ -12,4 +12,10 @@ typedef enum RandomSeedMode {
         _RANDOM_SEED_MODE_INVALID = -EINVAL,
 } RandomSeedMode;
 
+static const CHAR16 * const random_seed_modes_table[_RANDOM_SEED_MODE_MAX] = {
+        [RANDOM_SEED_OFF]               = L"off",
+        [RANDOM_SEED_WITH_SYSTEM_TOKEN] = L"with-system-token",
+        [RANDOM_SEED_ALWAYS]            = L"always",
+};
+
 EFI_STATUS process_random_seed(EFI_FILE *root_dir, RandomSeedMode mode);
