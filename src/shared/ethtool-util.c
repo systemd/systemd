@@ -43,6 +43,11 @@ int wol_options_to_string_alloc(uint32_t opts, char **ret) {
 
         assert(ret);
 
+        if (opts == UINT32_MAX) {
+                *ret = NULL;
+                return 0;
+        }
+
         for (size_t i = 0; i < ELEMENTSOF(wol_option_map); i++)
                 if (opts & wol_option_map[i].opt &&
                     !strextend_with_separator(&str, ",", wol_option_map[i].name))
@@ -55,7 +60,7 @@ int wol_options_to_string_alloc(uint32_t opts, char **ret) {
         }
 
         *ret = TAKE_PTR(str);
-        return 0;
+        return 1;
 }
 
 static const char* const port_table[] = {
