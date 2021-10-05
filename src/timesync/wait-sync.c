@@ -14,7 +14,7 @@
 #include "sd-event.h"
 
 #include "fd-util.h"
-#include "fs-util.h"
+#include "inotify-util.h"
 #include "main-func.h"
 #include "signal-util.h"
 #include "time-util.h"

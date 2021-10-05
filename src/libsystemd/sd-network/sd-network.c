@@ -10,6 +10,7 @@
 #include "env-file.h"
 #include "fd-util.h"
 #include "fs-util.h"
+#include "inotify-util.h"
 #include "macro.h"
 #include "parse-util.h"
 #include "stdio-util.h"

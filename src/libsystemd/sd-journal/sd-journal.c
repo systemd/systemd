@@ -25,6 +25,7 @@
 #include "hashmap.h"
 #include "hostname-util.h"
 #include "id128-util.h"
+#include "inotify-util.h"
 #include "io-util.h"
 #include "journal-def.h"
 #include "journal-file.h"
