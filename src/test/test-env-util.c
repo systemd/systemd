@@ -237,6 +237,9 @@ static void test_replace_env2(bool extended) {
 
         x = replace_env("XXX=${XXX:+${BAR}post}", (char**) env, flags);
         assert_se(streq(x, extended ? "XXX=" : "XXX=${XXX:+barpost}"));
+
+        x = replace_env("FOO=${FOO}between${BAR:-baz}", (char**) env, flags);
+        assert_se(streq(x, extended ? "FOO=foobetweenbar" : "FOO=foobetween${BAR:-baz}"));
 }
 
 static void test_replace_env_argv(void) {
