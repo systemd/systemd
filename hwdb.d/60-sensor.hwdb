@@ -886,7 +886,6 @@ sensor:modalias:acpi:KIOX000A*:dmi:*:svnTrekStor:pnSurfTabtwin10.1:*
 sensor:modalias:acpi:KIOX000A*:dmi:*:svnTREKSTOR*:pnPrimetabS11B:*
 sensor:modalias:acpi:KIOX000A*:dmi:*:svnTREKSTOR:pnPrimetabT13B:*
 sensor:modalias:acpi:BOSC0200*:dmi:*:svnTrekStor*:pnSurfTabtwin11.6:*
-sensor:modalias:acpi:BOSC0200*:dmi:*:svnTrekStor*:pnSurfTabduoW110.1(VT4):*
  ACCEL_MOUNT_MATRIX=1, 0, 0; 0, -1, 0; 0, 0, 1
 
 # alternative version of Trekstor's SurfTab Twin 11.6
