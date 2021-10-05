@@ -19,6 +19,7 @@
 #include "all-units.h"
 #include "alloc-util.h"
 #include "bpf-firewall.h"
+#include "bpf-lsm.h"
 #include "bpf-program.h"
 #include "bpf-socket-bind.h"
 #include "bus-error.h"
@@ -3597,6 +3598,76 @@ int config_parse_restrict_namespaces(
 }
 #endif
 
+int config_parse_restrict_filesystems(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+        ExecContext *c = data;
+        bool invert = false;
+        int r;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        if (isempty(rvalue)) {
+                /* Empty assignment resets the list */
+                c->restrict_filesystems = set_free(c->restrict_filesystems);
+                c->restrict_filesystems_allow_list = false;
+                return 0;
+        }
+
+        if (rvalue[0] == '~') {
+                invert = true;
+                rvalue++;
+        }
+
+        if (!c->restrict_filesystems) {
+                if (invert)
+                        /* Allow everything but the ones listed */
+                        c->restrict_filesystems_allow_list = false;
+                else
+                        /* Allow nothing but the ones listed */
+                        c->restrict_filesystems_allow_list = true;
+        }
+
+        for (const char *p = rvalue;;) {
+                _cleanup_free_ char *word = NULL;
+
+                r = extract_first_word(&p, &word, NULL, EXTRACT_UNQUOTE);
+                if (r == 0)
+                        break;
+                if (r == -ENOMEM)
+                        return log_oom();
+                if (r < 0) {
+                        log_syntax(unit, LOG_WARNING, filename, line, r,
+                                   "Trailing garbage in %s, ignoring: %s", lvalue, rvalue);
+                        break;
+                }
+
+                r = lsm_bpf_parse_filesystem(
+                              word,
+                              &c->restrict_filesystems,
+                              FILESYSTEM_PARSE_LOG|
+                              (invert ? FILESYSTEM_PARSE_INVERT : 0)|
+                              (c->restrict_filesystems_allow_list ? FILESYSTEM_PARSE_ALLOW_LIST : 0),
+                              unit, filename, line);
+
+                if (r < 0)
+                        return r;
+        }
+
+        return 0;
+}
+
 int config_parse_unit_slice(
                 const char *unit,
                 const char *filename,
@@ -6030,6 +6101,7 @@ void unit_dump_config_items(FILE *f) {
                 { config_parse_address_families,      "FAMILIES" },
                 { config_parse_restrict_namespaces,   "NAMESPACES"  },
 #endif
+                { config_parse_restrict_filesystems,  "FILESYSTEMS"  },
                 { config_parse_cpu_shares,            "SHARES" },
                 { config_parse_cg_weight,             "WEIGHT" },
                 { config_parse_memory_limit,          "LIMIT" },

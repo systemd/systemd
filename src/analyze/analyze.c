@@ -28,6 +28,7 @@
 #include "exit-status.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "filesystems.h"
 #include "format-table.h"
 #include "glob-util.h"
 #include "hashmap.h"
@@ -46,6 +47,7 @@
 #endif
 #include "sort-util.h"
 #include "special.h"
+#include "stat-util.h"
 #include "string-table.h"
 #include "strv.h"
 #include "strxcpyx.h"
@@ -1622,6 +1624,9 @@ static int load_kernel_syscalls(Set **ret) {
 static void syscall_set_remove(Set *s, const SyscallFilterSet *set) {
         const char *syscall;
 
+        if (!set)
+                return;
+
         NULSTR_FOREACH(syscall, set->value) {
                 if (syscall[0] == '@')
                         continue;
@@ -1742,6 +1747,172 @@ static int dump_syscall_filters(int argc, char *argv[], void *userdata) {
         return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Not compiled with syscall filters, sorry.");
 }
 #endif
+
+static int load_available_kernel_filesystems(Set **ret) {
+        _cleanup_set_free_ Set *filesystems = NULL;
+        int r;
+        char *t;
+
+        assert(ret);
+
+        /* Let's read the available filesystems */
+
+        r = read_virtual_file("/proc/filesystems", SIZE_MAX, &t, NULL);
+        if (r < 0)
+                return r;
+
+        for (int i = 0;;) {
+                _cleanup_free_ char *line = NULL;
+                const char *p;
+
+                r = string_extract_line(t, i++, &line);
+                if (r < 0)
+                        return log_oom();
+                if (r == 0)
+                        break;
+
+                if (!line)
+                        line = t;
+
+                p = strchr(line, '\t');
+                if (!p)
+                        continue;
+
+                p += strspn(p, WHITESPACE);
+
+                r = set_put_strdup(&filesystems, p);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to add filesystem to list: %m");
+        }
+
+        *ret = TAKE_PTR(filesystems);
+        return 0;
+}
+
+static void filesystem_set_remove(Set *s, const FilesystemSet *set) {
+        const char *filesystem;
+
+        NULSTR_FOREACH(filesystem, set->value) {
+                if (filesystem[0] == '@')
+                        continue;
+
+                free(set_remove(s, filesystem));
+        }
+}
+
+static void dump_filesystem(const FilesystemSet *set) {
+        const char *filesystem;
+
+        if (!set)
+                return;
+
+        printf("%s%s%s\n"
+               "    # %s\n",
+               ansi_highlight(),
+               set->name,
+               ansi_normal(),
+               set->help);
+
+        NULSTR_FOREACH(filesystem, set->value)
+                printf("    %s%s%s\n", filesystem[0] == '@' ? ansi_underline() : "", filesystem, ansi_normal());
+}
+
+static int dump_filesystems(int argc, char *argv[], void *userdata) {
+        bool first = true;
+
+#if ! HAVE_LIBBPF
+        return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Not compiled with libbpf support, sorry.");
+#endif
+
+        (void) pager_open(arg_pager_flags);
+
+        if (strv_isempty(strv_skip(argv, 1))) {
+                _cleanup_set_free_ Set *kernel = NULL, *known = NULL;
+                const char *fs;
+                int k;
+
+                NULSTR_FOREACH(fs, filesystem_sets[FILESYSTEM_SET_KNOWN].value)
+                        if (set_put_strdup(&known, fs) < 0)
+                                return log_oom();
+
+                k = load_available_kernel_filesystems(&kernel);
+
+                for (FilesystemGroups i = 0; i < _FILESYSTEM_SET_MAX; i++) {
+                        const FilesystemSet *set = filesystem_sets + i;
+                        if (!first)
+                                puts("");
+
+                        dump_filesystem(set);
+                        filesystem_set_remove(kernel, set);
+                        if (i != FILESYSTEM_SET_KNOWN)
+                                filesystem_set_remove(known, set);
+                        first = false;
+                }
+
+                if (!set_isempty(known)) {
+                        _cleanup_free_ char **l = NULL;
+                        char **filesystem;
+
+                        printf("\n"
+                               "# %sUngrouped filesystems%s (known but not included in any of the groups except @known):\n",
+                               ansi_highlight(), ansi_normal());
+
+                        l = set_get_strv(known);
+                        if (!l)
+                                return log_oom();
+
+                        strv_sort(l);
+
+                        STRV_FOREACH(filesystem, l)
+                                printf("#   %s\n", *filesystem);
+                }
+
+                if (k < 0) {
+                        fputc('\n', stdout);
+                        fflush(stdout);
+                        log_notice_errno(k, "# Not showing unlisted filesystems, couldn't retrieve kernel filesystem list: %m");
+                } else if (!set_isempty(kernel)) {
+                        _cleanup_free_ char **l = NULL;
+                        char **filesystem;
+
+                        printf("\n"
+                               "# %sUnlisted filesystems%s (available to the local kernel, but not included in any of the groups listed above):\n",
+                               ansi_highlight(), ansi_normal());
+
+                        l = set_get_strv(kernel);
+                        if (!l)
+                                return log_oom();
+
+                        strv_sort(l);
+
+                        STRV_FOREACH(filesystem, l)
+                                printf("#   %s\n", *filesystem);
+                }
+        } else {
+                char **name;
+
+                STRV_FOREACH(name, strv_skip(argv, 1)) {
+                        const FilesystemSet *set;
+
+                        if (!first)
+                                puts("");
+
+                        set = filesystem_set_find(*name);
+                        if (!set) {
+                                /* make sure the error appears below normal output */
+                                fflush(stdout);
+
+                                return log_error_errno(SYNTHETIC_ERRNO(ENOENT),
+                                                       "Filesystem set \"%s\" not found.", *name);
+                        }
+
+                        dump_filesystem(set);
+                        first = false;
+                }
+        }
+
+        return 0;
+}
 
 static void parsing_hint(const char *p, bool calendar, bool timestamp, bool timespan) {
         if (calendar && calendar_spec_from_string(p, NULL) >= 0)
@@ -2169,6 +2340,7 @@ static int help(int argc, char *argv[], void *userdata) {
                "  capability [CAP...]        List capability definitions\n"
                "  syscall-filter [NAME...]   Print list of syscalls in seccomp\n"
                "                             filter\n"
+               "  filesystems [NAME...]      Print list of filesystems\n"
                "  condition CONDITION...     Evaluate conditions and asserts\n"
                "  verify FILE...             Check unit files for correctness\n"
                "  calendar SPEC...           Validate repetitive calendar time\n"
@@ -2503,6 +2675,7 @@ static int run(int argc, char *argv[]) {
                 { "exit-status",       VERB_ANY, VERB_ANY, 0,            dump_exit_status       },
                 { "syscall-filter",    VERB_ANY, VERB_ANY, 0,            dump_syscall_filters   },
                 { "capability",        VERB_ANY, VERB_ANY, 0,            dump_capabilities      },
+                { "filesystems",       VERB_ANY, VERB_ANY, 0,            dump_filesystems       },
                 { "condition",         VERB_ANY, VERB_ANY, 0,            do_condition           },
                 { "verify",            2,        VERB_ANY, 0,            do_verify              },
                 { "calendar",          2,        VERB_ANY, 0,            test_calendar          },

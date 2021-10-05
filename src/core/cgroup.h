@@ -3,6 +3,7 @@
 
 #include <stdbool.h>
 
+#include "bpf-lsm.h"
 #include "cgroup-util.h"
 #include "cpu-set-util.h"
 #include "list.h"
