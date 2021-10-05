@@ -25,7 +25,7 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "fs-util.h"
-#include "locale-util.h"
+#include "glyph-util.h"
 #include "main-func.h"
 #include "mkdir.h"
 #include "pager.h"
