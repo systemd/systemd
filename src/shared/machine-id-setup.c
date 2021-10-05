@@ -9,7 +9,6 @@
 
 #include "alloc-util.h"
 #include "fd-util.h"
-#include "fs-util.h"
 #include "id128-util.h"
 #include "io-util.h"
 #include "log.h"
@@ -23,6 +22,7 @@
 #include "process-util.h"
 #include "stat-util.h"
 #include "string-util.h"
+#include "sync-util.h"
 #include "umask-util.h"
 #include "util.h"
 #include "virt.h"

@@ -7,7 +7,7 @@
 #include "ask-password-api.h"
 #include "dlfcn-util.h"
 #include "format-table.h"
-#include "locale-util.h"
+#include "glyph-util.h"
 #include "log.h"
 #include "memory-util.h"
 #include "random-util.h"

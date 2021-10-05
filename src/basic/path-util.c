@@ -13,6 +13,7 @@
 #undef basename
 
 #include "alloc-util.h"
+#include "chase-symlinks.h"
 #include "extract-word.h"
 #include "fd-util.h"
 #include "fs-util.h"

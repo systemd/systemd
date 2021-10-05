@@ -15,6 +15,7 @@
 #include "alloc-util.h"
 #include "fd-util.h"
 #include "format-util.h"
+#include "glyph-util.h"
 #include "hashmap.h"
 #include "hostname-util.h"
 #include "id128-util.h"

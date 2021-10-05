@@ -10,6 +10,7 @@
 #include "install-file.h"
 #include "missing_syscall.h"
 #include "rm-rf.h"
+#include "sync-util.h"
 
 int fs_make_very_read_only(int fd) {
         struct stat st;
