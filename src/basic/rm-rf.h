@@ -13,6 +13,7 @@ typedef enum RemoveFlags {
         REMOVE_SUBVOLUME        = 1 << 3, /* Drop btrfs subvolumes in the tree too */
         REMOVE_MISSING_OK       = 1 << 4, /* If the top-level directory is missing, ignore the ENOENT for it */
         REMOVE_CHMOD            = 1 << 5, /* chmod() for write access if we cannot delete something */
+        REMOVE_SYNCFS           = 1 << 6, /* syncfs() the root of the specified directory after removing everything in it */
 } RemoveFlags;
 
 int rm_rf_children(int fd, RemoveFlags flags, const struct stat *root_dev);
