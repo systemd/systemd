@@ -10,6 +10,7 @@
 #include "alloc-util.h"
 #include "conf-files.h"
 #include "conf-parser.h"
+#include "creds-util.h"
 #include "def.h"
 #include "device-private.h"
 #include "device-util.h"
@@ -126,6 +127,32 @@ static int link_parse_wol_password(LinkConfig *link, const char *str) {
         return 0;
 }
 
+static int link_read_wol_password_from_cred(LinkConfig *link) {
+        _cleanup_free_ char *base = NULL, *cred_name = NULL;
+        _cleanup_(erase_and_freep) char *password = NULL;
+        int r;
+
+        assert(link);
+        assert(link->filename);
+
+        if (!link->wol_password_from_cred)
+                return 0;
+
+        r = path_extract_filename(link->filename, &base);
+        if (r < 0)
+                return r;
+
+        cred_name = strjoin(base, ".wol.password");
+        if (!cred_name)
+                return r;
+
+        r = read_credential(cred_name, (void**) &password, NULL);
+        if (r < 0)
+                return r;
+
+        return link_parse_wol_password(link, password);
+}
+
 int link_load_one(LinkConfigContext *ctx, const char *filename) {
         _cleanup_(link_config_freep) LinkConfig *link = NULL;
         _cleanup_free_ char *name = NULL;
@@ -201,6 +228,12 @@ int link_load_one(LinkConfigContext *ctx, const char *filename) {
                             filename);
                 link->mac = mfree(link->mac);
         }
+
+        r = link_read_wol_password_from_cred(link);
+        if (r == -ENOMEM)
+                return log_oom();
+        if (r < 0)
+                log_warning_errno(r, "Failed to read WakeOnLan password from credential, ignoring: %m");
 
         if (link->wol != UINT32_MAX && !eqzero(link->wol_password))
                 /* Enable WAKE_MAGICSECURE flag when WakeOnLanPassword=. Note that when
@@ -834,6 +867,14 @@ int config_parse_wol_password(
         assert(userdata);
 
         if (isempty(rvalue)) {
+                link->wol_password_from_cred = false;
+                link->wol_password = erase_and_free(link->wol_password);
+                return 0;
+        }
+
+        r = parse_boolean(rvalue);
+        if (r >= 0) {
+                link->wol_password_from_cred = r;
                 link->wol_password = erase_and_free(link->wol_password);
                 return 0;
         }
@@ -849,6 +890,7 @@ int config_parse_wol_password(
                 return 0;
         }
 
+        link->wol_password_from_cred = false;
         return 0;
 }
 
