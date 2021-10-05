@@ -2131,6 +2131,7 @@ static int help(int argc, char *argv[], void *userdata) {
                "     --storage=STORAGE         Storage type to use (luks, fscrypt, directory,\n"
                "                               subvolume, cifs)\n"
                "     --image-path=PATH         Path to image file/directory\n"
+               "     --drop-caches=BOOL        Whether to automatically drop caches on logout\n"
                "\n%4$sLUKS Storage User Record Properties:%5$s\n"
                "     --fs-type=TYPE            File system type to use in case of luks\n"
                "                               storage (btrfs, ext4, xfs)\n"
@@ -2245,6 +2246,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_RECOVERY_KEY,
                 ARG_AND_RESIZE,
                 ARG_AND_CHANGE_PASSWORD,
+                ARG_DROP_CACHES,
         };
 
         static const struct option options[] = {
@@ -2327,6 +2329,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "recovery-key",                required_argument, NULL, ARG_RECOVERY_KEY                },
                 { "and-resize",                  required_argument, NULL, ARG_AND_RESIZE                  },
                 { "and-change-password",         required_argument, NULL, ARG_AND_CHANGE_PASSWORD         },
+                { "drop-caches",                 required_argument, NULL, ARG_DROP_CACHES                 },
                 {}
         };
 
@@ -3449,6 +3452,26 @@ static int parse_argv(int argc, char *argv[]) {
                 case ARG_AND_CHANGE_PASSWORD:
                         arg_and_change_password = true;
                         break;
+
+                case ARG_DROP_CACHES: {
+                        bool drop_caches;
+
+                        if (isempty(optarg)) {
+                                r = drop_from_identity("dropCaches");
+                                if (r < 0)
+                                        return r;
+                        }
+
+                        r = parse_boolean_argument("--drop-caches=", optarg, &drop_caches);
+                        if (r < 0)
+                                return r;
+
+                        r = json_variant_set_field_boolean(&arg_identity_extra, "dropCaches", r);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to set drop caches field: %m");
+
+                        break;
+                }
 
                 case '?':
                         return -EINVAL;
