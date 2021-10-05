@@ -6,17 +6,75 @@
 #include "cgroup-setup.h"
 #include "cgroup-util.h"
 #include "errno-util.h"
+#include "fd-util.h"
+#include "fileio.h"
+#include "fs-util.h"
+#include "mkdir.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "proc-cmdline.h"
+#include "process-util.h"
 #include "stdio-util.h"
 #include "string-util.h"
-#include "fs-util.h"
-#include "mkdir.h"
-#include "process-util.h"
-#include "fileio.h"
 #include "user-util.h"
-#include "fd-util.h"
+#include "virt.h"
+
+static int cg_any_controller_used_for_v1(void) {
+        _cleanup_free_ char *buf = NULL;
+        _cleanup_strv_free_ char **lines = NULL;
+        char **line;
+        int r;
+
+        r = read_full_virtual_file("/proc/cgroups", &buf, NULL);
+        if (r < 0)
+                return log_debug_errno(r, "Could not read /proc/cgroups, ignoring: %m");
+
+        r = strv_split_newlines_full(&lines, buf, 0);
+        if (r < 0)
+                return r;
+
+        /* The intention of this is to check if the fully unified cgroup tree setup is possible, meaning all
+         * enabled kernel cgroup controllers are currently not in use by cgroup1.  For reference:
+         * https://systemd.io/CGROUP_DELEGATION/#three-different-tree-setups-
+         *
+         * Note that this is typically only useful to check inside a container where we don't know what
+         * cgroup tree setup is in use by the host; if the host is using legacy or hybrid, we can't use
+         * unified since some or all controllers would be missing. This is not the best way to detect this,
+         * as whatever container manager created our container should have mounted /sys/fs/cgroup
+         * appropriately, but in case that wasn't done, we try to detect if it's possible for us to use
+         * unified cgroups. */
+        STRV_FOREACH(line, lines) {
+                _cleanup_free_ char *name = NULL, *v1 = NULL, *num = NULL, *enabled = NULL;
+
+                /* Skip header line */
+                if (startswith(*line, "#"))
+                        continue;
+
+                const char *p = *line;
+                r = extract_many_words(&p, NULL, 0, &name, &v1, &num, &enabled, NULL);
+                if (r < 0)
+                        return log_debug_errno(r, "Error parsing /proc/cgroups line, ignoring: %m");
+                else if (r < 4) {
+                        log_debug("Invalid /proc/cgroups line, ignoring.");
+                        continue;
+                }
+
+                /* Ignore disabled controllers. */
+                if (streq(enabled, "0"))
+                        continue;
+
+                /* The 'v1' field is actually the controller 'hierarchy_id', but that's used only with
+                 * cgroup1; in cgroup2, all controllers are part of the default hierarchy and have a
+                 * heirarchy_id of 0.  So any controllers with non-zero id are in use by as a cgroup v1
+                 * hierarchy, and can't be used in a unified cgroup. */
+                if (!streq(v1, "0")) {
+                        log_debug("Cgroup controller %s in use by v1.", name);
+                        return 1;
+                }
+        }
+
+        return 0;
+}
 
 bool cg_is_unified_wanted(void) {
         static thread_local int wanted = -1;
@@ -44,6 +102,10 @@ bool cg_is_unified_wanted(void) {
         r = proc_cmdline_get_key("cgroup_no_v1", 0, &c);
         if (r > 0 && streq_ptr(c, "all"))
                 return (wanted = true);
+
+        /* If any controller is in use as v1, don't use unified. */
+        if (cg_any_controller_used_for_v1() > 0)
+                return (wanted = false);
 
         return (wanted = is_default);
 }
