@@ -58,6 +58,8 @@ basic_sources = files('''
         fs-util.h
         glob-util.c
         glob-util.h
+        glyph-util.c
+        glyph-util.h
         gunicode.c
         gunicode.h
         hash-funcs.c
