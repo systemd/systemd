@@ -9,6 +9,7 @@
 
 #include "alloc-util.h"
 #include "ask-password-api.h"
+#include "chase-symlinks.h"
 #include "copy.h"
 #include "creds-util.h"
 #include "dissect-image.h"
@@ -16,6 +17,7 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "fs-util.h"
+#include "glyph-util.h"
 #include "hostname-util.h"
 #include "kbd-util.h"
 #include "libcrypt-util.h"

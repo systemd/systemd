@@ -29,6 +29,7 @@
 #include "specifier.h"
 #include "string-util.h"
 #include "strv.h"
+#include "sync-util.h"
 #include "tmpfile-util-label.h"
 #include "uid-range.h"
 #include "user-record.h"

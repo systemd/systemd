@@ -5,12 +5,12 @@
 #include <unistd.h>
 
 #include "fd-util.h"
-#include "fs-util.h"
 #include "hexdecoct.h"
 #include "id128-util.h"
 #include "io-util.h"
 #include "stdio-util.h"
 #include "string-util.h"
+#include "sync-util.h"
 
 char *id128_to_uuid_string(sd_id128_t id, char s[static ID128_UUID_STRING_MAX]) {
         unsigned n, k = 0;
@@ -167,10 +167,7 @@ int id128_write_fd(int fd, Id128Format f, sd_id128_t id, bool do_sync) {
                 return r;
 
         if (do_sync) {
-                if (fsync(fd) < 0)
-                        return -errno;
-
-                r = fsync_directory_of_file(fd);
+                r = fsync_full(fd);
                 if (r < 0)
                         return r;
         }

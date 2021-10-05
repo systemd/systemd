@@ -25,6 +25,7 @@
 #include "parse-util.h"
 #include "random-util.h"
 #include "string-util.h"
+#include "sync-util.h"
 #include "util.h"
 #include "xattr-util.h"
 

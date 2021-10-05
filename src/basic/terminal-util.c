@@ -26,6 +26,7 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "fs-util.h"
+#include "inotify-util.h"
 #include "io-util.h"
 #include "log.h"
 #include "macro.h"

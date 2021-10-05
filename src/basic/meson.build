@@ -25,6 +25,8 @@ basic_sources = files('''
         capability-util.h
         cgroup-util.c
         cgroup-util.h
+        chase-symlinks.c
+        chase-symlinks.h
         chattr-util.c
         chattr-util.h
         conf-files.c
@@ -58,6 +60,8 @@ basic_sources = files('''
         fs-util.h
         glob-util.c
         glob-util.h
+        glyph-util.c
+        glyph-util.h
         gunicode.c
         gunicode.h
         hash-funcs.c
@@ -70,6 +74,8 @@ basic_sources = files('''
         hostname-util.h
         in-addr-util.c
         in-addr-util.h
+        inotify-util.c
+        inotify-util.h
         io-util.c
         io-util.h
         khash.c
@@ -215,6 +221,8 @@ basic_sources = files('''
         strv.h
         strxcpyx.c
         strxcpyx.h
+        sync-util.c
+        sync-util.h
         sysctl-util.c
         sysctl-util.h
         syslog-util.c
