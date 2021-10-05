@@ -1,22 +1,22 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <ftw.h>
 #include <unistd.h>
 
 #include "cgroup-setup.h"
 #include "cgroup-util.h"
 #include "errno-util.h"
+#include "fd-util.h"
+#include "fileio.h"
+#include "fs-util.h"
+#include "mkdir.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "proc-cmdline.h"
+#include "process-util.h"
+#include "recurse-dir.h"
 #include "stdio-util.h"
 #include "string-util.h"
-#include "fs-util.h"
-#include "mkdir.h"
-#include "process-util.h"
-#include "fileio.h"
 #include "user-util.h"
-#include "fd-util.h"
 
 bool cg_is_unified_wanted(void) {
         static thread_local int wanted = -1;
@@ -149,24 +149,24 @@ int cg_blkio_weight_parse(const char *s, uint64_t *ret) {
         return 0;
 }
 
-static int trim_cb(const char *path, const struct stat *sb, int typeflag, struct FTW *ftwbuf) {
-        assert(path);
-        assert(sb);
-        assert(ftwbuf);
+static int trim_cb(
+                RecurseDirEvent event,
+                const char *path,
+                int dir_fd,
+                int inode_fd,
+                const struct dirent *de,
+                const struct statx *sx,
+                void *userdata) {
 
-        if (typeflag != FTW_DP)
-                return 0;
+        if (event == RECURSE_DIR_LEAVE && de->d_type == DT_DIR)
+                (void) unlinkat(dir_fd, de->d_name, AT_REMOVEDIR);
 
-        if (ftwbuf->level < 1)
-                return 0;
-
-        (void) rmdir(path);
-        return 0;
+        return RECURSE_DIR_CONTINUE;
 }
 
 int cg_trim(const char *controller, const char *path, bool delete_root) {
         _cleanup_free_ char *fs = NULL;
-        int r, q;
+        int r;
 
         assert(path);
 
@@ -174,26 +174,34 @@ int cg_trim(const char *controller, const char *path, bool delete_root) {
         if (r < 0)
                 return r;
 
-        errno = 0;
-        if (nftw(fs, trim_cb, 64, FTW_DEPTH|FTW_MOUNT|FTW_PHYS) != 0) {
-                if (errno == ENOENT)
-                        r = 0;
-                else
-                        r = errno_or_else(EIO);
-        }
+        r = recurse_dir_at(
+                        AT_FDCWD,
+                        fs,
+                        /* statx_mask= */ 0,
+                        /* n_depth_max= */ UINT_MAX,
+                        RECURSE_DIR_ENSURE_TYPE,
+                        trim_cb,
+                        NULL);
+        if (r < 0)
+                log_debug_errno(r, "Failed to trim cgroup %s: %m", path);
 
-        if (delete_root) {
+        if (delete_root && !empty_or_root(path)) {
+
                 if (rmdir(fs) < 0 && errno != ENOENT)
                         return -errno;
         }
 
-        q = cg_hybrid_unified();
-        if (q < 0)
-                return q;
-        if (q > 0 && streq(controller, SYSTEMD_CGROUP_CONTROLLER)) {
-                q = cg_trim(SYSTEMD_CGROUP_CONTROLLER_LEGACY, path, delete_root);
+        if (streq_ptr(controller, SYSTEMD_CGROUP_CONTROLLER)) {
+                int q;
+
+                q = cg_hybrid_unified();
                 if (q < 0)
-                        log_warning_errno(q, "Failed to trim compat systemd cgroup %s: %m", path);
+                        return q;
+                if (q > 0) {
+                        q = cg_trim(SYSTEMD_CGROUP_CONTROLLER_LEGACY, path, delete_root);
+                        if (q < 0)
+                                log_debug_errno(q, "Failed to trim compat systemd cgroup %s: %m", path);
+                }
         }
 
         return r;
