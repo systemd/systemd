@@ -91,14 +91,6 @@ int xfopenat(int dir_fd, const char *path, const char *mode, int flags, FILE **r
 int search_and_fopen(const char *path, const char *mode, const char *root, const char **search, FILE **ret, char **ret_path);
 int search_and_fopen_nulstr(const char *path, const char *mode, const char *root, const char *search, FILE **ret, char **ret_path);
 
-int chase_symlinks_and_fopen_unlocked(
-                const char *path,
-                const char *root,
-                unsigned chase_flags,
-                const char *open_flags,
-                FILE **ret_file,
-                char **ret_path);
-
 int fflush_and_check(FILE *f);
 int fflush_sync_and_check(FILE *f);
 
@@ -126,3 +118,5 @@ static inline int read_nul_string(FILE *f, size_t limit, char **ret) {
 int safe_fgetc(FILE *f, char *ret);
 
 int warn_file_is_world_accessible(const char *filename, struct stat *st, const char *unit, unsigned line);
+
+int fopen_mode_to_flags(const char *mode);

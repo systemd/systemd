@@ -941,9 +941,11 @@ DIR *xopendirat(int fd, const char *name, int flags) {
         return d;
 }
 
-static int mode_to_flags(const char *mode) {
+int fopen_mode_to_flags(const char *mode) {
         const char *p;
         int flags;
+
+        assert(mode);
 
         if ((p = startswith(mode, "r+")))
                 flags = O_RDWR;
@@ -997,7 +999,7 @@ int xfopenat(int dir_fd, const char *path, const char *mode, int flags, FILE **r
         } else {
                 int fd, mode_flags;
 
-                mode_flags = mode_to_flags(mode);
+                mode_flags = fopen_mode_to_flags(mode);
                 if (mode_flags < 0)
                         return mode_flags;
 
@@ -1135,39 +1137,6 @@ int search_and_fopen_nulstr(
                 return -ENOMEM;
 
         return search_and_fopen_internal(filename, mode, root, s, ret, ret_path);
-}
-
-int chase_symlinks_and_fopen_unlocked(
-                const char *path,
-                const char *root,
-                unsigned chase_flags,
-                const char *open_flags,
-                FILE **ret_file,
-                char **ret_path) {
-
-        _cleanup_close_ int fd = -1;
-        _cleanup_free_ char *final_path = NULL;
-        int mode_flags, r;
-
-        assert(path);
-        assert(open_flags);
-        assert(ret_file);
-
-        mode_flags = mode_to_flags(open_flags);
-        if (mode_flags < 0)
-                return mode_flags;
-
-        fd = chase_symlinks_and_open(path, root, chase_flags, mode_flags, ret_path ? &final_path : NULL);
-        if (fd < 0)
-                return fd;
-
-        r = take_fdopen_unlocked(&fd, open_flags, ret_file);
-        if (r < 0)
-                return r;
-
-        if (ret_path)
-                *ret_path = TAKE_PTR(final_path);
-        return 0;
 }
 
 int fflush_and_check(FILE *f) {
