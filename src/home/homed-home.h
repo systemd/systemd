@@ -161,6 +161,9 @@ struct Home {
 
         /* A time event used to repeatedly try to unmount home dir after use if it didn't work on first try */
         sd_event_source *retry_deactivate_event_source;
+
+        /* An fd that locks the backing file of LUKS home dirs with a BSD lock. */
+        int luks_lock_fd;
 };
 
 int home_new(Manager *m, UserRecord *hr, const char *sysfs, Home **ret);
@@ -187,7 +190,7 @@ int home_unlock(Home *h, UserRecord *secret, sd_bus_error *error);
 
 HomeState home_get_state(Home *h);
 
-void home_process_notify(Home *h, char **l);
+void home_process_notify(Home *h, char **l, int fd);
 
 int home_killall(Home *h);
 
