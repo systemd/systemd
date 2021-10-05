@@ -7,8 +7,8 @@
 
 #include "sd-event.h"
 
-#include "fs-util.h"
 #include "hashmap.h"
+#include "inotify-util.h"
 #include "list.h"
 #include "prioq.h"
 #include "ratelimit.h"

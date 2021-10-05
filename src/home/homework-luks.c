@@ -36,6 +36,7 @@
 #include "resize-fs.h"
 #include "stat-util.h"
 #include "strv.h"
+#include "sync-util.h"
 #include "tmpfile-util.h"
 
 /* Round down to the nearest 4K size. Given that newer hardware generally prefers 4K sectors, let's align our

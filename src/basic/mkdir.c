@@ -5,6 +5,7 @@
 #include <string.h>
 
 #include "alloc-util.h"
+#include "chase-symlinks.h"
 #include "fd-util.h"
 #include "format-util.h"
 #include "fs-util.h"

@@ -1,9 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "errno-util.h"
+#include "glyph-util.h"
 #include "homectl-recovery-key.h"
 #include "libcrypt-util.h"
-#include "locale-util.h"
 #include "memory-util.h"
 #include "qrcode-util.h"
 #include "random-util.h"
