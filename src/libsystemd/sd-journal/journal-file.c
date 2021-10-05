@@ -32,6 +32,7 @@
 #include "stat-util.h"
 #include "string-util.h"
 #include "strv.h"
+#include "sync-util.h"
 #include "xattr-util.h"
 
 #define DEFAULT_DATA_HASH_TABLE_SIZE (2047ULL*sizeof(HashItem))
@@ -474,11 +475,9 @@ static int journal_file_refresh_header(JournalFile *f) {
 
         r = journal_file_set_online(f);
 
-        /* Sync the online state to disk */
-        (void) fsync(f->fd);
-
-        /* We likely just created a new file, also sync the directory this file is located in. */
-        (void) fsync_directory_of_file(f->fd);
+        /* Sync the online state to disk; likely just created a new file, also sync the directory this file
+         * is located in. */
+        (void) fsync_full(f->fd);
 
         return r;
 }
