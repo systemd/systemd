@@ -1706,6 +1706,7 @@ static int run(int argc, char *argv[]) {
          * ENOEXEC         → file system is currently not active
          * ENOSPC          → not enough disk space for operation
          * EKEYREVOKED     → user record has not suitable hashed password or pkcs#11 entry, we cannot authenticate
+         * EADDRINUSE      → home image is already used elsewhere (lock taken)
          */
 
         if (streq(argv[1], "activate"))
