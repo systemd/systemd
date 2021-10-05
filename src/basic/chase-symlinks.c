@@ -5,6 +5,7 @@
 #include "alloc-util.h"
 #include "chase-symlinks.h"
 #include "fd-util.h"
+#include "fileio.h"
 #include "fs-util.h"
 #include "glyph-util.h"
 #include "log.h"
@@ -514,4 +515,38 @@ int chase_symlinks_and_stat(
                 *ret_fd = TAKE_FD(path_fd);
 
         return 1;
+}
+
+int chase_symlinks_and_fopen_unlocked(
+                const char *path,
+                const char *root,
+                unsigned chase_flags,
+                const char *open_flags,
+                char **ret_path,
+                FILE **ret_file) {
+
+        _cleanup_free_ char *final_path = NULL;
+        _cleanup_close_ int fd = -1;
+        int mode_flags, r;
+
+        assert(path);
+        assert(open_flags);
+        assert(ret_file);
+
+        mode_flags = fopen_mode_to_flags(open_flags);
+        if (mode_flags < 0)
+                return mode_flags;
+
+        fd = chase_symlinks_and_open(path, root, chase_flags, mode_flags, ret_path ? &final_path : NULL);
+        if (fd < 0)
+                return fd;
+
+        r = take_fdopen_unlocked(&fd, open_flags, ret_file);
+        if (r < 0)
+                return r;
+
+        if (ret_path)
+                *ret_path = TAKE_PTR(final_path);
+
+        return 0;
 }
