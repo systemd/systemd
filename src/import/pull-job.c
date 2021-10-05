@@ -7,7 +7,6 @@
 #include "alloc-util.h"
 #include "fd-util.h"
 #include "format-util.h"
-#include "fs-util.h"
 #include "gcrypt-util.h"
 #include "hexdecoct.h"
 #include "import-util.h"
@@ -18,6 +17,7 @@
 #include "pull-job.h"
 #include "string-util.h"
 #include "strv.h"
+#include "sync-util.h"
 #include "xattr-util.h"
 
 void pull_job_close_disk_fd(PullJob *j) {

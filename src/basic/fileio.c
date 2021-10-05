@@ -25,6 +25,7 @@
 #include "socket-util.h"
 #include "stdio-util.h"
 #include "string-util.h"
+#include "sync-util.h"
 #include "tmpfile-util.h"
 
 /* The maximum size of the file we'll read in one go in read_full_file() (64M). */
@@ -1195,10 +1196,7 @@ int fflush_sync_and_check(FILE *f) {
         if (fd < 0)
                 return 0;
 
-        if (fsync(fd) < 0)
-                return -errno;
-
-        r = fsync_directory_of_file(fd);
+        r = fsync_full(fd);
         if (r < 0)
                 return r;
 
