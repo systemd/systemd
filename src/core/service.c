@@ -563,6 +563,13 @@ static int service_arm_timer(Service *s, usec_t usec) {
 static int service_verify(Service *s) {
         assert(s);
         assert(UNIT(s)->load_state == UNIT_LOADED);
+        ServiceExecCommand c;
+        ExecCommand *command;
+
+        for (c = 0; c < _SERVICE_EXEC_COMMAND_MAX; c++)
+                LIST_FOREACH(command, command, s->exec_command[c])
+                        if (!command->argv)
+                                return log_unit_error_errno(UNIT(s), SYNTHETIC_ERRNO(ENOEXEC), "Service has an empty argv in %s=", service_exec_command_to_string(c));
 
         if (!s->exec_command[SERVICE_EXEC_START] && !s->exec_command[SERVICE_EXEC_STOP] &&
             UNIT(s)->success_action == EMERGENCY_ACTION_NONE)
