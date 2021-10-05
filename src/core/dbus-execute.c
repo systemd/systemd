@@ -1421,6 +1421,10 @@ int bus_set_transient_exec_command(
                 if (r < 0)
                         return r;
 
+                if (strv_isempty(argv))
+                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS,
+                                                 "\"%s\" argv cannot be empty", name);
+
                 r = is_ex_prop ? sd_bus_message_read_strv(message, &ex_opts) : sd_bus_message_read(message, "b", &b);
                 if (r < 0)
                         return r;
