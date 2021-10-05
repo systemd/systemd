@@ -1,9 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "chase-symlinks.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "format-util.h"
-#include "fs-util.h"
 #include "nspawn-bind-user.h"
 #include "nspawn.h"
 #include "path-util.h"

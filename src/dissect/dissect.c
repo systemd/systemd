@@ -8,6 +8,7 @@
 #include <sys/mount.h>
 
 #include "architecture.h"
+#include "chase-symlinks.h"
 #include "copy.h"
 #include "dissect-image.h"
 #include "fd-util.h"
