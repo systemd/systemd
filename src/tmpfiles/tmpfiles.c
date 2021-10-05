@@ -21,6 +21,7 @@
 #include "alloc-util.h"
 #include "btrfs-util.h"
 #include "capability-util.h"
+#include "chase-symlinks.h"
 #include "chattr-util.h"
 #include "conf-files.h"
 #include "copy.h"
