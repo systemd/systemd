@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "chase-symlinks.h"
 #include "fd-util.h"
-#include "fs-util.h"
 #include "offline-passwd.h"
 #include "path-util.h"
 #include "user-util.h"

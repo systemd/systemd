@@ -4,6 +4,7 @@
 #include <linux/magic.h>
 
 #include "alloc-util.h"
+#include "chase-symlinks.h"
 #include "escape.h"
 #include "fd-util.h"
 #include "format-util.h"
