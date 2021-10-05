@@ -370,6 +370,8 @@ struct Manager {
         usec_t default_timer_accuracy_usec;
 
         OOMPolicy default_oom_policy;
+        int default_oom_score_adjust;
+        bool default_oom_score_adjust_set;
 
         int original_log_level;
         LogTarget original_log_target;

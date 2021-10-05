@@ -31,6 +31,7 @@
 #include "os-util.h"
 #include "parse-util.h"
 #include "path-util.h"
+#include "process-util.h"
 #include "selinux-access.h"
 #include "stat-util.h"
 #include "string-util.h"
@@ -356,6 +357,34 @@ static int property_set_kexec_watchdog(
         assert(value);
 
         return property_set_watchdog(userdata, WATCHDOG_KEXEC, value);
+}
+
+static int property_get_oom_score_adjust(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                void *userdata,
+                sd_bus_error *error) {
+
+        Manager *m = userdata;
+        int r, n;
+
+        assert(m);
+        assert(bus);
+        assert(reply);
+
+        if (m->default_oom_score_adjust_set)
+                n = m->default_oom_score_adjust;
+        else {
+                n = 0;
+                r = get_oom_score_adjust(&n);
+                if (r < 0)
+                        log_debug_errno(r, "Failed to read current OOM score adjustment value, ignoring: %m");
+        }
+
+        return sd_bus_message_append(reply, "i", n);
 }
 
 static int bus_get_unit_by_name(Manager *m, sd_bus_message *message, const char *name, Unit **ret_unit, sd_bus_error *error) {
@@ -2722,6 +2751,7 @@ const sd_bus_vtable bus_manager_vtable[] = {
         SD_BUS_PROPERTY("DefaultTasksMax", "t", bus_property_get_tasks_max, offsetof(Manager, default_tasks_max), 0),
         SD_BUS_PROPERTY("TimerSlackNSec", "t", property_get_timer_slack_nsec, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("DefaultOOMPolicy", "s", bus_property_get_oom_policy, offsetof(Manager, default_oom_policy), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("DefaultOOMScoreAdjust", "i", property_get_oom_score_adjust, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("CtrlAltDelBurstAction", "s", bus_property_get_emergency_action, offsetof(Manager, cad_burst_action), SD_BUS_VTABLE_PROPERTY_CONST),
 
         SD_BUS_METHOD_WITH_NAMES("GetUnit",

@@ -175,6 +175,7 @@ static inline int safe_fork(const char *name, ForkFlags flags, pid_t *ret_pid) {
 int namespace_fork(const char *outer_name, const char *inner_name, int except_fds[], size_t n_except_fds, ForkFlags flags, int pidns_fd, int mntns_fd, int netns_fd, int userns_fd, int root_fd, pid_t *ret_pid);
 
 int set_oom_score_adjust(int value);
+int get_oom_score_adjust(int *ret);
 
 /* The highest possibly (theoretic) pid_t value on this architecture. */
 #define PID_T_MAX ((pid_t) INT32_MAX)
