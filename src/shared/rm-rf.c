@@ -250,6 +250,9 @@ int rm_rf_children(
                         ret = r;
         }
 
+        if (FLAGS_SET(flags, REMOVE_SYNCFS) && syncfs(dirfd(d)) < 0 && ret >= 0)
+                ret = -errno;
+
         return ret;
 }
 
