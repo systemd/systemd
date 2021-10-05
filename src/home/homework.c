@@ -28,6 +28,7 @@
 #include "rm-rf.h"
 #include "stat-util.h"
 #include "strv.h"
+#include "sync-util.h"
 #include "tmpfile-util.h"
 #include "user-util.h"
 #include "virt.h"
@@ -283,6 +284,20 @@ int user_record_authenticate(
         return 0;
 }
 
+static void drop_caches_now(void) {
+        int r;
+
+        /* Drop file system caches now. See https://www.kernel.org/doc/Documentation/sysctl/vm.txt for
+         * details. We write "2" into /proc/sys/vm/drop_caches to ensure dentries/inodes are flushed, but not
+         * more. */
+
+        r = write_string_file("/proc/sys/vm/drop_caches", "2\n", WRITE_STRING_FILE_DISABLE_BUFFER);
+        if (r < 0)
+                log_warning_errno(r, "Failed to drop caches, ignoring: %m");
+        else
+                log_debug("Dropped caches.");
+}
+
 int home_setup_undo(HomeSetup *setup) {
         int r = 0, q;
 
@@ -294,6 +309,9 @@ int home_setup_undo(HomeSetup *setup) {
                         if (q < 0)
                                 r = q;
                 }
+
+                if (syncfs(setup->root_fd) < 0)
+                        log_debug_errno(errno, "Failed to synchronize home directory, ignoring: %m");
 
                 setup->root_fd = safe_close(setup->root_fd);
         }
@@ -345,6 +363,9 @@ int home_setup_undo(HomeSetup *setup) {
         setup->volume_key = mfree(setup->volume_key);
         setup->volume_key_size = 0;
 
+        if (setup->do_drop_caches)
+                drop_caches_now();
+
         return r;
 }
 
@@ -366,6 +387,9 @@ int home_prepare(
         assert(!setup->undo_mount);
 
         /* Makes a home directory accessible (through the root_fd file descriptor, not by path!). */
+
+        if (!already_activated) /* If we set up the directory, we should also drop caches once we are done */
+                setup->do_drop_caches = setup->do_drop_caches || user_record_drop_caches(h);
 
         switch (user_record_storage(h)) {
 
@@ -827,6 +851,13 @@ static int home_deactivate(UserRecord *h, bool force) {
                                 return r;
                 }
 
+                /* Sync explicitly, so that the drop caches logic below can work as documented */
+                r = syncfs_path(AT_FDCWD, user_record_home_directory(h));
+                if (r < 0)
+                        log_debug_errno(r, "Failed to synchronize home directory, ignoring: %m");
+                else
+                        log_info("Syncing completed.");
+
                 if (umount2(user_record_home_directory(h), UMOUNT_NOFOLLOW | (force ? MNT_FORCE|MNT_DETACH : 0)) < 0)
                         return log_error_errno(errno, "Failed to unmount %s: %m", user_record_home_directory(h));
 
@@ -845,6 +876,9 @@ static int home_deactivate(UserRecord *h, bool force) {
 
         if (!done)
                 return log_error_errno(SYNTHETIC_ERRNO(ENOEXEC), "Home is not active.");
+
+        if (user_record_drop_caches(h))
+                drop_caches_now();
 
         log_info("Everything completed.");
         return 0;
@@ -1268,8 +1302,20 @@ static int home_remove(UserRecord *h) {
                                 if (unlink(ip) < 0) {
                                         if (errno != ENOENT)
                                                 return log_error_errno(errno, "Failed to remove %s: %m", ip);
-                                } else
+                                } else {
+                                        _cleanup_free_ char *parent = NULL;
+
                                         deleted = true;
+
+                                        r = path_extract_directory(ip, &parent);
+                                        if (r < 0)
+                                                log_debug_errno(r, "Failed to determine parent directory of '%s': %m", ip);
+                                        else {
+                                                r = fsync_path_at(AT_FDCWD, parent);
+                                                if (r < 0)
+                                                        log_debug_errno(r, "Failed to synchronize disk after deleting '%s', ignoring: %m", ip);
+                                        }
+                                }
 
                         } else if (S_ISBLK(st.st_mode))
                                 log_info("Not removing file system on block device %s.", ip);
@@ -1285,7 +1331,7 @@ static int home_remove(UserRecord *h) {
         case USER_FSCRYPT:
                 assert(ip);
 
-                r = rm_rf(ip, REMOVE_ROOT|REMOVE_PHYSICAL|REMOVE_SUBVOLUME);
+                r = rm_rf(ip, REMOVE_ROOT|REMOVE_PHYSICAL|REMOVE_SUBVOLUME|REMOVE_SYNCFS);
                 if (r < 0) {
                         if (r != -ENOENT)
                                 return log_warning_errno(r, "Failed to remove %s: %m", ip);
@@ -1316,9 +1362,12 @@ static int home_remove(UserRecord *h) {
                         deleted = true;
         }
 
-        if (deleted)
+        if (deleted) {
+                if (user_record_drop_caches(h))
+                        drop_caches_now();
+
                 log_info("Everything completed.");
-        else
+        } else
                 return log_notice_errno(SYNTHETIC_ERRNO(EALREADY),
                                         "Nothing to remove.");
 

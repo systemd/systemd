@@ -435,6 +435,9 @@ void user_record_show(UserRecord *hr, bool show_full_group_info) {
         if (hr->password_change_now >= 0)
                 printf("Pas. Ch. Now: %s\n", yes_no(hr->password_change_now));
 
+        if (hr->drop_caches >= 0 || user_record_drop_caches(hr))
+                printf(" Drop Caches: %s\n", yes_no(user_record_drop_caches(hr)));
+
         if (!strv_isempty(hr->ssh_authorized_keys))
                 printf("SSH Pub. Key: %zu\n", strv_length(hr->ssh_authorized_keys));
 

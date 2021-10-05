@@ -611,6 +611,17 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>--drop-caches=</option><replaceable>BOOL</replaceable></term>
+
+        <listitem><para>Automatically flush OS file system caches on logout. This is useful in combination
+        with the fscrypt storage backend to ensure the OS does not keep decrypted versions of the files and
+        directories in memory (and accessible) after logout. This option is also supported on other backends,
+        but should not bring any benefit there. Defaults to off, except if the selected storage backend is
+        fscrypt, where it defaults to on. Note that flushing OS caches will negatively influence performance
+        of the OS shortly after logout.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>--fs-type=</option><replaceable>TYPE</replaceable></term>
 
         <listitem><para>When LUKS2 storage is used configures the file system type to use inside the home

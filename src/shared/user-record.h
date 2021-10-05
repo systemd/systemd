@@ -353,6 +353,7 @@ typedef struct UserRecord {
         int removable;
         int enforce_password_policy;
         int auto_login;
+        int drop_caches;
 
         uint64_t stop_delay_usec;   /* How long to leave systemd --user around on log-out */
         int kill_processes;         /* Whether to kill user processes forcibly on log-out */
@@ -419,6 +420,7 @@ int user_record_removable(UserRecord *h);
 usec_t user_record_ratelimit_interval_usec(UserRecord *h);
 uint64_t user_record_ratelimit_burst(UserRecord *h);
 bool user_record_can_authenticate(UserRecord *h);
+bool user_record_drop_caches(UserRecord *h);
 
 int user_record_build_image_path(UserStorage storage, const char *user_name_and_realm, char **ret);
 
