@@ -58,6 +58,7 @@ static LinkConfig* link_config_free(LinkConfig *link) {
         strv_free(link->alternative_names);
         free(link->alternative_names_policy);
         free(link->alias);
+        free(link->wol_password_file);
         erase_and_free(link->wol_password);
 
         return mfree(link);
@@ -153,6 +154,25 @@ static int link_read_wol_password_from_cred(LinkConfig *link) {
         return link_parse_wol_password(link, password);
 }
 
+static int link_read_wol_password_from_file(LinkConfig *link) {
+        _cleanup_(erase_and_freep) char *password = NULL;
+        int r;
+
+        assert(link);
+
+        if (!link->wol_password_file)
+                return 0;
+
+        r = read_full_file_full(
+                        AT_FDCWD, link->wol_password_file, UINT64_MAX, SIZE_MAX,
+                        READ_FULL_FILE_SECURE | READ_FULL_FILE_WARN_WORLD_READABLE | READ_FULL_FILE_CONNECT_SOCKET,
+                        NULL, &password, NULL);
+        if (r < 0)
+                return r;
+
+        return link_parse_wol_password(link, password);
+}
+
 int link_load_one(LinkConfigContext *ctx, const char *filename) {
         _cleanup_(link_config_freep) LinkConfig *link = NULL;
         _cleanup_free_ char *name = NULL;
@@ -234,6 +254,12 @@ int link_load_one(LinkConfigContext *ctx, const char *filename) {
                 return log_oom();
         if (r < 0)
                 log_warning_errno(r, "Failed to read WakeOnLan password from credential, ignoring: %m");
+
+        r = link_read_wol_password_from_file(link);
+        if (r == -ENOMEM)
+                return log_oom();
+        if (r < 0)
+                log_warning_errno(r, "Failed to read WakeOnLan password from %s, ignoring: %m", link->wol_password_file);
 
         if (link->wol != UINT32_MAX && !eqzero(link->wol_password))
                 /* Enable WAKE_MAGICSECURE flag when WakeOnLanPassword=. Note that when
@@ -869,6 +895,7 @@ int config_parse_wol_password(
         if (isempty(rvalue)) {
                 link->wol_password_from_cred = false;
                 link->wol_password = erase_and_free(link->wol_password);
+                link->wol_password_file = mfree(link->wol_password_file);
                 return 0;
         }
 
@@ -876,7 +903,14 @@ int config_parse_wol_password(
         if (r >= 0) {
                 link->wol_password_from_cred = r;
                 link->wol_password = erase_and_free(link->wol_password);
+                link->wol_password_file = mfree(link->wol_password_file);
                 return 0;
+        }
+
+        if (path_is_absolute(rvalue) && path_is_safe(rvalue)) {
+                link->wol_password_from_cred = false;
+                link->wol_password = erase_and_free(link->wol_password);
+                return free_and_strdup_warn(&link->wol_password_file, rvalue);
         }
 
         warn_file_is_world_accessible(filename, NULL, unit, line);
@@ -891,6 +925,7 @@ int config_parse_wol_password(
         }
 
         link->wol_password_from_cred = false;
+        link->wol_password_file = mfree(link->wol_password_file);
         return 0;
 }
 

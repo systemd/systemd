@@ -551,16 +551,18 @@
       <varlistentry>
         <term><varname>WakeOnLanPassword=</varname></term>
         <listitem>
-          <para>Specifies the SecureOn(tm) password for MagicPacket(tm). Takes a boolean string, or the
-          password. If set to true, then the password is read from credential
+          <para>Specifies the SecureOn(tm) password for MagicPacket(tm). Takes a boolean string, an
+          absolute path to a file which contains the password, or the plain password. If set to true,
+          then the password is read from credential
           <literal><replaceable>LINK</replaceable>.link.wol.password</literal>, e.g.,
           <literal>60-foo.link.wol.password</literal>. See
           <varname>LoadCredential=</varname>/<varname>SetCredential=</varname> in
           <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>1</manvolnum></citerefentry>
-          for details. The password in the credential or specified in this option must be 6 bytes in
-          hex format with each byte separated by a colon (<literal>:</literal>) like Ethernet MAC address,
-          e.g., <literal>aa:bb:cc:dd:ee:ff</literal>. This implies <varname>WakeOnLan=</varname> with
-          <literal>secureon</literal>. Defaults to unset, and the current value will not be changed.
+          for details. The password in the credential, file, or specified in this option must be 6
+          bytes in hex format with each byte separated by a colon (<literal>:</literal>) like Ethernet
+          MAC address, e.g., <literal>aa:bb:cc:dd:ee:ff</literal>. This implies
+          <varname>WakeOnLan=</varname> with <literal>secureon</literal>. Defaults to unset, and the
+          current value will not be changed.
           </para>
         </listitem>
       </varlistentry>
