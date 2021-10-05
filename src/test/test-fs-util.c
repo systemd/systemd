@@ -16,6 +16,7 @@
 #include "stdio-util.h"
 #include "string-util.h"
 #include "strv.h"
+#include "sync-util.h"
 #include "tests.h"
 #include "tmpfile-util.h"
 #include "umask-util.h"
