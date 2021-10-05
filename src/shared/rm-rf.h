@@ -14,6 +14,7 @@ typedef enum RemoveFlags {
         REMOVE_MISSING_OK       = 1 << 4, /* If the top-level directory is missing, ignore the ENOENT for it */
         REMOVE_CHMOD            = 1 << 5, /* chmod() for write access if we cannot delete or access something */
         REMOVE_CHMOD_RESTORE    = 1 << 6, /* Restore the old mode before returning */
+        REMOVE_SYNCFS           = 1 << 7, /* syncfs() the root of the specified directory after removing everything in it */
 } RemoveFlags;
 
 int unlinkat_harder(int dfd, const char *filename, int unlink_flags, RemoveFlags remove_flags);
