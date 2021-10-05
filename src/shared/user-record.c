@@ -1913,9 +1913,9 @@ uint64_t user_record_luks_pbkdf_memory_cost(UserRecord *h) {
         assert(h);
 
         /* Returns a value with kb granularity, since that's what libcryptsetup expects */
-
         if (h->luks_pbkdf_memory_cost == UINT64_MAX)
-                return 64*1024*1024; /* We default to 64M, since this should work on smaller systems too */
+                return streq(user_record_luks_pbkdf_type(h), "pbkdf2") ? 0 : /* doesn't apply for simple pbkdf2 */
+                        64*1024*1024; /* We default to 64M, since this should work on smaller systems too */
 
         return MIN(DIV_ROUND_UP(h->luks_pbkdf_memory_cost, 1024), UINT32_MAX) * 1024;
 }
@@ -1923,8 +1923,9 @@ uint64_t user_record_luks_pbkdf_memory_cost(UserRecord *h) {
 uint64_t user_record_luks_pbkdf_parallel_threads(UserRecord *h) {
         assert(h);
 
-        if (h->luks_pbkdf_memory_cost == UINT64_MAX)
-                return 1; /* We default to 1, since this should work on smaller systems too */
+        if (h->luks_pbkdf_parallel_threads == UINT64_MAX)
+                return streq(user_record_luks_pbkdf_type(h), "pbkdf2") ? 0 : /* doesn't apply for simple pbkdf2 */
+                        1; /* We default to 1, since this should work on smaller systems too */
 
         return MIN(h->luks_pbkdf_parallel_threads, UINT32_MAX);
 }
