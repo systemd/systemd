@@ -1010,13 +1010,25 @@ static int manager_bind_varlink(Manager *m) {
         return 0;
 }
 
-static ssize_t read_datagram(int fd, struct ucred *ret_sender, void **ret) {
+static ssize_t read_datagram(
+                int fd,
+                struct ucred *ret_sender,
+                void **ret,
+                int *ret_passed_fd) {
+
+        CMSG_BUFFER_TYPE(CMSG_SPACE(sizeof(struct ucred)) + CMSG_SPACE(sizeof(int))) control;
         _cleanup_free_ void *buffer = NULL;
+        _cleanup_close_ int passed_fd = -1;
+        struct ucred *sender = NULL;
+        struct cmsghdr *cmsg;
+        struct msghdr mh;
+        struct iovec iov;
         ssize_t n, m;
 
         assert(fd >= 0);
         assert(ret_sender);
         assert(ret);
+        assert(ret_passed_fd);
 
         n = next_datagram_size_fd(fd);
         if (n < 0)
@@ -1026,57 +1038,53 @@ static ssize_t read_datagram(int fd, struct ucred *ret_sender, void **ret) {
         if (!buffer)
                 return -ENOMEM;
 
-        if (ret_sender) {
-                CMSG_BUFFER_TYPE(CMSG_SPACE(sizeof(struct ucred))) control;
-                bool found_ucred = false;
-                struct cmsghdr *cmsg;
-                struct msghdr mh;
-                struct iovec iov;
+        /* Pass one extra byte, as a size check */
+        iov = IOVEC_MAKE(buffer, n + 1);
 
-                /* Pass one extra byte, as a size check */
-                iov = IOVEC_MAKE(buffer, n + 1);
+        mh = (struct msghdr) {
+                .msg_iov = &iov,
+                .msg_iovlen = 1,
+                .msg_control = &control,
+                .msg_controllen = sizeof(control),
+        };
 
-                mh = (struct msghdr) {
-                        .msg_iov = &iov,
-                        .msg_iovlen = 1,
-                        .msg_control = &control,
-                        .msg_controllen = sizeof(control),
-                };
+        m = recvmsg_safe(fd, &mh, MSG_DONTWAIT|MSG_CMSG_CLOEXEC);
+        if (m < 0)
+                return m;
 
-                m = recvmsg_safe(fd, &mh, MSG_DONTWAIT|MSG_CMSG_CLOEXEC);
-                if (m < 0)
-                        return m;
-
+        /* Ensure the size matches what we determined before */
+        if (m != n) {
                 cmsg_close_all(&mh);
+                return -EMSGSIZE;
+        }
 
-                /* Ensure the size matches what we determined before */
-                if (m != n)
-                        return -EMSGSIZE;
+        CMSG_FOREACH(cmsg, &mh) {
+                if (cmsg->cmsg_level == SOL_SOCKET &&
+                    cmsg->cmsg_type == SCM_CREDENTIALS &&
+                    cmsg->cmsg_len == CMSG_LEN(sizeof(struct ucred))) {
+                        assert(!sender);
+                        sender = (struct ucred*) CMSG_DATA(cmsg);
+                }
 
-                CMSG_FOREACH(cmsg, &mh)
-                        if (cmsg->cmsg_level == SOL_SOCKET &&
-                            cmsg->cmsg_type == SCM_CREDENTIALS &&
-                            cmsg->cmsg_len == CMSG_LEN(sizeof(struct ucred))) {
+                if (cmsg->cmsg_level == SOL_SOCKET &&
+                    cmsg->cmsg_type == SCM_RIGHTS) {
 
-                                memcpy(ret_sender, CMSG_DATA(cmsg), sizeof(struct ucred));
-                                found_ucred = true;
+                        if (cmsg->cmsg_len != CMSG_LEN(sizeof(int))) {
+                                cmsg_close_all(&mh);
+                                return -EMSGSIZE;
                         }
 
-                if (!found_ucred)
-                        *ret_sender = (struct ucred) {
-                                .pid = 0,
-                                .uid = UID_INVALID,
-                                .gid = GID_INVALID,
-                        };
-        } else {
-                m = recv(fd, buffer, n + 1, MSG_DONTWAIT);
-                if (m < 0)
-                        return -errno;
-
-                /* Ensure the size matches what we determined before */
-                if (m != n)
-                        return -EMSGSIZE;
+                        assert(passed_fd < 0);
+                        passed_fd = *(int*) CMSG_DATA(cmsg);
+                }
         }
+
+        if (sender)
+                *ret_sender = *sender;
+        else
+                *ret_sender = (struct ucred) UCRED_INVALID;
+
+        *ret_passed_fd = TAKE_FD(passed_fd);
 
         /* For safety reasons: let's always NUL terminate.  */
         ((char*) buffer)[n] = 0;
@@ -1088,7 +1096,8 @@ static ssize_t read_datagram(int fd, struct ucred *ret_sender, void **ret) {
 static int on_notify_socket(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
         _cleanup_strv_free_ char **l = NULL;
         _cleanup_free_ void *datagram = NULL;
-        struct ucred sender;
+        _cleanup_close_ int passed_fd = -1;
+        struct ucred sender = UCRED_INVALID;
         Manager *m = userdata;
         ssize_t n;
         Home *h;
@@ -1096,7 +1105,7 @@ static int on_notify_socket(sd_event_source *s, int fd, uint32_t revents, void *
         assert(s);
         assert(m);
 
-        n = read_datagram(fd, &sender, &datagram);
+        n = read_datagram(fd, &sender, &datagram, &passed_fd);
         if (IN_SET(n, -EAGAIN, -EINTR))
                 return 0;
         if (n < 0)
@@ -1117,7 +1126,7 @@ static int on_notify_socket(sd_event_source *s, int fd, uint32_t revents, void *
         if (!l)
                 return log_oom();
 
-        home_process_notify(h, l);
+        home_process_notify(h, l, TAKE_FD(passed_fd));
         return 0;
 }
 
