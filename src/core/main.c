@@ -22,6 +22,9 @@
 #include "alloc-util.h"
 #include "apparmor-setup.h"
 #include "architecture.h"
+#if HAVE_LIBBPF
+#include "bpf-lsm.h"
+#endif
 #include "build.h"
 #include "bus-error.h"
 #include "bus-util.h"

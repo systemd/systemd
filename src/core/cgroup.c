@@ -37,6 +37,12 @@
 #include "string-util.h"
 #include "virt.h"
 
+#if BPF_FRAMEWORK
+#include "bpf-dlopen.h"
+#include "bpf-link.h"
+#include "bpf/restrict_fs/restrict-fs-skel.h"
+#endif
+
 #define CGROUP_CPU_QUOTA_DEFAULT_PERIOD_USEC ((usec_t) 100 * USEC_PER_MSEC)
 
 /* Returns the log level to use when cgroup attribute writes fail. When an attribute is missing or we have access
@@ -2735,6 +2741,10 @@ void unit_prune_cgroup(Unit *u) {
                 return;
 
         (void) unit_get_cpu_usage(u, NULL); /* Cache the last CPU usage value before we destroy the cgroup */
+
+#if BPF_FRAMEWORK
+        (void) lsm_bpf_cleanup(u); /* Remove cgroup from the global LSM BPF map */
+#endif
 
         is_root_slice = unit_has_name(u, SPECIAL_ROOT_SLICE);
 
