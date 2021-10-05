@@ -11,7 +11,7 @@
 #include "capability-util.h"
 #include "fileio.h"
 #include "format-util.h"
-#include "locale-util.h"
+#include "glyph-util.h"
 #include "macro.h"
 #include "string-util.h"
 #include "strv.h"

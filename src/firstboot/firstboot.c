@@ -16,6 +16,7 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "fs-util.h"
+#include "glyph-util.h"
 #include "hostname-util.h"
 #include "kbd-util.h"
 #include "libcrypt-util.h"

@@ -4,7 +4,7 @@
 #include <stdbool.h>
 
 #include "errno-list.h"
-#include "locale-util.h"
+#include "glyph-util.h"
 #include "macro.h"
 
 /* The enum order is used to order unit jobs in the job queue

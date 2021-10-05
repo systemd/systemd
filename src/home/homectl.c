@@ -14,6 +14,7 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "format-table.h"
+#include "glyph-util.h"
 #include "home-util.h"
 #include "homectl-fido2.h"
 #include "homectl-pkcs11.h"

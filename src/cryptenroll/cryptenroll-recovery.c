@@ -1,8 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "cryptenroll-recovery.h"
+#include "glyph-util.h"
 #include "json.h"
-#include "locale-util.h"
 #include "memory-util.h"
 #include "qrcode-util.h"
 #include "recovery-key.h"
