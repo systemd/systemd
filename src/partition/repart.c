@@ -2779,7 +2779,7 @@ static int context_copy_blocks(Context *context) {
                         return log_error_errno(r, "Failed to copy in data from '%s': %m", p->copy_blocks_path);
 
                 if (fsync(target_fd) < 0)
-                        return log_error_errno(r, "Failed to synchronize copied data blocks: %m");
+                        return log_error_errno(errno, "Failed to synchronize copied data blocks: %m");
 
                 if (p->encrypt != ENCRYPT_OFF) {
                         encrypted_dev_fd = safe_close(encrypted_dev_fd);
@@ -3055,7 +3055,7 @@ static int context_mkfs(Context *context) {
 
                 if (p->encrypt != ENCRYPT_OFF) {
                         if (fsync(encrypted_dev_fd) < 0)
-                                return log_error_errno(r, "Failed to synchronize LUKS volume: %m");
+                                return log_error_errno(errno, "Failed to synchronize LUKS volume: %m");
                         encrypted_dev_fd = safe_close(encrypted_dev_fd);
 
                         r = deactivate_luks(cd, encrypted);
