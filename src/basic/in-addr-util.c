@@ -621,64 +621,119 @@ int in4_addr_default_subnet_mask(const struct in_addr *addr, struct in_addr *mas
         return 0;
 }
 
+int in4_addr_mask(struct in_addr *addr, unsigned char prefixlen) {
+        struct in_addr mask;
+
+        assert(addr);
+
+        if (!in4_addr_prefixlen_to_netmask(&mask, prefixlen))
+                return -EINVAL;
+
+        addr->s_addr &= mask.s_addr;
+        return 0;
+}
+
+int in6_addr_mask(struct in6_addr *addr, unsigned char prefixlen) {
+        unsigned i;
+
+        for (i = 0; i < 16; i++) {
+                uint8_t mask;
+
+                if (prefixlen >= 8) {
+                        mask = 0xFF;
+                        prefixlen -= 8;
+                } else if (prefixlen > 0) {
+                        mask = 0xFF << (8 - prefixlen);
+                        prefixlen = 0;
+                } else {
+                        assert(prefixlen == 0);
+                        mask = 0;
+                }
+
+                addr->s6_addr[i] &= mask;
+        }
+
+        return 0;
+}
+
 int in_addr_mask(int family, union in_addr_union *addr, unsigned char prefixlen) {
         assert(addr);
 
-        if (family == AF_INET) {
-                struct in_addr mask;
-
-                if (!in4_addr_prefixlen_to_netmask(&mask, prefixlen))
-                        return -EINVAL;
-
-                addr->in.s_addr &= mask.s_addr;
-                return 0;
+        switch (family) {
+        case AF_INET:
+                return in4_addr_mask(&addr->in, prefixlen);
+        case AF_INET6:
+                return in6_addr_mask(&addr->in6, prefixlen);
+        default:
+                return -EAFNOSUPPORT;
         }
-
-        if (family == AF_INET6) {
-                unsigned i;
-
-                for (i = 0; i < 16; i++) {
-                        uint8_t mask;
-
-                        if (prefixlen >= 8) {
-                                mask = 0xFF;
-                                prefixlen -= 8;
-                        } else {
-                                mask = 0xFF << (8 - prefixlen);
-                                prefixlen = 0;
-                        }
-
-                        addr->in6.s6_addr[i] &= mask;
-                }
-
-                return 0;
-        }
-
-        return -EAFNOSUPPORT;
 }
 
-int in_addr_prefix_covers(int family,
-                          const union in_addr_union *prefix,
-                          unsigned char prefixlen,
-                          const union in_addr_union *address) {
+int in4_addr_prefix_covers(
+                const struct in_addr *prefix,
+                unsigned char prefixlen,
+                const struct in_addr *address) {
 
-        union in_addr_union masked_prefix, masked_address;
+        struct in_addr masked_prefix, masked_address;
         int r;
 
         assert(prefix);
         assert(address);
 
         masked_prefix = *prefix;
-        r = in_addr_mask(family, &masked_prefix, prefixlen);
+        r = in4_addr_mask(&masked_prefix, prefixlen);
         if (r < 0)
                 return r;
 
         masked_address = *address;
-        r = in_addr_mask(family, &masked_address, prefixlen);
+        r = in4_addr_mask(&masked_address, prefixlen);
         if (r < 0)
                 return r;
 
-        return in_addr_equal(family, &masked_prefix, &masked_address);
+        return in4_addr_equal(&masked_prefix, &masked_address);
+}
+
+int in6_addr_prefix_covers(
+                const struct in6_addr *prefix,
+                unsigned char prefixlen,
+                const struct in6_addr *address) {
+
+        struct in6_addr masked_prefix, masked_address;
+        int r;
+
+        assert(prefix);
+        assert(address);
+
+        masked_prefix = *prefix;
+        r = in6_addr_mask(&masked_prefix, prefixlen);
+        if (r < 0)
+                return r;
+
+        masked_address = *address;
+        r = in6_addr_mask(&masked_address, prefixlen);
+        if (r < 0)
+                return r;
+
+        return in6_addr_equal(&masked_prefix, &masked_address);
+}
+
+int in_addr_prefix_covers(
+                int family,
+                const union in_addr_union *prefix,
+                unsigned char prefixlen,
+                const union in_addr_union *address) {
+
+        assert(prefix);
+        assert(address);
+
+        switch (family) {
+        case AF_INET:
+                return in4_addr_prefix_covers(&prefix->in, prefixlen, &address->in);
+        case AF_INET6:
+                return in6_addr_prefix_covers(&prefix->in6, prefixlen, &address->in6);
+        default:
+                return -EAFNOSUPPORT;
+        }
 }
 
 int in_addr_parse_prefixlen(int family, const char *p, unsigned char *ret) {
@@ -846,3 +901,9 @@ int in6_addr_compare_func(const struct in6_addr *a, const struct in6_addr *b) {
 }
 
 DEFINE_HASH_OPS(in6_addr_hash_ops, struct in6_addr, in6_addr_hash_func, in6_addr_compare_func);
+DEFINE_HASH_OPS_WITH_KEY_DESTRUCTOR(
+        in6_addr_hash_ops_free,
+        struct in6_addr,
+        in6_addr_hash_func,
+        in6_addr_compare_func,
+        free);

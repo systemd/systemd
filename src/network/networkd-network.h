@@ -244,7 +244,7 @@ struct Network {
         bool dhcp6_pd_manage_temporary_address;
         int64_t dhcp6_pd_subnet_id;
         uint32_t dhcp6_pd_route_metric;
-        struct in6_addr dhcp6_pd_token;
+        Set *dhcp6_pd_tokens;
 
         /* Bridge Support */
         int use_bpdu;
@@ -321,7 +321,7 @@ struct Network {
         Set *ndisc_allow_listed_prefix;
         Set *ndisc_deny_listed_route_prefix;
         Set *ndisc_allow_listed_route_prefix;
-        OrderedSet *ipv6_tokens;
+        Set *ndisc_tokens;
 
         /* LLDP support */
         LLDPMode lldp_mode; /* LLDP reception */
