@@ -55,7 +55,7 @@ int read_login_defs(UGIDAllocationRange *ret_defs, const char *path, const char 
         if (!path)
                 path = "/etc/login.defs";
 
-        r = chase_symlinks_and_fopen_unlocked(path, root, CHASE_PREFIX_ROOT, "re", &f, NULL);
+        r = chase_symlinks_and_fopen_unlocked(path, root, CHASE_PREFIX_ROOT, "re", NULL, &f);
         if (r == -ENOENT)
                 goto assign;
         if (r < 0)
