@@ -395,7 +395,7 @@ static int64_t write_catalog(
 
         header = (CatalogHeader) {
                 .signature = CATALOG_SIGNATURE,
-                .header_size = htole64(ALIGN_TO(sizeof(CatalogHeader), 8)),
+                .header_size = htole64(CONST_ALIGN_TO(sizeof(CatalogHeader), 8)),
                 .catalog_item_size = htole64(sizeof(CatalogItem)),
                 .n_items = htole64(n),
         };

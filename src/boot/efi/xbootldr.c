@@ -9,7 +9,7 @@
 
 union GptHeaderBuffer {
         EFI_PARTITION_TABLE_HEADER gpt_header;
-        uint8_t space[((sizeof(EFI_PARTITION_TABLE_HEADER) + 511) / 512) * 512];
+        uint8_t space[CONST_ALIGN_TO(sizeof(EFI_PARTITION_TABLE_HEADER), 512)];
 };
 
 static EFI_DEVICE_PATH *path_parent(EFI_DEVICE_PATH *path, EFI_DEVICE_PATH *node) {
