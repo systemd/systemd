@@ -40,7 +40,7 @@ _coredumpctl() {
     local cur=${COMP_WORDS[COMP_CWORD]} prev=${COMP_WORDS[COMP_CWORD-1]}
     local OPTS='-h --help --version --no-pager --no-legend -o --output -F --field -1
                 -r --reverse -S --since -U --until -D --directory -q --quiet --debugger
-                -A --debugger-arguments --json -n'
+                -A --debugger-arguments --json -n --all'
 
     local -A VERBS=(
         [LIST]='list info'

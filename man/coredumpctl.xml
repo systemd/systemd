@@ -256,6 +256,13 @@
         of access to journal files and possible in-flight coredumps.
         </para></listitem>
       </varlistentry>
+
+      <varlistentry>
+        <term><option>--all</option></term>
+
+        <listitem><para>Look at all available journal files in <filename>/var/log/journal/</filename>
+        (excluding journal namespaces) instead of only local ones.</para></listitem>
+      </varlistentry>
     </variablelist>
   </refsect1>
 
