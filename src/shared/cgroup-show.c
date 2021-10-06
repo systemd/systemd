@@ -12,11 +12,13 @@
 #include "cgroup-show.h"
 #include "cgroup-util.h"
 #include "env-file.h"
+#include "escape.h"
 #include "fd-util.h"
 #include "format-util.h"
 #include "hostname-util.h"
 #include "locale-util.h"
 #include "macro.h"
+#include "nulstr-util.h"
 #include "output-mode.h"
 #include "parse-util.h"
 #include "path-util.h"
@@ -122,38 +124,109 @@ static int show_cgroup_one_by_path(
 static int show_cgroup_name(
                 const char *path,
                 const char *prefix,
-                const char *glyph) {
+                SpecialGlyph glyph,
+                OutputFlags flags) {
 
+        uint64_t cgroupid = UINT64_MAX;
         _cleanup_free_ char *b = NULL;
+        _cleanup_close_ int fd = -1;
         bool delegate = false;
         int r;
 
-        r = lgetxattr_malloc(path, "trusted.delegate", &b);
+        if (FLAGS_SET(flags, OUTPUT_CGROUP_XATTRS) || FLAGS_SET(flags, OUTPUT_CGROUP_ID)) {
+                fd = open(path, O_PATH|O_CLOEXEC|O_NOFOLLOW|O_DIRECTORY, 0);
+                if (fd < 0)
+                        log_debug_errno(errno, "Failed to open cgroup '%s', ignoring: %m", path);
+        }
+
+        r = getxattr_malloc(fd < 0 ? path : FORMAT_PROC_FD_PATH(fd), "trusted.delegate", &b);
         if (r < 0) {
                 if (r != -ENODATA)
-                        log_debug_errno(r, "Failed to read trusted.delegate extended attribute: %m");
+                        log_debug_errno(r, "Failed to read trusted.delegate extended attribute, ignoring: %m");
         } else {
                 r = parse_boolean(b);
                 if (r < 0)
-                        log_debug_errno(r, "Failed to parse trusted.delegate extended attribute boolean value: %m");
+                        log_debug_errno(r, "Failed to parse trusted.delegate extended attribute boolean value, ignoring: %m");
                 else
                         delegate = r > 0;
 
                 b = mfree(b);
         }
 
-        b = strdup(basename(path));
-        if (!b)
-                return -ENOMEM;
+        if (FLAGS_SET(flags, OUTPUT_CGROUP_ID)) {
+                cg_file_handle fh = CG_FILE_HANDLE_INIT;
+                int mnt_id = -1;
 
-        printf("%s%s%s%s%s %s%s%s\n",
-               prefix, glyph,
+                if (name_to_handle_at(
+                                    fd < 0 ? AT_FDCWD : fd,
+                                    fd < 0 ? path : "",
+                                    &fh.file_handle,
+                                    &mnt_id,
+                                    fd < 0 ? 0 : AT_EMPTY_PATH) < 0)
+                        log_debug_errno(errno, "Failed to determine cgroup ID of %s, ignoring: %m", path);
+                else
+                        cgroupid = CG_FILE_HANDLE_CGROUPID(fh);
+        }
+
+        r = path_extract_filename(path, &b);
+        if (r < 0)
+                return log_error_errno(r, "Failed to extract filename from cgroup path: %m");
+
+        printf("%s%s%s%s%s",
+               prefix, special_glyph(glyph),
                delegate ? ansi_underline() : "",
                cg_unescape(b),
-               delegate ? ansi_normal() : "",
-               delegate ? ansi_highlight() : "",
-               delegate ? special_glyph(SPECIAL_GLYPH_ELLIPSIS) : "",
                delegate ? ansi_normal() : "");
+
+        if (delegate)
+                printf(" %s%s%s",
+                       ansi_highlight(),
+                       special_glyph(SPECIAL_GLYPH_ELLIPSIS),
+                       ansi_normal());
+
+        if (cgroupid != UINT64_MAX)
+                printf(" %s(#%" PRIu64 ")%s", ansi_grey(), cgroupid, ansi_normal());
+
+        printf("\n");
+
+        if (FLAGS_SET(flags, OUTPUT_CGROUP_XATTRS) && fd >= 0) {
+                _cleanup_free_ char *nl = NULL;
+                char *xa;
+
+                r = flistxattr_malloc(fd, &nl);
+                if (r < 0)
+                        log_debug_errno(r, "Failed to enumerate xattrs on '%s', ignoring: %m", path);
+
+                NULSTR_FOREACH(xa, nl) {
+                        _cleanup_free_ char *x = NULL, *y = NULL, *buf = NULL;
+                        int n;
+
+                        if (!STARTSWITH_SET(xa, "user.", "trusted."))
+                                continue;
+
+                        n = fgetxattr_malloc(fd, xa, &buf);
+                        if (n < 0) {
+                                log_debug_errno(r, "Failed to read xattr '%s' off '%s', ignoring: %m", xa, path);
+                                continue;
+                        }
+
+                        x = cescape(xa);
+                        if (!x)
+                                return -ENOMEM;
+
+                        y = cescape_length(buf, n);
+                        if (!y)
+                                return -ENOMEM;
+
+                        printf("%s%s%s %s%s%s: %s\n",
+                               prefix,
+                               glyph == SPECIAL_GLYPH_TREE_BRANCH ? special_glyph(SPECIAL_GLYPH_TREE_VERTICAL) : "  ",
+                               special_glyph(SPECIAL_GLYPH_ARROW),
+                               ansi_blue(), x, ansi_normal(),
+                               y);
+                }
+        }
+
         return 0;
 }
 
@@ -201,7 +274,7 @@ int show_cgroup_by_path(
                 }
 
                 if (last) {
-                        r = show_cgroup_name(last, prefix, special_glyph(SPECIAL_GLYPH_TREE_BRANCH));
+                        r = show_cgroup_name(last, prefix, SPECIAL_GLYPH_TREE_BRANCH, flags);
                         if (r < 0)
                                 return r;
 
@@ -225,7 +298,7 @@ int show_cgroup_by_path(
                 show_cgroup_one_by_path(path, prefix, n_columns, !!last, flags);
 
         if (last) {
-                r = show_cgroup_name(last, prefix, special_glyph(SPECIAL_GLYPH_TREE_RIGHT));
+                r = show_cgroup_name(last, prefix, SPECIAL_GLYPH_TREE_RIGHT, flags);
                 if (r < 0)
                         return r;
 
