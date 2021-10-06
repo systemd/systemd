@@ -425,6 +425,16 @@ int ethtool_set_wol(int *ethtool_fd, const char *ifname, uint32_t wolopts) {
         if (ioctl(*ethtool_fd, SIOCETHTOOL, &ifr) < 0)
                 return -errno;
 
+        if ((wolopts & ~ecmd.supported) != 0) {
+                _cleanup_free_ char *str = NULL;
+
+                (void) wol_options_to_string_alloc(wolopts & ~ecmd.supported, &str);
+                log_debug("Network interface %s does not support requested Wake on LAN option(s) \"%s\", ignoring.",
+                          ifname, strna(str));
+
+                wolopts &= ecmd.supported;
+        }
+
         UPDATE(ecmd.wolopts, wolopts, need_update);
 
         if (!need_update)
