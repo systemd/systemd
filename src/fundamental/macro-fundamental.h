@@ -5,6 +5,7 @@
 #include <assert.h>
 #endif
 
+#include <limits.h>
 #include "type.h"
 
 #define _align_(x) __attribute__((__aligned__(x)))
@@ -273,3 +274,34 @@
                 free(memory);                   \
                 (typeof(memory)) NULL;          \
         })
+
+static inline size_t ALIGN_TO(size_t l, size_t ali) {
+        /* sd-boot uses UINTN for size_t, let's make sure SIZE_MAX is correct. */
+        assert_cc(SIZE_MAX == ~(size_t)0);
+
+        /* Check that alignment is exponent of 2 */
+#if SIZE_MAX == UINT_MAX
+        assert(__builtin_popcount(ali) == 1);
+#elif SIZE_MAX == ULONG_MAX
+        assert(__builtin_popcountl(ali) == 1);
+#elif SIZE_MAX == ULLONG_MAX
+        assert(__builtin_popcountll(ali) == 1);
+#else
+        #error "Unexpected size_t"
+#endif
+
+        if (l > SIZE_MAX - (ali - 1))
+                return SIZE_MAX; /* indicate overflow */
+
+        return ((l + ali - 1) & ~(ali - 1));
+}
+
+/* Same as ALIGN_TO but callable in constant contexts. */
+#define CONST_ALIGN_TO(l, ali)                                         \
+        __builtin_choose_expr(                                         \
+                __builtin_constant_p(l) &&                             \
+                __builtin_constant_p(ali) &&                           \
+                __builtin_popcountll(ali) == 1 && /* is power of 2? */ \
+                (l <= SIZE_MAX - (ali - 1)),      /* overflow? */      \
+                ((l) + (ali) - 1) & ~((ali) - 1),                      \
+                VOID_0)
