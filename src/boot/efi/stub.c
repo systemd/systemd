@@ -249,7 +249,9 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
                 }
         }
 
-        err = linux_exec(image, cmdline, cmdline_len, linux_base, initrd_base, initrd_size);
+        err = linux_exec(image, cmdline, cmdline_len,
+                         PHYSICAL_ADDRESS_TO_POINTER(linux_base),
+                         PHYSICAL_ADDRESS_TO_POINTER(initrd_base), initrd_size);
         graphics_mode(FALSE);
         return log_error_status_stall(err, L"Execution of embedded linux image failed: %r", err);
 }
