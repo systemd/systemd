@@ -24,13 +24,6 @@
 #define UINT64_MAX ((UINT64) -1)
 #endif
 
-static inline UINTN ALIGN_TO(UINTN l, UINTN ali) {
-        if (l > UINTN_MAX - (ali - 1)) /* Overflow? */
-                return UINTN_MAX;
-
-        return ((l + (ali - 1)) & ~(ali - 1));
-}
-
 EFI_STATUS parse_boolean(const CHAR8 *v, BOOLEAN *b);
 
 UINT64 ticks_read(void);
