@@ -14,7 +14,6 @@ TEST_INSTALL_VERITY_MINIMAL=1
 command -v mksquashfs >/dev/null 2>&1 || exit 0
 command -v veritysetup >/dev/null 2>&1 || exit 0
 command -v sfdisk >/dev/null 2>&1 || exit 0
-command -v openssl >/dev/null 2>&1 || exit 0
 
 # Need loop devices for systemd-dissect
 test_append_files() {
@@ -27,7 +26,9 @@ test_append_files() {
         generate_module_dependencies
         inst_binary losetup
         inst_binary wc
-        inst_binary openssl
+        if command -v openssl >/dev/null 2>&1; then
+            inst_binary openssl
+        fi
         install_verity_minimal
     )
 }
