@@ -164,7 +164,7 @@ int ethtool_get_link_info(int *ethtool_fd, const char *ifname,
                           int *ret_autonegotiation, uint64_t *ret_speed,
                           Duplex *ret_duplex, NetDevPort *ret_port);
 int ethtool_get_permanent_macaddr(int *ethtool_fd, const char *ifname, struct ether_addr *ret);
-int ethtool_set_wol(int *ethtool_fd, const char *ifname, uint32_t wolopts);
+int ethtool_set_wol(int *ethtool_fd, const char *ifname, uint32_t wolopts, const uint8_t password[SOPASS_MAX]);
 int ethtool_set_nic_buffer_size(int *ethtool_fd, const char *ifname, const netdev_ring_param *ring);
 int ethtool_set_features(int *ethtool_fd, const char *ifname, const int features[static _NET_DEV_FEAT_MAX]);
 int ethtool_set_glinksettings(int *ethtool_fd, const char *ifname,
