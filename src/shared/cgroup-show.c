@@ -384,14 +384,14 @@ int show_cgroup_get_path_and_warn(
                 if (r == -ENOMEDIUM)
                         return log_error_errno(r, "Failed to get root control group path.\n"
                                                   "No cgroup filesystem mounted on /sys/fs/cgroup");
-                else if (r < 0)
+                if (r < 0)
                         return log_error_errno(r, "Failed to get root control group path: %m");
         }
 
         if (prefix) {
                 char *t;
 
-                t = strjoin(root, prefix);
+                t = path_join(root, prefix);
                 if (!t)
                         return log_oom();
 
