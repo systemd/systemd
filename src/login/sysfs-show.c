@@ -6,7 +6,7 @@
 
 #include "alloc-util.h"
 #include "device-enumerator-private.h"
-#include "locale-util.h"
+#include "glyph-util.h"
 #include "path-util.h"
 #include "string-util.h"
 #include "sysfs-show.h"

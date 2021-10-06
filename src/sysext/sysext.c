@@ -6,6 +6,7 @@
 #include <unistd.h>
 
 #include "capability-util.h"
+#include "chase-symlinks.h"
 #include "discover-image.h"
 #include "dissect-image.h"
 #include "env-util.h"

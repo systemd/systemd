@@ -38,6 +38,7 @@
 #include "socket-util.h"
 #include "stat-util.h"
 #include "strv.h"
+#include "sync-util.h"
 #include "tmpfile-util.h"
 #include "udev-util.h"
 #include "user-record-sign.h"

@@ -14,6 +14,7 @@
 #include "parse-util.h"
 #include "path-util.h"
 #include "pretty-print.h"
+#include "sync-util.h"
 #include "terminal-util.h"
 #include "util.h"
 #include "verbs.h"
