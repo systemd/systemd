@@ -49,6 +49,7 @@ Link.BitsPerSecond,                        config_parse_si_uint64,              
 Link.Duplex,                               config_parse_duplex,                   0,                             offsetof(LinkConfig, duplex)
 Link.AutoNegotiation,                      config_parse_tristate,                 0,                             offsetof(LinkConfig, autonegotiation)
 Link.WakeOnLan,                            config_parse_wol,                      0,                             offsetof(LinkConfig, wol)
+Link.WakeOnLanPassword,                    config_parse_wol_password,             0,                             0
 Link.Port,                                 config_parse_port,                     0,                             offsetof(LinkConfig, port)
 Link.ReceiveChecksumOffload,               config_parse_tristate,                 0,                             offsetof(LinkConfig, features[NET_DEV_FEAT_RXCSUM])
 Link.TransmitChecksumOffload,              config_parse_tristate,                 0,                             offsetof(LinkConfig, features[NET_DEV_FEAT_TXCSUM])

@@ -58,6 +58,8 @@ struct LinkConfig {
         int autonegotiation;
         uint32_t advertise[N_ADVERTISE];
         uint32_t wol;
+        char *wol_password_file;
+        uint8_t *wol_password;
         NetDevPort port;
         int features[_NET_DEV_FEAT_MAX];
         netdev_channels channels;
@@ -97,6 +99,7 @@ const struct ConfigPerfItem* link_config_gperf_lookup(const char *key, GPERF_LEN
 CONFIG_PARSER_PROTOTYPE(config_parse_ifalias);
 CONFIG_PARSER_PROTOTYPE(config_parse_rx_tx_queues);
 CONFIG_PARSER_PROTOTYPE(config_parse_txqueuelen);
+CONFIG_PARSER_PROTOTYPE(config_parse_wol_password);
 CONFIG_PARSER_PROTOTYPE(config_parse_mac_address_policy);
 CONFIG_PARSER_PROTOTYPE(config_parse_name_policy);
 CONFIG_PARSER_PROTOTYPE(config_parse_alternative_names_policy);
