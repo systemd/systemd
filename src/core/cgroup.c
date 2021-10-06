@@ -37,6 +37,12 @@
 #include "string-util.h"
 #include "virt.h"
 
+#if BPF_FRAMEWORK
+#include "bpf-dlopen.h"
+#include "bpf-link.h"
+#include "bpf/restrict_fs/restrict-fs-skel.h"
+#endif
+
 #define CGROUP_CPU_QUOTA_DEFAULT_PERIOD_USEC ((usec_t) 100 * USEC_PER_MSEC)
 
 /* Returns the log level to use when cgroup attribute writes fail. When an attribute is missing or we have access
@@ -2102,6 +2108,8 @@ static int unit_update_cgroup(
 
         bool created, is_root_slice;
         CGroupMask migrate_mask = 0;
+        _cleanup_free_ char *cgroup_full_path = NULL;
+        uint64_t cgroup_id = 0;
         int r;
 
         assert(u);
@@ -2119,6 +2127,18 @@ static int unit_update_cgroup(
         if (r < 0)
                 return log_unit_error_errno(u, r, "Failed to create cgroup %s: %m", empty_to_root(u->cgroup_path));
         created = r;
+
+        if (cg_unified_controller(SYSTEMD_CGROUP_CONTROLLER) > 0) {
+                r = cg_get_path(SYSTEMD_CGROUP_CONTROLLER, u->cgroup_path, NULL, &cgroup_full_path);
+                if (r == 0) {
+                        r = cg_path_get_cgroupid(cgroup_full_path, &cgroup_id);
+                        if (r < 0)
+                                log_unit_warning_errno(u, r, "Failed to get cgroup ID on cgroup %s, ignoring: %m", cgroup_full_path);
+                } else
+                        log_unit_warning_errno(u, r, "Failed to get full cgroup path on cgroup %s, ignoring: %m", empty_to_root(u->cgroup_path));
+
+                u->cgroup_id = cgroup_id;
+        }
 
         /* Start watching it */
         (void) unit_watch_cgroup(u);
@@ -2721,6 +2741,10 @@ void unit_prune_cgroup(Unit *u) {
                 return;
 
         (void) unit_get_cpu_usage(u, NULL); /* Cache the last CPU usage value before we destroy the cgroup */
+
+#if BPF_FRAMEWORK
+        (void) lsm_bpf_cleanup(u); /* Remove cgroup from the global LSM BPF map */
+#endif
 
         is_root_slice = unit_has_name(u, SPECIAL_ROOT_SLICE);
 

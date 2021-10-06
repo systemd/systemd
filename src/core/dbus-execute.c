@@ -37,6 +37,7 @@
 #endif
 #include "securebits-util.h"
 #include "specifier.h"
+#include "stat-util.h"
 #include "strv.h"
 #include "syslog-util.h"
 #include "unit-printf.h"
@@ -681,6 +682,46 @@ static int property_get_input_data(
         return sd_bus_message_append_array(reply, 'y', c->stdin_data, c->stdin_data_size);
 }
 
+static int property_get_restrict_filesystems(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                void *userdata,
+                sd_bus_error *error) {
+
+        ExecContext *c = userdata;
+        _cleanup_free_ char **l = NULL;
+        int r;
+
+        assert(bus);
+        assert(reply);
+        assert(c);
+
+        r = sd_bus_message_open_container(reply, 'r', "bas");
+        if (r < 0)
+                return r;
+
+        r = sd_bus_message_append(reply, "b", c->restrict_filesystems_allow_list);
+        if (r < 0)
+                return r;
+
+#if HAVE_LIBBPF
+        l = set_get_strv(c->restrict_filesystems);
+        if (!l)
+                return -ENOMEM;
+#endif
+
+        strv_sort(l);
+
+        r = sd_bus_message_append_strv(reply, l);
+        if (r < 0)
+                return r;
+
+        return sd_bus_message_close_container(reply);
+}
+
 static int property_get_bind_paths(
                 sd_bus *bus,
                 const char *path,
@@ -1199,6 +1240,7 @@ const sd_bus_vtable bus_exec_vtable[] = {
         SD_BUS_PROPERTY("RestrictRealtime", "b", bus_property_get_bool, offsetof(ExecContext, restrict_realtime), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("RestrictSUIDSGID", "b", bus_property_get_bool, offsetof(ExecContext, restrict_suid_sgid), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("RestrictNamespaces", "t", bus_property_get_ulong, offsetof(ExecContext, restrict_namespaces), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("RestrictFileSystems", "(bas)", property_get_restrict_filesystems, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("BindPaths", "a(ssbt)", property_get_bind_paths, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("BindReadOnlyPaths", "a(ssbt)", property_get_bind_paths, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("TemporaryFileSystem", "a(ss)", property_get_temporary_filesystems, 0, SD_BUS_VTABLE_PROPERTY_CONST),
@@ -1874,6 +1916,64 @@ int bus_exec_context_set_transient_property(
 
         if (streq(name, "RestrictNamespaces"))
                 return bus_set_transient_namespace_flag(u, name, &c->restrict_namespaces, message, flags, error);
+
+        if (streq(name, "RestrictFileSystems")) {
+                int allow_list;
+                _cleanup_strv_free_ char **l = NULL;
+
+                r = sd_bus_message_enter_container(message, 'r', "bas");
+                if (r < 0)
+                        return r;
+
+                r = sd_bus_message_read(message, "b", &allow_list);
+                if (r < 0)
+                        return r;
+
+                r = sd_bus_message_read_strv(message, &l);
+                if (r < 0)
+                        return r;
+
+                r = sd_bus_message_exit_container(message);
+                if (r < 0)
+                        return r;
+
+                if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
+                        _cleanup_free_ char *joined = NULL;
+                        FilesystemParseFlags invert_flag = allow_list ? 0 : FILESYSTEM_PARSE_INVERT;
+                        char **s;
+
+                        if (strv_isempty(l)) {
+                                c->restrict_filesystems_allow_list = false;
+                                c->restrict_filesystems = set_free(c->restrict_filesystems);
+
+                                unit_write_setting(u, flags, name, "RestrictFileSystems=");
+                                return 1;
+                        }
+
+                        if (!c->restrict_filesystems)
+                                c->restrict_filesystems_allow_list = allow_list;
+
+                        STRV_FOREACH(s, l) {
+                                r = lsm_bpf_parse_filesystem(
+                                              *s,
+                                              &c->restrict_filesystems,
+                                              FILESYSTEM_PARSE_LOG|
+                                              (invert_flag ? FILESYSTEM_PARSE_INVERT : 0)|
+                                              (c->restrict_filesystems_allow_list ? FILESYSTEM_PARSE_ALLOW_LIST : 0),
+                                              u->id, NULL, 0);
+                                if (r < 0)
+                                        return r;
+                        }
+
+                        joined = strv_join(l, " ");
+                        if (!joined)
+                                return -ENOMEM;
+
+                        unit_write_settingf(u, flags, name, "%s=%s%s", name, allow_list ? "" : "~", joined);
+                }
+
+                return 1;
+        }
 
         if (streq(name, "MountFlags"))
                 return bus_set_transient_mount_flags(u, name, &c->mount_flags, message, flags, error);
