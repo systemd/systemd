@@ -580,6 +580,7 @@ char *replace_env_n(const char *format, size_t n, char **env, unsigned flags) {
 
                                 word = e+1;
                                 state = WORD;
+                                nest--;
                         } else if (*e == ':') {
                                 if (!(flags & REPLACE_ENV_ALLOW_EXTENDED))
                                         /* Treat this as unsupported syntax, i.e. do no replacement */
