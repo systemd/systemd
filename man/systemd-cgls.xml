@@ -105,6 +105,20 @@
         <replaceable>MACHINE</replaceable>.</para></listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term><option>--xattr=</option></term>
+
+        <listitem><para>Controls whether to include information about extended attributes of the listed
+        control groups in the output. Expects a boolean value, defaults to yes.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--cgroup-id=</option></term>
+
+        <listitem><para>Controls whether to include the numeric ID of the listed control groups in the
+        output. Expects a boolean value, defaults to yes.</para></listitem>
+      </varlistentry>
+
       <xi:include href="standard-options.xml" xpointer="help" />
       <xi:include href="standard-options.xml" xpointer="version" />
       <xi:include href="standard-options.xml" xpointer="no-pager" />
