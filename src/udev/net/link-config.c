@@ -10,11 +10,13 @@
 #include "alloc-util.h"
 #include "conf-files.h"
 #include "conf-parser.h"
+#include "creds-util.h"
 #include "def.h"
 #include "device-private.h"
 #include "device-util.h"
 #include "ethtool-util.h"
 #include "fd-util.h"
+#include "fileio.h"
 #include "link-config.h"
 #include "log.h"
 #include "memory-util.h"
@@ -56,6 +58,8 @@ static LinkConfig* link_config_free(LinkConfig *link) {
         strv_free(link->alternative_names);
         free(link->alternative_names_policy);
         free(link->alias);
+        free(link->wol_password_file);
+        erase_and_free(link->wol_password);
 
         return mfree(link);
 }
@@ -97,6 +101,108 @@ int link_config_ctx_new(LinkConfigContext **ret) {
         };
 
         *ret = TAKE_PTR(ctx);
+
+        return 0;
+}
+
+static int link_parse_wol_password(LinkConfig *link, const char *str) {
+        _cleanup_(erase_and_freep) uint8_t *p = NULL;
+        int r;
+
+        assert(link);
+        assert(str);
+
+        assert_cc(sizeof(struct ether_addr) == SOPASS_MAX);
+
+        p = new(uint8_t, SOPASS_MAX);
+        if (!p)
+                return -ENOMEM;
+
+        /* Reuse ether_addr_from_string(), as their formats are equivalent. */
+        r = ether_addr_from_string(str, (struct ether_addr*) p);
+        if (r < 0)
+                return r;
+
+        erase_and_free(link->wol_password);
+        link->wol_password = TAKE_PTR(p);
+        return 0;
+}
+
+static int link_read_wol_password_from_file(LinkConfig *link) {
+        _cleanup_(erase_and_freep) char *password = NULL;
+        int r;
+
+        assert(link);
+
+        if (!link->wol_password_file)
+                return 0;
+
+        r = read_full_file_full(
+                        AT_FDCWD, link->wol_password_file, UINT64_MAX, SIZE_MAX,
+                        READ_FULL_FILE_SECURE | READ_FULL_FILE_WARN_WORLD_READABLE | READ_FULL_FILE_CONNECT_SOCKET,
+                        NULL, &password, NULL);
+        if (r < 0)
+                return r;
+
+        return link_parse_wol_password(link, password);
+}
+
+static int link_read_wol_password_from_cred(LinkConfig *link) {
+        _cleanup_free_ char *base = NULL, *cred_name = NULL;
+        _cleanup_(erase_and_freep) char *password = NULL;
+        int r;
+
+        assert(link);
+        assert(link->filename);
+
+        if (link->wol == UINT32_MAX)
+                return 0; /* WakeOnLan= is not specified. */
+        if (!FLAGS_SET(link->wol, WAKE_MAGICSECURE))
+                return 0; /* secureon is not specified in WakeOnLan=. */
+        if (link->wol_password)
+                return 0; /* WakeOnLanPassword= is specified. */
+        if (link->wol_password_file)
+                return 0; /* a file name is specified in WakeOnLanPassword=, but failed to read it. */
+
+        r = path_extract_filename(link->filename, &base);
+        if (r < 0)
+                return r;
+
+        cred_name = strjoin(base, ".wol.password");
+        if (!cred_name)
+                return -ENOMEM;
+
+        r = read_credential(cred_name, (void**) &password, NULL);
+        if (r == -ENOENT)
+                r = read_credential("wol.password", (void**) &password, NULL);
+        if (r < 0)
+                return r;
+
+        return link_parse_wol_password(link, password);
+}
+
+static int link_adjust_wol_options(LinkConfig *link) {
+        int r;
+
+        assert(link);
+
+        r = link_read_wol_password_from_file(link);
+        if (r == -ENOMEM)
+                return log_oom();
+        if (r < 0)
+                log_warning_errno(r, "Failed to read WakeOnLan password from %s, ignoring: %m", link->wol_password_file);
+
+        r = link_read_wol_password_from_cred(link);
+        if (r == -ENOMEM)
+                return log_oom();
+        if (r < 0)
+                log_warning_errno(r, "Failed to read WakeOnLan password from credential, ignoring: %m");
+
+        if (link->wol != UINT32_MAX && link->wol_password)
+                /* Enable WAKE_MAGICSECURE flag when WakeOnLanPassword=. Note that when
+                 * WakeOnLanPassword= is set without WakeOnLan=, then ethtool_set_wol() enables
+                 * WAKE_MAGICSECURE flag and other flags are not changed. */
+                link->wol |= WAKE_MAGICSECURE;
 
         return 0;
 }
@@ -176,6 +282,10 @@ int link_load_one(LinkConfigContext *ctx, const char *filename) {
                             filename);
                 link->mac = mfree(link->mac);
         }
+
+        r = link_adjust_wol_options(link);
+        if (r < 0)
+                return r;
 
         log_debug("Parsed configuration file %s", filename);
 
@@ -329,7 +439,7 @@ static int link_config_apply_ethtool_settings(int *ethtool_fd, const LinkConfig 
                                                  port_to_string(config->port));
         }
 
-        r = ethtool_set_wol(ethtool_fd, name, config->wol, NULL);
+        r = ethtool_set_wol(ethtool_fd, name, config->wol, config->wol_password);
         if (r < 0) {
                 _cleanup_free_ char *str = NULL;
 
@@ -779,6 +889,52 @@ int config_parse_txqueuelen(
         }
 
         *v = k;
+        return 0;
+}
+
+int config_parse_wol_password(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        LinkConfig *link = userdata;
+        int r;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(userdata);
+
+        if (isempty(rvalue)) {
+                link->wol_password = erase_and_free(link->wol_password);
+                link->wol_password_file = mfree(link->wol_password_file);
+                return 0;
+        }
+
+        if (path_is_absolute(rvalue) && path_is_safe(rvalue)) {
+                link->wol_password = erase_and_free(link->wol_password);
+                return free_and_strdup_warn(&link->wol_password_file, rvalue);
+        }
+
+        warn_file_is_world_accessible(filename, NULL, unit, line);
+
+        r = link_parse_wol_password(link, rvalue);
+        if (r == -ENOMEM)
+                return log_oom();
+        if (r < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, r,
+                           "Failed to parse %s=, ignoring assignment: %s.", lvalue, rvalue);
+                return 0;
+        }
+
+        link->wol_password_file = mfree(link->wol_password_file);
         return 0;
 }
 
