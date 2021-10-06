@@ -4895,7 +4895,8 @@ class NetworkdIPv6PrefixTests(unittest.TestCase, Utilities):
         output = check_output('ip address show dev veth99')
         print(output)
         self.assertNotIn('inet6 2001:db8:0:1:', output)
-        self.assertIn('inet6 2001:db8:0:2:', output)
+        self.assertIn('inet6 2001:db8:0:2:1a:2b:3c:4d', output)
+        self.assertIn('inet6 2001:db8:0:2:fa:de:ca:fe', output)
         self.assertNotIn('inet6 2001:db8:0:3:', output)
 
         output = check_output(*resolvectl_cmd, 'dns', 'veth-peer', env=env)

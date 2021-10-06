@@ -89,7 +89,11 @@ unsigned char in4_addr_netmask_to_prefixlen(const struct in_addr *addr);
 struct in_addr* in4_addr_prefixlen_to_netmask(struct in_addr *addr, unsigned char prefixlen);
 int in4_addr_default_prefixlen(const struct in_addr *addr, unsigned char *prefixlen);
 int in4_addr_default_subnet_mask(const struct in_addr *addr, struct in_addr *mask);
+int in4_addr_mask(struct in_addr *addr, unsigned char prefixlen);
+int in6_addr_mask(struct in6_addr *addr, unsigned char prefixlen);
 int in_addr_mask(int family, union in_addr_union *addr, unsigned char prefixlen);
+int in4_addr_prefix_covers(const struct in_addr *prefix, unsigned char prefixlen, const struct in_addr *address);
+int in6_addr_prefix_covers(const struct in6_addr *prefix, unsigned char prefixlen, const struct in6_addr *address);
 int in_addr_prefix_covers(int family, const union in_addr_union *prefix, unsigned char prefixlen, const union in_addr_union *address);
 int in_addr_parse_prefixlen(int family, const char *p, unsigned char *ret);
 int in_addr_prefix_from_string(const char *p, int family, union in_addr_union *ret_prefix, unsigned char *ret_prefixlen);
@@ -119,6 +123,7 @@ int in6_addr_compare_func(const struct in6_addr *a, const struct in6_addr *b);
 
 extern const struct hash_ops in_addr_data_hash_ops;
 extern const struct hash_ops in6_addr_hash_ops;
+extern const struct hash_ops in6_addr_hash_ops_free;
 
 #define IPV4_ADDRESS_FMT_STR     "%u.%u.%u.%u"
 #define IPV4_ADDRESS_FMT_VAL(address)              \

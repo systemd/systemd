@@ -31,17 +31,26 @@ typedef struct Prefix {
         Network *network;
         NetworkConfigSection *section;
 
-        sd_radv_prefix *radv_prefix;
+        struct in6_addr prefix;
+        uint8_t prefixlen;
+        usec_t preferred_lifetime;
+        usec_t valid_lifetime;
+
+        bool onlink;
+        bool address_auto_configuration;
 
         bool assign;
         uint32_t route_metric;
+        Set *tokens;
 } Prefix;
 
 typedef struct RoutePrefix {
         Network *network;
         NetworkConfigSection *section;
 
-        sd_radv_route_prefix *radv_route_prefix;
+        struct in6_addr prefix;
+        uint8_t prefixlen;
+        usec_t lifetime;
 } RoutePrefix;
 
 Prefix *prefix_free(Prefix *prefix);
@@ -66,10 +75,10 @@ RADVPrefixDelegation radv_prefix_delegation_from_string(const char *s) _pure_;
 CONFIG_PARSER_PROTOTYPE(config_parse_router_prefix_delegation);
 CONFIG_PARSER_PROTOTYPE(config_parse_router_preference);
 CONFIG_PARSER_PROTOTYPE(config_parse_prefix);
-CONFIG_PARSER_PROTOTYPE(config_parse_prefix_flags);
+CONFIG_PARSER_PROTOTYPE(config_parse_prefix_boolean);
 CONFIG_PARSER_PROTOTYPE(config_parse_prefix_lifetime);
-CONFIG_PARSER_PROTOTYPE(config_parse_prefix_assign);
 CONFIG_PARSER_PROTOTYPE(config_parse_prefix_metric);
+CONFIG_PARSER_PROTOTYPE(config_parse_prefix_token);
 CONFIG_PARSER_PROTOTYPE(config_parse_radv_dns);
 CONFIG_PARSER_PROTOTYPE(config_parse_radv_search_domains);
 CONFIG_PARSER_PROTOTYPE(config_parse_route_prefix);
