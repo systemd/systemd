@@ -127,7 +127,7 @@ static int show_cgroup_name(
         bool delegate = false;
         int r;
 
-        r = getxattr_malloc(path, "trusted.delegate", &b, false);
+        r = lgetxattr_malloc(path, "trusted.delegate", &b);
         if (r < 0) {
                 if (r != -ENODATA)
                         log_debug_errno(r, "Failed to read trusted.delegate extended attribute: %m");

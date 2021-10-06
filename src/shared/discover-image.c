@@ -334,7 +334,7 @@ static int image_make(
                 if (!ret)
                         return 0;
 
-                (void) fd_getcrtime_at(dfd, filename, &crtime, 0);
+                (void) fd_getcrtime_at(dfd, filename, AT_SYMLINK_FOLLOW, &crtime);
 
                 if (!pretty) {
                         r = extract_pretty(filename, ".raw", &pretty_buffer);

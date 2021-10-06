@@ -149,7 +149,7 @@ static void test_copy_tree(void) {
                 assert_se(read_full_file(f, &buf, &sz) == 0);
                 assert_se(streq(buf, "file\n"));
 
-                k = getxattr_malloc(f, "user.testxattr", &c, false);
+                k = lgetxattr_malloc(f, "user.testxattr", &c);
                 assert_se(xattr_worked < 0 || ((k >= 0) == !!xattr_worked));
 
                 if (k >= 0) {
