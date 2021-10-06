@@ -69,6 +69,7 @@ int fgetxattr_malloc(
                 const char *name,
                 char **ret) {
 
+        bool by_procfs = false;
         size_t l = 100;
 
         assert(fd >= 0);
@@ -83,8 +84,19 @@ int fgetxattr_malloc(
                 if (!v)
                         return -ENOMEM;
 
-                n = fgetxattr(fd, name, v, l);
+                n = by_procfs ?
+                        getxattr(FORMAT_PROC_FD_PATH(fd), name, v, l) :
+                        fgetxattr(fd, name, v, l);
                 if (n < 0) {
+                        if (errno == EBADF) {
+                                if (by_procfs)
+                                        return -EBADF;
+
+                                /* Maybe an O_PATH fd? Try again via /proc/self/fd/ */
+                                by_procfs = true;
+                                continue;
+                        }
+
                         if (errno != ERANGE)
                                 return -errno;
                 } else {
@@ -93,7 +105,9 @@ int fgetxattr_malloc(
                         return (int) n;
                 }
 
-                n = fgetxattr(fd, name, NULL, 0);
+                n = by_procfs ?
+                        getxattr(FORMAT_PROC_FD_PATH(fd), name, NULL, 0) :
+                        fgetxattr(fd, name, NULL, 0);
                 if (n < 0)
                         return -errno;
                 if (n > INT_MAX) /* We couldn't return this as 'int' anymore */
@@ -271,6 +285,7 @@ int fd_setcrtime(int fd, usec_t usec) {
 }
 
 int flistxattr_malloc(int fd, char **ret) {
+        bool by_procfs = false;
         size_t l = 100;
 
         assert(fd >= 0);
@@ -284,8 +299,18 @@ int flistxattr_malloc(int fd, char **ret) {
                 if (!v)
                         return -ENOMEM;
 
-                n = flistxattr(fd, v, l);
+                n = by_procfs ?
+                        listxattr(FORMAT_PROC_FD_PATH(fd), v, l) :
+                        flistxattr(fd, v, l);
                 if (n < 0) {
+                        if (errno == EBADF) {
+                                if (by_procfs)
+                                        return -EBADF;
+
+                                by_procfs = true; /* Might be an O_PATH fd, try again via /proc/ link */
+                                continue;
+                        }
+
                         if (errno != ERANGE)
                                 return -errno;
                 } else {
@@ -294,7 +319,9 @@ int flistxattr_malloc(int fd, char **ret) {
                         return (int) n;
                 }
 
-                n = flistxattr(fd, NULL, 0);
+                n = by_procfs ?
+                        listxattr(FORMAT_PROC_FD_PATH(fd), NULL, 0) :
+                        flistxattr(fd, NULL, 0);
                 if (n < 0)
                         return -errno;
                 if (n > INT_MAX) /* We couldn't return this as 'int' anymore */
