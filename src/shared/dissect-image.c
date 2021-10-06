@@ -2765,7 +2765,7 @@ int verity_settings_load(
                          * that doesn't exist for /usr */
 
                         if (designator < 0 || designator == PARTITION_ROOT) {
-                                r = getxattr_malloc(image, "user.verity.roothash", &text, true);
+                                r = getxattr_malloc(image, "user.verity.roothash", &text);
                                 if (r < 0) {
                                         _cleanup_free_ char *p = NULL;
 
@@ -2794,7 +2794,7 @@ int verity_settings_load(
                                  * `usrhash`, because `usrroothash` or `rootusrhash` would just be too
                                  * confusing. We thus drop the reference to the root of the Merkle tree, and
                                  * just indicate which file system it's about. */
-                                r = getxattr_malloc(image, "user.verity.usrhash", &text, true);
+                                r = getxattr_malloc(image, "user.verity.usrhash", &text);
                                 if (r < 0) {
                                         _cleanup_free_ char *p = NULL;
 

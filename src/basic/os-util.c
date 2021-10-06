@@ -118,7 +118,7 @@ int open_extension_release(const char *root, const char *extension, char **ret_p
 
                                 /* No xattr or cannot parse it? Then skip this. */
                                 _cleanup_free_ char *extension_release_xattr = NULL;
-                                k = fgetxattrat_fake_malloc(extension_release_fd, NULL, "user.extension-release.strict", AT_EMPTY_PATH, &extension_release_xattr);
+                                k = fgetxattr_malloc(extension_release_fd, "user.extension-release.strict", &extension_release_xattr);
                                 if (k < 0 && !ERRNO_IS_NOT_SUPPORTED(k) && k != -ENODATA)
                                         log_debug_errno(k,
                                                         "Failed to read 'user.extension-release.strict' extended attribute from extension-release file %s/%s: %m",

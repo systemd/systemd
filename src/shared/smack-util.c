@@ -52,7 +52,7 @@ int mac_smack_read(const char *path, SmackAttr attr, char **label) {
         if (!mac_smack_use())
                 return 0;
 
-        return getxattr_malloc(path, smack_attr_to_string(attr), label, true);
+        return getxattr_malloc(path, smack_attr_to_string(attr), label);
 }
 
 int mac_smack_read_fd(int fd, SmackAttr attr, char **label) {
@@ -166,7 +166,7 @@ static int smack_fix_fd(int fd, const char *abspath, LabelFixFlags flags) {
                         return 0;
 
                 /* If the old label is identical to the new one, suppress any kind of error */
-                if (getxattr_malloc(FORMAT_PROC_FD_PATH(fd), "security.SMACK64", &old_label, false) >= 0 &&
+                if (lgetxattr_malloc(FORMAT_PROC_FD_PATH(fd), "security.SMACK64", &old_label) >= 0 &&
                     streq(old_label, label))
                         return 0;
 

@@ -53,11 +53,10 @@ static void patch_realtime(
                 const struct stat *st,
                 unsigned long long *realtime) {
 
-        usec_t x, crtime = 0;
+        usec_t x;
 
-        /* The timestamp was determined by the file name, but let's
-         * see if the file might actually be older than the file name
-         * suggested... */
+        /* The timestamp was determined by the file name, but let's see if the file might actually be older
+         * than the file name suggested... */
 
         assert(fd >= 0);
         assert(fn);
@@ -76,15 +75,12 @@ static void patch_realtime(
         if (x > 0 && x != USEC_INFINITY && x < *realtime)
                 *realtime = x;
 
-        /* Let's read the original creation time, if possible. Ideally
-         * we'd just query the creation time the FS might provide, but
-         * unfortunately there's currently no sane API to query
-         * it. Hence let's implement this manually... */
+        /* Let's read the original creation time, if possible. Ideally we'd just query the creation time the
+         * FS might provide, but unfortunately there's currently no sane API to query it. Hence let's
+         * implement this manually... */
 
-        if (fd_getcrtime_at(fd, fn, &crtime, 0) >= 0) {
-                if (crtime < *realtime)
-                        *realtime = crtime;
-        }
+        if (fd_getcrtime_at(fd, fn, AT_SYMLINK_FOLLOW, &x) >= 0 && x < *realtime)
+                *realtime = x;
 }
 
 static int journal_file_empty(int dir_fd, const char *name) {
