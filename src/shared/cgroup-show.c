@@ -14,6 +14,7 @@
 #include "env-file.h"
 #include "fd-util.h"
 #include "format-util.h"
+#include "hostname-util.h"
 #include "locale-util.h"
 #include "macro.h"
 #include "output-mode.h"
@@ -355,13 +356,16 @@ int show_cgroup_get_path_and_warn(
                 const char *prefix,
                 char **ret) {
 
-        int r;
         _cleanup_free_ char *root = NULL;
+        int r;
 
         if (machine) {
                 _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
                 _cleanup_free_ char *unit = NULL;
                 const char *m;
+
+                if (!hostname_is_valid(machine, 0))
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Machine name is not valid: %s", machine);
 
                 m = strjoina("/run/systemd/machines/", machine);
                 r = parse_env_file(NULL, m, "SCOPE", &unit);
