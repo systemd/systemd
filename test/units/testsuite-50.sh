@@ -120,8 +120,11 @@ fi
 verity_size="$((verity_size * 2))KiB"
 signature_size="$((signature_size * 2))KiB"
 
-# Unfortunately OpenSSL insists on reading some config file, hence provide one with mostly placeholder contents
-cat >> "${image}.openssl.cnf" <<EOF
+HAVE_OPENSSL=0
+if systemctl --version | grep -q -- +OPENSSL ; then
+    HAVE_OPENSSL=1
+    # Unfortunately OpenSSL insists on reading some config file, hence provide one with mostly placeholder contents
+    cat >> "${image}.openssl.cnf" <<EOF
 [ req ]
 prompt = no
 distinguished_name = req_distinguished_name
@@ -136,17 +139,18 @@ CN = Common Name
 emailAddress = test@email.com
 EOF
 
-# Create key pair
-openssl req -config "${image}.openssl.cnf" -new -x509 -newkey rsa:1024 -keyout "${image}.key" -out "${image}.crt" -days 365 -nodes
-# Sign Verity root hash with it
-openssl smime -sign -nocerts -noattr -binary -in "${image}.roothash" -inkey "${image}.key" -signer "${image}.crt" -outform der -out "${image}.roothash.p7s"
-# Generate signature partition JSON data
-echo '{"rootHash":"'"${roothash}"'","signature":"'"$(base64 -w 0 < "${image}.roothash.p7s")"'"}' > "${image}.verity-sig"
-# Pad it
-truncate -s "${signature_size}" "${image}.verity-sig"
-# Register certificate in the (userspace) verity key ring
-mkdir -p /run/verity.d
-ln -s "${image}.crt" /run/verity.d/ok.crt
+    # Create key pair
+    openssl req -config "${image}.openssl.cnf" -new -x509 -newkey rsa:1024 -keyout "${image}.key" -out "${image}.crt" -days 365 -nodes
+    # Sign Verity root hash with it
+    openssl smime -sign -nocerts -noattr -binary -in "${image}.roothash" -inkey "${image}.key" -signer "${image}.crt" -outform der -out "${image}.roothash.p7s"
+    # Generate signature partition JSON data
+    echo '{"rootHash":"'"${roothash}"'","signature":"'"$(base64 -w 0 < "${image}.roothash.p7s")"'"}' > "${image}.verity-sig"
+    # Pad it
+    truncate -s "${signature_size}" "${image}.verity-sig"
+    # Register certificate in the (userspace) verity key ring
+    mkdir -p /run/verity.d
+    ln -s "${image}.crt" /run/verity.d/ok.crt
+fi
 
 # Construct a UUID from hash
 # input:  11111111222233334444555566667777
@@ -155,14 +159,20 @@ uuid="$(head -c 32 "${image}.roothash" | sed -r 's/(.{8})(.{4})(.{4})(.{4})(.+)/
 echo -e "label: gpt\nsize=${root_size}, type=${root_guid}, uuid=${uuid}" | sfdisk "${image}.gpt"
 uuid="$(tail -c 32 "${image}.roothash" | sed -r 's/(.{8})(.{4})(.{4})(.{4})(.+)/\1-\2-\3-\4-\5/')"
 echo -e "size=${verity_size}, type=${verity_guid}, uuid=${uuid}" | sfdisk "${image}.gpt" --append
-echo -e "size=${signature_size}, type=${signature_guid}" | sfdisk "${image}.gpt" --append
+if [ "${HAVE_OPENSSL}" -eq 1 ]; then
+    echo -e "size=${signature_size}, type=${signature_guid}" | sfdisk "${image}.gpt" --append
+fi
 sfdisk --part-label "${image}.gpt" 1 "Root Partition"
 sfdisk --part-label "${image}.gpt" 2 "Verity Partition"
-sfdisk --part-label "${image}.gpt" 3 "Signature Partition"
+if [ "${HAVE_OPENSSL}" -eq 1 ]; then
+    sfdisk --part-label "${image}.gpt" 3 "Signature Partition"
+fi
 loop="$(losetup --show -P -f "${image}.gpt")"
 dd if="${image}.raw" of="${loop}p1"
 dd if="${image}.verity" of="${loop}p2"
-dd if="${image}.verity-sig" of="${loop}p3"
+if [ "${HAVE_OPENSSL}" -eq 1 ]; then
+    dd if="${image}.verity-sig" of="${loop}p3"
+fi
 losetup -d "${loop}"
 
 # Derive partition UUIDs from root hash, in UUID syntax
