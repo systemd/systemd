@@ -35,7 +35,7 @@ REQUIREMENTS:
         Linux kernel >= 4.17 for cgroup-bpf socket address hooks
         Linux kernel >= 5.3 for bounded-loops in BPF program
         Linux kernel >= 5.4 for signed Verity images support
-        Linux kernel >= 5.7 for BPF links
+        Linux kernel >= 5.7 for BPF links and the BPF LSM hook
 
         Kernel Config Options:
           CONFIG_DEVTMPFS
@@ -118,6 +118,13 @@ REQUIREMENTS:
 
         Required for signed Verity images support:
           CONFIG_DM_VERITY_VERIFY_ROOTHASH_SIG
+
+        Required for RestrictFileSystems= in service units:
+          CONFIG_BPF
+          CONFIG_BPF_SYSCALL
+          CONFIG_BPF_LSM
+          CONFIG_DEBUG_INFO_BTF
+          CONFIG_LSM="...,bpf" or kernel booted with lsm="...,bpf".
 
         We recommend to turn off Real-Time group scheduling in the
         kernel when using systemd. RT group scheduling effectively

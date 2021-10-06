@@ -10,9 +10,11 @@ Release=unstable
 [Packages]
 BuildPackages=
         acl
+        clang
         docbook-xml
         docbook-xsl
         gcc
+        g++
         gettext
         git
         gnu-efi
@@ -20,6 +22,7 @@ BuildPackages=
         libacl1-dev
         libaudit-dev
         libblkid-dev
+        libbpf-dev
         libbz2-dev
         libcap-dev
         libcryptsetup-dev
@@ -46,6 +49,7 @@ BuildPackages=
         libtss2-dev
         libxkbcommon-dev
         libzstd-dev
+        llvm
         meson
         pkg-config
         python3
@@ -59,6 +63,7 @@ BuildPackages=
 
 Packages=
         gdb
+        libbpf0
         libfdisk1
         libfido2-1
         libidn2-0
