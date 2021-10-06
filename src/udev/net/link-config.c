@@ -329,7 +329,7 @@ static int link_config_apply_ethtool_settings(int *ethtool_fd, const LinkConfig 
                                                  port_to_string(config->port));
         }
 
-        r = ethtool_set_wol(ethtool_fd, name, config->wol);
+        r = ethtool_set_wol(ethtool_fd, name, config->wol, NULL);
         if (r < 0) {
                 _cleanup_free_ char *str = NULL;
 
