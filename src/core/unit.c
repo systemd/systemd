@@ -1253,11 +1253,10 @@ int unit_add_exec_dependencies(Unit *u, ExecContext *c) {
                 if (!u->manager->prefix[dt])
                         continue;
 
-                char **dp;
-                STRV_FOREACH(dp, c->directories[dt].paths) {
+                for (size_t i = 0; i < c->directories[dt].n_items; i++) {
                         _cleanup_free_ char *p = NULL;
 
-                        p = path_join(u->manager->prefix[dt], *dp);
+                        p = path_join(u->manager->prefix[dt], c->directories[dt].items[i].path);
                         if (!p)
                                 return -ENOMEM;
 
@@ -1272,9 +1271,9 @@ int unit_add_exec_dependencies(Unit *u, ExecContext *c) {
 
         /* For the following three directory types we need write access, and /var/ is possibly on the root
          * fs. Hence order after systemd-remount-fs.service, to ensure things are writable. */
-        if (!strv_isempty(c->directories[EXEC_DIRECTORY_STATE].paths) ||
-            !strv_isempty(c->directories[EXEC_DIRECTORY_CACHE].paths) ||
-            !strv_isempty(c->directories[EXEC_DIRECTORY_LOGS].paths)) {
+        if (c->directories[EXEC_DIRECTORY_STATE].n_items > 0 ||
+            c->directories[EXEC_DIRECTORY_CACHE].n_items > 0 ||
+            c->directories[EXEC_DIRECTORY_LOGS].n_items > 0) {
                 r = unit_add_dependency_by_name(u, UNIT_AFTER, SPECIAL_REMOUNT_FS_SERVICE, true, UNIT_DEPENDENCY_FILE);
                 if (r < 0)
                         return r;
