@@ -537,8 +537,17 @@
             <varlistentry>
               <term><option>secureon</option></term>
               <listitem>
-                <para>Enable secureon(tm) password for MagicPacket(tm).
-                </para>
+                <para>Enable SecureOn password for MagicPacket. Implied when
+                <varname>WakeOnLanPassword=</varname> is specified. If specified without
+                <varname>WakeOnLanPassword=</varname> option, then the password is read from the
+                credential <literal><replaceable>LINK</replaceable>.link.wol.password</literal> (e.g.,
+                <literal>60-foo.link.wol.password</literal>), and if the credential not found, then
+                read from <literal>wol.password</literal>. See
+                <varname>LoadCredential=</varname>/<varname>SetCredential=</varname> in
+                <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+                for details. The password in the credential, must be 6 bytes in hex format with each
+                byte separated by a colon (<literal>:</literal>) like an Ethernet MAC address, e.g.,
+                <literal>aa:bb:cc:dd:ee:ff</literal>.</para>
               </listitem>
             </varlistentry>
           </variablelist>
@@ -546,6 +555,19 @@
           <para>Defaults to unset, and the device's default will be used. This setting can be specified
           multiple times. If an empty string is assigned, then the all previous assignments are
           cleared.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><varname>WakeOnLanPassword=</varname></term>
+        <listitem>
+          <para>Specifies the SecureOn password for MagicPacket. Takes an absolute path to a regular
+          file or an <constant>AF_UNIX</constant> stream socket, or the plain password. When a path to
+          a regular file is specified, the password is read from it. When an
+          <constant>AF_UNIX</constant> stream socket is specified, a connection is made to it and the
+          password is read from it. The password must be 6 bytes in hex format with each byte separated
+          by a colon (<literal>:</literal>) like an Ethernet MAC address, e.g.,
+          <literal>aa:bb:cc:dd:ee:ff</literal>. This implies <varname>WakeOnLan=secureon</varname>.
+          Defaults to unset, and the current value will not be changed.</para>
         </listitem>
       </varlistentry>
       <varlistentry>
