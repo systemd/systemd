@@ -51,6 +51,8 @@ sources = files('''
         netdev/macsec.h
         netdev/xfrm.c
         netdev/xfrm.h
+        networkd-address-generation.c
+        networkd-address-generation.h
         networkd-address-label.c
         networkd-address-label.h
         networkd-address-pool.c
