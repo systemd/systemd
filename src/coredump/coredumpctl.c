@@ -1186,6 +1186,10 @@ static int check_units_active(void) {
                 return false;
 
         r = sd_bus_default_system(&bus);
+        if (r == -ENOENT) {
+                log_debug("D-Bus is not running, skipping active unit check");
+                return 0;
+        }
         if (r < 0)
                 return log_error_errno(r, "Failed to acquire bus: %m");
 
