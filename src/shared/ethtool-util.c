@@ -43,6 +43,11 @@ int wol_options_to_string_alloc(uint32_t opts, char **ret) {
 
         assert(ret);
 
+        if (opts == UINT32_MAX) {
+                *ret = NULL;
+                return 0;
+        }
+
         for (size_t i = 0; i < ELEMENTSOF(wol_option_map); i++)
                 if (opts & wol_option_map[i].opt &&
                     !strextend_with_separator(&str, ",", wol_option_map[i].name))
@@ -55,7 +60,7 @@ int wol_options_to_string_alloc(uint32_t opts, char **ret) {
         }
 
         *ret = TAKE_PTR(str);
-        return 0;
+        return 1;
 }
 
 static const char* const port_table[] = {
@@ -395,7 +400,12 @@ int ethtool_get_permanent_macaddr(int *ethtool_fd, const char *ifname, struct et
                 dest = _v;                             \
         } while(false)
 
-int ethtool_set_wol(int *ethtool_fd, const char *ifname, uint32_t wolopts) {
+int ethtool_set_wol(
+                int *ethtool_fd,
+                const char *ifname,
+                uint32_t wolopts,
+                const uint8_t password[SOPASS_MAX]) {
+
         struct ethtool_wolinfo ecmd = {
                 .cmd = ETHTOOL_GWOL,
         };
@@ -408,7 +418,8 @@ int ethtool_set_wol(int *ethtool_fd, const char *ifname, uint32_t wolopts) {
         assert(ethtool_fd);
         assert(ifname);
 
-        if (wolopts == UINT32_MAX)
+        if (wolopts == UINT32_MAX && !password)
+                /* Nothing requested. Return earlier. */
                 return 0;
 
         r = ethtool_connect(ethtool_fd);
@@ -420,16 +431,47 @@ int ethtool_set_wol(int *ethtool_fd, const char *ifname, uint32_t wolopts) {
         if (ioctl(*ethtool_fd, SIOCETHTOOL, &ifr) < 0)
                 return -errno;
 
+        if (wolopts == UINT32_MAX) {
+                /* When password is specified without valid WoL options specified, then enable
+                 * WAKE_MAGICSECURE flag if supported. */
+                wolopts = ecmd.wolopts;
+                if (password && FLAGS_SET(ecmd.supported, WAKE_MAGICSECURE))
+                        wolopts |= WAKE_MAGICSECURE;
+        }
+
+        if ((wolopts & ~ecmd.supported) != 0) {
+                _cleanup_free_ char *str = NULL;
+
+                (void) wol_options_to_string_alloc(wolopts & ~ecmd.supported, &str);
+                log_debug("Network interface %s does not support requested Wake on LAN option(s) \"%s\", ignoring.",
+                          ifname, strna(str));
+
+                wolopts &= ecmd.supported;
+        }
+
+        if (!FLAGS_SET(wolopts, WAKE_MAGICSECURE))
+                /* When WAKE_MAGICSECURE flag is not set, then ignore password. */
+                password = NULL;
+
         UPDATE(ecmd.wolopts, wolopts, need_update);
+        if (password &&
+            memcmp(ecmd.sopass, password, sizeof(ecmd.sopass)) != 0) {
+                memcpy(ecmd.sopass, password, sizeof(ecmd.sopass));
+                need_update = true;
+        }
 
-        if (!need_update)
+        if (!need_update) {
+                explicit_bzero_safe(&ecmd, sizeof(ecmd));
                 return 0;
+        }
 
+        r = 0;
         ecmd.cmd = ETHTOOL_SWOL;
         if (ioctl(*ethtool_fd, SIOCETHTOOL, &ifr) < 0)
-                return -errno;
+                r = -errno;
 
-        return 0;
+        explicit_bzero_safe(&ecmd, sizeof(ecmd));
+        return r;
 }
 
 int ethtool_set_nic_buffer_size(int *ethtool_fd, const char *ifname, const netdev_ring_param *ring) {
