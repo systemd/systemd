@@ -59,6 +59,8 @@ int link_lldp_tx_configure(Link *link) {
         if (r < 0)
                 return r;
 
+        assert(link->network);
+
         r = sd_lldp_tx_set_multicast_mode(link->lldp_tx, link->network->lldp_multicast_mode);
         if (r < 0)
                 return r;
@@ -67,7 +69,7 @@ int link_lldp_tx_configure(Link *link) {
                                         SD_LLDP_SYSTEM_CAPABILITIES_STATION |
                                         SD_LLDP_SYSTEM_CAPABILITIES_BRIDGE |
                                         SD_LLDP_SYSTEM_CAPABILITIES_ROUTER,
-                                        (link->network && link->network->ip_forward != ADDRESS_FAMILY_NO) ?
+                                        (link->network->ip_forward != ADDRESS_FAMILY_NO) ?
                                         SD_LLDP_SYSTEM_CAPABILITIES_ROUTER :
                                         SD_LLDP_SYSTEM_CAPABILITIES_STATION);
         if (r < 0)
