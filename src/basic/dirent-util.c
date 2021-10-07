@@ -66,24 +66,40 @@ bool dirent_is_file_with_suffix(const struct dirent *de, const char *suffix) {
 }
 
 struct dirent *readdir_ensure_type(DIR *d) {
-        struct dirent *de;
+        int r;
 
         assert(d);
 
-        errno = 0;
-        de = readdir(d);
-        if (de)
-                (void) dirent_ensure_type(d, de);
-        return de;
-}
-
-struct dirent *readdir_no_dot(DIR *dirp) {
-        struct dirent *d;
+        /* Like readdir(), but fills in .d_type if it is DT_UNKNOWN */
 
         for (;;) {
-                d = readdir_ensure_type(dirp);
-                if (d && dot_or_dot_dot(d->d_name))
-                        continue;
-                return d;
+                struct dirent *de;
+
+                errno = 0;
+                de = readdir(d);
+                if (!de)
+                        return NULL;
+
+                r = dirent_ensure_type(d, de);
+                if (r >= 0)
+                        return de;
+                if (r != -ENOENT) {
+                        errno = -r; /* We want to be compatible with readdir(), hence propagate error via errno here */
+                        return NULL;
+                }
+
+                /* Vanished by now? Then skip immedately to next */
+        }
+}
+
+struct dirent *readdir_no_dot(DIR *d) {
+        assert(d);
+
+        for (;;) {
+                struct dirent *de;
+
+                de = readdir_ensure_type(d);
+                if (!de || !dot_or_dot_dot(de->d_name))
+                        return de;
         }
 }
